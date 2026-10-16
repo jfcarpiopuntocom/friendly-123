@@ -2014,7 +2014,7 @@
     const p = id ? promotoras.find((x) => String(x.id) === String(id)) : null;
     return p && p.tipo ? String(p.tipo) : "associate";
   }
-  function _payoutInput(ubicacionId, mes) {
+  function _payoutInput(ubicacionId, mes, carryCredits = false) {
     const periodo = mesValido(mes);
     /* El core financiero no conoce reloj ni timezone. El shell SI: por eso
        normalizamos el periodo aqui usando la misma regla forense que Commissions.
@@ -2022,21 +2022,33 @@
        UTC crudo y, a la vez, mantiene payout-ledger.js puro/testeable. */
     const sales = ventasActivas().filter((v) => esDelMes(v.fecha, periodo, v.relojDesfaseMs)
       && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
-    const adjustments = ajustesComision.filter((a) => a && esDelMes(a.fecha, periodo)
-      && (ubicacionId == null || String(a.ubicacionId) === String(ubicacionId)));
+    // Reports retain their calendar period. Settlement additionally carries prior
+    // credits until receipts consume them, without moving prior positive earnings.
+    const creditOnlyAdjustmentIds = [];
+    const adjustments = ajustesComision.filter((a) => {
+      if (!a || (ubicacionId != null && String(a.ubicacionId) !== String(ubicacionId))) return false;
+      if (esDelMes(a.fecha, periodo)) return true;
+      const prior = fechaLocalDe(a.fecha).slice(0, 7);
+      if (!carryCredits || !prior || prior >= periodo) return false;
+      const negative = Array.isArray(a.reparto) && a.reparto.length
+        ? a.reparto.some((r) => r && Number(r.monto) < 0) : Number(a.montoComisionSocio) < 0;
+      if (!negative) return false;
+      creditOnlyAdjustmentIds.push(String(a.id));
+      return true;
+    });
     /* 2026-10-07: las ventas anuladas tambien entran desde el mes de su anulacion, para que el
        core devuelva lo que ya se habia pagado por ellas (descuento "void"). El core las salta
        para todo lo demas. */
     const voids = Array.prototype.filter.call(ventas, (v) => v && v.anulada && v.split && !_demoOculto("ventas", v)
       && fechaLocalDe(v.anuladaEn || v.canceladaExPostEn || v.fecha).slice(0, 7) <= periodo
       && (ubicacionId == null || String(v.ubicacionId) === String(ubicacionId)));
-    return { sales: sales.concat(voids), adjustments, locations: ubicaciones, payouts, payoutConflicts,
+    return { sales: sales.concat(voids), saleContext: ventas, adjustments, creditOnlyAdjustmentIds, locations: ubicaciones, payouts, payoutConflicts,
       month: "", period: periodo, locationId: ubicacionId == null ? null : String(ubicacionId),
       holdDays: ajusteRetencion ? ajusteRetencion.dias : 0, asOf: new Date().toISOString() };
   }
   function _fuentePayoutLiquidada(kind, id, ubicacionId, mes) {
     const core = _payoutCore(); if (!core) return false;
-    const obs = core.buildObligations(_payoutInput(ubicacionId, mes)).filter((o) => o.kind === kind && String(o.sourceId) === String(id));
+    const obs = core.buildObligations(_payoutInput(ubicacionId, mes, true)).filter((o) => o.kind === kind && String(o.sourceId) === String(id));
     return obs.length > 0 && obs.every((o) => Number(o.dueCents) === 0 && !o.heldCents); // retenido = todavia no pagado
   }
   /* IDEMPOTENCIA ESTRICTA (auditoria 2026-10-07, punto 2; patron de Stripe "Idempotent requests").
@@ -2077,7 +2089,7 @@
     }
     /* v454: body.sourceIds (ids de venta) limita el pago a esas ventas (ficha de producto). El core lo aplica. */
     const _soloVentas = body && Array.isArray(body.sourceIds) && body.sourceIds.length ? body.sourceIds.map(String) : null;
-    const base = Object.assign(_payoutInput(ubicacionId, mes), _soloVentas ? { sourceIds: _soloVentas } : {});
+    const base = Object.assign(_payoutInput(ubicacionId, mes, true), _soloVentas ? { sourceIds: _soloVentas } : {});
     if(core.balancesByPayee(base).some(r=>r.overpaidCents>0)) return {error:'Review the recorded overpayment before making another payment here.',status:409};
     const rows = core.balancesByPayee(base).filter((r) => Number(r.dueCents) > 0);
     if (!rows.length) return { error: "There is nothing due for this period.", status: 409 };
@@ -2143,7 +2155,7 @@
     const core = _payoutCore();
     if (!core) return { error:"Payment ledger is not available. Nothing was recorded.", status:503 };
     const mes = mesValido(body.mes || qMes);
-    const base = _payoutInput(ubicacionId, mes);
+    const base = _payoutInput(ubicacionId, mes, true);
     const rows = core.balancesByPayee(base);
     const positivos = rows.filter((r) => Number(r.dueCents) > 0);
     const negativos = rows.filter((r) => Number(r.dueCents) < 0);
@@ -2282,8 +2294,8 @@
       const netoDueno = ventasMes.reduce((a, v) => a + v.split.montoNetoDueno, 0) + ajustesMes.reduce((a, x) => a + (Number(x.montoNetoDueno) || 0), 0);
       const pendientes = ventasMes.filter((v) => !v.liquidada);
       const _ledger = _payoutCore();
-      const _ledgerObs = _ledger ? _ledger.buildObligations(_payoutInput(u.id, _mes)) : [];
-      const payoutBalances = _ledger ? _ledger.balancesByPayee(_payoutInput(u.id, _mes)).map((r) => ({
+      const _ledgerObs = _ledger ? _ledger.buildObligations(_payoutInput(u.id, _mes, true)) : [];
+      const payoutBalances = _ledger ? _ledger.balancesByPayee(_payoutInput(u.id, _mes, true)).map((r) => ({
         payeeId:r.payeeId, nombre:_payeeName(r.payeeId,u), earned:+_ledger.money(r.earnedCents).toFixed(2),
         paid:+_ledger.money(r.paidCents).toFixed(2), due:+_ledger.money(r.dueCents).toFixed(2), dueCents:r.dueCents,
         held:+_ledger.money(r.heldCents || 0).toFixed(2), heldCents:r.heldCents || 0, heldUntil:r.heldUntil || null,
@@ -2781,12 +2793,35 @@
     if (valorAlto) return "otono";
     return "invierno";
   }
+  function categoriaCanonica(valor) {
+    const nombre = String(valor == null ? "" : valor).trim();
+    return /^(tickets\s*(?:&|and)\s*events|events)$/i.test(nombre) ? "Events" : nombre;
+  }
+  function precioOpcional(valor) {
+    return valor == null || (typeof valor === "string" && !valor.trim()) ? null : aCent(Number(valor));
+  }
+  function errorPreciosEntrada(body) {
+    return ["precioReserva", "precioWalkIn"].some((k) => Object.prototype.hasOwnProperty.call(body, k) && body[k] != null && body[k] !== "" &&
+      ((typeof body[k] !== "number" && typeof body[k] !== "string") || !Number.isFinite(Number(body[k])) || !Number.isSafeInteger(Math.round(Number(body[k]) * 100)) || Number(body[k]) < 0))
+      ? "Reservation and walk-in prices must be nonnegative amounts with safe cent precision, or empty." : null;
+  }
+  function perfilCliente(c) {
+    return {
+      resideCuenca: typeof c.resideCuenca === "boolean" ? c.resideCuenca : null,
+      genero: ["male", "female", "unknown"].includes(c.genero) ? c.genero : "unknown"
+    };
+  }
+  function errorPerfilCliente(body) {
+    if (Object.prototype.hasOwnProperty.call(body, "resideCuenca") && body.resideCuenca !== null && typeof body.resideCuenca !== "boolean") return "Cuenca residence must be true, false or unknown.";
+    if (Object.prototype.hasOwnProperty.call(body, "genero") && !["male", "female", "unknown"].includes(body.genero)) return "Choose male, female or unknown.";
+    return null;
+  }
   function fichaCliente(c, mediana) {
     const rfm = datosRFM(c);
     // evaluacion: retrocompat con backups sin el campo (default neutro 0,0)
     const ev = c.evaluacion || { trato: 0, confiabilidad: 0, historial: [] };
     return { id: c.id, codigo: c.codigo, nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "",
-      rangoEdad: c.rangoEdad || "", pais: c.pais || "",
+      rangoEdad: c.rangoEdad || "", pais: c.pais || "", ...perfilCliente(c),
       ...rfm, estacion: estacionDe(rfm, mediana == null ? medianaMontos() : mediana),
       evaluacion: { trato: Number(ev.trato)||0, confiabilidad: Number(ev.confiabilidad)||0, historial: ev.historial||[] },
       despedido: !!c.despedido };
@@ -2872,7 +2907,7 @@
   function ficha(p) {
     const e = estadoDe(p);
     const _rb = rebajaDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -3038,7 +3073,7 @@
     if (tR !== tL) return tR > tL;
     return _claveEpocaStock(remoto) > _claveEpocaStock(local);
   }
-  function emitirOpStock(tipo, payload) {
+  function _prepararOpStock(payload, idOperacion) {
     /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
        Dos dispositivos del mismo negocio pueden tener el MISMO producto con ids
        distintos (creado por separado en cada uno). El receptor (aplicarOpRemota)
@@ -3063,8 +3098,8 @@
               _sp.stockBase = Number(_sp.stockActual) - delta;
               _sp.stockPN = {};
             }
-            let idStock = "";
-            try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
+            let idStock = idOperacion || "";
+            if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
             if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
             const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
             if (delta > 0) contador.add += delta; else contador.sub += -delta;
@@ -3087,8 +3122,11 @@
           _sp.stockTs = Number.isFinite(Number(_stockAhoraRelay)) ? Number(_stockAhoraRelay) : Date.now();
         }
       } catch (_) {}
-      try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
     }
+  }
+  function emitirOpStock(tipo, payload, preparado = false) {
+    if (!preparado) _prepararOpStock(payload);
+    if (payload && payload.productoId) avisarCatalogoCambiado();
     if (window.OCSyncEmit) {
       try {
         // false = la cola del sync viejo no pudo guardar la op (localStorage lleno).
@@ -3622,7 +3660,7 @@
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
-          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "chip", "archivado", "fotoHash", "borrado", "rev"];
+          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "chip", "archivado", "fotoHash", "borrado", "rev"];
           const fotoAnterior = mio.fotoHash;
           campos.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
           if (fotoAnterior !== mio.fotoHash) mio.foto = null;
@@ -3672,17 +3710,31 @@
           const domina = _revDomina(v.rev, local.rev) === true;
           const pagadaLocal = !!local.liquidada, splitLocal = local.split;
           const pagadaRemota = !!v.liquidada, splitRemoto = v.split;
+          const devueltaLocal = !!local.devuelta, anuladaLocal = !!local.anulada;
+          const retornoLocal = local.devolucionId || null, fechaRetornoLocal = local.fechaDevolucion || null;
+          // A return freezes the economic receipt it reverses. An offline edit
+          // must not replace that receipt while leaving its old negative amount.
+          const ventaRetornada = devueltaLocal && !v.devuelta ? clonar(local)
+            : (!devueltaLocal && v.devuelta ? v : null);
           const medioLocal = local.medioPagoComision || null;
           const canceladaExPostLocal = local.canceladaExPostEn || null;
           if (domina) { Object.assign(local, v); actualizados++; }
+          if (ventaRetornada) {
+            ["cantidad", "precioUnit", "costoUnit", "modalidadVenta", "fecha", "split", "impuesto", "noCommission", "modoComision", "clienteId", "info", "promotoraId", "asistenteId", "asistentePct", "direccionComision"].forEach(campo => {
+              if (Object.prototype.hasOwnProperty.call(ventaRetornada, campo)) local[campo] = clonar(ventaRetornada[campo]);
+              else delete local[campo];
+            });
+          }
           /* Medio de pago (2026-09-24): una vez sellado, manda el del lado que pago. */
           local.medioPagoComision = medioLocal || v.medioPagoComision || local.medioPagoComision || undefined;
           if (local.medioPagoComision === undefined) delete local.medioPagoComision;
           local.liquidada = pagadaLocal || pagadaRemota;
-          local.devuelta = !!(local.devuelta || v.devuelta);
-          local.anulada = !!(local.anulada || v.anulada);
+          local.devuelta = !!(devueltaLocal || v.devuelta);
+          local.anulada = !!(anuladaLocal || v.anulada);
           local.canceladaExPostEn = canceladaExPostLocal || v.canceladaExPostEn || null;
-          if (!local.devolucionId && v.devolucionId) local.devolucionId = v.devolucionId;
+          local.devolucionId = retornoLocal || v.devolucionId || null;
+          const retorno = ajustesComision.find(a => a && a.tipo === "devolucion" && (a.id === local.devolucionId || a.ventaId === local.id));
+          local.fechaDevolucion = (retorno && retorno.fecha) || fechaRetornoLocal || v.fechaDevolucion || null;
           if (pagadaLocal && splitLocal) local.split = splitLocal;
           else if (pagadaRemota && splitRemoto) local.split = splitRemoto;
           if (local.liquidada && local.split && (local.anulada || local.devuelta)) {
@@ -3693,7 +3745,9 @@
               ajustesComision.push({
                 id: idAj, tipo: "devolucion", ventaId: local.id, ubicacionId: local.ubicacionId, productoId: local.productoId,
                 cantidad: local.cantidad, fecha: new Date().toISOString(),
-                montoBruto: -(Number(sp.montoBruto) || 0), montoComisionSocio: -(Number(sp.montoComisionSocio) || 0), montoNetoDueno: -(Number(sp.montoNetoDueno) || 0),
+                montoBruto: -(Number(sp.montoBruto) || 0),
+                montoComisionSocio: sp.montoComisionSocio == null ? null : -(Number(sp.montoComisionSocio) || 0),
+                montoNetoDueno: sp.montoNetoDueno == null ? null : -(Number(sp.montoNetoDueno) || 0),
                 reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
                 quien: "sync", motivo: "Return recorded on another device after this sale was paid", liquidada: false, rev: _revNueva()
               });
@@ -3702,7 +3756,7 @@
           }
           return;
         }
-        ventas.push({ id: v.id, ...(_direccionValida(v.direccionComision) ? { direccionComision: v.direccionComision } : {}), ...(Array.isArray(v.direccionCambios) ? { direccionCambios: v.direccionCambios.slice(-20) } : {}), productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
+        ventas.push({ id: v.id, ...(_direccionValida(v.direccionComision) ? { direccionComision: v.direccionComision } : {}), ...(Array.isArray(v.direccionCambios) ? { direccionCambios: v.direccionCambios.slice(-20) } : {}), productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit == null || String(v.costoUnit).trim() === "" || !Number.isFinite(Number(v.costoUnit)) || Number(v.costoUnit) < 0 ? null : Number(v.costoUnit), fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, noCommission: v.noCommission === true, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, fechaDevolucion: v.fechaDevolucion || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -3840,7 +3894,7 @@
           telefono: c.telefono || "",
           email: c.email || "",
           evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] },
-          notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "",
+          notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", ...perfilCliente(c),
           despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null,
         });
         clientesAgregados++;
@@ -4295,7 +4349,7 @@
         // v448 GOLDEN: bloquear la semilla por HUELLA EXACTA, no por forma del id.
         // Un negocio real puede tener un id corto como p23; nombre+SKU+barcode
         // distinguen ese registro real del Cappuccino demo sin adivinar.
-        productos: productos.filter((p) => p && !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad,
+        productos: productos.filter((p) => p && !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad,
           /* STOCK EN EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el stock NO
              viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
@@ -4329,7 +4383,7 @@
         /* CLIENTES (JFC 2026-08-26). Bug de Belén: "clientes default, no los reales".
            Eran estado local que nunca se propagaba. Viajan por el mismo canal
            cifrado device-to-device, merge add-only en aplicarCatalogo. */
-        clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null, evaluacion: c.evaluacion || null })),
+        clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", notas: c.notas || "", rangoEdad: c.rangoEdad || "", pais: c.pais || "", ...perfilCliente(c), despedido: !!c.despedido, borrado: !!c.borrado, rev: c.rev || null, evaluacion: c.evaluacion || null })),
         /* COMISIONISTAS + SUCURSALES viajan con el catálogo (JFC 2026-09-10, "sync
            integral"). Add-only en aplicarCatalogo: nunca se pisa una comision. */
         promotoras: promotoras.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "promotoras", p)).map((p) => ({ id: p.id, nombre: p.nombre, comisionBase: p.comisionBase, comision: p.comision, baseComision: _baseComisionValida(p.baseComision) || "bruto", telefono: p.telefono || "", cedula: p.cedula || "", banco: p.banco || "", cuenta: p.cuenta || "", direccion: p.direccion || "", notas: p.notas || "", activa: p.activa !== false, metaMensual: p.metaMensual || 0, escalasComision: Array.isArray(p.escalasComision) ? p.escalasComision : [], rev: p.rev || null, borrado: !!p.borrado, ...(p.accesoArtista ? { accesoArtista: { pin: String(p.accesoArtista.pin || ""), activo: !!p.accesoArtista.activo, actualizadoEn: p.accesoArtista.actualizadoEn || null } } : {}) })),
@@ -4341,7 +4395,7 @@
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
-        ventas: ventas.filter((v) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ventas", v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, direccionComision: _direccionValida(v.direccionComision) || "casaPaga", direccionCambios: Array.isArray(v.direccionCambios) ? v.direccionCambios.slice(-20) : [], liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
+        ventas: ventas.filter((v) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ventas", v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, direccionComision: _direccionValida(v.direccionComision) || "casaPaga", direccionCambios: Array.isArray(v.direccionCambios) ? v.direccionCambios.slice(-20) : [], liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, noCommission: v.noCommission === true, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, fechaDevolucion: v.fechaDevolucion || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         payouts: _payoutCore() && _payoutCore().compatiblePayouts ? _payoutCore().compatiblePayouts(payouts) : payouts.map((p) => Object.assign({}, p)),
@@ -4394,9 +4448,9 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
-        clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
+        clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
         huella: huellaCatalogo(),
       };
     },
@@ -4459,7 +4513,7 @@
             if (!c || !c.id || !c.nombre) return;
             if (_estaEnSemillaDemoSeleccionada(_demoSnap, "clientes", c)) return;
             if (!clientes.some((x) => String(x.id) === String(c.id))) {
-              clientes.push({ id: c.id, codigo: c.codigo || "", nombre: String(c.nombre).slice(0, 80), telefono: c.telefono || "", email: c.email || "", evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] } });
+              clientes.push({ id: c.id, codigo: c.codigo || "", nombre: String(c.nombre).slice(0, 80), telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: (c.evaluacion && typeof c.evaluacion === "object") ? c.evaluacion : { trato: 0, confiabilidad: 0, historial: [] } });
               agC++;
             }
           });
@@ -4554,7 +4608,7 @@
           const montoBruto = p.precio * cant;
           const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
           const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
-          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, noCommission: !split, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
         }
         mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
         if (_noDescontado > 0) mov("alerta-descuadre", { producto: p.nombre, stockActual: p.stockActual, faltaron: _noDescontado, motivo: "Dos dispositivos vendieron las mismas ultimas unidades casi a la vez. El stock quedo en 0: " + _noDescontado + " unidad(es) se vendieron sin existencia. Cuenta la percha." });
@@ -4803,7 +4857,7 @@
         const _rt = !v.split ? _retroPorVenta.get(String(v.id)) : null;
         const _prRt = _rt && _rt.payeeId ? promotoras.find((x) => x.id === _rt.payeeId) : null;
         return {
-          id: v.id, fecha: v.fecha,
+          id: v.id, fecha: v.fecha, impuesto: v.impuesto || null, noCommission: v.noCommission === true,
           productoId: v.productoId,
           productoNombre: p ? p.nombre : "(deleted product)",
           sku: p ? p.sku : "", categoria: p ? p.categoria : "",
@@ -4812,7 +4866,7 @@
           pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
           direccionProducto: p && p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha: switch de Summary by Product
           comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
-          cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit == null || v.costoUnit === "" ? null : v.costoUnit,
+          cantidad: v.cantidad, precioUnit: v.precioUnit, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit == null || v.costoUnit === "" ? null : v.costoUnit,
           clienteNombre: c ? c.nombre : "",
           ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),
           tipoProducto: p ? (p.tipoProducto || "normal") : "normal",
@@ -4830,7 +4884,7 @@
           botellas: (v.info && v.info.botellas) || null,
           comisionPct: v.split ? v.split.comisionPct : (_rt ? _rt.pct : null),
           comisionAjusteRetroIncluido: !!_rt,
-          comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : 0),
+          comisionAsociado: v.split ? v.split.montoComisionSocio : (_rt ? _coreVentas.money(_rt.ganadoC) : v.noCommission === true ? 0 : null),
           netoCasa: v.split ? v.split.montoNetoDueno : (_rt ? +(((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) - _coreVentas.money(_rt.ganadoC)).toFixed(2) : null),
           modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
           /* v521 flecha: sin campo = venta vieja = la casa paga. */
@@ -4839,8 +4893,8 @@
           liquidada: !!v.liquidada,
           comisionPagada: !!_paidVenta.get(String(v.id)),
           /* Payout Ledger: exact remaining commission for this sale, summed
-             across people. Null only when the pure ledger core is unavailable. */
-          comisionPendiente: _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
+             across people. Missing commission evidence remains unknown. */
+          comisionPendiente: !v.split && !_rt && v.noCommission !== true ? null : _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
           comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
           devuelta: !!v.devuelta,
           fechaDevolucion: v.fechaDevolucion || ((ajustesComision.find(a=>a && (a.id===v.devolucionId || (a.tipo==="devolucion" && a.ventaId===v.id))) || {}).fecha) || null,
@@ -5030,7 +5084,7 @@
         if (!vieja || (!nueva && body.borrar !== true)) return J({ error: "A category name is required." }, 400);
         if (nueva.length > 120) return J({ error: "The category name is too long." }, 400);
         if (vieja.toLowerCase() === nueva.toLowerCase()) return J({ ok: true, actualizados: 0 });
-        const afectados = productos.filter((p) => p && !p.borrado && String(p.categoria || "").trim().toLowerCase() === vieja.toLowerCase());
+        const afectados = productos.filter((p) => p && !p.borrado && categoriaCanonica(p.categoria).toLowerCase() === categoriaCanonica(vieja).toLowerCase());
         afectados.forEach((p) => { p.categoria = nueva; p.rev = _revNueva(); });
         if (afectados.length) {
           mov("edicion-categoria", { antes: vieja, ahora: nueva, productosAfectados: afectados.length });
@@ -5071,11 +5125,14 @@
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "PATCH") {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        const preciosError = errorPreciosEntrada(body);
+        if (preciosError) return J({ error: preciosError }, 400);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
         const stockAntesEdicion = Number(p.stockActual) || 0;
-        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "archivado"];
+        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "archivado"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
+      if (k === "categoria") { p[k] = categoriaCanonica(body[k]); return; }
       if (k === "foto") {
         if (p.foto !== body[k]) { p.foto = body[k]; p.fotoHash = null; }
         return;
@@ -5085,6 +5142,7 @@
          genérico, que convertiría null/"" en 0 y dejaría un precio de casa $0
          fantasma. */
       if (k === "precioCasa") { p[k] = (body[k] === "" || body[k] == null) ? null : aCent(Math.max(0, Number(body[k]) || 0)); return; }
+      if (k === "precioReserva" || k === "precioWalkIn") { p[k] = precioOpcional(body[k]); return; }
       if (k === "precio" || k === "costo") { p[k] = aCent(Number(body[k]) || 0); return; }
       if (k === "umbralRojo" || k === "umbralAmarillo" || k === "comisionProveedorPct") { p[k] = Number(body[k]) || 0; return; }
       if (k === "servingMl" || k === "botellaMl") {
@@ -5494,7 +5552,7 @@
            o la purga. Los reales son "p"+UUID. idiomARTE (K7M2)/otros NO se filtran
            (pueden tener ids p\d+ propios). Es cinturon + tirantes con la purga. */
         try { var _lpF = String((_licenciaPropia && _licenciaPropia()) || "").toUpperCase().replace(/\s+/g, ""); if (_lpF.indexOf("F123-A6YK-6V1J-") === 0) fuente = fuente.filter((p) => !/^p\d+$/.test(String(p.id || ""))); } catch (_) {}
-        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", familiaId: p.familiaId || "", varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado, direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga" }; });
+        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", familiaId: p.familiaId || "", varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado, direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga" }; });
         const est = q.get("estado");
         if (est) lista = lista.filter((x) => x.estado === est);
         lista.sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || a.nombre.localeCompare(b.nombre, "es"));
@@ -5503,6 +5561,8 @@
 
       if (path === "/api/productos" && opts && opts.method === "POST") {
         if (!body.nombre || !body.barcode) return J({ error: "The name or the barcode is missing." }, 400);
+        const preciosError = errorPreciosEntrada(body);
+        if (preciosError) return J({ error: preciosError }, 400);
         // BUG FIX (2026-07-03): sin esta guarda, umbralRojo >= umbralAmarillo hace
         // el estado "amarillo" inalcanzable: el producto salta directo de verde a rojo.
         if (Number(body.umbralRojo) >= Number(body.umbralAmarillo)) return J({ error: "The red threshold must be lower than the yellow one." }, 400);
@@ -5542,7 +5602,7 @@
           productoBaseId: body.productoBaseId || null,
           varianteAtributo: String(body.varianteAtributo || "").trim().slice(0, 24),
           varianteValor: String(body.varianteValor || "").trim().slice(0, 40),
-          id: body.familiaId ? idVariante(body.familiaId, body.varianteAtributo, body.varianteValor) : uuid("p"), nombre: String(body.nombre).trim(), categoria: body.categoria || "General",
+          id: body.familiaId ? idVariante(body.familiaId, body.varianteAtributo, body.varianteValor) : uuid("p"), nombre: String(body.nombre).trim(), categoria: categoriaCanonica(body.categoria) || "General",
           sku: body.sku || body.barcode, barcode: body.barcode, ubicacionId: body.ubicacionId || "todas",
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.
@@ -5554,6 +5614,7 @@
              el stock en dos. null = no hay precio de casa (comportamiento de
              siempre). "" o no-número => null. Ver precioEfectivo en /venta. */
           precioCasa: (body.precioCasa === "" || body.precioCasa == null) ? null : aCent(Math.max(0, Number(body.precioCasa) || 0)),
+          precioReserva: precioOpcional(body.precioReserva), precioWalkIn: precioOpcional(body.precioWalkIn),
           umbralRojo: Number(body.umbralRojo) || 5, umbralAmarillo: Number(body.umbralAmarillo) || 10, proveedor: body.proveedor || "",
           perecible: !!body.perecible, exentoImpuesto: !!body.exentoImpuesto, fechaCaducidad: body.perecible ? (body.fechaCaducidad || null) : null,
           metodoCosteo: body.metodoCosteo === "LIFO" ? "LIFO" : "FIFO",
@@ -5647,11 +5708,20 @@
            El stock baja igual (una unidad es una unidad); solo cambia el
            precioUnit registrado. No inventa un segundo producto. */
         const _override = _infoPago.precioOverride === "" || _infoPago.precioOverride == null ? NaN : aCent(_infoPago.precioOverride);
+        const modalidadVenta = String(body.modalidadVenta || "");
+        const preciosEntrada = { reservation: precioOpcional(p.precioReserva), "walk-in": precioOpcional(p.precioWalkIn) };
+        if (modalidadVenta && (!["reservation", "walk-in"].includes(modalidadVenta) || preciosEntrada[modalidadVenta] == null || !Number.isFinite(preciosEntrada[modalidadVenta]) || preciosEntrada[modalidadVenta] < 0)) {
+          return J({ error: "Choose an available reservation or walk-in price." }, 400);
+        }
+        if (!modalidadVenta && preciosEntrada.reservation != null && preciosEntrada["walk-in"] != null) {
+          return J({ error: "Choose reservation or walk-in before recording the sale." }, 400);
+        }
+        const precioEntrada = modalidadVenta ? preciosEntrada[modalidadVenta] : null;
         const precioEfectivo = _esCortesia
           ? 0
           : ((Number.isFinite(_override) && _override >= 0)
               ? _override
-              : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : rebajaDe(p).precio));
+              : (precioEntrada != null ? precioEntrada : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : rebajaDe(p).precio)));
         const montoBruto = precioEfectivo * cant;
         const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
         /* DISEÑO JFC (2026-09-22): COUNTER SALE pertenece íntegramente a la
@@ -5754,7 +5824,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
@@ -5779,6 +5849,7 @@
         const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
         if (idx === -1) return J({ error: "This sale can no longer be voided (the window passed, or it was already voided)." }, 400);
         const venta = ventas[idx];
+        if (venta.devuelta) return J({ error: "This sale was already returned." }, 409);
         /* B4 (2026-09-24): dentro de los 30 s se podia anular una venta que ya
            se habia PAGADO al asociado: la plata salio y la venta desaparecia.
            Lo pagado se corrige con una devolucion (ajuste negativo), nunca
@@ -5813,8 +5884,8 @@
       /* DEVOLUCION / CLAWBACK (JFC 2026-09-24, Bloque 4, aprobado). Una venta
          ya PAGADA al asociado no se edita ni se anula: se agrega un ajuste
          NEGATIVO fechado hoy (ciclo abierto) que se descuenta del proximo pago,
-         con quien y motivo. La mercaderia vuelve al stock. Si la venta aun no
-         se pago, devolver = cancelar de siempre (no hay nada que descontar). */
+         con quien y motivo. Toda devolucion conserva la venta original y registra
+         el reverso en su propia fecha, incluso sin comision o sin pago previo. */
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/devolucion$/)) && opts && opts.method === "POST") {
         const _rD = _rolLocal();
         if (_rD !== "dueno" && _rD !== "admin" && _rD !== "empleado") return J({ error: "Sign in to record a return." }, 403);
@@ -5825,28 +5896,59 @@
         if (!p) return J({ error: "Product not found." }, 404);
         const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
         const quien = String((body && body.quien) || "").trim().slice(0, 80) || "unidentified";
-        if ((!venta.liquidada && !_ventaTienePagoComision(venta)) || !venta.split) {
-          p.stockActual += venta.cantidad;
-          venta.anulada = true; venta.rev = _revNueva();
-          mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "return", quien });
-          emitirOpStock("cancelacion-ex-post", { productoId: p.id, delta: venta.cantidad });
-          return J({ ok: true, ajuste: null, producto: ficha(p) });
-        }
-        const sp = venta.split;
+        // The same sale cannot create two economic reversals on offline devices.
+        // A deterministic adjustment id also survives repeated sync envelopes.
+        debePersistir = false;
+        const foto = { venta: JSON.parse(JSON.stringify(venta)), producto: JSON.parse(JSON.stringify(p)),
+          ajustesLen: ajustesComision.length, movLen: movimientos.length, sello: selloUltimo };
+        const sp = venta.split || { montoBruto: venta.precioUnit * venta.cantidad,
+          montoComisionSocio: venta.noCommission === true ? 0 : null,
+          montoNetoDueno: venta.noCommission === true ? venta.precioUnit * venta.cantidad : null };
         const aj = {
-          id: uuid("aj"), tipo: "devolucion", ventaId: venta.id, ubicacionId: venta.ubicacionId, productoId: p.id,
+          id: "aj-dev-" + venta.id, tipo: "devolucion", ventaId: venta.id, ubicacionId: venta.ubicacionId, productoId: p.id,
           cantidad: venta.cantidad, fecha: new Date().toISOString(),
-          montoBruto: -(Number(sp.montoBruto) || 0), montoComisionSocio: -(Number(sp.montoComisionSocio) || 0), montoNetoDueno: -(Number(sp.montoNetoDueno) || 0),
+          montoBruto: -(Number(sp.montoBruto) || 0),
+          montoComisionSocio: sp.montoComisionSocio == null ? null : -(Number(sp.montoComisionSocio) || 0),
+          montoNetoDueno: sp.montoNetoDueno == null ? null : -(Number(sp.montoNetoDueno) || 0),
           reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
           quien, motivo, liquidada: false, rev: _revNueva()
         };
         ajustesComision.push(aj);
-        venta.devuelta = true; venta.devolucionId = aj.id; venta.rev = _revNueva();
+        venta.devuelta = true; venta.devolucionId = aj.id; venta.fechaDevolucion = aj.fecha; venta.rev = _revNueva();
         p.stockActual += venta.cantidad;
-        mov("devolucion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), comisionDevuelta: aj.montoComisionSocio, quien, motivo });
-        emitirOpStock("devolucion", { productoId: p.id, delta: venta.cantidad });
-        avisarCatalogoCambiado();
-        return J({ ok: true, ajuste: aj, producto: ficha(p) });
+        const opStock = { productoId: p.id, delta: venta.cantidad };
+        _prepararOpStock(opStock, aj.id);
+        mov("devolucion", { producto: p.nombre, ventaId: venta.id, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), comisionDevuelta: aj.montoComisionSocio, quien, motivo }, false);
+        // Reuse the financial boundary: reads and incoming catalog merges wait
+        // until this attempt has committed or restored its complete snapshot.
+        let terminarRetorno;
+        _payoutConfirmando = true;
+        _payoutPendiente = new Promise(resolve => { terminarRetorno = resolve; });
+        try {
+          let guardada = false;
+          try { guardada = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!guardada) {
+            Object.keys(venta).forEach(k => delete venta[k]);
+            Object.assign(venta, foto.venta);
+            Object.keys(p).forEach(k => delete p[k]);
+            Object.assign(p, foto.producto);
+            ajustesComision.length = foto.ajustesLen;
+            movimientos.length = foto.movLen;
+            selloUltimo = foto.sello;
+            return J({ error: "The return could not be saved. No sale, stock or commission changes recorded." }, 507);
+          }
+          emitirOpStock("devolucion", opStock, true);
+          avisarCatalogoCambiado();
+          return J({ ok: true, ajuste: aj, producto: ficha(p) });
+        } finally {
+          _payoutConfirmando = false; _payoutPendiente = null;
+          try {
+            while (_payoutCatalogosPendientes.length) {
+              const siguiente = _payoutCatalogosPendientes.shift();
+              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto);
+            }
+          } finally { terminarRetorno(); }
+        }
       }
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/cancelar$/)) && opts && opts.method === "POST") {
         // JFC 2026-09-03: el encargado TAMBIÉN puede corregir errores (cancelar).
@@ -5858,6 +5960,7 @@
         const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
         if (idx === -1) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
         const venta = ventas[idx];
+        if (venta.devuelta) return J({ error: "This sale was already returned." }, 409);
         // B5: una COUNTER SALE no tiene comision que proteger (split null): se puede cancelar aunque la percha ya se haya pagado.
         if ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta)) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
         const p = productos.find((x) => x.id === venta.productoId);
@@ -5917,6 +6020,9 @@
            la cantidad ya habian cambiado y se guardaban. */
         const _hayCant = body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "";
         const _hayPrecio = body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "";
+        if (venta.devuelta && (_hayCant || _hayPrecio || body.clienteId !== undefined || (body.info && body.info.formaPago !== undefined))) {
+          return J({ error: "This sale was returned. Its financial history cannot be edited." }, 409);
+        }
         // A partial payout is sealed money too. Reject financial edits before
         // stock or the split changes; notes and contact corrections remain usable.
         if (((_hayCant && Number(body.cantidad) !== venta.cantidad) || (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit)) && ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta))) {
@@ -5926,6 +6032,14 @@
         if (_hayPrecio && !(Number.isFinite(Number(body.precioUnit)) && Number(body.precioUnit) >= 0)) return J({ error: "Enter a valid unit price." }, 400);
         if (_hayPrecio && venta.info && venta.info.cortesia && Number(body.precioUnit) > 0) return J({ error: "A courtesy sale has no price. Cancel it and record a normal sale." }, 400);
         if (body.clienteId && !clientes.find((x) => x.id === body.clienteId)) return J({ error: "Customer not found." }, 404);
+        let impuestoCorregido = venta.impuesto;
+        if (_hayCant || _hayPrecio) {
+          const lector = window.OCBusinessReadModel;
+          impuestoCorregido = venta.impuesto == null ? null : lector && lector.recalculateTax
+            ? lector.recalculateTax(venta.impuesto, _hayPrecio ? +Number(body.precioUnit).toFixed(2) : venta.precioUnit, _hayCant ? Number(body.cantidad) : venta.cantidad)
+            : undefined;
+          if (impuestoCorregido === undefined) return J({ error: "The original tax could not be verified. No financial changes recorded." }, 409);
+        }
         // HOTFIX 2026-10-12: payment correction CASH -> FIADO must create a
         // single immutable, sale-linked charge BEFORE changing the sale record.
         // No ad-hoc saldo mutations and no duplicate charges on retry/reload.
@@ -6036,6 +6150,7 @@
             }
           }
         }
+        if (_hayCant || _hayPrecio) venta.impuesto = impuestoCorregido;
         if (body.clienteId !== undefined) {
           if (body.clienteId) { const c = clientes.find((x) => x.id === body.clienteId); if (!c) return J({ error: "Customer not found." }, 404); venta.clienteId = c.id; }
           else venta.clienteId = null;
@@ -6168,9 +6283,15 @@
         // Claves canónicas neutrales; la etiqueta visible la traduce la UI.
         const CATS_GASTO = ["rent", "utilities", "inventory", "payroll", "services", "marketing", "transport", "taxes", "maintenance", "other"];
         const categoria = CATS_GASTO.includes(String(body.categoria || "")) ? String(body.categoria) : "other";
+        if (body.metodoPago !== undefined && !["cash", "transfer"].includes(body.metodoPago)) return J({ error: "Invalid expense payment method." }, 400);
+        if (body.facturaFotoHash !== undefined && (typeof body.facturaFotoHash !== "string" || !/^[a-f0-9]{64}$/.test(body.facturaFotoHash))) return J({ error: "Invalid receipt photo." }, 400);
+        if (body.eventKey !== undefined && (typeof body.eventKey !== "string" || body.eventKey.length > 500)) return J({ error: "Invalid expense event." }, 400);
         const g = {
           id: uuid("g"), concepto, monto: +monto.toFixed(2),
           categoria,
+          metodoPago: body.metodoPago || null,
+          facturaFotoHash: body.facturaFotoHash || null,
+          eventKey: body.eventKey || null,
           factura: String(body.factura || "").trim().slice(0, 60), // JFC 2026-09-08: nº factura/invoice del proveedor (control tributario básico).
           fecha: body.fecha || new Date().toISOString(),
           ubicacionId: body.ubicacionId || "todas",
@@ -6207,6 +6328,13 @@
         const originalGasto = gastos.find((x) => x.id === mGastoDel[1] && !x.borrado);
         if (!originalGasto) return J({ error: "Expense not found." }, 404);
         const g = Object.assign({}, originalGasto); // validate every field before mutating money
+        if (body.metodoPago !== undefined && !["cash", "transfer"].includes(body.metodoPago)) return J({ error: "Invalid expense payment method." }, 400);
+        if (body.facturaFotoHash !== undefined && (typeof body.facturaFotoHash !== "string" || !/^[a-f0-9]{64}$/.test(body.facturaFotoHash))) return J({ error: "Invalid receipt photo." }, 400);
+        if (body.eventKey !== undefined && (typeof body.eventKey !== "string" || body.eventKey.length > 500)) return J({ error: "Invalid expense event." }, 400);
+        if (body.metodoPago !== undefined) g.metodoPago = body.metodoPago;
+        if (body.facturaFotoHash !== undefined) g.facturaFotoHash = body.facturaFotoHash;
+        if (body.eventKey !== undefined) g.eventKey = body.eventKey;
+        if (body.ubicacionId !== undefined) g.ubicacionId = String(body.ubicacionId || "todas");
         if (body.concepto !== undefined) {
           const c = String(body.concepto).trim();
           if (!c) return J({ error: "Enter a description for the expense." }, 400);
@@ -6385,7 +6513,7 @@
         aj.forEach((a) => { devBruto += ce(a.montoBruto); ajCom += ce(a.montoComisionSocio); if (!a.liquidada) porPagar += ce(a.montoComisionSocio); });
         const d = (n) => +(n / 100).toFixed(2);
         const _coreCuadre = _payoutCore();
-        if (_coreCuadre) porPagar = _coreCuadre.balancesByPayee(_payoutInput(null, _mes))
+        if (_coreCuadre) porPagar = _coreCuadre.balancesByPayee(_payoutInput(null, _mes, true))
           .reduce((a,r) => a + Number(r.dueCents || 0), 0);
         const total = k.conComision.c + k.casaCompartida.c + k.perchasPropias.c + k.sinTrato.c;
         const salida = { mes: _mes, totalVentas: d(total), ventas: vm.length,
@@ -6633,42 +6761,27 @@
         return J(Object.assign({}, m));
       }
       if (path === "/api/reportes/pl") {
-        // Precio de venta = precio neto, sin impuesto embebido (estandar USA:
-        // el sales tax se calcula aparte en el checkout, no vive incluido en
-        // el precio listado como el IVA ecuatoriano). Fix 2026-07-15: antes
-        // esto restaba un 15% fijo de IVA-Ecuador sobre CUALQUIER venta,
-        // corrompiendo el P&L en cualquier tienda fuera de Ecuador.
-        const vh = ventasHoyDe(uid), dh = devolucionesHoyDe(uid); // B6
-        const cv = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
-        /* v359: si el cuaderno tiene impuesto encendido, el precio lo INCLUYE
-           y aquí se separa. Apagado: precio neto, como antes. ingresosConIva e
-           ivaCobrado se mantienen como alias para los lectores existentes (antes
-           llegaban vacíos: la fila "VAT 15%" sin valor y Cash en $0). */
-        const imp = _impuestoVigente();
-        // v361: cada venta trae su impuesto congelado (ver _impuestoDeVenta).
-        let netoC = 0, impC = 0, cobradoC = 0;
-        const _linea = (v, signo) => {
-          const linC = signo * Math.round((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0) * 100);
-          const im = v.impuesto && Number(v.impuesto.monto) > 0 ? signo * Math.round(Number(v.impuesto.monto) * 100) : 0;
-          if (!im) { netoC += linC; cobradoC += linC; }
-          else if (v.impuesto.modo === "agregado") { netoC += linC; impC += im; cobradoC += linC + im; }
-          else { netoC += linC - im; impC += im; cobradoC += linC; }
-        };
-        vh.forEach((v) => _linea(v, 1));
-        dh.forEach((v) => _linea(v, -1)); // B6: lo devuelto hoy (con su impuesto) sale del P&L de hoy
-        const neto = netoC / 100, impCobrado = impC / 100;
-        const ub = neto - cv;
-        const gm = (!uid || uid === "todas") ? Object.values(_gastosMensualesVisibles()).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0); // v507: sin perchas demo
-        const go = +(gm / diasEnMesActual()).toFixed(2);
-        return J({ ingresos: +neto.toFixed(2), ingresosConIva: +(cobradoC / 100).toFixed(2), ivaCobrado: +impCobrado.toFixed(2),
-          impuesto: imp ? { activo: true, tasa: imp.tasa, nombre: imp.nombre, modo: imp.modo } : { activo: impC > 0, tasa: null, nombre: "Tax", modo: null },
-          costoVentas: +cv.toFixed(2), utilidadBruta: +ub.toFixed(2), gastosOperativos: go, utilidadNeta: +(ub - go).toFixed(2) });
+        const reader = window.OCBusinessReadModel;
+        const reportSales = ventasParaReportes(uid);
+        const policies = reportSales.filter(v => v.fechaLocal === hoyISO() || v.devuelta && v.fechaDevolucion && fechaLocalDe(v.fechaDevolucion) === hoyISO()).map(v => v.impuesto).filter(Boolean);
+        const policy = policies.length && policies.every(t => t.tasa === policies[0].tasa && t.modo === policies[0].modo && t.nombre === policies[0].nombre) ? policies[0] : null;
+        const result = reader && reader.businessResult({ sales: reportSales, expenses: gastos,
+          adjustments: ajustesComision, period: { from: hoyISO(), to: hoyISO() }, zone: ZONA,
+          scope: uid && uid !== "todas" ? { locationId: uid } : {} });
+        const money = (key) => result && Number.isFinite(result[key]) ? result[key] / 100 : null;
+        const revenue = money("netCents"), cost = money("costCents");
+        const gm = (!uid || uid === "todas") ? Object.values(_gastosMensualesVisibles()).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0);
+        return J({ ingresos: revenue, ingresosConIva: money("customerGrossCents"), ivaCobrado: money("taxCents"),
+          impuesto: { activo: result ? result.taxCents !== 0 : false, tasa: policy ? policy.tasa : null, nombre: policy ? policy.nombre : "Tax", modo: policy ? policy.modo : null },
+          costoVentas: cost, utilidadBruta: revenue === null || cost === null ? null : +(revenue - cost).toFixed(2),
+          comisiones: money("artistShareCents"), gastosOperativos: money("expensesCents"),
+          presupuestoDiario: +(gm / diasEnMesActual()).toFixed(2), utilidadNeta: money("houseAfterExpensesCents"),
+          advertencias: result ? result.warnings : ["missing-read-model"] });
       }
       if (path === "/api/reportes/balance") {
-        const ps = filtrar(uid), vh = ventasHoyDe(uid);
-        // v361: lo cobrado incluye el impuesto que se SUMÓ al cobrar (modo agregado).
-        const _cobrado = (v) => v.precioUnit * v.cantidad + (v.impuesto && v.impuesto.modo === "agregado" ? (Number(v.impuesto.monto) || 0) : 0);
-        const ef = vh.reduce((a, v) => a + _cobrado(v), 0) - devolucionesHoyDe(uid).reduce((a, v) => a + _cobrado(v), 0); // B6
+        const ps = filtrar(uid);
+        // Sales, including credit sales, are not a complete cash ledger.
+        // Preserve unknown cash and total assets until cash evidence is available.
         /* BALANCE A MEJOR PRACTICA (JFC 2026-09-24, "elijo world's best practices").
            Antes el activo era stock x PRECIO DE VENTA e incluia las piezas en
            consignacion, que son de la consignadora, no de la tienda (demo: $21,899
@@ -6682,7 +6795,7 @@
         const inv = _propios.reduce((a, p) => a + (Number(p.costo) || 0) * p.stockActual, 0);
         const invVenta = _propios.reduce((a, p) => a + (Number(p.precio) || 0) * p.stockActual, 0);
         const consigVenta = _consig.reduce((a, p) => a + (Number(p.precio) || 0) * p.stockActual, 0);
-        return J({ activos: { efectivoEstimado: +ef.toFixed(2), inventarioValorizado: +inv.toFixed(2), total: +(ef + inv).toFixed(2) },
+        return J({ activos: { efectivoEstimado: null, inventarioValorizado: +inv.toFixed(2), total: null },
           memo: { criterioInventario: "costo", inventarioPropioPrecioVenta: +invVenta.toFixed(2), consignacionPrecioVenta: +consigVenta.toFixed(2), piezasConsignacion: _consig.reduce((a, p) => a + (Number(p.stockActual) || 0), 0) } });
       }
       if (path === "/api/reportes/valorizado") {
@@ -6721,12 +6834,13 @@
           const p = productos.find((x) => x.id === it.productoId);
           const cant = Number(it.cantidad);
           if (!p || !Number.isInteger(cant) || cant <= 0) { errores.push("There is an invalid item in the day close."); continue; }
+          if (p.precioReserva != null || p.precioWalkIn != null) { errores.push(`${p.nombre}: record each reservation or walk-in through Sell so its price is explicit.`); continue; }
           if (p.stockActual < cant) { errores.push(`${p.nombre}: solo hay ${p.stockActual} en stock.`); continue; }
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
           const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
           const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
           p.stockActual -= cant;
-          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
           emitirOpStock("cierre-dia", { productoId: p.id, delta: -cant });
           aplicadas += cant;
           mov("cierre-dia", { producto: p.nombre, cantidad: cant, ubicacion: nombreUbic(p.ubicacionId) });
@@ -6742,12 +6856,14 @@
       }
       if (path === "/api/clientes" && opts && opts.method === "POST") {
         if (!body.nombre || !String(body.nombre).trim()) return J({ error: "The customer name is required." }, 400);
+        const perfilError = errorPerfilCliente(body);
+        if (perfilError) return J({ error: perfilError }, 400);
         /* EMAIL DEL CLIENTE (JFC 2026-08-26): captura opcional. Validación ligera
            "guard, no puerta": si trae algo que no parece email, se guarda vacío en
            vez de rechazar el alta (no queremos frenar el registro por un typo). */
         const _emailCli = String(body.email || "").trim().slice(0, 160);
         const _emailOk = _emailCli && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(_emailCli) ? _emailCli : "";
-        const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim(), email: _emailOk, rev: _revNueva() };
+        const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim(), email: _emailOk, ...perfilCliente(body), rev: _revNueva() };
         clientes.push(nuevoCli);
         mov("cliente-alta", { cliente: nuevoCli.nombre, codigo: nuevoCli.codigo });
         return J(fichaCliente(nuevoCli));
@@ -6864,11 +6980,17 @@
       if (mCliContacto && opts && opts.method === "PATCH") {
         const c = clientes.find((x) => x.id === mCliContacto[1]);
         if (!c || c.borrado) return J({ error: "Customer not found." }, 404);
+        const perfilError = errorPerfilCliente(body);
+        if (perfilError) return J({ error: perfilError }, 400);
         /* Optional optimistic guard for remote dashboard edits: do not silently
            overwrite an update made on the phone since its last snapshot. */
         if (body.baseContacto && typeof body.baseContacto === "object") {
           const campos = ["nombre", "telefono", "email", "notas", "rangoEdad", "pais"];
           if (campos.some((k) => String(c[k] || "") !== String(body.baseContacto[k] || ""))) {
+            return J({ error: "Customer changed on another device. Refresh before editing." }, 409);
+          }
+          const perfil = perfilCliente(c);
+          if (["resideCuenca", "genero"].some((k) => Object.prototype.hasOwnProperty.call(body.baseContacto, k) && perfil[k] !== body.baseContacto[k])) {
             return J({ error: "Customer changed on another device. Refresh before editing." }, 409);
           }
         }
@@ -6879,6 +7001,8 @@
         // JFC 2026-09-02: rango de edad y país (pulldowns en My customers).
         if (body.rangoEdad !== undefined) c.rangoEdad = String(body.rangoEdad).trim().slice(0, 12);
         if (body.pais !== undefined) c.pais = String(body.pais).trim().slice(0, 60);
+        if (Object.prototype.hasOwnProperty.call(body, "resideCuenca")) c.resideCuenca = body.resideCuenca;
+        if (Object.prototype.hasOwnProperty.call(body, "genero")) c.genero = body.genero;
         c.rev = _revNueva();
         mov("cliente-contacto", { cliente: c.nombre });
         guardarEstadoLocal();

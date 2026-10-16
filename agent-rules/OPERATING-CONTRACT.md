@@ -1,5 +1,14 @@
 # CONTRATO OPERATIVO JFC — fuente vigente
 
+## Directiva vigente de sincronización — JFC, 16 oct 2026
+
+Cloudflare queda para **licencias**, no para transacciones ni sync entre
+cuadernos. Esto sustituye las notas anteriores que permitían relay/fallback de
+negocio en Cloudflare. El máximo solicitado es 150 ms; ni p95 de 2 s ni una
+sonda de control acreditan ese objetivo. [Contrato de corte y evidencia](../supabase-relay/CUTOVER.md)
+distingue código preparado, migración conservando historia, adopción y medición
+real. Esta actualización no autoriza despliegue ni activación de salas.
+
 ## DIRECTIVA MÁS RECIENTE — 14 OCT 2026: DESCONFIANZA EXPRESA, NO SUPONER NI IMPONER
 
 > **«YO NO CONFIO EN TI, NO ASUMAS NI TE ME IMPONGAS Y ANOTA ESTO EN TODO LADO».**

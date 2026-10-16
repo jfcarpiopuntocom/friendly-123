@@ -664,7 +664,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   gate.innerHTML = `
     <div class="caja">
       <div class="oc-gate-logo" style="text-align:center;margin-bottom:4px;">
-        <img src="./logo.png" alt="friendly-123" style="width:min(70vw,280px);max-width:100%;height:auto;display:inline-block;"
+        <img src="./img/logo-720.png" width="720" height="147" fetchpriority="high" alt="friendly-123" style="width:min(70vw,280px);max-width:100%;height:auto;display:inline-block;"
              onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='block';">
         <h2 style="display:none;">friendly-123</h2>
       </div>

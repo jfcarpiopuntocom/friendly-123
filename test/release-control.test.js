@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const { evaluateRuns, validateCapabilities, validateIdentity } = require('../scripts/release-control.cjs');
+const { evaluateRuns, validateCapabilities, validateIdentity, validateDashboardIdentity } = require('../scripts/release-control.cjs');
 const sha = 'a'.repeat(40);
 const good = { id: 2, run_attempt: 1, head_sha: sha, head_branch: 'master', event: 'push', path: '.github/workflows/release-control.yml', status: 'completed', conclusion: 'success', created_at: '2026-10-05T20:00:00Z' };
 
@@ -81,6 +81,16 @@ test('new shells are authorized; identity mismatch and same-shell changed runtim
   assert.ok(validateIdentity(previous,'const CACHE = "f123-shell-v447";',previous,false).length);
   assert.ok(validateIdentity(previous,'const CACHE = "f123-shell-v448"; const CACHE_GENERACION = "-golden15";',previous,true).length);
   assert.deepEqual(validateIdentity(previous,'const CACHE = "f123-shell-v448"; const CACHE_GENERACION = "-golden15";',previous,false),[]);
+});
+
+test('release validation rejects a stale, absent or ambiguous dashboard update identity', () => {
+  const version = { shell: 'f123-shell-v536' };
+  const current = '<meta name="dashboard-shell" content="f123-shell-v536">';
+  const stale = '<meta name="dashboard-shell" content="f123-shell-v535">';
+  assert.deepEqual(validateDashboardIdentity(version, current), []);
+  for (const html of [stale, '', '<!-- ' + current + ' -->', current + stale]) {
+    assert.deepEqual(validateDashboardIdentity(version, html), ['dashboard shell identity mismatch']);
+  }
 });
 
 test('automatic promotion requires exact QA; emergency PUSH only reports QA and never requires a witness', () => {

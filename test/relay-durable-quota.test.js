@@ -36,3 +36,38 @@ test('checkpoint and pruning roll back together if deletion is rejected',async()
  assert.equal(f.db.prepare('SELECT COUNT(*) n FROM ops').get().n,1);
  f.db.close();
 });
+
+test('full photo history is preserved; only new durable writes are refused until safe compaction',async()=>{
+ const f=await fixture();
+ const insert=f.db.prepare('INSERT INTO ops(id,lam,c) VALUES(?,?,?)');
+ for(let i=0;i<8000;i++)insert.run('photo-'+i,8000-i,'YQ==');
+ // Select a historically sampled id: this used to erase the oldest encrypted photo.
+ let id;
+ for(let i=0;!id;i++){const candidate='synthetic-overflow-'+i;let h=2166136261;for(const ch of candidate)h=Math.imul(h^ch.charCodeAt(0),16777619);if((h>>>0)%256===0)id=candidate;}
+ const before=f.db.prepare('SELECT rowid,* FROM ops ORDER BY rowid').all();
+ await f.sala.webSocketMessage(f.sock,JSON.stringify({k:'op',id,lam:9000,c:'Yg==',ack:1}));
+ assert.equal(f.sent.at(-1)?.ok,false,'no acknowledgement for bytes that cannot safely fit');
+ assert.deepEqual(f.db.prepare('SELECT rowid,* FROM ops ORDER BY rowid').all(),before,
+  'no ciphertext may be pruned solely because its timestamp is old');
+ await f.sala.webSocketMessage(f.sock,JSON.stringify({k:'op',id:'photo-0',lam:9001,c:'Yw==',ack:1}));
+ assert.equal(f.sent.at(-1)?.ok,true,'existing stable-id retries remain durable at capacity');
+ assert.equal(f.sala._guardarCkpt(9002,'Yw==',2,0,4000),true);
+ assert.equal(f.sala._guardarOp(id,9003,'Yg=='),true,'a covered prefix checkpoint frees capacity');
+ assert.equal(f.db.prepare('SELECT count(*) n FROM ops').get().n,4001);
+ f.db.close();
+});
+test('capacity uses indexed range probes, remains bounded after hibernation and never counts all ops',async()=>{
+ const f=await fixture();
+ f.db.prepare('INSERT INTO ops(rowid,id,lam,c) VALUES(?,?,?,?)').run(100,'first',1,'YQ==');
+ f.db.prepare('INSERT INTO ops(rowid,id,lam,c) VALUES(?,?,?,?)').run(8099,'last',2,'Yg==');
+ const queries=[],original=f.sala.sql.exec;
+ f.sala.sql.exec=(q,...a)=>{queries.push(q);return original(q,...a)};
+ assert.equal(f.sala._guardarOp('after-hibernation',3,'Yw=='),false,
+  'capacity does not depend on an in-memory counter and conservatively tolerates old row gaps');
+ const query=queries.find(q=>/MAX\(rowid\)/.test(q));assert.ok(query);
+ const plans=f.db.prepare('EXPLAIN QUERY PLAN '+query).all().map(r=>r.detail);
+ assert.ok(plans.filter(x=>x==='SEARCH ops').length>=2,plans.join('\n'));
+ assert.ok(!plans.some(x=>x==='SCAN ops'),plans.join('\n'));
+ assert.ok(!queries.some(q=>/COUNT\s*\(/i.test(q)));
+ f.db.close();
+});

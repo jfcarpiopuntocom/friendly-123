@@ -41,7 +41,8 @@ test('licensed business: demo racks fixed monthly expenses are not counted (tota
   assert.equal(g.porUbicacion[rack.id], 200);
   const pl = await app.request('/api/reportes/pl?ubicacionId=todas');
   const dias = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate();
-  assert.ok(Math.abs(pl.gastosOperativos - 200 / dias) < 0.02, 'P&L: gastos operativos solo de lo real: ' + pl.gastosOperativos);
+  assert.ok(Math.abs(pl.presupuestoDiario - 200 / dias) < 0.02, 'Presupuesto solo de lo real: ' + pl.presupuestoDiario);
+  assert.equal(pl.gastosOperativos, 0, "un presupuesto no es un gasto registrado");
   // Nada se borro del almacenamiento: el respaldo conserva la tabla completa.
   const e = await app.request('/api/respaldo/exportar');
   DEMO_RACKS.forEach((id) => assert.ok(id in e.configuracion.gastosMensuales, 'almacenamiento intacto: ' + id));

@@ -52,9 +52,9 @@ test('app: resumen diario por WhatsApp no dice $0 cuando el monto es desconocido
 });
 
 function hub(datos) {
-  const c = { datos, latidos: {}, micEstado: () => 'ok', VISTAS: { reposicion: { filas: () => [] } }, cmPendienteVenta: () => 0 };
+  const c = { datos, latidos: {}, micEstado: () => 'ok', VISTAS: { reposicion: { filas: () => [] } }, window: { OCBusinessReadModel: R }, mesLocalDe: value => R.day(value, 'America/Guayaquil').slice(0, 7) };
   vm.createContext(c);
-  vm.runInContext(bloque(dash, '  function totalesHub() {', '\n  }\n'), c);
+  vm.runInContext(dash.slice(dash.indexOf('  function cmMesActual()'), dash.indexOf('  function cmRecibo(')) + bloque(dash, '  function totalesHub() {', '\n  }\n'), c);
   return c.totalesHub();
 }
 test('dashboard: mosaico Today conserva el desconocido y no inventa $0', () => {

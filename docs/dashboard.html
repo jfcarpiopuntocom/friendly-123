@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v534">
+<meta name="dashboard-shell" content="f123-shell-v538">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -38,15 +38,13 @@
 </style>
 
 <!-- Tabulator: tabla, busqueda, agrupacion y los cinco exports en una sola
-     libreria. SheetJS y jsPDF van por debajo de ella, no como codigo nuestro.
+     libreria. SheetJS y jsPDF se cargan al pedir su exportacion.
      El CDN aqui SI corresponde: este archivo necesita conexion por definicion,
      al reves que la app, que tiene que arrancar sin ella. Si un CDN no carga,
      ver degradarSinTabulator(): la tabla se sigue viendo en HTML plano. -->
 <link href="https://unpkg.com/tabulator-tables@6.3.1/dist/css/tabulator_simple.min.css" rel="stylesheet">
 <script src="https://unpkg.com/tabulator-tables@6.3.1/dist/js/tabulator.min.js" defer></script>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" defer></script>
-<script src="./vendor/jspdf-2.5.1.umd.min.js" defer></script>
-<script src="./vendor/jspdf-autotable-3.8.2.min.js" defer></script>
+<!-- Export dependencies load on demand; local PDF assets stay in the offline shell. -->
 
 <style>
   :root{
@@ -689,6 +687,9 @@
 <script src="./core/payout-ledger.js"></script>
 <script src="./core/sales-audit.js"></script>
 <script src="./core/business-read-model.js"></script>
+<script src="./core/report-period.js"></script>
+<script src="./dashboard-finance.js"></script>
+<script src="./customer-profile.js"></script>
 <script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
 <script src="./estado-idb.js"></script>
@@ -734,6 +735,7 @@
   var LOGO = "data:image/png;base64,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";
   var clave = null, ws = null, miId = "t" + Math.random().toString(36).slice(2, 10), fotoToken = "";
   var datos = { productos: [], clientes: [], ventas: [], resumen: null };
+  var revisionVistaExportacion = 0;
   var esperados = {}, recibidos = {}, fotoTemporal = {}, totalTrozos = 0, clavesTrozos = {};
   /* De que foto son los trozos que estoy armando. Dos dispositivos pueden
      contestar el mismo pedido, y al reconectar se pide otra: sin esto, los
@@ -907,13 +909,29 @@
     }, 6000);
   }
 
+  function programarReconexion(codigo) {
+    pulso("reconectando…");
+    clearTimeout(reconexionTimer);
+    var espera = reconexionMs / 2 + Math.random() * reconexionMs / 2;
+    reconexionMs = Math.min(30000, reconexionMs * 2);
+    reconexionTimer = setTimeout(function () {
+      conectar(codigo).then(function () { if (autorizado) pedirFoto(); }).catch(function () {});
+    }, espera);
+  }
+
   async function conectar(codigo) {
     /* Mismo normalizado que la app: sin esto, "amg-x" y "F123-X" caen en salas
        distintas y el equipo nunca entiende por que no ve nada. */
     codigo = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
     clave = await derivarClave(codigo);
     var sala = await idDeSala(salaCompatible(codigo));
-    ws = window.F123Relay ? window.F123Relay.connect(RELAY_URL + sala) : new WebSocket(RELAY_URL + sala);
+    try {
+      if (!window.F123Relay || typeof window.F123Relay.connect !== "function") throw new Error("Native sync adapter unavailable");
+      ws = window.F123Relay.connect(RELAY_URL + sala);
+    } catch (error) {
+      programarReconexion(codigo);
+      throw error;
+    }
     ws.binaryType = "arraybuffer";
     /* onopen NO pide la foto: primero hay que pasar el PIN. Pedirla antes
        seria justo el agujero que el PIN viene a tapar.
@@ -929,6 +947,7 @@
         listo();
       };
       ws.addEventListener("error", function () { clearTimeout(reloj); falla(new Error("error")); }, { once: true });
+      ws.addEventListener("close", function (ev) { clearTimeout(reloj); falla(new Error(ev.reason || "sync unavailable")); }, { once: true });
     });
     ws.onmessage = async function (ev) {
       if (typeof ev.data === "string") return;   /* presencia, en claro */
@@ -963,15 +982,7 @@
        sesion ya esta autorizada en esta pestana, y hacerle teclear el PIN cada
        vez que parpadea el wifi seria insufrible. Al cerrar la pestana se
        pierde todo, que es justo lo que tiene que pasar. */
-    ws.onclose = function () {
-      pulso("reconectando…");
-      clearTimeout(reconexionTimer);
-      var espera = reconexionMs / 2 + Math.random() * reconexionMs / 2;
-      reconexionMs = Math.min(30000, reconexionMs * 2);
-      reconexionTimer = setTimeout(function () {
-        conectar(codigo).then(function () { if (autorizado) pedirFoto(); }).catch(function () {});
-      }, espera);
-    };
+    ws.onclose = function () { programarReconexion(codigo); };
     ws.onerror = function () { try { ws.close(); } catch (_) {} };
     await abierto;
   }
@@ -1210,7 +1221,9 @@
         { title: "Compras 90d", field: "frecuencia", width: 125, hozAlign: "right", cssClass: "num" },
         { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
           formatter: function (c) { return money(c.getValue()); } },
-        { title: "Phone", field: "telefono", width: 140, cssClass: "num" },
+        { title: "WhatsApp", field: "telefono", width: 160, cssClass: "num", formatter: function(c) { return esc(window.OCCustomerProfile.whatsapp(c.getValue())); }, accessorDownload: function(v) { return window.OCCustomerProfile.whatsapp(v); } },
+        { title: "Lives in Cuenca", field: "resideCuenca", width: 150, formatter: function(c) { return window.OCCustomerProfile.residentLabel(c.getValue(),localStorage.getItem('f123_lang')==='es'); }, accessorDownload: function(v) { return window.OCCustomerProfile.residentLabel(v,localStorage.getItem('f123_lang')==='es'); } },
+        { title: "Gender", field: "genero", width: 130, formatter: function(c) { return window.OCCustomerProfile.genderLabel(c.getValue(),localStorage.getItem('f123_lang')==='es'); }, accessorDownload: function(v) { return window.OCCustomerProfile.genderLabel(v,localStorage.getItem('f123_lang')==='es'); } },
         /* JFC 2026-09-02: refleja el rango de edad y país capturados en My customers. */
         { title: "Age", field: "rangoEdad", width: 100 },
         { title: "Country", field: "pais", width: 130 },
@@ -1462,6 +1475,7 @@
       cols: [
         { title: "Date", field: "fecha", width: 125 },
         { title: "Description", field: "concepto", minWidth: 190, widthGrow: 3 },
+        { title: "Payment method", field: "metodoPago", width: 130, formatter: function(c) { var v=c.getValue(), es=localStorage.getItem('f123_lang')==='es'; return v==='cash'?(es?'Efectivo':'Cash'):v==='transfer'?(es?'Transferencia':'Transfer'):'—'; } },
         { title: "Category", field: "categoria", width: 125 },
         { title: "Amount", field: "monto", width: 115, hozAlign: "right", formatter: function (c) { return money(c.getValue()); } },
         { title: "Shelf", field: "ubicacionId", width: 130 },
@@ -1661,28 +1675,157 @@
     if (p.length !== 2 || !p[0] || !p[1]) return String(m || "");
     try { return new Date(p[0], p[1] - 1, 15).toLocaleDateString((function () { try { return localStorage.getItem("f123_lang") === "es" ? "es-US" : "en-US"; } catch (_) { return undefined; } })(), { month: "long", year: "numeric" }); } catch (_) { return String(m); }
   }
-  function cmFilas(mes) {
-    return (datos.ventas || []).filter(function (v) {
-      if (!v || v.mes !== mes) return false;
-      var con = v.comisionPct != null;
-      var counter = !con && v.modoComision === "counter" && v.ubicacionTipo && v.ubicacionTipo !== "propio";
-      return con || counter;
+  /* Signed rows are projections only: original sales and dated credits stay untouched. */
+  function cmAjustes(d) {
+    if (Array.isArray(d.ajustesComision)) return d.ajustesComision;
+    var seen = {};
+    return (d.liquidaciones || []).reduce(function (rows, l) {
+      (l.ajustes || []).forEach(function (a) {
+        if (!a || seen[String(a.id)]) return;
+        seen[String(a.id)] = true;
+        rows.push(Object.assign({ ubicacionId: l.ubicacionId }, a));
+      });
+      return rows;
+    }, []);
+  }
+  function cmObligaciones(d) {
+    if (Array.isArray(d.payoutObligations)) return d.payoutObligations;
+    var ledger = window.OCPayoutLedger;
+    if (!ledger) return [];
+    var sales = (d.ventas || []).map(function (v) {
+      return Object.assign({}, v, { split: v.split || (v.comisionPct != null && !v.comisionAjusteRetroIncluido ? {
+        montoComisionSocio: v.comisionAsociado, reparto: v.reparto
+      } : null) });
     });
+    var obs = ledger.buildObligations({ sales: sales, adjustments: cmAjustes(d),
+      locations: d.perchas || [], payouts: d.payouts || [], payoutConflicts: d.payoutConflicts || [] });
+    /* Older remote snapshots may carry the exact residual without receipts.
+       Preserve it for one beneficiary; never invent a multi-person allocation. */
+    if (!(d.payouts || []).length && !(d.payoutConflicts || []).length) sales.forEach(function (v) {
+      if (typeof v.comisionPendiente !== "number" || !Number.isFinite(v.comisionPendiente)) return;
+      var own = obs.filter(function (o) { return o.kind === "sale" && o.sourceId === String(v.id); });
+      var due = Math.round(v.comisionPendiente * 100), held = Math.round((Number(v.comisionRetenida) || 0) * 100);
+      if (own.length === 1) {
+        own[0].dueCents = due; own[0].heldCents = held;
+        own[0].paidCents = own[0].signedAmountCents - due - held;
+      } else if (own.length > 1 && due === 0 && held === 0) {
+        own.forEach(function (o) { o.paidCents = o.signedAmountCents; o.dueCents = 0; });
+      } else if (own.length > 1 && own.reduce(function (n, o) { return n + o.dueCents; }, 0) !== due) {
+        own.forEach(function (o) { o.projectionUnknown = true; });
+      }
+    });
+    /* The remote sale carries the backend's hold decision, including its clock. */
+    obs.forEach(function (o) {
+      var v = sales.find(function (x) { return String(x.id) === o.sourceId; });
+      if (o.kind === "sale" && v && Number(v.comisionRetenida) > 0 && o.dueCents > 0 && o.heldCents == null) {
+        o.heldCents = o.dueCents; o.dueCents = 0;
+      }
+    });
+    return obs;
+  }
+  function cmFilasDesde(d, mes) {
+    var all = (d.ventas || []).filter(function (v) { return v && !v.anulada; });
+    var obs = cmObligaciones(d);
+    var rows = all.filter(function (v) {
+      var con = v.comisionPct != null;
+      return (!mes || v.mes === mes) && (con || v.noCommission !== true || (!con && v.modoComision === "counter" && v.ubicacionTipo && v.ubicacionTipo !== "propio"));
+    }).map(function (v) {
+      var own = obs.filter(function (o) { return o.kind === "sale" && o.sourceId === String(v.id); });
+      if (v.comisionAjusteRetroIncluido) own = own.concat(obs.filter(function (o) {
+        return o.kind === "adjustment" && (cmAjustes(d)).some(function (a) {
+          return String(a.id) === o.sourceId && String(a.ventaId) === String(v.id) && a.tipo === "recalculo-retroactivo";
+        });
+      }));
+      return Object.assign({}, v, { _obligations: own });
+    });
+    (cmAjustes(d)).forEach(function (a) {
+      if (!a || (mes && mesLocalDe(a.fecha) !== mes)) return;
+      var v = all.find(function (x) { return String(x.id) === String(a.ventaId); }) || {};
+      if (a.tipo === "recalculo-retroactivo" && v.comisionAjusteRetroIncluido) return;
+      var own = obs.filter(function (o) { return o.kind === "adjustment" && o.sourceId === String(a.id); });
+      if (!own.length && a.montoComisionSocio != null && !Number(a.montoComisionSocio)) return;
+      var qty = Math.abs(Number(a.cantidad)) || 1;
+      var gross = Number(a.montoBruto) || 0;
+      rows.push(Object.assign({}, v, { id: "adjustment:" + a.id, ajusteId: a.id,
+        fecha: a.fecha, mes: mesLocalDe(a.fecha), ubicacionId: a.ubicacionId || v.ubicacionId,
+        productoId: a.productoId || v.productoId, productoNombre: v.productoNombre || "Return / adjustment",
+        ubicacionNombre: v.ubicacionNombre || ((d.perchas || []).find(function (u) { return u.id === a.ubicacionId; }) || {}).nombre || "",
+        cantidad: gross < 0 ? -qty : gross > 0 ? qty : 0, precioUnit: Math.abs(gross) / qty,
+        comisionPct: a.montoComisionSocio == null ? null : a.comisionPct != null ? a.comisionPct : v.comisionPct != null ? v.comisionPct : 0,
+        noCommission: a.montoComisionSocio == null ? false : v.noCommission,
+        comisionAsociado: a.montoComisionSocio == null ? null : Number(a.montoComisionSocio) || 0,
+        netoCasa: a.montoNetoDueno == null ? null : Number(a.montoNetoDueno) || 0,
+        liquidada: !!a.liquidada, devuelta: false, reparto: a.reparto || null,
+        comisionPendiente: a.montoComisionSocio == null ? null : own.length ? own.reduce(function (n, o) { return n + o.dueCents; }, 0) / 100 : a.liquidada ? 0 : Number(a.montoComisionSocio) || 0,
+        comisionRetenida: 0, _obligations: own }));
+    });
+    /* Paid cancellations carry their unused credit into the selected settlement period. */
+    var voids = {};
+    obs.forEach(function (o) {
+      if (o.kind !== "void") return;
+      var originalMonth = mesLocalDe(String(o.order || "").split("|")[0]);
+      var targetMonth = mes || cmMesActual();
+      if (originalMonth > targetMonth) return;
+      var key = String(o.sourceId);
+      var row = voids[key];
+      if (!row) {
+        var sale = all.find(function (v) { return String(v.id) === key; }) || {};
+        row = voids[key] = Object.assign({}, sale, { id: "void:" + key, ajusteId: "void:" + key,
+          mes: targetMonth, ubicacionId: o.locationId, productoNombre: sale.productoNombre || "Cancellation credit",
+          cantidad: 0, precioUnit: 0, comisionPct: 0, comisionAsociado: 0, netoCasa: 0,
+          comisionPendiente: 0, devuelta: false, _obligations: [] });
+        rows.push(row);
+      }
+      row._obligations.push(o); row.comisionPendiente += o.dueCents / 100;
+    });
+    return rows;
+  }
+  function cmFilas(mes) { return cmFilasDesde(datos, mes); }
+  /* Credits belong to a beneficiary, rack and settlement period. An unrelated debt must stay payable. */
+  function cmSaldos(filas) {
+    var groups = {};
+    (filas || []).forEach(function (v) {
+      var obs = v._obligations || [];
+      if (!obs.length) obs = [{ payeeId: v.promotoraId || v.asociadoNombre || "", dueCents: Math.round(cmPendienteVenta(v) * 100) }];
+      obs.forEach(function (o) {
+        var key = [v.mes || "", v.ubicacionId || v.ubicacionNombre || "", o.payeeId || ""].join("|");
+        var row = groups[key] || (groups[key] = { payeeId: o.payeeId || null, ubicacionId: v.ubicacionId || "", dueCents: 0, paidCents: 0, heldCents: 0 });
+        row.dueCents += Number(o.dueCents) || 0;
+        row.paidCents += (Number(o.paidCents) || 0) * (o.signedAmountCents < 0 ? -1 : 1);
+        row.heldCents += Number(o.heldCents) || 0;
+      });
+    });
+    return Object.keys(groups).map(function (k) { var row = groups[k]; row.due = row.dueCents / 100; row.paid = row.paidCents / 100; row.held = row.heldCents / 100; return row; });
+  }
+  function cmSaldosPeriodo(mes) {
+    var rows = cmSaldos(cmFilas(mes));
+    /* Remote snapshots omit cancelled sales; their current per-payee settlement
+       still includes the ledger's cancellation credit and conflict decisions. */
+    if (mes === cmMesActual()) (datos.liquidaciones || []).forEach(function (l) {
+      if (!Array.isArray(l.payoutBalances)) return;
+      rows = rows.filter(function (r) { return String(r.ubicacionId) !== String(l.ubicacionId); });
+      rows = rows.concat(l.payoutBalances.map(function (r) {
+        return Object.assign({}, r, { ubicacionId: l.ubicacionId });
+      }));
+    });
+    return rows;
   }
   function cmMeses() {
     var set = {}; set[cmMesActual()] = 1;
-    (datos.ventas || []).forEach(function (v) { if (v && v.mes && v.comisionPct != null) set[v.mes] = 1; });
+    (datos.ventas || []).forEach(function (v) { if (v && v.mes && (v.comisionPct != null || v.noCommission !== true)) set[v.mes] = 1; });
+    cmAjustes(datos).forEach(function (a) { if (a && a.fecha) set[mesLocalDe(a.fecha)] = 1; });
     return Object.keys(set).sort().reverse();
   }
 
   /* No missing price or incomplete photo may become a commission total of 0. */
-  function comisionesConImportePendiente(filas) {
-    if (datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false)) return true;
+  function comisionesConImportePendiente(filas, soloFilas) {
+    if (!soloFilas && datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false || datos.cobertura.ajustesComision === false)) return true;
+    if (!Array.isArray(datos.ajustesComision) && (filas || []).some(function (v) { return v.devuelta; })) return true;
     return (filas || []).some(function(v) {
-      return v && v.comisionPct != null &&
+      return v && (((v._obligations || []).some(function (o) { return o.projectionUnknown; })) || (v.comisionPct == null && v.noCommission !== true) || v.comisionPct != null &&
         (window.OCBusinessReadModel.number(v.precioUnit) === null ||
-         window.OCBusinessReadModel.quantity(v.cantidad) === null ||
-         (v.comisionAsociado == null && v.comisionPendiente == null));
+         (v.ajusteId && Number.isFinite(v.cantidad) ? v.cantidad : window.OCBusinessReadModel.quantity(v.cantidad)) === null ||
+         (v.comisionAsociado == null && v.comisionPendiente == null)));
     });
   }
   function cmPendienteVenta(v) {
@@ -1691,14 +1834,14 @@
     return v.liquidada ? 0 : (Number(v.comisionAsociado) || 0);
   }
   function cmPendienteDe(mes) {
-    return cmFilas(mes).reduce(function (a, v) { return a + cmPendienteVenta(v); }, 0);
+    return cmSaldosPeriodo(mes).reduce(function (a, r) { return a + Math.max(0, r.due); }, 0);
   }
   function cmAgrupar(filas, por) {
     var map = {};
     filas.forEach(function (v) {
       var k = por === "producto" ? (v.productoId || v.productoNombre) : (v.ubicacionId || v.ubicacionNombre);
       var g = map[k] || (map[k] = { id: k, nombre: por === "producto" ? v.productoNombre : v.ubicacionNombre, sku: v.sku || "", ubicacionId: v.ubicacionId || "", ubicacionIds: {}, perchas: {}, personas: {}, unid: 0, bruto: 0, socio: 0, casa: 0, pend: 0, counterUnid: 0, counterMonto: 0, devueltas: 0 });
-      var cantidad=window.OCBusinessReadModel.quantity(v.cantidad),precio=window.OCBusinessReadModel.number(v.precioUnit);
+      var cantidad=v.ajusteId && Number.isFinite(v.cantidad) ? v.cantidad : window.OCBusinessReadModel.quantity(v.cantidad),precio=window.OCBusinessReadModel.number(v.precioUnit);
       var monto=cantidad===null||precio===null?null:precio*cantidad;
       if (v.comisionPct != null) {
         g.unid=window.OCBusinessReadModel.sum([g.unid,cantidad]); g.bruto=window.OCBusinessReadModel.sum([g.bruto,monto]); g.socio += Number(v.comisionAsociado) || 0;
@@ -1708,7 +1851,7 @@
         if (v.devuelta) g.devueltas++;
         if (v.asociadoNombre) g.personas[v.asociadoNombre] = 1;
         if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
-      } else { g.counterUnid=window.OCBusinessReadModel.sum([g.counterUnid,cantidad]); g.counterMonto=window.OCBusinessReadModel.sum([g.counterMonto,monto]); }
+      } else if (v.noCommission === true) { g.counterUnid=window.OCBusinessReadModel.sum([g.counterUnid,cantidad]); g.counterMonto=window.OCBusinessReadModel.sum([g.counterMonto,monto]); } else { g.unknown = true; }
       if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
       if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
     });
@@ -1725,23 +1868,25 @@
   }
   function cmRecibo(ubicacionId, mes) {
     /* Recibo imprimible SIN logo nuestro (JFC): es el papel del cliente para su asociado. */
-    var filas = cmFilas(mes).filter(function (v) { return v.ubicacionId === ubicacionId && v.comisionPct != null; });
+    var todas = cmFilas(mes).filter(function (v) { return v.ubicacionId === ubicacionId; });
+    var faltanMontos = comisionesConImportePendiente(todas);
+    var filas = todas.filter(function (v) { return (v.comisionPct != null || v.noCommission !== true) && !v.ajusteId; });
     /* v423 (JFC 2026-09-29): la liquidacion viva es del MES ACTUAL. Antes el recibo de un mes pasado
        copiaba sus devoluciones (y su asociado vigente). Ahora: mes pasado = solo sus ventas. */
     var esActual = mes === cmMesActual();
     var liqViva = (datos.liquidaciones || []).find(function (l) { return l.ubicacionId === ubicacionId; }) || {};
     var f0 = filas[0] || {};
-    var liq = esActual ? liqViva : { ubicacion: liqViva.ubicacion || f0.ubicacionNombre || "", asociadoNombre: f0.asociadoNombre || "" };
+    var liq = Object.assign({}, esActual ? liqViva : { ubicacion: liqViva.ubicacion || f0.ubicacionNombre || "", asociadoNombre: f0.asociadoNombre || "" }, { ajustes: cmAjustes(datos).filter(function (a) { return String(a.ubicacionId) === String(ubicacionId) && mesLocalDe(a.fecha) === mes && !(a.tipo === "recalculo-retroactivo" && filas.some(function (v) { return v.comisionAjusteRetroIncluido && String(v.id) === String(a.ventaId); })); }) });
     var neg = (datos.resumen && datos.resumen.nombreNegocio) || ($("neg-nombre") && $("neg-nombre").textContent) || "";
     var porProd = cmAgrupar(filas, "producto");
-    var tot = filas.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
+    var tot = faltanMontos ? null : filas.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
     var html = "<!doctype html><html><head><meta charset=utf-8><title>Commission receipt</title><style>body{font-family:Inter,Arial,sans-serif;color:#0F1923;margin:32px;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px}table{width:100%;border-collapse:collapse}td,th{padding:6px 0;border-bottom:1px solid #E8ECF2;text-align:left}td.n,th.n{text-align:right;font-family:'JetBrains Mono',Consolas,monospace}tfoot td{font-weight:700;border-top:2px solid #0F1923}</style></head><body>" +
       "<h1>" + esc(neg || "Commission receipt") + "</h1><div>" + esc(liq.ubicacion || "") + (liq.asociadoNombre ? " · " + esc(liq.asociadoNombre) : "") + " · " + esc(cmEtiquetaMes(mes)) + "</div>" +
       "<h2>Sales with commission</h2><table><thead><tr><th>Product</th><th class=n>Units</th><th class=n>Sold</th><th class=n>Commission</th></tr></thead><tbody>" +
-      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + (d.unid===null?"pending":d.unid) + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + money(d.socio) + "</td></tr>"; }).join("") +
-      "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + money(tot) + "</td></tr></tfoot></table>" +
+      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + (d.unid===null?"pending":d.unid) + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + (d.unknown ? "pending" : money(d.socio)) + "</td></tr>"; }).join("") +
+      "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + (faltanMontos ? "pending" : money(tot)) + "</td></tr></tfoot></table>" +
       ((liq.ajustes && liq.ajustes.length) ? "<h2>Returns of already-paid sales</h2><table>" + liq.ajustes.map(function (x) { return "<tr><td>" + esc(String(x.fecha || "").slice(0, 10)) + " · " + esc(x.quien || "") + (x.motivo ? " · " + esc(x.motivo) : "") + "</td><td class=n>" + money(x.montoComisionSocio) + "</td></tr>"; }).join("") +
-        "<tfoot><tr><td>Net after returns</td><td class=n>" + money(tot + liq.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + "</td></tr></tfoot></table>" : "") +
+        "<tfoot><tr><td>Net after returns</td><td class=n>" + money(faltanMontos ? null : tot + liq.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + "</td></tr></tfoot></table>" : "") +
       "<p style='margin-top:24px'>Signature: ____________________________</p></body></html>";
     var w = window.open("", "_blank"); if (!w) return;
     w.document.open(); w.document.write(html); w.document.close();
@@ -1754,19 +1899,21 @@
     var filas = cmFilas(cmMes);
     var conCom = filas.filter(function (v) { return v.comisionPct != null; });
     var liqs = (cmMes === actual) ? (datos.liquidaciones || []) : [];
-    var ajustes = liqs.reduce(function (a, l) { return a.concat(l.ajustes || []); }, []);
     var bruto = conCom.reduce(function (a, v) { return a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1); }, 0);
-    var socio = conCom.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0) + ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0);
-    var pendVentas = conCom.reduce(function (a, v) { return a + cmPendienteVenta(v); }, 0);
-    var pend = (cmMes === actual && liqs.length && liqs.some(function (l) { return l.stillDue != null; }))
-      ? liqs.reduce(function (a, l) { return a + (Number(l.stillDue) || 0); }, 0)
-      : pendVentas + ajustes.reduce(function (a, x) { return a + (x.liquidada ? 0 : (Number(x.montoComisionSocio) || 0)); }, 0);
+    var socio = conCom.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
+    var pend = cmSaldosPeriodo(cmMes).reduce(function (a, r) { return a + Math.max(0, r.due); }, 0);
     var faltanMontos = comisionesConImportePendiente(filas);
     if (faltanMontos) { bruto = null; socio = null; pend = null; }
     var casa = bruto === null || socio === null ? null : bruto - socio;
     var atrasados = meses.filter(function (m) { return m !== actual && cmPendienteDe(m) > 0; });
     var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + (n === null ? (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") : money(n)) + "</div></div>"; };
     var grupos = cmAgrupar(filas, cmVista);
+    grupos.forEach(function (g) {
+      var selected = filas.filter(function (v) { return (cmVista === "producto" ? v.productoId || v.productoNombre : v.ubicacionId || v.ubicacionNombre) === g.id; });
+      g.unknown = g.unknown || comisionesConImportePendiente(selected, true);
+      g.pend = cmSaldos(selected).reduce(function (n, r) { return n + Math.max(0, r.due); }, 0);
+      g.credit = cmSaldos(selected).reduce(function (n, r) { return n + Math.max(0, -r.due); }, 0);
+    });
     /* v423: barras (JFC "visualizacion amplia e impactante"). Azul = asociado, verde = casa (validado para
        daltonismo). Largo de cada barra = lo vendido con comision de esa fila frente a la mayor. */
     var cmMax = grupos.reduce(function (a, g) { return Math.max(a, g.bruto); }, 0);
@@ -1777,19 +1924,22 @@
     };
     var tarjeta = function (g) {
       var l = cmVista === "percha" ? (liqs.find(function (x) { return x.ubicacionId === g.id; }) || null) : null;
-      if (l && l.stillDue != null) g.pend = Number(l.stillDue) || 0;
+      if (l && l.payoutBalances) g.pend = l.payoutBalances.reduce(function (n, r) { return n + Math.max(0, Number(r.due) || 0); }, 0);
       if (l && l.held != null) g.held = Number(l.held) || 0;
+      if (g.unknown) { g.pend = null; g.credit = null; }
       var moneyReview = l && l.needsReview || liqs.some(function(x){return x.needsReview && (g.ubicacionId===x.ubicacionId || g.ubicacionIds && g.ubicacionIds[x.ubicacionId]);});
-      var estado = moneyReview ? '<span class="cm-chip pend">' + (localStorage.getItem('f123_lang')==='es' ? 'revisar pagos' : 'review payments') + '</span>' : g.socio > 0 || (l && (l.ajustes || []).length) ? (g.pend !== 0 || g.held > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
+      var estado = moneyReview ? '<span class="cm-chip pend">' + (localStorage.getItem('f123_lang')==='es' ? 'revisar pagos' : 'review payments') + '</span>' : g.unknown ? '<span class="cm-chip pend">pending</span>' : g.socio !== 0 || g.credit > 0 || (l && (l.ajustes || []).length) ? (g.pend !== 0 || g.credit > 0 || g.held > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
       var sub = cmVista === "producto"
         ? "Rack: " + esc(Object.keys(g.perchas).join(", ") || "-") + (Object.keys(g.personas).length ? " · Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : "")
           + (g.unid && g.bruto > 0 ? " · <strong>" + (Math.round(g.socio / g.bruto * 1000) / 10) + "%</strong> to the associate" : "")
         : (l && l.asociadoNombre ? "Associate: <strong>" + esc(l.asociadoNombre) + "</strong>" + (l.pctEfectivo != null ? " · " + l.pctEfectivo + "%" : "") + (l.baseComision === "margen" ? " · on margin" : "") : (Object.keys(g.personas).length ? "Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : ""));
       var stats = '<div class="cm-stats">' +
+        (g.unknown ? '<div><div class="et">Commission</div><div class="n">' + (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") + "</div></div>" : "") +
         (g.unid !== 0 ? '<div><div class="et">Sold with commission</div><div class="n">' + money(g.bruto) + " <small>" + (g.unid===null?"pending":g.unid+"u") + "</small></div></div>" +
           '<div><div class="et">Associate takes</div><div class="n">' + money(g.socio) + "</div></div>" +
           '<div><div class="et">House keeps</div><div class="n">' + money(g.casa) + "</div></div>" : "") +
         (g.pend > 0 ? '<div><div class="et cm-rojo">Still to pay</div><div class="n cm-rojo">' + money(g.pend) + "</div></div>" : "") +
+        (g.credit > 0 ? '<div><div class="et">' + (localStorage.getItem('f123_lang') === 'es' ? 'Saldo a favor' : 'Credit balance') + '</div><div class="n">' + money(-g.credit) + "</div></div>" : "") +
         (g.held > 0 ? '<div><div class="et">' + (localStorage.getItem("f123_lang") === "es" ? "Retenido" : "On hold") + '</div><div class="n">' + money(g.held) + '</div></div>' : '') +
         (g.counterUnid !== 0 ? '<div><div class="et">House sale (no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + (g.counterUnid===null?"pending":g.counterUnid+"u") + "</small></div></div>" : "") +
         "</div>";
@@ -1812,7 +1962,7 @@
       var _idsPercha = Object.keys(g.ubicacionIds || {});
       var _perchaPago = cmVista === "percha" ? g.ubicacionId : (_idsPercha.length === 1 ? _idsPercha[0] : "");
       var acciones = "";
-      if ((cmVista === "producto" ? g.id : _perchaPago) && g.pend > 0 && !moneyReview) {
+      if ((cmVista === "producto" ? g.id : _perchaPago) && g.pend > 0 && !moneyReview && !g.unknown) {
         var _pagoDestino = cmVista === "producto" ? 'comisionproducto:' + encodeURIComponent(g.id) : 'comisiones:' + encodeURIComponent(_perchaPago);
         acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=' + _pagoDestino + '&mes=' + encodeURIComponent(cmMes || actual) + '">' + (function () { try { return localStorage.getItem("f123_lang") === "es" ? "Registrar pago total/parcial" : "Record full/partial payment"; } catch (_) { return "Record full/partial payment"; } })() + '</a>';
         if (cmVista === "percha") acciones += '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button>';
@@ -1853,6 +2003,7 @@
 
   function mostrar() {
     if (!autorizado) return;
+    revisionVistaExportacion++;
     document.body.setAttribute("data-dashboard-auth", "yes");
     $("puerta").style.display = "none";
     $("cabecera").style.display = "block";
@@ -1863,12 +2014,13 @@
     if (!$("tabsel").children.length) pintarSelector();
     /* v462: la primera vez se aplica la ruta del enlace (o el inicio); ella pinta la tabla y Avanzado si esa vista
        los usa. Las veces siguientes (cada repintado en vivo) solo se repinta lo que esta a la vista. */
+    logPendiente = true;
     if (!rutaAplicada) aplicarRuta(rutaDeHash());
     else {
       if (RUTAS[rutaHub].tablas) pintarTabla();
       if (rutaHub === "equipo") { try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {} }
     }
-    pintarLog();
+    pintarLogVisible();
     pintarFinanzasFoto();
     pintarHistorialVentas();
     try { pintarHub(); actualizarIsla(); } catch (e) { console.warn("[dashboard] hub", e); }
@@ -1921,6 +2073,7 @@
       try { if (tabla && tabla.redraw) tabla.redraw(true); } catch (_) {}
     }
     if (r === "equipo" && !(opc && opc.sinTabla)) { try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {} }
+    pintarLogVisible();
     try { window.scrollTo(0, 0); } catch (_) {}
   }
   window.addEventListener("hashchange", function () { if (autorizado) aplicarRuta(rutaDeHash()); });
@@ -1935,9 +2088,12 @@
       if (col[e] != null) col[e]++;
     });
     var pend = 0, perchas = {}, ultima = null;
+    cmMeses().forEach(function (mes) {
+      cmSaldosPeriodo(mes).forEach(function (r) {
+        if (r.due > 0) { pend += r.due; perchas[r.ubicacionId] = 1; }
+      });
+    });
     ventas.forEach(function (v) {
-      var x = cmPendienteVenta(v);
-      if (x > 0.004) { pend += x; perchas[v.ubicacionId || v.ubicacionNombre || ""] = 1; }
       if (!ultima || String(v.fecha || "") > String(ultima.fecha || "")) ultima = v;
     });
     if (typeof comisionesConImportePendiente === "function" ? comisionesConImportePendiente(ventas) : !!(datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false))) pend = null;
@@ -2065,16 +2221,18 @@
   /* v521 FLECHA DE COMISION (JFC 2026-10-14, Belen): igual que Expenses de la app. Comisiones del mes
      por direccion: la casa paga = gasto; el asociado paga a la casa = ingreso (la parte de la casa).
      Sale de las mismas ventas del tablero: cero consultas nuevas. Monto desconocido = pendiente, nunca 0. */
-  function flechaComisionesMesHtml() {
+  function flechaComisionesMesHtml(result) {
     var es = false; try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
     if (datos.cobertura && datos.cobertura.ventas === false) return "";
     var RM = window.OCBusinessReadModel, mes = String(fechaLocalDashboard(new Date().toISOString()) || "").slice(0, 7);
-    var delMes = (datos.ventas || []).filter(function (v) { return v && !v.anulada && !v.devuelta && v.comisionPct != null && String(v.fechaLocal || fechaLocalDashboard(v.fecha, v.relojDesfaseMs) || "").slice(0, 7) === mes; });
-    var paga = RM.sum(delMes.filter(function (v) { return v.direccionComision !== "asociadoPaga"; }).map(function (v) { return RM.number(v.comisionAsociado); }));
-    var recibe = RM.sum(delMes.filter(function (v) { return v.direccionComision === "asociadoPaga"; }).map(function (v) { return RM.number(v.netoCasa); }));
+    var coverage = datos.cobertura || {};
+    result = result || RM.businessResult({ sales: datos.ventas || [], adjustments: datos.ajustesComision || [], month: mes,
+      zone: zonaNegocioDashboard(), coverage: { sales: coverage.ventas === true, adjustments: coverage.ajustesComision === true, coherent: coverage.finanzasCoherentes === true } });
+    var paga = result.commissionPayableCents === null ? null : result.commissionPayableCents / 100;
+    var recibe = result.commissionReceivableCents === null ? null : result.commissionReceivableCents / 100;
     var m = function (n) { return n === null ? (es ? "pendiente" : "pending") : money(n); };
-    return '<p style="margin:0 0 7px;">' + (es ? "Comisiones que pagas este mes (gasto): " : "Commissions you pay this month (expense): ") + '<b style="color:#B0183E;">' + esc(m(paga)) + '</b> · ' +
-      (es ? "Comisiones que recibes este mes (ingreso): " : "Commissions you receive this month (income): ") + '<b style="color:#006B3C;">' + esc(m(recibe)) + '</b></p>';
+    return '<p style="margin:0 0 7px;">' + (es ? "Comisiones devengadas del mes · paga la casa (antes de pagos): " : "Accrued commissions this month · house pays (before payments): ") + '<b style="color:#B0183E;">' + esc(m(paga)) + '</b> · ' +
+      (es ? "Parte de la casa devengada del mes · paga el asociado (antes de pagos): " : "Accrued house share this month · associate pays (before payments): ") + '<b style="color:#006B3C;">' + esc(m(recibe)) + '</b></p>';
   }
   function pintarFinanzasFoto() {
     var el = $("finanzas-foto-contenido");
@@ -2082,6 +2240,7 @@
     var RM = window.OCBusinessReadModel;
     var zone = typeof zonaNegocioDashboard === "function" ? zonaNegocioDashboard() : "America/Guayaquil";
     var month = RM.day(new Date().toISOString(),zone).slice(0,7), coverage=datos.cobertura||{};
+    if (window.OCFinanceReport) window.OCFinanceReport.update(datos, zone);
     var result=RM.businessResult({sales:datos.ventas||[],expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],month:month,zone:zone,
       coverage:{sales:coverage.ventas===true,expenses:coverage.gastos===true,adjustments:coverage.ajustesComision===true,coherent:coverage.finanzasCoherentes===true}});
     var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
@@ -2103,13 +2262,21 @@
       '</b> · monthly shelf budget <b>' + esc(money(mensual)) + '</b> (not added to expense totals)</p>' +
       '<p style="margin:0 0 7px;">Transfers: <b>' + tras.length + '</b> · customer credit facts: <b>' + cartera.length +
       '</b> · petty cash facts: <b>' + caja.length + '</b></p>' +
-      flechaComisionesMesHtml() +
+      flechaComisionesMesHtml(result) +
       '<p style="margin:0;">Latest expenses: ' + esc(activos.slice(0, 5).map(function (g) { return (g.concepto || "expense") + " " + money(RM.number(g.monto)); }).join(" · ") || "none") + '</p>';
   }
 
   /* PERISCOPIO DE DATOS (JFC 2026-08-27). Pinta el log de movimientos y el
      estado de sync/accesos al fondo del tablero. Solo lee la foto que llegó
      del dispositivo y el localStorage local (mismo origen); no guarda nada. */
+  var logPendiente = true;
+  function pintarLogVisible() {
+    var panel = $("oc-log-tablero");
+    if (!autorizado || rutaHub !== "herramientas" || !panel || !panel.open || !logPendiente) return;
+    pintarLog();
+    logPendiente = false;
+  }
+  $("oc-log-tablero").addEventListener("toggle", pintarLogVisible);
   function pintarLog() {
     var syncEl = $("oc-log-sync");
     var tablaEl = $("oc-log-tabla");
@@ -2200,6 +2367,63 @@
     }).join("");
   }
 
+  var herramientasExportacion = {};
+  function cargarHerramientaExportacion(src, lista) {
+    if (lista()) return Promise.resolve();
+    if (herramientasExportacion[src]) return herramientasExportacion[src];
+    herramientasExportacion[src] = new Promise(function (resolve, reject) {
+      var script = document.createElement("script");
+      var timer = setTimeout(function () { terminar(new Error("Export load timeout")); }, 20000);
+      function terminar(error) {
+        clearTimeout(timer); script.onload = null; script.onerror = null;
+        if (error) { script.remove(); reject(error); } else resolve();
+      }
+      script.onload = function () { terminar(lista() ? null : new Error("Export dependency unavailable")); };
+      script.onerror = function () { terminar(new Error("Export dependency unavailable")); };
+      script.src = src; document.head.appendChild(script);
+    }).catch(function (error) { delete herramientasExportacion[src]; throw error; });
+    return herramientasExportacion[src];
+  }
+  function prepararExportacion(tipo) {
+    if (tipo === "xlsx") return cargarHerramientaExportacion("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js", function () { return !!window.XLSX; });
+    if (tipo !== "pdf") return Promise.resolve();
+    return cargarHerramientaExportacion("./vendor/jspdf-2.5.1.umd.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF); }).then(function () {
+      return cargarHerramientaExportacion("./vendor/jspdf-autotable-3.8.2.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF.API.autoTable); });
+    });
+  }
+  function capturarSesionExportacion() {
+    var sesion = codigoSesionActual;
+    return function () { return autorizado && sesion === codigoSesionActual && !bloquearSesionSiCambioTienda(); };
+  }
+  window.OCDashboardExports = { prepare: prepararExportacion, captureSession: capturarSesionExportacion };
+  function seleccionExportacion() {
+    var orden = tabla && typeof tabla.getSorters === "function" ? tabla.getSorters().map(function (s) { return [s.field, s.dir]; }) : [];
+    return JSON.stringify([vista, rutaHub, $("buscar").value, orden]);
+  }
+  async function ejecutarExportacion(boton, tipo, accion) {
+    if (boton.disabled) return;
+    // CSV/JSON/copy keep their synchronous user gesture (notably clipboard).
+    if (tipo !== "pdf" && tipo !== "xlsx") { accion(); return; }
+    var seleccionPedida = seleccionExportacion(), revisionPedida = revisionVistaExportacion;
+    var sesionValida = capturarSesionExportacion();
+    var cierreAnterior = $("cierre").innerHTML;
+    var es = localStorage.getItem("f123_lang") === "es";
+    boton.disabled = true; boton.setAttribute("aria-busy", "true");
+    $("cierre").textContent = es ? "Preparando exportación…" : "Preparing export…";
+    try {
+      await prepararExportacion(tipo);
+      if (!sesionValida()) return;
+      if (revisionPedida !== revisionVistaExportacion || seleccionPedida !== seleccionExportacion()) {
+        $("cierre").textContent = es ? "La vista cambió. Vuelve a exportar los datos actuales." : "The view changed. Export the current data again.";
+        return;
+      }
+      $("cierre").innerHTML = cierreAnterior;
+      accion();
+    } catch (_) {
+      if (sesionValida()) $("cierre").textContent = es ? "No se pudo cargar la herramienta de exportación. Comprueba la conexión y vuelve a pulsar el botón." : "The export tool could not load. Check your connection and press the button again.";
+    } finally { boton.disabled = false; boton.removeAttribute("aria-busy"); }
+  }
+
   function pintarSelector() {
     $("tabsel").innerHTML = Object.keys(VISTAS).map(function (k) {
       return '<button type="button" data-v="' + k + '"' + (k === vista ? ' class="on"' : "") + ">" + esc(VISTAS[k].nombre) + "</button>";
@@ -2227,7 +2451,7 @@
       '<button type="button" data-r="cli" style="border-color:#0F1923;">Customers up to date</button>');
     $("exp").addEventListener("click", function (e) {
       var b = e.target.closest("[data-r]");
-      if (b) reporte(b.dataset.r);
+      if (b) ejecutarExportacion(b, "pdf", function () { reporte(b.dataset.r); });
     });
     $("exp").addEventListener("click", function (e) {
       var b = e.target.closest("[data-x]");
@@ -2238,7 +2462,7 @@
           "No cargó la herramienta de exportación. Recarga la página con internet y vuelve a intentarlo.";
         return;
       }
-      exportar(b.dataset.x);
+      ejecutarExportacion(b, b.dataset.x, function () { exportar(b.dataset.x); });
     });
     $("buscar").addEventListener("input", function () { filtrar(this.value); });
     /* Agrupar Comisiones por trato o por persona. Vive en el pie porque es una
@@ -2380,6 +2604,7 @@
     var celdas = filas.map(function(r) {
       return cols.map(function(c) {
         var v = r[c.field];
+        if(vista==='clientes' && typeof c.accessorDownload==='function')return c.accessorDownload(v);
         if (c.field === "compro") {
           var nombres = {};
           (datos.ventas || []).forEach(function(venta) {
@@ -2552,9 +2777,9 @@
 
     } else if (cual === "cli") {
       titulo = esReporte ? "Clientes al día" : "Customer summary";
-      cols = esReporte ? ["Cliente", "Teléfono", "Compró hace", "Compras 90d", "Monto 90d"] : ["Customer","Phone","Last purchase","Purchases 90d","Amount 90d"];
+      cols = esReporte ? ["Cliente", "WhatsApp", "Reside en Cuenca", "Género", "Compró hace", "Compras 90d", "Monto 90d"] : ["Customer","WhatsApp","Lives in Cuenca","Gender","Last purchase","Purchases 90d","Amount 90d"];
       filas = (datos.clientes || []).map(function (c) {
-        return [c.nombre, c.telefono || "", c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? (esReporte?"pendiente":"pending") : (c.recencia == null ? (esReporte?"nunca":"never") : c.recencia + (esReporte?" días":" days")),
+        return [c.nombre, window.OCCustomerProfile.whatsapp(c.telefono), window.OCCustomerProfile.residentLabel(c.resideCuenca,esReporte), window.OCCustomerProfile.genderLabel(c.genero,esReporte), c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? (esReporte?"pendiente":"pending") : (c.recencia == null ? (esReporte?"nunca":"never") : c.recencia + (esReporte?" días":" days")),
                 String(c.frecuencia || 0), money(c.monto)];
       });
       pie = filas.length+(esReporte?" clientes activos.":" active customers.");
@@ -2851,7 +3076,7 @@
       return {
         id: v.id, productoId: v.productoId, fecha: v.fecha, fechaLocal: fechaLocalDashboard(v.fecha, v.relojDesfaseMs), productoNombre: p.nombre || "(deleted product)",
         sku: p.sku || "", categoria: p.categoria || "", cantidad: cant,
-        precioUnit: pu, costoUnit: cu,
+        precioUnit: pu, costoUnit: cu, impuesto: v.impuesto == null ? null : v.impuesto, noCommission: v.noCommission === true, split: v.split || null,
         clienteNombre: cli[v.clienteId] || "",
         ubicacionId: v.ubicacionId,
         ubicacionNombre: ubic[v.ubicacionId] || "",
@@ -2868,12 +3093,12 @@
         pagador: (v.info && v.info.nombrePagador) || "",
         comisionPct: v.split ? v.split.comisionPct : (_ledgerCore && _retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].pct : null),
         comisionAjusteRetroIncluido: !!(!v.split && _retroPorVenta[String(v.id)]),
-        comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : (_ledgerCore && _retroPorVenta[String(v.id)] ? +_ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC).toFixed(2) : 0),
+        comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : (_ledgerCore && _retroPorVenta[String(v.id)] ? +_ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC).toFixed(2) : v.noCommission === true ? 0 : null),
         netoCasa: v.split ? v.split.montoNetoDueno : (_ledgerCore && _retroPorVenta[String(v.id)] ? +(pu * cant - _ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC)).toFixed(2) : null),
         comisionCorregida: !!(v.split && v.split.corregida),
         direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha
         liquidada: !!v.liquidada,
-        comisionPendiente: _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
+        comisionPendiente: !v.split && !_retroPorVenta[String(v.id)] && v.noCommission !== true ? null : _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
         comisionRetenida: _ledgerCore ? _ledgerCore.money(_ledgerHeldVenta[String(v.id)] || 0) : 0,
         medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
         asociadoNombre: asoc[v.ubicacionId] || (!v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || "" : ""),
@@ -2901,8 +3126,7 @@
        retrospectiva, este total ya la trae corregida. */
     var mesActual = mesLocalDe(ahora);
     var liqPorPercha = {};
-    ventas.forEach(function (v) {
-      if (mesLocalDe(v.fecha) !== mesActual) return;
+    cmFilasDesde({ ventas: ventas, ajustesComision: e.ajustesComision || [], perchas: e.ubicaciones || [], payoutObligations: _ledgerObs }, mesActual).forEach(function (v) {
       if (v.comisionPct == null) return;              /* percha propia: no reparte */
       var id = v.ubicacionId || "";
       if (!liqPorPercha[id]) liqPorPercha[id] = {
@@ -2929,12 +3153,14 @@
       if (_ledgerCore) {
         var _dueC = _ledgerDueRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0;
         g.stillDue = +_ledgerCore.money(_dueC).toFixed(2);
+        g.payoutBalances = cmSaldos(cmFilasDesde({ ventas: ventas, ajustesComision: e.ajustesComision || [], perchas: e.ubicaciones || [], payoutObligations: _ledgerObs }, mesActual).filter(function (v) { return String(v.ubicacionId || "") === String(g.ubicacionId || ""); }));
+        g.ajustes = (e.ajustesComision || []).filter(function (a) { return String(a.ubicacionId || "") === String(g.ubicacionId || "") && mesLocalDe(a.fecha) === mesActual; });
         g.held = _ledgerCore.money(_ledgerHeldRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0);
         g.paymentConflicts = (e.payoutConflicts || []).filter(function(c){return c.records.some(function(p){return String(p.locationId)===String(g.ubicacionId) && p.period===mesActual;});});
-        g.paid = _ledgerCore.money(_ledgerObs.filter(function(o){return String(o.locationId)===String(g.ubicacionId) && mesLocalDe(String(o.order || '').split('|')[0])===mesActual;}).reduce(function(n,o){return n+(o.paidCents || 0);},0));
+        g.paid = _ledgerCore.money(_ledgerObs.filter(function(o){return String(o.locationId)===String(g.ubicacionId) && mesLocalDe(String(o.order || '').split('|')[0])===mesActual;}).reduce(function(n,o){return n+(o.paidCents || 0)*(o.signedAmountCents < 0 ? -1 : 1);},0));
         g.overpaid = _ledgerCore.money(_ledgerObs.filter(function(o){return String(o.locationId)===String(g.ubicacionId) && mesLocalDe(String(o.order || '').split('|')[0])===mesActual;}).reduce(function(n,o){return n+(o.overpaidCents || 0);},0));
         g.needsReview = g.paymentConflicts.length>0 || g.overpaid>0;
-        g.estado = g.stillDue === 0 && !g.held && !g.needsReview ? "pagado" : "pendiente";
+        g.estado = g.payoutBalances.every(function (r) { return r.dueCents === 0; }) && !g.held && !g.needsReview ? "pagado" : "pendiente";
         g.paymentStatus = g.needsReview ? 'review' : g.estado==='pagado' ? 'paid' : 'due';
       } else {
         g.estado = g.ventasPendientes === 0 ? "pagado" : "pendiente";
@@ -2948,6 +3174,8 @@
       ventas: ventas,
       liquidaciones: liquidaciones,
       payouts: e.payouts || [],
+      payoutConflicts: e.payoutConflicts || [],
+      payoutObligations: _ledgerObs,
       ajustesComision: e.ajustesComision || [],
       perchas: e.ubicaciones || [],
       resumen: { resumenDia: window.OCBusinessReadModel.daily(ventas,hoy,zonaNegocioDashboard()) },
@@ -3122,7 +3350,7 @@
       // An authenticated notebook can legitimately be empty or contain only expenses.
       datos.productos = d.productos; datos.clientes = d.clientes;
       datos.ventas = d.ventas; datos.resumen = d.resumen;
-      datos.liquidaciones = d.liquidaciones; datos.payouts = d.payouts || []; datos.ajustesComision = d.ajustesComision || []; datos.perchas = d.perchas;
+      datos.liquidaciones = d.liquidaciones; datos.payouts = d.payouts || []; datos.payoutConflicts = d.payoutConflicts || []; datos.payoutObligations = d.payoutObligations; datos.ajustesComision = cmAjustes(d); datos.perchas = d.perchas;
       datos.gastos = (e.gastos || []).filter(function (g) { return !g.borrado; });
       datos.transferencias = e.transferencias || [];
       datos.gastosMensuales = { porUbicacion: e.gastosMensuales || {},
@@ -3324,13 +3552,26 @@
     try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
     var campos = [
       ["nombre", es ? "Nombre" : "Name",120],
-      ["telefono", es ? "Teléfono" : "Phone",40],
+      ["telefono", "WhatsApp",40],
       ["email", "Email",160],
       ["notas", es ? "Notas" : "Notes",1200],
       ["rangoEdad", es ? "Rango de edad" : "Age range",12],
-      ["pais", es ? "País" : "Country",60]
+      ["pais", es ? "País" : "Country",60],
+      ["resideCuenca", es ? "Reside en Cuenca" : "Lives in Cuenca"],
+      ["genero", es ? "Género" : "Gender"]
     ];
     var original = {}, inputs = {};
+    function contactoValor(record,key) {
+      if(key==='resideCuenca')return window.OCCustomerProfile.resident(record[key]);
+      if(key==='genero')return window.OCCustomerProfile.gender(record[key]);
+      return String(record[key] || '');
+    }
+    function valorEditado(key) {
+      var input=inputs[key];
+      if(key==='resideCuenca')return input.indeterminate?null:input.checked;
+      if(key==='telefono' && input.value===window.OCCustomerProfile.whatsapp(original[key]))return original[key];
+      return input.value.trim();
+    }
     var dlg = document.createElement("dialog");
     dlg.id = "dashboard-contact-editor";
     dlg.style.cssText = "width:min(620px,calc(100% - 24px));max-height:90dvh;overflow:auto;padding:24px;border:2px solid #1C3049;border-radius:12px;background:white;color:#0F1923;box-sizing:border-box;";
@@ -3341,14 +3582,22 @@
     var campoCaja = document.createElement("div");
     campoCaja.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;";
     campos.forEach(function(spec) {
-      var k = spec[0]; original[k] = String(cli[k] || "");
+      var k = spec[0]; original[k] = contactoValor(cli,k);
       var label = document.createElement("label");
       label.style.cssText = "display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;";
       var tit = document.createElement("span"); tit.textContent = spec[1]; label.appendChild(tit);
-      var input = k === "notas" ? document.createElement("textarea") : document.createElement("input");
-      if (k !== "notas") input.type = k === "email" ? "email" : "text";
-      input.value = original[k]; input.maxLength = spec[2];
+      var input = document.createElement(k==='genero'?'select':k==='notas'?'textarea':'input');
+      if(k==='genero') ['unknown','male','female'].forEach(function(g){var option=document.createElement('option');option.value=g;option.textContent=window.OCCustomerProfile.genderLabel(g,es);input.appendChild(option);});
+      else if(k==='resideCuenca') {
+        input.type='checkbox';input.checked=original[k]===true;input.indeterminate=original[k]===null;
+        var estado=document.createElement('small');estado.textContent=window.OCCustomerProfile.residentLabel(original[k],es);label.appendChild(estado);
+        input.addEventListener('change',function(){estado.textContent=window.OCCustomerProfile.residentLabel(input.checked,es);});
+      } else if(k!=='notas')input.type=k==='email'?'email':k==='telefono'?'tel':'text';
+      if(k!=='resideCuenca')input.value=k==='telefono'?window.OCCustomerProfile.whatsapp(original[k]):original[k];
+      if(spec[2])input.maxLength=spec[2];
+      if(k==='telefono')input.addEventListener('blur',function(){input.value=window.OCCustomerProfile.whatsapp(input.value);});
       input.style.cssText = "width:100%;min-height:44px;padding:9px;border:2px solid #617388;border-radius:6px;color:#0F1923;background:#fff;font-size:16px;box-sizing:border-box;";
+      if(k==='resideCuenca')input.style.width='24px';
       inputs[k] = input; label.appendChild(input); campoCaja.appendChild(label);
     });
     dlg.appendChild(campoCaja);
@@ -3378,13 +3627,13 @@
       if (inputs.email.value && !inputs.email.checkValidity()) { msg.textContent = es ? "Email inválido." : "Invalid email."; return; }
       var cambios = {}, hayCambio = false;
       campos.forEach(function(spec) {
-        var k = spec[0], val = inputs[k].value.trim();
+        var k = spec[0], val = valorEditado(k);
         if (val !== original[k]) { cambios[k] = val; hayCambio = true; }
       });
       if (!hayCambio) { cerrar(); return; }
       var actual = (datos.clientes || []).find(function(c) { return String(c.id) === String(id); });
       if (!actual || campos.some(function(spec) {
-        var k = spec[0]; return String(actual[k] || "") !== original[k];
+        var k = spec[0]; return contactoValor(actual,k) !== original[k];
       })) {
         msg.textContent = es ? "La ficha cambió. Actualiza antes de editar." : "Customer changed. Refresh before editing.";
         return;
@@ -3406,7 +3655,7 @@
           r = await ordenar("PATCH",ruta,payload,destino);
         }
         if (!r || !r.ok || !r.datos || String(r.datos.id || "") !== String(id) ||
-            Object.keys(cambios).some(function(k) { return String(r.datos[k] || "") !== cambios[k]; })) {
+            Object.keys(cambios).some(function(k) { return contactoValor(r.datos,k) !== cambios[k]; })) {
           msg.textContent = (r && r.datos && r.datos.error) || (es ? "El guardado no se confirmó." : "Save was not confirmed.");
           return;
         }
@@ -3469,6 +3718,10 @@
     close.id = 'dashboard-editor-close'; close.type = 'button'; close.textContent = es ? 'Volver al dashboard' : 'Back to dashboard';
     close.addEventListener('click', cerrarEditorDashboard); bar.append(title, close);
     var frame = document.createElement('iframe'); frame.title = es ? 'Editor de Friendly' : 'Friendly editor';
+    var loading = document.createElement('span'); loading.setAttribute('role', 'status');
+    loading.textContent = es ? 'Cargando editor…' : 'Loading editor…'; bar.appendChild(loading);
+    frame.setAttribute('aria-busy', 'true');
+    frame.addEventListener('load', function () { loading.hidden = true; frame.removeAttribute('aria-busy'); });
     frame.src = url.href; editorDialog.append(bar, frame); document.body.appendChild(editorDialog);
     editorDialog.addEventListener('cancel', function (e) { e.preventDefault(); cerrarEditorDashboard(); });
     editorDialog.showModal(); close.focus();
@@ -4003,6 +4256,7 @@
     ["House share (before costs and expenses)", "Parte de la casa (antes de costos y gastos)"],
     ["Direct expenses", "Gastos directos"],
     ["House contribution (before general expenses)", "Contribución de la casa (antes de gastos generales)"],
+    ["Payment method", "Medio de pago"],
     ["monthly shelf budget", "presupuesto mensual de perchas"],
     ["(not added to expense totals)", "(no se suma a los gastos registrados)"],
     ["Profit", "Ganancia"],
@@ -4025,6 +4279,8 @@
     ["Monthly goal", "Meta mensual"],
     ["Tiers", "Escalas"],
     ["Phone", "Teléfono"],
+    ["Lives in Cuenca", "Reside en Cuenca"],
+    ["Gender", "Género"],
     ["Stock pending", "Stock pendiente de actualizar"],
     ["Expiry date", "Fecha de caducidad"],
     ["Cost", "Costo"],

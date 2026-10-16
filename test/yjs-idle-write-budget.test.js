@@ -5,6 +5,7 @@ const {browser}=require('./helpers/browser.cjs');
 async function peer(){
  const w=browser();delete w.JSON;
  Object.assign(w,{crypto:webcrypto,TextEncoder,TextDecoder,
+  F123Relay:{connect(){throw Error("No relay in store fixture")}},
   WebSocket:class{constructor(){throw Error('No production relay in this fixture')}},
   BroadcastChannel:class{constructor(){throw Error('No cross-test channel')}}});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),w);

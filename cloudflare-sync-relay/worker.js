@@ -62,16 +62,6 @@ function migrationJson(body, status = 200) {
   } });
 }
 
-// Muestreo determinista para la poda. El contador anterior vivia en memoria y
-// volvia a cero cada vez que el DO hibernaba; una sala con trafico intermitente
-// podia crecer para siempre sin alcanzar 256 en una misma encarnacion.
-function debePodar(id) {
-  let h = 2166136261;
-  const s = String(id || "");
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return (h >>> 0) % 256 === 0;
-}
-
 // Base64 -> ArrayBuffer (para reenviar lo guardado como frame binario, tal
 // cual lo espera el cliente). El relay NO descifra: solo mueve bytes.
 function b64aBuf(b64) {
@@ -123,13 +113,19 @@ export class SalaSync {
       // A durable retry needs no additional write, even when today's quota is full.
       const anterior = this.sql.exec("SELECT c FROM ops WHERE id = ?", String(id)).toArray();
       if (anterior.length) return true; // Stable operation id remains authoritative across fresh encryption IVs.
+      // Ciphertext age is not evidence of a recoverable replacement. In
+      // particular, photo rooms have no full checkpoint: never evict their
+      // oldest envelope to make room for a new one. Keep the existing capacity
+      // and reject unconfirmed writes so modern clients retain their outbox.
+      // Two indexed endpoint probes avoid COUNT/full scans, per-op metadata
+      // writes and volatile counters that disappear during hibernation. Holes
+      // from historical pruning conservatively consume capacity until a
+      // covered-prefix checkpoint frees it. Existing retries were checked above.
+      const capacity = this.sql.exec(
+        "SELECT (SELECT MAX(rowid) FROM ops) - (SELECT MIN(rowid) FROM ops) + 1 AS span"
+      ).toArray();
+      if (capacity.length && Number(capacity[0].span) >= MAX_OPS_SALA) return false;
       this.sql.exec("INSERT OR IGNORE INTO ops(id, lam, c) VALUES (?, ?, ?)", String(id), Number(lam) || 0, c);
-      /* COUNT(*) por CADA op era el quemador. Se muestrea por hash del id en
-         vez de contar en memoria: la hibernacion ya no desactiva la poda y no
-         agregamos una lectura/escritura de metadata por cada operacion. */
-      if (debePodar(id)) {
-        try { this.sql.exec("DELETE FROM ops WHERE id IN (SELECT id FROM ops ORDER BY lam DESC LIMIT -1 OFFSET ?)", MAX_OPS_SALA); } catch (_) {}
-      }
       return true;
     } catch (_) { return false; }
   }

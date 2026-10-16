@@ -1,5 +1,11 @@
 # Encrypted relay migration
 
+**October 16 update:** v537 hardens the native-only clients introduced in v536 under the owner's
+Cloudflare-for-licenses-only instruction. Inactive rooms stay local/pending;
+there is no Cloudflare sync fallback. No production migration or activation is
+performed by this change. Read [cutover prerequisites and measurement limits](CUTOVER.md).
+The historical rollout status below is not authorization to retain a data relay.
+
 This directory contains the PostgreSQL storage and a transport adapter for the
 existing Friendly relay protocol. It does not change the app UI, room or key
 derivation, business merge rules, or local outbox.
@@ -24,10 +30,10 @@ never put a service-role key in a browser. Configure bounded fetch timeouts on
 the injected client. The adapter preserves binary frames, durable ACKs,
 checkpoint conflicts, paginated recovery, presence and server-clock replies.
 
-`gateway.mjs` selects the backend once per connection. Its route lookup groups
+`gateway.mjs` checks native readiness once per connection. Its route lookup groups
 the simultaneous channel starts without background polling. New rooms default
 to inactive; the entire base/catalog/operations/photos group must be activated
-before native routing is allowed. A routing failure closes the pending socket
+before native routing is allowed. An inactive/legacy result or routing failure closes the pending socket
 rather than silently sending data to a different server. Existing local outbox
 and reconnect handlers retain their role.
 

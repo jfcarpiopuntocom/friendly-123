@@ -10,7 +10,10 @@ test('relay avoids per-operation table scans and indexes catch-up cursor', () =>
   assert.match(relay, /CREATE INDEX IF NOT EXISTS ops_lam ON ops\(lam\)/);
   assert.match(relay, /CREATE INDEX IF NOT EXISTS ops_lam_id ON ops\(lam, id\)/);
   assert.doesNotMatch(relay, /SELECT COUNT\(\*\) AS n FROM ops/);
-  assert.match(relay, /debePodar\(id\)/);
+  // Capacity rejection replaces historical blind pruning: a write cannot erase history.
+  const saveOperation = relay.slice(relay.indexOf("  _guardarOp("), relay.indexOf("  _guardarCkpt("));
+  assert.ok(saveOperation);
+  assert.doesNotMatch(saveOperation, /DELETE\s+FROM\s+ops/i);
   assert.doesNotMatch(relay, /_opsDesdePoda/);
   assert.match(relay, /const LEGACY_PULL_MAX = 128/);
   assert.match(relay, /cursor, LEGACY_PULL_MAX/);

@@ -37,7 +37,7 @@ test('commission money without a price remains pending and complete known zero r
     number:v=>v==null || v==='' || !Number.isFinite(Number(v))?null:Number(v),
     quantity:v=>v==null || !Number.isFinite(Number(v)) || Number(v)<=0?null:Number(v)
   }};
-  const {comisionesConImportePendiente:f}=isolated(dash,'  function comisionesConImportePendiente(filas) {','  function cmPendienteVenta(v) {',['datos','window'],[datos,window],['comisionesConImportePendiente']);
+  const {comisionesConImportePendiente:f}=isolated(dash,'  function comisionesConImportePendiente(','  function cmPendienteVenta(v) {',['datos','window'],[datos,window],['comisionesConImportePendiente']);
   assert.equal(f([{comisionPct:25,precioUnit:null,cantidad:1,comisionAsociado:null}]),true);
   assert.equal(f([{comisionPct:25,precioUnit:0,cantidad:1,comisionAsociado:0}]),false);
   datos.cobertura.ventas=false;

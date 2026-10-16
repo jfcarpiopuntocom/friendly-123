@@ -428,24 +428,27 @@ test('mock-backend calcularSplitVenta (product percent through a sale): pctAsoci
   assert.equal(v.split.origenComision, 'producto');
 });
 
-test('mock-backend _cobrado (through /api/reportes/balance): cash estimate is price x qty, plus tax only when tax was added on top', async () => {
-  // Why: _cobrado decides how much money counts as collected today.
+test('sales with added tax do not establish cash on hand', async () => {
+  // Gross charges remain available in P&L; cash requires a complete cash ledger.
   const app = newApp(); const s = await shop(app);
   await vende(app, s.ownProduct, { cantidad: 2 });
   const efectivo = async () => (await app.request(`/api/reportes/balance?ubicacionId=${s.own.id}`)).activos.efectivoEstimado;
-  assert.equal(await efectivo(), 200);
+  assert.equal(await efectivo(), null);
+  assert.equal((await app.request(`/api/reportes/pl?ubicacionId=${s.own.id}`)).ingresosConIva, 200);
   await app.request('/api/config/impuesto', 'PUT', { activo: true, tasa: 10, nombre: 'VAT', modo: 'agregado' });
   await vende(app, s.ownProduct, { cantidad: 1 });
-  assert.equal(await efectivo(), 310, '200 + (100 + 10 tax added on top)');
+  assert.equal(await efectivo(), null);
+  assert.equal((await app.request(`/api/reportes/pl?ubicacionId=${s.own.id}`)).ingresosConIva, 310);
 });
 
-test('mock-backend _cobrado (through /api/reportes/balance): a return today is subtracted at the same collected amount', async () => {
+test('a return reverses gross sales without inventing a cash balance', async () => {
   const app = newApp(); const s = await shop(app);
   const v1 = await vende(app, s.ownProduct, { cantidad: 2 });
   await vende(app, s.ownProduct, { cantidad: 1 });
   await app.request(`/api/ventas/${v1.id}/devolucion`, 'POST', { motivo: 'fixture' });
   const ef = (await app.request(`/api/reportes/balance?ubicacionId=${s.own.id}`)).activos.efectivoEstimado;
-  assert.equal(ef, 100, '300 sold minus the 200 returned');
+  assert.equal(ef, null);
+  assert.equal((await app.request(`/api/reportes/pl?ubicacionId=${s.own.id}`)).ingresosConIva, 100, '300 sold minus the 200 returned');
 });
 
 /* ===================== corregirComisionVenta / corregirComisionesDelMes ===================== */

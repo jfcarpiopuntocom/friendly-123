@@ -1,5 +1,14 @@
 # AGENTS.md — entrada vigente para asistentes de friendly-123
 
+## Directiva vigente de sincronización — JFC, 16 oct 2026
+
+Cloudflare queda para **licencias**, no para transacciones ni sync entre
+cuadernos. Esto sustituye las notas anteriores que permitían relay/fallback de
+negocio en Cloudflare. El máximo solicitado es 150 ms; ni p95 de 2 s ni una
+sonda de control acreditan ese objetivo. [Contrato de corte y evidencia](supabase-relay/CUTOVER.md)
+distingue código preparado, migración conservando historia, adopción y medición
+real. Esta actualización no autoriza despliegue ni activación de salas.
+
 ## AUDITORÍA DE LA ÚLTIMA JORNADA Y PRIORIDAD DE EXPERIENCIA (14 OCT 2026)
 - [Notion: auditoría verificable de 45 hallazgos — 38 comprobados / 7 riesgos](https://app.notion.com/p/3f91642b67f381c39a9efdadb132d079)
 - [GitHub: informe íntegro y fuentes](https://github.com/jfcarpiopuntocom/buscaclientes/blob/verify/shell-028-release-readiness/docs/AUDITORIA-24H-20261014-ERRORES-Y-CORRECCIONES.md)

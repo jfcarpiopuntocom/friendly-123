@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v534: preserve associate earnings without offering a house payment; retain cancellation recoveries; prepare reusable focused tests and exact-candidate publication.",
+  "changelog": "v538: load exports on demand, retain complete deferred history, right-size entry logos, unblock live frames during replay and persist complete fragment groups before durable sends.",
   "requerida": false,
-  "shell": "f123-shell-v534",
+  "shell": "f123-shell-v538",
   "apagar": [],
-  "releaseName": "v534",
-  "cacheGeneration": "golden98"
+  "releaseName": "v538",
+  "cacheGeneration": "golden102"
 }

@@ -194,7 +194,7 @@ test('Luis reparte con asistente al 33.33% en una venta de 33.33: nadie recibe m
   v.split.reparto.forEach(r => assert.equal(cents(r.monto), Math.round(r.monto * 100)));
 });
 
-test('Luis lanza 40 ventas, 10 devoluciones y 3 pagos en desorden: el pendiente = suma(splits no pagados) - ajustes no sellados', async () => {
+test('Luis lanza 40 ventas, 9 devoluciones y 3 pagos en desorden: historia y saldo concilian al centavo', async () => {
   const app = browser();
   const { helper, shelf } = await tienda(app);
   const product = await app.request('/api/productos', 'POST', { nombre: 'HPL bulk', sku: 'HPL-BULK', barcode: 'HPL-BULK', precio: 33.33, costo: 10, stockInicial: 500, ubicacionId: shelf.id });
@@ -213,13 +213,22 @@ test('Luis lanza 40 ventas, 10 devoluciones y 3 pagos en desorden: el pendiente 
   const back = await app.request('/api/respaldo/exportar');
   const l = await liq(app, shelf);
   const pendCents = lista.filter(v => v.split && !v.liquidada && !v.devuelta && !v.anulada).reduce((s, v) => s + cents(v.split.montoComisionSocio), 0);
-  const pendVentas = lista.filter(v => v.split && !v.liquidada && !v.devuelta && !v.anulada).length;
+  // A returned sale retains its original obligation and a dated offset;
+  // the pending-sale count includes that original until the offset is settled.
+  const pendVentas = lista.filter(v => v.split && !v.liquidada && !v.anulada).length;
   assert.equal(l.ventasPendientes, pendVentas, 'cuenta de ventas pendientes');
   back.ajustesComision.forEach(a => assert.ok(cents(a.montoComisionSocio) < 0, 'todo ajuste es negativo (clawback)'));
-  // Solo las devoluciones de ventas YA PAGADAS generan ajuste: en i=13 (ids[9], recien pagada
-  // en esa misma vuelta), i=17 (ids[13]) e i=29 (ids[25], pagada en i=27). Las otras 7 se
-  // devuelven sin ajuste porque nunca se habian pagado.
-  assert.equal(back.ajustesComision.length, 3, 'un ajuste por cada devolucion de venta pagada, ninguno por las no pagadas');
+  assert.equal(lista.length, 40, 'no return erases its original sale');
+  assert.equal(back.ajustesComision.length, 9, 'each return keeps exactly one dated reversal, paid or unpaid');
+  for (const returned of lista.filter(v => v.devuelta)) {
+    const adjustments = back.ajustesComision.filter(a => a.ventaId === returned.id);
+    assert.equal(adjustments.length, 1);
+    assert.equal(cents(adjustments[0].montoComisionSocio), -cents(returned.split.montoComisionSocio));
+  }
+  const earned = lista.reduce((n, v) => n + cents(v.split.montoComisionSocio), 0);
+  const reversed = back.ajustesComision.reduce((n, a) => n + cents(a.montoComisionSocio), 0);
+  const paid = back.payouts.filter(p => p.locationId === shelf.id).reduce((n, p) => n + (p.reversalOf ? -1 : 1) * p.amountCents, 0);
+  assert.equal(cents(l.stillDue), earned + reversed - paid, 'earnings minus returns and actual cash reconcile independently');
   const dup = new Set(back.ajustesComision.map(a => a.id));
   assert.equal(dup.size, back.ajustesComision.length, 'ids de ajuste unicos');
   assert.ok(pendCents >= 0);

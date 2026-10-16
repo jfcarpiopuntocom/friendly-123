@@ -46,7 +46,15 @@ test('legibilidad: ningun chip con texto blanco usa el verde o naranja claros; l
       assert.doesNotMatch(css, new RegExp('\\.(tchip|mini|bcg)-' + c + '\\{ background:var\\(--' + c + '\\)'), f + ': .' + c + ' con fondo claro bajo texto blanco');
     }
     assert.doesNotMatch(css, /background:#25D366 !important; color:#FFFFFF/, f + ': WhatsApp blanco sobre #25D366 (2.4:1)');
-    assert.match(css, /<img class="logo" alt="friendly-123" width="2088" height="427"/, f + ': logo con medidas (CLS)');
+    const logo = css.match(/<img\b[^>]*class="logo"[^>]*>/);
+    assert.ok(logo, f + ': logo presente');
+    assert.match(logo[0], /alt="friendly-123"/);
+    const src = logo[0].match(/src="(\.\/[^\"]+\.png)"/);
+    assert.ok(src, f + ': logo PNG local');
+    const png = fs.readFileSync(path.join(DOCS, src[1]));
+    const width = logo[0].match(/\bwidth="(\d+)"/), height = logo[0].match(/\bheight="(\d+)"/);
+    assert.ok(width && height, f + ': logo con medidas (CLS)');
+    assert.deepEqual([Number(width[1]), Number(height[1])], [png.readUInt32BE(16), png.readUInt32BE(20)], f + ': medidas intrinsecas del PNG real');
   }
   const app = leer('index.html');
   assert.doesNotMatch(app, /li\.naranja\{background:var\(--sim-naranja\); color:#FFFFFF/);

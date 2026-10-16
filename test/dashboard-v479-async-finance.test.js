@@ -24,7 +24,7 @@ function fixture() {
   ws:null,pulso:()=>{},mostrar:()=>{},Date,Number,Object
  };
  vm.createContext(ctx);
- vm.runInContext(extract('pintarDesdeLocal')+';this.paint=pintarDesdeLocal',ctx);
+ vm.runInContext(extract('cmAjustes')+';'+extract('pintarDesdeLocal')+';this.paint=pintarDesdeLocal',ctx);
  return {ctx,reqs};
 }
 test('dashboard old finance facts must never be shown before fresh IDB snapshot resolves',()=>{const f=fixture();assert.equal(f.ctx.paint({shop:'A'}),true);assert.equal(f.ctx.datos.productos[0].id,'A');assert.deepEqual(Array.from(f.ctx.datos.hechosFinancieros||[]),[],'old tenant financial facts must clear synchronously before new display');});

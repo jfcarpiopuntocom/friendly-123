@@ -1,65 +1,74 @@
-/* sync-latencia.js — MEDIR el SLA de ≤2 s en vez de afirmarlo.
-   (JFC 2026-09-22. Hasta hoy no existía UNA sola medición de latencia en todo
-   el código: solo una línea que decía "connected / NOT connected". Es decir que
-   la promesa de los 2 segundos no era falsa ni verdadera, era INDEMOSTRABLE.)
-
-   ─────────────────────────────────────────────────────────────────────
-   EL PROBLEMA DE FONDO: LOS RELOJES MIENTEN
-   ─────────────────────────────────────────────────────────────────────
-   La forma ingenua de medir esto es que el aparato A ponga su Date.now() en el
-   cambio y que B reste su propio Date.now() al recibirlo. ESO NO SIRVE: el
-   reloj del iPhone de Belén y el de la PC de JFC no están sincronizados. Pueden
-   diferir segundos o minutos. Con eso saldrían latencias negativas, o de tres
-   minutos, y ninguna sería real. Un número inventado es PEOR que no medir: da
-   falsa confianza, que es justo lo que ya costó caro en este proyecto.
-
-   ─────────────────────────────────────────────────────────────────────
-   LA SOLUCIÓN: UN SOLO RELOJ DE REFERENCIA (el del relay)
-   ─────────────────────────────────────────────────────────────────────
-   El relay es el único punto por el que pasan los dos aparatos. Se estima el
-   desfase de cada aparato contra el reloj del relay con el mismo intercambio
-   que usa NTP:
-
-       t0 = el aparato manda su hora        (reloj del aparato)
-       t1 = el relay responde con la suya   (reloj del relay)
-       t2 = el aparato recibe la respuesta  (reloj del aparato)
-
-       rtt    = t2 - t0                  (ida y vuelta, medido con UN solo reloj)
-       desfase = t1 - (t0 + t2) / 2      (cuánto adelanta el relay)
-
-   Con el desfase, cada aparato traduce su hora local a "hora del relay", y ahí
-   sí los dos hablan el mismo idioma: latencia = ahoraRelay() - marcaDeOrigen.
-
-   HONESTIDAD DE LA MEDICIÓN: el supuesto de NTP es que la ida tarda lo mismo
-   que la vuelta. Casi nunca es exacto, así que el error de una medición de una
-   sola dirección está acotado por rtt/2. Por eso `resumen()` devuelve SIEMPRE
-   el margen de error junto al número: "820 ms ±40" es una medición; "820 ms" a
-   secas es una afirmación disfrazada de medición. Se usa la muestra de MENOR
-   rtt (práctica estándar de NTP) porque es la de menor incertidumbre.
-
-   ─────────────────────────────────────────────────────────────────────
-   POR QUÉ ESTO NO PUEDE ROMPER EL SYNC
-   ─────────────────────────────────────────────────────────────────────
-   Este módulo NO toca el camino de datos de Yjs. No lee, no escribe y no
-   modifica ni un byte del documento ni de las operaciones. Viaja por frames de
-   control aparte (`k:"ts"` y `k:"lat"`), que un relay o un cliente viejo
-   simplemente ignora. Si este archivo no cargara, el sync funciona igual: lo
-   único que se pierde es el número. */
+/* sync-latencia.js — diagnóstico local, sin datos del negocio ni polling.
+   El presupuesto vigente es 150 ms MAXIMO, no p95 de 2 segundos.
+   La medición comprobable usa un único reloj monotónico del emisor: desde
+   publicar un update Yjs hasta recibir el ACK de aplicación + render remoto.
+   Incluye la vuelta del ACK: es una cota superior, NO latencia exacta de ida
+   ni tiempo desde el clic del usuario. Solo cubre peers conocidos al enviar.
+   k:"lat" y el reloj NTP legado siguen siendo diagnóstico de control; nunca
+   certifican entrega/aplicación visible ni cuentan para el veredicto.
+   Los límites siguientes acotan SOLO memoria diagnóstica, jamás datos sync. */
 (function () {
   "use strict";
 
   var TOPE_MUESTRAS = 200;   // buffer circular: memoria acotada en un teléfono
   var TOPE_EDAD_MS = 10 * 60 * 1000; // una muestra de hace 10 min ya no describe el ahora
-  /* LA PROMESA, con nombre. Es el numero mas importante del modulo y vivia
-     anonimo dentro de un ternario. Si JFC endurece el SLA, se cambia aqui y
-     en ningun otro lado. */
-  var SLA_MS = 2000;
-  var MIN_MUESTRAS_VEREDICTO = 5;   // con menos, un p95 es ruido: no se opina
+  var SLA_MS = 150;
+  var MIN_MUESTRAS_VEREDICTO = 5;
   var RTT_MAX_MS = 30000;           // ida y vuelta de 30 s no describe nada util
 
   var muestras = [];      // { ms, etiqueta, en }
   var mejorPing = null;   // { rtt, desfase, en } — la de MENOR rtt
   var descartadas = 0;    // muestras tiradas por no tener reloj común (se reporta)
+  var entregas = new Map();
+  var confirmadas = [];
+  var totalConfirmadas = 0;
+  var maxConfirmado = null;
+  var ultimaConfirmacion = null;
+  var noVerificadas = 0;
+  var TOPE_PEERS = 32;
+
+  function monotono() {
+    try {
+      var n = window.performance && window.performance.now();
+      return typeof n === "number" && isFinite(n) && n >= 0 ? n : null;
+    } catch (_) { return null; }
+  }
+  function idValido(id) { return typeof id === "string" && /^[a-zA-Z0-9_-]{1,80}$/.test(id); }
+  function canalValido(canal) { return canal === "catalogo" || canal === "ops" || canal === "fotos"; }
+
+  /* id/peers son identificadores aleatorios efímeros, nunca IDs del negocio.
+     [] significa cobertura desconocida (peer antiguo, desconectado, etc.).
+     No se reinicia el cronómetro al reintentar ni se convierte falta de ACK
+     en éxito. Si se agota memoria, el descarte impide aprobar esta sesión. */
+  function iniciarEntrega(id, canal, peers) {
+    if (entregas.has(id)) return false;
+    var ahora = monotono();
+    if (!idValido(id) || !canalValido(canal) || !Array.isArray(peers) ||
+        !peers.length || peers.length > TOPE_PEERS || !peers.every(idValido) ||
+        new Set(peers).size !== peers.length || ahora === null || entregas.size >= TOPE_MUESTRAS) {
+      noVerificadas++;
+      return false;
+    }
+    entregas.set(id, { inicio: ahora, canal: canal, faltan: new Set(peers) });
+    return true;
+  }
+  function confirmarEntrega(id, peer) {
+    var entrega = entregas.get(id);
+    if (!entrega || !entrega.faltan.has(peer)) return false;
+    var ahora = monotono();
+    if (ahora === null || ahora < entrega.inicio) { noVerificadas++; return false; }
+    entrega.faltan.delete(peer);
+    // El update termina cuando TODOS los peers esperados confirmaron.
+    if (entrega.faltan.size) return true;
+    var ms = ahora - entrega.inicio;
+    entregas.delete(id);
+    totalConfirmadas++;
+    maxConfirmado = maxConfirmado === null ? ms : Math.max(maxConfirmado, ms);
+    ultimaConfirmacion = ahora;
+    confirmadas.push(ms);
+    if (confirmadas.length > TOPE_MUESTRAS) confirmadas.shift();
+    return true;
+  }
 
   /* Se queda con el ping de menor rtt porque es el de menor incertidumbre.
      Un ping viejo se deja caducar: el desfase de un reloj deriva con el tiempo
@@ -110,34 +119,54 @@
     return muestras.filter(function (m) { return m.en >= corte; });
   }
 
-  /* El resumen dice SIEMPRE cuántas muestras lo sustentan y con qué margen.
-     Un p95 de 2 muestras no es un p95, y quien lo lea debe poder notarlo. */
-  function resumen() {
+  function resumenControl() {
     var v = vigentes();
     var ms = v.map(function (m) { return m.ms; }).sort(function (a, b) { return a - b; });
     return {
-      n: ms.length,
-      p50: percentil(ms, 50),
-      p95: percentil(ms, 95),
+      n: ms.length, p50: percentil(ms, 50), p95: percentil(ms, 95),
       max: ms.length ? ms[ms.length - 1] : null,
       ultima: v.length ? v[v.length - 1].ms : null,
-      margenMs: hayReloj() ? Math.round(mejorPing.rtt / 2) : null, // error acotado de una sola dirección
+      margenMs: hayReloj() ? Math.round(mejorPing.rtt / 2) : null,
       rttMs: hayReloj() ? Math.round(mejorPing.rtt) : null,
       desfaseMs: hayReloj() ? Math.round(mejorPing.desfase) : null,
-      descartadas: descartadas,
-      medible: hayReloj(),
-      // El veredicto del SLA solo se emite con muestras suficientes; con pocas
-      // se dice "sin datos" en vez de aprobar o reprobar a la ligera.
-      cumpleSLA: ms.length >= MIN_MUESTRAS_VEREDICTO ? (percentil(ms, 95) <= SLA_MS) : null,
+      descartadas: descartadas, medible: hayReloj(), cumpleSLA: null,
+      alcance: "sonda de control; no acredita aplicación visible",
+    };
+  }
+
+  function resumen() {
+    var control = resumenControl();
+    var ahora = monotono();
+    var ms = confirmadas.slice().sort(function (a, b) { return a - b; });
+    var fresca = ahora !== null && ultimaConfirmacion !== null &&
+      ahora >= ultimaConfirmacion && ahora - ultimaConfirmacion <= TOPE_EDAD_MS;
+    var vencidas = 0;
+    entregas.forEach(function (e) { if (ahora !== null && ahora - e.inicio > SLA_MS) vencidas++; });
+    var cumple = null;
+    if (fresca && maxConfirmado > SLA_MS) cumple = false;
+    else if (fresca && totalConfirmadas >= MIN_MUESTRAS_VEREDICTO && !entregas.size && !noVerificadas) cumple = true;
+    return {
+      n: totalConfirmadas, p50: percentil(ms, 50), p95: percentil(ms, 95),
+      max: maxConfirmado, ultima: confirmadas.length ? confirmadas[confirmadas.length - 1] : null,
+      muestrasPercentiles: ms.length,
+      pendientes: entregas.size, vencidas: vencidas, noVerificadas: noVerificadas,
+      medible: ahora !== null, vigente: fresca, cumpleSLA: cumple, objetivoMs: SLA_MS,
+      alcance: "publicación Yjs → aplicación y render de peers conocidos → ACK; incluye vuelta",
+      periodo: "desde reiniciar; máximo acumulado, percentiles de últimas 200 confirmaciones",
+      // Compatibilidad de diagnóstico de reloj, separado de la entrega.
+      margenMs: control.margenMs, rttMs: control.rttMs, desfaseMs: control.desfaseMs,
+      descartadas: control.descartadas, control: control,
     };
   }
 
   function texto() {
     var r = resumen();
-    if (!r.medible) return "latencia: sin reloj común todavía";
-    if (!r.n) return "latencia: conectado, sin cambios medidos aún";
-    return "latencia p50 " + Math.round(r.p50) + " ms · p95 " + Math.round(r.p95) +
-           " ms ±" + r.margenMs + " (" + r.n + " muestras)";
+    if (!r.n) return "entrega visible: sin confirmaciones verificadas · objetivo máximo 150 ms";
+    var estado = r.cumpleSLA === true ? "dentro del presupuesto medido" :
+      r.cumpleSLA === false ? "presupuesto de confirmación excedido" : "sin veredicto";
+    return "publicación → render remoto → ACK: máximo " + Math.ceil(r.max) +
+      " ms (incluye vuelta) · " + r.n + " cambios · " + estado +
+      " · pendientes " + r.pendientes + " · no verificadas " + r.noVerificadas;
   }
 
   /* DESVIO DE HORA (JFC 2026-09-30). Si el reloj del aparato esta corrido, las
@@ -159,7 +188,11 @@
     };
   }
 
-  function reiniciar() { muestras = []; mejorPing = null; descartadas = 0; }
+  function reiniciar() {
+    muestras = []; mejorPing = null; descartadas = 0;
+    entregas.clear(); confirmadas = []; totalConfirmadas = 0;
+    maxConfirmado = null; ultimaConfirmacion = null; noVerificadas = 0;
+  }
 
   window.OCLatencia = {
     /* SELLO DE RELOJ (JFC 2026-10-01, "worlds best practices, datos de miles de tiendas").
@@ -177,6 +210,7 @@
     },
     anotarPing: anotarPing, anotarMuestra: anotarMuestra, marcarOrigen: marcarOrigen,
     ahoraRelay: ahoraRelay, hayReloj: hayReloj, desvioReloj: desvioReloj, resumen: resumen, texto: texto, reiniciar: reiniciar,
+    iniciarEntrega: iniciarEntrega, confirmarEntrega: confirmarEntrega, resumenControl: resumenControl,
     SLA_MS: SLA_MS,
   };
 })();

@@ -8,12 +8,17 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const src=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 const block=src.slice(src.indexOf('  function _frame('),src.indexOf('  // Carga perezosa'));
 const tick=()=>new Promise(r=>setImmediate(r));
+async function esperar(condicion){
+ const limite=Date.now()+2000;
+ while(!condicion()&&Date.now()<limite)await new Promise(r=>setTimeout(r,1));
+ assert.ok(condicion(),'durable write must complete after encryption/fingerprint settles');
+}
 async function fixture(opts={}){
  const data=new Map(),sockets=[],timers=[];
  class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){if(opts.sendThrows&&typeof x!=='string')throw Error('socket closing');this.sent.push(x)}}
  const p={get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
- const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',WebSocket:Socket,
-  window:{dispatchEvent(){}},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,
+ const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,WebSocket:class{constructor(){throw Error('Raw relay fallback forbidden')}},
+  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,
   setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(){},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),
   cifrarBin:async(_,b)=>b.slice().buffer,descifrarBin:async(_,b)=>new Uint8Array(b),...(opts.ctx||{})};
@@ -27,12 +32,12 @@ const pendientes=(f)=>((f.data.get('f123_relay_outbox_v1-y')||{}).pending||[]).f
 
 test('2) si falla la huella SHA-256, el cambio igual queda pendiente para el relay',async()=>{
  const f=await fixture({ctx:{crypto:{subtle:{digest:async()=>{throw Error('digest unavailable')}}},TextEncoder}});
- f.channel.enviarUpdate(new Uint8Array([7,7,7]));for(let i=0;i<6;i++)await tick();
+ f.channel.enviarUpdate(new Uint8Array([7,7,7]));await esperar(()=>pendientes(f).length===1);
  assert.equal(pendientes(f).length,1);
 });
 test('3) si el envio por la red falla en ese instante, el cambio igual queda pendiente',async()=>{
  const f=await fixture({sendThrows:true});
- f.channel.enviarUpdate(new Uint8Array([8,8,8]));for(let i=0;i<6;i++)await tick();
+ f.channel.enviarUpdate(new Uint8Array([8,8,8]));await esperar(()=>pendientes(f).length===1);
  assert.equal(pendientes(f).length,1);
 });
 test('1) caer el relay no cierra las conexiones directas que siguen vivas',()=>{

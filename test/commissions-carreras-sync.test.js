@@ -91,7 +91,7 @@ test('A y B marcan pagado el mismo mes a la vez: al converger nada se paga dos v
   }
 });
 
-test('B devuelve una venta pendiente mientras A le corrige el %: converge anulada, sin ajuste y sin comision pendiente', async () => {
+test('B devuelve una venta pendiente mientras A le corrige el %: conserva la venta y su reverso exacto sin deuda', async () => {
   const A = browser(); const { shelf, product } = await tienda(A);
   await A.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
   const id = (await A.request('/api/respaldo/exportar')).ventas.pop().id;
@@ -101,9 +101,12 @@ test('B devuelve una venta pendiente mientras A le corrige el %: converge anulad
   sync(A, B);
   for (const X of [A, B]) {
     const v = await venta(X, id);
-    assert.equal(v.anulada, true, 'la anulacion no se pierde');
-    assert.equal((await ajustes(X)).length, 0, 'no pagada => sin clawback');
-    assert.equal((await liq(X, shelf)).ventasPendientes, 0, 'una venta anulada no debe comision');
+    assert.ok(!v.anulada, 'se conserva la venta original');
+    assert.equal(v.devuelta, true, 'la devolucion no se pierde');
+    const reversos = await ajustes(X);
+    assert.equal(reversos.length, 1, 'un reverso fechado para esta devolucion');
+    assert.equal(v.split.montoComisionSocio + reversos[0].montoComisionSocio, 0, 'la correccion offline no cambia el reparto congelado por la devolucion');
+    assert.equal((await liq(X, shelf)).stillDue, 0, 'la venta y su reverso no dejan comision pendiente');
   }
 });
 

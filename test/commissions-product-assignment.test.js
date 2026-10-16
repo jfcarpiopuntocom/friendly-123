@@ -53,9 +53,11 @@ test('old counter sale can be previewed and explicitly corrected without touchin
   const { app, artist, product, rack } = await setup('socio', false);
   const { ventaId } = await ventaCasaVieja(app, product, artist, 2);
   const before = (await app.request('/api/productos')).find(x => x.id === product.id);
+  const saleBefore = (await app.request('/api/ventas/todas')).find(x => x.id === ventaId);
+  assert.equal(saleBefore.comisionAsociado, null, 'legacy sale has no frozen commission evidence');
   const preview = await app.request(`/api/ventas/${ventaId}/asignar-comision`, 'POST', { promotoraId: artist.id, preview: true });
   assert.equal(preview.split.montoComisionSocio, 80);
-  assert.equal((await app.request('/api/ventas/todas')).find(x => x.id === ventaId).comisionAsociado, 0, 'preview never writes');
+  assert.deepEqual((await app.request('/api/ventas/todas')).find(x => x.id === ventaId), saleBefore, 'preview never writes');
   const done = await app.request(`/api/ventas/${ventaId}/asignar-comision`, 'POST', { promotoraId: artist.id, quien: 'Owner', motivo: 'Correct association' });
   assert.equal(done.venta.split.montoComisionSocio, 80);
   assert.equal(done.venta.split.montoNetoDueno, 120);

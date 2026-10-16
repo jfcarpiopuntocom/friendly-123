@@ -38,6 +38,9 @@ test('RED v448: dashboard Pay in the app carries the selected commission month',
     const page = await web.newPage({ viewport: { width: 1280, height: 900 } });
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
     const links = await page.evaluate(({ datos, prev }) => {
+      // Keep a positive residual after the dated return; a fully offset rack
+      // must not expose a payment link merely to satisfy this deep-link test.
+      datos.liquidaciones[0].ajustes[0].montoComisionSocio = -20;
       window.OCDashComisiones.pintarConDatos(datos);
       document.querySelector('[data-cm-vista="percha"]').click();
       const current = document.querySelector('#cm a.pagar')?.getAttribute('href') || '';

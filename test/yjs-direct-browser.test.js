@@ -14,7 +14,9 @@ test('real WebRTC transfers encrypted updates directly and falls back when a pee
    await page.evaluate(async source=>{
     const native=RTCPeerConnection;window.pcs=[];
     window.RTCPeerConnection=class extends native{constructor(){super({iceServers:[]});pcs.push(this)}};
-    window.socket=null;window.WebSocket=class{constructor(){this.readyState=1;this.sent=[];socket=this}send(x){this.sent.push(x)}};
+    window.socket=null;class SyntheticRelay{constructor(){this.readyState=1;this.sent=[];socket=this}send(x){this.sent.push(x)}};
+    window.F123Relay={connect:()=>new SyntheticRelay()};
+    window.WebSocket=class{constructor(){throw Error("Raw relay fallback forbidden")}};
     window.API={roomId:'synthetic-direct',clave:await crypto.subtle.importKey('raw',new Uint8Array(32).fill(17),'AES-GCM',false,['encrypt','decrypt'])};
     window.RELAY_URL='fixture:';window.log=()=>{};
     window.cifrarBin=async(k,p)=>{const iv=crypto.getRandomValues(new Uint8Array(12)),c=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,p)),r=new Uint8Array(12+c.length);r.set(iv);r.set(c,12);return r.buffer};
