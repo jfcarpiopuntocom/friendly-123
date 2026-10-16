@@ -147,7 +147,7 @@ entre si (JFC 2026-09-30).
 ## Informes PDF — indicación de JFC, 2026-10-16
 
 Para los informes del dashboard, la orden actual sustituye la regla anterior sin logo:
-marca existente como watermark **muy tenue, al fondo, a la derecha y dentro del marco**.
+la última indicación sitúa la marca existente junto a la paginación, dentro del marco.
 El recibo imprimible del asociado conserva su tratamiento sin marca.
 
 Composición A4: marco completo a 24 pt del papel, radio 4.5 pt (6 px),
@@ -156,6 +156,8 @@ Títulos 24 pt, cifras destacadas 26 pt en mono, tabla y metadatos 10.5 pt
 (equivalentes a 14 px), notas 11 pt. Se usan las familias PDF estándar
 Helvetica/Courier con la jerarquía display/body/mono de la app, sin descargar fuentes.
 Tinta, lienzo, hairline y acento rust conservan los tokens compartidos.
-Corrección expresa de JFC (2026-10-16): la marca anterior resultó gigante.
-La imagen existente queda limitada a 72 pt (25.4 mm) de ancho y usa opacidad 2%; nunca se atenúan importes ni advertencias.
-Cabecera, marco y watermark se repiten en cada página; pie con página/total.
+Decisión final de JFC (2026-10-16): la marca va **junto al número de página y ya**,
+como firma de nuestro informe. Sustituye los intentos de watermark de fondo.
+Logo existente a color, visible, 64 pt (22.6 mm) de ancho y separación de 12 pt
+respecto de la paginación, dentro del pie y del marco. Sin transparencia añadida.
+Cabecera y marco se repiten en cada página; pie con marca y página/total.

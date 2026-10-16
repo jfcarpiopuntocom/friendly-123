@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v544: reduce the PDF brand watermark to a small 25.4 mm signature at 2% opacity, inside the frame on the right.",
+  "changelog": "v545: place a small visible brand signature next to PDF page numbers; remove the background watermark.",
   "requerida": false,
-  "shell": "f123-shell-v544",
+  "shell": "f123-shell-v545",
   "apagar": [],
-  "releaseName": "v544",
-  "cacheGeneration": "golden108"
+  "releaseName": "v545",
+  "cacheGeneration": "golden109"
 }

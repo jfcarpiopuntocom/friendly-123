@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const { instrumentPDF, layout } = require('./helpers/report-pdf.cjs');
 
-test('long reports preserve rows, repeat their frame and faint brand inside every page, and reserve the footer', () => {
+test('long reports preserve rows, repeat their frame and visible footer brand on every page, and reserve the footer', () => {
   const tables = [], texts = [], PDF = instrumentPDF(tables, texts);
   const doc = new PDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const brands = [], frames = [], paragraphs = [];
@@ -33,9 +33,9 @@ test('long reports preserve rows, repeat their frame and faint brand inside ever
   assert.equal(brands.length, pages);
   assert.equal(frames.length, pages, 'all four frame sides are drawn on every page');
   for (const brand of brands) {
-    assert.ok(brand.w <= 72, 'the watermark remains a small signature, never a large background logo');
+    assert.ok(brand.w <= 72, 'the brand remains a small signature');
     assert.ok(brand.x > width / 2 && brand.x + brand.w < width - 24, 'the complete brand sits at the right, inside the frame');
-    assert.ok(brand.y > 24 && brand.y + brand.h < height - 88, 'the brand cannot enter the footer');
+    assert.ok(brand.y > height - 64 && brand.y + brand.h < height - 24, 'the brand sits in the footer next to pagination, outside the report body');
   }
   for (let i = 0; i < body.length; i++) assert.ok(texts.flat().includes('Synthetic item ' + i), 'no report row is lost');
   for (let i = 1; i <= pages; i++) assert.ok(texts.includes(i + ' / ' + pages), 'page totals match the final document');
@@ -45,5 +45,5 @@ test('long reports preserve rows, repeat their frame and faint brand inside ever
     assert.equal(paragraph.font, 11);
     assert.ok(!String(paragraph.value).includes('−'), 'the measured and printed minus glyph must agree');
   }
-  assert.ok(/\/ca 0\.02\b/.test(doc.output()), 'only the decorative image has very low opacity');
+  assert.ok(!/\/ca 0\.02\b/.test(doc.output()), 'the footer signature is visible without the old watermark opacity');
 });

@@ -30,15 +30,6 @@
       doc.saveGraphicsState();
       doc.setDrawColor.apply(doc, line); doc.setLineWidth(1.5);
       doc.roundedRect(24, 24, width - 48, height - 48, 4.5, 4.5, 'S');
-      // The complete image is INSIDE the four-sided frame. Opacity applies only
-      // to decoration, never report text, amounts or warnings.
-      if (options.logo) {
-        const image = doc.getImageProperties(options.logo), w = Math.min(72, (right - left) * 0.12);
-        const h = w * image.height / image.width;
-        doc.setGState(new doc.GState({ opacity: 0.02 }));
-        doc.addImage(options.logo, 'PNG', right - w, bottom - h - 8, w, h, 'friendly-report-brand');
-        doc.setGState(new doc.GState({ opacity: 1 }));
-      }
       font(10.5, true); doc.setTextColor.apply(doc, soft);
       doc.text(businessLines, left, 54, { lineHeightFactor: 14 / 10.5 });
       font(titleSize, true); doc.text(titleLines, left, titleY);
@@ -97,7 +88,15 @@
         doc.setPage(page); font(10.5); doc.setTextColor.apply(doc, soft);
         doc.setDrawColor.apply(doc, line); doc.setLineWidth(0.75); doc.line(left, height - 64, right, height - 64);
         doc.text(spanish ? 'Resumen del negocio · USD' : 'Business summary · USD', left, height - 44);
-        doc.text(page + ' / ' + count, right, height - 44, { align: 'right' });
+        const pageLabel = page + ' / ' + count;
+        // A visible signature next to pagination, not a background watermark.
+        if (options.logo) {
+          const image = doc.getImageProperties(options.logo), w = 64;
+          const h = w * image.height / image.width;
+          doc.addImage(options.logo, 'PNG', right - doc.getTextWidth(pageLabel) - 12 - w,
+            height - 54, w, h, 'friendly-report-brand');
+        }
+        doc.text(pageLabel, right, height - 44, { align: 'right' });
       }
     }
     return { table, paragraph, metrics, finish, top, bottom };
