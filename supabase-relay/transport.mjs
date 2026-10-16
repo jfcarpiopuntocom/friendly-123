@@ -15,7 +15,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
     CONNECTING = 0; OPEN = 1; CLOSING = 2; CLOSED = 3;
     readyState = 0; binaryType = 'arraybuffer'; bufferedAmount = 0;
     onopen = null; onmessage = null; onclose = null; onerror = null;
-    #channel; #serial = Promise.resolve(); #remove = Promise.resolve();
+    #channel; #serial = Promise.resolve(); #liveSerial = Promise.resolve(); #remove = Promise.resolve();
     #key = crypto.randomUUID();
 
     constructor(room) {
@@ -106,20 +106,25 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
         throw new DOMException('Relay buffer full', 'QuotaExceededError');
       }
       this.bufferedAmount += size;
-      this.#serial = this.#serial.then(async () => {
+      let control;
+      if (typeof copied === 'string') {
+        try { control = JSON.parse(copied); } catch (_) { /* legacy text is forwarded */ }
+      }
+      // Keep RPC writes/checkpoints/replay ordered, but never hold immediate
+      // encrypted frames behind a slow HTTP response. Both lanes share backpressure.
+      const durableLane = control && ['op', 'ckpt', 'pull', 'ts'].includes(control.k);
+      const queued = (durableLane ? this.#serial : this.#liveSerial).then(async () => {
         if (this.readyState !== 1) return;
         const frame = copied instanceof Blob ? new Uint8Array(await copied.arrayBuffer()) : copied;
-        if (typeof frame === 'string') {
-          let control;
-          try { control = JSON.parse(frame); } catch (_) { /* legacy text is forwarded */ }
-          if (control && typeof control === 'object' && control.k) return this.#command(control);
-        }
+        if (this.readyState !== 1) return;
+        if (control && typeof control === 'object' && control.k) return this.#command(control);
         // Realtime's WS serializer accepts ArrayBuffer for binary; typed arrays
         // would become a JSON object and no longer be the original wire bytes.
         const payload = typeof frame === 'string' ? frame : frame.buffer.slice(frame.byteOffset, frame.byteOffset + frame.byteLength);
         const sent = await this.#channel.send({ type: 'broadcast', event: 'opaque-frame', payload });
         if (sent !== 'ok') this.#fail();
       }).catch(() => this.#fail()).finally(() => { this.bufferedAmount = Math.max(0, this.bufferedAmount - size); });
+      if (durableLane) this.#serial = queued; else this.#liveSerial = queued;
     }
 
     async #command(command) {
@@ -160,7 +165,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
       this.readyState = 3;
       this.#emit('close', { code, reason, wasClean: code === 1000 });
     }
-    async settled() { await Promise.all([this.#serial, this.#remove]); }
+    async settled() { await Promise.all([this.#serial, this.#liveSerial, this.#remove]); }
   }
 
   return {

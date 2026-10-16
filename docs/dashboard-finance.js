@@ -99,18 +99,33 @@
     } catch (error) { document.getElementById('finance-status').textContent = error.message; }
   }
   async function exportPDF() {
-    await render(); if (!lastReport) return;
-    if (!window.jspdf || !window.jspdf.jsPDF) { document.getElementById('finance-status').textContent = text('PDF tool unavailable. Retry when it finishes loading.', 'La herramienta PDF no está disponible. Reintenta cuando termine de cargar.'); return; }
-    const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-    doc.setFontSize(16); doc.text(text('House profitability', 'Rentabilidad de la Casa'), 40, 40);
-    doc.setFontSize(10); doc.text(lastReport.period.from + ' — ' + lastReport.period.to, 40, 60);
-    doc.autoTable({ head: [lastReport.columns], body: lastReport.rows.map(values), startY: 76, styles: { fontSize: 9 }, headStyles: { fillColor: [15, 25, 35] } });
-    const total = lastReport.rows[0].result;
-    const explanation = text('Recorded expenses (including general): ', 'Gastos registrados (incluidos generales): ') + money(total.expensesCents) + '\n' + note();
-    const lines = doc.splitTextToSize(explanation, 750);
-    let y = doc.lastAutoTable.finalY + 24;
-    if (y + lines.length * 12 > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 40; }
-    doc.text(lines, 40, y); doc.save('house-result-' + lastReport.period.from + '-' + lastReport.period.to + '.pdf');
+    const button = document.getElementById('finance-pdf');
+    if (button.disabled) return;
+    const sessionValid = window.OCDashboardExports ? window.OCDashboardExports.captureSession() : () => false;
+    if (!sessionValid()) return;
+    button.disabled = true; button.setAttribute('aria-busy', 'true');
+    try {
+      const sourceRevision = revision, requested = buildReport();
+      document.getElementById('finance-status').textContent = text('Preparing PDF…', 'Preparando PDF…');
+      if (window.OCDashboardExports) await window.OCDashboardExports.prepare('pdf');
+      if (!sessionValid()) return;
+      const selected = buildReport();
+      if (revision !== sourceRevision || JSON.stringify(selected.period) !== JSON.stringify(requested.period) || selected.events !== requested.events) throw new Error(text('Data or selection changed. Export again.', 'Cambiaron los datos o la selección. Vuelve a exportar.'));
+      await render(); if (!lastReport || !sessionValid()) return;
+      if (!window.jspdf || !window.jspdf.jsPDF) { document.getElementById('finance-status').textContent = text('PDF tool unavailable. Retry when it finishes loading.', 'La herramienta PDF no está disponible. Reintenta cuando termine de cargar.'); return; }
+      const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      doc.setFontSize(16); doc.text(text('House profitability', 'Rentabilidad de la Casa'), 40, 40);
+      doc.setFontSize(10); doc.text(lastReport.period.from + ' — ' + lastReport.period.to, 40, 60);
+      doc.autoTable({ head: [lastReport.columns], body: lastReport.rows.map(values), startY: 76, styles: { fontSize: 9 }, headStyles: { fillColor: [15, 25, 35] } });
+      const total = lastReport.rows[0].result;
+      const explanation = text('Recorded expenses (including general): ', 'Gastos registrados (incluidos generales): ') + money(total.expensesCents) + '\n' + note();
+      const lines = doc.splitTextToSize(explanation, 750);
+      let y = doc.lastAutoTable.finalY + 24;
+      if (y + lines.length * 12 > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 40; }
+      doc.text(lines, 40, y); doc.save('house-result-' + lastReport.period.from + '-' + lastReport.period.to + '.pdf');
+    } catch (error) {
+      if (sessionValid()) document.getElementById('finance-status').textContent = text('Could not export PDF. Retry: ', 'No se pudo exportar el PDF. Reintenta: ') + error.message;
+    } finally { button.disabled = false; button.removeAttribute('aria-busy'); }
   }
   window.OCFinanceReport = { update, buildReport: calculate };
 })();

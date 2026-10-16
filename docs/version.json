@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v537: stabilize commission evidence, corrected-date tax labels, interrupted sync recovery and release identity; preserve native-only pending writes.",
+  "changelog": "v538: load exports on demand, retain complete deferred history, right-size entry logos and keep live sync independent of slow replay without changing durable ordering.",
   "requerida": false,
-  "shell": "f123-shell-v537",
+  "shell": "f123-shell-v538",
   "apagar": [],
-  "releaseName": "v537",
-  "cacheGeneration": "golden101"
+  "releaseName": "v538",
+  "cacheGeneration": "golden102"
 }

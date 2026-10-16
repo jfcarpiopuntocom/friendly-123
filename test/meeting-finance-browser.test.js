@@ -27,8 +27,12 @@ test('Spanish quarter report shows exact net result, downloads a real PDF and re
   try {
     const page = await browser.newPage();
     await page.goto(origin + '/dashboard.html', { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => window.OCFinanceReport && window.jspdf);
+    await page.waitForFunction(() => window.OCFinanceReport);
+    assert.equal(await page.evaluate(() => typeof window.jspdf), 'undefined', 'PDF tools load only when exporting');
     await page.evaluate(() => {
+      // This isolated financial module fixture supplies synthetic data directly;
+      // dashboard-demand-loading tests the real PIN/session cancellation path.
+      OCDashboardExports.captureSession = () => () => true;
       localStorage.setItem('f123_lang', 'es');
       OCFinanceReport.update({ ventas: [{ id: 's', fecha: '2026-10-16', cantidad: 1, precioUnit: 100, costoUnit: 10, comisionAsociado: 40, netoCasa: 60, ubicacionId: 'bar', ubicacionNombre: 'Bar' }], gastos: [{ id: 'g', monto: 15, fecha: '2026-10-16', categoria: 'services', ubicacionId: 'bar' }, { id: 'empty', monto: 5, fecha: '2026-10-17', categoria: 'services', ubicacionId: 'no-sales' }], ajustesComision: [], cobertura: { ventas: true, gastos: true, ajustesComision: true, finanzasCoherentes: true } }, 'America/Guayaquil');
       document.getElementById('finance-month').value = '2026-10';

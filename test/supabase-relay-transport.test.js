@@ -126,6 +126,51 @@ function closed(s) { return new Promise(resolve => { s.onclose = resolve; }); }
 function message(s) { return new Promise(resolve => { s.onmessage = resolve; }); }
 function tick() { return new Promise(r => setTimeout(r, 0)); }
 
+test('slow replay cannot delay live bytes while durable commands retain order', async () => {
+  let finishPull;
+  const db = fixture(action => action === 'pull' ? new Promise(resolve => { finishPull = resolve; }) : { ok: true });
+  const relay = createRelayTransport({ client: db.client }), socket = relay.connect('synthetic-room');
+  await opened(socket);
+  const received = [];
+  socket.onmessage = event => received.push(event.data);
+  socket.send(JSON.stringify({ k: 'pull', v: 2, seq: 0 }));
+  socket.send(JSON.stringify({ k: 'op', ack: 1, id: 'pending-1', c: 'AQI=' }));
+  const live = new Uint8Array([7, 8]);
+  socket.send(live); live[0] = 99;
+  socket.send(new Blob([new Uint8Array([9, 10])]));
+  await tick();
+  try {
+    assert.deepEqual(db.commands.map(x => x.p_action), ['pull'], 'durable write still waits for replay');
+    assert.deepEqual(db.channels[0].sent.map(x => [...new Uint8Array(x.payload)]), [[7, 8], [9, 10]], 'live frames leave in order with copied bytes');
+    assert.deepEqual(received, [], 'broadcast is never a durable acknowledgement');
+  } finally {
+    finishPull({ frames: ['AQI='], rev: 0, seq: 1, n: 1, more: false });
+    await socket.settled();
+    await relay.dispose();
+  }
+  assert.deepEqual(db.commands.map(x => x.p_action), ['pull', 'op']);
+  assert.equal(JSON.parse(received[1]).k, 'pull-page');
+  assert.equal(JSON.parse(received[2]).k, 'persist-result');
+  assert.equal(socket.bufferedAmount, 0);
+});
+
+test('live and durable lanes share the buffer limit and closing drops unsent frames', async () => {
+  let finishPull;
+  const db = fixture(() => new Promise(resolve => { finishPull = resolve; }));
+  const relay = createRelayTransport({ client: db.client }), socket = relay.connect('synthetic-room');
+  await opened(socket);
+  socket.send(JSON.stringify({ k: 'pull', v: 2 }));
+  await tick();
+  const frame = new Uint8Array(256 * 1024);
+  assert.throws(() => { for (let i = 0; i < 17; i++) socket.send(frame); }, /buffer full/);
+  assert.equal(socket.readyState, 3);
+  finishPull({ frames: [], rev: 0, seq: 0, n: 0, more: false });
+  await socket.settled();
+  assert.equal(db.channels[0].sent.length, 0);
+  assert.equal(socket.bufferedAmount, 0);
+  await relay.dispose();
+});
+
 for (const binaryType of ['arraybuffer','blob']) {
  test('local replay metadata distinguishes live bytes during an in-flight pull: '+binaryType,async()=>{
   let finish;const db=fixture(()=>new Promise(resolve=>{finish=resolve}));
