@@ -48,10 +48,16 @@ test('new own-stock allocation and frozen tax survive reload, sync and report pr
 test('unallocated general expense keeps scoped profit unknown', async () => {
   const { w, u, p } = await shop();
   await w.request(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 1 });
+  // Isolate this business result from the fixture's historical demo sales,
+  // whose missing commission evidence correctly makes their profit unknown.
+  const backup = await w.request('/api/respaldo/exportar');
+  backup.ventas = backup.ventas.filter(v => v.productoId === p.id);
+  await w.request('/api/respaldo/importar', 'POST', backup);
   const before = (await w.request('/api/reportes/pl')).utilidadNeta;
+  assert.equal(before, 90, 'known $100 sale less $10 cost');
   await w.request('/api/gastos', 'POST', { concepto: 'Synthetic general service', monto: 5, categoria: 'services' });
   assert.equal((await w.request(`/api/reportes/pl?ubicacionId=${u.id}`)).utilidadNeta, null);
-  assert.equal((await w.request('/api/reportes/pl')).utilidadNeta, +(before - 5).toFixed(2));
+  assert.equal((await w.request('/api/reportes/pl')).utilidadNeta, 85);
 });
 
 test('frozen no-commission proof does not change when today product gains an associate', () => {
