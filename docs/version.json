@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v538: load exports on demand, retain complete deferred history, right-size entry logos and keep live sync independent of slow replay without changing durable ordering.",
+  "changelog": "v538: load exports on demand, retain complete deferred history, right-size entry logos, unblock live frames during replay and persist complete fragment groups before durable sends.",
   "requerida": false,
   "shell": "f123-shell-v538",
   "apagar": [],

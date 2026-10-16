@@ -131,6 +131,51 @@ function fragment(index=0,id=65){
  const bytes=new Uint8Array(24);bytes[0]=3;bytes[1]=0;bytes.fill(id,2,18);bytes[19]=index;bytes[21]=2;bytes[22]=index+1;return bytes;
 }
 function controls(socket,kind){return socket.sent.filter(x=>typeof x==='string').map(JSON.parse).filter(x=>x.k===kind)}
+test('a fragmented update stores every sibling before the first durable send and retries the whole group',async()=>{
+ const a=await fixture();let release;
+ const waiting=new Promise(resolve=>{release=resolve});
+ a.ctx.crypto={subtle:{digest:async(_algorithm,bytes)=>new Uint8Array([bytes[19]]).buffer}};
+ a.ctx.cifrarBin=async(_key,bytes)=>{
+  if(bytes[0]===3&&bytes[19]===1)await waiting;
+  return bytes.slice().buffer;
+ };
+ const snapshots=[];const send=a.socket.send.bind(a.socket);
+ a.socket.send=frame=>{if(typeof frame==='string'&&JSON.parse(frame).k==='op')snapshots.push(a.data.get('f123_relay_outbox_v1-y')?.pending.length);send(frame)};
+ a.channel.enviarUpdate(new Uint8Array(350000));await tick();await tick();
+ assert.equal(controls(a.socket,'op').length,0,'no durable orphan while a sibling is still being prepared');
+ release();await esperar(()=>controls(a.socket,'op').length===3,'all siblings are sent');
+ assert.deepEqual(snapshots,[3,3,3],'the complete group is locally durable before any fragment is sent');
+ const entries=structuredClone(a.data.get('f123_relay_outbox_v1-y').pending);
+ const b=await fixture(a.data);
+ assert.deepEqual(controls(b.socket,'op').map(x=>[x.id,x.c]),entries.map(x=>[x.id,x.c]),'reload retries the same complete encrypted group');
+});
+test('an update prepared during an in-flight outbox write cannot be cleared from the next write',async()=>{
+ const a=await fixture();let release,started;
+ const initialLive=a.socket.sent.filter(x=>x instanceof ArrayBuffer).length;
+ a.ctx.crypto={subtle:{digest:async(_algorithm,bytes)=>new Uint8Array([bytes[bytes.length-1]]).buffer}};
+ const writing=new Promise(resolve=>{started=resolve}),blocked=new Promise(resolve=>{release=resolve});
+ const save=a.p.set;a.p.set=async(key,value)=>{
+  const snapshot=structuredClone(value);
+  if(key==='f123_relay_outbox_v1-y'&&!release.done){started();await blocked;release.done=true}
+  return save(key,snapshot);
+ };
+ a.channel.enviarUpdate(new Uint8Array([1]));await writing;
+ a.channel.enviarUpdate(new Uint8Array([2]));await esperar(()=>a.socket.sent.filter(x=>x instanceof ArrayBuffer).length===initialLive+2,'both live updates finish preparation');
+ release();await esperar(()=>controls(a.socket,'op').length===2,'both durable sends complete');
+ assert.equal(a.data.get('f123_relay_outbox_v1-y').pending.length,2,'a later prepared update remains durably retryable');
+});
+test('failed fragment encryption never publishes a partial durable group',async()=>{
+ const a=await fixture();let prepared=0;
+ a.ctx.cifrarBin=async(_key,bytes)=>{
+  prepared++;
+  if(bytes[0]===3&&bytes[19]===1)throw Error('synthetic encryption failure');
+  return bytes.slice().buffer;
+ };
+ a.channel.enviarUpdate(new Uint8Array(350000));
+ await esperar(()=>prepared===3,'all fragment preparations run');await tick();await tick();
+ assert.equal(controls(a.socket,'op').length,0);
+ assert.equal(a.data.get('f123_relay_outbox_v1-y')?.pending.length||0,0);
+});
 test('abandoned live fragments cannot latch durable recovery or checkpoint creation',async()=>{
  const a=await fixture();
  a.socket.onmessage({data:fragment().buffer,relaySource:'live'});

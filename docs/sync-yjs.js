@@ -273,11 +273,17 @@
         return leerOutbox().then(function (saved) {
           _outbox = saved && Array.isArray(saved.pending) ? saved : { pending: [], checkpoint: "", confirmed: [] };
           if (!Array.isArray(_outbox.confirmed)) _outbox.confirmed = [];
-          _unsaved.forEach(function (entry) {
+          var included = _unsaved.slice();
+          included.forEach(function (entry) {
             if (!_outbox.pending.some(function (x) { return x.id === entry.id; })) _outbox.pending.push(entry);
           });
           change();
-          return guardarOutbox().then(function () { _unsaved = []; avisarDurable(); });
+          return guardarOutbox().then(function () {
+            // Preparation continues while IndexedDB commits. Only remove the
+            // entries included in this write; later groups still need saving.
+            _unsaved = _unsaved.filter(function (entry) { return !included.includes(entry); });
+            avisarDurable();
+          });
         });
       };
       // Tabs share this IndexedDB: serialize read/modify/write across contexts as well.
@@ -307,14 +313,21 @@
       try { _outbox.pending.slice(0, 32).forEach(enviarDurable); } catch (_) {}
       programarDurable();
     }
-    function guardarSobre(entry) {
-      if (_outbox.confirmed && _outbox.confirmed.includes(entry.fingerprint || entry.id)) return;
-      if (_outbox.pending.some(function (x) { return x.id === entry.id || (entry.fingerprint && x.fingerprint === entry.fingerprint); }) ||
-          _unsaved.some(function (x) { return x.id === entry.id || (entry.fingerprint && x.fingerprint === entry.fingerprint); })) return;
-      _unsaved.push(entry);
+    function guardarSobre(entry) { guardarSobres([entry]); }
+    function guardarSobres(entries) {
+      var added = entries.filter(function (entry) {
+        if (_outbox.confirmed && _outbox.confirmed.includes(entry.fingerprint || entry.id)) return false;
+        return !_outbox.pending.concat(_unsaved).some(function (x) {
+          return x.id === entry.id || (entry.fingerprint && x.fingerprint === entry.fingerprint);
+        });
+      });
+      if (!added.length) return;
+      // All siblings enter one atomic local outbox write before any durable
+      // fragment is sent. A restart can then retry the complete group.
+      _unsaved.push.apply(_unsaved, added);
       avisarDurable();
       var next = _durableQueue.then(function () {
-        return mutarOutbox(function () {}).then(function () { enviarDurable(entry); programarDurable(); });
+        return mutarOutbox(function () {}).then(function () { added.forEach(enviarDurable); programarDurable(); });
       });
       _durableQueue = next.catch(function () { log("guardado del envio pendiente en " + nombre); avisarDurable(); programarDurable(); });
     }
@@ -396,6 +409,7 @@
       var piezas = Math.max(1, Math.ceil(payload.length / CHUNK_BYTES));
       if (piezas > 65535) { log("update Yjs excede limite de trozos"); return; }
       var id = Date.now().toString(36).padStart(10, "0").slice(-10) + Math.random().toString(36).slice(2, 8).padEnd(6, "0");
+      var prepared = [];
       for (var n = 0; n < piezas; n++) {
         var pedazo = payload.subarray(n * CHUNK_BYTES, (n + 1) * CHUNK_BYTES);
         let frame;
@@ -408,13 +422,14 @@
           frame[20] = piezas >> 8; frame[21] = piezas & 255;
           frame.set(pedazo, 22);
         }
-        cifrarBin(API.clave, frame).then(async function (buf) {
+        prepared.push(cifrarBin(API.clave, frame).then(async function (buf) {
           if (buf.byteLength > MAX_OP_BYTES) { log("trozo Yjs supera limite: " + buf.byteLength); return; }
           /* v514 (JFC 2026-10-14, fallos 2 y 3 que reprodujo Codex en v512): primero se GUARDA
              el pendiente y despues se envia. Antes, si fallaba la huella SHA-256 o el envio
              lanzaba justo en ese instante, el .catch vacio se tragaba el error y el cambio
              nunca quedaba pendiente para el relay. La huella es opcional: sin ella se
              deduplica por id. Prueba: test/sync-v514-fallos-codex.test.js */
+          var op;
           if (persistir) {
             var stableId = Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8), fingerprint = "";
             try {
@@ -424,8 +439,8 @@
               }
             } catch (_) { fingerprint = ""; }
             // Content fingerprint stays local; the relay still sees a random id and ciphertext.
-            var op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
-            if (JSON.stringify(op).length > MAX_OP_BYTES) log("op Yjs supera limite"); else guardarSobre(op);
+            op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
+            if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
           }
           var directo = false;
           try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
@@ -433,8 +448,13 @@
             try { if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf); }
             catch (_) { canal.pend.push(buf); }
           }
-        }).catch(function () {});
+          return op;
+        }).catch(function () {}));
       }
+      if (persistir) Promise.all(prepared).then(function (entries) {
+        if (entries.every(function (entry) { return !!entry; })) guardarSobres(entries);
+        else log("grupo Yjs incompleto; no se envia historial parcial");
+      }).catch(function () {});
     }
     /* PERSISTENCIA DEL SYNC NUEVO (JFC 2026-09-15, v285). EL BUG DE 3 SEMANAS: el
        relay solo REBOTA los frames binarios de Yjs en vivo, NO los guarda. Así dos
