@@ -3038,7 +3038,7 @@
     if (tR !== tL) return tR > tL;
     return _claveEpocaStock(remoto) > _claveEpocaStock(local);
   }
-  function emitirOpStock(tipo, payload) {
+  function _prepararOpStock(payload, idOperacion) {
     /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
        Dos dispositivos del mismo negocio pueden tener el MISMO producto con ids
        distintos (creado por separado en cada uno). El receptor (aplicarOpRemota)
@@ -3063,8 +3063,8 @@
               _sp.stockBase = Number(_sp.stockActual) - delta;
               _sp.stockPN = {};
             }
-            let idStock = "";
-            try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
+            let idStock = idOperacion || "";
+            if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
             if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
             const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
             if (delta > 0) contador.add += delta; else contador.sub += -delta;
@@ -3087,8 +3087,11 @@
           _sp.stockTs = Number.isFinite(Number(_stockAhoraRelay)) ? Number(_stockAhoraRelay) : Date.now();
         }
       } catch (_) {}
-      try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
     }
+  }
+  function emitirOpStock(tipo, payload, preparado = false) {
+    if (!preparado) _prepararOpStock(payload);
+    if (payload && payload.productoId) avisarCatalogoCambiado();
     if (window.OCSyncEmit) {
       try {
         // false = la cola del sync viejo no pudo guardar la op (localStorage lleno).
@@ -3672,17 +3675,31 @@
           const domina = _revDomina(v.rev, local.rev) === true;
           const pagadaLocal = !!local.liquidada, splitLocal = local.split;
           const pagadaRemota = !!v.liquidada, splitRemoto = v.split;
+          const devueltaLocal = !!local.devuelta, anuladaLocal = !!local.anulada;
+          const retornoLocal = local.devolucionId || null, fechaRetornoLocal = local.fechaDevolucion || null;
+          // A return freezes the economic receipt it reverses. An offline edit
+          // must not replace that receipt while leaving its old negative amount.
+          const ventaRetornada = devueltaLocal && !v.devuelta ? clonar(local)
+            : (!devueltaLocal && v.devuelta ? v : null);
           const medioLocal = local.medioPagoComision || null;
           const canceladaExPostLocal = local.canceladaExPostEn || null;
           if (domina) { Object.assign(local, v); actualizados++; }
+          if (ventaRetornada) {
+            ["cantidad", "precioUnit", "costoUnit", "fecha", "split", "impuesto", "noCommission", "modoComision", "clienteId", "info", "promotoraId", "asistenteId", "asistentePct", "direccionComision"].forEach(campo => {
+              if (Object.prototype.hasOwnProperty.call(ventaRetornada, campo)) local[campo] = clonar(ventaRetornada[campo]);
+              else delete local[campo];
+            });
+          }
           /* Medio de pago (2026-09-24): una vez sellado, manda el del lado que pago. */
           local.medioPagoComision = medioLocal || v.medioPagoComision || local.medioPagoComision || undefined;
           if (local.medioPagoComision === undefined) delete local.medioPagoComision;
           local.liquidada = pagadaLocal || pagadaRemota;
-          local.devuelta = !!(local.devuelta || v.devuelta);
-          local.anulada = !!(local.anulada || v.anulada);
+          local.devuelta = !!(devueltaLocal || v.devuelta);
+          local.anulada = !!(anuladaLocal || v.anulada);
           local.canceladaExPostEn = canceladaExPostLocal || v.canceladaExPostEn || null;
-          if (!local.devolucionId && v.devolucionId) local.devolucionId = v.devolucionId;
+          local.devolucionId = retornoLocal || v.devolucionId || null;
+          const retorno = ajustesComision.find(a => a && a.tipo === "devolucion" && (a.id === local.devolucionId || a.ventaId === local.id));
+          local.fechaDevolucion = (retorno && retorno.fecha) || fechaRetornoLocal || v.fechaDevolucion || null;
           if (pagadaLocal && splitLocal) local.split = splitLocal;
           else if (pagadaRemota && splitRemoto) local.split = splitRemoto;
           if (local.liquidada && local.split && (local.anulada || local.devuelta)) {
@@ -3702,7 +3719,7 @@
           }
           return;
         }
-        ventas.push({ id: v.id, ...(_direccionValida(v.direccionComision) ? { direccionComision: v.direccionComision } : {}), ...(Array.isArray(v.direccionCambios) ? { direccionCambios: v.direccionCambios.slice(-20) } : {}), productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
+        ventas.push({ id: v.id, ...(_direccionValida(v.direccionComision) ? { direccionComision: v.direccionComision } : {}), ...(Array.isArray(v.direccionCambios) ? { direccionCambios: v.direccionCambios.slice(-20) } : {}), productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: Number(v.cantidad) || 0, precioUnit: Number(v.precioUnit) || 0, costoUnit: Number(v.costoUnit) || 0, fecha: v.fecha || new Date().toISOString(), split: v.split || null, liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, noCommission: v.noCommission === true, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, fechaDevolucion: v.fechaDevolucion || null, medioPagoComision: v.medioPagoComision || undefined, origenRemoto: true });
         _idsVenta.set(String(v.id), ventas[ventas.length - 1]);
         ventasAgregadas++;
       });
@@ -4341,7 +4358,7 @@
            viaja ADD-ONLY por id (sembrarVentasAlRelay la manda como op individual,
            no en el batch, para no reventar el frame). El receptor la SUMA una sola
            vez (ver aplicarCatalogo). No duplica plata; el stock es LWW aparte. */
-        ventas: ventas.filter((v) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ventas", v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, direccionComision: _direccionValida(v.direccionComision) || "casaPaga", direccionCambios: Array.isArray(v.direccionCambios) ? v.direccionCambios.slice(-20) : [], liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, medioPagoComision: v.medioPagoComision || null })),
+        ventas: ventas.filter((v) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ventas", v)).map((v) => ({ id: v.id, productoId: v.productoId, ubicacionId: v.ubicacionId, cantidad: v.cantidad, precioUnit: v.precioUnit, costoUnit: v.costoUnit, fecha: v.fecha, split: v.split || null, direccionComision: _direccionValida(v.direccionComision) || "casaPaga", direccionCambios: Array.isArray(v.direccionCambios) ? v.direccionCambios.slice(-20) : [], liquidada: !!v.liquidada, clienteId: v.clienteId || null, info: v.info || null, anulada: !!v.anulada, canceladaExPostEn: v.canceladaExPostEn || null, restauracionDe: v.restauracionDe || null, impuesto: v.impuesto || null, noCommission: v.noCommission === true, rev: v.rev || null, modoComision: v.modoComision || null, ...(v.canalVenta ? { canalVenta: v.canalVenta } : {}), ...(typeof v.relojDesfaseMs === "number" ? { relojDesfaseMs: v.relojDesfaseMs, relojMargenMs: v.relojMargenMs } : {}), promotoraId: v.promotoraId || null, asistenteId: v.asistenteId || null, asistentePct: v.asistentePct != null ? v.asistentePct : null, devuelta: !!v.devuelta, devolucionId: v.devolucionId || null, fechaDevolucion: v.fechaDevolucion || null, medioPagoComision: v.medioPagoComision || null })),
         gastos: gastos.map((g) => Object.assign({}, g)),
         ajustesComision: ajustesComision.map((a) => Object.assign({}, a)),
         payouts: _payoutCore() && _payoutCore().compatiblePayouts ? _payoutCore().compatiblePayouts(payouts) : payouts.map((p) => Object.assign({}, p)),
@@ -4554,7 +4571,7 @@
           const montoBruto = p.precio * cant;
           const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
           const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
-          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, noCommission: !split, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
         }
         mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
         if (_noDescontado > 0) mov("alerta-descuadre", { producto: p.nombre, stockActual: p.stockActual, faltaron: _noDescontado, motivo: "Dos dispositivos vendieron las mismas ultimas unidades casi a la vez. El stock quedo en 0: " + _noDescontado + " unidad(es) se vendieron sin existencia. Cuenta la percha." });
@@ -4803,7 +4820,7 @@
         const _rt = !v.split ? _retroPorVenta.get(String(v.id)) : null;
         const _prRt = _rt && _rt.payeeId ? promotoras.find((x) => x.id === _rt.payeeId) : null;
         return {
-          id: v.id, fecha: v.fecha,
+          id: v.id, fecha: v.fecha, impuesto: v.impuesto || null, noCommission: v.noCommission === true,
           productoId: v.productoId,
           productoNombre: p ? p.nombre : "(deleted product)",
           sku: p ? p.sku : "", categoria: p ? p.categoria : "",
@@ -5754,7 +5771,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
@@ -5779,6 +5796,7 @@
         const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
         if (idx === -1) return J({ error: "This sale can no longer be voided (the window passed, or it was already voided)." }, 400);
         const venta = ventas[idx];
+        if (venta.devuelta) return J({ error: "This sale was already returned." }, 409);
         /* B4 (2026-09-24): dentro de los 30 s se podia anular una venta que ya
            se habia PAGADO al asociado: la plata salio y la venta desaparecia.
            Lo pagado se corrige con una devolucion (ajuste negativo), nunca
@@ -5813,8 +5831,8 @@
       /* DEVOLUCION / CLAWBACK (JFC 2026-09-24, Bloque 4, aprobado). Una venta
          ya PAGADA al asociado no se edita ni se anula: se agrega un ajuste
          NEGATIVO fechado hoy (ciclo abierto) que se descuenta del proximo pago,
-         con quien y motivo. La mercaderia vuelve al stock. Si la venta aun no
-         se pago, devolver = cancelar de siempre (no hay nada que descontar). */
+         con quien y motivo. Toda devolucion conserva la venta original y registra
+         el reverso en su propia fecha, incluso sin comision o sin pago previo. */
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/devolucion$/)) && opts && opts.method === "POST") {
         const _rD = _rolLocal();
         if (_rD !== "dueno" && _rD !== "admin" && _rD !== "empleado") return J({ error: "Sign in to record a return." }, 403);
@@ -5825,28 +5843,56 @@
         if (!p) return J({ error: "Product not found." }, 404);
         const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
         const quien = String((body && body.quien) || "").trim().slice(0, 80) || "unidentified";
-        if ((!venta.liquidada && !_ventaTienePagoComision(venta)) || !venta.split) {
-          p.stockActual += venta.cantidad;
-          venta.anulada = true; venta.rev = _revNueva();
-          mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "return", quien });
-          emitirOpStock("cancelacion-ex-post", { productoId: p.id, delta: venta.cantidad });
-          return J({ ok: true, ajuste: null, producto: ficha(p) });
-        }
-        const sp = venta.split;
+        // The same sale cannot create two economic reversals on offline devices.
+        // A deterministic adjustment id also survives repeated sync envelopes.
+        debePersistir = false;
+        const foto = { venta: JSON.parse(JSON.stringify(venta)), producto: JSON.parse(JSON.stringify(p)),
+          ajustesLen: ajustesComision.length, movLen: movimientos.length, sello: selloUltimo };
+        const sp = venta.split || { montoBruto: venta.precioUnit * venta.cantidad,
+          montoComisionSocio: 0, montoNetoDueno: venta.precioUnit * venta.cantidad };
         const aj = {
-          id: uuid("aj"), tipo: "devolucion", ventaId: venta.id, ubicacionId: venta.ubicacionId, productoId: p.id,
+          id: "aj-dev-" + venta.id, tipo: "devolucion", ventaId: venta.id, ubicacionId: venta.ubicacionId, productoId: p.id,
           cantidad: venta.cantidad, fecha: new Date().toISOString(),
           montoBruto: -(Number(sp.montoBruto) || 0), montoComisionSocio: -(Number(sp.montoComisionSocio) || 0), montoNetoDueno: -(Number(sp.montoNetoDueno) || 0),
           reparto: Array.isArray(sp.reparto) ? sp.reparto.map((r) => Object.assign({}, r, { monto: -(Number(r.monto) || 0) })) : null,
           quien, motivo, liquidada: false, rev: _revNueva()
         };
         ajustesComision.push(aj);
-        venta.devuelta = true; venta.devolucionId = aj.id; venta.rev = _revNueva();
+        venta.devuelta = true; venta.devolucionId = aj.id; venta.fechaDevolucion = aj.fecha; venta.rev = _revNueva();
         p.stockActual += venta.cantidad;
-        mov("devolucion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), comisionDevuelta: aj.montoComisionSocio, quien, motivo });
-        emitirOpStock("devolucion", { productoId: p.id, delta: venta.cantidad });
-        avisarCatalogoCambiado();
-        return J({ ok: true, ajuste: aj, producto: ficha(p) });
+        const opStock = { productoId: p.id, delta: venta.cantidad };
+        _prepararOpStock(opStock, aj.id);
+        mov("devolucion", { producto: p.nombre, ventaId: venta.id, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), comisionDevuelta: aj.montoComisionSocio, quien, motivo }, false);
+        // Reuse the financial boundary: reads and incoming catalog merges wait
+        // until this attempt has committed or restored its complete snapshot.
+        let terminarRetorno;
+        _payoutConfirmando = true;
+        _payoutPendiente = new Promise(resolve => { terminarRetorno = resolve; });
+        try {
+          let guardada = false;
+          try { guardada = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!guardada) {
+            Object.keys(venta).forEach(k => delete venta[k]);
+            Object.assign(venta, foto.venta);
+            Object.keys(p).forEach(k => delete p[k]);
+            Object.assign(p, foto.producto);
+            ajustesComision.length = foto.ajustesLen;
+            movimientos.length = foto.movLen;
+            selloUltimo = foto.sello;
+            return J({ error: "The return could not be saved. No sale, stock or commission changes recorded." }, 507);
+          }
+          emitirOpStock("devolucion", opStock, true);
+          avisarCatalogoCambiado();
+          return J({ ok: true, ajuste: aj, producto: ficha(p) });
+        } finally {
+          _payoutConfirmando = false; _payoutPendiente = null;
+          try {
+            while (_payoutCatalogosPendientes.length) {
+              const siguiente = _payoutCatalogosPendientes.shift();
+              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto);
+            }
+          } finally { terminarRetorno(); }
+        }
       }
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/cancelar$/)) && opts && opts.method === "POST") {
         // JFC 2026-09-03: el encargado TAMBIÉN puede corregir errores (cancelar).
@@ -5858,6 +5904,7 @@
         const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
         if (idx === -1) return J({ error: "Sale not found (it may have already been cancelled)." }, 404);
         const venta = ventas[idx];
+        if (venta.devuelta) return J({ error: "This sale was already returned." }, 409);
         // B5: una COUNTER SALE no tiene comision que proteger (split null): se puede cancelar aunque la percha ya se haya pagado.
         if ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta)) return J({ error: "This sale was already settled to a partner. Fix the settlement in Commissions instead of cancelling." }, 400);
         const p = productos.find((x) => x.id === venta.productoId);
@@ -5917,6 +5964,9 @@
            la cantidad ya habian cambiado y se guardaban. */
         const _hayCant = body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "";
         const _hayPrecio = body.precioUnit !== undefined && body.precioUnit !== null && body.precioUnit !== "";
+        if (venta.devuelta && (_hayCant || _hayPrecio || body.clienteId !== undefined || (body.info && body.info.formaPago !== undefined))) {
+          return J({ error: "This sale was returned. Its financial history cannot be edited." }, 409);
+        }
         // A partial payout is sealed money too. Reject financial edits before
         // stock or the split changes; notes and contact corrections remain usable.
         if (((_hayCant && Number(body.cantidad) !== venta.cantidad) || (_hayPrecio && +Number(body.precioUnit).toFixed(2) !== venta.precioUnit)) && ((venta.liquidada && venta.split) || _ventaTienePagoComision(venta))) {
@@ -5926,6 +5976,14 @@
         if (_hayPrecio && !(Number.isFinite(Number(body.precioUnit)) && Number(body.precioUnit) >= 0)) return J({ error: "Enter a valid unit price." }, 400);
         if (_hayPrecio && venta.info && venta.info.cortesia && Number(body.precioUnit) > 0) return J({ error: "A courtesy sale has no price. Cancel it and record a normal sale." }, 400);
         if (body.clienteId && !clientes.find((x) => x.id === body.clienteId)) return J({ error: "Customer not found." }, 404);
+        let impuestoCorregido = venta.impuesto;
+        if (_hayCant || _hayPrecio) {
+          const lector = window.OCBusinessReadModel;
+          impuestoCorregido = venta.impuesto == null ? null : lector && lector.recalculateTax
+            ? lector.recalculateTax(venta.impuesto, _hayPrecio ? +Number(body.precioUnit).toFixed(2) : venta.precioUnit, _hayCant ? Number(body.cantidad) : venta.cantidad)
+            : undefined;
+          if (impuestoCorregido === undefined) return J({ error: "The original tax could not be verified. No financial changes recorded." }, 409);
+        }
         // HOTFIX 2026-10-12: payment correction CASH -> FIADO must create a
         // single immutable, sale-linked charge BEFORE changing the sale record.
         // No ad-hoc saldo mutations and no duplicate charges on retry/reload.
@@ -6036,6 +6094,7 @@
             }
           }
         }
+        if (_hayCant || _hayPrecio) venta.impuesto = impuestoCorregido;
         if (body.clienteId !== undefined) {
           if (body.clienteId) { const c = clientes.find((x) => x.id === body.clienteId); if (!c) return J({ error: "Customer not found." }, 404); venta.clienteId = c.id; }
           else venta.clienteId = null;
@@ -6633,42 +6692,27 @@
         return J(Object.assign({}, m));
       }
       if (path === "/api/reportes/pl") {
-        // Precio de venta = precio neto, sin impuesto embebido (estandar USA:
-        // el sales tax se calcula aparte en el checkout, no vive incluido en
-        // el precio listado como el IVA ecuatoriano). Fix 2026-07-15: antes
-        // esto restaba un 15% fijo de IVA-Ecuador sobre CUALQUIER venta,
-        // corrompiendo el P&L en cualquier tienda fuera de Ecuador.
-        const vh = ventasHoyDe(uid), dh = devolucionesHoyDe(uid); // B6
-        const cv = vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
-        /* v359: si el cuaderno tiene impuesto encendido, el precio lo INCLUYE
-           y aquí se separa. Apagado: precio neto, como antes. ingresosConIva e
-           ivaCobrado se mantienen como alias para los lectores existentes (antes
-           llegaban vacíos: la fila "VAT 15%" sin valor y Cash en $0). */
-        const imp = _impuestoVigente();
-        // v361: cada venta trae su impuesto congelado (ver _impuestoDeVenta).
-        let netoC = 0, impC = 0, cobradoC = 0;
-        const _linea = (v, signo) => {
-          const linC = signo * Math.round((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0) * 100);
-          const im = v.impuesto && Number(v.impuesto.monto) > 0 ? signo * Math.round(Number(v.impuesto.monto) * 100) : 0;
-          if (!im) { netoC += linC; cobradoC += linC; }
-          else if (v.impuesto.modo === "agregado") { netoC += linC; impC += im; cobradoC += linC + im; }
-          else { netoC += linC - im; impC += im; cobradoC += linC; }
-        };
-        vh.forEach((v) => _linea(v, 1));
-        dh.forEach((v) => _linea(v, -1)); // B6: lo devuelto hoy (con su impuesto) sale del P&L de hoy
-        const neto = netoC / 100, impCobrado = impC / 100;
-        const ub = neto - cv;
-        const gm = (!uid || uid === "todas") ? Object.values(_gastosMensualesVisibles()).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0); // v507: sin perchas demo
-        const go = +(gm / diasEnMesActual()).toFixed(2);
-        return J({ ingresos: +neto.toFixed(2), ingresosConIva: +(cobradoC / 100).toFixed(2), ivaCobrado: +impCobrado.toFixed(2),
-          impuesto: imp ? { activo: true, tasa: imp.tasa, nombre: imp.nombre, modo: imp.modo } : { activo: impC > 0, tasa: null, nombre: "Tax", modo: null },
-          costoVentas: +cv.toFixed(2), utilidadBruta: +ub.toFixed(2), gastosOperativos: go, utilidadNeta: +(ub - go).toFixed(2) });
+        const reader = window.OCBusinessReadModel;
+        const reportSales = ventasParaReportes(uid);
+        const policies = reportSales.filter(v => fechaLocalDe(v.fecha) === hoyISO() || v.devuelta && v.fechaDevolucion && fechaLocalDe(v.fechaDevolucion) === hoyISO()).map(v => v.impuesto).filter(Boolean);
+        const policy = policies.length && policies.every(t => t.tasa === policies[0].tasa && t.modo === policies[0].modo && t.nombre === policies[0].nombre) ? policies[0] : null;
+        const result = reader && reader.businessResult({ sales: reportSales, expenses: gastos,
+          adjustments: ajustesComision, period: { from: hoyISO(), to: hoyISO() }, zone: ZONA,
+          scope: uid && uid !== "todas" ? { locationId: uid } : {} });
+        const money = (key) => result && Number.isFinite(result[key]) ? result[key] / 100 : null;
+        const revenue = money("netCents"), cost = money("costCents");
+        const gm = (!uid || uid === "todas") ? Object.values(_gastosMensualesVisibles()).reduce((a, v) => a + v, 0) : (gastosMensuales[uid] || 0);
+        return J({ ingresos: revenue, ingresosConIva: money("customerGrossCents"), ivaCobrado: money("taxCents"),
+          impuesto: { activo: result ? result.taxCents !== 0 : false, tasa: policy ? policy.tasa : null, nombre: policy ? policy.nombre : "Tax", modo: policy ? policy.modo : null },
+          costoVentas: cost, utilidadBruta: revenue === null || cost === null ? null : +(revenue - cost).toFixed(2),
+          comisiones: money("artistShareCents"), gastosOperativos: money("expensesCents"),
+          presupuestoDiario: +(gm / diasEnMesActual()).toFixed(2), utilidadNeta: money("houseAfterExpensesCents"),
+          advertencias: result ? result.warnings : ["missing-read-model"] });
       }
       if (path === "/api/reportes/balance") {
-        const ps = filtrar(uid), vh = ventasHoyDe(uid);
-        // v361: lo cobrado incluye el impuesto que se SUMÓ al cobrar (modo agregado).
-        const _cobrado = (v) => v.precioUnit * v.cantidad + (v.impuesto && v.impuesto.modo === "agregado" ? (Number(v.impuesto.monto) || 0) : 0);
-        const ef = vh.reduce((a, v) => a + _cobrado(v), 0) - devolucionesHoyDe(uid).reduce((a, v) => a + _cobrado(v), 0); // B6
+        const ps = filtrar(uid);
+        // Sales, including credit sales, are not a complete cash ledger.
+        // Preserve unknown cash and total assets until cash evidence is available.
         /* BALANCE A MEJOR PRACTICA (JFC 2026-09-24, "elijo world's best practices").
            Antes el activo era stock x PRECIO DE VENTA e incluia las piezas en
            consignacion, que son de la consignadora, no de la tienda (demo: $21,899
@@ -6682,7 +6726,7 @@
         const inv = _propios.reduce((a, p) => a + (Number(p.costo) || 0) * p.stockActual, 0);
         const invVenta = _propios.reduce((a, p) => a + (Number(p.precio) || 0) * p.stockActual, 0);
         const consigVenta = _consig.reduce((a, p) => a + (Number(p.precio) || 0) * p.stockActual, 0);
-        return J({ activos: { efectivoEstimado: +ef.toFixed(2), inventarioValorizado: +inv.toFixed(2), total: +(ef + inv).toFixed(2) },
+        return J({ activos: { efectivoEstimado: null, inventarioValorizado: +inv.toFixed(2), total: null },
           memo: { criterioInventario: "costo", inventarioPropioPrecioVenta: +invVenta.toFixed(2), consignacionPrecioVenta: +consigVenta.toFixed(2), piezasConsignacion: _consig.reduce((a, p) => a + (Number(p.stockActual) || 0), 0) } });
       }
       if (path === "/api/reportes/valorizado") {
@@ -6726,7 +6770,7 @@
           const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
           const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
           p.stockActual -= cant;
-          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
           emitirOpStock("cierre-dia", { productoId: p.id, delta: -cant });
           aplicadas += cant;
           mov("cierre-dia", { producto: p.nombre, cantidad: cant, ubicacion: nombreUbic(p.ubicacionId) });

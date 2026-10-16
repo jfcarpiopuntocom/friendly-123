@@ -10334,22 +10334,25 @@ async function cargarAvanzado(){
   // en resultados positivos. Sin rojo — los gastos son normales, no alarma.
   document.getElementById("tablaPL").innerHTML = `
     <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
-    ${(pl.impuesto && pl.impuesto.activo) ? `<tr><td>${escHtml(t("adv.pl.grossSales").replace("{name}", pl.impuesto.nombre))}</td><td>${fmtMoney(pl.ingresosConIva)}</td></tr>
-    <tr><td>${escHtml(t("adv.pl.taxCollected").replace("{name}", pl.impuesto.nombre).replace(" ({rate}%)", pl.impuesto.tasa ? " (" + pl.impuesto.tasa + "%)" : ""))}</td><td>${fmtMoney(pl.ivaCobrado)}</td></tr>` : ""}
-    <tr><td>${t("adv.pl.revenue")}</td><td>${fmtMoney(pl.ingresos)}</td></tr>
-    <tr><td>${t("adv.pl.cogs")}</td><td>${fmtMoney(pl.costoVentas)}</td></tr>
-    <tr style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;"><td>${t("adv.pl.grossProfit")}</td><td>${fmtMoney(pl.utilidadBruta)}</td></tr>
-    <tr><td>${t("adv.pl.opex")}</td><td>${fmtMoney(pl.gastosOperativos)}</td></tr>
-    <tr style="background:var(--sim-verde);"><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${t("adv.pl.netProfit")}</strong></td><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoney(pl.utilidadNeta)}</strong></td></tr>
+    ${(pl.impuesto && pl.impuesto.activo) ? `<tr><td>${escHtml(t("adv.pl.grossSales").replace("{name}", pl.impuesto.nombre))}</td><td>${fmtMoneyPend(pl.ingresosConIva)}</td></tr>
+    <tr><td>${escHtml(t("adv.pl.taxCollected").replace("{name}", pl.impuesto.nombre).replace(" ({rate}%)", pl.impuesto.tasa ? " (" + pl.impuesto.tasa + "%)" : ""))}</td><td>${fmtMoneyPend(pl.ivaCobrado)}</td></tr>` : ""}
+    <tr><td>${t("adv.pl.revenue")}</td><td>${fmtMoneyPend(pl.ingresos)}</td></tr>
+    <tr><td>${t("adv.pl.cogs")}</td><td>${fmtMoneyPend(pl.costoVentas)}</td></tr>
+    <tr style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;"><td>${t("adv.pl.grossProfit")}</td><td>${fmtMoneyPend(pl.utilidadBruta)}</td></tr>
+    <tr><td>${t("adv.pl.commissions")}</td><td>${fmtMoneyPend(pl.comisiones)}</td></tr>
+    <tr><td>${t("adv.pl.opex")}</td><td>${fmtMoneyPend(pl.gastosOperativos)}</td></tr>
+    <tr style="background:var(--sim-verde);"><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${t("adv.pl.netProfit")}</strong></td><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoneyPend(pl.utilidadNeta)}</strong></td></tr>
+    <tr><td>${t("adv.pl.budget")}</td><td>${fmtMoneyPend(pl.presupuestoDiario)}</td></tr>
   `;
 
   document.getElementById("tablaBalance").innerHTML = `
     <tr><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.concept")}</th><th style="background:var(--sim-azul-dk);color:#fff;">${t("adv.amount")}</th></tr>
-    <tr><td>${t("adv.bal.estCash")}</td><td>${fmtMoney(balance.activos.efectivoEstimado)}</td></tr>
-    <tr><td>${t("adv.bal.valuedInv")}</td><td>${fmtMoney(balance.activos.inventarioValorizado)}</td></tr>
-    ${balance.memo ? `<tr><td>${t("adv.bal.memoRetail")}</td><td>${fmtMoney(balance.memo.inventarioPropioPrecioVenta)}</td></tr>
-    <tr><td>${t("adv.bal.memoConsign")}</td><td>${fmtMoney(balance.memo.consignacionPrecioVenta)}</td></tr>` : ""}
-    <tr style="background:var(--sim-azul);"><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${t("adv.bal.totalAssets")}</strong></td><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoney(balance.activos.total)}</strong></td></tr>
+    <tr><td colspan="2">${t("adv.bal.cashUnknown")}</td></tr>
+    <tr><td>${t("adv.bal.estCash")}</td><td>${fmtMoneyPend(balance.activos.efectivoEstimado)}</td></tr>
+    <tr><td>${t("adv.bal.valuedInv")}</td><td>${fmtMoneyPend(balance.activos.inventarioValorizado)}</td></tr>
+    ${balance.memo ? `<tr><td>${t("adv.bal.memoRetail")}</td><td>${fmtMoneyPend(balance.memo.inventarioPropioPrecioVenta)}</td></tr>
+    <tr><td>${t("adv.bal.memoConsign")}</td><td>${fmtMoneyPend(balance.memo.consignacionPrecioVenta)}</td></tr>` : ""}
+    <tr style="background:var(--sim-azul);"><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${t("adv.bal.totalAssets")}</strong></td><td><strong style="color:#FFFFFF;-webkit-text-fill-color:#FFFFFF;">${fmtMoneyPend(balance.activos.total)}</strong></td></tr>
   `;
 
   document.getElementById("tablaValorizado").innerHTML = `

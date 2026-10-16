@@ -80,7 +80,9 @@ test('local dashboard agrees with held obligations and the local day, including 
  const chunk=html.slice(start,html.indexOf('  function estadoSimon('));
  class Clock extends Date{constructor(...a){super(...(a.length?a:['2026-10-08T01:00:00Z']));}}
  const ctx={_fuenteDatosDashboard:'local',datos:{},window:{OCPayoutLedger:L,OCBusinessReadModel:require('../docs/core/business-read-model.js')},localStorage:{getItem:()=> 'America/Guayaquil'},Date:Clock,Intl,sufijoTienda:()=>'',estadoSimon:()=> 'verde'};
- vm.createContext(ctx);vm.runInContext(chunk,ctx);
+ vm.createContext(ctx);
+ const commissionHelpers=html.slice(html.indexOf('  function cmMesActual('),html.indexOf('  function cmRecibo('));
+ vm.runInContext(commissionHelpers+chunk,ctx);
  const d=ctx.datosDesdeLocal({ventas:[{...sale('v','2026-10-08T00:30:00Z'),productoId:'p',cantidad:1,precioUnit:100}],productos:[{id:'p'}],ubicaciones:loc,configuracion:{retencion:{dias:7}}});
  assert.equal(d.resumen.resumenDia.entra,100);
  assert.equal(d.resumen.resumenDia.gananciaHoy,null,'missing cost must not become verified profit');

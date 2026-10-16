@@ -80,16 +80,20 @@ test('a settled sale from last month is clawed back in THIS month; last month st
   assert.ok(meses.find(x => x.mes === mesActual()).pendiente <= -20 + 0.001 || true);
 });
 
-test('returning an unpaid sale simply cancels it (no adjustment record)', async () => {
+test('returning an unpaid sale keeps its earning and records a dated negative adjustment', async () => {
   const app = browser();
   const { shelf, product } = await tienda(app);
   await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 2 });
   const v = await ventaDe(app, product);
   const r = await app.request(`/api/ventas/${v.id}/devolucion`, 'POST', { motivo: 'typo' });
-  assert.equal(r.ok, true); assert.equal(r.ajuste, null);
-  assert.equal((await ventaDe(app, product)).anulada, true);
+  assert.equal(r.ok, true); assert.equal(r.ajuste.montoComisionSocio, -40);
+  const returned = await ventaDe(app, product);
+  assert.ok(!returned.anulada);
+  assert.equal(returned.devuelta, true);
   assert.equal(r.producto.stockActual, 5);
-  assert.equal((await liq(app, shelf)).ajustes.length, 0);
+  const settlement = await liq(app, shelf);
+  assert.equal(settlement.ajustes.length, 1);
+  assert.equal(settlement.stillDue, 0, 'unpaid earning and its reversal cancel once');
 });
 
 test('adjustments travel by sync (add-only) and survive backup export/import', async () => {

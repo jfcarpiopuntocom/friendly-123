@@ -110,7 +110,7 @@ test('changing the rate later does NOT rewrite a sale already made', async () =>
   assert.equal(pl.ingresos, 100);
 });
 
-test('"added when charging" (US sales tax): tax goes on top and cash includes it', async () => {
+test('"added when charging" (US sales tax): tax goes on top of sales without establishing cash', async () => {
   const w = dueno(browser());
   await w.request('/api/config/impuesto', 'PUT', { activo: true, tasa: 8.25, nombre: 'Sales tax', modo: 'agregado' });
   const { u } = await ventaDe(w, 100);
@@ -119,7 +119,8 @@ test('"added when charging" (US sales tax): tax goes on top and cash includes it
   assert.equal(pl.ivaCobrado, 8.25);
   assert.equal(pl.ingresosConIva, 108.25, 'se cobró precio + impuesto');
   const bal = await w.request(`/api/reportes/balance?ubicacionId=${u}`);
-  assert.equal(bal.activos.efectivoEstimado, 108.25);
+  assert.equal(bal.activos.efectivoEstimado, null);
+  assert.equal(bal.activos.total, null);
 });
 
 test('a tax-exempt product pays no tax and the flag survives sync and backup', async () => {
