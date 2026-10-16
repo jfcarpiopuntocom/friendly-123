@@ -1,7 +1,8 @@
 PDF export dependencies
 
 Upstream package licenses for the two pinned PDF artifacts.
-Additional notices embedded in the distributed JavaScript files are preserved.
+Additional notices embedded in the distributed JavaScript files are preserved;
+trailing spaces/tabs at line endings are normalized.
 See pdf-provenance.json for source URLs and exact artifact hashes.
 
 === jsPDF 4.2.1: package/LICENSE ===

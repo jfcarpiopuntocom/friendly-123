@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v541: update local PDF exports to jsPDF 4.2.1 and AutoTable 5.0.9, preserve upstream licenses and artifact provenance, and verify PDF injection fixes plus report downloads.",
+  "changelog": "v542: update local PDF exports to jsPDF 4.2.1 and AutoTable 5.0.9 with reproducible provenance, preserved licenses, and verified secure report downloads; normalize upstream license whitespace for release checks.",
   "requerida": false,
-  "shell": "f123-shell-v541",
+  "shell": "f123-shell-v542",
   "apagar": [],
-  "releaseName": "v541",
-  "cacheGeneration": "golden105"
+  "releaseName": "v542",
+  "cacheGeneration": "golden106"
 }
