@@ -156,5 +156,6 @@ Títulos 24 pt, cifras destacadas 26 pt en mono, tabla y metadatos 10.5 pt
 (equivalentes a 14 px), notas 11 pt. Se usan las familias PDF estándar
 Helvetica/Courier con la jerarquía display/body/mono de la app, sin descargar fuentes.
 Tinta, lienzo, hairline y acento rust conservan los tokens compartidos.
-La imagen existente usa opacidad 4%; nunca se atenúan importes ni advertencias.
+Corrección expresa de JFC (2026-10-16): la marca anterior resultó gigante.
+La imagen existente queda limitada a 72 pt (25.4 mm) de ancho y usa opacidad 2%; nunca se atenúan importes ni advertencias.
 Cabecera, marco y watermark se repiten en cada página; pie con página/total.

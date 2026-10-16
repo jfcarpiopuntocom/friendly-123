@@ -33,6 +33,7 @@ test('long reports preserve rows, repeat their frame and faint brand inside ever
   assert.equal(brands.length, pages);
   assert.equal(frames.length, pages, 'all four frame sides are drawn on every page');
   for (const brand of brands) {
+    assert.ok(brand.w <= 72, 'the watermark remains a small signature, never a large background logo');
     assert.ok(brand.x > width / 2 && brand.x + brand.w < width - 24, 'the complete brand sits at the right, inside the frame');
     assert.ok(brand.y > 24 && brand.y + brand.h < height - 88, 'the brand cannot enter the footer');
   }
@@ -44,5 +45,5 @@ test('long reports preserve rows, repeat their frame and faint brand inside ever
     assert.equal(paragraph.font, 11);
     assert.ok(!String(paragraph.value).includes('−'), 'the measured and printed minus glyph must agree');
   }
-  assert.ok(/\/ca 0\.04\b/.test(doc.output()), 'only the decorative image has very low opacity');
+  assert.ok(/\/ca 0\.02\b/.test(doc.output()), 'only the decorative image has very low opacity');
 });

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v543: refine exported PDF reports with Friendly visual hierarchy, complete frames, readable tables and an extremely faint brand watermark inside the frame on the right.",
+  "changelog": "v544: reduce the PDF brand watermark to a small 25.4 mm signature at 2% opacity, inside the frame on the right.",
   "requerida": false,
-  "shell": "f123-shell-v543",
+  "shell": "f123-shell-v544",
   "apagar": [],
-  "releaseName": "v543",
-  "cacheGeneration": "golden107"
+  "releaseName": "v544",
+  "cacheGeneration": "golden108"
 }

@@ -33,9 +33,9 @@
       // The complete image is INSIDE the four-sided frame. Opacity applies only
       // to decoration, never report text, amounts or warnings.
       if (options.logo) {
-        const image = doc.getImageProperties(options.logo), w = Math.min(288, (right - left) * 0.45);
+        const image = doc.getImageProperties(options.logo), w = Math.min(72, (right - left) * 0.12);
         const h = w * image.height / image.width;
-        doc.setGState(new doc.GState({ opacity: 0.04 }));
+        doc.setGState(new doc.GState({ opacity: 0.02 }));
         doc.addImage(options.logo, 'PNG', right - w, bottom - h - 8, w, h, 'friendly-report-brand');
         doc.setGState(new doc.GState({ opacity: 1 }));
       }
