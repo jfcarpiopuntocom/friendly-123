@@ -155,10 +155,18 @@
    }
   }
   const saleMap=new Map(sales.filter(v=>v.id!=null).map(v=>[String(v.id),v]));
+  // Keep source scope evidence even when contradictory sale IDs are quarantined.
+  const saleCandidates=new Map();
+  for(const v of input.sales||[]){if(!v||v.id==null)continue;const key=String(v.id),group=saleCandidates.get(key)||[];group.push(v);saleCandidates.set(key,group);}
   const signedCents=n=>{if((typeof n!=='number'&&!(typeof n==='string'&&n.trim()))||!Number.isFinite(Number(n))||Math.abs(Number(n))>=1e21)return null;const c=Math.round(Number(Number(n).toFixed(10)+'e2'));return Number.isSafeInteger(c)?c:null;};
-  for(const a of unique(input.adjustments,'adjustment',expenseRelevant)){
+  const adjustmentRelevant=a=>{
+   const candidates=saleCandidates.get(String(a.ventaId||''))||[];
+   return expenseRelevant(a)&&(!scoped||candidates.some(inScope));
+  };
+  for(const a of unique(input.adjustments,'adjustment',adjustmentRelevant)){
    if(a.borrado||!expenseRelevant(a))continue;
    const sale=saleMap.get(String(a.ventaId||''));
+   if(!sale&&(saleCandidates.get(String(a.ventaId||''))||[]).length&&adjustmentRelevant(a)){adjustmentConflict=true;warnings.add('unreconciled-commission-adjustment');continue;}
    if(scoped&&(!sale||!inScope(sale)))continue;
    if(a.tipo==='recalculo-retroactivo'&&sale&&sale.comisionAjusteRetroIncluido)continue;
    const artist=signedCents(a.montoComisionSocio),house=signedCents(a.montoNetoDueno);
@@ -172,7 +180,12 @@
   if(adjustmentConflict){out.houseShareCents=null;out.artistShareCents=null;out.houseAdjustmentsCents=null;}
   if(!out.coverage.adjustments)warnings.add('missing-adjustments-coverage');
   if(directionUnknown||saleConflict||adjustmentConflict||unknownReturn||invalidPeriod||!out.coverage.sales||!out.coverage.adjustments||coverage.coherent===false){out.commissionPayableCents=null;out.commissionReceivableCents=null;}
-  const expenses=unique(input.expenses,'expense',expenseRelevant);
+  const expenseInScope=g=>{
+   const eId=g.eventoId||g.eventOccurrenceId||g.ocurrenciaId,event=eId?'id:'+String(eId):g.eventKey;
+   if(scope.eventOccurrenceId||scope.eventKey)return !event||event===(scope.eventOccurrenceId?'id:'+String(scope.eventOccurrenceId):scope.eventKey);
+   return !scope.locationId||!g.ubicacionId||g.ubicacionId==='todas'||String(g.ubicacionId)===String(scope.locationId);
+  };
+  const expenses=unique(input.expenses,'expense',g=>expenseRelevant(g)&&expenseInScope(g));
   for(const g of expenses){
    if(g.borrado||!expenseRelevant(g))continue;
    const eId=g.eventoId||g.eventOccurrenceId||g.ocurrenciaId;

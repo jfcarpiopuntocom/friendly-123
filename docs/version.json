@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-16",
-  "changelog": "v538: load exports on demand, retain complete deferred history, right-size entry logos, unblock live frames during replay and persist complete fragment groups before durable sends.",
+  "changelog": "v540: preserve adjustment and pending-conflict report rows, isolate unrelated financial conflicts, assign expenses before first sale, and export dashboard tables in the selected language. Keep current adjustments pending when their historical sale is quarantined.",
   "requerida": false,
-  "shell": "f123-shell-v538",
+  "shell": "f123-shell-v540",
   "apagar": [],
-  "releaseName": "v538",
-  "cacheGeneration": "golden102"
+  "releaseName": "v540",
+  "cacheGeneration": "golden104"
 }

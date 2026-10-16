@@ -8393,7 +8393,17 @@ async function cargarGastos(){
       cargarGastos();
     }));
   }
-  if (window.OCExpenseReceipt) window.OCExpenseReceipt.destinations(ventasParaGastos, zone);
+  if (window.OCExpenseReceipt) {
+    let perchasParaGastos = [];
+    try {
+      const response = await fetch(`${API}/ubicaciones`);
+      if (response.ok) {
+        const shelves = await response.json();
+        if (Array.isArray(shelves)) perchasParaGastos = shelves;
+      }
+    } catch (_) {}
+    window.OCExpenseReceipt.destinations(ventasParaGastos, zone, perchasParaGastos);
+  }
   if (!gastos.length) { if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);">No expenses recorded yet. Add the first one above.</p>'; return; }
   _gastosCache = gastos;
   const _puedeEditarGasto = _rolG === "dueno" || _rolG === "admin" || _rolG === "contador";

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v538">
+<meta name="dashboard-shell" content="f123-shell-v540">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -2593,6 +2593,11 @@
   /* Tabulator's PDF downloader may cancel the browser download even when
      CSV/XLSX work. Use the same jsPDF+autoTable engine as our three reports,
      directly in the click handler, with the currently filtered table rows. */
+  function etiquetaExportacion(label) {
+    var translated = window.OCDashIdioma && window.OCDashIdioma.traducir(label);
+    return translated == null ? String(label) : translated;
+  }
+
   function pdfDeTabla(filename, negocio) {
     var JsPDF = window.jspdf && window.jspdf.jsPDF;
     if (!JsPDF) throw new Error("jsPDF is unavailable");
@@ -2600,7 +2605,7 @@
     if (typeof doc.autoTable !== "function") throw new Error("jsPDF-AutoTable is unavailable");
     var cols = VISTAS[vista].cols.filter(function(c) { return c.field && c.title && c.download !== false; });
     var filas = tabla.getData("active");
-    var titulos = cols.map(function(c) { return String(c.title); });
+    var titulos = cols.map(function(c) { return etiquetaExportacion(c.title); });
     var celdas = filas.map(function(r) {
       return cols.map(function(c) {
         var v = r[c.field];
@@ -2622,7 +2627,7 @@
     });
     doc.setFontSize(15); doc.text(String(negocio || "Business").slice(0,95),40,36);
     doc.setFontSize(10);
-    doc.text(VISTAS[vista].nombre + " · " + new Date().toLocaleString(),40,54);
+    doc.text(etiquetaExportacion(VISTAS[vista].nombre) + " · " + new Date().toLocaleString(localStorage.getItem("f123_lang") === "es" ? "es-EC" : "en-US"),40,54);
     doc.autoTable({head:[titulos],body:celdas,startY:68,
       styles:{fontSize:8,cellPadding:4,overflow:"linebreak"},headStyles:{fillColor:[15,25,35]}});
     doc.save(filename);
@@ -2632,10 +2637,17 @@
     /* \w no incluye acentos ni ñ: "Panadería Ñusta" salia como "Panadera usta".
        Se quitan solo los caracteres que los sistemas de archivos prohiben. */
     var nombre = ($("neg-nombre").textContent || "negocio").replace(/[\\/:*?"<>|]/g, "").trim();
-    var f = nombre + " · " + VISTAS[vista].nombre + " · " + new Date().toISOString().slice(0, 10);
+    var titulo = etiquetaExportacion(VISTAS[vista].nombre);
+    var f = nombre + " · " + titulo + " · " + new Date().toISOString().slice(0, 10);
     try {
+      // Screen translations change DOM text, not Tabulator's export definitions.
+      // Refresh download-only labels so a language change also reaches the file.
+      if ((tipo === "csv" || tipo === "xlsx") && tabla.getColumns) tabla.getColumns().forEach(function (column) {
+        var definition = column.getDefinition();
+        definition.titleDownload = etiquetaExportacion(definition.title || "");
+      });
       if (tipo === "csv") tabla.download("csv", f + ".csv", { bom: true });
-      else if (tipo === "xlsx") tabla.download("xlsx", f + ".xlsx", { sheetName: VISTAS[vista].nombre });
+      else if (tipo === "xlsx") tabla.download("xlsx", f + ".xlsx", { sheetName: titulo });
       else if (tipo === "json") tabla.download("json", f + ".json");
       else if (tipo === "copy") { tabla.copyToClipboard("all"); }
       else if (tipo === "pdf") pdfDeTabla(f + ".pdf", nombre);
