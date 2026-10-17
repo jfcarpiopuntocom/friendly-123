@@ -4550,8 +4550,8 @@
     // el resultado queda negativo, se deja ver (mov "alerta-descuadre") en
     // vez de esconderlo: eso es un sobrante real que ocurrio en el mundo
     // fisico, no un bug. Si es una venta remota, TAMBIEN crea la fila en
-    // `ventas` con su split de comision — sin esto, la comision de percha
-    // quedaba invisible en cualquier dispositivo que no fuera el vendedor.
+    // `ventas`; el delta legado no acredita el acuerdo de comisión, que queda
+    // pendiente hasta contar con la venta completa del catálogo.
     aplicarOpRemota(op) {
       if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
       const vistos = _cargarOpsAplicadas();
@@ -4604,11 +4604,8 @@
         const _noDescontado = Math.max(0, -(_antes + pl.delta));
         if (op.tipo === "venta" && pl.delta < 0) {
           const cant = -pl.delta;
-          const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
-          const montoBruto = p.precio * cant;
-          const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
-          const split = ubicP ? calcularSplitVenta(ubicP, montoBruto, acumuladoPrevio, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
-          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split, noCommission: !split, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
+          // El delta legado no trae el acuerdo de venta: comisión desconocida, nunca exención ni porcentaje actual.
+          ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: op.fecha || new Date().toISOString(), split: null, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), origenRemoto: true });
         }
         mov(op.tipo + "-remoto", { producto: p.nombre, delta: pl.delta, dispositivo: op.deviceNombre || op.deviceId || "otro dispositivo" });
         if (_noDescontado > 0) mov("alerta-descuadre", { producto: p.nombre, stockActual: p.stockActual, faltaron: _noDescontado, motivo: "Dos dispositivos vendieron las mismas ultimas unidades casi a la vez. El stock quedo en 0: " + _noDescontado + " unidad(es) se vendieron sin existencia. Cuenta la percha." });

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-17",
-  "changelog": "v547: preserve immutable photo seed identity across reloads; prevent repeated durable photo seeding without removing stored photos.",
+  "changelog": "v548: keep missing legacy remote commission evidence unknown without recalculating the agreement or exempting the sale.",
   "requerida": false,
-  "shell": "f123-shell-v547",
+  "shell": "f123-shell-v548",
   "apagar": [],
-  "releaseName": "v547",
-  "cacheGeneration": "golden111"
+  "releaseName": "v548",
+  "cacheGeneration": "golden112"
 }
