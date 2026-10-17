@@ -105,3 +105,108 @@ node --require ./test/helpers/sin-red-produccion.cjs --test \
 These use synthetic local data/transports. Browser tests require the project's
 Playwright Chromium and WebKit. Neither passing tests nor opening this PR authorizes merge,
 deployment, room activation or production certification.
+
+
+## Prepared staged copy and source fence (local acceptance only)
+
+`staged-import.sql` is an operator-only SQL artifact, not an applied production
+migration. Its private `stage_import_page` accepts exact signed-export response
+text plus SHA-256, a per-room session token, and the previous source cursor.
+The target must initially be empty and remain inactive. Each page commits its
+entire contents and cursor together. Repeating the exact page is idempotent;
+another session cannot append. After the initial fixed cut is complete, the
+same session accepts a larger final cut only if checkpoint fingerprint and
+first surviving source sequence are unchanged. Source compaction requires a new
+coherent archive; it cannot be ignored. Pages retain the existing 16 MiB bound;
+the complete archive has no aggregate 16 MiB bound.
+
+The legacy source now contains a separately signed `fence` operation. It is
+disabled without the existing migration verification key and requires a fresh
+Ed25519 request binding action, room/object and a random operator token. It
+stores a durable fence, closes existing sockets, rejects subsequent source
+writes/broadcasts and new sockets, and returns the final export cut. Hibernation
+retains that fence. Export remains available without deleting history. No
+unfence operation exists: rolling clients back to the old data relay would
+violate the native-only direction and create a second authority.
+
+Neither mechanism was invoked on a real room. Local PostgreSQL 18.6 through
+PGlite 0.5.10 accepted an archive above 16 MiB, retained the exact synthetic
+ciphertext and appended the final tail. SQLite exercised source-fence restart,
+old writes, sockets and non-destructive export. These fixtures do not establish
+hosted grants, multi-session locking, Realtime revocation or customer state.
+
+Before a real cut, inventory and preserve all four channel archives, client
+pending queues and application/photo reconciliation evidence. Copy while
+inactive, then explicitly authorize/source-fence each channel, export and append
+its final cut, reconcile again, and only then consider coordinated activation.
+An isolated end-to-end rehearsal across the actual signed exporter and hosted
+staging database is still required. `copyComplete` explicitly does not mean
+source-fenced, reconciled, activated or ready for clients.
+
+A rollback after new native writes must preserve native authority and its new
+tail, client pending queues and recoverable copies. This preparation has not
+verified a previous-client/native rollback or revoked already-authorized
+Realtime subscriptions. Flipping transport flags or returning to Cloudflare is
+not a tested rollback. No namespaces, photos or operations were purged.
+
+```sh
+node --test test/staged-import.test.js
+node --require ./test/helpers/sin-red-produccion.cjs --test test/relay-export.test.js
+node scripts/profile-license-fixture.cjs
+```
+
+The SQL check requires separately installed local PGlite and pgcrypto. The
+licensing profile calls the current Worker handlers with an in-memory KV; it
+measures registration logic only, with no provider requests or sync connections.
+
+
+## Conservative execution order for production migration
+
+Use the direct approved app entry: https://jfcarpiopuntocom.github.io/friendly-123/.
+An old note about `/next/` or a canary does not select the migration candidate.
+The owner's explicit migration authorization is separate from historical notes
+that described these artifacts before authorization.
+
+1. Identify the current master, source Worker bytes, database migration list and
+   all four members of each room group privately. Snapshot destination metadata;
+   preserve a recoverable source archive and each signed response with its exact
+   SHA-256 before any production fence. Do not log room capabilities or plaintext.
+2. Apply and exercise the staged importer on an isolated hosted PostgreSQL path.
+   Verify grants and rollback, then deploy its reviewed migration without
+   activating rooms. An absent PGlite dependency must fail the local SQL check;
+   PostgreSQL 18 local acceptance is not evidence for hosted PostgreSQL 17.
+3. For a fresh inactive destination, the smallest safe transfer avoids a live
+   prestage: preserve the initial source copy, then fence every source channel
+   with its own durable operator token BEFORE starting the final staged import.
+   Record each returned immutable cut. Keep a group inactive if any fence fails;
+   retry with the same token and preserve all local client queues.
+4. Export the frozen source from cursor zero, preserving its checkpoint on the
+   first page and binding every subsequent signed request to the returned cut.
+   Persist exact response text privately, checksum it, and stage each page using
+   a stable per-room import token and previous source cursor. Read back the
+   committed cursor after uncertain acknowledgements. Never skip a failed page.
+5. Reconcile checkpoint bytes/version/revision, every operation ID, lamport value,
+   ciphertext and arrival order against the frozen archive. Reconcile the
+   application-level business state and referenced photo bytes in an isolated
+   copy. A checksum or copied ciphertext alone does not prove those business
+   invariants. Keep original archives and source storage recoverable.
+6. Activate the complete four-channel group in one transaction only after its
+   frozen source and target reconcile. Confirm native recovery and durable ACKs,
+   pending local write replay, permissions and business/photo preservation through
+   the actual app. Observe network destinations and provider usage in a stated
+   window. A route response or copied history is not proof of device adoption.
+
+If an optional live prestage was used and its checkpoint fingerprint or first
+surviving source sequence changed, STOP that import session. The staged importer
+correctly refuses the incompatible final tail. Do not delete or overwrite the
+partially populated destination to make it pass. Use a separately reviewed,
+recoverable staging-generation mechanism before adopting that optimization.
+The fence-before-final-copy path avoids this requirement and has no aggregate
+16 MiB archive limit; each individual page remains bounded.
+
+There is no unfence endpoint. A fence is a production authority transition,
+not an automatically reversible deployment toggle. Preserve source and native
+copies before it. After native writes, rollback must keep native authority,
+its new write tail and pending queues; it must not point clients back to DO.
+Deactivating a room does not evict an already authorized Realtime subscription.
+No claim of safe rollback or full migration follows from this document.

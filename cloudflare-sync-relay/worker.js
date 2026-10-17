@@ -23,7 +23,9 @@ const PULL_PAGE_MAX = 128;
 const LEGACY_PULL_MAX = 128; // fusible: un shell viejo no puede releer 8.000 por reconexion
 const MIGRATION_BODY = Symbol("verified migration request body");
 
-// Read-only migration access. The signing private key never enters this Worker.
+// Signed migration access. Export/resolve remain read-only; an explicit fence
+// permanently stops source writes without deleting any stored ciphertext.
+// The signing private key never enters this Worker.
 // Empty/missing public key leaves the endpoint disabled. Requests are signed in
 // full, expire after one minute and bind the action and room/object destination.
 async function migrationRequest(request, env, action = "export") {
@@ -44,9 +46,10 @@ async function migrationRequest(request, env, action = "export") {
     const bytes = new Uint8Array(total); let offset = 0;
     for (const piece of pieces) { bytes.set(piece, offset); offset += piece.length; }
     const data = JSON.parse(new TextDecoder().decode(bytes));
-    const target = action === "export" && typeof data.objectId === "string" && /^[a-f0-9]{64}$/.test(data.objectId) && data.room === undefined ||
+    const target = action !== "resolve" && typeof data.objectId === "string" && /^[a-f0-9]{64}$/.test(data.objectId) && data.room === undefined ||
       typeof data.room === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(data.room) && data.objectId === undefined;
     if (data.v !== 1 || data.action !== action || !target ||
+        (action === "fence" && (typeof data.token !== "string" || !/^[a-f0-9]{64}$/.test(data.token))) ||
         !Number.isSafeInteger(data.issuedAt) || Math.abs(Date.now() - data.issuedAt) > 60000) return null;
     const decode = s => b64aBuf(s.replace(/-/g, "+").replace(/_/g, "/"));
     const key = await crypto.subtle.importKey("raw", decode(env.RELAY_MIGRATION_PUBLIC_KEY), "Ed25519", false, ["verify"]);
@@ -93,6 +96,8 @@ export class SalaSync {
       try {
         this.sql.exec("CREATE TABLE IF NOT EXISTS ops(id TEXT PRIMARY KEY, lam INTEGER, c TEXT)");
         this.sql.exec("CREATE TABLE IF NOT EXISTS ckpt(k TEXT PRIMARY KEY, lam INTEGER, c TEXT)");
+        this.sql.exec("CREATE TABLE IF NOT EXISTS migration_fence(k TEXT PRIMARY KEY, token TEXT NOT NULL)");
+        this.fenceToken = this.sql.exec("SELECT token FROM migration_fence WHERE k='source'").toArray()[0]?.token || null;
         /* Migracion aditiva. rev cambia cada vez que un checkpoint v2 compacta
            la bitacora; el cliente reinicia entonces su cursor SQLite. v impide
            que un shell viejo vuelva a pisar un checkpoint confirmado por v2. */
@@ -108,7 +113,7 @@ export class SalaSync {
   }
 
   _guardarOp(id, lam, c) {
-    if (!this.sql || !id || typeof c !== "string") return false;
+    if (this.fenceToken || !this.sql || !id || typeof c !== "string") return false;
     try {
       // A durable retry needs no additional write, even when today's quota is full.
       const anterior = this.sql.exec("SELECT c FROM ops WHERE id = ?", String(id)).toArray();
@@ -131,7 +136,7 @@ export class SalaSync {
   }
 
   _guardarCkpt(lam, c, protocolo, cursorRev, cursorSeq) {
-    if (!this.sql || typeof c !== "string") return false;
+    if (this.fenceToken || !this.sql || typeof c !== "string") return false;
     try {
       const guardar = () => {
       const lamN = Number(lam) || 0;
@@ -255,6 +260,25 @@ export class SalaSync {
   }
 
   async fetch(request) {
+    if (new URL(request.url).pathname === "/__migration/fence") {
+      const query = await migrationRequest(request, this.env, "fence");
+      const target = query && (query.objectId || this.env.SALAS.idFromName(query.room).toString());
+      if (!query || target !== this.state.id.toString() || typeof query.token !== "string" || !/^[a-f0-9]{64}$/.test(query.token)) return migrationJson({ error: "forbidden" }, 403);
+      if (!this.sql) return migrationJson({ error: "storage unavailable" }, 503);
+      if (this.fenceToken && this.fenceToken !== query.token) return migrationJson({ error: "fence token conflict" }, 409);
+      try {
+        // Freeze this live instance before storage work. An error cannot leave
+        // old sockets writing while the operator sees an unsuccessful fence.
+        this.fenceToken = query.token;
+        this.sql.exec("INSERT OR IGNORE INTO migration_fence(k,token) VALUES ('source',?)", query.token);
+        this.fenceToken = this.sql.exec("SELECT token FROM migration_fence WHERE k='source'").toArray()[0]?.token;
+        if (this.fenceToken !== query.token) return migrationJson({ error: "fence unavailable" }, 503);
+        for (const socket of this.state.getWebSockets()) { try { socket.close(1012, "source migrated; pending writes retained"); } catch (_) {} }
+        const copy = await this._exportEncryptedPage({ after: 0, limit: 1 });
+        if (copy.status !== 200) return copy;
+        return migrationJson({ v: 1, fenced: true, token: this.fenceToken, cut: (await copy.json()).cut });
+      } catch (_) { return migrationJson({ error: "fence unavailable" }, 503); }
+    }
     if (new URL(request.url).pathname === "/__migration/export") {
       const query = await migrationRequest(request, this.env);
       const target = query && (query.objectId || this.env.SALAS.idFromName(query.room).toString());
@@ -264,6 +288,8 @@ export class SalaSync {
     if ((request.headers.get("Upgrade") || "").toLowerCase() !== "websocket") {
       return new Response("expected websocket", { status: 426 });
     }
+    if (this.fenceToken) return new Response("source migrated; local pending writes retained", { status: 409 });
+    if (!this.sql) return new Response("source storage unavailable", { status: 503 });
     // Con hibernacion la lista viva se lee del runtime, no de memoria del DO.
     if (this.state.getWebSockets().length >= MAX_CLIENTES_SALA) {
       // Sala llena: no se acepta un cliente mas (evita que una sala crezca sin
@@ -328,6 +354,9 @@ export class SalaSync {
   // mensajes (this.sockets ya no existe): la lista viva se obtiene siempre con
   // this.state.getWebSockets().
   async webSocketMessage(servidor, data) {
+    // Existing and hibernated sockets cannot remain a second writer, even if
+    // their close handshake has not completed. Export access stays read-only.
+    if (this.fenceToken || !this.sql) { try { servidor.close(1012, "source unavailable; pending writes retained"); } catch (_) {} return; }
     // Tope de tamano SIN mirar el contenido: bytes reales. En un string,
     // .length son CARACTERES, no bytes — un texto multibyte podia colarse por
     // encima del tope; se mide en UTF-8. (Importa para los frames base64 de la
@@ -447,14 +476,15 @@ export default {
         return migrationJson({ v: 1, objectId });
       } catch (_) { return migrationJson({ error: "resolution unavailable" }, 503); }
     }
-    if (url.pathname === "/migration/export") {
+    if (url.pathname === "/migration/export" || url.pathname === "/migration/fence") {
       // Reconstruct only after signature verification; do not enter a room for
       // unsigned requests. No data or credentials are logged by this path.
-      const query = await migrationRequest(request, env);
+      const action = url.pathname.endsWith("/fence") ? "fence" : "export";
+      const query = await migrationRequest(request, env, action);
       if (!query) return migrationJson({ error: "forbidden" }, 403);
       try {
         const id = query.objectId ? env.SALAS.idFromString(query.objectId) : env.SALAS.idFromName(query.room);
-        return await env.SALAS.get(id).fetch(new Request("https://relay.internal/__migration/export", {
+        return await env.SALAS.get(id).fetch(new Request("https://relay.internal/__migration/" + action, {
           method: "POST", headers: request.headers, body: query[MIGRATION_BODY]
         }));
       } catch (_) { return migrationJson({ error: "export unavailable" }, 503); }

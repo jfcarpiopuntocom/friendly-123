@@ -94,6 +94,38 @@ test('export is ordered, bounded, immutable and detects compaction between pages
 });
 
 // Helpers: ephemeral signing keys and synthetic ciphertext only.
+test('signed source fence survives hibernation and rejects old writes without deleting export history', async () => {
+ const worker = await load(), { env, signed } = signer(), db = new DatabaseSync(':memory:');
+ const sql = { exec(q, ...a) { const s = db.prepare(q); if (/^SELECT/.test(q)) return { toArray: () => s.all(...a) }; s.run(...a); return { toArray: () => [] }; } };
+ const objectId = 'a'.repeat(64), closed = [], sent = [];
+ const socket = { readyState: 1, close: (...args) => closed.push(args), send: data => sent.push(data) };
+ const state = { id: { toString: () => objectId }, storage: { sql }, getWebSockets: () => [socket] };
+ let room = new worker.SalaSync(state, env);
+ room._guardarOp('synthetic-before', 10, 'AQID');
+ const body = { v: 1, action: 'fence', objectId, token: 'b'.repeat(64), issuedAt: Date.now() };
+ const unsigned = new Request('https://fixture.invalid/__migration/fence', { method: 'POST', body: JSON.stringify(body) });
+ assert.equal((await room.fetch(unsigned)).status, 403);
+ assert.equal(room._guardarOp('synthetic-unfenced', 20, 'BAUG'), true);
+ const before = db.prepare('SELECT rowid,* FROM ops ORDER BY rowid').all();
+ const fence = await (await room.fetch(signed(body, '/__migration/fence'))).json();
+ assert.equal(fence.fenced, true); assert.equal(fence.token, body.token); assert.equal(fence.cut.maxSeq, 2);
+ assert.ok(closed.length);
+ assert.equal(room._guardarOp('synthetic-after', 30, 'BwgJ'), false);
+ assert.equal(room._guardarCkpt(50, 'CgsM', 1), false);
+ await room.webSocketMessage(socket, JSON.stringify({ k: 'op', id: 'old-client', lam: 40, c: 'BwgJ', ack: 1 }));
+ await room.webSocketMessage(socket, new Uint8Array([1, 2, 3]).buffer);
+ assert.equal(sent.length, 0, 'no durable ACK or live broadcast after fence');
+ room = new worker.SalaSync(state, env); // hibernation/restart reads the durable fence
+ assert.equal(room._guardarOp('synthetic-restart', 40, 'BwgJ'), false);
+ assert.equal((await room.fetch(new Request('https://fixture.invalid/sala/x', { headers: { Upgrade: 'websocket' } }))).status, 409);
+ assert.equal((await room.fetch(signed({ ...body, token: 'c'.repeat(64) }, '/__migration/fence'))).status, 409);
+ const duplicate = await (await room.fetch(signed(body, '/__migration/fence'))).json(); assert.deepEqual(duplicate.cut, fence.cut);
+ const copy = await (await room.fetch(signed({ v: 1, action: 'export', objectId, issuedAt: Date.now(), cut: fence.cut }, '/__migration/export'))).json();
+ assert.deepEqual(copy.ops.map(x => x.id), ['synthetic-before', 'synthetic-unfenced']);
+ assert.deepEqual(db.prepare('SELECT rowid,* FROM ops ORDER BY rowid').all(), before);
+ db.close();
+});
+
 function signer() {
  const pair = crypto.generateKeyPairSync('ed25519');
  return { env: { RELAY_MIGRATION_PUBLIC_KEY: pair.publicKey.export({ format: 'jwk' }).x }, signed(body, route = '/migration/export') {
