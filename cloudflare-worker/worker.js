@@ -39,6 +39,63 @@ function requireMasterKey(req, env) {
   return env.MASTER_KEY && k === env.MASTER_KEY;
 }
 
+// Licensing-only provisioning: hashes, never notebook frames or encryption keys.
+// Match Yjs identity exactly, including the one historical clean-room suffix.
+async function relayRoomForLicense(code) {
+  const codigo = String(code || "").trim().toUpperCase();
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < codigo.length; i++) {
+    const ch = codigo.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  const adjusted = 4294967296 * (2097151 & h2) + (h1 >>> 0) === 6583453063440131
+    ? codigo + "::limpio-2026-09-16" : codigo;
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("amigable-sala:" + adjusted));
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("").slice(0, 40);
+}
+
+async function provisionRelayLicenses(env, codes) {
+  if (!/^https:\/\/[a-z0-9]{20}\.supabase\.co$/.test(env.SUPABASE_ORIGIN || "") ||
+      !/^[a-f0-9]{64}$/.test(env.RELAY_PROVISION_SECRET || "") || !env.SUPABASE_PUBLISHABLE_KEY) {
+    return { ok: false, reason: "provisioning-unconfigured" };
+  }
+  const rooms = [...new Set(await Promise.all(codes.map(relayRoomForLicense)))];
+  const issuedAt = Date.now(), encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(env.RELAY_PROVISION_SECRET),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", key,
+    encoder.encode("friendly-provision:v1\n" + issuedAt + "\n" + rooms.join("\n")))), b => b.toString(16).padStart(2, "0")).join("");
+  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(env.SUPABASE_ORIGIN + "/rest/v1/rpc/f123_relay_provision", {
+      method: "POST", signal: controller.signal,
+      headers: { "content-type": "application/json", apikey: env.SUPABASE_PUBLISHABLE_KEY },
+      body: JSON.stringify({ p_rooms: rooms, p_issued_at: issuedAt, p_signature: signature })
+    });
+    if (!response.ok) { await response.body?.cancel(); return { ok: false, reason: "provisioning-unavailable" }; }
+    const result = await response.json();
+    if (!result || typeof result.ok !== "boolean") return { ok: false, reason: "provisioning-unavailable" };
+    // Only aggregate status leaves this boundary, never room capabilities.
+    return { ok: result.ok, reason: result.ok ? undefined : "migration-required",
+      ready: Number(result.ready) || 0, created: Number(result.created) || 0,
+      migrationRequired: Number(result.migrationRequired) || 0 };
+  } catch (_) { return { ok: false, reason: "provisioning-unavailable" }; }
+  finally { clearTimeout(timer); }
+}
+
+async function handleRelayProvision(req, env) {
+  if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
+  let body;
+  try { const text = await req.text(); if (text.length > 4096) return json({ error: "Solicitud demasiado grande" }, 413); body = JSON.parse(text); }
+  catch (_) { return json({ error: "JSON invalido" }, 400); }
+  const codigo = String(body?.licenseCode || "").trim().toUpperCase();
+  if (!/^F123-[0-9A-Z*~$=-]{8,34}$/.test(codigo)) return json({ error: "Licencia invalida" }, 400);
+  const result = await provisionRelayLicenses(env, [codigo]);
+  return json(result, result.ok ? 200 : result.reason === "migration-required" ? 409 : 503);
+}
+
 /* Recovery permits use the already-private panel credential as a signing key,
    domain-separated from its normal license API use. No universal recovery
    phrase is shipped to browsers. A permit is scoped to one instance and five
@@ -746,7 +803,10 @@ async function handleEmitirLote(req, env) {
   lote.codigos = lote.codigos.concat(nuevos);
   lote.actualizado = ahora;
   await env.LICENCIAS.put(claveLote, JSON.stringify(lote));
-  return json({ ok: true, etiqueta, prefijo, estado, emitidos: nuevos.length, totalLote: lote.codigos.length, codigos: nuevos });
+  // One bounded RPC for the whole batch preserves the existing 500-code limit.
+  // Issued licences remain recoverable when provisioning needs an operator retry.
+  const relay = await provisionRelayLicenses(env, nuevos);
+  return json({ ok: true, etiqueta, prefijo, estado, emitidos: nuevos.length, totalLote: lote.codigos.length, codigos: nuevos, relay });
 }
 
 async function handleListarLotes(req, env) {
@@ -943,6 +1003,7 @@ export default {
     // Public checkin (activation + login heartbeat)
     if (url.pathname === "/canario/estado" && req.method === "GET") return handleCanarioEstado(req, env, url);
     if (url.pathname === "/canario/orden" && (req.method === "GET" || req.method === "POST")) return handleCanarioOrden(req, env);
+    if (url.pathname === "/relay/provision" && req.method === "POST") return handleRelayProvision(req, env);
     if ((url.pathname === "/checkin" || url.pathname === "/register") && req.method === "POST") {
       return handleCheckin(req, env);
     }
