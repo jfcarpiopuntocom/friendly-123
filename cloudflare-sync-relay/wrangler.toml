@@ -11,6 +11,7 @@ preview_urls = false
 # with Windows DPAPI; this permits signed, read-only encrypted history exports.
 [vars]
 RELAY_MIGRATION_PUBLIC_KEY = "cZrsa2pl5lrEQF03w_TI0RofZfRTEXBSmq6umA_Z3CI"
+RELAY_ARCHIVE_ONLY = "1"
 
 # Salas con hibernacion y sobres cifrados persistidos en SQLite.
 [[durable_objects.bindings]]

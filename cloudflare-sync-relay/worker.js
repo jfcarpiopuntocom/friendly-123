@@ -356,7 +356,7 @@ export class SalaSync {
   async webSocketMessage(servidor, data) {
     // Existing and hibernated sockets cannot remain a second writer, even if
     // their close handshake has not completed. Export access stays read-only.
-    if (this.fenceToken || !this.sql) { try { servidor.close(1012, "source unavailable; pending writes retained"); } catch (_) {} return; }
+    if (this.env.RELAY_ARCHIVE_ONLY === "1" || this.fenceToken || !this.sql) { try { servidor.close(1012, "source unavailable; pending writes retained"); } catch (_) {} return; }
     // Tope de tamano SIN mirar el contenido: bytes reales. En un string,
     // .length son CARACTERES, no bytes — un texto multibyte podia colarse por
     // encima del tope; se mide en UTF-8. (Importa para los frames base64 de la
@@ -496,6 +496,7 @@ export default {
         headers: {
           "content-type": "text/plain; charset=utf-8",
           "x-friendly-relay-release": "durable-ack-20261014",
+          "x-friendly-relay-mode": env.RELAY_ARCHIVE_ONLY === "1" ? "archive-only" : "legacy",
           /* CORS (JFC 2026-08-28): sin esto, un fetch("/health") desde el
              navegador (github.io) se bloqueaba por CORS y el autodiagnóstico
              reportaba "RELAY UNREACHABLE" en falso. El check del cliente ya
@@ -508,6 +509,11 @@ export default {
     // /sala/<id>  — el id es el hash de sala que deriva el cliente (opaco aqui).
     const m = url.pathname.match(/^\/sala\/([A-Za-z0-9_-]{1,128})$/);
     if (!m) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
+    // Native cutover is complete for inventoried license groups. Keep signed
+    // archive recovery above, but never enter/create a DO for public sync.
+    if (env.RELAY_ARCHIVE_ONLY === "1") return new Response("source migrated; local pending writes retained", {
+      status: 409, headers: { "access-control-allow-origin": "*", "cache-control": "no-store" }
+    });
     const idSala = env.SALAS.idFromName(m[1]);
     const stub = env.SALAS.get(idSala);
     return stub.fetch(request);
