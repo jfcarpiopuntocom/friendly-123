@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-16",
-  "changelog": "v545: place a small visible brand signature next to PDF page numbers; remove the background watermark.",
+  "fecha": "2026-10-17",
+  "changelog": "v546: soften the PDF footer brand by 30% using 70% opacity; preserve its approved size and position beside page numbers.",
   "requerida": false,
-  "shell": "f123-shell-v545",
+  "shell": "f123-shell-v546",
   "apagar": [],
-  "releaseName": "v545",
-  "cacheGeneration": "golden109"
+  "releaseName": "v546",
+  "cacheGeneration": "golden110"
 }

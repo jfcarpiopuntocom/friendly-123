@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v545",
+  "shell": "f123-shell-v546",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-7e156aa5c4e21822eab4d87efbd8acd434b8976d8f6a7f46e639fd9c40948710",
@@ -61,7 +61,7 @@
     "./finance-report-worker.js": "sha256-09227600d276f7d9703ffb06cf06ec55a86ba8d4f126342531f4115e0abe0d14",
     "./customer-profile.js": "sha256-e83fbc73cb2966ff7ddbc3bf616e1c5afbfa5fa1808a1c2dc701d87ec86b4ab8",
     "./dashboard-finance.js": "sha256-a4b9ff8139b0cd6730cdbff691478d173ac1bf9a4d9a4587b0460f80392b9956",
-    "./pdf-report-layout.js": "sha256-d262780a08ac06f80afc89a51a513fda83b67343cfe7e1c81ac2e22ebc3e8913",
+    "./pdf-report-layout.js": "sha256-4bd97ac735f1aef074f3ea20ae8e0844a45499c2fd2f23c833a7147c11055cb7",
     "./expense-receipt.js": "sha256-4fea2f3b233387fc4e14075ec5d9eabce74032cf4557a9e066fdb947a42fd463",
     "./sales-audit-ui.js": "sha256-fc538f10587093a0aa94e9922b6ce627c4a25ca76ed42491193fc955f504dd22",
     "./application/recover-shelf-photo.js": "sha256-2c1f73f4c6d0e0869fe4b110f314f44313d65116c4ced0900d050c05db6b49e7",
@@ -71,7 +71,7 @@
     "./micelio-vivo.js": "sha256-4e9201311c932092e1b4bf4755e95410dd9b822bfc046a39f1534e6b3a7d8cda",
     "./micelio-ui.js": "sha256-85f2e15243f9961047efdec851bd84634839c6f733317f0197f1d6632a82e306",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-0993b2258bb87e065e701b78f19961c964a3cbcc08df9b9f1c70fe2979277cb1",
+    "./dashboard.html": "sha256-5712d2d49b2b12ff1b5c415f8b7a3cb6b5956694cc8e6a6890e45c48a243ec07",
     "./dashboard-updates.js": "sha256-98b7f30097e123fe86a6d1e58c77b233a443c5952a8864dba4c887ff4bc826b9",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",

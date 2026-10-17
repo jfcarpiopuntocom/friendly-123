@@ -159,5 +159,7 @@ Tinta, lienzo, hairline y acento rust conservan los tokens compartidos.
 Decisión final de JFC (2026-10-16): la marca va **junto al número de página y ya**,
 como firma de nuestro informe. Sustituye los intentos de watermark de fondo.
 Logo existente a color, visible, 64 pt (22.6 mm) de ancho y separación de 12 pt
-respecto de la paginación, dentro del pie y del marco. Sin transparencia añadida.
+respecto de la paginación, dentro del pie y del marco.
+Ajuste de JFC (2026-10-17): 30% menos intensidad de color; opacidad del logo 70%.
+La transparencia se aplica exclusivamente al logo, conservando la tinta de la paginación.
 Cabecera y marco se repiten en cada página; pie con marca y página/total.

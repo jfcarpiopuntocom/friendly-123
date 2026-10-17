@@ -93,8 +93,11 @@
         if (options.logo) {
           const image = doc.getImageProperties(options.logo), w = 64;
           const h = w * image.height / image.width;
+          doc.saveGraphicsState();
+          doc.setGState(new doc.GState({ opacity: 0.7 }));
           doc.addImage(options.logo, 'PNG', right - doc.getTextWidth(pageLabel) - 12 - w,
             height - 54, w, h, 'friendly-report-brand');
+          doc.restoreGraphicsState();
         }
         doc.text(pageLabel, right, height - 44, { align: 'right' });
       }
