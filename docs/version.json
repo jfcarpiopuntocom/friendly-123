@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-17",
-  "changelog": "v546: soften the PDF footer brand by 30% using 70% opacity; preserve its approved size and position beside page numbers.",
+  "changelog": "v547: preserve immutable photo seed identity across reloads; prevent repeated durable photo seeding without removing stored photos.",
   "requerida": false,
-  "shell": "f123-shell-v546",
+  "shell": "f123-shell-v547",
   "apagar": [],
-  "releaseName": "v546",
-  "cacheGeneration": "golden110"
+  "releaseName": "v547",
+  "cacheGeneration": "golden111"
 }
