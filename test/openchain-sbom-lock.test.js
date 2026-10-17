@@ -1,0 +1,17 @@
+'use strict';
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const {generate,resolveDependency,purl}=require('../scripts/openchain-sbom-lock.cjs');
+const base={lockfileVersion:3,packages:{'':{name:'private-app',version:'1.0.0',license:'UNLICENSED',dependencies:{alpha:'^1',beta:'^2'},devDependencies:{devtest:'3'}},'node_modules/alpha':{version:'1.0.0',license:'MIT',dependencies:{beta:'2'}},'node_modules/beta':{version:'2.0.0',license:'Apache-2.0'},'node_modules/devtest':{version:'3.0.0',dev:true,license:'MIT'}}};
+const make=o=>JSON.stringify(o);
+test('locked dependency graph has no missing mandatory edges',()=>{const {bom,report}=generate(make(base));assert.equal(report.componentCount,3);assert.equal(report.resolvedEdges,4);assert.deepEqual(report.unresolved,[]);assert.equal(bom.specVersion,'1.5');assert.equal(bom.dependencies.length,4);});
+test('root remains proprietary, not mislabeled as MIT',()=>{const {bom,report}=generate(make(base));assert.equal(bom.metadata.component.licenses[0].license.name,'UNLICENSED');assert.equal(report.certification,'NOT assessed');});
+test('dev-only has explicit property rather than being asserted shipped',()=>{const {bom}=generate(make(base));const p=bom.components.find(c=>c.name==='devtest');assert.ok(p.properties.some(x=>x.name==='friendly:dev-only-declared'&&x.value==='true'));});
+test('does not silently invent unresolved dependencies',()=>{const o=structuredClone(base);o.packages[''].dependencies.unlisted='1';const {report}=generate(make(o));assert.equal(report.unresolved.length,1);assert.equal(report.unresolved[0].name,'unlisted');});
+test('optional missing dependency is flagged as optional',()=>{const o=structuredClone(base);o.packages['node_modules/beta'].optionalDependencies={linuxonly:'1'};const {report}=generate(make(o));assert.equal(report.unresolved[0].optional,true);});
+test('nested dependency shadows top-level dependency',()=>{const o=structuredClone(base);o.packages['node_modules/alpha/node_modules/beta']={version:'3.0.0',license:'MIT'};assert.equal(resolveDependency(o.packages,'node_modules/alpha','beta'),'node_modules/alpha/node_modules/beta');});
+test('scoped package PURL percent encodes scope',()=>{assert.equal(purl('@electric-sql/pglite','0.5.10'),'pkg:npm/%40electric-sql/pglite@0.5.10');});
+test('unsafe paths and traversal cannot be used',()=>{const o=structuredClone(base);o.packages['../bad']={version:'1'};assert.throws(()=>generate(make(o)),/Unsafe package location/);});
+test('npm lock v2 not mistaken for v3',()=>{const o=structuredClone(base);o.lockfileVersion=2;assert.throws(()=>generate(make(o)),/lockfileVersion 3/);});
+test('hash changes upon any lockfile change',()=>{const a=generate(make(base)).report.sha256;const b=generate(make({...base,name:'tampered'})).report.sha256;assert.notEqual(a,b);});
+test('duplicate package-version locations still have unique refs',()=>{const o=structuredClone(base);o.packages['node_modules/alpha/node_modules/beta']={version:'2.0.0',license:'MIT'};const {bom}=generate(make(o));const refs=bom.components.map(c=>c['bom-ref']);assert.equal(refs.length,new Set(refs).size);});
