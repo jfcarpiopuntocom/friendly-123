@@ -13,16 +13,16 @@ test('event rows use the common economic contribution and preserve independent o
  assert.deepEqual(Array.from(rows,x=>x.gastosDirectos).sort((a,b)=>a-b),[0,5]);
 });
 test('PDF financial rows include the SAME common house result, separated from cash',()=>{
- const tables=[],texts=[];const document={lastAutoTable:{finalY:100},fontSize:10,setFontSize(n){this.fontSize=n;},text(t){texts.push(t);},autoTable(t){tables.push(t);},addPage(){},save(){},splitTextToSize(t){assert.equal(this.fontSize,11,'wrap the explanation at its actual rendered font size');return t;}};
+ const tables=[],texts=[];const PDF=require('./helpers/report-pdf.cjs').instrumentPDF(tables,texts);
  const c={datos:{ventas:[sale()],gastos:[expense],ajustesComision:[],cobertura:{ajustesComision:true,gastos:true,ventas:true,finanzasCoherentes:true,timezone:'America/Guayaquil'}},
-  window:{OCBusinessReadModel:R,jspdf:{jsPDF:function(){return document;}}},localStorage:{getItem:()=> 'es'},
+  window:{OCReportPDF:require('./helpers/report-pdf.cjs').layout,OCBusinessReadModel:R,jspdf:{jsPDF:PDF}},localStorage:{getItem:()=> 'es'},
   $:()=>({textContent:'Synthetic shop'}),prompt:()=> '2026-10',money:n=>n==null?'—':'$'+n,
   zonaNegocioDashboard:()=> 'America/Guayaquil',fechaLocalDashboard:x=>x,mesLocalDe:()=> '2026-10',_fuenteDatosDashboard:'local',Number,Date,Object,String};
  vm.createContext(c);vm.runInContext(slice(dash,'  function reporte(cual) {','  /* ================================================== EL MANDO A DISTANCIA'),c);
  vm.runInContext('reporte("mes")',c);
  const summary=tables.find(t=>t.body&&t.body.some(r=>/Casa después|House after/.test(r[0])));
  assert.ok(summary,'economic house row is present');assert.ok(summary.body.some(r=>/Casa después/.test(r[0])&&r[1]==='$5'));
- assert.ok(texts.some(t=>String(t).includes('dinero disponible')),'cash is explicitly separated');
+ assert.ok(texts.flat().join(' ').includes('dinero disponible'),'cash is explicitly separated');
 });
 test('snapshot obtains financial rows in one cut and carries its local revision',async()=>{
  const seen=[];

@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-16",
-  "changelog": "v540: preserve adjustment and pending-conflict report rows, isolate unrelated financial conflicts, assign expenses before first sale, and export dashboard tables in the selected language. Keep current adjustments pending when their historical sale is quarantined.",
+  "fecha": "2026-10-17",
+  "changelog": "v546: soften the PDF footer brand by 30% using 70% opacity; preserve its approved size and position beside page numbers.",
   "requerida": false,
-  "shell": "f123-shell-v540",
+  "shell": "f123-shell-v546",
   "apagar": [],
-  "releaseName": "v540",
-  "cacheGeneration": "golden104"
+  "releaseName": "v546",
+  "cacheGeneration": "golden110"
 }

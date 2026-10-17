@@ -56,7 +56,7 @@ test('customer updates are single-target and PIN session guarded at the remote A
 
 test('PDF exports use direct jsPDF save rather than Tabulator cancelled downloader', () => {
   assert.match(dash,/function pdfDeTabla\(filename, negocio\)/);
-  assert.match(dash,/doc\.autoTable\(\{head:\[titulos\]/);
+  assert.match(dash,/layout\.table\(\{head:\[titulos\]/);
   assert.match(dash,/doc\.save\(filename\)/);
   assert.doesNotMatch(dash,/tabla\.download\("pdf"/);
 });

@@ -41,7 +41,7 @@ test('a financial export waiting for its PDF tool is cancelled when the notebook
   const pending = new Promise(resolve => { release = resolve; });
   let requested;
   const requestSeen = new Promise(resolve => { requested = resolve; });
-  await context.route('**/vendor/jspdf-2.5.1.umd.min.js', async route => {
+  await context.route('**/vendor/jspdf-4.2.1.umd.min.js', async route => {
     requested(); await pending; await route.continue();
   });
   const downloads = [];
@@ -93,7 +93,7 @@ test('PDF tools stay unloaded until requested; failed first load retries and all
   const { context, page } = await shop();
   const requests = [];
   let fail = true;
-  await context.route('**/vendor/jspdf-2.5.1.umd.min.js', route => {
+  await context.route('**/vendor/jspdf-4.2.1.umd.min.js', route => {
     requests.push('pdf');
     return fail ? route.abort() : route.continue();
   });

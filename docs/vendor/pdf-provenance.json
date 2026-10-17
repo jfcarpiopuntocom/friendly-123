@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "retrievedOn": "2026-10-16",
+  "verification": "Tarball SHA-512 matched the npm registry integrity value; only trailing spaces/tabs in line endings were removed from the extracted JavaScript. Both upstream and distributed SHA-256 values are recorded.",
+  "scope": "These two upstream artifacts only; this is not a complete product SBOM or complete inventory of code embedded in the UMD bundle.",
+  "components": [
+    {
+      "package": "jspdf",
+      "version": "4.2.1",
+      "license": "MIT",
+      "file": "jspdf-4.2.1.umd.min.js",
+      "sha256": "5feb83f439480e06687f9e6f23a8a162b12157b9606aa6ffc70c7e961b7c6013",
+      "registryMetadata": "https://registry.npmjs.org/jspdf/4.2.1",
+      "tarball": "https://registry.npmjs.org/jspdf/-/jspdf-4.2.1.tgz",
+      "tarballIntegrity": "sha512-YyAXyvnmjTbR4bHQRLzex3CuINCDlQnBqoSYyjJwTP2x9jDLuKDzy7aKUl0hgx3uhcl7xzg32agn5vlie6HIlQ==",
+      "tarballMember": "package/dist/jspdf.umd.min.js",
+      "upstreamSha256": "e6551fcdc32f09d6853b2c5126d18d01d9447e0da618a41a11ebeee0f6c20d54",
+      "normalization": "Remove trailing ASCII spaces and tabs at line endings; retain license content and executable JavaScript."
+    },
+    {
+      "package": "jspdf-autotable",
+      "version": "5.0.9",
+      "license": "MIT",
+      "file": "jspdf-autotable-5.0.9.min.js",
+      "sha256": "efe0106af8224d8480b94e83ceafe4a5f889b13e028f3bec6d33c0a64a3133f5",
+      "registryMetadata": "https://registry.npmjs.org/jspdf-autotable/5.0.9",
+      "tarball": "https://registry.npmjs.org/jspdf-autotable/-/jspdf-autotable-5.0.9.tgz",
+      "tarballIntegrity": "sha512-wIOG2ggjG6Y7qvqjgFACZZeu+oHxoxrhwCn1lTMxjPhojLVVvu2U2yS2srVCYl0CXe6pqiG/jQMIIS0CFn1ssw==",
+      "tarballMember": "package/dist/jspdf.plugin.autotable.min.js",
+      "upstreamSha256": "83dd8e5ae29436bd3d3ef4f4a915125b3951264994c25de0359d3fbd105abe15",
+      "normalization": "Remove trailing ASCII spaces and tabs at line endings; retain license content and executable JavaScript."
+    }
+  ]
+}

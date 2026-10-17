@@ -143,3 +143,23 @@ entre si (JFC 2026-09-30).
 - Caso que origino la regla: el PUSH del panel decia "hecho" y los clientes seguian en v429 (sonar.yml
   corre cada 4-7 h). Corregido en v432. Cualquier texto "no honesto" que se encuentre se corrige en el acto.
 
+
+## Informes PDF — indicación de JFC, 2026-10-16
+
+Para los informes del dashboard, la orden actual sustituye la regla anterior sin logo:
+la última indicación sitúa la marca existente junto a la paginación, dentro del marco.
+El recibo imprimible del asociado conserva su tratamiento sin marca.
+
+Composición A4: marco completo a 24 pt del papel, radio 4.5 pt (6 px),
+contenido a 48 pt, cabecera hasta 124 pt y pie reservado de 88 pt.
+Títulos 24 pt, cifras destacadas 26 pt en mono, tabla y metadatos 10.5 pt
+(equivalentes a 14 px), notas 11 pt. Se usan las familias PDF estándar
+Helvetica/Courier con la jerarquía display/body/mono de la app, sin descargar fuentes.
+Tinta, lienzo, hairline y acento rust conservan los tokens compartidos.
+Decisión final de JFC (2026-10-16): la marca va **junto al número de página y ya**,
+como firma de nuestro informe. Sustituye los intentos de watermark de fondo.
+Logo existente a color, visible, 64 pt (22.6 mm) de ancho y separación de 12 pt
+respecto de la paginación, dentro del pie y del marco.
+Ajuste de JFC (2026-10-17): 30% menos intensidad de color; opacidad del logo 70%.
+La transparencia se aplica exclusivamente al logo, conservando la tinta de la paginación.
+Cabecera y marco se repiten en cada página; pie con marca y página/total.

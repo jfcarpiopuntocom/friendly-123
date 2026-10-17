@@ -72,7 +72,7 @@ See [PRIVACY.md](./PRIVACY.md) — short version: your business data stays with 
 
 ## License
 
-Proprietary. See `LICENSE`.
+Proprietary. Original friendly-123 code and materials are © 2026 J. F. Carpio; all rights reserved. See [LICENSE](./LICENSE). Third-party components retain their own licenses. Public repository access does not itself grant a license to the original works.
 
 **Commercial use license:** 5 years from activation, support and updates included the whole time. No subscription.
 

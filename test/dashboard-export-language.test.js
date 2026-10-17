@@ -16,10 +16,8 @@ test('accountant table exports follow Spanish and subsequent English selection w
   const context = {
     window: {
       OCDashIdioma: { traducir: value => lang === 'es' ? translations[value] || null : null },
-      jspdf: { jsPDF: function () { return {
-        setFontSize() {}, text(value) { pdfText.push(value); },
-        autoTable(value) { pdfTables.push(value); }, save() {}
-      }; } }
+      OCReportPDF: require('./helpers/report-pdf.cjs').layout,
+      jspdf: { jsPDF: require('./helpers/report-pdf.cjs').instrumentPDF(pdfTables, pdfText) }
     },
     localStorage: { getItem: () => lang },
     VISTAS: { ventas: { nombre: 'Sales', cols } }, vista: 'ventas', datos: {},
@@ -35,7 +33,7 @@ test('accountant table exports follow Spanish and subsequent English selection w
   vm.runInContext('exportar("pdf"); exportar("xlsx");', context);
   assert.deepEqual(Array.from(pdfTables[0].head[0]), ['Producto', 'Precio']);
   assert.deepEqual(Array.from(pdfTables[0].body[0]), ['Synthetic coffee', '$10.00']);
-  assert.match(pdfText[1], /^Ventas · /);
+  assert.equal(String(pdfText[1]), 'Ventas');
   assert.equal(downloads[0].options.sheetName, 'Ventas');
   assert.deepEqual(downloads[0].headers, ['Producto', 'Precio']);
   assert.match(downloads[0].file, / · Ventas · /);
