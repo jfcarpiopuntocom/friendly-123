@@ -12,13 +12,14 @@ function fixture() {
   const blobs = new Map();
   const seeds = [];
   const context = {
+    crypto: require('node:crypto').webcrypto, TextEncoder,
     API: { fotosCanal: {}, fotosDoc: {}, fotosMap: blobs },
     window: {
       OCSync: { catalogoPropio: () => catalog },
       // Exercise the legacy adapter without leerTodosPorHash, too.
       OCFotos: { leerPorHash: async hash => hash === 'synthetic-receipt' ? photo : null },
       Y: {
-        Doc: class { constructor() { this.blobs = new Map(); } getMap() { return this.blobs; } },
+        Doc: class { constructor() { this.blobs = new Map(); } getMap() { return this.blobs; } destroy() {} },
         encodeStateAsUpdate: doc => Array.from(doc.blobs),
         applyUpdate: (_doc, update) => seeds.push(update),
       },
@@ -46,7 +47,7 @@ test('expense receipt references publish their blob separately and deduplicate r
 test('reconnection seeds referenced expense receipts with the existing photo channel', async () => {
   const f = fixture();
   f.context.sembrarFotosAlRelay();
-  await tick();
+  for (let i=0;i<50 && !f.seeds.length;i++) await new Promise(resolve=>setTimeout(resolve,2));
   assert.equal(f.seeds.length, 1);
   assert.deepEqual(f.seeds[0], [['synthetic-receipt', f.photo]]);
   f.context.sembrarFotosAlRelay();

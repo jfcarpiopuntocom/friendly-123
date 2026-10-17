@@ -1099,14 +1099,25 @@
         Object.keys(hashes).forEach(function (hash) {
           if (_fotosSembradas[hash]) return;
           var local = todos && todos[hash];
-          Promise.resolve(local || window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
+          Promise.resolve(local || window.OCFotos.leerPorHash(hash)).then(async function (dataUrl) {
             if (!dataUrl) return;
             try {
+                // An immutable photo must not gain a new Yjs identity on every
+                // page load. Include its bytes so a mismatched hash cannot hide
+                // different evidence. A 52-bit digest avoids ordinary random
+                // 32-bit client IDs; the encrypted wire format stays unchanged.
+                var seedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
+                  "friendly-photo-seed-v1:" + JSON.stringify([hash, dataUrl])));
+                var seedHex = Array.from(new Uint8Array(seedDigest)).map(function (b) {
+                  return b.toString(16).padStart(2, "0");
+                }).join("");
               var d = new window.Y.Doc();
+                d.clientID = parseInt(seedHex.slice(0, 13), 16) + 4294967296;
               d.getMap("blobs").set(hash, dataUrl);
               var u = window.Y.encodeStateAsUpdate(d);
               _fotosSembradas[hash] = 1;
               try { window.Y.applyUpdate(API.fotosDoc, u, "seed"); } catch (_) {}
+                d.destroy();
             } catch (_) {}
           }).catch(function () {});
         });
