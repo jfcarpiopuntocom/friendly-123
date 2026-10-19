@@ -10945,6 +10945,10 @@ window.addEventListener("oc-datos-importados", async () => {
 // Aviso discreto una sola vez por sesion; jamas bloquea nada.
 (function cajaNegraErrores() {
   let avisado = false;
+  let aviso = null;
+  function cerrarAviso() { if (aviso) { aviso.remove(); aviso = null; } }
+  // Un PIN valido descarta errores visuales de la pantalla anterior.
+  window.addEventListener("oc-login", cerrarAviso);
   window.addEventListener("unhandledrejection", (e) => { try { const lista = JSON.parse(localStorage.getItem("f123_errores") || "[]"); lista.push({ fecha: new Date().toISOString(), msg: String((e.reason && e.reason.message) || e.reason).slice(0, 300), src: "promise", linea: 0 }); localStorage.setItem("f123_errores", JSON.stringify(lista.slice(-10))); } catch (_) {} }); // (2026-07-17) promesas rechazadas tambien van a la caja negra
   window.addEventListener("error", (e) => {
     try {
@@ -10956,12 +10960,19 @@ window.addEventListener("oc-datos-importados", async () => {
     avisado = true;
     try {
       const d = document.createElement("div");
+      const es = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
       d.setAttribute("role", "status");
+      d.setAttribute("id", "f123-error-toast");
       d.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:10004;background:#0F1923;border-top:3px solid #E86040;padding:10px 14px;text-align:center;";
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">Something failed on this screen. Reload the page; if it happens again, let us know via WhatsApp.</span>' +
-        ' <button style="margin-left:10px;min-height:40px;padding:8px 14px;border-radius:6px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;cursor:pointer;" onclick="location.reload()">Reload</button>';
+      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">' +
+        (es ? 'Algo falló en esta pantalla. Si vuelve a ocurrir, avísanos por WhatsApp.' : 'Something failed on this screen. If it happens again, let us know via WhatsApp.') + '</span>' +
+        ' <button type="button" data-f123-error-close aria-label="' + (es ? 'Cerrar aviso' : 'Dismiss notice') + '" style="margin-left:10px;min-height:40px;padding:8px 14px;border-radius:6px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;cursor:pointer;">' + (es ? 'Cerrar' : 'Close') + '</button>' +
+        ' <button type="button" data-f123-error-reload style="margin-left:6px;min-height:40px;padding:8px 14px;border-radius:6px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:14px;font-weight:700;cursor:pointer;">' + (es ? 'Recargar' : 'Reload') + '</button>';
       (document.body || document.documentElement).appendChild(d);
-      setTimeout(() => d.remove(), 12000);
+      aviso = d;
+      d.querySelector("[data-f123-error-close]").addEventListener("click", cerrarAviso);
+      d.querySelector("[data-f123-error-reload]").addEventListener("click", function () { location.reload(); });
+      setTimeout(cerrarAviso, 8000);
     } catch (_) {}
   });
 })();

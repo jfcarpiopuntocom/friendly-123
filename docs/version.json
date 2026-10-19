@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-17",
-  "changelog": "v548: keep missing legacy remote commission evidence unknown without recalculating the agreement or exempting the sale.",
+  "fecha": "2026-10-19",
+  "changelog": "v549: dismiss error notices on close, PIN login or timeout; preserve diagnostics.",
   "requerida": false,
-  "shell": "f123-shell-v548",
+  "shell": "f123-shell-v549",
   "apagar": [],
-  "releaseName": "v548",
-  "cacheGeneration": "golden112"
+  "releaseName": "v549",
+  "cacheGeneration": "golden113"
 }
