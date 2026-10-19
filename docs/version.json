@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-19",
-  "changelog": "v549: dismiss error notices on close, PIN login or timeout; preserve diagnostics.",
+  "changelog": "v550: choose expense receipt images from Files or Photos; adaptively resize large images.",
   "requerida": false,
-  "shell": "f123-shell-v549",
+  "shell": "f123-shell-v550",
   "apagar": [],
-  "releaseName": "v549",
-  "cacheGeneration": "golden113"
+  "releaseName": "v550",
+  "cacheGeneration": "golden114"
 }
