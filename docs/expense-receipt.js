@@ -17,18 +17,26 @@
       const img = new Image();
       await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
       const canvas = document.createElement('canvas');
-      const scale = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
-      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
-      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      // Respect the existing photo-channel frame budget. Never silently discard a receipt.
-      for (const quality of [0.85, 0.7, 0.55, 0.4]) {
-        data = canvas.toDataURL('image/jpeg', quality);
-        if (data.length <= 180000) break;
+      if (!ctx) throw new Error(message('Image processing is unavailable on this device.', 'No se pueden procesar imágenes en este aparato.'));
+      // Try smaller dimensions as well as JPEG quality; the user must never be
+      // instructed to crop a document that the application can resize itself.
+      // Do not persist an unreadable thumbnail: fail without recording a hash.
+      const longest = Math.max(img.naturalWidth, img.naturalHeight);
+      for (const edge of [1600, 1280, 1024, 800, 640]) {
+        const scale = Math.min(1, edge / longest);
+        canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        for (const quality of [0.85, 0.7, 0.55, 0.4]) {
+          const candidate = canvas.toDataURL('image/jpeg', quality);
+          if (candidate.length <= 180000) { data = candidate; break; }
+        }
+        if (data) break;
       }
-      if (data.length > 180000) throw new Error(message('Crop the receipt photo and retry; it exceeds the photo sync size.', 'Recorta la foto y reintenta; supera el tamaño del canal de fotos.'));
+      if (!data) throw new Error(message('This receipt is too detailed for secure photo sync. Try a clearer image with less background.', 'Esta factura tiene demasiado detalle para sincronizarla. Prueba una imagen nítida con menos fondo.'));
     } finally { URL.revokeObjectURL(url); }
     if (!window.OCFotos) throw new Error(message('Photo storage is unavailable.', 'El almacenamiento de fotos no está disponible.'));
     const hash = await OCFotos.hashDeDataUrl(data);
