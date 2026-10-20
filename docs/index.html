@@ -7001,10 +7001,6 @@ async function abrirPanelVentaInfo(id, esTicket){
         <button type="button" id="vi-toggle-pagador" data-i18n-attr="title:sale.groupTitle" title="${escHtml(t("sale.groupTitle"))}"
           style="margin-left:6px;font-size:13px;font-weight:700;padding:4px 9px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;background:transparent;color:var(--azul-medio,#2c4a68);cursor:pointer;">✎</button>
         <input id="vi-pagador" type="text" data-i18n-attr="placeholder:sale.phGroup" placeholder="${escHtml(t("sale.phGroup"))}" style="display:none;width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
-      <div style="display:flex;gap:10px;margin-top:10px;">
-        <label style="flex:1;font-size:14px;"><span data-i18n="sale.lblEmail">${escHtml(t("sale.lblEmail"))}</span><br><input id="vi-email" type="email" ${inp}></label>
-        <label style="flex:1;font-size:14px;">WhatsApp<br><input id="vi-whatsapp" type="text" ${inp}></label>
-      </div>
       ${(!esBar && !esTicket) ? `
       <label id="vi-cant-wrap" style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblQty">${escHtml(t("sale.lblQty"))}</span><br>
         <input id="vi-cantidad" type="number" min="1" step="1" value="1" ${inp}></label>` : ""}
@@ -7299,7 +7295,6 @@ async function confirmarVentaConInfo(id, esTicket){
   const _tieneOverride = !_cortesiaOn && Number.isFinite(_ovNum) && _ovNum >= 0;
   const info = {
     fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
-    email: g("vi-email"), whatsapp: g("vi-whatsapp"),
     formaPago: _fiadoOn ? "fiado" : g("vi-forma-pago"),
     /* A durable fiado sale includes its debt obligation in the same sale. */
     ...(_fiadoOn && clienteId ? { fiadoAtomico: true } : {}),

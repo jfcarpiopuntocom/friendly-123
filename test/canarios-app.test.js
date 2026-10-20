@@ -58,22 +58,17 @@ async function aparato(ctx, base, licencia) {
   return page;
 }
 
-test('aparato lord: la direccion de los clientes lo lleva solo a /next/ con los mismos datos', async () => {
+test('aparato lord: conserva la entrada principal y sus datos, sin abrir /next/', async () => {
   await conServidor(async (web, base) => {
     const ctx = await web.newContext({ serviceWorkers: 'block' });
     const page = await aparato(ctx, base, LORD_PRUEBA);
     await page.evaluate(() => localStorage.setItem('f123_marca_datos', 'mismo-cuaderno'));
     await page.goto(base, { waitUntil: 'networkidle' });
     await lista(page);
-    await page.waitForURL(/\/next\/$/, { timeout: 8000 });
-    assert.equal(await page.evaluate(() => localStorage.getItem('f123_marca_datos')), 'mismo-cuaderno', 'mismos datos en /next/');
-    // Salida: ?estable=1 lo deja en el estable y lo recuerda.
-    await page.goto(base + '?estable=1', { waitUntil: 'networkidle' });
-    await lista(page);
-    await page.goto(base, { waitUntil: 'networkidle' });
-    await lista(page);
     await page.waitForTimeout(1500);
-    assert.doesNotMatch(page.url(), /\/next\//, 'con la salida puesta se queda en el estable');
+    assert.doesNotMatch(page.url(), /\/next\//,
+      'el propietario usa la entrada directa desde la orden del 16 de octubre');
+    assert.equal(await page.evaluate(() => localStorage.getItem('f123_marca_datos')), 'mismo-cuaderno');
   });
 });
 

@@ -324,7 +324,7 @@ test('the whole sale panel translates in place without changing stored values or
       valores: [...document.querySelectorAll('#vi-forma-pago option')].map(o => o.value),
       pago: document.getElementById('vi-forma-pago').value,
       notas: document.getElementById('vi-notas').value,
-      inputsVivos: ['vi-email', 'vi-notas', 'vi-forma-pago'].every(id => !!document.getElementById(id)),
+      inputsVivos: ['vi-cliente', 'vi-notas', 'vi-forma-pago'].every(id => !!document.getElementById(id)),
       aria: document.getElementById('vi-msg').getAttribute('aria-live'),
     };
   }));

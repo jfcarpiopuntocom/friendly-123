@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-20",
-  "changelog": "v551: start sync after joining your notebook; keep the stable entry; avoid republishing unchanged catalogs.",
+  "changelog": "v552: remove repeated contact fields in Sell; use the selected customer's existing contact details.",
   "requerida": false,
-  "shell": "f123-shell-v551",
+  "shell": "f123-shell-v552",
   "apagar": [],
-  "releaseName": "v551",
-  "cacheGeneration": "golden115"
+  "releaseName": "v552",
+  "cacheGeneration": "golden116"
 }
