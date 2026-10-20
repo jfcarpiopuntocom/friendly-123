@@ -38,6 +38,7 @@ const monthly=(w,rows,ym)=>w.OCBusinessReadModel.monthly([],rows,ym,'America/Gua
 
 test('Admin expense creates one durable row on Owner, then moves calendar months after editing',async()=>{
   const owner=await device('dueno'),admin=await device('admin');
+  assert.equal(owner.OCYjs.roomId,admin.OCYjs.roomId, 'same synthetic notebook');
   const x=await admin.request('/api/gastos','POST',{
     concepto:'Synthetic workshop receipt',monto:18.50,
     categoria:'services',metodoPago:'cash',fecha:'2026-10-20T16:00:00-05:00'
