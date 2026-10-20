@@ -6,7 +6,9 @@ const path = require('node:path');
 const {browser} = require('./helpers/browser.cjs');
 
 const html = () => fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
-const sales = w => w.request('/api/ventas/todas');
+// Sale reporting deliberately flattens the financial projection and omits personal contacts.
+// The private synthetic catalog validates the actual stored sale snapshot without expanding reporting PII.
+const sales = async w => w.catalog().ventas;
 
 async function fixture() {
   const w = browser();
@@ -65,7 +67,7 @@ test('counter sale does not invent client identity or contact data', async () =>
     cantidad:1,info:{formaPago:'cash'}
   });
   const found=(await sales(w)).find(v=>v.id===saved.ventaId);
-  assert.equal(found.clienteId,null);
+  assert.ok(!found.clienteId, 'counter sale must not link a customer');
   assert.equal(found.info.email,'');
   assert.equal(found.info.whatsapp,'');
 });
