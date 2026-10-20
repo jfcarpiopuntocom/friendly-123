@@ -66,7 +66,7 @@ test('aparato lord: conserva la entrada principal y sus datos, sin abrir /next/'
     await page.goto(base, { waitUntil: 'networkidle' });
     await lista(page);
     await page.waitForTimeout(1500);
-    assert.doesNotMatch(page.url(), /\\/next\\//,
+    assert.doesNotMatch(page.url(), /\/next\//,
       'el propietario usa la entrada directa desde la orden del 16 de octubre');
     assert.equal(await page.evaluate(() => localStorage.getItem('f123_marca_datos')), 'mismo-cuaderno');
   });
