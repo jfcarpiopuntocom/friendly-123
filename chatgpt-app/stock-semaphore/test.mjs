@@ -1,19 +1,49 @@
-// node chatgpt-app/stock-semaphore/test.mjs  (sin dependencias)
+// node chatgpt-app/stock-semaphore/test.mjs  (no dependencies)
 import assert from 'node:assert/strict';
-import w, { classify } from './worker.js';
-const c = (o) => classify(o).color;
-assert.equal(c({ name: 'a', stock: 0 }), 'red');
-assert.equal(c({ name: 'a', stock: 1, red_at: 1 }), 'red');
-assert.equal(c({ name: 'a', stock: 3, red_at: 1, low_at: 3 }), 'orange');
-assert.equal(c({ name: 'a', stock: 9, days_since_last_sale: 45 }), 'black');
-assert.equal(c({ name: 'a', stock: 9, price: 10, cost: 5 }), 'yellow');
-assert.equal(c({ name: 'a', stock: 9, price: 10, cost: 8 }), 'green');
-assert.equal(c({ name: 'a', stock: 9, expires_in_days: 2 }), 'red');
+import fs from 'node:fs';
+import w, { classify, semaphore, WIDGET_HTML } from './worker.js';
+const c = (o, locale) => classify(o, locale);
+assert.equal(c({ name: 'a', stock: 0 }).color, 'red');
+assert.equal(c({ name: 'a', stock: 1, red_at: 1 }).color, 'red');
+assert.equal(c({ name: 'a', stock: 3, red_at: 1, low_at: 3 }).color, 'orange');
+assert.equal(c({ name: 'a', stock: 9, days_since_last_sale: 45 }).color, 'black');
+assert.equal(c({ name: 'a', stock: 9, price: 10, cost: 5 }).color, 'yellow');
+assert.equal(c({ name: 'a', stock: 9, price: 10, cost: 8 }).color, 'green');
+assert.equal(c({ name: 'a', stock: 9, expires_in_days: 2 }).color, 'red');
+assert.equal(c({ name: 'a', stock: 9, days_since_last_sale: 90, expires_in_days: 6 }).color, 'orange'); // expiry is more severe than dead weight
+assert.equal(c({ name: 'a', stock: 9, price: 10, cost: 2, expires_in_days: 7 }).color, 'orange');
+assert.equal(c({ name: 'a', stock: 20 }).level, 3);
+assert.equal(c({ name: 'a', stock: 9, days_since_last_sale: 120 }).level, 3);
+assert.equal(c({ name: 'a', stock: 9 }, 'es-EC').label, 'Sano');
+assert.equal(semaphore([{ name: 'a', stock: 9 }], 'es-EC').locale, 'es');
+
 const call = async (m) => (await w.fetch(new Request('https://x/mcp', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(m) }))).json();
-assert.equal((await call({ jsonrpc: '2.0', id: 1, method: 'initialize', params: {} })).result.serverInfo.name, 'stock-semaphore');
-assert.equal((await call({ jsonrpc: '2.0', id: 2, method: 'tools/list' })).result.tools[0].name, 'stock_semaphore');
-const r = await call({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'stock_semaphore', arguments: { items: [{ name: 'Mugs', stock: 12, price: 10, cost: 7 }, { name: 'Candles', stock: 0 }] } } });
-assert.equal(r.result.structuredContent.items[0].name, 'Candles');
-assert.match(r.result.content[0].text, /friendly123/);
-assert.equal((await call({ jsonrpc: '2.0', id: 4, method: 'resources/read', params: { uri: 'ui://widget/stock-semaphore.html' } })).result.contents[0].mimeType, 'text/html+skybridge');
+const init = await call({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } });
+assert.equal(init.result.protocolVersion, '2025-06-18');
+const initFallback = await call({ jsonrpc: '2.0', id: 11, method: 'initialize', params: { protocolVersion: '2099-01-01' } });
+assert.equal(initFallback.result.protocolVersion, '2025-11-25');
+const listed = await call({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
+assert.equal(listed.result.tools[0].name, 'classify_inventory');
+assert.equal(listed.result.tools[0]._meta.ui.resourceUri, 'ui://widget/stock-semaphore-v2.html');
+assert.equal(listed.result.tools[0]._meta['openai/outputTemplate'], 'ui://widget/stock-semaphore-v2.html');
+const r = await call({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'classify_inventory', _meta: { 'openai/locale': 'es-EC' }, arguments: { items: [{ name: 'Tazas', stock: 12, price: 10, cost: 7 }, { name: 'Velas', stock: 0 }] } } });
+assert.equal(r.result.structuredContent.items[0].name, 'Velas');
+assert.equal(r.result.structuredContent.locale, 'es');
+assert.match(r.result.content[0].text, /urgentes/);
+const resource = await call({ jsonrpc: '2.0', id: 4, method: 'resources/read', params: { uri: 'ui://widget/stock-semaphore-v2.html' } });
+assert.equal(resource.result.contents[0].mimeType, 'text/html;profile=mcp-app');
+assert.equal(resource.result.contents[0]._meta.ui.prefersBorder, true);
+assert.deepEqual(resource.result.contents[0]._meta.ui.csp.connectDomains, []);
+assert.equal(resource.result.contents[0]._meta.ui.domain, 'https://stock-semaphore.jfcarpio.com');
+assert.match(WIDGET_HTML, /Privacy & terms/);
+assert.match(WIDGET_HTML, /Privacidad y términos/);
+assert.match(WIDGET_HTML, /ongoing inventory tracking/);
+const source = fs.readFileSync(new URL('./worker.js', import.meta.url), 'utf8');
+assert.doesNotMatch(source, /console\.(log|info|warn|error)/);
+assert.doesNotMatch(source, /localStorage|indexedDB|caches\./);
 console.log('stock-semaphore: OK');
+
+const challengeRes = await w.fetch(new Request('https://x/.well-known/openai-apps-challenge'), { OPENAI_APPS_CHALLENGE: 'token-123' });
+assert.equal(await challengeRes.text(), 'token-123');
+const healthRes = await w.fetch(new Request('https://x/health'));
+assert.equal((await healthRes.json()).ok, true);
