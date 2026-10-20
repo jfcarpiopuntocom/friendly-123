@@ -5836,8 +5836,8 @@
           fechaEvento: String(infoBody.fechaEvento || p.fechaEvento || "").trim().slice(0, 20),
           numPersonas: (infoBody.numPersonas !== undefined && infoBody.numPersonas !== "") ? Math.max(0, Number(infoBody.numPersonas) || 0) : null,
           nombrePagador: String(infoBody.nombrePagador || "").trim().slice(0, 120),
-          email: String(infoBody.email || "").trim().slice(0, 120),
-          whatsapp: String(infoBody.whatsapp || "").trim().slice(0, 40),
+          email: String(infoBody.email || (clienteVenta && clienteVenta.email) || "").trim().slice(0, 120),
+          whatsapp: String(infoBody.whatsapp || (clienteVenta && clienteVenta.telefono) || "").trim().slice(0, 40),
           formaPago: String(infoBody.formaPago || "").trim().slice(0, 20), // JFC 2026-08-26: forma de pago (portado de amigable)
           /* Explicit marker, saved in the very same durable sale record.
              Old receipts/tests without this marker keep their original contract. */
