@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-19",
-  "changelog": "v550: choose expense receipt images from Files or Photos; adaptively resize large images.",
+  "fecha": "2026-10-20",
+  "changelog": "v551: start sync after joining your notebook; keep the stable entry; avoid republishing unchanged catalogs.",
   "requerida": false,
-  "shell": "f123-shell-v550",
+  "shell": "f123-shell-v551",
   "apagar": [],
-  "releaseName": "v550",
-  "cacheGeneration": "golden114"
+  "releaseName": "v551",
+  "cacheGeneration": "golden115"
 }

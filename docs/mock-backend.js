@@ -3454,6 +3454,23 @@
     payoutConflicts.splice(0,payoutConflicts.length,...merged.conflicts);
     return before!==JSON.stringify([payouts,payoutConflicts,payoutQuarantine]);
   }
+  function _serializarMergeCanonico(valor) {
+    if (Array.isArray(valor)) return "[" + valor.map(_serializarMergeCanonico).join(",") + "]";
+    if (valor && typeof valor === "object") return "{" + Object.keys(valor).sort().filter((k) => valor[k] !== undefined)
+      .map((k) => JSON.stringify(k) + ":" + _serializarMergeCanonico(valor[k])).join(",") + "}";
+    return JSON.stringify(valor);
+  }
+  function _huellaEstadoMerge() {
+    try {
+      // catalogoPropio incluye el PIN activo; el sidecar se guarda por OCsecure
+      // inmediatamente y no debe convertir una preparación local en un merge de negocio.
+      const catalogo = window.OCSync.catalogoPropio();
+      // stockDeficit is derived in applyCatalogo but intentionally omitted from wire catalog.
+      const deficits = new Map(productos.map((p) => [String(p.id), Number(p.stockDeficit) || 0]));
+      catalogo.productos.forEach((p) => { p.stockDeficit = deficits.get(String(p.id)) || 0; });
+      return _serializarMergeCanonico(catalogo);
+    } catch (_) { return null; }
+  }
   function aplicarCatalogo(remoto, rolRemoto) {
     if (_payoutConfirmando) {
       _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto });
@@ -3462,8 +3479,10 @@
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
     const dif = compararCatalogo(remoto, rolRemoto);
     if (!dif) return { ok: false, error: "The catalog received is not readable." };
+    const huellaAntes = _huellaEstadoMerge();
     const mandaElOtro = dif.ganaElOtro;
     let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
+    const promesasPins = [];
 
     if (Array.isArray(remoto.gastos)) remoto.gastos.forEach((g) => {
       if (!g || !g.id || (!g.borrado && (!g.concepto || !(Number(g.monto) > 0)))) return;
@@ -4033,9 +4052,10 @@
           if (localEsCustom) return;
           if (local === p) return;
           if (remotoEsFabrica) return;
-          Promise.resolve(fijar(p)).then(function (ok) {
+          promesasPins.push(Promise.resolve(fijar(p)).then(function (ok) {
             if (ok && window.OCSecure.recordarPinQueAbre) window.OCSecure.recordarPinQueAbre(p, rolAbre);
-          }).catch(function () {});
+            return !!ok;
+          }).catch(function () { return false; }));
         };
         if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
         const localEmp = (vis.empleados && vis.empleados[0]) || "";
@@ -4087,8 +4107,19 @@
       });
       if (cambiosCat.length) { _reflejarCategoriasEnListas(cambiosCat); actualizados += cambiosCat.length; }
     }
-    mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
-    guardarEstadoLocal();
+    const huellaDespues = _huellaEstadoMerge();
+    const cambioPersistible = huellaAntes === null || huellaDespues === null || huellaAntes !== huellaDespues;
+    if (cambioPersistible) {
+      mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
+      guardarEstadoLocal();
+    }
+    if (promesasPins.length) Promise.all(promesasPins).then(function (resultados) {
+      if (!resultados.some(Boolean)) return;
+      if (!cambioPersistible) mov("merge-catalogo", { perchasAgregadas: 0, productosAgregados: 0, actualizados: 0, miembrosAgregados: 0, miembrosActualizados: 0, miembrosQuitados: 0, clientesAgregados: 0, desde: remoto.deviceNombre || "another device" }, false);
+      return Promise.resolve(guardarEstadoLocal()).then(function (guardado) {
+        if (guardado) avisarCatalogoCambiado();
+      });
+    }).catch(function () {});
     // Ambos caminos de sync (Yjs y realtime) pasan por aquí. Una baja debe
     // cerrar sesiones abiertas aunque no haya altas ni ediciones en el lote.
     if (miembrosAgregados || miembrosActualizados || miembrosQuitados) {

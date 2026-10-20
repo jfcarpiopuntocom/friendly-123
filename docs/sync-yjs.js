@@ -835,7 +835,21 @@
 
   function log(/*...*/) { try { console.log.apply(console, ["[OCYjs]"].concat([].slice.call(arguments))); } catch (_) {} }
 
-  async function arrancar() {
+  var _arranquePromise = null;
+  var _arranqueSolicitado = false;
+  function arrancar() {
+    if (API.estado === "activo") return Promise.resolve(true);
+    if (_arranquePromise) { _arranqueSolicitado = true; return _arranquePromise; }
+    _arranquePromise = arrancarInicial().catch(function (e) {
+      log("arranque:", e && e.message);
+    }).finally(function () {
+      _arranquePromise = null;
+      if (_arranqueSolicitado) { _arranqueSolicitado = false; arrancar(); }
+    });
+    return _arranquePromise;
+  }
+
+  async function arrancarInicial() {
     /* UNA LICENCIA = UNA SALA (v295, JFC 2026-09-16). "salas"/f123_sync_room es
        VESTIGIAL y ya NO decide nada: la sala es SIEMPRE la LICENCIA
        (f123_owned.licenseCode). Antes f123_sync_room podía quedar desalineado de la
@@ -1474,6 +1488,7 @@
     API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
   }
 
+  window.addEventListener("oc-licencia-disponible", arrancar);
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", arrancar);
   else arrancar();
 })();
