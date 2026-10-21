@@ -2223,6 +2223,8 @@
       "delete.confirmAgain": "¿Seguro? Toca otra vez",
       "delete.done": "Producto eliminado. Su historial de movimientos se conserva.",
       "hoy.alertsHeading": "Alertas de hoy",
+      "hoy.restockFold": "Sin existencias · abrir para revisar",
+      "hoy.onlyRestock": "No hay otras alertas urgentes. Revisa las existencias abajo.",
       "shelves.myShelvesHeading": "Mis perchas",
       "shelves.myShelvesIntro": "Fotos reales de cada percha con su semáforo de meta. Toca una foto para actualizarla.",
       "shelves.transfersHeading": "Traslada tu stock entre perchas/estantes",
