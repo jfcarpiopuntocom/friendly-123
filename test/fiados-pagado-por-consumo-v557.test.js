@@ -203,3 +203,67 @@ test('intencion de pago guardada antes de enviar el cobro; se reanuda con mismo 
   assert.match(ui,/conservarIntencion:\s*true/);
   assert.match(ui,/paymentOpId:\s*pagoId/);
 });
+
+
+test('el recibo sobrevive a dos fallas y retoma la misma referencia sin segundo cobro', async () => {
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const ui = fs.readFileSync(path.join(__dirname, '../docs/plan-pagos-ui.js'), 'utf8');
+  const marker = '  function modalAbonar(clienteId, nombre) {';
+  assert.ok(ui.includes(marker));
+  const instrumented = ui.replace(marker,
+    '  global.__fiadosTest = { reanudarAsignacion: reanudarAsignacion, claveAsignacion: claveAsignacion, claveAbono: claveAbono }; ' + marker);
+  const db = new Map(), sent = new Map(), count = { abonar:0, aplicar:0 };
+  let dropped = true, allocationUnavailable = true;
+  const storage = {
+    getItem:k => db.has(k) ? db.get(k) : null,
+    setItem:(k,v)=>db.set(k,v),
+    removeItem:k=>db.delete(k)
+  };
+  const win = {AMG:{},OCAuth:{rolActual:()=> 'dueno'},
+    addEventListener:()=>{},crypto:{randomUUID:()=> 'fixture-uuid'}};
+  const doc = {createElement:()=>({style:{},textContent:''}),
+    head:{appendChild:()=>{}}, getElementById:()=>null};
+  const request = async (url, opts) => {
+    const body = JSON.parse(opts.body);
+    if (url.endsWith('/abonar')) {
+      count.abonar++;
+      if (!sent.has(body.opId)) sent.set(body.opId, {movimientoId:'one-real-receipt',opId:body.opId});
+      if (dropped) { dropped = false; throw Error('Lost response after durable payment'); }
+      return {ok:true,json:async()=>sent.get(body.opId)};
+    }
+    if (url.endsWith('/aplicar')) {
+      count.aplicar++;
+      if (allocationUnavailable) {
+        allocationUnavailable=false;return {ok:false,json:async()=>({error:'503 synthetic'})};
+      }
+      return {ok:true,json:async()=>({aplicacionId:'applied',opId:body.opId})};
+    }
+    throw Error('Unexpected API call');
+  };
+  const ctx={window:win,document:doc,fetch:request,localStorage:storage,console,setTimeout:()=>{}};
+  vm.createContext(ctx);
+  vm.runInContext(instrumented,ctx);
+  const key=win.__fiadosTest.claveAsignacion(CLI), payKey=win.__fiadosTest.claveAbono(CLI);
+  const intention={paymentOpId:'customer-payment:fixture',opId:'customer-allocation:fixture',
+    abonoId:null,partes:[{cargoKey:'venta:v1',monto:6}],monto:6,motivo:'Abono'};
+  db.set(key,JSON.stringify(intention)); // Write-ahead, before money moves.
+  await assert.rejects(win.__fiadosTest.reanudarAsignacion(CLI,intention), /Lost response/);
+  assert.equal(sent.size,1);
+  assert.equal(JSON.parse(db.get(key)).abonoId,null);
+  await assert.rejects(win.__fiadosTest.reanudarAsignacion(CLI,intention), /503 synthetic/);
+  assert.equal(sent.size,1);
+  assert.equal(JSON.parse(db.get(key)).abonoId,'one-real-receipt');
+  await win.__fiadosTest.reanudarAsignacion(CLI,intention);
+  assert.equal(sent.size,1);
+  assert.equal(count.abonar,2); assert.equal(count.aplicar,2);
+  assert.equal(db.has(key),false); assert.equal(db.has(payKey),false);
+});
+
+test('chips de consumos conservan contraste en ambos estados sin cambiar el diseno', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const ui = fs.readFileSync(path.join(__dirname, '../docs/plan-pagos-ui.js'), 'utf8');
+  assert.match(ui, /#pp-ab-consumos \.pp-chip\{color:#19354B !important/);
+  assert.match(ui, /#pp-ab-consumos \.pp-chip\.pp-chip-on\{background:#19354B !important;color:#FFFFFF !important/);
+  assert.match(ui, /b\.classList\.add\("pp-chip-on"\)/);
+  assert.match(ui, /b\.classList\.remove\("pp-chip-on"\)/);
+});
