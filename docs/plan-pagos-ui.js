@@ -328,6 +328,10 @@
         '<p class="pp-resumen" id="pp-ab-ctx">Loading...</p>' +
         '<div class="pp-fg"><label for="pp-ab-monto">Payment amount</label>' +
           '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0" step="any"></div>' +
+        /* 2026-10-21 (fiados de Belen, decision JFC): quien cobra toca los consumos que se pagan.
+           Sin seleccion, el pago queda «sin asignar» (nunca se reparte solo). */
+        '<div class="pp-fg" id="pp-ab-consumos-wrap" style="display:none;"><label id="pp-ab-consumos-lbl"></label>' +
+          '<div id="pp-ab-consumos" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div></div>' +
         '<button type="button" class="pp-btn" id="pp-ab-ok">Record payment</button>' +
         '<button type="button" class="pp-btn gris" id="pp-ab-cancel">Cancel</button>' +
         '<p class="pp-msg" id="pp-ab-msg"></p>' +
@@ -348,11 +352,52 @@
     m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
     q("pp-ab-cancel").addEventListener("click", cerrar);
 
+    // Orden en que quien cobra toco los consumos: ese orden (elegido, no automatico) decide
+    // cual queda parcial si el pago no alcanza para todos.
+    var elegidos = [];
+    function pintarConsumos(lista) {
+      lista = Array.isArray(lista) ? lista : [];
+      if (!lista.length) return;
+      q("pp-ab-consumos-wrap").style.display = "";
+      q("pp-ab-consumos-lbl").textContent = es ? "¿Qué consumos paga? Toca los que se pagan." : "Which purchases does this pay? Tap the ones being paid.";
+      var box = q("pp-ab-consumos");
+      box.innerHTML = lista.map(function (c) {
+        var fecha = c.fecha ? new Date(c.fecha).toLocaleDateString(es ? "es" : "en") : "";
+        var falta = c.estado === "parcial" ? (es ? " · falta " : " · owes ") + fmt(c.pendiente) : "";
+        return '<button type="button" class="pp-chip" data-k="' + esc(c.cargoKey) + '" data-p="' + Number(c.pendiente) +
+          '" style="min-height:44px;padding:6px 10px;border:2px solid #19354B;border-radius:18px;background:#fff;color:#19354B;font-size:14px;">' +
+          esc(c.motivo || (es ? "Consumo" : "Purchase")) + " · " + fmt(c.monto) + falta + (fecha ? " · " + esc(fecha) : "") + "</button>";
+      }).join("");
+      Array.prototype.forEach.call(box.querySelectorAll(".pp-chip"), function (b) {
+        b.addEventListener("click", function () {
+          var k = b.getAttribute("data-k"), i = elegidos.indexOf(k);
+          if (i === -1) { elegidos.push(k); b.style.background = "#19354B"; b.style.color = "#fff"; }
+          else { elegidos.splice(i, 1); b.style.background = "#fff"; b.style.color = "#19354B"; }
+          var total = elegidos.reduce(function (s, kk) {
+            var el = box.querySelector('[data-k="' + kk.replace(/"/g, '\\"') + '"]');
+            return s + Math.round(Number(el && el.getAttribute("data-p")) * 100);
+          }, 0);
+          if (elegidos.length) q("pp-ab-monto").value = (total / 100).toFixed(2);
+        });
+      });
+    }
+    function partesElegidas(monto) {
+      var box = q("pp-ab-consumos"), resto = Math.round(Number(monto) * 100), partes = [];
+      elegidos.forEach(function (k) {
+        if (resto <= 0) return;
+        var el = box.querySelector('[data-k="' + k.replace(/"/g, '\\"') + '"]');
+        var p = Math.min(resto, Math.round(Number(el && el.getAttribute("data-p")) * 100));
+        if (p > 0) { partes.push({ cargoKey: k, monto: p / 100 }); resto -= p; }
+      });
+      return partes;
+    }
+
     /* Contexto ANTES de escribir el monto: cuanto debe y, si hay plan, cuanto
        falta para ponerse al dia. Sugerir ese numero ahorra la cuenta mental. */
     fetch(API + "/clientes/" + clienteId + "/cartera")
       .then(function (r) { return r.json(); })
       .then(function (info) {
+        pintarConsumos(info && info.consumosPendientes);
         var debe = info && info.saldo < 0 ? -info.saldo : 0;
         return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
           var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
@@ -375,6 +420,12 @@
       var monto = Number(q("pp-ab-monto").value);
       if (!(monto > 0)) { btn.disabled = false; msg.style.color = "#B0183E"; msg.textContent = "The amount must be greater than zero."; return; }
       global.ocEnviarAbono(clienteId, monto, anterior ? anterior.motivo : 'Abono').then(function (r) {
+        var partes = partesElegidas(monto);
+        if (!partes.length || !r || !r.movimientoId) return r;
+        // El pago ya quedo guardado; si la asignacion falla, queda «sin asignar» (se puede asignar luego).
+        return fetch(API + "/clientes/" + clienteId + "/aplicar", { method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ abonoId: r.movimientoId, partes: partes }) }).then(function () { return r; }, function () { return r; });
+      }).then(function (r) {
         cerrar();
         if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
         refrescarHoy();

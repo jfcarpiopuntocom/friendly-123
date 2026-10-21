@@ -7106,6 +7106,24 @@
         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
         return J(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"));
       }
+      /* 2026-10-21 (fiados de Belen, decision JFC «elige quien cobra»): aplica un abono ya
+         confirmado a los consumos que la persona toco. No mueve dinero ni cambia el saldo;
+         solo deja hechos cartera_aplicacion validados por AMG.Cartera.aplicarAbono. */
+      const mCliAplicar = path.match(/^\/api\/clientes\/([^/]+)\/aplicar$/);
+      if (mCliAplicar && opts && opts.method === "POST") {
+        const c = clientes.find((x) => x.id === mCliAplicar[1]);
+        if (!c) return J({ error: "Customer not found." }, 404);
+        if (!window.AMG || !window.AMG.Cartera || !window.AMG.Cartera.aplicarAbono) return J({ error: "Customer credit is not available." }, 500);
+        const partes = Array.isArray(body.partes) ? body.partes.map((p) => ({ cargoKey: String(p && p.cargoKey || ""), monto: Number(p && p.monto) })) : [];
+        try {
+          await window.AMG.Cartera.aplicarAbono(c.id, String(body.abonoId || ""), partes, ventas);
+        } catch (e) {
+          return J({ error: (e && e.message) || "Could not apply the payment." }, 400);
+        }
+        mov("cartera-aplicacion", { cliente: c.nombre, abonoId: String(body.abonoId || "") });
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        return J(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"));
+      }
       const mCliFiar = path.match(/^\/api\/clientes\/([^/]+)\/(fiar|abonar)$/);
       if (mCliFiar && opts && opts.method === "POST") {
         const c = clientes.find((x) => x.id === mCliFiar[1]);

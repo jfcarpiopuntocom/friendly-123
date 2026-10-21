@@ -3864,7 +3864,7 @@ async function pintarSaldoCartera(clienteId) {
       <summary style="cursor:pointer;font-weight:700;">${es ? "Ver cargos y pagos que forman este saldo" : "See charges and payments behind this balance"}</summary>
       <div style="margin:5px 0;font-weight:700;">${desglose}</div>
       ${movimientos.map((m) => `<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #D7E0E8;padding:5px 0;">
-        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
+        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${_estadoConsumoCartera(m, es)}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
         <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
       </div>`).join("")}</details>` : "";
     el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${detalle}`;
@@ -3962,6 +3962,19 @@ async function ocDesvincularCargo(clienteId, cargoId) {
 }
 /* Pagar una deuda (JFC 2026-09-02): abre el modal de plan-pagos ("Record a
    payment"), que sigue en window.abonarCliente. Busca el nombre en la tarjeta. */
+/* 2026-10-21 (fiados de Belen): etiqueta por consumo y por pago. Colores solidos, texto blanco
+   sobre fondo de color; no cambia ningun monto ni el saldo (solo lee cartera_aplicacion). */
+function _estadoConsumoCartera(m, es) {
+  const chip = (txt, bg) => ` <span style="display:inline-block;margin-left:6px;font-size:12px;font-weight:700;padding:1px 8px;border-radius:12px;background:${bg};color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;">${txt}</span>`;
+  if (m.tipo === "cargo") {
+    if (m.estado === "pagado") return chip(es ? "Pagado" : "Paid", "#1E7A4C");
+    if (m.estado === "parcial") return chip((es ? "Abonado " : "Part paid ") + fmtMoney(m.aplicado) + (es ? " · falta " : " · owes ") + fmtMoney(m.pendiente), "#B5541B");
+    if (m.estado === "pendiente") return chip(es ? "Pendiente" : "Pending", "#B0183E");
+    return "";
+  }
+  if (m.tipo === "abono" && Number(m.sinAsignar) > 0) return chip((es ? "Sin asignar " : "Unassigned ") + fmtMoney(m.sinAsignar), "#19354B");
+  return "";
+}
 function ocPagarDeuda(clienteId){
   let nombre = "";
   try { const card = document.querySelector(`.cliente-card[data-cliente-id="${clienteId}"] strong`); if (card) nombre = card.textContent.trim(); } catch (_) {}

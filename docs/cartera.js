@@ -236,6 +236,89 @@
       });
     return mapa;
   }
+  /* Claude 2026-10-21 (reclamo de Belen; decision de JFC «elige quien cobra»): APLICACION de un
+     abono a consumos fiados concretos. Hecho aditivo cartera_aplicacion
+     { clienteId, abonoId, cargoKey, monto, accion: "aplicar"|"desaplicar", quien }.
+     - NO cambia el saldo (sigue siendo cargos - abonos): solo etiqueta cada consumo como
+       pagado / parcial / pendiente y cada abono con su parte «sin asignar».
+     - Nunca hay reparto automatico (FIFO prohibido en las notas de JFC): los abonos viejos
+       quedan «sin asignar» hasta que una persona los aplique.
+     - cargoKey = "venta:<ventaId>" si el consumo tiene venta (estable entre aparatos),
+       si no "cargo:<id del hecho>". Deshacer = otro hecho "desaplicar" con el mismo par.
+     - Lectores viejos filtran solo cartera_cargo/cartera_abono: este hecho no les afecta. */
+  var APLICACION = "cartera_aplicacion";
+  function _aplicaciones(todos, clienteId) {
+    var vigente = Object.create(null);
+    todos.filter(function (h) { return h.tipo === APLICACION && String(_d(h).clienteId || "") === String(clienteId); })
+      .sort(function (a, b) { return (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id).localeCompare(String(b.id)); })
+      .forEach(function (h) {
+        var d = _d(h);
+        if (!d.abonoId || !d.cargoKey) return;
+        var k = String(d.abonoId) + "|" + String(d.cargoKey);
+        if (d.accion === "desaplicar") delete vigente[k];
+        else vigente[k] = (vigente[k] || 0) + _centavos(d.monto);
+      });
+    return vigente;
+  }
+  function claveCargo(mov) { return mov.ventaId ? "venta:" + String(mov.ventaId) : "cargo:" + String(mov.id); }
+  function _marcarConsumos(movimientos, todos, clienteId) {
+    var apps = _aplicaciones(todos, clienteId), porCargo = Object.create(null), porAbono = Object.create(null);
+    Object.keys(apps).forEach(function (k) {
+      var i = k.indexOf("|"), ab = k.slice(0, i), ck = k.slice(i + 1);
+      porCargo[ck] = (porCargo[ck] || 0) + apps[k];
+      porAbono[ab] = (porAbono[ab] || 0) + apps[k];
+    });
+    movimientos.forEach(function (m) {
+      var monto = _centavos(m.monto);
+      if (m.tipo === "cargo") {
+        m.cargoKey = claveCargo(m);
+        var ap = Math.min(porCargo[m.cargoKey] || 0, monto);
+        m.aplicado = ap / 100;
+        m.pendiente = (monto - ap) / 100;
+        m.estado = monto <= 0 ? "sin-valor" : ap >= monto ? "pagado" : ap > 0 ? "parcial" : "pendiente";
+      } else {
+        var a = Math.min(porAbono[String(m.id)] || 0, monto);
+        m.aplicado = a / 100;
+        m.sinAsignar = (monto - a) / 100;
+      }
+    });
+    return movimientos;
+  }
+  /* partes = [{ cargoKey, monto }]. Valida contra el estado actual: no se aplica mas de lo que
+     queda del abono ni mas de lo que falta del consumo. Una persona elige; nada se infiere. */
+  function aplicarAbono(clienteId, abonoId, partes, ventas) {
+    if (!global.AMG || !global.AMG.Hechos || !global.AMG.Hechos.todos) return Promise.reject(new Error("cartera: AMG.Hechos no disponible"));
+    if (!abonoId || !Array.isArray(partes) || !partes.length) return Promise.reject(new Error("cartera: falta el abono o los consumos elegidos"));
+    return global.AMG.Hechos.todos().then(function (todos) {
+      var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
+      var abono = r.movimientos.find(function (m) { return m.tipo === "abono" && String(m.id) === String(abonoId); });
+      if (!abono) throw new Error("cartera: el abono no pertenece a este cliente");
+      var libre = _centavos(abono.sinAsignar), pedido = 0;
+      partes.forEach(function (p) {
+        var c = _centavos(p.monto);
+        var cargo = r.movimientos.find(function (m) { return m.tipo === "cargo" && m.cargoKey === String(p.cargoKey); });
+        if (!cargo) throw new Error("cartera: consumo no encontrado");
+        if (!(c > 0) || c > _centavos(cargo.pendiente)) throw new Error("cartera: el monto supera lo que falta pagar de ese consumo");
+        pedido += c;
+      });
+      if (pedido > libre) throw new Error("cartera: el monto supera lo que queda sin asignar de ese pago");
+      var quien = (function () { try { return (global.OCAuth && global.OCAuth.usuarioActual && global.OCAuth.usuarioActual().nombre) || "Sistema"; } catch (_) { return "Sistema"; } })();
+      return partes.reduce(function (cadena, p) {
+        return cadena.then(function () {
+          return global.AMG.Hechos.registrar(APLICACION, { clienteId: String(clienteId), abonoId: String(abonoId),
+            cargoKey: String(p.cargoKey), monto: +(_centavos(p.monto) / 100).toFixed(2), accion: "aplicar", quien: quien });
+        });
+      }, Promise.resolve()).then(function () {
+        var eb = bus(); if (eb) eb.emit(APLICACION + ":registrado", { payload: { clienteId: String(clienteId), abonoId: String(abonoId) } });
+        return true;
+      });
+    });
+  }
+  function desaplicarAbono(clienteId, abonoId, cargoKey) {
+    return global.AMG.Hechos.registrar(APLICACION, { clienteId: String(clienteId), abonoId: String(abonoId),
+      cargoKey: String(cargoKey), monto: 0, accion: "desaplicar", quien: "Sistema" });
+  }
+
   /* Funcion PURA (sin storage): todos = hechos; ventas = ventas actuales o null (=> montos guardados). */
   function calcularSaldo(todos, clienteId, ventas) {
     var mios = _sinDuplicados(todos.filter(function (h) {
@@ -319,6 +402,7 @@
       });
     }
     movimientos.sort(function (a, b) { return a.fecha - b.fecha; });
+    _marcarConsumos(movimientos, todos, clienteId);
     return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos };
   }
 
@@ -416,6 +500,13 @@
       // El encargado ve el saldo de ESTE cliente (case by case), pero nunca el
       // historial completo de movimientos ni la posibilidad de exportar.
       historial: esEmpleado ? [] : saldoInfo.movimientos,
+      // 2026-10-21 (fiados de Belen): para COBRAR, todo rol necesita ver que consumos
+      // siguen abiertos. Solo lo minimo (sin quien registro ni pagos ajenos).
+      consumosPendientes: (saldoInfo.movimientos || []).filter(function (m) {
+        return m.tipo === "cargo" && (m.estado === "pendiente" || m.estado === "parcial");
+      }).map(function (m) {
+        return { cargoKey: m.cargoKey, motivo: m.motivo, fecha: m.fecha, monto: m.monto, pendiente: m.pendiente, estado: m.estado };
+      }),
       puedeExportar: !esEmpleado,
       puedeVerListaGlobal: !esEmpleado
     };
@@ -460,6 +551,9 @@
     saldoDeCliente: saldoDeCliente,
     calcularSaldo: calcularSaldo,
     vincularCargo: vincularCargo,
+    aplicarAbono: aplicarAbono,
+    desaplicarAbono: desaplicarAbono,
+    claveCargo: claveCargo,
     desvincularCargo: desvincularCargo,
     opcionesVinculo: opcionesVinculo,
     vistaCarteraSegunRol: vistaCarteraSegunRol,
