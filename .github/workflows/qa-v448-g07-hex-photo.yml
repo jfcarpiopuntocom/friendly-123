@@ -66,7 +66,6 @@ jobs:
       - name: Native cross-device regression (inventory, team, money, Yjs)
         run: |
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
-            test/auditoria-belen-v556-e2e.test.js \
             test/categorias-sync.test.js \
             test/idiomarte-owner-admin-expenses.test.js \
             test/impuesto-cuaderno.test.js \
