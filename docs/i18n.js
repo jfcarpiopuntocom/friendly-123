@@ -1062,6 +1062,8 @@
       "delete.confirmAgain": "Sure? Tap again",
       "delete.done": "Product deleted. Its movement history is kept.",
       "hoy.alertsHeading": "Today's alerts",
+      "hoy.restockFold": "Out of stock · open to review",
+      "hoy.onlyRestock": "No other urgent alerts. Stock reminders are below.",
       "shelves.myShelvesHeading": "My shelves",
       "shelves.myShelvesIntro": "Real photos of each shelf with its target status. Tap a photo to update it.",
       "shelves.transfersHeading": "Transfer your stock between shelves/racks",
