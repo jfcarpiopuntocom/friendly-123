@@ -18,7 +18,7 @@ function fixture(initial, now) {
   return {p:productos[0],stamp:ctx.stamp};
 }
 test("P0: two physical sales within one millisecond have distinct increasing shared stock timestamps",()=>{
-  const now=40000000000;
+  const now=1700000000000;
   const {p,stamp}=fixture({stockActual:9,stockTs:now},now);
   stamp({productoId:p.id,delta:-1},"sale1");
   const first=p.stockTs;
@@ -31,9 +31,20 @@ test("P0: two physical sales within one millisecond have distinct increasing sha
   assert.equal(p.stockPN.sale2.sub,1);
 });
 test("P0: clock from impossible future does not poison later valid owner correction",()=>{
-  const now=40000000000;
+  const now=1700000000000;
   const {p,stamp}=fixture({stockActual:4,stockTs:now+900000},now);
   stamp({productoId:p.id,delta:1},"ownerCorrection");
   assert.equal(p.stockTs,now);
   assert.equal(p.stockPN.ownerCorrection.add,1);
+});
+
+test("P0: null/zero relay time is NOT a valid timestamp; sales keep a real epoch clock",()=>{
+  for(const signal of [null,0,undefined,NaN]) {
+    const before=Date.now()-1200;
+    const {p,stamp}=fixture({stockActual:6,stockTs:before},signal);
+    stamp({productoId:p.id,delta:-1},"sale-without-relay");
+    assert.ok(Number.isSafeInteger(p.stockTs)&&p.stockTs>=Date.now()-30000,
+      "A real sale must not get a zero/1/2 timestamp when the relay clock is unready");
+    assert.ok(p.stockTs>before);
+  }
 });
