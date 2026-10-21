@@ -7115,12 +7115,13 @@
         if (!c) return J({ error: "Customer not found." }, 404);
         if (!window.AMG || !window.AMG.Cartera || !window.AMG.Cartera.aplicarAbono) return J({ error: "Customer credit is not available." }, 500);
         const partes = Array.isArray(body.partes) ? body.partes.map((p) => ({ cargoKey: String(p && p.cargoKey || ""), monto: Number(p && p.monto) })) : [];
+        let asignacion;
         try {
           const opId = body.opId === undefined ? undefined : body.opId;
           if (opId !== undefined && (typeof opId !== "string" || !opId.trim() || opId.length > 160)) {
             return J({ error: "Invalid allocation reference." }, 400);
           }
-          const asignacion = await window.AMG.Cartera.aplicarAbono(c.id, String(body.abonoId || ""), partes, ventas, opId);
+          asignacion = await window.AMG.Cartera.aplicarAbono(c.id, String(body.abonoId || ""), partes, ventas, opId);
           if (!asignacion || !asignacion.id) return J({ error: "Payment saved, but allocation not confirmed." }, 503);
         } catch (e) {
           return J({ error: (e && e.message) || "Could not apply the payment." }, e && e.status === 409 ? 409 : 400);
