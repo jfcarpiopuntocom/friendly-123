@@ -1,3 +1,17 @@
+## SOL 6 — cierre de IMPLEMENTACIÓN fast-track v557 (21/oct/2026, RAMA CANDIDATA)
+
+- No publicar sin OK de JFC. Rama auditoria-belen-v556; master y cuadernos reales intactos.
+- Salvaguarda 1: pago confirmado y asignación pendiente diferenciados; reintento con mismo abonoId/opId sin otro cobro.
+- Salvaguarda 2: rechazo de partes duplicadas y un único hecho de aplicación por lote; validación previa íntegra.
+- Salvaguarda 3: revalidación en cola local, proyección determinista entre aparatos, hechos incompatibles retenidos con conflictosAplicacion; backend devuelve ACK solamente para ID aceptado.
+- Compatibilidad: hechos unitarios cartera_aplicacion históricos y lotes nuevos; cargos, abonos y saldo inalterados; nunca FIFO.
+- Pruebas rápidas nuevas: idempotencia, atomicidad, duplicados, dos dispositivos offline, sobreasignación y ACK. NO se ejecutaron en esta sesión: GitHub conector no ejecuta Node y el entorno aislado carece de red a GitHub.
+- Comando fast track sin navegador: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=30000 test/fiados-pagado-por-consumo-v557.test.js
+- Antes de eventual lanzamiento comprobar: node scripts/gen-manifest.js, bash check-sw.sh, git diff --check. Manifest de rama debe coincidir con SHA256 de archivos finales.
+- No hay certificación del relay Supabase real ACK durable ni de sincronización física. No tocar gastos USD 2300 ni diferencia USD 954,54 sin hechos.
+- Estado: implementación subida a la rama, evidencia y tests específicos; publicación y certificación pendientes.
+
+---
 # Auditoria de la lista de Belen sobre v556 (corte parcial)
 
 Base: produccion v556, commit fd3ccb88daf42b086947547c663ab9c83cc0160e (comprobado: sw.js y version-manifest de https://friendly123.com/app/ dicen f123-shell-v556).
