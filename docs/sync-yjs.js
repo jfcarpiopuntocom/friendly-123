@@ -775,7 +775,12 @@
                       if (!pullEstado.enCurso &&
                           (Object.keys(partesEntrantes).length ||
                             (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)))) {
-                        _pullCursor = _appliedPullCursor; // rewind only unverified pages
+                        /* While this SAME connection is alive, keep the RAM
+                           pagination cursor: missing siblings may arrive in
+                           newer rows. Otherwise 6000+ historical rows are
+                           reprocessed repeatedly and cause 1013 saturation.
+                           The durable cursor is NOT advanced for orphans;
+                           reconnect always starts from the last proven cut. */
                         _replayDelay = Math.min(300000, _replayDelay * 2);
                         try { log("historia incompleta, relectura segura " + nombre); } catch (_) {}
                         pedirPagina(ws, pullEstado);
