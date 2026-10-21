@@ -518,6 +518,9 @@
           }
           tarea = reanudarAsignacion(clienteId, pendienteAsignacion);
         } catch (errorGuardar) {
+          // A failure BEFORE starting the payment is not a confirmed payment.
+          // Do not label it preserved; no financial request was issued.
+          pendienteAsignacion = null;
           tarea = Promise.reject(errorGuardar);
         }
       } else {
