@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-20",
-  "changelog": "v555: keep live synchronization available while incomplete historical fragments recover; preserve safe replay cursors and all pending data.",
+  "fecha": "2026-10-21",
+  "changelog": "v556: preserve shared PINs and device roles, pace encrypted recovery without overflowing the relay, and block checkpoints while history dependencies remain unresolved.",
   "requerida": false,
-  "shell": "f123-shell-v555",
+  "shell": "f123-shell-v556",
   "apagar": [],
-  "releaseName": "v555",
-  "cacheGeneration": "golden119"
+  "releaseName": "v556",
+  "cacheGeneration": "golden120"
 }

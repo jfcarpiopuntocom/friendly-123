@@ -90,7 +90,7 @@
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
-    var canal = { ws: null, pend: [] };
+    var canal = { ws: null, pend: [], recuperando: true };
     var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
     /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
@@ -112,6 +112,9 @@
     // WebSocket.send is delivery to the network, never acknowledgement of remote storage.
     var _outboxKey = "f123_relay_outbox_v1" + suffix;
     var _outbox = { pending: [], checkpoint: "", confirmed: [] }, _durableTimer = null, _durableDelay = 2000;
+    // Leave headroom under this socket's 4 MiB cap for new changes and control frames.
+    var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
+    var _lastRelayProgressAt = 0;
     var _currentPullState = null, _tReplay = null, _replayDelay = 30000;
     var _relayPeerCount = 0, _directReceive = null;
     var _peerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
@@ -297,21 +300,91 @@
     // Keep a handled rejection, but do not overwrite an unread outbox after a read failure.
     _durableQueue.catch(function () { log("no se pudo leer pendientes del relay en " + nombre); });
     function programarDurable() {
+      var inFlight = Object.keys(_durableInFlight);
+      if (inFlight.length && !_durableWatchdog && canal.ws && canal.ws.readyState === 1) {
+        var oldest = Math.min.apply(null, inFlight.map(function (id) { return _durableInFlight[id].at; }));
+        _durableWatchdog = setTimeout(function () {
+          _durableWatchdog = null;
+          if (!canal.ws || canal.ws.readyState !== 1) return;
+          Object.keys(_durableInFlight).forEach(function (id) {
+            if (Date.now() - _durableInFlight[id].at >= 10000) delete _durableInFlight[id];
+          });
+          _durableQueue.then(drenarDurable).catch(function () { programarDurable(); });
+        }, Math.max(1, oldest + 10000 - Date.now()));
+      }
       if (_durableTimer || (!_outbox.pending.length && !_unsaved.length)) return;
+      if (canal.ws && canal.ws.readyState === 1 && inFlight.length >= MAX_DURABLE_INFLIGHT) return;
+      if (_outbox.pending.length && _outbox.pending.every(function (entry) { return !!_durableInFlight[entry.id]; })) return;
       _durableTimer = setTimeout(function () {
         _durableTimer = null;
         _durableDelay = Math.min(60000, _durableDelay * 2);
         _durableQueue = _durableQueue.then(function () { return mutarOutbox(function () {}); }).then(drenarDurable).catch(function () { programarDurable(); });
       }, Math.round(_durableDelay * (0.8 + Math.random() * 0.4)));
     }
+    function bytesPendientes(value) { return typeof value === "string" ? value.length : (value && (value.byteLength || value.size)) || 0; }
+    function programarBufferPump() {
+      if (_bufferPumpTimer || !canal.ws || canal.ws.readyState !== 1) return;
+      _bufferPumpTimer = setTimeout(function () {
+        _bufferPumpTimer = null;
+        if (!canal.ws || canal.ws.readyState !== 1) return;
+        if (Date.now() - _lastRelayProgressAt >= 10000) {
+          canal.ws.close(1013, "relay stalled; queued data retained");
+          return;
+        }
+        _durableQueue.then(function () { drenarDurable(); drenarVivo(); }).catch(function () {});
+      }, 100);
+    }
+    function enviarConLimite(ws, value) {
+      if (!ws || ws.readyState !== 1) return "offline";
+      if ((Number(ws.bufferedAmount) || 0) + bytesPendientes(value) > MAX_BUFFERED_BYTES) return "blocked";
+      try { ws.send(value); _lastRelayProgressAt = Date.now(); return "sent"; }
+      catch (_) { try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
+    }
+    function encolarVivo(value, smallBusiness) {
+      var ws = canal.ws;
+      if (ws && ws.readyState === 1 && !canal.pend.length) {
+        var result = enviarConLimite(ws, value);
+        if (result === "sent") return;
+        if (result !== "blocked") { canal.pend.push(value); return; }
+      }
+      // Yjs updates commute; let a new small update pass historical live chunks.
+      if (smallBusiness) {
+        var firstLarge = canal.pend.findIndex(function (frame) { return bytesPendientes(frame) >= CHUNK_BYTES; });
+        canal.pend.splice(firstLarge < 0 ? canal.pend.length : firstLarge, 0, value);
+      } else canal.pend.push(value);
+      if (ws && ws.readyState === 1) programarBufferPump();
+    }
+    function drenarVivo() {
+      var ws = canal.ws;
+      if (!ws || ws.readyState !== 1) return;
+      while (canal.pend.length) {
+        var next = canal.pend[0], result = enviarConLimite(ws, next);
+        if (result === "sent") { canal.pend.shift(); continue; }
+        if (result === "blocked") programarBufferPump();
+        break;
+      }
+      if (canal.pend.length && ws.readyState === 1) programarBufferPump();
+    }
     function enviarDurable(entry) {
       var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint;
-      // v514: un envio que lanza no rompe la cola; el pendiente ya esta guardado y se reintenta.
-      try { if (canal.ws && canal.ws.readyState === 1) canal.ws.send(JSON.stringify(msg)); } catch (_) {}
+      var result = enviarConLimite(canal.ws, JSON.stringify(msg));
+      if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
+      if (result === "blocked") programarBufferPump();
+      return false;
     }
     function drenarDurable() {
-      try { _outbox.pending.slice(0, 32).forEach(enviarDurable); } catch (_) {}
-      programarDurable();
+      var ws = canal.ws;
+      if (!ws || ws.readyState !== 1) { programarDurable(); return; }
+      var capacity = Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
+      if (!capacity) { programarDurable(); return; }
+      var available = _outbox.pending.filter(function (entry) { return !_durableInFlight[entry.id]; });
+      if (available.length > capacity) {
+        // Reserve one in-flight slot for the newest business change behind a history backlog.
+        available = available.slice(0, Math.max(0, capacity - 1)).concat(available[available.length - 1]);
+      }
+      for (var i = 0; i < available.length; i++) if (!enviarDurable(available[i])) break;
+      if (_outbox.pending.some(function (entry) { return !_durableInFlight[entry.id]; }) && ws.readyState === 1) programarDurable();
+      if (Object.keys(_durableInFlight).length) programarDurable();
     }
     function guardarSobre(entry) { guardarSobres([entry]); }
     function guardarSobres(entries) {
@@ -327,12 +400,16 @@
       _unsaved.push.apply(_unsaved, added);
       avisarDurable();
       var next = _durableQueue.then(function () {
-        return mutarOutbox(function () {}).then(function () { added.forEach(enviarDurable); programarDurable(); });
+        return mutarOutbox(function () {}).then(function () { drenarDurable(); programarDurable(); });
       });
       _durableQueue = next.catch(function () { log("guardado del envio pendiente en " + nombre); avisarDurable(); programarDurable(); });
     }
     function confirmarDurable(result) {
       _durableQueue = _durableQueue.then(function () {
+        if (result && typeof result.id === "string" && _durableInFlight[result.id] && _durableInFlight[result.id].kind === result.kind) {
+          delete _durableInFlight[result.id];
+          if (!Object.keys(_durableInFlight).length) { clearTimeout(_durableWatchdog); _durableWatchdog = null; }
+        }
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
         return mutarOutbox(function () {
           var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
@@ -347,6 +424,7 @@
             clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 60000);
           }
           if (!_outbox.pending.length) { clearTimeout(_durableTimer); _durableTimer = null; _durableDelay = 2000; }
+          else { clearTimeout(_durableTimer); _durableTimer = null; drenarDurable(); }
         }).catch(function () { programarDurable(); });
       });
     }
@@ -445,8 +523,7 @@
           var directo = false;
           try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
           if (!directo) {
-            try { if (canal.ws && canal.ws.readyState === 1) canal.ws.send(buf); else canal.pend.push(buf); }
-            catch (_) { canal.pend.push(buf); }
+            encolarVivo(buf, tag === 0 && persistir && piezas === 1);
           }
           return op;
         }).catch(function () {}));
@@ -493,6 +570,8 @@
       // A page may contain only part of a large update. Those chunks are not
       // represented in the Y.Doc yet and cannot be compacted by its snapshot.
       if (_appliedPullCursor.rev < 0 || Object.keys(partesEntrantes).length) return;
+      // Unresolved Yjs dependencies cannot authorize compacting their source history.
+      if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return;
       // Capture the applied cursor in the SAME synchronous turn as the bytes.
       // Encryption yields: a later page must never expand this snapshot's cut.
       var checkpointCursor = { rev: _appliedPullCursor.rev, seq: _appliedPullCursor.seq };
@@ -520,6 +599,7 @@
       _currentPullState = pullEstado;
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
+        _lastRelayProgressAt = Date.now();
         /* Un upgrade que abre y cae enseguida NO es una conexion sana. Antes
            reseteaba el backoff aqui y el canal de fotos podia reconectar cada
            pocos segundos para repetir un pull enorme. Solo una conexion que
@@ -551,7 +631,7 @@
         if (nombre === "catalogo") {
           try { ws.send(JSON.stringify({ k: "ts", t0: Date.now() })); } catch (_) {}
         }
-        while (canal.pend.length && ws.readyState === 1) ws.send(canal.pend.shift());
+        drenarVivo();
         _durableQueue.then(drenarDurable).catch(function () {});
         signal("hello", "", { measurement: 1 });
         // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
@@ -657,8 +737,14 @@
                   return;
                 }
                 return guardarPullCursor(c).then(function () {
+                  if (canal.ws !== ws || ws.readyState !== 1) return;
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado);
                   pullEstado.enCurso = false;
+                  if (!c.more && canal.recuperando && !Object.keys(partesEntrantes).length &&
+                      !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
+                    canal.recuperando = false;
+                    if (nombre === "catalogo" && API._store) API._store.aplicar();
+                  }
                   // An old orphan must not repeatedly disconnect live business sync.
                   // Keep its bytes and safe cut; poll only newer rows on this connection.
                   if (Object.keys(partesEntrantes).length) {
@@ -686,6 +772,9 @@
       ws.onclose = function () {
         if (canal.ws !== ws) return; // cierre tardio de un socket reemplazado
         clearTimeout(_tEstable); _tEstable = null;
+        clearTimeout(_bufferPumpTimer); _bufferPumpTimer = null;
+        clearTimeout(_durableWatchdog); _durableWatchdog = null;
+        _durableInFlight = Object.create(null);
         clearTimeout(_tReplay); _tReplay = null;
         _replayDelay = 30000;
         pullEstado.enCurso = false;
@@ -1256,6 +1345,9 @@
               if (!r || r.id == null) return;
               var k = String(r.id);
               var prev = API.mapas[col].get(k);
+              // A locked tab may know the device profile but no longer have an authenticated role.
+              // Preserve that role while still allowing nickname edits and explicit role changes.
+              if (col === "dispositivos" && prev && !r.rol && prev.rol) r = Object.assign({}, r, { rol: prev.rol });
               if (prev && col === "ubicaciones") {
                 var ar = r.gastoMensualRev || {}, br = prev.gastoMensualRev || {};
                 var newerMonthly = (Number(ar.c) || 0) > (Number(br.c) || 0) ||
@@ -1373,8 +1465,15 @@
               API.meta.set("nombreEsDueno", false);
             }
           }
-          if (cat.pinsRol && JSON.stringify(API.meta.get("pinsRol")) !== JSON.stringify(cat.pinsRol))
-            API.meta.set("pinsRol", cat.pinsRol);
+          if (cat.pinsRol && miRol && !(API.canal && API.canal.recuperando)) {
+            var pinsPrev = API.meta.get("pinsRol") || {}, pinsNext = Object.assign({}, pinsPrev);
+            // A fresh device must never publish factory/demo PINs over the team's credentials.
+            [["owner", "789"], ["emp", "260"], ["acct", "357"]].forEach(function (role) {
+              var p = String(cat.pinsRol[role[0]] || "");
+              if (/^\d{3}$/.test(p) && p !== role[1] && p !== "456") pinsNext[role[0]] = p;
+            });
+            if (JSON.stringify(pinsNext) !== JSON.stringify(pinsPrev)) API.meta.set("pinsRol", pinsNext);
+          }
         }, "seed"); // origin "seed": estos updates no deben re-aplicarse al store
       } catch (e) { log("sembrar:", e && e.message); }
       // B3: publicar al doc de fotos los blobs de perchas Y productos que tienen
@@ -1408,7 +1507,7 @@
       ultimaAplicacionVisible = Promise.resolve(false);
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
-      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
       var hay = false;
       COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
