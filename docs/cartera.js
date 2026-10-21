@@ -280,7 +280,10 @@
       }
       if (d.accion !== "aplicar") { conflictos++; return; }
       var opId = String(d.opId || "");
-      if (opId && opIds[opId]) return;
+      if (opId && opIds[opId]) {
+        if (opIds[opId] !== JSON.stringify([ab, _partesAplicacion(d)])) conflictos++;
+        return;
+      }
       var partes = _partesAplicacion(d), pedidoAbono = 0, pedidoCargo = Object.create(null);
       var correcto = partes.length > 0;
       partes.forEach(function (p) {
@@ -303,7 +306,7 @@
         porCargo[ck] = (porCargo[ck] || 0) + cent;
         porAbono[ab] = (porAbono[ab] || 0) + cent;
       });
-      if (opId) opIds[opId] = true;
+      if (opId) opIds[opId] = JSON.stringify([ab, partes]);
       aceptadas.push(String(h.id));
     });
     return { vigente: vigente, conflictos: conflictos, aceptadas: aceptadas };
