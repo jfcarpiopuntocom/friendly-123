@@ -69,3 +69,75 @@ test('el encargado ve los consumos abiertos para cobrar, pero no el historial co
   assert.equal(v.historial.length, 0);
   assert.deepEqual(JSON.parse(JSON.stringify(v.consumosPendientes.map(c => c.cargoKey))), ['venta:v2', 'venta:v3']);
 });
+
+
+test('un pago con varias compras genera UN solo hecho atomico, reintento idempotente', async () => {
+  const hechos = [abono('a-lote', 20, 10)];
+  const C = cargarCartera(hechos);
+  const partes = [{ cargoKey: 'venta:v1', monto: 6 }, { cargoKey: 'venta:v2', monto: 4 }];
+  const primero = await C.aplicarAbono(CLI, 'a-lote', partes, ventas, 'idempotente-lote-1');
+  const otro = await C.aplicarAbono(CLI, 'a-lote', partes, ventas, 'idempotente-lote-1');
+  assert.equal(primero.id, otro.id);
+  assert.equal(hechos.filter(h => h.tipo === 'cartera_aplicacion').length, 1);
+  const r = C.calcularSaldo(hechos, CLI, ventas);
+  assert.equal(r.saldo, -12);
+  assert.equal(r.movimientos.find(m => m.ventaId === 'v1').estado, 'pagado');
+  assert.equal(r.movimientos.find(m => m.ventaId === 'v2').pendiente, 2);
+  assert.deepEqual(JSON.parse(JSON.stringify(r.aplicacionesAceptadas)), [primero.id]);
+  await assert.rejects(
+    C.aplicarAbono(CLI, 'a-lote', [{ cargoKey: 'venta:v3', monto: 4 }], ventas, 'idempotente-lote-1'),
+    /referencia pertenece a otra asignación/
+  );
+});
+
+test('una clave de consumo repetida es rechazada ANTES de grabar algun hecho', async () => {
+  const hechos = [abono('a1', 20, 10)];
+  const C = cargarCartera(hechos);
+  await assert.rejects(
+    C.aplicarAbono(CLI, 'a1', [
+      { cargoKey: 'venta:v1', monto: 5 }, { cargoKey: 'venta:v1', monto: 5 }
+    ], ventas, 'dup-synthetic'),
+    /consumo repetido/
+  );
+  assert.equal(hechos.filter(h => h.tipo === 'cartera_aplicacion').length, 0);
+  assert.equal(C.calcularSaldo(hechos, CLI, ventas).saldo, -12);
+});
+
+test('dos aparatos offline compiten por un mismo abono; ambos convergen sin borrar hechos', async () => {
+  const origen = [abono('a1', 20, 6)];
+  const A = origen.concat([]), B = origen.concat([]);
+  const ca = cargarCartera(A), cb = cargarCartera(B);
+  await ca.aplicarAbono(CLI, 'a1', [{ cargoKey: 'venta:v1', monto: 6 }], ventas, 'A');
+  await cb.aplicarAbono(CLI, 'a1', [{ cargoKey: 'venta:v2', monto: 6 }], ventas, 'B');
+  const ha = A.find(h => h.tipo === 'cartera_aplicacion');
+  const hb = B.find(h => h.tipo === 'cartera_aplicacion');
+  ha.id = 'app-device-A'; hb.id = 'app-device-B';
+  ha.ts = hb.ts = 1050; // Un reloj empatado se deshace por ID estable.
+  const union1 = origen.concat([ha, hb]), union2 = origen.concat([hb, ha]);
+  const uno = ca.calcularSaldo(union1, CLI, ventas);
+  const dos = cb.calcularSaldo(union2, CLI, ventas);
+  assert.deepEqual(JSON.parse(JSON.stringify(uno.movimientos.map(m => [m.id,m.aplicado,m.pendiente]))),
+    JSON.parse(JSON.stringify(dos.movimientos.map(m => [m.id,m.aplicado,m.pendiente]))));
+  assert.equal(uno.saldo, -16);
+  assert.equal(dos.saldo, -16);
+  assert.equal(uno.conflictosAplicacion, 1);
+  assert.equal(dos.conflictosAplicacion, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(uno.aplicacionesAceptadas)), ['app-device-A']);
+  assert.equal(union1.filter(h => h.tipo === 'cartera_aplicacion').length, 2);
+});
+
+test('un hecho historico que rebasa el limite no infla Pagado ni genera saldos negativos de aplicacion', () => {
+  const hechos = [
+    abono('a1', 20, 6),
+    { id: 'old-1', tipo: 'cartera_aplicacion', ts: 30,
+      datos: { clienteId: CLI, abonoId: 'a1', cargoKey: 'venta:v1', monto: 6, accion: 'aplicar' } },
+    { id: 'old-2', tipo: 'cartera_aplicacion', ts: 31,
+      datos: { clienteId: CLI, abonoId: 'a1', cargoKey: 'venta:v2', monto: 6, accion: 'aplicar' } }
+  ];
+  const r = cargarCartera(hechos).calcularSaldo(hechos, CLI, ventas);
+  assert.equal(r.movimientos.find(m => m.ventaId === 'v1').estado, 'pagado');
+  assert.equal(r.movimientos.find(m => m.ventaId === 'v2').estado, 'pendiente');
+  assert.equal(r.movimientos.find(m => m.id === 'a1').sinAsignar, 0);
+  assert.equal(r.conflictosAplicacion, 1);
+  assert.equal(hechos.filter(h => h.tipo === 'cartera_aplicacion').length, 2);
+});
