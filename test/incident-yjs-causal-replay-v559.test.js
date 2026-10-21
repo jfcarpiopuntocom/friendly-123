@@ -73,7 +73,7 @@ test("P0 end of stream with orphan structs schedules backoff and replays from PR
  assert.equal(f.timers.length,1,"schedule incremental retry not infinite immediate loop");
  assert.equal(f.timers[0].delay,30000);
  f.timers[0].fn();
- assert.deepEqual(f.replay,[{rev:2,seq:10}]);
+ assert.deepEqual(f.replay,[{rev:5,seq:50}], "live connection polls newer rows, durable cut stays uncommitted");
  assert.equal(f.pullEstado.enCurso,true);
 });
 test("P0 fully resolved Yjs history completes recovery without repetitive replay",async()=>{
