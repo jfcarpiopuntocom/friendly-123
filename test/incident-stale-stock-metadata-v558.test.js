@@ -11,7 +11,7 @@ function staleProductProjection(prev,remote,clock) {
   assert.ok(a>0&&b>a,"stock metadata/ledger guard present");
   const ctx={prev,r:remote,col:"productos",window:{OCLatencia:{ahoraRelay:()=>clock}}};
   vm.createContext(ctx);
-  vm.runInContext(src.slice(a,b)+"\nthis.result=r;",ctx);
+  vm.runInContext("(function(){\n"+src.slice(a,b)+"\nthis.result=r;\n}).call(this);",ctx);
   return ctx.result;
 }
 const current={id:"p",nombre:"Current",rev:{c:12,d:"pc"},stockActual:7,stockTs:1500};
@@ -72,7 +72,7 @@ function seedWith(name,rev,recovering) {
     log:()=>{},publicarFotosLocales:()=>{},sembrarVentasAlRelay:()=>{},
     sembrarFinanzas:()=>{}};
   vm.createContext(ctx);
-  vm.runInContext(src.slice(a,b)+"\nthis.invoke=sembrar;",ctx);
+  vm.runInContext("(function(){\n"+src.slice(a,b)+"\nthis.invoke=sembrar;\n}).call(this);",ctx);
   ctx.invoke();
   return Object.fromEntries(meta);
 }
