@@ -710,6 +710,13 @@
         if (d instanceof ArrayBuffer) {
           _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source); }).then(function (ok) {
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
+          }).catch(function (e) {
+            // One corrupted or undecipherable frame must NOT poison the entire
+            // serial receive queue. The failed durable page is retried from the
+            // last confirmed cursor; do not ACK or silently skip its bytes.
+            if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++;
+            try { log("frame Yjs no aplicable en " + nombre, e && e.message); } catch (_) {}
+            return false;
           });
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
@@ -762,6 +769,13 @@
                     }, _replayDelay);
                   } else { clearTimeout(_tReplay); _tReplay = null; _replayDelay = 30000; }
                 });
+              }).catch(function (e) {
+                // Recovery must remain live after a page processing error.
+                // Close/replay instead of abandoning all later encrypted pages.
+                pullEstado.fallos++;
+                try { log("error pagina Yjs " + nombre, e && e.message); } catch (_) {}
+                try { ws.close(1013, "pull page failed; replay from confirmed cursor"); } catch (_) {}
+                return false;
               });
             }
             else if (c && c.k === "tsr" && window.OCLatencia) window.OCLatencia.anotarPing(c.t0, c.t1, Date.now());
@@ -770,7 +784,13 @@
         }
       };
       _directReceive = function (buf) {
-        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf, "live"); });
+        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf, "live"); })
+          .catch(function (e) {
+            // Live-only fast path is optional; durable relay replay remains
+            // authoritative and MUST keep processing subsequent frames.
+            try { log("frame directo Yjs no aplicable en " + nombre, e && e.message); } catch (_) {}
+            return false;
+          });
       };
       ws.onclose = function () {
         if (canal.ws !== ws) return; // cierre tardio de un socket reemplazado
