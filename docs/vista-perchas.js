@@ -134,17 +134,43 @@
   // Antes vivian en localStorage (limite practico ~5-10MB; con 10-15 perchas
   // con foto ya reventaba — "espacio lleno"). Ahora persisten en IndexedDB
   // (ver idb-fotos.js), sin ese techo. getFoto() sigue siendo SINCRONO: lee de
-  // un cache en memoria precargado por precargarFotos() antes de pintar el
-  // grid, asi _tarjeta() no cambia de forma.
+  // un cache que se actualiza al terminar precargarFotos(); el grid puede pintar
+  // antes y _tarjeta() no cambia de forma.
   let fotoCache = {};
   const getFoto = (id) => fotoCache[id] || null;
-  async function precargarFotos() {
+  async function precargarFotos(estaCarga) {
     if (!window.OCFotos) return; // idb-fotos.js no cargo: sin fotos, sin crash
+    const cacheAlInicio = Object.assign({}, fotoCache);
     await window.OCFotos.migrarSiHaceFalta(); // G04: copy-only, nunca borra origen
     if (window.OCFotos.blindarEvidencia) {
       try { await window.OCFotos.blindarEvidencia(); } catch (_) {}
     }
-    fotoCache = await window.OCFotos.leerTodas();
+    const fotos = await window.OCFotos.leerTodas();
+    if (estaCarga === cargaEnCurso) {
+      const actualizadas = Object.assign({}, fotoCache);
+      Object.keys(fotos || {}).forEach((id) => {
+        if (fotoCache[id] === cacheAlInicio[id]) actualizadas[id] = fotos[id];
+      });
+      fotoCache = actualizadas;
+    }
+  }
+  function pintarFotosPerchas(perchas, estaCarga) {
+    const seccion = $('vista-perchas'), grid = $('vp-grid');
+    if (estaCarga !== cargaEnCurso || !seccion || !seccion.classList.contains('activa') || !grid) return;
+    const visuales = grid.querySelectorAll('[data-vp-foto-visual]');
+    perchas.forEach((u) => {
+      const foto = getFoto(u.id);
+      if (!foto) return;
+      const visual = Array.from(visuales).find((el) => el.dataset.vpFotoVisual === String(u.id));
+      if (!visual) return;
+      if (visual.tagName === 'IMG') { visual.src = foto; return; }
+      const img = document.createElement('img');
+      img.dataset.vpFotoVisual = String(u.id);
+      img.src = foto;
+      img.alt = '';
+      img.style.cssText = 'width:100%;height:170px;object-fit:cover;display:block;';
+      visual.replaceWith(img);
+    });
   }
 
   /* FOTO — calidad alta PERO bajo el tope del relay (JFC 2026-09-10, fix A).
@@ -189,11 +215,11 @@
     const foto = getFoto(p.id);
 
     const visual = foto
-      ? `<img src="${foto}" alt="" style="width:100%;height:170px;object-fit:cover;display:block;">`
+      ? `<img data-vp-foto-visual="${esc(p.id)}" src="${foto}" alt="" style="width:100%;height:170px;object-fit:cover;display:block;">`
       /* Sin foto (JFC 2026-09-24): fondo BLANCO con la inicial en tinta, no un
          bloque pintado del color del semaforo (lucia roto). El semaforo ya vive
          en el borde de 3px y en el punto de estado; no hace falta repetirlo. */
-      : `<div style="width:100%;height:170px;display:flex;align-items:center;justify-content:center;
+      : `<div data-vp-foto-visual="${esc(p.id)}" style="width:100%;height:170px;display:flex;align-items:center;justify-content:center;
            background:#FFFFFF;color:var(--ink,#0F1923);font-family:var(--font-display);font-size:56px;font-weight:700;
            box-shadow:inset 0 0 0 2px var(--hairline,#E8ECF2);">
            ${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}</div>`;
@@ -372,7 +398,7 @@
     } catch (_) { return false; }
   }
 
-  async function montarPhotoRecoveryVault(perchasVisibles) {
+  async function montarPhotoRecoveryVault(perchasVisibles, estaCarga) {
     let cont = document.getElementById('vp-photo-vault');
     const seccion = document.getElementById('vista-perchas');
     if (!photoVaultDiagnosticoHabilitado()) {
@@ -389,6 +415,7 @@
     }
     let blobs = {};
     try { blobs = await window.OCFotos.leerTodosPorHash() || {}; } catch (_) {}
+    if (estaCarga !== cargaEnCurso) return;
     const shelfRefsActuales = new Set(), productRefs = new Set();
     try {
       const cat = window.OCSync && window.OCSync.catalogoPropio ? window.OCSync.catalogoPropio() : null;
@@ -407,6 +434,7 @@
        o checkpoint). Una foto de producto no aparece por el mero hecho de existir. */
     const hist = await historialFotosExacto();
     const histCaja = await historialFotosCheckpointsExacto();
+    if (estaCarga !== cargaEnCurso) return;
     const nombres = {};
     (perchasVisibles || []).forEach((u) => { if (u && u.id) nombres[String(u.id)] = u.nombre || u.id; });
     const idsPorHash = {};
@@ -455,30 +483,7 @@
   }
 
   let cargaEnCurso = 0;
-  async function cargar() {
-    const estaCarga = ++cargaEnCurso;
-    inyectarBotonAgregar(); // el botón general vive fuera del grid, no se borra al re-render
-    const grid = $('vp-grid');
-    if (!grid) return;
-    // No colapsar el grid durante un refresh remoto: Safari reajusta el scroll
-    // al reducir súbitamente la altura de la página y deja la vista arriba.
-    if (!grid.children.length) grid.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;">Cargando perchas…</p>';
-    try {
-      await precargarFotos();
-      const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
-      const [perchas, liq, promotoras, corte] = await Promise.all([
-        // Vista operativa: solo perchas activas. Las archivadas/inactivas siguen en el store y en historial,
-        // pero no deben reaparecer en "My shelves" por pedir todas=1.
-        fetch(`${API}/ubicaciones`).then((r) => r.json()),
-        fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
-        fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
-        ['dueno','admin','contador','demo'].includes(rol) ? fetch(`${API}/reporting/corte`).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null),
-      ]);
-      // Defensa doble: la API operativa ya devuelve solo activas, pero la vista
-      // tampoco pinta una percha archivada/inactiva aunque un peer viejo la mande.
-      const perchasVisibles = Array.isArray(perchas)
-        ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
-        : [];
+  async function recuperarFotosPerchas(perchasVisibles, estaCarga) {
       /* v448 GOLDEN G07 — ADAPTADOR HEXAGONAL.
          La política de recuperación ya NO vive en esta vista. El caso de uso
          recoverShelfPhoto() recibe puertos y decide con el core puro:
@@ -515,7 +520,7 @@
             if (window.OCFotos.leerFoto) {
               try {
                 const bytes = await window.OCFotos.leerFoto(k);
-                if (bytes) { fotoCache[k] = bytes; return bytes; }
+                if (bytes) { if (estaCarga === cargaEnCurso) fotoCache[k] = bytes; return bytes; }
               } catch (_) {}
             }
             return null;
@@ -547,12 +552,13 @@
             if (window.OCFotos.guardarFoto) await window.OCFotos.guardarFoto(id, bytes);
           },
           setPointer: async (id, hash) => {
+            if (estaCarga !== cargaEnCurso) return false;
             const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ fotoHash: hash })
             });
-            return !rr || rr.ok !== false;
+            return estaCarga === cargaEnCurso && (!rr || rr.ok !== false);
           },
           warn: (codigo) => {
             try {
@@ -565,8 +571,10 @@
           if (!u || !u.id) return;
           try {
             const r = await recuperarFoto(u, ports);
-            if (r && r.displayBytes) fotoCache[u.id] = r.displayBytes;
-            if (r && r.pointerChanged && r.pointerHash) u.fotoHash = r.pointerHash;
+            if (estaCarga === cargaEnCurso) {
+              if (r && r.displayBytes) fotoCache[u.id] = r.displayBytes;
+              if (r && r.pointerChanged && r.pointerHash) u.fotoHash = r.pointerHash;
+            }
           } catch (_) {
             /* Fail-open visual: precargarFotos() ya dejo disponible cualquier
                copia por-id local. Un fallo del recovery nunca borra ni oculta eso. */
@@ -574,6 +582,33 @@
         }));
       }
 
+
+  }
+  async function cargar() {
+    const estaCarga = ++cargaEnCurso;
+    inyectarBotonAgregar(); // el botón general vive fuera del grid, no se borra al re-render
+    const grid = $('vp-grid');
+    if (!grid) return;
+    // No colapsar el grid durante un refresh remoto: Safari reajusta el scroll
+    // al reducir súbitamente la altura de la página y deja la vista arriba.
+    if (!grid.children.length) grid.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;">Cargando perchas…</p>';
+    try {
+      const cargaFotos = precargarFotos(estaCarga).catch(() => null);
+      const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
+      const [perchas, liq, promotoras, corte] = await Promise.all([
+        // Vista operativa: solo perchas activas. Las archivadas/inactivas siguen en el store y en historial,
+        // pero no deben reaparecer en "My shelves" por pedir todas=1.
+        fetch(`${API}/ubicaciones`).then((r) => r.json()),
+        fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
+        fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
+        ['dueno','admin','contador','demo'].includes(rol) ? fetch(`${API}/reporting/corte`).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null),
+      ]);
+      // Defensa doble: la API operativa ya devuelve solo activas, pero la vista
+      // tampoco pinta una percha archivada/inactiva aunque un peer viejo la mande.
+      const perchasVisibles = Array.isArray(perchas)
+        ? perchas.filter((u) => u && !u.borrado && u.activa !== false)
+        : [];
+      cargaFotos.then(() => pintarFotosPerchas(perchasVisibles, estaCarga)).catch(() => {});
       if (estaCarga !== cargaEnCurso) return;
       if (!perchasVisibles.length) {
         grid.innerHTML = `<p style="font-size:15px;color:var(--ink-soft);">${esc(window.t('shelves.noRacksYet'))}</p>`;
@@ -623,7 +658,8 @@
       }
       pintarBotonesOrdenPercha();
       grid.innerHTML = ms.map(_tarjeta).join('');
-      try { await montarPhotoRecoveryVault(perchasVisibles); } catch (_) {}
+      void montarPhotoRecoveryVault(perchasVisibles, estaCarga).catch(() => {});
+      void recuperarFotosPerchas(perchasVisibles, estaCarga).then(() => pintarFotosPerchas(perchasVisibles, estaCarga)).catch(() => {});
       try { if (window.ocMontarTraslado) window.ocMontarTraslado('oc-traslado-perchas'); } catch (_) {} // mover ítems entre perchas (breezy)
       const transfersOk = await renderTransferencias(); // wait for the active shelf subpanel too
       return transfersOk === true && estaCarga === cargaEnCurso;

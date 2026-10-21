@@ -2874,6 +2874,11 @@
   // Fallback a la clave misma si i18n.js no cargo por algun motivo — nunca
   // debe tronar la app por falta de traduccion.
   const _t = (k, v) => (window.tf ? window.tf(k, v) : k);
+  /* v557 (JFC/Belen): "Pieza unica / no se repone". Los avisos de reposicion de un producto NO perecedero
+     (obras, piezas unicas, coleccionables) van al panel plegable "Avisos". p.piezaUnica === true lo fuerza,
+     === false lo devuelve a las alertas normales; null/ausente = inferido (no perecedero => plegado).
+     Los perecederos (comida, bebida) conservan SIEMPRE la logica normal de reposicion y de vencimiento. */
+  function avisoPlegable(p) { return !p.perecible && p.piezaUnica !== false; }
   function estadoDe(p) {
     const margen = p.precio > 0 ? (p.precio - p.costo) / p.precio : 0;
     const dias = p.perecible ? diasParaVencer(p.fechaCaducidad) : null;
@@ -2907,7 +2912,7 @@
   function ficha(p) {
     const e = estadoDe(p);
     const _rb = rebajaDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, avisosPlegados: avisoPlegable(p), fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -3679,7 +3684,7 @@
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
-          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "chip", "archivado", "fotoHash", "borrado", "rev"];
+          const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "chip", "archivado", "piezaUnica", "fotoHash", "borrado", "rev"];
           const fotoAnterior = mio.fotoHash;
           campos.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
           if (fotoAnterior !== mio.fotoHash) mio.foto = null;
@@ -4380,7 +4385,7 @@
         // v448 GOLDEN: bloquear la semilla por HUELLA EXACTA, no por forma del id.
         // Un negocio real puede tener un id corto como p23; nombre+SKU+barcode
         // distinguen ese registro real del Cappuccino demo sin adivinar.
-        productos: productos.filter((p) => p && !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad,
+        productos: productos.filter((p) => p && !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad,
           /* STOCK EN EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el stock NO
              viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
@@ -4479,7 +4484,7 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
         huella: huellaCatalogo(),
@@ -5157,7 +5162,7 @@
         if (preciosError) return J({ error: preciosError }, 400);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
         const stockAntesEdicion = Number(p.stockActual) || 0;
-        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "archivado"];
+        const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "archivado", "piezaUnica"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
       if (k === "categoria") { p[k] = categoriaCanonica(body[k]); return; }
@@ -5191,6 +5196,7 @@
       if (k === "direccionComision") { const d = _direccionValida(body[k]); if (d) p[k] = d; return; } // v521 flecha: valor invalido = no se toca
       if (k === "chip") { p[k] = String(body[k] || "").trim().slice(0, 12); return; }
       if (k === "fechaEvento") { p[k] = String(body[k] || "").trim().slice(0, 20); return; } // JFC 2026-09-30 (v430)
+      if (k === "piezaUnica") { p[k] = typeof body[k] === "boolean" ? body[k] : null; return; } // v557: true/false explicito, null = inferido
       if (k === "perecible" || k === "archivado" || k === "exentoImpuesto") { p[k] = !!body[k]; return; } // archivado: JFC/Belén 2026-09-08
       p[k] = body[k];
     });
@@ -5534,13 +5540,14 @@
         const entra = dailyProjection ? dailyProjection.entra : vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
         const sale = dailyProjection ? dailyProjection.sale : vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
         const inv = ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
-        const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}`, reposicionPlegable: e.estado === "rojo" && Number(e.p.stockActual) === 0 && e.p.perecible !== true }));
+        const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}`, reposicionPlegable: avisoPlegable(e.p) }));
         // El hero de HOY es tri-estado (verde/amarillo/rojo, como el manual):
         // las alertas naranjas ("revisar pronto") encienden el nivel medio.
         // BUG FIX 2026-07-07: comparaba contra "amarillo", que ya no existe
         // en alertas (ahora son rojo/naranja) — el hero saltaba de verde a rojo.
         let sem = "verde";
-        if (alertas.some((a) => a.estado === "rojo")) sem = "rojo"; else if (alertas.some((a) => a.estado === "naranja")) sem = "amarillo";
+        const _visibles = alertas.filter((a) => a.reposicionPlegable !== true); // v557: los avisos plegados no encienden el semaforo general
+        if (_visibles.some((a) => a.estado === "rojo")) sem = "rojo"; else if (_visibles.some((a) => a.estado === "naranja")) sem = "amarillo";
         // Mejora #5 (JFC 2026-07-16): resumen semanal para el nudge de WhatsApp
         // (weekly-summary en index.html). Ultimos 7 dias, misma ubicacion filtrada.
         const hace7dias = new Date(hoyISO()).getTime() - 6 * 86400000; // Fix-8: ZONA-aware boundary, not UTC epoch
@@ -5580,7 +5587,7 @@
            o la purga. Los reales son "p"+UUID. idiomARTE (K7M2)/otros NO se filtran
            (pueden tener ids p\d+ propios). Es cinturon + tirantes con la purga. */
         try { var _lpF = String((_licenciaPropia && _licenciaPropia()) || "").toUpperCase().replace(/\s+/g, ""); if (_lpF.indexOf("F123-A6YK-6V1J-") === 0) fuente = fuente.filter((p) => !/^p\d+$/.test(String(p.id || ""))); } catch (_) {}
-        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", familiaId: p.familiaId || "", varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado, direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga" }; });
+        let lista = fuente.map((p) => { const e = estadoDe(p); return { id: p.id, nombre: p.nombre, categoria: p.categoria, sku: p.sku, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, precio: p.precio, precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, avisosPlegados: avisoPlegable(p), fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, estrella: !!p.estrella, foto: p.foto || null, chip: p.chip || "", familiaId: p.familiaId || "", varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", archivado: !!p.archivado, direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga" }; });
         const est = q.get("estado");
         if (est) lista = lista.filter((x) => x.estado === est);
         lista.sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado] || a.nombre.localeCompare(b.nombre, "es"));
@@ -5644,7 +5651,7 @@
           precioCasa: (body.precioCasa === "" || body.precioCasa == null) ? null : aCent(Math.max(0, Number(body.precioCasa) || 0)),
           precioReserva: precioOpcional(body.precioReserva), precioWalkIn: precioOpcional(body.precioWalkIn),
           umbralRojo: Number(body.umbralRojo) || 5, umbralAmarillo: Number(body.umbralAmarillo) || 10, proveedor: body.proveedor || "",
-          perecible: !!body.perecible, exentoImpuesto: !!body.exentoImpuesto, fechaCaducidad: body.perecible ? (body.fechaCaducidad || null) : null,
+          perecible: !!body.perecible, exentoImpuesto: !!body.exentoImpuesto, piezaUnica: typeof body.piezaUnica === "boolean" ? body.piezaUnica : null, fechaCaducidad: body.perecible ? (body.fechaCaducidad || null) : null,
           metodoCosteo: body.metodoCosteo === "LIFO" ? "LIFO" : "FIFO",
           tipoProveedor: body.tipoProveedor === "consignacion" ? "consignacion" : "compra",
           comisionProveedorPct: Math.max(0, Number(body.comisionProveedorPct) || 0),
@@ -7098,6 +7105,39 @@
         mov(mCliVinc[2] === "vincular" ? "cartera-vinculo" : "cartera-desvinculo", { cliente: c.nombre, cargoId });
         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
         return J(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"));
+      }
+      /* 2026-10-21 (fiados de Belen, decision JFC «elige quien cobra»): aplica un abono ya
+         confirmado a los consumos que la persona toco. No mueve dinero ni cambia el saldo;
+         solo deja hechos cartera_aplicacion validados por AMG.Cartera.aplicarAbono. */
+      const mCliAplicar = path.match(/^\/api\/clientes\/([^/]+)\/aplicar$/);
+      if (mCliAplicar && opts && opts.method === "POST") {
+        const c = clientes.find((x) => x.id === mCliAplicar[1]);
+        if (!c) return J({ error: "Customer not found." }, 404);
+        if (!window.AMG || !window.AMG.Cartera || !window.AMG.Cartera.aplicarAbono) return J({ error: "Customer credit is not available." }, 500);
+        const partes = Array.isArray(body.partes) ? body.partes.map((p) => ({ cargoKey: String(p && p.cargoKey || ""), monto: Number(p && p.monto) })) : [];
+        let asignacion;
+        try {
+          const opId = body.opId === undefined ? undefined : body.opId;
+          if (opId !== undefined && (typeof opId !== "string" || !opId.trim() || opId.length > 160)) {
+            return J({ error: "Invalid allocation reference." }, 400);
+          }
+          asignacion = await window.AMG.Cartera.aplicarAbono(c.id, String(body.abonoId || ""), partes, ventas, opId);
+          if (!asignacion || !asignacion.id) return J({ error: "Payment saved, but allocation not confirmed." }, 503);
+        } catch (e) {
+          return J({ error: (e && e.message) || "Could not apply the payment." }, e && e.status === 409 ? 409 : 400);
+        }
+        const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        if (!Array.isArray(info.aplicacionesAceptadas) ||
+            !info.aplicacionesAceptadas.includes(String(asignacion.id))) {
+          // Concurrent remote events may have consumed this capacity first.
+          // Keep every fact; do not acknowledge an allocation that the common projection rejects.
+          return J({ error: "Payment saved. This allocation conflicts with another device; review unassigned purchases. Do not record the payment twice.", needsReview: true }, 409);
+        }
+        if (!movimientos.some((m) => m.detalle && m.detalle.aplicacionId === asignacion.id)) {
+          mov("cartera-aplicacion", { cliente: c.nombre, abonoId: String(body.abonoId || ""), aplicacionId: asignacion.id });
+        }
+        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"),
+          { aplicacionId: asignacion.id, opId: body.opId || null }));
       }
       const mCliFiar = path.match(/^\/api\/clientes\/([^/]+)\/(fiar|abonar)$/);
       if (mCliFiar && opts && opts.method === "POST") {

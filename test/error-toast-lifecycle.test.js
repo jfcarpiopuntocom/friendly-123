@@ -90,3 +90,16 @@ test("explicit reload continues to work", () => {
   s.banners[0].querySelector("[data-f123-error-reload]").click();
   assert.equal(s.reloads(), 1);
 });
+test("ResizeObserver loop notice is logged but never shown as a failure (Sentry FRIENDLY-123-1)", () => {
+  const s = harness(); s.emit("error", { message: "ResizeObserver loop completed with undelivered notifications.", filename: "", lineno: 0 });
+  assert.equal(s.banners.length, 0, "benign browser notification must not show the black notice");
+  assert.equal(JSON.parse(s.data.get("f123_errores")).length, 1, "still recorded for diagnostics");
+  s.emit("error", failure);
+  assert.equal(s.banners.length, 1, "a real exception afterwards still shows the notice");
+});
+test("header ResizeObserver measures outside its own callback and canarios skips the benign notice", () => {
+  const index = fs.readFileSync(path.join(__dirname, "../docs/index.html"), "utf8");
+  const can = fs.readFileSync(path.join(__dirname, "../docs/canarios.js"), "utf8");
+  assert.match(index, /new ResizeObserver\(function \(\) \{ if \(_raf\) return; _raf = requestAnimationFrame/);
+  assert.match(can, /ResizeObserver loop/);
+});

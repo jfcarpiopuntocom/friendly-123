@@ -93,3 +93,19 @@ test('counter sale does not invent client identity or contact data', async () =>
   assert.equal(found.info.email,'');
   assert.equal(found.info.whatsapp,'');
 });
+
+test('v557 item 4: new customer inside a sale also asks gender, like the Customers form, and saves it', async () => {
+  const source = html();
+  assert.ok(source.includes('id="vi-newcli-genero"'), 'sale new-customer form has gender');
+  assert.match(source, /perfilNuevo\.genero = inGenero\.value/);
+  const w = browser();
+  const created = await w.request('/api/clientes', 'POST', { nombre: 'Synthetic gendered client', genero: 'female' });
+  const saved = (await w.request('/api/clientes')).find(c => c.id === created.id);
+  assert.equal(saved.genero, 'female');
+});
+
+test('v557 item 4: the Customers add form also asks age range and country, saved with the customer', async () => {
+  const source = html();
+  assert.ok(source.includes('id="cliEdad"') && source.includes('id="cliPais"'));
+  assert.match(source, /rangoEdad:\(document\.getElementById\("cliEdad"\)/);
+});

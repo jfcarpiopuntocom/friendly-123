@@ -2119,6 +2119,8 @@
       <input id="cliTelefono" type="tel" placeholder="WhatsApp (optional)" data-i18n-attr="placeholder:cust.phonePlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <label style="font-size:14px;display:flex;align-items:center;gap:6px;"><input id="cliCuenca" type="checkbox"><span data-i18n="cust.cuenca">Lives in Cuenca</span></label>
       <select id="cliGenero" aria-label="Gender" data-i18n-attr="aria-label:cust.gender" style="padding:10px;border:2px solid var(--azul-medio);border-radius:6px;"><option value="unknown" data-i18n="cust.genderUnknown">Gender: unknown</option><option value="male" data-i18n="cust.genderMale">Male</option><option value="female" data-i18n="cust.genderFemale">Female</option></select>
+      <select id="cliEdad" aria-label="Age range" data-i18n-attr="aria-label:cust.ageRange" style="padding:10px;border:2px solid var(--azul-medio);border-radius:6px;"></select>
+      <select id="cliPais" aria-label="Country" data-i18n-attr="aria-label:cust.country" style="padding:10px;border:2px solid var(--azul-medio);border-radius:6px;"></select>
       <input id="cliEmail" type="email" inputmode="email" autocomplete="off" placeholder="Email (optional)" data-i18n-attr="placeholder:cust.emailPlaceholder" style="flex:1;min-width:150px;padding:10px;border:2px solid var(--azul-medio);border-radius:6px;">
       <button class="ir" id="btnAltaCliente" style="padding:10px 18px;" data-i18n="cust.addBtn">+ Add customer</button>
     </div>
@@ -3862,10 +3864,13 @@ async function pintarSaldoCartera(clienteId) {
       <summary style="cursor:pointer;font-weight:700;">${es ? "Ver cargos y pagos que forman este saldo" : "See charges and payments behind this balance"}</summary>
       <div style="margin:5px 0;font-weight:700;">${desglose}</div>
       ${movimientos.map((m) => `<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #D7E0E8;padding:5px 0;">
-        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
+        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${typeof _estadoConsumoCartera === "function" ? _estadoConsumoCartera(m, es) : ""}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
         <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
       </div>`).join("")}</details>` : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${detalle}`;
+    const avisoAsignacion = Number(info.conflictosAplicacion) > 0
+      ? ` <span role="alert" style="display:block;color:#B0183E;font-size:12px;font-weight:700;">${es ? "Hay asignaciones de pagos que requieren revisión entre aparatos; los pagos originales se conservan." : "Some purchase allocations need cross-device review; original payments are preserved."}</span>`
+      : "";
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${avisoAsignacion}${detalle}`;
   } catch (e) {
     if (el.__carteraLectura !== lectura) return;
     console.error("[pintarSaldoCartera]", e);
@@ -3960,6 +3965,19 @@ async function ocDesvincularCargo(clienteId, cargoId) {
 }
 /* Pagar una deuda (JFC 2026-09-02): abre el modal de plan-pagos ("Record a
    payment"), que sigue en window.abonarCliente. Busca el nombre en la tarjeta. */
+/* 2026-10-21 (fiados de Belen): etiqueta por consumo y por pago. Colores solidos, texto blanco
+   sobre fondo de color; no cambia ningun monto ni el saldo (solo lee cartera_aplicacion). */
+function _estadoConsumoCartera(m, es) {
+  const chip = (txt, bg) => ` <span style="display:inline-block;margin-left:6px;font-size:12px;font-weight:700;padding:1px 8px;border-radius:12px;background:${bg};color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;">${txt}</span>`;
+  if (m.tipo === "cargo") {
+    if (m.estado === "pagado") return chip(es ? "Pagado" : "Paid", "#1E7A4C");
+    if (m.estado === "parcial") return chip((es ? "Abonado " : "Part paid ") + fmtMoney(m.aplicado) + (es ? " · falta " : " · owes ") + fmtMoney(m.pendiente), "#B5541B");
+    if (m.estado === "pendiente") return chip(es ? "Pendiente" : "Pending", "#B0183E");
+    return "";
+  }
+  if (m.tipo === "abono" && Number(m.sinAsignar) > 0) return chip((es ? "Sin asignar " : "Unassigned ") + fmtMoney(m.sinAsignar), "#19354B");
+  return "";
+}
 function ocPagarDeuda(clienteId){
   let nombre = "";
   try { const card = document.querySelector(`.cliente-card[data-cliente-id="${clienteId}"] strong`); if (card) nombre = card.textContent.trim(); } catch (_) {}
@@ -4307,6 +4325,7 @@ async function cargarClientes(){
     importBloque.style.display = esDueno ? "block" : "none";
     if (esDueno) inicializarImportCSV();
   }
+  { const _ed = document.getElementById("cliEdad"), _pa = document.getElementById("cliPais"); if (_ed) _ed.innerHTML = opcionesEdad(""); if (_pa) _pa.innerHTML = opcionesPais(""); } // v557: mismos campos que el cliente nuevo dentro de la venta
   const btn = document.getElementById("btnAltaCliente");
   if (btn && !btn.dataset.listo) {
     btn.dataset.listo = "1";
@@ -4314,14 +4333,14 @@ async function cargarClientes(){
       const nombre = document.getElementById("cliNombre").value;
       const telefono = document.getElementById("cliTelefono").value;
       const email = (document.getElementById("cliEmail") || {}).value || "";
-      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email, resideCuenca:document.getElementById("cliCuenca").checked, genero:document.getElementById("cliGenero").value }) });
+      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre, telefono, email, resideCuenca:document.getElementById("cliCuenca").checked, genero:document.getElementById("cliGenero").value, rangoEdad:(document.getElementById("cliEdad")||{}).value||"", pais:(document.getElementById("cliPais")||{}).value||"" }) });
       const r = await res.json();
       const msgEl = document.getElementById("cliMsg");
       if (!res.ok) { msgEl.textContent = r.error; msgEl.style.color = "var(--sim-rojo-dk)"; return; }
       msgEl.textContent = `Client registered with code ${r.codigo}.`;
       msgEl.style.color = "var(--sim-verde-dk)";
       document.getElementById("cliNombre").value = ""; document.getElementById("cliTelefono").value = "";
-      document.getElementById("cliCuenca").checked=false;document.getElementById("cliGenero").value="unknown";
+      document.getElementById("cliCuenca").checked=false;document.getElementById("cliGenero").value="unknown";{ const _ed = document.getElementById("cliEdad"), _pa = document.getElementById("cliPais"); if (_ed) _ed.value = ""; if (_pa) _pa.value = ""; }
       { const _e = document.getElementById("cliEmail"); if (_e) _e.value = ""; }
       try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}
       cargarClientes();
@@ -4864,7 +4883,7 @@ document.addEventListener("click", function (ev) {
   try { requestAnimationFrame(function () { ajustar(); requestAnimationFrame(ajustar); }); } catch (_) {}
   try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar); } catch (_) {}
   window.addEventListener("load", function () { ajustar(); setTimeout(ajustar, 250); setTimeout(ajustar, 900); });
-  try { new ResizeObserver(ajustar).observe(header); } catch (_) { window.addEventListener("resize", ajustar); }
+  try { var _raf = 0; new ResizeObserver(function () { if (_raf) return; _raf = requestAnimationFrame(function () { _raf = 0; ajustar(); }); }).observe(header); } catch (_) { window.addEventListener("resize", ajustar); } /* rAF: medir fuera del callback evita el bucle "ResizeObserver loop completed" */
   window.addEventListener("orientationchange", function () { setTimeout(ajustar, 120); });
   window.addEventListener("oc-login", function () { setTimeout(ajustar, 60); setTimeout(ajustar, 300); });
 })();
@@ -5432,6 +5451,8 @@ async function duplicarComoVariante(id) {
     if (perecible) { perecible.checked = !!p.perecible; perecible.dispatchEvent(new Event("change")); }
     var exento = scope.querySelector("#np-exento");
     if (exento) exento.checked = !!p.exentoImpuesto;
+    var unica = scope.querySelector("#np-unica");
+    if (unica) unica.checked = p.avisosPlegados !== false;
     set("#np-fecha", p.fechaCaducidad || "");
     set("#np-metodo", p.metodoCosteo || "FIFO");
     set("#np-stock", 0);              // el valor seguro, siempre
@@ -6326,6 +6347,9 @@ function mostrarFormNuevoProducto(codigoEscaneado){
       <!-- v361: producto exento de impuesto (comida, libros... según el país). -->
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
         <input id="np-exento" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
+      <!-- v557: "Pieza unica / no se repone". Marcada (por defecto) = sus avisos de reposicion van al panel plegable Avisos. Desmarcada = alertas normales. Perecederos: siempre logica normal. -->
+      <label style="display:flex;align-items:center;gap:8px;margin-top:6px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="np-unica" type="checkbox" checked style="width:20px;height:20px;"> <span>${t("form.piezaUnica")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
         <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
           <input id="np-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
@@ -6390,6 +6414,7 @@ async function crearProductoNuevo(codigoEscaneado){
     pctAsociado: el("np-pct-asociado") ? val("np-pct-asociado") : (el("np-pct-asociado-q") ? val("np-pct-asociado-q") : ""), // Belen 2026-09-29
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
     exentoImpuesto: !!(el("np-exento") && el("np-exento").checked),
+    ...(el("np-unica") && !el("np-unica").checked ? { piezaUnica: false } : {}), // v557: solo se manda si se desmarca; el valor por defecto es inferido
     metodoCosteo: perecible ? el("np-metodo").value : "FIFO",
     /* Tipo de producto + campos de bar (JFC 2026-08-27): "bar" cuenta stock en
        servings; servingMl/botellaMl definen la conversión (default 50/750 ml). */
@@ -6506,6 +6531,8 @@ async function mostrarFormEditarProducto(id){
         <input id="ed-categoria" type="text" value="${q(p.categoria)}" ${inp}></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
         <input id="ed-exento" type="checkbox" ${p.exentoImpuesto ? "checked" : ""} style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:6px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="ed-unica" type="checkbox" data-original="${p.avisosPlegados === false ? "0" : "1"}" ${p.avisosPlegados === false ? "" : "checked"} style="width:20px;height:20px;"> <span>${t("form.piezaUnica")}</span></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
         <select id="ed-tipo-producto" ${inp}>
           <option value="normal"${p.tipoProducto !== "ticket" && p.tipoProducto !== "bar" ? " selected" : ""}>Normal</option>
@@ -6579,6 +6606,7 @@ async function guardarEdicionProducto(id){
   const body = { direccionComision: leerFlechaComision("ed-direccion"), nombre: v("ed-nombre"), precio: v("ed-precio"), precioReserva: v("ed-precio-reserva"), precioWalkIn: v("ed-precio-walkin"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), fechaEvento: v("ed-fecha-evento"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   { const ex = document.getElementById("ed-exento"); if (ex) body.exentoImpuesto = ex.checked; } // v361
+  { const un = document.getElementById("ed-unica"); if (un && (un.checked ? "1" : "0") !== un.dataset.original) body.piezaUnica = un.checked; } // v557: solo si el usuario lo cambio
   const edFoto = document.getElementById("ed-foto");
   const foto = await leerFotoRedimensionada(edFoto);
   if (foto) body.foto = foto;
@@ -6735,6 +6763,9 @@ async function abrirAltaProducto(){
       <!-- v361: producto exento de impuesto (comida, libros... según el país). -->
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
         <input id="np-exento" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
+      <!-- v557: "Pieza unica / no se repone". Marcada (por defecto) = sus avisos de reposicion van al panel plegable Avisos. Desmarcada = alertas normales. Perecederos: siempre logica normal. -->
+      <label style="display:flex;align-items:center;gap:8px;margin-top:6px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="np-unica" type="checkbox" checked style="width:20px;height:20px;"> <span>${t("form.piezaUnica")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
         <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
           <input id="np-fecha" type="date" ${inp}></label>
@@ -6987,6 +7018,12 @@ async function abrirPanelVentaInfo(id, esTicket){
               <option value="true" data-i18n="cust.residenceYes">${escHtml(t("cust.residenceYes"))}</option>
               <option value="false" data-i18n="cust.residenceNo">${escHtml(t("cust.residenceNo"))}</option>
             </select></label>
+          <label style="flex:1;min-width:125px;font-size:13px;"><span data-i18n="cust.gender">${escHtml(t("cust.gender"))}</span>
+            <select id="vi-newcli-genero" style="display:block;width:100%;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+              <option value="unknown" data-i18n="cust.genderUnknown">${escHtml(t("cust.genderUnknown"))}</option>
+              <option value="male" data-i18n="cust.genderMale">${escHtml(t("cust.genderMale"))}</option>
+              <option value="female" data-i18n="cust.genderFemale">${escHtml(t("cust.genderFemale"))}</option>
+            </select></label>
         </div>
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
@@ -7117,7 +7154,9 @@ async function abrirPanelVentaInfo(id, esTicket){
     if (inEmail && !inEmail.checkValidity()) { if (inMsg) { inMsg.style.color = "var(--rojo-ink,#a3392a)"; inMsg.textContent = t("newcust.emailInvalid"); } inEmail.focus(); return; }
     if (btnSaveNew) btnSaveNew.disabled = true;
     try {
+      const inGenero = document.getElementById("vi-newcli-genero"); // mismo campo que el formulario de Clientes
       const perfilNuevo = { rangoEdad: (inEdad && inEdad.value || "").trim(), pais: (inPais && inPais.value || "").trim() };
+      if (inGenero && inGenero.value && inGenero.value !== "unknown") perfilNuevo.genero = inGenero.value;
       if (inCuenca && inCuenca.value !== "") perfilNuevo.resideCuenca = inCuenca.value === "true";
       const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nombre, telefono: (inTel && inTel.value || "").trim(), email: (inEmail && inEmail.value || "").trim(), ...perfilNuevo }) });
       const r = await res.json();
@@ -8349,6 +8388,30 @@ async function cargarGastos(){
      costs/commissions; the separate cost-aware margin follows below. */
   const neto = ventasMes === null || gastosMes === null ? null
     : Math.round((ventasMes - gastosMes) * 100) / 100;
+  /* 2026-10-21 (Belen, item 11; acordado con Codex: conservar AMBAS magnitudes). Las ventas
+     netas no son el dinero que entro. Dinero recibido del mes = ventas cobradas en el acto
+     (ni fiado ni cortesia, no anuladas/devueltas) + abonos de fiados del mes. Los creditos a
+     favor (motivo con [for:] o [exp:]) NO son dinero recibido. Si algo no se puede leer: "—". */
+  let recibidoMes = null;
+  try {
+    const centsVentas = ventasParaGastos.filter((v) => {
+      if (!v || v.anulada || v.devuelta) return false;
+      const fp = (v.info && v.info.formaPago) || "";
+      return fp !== "fiado" && fp !== "cortesia" && window.OCSalesAudit.dayOf(v, zone).slice(0, 7) === _mesActual;
+    }).reduce((n, v) => n + Math.round((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0) * 100), 0);
+    let centsAbonos = 0;
+    if (window.AMG && window.AMG.Hechos && window.AMG.Hechos.todos) {
+      const hs = await window.AMG.Hechos.todos();
+      hs.forEach((h) => {
+        if (!h || h.tipo !== "cartera_abono") return;
+        const d = (h.datos && h.datos.payload) ? h.datos.payload : (h.datos || {});
+        if (/\[(for|exp):/.test(String(d.motivo || ""))) return;
+        const mes = window.OCBusinessReadModel.day(new Date(Number(h.ts) || 0).toISOString(), zone).slice(0, 7);
+        if (mes === _mesActual) centsAbonos += Math.round((Number(d.monto) || 0) * 100);
+      });
+    }
+    recibidoMes = (centsVentas + centsAbonos) / 100;
+  } catch (_) { recibidoMes = null; }
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
     <div style="font-size:20px;font-weight:700;color:${color};">${valor === null ? '—' : fmtMoney(valor)}</div></div>`;
@@ -8361,6 +8424,7 @@ async function cargarGastos(){
     tarjeta("Expenses (all time)", totalGastos, "var(--rojo-ink)") +
     (_verIngresos
       ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
+        tarjeta(localStorage.getItem('f123_lang') === 'es' ? "Dinero recibido este mes (ventas cobradas + abonos)" : "Money received this month (paid sales + payments on account)", recibidoMes, "var(--dinero-verde-dk)") +
         tarjeta("Sales less expenses (before costs and commissions)", neto,
           neto !== null && neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)") +
         tarjeta(localStorage.getItem('f123_lang') === 'es'
@@ -10967,6 +11031,11 @@ window.addEventListener("oc-datos-importados", async () => {
       lista.push({ fecha: new Date().toISOString(), msg: String(e.message || ""), src: String(e.filename || "").split("/").pop() + ":" + (e.lineno || 0) });
       localStorage.setItem("f123_errores", JSON.stringify(lista.slice(-20)));
     } catch (_) {}
+    /* CAUSA RAIZ del aviso negro intermitente (Sentry FRIENDLY-123-1, 10 eventos): el navegador emite este
+       evento como NOTIFICACION benigna cuando un ResizeObserver cambia el diseno dentro de su propio callback
+       (aqui, el ajuste de --riel-top del encabezado). No es una excepcion ni pierde datos; ya se evita
+       difiriendo el ajuste a requestAnimationFrame. Se sigue registrando arriba, solo no se muestra el aviso. */
+    if (/ResizeObserver loop/i.test(String(e.message || ""))) return;
     if (avisado) return;
     avisado = true;
     try {

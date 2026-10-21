@@ -117,6 +117,7 @@
   try {
     g.addEventListener("error", function (e) {
       if (e && e.target && e.target !== g && e.target.tagName) return; // recurso (img/script): lo cubren sus propios canarios
+      if (/ResizeObserver loop/i.test(String(e && e.message || ""))) return; // notificacion benigna del navegador, no una excepcion (Sentry FRIENDLY-123-1)
       error(e && e.message, e && e.filename, e && e.lineno, e && e.error && e.error.stack);
     }, true);
     g.addEventListener("unhandledrejection", function (e) {

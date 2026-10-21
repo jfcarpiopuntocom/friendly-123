@@ -48,6 +48,8 @@
       "color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:15px;cursor:pointer;}" +
     ".pp-chip{display:inline-block;font-size:14px;font-weight:700;padding:6px 12px;border-radius:8px;" +
       "color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}" +
+    "#pp-ab-consumos .pp-chip{color:#19354B !important;-webkit-text-fill-color:#19354B !important;}" +
+    "#pp-ab-consumos .pp-chip.pp-chip-on{background:#19354B !important;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}" +
     ".pp-prox{display:block;font-size:14px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;margin-top:6px;}" +
     "#pp-filtro{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}" +
     "#pp-filtro button{min-height:44px;padding:10px 16px;border:2px solid #E2E8ED;border-radius:10px;background:#FFFFFF;" +
@@ -297,16 +299,19 @@
   // Save the intention before submitting. An uncertain response keeps this exact
   // key across reload; confirming it rereads the receipt rather than receiving
   // the same money twice. Payment and general/item credit share this boundary.
-  global.ocEnviarAbono = async function (clienteId, monto, motivo) {
+  global.ocEnviarAbono = async function (clienteId, monto, motivo, opciones) {
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
     var payload = { monto: Number(Number(monto).toFixed(2)), motivo: String(motivo || '').slice(0,300) };
     if (!Number.isSafeInteger(Math.round(payload.monto * 100)) || !(payload.monto > 0)) throw new Error(es ? 'Ingresa un importe válido de al menos un centavo.' : 'Enter a valid amount of at least one cent.');
     var key = claveAbono(clienteId), previo = abonoPendiente(clienteId);
-    if (previo && (previo.monto !== payload.monto || previo.motivo !== payload.motivo)) {
+    var intencionId = opciones && opciones.opId ? String(opciones.opId) : "";
+    if (intencionId && (intencionId.length > 160 || !intencionId.trim())) throw new Error("Invalid payment reference.");
+    if (previo && (previo.monto !== payload.monto || previo.motivo !== payload.motivo ||
+        (intencionId && previo.opId !== intencionId))) {
       throw new Error(es ? 'Hay un pago anterior por confirmar. Revisa y confirma ese mismo importe antes de registrar otro.' : 'An earlier payment needs confirmation. Review and confirm that same amount before recording another.');
     }
     if (!previo) {
-      payload.opId = 'customer-payment:' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2));
+      payload.opId = intencionId || ('customer-payment:' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)));
       localStorage.setItem(key, JSON.stringify(payload));
       if (localStorage.getItem(key) !== JSON.stringify(payload)) throw new Error('Could not save the payment reference.');
     } else payload = previo;
@@ -314,9 +319,53 @@
     var result = await response.json();
     if (!response.ok || result.error) throw new Error(result.error || 'Could not confirm the payment.');
     if (result.opId !== payload.opId || !result.movimientoId) throw new Error(es ? 'El pago no está confirmado. Conserva este importe para revisarlo.' : 'The payment is not confirmed. Keep this amount for review.');
-    if (localStorage.getItem(key) === JSON.stringify(payload)) localStorage.removeItem(key);
+    if (!(opciones && opciones.conservarIntencion) && localStorage.getItem(key) === JSON.stringify(payload)) localStorage.removeItem(key);
     return result;
   };
+  /* A confirmed payment must never be repeated to retry its allocation. */
+  function claveAsignacion(clienteId) { return "f123_customer_allocation_intent_v1:" + clienteId; }
+  function leerAsignacion(clienteId) {
+    var txt = localStorage.getItem(claveAsignacion(clienteId));
+    if (!txt) return null;
+    var dato = JSON.parse(txt);
+    if (!dato || (!dato.abonoId && !dato.paymentOpId) || !dato.opId ||
+        !Number.isFinite(Number(dato.monto)) || !(Number(dato.monto) > 0) ||
+        !Array.isArray(dato.partes) || !dato.partes.length) {
+      throw new Error("Saved allocation requires review.");
+    }
+    return dato;
+  }
+  async function confirmarAsignacion(clienteId, dato) {
+    var res = await fetch(API + "/clientes/" + clienteId + "/aplicar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ abonoId: dato.abonoId, partes: dato.partes, opId: dato.opId })
+    });
+    var respuesta = await res.json().catch(function () { return {}; });
+    if (!res.ok || respuesta.error || !respuesta.aplicacionId || respuesta.opId !== dato.opId) {
+      throw new Error(respuesta.error || "Payment saved; allocation pending confirmation.");
+    }
+    var key = claveAsignacion(clienteId);
+    if (localStorage.getItem(key) === JSON.stringify(dato)) localStorage.removeItem(key);
+    var pagoKey = claveAbono(clienteId), pagoRaw = localStorage.getItem(pagoKey);
+    if (dato.paymentOpId && pagoRaw) {
+      try { if (JSON.parse(pagoRaw).opId === dato.paymentOpId) localStorage.removeItem(pagoKey); } catch (_) {}
+    }
+    return respuesta;
+  }
+  async function reanudarAsignacion(clienteId, dato) {
+    if (!dato.abonoId) {
+      if (!dato.paymentOpId) throw new Error("Missing original payment reference. Review history; do not pay again.");
+      var r = await global.ocEnviarAbono(clienteId, dato.monto, dato.motivo || "Abono",
+        { opId: dato.paymentOpId, conservarIntencion: true });
+      if (!r || !r.movimientoId) throw new Error("Payment receipt not confirmed. Retry with the same reference.");
+      dato.abonoId = String(r.movimientoId);
+      localStorage.setItem(claveAsignacion(clienteId), JSON.stringify(dato));
+      if (localStorage.getItem(claveAsignacion(clienteId)) !== JSON.stringify(dato)) {
+        throw new Error("Payment preserved; allocation reference could not be stored. Do not pay again.");
+      }
+    }
+    return confirmarAsignacion(clienteId, dato);
+  }
   function modalAbonar(clienteId, nombre) {
     if (document.getElementById("pp-modal-abono")) return;
     var m = document.createElement("div");
@@ -328,6 +377,10 @@
         '<p class="pp-resumen" id="pp-ab-ctx">Loading...</p>' +
         '<div class="pp-fg"><label for="pp-ab-monto">Payment amount</label>' +
           '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0" step="any"></div>' +
+        /* 2026-10-21 (fiados de Belen, decision JFC): quien cobra toca los consumos que se pagan.
+           Sin seleccion, el pago queda «sin asignar» (nunca se reparte solo). */
+        '<div class="pp-fg" id="pp-ab-consumos-wrap" style="display:none;"><label id="pp-ab-consumos-lbl"></label>' +
+          '<div id="pp-ab-consumos" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div></div>' +
         '<button type="button" class="pp-btn" id="pp-ab-ok">Record payment</button>' +
         '<button type="button" class="pp-btn gris" id="pp-ab-cancel">Cancel</button>' +
         '<p class="pp-msg" id="pp-ab-msg"></p>' +
@@ -335,9 +388,20 @@
     document.body.appendChild(m);
     var q = function (id) { return m.querySelector("#" + id); };
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
-    var anterior = null;
+    var anterior = null, pendienteAsignacion = null;
     try { anterior = abonoPendiente(clienteId); } catch (_) {}
-    if (anterior) {
+    try { pendienteAsignacion = leerAsignacion(clienteId); } catch (e) {
+      q("pp-ab-msg").textContent = (e && e.message) || "Saved allocation requires review.";
+      q("pp-ab-ok").disabled = true;
+    }
+    if (pendienteAsignacion) {
+      q("pp-ab-monto").value = Number(pendienteAsignacion.monto).toFixed(2);
+      q("pp-ab-monto").disabled = true;
+      q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
+      q("pp-ab-msg").textContent = pendienteAsignacion.abonoId
+        ? (es ? "Pago confirmado. Solo falta asignarlo; no se cobrará otra vez." : "Payment confirmed. Only allocation remains; no new payment.")
+        : (es ? "Operación interrumpida. Se comprobará el pago con su referencia original; no se duplicará." : "Interrupted operation. Original payment reference will be reused, never duplicated.");
+    } else if (anterior) {
       q('pp-ab-monto').value = Number(anterior.monto).toFixed(2);
       q('pp-ab-msg').textContent = es ? 'Pago anterior por confirmar. Confirma el mismo importe; no se registrará dos veces.' : 'An earlier payment needs confirmation. Confirm the same amount; it will not be recorded twice.';
     }
@@ -348,18 +412,60 @@
     m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
     q("pp-ab-cancel").addEventListener("click", cerrar);
 
+    // Orden en que quien cobra toco los consumos: ese orden (elegido, no automatico) decide
+    // cual queda parcial si el pago no alcanza para todos.
+    var elegidos = [];
+    function pintarConsumos(lista) {
+      if (pendienteAsignacion) return; // Se reintenta solo la intencion ya confirmada.
+      lista = Array.isArray(lista) ? lista : [];
+      if (!lista.length) return;
+      q("pp-ab-consumos-wrap").style.display = "";
+      q("pp-ab-consumos-lbl").textContent = es ? "¿Qué consumos paga? Toca los que se pagan." : "Which purchases does this pay? Tap the ones being paid.";
+      var box = q("pp-ab-consumos");
+      box.innerHTML = lista.map(function (c) {
+        var fecha = c.fecha ? new Date(c.fecha).toLocaleDateString(es ? "es" : "en") : "";
+        var falta = c.estado === "parcial" ? (es ? " · falta " : " · owes ") + fmt(c.pendiente) : "";
+        return '<button type="button" class="pp-chip" data-k="' + esc(c.cargoKey) + '" data-p="' + Number(c.pendiente) +
+          '" style="min-height:44px;padding:6px 10px;border:2px solid #19354B;border-radius:18px;background:#fff;color:#19354B;font-size:14px;">' +
+          esc(c.motivo || (es ? "Consumo" : "Purchase")) + " · " + fmt(c.monto) + falta + (fecha ? " · " + esc(fecha) : "") + "</button>";
+      }).join("");
+      Array.prototype.forEach.call(box.querySelectorAll(".pp-chip"), function (b) {
+        b.addEventListener("click", function () {
+          var k = b.getAttribute("data-k"), i = elegidos.indexOf(k);
+          if (i === -1) { elegidos.push(k); b.classList.add("pp-chip-on"); }
+          else { elegidos.splice(i, 1); b.classList.remove("pp-chip-on"); }
+          var total = elegidos.reduce(function (s, kk) {
+            var el = Array.prototype.find.call(box.querySelectorAll(".pp-chip"), function (node) { return node.getAttribute("data-k") === kk; });
+            return s + Math.round(Number(el && el.getAttribute("data-p")) * 100);
+          }, 0);
+          if (elegidos.length) q("pp-ab-monto").value = (total / 100).toFixed(2);
+        });
+      });
+    }
+    function partesElegidas(monto) {
+      var box = q("pp-ab-consumos"), resto = Math.round(Number(monto) * 100), partes = [];
+      elegidos.forEach(function (k) {
+        if (resto <= 0) return;
+        var el = Array.prototype.find.call(box.querySelectorAll(".pp-chip"), function (node) { return node.getAttribute("data-k") === k; });
+        var p = Math.min(resto, Math.round(Number(el && el.getAttribute("data-p")) * 100));
+        if (p > 0) { partes.push({ cargoKey: k, monto: p / 100 }); resto -= p; }
+      });
+      return partes;
+    }
+
     /* Contexto ANTES de escribir el monto: cuanto debe y, si hay plan, cuanto
        falta para ponerse al dia. Sugerir ese numero ahorra la cuenta mental. */
     fetch(API + "/clientes/" + clienteId + "/cartera")
       .then(function (r) { return r.json(); })
       .then(function (info) {
+        pintarConsumos(info && info.consumosPendientes);
         var debe = info && info.saldo < 0 ? -info.saldo : 0;
         return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
           var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
           if (e.hayPlan && e.diferencia < 0) {
             var falta = -e.diferencia;
             t += " " + fmt(falta) + " would bring them current.";
-            if (!anterior) q("pp-ab-monto").value = falta.toFixed(2);
+            if (!anterior && !pendienteAsignacion && !elegidos.length && !q("pp-ab-monto").value) q("pp-ab-monto").value = falta.toFixed(2);
           } else if (e.hayPlan) {
             t += " They are " + (e.diferencia > 0 ? "ahead of" : "on track with") + " their plan.";
           }
@@ -371,16 +477,64 @@
       var btn = ev.currentTarget;
       if (btn.disabled) return;
       btn.disabled = true;
-      var msg = q("pp-ab-msg");
-      var monto = Number(q("pp-ab-monto").value);
-      if (!(monto > 0)) { btn.disabled = false; msg.style.color = "#B0183E"; msg.textContent = "The amount must be greater than zero."; return; }
-      global.ocEnviarAbono(clienteId, monto, anterior ? anterior.motivo : 'Abono').then(function (r) {
+      var msg = q("pp-ab-msg"), monto = Number(q("pp-ab-monto").value);
+      var errorAsignacion = function (e) {
+        msg.style.color = "#B0183E";
+        msg.textContent = es
+          ? "Pago conservado; asignación pendiente: " + ((e && e.message) || "reintenta la asignación")
+          : "Payment preserved; allocation pending: " + ((e && e.message) || "retry allocation");
+      };
+      function finalizar() {
         cerrar();
         if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
         refrescarHoy();
-      }).catch(function (e) {
-        msg.style.color = "#B0183E";
-        msg.textContent = (e && e.message) || "Could not record the payment.";
+      }
+      if (pendienteAsignacion) {
+        reanudarAsignacion(clienteId, pendienteAsignacion).then(finalizar).catch(errorAsignacion)
+          .finally(function () { btn.disabled = false; });
+        return;
+      }
+      if (!(monto > 0)) {
+        btn.disabled = false; msg.style.color = "#B0183E";
+        msg.textContent = es ? "El importe debe ser mayor que cero." : "The amount must be greater than zero.";
+        return;
+      }
+      var partes = partesElegidas(monto);
+      var motivo = anterior ? anterior.motivo : "Abono";
+      var tarea;
+      if (partes.length) {
+        // Persist the entire intention BEFORE touching money. After a reload,
+        // the same paymentOpId is used for verification/retry; never a second payment.
+        var pagoId = (anterior && anterior.opId) ||
+          ("customer-payment:" + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2)));
+        pendienteAsignacion = {
+          paymentOpId: pagoId, opId: "customer-allocation:" + pagoId.slice("customer-payment:".length),
+          abonoId: null, partes: partes, monto: monto, motivo: motivo
+        };
+        try {
+          localStorage.setItem(claveAsignacion(clienteId), JSON.stringify(pendienteAsignacion));
+          if (localStorage.getItem(claveAsignacion(clienteId)) !== JSON.stringify(pendienteAsignacion)) {
+            throw new Error("Could not preserve the payment allocation intention.");
+          }
+          tarea = reanudarAsignacion(clienteId, pendienteAsignacion);
+        } catch (errorGuardar) {
+          // A failure BEFORE starting the payment is not a confirmed payment.
+          // Do not label it preserved; no financial request was issued.
+          pendienteAsignacion = null;
+          tarea = Promise.reject(errorGuardar);
+        }
+      } else {
+        tarea = global.ocEnviarAbono(clienteId, monto, motivo); // Legitimate unassigned payment.
+      }
+      Promise.resolve(tarea).then(finalizar).catch(function (e) {
+        if (pendienteAsignacion) {
+          q("pp-ab-monto").disabled = true;
+          q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
+          errorAsignacion(e);
+        } else {
+          msg.style.color = "#B0183E";
+          msg.textContent = (e && e.message) || "Could not confirm the payment.";
+        }
       }).finally(function () { btn.disabled = false; });
     });
 
