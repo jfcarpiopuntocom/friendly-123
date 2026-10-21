@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-20",
-  "changelog": "v554: fold zero-stock nonperishable notices on Today, without hiding urgent expiry alerts or changing inventory.",
+  "changelog": "v555: keep live synchronization available while incomplete historical fragments recover; preserve safe replay cursors and all pending data.",
   "requerida": false,
-  "shell": "f123-shell-v554",
+  "shell": "f123-shell-v555",
   "apagar": [],
-  "releaseName": "v554",
-  "cacheGeneration": "golden118"
+  "releaseName": "v555",
+  "cacheGeneration": "golden119"
 }

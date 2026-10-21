@@ -13,7 +13,7 @@ async function fixture(data=new Map(),locks,adapterMissing=false,realY=false){
  const p={get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
  const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,WebSocket:class{constructor(){rawCalls++;throw Error('Raw relay fallback forbidden')}},
   window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},navigator:locks?{locks}:undefined,CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,setInterval,clearInterval,
-  setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(){},
+  setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(id){if(timers[id-1])timers[id-1].cancelled=true},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),
   cifrarBin:async(_,b)=>b.slice().buffer,descifrarBin:async(_,b)=>new Uint8Array(b)};
  if(adapterMissing)delete ctx.window.F123Relay;
@@ -205,14 +205,51 @@ test('reconnection refetches unfinished durable groups from the last applied cut
  assert.equal(applied,1);assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2);
 });
 
-test('an unfinished final replay page retries with backoff without claiming its cursor',async()=>{
+test('orphan durable history keeps live sync open without claiming its cursor or compacting',async()=>{
  const a=await fixture();
+ let applied=0;a.Y.applyUpdate=()=>applied++;
  a.socket.onmessage({data:fragment().buffer,relaySource:'pull'});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
- assert.equal(a.socket.readyState,3);assert.equal(a.channel.ws,null);
+ assert.equal(a.socket.readyState,1);assert.equal(a.channel.ws,a.socket);
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0);
- assert.ok(a.timers.some(t=>t.ms>=1000&&t.ms<=2000),'existing reconnect backoff schedules recovery');
+ a.timers.find(t=>t.ms===2500).fn();await tick();await tick();
+ assert.equal(controls(a.socket,'ckpt').length,0,'orphan history cannot be compacted');
+ a.socket.onmessage({data:new Uint8Array([0,9]).buffer,relaySource:'live'});await tick();await tick();
+ assert.equal(applied,1,'a missing historical sibling cannot block a new live update');
+ const retry=a.timers.filter(t=>t.ms===30000).at(-1);assert.ok(retry,'bounded recovery poll is scheduled');
+ retry.fn();await tick();await tick();assert.equal(controls(a.socket,'pull').at(-1).seq,1,'same connection fetches only later rows');
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
+ const pendingRetry=a.timers.find(t=>t.ms===60000);assert.ok(pendingRetry,'unchanged incomplete history backs off instead of polling rapidly');
+ a.socket.onmessage({data:fragment(1).buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
+ assert.equal(applied,2);assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2,'cursor advances only after durable sibling arrives');
+ const before=controls(a.socket,'pull').length;
+ assert.equal(pendingRetry.cancelled,true,'completing recovery cancels its pending timer');
+ a.socket.close();pendingRetry.fn();await tick();await tick();
+ assert.equal(controls(a.socket,'pull').length,before,'a delayed retry never sends to a closed socket');
 });
+test('real Yjs accepts fresh expenses while an older fragmented expense awaits its durable sibling',async()=>{
+ const a=await fixture(new Map(),undefined,false,true),older=new a.Y.Doc(),fresh=new a.Y.Doc();
+ older.getMap('gastos').set('older',vm.runInContext('({monto:18.5})',a.ctx));fresh.getMap('gastos').set('fresh',vm.runInContext('({monto:7.25})',a.ctx));
+ const update=a.Y.encodeStateAsUpdate(older),middle=Math.ceil(update.length/2);
+ const pieces=[update.subarray(0,middle),update.subarray(middle)].map((body,i)=>{
+  const bytes=new Uint8Array(22+body.length);bytes[0]=3;bytes[1]=0;bytes.fill(80,2,18);bytes[19]=i;bytes[21]=2;bytes.set(body,22);return bytes;
+ });
+ a.socket.onmessage({data:pieces[0].buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
+ assert.equal(a.socket.readyState,1);assert.equal(a.doc.getMap('gastos').size,0);
+ const live=a.Y.encodeStateAsUpdate(fresh),frame=new Uint8Array(live.length+1);frame[0]=0;frame.set(live,1);
+ a.socket.onmessage({data:frame.buffer,relaySource:'live'});await tick();await tick();
+ assert.equal(a.doc.getMap('gastos').get('fresh').monto,7.25);
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0);
+ a.timers.filter(t=>t.ms===30000).at(-1).fn();await tick();await tick();
+ a.socket.onmessage({data:pieces[1].buffer,relaySource:'pull'});
+ a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
+ assert.equal(a.doc.getMap('gastos').get('older').monto,18.5);assert.equal(a.doc.getMap('gastos').get('fresh').monto,7.25);
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2);
+ a.doc.destroy();older.destroy();fresh.destroy();
+});
+
 test('missing source metadata remains conservative and cannot authorize compaction',async()=>{
  const a=await fixture();a.socket.onmessage({data:fragment().buffer});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();

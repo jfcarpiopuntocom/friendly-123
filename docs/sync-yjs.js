@@ -112,7 +112,7 @@
     // WebSocket.send is delivery to the network, never acknowledgement of remote storage.
     var _outboxKey = "f123_relay_outbox_v1" + suffix;
     var _outbox = { pending: [], checkpoint: "", confirmed: [] }, _durableTimer = null, _durableDelay = 2000;
-    var _currentPullState = null;
+    var _currentPullState = null, _tReplay = null, _replayDelay = 30000;
     var _relayPeerCount = 0, _directReceive = null;
     var _peerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     var _direct = Object.create(null);
@@ -659,12 +659,19 @@
                 return guardarPullCursor(c).then(function () {
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado);
                   pullEstado.enCurso = false;
-                  // A sender may still be persisting a sibling. Retry through
-                  // the existing reconnect backoff, never expire durable bytes
-                  // into an advanced cursor or checkpoint.
+                  // An old orphan must not repeatedly disconnect live business sync.
+                  // Keep its bytes and safe cut; poll only newer rows on this connection.
                   if (Object.keys(partesEntrantes).length) {
-                    try { ws.close(1013, "replay incomplete; retry from applied cursor"); } catch (_) {}
-                  }
+                    clearTimeout(_tReplay);
+                    _tReplay = setTimeout(function () {
+                      if (canal.ws !== ws || ws.readyState !== 1) return;
+                      _tReplay = null;
+                      if (!pullEstado.enCurso && Object.keys(partesEntrantes).length) {
+                        _replayDelay = Math.min(300000, _replayDelay * 2);
+                        pedirPagina(ws, pullEstado);
+                      }
+                    }, _replayDelay);
+                  } else { clearTimeout(_tReplay); _tReplay = null; _replayDelay = 30000; }
                 });
               });
             }
@@ -679,6 +686,8 @@
       ws.onclose = function () {
         if (canal.ws !== ws) return; // cierre tardio de un socket reemplazado
         clearTimeout(_tEstable); _tEstable = null;
+        clearTimeout(_tReplay); _tReplay = null;
+        _replayDelay = 30000;
         pullEstado.enCurso = false;
         canal.ws = null;
         _relayPeerCount = 0;
