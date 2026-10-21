@@ -1432,7 +1432,34 @@
                 var a = r.rev || {}, b = prev.rev || {};
                 var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
                 if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) {
-                  if (col === "productos") r = Object.assign({}, prev, { stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual, stockTs: Math.max(Number(prev.stockTs) || 0, Number(r.stockTs) || 0) });
+                  if (col === "productos") {
+                    /* P0 v558: metadata rev and stock revision are INDEPENDENT.
+                       Before: stale local metadata preserved prev.name but ALWAYS
+                       overwrote prev.stockActual, even if local was old ZERO;
+                       then it forged stockTs=max(old,new), making it appear current.
+                       Choose stock only by its own ledger/clock evidence. */
+                    var _rt = Number(r.stockTs) || 0, _pt = Number(prev.stockTs) || 0;
+                    var _rb = r.stockBase != null && Number.isFinite(Number(r.stockBase)) ? Number(r.stockBase) : null;
+                    var _pb = prev.stockBase != null && Number.isFinite(Number(prev.stockBase)) ? Number(prev.stockBase) : null;
+                    var _rp = r.stockPN && typeof r.stockPN === "object" ? r.stockPN : null;
+                    var _pp = prev.stockPN && typeof prev.stockPN === "object" ? prev.stockPN : null;
+                    var _now = (window.OCLatencia && window.OCLatencia.ahoraRelay) ?
+                      Number(window.OCLatencia.ahoraRelay()) : NaN;
+                    var _notFuture = !Number.isFinite(_now) || _rt <= _now + 300000;
+                    var _sameLedger = _rb !== null && _pb !== null && _rb === _pb && !!_rp && !!_pp;
+                    var _epochNewer = _rb !== null && !!_rp && _rt > _pt && _notFuture;
+                    var _legacyNewer = _rb === null && _pb === null && _rt > _pt && _notFuture &&
+                      Number.isFinite(Number(r.stockActual)) && Number(r.stockActual) >= 0 &&
+                      !(Number(r.stockActual) === 0 && Number(prev.stockActual) > 0);
+                    var _stockValido = _sameLedger || _epochNewer || _legacyNewer;
+                    r = Object.assign({}, prev, _stockValido ? {
+                      stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual,
+                      stockTs: Math.max(_pt, _rt), stockDeficit: r.stockDeficit
+                    } : {
+                      stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual,
+                      stockTs: _pt, stockDeficit: prev.stockDeficit
+                    });
+                  }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
                   else return;
                 }
