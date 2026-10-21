@@ -120,6 +120,38 @@ test('actual Yjs bridge carries sale price and quantity corrections', async () =
   assert.equal((await b.request('/api/respaldo/exportar')).productos.find(p => p.id === product.id).stockActual, 7);
 });
 
+test('idiomARTE regression: manual stock 0 to 1 and product rename converge across devices and reseed', async () => {
+  const desktop = await peer('F123-SYNTHETIC-IDIOMARTE-STOCK'), phone = await peer('F123-SYNTHETIC-IDIOMARTE-STOCK');
+  assert.equal(desktop.OCYjs.roomId, phone.OCYjs.roomId);
+  const item = await desktop.request('/api/productos', 'POST', {
+    nombre: 'Ceramic dotted synthetic', barcode: 'SYNTH-IDIOMARTE-ZERO-ONE',
+    precio: 16, costo: 8, stockInicial: 0, umbralRojo: 1, umbralAmarillo: 3
+  });
+  desktop.OCYjs._store.sembrar(); transfer(desktop, phone);
+  assert.equal((await phone.request('/api/productos/' + item.id)).stockActual, 0);
+
+  await desktop.request('/api/productos/' + item.id, 'PATCH', {
+    nombre: 'Ceramic dotted renamed synthetic'
+  });
+  await desktop.request('/api/productos/' + item.id + '/ajustar', 'POST', {
+    delta: 1, motivo: 'Synthetic manual stock count'
+  });
+  desktop.OCYjs._store.sembrar(); transfer(desktop, phone);
+  for (const w of [desktop, phone]) {
+    const p = await w.request('/api/productos/' + item.id);
+    assert.equal(p.nombre, 'Ceramic dotted renamed synthetic');
+    assert.equal(p.stockActual, 1, 'manual stock must not go back to zero');
+  }
+  // A stale receiver publishes again: it must not overwrite the newer name or count.
+  phone.OCYjs._store.sembrar(); transfer(phone, desktop);
+  desktop.OCYjs._store.sembrar(); transfer(desktop, phone);
+  for (const w of [desktop, phone]) {
+    const p = await w.request('/api/productos/' + item.id);
+    assert.equal(p.stockActual, 1);
+    assert.equal(p.nombre, 'Ceramic dotted renamed synthetic');
+  }
+});
+
 test('actual Yjs bridge retains product and shelf tombstones through stale reseed', async () => {
   const a = await peer(), b = await peer();
   const shelf = await a.request('/api/ubicaciones', 'POST', { nombre: 'Bridge shelf' });
