@@ -37,6 +37,28 @@ test('sale form does not request email or WhatsApp again after customer selector
     'confirmation no longer reads deleted inputs');
 });
 
+test('new-customer inline profile fields are optional and saved in the shared customer record', async () => {
+  const source = html();
+  for (const id of ['vi-newcli-edad', 'vi-newcli-pais', 'vi-newcli-cuenca']) {
+    assert.ok(source.includes('id="' + id + '"'), 'new customer inline profile has ' + id);
+  }
+  const w = browser();
+  const created = await w.request('/api/clientes','POST',{
+    nombre:'Synthetic profiled client',rangoEdad:'25-34',pais:'Ecuador',resideCuenca:true
+  });
+  assert.equal(created.rangoEdad,'25-34');
+  assert.equal(created.pais,'Ecuador');
+  assert.equal(created.resideCuenca,true);
+  const saved = (await w.request('/api/clientes')).find(c=>c.id===created.id);
+  assert.equal(saved.rangoEdad,'25-34');
+  assert.equal(saved.pais,'Ecuador');
+  assert.equal(saved.resideCuenca,true);
+  const unknown = await w.request('/api/clientes','POST',{nombre:'Synthetic without profile'});
+  assert.equal(unknown.rangoEdad,'');
+  assert.equal(unknown.pais,'');
+  assert.equal(unknown.resideCuenca,null,'unspecified residency must stay unknown');
+});
+
 test('selected existing customer supplies contact snapshot without extra sale fields', async () => {
   const {w,customer,product} = await fixture();
   const saved = await w.request('/api/productos/'+product.id+'/venta', 'POST', {

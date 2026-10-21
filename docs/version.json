@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-20",
-  "changelog": "v552: remove repeated contact fields in Sell; use the selected customer's existing contact details.",
+  "changelog": "v553: optional age range, country and residence in + New customer during Sell.",
   "requerida": false,
-  "shell": "f123-shell-v552",
+  "shell": "f123-shell-v553",
   "apagar": [],
-  "releaseName": "v552",
-  "cacheGeneration": "golden116"
+  "releaseName": "v553",
+  "cacheGeneration": "golden117"
 }
