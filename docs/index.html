@@ -6954,6 +6954,18 @@ async function abrirPanelVentaInfo(id, esTicket){
           <button type="button" id="vi-newcli-save" style="flex:0 0 auto;font-size:13px;font-weight:700;padding:8px 14px;border:2px solid var(--sim-verde,#00C87A);border-radius:6px;background:var(--sim-verde,#00C87A);color:#fff;cursor:pointer;" data-i18n="sale.btnSaveCustomer">${escHtml(t("sale.btnSaveCustomer"))}</button>
           <button type="button" id="vi-newcli-cancel" data-i18n-attr="title:sale.btnCancel" title="${escHtml(t("sale.btnCancel"))}" style="flex:0 0 auto;font-size:13px;padding:8px 10px;border:2px solid var(--ink-soft);border-radius:6px;background:transparent;color:var(--ink-soft);cursor:pointer;">✕</button>
         </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:8px;">
+          <label style="flex:1;min-width:120px;font-size:13px;"><span data-i18n="cust.ageRange">${escHtml(t("cust.ageRange"))}</span>
+            <select id="vi-newcli-edad" style="display:block;width:100%;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">${opcionesEdad("")}</select></label>
+          <label style="flex:1;min-width:130px;font-size:13px;"><span data-i18n="cust.country">${escHtml(t("cust.country"))}</span>
+            <select id="vi-newcli-pais" style="display:block;width:100%;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">${opcionesPais("")}</select></label>
+          <label style="flex:1;min-width:125px;font-size:13px;"><span data-i18n="cust.cuenca">${escHtml(t("cust.cuenca"))}</span>
+            <select id="vi-newcli-cuenca" style="display:block;width:100%;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+              <option value="" data-i18n="cust.residencyUnknown">${escHtml(t("cust.residencyUnknown"))}</option>
+              <option value="true" data-i18n="cust.residenceYes">${escHtml(t("cust.residenceYes"))}</option>
+              <option value="false" data-i18n="cust.residenceNo">${escHtml(t("cust.residenceNo"))}</option>
+            </select></label>
+        </div>
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
       <p id="vi-credito-hint" style="font-size:13px;font-weight:700;color:#00704A;margin:4px 0 0;"></p>
@@ -7064,8 +7076,9 @@ async function abrirPanelVentaInfo(id, esTicket){
   const inNom = document.getElementById("vi-newcli-nombre");
   const inTel = document.getElementById("vi-newcli-tel");
   const inEmail = document.getElementById("vi-newcli-email");
+  const inEdad = document.getElementById("vi-newcli-edad"), inPais = document.getElementById("vi-newcli-pais"), inCuenca = document.getElementById("vi-newcli-cuenca");
   const inMsg = document.getElementById("vi-newcli-msg");
-  function cerrarInline() { if (inlineNew) inlineNew.style.display = "none"; if (inNom) inNom.value = ""; if (inTel) inTel.value = ""; if (inEmail) inEmail.value = ""; if (inMsg) inMsg.textContent = ""; }
+  function cerrarInline() { if (inlineNew) inlineNew.style.display = "none"; if (inNom) inNom.value = ""; if (inTel) inTel.value = ""; if (inEmail) inEmail.value = ""; if (inEdad) inEdad.value = ""; if (inPais) inPais.value = ""; if (inCuenca) inCuenca.value = ""; if (inMsg) inMsg.textContent = ""; }
   if (btnNuevo && inlineNew) {
     btnNuevo.addEventListener("click", () => {
       const abierto = inlineNew.style.display !== "none";
@@ -7082,7 +7095,9 @@ async function abrirPanelVentaInfo(id, esTicket){
     if (inEmail && !inEmail.checkValidity()) { if (inMsg) { inMsg.style.color = "var(--rojo-ink,#a3392a)"; inMsg.textContent = t("newcust.emailInvalid"); } inEmail.focus(); return; }
     if (btnSaveNew) btnSaveNew.disabled = true;
     try {
-      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nombre, telefono: (inTel && inTel.value || "").trim(), email: (inEmail && inEmail.value || "").trim() }) });
+      const perfilNuevo = { rangoEdad: (inEdad && inEdad.value || "").trim(), pais: (inPais && inPais.value || "").trim() };
+      if (inCuenca && inCuenca.value !== "") perfilNuevo.resideCuenca = inCuenca.value === "true";
+      const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nombre, telefono: (inTel && inTel.value || "").trim(), email: (inEmail && inEmail.value || "").trim(), ...perfilNuevo }) });
       const r = await res.json();
       if (!res.ok) { if (inMsg) { inMsg.style.color = "var(--rojo-ink,#a3392a)"; inMsg.textContent = r.error || "Could not create the customer."; } if (btnSaveNew) btnSaveNew.disabled = false; return; }
       const opt = document.createElement("option");
