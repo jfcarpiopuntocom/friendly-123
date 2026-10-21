@@ -48,6 +48,8 @@
       "color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:15px;cursor:pointer;}" +
     ".pp-chip{display:inline-block;font-size:14px;font-weight:700;padding:6px 12px;border-radius:8px;" +
       "color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}" +
+    "#pp-ab-consumos .pp-chip{color:#19354B !important;-webkit-text-fill-color:#19354B !important;}" +
+    "#pp-ab-consumos .pp-chip.pp-chip-on{background:#19354B !important;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}" +
     ".pp-prox{display:block;font-size:14px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;margin-top:6px;}" +
     "#pp-filtro{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;}" +
     "#pp-filtro button{min-height:44px;padding:10px 16px;border:2px solid #E2E8ED;border-radius:10px;background:#FFFFFF;" +
@@ -430,10 +432,10 @@
       Array.prototype.forEach.call(box.querySelectorAll(".pp-chip"), function (b) {
         b.addEventListener("click", function () {
           var k = b.getAttribute("data-k"), i = elegidos.indexOf(k);
-          if (i === -1) { elegidos.push(k); b.style.background = "#19354B"; b.style.color = "#fff"; }
-          else { elegidos.splice(i, 1); b.style.background = "#fff"; b.style.color = "#19354B"; }
+          if (i === -1) { elegidos.push(k); b.classList.add("pp-chip-on"); }
+          else { elegidos.splice(i, 1); b.classList.remove("pp-chip-on"); }
           var total = elegidos.reduce(function (s, kk) {
-            var el = box.querySelector('[data-k="' + kk.replace(/"/g, '\\"') + '"]');
+            var el = Array.prototype.find.call(box.querySelectorAll(".pp-chip"), function (node) { return node.getAttribute("data-k") === kk; });
             return s + Math.round(Number(el && el.getAttribute("data-p")) * 100);
           }, 0);
           if (elegidos.length) q("pp-ab-monto").value = (total / 100).toFixed(2);
@@ -444,7 +446,7 @@
       var box = q("pp-ab-consumos"), resto = Math.round(Number(monto) * 100), partes = [];
       elegidos.forEach(function (k) {
         if (resto <= 0) return;
-        var el = box.querySelector('[data-k="' + k.replace(/"/g, '\\"') + '"]');
+        var el = Array.prototype.find.call(box.querySelectorAll(".pp-chip"), function (node) { return node.getAttribute("data-k") === k; });
         var p = Math.min(resto, Math.round(Number(el && el.getAttribute("data-p")) * 100));
         if (p > 0) { partes.push({ cargoKey: k, monto: p / 100 }); resto -= p; }
       });
