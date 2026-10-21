@@ -1378,8 +1378,17 @@
          metadata to Yjs while historical pages still need replay. A real
          existing shop retains its local records and append-only outbox. */
       if (API.canal && API.canal.recuperando) {
-        var _cuenta = (cat.productos || []).length + (cat.ubicaciones || []).length +
-                      (cat.ventas || []).length + (cat.clientes || []).length;
+        // Do not publish a brand-new phone's factory-only catalog. But an
+        // otherwise empty shop can legitimately contain a new expense,
+        // personnel record or device nickname. Those facts must not be
+        // suppressed by the first-join guard (regressions in native CI).
+        var _cuenta = [
+          "productos", "ubicaciones", "ventas", "clientes", "gastos",
+          "transferencias", "promotoras", "sucursales", "ajustes",
+          "categorias", "dispositivos"
+        ].reduce(function (n, col) {
+          return n + (Array.isArray(cat[col]) ? cat[col].length : 0);
+        }, 0);
         if (_cuenta === 0) return;
       }
       var miRol = ""; try { if (window.OCAuth && OCAuth.rolActual) miRol = OCAuth.rolActual() || ""; } catch (_) {}
