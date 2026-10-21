@@ -63,6 +63,20 @@ test("P0 first proven PN sale may beat a milliseconds-newer legacy snapshot with
   assert.equal(merged.stockActual,0,"a documented physical sale must reach the second device");
   assert.equal(merged.stockPN.sale1.sub,1);
 });
+test("P0 a missing relay-clock (null) cannot reject a real first-ledger sale as future",()=>{
+  const prior={id:"p",nombre:"Actual",rev:{c:12,d:"pc"},stockActual:1,
+    stockTs:1700000000005};
+  const sale={id:"p",nombre:"Old",rev:{c:2,d:"cel"},stockActual:0,
+    stockTs:1700000000000,stockBase:1,stockPN:{sale1:{add:0,sub:1}}};
+  const result=staleProductProjection(prior,sale,null);
+  assert.equal(result.stockActual,0);
+});
+test("P0 inconsistent PN arithmetic cannot overwrite current inventory",()=>{
+  const prior={id:"p",nombre:"Actual",rev:{c:12,d:"pc"},stockActual:1,stockTs:2005};
+  const invalid={id:"p",nombre:"Old",rev:{c:2,d:"cel"},stockActual:0,
+    stockTs:2000,stockBase:1,stockPN:{sale1:{add:0,sub:0}}};
+  assert.equal(staleProductProjection(prior,invalid,3000).stockActual,1);
+});
 test("P0 an ancient PN counter does NOT beat a newly corrected legacy inventory",()=>{
   const previous={id:"p",nombre:"Actual",rev:{c:12,d:"pc"},
     stockActual:1,stockTs:200000};
