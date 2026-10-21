@@ -62,6 +62,17 @@ jobs:
             test/incident-yjs-receive-queue-v558.test.js \
             test/incident-yjs-causal-replay-v559.test.js \
             test/yjs-unresolved-checkpoint.test.js
+      - name: Native cross-device regression (inventory, team, money, Yjs)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
+            test/auditoria-belen-v556-e2e.test.js \
+            test/categorias-sync.test.js \
+            test/idiomarte-owner-admin-expenses.test.js \
+            test/impuesto-cuaderno.test.js \
+            test/linus-sync-persona.test.js \
+            test/yjs-device-role-stability.test.js \
+            test/yjs-durable-outbox.test.js \
+            test/yjs-idle-write-budget.test.js
       - name: Shell integrity
         run: bash check-sw.sh
       - name: Diff hygiene
