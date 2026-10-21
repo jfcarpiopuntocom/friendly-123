@@ -4864,7 +4864,7 @@ document.addEventListener("click", function (ev) {
   try { requestAnimationFrame(function () { ajustar(); requestAnimationFrame(ajustar); }); } catch (_) {}
   try { if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajustar); } catch (_) {}
   window.addEventListener("load", function () { ajustar(); setTimeout(ajustar, 250); setTimeout(ajustar, 900); });
-  try { new ResizeObserver(ajustar).observe(header); } catch (_) { window.addEventListener("resize", ajustar); }
+  try { var _raf = 0; new ResizeObserver(function () { if (_raf) return; _raf = requestAnimationFrame(function () { _raf = 0; ajustar(); }); }).observe(header); } catch (_) { window.addEventListener("resize", ajustar); } /* rAF: medir fuera del callback evita el bucle "ResizeObserver loop completed" */
   window.addEventListener("orientationchange", function () { setTimeout(ajustar, 120); });
   window.addEventListener("oc-login", function () { setTimeout(ajustar, 60); setTimeout(ajustar, 300); });
 })();
@@ -10967,6 +10967,11 @@ window.addEventListener("oc-datos-importados", async () => {
       lista.push({ fecha: new Date().toISOString(), msg: String(e.message || ""), src: String(e.filename || "").split("/").pop() + ":" + (e.lineno || 0) });
       localStorage.setItem("f123_errores", JSON.stringify(lista.slice(-20)));
     } catch (_) {}
+    /* CAUSA RAIZ del aviso negro intermitente (Sentry FRIENDLY-123-1, 10 eventos): el navegador emite este
+       evento como NOTIFICACION benigna cuando un ResizeObserver cambia el diseno dentro de su propio callback
+       (aqui, el ajuste de --riel-top del encabezado). No es una excepcion ni pierde datos; ya se evita
+       difiriendo el ajuste a requestAnimationFrame. Se sigue registrando arriba, solo no se muestra el aviso. */
+    if (/ResizeObserver loop/i.test(String(e.message || ""))) return;
     if (avisado) return;
     avisado = true;
     try {
