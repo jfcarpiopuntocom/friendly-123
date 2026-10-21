@@ -1184,6 +1184,30 @@
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       if (!window.OCSync || !window.OCSync.estadoParaCheckpoint) return; // un tablero no sube nada
       var snap = window.OCSync.estadoParaCheckpoint();
+      /* PRIME DIRECTIVE 1AAA: fresh license/purge is NOT a new empty
+         authoritative business. Never let a zero-entity local bootstrap replace
+         a durable checkpoint that contains the actual shop, stock or name.
+         Intentional new empty stores can still work locally and emit ops;
+         there is simply nothing trustworthy to checkpoint yet. */
+      var _tieneCatalogoReal = !!(snap && (
+        (Array.isArray(snap.productos) && snap.productos.length) ||
+        (Array.isArray(snap.ubicaciones) && snap.ubicaciones.length) ||
+        (Array.isArray(snap.clientes) && snap.clientes.length)
+      ));
+      if (!_tieneCatalogoReal) {
+        try { window.dispatchEvent(new CustomEvent("oc-sync-checkpoint-protegido", {
+          detail: { motivo: "sin-catalogo-verificado", soloLectura: true }
+        })); } catch (_) {}
+        return;
+      }
+      /* Yjs incomplete history can be awaiting a missing predecessor. Local
+         writes remain in its durable outbox; this is NOT a safe compaction cut. */
+      try {
+        var _yc = window.OCYjs;
+        if (_yc && _yc.doc && _yc.doc.store &&
+            (_yc.doc.store.pendingStructs || _yc.doc.store.pendingDs ||
+             (_yc.canal && _yc.canal.recuperando))) return;
+      } catch (_) { return; }
       var hu = (snap && snap.huella && snap.huella.completa) ? snap.huella.completa : "";
       var confirmada = "";
       try { confirmada = localStorage.getItem("f123_relay_ckpt_huella_" + salaIdActual) || ""; } catch (_) {}
