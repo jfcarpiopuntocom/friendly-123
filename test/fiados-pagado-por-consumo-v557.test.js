@@ -7,10 +7,19 @@ const assert = require('node:assert/strict');
 
 function cargarCartera(hechos) {
   const global = { AMG: {}, OCAuth: { usuarioActual: () => ({ nombre: 'Cajera' }) } };
-  let n = 0;
+  let n = 0, cola = Promise.resolve();
   global.AMG.Hechos = {
     todos: () => Promise.resolve(hechos.slice()),
-    registrar: (tipo, datos) => { const h = { id: 'h' + (++n), tipo, ts: 1000 + n, datos }; hechos.push(h); return Promise.resolve(h); },
+    registrar: (tipo, datos, opciones) => {
+      const pendiente = cola.then(() => {
+        const previo = opciones && opciones.repetido && opciones.repetido(hechos.slice());
+        if (previo) return previo;
+        const h = { id: 'h' + (++n), tipo, ts: 1000 + n, datos };
+        hechos.push(h); return h;
+      });
+      cola = pendiente.catch(() => null); // In a real recorder, later writes still run.
+      return pendiente;
+    },
     verificarCadenas: () => Promise.resolve({ ok: true })
   };
   const fs = require('fs'); const path = require('path'); const vm = require('vm');
@@ -150,10 +159,9 @@ test('dos solicitudes locales concurrentes a un mismo abono no consumen el mismo
     C.aplicarAbono(CLI, 'a-local', [{ cargoKey: 'venta:v1', monto: 6 }], ventas, 'local-A'),
     C.aplicarAbono(CLI, 'a-local', [{ cargoKey: 'venta:v2', monto: 6 }], ventas, 'local-B')
   ]);
-  // El fake registrar del fixture no implementa cola. Como prueba del contrato
-  // de proyeccion posterior, no atribuye dos pagos a la vez.
-  assert.equal(resultados.filter(x => x.status === 'fulfilled').length +
-    resultados.filter(x => x.status === 'rejected').length, 2);
+  assert.equal(resultados.filter(x => x.status === 'fulfilled').length, 1);
+  assert.equal(resultados.filter(x => x.status === 'rejected').length, 1);
+  assert.equal(hechos.filter(h => h.tipo === 'cartera_aplicacion').length, 1);
   const r = C.calcularSaldo(hechos, CLI, ventas);
   const asignados = r.movimientos.filter(m => m.tipo === 'cargo')
     .reduce((n,m) => n + Math.round(m.aplicado * 100), 0);
@@ -170,5 +178,28 @@ test('contrato del backend: no reconoce exitos si el hecho fue rechazado por rec
   assert.match(backend, /aplicacionId:\s*asignacion\.id/);
   assert.match(ui, /!res\.ok\s*\|\|\s*respuesta\.error/);
   assert.match(ui, /claveAsignacion\(clienteId\)/);
-  assert.match(ui, /confirmarAsignacion\(clienteId,\s*pendienteAsignacion\)/);
+  assert.match(ui, /reanudarAsignacion\(clienteId,\s*pendienteAsignacion\)/);
+});
+
+
+test('relojes vectoriales: deshacer posterior manda aunque el reloj del telefono retroceda', () => {
+  const hechos = [
+    abono('a1', 20, 6),
+    { id:'phone-1', instanceId:'phone', reloj:{phone:1}, tipo:'cartera_aplicacion', ts:2000,
+      datos:{clienteId:CLI,abonoId:'a1',cargoKey:'venta:v1',monto:6,accion:'aplicar'} },
+    { id:'phone-2', instanceId:'phone', reloj:{phone:2}, tipo:'cartera_aplicacion', ts:100,
+      datos:{clienteId:CLI,abonoId:'a1',cargoKey:'venta:v1',monto:0,accion:'desaplicar'} }
+  ];
+  const r = cargarCartera(hechos).calcularSaldo(hechos,CLI,ventas);
+  assert.equal(r.movimientos.find(m=>m.ventaId==='v1').estado,'pendiente');
+  assert.equal(r.movimientos.find(m=>m.id==='a1').sinAsignar,6);
+  assert.equal(r.saldo,-16);
+});
+test('intencion de pago guardada antes de enviar el cobro; se reanuda con mismo opId', () => {
+  const fs=require('node:fs'), path=require('node:path');
+  const ui=fs.readFileSync(path.join(__dirname,'../docs/plan-pagos-ui.js'),'utf8');
+  assert.match(ui,/localStorage\.setItem\(claveAsignacion\(clienteId\), JSON\.stringify\(pendienteAsignacion\)\)/);
+  assert.match(ui,/reusable|reanudarAsignacion\(clienteId,\s*pendienteAsignacion\)/);
+  assert.match(ui,/conservarIntencion:\s*true/);
+  assert.match(ui,/paymentOpId:\s*pagoId/);
 });
