@@ -447,7 +447,12 @@
       // Continue paging in memory, but a restart must replay every fragment
       // until its complete update has entered the persisted Y.Doc. Otherwise
       // the next process could checkpoint a cursor whose bytes it never had.
-      if (Object.keys(partesEntrantes).length) return Promise.resolve();
+      if (Object.keys(partesEntrantes).length ||
+          (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
+        // Do not persist a cursor past a page whose Yjs dependencies have not
+        // actually become part of the document. Paging may continue in RAM.
+        return Promise.resolve();
+      }
       _appliedPullCursor = siguiente;
       if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
       /* IndexeddbPersistence encola este write DESPUES de los updates Yjs que
@@ -755,15 +760,24 @@
                     canal.recuperando = false;
                     if (nombre === "catalogo" && API._store) API._store.aplicar();
                   }
-                  // An old orphan must not repeatedly disconnect live business sync.
-                  // Keep its bytes and safe cut; poll only newer rows on this connection.
-                  if (Object.keys(partesEntrantes).length) {
+                  // The last page can have no transport fragments yet Yjs may
+                  // still be missing a causal parent or pending deletion.
+                  // Retain EVERY encrypted operation, retain the proven cursor,
+                  // and replay from that cut with exponential backoff. Never
+                  // claim a complete first-join or adopt PINs from partial data.
+                  var depsPendientes = !!(doc.store &&
+                    (doc.store.pendingStructs || doc.store.pendingDs));
+                  if (Object.keys(partesEntrantes).length || depsPendientes) {
                     clearTimeout(_tReplay);
                     _tReplay = setTimeout(function () {
                       if (canal.ws !== ws || ws.readyState !== 1) return;
                       _tReplay = null;
-                      if (!pullEstado.enCurso && Object.keys(partesEntrantes).length) {
+                      if (!pullEstado.enCurso &&
+                          (Object.keys(partesEntrantes).length ||
+                            (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)))) {
+                        _pullCursor = _appliedPullCursor; // rewind only unverified pages
                         _replayDelay = Math.min(300000, _replayDelay * 2);
+                        try { log("historia incompleta, relectura segura " + nombre); } catch (_) {}
                         pedirPagina(ws, pullEstado);
                       }
                     }, _replayDelay);
