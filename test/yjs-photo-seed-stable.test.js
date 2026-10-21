@@ -19,7 +19,18 @@ test('photo seed stays byte-identical across reloads and retains orphan evidence
  assert.equal(Y.encodeStateAsUpdate(doc).length,initialBytes);
  const second=new Y.Doc();ctx.API.fotosDoc=second;const secondUpdates=[];second.on('update',u=>secondUpdates.push(u));
  await run();assert.equal(secondUpdates.length,2);
- assert.deepEqual(secondUpdates.map(u=>Buffer.from(u)),outgoing.map(u=>Buffer.from(u)),'another device seeds the exact same immutable photo updates');
- assert.equal(second.getMap('blobs').get('synthetic-orphan'),blobs['synthetic-orphan']);
+ // SHA-256 digests for different hashes finish independently: their arrival order
+ // is not part of the Yjs photo protocol. Require exact bytes for every update,
+ // regardless of the order in which distinct photos finish hashing.
+ const sortedBytes = updates => updates.map(u => Buffer.from(u))
+   .sort((a,b) => Buffer.compare(a,b));
+ assert.deepEqual(sortedBytes(secondUpdates),sortedBytes(outgoing),
+   'another device must seed the exact same bytes for each immutable photo');
+ for (const [hash,bytes] of Object.entries(blobs)) {
+   assert.equal(second.getMap('blobs').get(hash),bytes,
+     'referenced and orphan photos must both survive with identical content');
+ }
+ assert.equal(secondUpdates.length,new Set(secondUpdates.map(u=>Buffer.from(u).toString('hex'))).size,
+   'no duplicate photo update is emitted in the second device');
  doc.destroy();second.destroy();
 });
