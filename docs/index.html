@@ -5432,6 +5432,8 @@ async function duplicarComoVariante(id) {
     if (perecible) { perecible.checked = !!p.perecible; perecible.dispatchEvent(new Event("change")); }
     var exento = scope.querySelector("#np-exento");
     if (exento) exento.checked = !!p.exentoImpuesto;
+    var unica = scope.querySelector("#np-unica");
+    if (unica) unica.checked = p.avisosPlegados !== false;
     set("#np-fecha", p.fechaCaducidad || "");
     set("#np-metodo", p.metodoCosteo || "FIFO");
     set("#np-stock", 0);              // el valor seguro, siempre
@@ -6326,6 +6328,9 @@ function mostrarFormNuevoProducto(codigoEscaneado){
       <!-- v361: producto exento de impuesto (comida, libros... según el país). -->
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
         <input id="np-exento" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
+      <!-- v557: "Pieza unica / no se repone". Marcada (por defecto) = sus avisos de reposicion van al panel plegable Avisos. Desmarcada = alertas normales. Perecederos: siempre logica normal. -->
+      <label style="display:flex;align-items:center;gap:8px;margin-top:6px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="np-unica" type="checkbox" checked style="width:20px;height:20px;"> <span>${t("form.piezaUnica")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
         <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
           <input id="np-fecha" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
@@ -6390,6 +6395,7 @@ async function crearProductoNuevo(codigoEscaneado){
     pctAsociado: el("np-pct-asociado") ? val("np-pct-asociado") : (el("np-pct-asociado-q") ? val("np-pct-asociado-q") : ""), // Belen 2026-09-29
     perecible, fechaCaducidad: perecible ? val("np-fecha") : null,
     exentoImpuesto: !!(el("np-exento") && el("np-exento").checked),
+    ...(el("np-unica") && !el("np-unica").checked ? { piezaUnica: false } : {}), // v557: solo se manda si se desmarca; el valor por defecto es inferido
     metodoCosteo: perecible ? el("np-metodo").value : "FIFO",
     /* Tipo de producto + campos de bar (JFC 2026-08-27): "bar" cuenta stock en
        servings; servingMl/botellaMl definen la conversión (default 50/750 ml). */
@@ -6506,6 +6512,8 @@ async function mostrarFormEditarProducto(id){
         <input id="ed-categoria" type="text" value="${q(p.categoria)}" ${inp}></label>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
         <input id="ed-exento" type="checkbox" ${p.exentoImpuesto ? "checked" : ""} style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:6px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="ed-unica" type="checkbox" data-original="${p.avisosPlegados === false ? "0" : "1"}" ${p.avisosPlegados === false ? "" : "checked"} style="width:20px;height:20px;"> <span>${t("form.piezaUnica")}</span></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
         <select id="ed-tipo-producto" ${inp}>
           <option value="normal"${p.tipoProducto !== "ticket" && p.tipoProducto !== "bar" ? " selected" : ""}>Normal</option>
@@ -6579,6 +6587,7 @@ async function guardarEdicionProducto(id){
   const body = { direccionComision: leerFlechaComision("ed-direccion"), nombre: v("ed-nombre"), precio: v("ed-precio"), precioReserva: v("ed-precio-reserva"), precioWalkIn: v("ed-precio-walkin"), precioCasa: v("ed-precio-casa"), costo: v("ed-costo"), proveedor: v("ed-proveedor"), categoria: v("ed-categoria"), barcode: v("ed-barcode"), ubicacionId: v("ed-ubicacion"), umbralRojo: v("ed-umbral-rojo"), umbralAmarillo: v("ed-umbral-amarillo"), tipoProveedor: v("ed-tipo-proveedor"), comisionProveedorPct: v("ed-comision-pct"), tipoProducto: v("ed-tipo-producto"), servingMl: v("ed-serving-ml"), botellaMl: v("ed-botella-ml"), fechaEvento: v("ed-fecha-evento"), comisionistaId: (() => { const e = document.getElementById("ed-comisionista"); return e ? (e.value || null) : undefined; })(), pctAsociado: v("ed-pct-asociado") };
   Object.keys(body).forEach(k => { if (body[k] === undefined) delete body[k]; });
   { const ex = document.getElementById("ed-exento"); if (ex) body.exentoImpuesto = ex.checked; } // v361
+  { const un = document.getElementById("ed-unica"); if (un && (un.checked ? "1" : "0") !== un.dataset.original) body.piezaUnica = un.checked; } // v557: solo si el usuario lo cambio
   const edFoto = document.getElementById("ed-foto");
   const foto = await leerFotoRedimensionada(edFoto);
   if (foto) body.foto = foto;
@@ -6735,6 +6744,9 @@ async function abrirAltaProducto(){
       <!-- v361: producto exento de impuesto (comida, libros... según el país). -->
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px;min-height:44px;font-size:15px;font-weight:700;">
         <input id="np-exento" type="checkbox" style="width:20px;height:20px;"> <span>${t("form.taxExempt")}</span></label>
+      <!-- v557: "Pieza unica / no se repone". Marcada (por defecto) = sus avisos de reposicion van al panel plegable Avisos. Desmarcada = alertas normales. Perecederos: siempre logica normal. -->
+      <label style="display:flex;align-items:center;gap:8px;margin-top:6px;min-height:44px;font-size:15px;font-weight:700;">
+        <input id="np-unica" type="checkbox" checked style="width:20px;height:20px;"> <span>${t("form.piezaUnica")}</span></label>
       <div id="np-fecha-wrap" style="display:none;margin-top:8px;">
         <label style="display:block;font-size:14px;">${t("form.expiryDate")}<br>
           <input id="np-fecha" type="date" ${inp}></label>
