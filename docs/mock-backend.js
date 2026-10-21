@@ -3124,8 +3124,14 @@
              cero legado con timestamp "del futuro" y ganar otra vez al recargar. */
           const _stockAhoraRelay = (window.OCLatencia && window.OCLatencia.ahoraRelay)
             ? window.OCLatencia.ahoraRelay() : null;
-          const _instanteStock = Number.isFinite(Number(_stockAhoraRelay)) ?
-            Number(_stockAhoraRelay) : Date.now();
+          /* P0 ROOT CAUSE: Number(null) === 0 is finite! A not-yet-synced
+             relay clock was stamping a real sale as 0, so a second device
+             retained its old stock snapshot forever. A trusted relay instant
+             MUST be a numeric epoch-millisecond timestamp; otherwise use the
+             local clock, preserving the PN ledger as authoritative delta. */
+          const _instanteStock = typeof _stockAhoraRelay === "number" &&
+            Number.isFinite(_stockAhoraRelay) && _stockAhoraRelay >= 1000000000000 ?
+            _stockAhoraRelay : Date.now();
           const _prevTs = Number(_sp.stockTs) || 0;
           /* P0: two sales can happen within the same millisecond. A timestamp
              TIED with the last publication can make the receiver discard a
