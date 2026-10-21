@@ -7116,13 +7116,19 @@
         if (!window.AMG || !window.AMG.Cartera || !window.AMG.Cartera.aplicarAbono) return J({ error: "Customer credit is not available." }, 500);
         const partes = Array.isArray(body.partes) ? body.partes.map((p) => ({ cargoKey: String(p && p.cargoKey || ""), monto: Number(p && p.monto) })) : [];
         try {
-          await window.AMG.Cartera.aplicarAbono(c.id, String(body.abonoId || ""), partes, ventas);
+          const opId = body.opId === undefined ? undefined : body.opId;
+          if (opId !== undefined && (typeof opId !== "string" || !opId.trim() || opId.length > 160)) {
+            return J({ error: "Invalid allocation reference." }, 400);
+          }
+          const asignacion = await window.AMG.Cartera.aplicarAbono(c.id, String(body.abonoId || ""), partes, ventas, opId);
+          if (!asignacion || !asignacion.id) return J({ error: "Payment saved, but allocation not confirmed." }, 503);
         } catch (e) {
-          return J({ error: (e && e.message) || "Could not apply the payment." }, 400);
+          return J({ error: (e && e.message) || "Could not apply the payment." }, e && e.status === 409 ? 409 : 400);
         }
         mov("cartera-aplicacion", { cliente: c.nombre, abonoId: String(body.abonoId || "") });
         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
-        return J(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"));
+        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"),
+          { aplicacionId: asignacion.id, opId: body.opId || null }));
       }
       const mCliFiar = path.match(/^\/api\/clientes\/([^/]+)\/(fiar|abonar)$/);
       if (mCliFiar && opts && opts.method === "POST") {
