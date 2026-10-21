@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-20",
-  "changelog": "v553: optional age range, country and residence in + New customer during Sell.",
+  "changelog": "v554: fold zero-stock nonperishable notices on Today, without hiding urgent expiry alerts or changing inventory.",
   "requerida": false,
-  "shell": "f123-shell-v553",
+  "shell": "f123-shell-v554",
   "apagar": [],
-  "releaseName": "v553",
-  "cacheGeneration": "golden117"
+  "releaseName": "v554",
+  "cacheGeneration": "golden118"
 }

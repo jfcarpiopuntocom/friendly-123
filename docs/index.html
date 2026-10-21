@@ -1740,6 +1740,10 @@
 
     <h3 class="seccion" data-i18n="hoy.alertsHeading">Today's alerts</h3>
     <ul class="lista-alertas" id="listaAlertas"></ul>
+    <details id="ocRestockHoy" style="display:none;margin:8px 0 14px;border:1px solid var(--linea,#D7E0E8);border-radius:8px;padding:8px 12px;background:var(--blanco-calido,#fbf5e8);">
+      <summary id="ocRestockHoyTitulo" style="cursor:pointer;min-height:32px;font-size:14px;font-weight:700;color:var(--azul-medio,#2c4a68);"></summary>
+      <ul class="lista-alertas" id="listaReposicionHoy" style="margin:10px 0 0;"></ul>
+    </details>
     <!-- Para impulsar hoy: productos estrella (el dueño los marca en Inventario).
          Visible para TODOS, sobre todo para el encargado. Debajo de Alertas. -->
     <div id="estrellaHoy"></div>
@@ -4984,11 +4988,29 @@ async function cargarHoy(){
 
   const puntito = (color) => `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:currentColor;margin-right:9px;flex-shrink:0;"></span>`;
   const lista = document.getElementById("listaAlertas");
+  // Obras únicas/no perecederas agotadas: mostrar un contador plegable, no
+  // docenas de tarjetas rojas permanentes. No se elimina ni se re-clasifica
+  // ninguna alerta: el semáforo global permanece intacto. Los perecederos
+  // y cualquier señal distinta de stock cero siguen visibles arriba.
+  const restockPlegado = (data.alertas || []).filter(a => a.reposicionPlegable === true);
+  const alertasVisibles = (data.alertas || []).filter(a => a.reposicionPlegable !== true);
   if (data.alertas.length === 0){
     lista.innerHTML = `<li class="verde" style="background:var(--sim-verde); color:#FFFFFF; -webkit-text-fill-color:#FFFFFF; border:2px solid var(--sim-verde-dk);">${puntito()}${t("hoy.noAlerts")}</li>`;
+  } else if (alertasVisibles.length) {
+    lista.innerHTML = alertasVisibles.map(a =>
+      `<li class="${a.estado}">${puntito()}${escHtml(a.mensaje)}</li>`
+    ).join("");
   } else {
-    lista.innerHTML = data.alertas.map(a =>
-      `<li class="${a.estado}">${puntito()}${a.mensaje}</li>`
+    lista.innerHTML = `<li style="background:#FFFFFF;color:var(--ink);border:1px solid var(--linea,#D7E0E8);">${t("hoy.onlyRestock")}</li>`;
+  }
+  const restockPanel = document.getElementById("ocRestockHoy");
+  const restockList = document.getElementById("listaReposicionHoy");
+  const restockTitle = document.getElementById("ocRestockHoyTitulo");
+  if (restockPanel && restockList && restockTitle) {
+    restockPanel.style.display = restockPlegado.length ? "" : "none";
+    restockTitle.textContent = t("hoy.restockFold") + " (" + restockPlegado.length + ")";
+    restockList.innerHTML = restockPlegado.map(a =>
+      `<li class="${a.estado}">${puntito()}${escHtml(a.mensaje)}</li>`
     ).join("");
   }
   /* Aviso previo de rebaja por antiguedad (benchmark #3): tinta sobre claro, no mueve el semaforo. */
