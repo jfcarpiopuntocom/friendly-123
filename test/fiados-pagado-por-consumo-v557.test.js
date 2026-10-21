@@ -271,3 +271,32 @@ test('chips de consumos conservan contraste en ambos estados sin cambiar el dise
   assert.equal(ui.includes('body: JSON.stringify({ abonoId: r.movimientoId, partes: partes }) }).then(function () { return r; }'), false,
     'la UI nunca debe ocultar un fallo de asignación');
 });
+
+
+test('endpoint de aplicar: contrato real devuelve 200/409/400/404 y solo confirma hechos aceptados', async () => {
+  const fs=require('node:fs'),path=require('node:path');
+  const backend=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');
+  const ini=backend.indexOf('      const mCliAplicar = path.match(/^\\/api\\/clientes\\/([^/]+)\\/aplicar$/);');
+  const fin=backend.indexOf('      const mCliFiar = path.match(',ini);
+  assert.ok(ini>=0 && fin>ini,'endpoint de asignación encontrado');
+  const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+  const action=new AsyncFunction('path','opts','clientes','window','body','ventas','J','mov','movimientos',
+    '_rolLocal','_vistaCarteraConVinculos',backend.slice(ini,fin));
+  const clientes=[{id:'cli-sintetico',nombre:'Sintético'}], movimientos=[],eventos=[];
+  const J=(data,statusCode=200)=>({statusCode,data});
+  const cartera=(accepted,error)=>({
+    aplicarAbono:async()=>{if(error)throw error;return {id:'accepted-id'};},
+    saldoDeCliente:async()=>({saldo:-2,movimientos:[],aplicacionesAceptadas:accepted})
+  });
+  const run=(id,C,opId)=>action('/api/clientes/'+id+'/aplicar',{method:'POST'},clientes,
+    {AMG:{Cartera:C}}, {abonoId:'a1',opId,partes:[{cargoKey:'venta:v1',monto:2}]}, [],
+    J,(type)=>eventos.push(type),movimientos,()=> 'admin', async()=>({saldo:-2}));
+  const good=await run('cli-sintetico',cartera(['accepted-id']),'op-valid');
+  assert.equal(good.statusCode,200);
+  assert.equal(good.data.aplicacionId,'accepted-id');
+  assert.equal((await run('cli-sintetico',cartera([]),'op-conflict')).statusCode,409);
+  assert.equal((await run('cli-sintetico',cartera([],Object.assign(Error('conflict'),{status:409})),'op-duplicate')).statusCode,409);
+  assert.equal((await run('cli-sintetico',cartera(['accepted-id']),42)).statusCode,400);
+  assert.equal((await run('missing-client',cartera(['accepted-id']),'op-missing')).statusCode,404);
+  assert.deepEqual(eventos,['cartera-aplicacion']);
+});
