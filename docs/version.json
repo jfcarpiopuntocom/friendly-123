@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-21",
-  "changelog": "v556: preserve shared PINs and device roles, pace encrypted recovery without overflowing the relay, and block checkpoints while history dependencies remain unresolved.",
+  "changelog": "v557: calmer Today notices panel, gender in the sale new-customer form, and no black notice for the benign browser resize notification.",
   "requerida": false,
-  "shell": "f123-shell-v556",
+  "shell": "f123-shell-v557",
   "apagar": [],
-  "releaseName": "v556",
-  "cacheGeneration": "golden120"
+  "releaseName": "v557",
+  "cacheGeneration": "golden121"
 }
