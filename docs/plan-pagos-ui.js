@@ -368,7 +368,6 @@
     try { pendienteAsignacion = leerAsignacion(clienteId); } catch (e) {
       q("pp-ab-msg").textContent = (e && e.message) || "Saved allocation requires review.";
       q("pp-ab-ok").disabled = true;
-      return;
     }
     if (pendienteAsignacion) {
       q("pp-ab-monto").value = Number(pendienteAsignacion.monto).toFixed(2);
@@ -441,7 +440,7 @@
           if (e.hayPlan && e.diferencia < 0) {
             var falta = -e.diferencia;
             t += " " + fmt(falta) + " would bring them current.";
-            if (!anterior) q("pp-ab-monto").value = falta.toFixed(2);
+            if (!anterior && !pendienteAsignacion) q("pp-ab-monto").value = falta.toFixed(2);
           } else if (e.hayPlan) {
             t += " They are " + (e.diferencia > 0 ? "ahead of" : "on track with") + " their plan.";
           }
