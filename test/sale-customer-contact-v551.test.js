@@ -103,3 +103,9 @@ test('v557 item 4: new customer inside a sale also asks gender, like the Custome
   const saved = (await w.request('/api/clientes')).find(c => c.id === created.id);
   assert.equal(saved.genero, 'female');
 });
+
+test('v557 item 4: the Customers add form also asks age range and country, saved with the customer', async () => {
+  const source = html();
+  assert.ok(source.includes('id="cliEdad"') && source.includes('id="cliPais"'));
+  assert.match(source, /rangoEdad:\(document\.getElementById\("cliEdad"\)/);
+});
