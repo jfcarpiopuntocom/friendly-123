@@ -3864,7 +3864,7 @@ async function pintarSaldoCartera(clienteId) {
       <summary style="cursor:pointer;font-weight:700;">${es ? "Ver cargos y pagos que forman este saldo" : "See charges and payments behind this balance"}</summary>
       <div style="margin:5px 0;font-weight:700;">${desglose}</div>
       ${movimientos.map((m) => `<div style="display:flex;justify-content:space-between;gap:8px;border-top:1px solid #D7E0E8;padding:5px 0;">
-        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${_estadoConsumoCartera(m, es)}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
+        <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${typeof _estadoConsumoCartera === "function" ? _estadoConsumoCartera(m, es) : ""}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
         <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
       </div>`).join("")}</details>` : "";
     el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${detalle}`;
