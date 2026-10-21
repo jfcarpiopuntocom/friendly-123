@@ -61,6 +61,7 @@ jobs:
             test/incident-stale-stock-metadata-v558.test.js \
             test/incident-yjs-receive-queue-v558.test.js \
             test/incident-yjs-causal-replay-v559.test.js \
+            test/incident-stock-monotonic-clock-v559.test.js \
             test/yjs-unresolved-checkpoint.test.js
       - name: Native cross-device regression (inventory, team, money, Yjs)
         run: |
