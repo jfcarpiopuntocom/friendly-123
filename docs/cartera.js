@@ -254,6 +254,27 @@
   function _partesAplicacion(d) {
     return Array.isArray(d.partes) ? d.partes : [{ cargoKey: d.cargoKey, monto: d.monto }];
   }
+  /* Un reloj civil atrasado NO puede deshacer la causalidad. Hechos.js graba
+     un reloj vectorial por operacion; su suma aumenta estrictamente cuando un
+     evento conoce al anterior. Los eventos legacy sin reloj van primero y
+     preservan su orden historico por timestamp + ID. */
+  function _rangoLogico(h) {
+    if (!h || !h.reloj || typeof h.reloj !== "object") return null;
+    var keys = Object.keys(h.reloj), n = 0;
+    if (!keys.length) return null;
+    for (var i = 0; i < keys.length; i++) {
+      var v = Number(h.reloj[keys[i]]);
+      if (!Number.isSafeInteger(v) || v < 0 || !Number.isSafeInteger(n + v)) return null;
+      n += v;
+    }
+    return n;
+  }
+  function _ordenAplicacion(a, b) {
+    var x = _rangoLogico(a), y = _rangoLogico(b);
+    if (x !== null && y !== null && x !== y) return x - y;
+    if ((x === null) !== (y === null)) return x === null ? -1 : 1;
+    return (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id).localeCompare(String(b.id));
+  }
   function _aplicaciones(todos, clienteId, movimientos) {
     var limitesCargo = Object.create(null), limitesAbono = Object.create(null);
     (movimientos || []).forEach(function (m) {
@@ -264,9 +285,7 @@
     var conflictos = 0, opIds = Object.create(null), aceptadas = [];
     todos.filter(function (h) {
       return h.tipo === APLICACION && String(_d(h).clienteId || "") === String(clienteId);
-    }).sort(function (a, b) {
-      return (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id).localeCompare(String(b.id));
-    }).forEach(function (h) {
+    }).sort(_ordenAplicacion).forEach(function (h) {
       var d = _d(h), ab = String(d.abonoId || "");
       if (!ab || !Object.prototype.hasOwnProperty.call(limitesAbono, ab)) { conflictos++; return; }
       if (d.accion === "desaplicar") {
