@@ -317,6 +317,30 @@
     if (localStorage.getItem(key) === JSON.stringify(payload)) localStorage.removeItem(key);
     return result;
   };
+  /* A confirmed payment must never be repeated to retry its allocation. */
+  function claveAsignacion(clienteId) { return "f123_customer_allocation_intent_v1:" + clienteId; }
+  function leerAsignacion(clienteId) {
+    var txt = localStorage.getItem(claveAsignacion(clienteId));
+    if (!txt) return null;
+    var dato = JSON.parse(txt);
+    if (!dato || !dato.abonoId || !dato.opId || !Array.isArray(dato.partes) || !dato.partes.length) {
+      throw new Error("Saved allocation requires review.");
+    }
+    return dato;
+  }
+  async function confirmarAsignacion(clienteId, dato) {
+    var res = await fetch(API + "/clientes/" + clienteId + "/aplicar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ abonoId: dato.abonoId, partes: dato.partes, opId: dato.opId })
+    });
+    var respuesta = await res.json().catch(function () { return {}; });
+    if (!res.ok || respuesta.error || !respuesta.aplicacionId || respuesta.opId !== dato.opId) {
+      throw new Error(respuesta.error || "Payment saved; allocation pending confirmation.");
+    }
+    var key = claveAsignacion(clienteId);
+    if (localStorage.getItem(key) === JSON.stringify(dato)) localStorage.removeItem(key);
+    return respuesta;
+  }
   function modalAbonar(clienteId, nombre) {
     if (document.getElementById("pp-modal-abono")) return;
     var m = document.createElement("div");
@@ -339,9 +363,21 @@
     document.body.appendChild(m);
     var q = function (id) { return m.querySelector("#" + id); };
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
-    var anterior = null;
+    var anterior = null, pendienteAsignacion = null;
     try { anterior = abonoPendiente(clienteId); } catch (_) {}
-    if (anterior) {
+    try { pendienteAsignacion = leerAsignacion(clienteId); } catch (e) {
+      q("pp-ab-msg").textContent = (e && e.message) || "Saved allocation requires review.";
+      q("pp-ab-ok").disabled = true;
+      return;
+    }
+    if (pendienteAsignacion) {
+      q("pp-ab-monto").value = Number(pendienteAsignacion.monto).toFixed(2);
+      q("pp-ab-monto").disabled = true;
+      q("pp-ab-ok").textContent = es ? "Reintentar asignación" : "Retry allocation";
+      q("pp-ab-msg").textContent = es
+        ? "Pago confirmado. Solo se reintentará la asignación; NO se cobrará de nuevo."
+        : "Payment already saved. Only allocation will retry; NO new charge.";
+    } else if (anterior) {
       q('pp-ab-monto').value = Number(anterior.monto).toFixed(2);
       q('pp-ab-msg').textContent = es ? 'Pago anterior por confirmar. Confirma el mismo importe; no se registrará dos veces.' : 'An earlier payment needs confirmation. Confirm the same amount; it will not be recorded twice.';
     }
@@ -356,6 +392,7 @@
     // cual queda parcial si el pago no alcanza para todos.
     var elegidos = [];
     function pintarConsumos(lista) {
+      if (pendienteAsignacion) return; // Se reintenta solo la intencion ya confirmada.
       lista = Array.isArray(lista) ? lista : [];
       if (!lista.length) return;
       q("pp-ab-consumos-wrap").style.display = "";
@@ -416,22 +453,50 @@
       var btn = ev.currentTarget;
       if (btn.disabled) return;
       btn.disabled = true;
-      var msg = q("pp-ab-msg");
-      var monto = Number(q("pp-ab-monto").value);
-      if (!(monto > 0)) { btn.disabled = false; msg.style.color = "#B0183E"; msg.textContent = "The amount must be greater than zero."; return; }
-      global.ocEnviarAbono(clienteId, monto, anterior ? anterior.motivo : 'Abono').then(function (r) {
-        var partes = partesElegidas(monto);
-        if (!partes.length || !r || !r.movimientoId) return r;
-        // El pago ya quedo guardado; si la asignacion falla, queda «sin asignar» (se puede asignar luego).
-        return fetch(API + "/clientes/" + clienteId + "/aplicar", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ abonoId: r.movimientoId, partes: partes }) }).then(function () { return r; }, function () { return r; });
-      }).then(function (r) {
+      var msg = q("pp-ab-msg"), monto = Number(q("pp-ab-monto").value);
+      var errorAsignacion = function (e) {
+        msg.style.color = "#B0183E";
+        msg.textContent = es
+          ? "Pago conservado; asignación pendiente: " + ((e && e.message) || "reintenta la asignación")
+          : "Payment preserved; allocation pending: " + ((e && e.message) || "retry allocation");
+      };
+      function finalizar() {
         cerrar();
         if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
         refrescarHoy();
-      }).catch(function (e) {
-        msg.style.color = "#B0183E";
-        msg.textContent = (e && e.message) || "Could not record the payment.";
+      }
+      if (pendienteAsignacion) {
+        confirmarAsignacion(clienteId, pendienteAsignacion).then(finalizar).catch(errorAsignacion)
+          .finally(function () { btn.disabled = false; });
+        return;
+      }
+      if (!(monto > 0)) {
+        btn.disabled = false; msg.style.color = "#B0183E";
+        msg.textContent = es ? "El importe debe ser mayor que cero." : "The amount must be greater than zero.";
+        return;
+      }
+      var partes = partesElegidas(monto);
+      global.ocEnviarAbono(clienteId, monto, anterior ? anterior.motivo : "Abono").then(function (r) {
+        if (!partes.length) return null; // Cobro sin asignacion explicita.
+        if (!r || !r.movimientoId) throw new Error("Payment receipt missing; do not pay again.");
+        pendienteAsignacion = {
+          abonoId: String(r.movimientoId), partes: partes, monto: monto,
+          opId: "customer-allocation:" + String(r.movimientoId)
+        };
+        localStorage.setItem(claveAsignacion(clienteId), JSON.stringify(pendienteAsignacion));
+        if (localStorage.getItem(claveAsignacion(clienteId)) !== JSON.stringify(pendienteAsignacion)) {
+          throw new Error("Could not preserve the allocation reference.");
+        }
+        return confirmarAsignacion(clienteId, pendienteAsignacion);
+      }).then(finalizar).catch(function (e) {
+        if (pendienteAsignacion) {
+          q("pp-ab-monto").disabled = true;
+          q("pp-ab-ok").textContent = es ? "Reintentar asignación" : "Retry allocation";
+          errorAsignacion(e);
+        } else {
+          msg.style.color = "#B0183E";
+          msg.textContent = (e && e.message) || "Could not confirm the payment.";
+        }
       }).finally(function () { btn.disabled = false; });
     });
 
