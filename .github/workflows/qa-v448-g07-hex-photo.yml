@@ -52,6 +52,14 @@ jobs:
       - name: Domain + application + architecture
         run: |
           node --test             test/shelf-photo-policy-hex.test.js             test/recover-shelf-photo-ports.test.js             test/architecture-hexagonal.test.js
+      - name: P0 native first-join, stock and causal replay (isolated synthetic data)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=30000 \
+            test/incident-first-sync-integrity-v558.test.js \
+            test/incident-stale-stock-metadata-v558.test.js \
+            test/incident-yjs-receive-queue-v558.test.js \
+            test/incident-yjs-causal-replay-v559.test.js \
+            test/yjs-unresolved-checkpoint.test.js
       - name: Shell integrity
         run: bash check-sw.sh
       - name: Diff hygiene
