@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-21",
-  "changelog": "v557: calmer Today notices panel, gender in the sale new-customer form, and no black notice for the benign browser resize notification.",
+  "changelog": "v558: integrity packaging fix for v557; unchanged financial logic and UI.",
   "requerida": false,
-  "shell": "f123-shell-v557",
+  "shell": "f123-shell-v558",
   "apagar": [],
-  "releaseName": "v557",
-  "cacheGeneration": "golden121"
+  "releaseName": "v558",
+  "cacheGeneration": "golden122"
 }
