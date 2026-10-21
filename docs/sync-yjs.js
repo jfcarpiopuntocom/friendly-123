@@ -1491,9 +1491,13 @@
                     var _pb = prev.stockBase != null && Number.isFinite(Number(prev.stockBase)) ? Number(prev.stockBase) : null;
                     var _rp = r.stockPN && typeof r.stockPN === "object" ? r.stockPN : null;
                     var _pp = prev.stockPN && typeof prev.stockPN === "object" ? prev.stockPN : null;
-                    var _now = (window.OCLatencia && window.OCLatencia.ahoraRelay) ?
-                      Number(window.OCLatencia.ahoraRelay()) : NaN;
-                    var _notFuture = !Number.isFinite(_now) || _rt <= _now + 300000;
+                    var _nowRaw = (window.OCLatencia && window.OCLatencia.ahoraRelay) ?
+                      window.OCLatencia.ahoraRelay() : null;
+                    // Number(null) === 0: a fresh phone without a relay clock
+                    // must not treat every genuine epoch-millisecond sale as future.
+                    var _now = typeof _nowRaw === "number" && Number.isFinite(_nowRaw) &&
+                      _nowRaw > 0 ? _nowRaw : null;
+                    var _notFuture = _now === null || _rt <= _now + 300000;
                     var _sameLedger = _rb !== null && _pb !== null && _rb === _pb && !!_rp && !!_pp;
                     var _epochNewer = _rb !== null && !!_rp && _rt > _pt && _notFuture;
                     var _legacyNewer = _rb === null && _pb === null && _rt > _pt && _notFuture &&
@@ -1504,13 +1508,23 @@
                        milliseconds newer. Require matching physical base,
                        nonempty positive operation counters, plausible relay
                        time and a narrow skew window. Ancient PN remains blocked. */
-                    var _firstLedger = _rb !== null && _pb === null && !!_rp &&
-                      Number(prev.stockActual) === _rb && _rt > 0 &&
-                      _rt >= _pt - 2000 && _notFuture &&
-                      Object.keys(_rp).some(function (id) {
-                        var fact = _rp[id] || {};
-                        return (Number(fact.add) || 0) > 0 || (Number(fact.sub) || 0) > 0;
+                    var _pnEntries = Object.keys(_rp || {});
+                    var _pnValid = _pnEntries.length > 0 && _pnEntries.every(function (id) {
+                      var fact = _rp[id] || {}, add = Number(fact.add), sub = Number(fact.sub);
+                      return Number.isSafeInteger(add) && Number.isSafeInteger(sub) &&
+                        add >= 0 && sub >= 0;
+                    });
+                    var _pnNet = _pnValid ? _pnEntries.reduce(function (sum, id) {
+                      return sum + Number(_rp[id].add) - Number(_rp[id].sub);
+                    }, 0) : NaN;
+                    var _pnProof = _pnValid && Number.isSafeInteger(_rb + _pnNet) &&
+                      Math.max(0, _rb + _pnNet) === Number(r.stockActual) &&
+                      _pnEntries.some(function (id) {
+                        return Number(_rp[id].add) > 0 || Number(_rp[id].sub) > 0;
                       });
+                    var _firstLedger = _rb !== null && _pb === null && _pnProof &&
+                      Number(prev.stockActual) === _rb && _rt > 0 &&
+                      _rt >= _pt - 2000 && _notFuture;
                     var _stockValido = _sameLedger || _epochNewer || _legacyNewer || _firstLedger;
                     r = Object.assign({}, prev, _stockValido ? {
                       stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual,
