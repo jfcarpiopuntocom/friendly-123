@@ -1499,7 +1499,19 @@
                     var _legacyNewer = _rb === null && _pb === null && _rt > _pt && _notFuture &&
                       Number.isFinite(Number(r.stockActual)) && Number(r.stockActual) >= 0 &&
                       !(Number(r.stockActual) === 0 && Number(prev.stockActual) > 0);
-                    var _stockValido = _sameLedger || _epochNewer || _legacyNewer;
+                    /* The FIRST real PN sale must not be discarded merely
+                       because a just-synced legacy product has a clock a few
+                       milliseconds newer. Require matching physical base,
+                       nonempty positive operation counters, plausible relay
+                       time and a narrow skew window. Ancient PN remains blocked. */
+                    var _firstLedger = _rb !== null && _pb === null && !!_rp &&
+                      Number(prev.stockActual) === _rb && _rt > 0 &&
+                      _rt >= _pt - 2000 && _notFuture &&
+                      Object.keys(_rp).some(function (id) {
+                        var fact = _rp[id] || {};
+                        return (Number(fact.add) || 0) > 0 || (Number(fact.sub) || 0) > 0;
+                      });
+                    var _stockValido = _sameLedger || _epochNewer || _legacyNewer || _firstLedger;
                     r = Object.assign({}, prev, _stockValido ? {
                       stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual,
                       stockTs: Math.max(_pt, _rt), stockDeficit: r.stockDeficit
