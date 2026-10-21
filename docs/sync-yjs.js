@@ -1475,7 +1475,11 @@
              de jerarquía de siempre: guardamos junto al nombre si quien lo puso es
              el dueño; el otro aparato aplica con rolRemoto="dueno" y lo adopta.
              Un no-dueño no pisa un nombre ya marcado como del dueño. */
-          if (cat.nombreNegocio) {
+          /* P0: local name may come from f123_owned on a just-purged phone,
+             while the remote CRDT history and credentials are still loading.
+             Never give that stale bootstrap name owner authority in the
+             shared doc. Resume ordinary name changes after confirmed pull. */
+          if (cat.nombreNegocio && !(API.canal && API.canal.recuperando)) {
             var soyDueno = miRol === "dueno";
             var yaEsDueno = API.meta.get("nombreEsDueno") === true;
             /* DESEMPATE DETERMINISTA (v283, JFC 2026-09-15). Antes un dueño pisaba
