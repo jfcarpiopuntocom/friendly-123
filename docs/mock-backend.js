@@ -7126,8 +7126,16 @@
         } catch (e) {
           return J({ error: (e && e.message) || "Could not apply the payment." }, e && e.status === 409 ? 409 : 400);
         }
-        mov("cartera-aplicacion", { cliente: c.nombre, abonoId: String(body.abonoId || "") });
         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
+        if (!Array.isArray(info.aplicacionesAceptadas) ||
+            !info.aplicacionesAceptadas.includes(String(asignacion.id))) {
+          // Concurrent remote events may have consumed this capacity first.
+          // Keep every fact; do not acknowledge an allocation that the common projection rejects.
+          return J({ error: "Payment saved. This allocation conflicts with another device; review unassigned purchases. Do not record the payment twice.", needsReview: true }, 409);
+        }
+        if (!movimientos.some((m) => m.detalle && m.detalle.aplicacionId === asignacion.id)) {
+          mov("cartera-aplicacion", { cliente: c.nombre, abonoId: String(body.abonoId || ""), aplicacionId: asignacion.id });
+        }
         return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, _rolLocal() || "empleado"),
           { aplicacionId: asignacion.id, opId: body.opId || null }));
       }
