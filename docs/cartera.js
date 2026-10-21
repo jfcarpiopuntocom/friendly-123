@@ -261,7 +261,7 @@
       else limitesAbono[String(m.id)] = _centavos(m.monto);
     });
     var vigente = Object.create(null), porCargo = Object.create(null), porAbono = Object.create(null);
-    var conflictos = 0, opIds = Object.create(null);
+    var conflictos = 0, opIds = Object.create(null), aceptadas = [];
     todos.filter(function (h) {
       return h.tipo === APLICACION && String(_d(h).clienteId || "") === String(clienteId);
     }).sort(function (a, b) {
@@ -304,8 +304,9 @@
         porAbono[ab] = (porAbono[ab] || 0) + cent;
       });
       if (opId) opIds[opId] = true;
+      aceptadas.push(String(h.id));
     });
-    return { vigente: vigente, conflictos: conflictos };
+    return { vigente: vigente, conflictos: conflictos, aceptadas: aceptadas };
   }
   function claveCargo(mov) { return mov.ventaId ? "venta:" + String(mov.ventaId) : "cargo:" + String(mov.id); }
   function _marcarConsumos(movimientos, todos, clienteId) {
@@ -331,6 +332,7 @@
       }
     });
     movimientos.conflictosAplicacion = proyectado.conflictos;
+    movimientos.aplicacionesAceptadas = proyectado.aceptadas;
     return movimientos;
   }
   /* Rechazo integral antes de tocar el ledger; se revalida dentro de la cola
@@ -502,7 +504,9 @@
     }
     movimientos.sort(function (a, b) { return a.fecha - b.fecha; });
     _marcarConsumos(movimientos, todos, clienteId);
-    return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos, conflictosAplicacion: movimientos.conflictosAplicacion || 0 };
+    return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos,
+      conflictosAplicacion: movimientos.conflictosAplicacion || 0,
+      aplicacionesAceptadas: movimientos.aplicacionesAceptadas || [] };
   }
 
   // Deriva el saldo y el historial de UN cliente reproduciendo todos los
@@ -516,7 +520,8 @@
     return global.AMG.Hechos.todos().then(function (todos) {
       var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
       return Promise.resolve(global.AMG.Hechos.verificarCadenas(todos)).then(function (integridad) {
-        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad, conflictosAplicacion: r.conflictosAplicacion };
+        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad, conflictosAplicacion: r.conflictosAplicacion,
+          aplicacionesAceptadas: r.aplicacionesAceptadas };
       });
     });
   }
