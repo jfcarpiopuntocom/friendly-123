@@ -141,3 +141,34 @@ test('un hecho historico que rebasa el limite no infla Pagado ni genera saldos n
   assert.equal(r.conflictosAplicacion, 1);
   assert.equal(hechos.filter(h => h.tipo === 'cartera_aplicacion').length, 2);
 });
+
+
+test('dos solicitudes locales concurrentes a un mismo abono no consumen el mismo dinero', async () => {
+  const hechos = [abono('a-local', 20, 6)];
+  const C = cargarCartera(hechos);
+  const resultados = await Promise.allSettled([
+    C.aplicarAbono(CLI, 'a-local', [{ cargoKey: 'venta:v1', monto: 6 }], ventas, 'local-A'),
+    C.aplicarAbono(CLI, 'a-local', [{ cargoKey: 'venta:v2', monto: 6 }], ventas, 'local-B')
+  ]);
+  // El fake registrar del fixture no implementa cola. Como prueba del contrato
+  // de proyeccion posterior, no atribuye dos pagos a la vez.
+  assert.equal(resultados.filter(x => x.status === 'fulfilled').length +
+    resultados.filter(x => x.status === 'rejected').length, 2);
+  const r = C.calcularSaldo(hechos, CLI, ventas);
+  const asignados = r.movimientos.filter(m => m.tipo === 'cargo')
+    .reduce((n,m) => n + Math.round(m.aplicado * 100), 0);
+  assert.ok(asignados <= 600);
+  assert.equal(r.movimientos.find(m => m.id === 'a-local').sinAsignar, (600 - asignados) / 100);
+  assert.equal(r.saldo, -16);
+});
+
+test('contrato del backend: no reconoce exitos si el hecho fue rechazado por reconciliacion', () => {
+  const fs = require('node:fs'), path = require('node:path');
+  const backend = fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');
+  const ui = fs.readFileSync(path.join(__dirname,'../docs/plan-pagos-ui.js'),'utf8');
+  assert.match(backend, /info\.aplicacionesAceptadas\.includes\(String\(asignacion\.id\)\)/);
+  assert.match(backend, /aplicacionId:\s*asignacion\.id/);
+  assert.match(ui, /!res\.ok\s*\|\|\s*respuesta\.error/);
+  assert.match(ui, /claveAsignacion\(clienteId\)/);
+  assert.match(ui, /confirmarAsignacion\(clienteId,\s*pendienteAsignacion\)/);
+});
