@@ -20,7 +20,7 @@ async function simulateCheckpoint(snap, yjs) {
   const sent = [], events = [];
   const ws = {readyState: 1, send: (frame) => sent.push(JSON.parse(frame))};
   const context = {
-    ws, WebSocket: {OPEN: 1}, claveActual: {}, salaIdActual: "synthetic-room",
+    ws, WebSocket: {OPEN: 1}, TIPO_CHECKPOINT:"synthetic-checkpoint", claveActual: {}, salaIdActual: "synthetic-room",
     window: {OCSync:{estadoParaCheckpoint:()=>snap}, OCYjs:yjs,
       dispatchEvent:e=>events.push(e.type)},
     CustomEvent:class {constructor(type,init){this.type=type;this.detail=init.detail;}},
@@ -91,7 +91,7 @@ test("P0: empty first-join catalog cannot seed factory metadata before recovery"
   const probe=source.slice(a,b).replace("function sembrar()","function inspectSeed()")+
     "      return 'ALLOWED';\n    }\nreturn inspectSeed;";
   function run(recovering,cat) {
-    return vm.runInNewContext(probe,{_aplicando:false,API:{canal:{recuperando}},
+    return vm.runInNewContext(probe,{_aplicando:false,API:{canal:{recuperando:recovering}},
       window:{OCSync:{catalogoPropio:()=>cat}}})();
   }
   assert.equal(run(true,{productos:[],ubicaciones:[],ventas:[],clientes:[],nombreNegocio:"old local name"}),undefined);
