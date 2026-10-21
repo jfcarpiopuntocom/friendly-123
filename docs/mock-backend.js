@@ -3124,7 +3124,16 @@
              cero legado con timestamp "del futuro" y ganar otra vez al recargar. */
           const _stockAhoraRelay = (window.OCLatencia && window.OCLatencia.ahoraRelay)
             ? window.OCLatencia.ahoraRelay() : null;
-          _sp.stockTs = Number.isFinite(Number(_stockAhoraRelay)) ? Number(_stockAhoraRelay) : Date.now();
+          const _instanteStock = Number.isFinite(Number(_stockAhoraRelay)) ?
+            Number(_stockAhoraRelay) : Date.now();
+          const _prevTs = Number(_sp.stockTs) || 0;
+          /* P0: two sales can happen within the same millisecond. A timestamp
+             TIED with the last publication can make the receiver discard a
+             valid stock change, even though its PN ledger advanced. Keep local
+             stockTs strictly monotonic when the previous stamp is plausible;
+             never perpetuate an impossible future timestamp from an old peer. */
+          _sp.stockTs = _prevTs > _instanteStock + 300000 ?
+            _instanteStock : Math.max(_instanteStock, _prevTs + 1);
         }
       } catch (_) {}
     }
