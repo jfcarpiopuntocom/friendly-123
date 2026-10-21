@@ -465,7 +465,7 @@
           if (e.hayPlan && e.diferencia < 0) {
             var falta = -e.diferencia;
             t += " " + fmt(falta) + " would bring them current.";
-            if (!anterior && !pendienteAsignacion) q("pp-ab-monto").value = falta.toFixed(2);
+            if (!anterior && !pendienteAsignacion && !elegidos.length && !q("pp-ab-monto").value) q("pp-ab-monto").value = falta.toFixed(2);
           } else if (e.hayPlan) {
             t += " They are " + (e.diferencia > 0 ? "ahead of" : "on track with") + " their plan.";
           }
