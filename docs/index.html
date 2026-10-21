@@ -3867,7 +3867,10 @@ async function pintarSaldoCartera(clienteId) {
         <span style="overflow-wrap:anywhere;">${escHtml(m.motivo || (m.tipo === "cargo" ? (es ? "Cargo" : "Charge") : (es ? "Pago/crédito" : "Payment/credit")))}${typeof _estadoConsumoCartera === "function" ? _estadoConsumoCartera(m, es) : ""}${_accionesVinculoCartera(m, clienteId)}${m.fecha ? `<br><span style="font-size:12px;color:#19354B;">${escHtml(new Date(m.fecha).toLocaleString(es ? 'es' : 'en'))}${m.quien ? ' · ' + escHtml(m.quien) : ''}</span>` : ''}</span>
         <strong style="white-space:nowrap;">${m.tipo === "cargo" ? "−" : "+"}${fmtMoney(m.monto)}</strong>
       </div>`).join("")}</details>` : "";
-    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${detalle}`;
+    const avisoAsignacion = Number(info.conflictosAplicacion) > 0
+      ? ` <span role="alert" style="display:block;color:#B0183E;font-size:12px;font-weight:700;">${es ? "Hay asignaciones de pagos que requieren revisión entre aparatos; los pagos originales se conservan." : "Some purchase allocations need cross-device review; original payments are preserved."}</span>`
+      : "";
+    el.innerHTML = `<span style="font-size:14px;font-weight:700;color:${color} !important;-webkit-text-fill-color:${color} !important;${deco}">${texto}</span>${restringido}${badge}${btnPagar}${avisoIntegridad}${avisoAsignacion}${detalle}`;
   } catch (e) {
     if (el.__carteraLectura !== lectura) return;
     console.error("[pintarSaldoCartera]", e);
