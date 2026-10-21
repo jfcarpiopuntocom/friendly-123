@@ -455,6 +455,28 @@
   }
 
   let cargaEnCurso = 0;
+  // Solo espera, no reintenta una escritura ni modifica el cuaderno. Los
+  // procesos de fotos pueden terminar tarde, pero nunca deben dejar spinner.
+  function esperarConPlazo(promise,etapa,ms=12000) {
+    let timer;
+    return Promise.race([
+      Promise.resolve(promise),
+      new Promise((_,reject)=>{ timer=setTimeout(()=>reject(new Error('timeout: '+etapa)),ms); })
+    ]).finally(()=>clearTimeout(timer));
+  }
+  async function consultarVista(path, fallback, requerido, esLista) {
+    try {
+      const res=await esperarConPlazo(fetch(`${API}${path}`),path);
+      if (!res || !res.ok) throw new Error(path+': HTTP '+(res&&res.status||'unknown'));
+      const result=await esperarConPlazo(res.json(),path+' JSON',6000);
+      if (esLista && !Array.isArray(result)) throw new Error(path+': invalid list');
+      return result;
+    } catch (e) {
+      if (requerido) throw e;
+      try { console.warn('[VPerchas] optional '+path+' unavailable:', e&&e.message); } catch (_) {}
+      return fallback;
+    }
+  }
   async function cargar() {
     const estaCarga = ++cargaEnCurso;
     inyectarBotonAgregar(); // el botón general vive fuera del grid, no se borra al re-render
@@ -464,15 +486,18 @@
     // al reducir súbitamente la altura de la página y deja la vista arriba.
     if (!grid.children.length) grid.innerHTML = '<p style="font-size:14px;color:var(--ink-soft);font-family:var(--font-mono);padding:8px 0;">Cargando perchas…</p>';
     try {
-      await precargarFotos();
+      // IndexedDB roto o foto muy lenta no impide entrar a Mis perchas.
+      // Nunca borra el cache existente ni modifica hashes/punteros de fotos.
+      try { await esperarConPlazo(precargarFotos(),'shelf photos'); }
+      catch (e) { try { console.warn('[VPerchas] photos still unavailable:',e&&e.message); } catch (_) {} }
       const rol = window.OCAuth && window.OCAuth.rolActual ? window.OCAuth.rolActual() : '';
       const [perchas, liq, promotoras, corte] = await Promise.all([
-        // Vista operativa: solo perchas activas. Las archivadas/inactivas siguen en el store y en historial,
-        // pero no deben reaparecer en "My shelves" por pedir todas=1.
-        fetch(`${API}/ubicaciones`).then((r) => r.json()),
-        fetch(`${API}/liquidaciones`).then((r) => r.json()).catch(() => []),
-        fetch(`${API}/promotoras`).then((r) => r.json()).catch(() => []),
-        ['dueno','admin','contador','demo'].includes(rol) ? fetch(`${API}/reporting/corte`).then(r=>r.ok?r.json():null).catch(()=>null) : Promise.resolve(null),
+        // /ubicaciones es obligatorio: HTTP 503 o JSON corrupto NO equivale a
+        // cero perchas. Las otras consultas son complementarias.
+        consultarVista('/ubicaciones',null,true,true),
+        consultarVista('/liquidaciones',[],false,true),
+        consultarVista('/promotoras',[],false,true),
+        ['dueno','admin','contador','demo'].includes(rol) ? consultarVista('/reporting/corte',null,false,false) : Promise.resolve(null),
       ]);
       // Defensa doble: la API operativa ya devuelve solo activas, pero la vista
       // tampoco pinta una percha archivada/inactiva aunque un peer viejo la mande.
@@ -630,7 +655,14 @@
     } catch (err) {
       if (estaCarga !== cargaEnCurso) return;
       console.error('[VPerchas]', err);
-      grid.innerHTML = `<p style="color:var(--rojo,#a3392a);font-size:14px;">No se pudo cargar: ${esc(err.message)}</p>`;
+      // Error claro y recuperable: nunca decir «no hay perchas» ante HTTP 5xx,
+      // y jamás disparar reset/reseed de inventario por un error de lectura.
+      grid.innerHTML = `<div role="alert" style="padding:12px;border:1px solid var(--linea,#D7E0E8);border-radius:8px;">
+        <p style="color:var(--ink);font-size:14px;">${esc(window.t('shelves.loadError'))}</p>
+        <button id="vp-reintentar" type="button" style="padding:9px 14px;min-height:44px;cursor:pointer;">${esc(window.t('shelves.tryAgain'))}</button>
+      </div>`;
+      const retry=grid.querySelector('#vp-reintentar');
+      if (retry) retry.addEventListener('click',()=>{ cargar(); });
     }
   }
 
