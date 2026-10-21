@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-21",
-  "changelog": "v558: integrity packaging fix for v557; unchanged financial logic and UI.",
+  "changelog": "v559 candidate: prime directive 1AAA first-join Yjs integrity, stale stock and safe replay; never overwrite customer data.",
   "requerida": false,
-  "shell": "f123-shell-v558",
+  "shell": "f123-shell-v559",
   "apagar": [],
-  "releaseName": "v558",
-  "cacheGeneration": "golden122"
+  "releaseName": "v559",
+  "cacheGeneration": "golden123"
 }
