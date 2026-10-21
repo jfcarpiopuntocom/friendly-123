@@ -63,7 +63,7 @@ function seedWith(name,rev,recovering) {
   const a=src.indexOf("    function sembrar() {"),b=src.indexOf("\n    // Yjs -> store.",a);
   assert.ok(a>0&&b>a,"actual Yjs local seed found");
   const meta=new Map([["nombreNegocio","Recent real shop"],["nombreRev",10],["nombreTs",1000],["nombreEsDueno",true]]);
-  const API={canal:{recuperando},doc:{transact:(fn)=>fn()},meta,mapas:{}};
+  const API={canal:{recuperando:recovering},doc:{transact:(fn)=>fn()},meta,mapas:{}};
   const cat={nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:2000,productos:[{id:"local"}],
     ubicaciones:[],ventas:[],clientes:[]};
   const win={OCSync:{catalogoPropio:()=>cat,hashearFotosProductos:async()=>{}},
