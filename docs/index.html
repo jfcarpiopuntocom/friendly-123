@@ -6987,6 +6987,12 @@ async function abrirPanelVentaInfo(id, esTicket){
               <option value="true" data-i18n="cust.residenceYes">${escHtml(t("cust.residenceYes"))}</option>
               <option value="false" data-i18n="cust.residenceNo">${escHtml(t("cust.residenceNo"))}</option>
             </select></label>
+          <label style="flex:1;min-width:125px;font-size:13px;"><span data-i18n="cust.gender">${escHtml(t("cust.gender"))}</span>
+            <select id="vi-newcli-genero" style="display:block;width:100%;padding:8px;border:2px solid var(--azul-medio);border-radius:4px;">
+              <option value="unknown" data-i18n="cust.genderUnknown">${escHtml(t("cust.genderUnknown"))}</option>
+              <option value="male" data-i18n="cust.genderMale">${escHtml(t("cust.genderMale"))}</option>
+              <option value="female" data-i18n="cust.genderFemale">${escHtml(t("cust.genderFemale"))}</option>
+            </select></label>
         </div>
         <p id="vi-newcli-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
@@ -7117,7 +7123,9 @@ async function abrirPanelVentaInfo(id, esTicket){
     if (inEmail && !inEmail.checkValidity()) { if (inMsg) { inMsg.style.color = "var(--rojo-ink,#a3392a)"; inMsg.textContent = t("newcust.emailInvalid"); } inEmail.focus(); return; }
     if (btnSaveNew) btnSaveNew.disabled = true;
     try {
+      const inGenero = document.getElementById("vi-newcli-genero"); // mismo campo que el formulario de Clientes
       const perfilNuevo = { rangoEdad: (inEdad && inEdad.value || "").trim(), pais: (inPais && inPais.value || "").trim() };
+      if (inGenero && inGenero.value && inGenero.value !== "unknown") perfilNuevo.genero = inGenero.value;
       if (inCuenca && inCuenca.value !== "") perfilNuevo.resideCuenca = inCuenca.value === "true";
       const res = await fetch(`${API}/clientes`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ nombre: nombre, telefono: (inTel && inTel.value || "").trim(), email: (inEmail && inEmail.value || "").trim(), ...perfilNuevo }) });
       const r = await res.json();
