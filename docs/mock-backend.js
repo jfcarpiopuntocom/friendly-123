@@ -5534,7 +5534,7 @@
         const entra = dailyProjection ? dailyProjection.entra : vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
         const sale = dailyProjection ? dailyProjection.sale : vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
         const inv = ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
-        const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}`, reposicionPlegable: e.estado === "rojo" && Number(e.p.stockActual) === 0 && e.p.perecible !== true }));
+        const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}`, reposicionPlegable: e.p.perecible !== true /* v557: todo aviso de reposicion de un no perecedero (obras, piezas unicas, coleccionables) va al panel plegable "Avisos"; solo vencimientos y perecederos quedan a la vista */ }));
         // El hero de HOY es tri-estado (verde/amarillo/rojo, como el manual):
         // las alertas naranjas ("revisar pronto") encienden el nivel medio.
         // BUG FIX 2026-07-07: comparaba contra "amarillo", que ya no existe

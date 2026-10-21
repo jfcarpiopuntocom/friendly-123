@@ -30,7 +30,7 @@ test('Today keeps nonperishable zero-stock artwork accessible inside a folded re
   assert.equal(a.estado,'rojo');
   assert.equal(a.reposicionPlegable,true,'nonperishable zero-stock alerts are opt-in review');
   assert.equal(p.reposicionPlegable,false,'perishable emergency remains visible');
-  assert.equal(low.reposicionPlegable,false,'positive low stock remains visible');
+  assert.equal(low.reposicionPlegable,true,'v557: low stock of a nonperishable also folds into the closed notices panel');
   assert.equal(result.semaforoGeneral,'rojo','folding does not falsify business warning status');
 });
 
@@ -44,7 +44,18 @@ test('Today restock folding uses a native accessible details panel without modif
   assert.match(src,/id="listaAlertas"/,'remaining urgent alert list is still present');
   assert.match(src,/restockPlegado.*reposicionPlegable/);
   assert.match(src,/alertasVisibles.*reposicionPlegable/);
-  assert.match(backend,/reposicionPlegable: e.estado === "rojo"/);
+  assert.match(backend,/reposicionPlegable: e.p.perecible !== true/);
   assert.equal((locale.match(/"hoy.restockFold":/g)||[]).length,2,'English and Spanish labels');
   assert.equal((locale.match(/"hoy.onlyRestock":/g)||[]).length,2,'English and Spanish neutral fallback');
+});
+
+test('v557 item 1: unique pieces with stock 1 never show as visible red alerts; perishable expiry stays visible',async()=>{
+  const w=browser();
+  for(let i=1;i<=5;i++) await w.request('/api/productos','POST',{nombre:'Synthetic unique piece '+i,barcode:'SYNTH-UNIQ-'+i,stockInicial:1,precio:100,costo:40,umbralRojo:1,umbralAmarillo:2});
+  await w.request('/api/productos','POST',{nombre:'Synthetic expired cheese',barcode:'SYNTH-CHEESE',stockInicial:9,precio:9,costo:4,perecible:true,fechaCaducidad:'2026-10-01',umbralRojo:1,umbralAmarillo:2});
+  const r=await w.request('/api/dashboard');
+  const visibles=r.alertas.filter(a=>a.reposicionPlegable!==true);
+  assert.equal(visibles.filter(a=>/unique piece/.test(a.mensaje)).length,0,'no visible alert for stock-1 pieces');
+  assert.equal(r.alertas.filter(a=>a.reposicionPlegable===true&&/unique piece/.test(a.mensaje)).length,5,'all five remain inside the folded panel');
+  assert.ok(visibles.some(a=>/expired cheese/.test(a.mensaje)),'expiry notice of a perishable stays visible');
 });
