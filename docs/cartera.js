@@ -247,22 +247,70 @@
        si no "cargo:<id del hecho>". Deshacer = otro hecho "desaplicar" con el mismo par.
      - Lectores viejos filtran solo cartera_cargo/cartera_abono: este hecho no les afecta. */
   var APLICACION = "cartera_aplicacion";
-  function _aplicaciones(todos, clienteId) {
-    var vigente = Object.create(null);
-    todos.filter(function (h) { return h.tipo === APLICACION && String(_d(h).clienteId || "") === String(clienteId); })
-      .sort(function (a, b) { return (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id).localeCompare(String(b.id)); })
-      .forEach(function (h) {
-        var d = _d(h);
-        if (!d.abonoId || !d.cargoKey) return;
-        var k = String(d.abonoId) + "|" + String(d.cargoKey);
-        if (d.accion === "desaplicar") delete vigente[k];
-        else vigente[k] = (vigente[k] || 0) + _centavos(d.monto);
+  /* v557 fast-track: proyectar aplicaciones en un orden comun, no sumar a ciegas.
+     Los hechos incompatibles se CONSERVAN como evidencia; no se acreditan dos
+     veces ni pueden hacer negativa la capacidad de un cargo o un abono.
+     Se aceptan los hechos unitarios anteriores y el nuevo lote atomico. */
+  function _partesAplicacion(d) {
+    return Array.isArray(d.partes) ? d.partes : [{ cargoKey: d.cargoKey, monto: d.monto }];
+  }
+  function _aplicaciones(todos, clienteId, movimientos) {
+    var limitesCargo = Object.create(null), limitesAbono = Object.create(null);
+    (movimientos || []).forEach(function (m) {
+      if (m.tipo === "cargo") limitesCargo[claveCargo(m)] = _centavos(m.monto);
+      else limitesAbono[String(m.id)] = _centavos(m.monto);
+    });
+    var vigente = Object.create(null), porCargo = Object.create(null), porAbono = Object.create(null);
+    var conflictos = 0, opIds = Object.create(null);
+    todos.filter(function (h) {
+      return h.tipo === APLICACION && String(_d(h).clienteId || "") === String(clienteId);
+    }).sort(function (a, b) {
+      return (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id).localeCompare(String(b.id));
+    }).forEach(function (h) {
+      var d = _d(h), ab = String(d.abonoId || "");
+      if (!ab || !Object.prototype.hasOwnProperty.call(limitesAbono, ab)) { conflictos++; return; }
+      if (d.accion === "desaplicar") {
+        var undoKey = ab + "|" + String(d.cargoKey || ""), previo = vigente[undoKey] || 0;
+        if (previo > 0) {
+          porCargo[String(d.cargoKey)] -= previo;
+          porAbono[ab] -= previo;
+          delete vigente[undoKey];
+        }
+        return;
+      }
+      if (d.accion !== "aplicar") { conflictos++; return; }
+      var opId = String(d.opId || "");
+      if (opId && opIds[opId]) return;
+      var partes = _partesAplicacion(d), pedidoAbono = 0, pedidoCargo = Object.create(null);
+      var correcto = partes.length > 0;
+      partes.forEach(function (p) {
+        var ck = String(p && p.cargoKey || ""), n = Number(p && p.monto), cent = Math.round(n * 100);
+        if (!ck || !Number.isFinite(n) || !Number.isSafeInteger(cent) || cent < 1 ||
+            !Object.prototype.hasOwnProperty.call(limitesCargo, ck) ||
+            Object.prototype.hasOwnProperty.call(pedidoCargo, ck)) { correcto = false; return; }
+        pedidoCargo[ck] = cent;
+        pedidoAbono += cent;
       });
-    return vigente;
+      if (!correcto || !Number.isSafeInteger(pedidoAbono) ||
+          (porAbono[ab] || 0) + pedidoAbono > limitesAbono[ab]) { conflictos++; return; }
+      Object.keys(pedidoCargo).forEach(function (ck) {
+        if ((porCargo[ck] || 0) + pedidoCargo[ck] > limitesCargo[ck]) correcto = false;
+      });
+      if (!correcto) { conflictos++; return; }
+      Object.keys(pedidoCargo).forEach(function (ck) {
+        var k = ab + "|" + ck, cent = pedidoCargo[ck];
+        vigente[k] = (vigente[k] || 0) + cent;
+        porCargo[ck] = (porCargo[ck] || 0) + cent;
+        porAbono[ab] = (porAbono[ab] || 0) + cent;
+      });
+      if (opId) opIds[opId] = true;
+    });
+    return { vigente: vigente, conflictos: conflictos };
   }
   function claveCargo(mov) { return mov.ventaId ? "venta:" + String(mov.ventaId) : "cargo:" + String(mov.id); }
   function _marcarConsumos(movimientos, todos, clienteId) {
-    var apps = _aplicaciones(todos, clienteId), porCargo = Object.create(null), porAbono = Object.create(null);
+    var proyectado = _aplicaciones(todos, clienteId, movimientos);
+    var apps = proyectado.vigente, porCargo = Object.create(null), porAbono = Object.create(null);
     Object.keys(apps).forEach(function (k) {
       var i = k.indexOf("|"), ab = k.slice(0, i), ck = k.slice(i + 1);
       porCargo[ck] = (porCargo[ck] || 0) + apps[k];
@@ -272,45 +320,96 @@
       var monto = _centavos(m.monto);
       if (m.tipo === "cargo") {
         m.cargoKey = claveCargo(m);
-        var ap = Math.min(porCargo[m.cargoKey] || 0, monto);
+        var ap = porCargo[m.cargoKey] || 0;
         m.aplicado = ap / 100;
         m.pendiente = (monto - ap) / 100;
         m.estado = monto <= 0 ? "sin-valor" : ap >= monto ? "pagado" : ap > 0 ? "parcial" : "pendiente";
       } else {
-        var a = Math.min(porAbono[String(m.id)] || 0, monto);
+        var a = porAbono[String(m.id)] || 0;
         m.aplicado = a / 100;
         m.sinAsignar = (monto - a) / 100;
       }
     });
+    movimientos.conflictosAplicacion = proyectado.conflictos;
     return movimientos;
   }
-  /* partes = [{ cargoKey, monto }]. Valida contra el estado actual: no se aplica mas de lo que
-     queda del abono ni mas de lo que falta del consumo. Una persona elige; nada se infiere. */
-  function aplicarAbono(clienteId, abonoId, partes, ventas) {
-    if (!global.AMG || !global.AMG.Hechos || !global.AMG.Hechos.todos) return Promise.reject(new Error("cartera: AMG.Hechos no disponible"));
-    if (!abonoId || !Array.isArray(partes) || !partes.length) return Promise.reject(new Error("cartera: falta el abono o los consumos elegidos"));
-    return global.AMG.Hechos.todos().then(function (todos) {
-      var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
-      var abono = r.movimientos.find(function (m) { return m.tipo === "abono" && String(m.id) === String(abonoId); });
-      if (!abono) throw new Error("cartera: el abono no pertenece a este cliente");
-      var libre = _centavos(abono.sinAsignar), pedido = 0;
-      partes.forEach(function (p) {
-        var c = _centavos(p.monto);
-        var cargo = r.movimientos.find(function (m) { return m.tipo === "cargo" && m.cargoKey === String(p.cargoKey); });
-        if (!cargo) throw new Error("cartera: consumo no encontrado");
-        if (!(c > 0) || c > _centavos(cargo.pendiente)) throw new Error("cartera: el monto supera lo que falta pagar de ese consumo");
-        pedido += c;
+  /* Rechazo integral antes de tocar el ledger; se revalida dentro de la cola
+     unica de Hechos.registrar para evitar dos escrituras locales sobre la
+     misma foto del saldo. La concurrencia REMOTA converge por _aplicaciones. */
+  function _validarPartesAplicacion(todos, clienteId, abonoId, partes, ventas) {
+    var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
+    var abono = r.movimientos.find(function (m) {
+      return m.tipo === "abono" && String(m.id) === String(abonoId);
+    });
+    if (!abono) throw new Error("cartera: el abono no pertenece a este cliente");
+    var libre = _centavos(abono.sinAsignar), pedido = 0, vistos = Object.create(null), normal = [];
+    partes.forEach(function (p) {
+      var ck = String(p && p.cargoKey || ""), n = Number(p && p.monto), cent = Math.round(n * 100);
+      if (!ck || vistos[ck]) throw new Error("cartera: consumo repetido en la misma asignación");
+      vistos[ck] = true;
+      var cargo = r.movimientos.find(function (m) {
+        return m.tipo === "cargo" && m.cargoKey === ck;
       });
-      if (pedido > libre) throw new Error("cartera: el monto supera lo que queda sin asignar de ese pago");
-      var quien = (function () { try { return (global.OCAuth && global.OCAuth.usuarioActual && global.OCAuth.usuarioActual().nombre) || "Sistema"; } catch (_) { return "Sistema"; } })();
-      return partes.reduce(function (cadena, p) {
-        return cadena.then(function () {
-          return global.AMG.Hechos.registrar(APLICACION, { clienteId: String(clienteId), abonoId: String(abonoId),
-            cargoKey: String(p.cargoKey), monto: +(_centavos(p.monto) / 100).toFixed(2), accion: "aplicar", quien: quien });
-        });
-      }, Promise.resolve()).then(function () {
-        var eb = bus(); if (eb) eb.emit(APLICACION + ":registrado", { payload: { clienteId: String(clienteId), abonoId: String(abonoId) } });
-        return true;
+      if (!cargo) throw new Error("cartera: consumo no encontrado");
+      if (!Number.isFinite(n) || !Number.isSafeInteger(cent) || !(cent > 0) ||
+          cent > _centavos(cargo.pendiente)) {
+        throw new Error("cartera: el monto supera lo que falta pagar de ese consumo");
+      }
+      pedido += cent;
+      normal.push({ cargoKey: ck, monto: cent / 100 });
+    });
+    if (!Number.isSafeInteger(pedido) || pedido > libre) {
+      throw new Error("cartera: el monto supera lo que queda sin asignar de ese pago");
+    }
+    return normal;
+  }
+  function _mismaAplicacion(h, clienteId, abonoId, partes) {
+    var d = _d(h);
+    var prev = _partesAplicacion(d);
+    return h.tipo === APLICACION && d.accion === "aplicar" &&
+      String(d.clienteId) === String(clienteId) && String(d.abonoId) === String(abonoId) &&
+      JSON.stringify(prev) === JSON.stringify(partes);
+  }
+  function aplicarAbono(clienteId, abonoId, partes, ventas, opId) {
+    if (!global.AMG || !global.AMG.Hechos || !global.AMG.Hechos.todos ||
+        !global.AMG.Hechos.registrar) return Promise.reject(new Error("cartera: AMG.Hechos no disponible"));
+    if (!abonoId || !Array.isArray(partes) || !partes.length) return Promise.reject(new Error("cartera: falta el abono o los consumos elegidos"));
+    if (opId !== undefined && (typeof opId !== "string" || !opId.trim() || opId.length > 160)) {
+      return Promise.reject(new Error("cartera: referencia de asignación inválida"));
+    }
+    var clave = opId || "";
+    return global.AMG.Hechos.todos().then(function (todos) {
+      function buscarRepetido(lista) {
+        if (!clave) return null;
+        var anterior = lista.find(function (h) { return h.tipo === APLICACION && String(_d(h).opId || "") === clave; });
+        if (!anterior) return null;
+        if (!_mismaAplicacion(anterior, clienteId, abonoId, partes)) {
+          var e = new Error("cartera: la referencia pertenece a otra asignación");
+          e.status = 409; throw e;
+        }
+        return anterior;
+      }
+      var previo = buscarRepetido(todos);
+      if (previo) return previo;
+      var normal = _validarPartesAplicacion(todos, clienteId, abonoId, partes, ventas);
+      var payload = {
+        clienteId: String(clienteId), abonoId: String(abonoId),
+        partes: normal, accion: "aplicar",
+        quien: (function () { try { return (global.OCAuth && global.OCAuth.usuarioActual && global.OCAuth.usuarioActual().nombre) || "Sistema"; } catch (_) { return "Sistema"; } })()
+      };
+      if (clave) payload.opId = clave;
+      return global.AMG.Hechos.registrar(APLICACION, payload, {
+        repetido: function (lista) {
+          var viejo = buscarRepetido(lista);
+          if (viejo) return viejo;
+          _validarPartesAplicacion(lista, clienteId, abonoId, partes, ventas);
+          return null;
+        }
+      }).then(function (r) {
+        if (!r) throw new Error("cartera: no se pudo confirmar la asignación; el pago permanece guardado");
+        var eb = bus();
+        if (eb) eb.emit(APLICACION + ":registrado", { payload: payload });
+        return r;
       });
     });
   }
@@ -403,7 +502,7 @@
     }
     movimientos.sort(function (a, b) { return a.fecha - b.fecha; });
     _marcarConsumos(movimientos, todos, clienteId);
-    return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos };
+    return { saldo: +(centavos / 100).toFixed(2), movimientos: movimientos, conflictosAplicacion: movimientos.conflictosAplicacion || 0 };
   }
 
   // Deriva el saldo y el historial de UN cliente reproduciendo todos los
@@ -417,7 +516,7 @@
     return global.AMG.Hechos.todos().then(function (todos) {
       var r = calcularSaldo(todos, clienteId, _ventasActuales(ventas));
       return Promise.resolve(global.AMG.Hechos.verificarCadenas(todos)).then(function (integridad) {
-        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad };
+        return { saldo: r.saldo, movimientos: r.movimientos, integridad: integridad, conflictosAplicacion: r.conflictosAplicacion };
       });
     });
   }
@@ -496,6 +595,7 @@
     return {
       saldo: saldoInfo.saldo,
       integridad: saldoInfo.integridad,
+      conflictosAplicacion: saldoInfo.conflictosAplicacion || 0,
       tienePendiente: saldoInfo.saldo < 0,
       // El encargado ve el saldo de ESTE cliente (case by case), pero nunca el
       // historial completo de movimientos ni la posibilidad de exportar.
