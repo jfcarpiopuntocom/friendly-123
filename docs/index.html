@@ -8385,6 +8385,30 @@ async function cargarGastos(){
      costs/commissions; the separate cost-aware margin follows below. */
   const neto = ventasMes === null || gastosMes === null ? null
     : Math.round((ventasMes - gastosMes) * 100) / 100;
+  /* 2026-10-21 (Belen, item 11; acordado con Codex: conservar AMBAS magnitudes). Las ventas
+     netas no son el dinero que entro. Dinero recibido del mes = ventas cobradas en el acto
+     (ni fiado ni cortesia, no anuladas/devueltas) + abonos de fiados del mes. Los creditos a
+     favor (motivo con [for:] o [exp:]) NO son dinero recibido. Si algo no se puede leer: "—". */
+  let recibidoMes = null;
+  try {
+    const centsVentas = ventasParaGastos.filter((v) => {
+      if (!v || v.anulada || v.devuelta) return false;
+      const fp = (v.info && v.info.formaPago) || "";
+      return fp !== "fiado" && fp !== "cortesia" && window.OCSalesAudit.dayOf(v, zone).slice(0, 7) === _mesActual;
+    }).reduce((n, v) => n + Math.round((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0) * 100), 0);
+    let centsAbonos = 0;
+    if (window.AMG && window.AMG.Hechos && window.AMG.Hechos.todos) {
+      const hs = await window.AMG.Hechos.todos();
+      hs.forEach((h) => {
+        if (!h || h.tipo !== "cartera_abono") return;
+        const d = (h.datos && h.datos.payload) ? h.datos.payload : (h.datos || {});
+        if (/\[(for|exp):/.test(String(d.motivo || ""))) return;
+        const mes = window.OCBusinessReadModel.day(new Date(Number(h.ts) || 0).toISOString(), zone).slice(0, 7);
+        if (mes === _mesActual) centsAbonos += Math.round((Number(d.monto) || 0) * 100);
+      });
+    }
+    recibidoMes = (centsVentas + centsAbonos) / 100;
+  } catch (_) { recibidoMes = null; }
   const tarjeta = (label, valor, color) => `<div style="flex:1;min-width:120px;background:#FFFFFF;border:2px solid var(--linea,#D7E0E8);border-radius:10px;padding:12px 14px;">
     <div style="font-size:13px;color:var(--ink-soft);">${label}</div>
     <div style="font-size:20px;font-weight:700;color:${color};">${valor === null ? '—' : fmtMoney(valor)}</div></div>`;
@@ -8397,6 +8421,7 @@ async function cargarGastos(){
     tarjeta("Expenses (all time)", totalGastos, "var(--rojo-ink)") +
     (_verIngresos
       ? tarjeta("Sales this month", ventasMes, "var(--dinero-verde-dk)") +
+        tarjeta(localStorage.getItem('f123_lang') === 'es' ? "Dinero recibido este mes (ventas cobradas + abonos)" : "Money received this month (paid sales + payments on account)", recibidoMes, "var(--dinero-verde-dk)") +
         tarjeta("Sales less expenses (before costs and commissions)", neto,
           neto !== null && neto >= 0 ? "var(--dinero-verde-dk)" : "var(--rojo-ink)") +
         tarjeta(localStorage.getItem('f123_lang') === 'es'
