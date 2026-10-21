@@ -44,13 +44,13 @@ test('new-customer inline profile fields are optional and saved in the shared cu
   }
   const w = browser();
   const created = await w.request('/api/clientes','POST',{
-    nombre:'Synthetic profiled client',rangoEdad:'30-39',pais:'Ecuador',resideCuenca:true
+    nombre:'Synthetic profiled client',rangoEdad:'25-34',pais:'Ecuador',resideCuenca:true
   });
-  assert.equal(created.rangoEdad,'30-39');
+  assert.equal(created.rangoEdad,'25-34');
   assert.equal(created.pais,'Ecuador');
   assert.equal(created.resideCuenca,true);
   const saved = (await w.request('/api/clientes')).find(c=>c.id===created.id);
-  assert.equal(saved.rangoEdad,'30-39');
+  assert.equal(saved.rangoEdad,'25-34');
   assert.equal(saved.pais,'Ecuador');
   assert.equal(saved.resideCuenca,true);
   const unknown = await w.request('/api/clientes','POST',{nombre:'Synthetic without profile'});
