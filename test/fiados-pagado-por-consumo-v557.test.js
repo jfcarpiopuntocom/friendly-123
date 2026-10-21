@@ -266,4 +266,8 @@ test('chips de consumos conservan contraste en ambos estados sin cambiar el dise
   assert.match(ui, /#pp-ab-consumos \.pp-chip\.pp-chip-on\{background:#19354B !important;color:#FFFFFF !important/);
   assert.match(ui, /b\.classList\.add\("pp-chip-on"\)/);
   assert.match(ui, /b\.classList\.remove\("pp-chip-on"\)/);
+  assert.ok(ui.includes('!elegidos.length && !q("pp-ab-monto").value'),
+    'la respuesta tardía del plan no pisa la cifra elegida por quien cobra');
+  assert.equal(ui.includes('body: JSON.stringify({ abonoId: r.movimientoId, partes: partes }) }).then(function () { return r; }'), false,
+    'la UI nunca debe ocultar un fallo de asignación');
 });
