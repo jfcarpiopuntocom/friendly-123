@@ -53,6 +53,24 @@ test("P0 future-dated, non-ledger remote stock cannot override current",()=>{
     stockActual:20,stockTs:999999},3000);
   assert.equal(actual.stockActual,7);
 });
+test("P0 first proven PN sale may beat a milliseconds-newer legacy snapshot with the SAME stock base",()=>{
+  const previous={id:"p",nombre:"Actual",rev:{c:12,d:"pc"},
+    stockActual:1,stockTs:2005};
+  const sale={id:"p",nombre:"Old",rev:{c:2,d:"cel"},
+    stockActual:0,stockTs:2000,stockBase:1,stockPN:{sale1:{add:0,sub:1}}};
+  const merged=staleProductProjection(previous,sale,3000);
+  assert.equal(merged.nombre,"Actual");
+  assert.equal(merged.stockActual,0,"a documented physical sale must reach the second device");
+  assert.equal(merged.stockPN.sale1.sub,1);
+});
+test("P0 an ancient PN counter does NOT beat a newly corrected legacy inventory",()=>{
+  const previous={id:"p",nombre:"Actual",rev:{c:12,d:"pc"},
+    stockActual:1,stockTs:200000};
+  const stale={id:"p",nombre:"Old",rev:{c:2,d:"cel"},
+    stockActual:0,stockTs:1000,stockBase:1,stockPN:{old:{add:0,sub:1}}};
+  const merged=staleProductProjection(previous,stale,201000);
+  assert.equal(merged.stockActual,1);
+});
 test("P0 legacy zero never masks positive stock without a trusted ledger",()=>{
   const actual=staleProductProjection(current,{id:"p",nombre:"Old",rev:{c:2,d:"cel"},
     stockActual:0,stockTs:2000},3000);
