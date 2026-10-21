@@ -30,7 +30,7 @@ async function simulateCheckpoint(snap, yjs) {
     cifrar:async()=>new Uint8Array([1,2,3]).buffer,
     ab2b64:()=>"synthetic-ciphertext"
   };
-  const fn = vm.runInNewContext(checkpointFunction(),context);
+  const fn = vm.runInNewContext("(function(){\n" + checkpointFunction() + "\n})()",context);
   await fn(true);
   return {sent,events};
 }
@@ -65,7 +65,7 @@ test("P0: Yjs snapshot is forbidden until pull complete and dependencies resolve
     const c={permiteCkpt:true,API:{clave:{}},canal:{ws:{readyState:1},recuperando},
       _currentPullState:{enCurso},_appliedPullCursor:{rev:1},
       partesEntrantes:{},doc:{store:pending||{}},_outbox:{pending:[]}};
-    const fn=vm.runInNewContext(prefix.replace("      var checkpointCursor =",""),c);
+    const fn=vm.runInNewContext("(function(){\n"+prefix+"\n})()",c);
     return fn()===undefined;
   }
   // The guarded prefix returns undefined both on guard and normal flow;
@@ -76,7 +76,7 @@ test("P0: Yjs snapshot is forbidden until pull complete and dependencies resolve
     const ctx={permiteCkpt:true,API:{clave:{}},canal:{ws:{readyState:1},recuperando:recovering},
       _currentPullState:{enCurso:pull},_appliedPullCursor:{rev:1},
       partesEntrantes:{},doc:{store:pending||{}}};
-    return vm.runInNewContext(probe,ctx)();
+    return vm.runInNewContext("(function(){\n"+probe+"\n})()",ctx)();
   }
   assert.equal(result(true,false,{}),undefined);
   assert.equal(result(false,true,{}),undefined);
@@ -91,7 +91,7 @@ test("P0: empty first-join catalog cannot seed factory metadata before recovery"
   const probe=source.slice(a,b).replace("function sembrar()","function inspectSeed()")+
     "      return 'ALLOWED';\n    }\nreturn inspectSeed;";
   function run(recovering,cat) {
-    return vm.runInNewContext(probe,{_aplicando:false,API:{canal:{recuperando:recovering}},
+    return vm.runInNewContext("(function(){\n"+probe+"\n})()",{_aplicando:false,API:{canal:{recuperando:recovering}},
       window:{OCSync:{catalogoPropio:()=>cat}}})();
   }
   assert.equal(run(true,{productos:[],ubicaciones:[],ventas:[],clientes:[],nombreNegocio:"old local name"}),undefined);
