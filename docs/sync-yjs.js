@@ -567,6 +567,9 @@
     var _tCkpt = null;
     function hacerCkpt() {
       if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
+      // Never compact a partly restored store, even when an old applied cursor
+      // exists: a completed pull AND dependency-free document are required.
+      if (canal.recuperando || (_currentPullState && _currentPullState.enCurso)) return;
       // A page may contain only part of a large update. Those chunks are not
       // represented in the Y.Doc yet and cannot be compacted by its snapshot.
       if (_appliedPullCursor.rev < 0 || Object.keys(partesEntrantes).length) return;
@@ -1336,6 +1339,15 @@
       var cat;
       try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
       if (!cat) return;
+      /* A newly activated, empty phone is NOT evidence that the old shop
+         was deleted. Never publish its fallback name or factory-derived
+         metadata to Yjs while historical pages still need replay. A real
+         existing shop retains its local records and append-only outbox. */
+      if (API.canal && API.canal.recuperando) {
+        var _cuenta = (cat.productos || []).length + (cat.ubicaciones || []).length +
+                      (cat.ventas || []).length + (cat.clientes || []).length;
+        if (_cuenta === 0) return;
+      }
       var miRol = ""; try { if (window.OCAuth && OCAuth.rolActual) miRol = OCAuth.rolActual() || ""; } catch (_) {}
       try {
         API.doc.transact(function () {
