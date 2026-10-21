@@ -282,6 +282,7 @@
       var opId = String(d.opId || "");
       if (opId && opIds[opId]) {
         if (opIds[opId] !== JSON.stringify([ab, _partesAplicacion(d)])) conflictos++;
+        else aceptadas.push(String(h.id)); // mismo comando remoto: un efecto, ambos ACK válidos
         return;
       }
       var partes = _partesAplicacion(d), pedidoAbono = 0, pedidoCargo = Object.create(null);
