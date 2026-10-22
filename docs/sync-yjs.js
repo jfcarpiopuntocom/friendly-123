@@ -244,6 +244,7 @@
       } catch (_) { try { peer.pc.close(); } catch (_) {} delete _direct[msg.from]; }
     }
     function enviarDirecto(buf) {
+      if (_pausado || !permitido()) return false;
       var peers = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; });
       // v514: sin relay, se entrega en vivo a los pares directos abiertos, pero se devuelve false
       // para que el mismo cambio quede tambien en la cola del relay (nadie se queda sin el).
@@ -1039,7 +1040,11 @@
         }
       };
       _directReceive = function (buf) {
-        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf, "live"); })
+        if (_pausado || !permitido()) return;
+        _colaRecepcion = _colaRecepcion.then(function () {
+          if (_pausado || !permitido()) return false;
+          return manejar(buf, "live");
+        })
           .catch(function (e) {
             // Live-only fast path is optional; durable relay replay remains
             // authoritative and MUST keep processing subsequent frames.
