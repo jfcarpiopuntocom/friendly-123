@@ -5072,8 +5072,9 @@
       let entered = false, expired = false, timer, failure;
       const timeoutError = () => {
         if (failure) return failure;
-        const error = window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "en"
-          ? "Not saved. Please try again." : "No se guardó. Intenta de nuevo.";
+        let spanish = false;
+        try { spanish = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es"); } catch (_) {}
+        const error = spanish ? "No se guardó. Intenta de nuevo." : "Not saved. Please try again.";
         try {
           let notice = document.getElementById("oc-write-timeout");
           if (!notice) {
@@ -5081,9 +5082,11 @@
             notice.id = "oc-write-timeout";
             notice.setAttribute("role", "alert");
             notice.style.cssText = "position:fixed;z-index:10005;left:16px;right:16px;bottom:16px;padding:16px;border-radius:8px;background:#7C1722;color:#FFFFFF;font-size:16px;font-weight:700;line-height:1.4;";
+            notice.addEventListener("click", () => notice.remove());
             document.body.appendChild(notice);
           }
           notice.textContent = error;
+          setTimeout(() => { try { notice.remove(); } catch (_) {} }, 15000);
         } catch (_) {}
         failure = new Response(JSON.stringify({ error }), { status: 503, headers: { "Content-Type": "application/json" } });
         return failure;
