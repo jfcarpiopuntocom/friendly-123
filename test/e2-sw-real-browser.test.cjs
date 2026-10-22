@@ -92,6 +92,19 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
   assert.equal(result.session,"synthetic-e2","preserve session on worker replacement");
   assert.match(String(result.version),/f123-shell-v560-e2fixture/);
   assert.doesNotMatch(result.text,/Purge|reload/i);
+  // RED regression: returning to an already-open installed PWA requests one
+  // worker update, never one request per repeated visible event.
+  await p.evaluate(()=>{
+    window.__e2UpdateCalls=0;
+    ServiceWorkerRegistration.prototype.update=function(){
+      window.__e2UpdateCalls++;return Promise.resolve();
+    };
+    document.dispatchEvent(new Event("visibilitychange"));
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await p.waitForTimeout(150);
+  assert.equal(await p.evaluate(()=>window.__e2UpdateCalls),1,
+    "two rapid foreground events must issue one throttled worker update");
   await ctx.close();
  } finally {if(browser)await browser.close();await new Promise(ok=>server.close(ok));}
 });
