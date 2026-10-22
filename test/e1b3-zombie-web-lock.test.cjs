@@ -28,7 +28,7 @@ test("E1b-3 S1 RED: never granted lock times out without executing a sale",async
  const timeout=[...f.timers.values()].find(t=>t.delay===10000);
  assert.ok(timeout,"10s acquisition timeout must be scheduled");
  timeout.fn();
- const outcome=await Promise.race([call,Promise.resolve().then(()=>Promise.resolve()).then(()=>Symbol("pending"))]);
+ const outcome=await Promise.race([call,new Promise(resolve=>setImmediate(()=>resolve(Symbol("pending"))))]);
  assert.notEqual(typeof outcome,"symbol","pending lock must resolve to a clear error response");
  assert.equal(outcome.status,503);
  assert.equal(f.calls,0,"never execute an ungranted sale");
