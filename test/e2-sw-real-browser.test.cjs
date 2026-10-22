@@ -54,6 +54,12 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
    return {scope:reg.scope,active:reg.active?.state};
   });
   console.log("E2 old worker ready:",JSON.stringify(state));
+  // The first visit is normally uncontrolled; exercise the installed PWA's return visit.
+  await p.waitForFunction(async()=>{
+    const r=await navigator.serviceWorker.getRegistration();
+    return r?.active?.state==="activated";
+  },null,{timeout:20000});
+  await p.reload();
   await p.waitForFunction(()=>!!navigator.serviceWorker.controller,null,{timeout:20000});
   await p.clock.install(); // only after the old worker is fully controlling this tab
   candidate=true;
