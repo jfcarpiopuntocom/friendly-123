@@ -108,3 +108,42 @@ test('Shelves render before photo work and ignore stale photo completions', asyn
     await browser.close();
   }
 });
+
+
+test('E6: photo recovery shows a delayed accessible hint and removes it when ready or photographed', async () => {
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    await page.setContent('<section id="vista-perchas" class="activa"><div id="vp-orden"></div><div id="vp-grid"></div><div id="vp-transfers"></div></section>');
+    await page.evaluate(() => {
+      window.t = key => ({'shelves.noTarget':'No target','shelves.ofTargetMet':'% target',
+        'shelves.monthlySales':'Monthly sales','shelves.target':'Target',
+        'shelves.commission':'Commission','shelves.promoter':'Promoter',
+        'shelves.open':'Open','shelves.transfersHeading':'Transfers'}[key] || key);
+      window.OCI18n = { locale: () => 'en-US' };
+      window.OCMoneda = { codigo: () => 'USD' };
+      window.OCAuth = { puedeGestionar: () => false, rolActual: () => 'admin' };
+      window.OCYjs = { fotosCanal: { recuperando: true } };
+      window.OCFotos = { migrarSiHaceFalta: async () => {},
+        leerTodas: async () => window.__photo ? {'shelf-e6': window.__photo} : {} };
+      window.F123Application = { recoverShelfPhoto: async () => null };
+      window.fetch = async input => {
+        const body = String(input).endsWith('/ubicaciones')
+          ? [{id:'shelf-e6',nombre:'Example shelf',activa:true,tipo:'propio'}] : [];
+        return new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}});
+      };
+    });
+    await page.addScriptTag({path:path.resolve(__dirname,'../docs/vista-perchas.js')});
+    await page.evaluate(() => window.VPerchas.cargar());
+    const visual = '#vp-grid [data-vp-foto-visual="shelf-e6"]';
+    await page.waitForFunction(sel => !!document.querySelector(sel), visual);
+    assert.doesNotMatch(await page.locator(visual).innerText(), /Loading photo/);
+    await page.waitForTimeout(3400);
+    assert.match(await page.locator(visual).innerText(), /Loading photo/);
+    await page.evaluate(() => { window.OCYjs.fotosCanal.recuperando = false; });
+    await page.waitForFunction(sel => !/Loading photo/.test(document.querySelector(sel)?.textContent || ''), visual);
+    await page.evaluate(() => {window.__photo = 'data:image/png;base64,Zm90bw==';window.VPerchas.cargar();});
+    await page.waitForFunction(sel => document.querySelector(sel)?.tagName === 'IMG', visual);
+    assert.equal(await page.locator(visual).getAttribute('src'), 'data:image/png;base64,Zm90bw==');
+  } finally { await browser.close(); }
+});
