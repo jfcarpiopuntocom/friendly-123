@@ -1,6 +1,7 @@
 "use strict";
 const {test}=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),http=require("node:http");
+// Local npm test prerequisite: npx playwright install chromium (CI already installs it).
 const {chromium}=require("playwright");
 const html=fs.readFileSync("docs/index.html","utf8");
 const swOriginal=fs.readFileSync("docs/sw.js","utf8");
@@ -8,6 +9,11 @@ const swOriginal=fs.readFileSync("docs/sw.js","utf8");
 const sw=swOriginal.replace(/const SHELL = \[[\s\S]*?\n\];/,
   'const SHELL = ["./index.html"];');
 assert.notEqual(sw,swOriginal,"fixture must replace the real SW precache manifest");
+const shellNow=(sw.match(/const CACHE = "(f123-shell-v[0-9]+)";/)||[])[1];
+assert.ok(shellNow,"read the real release shell from sw.js");
+const shellNext=shellNow+"-e2fixture";
+const swNew=sw.replace(`const CACHE = "${shellNow}";`,`const CACHE = "${shellNext}";`);
+assert.notEqual(swNew,sw,"updated SW fixture must change actual bytes");
 const reg=html.split("\n").find(s=>s.includes('navigator.serviceWorker.register("./sw.js"'));
 const start=html.indexOf("const _ocActSolaOn = true;");
 const end=html.indexOf("// Microcirugia 5",start);
@@ -21,20 +27,17 @@ function pageHtml(candidate) {
   'window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"}));')+
   '</script></body></html>';
 }
-test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge", {timeout:120000},async()=>{
+test("E2 Chromium: existing installed SW adopts new shell automatically without Purge", {timeout:120000},async()=>{
  let phase="old",candidate=false;
  const server=http.createServer((req,res)=>{
   const path=new URL(req.url,"http://127.0.0.1").pathname;
   res.setHeader("Cache-Control","no-store");
   if(path==="/app/sw.js"){
    res.setHeader("Content-Type","text/javascript");
-   const source=phase==="old"?sw:sw.replace('const CACHE = "f123-shell-v559";',
-     'const CACHE = "f123-shell-v560-e2fixture";');
-   assert.notEqual(phase==="new"?source:sw,"", "SW bytes must be present");
-   return res.end(source);
+   return res.end(phase==="old"?sw:swNew);
   }
   if(path==="/app/version.json"){res.setHeader("Content-Type","application/json");
-    return res.end(JSON.stringify({version:"1.0",shell:phase==="old"?"f123-shell-v559":"f123-shell-v560-e2fixture"}));}
+    return res.end(JSON.stringify({version:"1.0",shell:phase==="old"?shellNow:shellNext}));}
   if(path==="/app/index.html"){res.setHeader("Content-Type","text/html");return res.end(pageHtml(candidate));}
   res.statusCode=404;res.end("E2 fixture only");
  });
@@ -90,19 +93,20 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
     text:document.body.innerText}));
   assert.equal(result.loads,initial+1,"only one automatic safe reload for this shell");
   assert.equal(result.session,"synthetic-e2","preserve session on worker replacement");
-  assert.match(String(result.version),/f123-shell-v560-e2fixture/);
+  assert.equal(result.version,shellNext);
   assert.doesNotMatch(result.text,/Purge|reload/i);
   // RED regression: returning to an already-open installed PWA requests one
   // worker update, never one request per repeated visible event.
-  await p.evaluate(()=>{
+  await p.evaluate(async()=>{
     window.__e2UpdateCalls=0;
+    let done;const invoked=new Promise(resolve=>{done=resolve;});
     ServiceWorkerRegistration.prototype.update=function(){
-      window.__e2UpdateCalls++;return Promise.resolve();
+      window.__e2UpdateCalls++;done();return Promise.resolve();
     };
     document.dispatchEvent(new Event("visibilitychange"));
     document.dispatchEvent(new Event("visibilitychange"));
+    await invoked;await Promise.resolve();
   });
-  await p.waitForTimeout(150);
   assert.equal(await p.evaluate(()=>window.__e2UpdateCalls),1,
     "two rapid foreground events must issue one throttled worker update");
   await ctx.close();
