@@ -71,15 +71,11 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
   console.log("E2 reopened PWA:",JSON.stringify(ctl));
   await p.waitForFunction(()=>!!navigator.serviceWorker.controller,null,{timeout:15000});
   await p.clock.install(); // only after the old worker is fully controlling this tab
-  candidate=true;
-  await p.reload();
-  const candidateState=await p.evaluate(()=>({
-    hasAuto:!!window._ocActSola, hasController:!!navigator.serviceWorker.controller,
-    scripts:document.scripts.length, html:document.documentElement.outerHTML.slice(0,180),
-    version:sessionStorage.getItem("e2-loads")
-  }));
-  console.log("E2 candidate state:",JSON.stringify(candidateState));
+  // Inject the exact E2 IIFE from the candidate source into the controlled tab.
+  // This models a long-lived PWA without a navigation to bootstrap a new shell.
+  await p.addScriptTag({content:auto});
   await p.waitForFunction(()=>window._ocActSola&&navigator.serviceWorker.controller,null,{timeout:10000});
+  candidate=true; // only the eventual safe reload serves the candidate HTML
   const initial=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
   phase="new"; // change only the localhost test server, never GitHub Pages
   // Returning to a visible installed PWA must ask for a fresh worker.
