@@ -9,7 +9,7 @@ assert.ok(a>0&&b>a);
 function fixture(locks) {
  let calls=0,id=0;const timers=new Map(),notices=[];
  const document={body:{appendChild(node){notices.push(node)}},getElementById(){return null},
-  createElement:()=>({style:{},setAttribute(){},remove(){}})};
+  createElement:()=>({style:{},setAttribute(){},addEventListener(n,fn){if(n==="click")this.onClick=fn;},remove(){this.removed=true;}})};
  const ctx={navigator:{locks},document,Response,URL,Promise,AbortController,
   setTimeout(fn,delay){let key=++id;timers.set(key,{fn,delay});return key;},
   clearTimeout(key){timers.delete(key);},_negadoPorRol:()=>null,_payoutPendiente:null,
@@ -55,4 +55,29 @@ test("E1b-3 S1 RED: normal grant and single-tab login need no zombie waiting",as
  assert.equal(res.status,200);assert.equal(f.calls,1);
  assert.doesNotMatch(tabs,/navigator\.locks\.request\('f123-escrituras',take\)/,
   "tab lease must never queue behind a zombie sales write");
+});
+
+
+test("E1b-3 RED: language lookup exception still returns 503 and explicit unsaved English warning",async()=>{
+ const f=fixture({request:()=>new Promise(()=>{})});
+ f.ctx.window.OCI18n={getLang(){throw Error("language service crashed");}};
+ const call=f.fetch("/api/ventas",post);
+ const timeout=[...f.timers.values()].find(t=>t.delay===10000);assert.ok(timeout);
+ timeout.fn();
+ const res=await Promise.race([call,new Promise(r=>setImmediate(()=>r("PENDING")))]);
+ assert.notEqual(res,"PENDING");assert.equal(res.status,503);
+ assert.equal(f.calls,0);
+ assert.equal(f.notices[0].textContent,"Not saved. Please try again.");
+});
+test("E1b-3 RED: failure notice dismisses on click or after bounded timeout",async()=>{
+ const f=fixture({request:()=>new Promise(()=>{})});
+ const call=f.fetch("/api/ventas",post);
+ const timeout=[...f.timers.values()].find(t=>t.delay===10000);timeout.fn();
+ assert.equal((await call).status,503);
+ const notice=f.notices[0];
+ assert.equal(typeof notice.onClick,"function","click-to-dismiss handler");
+ const timer=[...f.timers.values()].find(t=>t.delay===15000);
+ assert.ok(timer,"15s stale-error removal");
+ notice.onClick();assert.equal(notice.removed,true);
+ notice.removed=false;timer.fn();assert.equal(notice.removed,true);
 });
