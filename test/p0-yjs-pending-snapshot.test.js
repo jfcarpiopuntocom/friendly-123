@@ -16,7 +16,7 @@ const actual=src.slice(begin,end);
 function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false,prior=null,tamperReadback=false,syncedHeld=false,failRestore=false,dbOpenFails=false}={}){
  const values=new Map();
  if(prior)values.set("cursor",prior);
- let resumeHydration, watchdog;
+ let resumeHydration, watchdog, headTimeout;
  const events=[],ctx={
    Y:{
      encodeStateVector:()=>new Uint8Array([0]),
@@ -39,7 +39,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
      set:async(key,value)=>{events.push("set");if(failWrite)throw Error("synthetic quota");values.set(key,value);}
    },
    Promise,Uint8Array,ArrayBuffer,Number,Math,Object,Date,JSON,console,
-   setTimeout(fn,ms){if(ms===25000){watchdog=fn;return 999;}return setImmediate(fn);},
+   setTimeout(fn,ms){if(ms===25000){watchdog=fn;return 999;}if(ms===1800){headTimeout=fn;return 1800;}return setImmediate(fn);},
    clearTimeout(id){if(id===999)watchdog=null;}, 
  };
  if(dbOpenFails){
@@ -49,7 +49,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
  }
  vm.createContext(ctx);
  vm.runInContext(actual,ctx);
- return {ctx,events,values,async ready(){await ctx._pullCursorReady;},save:c=>ctx.guardarPullCursor(c),releaseHydration:()=>resumeHydration?.(),fireWatchdog:()=>watchdog?.()};
+ return {ctx,events,values,async ready(){await ctx._pullCursorReady;},save:c=>ctx.guardarPullCursor(c),releaseHydration:()=>resumeHydration?.(),fireWatchdog:()=>watchdog?.(),fireHeadTimeout:()=>headTimeout?.()};
 }
 test("fragmented ciphertext cannot approve a cursor, even with Yjs pending snapshot",async()=>{
  const a=fixture({fragments:true});await a.ready();await a.save({rev:0,seq:4,more:false});
@@ -367,4 +367,36 @@ test("E1b-1 RED: head probe precedes encrypted download on initial sync",async()
 test("E1b-1 RED: transport recognizes and replies to read-only head probe",()=>{
  const transport=fs.readFileSync(path.join(__dirname,"../supabase-relay/transport.mjs"),"utf8");
  assert.match(transport,/command\.k === 'head'/,"the real transport must carry a read-only head result");
+});
+
+test("E1b-1 RED: ten unchanged minutes download zero encrypted pages",async()=>{
+ const f=fixture({pending:false,prior:{rev:3,seq:9000}});await f.ready();
+ const sent=[],sock={readyState:1,send:j=>sent.push(JSON.parse(j))};
+ f.ctx.canal.ws=sock;
+ for(let minute=0;minute<10;minute++){
+  const state={enCurso:false,fallos:0,usarHead:true};
+  await f.ctx.pedirPagina(sock,state);
+  await f.ctx.procesarHead(sock,state,{rev:3,seq:9000});
+ }
+ assert.equal(sent.filter(x=>x.k==="pull").length,0);
+ assert.equal(sent.filter(x=>x.k==="head").length,10);
+});
+test("E1b-1 RED: changed revision and legacy failure both use safe original pull",async()=>{
+ const f=fixture({pending:false,prior:{rev:3,seq:9000}});await f.ready();
+ const sent=[],sock={readyState:1,send:j=>sent.push(JSON.parse(j))};
+ f.ctx.canal.ws=sock;
+ for(const result of [{rev:4,seq:9000},{unsupported:true}]){
+  const state={enCurso:false,fallos:0,usarHead:true};
+  await f.ctx.pedirPagina(sock,state);
+  await f.ctx.procesarHead(sock,state,result);
+ }
+ assert.deepEqual(sent.map(x=>x.k),["head","pull","head","pull"]);
+ assert.ok(sent.filter(x=>x.k==="pull").every(x=>x.rev===3&&x.seq===9000));
+});
+test("E1b-1 RED: continued pagination never repeats the head query",async()=>{
+ const f=fixture({pending:false,prior:{rev:3,seq:9000}});await f.ready();
+ const sent=[],sock={readyState:1,send:j=>sent.push(JSON.parse(j))};
+ f.ctx.canal.ws=sock;
+ await f.ctx.pedirPagina(sock,{enCurso:true,fallos:0,usarHead:true},true);
+ assert.deepEqual(sent.map(x=>x.k),["pull"]);
 });
