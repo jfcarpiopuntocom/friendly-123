@@ -138,7 +138,8 @@ test('E6: photo recovery shows a delayed accessible hint and removes it when rea
     const visual = '#vp-grid [data-vp-foto-visual="shelf-e6"]';
     await page.waitForFunction(sel => !!document.querySelector(sel), visual);
     assert.doesNotMatch(await page.locator(visual).innerText(), /Loading photo/);
-    await page.waitForTimeout(3400);
+    await page.waitForFunction(sel => /Loading photo/.test(document.querySelector(sel)?.textContent || ''),
+      visual, { timeout: 6000 });
     assert.match(await page.locator(visual).innerText(), /Loading photo/);
     assert.equal(await page.locator(visual).getAttribute('role'), 'status');
     assert.equal(await page.locator(visual).getAttribute('aria-live'), 'polite');
