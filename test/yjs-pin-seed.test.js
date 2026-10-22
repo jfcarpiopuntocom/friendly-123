@@ -84,3 +84,26 @@ test('full Yjs replay preserves custom PIN metadata through a fresh peer reseed'
   fresh.OCYjs._store.sembrar();
   assert.deepEqual(JSON.parse(JSON.stringify(fresh.OCYjs.meta.get('pinsRol'))), { owner: '642', emp: '583', acct: '914' });
 });
+
+
+test('E4: a stale authenticated owner peer cannot overwrite a newer shared name on equal revision', async () => {
+  const current = await peer();
+  const stale = await peer();
+  const catalog = (w, name, rev, ts) => {
+    const original = w.OCSync.catalogoPropio;
+    w.OCSync.catalogoPropio = () => ({ ...original(), nombreNegocio: name,
+      nombreNegocioRev: rev, nombreNegocioTs: ts });
+  };
+  catalog(current, '17 de Septiembre', 7, 1000);
+  current.OCYjs._store.sembrar();
+  stale.Y.applyUpdate(stale.OCYjs.doc, current.Y.encodeStateAsUpdate(current.OCYjs.doc), 'red');
+  assert.equal(stale.OCYjs.meta.get('nombreNegocio'), '17 de Septiembre');
+  catalog(stale, 'My small shop USA', 7, 999999);
+  stale.OCYjs._store.sembrar();
+  assert.equal(stale.OCYjs.meta.get('nombreNegocio'), '17 de Septiembre',
+    'equal revisions must never let a stale phone overwrite the owner name even with a future timestamp');
+  catalog(stale, 'New owner rename', 8, 1000000);
+  stale.OCYjs._store.sembrar();
+  assert.equal(stale.OCYjs.meta.get('nombreNegocio'), 'New owner rename',
+    'a higher authenticated owner revision must still publish');
+});
