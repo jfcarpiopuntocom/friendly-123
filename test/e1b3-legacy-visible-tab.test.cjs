@@ -38,3 +38,13 @@ test("E1b-3 RED: legacy listener lifecycle responds without touching business ou
  hidden=false;lease=false;listeners["oc-tab-session-changed"]();assert.equal(closed,2);assert.equal(connected,0);
  lease=true;listeners["oc-tab-session-changed"]();assert.equal(connected,1);
 });
+
+
+test("E1b-3 RED: stale legacy connection cannot overwrite a newer room key",()=>{
+ const a=src.indexOf("  async function conectar() {"),b=src.indexOf("/* ========================================================================== ",a);
+ const body=src.slice(a,b);assert.ok(a>0&&b>a);
+ assert.match(body,/const claveDerivada = await derivarClave\(codigoNorm\)/);
+ assert.match(body,/if \(!puedeConectarLegado\(\) \|\| miGeneracion !== _conexionGeneracion\) return;\s*claveActual = claveDerivada/);
+ assert.match(body,/const salaDerivada = await idDeSala\(_salaCod\)/);
+ assert.match(body,/if \(!puedeConectarLegado\(\) \|\| miGeneracion !== _conexionGeneracion\) return;\s*salaIdActual = salaDerivada/);
+});
