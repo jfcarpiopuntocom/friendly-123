@@ -142,6 +142,9 @@ test('E6: photo recovery shows a delayed accessible hint and removes it when rea
     assert.match(await page.locator(visual).innerText(), /Loading photo/);
     assert.equal(await page.locator(visual).getAttribute('role'), 'status');
     assert.equal(await page.locator(visual).getAttribute('aria-live'), 'polite');
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    assert.equal(await page.locator(visual).evaluate(el => getComputedStyle(el).animationName), 'none',
+      'reduced-motion users never receive the loading pulse');
     await page.evaluate(() => { window.OCYjs.fotosCanal.recuperando = false; });
     await page.waitForFunction(sel => !/Loading photo/.test(document.querySelector(sel)?.textContent || ''), visual);
     assert.equal(await page.locator(visual).getAttribute('role'), null);
