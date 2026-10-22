@@ -146,3 +146,26 @@ test("E1b-3 RED: direct peer send/receive stop while hidden or lease displaced",
  allowed=false;ctx._directReceive(new Uint8Array([3]));await ctx._colaRecepcion;
  assert.equal(receives,1,"displaced tab cannot process direct frames");
 });
+
+
+test("E1b-3 RED: paused during async direct decryption never applies old-tab Yjs bytes",async()=>{
+ const vm=require("node:vm");
+ const a=sync.indexOf("      function manejar(buf, source) {");
+ const b=sync.indexOf("      ws.onmessage = function (ev) {",a);
+ assert.ok(a>0&&b>a);
+ let finish,applied=0;
+ const ctx={Promise,Uint8Array,TextDecoder,JSON,Date,
+  API:{clave:"synthetic",_catalogoRevision:0},doc:{},nombre:"catalogo",
+  _pausado:false,permitido:()=>true,
+  descifrarBin:()=>new Promise(resolve=>{finish=resolve}),
+  Y:{encodeStateVector:()=>new Uint8Array([0]),applyUpdate:()=>{applied++}},
+  clavePendientes:()=>"",despertarConCambio(){},appliedUpdate(){},
+  canal:{ws:{readyState:1}},log(){}};
+ vm.createContext(ctx);vm.runInContext(sync.slice(a,b),ctx);
+ const working=ctx.manejar(new Uint8Array([4,5]),"live");
+ await Promise.resolve();await Promise.resolve();
+ assert.equal(typeof finish,"function");
+ ctx._pausado=true;finish(new Uint8Array([0,9]));
+ await working;
+ assert.equal(applied,0,"no Yjs apply after tab becomes hidden during decryption");
+});
