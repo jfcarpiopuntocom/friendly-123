@@ -31,5 +31,6 @@ test('PIN gate reports the controlling service worker when a newer cache also ex
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(asked, true);
   assert.match(label.textContent, /shell-v306/);
-  assert.match(label.textContent, /versión vieja/);
+  assert.match(label.textContent, /actualización automática pendiente/);
+  assert.doesNotMatch(label.textContent, /Purge|borra(r)? caché|recarga(r)? manual/i);
 });
