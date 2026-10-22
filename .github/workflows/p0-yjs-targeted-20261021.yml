@@ -1,0 +1,22 @@
+name: P0 Yjs pending snapshot targeted
+on:
+  push:
+    branches:
+      - test/p0-yjs-durable-pending-20261021
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  targeted:
+    name: Fast offline Yjs safety proof
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Parse actual production Yjs module
+        run: node --check docs/sync-yjs.js
+      - name: Exercise recovery, pending dependency and crash boundaries
+        run: node --test test/p0-yjs-pending-snapshot.test.js
