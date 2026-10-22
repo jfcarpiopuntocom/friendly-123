@@ -50,7 +50,11 @@ test('PIN eligibility waits for the terminal page and ignores a replaced socket 
  assert.equal(a.channel.recuperando,true,'old sockets cannot finish a new recovery');assert.equal(applied,0);
  a.channel.ws=socket;a.p.set=originalSet;
  socket.onmessage({data:JSON.stringify({k:'pull-page',rev:1,seq:3,more:false})});await tick();await tick();
- assert.equal(a.channel.recuperando,false);assert.equal(applied,1,'final metadata is applied without requiring another update');
+ assert.equal(a.channel.recuperando,true,'a terminal page alone must not unlock PIN adoption');
+ assert.equal(applied,0,'PIN metadata remains protected while relay HEAD confirmation is outstanding');
+ assert.ok(socket.sent.some(m=>mensaje(m)?.k==='head'),'the terminal page requests a final relay HEAD');
+ socket.onmessage({data:JSON.stringify({k:'head-result',rev:1,seq:3})});await tick();await tick();
+ assert.equal(a.channel.recuperando,false);assert.equal(applied,1,'confirmed terminal metadata is applied without requiring another update');
 });
 
 test('a terminal page with missing fragments or Yjs dependencies cannot unlock PIN adoption',async()=>{
