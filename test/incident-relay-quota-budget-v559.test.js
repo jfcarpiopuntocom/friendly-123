@@ -80,6 +80,7 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  const clock=fakeClock(),ctx={
   API:{clave:{},_store:null},canal:{ws:null,recuperando:true},pullEstado:{enCurso:false,fallos:0},
   _colaRecepcion:Promise.resolve(),_pullCursor:{rev:0,seq:0},_appliedPullCursor:{rev:0,seq:0},_pullCursorReady:Promise.resolve(),
+  _soloMemoria:false,_cursorContainsPending:false,_ultimoCursorLimpio:{rev:-1,seq:0},
   _replayDelay:30000,_tReplay:null,_replayKey:null,_replayUsed:0,partesEntrantes:{},_relayPeerCount:0,
   doc:{store:{pendingStructs:{missingParent:true}}},manejar:async()=>{ctx.partesEntrantes.fragment={received:1,total:2};return true;},confirmarDurable(){},
   guardarPullCursor:async c=>{ctx._pullCursor={rev:c.rev,seq:c.seq};if(!ctx.doc.store.pendingStructs&&!Object.keys(ctx.partesEntrantes).length)ctx._appliedPullCursor={rev:c.rev,seq:c.seq};},

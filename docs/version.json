@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-22",
-  "changelog": "v561 single STABLE candidate: E1 low-quota sync, E1b one session, E2 auto update, E3 paste, E4 owner name, E5 regression and E6 delayed photo feedback; 1AAA safety.",
+  "changelog": "v562 LAB candidate: E1-E6 fixes, one initial Yjs connection per channel, corrected deterministic regression fixtures, final gated tests; no publication or customer data changes.",
   "requerida": false,
-  "shell": "f123-shell-v561",
+  "shell": "f123-shell-v562",
   "apagar": [],
-  "releaseName": "v561",
-  "cacheGeneration": "golden125"
+  "releaseName": "v562",
+  "cacheGeneration": "golden126"
 }

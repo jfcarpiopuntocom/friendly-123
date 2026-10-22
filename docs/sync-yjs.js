@@ -1363,7 +1363,10 @@
     API.canal.conectar();      // catálogo + _meta (nombre, pinsRol) — sala "-y"
     API.fotosCanal.conectar(); // bytes de las fotos — sala "-fotos"
     API.opsCanal.conectar();   // ventas/ops — sala "-ops"
-    sincronizarVisibilidad(); // same-tab PIN handoff and hidden-tab pause
+    // The channels were just connected. Re-invoking reanudar() on a visible
+    // tab repeats all three connection attempts when relay is offline.
+    // A hidden/inactive tab must still be paused immediately (no data sends).
+    if (document.hidden || (window.OCTabSession && !OCTabSession.canSync())) sincronizarVisibilidad();
     conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
     conectarHechos();    // cartera y caja chica: hechos inmutables por ID
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
