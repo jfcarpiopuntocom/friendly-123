@@ -18,7 +18,7 @@ function fakeClock(){let now=0,next=1;const jobs=new Map();return{
 
 function backend(){
  const rows=[],metrics={rpc:[],rpcResponseBytes:0,frameBytes:0};
- const client={async rpc(name,params){let data;
+ const client={async rpc(name,params){let data,error=null;
   if(name==="f123_relay_route")data={mode:"supabase"};
   else if(name==="f123_relay_has_topic")data=true;
   else if(name==="f123_relay_command"){
@@ -28,12 +28,13 @@ function backend(){
     const old=Number(m.seq)||0,page=rows.filter(r=>r.seq>old).slice(0,Number(m.limit)||250);
     data={frames:page.map(r=>r.c),rev:0,seq:rows.length,n:page.length,more:false};
     metrics.frameBytes+=page.reduce((n,r)=>n+Buffer.from(r.c,"base64").length,0);
-   }else data={ok:true,conflict:false};
+   }else if(params.p_action==="head"){data=null;error={code:"HEAD_UNSUPPORTED"};} // explicit legacy relay fixture
+   else data={ok:true,conflict:false};
   }else throw Error("Unexpected RPC "+name);
   const requestBytes=enc.encode(JSON.stringify(params)).byteLength;
-  const responseBytes=enc.encode(JSON.stringify({data,error:null})).byteLength;
+  const responseBytes=enc.encode(JSON.stringify({data,error})).byteLength;
   metrics.rpc.push({name,action:params.p_action||null,requestBytes,responseBytes,seq:params.p_message?.seq});
-  metrics.rpcResponseBytes+=responseBytes;return{data,error:null};
+  metrics.rpcResponseBytes+=responseBytes;return{data,error};
  }};
  client.channel=topic=>({topic,on(){return this;},subscribe(fn){queueMicrotask(()=>fn("SUBSCRIBED"));return this;},
   async track(){return"ok";},presenceState(){return{};},async send(){return"ok";}});
@@ -149,7 +150,11 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  await freshActor.openAndDrain(newProcess,freshState);
  assert.equal(db.metrics.frameBytes,2*64*1024,"fresh process replays from durable seq 0 to recover the uncommitted page");
  const allPulls=db.metrics.rpc.filter(x=>x.name==="f123_relay_command"&&x.action==="pull");
- assert.deepEqual(allPulls.map(x=>x.seq),[0,1,1,0]);
+ // This fixture explicitly models a legacy server without HEAD. Recovery may
+ // make ONE extra empty incremental pull at the high-water cursor (seq 1),
+ // but must not fetch any old 64 KiB page twice within the same lifetime.
+ assert.deepEqual(allPulls.map(x=>x.seq),[0,1,1,0,1]);
+ assert.equal(db.metrics.frameBytes,2*64*1024,"legacy HEAD fallback must add zero replay bytes");
  assert.ok(db.metrics.rpcResponseBytes>2*64*1024,"base64 JSON response bytes also exceed raw frame bytes");
  newProcess.close();ws.close();writer.close();await d.transport.dispose();
 });
