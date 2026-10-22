@@ -91,6 +91,8 @@
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
+    var _pausado = false, _tReconnect = null;
+    function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
     var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
     /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
@@ -242,6 +244,7 @@
       } catch (_) { try { peer.pc.close(); } catch (_) {} delete _direct[msg.from]; }
     }
     function enviarDirecto(buf) {
+      if (_pausado || !permitido()) return false;
       var peers = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; });
       // v514: sin relay, se entrega en vivo a los pares directos abiertos, pero se devuelve false
       // para que el mismo cambio quede tambien en la cola del relay (nadie se queda sin el).
@@ -300,6 +303,7 @@
     // Keep a handled rejection, but do not overwrite an unread outbox after a read failure.
     _durableQueue.catch(function () { log("no se pudo leer pendientes del relay en " + nombre); });
     function programarDurable() {
+      if (_pausado || !permitido()) return; // queued ops stay in durable storage
       var inFlight = Object.keys(_durableInFlight);
       if (inFlight.length && !_durableWatchdog && canal.ws && canal.ws.readyState === 1) {
         var oldest = Math.min.apply(null, inFlight.map(function (id) { return _durableInFlight[id].at; }));
@@ -373,6 +377,7 @@
       return false;
     }
     function drenarDurable() {
+      if (_pausado || !permitido()) return;
       var ws = canal.ws;
       if (!ws || ws.readyState !== 1) { programarDurable(); return; }
       var capacity = Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
@@ -691,10 +696,11 @@
       return pedirPagina(sock, estado, true); // newer revision or legacy server
     }
     function reprogramar() {
+      if (_pausado || !permitido() || _tReconnect) return;
       reintentos++;
-      var base = Math.min(30000, 1000 * Math.pow(2, Math.min(reintentos, 5))); // 2,4,8,16,32->30s
-      var delay = base / 2 + Math.random() * base / 2; // jitter: no todos reconectan a la vez
-      setTimeout(conectar, delay);
+      var base = Math.min(30000, 1000 * Math.pow(2, Math.min(reintentos, 5)));
+      var delay = base / 2 + Math.random() * base / 2;
+      _tReconnect = setTimeout(function () { _tReconnect = null; conectar(); }, delay);
     }
     function enviar(tag, payload) {
       if (!API.clave) return;
@@ -822,6 +828,8 @@
       }).catch(function () {});
     }
     function conectar() {
+      if (_pausado || !permitido()) return;
+      if (canal.ws && canal.ws.readyState < 2) return;
       var url = RELAY_URL + API.roomId + suffix;
       var ws; try {
         if (!window.F123Relay || typeof window.F123Relay.connect !== "function") throw new Error("native relay unavailable");
@@ -831,6 +839,9 @@
       _currentPullState = pullEstado;
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
+        if (_pausado || !permitido() || canal.ws !== ws) {
+          try { ws.close(1000, "inactive tab"); } catch (_) {} return;
+        }
         _lastRelayProgressAt = Date.now();
         /* Un upgrade que abre y cae enseguida NO es una conexion sana. Antes
            reseteaba el backoff aqui y el canal de fotos podia reconectar cada
@@ -881,6 +892,7 @@
       };
       function manejar(buf, source) {
         return Promise.resolve().then(function () { return descifrarBin(API.clave, buf); }).then(function (bytes) {
+          if (source === "live" && (_pausado || !permitido())) return false;
           var tag = bytes[0], payload = bytes.subarray(1);
           if (tag === 3) {
             if (bytes.length < 22) return false;
@@ -1029,7 +1041,11 @@
         }
       };
       _directReceive = function (buf) {
-        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf, "live"); })
+        if (_pausado || !permitido()) return;
+        _colaRecepcion = _colaRecepcion.then(function () {
+          if (_pausado || !permitido()) return false;
+          return manejar(buf, "live");
+        })
           .catch(function (e) {
             // Live-only fast path is optional; durable relay replay remains
             // authoritative and MUST keep processing subsequent frames.
@@ -1051,10 +1067,24 @@
            vivas entre aparatos. Siguen recibiendo cambios en vivo (enviarDirecto) y, ademas,
            todo queda en canal.pend y en el outbox para el relay cuando vuelva. Al reconectar
            no hay que renegociar con cada aparato: menos mensajes a Cloudflare. */
-        reprogramar();
+        if (!_pausado && permitido()) reprogramar();
       };
       ws.onerror = function () { try { ws.close(); } catch (_) {} };
     }
+    canal.pausar = function () {
+      _pausado = true;
+      [_tReconnect,_tEstable,_tCkpt,_tReplay,_bufferPumpTimer,_durableTimer,_durableWatchdog]
+        .forEach(clearTimeout);
+      _tReconnect = _tEstable = _tCkpt = _tReplay = _bufferPumpTimer =
+        _durableTimer = _durableWatchdog = null;
+      _durableInFlight = Object.create(null); // encrypted outbox itself stays intact
+      var ws = canal.ws; canal.ws = null;
+      if (ws) try { ws.close(1000, "tab inactive"); } catch (_) {}
+    };
+    canal.reanudar = function () {
+      if (!_pausado && canal.ws && canal.ws.readyState < 2) return;
+      _pausado = false; conectar();
+    };
     // Real hidden→visible gesture: one metadata check when exhausted; no polling.
     var _wasVisible = document.visibilityState !== "hidden";
     document.addEventListener("visibilitychange", function () {
@@ -1322,9 +1352,18 @@
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
 
+    function sincronizarVisibilidad() {
+      var activo = !document.hidden && (!window.OCTabSession || OCTabSession.canSync());
+      [API.canal, API.fotosCanal, API.opsCanal].forEach(function (c) {
+        if (c) { if (activo) c.reanudar(); else c.pausar(); }
+      });
+    }
+    window.addEventListener("oc-tab-session-changed", sincronizarVisibilidad);
+    document.addEventListener("visibilitychange", sincronizarVisibilidad);
     API.canal.conectar();      // catálogo + _meta (nombre, pinsRol) — sala "-y"
     API.fotosCanal.conectar(); // bytes de las fotos — sala "-fotos"
     API.opsCanal.conectar();   // ventas/ops — sala "-ops"
+    sincronizarVisibilidad(); // same-tab PIN handoff and hidden-tab pause
     conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
     conectarHechos();    // cartera y caja chica: hechos inmutables por ID
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.

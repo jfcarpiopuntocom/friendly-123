@@ -1,0 +1,118 @@
+"use strict";
+const {test}=require("node:test"),assert=require("node:assert/strict");
+const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
+const src=fs.readFileSync(path.join(__dirname,"../docs/mock-backend.js"),"utf8");
+const tabs=fs.readFileSync(path.join(__dirname,"../docs/tab-session.js"),"utf8");
+const a=src.indexOf("  let _colaEscriturasLocal = Promise.resolve();");
+const b=src.indexOf("  const _fetchInterno = async function",a);
+assert.ok(a>0&&b>a);
+function fixture(locks) {
+ let calls=0,id=0;const timers=new Map(),notices=[];
+ const document={body:{appendChild(node){notices.push(node)}},getElementById(){return null},
+  createElement:()=>({style:{},setAttribute(){},addEventListener(n,fn){if(n==="click")this.onClick=fn;},remove(){this.removed=true;}})};
+ const ctx={navigator:{locks},document,Response,URL,Promise,AbortController,
+  setTimeout(fn,delay){let key=++id;timers.set(key,{fn,delay});return key;},
+  clearTimeout(key){timers.delete(key);},_negadoPorRol:()=>null,_payoutPendiente:null,
+  _rolLocal:()=> "dueno",_recargarSiOtraPestanaEscribio:()=>{},
+  _fetchInterno:()=>{calls++;return Promise.resolve(new Response('{"ok":true}',{status:200}))},
+  window:{location:{origin:"https://example.com"},OC_AUTH_SESSION_EPOCH:0,
+   OCTabSession:{isCurrent:()=>true},OCI18n:{getLang:()=>"es"}}};
+ const wrap=vm.runInNewContext("(function(){"+src.slice(a,b)+";return _fetchConCandado;})",ctx);
+ return {fetch:wrap(),timers,notices,get calls(){return calls},ctx};
+}
+const post={method:"POST",body:"{}"};
+test("E1b-3 S1 RED: never granted lock times out without executing a sale",async()=>{
+ let captured;
+ const f=fixture({request(_name,opts,fn){captured={opts,fn};return new Promise(()=>{});}});
+ const call=f.fetch("/api/ventas",post);
+ const timeout=[...f.timers.values()].find(t=>t.delay===10000);
+ assert.ok(timeout,"10s acquisition timeout must be scheduled");
+ timeout.fn();
+ const outcome=await Promise.race([call,new Promise(resolve=>setImmediate(()=>resolve(Symbol("pending"))))]);
+ assert.notEqual(typeof outcome,"symbol","pending lock must resolve to a clear error response");
+ assert.equal(outcome.status,503);
+ assert.equal(f.calls,0,"never execute an ungranted sale");
+ assert.equal(captured.opts.signal.aborted,true,"abort queued Web Lock");
+ assert.match(JSON.stringify(f.notices),/No se guardó|guard[oó]/);
+});
+test("E1b-3 S1 RED: late callback after abort is fenced, never records sale",async()=>{
+ let delayed;
+ const f=fixture({request(_name,opts,fn){
+   delayed={opts,fn};return new Promise((resolve,reject)=>{
+     opts.signal?.addEventListener("abort",()=>reject(Object.assign(new Error("aborted"),{name:"AbortError"})));
+   });
+ }});
+ const call=f.fetch("/api/ventas",post);
+ const timeout=[...f.timers.values()].find(t=>t.delay===10000);
+ assert.ok(timeout);timeout.fn();
+ const response=await call;assert.equal(response.status,503);
+ if(delayed.fn)await delayed.fn();
+ assert.equal(f.calls,0,"late grant must not record the timed-out sale");
+});
+test("E1b-3 S1 RED: normal grant and single-tab login need no zombie waiting",async()=>{
+ const f=fixture({request(_name,opts,fn){assert.ok(opts.signal);return fn()}});
+ const res=await f.fetch("/api/ventas",post);
+ assert.equal(res.status,200);assert.equal(f.calls,1);
+ assert.doesNotMatch(tabs,/navigator\.locks\.request\('f123-escrituras',take\)/,
+  "tab lease must never queue behind a zombie sales write");
+});
+
+
+test("E1b-3 RED: language lookup exception still returns 503 and explicit unsaved English warning",async()=>{
+ const f=fixture({request:()=>new Promise(()=>{})});
+ f.ctx.window.OCI18n={getLang(){throw Error("language service crashed");}};
+ const call=f.fetch("/api/ventas",post);
+ const timeout=[...f.timers.values()].find(t=>t.delay===10000);assert.ok(timeout);
+ timeout.fn();
+ const res=await Promise.race([call,new Promise(r=>setImmediate(()=>r("PENDING")))]);
+ assert.notEqual(res,"PENDING");assert.equal(res.status,503);
+ assert.equal(f.calls,0);
+ assert.equal(f.notices[0].textContent,"Not saved. Please try again.");
+});
+test("E1b-3 RED: failure notice dismisses on click or after bounded timeout",async()=>{
+ const f=fixture({request:()=>new Promise(()=>{})});
+ const call=f.fetch("/api/ventas",post);
+ const timeout=[...f.timers.values()].find(t=>t.delay===10000);timeout.fn();
+ assert.equal((await call).status,503);
+ const notice=f.notices[0];
+ assert.equal(typeof notice.onClick,"function","click-to-dismiss handler");
+ const timer=[...f.timers.values()].find(t=>t.delay===15000);
+ assert.ok(timer,"15s stale-error removal");
+ notice.onClick();assert.equal(notice.removed,true);
+ notice.removed=false;timer.fn();assert.equal(notice.removed,true);
+});
+
+
+test("E1b-3 RED: Web Locks without AbortController fail closed, never race another tab",async()=>{
+ let invoked=0;
+ const f=fixture({request(){invoked++;return new Promise(()=>{});}});
+ f.ctx.AbortController=undefined;
+ const result=await Promise.race([f.fetch("/api/ventas",post),new Promise(resolve=>setImmediate(()=>resolve("PENDING")))]);
+ assert.notEqual(result,"PENDING","must not hang on unabortable zombie lock");
+ assert.equal(result.status,503,"unsafe write should be explicitly refused");
+ assert.equal(invoked,0,"never request unabortable cross-tab lock");
+ assert.equal(f.calls,0,"no business write without global serialization");
+});
+
+
+test("E1b-3 1AAA: a sale already writing finishes before new-tab write enters",async()=>{
+ let tail=Promise.resolve(),insideOld=false,finishOld,enteredNew=false;
+ const globalLocks={request(_name,opts,fn){
+  const work=tail.then(fn);
+  tail=work.catch(()=>{});
+  return work;
+ }};
+ const old=fixture(globalLocks),fresh=fixture(globalLocks);
+ old.ctx._fetchInterno=()=>{insideOld=true;return new Promise(resolve=>{finishOld=()=>resolve(new Response('{"ok":true}',{status:200}));});};
+ fresh.ctx._fetchInterno=()=>{enteredNew=true;return Promise.resolve(new Response('{"ok":true}',{status:200}));};
+ const first=old.fetch("/api/ventas",post);
+ for(let i=0;i<8;i++)await Promise.resolve();
+ assert.equal(insideOld,true);
+ // New tab takes the lease while first write holds shared Web Lock.
+ const second=fresh.fetch("/api/ventas",post);
+ for(let i=0;i<8;i++)await Promise.resolve();
+ assert.equal(enteredNew,false,"no concurrent mutation despite immediate tab claim");
+ finishOld();assert.equal((await first).status,200);
+ assert.equal((await second).status,200);
+ assert.equal(enteredNew,true,"second write starts only after first finishes");
+});

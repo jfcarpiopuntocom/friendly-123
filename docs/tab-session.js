@@ -2,11 +2,11 @@
 // still handled by the existing backend. No PIN or business records in leases.
 (function(){
  'use strict';
- var id=crypto.randomUUID(),scopeKey='',claimed=false,pending=false,channel=null;
+ var id=crypto.randomUUID(),scopeKey='',claimed=false,pending=false,suspendida=false,channel=null;
  var PUBLIC_URL='https://jfcarpiopuntocom.github.io/friendly-123/';
  var strings={
-  es:{title:'Tu sesión continúa en otra pestaña',body:'Esta sesión se cerró. Puedes seguir en la otra pestaña o volver a entrar aquí con tu PIN.',resume:'Retomar aquí con PIN',tips:'Ideas para empezar',tip1:'Agrega un producto con su precio y stock.',tip2:'Registra una venta y revisa lo vendido.',tip3:'Si trabajas en equipo, asigna un PIN a cada persona.',recommend:'¿Conoces a alguien con negocio?',pitch:'Comparte Friendly con un amigo o familiar que venda productos o trabaje con comisiones.',share:'Recomendar Friendly',copy:'Copiar enlace',copied:'Enlace copiado.',manual:'Selecciona y copia el enlace.',opened:'El menú de compartir se abrió.',cancelled:'Puedes compartirlo cuando quieras.',shareText:'Friendly te ayuda a llevar inventario, ventas y comisiones. Prueba la demo.'},
-  en:{title:'Your session continues in another tab',body:'This session is closed. Continue in the other tab, or sign in here again with your PIN.',resume:'Sign in here with PIN',tips:'Getting started',tip1:'Add a product with its price and stock.',tip2:'Record a sale and review what sold.',tip3:'If you work with a team, give each person a PIN.',recommend:'Know someone with a business?',pitch:'Share Friendly with a friend or relative who sells products or works with commissions.',share:'Recommend Friendly',copy:'Copy link',copied:'Link copied.',manual:'Select and copy the link.',opened:'The share menu opened.',cancelled:'You can share it whenever you like.',shareText:'Friendly helps you track inventory, sales and commissions. Try the demo.'}
+  es:{title:'Tu sesión continúa en otra pestaña',body:'Esta sesión se cerró. Puedes seguir en la otra pestaña o volver a entrar aquí con tu PIN.',resume:'Ingresar al dashboard con PIN',tips:'Herramientas amigas',tip1:'JFCarpio.com: más herramientas para negocios.',tip2:'BuscaClientes: encuentra oportunidades comerciales.',tip3:'La Escuela del Dinero: formación práctica.',recommend:'¿Conoces a alguien con negocio?',pitch:'Comparte Friendly con un amigo o familiar que venda productos o trabaje con comisiones.',share:'Recomendar Friendly',copy:'Copiar enlace',copied:'Enlace copiado.',manual:'Selecciona y copia el enlace.',opened:'El menú de compartir se abrió.',cancelled:'Puedes compartirlo cuando quieras.',shareText:'Friendly te ayuda a llevar inventario, ventas y comisiones. Prueba la demo.'},
+  en:{title:'Your session continues in another tab',body:'This session is closed. Continue in the other tab, or sign in here again with your PIN.',resume:'Enter dashboard with PIN',tips:'Friendly tools',tip1:'JFCarpio.com: more tools for businesses.',tip2:'FindClients: find sales opportunities.',tip3:'The Money School: practical education.',recommend:'Know someone with a business?',pitch:'Share Friendly with a friend or relative who sells products or works with commissions.',share:'Recommend Friendly',copy:'Copy link',copied:'Link copied.',manual:'Select and copy the link.',opened:'The share menu opened.',cancelled:'You can share it whenever you like.',shareText:'Friendly helps you track inventory, sales and commissions. Try the demo.'}
  };
  function copy(){return strings[window.OCI18n&&OCI18n.getLang()==='en'?'en':'es'];}
  function lease(){try{return JSON.parse(localStorage.getItem(scopeKey)||'null');}catch(_){return null;}}
@@ -14,6 +14,8 @@
  // Queued writes from the former owner are fenced; in-flight writes can finish.
  function pendingClaim(){try{var p=JSON.parse(localStorage.getItem(scopeKey+'_claim')||'null');var age=Date.now()-Number(p&&p.at);return !!(p&&p.owner!==id&&age>=0&&age<120000);}catch(_){return false;}}
  function current(){if(pending)return false;if(!claimed)return true;var l=lease();return !!l&&l.owner===id&&!pendingClaim();}
+ function puedeSincronizar(){return !document.hidden&&!suspendida&&current();}
+ function avisarSync(){try{window.dispatchEvent(new Event("oc-tab-session-changed"));}catch(_){}}
  function epoch(){window.OC_AUTH_SESSION_EPOCH=(window.OC_AUTH_SESSION_EPOCH||0)+1;}
  function clearPanel(){var gate=document.getElementById('oc-gate');if(gate)delete gate.dataset.tabHandoff;document.getElementById('oc-tab-handoff')?.remove();}
  function render(){
@@ -25,6 +27,9 @@
   var q=function(s){return panel.querySelector(s);};
   q('h2').textContent=c.title;q('#oc-tab-handoff-body').textContent=c.body;q('#oc-tab-resume').textContent=c.resume;
   q('summary').textContent=c.tips;[c.tip1,c.tip2,c.tip3].forEach(function(t,i){panel.querySelectorAll('li')[i].textContent=t;});
+  var toolsLink=document.createElement('a');toolsLink.href='https://jfcarpio.com';toolsLink.target='_blank';toolsLink.rel='noopener noreferrer';
+  toolsLink.textContent=(window.OCI18n&&OCI18n.getLang()==='en'?'Explore business tools':'Explorar herramientas');
+  q('#oc-tab-tips').appendChild(toolsLink);
   q('h3').textContent=c.recommend;q('.oc-tab-recommend > p').textContent=c.pitch;
   q('#oc-tab-share').textContent=c.share;q('#oc-tab-copy').textContent=c.copy;
   q('#oc-tab-share-url').value=PUBLIC_URL;q('#oc-tab-share-url').setAttribute('aria-label',c.copy);
@@ -42,10 +47,10 @@
   if(!claimed||!window.OCAuth||!OCAuth.rolActual()||current())return;
   // Uses the existing logout path: credentials, named user and role classes
   // are cleared. Marketing appears only in the session that actually closed.
-  OCAuth.salir();render();
+  suspendida=true;avisarSync();OCAuth.salir();render();
  }
  async function claim(){
-  epoch();var claimEpoch=window.OC_AUTH_SESSION_EPOCH;clearPanel();pending=true;
+  epoch();var claimEpoch=window.OC_AUTH_SESSION_EPOCH;clearPanel();pending=true;avisarSync();
   try{
    var owned={};try{owned=JSON.parse(localStorage.getItem('f123_owned')||'{}');}catch(_){}
    var notebook=localStorage.getItem('f123_tienda_activa')||owned.licenseCode||'demo';
@@ -62,22 +67,22 @@
     if(!intent||intent.owner!==id){claimed=true;pending=false;check();return;}
     localStorage.setItem(scopeKey,JSON.stringify({owner:id}));
     if((JSON.parse(localStorage.getItem(claimKey)||'null')||{}).owner===id)localStorage.removeItem(claimKey);
-    claimed=true;pending=false;try{channel?.postMessage({key:scopeKey});}catch(_){}check();
+    claimed=true;pending=false;suspendida=false;try{channel?.postMessage({key:scopeKey});}catch(_){}avisarSync();check();
    }
-   // WebKit can schedule a queued write ahead of take(): it still observes
-   // pendingClaim(). This lock remains the single write serializer.
-   if(navigator.locks&&navigator.locks.request)await navigator.locks.request('f123-escrituras',take);else take();
+   // Claim is fenced by the shared lease + BroadcastChannel; never queue
+   // a PIN login behind iOS Web Locks that can remain zombie after backgrounding.
+   take();
   }catch(_){/* A failed lease never pretends the prior session was closed. */}
   finally{if(claimEpoch===window.OC_AUTH_SESSION_EPOCH)pending=false;}
  }
  try{channel=new BroadcastChannel('friendly-123-auth-session');channel.onmessage=function(ev){if(ev.data&&ev.data.key===scopeKey)check();};}catch(_){}
  window.addEventListener('storage',function(ev){if(ev.key===scopeKey||ev.key?.endsWith('::'+scopeKey))check();});
  window.addEventListener('focus',check);window.addEventListener('pageshow',check);
- document.addEventListener('visibilitychange',function(){if(!document.hidden)check();});
+ document.addEventListener('visibilitychange',function(){if(!document.hidden)check();avisarSync();});
  window.addEventListener('oc-login',claim);
- window.addEventListener('oc-logout',function(){epoch();if(claimed&&lease()?.owner===id){try{localStorage.removeItem(scopeKey);}catch(_){}}claimed=false;pending=false;});
+ window.addEventListener('oc-logout',function(){epoch();if(claimed&&lease()?.owner===id){try{localStorage.removeItem(scopeKey);}catch(_){}}claimed=false;pending=false;suspendida=true;avisarSync();});
  window.addEventListener('oc-lang-change',function(){if(document.getElementById('oc-tab-handoff'))render();});
- window.OCTabSession={isCurrent:current,get pending(){return pending;}};
+ window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
  if(window.OCAuth&&OCAuth.rolActual())claim();
 })();
