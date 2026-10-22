@@ -311,3 +311,25 @@ test("E1 RED: reuse existing sync indicator for paused local journal",()=>{
  const ui=fs.readFileSync(path.join(__dirname,"../docs/avanzado-extra.js"),"utf8");
  assert.match(ui,/d\.recuperacionLocalPendiente/);
 });
+
+test("E1: existing indicator visibly warns while stalled and restores prior display",()=>{
+ const source=fs.readFileSync(path.join(__dirname,"../docs/avanzado-extra.js"),"utf8");
+ const from=source.indexOf("var _pintarSyncMin = function () {");
+ const to=source.indexOf("\n        };",from);
+ assert.ok(from>0&&to>from,"the actual existing status painter is found");
+ const el={textContent:"",style:{display:"none",color:""},dataset:{}};
+ let paused=true;
+ const ctx={
+  document:{documentElement:{lang:"es"},getElementById:()=>el},
+  window:{OCYjs:{_diag:()=>({recuperacionLocalPendiente:paused,ws:{catalogo:1},n:{productos:3,ubicaciones:2},fotos:1})},
+    _ocRelojNota:""},
+  console
+ };
+ vm.createContext(ctx);vm.runInContext(source.slice(from,to+11),ctx);
+ ctx._pintarSyncMin();
+ assert.equal(el.style.display,"","existing indicator becomes visible on stall");
+ assert.match(el.textContent,/recuperaci[oó]n local pendiente/);
+ paused=false;ctx._pintarSyncMin();
+ assert.equal(el.style.display,"none","original hidden state is restored on recovery");
+ assert.match(el.textContent,/Sync: connected/);
+});
