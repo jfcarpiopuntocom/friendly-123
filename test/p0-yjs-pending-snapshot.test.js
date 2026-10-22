@@ -354,3 +354,17 @@ test("E1 RED: confirmed IndexedDB open failure enables safe RAM replay, never cu
  const ckpt=src.slice(src.indexOf("function hacerCkpt()"),src.indexOf("function conectar()",src.indexOf("function hacerCkpt()")));
  assert.match(ckpt,/if\s*\(_soloMemoria\)\s*return;/,"memory mode must not publish checkpoints");
 });
+
+test("E1b-1 RED: head probe precedes encrypted download on initial sync",async()=>{
+ const f=fixture({pending:false,prior:{rev:2,seq:8300}});await f.ready();
+ const sent=[],sock={readyState:1,send:json=>sent.push(JSON.parse(json))};
+ f.ctx.canal.ws=sock;
+ await f.ctx.pedirPagina(sock,{enCurso:false,fallos:0,usarHead:true});
+ assert.equal(sent.length,1);
+ assert.equal(sent[0].k,"head","only a lightweight latest-revision query goes to relay");
+ assert.equal(sent.filter(v=>v.k==="pull").length,0,"no encrypted pages before server comparison");
+});
+test("E1b-1 RED: transport recognizes and replies to read-only head probe",()=>{
+ const transport=fs.readFileSync(path.join(__dirname,"../supabase-relay/transport.mjs"),"utf8");
+ assert.match(transport,/command\.k === 'head'/,"the real transport must carry a read-only head result");
+});
