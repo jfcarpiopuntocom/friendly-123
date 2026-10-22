@@ -1,0 +1,69 @@
+name: Diagnose friendly-123 Cloudflare build (READ ONLY)
+on:
+  push:
+    branches: [ops/cloudflare-build-readonly-20261022]
+    paths: [.github/workflows/cloudflare-build-readonly.yml]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  inspect:
+    name: Exact Cloudflare account + failed build diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Refuse wrong account BEFORE network request
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::error::Required Cloudflare GitHub secrets absent."; exit 1
+          fi
+          if [ "$CLOUDFLARE_ACCOUNT_ID" != "c4d8aa3b3e1db0d80b0beb4abc7c1364" ]; then
+            echo "::error::Configured account is NOT friendly-123; no API request made."; exit 1
+          fi
+          echo "GitHub Cloudflare account matches friendly-123."
+      - name: GET failed build and logs (never deploy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/builds/8e58b09b-04f7-4136-bd71-0eadaabd1992"
+          m_status=$(curl -sS -o /tmp/f123meta.json -w '%{http_code}' --connect-timeout 12 --max-time 35 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base")
+          l_status=$(curl -sS -o /tmp/f123logs.json -w '%{http_code}' --connect-timeout 12 --max-time 35 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/logs")
+          M_STATUS="$m_status" L_STATUS="$l_status" python3 - <<'PY'
+          import json, os, re
+          def load(path):
+              try:
+                  with open(path,encoding='utf-8') as f: return json.load(f)
+              except Exception: return {}
+          m,l=load('/tmp/f123meta.json'),load('/tmp/f123logs.json')
+          token=os.environ.get('CLOUDFLARE_API_TOKEN','')
+          def safe(v):
+              s=str(v)
+              if token: s=s.replace(token,'[REDACTED]')
+              s=re.sub(r'(?i)(bearer\s+[^\s]+|(?:api[_ -]?token|password|secret|authorization)\s*[:=]\s*[^\s,]+|[\w.+-]+@[\w.-]+\.[a-z]{2,})','[REDACTED]',s)
+              return s[:220]
+          print('Metadata HTTP',os.environ.get('M_STATUS'),'success',m.get('success'))
+          print('Build logs HTTP',os.environ.get('L_STATUS'),'success',l.get('success'))
+          for name,obj in [('metadata',m),('logs',l)]:
+              for err in (obj.get('errors') or [])[:4]:
+                  print(name,'error',err.get('code'),safe(err.get('message')))
+          result=m.get('result') or {}
+          if isinstance(result,dict):
+              print('Build outcome',safe(result.get('build_outcome','unknown')))
+              for k in ('build_status','build_command','deploy_command','root_directory'):
+                  if k in result: print(k,safe(result[k]))
+          raw=(l.get('result') or {}).get('lines') or []
+          hits=[]
+          for entry in raw:
+              line=entry if isinstance(entry,str) else json.dumps(entry,ensure_ascii=False)
+              if re.search(r'\berror\b|\bfail(?:ed|ure)?\b|\bdenied\b|\bmissing\b|\bquota\b|\b429\b|exit code',line,re.I):
+                  hits.append(safe(line))
+          for line in hits[-10:]: print('LOG:',line)
+          print('Log line count',len(raw),'diagnostics',len(hits))
+          if os.environ.get('M_STATUS')!='200' or os.environ.get('L_STATUS')!='200':
+              raise SystemExit('Read access denied. No deployment attempted.')
+          PY
