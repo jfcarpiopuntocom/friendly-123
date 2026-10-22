@@ -416,7 +416,7 @@ for(const unsupported of [false,true]){
       {data:{v:2,rev:4,seq:12345},error:null};
     return {data:{frames:[],v:2,rev:4,seq:12345,more:false,n:0},error:null};
    },
-   channel:()=>channel,removeChannel:async()=>{}
+   channel:()=>channel,removeChannel:async()=>{},realtime:{disconnect(){}}
   };
   const relay=createRelayTransport({client});
   const socket=relay.connect("synthetic-e1b");
