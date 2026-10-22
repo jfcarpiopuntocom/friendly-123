@@ -439,3 +439,18 @@ test("E1b-1 SQL probe retains active-room lock and exposes no ciphertext",()=>{
  const portion=sql.split("WHEN 'head' THEN")[1].split("WHEN 'op' THEN")[0];
  assert.doesNotMatch(portion,/cipher|frames|base64/);
 });
+
+test("E1b-1: a silent old server falls back to encrypted pull after head timeout",async()=>{
+ const f=fixture({pending:false,prior:{rev:2,seq:2048}});await f.ready();
+ const sent=[],sock={readyState:1,send:j=>sent.push(JSON.parse(j))};
+ f.ctx.canal.ws=sock;
+ const state={enCurso:false,fallos:0,usarHead:true};
+ await f.ctx.pedirPagina(sock,state);
+ assert.deepEqual(sent.map(x=>x.k),["head"]);
+ f.fireHeadTimeout();
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(sent.map(x=>x.k),["head","pull"]);
+ assert.equal(sent[1].rev,2);assert.equal(sent[1].seq,2048);
+ await f.ctx.procesarHead(sock,state,{rev:2,seq:2048}); // late reply
+ assert.deepEqual(sent.map(x=>x.k),["head","pull"],"late response cannot cancel a real pull");
+});
