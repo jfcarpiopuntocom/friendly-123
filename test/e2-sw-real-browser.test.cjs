@@ -41,8 +41,16 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
   browser=await chromium.launch({headless:true});
   const ctx=await browser.newContext({serviceWorkers:"allow"});
   const p=await ctx.newPage();
+  p.on("pageerror", e=>console.log("E2 page error:",e.message));
+  ctx.on("serviceworker", w=>console.log("E2 worker:",w.url()));
   await p.goto(origin+"/app/index.html");
-  await p.waitForFunction(()=>!!navigator.serviceWorker.controller,{timeout:25000});
+  const state=await p.evaluate(async()=>{
+   const reg=await navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"});
+   await navigator.serviceWorker.ready;
+   return {scope:reg.scope,active:reg.active?.state};
+  });
+  console.log("E2 old worker ready:",JSON.stringify(state));
+  await p.waitForFunction(()=>!!navigator.serviceWorker.controller,null,{timeout:20000});
   await p.clock.install(); // only after the old worker is fully controlling this tab
   candidate=true;
   await p.reload();
