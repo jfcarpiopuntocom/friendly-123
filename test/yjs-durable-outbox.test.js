@@ -122,13 +122,15 @@ test('incomplete chunk pages replay after reload, then advance durable cursor on
 test('missing native adapter preserves durable outbox through reload and reconnect without a raw socket',async()=>{
  const a=await fixture(new Map(),undefined,true);
  assert.equal(a.sockets.length,0);assert.equal(a.channel.ws,null);assert.equal(a.rawCalls,0);
- assert.equal(a.timers.length,1,'failed connection schedules backoff');
+ const backoffs=a.timers.filter(t=>t.ms>=1000&&t.ms<=2000&&!t.cancelled);
+ assert.equal(backoffs.length,1,'failed connection schedules one bounded retry, not repeated network attempts');
  a.channel.enviarUpdate(new Uint8Array([7,8,9]));await esperar(()=>a.data.get("f123_relay_outbox_v1-y")?.pending.length===1,"encrypted operation persists while offline");
  const before=structuredClone(a.data.get('f123_relay_outbox_v1-y'));
  assert.equal(before.pending.length,1);assert.equal(a.channel.pendientesRelay,1);
  const b=await fixture(a.data,undefined,true);await tick();await tick();
  assert.equal(b.sockets.length,0);assert.equal(b.rawCalls,0);assert.deepEqual(b.data.get('f123_relay_outbox_v1-y'),before);
- b.restoreAdapter();b.timers[0].fn();
+ b.restoreAdapter();const backoff=b.timers.find(t=>t.ms>=1000&&t.ms<=2000&&!t.cancelled);
+ assert.ok(backoff,'missing adapter retains a bounded retry');backoff.fn();
  assert.equal(b.sockets.length,1);b.sockets[0].onopen();await tick();await tick();
  const retried=b.sockets[0].sent.filter(x=>typeof x==='string').map(JSON.parse).find(x=>x.k==='op');
  assert.equal(retried.id,before.pending[0].id);assert.equal(retried.c,before.pending[0].c);
@@ -141,6 +143,11 @@ function fragment(index=0,id=65){
  const bytes=new Uint8Array(24);bytes[0]=3;bytes[1]=0;bytes.fill(id,2,18);bytes[19]=index;bytes[21]=2;bytes[22]=index+1;return bytes;
 }
 function controls(socket,kind){return socket.sent.filter(x=>typeof x==='string').map(JSON.parse).filter(x=>x.k===kind)}
+async function responderHeadLegado(socket) {
+ assert.ok(controls(socket,'head').length>0,'a real HEAD probe precedes legacy pull');
+ socket.onmessage({data:JSON.stringify({k:'head-result',unsupported:true})});
+ await tick();await tick();
+}
 test('a fragmented update stores every sibling before the first durable send and retries the whole group',async()=>{
  const a=await fixture();let release;
  const waiting=new Promise(resolve=>{release=resolve});
@@ -209,6 +216,7 @@ test('same-channel reconnection retains unfinished durable fragments and resumes
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0,'unassembled bytes never advance the durable cut');
  a.socket.onclose();a.channel.conectar();const next=a.sockets.at(-1);next.onopen();await tick();await tick();
+ await responderHeadLegado(next);
  assert.equal(controls(next,'pull')[0]?.seq,1,'same live channel lifetime retains its RAM high-water cursor');
  next.onmessage({data:fragment(1).buffer,relaySource:'pull'});
  next.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
@@ -228,7 +236,8 @@ test('orphan durable history keeps live sync open without claiming its cursor or
  a.socket.onmessage({data:new Uint8Array([0,9]).buffer,relaySource:'live'});await tick();await tick();
  assert.equal(applied,1,'a missing historical sibling cannot block a new live update');
  const retry=a.timers.filter(t=>t.ms===30000).at(-1);assert.ok(retry,'bounded recovery poll is scheduled');
- retry.fn();await tick();await tick();assert.equal(controls(a.socket,'pull').at(-1).seq,1,'same connection fetches only later rows');
+ retry.fn();await tick();await tick();await responderHeadLegado(a.socket);
+ assert.equal(controls(a.socket,'pull').at(-1).seq,1,'same connection fetches only later rows');
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
  const pendingRetry=a.timers.find(t=>t.ms===60000);assert.ok(pendingRetry,'unchanged incomplete history backs off instead of polling rapidly');
  a.socket.onmessage({data:fragment(1).buffer,relaySource:'pull'});
@@ -302,6 +311,7 @@ test('real Yjs replay after interruption retains the first payload fragment and 
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
  assert.equal(a.doc.getMap('sales').size,0);
  a.socket.close();a.channel.conectar();const next=a.sockets.at(-1);next.onopen();await tick();await tick();
+ await responderHeadLegado(next);
  assert.equal(controls(next,'pull')[0].seq,1,'the same live Y.Doc lifetime requests only rows after its in-memory cursor');
  for(const bytes of [chunks[1],chunks[1],chunks[2]])next.onmessage({data:bytes.buffer,relaySource:'pull'});
  next.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:3,more:false})});await tick();await tick();
