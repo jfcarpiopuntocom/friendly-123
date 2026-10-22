@@ -534,3 +534,47 @@ test("E1b-2: hidden-to-visible sends one HEAD event, not a background timer",()=
  document.visibilityState="visible";listener();
  assert.deepEqual(sent,["head","head"],"next actual visibility transition is another gesture");
 });
+
+
+test("E1b-2 RED: unsupported or silent HEAD releases clean final replay, not pending data",async()=>{
+ const first=src.indexOf("    function pedirPagina(sock, estado, sinHead) {");
+ const middle=src.indexOf("    function reprogramar() {",first);
+ const begin=src.indexOf('            else if (c && c.k === "pull-page")');
+ const end=src.indexOf('            else if (c && c.k === "tsr"',begin);
+ assert.ok(first>0&&middle>first&&begin>0&&end>begin);
+ const pager=src.slice(first,middle),page=src.slice(begin,end).replace("else if","if");
+ for(const mode of ["unsupported","silent","native","pending"]){
+   const sent=[],timers=[],events=[],ws={readyState:1,send:j=>sent.push(JSON.parse(j)),close:()=>events.push("close")};
+   const state={enCurso:true,fallos:0,usarHead:true};
+   const doc={store:mode==="pending"?{pendingStructs:{missing:new Map([[7,9]])}}:{}};
+   const ctx={Promise,JSON,Number,Object,Math,console,ws,canal:{ws,recuperando:true},
+     pullEstado:state,_colaRecepcion:Promise.resolve(),_pullCursorReady:Promise.resolve(),
+     _pullCursor:{rev:3,seq:90},PULL_PAGE_SIZE:64,_soloMemoria:false,
+     _replayKey:"stable",_replayUsed:5,_tReplay:null,partesEntrantes:{},doc,
+     nombre:"catalogo",API:{_store:{aplicar:()=>events.push("aplicar")}},
+     guardarPullCursor:async()=>{},deudaPendiente:()=>!!doc.store.pendingStructs,
+     programarRelectura:()=>{},log:()=>{},setTimeout:fn=>{timers.push(fn);return timers.length;},
+     clearTimeout:()=>{},c:{k:"pull-page",rev:3,seq:90,more:false}};
+   vm.createContext(ctx);vm.runInContext(pager,ctx);
+   const receive=async()=>{vm.runInContext(page,ctx);await ctx._colaRecepcion;};
+   await receive();
+   if(mode==="pending"){
+     assert.equal(ctx.canal.recuperando,true,"orphan never authorizes recovery");
+     assert.equal(events.length,0);
+     continue;
+   }
+   assert.equal(sent.at(-1).k,"head","first clean final page verifies metadata");
+   if(mode==="silent"){timers.at(-1)();await new Promise(resolve=>setImmediate(resolve));}
+   else await ctx.procesarHead(ws,state,mode==="unsupported"?{unsupported:true}:{rev:3,seq:90});
+   if(mode==="native"){
+     assert.equal(ctx.canal.recuperando,false);
+     assert.deepEqual(events,["aplicar"]);
+     continue;
+   }
+   assert.equal(sent.at(-1).k,"pull","legacy relay falls back to real final page");
+   await receive();
+   assert.equal(ctx.canal.recuperando,false,mode+" must unlock clean final page");
+   assert.deepEqual(events,["aplicar"],"catalogue/PIN apply exactly once");
+   assert.equal(sent.filter(x=>x.k==="head").length,1,"no second unsupported HEAD loop");
+ }
+});
