@@ -812,11 +812,17 @@
               appliedUpdate(payload, receipt);
             } catch (_) {} // measurement cannot reject an otherwise valid recovery page
           }
-          else if (tag === 1) { // me saludan: les mando lo que les falta + mi SV para pedir lo mío
-            try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
-            try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
-          } else if (tag === 2) { // respuesta a mi SV: solo el diff, sin re-pedir (corta el loop)
-            try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+          else if (tag === 1) { // peer hello: no diff from an unhydrated partial Y.Doc
+            return _pullCursorReady.then(function () {
+              try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+              try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
+              return true;
+            });
+          } else if (tag === 2) { // reply with diff only after the local journal is loaded
+            return _pullCursorReady.then(function () {
+              try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+              return true;
+            });
           }
           return true;
         }).catch(function () { return false; }); // basura o clave distinta -> no se confirma el cursor
