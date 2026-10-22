@@ -25,6 +25,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
    },
    doc:{store:pending?{pendingStructs:{missingParent:true}}:{}},
    partesEntrantes:fragments?{"chunk":{received:1,total:2}}:{},
+   _tReplay:null,_replayKey:null,_replayUsed:0,
    canal:{ws:null},PULL_PAGE_SIZE:64,
    _pullCursorKey:"cursor",_pullCursor:{rev:-1,seq:0},_appliedPullCursor:{rev:-1,seq:0},_pullCursorReady:Promise.resolve(),
    persistencia:{
@@ -453,4 +454,127 @@ test("E1b-1: a silent old server falls back to encrypted pull after head timeout
  assert.equal(sent[1].rev,2);assert.equal(sent[1].seq,2048);
  await f.ctx.procesarHead(sock,state,{rev:2,seq:2048}); // late reply
  assert.deepEqual(sent.map(x=>x.k),["head","pull"],"late response cannot cancel a real pull");
+});
+
+
+test("E1b-2 RED: five causal timers then zero; reconnect cannot reset the budget",()=>{
+ const start=src.indexOf("    function clavePendientes() {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("    function pedirPagina(sock, estado, sinHead) {",start);
+ assert.ok(start>0&&end>start,"the actual E1b-2 causal scheduler exists");
+ const timers=new Map(),requests=[];let nextId=0;
+ const ws={readyState:1},doc={store:{pendingStructs:{missing:new Map([[7,9]])},pendingDs:null}};
+ const ctx={doc,canal:{ws},partesEntrantes:{},_tReplay:null,_replayKey:null,_replayUsed:0,
+   _currentPullState:{enCurso:false,usarHead:true},Y:{encodeStateVector:()=>new Uint8Array([1])},
+   setTimeout(fn,ms){const id=++nextId;timers.set(id,{fn,ms});return id;},
+   clearTimeout(id){timers.delete(id);},pedirPagina(){requests.push("head");},
+   log(){},Map,Array,JSON,Object,Math,Uint8Array};
+ vm.createContext(ctx);vm.runInContext(src.slice(start,end),ctx);
+ const estado=ctx._currentPullState;
+ ctx.programarRelectura(ws,estado);
+ const delays=[];
+ for(let i=0;i<5;i++){
+   assert.equal(timers.size,1);
+   const [id,timer]=[...timers][0];delays.push(timer.ms);timers.delete(id);timer.fn();
+   ctx.programarRelectura(ws,estado); // HEAD equal: same dependency, same budget
+ }
+ assert.deepEqual(delays,[30000,60000,120000,240000,300000]);
+ assert.equal(requests.length,5);assert.equal(timers.size,0,"no sixth timer remains");
+ ctx.programarRelectura(ws,estado);assert.equal(timers.size,0);
+ ctx.canal.ws=null;ctx.canal.ws=ws;ctx.programarRelectura(ws,estado);
+ assert.equal(timers.size,0,"socket recreation preserves exhausted budget");
+ doc.store.pendingStructs.missing.set(7,8);
+ ctx.programarRelectura(ws,estado);
+ assert.equal(timers.size,1,"new missing dependency key renews exactly one timer");
+ assert.equal(ctx._replayUsed,0);
+});
+test("E1b-2 RED: identical LIVE frame cannot wake sleep, genuine Yjs update can",()=>{
+ const start=src.indexOf("    function clavePendientes() {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("    function pedirPagina(sock, estado, sinHead) {",start);
+ assert.ok(start>0&&end>start);
+ const requests=[],ws={readyState:1},doc={store:{pendingStructs:{missing:new Map([[7,9]])}}};
+ let vector=1;
+ const ctx={doc,canal:{ws},partesEntrantes:{},_tReplay:null,_replayKey:null,_replayUsed:5,
+   _currentPullState:{enCurso:false,usarHead:true},Y:{encodeStateVector:()=>new Uint8Array([vector])},
+   setTimeout(){throw Error("no timer on live frame");},clearTimeout(){},pedirPagina(){requests.push("head");},
+   log(){},Map,Array,JSON,Object,Math,Uint8Array};
+ vm.createContext(ctx);vm.runInContext(src.slice(start,end),ctx);
+ const previous=new Uint8Array([vector]),key=ctx.clavePendientes();
+ ctx.despertarConCambio(previous,key);
+ assert.equal(ctx._replayUsed,5);assert.equal(requests.length,0,"duplicate stays dormant");
+ vector=2;ctx.despertarConCambio(previous,key);
+ assert.equal(ctx._replayUsed,0);assert.equal(requests.length,1,"one HEAD for applied data");
+});
+test("E1b-2 RED: visible gesture only triggers HEAD, unchanged revision never pulls",async()=>{
+ assert.match(src,/visibilitychange/,"visible gesture is wired");
+ const f=fixture({pending:false,prior:{rev:3,seq:9000}});await f.ready();
+ const sent=[],sock={readyState:1,send:j=>sent.push(JSON.parse(j))};
+ f.ctx.canal.ws=sock;
+ const state={enCurso:false,fallos:0,usarHead:true};
+ await f.ctx.pedirPagina(sock,state);
+ await f.ctx.procesarHead(sock,state,{rev:3,seq:9000});
+ assert.deepEqual(sent.map(x=>x.k),["head"]);
+});
+
+
+test("E1b-2: hidden-to-visible sends one HEAD event, not a background timer",()=>{
+ const at=src.indexOf('    var _wasVisible = document.visibilityState !== "hidden";');
+ const end=src.indexOf("    canal.conectar = conectar;",at);
+ assert.ok(at>0&&end>at,"one visible-session event listener exists");
+ const sent=[];let listener;
+ const ws={readyState:1};
+ const document={visibilityState:"hidden",addEventListener:(event,fn)=>{
+   assert.equal(event,"visibilitychange");listener=fn;
+ }};
+ const ctx={document,canal:{ws},_replayUsed:5,_soloMemoria:false,
+   _currentPullState:{enCurso:false,usarHead:true},pedirPagina(){sent.push("head");}};
+ vm.createContext(ctx);vm.runInContext(src.slice(at,end),ctx);
+ document.visibilityState="visible";listener();listener();
+ assert.deepEqual(sent,["head"],"repeat visible notification must not double probe");
+ document.visibilityState="hidden";listener();
+ document.visibilityState="visible";listener();
+ assert.deepEqual(sent,["head","head"],"next actual visibility transition is another gesture");
+});
+
+
+test("E1b-2 RED: unsupported or silent HEAD releases clean final replay, not pending data",async()=>{
+ const first=src.indexOf("    function pedirPagina(sock, estado, sinHead) {");
+ const middle=src.indexOf("    function reprogramar() {",first);
+ const begin=src.indexOf('            else if (c && c.k === "pull-page")');
+ const end=src.indexOf('            else if (c && c.k === "tsr"',begin);
+ assert.ok(first>0&&middle>first&&begin>0&&end>begin);
+ const pager=src.slice(first,middle),page=src.slice(begin,end).replace("else if","if");
+ for(const mode of ["unsupported","silent","native","pending"]){
+   const sent=[],timers=[],events=[],ws={readyState:1,send:j=>sent.push(JSON.parse(j)),close:()=>events.push("close")};
+   const state={enCurso:true,fallos:0,usarHead:true};
+   const doc={store:mode==="pending"?{pendingStructs:{missing:new Map([[7,9]])}}:{}};
+   const ctx={Promise,JSON,Number,Object,Math,console,ws,canal:{ws,recuperando:true},
+     pullEstado:state,_colaRecepcion:Promise.resolve(),_pullCursorReady:Promise.resolve(),
+     _pullCursor:{rev:3,seq:90},PULL_PAGE_SIZE:64,_soloMemoria:false,
+     _replayKey:"stable",_replayUsed:5,_tReplay:null,partesEntrantes:{},doc,
+     nombre:"catalogo",API:{_store:{aplicar:()=>events.push("aplicar")}},
+     guardarPullCursor:async()=>{},deudaPendiente:()=>!!doc.store.pendingStructs,
+     programarRelectura:()=>{},log:()=>{},setTimeout:fn=>{timers.push(fn);return timers.length;},
+     clearTimeout:()=>{},c:{k:"pull-page",rev:3,seq:90,more:false}};
+   vm.createContext(ctx);vm.runInContext(pager,ctx);
+   const receive=async()=>{vm.runInContext(page,ctx);await ctx._colaRecepcion;};
+   await receive();
+   if(mode==="pending"){
+     assert.equal(ctx.canal.recuperando,true,"orphan never authorizes recovery");
+     assert.equal(events.length,0);
+     continue;
+   }
+   assert.equal(sent.at(-1).k,"head","first clean final page verifies metadata");
+   if(mode==="silent"){timers.at(-1)();await new Promise(resolve=>setImmediate(resolve));}
+   else await ctx.procesarHead(ws,state,mode==="unsupported"?{unsupported:true}:{rev:3,seq:90});
+   if(mode==="native"){
+     assert.equal(ctx.canal.recuperando,false);
+     assert.deepEqual(events,["aplicar"]);
+     continue;
+   }
+   assert.equal(sent.at(-1).k,"pull","legacy relay falls back to real final page");
+   await receive();
+   assert.equal(ctx.canal.recuperando,false,mode+" must unlock clean final page");
+   assert.deepEqual(events,["aplicar"],"catalogue/PIN apply exactly once");
+   assert.equal(sent.filter(x=>x.k==="head").length,1,"no second unsupported HEAD loop");
+ }
 });
