@@ -16,7 +16,7 @@ const actual=src.slice(begin,end);
 function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false,prior=null,tamperReadback=false,syncedHeld=false,failRestore=false}={}){
  const values=new Map();
  if(prior)values.set("cursor",prior);
- let resumeHydration;
+ let resumeHydration, watchdog;
  const events=[],ctx={
    Y:{
      encodeStateVector:()=>new Uint8Array([0]),
@@ -39,11 +39,12 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
      set:async(key,value)=>{events.push("set");if(failWrite)throw Error("synthetic quota");values.set(key,value);}
    },
    Promise,Uint8Array,ArrayBuffer,Number,Math,Object,Date,JSON,console,
-   setTimeout(fn){return setImmediate(fn);},clearTimeout(){},
+   setTimeout(fn,ms){if(ms===25000){watchdog=fn;return 999;}return setImmediate(fn);},
+   clearTimeout(id){if(id===999)watchdog=null;}, 
  };
  vm.createContext(ctx);
  vm.runInContext(actual,ctx);
- return {ctx,events,values,async ready(){await ctx._pullCursorReady;},save:c=>ctx.guardarPullCursor(c),releaseHydration:()=>resumeHydration?.()};
+ return {ctx,events,values,async ready(){await ctx._pullCursorReady;},save:c=>ctx.guardarPullCursor(c),releaseHydration:()=>resumeHydration?.(),fireWatchdog:()=>watchdog?.()};
 }
 test("fragmented ciphertext cannot approve a cursor, even with Yjs pending snapshot",async()=>{
  const a=fixture({fragments:true});await a.ready();await a.save({rev:0,seq:4,more:false});
@@ -290,4 +291,23 @@ test("E1 acceptance: actual pager sends only 50 NEW page requests across each of
   priorSeq+=50;
  }
  assert.equal(priorSeq,150);
+});
+
+test("E1 RED: hung IDB must report pending without pull; later hydration resumes",async()=>{
+ const f=fixture({pending:false,syncedHeld:true,prior:{rev:0,seq:8300}});
+ const sent=[],sock={readyState:1,send:json=>sent.push(JSON.parse(json))};
+ f.ctx.canal.ws=sock;
+ const pull=f.ctx.pedirPagina(sock,{enCurso:false,fallos:0});
+ await new Promise(resolve=>setImmediate(resolve));
+ f.fireWatchdog();
+ assert.equal(f.ctx.canal.recuperacionLocal,"pendiente","must not silently hang");
+ assert.equal(sent.length,0,"do not pull while local journal is unavailable");
+ f.releaseHydration();await f.ready();await pull;
+ assert.equal(f.ctx.canal.recuperacionLocal,"listo","clear warning after local hydration");
+ assert.equal(sent.length,1);
+ assert.equal(sent[0].seq,8300);
+});
+test("E1 RED: reuse existing sync indicator for paused local journal",()=>{
+ const ui=fs.readFileSync(path.join(__dirname,"../docs/avanzado-extra.js"),"utf8");
+ assert.match(ui,/d\.recuperacionLocalPendiente/);
 });
