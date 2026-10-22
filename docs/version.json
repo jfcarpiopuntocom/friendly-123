@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-21",
-  "changelog": "v559 candidate: prime directive 1AAA first-join Yjs integrity, stale stock and safe replay; never overwrite customer data.",
+  "fecha": "2026-10-22",
+  "changelog": "v560 candidate: durable low-quota E1 sync, bounded E1b replay and one visible session; E2 automatic shell update, 1AAA data safety.",
   "requerida": false,
-  "shell": "f123-shell-v559",
+  "shell": "f123-shell-v560",
   "apagar": [],
-  "releaseName": "v559",
-  "cacheGeneration": "golden123"
+  "releaseName": "v560",
+  "cacheGeneration": "golden124"
 }
