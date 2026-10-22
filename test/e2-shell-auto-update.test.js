@@ -65,7 +65,7 @@ test("E2: controllerchange and shell-actualizado arm safe deferred reload, never
   assert.ok(begin>0&&end>begin,"takeover listeners exist in real update module");
   const listeners=new Map(),pending=new Map(),events=[];
   const ctx={
-    navigator:{serviceWorker:{addEventListener:(type,fn)=>listeners.set(type,fn)}},
+    navigator:{serviceWorker:{controller:{id:"old"},addEventListener:(type,fn)=>listeners.set(type,fn)}},
     sessionStorage:{setItem:(k,v)=>pending.set(k,v)},
     document:{visibilityState:"visible"},
     Date:{now:()=>100000},ultimoToque:100000,
@@ -74,12 +74,16 @@ test("E2: controllerchange and shell-actualizado arm safe deferred reload, never
     location:{reload:()=>events.push("UNSAFE reload")}
   };
   vm.runInNewContext(html.slice(begin,end),ctx);
+  ctx.navigator.serviceWorker.controller={id:"new"};
   listeners.get("controllerchange")();
   assert.equal(pending.get("pending"),"1");
   assert.deepEqual(events,["defer"],"typing user must not be interrupted");
   ctx.document.visibilityState="hidden";
   listeners.get("message")({data:{tipo:"shell-actualizado"}});
-  assert.deepEqual(events,["defer","defer","attempt"]);
+  assert.deepEqual(events,["defer"],"dual notification for the SAME SW may not arm twice");
+  ctx.navigator.serviceWorker.controller={id:"newer"};
+  listeners.get("controllerchange")();
+  assert.deepEqual(events,["defer","defer","attempt"],"a genuinely NEW SW may arm again");
   assert.equal(events.includes("UNSAFE reload"),false);
 });
 
@@ -87,4 +91,20 @@ test("E2: no user-facing stale-shell warning instructs cache purging",()=>{
  const line=auth.match(/el\.textContent = "shell-" \+ activaCorta[^\n]+/);
  assert.ok(line,"actual stale-shell text found");
  assert.doesNotMatch(line[0],/Purge|borrar cach[eé]|eliminar datos/i);
+});
+
+test("E2 RED: first install without old controller does not schedule an unnecessary reload",()=>{
+ const begin=html.indexOf("  function onShellTomado() {");
+ const end=html.indexOf("  window._ocActSola =",begin);
+ assert.ok(begin>0&&end>begin);
+ const listeners=new Map(),effects=[];
+ const sw={controller:null,addEventListener:(type,fn)=>listeners.set(type,fn)};
+ const ctx={navigator:{serviceWorker:sw},sessionStorage:{setItem:()=>effects.push("pending")},
+  document:{visibilityState:"visible"},Date:{now:()=>100000},ultimoToque:100000,
+  KP:"pending",_recargarSeguroVersion:()=>effects.push("defer"),
+  intentar:()=>effects.push("reload-attempt")};
+ vm.runInNewContext(html.slice(begin,end),ctx);
+ sw.controller={id:"first"};
+ listeners.get("controllerchange")();
+ assert.deepEqual(effects,[],"a first-time installation is not an app update");
 });
