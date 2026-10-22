@@ -461,9 +461,17 @@
         // The second IDB transaction is a commit/readback barrier: a successful
         // put request alone can still be followed by transaction abort.
         if (!leido || Number(leido.rev) !== cursor.rev || Number(leido.seq) !== cursor.seq ||
-            (!!leido.pendingSnapshot !== !!pendientes) ||
-            (pendientes && Number(leido.pendingSnapshot.byteLength) !== pendientes.byteLength))
-          return false;
+            (!!leido.pendingSnapshot !== !!pendientes)) return false;
+        if (pendientes) {
+          // Another tab or a damaged IDB value can have the SAME byte length.
+          // Verify exact bytes before approving a skip across causal history.
+          var leidos;
+          try { leidos = new Uint8Array(leido.pendingSnapshot); }
+          catch (_) { return false; }
+          if (leidos.byteLength !== pendientes.byteLength) return false;
+          for (var i = 0; i < pendientes.byteLength; i++)
+            if (leidos[i] !== pendientes[i]) return false;
+        }
         _appliedPullCursor = cursor;
         _cursorContainsPending = !!pendientes;
         _pendingProofPages = 0;
