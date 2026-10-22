@@ -10991,6 +10991,16 @@ const _ocActSolaOn = true;
       intentar();
     } catch (_) {}
   }
+  // E2: a takeover can already match version.json while this document is stale.
+  function onShellTomado() {
+    try { sessionStorage.setItem(KP, "1"); } catch (_) {}
+    _recargarSeguroVersion();
+    if (document.visibilityState === "hidden" || Date.now() - ultimoToque > 90000) intentar();
+  }
+  navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
+  navigator.serviceWorker.addEventListener("message", function (ev) {
+    if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
+  });
   window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro }; // para pruebas
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") intentar(); else revisar();
