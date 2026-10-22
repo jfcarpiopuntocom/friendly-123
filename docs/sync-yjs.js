@@ -428,12 +428,78 @@
         }).catch(function () { programarDurable(); });
       });
     }
+    // P0 / 1AAA: a durable cursor may advance past an unresolved Yjs parent
+    // only if the missing bytes are saved ATOMICALLY WITH that cursor.
+    // Unlike a full state snapshot, this update carries only pending structs/
+    // deletions; already integrated bytes are protected by the updates-store
+    // transaction barrier below. Encrypted transport fragments are NOT Yjs.
+    var _cursorContainsPending = false, _pendingProofPages = 0;
+    var MAX_PENDING_PROOF_BYTES = 2 * 1024 * 1024;
+    function barreraYjsConfirmada() {
+      try {
+        var db = persistencia && persistencia.db;
+        if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates"))
+          return Promise.reject(new Error("Yjs journal unavailable"));
+        // All prior Yjs writes target 'updates'. A subsequent transaction on
+        // that SAME store cannot finish before overlapping writes commit.
+        return new Promise(function (resolve, reject) {
+          var tx = db.transaction(["updates"], "readonly");
+          tx.oncomplete = function () { resolve(); };
+          tx.onabort = function () { reject(new Error("Yjs journal aborted")); };
+          tx.onerror = function () { reject(new Error("Yjs journal failed")); };
+        });
+      } catch (e) { return Promise.reject(e); }
+    }
+    function guardarPruebaCausal(cursor, pendientes) {
+      var prueba = { rev: cursor.rev, seq: cursor.seq };
+      if (pendientes) prueba.pendingSnapshot = pendientes;
+      return barreraYjsConfirmada().then(function () {
+        // Both the pending update and the cursor use ONE custom-store key and
+        // therefore ONE IDB write, never two crash-separable promises.
+        return persistencia.set(_pullCursorKey, prueba);
+      }).then(function () { return persistencia.get(_pullCursorKey); }).then(function (leido) {
+        // The second IDB transaction is a commit/readback barrier: a successful
+        // put request alone can still be followed by transaction abort.
+        if (!leido || Number(leido.rev) !== cursor.rev || Number(leido.seq) !== cursor.seq ||
+            (!!leido.pendingSnapshot !== !!pendientes) ||
+            (pendientes && Number(leido.pendingSnapshot.byteLength) !== pendientes.byteLength))
+          return false;
+        _appliedPullCursor = cursor;
+        _cursorContainsPending = !!pendientes;
+        _pendingProofPages = 0;
+        return true;
+      }).catch(function () {
+        // Cost fallback only: replay from the previous proven cut after crash.
+        // NEVER ACK partial Yjs recovery or discard any cipher/history.
+        return false;
+      });
+    }
     if (persistencia && typeof persistencia.get === "function") {
       _pullCursorReady = persistencia.get(_pullCursorKey).then(function (guardado) {
-        if (guardado && Number.isFinite(Number(guardado.rev)) && Number.isFinite(Number(guardado.seq))) {
-          _pullCursor = { rev: Math.trunc(Number(guardado.rev)), seq: Math.max(0, Math.trunc(Number(guardado.seq) || 0)) };
-          _appliedPullCursor = _pullCursor;
+        if (!guardado || !Number.isFinite(Number(guardado.rev)) ||
+            !Number.isFinite(Number(guardado.seq))) return;
+        var cursor = { rev: Math.trunc(Number(guardado.rev)), seq: Math.max(0, Math.trunc(Number(guardado.seq) || 0)) };
+        var snap = guardado.pendingSnapshot;
+        if (!snap) {
+          _pullCursor = cursor; _appliedPullCursor = cursor; return;
         }
+        // Never load a cursor without its pending bytes. If any part of this
+        // verification fails, restart from the beginning and replay safely.
+        if (!snap.byteLength || snap.byteLength > MAX_PENDING_PROOF_BYTES) return;
+        var waited = null;
+        var loaded = persistencia.whenSynced && typeof persistencia.whenSynced.then === "function"
+          ? Promise.race([persistencia.whenSynced, new Promise(function (_, reject) {
+            waited = setTimeout(function () { reject(new Error("local Yjs hydration timeout")); }, 15000);
+          })]) : Promise.resolve();
+        return loaded.then(function () {
+          Y.applyUpdate(doc, new Uint8Array(snap), "red");
+          _pullCursor = cursor; _appliedPullCursor = cursor;
+          _cursorContainsPending = true;
+        }).catch(function () {
+          // A missing or broken local snapshot must NEVER validate its cursor.
+          _pullCursor = { rev: -1, seq: 0 };
+          _appliedPullCursor = { rev: -1, seq: 0 };
+        }).finally(function () { if (waited !== null) clearTimeout(waited); });
       }).catch(function () {});
     }
     function guardarPullCursor(cursor) {
@@ -444,20 +510,31 @@
       if (siguiente.rev < _appliedPullCursor.rev ||
           (siguiente.rev === _appliedPullCursor.rev && siguiente.seq <= _appliedPullCursor.seq)) return Promise.resolve();
       _pullCursor = siguiente;
-      // Continue paging in memory, but a restart must replay every fragment
-      // until its complete update has entered the persisted Y.Doc. Otherwise
-      // the next process could checkpoint a cursor whose bytes it never had.
-      if (Object.keys(partesEntrantes).length ||
-          (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
-        // Do not persist a cursor past a page whose Yjs dependencies have not
-        // actually become part of the document. Paging may continue in RAM.
-        return Promise.resolve();
+      // A frame still being reassembled has never entered Y.Doc. Its ciphertext
+      // must be replayed; a Yjs snapshot cannot authorize skipping it.
+      if (Object.keys(partesEntrantes).length) return Promise.resolve();
+      if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) {
+        if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
+        _pendingProofPages++;
+        // Keep snapshot I/O bounded; also save at the FINAL page so a future
+        // app restart does not replay thousands of old operations.
+        if (cursor.more && _pendingProofPages < 16) return Promise.resolve();
+        _pendingProofPages = 0;
+        var bytes;
+        try { bytes = Y.encodeStateAsUpdate(doc, Y.encodeStateVector(doc)); }
+        catch (_) { return Promise.resolve(); }
+        if (!bytes || !bytes.byteLength || bytes.byteLength > MAX_PENDING_PROOF_BYTES)
+          return Promise.resolve(); // large pending set: retain safe replay
+        return guardarPruebaCausal(siguiente, bytes);
       }
+      _pendingProofPages = 0;
+      // When a late parent finally resolves the snapshot, wait until its Yjs
+      // journal write is committed before retiring that proof.
+      if (_cursorContainsPending) return guardarPruebaCausal(siguiente, null);
       _appliedPullCursor = siguiente;
       if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
-      /* IndexeddbPersistence encola este write DESPUES de los updates Yjs que
-         acabamos de aplicar. Cursor y estado viven en la misma base: si se
-         borra la base, tambien se borra el cursor y el aparato vuelve desde 0. */
+      /* IndexeddbPersistence enqueues journal writes before the ordinary
+         cursor. Existing fully-applied behavior is preserved. */
       return persistencia.set(_pullCursorKey, _pullCursor).catch(function () {});
     }
     function pedirPagina(sock, estado) {
