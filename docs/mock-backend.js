@@ -5065,10 +5065,11 @@
       if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
       _recargarSiOtraPestanaEscribio();return _fetchInterno(url,opts);
     };
-    if (navigator.locks && navigator.locks.request && typeof AbortController === "function") {
+    if (navigator.locks && navigator.locks.request) {
       // iOS may keep a Web Lock zombie after PWA backgrounding. Time out ONLY
       // before entry: once the business write starts, never claim it failed.
-      const controller = new AbortController();
+      const safeAbort = typeof AbortController === "function";
+      const controller = safeAbort ? new AbortController() : null;
       let entered = false, expired = false, timer, failure;
       const timeoutError = () => {
         if (failure) return failure;
@@ -5091,6 +5092,8 @@
         failure = new Response(JSON.stringify({ error }), { status: 503, headers: { "Content-Type": "application/json" } });
         return failure;
       };
+      // Never bypass cross-tab serialization when an unabortable lock is present.
+      if (!safeAbort) return timeoutError(); // read-only on unsafe old browsers
       const timeout = new Promise(resolve => {
         timer = setTimeout(() => {
           if (entered) return;
