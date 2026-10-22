@@ -93,7 +93,7 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
     text:document.body.innerText}));
   assert.equal(result.loads,initial+1,"only one automatic safe reload for this shell");
   assert.equal(result.session,"synthetic-e2","preserve session on worker replacement");
-  assert.equal(result.version,shellNext);
+  assert.equal(result.version,"1.0|"+shellNext,"record precise version and current SW shell");
   assert.doesNotMatch(result.text,/Purge|reload/i);
   // RED regression: returning to an already-open installed PWA requests one
   // worker update, never one request per repeated visible event.
