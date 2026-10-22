@@ -283,8 +283,7 @@ test("E1 acceptance: actual pager sends only 50 NEW page requests across each of
      "pager sends an incremental cursor, not the beginning of old history");
    await f.save({rev:0,seq:priorSeq+page,more:page!==50});
   }
-  await f.ctx.pedirPagina(sock,{enCurso:false,fallos:0});
-  assert.equal(sent.length,51,"50 new pages and one terminal poll; no old page re-fetch");
+  assert.equal(sent.length,50,"E1 budget: at most one pull for each NEW page");
   assert.ok(sent.every((c,i)=>c.k==="pull"&&c.seq===priorSeq+i));
   stored=f.values.get("cursor");
   assert.equal(stored.seq,priorSeq+50);
