@@ -8,11 +8,15 @@ const src=fs.readFileSync(path.join(__dirname,"../docs/sync-yjs.js"),"utf8");
 
 function cursorFixture(pending=false,fragments={}) {
   const a=src.indexOf("    function guardarPullCursor(cursor) {");
-  const b=src.indexOf("    function pedirPagina(sock, estado) {",a);
+  const b=src.indexOf("    function pedirPagina(sock, estado, sinHead) {",a);
   assert.ok(a>0&&b>a);
   const saved=[],ctx={
     _appliedPullCursor:{rev:2,seq:10},_pullCursor:{rev:2,seq:10},
     doc:{store:pending?{pendingStructs:{}}:{}},partesEntrantes:fragments,
+    _soloMemoria:false,_pendingProofPages:0,_cursorContainsPending:false,
+    MAX_PENDING_PROOF_BYTES:1024,
+    // This fixture deliberately has no causal snapshot to verify the safe replay fallback.
+    Y:{encodeStateVector:()=>new Uint8Array(0),encodeStateAsUpdate:()=>new Uint8Array(0)},
     persistencia:{set:async(key,value)=>saved.push([key,{...value}])},
     _pullCursorKey:"fixture-cursor",Promise,Object,Number,Math
   };
@@ -48,21 +52,26 @@ function replayFixture(pending=true) {
   const b=src.indexOf("      _directReceive = function (buf) {",a);
   assert.ok(a>0&&b>a);
   const timers=[],replay=[],ws={readyState:1,onmessage:null,close(){this.readyState=3;}};
-  const pullEstado={enCurso:true,fallos:0},ctx={
+  const pullEstado={enCurso:true,fallos:0,headLegacy:true},ctx={
     ws,API:{clave:{},_store:{aplicar:()=>{ctx.applied=(ctx.applied||0)+1;}}},
     canal:{ws,recuperando:true},
     doc:{store:pending?{pendingStructs:{}}:{}},pullEstado,
     _colaRecepcion:Promise.resolve(),_pullCursor:{rev:5,seq:50},
     _appliedPullCursor:{rev:2,seq:10},
-    _replayDelay:30000,_tReplay:null,partesEntrantes:{},_relayPeerCount:0,
+    _replayDelay:30000,_tReplay:null,_replayKey:null,_replayUsed:0,partesEntrantes:{},_relayPeerCount:0,
     manejar:async()=>true,guardarPullCursor:async()=>{},
     pedirPagina:(sock,state)=>{state.enCurso=true;replay.push({...ctx._pullCursor});return Promise.resolve();},
     confirmarDurable:()=>{},nombre:"catalogo",window:{},log:()=>{},
     clearTimeout:()=>{},setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},
     Promise,JSON,Object,Number,Math,Date,ArrayBuffer,Blob:class{},
+    deudaPendiente:()=>!!ctx.doc.store.pendingStructs,
+    clavePendientes:()=>JSON.stringify([!!ctx.doc.store.pendingStructs]),
   };
   vm.createContext(ctx);
-  vm.runInContext(src.slice(a,b)+"\nthis.getQueue=()=>_colaRecepcion;",ctx);
+  const ra=src.indexOf("    function programarRelectura(sock, estado) {");
+  const rb=src.indexOf("    // Only useful, applied bytes",ra);
+  assert.ok(ra>0&&rb>ra);
+  vm.runInContext(src.slice(ra,rb)+"\n"+src.slice(a,b)+"\nthis.getQueue=()=>_colaRecepcion;",ctx);
   return {ctx,timers,replay,ws,pullEstado};
 }
 test("P0 end of stream with orphan structs schedules backoff and replays from PROVEN cursor",async()=>{
