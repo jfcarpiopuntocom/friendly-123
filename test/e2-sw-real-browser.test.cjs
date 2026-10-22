@@ -97,6 +97,11 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
   assert.doesNotMatch(result.text,/Purge|reload/i);
   // RED regression: returning to an already-open installed PWA requests one
   // worker update, never one request per repeated visible event.
+  await p.waitForFunction(()=>document.readyState==="complete");
+  await p.evaluate(async()=>{
+    const reg=await navigator.serviceWorker.ready;
+    await reg.update(); // settle load-time update BEFORE counting foreground events
+  });
   await p.evaluate(async()=>{
     window.__e2UpdateCalls=0;
     let done;const invoked=new Promise(resolve=>{done=resolve;});
@@ -105,7 +110,12 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
     };
     document.dispatchEvent(new Event("visibilitychange"));
     document.dispatchEvent(new Event("visibilitychange"));
-    await invoked;await Promise.resolve();
+    await invoked;
+    await new Promise(resolve=>{
+      const port=new MessageChannel();
+      port.port1.onmessage=()=>{port.port1.close();port.port2.close();resolve();};
+      port.port2.postMessage(0); // real macrotask, independent of Playwright fake clock
+    });
   });
   assert.equal(await p.evaluate(()=>window.__e2UpdateCalls),1,
     "two rapid foreground events must issue one throttled worker update");

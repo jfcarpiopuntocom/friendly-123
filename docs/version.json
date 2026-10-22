@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-22",
-  "changelog": "v562 LAB candidate: E1-E6 fixes, one initial Yjs connection per channel, corrected deterministic regression fixtures, final gated tests; no publication or customer data changes.",
+  "changelog": "v563 LAB only: E1b claim retry listener, shared Yjs owner-name convergence and deterministic E2 browser regression; candidate not published.",
   "requerida": false,
-  "shell": "f123-shell-v562",
+  "shell": "f123-shell-v563",
   "apagar": [],
-  "releaseName": "v562",
-  "cacheGeneration": "golden126"
+  "releaseName": "v563",
+  "cacheGeneration": "golden127"
 }

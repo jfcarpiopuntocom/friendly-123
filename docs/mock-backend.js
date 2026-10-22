@@ -4002,8 +4002,12 @@
     if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim()) {
       if (!String(nombreNegocio || "").trim()) _adoptaNombre = true;           // local vacío: adoptar
       else if (rolRemoto === "dueno") {
-        _adoptaNombre = (_revRemoto > nombreNegocioRev) ||
-                        (_revRemoto === nombreNegocioRev && _tsRemoto > nombreNegocioTs);
+        // The shared Yjs document is canonical on equal owner revision.
+        // A stale phone's future wall clock has NO authority to rename a store.
+        const mismoRevYjs = remoto._nombreDesdeYjs === true &&
+          _revRemoto === nombreNegocioRev &&
+          remoto.nombreNegocio.trim() !== String(nombreNegocio || "").trim();
+        _adoptaNombre = (_revRemoto > nombreNegocioRev) || mismoRevYjs;
       }
     }
     if (_adoptaNombre) {
