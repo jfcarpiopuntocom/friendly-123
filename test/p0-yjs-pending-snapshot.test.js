@@ -514,3 +514,23 @@ test("E1b-2 RED: visible gesture only triggers HEAD, unchanged revision never pu
  await f.ctx.procesarHead(sock,state,{rev:3,seq:9000});
  assert.deepEqual(sent.map(x=>x.k),["head"]);
 });
+
+
+test("E1b-2: hidden-to-visible sends one HEAD event, not a background timer",()=>{
+ const at=src.indexOf('    var _wasVisible = document.visibilityState !== "hidden";');
+ const end=src.indexOf("    canal.conectar = conectar;",at);
+ assert.ok(at>0&&end>at,"one visible-session event listener exists");
+ const sent=[];let listener;
+ const ws={readyState:1};
+ const document={visibilityState:"hidden",addEventListener:(event,fn)=>{
+   assert.equal(event,"visibilitychange");listener=fn;
+ }};
+ const ctx={document,canal:{ws},_replayUsed:5,_soloMemoria:false,
+   _currentPullState:{enCurso:false,usarHead:true},pedirPagina(){sent.push("head");}};
+ vm.createContext(ctx);vm.runInContext(src.slice(at,end),ctx);
+ document.visibilityState="visible";listener();listener();
+ assert.deepEqual(sent,["head"],"repeat visible notification must not double probe");
+ document.visibilityState="hidden";listener();
+ document.visibilityState="visible";listener();
+ assert.deepEqual(sent,["head","head"],"next actual visibility transition is another gesture");
+});
