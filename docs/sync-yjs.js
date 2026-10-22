@@ -602,12 +602,40 @@
          cursor. Existing fully-applied behavior is preserved. */
       return persistencia.set(_pullCursorKey, _pullCursor).catch(function () {});
     }
-    function pedirPagina(sock, estado) {
+    function pedirPagina(sock, estado, sinHead) {
       estado.enCurso = true; estado.fallos = 0;
       return _pullCursorReady.then(function () {
         if (sock !== canal.ws || sock.readyState !== 1) return;
+        if (!sinHead && estado.usarHead === true && !_soloMemoria) {
+          estado.esperandoHead = true;
+          clearTimeout(estado.tHead);
+          estado.tHead = setTimeout(function () {
+            if (!estado.esperandoHead || canal.ws !== sock) return;
+            estado.esperandoHead = false;
+            pedirPagina(sock, estado, true); // old relay: safe original pull
+          }, 1800);
+          try { sock.send(JSON.stringify({ k: "head", v: 2 })); }
+          catch (_) { clearTimeout(estado.tHead); estado.esperandoHead = false; return pedirPagina(sock, estado, true); }
+          return;
+        }
         sock.send(JSON.stringify({ k: "pull", v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, limit: PULL_PAGE_SIZE }));
       }).catch(function () {});
+    }
+    function procesarHead(sock, estado, r) {
+      if (!estado.esperandoHead || canal.ws !== sock) return Promise.resolve();
+      estado.esperandoHead = false; clearTimeout(estado.tHead);
+      var valido = r && !r.unsupported && Number.isSafeInteger(Number(r.rev)) &&
+        Number.isSafeInteger(Number(r.seq)) && Number(r.rev) >= 0 && Number(r.seq) >= 0;
+      if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
+        estado.enCurso = false;
+        if (canal.recuperando && !Object.keys(partesEntrantes).length &&
+            !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
+          canal.recuperando = false;
+          if (nombre === "catalogo" && API._store) API._store.aplicar();
+        }
+        return Promise.resolve();
+      }
+      return pedirPagina(sock, estado, true); // newer revision or legacy server
     }
     function reprogramar() {
       reintentos++;
@@ -746,7 +774,7 @@
         if (!window.F123Relay || typeof window.F123Relay.connect !== "function") throw new Error("native relay unavailable");
         ws = window.F123Relay.connect(url);
       } catch (_) { reprogramar(); return; }
-      var pullEstado = { enCurso: false, fallos: 0 };
+      var pullEstado = { enCurso: false, fallos: 0, usarHead: true };
       _currentPullState = pullEstado;
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
@@ -896,6 +924,7 @@
             else if (c && c.k === "persist-result") {
               if (canal.ws === ws) confirmarDurable(c);
             }
+            else if (c && c.k === "head-result") { procesarHead(ws, pullEstado, c); }
             else if (c && c.k === "pull-page") {
               _colaRecepcion = _colaRecepcion.then(function () {
                 if (canal.ws !== ws) return;
@@ -907,7 +936,7 @@
                 }
                 return guardarPullCursor(c).then(function () {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
-                  if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado);
+                  if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
                   if (!c.more && canal.recuperando && !Object.keys(partesEntrantes).length &&
                       !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
