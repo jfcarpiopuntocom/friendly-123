@@ -1,0 +1,24 @@
+name: STABLE reviewer repro - fast RED/GREEN
+on:
+  push:
+    branches: [work/stable-review-integrity-v562-20261022]
+    paths:
+      - test/stable-review-integrity.test.js
+      - docs/tab-session.js
+      - docs/mock-backend.js
+      - docs/sync-yjs.js
+      - .github/workflows/stable-review-two-red.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  reviewer-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run only two synthetic safety tests without customer data
+        run: node --test test/stable-review-integrity.test.js
