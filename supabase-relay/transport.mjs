@@ -112,7 +112,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
       }
       // Keep RPC writes/checkpoints/replay ordered, but never hold immediate
       // encrypted frames behind a slow HTTP response. Both lanes share backpressure.
-      const durableLane = control && ['op', 'ckpt', 'pull', 'ts'].includes(control.k);
+      const durableLane = control && ['op', 'ckpt', 'pull', 'ts', 'head'].includes(control.k);
       const queued = (durableLane ? this.#serial : this.#liveSerial).then(async () => {
         if (this.readyState !== 1) return;
         const frame = copied instanceof Blob ? new Uint8Array(await copied.arrayBuffer()) : copied;
@@ -135,7 +135,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
         if (sent !== 'ok') this.#fail();
         return;
       }
-      if (!['op', 'ckpt', 'pull', 'ts'].includes(command.k)) return;
+      if (!['op', 'ckpt', 'pull', 'ts', 'head'].includes(command.k)) return;
       const durable = command.k === 'op' || command.k === 'ckpt';
       let data, error;
       try {
@@ -150,6 +150,12 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
           ok: !error && data?.ok === true, conflict: !error && data?.conflict === true
         });
         return;
+      }
+      if (command.k === 'head') {
+        // Legacy servers reject 'head'; ask the client to fall back to its
+        // original replay instead of dropping or poisoning the connection.
+        if (error || !data) return this.#text({ k: 'head-result', v: 2, unsupported: true });
+        return this.#text({ k: 'head-result', v: 2, rev: data.rev, seq: data.seq });
       }
       if (error || !data) return this.#fail();
       if (command.k === 'ts') return this.#text(data);
