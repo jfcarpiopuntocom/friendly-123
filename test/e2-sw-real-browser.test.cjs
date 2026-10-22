@@ -82,6 +82,8 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
   await p.waitForFunction(()=>window._ocActSola&&navigator.serviceWorker.controller,null,{timeout:10000});
   const initial=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
   phase="new"; // change only the localhost test server, never GitHub Pages
+  // Returning to a visible installed PWA must ask for a fresh worker.
+  await p.evaluate(()=>document.dispatchEvent(new Event("visibilitychange")));
   await p.clock.fastForward(21000); // actual revisar() timer, no manual update button
   await p.waitForFunction(()=>sessionStorage.getItem("f123_act_sola_pendiente")==="1",{timeout:25000});
   await p.clock.fastForward(92000); // simulate user idle, honoring the existing safe gate
