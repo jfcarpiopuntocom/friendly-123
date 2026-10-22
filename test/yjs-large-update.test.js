@@ -25,7 +25,9 @@ test('large Yjs updates are bounded before send and reassembled exactly once', a
   };
   vm.createContext(c);
   vm.runInContext(block + '\nthis.makeChannel = crearCanal;', c);
-  const persistence = { get: async () => null, set: async () => {} };
+  const db={objectStoreNames:{contains:k=>k==='updates'},
+    transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}};
+  const persistence = {whenSynced:Promise.resolve(),db,get:async()=>null,set:async()=>{}};
   const sender = c.makeChannel(c.Y, {}, '-y', 'test', false, null, persistence);
   const receiver = c.makeChannel(c.Y, {}, '-y', 'test', false, null, persistence);
   sender.conectar(); receiver.conectar();
