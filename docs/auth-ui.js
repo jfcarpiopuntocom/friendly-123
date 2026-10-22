@@ -1876,8 +1876,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try {
         var cb = (e.clipboardData || window.clipboardData);
         if (!cb) { setTimeout(alEscribir, 0); return; }
-        e.preventDefault();
         var pegado = cb.getData("text");
+        // On iOS clipboardData may be empty despite a valid native paste.
+        // Never cancel the browser event or clear the existing license then.
+        if (!pegado) { setTimeout(alEscribir, 0); return; }
+        e.preventDefault();
         inp.value = formatear(pegado);
         try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
         try { inp.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
