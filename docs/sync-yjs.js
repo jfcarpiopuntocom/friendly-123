@@ -728,11 +728,13 @@
         _tEstable = setTimeout(function () {
           if (canal.ws === ws && ws.readyState === 1) reintentos = 0;
         }, T_CONEXION_ESTABLE_MS);
-        try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
-        // The same channel still owns its Y.Doc and fragment assembly after
-        // reconnect. Keep their RAM cursor; a new process loads the durable cut.
+        // Do not advertise an empty or partial state vector while an iPhone is
+        // still hydrating its local Yjs journal: a peer might answer with ALL
+        // history (photos included), causing an avoidable encrypted RPC burst.
+        // The same channel keeps its in-RAM cursor across reconnects.
         _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
-          if (canal.ws !== ws) return;
+          if (canal.ws !== ws || ws.readyState !== 1) return;
+          try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // hello AFTER local hydration
           return pedirPagina(ws, pullEstado);
         });
         /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
@@ -758,7 +760,12 @@
         if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 2500); }
         // Canal sin ckpt (fotos): sembrado propio al conectar (cada foto va como
         // op individual, que sí cabe en el frame). Tras dar tiempo al pull.
-        if (seedFn) setTimeout(function () { try { seedFn(); } catch (_) {} }, 3200);
+        if (seedFn) setTimeout(function () {
+          _pullCursorReady.then(function () {
+            if (canal.ws !== ws || ws.readyState !== 1) return;
+            try { seedFn(); } catch (_) {}
+          }).catch(function () {}); // never seed into a half-hydrated document
+        }, 3200);
       };
       function manejar(buf, source) {
         return Promise.resolve().then(function () { return descifrarBin(API.clave, buf); }).then(function (bytes) {
