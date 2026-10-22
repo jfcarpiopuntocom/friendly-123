@@ -400,3 +400,42 @@ test("E1b-1 RED: continued pagination never repeats the head query",async()=>{
  await f.ctx.pedirPagina(sock,{enCurso:true,fallos:0,usarHead:true},true);
  assert.deepEqual(sent.map(x=>x.k),["pull"]);
 });
+
+for(const unsupported of [false,true]){
+ test("E1b-1: real relay head "+(unsupported?"legacy fallback":"metadata only"),async()=>{
+  const {createRelayTransport}=await import("../supabase-relay/transport.mjs");
+  const commands=[];
+  const channel={on(){return this;},subscribe(cb){queueMicrotask(()=>cb("SUBSCRIBED"));return this;},
+   track:async()=> "ok",presenceState:()=>({}),send:async()=> "ok"};
+  const client={
+   rpc:async(name,p)=>{
+    if(name==="f123_relay_has_topic")return {data:true,error:null};
+    commands.push(p.p_action);
+    if(p.p_action==="head")return unsupported?
+      {data:null,error:new Error("synthetic legacy SQL")}:
+      {data:{v:2,rev:4,seq:12345},error:null};
+    return {data:{frames:[],v:2,rev:4,seq:12345,more:false,n:0},error:null};
+   },
+   channel:()=>channel,removeChannel:async()=>{}
+  };
+  const relay=createRelayTransport({client});
+  const socket=relay.connect("synthetic-e1b");
+  await new Promise(resolve=>socket.addEventListener("open",resolve,{once:true}));
+  const messages=[];socket.addEventListener("message",e=>messages.push(e.data));
+  socket.send(JSON.stringify({k:"head",v:2}));await socket.settled();
+  const head=messages.filter(x=>typeof x==="string").map(x=>JSON.parse(x)).find(x=>x.k==="head-result");
+  assert.ok(head,"server head or unsupported response must be delivered");
+  if(!unsupported){assert.equal(head.rev,4);assert.equal(head.seq,12345);assert.equal(head.unsupported,undefined);}
+  else {assert.equal(head.unsupported,true);assert.equal(socket.readyState,1);}
+  assert.deepEqual(commands,["head"],"HEAD must not turn into an encrypted pull");
+  await relay.dispose();
+ });
+}
+test("E1b-1 SQL probe retains active-room lock and exposes no ciphertext",()=>{
+ const sql=fs.readFileSync(path.join(__dirname,"../supabase-relay/migrations/20261022000100_readonly_head.sql"),"utf8");
+ assert.match(sql,/WHERE room_hash=h AND transport_active FOR UPDATE/);
+ assert.match(sql,/WHEN 'head' THEN/);
+ assert.match(sql,/coalesce\(max\(seq\),0\)/);
+ const portion=sql.split("WHEN 'head' THEN")[1].split("WHEN 'op' THEN")[0];
+ assert.doesNotMatch(portion,/cipher|frames|base64/);
+});
