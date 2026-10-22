@@ -434,6 +434,7 @@
     // deletions; already integrated bytes are protected by the updates-store
     // transaction barrier below. Encrypted transport fragments are NOT Yjs.
     var _cursorContainsPending = false, _pendingProofPages = 0;
+    var _ultimoCursorLimpio = { rev: -1, seq: 0 };
     var MAX_PENDING_PROOF_BYTES = 2 * 1024 * 1024;
     function barreraYjsConfirmada() {
       try {
@@ -451,7 +452,9 @@
       } catch (e) { return Promise.reject(e); }
     }
     function guardarPruebaCausal(cursor, pendientes) {
-      var prueba = { rev: cursor.rev, seq: cursor.seq };
+      var limpio = pendientes ? _ultimoCursorLimpio : cursor;
+      var prueba = { rev: cursor.rev, seq: cursor.seq,
+        cursorLimpio: { rev: limpio.rev, seq: limpio.seq } };
       if (pendientes) prueba.pendingSnapshot = pendientes;
       return barreraYjsConfirmada().then(function () {
         // Both the pending update and the cursor use ONE custom-store key and
@@ -461,7 +464,9 @@
         // The second IDB transaction is a commit/readback barrier: a successful
         // put request alone can still be followed by transaction abort.
         if (!leido || Number(leido.rev) !== cursor.rev || Number(leido.seq) !== cursor.seq ||
-            (!!leido.pendingSnapshot !== !!pendientes)) return false;
+            (!!leido.pendingSnapshot !== !!pendientes) ||
+            !leido.cursorLimpio || Number(leido.cursorLimpio.rev) !== limpio.rev ||
+            Number(leido.cursorLimpio.seq) !== limpio.seq) return false;
         if (pendientes) {
           // Another tab or a damaged IDB value can have the SAME byte length.
           // Verify exact bytes before approving a skip across causal history.
@@ -473,6 +478,7 @@
             if (leidos[i] !== pendientes[i]) return false;
         }
         _appliedPullCursor = cursor;
+        if (!pendientes) _ultimoCursorLimpio = cursor;
         _cursorContainsPending = !!pendientes;
         _pendingProofPages = 0;
         return true;
@@ -482,33 +488,54 @@
         return false;
       });
     }
+    function cursorValido(v) {
+      if (!v || !Number.isFinite(Number(v.rev)) || !Number.isFinite(Number(v.seq))) return null;
+      var rev = Math.trunc(Number(v.rev)), seq = Math.trunc(Number(v.seq));
+      if (rev < -1 || seq < 0) return null;
+      return { rev: rev, seq: seq };
+    }
+    function cursorAnteriorOIgual(a, b) {
+      return a.rev < b.rev || (a.rev === b.rev && a.seq <= b.seq);
+    }
     if (persistencia && typeof persistencia.get === "function") {
-      _pullCursorReady = persistencia.get(_pullCursorKey).then(function (guardado) {
-        if (!guardado || !Number.isFinite(Number(guardado.rev)) ||
-            !Number.isFinite(Number(guardado.seq))) return;
-        var cursor = { rev: Math.trunc(Number(guardado.rev)), seq: Math.max(0, Math.trunc(Number(guardado.seq) || 0)) };
-        var snap = guardado.pendingSnapshot;
-        if (!snap) {
-          _pullCursor = cursor; _appliedPullCursor = cursor; return;
-        }
-        // Never load a cursor without its pending bytes. If any part of this
-        // verification fails, restart from the beginning and replay safely.
-        if (!snap.byteLength || snap.byteLength > MAX_PENDING_PROOF_BYTES) return;
-        var waited = null;
-        var loaded = persistencia.whenSynced && typeof persistencia.whenSynced.then === "function"
-          ? Promise.race([persistencia.whenSynced, new Promise(function (_, reject) {
-            waited = setTimeout(function () { reject(new Error("local Yjs hydration timeout")); }, 15000);
-          })]) : Promise.resolve();
-        return loaded.then(function () {
-          Y.applyUpdate(doc, new Uint8Array(snap), "red");
+      // Every cursor is trustworthy only after the Yjs journal is hydrated.
+      // A slow iPhone must wait, never replay its whole history due to timeout.
+      var hydration = persistencia.whenSynced;
+      _pullCursorReady = (hydration && typeof hydration.then === "function"
+        ? hydration : Promise.reject(new Error("Yjs hydration proof unavailable")))
+        .then(function () { return persistencia.get(_pullCursorKey); })
+        .then(function (guardado) {
+          var cursor = cursorValido(guardado);
+          if (!cursor) return;
+          var snap = guardado.pendingSnapshot;
+          if (!snap) {
+            _pullCursor = cursor; _appliedPullCursor = cursor;
+            _ultimoCursorLimpio = cursor; return;
+          }
+          var limpio = cursorValido(guardado.cursorLimpio);
+          if (!limpio || !cursorAnteriorOIgual(limpio, cursor))
+            limpio = { rev: -1, seq: 0 };
+          _ultimoCursorLimpio = limpio;
+          function reanudarDesdeLimpio() {
+            _pullCursor = limpio; _appliedPullCursor = limpio;
+            _cursorContainsPending = false;
+          }
+          // Rejected proof may use the LAST clean cut once hydration succeeded.
+          var bytes;
+          try { bytes = new Uint8Array(snap); } catch (_) { reanudarDesdeLimpio(); return; }
+          if (!bytes.byteLength || bytes.byteLength > MAX_PENDING_PROOF_BYTES) {
+            reanudarDesdeLimpio(); return;
+          }
+          try { Y.applyUpdate(doc, bytes, "red"); }
+          catch (_) { reanudarDesdeLimpio(); return; }
           _pullCursor = cursor; _appliedPullCursor = cursor;
           _cursorContainsPending = true;
-        }).catch(function () {
-          // A missing or broken local snapshot must NEVER validate its cursor.
-          _pullCursor = { rev: -1, seq: 0 };
-          _appliedPullCursor = { rev: -1, seq: 0 };
-        }).finally(function () { if (waited !== null) clearTimeout(waited); });
-      }).catch(function () {});
+        }).catch(function (e) {
+          // No confirmed journal means no safe cursor. Do not pull or
+          // checkpoint against a half-loaded device; leave the channel in recovery.
+          try { log("recuperacion local Yjs pendiente en " + nombre, e && e.message); } catch (_) {}
+          throw e;
+        });
     }
     function guardarPullCursor(cursor) {
       var siguiente = {
