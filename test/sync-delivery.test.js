@@ -44,7 +44,10 @@ async function fixture() {
       applied.push(Array.from(bytes)); if (!duplicate) api._catalogoRevision++;
     }
   };
-  const persistence = { get: async key => saved.get(key), set: async (key, value) => saved.set(key, structuredClone(value)) };
+  const db = { objectStoreNames:{contains:key=>key==='updates'},
+    transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;} };
+  const persistence = { whenSynced:Promise.resolve(), db,
+    get: async key => saved.get(key), set: async (key, value) => saved.set(key, structuredClone(value)) };
   const channel = context.make(Y, doc, '-y', 'catalogo', false, null, persistence);
   channel.conectar(); socket.onopen(); socket.onmessage({ data: JSON.stringify({ k: 'peer-count', n: 2 }) });
   return { context, api, channel, socket, sent, applied, doc, saved,
