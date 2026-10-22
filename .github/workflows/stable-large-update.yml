@@ -1,0 +1,20 @@
+name: E1 focused encrypted Yjs chunk delivery
+on:
+  push:
+    branches: [work/stable-review-integrity-v562-20261022]
+    paths:
+      - test/yjs-large-update.test.js
+      - .github/workflows/stable-large-update.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  yjs-chunks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test test/yjs-large-update.test.js

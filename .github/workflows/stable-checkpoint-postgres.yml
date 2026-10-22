@@ -1,0 +1,37 @@
+name: STABLE legacy checkpoint PostgreSQL 17 (synthetic)
+on:
+  push:
+    branches: [work/stable-review-integrity-v562-20261022]
+    paths:
+      - supabase-relay/migrations/20261022230000_legacy_checkpoint_revision.sql
+      - test/legacy-checkpoint-revision.sql
+      - .github/workflows/stable-checkpoint-postgres.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  postgres-revision:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: synthetic-only
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 3s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply migrations and verify synthetic v1/v2 checkpoint
+        run: |
+          set -euo pipefail
+          run_psql() {
+            docker run --rm --network host -e PGPASSWORD=synthetic-only -v "$PWD:/repo:ro" postgres:17-alpine psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres "$@"
+          }
+          run_psql -c "CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;"
+          run_psql -f /repo/supabase-relay/migrations/20261016024151_private_ciphertext_relay_core.sql
+          run_psql -f /repo/supabase-relay/migrations/20261022230000_legacy_checkpoint_revision.sql
+          run_psql -f /repo/test/legacy-checkpoint-revision.sql
