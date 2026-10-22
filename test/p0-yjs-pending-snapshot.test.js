@@ -229,7 +229,7 @@ test("the real reconnect photo seeding callback waits for Yjs hydration",async()
  assert.ok(first>0&&end>first,"the real photo-seed callback was found");
  let release,timer;const events=[];
  const ws={readyState:1};
- const ctx={ws,canal:{ws},seedFn:()=>events.push("seed"),
+ const ctx={ws,canal:{ws},_soloMemoria:false,seedFn:()=>events.push("seed"),
   _pullCursorReady:new Promise(resolve=>{release=resolve;}),
   setTimeout:(fn)=>{timer=fn;},Promise};
  vm.createContext(ctx);vm.runInContext(src.slice(first,end),ctx);
