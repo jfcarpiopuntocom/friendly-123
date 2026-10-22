@@ -391,6 +391,10 @@
   // sin cerrar el socket anterior — quedaba una conexion fantasma abierta
   // consumiendo un cupo de la sala (max 12) y duplicando mensajes. Ahora
   // conectar() SIEMPRE cierra lo que hubiera antes de abrir uno nuevo.
+  let _conexionGeneracion = 0;
+  function puedeConectarLegado() {
+    return !document.hidden && (!window.OCTabSession || window.OCTabSession.canSync());
+  }
   function cerrarWsExistente() {
     if (timeoutConexion) { clearTimeout(timeoutConexion); timeoutConexion = null; }
     if (_ckptTimer) { clearInterval(_ckptTimer); _ckptTimer = null; }
@@ -401,6 +405,8 @@
   }
 
   async function conectar() {
+    const miGeneracion = ++_conexionGeneracion;
+    if (!puedeConectarLegado()) return;
     const sala = leerSala();
     if (!sala || !sala.codigo) { notificarEstado("apagado"); return; }
     cerrarWsExistente();
@@ -410,12 +416,14 @@
     // caen en salas distintas y el equipo nunca entiende por que no sincroniza.
     const codigoNorm = normalizarCodigo(sala.codigo);
     claveActual = await derivarClave(codigoNorm);
+    if (!puedeConectarLegado() || miGeneracion !== _conexionGeneracion) return;
     /* LIMPIEZA (2026-09-16): SOLO la licencia canonica de JFC estrena sala NUEVA,
        tambien en el sync VIEJO, para que su checkpoint contaminado con semilla no
        re-inyecte el catalogo tras la purga local. Gated EXACTO (idiomARTE y demas
        NO cambian). La clave sigue de la licencia. Espeja el bump de sync-yjs. */
     const _salaCod = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigoNorm)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigoNorm + "::limpio-2026-09-16") : codigoNorm;
     salaIdActual = await idDeSala(_salaCod);
+    if (!puedeConectarLegado() || miGeneracion !== _conexionGeneracion) return;
     try {
       if (!window.F123Relay || typeof window.F123Relay.connect !== "function") throw new Error("Native sync adapter unavailable");
       ws = window.F123Relay.connect(RELAY_URL + salaIdActual);
@@ -433,7 +441,11 @@
     timeoutConexion = setTimeout(() => {
       if (ws && ws.readyState === WebSocket.CONNECTING) { try { ws.close(); } catch (_) {} }
     }, 10000);
+    const _socketDeEstaConexion = ws;
     ws.onopen = () => {
+      if (!puedeConectarLegado() || miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion) {
+        try { _socketDeEstaConexion.close(); } catch (_) {} return;
+      }
       if (timeoutConexion) { clearTimeout(timeoutConexion); timeoutConexion = null; }
       reintentoMs = 1000;
       intentosSeguidos = 0;
@@ -1106,7 +1118,7 @@
   }
 
   function programarReintento() {
-    if (!leerSala()) return; // el dueño apago sync mientras tanto: no insistir
+    if (!leerSala() || !puedeConectarLegado()) return; // el dueño apago sync mientras tanto: no insistir
     intentosSeguidos++;
     // Refuerzo: no podemos distinguir "codigo invalido / sala inalcanzable"
     // de "wifi que parpadeo" desde el WebSocket (el navegador no expone el
@@ -1535,10 +1547,19 @@
   };
 
   // Reconexion automatica al volver a tener foco/red (celular que se bloqueo, wifi que parpadeo)
-  window.addEventListener("online", () => { if (leerSala() && estadoActual !== "conectado") { reintentoMs = 1000; conectar(); } });
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && leerSala() && (!ws || ws.readyState !== WebSocket.OPEN)) { reintentoMs = 1000; conectar(); }
-  });
+  function sincronizarSesionLegada() {
+    if (!puedeConectarLegado()) {
+      ++_conexionGeneracion;
+      cerrarWsExistente(); // durable local queue is not altered
+      return;
+    }
+    if (leerSala() && (!ws || ws.readyState !== WebSocket.OPEN)) {
+      reintentoMs = 1000; conectar();
+    }
+  }
+  window.addEventListener("online", sincronizarSesionLegada);
+  document.addEventListener("visibilitychange", sincronizarSesionLegada);
+  window.addEventListener("oc-tab-session-changed", sincronizarSesionLegada);
 
   /* UNA LICENCIA = UNA SALA tambien aqui (JFC 2026-09-26; Yjs ya lo hace desde v295).
      Bug real: el rescate automatico de licencia (v407, auth-ui.js) escribia licenseCode
