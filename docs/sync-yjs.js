@@ -1082,7 +1082,7 @@
       if (ws) try { ws.close(1000, "tab inactive"); } catch (_) {}
     };
     canal.reanudar = function () {
-      if (!_pausado && canal.ws && canal.ws.readyState < 2) return;
+      if (!_pausado && (_tReconnect || (canal.ws && canal.ws.readyState < 2))) return;
       _pausado = false; conectar();
     };
     // Real hidden→visible gesture: one metadata check when exhausted; no polling.
