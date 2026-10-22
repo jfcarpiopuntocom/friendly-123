@@ -586,7 +586,7 @@
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
     };
-    ws.onclose = () => { if (_ckptTimer) { clearInterval(_ckptTimer); _ckptTimer = null; } notificarEstado("reconectando"); programarReintento(); };
+    ws.onclose = () => { if (ws !== _socketDeEstaConexion || !puedeConectarLegado()) return; if (_ckptTimer) { clearInterval(_ckptTimer); _ckptTimer = null; } notificarEstado("reconectando"); programarReintento(); };
     ws.onerror = () => { try { ws.close(); } catch (_) {} };
   }
 
