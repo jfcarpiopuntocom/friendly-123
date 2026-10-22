@@ -13,7 +13,7 @@ const end=src.indexOf("    function pedirPagina(sock, estado) {",begin);
 assert.ok(begin>0&&end>begin,"cursor boundary exists in the published implementation");
 const actual=src.slice(begin,end);
 
-function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false,prior=null}={}){
+function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false,prior=null,tamperReadback=false}={}){
  const values=new Map();
  if(prior)values.set("cursor",prior);
  const events=[],ctx={
@@ -33,7 +33,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
        return tx;
      }},
      whenSynced:Promise.resolve(),
-     get:async key=>{events.push("get");return values.get(key);},
+     get:async key=>{events.push("get");const v=values.get(key);if(tamperReadback&&v?.pendingSnapshot&&events.includes("set")) return {...v,pendingSnapshot:new Uint8Array(v.pendingSnapshot).fill(19)};return v;},
      set:async(key,value)=>{events.push("set");if(failWrite)throw Error("synthetic quota");values.set(key,value);}
    },
    Promise,Uint8Array,ArrayBuffer,Number,Math,Object,Date,JSON,console,
@@ -113,4 +113,32 @@ test("vendored Yjs preserves causal orphan and deleted-set with delta-only pendi
  assert.equal(reboot.getText("synthetic").toString(),original.getText("synthetic").toString());
  assert.deepEqual(Buffer.from(Y.encodeStateVector(reboot)),Buffer.from(Y.encodeStateVector(original)));
  assert.deepEqual(Buffer.from(Y.encodeStateAsUpdate(reboot)),Buffer.from(Y.encodeStateAsUpdate(original)));
+});
+
+test("50 pages then three restarts never re-download already proven pages",async()=>{
+ let stored=null,prev=0,totalProofWrites=0;
+ for(let restart=0;restart<3;restart++){
+   const f=fixture({pending:restart===0,prior:stored});
+   await f.ready();
+   assert.equal(f.ctx._pullCursor.seq,prev,"restart begins at the verified cursor, not the first row");
+   for(let n=1;n<=50;n++) await f.save({rev:0,seq:prev+n,more:n!==50});
+   stored=f.values.get("cursor");
+   assert.equal(stored.seq,prev+50,"the final page seals the durable pending proof");
+   const writes=f.events.filter(e=>e==="set").length;
+   assert.ok(writes<=4,"snapshot cost bounded to 16-page batches, not per page");
+   totalProofWrites+=writes;
+   prev+=50;
+ }
+ assert.ok(totalProofWrites<=12);
+});
+test("tampered same-length IDB readback must not confirm a potentially different pending snapshot",async()=>{
+ const f=fixture({tamperReadback:true});await f.ready();
+ await f.save({rev:0,seq:50,more:false});
+ assert.equal(f.ctx._appliedPullCursor.rev,-1,"byte identity must be verified, not only length");
+});
+test("an invalid persisted pending proof falls back to full replay instead of skipping history",async()=>{
+ const f=fixture({pending:false,prior:{rev:1,seq:900,pendingSnapshot:[]}});
+ await f.ready();
+ assert.equal(f.ctx._appliedPullCursor.rev,-1);
+ assert.equal(f.ctx._pullCursor.seq,0);
 });
