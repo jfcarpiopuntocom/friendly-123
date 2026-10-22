@@ -44,7 +44,7 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
  try {
   browser=await chromium.launch({headless:true});
   const ctx=await browser.newContext({serviceWorkers:"allow"});
-  const p=await ctx.newPage();
+  let p=await ctx.newPage();
   p.on("pageerror", e=>console.log("E2 page error:",e.message));
   ctx.on("serviceworker", w=>console.log("E2 worker:",w.url()));
   await p.goto(origin+"/app/index.html");
@@ -59,8 +59,17 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
     const r=await navigator.serviceWorker.getRegistration();
     return r?.active?.state==="activated";
   },null,{timeout:20000});
-  await p.reload();
-  await p.waitForFunction(()=>!!navigator.serviceWorker.controller,null,{timeout:20000});
+  // A real installed PWA is opened in a fresh tab after worker activation.
+  await p.close();
+  p=await ctx.newPage();
+  p.on("pageerror",e=>console.log("E2 reopened page error:",e.message));
+  await p.goto(origin+"/app/index.html");
+  const ctl=await p.evaluate(async()=>({
+    url:location.href,controller:navigator.serviceWorker.controller?.scriptURL,
+    active:(await navigator.serviceWorker.getRegistration())?.active?.state
+  }));
+  console.log("E2 reopened PWA:",JSON.stringify(ctl));
+  await p.waitForFunction(()=>!!navigator.serviceWorker.controller,null,{timeout:15000});
   await p.clock.install(); // only after the old worker is fully controlling this tab
   candidate=true;
   await p.reload();
