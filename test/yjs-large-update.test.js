@@ -16,6 +16,7 @@ test('large Yjs updates are bounded before send and reassembled exactly once', a
   const c = {
     API: { clave: 'fixture', roomId: 'fixture' }, RELAY_URL: 'fixture:', crypto: require('node:crypto').webcrypto, WebSocket: class { constructor() { throw Error('Raw relay fallback forbidden'); } },
     window: { F123Relay: { connect: () => new Socket() } },
+    document: { hidden:false, addEventListener(){} },
     Y: { applyUpdate(_doc, bytes) { applied.push(Array.from(bytes)); } },
     log() {}, setTimeout() {}, clearTimeout() {}, Date, Math, JSON, Uint8Array, ArrayBuffer,
     btoa: s => Buffer.from(s, 'binary').toString('base64'),
