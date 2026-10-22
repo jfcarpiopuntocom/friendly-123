@@ -93,3 +93,26 @@ test("E1b-3 RED: Web Locks without AbortController fail closed, never race anoth
  assert.equal(invoked,0,"never request unabortable cross-tab lock");
  assert.equal(f.calls,0,"no business write without global serialization");
 });
+
+
+test("E1b-3 1AAA: a sale already writing finishes before new-tab write enters",async()=>{
+ let tail=Promise.resolve(),insideOld=false,finishOld,enteredNew=false;
+ const globalLocks={request(_name,opts,fn){
+  const work=tail.then(fn);
+  tail=work.catch(()=>{});
+  return work;
+ }};
+ const old=fixture(globalLocks),fresh=fixture(globalLocks);
+ old.ctx._fetchInterno=()=>{insideOld=true;return new Promise(resolve=>{finishOld=()=>resolve(new Response('{"ok":true}',{status:200}));});};
+ fresh.ctx._fetchInterno=()=>{enteredNew=true;return Promise.resolve(new Response('{"ok":true}',{status:200}));};
+ const first=old.fetch("/api/ventas",post);
+ for(let i=0;i<8;i++)await Promise.resolve();
+ assert.equal(insideOld,true);
+ // New tab takes the lease while first write holds shared Web Lock.
+ const second=fresh.fetch("/api/ventas",post);
+ for(let i=0;i<8;i++)await Promise.resolve();
+ assert.equal(enteredNew,false,"no concurrent mutation despite immediate tab claim");
+ finishOld();assert.equal((await first).status,200);
+ assert.equal((await second).status,200);
+ assert.equal(enteredNew,true,"second write starts only after first finishes");
+});
