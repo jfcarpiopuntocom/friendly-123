@@ -195,3 +195,40 @@ test("an impossible future clean cut is ignored on reload",async()=>{
  await f.ready();
  assert.equal(f.ctx._pullCursor.rev,-1,"never invent a clean history checkpoint");
 });
+
+test("actual onopen hello and pull both wait for completed journal hydration",async()=>{
+ const first=src.indexOf("        _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {",src.indexOf("ws.onopen = function ()"));
+ const end=src.indexOf("        /* Sincroniza el reloj",first);
+ assert.ok(first>0&&end>first,"the real open-time recovery path was found");
+ const events=[];let release;
+ const ws={readyState:1};
+ const ctx={
+  ws,canal:{ws},_colaRecepcion:Promise.resolve(),
+  _pullCursorReady:new Promise(resolve=>{release=resolve;}),
+  Y:{encodeStateVector:()=>new Uint8Array([8])},doc:{},
+  enviar:(tag)=>events.push("hello:"+tag),pedirPagina:async()=>events.push("pull"),
+  pullEstado:{},Promise
+ };
+ vm.createContext(ctx);
+ vm.runInContext(src.slice(first,end),ctx);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(events,[],"a partially hydrated device must not advertise an empty state vector");
+ release();await ctx._colaRecepcion;
+ assert.deepEqual(events,["hello:1","pull"],"hello is sent only after hydration and before pull");
+});
+test("the real reconnect photo seeding callback waits for Yjs hydration",async()=>{
+ const first=src.indexOf("        if (seedFn) setTimeout(function () {",src.indexOf("ws.onopen = function ()"));
+ const end=src.indexOf("\n      };",first);
+ assert.ok(first>0&&end>first,"the real photo-seed callback was found");
+ let release,timer;const events=[];
+ const ws={readyState:1};
+ const ctx={ws,canal:{ws},seedFn:()=>events.push("seed"),
+  _pullCursorReady:new Promise(resolve=>{release=resolve;}),
+  setTimeout:(fn)=>{timer=fn;},Promise};
+ vm.createContext(ctx);vm.runInContext(src.slice(first,end),ctx);
+ assert.equal(typeof timer,"function");
+ timer();await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(events,[],"no photo seeding before local journal finishes loading");
+ release();await new Promise(resolve=>setImmediate(resolve));
+ assert.deepEqual(events,["seed"]);
+});
