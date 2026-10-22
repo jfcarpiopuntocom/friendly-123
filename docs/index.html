@@ -10992,7 +10992,12 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   // E2: a takeover can already match version.json while this document is stale.
+  var ultimoControladorSW = navigator.serviceWorker.controller;
   function onShellTomado() {
+    var actual = navigator.serviceWorker.controller;
+    if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
+    if (!actual || actual === ultimoControladorSW) return;
+    ultimoControladorSW = actual;
     try { sessionStorage.setItem(KP, "1"); } catch (_) {}
     _recargarSeguroVersion();
     if (document.visibilityState === "hidden" || Date.now() - ultimoToque > 90000) intentar();
