@@ -248,7 +248,8 @@ for(const tag of [1,2]){
   assert.ok(first>0&&end>first,"actual Yjs message handling code is available");
   let release;const seen=[];
   const ctx={
-   API:{clave:{}},doc:{},Y:{encodeStateVector:()=>new Uint8Array([2]),
+   API:{clave:{}},doc:{},_pausado:false,permitido:()=>true,
+   Y:{encodeStateVector:()=>new Uint8Array([2]),
     encodeStateAsUpdate:()=>new Uint8Array([0])},
    _pullCursorReady:new Promise(resolve=>{release=resolve;}),
    descifrarBin:async()=>new Uint8Array([tag,5]),
