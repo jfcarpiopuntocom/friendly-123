@@ -75,7 +75,7 @@
     "./dashboard-updates.js": "sha256-98b7f30097e123fe86a6d1e58c77b233a443c5952a8864dba4c887ff4bc826b9",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
-    "./vista-perchas.js": "sha256-1eb55bee7f79592492f316c95e7c9f6790c4a8bf0ade316e5d8ff2beda5de3ad",
+    "./vista-perchas.js": "sha256-d203b09ffb770840cc95218c828861961002602b4f66437e5490720d1ee5b8ce",
     "./welcome-ui.js": "sha256-4efb3d7b622e02dc5db693b8833b596ddbb23dd82e4f9dece3866c81f64dd615",
     "./ganchos-demo.js": "sha256-b89fe6992ff0a621e0c6ba612e352f657787f150021a9bb77e220aced50c4022",
     "./tutorial-ui.js": "sha256-356f6732038ab6cd6f109ac7c749efb4c40dc59650a793fc4e6c6061b7497756",
