@@ -13,7 +13,7 @@ const end=src.indexOf("    function reprogramar() {",begin);
 assert.ok(begin>0&&end>begin,"cursor boundary exists in the published implementation");
 const actual=src.slice(begin,end);
 
-function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false,prior=null,tamperReadback=false,syncedHeld=false,failRestore=false}={}){
+function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false,prior=null,tamperReadback=false,syncedHeld=false,failRestore=false,dbOpenFails=false}={}){
  const values=new Map();
  if(prior)values.set("cursor",prior);
  let resumeHydration, watchdog;
@@ -42,6 +42,11 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
    setTimeout(fn,ms){if(ms===25000){watchdog=fn;return 999;}return setImmediate(fn);},
    clearTimeout(id){if(id===999)watchdog=null;}, 
  };
+ if(dbOpenFails){
+   ctx.persistencia.db=null;
+   ctx.persistencia._db=Promise.reject(Error("synthetic IndexedDB.open failure"));
+   ctx.persistencia.whenSynced=new Promise(()=>{});
+ }
  vm.createContext(ctx);
  vm.runInContext(actual,ctx);
  return {ctx,events,values,async ready(){await ctx._pullCursorReady;},save:c=>ctx.guardarPullCursor(c),releaseHydration:()=>resumeHydration?.(),fireWatchdog:()=>watchdog?.()};
@@ -332,4 +337,20 @@ test("E1: existing indicator visibly warns while stalled and restores prior disp
  paused=false;ctx._pintarSyncMin();
  assert.equal(el.style.display,"none","original hidden state is restored on recovery");
  assert.match(el.textContent,/Sync: connected/);
+});
+
+test("E1 RED: confirmed IndexedDB open failure enables safe RAM replay, never cursor storage",async()=>{
+ const f=fixture({pending:false,dbOpenFails:true,prior:{rev:0,seq:8300}});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(f.ctx.canal.recuperacionLocal,"sin-almacenamiento");
+ await f.ready();
+ const sent=[],sock={readyState:1,send:json=>sent.push(JSON.parse(json))};
+ f.ctx.canal.ws=sock;
+ await f.ctx.pedirPagina(sock,{enCurso:false,fallos:0});
+ assert.equal(sent[0].rev,-1,"cannot reuse a cursor without a loaded local Yjs journal");
+ assert.equal(sent[0].seq,0);
+ await f.save({rev:0,seq:42,more:false});
+ assert.equal(f.events.filter(e=>e==="set").length,0,"memory mode must never write cursor");
+ const ckpt=src.slice(src.indexOf("function hacerCkpt()"),src.indexOf("function conectar()",src.indexOf("function hacerCkpt()")));
+ assert.match(ckpt,/if\s*\(_soloMemoria\)\s*return;/,"memory mode must not publish checkpoints");
 });
