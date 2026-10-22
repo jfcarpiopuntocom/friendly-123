@@ -636,6 +636,20 @@
         pedirPagina(sock, estado);
       }, delay);
     }
+    // Only useful, applied bytes (never peer count or duplicate) wake exhausted replay.
+    function despertarConCambio(antes, claveAntes) {
+      var despues = Y.encodeStateVector(doc), mismo = antes.length === despues.length;
+      for (var i = 0; mismo && i < antes.length; i++) mismo = antes[i] === despues[i];
+      if (mismo && claveAntes === clavePendientes()) return;
+      var agotado = _replayUsed >= 5;
+      _replayKey = null; _replayUsed = 0;
+      clearTimeout(_tReplay); _tReplay = null;
+      if (canal.ws && canal.ws.readyState === 1 && _currentPullState &&
+          !_currentPullState.enCurso) {
+        if (agotado || !deudaPendiente()) pedirPagina(canal.ws, _currentPullState);
+        else programarRelectura(canal.ws, _currentPullState);
+      }
+    }
     function pedirPagina(sock, estado, sinHead) {
       estado.enCurso = true; estado.fallos = 0;
       return _pullCursorReady.then(function () {
@@ -667,8 +681,10 @@
           canal.recuperando = false;
           if (nombre === "catalogo" && API._store) API._store.aplicar();
         }
+        programarRelectura(sock, estado);
         return Promise.resolve();
       }
+      if (valido) { _replayKey = null; _replayUsed = 0; }
       return pedirPagina(sock, estado, true); // newer revision or legacy server
     }
     function reprogramar() {
@@ -895,7 +911,10 @@
           if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
           if (tag === 0) {
             var beforeRevision = API._catalogoRevision;
+            var antesSV = source === "live" ? Y.encodeStateVector(doc) : null;
+            var antesClave = antesSV ? clavePendientes() : null;
             Y.applyUpdate(doc, payload, "red");
+            if (antesSV) despertarConCambio(antesSV, antesClave);
             try {
               var receipt = Promise.resolve(false);
               if (nombre === "catalogo" && API._catalogoRevision !== beforeRevision && typeof API.confirmarCatalogoVisible === "function")
@@ -1014,7 +1033,6 @@
         clearTimeout(_durableWatchdog); _durableWatchdog = null;
         _durableInFlight = Object.create(null);
         clearTimeout(_tReplay); _tReplay = null;
-        _replayDelay = 30000;
         pullEstado.enCurso = false;
         canal.ws = null;
         _relayPeerCount = 0;
