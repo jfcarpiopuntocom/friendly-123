@@ -60,7 +60,7 @@ test("E2: gate recomputes SW version on controllerchange and broadcast, never in
 });
 
 test("E2: controllerchange and shell-actualizado arm safe deferred reload, never reload directly",()=>{
-  const begin=html.indexOf("  function onShellTomado() {");
+  const begin=html.indexOf("  var ultimoControladorSW =");
   const end=html.indexOf("  window._ocActSola =",begin);
   assert.ok(begin>0&&end>begin,"takeover listeners exist in real update module");
   const listeners=new Map(),pending=new Map(),events=[];
@@ -94,7 +94,7 @@ test("E2: no user-facing stale-shell warning instructs cache purging",()=>{
 });
 
 test("E2 RED: first install without old controller does not schedule an unnecessary reload",()=>{
- const begin=html.indexOf("  function onShellTomado() {");
+ const begin=html.indexOf("  var ultimoControladorSW =");
  const end=html.indexOf("  window._ocActSola =",begin);
  assert.ok(begin>0&&end>begin);
  const listeners=new Map(),effects=[];
