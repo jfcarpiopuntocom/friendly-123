@@ -617,12 +617,10 @@
           if (canal.ws === ws && ws.readyState === 1) reintentos = 0;
         }, T_CONEXION_ESTABLE_MS);
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
-        // A disconnected page cursor may cover unapplied fragments. Drop only
-        // its transient assembly and replay from the proven applied cut.
+        // The same channel still owns its Y.Doc and fragment assembly after
+        // reconnect. Keep their RAM cursor; a new process loads the durable cut.
         _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
           if (canal.ws !== ws) return;
-          partesEntrantes = Object.create(null);
-          _pullCursor = _appliedPullCursor;
           return pedirPagina(ws, pullEstado);
         });
         /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
