@@ -232,3 +232,34 @@ test("the real reconnect photo seeding callback waits for Yjs hydration",async()
  release();await new Promise(resolve=>setImmediate(resolve));
  assert.deepEqual(events,["seed"]);
 });
+
+for(const tag of [1,2]){
+ test("a remote Yjs state-vector request ("+tag+") waits for local journal hydration",async()=>{
+  const first=src.indexOf("      function manejar(buf, source) {");
+  const end=src.indexOf("      ws.onmessage = function (ev) {",first);
+  assert.ok(first>0&&end>first,"actual Yjs message handling code is available");
+  let release;const seen=[];
+  const ctx={
+   API:{clave:{}},doc:{},Y:{encodeStateVector:()=>new Uint8Array([2]),
+    encodeStateAsUpdate:()=>new Uint8Array([0])},
+   _pullCursorReady:new Promise(resolve=>{release=resolve;}),
+   descifrarBin:async()=>new Uint8Array([tag,5]),
+   enviar:(type)=>seen.push(type),Promise,Uint8Array,TextDecoder,
+   partesEntrantes:{},partesEnVivo:{}
+  };
+  vm.createContext(ctx);vm.runInContext(src.slice(first,end),ctx);
+  const handling=ctx.manejar(new ArrayBuffer(1),"live");
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.deepEqual(seen,[],"never respond with partial state while IDB remains loading");
+  release();assert.equal(await handling,true);
+  assert.deepEqual(seen,tag===1?[0,2]:[0]);
+ });
+}
+test("a bad encrypted update is rejected, not presented as an applied Yjs frame",async()=>{
+ const first=src.indexOf("      function manejar(buf, source) {");
+ const end=src.indexOf("      ws.onmessage = function (ev) {",first);
+ assert.ok(first>0&&end>first);
+ const ctx={API:{clave:{}},descifrarBin:async()=>{throw Error("synthetic bad AES-GCM");},Promise};
+ vm.createContext(ctx);vm.runInContext(src.slice(first,end),ctx);
+ assert.equal(await ctx.manejar(new ArrayBuffer(1),"history"),false);
+});
