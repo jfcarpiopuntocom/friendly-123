@@ -22,7 +22,9 @@ test('real WebRTC transfers encrypted updates directly and falls back when a pee
     window.cifrarBin=async(k,p)=>{const iv=crypto.getRandomValues(new Uint8Array(12)),c=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,p)),r=new Uint8Array(12+c.length);r.set(iv);r.set(c,12);return r.buffer};
     window.descifrarBin=async(k,p)=>{p=new Uint8Array(p);return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:p.subarray(0,12)},k,p.subarray(12)))};
     window.received=[];window.Y={encodeStateVector:()=>new Uint8Array([0]),encodeStateAsUpdate:()=>new Uint8Array([0,0]),applyUpdate:(_,b)=>received.push(Array.from(b))};
-    const data=new Map();window.persist={get:async k=>structuredClone(data.get(k)),set:async(k,v)=>data.set(k,structuredClone(v))};
+    const data=new Map();
+    const journal={objectStoreNames:{contains:k=>k==='updates'},transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}};
+    window.persist={whenSynced:Promise.resolve(),db:journal,get:async k=>structuredClone(data.get(k)),set:async(k,v)=>data.set(k,structuredClone(v))};
     (0,eval)(source+'\nwindow.channel=crearCanal(Y,{},"-test","fixture",false,null,persist);');
     channel.conectar();socket.onopen();socket.onmessage({data:JSON.stringify({k:'peer-count',n:2})});
    },block);pages.push(page);
