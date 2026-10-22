@@ -9,7 +9,7 @@ const path=require("node:path");
 // No network, browser client license, or customer's Yjs database is accessed.
 const src=fs.readFileSync(path.join(__dirname,"../docs/sync-yjs.js"),"utf8");
 const begin=src.indexOf("    var _cursorContainsPending = false",src.indexOf("function crearCanal("));
-const end=src.indexOf("    function pedirPagina(sock, estado) {",begin);
+const end=src.indexOf("    function reprogramar() {",begin);
 assert.ok(begin>0&&end>begin,"cursor boundary exists in the published implementation");
 const actual=src.slice(begin,end);
 
@@ -25,6 +25,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
    },
    doc:{store:pending?{pendingStructs:{missingParent:true}}:{}},
    partesEntrantes:fragments?{"chunk":{received:1,total:2}}:{},
+   canal:{ws:null},PULL_PAGE_SIZE:64,
    _pullCursorKey:"cursor",_pullCursor:{rev:-1,seq:0},_appliedPullCursor:{rev:-1,seq:0},_pullCursorReady:Promise.resolve(),
    persistencia:{
      db:{objectStoreNames:{contains:name=>name==="updates"},transaction(){
@@ -262,4 +263,32 @@ test("a bad encrypted update is rejected, not presented as an applied Yjs frame"
  const ctx={API:{clave:{}},descifrarBin:async()=>{throw Error("synthetic bad AES-GCM");},Promise};
  vm.createContext(ctx);vm.runInContext(src.slice(first,end),ctx);
  assert.equal(await ctx.manejar(new ArrayBuffer(1),"history"),false);
+});
+
+test("E1 acceptance: actual pager sends only 50 NEW page requests across each of three restarts",async()=>{
+ // Synthetic server adds exactly 50 encrypted history pages between restarts.
+ // The unresolved Yjs parent survives in the signed cursor proof, but no prior
+ // page should be pulled again after reboot. No network or Supabase data used.
+ let stored=null,priorSeq=0;
+ for(let reboot=0;reboot<3;reboot++){
+  const f=fixture({pending:reboot===0,prior:stored});
+  await f.ready();
+  assert.equal(f.ctx._pullCursor.seq,priorSeq);
+  assert.ok(f.ctx.doc.store.pendingStructs,"causal parent stays unresolved");
+  const sent=[],sock={readyState:1,send(json){sent.push(JSON.parse(json));}};
+  f.ctx.canal.ws=sock;
+  for(let page=1;page<=50;page++){
+   await f.ctx.pedirPagina(sock,{enCurso:false,fallos:0});
+   assert.equal(sent.at(-1).seq,priorSeq+page-1,
+     "pager sends an incremental cursor, not the beginning of old history");
+   await f.save({rev:0,seq:priorSeq+page,more:page!==50});
+  }
+  await f.ctx.pedirPagina(sock,{enCurso:false,fallos:0});
+  assert.equal(sent.length,51,"50 new pages and one terminal poll; no old page re-fetch");
+  assert.ok(sent.every((c,i)=>c.k==="pull"&&c.seq===priorSeq+i));
+  stored=f.values.get("cursor");
+  assert.equal(stored.seq,priorSeq+50);
+  priorSeq+=50;
+ }
+ assert.equal(priorSeq,150);
 });
