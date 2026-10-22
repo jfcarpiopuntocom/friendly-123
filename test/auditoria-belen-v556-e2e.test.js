@@ -113,7 +113,8 @@ test('item 13: gasto con efectivo/transferencia y foto de comprobante desde la p
   await A.page.selectOption('#gastoMetodoPago', 'transfer');
   await A.page.setInputFiles('#gastoFoto', { name: 'recibo.png', mimeType: 'image/png', buffer: png });
   await A.page.click('button[onclick="registrarGasto()"]');
-  await A.page.waitForFunction(async () => (await (await fetch('/api/gastos')).json()).gastos.some(g => g.concepto === 'Comprobante sintetico'), null, { timeout: 8000 });
+  // Wait for the financial durability ACK, not a dirty read of an in-flight write.
+  await A.page.waitForFunction(() => document.getElementById('gastoMsg')?.textContent?.trim() === 'Expense recorded.', null, { timeout: 8000 });
   const g = (await api(A, '/api/gastos')).gastos.find(x => x.concepto === 'Comprobante sintetico');
   assert.equal(g.metodoPago, 'transfer'); assert.match(g.facturaFotoHash || '', /^[a-f0-9]{64}$/);
   await pump(A, B, 400, 20);
