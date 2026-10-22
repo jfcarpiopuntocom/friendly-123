@@ -73,21 +73,26 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  const source=fs.readFileSync(path.join(__dirname,"../docs/sync-yjs.js"),"utf8");
  const start=source.indexOf("      ws.onmessage = function (ev) {"),end=source.indexOf("      ws.onerror = function () {",start);
  const openStart=source.indexOf("        _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {"),openEnd=source.indexOf("        /* Sincroniza el reloj",openStart);
+ const replayStart=source.indexOf("    function programarRelectura(sock, estado) {"),replayEnd=source.indexOf("    // Only useful, applied bytes",replayStart);
+ assert.ok(replayStart>=0&&replayEnd>replayStart,"uses actual E1b2 five-attempt retry");
  assert.ok(start>=0&&end>start,"uses the candidate's receive and replay handler");
  assert.ok(openStart>=0&&openEnd>openStart,"uses the candidate's actual onopen recovery queue");
  const clock=fakeClock(),ctx={
   API:{clave:{},_store:null},canal:{ws:null,recuperando:true},pullEstado:{enCurso:false,fallos:0},
   _colaRecepcion:Promise.resolve(),_pullCursor:{rev:0,seq:0},_appliedPullCursor:{rev:0,seq:0},_pullCursorReady:Promise.resolve(),
-  _replayDelay:30000,_tReplay:null,partesEntrantes:{},_relayPeerCount:0,
+  _replayDelay:30000,_tReplay:null,_replayKey:null,_replayUsed:0,partesEntrantes:{},_relayPeerCount:0,
   doc:{store:{pendingStructs:{missingParent:true}}},manejar:async()=>{ctx.partesEntrantes.fragment={received:1,total:2};return true;},confirmarDurable(){},
   guardarPullCursor:async c=>{ctx._pullCursor={rev:c.rev,seq:c.seq};if(!ctx.doc.store.pendingStructs&&!Object.keys(ctx.partesEntrantes).length)ctx._appliedPullCursor={rev:c.rev,seq:c.seq};},
   pedirPagina:(sock,state)=>{state.enCurso=true;sock.send(JSON.stringify({k:"pull",v:2,rev:ctx._pullCursor.rev,seq:ctx._pullCursor.seq,limit:250}));},
   nombre:"catalogo",window:{},log(){},clearTimeout:id=>clock.clearTimeout(id),_tEstable:null,
   _bufferPumpTimer:null,_durableWatchdog:null,_durableInFlight:Object.create(null),_currentPullState:null,
   _pausado:false,permitido:()=>true,
+  deudaPendiente:()=>!!ctx.doc.store.pendingStructs || Object.keys(ctx.partesEntrantes).length>0,
+  clavePendientes:()=>JSON.stringify([!!ctx.doc.store.pendingStructs,Object.keys(ctx.partesEntrantes).sort()]),
   setTimeout:(fn,delay)=>clock.setTimeout(fn,delay),reprogramar(){},
   Promise,JSON,Object,Number,Math,Date,ArrayBuffer,Blob};
  vm.createContext(ctx);
+ vm.runInContext(source.slice(replayStart,replayEnd),ctx);
  function bindActor(actor){return{
   attach(ws,state){actor.ws=ws;actor.canal.ws=ws;actor.pullEstado=state;actor._currentPullState=state;
    vm.runInContext(source.slice(start,end)+"\nthis.queue=()=>_colaRecepcion;",actor);},
@@ -121,12 +126,16 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  // persisted-cursor loader, which can restore only the last proven cut (seq 0).
  const fresh={...ctx,API:{clave:{},_store:null},canal:{ws:null,recuperando:true},pullEstado:{enCurso:false,fallos:0},
   _colaRecepcion:Promise.resolve(),_pullCursor:{rev:-1,seq:0},_appliedPullCursor:{rev:-1,seq:0},_pullCursorKey:"fixture",
-  _pullCursorReady:Promise.resolve(),_replayDelay:30000,_tReplay:null,partesEntrantes:Object.create(null),
-  doc:{store:{}},persistencia:{get:async()=>({rev:0,seq:0})},_tEstable:null,_bufferPumpTimer:null,
+  _pullCursorReady:Promise.resolve(),_replayDelay:30000,_tReplay:null,_replayKey:null,_replayUsed:0,partesEntrantes:Object.create(null),
+  doc:{store:{}},persistencia:{whenSynced:Promise.resolve(),get:async()=>({rev:0,seq:0}),
+   db:{objectStoreNames:{contains:k=>k==="updates"},transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}}},_tEstable:null,_bufferPumpTimer:null,
   _durableWatchdog:null,_durableInFlight:Object.create(null)};
  fresh.guardarPullCursor=async c=>{fresh._pullCursor={rev:c.rev,seq:c.seq};if(!Object.keys(fresh.partesEntrantes).length&&!fresh.doc.store.pendingStructs)fresh._appliedPullCursor={rev:c.rev,seq:c.seq};};
  fresh.pedirPagina=(sock,state)=>{state.enCurso=true;sock.send(JSON.stringify({k:"pull",v:2,rev:fresh._pullCursor.rev,seq:fresh._pullCursor.seq,limit:250}));};
- fresh.manejar=async()=>true;vm.createContext(fresh);
+ fresh.manejar=async()=>true;
+ fresh.deudaPendiente=()=>!!fresh.doc.store.pendingStructs||Object.keys(fresh.partesEntrantes).length>0;
+ fresh.clavePendientes=()=>JSON.stringify([!!fresh.doc.store.pendingStructs,Object.keys(fresh.partesEntrantes).sort()]);
+ vm.createContext(fresh);vm.runInContext(source.slice(replayStart,replayEnd),fresh);
  const initStart=source.indexOf("    if (persistencia && typeof persistencia.get === \"function\") {"),
   initEnd=source.indexOf("    function guardarPullCursor(cursor) {",initStart);
  assert.ok(initStart>=0&&initEnd>initStart);

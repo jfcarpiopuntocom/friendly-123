@@ -26,7 +26,7 @@
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
     "./sync-realtime.js": "sha256-137b856cfd32c7937ff9beb1c1e452577d73ee08f00bf5dc3d81dc3a4b34c00a",
     "./sync-watchdog.js": "sha256-d894dcd64788881148b90d8205db529d6aee45961fc71eec106a7e50fcf349d0",
-    "./sync-yjs.js": "sha256-6d2d18fe3c2ba1b8dea56d1e7a02e810115633286a20393f57661b89333d0563",
+    "./sync-yjs.js": "sha256-a0ac2bd48fe9e5c2ef1db1cf6a94180e9e3a5c68f1467d2d3ff77a7a2d023609",
     "./sync-latencia.js": "sha256-faf49a6fd8b60e3bd4cb78247b4fee986db94b5a3fa92c86f7ac2e50287d3524",
     "./invariantes.js": "sha256-4df7170b0f6f1227ce3b6ffadf9feaac7843d63cb274699a3b6ab230ff8ecdbc",
     "./licencia-prueba.js": "sha256-1c967bde35eb8bb20c9a160946548e2bed7b89cbfe1e04de93f32186ee780c4b",
