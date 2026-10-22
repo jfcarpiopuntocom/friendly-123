@@ -27,6 +27,9 @@
   var q=function(s){return panel.querySelector(s);};
   q('h2').textContent=c.title;q('#oc-tab-handoff-body').textContent=c.body;q('#oc-tab-resume').textContent=c.resume;
   q('summary').textContent=c.tips;[c.tip1,c.tip2,c.tip3].forEach(function(t,i){panel.querySelectorAll('li')[i].textContent=t;});
+  var toolsLink=document.createElement('a');toolsLink.href='https://jfcarpio.com';toolsLink.target='_blank';toolsLink.rel='noopener noreferrer';
+  toolsLink.textContent=(window.OCI18n&&OCI18n.getLang()==='en'?'Explore business tools':'Explorar herramientas');
+  q('#oc-tab-tips').appendChild(toolsLink);
   q('h3').textContent=c.recommend;q('.oc-tab-recommend > p').textContent=c.pitch;
   q('#oc-tab-share').textContent=c.share;q('#oc-tab-copy').textContent=c.copy;
   q('#oc-tab-share-url').value=PUBLIC_URL;q('#oc-tab-share-url').setAttribute('aria-label',c.copy);
