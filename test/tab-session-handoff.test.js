@@ -34,7 +34,12 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await second.evaluate(()=>{const request=navigator.locks.request.bind(navigator.locks);window.__lockCalls=[];window.__observedLockRequest=function(name,...args){const result=request(name,...args);window.__lockCalls.push({lock:name,callback:args.at(-1).name});if(name==='f123-escrituras'&&args.at(-1).name==='take')window.__handoffClaimQueued=true;return result;};navigator.locks.request=window.__observedLockRequest;});
    assert.equal(await second.evaluate(()=>navigator.locks.request===window.__observedLockRequest),true,'the test must actually observe the browser lock requests');
    await ownerLogin(second);
-   if(await second.evaluate(()=>!!window.OCTabSession))await second.waitForFunction(()=>window.__handoffClaimQueued===true).catch(async error=>{error.message+=' Claim diagnostics: '+JSON.stringify(await second.evaluate(()=>({requests:window.__lockCalls,pending:OCTabSession.pending,epoch:window.OC_AUTH_SESSION_EPOCH,role:OCAuth.rolActual(),leases:Object.keys(localStorage).filter(k=>k.includes('auth_tab_lease')).length})));throw error;});
+   // S1: a new PIN session MUST take the lease without queuing behind a
+   // possibly zombie Web Lock. The old in-flight write still owns the lock.
+   await second.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent(),null,{timeout:5000});
+   assert.equal(await second.evaluate(()=>window.__lockCalls.some(x=>x.callback==='take')),false,
+     'PIN handoff must not wait for the former tab to release a Web Lock');
+   assert.equal((await sessionSnapshot(second)).leases.length,1,'new tab holds exactly one session lease');
    // The old session must be fenced as soon as takeover is queued. This
    // assertion accepts either an early intent marker or a completed takeover.
    const preHandoff=await first.evaluate(()=>({current:OCTabSession.isCurrent(),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(k=>({key:k,value:localStorage.getItem(k)}))}));
