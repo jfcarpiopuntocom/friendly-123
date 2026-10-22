@@ -660,10 +660,11 @@
           estado.tHead = setTimeout(function () {
             if (!estado.esperandoHead || canal.ws !== sock) return;
             estado.esperandoHead = false;
+            estado.headLegacy = true;
             pedirPagina(sock, estado, true); // old relay: safe original pull
           }, 1800);
           try { sock.send(JSON.stringify({ k: "head", v: 2 })); }
-          catch (_) { clearTimeout(estado.tHead); estado.esperandoHead = false; return pedirPagina(sock, estado, true); }
+          catch (_) { clearTimeout(estado.tHead); estado.esperandoHead = false; estado.headLegacy = true; return pedirPagina(sock, estado, true); }
           return;
         }
         sock.send(JSON.stringify({ k: "pull", v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, limit: PULL_PAGE_SIZE }));
@@ -674,6 +675,8 @@
       estado.esperandoHead = false; clearTimeout(estado.tHead);
       var valido = r && !r.unsupported && Number.isSafeInteger(Number(r.rev)) &&
         Number.isSafeInteger(Number(r.seq)) && Number(r.rev) >= 0 && Number(r.seq) >= 0;
+      if (!valido) estado.headLegacy = true;
+      else estado.headLegacy = false;
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
@@ -993,10 +996,16 @@
                   pullEstado.enCurso = false;
                   // PendingStructs empty alone does NOT prove full history.
                   // Confirm the final cursor against relay HEAD before unlocking data/PIN.
-                  if (!c.more && canal.recuperando && !deudaPendiente() &&
-                      !pullEstado.validacionFinal && !_soloMemoria) {
-                    pullEstado.validacionFinal = true;
-                    return pedirPagina(ws, pullEstado);
+                  if (!c.more && canal.recuperando && !deudaPendiente()) {
+                    if (pullEstado.headLegacy || _soloMemoria) {
+                      // Old relay has no HEAD: its fully received final page
+                      // remains the completion proof. Never unlock with debt.
+                      canal.recuperando = false;
+                      if (nombre === "catalogo" && API._store) API._store.aplicar();
+                    } else if (!pullEstado.validacionFinal) {
+                      pullEstado.validacionFinal = true;
+                      return pedirPagina(ws, pullEstado);
+                    }
                   }
                   // The last page can have no transport fragments yet Yjs may
                   // still be missing a causal parent or pending deletion.
