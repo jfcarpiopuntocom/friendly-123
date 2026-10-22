@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-22",
-  "changelog": "v560 candidate: durable low-quota E1 sync, bounded E1b replay and one visible session; E2 automatic shell update, 1AAA data safety.",
+  "changelog": "v561 single STABLE candidate: E1 low-quota sync, E1b one session, E2 auto update, E3 paste, E4 owner name, E5 regression and E6 delayed photo feedback; 1AAA safety.",
   "requerida": false,
-  "shell": "f123-shell-v560",
+  "shell": "f123-shell-v561",
   "apagar": [],
-  "releaseName": "v560",
-  "cacheGeneration": "golden124"
+  "releaseName": "v561",
+  "cacheGeneration": "golden125"
 }
