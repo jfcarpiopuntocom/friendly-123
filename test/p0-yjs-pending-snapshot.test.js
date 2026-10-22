@@ -13,14 +13,15 @@ const end=src.indexOf("    function pedirPagina(sock, estado) {",begin);
 assert.ok(begin>0&&end>begin,"cursor boundary exists in the published implementation");
 const actual=src.slice(begin,end);
 
-function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false,prior=null,tamperReadback=false}={}){
+function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false,prior=null,tamperReadback=false,syncedHeld=false,failRestore=false}={}){
  const values=new Map();
  if(prior)values.set("cursor",prior);
+ let resumeHydration;
  const events=[],ctx={
    Y:{
      encodeStateVector:()=>new Uint8Array([0]),
      encodeStateAsUpdate:(doc)=>new Uint8Array(doc.store.pendingStructs?[61,62,63]:[0]),
-     applyUpdate:(doc,bytes,origin)=>{events.push("restore:"+origin);doc.store.pendingStructs={bytes:[...bytes]};}
+     applyUpdate:(doc,bytes,origin)=>{events.push("restore:"+origin);if(failRestore)throw Error("synthetic Yjs update rejected");doc.store.pendingStructs={bytes:[...bytes]};}
    },
    doc:{store:pending?{pendingStructs:{missingParent:true}}:{}},
    partesEntrantes:fragments?{"chunk":{received:1,total:2}}:{},
@@ -32,7 +33,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
        setImmediate(()=>{if(failBarrier){events.push("barrier-failed");tx.onabort?.()}else{events.push("barrier-ok");tx.oncomplete?.()}});
        return tx;
      }},
-     whenSynced:Promise.resolve(),
+     whenSynced:syncedHeld?new Promise(resolve=>{resumeHydration=resolve;}):Promise.resolve(),
      get:async key=>{events.push("get");const v=values.get(key);if(tamperReadback&&v?.pendingSnapshot&&events.includes("set")) return {...v,pendingSnapshot:new Uint8Array(v.pendingSnapshot).fill(19)};return v;},
      set:async(key,value)=>{events.push("set");if(failWrite)throw Error("synthetic quota");values.set(key,value);}
    },
@@ -41,7 +42,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
  };
  vm.createContext(ctx);
  vm.runInContext(actual,ctx);
- return {ctx,events,values,async ready(){await ctx._pullCursorReady;},save:c=>ctx.guardarPullCursor(c)};
+ return {ctx,events,values,async ready(){await ctx._pullCursorReady;},save:c=>ctx.guardarPullCursor(c),releaseHydration:()=>resumeHydration?.()};
 }
 test("fragmented ciphertext cannot approve a cursor, even with Yjs pending snapshot",async()=>{
  const a=fixture({fragments:true});await a.ready();await a.save({rev:0,seq:4,more:false});
@@ -141,4 +142,56 @@ test("an invalid persisted pending proof falls back to full replay instead of sk
  await f.ready();
  assert.equal(f.ctx._appliedPullCursor.rev,-1);
  assert.equal(f.ctx._pullCursor.seq,0);
+});
+
+test("corrupted pending proof falls back to a proven clean 8200 instead of zero",async()=>{
+ const f=fixture({pending:false,prior:{rev:0,seq:8700,pendingSnapshot:[],cursorLimpio:{rev:0,seq:8200}}});
+ await f.ready();
+ assert.equal(f.ctx._pullCursor.seq,8200);
+ assert.equal(f.ctx._appliedPullCursor.seq,8200);
+});
+test("oversized pending proof falls back to last clean cut",async()=>{
+ const f=fixture({pending:false,prior:{rev:0,seq:8700,pendingSnapshot:new Uint8Array(2*1024*1024+1),cursorLimpio:{rev:0,seq:8200}}});
+ await f.ready();
+ assert.equal(f.ctx._pullCursor.seq,8200);
+});
+test("a rejected Yjs proof falls back to the previous clean cut",async()=>{
+ const f=fixture({pending:false,failRestore:true,prior:{rev:0,seq:8700,pendingSnapshot:new Uint8Array([61,62]),cursorLimpio:{rev:0,seq:8200}}});
+ await f.ready();
+ assert.equal(f.ctx._pullCursor.seq,8200);
+ assert.equal(f.ctx._appliedPullCursor.seq,8200);
+});
+test("slow IndexedDB hydration blocks cursor restore instead of triggering replay",async()=>{
+ const f=fixture({pending:false,syncedHeld:true,prior:{rev:0,seq:8700,pendingSnapshot:new Uint8Array([61,62]),cursorLimpio:{rev:0,seq:8200}}});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(f.ctx._pullCursor.rev,-1);
+ assert.equal(f.events.includes("get"),false,"cannot trust custom cursor before Yjs journal is loaded");
+ f.releaseHydration();
+ await f.ready();
+ assert.equal(f.ctx._pullCursor.seq,8700,"hydrate and resume at pending proven cursor");
+});
+test("unresolved recovery carries last clean cut through later pending proofs",async()=>{
+ const f=fixture({pending:false,prior:{rev:0,seq:8200}});
+ await f.ready();
+ f.ctx.doc.store.pendingStructs={missingParent:true};
+ await f.save({rev:0,seq:8216,more:false});
+ assert.deepEqual({...f.values.get("cursor").cursorLimpio},{rev:0,seq:8200});
+ await f.save({rev:0,seq:8232,more:false});
+ assert.deepEqual({...f.values.get("cursor").cursorLimpio},{rev:0,seq:8200});
+ assert.equal(f.values.get("cursor").seq,8232);
+});
+test("clean recovery after pending proof advances the clean fallback cut",async()=>{
+ const f=fixture({pending:false,prior:{rev:0,seq:8200}});
+ await f.ready();
+ f.ctx.doc.store.pendingStructs={missingParent:true};
+ await f.save({rev:0,seq:8216,more:false});
+ f.ctx.doc.store.pendingStructs=null;
+ await f.save({rev:0,seq:8232,more:false});
+ assert.deepEqual({...f.values.get("cursor").cursorLimpio},{rev:0,seq:8232});
+ assert.equal(f.values.get("cursor").pendingSnapshot,undefined);
+});
+test("an impossible future clean cut is ignored on reload",async()=>{
+ const f=fixture({pending:false,prior:{rev:0,seq:8700,pendingSnapshot:[],cursorLimpio:{rev:0,seq:9100}}});
+ await f.ready();
+ assert.equal(f.ctx._pullCursor.rev,-1,"never invent a clean history checkpoint");
 });
