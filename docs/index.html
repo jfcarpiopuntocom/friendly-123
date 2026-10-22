@@ -11007,8 +11007,19 @@ const _ocActSolaOn = true;
     if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
   });
   window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro }; // para pruebas
+  // Installed iPhone PWAs can stay open: check the SW on return, not just load.
+  // One network check per 15 minutes on user activity; no background polling.
+  let ultimoUpdateAlVolver = 0;
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") intentar(); else revisar();
+    if (document.visibilityState === "hidden") { intentar(); return; }
+    const ahora = Date.now();
+    if (ahora - ultimoUpdateAlVolver >= 900000) {
+      ultimoUpdateAlVolver = ahora;
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (reg && typeof reg.update === "function") return reg.update();
+      }).catch(function () {});
+    }
+    revisar();
   });
   setInterval(function () { if (Date.now() - ultimoToque > 90000) intentar(); }, 15000);
   setInterval(revisar, 600000);
