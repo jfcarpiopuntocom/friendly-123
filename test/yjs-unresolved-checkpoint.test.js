@@ -19,6 +19,8 @@ async function fixture(){
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
  const Y=ctx.Y,doc=new Y.Doc(),channel=ctx.make(Y,doc,'-y','fixture',true,null,p);channel.conectar();
  sockets[0].onopen();await tick();await tick();
+ // Model the old relay's explicit HEAD-unsupported reply before pulling.
+ sockets[0].onmessage({data:JSON.stringify({k:'head-result',unsupported:true})});await tick();await tick();
  sockets[0].onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:0,more:false})});await tick();await tick();
  return {Y,doc,data,timers,channel,socket:sockets[0]};
 }
