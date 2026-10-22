@@ -117,3 +117,32 @@ test("E1b-3: three Yjs rooms follow visibility and lease",()=>{
  hidden=false;allowed=false;ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":pause")).length,6);
  allowed=true;ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":resume")).length,6);
 });
+
+
+test("E1b-3 RED: direct peer send/receive stop while hidden or lease displaced",async()=>{
+ const vm=require("node:vm");
+ const a=sync.indexOf("    function enviarDirecto(buf) {");
+ const b=sync.indexOf("    var _unsaved = [];",a);
+ const c=sync.indexOf("      _directReceive = function (buf) {");
+ const d=sync.indexOf("      ws.onclose = function () {",c);
+ assert.ok(a>0&&b>a&&c>0&&d>c);
+ let paused=false,allowed=true,sends=0,receives=0;
+ const _direct={peer:{dc:{readyState:"open",bufferedAmount:0,send(){sends++;}},pc:{sctp:{maxMessageSize:65536}}}};
+ const channel={ws:null};
+ const ctx={_direct,canal:channel,_relayPeerCount:2,
+   get _pausado(){return paused;},permitido:()=>allowed,Object,Promise,
+   _colaRecepcion:Promise.resolve(),manejar:async()=>{receives++;return true;},log(){},nombre:"catalogo"};
+ vm.createContext(ctx);
+ vm.runInContext(sync.slice(a,b)+"\n"+sync.slice(c,d),ctx);
+ paused=true;
+ assert.equal(ctx.enviarDirecto(new Uint8Array([1])),false);
+ ctx._directReceive(new Uint8Array([1]));await ctx._colaRecepcion;
+ assert.equal(sends,0,"no direct socket traffic when hidden");
+ assert.equal(receives,0,"no incoming Yjs merge after losing session");
+ paused=false;allowed=true;
+ assert.equal(ctx.enviarDirecto(new Uint8Array([2])),false,"relay durability remains authoritative");
+ ctx._directReceive(new Uint8Array([2]));await ctx._colaRecepcion;
+ assert.equal(sends,1);assert.equal(receives,1);
+ allowed=false;ctx._directReceive(new Uint8Array([3]));await ctx._colaRecepcion;
+ assert.equal(receives,1,"displaced tab cannot process direct frames");
+});
