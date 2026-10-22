@@ -81,3 +81,15 @@ test("E1b-3 RED: failure notice dismisses on click or after bounded timeout",asy
  notice.onClick();assert.equal(notice.removed,true);
  notice.removed=false;timer.fn();assert.equal(notice.removed,true);
 });
+
+
+test("E1b-3 RED: Web Locks without AbortController fail closed, never race another tab",async()=>{
+ let invoked=0;
+ const f=fixture({request(){invoked++;return new Promise(()=>{});}});
+ f.ctx.AbortController=undefined;
+ const result=await Promise.race([f.fetch("/api/ventas",post),new Promise(resolve=>setImmediate(()=>resolve("PENDING")))]);
+ assert.notEqual(result,"PENDING","must not hang on unabortable zombie lock");
+ assert.equal(result.status,503,"unsafe write should be explicitly refused");
+ assert.equal(invoked,0,"never request unabortable cross-tab lock");
+ assert.equal(f.calls,0,"no business write without global serialization");
+});
