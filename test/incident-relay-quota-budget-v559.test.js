@@ -140,7 +140,9 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  const initStart=source.indexOf("    if (persistencia && typeof persistencia.get === \"function\") {"),
   initEnd=source.indexOf("    function guardarPullCursor(cursor) {",initStart);
  assert.ok(initStart>=0&&initEnd>initStart);
- vm.runInContext(source.slice(initStart,initEnd),fresh);await fresh._pullCursorReady;
+ const cursorHelpersStart=source.indexOf("    function cursorValido(v) {");
+ assert.ok(cursorHelpersStart>=0&&cursorHelpersStart<initStart,"use production cursor validation helpers");
+ vm.runInContext(source.slice(cursorHelpersStart,initEnd),fresh);await fresh._pullCursorReady;
  assert.deepEqual({...fresh._pullCursor},{rev:0,seq:0});
  const newProcess=d.gateway.connect(ORIGIN+ROOM);newProcess.binaryType="arraybuffer";await opened(newProcess);
  const freshState={enCurso:false,fallos:0},freshActor=bindActor(fresh);freshActor.attach(newProcess,freshState);
