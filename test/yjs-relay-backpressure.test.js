@@ -23,7 +23,8 @@ async function fixture(name='fixture'){
  }
  const p={get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
  const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,
-  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},navigator:{},CustomEvent:class{},log(){},Date:class extends Date{static now(){return now}},Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,setInterval,clearInterval,
+  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},navigator:{},document:{hidden:false,addEventListener(){}},
+  CustomEvent:class{},log(){},Date:class extends Date{static now(){return now}},Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,setInterval,clearInterval,
   setTimeout(fn,ms){timers.push({fn,ms,cancelled:false,ran:false});return timers.length},clearTimeout(id){if(timers[id-1])timers[id-1].cancelled=true},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),cifrarBin:async(_,b)=>b.slice().buffer,descifrarBin:async(_,b)=>new Uint8Array(b)};
  vm.createContext(ctx);vm.runInContext(block+'\nthis.make=crearCanal;',ctx);
