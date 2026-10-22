@@ -84,6 +84,7 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
   pedirPagina:(sock,state)=>{state.enCurso=true;sock.send(JSON.stringify({k:"pull",v:2,rev:ctx._pullCursor.rev,seq:ctx._pullCursor.seq,limit:250}));},
   nombre:"catalogo",window:{},log(){},clearTimeout:id=>clock.clearTimeout(id),_tEstable:null,
   _bufferPumpTimer:null,_durableWatchdog:null,_durableInFlight:Object.create(null),_currentPullState:null,
+  _pausado:false,permitido:()=>true,
   setTimeout:(fn,delay)=>clock.setTimeout(fn,delay),reprogramar(){},
   Promise,JSON,Object,Number,Math,Date,ArrayBuffer,Blob};
  vm.createContext(ctx);
