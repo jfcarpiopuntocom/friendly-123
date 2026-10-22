@@ -684,7 +684,7 @@
         programarRelectura(sock, estado);
         return Promise.resolve();
       }
-      if (valido) { _replayKey = null; _replayUsed = 0; }
+      if (valido) { _replayKey = null; _replayUsed = 0; estado.validacionFinal = false; }
       return pedirPagina(sock, estado, true); // newer revision or legacy server
     }
     function reprogramar() {
@@ -991,10 +991,12 @@
                   if (canal.ws !== ws || ws.readyState !== 1) return;
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
-                  if (!c.more && canal.recuperando && !Object.keys(partesEntrantes).length &&
-                      !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
-                    canal.recuperando = false;
-                    if (nombre === "catalogo" && API._store) API._store.aplicar();
+                  // PendingStructs empty alone does NOT prove full history.
+                  // Confirm the final cursor against relay HEAD before unlocking data/PIN.
+                  if (!c.more && canal.recuperando && !deudaPendiente() &&
+                      !pullEstado.validacionFinal && !_soloMemoria) {
+                    pullEstado.validacionFinal = true;
+                    return pedirPagina(ws, pullEstado);
                   }
                   // The last page can have no transport fragments yet Yjs may
                   // still be missing a causal parent or pending deletion.
@@ -1044,6 +1046,16 @@
       };
       ws.onerror = function () { try { ws.close(); } catch (_) {} };
     }
+    // Real hidden→visible gesture: one metadata check when exhausted; no polling.
+    var _wasVisible = document.visibilityState !== "hidden";
+    document.addEventListener("visibilitychange", function () {
+      var visible = document.visibilityState !== "hidden";
+      if (visible === _wasVisible) return;
+      _wasVisible = visible;
+      if (visible && _replayUsed >= 5 && !_soloMemoria &&
+          canal.ws && canal.ws.readyState === 1 && _currentPullState &&
+          !_currentPullState.enCurso) pedirPagina(canal.ws, _currentPullState);
+    });
     canal.conectar = conectar;
     return canal;
   }
