@@ -434,6 +434,7 @@
     // deletions; already integrated bytes are protected by the updates-store
     // transaction barrier below. Encrypted transport fragments are NOT Yjs.
     var _cursorContainsPending = false, _pendingProofPages = 0;
+    var _soloMemoria = false;
     var _ultimoCursorLimpio = { rev: -1, seq: 0 };
     var MAX_PENDING_PROOF_BYTES = 2 * 1024 * 1024;
     function barreraYjsConfirmada() {
@@ -506,10 +507,24 @@
       // Every cursor is trustworthy only after the Yjs journal is hydrated.
       // A slow iPhone must wait, never replay its whole history due to timeout.
       var hydration = persistencia.whenSynced;
+      // An actual IDB OPEN error is different from a slow iPhone. The bundled
+      // y-indexeddb rejects _db but leaves whenSynced pending on open failure.
+      var aperturaFallida = persistencia._db && typeof persistencia._db.then === "function"
+        ? persistencia._db.then(function () { return new Promise(function () {}); },
+            function () { return "sin-idb"; }) : new Promise(function () {});
       _pullCursorReady = (hydration && typeof hydration.then === "function"
-        ? hydration : Promise.reject(new Error("Yjs hydration proof unavailable")))
-        .then(function () { return persistencia.get(_pullCursorKey); })
+        ? Promise.race([hydration, aperturaFallida])
+        : Promise.reject(new Error("Yjs hydration proof unavailable")))
+        .then(function (estado) {
+          if (estado === "sin-idb") {
+            _soloMemoria = true;
+            canal.recuperacionLocal = "sin-almacenamiento";
+            return null; // cursor remains -1; replay all available remote history
+          }
+          return persistencia.get(_pullCursorKey);
+        })
         .then(function (guardado) {
+          if (_soloMemoria) return;
           var cursor = cursorValido(guardado);
           if (!cursor) return;
           var snap = guardado.pendingSnapshot;
@@ -542,7 +557,7 @@
           throw e;
         }).then(function (valor) {
           clearTimeout(_tHidratacion);
-          canal.recuperacionLocal = "listo";
+          if (!_soloMemoria) canal.recuperacionLocal = "listo";
           return valor;
         }, function (e) {
           clearTimeout(_tHidratacion);
@@ -555,6 +570,8 @@
         rev: Number.isFinite(Number(cursor.rev)) ? Math.trunc(Number(cursor.rev)) : -1,
         seq: Math.max(0, Math.trunc(Number(cursor.seq) || 0))
       };
+      // IDB failed to open. RAM pagination may continue but is NEVER durable.
+      if (_soloMemoria) { _pullCursor = siguiente; return Promise.resolve(); }
       if (siguiente.rev < _appliedPullCursor.rev ||
           (siguiente.rev === _appliedPullCursor.rev && siguiente.seq <= _appliedPullCursor.seq)) return Promise.resolve();
       _pullCursor = siguiente;
@@ -696,6 +713,7 @@
            completo supera el frame de 256KB). */
     var _tCkpt = null;
     function hacerCkpt() {
+      if (_soloMemoria) return;
       if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
       // Never compact a partly restored store, even when an old applied cursor
       // exists: a completed pull AND dependency-free document are required.
@@ -775,7 +793,7 @@
         // op individual, que sí cabe en el frame). Tras dar tiempo al pull.
         if (seedFn) setTimeout(function () {
           _pullCursorReady.then(function () {
-            if (canal.ws !== ws || ws.readyState !== 1) return;
+            if (_soloMemoria || canal.ws !== ws || ws.readyState !== 1) return;
             try { seedFn(); } catch (_) {}
           }).catch(function () {}); // never seed into a half-hydrated document
         }, 3200);
@@ -1021,7 +1039,7 @@
       var n = {}, self = this; this.colecciones.forEach(function (c) { n[c] = self.mapas[c] ? self.mapas[c].size : 0; });
       var rs = function (cn) { return cn && cn.ws ? cn.ws.readyState : null; };
       return { estado: this.estado, roomId: this.roomId, n: n,
-        recuperacionLocalPendiente: [this.canal, this.fotosCanal, this.opsCanal].some(function (c) { return c && c.recuperacionLocal === "pendiente"; }),
+        recuperacionLocalPendiente: [this.canal, this.fotosCanal, this.opsCanal].some(function (c) { return c && (c.recuperacionLocal === "pendiente" || c.recuperacionLocal === "sin-almacenamiento"); }),
         ws: { catalogo: rs(this.canal), fotos: rs(this.fotosCanal), ops: rs(this.opsCanal) },
         meta: { nombre: this.meta ? this.meta.get("nombreNegocio") : null, esDueno: this.meta ? this.meta.get("nombreEsDueno") : null },
         fotos: this.fotosMap ? this.fotosMap.size : 0, ops: this.opsMap ? this.opsMap.size : 0 };
