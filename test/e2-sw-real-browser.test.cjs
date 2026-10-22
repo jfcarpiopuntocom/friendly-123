@@ -87,7 +87,7 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
   const result=await p.evaluate(()=>({loads:Number(sessionStorage.getItem("e2-loads")),
     session:sessionStorage.getItem("f123_sesion"),
     version:localStorage.getItem("f123_version_vista"),
-    text:document.body.textContent}));
+    text:document.body.innerText}));
   assert.equal(result.loads,initial+1,"only one automatic safe reload for this shell");
   assert.equal(result.session,"synthetic-e2","preserve session on worker replacement");
   assert.match(String(result.version),/f123-shell-v560-e2fixture/);
