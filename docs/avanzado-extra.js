@@ -778,6 +778,13 @@
           try {
             if (!window.OCYjs || !window.OCYjs._diag) { el.textContent = "Sync: off on this device"; return; }
             var d = window.OCYjs._diag();
+            if (d && d.recuperacionLocalPendiente) {
+              if (el.style.display === "none") { el.style.display = ""; el.dataset.e1AutoShow = "1"; }
+              el.textContent = (document.documentElement.lang === "es" ? "Sync: recuperación local pendiente; tus datos se conservan" : "Sync: local recovery pending; your data is preserved");
+              el.style.color = "var(--rojo-ink,#a3392a)";
+              return;
+            }
+            if (el.dataset.e1AutoShow === "1") { el.style.display = "none"; delete el.dataset.e1AutoShow; }
             var conectado = d && d.ws && (d.ws.catalogo === 1);
             var prod = (d && d.n && d.n.productos) || 0;
             var perchas = (d && d.n && d.n.ubicaciones) || 0;
