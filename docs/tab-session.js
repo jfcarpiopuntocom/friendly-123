@@ -69,9 +69,9 @@
     if((JSON.parse(localStorage.getItem(claimKey)||'null')||{}).owner===id)localStorage.removeItem(claimKey);
     claimed=true;pending=false;suspendida=false;try{channel?.postMessage({key:scopeKey});}catch(_){}avisarSync();check();
    }
-   // WebKit can schedule a queued write ahead of take(): it still observes
-   // pendingClaim(). This lock remains the single write serializer.
-   if(navigator.locks&&navigator.locks.request)await navigator.locks.request('f123-escrituras',take);else take();
+   // Claim is fenced by the shared lease + BroadcastChannel; never queue
+   // a PIN login behind iOS Web Locks that can remain zombie after backgrounding.
+   take();
   }catch(_){/* A failed lease never pretends the prior session was closed. */}
   finally{if(claimEpoch===window.OC_AUTH_SESSION_EPOCH)pending=false;}
  }
