@@ -8,7 +8,12 @@ async function esperar(condicion){const limite=Date.now()+2000;while(!condicion(
 async function fixture(){
  const sockets=[],timers=[],data=new Map();
  class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){this.sent.push(x)}close(){this.readyState=3;this.onclose?.()}}
- const p={get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
+ // Synthetic adapter confirms Yjs journal hydration and provides a FIFO read barrier.
+ const db={objectStoreNames:{contains:k=>k==='updates'},transaction(){
+  const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;
+ }};
+ const p={whenSynced:Promise.resolve(),db,
+  get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
  const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,WebSocket:class{constructor(){throw Error('Raw relay fallback forbidden')}},
   window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},navigator:{},
   document:{hidden:false,visibilityState:'visible',addEventListener(){}},
