@@ -8,7 +8,7 @@ const path=require("node:path");
 // Source-level boundary test: extracts the REAL cursor loader/save functions.
 // No network, browser client license, or customer's Yjs database is accessed.
 const src=fs.readFileSync(path.join(__dirname,"../docs/sync-yjs.js"),"utf8");
-const begin=src.indexOf('    if (persistencia && typeof persistencia.get === "function") {',src.indexOf("function crearCanal("));
+const begin=src.indexOf("    var _cursorContainsPending = false",src.indexOf("function crearCanal("));
 const end=src.indexOf("    function pedirPagina(sock, estado) {",begin);
 assert.ok(begin>0&&end>begin,"cursor boundary exists in the published implementation");
 const actual=src.slice(begin,end);
@@ -84,7 +84,7 @@ test("legacy cursor with no snapshot remains readable",async()=>{
 });
 
 test("vendored Yjs preserves causal orphan and deleted-set with delta-only pending proof",()=>{
- const Yvm={console,TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,Map,Set,Promise,setTimeout,clearTimeout};
+ const Yvm={console,crypto:require("node:crypto").webcrypto,TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,Map,Set,Promise,setTimeout,clearTimeout};
  Yvm.globalThis=Yvm;
  vm.createContext(Yvm);
  vm.runInContext(fs.readFileSync(path.join(__dirname,"../docs/vendor/yjs-bundle.min.js"),"utf8"),Yvm);
