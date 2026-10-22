@@ -73,7 +73,13 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
   await p.clock.install(); // only after the old worker is fully controlling this tab
   candidate=true;
   await p.reload();
-  await p.waitForFunction(()=>window._ocActSola&&navigator.serviceWorker.controller,{timeout:10000});
+  const candidateState=await p.evaluate(()=>({
+    hasAuto:!!window._ocActSola, hasController:!!navigator.serviceWorker.controller,
+    scripts:document.scripts.length, html:document.documentElement.outerHTML.slice(0,180),
+    version:sessionStorage.getItem("e2-loads")
+  }));
+  console.log("E2 candidate state:",JSON.stringify(candidateState));
+  await p.waitForFunction(()=>window._ocActSola&&navigator.serviceWorker.controller,null,{timeout:10000});
   const initial=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
   phase="new"; // change only the localhost test server, never GitHub Pages
   await p.clock.fastForward(21000); // actual revisar() timer, no manual update button
