@@ -5072,7 +5072,8 @@
       let entered = false, expired = false, timer, failure;
       const timeoutError = () => {
         if (failure) return failure;
-        const error = "No se guardó. Intenta de nuevo.";
+        const error = window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "en"
+          ? "Not saved. Please try again." : "No se guardó. Intenta de nuevo.";
         try {
           let notice = document.getElementById("oc-write-timeout");
           if (!notice) {
