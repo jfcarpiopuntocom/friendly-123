@@ -5065,8 +5065,49 @@
       if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
       _recargarSiOtraPestanaEscribio();return _fetchInterno(url,opts);
     };
-    if (navigator.locks && navigator.locks.request) {
-      return navigator.locks.request("f123-escrituras",ejecutar);
+    if (navigator.locks && navigator.locks.request && typeof AbortController === "function") {
+      // iOS may keep a Web Lock zombie after PWA backgrounding. Time out ONLY
+      // before entry: once the business write starts, never claim it failed.
+      const controller = new AbortController();
+      let entered = false, expired = false, timer, failure;
+      const timeoutError = () => {
+        if (failure) return failure;
+        const error = "No se guardó. Intenta de nuevo.";
+        try {
+          let notice = document.getElementById("oc-write-timeout");
+          if (!notice) {
+            notice = document.createElement("div");
+            notice.id = "oc-write-timeout";
+            notice.setAttribute("role", "alert");
+            notice.style.cssText = "position:fixed;z-index:10005;left:16px;right:16px;bottom:16px;padding:16px;border-radius:8px;background:#7C1722;color:#FFFFFF;font-size:16px;font-weight:700;line-height:1.4;";
+            document.body.appendChild(notice);
+          }
+          notice.textContent = error;
+        } catch (_) {}
+        failure = new Response(JSON.stringify({ error }), { status: 503, headers: { "Content-Type": "application/json" } });
+        return failure;
+      };
+      const timeout = new Promise(resolve => {
+        timer = setTimeout(() => {
+          if (entered) return;
+          expired = true;
+          controller.abort();
+          resolve(timeoutError());
+        }, 10000);
+      });
+      try {
+        const locked = Promise.resolve(navigator.locks.request("f123-escrituras",
+          { signal: controller.signal }, () => {
+            if (expired || controller.signal.aborted) return timeoutError();
+            entered = true;
+            clearTimeout(timer);
+            return ejecutar();
+          })).catch(error => {
+            if (expired || (error && error.name === "AbortError")) return timeoutError();
+            throw error;
+          });
+        return await Promise.race([locked, timeout]);
+      } finally { clearTimeout(timer); }
     }
     // Same-device serialization is also needed where Web Locks is absent.
     // This is not a lock or reservation between disconnected devices.
