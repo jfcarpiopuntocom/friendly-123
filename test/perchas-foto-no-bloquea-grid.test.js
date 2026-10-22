@@ -140,10 +140,13 @@ test('E6: photo recovery shows a delayed accessible hint and removes it when rea
     assert.doesNotMatch(await page.locator(visual).innerText(), /Loading photo/);
     await page.waitForTimeout(3400);
     assert.match(await page.locator(visual).innerText(), /Loading photo/);
+    assert.equal(await page.locator(visual).getAttribute('role'), 'status');
+    assert.equal(await page.locator(visual).getAttribute('aria-live'), 'polite');
     await page.evaluate(() => { window.OCYjs.fotosCanal.recuperando = false; });
     await page.waitForFunction(sel => !/Loading photo/.test(document.querySelector(sel)?.textContent || ''), visual);
-    await page.evaluate(() => {window.__photo = 'data:image/png;base64,Zm90bw==';window.VPerchas.cargar();});
-    await page.waitForFunction(sel => document.querySelector(sel)?.tagName === 'IMG', visual);
-    assert.equal(await page.locator(visual).getAttribute('src'), 'data:image/png;base64,Zm90bw==');
+    assert.equal(await page.locator(visual).getAttribute('role'), null);
+    await page.evaluate(photo => {window.__photo = photo; window.VPerchas.cargar();}, 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQ73cDAAGtAO1v6xPBAAAAAElFTkSuQmCC');
+    await page.waitForFunction(sel => {const img=document.querySelector(sel);return img?.tagName === 'IMG' && img.complete && img.naturalWidth > 0;}, visual);
+    assert.equal(await page.locator(visual).getAttribute('src'), 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGMQ73cDAAGtAO1v6xPBAAAAAElFTkSuQmCC');
   } finally { await browser.close(); }
 });

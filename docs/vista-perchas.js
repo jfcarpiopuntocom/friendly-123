@@ -677,10 +677,12 @@
           if (el.tagName === 'IMG') return;
           if (mostrar && el.dataset.vpCargando !== '1') {
             el.dataset.vpCargando = '1';
+            el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-atomic', 'true');
             el.textContent = String(window.OCI18n?.locale?.() || 'en').startsWith('es') ? 'Cargando foto…' : 'Loading photo…';
             el.style.fontSize = '14px'; el.classList.add('vp-foto-esperando');
           } else if (!mostrar && el.dataset.vpCargando === '1') {
-            delete el.dataset.vpCargando; el.textContent = el.dataset.vpInicial || '?';
+            delete el.dataset.vpCargando; el.removeAttribute('role'); el.removeAttribute('aria-live'); el.removeAttribute('aria-atomic');
+            el.textContent = el.dataset.vpInicial || '?';
             el.style.fontSize = '56px'; el.classList.remove('vp-foto-esperando');
           }
         });
