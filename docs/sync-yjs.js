@@ -115,7 +115,7 @@
     // Leave headroom under this socket's 4 MiB cap for new changes and control frames.
     var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
     var _lastRelayProgressAt = 0;
-    var _currentPullState = null, _tReplay = null, _replayDelay = 30000;
+    var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
     var _relayPeerCount = 0, _directReceive = null;
     var _peerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     var _direct = Object.create(null);
@@ -602,6 +602,40 @@
          cursor. Existing fully-applied behavior is preserved. */
       return persistencia.set(_pullCursorKey, _pullCursor).catch(function () {});
     }
+    function clavePendientes() {
+      var p = doc.store && doc.store.pendingStructs, m = p && p.missing;
+      var missing = m && typeof m.entries === "function" ? Array.from(m.entries()) : [];
+      missing.sort(function (a, b) { return Number(a[0]) - Number(b[0]); });
+      return JSON.stringify([missing, !!(doc.store && doc.store.pendingDs)]);
+    }
+    function deudaPendiente() {
+      return !!(Object.keys(partesEntrantes).length ||
+        (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)));
+    }
+    // E1b-2: one causal budget per channel, NOT per socket/reconnection.
+    function programarRelectura(sock, estado) {
+      if (!deudaPendiente()) {
+        clearTimeout(_tReplay); _tReplay = null;
+        _replayKey = null; _replayUsed = 0;
+        return;
+      }
+      var key = clavePendientes();
+      if (key !== _replayKey) {
+        _replayKey = key; _replayUsed = 0;
+        clearTimeout(_tReplay); _tReplay = null;
+      }
+      if (_replayUsed >= 5 || _tReplay) return;
+      var delay = Math.min(300000, 30000 * Math.pow(2, _replayUsed));
+      _tReplay = setTimeout(function () {
+        _tReplay = null;
+        if (canal.ws !== sock || sock.readyState !== 1 || estado.enCurso) return;
+        if (clavePendientes() !== _replayKey || !deudaPendiente())
+          return programarRelectura(sock, estado);
+        _replayUsed++;
+        try { log("historia incompleta, relectura acotada " + nombre); } catch (_) {}
+        pedirPagina(sock, estado);
+      }, delay);
+    }
     function pedirPagina(sock, estado, sinHead) {
       estado.enCurso = true; estado.fallos = 0;
       return _pullCursorReady.then(function () {
@@ -948,28 +982,7 @@
                   // Retain EVERY encrypted operation, retain the proven cursor,
                   // and replay from that cut with exponential backoff. Never
                   // claim a complete first-join or adopt PINs from partial data.
-                  var depsPendientes = !!(doc.store &&
-                    (doc.store.pendingStructs || doc.store.pendingDs));
-                  if (Object.keys(partesEntrantes).length || depsPendientes) {
-                    clearTimeout(_tReplay);
-                    _tReplay = setTimeout(function () {
-                      if (canal.ws !== ws || ws.readyState !== 1) return;
-                      _tReplay = null;
-                      if (!pullEstado.enCurso &&
-                          (Object.keys(partesEntrantes).length ||
-                            (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)))) {
-                        /* While this SAME connection is alive, keep the RAM
-                           pagination cursor: missing siblings may arrive in
-                           newer rows. Otherwise 6000+ historical rows are
-                           reprocessed repeatedly and cause 1013 saturation.
-                           The durable cursor is NOT advanced for orphans;
-                           reconnect always starts from the last proven cut. */
-                        _replayDelay = Math.min(300000, _replayDelay * 2);
-                        try { log("historia incompleta, relectura segura " + nombre); } catch (_) {}
-                        pedirPagina(ws, pullEstado);
-                      }
-                    }, _replayDelay);
-                  } else { clearTimeout(_tReplay); _tReplay = null; _replayDelay = 30000; }
+                  programarRelectura(ws, pullEstado);
                 });
               }).catch(function (e) {
                 // Recovery must remain live after a page processing error.
