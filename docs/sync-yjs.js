@@ -892,6 +892,7 @@
       };
       function manejar(buf, source) {
         return Promise.resolve().then(function () { return descifrarBin(API.clave, buf); }).then(function (bytes) {
+          if (source === "live" && (_pausado || !permitido())) return false;
           var tag = bytes[0], payload = bytes.subarray(1);
           if (tag === 3) {
             if (bytes.length < 22) return false;
