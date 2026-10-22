@@ -41,9 +41,9 @@ test("E2 Chromium: existing v559 SW adopts new shell automatically without Purge
   browser=await chromium.launch({headless:true});
   const ctx=await browser.newContext({serviceWorkers:"allow"});
   const p=await ctx.newPage();
-  await p.clock.install();
   await p.goto(origin+"/app/index.html");
   await p.waitForFunction(()=>!!navigator.serviceWorker.controller,{timeout:25000});
+  await p.clock.install(); // only after the old worker is fully controlling this tab
   candidate=true;
   await p.reload();
   await p.waitForFunction(()=>window._ocActSola&&navigator.serviceWorker.controller,{timeout:10000});
