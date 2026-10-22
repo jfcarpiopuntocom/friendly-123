@@ -8,15 +8,24 @@ async function esperar(condicion){const limite=Date.now()+2000;while(!condicion(
 async function fixture(){
  const sockets=[],timers=[],data=new Map();
  class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){this.sent.push(x)}close(){this.readyState=3;this.onclose?.()}}
- const p={get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
+ // Synthetic adapter confirms Yjs journal hydration and provides a FIFO read barrier.
+ const db={objectStoreNames:{contains:k=>k==='updates'},transaction(){
+  const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;
+ }};
+ const p={whenSynced:Promise.resolve(),db,
+  get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
  const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,WebSocket:class{constructor(){throw Error('Raw relay fallback forbidden')}},
-  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},navigator:{},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,setInterval,clearInterval,
+  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},navigator:{},
+  document:{hidden:false,visibilityState:'visible',addEventListener(){}},
+  CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,setInterval,clearInterval,
   setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(id){if(timers[id-1])timers[id-1].cancelled=true},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),cifrarBin:async(_,b)=>b.slice().buffer,descifrarBin:async(_,b)=>new Uint8Array(b)};
  vm.createContext(ctx);vm.runInContext(block+'\nthis.make=crearCanal;',ctx);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
  const Y=ctx.Y,doc=new Y.Doc(),channel=ctx.make(Y,doc,'-y','fixture',true,null,p);channel.conectar();
  sockets[0].onopen();await tick();await tick();
+ // Model the old relay's explicit HEAD-unsupported reply before pulling.
+ sockets[0].onmessage({data:JSON.stringify({k:'head-result',unsupported:true})});await tick();await tick();
  sockets[0].onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:0,more:false})});await tick();await tick();
  return {Y,doc,data,timers,channel,socket:sockets[0]};
 }

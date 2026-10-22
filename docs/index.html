@@ -10750,7 +10750,7 @@ setTimeout(() => {
 // El chequeo de version (Fase 2) vive en auth-ui.js — no duplicarlo aqui.
 // Falla en silencio en navegadores sin soporte — nunca bloquea la carga.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(() => {}); });
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then((reg) => reg && reg.update && reg.update()).catch(() => {}); });
   /* MEJORA #3 (JFC 2026-09-08, auditoría de versión): fin de la mezcla
      intra-sesión. Cuando un service worker NUEVO toma control con un shell
      distinto (avisa con {tipo:"shell-actualizado"} desde broadcastActualizacion),
@@ -10991,9 +10991,35 @@ const _ocActSolaOn = true;
       intentar();
     } catch (_) {}
   }
+  // E2: a takeover can already match version.json while this document is stale.
+  var ultimoControladorSW = navigator.serviceWorker.controller;
+  function onShellTomado() {
+    var actual = navigator.serviceWorker.controller;
+    if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
+    if (!actual || actual === ultimoControladorSW) return;
+    ultimoControladorSW = actual;
+    try { sessionStorage.setItem(KP, "1"); } catch (_) {}
+    _recargarSeguroVersion();
+    if (document.visibilityState === "hidden" || Date.now() - ultimoToque > 90000) intentar();
+  }
+  navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
+  navigator.serviceWorker.addEventListener("message", function (ev) {
+    if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
+  });
   window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro }; // para pruebas
+  // Installed iPhone PWAs can stay open: check the SW on return, not just load.
+  // One network check per 15 minutes on user activity; no background polling.
+  let ultimoUpdateAlVolver = 0;
   document.addEventListener("visibilitychange", function () {
-    if (document.visibilityState === "hidden") intentar(); else revisar();
+    if (document.visibilityState === "hidden") { intentar(); return; }
+    const ahora = Date.now();
+    if (ahora - ultimoUpdateAlVolver >= 900000) {
+      ultimoUpdateAlVolver = ahora;
+      navigator.serviceWorker.getRegistration().then(function (reg) {
+        if (reg && typeof reg.update === "function") return reg.update();
+      }).catch(function () {});
+    }
+    revisar();
   });
   setInterval(function () { if (Date.now() - ultimoToque > 90000) intentar(); }, 15000);
   setInterval(revisar, 600000);

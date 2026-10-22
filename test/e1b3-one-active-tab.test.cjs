@@ -10,9 +10,12 @@ test("E1b-3 RED: visibility and tab ownership pause and resume all Yjs rooms",()
  assert.match(sync,/function sincronizarVisibilidad\(/,"one visibility/lease gate controls Yjs");
  assert.match(sync,/window\.addEventListener\("oc-tab-session-changed",\s*sincronizarVisibilidad\)/);
  assert.match(sync,/document\.addEventListener\("visibilitychange",\s*sincronizarVisibilidad\)/);
- for(const name of ["canal","fotosCanal","opsCanal"]){
-  assert.match(sync,new RegExp("API\\."+name+"\\.(?:pausar|reanudar)"),name+" must be governed");
- }
+ assert.match(sync,/var activo = !document\.hidden && \(!window\.OCTabSession \|\| OCTabSession\.canSync\(\)\);/,
+  "a visible current tab alone may keep active sync");
+ assert.match(sync,/\[API\.canal,\s*API\.fotosCanal,\s*API\.opsCanal\]\.forEach/,
+  "all three rooms must share visibility gate");
+ assert.match(sync,/if\s*\(c\)\s*\{\s*if\s*\(activo\)\s*c\.reanudar\(\);\s*else\s*c\.pausar\(\);\s*\}/,
+  "each room must pause or resume from visibility state");
  assert.match(sync,/if \(_pausado \|\| !permitido\(\)\) return;/,"intentional pause fences connecting");
  assert.match(sync,/if \(_pausado \|\| !permitido\(\)\) return;/,"paused disconnect cannot retry forever");
 });

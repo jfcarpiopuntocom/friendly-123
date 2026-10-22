@@ -11,13 +11,14 @@ function fixture(badFrames=0,failCursor=false) {
  assert.ok(ini>0&&fin>ini);
  let applied=0,cursorWrites=0,logged=0;
  const ws={readyState:1,closed:[],close:function(code,reason){this.closed.push([code,reason]);this.readyState=3;}};
- const pullEstado={enCurso:true,fallos:0};
+ const pullEstado={enCurso:true,fallos:0,headLegacy:true};
  const ctx={
   ws,API:{clave:{},_store:{aplicar(){}}},canal:{ws,recuperando:true},
   pullEstado,_colaRecepcion:Promise.resolve(),_directReceive:null,
   manejar:async()=>{applied++;if(applied<=badFrames)throw Error("synthetic invalid encrypted frame");return true;},
   guardarPullCursor:async()=>{cursorWrites++;if(failCursor)throw Error("synthetic persistence fail");},
   pedirPagina:async()=>{},confirmarDurable:()=>{},_relayPeerCount:0,
+  deudaPendiente:()=>false,programarRelectura:()=>{},_soloMemoria:false,
   partesEntrantes:{},doc:{store:{}},_tReplay:null,_replayDelay:30000,_tAplica:null,
   _currentPullState:pullEstado,window:{},log:()=>logged++,nombre:"catalogo",
   Blob:class{},ArrayBuffer,Promise,JSON,Date,Math,Object,Number,clearTimeout:()=>{},setTimeout:()=>0,

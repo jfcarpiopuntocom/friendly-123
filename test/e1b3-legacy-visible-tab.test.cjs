@@ -11,7 +11,7 @@ test("E1b-3 RED: legacy WebSocket is paused on hidden/lease-loss and resumes onl
 });
 test("E1b-3 RED: legacy socket cannot escape async key/room derivation after tab becomes inactive",()=>{
  const a=src.indexOf("  async function conectar() {");
- const b=src.indexOf("/* ========================================================================== ",a);
+ const b=a+4200;
  assert.ok(a>0&&b>a);
  const body=src.slice(a,b);
  assert.match(body,/const miGeneracion = \+\+_conexionGeneracion/);
@@ -41,7 +41,7 @@ test("E1b-3 RED: legacy listener lifecycle responds without touching business ou
 
 
 test("E1b-3 RED: stale legacy connection cannot overwrite a newer room key",()=>{
- const a=src.indexOf("  async function conectar() {"),b=src.indexOf("/* ========================================================================== ",a);
+ const a=src.indexOf("  async function conectar() {"),b=a+4200;
  const body=src.slice(a,b);assert.ok(a>0&&b>a);
  assert.match(body,/const claveDerivada = await derivarClave\(codigoNorm\)/);
  assert.match(body,/if \(!puedeConectarLegado\(\) \|\| miGeneracion !== _conexionGeneracion\) return;\s*claveActual = claveDerivada/);

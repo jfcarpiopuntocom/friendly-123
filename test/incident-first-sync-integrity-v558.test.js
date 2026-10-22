@@ -62,7 +62,7 @@ test("P0: Yjs snapshot is forbidden until pull complete and dependencies resolve
   const prefix=code.slice(a,b).replace("function hacerCkpt()","function inspectCkpt()")+
     "\nreturn inspectCkpt;";
   function check(recuperando,enCurso,pending) {
-    const c={permiteCkpt:true,API:{clave:{}},canal:{ws:{readyState:1},recuperando},
+    const c={_soloMemoria:false,permiteCkpt:true,API:{clave:{}},canal:{ws:{readyState:1},recuperando},
       _currentPullState:{enCurso},_appliedPullCursor:{rev:1},
       partesEntrantes:{},doc:{store:pending||{}},_outbox:{pending:[]}};
     const fn=vm.runInNewContext("(function(){\n"+prefix+"\n})()",c);
@@ -73,7 +73,7 @@ test("P0: Yjs snapshot is forbidden until pull complete and dependencies resolve
   const probe=code.slice(a,b).replace("function hacerCkpt()","function inspectCkpt()")+
     "      return 'ALLOWED';\n    }\nreturn inspectCkpt;";
   function result(recovering,pull,pending) {
-    const ctx={permiteCkpt:true,API:{clave:{}},canal:{ws:{readyState:1},recuperando:recovering},
+    const ctx={_soloMemoria:false,permiteCkpt:true,API:{clave:{}},canal:{ws:{readyState:1},recuperando:recovering},
       _currentPullState:{enCurso:pull},_appliedPullCursor:{rev:1},
       partesEntrantes:{},doc:{store:pending||{}}};
     return vm.runInNewContext("(function(){\n"+probe+"\n})()",ctx)();

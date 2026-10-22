@@ -19,7 +19,7 @@ async function fixture() {
   const context = {
     API: api, RELAY_URL: 'fixture:', crypto: webcrypto, performance: { now: () => now },
     Uint8Array, ArrayBuffer, TextEncoder, TextDecoder, Date, Math, JSON, Map, Promise,
-    navigator: {}, log() {}, CustomEvent: class {},
+    navigator: {}, document:{hidden:false,addEventListener(){}}, log() {}, CustomEvent: class {},
     setTimeout() { return 1; }, clearTimeout() {},
     btoa: x => Buffer.from(x, 'binary').toString('base64'),
     async cifrarBin(_, bytes) {
@@ -44,7 +44,10 @@ async function fixture() {
       applied.push(Array.from(bytes)); if (!duplicate) api._catalogoRevision++;
     }
   };
-  const persistence = { get: async key => saved.get(key), set: async (key, value) => saved.set(key, structuredClone(value)) };
+  const db = { objectStoreNames:{contains:key=>key==='updates'},
+    transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;} };
+  const persistence = { whenSynced:Promise.resolve(), db,
+    get: async key => saved.get(key), set: async (key, value) => saved.set(key, structuredClone(value)) };
   const channel = context.make(Y, doc, '-y', 'catalogo', false, null, persistence);
   channel.conectar(); socket.onopen(); socket.onmessage({ data: JSON.stringify({ k: 'peer-count', n: 2 }) });
   return { context, api, channel, socket, sent, applied, doc, saved,

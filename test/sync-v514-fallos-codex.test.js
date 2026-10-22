@@ -16,9 +16,12 @@ async function esperar(condicion){
 async function fixture(opts={}){
  const data=new Map(),sockets=[],timers=[];
  class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){if(opts.sendThrows&&typeof x!=='string')throw Error('socket closing');this.sent.push(x)}}
- const p={get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
+ const db={objectStoreNames:{contains:k=>k==='updates'},
+  transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}};
+ const p={whenSynced:Promise.resolve(),db,get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
  const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,WebSocket:class{constructor(){throw Error('Raw relay fallback forbidden')}},
-  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,
+  window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},
+  document:{hidden:false,addEventListener(){}},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,
   setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(){},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),
   cifrarBin:async(_,b)=>b.slice().buffer,descifrarBin:async(_,b)=>new Uint8Array(b),...(opts.ctx||{})};

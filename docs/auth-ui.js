@@ -1001,7 +1001,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const shellServidor = String(vj.shell || "");
         const shell = shellServidor.replace("f123-shell-", "");
         const ver = String(vj.version || "");
-        const normal = function () { el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  shell-" + shell) : ""); };
+        const normal = function () {
+          el.style.color = "";
+          try { el.style.removeProperty("-webkit-text-fill-color"); } catch (_) {}
+          el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  shell-" + shell) : "");
+        };
         /* The active Service Worker knows its shell. CacheStorage can contain
            both old and newly downloaded shells; its last key is not evidence
            of which worker controls this page. Ask the controller directly. */
@@ -1019,7 +1023,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             el.style.opacity = "1";
             el.style.color = "#E8365D";
             try { el.style.setProperty("-webkit-text-fill-color", "#E8365D", "important"); } catch (_) {}
-            el.textContent = "shell-" + activaCorta + " — versión vieja. Usa “Purge & reload” abajo (última: shell-" + shell + ").";
+            el.textContent = "shell-" + activaCorta + " — actualización automática pendiente (última: shell-" + shell + ").";
           } else {
             normal();
           }
@@ -1037,6 +1041,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     } catch (_) {}
   }
   pintarBuildGate();
+  // E2: the controlling worker can change WITHOUT a page reload. Recheck the
+  // authoritative shell after both activation and its broadcast. Do not offer
+  // cache purge or disturb the PIN currently being entered.
+  try {
+    var swBuildGate = navigator.serviceWorker;
+    if (swBuildGate) {
+      swBuildGate.addEventListener("controllerchange", pintarBuildGate);
+      swBuildGate.addEventListener("message", function (e) {
+        if (e && e.data && e.data.tipo === "shell-actualizado") pintarBuildGate();
+      });
+    }
+  } catch (_) {}
   pintarNegocioGate();
   /* REPINTAR EL CANDADO CUANDO EL NOMBRE DE LA TIENDA LLEGA POR SYNC (JFC
      2026-08-27: "tampoco viajaba a la página del PIN, no sabes a dónde te unes").
@@ -1876,8 +1892,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try {
         var cb = (e.clipboardData || window.clipboardData);
         if (!cb) { setTimeout(alEscribir, 0); return; }
-        e.preventDefault();
         var pegado = cb.getData("text");
+        // iOS may expose empty clipboardData even when native paste works.
+        if (!pegado) { setTimeout(alEscribir, 0); return; }
+        e.preventDefault();
         inp.value = formatear(pegado);
         try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
         try { inp.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v559">
+<meta name="dashboard-shell" content="f123-shell-v560">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -3996,8 +3996,10 @@
       try {
         var cb = (e.clipboardData || window.clipboardData);
         if (!cb) { setTimeout(alEscribir, 0); return; }
-        e.preventDefault();
         var pegado = cb.getData("text");
+        // iOS may expose empty clipboardData even when native paste works.
+        if (!pegado) { setTimeout(alEscribir, 0); return; }
+        e.preventDefault();
         inp.value = formatear(pegado);
         try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
       } catch (_) { setTimeout(alEscribir, 0); }

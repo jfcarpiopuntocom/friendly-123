@@ -24,7 +24,8 @@ test('app retains queued data and schedules retry when native adapter is missing
       notificarEstado: value => states.push(value), estadoActual: 'apagado',
       normalizarCodigo: value => value, derivarClave: async () => 'synthetic-key',
       idDeSala: async () => base, RELAY_URL: 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/',
-      programarReintento() { retry++; }, ws: null,
+      programarReintento() { retry++; }, ws: null, _conexionGeneracion:0,
+      puedeConectarLegado:()=>true, document:{hidden:false},
       vaciarCola() { queue.length = 0; },
     };
     vm.createContext(c); vm.runInContext(source.slice(start, end), c);
