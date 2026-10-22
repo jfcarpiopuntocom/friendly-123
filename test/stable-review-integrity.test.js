@@ -33,7 +33,7 @@ test('E1b-3: failed session claim notifies listeners AFTER pending clears',async
 test('E4: Yjs authoritative owner name converges on equal revision despite local future clock',()=>{
   const device=browser();
   const apply=(name,rev,ts,yjs=false)=>device.OCSync.aplicarCatalogo({
-    nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:ts,
+    ubicaciones:[],productos:[],nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:ts,
     ...(yjs?{_nombreDesdeYjs:true}:{})
   },'dueno');
   apply('My small shop USA',7,999999);
