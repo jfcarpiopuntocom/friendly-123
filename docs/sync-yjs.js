@@ -90,7 +90,7 @@
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
-    var canal = { ws: null, pend: [], recuperando: true };
+    var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
     var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
     /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
@@ -498,6 +498,11 @@
       return a.rev < b.rev || (a.rev === b.rev && a.seq <= b.seq);
     }
     if (persistencia && typeof persistencia.get === "function") {
+      // A hung iOS IndexedDB open must be visible, without replay from -1.
+      canal.recuperacionLocal = "cargando";
+      var _tHidratacion = setTimeout(function () {
+        if (canal.recuperacionLocal === "cargando") canal.recuperacionLocal = "pendiente";
+      }, 25000);
       // Every cursor is trustworthy only after the Yjs journal is hydrated.
       // A slow iPhone must wait, never replay its whole history due to timeout.
       var hydration = persistencia.whenSynced;
@@ -534,6 +539,14 @@
           // No confirmed journal means no safe cursor. Do not pull or
           // checkpoint against a half-loaded device; leave the channel in recovery.
           try { log("recuperacion local Yjs pendiente en " + nombre, e && e.message); } catch (_) {}
+          throw e;
+        }).then(function (valor) {
+          clearTimeout(_tHidratacion);
+          canal.recuperacionLocal = "listo";
+          return valor;
+        }, function (e) {
+          clearTimeout(_tHidratacion);
+          canal.recuperacionLocal = "pendiente";
           throw e;
         });
     }
@@ -1008,6 +1021,7 @@
       var n = {}, self = this; this.colecciones.forEach(function (c) { n[c] = self.mapas[c] ? self.mapas[c].size : 0; });
       var rs = function (cn) { return cn && cn.ws ? cn.ws.readyState : null; };
       return { estado: this.estado, roomId: this.roomId, n: n,
+        recuperacionLocalPendiente: [this.canal, this.fotosCanal, this.opsCanal].some(function (c) { return c && c.recuperacionLocal === "pendiente"; }),
         ws: { catalogo: rs(this.canal), fotos: rs(this.fotosCanal), ops: rs(this.opsCanal) },
         meta: { nombre: this.meta ? this.meta.get("nombreNegocio") : null, esDueno: this.meta ? this.meta.get("nombreEsDueno") : null },
         fotos: this.fotosMap ? this.fotosMap.size : 0, ops: this.opsMap ? this.opsMap.size : 0 };
