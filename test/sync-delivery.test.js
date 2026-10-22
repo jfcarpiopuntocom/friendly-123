@@ -19,7 +19,7 @@ async function fixture() {
   const context = {
     API: api, RELAY_URL: 'fixture:', crypto: webcrypto, performance: { now: () => now },
     Uint8Array, ArrayBuffer, TextEncoder, TextDecoder, Date, Math, JSON, Map, Promise,
-    navigator: {}, log() {}, CustomEvent: class {},
+    navigator: {}, document:{hidden:false,addEventListener(){}}, log() {}, CustomEvent: class {},
     setTimeout() { return 1; }, clearTimeout() {},
     btoa: x => Buffer.from(x, 'binary').toString('base64'),
     async cifrarBin(_, bytes) {
