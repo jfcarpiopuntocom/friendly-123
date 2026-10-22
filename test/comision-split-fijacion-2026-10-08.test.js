@@ -8,8 +8,8 @@
    - docs/pocketbase-client.js (also an IIFE, only active when F123_PB_URL is set) is loaded the
      same way in a plain vm context with a stub window.
    - calcularSplitVenta and comisionVigente exist in BOTH files (two sources of truth). The parity
-     tests feed the same inputs to both. Real differences are written as test.skip('POSSIBLE BUG: ...')
-     with expected vs actual numbers, never as weakened assertions. */
+     tests feed the same inputs to both. The previous four quarantined financial differences are now active equality tests;
+     assertions are never weakened or silently skipped. */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -161,7 +161,7 @@ test('parity comisionVigente (pocketbase-client vs mock-backend): flat and tiere
   assert.equal(T.comisionVigente({ tipo: 'socio', comisionSocio: 33.5 }, 10), PB.comisionVigente({ tipo: 'socio', comisionSocio: 33.5 }, 10));
 });
 
-test.skip('POSSIBLE BUG: parity calcularSplitVenta, tier commission above 100% (pocketbase-client does not clamp)', () => {
+test('P0 financial parity: calcularSplitVenta, tier commission above 100% (pocketbase-client does not clamp)', () => {
   // Input: tiered rack with a tier of 150%, gross 100. Expected (mock-backend): pct 100, commission 100, net 0.
   // Actual pocketbase-client: pct 150, commission 150, net -50 (owner owes money on a sale).
   const T = newApp().__T;
@@ -169,28 +169,35 @@ test.skip('POSSIBLE BUG: parity calcularSplitVenta, tier commission above 100% (
   assert.deepEqual(pick(PB.calcularSplitVenta(u, 100, 0)), pick(T.calcularSplitVenta(u, 100, 0)));
 });
 
-test.skip('POSSIBLE BUG: parity comisionVigente, out-of-range flat percent (pocketbase-client does not clamp 0..100)', () => {
+test('P0 financial parity: comisionVigente, out-of-range flat percent (pocketbase-client does not clamp 0..100)', () => {
   // Expected (mock-backend): -5 -> 0 and 130 -> 100. Actual pocketbase-client: -5 and 130.
   const T = newApp().__T;
   assert.equal(PB.comisionVigente({ tipo: 'socio', comisionSocio: -5 }, 1), T.comisionVigente({ tipo: 'socio', comisionSocio: -5 }, 1));
   assert.equal(PB.comisionVigente({ tipo: 'socio', comisionSocio: 130 }, 1), T.comisionVigente({ tipo: 'socio', comisionSocio: 130 }, 1));
 });
 
-test.skip('POSSIBLE BUG: parity calcularSplitVenta, rack assigned to a person (pocketbase-client ignores the person percent)', () => {
+test('P0 financial parity: calcularSplitVenta, rack assigned to a person (pocketbase-client ignores the person percent)', () => {
   // Rack comisionSocio 30 assigned to a person whose comisionBase is 40, gross 100.
   // Expected (mock-backend): 40 / commission 40. Actual pocketbase-client: 30 / commission 30.
   const T = newApp().__T;
   T.promotoras.push({ id: 'pp-parity', nombre: 'Parity', comisionBase: 40 });
   const u = ruta({ tipo: 'socio', comisionSocio: 30, promotoraId: 'pp-parity' });
-  assert.equal(PB.calcularSplitVenta(u, 100, 0).montoComisionSocio, T.calcularSplitVenta(u, 100, 0).montoComisionSocio);
+  const person = { id: 'pp-parity', nombre: 'Parity', comisionBase: 40 };
+  assert.equal(PB.calcularSplitVenta(u, 100, 0, 0, null, person).montoComisionSocio,
+    T.calcularSplitVenta(u, 100, 0).montoComisionSocio);
 });
 
-test.skip('POSSIBLE BUG: parity calcularSplitVenta, fixed contribution and per-product percent (pocketbase-client has neither)', () => {
+test('P0 financial parity: calcularSplitVenta, fixed contribution and per-product percent (pocketbase-client has neither)', () => {
   // contribFija 20 on a 30% rack, gross 100: expected (mock-backend) commission 24; actual pocketbase-client 30.
   // Product percent 25 on a 30% rack, gross 100: mock-backend 25; pocketbase-client takes no product percent, gives 30.
   const T = newApp().__T;
   const u = ruta({ tipo: 'socio', comisionSocio: 30, contribFija: 20 });
-  assert.equal(PB.calcularSplitVenta(u, 100, 0).montoComisionSocio, T.calcularSplitVenta(u, 100, 0).montoComisionSocio);
+  assert.equal(PB.calcularSplitVenta(u, 100, 0).montoComisionSocio,
+    T.calcularSplitVenta(u, 100, 0).montoComisionSocio);
+  const product = ruta({ tipo: 'socio', comisionSocio: 30 });
+  assert.equal(PB.calcularSplitVenta(product, 100, 0, 0, 25).montoComisionSocio,
+    T.calcularSplitVenta(product, 100, 0, 0, 25).montoComisionSocio,
+    'product 25% overrides rack 30%');
 });
 
 /* ===================== mock-backend: pure helpers ===================== */
