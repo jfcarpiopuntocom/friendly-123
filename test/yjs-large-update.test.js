@@ -4,6 +4,14 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
+async function until(observed, label, timeoutMs=2000) {
+  const deadline=Date.now()+timeoutMs;
+  while (!observed()) {
+    if (Date.now()>deadline) assert.fail('Timed out waiting for '+label);
+    await new Promise(resolve=>setTimeout(resolve,5));
+  }
+}
+
 test('large Yjs updates are bounded before send and reassembled exactly once', async () => {
   const source = fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8');
   const block = source.slice(source.indexOf('  function _frame('), source.indexOf('  // Carga perezosa'));
@@ -34,12 +42,12 @@ test('large Yjs updates are bounded before send and reassembled exactly once', a
   const original = new Uint8Array(400 * 1024);
   for (let i = 0; i < original.length; i++) original[i] = i % 251;
   sender.enviarUpdate(original);
-  await new Promise(resolve => setTimeout(resolve, 20));
+  await until(()=>sockets[0].sent.length===6,'six bounded persisted Yjs frames');
   const sent = sockets[0].sent;
   assert.equal(sent.length, 6, 'three binary chunks and three persisted ops');
   for (const frame of sent) assert.ok((typeof frame === 'string' ? frame.length : frame.byteLength) < 256 * 1024);
   for (const frame of sent.filter(x => x instanceof ArrayBuffer).reverse()) sockets[1].onmessage({ data: frame });
-  await new Promise(resolve => setTimeout(resolve, 20));
+  await until(()=>applied.length===1,'the single reassembled Yjs update');
   assert.equal(applied.length, 1);
   assert.deepEqual(applied[0], Array.from(original));
   const lateReceiver = c.makeChannel(c.Y, {}, '-y', 'late', false, null, persistence);
@@ -49,7 +57,7 @@ test('large Yjs updates are bounded before send and reassembled exactly once', a
     const copy = Uint8Array.from(bytes);
     sockets[2].onmessage({ data: copy.buffer });
   }
-  await new Promise(resolve => setTimeout(resolve, 20));
+  await until(()=>applied.length===2,'the late peer reconstructed encrypted Yjs history');
   assert.equal(applied.length, 2, 'offline pull can rebuild from persisted chunks');
   assert.deepEqual(applied[1], Array.from(original));
 });
