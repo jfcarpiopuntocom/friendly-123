@@ -31,6 +31,9 @@ async function fixture(data=new Map(),locks,adapterMissing=false,realY=false){
  const channel=ctx.make(Y,doc,'-y','fixture',true,null,p);channel.conectar();
  if(sockets[0]){
   sockets[0].onopen();await tick();await tick();
+  // This fixture simulates an older relay without HEAD support; real catch-up
+  // must explicitly fall back to the durable pull-page protocol.
+  sockets[0].onmessage({data:JSON.stringify({k:"head-result",unsupported:true})});await tick();await tick();
   sockets[0].onmessage({data:JSON.stringify({k:"pull-page",rev:0,seq:0,more:false})});await tick();await tick();
  }
  return {Y,doc,data,timers,channel,socket:sockets[0],sockets,p,ctx,get rawCalls(){return rawCalls},restoreAdapter(){ctx.window.F123Relay={connect:()=>new Socket()}}};
