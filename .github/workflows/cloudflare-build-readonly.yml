@@ -19,18 +19,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            echo "::error::Required Cloudflare GitHub secrets absent."; exit 1
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN secret missing in GitHub Actions; no API request made."; exit 1
           fi
-          if [ "$CLOUDFLARE_ACCOUNT_ID" != "c4d8aa3b3e1db0d80b0beb4abc7c1364" ]; then
+          if [ -n "$CLOUDFLARE_ACCOUNT_ID" ] && [ "$CLOUDFLARE_ACCOUNT_ID" != "c4d8aa3b3e1db0d80b0beb4abc7c1364" ]; then
             echo "::error::Configured account is NOT friendly-123; no API request made."; exit 1
           fi
-          echo "GitHub Cloudflare account matches friendly-123."
+          echo "Target pinned to friendly-123; repository account (if set) matched. Token present."
       - name: GET failed build and logs (never deploy)
         shell: bash
         run: |
           set -euo pipefail
-          base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/builds/builds/8e58b09b-04f7-4136-bd71-0eadaabd1992"
+          base="https://api.cloudflare.com/client/v4/accounts/c4d8aa3b3e1db0d80b0beb4abc7c1364/builds/builds/8e58b09b-04f7-4136-bd71-0eadaabd1992"
           m_status=$(curl -sS -o /tmp/f123meta.json -w '%{http_code}' --connect-timeout 12 --max-time 35 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base")
           l_status=$(curl -sS -o /tmp/f123logs.json -w '%{http_code}' --connect-timeout 12 --max-time 35 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/logs")
           M_STATUS="$m_status" L_STATUS="$l_status" python3 - <<'PY'
