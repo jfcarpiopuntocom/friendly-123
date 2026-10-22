@@ -1843,7 +1843,8 @@
             var tsMeta = Number(API.meta.get("nombreTs")) || 0;
             var tsMio = Number(cat.nombreNegocioTs) || 0;
             if (soyDueno) {
-              var _gano = !yaEsDueno || revMio > revMeta || (revMio === revMeta && tsMio >= tsMeta);
+              // No desempatar por timestamp: el reloj local puede estar adelantado.
+              var _gano = !yaEsDueno || revMio > revMeta;
               if (_gano) {
                 if (API.meta.get("nombreNegocio") !== cat.nombreNegocio) API.meta.set("nombreNegocio", cat.nombreNegocio);
                 // Y.Map.set emits an update even for the same value. Idle scans
