@@ -82,3 +82,35 @@ test("legacy cursor with no snapshot remains readable",async()=>{
  const a=fixture({pending:false,prior:{rev:3,seq:77}});await a.ready();
  assert.equal(a.ctx._pullCursor.seq,77);assert.equal(a.ctx._appliedPullCursor.seq,77);
 });
+
+test("vendored Yjs preserves causal orphan and deleted-set with delta-only pending proof",()=>{
+ const Yvm={console,TextEncoder,TextDecoder,Uint8Array,ArrayBuffer,Map,Set,Promise,setTimeout,clearTimeout};
+ Yvm.globalThis=Yvm;
+ vm.createContext(Yvm);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,"../docs/vendor/yjs-bundle.min.js"),"utf8"),Yvm);
+ const Y=Yvm.Y;
+ assert.ok(Y && Y.Doc && Y.encodeStateAsUpdate,"real vendored Yjs APIs are present");
+ const original=new Y.Doc({gc:false}),updates=[];
+ original.on("update",u=>updates.push(u));
+ const text=original.getText("synthetic");
+ text.insert(0,"A"); text.insert(1,"B"); text.delete(0,1);
+ assert.equal(updates.length,3,"three causal Yjs transactions were encoded");
+ const missingParent=new Y.Doc({gc:false});
+ Y.applyUpdate(missingParent,updates[1]); Y.applyUpdate(missingParent,updates[2]);
+ assert.ok(missingParent.store.pendingStructs,"a missing parent leaves pending structures");
+ assert.ok(missingParent.store.pendingDs,"deletion still requires its parent");
+ const delta=Y.encodeStateAsUpdate(missingParent,Y.encodeStateVector(missingParent));
+ assert.ok(delta.length>0,"diff contains the unresolved causal bytes");
+ let reboot=new Y.Doc({gc:false});
+ Y.applyUpdate(reboot,delta);
+ assert.ok(reboot.store.pendingStructs,"orphan survives first restart");
+ assert.ok(reboot.store.pendingDs,"deleted-set survives first restart");
+ const second=Y.encodeStateAsUpdate(reboot,Y.encodeStateVector(reboot));
+ reboot=new Y.Doc({gc:false});
+ Y.applyUpdate(reboot,second);
+ assert.ok(reboot.store.pendingStructs,"orphan survives second restart");
+ Y.applyUpdate(reboot,updates[0]);
+ assert.equal(reboot.getText("synthetic").toString(),original.getText("synthetic").toString());
+ assert.deepEqual(Buffer.from(Y.encodeStateVector(reboot)),Buffer.from(Y.encodeStateVector(original)));
+ assert.deepEqual(Buffer.from(Y.encodeStateAsUpdate(reboot)),Buffer.from(Y.encodeStateAsUpdate(original)));
+});
