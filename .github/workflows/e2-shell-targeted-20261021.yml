@@ -1,0 +1,21 @@
+name: E2 PWA shell targeted
+on:
+  push:
+    branches:
+      - fix/e2-pwa-auto-shell-20261021
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check auth JS syntax
+        run: node --check docs/auth-ui.js
+      - name: Test E2 old/new service workers in synthetic browser
+        run: node --test test/e2-shell-auto-update.test.js
