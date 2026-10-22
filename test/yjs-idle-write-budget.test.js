@@ -18,6 +18,11 @@ async function peer(){
 }
 test('unchanged owner metadata produces zero real Yjs updates on 100 idle reseeds; rename still converges',async()=>{
  const a=await peer(),b=await peer();
+ // This is the post-initial-sync mutation/idleness contract. A freshly
+ // activated phone must NOT be allowed to broadcast its fallback owner name
+ // while the durable history is still being replayed.
+ a.OCYjs.canal.recuperando=false;
+ b.OCYjs.canal.recuperando=false;
  let cat={nombreNegocio:'Synthetic gallery',nombreNegocioRev:7,nombreNegocioTs:1700000000000};
  a.OCSync.catalogoPropio=()=>cat;
  a.OCYjs._store.sembrar();

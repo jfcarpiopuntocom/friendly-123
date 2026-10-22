@@ -62,7 +62,12 @@ test('Bloque 2: COUNTER SALE y persona elegida en la venta cruzan al otro aparat
   assert.ok(ventasB.find((v) => v.id === vOtra.ventaId).split, 'la persona elegida cobra en B');
   const expB = await b.request('/api/respaldo/exportar');
   assert.equal(expB.ubicaciones.find((u) => u.id === shelf.id).promotoraId, fija.id, 'el acuerdo fijo de la percha no cambia');
-  assert.equal(expB.productos.find((x) => x.id === p.id).stockActual, 6, 'stock 10 - 4 en B');
+  const pA=(await a.request('/api/respaldo/exportar')).productos.find((x)=>x.id===p.id);
+  const pB=expB.productos.find((x)=>x.id===p.id);
+  const yyA=a.OCYjs.getProductos()[p.id],yyB=b.OCYjs.getProductos()[p.id];
+  const st=(q)=>q&&({n:q.stockActual,ts:q.stockTs,base:q.stockBase,pn:q.stockPN,rev:q.rev});
+  assert.equal(pB.stockActual, 6, 'stock 10 - 4 en B; synthetic diagnostic='+
+    JSON.stringify({storeA:st(pA),storeB:st(pB),yjsA:st(yyA),yjsB:st(yyB)}));
   const cm = async (w) => (await w.request('/api/comisiones/cuadre')) ;
   assert.deepEqual(JSON.parse(JSON.stringify(await cm(b))), JSON.parse(JSON.stringify(await cm(a))), 'Commissions del mes igual en los dos aparatos');
 });

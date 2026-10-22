@@ -52,6 +52,27 @@ jobs:
       - name: Domain + application + architecture
         run: |
           node --test             test/shelf-photo-policy-hex.test.js             test/recover-shelf-photo-ports.test.js             test/architecture-hexagonal.test.js
+      - name: Install pinned test dependencies
+        run: npm ci --ignore-scripts
+      - name: P0 native first-join, stock and causal replay (isolated synthetic data)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=30000 \
+            test/incident-first-sync-integrity-v558.test.js \
+            test/incident-stale-stock-metadata-v558.test.js \
+            test/incident-yjs-receive-queue-v558.test.js \
+            test/incident-yjs-causal-replay-v559.test.js \
+            test/incident-stock-monotonic-clock-v559.test.js \
+            test/yjs-unresolved-checkpoint.test.js
+      - name: Native cross-device regression (inventory, team, money, Yjs)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=45000 \
+            test/categorias-sync.test.js \
+            test/idiomarte-owner-admin-expenses.test.js \
+            test/impuesto-cuaderno.test.js \
+            test/linus-sync-persona.test.js \
+            test/yjs-device-role-stability.test.js \
+            test/yjs-durable-outbox.test.js \
+            test/yjs-idle-write-budget.test.js
       - name: Shell integrity
         run: bash check-sw.sh
       - name: Diff hygiene

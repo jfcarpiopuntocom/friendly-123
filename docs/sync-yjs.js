@@ -447,7 +447,12 @@
       // Continue paging in memory, but a restart must replay every fragment
       // until its complete update has entered the persisted Y.Doc. Otherwise
       // the next process could checkpoint a cursor whose bytes it never had.
-      if (Object.keys(partesEntrantes).length) return Promise.resolve();
+      if (Object.keys(partesEntrantes).length ||
+          (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
+        // Do not persist a cursor past a page whose Yjs dependencies have not
+        // actually become part of the document. Paging may continue in RAM.
+        return Promise.resolve();
+      }
       _appliedPullCursor = siguiente;
       if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
       /* IndexeddbPersistence encola este write DESPUES de los updates Yjs que
@@ -567,6 +572,9 @@
     var _tCkpt = null;
     function hacerCkpt() {
       if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
+      // Never compact a partly restored store, even when an old applied cursor
+      // exists: a completed pull AND dependency-free document are required.
+      if (canal.recuperando || (_currentPullState && _currentPullState.enCurso)) return;
       // A page may contain only part of a large update. Those chunks are not
       // represented in the Y.Doc yet and cannot be compacted by its snapshot.
       if (_appliedPullCursor.rev < 0 || Object.keys(partesEntrantes).length) return;
@@ -609,12 +617,10 @@
           if (canal.ws === ws && ws.readyState === 1) reintentos = 0;
         }, T_CONEXION_ESTABLE_MS);
         try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // "hola": a quien esté en vivo
-        // A disconnected page cursor may cover unapplied fragments. Drop only
-        // its transient assembly and replay from the proven applied cut.
+        // The same channel still owns its Y.Doc and fragment assembly after
+        // reconnect. Keep their RAM cursor; a new process loads the durable cut.
         _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
           if (canal.ws !== ws) return;
-          partesEntrantes = Object.create(null);
-          _pullCursor = _appliedPullCursor;
           return pedirPagina(ws, pullEstado);
         });
         /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
@@ -707,6 +713,13 @@
         if (d instanceof ArrayBuffer) {
           _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source); }).then(function (ok) {
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
+          }).catch(function (e) {
+            // One corrupted or undecipherable frame must NOT poison the entire
+            // serial receive queue. The failed durable page is retried from the
+            // last confirmed cursor; do not ACK or silently skip its bytes.
+            if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++;
+            try { log("frame Yjs no aplicable en " + nombre, e && e.message); } catch (_) {}
+            return false;
           });
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
@@ -745,20 +758,41 @@
                     canal.recuperando = false;
                     if (nombre === "catalogo" && API._store) API._store.aplicar();
                   }
-                  // An old orphan must not repeatedly disconnect live business sync.
-                  // Keep its bytes and safe cut; poll only newer rows on this connection.
-                  if (Object.keys(partesEntrantes).length) {
+                  // The last page can have no transport fragments yet Yjs may
+                  // still be missing a causal parent or pending deletion.
+                  // Retain EVERY encrypted operation, retain the proven cursor,
+                  // and replay from that cut with exponential backoff. Never
+                  // claim a complete first-join or adopt PINs from partial data.
+                  var depsPendientes = !!(doc.store &&
+                    (doc.store.pendingStructs || doc.store.pendingDs));
+                  if (Object.keys(partesEntrantes).length || depsPendientes) {
                     clearTimeout(_tReplay);
                     _tReplay = setTimeout(function () {
                       if (canal.ws !== ws || ws.readyState !== 1) return;
                       _tReplay = null;
-                      if (!pullEstado.enCurso && Object.keys(partesEntrantes).length) {
+                      if (!pullEstado.enCurso &&
+                          (Object.keys(partesEntrantes).length ||
+                            (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)))) {
+                        /* While this SAME connection is alive, keep the RAM
+                           pagination cursor: missing siblings may arrive in
+                           newer rows. Otherwise 6000+ historical rows are
+                           reprocessed repeatedly and cause 1013 saturation.
+                           The durable cursor is NOT advanced for orphans;
+                           reconnect always starts from the last proven cut. */
                         _replayDelay = Math.min(300000, _replayDelay * 2);
+                        try { log("historia incompleta, relectura segura " + nombre); } catch (_) {}
                         pedirPagina(ws, pullEstado);
                       }
                     }, _replayDelay);
                   } else { clearTimeout(_tReplay); _tReplay = null; _replayDelay = 30000; }
                 });
+              }).catch(function (e) {
+                // Recovery must remain live after a page processing error.
+                // Close/replay instead of abandoning all later encrypted pages.
+                pullEstado.fallos++;
+                try { log("error pagina Yjs " + nombre, e && e.message); } catch (_) {}
+                try { ws.close(1013, "pull page failed; replay from confirmed cursor"); } catch (_) {}
+                return false;
               });
             }
             else if (c && c.k === "tsr" && window.OCLatencia) window.OCLatencia.anotarPing(c.t0, c.t1, Date.now());
@@ -767,7 +801,13 @@
         }
       };
       _directReceive = function (buf) {
-        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf, "live"); });
+        _colaRecepcion = _colaRecepcion.then(function () { return manejar(buf, "live"); })
+          .catch(function (e) {
+            // Live-only fast path is optional; durable relay replay remains
+            // authoritative and MUST keep processing subsequent frames.
+            try { log("frame directo Yjs no aplicable en " + nombre, e && e.message); } catch (_) {}
+            return false;
+          });
       };
       ws.onclose = function () {
         if (canal.ws !== ws) return; // cierre tardio de un socket reemplazado
@@ -1336,6 +1376,24 @@
       var cat;
       try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
       if (!cat) return;
+      /* A newly activated, empty phone is NOT evidence that the old shop
+         was deleted. Never publish its fallback name or factory-derived
+         metadata to Yjs while historical pages still need replay. A real
+         existing shop retains its local records and append-only outbox. */
+      if (API.canal && API.canal.recuperando) {
+        // Do not publish a brand-new phone's factory-only catalog. But an
+        // otherwise empty shop can legitimately contain a new expense,
+        // personnel record or device nickname. Those facts must not be
+        // suppressed by the first-join guard (regressions in native CI).
+        var _cuenta = [
+          "productos", "ubicaciones", "ventas", "clientes", "gastos",
+          "transferencias", "promotoras", "sucursales", "ajustes",
+          "categorias", "dispositivos"
+        ].reduce(function (n, col) {
+          return n + (Array.isArray(cat[col]) ? cat[col].length : 0);
+        }, 0);
+        if (_cuenta === 0) return;
+      }
       var miRol = ""; try { if (window.OCAuth && OCAuth.rolActual) miRol = OCAuth.rolActual() || ""; } catch (_) {}
       try {
         API.doc.transact(function () {
@@ -1420,7 +1478,60 @@
                 var a = r.rev || {}, b = prev.rev || {};
                 var ac = Number(a.c) || 0, bc = Number(b.c) || 0;
                 if (ac < bc || (ac === bc && String(a.d || "") <= String(b.d || ""))) {
-                  if (col === "productos") r = Object.assign({}, prev, { stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual, stockTs: Math.max(Number(prev.stockTs) || 0, Number(r.stockTs) || 0) });
+                  if (col === "productos") {
+                    /* P0 v558: metadata rev and stock revision are INDEPENDENT.
+                       Before: stale local metadata preserved prev.name but ALWAYS
+                       overwrote prev.stockActual, even if local was old ZERO;
+                       then it forged stockTs=max(old,new), making it appear current.
+                       Choose stock only by its own ledger/clock evidence. */
+                    var _rt = Number(r.stockTs) || 0, _pt = Number(prev.stockTs) || 0;
+                    var _rb = r.stockBase != null && Number.isFinite(Number(r.stockBase)) ? Number(r.stockBase) : null;
+                    var _pb = prev.stockBase != null && Number.isFinite(Number(prev.stockBase)) ? Number(prev.stockBase) : null;
+                    var _rp = r.stockPN && typeof r.stockPN === "object" ? r.stockPN : null;
+                    var _pp = prev.stockPN && typeof prev.stockPN === "object" ? prev.stockPN : null;
+                    var _nowRaw = (window.OCLatencia && window.OCLatencia.ahoraRelay) ?
+                      window.OCLatencia.ahoraRelay() : null;
+                    // Number(null) === 0: a fresh phone without a relay clock
+                    // must not treat every genuine epoch-millisecond sale as future.
+                    var _now = typeof _nowRaw === "number" && Number.isFinite(_nowRaw) &&
+                      _nowRaw > 0 ? _nowRaw : null;
+                    var _notFuture = _now === null || _rt <= _now + 300000;
+                    var _sameLedger = _rb !== null && _pb !== null && _rb === _pb && !!_rp && !!_pp;
+                    var _epochNewer = _rb !== null && !!_rp && _rt > _pt && _notFuture;
+                    var _legacyNewer = _rb === null && _pb === null && _rt > _pt && _notFuture &&
+                      Number.isFinite(Number(r.stockActual)) && Number(r.stockActual) >= 0 &&
+                      !(Number(r.stockActual) === 0 && Number(prev.stockActual) > 0);
+                    /* The FIRST real PN sale must not be discarded merely
+                       because a just-synced legacy product has a clock a few
+                       milliseconds newer. Require matching physical base,
+                       nonempty positive operation counters, plausible relay
+                       time and a narrow skew window. Ancient PN remains blocked. */
+                    var _pnEntries = Object.keys(_rp || {});
+                    var _pnValid = _pnEntries.length > 0 && _pnEntries.every(function (id) {
+                      var fact = _rp[id] || {}, add = Number(fact.add), sub = Number(fact.sub);
+                      return Number.isSafeInteger(add) && Number.isSafeInteger(sub) &&
+                        add >= 0 && sub >= 0;
+                    });
+                    var _pnNet = _pnValid ? _pnEntries.reduce(function (sum, id) {
+                      return sum + Number(_rp[id].add) - Number(_rp[id].sub);
+                    }, 0) : NaN;
+                    var _pnProof = _pnValid && Number.isSafeInteger(_rb + _pnNet) &&
+                      Math.max(0, _rb + _pnNet) === Number(r.stockActual) &&
+                      _pnEntries.some(function (id) {
+                        return Number(_rp[id].add) > 0 || Number(_rp[id].sub) > 0;
+                      });
+                    var _firstLedger = _rb !== null && _pb === null && _pnProof &&
+                      Number(prev.stockActual) === _rb && _rt > 0 &&
+                      _rt >= _pt - 2000 && _notFuture;
+                    var _stockValido = _sameLedger || _epochNewer || _legacyNewer || _firstLedger;
+                    r = Object.assign({}, prev, _stockValido ? {
+                      stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual,
+                      stockTs: Math.max(_pt, _rt), stockDeficit: r.stockDeficit
+                    } : {
+                      stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual,
+                      stockTs: _pt, stockDeficit: prev.stockDeficit
+                    });
+                  }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
                   else return;
                 }
@@ -1436,7 +1547,11 @@
              de jerarquía de siempre: guardamos junto al nombre si quien lo puso es
              el dueño; el otro aparato aplica con rolRemoto="dueno" y lo adopta.
              Un no-dueño no pisa un nombre ya marcado como del dueño. */
-          if (cat.nombreNegocio) {
+          /* P0: local name may come from f123_owned on a just-purged phone,
+             while the remote CRDT history and credentials are still loading.
+             Never give that stale bootstrap name owner authority in the
+             shared doc. Resume ordinary name changes after confirmed pull. */
+          if (cat.nombreNegocio && !(API.canal && API.canal.recuperando)) {
             var soyDueno = miRol === "dueno";
             var yaEsDueno = API.meta.get("nombreEsDueno") === true;
             /* DESEMPATE DETERMINISTA (v283, JFC 2026-09-15). Antes un dueño pisaba

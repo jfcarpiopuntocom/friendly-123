@@ -193,16 +193,17 @@ test('durable recovery cannot borrow live siblings to compact incomplete durable
  assert.equal(applied,0);
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0);
 });
-test('reconnection refetches unfinished durable groups from the last applied cut',async()=>{
+test('same-channel reconnection retains unfinished durable fragments and resumes after the RAM cursor',async()=>{
  const a=await fixture();let applied=0;a.Y.applyUpdate=()=>applied++;
  a.socket.onmessage({data:fragment().buffer,relaySource:'pull'});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0,'unassembled bytes never advance the durable cut');
  a.socket.onclose();a.channel.conectar();const next=a.sockets.at(-1);next.onopen();await tick();await tick();
- assert.equal(controls(next,'pull')[0]?.seq,0);
- next.onmessage({data:fragment().buffer,relaySource:'pull'});
+ assert.equal(controls(next,'pull')[0]?.seq,1,'same live channel lifetime retains its RAM high-water cursor');
  next.onmessage({data:fragment(1).buffer,relaySource:'pull'});
  next.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
- assert.equal(applied,1);assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2);
+ assert.equal(applied,1,'the only post-reconnect sibling completes the retained first fragment');
+ assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2,'durable progress advances only after the complete update is applied');
 });
 
 test('orphan durable history keeps live sync open without claiming its cursor or compacting',async()=>{
@@ -278,8 +279,9 @@ test('live-only expired orphans release assembly capacity without obstructing du
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});await tick();await tick();
  assert.equal(applied,1);assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,1);
 });
-test('real Yjs replay after interruption preserves complete data and idempotence across duplicate fragments',async()=>{
+test('real Yjs replay after interruption retains the first payload fragment and applies duplicate remainder idempotently',async()=>{
  const a=await fixture(new Map(),undefined,false,true),source=new a.Y.Doc();
+ let applied=0;a.doc.on('update',(_update,origin)=>{if(origin==='red')applied++});
  source.getMap('sales').set('synthetic-sale','x'.repeat(350000));
  const update=a.Y.encodeStateAsUpdate(source),chunks=[];
  for(let i=0;i<3;i++){
@@ -290,10 +292,11 @@ test('real Yjs replay after interruption preserves complete data and idempotence
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:true})});await tick();await tick();
  assert.equal(a.doc.getMap('sales').size,0);
  a.socket.close();a.channel.conectar();const next=a.sockets.at(-1);next.onopen();await tick();await tick();
- assert.equal(controls(next,'pull')[0].seq,0);
- for(const bytes of [chunks[0],chunks[0],chunks[2],chunks[1],...chunks])next.onmessage({data:bytes.buffer,relaySource:'pull'});
+ assert.equal(controls(next,'pull')[0].seq,1,'the same live Y.Doc lifetime requests only rows after its in-memory cursor');
+ for(const bytes of [chunks[1],chunks[1],chunks[2]])next.onmessage({data:bytes.buffer,relaySource:'pull'});
  next.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:3,more:false})});await tick();await tick();
  assert.equal(a.doc.getMap('sales').size,1);assert.equal(a.doc.getMap('sales').get('synthetic-sale'),'x'.repeat(350000));
+ assert.equal(applied,1,'duplicate retained-group sibling is ignored before the remaining sibling completes the update');
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,3);
  a.doc.destroy();source.destroy();
 });

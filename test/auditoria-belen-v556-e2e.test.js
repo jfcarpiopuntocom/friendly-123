@@ -51,7 +51,18 @@ test('item 2: vender la pieza unica en un aparato pone 0 solo ahi; ajustar 0 a 1
   await pump(A, B);
   await api(A, '/api/productos/' + cer.id + '/venta', 'POST', { cantidad: 1 });
   await pump(A, B);
-  assert.deepEqual(await stocks(B), ['Otro:5:9', 'ceramic con puntitos:0:30'], 'solo la pieza vendida queda en 0');
+  const stockEnB=await stocks(B);
+  if (!stockEnB.includes('ceramic con puntitos:0:30')) {
+    const detalle=await Promise.all([A,B].map(d=>d.page.evaluate(async()=>{
+      const productos=await (await fetch('/api/productos')).json();
+      const uno=productos.find(x=>x.nombre==='ceramic con puntitos');
+      const crdt=window.OCYjs && window.OCYjs.getProductos ? Object.values(window.OCYjs.getProductos()).find(x=>x.nombre==='ceramic con puntitos') : null;
+      return {local:uno && {stockActual:uno.stockActual,stockBase:uno.stockBase,stockPN:uno.stockPN,stockTs:uno.stockTs,rev:uno.rev},
+        crdt:crdt && {stockActual:crdt.stockActual,stockBase:crdt.stockBase,stockPN:crdt.stockPN,stockTs:crdt.stockTs,rev:crdt.rev}};
+    })));
+    console.error('P0 synthetic stock convergence diagnostic:',JSON.stringify(detalle));
+  }
+  assert.deepEqual(stockEnB, ['Otro:5:9', 'ceramic con puntitos:0:30'], 'solo la pieza vendida queda en 0');
   await api(A, '/api/productos/' + cer.id + '/ajustar', 'POST', { delta: 1, motivo: 'correccion' });
   await pump(A, B);
   assert.ok((await stocks(B)).includes('ceramic con puntitos:1:30'));

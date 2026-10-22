@@ -3124,7 +3124,22 @@
              cero legado con timestamp "del futuro" y ganar otra vez al recargar. */
           const _stockAhoraRelay = (window.OCLatencia && window.OCLatencia.ahoraRelay)
             ? window.OCLatencia.ahoraRelay() : null;
-          _sp.stockTs = Number.isFinite(Number(_stockAhoraRelay)) ? Number(_stockAhoraRelay) : Date.now();
+          /* P0 ROOT CAUSE: Number(null) === 0 is finite! A not-yet-synced
+             relay clock was stamping a real sale as 0, so a second device
+             retained its old stock snapshot forever. A trusted relay instant
+             MUST be a numeric epoch-millisecond timestamp; otherwise use the
+             local clock, preserving the PN ledger as authoritative delta. */
+          const _instanteStock = typeof _stockAhoraRelay === "number" &&
+            Number.isFinite(_stockAhoraRelay) && _stockAhoraRelay >= 1000000000000 ?
+            _stockAhoraRelay : Date.now();
+          const _prevTs = Number(_sp.stockTs) || 0;
+          /* P0: two sales can happen within the same millisecond. A timestamp
+             TIED with the last publication can make the receiver discard a
+             valid stock change, even though its PN ledger advanced. Keep local
+             stockTs strictly monotonic when the previous stamp is plausible;
+             never perpetuate an impossible future timestamp from an old peer. */
+          _sp.stockTs = _prevTs > _instanteStock + 300000 ?
+            _instanteStock : Math.max(_instanteStock, _prevTs + 1);
         }
       } catch (_) {}
     }
@@ -4119,8 +4134,47 @@
       guardarEstadoLocal();
     }
     if (promesasPins.length) Promise.all(promesasPins).then(function (resultados) {
-      if (!resultados.some(Boolean)) return;
-      if (!cambioPersistible) mov("merge-catalogo", { perchasAgregadas: 0, productosAgregados: 0, actualizados: 0, miembrosAgregados: 0, miembrosActualizados: 0, miembrosQuitados: 0, clientesAgregados: 0, desde: remoto.deviceNombre || "another device" }, false);
+      var huboExito = resultados.some(Boolean);
+      var algunoPendiente = resultados.some(function (ok) { return ok !== true; });
+      if (algunoPendiente) {
+        // Never misreport a failed secure-store write as adopted. Retry only
+        // by rereading CURRENT Yjs metadata, never by retaining a previous
+        // three-digit PIN or a stale remote catalog in a timer.
+        try { window.dispatchEvent(new CustomEvent("oc-pins-sync-pendiente",
+          { detail: { pendiente: true } })); } catch (_) {}
+        try {
+          var y = window.OCYjs, room = y && y.roomId ? String(y.roomId) : "";
+          if (room && y && y._store && typeof y._store.aplicar === "function" &&
+              y.canal && y.canal.recuperando === false) {
+            var estado = window.__f123PinRetry || (window.__f123PinRetry =
+              { room: room, intentos: 0, timer: null });
+            if (estado.room !== room) {
+              if (estado.timer) clearTimeout(estado.timer);
+              estado.room = room; estado.intentos = 0; estado.timer = null;
+            }
+            if (!estado.timer && estado.intentos < 5) {
+              var demora = Math.min(30000, 1000 * Math.pow(2, estado.intentos++));
+              estado.timer = setTimeout(function () {
+                estado.timer = null;
+                var actual = window.OCYjs;
+                if (actual && actual.roomId === room && actual.canal &&
+                    actual.canal.recuperando === false && actual._store &&
+                    typeof actual._store.aplicar === "function") actual._store.aplicar();
+              }, demora);
+            }
+          }
+        } catch (_) {}
+      } else {
+        try {
+          var estadoOk = window.__f123PinRetry;
+          if (estadoOk) {
+            if (estadoOk.timer) clearTimeout(estadoOk.timer);
+            estadoOk.timer = null; estadoOk.intentos = 0;
+          }
+        } catch (_) {}
+      }
+      if (!huboExito) return;
+      if (!cambioPersistible) mov("merge-catalogo", { perchasAgregadas: 0, productosAgregados: 0, actualizados: 0, miembrosAgregados: 0, miembrosQuitados: 0, clientesAgregados: 0, desde: remoto.deviceNombre || "another device" }, false);
       return Promise.resolve(guardarEstadoLocal()).then(function (guardado) {
         if (guardado) avisarCatalogoCambiado();
       });

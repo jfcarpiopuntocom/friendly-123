@@ -25,7 +25,17 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test(`autom
   await page.locator('#buscar').fill('Synthetic');await page.locator('#buscar').blur();
   assert.equal(await page.evaluate(()=>__dashboardUpdate.prepare()),true);
   const handoff=await page.evaluate(()=>sessionStorage.getItem('f123_dashboard_update_handoff'));
-  assert.ok(!handoff.includes('789'),'PIN is never handed off');
+  // A hexadecimal SHA-256 proof can contain three PIN-like digits by
+  // coincidence. Inspect the handoff STRUCTURE instead of scanning the digest:
+  // a false match previously failed the WebKit regression at random.
+  const parsedHandoff=JSON.parse(handoff);
+  assert.deepEqual(Object.keys(parsedHandoff).sort(),
+    ['at','code','local','token','proof','scroll','draft'].sort(),
+    'handoff has only explicitly approved fields, never a raw PIN');
+  assert.match(parsedHandoff.proof,/^[a-f0-9]{64}$/,
+    'credentials are represented by a fixed-size non-reversible digest');
+  assert.equal(parsedHandoff.pin,undefined,'no PIN field is transferred');
+  assert.equal(parsedHandoff.password,undefined,'no password field is transferred');
   await page.reload();await page.locator('#tablero').waitFor({state:'visible',timeout:6000});
   assert.equal(await page.locator('#cu-total').inputValue(),'100','a blurred calculator draft survives the hotfix');
   assert.equal(await page.locator('#cu-unid').inputValue(),'10');
