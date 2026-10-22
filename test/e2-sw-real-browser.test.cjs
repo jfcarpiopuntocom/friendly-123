@@ -3,7 +3,11 @@ const {test}=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),http=require("node:http");
 const {chromium}=require("playwright");
 const html=fs.readFileSync("docs/index.html","utf8");
-const sw=fs.readFileSync("docs/sw.js","utf8");
+const swOriginal=fs.readFileSync("docs/sw.js","utf8");
+// Only the localhost fixture narrows SW precache. Production sw.js is untouched.
+const sw=swOriginal.replace(/const SHELL = \[[\s\S]*?\n\];/,
+  'const SHELL = ["./index.html"];');
+assert.notEqual(sw,swOriginal,"fixture must replace the real SW precache manifest");
 const reg=html.split("\n").find(s=>s.includes('navigator.serviceWorker.register("./sw.js"'));
 const start=html.indexOf("const _ocActSolaOn = true;");
 const end=html.indexOf("// Microcirugia 5",start);
