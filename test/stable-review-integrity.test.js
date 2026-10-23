@@ -95,7 +95,7 @@ test('E1 v1 checkpoint repair has a fixed per-channel quota across reconnects',a
     clearTimeout(){},setTimeout(){return 1;},programarRelectura(){},
     partesEntrantes:{},doc:{store:{}},API:{},nombre:'catalogo',log(){}};
   vm.createContext(ctx);
-  vm.runInContext(src.slice(a,b)+'\\nthis._head=procesarHead;',ctx);
+  vm.runInContext(src.slice(a,b)+'\nthis._head=procesarHead;',ctx);
   const head=async(seq)=>{
     const state={esperandoHead:true,enCurso:true,usarHead:true,validacionFinal:true,tHead:0};
     await ctx._head(ws,state,{rev:3,seq});await Promise.resolve();
