@@ -18,7 +18,7 @@ function fakeClock(){let now=0,next=1;const jobs=new Map();return{
 
 function backend(){
  const rows=[],metrics={rpc:[],rpcResponseBytes:0,frameBytes:0};
- const client={async rpc(name,params){let data;
+ const client={async rpc(name,params){let data,error=null;
   if(name==="f123_relay_route")data={mode:"supabase"};
   else if(name==="f123_relay_has_topic")data=true;
   else if(name==="f123_relay_command"){
@@ -28,12 +28,13 @@ function backend(){
     const old=Number(m.seq)||0,page=rows.filter(r=>r.seq>old).slice(0,Number(m.limit)||250);
     data={frames:page.map(r=>r.c),rev:0,seq:rows.length,n:page.length,more:false};
     metrics.frameBytes+=page.reduce((n,r)=>n+Buffer.from(r.c,"base64").length,0);
-   }else data={ok:true,conflict:false};
+   }else if(params.p_action==="head"){data=null;error={code:"HEAD_UNSUPPORTED"};} // explicit legacy relay fixture
+   else data={ok:true,conflict:false};
   }else throw Error("Unexpected RPC "+name);
   const requestBytes=enc.encode(JSON.stringify(params)).byteLength;
-  const responseBytes=enc.encode(JSON.stringify({data,error:null})).byteLength;
+  const responseBytes=enc.encode(JSON.stringify({data,error})).byteLength;
   metrics.rpc.push({name,action:params.p_action||null,requestBytes,responseBytes,seq:params.p_message?.seq});
-  metrics.rpcResponseBytes+=responseBytes;return{data,error:null};
+  metrics.rpcResponseBytes+=responseBytes;return{data,error};
  }};
  client.channel=topic=>({topic,on(){return this;},subscribe(fn){queueMicrotask(()=>fn("SUBSCRIBED"));return this;},
   async track(){return"ok";},presenceState(){return{};},async send(){return"ok";}});
@@ -80,6 +81,7 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  const clock=fakeClock(),ctx={
   API:{clave:{},_store:null},canal:{ws:null,recuperando:true},pullEstado:{enCurso:false,fallos:0},
   _colaRecepcion:Promise.resolve(),_pullCursor:{rev:0,seq:0},_appliedPullCursor:{rev:0,seq:0},_pullCursorReady:Promise.resolve(),
+  _soloMemoria:false,_cursorContainsPending:false,_ultimoCursorLimpio:{rev:-1,seq:0},
   _replayDelay:30000,_tReplay:null,_replayKey:null,_replayUsed:0,partesEntrantes:{},_relayPeerCount:0,
   doc:{store:{pendingStructs:{missingParent:true}}},manejar:async()=>{ctx.partesEntrantes.fragment={received:1,total:2};return true;},confirmarDurable(){},
   guardarPullCursor:async c=>{ctx._pullCursor={rev:c.rev,seq:c.seq};if(!ctx.doc.store.pendingStructs&&!Object.keys(ctx.partesEntrantes).length)ctx._appliedPullCursor={rev:c.rev,seq:c.seq};},
@@ -139,14 +141,20 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
  const initStart=source.indexOf("    if (persistencia && typeof persistencia.get === \"function\") {"),
   initEnd=source.indexOf("    function guardarPullCursor(cursor) {",initStart);
  assert.ok(initStart>=0&&initEnd>initStart);
- vm.runInContext(source.slice(initStart,initEnd),fresh);await fresh._pullCursorReady;
+ const cursorHelpersStart=source.indexOf("    function cursorValido(v) {");
+ assert.ok(cursorHelpersStart>=0&&cursorHelpersStart<initStart,"use production cursor validation helpers");
+ vm.runInContext(source.slice(cursorHelpersStart,initEnd),fresh);await fresh._pullCursorReady;
  assert.deepEqual({...fresh._pullCursor},{rev:0,seq:0});
  const newProcess=d.gateway.connect(ORIGIN+ROOM);newProcess.binaryType="arraybuffer";await opened(newProcess);
  const freshState={enCurso:false,fallos:0},freshActor=bindActor(fresh);freshActor.attach(newProcess,freshState);
  await freshActor.openAndDrain(newProcess,freshState);
  assert.equal(db.metrics.frameBytes,2*64*1024,"fresh process replays from durable seq 0 to recover the uncommitted page");
  const allPulls=db.metrics.rpc.filter(x=>x.name==="f123_relay_command"&&x.action==="pull");
- assert.deepEqual(allPulls.map(x=>x.seq),[0,1,1,0]);
+ // This fixture explicitly models a legacy server without HEAD. Recovery may
+ // make ONE extra empty incremental pull at the high-water cursor (seq 1),
+ // but must not fetch any old 64 KiB page twice within the same lifetime.
+ assert.deepEqual(allPulls.map(x=>x.seq),[0,1,1,0,1]);
+ assert.equal(db.metrics.frameBytes,2*64*1024,"legacy HEAD fallback must add zero replay bytes");
  assert.ok(db.metrics.rpcResponseBytes>2*64*1024,"base64 JSON response bytes also exceed raw frame bytes");
  newProcess.close();ws.close();writer.close();await d.transport.dispose();
 });

@@ -1363,7 +1363,10 @@
     API.canal.conectar();      // catálogo + _meta (nombre, pinsRol) — sala "-y"
     API.fotosCanal.conectar(); // bytes de las fotos — sala "-fotos"
     API.opsCanal.conectar();   // ventas/ops — sala "-ops"
-    sincronizarVisibilidad(); // same-tab PIN handoff and hidden-tab pause
+    // The channels were just connected. Re-invoking reanudar() on a visible
+    // tab repeats all three connection attempts when relay is offline.
+    // A hidden/inactive tab must still be paused immediately (no data sends).
+    if (document.hidden || (window.OCTabSession && !OCTabSession.canSync())) sincronizarVisibilidad();
     conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
     conectarHechos();    // cartera y caja chica: hechos inmutables por ID
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
@@ -1843,7 +1846,8 @@
             var tsMeta = Number(API.meta.get("nombreTs")) || 0;
             var tsMio = Number(cat.nombreNegocioTs) || 0;
             if (soyDueno) {
-              var _gano = !yaEsDueno || revMio > revMeta || (revMio === revMeta && tsMio >= tsMeta);
+              // No desempatar por timestamp: el reloj local puede estar adelantado.
+              var _gano = !yaEsDueno || revMio > revMeta;
               if (_gano) {
                 if (API.meta.get("nombreNegocio") !== cat.nombreNegocio) API.meta.set("nombreNegocio", cat.nombreNegocio);
                 // Y.Map.set emits an update even for the same value. Idle scans

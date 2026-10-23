@@ -1,0 +1,48 @@
+name: stable-focused-e1-e6
+on:
+  pull_request:
+    paths:
+      - 'docs/sync-yjs.js'
+      - 'docs/vista-perchas.js'
+      - 'docs/version.json'
+      - 'test/fast-track-pipeline.test.js'
+      - 'test/incident-relay-quota-budget-v559.test.js'
+      - 'test/yjs-first-join-start.test.js'
+      - 'test/yjs-relay-backpressure.test.js'
+      - 'test/yjs-pin-seed.test.js'
+      - 'test/perchas-foto-no-bloquea-grid.test.js'
+      - '.github/workflows/stable-focused-e1-e6.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: stable-focused-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  focused:
+    name: Synthetic sync + real-browser contracts (no customer data)
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historical Lord redirect regression compares old commit bytes
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Focused E1/E4/E5/E6 regression (fixture isolated; no production network)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=60000 \
+            test/fast-track-pipeline.test.js \
+            test/incident-relay-quota-budget-v559.test.js \
+            test/yjs-first-join-start.test.js \
+            test/yjs-relay-backpressure.test.js \
+            test/yjs-pin-seed.test.js \
+            test/perchas-foto-no-bloquea-grid.test.js
+      - name: Cloudflare static Worker bundle preflight (NO DEPLOY)
+        run: npx wrangler deploy --dry-run --outdir /tmp/f123-worker-preflight

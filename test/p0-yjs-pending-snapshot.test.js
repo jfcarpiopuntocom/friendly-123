@@ -41,7 +41,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
    },
    Promise,Uint8Array,ArrayBuffer,Number,Math,Object,Date,JSON,console,
    setTimeout(fn,ms){if(ms===25000){watchdog=fn;return 999;}if(ms===1800){headTimeout=fn;return 1800;}return setImmediate(fn);},
-   clearTimeout(id){if(id===999)watchdog=null;}, 
+   clearTimeout(id){if(id===999)watchdog=null;},
  };
  if(dbOpenFails){
    ctx.persistencia.db=null;

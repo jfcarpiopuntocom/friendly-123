@@ -33,7 +33,11 @@
 
   async function pbGet(col, id) {
     const r = await _fetch(`${PB_URL}/api/collections/${col}/records/${id}`);
-    if (!r.ok) throw new Error(await r.text());
+    if (!r.ok) {
+      const error = new Error(await r.text());
+      error.status = r.status;
+      throw error;
+    }
     return r.json();
   }
 
@@ -126,24 +130,58 @@
     };
   }
 
-  function comisionVigente(u, acumuladoConEsta) {
-    const escalas = Array.isArray(u.escalasComision) ? u.escalasComision : [];
-    if (!u.metaMensual || escalas.length === 0) return Number(u.comisionSocio) || 0;
-    const pctMeta = (acumuladoConEsta / u.metaMensual) * 100;
+  // Parity with the canonical financial contract (optional legacy PB adapter).
+  function pctSeguro(v) {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+  }
+  function fuenteComision(u, persona) {
+    if (!u) return null;
+    if (u.promotoraId && !u.usarComisionPropia && persona &&
+        String(persona.id) === String(u.promotoraId) &&
+        [persona.comisionBase, persona.comisionSocio, persona.comision].some(x => Number(x) > 0)) return persona;
+    return u;
+  }
+  function comisionVigente(u, acumuladoConEsta, persona) {
+    if (!u || u.tipo === "propio") return 0;
+    const fuente = fuenteComision(u, persona);
+    const base = pctSeguro(fuente.comisionBase !== undefined ? fuente.comisionBase :
+      (fuente.comisionSocio !== undefined ? fuente.comisionSocio : fuente.comision));
+    const escalas = Array.isArray(fuente.escalasComision) ? fuente.escalasComision : [];
+    const meta = Number(fuente.metaMensual) || 0;
+    if (meta <= 0 || escalas.length === 0) return base;
+    const pctMeta = ((Number(acumuladoConEsta) || 0) / meta) * 100;
     const ordenadas = [...escalas].sort((a, b) => a.hasta - b.hasta);
     const tier = ordenadas.find(e => pctMeta <= e.hasta) || ordenadas[ordenadas.length - 1];
-    return Number(tier.comision) || 0;
+    const n = Number(tier.comision);
+    return Number.isFinite(n) ? pctSeguro(n) : base;
   }
-
-  function calcularSplitVenta(u, montoBruto, acumuladoPrevio) {
-    if (!u || u.tipo === "propio" || !u.tipo) return null;
-    const comisionPct = comisionVigente(u, acumuladoPrevio + montoBruto);
-    const montoComisionSocio = +(montoBruto * (comisionPct / 100)).toFixed(2);
+  // Product > assigned person > rack. Preserve gross = commission + owner net.
+  function calcularSplitVenta(u, montoBruto, acumuladoPrevio, costoTotal, pctProducto, persona) {
+    const productoExplicito = pctProducto !== undefined && pctProducto !== null && pctProducto !== "" &&
+      Number.isFinite(Number(pctProducto));
+    if (!u || ((!u.tipo || u.tipo === "propio") && !productoExplicito)) return null;
+    const fuente = fuenteComision(u, persona);
+    const bruto = Math.max(0, Number(montoBruto) || 0);
+    const escalas = Array.isArray(fuente.escalasComision) ? fuente.escalasComision : [];
+    const meta = Number(fuente.metaMensual) || 0;
+    const pct = productoExplicito ? pctSeguro(pctProducto) :
+      comisionVigente(u, (Number(acumuladoPrevio) || 0) + bruto, persona);
+    const costo = Math.max(0, Number(costoTotal) || 0);
+    const enMargen = u.baseComision === "margen" || (!u.baseComision && fuente.baseComision === "margen");
+    const montoBase = enMargen && costo > 0 ? Math.max(0, +(bruto - costo).toFixed(2)) : bruto;
+    // Canonical tier rule: fixed contribution is not combined with active tiers.
+    const contrib = escalas.length && meta > 0 ? 0 : Math.max(0, Number(u.contribFija) || 0);
+    const base = Math.max(0, montoBase - contrib);
+    let comision = +(base * pct / 100).toFixed(2);
+    const minimo = Math.max(0, Number(u.minimoGarantizado) || 0);
+    if (minimo > 0 && comision < minimo) comision = Math.min(minimo, bruto);
+    comision = Math.max(0, Math.min(bruto, comision));
     return {
-      comisionPct,
-      montoBruto: +montoBruto.toFixed(2),
-      montoComisionSocio,
-      montoNetoDueno: +(montoBruto - montoComisionSocio).toFixed(2),
+      comisionPct: pct,
+      montoBruto: +bruto.toFixed(2),
+      montoComisionSocio: +comision.toFixed(2),
+      montoNetoDueno: +(bruto - comision).toFixed(2),
     };
   }
 
@@ -317,7 +355,16 @@
         const acumulado = ventasMes
           .filter(v => v.ubicacionId === rec.ubicacionId && !v.anulada && v.fecha && v.fecha.slice(0, 7) === mes)
           .reduce((s, v) => s + (v.precioUnit || 0) * (v.cantidad || 1), 0);
-        const split = calcularSplitVenta(u, rec.precio, acumulado);
+        let persona = null;
+        if (u && u.promotoraId && !u.usarComisionPropia) {
+          try { persona = await pbGet("promotoras", u.promotoraId); }
+          catch (error) {
+            // Deleted associate: preserve the old rack-percent fallback.
+            // Other failures MUST stop the sale before touching stock/money.
+            if (error.status !== 404) throw error;
+          }
+        }
+        const split = calcularSplitVenta(u, rec.precio, acumulado, rec.costo, rec.pctAsociado, persona);
         const venta = await pbCreate("ventas", {
           productoId: id, ubicacionId: rec.ubicacionId, cantidad: 1,
           precioUnit: rec.precio, costo: rec.costo || 0,

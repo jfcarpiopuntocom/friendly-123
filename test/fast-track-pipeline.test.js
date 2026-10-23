@@ -42,11 +42,15 @@ test('hotfix hands off tested SHA after promotion; broad regression cannot dupli
   assert.match(publish, /elif \[ -n "\$EXPECT_CANDIDATE" \]; then\n\s*#.*\n\s*CANDIDATE="\$EXPECT_CANDIDATE"/);
   assert.ok(publish.indexOf('CANDIDATE="$EXPECT_CANDIDATE"') < publish.indexOf('elif [ "$QA" = "true" ]'));
   assert.match(publish, /EXPECT_STABLE/); assert.match(publish, /EXPECT_PREVIOUS/);
-  for (const source of [hotfix, broad]) {
-    assert.match(source, /path: ~\/\.cache\/ms-playwright/);
-    assert.match(source, /hashFiles\('package-lock.json'\)/);
-    assert.match(source, /npm ci/);
-  }
+  assert.match(hotfix, /path: ~\/\.cache\/ms-playwright/);
+  assert.match(hotfix, /hashFiles\('package-lock.json'\)/);
+  assert.match(hotfix, /npm ci/);
+  // The full release gate now uses browsers already installed in a version-matched
+  // official Playwright image. Assert THAT contract, not the obsolete cache layout.
+  const pinned = require('../package-lock.json').packages['node_modules/playwright'].version;
+  assert.ok(broad.includes('image: mcr.microsoft.com/playwright:v' + pinned + '-noble'));
+  assert.match(broad, /npm ci/);
+  assert.doesNotMatch(broad, /npx playwright install-deps/);
 });
 test('publication rejects a moved or malformed candidate and preserves explicit recovery', () => {
   const { assertStableCandidate } = require('../scripts/release-candidate.cjs');

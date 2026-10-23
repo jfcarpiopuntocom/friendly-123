@@ -13,24 +13,23 @@ jobs:
   verify:
     name: Release continuity gate
     runs-on: ubuntu-24.04
+    # Official Playwright image: browsers + OS libraries match package-lock 1.62.1.
+    # Avoids 40-minute apt mirror download stalls seen in run #39834743303.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      # Checkout owns the mounted worktree; root in the official CI container
+      # needs this exact path trusted before git-based release validation.
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
-      - run: npx playwright install-deps chromium webkit
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install chromium webkit
       - name: Preserve approved capabilities and release identity
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}

@@ -137,6 +137,7 @@
   // un cache que se actualiza al terminar precargarFotos(); el grid puede pintar
   // antes y _tarjeta() no cambia de forma.
   let fotoCache = {};
+  let _fotoEspera = null;
   const getFoto = (id) => fotoCache[id] || null;
   async function precargarFotos(estaCarga) {
     if (!window.OCFotos) return; // idb-fotos.js no cargo: sin fotos, sin crash
@@ -219,7 +220,7 @@
       /* Sin foto (JFC 2026-09-24): fondo BLANCO con la inicial en tinta, no un
          bloque pintado del color del semaforo (lucia roto). El semaforo ya vive
          en el borde de 3px y en el punto de estado; no hace falta repetirlo. */
-      : `<div data-vp-foto-visual="${esc(p.id)}" style="width:100%;height:170px;display:flex;align-items:center;justify-content:center;
+      : `<div data-vp-foto-visual="${esc(p.id)}" data-vp-inicial="${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}" style="width:100%;height:170px;display:flex;align-items:center;justify-content:center;
            background:#FFFFFF;color:var(--ink,#0F1923);font-family:var(--font-display);font-size:56px;font-weight:700;
            box-shadow:inset 0 0 0 2px var(--hairline,#E8ECF2);">
            ${esc((p.nombre || '?').trim().charAt(0).toUpperCase())}</div>`;
@@ -586,6 +587,7 @@
   }
   async function cargar() {
     const estaCarga = ++cargaEnCurso;
+    if (_fotoEspera) { clearInterval(_fotoEspera); _fotoEspera = null; }
     inyectarBotonAgregar(); // el botón general vive fuera del grid, no se borra al re-render
     const grid = $('vp-grid');
     if (!grid) return;
@@ -658,6 +660,34 @@
       }
       pintarBotonesOrdenPercha();
       grid.innerHTML = ms.map(_tarjeta).join('');
+
+      // E6: aviso puramente visual; nunca modifica fotos ni espera para pintar perchas.
+      if (!document.getElementById('vp-foto-pulso')) {
+        const st = document.createElement('style'); st.id = 'vp-foto-pulso';
+        st.textContent = '@keyframes vpFotoPulso{50%{background:#fff0c9}}.vp-foto-esperando{animation:vpFotoPulso 1.4s ease-in-out infinite}@media(prefers-reduced-motion:reduce){.vp-foto-esperando{animation:none}}';
+        document.head.appendChild(st);
+      }
+      const comienzoFoto = Date.now();
+      _fotoEspera = setInterval(() => {
+        if (estaCarga !== cargaEnCurso) { clearInterval(_fotoEspera); _fotoEspera = null; return; }
+        const transcurrido = Date.now() - comienzoFoto;
+        const esperando = window.OCYjs?.fotosCanal?.recuperando === true;
+        const mostrar = esperando && transcurrido >= 3000 && transcurrido < 15000;
+        grid.querySelectorAll('[data-vp-foto-visual]').forEach((el) => {
+          if (el.tagName === 'IMG') return;
+          if (mostrar && el.dataset.vpCargando !== '1') {
+            el.dataset.vpCargando = '1';
+            el.setAttribute('role', 'status'); el.setAttribute('aria-live', 'polite'); el.setAttribute('aria-atomic', 'true');
+            el.textContent = String(window.OCI18n?.locale?.() || 'en').startsWith('es') ? 'Cargando foto…' : 'Loading photo…';
+            el.style.fontSize = '14px'; el.classList.add('vp-foto-esperando');
+          } else if (!mostrar && el.dataset.vpCargando === '1') {
+            delete el.dataset.vpCargando; el.removeAttribute('role'); el.removeAttribute('aria-live'); el.removeAttribute('aria-atomic');
+            el.textContent = el.dataset.vpInicial || '?';
+            el.style.fontSize = '56px'; el.classList.remove('vp-foto-esperando');
+          }
+        });
+        if (!esperando || transcurrido >= 15000) { clearInterval(_fotoEspera); _fotoEspera = null; }
+      }, 400);
       void montarPhotoRecoveryVault(perchasVisibles, estaCarga).catch(() => {});
       void recuperarFotosPerchas(perchasVisibles, estaCarga).then(() => pintarFotosPerchas(perchasVisibles, estaCarga)).catch(() => {});
       try { if (window.ocMontarTraslado) window.ocMontarTraslado('oc-traslado-perchas'); } catch (_) {} // mover ítems entre perchas (breezy)
