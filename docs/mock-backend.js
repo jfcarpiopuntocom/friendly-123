@@ -2266,7 +2266,7 @@
       try {
         while (_payoutCatalogosPendientes.length) {
           const siguiente = _payoutCatalogosPendientes.shift();
-          aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto);
+          aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
         }
       } finally { terminar(); }
     }
@@ -3493,9 +3493,9 @@
       return _serializarMergeCanonico(catalogo);
     } catch (_) { return null; }
   }
-  function aplicarCatalogo(remoto, rolRemoto) {
+  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
     if (_payoutConfirmando) {
-      _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto });
+      _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
     }
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
@@ -4005,7 +4005,7 @@
       if (!String(nombreNegocio || "").trim()) _adoptaNombre = true;           // local vacío: adoptar
       else if (rolRemoto === "dueno") {
         // Equal owner revision from shared Yjs is canonical despite a future local clock.
-        var mismoRevYjs = remoto._nombreDesdeYjs === true &&
+        var mismoRevYjs = nombreCanonicoYjs === true && remoto._nombreDesdeYjs === true &&
           _revRemoto === nombreNegocioRev &&
           remoto.nombreNegocio.trim() !== String(nombreNegocio || "").trim();
         // Legacy owner broadcasts still need their equal-rev timestamp tie-break.
@@ -4017,7 +4017,7 @@
             String(metaYjs.get("nombreNegocio") || "").trim() === String(nombreNegocio || "").trim() &&
             Number(metaYjs.get("nombreRev")) === nombreNegocioRev);
         } catch (_) {}
-        var mismoRevLegado = remoto._nombreDesdeYjs !== true && !yjsCanonico &&
+        var mismoRevLegado = nombreCanonicoYjs !== true && remoto._nombreDesdeYjs !== true && !yjsCanonico &&
           _revRemoto === nombreNegocioRev && _tsRemoto > nombreNegocioTs;
         _adoptaNombre = (_revRemoto > nombreNegocioRev) || mismoRevYjs || mismoRevLegado;
       }
@@ -6098,7 +6098,7 @@
           try {
             while (_payoutCatalogosPendientes.length) {
               const siguiente = _payoutCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto);
+              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
             }
           } finally { terminarRetorno(); }
         }
