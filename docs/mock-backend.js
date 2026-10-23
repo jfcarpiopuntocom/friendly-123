@@ -7573,12 +7573,39 @@
       }
       // POST /api/instancia/nombre — el dueño edita el nombre de su negocio.
       if (path === "/api/instancia/nombre" && opts && opts.method === "POST") {
-        nombreNegocio = String(body.nombre || "").trim().slice(0, 80);
-        nombreNegocioTs = Date.now(); // sello secundario
-        nombreNegocioRev = (Number(nombreNegocioRev) || 0) + 1; // contador monotónico (v290): este rename gana a cualquiera con rev menor
-        try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs; _o.nombreNegocioRev = nombreNegocioRev; localStorage.setItem("f123_owned", JSON.stringify(_o)); } catch (_) {}
-        guardarEstadoLocal();
-        // Refresh the PIN gate immediately and publish the rename through Yjs.
+        // Only THIS endpoint confirms the rename. The generic finally must not
+        // retry a failed name under a weaker storage policy.
+        debePersistir = false;
+        const anterior = { nombre: nombreNegocio, rev: nombreNegocioRev, ts: nombreNegocioTs };
+        const intento = String(body.nombre || "").trim().slice(0, 80);
+        const revIntento = (Number(nombreNegocioRev) || 0) + 1;
+        const tsIntento = Date.now();
+        nombreNegocio = intento;
+        nombreNegocioTs = tsIntento;
+        nombreNegocioRev = revIntento;
+        let guardado = false;
+        // No photo sacrifice or history truncation for a metadata-only rename.
+        try { guardado = (await Promise.resolve(guardarEstadoLocal(true, true))) === true; } catch (_) {}
+        const sigueSiendoIntento = nombreNegocio === intento &&
+          nombreNegocioRev === revIntento && nombreNegocioTs === tsIntento;
+        if (!guardado) {
+          // A Yjs update may arrive while IndexedDB is resolving: never roll
+          // back that independent update, any other records or their revisions.
+          if (sigueSiendoIntento) {
+            nombreNegocio = anterior.nombre;
+            nombreNegocioRev = anterior.rev;
+            nombreNegocioTs = anterior.ts;
+          }
+          return J({ error: "Business name was not saved. Previous saved name is kept." }, 507);
+        }
+        if (!sigueSiendoIntento) return J({ error: "Business name changed while saving. Check the current name and retry." }, 409);
+        // Cache and notify only AFTER the full notebook state is durable.
+        try {
+          const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs;
+          _o.nombreNegocioRev = nombreNegocioRev;
+          localStorage.setItem("f123_owned", JSON.stringify(_o));
+        } catch (_) {}
         try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
         avisarCatalogoCambiado();
         return J({ ok: true, nombreNegocio: nombreNegocio });
