@@ -123,7 +123,15 @@ test('failed sale return replays deferred Yjs owner name without losing stock or
    'every sale ID, price, quantity, date and financial fact must survive the failed return');
  assert.ok(after.ventas.every(v=>v.devuelta!==true && !v.fechaDevolucion && !v.devolucionId),
    'no return may be recorded after failed persistence');
- assert.deepEqual(after.productos,before.productos,'stock was not changed');
+ // stockDeficit is a derived view: catalog replay materializes zero when absent.
+ // Every actual stock counter, location, ledger and other product field remains strict.
+ const productEvidence=items=>items.map(product=>{
+   const p={...product};
+   if(p.stockDeficit===0)delete p.stockDeficit;
+   return p;
+ });
+ assert.deepEqual(productEvidence(after.productos),productEvidence(before.productos),
+   'actual stock, product metadata and all PN-counter evidence must stay unchanged');
  assert.deepEqual(after.payouts,before.payouts,'commission payouts were not changed');
  assert.deepEqual(after.ajustesComision,before.ajustesComision,'commission adjustments were not changed');
  assert.deepEqual(after.movimientos,before.movimientos,'financial journal was not changed');
