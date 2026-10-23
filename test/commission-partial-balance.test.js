@@ -134,7 +134,15 @@ test('failed sale return replays deferred Yjs owner name without losing stock or
    'actual stock, product metadata and all PN-counter evidence must stay unchanged');
  assert.deepEqual(after.payouts,before.payouts,'commission payouts were not changed');
  assert.deepEqual(after.ajustesComision,before.ajustesComision,'commission adjustments were not changed');
- assert.deepEqual(after.movimientos,before.movimientos,'financial journal was not changed');
+ // A successful deferred catalog replay appends exactly one audit event.
+ // Historical receipts must remain byte-for-byte equal, in original order.
+ assert.deepEqual(after.movimientos.slice(0,before.movimientos.length),before.movimientos,
+   'all pre-existing audit and money receipts remain immutable');
+ const addedAudit=after.movimientos.slice(before.movimientos.length);
+ assert.equal(addedAudit.length,1,'exactly one sync audit entry after deferred replay');
+ assert.equal(addedAudit[0].tipo,'merge-catalogo','no return, payout or financial receipt added');
+ assert.equal(addedAudit[0].prevSello,before.movimientos.at(-1).sello,
+   'append-only audit chain links to its preceding immutable receipt');
  assert.equal(f.app.catalog().nombreNegocio,'Queued Yjs after return',
    'return rollback must retain Yjs-authoritative name on deferred replay');
 });
