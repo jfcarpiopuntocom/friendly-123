@@ -33,7 +33,11 @@
 
   async function pbGet(col, id) {
     const r = await _fetch(`${PB_URL}/api/collections/${col}/records/${id}`);
-    if (!r.ok) throw new Error(await r.text());
+    if (!r.ok) {
+      const error = new Error(await r.text());
+      error.status = r.status;
+      throw error;
+    }
     return r.json();
   }
 
@@ -351,8 +355,15 @@
         const acumulado = ventasMes
           .filter(v => v.ubicacionId === rec.ubicacionId && !v.anulada && v.fecha && v.fecha.slice(0, 7) === mes)
           .reduce((s, v) => s + (v.precioUnit || 0) * (v.cantidad || 1), 0);
-        const persona = u && u.promotoraId && !u.usarComisionPropia
-          ? (await pbList("promotoras")).find(p => String(p.id) === String(u.promotoraId)) : null;
+        let persona = null;
+        if (u && u.promotoraId && !u.usarComisionPropia) {
+          try { persona = await pbGet("promotoras", u.promotoraId); }
+          catch (error) {
+            // Deleted associate: preserve the old rack-percent fallback.
+            // Other failures MUST stop the sale before touching stock/money.
+            if (error.status !== 404) throw error;
+          }
+        }
         const split = calcularSplitVenta(u, rec.precio, acumulado, rec.costo, rec.pctAsociado, persona);
         const venta = await pbCreate("ventas", {
           productoId: id, ubicacionId: rec.ubicacionId, cantidad: 1,
