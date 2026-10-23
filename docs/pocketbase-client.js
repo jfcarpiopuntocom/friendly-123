@@ -139,7 +139,9 @@
     if (!u) return null;
     if (u.promotoraId && !u.usarComisionPropia && persona &&
         String(persona.id) === String(u.promotoraId) &&
-        [persona.comisionBase, persona.comisionSocio, persona.comision].some(x => Number(x) > 0)) return persona;
+        ([persona.comisionBase, persona.comisionSocio, persona.comision].some(x => Number(x) > 0) ||
+         (Number(persona.metaMensual) > 0 && Array.isArray(persona.escalasComision) &&
+          persona.escalasComision.some(t => Number(t.comision) > 0)))) return persona;
     return u;
   }
   function comisionVigente(u, acumuladoConEsta, persona) {
