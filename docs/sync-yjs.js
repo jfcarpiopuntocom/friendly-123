@@ -672,7 +672,10 @@
           catch (_) { clearTimeout(estado.tHead); estado.esperandoHead = false; estado.headLegacy = true; return pedirPagina(sock, estado, true); }
           return;
         }
-        sock.send(JSON.stringify({ k: "pull", v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, limit: PULL_PAGE_SIZE }));
+        // v1 legacy checkpoint can compact operations without bumping revision.
+        // Probe the actual ciphertext checkpoint, never a stale high-water seq.
+        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : _pullCursor;
+        sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
       }).catch(function () {});
     }
     function procesarHead(sock, estado, r) {
@@ -682,6 +685,13 @@
         Number.isSafeInteger(Number(r.seq)) && Number(r.rev) >= 0 && Number(r.seq) >= 0;
       if (!valido) estado.headLegacy = true;
       else estado.headLegacy = false;
+      if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) < _pullCursor.seq) {
+        // Old checkpoint revision (v1): the server discarded a prefix without
+        // advancing rev. Local Yjs/journal remain intact until a valid checkpoint
+        // is applied. Re-fetch once from rev -1 to force checkpoint-first recovery.
+        estado.rebaseCursor = true;
+        estado.rebaseFrames = 0;
+      }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
@@ -929,6 +939,8 @@
             var antesSV = source === "live" ? Y.encodeStateVector(doc) : null;
             var antesClave = antesSV ? clavePendientes() : null;
             Y.applyUpdate(doc, payload, "red");
+            if (source !== "live" && pullEstado.rebaseCursor)
+              pullEstado.rebaseFrames = (pullEstado.rebaseFrames || 0) + 1;
             if (antesSV) despertarConCambio(antesSV, antesClave);
             try {
               var receipt = Promise.resolve(false);
@@ -1001,6 +1013,22 @@
                   try { ws.close(1013, "replay incomplete; retry from applied cursor"); } catch (_) {}
                   try { log("pagina de catch-up no confirmada en " + nombre); } catch (_) {}
                   return;
+                }
+                if (pullEstado.rebaseCursor) {
+                  if (!pullEstado.rebaseFrames) {
+                    // Fail closed: never discard a proven cursor without decrypting
+                    // the replacement checkpoint. Retry via ordinary reconnect.
+                    pullEstado.enCurso = false;
+                    try { ws.close(1013, "checkpoint proof missing"); } catch (_) {}
+                    return;
+                  }
+                  // All prior ciphertext was applied in _colaRecepcion. Only now
+                  // may cursor bookkeeping rewind. Y.Doc and its IDB journal stay.
+                  _pullCursor = { rev: -1, seq: 0 };
+                  _appliedPullCursor = { rev: -1, seq: 0 };
+                  _ultimoCursorLimpio = { rev: -1, seq: 0 };
+                  pullEstado.rebaseCursor = false;
+                  pullEstado.rebaseFrames = 0;
                 }
                 return guardarPullCursor(c).then(function () {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
