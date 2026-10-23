@@ -1035,7 +1035,7 @@
                 if (pullEstado.rebaseCursor) {
                   // Relay c.n counts stored operations, NOT the optional checkpoint.
                   // One extra validated ciphertext + applied Yjs update is required.
-                  var opCount = Number(c.n);
+                  var opCount = c.n; // reject absent/null/string relay counts
                   if (!Number.isSafeInteger(opCount) || opCount < 0 ||
                       !pullEstado.rebaseFrames || pullEstado.rebaseCipherFrames !== opCount + 1) {
                     // Fail closed: never discard a proven cursor without decrypting
