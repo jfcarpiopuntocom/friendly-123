@@ -12,7 +12,10 @@ concurrency:
 jobs:
   verify:
     name: Release continuity gate
-    runs-on: ubuntu-latest
+    # Keep the WebKit WPE binary compatible with libicudata.so.74.
+    # ubuntu-latest moved to an image with incompatible ICU, so browser launch
+    # failed before any app test could run. Pin known supported image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
