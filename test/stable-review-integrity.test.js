@@ -65,6 +65,7 @@ test('E1: legacy v1 checkpoint HEAD behind stored cursor replays checkpoint ONCE
     canal:{ws,recuperando:true},_pullCursorReady:Promise.resolve(),
     _pullCursor:{rev:3,seq:10},_appliedPullCursor:{rev:3,seq:10},
     _soloMemoria:false,_replayKey:'missing',_replayUsed:4,PULL_PAGE_SIZE:64,
+    _legacyProbeKey:'',_legacyProbeAttempts:0,
     clearTimeout(){},setTimeout(){return 1;},programarRelectura(){},
     partesEntrantes:{},doc:{store:{}},API:{},nombre:'catalogo',console
   };
