@@ -1811,7 +1811,9 @@
         var pr = promotoras.find(function (x) { return x.id === u.promotoraId; });
         /* Solo se usa el trato de la persona si de verdad tiene uno definido.
            Un comisionista recien creado sin % no puede dejar la percha en cero. */
-        if (pr && (Number(pr.comisionBase) > 0 || Number(pr.comisionSocio) > 0 || Number(pr.comision) > 0)) {
+        if (pr && (Number(pr.comisionBase) > 0 || Number(pr.comisionSocio) > 0 || Number(pr.comision) > 0 ||
+          (Number(pr.metaMensual) > 0 && Array.isArray(pr.escalasComision) &&
+           pr.escalasComision.some(function (t) { return Number(t.comision) > 0; })))) {
           fuente = pr; origen = "comisionista";
         }
       }
@@ -4002,8 +4004,11 @@
     if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim()) {
       if (!String(nombreNegocio || "").trim()) _adoptaNombre = true;           // local vacío: adoptar
       else if (rolRemoto === "dueno") {
-        _adoptaNombre = (_revRemoto > nombreNegocioRev) ||
-                        (_revRemoto === nombreNegocioRev && _tsRemoto > nombreNegocioTs);
+        // Equal owner revision from shared Yjs is canonical despite a future local clock.
+        var mismoRevYjs = remoto._nombreDesdeYjs === true &&
+          _revRemoto === nombreNegocioRev &&
+          remoto.nombreNegocio.trim() !== String(nombreNegocio || "").trim();
+        _adoptaNombre = (_revRemoto > nombreNegocioRev) || mismoRevYjs;
       }
     }
     if (_adoptaNombre) {
