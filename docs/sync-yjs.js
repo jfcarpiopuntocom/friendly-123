@@ -704,6 +704,7 @@
         // is applied. Re-fetch once from rev -1 to force checkpoint-first recovery.
         estado.rebaseCursor = true;
         estado.rebaseFrames = 0;
+        estado.rebaseCipherFrames = 0;
       }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
@@ -989,6 +990,8 @@
         // aplicar todos sus binarios, nunca antes.
         if (d instanceof ArrayBuffer) {
           _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source); }).then(function (ok) {
+            if (source === "pull" && pullEstado.rebaseCursor && ok)
+              pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
           }).catch(function (e) {
             // One corrupted or undecipherable frame must NOT poison the entire
@@ -1001,6 +1004,8 @@
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
           _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source); }).then(function (ok) {
+            if (source === "pull" && pullEstado.rebaseCursor && ok)
+              pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
           }).catch(function () { if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++; });
         }
@@ -1028,7 +1033,11 @@
                   return;
                 }
                 if (pullEstado.rebaseCursor) {
-                  if (!pullEstado.rebaseFrames) {
+                  // Relay c.n counts stored operations, NOT the optional checkpoint.
+                  // One extra validated ciphertext + applied Yjs update is required.
+                  var opCount = Number(c.n);
+                  if (!Number.isSafeInteger(opCount) || opCount < 0 ||
+                      !pullEstado.rebaseFrames || pullEstado.rebaseCipherFrames !== opCount + 1) {
                     // Fail closed: never discard a proven cursor without decrypting
                     // the replacement checkpoint. Retry via ordinary reconnect.
                     pullEstado.enCurso = false;
@@ -1042,6 +1051,7 @@
                   _ultimoCursorLimpio = { rev: -1, seq: 0 };
                   pullEstado.rebaseCursor = false;
                   pullEstado.rebaseFrames = 0;
+                  pullEstado.rebaseCipherFrames = 0;
                   _legacyProbeKey = ""; _legacyProbeAttempts = 0; // proven encrypted recovery
                 }
                 return guardarPullCursor(c).then(function () {
