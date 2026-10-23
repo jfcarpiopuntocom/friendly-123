@@ -1969,7 +1969,7 @@
       var rolRemoto = (API.meta.get("nombreEsDueno") === true) ? "dueno" : null;
       _aplicando = true;
       try {
-        var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto);
+        var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only real Yjs bridge grants canonical name
         // A2/A3 (JFC 2026-09-10): si el merge sumó algo, avisar a la UI para que
         // (a) lo muestre como alerta dentro de "Today's alerts", no como banner
         // suelto, y (b) re-pinte la vista Hoy (si no, el hero se queda en
