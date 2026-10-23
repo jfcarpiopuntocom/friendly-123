@@ -1,6 +1,14 @@
 # AGENTS.md — entrada vigente para asistentes de friendly-123
 
-## Directiva vigente de sincronización — JFC, 16 oct 2026
+## START HERE — SPEC BASELINE / SCOPE FREEZE (JFC, 22 Oct 2026)
+
+**MUST READ EACH SESSION, BEFORE PLANNING OR EDITING:** [canonical governance Skill](https://app.notion.com/p/4021642b67f381179e2ff62b1c2f7cc8) → [owner-approved product STABLE baseline](https://app.notion.com/p/4011642b67f38177b1c9cc5b00dcf734) → [Notion Buzón y reservas](https://app.notion.com/p/387956ba9ecf43f9b014dd538110a25a) → current PR/HEAD → [OPERATING-CONTRACT](agent-rules/OPERATING-CONTRACT.md), [FAST-TRACK](agent-rules/FAST-TRACK.md), [ACCEPTANCE-TESTS](agent-rules/ACCEPTANCE-TESTS.md). If Notion inaccessible, record BLOCKED CONTEXT, do not invent specs. Never assume another agent read a linked note.
+
+**JFC FINAL SCOPE:** friendly-123 specifications/features/UI/architecture frozen; only a reproduced E1–E6 defect or owner-approved S1 may be hotfixed. Ideas from an AI, Grok, CodeRabbit, audit or old PR are NOT approval. Classify IDEA / BUG / SPEC CHANGE; only JFC approves scope change. Any S2/S3 or new idea → parking lot after STABLE. One agent implements, another reviews; WIP ≤2, do not edit reserved files. Never modify clients' data. Use precise red test → smallest fix → focused verification → independent review → one final integrated gate; no test counts as reassurance. **Stop when accepted; never keep redesigning.**
+
+**Current owner decisions supersede older paragraphs below:** official public app is https://jfcarpiopuntocom.github.io/friendly-123/ (not friendly123.com/app); synchronization target **2–3 seconds on active connected devices**, NOT historic 150ms / 500ms. Target is NOT yet a guarantee. Devices mutually hold their own encrypted data; supplier is not client data cloud. No TinyFish. Do not edit runtime/produce a shell for documentation-only changes.
+
+## Contexto histórico de sincronización — 16 oct 2026 (objetivo de 150 ms sustituido el 22 oct)
 
 Cloudflare queda para **licencias**, no para transacciones ni sync entre
 cuadernos. Esto sustituye las notas anteriores que permitían relay/fallback de
