@@ -36,7 +36,7 @@ async function ventaFixture(personStatus=200, productPercent=null) {
   w.window=w;
   const context={window:w,localStorage:store,console:{info(){},error(){}},URL,URLSearchParams,Response,Date,Intl};
   vm.runInNewContext(source,context,{filename:'docs/pocketbase-client.js'});
-  const response=await w.fetch('/api/productos/records/product-1/venta',{method:'POST',body:'{}'});
+  const response=await w.fetch('/api/productos/product-1/venta',{method:'POST',body:'{}'});
   return {response,body:await response.json(),requests,created,product};
 }
 
