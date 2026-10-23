@@ -50,3 +50,30 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   assert.match(sync,/_nombreDesdeYjs:\s*true/,
     'Yjs bridge must mark metadata as owner-authoritative');
 });
+
+
+test('E1: legacy v1 checkpoint HEAD behind stored cursor replays checkpoint ONCE, not stale empty pages forever', async () => {
+  const source=fs.readFileSync(path.resolve(__dirname,'../docs/sync-yjs.js'),'utf8');
+  const start=source.indexOf('    function pedirPagina(sock, estado, sinHead) {');
+  const end=source.indexOf('    function reprogramar() {',start);
+  assert.ok(start>=0&&end>start,'extract production HEAD/pull protocol');
+  const sent=[];
+  const ws={readyState:1,send(s){sent.push(JSON.parse(s));}};
+  const ctx={
+    canal:{ws,recuperando:true},_pullCursorReady:Promise.resolve(),
+    _pullCursor:{rev:3,seq:10},_appliedPullCursor:{rev:3,seq:10},
+    _soloMemoria:false,_replayKey:'missing',_replayUsed:4,PULL_PAGE_SIZE:64,
+    clearTimeout(){},setTimeout(){return 1;},programarRelectura(){},
+    partesEntrantes:{},doc:{store:{}},API:{},nombre:'catalogo',console
+  };
+  vm.createContext(ctx);
+  vm.runInContext(source.slice(start,end)+'\nthis._head=procesarHead;',ctx);
+  const state={esperandoHead:true,enCurso:true,usarHead:true,validacionFinal:true,tHead:0};
+  await ctx._head(ws,state,{rev:3,seq:0});await Promise.resolve();
+  assert.equal(sent.length,1,'one bounded recovery request after detecting checkpoint rewind');
+  assert.equal(sent[0].k,'pull');
+  assert.equal(sent[0].rev,-1,'re-request ciphertext checkpoint from the beginning, never stale rev3/seq10');
+  assert.equal(sent[0].seq,0);
+  assert.equal(state.rebaseCursor,true,'record that next successfully applied checkpoint must rebase durable cursor');
+  assert.equal(ctx._pullCursor.seq,10,'do not drop the proven cursor before ciphertext is applied');
+});
