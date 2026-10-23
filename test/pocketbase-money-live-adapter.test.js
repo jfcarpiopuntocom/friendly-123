@@ -17,15 +17,15 @@ async function ventaFixture(personStatus=200, productPercent=null) {
     const u=new URL(url), method=opts.method||'GET';
     requests.push(method+' '+u.pathname);
     let obj={},status=200;
-    if(method==='GET'&&u.pathname.endsWith('/productos/product-1'))obj=product;
+    if(method==='GET'&&u.pathname.endsWith('/productos/records/product-1'))obj=product;
     else if(method==='GET'&&u.pathname.endsWith('/ubicaciones/records'))obj={items:[rack]};
     else if(method==='GET'&&u.pathname.endsWith('/ventas/records'))obj={items:[]};
-    else if(method==='GET'&&u.pathname.endsWith('/promotoras/person-501')){
+    else if(method==='GET'&&u.pathname.endsWith('/promotoras/records/person-501')){
       if(personStatus===200)obj={id:'person-501',comisionBase:40};
       else {status=personStatus;obj={code:status,message:'Remote fixture error'};}
     }else if(method==='POST'&&u.pathname.endsWith('/ventas/records')){
       obj={...JSON.parse(opts.body),id:'sale-1'};created.push(obj);
-    }else if(method==='PATCH'&&u.pathname.endsWith('/productos/product-1')){
+    }else if(method==='PATCH'&&u.pathname.endsWith('/productos/records/product-1')){
       Object.assign(product,JSON.parse(opts.body));obj=product;
     }else if(method==='POST'&&u.pathname.endsWith('/movimientos/records'))obj={id:'movement-1'};
     else {status=404;obj={code:404,message:'No synthetic route'};}
@@ -36,7 +36,7 @@ async function ventaFixture(personStatus=200, productPercent=null) {
   w.window=w;
   const context={window:w,localStorage:store,console:{info(){},error(){}},URL,URLSearchParams,Response,Date,Intl};
   vm.runInNewContext(source,context,{filename:'docs/pocketbase-client.js'});
-  const response=await w.fetch('/api/productos/product-1/venta',{method:'POST',body:'{}'});
+  const response=await w.fetch('/api/productos/records/product-1/venta',{method:'POST',body:'{}'});
   return {response,body:await response.json(),requests,created,product};
 }
 
@@ -47,7 +47,7 @@ test('PocketBase sale loads assigned person directly (even beyond page 500), loc
   assert.equal(r.created[0].split.montoComisionSocio,40);
   assert.equal(r.created[0].split.montoNetoDueno,60);
   assert.equal(r.product.stockActual,1);
-  assert.ok(r.requests.some(x=>x.endsWith('/promotoras/person-501')));
+  assert.ok(r.requests.some(x=>x.endsWith('/promotoras/records/person-501')));
   assert.ok(!r.requests.some(x=>x.endsWith('/promotoras/records')),'no truncated list');
 });
 test('PocketBase sale with deleted associate (404) preserves rack rate, not a phantom commission',async()=>{
