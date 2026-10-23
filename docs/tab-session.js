@@ -73,7 +73,7 @@
    // a PIN login behind iOS Web Locks that can remain zombie after backgrounding.
    take();
   }catch(_){/* A failed lease never pretends the prior session was closed. */}
-  finally{if(claimEpoch===window.OC_AUTH_SESSION_EPOCH)pending=false;}
+  finally{if(claimEpoch===window.OC_AUTH_SESSION_EPOCH){pending=false;avisarSync();}}
  }
  try{channel=new BroadcastChannel('friendly-123-auth-session');channel.onmessage=function(ev){if(ev.data&&ev.data.key===scopeKey)check();};}catch(_){}
  window.addEventListener('storage',function(ev){if(ev.key===scopeKey||ev.key?.endsWith('::'+scopeKey))check();});
