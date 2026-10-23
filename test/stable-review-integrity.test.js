@@ -130,3 +130,48 @@ test('E4 legacy owner timestamp tie-break survives until shared Yjs is canonical
   apply('Explicit newer revision',5,501);
   assert.equal(device.catalog().nombreNegocio,'Explicit newer revision');
 });
+
+test('E1 S1: only the extra verified checkpoint permits cursor rebase',async()=>{
+  const src=fs.readFileSync(path.resolve(__dirname,'../docs/sync-yjs.js'),'utf8');
+  const start=src.indexOf('else if (c && c.k === "pull-page") {');
+  const end=src.indexOf('else if (c && c.k === "tsr"',start);
+  assert.ok(start>=0 && end>start,'actual pull-page production handler found');
+  const snippet=src.slice(start,end).trim().replace(/^else if/,'if');
+  assert.equal((src.match(/source === "pull" && pullEstado.rebaseCursor && ok/g)||[]).length,2,
+    'both ArrayBuffer and Blob paths count validated durable frames, not live traffic');
+  async function scenario(n,applied,encrypted){
+    const writes=[],closes=[];
+    const socket={readyState:1,close(code,reason){closes.push({code,reason});}};
+    const ctx={_colaRecepcion:Promise.resolve(),ws:socket,canal:{ws:socket,recuperando:true},
+      pullEstado:{enCurso:true,rebaseCursor:true,rebaseFrames:applied,rebaseCipherFrames:encrypted,fallos:0},
+      _pullCursor:{rev:3,seq:10},_appliedPullCursor:{rev:3,seq:10},
+      _ultimoCursorLimpio:{rev:3,seq:10},_legacyProbeKey:'3:0:3:10',_legacyProbeAttempts:2,
+      guardarPullCursor:async(c)=>{writes.push(c);},pedirPagina(){},
+      programarRelectura(){},deudaPendiente:()=>true,API:{},nombre:'catalogo',log(){},_soloMemoria:false};
+    vm.createContext(ctx);
+    vm.runInContext('this.page=function(c){'+snippet+'}',ctx);
+    ctx.page({k:'pull-page',v:2,rev:3,seq:1,n,more:true});
+    await ctx._colaRecepcion;
+    return {writes:writes.length,closes:closes.length,
+      rev:ctx._pullCursor.rev,seq:ctx._pullCursor.seq,
+      attempts:ctx._legacyProbeAttempts};
+  }
+  const noCheckpoint=await scenario(1,1,1);
+  assert.equal(noCheckpoint.writes,0,'ordinary op cannot masquerade as checkpoint');
+  assert.equal(noCheckpoint.closes,1,'fail closed without extra checkpoint ciphertext');
+  assert.equal(noCheckpoint.seq,10,'preserve proven local cursor');
+  assert.equal(noCheckpoint.attempts,2,'do not reset quota after failed proof');
+  const good=await scenario(1,2,2);
+  assert.equal(good.writes,1,'real checkpoint + 1 op can advance');
+  assert.equal(good.closes,0);
+  assert.equal(good.rev,-1,'rewind only after proven checkpoint');
+  const checkpointOnly=await scenario(0,1,1);
+  assert.equal(checkpointOnly.writes,1,'checkpoint with 0 ops is valid');
+  const fragmented=await scenario(3,2,4);
+  assert.equal(fragmented.writes,1,'fragmented Yjs operations still count as 3 ciphertext rows');
+  for (const invalid of [undefined,null,'0',-1,1.1]){
+    const unsafe=await scenario(invalid,1,1);
+    assert.equal(unsafe.writes,0,'invalid operation count cannot prove checkpoint');
+    assert.equal(unsafe.seq,10,'invalid reply must preserve proven cursor');
+  }
+});
