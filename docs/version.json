@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-22",
-  "changelog": "v562 LAB candidate: E1-E6 fixes, one initial Yjs connection per channel, corrected deterministic regression fixtures, final gated tests; no publication or customer data changes.",
+  "changelog": "v563 LAB candidate: E1-E6 plus four formerly skipped PocketBase money parity fixes; no changes to Yjs or customer data.",
   "requerida": false,
-  "shell": "f123-shell-v562",
+  "shell": "f123-shell-v563",
   "apagar": [],
-  "releaseName": "v562",
-  "cacheGeneration": "golden126"
+  "releaseName": "v563",
+  "cacheGeneration": "golden127"
 }
