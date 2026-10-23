@@ -61,3 +61,20 @@ test('E4: failure does not roll back a different name received during pending sa
   assert.equal(f.owned.nombreNegocio,'Original fixture');
   assert.deepEqual(f.events,[]);
 });
+
+test('E4: reopening from durable A/B after a quota failure never displays the rejected name',async()=>{
+  const {browser}=require('./helpers/browser.cjs');
+  const app=browser();
+  await app.request('/api/instancia/nombre','POST',{nombre:'Already durable'});
+  const save=app.localStorage.setItem.bind(app.localStorage);
+  app.localStorage.setItem=(key,value)=>{
+    if (/^f123_estado_v4_(A|B)$/.test(String(key))) throw Error('synthetic quota');
+    return save(key,value);
+  };
+  const res=await app.fetch('/api/instancia/nombre',
+    {method:'POST',body:JSON.stringify({nombre:'Not durable'})});
+  assert.equal(res.status,507);
+  app.localStorage.setItem=save;
+  assert.equal((await browser(app.localStorage).request('/api/instancia')).nombreNegocio,
+    'Already durable','reopening must read previously durable state');
+});
