@@ -1,0 +1,22 @@
+name: finance-parity-fast-check
+on:
+  push:
+    branches: [ops/cloudflare-build-readonly-20261022]
+    paths: [.github/workflows/finance-parity-fast-check.yml]
+permissions:
+  contents: read
+jobs:
+  finance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: bf6c4a8e2574338e5e6fe28a1410588d984063f5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Financial parity and real sale synthetic fixtures
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/comision-split-fijacion-2026-10-08.test.js test/pocketbase-money-live-adapter.test.js
