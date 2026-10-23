@@ -1903,7 +1903,7 @@
       ultimaAplicacionVisible = Promise.resolve(false);
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
-      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
       var hay = false;
       COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
