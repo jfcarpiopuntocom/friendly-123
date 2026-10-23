@@ -35,9 +35,14 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   const apply=(name,rev,ts,yjs=false)=>device.OCSync.aplicarCatalogo({
     ubicaciones:[],productos:[],nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:ts,
     ...(yjs?{_nombreDesdeYjs:true}:{})
-  },'dueno');
+  },'dueno',yjs);
   apply('My small shop USA',7,999999);
   assert.equal(device.catalog().nombreNegocio,'My small shop USA');
+  device.OCSync.aplicarCatalogo({ubicaciones:[],productos:[],
+    nombreNegocio:'Forged snapshot',nombreNegocioRev:7,nombreNegocioTs:1000,
+    _nombreDesdeYjs:true},'dueno');
+  assert.equal(device.catalog().nombreNegocio,'My small shop USA',
+    'snapshot/import marker alone must NOT get canonical Yjs precedence');
   apply('17 de Septiembre',7,1000,true);
   assert.equal(device.catalog().nombreNegocio,'17 de Septiembre',
     'shared Yjs owner name must win equal revision; no local timestamp authority');
@@ -51,6 +56,11 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   const sync=fs.readFileSync(path.resolve(__dirname,'../docs/sync-yjs.js'),'utf8');
   assert.match(sync,/_nombreDesdeYjs:\s*true/,
     'Yjs bridge must mark metadata as owner-authoritative');
+  assert.match(sync,/aplicarCatalogo\(remoto, rolRemoto, true\)/,
+    'only actual Yjs bridge explicitly confers canonical name context');
+  const backend=fs.readFileSync(path.resolve(__dirname,'../docs/mock-backend.js'),'utf8');
+  assert.equal((backend.match(/aplicarCatalogo\(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs\)/g)||[]).length,2,
+    'both financial commit/rollback deferred queues preserve trusted name origin');
 });
 
 
@@ -117,7 +127,7 @@ test('E4 legacy owner timestamp tie-break survives until shared Yjs is canonical
   const apply=(name,rev,ts,yjs=false)=>device.OCSync.aplicarCatalogo({
     ubicaciones:[],productos:[],nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:ts,
     ...(yjs?{_nombreDesdeYjs:true}:{})
-  },'dueno');
+  },'dueno',yjs);
   apply('Old store',4,1000);
   apply('Legit non-Yjs owner rename',4,2000);
   assert.equal(device.catalog().nombreNegocio,'Legit non-Yjs owner rename');
