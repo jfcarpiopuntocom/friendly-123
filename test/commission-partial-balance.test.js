@@ -12,8 +12,8 @@ async function setup(split=false){
  const r=await app.request('/api/ubicaciones','POST',{nombre:'Synthetic rack',tipo:'socio'});
  await app.request('/api/ubicaciones/'+r.id,'PUT',{promotoraId:a.id});
  const p=await app.request('/api/productos','POST',{nombre:'Synthetic',sku:'PARTIAL-GUARD',barcode:'PARTIAL-GUARD',precio:100,costo:20,stockInicial:2,ubicacionId:r.id});
- await app.request('/api/productos/'+p.id+'/venta','POST',{cantidad:1,...(b?{modoComision:'associate',promotoraId:a.id,asistenteId:b.id,asistentePct:10}:{})});
- return {app,a,b,r,p,storage,fail:()=>{fail=true},recover:()=>{fail=false}};
+ const sale=await app.request('/api/productos/'+p.id+'/venta','POST',{cantidad:1,...(b?{modoComision:'associate',promotoraId:a.id,asistenteId:b.id,asistentePct:10}:{})});
+ return {app,a,b,r,p,sale,storage,fail:()=>{fail=true},recover:()=>{fail=false}};
 }
 const pay=(f,opId='partial')=>({ubicacionId:f.r.id,payeeId:f.a.id,amountCents:1500,medioPago:'efectivo',opId});
 async function raw(app,url,body){const r=await app.fetch(url,{method:'POST',body:JSON.stringify(body)});return {status:r.status,body:await r.json()};}
@@ -76,14 +76,42 @@ test('legacy multi-person success confirms one full snapshot containing both pay
  assert.equal(r.status,200);assert.equal(r.body.payoutIds.length,2);assert.equal(saves,1);
  assert.equal(persisted.payouts.length,2);
 });
-test('incoming sync survives rollback of a failed payout and is applied after the durable boundary',async()=>{
+test('incoming sync survives rollback of a failed payout and keeps deferred Yjs name provenance',async()=>{
  const f=await setup();const peer=browser();peer.OCAuth={rolActual:()=> 'dueno'};peer.receive(f.app);
  const customer=await peer.request('/api/clientes','POST',{nombre:'Synthetic remote customer'});
+ await f.app.request('/api/instancia/nombre','POST',{nombre:'Before payout'});
+ const canonical=f.app.catalog();canonical.nombreNegocio='Queued Yjs after payout';
+ canonical.nombreNegocioTs=1;canonical._nombreDesdeYjs=true;
  f.fail();let finish;
  f.app.OCEstadoIDB={guardar:()=>new Promise(r=>{finish=r})};
  const pending=raw(f.app,'/api/payouts',pay(f));await new Promise(r=>setTimeout(r,0));
- f.app.receive(peer);finish(false);
+ f.app.receive(peer);
+ f.app.OCSync.aplicarCatalogo(canonical,'dueno',true);
+ assert.equal(f.app.catalog().nombreNegocio,'Before payout','do not apply a queued name while money is pending');
+ finish(false);
  assert.equal((await pending).status,507);
  const after=await f.app.request('/api/respaldo/exportar');
  assert.equal(after.payouts.length,0);assert.ok(after.clientes.some(c=>c.id===customer.id));
+ assert.equal(f.app.catalog().nombreNegocio,'Queued Yjs after payout',
+   'failed payout replay must retain the trusted Yjs origin against the newer local timestamp');
+});
+test('failed sale return replays deferred Yjs owner name without losing stock or sale',async()=>{
+ const f=await setup();
+ await f.app.request('/api/instancia/nombre','POST',{nombre:'Before return'});
+ const canonical=f.app.catalog();canonical.nombreNegocio='Queued Yjs after return';
+ canonical.nombreNegocioTs=1;canonical._nombreDesdeYjs=true;
+ const before=await f.app.request('/api/respaldo/exportar');
+ f.fail();let finish;
+ f.app.OCEstadoIDB={guardar:()=>new Promise(resolve=>{finish=resolve})};
+ const pending=raw(f.app,'/api/ventas/'+f.sale.ventaId+'/devolucion',{motivo:'Synthetic deferred name'});
+ await new Promise(resolve=>setTimeout(resolve,0));
+ f.app.OCSync.aplicarCatalogo(canonical,'dueno',true);
+ assert.equal(f.app.catalog().nombreNegocio,'Before return','return rollback holds incoming sync until durable boundary');
+ finish(false);
+ assert.equal((await pending).status,507);
+ const after=await f.app.request('/api/respaldo/exportar');
+ assert.deepEqual(after.ventas,before.ventas,'financial return was not durable');
+ assert.deepEqual(after.productos,before.productos,'stock was not changed');
+ assert.equal(f.app.catalog().nombreNegocio,'Queued Yjs after return',
+   'return rollback must retain Yjs-authoritative name on deferred replay');
 });
