@@ -41,6 +41,8 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   apply('17 de Septiembre',7,1000,true);
   assert.equal(device.catalog().nombreNegocio,'17 de Septiembre',
     'shared Yjs owner name must win equal revision; no local timestamp authority');
+  // Real Yjs bridge retains this canonical metadata during legacy broadcasts.
+  device.OCYjs={meta:{get:key=>key==='nombreNegocio'?'17 de Septiembre':key==='nombreRev'?7:null}};
   apply('My small shop USA',7,9999999);
   assert.equal(device.catalog().nombreNegocio,'17 de Septiembre',
     'legacy equal-revision timestamps cannot resurrect old names');
@@ -76,4 +78,54 @@ test('E1: legacy v1 checkpoint HEAD behind stored cursor replays checkpoint ONCE
   assert.equal(sent[0].seq,0);
   assert.equal(state.rebaseCursor,true,'record that next successfully applied checkpoint must rebase durable cursor');
   assert.equal(ctx._pullCursor.seq,10,'do not drop the proven cursor before ciphertext is applied');
+});
+
+
+test('E1 v1 checkpoint repair has a fixed per-channel quota across reconnects',async()=>{
+  const src=fs.readFileSync(path.resolve(__dirname,'../docs/sync-yjs.js'),'utf8');
+  const a=src.indexOf('    function pedirPagina(sock, estado, sinHead) {');
+  const b=src.indexOf('    function reprogramar() {',a);
+  assert.ok(a>=0&&b>a,'actual production HEAD/recovery logic');
+  const sent=[];
+  const ws={readyState:1,send(raw){sent.push(JSON.parse(raw));}};
+  const ctx={canal:{ws,recuperando:true},_pullCursorReady:Promise.resolve(),
+    _pullCursor:{rev:3,seq:10},_appliedPullCursor:{rev:3,seq:10},
+    _legacyProbeKey:'',_legacyProbeAttempts:0,
+    _soloMemoria:false,_replayKey:null,_replayUsed:0,PULL_PAGE_SIZE:64,
+    clearTimeout(){},setTimeout(){return 1;},programarRelectura(){},
+    partesEntrantes:{},doc:{store:{}},API:{},nombre:'catalogo',log(){}};
+  vm.createContext(ctx);
+  vm.runInContext(src.slice(a,b)+'\\nthis._head=procesarHead;',ctx);
+  const head=async(seq)=>{
+    const state={esperandoHead:true,enCurso:true,usarHead:true,validacionFinal:true,tHead:0};
+    await ctx._head(ws,state,{rev:3,seq});await Promise.resolve();
+    return state;
+  };
+  await head(0);await head(0);
+  const stopped=await head(0);
+  assert.equal(sent.length,2,'unchanged HEAD must never trigger a third full history request');
+  assert.equal(stopped.enCurso,false,'leave websocket online, no reconnect storm');
+  assert.equal(ctx._pullCursor.seq,10,'failed checkpoint probes must not erase proven cursor');
+  assert.equal(ctx._legacyProbeAttempts,2,'budget survives new socket states');
+  await head(1);
+  assert.equal(sent.length,3,'only a truly changed HEAD allows fresh recovery');
+});
+
+test('E4 legacy owner timestamp tie-break survives until shared Yjs is canonical',()=>{
+  const device=browser();
+  const apply=(name,rev,ts,yjs=false)=>device.OCSync.aplicarCatalogo({
+    ubicaciones:[],productos:[],nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:ts,
+    ...(yjs?{_nombreDesdeYjs:true}:{})
+  },'dueno');
+  apply('Old store',4,1000);
+  apply('Legit non-Yjs owner rename',4,2000);
+  assert.equal(device.catalog().nombreNegocio,'Legit non-Yjs owner rename');
+  device.OCYjs={meta:{get:key=>key==='nombreNegocio'?'Legit non-Yjs owner rename':key==='nombreRev'?4:null}};
+  apply('Stale future-clock legacy store',4,9999999);
+  assert.equal(device.catalog().nombreNegocio,'Legit non-Yjs owner rename',
+    'known canonical Yjs name beats equal-revision legacy wall clocks');
+  apply('Yjs owner canonical',4,500,true);
+  assert.equal(device.catalog().nombreNegocio,'Yjs owner canonical');
+  apply('Explicit newer revision',5,501);
+  assert.equal(device.catalog().nombreNegocio,'Explicit newer revision');
 });
