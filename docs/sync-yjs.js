@@ -118,6 +118,8 @@
     var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
     var _lastRelayProgressAt = 0;
     var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
+    // Bounded v1 checkpoint repair across socket reconnects (never per socket).
+    var _legacyProbeKey = "", _legacyProbeAttempts = 0;
     var _relayPeerCount = 0, _directReceive = null;
     var _peerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     var _direct = Object.create(null);
@@ -686,6 +688,17 @@
       if (!valido) estado.headLegacy = true;
       else estado.headLegacy = false;
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) < _pullCursor.seq) {
+        var probeKey = r.rev + ":" + r.seq + ":" + _pullCursor.rev + ":" + _pullCursor.seq;
+        if (_legacyProbeKey !== probeKey) { _legacyProbeKey = probeKey; _legacyProbeAttempts = 0; }
+        if (_legacyProbeAttempts >= 2) {
+          // No proof after two probes: keep socket and LOCAL Yjs, stop quota-draining replay.
+          // A genuinely changed relay HEAD may retry; never unlock recovery/PIN here.
+          estado.enCurso = false;
+          estado.rebaseCursor = false;
+          try { log("checkpoint v1 sin prueba: relectura suspendida en " + nombre); } catch (_) {}
+          return Promise.resolve();
+        }
+        _legacyProbeAttempts++;
         // Old checkpoint revision (v1): the server discarded a prefix without
         // advancing rev. Local Yjs/journal remain intact until a valid checkpoint
         // is applied. Re-fetch once from rev -1 to force checkpoint-first recovery.
@@ -1029,6 +1042,7 @@
                   _ultimoCursorLimpio = { rev: -1, seq: 0 };
                   pullEstado.rebaseCursor = false;
                   pullEstado.rebaseFrames = 0;
+                  _legacyProbeKey = ""; _legacyProbeAttempts = 0; // proven encrypted recovery
                 }
                 return guardarPullCursor(c).then(function () {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
