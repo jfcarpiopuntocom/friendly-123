@@ -4008,7 +4008,18 @@
         var mismoRevYjs = remoto._nombreDesdeYjs === true &&
           _revRemoto === nombreNegocioRev &&
           remoto.nombreNegocio.trim() !== String(nombreNegocio || "").trim();
-        _adoptaNombre = (_revRemoto > nombreNegocioRev) || mismoRevYjs;
+        // Legacy owner broadcasts still need their equal-rev timestamp tie-break.
+        // NEVER let a stale legacy clock override an already-confirmed Yjs name.
+        var yjsCanonico = false;
+        try {
+          var metaYjs = window.OCYjs && window.OCYjs.meta;
+          yjsCanonico = !!(metaYjs && typeof metaYjs.get === "function" &&
+            String(metaYjs.get("nombreNegocio") || "").trim() === String(nombreNegocio || "").trim() &&
+            Number(metaYjs.get("nombreRev")) === nombreNegocioRev);
+        } catch (_) {}
+        var mismoRevLegado = remoto._nombreDesdeYjs !== true && !yjsCanonico &&
+          _revRemoto === nombreNegocioRev && _tsRemoto > nombreNegocioTs;
+        _adoptaNombre = (_revRemoto > nombreNegocioRev) || mismoRevYjs || mismoRevLegado;
       }
     }
     if (_adoptaNombre) {
