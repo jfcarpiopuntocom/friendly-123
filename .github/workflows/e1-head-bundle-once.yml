@@ -1,0 +1,38 @@
+name: E1 HEAD bundle single lab hotfix
+on:
+  push:
+    branches: [work/v564-name-finance-safety-20261022]
+    paths:
+      - '.github/workflows/e1-head-bundle-once.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: e1-head-bundle-single
+  cancel-in-progress: true
+jobs:
+  fix-bundle:
+    if: github.ref == 'refs/heads/work/v564-name-finance-safety-20261022'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Guarded HEAD parity repair on lab branch
+        run: |
+          node scripts/e1-head-bundle-verified.cjs
+          node --test test/e1-browser-relay-head-parity.test.cjs
+          git diff --check
+      - name: Commit only browser bundle and manifest to lab
+        run: |
+          git diff --exit-code -- docs/index.html supabase-relay/transport.mjs
+          git diff --quiet -- docs/vendor/supabase-relay.min.js docs/version-manifest.json && exit 0
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/vendor/supabase-relay.min.js docs/version-manifest.json
+          git commit -m 'hotfix(E1): align shipped Supabase relay HEAD support with source'
+          git push origin HEAD:refs/heads/work/v564-name-finance-safety-20261022
