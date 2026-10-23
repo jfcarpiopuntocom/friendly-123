@@ -110,8 +110,23 @@ test('failed sale return replays deferred Yjs owner name without losing stock or
  finish(false);
  assert.equal((await pending).status,507);
  const after=await f.app.request('/api/respaldo/exportar');
- assert.deepEqual(after.ventas,before.ventas,'financial return was not durable');
+ // Catalog merges materialize absent false/null return flags, without a financial change.
+ // Compare all evidence after removing ONLY these equivalent default values.
+ const defaults={anulada:false,canceladaExPostEn:null,devolucionId:null,devuelta:false,fechaDevolucion:null};
+ const economic=items=>items.map(item=>{
+   const v={...item};
+   for(const [key,value] of Object.entries(defaults))
+     if(v[key]===value)delete v[key];
+   return v;
+ });
+ assert.deepEqual(economic(after.ventas),economic(before.ventas),
+   'every sale ID, price, quantity, date and financial fact must survive the failed return');
+ assert.ok(after.ventas.every(v=>v.devuelta!==true && !v.fechaDevolucion && !v.devolucionId),
+   'no return may be recorded after failed persistence');
  assert.deepEqual(after.productos,before.productos,'stock was not changed');
+ assert.deepEqual(after.payouts,before.payouts,'commission payouts were not changed');
+ assert.deepEqual(after.ajustesComision,before.ajustesComision,'commission adjustments were not changed');
+ assert.deepEqual(after.movimientos,before.movimientos,'financial journal was not changed');
  assert.equal(f.app.catalog().nombreNegocio,'Queued Yjs after return',
    'return rollback must retain Yjs-authoritative name on deferred replay');
 });
