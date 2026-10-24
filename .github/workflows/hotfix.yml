@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   probar-y-mover:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     outputs:
       candidate: ${{ steps.promote.outputs.candidate }}
@@ -43,19 +43,19 @@ jobs:
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: playwright-${{ runner.os }}-noble-${{ hashFiles('package-lock.json') }}
       - run: npx playwright install-deps chromium webkit
       - if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install chromium webkit
       - name: Identidad de release y manifiesto
         env:
-          BASE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.before || 'origin/estable' }}
         run: |
           node scripts/release-control.cjs validate "${BASE_SHA:-HEAD^}"
           bash check-sw.sh
       - name: Pruebas del area tocada
         env:
-          BASE_SHA: ${{ github.event.before }}
+          BASE_SHA: ${{ github.event.before || 'origin/estable' }}
         run: |
           set -euo pipefail
           BASE="${BASE_SHA:-HEAD^}"
