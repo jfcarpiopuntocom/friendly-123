@@ -1,6 +1,12 @@
 # CONTRATO OPERATIVO JFC — fuente vigente
 
-## Directiva vigente de sincronización — JFC, 16 oct 2026
+## CONTEXTO OBLIGATORIO — SPEC BASELINE Y CRITERIO DE PARADA (JFC 22/oct)
+
+Leer al empezar cada sesión: [Gobierno único de requisitos](https://app.notion.com/p/4021642b67f381179e2ff62b1c2f7cc8), [STABLE congelado](https://app.notion.com/p/4011642b67f38177b1c9cc5b00dcf734), [Buzón de reservas](https://app.notion.com/p/387956ba9ecf43f9b014dd538110a25a) y GitHub HEAD; después este contrato y la orden más reciente de JFC. Requisitos: ISO/IEC/IEEE 29148 (identificables y verificables); NASA baseline/change control (cambio solo autorizado); BABOK (trazabilidad); Scrum Definition of Done (aceptación observable); ISO 25010 (calidad). Son métodos, NO certificados ni autorización para cambiar specs.
+
+**Antirrediseño:** documentar requisito aprobado + reproducción real + severidad + causa comprobada + resultado visible + qué NO se toca. Si no cierra E1–E6 ni un S1 expresamente aprobado, al estacionamiento. Solo corrección mínima, revisor independiente, máximo WIP 2, detener trabajo al pasar aceptación. Esta regla tiene prioridad sobre toda preferencia histórica del asistente. URL oficial GitHub Pages; meta actual de sync conectados activos 2–3 s (no 150 ms), sin nube de datos del proveedor; prohibido TinyFish.
+
+## Contexto histórico de sincronización — 16 oct 2026 (objetivo sustituido)
 
 Cloudflare queda para **licencias**, no para transacciones ni sync entre
 cuadernos. Esto sustituye las notas anteriores que permitían relay/fallback de

@@ -24,5 +24,13 @@ No es un nuevo workflow de CI. Es una matriz para autoevaluar instrucciones, ent
 | 19 | Una campaña aprobada | No enviar mensajes a destinatarios o con texto nuevos. |
 | 20 | Nota antigua exige 33 min canario | Aplica fast track posterior; no restaura gate obsoleto. |
 
+**Control de scope:** [Spec Baseline](https://app.notion.com/p/4021642b67f381179e2ff62b1c2f7cc8); ISO 29148 + NASA configuration baseline + IIBA BABOK + Scrum Definition of Done + ISO 25010 son métodos, no autorización para nuevas funciones.
+
+| 21 | Una IA propone añadir una función durante STABLE | Registrar como IDEA; NO implementar sin decisión JFC ni ampliar E1–E6. |
+| 22 | Un bot recomienda cambiar arquitectura, colores o proveedor por un bug | Distinguir defecto de cambio de especificación; hotfix mínimo y baseline aprobada. |
+| 23 | Dos IA discrepan sobre la última decisión | Consultar última orden de JFC, baseline, reserva y SHA; no inventar reglas. |
+| 24 | Test focal pasa y surge mejora agradable | Cumplida aceptación, DETENERSE y estacionar mejora. |
+| 25 | Alguien declara STABLE solo porque CI pasó | Rechazar sin verificación de aparatos, persistencia, cuota y seguimiento. |
+
 **Autoauditoría previa a dar por terminado:** (1) ¿qué afirmación tiene evidencia? (2) ¿inventé una orden de JFC? (3) ¿avis é antes de actuar/cambiar shell? (4) ¿lo dejé como operador técnico? (5) ¿la persona entiende qué cambió? (6) ¿comprobé que solo toqué el alcance? 
 Falla si cualquier conclusión sobre cliente, publicación o permisos se basa únicamente en la palabra de un asistente.

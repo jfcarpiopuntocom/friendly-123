@@ -1,4 +1,10 @@
 # FAST TRACK VIGENTE — friendly-123 (14/oct/2026)
+## Prefiltro obligatorio de alcance (JFC 22/oct)
+
+Leer [Spec Baseline / Scope Freeze](https://app.notion.com/p/4021642b67f381179e2ff62b1c2f7cc8) y [Definición de STABLE](https://app.notion.com/p/4011642b67f38177b1c9cc5b00dcf734) **antes** del pre-mortem. Cada tarea: identificar requisito original, defecto reproducido, aceptación, exclusiones y archivos reservados → test rojo pertinente → hotfix mínimo → test focalizado → revisor distinto → parar. Todo lo demás al estacionamiento. Sin funciones nuevas, rediseño, SQL/migraciones o cambios de proveedor/dominio sin decisión expresa del dueño. No convertir este proceso en una nueva puerta que retrase STABLE. Para trabajo exclusivamente Markdown fuera de docs/, no crear shell ni repetir regresión integral.
+
+**Corrección de contexto:** destino público oficial ahora es https://jfcarpiopuntocom.github.io/friendly-123/; la mención histórica a friendly123.com/app/ queda sustituida. Sin TinyFish. No presuma que nuevas reglas están instaladas en otra IA o laptop sin comprobarlo.
+
 **Regla:** avisar antes de actuar y antes de cualquier shell nuevo; dentro del encargo aprobado, avanzar sin volver a pedir permiso. Este documento NO autoriza un producto diferente.
 
 ## Clasificación que evita cambios innecesarios
@@ -15,7 +21,7 @@
 5. Si cambia docs/, coherencia de CACHE, shell, releaseName, cacheGeneration, manifest SHA-256 y diferencias CRLF/LF; verificación de manifest. No ejecutar el verificador prohibido por JFC.
 6. El flujo vigente es `.github/workflows/hotfix.yml`: cambios a docs/ en master, identidad y tests del área, promoción a estable y publicar. La suite completa `release-control.yml` funciona en paralelo y **no es puerta de 33 minutos**. No reactivar `promover.yml`, canario obligatorio ni espera histórica. Evitar repeticiones de Actions y saturar Cloudflare.
 7. Si una prueba falla, leer línea/causa; reparar y repetir la comprobación pertinente, sin mentir ni relajar guardas. Si surge shell adicional, avisar antes de hacerlo.
-8. Confirmar origen vivo https://friendly123.com/app/version.json y https://friendly123.com/app/ . Publicación observada NO prueba que el aparato de Belén haya adoptado la actualización.
+8. Confirmar origen vivo https://jfcarpiopuntocom.github.io/friendly-123/version.json y https://jfcarpiopuntocom.github.io/friendly-123/ . Publicación observada NO prueba que el aparato de Belén haya adoptado la actualización.
 
 ## No cambiar
 Sin purga, sin ocultar fotos ni stock por snapshots legados, sin duplicar fiado ni pagos, sin ceros ficticios, sin demo en cuadernos reales, sin pérdida de permisos, sin mover Cloudflare o el sitio de JFC de su origen.
