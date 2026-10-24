@@ -67,7 +67,8 @@ test('current release shell and exact edited assets have matching integrity hash
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
   const shellNumber=Number(String(v.shell||'').replace(/^f123-shell-v/,''));
   assert.ok(Number.isSafeInteger(shellNumber) && shellNumber>=518,'must include dashboard corrections');
-  assert.equal(v.releaseName,'v'+shellNumber);
+  assert.match(v.releaseName,/^v[0-9]+$/);
+  assert.ok(Number(v.releaseName.slice(1))<=shellNumber,'internal cache may advance without renaming stable public release');
   assert.equal(manifest.shell,v.shell);
   assert.ok(sw.includes('const CACHE = "'+v.shell+'"'));
   for(const rel of ['mock-backend.js','sync-realtime.js','dashboard.html']){

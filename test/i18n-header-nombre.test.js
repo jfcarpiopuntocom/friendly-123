@@ -164,6 +164,7 @@ test('real language buttons preserve a synchronized name and translate the locat
 test('sync carries the business name while each device keeps its own language', async () => {
   const englishDevice = fixtureBrowser();
   const spanishDevice = fixtureBrowser();
+  englishDevice.OCAuth = { rolActual: () => 'dueno', esDemo: () => false };
   englishDevice.localStorage.setItem('f123_lang', 'en');
   spanishDevice.localStorage.setItem('f123_lang', 'es');
 
