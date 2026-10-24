@@ -3329,6 +3329,19 @@
      = cuantas ventas fiadas del cliente podria elegir la persona. Sin candidatas, la UI no ofrece el boton. */
   async function _vistaCarteraConVinculos(clienteId, info, rol) {
     const vista = window.AMG.Cartera.vistaCarteraSegunRol(info, rol);
+    // A historical credit receipt can reference a sale assigned to a different
+    // customer. Preserve its accounting history, but NEVER offer it for payment
+    // allocation under this customer; ownership requires manual investigation.
+    let enRevision = 0;
+    vista.consumosPendientes = (vista.consumosPendientes || []).filter((cargo) => {
+      const key = String(cargo && cargo.cargoKey || "");
+      if (!key.startsWith("venta:")) return true;
+      const v = ventas.find((x) => x && String(x.id) === key.slice(6));
+      const cruzado = v && v.clienteId && String(v.clienteId) !== String(clienteId);
+      if (cruzado) enRevision++;
+      return !cruzado;
+    });
+    if (enRevision) vista.consumosEnRevision = enRevision;
     if ((rol === "dueno" || rol === "admin") && Array.isArray(vista.historial)) {
       for (const m of vista.historial) {
         if (m.tipo !== "cargo" || m.ventaId) continue;
@@ -7255,6 +7268,13 @@
         if (!c) return J({ error: "Customer not found." }, 404);
         if (!window.AMG || !window.AMG.Cartera || !window.AMG.Cartera.aplicarAbono) return J({ error: "Customer credit is not available." }, 500);
         const partes = Array.isArray(body.partes) ? body.partes.map((p) => ({ cargoKey: String(p && p.cargoKey || ""), monto: Number(p && p.monto) })) : [];
+        // P0: never assign a payment to a sale belonging to another customer,
+        // even if an old charge still exists in the requesting customer's ledger.
+        if (partes.some((p) => {
+          if (!p.cargoKey.startsWith("venta:")) return false;
+          const sale = ventas.find((v) => v && String(v.id) === p.cargoKey.slice(6));
+          return !!(sale && sale.clienteId && String(sale.clienteId) !== String(c.id));
+        })) return J({ error: "A selected purchase belongs to another customer. Payment not allocated; review the original sale before correcting records.", needsReview: true }, 409);
         let asignacion;
         try {
           const opId = body.opId === undefined ? undefined : body.opId;
