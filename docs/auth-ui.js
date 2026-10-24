@@ -1000,11 +1000,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if (!el) return;
         const shellServidor = String(vj.shell || "");
         const shell = shellServidor.replace("f123-shell-", "");
-        const ver = String(vj.version || "");
+        const ver = String(vj.releaseName || (vj.version ? ("v" + vj.version) : ""));
         const normal = function () {
           el.style.color = "";
           try { el.style.removeProperty("-webkit-text-fill-color"); } catch (_) {}
-          el.textContent = (ver ? ("v" + ver) : "") + (shell ? ("  ·  shell-" + shell) : "");
+          el.textContent = ver || (shell ? ("shell-" + shell) : "");
         };
         /* The active Service Worker knows its shell. CacheStorage can contain
            both old and newly downloaded shells; its last key is not evidence
@@ -1033,7 +1033,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           if (responded) return;
           responded = true;
           sw.removeEventListener("message", onShell);
-          el.textContent = (ver ? ("v" + ver + " · ") : "") + "shell sin verificar · última shell-" + shell;
+          el.textContent = (ver ? (ver + " · ") : "") + "shell sin verificar · última shell-" + shell;
         }, 2000);
         try { sw.controller.postMessage({ tipo: "que-shell" }); }
         catch (_) { clearTimeout(timeout); sw.removeEventListener("message", onShell); normal(); }
