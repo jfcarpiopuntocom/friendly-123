@@ -5938,7 +5938,11 @@
            aparato, o despedido) devolvia error pero el stock ya habia bajado y
            se guardaba: mercaderia perdida sin venta. Toda validacion va antes;
            esta es la primera linea que muta. test/cuadre-hugo-paco-luis.test.js */
-        const _fotoVenta = { stock: p.stockActual, ventasLen: ventas.length, movLen: movimientos.length, sello: selloUltimo };
+        const _fotoVenta = { stock: p.stockActual, ventasLen: ventas.length, movLen: movimientos.length, sello: selloUltimo,
+          stockMeta: ["stockBase", "stockPN", "stockTs", "stockDeficit"].map(k => ({
+            k, had: Object.prototype.hasOwnProperty.call(p, k),
+            value: p[k] === undefined ? undefined : clonar(p[k])
+          })) };
         p.stockActual -= cant;
         const ventaId = uuid("v");
         /* DATOS DEL EVENTO (portado de amigable-123, JFC 2026-08-18). Sin
@@ -5987,16 +5991,23 @@
            PRIMERO; si ningun almacen la acepta, se deshace y se avisa. La op de
            stock sale solo despues de guardar. Mismo patron que
            _confirmarEquipoORevertir. test/venta-durable-deficit.test.js */
+        // 1AAA: the same durable sale snapshot must contain its PN stock proof.
+        // Publishing before the ACK remains prohibited; only prepare local metadata.
+        const _opStockVenta = { productoId: p.id, delta: -cant };
+        _prepararOpStock(_opStockVenta);
         let _ventaGuardada = false;
         try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
           p.stockActual = _fotoVenta.stock;
+          _fotoVenta.stockMeta.forEach(({k, had, value}) => {
+            if (had) p[k] = value; else delete p[k];
+          });
           ventas.length = _fotoVenta.ventasLen;
           movimientos.length = _fotoVenta.movLen;
           selloUltimo = _fotoVenta.sello;
           return J({ error: tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.") }, 507);
         }
-        emitirOpStock("venta", { productoId: p.id, delta: -cant });
+        emitirOpStock("venta", _opStockVenta, true);
         return J({ producto: ficha(p), ventaId });
       }
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/anular$/))) {
