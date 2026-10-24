@@ -1310,10 +1310,10 @@
      distintas. El sacrificio decide QUE se cede cuando no cabe; el espejo hace
      que aunque no quepa NADA en localStorage, el estado completo quede a salvo
      igual en un almacen que si crece con el disco. */
-  function _espejarEnIDB(completo) {
+  function _espejarEnIDB(completo, exigirCompleto = false) {
     try {
       if (!window.OCEstadoIDB) return Promise.resolve(false);
-      return window.OCEstadoIDB.guardar(completo).catch(() => false);
+      return window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(() => false);
     } catch (_) { return Promise.resolve(false); }
   }
   /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
@@ -1333,12 +1333,28 @@
       localStorage.setItem("f123_admins_pins", JSON.stringify(_adminPins));
     } catch (_) {}
   }
+  let _guardadoEstrictoPendiente = null;
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
+    // Capture background snapshots only after the awaiting caller commits or rolls back.
+    if (!exigirCompleto && _guardadoEstrictoPendiente) {
+      return _guardadoEstrictoPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
+    }
+    const resultado = _guardarEstadoLocalAhora(exigirCompleto, preservarFotos);
+    if (exigirCompleto && resultado && typeof resultado.then === "function") {
+      const pendiente = Promise.resolve(resultado);
+      _guardadoEstrictoPendiente = pendiente;
+      const terminar = () => { if (_guardadoEstrictoPendiente === pendiente) _guardadoEstrictoPendiente = null; };
+      pendiente.then(terminar, terminar);
+      return pendiente;
+    }
+    return resultado;
+  }
+  function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
     _localRev++;
     const completo = estadoActualExportable();
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
     const destino = activo === "A" ? "B" : "A";
-    const _idb = _espejarEnIDB(completo);
+    const _idb = _espejarEnIDB(completo, exigirCompleto);
     try {
       localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
       localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
@@ -1811,7 +1827,9 @@
         var pr = promotoras.find(function (x) { return x.id === u.promotoraId; });
         /* Solo se usa el trato de la persona si de verdad tiene uno definido.
            Un comisionista recien creado sin % no puede dejar la percha en cero. */
-        if (pr && (Number(pr.comisionBase) > 0 || Number(pr.comisionSocio) > 0 || Number(pr.comision) > 0)) {
+        if (pr && (Number(pr.comisionBase) > 0 || Number(pr.comisionSocio) > 0 || Number(pr.comision) > 0 ||
+          (Number(pr.metaMensual) > 0 && Array.isArray(pr.escalasComision) &&
+           pr.escalasComision.some(function (t) { return Number(t.comision) > 0; })))) {
           fuente = pr; origen = "comisionista";
         }
       }
@@ -2264,7 +2282,7 @@
       try {
         while (_payoutCatalogosPendientes.length) {
           const siguiente = _payoutCatalogosPendientes.shift();
-          aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto);
+          aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
         }
       } finally { terminar(); }
     }
@@ -3491,9 +3509,9 @@
       return _serializarMergeCanonico(catalogo);
     } catch (_) { return null; }
   }
-  function aplicarCatalogo(remoto, rolRemoto) {
+  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
     if (_payoutConfirmando) {
-      _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto });
+      _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
     }
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
@@ -4002,8 +4020,22 @@
     if (remoto && typeof remoto.nombreNegocio === "string" && remoto.nombreNegocio.trim()) {
       if (!String(nombreNegocio || "").trim()) _adoptaNombre = true;           // local vacío: adoptar
       else if (rolRemoto === "dueno") {
-        _adoptaNombre = (_revRemoto > nombreNegocioRev) ||
-                        (_revRemoto === nombreNegocioRev && _tsRemoto > nombreNegocioTs);
+        // Equal owner revision from shared Yjs is canonical despite a future local clock.
+        var mismoRevYjs = nombreCanonicoYjs === true && remoto._nombreDesdeYjs === true &&
+          _revRemoto === nombreNegocioRev &&
+          remoto.nombreNegocio.trim() !== String(nombreNegocio || "").trim();
+        // Legacy owner broadcasts still need their equal-rev timestamp tie-break.
+        // NEVER let a stale legacy clock override an already-confirmed Yjs name.
+        var yjsCanonico = false;
+        try {
+          var metaYjs = window.OCYjs && window.OCYjs.meta;
+          yjsCanonico = !!(metaYjs && typeof metaYjs.get === "function" &&
+            String(metaYjs.get("nombreNegocio") || "").trim() === String(nombreNegocio || "").trim() &&
+            Number(metaYjs.get("nombreRev")) === nombreNegocioRev);
+        } catch (_) {}
+        var mismoRevLegado = nombreCanonicoYjs !== true && remoto._nombreDesdeYjs !== true && !yjsCanonico &&
+          _revRemoto === nombreNegocioRev && _tsRemoto > nombreNegocioTs;
+        _adoptaNombre = (_revRemoto > nombreNegocioRev) || mismoRevYjs || mismoRevLegado;
       }
     }
     if (_adoptaNombre) {
@@ -5971,7 +6003,7 @@
            stock sale solo despues de guardar. Mismo patron que
            _confirmarEquipoORevertir. test/venta-durable-deficit.test.js */
         let _ventaGuardada = false;
-        try { _ventaGuardada = await guardarEstadoLocal(); } catch (_) {}
+        try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
           p.stockActual = _fotoVenta.stock;
           ventas.length = _fotoVenta.ventasLen;
@@ -6082,7 +6114,7 @@
           try {
             while (_payoutCatalogosPendientes.length) {
               const siguiente = _payoutCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto);
+              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
             }
           } finally { terminarRetorno(); }
         }
@@ -7557,12 +7589,40 @@
       }
       // POST /api/instancia/nombre — el dueño edita el nombre de su negocio.
       if (path === "/api/instancia/nombre" && opts && opts.method === "POST") {
-        nombreNegocio = String(body.nombre || "").trim().slice(0, 80);
-        nombreNegocioTs = Date.now(); // sello secundario
-        nombreNegocioRev = (Number(nombreNegocioRev) || 0) + 1; // contador monotónico (v290): este rename gana a cualquiera con rev menor
-        try { const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs; _o.nombreNegocioRev = nombreNegocioRev; localStorage.setItem("f123_owned", JSON.stringify(_o)); } catch (_) {}
-        guardarEstadoLocal();
-        // Refresh the PIN gate immediately and publish the rename through Yjs.
+        // Only THIS endpoint confirms the rename. The generic finally must not
+        // retry a failed name under a weaker storage policy.
+        debePersistir = false;
+        if (_rolLocal() !== "dueno") return J({ error: "Only the owner can change the business name." }, 403);
+        const anterior = { nombre: nombreNegocio, rev: nombreNegocioRev, ts: nombreNegocioTs };
+        const intento = String(body.nombre || "").trim().slice(0, 80);
+        const revIntento = (Number(nombreNegocioRev) || 0) + 1;
+        const tsIntento = Date.now();
+        nombreNegocio = intento;
+        nombreNegocioTs = tsIntento;
+        nombreNegocioRev = revIntento;
+        let guardado = false;
+        // No photo sacrifice or history truncation for a metadata-only rename.
+        try { guardado = (await Promise.resolve(guardarEstadoLocal(true, true))) === true; } catch (_) {}
+        const sigueSiendoIntento = nombreNegocio === intento &&
+          nombreNegocioRev === revIntento && nombreNegocioTs === tsIntento;
+        if (!guardado) {
+          // A Yjs update may arrive while IndexedDB is resolving: never roll
+          // back that independent update, any other records or their revisions.
+          if (sigueSiendoIntento) {
+            nombreNegocio = anterior.nombre;
+            nombreNegocioRev = anterior.rev;
+            nombreNegocioTs = anterior.ts;
+          }
+          return J({ error: "Business name was not saved. Previous saved name is kept." }, 507);
+        }
+        if (!sigueSiendoIntento) return J({ error: "Business name changed while saving. Check the current name and retry." }, 409);
+        // Cache and notify only AFTER the full notebook state is durable.
+        try {
+          const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs;
+          _o.nombreNegocioRev = nombreNegocioRev;
+          localStorage.setItem("f123_owned", JSON.stringify(_o));
+        } catch (_) {}
         try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: { nombre: nombreNegocio } })); } catch (_) {}
         avisarCatalogoCambiado();
         return J({ ok: true, nombreNegocio: nombreNegocio });

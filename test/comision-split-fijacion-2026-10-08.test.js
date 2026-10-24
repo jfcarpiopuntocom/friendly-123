@@ -725,3 +725,21 @@ test('mock-backend comisionarVentasDemo: current-month demo commissions are pend
   assert.ok(delMes.every(v => v.liquidada === false));
   assert.ok(viejas.every(v => v.liquidada === true));
 });
+
+test('P0: tier-only assigned person at 40% beats rack 30% in BOTH engines', () => {
+  const T = newApp().__T;
+  const person = { id: 'tier-person-40', nombre: 'Tier only', comisionBase: 0,
+    metaMensual: 1000, escalasComision: [{ hasta: 100, comision: 40 }] };
+  T.promotoras.push(person);
+  const rack = ruta({ tipo: 'socio', comisionSocio: 30, promotoraId: person.id });
+  const main = T.calcularSplitVenta(rack, 100, 0);
+  const legacy = PB.calcularSplitVenta(rack, 100, 0, 0, null, person);
+  assert.equal(main.montoComisionSocio, 40);
+  assert.equal(legacy.montoComisionSocio, 40);
+  assert.equal(main.montoNetoDueno, 60);
+  assert.equal(legacy.montoNetoDueno, 60);
+  assert.equal(Math.round((legacy.montoComisionSocio + legacy.montoNetoDueno) * 100), 10000);
+  const perProduct = PB.calcularSplitVenta(rack, 100, 0, 0, 25, person);
+  assert.equal(perProduct.montoComisionSocio, 25, 'product overrides assigned person');
+  assert.equal(perProduct.montoNetoDueno, 75);
+});

@@ -140,5 +140,9 @@ test('fragmented update cannot obtain a visible receipt until every encrypted ch
   for (const bytes of held) b.socket.onmessage({ data: await a.context.cifrarBin(null, bytes) });
   a.time(140); await pump(a, b);
   assert.equal(b.applied.filter(x => x.length === 350000).length, 1);
+  // Await a genuine visible ACK after async WebCrypto hashing under parallel load.
+  for (let retry = 0; retry < 100 && a.context.OCLatencia.resumen().n === 0; retry++) {
+    await pump(a, b, 1);
+  }
   assert.equal(a.context.OCLatencia.resumen().n, 1);
 });

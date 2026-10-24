@@ -861,7 +861,13 @@
   }
   .hero-semaforo.verde{background-color:var(--sim-verde); --tc-bg:var(--sim-verde);}
   .hero-semaforo.amarillo{background-color:var(--sim-amarillo); --tc-bg:var(--sim-amarillo);}
-  .hero-semaforo.rojo{background-color:var(--sim-rojo); --tc-bg:var(--sim-rojo);}
+  /* JFC: conservar la señal roja sin un bloque rojo invasivo al entrar. */
+  .hero-semaforo.rojo{background-color:var(--blanco-calido); --tc-bg:var(--blanco-calido);border:1px solid var(--sim-rojo);border-left-width:4px;color:var(--ink);}
+  .hero-semaforo.rojo h2,.hero-semaforo.rojo p{color:var(--ink);-webkit-text-fill-color:var(--ink);}
+  .avisos-hoy{margin:8px 0;border:1px solid var(--linea);border-left:4px solid var(--sim-rojo);border-radius:8px;background:var(--blanco-calido);color:var(--ink);}
+  .avisos-hoy > summary{padding:12px;min-height:44px;box-sizing:border-box;cursor:pointer;font-size:14px;font-weight:700;}
+  .avisos-hoy > summary:focus-visible{outline:3px solid var(--azul-medio);outline-offset:3px;}
+  .avisos-hoy > ul{margin:0;padding:0 12px 12px;}
   .hero-semaforo h2{
     margin:0 0 2px 0;
     font-family:var(--font-serif);
@@ -1738,8 +1744,10 @@
       </div>
     </div>
 
-    <h3 class="seccion" data-i18n="hoy.alertsHeading">Today's alerts</h3>
-    <ul class="lista-alertas" id="listaAlertas"></ul>
+    <details id="ocAvisosHoy" class="avisos-hoy">
+      <summary id="ocAvisosHoyTitulo">Today's alerts</summary>
+      <ul class="lista-alertas" id="listaAlertas"></ul>
+    </details>
     <details id="ocRestockHoy" style="display:none;margin:8px 0 14px;border:1px solid var(--linea,#D7E0E8);border-radius:8px;padding:8px 12px;background:var(--blanco-calido,#fbf5e8);">
       <summary id="ocRestockHoyTitulo" style="cursor:pointer;min-height:32px;font-size:14px;font-weight:700;color:var(--azul-medio,#2c4a68);"></summary>
       <ul class="lista-alertas" id="listaReposicionHoy" style="margin:10px 0 0;"></ul>
@@ -5013,6 +5021,9 @@ async function cargarHoy(){
   // y cualquier señal distinta de stock cero siguen visibles arriba.
   const restockPlegado = (data.alertas || []).filter(a => a.reposicionPlegable === true);
   const alertasVisibles = (data.alertas || []).filter(a => a.reposicionPlegable !== true);
+  document.getElementById("ocAvisosHoyTitulo").textContent = t("hoy.alertsHeading") + " (" + alertasVisibles.length + ")";
+  const colorAviso = ["negro", "rojo", "naranja", "amarillo"].find(color => alertasVisibles.some(a => a.estado === color)) || "verde";
+  document.getElementById("ocAvisosHoy").style.borderLeftColor = colorAviso === "negro" ? "var(--sim-negro-bg)" : "var(--sim-" + colorAviso + ")";
   if (data.alertas.length === 0){
     lista.innerHTML = `<li class="verde" style="background:var(--sim-verde); color:#FFFFFF; -webkit-text-fill-color:#FFFFFF; border:2px solid var(--sim-verde-dk);">${puntito()}${t("hoy.noAlerts")}</li>`;
   } else if (alertasVisibles.length) {

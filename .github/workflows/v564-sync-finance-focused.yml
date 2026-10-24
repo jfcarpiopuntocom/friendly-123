@@ -1,0 +1,23 @@
+name: v564 critical sync and finance checks
+on:
+  push:
+    branches: [work/v564-name-finance-safety-20261022]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+concurrency:
+  group: v564-safety-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: True source-backed E1, E4, session and money tests
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=45000 test/stable-review-integrity.test.js test/comision-split-fijacion-2026-10-08.test.js

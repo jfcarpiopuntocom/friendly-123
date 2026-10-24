@@ -64,32 +64,52 @@
      `guardar()` sigue devolviendo la promesa del resultado REAL de escritura,
      porque mock-backend decide con eso si sale el cartel rojo: prometer un
      true optimista seria justo la mentira que este modulo vino a quitar. */
-  var _pend = null, _reloj = null, _ultimoOk = Promise.resolve(true);
+  var _pend = null, _reloj = null, _confirmaciones = [], _cola = Promise.resolve();
   var AGRUPAR_MS = 400;
 
-  function guardarAgrupado(estado) {
+  function volcarPendiente() {
+    if (!_pend) return;
+    var estado = _pend, confirmar = _confirmaciones;
+    _pend = null; _confirmaciones = [];
+    guardar(estado).then(function (ok) { confirmar.forEach(function (resolve) { resolve(ok); }); });
+  }
+
+  function guardarYa(estado) {
+    if (_reloj) { clearTimeout(_reloj); _reloj = null; }
+    // Flush older snapshots before queuing this exact durable boundary.
+    volcarPendiente();
+    return guardar(estado);
+  }
+
+  function guardarAgrupado(estado, exigirCompleto) {
     if (!SOPORTADO || !estado) return Promise.resolve(false);
+    if (exigirCompleto) return guardarYa(estado);
     /* Primera de la rafaga: va directo, sin esperar. */
     if (!_reloj) {
       /* M3: si guardar rechaza, el next-turn NO deja el reloj colgado. Antes,
          al fallar el guardado en el fin de la rafaga, el reloj se limpiaba
          pero podia haber una escritura pospuesta sin nadie que la disparara. */
-      _ultimoOk = guardar(estado).catch(function () { return false; });
+      var resultado = guardar(estado);
       _reloj = setTimeout(function () {
         _reloj = null;
-        if (_pend) { var e = _pend; _pend = null; _ultimoOk = guardar(e).catch(function () { return false; }); }
+        volcarPendiente();
       }, AGRUPAR_MS);
-      return _ultimoOk;
+      return resultado;
     }
     /* Dentro de la rafaga: se queda solo la mas nueva. */
     _pend = estado;
-    return _ultimoOk;
+    return new Promise(function (resolve) { _confirmaciones.push(resolve); });
   }
 
   /* Guarda el estado completo. Devuelve true SOLO si de verdad quedo escrito:
      mock-backend decide con esto si el aviso rojo sale o no, asi que aqui no se
      puede ser optimista. */
-  async function guardar(estado) {
+  function guardar(estado) {
+    var resultado = _cola.then(function () { return escribir(estado); });
+    _cola = resultado.then(function () {}, function () {});
+    return resultado;
+  }
+  async function escribir(estado) {
     if (!SOPORTADO || !estado || typeof estado !== "object") return false;
     try {
       var db = await abrirDB();
@@ -137,7 +157,16 @@
      a tener la demo y el bug reaparecia en el siguiente arranque. */
   async function borrar() {
     if (!SOPORTADO) return false;
-    try { if (_reloj) { clearTimeout(_reloj); _reloj = null; } _pend = null; } catch (_) {}
+    try {
+      if (_reloj) { clearTimeout(_reloj); _reloj = null; }
+      _pend = null;
+      _confirmaciones.forEach(function (resolve) { resolve(false); }); _confirmaciones = [];
+    } catch (_) {}
+    var resultado = _cola.then(function () { return borrarActual(); });
+    _cola = resultado.then(function () {}, function () {});
+    return resultado;
+  }
+  async function borrarActual() {
     try {
       var db = await abrirDB();
       await new Promise(function (resolve, reject) {
@@ -165,5 +194,5 @@
     } catch (_) { return null; }
   }
 
-  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardar, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO };
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO };
 })();

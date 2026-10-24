@@ -118,6 +118,8 @@
     var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
     var _lastRelayProgressAt = 0;
     var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
+    // Bounded v1 checkpoint repair across socket reconnects (never per socket).
+    var _legacyProbeKey = "", _legacyProbeAttempts = 0;
     var _relayPeerCount = 0, _directReceive = null;
     var _peerId = Math.random().toString(36).slice(2) + Date.now().toString(36);
     var _direct = Object.create(null);
@@ -672,7 +674,10 @@
           catch (_) { clearTimeout(estado.tHead); estado.esperandoHead = false; estado.headLegacy = true; return pedirPagina(sock, estado, true); }
           return;
         }
-        sock.send(JSON.stringify({ k: "pull", v: 2, rev: _pullCursor.rev, seq: _pullCursor.seq, limit: PULL_PAGE_SIZE }));
+        // v1 legacy checkpoint can compact operations without bumping revision.
+        // Probe the actual ciphertext checkpoint, never a stale high-water seq.
+        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : _pullCursor;
+        sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
       }).catch(function () {});
     }
     function procesarHead(sock, estado, r) {
@@ -682,6 +687,25 @@
         Number.isSafeInteger(Number(r.seq)) && Number(r.rev) >= 0 && Number(r.seq) >= 0;
       if (!valido) estado.headLegacy = true;
       else estado.headLegacy = false;
+      if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) < _pullCursor.seq) {
+        var probeKey = r.rev + ":" + r.seq + ":" + _pullCursor.rev + ":" + _pullCursor.seq;
+        if (_legacyProbeKey !== probeKey) { _legacyProbeKey = probeKey; _legacyProbeAttempts = 0; }
+        if (_legacyProbeAttempts >= 2) {
+          // No proof after two probes: keep socket and LOCAL Yjs, stop quota-draining replay.
+          // A genuinely changed relay HEAD may retry; never unlock recovery/PIN here.
+          estado.enCurso = false;
+          estado.rebaseCursor = false;
+          try { log("checkpoint v1 sin prueba: relectura suspendida en " + nombre); } catch (_) {}
+          return Promise.resolve();
+        }
+        _legacyProbeAttempts++;
+        // Old checkpoint revision (v1): the server discarded a prefix without
+        // advancing rev. Local Yjs/journal remain intact until a valid checkpoint
+        // is applied. Re-fetch once from rev -1 to force checkpoint-first recovery.
+        estado.rebaseCursor = true;
+        estado.rebaseFrames = 0;
+        estado.rebaseCipherFrames = 0;
+      }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
@@ -929,6 +953,8 @@
             var antesSV = source === "live" ? Y.encodeStateVector(doc) : null;
             var antesClave = antesSV ? clavePendientes() : null;
             Y.applyUpdate(doc, payload, "red");
+            if (source !== "live" && pullEstado.rebaseCursor)
+              pullEstado.rebaseFrames = (pullEstado.rebaseFrames || 0) + 1;
             if (antesSV) despertarConCambio(antesSV, antesClave);
             try {
               var receipt = Promise.resolve(false);
@@ -964,6 +990,8 @@
         // aplicar todos sus binarios, nunca antes.
         if (d instanceof ArrayBuffer) {
           _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source); }).then(function (ok) {
+            if (source === "pull" && pullEstado.rebaseCursor && ok)
+              pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
           }).catch(function (e) {
             // One corrupted or undecipherable frame must NOT poison the entire
@@ -976,6 +1004,8 @@
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
           _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source); }).then(function (ok) {
+            if (source === "pull" && pullEstado.rebaseCursor && ok)
+              pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
           }).catch(function () { if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++; });
         }
@@ -1001,6 +1031,28 @@
                   try { ws.close(1013, "replay incomplete; retry from applied cursor"); } catch (_) {}
                   try { log("pagina de catch-up no confirmada en " + nombre); } catch (_) {}
                   return;
+                }
+                if (pullEstado.rebaseCursor) {
+                  // Relay c.n counts stored operations, NOT the optional checkpoint.
+                  // One extra validated ciphertext + applied Yjs update is required.
+                  var opCount = c.n; // reject absent/null/string relay counts
+                  if (!Number.isSafeInteger(opCount) || opCount < 0 ||
+                      !pullEstado.rebaseFrames || pullEstado.rebaseCipherFrames !== opCount + 1) {
+                    // Fail closed: never discard a proven cursor without decrypting
+                    // the replacement checkpoint. Retry via ordinary reconnect.
+                    pullEstado.enCurso = false;
+                    try { ws.close(1013, "checkpoint proof missing"); } catch (_) {}
+                    return;
+                  }
+                  // All prior ciphertext was applied in _colaRecepcion. Only now
+                  // may cursor bookkeeping rewind. Y.Doc and its IDB journal stay.
+                  _pullCursor = { rev: -1, seq: 0 };
+                  _appliedPullCursor = { rev: -1, seq: 0 };
+                  _ultimoCursorLimpio = { rev: -1, seq: 0 };
+                  pullEstado.rebaseCursor = false;
+                  pullEstado.rebaseFrames = 0;
+                  pullEstado.rebaseCipherFrames = 0;
+                  _legacyProbeKey = ""; _legacyProbeAttempts = 0; // proven encrypted recovery
                 }
                 return guardarPullCursor(c).then(function () {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
@@ -1903,7 +1955,7 @@
       ultimaAplicacionVisible = Promise.resolve(false);
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
-      var remoto = { nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
       var hay = false;
       COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
@@ -1917,7 +1969,7 @@
       var rolRemoto = (API.meta.get("nombreEsDueno") === true) ? "dueno" : null;
       _aplicando = true;
       try {
-        var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto);
+        var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only real Yjs bridge grants canonical name
         // A2/A3 (JFC 2026-09-10): si el merge sumó algo, avisar a la UI para que
         // (a) lo muestre como alerta dentro de "Today's alerts", no como banner
         // suelto, y (b) re-pinte la vista Hoy (si no, el hero se queda en
