@@ -43,7 +43,10 @@ test('PWA install assets and maskable purpose match the same 123 brand set',()=>
  assert.equal(version.shell,'f123-shell-v577');
  assert.equal(hashes.shell,version.shell);
  assert.match(all,/const CACHE = "f123-shell-v577"/);
- for(const name of Object.values(names))assert.ok(all.includes('./'+name),'SW must cache '+name);
+ for(const name of [names.small,names.favicon,names.apple,names.ico])
+   assert.ok(all.includes('./'+name),'SW must cache lightweight bookmark icon '+name);
+ for(const name of [names.app192,names.app512,names.mask])
+   assert.ok(!all.includes('./'+name),'large installation icons must not consume the full Safari offline cache');
 });
 test('new PNGs are real sized binaries, hashed exactly in the offline integrity manifest',()=>{
  for(const [f,expected] of [[names.small,16],[names.favicon,32],[names.apple,180],[names.app192,192],[names.app512,512],[names.mask,512]]){
@@ -52,7 +55,9 @@ test('new PNGs are real sized binaries, hashed exactly in the offline integrity 
    assert.equal(buf.readUInt32BE(16),expected,f+' width');
    assert.equal(buf.readUInt32BE(20),expected,f+' height');
    const hash=crypto.createHash('sha256').update(buf).digest('hex');
-   assert.equal(hashes.files['./'+f],'sha256-'+hash,f+' immutable hash');
+   if([names.small,names.favicon,names.apple].includes(f))
+     assert.equal(hashes.files['./'+f],'sha256-'+hash,f+' offline hash');
+   else assert.ok(!hashes.files['./'+f],'large installation icon is not precached');
  }
  const ico=read(names.ico);
  assert.equal(ico.readUInt16LE(0),0);
