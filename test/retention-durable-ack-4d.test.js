@@ -1,74 +1,107 @@
 'use strict';
-const {test} = require('node:test');
+const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-
 const source = fs.readFileSync(path.join(__dirname, '../docs/mock-backend.js'), 'utf8');
-const begin = source.indexOf('      if (path === "/api/config/retencion" && method === "PUT") {');
-const end = source.indexOf('      /* LEALTAD (benchmark #5)', begin);
-assert.ok(begin >= 0 && end > begin, 'extract real retention PUT handler');
+const section = (start, end) => {
+  const a = source.indexOf(start), b = source.indexOf(end, a);
+  assert.ok(a !== -1 && b > a, 'exact production source anchors');
+  return source.slice(a, b);
+};
+const put = section('      if (path === "/api/config/retencion" && method === "PUT") {', '      /* LEALTAD (benchmark #5)');
+const storageGuard = section('  let _guardadoEstrictoPendiente = null;', '  function _guardarEstadoLocalAhora(');
+const catalogGuard = section('  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {', '    const _demoRemoto =');
 
-function runner(durable, role='dueno') {
-  let announced = 0, writes = 0, seq = 1;
+function runner(mode, role = 'dueno') {
+  let writes = 0, notified = 0, release, snapshots = [];
   const deps = {
     _rolLocal: () => role,
-    _normRetencion: x => (x && [0,7,14,30].includes(x.dias) ? {id:'retencion',dias:x.dias,rev:x.rev||null} : null),
-    _revNueva: () => ({c:seq++,d:'fixture'}),
-    notified: () => { announced++; },
-    guardarEstadoLocal: async () => { writes++; if (durable === 'throw') throw new Error('quota'); return durable; },
+    _normRetencion: o => o && [0,7,14,30].includes(o.dias) ? { id:'retencion', dias:o.dias, rev:o.rev||null } : null,
+    _revNueva: () => ({ c:2, d:'fixture' }),
+    announced: () => { notified++; },
     J: (body,status=200) => ({body,status}),
+    durable: (strict,snapshot) => {
+      writes++; snapshots.push({strict, snapshot:JSON.parse(JSON.stringify(snapshot))});
+      if (strict && mode === 'deferred') return new Promise(resolve => { release=resolve; });
+      if (strict && mode === 'throw') return Promise.reject(new Error('quota'));
+      return strict ? mode !== false : true;
+    }
   };
-  const factory = new Function('deps', 'const {_rolLocal,_normRetencion,_revNueva,guardarEstadoLocal,J}=deps;\n'
-    + 'const RETENCION_DIAS=[0,7,14,30]; let ajusteRetencion={id:"retencion",dias:7,rev:{c:1,d:"fixture"}};\n'
-    + 'let movimientos=[], selloUltimo="original";\nconst avisarCatalogoCambiado=()=>deps.notified();\nconst mov=(kind,details,announce=true)=>{movimientos.push({kind,details});selloUltimo="mutated";if(announce)avisarCatalogoCambiado();};\n'
-    + 'async function run(body){const path="/api/config/retencion",method="PUT";let debePersistir=true;\n'
-    + 'try {\n' + source.slice(begin,end) + '\n} finally {if(debePersistir) guardarEstadoLocal();}\n'
-    + '} return {run,get:()=>({ajusteRetencion,movimientos,selloUltimo})};');
-  return {...factory(deps), reads: () => ({announced,writes})};
+  const compile = new Function('deps',
+    'const {_rolLocal,_normRetencion,_revNueva,J}=deps;\n'
+    + 'const RETENCION_DIAS=[0,7,14,30];\n'
+    + 'let ajusteRetencion={id:"retencion",dias:7,rev:{c:1,d:"fixture"}};\n'
+    + 'let movimientos=[],selloUltimo="original",_payoutConfirmando=false,_payoutCatalogosPendientes=[];\n'
+    + 'const clonar=o=>JSON.parse(JSON.stringify(o));\n'
+    + 'const avisarCatalogoCambiado=()=>deps.announced();\n'
+    + 'const mov=(kind,details,announce=true)=>{movimientos.push({kind,details});selloUltimo="changed";if(announce)avisarCatalogoCambiado();};\n'
+    + 'const _guardarEstadoLocalAhora=(strict)=>deps.durable(strict,{retencion:ajusteRetencion,movimientos});\n'
+    + storageGuard + '\n'
+    + catalogGuard + '\n'
+    + 'if(remoto.retencion)ajusteRetencion=remoto.retencion;mov("merge-catalogo",{},false);guardarEstadoLocal();return {ok:true};}\n'
+    + 'async function run(body){const path="/api/config/retencion",method="PUT";let debePersistir=true;try{\n'
+    + put + '\n}finally{if(debePersistir)guardarEstadoLocal();}}\n'
+    + 'return {run, merge:aplicarCatalogo, photo:()=>guardarEstadoLocal(), snapshot:()=>({retencion:ajusteRetencion,movimientos:movimientos.slice(),selloUltimo})};');
+  return {...compile(deps), stats:()=>({writes,notified,snapshots}), release:ok=>release(ok)};
 }
 
-test('failed durable storage must be HTTP 507, no catalog announce, no changed policy or log', async () => {
-  const x=runner(false);
-  const old=x.get();
-  const response=await x.run({dias:14});
-  assert.equal(response.status,507);
-  assert.equal(x.get().ajusteRetencion.dias,7);
-  assert.deepEqual(x.get().ajusteRetencion.rev,old.ajusteRetencion.rev);
-  assert.equal(x.get().movimientos.length,0,'no phantom movement after rejected commit');
-  assert.equal(x.get().selloUltimo,'original','audit seal preserved');
-  assert.equal(x.reads().announced,0,'no premature remote publication');
-  assert.equal(x.reads().writes,1,'a single strict attempt, not an extra finally write');
+test('full storage: HTTP 507, unchanged policy, audit seal and no remote announcement',async()=>{
+  const x=runner(false), result=await x.run({dias:14});
+  assert.equal(result.status,507);
+  assert.equal(x.snapshot().retencion.dias,7);
+  assert.equal(x.snapshot().movimientos.length,0);
+  assert.equal(x.snapshot().selloUltimo,'original');
+  assert.equal(x.stats().notified,0);
+  assert.equal(x.stats().writes,1);
 });
-
-test('confirmed durable storage is HTTP 200 with one history and one catalog notification', async () => {
-  const x=runner(true);
-  const response=await x.run({dias:14});
-  assert.equal(response.status,200);
-  assert.equal(x.get().ajusteRetencion.dias,14);
-  assert.equal(x.get().movimientos.length,1);
-  assert.equal(x.reads().announced,1);
-  assert.equal(x.reads().writes,1);
+test('durable success: single history, notice and strict save',async()=>{
+  const x=runner(true),result=await x.run({dias:14});
+  assert.equal(result.status,200);
+  assert.equal(x.snapshot().retencion.dias,14);
+  assert.equal(x.snapshot().movimientos.length,1);
+  assert.equal(x.stats().notified,1);
+  assert.equal(x.stats().writes,1);
 });
-
-test('unauthorized and invalid requests never write any storage', async () => {
-  const x=runner(true);
-  const r=await x.run({dias:999});
-  assert.equal(r.status,400);
-  assert.equal(x.get().movimientos.length,0);
-  assert.equal(x.reads().announced,0);
-  assert.equal(x.reads().writes,0);
-  const denied=runner(true,'empleado');
+test('rejected storage Promise also rolls back',async()=>{
+  const x=runner('throw'),result=await x.run({dias:30});
+  assert.equal(result.status,507);
+  assert.equal(x.snapshot().retencion.dias,7);
+  assert.equal(x.stats().notified,0);
+});
+test('invalid and unauthorized requests do not commit',async()=>{
+  const bad=runner(true),denied=runner(true,'empleado');
+  assert.equal((await bad.run({dias:99})).status,400);
   assert.equal((await denied.run({dias:14})).status,403);
-  assert.equal(denied.reads().writes,0);
+  assert.equal(bad.stats().writes,0);
+  assert.equal(denied.stats().writes,0);
 });
-
-test('a rejected IndexedDB promise also rolls back without announcing', async () => {
-  const x=runner('throw');
-  const response=await x.run({dias:30});
-  assert.equal(response.status,507);
-  assert.equal(x.get().ajusteRetencion.dias,7);
-  assert.equal(x.get().movimientos.length,0);
-  assert.equal(x.reads().announced,0);
-  assert.equal(x.reads().writes,1);
+test('incoming newer catalog and background photo survive rejected retention without stale snapshot',async()=>{
+  const x=runner('deferred');
+  const pending=x.run({dias:14});
+  assert.equal(x.snapshot().retencion.dias,14);
+  const remote={retencion:{id:'retencion',dias:30,rev:{c:9,d:'remote'}}};
+  assert.equal(x.merge(remote,'dueno',true),false,'real catalog guard queues while retention is pending');
+  const photo=x.photo();
+  assert.equal(x.stats().writes,1,'background photo snapshot deferred');
+  x.release(false);
+  const result=await pending;
+  await photo;
+  assert.equal(result.status,507);
+  assert.equal(x.snapshot().retencion.dias,30,'newer remote retention preserved');
+  assert.deepEqual(x.snapshot().movimientos.map(m=>m.kind),['merge-catalogo'],'real merge audit preserved');
+  assert.equal(x.stats().notified,0);
+  const backgrounds=x.stats().snapshots.filter(s=>!s.strict);
+  assert.ok(backgrounds.length>=1);
+  assert.ok(backgrounds.every(s=>s.snapshot.retencion.dias===30),'photo cannot resurrect rejected local 14');
+});
+test('successful local ACK then remote merge: both ordered with no dropped audit',async()=>{
+  const x=runner('deferred'), pending=x.run({dias:14});
+  assert.equal(x.merge({retencion:{id:'retencion',dias:30,rev:{c:9,d:'remote'}}},'dueno',true),false);
+  x.release(true);
+  const result=await pending;
+  assert.equal(result.status,200);
+  assert.equal(x.snapshot().retencion.dias,30);
+  assert.deepEqual(x.snapshot().movimientos.map(m=>m.kind),['config-retencion','merge-catalogo']);
+  assert.equal(x.stats().snapshots[0].snapshot.retencion.dias,14);
 });
