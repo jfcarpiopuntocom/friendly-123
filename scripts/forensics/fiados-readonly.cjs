@@ -51,10 +51,19 @@ function analyze({notebook,ledger,date,term='',timeZone='America/Guayaquil'}){
     cargos:out,conteos:out.reduce((acc,r)=>(acc[r.estado]=(acc[r.estado]||0)+1,acc),{})};
 }
 function present(r,{fullIds=false}={}){
- const mask=id=>fullIds?String(id||''):String(id||'').replace(/^(.{0,})(.{4})$/,(_m,a,b)=>'…'+b);
+ // Privacy: a short customer ID must never be printed unmasked. Each original
+ // gets a stable alias inside THIS report only, without keeping any lookup.
+ const aliases=new Map();
+ const mask=id=>{
+   const raw=String(id||'');
+   if(fullIds||!raw)return raw;
+   if(!aliases.has(raw))aliases.set(raw,'ID-'+(aliases.size+1));
+   return aliases.get(raw);
+ };
  return {...r,cargos:r.cargos.map(x=>({...x,cargoId:mask(x.cargoId),
     clienteCargoId:mask(x.clienteCargoId),ventaId:x.ventaId?mask(x.ventaId):null,
-    clienteVentaId:x.clienteVentaId?mask(x.clienteVentaId):null}))};
+    clienteVentaId:x.clienteVentaId?mask(x.clienteVentaId):null,
+    motivo:fullIds?x.motivo:'[texto privado omitido]'}))};
 }
 module.exports={analyze,present};
 if(require.main===module){
