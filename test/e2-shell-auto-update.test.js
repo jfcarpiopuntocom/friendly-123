@@ -42,7 +42,7 @@ test("E2: gate recomputes SW version on controllerchange and broadcast, never in
   function emit(type,ev={}){for(const fn of [...(listeners.get(type)||[])])fn(ev);}
   vm.runInNewContext(auth.slice(start,end),{
     navigator:{serviceWorker:sw},document:{getElementById:id=>id==="oc-gate-build"?el:null},
-    fetch:async()=>{fetches++;return {ok:true,json:async()=>({version:"1.0",shell:serverShell})};},
+    fetch:async()=>{fetches++;return {ok:true,json:async()=>({version:"1.0",releaseName:"v569",shell:serverShell})};},
     setTimeout:()=>1,clearTimeout(){},Date,console
   });
   await flush();
@@ -50,7 +50,7 @@ test("E2: gate recomputes SW version on controllerchange and broadcast, never in
   assert.doesNotMatch(el.textContent,/Purge|reload/i);
   activeShell=serverShell;
   emit("controllerchange");await flush();
-  assert.match(el.textContent,/shell-v560/);
+  assert.equal(el.textContent,"v569");
   assert.doesNotMatch(el.textContent,/vieja|Purge|pendiente/);
   assert.equal(el.style.color,"");
   serverShell="f123-shell-v561";
