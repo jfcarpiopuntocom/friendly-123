@@ -58,7 +58,7 @@ function present(r,{fullIds=false}={}){
 }
 module.exports={analyze,present};
 if(require.main===module){
- const args=process.argv.slice(2),opt=n=>args[args.indexOf(n)+1];
+ const args=process.argv.slice(2),opt=n=>{const i=args.indexOf(n);return i<0?undefined:args[i+1];};
  const a=opt('--cuaderno'),b=opt('--hechos'),date=opt('--fecha');
  if(!a||!b||!/^\d{4}-\d{2}-\d{2}$/.test(date||'')){
    console.error('Uso: node scripts/forensics/fiados-readonly.cjs --cuaderno export.json --hechos hechos.json --fecha 2026-09-29 [--texto Cerveza] [--full-ids]');
