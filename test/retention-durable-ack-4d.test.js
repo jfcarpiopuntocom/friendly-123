@@ -12,6 +12,7 @@ const section = (start, end) => {
 const put = section('      if (path === "/api/config/retencion" && method === "PUT") {', '      /* LEALTAD (benchmark #5)');
 const storageGuard = section('  let _guardadoEstrictoPendiente = null;', '  function _guardarEstadoLocalAhora(');
 const catalogGuard = section('  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {', '    const _demoRemoto =');
+const pinCompletion = section('    if (promesasPins.length) Promise.all(promesasPins)', '    // Ambos caminos de sync');
 
 function runner(mode, role = 'dueno') {
   let writes = 0, notified = 0, release, snapshots = [];
@@ -42,7 +43,8 @@ function runner(mode, role = 'dueno') {
     + 'if(remoto.retencion)ajusteRetencion=remoto.retencion;mov("merge-catalogo",{},false);guardarEstadoLocal();return {ok:true};}\n'
     + 'async function run(body){const path="/api/config/retencion",method="PUT";let debePersistir=true;try{\n'
     + put + '\n}finally{if(debePersistir)guardarEstadoLocal();}}\n'
-    + 'return {run, merge:aplicarCatalogo, photo:()=>guardarEstadoLocal(), setPayoutActive:x=>{_payoutConfirmando=x;}, drainPayout:()=>{_payoutConfirmando=false;let n=0;while(_payoutCatalogosPendientes.length){if(++n>5)throw Error("recursive queue");const q=_payoutCatalogosPendientes.shift();aplicarCatalogo(q.remoto,q.rolRemoto,q.nombreCanonicoYjs);}}, snapshot:()=>({retencion:ajusteRetencion,movimientos:movimientos.slice(),selloUltimo})};');
+    + 'function finishPin(pin){const promesasPins=[pin],cambioPersistible=false,remoto={deviceNombre:"synthetic"},window={};' + pinCompletion + '}\n'
+    + 'return {run, finishPin, merge:aplicarCatalogo, photo:()=>guardarEstadoLocal(), setPayoutActive:x=>{_payoutConfirmando=x;}, drainPayout:()=>{_payoutConfirmando=false;let n=0;while(_payoutCatalogosPendientes.length){if(++n>5)throw Error("recursive queue");const q=_payoutCatalogosPendientes.shift();aplicarCatalogo(q.remoto,q.rolRemoto,q.nombreCanonicoYjs);}}, snapshot:()=>({retencion:ajusteRetencion,movimientos:movimientos.slice(),selloUltimo})};');
   return {...compile(deps), stats:()=>({writes,notified,snapshots}), release:ok=>release(ok)};
 }
 
@@ -117,4 +119,19 @@ test('retention and payout barriers hand off a remote merge without requeue loop
   x.drainPayout();
   assert.equal(x.snapshot().retencion.dias,30);
   assert.deepEqual(x.snapshot().movimientos.map(m=>m.kind),['merge-catalogo']);
+});
+
+test('PIN merge started before retention keeps its audit after failed retention',async()=>{
+  const x=runner('deferred');
+  let finish;
+  x.finishPin(new Promise(resolve=>{finish=resolve}));
+  const pending=x.run({dias:14});
+  finish(true);
+  await new Promise(resolve=>setImmediate(resolve));
+  x.release(false);
+  assert.equal((await pending).status,507);
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(x.snapshot().retencion.dias,7);
+  assert.deepEqual(x.snapshot().movimientos.map(m=>m.kind),['merge-catalogo']);
+  assert.ok(x.stats().snapshots.some(s=>!s.strict && s.snapshot.movimientos.some(m=>m.kind==='merge-catalogo')));
 });

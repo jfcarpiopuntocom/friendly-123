@@ -4149,7 +4149,8 @@
       mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
       guardarEstadoLocal();
     }
-    if (promesasPins.length) Promise.all(promesasPins).then(function (resultados) {
+    if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
+      if (_retencionPendiente) await _retencionPendiente; // A prior PIN merge must not append audit inside retention rollback.
       var huboExito = resultados.some(Boolean);
       var algunoPendiente = resultados.some(function (ok) { return ok !== true; });
       if (algunoPendiente) {
