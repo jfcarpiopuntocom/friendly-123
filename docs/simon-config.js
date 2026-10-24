@@ -126,7 +126,7 @@
         var vN = o.vencNaranja != null ? Number(o.vencNaranja) : 7;
         var porVenc = null;
         if (dias != null) {
-          if (dias < 0) porVenc = { estado: "rojo", nivel: 3, mensaje: "Expired " + Math.abs(dias) + " day" + (Math.abs(dias) === 1 ? "" : "s") + " ago — pull it" };
+          if (dias < 0) porVenc = { estado: "rojo", nivel: 3, mensaje: "Expired " + Math.abs(dias) + " day" + (Math.abs(dias) === 1 ? "" : "s") + " ago" };
           else if (dias <= vR) porVenc = { estado: "rojo", nivel: dias <= 1 ? 3 : 2, mensaje: "Expires in " + dias + " day" + (dias === 1 ? "" : "s") + " — sell it now" };
           else if (dias <= vN) porVenc = { estado: "naranja", nivel: dias <= Math.ceil(vN * 0.7) ? 2 : 1, mensaje: "Expires in " + dias + " days — sell it first" };
         }

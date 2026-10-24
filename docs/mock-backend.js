@@ -1310,10 +1310,10 @@
      distintas. El sacrificio decide QUE se cede cuando no cabe; el espejo hace
      que aunque no quepa NADA en localStorage, el estado completo quede a salvo
      igual en un almacen que si crece con el disco. */
-  function _espejarEnIDB(completo) {
+  function _espejarEnIDB(completo, exigirCompleto = false) {
     try {
       if (!window.OCEstadoIDB) return Promise.resolve(false);
-      return window.OCEstadoIDB.guardar(completo).catch(() => false);
+      return window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(() => false);
     } catch (_) { return Promise.resolve(false); }
   }
   /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
@@ -1333,12 +1333,28 @@
       localStorage.setItem("f123_admins_pins", JSON.stringify(_adminPins));
     } catch (_) {}
   }
+  let _guardadoEstrictoPendiente = null;
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
+    // Capture background snapshots only after the awaiting caller commits or rolls back.
+    if (!exigirCompleto && _guardadoEstrictoPendiente) {
+      return _guardadoEstrictoPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
+    }
+    const resultado = _guardarEstadoLocalAhora(exigirCompleto, preservarFotos);
+    if (exigirCompleto && resultado && typeof resultado.then === "function") {
+      const pendiente = Promise.resolve(resultado);
+      _guardadoEstrictoPendiente = pendiente;
+      const terminar = () => { if (_guardadoEstrictoPendiente === pendiente) _guardadoEstrictoPendiente = null; };
+      pendiente.then(terminar, terminar);
+      return pendiente;
+    }
+    return resultado;
+  }
+  function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
     _localRev++;
     const completo = estadoActualExportable();
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
     const destino = activo === "A" ? "B" : "A";
-    const _idb = _espejarEnIDB(completo);
+    const _idb = _espejarEnIDB(completo, exigirCompleto);
     try {
       localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
       localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
@@ -5987,7 +6003,7 @@
            stock sale solo despues de guardar. Mismo patron que
            _confirmarEquipoORevertir. test/venta-durable-deficit.test.js */
         let _ventaGuardada = false;
-        try { _ventaGuardada = await guardarEstadoLocal(); } catch (_) {}
+        try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
           p.stockActual = _fotoVenta.stock;
           ventas.length = _fotoVenta.ventasLen;
@@ -7576,6 +7592,7 @@
         // Only THIS endpoint confirms the rename. The generic finally must not
         // retry a failed name under a weaker storage policy.
         debePersistir = false;
+        if (_rolLocal() !== "dueno") return J({ error: "Only the owner can change the business name." }, 403);
         const anterior = { nombre: nombreNegocio, rev: nombreNegocioRev, ts: nombreNegocioTs };
         const intento = String(body.nombre || "").trim().slice(0, 80);
         const revIntento = (Number(nombreNegocioRev) || 0) + 1;

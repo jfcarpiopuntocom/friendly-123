@@ -14,7 +14,7 @@ const handle=new Function('ctx','body',`with(ctx){const path="/api/instancia/nom
 function fixture(storage){
   const events=[], writes=[], state={nombreNegocio:'Original fixture',nombreNegocioTs:20,nombreNegocioRev:7};
   const owned={nombreNegocio:'Original fixture',nombreNegocioTs:20,nombreNegocioRev:7};
-  const ctx={...state,Date,localStorage:{
+  const ctx={...state,Date,_rolLocal:()=> 'dueno',localStorage:{
     getItem:k=>k==='f123_owned'?JSON.stringify(owned):null,
     setItem:(k,v)=>{writes.push([k,v]);if(k==='f123_owned')Object.assign(owned,JSON.parse(v));}
   },guardarEstadoLocal:storage,window:{dispatchEvent:e=>events.push(e.type)},
@@ -62,9 +62,25 @@ test('E4: failure does not roll back a different name received during pending sa
   assert.deepEqual(f.events,[]);
 });
 
+test('E4: confirmed save superseded during wait returns 409 without overwriting newer name',async()=>{
+  let finish;
+  const f=fixture(()=>new Promise(resolve=>{finish=resolve;}));
+  const request=f.request('Superseded local attempt');
+  await Promise.resolve();
+  f.ctx.nombreNegocio='Newer shared name';
+  f.ctx.nombreNegocioRev=9;f.ctx.nombreNegocioTs=333;
+  finish(true);
+  const r=await request;
+  assert.equal(r.status,409);assert.notEqual(r.ok,true);
+  assert.equal(f.ctx.nombreNegocio,'Newer shared name');
+  assert.equal(f.ctx.nombreNegocioRev,9);
+  assert.equal(f.writes.length,0);assert.deepEqual(f.events,[]);
+});
+
 test('E4: reopening from durable A/B after a quota failure never displays the rejected name',async()=>{
   const {browser}=require('./helpers/browser.cjs');
   const app=browser();
+  app.OCAuth={rolActual:()=> 'dueno',esDemo:()=>false};
   await app.request('/api/instancia/nombre','POST',{nombre:'Already durable'});
   const save=app.localStorage.setItem.bind(app.localStorage);
   app.localStorage.setItem=(key,value)=>{
