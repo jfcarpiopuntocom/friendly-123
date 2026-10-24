@@ -179,7 +179,7 @@
   // Guarda una foto por su hash y DEVUELVE el hash — atajo para quien captura.
   async function guardarFotoContenido(dataUrl) {
     const hash = await hashDeDataUrl(dataUrl);
-    await guardarPorHash(hash, dataUrl);
+    if (!await guardarPorHash(hash, dataUrl)) throw new Error('Photo blob was not saved');
     return hash;
   }
 
@@ -487,7 +487,7 @@
           /* COPY-ONLY de verdad: no pisar una foto IDB mas nueva con la sombra
              legacy que conservamos por seguridad. Primero blindamos esos bytes
              por hash; despues llenamos el slot por-id solo si esta vacio. */
-          try { await guardarFotoContenido(dataUrl); } catch (_) {}
+          try { await guardarFotoContenido(dataUrl); } catch (_) { todoOk = false; }
           const yaIdb = await leerFotoSoloIdb(id);
           if (!yaIdb) {
             const ok = await guardarFoto(id, dataUrl);
