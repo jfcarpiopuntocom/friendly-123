@@ -179,7 +179,7 @@
   // Guarda una foto por su hash y DEVUELVE el hash — atajo para quien captura.
   async function guardarFotoContenido(dataUrl) {
     const hash = await hashDeDataUrl(dataUrl);
-    await guardarPorHash(hash, dataUrl);
+    if (!await guardarPorHash(hash, dataUrl)) throw new Error('Photo blob was not saved');
     return hash;
   }
 
@@ -343,7 +343,7 @@
       if (!a || typeof a.leerFotosDbPreAislamiento !== "function") return { encontrada:false, perchas:0, blobs:0 };
       const vieja = await a.leerFotosDbPreAislamiento();
       if (!vieja) return { encontrada:false, perchas:0, blobs:0 };
-      let perchas = 0, blobs = 0;
+      let perchas = 0, blobs = 0, blobsPendientes = 0;
       const porId = vieja.perchas || {};
       const porHash = vieja.blobs || {};
       const encontradasPerchas = Object.keys(porId).length;
@@ -355,7 +355,7 @@
         try {
           // Toda foto vieja se preserva por hash, incluso si el mismo id ya tiene
           // una foto mas nueva en la DB actual.
-          await guardarFotoContenido(bytes);
+          try { await guardarFotoContenido(bytes); } catch (_) { blobsPendientes++; }
           const actual = await leerFotoSoloIdb(id);
           if (!actual && await guardarFoto(id, bytes)) perchas++;
         } catch (_) {}
@@ -366,13 +366,14 @@
         if (!hash || !bytes) continue;
         try {
           const actual = await leerPorHash(hash);
-          if (!actual && await guardarPorHash(hash, bytes)) blobs++;
-        } catch (_) {}
+          if (!actual && !await guardarPorHash(hash, bytes)) blobsPendientes++;
+          else if (!actual) blobs++;
+        } catch (_) { blobsPendientes++; }
       }
 
       try {
         localStorage.setItem("f123_fotos_db_preaislamiento_v1", JSON.stringify({
-          copiadaEn: Date.now(), perchas: perchas, blobs: blobs
+          copiadaEn: Date.now(), perchas: perchas, blobs: blobs, blobsPendientes: blobsPendientes
         }));
       } catch (_) {}
       return {
@@ -380,7 +381,8 @@
         encontradasPerchas:encontradasPerchas,
         encontradosBlobs:encontradosBlobs,
         perchas:perchas,
-        blobs:blobs
+        blobs:blobs,
+        blobsPendientes:blobsPendientes
       };
     } catch (err) {
       try { console.warn("[idb-fotos] G10 rescate pre-aislamiento pendiente:", err && err.message ? err.message : err); } catch (_) {}
@@ -402,7 +404,7 @@
       const porId = vieja.perchas || {}, porHash = vieja.blobs || {};
       const encontradasPerchas = Object.keys(porId).length;
       const encontradosBlobs = Object.keys(porHash).length;
-      let perchas = 0, blobs = 0;
+      let perchas = 0, blobs = 0, blobsPendientes = 0;
 
       for (const id of Object.keys(porId)) {
         const bytes = porId[id];
@@ -410,7 +412,7 @@
         try {
           // Conserva SIEMPRE la evidencia por su hash real; nunca confia en un
           // nombre de clave para decidir el contenido.
-          await guardarFotoContenido(bytes);
+          try { await guardarFotoContenido(bytes); } catch (_) { blobsPendientes++; }
           const actual = await leerFotoSoloIdb(id);
           if (!actual && await guardarFoto(id, bytes)) perchas++;
         } catch (_) {}
@@ -425,8 +427,9 @@
           // hash REAL y no perpetua una asociacion falsa.
           const objetivo = real || hash;
           const actual = await leerPorHash(objetivo);
-          if (!actual && await guardarPorHash(objetivo, bytes)) blobs++;
-        } catch (_) {}
+          if (!actual && !await guardarPorHash(objetivo, bytes)) blobsPendientes++;
+          else if (!actual) blobs++;
+        } catch (_) { blobsPendientes++; }
       }
 
       return {
@@ -434,7 +437,8 @@
         encontradasPerchas,
         encontradosBlobs,
         perchas,
-        blobs
+        blobs,
+        blobsPendientes
       };
     } catch (err) {
       try { console.warn("[idb-fotos] G10b rescate raw localStorage pendiente:", err && err.message ? err.message : err); } catch (_) {}
@@ -487,7 +491,7 @@
           /* COPY-ONLY de verdad: no pisar una foto IDB mas nueva con la sombra
              legacy que conservamos por seguridad. Primero blindamos esos bytes
              por hash; despues llenamos el slot por-id solo si esta vacio. */
-          try { await guardarFotoContenido(dataUrl); } catch (_) {}
+          try { await guardarFotoContenido(dataUrl); } catch (_) { todoOk = false; }
           const yaIdb = await leerFotoSoloIdb(id);
           if (!yaIdb) {
             const ok = await guardarFoto(id, dataUrl);
