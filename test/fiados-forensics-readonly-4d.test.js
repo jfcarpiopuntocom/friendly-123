@@ -42,5 +42,16 @@ test('read-only report redacts opaque identifiers unless explicitly selected',()
  const redacted=present(out);
  assert.ok(!JSON.stringify(redacted).includes('receipt-sensitive'));
  assert.ok(!JSON.stringify(redacted).includes('customer-other'));
+ assert.ok(!JSON.stringify(redacted).includes('SALE ON CREDIT'), 'no private motive text by default');
  assert.equal(present(out,{fullIds:true}).cargos[0].cargoId,'receipt-sensitive');
+});
+
+test('privacy: even 1-character customer identifiers are replaced by report-scoped aliases',()=>{
+ const raw=analyze({notebook:{ventas:[],productos:[]},
+   ledger:{hechos:[receipt('a','b')]},date:dateLabel});
+ const safe=JSON.stringify(present(raw));
+ assert.equal(safe.includes('"clienteCargoId": "b"'),false);
+ assert.equal(safe.includes('"cargoId": "a"'),false);
+ assert.match(safe,/ID-1/);
+ assert.match(safe,/ID-2/);
 });
