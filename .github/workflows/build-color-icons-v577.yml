@@ -19,11 +19,15 @@ jobs:
       - name: Image processing dependency
         run: pip install Pillow==11.3.0
       - name: 23 fidelity checks and lossless PNG/ICO exports
-        run: python scripts/brand/build-pwa-123.py | tee /tmp/color-proof.json
+        run: |
+          set -euo pipefail
+          python scripts/brand/build-pwa-123.py | tee /tmp/color-proof.json
+      - name: Generate exact SHA-256 shell manifest for icon binary assets
+        run: node scripts/gen-manifest.js
       - name: Commit binary assets, no user data or app logic
         run: |
           set -euo pipefail
-          git add docs/icons/f123-color-v577-*.png docs/favicon-v577.ico
+          git add docs/icons/f123-color-v577-*.png docs/favicon-v577.ico docs/version-manifest.json
           if git diff --cached --quiet; then
             echo "Icons already generated"; exit 0
           fi
