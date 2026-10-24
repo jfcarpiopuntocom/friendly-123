@@ -2,7 +2,7 @@
 // TDD prototype. Synthetic memory only. No live license, network, payment, or real IndexedDB.
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {createJournal}=require('../scripts/prototypes/fiados-journal-idb.cjs');
-function fixture({legacyData,quota=false,driverBroken=false,stale=false}={}){
+function fixture({legacyData,quota=false,driverBroken=false,stale=false,verifiedLegacyRoom=false}={}){
  const data=new Map(),legacy=new Map(),stats={cas:0,localWrites:0};
  const key='f123_customer_allocation_intent_v1:client1';
  if(legacyData)legacy.set(key,JSON.stringify(legacyData));
@@ -14,7 +14,7 @@ function fixture({legacyData,quota=false,driverBroken=false,stale=false}={}){
      data.set(k,JSON.parse(JSON.stringify(next)));return true;}
  };
  const localStorage={getItem:k=>legacy.get(k)||null,setItem:(k,v)=>{stats.localWrites++;if(quota)throw Error('QuotaExceededError');legacy.set(k,v);}};
- const journal=createJournal({driver,localStorage,room:'synthetic-store-A'});
+ const journal=createJournal({driver,localStorage,room:'synthetic-store-A',verifiedLegacyRoom});
  const intent={opId:'customer-allocation:operation1',paymentOpId:'customer-payment:operation1',
    monto:25,partes:[{cargoKey:'cargo:synthetic',monto:25}],motivo:'Abono'};
  return {key,journal,intent,data,legacy,stats,driver,localStorage};
@@ -51,7 +51,7 @@ test('T4: simultaneous attempts with different operation ids cannot replace each
  assert.ok([f.intent.opId,other.opId].includes(saved.intent.opId));
 });
 test('T5: preexisting legacy reference is adopted, never replaced with a new id',async()=>{
- const f=fixture({legacyData:{opId:'customer-allocation:old',paymentOpId:'customer-payment:old',
+ const f=fixture({verifiedLegacyRoom:true,legacyData:{opId:'customer-allocation:old',paymentOpId:'customer-payment:old',
    monto:5,motivo:'Abono',partes:[{cargoKey:'cargo:legacy',monto:5}]}});
  await assert.rejects(f.journal.begin(f.key,f.intent),e=>e.code==='PENDING_PAYMENT_REVIEW_REQUIRED');
  const old=JSON.parse(f.legacy.get(f.key));
@@ -86,5 +86,12 @@ test('T10: even a one-character room or invalid payload cannot be silently chang
  const f=fixture();
  await assert.rejects(f.journal.begin(f.key,{...f.intent,monto:0}),e=>e.code==='INVALID_AMOUNT');
  await assert.rejects(f.journal.begin('another-key',f.intent),e=>e.code==='INVALID_KEY');
+ assert.equal(f.data.size,0);
+});
+
+test('T11: an unscoped legacy receipt cannot silently migrate across store rooms',async()=>{
+ const f=fixture({legacyData:{opId:'customer-allocation:old',paymentOpId:'customer-payment:old',
+   monto:5,motivo:'Abono',partes:[{cargoKey:'cargo:legacy',monto:5}]}});
+ await assert.rejects(f.journal.read(f.key),e=>e.code==='LEGACY_ROOM_UNVERIFIED');
  assert.equal(f.data.size,0);
 });
