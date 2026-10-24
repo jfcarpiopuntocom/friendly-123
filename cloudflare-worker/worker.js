@@ -837,7 +837,8 @@ function resumirPagos(pagos) {
 }
 
 function fechaCalendario(input) {
-  const s = String(input || "");
+  if (typeof input !== "string") return null;
+  const s = input;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
   const [y, m, d] = s.split("-").map(Number), check = new Date(0);
   check.setUTCFullYear(y, m - 1, d);
