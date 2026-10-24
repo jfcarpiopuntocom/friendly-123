@@ -64,6 +64,19 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
 });
 
 
+test('E4 RED: legacy owner with equal rev and future clock must not replace a saved store name',()=>{
+  const device=browser(),apply=(name,rev,ts)=>device.OCSync.aplicarCatalogo({
+    ubicaciones:[],productos:[],nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:ts
+  },'dueno',false);
+  apply('Correct store',7,1000);
+  assert.equal(device.catalog().nombreNegocio,'Correct store');
+  apply('Old device stale store',7,99999999);
+  assert.equal(device.catalog().nombreNegocio,'Correct store',
+    'same revision is NOT a fresh owner rename, regardless of device clock');
+  apply('Verified newer revision',8,1001);
+  assert.equal(device.catalog().nombreNegocio,'Verified newer revision');
+});
+
 test('E1: legacy v1 checkpoint HEAD behind stored cursor replays checkpoint ONCE, not stale empty pages forever', async () => {
   const source=fs.readFileSync(path.resolve(__dirname,'../docs/sync-yjs.js'),'utf8');
   const start=source.indexOf('    function pedirPagina(sock, estado, sinHead) {');
@@ -122,22 +135,22 @@ test('E1 v1 checkpoint repair has a fixed per-channel quota across reconnects',a
   assert.equal(sent.length,3,'only a truly changed HEAD allows fresh recovery');
 });
 
-test('E4 legacy owner timestamp tie-break survives until shared Yjs is canonical',()=>{
+test('E4 owner higher revision wins; equal-rev legacy clock never overrides canonical Yjs',()=>{
   const device=browser();
   const apply=(name,rev,ts,yjs=false)=>device.OCSync.aplicarCatalogo({
     ubicaciones:[],productos:[],nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:ts,
     ...(yjs?{_nombreDesdeYjs:true}:{})
   },'dueno',yjs);
   apply('Old store',4,1000);
-  apply('Legit non-Yjs owner rename',4,2000);
+  apply('Legit non-Yjs owner rename',5,2000);
   assert.equal(device.catalog().nombreNegocio,'Legit non-Yjs owner rename');
-  device.OCYjs={meta:{get:key=>key==='nombreNegocio'?'Legit non-Yjs owner rename':key==='nombreRev'?4:null}};
-  apply('Stale future-clock legacy store',4,9999999);
+  device.OCYjs={meta:{get:key=>key==='nombreNegocio'?'Legit non-Yjs owner rename':key==='nombreRev'?5:null}};
+  apply('Stale future-clock legacy store',5,9999999);
   assert.equal(device.catalog().nombreNegocio,'Legit non-Yjs owner rename',
     'known canonical Yjs name beats equal-revision legacy wall clocks');
-  apply('Yjs owner canonical',4,500,true);
+  apply('Yjs owner canonical',5,500,true);
   assert.equal(device.catalog().nombreNegocio,'Yjs owner canonical');
-  apply('Explicit newer revision',5,501);
+  apply('Explicit newer revision',6,501);
   assert.equal(device.catalog().nombreNegocio,'Explicit newer revision');
 });
 
