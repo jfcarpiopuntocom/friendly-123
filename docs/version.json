@@ -3,7 +3,7 @@
   "fecha": "2026-10-24",
   "changelog": "v569 LIVE: photo saving confirms stored bytes; recovery of older photos retains failed copies for retry. No customer data migration.",
   "requerida": false,
-  "shell": "f123-shell-v570",
+  "shell": "f123-shell-v571",
   "apagar": [],
   "releaseName": "v569",
   "cacheGeneration": "golden128"
