@@ -1336,7 +1336,11 @@
     } catch (_) {}
   }
   let _guardadoEstrictoPendiente = null;
+  let _retencionConfirmando = false, _retencionPendiente = null;
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
+    // Retention rollback must finish before any background photo captures RAM.
+    if (!exigirCompleto && _retencionPendiente)
+      return _retencionPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
     // Capture background snapshots only after the awaiting caller commits or rolls back.
     if (!exigirCompleto && _guardadoEstrictoPendiente) {
       return _guardadoEstrictoPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
@@ -3485,7 +3489,7 @@
     } catch (_) { return null; }
   }
   function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
-    if (_payoutConfirmando) {
+    if (_payoutConfirmando || _retencionConfirmando) {
       _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
     }
@@ -5063,7 +5067,7 @@
     // A legacy browser without cross-tab locks must not bypass the visible
     // compatibility guard by invoking a write directly. Reads stay available.
     if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
-    if (!escribe) { if (_payoutPendiente) await _payoutPendiente; return _fetchInterno(url, opts); }
+    if (!escribe) { if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
     const ejecutar=()=>{
       const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
@@ -6873,16 +6877,29 @@
         const n = _normRetencion({ id: "retencion", dias: body && body.dias });
         if (!n) return J({ error: "Choose 0, 7, 14 or 30 days." }, 400);
         const anterior = ajusteRetencion, len = movimientos.length, sello = selloUltimo;
-        n.rev = _revNueva(); ajusteRetencion = n;
-        mov("config-retencion", { dias: n.dias }, false);
-        let duradero = false;
-        try { duradero = await guardarEstadoLocal(true, true); } catch (_) {}
-        if (!duradero) {
-          ajusteRetencion = anterior; movimientos.length = len; selloUltimo = sello;
-          return J({ error: "Payment hold was NOT saved. Free up storage and retry." }, 507);
+        let liberar;
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberar = resolve; });
+        try {
+          n.rev = _revNueva(); ajusteRetencion = n;
+          mov("config-retencion", { dias: n.dias }, false);
+          let duradero = false;
+          try { duradero = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!duradero) {
+            ajusteRetencion = anterior; movimientos.length = len; selloUltimo = sello;
+            return J({ error: "Payment hold was NOT saved. Free up storage and retry." }, 507);
+          }
+          avisarCatalogoCambiado();
+          return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
+        } finally {
+          _retencionConfirmando = false; _retencionPendiente = null;
+          try {
+            if (!_payoutConfirmando) while (_payoutCatalogosPendientes.length) {
+              const siguiente = _payoutCatalogosPendientes.shift();
+              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
+            }
+          } finally { liberar(); }
         }
-        avisarCatalogoCambiado();
-        return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
       }
       /* LEALTAD (benchmark #5). GET/PUT de la regla global y cuenta por cliente
          derivada de las ventas (no hay contador que pueda divergir). */
