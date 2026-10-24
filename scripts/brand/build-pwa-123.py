@@ -11,7 +11,7 @@ import colorsys
 import io
 import json
 import subprocess
-from PIL import Image, ImageOps, ImageFilter
+from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "docs/img/logo-720.png"
@@ -71,20 +71,24 @@ def write():
     top=max(0,min(y for x,y in fg)-2)
     bottom=min(h,max(y for x,y in fg)+3)
     crop=src.crop((left,top,right,bottom))
-    # The wordmark's yellow hyphen shares the left edge with the magenta 1.
-    # Preserve only pixels within the official 1/2/3 color silhouettes and
-    # their original navy outline; never recolor any selected digit pixel.
-    digit_ink=Image.new("L",src.size,0)
-    ink_px=digit_ink.load()
-    for points in families.values():
-        for x,y in points:ink_px[x,y]=255
-    allowed=digit_ink.filter(ImageFilter.MaxFilter(19)).crop((left,top,right,bottom))
+    # Precise boundary between the yellow hyphen and the magenta 1:
+    # at each scanline, keep the original digit pixels and inner navy counters,
+    # clipping ONLY material left of the numeral's row-specific magenta contour.
+    # Do not apply dilation to digit holes: it damages the blue 3 counters.
+    magenta_rows={}
+    for x,y in families["magenta"]:
+        if y not in magenta_rows or x<magenta_rows[y]: magenta_rows[y]=x
+    rows=sorted(magenta_rows)
     crop_px=crop.load()
     for yy in range(crop.height):
+        orig_y=yy+top
+        near=min(rows,key=lambda z:abs(z-orig_y))
+        clip_x=magenta_rows[near]-9
         for xx in range(crop.width):
+            orig_x=xx+left
             red,green,blue,alpha=crop_px[xx,yy]
-            is_gold=red>150 and green>red*.61 and blue<green*.75
-            if allowed.getpixel((xx,yy))==0 or is_gold:
+            is_yellow_hyphen=red>150 and green>red*.61 and blue<green*.75
+            if orig_x<clip_x or is_yellow_hyphen:
                 crop_px[xx,yy]=(red,green,blue,0)
     bb=crop.getchannel("A").getbbox()
     if bb: crop=crop.crop(bb)
