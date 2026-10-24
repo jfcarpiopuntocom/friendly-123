@@ -6558,10 +6558,14 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
-          // 1AAA: a destructive import cannot start if its original notebook has no recovery copy.
-          // Fail closed on quota errors; never announce success with the old state unprotected.
-          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); }
-          catch (_) {
+          // 1AAA: preserve an exact, verified preimage before replacing any notebook.
+          // The backup belongs to this store, not another store sharing the origin.
+          try {
+            const _clavePreimport = OC_STATE_KEY + OC_STATE_SUFIJO + "_preimport";
+            const _preimagen = JSON.stringify(estadoActualExportable());
+            localStorage.setItem(_clavePreimport, _preimagen);
+            if (localStorage.getItem(_clavePreimport) !== _preimagen) throw Error("recovery preimage not durable");
+          } catch (_) {
             debePersistir = false;
             return J({ error: "The current notebook could not be backed up. Import cancelled; no changes were made." }, 507);
           }
