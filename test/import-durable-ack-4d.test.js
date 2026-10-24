@@ -87,3 +87,70 @@ test('1AAA RED (unresolved): preimage succeeds but durable commit fails -> 507, 
   assert.equal(reply.status, 507, 'never promise a restored notebook without a durable commit');
   assert.deepEqual(x.inspect().current, x.initial, 'stock, PIN, audit and categories must survive');
 });
+
+test('1AAA RED (real apply): failed commit cannot replace financial history, PIN, inventory or categories', async () => {
+  // Use original production export/apply/list-sidecar function bodies, not a mocked apply.
+  function exact(start, end) {
+    const a = src.indexOf(start), b = src.indexOf(end, a);
+    assert.ok(a >= 0 && b > a, 'required production function anchors: ' + start);
+    return src.slice(a, b);
+  }
+  const funcs = [
+    exact('  function estadoActualExportable() {', '  // Item 19:'),
+    exact('  function aplicarRespaldo(body) {', '  function _leerListaCat('),
+    exact('  function _leerListaCat(clave) {', '  /* Siembra registros para las categorías')
+  ].join('\n');
+  const ls = new Map([
+    ['f123_categorias_custom', '["Old"]'],
+    ['f123_categorias_ocultas', '[]']
+  ]);
+  const fixture = { writes: 0, commit: false,
+    localStorage: { getItem: k => ls.get(k) || null, setItem: (k, v) => ls.set(k, v) } };
+  const program = `
+    const OC_STATE_KEY = 'f123_estado_v4', OC_STATE_SUFIJO = '';
+    const _CAT_BASE_CUSTOM = 'f123_categorias_custom', _CAT_BASE_OCULTAS = 'f123_categorias_ocultas';
+    const _catKey = x => x, _CAT_ESTADOS = ['custom','borrada','oculta','visible'];
+    const clonar = x => JSON.parse(JSON.stringify(x)), _payoutCore = () => null;
+    const _normImpuesto = x => x, _normMoneda = x => x, _normLealtad = x => x, _normRetencion = x => x;
+    let ubicaciones = [{ id:'s1', nombre:'Gallery' }],
+      productos = [{ id:'old', nombre:'Old', stockActual:12, precio:8, costo:2, ubicacionId:'s1' }],
+      ventas = [{id:'v1', productoId:'old', cantidad:1, precioUnit:8}],
+      movimientos = [{id:'m1', sello:'old-seal'}], transferencias = [], gastos = [], ajustesComision = [],
+      payouts = [{id:'pay-old',opId:'op-old',amountCents:100}], payoutConflicts = [], payoutQuarantine = [],
+      sucursales = [], promotoras = [], clientes = [], usuarios = [{id:'u1',pin:'555'}],
+      instanceId = 'inst-old', nombreNegocio = 'Original Gallery',
+      nombreNegocioTs = 10, nombreNegocioRev = 2, selloUltimo = 'old-seal',
+      gastosMensuales = {s1:900}, cacheUltimaVenta = {},
+      ajusteImpuesto = {pct:15}, ajusteMoneda = {codigo:'USD'},
+      ajusteLealtad = null, ajusteRetencion = {dias:7}, _localRev = 5,
+      categoriasMeta = {old:{id:'old',nombre:'Old',estado:'custom'}};
+    const window = {dispatchEvent:()=>{}}, CustomEvent = function(){}, ponerFotosDemo = ()=>{};
+    const localStorage = d.localStorage, _rolLocal = () => 'dueno', validarRespaldo = () => '';
+    const guardarEstadoLocal = () => {d.writes++; return Promise.resolve(d.commit)};
+    const J = (body,status=200) => ({body,status});
+    ${funcs}
+    async function run(body) {
+      const path='/api/respaldo/importar';
+      let debePersistir=true;
+      try { ${route} }
+      finally {if(debePersistir)guardarEstadoLocal();}
+    }
+    const view=()=>({state:estadoActualExportable(),
+      custom:localStorage.getItem('f123_categorias_custom'),
+      hidden:localStorage.getItem('f123_categorias_ocultas')});
+    return {run,view};
+  `;
+  const app = new Function('d', program)(fixture);
+  const before = app.view();
+  const imported = {
+    schemaVersion:3, ubicaciones:[{id:'s1',nombre:'Gallery'}],
+    productos:[{id:'new',nombre:'New',stockActual:0,precio:5,costo:1,ubicacionId:'s1'}],
+    ventas:[], movimientos:[], payouts:[], usuarios:[{id:'u1',pin:'123'}],
+    nombreNegocio:'Imported Gallery', configuracion:{
+      categoriasMeta:{old:{id:'old',nombre:'Old',estado:'oculta'}}
+    }
+  };
+  const response = await app.run(imported);
+  assert.equal(response.status, 507, 'must wait for durable commit instead of returning HTTP 200');
+  assert.deepEqual(app.view(), before, 'rollback must include sales, payouts, PINs, stock, name and sidecar categories');
+});
