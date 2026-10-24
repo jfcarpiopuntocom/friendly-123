@@ -27,7 +27,7 @@ def color_family(pixel):
     r,g,b,a=pixel
     if a<240: return None
     h,s,v=colorsys.rgb_to_hsv(r/255,g/255,b/255)
-    if s<.47 or v<.25: return None
+    if s<.47 or v<.50: return None # exclude dark navy outlines, never confuse them with the blue 3
     if .86 <= h <= .99: return "magenta"
     if .027 <= h <= .085: return "orange"
     if .53 <= h <= .72: return "blue"
