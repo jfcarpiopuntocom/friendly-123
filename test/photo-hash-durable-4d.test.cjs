@@ -23,13 +23,15 @@ test('legacy copy-only migration retains retry after hash write failure', () => 
   assert.match(src, /if \(todoOk\) localStorage\.setItem\(FLAG, "copy-only"\)/);
 });
 
-async function rescue(mode, perIdAlreadyPresent=false) {
+async function rescue(mode, perIdAlreadyPresent=false, hashOnly=false, hashOutcome=false) {
   const name = mode === 'db' ? 'rescatarDbPreAislamiento' : 'rescatarLocalStoragePreAislamiento';
   const from = src.indexOf('  async function ' + name + '() {');
   const to = src.indexOf(mode === 'db' ? '  /* G10b:' : '  async function diagnosticoRecuperacion()', from);
   assert.ok(from >= 0 && to > from, 'extract real pre-isolation recovery flow');
   let copied = 0;
-  const legacy = { perchas: { 'fixture-rack': 'data:image/png;base64,AA==' }, blobs: {} };
+  const hash = 'a'.repeat(64);
+  const legacy = hashOnly ? { perchas: {}, blobs: { [hash]: 'data:image/png;base64,AA==' } }
+    : { perchas: { 'fixture-rack': 'data:image/png;base64,AA==' }, blobs: {} };
   const ctx = {
     window: { AMG: { Aislamiento: {
       leerFotosDbPreAislamiento: async () => legacy,
@@ -39,8 +41,11 @@ async function rescue(mode, perIdAlreadyPresent=false) {
     guardarFotoContenido: async () => { throw new Error('hash quota'); },
     leerFotoSoloIdb: async () => perIdAlreadyPresent ? 'data:image/png;base64,NEW=' : null,
     guardarFoto: async () => { copied++; return true; },
-    leerPorHash: async () => null, guardarPorHash: async () => false,
-    hashDeDataUrl: async () => 'hash-fixture', console
+    leerPorHash: async () => null, guardarPorHash: async () => {
+      if (hashOutcome === 'throw') throw new Error('hash quota');
+      return hashOutcome === true;
+    },
+    hashDeDataUrl: async () => hash, console
   };
   vm.createContext(ctx);
   vm.runInContext(src.slice(from,to) + '\nthis.rescue=' + name + ';', ctx);
@@ -55,5 +60,20 @@ test('hash quota failure must not block per-ID recovery in either legacy source'
     const already=await rescue(mode,true);
     assert.equal(already.copied,0,'never overwrite an existing photo by ID');
     assert.equal(already.outcome.blobsPendientes,1);
+  }
+});
+
+test('hash-only rescue counts rejected or thrown copies as pending', async () => {
+  for (const mode of ['db','local']) {
+    for (const failure of [false,'throw']) {
+      const x=await rescue(mode,false,true,failure);
+      assert.equal(x.outcome.encontradosBlobs,1);
+      assert.equal(x.outcome.blobsPendientes,1);
+      assert.equal(x.outcome.blobs,0);
+      assert.equal(x.copied,0);
+    }
+    const x=await rescue(mode,false,true,true);
+    assert.equal(x.outcome.blobsPendientes,0);
+    assert.equal(x.outcome.blobs,1);
   }
 });
