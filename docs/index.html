@@ -48,7 +48,7 @@
       if(!regs.length)return;
       var found=false;
       regs.forEach(function(r){
-        if(r.active&&r.active.scriptURL&&r.active.scriptURL.indexOf("sw.js")!==-1){
+        if(r.scope === new URL("./", location.href).href && r.active && r.active.scriptURL === new URL("./sw.js", location.href).href){
           found=true;
           try{r.unregister()}catch(_){}
         }
@@ -56,7 +56,13 @@
       if(!found)return;
       // Purgar caches, luego reload con setTimeout para que el unregister asiente.
       (caches.keys()||Promise.resolve([])).then(function(cs){
-        var dels=(cs||[]).map(function(c){try{return caches.delete(c)}catch(_){return Promise.resolve()}});
+        var scopeChannel=/\/(next|previo)\/$/.exec(new URL("./", location.href).pathname);
+        var suffix=scopeChannel ? "-"+scopeChannel[1] : "";
+        var dels=(cs||[]).filter(function(c){
+          if(!/^f123-shell-v\d+(?:-golden\d+)?(?:-(?:next|previo))?$/.test(c))return false;
+          var m=/-(next|previo)$/.exec(c);
+          return suffix ? !!(m && "-"+m[1]===suffix) : !m;
+        }).map(function(c){try{return caches.delete(c)}catch(_){return Promise.resolve()}});
         return Promise.all(dels);
       }).catch(function(){}).then(function(){
         setTimeout(function(){location.reload()},120);
