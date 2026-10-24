@@ -1337,6 +1337,7 @@
   }
   let _guardadoEstrictoPendiente = null;
   let _retencionConfirmando = false, _retencionPendiente = null;
+  const _retencionCatalogosPendientes = [];
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
     // Retention rollback must finish before any background photo captures RAM.
     if (!exigirCompleto && _retencionPendiente)
@@ -3489,7 +3490,11 @@
     } catch (_) { return null; }
   }
   function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
-    if (_payoutConfirmando || _retencionConfirmando) {
+    if (_retencionConfirmando) {
+      _retencionCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
+      return false;
+    }
+    if (_payoutConfirmando) {
       _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
     }
@@ -6894,8 +6899,8 @@
         } finally {
           _retencionConfirmando = false; _retencionPendiente = null;
           try {
-            if (!_payoutConfirmando) while (_payoutCatalogosPendientes.length) {
-              const siguiente = _payoutCatalogosPendientes.shift();
+            while (_retencionCatalogosPendientes.length) {
+              const siguiente = _retencionCatalogosPendientes.shift();
               aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
             }
           } finally { liberar(); }
