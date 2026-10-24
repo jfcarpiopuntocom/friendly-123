@@ -1,10 +1,10 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-22",
-  "changelog": "v564 LAB: E4 canonical Yjs name on equal owner revision, E1b claim recovery, assigned tier-only person 40/60 financial fix. No SQL migration; awaiting E1 legacy and theme tests before public release.",
+  "fecha": "2026-10-24",
+  "changelog": "v569 LIVE: photo saving confirms stored bytes; recovery of older photos retains failed copies for retry. No customer data migration.",
   "requerida": false,
-  "shell": "f123-shell-v569",
+  "shell": "f123-shell-v570",
   "apagar": [],
-  "releaseName": "v564",
+  "releaseName": "v569",
   "cacheGeneration": "golden128"
 }
