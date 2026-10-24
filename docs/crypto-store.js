@@ -622,8 +622,26 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
           { salt: anterior.salt, hashes: [anterior.ownerHash,
             ...(Array.isArray(anterior.retiredOwnerHashes) ? anterior.retiredOwnerHashes : [])] }]
       : [];
-    const nuevoEmpleado = randDigits(3);
-    const nuevoAcct = randDigits(3);
+    async function pinNuevo(excluir) {
+      // Bound recovery work; failure preserves the existing credentials and reset code.
+      for (let intento = 0; intento < 16; intento++) {
+        const pin = randDigits(3);
+        if (pin === String(nuevoOwnerPin) || pin === excluir) continue;
+        let retirado = false;
+        for (const old of retirados) {
+          if (!old || typeof old.salt !== "string" || !Array.isArray(old.hashes)) continue;
+          try { if (old.hashes.includes(await hashPin(pin, old.salt, "owner"))) { retirado = true; break; } }
+          catch (_) { return null; }
+        }
+        if (!retirado) return pin;
+      }
+      return null;
+    }
+    const nuevoEmpleado = await pinNuevo("");
+    const nuevoAcct = nuevoEmpleado && await pinNuevo(nuevoEmpleado);
+    if (!nuevoEmpleado || !nuevoAcct) return { error: _es
+      ? "No se pudieron generar PIN distintos de forma segura. Reintenta con el mismo código de recuperación."
+      : "Could not safely generate distinct PINs. Retry with the same recovery code." };
     const guardado = await guardarSecreto(nuevoOwnerPin, [nuevoEmpleado], nuevoAcct, correoActual, retirados);
     // Guard G1 (JFC 2026-08-04): antes esto quemaba el código de reset y
     // mostraba PINs nuevos AUNQUE el guardado hubiera fallado (localStorage

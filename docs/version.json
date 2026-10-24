@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-24",
-  "changelog": "v577: restore exact magenta-orange-blue 123 icons on Safari bookmarks, Dashboard, browser favicons and PWA installs. No app workflow changes.",
+  "changelog": "v578: recovery no longer generates staff PINs matching retired owner credentials or another role. Recovery failure preserves the prior credentials and reset code.",
   "requerida": false,
-  "shell": "f123-shell-v577",
+  "shell": "f123-shell-v578",
   "apagar": [],
-  "releaseName": "v577",
+  "releaseName": "v578",
   "cacheGeneration": "golden128"
 }

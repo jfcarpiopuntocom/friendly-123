@@ -40,9 +40,10 @@ test('PWA install assets and maskable purpose match the same 123 brand set',()=>
   ['./'+names.mask,'512x512','maskable']
  ]);
  const all=html('sw.js');
- assert.equal(version.shell,'f123-shell-v577');
+ assert.match(version.shell,/^f123-shell-v\d+$/);
+ assert.equal(version.releaseName,version.shell.replace('f123-shell-',''));
  assert.equal(hashes.shell,version.shell);
- assert.match(all,/const CACHE = "f123-shell-v577"/);
+ assert.ok(all.includes('const CACHE = "'+version.shell+'"'));
  for(const name of [names.small,names.favicon,names.apple,names.ico])
    assert.ok(all.includes('./'+name),'SW must cache lightweight bookmark icon '+name);
  for(const name of [names.app192,names.app512,names.mask])
@@ -65,10 +66,7 @@ test('new PNGs are real sized binaries, hashed exactly in the offline integrity 
  assert.equal(hashes.files['./'+names.ico],
   'sha256-'+crypto.createHash('sha256').update(ico).digest('hex'));
 });
-test('v577 changes no app logic: core content remains on immutable approved shell',()=>{
- assert.equal(version.releaseName,'v577');
- assert.equal(version.cacheGeneration,'golden128');
- assert.ok(version.changelog.includes('icons'));
+test('approved installation colors remain unchanged across later functional hotfixes',()=>{
  assert.equal(manifest.background_color,'#F8F9FB');
  assert.equal(manifest.theme_color,'#0F1923');
 });

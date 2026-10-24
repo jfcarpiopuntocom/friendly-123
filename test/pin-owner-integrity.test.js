@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const { webcrypto } = require('node:crypto');
 
-function secureFixture() {
+function secureFixture(generatedPins = []) {
   const entries = new Map();
   let rejectSecure = false;
   const localStorage = {
@@ -18,7 +18,13 @@ function secureFixture() {
     removeItem(k) { entries.delete(k); },
   };
   const window = {};
-  const context = { window, localStorage, crypto: webcrypto, self: { isSecureContext: true, crypto: webcrypto },
+  const crypto = { subtle: webcrypto.subtle, getRandomValues(buffer) {
+    if (buffer.BYTES_PER_ELEMENT === 4 && buffer.length === 3 && generatedPins.length) {
+      buffer.set([...generatedPins.shift()].map(Number)); return buffer;
+    }
+    return webcrypto.getRandomValues(buffer);
+  } };
+  const context = { window, localStorage, crypto, self: { isSecureContext: true, crypto },
     location: { hostname: 'localhost' }, TextEncoder, TextDecoder, btoa, atob, console };
   const source = process.env.F123_CRYPTO_TEST_SOURCE || require.resolve('../docs/crypto-store.js');
   vm.runInNewContext(fs.readFileSync(source, 'utf8'), context);
@@ -81,4 +87,58 @@ test('owner PIN retired over 20 rotations cannot revive through a stale director
   for (let pin = 101; pin <= 121; pin++) assert.equal(await f.secure.fijarOwnerPin(String(pin)), true);
   assert.equal(await f.secure.identificarPin('100'), null);
   assert.equal(await f.secure.identificarPin('121'), 'dueno');
+});
+
+test('reset-generated staff PINs cannot reuse retired owner credentials', async () => {
+  const f = secureFixture(['789', '682', '260', '357']);
+  assert.equal(await f.secure.guardarSecreto('789', ['260'], '357', ''), true);
+  assert.equal(await f.secure.fijarOwnerPin('682'), true);
+  const code = await f.secure.generarCodigoReset();
+  const result = await f.secure.resetearConCodigo(code, '734');
+  assert.equal(result.ok, true);
+  assert.equal(await f.secure.identificarPin('789'), null);
+  assert.equal(await f.secure.identificarPin('682'), null);
+  assert.equal(await f.secure.identificarPin('734'), 'dueno');
+  assert.equal(await f.secure.identificarPin(result.empleado), 'empleado');
+  assert.equal(await f.secure.identificarPin(result.acct), 'contador');
+});
+
+test('reset-generated roles remain distinct from the new owner and each other', async () => {
+  const f = secureFixture(['734', '260', '260', '357']);
+  await f.secure.guardarSecreto('789', ['260'], '357', '');
+  const code = await f.secure.generarCodigoReset();
+  const result = await f.secure.resetearConCodigo(code, '734');
+  assert.equal(result.ok, true);
+  assert.equal(await f.secure.identificarPin('734'), 'dueno');
+  assert.equal(await f.secure.identificarPin(result.empleado), 'empleado');
+  assert.equal(await f.secure.identificarPin(result.acct), 'contador');
+});
+
+test('exhausted reset PIN generation keeps credentials, photo and recovery code', async () => {
+  const f = secureFixture(Array(32).fill('789'));
+  await f.secure.guardarSecreto('789', ['260'], '357', '');
+  f.localStorage.setItem('vp_foto_percha_fixture', 'photo bytes');
+  const code = await f.secure.generarCodigoReset();
+  const before = f.localStorage.getItem('f123_secure');
+  const reset = f.localStorage.getItem('f123_reset');
+  const result = await f.secure.resetearConCodigo(code, '734');
+  assert.ok(result.error);
+  assert.equal(f.localStorage.getItem('f123_secure'), before);
+  assert.equal(f.localStorage.getItem('f123_reset'), reset);
+  assert.equal(f.localStorage.getItem('vp_foto_percha_fixture'), 'photo bytes');
+  assert.equal(await f.secure.verificarOwner('789'), true);
+});
+
+test('reset storage failure keeps the recovery code usable and the prior owner', async () => {
+  const f = secureFixture(['260', '357']);
+  await f.secure.guardarSecreto('789', ['260'], '357', '');
+  const code = await f.secure.generarCodigoReset();
+  const before = f.localStorage.getItem('f123_secure');
+  const reset = f.localStorage.getItem('f123_reset');
+  f.reject();
+  const result = await f.secure.resetearConCodigo(code, '734');
+  assert.ok(result.error);
+  assert.equal(f.localStorage.getItem('f123_secure'), before);
+  assert.equal(f.localStorage.getItem('f123_reset'), reset);
+  assert.equal(await f.secure.verificarOwner('789'), true);
 });
