@@ -6558,7 +6558,13 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
-          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
+          // 1AAA: a destructive import cannot start if its original notebook has no recovery copy.
+          // Fail closed on quota errors; never announce success with the old state unprotected.
+          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); }
+          catch (_) {
+            debePersistir = false;
+            return J({ error: "The current notebook could not be backed up. Import cancelled; no changes were made." }, 507);
+          }
           aplicarRespaldo(body);
           guardarEstadoLocal();
           return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
