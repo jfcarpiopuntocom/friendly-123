@@ -15,7 +15,9 @@ async function pay(body) {
 }
 test('impossible payment and coverage dates reject without KV writes', async () => {
   for (const body of [{monto:10,fecha:'2026-99-99'}, {monto:10,fecha:'2026-02-30'},
-    {monto:10,fecha:'2025-02-29'}, {monto:10,hasta:'2026-04-31'}]) {
+    {monto:10,fecha:'2025-02-29'}, {monto:10,hasta:'2026-04-31'},
+    {monto:10,fecha:0}, {monto:10,fecha:false}, {monto:10,hasta:0},
+    {monto:10,hasta:false}, {monto:10,fecha:null}, {monto:10,hasta:null}]) {
     const x=await pay(body); assert.equal(x.response.status,400,JSON.stringify(body));
     assert.equal(x.rows.has('pagos:FIXTURE'),false);
   }
@@ -27,9 +29,15 @@ test('a sub-cent amount cannot be recorded as zero', async () => {
   }
 });
 test('real dates and nonzero cents remain valid, corrections stay negative', async () => {
-  for (const [monto, expected] of [[2.35,2.35],[-2.35,-2.35],[0.005,0.01]]) {
+  for (const [monto, expected] of [[2.35,2.35],[-2.35,-2.35],[0.005,0.01],[1.005,1.01],[-1.005,-1.01],[1.015,1.02]]) {
     const x=await pay({monto,fecha:'2024-02-29',hasta:'2031-10-24'});
     assert.equal(x.response.status,200); assert.equal(x.response.obj.asiento.monto,expected);
     assert.equal(JSON.parse(x.rows.get('pagos:FIXTURE'))[0].monto,expected);
   }
+});
+test('blank optional dates retain panel form defaults', async () => {
+  const x=await pay({monto:1,fecha:'',hasta:''});
+  assert.equal(x.response.status,200);
+  assert.match(x.response.obj.asiento.fecha, /^\d{4}-\d{2}-\d{2}$/);
+  assert.equal(x.response.obj.asiento.hasta,null);
 });
