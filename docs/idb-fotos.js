@@ -366,8 +366,9 @@
         if (!hash || !bytes) continue;
         try {
           const actual = await leerPorHash(hash);
-          if (!actual && await guardarPorHash(hash, bytes)) blobs++;
-        } catch (_) {}
+          if (!actual && !await guardarPorHash(hash, bytes)) blobsPendientes++;
+          else if (!actual) blobs++;
+        } catch (_) { blobsPendientes++; }
       }
 
       try {
@@ -426,8 +427,9 @@
           // hash REAL y no perpetua una asociacion falsa.
           const objetivo = real || hash;
           const actual = await leerPorHash(objetivo);
-          if (!actual && await guardarPorHash(objetivo, bytes)) blobs++;
-        } catch (_) {}
+          if (!actual && !await guardarPorHash(objetivo, bytes)) blobsPendientes++;
+          else if (!actual) blobs++;
+        } catch (_) { blobsPendientes++; }
       }
 
       return {
