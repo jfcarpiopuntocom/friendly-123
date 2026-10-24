@@ -11,7 +11,7 @@ const b = src.indexOf('      if (path === "/api/liquidaciones")', a);
 assert.ok(a !== -1 && b > a, 'production route anchors must exist');
 const route = src.slice(a, b);
 
-function scenario({ quota = false, role = 'dueno', valid = true, commit = true } = {}) {
+function scenario({ quota = false, role = 'dueno', valid = true, commit = true, suffix = '', staleReadback = false } = {}) {
   const initial = {
     productos: [{ id: 'old', stockActual: 12 }],
     movimientos: [{ id: 'old-mov', sello: 'old-seal' }],
@@ -28,13 +28,14 @@ function scenario({ quota = false, role = 'dueno', valid = true, commit = true }
   const ledger = new Map();
   let current = structuredClone(initial), applied = 0, saves = 0, backupAttempts = 0;
   const deps = {
-    OC_STATE_KEY: 'f123_estado_v4',
+    OC_STATE_KEY: 'f123_estado_v4', OC_STATE_SUFIJO: suffix,
     localStorage: {
       setItem(k, v) {
         backupAttempts++;
         if (quota) throw Error('QuotaExceededError');
         ledger.set(k, v);
-      }
+      },
+      getItem(k) { return staleReadback ? null : (ledger.get(k) || null); }
     },
     _rolLocal: () => role,
     validarRespaldo: () => valid ? '' : 'Invalid backup',
@@ -45,7 +46,7 @@ function scenario({ quota = false, role = 'dueno', valid = true, commit = true }
   };
   const run = new Function('d', `
     const {localStorage, _rolLocal, validarRespaldo, estadoActualExportable,
-      aplicarRespaldo, guardarEstadoLocal, J, OC_STATE_KEY} = d;
+      aplicarRespaldo, guardarEstadoLocal, J, OC_STATE_KEY, OC_STATE_SUFIJO} = d;
     return async function(body) {
       const path = '/api/respaldo/importar';
       let debePersistir = true;
@@ -55,8 +56,9 @@ function scenario({ quota = false, role = 'dueno', valid = true, commit = true }
   `)(deps);
   return { run: () => run(imported), initial, imported,
     inspect: () => ({ current, applied, saves, backupAttempts,
-      preimage: ledger.has('f123_estado_v4_preimport')
-        ? JSON.parse(ledger.get('f123_estado_v4_preimport')) : null }) };
+      preimageKey: 'f123_estado_v4' + suffix + '_preimport',
+      preimage: ledger.has('f123_estado_v4' + suffix + '_preimport')
+        ? JSON.parse(ledger.get('f123_estado_v4' + suffix + '_preimport')) : null }) };
 }
 
 test('1AAA: quota rejects recovery preimage -> HTTP 507, original business untouched', async () => {
@@ -153,4 +155,20 @@ test('1AAA RED (real apply): failed commit cannot replace financial history, PIN
   const response = await app.run(imported);
   assert.equal(response.status, 507, 'must wait for durable commit instead of returning HTTP 200');
   assert.deepEqual(app.view(), before, 'rollback must include sales, payouts, PINs, stock, name and sidecar categories');
+});
+
+test('1AAA: stale storage readback aborts before replacing notebook', async () => {
+  const x = scenario({ staleReadback: true });
+  const reply = await x.run();
+  assert.equal(reply.status, 507);
+  assert.deepEqual(x.inspect().current, x.initial);
+  assert.equal(x.inspect().applied, 0);
+  assert.equal(x.inspect().saves, 0);
+});
+test('1AAA: recovery preimage uses the active store namespace', async () => {
+  const x = scenario({ suffix: '::room-2' });
+  const reply = await x.run();
+  assert.equal(reply.status, 200);
+  assert.equal(x.inspect().preimageKey, 'f123_estado_v4::room-2_preimport');
+  assert.deepEqual(x.inspect().preimage, x.initial);
 });
