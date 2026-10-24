@@ -1,12 +1,16 @@
 {
   "version": "1.0",
-  "shell": "f123-shell-v576",
+  "shell": "f123-shell-v577",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-2b4b57e03e83809e151c43c5395650a3014c4ec5e36b5bbf00b9165edce30858",
+    "./index.html": "sha256-733b83ce47699f168aa66a6beb64fdf64af10c23f58723c8956da0c241a7a36e",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
+    "./icons/f123-color-v577-16.png": "sha256-dc311d8d4b031386f6a4bf6911a9b69c8698c274d4d0d74d28d1f5fc8ba1a26b",
+    "./icons/f123-color-v577-32.png": "sha256-b06f16af323135518ecd54c23dfcee948ee77aef5d72501aad92fde502edcf88",
+    "./icons/f123-color-v577-180.png": "sha256-0d3c2acd27b4783c81bf6ef289ee8c9306e713b03327b841c590e0846006412e",
+    "./favicon-v577.ico": "sha256-b67be2651a1623e71ea91a672ca07f47a63002869f36bdb7d718b2fb305b69b8",
     "./fonts/space-grotesk-latin.woff2": "sha256-0640890476fc1198ab4de571fb658de443c4d85b66466ec09534a8737ab1ce9d",
     "./fonts/source-sans-3-latin.woff2": "sha256-19143dca075972bc84e3fd9eab7416dd40cc565dccb2435a044bdfabe060c7d5",
     "./fonts/jetbrains-mono-latin.woff2": "sha256-83c005d49d8a6a50474c73a5a36ac0468076e9c4a29da7bdb14995d80560a5be",
@@ -71,7 +75,7 @@
     "./micelio-vivo.js": "sha256-4e9201311c932092e1b4bf4755e95410dd9b822bfc046a39f1534e6b3a7d8cda",
     "./micelio-ui.js": "sha256-85f2e15243f9961047efdec851bd84634839c6f733317f0197f1d6632a82e306",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-1a67183b15bd4a571d5f7f75cdaeb297ab8355a75076d136c484034e80f51f39",
+    "./dashboard.html": "sha256-8af7d8909bc959578fdeafffb518b82295ff424877df1c4aabbfec32eb8e7d47",
     "./dashboard-updates.js": "sha256-97003682e30741e18a71e05cc1473e516f1e51d7f5cf3ebdbf8d3209cf451459",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
@@ -104,6 +108,6 @@
     "./workshop-brand.js": "sha256-c94848891eb4a20d821393946777ab352e99bf4a9a40301d50bbb1d40e166b1b",
     "./inspector.js": "sha256-2f5c01bf853b766344ab4c432ba51c842b5d34f852beb207dc159c5a0b7598f5",
     "./inspector-ui.js": "sha256-01927769c7f55d3e8e744bd9e1b87e040cb8c314f1a15b8d2eceb87bbd8dea94",
-    "./manifest.json": "sha256-a1a75d88ea0ac9bae676106d49ffa4fc45433a0d5a760cc7855b276484ea8bcd"
+    "./manifest.json": "sha256-4ef826f2367b0776895546c17d3e96e47095bce4c0abc42f332a591ac500426e"
   }
 }

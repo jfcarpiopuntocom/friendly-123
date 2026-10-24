@@ -1,0 +1,37 @@
+name: build-color-icons-v577
+on:
+  push:
+    branches: ["hotfix/pwa-multicolor-icons-v577-20261024"]
+    paths: ["scripts/brand/build-pwa-123.py", ".github/workflows/build-color-icons-v577.yml"]
+permissions:
+  contents: write
+jobs:
+  derive-official-icons:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Image processing dependency
+        run: pip install Pillow==11.3.0
+      - name: 23 fidelity checks and lossless PNG/ICO exports
+        run: |
+          set -euo pipefail
+          python scripts/brand/build-pwa-123.py | tee /tmp/color-proof.json
+      - name: Generate exact SHA-256 shell manifest for icon binary assets
+        run: node scripts/gen-manifest.js
+      - name: Commit binary assets, no user data or app logic
+        run: |
+          set -euo pipefail
+          git add docs/icons/f123-color-v577-*.png docs/favicon-v577.ico docs/version-manifest.json
+          if git diff --cached --quiet; then
+            echo "Icons already generated"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "assets: original 123 exact magenta orange blue icons v577"
+          git push origin HEAD:refs/heads/hotfix/pwa-multicolor-icons-v577-20261024

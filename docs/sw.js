@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v576";
+const CACHE = "f123-shell-v577";
 // const CACHE anterior = "f123-shell-v521"; // v522 (JFC 2026-10-14): mismo codigo que v521 (flecha de comision), republicado por orden de JFC tras el rewind a v520.
 // const CACHE anterior = "f123-shell-v520"; // v521 (JFC 2026-10-14, Belen): flecha de comision, quien le paga a quien (producto, venta, Summary by Product, Expenses y tablero).
 // const CACHE anterior = "f123-shell-v512"; // v513 (JFC 2026-10-14): el tablero sigue el idioma de la app (EN o ES), sin mezclar. (v511 quedo reservado y sin publicar.)
@@ -63,6 +63,12 @@ const SHELL = [
   "./",
   "./index.html",
   "./logo.png", "./img/logo-720.png", "./copiar-libre.js",
+  // v577: exact-brand 123; shared by Safari, desktop favicons and PWA installs.
+  "./icons/f123-color-v577-16.png", "./icons/f123-color-v577-32.png",
+  "./icons/f123-color-v577-180.png",
+  // The large installation assets are fetched by the OS on demand, not forced
+  // into every existing Safari offline cache (some clients are quota-limited).
+  "./favicon-v577.ico",
   // v510 (Oct14fixes 6): letras locales, guardadas para que el splash nunca cambie de letra.
   "./fonts/space-grotesk-latin.woff2", "./fonts/source-sans-3-latin.woff2", "./fonts/jetbrains-mono-latin.woff2", "./fonts/inter-latin.woff2",
   "./aislamiento.js",

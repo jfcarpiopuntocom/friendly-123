@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-24",
-  "changelog": "v576: prevent a stale owner device clock from reverting the business name on equal revision; preserve canonical Yjs name and newer owner revisions.",
+  "changelog": "v577: restore exact magenta-orange-blue 123 icons on Safari bookmarks, Dashboard, browser favicons and PWA installs. No app workflow changes.",
   "requerida": false,
-  "shell": "f123-shell-v576",
+  "shell": "f123-shell-v577",
   "apagar": [],
-  "releaseName": "v576",
+  "releaseName": "v577",
   "cacheGeneration": "golden128"
 }
