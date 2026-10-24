@@ -3,7 +3,7 @@
   "fecha": "2026-10-22",
   "changelog": "v564 LAB: E4 canonical Yjs name on equal owner revision, E1b claim recovery, assigned tier-only person 40/60 financial fix. No SQL migration; awaiting E1 legacy and theme tests before public release.",
   "requerida": false,
-  "shell": "f123-shell-v564",
+  "shell": "f123-shell-v565",
   "apagar": [],
   "releaseName": "v564",
   "cacheGeneration": "golden128"

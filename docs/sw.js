@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v564";
+const CACHE = "f123-shell-v565";
 // const CACHE anterior = "f123-shell-v521"; // v522 (JFC 2026-10-14): mismo codigo que v521 (flecha de comision), republicado por orden de JFC tras el rewind a v520.
 // const CACHE anterior = "f123-shell-v520"; // v521 (JFC 2026-10-14, Belen): flecha de comision, quien le paga a quien (producto, venta, Summary by Product, Expenses y tablero).
 // const CACHE anterior = "f123-shell-v512"; // v513 (JFC 2026-10-14): el tablero sigue el idioma de la app (EN o ES), sin mezclar. (v511 quedo reservado y sin publicar.)
