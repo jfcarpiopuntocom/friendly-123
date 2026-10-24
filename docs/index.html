@@ -10837,15 +10837,15 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
     } catch (_) {}
     localStorage.setItem(K, v);
     try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
-    try { const cs = await caches.keys(); for (const c of cs) { if (_cachesDeEsteCanal([c]).length) { try { await caches.delete(c); } catch (_) {} } } } catch (_) {}
+    // Solo activate del SW retira caches anteriores; update() no confirma una instalacion completa.
     try {
       const bc = new BroadcastChannel("f123-version");
       bc.postMessage({ tipo: "recargar", v: v });
       setTimeout(function () { try { bc.close(); } catch (_) {} }, 500);
     } catch (_) {}
     /* JFC 2026-09-04: NO refrescar la UI mid-uso — reiniciar la pantalla mientras
-       se trabaja se ve mal (y peor si rompe el layout). El shell nuevo ya quedó
-       purgado/actualizado arriba; se DIFIERE la recarga al próximo login (que es
+       se trabaja se ve mal (y peor si rompe el layout). Se solicito actualizar el SW;
+       su activate conserva la limpieza por canal. Se DIFIERE la recarga al próximo login (que es
        invisible, vía auth-ui.entrar()). La info del negocio sigue viva por el
        túnel reactivo; el "vivir actualizado" no requiere reiniciar la página. */
     try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {}

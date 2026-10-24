@@ -1336,7 +1336,12 @@
     } catch (_) {}
   }
   let _guardadoEstrictoPendiente = null;
+  let _retencionConfirmando = false, _retencionPendiente = null;
+  const _retencionCatalogosPendientes = [];
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
+    // Retention rollback must finish before any background photo captures RAM.
+    if (!exigirCompleto && _retencionPendiente)
+      return _retencionPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
     // Capture background snapshots only after the awaiting caller commits or rolls back.
     if (!exigirCompleto && _guardadoEstrictoPendiente) {
       return _guardadoEstrictoPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
@@ -3485,6 +3490,10 @@
     } catch (_) { return null; }
   }
   function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
+    if (_retencionConfirmando) {
+      _retencionCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
+      return false;
+    }
     if (_payoutConfirmando) {
       _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
@@ -4140,7 +4149,8 @@
       mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
       guardarEstadoLocal();
     }
-    if (promesasPins.length) Promise.all(promesasPins).then(function (resultados) {
+    if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
+      if (_retencionPendiente) await _retencionPendiente; // A prior PIN merge must not append audit inside retention rollback.
       var huboExito = resultados.some(Boolean);
       var algunoPendiente = resultados.some(function (ok) { return ok !== true; });
       if (algunoPendiente) {
@@ -5063,7 +5073,7 @@
     // A legacy browser without cross-tab locks must not bypass the visible
     // compatibility guard by invoking a write directly. Reads stay available.
     if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
-    if (!escribe) { if (_payoutPendiente) await _payoutPendiente; return _fetchInterno(url, opts); }
+    if (!escribe) { if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
     const ejecutar=()=>{
       const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
@@ -6867,14 +6877,35 @@
       /* RETENCION (JFC 2026-10-07). Leer: cualquiera. Cambiar: dueno o admin. */
       if (path === "/api/config/retencion" && method === "GET") return J(Object.assign({ id: "retencion", dias: 0, opciones: RETENCION_DIAS.slice() }, ajusteRetencion || {}));
       if (path === "/api/config/retencion" && method === "PUT") {
+        debePersistir = false; // One deliberate durable commit; never a second write in finally.
         const _rr = _rolLocal();
         if (_rr !== "dueno" && _rr !== "admin") return J({ error: "Only the owner or an admin can change the payment hold." }, 403);
         const n = _normRetencion({ id: "retencion", dias: body && body.dias });
         if (!n) return J({ error: "Choose 0, 7, 14 or 30 days." }, 400);
-        n.rev = _revNueva(); ajusteRetencion = n;
-        mov("config-retencion", { dias: n.dias });
-        avisarCatalogoCambiado();
-        return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
+        const anterior = ajusteRetencion, len = movimientos.length, sello = selloUltimo;
+        let liberar;
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberar = resolve; });
+        try {
+          n.rev = _revNueva(); ajusteRetencion = n;
+          mov("config-retencion", { dias: n.dias }, false);
+          let duradero = false;
+          try { duradero = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!duradero) {
+            ajusteRetencion = anterior; movimientos.length = len; selloUltimo = sello;
+            return J({ error: "Payment hold was NOT saved. Free up storage and retry." }, 507);
+          }
+          avisarCatalogoCambiado();
+          return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
+        } finally {
+          _retencionConfirmando = false; _retencionPendiente = null;
+          try {
+            while (_retencionCatalogosPendientes.length) {
+              const siguiente = _retencionCatalogosPendientes.shift();
+              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
+            }
+          } finally { liberar(); }
+        }
       }
       /* LEALTAD (benchmark #5). GET/PUT de la regla global y cuenta por cliente
          derivada de las ventas (no hay contador que pueda divergir). */
