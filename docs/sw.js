@@ -65,8 +65,9 @@ const SHELL = [
   "./logo.png", "./img/logo-720.png", "./copiar-libre.js",
   // v577: exact-brand 123; shared by Safari, desktop favicons and PWA installs.
   "./icons/f123-color-v577-16.png", "./icons/f123-color-v577-32.png",
-  "./icons/f123-color-v577-180.png", "./icons/f123-color-v577-192.png",
-  "./icons/f123-color-v577-512.png", "./icons/f123-color-v577-maskable-512.png",
+  "./icons/f123-color-v577-180.png",
+  // The large installation assets are fetched by the OS on demand, not forced
+  // into every existing Safari offline cache (some clients are quota-limited).
   "./favicon-v577.ico",
   // v510 (Oct14fixes 6): letras locales, guardadas para que el splash nunca cambie de letra.
   "./fonts/space-grotesk-latin.woff2", "./fonts/source-sans-3-latin.woff2", "./fonts/jetbrains-mono-latin.woff2", "./fonts/inter-latin.woff2",
