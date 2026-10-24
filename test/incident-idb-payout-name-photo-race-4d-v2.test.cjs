@@ -82,7 +82,7 @@ function fixture(options = {}) {
     win, indexedDB, {}, setFakeTimer, clearFakeTimer, {error() {}});
 
   const ctx = {
-    _guardadoEstrictoPendiente: null, _rolLocal: () => 'dueno',
+    _guardadoEstrictoPendiente: null, _retencionPendiente: null, _rolLocal: () => 'dueno',
     window: win,
     localStorage: {
       getItem: k => storage.get(k) ?? null,
