@@ -473,6 +473,12 @@
       .then(function (r) { return r.json(); })
       .then(function (info) {
         pintarConsumos(info && info.consumosPendientes);
+        if (info && info.consumosEnRevision) {
+          q("pp-ab-msg").style.color = "#B0183E";
+          q("pp-ab-msg").textContent = es
+            ? "Algunos consumos pertenecen a otro cliente según las ventas. No pueden asignarse aquí; revisa el historial sin borrar nada."
+            : "Some purchases are linked to another customer. They cannot be paid here; review the history without deleting anything.";
+        }
         var debe = info && info.saldo < 0 ? -info.saldo : 0;
         return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
           var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
@@ -491,6 +497,7 @@
       var btn = ev.currentTarget;
       if (btn.disabled) return;
       btn.disabled = true;
+      var bloqueoAlmacenamiento = false;
       var msg = q("pp-ab-msg"), monto = Number(q("pp-ab-monto").value);
       var errorAsignacion = function (e) {
         msg.style.color = "#B0183E";
@@ -504,8 +511,10 @@
         refrescarHoy();
       }
       if (pendienteAsignacion) {
-        reanudarAsignacion(clienteId, pendienteAsignacion).then(finalizar).catch(errorAsignacion)
-          .finally(function () { btn.disabled = false; });
+        reanudarAsignacion(clienteId, pendienteAsignacion).then(finalizar).catch(function (e) {
+          if (e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") bloqueoAlmacenamiento = true;
+          errorAsignacion(e);
+        }).finally(function () { btn.disabled = bloqueoAlmacenamiento; });
         return;
       }
       if (!(monto > 0)) {
@@ -538,6 +547,7 @@
         tarea = global.ocEnviarAbono(clienteId, monto, motivo); // Legitimate unassigned payment.
       }
       Promise.resolve(tarea).then(finalizar).catch(function (e) {
+        if (e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") bloqueoAlmacenamiento = true;
         if (pendienteAsignacion) {
           q("pp-ab-monto").disabled = true;
           q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
@@ -546,7 +556,7 @@
           msg.style.color = "#B0183E";
           msg.textContent = (e && e.message) || "Could not confirm the payment.";
         }
-      }).finally(function () { btn.disabled = false; });
+      }).finally(function () { btn.disabled = bloqueoAlmacenamiento; });
     });
 
     q("pp-ab-monto").focus();
