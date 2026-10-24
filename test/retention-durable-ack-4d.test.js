@@ -42,7 +42,7 @@ function runner(mode, role = 'dueno') {
     + 'if(remoto.retencion)ajusteRetencion=remoto.retencion;mov("merge-catalogo",{},false);guardarEstadoLocal();return {ok:true};}\n'
     + 'async function run(body){const path="/api/config/retencion",method="PUT";let debePersistir=true;try{\n'
     + put + '\n}finally{if(debePersistir)guardarEstadoLocal();}}\n'
-    + 'return {run, merge:aplicarCatalogo, photo:()=>guardarEstadoLocal(), snapshot:()=>({retencion:ajusteRetencion,movimientos:movimientos.slice(),selloUltimo})};');
+    + 'return {run, merge:aplicarCatalogo, photo:()=>guardarEstadoLocal(), setPayoutActive:x=>{_payoutConfirmando=x;}, drainPayout:()=>{_payoutConfirmando=false;let n=0;while(_payoutCatalogosPendientes.length){if(++n>5)throw Error("recursive queue");const q=_payoutCatalogosPendientes.shift();aplicarCatalogo(q.remoto,q.rolRemoto,q.nombreCanonicoYjs);}}, snapshot:()=>({retencion:ajusteRetencion,movimientos:movimientos.slice(),selloUltimo})};');
   return {...compile(deps), stats:()=>({writes,notified,snapshots}), release:ok=>release(ok)};
 }
 
@@ -104,4 +104,17 @@ test('successful local ACK then remote merge: both ordered with no dropped audit
   assert.equal(x.snapshot().retencion.dias,30);
   assert.deepEqual(x.snapshot().movimientos.map(m=>m.kind),['config-retencion','merge-catalogo']);
   assert.equal(x.stats().snapshots[0].snapshot.retencion.dias,14);
+});
+
+test('retention and payout barriers hand off a remote merge without requeue loops',async()=>{
+  const x=runner('deferred'),pending=x.run({dias:14});
+  const remote={retencion:{id:'retencion',dias:30,rev:{c:9,d:'remote'}}};
+  assert.equal(x.merge(remote,'dueno',true),false);
+  x.setPayoutActive(true);
+  x.release(false);
+  assert.equal((await pending).status,507);
+  assert.equal(x.snapshot().retencion.dias,7,'payout holds the queued remote state, not a rejected 14');
+  x.drainPayout();
+  assert.equal(x.snapshot().retencion.dias,30);
+  assert.deepEqual(x.snapshot().movimientos.map(m=>m.kind),['merge-catalogo']);
 });
