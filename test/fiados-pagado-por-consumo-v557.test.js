@@ -198,7 +198,8 @@ test('relojes vectoriales: deshacer posterior manda aunque el reloj del telefono
 test('intencion de pago guardada antes de enviar el cobro; se reanuda con mismo opId', () => {
   const fs=require('node:fs'), path=require('node:path');
   const ui=fs.readFileSync(path.join(__dirname,'../docs/plan-pagos-ui.js'),'utf8');
-  assert.match(ui,/localStorage\.setItem\(claveAsignacion\(clienteId\), JSON\.stringify\(pendienteAsignacion\)\)/);
+  assert.match(ui,/guardarReferenciaPago\(claveAsignacion\(clienteId\), pendienteAsignacion, false\)/);
+  assert.match(ui,/function guardarReferenciaPago\(clave, dato, cobroConfirmado\)/);
   assert.match(ui,/reusable|reanudarAsignacion\(clienteId,\s*pendienteAsignacion\)/);
   assert.match(ui,/conservarIntencion:\s*true/);
   assert.match(ui,/paymentOpId:\s*pagoId/);

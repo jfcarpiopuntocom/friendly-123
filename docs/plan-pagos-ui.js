@@ -291,6 +291,24 @@
   /* Abonar tambien pasa a modal. Con prompt() no se puede mostrar cuanto debe
      ni cuanto falta para la cuota, que es justo lo que hace falta saber en el
      momento de recibir la plata. Y desentonaba con el modal de fiar. */
+  // The payment write-ahead reference is mandatory: if browser storage is full,
+  // never send money and never expose a raw QuotaExceededError to the customer.
+  // A confirmed receipt is a DIFFERENT state: it must never claim "no payment".
+  function guardarReferenciaPago(clave, dato, cobroConfirmado) {
+    var txt = JSON.stringify(dato);
+    try {
+      localStorage.setItem(clave, txt);
+      if (localStorage.getItem(clave) !== txt) throw new Error("write/readback mismatch");
+    } catch (_) {
+      var es = global.OCI18n && String(global.OCI18n.locale()).startsWith("es");
+      var e = new Error(cobroConfirmado
+        ? (es ? "Pago posiblemente registrado; falta guardar su asignación. No lo cobres de nuevo. Conserva el historial y avisa al responsable." : "Payment may be recorded; its allocation could not be saved. Do not charge again. Preserve the history and contact the owner.")
+        : (es ? "No se envió este pago: el almacenamiento del navegador está lleno. No reintentes ni borres datos; avisa al responsable." : "This payment was not sent: browser storage is full. Do not retry or clear data; contact the owner."));
+      e.codigo = "F123_REFERENCIA_PAGO_NO_GUARDADA";
+      e.cobroConfirmado = !!cobroConfirmado;
+      throw e;
+    }
+  }
   function claveAbono(clienteId) { return 'f123_customer_payment_intent_v1:' + clienteId; }
   function abonoPendiente(clienteId) {
     var txt = localStorage.getItem(claveAbono(clienteId));
@@ -312,8 +330,7 @@
     }
     if (!previo) {
       payload.opId = intencionId || ('customer-payment:' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)));
-      localStorage.setItem(key, JSON.stringify(payload));
-      if (localStorage.getItem(key) !== JSON.stringify(payload)) throw new Error('Could not save the payment reference.');
+      guardarReferenciaPago(key, payload, false);
     } else payload = previo;
     var response = await fetch(API + '/clientes/' + clienteId + '/abonar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     var result = await response.json();
@@ -359,10 +376,7 @@
         { opId: dato.paymentOpId, conservarIntencion: true });
       if (!r || !r.movimientoId) throw new Error("Payment receipt not confirmed. Retry with the same reference.");
       dato.abonoId = String(r.movimientoId);
-      localStorage.setItem(claveAsignacion(clienteId), JSON.stringify(dato));
-      if (localStorage.getItem(claveAsignacion(clienteId)) !== JSON.stringify(dato)) {
-        throw new Error("Payment preserved; allocation reference could not be stored. Do not pay again.");
-      }
+      guardarReferenciaPago(claveAsignacion(clienteId), dato, true);
     }
     return confirmarAsignacion(clienteId, dato);
   }
@@ -459,6 +473,12 @@
       .then(function (r) { return r.json(); })
       .then(function (info) {
         pintarConsumos(info && info.consumosPendientes);
+        if (info && info.consumosEnRevision) {
+          q("pp-ab-msg").style.color = "#B0183E";
+          q("pp-ab-msg").textContent = es
+            ? "Algunos consumos pertenecen a otro cliente según las ventas. No pueden asignarse aquí; revisa el historial sin borrar nada."
+            : "Some purchases are linked to another customer. They cannot be paid here; review the history without deleting anything.";
+        }
         var debe = info && info.saldo < 0 ? -info.saldo : 0;
         return global.AMG.PlanPagos.estadoDelPlan(clienteId).then(function (e) {
           var t = debe > 0 ? "Owes " + fmt(debe) + "." : "No outstanding balance.";
@@ -477,6 +497,7 @@
       var btn = ev.currentTarget;
       if (btn.disabled) return;
       btn.disabled = true;
+      var bloqueoAlmacenamiento = false;
       var msg = q("pp-ab-msg"), monto = Number(q("pp-ab-monto").value);
       var errorAsignacion = function (e) {
         msg.style.color = "#B0183E";
@@ -490,8 +511,10 @@
         refrescarHoy();
       }
       if (pendienteAsignacion) {
-        reanudarAsignacion(clienteId, pendienteAsignacion).then(finalizar).catch(errorAsignacion)
-          .finally(function () { btn.disabled = false; });
+        reanudarAsignacion(clienteId, pendienteAsignacion).then(finalizar).catch(function (e) {
+          if (e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") bloqueoAlmacenamiento = true;
+          errorAsignacion(e);
+        }).finally(function () { btn.disabled = bloqueoAlmacenamiento; });
         return;
       }
       if (!(monto > 0)) {
@@ -512,10 +535,7 @@
           abonoId: null, partes: partes, monto: monto, motivo: motivo
         };
         try {
-          localStorage.setItem(claveAsignacion(clienteId), JSON.stringify(pendienteAsignacion));
-          if (localStorage.getItem(claveAsignacion(clienteId)) !== JSON.stringify(pendienteAsignacion)) {
-            throw new Error("Could not preserve the payment allocation intention.");
-          }
+          guardarReferenciaPago(claveAsignacion(clienteId), pendienteAsignacion, false);
           tarea = reanudarAsignacion(clienteId, pendienteAsignacion);
         } catch (errorGuardar) {
           // A failure BEFORE starting the payment is not a confirmed payment.
@@ -527,6 +547,7 @@
         tarea = global.ocEnviarAbono(clienteId, monto, motivo); // Legitimate unassigned payment.
       }
       Promise.resolve(tarea).then(finalizar).catch(function (e) {
+        if (e && e.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") bloqueoAlmacenamiento = true;
         if (pendienteAsignacion) {
           q("pp-ab-monto").disabled = true;
           q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
@@ -535,7 +556,7 @@
           msg.style.color = "#B0183E";
           msg.textContent = (e && e.message) || "Could not confirm the payment.";
         }
-      }).finally(function () { btn.disabled = false; });
+      }).finally(function () { btn.disabled = bloqueoAlmacenamiento; });
     });
 
     q("pp-ab-monto").focus();

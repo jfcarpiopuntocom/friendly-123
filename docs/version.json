@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-24",
-  "changelog": "v574: visible app and dashboard versions match the installed shell. Includes durable retention saving and offline cache protection.",
+  "changelog": "v575: prevent unconfirmed on-account payments when device storage is full; quarantine explicit cross-customer payment allocation without changing history.",
   "requerida": false,
-  "shell": "f123-shell-v574",
+  "shell": "f123-shell-v575",
   "apagar": [],
-  "releaseName": "v574",
+  "releaseName": "v575",
   "cacheGeneration": "golden128"
 }
