@@ -14,10 +14,11 @@ name: publicar
 # defecto. Mover `estable`/`previo` NO dispara esto: lo llaman promover.yml y
 # sonar.yml (workflow_call) o Claude con `gh workflow run publicar.yml`.
 on:
-  # push a master DORMIDO (JFC 2026-10-14): lo llama hotfix.yml tras mover estable,
-  # asi Pages publica UNA vez y no hace cola. Para reactivar: descomentar.
-  # push:
-  #   branches: [master]
+  # Publishes on an explicit change to this workflow only (recovery/manual release).
+  # Ordinary docs pushes still go through the hotfix gate; no double publication.
+  push:
+    branches: [master]
+    paths: [".github/workflows/publicar.yml"]
   workflow_dispatch:
     inputs:
       solo_construir:
