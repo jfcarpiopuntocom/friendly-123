@@ -49,6 +49,7 @@
       req.onerror = function () { reject(req.error); };
       req.onblocked = function () { reject(new Error("IndexedDB bloqueado")); };
     });
+    dbPromise = dbPromise.catch(function (err) { dbPromise = null; throw err; });
     return dbPromise;
   }
 

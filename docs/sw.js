@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v564";
+const CACHE = "f123-shell-v568";
 // const CACHE anterior = "f123-shell-v521"; // v522 (JFC 2026-10-14): mismo codigo que v521 (flecha de comision), republicado por orden de JFC tras el rewind a v520.
 // const CACHE anterior = "f123-shell-v520"; // v521 (JFC 2026-10-14, Belen): flecha de comision, quien le paga a quien (producto, venta, Summary by Product, Expenses y tablero).
 // const CACHE anterior = "f123-shell-v512"; // v513 (JFC 2026-10-14): el tablero sigue el idioma de la app (EN o ES), sin mezclar. (v511 quedo reservado y sin publicar.)
@@ -173,8 +173,11 @@ self.addEventListener("install", (evento) => {
   try {
     evento.waitUntil(
       caches.open(CACHE_LOCAL).then((cache) => Promise.allSettled(
-        SHELL.map((u) => cache.add(new Request(u, { cache: "reload" })).catch((e) => { try { console.warn("[SW] no se pudo precachear", u, e && e.message); } catch (_) {} }))
-      )).then(() => {
+        SHELL.map((u) => cache.add(new Request(u, { cache: "reload" })).catch((e) => { try { console.warn("[SW] no se pudo precachear", u, e && e.message); } catch (_) {} throw e; }))
+      )).then((resultados) => {
+        const esenciales = new Set(["./index.html", "./aislamiento.js", "./estado-idb.js", "./mock-backend.js", "./auth-ui.js", "./sync-yjs.js", "./version-manifest.json"]);
+        if (resultados.some((r, i) => esenciales.has(SHELL[i]) && r.status === "rejected")) throw new Error("Precarga de arranque incompleta; preservar shell anterior");
+      }).then(() => {
         /* VERIFICACIÓN SRI-STYLE (JFC 2026-08-28, sistema de integridad de
            versión). Tras precachear, se lee version-manifest.json (ya en la
            cache) y se borra de la cache cualquier archivo del shell cuyo
@@ -225,7 +228,7 @@ self.addEventListener("install", (evento) => {
             }).catch(() => {});
           })).catch(() => {});
         } catch (_) {}
-      }).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} })
+      }).then(() => self.skipWaiting()).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} throw e; })
     );
   } catch (e) {
     // Blindaje 2026-08-25: si algo revienta ANTES de poder extender el
@@ -233,7 +236,6 @@ self.addEventListener("install", (evento) => {
     // termine sin precache en vez de quedar colgado o rechazado a medias.
     try { console.warn("[SW] install fallo por completo, sigue sin precache:", e && e.message); } catch (_) {}
   }
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (evento) => {

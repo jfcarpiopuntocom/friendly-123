@@ -48,7 +48,7 @@
       if(!regs.length)return;
       var found=false;
       regs.forEach(function(r){
-        if(r.active&&r.active.scriptURL&&r.active.scriptURL.indexOf("sw.js")!==-1){
+        if(r.scope === new URL("./", location.href).href && r.active && r.active.scriptURL === new URL("./sw.js", location.href).href){
           found=true;
           try{r.unregister()}catch(_){}
         }
@@ -56,7 +56,13 @@
       if(!found)return;
       // Purgar caches, luego reload con setTimeout para que el unregister asiente.
       (caches.keys()||Promise.resolve([])).then(function(cs){
-        var dels=(cs||[]).map(function(c){try{return caches.delete(c)}catch(_){return Promise.resolve()}});
+        var scopeChannel=/\/(next|previo)\/$/.exec(new URL("./", location.href).pathname);
+        var suffix=scopeChannel ? "-"+scopeChannel[1] : "";
+        var dels=(cs||[]).filter(function(c){
+          if(!/^f123-shell-v\d+(?:-golden\d+)?(?:-(?:next|previo))?$/.test(c))return false;
+          var m=/-(next|previo)$/.exec(c);
+          return suffix ? !!(m && "-"+m[1]===suffix) : !m;
+        }).map(function(c){try{return caches.delete(c)}catch(_){return Promise.resolve()}});
         return Promise.all(dels);
       }).catch(function(){}).then(function(){
         setTimeout(function(){location.reload()},120);
@@ -10783,6 +10789,13 @@ if ("serviceWorker" in navigator) {
     });
   } catch (_) {}
 }
+// 4D: compare the PUBLIC shell, never a CacheStorage key with -goldenN/-next/-previo.
+// CacheStorage is shared by every app and channel at this origin.
+function _cachesDeEsteCanal(nombres) {
+  const m = /\/(next|previo)\/$/.exec(location.pathname || "");
+  return (nombres || []).filter(n => /^f123-shell-v\d+(?:-golden\d+)?(?:-(?:next|previo))?$/.test(n) && (m ? n.endsWith("-" + m[1]) : !/-(?:next|previo)$/.test(n)));
+}
+function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").replace(/-golden\d+$/, ""); }
 // CONTROL DE VERSION FORZADO (JFC 2026-07-17, "no podemos andar sirviendo
 // versiones viejas"): en CADA carga se pide version.json fresco (el SW nunca
 // lo cachea, por diseno). Si la version publicada difiere de la ultima vista
@@ -10824,7 +10837,7 @@ if ("serviceWorker" in navigator) {
     } catch (_) {}
     localStorage.setItem(K, v);
     try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
-    try { const cs = await caches.keys(); for (const c of cs) { if (c.indexOf("f123-shell-") === 0) { try { await caches.delete(c); } catch (_) {} } } } catch (_) {}
+    try { const cs = await caches.keys(); for (const c of cs) { if (_cachesDeEsteCanal([c]).length) { try { await caches.delete(c); } catch (_) {} } } } catch (_) {}
     try {
       const bc = new BroadcastChannel("f123-version");
       bc.postMessage({ tipo: "recargar", v: v });
@@ -10860,11 +10873,12 @@ function _recargarSeguroVersion() {
 }
 (function verificarCompatibilidadVersion() {
   try {
-    const esperado = (function () { try { return (JSON.parse(localStorage.getItem("f123_version_vista") || "null") || "").split("|")[1] || ""; } catch (_) { return ""; } })();
+    const esperado = (function () { try { return (localStorage.getItem("f123_version_vista") || "").split("|")[1] || ""; } catch (_) { return ""; } })();
     if (esperado && ("caches" in window)) {
       caches.keys().then(function (nombres) {
-        const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
-        if (activa && esperado && activa !== esperado) {
+        const delCanal = _cachesDeEsteCanal(nombres);
+        const activa = delCanal[0] || "";
+        if (delCanal.length && esperado && !delCanal.some(n => _shellPublicoDeCache(n) === esperado)) {
           try { console.warn("[version] el SW sirve " + activa + " pero version.json pide " + esperado + " — recargando (diferido si hay candado)."); } catch (_) {}
           try { localStorage.setItem("f123_version_vista", esperado); } catch (_) {}
           _recargarSeguroVersion();
@@ -10904,8 +10918,9 @@ function _recargarSeguroVersion() {
         if (!vj || !vj.shell) return;
         const servidor = String(vj.shell);
         caches.keys().then(function (nombres) {
-          const activa = (nombres.filter(function (n) { return n.indexOf("f123-shell-") === 0; }).pop() || "");
-          if (activa && servidor && activa !== servidor) {
+          const delCanal = _cachesDeEsteCanal(nombres);
+        const activa = delCanal[0] || "";
+          if (delCanal.length && servidor && !delCanal.some(n => _shellPublicoDeCache(n) === servidor)) {
             try { console.warn("[version] piso: el SW sirve " + activa + " y el servidor publica " + servidor + " — recarga diferida al próximo login."); } catch (_) {}
             try { localStorage.setItem("f123_version_vista", (vj.version || "") + "|" + servidor); } catch (_) {}
             _recargarSeguroVersion();

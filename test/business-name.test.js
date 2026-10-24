@@ -10,6 +10,7 @@ const renderer = auth.slice(auth.indexOf('  function pintarNegocioGate()'), auth
 
 test('PIN gate reads the active store name when the activation cache is older', async () => {
   const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno', esDemo: () => false };
   await w.request('/api/instancia/nombre', 'POST', { nombre: 'Current fixture name' });
   w.localStorage.setItem('f123_owned', JSON.stringify({ nombreNegocio: 'Old fixture name' }));
   const element = { innerHTML: '', style: {} };
@@ -23,6 +24,7 @@ test('PIN gate reads the active store name when the activation cache is older', 
 
 test('renaming a business immediately notifies the PIN gate and sync publisher', async () => {
   const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno', esDemo: () => false };
   const events = [];
   for (const name of ['oc-negocio-actualizado', 'oc-catalogo-cambiado']) w.addEventListener(name, (event) => events.push({ name, detail: event.detail }));
   await w.request('/api/instancia/nombre', 'POST', { nombre: 'Updated fixture' });

@@ -101,7 +101,7 @@ function fixture(options = {}) {
       payouts: JSON.parse(JSON.stringify(ctx.payouts)),
       photo: ctx.photo, nombreNegocio:ctx.nombreNegocio, movimientos: [], _rev: ctx._localRev,
     }),
-    ocultarAvisoRecorte() {}, _publicarAdminPins() {},
+    ocultarAvisoRecorte() {}, despejarAvisoMemoriaLlena() {}, _publicarAdminPins() {},
     avisoEspacioJusto() {}, avisoMemoriaLlena() {}, avisarCatalogoCambiado() {},
     J:(data,status)=>({status:status??200,...data}),CustomEvent:class{},Date,
   };

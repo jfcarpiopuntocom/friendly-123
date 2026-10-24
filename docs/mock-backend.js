@@ -1094,6 +1094,8 @@
   }
   // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba
   // y un refresh le comia el dia. Ahora hay banda roja persistente.
+  // Clear a prior full-storage warning ONLY after another write succeeded durably.
+  function despejarAvisoMemoriaLlena() { try { const d = document.getElementById("oc-quota-aviso"); if (d) d.remove(); } catch (_) {} }
   function avisoMemoriaLlena() {
     try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "memoria-llena"); else (window.__ocFallos = window.__ocFallos || []).push(["", "memoria-llena"]); } catch (_) {} // canario 2026-10-01
     try {
@@ -1361,40 +1363,13 @@
       _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
       ocultarAvisoRecorte();
+      despejarAvisoMemoriaLlena();
       _publicarAdminPins();
       return true;
     } catch (_) {}
-    // Fase 7 (2026-08-04): orden explicito de sacrificio de espacio. Antes de
-    // tocar el log de ventas (irremplazable), ceder lo recuperable: fotos de
-    // percha que hayan quedado en localStorage (legado pre-idb-fotos.js, o un
-    // dispositivo sin soporte IndexedDB). Mismo criterio que
-    // guardarSecureResiliente en crypto-store.js.
-    try {
-      const rmFotos = [];
-      if (!preservarFotos) for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_foto_percha_") === 0) rmFotos.push(k); }
-      if (rmFotos.length) {
-        rmFotos.forEach((k) => { try { localStorage.removeItem(k); } catch (_) {} });
-        localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
-        localStorage.setItem(OC_STATE_PTR, destino);
-        ocultarAvisoRecorte();
-        _publicarAdminPins();
-        return true;
-      }
-    } catch (_) {}
-    // Los cambios de acceso requieren TODO el historial: nunca confirmarlos
-    // con un recorte cuya escritura en el archivo aún no está comprobada.
-    if (!exigirCompleto) {
-      const viejos = completo.movimientos.slice(0, -300);
-      const recortado = { ...completo, movimientos: completo.movimientos.slice(-300) };
-      try {
-        localStorage.setItem(claveBuffer(destino), JSON.stringify(recortado));
-        localStorage.setItem(OC_STATE_PTR, destino);
-        if (window.OCArchivo) window.OCArchivo.archivarLote(viejos).catch(() => {}); // fire-and-forget, idempotente, aislado del nucleo
-        avisoArchivado(viejos.length);
-        _publicarAdminPins();
-        return true;
-      } catch (_) {}
-    }
+    // 1AAA: never delete legacy photos or truncate activity history to free quota.
+    // When localStorage is full, only the full durable IndexedDB mirror may
+    // authorize success. Otherwise fail visibly, preserving every old byte.
     /* NO MENTIR (JFC 2026-08-17). Que localStorage se llene no quiere decir
        que el dispositivo este lleno: localStorage tiene un techo fijo de
        ~5 MB por origen, aunque al disco le sobren 900 GB. Si el espejo de
@@ -1402,7 +1377,7 @@
        SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
        verdad no entro en ningun lado. */
     return _idb.then((ok) => {
-      if (ok) { ocultarAvisoRecorte(); avisoEspacioJusto(); _publicarAdminPins(); }
+      if (ok) { ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); avisoEspacioJusto(); _publicarAdminPins(); }
       else avisoMemoriaLlena();
       return !!ok;
     }).catch(() => { avisoMemoriaLlena(); return false; });
