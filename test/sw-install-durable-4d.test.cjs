@@ -12,7 +12,7 @@ assert.match(shell,/^f123-shell-v\d+$/);assert.match(gen,/^-golden\d+$/);
 const current=shell+gen;
 function run(fail) {
  const previous='f123-shell-v567-golden128';
- const stores=new Map([[previous,new Set(['./index.html'])]]), handlers={}, actions=[];
+ const stores=new Map([[previous,new Set(['./index.html'])],[previous+'-next',new Set(['./index.html'])],[previous+'-previo',new Set(['./index.html'])]]), handlers={}, actions=[];
  const caches={
   open(name){if(!stores.has(name))stores.set(name,new Set());return Promise.resolve({
    add(req){if(fail==='all'||(fail==='optional'&&req.url==='./manual.html'))return Promise.reject(Object.assign(Error('quota'),{name:'QuotaExceededError'}));stores.get(name).add(req.url);return Promise.resolve()},
@@ -37,6 +37,7 @@ test('successful critical precache can activate and retire old cache',async()=>{
  assert.equal(h.actions.includes('skipWaiting'),true);
  const ac=h.event();h.handlers.activate(ac);await ac.promise;
  assert.equal(h.stores.has(current),true);assert.equal(h.stores.has(h.previous),false);
+ assert.equal(h.stores.has(h.previous+'-next'),true);assert.equal(h.stores.has(h.previous+'-previo'),true);
 });
 test('missing optional asset keeps resilient install behavior',async()=>{
  const h=run('optional'),ev=h.event();h.handlers.install(ev);await ev.promise;
