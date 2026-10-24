@@ -16,6 +16,7 @@ function fixture(results,settings={}) {
     setTimeout:(cb,ms)=>{const t={cb,ms,cancelled:false};timers.push(t);return t;},
     clearTimeout:t=>{if(t)t.cancelled=true;},
     promesasPins:results.map(x=>Promise.resolve(x)),
+    _retencionPendiente:null, // Inject the real continuation's required barrier (no pending rollback in fixture).
     cambioPersistible:false,remoto:{deviceNombre:"synthetic"},
     agregadasU:0,agregadosP:0,actualizados:0,miembrosAgregados:0,
     miembrosActualizados:0,miembrosQuitados:0,clientesAgregados:0,
