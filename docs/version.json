@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-24",
-  "changelog": "v569 LIVE: photo saving confirms stored bytes; recovery of older photos retains failed copies for retry. No customer data migration.",
+  "changelog": "v574: visible app and dashboard versions match the installed shell. Includes durable retention saving and offline cache protection.",
   "requerida": false,
-  "shell": "f123-shell-v573",
+  "shell": "f123-shell-v574",
   "apagar": [],
-  "releaseName": "v569",
+  "releaseName": "v574",
   "cacheGeneration": "golden128"
 }
