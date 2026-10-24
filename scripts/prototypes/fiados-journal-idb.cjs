@@ -17,7 +17,7 @@ function sameIdentity(a,b){
    String(a.paymentOpId||'')===String(b.paymentOpId||'')&&
    JSON.stringify(a.partes||[])===JSON.stringify(b.partes||[]);
 }
-function createJournal({driver,localStorage,room}){
+function createJournal({driver,localStorage,room,verifiedLegacyRoom=false}){
  if(!room||typeof room!=='string')fail('ROOM_REQUIRED');
  if(!driver||typeof driver.get!=='function'||typeof driver.cas!=='function')fail('DURABLE_DRIVER_REQUIRED');
  const scoped=k=>{
@@ -37,6 +37,9 @@ function createJournal({driver,localStorage,room}){
    const local=legacy(k),current=await driver.get(scoped(k));
    if(current&&(!current.intent||!Number.isSafeInteger(current.rev)||current.rev<1))fail('JOURNAL_CORRUPT');
    if(current&&local&&!sameIdentity(current.intent,local))fail('DIVERGENT_INTENTS_REVIEW_REQUIRED');
+   // Old localStorage keys have no license-room proof: never adopt an intent
+   // across two stores sharing a browser origin without external verification.
+   if(local&&!current&&!verifiedLegacyRoom)fail('LEGACY_ROOM_UNVERIFIED');
    return current?copy(current):local?{rev:0,state:'legacy',intent:local}:null;
  }
  // CAS is atomic within one IDB transaction, not a JS read-modify-write loop.
