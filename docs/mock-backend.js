@@ -6867,12 +6867,20 @@
       /* RETENCION (JFC 2026-10-07). Leer: cualquiera. Cambiar: dueno o admin. */
       if (path === "/api/config/retencion" && method === "GET") return J(Object.assign({ id: "retencion", dias: 0, opciones: RETENCION_DIAS.slice() }, ajusteRetencion || {}));
       if (path === "/api/config/retencion" && method === "PUT") {
+        debePersistir = false; // One deliberate durable commit; never a second write in finally.
         const _rr = _rolLocal();
         if (_rr !== "dueno" && _rr !== "admin") return J({ error: "Only the owner or an admin can change the payment hold." }, 403);
         const n = _normRetencion({ id: "retencion", dias: body && body.dias });
         if (!n) return J({ error: "Choose 0, 7, 14 or 30 days." }, 400);
+        const anterior = ajusteRetencion, len = movimientos.length, sello = selloUltimo;
         n.rev = _revNueva(); ajusteRetencion = n;
-        mov("config-retencion", { dias: n.dias });
+        mov("config-retencion", { dias: n.dias }, false);
+        let duradero = false;
+        try { duradero = await guardarEstadoLocal(true, true); } catch (_) {}
+        if (!duradero) {
+          ajusteRetencion = anterior; movimientos.length = len; selloUltimo = sello;
+          return J({ error: "Payment hold was NOT saved. Free up storage and retry." }, 507);
+        }
         avisarCatalogoCambiado();
         return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
       }
