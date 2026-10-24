@@ -13,3 +13,4 @@ Disallow: /version-manifest.json
 Disallow: /demo/
 
 Sitemap: https://jfcarpiopuntocom.github.io/friendly-123/sitemap.xml
+# Release pipeline: republish the existing v564 application; rules unchanged.
