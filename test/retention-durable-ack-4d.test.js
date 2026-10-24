@@ -10,24 +10,22 @@ const end = source.indexOf('      /* LEALTAD (benchmark #5)', begin);
 assert.ok(begin >= 0 && end > begin, 'extract real retention PUT handler');
 
 function runner(durable) {
-  const history = [];
   let announced = 0, writes = 0, seq = 1;
   const deps = {
     _rolLocal: () => 'dueno',
     _normRetencion: x => (x && [0,7,14,30].includes(x.dias) ? {id:'retencion',dias:x.dias,rev:x.rev||null} : null),
     _revNueva: () => ({c:seq++,d:'fixture'}),
-    mov: (kind,details) => { history.push({kind,details}); },
-    avisarCatalogoCambiado: () => { announced++; },
+    notified: () => { announced++; },
     guardarEstadoLocal: async () => { writes++; return durable; },
     J: (body,status=200) => ({body,status}),
   };
-  const factory = new Function('deps', 'const {_rolLocal,_normRetencion,_revNueva,mov,avisarCatalogoCambiado,guardarEstadoLocal,J}=deps;\n'
+  const factory = new Function('deps', 'const {_rolLocal,_normRetencion,_revNueva,guardarEstadoLocal,J}=deps;\n'
     + 'const RETENCION_DIAS=[0,7,14,30]; let ajusteRetencion={id:"retencion",dias:7,rev:{c:1,d:"fixture"}};\n'
-    + 'let movimientos=[], selloUltimo="original";\n'
+    + 'let movimientos=[], selloUltimo="original";\nconst avisarCatalogoCambiado=()=>deps.notified();\nconst mov=(kind,details,announce=true)=>{movimientos.push({kind,details});selloUltimo="mutated";if(announce)avisarCatalogoCambiado();};\n'
     + 'async function run(body){const path="/api/config/retencion",method="PUT";let debePersistir=true;\n'
     + 'try {\n' + source.slice(begin,end) + '\n} finally {if(debePersistir) guardarEstadoLocal();}\n'
     + '} return {run,get:()=>({ajusteRetencion,movimientos,selloUltimo})};');
-  return {...factory(deps), history, reads: () => ({announced,writes})};
+  return {...factory(deps), reads: () => ({announced,writes})};
 }
 
 test('failed durable storage must be HTTP 507, no catalog announce, no changed policy or log', async () => {
@@ -37,7 +35,7 @@ test('failed durable storage must be HTTP 507, no catalog announce, no changed p
   assert.equal(response.status,507);
   assert.equal(x.get().ajusteRetencion.dias,7);
   assert.deepEqual(x.get().ajusteRetencion.rev,old.ajusteRetencion.rev);
-  assert.equal(x.history.length,0,'no phantom movement after rejected commit');
+  assert.equal(x.get().movimientos.length,0,'no phantom movement after rejected commit');
   assert.equal(x.reads().announced,0,'no premature remote publication');
   assert.equal(x.reads().writes,1,'a single strict attempt, not an extra finally write');
 });
@@ -47,7 +45,7 @@ test('confirmed durable storage is HTTP 200 with one history and one catalog not
   const response=await x.run({dias:14});
   assert.equal(response.status,200);
   assert.equal(x.get().ajusteRetencion.dias,14);
-  assert.equal(x.history.length,1);
+  assert.equal(x.get().movimientos.length,1);
   assert.equal(x.reads().announced,1);
   assert.equal(x.reads().writes,1);
 });
@@ -56,6 +54,6 @@ test('unauthorized and invalid requests never write any storage', async () => {
   const x=runner(true);
   const r=await x.run({dias:999});
   assert.equal(r.status,400);
-  assert.equal(x.history.length,0);
+  assert.equal(x.get().movimientos.length,0);
   assert.equal(x.reads().announced,0);
 });
