@@ -44,7 +44,7 @@ recorrer.etiquetas = [];
 
 (async () => {
   const version = JSON.parse((await bajar('version.json')).toString('utf8'));
-  recorrer.release = version.shell.replace(/^f123-shell-/, '');
+  recorrer.release = String(version.releaseName || version.shell.replace(/^f123-shell-/, ''));
   console.log(`Publicado: ${version.shell} (${version.releaseName}) en ${BASE}`);
   const manifiesto = JSON.parse((await bajar('version-manifest.json')).toString('utf8'));
   const archivos = manifiesto.archivos || manifiesto.files || {};
