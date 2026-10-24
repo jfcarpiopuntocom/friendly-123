@@ -14,7 +14,7 @@
 - Unknown paths and what evidence would resolve them:
 
 ## RED → GREEN, tiny proof
-- [ ] Actual issue reproduced with synthetic input and focused test: 
+- [ ] Actual issue reproduced with synthetic input and focused test:
 - [ ] Smallest fix (file list and diff summary):
 - [ ] Failure/concurrent/replay case passed, not only happy path:
 - [ ] Another agent independently reviewed:
