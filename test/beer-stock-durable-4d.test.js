@@ -37,7 +37,8 @@ test('failed durable sale restores exact pre-sale PN metadata, including absent 
  assert.ok(capture.includes('const _fotoVenta')&&fail.includes('return J('),'exact sale rollback anchors');
  const aux=new Function('p','prepare',`
   const cant=2,ventas=[],movimientos=[],uuid=()=> 'synthetic-sale',
-        _ventaGuardada=false,tSeguro=(k,msg)=>msg,J=(body,status)=>({body,status});
+        _ventaGuardada=false,tSeguro=(k,msg)=>msg,J=(body,status)=>({body,status}),
+        clonar=x=>JSON.parse(JSON.stringify(x));
   let selloUltimo='initial';
   ${capture}
   ventas.push({id:'synthetic-sale'});
