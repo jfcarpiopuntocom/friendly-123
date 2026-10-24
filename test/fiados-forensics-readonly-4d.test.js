@@ -55,3 +55,23 @@ test('privacy: even 1-character customer identifiers are replaced by report-scop
  assert.match(safe,/ID-1/);
  assert.match(safe,/ID-2/);
 });
+
+
+test('ICU portability: date filter does not depend on locale-formatted output',()=>{
+ const vm=require('node:vm'), fs=require('node:fs'), path=require('node:path');
+ const source=fs.readFileSync(path.join(__dirname,'../scripts/forensics/fiados-readonly.cjs'),'utf8');
+ const mod={exports:{}};
+ const baseIntl=Intl;
+ const simulatedIntl={DateTimeFormat:function(_locale,opts){
+   const real=new baseIntl.DateTimeFormat('en-CA',opts);
+   return {format:()=> '9/29/2026',formatToParts:date=>real.formatToParts(date)};
+ }};
+ vm.runInNewContext(source,{module:mod,require,Intl:simulatedIntl,console,process:{argv:[]}}, {filename:'fiados-readonly.cjs'});
+ const report=mod.exports.analyze({
+   notebook:{ventas:[],productos:[]},
+   ledger:{hechos:[receipt('locale-proof','customer-A')]},
+   date:dateLabel
+ });
+ assert.equal(report.cargos.length,1,'date must match even when en-CA displays MM/DD/YYYY');
+ assert.equal(report.cargos[0].fecha,dateLabel);
+});
