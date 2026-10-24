@@ -64,6 +64,19 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
 });
 
 
+test('E4 RED: legacy owner with equal rev and future clock must not replace a saved store name',()=>{
+  const device=browser(),apply=(name,rev,ts)=>device.OCSync.aplicarCatalogo({
+    ubicaciones:[],productos:[],nombreNegocio:name,nombreNegocioRev:rev,nombreNegocioTs:ts
+  },'dueno',false);
+  apply('Correct store',7,1000);
+  assert.equal(device.catalog().nombreNegocio,'Correct store');
+  apply('Old device stale store',7,99999999);
+  assert.equal(device.catalog().nombreNegocio,'Correct store',
+    'same revision is NOT a fresh owner rename, regardless of device clock');
+  apply('Verified newer revision',8,1001);
+  assert.equal(device.catalog().nombreNegocio,'Verified newer revision');
+});
+
 test('E1: legacy v1 checkpoint HEAD behind stored cursor replays checkpoint ONCE, not stale empty pages forever', async () => {
   const source=fs.readFileSync(path.resolve(__dirname,'../docs/sync-yjs.js'),'utf8');
   const start=source.indexOf('    function pedirPagina(sock, estado, sinHead) {');
