@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-24",
-  "changelog": "v575: prevent unconfirmed on-account payments when device storage is full; quarantine explicit cross-customer payment allocation without changing history.",
+  "changelog": "v576: prevent a stale owner device clock from reverting the business name on equal revision; preserve canonical Yjs name and newer owner revisions.",
   "requerida": false,
-  "shell": "f123-shell-v575",
+  "shell": "f123-shell-v576",
   "apagar": [],
-  "releaseName": "v575",
+  "releaseName": "v576",
   "cacheGeneration": "golden128"
 }
