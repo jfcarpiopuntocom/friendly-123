@@ -11,7 +11,7 @@ import colorsys
 import io
 import json
 import subprocess
-from PIL import Image, ImageOps
+from PIL import Image, ImageOps, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "docs/img/logo-720.png"
@@ -65,12 +65,29 @@ def write():
     colors=[families[k] for k in ("magenta","orange","blue")]
     mins=[min(x for x,y in pts) for pts in colors]
     check(12,"digit order magenta/orange/blue verified",mins==sorted(mins))
-    left=max(0,mins[0]-22)
+    left=max(0,mins[0]-10)
     right=min(w,max(x for x,y in families["blue"])+18)
     fg=[(x,y) for y in range(h) for x in range(left,right) if pixels[x,y][3]>20]
     top=max(0,min(y for x,y in fg)-2)
     bottom=min(h,max(y for x,y in fg)+3)
     crop=src.crop((left,top,right,bottom))
+    # The wordmark's yellow hyphen shares the left edge with the magenta 1.
+    # Preserve only pixels within the official 1/2/3 color silhouettes and
+    # their original navy outline; never recolor any selected digit pixel.
+    digit_ink=Image.new("L",src.size,0)
+    ink_px=digit_ink.load()
+    for points in families.values():
+        for x,y in points:ink_px[x,y]=255
+    allowed=digit_ink.filter(ImageFilter.MaxFilter(19)).crop((left,top,right,bottom))
+    crop_px=crop.load()
+    for yy in range(crop.height):
+        for xx in range(crop.width):
+            red,green,blue,alpha=crop_px[xx,yy]
+            is_gold=red>150 and green>red*.61 and blue<green*.75
+            if allowed.getpixel((xx,yy))==0 or is_gold:
+                crop_px[xx,yy]=(red,green,blue,0)
+    bb=crop.getchannel("A").getbbox()
+    if bb: crop=crop.crop(bb)
     check(13,"digit crop within official source",0<=left<right<=w and 0<=top<bottom<=h)
     check(14,"digit crop does not include friendly wordmark",left>w*.55 and crop.width<w*.45)
     check(15,"all three exact source families survive crop",all(v>100 for v in stats(crop).values()))
