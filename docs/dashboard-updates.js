@@ -4,12 +4,13 @@
 (function () {
   'use strict';
   var built = document.querySelector('meta[name="dashboard-shell"]');
-  /* v508 (JFC 2026-10-14, "dice v498 arriba"): la etiqueta visible sale de la meta
-     dashboard-shell, la misma identidad que usa el actualizador. Nunca un numero a mano. */
+  /* El shell tecnico controla la actualizacion; la etiqueta publica es releaseName.
+     No confundir la cache interna con la version que ve el cliente. */
   try {
     var etiqueta = document.getElementById('dashboard-version');
-    var num = built && String(built.content || '').match(/v\d+$/);
-    if (etiqueta && num) etiqueta.textContent = 'Dashboard ' + num[0];
+    var publicMeta = document.querySelector('meta[name="dashboard-release"]');
+    var publicVersion = publicMeta && String(publicMeta.content || '');
+    if (etiqueta && /^v\d+$/.test(publicVersion)) etiqueta.textContent = 'Dashboard ' + publicVersion;
   } catch (_) {}
   if (!('serviceWorker' in navigator)) return;
   var current = built && built.content, busy = false, reloading = false;
