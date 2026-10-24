@@ -291,6 +291,24 @@
   /* Abonar tambien pasa a modal. Con prompt() no se puede mostrar cuanto debe
      ni cuanto falta para la cuota, que es justo lo que hace falta saber en el
      momento de recibir la plata. Y desentonaba con el modal de fiar. */
+  // The payment write-ahead reference is mandatory: if browser storage is full,
+  // never send money and never expose a raw QuotaExceededError to the customer.
+  // A confirmed receipt is a DIFFERENT state: it must never claim "no payment".
+  function guardarReferenciaPago(clave, dato, cobroConfirmado) {
+    var txt = JSON.stringify(dato);
+    try {
+      localStorage.setItem(clave, txt);
+      if (localStorage.getItem(clave) !== txt) throw new Error("write/readback mismatch");
+    } catch (_) {
+      var es = global.OCI18n && String(global.OCI18n.locale()).startsWith("es");
+      var e = new Error(cobroConfirmado
+        ? (es ? "Pago posiblemente registrado; falta guardar su asignación. No lo cobres de nuevo. Conserva el historial y avisa al responsable." : "Payment may be recorded; its allocation could not be saved. Do not charge again. Preserve the history and contact the owner.")
+        : (es ? "No se envió este pago: el almacenamiento del navegador está lleno. No reintentes ni borres datos; avisa al responsable." : "This payment was not sent: browser storage is full. Do not retry or clear data; contact the owner."));
+      e.codigo = "F123_REFERENCIA_PAGO_NO_GUARDADA";
+      e.cobroConfirmado = !!cobroConfirmado;
+      throw e;
+    }
+  }
   function claveAbono(clienteId) { return 'f123_customer_payment_intent_v1:' + clienteId; }
   function abonoPendiente(clienteId) {
     var txt = localStorage.getItem(claveAbono(clienteId));
@@ -312,8 +330,7 @@
     }
     if (!previo) {
       payload.opId = intencionId || ('customer-payment:' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)));
-      localStorage.setItem(key, JSON.stringify(payload));
-      if (localStorage.getItem(key) !== JSON.stringify(payload)) throw new Error('Could not save the payment reference.');
+      guardarReferenciaPago(key, payload, false);
     } else payload = previo;
     var response = await fetch(API + '/clientes/' + clienteId + '/abonar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     var result = await response.json();
@@ -359,10 +376,7 @@
         { opId: dato.paymentOpId, conservarIntencion: true });
       if (!r || !r.movimientoId) throw new Error("Payment receipt not confirmed. Retry with the same reference.");
       dato.abonoId = String(r.movimientoId);
-      localStorage.setItem(claveAsignacion(clienteId), JSON.stringify(dato));
-      if (localStorage.getItem(claveAsignacion(clienteId)) !== JSON.stringify(dato)) {
-        throw new Error("Payment preserved; allocation reference could not be stored. Do not pay again.");
-      }
+      guardarReferenciaPago(claveAsignacion(clienteId), dato, true);
     }
     return confirmarAsignacion(clienteId, dato);
   }
@@ -512,10 +526,7 @@
           abonoId: null, partes: partes, monto: monto, motivo: motivo
         };
         try {
-          localStorage.setItem(claveAsignacion(clienteId), JSON.stringify(pendienteAsignacion));
-          if (localStorage.getItem(claveAsignacion(clienteId)) !== JSON.stringify(pendienteAsignacion)) {
-            throw new Error("Could not preserve the payment allocation intention.");
-          }
+          guardarReferenciaPago(claveAsignacion(clienteId), pendienteAsignacion, false);
           tarea = reanudarAsignacion(clienteId, pendienteAsignacion);
         } catch (errorGuardar) {
           // A failure BEFORE starting the payment is not a confirmed payment.
