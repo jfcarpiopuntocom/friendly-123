@@ -3,13 +3,47 @@
 // PLUS the separately stored append-only Hechos ledger. No mutation, sync,
 // HTTP, live licenses, import, restore, or guessed customer assignment.
 const fs=require('node:fs');
+/**
+ * Read a financial fact payload from either supported historical encoding.
+ * @param {object} h - Original append-only fact; never modified.
+ * @returns {object} Payload or an empty object.
+ */
 function dataOf(h){return h&&h.datos&&h.datos.payload?h.datos.payload:(h&&h.datos)||{};}
+/**
+ * Require a complete input collection rather than producing a partial report.
+ * @param {unknown} x - Expected array.
+ * @param {string} name - Source name included in diagnostic errors.
+ * @returns {Array} The same array, without modifying it.
+ */
 function isArray(x,name){if(!Array.isArray(x))throw Error(name+' must be an array');return x;}
+/**
+ * Convert a fact timestamp to an ISO calendar date in a chosen time zone.
+ * Uses date parts, not locale-dependent rendering (which differs by Node/ICU).
+ * @param {number|string} ts - Unix milliseconds or a parsable date string.
+ * @param {string} tz - IANA time zone.
+ * @returns {string} YYYY-MM-DD, or "?" for invalid timestamps.
+ */
 function groupDate(ts,tz){
   const t=typeof ts==='number'?ts:Date.parse(ts||'');
   if(!Number.isFinite(t))return '?';
-  return new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t));
+  const parts=new Intl.DateTimeFormat('en-CA',{
+    timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'
+  }).formatToParts(new Date(t));
+  const date={};
+  for(const part of parts){
+    if(part.type==='year'||part.type==='month'||part.type==='day')date[part.type]=part.value;
+  }
+  return date.year&&date.month&&date.day
+    ? date.year+'-'+date.month.padStart(2,'0')+'-'+date.day.padStart(2,'0')
+    : '?';
 }
+/**
+ * Reconcile exported sales against the separate append-only Hechos ledger.
+ * No mutation, storage writes, network access, or guessed customer assignments.
+ * @param {object} options - Notebook, ledger, calendar day, optional filter/time zone.
+ * @returns {object} Structured findings for explicit charge-to-sale references.
+ * @throws {Error} When either required source is absent or malformed.
+ */
 function analyze({notebook,ledger,date,term='',timeZone='America/Guayaquil'}){
   if(!notebook||!ledger)throw Error('both notebook AND ledger are mandatory');
   const sales=isArray(notebook.ventas,'notebook.ventas');
@@ -50,6 +84,13 @@ function analyze({notebook,ledger,date,term='',timeZone='America/Guayaquil'}){
     hechosAnalizados:facts.length,ventasAnalizadas:sales.length,
     cargos:out,conteos:out.reduce((acc,r)=>(acc[r.estado]=(acc[r.estado]||0)+1,acc),{})};
 }
+/**
+ * Produce a printable forensic report with report-local aliases for identifiers.
+ * By default removes raw IDs and free-text motives. Does not persist a lookup.
+ * @param {object} r - Findings from analyze().
+ * @param {object} options - Set fullIds only for strictly local authorized review.
+ * @returns {object} New report object; original findings remain unchanged.
+ */
 function present(r,{fullIds=false}={}){
  // Privacy: a short customer ID must never be printed unmasked. Each original
  // gets a stable alias inside THIS report only, without keeping any lookup.
