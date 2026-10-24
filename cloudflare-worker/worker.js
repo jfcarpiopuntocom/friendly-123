@@ -845,7 +845,7 @@ function fechaCalendario(input) {
 }
 // Decimal-text rounding avoids binary half-cent drift (1.005 => 101 cents).
 function centavosExactos(monto) {
-  const m = /^(\d+)(?:\\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(Math.abs(monto)));
+  const m = /^(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(Math.abs(monto)));
   if (!m) return NaN;
   const digits = m[1] + (m[2] || ""), place = m[1].length + Number(m[3] || 0) + 2;
   const whole = place > 0 ? digits.slice(0, place).padEnd(place, "0") : "0";
