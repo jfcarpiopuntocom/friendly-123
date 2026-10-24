@@ -843,6 +843,15 @@ function fechaCalendario(input) {
   check.setUTCFullYear(y, m - 1, d);
   return check.getUTCFullYear() === y && check.getUTCMonth() === m - 1 && check.getUTCDate() === d ? s : null;
 }
+// Decimal-text rounding avoids binary half-cent drift (1.005 => 101 cents).
+function centavosExactos(monto) {
+  const m = /^(\d+)(?:\\.(\d+))?(?:e([+-]?\d+))?$/i.exec(String(Math.abs(monto)));
+  if (!m) return NaN;
+  const digits = m[1] + (m[2] || ""), place = m[1].length + Number(m[3] || 0) + 2;
+  const whole = place > 0 ? digits.slice(0, place).padEnd(place, "0") : "0";
+  const next = place < 0 ? "0" : (digits[place] || "0");
+  return Number(BigInt(whole) + (next >= "5" ? 1n : 0n));
+}
 async function handleRegistrarPago(req, env, instanceId) {
   if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
   let body = {}; try { body = await req.json(); } catch (_) { return json({ error: "JSON invalido" }, 400); }
@@ -851,13 +860,15 @@ async function handleRegistrarPago(req, env, instanceId) {
   const reg = JSON.parse(raw);
   const codigo = normCodigoLic(reg.licenseCode);
   if (!codigo) return json({ error: "Este aparato no tiene licencia: activa una antes de registrar el pago" }, 400);
-  const monto = Number(body.monto), centavos = Math.round(Math.abs(monto) * 100);
+  const monto = Number(body.monto), centavos = centavosExactos(monto);
   if (!Number.isFinite(monto) || centavos === 0 || Math.abs(monto) > 1000000) return json({ error: "Monto invalido (distinto de 0; negativo = correccion)" }, 400);
   const moneda = String(body.moneda || "USD").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3) || "USD";
   const medio = MEDIOS_PAGO.includes(String(body.medio || "").toLowerCase()) ? String(body.medio).toLowerCase() : "otro";
-  const hasta = body.hasta ? fechaCalendario(body.hasta) : null;
-  const fecha = body.fecha ? fechaCalendario(body.fecha) : new Date().toISOString().slice(0, 10);
-  if (!fecha || (body.hasta && !hasta)) return json({ error: "Fecha de pago o cobertura invalida" }, 400);
+  const sinFecha = body.fecha === undefined || body.fecha === "";
+  const sinHasta = body.hasta === undefined || body.hasta === "";
+  const hasta = sinHasta ? null : fechaCalendario(body.hasta);
+  const fecha = sinFecha ? new Date().toISOString().slice(0, 10) : fechaCalendario(body.fecha);
+  if (!fecha || (!sinHasta && !hasta)) return json({ error: "Fecha de pago o cobertura invalida" }, 400);
   const asiento = {
     id: `pg-${Date.now().toString(36)}-${trozoAleatorio(4)}`, ts: Date.now(), fecha, monto: Math.sign(monto) * centavos / 100, moneda, medio,
     referencia: String(body.referencia || "").slice(0, 80), hasta, nota: String(body.nota || "").slice(0, 200),
