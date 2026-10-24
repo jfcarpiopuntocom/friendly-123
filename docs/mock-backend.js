@@ -1094,6 +1094,8 @@
   }
   // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba
   // y un refresh le comia el dia. Ahora hay banda roja persistente.
+  // Clear a prior full-storage warning ONLY after another write succeeded durably.
+  function despejarAvisoMemoriaLlena() { try { const d = document.getElementById("oc-quota-aviso"); if (d) d.remove(); } catch (_) {} }
   function avisoMemoriaLlena() {
     try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "memoria-llena"); else (window.__ocFallos = window.__ocFallos || []).push(["", "memoria-llena"]); } catch (_) {} // canario 2026-10-01
     try {
@@ -1361,6 +1363,7 @@
       _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
       ocultarAvisoRecorte();
+      despejarAvisoMemoriaLlena();
       _publicarAdminPins();
       return true;
     } catch (_) {}
@@ -1374,7 +1377,7 @@
        SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
        verdad no entro en ningun lado. */
     return _idb.then((ok) => {
-      if (ok) { ocultarAvisoRecorte(); avisoEspacioJusto(); _publicarAdminPins(); }
+      if (ok) { ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); avisoEspacioJusto(); _publicarAdminPins(); }
       else avisoMemoriaLlena();
       return !!ok;
     }).catch(() => { avisoMemoriaLlena(); return false; });

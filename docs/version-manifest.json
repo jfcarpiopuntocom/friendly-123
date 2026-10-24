@@ -20,7 +20,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-1b038581ecb22a491f388bddf5de6729209db5d7c67a404d1def8f8edb236469",
     "./estado-idb.js": "sha256-0c139272a081e10a1d2177f485fdc4b8ed6fdcb8bc5744ce4c2497f31d9ef02e",
-    "./mock-backend.js": "sha256-fc423ff992abfa96f68f2b55449689a97c5345b6e8f6fdf311aab0626e45b114",
+    "./mock-backend.js": "sha256-4f6f875b2e1552a8c82f3c64902515826140142feec514b828b242dd73e0a433",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
