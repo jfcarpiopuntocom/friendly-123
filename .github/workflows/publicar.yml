@@ -86,8 +86,14 @@ jobs:
             # Sin huella aun: conservar el padre si este lote no cambia la app;
             # si no es posible identificarlo, usar estable y dejar constancia.
             CANDIDATE="${SERVED:-$STABLE}"
-            if [ -z "$SERVED" ] && git diff --quiet "$MASTER^" "$MASTER" -- docs; then CANDIDATE=$(git rev-parse "$MASTER^"); fi
-            echo "Canario retenido en $CANDIDATE; estable/previo se publican sin esperar QA" >> "$GITHUB_STEP_SUMMARY"
+            # Metadata-only changes cannot strand the canary on an older build when
+            # the approved stable release already contains the same app bytes.
+            if git diff --quiet "$STABLE" "$MASTER" -- docs ':(exclude)docs/robots.txt'; then
+              CANDIDATE="$STABLE"
+            elif [ -z "$SERVED" ] && git diff --quiet "$MASTER^" "$MASTER" -- docs; then
+              CANDIDATE=$(git rev-parse "$MASTER^")
+            fi
+            echo "Canario seleccionado en $CANDIDATE; estable/previo se publican sin esperar QA" >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "stable=$(git rev-parse origin/estable)" >> "$GITHUB_OUTPUT"
           echo "master=$(git rev-parse origin/master)" >> "$GITHUB_OUTPUT"
