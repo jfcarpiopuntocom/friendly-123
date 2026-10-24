@@ -5,10 +5,10 @@
 //  - la app o el tablero lanzan errores de JavaScript al abrir (Chromium y WebKit/iPhone);
 //  - el tablero no muestra la version publicada (caso "Dashboard v498" del 14 oct);
 //  - algun archivo del shell servido no cuadra con su SHA-256 del manifiesto.
-// Uso: node scripts/recorrido-vivo.cjs [baseUrl]   (por defecto https://friendly123.com/app/)
+// Uso: node scripts/recorrido-vivo.cjs [baseUrl]   (por defecto https://jfcarpiopuntocom.github.io/friendly-123/)
 const { chromium, webkit, devices } = require('playwright');
 const crypto = require('node:crypto');
-const BASE = (process.argv[2] || 'https://friendly123.com/app/').replace(/\/?$/, '/');
+const BASE = (process.argv[2] || 'https://jfcarpiopuntocom.github.io/friendly-123/').replace(/\/?$/, '/');
 const fallas = [];
 const mal = (m) => { fallas.push(m); console.log('FALLA ' + m); };
 
@@ -44,7 +44,7 @@ recorrer.etiquetas = [];
 
 (async () => {
   const version = JSON.parse((await bajar('version.json')).toString('utf8'));
-  recorrer.release = version.releaseName;
+  recorrer.release = version.shell.replace(/^f123-shell-/, '');
   console.log(`Publicado: ${version.shell} (${version.releaseName}) en ${BASE}`);
   const manifiesto = JSON.parse((await bajar('version-manifest.json')).toString('utf8'));
   const archivos = manifiesto.archivos || manifiesto.files || {};

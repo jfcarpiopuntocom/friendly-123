@@ -1,5 +1,5 @@
 # recorrido.yml — RECORRIDO DE LA APP VIVA (Oct14fixes 4, JFC 2026-10-14).
-# Abre friendly123.com/app y su tablero como un cliente nuevo (Chromium + Safari iPhone),
+# Abre jfcarpiopuntocom.github.io/friendly-123/ y su tablero (Chromium + Safari iPhone),
 # SOLO LECTURA: sin PIN, sin licencias, sin datos. Falla si hay errores JS, si el tablero
 # muestra otra version que la publicada o si un archivo servido no cuadra con el manifiesto.
 # Una falla = GitHub manda correo: nos enteramos antes que Belen.
@@ -29,4 +29,4 @@ jobs:
       - run: npx playwright install --with-deps chromium webkit
       - name: Recorrer la app viva
         shell: bash
-        run: node scripts/recorrido-vivo.cjs https://friendly123.com/app/ | tee -a "$GITHUB_STEP_SUMMARY"
+        run: node scripts/recorrido-vivo.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
