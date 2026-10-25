@@ -71,7 +71,7 @@
   /* Indicador de sync: el punto permanece y el texto sigue accesible para lectores de pantalla. */
   #oc-estado-fila{display:flex;align-items:center;gap:6px;margin-top:4px;}
   #oc-estado-fila #oc-sync-mini{margin-top:0 !important;}
-
+  @media (max-width:767px){
     #oc-sync-mini .oc-sync-txt{display:none !important;}
     #oc-sync-mini{padding:4px !important;}
   }
