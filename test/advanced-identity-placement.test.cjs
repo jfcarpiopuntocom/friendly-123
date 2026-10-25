@@ -67,11 +67,9 @@ test('device pencil stays hidden until login and hides after logout',()=>{
   const logoutEnd=html.indexOf(');\n  function pintarApodoHeader()',logoutStart);
   assert.ok(logoutStart>0&&logoutEnd>logoutStart,'extract real logout listener');
   const scope={...context,btn:{style:{display:'inline-block'}}};
+  scope.attach=(name,fn)=>{assert.equal(name,'oc-logout');fn();};
   vm.createContext(scope);
-  vm.runInContext(html.slice(logoutStart,logoutEnd+2).replace('window.addEventListener','this.attach') ,{
-    ...scope,
-    attach(name,fn){assert.equal(name,'oc-logout');fn();}
-  });
+  vm.runInContext(html.slice(logoutStart,logoutEnd+2).replace('window.addEventListener','this.attach'),scope);
   assert.equal(row.style.display,'none','logout must hide moved device editor');
   assert.equal(wrap.style.display,'none','logout must hide device header');
 });
