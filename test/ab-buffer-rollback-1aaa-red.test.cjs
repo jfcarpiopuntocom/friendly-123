@@ -11,8 +11,33 @@ const start = backend.indexOf('  function _guardarEstadoLocalAhora(');
 const end = backend.indexOf('  function avisoEspacioJusto(', start);
 assert.ok(start > 0 && end > start, 'extract exact A/B save function');
 const realSave = backend.slice(start, end);
+const loadStart = backend.indexOf('  function cargarEstadoLocal() {');
+const loadEnd = backend.indexOf('  // Cuando otra pestaña guarda', loadStart);
+assert.ok(loadStart > end && loadEnd > loadStart, 'extract the real boot A/B reader');
+const realLoad = backend.slice(loadStart, loadEnd);
 
-function fixture({ rejectRestore = false, idbOK = false } = {}) {
+function reload(storage) {
+  const applied = [];
+  const context = vm.createContext({
+    localStorage: {
+      getItem(k) { return storage.has(k) ? storage.get(k) : null; },
+      setItem(k, v) { storage.set(k, v); },
+    },
+    OC_STATE_PTR: 'ptr', OC_STATE_SUFIJO: 'synthetic-shop', OC_STATE_KEY: 'legacy',
+    _localRev: 0, _cargoBufferReal: false,
+    claveBuffer: letter => 'slot_' + letter,
+    validarRespaldo() { return null; },
+    aplicarRespaldo(value) { applied.push(value); },
+    repararRespaldo() { return null; },
+    console: { warn() {} }, setTimeout() {},
+    avisarBufferRecuperado() {}, avisarEstadoReparado() {},
+  });
+  vm.runInContext(realLoad + '; this.cargar = cargarEstadoLocal;', context);
+  context.cargar();
+  return applied;
+}
+
+function fixture({ rejectRestore = false, rejectDelete = false, idbOK = false } = {}) {
   const oldA = JSON.stringify({ _rev: 10, photo: 'synthetic-active-A' });
   const oldB = JSON.stringify({ _rev: 9, photo: 'synthetic-unique-legacy-B', movement: 'synthetic-history-B' });
   const storage = new Map([['ptr', 'A'], ['slot_A', oldA], ['slot_B', oldB]]);
@@ -28,7 +53,10 @@ function fixture({ rejectRestore = false, idbOK = false } = {}) {
       events.push('set ' + k);
       storage.set(k, v);
     },
-    removeItem(k) { events.push('delete ' + k); storage.delete(k); },
+    removeItem(k) {
+      if (rejectDelete && k === 'slot_B') { events.push('delete rejected'); throw Error('synthetic blocked deletion'); }
+      events.push('delete ' + k); storage.delete(k);
+    },
   };
   const context = vm.createContext({
     localStorage, OC_STATE_PTR: 'ptr', _localRev: 10, _localRevReservado: 10,
@@ -66,3 +94,23 @@ test('1AAA RED: pointer and rollback both fail; unique old B must not be deleted
 // A GREEN fix must also prove restart chooses only a committed version.
 // Keeping an uncommitted new B instead of deleting it is NOT sufficient;
 // it may become fallback if the active A later fails validation.
+
+test('1AAA RED: uncommitted B must not become boot fallback if pointer, restore, and delete fail', async () => {
+  const f = fixture({ rejectRestore: true, rejectDelete: true });
+  assert.equal(await f.context.guardar(true, false), false, 'save was explicitly rejected');
+  assert.equal(f.storage.get('ptr'), 'A', 'commit marker never moved');
+  assert.ok(f.events.includes('delete rejected'));
+  f.storage.set('slot_A', '{synthetically-corrupted-A');
+  const loaded = reload(f.storage);
+  assert.notEqual(loaded[0] && loaded[0].photo, 'synthetic-new-B',
+    'restart must never silently adopt B rejected by its pointer commit');
+});
+
+test('boot control: prior B is valid fallback when A is corrupt and old B was restored', async () => {
+  const f = fixture();
+  assert.equal(await f.context.guardar(true, false), false);
+  f.storage.set('slot_A', '{synthetically-corrupted-A');
+  const loaded = reload(f.storage);
+  assert.equal(loaded[0] && loaded[0].photo, 'synthetic-unique-legacy-B',
+    'normal recovery still recovers an older durable B');
+});
