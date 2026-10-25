@@ -1,7 +1,7 @@
 {
   "version": "1.0",
-  "fecha": "2026-10-24",
-  "changelog": "v580: sales stage stock PN with the first durable save, hold sync during confirmation, and roll back fully when storage rejects the sale.",
+  "fecha": "2026-10-25",
+  "changelog": "v580: durable sale and stock confirmation, safe catalog replies during saving, durable local revision and verified recovery cursor.",
   "requerida": false,
   "shell": "f123-shell-v580",
   "apagar": [],

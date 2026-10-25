@@ -1124,7 +1124,8 @@
     // se archivó el log viejo. Sin romper la UI.
     try { console.warn("[storage] log de actividad viejo (" + n + " registros) movido a archivo local; nada se borró (aviso solo en consola)"); } catch (_) {}
   }
-  let _localRev = 0; // contador monotónico — impide que una pestaña vieja sobreescriba estado más fresco
+  let _localRev = 0; // última revisión confirmada en almacenamiento duradero
+  let _localRevReservado = 0; // asignador monotónico: los fallos dejan huecos, nunca adelantan _localRev
   // Fase 3 (2026-08-04): doble buffer A/B + puntero, en vez de una unica clave.
   // Cada guardado escribe SIEMPRE en el buffer INACTIVO y recien al final mueve
   // el puntero — asi una escritura interrumpida a medias (pestaña cerrada,
@@ -1359,14 +1360,17 @@
     return resultado;
   }
   function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
-    _localRev++;
+    const _revIntento = Math.max(_localRev, _localRevReservado) + 1;
+    _localRevReservado = _revIntento;
     const completo = estadoActualExportable();
+    completo._rev = _revIntento;
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
     const destino = activo === "A" ? "B" : "A";
     const _idb = _espejarEnIDB(completo, exigirCompleto);
     try {
       localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
       localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
+      _localRev = Math.max(_localRev, _revIntento);
       _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
       ocultarAvisoRecorte();
@@ -1384,7 +1388,7 @@
        SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
        verdad no entro en ningun lado. */
     return _idb.then((ok) => {
-      if (ok) { ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); avisoEspacioJusto(); _publicarAdminPins(); }
+      if (ok) { _localRev = Math.max(_localRev, _revIntento); ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); avisoEspacioJusto(); _publicarAdminPins(); }
       else avisoMemoriaLlena();
       return !!ok;
     }).catch(() => { avisoMemoriaLlena(); return false; });
@@ -4458,6 +4462,10 @@
     },
     /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
        DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
+    async catalogoConfirmado() {
+      while (_ventaPendiente) await _ventaPendiente;
+      return this.catalogoPropio();
+    },
     catalogoPropio() {
       if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
@@ -4474,7 +4482,7 @@
              edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
           stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0,
           stockBase: p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null,
-          stockPN: p.stockPN && typeof p.stockPN === "object" ? p.stockPN : null,
+          stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
           /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
              (un dataURL de ~180KB reventaria el frame del catalogo al agrupar
              varios). Viaja solo el puntero fotoHash; los bytes van por el canal de

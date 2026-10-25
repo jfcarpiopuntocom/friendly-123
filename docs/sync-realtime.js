@@ -702,12 +702,18 @@
      negocio con miles de productos no puede depender de que un unico mensaje
      gigante llegue entero. */
   async function responderCatalogo(pedido) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const socket = ws;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return;
     if (!window.OCSync || !window.OCSync.catalogoPropio) return;   // un tablero no contesta
     await new Promise((r) => setTimeout(r, Math.random() * 400));  // jitter, como la foto
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (ws !== socket || socket.readyState !== WebSocket.OPEN) return;
     let cat;
-    try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+    try {
+      cat = typeof window.OCSync.catalogoConfirmado === "function"
+        ? await window.OCSync.catalogoConfirmado()
+        : window.OCSync.catalogoPropio();
+    } catch (_) { return; }
+    if (!cat || ws !== socket || socket.readyState !== WebSocket.OPEN) return;
     /* El EQUIPO viaja igual que las perchas y los productos (JFC 2026-08-21).
        Antes solo iban `ubicaciones` y `productos`, y por eso el PIN de un
        admin creado en un dispositivo no existia en el otro: el dato nunca
@@ -718,14 +724,18 @@
                      .concat(trocear("usuarios", cat.usuarios || []))
                      .concat(trocear("clientes", cat.clientes || [])); // JFC 2026-08-26: los clientes viajan con el catálogo (add-only), como el equipo
     for (let k = 0; k < trozos.length; k++) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (ws !== socket || socket.readyState !== WebSocket.OPEN) return;
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: pedido.deviceId || null,
         payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, nombreNegocio: cat.nombreNegocio || "" }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
-      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
+      try {
+        const cifrado = await cifrar(claveActual, op);
+        if (ws !== socket || socket.readyState !== WebSocket.OPEN) return;
+        socket.send(cifrado);
+      } catch (_) { return; }
     }
   }
 
@@ -741,10 +751,16 @@
      no toca stock ni ventas. Una baja (DELETE) no se propaga sola porque el
      merge es add-only —eso es a proposito: nadie borra a nadie por la red. */
   async function difundirEquipo() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const socket = ws;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
     if (!window.OCSync || !window.OCSync.catalogoPropio) return false; // un tablero no difunde
     let cat;
-    try { cat = window.OCSync.catalogoPropio(); } catch (_) { return false; }
+    try {
+      cat = typeof window.OCSync.catalogoConfirmado === "function"
+        ? await window.OCSync.catalogoConfirmado()
+        : window.OCSync.catalogoPropio();
+    } catch (_) { return false; }
+    if (!cat || ws !== socket || socket.readyState !== WebSocket.OPEN) return false;
     const trozos = trocear("usuarios", cat.usuarios || []);
     /* pushId (2026-08-26, code-review finding #2): identificador único para ESTE empuje.
        _acumularCatalogo usa un solo buffer _bufCat. Si dos dispositivos empujan en
@@ -754,14 +770,18 @@
        uuidCorto() produce un ID de 8 chars suficientemente aleatorio para este propósito. */
     const pushId = uuidCorto();
     for (let k = 0; k < trozos.length; k++) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      if (ws !== socket || socket.readyState !== WebSocket.OPEN) return false;
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: null, // a todo el equipo, no a un solo pedido
         payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, pushId: pushId, nombreNegocio: cat.nombreNegocio || "" }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
-      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }
+      try {
+        const cifrado = await cifrar(claveActual, op);
+        if (ws !== socket || socket.readyState !== WebSocket.OPEN) return false;
+        socket.send(cifrado);
+      } catch (_) { return false; }
     }
     return true;
   }
@@ -784,10 +804,16 @@
      add-only por el mismo camino que el boton "Merge inventory with my team".
      Va con el equipo incluido para que un solo empuje deje todo al dia. */
   async function difundirCatalogo() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    const socket = ws;
+    if (!socket || socket.readyState !== WebSocket.OPEN) return false;
     if (!window.OCSync || !window.OCSync.catalogoPropio) return false;
     let cat;
-    try { cat = window.OCSync.catalogoPropio(); } catch (_) { return false; }
+    try {
+      cat = typeof window.OCSync.catalogoConfirmado === "function"
+        ? await window.OCSync.catalogoConfirmado()
+        : window.OCSync.catalogoPropio();
+    } catch (_) { return false; }
+    if (!cat || ws !== socket || socket.readyState !== WebSocket.OPEN) return false;
     const trozos = [].concat(trocear("ubicaciones", cat.ubicaciones || []))
                      .concat(trocear("productos", cat.productos || []))
                      .concat(trocear("usuarios", cat.usuarios || []));
@@ -796,14 +822,18 @@
        pueda detectar interleaving con otro empuje concurrente y limpiar el buffer. */
     const pushId = uuidCorto();
     for (let k = 0; k < trozos.length; k++) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+      if (ws !== socket || socket.readyState !== WebSocket.OPEN) return false;
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_CATALOGO_TROZO,
         para: null,
         payload: Object.assign({ rol: rolActual(), huella: cat.huella ? cat.huella.corta : "", k: k, deTotal: trozos.length, pushId: pushId }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
-      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return false; }
+      try {
+        const cifrado = await cifrar(claveActual, op);
+        if (ws !== socket || socket.readyState !== WebSocket.OPEN) return false;
+        socket.send(cifrado);
+      } catch (_) { return false; }
     }
     return true;
   }

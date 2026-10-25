@@ -600,14 +600,10 @@
         return guardarPruebaCausal(siguiente, bytes);
       }
       _pendingProofPages = 0;
-      // When a late parent finally resolves the snapshot, wait until its Yjs
-      // journal write is committed before retiring that proof.
-      if (_cursorContainsPending) return guardarPruebaCausal(siguiente, null);
-      _appliedPullCursor = siguiente;
-      if (!persistencia || typeof persistencia.set !== "function") return Promise.resolve();
-      /* IndexeddbPersistence enqueues journal writes before the ordinary
-         cursor. Existing fully-applied behavior is preserved. */
-      return persistencia.set(_pullCursorKey, _pullCursor).catch(function () {});
+      // Use the same journal barrier, durable cursor write and readback proof
+      // for complete pages as for pages carrying pending Yjs structs. This also
+      // retires an earlier pending proof only after its now-clean cut is proven.
+      return guardarPruebaCausal(siguiente, null);
     }
     function clavePendientes() {
       var p = doc.store && doc.store.pendingStructs, m = p && p.missing;

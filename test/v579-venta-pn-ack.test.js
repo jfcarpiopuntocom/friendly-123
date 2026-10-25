@@ -2,7 +2,7 @@
 // v579 P0. Synthetic stock only; never uses real client records.
 const {test}=require('node:test'), assert=require('node:assert/strict');
 const fs=require('node:fs'), path=require('node:path');
-const src=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');
+const src=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8').replace(/\r\n/g,'\n');
 function part(start,end){const a=src.indexOf(start), b=src.indexOf(end,a); assert.ok(a>=0&&b>a,'source anchors: '+start); return src.slice(a,b);}
 const sale=part('        const _fotoVenta = { stock: p.stockActual', '      if ((m = path.match(/^\\/api\\/ventas\\/([^/]+)\\/anular$/)))');
 const prep=part('  function _prepararOpStock(payload, idOperacion) {','  function emitirOpStock(tipo, payload, preparado = false) {');
@@ -61,6 +61,7 @@ test('full backend: serial sales use one device PN counter, both receipts remain
   const w=browser();
   w.localStorage.setItem('f123_device_id','fixture-device-A');
   const a=await sold(w,2),first=await a.json();
+  const earlierCatalog=w.OCSync.catalogoPropio();
   const b=await sold(w,3),second=await b.json();
   assert.equal(a.status,200);assert.equal(b.status,200);
   assert.notEqual(first.ventaId,second.ventaId);
@@ -69,6 +70,7 @@ test('full backend: serial sales use one device PN counter, both receipts remain
   assert.equal(p.stockBase,80);
   assert.deepEqual(Object.keys(p.stockPN),['fixture-device-A']);
   assert.equal(p.stockPN['fixture-device-A'].sub,5);
+  assert.equal(earlierCatalog.productos.find(p=>p.id==='p24').stockPN['fixture-device-A'].sub,2,'later sales cannot mutate an already captured PN snapshot');
   assert.ok(data.ventas.some(v=>v.id===first.ventaId));
   assert.ok(data.ventas.some(v=>v.id===second.ventaId));
 });
@@ -85,12 +87,15 @@ test('full backend: pending IndexedDB ACK shields Yjs, GET and first durable PN'
   assert.equal(p.stockActual,78);assert.equal(p.stockBase,80);
   assert.equal(p.stockPN['fixture-device-A'].sub,2);
   assert.equal(w.OCSync.catalogoPropio(),null,'provisional sale cannot seed Yjs');
+  let catalogDone=false;
+  const catalog=w.OCSync.catalogoConfirmado().then(result=>{catalogDone=true;return result;});
   const remote={ubicaciones:[],productos:[{id:'remote-fixture',nombre:'REMOTE FIXTURE',ubicacionId:'bar',stockActual:4,precio:1}]};
   assert.equal(w.OCSync.aplicarCatalogo(remote,null),false,'remote merge held until ACK');
   let readDone=false;
   const read=state(w).then(result=>{readDone=true;return result;});
   await Promise.resolve();await Promise.resolve();
   assert.equal(readDone,false,'read must not observe provisional sale');
+  assert.equal(catalogDone,false,'requested catalog waits for durable sale');
   assert.equal(emitted,0,'no stock announcement before ACK');
   release(true);
   const sale=await inFlight, data=await read;
@@ -98,6 +103,7 @@ test('full backend: pending IndexedDB ACK shields Yjs, GET and first durable PN'
   assert.equal(emitted,1,'announce once');
   assert.ok(data.productos.some(p=>p.id==='remote-fixture'),'remote merge drained after ACK');
   assert.equal(data.productos.find(p=>p.id==='p24').stockPN['fixture-device-A'].sub,2);
+  assert.equal((await catalog).productos.find(p=>p.id==='p24').stockPN['fixture-device-A'].sub,2);
 });
 
 test('full backend: failed IndexedDB ACK restores sale before remote merge, no ghost facts',async()=>{
