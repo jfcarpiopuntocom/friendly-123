@@ -1336,6 +1336,8 @@
     } catch (_) {}
   }
   let _guardadoEstrictoPendiente = null;
+  let _ventaConfirmando = false, _ventaPendiente = null;
+  const _ventaCatalogosPendientes = [];
   let _retencionConfirmando = false, _retencionPendiente = null;
   const _retencionCatalogosPendientes = [];
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
@@ -3503,6 +3505,10 @@
     } catch (_) { return null; }
   }
   function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
+    if (_ventaConfirmando) {
+      _ventaCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
+      return false;
+    }
     if (_retencionConfirmando) {
       _retencionCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
@@ -4453,6 +4459,7 @@
     /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
        DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
     catalogoPropio() {
+      if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       const _demoLocal = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
       return {
@@ -5077,7 +5084,7 @@
     // A legacy browser without cross-tab locks must not bypass the visible
     // compatibility guard by invoking a write directly. Reads stay available.
     if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
-    if (!escribe) { if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
+    if (!escribe) { if (_ventaPendiente) await _ventaPendiente; if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
     const ejecutar=()=>{
       const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
@@ -5942,7 +5949,12 @@
            aparato, o despedido) devolvia error pero el stock ya habia bajado y
            se guardaba: mercaderia perdida sin venta. Toda validacion va antes;
            esta es la primera linea que muta. test/cuadre-hugo-paco-luis.test.js */
-        const _fotoVenta = { stock: p.stockActual, ventasLen: ventas.length, movLen: movimientos.length, sello: selloUltimo };
+        const _fotoVenta = { stock: p.stockActual, ventasLen: ventas.length, movLen: movimientos.length, sello: selloUltimo,
+          meta: ["stockBase","stockPN","stockTs","stockDeficit"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
+        let terminarVenta;
+        _ventaConfirmando = true;
+        _ventaPendiente = new Promise(resolve => { terminarVenta = resolve; });
+        try {
         p.stockActual -= cant;
         const ventaId = uuid("v");
         /* DATOS DEL EVENTO (portado de amigable-123, JFC 2026-08-18). Sin
@@ -5983,7 +5995,9 @@
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
         ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
-        mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) });
+        mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
+        const _opVenta = { productoId: p.id, delta: -cant };
+        _prepararOpStock(_opVenta, ventaId);
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
            lleno e IndexedDB caido la app decia "vendido", la op ya habia salido a
@@ -5995,13 +6009,24 @@
         try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
           p.stockActual = _fotoVenta.stock;
+          _fotoVenta.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
           ventas.length = _fotoVenta.ventasLen;
           movimientos.length = _fotoVenta.movLen;
           selloUltimo = _fotoVenta.sello;
           return J({ error: tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.") }, 507);
         }
-        emitirOpStock("venta", { productoId: p.id, delta: -cant });
+        emitirOpStock("venta", _opVenta, true);
         return J({ producto: ficha(p), ventaId });
+        } finally {
+          _ventaConfirmando = false; _ventaPendiente = null;
+          try {
+            while (_ventaCatalogosPendientes.length) {
+              const siguiente = _ventaCatalogosPendientes.shift();
+              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
+            }
+            avisarCatalogoCambiado();
+          } finally { terminarVenta(); }
+        }
       }
       if ((m = path.match(/^\/api\/ventas\/([^/]+)\/anular$/))) {
         const idx = ventas.findIndex((v) => v.id === m[1] && !v.anulada);
