@@ -59,8 +59,8 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   assert.match(sync,/aplicarCatalogo\(remoto, rolRemoto, true\)/,
     'only actual Yjs bridge explicitly confers canonical name context');
   const backend=fs.readFileSync(path.resolve(__dirname,'../docs/mock-backend.js'),'utf8');
-  assert.equal((backend.match(/aplicarCatalogo\(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs\)/g)||[]).length,4,
-    'all four deferred drains (payout, return, retention, sale) preserve trusted name origin');
+  assert.equal((backend.match(/aplicarCatalogo\(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs\)/g)||[]).length,5,
+    'all five deferred drains (two payout, two sale, one retention) preserve trusted name origin');
   assert.match(backend, /_ventaCatalogosPendientes\.shift\(\)/,
     'the newly protected sale must drain its pending remote catalog too');
 });
