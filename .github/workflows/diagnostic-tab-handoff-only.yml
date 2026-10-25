@@ -65,3 +65,17 @@ jobs:
             if [ "$code" -ne 0 ]; then failed=1; fi
           done
           exit "$failed"
+
+      - name: Four parallel Chromium handoffs, same focused contract (no production)
+        run: |
+          cp test/tab-session-handoff.test.js test/diagnostic-handoff-b.test.js
+          cp test/tab-session-handoff.test.js test/diagnostic-handoff-c.test.js
+          cp test/tab-session-handoff.test.js test/diagnostic-handoff-d.test.js
+          set +e
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=4 --test-timeout=120000 --test-name-pattern='native tab session handoff [(]Chromium[)]' test/tab-session-handoff.test.js test/diagnostic-handoff-b.test.js test/diagnostic-handoff-c.test.js test/diagnostic-handoff-d.test.js > /tmp/f123-parallel-handoff.log 2>&1
+          code=$?
+          cat /tmp/f123-parallel-handoff.log
+          count=$(grep -Fc '# Subtest: native tab session handoff (Chromium)' /tmp/f123-parallel-handoff.log)
+          echo "CHROMIUM_SCENARIOS_EXECUTED=$count"
+          if [ "$count" -ne 4 ]; then exit 2; fi
+          exit "$code"
