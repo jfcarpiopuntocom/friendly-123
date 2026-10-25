@@ -55,8 +55,13 @@ jobs:
           failed=0
           for attempt in 1 2; do
             echo "FOCUSED_ATTEMPT=$attempt"
-            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 --test-name-pattern='native tab session handoff \\(Chromium\\)' test/tab-session-handoff.test.js
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 --test-name-pattern='native tab session handoff [(]Chromium[)]' test/tab-session-handoff.test.js > /tmp/f123-handoff-${attempt}.log 2>&1
             code=$?
+            cat /tmp/f123-handoff-${attempt}.log
+            if ! grep -Fq '# Subtest: native tab session handoff (Chromium)' /tmp/f123-handoff-${attempt}.log; then
+              echo 'DIAGNOSTIC_INVALID: Chromium handoff did not actually run'
+              failed=1
+            fi
             if [ "$code" -ne 0 ]; then failed=1; fi
           done
           exit "$failed"
