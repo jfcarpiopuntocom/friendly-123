@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-25",
-  "changelog": "v583: remove page-wide dark mode and its controls; preserve light UI, offline data and sync.",
+  "changelog": "v584: light-only UI; dark mode and switch removed, Dashboard version label aligned.",
   "requerida": false,
-  "shell": "f123-shell-v583",
+  "shell": "f123-shell-v584",
   "apagar": [],
-  "releaseName": "v583",
-  "cacheGeneration": "golden129"
+  "releaseName": "v584",
+  "cacheGeneration": "golden130"
 }
