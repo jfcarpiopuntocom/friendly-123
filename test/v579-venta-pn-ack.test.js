@@ -47,3 +47,75 @@ test('sale: in-flight attempt cannot be seeded, merged or read as committed',()=
   assert.match(outgoing,/_ventaConfirmando[\s\S]*?return null/, 'Yjs must not seed uncommitted stock');
   assert.match(fetch,/_ventaPendiente[\s\S]*?await _ventaPendiente/, 'reads await ACK/rollback');
 });
+
+const {browser}=require('./helpers/browser.cjs');
+const pauseUntil=async predicate=>{for(let i=0;i<150&&!predicate();i++)await Promise.resolve();assert.ok(predicate(),'deferred durable store reached');};
+const sold=async(w,quantity)=>w.fetch('/api/productos/p24/venta',{method:'POST',body:JSON.stringify({cantidad:quantity})});
+const state=async w=>w.request('/api/respaldo/exportar');
+
+test('full backend: serial sales use one device PN counter, both receipts remain',async()=>{
+  const w=browser();
+  w.localStorage.setItem('f123_device_id','fixture-device-A');
+  const a=await sold(w,2),first=await a.json();
+  const b=await sold(w,3),second=await b.json();
+  assert.equal(a.status,200);assert.equal(b.status,200);
+  assert.notEqual(first.ventaId,second.ventaId);
+  const data=await state(w),p=data.productos.find(p=>p.id==='p24');
+  assert.equal(p.stockActual,75);
+  assert.equal(p.stockBase,80);
+  assert.deepEqual(Object.keys(p.stockPN),['fixture-device-A']);
+  assert.equal(p.stockPN['fixture-device-A'].sub,5);
+  assert.ok(data.ventas.some(v=>v.id===first.ventaId));
+  assert.ok(data.ventas.some(v=>v.id===second.ventaId));
+});
+
+test('full backend: pending IndexedDB ACK shields Yjs, GET and first durable PN',async()=>{
+  const w=browser();w.localStorage.setItem('f123_device_id','fixture-device-A');
+  let release,firstSnapshot=null, emitted=0;
+  w.OCSyncEmit=()=>{emitted++;return true};
+  w.OCEstadoIDB={guardar:(snapshot)=>{firstSnapshot=JSON.parse(JSON.stringify(snapshot));return new Promise(resolve=>{release=resolve;});}};
+  w.localStorage.setItem=()=>{throw Error('quota');};
+  const inFlight=sold(w,2);
+  await pauseUntil(()=>!!release);
+  const p=firstSnapshot.productos.find(p=>p.id==='p24');
+  assert.equal(p.stockActual,78);assert.equal(p.stockBase,80);
+  assert.equal(p.stockPN['fixture-device-A'].sub,2);
+  assert.equal(w.OCSync.catalogoPropio(),null,'provisional sale cannot seed Yjs');
+  const remote={ubicaciones:[],productos:[{id:'remote-fixture',nombre:'REMOTE FIXTURE',ubicacionId:'bar',stockActual:4,precio:1}]};
+  assert.equal(w.OCSync.aplicarCatalogo(remote,null),false,'remote merge held until ACK');
+  let readDone=false;
+  const read=state(w).then(result=>{readDone=true;return result;});
+  await Promise.resolve();await Promise.resolve();
+  assert.equal(readDone,false,'read must not observe provisional sale');
+  assert.equal(emitted,0,'no stock announcement before ACK');
+  release(true);
+  const sale=await inFlight, data=await read;
+  assert.equal(sale.status,200);
+  assert.equal(emitted,1,'announce once');
+  assert.ok(data.productos.some(p=>p.id==='remote-fixture'),'remote merge drained after ACK');
+  assert.equal(data.productos.find(p=>p.id==='p24').stockPN['fixture-device-A'].sub,2);
+});
+
+test('full backend: failed IndexedDB ACK restores sale before remote merge, no ghost facts',async()=>{
+  const w=browser();w.localStorage.setItem('f123_device_id','fixture-device-A');
+  const before=await state(w);
+  let release,emitted=0;
+  w.OCSyncEmit=()=>{emitted++;return true};
+  w.OCEstadoIDB={guardar:(_snapshot,strict)=>strict?new Promise(resolve=>{release=resolve;}):Promise.resolve(false)};
+  const originalSetItem=w.localStorage.setItem;
+  w.localStorage.setItem=()=>{throw Error('quota');};
+  const inFlight=sold(w,2);await pauseUntil(()=>!!release);
+  assert.equal(w.OCSync.aplicarCatalogo({ubicaciones:[],productos:[{id:'remote-fixture',nombre:'REMOTE FIXTURE',ubicacionId:'bar',stockActual:4,precio:1}]},null),false);
+  release(false);
+  const sale=await inFlight;
+  w.localStorage.setItem=originalSetItem;delete w.OCEstadoIDB;
+  const after=await state(w);
+  assert.equal(sale.status,507);
+  const oldP=before.productos.find(p=>p.id==='p24'),p=after.productos.find(p=>p.id==='p24');
+  assert.equal(p.stockActual,oldP.stockActual);
+  assert.equal(Object.hasOwn(p,'stockPN'),Object.hasOwn(oldP,'stockPN'));
+  assert.equal(after.ventas.length,before.ventas.length);
+  assert.equal(after.movimientos.length,before.movimientos.length);
+  assert.equal(emitted,0);
+  assert.ok(after.productos.some(p=>p.id==='remote-fixture'),'queued remote facts survive rejected local sale');
+});
