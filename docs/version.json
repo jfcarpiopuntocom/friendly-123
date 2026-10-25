@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-25",
-  "changelog": "v581: automatic updates preserve active work and wait for the existing idle window before reloading a visible app.",
+  "changelog": "v582: bar measure changes confirm durable stock before publishing; failed pointer writes preserve the prior recovery buffer.",
   "requerida": false,
-  "shell": "f123-shell-v581",
+  "shell": "f123-shell-v582",
   "apagar": [],
-  "releaseName": "v581",
+  "releaseName": "v582",
   "cacheGeneration": "golden128"
 }

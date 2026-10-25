@@ -462,7 +462,7 @@
     });
     return { nuevas, sinAsociado, cancelables };
   }
-  function recalcularAlPctDelProducto() {
+  function recalcularAlPctDelProducto(guardar = true) {
     const ev = _retroEvaluar();
     const ids = new Set(ajustesComision.map((a) => String(a && a.id)));
     let creados = 0, reversos = 0;
@@ -493,7 +493,7 @@
       }));
       ids.add(idRev); reversos++;
     });
-    if (creados || reversos) { try { guardarEstadoLocal(); } catch (_) {} }
+    if (guardar && (creados || reversos)) { try { guardarEstadoLocal(); } catch (_) {} }
     return { creados, reversos, sinAsociado: ev.sinAsociado };
   }
   function reporteRecalculoRetro() { return _retroEvaluar().sinAsociado; }
@@ -1367,9 +1367,13 @@
     const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
     const destino = activo === "A" ? "B" : "A";
     const _idb = _espejarEnIDB(completo, exigirCompleto);
+    let bufferAnterior, bufferPendiente = false;
     try {
+      bufferAnterior = localStorage.getItem(claveBuffer(destino));
       localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
+      bufferPendiente = true;
       localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
+      bufferPendiente = false;
       _localRev = Math.max(_localRev, _revIntento);
       _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
       try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
@@ -1377,7 +1381,15 @@
       despejarAvisoMemoriaLlena();
       _publicarAdminPins();
       return true;
-    } catch (_) {}
+    } catch (_) {
+      // Un bloque sin flip confirmado no puede resucitar al recuperar el otro buffer.
+      if (bufferPendiente) {
+        try {
+          if (bufferAnterior == null) localStorage.removeItem(claveBuffer(destino));
+          else localStorage.setItem(claveBuffer(destino), bufferAnterior);
+        } catch (_) { try { localStorage.removeItem(claveBuffer(destino)); } catch (_) {} }
+      }
+    }
     // 1AAA: never delete legacy photos or truncate activity history to free quota.
     // When localStorage is full, only the full durable IndexedDB mirror may
     // authorize success. Otherwise fail visibly, preserving every old byte.
@@ -5300,6 +5312,18 @@
         if (preciosError) return J({ error: preciosError }, 400);
         if (body.fechaCaducidad !== undefined && body.fechaCaducidad !== null && body.fechaCaducidad !== "" && !fechaValida(body.fechaCaducidad)) return J({ error: "That expiry date is not valid (use YYYY-MM-DD)." }, 400);
         const stockAntesEdicion = Number(p.stockActual) || 0;
+        const _conversionBar = body.servingMl !== undefined && (body.tipoProducto === undefined ? p.tipoProducto : body.tipoProducto) === "bar";
+        const _fotoBar = _conversionBar ? { producto: clonar(p), movLen: movimientos.length, sello: selloUltimo, ajustesLen: ajustesComision.length } : null;
+        let _barGuardada = false, terminarBar;
+        const _revertirBar = () => {
+          Object.keys(p).forEach(k => { delete p[k]; }); Object.assign(p, _fotoBar.producto);
+          movimientos.length = _fotoBar.movLen; selloUltimo = _fotoBar.sello; ajustesComision.length = _fotoBar.ajustesLen;
+        };
+        if (_conversionBar) {
+          debePersistir = false; // La conversión comparte la barrera de catálogo de la venta durable.
+          _ventaConfirmando = true; _ventaPendiente = new Promise(resolve => { terminarBar = resolve; });
+        }
+        try {
         const CAMPOS = ["nombre", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "proveedor", "foto", "barcode", "sku", "chip", "perecible", "exentoImpuesto", "fechaCaducidad", "metodoCosteo", "ubicacionId", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "umbralRojo", "umbralAmarillo", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "archivado", "piezaUnica"];
         CAMPOS.forEach((k) => {
       if (body[k] === undefined) return;
@@ -5338,12 +5362,30 @@
       if (k === "perecible" || k === "archivado" || k === "exentoImpuesto") { p[k] = !!body[k]; return; } // archivado: JFC/Belén 2026-09-08
       p[k] = body[k];
     });
-        if (Number(p.stockActual) !== stockAntesEdicion) emitirOpStock("conversion-bar", { productoId: p.id, delta: Number(p.stockActual) - stockAntesEdicion });
+        const _opBar = Number(p.stockActual) !== stockAntesEdicion ? { productoId: p.id, delta: Number(p.stockActual) - stockAntesEdicion } : null;
+        if (_opBar) { if (_conversionBar) _prepararOpStock(_opBar); else emitirOpStock("conversion-bar", _opBar); }
         p.rev = _revNueva();
-        mov("edicion", { producto: p.nombre, sku: p.sku, ubicacion: nombreUbic(p.ubicacionId) });
-        if (body.pctAsociado !== undefined || body.comisionistaId !== undefined) { try { recalcularAlPctDelProducto(); } catch (_) {} } // v457 (b)
-        avisarCatalogoCambiado(); // nombre/precio/percha del producto viajan al equipo (el stock no)
+        mov("edicion", { producto: p.nombre, sku: p.sku, ubicacion: nombreUbic(p.ubicacionId) }, !_conversionBar);
+        if (body.pctAsociado !== undefined || body.comisionistaId !== undefined) { try { recalcularAlPctDelProducto(!_conversionBar); } catch (_) {} } // v457 (b)
+        if (_conversionBar) {
+          try { _barGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!_barGuardada) { _revertirBar(); return J({ error: tSeguro("product.notSaved", "The change was NOT saved: storage is unavailable. Try again when storage is available.") }, 507); }
+          if (_opBar) emitirOpStock("conversion-bar", _opBar, true);
+        } else avisarCatalogoCambiado(); // nombre/precio/percha viajan; el stock tiene sus propias ops.
         return J(ficha(p));
+        } catch (e) { if (_conversionBar && !_barGuardada) _revertirBar(); throw e; }
+        finally {
+          if (_conversionBar) {
+            _ventaConfirmando = false; _ventaPendiente = null;
+            try {
+              while (_ventaCatalogosPendientes.length) {
+                const siguiente = _ventaCatalogosPendientes.shift();
+                aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
+              }
+              if (_barGuardada) avisarCatalogoCambiado();
+            } finally { terminarBar(); }
+          }
+        }
       }
       // Borrado definitivo (dueno, doble confirmacion en la UI).
       if ((m = path.match(/^\/api\/productos\/([^/]+)$/)) && opts && opts.method === "DELETE") {
