@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-24",
-  "changelog": "v578: recovery no longer generates staff PINs matching retired owner credentials or another role. Recovery failure preserves the prior credentials and reset code.",
+  "changelog": "v579: license payment history and confirmations stay with the selected license and preserve reopened drafts when earlier requests finish late.",
   "requerida": false,
-  "shell": "f123-shell-v578",
+  "shell": "f123-shell-v579",
   "apagar": [],
-  "releaseName": "v578",
+  "releaseName": "v579",
   "cacheGeneration": "golden128"
 }

@@ -1715,7 +1715,7 @@ initGate();
      viejas a proposito: la nueva cuenta licencias, no aparatos. -->
 <script src="./panel-licencias.js"></script>
 <script>
-let _licIndice = null, _licIndiceDe = null, _licLotes = null, _licPagoActual = null, _licUltimoLote = null;
+let _licIndice = null, _licIndiceDe = null, _licLotes = null, _licPagoActual = null, _licUltimoLote = null, _licPagoVista = 0, _licPagoLectura = 0;
 
 function licIndice() {
   if (!_licIndice || _licIndiceDe !== _licData) {
@@ -1780,9 +1780,13 @@ async function licBulkEstado() {
 }
 
 /* ── PAGOS (asientos append-only por licencia) ── */
+function licPagoVistaVigente(iid, vista) {
+  return _licPagoActual === iid && _licPagoVista === vista && document.getElementById("lic-pago-modal").style.display !== "none";
+}
 function licAbrirPago(iid) {
   const r = _licData.find(x => x.instanceId === iid); if (!r) return;
   _licPagoActual = iid;
+  const vista = ++_licPagoVista;
   const hoy = new Date(); const hasta = new Date(hoy); hasta.setFullYear(hasta.getFullYear() + 5);
   document.getElementById("lic-pago-quien").textContent = (r.nombreNegocio || "—") + " · " + (r.licenseCode || "sin código") + " · " + (r.email || "");
   document.getElementById("lic-pago-monto").value = "";
@@ -1794,17 +1798,22 @@ function licAbrirPago(iid) {
   document.getElementById("lic-pago-historial").innerHTML = "";
   document.getElementById("lic-pago-modal").style.display = "flex";
   licVerPagos(iid, true);
-  setTimeout(() => document.getElementById("lic-pago-monto").focus(), 50);
+  setTimeout(() => { if (licPagoVistaVigente(iid, vista)) document.getElementById("lic-pago-monto").focus(); }, 50);
 }
-function licCerrarPago() { document.getElementById("lic-pago-modal").style.display = "none"; _licPagoActual = null; }
+function licCerrarPago() { document.getElementById("lic-pago-modal").style.display = "none"; _licPagoActual = null; _licPagoVista++; }
 async function licVerPagos(iid, dentroDelModal) {
   const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
-  if (!dentroDelModal) licAbrirPago(iid);
+  if (!dentroDelModal) return licAbrirPago(iid);
+  if (!licPagoVistaVigente(iid, _licPagoVista)) return;
+  const vista = _licPagoVista, solicitud = ++_licPagoLectura;
+  const vigente = () => solicitud === _licPagoLectura && licPagoVistaVigente(iid, vista);
   const cont = document.getElementById("lic-pago-historial");
   cont.innerHTML = '<span class="lic-sub">Cargando historial…</span>';
   try {
     const res = await fetch(url.replace(/\/+$/, "") + "/licencias/" + encodeURIComponent(iid) + "/pagos", { headers: { "X-Master-Key": licMasterKey() } });
+    if (!vigente()) return;
     const j = await res.json();
+    if (!vigente()) return;
     if (!res.ok) throw new Error(j.error || ("HTTP " + res.status));
     const pagos = j.pagos || [];
     if (!pagos.length) { cont.innerHTML = '<span class="lic-sub">Sin pagos registrados para ' + licEsc(j.codigo || "esta licencia") + '.</span>'; return; }
@@ -1812,10 +1821,11 @@ async function licVerPagos(iid, dentroDelModal) {
     cont.innerHTML = '<table class="lic-pagos-tabla"><thead><tr><th>Fecha</th><th>Monto</th><th>Medio</th><th>Referencia</th><th>Cubre hasta</th><th>Nota</th></tr></thead><tbody>' +
       pagos.map(p => `<tr><td>${licEsc(p.fecha)}</td><td>${licEsc(p.moneda)} ${Number(p.monto).toFixed(2)}</td><td>${licEsc(p.medio)}</td><td>${licEsc(p.referencia || "—")}</td><td>${licEsc(p.hasta || "—")}</td><td>${licEsc(p.nota || "")}</td></tr>`).join("") +
       `</tbody></table><p style="margin:8px 0 0;font-size:14px;"><strong>Total: ${licEsc(pagos[pagos.length - 1].moneda)} ${total.toFixed(2)}</strong> en ${pagos.length} asiento(s). Lo asentado no se edita: un error se corrige con un asiento negativo.</p>`;
-  } catch (e) { cont.innerHTML = '<span class="lic-sub">No se pudo leer el historial: ' + licEsc(e.message) + '</span>'; }
+  } catch (e) { if (vigente()) cont.innerHTML = '<span class="lic-sub">No se pudo leer el historial: ' + licEsc(e.message) + '</span>'; }
 }
 async function licGuardarPago() {
   const iid = _licPagoActual; if (!iid) return;
+  const vista = _licPagoVista;
   const url = licWorkerUrl(); if (!url) { mostrarConfirmacion("Configura la URL del Worker primero"); return; }
   const msg = document.getElementById("lic-pago-msg");
   const monto = Number(document.getElementById("lic-pago-monto").value);
@@ -1829,14 +1839,16 @@ async function licGuardarPago() {
       method: "POST", headers: { "Content-Type": "application/json", "X-Master-Key": licMasterKey() }, body: JSON.stringify(body) });
     const j = await res.json();
     if (!res.ok) throw new Error(j.error || ("HTTP " + res.status));
-    msg.textContent = `Asiento guardado. Total ${j.resumen.moneda} ${Number(j.resumen.total).toFixed(2)} en ${j.resumen.n} asiento(s).`;
     const reg = _licData.find(x => x.instanceId === iid);
     if (reg) { reg.pagoResumen = j.resumen; if (j.resumen.total > 0) reg.estado = "full"; }
-    document.getElementById("lic-pago-monto").value = "";
-    licVerPagos(iid, true);
+    if (licPagoVistaVigente(iid, vista)) {
+      msg.textContent = `Asiento guardado. Total ${j.resumen.moneda} ${Number(j.resumen.total).toFixed(2)} en ${j.resumen.n} asiento(s).`;
+      document.getElementById("lic-pago-monto").value = "";
+    }
+    if (licPagoVistaVigente(iid, _licPagoVista)) licVerPagos(iid, true);
     licReindexar();
-  } catch (e) { msg.textContent = "Error: " + e.message; }
-  btn.disabled = false;
+  } catch (e) { if (licPagoVistaVigente(iid, vista)) msg.textContent = "Error: " + e.message; }
+  if (licPagoVistaVigente(iid, vista)) btn.disabled = false;
 }
 
 /* ── LOTES ── */
