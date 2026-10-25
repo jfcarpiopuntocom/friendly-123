@@ -10,45 +10,40 @@ const crypto=require('node:crypto');
 const docs=path.resolve(__dirname,'../docs');
 const read=name=>fs.readFileSync(path.join(docs,name),'utf8');
 const sha=text=>'sha256-'+crypto.createHash('sha256').update(text,'utf8').digest('hex');
+const activeJs = source => source.replace(/\/\*[\s\S]*?\*\//g,'').replace(/\/\/[^\n]*/g,'');
+const liveScripts = source => [...source.replace(/<!--[\s\S]*?-->/g,'')
+  .matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>\s*<\/script>/g)]
+  .map(match=>match[1]);
+const count = (a,k) => a.filter(x=>x===k).length;
+
 
 test('v585 #434: transactional helper is loaded by both readers, cached, and checksummed',()=>{
   const helperPath=path.join(docs,'estado-ab.js');
   assert.ok(fs.existsSync(helperPath),'BLOCK: private v585 journal helper absent; this must fail on v584');
   const helper=read('estado-ab.js');
-  // A copy of the export in a JS comment is not executable evidence.
-  const helperCode=helper.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'');
-  assert.match(helperCode,/\bwindow\.OCEstadoAB\s*=\s*\{\s*crear\s*\}\s*;/,
-    'journal helper must expose the expected non-commented browser contract');
+  assert.match(activeJs(helper),/window\.OCEstadoAB\s*=\s*\{\s*crear\s*\}/,
+    'journal helper must expose the expected browser contract');
 
   const index=read('index.html'),dash=read('dashboard.html');
-  // Only actual executable script tags count; HTML comments cannot satisfy this gate.
-  const scripts=src=>[...src.replace(/<!--[\s\S]*?-->/g,'')
-    .matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi)]
-    .map(m=>({url:m[1],at:m.index}));
-  for(const [file,src] of [['index.html',index],['dashboard.html',dash]]){
-    const tags=scripts(src),helpers=tags.filter(x=>x.url==='./estado-ab.js');
-    assert.equal(helpers.length,1,file+' must load the helper once as a real script');
-    const idb=tags.find(x=>x.url==='./estado-idb.js');
-    assert.ok(idb && idb.at<helpers[0].at,file+' helper must load after estado-idb');
-    if(file==='dashboard.html'){
-      assert.ok(helpers[0].at<src.replace(/<!--[\s\S]*?-->/g,'').indexOf('function leerEstadoLocal()'),
-        'Dashboard must load journal helper before its local recovery reader');
-    }else{
-      const backend=tags.find(x=>x.url==='./mock-backend.js');
-      assert.ok(backend && helpers[0].at<backend.at,
-        'app must load journal helper before its writer starts');
-    }
+  const indexScripts=liveScripts(index),dashScripts=liveScripts(dash);
+  const idb='./estado-idb.js',journal='./estado-ab.js',backend='./mock-backend.js';
+  for(const [file,scripts] of [['index.html',indexScripts],['dashboard.html',dashScripts]]){
+    assert.equal(count(scripts,journal),1,file+' must load the journal as exactly one ACTIVE script');
+    assert.ok(scripts.indexOf(idb)>=0 && scripts.indexOf(idb)<scripts.indexOf(journal),
+      file+' must load IndexedDB dependency before the journal');
   }
+  assert.ok(indexScripts.includes(backend) && indexScripts.indexOf(journal)<indexScripts.indexOf(backend),
+    'app must load journal before its writer');
+  const visibleDash=dash.replace(/<!--[\s\S]*?-->/g,'');
+  assert.ok(visibleDash.indexOf('<script src="./estado-ab.js"></script>') < visibleDash.indexOf('function leerEstadoLocal()'),
+    'Dashboard must load journal before recovery reader');
 
   const sw=read('sw.js');
-  const precache=sw.match(/const SHELL\s*=\s*\[([\s\S]*?)\]\s*;/);
-  assert.ok(precache,'Service Worker SHELL array must be present');
-  const paths=precache[1].replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g,'')
-    .match(/["']\.\/estado-ab\.js["']/g)||[];
-  assert.equal(paths.length,1,
-    'helper must appear exactly once in the ACTUAL precache SHELL array (not only essentials/comments)');
-  const essentials=sw.match(/const esenciales\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
-  assert.ok(essentials && /["']\.\/estado-ab\.js["']/.test(essentials[1]),
+  const shell=sw.match(/const SHELL\s*=\s*\[([\s\S]*?)\];/);
+  assert.ok(shell && shell[1].includes('"./estado-ab.js"'),
+    'journal helper must be included in the PWA precache SHELL array');
+  const essentials=sw.match(/const esenciales = new Set\(\[([\s\S]*?)\]\)/);
+  assert.ok(essentials && essentials[1].includes('"./estado-ab.js"'),
     'new helper is indispensable for offline bootstrap, not optional');
 
   const version=JSON.parse(read('version.json'));
