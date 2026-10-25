@@ -37,7 +37,7 @@ function reload(storage) {
   return applied;
 }
 
-function fixture({ rejectRestore = false, rejectDelete = false, failPointer = true, byteQuota = Infinity, idbOK = false } = {}) {
+function fixture({ rejectRestore = false, rejectDelete = false, swallowDelete = false, failPointer = true, byteQuota = Infinity, idbOK = false } = {}) {
   const oldA = JSON.stringify({ _rev: 10, photo: 'synthetic-active-A' });
   const oldB = JSON.stringify({ _rev: 9, photo: 'synthetic-unique-legacy-B', movement: 'synthetic-history-B' });
   const storage = new Map([['ptr', 'A'], ['slot_A', oldA], ['slot_B', oldB]]);
@@ -59,7 +59,7 @@ function fixture({ rejectRestore = false, rejectDelete = false, failPointer = tr
       storage.set(k, v);
     },
     removeItem(k) {
-      if (rejectDelete && k === 'slot_B') { events.push('delete rejected'); throw Error('synthetic blocked deletion'); }
+      if (rejectDelete && k === 'slot_B') { events.push('delete rejected'); if (swallowDelete) return; throw Error('synthetic blocked deletion'); }
       events.push('delete ' + k); storage.delete(k);
     },
   };
@@ -134,4 +134,16 @@ test('quota-only control: a same-length existing pointer cannot exceed a byte bu
     assert.equal(f.storage.get('ptr'), 'A', 'failed candidate cannot change commit pointer');
     assert.equal(f.storage.get('slot_B'), f.oldB, 'failed write retains original B');
   }
+});
+
+test('1AAA RED: aislamiento.js-style swallowed removal failure leaves uncommitted B restorable', async () => {
+  // Actual docs/aislamiento.js shim removeItem catches native errors silently.
+  const f = fixture({ rejectRestore: true, rejectDelete: true, swallowDelete: true });
+  assert.equal(await f.context.guardar(true, false), false);
+  assert.equal(f.storage.get('ptr'), 'A');
+  assert.ok(f.events.includes('delete rejected'));
+  f.storage.set('slot_A', '{synthetically-corrupted-A');
+  const loaded = reload(f.storage);
+  assert.notEqual(loaded[0] && loaded[0].photo, 'synthetic-new-B',
+    'silent remove failure must not reopen uncommitted state on restart');
 });
