@@ -4,6 +4,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const vm=require('node:vm');
 const html=fs.readFileSync(path.resolve(__dirname,'../docs/index.html'),'utf8');
 const i18n=fs.readFileSync(path.resolve(__dirname,'../docs/i18n.js'),'utf8');
 const header=html.slice(html.indexOf('<header>'),html.indexOf('</header>')+9);
@@ -40,4 +41,37 @@ test('Advanced identity labels exist in both English and Spanish',()=>{
   for(const id of ['adv.identityHeading','adv.identityStore','adv.identityDevice']){
     assert.equal((i18n.match(new RegExp('"'+id+'"','g'))||[]).length,2,id+' must have EN and ES translations');
   }
+});
+
+test('device pencil stays hidden until login and hides after logout',()=>{
+  assert.match(identity,/<div id="oc-advanced-device-edit" style="display:none;">/,
+    'the device pencil must not become visible before a session');
+  const start=html.indexOf('  function pintarApodoHeader() {');
+  const end=html.indexOf('  const apodoBtn = document.getElementById("oc-header-apodo-btn");',start);
+  assert.ok(start>0&&end>start,'extract real device presentation function');
+  const wrap={style:{display:'none'}}, txt={textContent:''}, row={style:{display:'none'}};
+  const dom={
+    'oc-header-apodo':wrap,'oc-header-apodo-txt':txt,'oc-advanced-device-edit':row
+  };
+  const context={document:{getElementById:id=>dom[id]||null},
+    window:{OCMicelio:{miApodo:()=>'Synthetic tablet'},
+      tf:(key,values)=>key+':'+values.name,t:key=>key}};
+  vm.createContext(context);
+  vm.runInContext(html.slice(start,end)+';this.paint=pintarApodoHeader;',context);
+  assert.equal(row.style.display,'none','no automatic visibility before login');
+  context.paint(); // this is what the existing oc-login handler invokes
+  assert.equal(row.style.display,'block','session rendering exposes editor in Advanced');
+  assert.equal(wrap.style.display,'block','existing device header remains visible');
+  assert.equal(txt.textContent,'device.current:Synthetic tablet');
+  const logoutStart=html.indexOf('window.addEventListener("oc-logout", () => { btn.style.display');
+  const logoutEnd=html.indexOf(');\n  function pintarApodoHeader()',logoutStart);
+  assert.ok(logoutStart>0&&logoutEnd>logoutStart,'extract real logout listener');
+  const scope={...context,btn:{style:{display:'inline-block'}}};
+  vm.createContext(scope);
+  vm.runInContext(html.slice(logoutStart,logoutEnd+2).replace('window.addEventListener','this.attach') ,{
+    ...scope,
+    attach(name,fn){assert.equal(name,'oc-logout');fn();}
+  });
+  assert.equal(row.style.display,'none','logout must hide moved device editor');
+  assert.equal(wrap.style.display,'none','logout must hide device header');
 });
