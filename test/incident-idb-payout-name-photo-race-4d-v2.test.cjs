@@ -92,7 +92,7 @@ function fixture(options = {}) {
       },
     },
     OC_STATE_PTR: 'f123_estado_v4_ptr', claveBuffer: x => 'f123_estado_v4_' + x,
-    _localRev: 0, payouts: [], gastos: [], movimientos: [], ventas: [], ajustesComision: [],
+    _localRev: 0, _localRevReservado: 0, payouts: [], gastos: [], movimientos: [], ventas: [], ajustesComision: [],
     selloUltimo: '', photo: null, nombreNegocio: 'Name A', nombreNegocioRev:1, nombreNegocioTs:12, _payoutConfirmando: false, _payoutPendiente: null,
     _payoutCatalogosPendientes: [],
     clonar: x => JSON.parse(JSON.stringify(x)),

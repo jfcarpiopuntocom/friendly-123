@@ -7,6 +7,25 @@ const vm=require("node:vm");
 const auth=fs.readFileSync(path.join(__dirname,"../docs/auth-ui.js"),"utf8");
 const html=fs.readFileSync(path.join(__dirname,"../docs/index.html"),"utf8");
 const delay=()=>new Promise(resolve=>setImmediate(resolve));
+test('E2: foreground updates are coalesced inside 15 minutes and resume after expiry',async()=>{
+ const start=html.indexOf('  let ultimoUpdateAlVolver = 0;');
+ const end=html.indexOf('  setInterval(function ()',start);
+ assert.ok(start>0&&end>start);
+ let now=10000000,updateCalls=0,listener,hiddenAttempts=0;
+ const document={visibilityState:'visible',addEventListener:(name,fn)=>{assert.equal(name,'visibilitychange');listener=fn;}};
+ vm.runInNewContext(html.slice(start,end),{document,Date:{now:()=>now},
+  navigator:{serviceWorker:{getRegistration:async()=>({update:async()=>{updateCalls++;}})}},
+  revisar(){},intentar(){hiddenAttempts++;}});
+ listener();listener();await delay();
+ assert.equal(updateCalls,1,'two initial foreground events request only one update');
+ now+=1000;listener();listener();await delay();
+ assert.equal(updateCalls,1,'events within the window make no additional request');
+ now+=900001;listener();listener();await delay();
+ assert.equal(updateCalls,2,'after expiry, two foreground events add exactly one update');
+ document.visibilityState='hidden';listener();await delay();
+ assert.equal(updateCalls,2,'hidden transition never requests a foreground update');
+ assert.equal(hiddenAttempts,1,'hidden transition preserves safe adoption attempt');
+});
 async function flush(){for(let i=0;i<5;i++) await delay();}
 
 test("E2: after load, service worker registers and calls update immediately",async()=>{

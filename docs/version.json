@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-25",
-  "changelog": "v580: durable sale and stock confirmation, safe catalog replies during saving, durable local revision and verified recovery cursor.",
+  "changelog": "v581: automatic updates preserve active work and wait for the existing idle window before reloading a visible app.",
   "requerida": false,
-  "shell": "f123-shell-v580",
+  "shell": "f123-shell-v581",
   "apagar": [],
-  "releaseName": "v580",
+  "releaseName": "v581",
   "cacheGeneration": "golden128"
 }

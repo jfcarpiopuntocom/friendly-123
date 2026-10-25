@@ -10974,6 +10974,8 @@ const _ocActSolaOn = true;
   }
   function intentar() {
     if (!pendiente() || !seguro()) return;
+    // Every caller must honor the idle window, including a late version reply.
+    if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
     let destino = "";
     try { destino = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || ""; } catch (_) {}
     try {

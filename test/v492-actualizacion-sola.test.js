@@ -11,9 +11,16 @@ async function abrir(engine){
  await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3}addEventListener(){}send(){}close(){}};
   // serviceWorker is blocked in tests: give the auto-update code a minimal stand-in.
   if(!('serviceWorker' in navigator))Object.defineProperty(navigator,'serviceWorker',{value:{controller:null,addEventListener(){},removeEventListener(){},getRegistration:async()=>null,register:async()=>({})}});});
- const page=await ctx.newPage();await page.goto(ORIGIN+'/index.html');
+ const page=await ctx.newPage();await page.clock.install({time:new Date('2026-10-25T17:00:00Z')});await page.goto(ORIGIN+'/index.html');
  await page.waitForFunction(()=>window._ocActSola&&window.OCAuth);
  return {web,page};
+}
+async function assertNoMainFrameNavigation(page,label,action){
+ const navigation=page.waitForEvent('framenavigated',{predicate:frame=>frame===page.mainFrame(),timeout:300}).then(()=>true,()=>false);
+ let actionError=null;try{await action();}catch(error){actionError=error;}
+ const navigated=await navigation;
+ assert.equal(navigated,false,label+': must not navigate');
+ if(actionError)throw actionError;
 }
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  test('pending version reloads itself only when safe, once per version ('+name+')',async()=>{
@@ -23,26 +30,31 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    sessionStorage.setItem('f123_sesion',JSON.stringify({rol:'dueno'}));sessionStorage.setItem('f123_act_sola_pendiente','1');
    localStorage.setItem('f123_version_vista',vj.version+'|'+vj.shell);const g=document.getElementById('oc-gate');if(g)g.style.display='none';
    if(document.activeElement)document.activeElement.blur();window.__marca=Math.random();return window.__marca;});
-  // Unsafe: a confirmation dialog is open -> no reload.
+  // A recent input/gesture wins even if the version is already pending.
   let m=await prep();
-  await page.evaluate(()=>{const o=document.getElementById('oc-modal-overlay');o.style.display='flex';window._ocActSola.intentar();});
-  await page.waitForTimeout(400);
-  assert.equal(await page.evaluate(()=>window.__marca),m,'must not reload while a dialog is open');
-  // Safe: reloads, and the pending flag is cleared.
-  await page.evaluate(()=>{document.getElementById('oc-modal-overlay').style.display='none';});
-  await Promise.all([page.waitForEvent('load'),page.evaluate(()=>window._ocActSola.intentar())]);
+  await assertNoMainFrameNavigation(page,'recent input',()=>page.evaluate(()=>{window.dispatchEvent(new Event('input'));window._ocActSola.intentar();}));
+  assert.equal(await page.evaluate(()=>window.__marca),m,'recent input preserves the current page');
+  await assertNoMainFrameNavigation(page,'recent pointer gesture',()=>page.evaluate(()=>{window.dispatchEvent(new Event('pointerdown'));window._ocActSola.intentar();}));
+  assert.equal(await page.evaluate(()=>window.__marca),m,'recent gesture preserves the current page');
+  // After 92 virtual seconds idle, a visible dialog still blocks the interval-triggered attempt.
+  await page.evaluate(()=>{document.getElementById('oc-modal-overlay').style.display='flex';});
+  await assertNoMainFrameNavigation(page,'open dialog after idle window',()=>page.clock.fastForward(92000));
+  assert.equal(await page.evaluate(()=>window.__marca),m,'idle interval does not reload while a dialog is open');
+  // With the dialog closed and idle age still over 90 seconds, one reload is safe.
+  const loaded=page.waitForEvent('load',{timeout:5000});
+  await page.evaluate(()=>{document.getElementById('oc-modal-overlay').style.display='none';window._ocActSola.intentar();});
+  await loaded;
   await page.waitForFunction(()=>window._ocActSola);
   assert.equal(await page.evaluate(()=>window.__marca),undefined,'page reloaded');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_sesion')!==null),true,'session kept: no PIN');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_act_sola_pendiente')),null,'pending flag cleared');
-  // Anti-loop: same version again within 10 min -> no second reload.
+  // Anti-loop: once the page is idle again, the same shell still cannot reload twice within 10 min.
   m=await prep();
-  await page.evaluate(()=>window._ocActSola.intentar());
-  await page.waitForTimeout(400);
+  await assertNoMainFrameNavigation(page,'same-version anti-loop after idle',()=>page.clock.fastForward(92000));
   assert.equal(await page.evaluate(()=>window.__marca),m,'no second automatic reload for the same version');
   // The old version-floor flag alone must NOT trigger the automatic reload.
-  m=await page.evaluate(()=>{localStorage.removeItem('f123_autorecarga');sessionStorage.removeItem('f123_act_sola_pendiente');sessionStorage.setItem('f123_reload_al_entrar','1');window.__marca=7;window._ocActSola.intentar();return 7;});
-  await page.waitForTimeout(400);
+  m=await page.evaluate(()=>{localStorage.removeItem('f123_autorecarga');sessionStorage.removeItem('f123_act_sola_pendiente');sessionStorage.setItem('f123_reload_al_entrar','1');window.__marca=7;return 7;});
+  await assertNoMainFrameNavigation(page,'legacy flag without pending version',()=>page.evaluate(()=>window._ocActSola.intentar()));
   assert.equal(await page.evaluate(()=>window.__marca),7,'legacy flag alone does not reload');
   }finally{await web.close();}
  });
