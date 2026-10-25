@@ -69,7 +69,10 @@ test('1AAA v585 release gate: one synthetic GREEN and seven rejected faults', as
         for (const [file, value] of Object.entries(files)) fs.writeFileSync(path.join(docs,file),value);
         const gatePath = path.join(tests,'ab-v585-shell-wiring-434-red.test.cjs');
         fs.writeFileSync(gatePath,gate);
-        const result = spawnSync(process.execPath, ['--test',gatePath], {encoding:'utf8',timeout:10000});
+        const env = {...process.env};
+        delete env.NODE_TEST_CONTEXT; // child must execute, not inherit parent runner's test context
+        const result = spawnSync(process.execPath, ['--test',gatePath], {encoding:'utf8',timeout:10000,env});
+        assert.match(result.stdout || '',/TAP version|# tests/, 'child must actually execute tests');
         assert.equal(result.error,undefined,result.error && result.error.message);
         assert.equal(result.status,shouldPass?0:1,
           name+' must '+(shouldPass?'accept':'reject')+' fake inputs: '+(result.stdout||'').slice(-1000));
