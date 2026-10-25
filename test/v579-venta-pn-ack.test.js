@@ -115,7 +115,8 @@ test('full backend: failed IndexedDB ACK restores sale before remote merge, no g
   assert.equal(p.stockActual,oldP.stockActual);
   assert.equal(Object.hasOwn(p,'stockPN'),Object.hasOwn(oldP,'stockPN'));
   assert.equal(after.ventas.length,before.ventas.length);
-  assert.equal(after.movimientos.length,before.movimientos.length);
+  assert.deepEqual(after.movimientos.slice(before.movimientos.length).map(m=>m.tipo),['merge-catalogo'],
+    'rejected local sale leaves no ghost audit; legitimate queued remote merge is preserved');
   assert.equal(emitted,0);
   assert.ok(after.productos.some(p=>p.id==='remote-fixture'),'queued remote facts survive rejected local sale');
 });
