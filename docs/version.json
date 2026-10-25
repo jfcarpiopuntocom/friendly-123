@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-24",
-  "changelog": "v579: license payment history and confirmations stay with the selected license and preserve reopened drafts when earlier requests finish late.",
+  "changelog": "v580: sales stage stock PN with the first durable save, hold sync during confirmation, and roll back fully when storage rejects the sale.",
   "requerida": false,
-  "shell": "f123-shell-v579",
+  "shell": "f123-shell-v580",
   "apagar": [],
-  "releaseName": "v579",
+  "releaseName": "v580",
   "cacheGeneration": "golden128"
 }
