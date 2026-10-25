@@ -15,8 +15,10 @@ test('v585 #434: transactional helper is loaded by both readers, cached, and che
   const helperPath=path.join(docs,'estado-ab.js');
   assert.ok(fs.existsSync(helperPath),'BLOCK: private v585 journal helper absent; this must fail on v584');
   const helper=read('estado-ab.js');
-  assert.match(helper,/window\.OCEstadoAB\s*=\s*\{\s*crear\s*\}/,
-    'journal helper must expose the expected browser contract');
+  // A copy of the export in a JS comment is not executable evidence.
+  const helperCode=helper.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'');
+  assert.match(helperCode,/^\s*window\.OCEstadoAB\s*=\s*\{\s*crear\s*\}\s*;/m,
+    'journal helper must expose the expected non-commented browser contract');
 
   const index=read('index.html'),dash=read('dashboard.html');
   // Only actual executable script tags count; HTML comments cannot satisfy this gate.
@@ -29,7 +31,7 @@ test('v585 #434: transactional helper is loaded by both readers, cached, and che
     const idb=tags.find(x=>x.url==='./estado-idb.js');
     assert.ok(idb && idb.at<helpers[0].at,file+' helper must load after estado-idb');
     if(file==='dashboard.html'){
-      assert.ok(helpers[0].at<src.indexOf('function leerEstadoLocal()'),
+      assert.ok(helpers[0].at<src.replace(/<!--[\s\S]*?-->/g,'').indexOf('function leerEstadoLocal()'),
         'Dashboard must load journal helper before its local recovery reader');
     }else{
       const backend=tags.find(x=>x.url==='./mock-backend.js');
