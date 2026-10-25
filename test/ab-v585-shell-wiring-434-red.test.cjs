@@ -19,19 +19,34 @@ test('v585 #434: transactional helper is loaded by both readers, cached, and che
     'journal helper must expose the expected browser contract');
 
   const index=read('index.html'),dash=read('dashboard.html');
-  const tag='<script src="./estado-ab.js"></script>';
+  // Only actual executable script tags count; HTML comments cannot satisfy this gate.
+  const scripts=src=>[...src.replace(/<!--[\s\S]*?-->/g,'')
+    .matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi)]
+    .map(m=>({url:m[1],at:m.index}));
   for(const [file,src] of [['index.html',index],['dashboard.html',dash]]){
-    assert.equal(src.split(tag).length-1,1,file+' must load the helper once');
-    assert.ok(src.indexOf(tag)<src.indexOf('function leerEstadoLocal()') || file==='index.html',
-      'Dashboard must load helper before its local recovery reader');
+    const tags=scripts(src),helpers=tags.filter(x=>x.url==='./estado-ab.js');
+    assert.equal(helpers.length,1,file+' must load the helper once as a real script');
+    const idb=tags.find(x=>x.url==='./estado-idb.js');
+    assert.ok(idb && idb.at<helpers[0].at,file+' helper must load after estado-idb');
+    if(file==='dashboard.html'){
+      assert.ok(helpers[0].at<src.indexOf('function leerEstadoLocal()'),
+        'Dashboard must load journal helper before its local recovery reader');
+    }else{
+      const backend=tags.find(x=>x.url==='./mock-backend.js');
+      assert.ok(backend && helpers[0].at<backend.at,
+        'app must load journal helper before its writer starts');
+    }
   }
-  assert.ok(index.indexOf(tag)<index.indexOf('<script src="./mock-backend.js"></script>'),
-    'app must load journal helper before its writer starts');
 
   const sw=read('sw.js');
-  assert.ok(sw.includes('"./estado-ab.js"'),'new helper must be in the PWA precache list');
-  const essentials=sw.match(/const esenciales = new Set\(\[([\s\S]*?)\]\)/);
-  assert.ok(essentials && essentials[1].includes('"./estado-ab.js"'),
+  const precache=sw.match(/const SHELL\s*=\s*\[([\s\S]*?)\]\s*;/);
+  assert.ok(precache,'Service Worker SHELL array must be present');
+  const paths=precache[1].replace(/\/\/[^\n]*|\/\*[\s\S]*?\*\//g,'')
+    .match(/["']\.\/estado-ab\.js["']/g)||[];
+  assert.equal(paths.length,1,
+    'helper must appear exactly once in the ACTUAL precache SHELL array (not only essentials/comments)');
+  const essentials=sw.match(/const esenciales\s*=\s*new Set\(\[([\s\S]*?)\]\)/);
+  assert.ok(essentials && /["']\.\/estado-ab\.js["']/.test(essentials[1]),
     'new helper is indispensable for offline bootstrap, not optional');
 
   const version=JSON.parse(read('version.json'));
