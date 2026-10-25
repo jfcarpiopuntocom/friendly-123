@@ -76,6 +76,6 @@ test('no invert/rotate theme runtime remains in the app entry or help header', (
   const index = fs.readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
   const help = fs.readFileSync(path.resolve(__dirname, '../docs/help-ui.js'), 'utf8');
   for (const src of [index, help]) {
-    assert.doesNotMatch(src, /window\\.OCTema|oc-tema-toggle|selectTema|data-tema=|hue-rotate\\(180deg\\)/);
+    assert.doesNotMatch(src, /window\.OCTema|oc-tema-toggle|selectTema|data-tema=|hue-rotate\(180deg\)/);
   }
 });
