@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-25",
-  "changelog": "v582: bar measure changes confirm durable stock before publishing; failed pointer writes preserve the prior recovery buffer.",
+  "changelog": "v583: remove page-wide dark mode and its controls; preserve light UI, offline data and sync.",
   "requerida": false,
-  "shell": "f123-shell-v582",
+  "shell": "f123-shell-v583",
   "apagar": [],
-  "releaseName": "v582",
-  "cacheGeneration": "golden128"
+  "releaseName": "v583",
+  "cacheGeneration": "golden129"
 }
