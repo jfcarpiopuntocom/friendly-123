@@ -25,9 +25,13 @@ test('sale: rejected ACK restores exactly existing and absent PN metadata',()=>{
   const start=sale.indexOf('        const _fotoVenta ='), stop=sale.indexOf(';\n',start);
   assert.ok(start>=0&&stop>start);
   const capture=sale.slice(start,stop+1);
+  const helperStart=sale.indexOf('        const _revertirVenta = () => {',stop);
+  const helperEnd=sale.indexOf('        let _ventaGuardada = false, terminarVenta;',helperStart);
+  assert.ok(helperStart>stop&&helperEnd>helperStart,'extract the exact production rollback helper');
+  const rollback=sale.slice(helperStart,helperEnd);
   const fail=sale.slice(sale.indexOf('        if (!_ventaGuardada) {'),sale.indexOf('        emitirOpStock("venta"'));
-  assert.ok(fail.includes('return J('));
-  const run=new Function('p','prepare',`const cant=2,ventas=[],movimientos=[],clonar=x=>JSON.parse(JSON.stringify(x)),tSeguro=(_k,s)=>s,J=(body,status)=>({body,status});let selloUltimo='fixture';${capture};p.stockActual-=cant;ventas.push({id:'v'});movimientos.push({id:'m'});prepare({productoId:p.id,delta:-cant});let _ventaGuardada=false;${fail}`);
+  assert.ok(fail.includes('return J(')&&fail.includes('_revertirVenta()'));
+  const run=new Function('p','prepare',`const cant=2,ventas=[],movimientos=[],clonar=x=>JSON.parse(JSON.stringify(x)),tSeguro=(_k,s)=>s,J=(body,status)=>({body,status});let selloUltimo='fixture';${capture};${rollback};p.stockActual-=cant;ventas.push({id:'v'});movimientos.push({id:'m'});prepare({productoId:p.id,delta:-cant});let _ventaGuardada=false;${fail}`);
   for(const p of [
     {id:'fixture-beer',stockActual:10},
     {id:'fixture-beer',stockActual:10,stockBase:12,stockPN:{peer:{add:3,sub:5}},stockTs:3000,stockDeficit:1}
