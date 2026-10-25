@@ -37,7 +37,7 @@ function reload(storage) {
   return applied;
 }
 
-function fixture({ rejectRestore = false, rejectDelete = false, idbOK = false } = {}) {
+function fixture({ rejectRestore = false, rejectDelete = false, failPointer = true, byteQuota = Infinity, idbOK = false } = {}) {
   const oldA = JSON.stringify({ _rev: 10, photo: 'synthetic-active-A' });
   const oldB = JSON.stringify({ _rev: 9, photo: 'synthetic-unique-legacy-B', movement: 'synthetic-history-B' });
   const storage = new Map([['ptr', 'A'], ['slot_A', oldA], ['slot_B', oldB]]);
@@ -45,10 +45,15 @@ function fixture({ rejectRestore = false, rejectDelete = false, idbOK = false } 
   const localStorage = {
     getItem(k) { return storage.has(k) ? storage.get(k) : null; },
     setItem(k, v) {
-      if (k === 'ptr' && v === 'B') { events.push('pointer rejected'); throw Error('synthetic quota on pointer'); }
+      if (failPointer && k === 'ptr' && v === 'B') { events.push('pointer rejected'); throw Error('synthetic pointer failure'); }
       if (rejectRestore && k === 'slot_B' && v === oldB) {
         events.push('restore rejected');
         throw Error('synthetic quota on old B restore');
+      }
+      const size = [...storage].reduce((n, [key, value]) => n + key.length + value.length, 0);
+      const before = storage.has(k) ? k.length + storage.get(k).length : 0;
+      if (size - before + k.length + v.length > byteQuota) {
+        events.push('byte quota ' + k); throw Error('synthetic byte quota');
       }
       events.push('set ' + k);
       storage.set(k, v);
@@ -113,4 +118,20 @@ test('boot control: prior B is valid fallback when A is corrupt and old B was re
   const loaded = reload(f.storage);
   assert.equal(loaded[0] && loaded[0].photo, 'synthetic-unique-legacy-B',
     'normal recovery still recovers an older durable B');
+});
+
+test('quota-only control: a same-length existing pointer cannot exceed a byte budget on flip', async () => {
+  const probe = fixture({ failPointer: false });
+  const capacity = [...probe.storage].reduce((n, [key, value]) => n + key.length + value.length, 0);
+  const f = fixture({ failPointer: false, byteQuota: capacity });
+  const result = await f.context.guardar(true, false);
+  assert.equal(f.events.includes('pointer rejected'), false);
+  assert.equal(f.events.includes('byte quota ptr'), false,
+    'replacing ptr A with same-length B cannot increase bytes under a strict byte budget');
+  if (result) {
+    assert.equal(f.storage.get('ptr'), 'B', 'accepted candidate is committed');
+  } else {
+    assert.equal(f.storage.get('ptr'), 'A', 'failed candidate cannot change commit pointer');
+    assert.equal(f.storage.get('slot_B'), f.oldB, 'failed write retains original B');
+  }
 });
