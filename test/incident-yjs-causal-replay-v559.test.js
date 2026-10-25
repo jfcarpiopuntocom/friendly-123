@@ -7,21 +7,35 @@ const path=require("node:path");
 const src=fs.readFileSync(path.join(__dirname,"../docs/sync-yjs.js"),"utf8");
 
 function cursorFixture(pending=false,fragments={}) {
-  const a=src.indexOf("    function guardarPullCursor(cursor) {");
-  const b=src.indexOf("    function pedirPagina(sock, estado, sinHead) {",a);
-  assert.ok(a>0&&b>a);
-  const saved=[],ctx={
-    _appliedPullCursor:{rev:2,seq:10},_pullCursor:{rev:2,seq:10},
-    doc:{store:pending?{pendingStructs:{}}:{}},partesEntrantes:fragments,
-    _soloMemoria:false,_pendingProofPages:0,_cursorContainsPending:false,
-    MAX_PENDING_PROOF_BYTES:1024,
-    // This fixture deliberately has no causal snapshot to verify the safe replay fallback.
-    Y:{encodeStateVector:()=>new Uint8Array(0),encodeStateAsUpdate:()=>new Uint8Array(0)},
-    persistencia:{set:async(key,value)=>saved.push([key,{...value}])},
-    _pullCursorKey:"fixture-cursor",Promise,Object,Number,Math
+  const block=(start,end)=>{
+    const a=src.indexOf(start),b=src.indexOf(end,a);
+    assert.ok(a>=0&&b>a,`production function anchors found: ${start}`);
+    return src.slice(a,b);
   };
-  vm.createContext(ctx);
-  vm.runInContext(src.slice(a,b)+"\nthis.saveCursor=guardarPullCursor;",ctx);
+  const barrier=block("    function barreraYjsConfirmada() {","    function guardarPruebaCausal(");
+  const proof=block("    function guardarPruebaCausal(cursor, pendientes) {","    function cursorValido(");
+  const pull=block("    function guardarPullCursor(cursor) {","    function clavePendientes()");
+  const saved=[],persistencia={
+    db:{objectStoreNames:{contains:name=>name==="updates"},transaction(names,mode){
+      assert.deepEqual(names,["updates"]); assert.equal(mode,"readonly");
+      const tx={}; queueMicrotask(()=>tx.oncomplete&&tx.oncomplete()); return tx;
+    }},
+    set:async(key,value)=>saved.push([key,JSON.parse(JSON.stringify(value))]),
+    get:async()=>saved[saved.length-1]?.[1]
+  };
+  const make=new Function("persistencia",`
+    let _appliedPullCursor={rev:2,seq:10},_pullCursor={rev:2,seq:10};
+    let _soloMemoria=false,_pendingProofPages=0,_cursorContainsPending=false;
+    let _ultimoCursorLimpio={rev:2,seq:10};
+    const MAX_PENDING_PROOF_BYTES=1024,_pullCursorKey="fixture-cursor";
+    const doc={store:${pending?"{pendingStructs:{}}":"null"}};
+    const partesEntrantes=arguments[1]||{};
+    const Y={encodeStateVector:()=>new Uint8Array(0),encodeStateAsUpdate:()=>new Uint8Array(0)};
+    ${barrier}${proof}${pull}
+    return {saveCursor:guardarPullCursor,doc,
+      get _pullCursor(){return _pullCursor},get _appliedPullCursor(){return _appliedPullCursor}};
+  `);
+  const ctx=make(persistencia,fragments);
   return {ctx,saved};
 }
 test("P0 Yjs pending causal parent keeps cursor in RAM but NEVER persists it",async()=>{

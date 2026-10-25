@@ -201,7 +201,18 @@ test('el catch-up Yjs pagina y reanuda: una reconexion no relee miles de filas',
   assert.match(RELAY, /SELECT rowid AS seq, c FROM ops/);
   assert.match(YJS, /f123_yjs_pull_cursor_/);
   assert.match(YJS, /persistencia\.get\(_pullCursorKey\)/);
-  assert.match(YJS, /persistencia\.set\(_pullCursorKey, _pullCursor\)/);
+  const proofStart = YJS.indexOf('    function guardarPruebaCausal(cursor, pendientes) {');
+  const proofEnd = YJS.indexOf('    function cursorValido(', proofStart);
+  assert.ok(proofStart >= 0 && proofEnd > proofStart, 'causal cursor proof helper exists');
+  const proof = YJS.slice(proofStart, proofEnd);
+  const barrier = proof.indexOf('return barreraYjsConfirmada().then(');
+  const write = proof.indexOf('return persistencia.set(_pullCursorKey, prueba);');
+  const readback = proof.indexOf('return persistencia.get(_pullCursorKey);');
+  const advance = proof.indexOf('_appliedPullCursor = cursor;');
+  assert.ok(barrier >= 0 && barrier < write && write < readback && readback < advance,
+    'journal barrier, cursor write, readback and applied-cut advance stay ordered');
+  assert.match(YJS, /return guardarPruebaCausal\(siguiente, null\)/,
+    'fully-applied pages use the durable proof path too');
   assert.match(YJS, /k:\s*"pull",\s*v:\s*2/);
   assert.match(YJS, /nombre === "fotos" \? 4 : 64/);
   assert.match(YJS, /k\s*===\s*"pull-page"/);
