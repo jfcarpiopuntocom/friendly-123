@@ -63,6 +63,14 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
     'all five deferred drains (two payout, two sale, one retention) preserve trusted name origin');
   assert.match(backend, /_ventaCatalogosPendientes\.shift\(\)/,
     'the newly protected sale must drain its pending remote catalog too');
+  for (const [queue, expected] of [
+    ['_payoutCatalogosPendientes', 2],
+    ['_ventaCatalogosPendientes', 2],
+    ['_retencionCatalogosPendientes', 1],
+  ]) {
+    assert.equal((backend.match(new RegExp(queue + '\\.shift\\(\\)', 'g')) || []).length, expected,
+      queue + ' must retain its distinct pending-catalog drains');
+  }
 });
 
 
