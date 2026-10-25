@@ -53,12 +53,15 @@ test('device pencil stays hidden until login and hides after logout',()=>{
   const dom={
     'oc-header-apodo':wrap,'oc-header-apodo-txt':txt,'oc-advanced-device-edit':row
   };
+  let role=null;
   const context={document:{getElementById:id=>dom[id]||null},
     window:{OCMicelio:{miApodo:()=>'Synthetic tablet'},
+      OCAuth:{rolActual:()=>role},
       tf:(key,values)=>key+':'+values.name,t:key=>key}};
   vm.createContext(context);
   vm.runInContext(html.slice(start,end)+';this.paint=pintarApodoHeader;',context);
   assert.equal(row.style.display,'none','no automatic visibility before login');
+  role='dueno';
   context.paint(); // this is what the existing oc-login handler invokes
   assert.equal(row.style.display,'block','session rendering exposes editor in Advanced');
   assert.equal(wrap.style.display,'block','existing device header remains visible');
@@ -72,6 +75,9 @@ test('device pencil stays hidden until login and hides after logout',()=>{
   vm.runInContext(html.slice(logoutStart,logoutEnd+2).replace('window.addEventListener','this.attach'),scope);
   assert.equal(row.style.display,'none','logout must hide moved device editor');
   assert.equal(wrap.style.display,'none','logout must hide device header');
+  role=null;
+  context.paint(); // late micelio or language event after logout
+  assert.equal(row.style.display,'none','background repaint must not resurrect an edit pencil');
 });
 
 test('store pencil retains original owner-only, non-demo guard',()=>{
