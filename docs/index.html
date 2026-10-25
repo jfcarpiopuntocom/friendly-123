@@ -4692,7 +4692,7 @@ if (elLogoHeader) elLogoHeader.addEventListener("click", () => {
     txt.textContent = apodo ? window.tf("device.current", { name: apodo }) : window.t("device.name");
     wrap.style.display = "block";
     const advancedEdit = document.getElementById("oc-advanced-device-edit");
-    if (advancedEdit) advancedEdit.style.display = "block";
+    if (advancedEdit) advancedEdit.style.display = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) ? "block" : "none";
   }
   const apodoBtn = document.getElementById("oc-header-apodo-btn");
   if (apodoBtn) {
