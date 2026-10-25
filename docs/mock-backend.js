@@ -5997,7 +5997,7 @@
         ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
         const _opVenta = { productoId: p.id, delta: -cant };
-        _prepararOpStock(_opVenta, ventaId);
+        _prepararOpStock(_opVenta);
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
            lleno e IndexedDB caido la app decia "vendido", la op ya habia salido a
