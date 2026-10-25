@@ -5949,9 +5949,17 @@
            aparato, o despedido) devolvia error pero el stock ya habia bajado y
            se guardaba: mercaderia perdida sin venta. Toda validacion va antes;
            esta es la primera linea que muta. test/cuadre-hugo-paco-luis.test.js */
+        debePersistir = false; // La venta requiere ACK estricto; nunca auto-guardar un 507/500 en el finally exterior.
         const _fotoVenta = { stock: p.stockActual, ventasLen: ventas.length, movLen: movimientos.length, sello: selloUltimo,
           meta: ["stockBase","stockPN","stockTs","stockDeficit"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
-        let terminarVenta;
+        const _revertirVenta = () => {
+          p.stockActual = _fotoVenta.stock;
+          _fotoVenta.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
+          ventas.length = _fotoVenta.ventasLen;
+          movimientos.length = _fotoVenta.movLen;
+          selloUltimo = _fotoVenta.sello;
+        };
+        let _ventaGuardada = false, terminarVenta;
         _ventaConfirmando = true;
         _ventaPendiente = new Promise(resolve => { terminarVenta = resolve; });
         try {
@@ -6005,18 +6013,16 @@
            PRIMERO; si ningun almacen la acepta, se deshace y se avisa. La op de
            stock sale solo despues de guardar. Mismo patron que
            _confirmarEquipoORevertir. test/venta-durable-deficit.test.js */
-        let _ventaGuardada = false;
         try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
-          p.stockActual = _fotoVenta.stock;
-          _fotoVenta.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
-          ventas.length = _fotoVenta.ventasLen;
-          movimientos.length = _fotoVenta.movLen;
-          selloUltimo = _fotoVenta.sello;
+          _revertirVenta();
           return J({ error: tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.") }, 507);
         }
         emitirOpStock("venta", _opVenta, true);
         return J({ producto: ficha(p), ventaId });
+        } catch (e) {
+          if (!_ventaGuardada) _revertirVenta();
+          throw e;
         } finally {
           _ventaConfirmando = false; _ventaPendiente = null;
           try {
@@ -6024,7 +6030,7 @@
               const siguiente = _ventaCatalogosPendientes.shift();
               aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
             }
-            avisarCatalogoCambiado();
+            if (_ventaGuardada) avisarCatalogoCambiado();
           } finally { terminarVenta(); }
         }
       }
