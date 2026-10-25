@@ -1,0 +1,62 @@
+name: diagnostic-tab-handoff-only
+on:
+  push:
+    branches:
+      - audit/f123-tab-handoff-focus-20261024
+    paths:
+      - .github/workflows/diagnostic-tab-handoff-only.yml
+permissions:
+  contents: read
+jobs:
+  chromium-handoff:
+    name: Chromium PIN handoff only (synthetic, no prod)
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Instrument only the test copy in this runner
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = 'test/tab-session-handoff.test.js';
+          let s = fs.readFileSync(path, 'utf8');
+          const anchor = "await page.waitForFunction(()=>window.OCAuth?.rolActual()==='dueno',{},{timeout:5000});";
+          if (s.split(anchor).length !== 2) throw Error('diagnostic anchor changed');
+          const diagnostic = `try {${anchor}} catch (err) {
+            const info = await page.evaluate(() => ({
+              role: window.OCAuth?.rolActual(),
+              pending: window.OCTabSession?.pending,
+              current: window.OCTabSession?.isCurrent(),
+              gate: document.getElementById('oc-gate')?.style.display,
+              handoff: document.getElementById('oc-tab-handoff')?.textContent?.slice(0,100),
+              slots: [...document.querySelectorAll('#oc-slots .slot')].map(x => x.textContent),
+              message: document.getElementById('oc-msg')?.textContent,
+              keys: [...Array(localStorage.length)].map((_,i)=>localStorage.key(i)).filter(x=>x.includes('auth_tab_lease')).map(k=>({key:k, value:localStorage.getItem(k)})),
+              keyboardPresent: !!document.querySelector('#oc-pad button'),
+              secretState: window.OCSecure?.estadoSecreto?.(),
+              session: sessionStorage.getItem('f123_sesion')
+            }));
+            console.log('FOCUSED_OWNER_LOGIN_DIAG', JSON.stringify(info));
+            throw err;
+          }`;
+          s = s.replace(anchor,diagnostic);
+          fs.writeFileSync(path,s);
+          NODE
+      - name: Isolated actual Chromium handoff, two diagnostic attempts
+        run: |
+          set +e
+          failed=0
+          for attempt in 1 2; do
+            echo "FOCUSED_ATTEMPT=$attempt"
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 --test-name-pattern='native tab session handoff \\(Chromium\\)' test/tab-session-handoff.test.js
+            code=$?
+            if [ "$code" -ne 0 ]; then failed=1; fi
+          done
+          exit "$failed"
