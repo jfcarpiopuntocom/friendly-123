@@ -120,3 +120,18 @@ test('full backend: failed IndexedDB ACK restores sale before remote merge, no g
   assert.equal(emitted,0);
   assert.ok(after.productos.some(p=>p.id==='remote-fixture'),'queued remote facts survive rejected local sale');
 });
+
+test('sale 507 without remote merge has no outgoing catalog notification',async()=>{
+ const w=browser(),before=await state(w),events=[];
+ const dispatch=w.dispatchEvent.bind(w);
+ w.dispatchEvent=e=>{if(e.type==='oc-catalogo-cambiado')events.push(e.type);return dispatch(e)};
+ w.OCEstadoIDB={guardar:async()=>false};
+ const save=w.localStorage.setItem;
+ w.localStorage.setItem=()=>{throw Error('quota')};
+ const response=await sold(w,2);
+ w.localStorage.setItem=save;delete w.OCEstadoIDB;
+ const after=await state(w);
+ assert.equal(response.status,507);
+ assert.equal(after.productos.find(p=>p.id==='p24').stockActual,before.productos.find(p=>p.id==='p24').stockActual);
+ assert.deepEqual(events,[],'rejected sale cannot announce phantom stock');
+});
