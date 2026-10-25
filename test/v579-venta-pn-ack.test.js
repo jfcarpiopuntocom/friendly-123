@@ -135,3 +135,21 @@ test('sale 507 without remote merge has no outgoing catalog notification',async(
  assert.equal(after.productos.find(p=>p.id==='p24').stockActual,before.productos.find(p=>p.id==='p24').stockActual);
  assert.deepEqual(events,[],'rejected sale cannot announce phantom stock');
 });
+
+test('sale exception before ACK restores previous stock, PN and audit',async()=>{
+ const w=browser(),before=await state(w),p0=before.productos.find(p=>p.id==='p24');
+ const labels=[];
+ const dispatch=w.dispatchEvent.bind(w);
+ w.dispatchEvent=e=>{if(e.type==='oc-catalogo-cambiado')labels.push(e.type);return dispatch(e)};
+ let emitted=0;w.OCSyncEmit=()=>{emitted++;return true};
+ const response=await w.fetch('/api/productos/p24/venta',{
+  method:'POST',body:JSON.stringify({cantidad:2,info:{nombreEvento:{toString:null}}})
+ });
+ const after=await state(w),p1=after.productos.find(p=>p.id==='p24');
+ assert.equal(response.status,500);
+ assert.equal(p1.stockActual,p0.stockActual,'failed formatting must restore stock');
+ assert.equal(Object.hasOwn(p1,'stockPN'),Object.hasOwn(p0,'stockPN'));
+ assert.equal(after.ventas.length,before.ventas.length);
+ assert.equal(after.movimientos.length,before.movimientos.length);
+ assert.equal(emitted,0);assert.deepEqual(labels,[]);
+});
