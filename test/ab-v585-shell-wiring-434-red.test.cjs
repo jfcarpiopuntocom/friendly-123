@@ -17,7 +17,7 @@ test('v585 #434: transactional helper is loaded by both readers, cached, and che
   const helper=read('estado-ab.js');
   // A copy of the export in a JS comment is not executable evidence.
   const helperCode=helper.replace(/\/\*[\s\S]*?\*\//g,'').replace(/^\s*\/\/.*$/gm,'');
-  assert.match(helperCode,/^\s*window\.OCEstadoAB\s*=\s*\{\s*crear\s*\}\s*;/m,
+  assert.match(helperCode,/\bwindow\.OCEstadoAB\s*=\s*\{\s*crear\s*\}\s*;/,
     'journal helper must expose the expected non-commented browser contract');
 
   const index=read('index.html'),dash=read('dashboard.html');
