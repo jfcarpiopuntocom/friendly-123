@@ -73,3 +73,26 @@ test('device pencil stays hidden until login and hides after logout',()=>{
   assert.equal(row.style.display,'none','logout must hide moved device editor');
   assert.equal(wrap.style.display,'none','logout must hide device header');
 });
+
+test('store pencil retains original owner-only, non-demo guard',()=>{
+  const start=html.indexOf('  function actualizarLapiz() {');
+  const end=html.indexOf('  btn.addEventListener("click"',start);
+  assert.ok(start>0&&end>start,'extract real owner guard');
+  const source=html.slice(start,end);
+  for(const spec of [
+    {role:'dueno',demo:false,expected:'inline-block'},
+    {role:'dueno',demo:true,expected:'none'},
+    {role:'admin',demo:false,expected:'none'},
+    {role:'empleado',demo:false,expected:'none'}
+  ]){
+    const btn={style:{display:'none'}};
+    const context={btn,window:{OCAuth:{
+      rolActual:()=>spec.role,esDemo:()=>spec.demo
+    }}};
+    vm.createContext(context);
+    vm.runInContext(source+';this.update=actualizarLapiz;',context);
+    context.update();
+    assert.equal(btn.style.display,spec.expected,
+      spec.role+' demo='+spec.demo+' must retain the original business rename policy');
+  }
+});
