@@ -48,15 +48,30 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
       await first.close();await second.close();
       t.skip('Installed browser build has no RTC API; native direct connectivity remains unverified for this engine');return;
     }
-    // API presence alone does not prove this WebKit build has a working native RTC backend.
+    // Establish a native pair before app code: an SDP alone does not prove RTC data connectivity.
     const native=await probe.evaluate(async()=>{
-      const pc=new RTCPeerConnection({iceServers:[]});let stage='createDataChannel';
-      const bounded=promise=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(Error('native RTC '+stage+' timed out')),2500))]);
+      const left=new RTCPeerConnection({iceServers:[]}),right=new RTCPeerConnection({iceServers:[]});let stage='createDataChannel';
+      let timer;const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('native RTC '+stage+' timed out')),5000);});
+      const bounded=promise=>Promise.race([promise,deadline]);
+      const candidates=new Map([[left,[]],[right,[]]]),errors=[];
+      const candidate=(target,value)=>{if(!value)return;if(target.remoteDescription)target.addIceCandidate(value).catch(error=>errors.push(error.message));else candidates.get(target).push(value);};
+      left.onicecandidate=event=>candidate(right,event.candidate);right.onicecandidate=event=>candidate(left,event.candidate);
       try{
-        pc.createDataChannel('native-capability-probe');stage='createOffer';const offer=await bounded(pc.createOffer());
-        stage='setLocalDescription';await bounded(pc.setLocalDescription(offer));
+        const dc=left.createDataChannel('native-capability-probe');
+        const opened=new Promise(resolve=>{dc.onopen=resolve;});
+        const received=new Promise(resolve=>{right.ondatachannel=event=>{event.channel.onmessage=message=>resolve(message.data);};});
+        stage='createOffer';const offer=await bounded(left.createOffer());
+        stage='setLocalDescription';await bounded(left.setLocalDescription(offer));
+        stage='setRemoteOffer';await bounded(right.setRemoteDescription(left.localDescription));
+        for(const value of candidates.get(right).splice(0))await bounded(right.addIceCandidate(value));
+        stage='createAnswer';await bounded(right.setLocalDescription(await bounded(right.createAnswer())));
+        stage='setRemoteAnswer';await bounded(left.setRemoteDescription(right.localDescription));
+        for(const value of candidates.get(left).splice(0))await bounded(left.addIceCandidate(value));
+        stage='native data channel open';await bounded(opened);
+        stage='native data message';dc.send('native-only-probe');
+        if(await bounded(received)!=='native-only-probe')throw Error('native RTC payload mismatch');
         return {ok:true};
-      }catch(error){return {ok:false,stage,name:error.name,message:error.message};}finally{pc.close();}
+      }catch(error){return {ok:false,stage,name:error.name,message:error.message,errors};}finally{clearTimeout(timer);left.close();right.close();}
     });
     if(!native.ok&&name==='webkit'){
       assert.equal(metadataBytes,0,'native capability probe runs before application/network code');
@@ -88,6 +103,8 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
         channel.conectar();
         const hub=channel.ws.hub,receiveSignal=hub.receiveSignal;
         hub.receiveSignal=function(...args){return receiveSignal.apply(this,args).catch(error=>{rtcErrors.push({name:error.name,message:error.message,stack:error.stack});throw error;});};
+        const makePeer=hub.peer;
+        hub.peer=function(...args){const peer=makePeer.apply(this,args);if(peer&&!peer.traced){peer.traced=true;for(const method of ['createOffer','setLocalDescription','setRemoteDescription','createAnswer']){const call=peer.pc[method].bind(peer.pc);peer.pc[method]=async(...args)=>{peer.nativeStage=method;const result=await call(...args);peer.nativeStage=method+' complete';return result;};}}return peer;};
       },{address,room,block,cryptoSource,seed});
       return page;
     }
@@ -96,7 +113,7 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     try { await b.waitForFunction(()=>!channel.recuperando&&doc.getMap('business').get('record')?.total===42.75,{},{timeout:10000}); }
     catch(error) {
       const diagnostic=async page=>page.evaluate(()=>({rtc:typeof RTCPeerConnection,errors:rtcErrors,recovery:channel.recuperando,ready:channel.ws?.readyState,
-        signal:channel.ws?.hub?.signal?.readyState,peers:[...(channel.ws?.hub?.peers?.values()||[])].map(p=>({connection:p.pc.connectionState,ice:p.pc.iceConnectionState,signal:p.pc.signalingState,dc:p.dc?.readyState})),
+        signal:channel.ws?.hub?.signal?.readyState,peers:[...(channel.ws?.hub?.peers?.values()||[])].map(p=>({stage:p.nativeStage,connection:p.pc.connectionState,ice:p.pc.iceConnectionState,gathering:p.pc.iceGatheringState,signal:p.pc.signalingState,dc:p.dc?.readyState})),
         pending:channel.pendientesRelay,record:!!doc.getMap('business').get('record')}));
       console.error(JSON.stringify({engine:name,invalidMetadata,a:await diagnostic(a),b:await diagnostic(b)}));throw error;
     }
