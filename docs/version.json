@@ -1,10 +1,10 @@
 {
-  "version": "shell v587",
+  "version": "shell v588",
   "fecha": "2026-10-26",
-  "changelog": "v587: transactional local recovery, shared activity with source integrity, bounded connection recovery and identity/code fixes.",
+  "changelog": "v588: transactional local recovery, shared activity with source integrity, bounded connection recovery and identity/code fixes.",
   "requerida": false,
-  "shell": "f123-shell-v587",
+  "shell": "f123-shell-v588",
   "apagar": [],
-  "releaseName": "shell v587",
-  "cacheGeneration": "golden133"
+  "releaseName": "shell v588",
+  "cacheGeneration": "golden134"
 }
