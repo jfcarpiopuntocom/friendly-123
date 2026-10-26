@@ -880,7 +880,7 @@
   // ventas, clientes) se mezclaba entre ambas apps en el mismo navegador.
   const OC_STATE_KEY_VIEJA = "amigable_demo_state_v4";
   const OC_STATE_KEY = "f123_estado_v4";
-  let _estadoLecturaBloqueada = false, _conflictoEstadoAB = null;
+  let _estadoLecturaBloqueada = false, _conflictoEstadoAB = null, _evidenciaEstadoAB = null;
   function _leerEstadoEstricto(clave) {
     try {
       const aislamiento = window.AMG && window.AMG.Aislamiento;
@@ -923,7 +923,7 @@
     return {
       schemaVersion: 3,
       _rev: _localRev,
-      ...(_conflictoEstadoAB ? { recuperacionAB: clonar(_conflictoEstadoAB) } : {}),
+      ...(_evidenciaEstadoAB ? { recuperacionAB: clonar(_evidenciaEstadoAB) } : {}),
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
       movimientos: clonar(movimientos), actividadCompartida: _actividadExportable(), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payoutView ? payoutView(payouts) : payouts),
@@ -1306,9 +1306,15 @@
     return _estadoABLocal;
   }
   function _registrarConflictoAB(vista) {
+    if (!vista.conflictos.length && !vista.danados.length) return false;
+    const preparado = vista.registro && vista.registro.phase === "PREPARED";
+    _evidenciaEstadoAB = { base: OC_STATE_KEY + OC_STATE_SUFIJO, journal: vista.rawJournal, puntero: vista.puntero,
+      fase: vista.registro ? vista.registro.phase : "LEGACY", danados: vista.danados,
+      copias: [{ clave: "A", raw: vista.fisicos.A }, { clave: "B", raw: vista.fisicos.B }] };
+    if (vista.registro) _evidenciaEstadoAB.copias.push({ clave: preparado ? "candidata-no-confirmada" : "confirmada", raw: vista.registro.candidateRaw });
+    if (preparado) _evidenciaEstadoAB.copias.push({ clave: "preimagen", raw: vista.registro.anterior });
     if (!vista.conflictos.length) return false;
-    _conflictoEstadoAB = { base: OC_STATE_KEY + OC_STATE_SUFIJO, journal: vista.rawJournal, puntero: vista.puntero,
-      copias: [{ clave: "A", raw: vista.fisicos.A }, { clave: "B", raw: vista.fisicos.B }, { clave: "confirmada", raw: vista.registro.candidateRaw }] };
+    _conflictoEstadoAB = _evidenciaEstadoAB;
     _estadoLecturaBloqueada = true;
     window.OCEstadoAB.avisarConflicto();
     return true;
@@ -3658,6 +3664,7 @@
     } catch (_) { return null; }
   }
   function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
+    if (_conflictoEstadoAB) return {ok:false,error:"Conflicting saved copies; incoming state is retained for retry."};
     if (_ventaConfirmando) {
       _ventaCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
@@ -4849,6 +4856,7 @@
     // `ventas`; el delta legado no acredita el acuerdo de comisión, que queda
     // pendiente hasta contar con la venta completa del catálogo.
     aplicarOpRemota(op) {
+      if (_conflictoEstadoAB) return false;
       if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
       const vistos = _cargarOpsAplicadas();
       if (vistos.has(op.opId)) return { ok: true, repetida: true };

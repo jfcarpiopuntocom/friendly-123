@@ -396,4 +396,20 @@ test('corrupt physical bytes remain preserved while healthy IDB accepts the next
   assert.equal((await hold(app,30)).status,200);
   assert.equal(accepted.configuracion.retencion.dias,30);
   assert.equal(f.storage.getItem(B),'{corrupt','do not destroy forensic bytes during recovery');
+  assert.ok((await exportState(app)).recuperacionAB.copias.some(copy=>copy.raw==='{corrupt'),'ordinary full backup retains forensic bytes too');
+});
+
+test('PREPARED conflict never labels the rejected candidate confirmed and refuses incoming state',async()=>{
+  const f=fixture();pointerAndRestoreFailure(f,{swallowDelete:true});
+  assert.equal((await hold(f.app)).status,507);
+  const rejected=JSON.parse(f.storage.getItem(JOURNAL)).candidateRaw;
+  f.storage.map.set(B,raw('FOREIGN-PREPARED',30));f.storage.beforeSet=null;
+  const app=browser(f.storage);app.OCAuth={rolActual:()=> 'dueno'};
+  const before=await exportState(app);
+  assert.equal(before.recuperacionAB.fase,'PREPARED');
+  assert.ok(before.recuperacionAB.copias.some(copy=>copy.clave==='candidata-no-confirmada'&&copy.raw===rejected));
+  assert.ok(!before.recuperacionAB.copias.some(copy=>copy.clave==='confirmada'&&copy.raw===rejected));
+  const peer=browser();const catalog=peer.catalog();catalog.nombreNegocio='Synthetic incoming conflict';
+  assert.equal(app.OCSync.aplicarCatalogo(catalog,null).ok,false);
+  assert.equal((await exportState(app)).nombreNegocio,before.nombreNegocio);
 });

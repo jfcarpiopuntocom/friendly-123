@@ -48,16 +48,16 @@
             buffers[activo] = registro.candidateRaw;
           }
         }
-        const conflictos = [];
+        const conflictos = [], danados = [];
         if (registro) for (const letra of ["A", "B"]) {
           const raw = fisicos[letra], body = cuerpo(raw);
-          if (!body || typeof body !== "object") continue;
+          if (!body || typeof body !== "object") { if (raw !== null) danados.push(letra); continue; }
           const ajeno = letra === registro.destino && raw !== registro.candidateRaw &&
             (registro.phase !== "PREPARED" || raw !== registro.anterior);
           if (ajeno || Number(body._rev) > registro.revision) conflictos.push(letra);
         }
         const revisiones = Object.values(buffers).map(raw => Number((cuerpo(raw) || {})._rev) || 0);
-        return { activo, buffers, revMax: Math.max(0, ...revisiones, registro ? registro.revision : 0), registro, fisicos, puntero, rawJournal, conflictos };
+        return { activo, buffers, revMax: Math.max(0, ...revisiones, registro ? registro.revision : 0), registro, fisicos, puntero, rawJournal, conflictos, danados };
       }
       throw new Error("A/B state changed during recovery read");
     }
