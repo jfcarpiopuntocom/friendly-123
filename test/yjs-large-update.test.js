@@ -26,7 +26,7 @@ test('large Yjs updates are bounded before send and reassembled exactly once', a
     window: { F123Relay: { connect: () => new Socket() } },
     document: { hidden:false, addEventListener(){} },
     Y: { applyUpdate(_doc, bytes) { applied.push(Array.from(bytes)); } },
-    log() {}, setTimeout() {}, clearTimeout() {}, Date, Math, JSON, Uint8Array, ArrayBuffer,
+    log() {}, setTimeout() {}, clearTimeout() {}, Date, Math, JSON, Uint8Array, ArrayBuffer, TextEncoder,
     btoa: s => Buffer.from(s, 'binary').toString('base64'),
     cifrarBin: async (_key, bytes) => bytes.slice().buffer,
     descifrarBin: async (_key, bytes) => new Uint8Array(bytes),

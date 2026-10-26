@@ -243,12 +243,12 @@ test("the real reconnect photo seeding callback waits for Yjs hydration",async()
 
 for(const tag of [1,2]){
  test("a remote Yjs state-vector request ("+tag+") waits for local journal hydration",async()=>{
-  const first=src.indexOf("      function manejar(buf, source) {");
+  const first=src.indexOf("      function manejar(");
   const end=src.indexOf("      ws.onmessage = function (ev) {",first);
   assert.ok(first>0&&end>first,"actual Yjs message handling code is available");
   let release;const seen=[];
   const ctx={
-   API:{clave:{}},doc:{},_pausado:false,permitido:()=>true,
+   API:{clave:{}},ws:{peerOnly:false},doc:{},_pausado:false,permitido:()=>true,
    Y:{encodeStateVector:()=>new Uint8Array([2]),
     encodeStateAsUpdate:()=>new Uint8Array([0])},
    _pullCursorReady:new Promise(resolve=>{release=resolve;}),
@@ -265,7 +265,7 @@ for(const tag of [1,2]){
  });
 }
 test("a bad encrypted update is rejected, not presented as an applied Yjs frame",async()=>{
- const first=src.indexOf("      function manejar(buf, source) {");
+ const first=src.indexOf("      function manejar(");
  const end=src.indexOf("      ws.onmessage = function (ev) {",first);
  assert.ok(first>0&&end>first);
  const ctx={API:{clave:{}},descifrarBin:async()=>{throw Error("synthetic bad AES-GCM");},Promise};
@@ -543,7 +543,10 @@ test("E1b-2 RED: unsupported or silent HEAD releases clean final replay, not pen
  const begin=src.indexOf('            else if (c && c.k === "pull-page")');
  const end=src.indexOf('            else if (c && c.k === "tsr"',begin);
  assert.ok(first>0&&middle>first&&begin>0&&end>begin);
- const pager=src.slice(first,middle),page=src.slice(begin,end).replace("else if","if");
+ const handlerStart=src.indexOf("      ws.onmessage = function (ev) {",middle);
+ const handlerEnd=src.indexOf("      _directReceive = function (buf) {",handlerStart);
+ assert.ok(handlerStart>middle&&handlerEnd>handlerStart,"complete production message handler found");
+ const pager=src.slice(first,middle),handler=src.slice(handlerStart,handlerEnd);
  for(const mode of ["unsupported","silent","native","pending"]){
    const sent=[],timers=[],events=[],ws={readyState:1,send:j=>sent.push(JSON.parse(j)),close:()=>events.push("close")};
    const state={enCurso:true,fallos:0,usarHead:true};
@@ -552,12 +555,12 @@ test("E1b-2 RED: unsupported or silent HEAD releases clean final replay, not pen
      pullEstado:state,_colaRecepcion:Promise.resolve(),_pullCursorReady:Promise.resolve(),
      _pullCursor:{rev:3,seq:90},PULL_PAGE_SIZE:64,_soloMemoria:false,
      _replayKey:"stable",_replayUsed:5,_tReplay:null,partesEntrantes:{},doc,
-     nombre:"catalogo",API:{_store:{aplicar:()=>events.push("aplicar")}},
+      nombre:"catalogo",API:{clave:{},_store:{aplicar:()=>events.push("aplicar")}},
      guardarPullCursor:async()=>{},deudaPendiente:()=>!!doc.store.pendingStructs,
      programarRelectura:()=>{},log:()=>{},setTimeout:fn=>{timers.push(fn);return timers.length;},
      clearTimeout:()=>{},c:{k:"pull-page",rev:3,seq:90,more:false}};
-   vm.createContext(ctx);vm.runInContext(pager,ctx);
-   const receive=async()=>{vm.runInContext(page,ctx);await ctx._colaRecepcion;};
+   vm.createContext(ctx);vm.runInContext(pager+handler,ctx);
+   const receive=async()=>{ctx.ws.onmessage({data:JSON.stringify(ctx.c)});await ctx._colaRecepcion;};
    await receive();
    if(mode==="pending"){
      assert.equal(ctx.canal.recuperando,true,"orphan never authorizes recovery");

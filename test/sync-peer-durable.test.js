@@ -6,6 +6,7 @@ const source=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 const block=source.slice(source.indexOf('  function _frame('),source.indexOf('  // Carga perezosa'));
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function settle(){for(let i=0;i<8;i++)await tick();}
+async function until(condition,message){const deadline=Date.now()+2000;while(!condition()&&Date.now()<deadline)await new Promise(resolve=>setTimeout(resolve,1));assert.ok(condition(),message);}
 
 test('catalog receipt waits for real PIN persistence and rejects a superseded application',async()=>{
   let releasePins,releaseStore,stores=0;
@@ -101,7 +102,7 @@ test('all fragment receipts wait for complete update assembly',async()=>{
 
 test('peer-only sender rejects unauthenticated persist-result',async()=>{
   const f=await fixture('fotos');try{
-    f.channel.enviarUpdate(new Uint8Array([1,2,3]));await settle();
+    f.channel.enviarUpdate(new Uint8Array([1,2,3]));await until(()=>f.saved.get('f123_relay_outbox_v1-y')?.pending.length===1,'ciphertext enters the actual durable outbox');
     const pending=f.saved.get('f123_relay_outbox_v1-y').pending;assert.equal(pending.length,1);
     f.socket.onmessage({data:JSON.stringify({k:'persist-result',kind:'op',id:pending[0].id,ok:true})});await settle();
     assert.equal(f.saved.get('f123_relay_outbox_v1-y').pending.length,1,'plain peer messages cannot delete pending ciphertext');
@@ -155,7 +156,7 @@ test('a conflicting duplicate fragment cannot borrow the accepted group receipt'
 
 test('encrypted receipt must match the exact pending ciphertext before outbox removal',async()=>{
   const f=await fixture('fotos');try{
-    f.channel.enviarUpdate(new Uint8Array([7,8,9]));await settle();
+    f.channel.enviarUpdate(new Uint8Array([7,8,9]));await until(()=>f.saved.get('f123_relay_outbox_v1-y')?.pending.length===1,'ciphertext enters the actual durable outbox');
     const pending=f.saved.get('f123_relay_outbox_v1-y').pending[0];
     const hash=require('node:crypto').createHash('sha256').update(Buffer.from(pending.c,'base64')).digest('hex');
     const meta={id:pending.id,kind:pending.k,peer:'synthetic-peer',hash};
@@ -163,14 +164,14 @@ test('encrypted receipt must match the exact pending ciphertext before outbox re
     const wrong={...meta,hash:'a'.repeat(64)};
     f.socket.onmessage({data:proof(wrong),relaySource:'peer-ack',peerAck:wrong});await settle();
     assert.equal(f.saved.get('f123_relay_outbox_v1-y').pending.length,1,'even a decryptable proof cannot ACK different ciphertext');
-    f.socket.onmessage({data:proof(meta),relaySource:'peer-ack',peerAck:meta});await settle();
+    f.socket.onmessage({data:proof(meta),relaySource:'peer-ack',peerAck:meta});await until(()=>f.saved.get('f123_relay_outbox_v1-y').pending.length===0,'exact encrypted receipt completes confirmation');
     assert.equal(f.saved.get('f123_relay_outbox_v1-y').pending.length,0,'authenticated exact proof allows the adapter to confirm');
   }finally{f.close();}
 });
 
 test('a group larger than the old four-operation window can deliver every sibling',async()=>{
   const f=await fixture('fotos');try{
-    f.channel.enviarUpdate(new Uint8Array(160*1024*5));await settle();
+    f.channel.enviarUpdate(new Uint8Array(160*1024*5));await until(()=>f.sent.filter(value=>typeof value==='string').map(JSON.parse).filter(value=>value.k==='op').length===5,'every encrypted fragment reaches the sender');
     const operations=f.sent.filter(value=>typeof value==='string').map(JSON.parse).filter(value=>value.k==='op');
     assert.equal(operations.length,5,'receiver must obtain every sibling before it can ACK any fragment');
   }finally{f.close();}

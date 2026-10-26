@@ -9,7 +9,7 @@ const sync=fs.readFileSync(path.join(__dirname,"../docs/sync-yjs.js"),"utf8");
 const crypto=fs.readFileSync(path.join(__dirname,"../docs/crypto-store.js"),"utf8");
 
 function actualSyncApply(recuperando){
-  const a=sync.indexOf("    function aplicar() {");
+  const a=sync.indexOf("    var ultimaAplicacionVisible =");
   const b=sync.indexOf("    function valores(col)",a);
   const c=sync.indexOf("    // Cambios locales del catálogo",b);
   assert.ok(a>0&&b>a&&c>b,"production Yjs store apply functions found");

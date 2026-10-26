@@ -153,7 +153,7 @@ test("E1b-3 RED: direct peer send/receive stop while hidden or lease displaced",
 
 test("E1b-3 RED: paused during async direct decryption never applies old-tab Yjs bytes",async()=>{
  const vm=require("node:vm");
- const a=sync.indexOf("      function manejar(buf, source) {");
+ const a=sync.indexOf("      function manejar(");
  const b=sync.indexOf("      ws.onmessage = function (ev) {",a);
  assert.ok(a>0&&b>a);
  let finish,applied=0;

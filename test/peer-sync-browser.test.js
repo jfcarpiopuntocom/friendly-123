@@ -48,6 +48,23 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
       await first.close();await second.close();
       t.skip('Installed browser build has no RTC API; native direct connectivity remains unverified for this engine');return;
     }
+    // API presence alone does not prove this WebKit build has a working native RTC backend.
+    const native=await probe.evaluate(async()=>{
+      const pc=new RTCPeerConnection({iceServers:[]});let stage='createDataChannel';
+      const bounded=promise=>Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(Error('native RTC '+stage+' timed out')),2500))]);
+      try{
+        pc.createDataChannel('native-capability-probe');stage='createOffer';const offer=await bounded(pc.createOffer());
+        stage='setLocalDescription';await bounded(pc.setLocalDescription(offer));
+        return {ok:true};
+      }catch(error){return {ok:false,stage,name:error.name,message:error.message};}finally{pc.close();}
+    });
+    if(!native.ok&&name==='webkit'){
+      assert.equal(metadataBytes,0,'native capability probe runs before application/network code');
+      console.error(JSON.stringify({engine:name,nativeRTC:native}));
+      await first.close();await second.close();
+      t.skip('Native WebKit RTC preflight failed/timed out before app code; direct connectivity unverified: '+JSON.stringify(native));return;
+    }
+    assert.equal(native.ok,true,JSON.stringify(native));
     await probe.close();
     async function boot(context,seed){
       const page=await context.newPage();await page.goto(address);
