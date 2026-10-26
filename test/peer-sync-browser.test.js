@@ -83,7 +83,11 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
         window.channel=make(Y,doc,'-y','catalogo',false,null,persistence);
         doc.on('update',(update,origin)=>{if(origin!=='red'&&origin!==persistence)channel.enviarUpdate(update);});
         if(seed)doc.getMap('business').set('record',seed);
+        window.rtcErrors=[];
+        window.addEventListener('error',event=>rtcErrors.push({name:'window-error',message:event.message}));
         channel.conectar();
+        const hub=channel.ws.hub,receiveSignal=hub.receiveSignal;
+        hub.receiveSignal=function(...args){return receiveSignal.apply(this,args).catch(error=>{rtcErrors.push({name:error.name,message:error.message,stack:error.stack});throw error;});};
       },{address,room,block,cryptoSource,seed});
       return page;
     }
@@ -91,7 +95,7 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     const a=await boot(first,seed),b=await boot(second,null);
     try { await b.waitForFunction(()=>!channel.recuperando&&doc.getMap('business').get('record')?.total===42.75,{},{timeout:10000}); }
     catch(error) {
-      const diagnostic=async page=>page.evaluate(()=>({rtc:typeof RTCPeerConnection,recovery:channel.recuperando,ready:channel.ws?.readyState,
+      const diagnostic=async page=>page.evaluate(()=>({rtc:typeof RTCPeerConnection,errors:rtcErrors,recovery:channel.recuperando,ready:channel.ws?.readyState,
         signal:channel.ws?.hub?.signal?.readyState,peers:[...(channel.ws?.hub?.peers?.values()||[])].map(p=>({connection:p.pc.connectionState,ice:p.pc.iceConnectionState,signal:p.pc.signalingState,dc:p.dc?.readyState})),
         pending:channel.pendientesRelay,record:!!doc.getMap('business').get('record')}));
       console.error(JSON.stringify({engine:name,invalidMetadata,a:await diagnostic(a),b:await diagnostic(b)}));throw error;
