@@ -3651,12 +3651,11 @@
       .map((k) => JSON.stringify(k) + ":" + _serializarMergeCanonico(valor[k])).join(",") + "}";
     return JSON.stringify(valor);
   }
-  function _huellaEstadoMerge(incluirActividad = true) {
+  function _huellaEstadoMerge() {
     try {
       // catalogoPropio incluye el PIN activo; el sidecar se guarda por OCsecure
       // inmediatamente y no debe convertir una preparación local en un merge de negocio.
-      const catalogo = _catalogoInterno();
-      if (!incluirActividad) delete catalogo.actividad;
+      const catalogo = _catalogoInterno(false);
       // stockDeficit is derived in applyCatalogo but intentionally omitted from wire catalog.
       const deficits = new Map(productos.map((p) => [String(p.id), Number(p.stockDeficit) || 0]));
       catalogo.productos.forEach((p) => { p.stockDeficit = deficits.get(String(p.id)) || 0; });
@@ -3680,15 +3679,15 @@
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
     const dif = compararCatalogo(remoto, rolRemoto);
     if (!dif) return { ok: false, error: "The catalog received is not readable." };
-    const huellaAntes = _huellaEstadoMerge();
-    const negocioAntes = _huellaEstadoMerge(false);
+    const negocioAntes = _huellaEstadoMerge();
     let actividadNueva;
     try { actividadNueva = _actividadUnir(actividadCompartida, remoto.actividad || []); }
     catch (_) { return { ok: false, error: "The shared activity evidence is not readable." }; }
     const mandaElOtro = dif.ganaElOtro;
     let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
     const promesasPins = [];
-    if (_serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida)) {
+    const actividadCambio = _serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida);
+    if (actividadCambio) {
       actividadCompartida = actividadNueva; actualizados++;
     }
 
@@ -4320,10 +4319,12 @@
       });
       if (cambiosCat.length) { _reflejarCategoriasEnListas(cambiosCat); actualizados += cambiosCat.length; }
     }
-    const huellaDespues = _huellaEstadoMerge();
-    const cambioPersistible = huellaAntes === null || huellaDespues === null || huellaAntes !== huellaDespues;
+    const negocioDespues = _huellaEstadoMerge();
+    // History has its own additive comparison; do not rebuild it in every business fingerprint.
+    const cambioNegocio = negocioAntes === null || negocioDespues === null || negocioAntes !== negocioDespues;
+    const cambioPersistible = actividadCambio || cambioNegocio;
     if (cambioPersistible) {
-      if (negocioAntes !== _huellaEstadoMerge(false)) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
+      if (negocioAntes !== negocioDespues) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
       guardarEstadoLocal();
     }
     if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
@@ -4557,11 +4558,11 @@
     },
   };
 
-  function _catalogoInterno() {
+  function _catalogoInterno(incluirActividad = true) {
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       const _demoLocal = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
       return {
-        actividad: _actividadExportable(),
+        actividad: incluirActividad ? _actividadExportable() : undefined,
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // v448 GOLDEN: bloquear la semilla por HUELLA EXACTA, no por forma del id.
         // Un negocio real puede tener un id corto como p23; nombre+SKU+barcode

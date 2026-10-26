@@ -2,6 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {browser}=require('./helpers/browser.cjs');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
+async function waitForCount(items,count){for(let i=0;i<150&&items.length<count;i++)await tick();assert.ok(items.length>=count,`expected ${count} durable ACKs, observed ${items.length}`);}
 async function setup(){
  const w=browser();
  const p=await w.request('/api/productos','POST',{nombre:'Synthetic bar',barcode:'SYN-BAR-ACK',tipoProducto:'bar',stockInicial:80,servingMl:50,botellaMl:750,precio:5,costo:1,ubicacionId:'bar'});
@@ -59,32 +60,45 @@ test('bar conversion: rejected IndexedDB promise releases waiting reads with pri
  assert.equal(events.stock.length,0);assert.equal(events.catalog,0);
 });
 for(const accepted of [false,true])test(`bar conversion: remote catalog waits through ${accepted?'accepted':'rejected'} ACK without being rolled back`,async()=>{
- const {w,p,events}=await setup();let release;
+ const {w,p,events}=await setup(),acks=[];
  w.localStorage.setItem=()=>{throw Error('synthetic quota');};
- w.OCEstadoIDB={guardar:(s,strict)=>strict?new Promise(resolve=>{release=resolve;}):Promise.resolve(false)};
+ w.OCEstadoIDB={guardar:(s,strict)=>strict?new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(s)),resolve})):Promise.resolve(false)};
  const request=w.fetch('/api/productos/'+p.id,{method:'PATCH',body:JSON.stringify({servingMl:100})});
- await tick();
+ await waitForCount(acks,1);
  let ready=false;const confirmed=w.OCSync.catalogoConfirmado().then(c=>{ready=true;return c;});
  const remote={ubicaciones:[],productos:[{id:'synthetic-remote-bar-ack',nombre:'Remote product',ubicacionId:'bar',stockActual:4,precio:1}]};
  assert.equal(w.OCSync.aplicarCatalogo(remote,null),false,'incoming merge waits for rollback or commit');
  await tick();assert.equal(ready,false);assert.equal(events.stock.length,0);
- release(accepted);assert.equal((await request).status,accepted?200:507);
+ acks[0].resolve(accepted);assert.equal((await request).status,accepted?200:507);
+ await waitForCount(acks,2);
+ assert.ok(acks[1].snapshot.productos.some(x=>x.id==='synthetic-remote-bar-ack'),'second durable snapshot contains replayed remote catalog');
+ assert.equal(acks[1].snapshot.productos.find(x=>x.id===p.id).stockActual,accepted?40:80);
+ acks[1].resolve(true);
  const catalog=await confirmed;
  assert.ok(catalog.productos.some(x=>x.id==='synthetic-remote-bar-ack'),'remote change survives queue drain');
  assert.equal(catalog.productos.find(x=>x.id===p.id).stockActual,accepted?40:80);
  assert.equal(events.stock.length,accepted?1:0);
 });
-for(const missingPointer of [false,true])test(`bar conversion: failed pointer flip preserves old buffers${missingPointer?' without a prior pointer':''}`,async()=>{
+for(const missingPointer of [false,true])test(`bar conversion: failed COMMITTED journal write preserves logical preimage${missingPointer?' without a prior pointer':''} and rejects without IDB ACK`,async()=>{
  const {w,p,events}=await setup(),storage=w.localStorage;
  if(missingPointer)storage.removeItem('f123_estado_v4_ptr');
- const buffers=['f123_estado_v4_A','f123_estado_v4_B'].map(k=>[k,storage.getItem(k)]);
- const originalSet=storage.setItem.bind(storage);
- storage.setItem=(k,v)=>{if(k==='f123_estado_v4_ptr')throw Error('synthetic pointer failure');return originalSet(k,v);};
+ const ab=()=>w.OCEstadoAB.crear({storage,claveBase:'f123_estado_v4'});
+ const before=ab().leer().buffers,originalSet=storage.setItem.bind(storage);
+ storage.setItem=(k,v)=>{if(k==='f123_estado_v4_journal'){try{if(JSON.parse(v).phase==='COMMITTED')throw Error('synthetic COMMITTED journal failure');}catch(e){if(e.message==='synthetic COMMITTED journal failure')throw e;}}return originalSet(k,v);};
  w.OCEstadoIDB={guardar:async()=>false};
  const r=await w.fetch('/api/productos/'+p.id,{method:'PATCH',body:JSON.stringify({servingMl:100})});
  assert.equal(r.status,507);assert.equal(events.stock.length,0);assert.equal(events.catalog,0);
- for(const [key,value]of buffers)assert.ok(storage.getItem(key)===value,'uncommitted buffer must not replace the recoverable copy: '+key);
+ assert.deepEqual(ab().leer().buffers,before,'WAL readback exposes the exact logical preimage');
  storage.setItem=originalSet;
  const reopened=await browser(storage).request('/api/productos/'+p.id);
  assert.equal(reopened.stockActual,80);assert.equal(reopened.servingMl,50);
+});
+test('bar conversion: pointer hint failure after COMMITTED journal remains a durable success',async()=>{
+ const {w,p,events}=await setup(),storage=w.localStorage,originalSet=storage.setItem.bind(storage);
+ storage.setItem=(k,v)=>{if(k==='f123_estado_v4_ptr')throw Error('synthetic legacy pointer hint failure');return originalSet(k,v);};
+ const r=await w.fetch('/api/productos/'+p.id,{method:'PATCH',body:JSON.stringify({servingMl:100})});
+ assert.equal(r.status,200);assert.equal(events.stock.length,1);
+ storage.setItem=originalSet;
+ const reopened=await browser(storage).request('/api/productos/'+p.id);
+ assert.equal(reopened.stockActual,40);assert.equal(reopened.servingMl,100);
 });

@@ -43,7 +43,7 @@ test('sale: rejected ACK restores exactly existing and absent PN metadata',()=>{
 });
 test('sale: in-flight attempt cannot be seeded, merged or read as committed',()=>{
   const incoming=part('  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {','    const _demoRemoto =');
-  const outgoing=part('    catalogoPropio() {','      _sembrarCategoriasLegado()');
+  const outgoing=part('    catalogoPropio() {','    estadoParaCheckpoint() {');
   const fetch=part('  const _fetchConCandado = async function (url, opts) {','    const rolAlPedir=');
   assert.match(sale,/_ventaConfirmando\s*=\s*true/, 'sale locks provisional state');
   assert.match(sale,/finally\s*\{[\s\S]*?_ventaCatalogosPendientes/, 'sale must drain merge queue');
@@ -77,13 +77,13 @@ test('full backend: serial sales use one device PN counter, both receipts remain
 
 test('full backend: pending IndexedDB ACK shields Yjs, GET and first durable PN',async()=>{
   const w=browser();w.localStorage.setItem('f123_device_id','fixture-device-A');
-  let release,firstSnapshot=null, emitted=0;
+  const acks=[];let emitted=0;
   w.OCSyncEmit=()=>{emitted++;return true};
-  w.OCEstadoIDB={guardar:(snapshot)=>{firstSnapshot=JSON.parse(JSON.stringify(snapshot));return new Promise(resolve=>{release=resolve;});}};
+  w.OCEstadoIDB={guardar:snapshot=>new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))};
   w.localStorage.setItem=()=>{throw Error('quota');};
   const inFlight=sold(w,2);
-  await pauseUntil(()=>!!release);
-  const p=firstSnapshot.productos.find(p=>p.id==='p24');
+  await pauseUntil(()=>acks.length===1);
+  const p=acks[0].snapshot.productos.find(p=>p.id==='p24');
   assert.equal(p.stockActual,78);assert.equal(p.stockBase,80);
   assert.equal(p.stockPN['fixture-device-A'].sub,2);
   assert.equal(w.OCSync.catalogoPropio(),null,'provisional sale cannot seed Yjs');
@@ -97,9 +97,13 @@ test('full backend: pending IndexedDB ACK shields Yjs, GET and first durable PN'
   assert.equal(readDone,false,'read must not observe provisional sale');
   assert.equal(catalogDone,false,'requested catalog waits for durable sale');
   assert.equal(emitted,0,'no stock announcement before ACK');
-  release(true);
-  const sale=await inFlight, data=await read;
+  acks[0].resolve(true);
+  const sale=await inFlight;
   assert.equal(sale.status,200);
+  await pauseUntil(()=>acks.length===2);
+  assert.ok(acks[1].snapshot.productos.some(p=>p.id==='remote-fixture'),'second durable snapshot contains queued remote catalog');
+  acks[1].resolve(true);
+  const data=await read;
   assert.equal(emitted,1,'announce once');
   assert.ok(data.productos.some(p=>p.id==='remote-fixture'),'remote merge drained after ACK');
   assert.equal(data.productos.find(p=>p.id==='p24').stockPN['fixture-device-A'].sub,2);

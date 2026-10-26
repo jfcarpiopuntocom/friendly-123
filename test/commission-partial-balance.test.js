@@ -2,6 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {browser}=require('./helpers/browser.cjs');
 const L=require('../docs/core/payout-ledger.js');
+async function waitForAck(acks,count){for(let i=0;i<150&&acks.length<count;i++)await new Promise(resolve=>setImmediate(resolve));assert.ok(acks.length>=count,`expected ${count} durable saves, observed ${acks.length}`);}
 async function setup(split=false){
  const entries=new Map();let fail=false;
  const storage={get length(){return entries.size},key:i=>[...entries.keys()][i],getItem:k=>entries.get(k)??null,
@@ -82,14 +83,23 @@ test('incoming sync survives rollback of a failed payout and keeps deferred Yjs 
  await f.app.request('/api/instancia/nombre','POST',{nombre:'Before payout'});
  const canonical=f.app.catalog();canonical.nombreNegocio='Queued Yjs after payout';
  canonical.nombreNegocioTs=1;canonical._nombreDesdeYjs=true;
- f.fail();let finish;
- f.app.OCEstadoIDB={guardar:()=>new Promise(r=>{finish=r})};
- const pending=raw(f.app,'/api/payouts',pay(f));await new Promise(r=>setTimeout(r,0));
+ f.fail();const acks=[];
+ f.app.OCEstadoIDB={guardar:(snapshot,strict)=>strict?new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve})):Promise.resolve(false)};
+ const pending=raw(f.app,'/api/payouts',pay(f));await waitForAck(acks,1);
  f.app.receive(peer);
  f.app.OCSync.aplicarCatalogo(canonical,'dueno',true);
- assert.equal(f.app.catalog().nombreNegocio,'Before payout','do not apply a queued name while money is pending');
- finish(false);
+ assert.equal(f.app.catalog(),null,'do not publish a provisional catalog while payout durability is pending');
+ acks[0].resolve(false);
  assert.equal((await pending).status,507);
+ await waitForAck(acks,2);
+ assert.equal(acks[1].snapshot.payouts.length,0,'failed payout is absent from the first replay snapshot');
+ assert.ok(['Before payout','Queued Yjs after payout'].includes(acks[1].snapshot.nombreNegocio),'intermediate replay snapshot retains a valid name');
+ acks[1].resolve(true);
+ await waitForAck(acks,3);
+ assert.equal(acks[2].snapshot.nombreNegocio,'Queued Yjs after payout');
+ assert.equal(acks[2].snapshot.payouts.length,0,'failed payout is absent from replay snapshot');
+ assert.ok(acks[2].snapshot.clientes.some(c=>c.id===customer.id),'final replay snapshot preserves peer customer');
+ acks[2].resolve(true);
  const after=await f.app.request('/api/respaldo/exportar');
  assert.equal(after.payouts.length,0);assert.ok(after.clientes.some(c=>c.id===customer.id));
  assert.equal(f.app.catalog().nombreNegocio,'Queued Yjs after payout',
@@ -101,14 +111,18 @@ test('failed sale return replays deferred Yjs owner name without losing stock or
  const canonical=f.app.catalog();canonical.nombreNegocio='Queued Yjs after return';
  canonical.nombreNegocioTs=1;canonical._nombreDesdeYjs=true;
  const before=await f.app.request('/api/respaldo/exportar');
- f.fail();let finish;
- f.app.OCEstadoIDB={guardar:()=>new Promise(resolve=>{finish=resolve})};
+ f.fail();const acks=[];
+ f.app.OCEstadoIDB={guardar:(snapshot,strict)=>strict?new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve})):Promise.resolve(false)};
  const pending=raw(f.app,'/api/ventas/'+f.sale.ventaId+'/devolucion',{motivo:'Synthetic deferred name'});
- await new Promise(resolve=>setTimeout(resolve,0));
+ await waitForAck(acks,1);
  f.app.OCSync.aplicarCatalogo(canonical,'dueno',true);
- assert.equal(f.app.catalog().nombreNegocio,'Before return','return rollback holds incoming sync until durable boundary');
- finish(false);
+ assert.equal(f.app.catalog(),null,'return in flight is not publishable');
+ acks[0].resolve(false);
  assert.equal((await pending).status,507);
+ await waitForAck(acks,2);
+ assert.equal(acks.length,2,'rollback replay reaches its separate durable catalog save');
+ assert.equal(acks[1].snapshot.nombreNegocio,'Queued Yjs after return');
+ acks[1].resolve(true);
  const after=await f.app.request('/api/respaldo/exportar');
  // Catalog merges materialize absent false/null return flags, without a financial change.
  // Compare all evidence after removing ONLY these equivalent default values.

@@ -861,6 +861,10 @@
       } catch (_) { reprogramar(); return; }
       var pullEstado = { enCurso: false, fallos: 0, usarHead: true };
       var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0;
+      var snapshotsRetirados = new Set();
+      Object.keys(partesEntrantes).forEach(function (id) {
+        if (partesEntrantes[id].tag === 6 && !partesEntrantes[id].receipts.length) delete partesEntrantes[id];
+      });
       _currentPullState = pullEstado;
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
@@ -923,7 +927,9 @@
           if (canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return;
           // A fresh diff replaces an interrupted bootstrap, never a durable operation group.
           Object.keys(partesEntrantes).forEach(function (id) {
-            if (partesEntrantes[id].tag === 6 && !partesEntrantes[id].receipts.length) delete partesEntrantes[id];
+            if (partesEntrantes[id].tag !== 6 || partesEntrantes[id].receipts.length || ws.readyState !== 1) return;
+            if (snapshotsRetirados.size >= MAX_GRUPOS_EN_VIVO) { ws.close(); return; }
+            snapshotsRetirados.add(id); delete partesEntrantes[id];
           });
           _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
             if (canal.ws === ws && ws.readyState === 1 && !_pausado && permitido()) enviar(1, Y.encodeStateVector(doc));
@@ -996,6 +1002,8 @@
             for (var q = 2; q < 18; q++) id += String.fromCharCode(bytes[q]);
             var indice = bytes[18] * 256 + bytes[19], total = bytes[20] * 256 + bytes[21];
             if (!total || indice >= total) return false;
+            // Retired bootstrap fragments carry no durable receipt and must never recreate an ACK barrier.
+            if (source === "peer" && original === 6 && !peerReceipt && (canal.ws !== ws || snapshotsRetirados.has(id))) return true;
             // Only locally marked broadcast/direct traffic is live-only. Missing
             // metadata is conservative: it may be durable history.
             var groups = source === "live" ? partesEnVivo : partesEntrantes;

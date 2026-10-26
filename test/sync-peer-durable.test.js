@@ -46,7 +46,7 @@ test('direct adapter bounds its JS queue and binds legacy retries to the new cip
 
 async function fixture(name='catalogo'){
   const receipts=[],sent=[],transactions=[],saved=new Map(),timers=[];let storeResult=true;
-  const socket={peerOnly:true,readyState:1,send:value=>sent.push(value),close(){this.readyState=3;},
+  const socket={peerOnly:true,readyState:1,send:value=>sent.push(value),close(code){if(code!==undefined&&code!==1000&&(!Number.isInteger(code)||code<3000||code>4999))throw new DOMException('Invalid WebSocket close code','InvalidAccessError');this.readyState=3;},
     confirmPeerReceipt(receipt,proof){receipts.push({receipt,proof});},acceptPeerAck(meta){this.onmessage({data:JSON.stringify({k:'persist-result',kind:meta.kind,id:meta.id,ok:true}),peerAccepted:true});}};
   const persistence={whenSynced:Promise.resolve(),get:async key=>structuredClone(saved.get(key)),set:async(key,value)=>saved.set(key,structuredClone(value)),
     db:{objectStoreNames:{contains:key=>key==='updates'},transaction(){const tx={};transactions.push(tx);return tx;}}};
@@ -68,6 +68,53 @@ async function fixture(name='catalogo'){
   function update(value='value'){remote.getMap('items').set('synthetic',value);const bytes=ctx.Y.encodeStateAsUpdate(remote),frame=new Uint8Array(bytes.length+1);frame[0]=0;frame.set(bytes,1);return frame;}
   return {ctx,socket,receipts,sent,transactions,saved,timers,doc,remote,channel,send,update,setStoreResult(value){storeResult=value;},close(){doc.destroy();remote.destroy();}};
 }
+
+function bootstrapPiece(full,index,id='old-snapshot-001') {
+  const payload=full.subarray(1),cut=Math.ceil(payload.length/2),data=index===0?payload.subarray(0,cut):payload.subarray(cut);
+  const frame=new Uint8Array(22+data.length);frame[0]=3;frame[1]=6;
+  for(let i=0;i<16;i++)frame[2+i]=id.charCodeAt(i);
+  frame[19]=index;frame[21]=2;frame.set(data,22);return frame;
+}
+test('late abandoned bootstrap fragments cannot block a newer confirmed snapshot',async()=>{
+  const f=await fixture();try{
+    const full=f.update('synthetic-late-snapshot');full[0]=6;
+    const deliver=bytes=>f.socket.onmessage({data:bytes.buffer,relaySource:'peer'});
+    deliver(bootstrapPiece(full,0));await settle();
+    f.timers.find(timer=>timer.ms===1000&&!timer.cancelled).fn();await settle();
+    deliver(bootstrapPiece(full,1));await settle();deliver(full);await settle();
+    assert.equal(f.channel.recuperando,true,'new snapshot still requires its journal barrier');
+    assert.ok(f.transactions.length,'obsolete bootstrap pieces cannot prevent the new journal barrier');
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.equal(f.doc.getMap('items').get('synthetic'),'synthetic-late-snapshot');
+    assert.equal(f.channel.recuperando,false);
+  }finally{f.close();}
+});
+test('retiring a bootstrap ID never discards a fragment carrying a durable receipt',async()=>{
+  const f=await fixture();try{
+    const full=f.update('synthetic-durable-bootstrap');full[0]=6;
+    f.socket.onmessage({data:bootstrapPiece(full,0).buffer,relaySource:'peer'});await settle();
+    f.timers.find(timer=>timer.ms===1000&&!timer.cancelled).fn();await settle();
+    f.send(bootstrapPiece(full,1),'synthetic-durable-one');await settle();
+    f.socket.onmessage({data:full.buffer,relaySource:'peer'});await settle();
+    assert.equal(f.channel.recuperando,true);assert.equal(f.receipts.length,0,'partial durable group cannot borrow a newer snapshot ACK');
+    f.send(bootstrapPiece(full,0),'synthetic-durable-zero');await settle();
+    assert.equal(f.receipts.length,0,'complete durable group still waits for journal commit');
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.equal(f.channel.recuperando,false);assert.equal(f.receipts.length,2,'both exact durable siblings retain their receipts');
+  }finally{f.close();}
+});
+test('retired bootstrap tracking is bounded by reconnecting rather than forgetting live-socket tombstones',async()=>{
+  const f=await fixture();try{
+    const full=f.update('synthetic-bounded-retries');full[0]=6;
+    for(let i=0;i<=64;i++){
+      const id='retired-'+String(i).padStart(8,'0');
+      f.socket.onmessage({data:bootstrapPiece(full,0,id).buffer,relaySource:'peer'});await settle();
+      const retry=f.timers.at(-1);retry.cancelled=true;retry.fn();await settle();
+    }
+    assert.equal(f.socket.readyState,3,'capacity exhaustion closes this peer socket instead of admitting forgotten stale IDs');
+    assert.equal(f.channel.recuperando,true);assert.equal(f.receipts.length,0);
+  }finally{f.close();}
+});
 
 test('peer receipt waits for journal commit and actual catalog persistence',async()=>{
   const f=await fixture();try{

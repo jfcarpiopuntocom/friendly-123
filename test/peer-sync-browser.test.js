@@ -6,7 +6,10 @@ const {WebSocketServer}=require('ws');
 const {chromium,webkit}=require('playwright');
 const root=path.join(__dirname,'..'),docs=path.join(root,'docs');
 const source=fs.readFileSync(path.join(docs,'sync-yjs.js'),'utf8');
-const block=source.slice(source.indexOf('  function _frame('),source.indexOf('  // Carga perezosa'));
+const block=source.slice(source.indexOf('  function _frame('),source.indexOf('  // Carga perezosa'))
+  .replace('      var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0;',
+    '      var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0; canal.fixturePeerState=()=>({snapshot:snapshotPeerRecibido,receipts:pendientesPeer.length,retries:reintentosPeer});')
+  .replace('    return canal;', '    canal.fixtureState=()=>({localRecovery:canal.recuperacionLocal,paused:_pausado,visible:!document.hidden,allowed:permitido(),causalStructs:!!doc.store.pendingStructs,causalDeletes:!!doc.store.pendingDs,fragments:Object.values(partesEntrantes).map(g=>({tag:g.tag,count:g.cuenta,total:g.total,receipts:g.receipts.length})),inFlight:Object.keys(_durableInFlight).length,unsaved:_unsaved.length,liveQueue:canal.pend.length,bufferPump:!!_bufferPumpTimer,replayTimer:!!_tReplay}); return canal;');
 const cryptoStart=source.indexOf('  async function cifrarBin('),cryptoEnd=source.indexOf('  // ===',cryptoStart);
 const cryptoSource=source.slice(cryptoStart,cryptoEnd);
 const room='a'.repeat(40);
@@ -103,9 +106,12 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
         window.API={roomId:room,clave:await crypto.subtle.importKey('raw',new Uint8Array(32).fill(7),'AES-GCM',false,['encrypt','decrypt'])};
         window.log=()=>{};window.RELAY_URL='wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/';
         window.doc=new Y.Doc();window.persistence=new IndexeddbPersistence('synthetic-business-peer',doc);await persistence.whenSynced;
+        window.fixtureStorage={started:0,completed:0,accepted:0,rejected:0,errors:[],journalStarted:0,journalComplete:0,journalFailed:0};
+        const transaction=persistence.db.transaction.bind(persistence.db);
+        persistence.db.transaction=(...args)=>{const tx=transaction(...args);fixtureStorage.journalStarted++;tx.addEventListener('complete',()=>fixtureStorage.journalComplete++);tx.addEventListener('abort',()=>fixtureStorage.journalFailed++);tx.addEventListener('error',()=>fixtureStorage.journalFailed++);return tx;};
         window.allowed=true;
         API._store={aplicar(){window.business=doc.getMap('business').toJSON();}};
-        API.confirmarCatalogoDurable=async()=>{API._store.aplicar();return allowed&&(await OCEstadoIDB.guardar({_rev:Date.now(),productos:[business],ubicaciones:[]},true))===true;};
+        API.confirmarCatalogoDurable=async()=>{fixtureStorage.started++;try{API._store.aplicar();const ok=allowed&&(await OCEstadoIDB.guardar({_rev:Date.now(),productos:[business],ubicaciones:[]},true))===true;fixtureStorage[ok?'accepted':'rejected']++;return ok;}catch(error){fixtureStorage.errors.push(error.name);throw error;}finally{fixtureStorage.completed++;}};
         const make=new Function(cryptoSource+block+';return crearCanal;')();
         window.channel=make(Y,doc,'-y','catalogo',false,null,persistence);
         doc.on('update',(update,origin)=>{if(origin!=='red'&&origin!==persistence)channel.enviarUpdate(update);});
@@ -126,7 +132,7 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     catch(error) {
       const diagnostic=async page=>page.evaluate(()=>({rtc:typeof RTCPeerConnection,errors:rtcErrors,recovery:channel.recuperando,ready:channel.ws?.readyState,
         signal:channel.ws?.hub?.signal?.readyState,peers:[...(channel.ws?.hub?.peers?.values()||[])].map(p=>({stage:p.nativeStage,connection:p.pc.connectionState,ice:p.pc.iceConnectionState,gathering:p.pc.iceGatheringState,signal:p.pc.signalingState,dc:p.dc?.readyState})),
-        pending:channel.pendientesRelay,record:!!doc.getMap('business').get('record')}));
+        pending:channel.pendientesRelay,record:!!doc.getMap('business').get('record'),storage:fixtureStorage,channel:channel.fixtureState(),receipt:channel.fixturePeerState()}));
       console.error(JSON.stringify({engine:name,invalidMetadata,stunRequests,metadataKinds,a:await diagnostic(a),b:await diagnostic(b)}));throw error;
     }
     await a.waitForFunction(()=>!channel.recuperando,{},{timeout:10000});
