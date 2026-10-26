@@ -144,6 +144,7 @@
      una venta fiada sigue a la venta). Los endpoints de cartera ademas pasan `ventas` explicito. */
   try { window.AMG = window.AMG || {}; window.AMG.ventasActuales = function () { return ventas; }; } catch (_) {}
   const movimientos = [];
+  let actividadCompartida = []; // Original remote envelopes; never part of the local seal chain.
   const transferencias = [];
   // GASTOS (2026-08-27): gastos individuales registrados por el dueño. Cada
   // gasto es un movimiento tipo "gasto" con concepto, monto, fecha y ubicación.
@@ -879,6 +880,13 @@
   // ventas, clientes) se mezclaba entre ambas apps en el mismo navegador.
   const OC_STATE_KEY_VIEJA = "amigable_demo_state_v4";
   const OC_STATE_KEY = "f123_estado_v4";
+  let _estadoLecturaBloqueada = false, _conflictoEstadoAB = null;
+  function _leerEstadoEstricto(clave) {
+    try {
+      const aislamiento = window.AMG && window.AMG.Aislamiento;
+      return aislamiento && aislamiento.leerEstadoEstricto ? aislamiento.leerEstadoEstricto(clave) : localStorage.getItem(clave);
+    } catch (error) { _estadoLecturaBloqueada = true; throw error; }
+  }
   // Migracion de un solo uso: si ya hay estado bajo la clave nueva, no tocar
   // nada. Si NO hay nada bajo la nueva pero SI bajo la vieja compartida,
   // copiarlo una vez para no perder datos de un cliente que ya venia usando
@@ -886,8 +894,8 @@
   // AMIGABLE si el cliente tambien uso esa app en el mismo navegador).
   (function migrarEstadoSiHaceFalta() {
     try {
-      if (localStorage.getItem(OC_STATE_KEY) != null) return;
-      const viejo = localStorage.getItem(OC_STATE_KEY_VIEJA);
+      if (_leerEstadoEstricto(OC_STATE_KEY) != null) return;
+      const viejo = _leerEstadoEstricto(OC_STATE_KEY_VIEJA);
       if (viejo != null) localStorage.setItem(OC_STATE_KEY, viejo);
     } catch (_) {}
   })();
@@ -915,9 +923,10 @@
     return {
       schemaVersion: 3,
       _rev: _localRev,
+      ...(_conflictoEstadoAB ? { recuperacionAB: clonar(_conflictoEstadoAB) } : {}),
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
-      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payoutView ? payoutView(payouts) : payouts),
+      movimientos: clonar(movimientos), actividadCompartida: _actividadExportable(), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payoutView ? payoutView(payouts) : payouts),
       payoutConflicts:clonar(payoutConflicts), payoutQuarantine:clonar(payoutQuarantine),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
       configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, retencion: ajusteRetencion ? clonar(ajusteRetencion) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
@@ -958,6 +967,8 @@
     }
     if (body.ventas && !Array.isArray(body.ventas)) return "The sales section is corrupt.";
     if (body.movimientos && !Array.isArray(body.movimientos)) return "The activity section is corrupt.";
+    try { if (body.actividadCompartida != null) _actividadUnir([], body.actividadCompartida); }
+    catch (_) { return "The shared activity evidence is corrupt."; }
     if (body.transferencias && !Array.isArray(body.transferencias)) return "The transfers section is corrupt.";
     if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
     if (body.ajustesComision && !Array.isArray(body.ajustesComision)) return "The commission adjustments section is corrupt.";
@@ -983,6 +994,7 @@
     ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
     ventas.length = 0; ventas.push(...(Array.isArray(body.ventas) ? body.ventas : []));
     movimientos.length = 0; movimientos.push(...(Array.isArray(body.movimientos) ? body.movimientos : []));
+    actividadCompartida = _actividadUnir([], body.actividadCompartida || []);
     transferencias.length = 0; transferencias.push(...(Array.isArray(body.transferencias) ? body.transferencias : []));
     gastos.length = 0; gastos.push(...(Array.isArray(body.gastos) ? body.gastos : []));
     ajustesComision.length = 0; ajustesComision.push(...(Array.isArray(body.ajustesComision) ? body.ajustesComision : []));
@@ -1152,7 +1164,7 @@
      tiendas pueda mapear licencia->sufijo sin ambigüedad, incluyendo el caso
      de la tienda propia cuyo sufijo es "". */
   function _sufijoTiendaActiva() {
-    try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
+    try { return _leerEstadoEstricto("f123_tienda_activa") || ""; } catch (_) { return ""; }
   }
   /* ═══ SHARED DIGITAL NOTEBOOK: UN SOLO CUADERNO POR LICENCIA (JFC 2026-09-15, v283) ═══
      La app ES un cuaderno digital compartido: una licencia = UN cuaderno; los
@@ -1183,20 +1195,23 @@
        v284 escanea TODOS los buffers del aparato (cualquier sufijo + legacy),
        elige el que tiene el negocio real (más productos) y lo consolida en "".
        El flag es NUEVO (v2) para que RE-CORRA en aparatos que ya sufrieron la v283. */
-    if (localStorage.getItem("f123_notebook_unificado_v2") !== "1") {
+    if (!_estadoLecturaBloqueada && _leerEstadoEstricto("f123_notebook_unificado_v2") !== "1" &&
+        _leerEstadoEstricto(OC_STATE_KEY + "_journal") === null) {
       // Mejor buffer A/B válido de un sufijo dado.
       var _leerBuf = function (suf) {
         try {
           var base = OC_STATE_KEY + suf;
-          var ptr = localStorage.getItem(base + "_ptr");
+          if (!window.OCEstadoAB) throw new Error("A/B recovery unavailable");
+          var vista = window.OCEstadoAB.crear({ storage: localStorage, leer: _leerEstadoEstricto, claveBase: base }).leer();
+          var ptr = vista.activo;
           var orden = ptr ? [ptr, ptr === "A" ? "B" : "A"] : ["A", "B"];
           for (var i = 0; i < orden.length; i++) {
-            var raw = localStorage.getItem(base + "_" + orden[i]);
+            var raw = vista.buffers[orden[i]];
             if (raw == null) continue;
             var b; try { b = JSON.parse(raw); } catch (_) { continue; }
             if (b && typeof b === "object") return { body: b, raw: raw, suf: suf };
           }
-        } catch (_) {}
+        } catch (_) { _estadoLecturaBloqueada = true; }
         return null;
       };
       // Recolectar TODOS los sufijos presentes en claves de buffer del aparato.
@@ -1212,7 +1227,7 @@
       Object.keys(_sufs).forEach(function (s) { var b = _leerBuf(s); if (b) _bufs.push(b); });
       // Candidato legacy: la clave de un solo buffer (aparatos muy viejos).
       try {
-        var _lg = localStorage.getItem(OC_STATE_KEY);
+        var _lg = _leerEstadoEstricto(OC_STATE_KEY);
         if (_lg) { var _lb; try { _lb = JSON.parse(_lg); } catch (_) {} if (_lb && typeof _lb === "object") _bufs.push({ body: _lb, raw: _lg, suf: "" }); }
       } catch (_) {}
       var _nProd = function (r) { return (r && r.body && Array.isArray(r.body.productos)) ? r.body.productos.length : -1; };
@@ -1227,7 +1242,7 @@
         if (_nFin(reta) !== _nFin(campeon)) return _nFin(reta) > _nFin(campeon);
         return (Number(reta.body._rev) || 0) > (Number(campeon.body._rev) || 0);
       };
-      if (_bufs.length) {
+      if (!_estadoLecturaBloqueada && _bufs.length) {
         // GANADOR = el cuaderno con el negocio real. Un aparato hospeda UN negocio,
         // así que el resto solo aporta catálogo add-only.
         var _win = _bufs[0];
@@ -1263,15 +1278,16 @@
           // sobrescriben los dos con el consolidado para que ninguno esté rancio.
           try {
             var _cs = JSON.stringify(_res);
-            localStorage.setItem(OC_STATE_KEY + "_A", _cs);
-            localStorage.setItem(OC_STATE_KEY + "_B", _cs);
-            localStorage.setItem(OC_STATE_KEY + "_ptr", "A");
-          } catch (_) {}
+            var _abMigracion = window.OCEstadoAB.crear({ storage: localStorage, leer: _leerEstadoEstricto, claveBase: OC_STATE_KEY });
+            if (!_abMigracion.guardarAhora(_cs)) throw new Error("Notebook consolidation was not durable");
+          } catch (_) { _estadoLecturaBloqueada = true; }
         }
       }
       // De aquí en adelante el aparato usa SIEMPRE el cuaderno único "".
-      try { localStorage.setItem("f123_tienda_activa", ""); } catch (_) {}
-      try { localStorage.setItem("f123_notebook_unificado_v2", "1"); } catch (_) {}
+      if (!_estadoLecturaBloqueada) {
+        try { localStorage.setItem("f123_tienda_activa", ""); } catch (_) {}
+        try { localStorage.setItem("f123_notebook_unificado_v2", "1"); } catch (_) {}
+      }
     }
   } catch (_) {}
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
@@ -1283,6 +1299,20 @@
   const OC_STATE_SELLO = OC_STATE_KEY + OC_STATE_SUFIJO + "_sello";
   let _miSello = (function () { try { return localStorage.getItem(OC_STATE_SELLO); } catch (_) { return null; } })();
   function claveBuffer(letra) { return OC_STATE_KEY + OC_STATE_SUFIJO + "_" + letra; }
+  let _estadoABLocal = null;
+  function _estadoAB() {
+    if (!_estadoABLocal && window.OCEstadoAB) _estadoABLocal = window.OCEstadoAB.crear({
+      storage: localStorage, leer: _leerEstadoEstricto, claveBase: OC_STATE_KEY + OC_STATE_SUFIJO });
+    return _estadoABLocal;
+  }
+  function _registrarConflictoAB(vista) {
+    if (!vista.conflictos.length) return false;
+    _conflictoEstadoAB = { base: OC_STATE_KEY + OC_STATE_SUFIJO, journal: vista.rawJournal, puntero: vista.puntero,
+      copias: [{ clave: "A", raw: vista.fisicos.A }, { clave: "B", raw: vista.fisicos.B }, { clave: "confirmada", raw: vista.registro.candidateRaw }] };
+    _estadoLecturaBloqueada = true;
+    window.OCEstadoAB.avisarConflicto();
+    return true;
+  }
   // Solo metadatos del conflicto, jamás el PIN remoto. El registro es por
   // cuaderno y sobrevive a un refresh hasta que el miembro sí logra aplicarse.
   const CONFLICTOS_EQUIPO_KEY = "f123_team_conflicts_v1" + OC_STATE_SUFIJO;
@@ -1337,6 +1367,19 @@
     } catch (_) {}
   }
   let _guardadoEstrictoPendiente = null;
+  let _guardadoCatalogoPendiente = null, _ultimoGuardadoPublicable = true;
+  let _guardandoAB = false, _estadoPublicableConfirmado = null;
+  function _huellaPublicable(estado = estadoActualExportable()) {
+    const { _rev, _abCommit, ...datos } = estado;
+    return JSON.stringify(datos);
+  }
+  function _estadoPuedePublicarse() {
+    if (_estadoLecturaBloqueada) return false;
+    if (!_guardadoCatalogoPendiente && _ultimoGuardadoPublicable) return true;
+    // A repeated save may be pending while RAM still equals its exact accepted snapshot.
+    try { return _estadoPublicableConfirmado !== null && _huellaPublicable() === _estadoPublicableConfirmado; }
+    catch (_) { return false; }
+  }
   let _ventaConfirmando = false, _ventaPendiente = null;
   const _ventaCatalogosPendientes = [];
   let _retencionConfirmando = false, _retencionPendiente = null;
@@ -1350,6 +1393,12 @@
       return _guardadoEstrictoPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
     }
     const resultado = _guardarEstadoLocalAhora(exigirCompleto, preservarFotos);
+    if (resultado && typeof resultado.then === "function") {
+      const publicable = Promise.resolve(resultado);
+      _guardadoCatalogoPendiente = publicable;
+      const publicar = ok => { if (_guardadoCatalogoPendiente === publicable) { _guardadoCatalogoPendiente = null; _ultimoGuardadoPublicable = ok === true; } };
+      publicable.then(publicar, () => publicar(false));
+    }
     if (exigirCompleto && resultado && typeof resultado.then === "function") {
       const pendiente = Promise.resolve(resultado);
       _guardadoEstrictoPendiente = pendiente;
@@ -1357,54 +1406,48 @@
       pendiente.then(terminar, terminar);
       return pendiente;
     }
+    if (!resultado || typeof resultado.then !== "function") _ultimoGuardadoPublicable = resultado === true;
     return resultado;
   }
   function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
-    const _revIntento = Math.max(_localRev, _localRevReservado) + 1;
-    _localRevReservado = _revIntento;
-    const completo = estadoActualExportable();
-    completo._rev = _revIntento;
-    const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
-    const destino = activo === "A" ? "B" : "A";
-    const _idb = _espejarEnIDB(completo, exigirCompleto);
-    let bufferAnterior, bufferPendiente = false;
+    const ab = _estadoAB();
+    const ejecutar = () => {
+      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else avisoMemoriaLlena(); return false; }
+      let revisionDisco = 0;
+      try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (_) { _estadoLecturaBloqueada = true; }
+      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else avisoMemoriaLlena(); return false; }
+      const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
+      _localRevReservado = _revIntento;
+      const completo = estadoActualExportable();
+      completo._rev = _revIntento;
+      let local = false;
+      try {
+        if (ab) { completo._abCommit = ab.nuevoToken(); _guardandoAB = true; local = ab.guardarAhora(JSON.stringify(completo)); }
+      } catch (_) {} finally { _guardandoAB = false; }
+      const terminar = ok => {
+        if (ok) {
+          if (completo.actividadCompartida) _confirmarActividad(completo.actividadCompartida);
+          _localRev = Math.max(_localRev, _revIntento);
+          _estadoPublicableConfirmado = _huellaPublicable(completo);
+          _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+          try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
+          ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _publicarAdminPins();
+          if (!local) avisoEspacioJusto();
+        } else avisoMemoriaLlena();
+        return ok;
+      };
+      // Only an exact IDB snapshot may acknowledge a failed local commit.
+      if (local) { _espejarEnIDB(completo, true); return terminar(true); }
+      if (_estadoLecturaBloqueada || (ab && !ab.permiteEspejo())) return terminar(false);
+      return Promise.resolve(_espejarEnIDB(completo, true)).then(ok => terminar(ok === true), () => terminar(false));
+    };
     try {
-      bufferAnterior = localStorage.getItem(claveBuffer(destino));
-      localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
-      bufferPendiente = true;
-      localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
-      bufferPendiente = false;
-      _localRev = Math.max(_localRev, _revIntento);
-      _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
-      ocultarAvisoRecorte();
-      despejarAvisoMemoriaLlena();
-      _publicarAdminPins();
-      return true;
-    } catch (_) {
-      // Un bloque sin flip confirmado no puede resucitar al recuperar el otro buffer.
-      if (bufferPendiente) {
-        try {
-          if (bufferAnterior == null) localStorage.removeItem(claveBuffer(destino));
-          else localStorage.setItem(claveBuffer(destino), bufferAnterior);
-        } catch (_) { try { localStorage.removeItem(claveBuffer(destino)); } catch (_) {} }
-      }
-    }
-    // 1AAA: never delete legacy photos or truncate activity history to free quota.
-    // When localStorage is full, only the full durable IndexedDB mirror may
-    // authorize success. Otherwise fail visibly, preserving every old byte.
-    /* NO MENTIR (JFC 2026-08-17). Que localStorage se llene no quiere decir
-       que el dispositivo este lleno: localStorage tiene un techo fijo de
-       ~5 MB por origen, aunque al disco le sobren 900 GB. Si el espejo de
-       IndexedDB —que si escala con el disco— acepto el estado, los cambios
-       SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
-       verdad no entro en ningun lado. */
-    return _idb.then((ok) => {
-      if (ok) { _localRev = Math.max(_localRev, _revIntento); ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); avisoEspacioJusto(); _publicarAdminPins(); }
-      else avisoMemoriaLlena();
-      return !!ok;
-    }).catch(() => { avisoMemoriaLlena(); return false; });
+      const resultado = ab ? ab.conCandado(ejecutar) : ejecutar();
+      return resultado && typeof resultado.then === "function"
+        ? resultado.catch(() => { avisoMemoriaLlena(); return false; }) : resultado;
+    } catch (_) { avisoMemoriaLlena(); return false; }
   }
+
   /* SOLO CONSOLA (JFC 2026-08-26): este aviso ("todo se guardó, la memoria
      rápida se llenó, ahora se usa la grande — no se perdió nada") NO fue
      autorizado y rompe la UI sin necesidad — el guardado ya ocurrió igual. Se
@@ -1525,10 +1568,12 @@
      productos/perchas de ejemplo. Muta en sitio porque son const.
      NO toca instanceId (identidad de este aparato). (JFC 2026-08-26) */
   function _vaciarTiendaFresca() {
+    if (_estadoLecturaBloqueada) return;
     try {
       ubicaciones.length = 0; productos.length = 0; sucursales.length = 0;
       promotoras.length = 0; clientes.length = 0; usuarios.length = 0;
       ventas.length = 0; movimientos.length = 0; transferencias.length = 0;
+      actividadCompartida = [];
       Object.keys(gastosMensuales).forEach((k) => { delete gastosMensuales[k]; });
       nombreNegocio = "";
     } catch (_) {}
@@ -1541,10 +1586,14 @@
   let _cargoBufferReal = false;
   function cargarEstadoLocal() {
     try {
-      const activo = localStorage.getItem(OC_STATE_PTR);
+      const ab = _estadoAB();
+      if (!ab) throw new Error("A/B recovery unavailable");
+      const vista = ab.leer();
+      _registrarConflictoAB(vista);
+      const activo = vista.activo;
       const orden = activo ? [activo, activo === "A" ? "B" : "A"] : ["A", "B"];
       for (const letra of orden) {
-        const raw = localStorage.getItem(claveBuffer(letra));
+        const raw = vista.buffers[letra];
         if (raw == null) continue;
         let body;
         try { body = JSON.parse(raw); } catch (_) { continue; } // corrupto: probar el otro buffer
@@ -1557,10 +1606,11 @@
         // fresco que ya dejó otra pestaña, perdiendo silenciosamente sus cambios.
         if (typeof body._rev === "number" && body._rev > _localRev) _localRev = body._rev;
         aplicarRespaldo(body);
+        _estadoLecturaBloqueada = !!_conflictoEstadoAB;
         _cargoBufferReal = true; // buffer A/B real cargado: no es semilla demo
         if (letra !== activo) {
           console.warn("[cargarEstadoLocal] el buffer activo estaba dañado, recuperado desde el buffer anterior");
-          try { localStorage.setItem(OC_STATE_PTR, letra); } catch (_) {} // corrige el puntero
+          try { if (!vista.registro || vista.registro.phase !== 'PREPARED') localStorage.setItem(OC_STATE_PTR, letra); } catch (_) {} // PREPARED exposes a virtual preimage, not the physical destination.
           setTimeout(avisarBufferRecuperado, 800);
         }
         return;
@@ -1568,17 +1618,17 @@
       /* A2: ningun buffer valido. ANTES de darse por vencido y arrancar en
          blanco, se intenta reparar el mas fresco podando lo ilegible. */
       try {
-        const _act = localStorage.getItem(OC_STATE_PTR);
+        const _act = vista.activo;
         const _orden = _act ? [_act, _act === "A" ? "B" : "A"] : ["A", "B"];
         for (const _l of _orden) {
-          const _raw = localStorage.getItem(claveBuffer(_l));
+          const _raw = vista.buffers[_l];
           if (_raw == null) continue;
           let _b; try { _b = JSON.parse(_raw); } catch (_) { continue; }
           const _rep = repararRespaldo(_b);
           if (!_rep) continue;
           aplicarRespaldo(_rep.limpio);
           _cargoBufferReal = true; // buffer reparado real cargado: no es semilla demo
-          try { localStorage.setItem(OC_STATE_PTR, _l); } catch (_) {}
+          try { if (!vista.registro || vista.registro.phase !== 'PREPARED') localStorage.setItem(OC_STATE_PTR, _l); } catch (_) {}
           console.warn("[cargarEstadoLocal] estado reparado; registros podados:", _rep.podados);
           setTimeout(function () { avisarEstadoReparado(_rep.podados); }, 800);
           return;
@@ -1597,7 +1647,7 @@
       // ejemplo. Se vacia para que la tienda arranque limpia y solo se llene con
       // lo que llegue por sync. (bug hallado en la revision pre-live 2026-08-26)
       if (OC_STATE_SUFIJO) { _vaciarTiendaFresca(); return; }
-      const raw = localStorage.getItem(OC_STATE_KEY);
+      const raw = _leerEstadoEstricto(OC_STATE_KEY);
       if (!raw) return;
       let body;
       try { body = JSON.parse(raw); } catch (_) {
@@ -1656,22 +1706,25 @@
           } catch (_) {}
         }, 800);
       }
-    } catch (_) {}
+    } catch (_) { _estadoLecturaBloqueada = true; }
   }
   // Cuando otra pestaña guarda, recargar su estado si es más nuevo (evita last-writer-wins con estado viejo)
   /* 2026-09-25: la clave nativa lleva el prefijo de aislamiento.js ("f123::..."), asi que
      comparar con OC_STATE_PTR a secas NUNCA coincidia (hallazgo H1 del 2026-08-05): la otra
      pestana no se enteraba jamas. Se acepta la clave con o sin prefijo. */
   function _refrescarDesdeOtraPestana() {
+    if (_guardandoAB) return;
+    if (_guardadoCatalogoPendiente) { _guardadoCatalogoPendiente.then(() => _refrescarDesdeOtraPestana()); return; }
     const antes=_localRev;
     cargarEstadoLocal();try { _miSello=localStorage.getItem(OC_STATE_SELLO); } catch (_) {}
     if(_localRev>antes)window.dispatchEvent(new CustomEvent("oc-sync-merge",{detail:{localTab:true,actualizados:1}}));
   }
   window.addEventListener("storage", (e) => {
     const k = e && e.key ? String(e.key) : "";
-    if (k === OC_STATE_PTR || k.endsWith("::" + OC_STATE_PTR)) _refrescarDesdeOtraPestana();
+    const journal = OC_STATE_KEY + OC_STATE_SUFIJO + "_journal";
+    if (k === OC_STATE_PTR || k.endsWith("::" + OC_STATE_PTR) || k === journal || k.endsWith("::" + journal)) _refrescarDesdeOtraPestana();
   });
-  try { window.AMG?.Aislamiento?.onCambio(c=>{if(c && c.clave===OC_STATE_PTR)_refrescarDesdeOtraPestana();}); } catch (_) {}
+  try { window.AMG?.Aislamiento?.onCambio(c=>{if(c && (c.clave===OC_STATE_PTR || c.clave===OC_STATE_KEY+OC_STATE_SUFIJO+"_journal"))_refrescarDesdeOtraPestana();}); } catch (_) {}
   function _recargarSiOtraPestanaEscribio() {
     try {
       const guardado = localStorage.getItem(OC_STATE_SELLO);
@@ -2958,15 +3011,96 @@
   // tamper-EVIDENTE (un equipo local nunca es tamper-PROOF), suficiente contra
   // el falseo casual del encargado. Hash rápido y síncrono, sembrado con el
   // instanceId para que no se recalcule a ciegas.
-  function selloHash(str) {
+  function selloHash(str, origen = instanceId) {
     // FNV-1a 32-bit -> hex. NO criptográfico: solo eleva el costo de forjar.
     let h = 0x811c9dc5;
-    const semilla = String(str) + "|" + (instanceId || "amigable");
+    const semilla = String(str) + "|" + (origen || "amigable");
     for (let i = 0; i < semilla.length; i++) { h ^= semilla.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
     return h.toString(16).padStart(8, "0");
   }
   function movHuella(m) {
     return (m.prevSello || "") + "|" + m.tipo + "|" + JSON.stringify(m.detalle) + "|" + m.fecha + "|" + (m.usuarioId || "sistema");
+  }
+  function _actividadClave(origen, clase, id) { return JSON.stringify([origen, clase, id]); }
+  function _actividadUnir(antes, entrantes) {
+    if (!Array.isArray(antes) || !Array.isArray(entrantes)) throw new Error("Invalid shared activity list");
+    const entradas = new Map();
+    for (const e of antes.concat(entrantes)) {
+      if (!e || typeof e.origen !== "string" || !e.origen || e.origen.length > 160 ||
+          !["evento", "inicio", "cola"].includes(e.clase) || !Array.isArray(e.versiones) || !e.versiones.length)
+        throw new Error("Invalid shared activity envelope");
+      for (const v of e.versiones) {
+        if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("Invalid activity evidence");
+        if (e.clase === "evento" && (typeof v.id !== "string" || !v.id || v.id.length > 200 ||
+            typeof v.tipo !== "string" || typeof v.fecha !== "string" ||
+            (v.sello != null && !/^[a-f0-9]{8}$/.test(v.sello)) ||
+            (v.prevSello != null && v.prevSello !== "" && !/^[a-f0-9]{8}$/.test(v.prevSello))))
+          throw new Error("Invalid activity record");
+        if (e.clase !== "evento" && (typeof v.sello !== "string" || (v.sello !== "" && !/^[a-f0-9]{8}$/.test(v.sello))))
+          throw new Error("Invalid activity chain boundary");
+        const key = _actividadClave(e.origen, e.clase, e.clase === "evento" ? v.id : e.clase === "cola" ? v.sello : "");
+        if (e.id !== key) throw new Error("Activity identity mismatch");
+      }
+      const anterior = entradas.get(e.id), versiones = new Map();
+      for (const v of (anterior ? anterior.versiones : []).concat(e.versiones)) versiones.set(JSON.stringify(v), v);
+      entradas.set(e.id, { id: e.id, origen: e.origen, clase: e.clase,
+        versiones: [...versiones.keys()].sort().map(k => clonar(versiones.get(k))) });
+    }
+    return [...entradas.values()].sort((a, b) => a.id.localeCompare(b.id));
+  }
+  function _actividadExportable() {
+    const origen = String(instanceId || "amigable"), propios = [];
+    const agregar = (clase, id, valor) => propios.push({ id: _actividadClave(origen, clase, id), origen, clase, versiones: [valor] });
+    const sellados = movimientos.filter(m => m && m.sello);
+    if (movimientos.length && !actividadCompartida.some(e => e.origen === origen && e.clase === "inicio"))
+      agregar("inicio", "", { sello: sellados.length ? sellados[0].prevSello || "" : "" });
+    for (const m of movimientos) if (m && m.id) agregar("evento", m.id, m);
+    if (selloUltimo) agregar("cola", selloUltimo, { sello: selloUltimo });
+    return _actividadUnir(actividadCompartida, propios);
+  }
+  function _confirmarActividad(entradas) { actividadCompartida = _actividadUnir(actividadCompartida, entradas); }
+  function _actividadEstado(entradas) {
+    const grupos = new Map(), problemas = [], validos = new Set(); let historicos = 0;
+    const problema = (origen, tipo) => problemas.push({ origen, tipo });
+    for (const e of _actividadUnir([], entradas)) {
+      let g = grupos.get(e.origen);
+      if (!g) { g = { nodos: new Map(), filas: [], colas: new Set(), inicio: null }; grupos.set(e.origen, g); }
+      if (e.versiones.length !== 1) { problema(e.origen, "conflicto"); continue; }
+      const v = e.versiones[0];
+      if (e.clase === "inicio") g.inicio = v.sello;
+      else if (e.clase === "cola") g.colas.add(v.sello);
+      else if (!v.sello) { historicos++; validos.add(e.id); }
+      else if (selloHash(movHuella(v), e.origen) !== v.sello) problema(e.origen, "editado");
+      else {
+        if (g.nodos.has(v.sello) && movHuella(g.nodos.get(v.sello)) !== movHuella(v)) problema(e.origen, "sello-ambiguo");
+        g.nodos.set(v.sello, v); g.filas.push({ clave: e.id, sello: v.sello });
+      }
+    }
+    for (const [origen, g] of grupos) {
+      const resueltos = new Map();
+      const resolver = sello => {
+        const camino = [], vistos = new Set(); let actual = sello, estado = true;
+        while (actual !== g.inicio) {
+          if (resueltos.has(actual)) { estado = resueltos.get(actual); break; }
+          if (vistos.has(actual)) { problema(origen, "ciclo"); estado = false; break; }
+          const nodo = g.nodos.get(actual);
+          if (!nodo || g.inicio === null) { problema(origen, "padre-pendiente"); estado = false; break; }
+          vistos.add(actual); camino.push(actual); actual = nodo.prevSello || "";
+        }
+        camino.forEach(k => resueltos.set(k, estado)); return estado;
+      };
+      for (const fila of g.filas) if (resolver(fila.sello)) validos.add(fila.clave);
+      for (const cola of g.colas) if (!g.nodos.has(cola) || !resolver(cola)) problema(origen, "cola-pendiente");
+      if (g.filas.length && !g.colas.size) problema(origen, "cola-pendiente");
+    }
+    const completa = !problemas.some(p => /pendiente/.test(p.tipo));
+    return { ok: problemas.length === 0, completa, historicos, origenes: grupos.size, problemas, validos };
+  }
+  function _actividadVista() {
+    const entradas = _actividadExportable(), estado = _actividadEstado(entradas), filas = new Map();
+    for (const e of entradas) if (e.clase === "evento" && e.versiones.length === 1 && estado.validos.has(e.id))
+      filas.set(e.id, clonar(e.versiones[0]));
+    return [...filas.entries()].sort((a, b) => String(a[1].fecha).localeCompare(String(b[1].fecha)) || a[0].localeCompare(b[0])).map(e => e[1]);
   }
   /* Aviso de "el equipo cambio" (JFC 2026-08-25). Lo escucha sync-realtime.js
      para EMPUJAR la lista de usuarios (roles/PINs) al resto del negocio en el
@@ -2984,6 +3118,8 @@
      (alta/edicion/baja de perchas y productos); el STOCK sigue viajando por sus
      propias ops, no por aqui. */
   function avisarCatalogoCambiado() {
+    if (_guardadoCatalogoPendiente) { _guardadoCatalogoPendiente.then(ok => { if (ok === true) avisarCatalogoCambiado(); }); return; }
+    if (!_estadoPuedePublicarse()) return;
     try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
   }
 
@@ -3509,11 +3645,12 @@
       .map((k) => JSON.stringify(k) + ":" + _serializarMergeCanonico(valor[k])).join(",") + "}";
     return JSON.stringify(valor);
   }
-  function _huellaEstadoMerge() {
+  function _huellaEstadoMerge(incluirActividad = true) {
     try {
       // catalogoPropio incluye el PIN activo; el sidecar se guarda por OCsecure
       // inmediatamente y no debe convertir una preparación local en un merge de negocio.
-      const catalogo = window.OCSync.catalogoPropio();
+      const catalogo = _catalogoInterno();
+      if (!incluirActividad) delete catalogo.actividad;
       // stockDeficit is derived in applyCatalogo but intentionally omitted from wire catalog.
       const deficits = new Map(productos.map((p) => [String(p.id), Number(p.stockDeficit) || 0]));
       catalogo.productos.forEach((p) => { p.stockDeficit = deficits.get(String(p.id)) || 0; });
@@ -3537,9 +3674,16 @@
     const dif = compararCatalogo(remoto, rolRemoto);
     if (!dif) return { ok: false, error: "The catalog received is not readable." };
     const huellaAntes = _huellaEstadoMerge();
+    const negocioAntes = _huellaEstadoMerge(false);
+    let actividadNueva;
+    try { actividadNueva = _actividadUnir(actividadCompartida, remoto.actividad || []); }
+    catch (_) { return { ok: false, error: "The shared activity evidence is not readable." }; }
     const mandaElOtro = dif.ganaElOtro;
     let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
     const promesasPins = [];
+    if (_serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida)) {
+      actividadCompartida = actividadNueva; actualizados++;
+    }
 
     if (Array.isArray(remoto.gastos)) remoto.gastos.forEach((g) => {
       if (!g || !g.id || (!g.borrado && (!g.concepto || !(Number(g.monto) > 0)))) return;
@@ -4172,7 +4316,7 @@
     const huellaDespues = _huellaEstadoMerge();
     const cambioPersistible = huellaAntes === null || huellaDespues === null || huellaAntes !== huellaDespues;
     if (cambioPersistible) {
-      mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
+      if (negocioAntes !== _huellaEstadoMerge(false)) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
       guardarEstadoLocal();
     }
     if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
@@ -4235,7 +4379,7 @@
        sincroniza (el producto ya tiene fotoHash), se intenta poner p.foto desde el
        blob ya guardado en OCFotos. */
     try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
-    return { ok: true, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo(), pinsConfirmados: Promise.all(promesasPins).then(resultados => resultados.every(ok => ok === true), () => false) };
+    return { ok: true, actividadCompleta: _actividadEstado(_actividadExportable()).ok, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo(), pinsConfirmados: Promise.all(promesasPins).then(resultados => resultados.every(ok => ok === true), () => false) };
   }
 
   /* ===================================================================
@@ -4406,90 +4550,11 @@
     },
   };
 
-  window.OCSync = {
-    conflictosEquipo: () => conflictosEquipo.map((x) => ({ id: x.id, nombre: x.nombre, fecha: x.fecha })),
-    /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
-       sincronizaban foto (por hash). Los productos guardaban la foto INLINE
-       (p.foto), que no viajaba -> la foto de "Test sync unificado" salia en el
-       celu pero no en la PC. Estas dos funciones cierran el hueco reusando OCFotos:
-       - hashearFotosProductos(): para cada producto con foto inline y sin fotoHash,
-         calcula el hash, guarda los bytes en OCFotos y pone p.fotoHash. Asi la foto
-         viaja por el canal de fotos (como las perchas) y el catalogo solo lleva el
-         puntero. Corre al arrancar y cuando cambia una foto.
-       - hidratarFotosProductos(): en el receptor, cuando ya bajaron los bytes,
-         pone p.foto = OCFotos[fotoHash] para los productos que tienen puntero pero
-         no bytes inline, para que la UI (que pinta p.foto) los muestre. */
-    async hashearFotosProductos() {
-      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl) return 0;
-      let n = 0;
-      for (const p of productos) {
-        try {
-          if (p && p.foto && String(p.foto).indexOf("data:") === 0 && !p.fotoHash) {
-            // Hash and bytes must describe the SAME snapshot. A user can replace
-            // or remove the photo while either asynchronous operation is pending.
-            const foto = p.foto;
-            const h = await window.OCFotos.hashDeDataUrl(foto);
-            if (h) {
-              await window.OCFotos.guardarPorHash(h, foto);
-              if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
-            }
-          }
-        } catch (_) {}
-      }
-      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
-      return n;
-    },
-    async hidratarFotosProductos() {
-      if (!window.OCFotos || !window.OCFotos.leerPorHash) return 0;
-      let n = 0;
-      for (const p of productos) {
-        try {
-          if (p && p.fotoHash && !p.foto) {
-            const hash = p.fotoHash;
-            const d = await window.OCFotos.leerPorHash(hash);
-            // Do not restore a removed image, overwrite a newer edit, or write
-            // into a record belonging to the store before an import/shop change.
-            if (d && productos.includes(p) && p.fotoHash === hash && !p.foto) { p.foto = d; n++; }
-          }
-        } catch (_) {}
-      }
-      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
-      return n;
-    },
-    /* borradores.js avisa cada cambio de categoría (alta, renombre, borrado,
-       ocultar, mostrar). Se sella con revisión y se publica al sync. */
-    /* Clave de localStorage de una lista de categorías para el cuaderno activo
-       (v347). borradores.js la usa para leer/guardar en el mismo lugar. */
-    claveCategorias(base) { return _catKey(base); },
-    marcarCategoria(nombre, estado) {
-      try {
-        const nom = String(nombre || "").trim();
-        if (!nom || _CAT_ESTADOS.indexOf(estado) === -1) return false;
-        const id = nom.toLowerCase();
-        categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: _revNueva() };
-        guardarEstadoLocal();
-        avisarCatalogoCambiado();
-        return true;
-      } catch (_) { return false; }
-    },
-    /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
-       DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
-    async confirmarCatalogoDurable() {
-      if (_ventaPendiente) await _ventaPendiente;
-      if (_payoutPendiente) await _payoutPendiente;
-      if (_retencionPendiente) await _retencionPendiente;
-      if (_ventaConfirmando || _payoutConfirmando || _retencionConfirmando) return false;
-      try { return (await guardarEstadoLocal(true, true)) === true; } catch (_) { return false; }
-    },
-    async catalogoConfirmado() {
-      while (_ventaPendiente) await _ventaPendiente;
-      return this.catalogoPropio();
-    },
-    catalogoPropio() {
-      if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK
+  function _catalogoInterno() {
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       const _demoLocal = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
       return {
+        actividad: _actividadExportable(),
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // v448 GOLDEN: bloquear la semilla por HUELLA EXACTA, no por forma del id.
         // Un negocio real puede tener un id corto como p23; nombre+SKU+barcode
@@ -4582,6 +4647,92 @@
         })(),
         huella: huellaCatalogo(),
       };
+  }
+  window.OCSync = {
+    conflictosEquipo: () => conflictosEquipo.map((x) => ({ id: x.id, nombre: x.nombre, fecha: x.fecha })),
+    /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
+       sincronizaban foto (por hash). Los productos guardaban la foto INLINE
+       (p.foto), que no viajaba -> la foto de "Test sync unificado" salia en el
+       celu pero no en la PC. Estas dos funciones cierran el hueco reusando OCFotos:
+       - hashearFotosProductos(): para cada producto con foto inline y sin fotoHash,
+         calcula el hash, guarda los bytes en OCFotos y pone p.fotoHash. Asi la foto
+         viaja por el canal de fotos (como las perchas) y el catalogo solo lleva el
+         puntero. Corre al arrancar y cuando cambia una foto.
+       - hidratarFotosProductos(): en el receptor, cuando ya bajaron los bytes,
+         pone p.foto = OCFotos[fotoHash] para los productos que tienen puntero pero
+         no bytes inline, para que la UI (que pinta p.foto) los muestre. */
+    async hashearFotosProductos() {
+      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl) return 0;
+      let n = 0;
+      for (const p of productos) {
+        try {
+          if (p && p.foto && String(p.foto).indexOf("data:") === 0 && !p.fotoHash) {
+            // Hash and bytes must describe the SAME snapshot. A user can replace
+            // or remove the photo while either asynchronous operation is pending.
+            const foto = p.foto;
+            const h = await window.OCFotos.hashDeDataUrl(foto);
+            if (h) {
+              await window.OCFotos.guardarPorHash(h, foto);
+              if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
+            }
+          }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
+      return n;
+    },
+    async hidratarFotosProductos() {
+      if (!window.OCFotos || !window.OCFotos.leerPorHash) return 0;
+      let n = 0;
+      for (const p of productos) {
+        try {
+          if (p && p.fotoHash && !p.foto) {
+            const hash = p.fotoHash;
+            const d = await window.OCFotos.leerPorHash(hash);
+            // Do not restore a removed image, overwrite a newer edit, or write
+            // into a record belonging to the store before an import/shop change.
+            if (d && productos.includes(p) && p.fotoHash === hash && !p.foto) { p.foto = d; n++; }
+          }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+      return n;
+    },
+    /* borradores.js avisa cada cambio de categoría (alta, renombre, borrado,
+       ocultar, mostrar). Se sella con revisión y se publica al sync. */
+    /* Clave de localStorage de una lista de categorías para el cuaderno activo
+       (v347). borradores.js la usa para leer/guardar en el mismo lugar. */
+    claveCategorias(base) { return _catKey(base); },
+    marcarCategoria(nombre, estado) {
+      try {
+        const nom = String(nombre || "").trim();
+        if (!nom || _CAT_ESTADOS.indexOf(estado) === -1) return false;
+        const id = nom.toLowerCase();
+        categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: _revNueva() };
+        guardarEstadoLocal();
+        avisarCatalogoCambiado();
+        return true;
+      } catch (_) { return false; }
+    },
+    /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
+       DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
+    async confirmarCatalogoDurable() {
+      if (_ventaPendiente) await _ventaPendiente;
+      if (_payoutPendiente) await _payoutPendiente;
+      if (_retencionPendiente) await _retencionPendiente;
+      if (_ventaConfirmando || _payoutConfirmando || _retencionConfirmando) return false;
+      try { return (await guardarEstadoLocal(true, true)) === true; } catch (_) { return false; }
+    },
+    async catalogoConfirmado() {
+      while (_ventaPendiente) await _ventaPendiente;
+      while (_guardadoCatalogoPendiente) await _guardadoCatalogoPendiente;
+      return this.catalogoPropio();
+    },
+    unirActividad: _actividadUnir,
+    catalogoPropio() {
+      if (!_estadoPuedePublicarse()) return null;
+      if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK
+      return _catalogoInterno();
     },
     /* CHECKPOINT PARA LA BITACORA CIFRADA (JFC 2026-08-25). A diferencia de
        catalogoPropio(), el checkpoint SI lleva el stock absoluto: es la foto que
@@ -4784,6 +4935,7 @@
   try { _semillaDemo = JSON.parse(JSON.stringify(estadoActualExportable())); } catch (_) { _semillaDemo = null; }
   let _demoRefrescado = false;
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  if (!_estadoLecturaBloqueada) _estadoPublicableConfirmado = _huellaPublicable();
   /* INVARIANTES AL ARRANCAR (JFC 2026-09-30, plan PLAN-INVARIANTES-AL-ARRANCAR-2026-09-30.md).
      Regla: reparar SOLO lo derivable (percha vacia de una venta), avisar SIEMPRE en dinero.
      Solo con datos reales (no semilla demo). El informe se lee por GET /api/invariantes y
@@ -4884,6 +5036,9 @@
       if (validarRespaldo(espejo)) return;
       _localRev = espejo._rev;
       aplicarRespaldo(espejo);
+      _estadoLecturaBloqueada = !!_conflictoEstadoAB;
+      _cargoBufferReal = true;
+      _estadoPublicableConfirmado = _huellaPublicable();
       try {
         /* DORMANT, ver LIMPIEZA_DEMO_ACTIVA arriba (JFC 2026-10-07, "Apagarla, solo filtrar"). */
         if (LIMPIEZA_DEMO_ACTIVA) {
@@ -5110,6 +5265,7 @@
     } catch (_) {}
     // A legacy browser without cross-tab locks must not bypass the visible
     // compatibility guard by invoking a write directly. Reads stay available.
+    if (escribe && _conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
     if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
     if (!escribe) { if (_ventaPendiente) await _ventaPendiente; if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
@@ -5118,7 +5274,9 @@
       const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
       if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
-      _recargarSiOtraPestanaEscribio();return _fetchInterno(url,opts);
+      _recargarSiOtraPestanaEscribio();
+      if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
+      return _fetchInterno(url,opts);
     };
     if (navigator.locks && navigator.locks.request) {
       // iOS may keep a Web Lock zombie after PWA backgrounding. Time out ONLY
@@ -6494,7 +6652,7 @@
         return J(ficha(p));
       }
 
-      if (path === "/api/actividad") return J(movimientos.slice().reverse().slice(0, 100));
+      if (path === "/api/actividad") return J(_actividadVista().reverse().slice(0, 100));
 
       /* DIRECTORIO DE ACCESO (JFC 2026-08-28). Quién tiene cada PIN (nombre,
          correo, notas). Solo el dueño. Lo lee el dashboard para el reporte
@@ -6608,7 +6766,7 @@
       // Lo usa el tablero (dashboard.html) para pintar el periscopio de datos.
       if (path === "/api/movimientos" && (!opts || opts.method === "GET")) {
         const n = Math.min(Number(q.get("limite")) || 200, 500);
-        return J(movimientos.slice(-n).reverse());
+        return J(_actividadVista().slice(-n).reverse());
       }
 
       // Estrella: dueño marca/desmarca productos para que el encargado promueva
@@ -6636,7 +6794,7 @@
           ubicaciones: (_c.ubicaciones || []).map((x) => _toma(x, ["id", "nombre", "tipo"])),
           ventas: (_c.ventas || []).map((v) => Object.assign(_toma(v, ["id", "fecha", "productoId", "cantidad", "precioUnit", "ubicacionId", "vendedorId", "liquidada", "anulada"]),
             { split: v.split ? { montoComisionSocio: v.split.montoComisionSocio } : null })),
-          movimientos: (_c.movimientos || []).map((x) => _toma(x, ["id", "fecha", "tipo", "productoId", "cantidad", "ubicacionId", "vendedorId", "usuario"])),
+          movimientos: _actividadVista().map((x) => _toma(x, ["id", "fecha", "tipo", "productoId", "cantidad", "ubicacionId", "vendedorId", "usuario"])),
         });
       }
       if (path === "/api/respaldo/importar") {
@@ -7820,7 +7978,9 @@
           prev = m.sello; sellados++;
         }
         const colaOk = ruptura ? false : (sellados === 0 || prev === selloUltimo);
-        return J({ ok: !ruptura && colaOk, total: movimientos.length, sellados: sellados, historico: historico, ruptura: ruptura, colaOk: colaOk });
+        const compartido = _actividadEstado(_actividadExportable());
+        return J({ ok: !ruptura && colaOk && compartido.ok, total: movimientos.length, sellados: sellados, historico: historico, ruptura: ruptura, colaOk: colaOk,
+          actividadCompleta: compartido.completa, origenes: compartido.origenes, actividadProblemas: compartido.problemas, totalCompartido: _actividadVista().length });
       }
       // =========================================================================
 

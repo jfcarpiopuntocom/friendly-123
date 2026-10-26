@@ -2132,6 +2132,8 @@
       vista.appendChild(afPanel);
 
       async function renderAntiFraude() {
+        const rolAF = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual();
+        if (rolAF === "empleado" || rolAF === "contador") return;
         // 1) Integridad del historial
         const cont = $("oc-af-integridad");
         if (cont) {
@@ -2421,7 +2423,7 @@
         const mover = [], secciones = []; let idx = 0;
         kids.forEach((n, i) => {
           if (i < 3) return; // titulo + intro + "how does it work" quedan fuera del riel
-          if (n.id === "oc-riel-fila" || n.id === "oc-firststeps") return;
+          if (n.id === "oc-riel-fila" || n.id === "oc-firststeps" || n.id === "oc-identity-settings") return;
           if (n.tagName === "DETAILS") { const sm = n.querySelector("summary"); if (sm && esComo(sm.textContent)) return; }
           /* Huérfanos "Back to top": el riel los trata como hijos sueltos y
              los apila al final (4 seguidos). Se redistribuyen después. */

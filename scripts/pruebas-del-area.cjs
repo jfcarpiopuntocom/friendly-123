@@ -11,7 +11,7 @@ const path = require('node:path');
 const sourceAreas = require('./test-source-areas.cjs');
 function selectTests(cambios, root = process.cwd()) {
 const exists = f => fs.existsSync(path.join(root, f));
-const elegidas = new Set(cambios.filter(f => /^test\/[^/]+\.test\.js$/.test(f) && exists(f)));
+const elegidas = new Set(cambios.filter(f => /^test\/[^/]+\.test\.(?:js|cjs)$/.test(f) && exists(f)));
 for (const file of cambios) if (sourceAreas[file]) for (const test of sourceAreas[file]) {
   if (!exists(test)) throw Error(`Missing mapped regression: ${test}`);
   elegidas.add(test);

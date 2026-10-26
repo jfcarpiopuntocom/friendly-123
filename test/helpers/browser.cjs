@@ -19,7 +19,7 @@ function browser(ls = storage()) {
     CustomEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } },
     URL, console: { warn() {}, error() {}, log() {} },
     setTimeout: () => 0, clearTimeout() {}, setInterval: () => 0, clearInterval() {},
-    crypto: { randomUUID }, navigator: {}, Response, Headers, Request, JSON,
+    crypto: { randomUUID }, navigator: {}, AbortController, Response, Headers, Request, JSON,
     document: { getElementById: () => null, querySelectorAll: () => [],
       createElement: () => ({ style: {}, setAttribute() {}, addEventListener() {}, appendChild() {} }),
       addEventListener() {}, body: null, documentElement: { appendChild() {} } } };
@@ -28,6 +28,7 @@ function browser(ls = storage()) {
   // verifier by default, while individual tests can override it to fail.
   w.OCSecure = { estadoSecreto: () => 'ok', coincidePin: async () => false, leerPinsVisibles: () => null };
   vm.createContext(w);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/estado-ab.js'), 'utf8'), w);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/core/payout-ledger.js'), 'utf8'), w);
   // v506 (auditoria 2026-10-14): la app carga core/business-read-model.js ANTES de
   // mock-backend (index.html). Sin esto /api/dashboard corria aqui un camino de

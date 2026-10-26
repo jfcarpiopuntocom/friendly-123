@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="dashboard-shell" content="f123-shell-v586">
-<meta name="dashboard-release" content="v586">
+<meta name="dashboard-shell" content="f123-shell-v587">
+<meta name="dashboard-release" content="shell v587">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title data-i18n="meta.title.dashboard">Dashboard · friendly-123</title>
 
@@ -467,7 +467,7 @@
   <div class="wrap">
     <img id="logo-top" alt="friendly-123">
     <span class="neg" id="neg-nombre">Tu negocio</span>
-    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard v586</span>
+    <span id="dashboard-version" style="font-size:14px;font-weight:700;color:#0F1923;">Dashboard shell v587</span>
     <div class="tools" aria-label="Report tools">
       <button type="button" id="refrescar-tablero" title="Ask the connected app for a fresh report / Actualizar">↻ Refresh</button>
       <button type="button" id="imprimir-tablero" title="Print current report / Imprimir reporte">⎙ Print</button>
@@ -695,6 +695,7 @@
 <script src="./customer-profile.js"></script>
 <script src="./sales-audit-ui.js"></script>
 <script src="./core/demo-huellas.js"></script>
+<script src="./estado-ab.js"></script>
 <script src="./estado-idb.js"></script>
 <script src="./canarios.js"></script>
 <script src="./salud-app.js"></script>
@@ -2935,14 +2936,17 @@
     } catch (_) { return null; }
     try {
       var suf = sufijoTienda();
-      var ptr = localStorage.getItem(K_ESTADO + suf + "_ptr") || "B";
+      if (!window.OCEstadoAB) return null;
+      var vista = window.OCEstadoAB.crear({claveBase: K_ESTADO + suf}).leer();
+      if (vista.conflictos.length) window.OCEstadoAB.avisarConflicto();
+      var ptr = vista.activo || "B";
       /* Doble buffer A/B: se prueba el activo y, si esta corrupto o vacio, el
          otro. Por eso existen dos: para que nunca haya un unico punto de fallo. */
       var orden = [ptr, ptr === "A" ? "B" : "A"];
       for (var i = 0; i < orden.length; i++) {
-        var raw = localStorage.getItem(K_ESTADO + suf + "_" + orden[i]);
+        var raw = vista.buffers[orden[i]];
         if (!raw) continue;
-        var e = JSON.parse(raw);
+        var e; try { e = JSON.parse(raw); } catch (_) { continue; }
         if (e && Array.isArray(e.productos)) return e;
       }
     } catch (_) {}
@@ -3967,7 +3971,7 @@
     inp.setAttribute("maxlength", "25"); // F123- + 4 + 4 + 4 + 5 = 22, con holgura
 
     function formatear(raw) {
-      var v = String(raw || "").toUpperCase().replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
+      var v = String(raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0").replace(/[^0-9A-Z*~$=]/g, "");
       // Pela TODAS las repeticiones del prefijo (y "TEAM" de papeles viejos): al
       // pegar "F123-..." sobre un campo que ya mostraba "F123-", no queda "F123F123".
       var cambio = true;
@@ -3976,7 +3980,9 @@
         if (v.indexOf("TEAM") === 0) { v = v.slice(4); cambio = true; }
         else if (v.indexOf(PRE) === 0) { v = v.slice(PRE.length); cambio = true; }
       }
-      v = v.slice(0, 17);
+      // Preserve Crockford aliases and the issuer's checksum-only final symbols.
+      v = v.slice(0, 16).replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ]/g, "") +
+        v.slice(16, 17).replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=U]/g, "");
       if (!v) return "";
       var out = PRE, i = 0;
       while (i < v.length) {

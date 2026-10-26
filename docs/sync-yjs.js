@@ -1270,7 +1270,7 @@
   // Las fichas editables viajan con revision logica. Ventas, gastos y
   // transferencias usan IDs estables y actualizaciones individuales; los hechos
   // de cartera y caja chica van en un mapa inmutable aparte.
-  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas", "gastos", "transferencias", "dispositivos", "categorias", "ajustes"]; // ajustes (v359): impuesto del cuaderno
+  var COLECCIONES = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "ventas", "gastos", "transferencias", "dispositivos", "categorias", "ajustes", "actividad"]; // Activity preserves each source's original seals.
   /* VENTAS (dinero) POR EL SYNC NUEVO (JFC 2026-09-16, aprobado). Antes el dinero
      viajaba solo por el sync viejo (sync-realtime, frágil). Ahora las ventas cruzan
      por Yjs, ADD-ONLY por id (cada venta una sola vez -> no se duplica plata). No
@@ -1747,6 +1747,18 @@
     });
   }
 
+  function sembrarActividad(cat) {
+    if (!API.mapas.actividad || !window.OCSync.unirActividad) return;
+    (cat.actividad || []).forEach(function (r) {
+      try {
+        var previo = API.mapas.actividad.get(r.id);
+        var unido = window.OCSync.unirActividad(previo ? [previo] : [], [r])[0];
+        if (JSON.stringify(previo) === JSON.stringify(unido)) return;
+        API.doc.transact(function () { API.mapas.actividad.set(r.id, unido); }, "seed");
+      } catch (e) { log("actividad:", e && e.message); }
+    });
+  }
+
   // OCFotos local -> Yjs(fotos). Publica los blobs de las fotos EN USO (las que
   // alguna percha referencia por fotoHash) que aún no estén en el doc de fotos.
   function publicarFotosLocales() {
@@ -1816,7 +1828,7 @@
         var _cuenta = [
           "productos", "ubicaciones", "ventas", "clientes", "gastos",
           "transferencias", "promotoras", "sucursales", "ajustes",
-          "categorias", "dispositivos"
+          "categorias", "dispositivos", "actividad"
         ].reduce(function (n, col) {
           return n + (Array.isArray(cat[col]) ? cat[col].length : 0);
         }, 0);
@@ -2031,6 +2043,7 @@
       // v292: sembrar las ventas (dinero) como ops individuales (add-only).
       try { sembrarVentasAlRelay(); } catch (_) {}
       try { sembrarFinanzas(cat); } catch (_) {}
+      try { sembrarActividad(cat); } catch (_) {}
     }
 
     // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge
@@ -2081,7 +2094,7 @@
       _aplicando = true;
       try {
         var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only real Yjs bridge grants canonical name
-        ultimaAplicacionAceptada = !!(r && r.ok);
+        ultimaAplicacionAceptada = !!(r && r.ok && r.actividadCompleta !== false);
         ultimaAplicacionPins = Promise.resolve(r && r.pinsConfirmados).then(function (ok) { return ok === true; }, function () { return false; });
         // A2/A3 (JFC 2026-09-10): si el merge sumó algo, avisar a la UI para que
         // (a) lo muestre como alerta dentro de "Today's alerts", no como banner

@@ -537,13 +537,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      este selector seguía apuntando al data-vista viejo y el EMPLEADO veía el
      botón Comisiones (datos financieros del dueño). Mantener sincronizado con
      el data-vista del nav en index.html. */
-  body.rol-empleado nav button[data-vista="avanzado"],
   body.rol-empleado nav button[data-vista="comisiones"]{display:none!important;}
   /* Rol CONTADOR (JFC 2026-07-15): PIN 357 directo en el candado principal
      entra en modo solo-lectura contable — sin POS, inventario, clientes ni
      botones de exportar/importar/caja fuerte. Solo se ve el nav "contable"
      y el reporte CSV (informativo, no exporta el negocio completo). */
-  body.rol-contador nav button:not([data-vista="contable"]){display:none!important;}
+  body.rol-contador nav button:not([data-vista="contable"]):not([data-vista="avanzado"]){display:none!important;}
+  /* Staff keeps its local device-name control without loading owner/accounting panels. */
+  body.rol-empleado #vista-avanzado > :not(#oc-identity-settings),
+  body.rol-contador #vista-avanzado > :not(#oc-identity-settings),
+  body.rol-empleado #oc-identity-store-edit,
+  body.rol-contador #oc-identity-store-edit{display:none!important;}
   body.rol-contador #oc-exportar,
   body.rol-contador #oc-importar-file,
   body.rol-contador label[for="oc-importar-file"],
@@ -1842,8 +1846,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          define I/L→1 y O→0: convertirlas (no borrarlas) hace que el mismo código
          tecleado de dos formas caiga en la MISMA sala. Consistente con
          _ocNormalizar() y con normalizarCodigo() en sync-realtime.js. */
-      var v = String(raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0")
-        .replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
+      var v = String(raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0").replace(/[^0-9A-Z*~$=]/g, "");
       /* Quita TODAS las repeticiones del prefijo al inicio, no solo una
          (JFC 2026-08-25). Al pegar "F123-..." en un campo que ya mostraba
          "F123-", quedaba "F123F123..." y con un solo strip sobrevivia un
@@ -1855,7 +1858,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if (v.indexOf("TEAM") === 0) { v = v.slice(4); cambio = true; }
         else if (v.indexOf(PRE) === 0) { v = v.slice(PRE.length); cambio = true; }
       }
-      v = v.slice(0, 17);
+      // Preserve Crockford aliases and the issuer's checksum-only final symbols.
+      v = v.slice(0, 16).replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ]/g, "") +
+        v.slice(16, 17).replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=U]/g, "");
       /* Sin cuerpo, no se pinta un "F123-" solo colgando (JFC 2026-08-26): un
          campo vacío o con basura que quedó en nada se muestra vacío, no como si
          ya hubiera media licencia. El focus vuelve a poner el prefijo guía. */

@@ -58,3 +58,8 @@ Leer [Contrato operativo](agent-rules/OPERATING-CONTRACT.md); si hay despliegue 
 - **Solo MD fuera de docs/** = ninguna nueva versión ni despliegue de la app. **Runtime docs/** = fast track actual, test focalizado; no gate de 33 minutos ni suite completa bloqueante.
 - Comunicar en español de negocio: «qué corregí / disponible o no / enlace / qué no comprobé». Merge, SHA y PR se citan solo al final; no usar recuentos de tests para tranquilizar.
 - No generar workflows/consultas Cloudflare redundantes ni relajar tests para lograr verde. Distinguir preparado, integrado, publicado y adoptado en aparato real.
+
+
+## JFC · identidad pública real · 26 octubre 2026
+
+JFC retira expresamente la obligación de conservar versión comercial 1.0. La versión pública pasa a llamarse `shell vXYZ`, con el número real del shell publicado; version.json.version y releaseName deben reflejarlo. El identificador técnico `f123-shell-vXYZ` y la generación de caché siguen coherentes. El candado identifica el SW controlador y distingue actualización pendiente; un nombre visible no prueba adopción del aparato. Esta orden sustituye reglas anteriores incompatibles sobre 1.0.

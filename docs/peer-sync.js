@@ -105,7 +105,7 @@
           let message; try { if (typeof event.data !== 'string' || event.data.length > 20000) return; message = JSON.parse(event.data); } catch (_) { return; }
           this.receiveSignal(message).catch(() => {});
         };
-        ws.onclose = () => { if (this.signal === ws) { if (openedAt && Date.now() - openedAt >= 30000) this.attempts = 0; this.signal = null; this.retry(); } };
+        ws.onclose = () => { if (this.signal === ws) { if (!ws.initialRTCFailed && openedAt && Date.now() - openedAt >= 30000) this.attempts = 0; this.signal = null; this.retry(); } };
         ws.onerror = () => { try { ws.close(); } catch (_) {} };
       }
       retry() { if (this.timer || this.attempts >= 5 || !this.sockets.size) return; this.timer = setTimeout(() => { this.timer = null; this.start(); }, Math.min(30000, 1000 * 2 ** (this.attempts - 1))); }
@@ -119,7 +119,7 @@
         this.peers.set(id, peer);
         pc.onicecandidate = event => { if (event.candidate && event.candidate.type !== 'relay') this.signalTo('ice', id, event.candidate.toJSON()); };
         pc.ondatachannel = event => this.attach(peer, event.channel);
-        pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) this.remove(peer); };
+        pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) this.remove(peer, pc.connectionState === 'failed'); };
         return peer;
       }
       attach(peer, dc) {
@@ -133,12 +133,17 @@
             if (wasOpen) socket.emit('message', { data: JSON.stringify({ k: 'peer-ready', peer: peer.id }) });
           }
         };
-        dc.onclose = () => this.remove(peer);
+        dc.onclose = () => this.remove(peer, true);
       }
-      remove(peer) {
+      remove(peer, retryInitial = false) {
         if (this.peers.get(peer.id) !== peer) return;
         this.peers.delete(peer.id); try { peer.pc.close(); } catch (_) {}
         for (const socket of [...this.sockets]) { socket.presence(); if (!this.connected().length && socket.readyState === 1) socket.close(1013, 'direct peer disconnected; local changes retained'); }
+        // Restart a failed first negotiation within the existing finite signaling budget.
+        if (retryInitial && this.sockets.size && !this.connected().length && this.signal && this.signal.readyState < 2) {
+          this.signal.initialRTCFailed = true;
+          try { this.signal.close(); } catch (_) {}
+        }
       }
       async receiveSignal(message) {
         if (!message || message.v !== 1) return;

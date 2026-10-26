@@ -10,7 +10,7 @@
     var etiqueta = document.getElementById('dashboard-version');
     var publicMeta = document.querySelector('meta[name="dashboard-release"]');
     var publicVersion = publicMeta && String(publicMeta.content || '');
-    if (etiqueta && /^v\d+$/.test(publicVersion)) etiqueta.textContent = 'Dashboard ' + publicVersion;
+    if (etiqueta && /^(?:shell )?v\d+$/.test(publicVersion)) etiqueta.textContent = 'Dashboard ' + publicVersion;
   } catch (_) {}
   if (!('serviceWorker' in navigator)) return;
   var current = built && built.content, busy = false, reloading = false;
