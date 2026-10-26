@@ -1,10 +1,10 @@
 {
   "version": "1.0",
   "fecha": "2026-10-25",
-  "changelog": "v584: light-only UI; dark mode and switch removed, Dashboard version label aligned.",
+  "changelog": "v586: direct device synchronization; business data stays on customer devices with durable peer receipts.",
   "requerida": false,
-  "shell": "f123-shell-v584",
+  "shell": "f123-shell-v586",
   "apagar": [],
-  "releaseName": "v584",
-  "cacheGeneration": "golden130"
+  "releaseName": "v586",
+  "cacheGeneration": "golden132"
 }

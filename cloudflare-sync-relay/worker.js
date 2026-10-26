@@ -15,6 +15,81 @@
 // se negocia sin logica especial aqui.
 
 const MAX_CLIENTES_SALA = 12;      // tope por sala (coincide con el cliente)
+// Connection metadata only. Business frames and durable storage have no route here.
+const ID = /^[a-f0-9]{32}$/;
+const keys = (o, allowed) => o && typeof o === 'object' && !Array.isArray(o) && Object.keys(o).every(k => allowed.includes(k));
+const address = value => /^(?:[A-Fa-f0-9:]{2,45}|[A-Za-z0-9-]{1,64}\.local)$/.test(value) ||
+  /^\d{1,3}(?:\.\d{1,3}){3}$/.test(value) && value.split('.').every(n => Number(n) <= 255);
+function validCandidate(value) {
+  if (typeof value !== 'string' || value.length > 1024) return false;
+  const t = value.split(' ');
+  if (t.length < 8 || !/^candidate:[A-Za-z0-9+/]{1,64}$/.test(t[0]) || !/^[12]$/.test(t[1]) ||
+      !/^(udp|tcp)$/i.test(t[2]) || !/^\d{1,10}$/.test(t[3]) || Number(t[3]) > 4294967295 ||
+      !address(t[4]) || !/^\d{1,5}$/.test(t[5]) || Number(t[5]) > 65535 ||
+      t[6] !== 'typ' || !['host', 'srflx', 'prflx'].includes(t[7]) || (t.length - 8) % 2) return false;
+  for (let i = 8; i < t.length; i += 2) {
+    const key = t[i], val = t[i + 1];
+    if (key === 'raddr' ? !address(val) : key === 'ufrag' ? !/^[A-Za-z0-9+/]{1,128}$/.test(val) :
+        key === 'tcptype' ? !['active', 'passive', 'so'].includes(val) :
+        ['rport', 'generation', 'network-id', 'network-cost'].includes(key) ? !/^\d{1,10}$/.test(val) : true) return false;
+  }
+  return true;
+}
+export function validSignal(message) {
+  if (keys(message, ['v', 'k', 't0']) && message.v === 1 && message.k === 'clock') return Number.isSafeInteger(message.t0) && message.t0 > 0;
+  if (!keys(message, ['v', 'k', 'to', 'data']) || message.v !== 1 || !ID.test(message.to)) return false;
+  const data = message.data;
+  if (message.k === 'offer' || message.k === 'answer') {
+    if (!keys(data, ['type', 'sdp']) || data.type !== message.k || typeof data.sdp !== 'string' || data.sdp.length > 16384) return false;
+    const lines = data.sdp.trim().split(/\r?\n/);
+    if (!lines.length || lines.length > 96 || !lines.includes('v=0') ||
+        !['m=application ', 'a=ice-ufrag:', 'a=ice-pwd:', 'a=fingerprint:sha-256 ', 'a=setup:'].every(prefix => lines.some(line => line.startsWith(prefix)))) return false;
+    return lines.every(line => line.startsWith('a=candidate:') ? validCandidate(line.slice(2)) :
+      /^(v=0|o=- \d{1,30} \d{1,30} IN IP[46] [A-Fa-f0-9:.]+|s=-|t=0 0|c=IN IP[46] [A-Fa-f0-9:.]+|m=application \d+ (UDP\/DTLS\/SCTP|DTLS\/SCTP) (webrtc-datachannel|\d+)|a=(group:BUNDLE [A-Za-z0-9 -]+|msid-semantic: ?WMS(?: \*)?|extmap-allow-mixed|mid:[A-Za-z0-9-]+|ice-ufrag:[A-Za-z0-9+/]+|ice-pwd:[A-Za-z0-9+/]+|ice-options:(trickle|trickle renomination)|fingerprint:sha-256 (?:[A-Fa-f0-9]{2}:){31}[A-Fa-f0-9]{2}|setup:(actpass|active|passive)|sctp-port:\d+|sctpmap:\d+ webrtc-datachannel( \d+)?|max-message-size:\d+|end-of-candidates))$/.test(line));
+  }
+  if (message.k !== 'ice' || !keys(data, ['candidate', 'sdpMid', 'sdpMLineIndex', 'usernameFragment'])) return false;
+  return validCandidate(data.candidate) &&
+    (data.sdpMid === null || typeof data.sdpMid === 'string' && /^[A-Za-z0-9-]{1,16}$/.test(data.sdpMid)) &&
+    Number.isSafeInteger(data.sdpMLineIndex) && data.sdpMLineIndex >= 0 && data.sdpMLineIndex < 4 &&
+    (data.usernameFragment == null || typeof data.usernameFragment === 'string' && /^[A-Za-z0-9+/]{1,128}$/.test(data.usernameFragment));
+}
+
+export class SignalRoom {
+  constructor(state) { this.state = state; }
+  peers() { return this.state.getWebSockets().filter(s => s.readyState === 1); }
+  notify() {
+    const peers = this.peers();
+    const data = JSON.stringify({ v: 1, k: 'peers', peers: peers.map(s => s.deserializeAttachment().peer) });
+    for (const socket of peers) { try { socket.send(data); } catch (_) {} }
+  }
+  fetch(request) {
+    if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') return new Response('expected websocket', { status: 426 });
+    const peer = new URL(request.url).searchParams.get('peer');
+    if (!ID.test(peer || '')) return new Response('invalid peer', { status: 400 });
+    if (this.peers().length >= 12 || this.peers().some(s => s.deserializeAttachment().peer === peer)) return new Response('room full or duplicate peer', { status: 429 });
+    const pair = new WebSocketPair(), client = pair[0], server = pair[1];
+    server.serializeAttachment({ peer, window: Date.now(), bytes: 0, count: 0 });
+    this.state.acceptWebSocket(server);
+    this.notify();
+    return new Response(null, { status: 101, webSocket: client });
+  }
+  webSocketMessage(socket, raw) {
+    if (typeof raw !== 'string' || raw.length > 20000) { socket.close(1008, 'connection metadata only'); return; }
+    let data; try { data = JSON.parse(raw); } catch (_) { socket.close(1008, 'invalid metadata'); return; }
+    if (!validSignal(data)) { socket.close(1008, 'connection metadata only'); return; }
+    const state = socket.deserializeAttachment(), now = Date.now();
+    if (now - state.window >= 60000) { state.window = now; state.bytes = 0; state.count = 0; }
+    state.bytes += new TextEncoder().encode(raw).byteLength; state.count++;
+    if (state.bytes > 128 * 1024 || state.count > 128) { socket.close(1008, 'connection metadata limit'); return; }
+    socket.serializeAttachment(state);
+    if (data.k === 'clock') { socket.send(JSON.stringify({ v: 1, k: 'clock', t0: data.t0, t1: now, t2: Date.now() })); return; }
+    const destination = this.peers().find(s => s.deserializeAttachment().peer === data.to);
+    if (destination && destination !== socket) destination.send(JSON.stringify({ ...data, from: state.peer }));
+  }
+  webSocketClose(socket, code) { try { socket.close(code === 1005 ? 1000 : code); } catch (_) {} this.notify(); }
+  webSocketError(socket) { try { socket.close(1011, 'connection closed'); } catch (_) {} this.notify(); }
+}
+
 const MAX_FRAME_BYTES = 256 * 1024; // 256 KB por frame; el catalogo va a trozos
 
 const MAX_OPS_SALA = 8000; // tope duro de operaciones guardadas por sala
@@ -465,6 +540,11 @@ export class SalaSync {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    const signalRoom = url.pathname.match(/^\/signal\/([a-f0-9]{40})$/);
+    if (signalRoom) {
+      const id = env.SIGNALS.idFromName(signalRoom[1]);
+      return env.SIGNALS.get(id).fetch(request);
+    }
     if (url.pathname === "/migration/resolve") {
       const query = await migrationRequest(request, env, "resolve");
       if (!query) return migrationJson({ error: "forbidden" }, 403);

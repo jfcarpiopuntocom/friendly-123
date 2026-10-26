@@ -18,9 +18,17 @@ RELAY_ARCHIVE_ONLY = "1"
 name = "SALAS"
 class_name = "SalaSync"
 
+[[durable_objects.bindings]]
+name = "SIGNALS"
+class_name = "SignalRoom"
+
 # new_sqlite_classes (no new_classes): el backend SQLite de Durable Objects es
 # elegible en el plan GRATIS de Cloudflare, sujeto a sus limites de lecturas,
 # escrituras y almacenamiento. Hibernar ahorra duracion, no filas escritas.
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SalaSync"]
+
+[[migrations]]
+tag = "v2-signal-only"
+new_sqlite_classes = ["SignalRoom"]

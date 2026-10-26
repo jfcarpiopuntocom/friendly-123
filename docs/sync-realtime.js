@@ -490,6 +490,7 @@
         try {
           const msg = JSON.parse(ev.data);
           if (msg && msg.k === "persist-result") {
+            if (ws.peerOnly && ev.peerAccepted !== true) return;
             if (msg.kind === "op" && msg.ok === true) {
               guardarCola(leerCola().filter(op => op.opId !== msg.id));
               notificarEstado(estadoActual);
@@ -507,6 +508,11 @@
       }
       try {
         const op = await descifrar(claveActual, ev.data);
+        if (ev.peerAck) {
+          const ack = ev.peerAck, proof = op && op.tipo === "__peer_receipt__" && op.payload;
+          if (proof && proof.id === ack.id && proof.kind === ack.kind && proof.hash === ack.hash) ws.acceptPeerAck(ack);
+          return;
+        }
         /* Reloj de Lamport: al recibir, mi reloj sube a max(mio, ajeno). Sin
            esto, un checkpoint que yo suba podria llevar un lamport MENOR que
            una op ajena que ya esta reflejada en su stock, y un dispositivo
@@ -586,6 +592,13 @@
         registrarEnLog(op);
         if (window.OCSync && window.OCSync.aplicarOpRemota) window.OCSync.aplicarOpRemota(op);
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
+        if (ev.peerReceipt && op && op.opId === ev.peerReceipt.id &&
+            window.OCSync && typeof window.OCSync.confirmarCatalogoDurable === "function" &&
+            leerLog().some(item => item.opId === op.opId && JSON.stringify(item) === JSON.stringify(op)) && await window.OCSync.confirmarCatalogoDurable()) {
+          const receipt = ev.peerReceipt;
+          const proof = await cifrar(claveActual, { tipo: "__peer_receipt__", payload: { id: receipt.id, kind: receipt.kind, hash: receipt.hash } });
+          await ws.confirmPeerReceipt(receipt, proof);
+        }
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
     };
     ws.onclose = () => { if (ws !== _socketDeEstaConexion || !puedeConectarLegado()) return; if (_ckptTimer) { clearInterval(_ckptTimer); _ckptTimer = null; } notificarEstado("reconectando"); programarReintento(); };
@@ -1225,6 +1238,7 @@
   var _ckptEnVuelo = null;
   async function subirCheckpoint(forzar) {
     try {
+      if (ws && ws.peerOnly) return; // Yjs retains peer snapshots; no duplicate central checkpoint lane.
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       if (!window.OCSync || !window.OCSync.estadoParaCheckpoint) return; // un tablero no sube nada
       var snap = window.OCSync.estadoParaCheckpoint();

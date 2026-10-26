@@ -215,6 +215,7 @@
       if (!msg || typeof msg.from !== "string" || !/^[a-zA-Z0-9_-]{1,80}$/.test(msg.from) ||
           msg.from === _peerId || (msg.to && msg.to !== _peerId)) return;
       if (measurementSignal(msg)) return;
+      if (canal.ws && canal.ws.peerOnly) return; // The socket already owns the direct connection.
       if (msg.kind === "hello") {
         var first = !Object.prototype.hasOwnProperty.call(_measurementPeers, msg.from);
         if (Object.keys(_measurementPeers).length < 32 || !first) _measurementPeers[msg.from] = !!(msg.data && msg.data.measurement === 1);
@@ -247,6 +248,7 @@
     }
     function enviarDirecto(buf) {
       if (_pausado || !permitido()) return false;
+      if (canal.ws && canal.ws.peerOnly) return false;
       var peers = Object.values(_direct).filter(function (p) { return p.dc && p.dc.readyState === "open"; });
       // v514: sin relay, se entrega en vivo a los pares directos abiertos, pero se devuelve false
       // para que el mismo cambio quede tambien en la cola del relay (nadie se queda sin el).
@@ -327,7 +329,7 @@
         _durableQueue = _durableQueue.then(function () { return mutarOutbox(function () {}); }).then(drenarDurable).catch(function () { programarDurable(); });
       }, Math.round(_durableDelay * (0.8 + Math.random() * 0.4)));
     }
-    function bytesPendientes(value) { return typeof value === "string" ? value.length : (value && (value.byteLength || value.size)) || 0; }
+    function bytesPendientes(value) { return typeof value === "string" ? new TextEncoder().encode(value).byteLength : (value && (value.byteLength || value.size)) || 0; }
     function programarBufferPump() {
       if (_bufferPumpTimer || !canal.ws || canal.ws.readyState !== 1) return;
       _bufferPumpTimer = setTimeout(function () {
@@ -344,7 +346,7 @@
       if (!ws || ws.readyState !== 1) return "offline";
       if ((Number(ws.bufferedAmount) || 0) + bytesPendientes(value) > MAX_BUFFERED_BYTES) return "blocked";
       try { ws.send(value); _lastRelayProgressAt = Date.now(); return "sent"; }
-      catch (_) { try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
+      catch (error) { if (ws.peerOnly && error && error.name === "QuotaExceededError") return "blocked"; try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
     }
     function encolarVivo(value, smallBusiness) {
       var ws = canal.ws;
@@ -382,7 +384,8 @@
       if (_pausado || !permitido()) return;
       var ws = canal.ws;
       if (!ws || ws.readyState !== 1) { programarDurable(); return; }
-      var capacity = Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
+      // A peer ACKs a complete fragment group; a four-fragment window can deadlock it.
+      var capacity = ws.peerOnly ? _outbox.pending.length : Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
       if (!capacity) { programarDurable(); return; }
       var available = _outbox.pending.filter(function (entry) { return !_durableInFlight[entry.id]; });
       if (available.length > capacity) {
@@ -821,6 +824,7 @@
     var _tCkpt = null;
     function hacerCkpt() {
       if (_soloMemoria) return;
+      if (canal.ws && canal.ws.peerOnly) return; // Direct catch-up uses hydrated state vectors.
       if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
       // Never compact a partly restored store, even when an old applied cursor
       // exists: a completed pull AND dependency-free document are required.
@@ -856,6 +860,7 @@
         ws = window.F123Relay.connect(url);
       } catch (_) { reprogramar(); return; }
       var pullEstado = { enCurso: false, fallos: 0, usarHead: true };
+      var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0;
       _currentPullState = pullEstado;
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
@@ -878,6 +883,7 @@
         _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
           if (canal.ws !== ws || ws.readyState !== 1) return;
           try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // hello AFTER local hydration
+          if (ws.peerOnly) { programarRelecturaPeer(); return; }
           return pedirPagina(ws, pullEstado);
         });
         /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
@@ -896,7 +902,7 @@
         }
         drenarVivo();
         _durableQueue.then(drenarDurable).catch(function () {});
-        signal("hello", "", { measurement: 1 });
+        if (!ws.peerOnly) signal("hello", "", { measurement: 1 });
         // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
         // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
         // (aunque nunca haya cambiado desde v285) queda disponible para el que entre.
@@ -910,10 +916,80 @@
           }).catch(function () {}); // never seed into a half-hydrated document
         }, 3200);
       };
-      function manejar(buf, source) {
+      function programarRelecturaPeer() {
+        if (!ws.peerOnly || !canal.recuperando || _tReplay || canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return;
+        _tReplay = setTimeout(function () {
+          _tReplay = null;
+          if (canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return;
+          // A fresh diff replaces an interrupted bootstrap, never a durable operation group.
+          Object.keys(partesEntrantes).forEach(function (id) {
+            if (partesEntrantes[id].tag === 6 && !partesEntrantes[id].receipts.length) delete partesEntrantes[id];
+          });
+          _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
+            if (canal.ws === ws && ws.readyState === 1 && !_pausado && permitido()) enviar(1, Y.encodeStateVector(doc));
+          }).catch(function () {});
+          programarRelecturaPeer();
+        }, Math.min(30000, 1000 * Math.pow(2, reintentosPeer++)));
+      }
+      function confirmarRecepcionPeer() {
+        if (!ws.peerOnly || (!pendientesPeer.length && !(snapshotPeerRecibido && canal.recuperando)) || canal.ws !== ws ||
+            _pausado || !permitido() || Object.keys(partesEntrantes).length ||
+            (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) return Promise.resolve(true);
+        var batch = pendientesPeer.slice();
+        return barreraYjsConfirmada().then(function () {
+          if (_pausado || !permitido() || canal.ws !== ws) return false;
+          if (snapshotPeerRecibido) canal.peerSnapshot = true;
+          if (nombre !== "catalogo") return true;
+          if (API._store && typeof API._store.aplicar === "function") API._store.aplicar();
+          if (typeof API.confirmarCatalogoDurable !== "function") return false;
+          return API.confirmarCatalogoDurable();
+        }).then(function (ok) {
+          if (ok !== true || canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido() ||
+              (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) return false;
+          if (snapshotPeerRecibido) {
+            canal.recuperando = false;
+            clearTimeout(_tReplay); _tReplay = null; reintentosPeer = 0;
+          }
+          return Promise.all(batch.map(function (receipt) {
+            var proof = new TextEncoder().encode(JSON.stringify({ id: receipt.id, kind: receipt.kind, hash: receipt.hash }));
+            return cifrarBin(API.clave, _frame(5, proof)).then(function (cipher) {
+              if (canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return false;
+              return Promise.resolve(ws.confirmPeerReceipt(receipt, cipher)).then(function (sent) {
+                if (sent !== false) pendientesPeer = pendientesPeer.filter(function (entry) { return entry !== receipt; });
+              });
+            });
+          })).then(function () { return true; });
+        }).catch(function () { return false; });
+      }
+      function aceptarPruebaPeer(buf, meta) {
+        if (!ws.peerOnly || _pausado || !permitido() || !meta || !/^[a-f0-9]{64}$/.test(meta.hash || "")) return Promise.resolve(false);
+        var pending = _outbox.pending.find(function (entry) { return entry.id === meta.id && entry.k === meta.kind; });
+        if (!pending || !pending.c) return Promise.resolve(false);
+        return descifrarBin(API.clave, buf).then(function (bytes) {
+          if (bytes[0] !== 5) return false;
+          var proof = JSON.parse(new TextDecoder().decode(bytes.subarray(1)));
+          if (proof.id !== meta.id || proof.kind !== meta.kind || proof.hash !== meta.hash) return false;
+          var binary = atob(pending.c), encrypted = new Uint8Array(binary.length);
+          for (var i = 0; i < binary.length; i++) encrypted[i] = binary.charCodeAt(i);
+          return updateHash(encrypted).then(function (hash) {
+            if (hash !== meta.hash || canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido() || !_outbox.pending.includes(pending)) return false;
+            ws.acceptPeerAck(meta);
+            return true;
+          });
+        }).catch(function () { return false; });
+      }
+      function unirRecibosPeer(target, receipts) {
+        receipts.forEach(function (receipt) {
+          var index = target.findIndex(function (old) {
+            return old.peer === receipt.peer && old.id === receipt.id && old.kind === receipt.kind && old.hash === receipt.hash;
+          });
+          if (index < 0) target.push(receipt); else target[index] = receipt;
+        });
+      }
+      function manejar(buf, source, peerReceipt) {
         return Promise.resolve().then(function () { return descifrarBin(API.clave, buf); }).then(function (bytes) {
-          if (source === "live" && (_pausado || !permitido())) return false;
-          var tag = bytes[0], payload = bytes.subarray(1);
+          if ((source === "live" || source === "peer") && (_pausado || !permitido())) return false;
+          var tag = bytes[0], payload = bytes.subarray(1), receipts = peerReceipt ? [peerReceipt] : [];
           if (tag === 3) {
             if (bytes.length < 22) return false;
             var original = bytes[1], id = "";
@@ -933,18 +1009,24 @@
               if ((!groups[id] && Object.keys(groups).length >= MAX_GRUPOS_EN_VIVO) || liveBytes + bytes.length - 22 > MAX_BYTES_EN_VIVO) return true;
             }
             var grupo = groups[id];
-            if (!grupo) grupo = groups[id] = { tag: original, total: total, piezas: [], cuenta: 0, bytes: 0, creado: Date.now() };
+            if (!grupo) grupo = groups[id] = { tag: original, total: total, piezas: [], cuenta: 0, bytes: 0, creado: Date.now(), receipts: [] };
             if (grupo.total !== total || grupo.tag !== original) return false;
+            var existente = grupo.piezas[indice];
+            if (existente) {
+              if (existente.length !== bytes.length - 22) return false;
+              for (var r = 0; r < existente.length; r++) if (existente[r] !== bytes[r + 22]) return false;
+            }
+            if (peerReceipt) unirRecibosPeer(grupo.receipts, [peerReceipt]);
             if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; grupo.bytes += bytes.length - 22; }
             if (grupo.cuenta !== total) return true; // trozo valido; faltan sus hermanos
             delete groups[id];
             var largo = grupo.piezas.reduce(function (a, p) { return a + p.length; }, 0);
             var unido = new Uint8Array(largo), cursor = 0;
             grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
-            tag = original; payload = unido;
+            tag = original; payload = unido; receipts = grupo.receipts;
           }
           if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
-          if (tag === 0) {
+          if (tag === 0 || (source === "peer" && tag === 6)) {
             var beforeRevision = API._catalogoRevision;
             var antesSV = source === "live" ? Y.encodeStateVector(doc) : null;
             var antesClave = antesSV ? clavePendientes() : null;
@@ -960,16 +1042,21 @@
               // A duplicate/no-op update cannot borrow an unrelated successful render.
               appliedUpdate(payload, receipt);
             } catch (_) {} // measurement cannot reject an otherwise valid recovery page
+            if (source === "peer") {
+              if (tag === 6) snapshotPeerRecibido = true;
+              unirRecibosPeer(pendientesPeer, receipts);
+              return confirmarRecepcionPeer();
+            }
           }
           else if (tag === 1) { // peer hello: no diff from an unhydrated partial Y.Doc
             return _pullCursorReady.then(function () {
-              try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+              try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
               try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
               return true;
             });
           } else if (tag === 2) { // reply with diff only after the local journal is loaded
             return _pullCursorReady.then(function () {
-              try { enviar(0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+              try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
               return true;
             });
           }
@@ -979,13 +1066,19 @@
       ws.onmessage = function (ev) {
         if (!API.clave || canal.ws !== ws) return;
         var d = ev.data, source = ev.relaySource;
+        if (source === "peer-ack") {
+          _colaRecepcion = _colaRecepcion.then(function () {
+            return d instanceof ArrayBuffer ? aceptarPruebaPeer(d, ev.peerAck) : false;
+          }).catch(function () { return false; });
+          return;
+        }
         // ROBUSTEZ (JFC 2026-09-10, world-class): normalmente con binaryType
         // "arraybuffer" llega un ArrayBuffer, pero algunos navegadores/proxies
         // entregan un Blob aunque se pida ArrayBuffer. Se aceptan AMBOS. Los
         // frames se encadenan: el cursor de una pagina se confirma DESPUES de
         // aplicar todos sus binarios, nunca antes.
         if (d instanceof ArrayBuffer) {
-          _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source); }).then(function (ok) {
+          _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source, ev.peerReceipt); }).then(function (ok) {
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
@@ -999,7 +1092,7 @@
           });
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
-          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source); }).then(function (ok) {
+          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source, ev.peerReceipt); }).then(function (ok) {
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
@@ -1015,11 +1108,18 @@
           try {
             var c = JSON.parse(d);
             if (c && c.k === "peer-count") { _relayPeerCount = Math.max(0, Number(c.n) || 0); }
+            else if (c && c.k === "peer-ready" && ws.peerOnly) {
+              _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
+                if (canal.ws === ws && ws.readyState === 1 && !_pausado && permitido()) enviar(1, Y.encodeStateVector(doc));
+              }).catch(function () {});
+            }
             else if (c && c.k === "persist-result") {
+              if (ws.peerOnly && ev.peerAccepted !== true) return;
               if (canal.ws === ws) confirmarDurable(c);
             }
-            else if (c && c.k === "head-result") { procesarHead(ws, pullEstado, c); }
+            else if (c && c.k === "head-result") { if (!ws.peerOnly) procesarHead(ws, pullEstado, c); }
             else if (c && c.k === "pull-page") {
+              if (ws.peerOnly) return;
               _colaRecepcion = _colaRecepcion.then(function () {
                 if (canal.ws !== ws) return;
                 if (pullEstado.fallos) {
@@ -1935,8 +2035,20 @@
 
     // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge
     // add-only probado. Síncrono: aplicarCatalogo no es async.
-    var ultimaAplicacionVisible = Promise.resolve(false);
+    var ultimaAplicacionVisible = Promise.resolve(false), ultimaAplicacionAceptada = false;
+    var ultimaAplicacionPins = Promise.resolve(false), aplicacionActual = 0;
     API._catalogoRevision = 0;
+    API.confirmarCatalogoDurable = function () {
+      if (_tAplica) { clearTimeout(_tAplica); _tAplica = null; aplicar(); }
+      if (!ultimaAplicacionAceptada || !window.OCSync || typeof window.OCSync.confirmarCatalogoDurable !== "function") return Promise.resolve(false);
+      var actual = aplicacionActual;
+      return ultimaAplicacionPins.then(function (ok) {
+        if (ok !== true || actual !== aplicacionActual || !ultimaAplicacionAceptada) return false;
+        return Promise.resolve(window.OCSync.confirmarCatalogoDurable()).then(function (guardado) {
+          return guardado === true && actual === aplicacionActual && !_tAplica;
+        });
+      }).catch(function () { return false; });
+    };
     API.confirmarCatalogoVisible = function () {
       if (_tAplica) { clearTimeout(_tAplica); _tAplica = null; aplicar(); }
       var receipt = ultimaAplicacionVisible, revision = API._catalogoRevision;
@@ -1948,16 +2060,19 @@
     };
     function aplicar() {
       if (_aplicando) return;
+      aplicacionActual++;
+      ultimaAplicacionAceptada = false;
+      ultimaAplicacionPins = Promise.resolve(false);
       ultimaAplicacionVisible = Promise.resolve(false);
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
-      var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando && !API.canal.peerSnapshot ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
       var hay = false;
       COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
       // aplicarse aunque no haya entidades — antes se descartaba y el nombre nunca
       // llegaba a un aparato que recibió primero el _meta.
-      if (!hay && !remoto.nombreNegocio && !remoto.pinsRol) return;
+      if (!hay && !remoto.nombreNegocio && !remoto.pinsRol) { ultimaAplicacionAceptada = true; ultimaAplicacionPins = Promise.resolve(true); return; }
       // rolRemoto="dueno" si el nombre lo puso un dueño (A1): así aplicarCatalogo
       // adopta el nombre del negocio aunque el local ya tenga otro. Para el resto
       // de reglas (nombre/precio de ítems) esto solo habilita que el nombre del
@@ -1966,6 +2081,8 @@
       _aplicando = true;
       try {
         var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only real Yjs bridge grants canonical name
+        ultimaAplicacionAceptada = !!(r && r.ok);
+        ultimaAplicacionPins = Promise.resolve(r && r.pinsConfirmados).then(function (ok) { return ok === true; }, function () { return false; });
         // A2/A3 (JFC 2026-09-10): si el merge sumó algo, avisar a la UI para que
         // (a) lo muestre como alerta dentro de "Today's alerts", no como banner
         // suelto, y (b) re-pinte la vista Hoy (si no, el hero se queda en

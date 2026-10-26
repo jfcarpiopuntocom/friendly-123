@@ -4235,7 +4235,7 @@
        sincroniza (el producto ya tiene fotoHash), se intenta poner p.foto desde el
        blob ya guardado en OCFotos. */
     try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
-    return { ok: true, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo() };
+    return { ok: true, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo(), pinsConfirmados: Promise.all(promesasPins).then(resultados => resultados.every(ok => ok === true), () => false) };
   }
 
   /* ===================================================================
@@ -4474,6 +4474,13 @@
     },
     /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
        DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
+    async confirmarCatalogoDurable() {
+      if (_ventaPendiente) await _ventaPendiente;
+      if (_payoutPendiente) await _payoutPendiente;
+      if (_retencionPendiente) await _retencionPendiente;
+      if (_ventaConfirmando || _payoutConfirmando || _retencionConfirmando) return false;
+      try { return (await guardarEstadoLocal(true, true)) === true; } catch (_) { return false; }
+    },
     async catalogoConfirmado() {
       while (_ventaPendiente) await _ventaPendiente;
       return this.catalogoPropio();
