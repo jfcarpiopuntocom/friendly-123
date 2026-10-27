@@ -3,9 +3,13 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const {webcrypto}=require('node:crypto');
 const src=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 const seed=src.slice(src.indexOf('  var _fotosSembradas ='),src.indexOf('  // OCFotos local -> Yjs(fotos).'));
-const tick=()=>new Promise(r=>setTimeout(r,15));
-test('photo seed stays byte-identical across reloads and retains orphan evidence',async()=>{
- const ctx={crypto:webcrypto,TextEncoder,Uint8Array,ArrayBuffer,console};vm.createContext(ctx);
+const tick=()=>new Promise(r=>setTimeout(r,5));
+for(const digestDelay of [0,75])test('photo seed stays byte-identical across reloads and retains orphan evidence (digest delay '+digestDelay+'ms)',async()=>{
+ const crypto={getRandomValues:array=>webcrypto.getRandomValues(array),subtle:{digest:async(...args)=>{
+  if(digestDelay)await new Promise(r=>setTimeout(r,digestDelay));
+  return webcrypto.subtle.digest(...args);
+ }}};
+ const ctx={crypto,TextEncoder,Uint8Array,ArrayBuffer,console};vm.createContext(ctx);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
  const Y=ctx.Y, doc=new Y.Doc(), outgoing=[];
  const blobs={'synthetic-photo':'data:image/png;base64,AQID','synthetic-orphan':'data:image/png;base64,BAUG'};
@@ -13,7 +17,14 @@ test('photo seed stays byte-identical across reloads and retains orphan evidence
  ctx.window={Y,OCFotos:{leerTodosPorHash:async()=>blobs,leerPorHash:async h=>blobs[h]},
   OCSync:{catalogoPropio:()=>({productos:[{fotoHash:'synthetic-photo'}]})}};
  doc.on('update',u=>outgoing.push(u));
- const run=async()=>{vm.runInContext(seed+'\nsembrarFotosAlRelay();',ctx);await tick();await tick();};
+ const run=async()=>{
+  vm.runInContext(seed+'\nsembrarFotosAlRelay();',ctx);
+  // Hashing finishes independently; wait for every per-run seed, not an elapsed guess.
+  const complete=()=>Object.keys(blobs).every(hash=>ctx._fotosSembradas[hash]);
+  const deadline=Date.now()+2000;
+  while(!complete()&&Date.now()<deadline)await tick();
+  assert.ok(complete(),'every referenced and orphan photo seed finishes before checking its bytes');
+ };
  await run();assert.equal(outgoing.length,2);const initialBytes=Y.encodeStateAsUpdate(doc).length;
  await run();assert.equal(outgoing.length,2,'reload must not create fresh Yjs photo operations');
  assert.equal(Y.encodeStateAsUpdate(doc).length,initialBytes);
