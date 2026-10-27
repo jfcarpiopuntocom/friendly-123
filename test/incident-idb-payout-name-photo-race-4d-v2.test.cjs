@@ -216,10 +216,17 @@ test('IDB erase settles canceled batch and stays ordered with later writes', asy
   const f = fixture();
   assert.equal(await f.ctx.save(), true);
   f.ctx.photo = 'canceled-batch';
-  const pending = f.ctx.save();
+  // v595: since v587 guardarEstadoLocal always mirrors with exigirCompleto=true (immediate write),
+  // so the batched path is reachable only through the module API. Exercise that same batch here;
+  // the ordering half below still goes through the real guardarEstadoLocal.
+  // The first batched write of a burst goes straight to disk (it opened the burst before v587 too);
+  // the next one inside the burst is the deferred write that borrar() must cancel.
+  const opened = f.ctx.window.OCEstadoIDB.guardar(f.ctx.estadoActualExportable(), false);
+  const pending = f.ctx.window.OCEstadoIDB.guardar(f.ctx.estadoActualExportable(), false);
   const erased = f.ctx.window.OCEstadoIDB.borrar();
   assert.equal(await pending, false);
   assert.equal(await erased, true);
+  assert.equal(await opened, true);
   assert.equal(await f.reopen(), null);
   const eraseAgain = f.ctx.window.OCEstadoIDB.borrar();
   f.ctx.photo = 'new-state-after-erase';
