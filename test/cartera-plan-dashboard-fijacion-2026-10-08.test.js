@@ -12,7 +12,7 @@ const { chromium } = require('playwright');
 const { browser } = require('./helpers/browser.cjs');
 
 const docs = path.join(__dirname, '..', 'docs');
-const read = f => fs.readFileSync(path.join(docs, f), 'utf8');
+const read = f => require('./helpers/page-source.cjs').readFileSync(path.join(docs, f), 'utf8');
 const carteraSrc = read('cartera.js');
 const planSrc = read('plan-pagos.js');
 const indexSrc = read('index.html');

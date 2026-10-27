@@ -7,7 +7,7 @@ const path = require('node:path');
 const docs = (f) => fs.readFileSync(path.join(__dirname, '../docs', f));
 for (const pagina of ['index.html', 'dashboard.html']) {
   test(`${pagina}: letras locales, sin Google y sin cambio a mitad`, () => {
-    const src = docs(pagina).toString('utf8');
+    const src = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs', pagina), 'utf8');
     assert.doesNotMatch(src, /fonts\.googleapis\.com\/css/);
     const caras = src.match(/@font-face\{[^}]*\}/g) || [];
     assert.ok(caras.length >= 3);

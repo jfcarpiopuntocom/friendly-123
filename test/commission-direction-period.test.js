@@ -40,7 +40,7 @@ test('associate-collected contractual receivable retains included tax while prof
 
 test('dashboard direction summary displays signed refund accrual instead of dropping the returned sale', () => {
   const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
-  const html = fs.readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
   const source = html.slice(html.indexOf('  function flechaComisionesMesHtml(result) {'), html.indexOf('  function pintarFinanzasFoto() {'));
   const month = R.day(new Date().toISOString(), 'America/Guayaquil').slice(0, 7);
   const data = { ventas: [sale('a', 'casaPaga', { devuelta: true, fecha: '2025-01-10', fechaDevolucion: month + '-10', comisionPct: 40, comisionAsociado: 40, netoCasa: 60 })], ajustesComision: [], cobertura: { ventas: true, ajustesComision: true, finanzasCoherentes: true } };

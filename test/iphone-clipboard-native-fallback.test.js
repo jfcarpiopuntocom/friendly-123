@@ -9,7 +9,9 @@ const path = require("node:path");
 // No app launch, no network, no real license, no user storage.
 for (const file of ["auth-ui.js", "dashboard.html"]) {
   test(file + ": empty iOS clipboardData leaves native paste available", () => {
-    const text = fs.readFileSync(path.join(__dirname, "../docs", file), "utf8");
+    const text = file === "dashboard.html"
+      ? require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, "../docs", file), "utf8")
+      : fs.readFileSync(path.join(__dirname, "../docs", file), "utf8");
     const begin = text.indexOf('inp.addEventListener("paste", function (e) {');
     const end = text.indexOf('inp.addEventListener("focus", function () {', begin);
     assert.ok(begin > 0 && end > begin, "paste and focus handlers must be located in the real source");

@@ -2076,12 +2076,10 @@ async function poblarSelectClientesVentaAbierta() {
 window.OCReactivo = (function () {
   function bus() { try { return (window.AMG && window.AMG.EventBus) || null; } catch (_) { return null; } }
   function on(tipo, fn) {
-    // Este bloque inline corre ANTES de <script src="event-bus.js">. Registrar
-    // ahora perdía el listener para siempre: el túnel de UI parecía existir,
-    // pero emitir() no tenía consumidores. DOMContentLoaded ocurre después de
-    // cargar los scripts síncronos y conserva una sola suscripción por tipo.
+    // Deferred app scripts can run while interactive, before the deferred bus.
+    // DOMContentLoaded follows both scripts and keeps one subscription per topic.
     const registrar = () => { try { const b = bus(); if (b) b.on("oc:datos:" + tipo, fn); } catch (_) {} };
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", registrar, { once: true });
+    if (document.readyState === "loading" || (!bus() && document.readyState === "interactive")) document.addEventListener("DOMContentLoaded", registrar, { once: true });
     else registrar();
   }
   on("comisionistas", function () {

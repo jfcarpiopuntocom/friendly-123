@@ -185,7 +185,8 @@
         return true;
       }
       async receive(peer, raw) {
-        if (typeof raw !== 'string' || raw.length > CHUNK + 256) return;
+        // JSON wrapping may escape each data character; validate decoded size separately below.
+        if (typeof raw !== 'string' || raw.length > CHUNK * 6 + 256) return;
         let piece; try { piece = JSON.parse(raw); } catch (_) { return; }
         if (piece.v !== 1 || !ID.test(piece.id) || !Number.isSafeInteger(piece.i) || !Number.isSafeInteger(piece.count) || piece.count < 1 || piece.count > 34 || piece.i < 0 || piece.i >= piece.count || typeof piece.data !== 'string' || piece.data.length > CHUNK) return;
         const now = Date.now(); for (const [id, group] of peer.groups) if (now - group.time > 120000) peer.groups.delete(id);

@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..', 'docs');
-const index = fs.readFileSync(process.env.F123_INDEX_TEST_SOURCE || path.join(root, 'index.html'), 'utf8');
+const index = require('./helpers/page-source.cjs').readFileSync(process.env.F123_INDEX_TEST_SOURCE || path.join(root, 'index.html'), 'utf8');
 const cartera = fs.readFileSync(process.env.F123_CARTERA_TEST_SOURCE || path.join(root, 'cartera.js'), 'utf8');
 
 test('fictional on-account sales and manual debt explain the net balance without changing facts', async () => {

@@ -1,10 +1,10 @@
 {
-  "version": "shell v591",
+  "version": "shell v592",
   "fecha": "2026-10-27",
-  "changelog": "v591: durable contact edits and bounded local recovery of interrupted financial imports, preserving original facts and storage error causes.",
+  "changelog": "v592: preserve reactive UI subscriptions during deferred startup and accept valid escaped direct-sync fragments within bounded validation.",
   "requerida": false,
-  "shell": "f123-shell-v591",
+  "shell": "f123-shell-v592",
   "apagar": [],
-  "releaseName": "shell v591",
-  "cacheGeneration": "golden137"
+  "releaseName": "shell v592",
+  "cacheGeneration": "golden138"
 }

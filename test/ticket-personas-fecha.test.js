@@ -55,7 +55,7 @@ test('2. the event date is set when creating the ticket; the sale needs no date 
 
 test('3. the new-product and edit forms carry the event date for tickets', async () => {
   const fs = require('node:fs');
-  const html = fs.readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
   assert.equal((html.match(/id="np-fecha-evento"/g) || []).length, 2, 'both new-product forms');
   assert.match(html, /id="ed-fecha-evento"/);
 });
