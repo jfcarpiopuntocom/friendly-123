@@ -40,17 +40,31 @@
   var dbPromise = null;
   function abrirDB() {
     if (dbPromise) return dbPromise;
-    dbPromise = new Promise(function (resolve, reject) {
-      var req = indexedDB.open(DB_NAME, 1);
+    var req;
+    try { req = indexedDB.open(DB_NAME, 1); } catch (err) { return Promise.reject(err); }
+    var promise, settled = false;
+    promise = new Promise(function (resolve, reject) {
+      function fail(err) {
+        if (settled) return;
+        settled = true;
+        if (dbPromise === promise) dbPromise = null;
+        reject(err);
+      }
       req.onupgradeneeded = function () {
         if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
       };
-      req.onsuccess = function () { resolve(req.result); };
-      req.onerror = function () { reject(req.error); };
-      req.onblocked = function () { reject(new Error("IndexedDB bloqueado")); };
+      req.onsuccess = function () {
+        var db = req.result;
+        if (settled) { db.close(); return; }
+        settled = true;
+        db.onversionchange = function () { db.close(); if (dbPromise === promise) dbPromise = null; };
+        resolve(db);
+      };
+      req.onerror = function () { fail(req.error); };
+      req.onblocked = function () { fail(new Error("IndexedDB bloqueado")); };
     });
-    dbPromise = dbPromise.catch(function (err) { dbPromise = null; throw err; });
-    return dbPromise;
+    dbPromise = promise;
+    return promise;
   }
 
   /* ESCRITURAS AGRUPADAS (caza de bugs 2026-08-18). El espejo se dispara en

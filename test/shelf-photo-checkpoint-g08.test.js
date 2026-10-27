@@ -53,15 +53,17 @@ test('G08: checksummed local checkpoint restores exact shelf hash and normal She
       window.__puts = [];
       window.__savedById = {};
       window.__shelf = { id:'shelf-1', nombre:'Front shelf', tipo:'socio', activa:true, fotoHash:null };
+      window.OCTienda = { cuadernoId: () => 'F123-PHOTO-FIXTURE' };
 
       const contenido = JSON.stringify({
         fecha:'2026-10-01T12:00:00.000Z',
         datos:{
+          _recuperacion:{ namespace:'', notebookId:'F123-PHOTO-FIXTURE', completo:true, confirmado:true },
           ubicaciones:[{ id:'shelf-1', nombre:'Front shelf', tipo:'socio', activa:true, fotoHash:'hash-shelf-old' }],
           productos:[{ id:'p-real', nombre:'Product', fotoHash:'hash-product' }]
         }
       });
-      localStorage.setItem('f123_caja_snapshots', JSON.stringify([
+      localStorage.setItem('f123_caja_snapshots::' + encodeURIComponent(JSON.stringify(['', 'F123-PHOTO-FIXTURE'])), JSON.stringify([
         { fecha:'2026-10-01T12:00:00.000Z', contenido, checksum:'checksum-ok' }
       ]));
 
@@ -143,14 +145,16 @@ test('G08: product-only photo evidence cannot become a shelf photo', async () =>
       const productPhoto='data:image/png;base64,UFJPRFVDVC1PTkxZ';
       window.__puts=[];
       window.__shelf={id:'shelf-no-photo',nombre:'No photo shelf',tipo:'socio',activa:true,fotoHash:null};
+      window.OCTienda = { cuadernoId: () => 'F123-PHOTO-FIXTURE' };
       const contenido=JSON.stringify({
         fecha:'2026-10-01T12:00:00.000Z',
         datos:{
+          _recuperacion:{ namespace:'', notebookId:'F123-PHOTO-FIXTURE', completo:true, confirmado:true },
           ubicaciones:[{id:'shelf-no-photo',nombre:'No photo shelf',tipo:'socio',activa:true,fotoHash:null}],
           productos:[{id:'p1',nombre:'Product',fotoHash:'hash-product-only'}]
         }
       });
-      localStorage.setItem('f123_caja_snapshots',JSON.stringify([
+      localStorage.setItem('f123_caja_snapshots::' + encodeURIComponent(JSON.stringify(['', 'F123-PHOTO-FIXTURE'])),JSON.stringify([
         {fecha:'2026-10-01T12:00:00.000Z',contenido,checksum:'ok'}
       ]));
       window.OCSecure={hashTexto:async()=> 'ok'};

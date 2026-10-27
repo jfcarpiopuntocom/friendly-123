@@ -352,8 +352,22 @@
       _historialFotosCheckpointsPromise = (async () => {
         const out = {};
         let lista = [];
-        try { lista = JSON.parse(localStorage.getItem('f123_caja_snapshots') || '[]'); } catch (_) { lista = []; }
-        if (!Array.isArray(lista) || !lista.length) return out;
+        let origen, legado = [];
+        try {
+          // v597: identidad = [namespace, notebookId(instanceId)]; misma clave que cajaClave() en avanzado-extra.js.
+          const notebookId = window.OCTienda && window.OCTienda.cuadernoId && String(window.OCTienda.cuadernoId() || '').trim();
+          if (!notebookId) return out;
+          origen = { namespace: localStorage.getItem('f123_tienda_activa') || '', notebookId };
+          const clave = 'f123_caja_snapshots::' + encodeURIComponent(JSON.stringify([origen.namespace, origen.notebookId]));
+          lista = JSON.parse(localStorage.getItem(clave) || '[]');
+        } catch (_) { lista = []; }
+        // G08 v597: la clave global antigua puede traer fotos de perchas de puntos viejos. Se leen, pero
+        // cada punto solo entra si su datos.instanceId es EXACTAMENTE este cuaderno (ver abajo).
+        try { legado = JSON.parse(localStorage.getItem('f123_caja_snapshots') || '[]'); } catch (_) { legado = []; }
+        if (!Array.isArray(lista)) lista = [];
+        if (!Array.isArray(legado)) legado = [];
+        if (!origen || (!lista.length && !legado.length)) return out;
+        lista = legado.map((p) => (p && typeof p === 'object') ? Object.assign({}, p, { __legado: true }) : p).concat(lista);
 
         /* G08: los checkpoints locales son evidencia EXACTA de catalogo.
            Solo se aceptan snapshots cuyo checksum siga valido; y SOLO se leen
@@ -371,6 +385,13 @@
 
           let paquete = null;
           try { paquete = JSON.parse(p.contenido); } catch (_) { paquete = null; }
+          const r = paquete && paquete.datos && paquete.datos._recuperacion;
+          // An exact shelf ID can exist in another notebook; checksum is not identity.
+          if (p.__legado) {
+            // Punto legado: solo por instanceId exacto (nunca por nombreNegocio); sin instanceId se ignora.
+            const iid = paquete && paquete.datos && paquete.datos.instanceId;
+            if (typeof iid !== 'string' || !iid || iid !== origen.notebookId) continue;
+          } else if (!r || r.confirmado !== true || r.completo !== true || r.namespace !== origen.namespace || r.notebookId !== origen.notebookId) continue;
           const ubicaciones = paquete && paquete.datos && Array.isArray(paquete.datos.ubicaciones)
             ? paquete.datos.ubicaciones : [];
           ubicaciones.forEach((u) => {

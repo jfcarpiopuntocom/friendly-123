@@ -3963,9 +3963,17 @@
           local.fechaDevolucion = (retorno && retorno.fecha) || fechaRetornoLocal || v.fechaDevolucion || null;
           if (pagadaLocal && splitLocal) local.split = splitLocal;
           else if (pagadaRemota && splitRemoto) local.split = splitRemoto;
-          if (local.liquidada && local.split && (local.anulada || local.devuelta)) {
+          /* v597 (clawback doble): una venta ANULADA/cancelada que ya estaba pagada la descuenta
+             el libro de pagos (payout-ledger.js, fila "void" = lo realmente pagado, ver
+             test/payout-anulada-retencion-2026-10-07.test.js). Fabricar ademas un aj-dev hacia
+             que el mismo pago se descontara dos veces (-40 habiendo cobrado 20). El aj-dev
+             queda SOLO para la venta devuelta (no anulada). */
+          if (local.liquidada && local.split && local.devuelta && !local.anulada) {
             const idAj = "aj-dev-" + String(local.id);
-            const yaHay = ajustesComision.some((a) => a && (String(a.id) === idAj || String(a.ventaId) === String(local.id)));
+            /* v597: yaHay solo cuenta una DEVOLUCION de esta venta. Antes cualquier ajuste con su
+               ventaId (p.ej. el adj-retro del recalculo retroactivo) daba el clawback por hecho
+               y la venta pagada y devuelta en otro aparato no descontaba nada. */
+            const yaHay = ajustesComision.some((a) => a && (String(a.id) === idAj || (a.tipo === "devolucion" && String(a.ventaId) === String(local.id))));
             if (!yaHay) {
               const sp = local.split;
               ajustesComision.push({
@@ -4430,6 +4438,9 @@
   }
   window.OCTienda = {
     licenciaActual: _licenciaActual,
+    /* v597: identidad ESTABLE del cuaderno activo (instanceId). A diferencia de la licencia,
+       no cambia al rotar el codigo de sala; la usa la caja de puntos de recuperacion. */
+    cuadernoId() { try { return String(instanceId || ""); } catch (_) { return ""; } },
     /* ¿La tienda activa es una UNIDA (sufijo con licencia) o la propia (sufijo "")?
        Lo usa la pantalla de PIN para rotular a QUÉ tienda estás entrando sin
        tocar el camino de la tienda propia (cliente en vivo). (JFC 2026-08-26) */
@@ -6329,7 +6340,12 @@
         p.stockActual += venta.cantidad;
         venta.anulada = true; venta.rev = _revNueva();
         mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) });
-        emitirOpStock("anulacion", { productoId: p.id, delta: venta.cantidad });
+        /* v597: id determinista por venta (el mismo que usa la devolucion): dos aparatos que
+           anulan/cancelan/devuelven la misma venta suman la reposicion UNA sola vez en el
+           contador PN (maximo por id), no una por aparato. */
+        const _opAnular = { productoId: p.id, delta: venta.cantidad };
+        _prepararOpStock(_opAnular, "aj-dev-" + venta.id);
+        emitirOpStock("anulacion", _opAnular, true);
         return J({ producto: ficha(p) });
       }
       /* CANCELAR EX-POST (JFC 2026-09-02): "sobre todo en Sales/Sold debe haber
@@ -6426,7 +6442,10 @@
         p.stockActual += venta.cantidad;
         venta.anulada = true; venta.canceladaExPostEn = new Date().toISOString(); venta.rev = _revNueva();
         mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "(sin motivo)", ventaId: venta.id, fechaVenta: venta.fecha });
-        emitirOpStock("cancelacion-ex-post", { productoId: p.id, delta: venta.cantidad });
+        /* v597: igual que /anular: id determinista por venta, la reposicion cuenta una sola vez entre aparatos. */
+        const _opCancelar = { productoId: p.id, delta: venta.cantidad };
+        _prepararOpStock(_opCancelar, "aj-dev-" + venta.id);
+        emitirOpStock("cancelacion-ex-post", _opCancelar, true);
         return J({ producto: ficha(p), ok: true });
       }
       /* v418: la anulacion es monotona en sync: desmarcarla reviviria o perderia
@@ -6838,6 +6857,19 @@
          arma con esto y sigue funcionando. Importar (reemplaza TODO el cuaderno): solo dueno. */
       if (path === "/api/respaldo/exportar") {
         const _rolExp = _rolLocal();
+        /* v597: PUNTO DE RECUPERACION (caja local de Advanced, cajaGuardarPunto). Solo con
+           ?confirmado=1&completo=1: (a) solo el rol que ya recibe el respaldo completo
+           (dueno/contador/demo o sin sesion), si no 403 sin datos; (b) solo si el estado en
+           memoria es el confirmado en disco (_estadoPuedePublicarse), si no 409 sin datos;
+           (c) agrega _recuperacion con la identidad del cuaderno: namespace (el mismo que lee
+           el cliente) + notebookId (instanceId, estable al rotar la licencia). licenseCode es
+           solo informativo. SIN la query la ruta responde exactamente como antes. */
+        if (q.get("confirmado") === "1" && q.get("completo") === "1") {
+          if (_rolExp && _rolExp !== "dueno" && _rolExp !== "demo" && _rolExp !== "contador") return J({ error: "Only the owner can take a full recovery checkpoint." }, 403);
+          if (!_estadoPuedePublicarse()) return J({ error: "The notebook is not saved yet. Try again in a moment." }, 409);
+          let _ns = ""; try { _ns = localStorage.getItem("f123_tienda_activa") || ""; } catch (_) {}
+          return J(Object.assign(estadoActualExportable(), { _recuperacion: { confirmado: true, completo: true, namespace: _ns, notebookId: String(instanceId || ""), licenseCode: _licenciaActual() } }));
+        }
         if (!_rolExp || _rolExp === "dueno" || _rolExp === "demo" || _rolExp === "contador") return J(estadoActualExportable()); // sin sesion = uso interno; demo = muestra; contador = rol de solo lectura que necesita costos (no importa)
         const _c = estadoActualExportable();
         const _toma = (o, ks) => ks.reduce((r, k) => { if (o && o[k] !== undefined) r[k] = o[k]; return r; }, {});

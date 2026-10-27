@@ -63,9 +63,28 @@ test('item 2: vender la pieza unica en un aparato pone 0 solo ahi; ajustar 0 a 1
     console.error('P0 synthetic stock convergence diagnostic:',JSON.stringify(detalle));
   }
   assert.deepEqual(stockEnB, ['Otro:5:9', 'ceramic con puntitos:0:30'], 'solo la pieza vendida queda en 0');
-  await api(A, '/api/productos/' + cer.id + '/ajustar', 'POST', { delta: 1, motivo: 'correccion' });
+  const ajuste = await A.page.evaluate(async id => {
+    const r = await fetch('/api/productos/' + id + '/ajustar', { method: 'POST', body: JSON.stringify({ delta: 1, motivo: 'correccion' }) });
+    return { status: r.status, body: await r.json() };
+  }, cer.id);
+  assert.ok(ajuste.status >= 200 && ajuste.status < 300, 'el ajuste debe ser aceptado: ' + JSON.stringify(ajuste));
+  assert.equal(ajuste.body.stockActual, 1, 'la respuesta del ajuste confirma stock local 1');
+  assert.ok((await stocks(A)).includes('ceramic con puntitos:1:30'), 'el aparato que ajusto conserva stock 1');
   await pump(A, B);
-  assert.ok((await stocks(B)).includes('ceramic con puntitos:1:30'));
+  const stockAjustadoB = await stocks(B);
+  if (!stockAjustadoB.includes('ceramic con puntitos:1:30')) {
+    const detalle = await Promise.all([A, B].map(d => d.page.evaluate(async id => {
+      const pick = p => p && { id: p.id, stockActual: p.stockActual, stockBase: p.stockBase, stockPN: p.stockPN, stockTs: p.stockTs, rev: p.rev };
+      const productos = await (await fetch('/api/productos')).json();
+      const catalogo = window.OCSync && OCSync.catalogoPropio();
+      const crdt = window.OCYjs && OCYjs.getProductos ? OCYjs.getProductos() : {};
+      return { localApi: pick(productos.find(p => p.id === id)), catalogoPublicable: !!catalogo,
+        localCatalogo: pick((catalogo && catalogo.productos || []).find(p => p.id === id)), crdt: pick(crdt[id]),
+        vector: Array.from(Y.encodeStateVector(OCYjs.doc)), __out: (window.__out || []).length, __aplicarErr: window.__aplicarErr || null };
+    }, cer.id)));
+    console.error('P0 synthetic stock adjustment diagnostic:', JSON.stringify({ ajuste, devices: detalle }));
+  }
+  assert.ok(stockAjustadoB.includes('ceramic con puntitos:1:30'), 'el aparato remoto conserva el ajuste de 0 a 1 tras el mismo pump');
   await B.page.evaluate(() => OCYjs._store.sembrar()); await pump(A, B);
   assert.deepEqual(await stocks(A), await stocks(B));
   assert.ok((await stocks(A)).includes('ceramic con puntitos:1:30'), 'un reseed del otro aparato no revierte 1 a 0');

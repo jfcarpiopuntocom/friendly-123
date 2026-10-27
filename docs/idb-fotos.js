@@ -36,19 +36,33 @@
 
   function abrirDB() {
     if (dbPromise) return dbPromise;
-    dbPromise = new Promise((resolve, reject) => {
-      // v2: agrega el store "blobs" sin tocar "perchas" (nada se pierde).
-      const req = indexedDB.open(DB_NAME, 2);
+    let req;
+    try { req = indexedDB.open(DB_NAME, 2); } catch (err) { return Promise.reject(err); }
+    let promise, settled = false;
+    promise = new Promise((resolve, reject) => {
+      const fail = err => {
+        if (settled) return;
+        settled = true;
+        if (dbPromise === promise) dbPromise = null;
+        reject(err);
+      };
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
         if (!db.objectStoreNames.contains(STORE_BLOBS)) db.createObjectStore(STORE_BLOBS);
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)"));
+      req.onsuccess = () => {
+        const db = req.result;
+        if (settled) { db.close(); return; }
+        settled = true;
+        db.onversionchange = () => { db.close(); if (dbPromise === promise) dbPromise = null; };
+        resolve(db);
+      };
+      req.onerror = () => fail(req.error);
+      req.onblocked = () => fail(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)"));
     });
-    return dbPromise;
+    dbPromise = promise;
+    return promise;
   }
 
   // --- Direccionamiento por contenido (SHA-256) ---
@@ -75,7 +89,7 @@
       await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readwrite");
         tx.objectStore(STORE_BLOBS).put(dataUrl, hash); // put idempotente = dedup
-        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error("abortada"));
       });
       return true;
     } catch (err) { console.error("[idb-fotos] guardarPorHash:", err); return false; }
@@ -214,6 +228,7 @@
         tx.objectStore(STORE).put(dataUrl, id);
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error || new Error("abortada"));
       });
       return true;
     } catch (err) {

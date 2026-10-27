@@ -3039,38 +3039,83 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
     const CAJA_INTERVALO_MS = 30 * 60 * 1000; // cada 30 min mientras la pestaña esté abierta
     const CAJA_ALERTA_DIAS = 7; // avisa si el ÚLTIMO RESPALDO MANUAL tiene más de esto
 
-    function cajaLeer() {
-      try { return JSON.parse(localStorage.getItem("f123_caja_snapshots") || "[]"); } catch { return []; }
+    // v597: la identidad de la caja es [namespace, notebookId(instanceId)], NO la licencia:
+    // rotar el codigo de sala (ocRotarCodigoSala, ocDarLicenciaBuena, micelio/rotar) cambiaba
+    // la clave y escondia los puntos. licenseCode viaja en _recuperacion solo como dato informativo.
+    // Mismo formato de clave en vista-perchas.js (historialFotosCheckpointsExacto): cambiar ambos juntos.
+    function cajaOrigen() {
+      const notebookId = window.OCTienda && window.OCTienda.cuadernoId && String(window.OCTienda.cuadernoId() || "").trim();
+      if (!notebookId) throw new Error("Notebook identity unavailable");
+      return { namespace: localStorage.getItem("f123_tienda_activa") || "", notebookId };
     }
-    function cajaGuardar(lista) {
-      try { localStorage.setItem("f123_caja_snapshots", JSON.stringify(lista.slice(-CAJA_MAX_SNAPSHOTS))); return true; }
+    function cajaClave(origen) { return "f123_caja_snapshots::" + encodeURIComponent(JSON.stringify([origen.namespace, origen.notebookId])); }
+    function cajaMismoOrigen(datos, origen) {
+      const r = datos && datos._recuperacion;
+      return !!(r && r.confirmado === true && r.completo === true && r.namespace === origen.namespace && r.notebookId === origen.notebookId);
+    }
+    function cajaDatosCompletos(datos) {
+      return !!(datos && !datos.error && !datos.parcial && datos.schemaVersion === 3 &&
+        ["productos", "ubicaciones", "ventas", "movimientos", "clientes", "promotoras", "usuarios", "gastos"].every((k) => Array.isArray(datos[k])));
+    }
+    function cajaLeer(origen) {
+      try { const lista = JSON.parse(localStorage.getItem(cajaClave(origen || cajaOrigen())) || "[]"); return Array.isArray(lista) ? lista : []; } catch { return []; }
+    }
+    function cajaGuardar(lista, origen) {
+      // Pin the first accepted point; later rotations cannot erase that independent anchor.
+      const retenidos = lista.length > CAJA_MAX_SNAPSHOTS ? [lista[0], ...lista.slice(-(CAJA_MAX_SNAPSHOTS - 1))] : lista;
+      try { localStorage.setItem(cajaClave(origen), JSON.stringify(retenidos)); return true; }
       catch { return false; } // localStorage lleno: no rompe la app, solo no guarda este punto
     }
     async function cajaGuardarPunto(silencioso) {
       try {
-        const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
+        if (!["dueno", "demo", "contador"].includes(window.OCAuth && window.OCAuth.rolActual())) return;
+        const origen = cajaOrigen();
+        const res = await fetch(`${API}/respaldo/exportar?confirmado=1&completo=1`);
+        if (!res.ok) throw new Error("Checkpoint export rejected");
+        const datos = await res.json();
+        if (!cajaDatosCompletos(datos) || !cajaMismoOrigen(datos, origen)) throw new Error("Incomplete checkpoint");
         const contenido = JSON.stringify({ fecha: new Date().toISOString(), datos });
         const checksum = await window.OCSecure.hashTexto(contenido);
-        const lista = cajaLeer();
+        if (cajaClave(cajaOrigen()) !== cajaClave(origen)) throw new Error("Notebook changed");
+        const lista = cajaLeer(origen);
         lista.push({ fecha: new Date().toISOString(), contenido, checksum });
-        const guardado = cajaGuardar(lista);
+        const guardado = cajaGuardar(lista, origen);
         if (!silencioso) {
           msg("oc-respaldo-msg", guardado ? "Checkpoint saved in this browser." : "Could not save checkpoint (localStorage full? Try exporting a manual backup to free space).", guardado ? "var(--verde)" : "var(--rojo)");
         }
       } catch (_) { if (!silencioso) msg("oc-respaldo-msg", "Could not take a checkpoint.", "var(--rojo)"); }
     }
     async function cajaRestaurar(idx) {
-      const lista = cajaLeer();
+      const origen = cajaOrigen();
+      const lista = cajaLeer(origen);
       const punto = lista[idx];
       if (!punto) return;
       const okChecksum = (await window.OCSecure.hashTexto(punto.contenido)) === punto.checksum;
       if (!okChecksum) { msg("oc-respaldo-msg", "This checkpoint failed the checksum check — may be corrupted. Nothing was restored.", "var(--rojo)"); return; }
-      if (!confirm(`This REPLACES current data with the checkpoint from ${new Date(punto.fecha).toLocaleString()}. Continue?`)) return;
       let paquete; try { paquete = JSON.parse(punto.contenido); } catch { msg("oc-respaldo-msg", "This checkpoint is corrupted.", "var(--rojo)"); return; }
+      if (!cajaDatosCompletos(paquete.datos) || !cajaMismoOrigen(paquete.datos, origen) || cajaClave(cajaOrigen()) !== cajaClave(origen)) {
+        msg("oc-respaldo-msg", "This checkpoint does not identify this notebook. It was preserved; nothing was restored.", "var(--rojo)"); return;
+      }
+      if (!confirm(`This REPLACES current data with the checkpoint from ${new Date(punto.fecha).toLocaleString()}. Continue?`)) return;
+      if (cajaClave(cajaOrigen()) !== cajaClave(origen)) return;
       const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
       if (!res.ok) { const r = await res.json(); msg("oc-respaldo-msg", r.error || "Could not restore.", "var(--rojo)"); return; }
       window.dispatchEvent(new CustomEvent("oc-datos-importados"));
       msg("oc-respaldo-msg", "Restored. Screen now shows data from the chosen checkpoint.", "var(--verde)");
+    }
+    async function cajaDescargarLegado(idx) {
+      try {
+        const lista = JSON.parse(localStorage.getItem("f123_caja_snapshots") || "[]");
+        const punto = lista[idx];
+        if (!punto || typeof punto.contenido !== "string" || (await window.OCSecure.hashTexto(punto.contenido)) !== punto.checksum) throw new Error("Invalid checkpoint");
+        const paquete = JSON.parse(punto.contenido);
+        if (!paquete || !paquete.datos) throw new Error("Invalid checkpoint");
+        const url = URL.createObjectURL(new Blob([punto.contenido], { type: "application/json" }));
+        const a = document.createElement("a"); a.href = url; a.download = "friendly-preserved-checkpoint-" + idx + ".json";
+        // v597: Safari/iOS ignora el click de un <a> fuera del DOM y falla si se revoca el URL de inmediato.
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      } catch (_) { msg("oc-respaldo-msg", "Could not download this checkpoint. Its stored copy was preserved.", "var(--rojo)"); }
     }
     function cajaPintarAlerta() {
       const ultimo = Number(localStorage.getItem("f123_ultimo_export_manual") || 0);
@@ -3137,9 +3182,16 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
               <button data-caja-restaurar="${idxReal}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Restore</button>
             </div>`;
           }).join("")
-        : `<p style="font-size:13px;color:var(--ink-soft);">No checkpoints saved yet.</p>`;
+        : `<p style="font-size:13px;color:var(--ink);">No checkpoints saved for this notebook yet.</p>`;
+      // Legacy points have no trustworthy notebook binding; keep every byte for recovery.
+      let legados = []; try { legados = JSON.parse(localStorage.getItem("f123_caja_snapshots") || "[]"); } catch (_) {}
+      if (Array.isArray(legados) && legados.length) {
+        cont.innerHTML += `<p style="font-size:13px;color:var(--ink);">Earlier checkpoints: notebook identity unknown. Download a point and verify its business before using Import copy.</p>` + legados.map((p, i) =>
+          `<div style="padding:6px 0;font-size:13px;color:var(--ink);"><span>${escHtml(new Date(p.fecha).toLocaleString())}</span> <button type="button" data-caja-descargar="${i}">Download preserved checkpoint</button></div>`).join("");
+      }
       cont.style.display = "block";
       cont.querySelectorAll("[data-caja-restaurar]").forEach((b) => b.addEventListener("click", () => cajaRestaurar(Number(b.dataset.cajaRestaurar))));
+      cont.querySelectorAll("[data-caja-descargar]").forEach((b) => b.addEventListener("click", () => cajaDescargarLegado(Number(b.dataset.cajaDescargar))));
     });
   }
 
