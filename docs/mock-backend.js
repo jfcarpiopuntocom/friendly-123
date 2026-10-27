@@ -1386,6 +1386,32 @@
     try { return _estadoPublicableConfirmado !== null && _huellaPublicable() === _estadoPublicableConfirmado; }
     catch (_) { return false; }
   }
+  /* v599 SYNC "ENVIAR Y GUARDAR A LA VEZ" (JFC 2026-10-27, decision explicita por pregunta de opciones).
+     Antes (v~488..v598) cada cambio esperaba a que la libreta COMPLETA terminara de guardarse en IndexedDB
+     antes de salir al otro aparato: 20 ms con libreta chica, >300 ms con libreta grande, y hasta 2 s si
+     el aviso caia durante una venta (lo recogia la barrida de sync-yjs cada 2 s). Norte de JFC: < 500 ms
+     visible entre aparatos (ideal 150 ms, ver sync-latencia.js SLA_MS).
+     Ahora: mientras un guardado esta EN CURSO se permite enviar; el op igual queda en la bandeja durable
+     de sync-yjs (guardarSobres) en paralelo con el envio, asi que no se pierde.
+     QUE SIGUE BLOQUEADO (NO aflojar sin OK de JFC):
+       - _estadoLecturaBloqueada (estado no leido/bloqueado: jamas publicar).
+       - Si el ULTIMO guardado FALLO y RAM difiere de lo confirmado -> no se publica (igual que antes).
+       - _ventaConfirmando en catalogoPropio(): una venta provisional nunca sale antes de su ACK durable.
+     _estadoPuedePublicarse() queda INTACTA para los demas usos (409 "not saved yet", catalogoConfirmado). */
+  function _estadoPuedeEnviarse() {
+    if (_estadoLecturaBloqueada) return false;
+    // Solo guardados NORMALES salen sin esperar. Un guardado ESTRICTO (venta, pago, devolucion,
+    // retencion: dinero con rollback si falla) sigue esperando su ACK durable: un estado
+    // provisional que luego se revierte NUNCA debe llegar al otro aparato.
+    // Pruebas que lo protegen: commission-partial-balance.test.js (payout/devolucion fallidos).
+    // try: _payoutConfirmando se declara mas abajo (let); si algo llamara esto durante el arranque
+    // sincrono, la duda cae al lado seguro (esperar al guardado, como antes de v599).
+    try {
+      if (_guardadoCatalogoPendiente && !_guardadoEstrictoPendiente && !_ventaConfirmando &&
+          !_payoutConfirmando && !_retencionConfirmando) return true;
+    } catch (_) {}
+    return _estadoPuedePublicarse();
+  }
   let _ventaConfirmando = false, _ventaPendiente = null;
   const _ventaCatalogosPendientes = [];
   let _retencionConfirmando = false, _retencionPendiente = null;
@@ -3124,8 +3150,8 @@
      (alta/edicion/baja de perchas y productos); el STOCK sigue viajando por sus
      propias ops, no por aqui. */
   function avisarCatalogoCambiado() {
-    if (_guardadoCatalogoPendiente) { _guardadoCatalogoPendiente.then(ok => { if (ok === true) avisarCatalogoCambiado(); }); return; }
-    if (!_estadoPuedePublicarse()) return;
+    // v599: sale de inmediato aunque haya un guardado en curso (ver _estadoPuedeEnviarse).
+    if (!_estadoPuedeEnviarse()) return;
     try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
   }
 
@@ -4815,7 +4841,7 @@
     },
     unirActividad: _actividadUnir,
     catalogoPropio() {
-      if (!_estadoPuedePublicarse()) return null;
+      if (!_estadoPuedeEnviarse()) return null; // v599: no espera al guardado en curso
       if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK
       return _catalogoInterno();
     },
