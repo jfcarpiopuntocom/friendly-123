@@ -116,6 +116,7 @@
     var _outbox = { pending: [], checkpoint: "", confirmed: [] }, _durableTimer = null, _durableDelay = 2000;
     // Leave headroom under this socket's 4 MiB cap for new changes and control frames.
     var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
+    var _groupAcks = new Set();
     var _lastRelayProgressAt = 0;
     var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
     // Bounded v1 checkpoint repair across socket reconnects (never per socket).
@@ -288,6 +289,7 @@
             if (!_outbox.pending.some(function (x) { return x.id === entry.id; })) _outbox.pending.push(entry);
           });
           change();
+          _groupAcks.forEach(function (id) { if (!_outbox.pending.some(function (entry) { return entry.id === id; })) _groupAcks.delete(id); });
           return guardarOutbox().then(function () {
             // Preparation continues while IndexedDB commits. Only remove the
             // entries included in this write; later groups still need saving.
@@ -315,14 +317,22 @@
           _durableWatchdog = null;
           if (!canal.ws || canal.ws.readyState !== 1) return;
           Object.keys(_durableInFlight).forEach(function (id) {
-            if (Date.now() - _durableInFlight[id].at >= 10000) delete _durableInFlight[id];
+            if (!_durableInFlight[id] || Date.now() - _durableInFlight[id].at < 10000) return;
+            var entry = _outbox.pending.find(function (item) { return item.id === id; });
+            delete _durableInFlight[id]; _groupAcks.delete(id);
+            // A receiver that lost one sibling ACK needs the complete group again.
+            _outbox.pending.forEach(function (item) {
+              if (item.id === id || (entry && entry.group && item.group === entry.group)) {
+                _groupAcks.delete(item.id); delete _durableInFlight[item.id];
+              }
+            });
           });
           _durableQueue.then(drenarDurable).catch(function () { programarDurable(); });
         }, Math.max(1, oldest + 10000 - Date.now()));
       }
       if (_durableTimer || (!_outbox.pending.length && !_unsaved.length)) return;
       if (canal.ws && canal.ws.readyState === 1 && inFlight.length >= MAX_DURABLE_INFLIGHT) return;
-      if (_outbox.pending.length && _outbox.pending.every(function (entry) { return !!_durableInFlight[entry.id]; })) return;
+      if (_outbox.pending.length && _outbox.pending.every(function (entry) { return _groupAcks.has(entry.id) || !!_durableInFlight[entry.id]; })) return;
       _durableTimer = setTimeout(function () {
         _durableTimer = null;
         _durableDelay = Math.min(60000, _durableDelay * 2);
@@ -374,7 +384,7 @@
       if (canal.pend.length && ws.readyState === 1) programarBufferPump();
     }
     function enviarDurable(entry) {
-      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint;
+      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group;
       var result = enviarConLimite(canal.ws, JSON.stringify(msg));
       if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
       if (result === "blocked") programarBufferPump();
@@ -387,7 +397,7 @@
       // A peer ACKs a complete fragment group; a four-fragment window can deadlock it.
       var capacity = ws.peerOnly ? _outbox.pending.length : Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
       if (!capacity) { programarDurable(); return; }
-      var available = _outbox.pending.filter(function (entry) { return !_durableInFlight[entry.id]; });
+      var available = _outbox.pending.filter(function (entry) { return !_groupAcks.has(entry.id) && !_durableInFlight[entry.id]; });
       if (available.length > capacity) {
         // Reserve one in-flight slot for the newest business change behind a history backlog.
         available = available.slice(0, Math.max(0, capacity - 1)).concat(available[available.length - 1]);
@@ -421,11 +431,19 @@
           if (!Object.keys(_durableInFlight).length) { clearTimeout(_durableWatchdog); _durableWatchdog = null; }
         }
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
+        var beforeRetirement = null;
         return mutarOutbox(function () {
+          beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
           var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
           if (!entry) return;
-          _outbox.pending = _outbox.pending.filter(function (x) { return x !== entry; });
-          if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(entry.fingerprint || entry.id).slice(-2048);
+          var completed = [entry];
+          if (entry.group && result.ok === true) {
+            _groupAcks.add(entry.id);
+            completed = _outbox.pending.filter(function (x) { return x.group === entry.group; });
+            if (!completed.every(function (x) { return _groupAcks.has(x.id); })) return;
+          }
+          _outbox.pending = _outbox.pending.filter(function (x) { return !completed.includes(x); });
+          if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
           if (entry.k === "ckpt" && result.ok === true) _outbox.checkpoint = entry.state;
         }).then(function () {
           avisarDurable();
@@ -435,7 +453,12 @@
           }
           if (!_outbox.pending.length) { clearTimeout(_durableTimer); _durableTimer = null; _durableDelay = 2000; }
           else { clearTimeout(_durableTimer); _durableTimer = null; drenarDurable(); }
-        }).catch(function () { programarDurable(); });
+        }).catch(function () {
+          _groupAcks.clear(); _durableInFlight = Object.create(null);
+          // Keep the known ciphertext even when storage cannot be read after a failed write.
+          if (beforeRetirement) _outbox = beforeRetirement;
+          avisarDurable(); programarDurable();
+        });
       });
     }
     // P0 / 1AAA: a durable cursor may advance past an unresolved Yjs parent
@@ -775,6 +798,7 @@
             } catch (_) { fingerprint = ""; }
             // Content fingerprint stays local; the relay still sees a random id and ciphertext.
             op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
+            if (piezas > 1) op.group = id;
             if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
           }
           var directo = false;
@@ -866,6 +890,7 @@
         if (partesEntrantes[id].tag === 6 && !partesEntrantes[id].receipts.length) delete partesEntrantes[id];
       });
       _currentPullState = pullEstado;
+      _groupAcks.clear();
       ws.binaryType = "arraybuffer"; canal.ws = ws;
       ws.onopen = function () {
         if (_pausado || !permitido() || canal.ws !== ws) {
@@ -1215,6 +1240,7 @@
         clearTimeout(_bufferPumpTimer); _bufferPumpTimer = null;
         clearTimeout(_durableWatchdog); _durableWatchdog = null;
         _durableInFlight = Object.create(null);
+        _groupAcks.clear();
         clearTimeout(_tReplay); _tReplay = null;
         pullEstado.enCurso = false;
         canal.ws = null;

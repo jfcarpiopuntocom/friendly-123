@@ -1,10 +1,10 @@
 {
-  "version": "shell v592",
+  "version": "shell v593",
   "fecha": "2026-10-27",
-  "changelog": "v592: preserve reactive UI subscriptions during deferred startup and accept valid escaped direct-sync fragments within bounded validation.",
+  "changelog": "v593: retain full durable fragment groups until every acknowledgement, preserve deferred UI subscriptions and valid escaped direct-sync frames.",
   "requerida": false,
-  "shell": "f123-shell-v592",
+  "shell": "f123-shell-v593",
   "apagar": [],
-  "releaseName": "shell v592",
-  "cacheGeneration": "golden138"
+  "releaseName": "shell v593",
+  "cacheGeneration": "golden139"
 }

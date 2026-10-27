@@ -44,11 +44,11 @@ test('direct adapter bounds its JS queue and binds legacy retries to the new cip
   }finally{factory.closeAll();win.F123Relay.closeAll();}
 });
 
-async function fixture(name='catalogo'){
-  const receipts=[],sent=[],transactions=[],saved=new Map(),timers=[];let storeResult=true;
+async function fixture(name='catalogo',initialSaved=[]){
+  const receipts=[],sent=[],transactions=[],saved=new Map(initialSaved),timers=[];let storeResult=true,failNextSave=false,failReadAfterWrite=false,failNextRead=false;
   const socket={peerOnly:true,readyState:1,send:value=>sent.push(value),close(code){if(code!==undefined&&code!==1000&&(!Number.isInteger(code)||code<3000||code>4999))throw new DOMException('Invalid WebSocket close code','InvalidAccessError');this.readyState=3;},
     confirmPeerReceipt(receipt,proof){receipts.push({receipt,proof});},acceptPeerAck(meta){this.onmessage({data:JSON.stringify({k:'persist-result',kind:meta.kind,id:meta.id,ok:true}),peerAccepted:true});}};
-  const persistence={whenSynced:Promise.resolve(),get:async key=>structuredClone(saved.get(key)),set:async(key,value)=>saved.set(key,structuredClone(value)),
+  const persistence={whenSynced:Promise.resolve(),get:async key=>{if(failNextRead){failNextRead=false;throw Error('synthetic outbox read rejected');}return structuredClone(saved.get(key));},set:async(key,value)=>{if(failNextSave){failNextSave=false;failNextRead=failReadAfterWrite;throw Error('synthetic outbox write rejected');}saved.set(key,structuredClone(value));},
     db:{objectStoreNames:{contains:key=>key==='updates'},transaction(){const tx={};transactions.push(tx);return tx;}}};
   const ctx={API:{clave:'synthetic',roomId:'synthetic',_store:{aplicar(){}},confirmarCatalogoDurable:async()=>storeResult},
     RELAY_URL:'fixture:',window:{dispatchEvent(){},F123Relay:{connect:()=>socket},OCSync:{confirmarCatalogoDurable:async()=>storeResult}},
@@ -66,7 +66,7 @@ async function fixture(name='catalogo'){
     socket.onmessage({data:bytes.slice().buffer,relaySource:'peer',peerReceipt:receipt});return receipt;
   }
   function update(value='value'){remote.getMap('items').set('synthetic',value);const bytes=ctx.Y.encodeStateAsUpdate(remote),frame=new Uint8Array(bytes.length+1);frame[0]=0;frame.set(bytes,1);return frame;}
-  return {ctx,socket,receipts,sent,transactions,saved,timers,doc,remote,channel,send,update,setStoreResult(value){storeResult=value;},close(){doc.destroy();remote.destroy();}};
+  return {ctx,socket,receipts,sent,transactions,saved,timers,doc,remote,channel,send,update,setStoreResult(value){storeResult=value;},failNextSave(alsoFailRead=false){failNextSave=true;failReadAfterWrite=alsoFailRead;},close(){doc.destroy();remote.destroy();}};
 }
 
 function bootstrapPiece(full,index,id='old-snapshot-001') {
@@ -144,6 +144,66 @@ test('all fragment receipts wait for complete update assembly',async()=>{
     f.send(fragment(0,body.subarray(0,cut)),'part-0');await settle();assert.equal(f.receipts.length,0);assert.equal(f.transactions.length,0);
     f.send(fragment(1,body.subarray(cut)),'part-1');await settle();assert.equal(f.receipts.length,0);assert.equal(f.doc.getMap('items').get('synthetic'),'x'.repeat(300));
     assert.ok(f.transactions.length);f.transactions.at(-1).oncomplete();await settle();assert.deepEqual(f.receipts.map(item=>item.receipt.id),['part-0','part-1']);
+  }finally{f.close();}
+});
+
+test('an isolated sibling retry needs its complete group replayed after one ACK was lost',async()=>{
+  const f=await fixture('fotos');try{
+    const bytes=f.update('committed-fragment-group'),body=bytes.subarray(1),cut=Math.floor(body.length/2);
+    function fragment(index,payload){const out=new Uint8Array(22+payload.length);out[0]=3;out[1]=0;out.fill(68,2,18);out[19]=index;out[21]=2;out.set(payload,22);return out;}
+    const first=fragment(0,body.subarray(0,cut)),second=fragment(1,body.subarray(cut));
+    f.send(first,'committed-0');f.send(second,'committed-1');await settle();
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.deepEqual(f.receipts.map(item=>item.receipt.id),['committed-0','committed-1']);
+    // The sender received only the first ACK, so only the second durable operation is retried.
+    let committed=f.transactions.length;
+    f.send(second,'committed-1');await settle();
+    for(let i=0;i<3;i++){while(committed<f.transactions.length)f.transactions[committed++].oncomplete?.();await settle();}
+    assert.deepEqual(f.receipts.map(item=>item.receipt.id),['committed-0','committed-1'],
+      'a fragment alone must not borrow a completed group confirmation');
+    f.send(first,'committed-0');await settle();f.transactions.at(-1).oncomplete();await settle();
+    assert.deepEqual(f.receipts.map(item=>item.receipt.id),['committed-0','committed-1','committed-1','committed-0']);
+    assert.equal(f.doc.getMap('items').get('synthetic'),'committed-fragment-group');
+  }finally{f.close();}
+});
+
+test('partial group ACK retains every sibling for watchdog retry and restart',async()=>{
+  const f=await fixture('fotos');let restarted;
+  const operations=x=>x.sent.filter(v=>typeof v==='string').map(JSON.parse).filter(v=>v.k==='op');
+  const ack=(x,entry)=>x.socket.onmessage({data:JSON.stringify({k:'persist-result',kind:'op',id:entry.id,ok:true}),peerAccepted:true});
+  try{
+    f.channel.enviarUpdate(new Uint8Array(160*1024+100));
+    await until(()=>operations(f).length===2,'both siblings are sent');
+    const original=operations(f);assert.ok(original.every(op=>!('group' in op)),'group metadata remains local');
+    ack(f,original[0]);await settle();
+    assert.equal(operations(f).length,2,'one ACK must not immediately resend the accepted sibling');
+    const retained=f.saved.get('f123_relay_outbox_v1-y').pending;
+    assert.equal(retained.length,2,'one ACK must not remove the sibling needed to reassemble after restart');
+    assert.ok(retained[0].group&&retained.every(op=>op.group===retained[0].group));
+    restarted=await fixture('fotos',structuredClone([...f.saved]));
+    await until(()=>operations(restarted).length===2,'restart replays both retained siblings');
+    assert.deepEqual(operations(restarted).map(op=>op.id),original.map(op=>op.id));
+    ack(restarted,original[0]);await settle();
+    restarted.channel.pausar();restarted.channel.reanudar();restarted.socket.readyState=1;restarted.socket.onopen();
+    await until(()=>operations(restarted).length===4,'pause and resume clear session ACKs and replay both siblings');
+    f.ctx.Date={now:()=>Date.now()+11000};
+    const watchdog=f.timers.find(t=>t.ms>9000&&t.ms<=10000&&!t.cancelled);assert.ok(watchdog);watchdog.fn();await settle();
+    await until(()=>operations(f).length===4,'watchdog replays the entire group when a sibling ACK is lost');
+    ack(f,original[0]);ack(f,original[1]);
+    await until(()=>f.saved.get('f123_relay_outbox_v1-y').pending.length===0,'all sibling ACKs atomically retire the group');
+  }finally{f.close();restarted?.close();}
+});
+
+for(const alsoFailRead of [false,true])test('failed group retirement retains siblings and retries even with read failure: '+alsoFailRead,async()=>{
+  const f=await fixture('fotos');try{
+    const operations=()=>f.sent.filter(v=>typeof v==='string').map(JSON.parse).filter(v=>v.k==='op');
+    const ack=entry=>f.socket.onmessage({data:JSON.stringify({k:'persist-result',kind:'op',id:entry.id,ok:true}),peerAccepted:true});
+    f.channel.enviarUpdate(new Uint8Array(160*1024+100));await until(()=>operations().length===2,'group sent');
+    const original=operations();ack(original[0]);await settle();f.failNextSave(alsoFailRead);ack(original[1]);await settle();
+    assert.equal(f.saved.get('f123_relay_outbox_v1-y').pending.length,2,'failed retirement cannot delete persisted ciphertext');
+    assert.equal(f.channel.pendientesRelay,2,'storage failure cannot report an empty pending queue');
+    for(let i=0;i<3;i++){for(const timer of f.timers.filter(t=>!t.cancelled&&!t.fired&&t.ms>=1500&&t.ms<60000)){timer.fired=true;timer.fn();}await settle();}
+    await until(()=>operations().length===4,'failed retirement must replay all siblings rather than suppressing them with volatile ACKs');
   }finally{f.close();}
 });
 
