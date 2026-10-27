@@ -7430,6 +7430,13 @@
             return J({ error: "Customer changed on another device. Refresh before editing." }, 409);
           }
         }
+        const antesContacto = { ...c }, movimientosAntes = movimientos.length, selloAntes = selloUltimo;
+        debePersistir = false; // This endpoint confirms or rolls back before reporting success.
+        // Reuse the catalog rollback fence so remote history cannot be truncated.
+        let liberarContacto;
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberarContacto = resolve; });
+        try {
         if (body.nombre !== undefined) c.nombre = String(body.nombre).trim() || c.nombre;
         if (body.telefono !== undefined) c.telefono = String(body.telefono).trim();
         if (body.email !== undefined) c.email = String(body.email).trim();
@@ -7440,9 +7447,25 @@
         if (Object.prototype.hasOwnProperty.call(body, "resideCuenca")) c.resideCuenca = body.resideCuenca;
         if (Object.prototype.hasOwnProperty.call(body, "genero")) c.genero = body.genero;
         c.rev = _revNueva();
-        mov("cliente-contacto", { cliente: c.nombre });
-        guardarEstadoLocal();
+        mov("cliente-contacto", { cliente: c.nombre }, false);
+        let contactoGuardado = false;
+        try { contactoGuardado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+        if (!contactoGuardado) {
+          Object.keys(c).forEach(k => delete c[k]); Object.assign(c, antesContacto);
+          movimientos.length = movimientosAntes; selloUltimo = selloAntes;
+          return J({ error: "The contact could not be saved. No changes recorded." }, 507);
+        }
+        avisarCatalogoCambiado();
         return J(fichaCliente(c));
+        } finally {
+          _retencionConfirmando = false; _retencionPendiente = null;
+          try {
+            while (_retencionCatalogosPendientes.length) {
+              const siguiente = _retencionCatalogosPendientes.shift();
+              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
+            }
+          } finally { liberarContacto(); }
+        }
       }
 
       // ---- CARTERA DE CLIENTES (fiado/abono) — Roadmap Agosto 2026, Fase 1 ----

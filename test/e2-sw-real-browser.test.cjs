@@ -3,7 +3,7 @@ const {test}=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),http=require("node:http");
 // Local npm test prerequisite: npx playwright install chromium (CI already installs it).
 const {chromium}=require("playwright");
-const html=fs.readFileSync("docs/index.html","utf8");
+const html=require("./helpers/page-source.cjs").readFileSync("docs/index.html","utf8");
 const swOriginal=fs.readFileSync("docs/sw.js","utf8");
 // Only the localhost fixture narrows SW precache. Production sw.js is untouched.
 const sw=swOriginal.replace(/const SHELL = \[[\s\S]*?\n\];/,

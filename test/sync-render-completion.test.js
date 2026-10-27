@@ -1,6 +1,6 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
+const fs = require('./helpers/page-source.cjs');
 const path = require('node:path');
 const { chromium, webkit } = require('playwright');
 const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');

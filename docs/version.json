@@ -1,10 +1,10 @@
 {
-  "version": "shell v590",
-  "fecha": "2026-10-26",
-  "changelog": "v590: smaller app and Dashboard documents, minified external assets, ordered deferred startup and automatic entry asset precache.",
+  "version": "shell v591",
+  "fecha": "2026-10-27",
+  "changelog": "v591: durable contact edits and bounded local recovery of interrupted financial imports, preserving original facts and storage error causes.",
   "requerida": false,
-  "shell": "f123-shell-v590",
+  "shell": "f123-shell-v591",
   "apagar": [],
-  "releaseName": "shell v590",
-  "cacheGeneration": "golden136"
+  "releaseName": "shell v591",
+  "cacheGeneration": "golden137"
 }

@@ -12,7 +12,7 @@ function fixture(locks) {
   createElement:()=>({style:{},setAttribute(){},addEventListener(n,fn){if(n==="click")this.onClick=fn;},remove(){this.removed=true;}})};
  const ctx={navigator:{locks},document,Response,URL,Promise,AbortController,
   setTimeout(fn,delay){let key=++id;timers.set(key,{fn,delay});return key;},
-  clearTimeout(key){timers.delete(key);},_negadoPorRol:()=>null,_payoutPendiente:null,
+  clearTimeout(key){timers.delete(key);},_negadoPorRol:()=>null,_payoutPendiente:null,_conflictoEstadoAB:null,
   _rolLocal:()=> "dueno",_recargarSiOtraPestanaEscribio:()=>{},
   _fetchInterno:()=>{calls++;return Promise.resolve(new Response('{"ok":true}',{status:200}))},
   window:{location:{origin:"https://example.com"},OC_AUTH_SESSION_EPOCH:0,

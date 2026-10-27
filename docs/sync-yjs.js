@@ -1552,7 +1552,16 @@
       importando = true;
       var lista = [];
       API.hechosMap.forEach(function (h) { if (h && h.id && !conocidos[h.id]) lista.push(h); });
-      Promise.allSettled(lista.map(function (h) { return ledger.importarRemoto(h); }))
+      function importarConReintento(h, intento) {
+        return Promise.resolve().then(function () { return ledger.importarRemoto(h); }).catch(function (e) {
+          // Only transient local storage failures retry; immutable-content failures remain rejected.
+          if (!e || (e.name !== "AbortError" && e.name !== "UnknownError") || intento >= 3) throw e;
+          return new Promise(function (resolve) { setTimeout(resolve, 250); }).then(function () {
+            return importarConReintento(h, intento + 1);
+          });
+        });
+      }
+      Promise.allSettled(lista.map(function (h) { return importarConReintento(h, 0); }))
         .then(function (resultados) {
           resultados.forEach(function (r, i) {
             if (r.status === "rejected") log("hecho remoto rechazado:", r.reason && r.reason.message);

@@ -1317,6 +1317,7 @@
     /* v462: la primera vez se aplica la ruta del enlace (o el inicio); ella pinta la tabla y Avanzado si esa vista
        los usa. Las veces siguientes (cada repintado en vivo) solo se repinta lo que esta a la vista. */
     logPendiente = true;
+    var rutaYaAplicada = rutaAplicada;
     if (!rutaAplicada) aplicarRuta(rutaDeHash());
     else {
       if (RUTAS[rutaHub].tablas) pintarTabla();
@@ -1324,7 +1325,7 @@
     }
     pintarLogVisible();
     pintarFinanzasFoto();
-    pintarHistorialVentas();
+    if (rutaYaAplicada && rutaHub === "hoy") pintarHistorialVentas();
     try { pintarHub(); actualizarIsla(); } catch (e) { console.warn("[dashboard] hub", e); }
     restaurarBorradorHotfix();
   }
@@ -1357,6 +1358,7 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-vista]"), function (el) {
       el.hidden = (" " + el.getAttribute("data-vista") + " ").indexOf(" " + r + " ") < 0;
     });
+    if (r === "hoy") pintarHistorialVentas();
     Array.prototype.forEach.call(document.querySelectorAll("#nav-hub a[data-ruta]"), function (a) {
       if (a.getAttribute("data-ruta") === r) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
     });
@@ -1515,8 +1517,9 @@
   })();
 
   function pintarHistorialVentas() {
-    if (!window.OCSalesAuditUI) return;
-    window.OCSalesAuditUI.mount($("sales-audit"), datos.ventas || [], {lang:localStorage.getItem("f123_lang") || "en", timeZone:localStorage.getItem("f123_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone});
+    var host = $("sales-audit");
+    if (!window.OCSalesAuditUI || !host || host.hidden) return;
+    window.OCSalesAuditUI.mount(host, datos.ventas || [], {lang:localStorage.getItem("f123_lang") || "en", timeZone:localStorage.getItem("f123_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone});
   }
   // Read-only adapter used by refreshes and isolated evidence journeys.
   window.OCDashSalesAudit = {pintarConDatos:function(d){datos=d || datos;pintarHistorialVentas();}};
