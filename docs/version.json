@@ -1,10 +1,10 @@
 {
-  "version": "shell v597",
+  "version": "shell v598",
   "fecha": "2026-10-27",
-  "changelog": "v597: recovery checkpoints bound to the active notebook (owner only, confirmed state, stable across code rotation), IndexedDB recovers after a blocked open, one commission clawback and one restock per sale across devices.",
+  "changelog": "v598: recovery checkpoints also for demo/free notebooks, earlier-identity checkpoints stay downloadable after import or activation, checkpoints shrink instead of failing silently when storage is full, and a cancelled sale is discounted from commissions only once.",
   "requerida": false,
-  "shell": "f123-shell-v597",
+  "shell": "f123-shell-v598",
   "apagar": [],
-  "releaseName": "shell v597",
-  "cacheGeneration": "golden143"
+  "releaseName": "shell v598",
+  "cacheGeneration": "golden144"
 }

@@ -3062,9 +3062,16 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
     }
     function cajaGuardar(lista, origen) {
       // Pin the first accepted point; later rotations cannot erase that independent anchor.
-      const retenidos = lista.length > CAJA_MAX_SNAPSHOTS ? [lista[0], ...lista.slice(-(CAJA_MAX_SNAPSHOTS - 1))] : lista;
-      try { localStorage.setItem(cajaClave(origen), JSON.stringify(retenidos)); return true; }
-      catch { return false; } // localStorage lleno: no rompe la app, solo no guarda este punto
+      // v598 (ultrareview 2, punto 3; decision de JFC 2026-10-27 "7 nuevos si caben"): se intentan
+      // CAJA_MAX_SNAPSHOTS puntos; si localStorage esta lleno se sueltan los MAS ANTIGUOS de esta
+      // caja (nunca el ancla lista[0] ni el punto recien tomado) hasta que el nuevo quepa. Los
+      // puntos legados (f123_caja_snapshots) y los de otras identidades NO se tocan: son datos
+      // del cliente. Si ni ancla + nuevo caben, devuelve false y cajaGuardarPunto lo avisa.
+      for (let n = Math.min(lista.length, CAJA_MAX_SNAPSHOTS); n >= Math.min(lista.length, 2); n--) {
+        const retenidos = lista.length > n ? [lista[0], ...lista.slice(-(n - 1))] : lista;
+        try { localStorage.setItem(cajaClave(origen), JSON.stringify(retenidos)); return true; } catch (_) {}
+      }
+      return false; // localStorage lleno: no rompe la app, solo no guarda este punto
     }
     async function cajaGuardarPunto(silencioso) {
       try {
@@ -3082,6 +3089,11 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         const guardado = cajaGuardar(lista, origen);
         if (!silencioso) {
           msg("oc-respaldo-msg", guardado ? "Checkpoint saved in this browser." : "Could not save checkpoint (localStorage full? Try exporting a manual backup to free space).", guardado ? "var(--verde)" : "var(--rojo)");
+        } else if (!guardado) {
+          // v598 (ultrareview 2, punto 3; JFC 2026-10-27: avisar en texto dentro de la UI, sin modales,
+          // como los demas mensajes de Advanced). Solo cuando el ESPACIO impide guardar; los demas
+          // fallos del punto automatico (export 409 pasajero, cambio de cuaderno) siguen callados.
+          msg("oc-respaldo-msg", "The automatic checkpoint could not be saved: this browser's storage is full. Export a manual backup (above) to keep a safe copy.", "var(--rojo)");
         }
       } catch (_) { if (!silencioso) msg("oc-respaldo-msg", "Could not take a checkpoint.", "var(--rojo)"); }
     }
@@ -3103,9 +3115,10 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
       window.dispatchEvent(new CustomEvent("oc-datos-importados"));
       msg("oc-respaldo-msg", "Restored. Screen now shows data from the chosen checkpoint.", "var(--verde)");
     }
-    async function cajaDescargarLegado(idx) {
+    // v598: clave opcional para descargar tambien puntos de una identidad anterior (ver oc-caja-ver).
+    async function cajaDescargarLegado(idx, clave) {
       try {
-        const lista = JSON.parse(localStorage.getItem("f123_caja_snapshots") || "[]");
+        const lista = JSON.parse(localStorage.getItem(clave || "f123_caja_snapshots") || "[]");
         const punto = lista[idx];
         if (!punto || typeof punto.contenido !== "string" || (await window.OCSecure.hashTexto(punto.contenido)) !== punto.checksum) throw new Error("Invalid checkpoint");
         const paquete = JSON.parse(punto.contenido);
@@ -3189,9 +3202,26 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         cont.innerHTML += `<p style="font-size:13px;color:var(--ink);">Earlier checkpoints: notebook identity unknown. Download a point and verify its business before using Import copy.</p>` + legados.map((p, i) =>
           `<div style="padding:6px 0;font-size:13px;color:var(--ink);"><span>${escHtml(new Date(p.fecha).toLocaleString())}</span> <button type="button" data-caja-descargar="${i}">Download preserved checkpoint</button></div>`).join("");
       }
+      // v598 (ultrareview 2, punto 2): activar o "Import copy" cambian el instanceId y con el la
+      // clave de la caja. Los puntos guardados bajo otra identidad de ESTE aparato no se borran ni
+      // se restauran directo (podrian ser de otro negocio): se listan para descargar, igual que los legados.
+      let claveActual = ""; try { claveActual = cajaClave(cajaOrigen()); } catch (_) {}
+      const otras = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf("f123_caja_snapshots::") === 0 && k !== claveActual) otras.push(k);
+        }
+      } catch (_) {}
+      otras.forEach((k) => {
+        let pts = []; try { pts = JSON.parse(localStorage.getItem(k) || "[]"); } catch (_) {}
+        if (!Array.isArray(pts) || !pts.length) return;
+        cont.innerHTML += `<p style="font-size:13px;color:var(--ink);">Checkpoints from an earlier notebook identity on this device (for example before Import copy or activation). Download a point and verify its business before using Import copy.</p>` + pts.map((p, i) =>
+          `<div style="padding:6px 0;font-size:13px;color:var(--ink);"><span>${escHtml(new Date(p && p.fecha).toLocaleString())}</span> <button type="button" data-caja-descargar="${i}" data-caja-clave="${escHtml(k)}">Download preserved checkpoint</button></div>`).join("");
+      });
       cont.style.display = "block";
       cont.querySelectorAll("[data-caja-restaurar]").forEach((b) => b.addEventListener("click", () => cajaRestaurar(Number(b.dataset.cajaRestaurar))));
-      cont.querySelectorAll("[data-caja-descargar]").forEach((b) => b.addEventListener("click", () => cajaDescargarLegado(Number(b.dataset.cajaDescargar))));
+      cont.querySelectorAll("[data-caja-descargar]").forEach((b) => b.addEventListener("click", () => cajaDescargarLegado(Number(b.dataset.cajaDescargar), b.dataset.cajaClave)));
     });
   }
 

@@ -4436,11 +4436,34 @@
     // La licencia de la tienda activa: si hay sufijo "::L", es L; si no, la propia.
     return OC_STATE_SUFIJO ? OC_STATE_SUFIJO.slice(2) : _licenciaPropia();
   }
+  /* v598 (ultrareview 2, punto 1): identidad de la caja de puntos de recuperacion. La usan
+     OCTienda.cuadernoId() (cliente: avanzado-extra.js cajaOrigen, vista-perchas.js G08) Y
+     /api/respaldo/exportar (_recuperacion.notebookId): tienen que ser la MISMA funcion.
+     1) instanceId en memoria; 2) si quedo null tras un reload, re-lee f123_owned EN VIVO
+     (mismo criterio que estaLicenciado, sin hidratar nada); 3) sin instanceId (demo, plan
+     gratis, aparato sin activar o que lo perdio): un id local estable de ESTE aparato
+     (f123_caja_cuaderno_local), creado una sola vez. En v597 el paso 3 no existia y esos
+     cuadernos se quedaban sin puntos automaticos, sin aviso. El namespace (f123_tienda_activa)
+     sigue separando cuaderno propio y cuadernos unidos. Si el id cambia (activar, importar),
+     los puntos viejos NO se borran: Advanced los lista como "identidad anterior". */
+  function _cuadernoIdCaja() {
+    if (instanceId) return String(instanceId);
+    try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; if (o.instanceId) return String(o.instanceId); } catch (_) {}
+    try {
+      let local = localStorage.getItem("f123_caja_cuaderno_local");
+      if (!local) {
+        local = "local-" + ((typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+        localStorage.setItem("f123_caja_cuaderno_local", local);
+      }
+      return local;
+    } catch (_) { return ""; }
+  }
   window.OCTienda = {
     licenciaActual: _licenciaActual,
     /* v597: identidad ESTABLE del cuaderno activo (instanceId). A diferencia de la licencia,
-       no cambia al rotar el codigo de sala; la usa la caja de puntos de recuperacion. */
-    cuadernoId() { try { return String(instanceId || ""); } catch (_) { return ""; } },
+       no cambia al rotar el codigo de sala; la usa la caja de puntos de recuperacion.
+       v598: sin instanceId cae a _cuadernoIdCaja() (ver arriba), nunca "" mientras haya localStorage. */
+    cuadernoId() { try { return _cuadernoIdCaja(); } catch (_) { return ""; } },
     /* ¿La tienda activa es una UNIDA (sufijo con licencia) o la propia (sufijo "")?
        Lo usa la pantalla de PIN para rotular a QUÉ tienda estás entrando sin
        tocar el camino de la tienda propia (cliente en vivo). (JFC 2026-08-26) */
@@ -6868,7 +6891,8 @@
           if (_rolExp && _rolExp !== "dueno" && _rolExp !== "demo" && _rolExp !== "contador") return J({ error: "Only the owner can take a full recovery checkpoint." }, 403);
           if (!_estadoPuedePublicarse()) return J({ error: "The notebook is not saved yet. Try again in a moment." }, 409);
           let _ns = ""; try { _ns = localStorage.getItem("f123_tienda_activa") || ""; } catch (_) {}
-          return J(Object.assign(estadoActualExportable(), { _recuperacion: { confirmado: true, completo: true, namespace: _ns, notebookId: String(instanceId || ""), licenseCode: _licenciaActual() } }));
+          // v598: notebookId = _cuadernoIdCaja(), la misma identidad que lee el cliente (OCTienda.cuadernoId).
+          return J(Object.assign(estadoActualExportable(), { _recuperacion: { confirmado: true, completo: true, namespace: _ns, notebookId: _cuadernoIdCaja(), licenseCode: _licenciaActual() } }));
         }
         if (!_rolExp || _rolExp === "dueno" || _rolExp === "demo" || _rolExp === "contador") return J(estadoActualExportable()); // sin sesion = uso interno; demo = muestra; contador = rol de solo lectura que necesita costos (no importa)
         const _c = estadoActualExportable();
