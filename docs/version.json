@@ -1,10 +1,10 @@
 {
-  "version": "shell v595",
+  "version": "shell v596",
   "fecha": "2026-10-27",
-  "changelog": "v595: legacy partial outbox groups stop resending without data loss, joined-store names no longer overwrite the own-store name, Advanced init waits for deferred scripts.",
+  "changelog": "v596: preserve legacy encrypted fragments without relying on checkpoint clocks; prevent joined-store names from updating own-license panel identity.",
   "requerida": false,
-  "shell": "f123-shell-v595",
+  "shell": "f123-shell-v596",
   "apagar": [],
-  "releaseName": "shell v595",
-  "cacheGeneration": "golden141"
+  "releaseName": "shell v596",
+  "cacheGeneration": "golden142"
 }

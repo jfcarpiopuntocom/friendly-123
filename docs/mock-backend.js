@@ -4220,7 +4220,8 @@
          solo nombre por licencia de inmediato. */
       try {
         var _oh = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        if (_oh.instanceId && window.OCAuth && window.OCAuth.heartbeat) {
+        // The panel row belongs to the own license, never to a joined notebook.
+        if (_cuadernoPropio() && _oh.instanceId && window.OCAuth && window.OCAuth.heartbeat) {
           window.OCAuth.heartbeat({ instanceId: _oh.instanceId, licenseCode: _oh.licenseCode || "", email: _oh.email || "", whatsapp: _oh.whatsapp || "", nombre: _oh.nombre || "", nombreNegocio: nombreNegocio, accion: "sync-nombre" });
         }
       } catch (_) {}

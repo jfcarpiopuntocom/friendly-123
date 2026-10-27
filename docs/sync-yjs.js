@@ -284,9 +284,8 @@
        which owns the key, can read them without guessing or rebuilding anything:
          - all `total` siblings present  -> adopt `group = id` (the exact v593 format) and keep the old behaviour.
          - siblings missing              -> flag `huerfano`: kept on disk, never sent again, not counted as pending.
-       Orphans are retired ONLY by confirmarDurable, after the relay confirmed a full-state checkpoint created after
-       the detection (the content of a local fragment is already in the local Y.Doc, and that checkpoint carries the
-       whole Y.Doc). Channels without checkpoints (fotos, direct peer) keep the flagged entry untouched. */
+       Preserve orphan ciphertext: a checkpoint ACK and wall clock cannot prove that the local journal still contains
+       every byte of an old incomplete update. Recovery/export may still need those fragments. */
     function clasificarHeredados() {
       if (_heredadosListo || !API.clave) return Promise.resolve();
       var candidatos = _outbox.pending.filter(function (entry) {
@@ -512,13 +511,7 @@
           if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
           if (entry.k === "ckpt" && result.ok === true) {
             _outbox.checkpoint = entry.state;
-            // v594: a relay-confirmed full-state checkpoint created AFTER the orphans were detected covers their
-            // content (it already lives in the local Y.Doc). Older checkpoints prove nothing about them.
-            var cubiertos = _outbox.pending.filter(function (x) { return x.huerfano && x.huerfano.at <= (entry.lam || 0); });
-            if (cubiertos.length) {
-              _outbox.pending = _outbox.pending.filter(function (x) { return !cubiertos.includes(x); });
-              try { log("v594: " + cubiertos.length + " fragmento(s) heredado(s) sin hermanos retirados en " + nombre + " tras checkpoint confirmado"); } catch (_) {}
-            }
+            // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
           avisarDurable();

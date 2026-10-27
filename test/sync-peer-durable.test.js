@@ -364,7 +364,7 @@ test('v594 a legacy group whose siblings are all present is adopted as a local g
   }finally{f.close();}
 });
 
-test('v594 orphan retires only after a relay-confirmed checkpoint created after detection; stale checkpoint keeps it',async()=>{
+test('legacy orphan evidence survives checkpoint ACKs even when an older snapshot carries a future clock',async()=>{
   const orphan=legacyOp('legacy-ck',legacyFragment('LEGACYGROUPCKPT1',2,3));
   const stale={k:'ckpt',ack:1,id:'ck-stale',v:2,rev:0,seq:0,lam:1,c:'AA==',state:'stale'};
   const fresh={k:'ckpt',ack:1,id:'ck-fresh',v:2,rev:0,seq:0,lam:Date.now()+3600000,c:'AA==',state:'fresh'};
@@ -372,7 +372,10 @@ test('v594 orphan retires only after a relay-confirmed checkpoint created after 
     await settle();
     ackFrame(f,'ck-stale','ckpt');await settle();
     assert.ok(f.saved.get(OUTBOX_KEY).pending.some(e=>e.id==='legacy-ck'),'a checkpoint older than the detection cannot prove coverage');
-    ackFrame(f,'ck-fresh','ckpt');await until(()=>!f.saved.get(OUTBOX_KEY).pending.some(e=>e.id==='legacy-ck'),'confirmed newer checkpoint retires the orphan');
-    assert.equal(f.channel.huerfanosHeredados,0);assert.equal(f.channel.pendientesRelay,0);
+    ackFrame(f,'ck-fresh','ckpt');await settle();
+    const retained=f.saved.get(OUTBOX_KEY).pending;
+    assert.equal(retained.length,1,'ACK retires its checkpoint, but wall clock does not prove orphan coverage');
+    assert.equal(retained[0].id,'legacy-ck');assert.equal(retained[0].c,orphan.c,'original ciphertext is preserved');
+    assert.equal(f.channel.huerfanosHeredados,1);assert.equal(f.channel.pendientesRelay,0);
   }finally{f.close();}
 });

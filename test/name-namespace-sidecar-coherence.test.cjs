@@ -9,6 +9,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 const { browser } = require('./helpers/browser.cjs');
 
 function disk(seed) {
@@ -32,6 +33,43 @@ async function remoteCatalog(nombre) {
   return b.catalog();
 }
 const sidecar = app => JSON.parse(app.localStorage.getItem('f123_owned'));
+
+function capturePanelHeartbeat(app) {
+  const auth = fs.readFileSync(path.join(__dirname, '../docs/auth-ui.js'), 'utf8');
+  const start = auth.indexOf('  async function enviarHeartbeat(datos) {');
+  const end = auth.indexOf('  /* LATIDO DE SALUD DEL CANARIO', start);
+  const sent = [];
+  app.OC_WORKER_URL = 'https://panel.fixture.invalid';
+  app._cbBloqueado = () => false;
+  app._cbExito = app._cbFallo = () => {};
+  app.fetch = async (url, opts) => {
+    sent.push({ url, payload: JSON.parse(opts.body) });
+    return { ok: true, json: async () => ({}) };
+  };
+  vm.runInContext(auth.slice(start, end) + '\nOCAuth = { heartbeat: enviarHeartbeat };', app);
+  return sent;
+}
+
+test('joined name adoption cannot label the own-license panel row with a foreign business', async () => {
+  const app = joined();
+  const sent = capturePanelHeartbeat(app);
+  app.OCSync.aplicarCatalogo(await remoteCatalog('Joined Team B'), 'dueno');
+  await Promise.resolve();
+  assert.equal(app.OCTienda.nombreActivo(), 'Joined Team B');
+  assert.equal(sent.length, 0, 'joined-store adoption does not send an own-license identity update');
+});
+
+test('own name adoption still sends confirmed own-license panel metadata', async () => {
+  const app = browser(disk({ f123_owned: JSON.stringify(OWN), f123_notebook_unificado_v2: '1' }));
+  const sent = capturePanelHeartbeat(app);
+  app.OCSync.aplicarCatalogo(await remoteCatalog('Own Store A2'), 'dueno');
+  await Promise.resolve();
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].url, 'https://panel.fixture.invalid/checkin');
+  assert.equal(sent[0].payload.licenseCode, OWN.licenseCode);
+  assert.equal(sent[0].payload.nombreNegocio, 'Own Store A2');
+  assert.equal(sent[0].payload.nombreNegocioRev, 1);
+});
 
 test('joined notebook: catalog sync that adopts a team name never rewrites the own-business sidecar', async () => {
   const app = joined();
