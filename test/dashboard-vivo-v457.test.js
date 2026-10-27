@@ -200,10 +200,19 @@ test('(5) dashboard of a licensed business shows ONLY real records; nothing is d
   try {
     const ctx = await contexto(web);
     const app = await abrirApp(ctx);
-    const { rack } = await negocioDeComisiones(app);
+    const { rack, prod } = await negocioDeComisiones(app);
+    const productosCreados = [prod.id];
     for (const sku of ['2010003', '8010005', '9010012', '1110004', '2110000']) {
-      await api(app, '/api/productos', 'POST', { nombre: 'Real ' + sku, barcode: sku, sku, precio: 50, costo: 20, stockInicial: 4, ubicacionId: rack.id });
+      const producto = await api(app, '/api/productos', 'POST', { nombre: 'Real ' + sku, barcode: sku, sku, precio: 50, costo: 20, stockInicial: 4, ubicacionId: rack.id });
+      productosCreados.push(producto.id);
     }
+    // A/B saves may still be queued after POST resolves; take the baseline after these IDs commit.
+    await app.waitForFunction((ids) => {
+      const ptr = localStorage.getItem('f123_estado_v4_ptr') || 'B';
+      const e = JSON.parse(localStorage.getItem('f123_estado_v4_' + ptr));
+      const guardados = new Set((e && e.productos || []).map((p) => p.id));
+      return ids.every((id) => guardados.has(id));
+    }, productosCreados, { timeout: 5000 });
     const guardado = () => app.evaluate(() => {
       const ptr = localStorage.getItem('f123_estado_v4_ptr') || 'B';
       const e = JSON.parse(localStorage.getItem('f123_estado_v4_' + ptr));
