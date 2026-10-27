@@ -117,10 +117,10 @@
     "./app-inline-05.min.js": "sha256-a1da860c6b1fa6234ab666fa9ef07b8168fa3083ba7cd9869a35d2f84f92916a",
     "./app-inline-06.min.js": "sha256-b16bbf968616557656dc78bb217cc899827b7b0e9c0feac223ca1abf01aa7268",
     "./app-inline-07.min.js": "sha256-027d6c7fba33ca91a9a72251e3ef2d6d86890d869080d448452ff6e83366392b",
-    "./app-style-01.min.css": "sha256-e8f52a9c934d96f47489eb8b99bff944b06ab96f94badd27a80fdf85b09647dc",
-    "./app-style-02.min.css": "sha256-5a34aa3ec607766786de432ab6ca1ec321e108f05bf7ba0a333e4fc01fa38abe",
-    "./app-style-03.min.css": "sha256-33a7f19c6df1817bc7ec2b91fe48ea75ccac5312df39990bb93c13bff11ab2c0",
-    "./dashboard-main.min.css": "sha256-c2bb5dd494d08ac61fa05278a37eecae9a91690af864a88a0b300db1e3cb0f20",
+    "./app-style-01.min.css": "sha256-0e8363b32f380e597a3bc269b47d80dc100e11f6b2cc55989226c3f7be744cad",
+    "./app-style-02.min.css": "sha256-5235f527ae5bd9167eab220915c335f14806d95c7d87ad5edf0893d88c4b07c3",
+    "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
+    "./dashboard-main.min.css": "sha256-08be7c117f13c20638e394fe94db485908e9de86a747298a592d11970ebf2fe0",
     "./dashboard-main.min.js": "sha256-3ac9449757567fe64ebf861d49049344718f793646021a92e62a1d4d7b59812d"
   }
 }
