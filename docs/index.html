@@ -1,5 +1,9 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
+<!-- Fetch the login dependencies while the parser keeps their original execution order. -->
+<link rel="preload" as="script" href="./crypto-store.js">
+<link rel="preload" as="script" href="./auth-ui.js">
+<link rel="preload" as="script" href="./mock-backend.js">
 <!-- CHARSET ARRIBA DEL TODO (JFC/Belén 2026-09-03): el <meta charset> estaba en
      el byte ~4041, pasado el limite de 1024 del spec HTML. El navegador de Belén
      caia a otra codificacion y TODO el español acentuado (í é ñ) salia como
@@ -86,9 +90,9 @@
      interceptaba fetch() y todo /api/* devolvia 404 (selector de sucursal
      roto, hero de error). Deben cargar EN EL HEAD, antes del script principal,
      para que el mock ya este instalado cuando el app arranque. NO QUITAR. -->
-<script src="./barcode128.js"></script>
+<script defer src="./barcode128.js"></script>
 <!-- Generador QR 100% local (Kazuhiko Arase, MIT, vendoreado): etiquetas y sync por QR sin internet -->
-<script src="./qrcode-local.js"></script>
+<script defer src="./qrcode-local.js"></script>
 <!-- Local-first: pocketbase-client.js se carga SIEMPRE pero queda dormido
      si el dueño no guardó una URL de PocketBase en Avanzado (localStorage
      OC_PB_URL). Por defecto todo corre local: mock-backend.js en la demo
@@ -10638,7 +10642,7 @@ setTimeout(() => {
      in Advanced with an explicit "0").
      See novedades.js for detail — never touches real sales/inventory. -->
 <script src="./novedades.js"></script>
-<script src="./help-ui.js"></script>
+<script defer src="./help-ui.js"></script>
 <!-- idb-fotos.js (JFC 2026-07-18): DEBE cargar antes de vista-perchas.js —
      expone window.OCFotos, que vista-perchas.js usa para persistir fotos de
      percha en IndexedDB en vez de localStorage. -->

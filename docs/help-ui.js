@@ -338,7 +338,7 @@
   brandWrap.style.cssText = "display:none;flex-direction:column;align-items:flex-end;gap:2px;margin-left:10px;";
 
   const brandLogo = document.createElement("img");
-  brandLogo.src = "./logo.png";
+  brandLogo.src = "./img/logo-720.png";
   brandLogo.alt = "friendly-123";
   brandLogo.title = "Ir a Hoy";
   brandLogo.style.cssText = "height:22px;width:auto;object-fit:contain;display:block;cursor:pointer;";
