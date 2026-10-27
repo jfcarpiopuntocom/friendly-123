@@ -87,7 +87,7 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
   guardarPullCursor:async c=>{ctx._pullCursor={rev:c.rev,seq:c.seq};if(!ctx.doc.store.pendingStructs&&!Object.keys(ctx.partesEntrantes).length)ctx._appliedPullCursor={rev:c.rev,seq:c.seq};},
   pedirPagina:(sock,state)=>{state.enCurso=true;sock.send(JSON.stringify({k:"pull",v:2,rev:ctx._pullCursor.rev,seq:ctx._pullCursor.seq,limit:250}));},
   nombre:"catalogo",window:{},log(){},clearTimeout:id=>clock.clearTimeout(id),_tEstable:null,
-  _bufferPumpTimer:null,_durableWatchdog:null,_durableInFlight:Object.create(null),_currentPullState:null,
+  _bufferPumpTimer:null,_durableWatchdog:null,_durableInFlight:Object.create(null),_groupAcks:new Set(),_currentPullState:null,
   _pausado:false,permitido:()=>true,
   deudaPendiente:()=>!!ctx.doc.store.pendingStructs || Object.keys(ctx.partesEntrantes).length>0,
   clavePendientes:()=>JSON.stringify([!!ctx.doc.store.pendingStructs,Object.keys(ctx.partesEntrantes).sort()]),
@@ -131,7 +131,7 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
   _pullCursorReady:Promise.resolve(),_replayDelay:30000,_tReplay:null,_replayKey:null,_replayUsed:0,partesEntrantes:Object.create(null),
   doc:{store:{}},persistencia:{whenSynced:Promise.resolve(),get:async()=>({rev:0,seq:0}),
    db:{objectStoreNames:{contains:k=>k==="updates"},transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}}},_tEstable:null,_bufferPumpTimer:null,
-  _durableWatchdog:null,_durableInFlight:Object.create(null)};
+  _durableWatchdog:null,_durableInFlight:Object.create(null),_groupAcks:new Set()};
  fresh.guardarPullCursor=async c=>{fresh._pullCursor={rev:c.rev,seq:c.seq};if(!Object.keys(fresh.partesEntrantes).length&&!fresh.doc.store.pendingStructs)fresh._appliedPullCursor={rev:c.rev,seq:c.seq};};
  fresh.pedirPagina=(sock,state)=>{state.enCurso=true;sock.send(JSON.stringify({k:"pull",v:2,rev:fresh._pullCursor.rev,seq:fresh._pullCursor.seq,limit:250}));};
  fresh.manejar=async()=>true;
