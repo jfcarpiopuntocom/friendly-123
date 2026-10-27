@@ -31,6 +31,11 @@ jobs:
     # package-lock 1.62.1). Run 40504468263 stalled >10 min on apt in `playwright install-deps`.
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
+    # v595: inside a container the default step shell is `sh -e`, which rejects `set -o pipefail`
+    # (run 40514723204). Keep the host runner's previous default: bash -e.
+    defaults:
+      run:
+        shell: bash -e {0}
     timeout-minutes: 15
     outputs:
       candidate: ${{ steps.promote.outputs.candidate }}
