@@ -10,7 +10,7 @@ const vm = require('node:vm');
 const R = require('../docs/core/business-read-model.js');
 const { browser } = require('./helpers/browser.cjs');
 
-const leer = (f) => fs.readFileSync(path.join(__dirname, '../docs', f), 'utf8').replace(/\r\n/g, '\n');
+const leer = (f) => require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs', f), 'utf8').replace(/\r\n/g, '\n');
 const app = leer('index.html');
 const dash = leer('dashboard.html');
 function bloque(src, inicio, fin) {
