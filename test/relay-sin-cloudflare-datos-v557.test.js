@@ -32,10 +32,12 @@ test('estatico: ningun archivo de docs/ abre un socket o canal crudo (WebSocket/
 });
 
 test('estatico: los localizadores legacy solo llegan al adaptador directo y su socket usa /signal/', () => {
-  const esperados = ['dashboard.html', 'sync-realtime.js', 'sync-yjs.js'];
+  const esperados = ['dashboard-main.min.js', 'sync-realtime.js', 'sync-yjs.js'];
   assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'peer-sync.js'].sort());
   for (const nombre of esperados) {
-    const src = archivos.find(a => a.rel === nombre).src;
+    const src = nombre === 'dashboard-main.min.js'
+      ? fs.readFileSync(path.resolve(DOCS, '../src/dashboard/dashboard-main.js'), 'utf8')
+      : archivos.find(a => a.rel === nombre).src;
     // /sala/ remains a local locator; the adapter never opens it as a network destination.
     for (const m of src.matchAll(/wss?:\/\/friendly123-sync-relay[^\s"'`]*/g)) assert.match(m[0], /^wss:\/\/friendly123-sync-relay\.jfcarpio\.workers\.dev\/sala\/$/);
     assert.ok(!/https?:\/\/friendly123-sync-relay/.test(src), nombre + ': el relay viejo no se usa por HTTP');
@@ -57,7 +59,7 @@ test('estatico: los localizadores legacy solo llegan al adaptador directo y su s
 test('estatico: app y dashboard cargan el adaptador directo sin inicializar Supabase', () => {
   for (const name of ['dashboard.html', 'index.html']) {
     const src = archivos.find(a => a.rel === name).src;
-    assert.match(src, /<script src="\.\/peer-sync\.js"><\/script>/);
+    assert.match(src, /<script\b[^>]*\bsrc="\.\/peer-sync\.js"[^>]*><\/script>/);
     assert.doesNotMatch(src, /supabase-relay\.min\.js|supabase\.co|f123_relay_command/);
   }
 });
@@ -74,7 +76,7 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
   // Licencias: referencias permitidas (panel de JFC, verificacion maestra, comentarios de auth-ui).
   const lic = [...hosts.get('friendly123-licencias')].sort();
   assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel.html']);
-  assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard.html', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
+  assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
   // Rutas que el cliente pide al Worker de licencias: solo licencia, latido, canario y maestro. Nada de datos.
   const rutas = new Set();
   for (const a of archivos) for (const m of a.src.matchAll(/workerUrl\(\)[^;]{0,200}?["'`](\/[a-z\-]+)/gi)) rutas.add(m[1]);

@@ -51,7 +51,7 @@ function balanceApp(info){
  app.document.getElementById=()=>el;app.API='/api';app.escHtml=s=>String(s);
  app.fmtMoney=n=>'$'+Number(n).toFixed(2);app._accionesVinculoCartera=()=>'';app.t=s=>s;
  app.OCI18n={locale:()=> 'en-US'};app.fetch=async()=>({ok:true,json:async()=>info});
- const src=read('index.html'),a=src.indexOf('async function pintarSaldoCartera(clienteId) {');
+ const src=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/index.html'),'utf8'),a=src.indexOf('async function pintarSaldoCartera(clienteId) {');
  vm.runInContext(src.slice(a,src.indexOf('\nfunction ',a)),app);
  return {app,el};
 }
