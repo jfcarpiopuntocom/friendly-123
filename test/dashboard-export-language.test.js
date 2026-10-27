@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const html = fs.readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
+const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
 const from = html.indexOf('  function etiquetaExportacion(');
 const to = html.indexOf('  /* ================================================== QUIEN ESTA EN EL LOOP', from);
 

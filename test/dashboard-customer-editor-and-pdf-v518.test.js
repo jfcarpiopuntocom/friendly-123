@@ -6,7 +6,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const root = path.join(__dirname, '..', 'docs');
-const dash = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
+const dash = require('./helpers/page-source.cjs').readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 const mock = fs.readFileSync(path.join(root, 'mock-backend.js'), 'utf8');
 const sync = fs.readFileSync(path.join(root, 'sync-realtime.js'), 'utf8');
 
@@ -67,8 +67,8 @@ test('current release shell and exact edited assets have matching integrity hash
   const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
   const shellNumber=Number(String(v.shell||'').replace(/^f123-shell-v/,''));
   assert.ok(Number.isSafeInteger(shellNumber) && shellNumber>=518,'must include dashboard corrections');
-  assert.match(v.releaseName,/^v[0-9]+$/);
-  assert.ok(Number(v.releaseName.slice(1))<=shellNumber,'internal cache may advance without renaming stable public release');
+  assert.match(v.releaseName,/^shell v[0-9]+$/);
+  assert.equal(v.releaseName,'shell v'+shellNumber,'public identity must state the real shell approved by JFC');
   assert.equal(manifest.shell,v.shell);
   assert.ok(sw.includes('const CACHE = "'+v.shell+'"'));
   for(const rel of ['mock-backend.js','sync-realtime.js','dashboard.html']){

@@ -6,7 +6,7 @@ const vm = require("node:vm");
 const path = require("node:path");
 
 function crearVisor() {
-  const html = fs.readFileSync(path.join(__dirname, "../docs/dashboard.html"), "utf8");
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, "../docs/dashboard.html"), "utf8");
   const ini = html.indexOf("  function recibirTrozo(p, emisor)");
   const fin = html.indexOf("  /* ---------------------------------------------------------------- VISTAS */", ini);
   assert.ok(ini > 0 && fin > ini, "receiver located");

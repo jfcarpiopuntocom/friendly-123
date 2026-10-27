@@ -64,7 +64,7 @@ test('public proof records exact artifact bytes and recovery retains the already
     assert.equal(proof.commit,sha);
     for(const [file,hash] of Object.entries(proof.hashes)) assert.equal(hash,crypto.createHash('sha256').update(fs.readFileSync(path.join(dir,file))).digest('hex'));
     fs.appendFileSync(path.join(dir,'index.html'),'changed');provenance(dir,sha);
-    assert.notEqual(proof.hashes['index.html'],JSON.parse(fs.readFileSync(path.join(dir,'release-proof.json'))).hashes['index.html']);
+    assert.notEqual(proof.hashes['index.html'],JSON.parse(require('./helpers/page-source.cjs').readFileSync(path.join(dir,'release-proof.json'))).hashes['index.html']);
   } finally {fs.rmSync(dir,{recursive:true,force:true});}
   const workflow=fs.readFileSync(path.resolve(__dirname,'../.github/workflows/publicar.yml'),'utf8');
   assert.match(workflow,/if \[ "\$RECOVERY" = "true" \]/);

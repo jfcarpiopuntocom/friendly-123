@@ -14,7 +14,7 @@ async function withPDF(run) {
   try {
     const page = await context.newPage();
     // Load the actual vendored UMD file selected by the dashboard, in isolation.
-    const dashboard = fs.readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
+    const dashboard = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
     const match = dashboard.match(/cargarHerramientaExportacion\("\.\/(vendor\/jspdf-[\d.]+\.umd\.min\.js)"/);
     assert.ok(match, 'dashboard must select an exact local jsPDF version');
     await page.goto(env.origin + '/404.html');

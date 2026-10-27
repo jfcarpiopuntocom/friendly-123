@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
 const help = fs.readFileSync(path.join(__dirname, '../docs/help-ui.js'), 'utf8');
 const manual = fs.readFileSync(path.join(__dirname, '../docs/manual.html'), 'utf8');
 

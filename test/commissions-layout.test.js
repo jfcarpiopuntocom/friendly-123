@@ -9,7 +9,7 @@ const assert = require("node:assert");
 const fs = require("fs");
 const path = require("path");
 
-const html = fs.readFileSync(path.join(__dirname, "..", "docs", "index.html"), "utf8");
+const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, "..", "docs", "index.html"), "utf8");
 
 function region() {
   const a = html.indexOf("function matrizComisionistasHtml(");

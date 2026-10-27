@@ -1,10 +1,10 @@
 {
-  "version": "shell v589",
+  "version": "shell v590",
   "fecha": "2026-10-26",
-  "changelog": "v589: transactional local recovery, shared activity with source integrity, bounded connection recovery and identity/code fixes.",
+  "changelog": "v590: smaller app and Dashboard documents, minified external assets, ordered deferred startup and automatic entry asset precache.",
   "requerida": false,
-  "shell": "f123-shell-v589",
+  "shell": "f123-shell-v590",
   "apagar": [],
-  "releaseName": "shell v589",
-  "cacheGeneration": "golden135"
+  "releaseName": "shell v590",
+  "cacheGeneration": "golden136"
 }

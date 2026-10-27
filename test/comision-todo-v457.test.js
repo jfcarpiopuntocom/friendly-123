@@ -80,7 +80,7 @@ test('historical stored sales are never rewritten by the new rule', async () => 
 });
 
 test('Commissions grouping: sales of a product with a % are counted with commission, not as counter/own', () => {
-  const src = fs.readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
+  const src = require('./helpers/page-source.cjs').readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
   const ini = src.indexOf('function agruparVentasPorProducto');
   const fin = src.indexOf('function selectorVistaComisionesHtml');
   assert.ok(ini > 0 && fin > ini);

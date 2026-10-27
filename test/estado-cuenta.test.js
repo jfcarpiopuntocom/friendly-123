@@ -69,7 +69,7 @@ test('recorta a 60 lineas y lo avisa', async () => {
 });
 
 test('paso 2: "Send statement" solo dueno/admin, ofrece 7 o 30 dias, pasa por la lista blanca y no toca el sync', () => {
-  const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
   const f = html.slice(html.indexOf('async function enviarEstadoComisionista'), html.indexOf('async function marcarComisionPagada'));
   assert.match(f, /rol !== "dueno" && rol !== "admin"/);
   assert.match(f, /value: 7 \}, \{ label: es \? "30 días" : "30 days", value: 30 \}/);
@@ -77,5 +77,5 @@ test('paso 2: "Send statement" solo dueno/admin, ofrece 7 o 30 dias, pasa por la
   assert.ok(!/clienteNombre|costoUnit|pin|licen/i.test(f.replace(/\/\*[\s\S]*?\*\//g, '')), 'no lee datos prohibidos');
   const mock = fs.readFileSync(path.join(__dirname, '../docs/mock-backend.js'), 'utf8');
   assert.ok(!mock.includes('enviarEstadoComisionista'), 'no se dispara desde el merge');
-  assert.match(html, /<script src="\.\/estado-cifrado\.js"><\/script>/);
+  assert.match(html, /<script(?=[^>]*\bsrc="\.\/estado-cifrado\.js")(?=[^>]*\bdefer\b)[^>]*><\/script>/);
 });

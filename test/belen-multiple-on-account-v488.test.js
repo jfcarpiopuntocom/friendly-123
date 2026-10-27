@@ -94,7 +94,7 @@ test('failed credit persistence aborts edit and stock change', async () => {
 });
 
 test('UI regression: named customer does not hide or reset quantity; Sold offers fiado', () => {
-  const ui=fs.readFileSync(path.resolve(__dirname, '../docs/index.html'),'utf8');
+  const ui=require('./helpers/page-source.cjs').readFileSync(path.resolve(__dirname, '../docs/index.html'),'utf8');
   assert.ok(ui.includes('if (cantWrap) cantWrap.style.display = "block";'));
   assert.ok(!ui.includes('const esMostrador = !selCli.value'));
   assert.ok(ui.includes(': (_esBar ? 1 : Number(g("vi-cantidad")));'));

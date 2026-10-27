@@ -4,7 +4,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const path = require("node:path");
-const html = fs.readFileSync(path.join(__dirname, "../docs/index.html"), "utf8");
+const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, "../docs/index.html"), "utf8");
 const block = html.match(/\(function cajaNegraErrores\(\) \{[\s\S]*?\n\}\)\(\);/);
 assert.ok(block, "Global error handler must be present");
 function harness() {
@@ -98,7 +98,7 @@ test("ResizeObserver loop notice is logged but never shown as a failure (Sentry 
   assert.equal(s.banners.length, 1, "a real exception afterwards still shows the notice");
 });
 test("header ResizeObserver measures outside its own callback and canarios skips the benign notice", () => {
-  const index = fs.readFileSync(path.join(__dirname, "../docs/index.html"), "utf8");
+  const index = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, "../docs/index.html"), "utf8");
   const can = fs.readFileSync(path.join(__dirname, "../docs/canarios.js"), "utf8");
   assert.match(index, /new ResizeObserver\(function \(\) \{ if \(_raf\) return; _raf = requestAnimationFrame/);
   assert.match(can, /ResizeObserver loop/);

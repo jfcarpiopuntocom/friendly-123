@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const html=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
+const html=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
 const start=html.indexOf('  function intentar() {'),end=html.indexOf('  function shellDelSW()',start);
 assert.ok(start>0&&end>start);
 function fixture(visibility,elapsed,safe=true){

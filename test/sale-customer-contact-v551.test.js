@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const {browser} = require('./helpers/browser.cjs');
 
-const html = () => fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+const html = () => require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
 // Sale reporting deliberately flattens the financial projection and omits personal contacts.
 // The private synthetic catalog validates the actual stored sale snapshot without expanding reporting PII.
 const sales = async w => w.catalog().ventas;

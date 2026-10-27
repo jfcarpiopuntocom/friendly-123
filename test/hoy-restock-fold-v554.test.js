@@ -35,7 +35,7 @@ test('Today keeps nonperishable zero-stock artwork accessible inside a folded re
 });
 
 test('Today restock folding uses a native accessible details panel without modifying the inventory UI',()=>{
-  const src=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
+  const src=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
   const backend=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');
   const locale=fs.readFileSync(path.join(__dirname,'../docs/i18n.js'),'utf8');
   assert.match(src,/<details id="ocRestockHoy"/);
@@ -85,7 +85,7 @@ test('v557 item 1: per-product one-of-a-kind checkbox toggles the fold; folded n
   assert.equal((await other.request('/api/productos')).find(p=>p.id===art.id).piezaUnica,true);
 });
 test('v557 item 1: product forms carry the checkbox in both languages',()=>{
-  const src=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
+  const src=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
   const loc=fs.readFileSync(path.join(__dirname,'../docs/i18n.js'),'utf8');
   assert.equal((src.match(/id="np-unica"/g)||[]).length,2);
   assert.match(src,/id="ed-unica"/);

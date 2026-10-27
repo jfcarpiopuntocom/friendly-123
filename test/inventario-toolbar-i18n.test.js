@@ -5,7 +5,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
 const i18n = fs.readFileSync(path.join(__dirname, '../docs/i18n.js'), 'utf8');
 
 test('inventory toolbar has no hardcoded Spanish or English labels', () => {

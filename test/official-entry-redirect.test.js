@@ -83,7 +83,7 @@ test('HEAD is not a login redirect, POST is never redirected, landing is untouch
  assert.equal(landing.called.length,0);
 });
 test('the existing PWA updates are already incremental and safe: no new library or sync mutations',()=>{
- const html=fs.readFileSync(path.resolve(__dirname,'../docs/index.html'),'utf8');
+ const html=require('./helpers/page-source.cjs').readFileSync(path.resolve(__dirname,'../docs/index.html'),'utf8');
  const sw=fs.readFileSync(path.resolve(__dirname,'../docs/sw.js'),'utf8');
  const dash=fs.readFileSync(path.resolve(__dirname,'../docs/dashboard-updates.js'),'utf8');
  assert.match(html,/serviceWorker\.register\("\.\/sw\.js", \{ updateViaCache: "none" \}/);

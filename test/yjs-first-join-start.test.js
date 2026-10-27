@@ -55,7 +55,7 @@ test('a failed Yjs bundle load leaves startup retryable on the next license even
 });
 
 test('the Lord stable-entry guard no longer redirects, while historical routes remain noindex', async () => {
-  const currentHtml = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const currentHtml = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
   // Pin the regression baseline so this comparison survives committing the fix.
   const oldHtml = execFileSync('git', ['show', `${PRE_FIX_BASELINE}:docs/index.html`], { encoding: 'utf8' });
   const guard = html => {

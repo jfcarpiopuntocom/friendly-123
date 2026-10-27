@@ -41,7 +41,22 @@ function extraerShell(swSrc) {
 }
 
 function main() {
-  const swSrc = fs.readFileSync(SW, "utf8");
+  let swSrc = fs.readFileSync(SW, "utf8");
+  const current = new Set(extraerShell(swSrc));
+  const discovered = new Set();
+  for (const page of ["index.html", "dashboard.html"]) {
+    const html = fs.readFileSync(path.join(DOCS, page), "utf8").replace(/<!--[\s\S]*?-->/g, "");
+    for (const tag of html.matchAll(/<(?:script|link|img)\b[^>]*>/gi)) {
+      const ref = /(?:src|href)=["'](\.\/[^"'#?]+)["']/i.exec(tag[0]);
+      if (ref && !ref[1].includes("..") && fs.existsSync(path.join(DOCS, ref[1]))) discovered.add(ref[1]);
+    }
+  }
+  const missing = [...discovered].filter(rel => !current.has(rel)).sort();
+  if (missing.length) {
+    swSrc = swSrc.replace(/const\s+SHELL\s*=\s*\[[\s\S]*?\];/,
+      "const SHELL = " + JSON.stringify([...current, ...missing], null, 2) + ";");
+    fs.writeFileSync(SW, swSrc);
+  }
   const shell = extraerShell(swSrc);
   const version = JSON.parse(fs.readFileSync(VERSION_JSON, "utf8"));
 

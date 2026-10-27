@@ -7,7 +7,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'); const path = require('node:path');
-const src = fs.readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
+const src = require('./helpers/page-source.cjs').readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
 
 test('Record payment offers leaving the balance owed without pretending to issue store credit', () => {
   const linea = src.split(/\r?\n/).find((l) => /value: "dejar-pendiente"/.test(l) && /label:/.test(l));

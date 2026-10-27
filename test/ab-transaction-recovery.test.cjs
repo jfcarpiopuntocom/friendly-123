@@ -334,7 +334,7 @@ test('Dashboard uses the same preimage after active corruption instead of a reje
   const f=fixture();pointerAndRestoreFailure(f,{swallowDelete:true});
   assert.equal((await hold(f.app)).status,507);
   f.storage.map.set(A,'{corrupt active');
-  const html=fs.readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8');
+  const html=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8');
   const start=html.indexOf('  function leerEstadoLocal() {');
   const source=html.slice(start,html.indexOf('  /* Read the complete IndexedDB mirror',start));
   const context={window:{OCEstadoAB:{crear:()=>helper(f.storage)}},localStorage:{getItem:k=>k==='f123_owned'?'{}':f.storage.getItem(k)},K_ESTADO:BASE,sufijoTienda:()=>''};

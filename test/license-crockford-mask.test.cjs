@@ -3,7 +3,7 @@
 const {test}=require('node:test'), assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const auth=fs.readFileSync(path.join(__dirname,'../docs/auth-ui.js'),'utf8');
-const dashboard=fs.readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8');
+const dashboard=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8');
 function issued(){
   let n=0;
   const c={Uint8Array,self:{crypto:{getRandomValues(bytes){bytes.fill(0);bytes[14]=Math.floor(n/32);bytes[15]=n%32;return bytes;}}}};

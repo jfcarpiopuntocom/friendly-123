@@ -65,7 +65,7 @@ fi
 # el prefijo de OTRA app hermana coladas por copy-paste sin adaptar -- la
 # clase de bug real que causo el hoyo de hechos.js/telemetry.js/etc. Corre el
 # mismo grep que se usa a mano en cada auditoria, como gate automatico.
-ajenas=$(grep -rnE '=\s*"(amigable|c123|amg)_[a-z_]+"' docs/*.js 2>/dev/null | grep -vE '_[0-9]{4}-[0-9]{2}-[0-9]{2}_' | grep -vi "VIEJA" | sort -u)
+ajenas=$(grep -nE '=\s*"(amigable|c123|amg)_[a-z_]+"' $(find docs -maxdepth 1 -name '*.js' ! -name 'app-*.min.js' ! -name 'dashboard-*.min.js') src/app/*.js src/dashboard/*.js 2>/dev/null | grep -vE '_[0-9]{4}-[0-9]{2}-[0-9]{2}_' | grep -vi "VIEJA" | sort -u)
 if [ -n "$ajenas" ]; then
   echo "CLAVES DE OTRA APP (G2): esta app es f123_*, pero aparecen literales ajenos:"
   echo "$ajenas" | sed 's/^/  /'
@@ -143,9 +143,9 @@ fi
 # arriba no los ve. Tienen que seguir en el SHELL de sw.js (son el fallback
 # local y el precache) y NO pueden aparecer ademas como <script src> (doble
 # carga). La lista va en UN renglon marcado /* OC-CARGADOR-LISTA */.
-lista_cargador=$(grep -E 'OC-CARGADOR-LISTA' docs/index.html | grep -oE '"\./[^"]+"' | tr -d '"')
+lista_cargador=$(grep -E 'OC-CARGADOR-LISTA' src/app/app-inline-02.js | grep -oE '"\./[^"]+"' | tr -d '"')
 if [ -z "$lista_cargador" ]; then
-  echo "FALTA la lista del cargador (G6): no hay renglon OC-CARGADOR-LISTA en index.html"
+  echo "FALTA la lista del cargador (G6): no hay renglon OC-CARGADOR-LISTA en su fuente extraida"
   falta=1
 fi
 for s in $lista_cargador; do

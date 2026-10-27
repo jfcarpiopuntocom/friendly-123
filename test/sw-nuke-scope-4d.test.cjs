@@ -4,7 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
 const path=require('node:path');
-const source=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8').replace(/\r\n/g,'\n');
+const source=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/index.html'),'utf8').replace(/\r\n/g,'\n');
 const swSource=fs.readFileSync(path.join(__dirname,'../docs/sw.js'),'utf8');
 const shell=/^const CACHE = "([^"]+)";/m.exec(swSource)?.[1];
 const generation=/^const CACHE_GENERACION = "([^"]+)";/m.exec(swSource)?.[1];

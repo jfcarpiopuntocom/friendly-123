@@ -124,6 +124,6 @@ test('Commissions buttons use short texts (one line on a phone), full text kept 
   assert.match(i18n, /"comm\.viewRack": "Por percha"/);
   assert.match(i18n, /"comm\.sendWhatsappDailyShort": "WhatsApp"/);
   assert.match(i18n, /"comm\.sendWhatsappDailyShort": "WhatsApp"/);
-  const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
   assert.match(html, /aria-label="Export CSV"[^>]*>⤓ CSV<\/button>/);
 });

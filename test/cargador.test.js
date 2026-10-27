@@ -93,7 +93,7 @@ test('texto() dice de donde vino el codigo y cuantos cayeron', async () => {
 });
 
 test('cableado de index.html: meta vacio, lista en el SHELL, sin doble carga, fallback inline', () => {
-  const html = fs.readFileSync(path.join(DOCS, 'index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(DOCS, 'index.html'), 'utf8');
   const sw = fs.readFileSync(path.join(DOCS, 'sw.js'), 'utf8');
   assert.match(html, /<meta name="oc-origen-codigo" content="">/, 'el meta va VACIO hasta orden de JFC');
   const linea = html.split('\n').find((l) => l.includes('OC-CARGADOR-LISTA'));
@@ -103,8 +103,14 @@ test('cableado de index.html: meta vacio, lista en el SHELL, sin doble carga, fa
     assert.ok(sw.includes('"' + f + '"'), f + ' tiene que estar en el SHELL de sw.js');
     if (f !== './cargador.js') assert.ok(!new RegExp('<script[^>]+src="' + f.replace(/[./]/g, '\\$&') + '"').test(html), f + ' no puede ser tambien <script src>');
   }
-  assert.ok(html.includes('<script src="./cargador.js"></script>'));
-  assert.ok(html.includes("document.write('<script src=\"' + lista[i] + '\"><\\/script>')"), 'fallback inline si cargador.js no carga');
+  assert.match(html, /<script(?=[^>]*src="\.\/cargador\.js")(?=[^>]*\bdefer\b)[^>]*>/);
+  const inserted = [];
+  const context = {window:{}, document:{createElement:()=>({}),head:{appendChild:s=>inserted.push(s)},write:()=>{throw Error('deferred boot must not replace the document');}}};
+  vm.runInNewContext(fs.readFileSync(path.join(DOCS,'../src/app/app-inline-02.js'),'utf8'),context);
+  assert.deepEqual(inserted.map(s=>s.src),lista.slice(0,1),'fallback starts only the first dependency');
+  inserted[0].onload(); inserted[1].onerror(); inserted[2].onload(); inserted[3].onload();
+  assert.deepEqual(inserted.map(s=>s.src),lista,'fallback preserves order and proceeds after an optional module failure');
+  assert.ok(inserted.every(s=>s.async===false));
   const htaccess = fs.readFileSync(path.join(DOCS, '.htaccess'), 'utf8');
   assert.match(htaccess, /Access-Control-Allow-Origin "https:\/\/jfcarpiopuntocom\.github\.io"/);
 });

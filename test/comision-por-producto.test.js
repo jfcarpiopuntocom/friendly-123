@@ -133,7 +133,7 @@ test('9. the product sheet carries the percentage and clearing it returns to nul
 
 test('fijacion (UI): both product forms carry the field and it has EN and ES texts', () => {
   const fs = require('node:fs'), path = require('node:path');
-  const html = fs.readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.resolve(__dirname, '../docs/index.html'), 'utf8');
   const i18n = fs.readFileSync(path.resolve(__dirname, '../docs/i18n.js'), 'utf8');
   for (const id of ['np-pct-asociado', 'np-pct-asociado-q', 'ed-pct-asociado']) assert.ok(html.includes(`id="${id}"`), id);
   assert.ok(/pctAsociado: v\("ed-pct-asociado"\)/.test(html), 'edit sends the field');

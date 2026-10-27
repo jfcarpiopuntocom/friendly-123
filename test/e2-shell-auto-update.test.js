@@ -5,7 +5,7 @@ const fs=require("node:fs");
 const path=require("node:path");
 const vm=require("node:vm");
 const auth=fs.readFileSync(path.join(__dirname,"../docs/auth-ui.js"),"utf8");
-const html=fs.readFileSync(path.join(__dirname,"../docs/index.html"),"utf8");
+const html=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,"../docs/index.html"),"utf8");
 const delay=()=>new Promise(resolve=>setImmediate(resolve));
 test('E2: foreground updates are coalesced inside 15 minutes and resume after expiry',async()=>{
  const start=html.indexOf('  let ultimoUpdateAlVolver = 0;');

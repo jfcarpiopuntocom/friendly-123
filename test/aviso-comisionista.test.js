@@ -7,7 +7,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8').replace(/\r\n/g, '\n'); // CRLF local (autocrlf); Pages sirve LF
+const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8').replace(/\r\n/g, '\n'); // CRLF local (autocrlf); Pages sirve LF
 const mock = fs.readFileSync(path.join(__dirname, '../docs/mock-backend.js'), 'utf8').replace(/\r\n/g, '\n'); // CRLF local (autocrlf); Pages sirve LF
 
 test('se ofrece solo desde el flujo de venta, nunca desde el sync', () => {

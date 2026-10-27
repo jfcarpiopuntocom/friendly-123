@@ -71,7 +71,7 @@ test('point 3: the core reports a reversal larger than the payment, and the API 
 
 /* UI: run the real payment function from docs/index.html in a VM with stubbed dialogs. */
 function cargarUI({ fetchImpl }) {
-  const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
   const start = html.indexOf('const _ocPagosEnCurso');
   const end = html.indexOf('// --- VISTA AVANZADO ---', start);
   const src = (start >= 0 ? html.slice(start, end) : html.slice(html.indexOf('async function marcarComisionPagada'), html.indexOf('// --- VISTA AVANZADO ---')));

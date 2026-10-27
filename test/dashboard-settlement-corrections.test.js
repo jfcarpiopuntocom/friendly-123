@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const RM = require('../docs/core/business-read-model.js');
 const ledger = require('../docs/core/payout-ledger.js');
-const html = fs.readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
+const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
 
 function dashboard(state) {
   const context = {

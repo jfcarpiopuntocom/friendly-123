@@ -31,7 +31,7 @@ test('index and Dashboard use IDENTICAL new Apple / desktop icon links',()=>{
    assert.doesNotMatch(file,/<link[^>]*apple-touch-icon[^>]*href="(?:\.\/)?(?:logo\.png|icons\/apple-touch-icon\.png)"/);
  }
  assert.match(index,/<link rel="manifest" href="\.\/manifest\.json">/);
- assert.equal((dashboard.match(/Dashboard v\d+/)||[])[0],'Dashboard '+version.releaseName);
+ assert.equal((dashboard.match(/Dashboard shell v\d+/)||[])[0],'Dashboard '+version.releaseName);
 });
 test('PWA install assets and maskable purpose match the same 123 brand set',()=>{
  assert.deepEqual(manifest.icons.map(({src,sizes,purpose})=>[src,sizes,purpose]),[
@@ -41,7 +41,7 @@ test('PWA install assets and maskable purpose match the same 123 brand set',()=>
  ]);
  const all=html('sw.js');
  assert.match(version.shell,/^f123-shell-v\d+$/);
- assert.equal(version.releaseName,version.shell.replace('f123-shell-',''));
+ assert.equal(version.releaseName,version.shell.replace('f123-shell-','shell '));
  assert.equal(hashes.shell,version.shell);
  assert.ok(all.includes('const CACHE = "'+version.shell+'"'));
  for(const name of [names.small,names.favicon,names.apple,names.ico])

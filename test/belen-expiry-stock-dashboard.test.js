@@ -1,5 +1,5 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const app=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
+const app=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
 test('inventory expiry sort puts earliest expiry first and undated items last in both directions',()=>{
  const code=app.slice(app.indexOf('const COLUMNAS_INVENTARIO ='),app.indexOf('function pintarBotonesOrdenInventario()'));
  const c={window:{OCBusinessReadModel:require('../docs/core/business-read-model.js')}};vm.createContext(c);vm.runInContext(code+';this.columns=COLUMNAS_INVENTARIO;this.sort=ordenarInventario;this.set=(asc)=>{_ordenInv={col:"fechaCaducidad",asc}}',c);
@@ -9,7 +9,7 @@ test('inventory expiry sort puts earliest expiry first and undated items last in
  c.set(false);assert.deepEqual(Array.from(c.sort(rows),x=>x.id),['later','soon','none','invalid']);assert.equal(rows[0].id,'none','sorting cannot mutate store');
 });
 test('unchanged local snapshot cannot overwrite a newer remote dashboard photo with zero stock',async()=>{
- const html=fs.readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8');
+ const html=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8');
  const code=html.slice(html.indexOf('  async function refrescarLocal('),html.indexOf('  function repintarVivo()'));
  const c={autorizado:true,bloquearSesionSiCambioTienda:()=>false,leerEstadoLocalActual:async()=>({_rev:8,productos:[{stockActual:0}]}),_ultimaRevRepintada:8,_fuenteDatosDashboard:'remota',stock:5,pintarDesdeLocal:e=>{c.stock=e.productos[0].stockActual;return true}};
  vm.createContext(c);vm.runInContext(code,c);await c.refrescarLocal(true);assert.equal(c.stock,5);

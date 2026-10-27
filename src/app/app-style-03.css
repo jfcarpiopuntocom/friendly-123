@@ -1,0 +1,36 @@
+
+  #fab-eod{position:fixed;right:16px;bottom:16px;z-index:850;border-radius:999px;
+    background:var(--rust-boton,#C0472B);color:#fff;border:none;padding:14px 20px;font-size:15px;font-weight:700;
+    box-shadow:0 6px 20px rgba(232,96,64,.35);cursor:pointer;display:none;font-family:inherit;
+    -webkit-tap-highlight-color:transparent;}
+  #fab-eod:hover{background:#C05000;}
+  /* JFC 2026-08-19: en el navegador movil el FAB flotante tapaba el menu de
+     abajo. Queda SOLO en pantalla ancha (>=900px), flotando como a JFC le
+     gusta. En movil la misma accion vive dentro de SOLD (#eod-inline-wrap),
+     que es donde el usuario ya esta cerrando el dia. El !important es
+     necesario porque actualizarFAB() escribe display inline. */
+  @media (max-width:899px){ #fab-eod{display:none !important;} }
+  /* Y al reves: el boton en linea es solo de movil. */
+  #eod-inline-wrap{display:none;margin-top:14px;}
+  @media (max-width:899px){ #eod-inline-wrap.puede{display:block;} }
+  #eod-inline{width:100%;min-height:48px;border-radius:10px;background:#C0472B;color:#fff;
+    border:none;padding:13px 18px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;}
+  #eod-inline:active{transform:scale(.99);}
+  #fab-eod:active{transform:scale(.97);}
+  #eod-modal{position:fixed;inset:0;background:rgba(15,25,35,.55);z-index:900;
+    display:none;align-items:center;justify-content:center;padding:16px;}
+  #eod-modal.visible{display:flex;}
+  #eod-modal .card{background:#fff;border-radius:14px;padding:24px 22px;max-width:440px;width:100%;
+    box-shadow:0 10px 40px rgba(0,0,0,.3);}
+  #eod-modal h3{margin:0 0 10px;font-size:20px;color:#0F1923;}
+  #eod-modal .k{display:flex;justify-content:space-between;font-size:15px;padding:8px 0;
+    border-bottom:1px solid #e5e7eb;color:#2C3E50;}
+  #eod-modal .k:last-of-type{border-bottom:none;}
+  #eod-modal .k .v{font-family:"JetBrains Mono",monospace;font-weight:700;color:#0F1923;}
+  #eod-modal .row{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;}
+  #eod-modal .btn{flex:1;min-width:130px;padding:12px;border-radius:8px;border:1.5px solid transparent;
+    font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+  #eod-modal .btn-p{background:var(--rust-boton,#C0472B);color:#fff;}
+  #eod-modal .btn-p:hover{background:#C05000;}
+  #eod-modal .btn-o{background:#fff;border-color:#e5e7eb;color:#0F1923;}
+  #eod-msg{font-size:13px;color:#6b7280;margin-top:10px;min-height:16px;}

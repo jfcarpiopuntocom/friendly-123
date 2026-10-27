@@ -1,0 +1,3949 @@
+
+/* ============================================================================
+   tablero.html — el lienzo.
+
+   COMO FUNCIONA, en una linea: pide el codigo de la sala, deriva la misma
+   clave que la app (PBKDF2 -> AES-GCM), se conecta al mismo relay, pide una
+   foto y la pinta. No escribe nunca, no guarda nunca.
+
+   POR QUE NO REUSA sync-realtime.js TAL CUAL: ese modulo escribe en
+   localStorage (log de ops, cola, lamport) porque es un participante activo
+   del equipo. El tablero NO debe dejar rastro, asi que aqui va solo la mitad
+   que necesita: derivar la clave, conectarse, descifrar y pintar. Cero
+   escritura, cero persistencia. Es la misma cripta y el mismo dialecto, con
+   la mitad de las capacidades a proposito.
+
+   Si alguna vez cambian SALT_FIJO, el nombre de la sala o el formato de las
+   ops en sync-realtime.js, hay que cambiarlos aqui tambien. Estan marcados.
+   ============================================================================ */
+(function () {
+  "use strict";
+
+  /* --- ESPEJO EXACTO de sync-realtime.js. No tocar sin tocar alla. --- */
+  var RELAY_URL = "wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/";
+  var SALT_FIJO = "amigable-sync-v1";
+  var TIPO_LATIDO = "__latido__";
+  var TIPO_PIN = "__pin__";
+  var TIPO_ORDEN = "__orden__";
+  var TIPO_RESPUESTA = "__respuesta__";
+  var TIPO_FOTO_PEDIDA = "__foto_pedida__";
+  var TIPO_FOTO_TROZO = "__foto_trozo__";
+  var fotoTimer = null;
+  var reconexionTimer = null;
+  var reconexionMs = 1500;
+
+  /* El logo real, embebido: este archivo se manda por WhatsApp y tiene que
+     abrir igual sin depender de ningun servidor de imagenes. */
+  var LOGO = "data:image/png;base64,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";
+  var clave = null, ws = null, miId = "t" + Math.random().toString(36).slice(2, 10), fotoToken = "";
+  var datos = { productos: [], clientes: [], ventas: [], resumen: null };
+  var revisionVistaExportacion = 0;
+  var esperados = {}, recibidos = {}, fotoTemporal = {}, totalTrozos = 0, clavesTrozos = {};
+  /* De que foto son los trozos que estoy armando. Dos dispositivos pueden
+     contestar el mismo pedido, y al reconectar se pide otra: sin esto, los
+     trozos de fotos distintas se mezclaban y salia un negocio hecho de dos
+     momentos diferentes, sin ningun aviso. */
+  var fotoEnCurso = "", fotoFecha = "";
+  var ultimoDato = 0, tabla = null, vista = "productos", degradado = false;
+  var tablaDe = "";   /* de que vista es la tabla que esta montada ahora mismo */
+  var autorizado = false;   /* mientras sea false, nada de datos se pinta */
+  var modoLocal = false;    /* los datos salieron de este mismo dispositivo */
+  var _fuenteDatosDashboard = '';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  };
+  var money = function (n) { return n == null || n === "" || !Number.isFinite(Number(n)) ? "—" : "$" + Number(n).toFixed(2); };
+  /* Semaforo Simon, congelado (ver project_simon_semantics). Los cinco, ni uno
+     mas: el azul esta EXCLUIDO de tableros a proposito. Texto siempre solido y
+     con contraste sobre su fondo, nunca color sobre el mismo tono. */
+  var SIMON = {
+    verde:   { bg: "#00C87A", txt: "#0A2E1E", nom: "Sano" },
+    dorado:  { bg: "#FFC700", txt: "#3D2E00", nom: "Oportunidad" },
+    amarillo:{ bg: "#FFC700", txt: "#3D2E00", nom: "Oportunidad" },
+    naranja: { bg: "#F97316", txt: "#FFFFFF", nom: "Se acaba" },
+    rojo:    { bg: "#E8365D", txt: "#FFFFFF", nom: "Urgente" },
+    negro:   { bg: "#0A0A0F", txt: "#FFFFFF", nom: "Dormido" },
+  };
+  /* La fecha llega en ISO. Mostrarla cruda es ilegible para el duenio; se
+     pinta local y corta. Si no parsea, se muestra tal cual antes que un
+     "Invalid Date". */
+  var fecha = function (iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return String(iso || "");
+    var dd = String(d.getDate()).padStart(2, "0"), mm = String(d.getMonth() + 1).padStart(2, "0");
+    return dd + "/" + mm + "/" + d.getFullYear() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  };
+  var plural = function (n, uno, muchos) { return n + " " + (n === 1 ? uno : muchos); };
+
+  /* --- Cripto: identica a la de la app --- */
+  async function derivarClave(codigo) {
+    var enc = new TextEncoder();
+    var base = await crypto.subtle.importKey("raw", enc.encode(codigo), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt: enc.encode(SALT_FIJO), iterations: 100000, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+  }
+  /* ESPEJO EXACTO de idDeSala() en sync-realtime.js: el prefijo y el corte a
+     40 caracteres son parte del identificador. Sin el prefijo se entra a OTRA
+     sala y no llega nada, sin ningun error visible. Ya paso una vez. */
+  async function idDeSala(codigo) {
+    var h = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("amigable-sala:" + codigo));
+    return Array.from(new Uint8Array(h)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("").slice(0, 40);
+  }
+  /* The app intentionally isolates ONE historical license in a clean relay room.
+     Preserve the precise room policy; the encryption key remains based on the
+     unmodified normalized license. No license is embedded or logged here.
+     Mirror of the cyrb53 guard in docs/sync-realtime.js (read-only client). */
+  function salaCompatible(codigo) {
+    var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+    for (var i = 0, ch; i < codigo.length; i++) {
+      ch = codigo.charCodeAt(i);
+      h1 = Math.imul(h1 ^ ch, 2654435761);
+      h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0) === 6583453063440131
+      ? codigo + "::limpio-2026-09-16" : codigo;
+  }
+  async function cifrar(obj) {
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    var buf = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, clave, new TextEncoder().encode(JSON.stringify(obj)));
+    var out = new Uint8Array(12 + buf.byteLength);
+    out.set(iv, 0); out.set(new Uint8Array(buf), 12);
+    return out.buffer;
+  }
+  async function descifrar(buf) {
+    var d = new Uint8Array(buf);
+    var claro = await crypto.subtle.decrypt({ name: "AES-GCM", iv: d.slice(0, 12) }, clave, d.slice(12));
+    return JSON.parse(new TextDecoder().decode(claro));
+  }
+
+  /* --- Pulso: se muestra LA HORA DEL ULTIMO DATO, no un "conectado" generico.
+         Un indicador verde que miente seria peor que no tener tablero. --- */
+  function pulso(txt, clase) {
+    $("punto").className = "punto" + (clase ? " " + clase : "");
+    $("pulso-txt").textContent = txt;
+    /* v462: la isla muestra el MISMO estado que este pulso (una sola fuente, nada de otro timer). */
+    try { islaSync(txt, clase); } catch (_) {}
+  }
+  setInterval(function () {
+    if (!ultimoDato) return;
+    if (typeof recibirTrozo === "function" && recibirTrozo.sinConciliar) {
+      pulso((document.documentElement.lang === "es")
+        ? "Datos distintos entre aparatos · última lectura conservada"
+        : "Device data differs · last reading preserved", "viejo");
+      return;
+    }
+    /* En modo local sin sala, el dato no envejece: sale del mismo dispositivo.
+       Decir "sin novedades hace 40 min" ahi seria mentir. */
+    if (!ws && modoLocal) { pulso("from this device", "vivo"); return; }
+    /* v509 (JFC 2026-10-14: "dice al dia hace 100 segundos... debemos sync en MILISEGUNDOS").
+       Los cambios ya llegan al instante: el aparato que vende avisa y el tablero pide la foto
+       a los 120 ms. El contador medía otra cosa: cuánto hace que ALGÚN aparato respondió a la
+       foto que se pide cada 20 s, y parecía atraso. Ahora dice lo medido, con la hora:
+       en vivo si un aparato respondió en los últimos 25 s; si no, que ninguno está respondiendo. */
+    var seg = (Date.now() - ultimoDato) / 1000;
+    var hora = new Date(ultimoDato).toLocaleTimeString("es-EC", { hour: "numeric", minute: "2-digit" });
+    // v514: la foto de respaldo pasa de 20 s a 60 s; "en vivo" = un aparato respondio en < 75 s.
+    if (seg < 75) pulso("en vivo · al instante", "vivo");
+    else if (ws && ws.readyState === 1) pulso("conectado · ningún aparato con la app abierta desde las " + hora, "viejo");
+    else pulso("sin conexión · último dato a las " + hora, "viejo");
+  }, 5000);
+
+  /* --- Conexión --- */
+  /* Manda el PIN al dispositivo del duenio, que es el unico que puede
+     verificarlo. Aqui no hay copia del PIN ni forma de saber si existe. */
+  function verificarPin(pin) {
+    return new Promise(function (resolve) {
+      if (!ws || ws.readyState !== 1) { resolve({ ok: false, datos: { error: "Sin conexión." } }); return; }
+      var id = "p" + Math.random().toString(36).slice(2, 10);
+      /* Se declara ANTES del timeout: leerlo por hoisting funciona, pero
+         depender de eso es como se cuelan los bugs raros. */
+      var negativas = 0;
+      var reloj = setTimeout(function () {
+        if (!pedidos[id]) return;
+        delete pedidos[id];
+        resolve({ ok: false, datos: { error: negativas
+          ? "Ese PIN no abre el tablero. Tiene que ser el del dueño o el de un admin."
+          : "Ningún dispositivo de tu equipo contestó. Abre friendly-123 y vuelve a intentar." } });
+      }, 12000);
+      /* Se espera un SI. Un NO no cierra la puerta: en una sala con varios
+         dispositivos, el que no conoce ese PIN puede contestar antes que el que
+         si lo conoce, y rendirse al primer no rechazaba PINs validos. Los "no"
+         se cuentan solo para redactar mejor el mensaje del timeout. */
+      pedidos[id] = function (r) {
+        if (!r.ok) { negativas++; return; }
+        clearTimeout(reloj);
+        delete pedidos[id];
+        resolve(r);
+      };
+      cifrar({ opId: id, deviceId: miId, tipo: TIPO_PIN, payload: { pedidoId: id, pin: pin } })
+        .then(function (buf) { try { ws.send(buf); } catch (_) {} });
+    });
+  }
+
+  /* Si a los 6 s no contesto nadie, casi siempre es que no hay ningun
+     dispositivo del equipo encendido. Se dice, no se disimula. */
+  function sinNadie() {
+    setTimeout(function () {
+      if (ultimoDato) return;
+      /* ULTIMA RED (JFC 2026-08-17). Antes esto dejaba las pestanias vacias
+         aunque el negocio estuviera guardado en ESTE mismo navegador. Si hay
+         datos aqui, se pintan: una pantalla en blanco delante de alguien que
+         tiene todos sus datos en ese computador es el peor final posible. */
+      if (pintarDesdeLocal()) {
+        $("cierre").innerHTML = "<strong>Ningún otro dispositivo de tu equipo contestó.</strong>" +
+          "Esto es lo que hay guardado en este computador. Si tu equipo abre friendly-123, " +
+          "esta pantalla se actualiza sola.";
+        return;
+      }
+      pulso("no device connected", "solo");
+      $("cierre").innerHTML = "<strong>Ningún dispositivo de tu equipo está conectado.</strong>" +
+        "Abre friendly-123 y esta pantalla se llena sola.";
+      $("puerta").style.display = "none";
+      $("cabecera").style.display = "block";
+      $("tablero").style.display = "block";
+    }, 6000);
+  }
+
+  function programarReconexion(codigo) {
+    pulso("reconectando…");
+    clearTimeout(reconexionTimer);
+    var espera = reconexionMs / 2 + Math.random() * reconexionMs / 2;
+    reconexionMs = Math.min(30000, reconexionMs * 2);
+    reconexionTimer = setTimeout(function () {
+      conectar(codigo).then(function () { if (autorizado) pedirFoto(); }).catch(function () {});
+    }, espera);
+  }
+
+  async function conectar(codigo) {
+    /* Mismo normalizado que la app: sin esto, "amg-x" y "F123-X" caen en salas
+       distintas y el equipo nunca entiende por que no ve nada. */
+    codigo = String(codigo || "").trim().toUpperCase().replace(/\s+/g, "");
+    clave = await derivarClave(codigo);
+    var sala = await idDeSala(salaCompatible(codigo));
+    try {
+      if (!window.F123Relay || typeof window.F123Relay.connect !== "function") throw new Error("Native sync adapter unavailable");
+      ws = window.F123Relay.connect(RELAY_URL + sala);
+    } catch (error) {
+      programarReconexion(codigo);
+      throw error;
+    }
+    ws.binaryType = "arraybuffer";
+    /* onopen NO pide la foto: primero hay que pasar el PIN. Pedirla antes
+       seria justo el agujero que el PIN viene a tapar.
+
+       conectar() no resuelve hasta que el socket este ABIERTO de verdad: sin
+       esto, el PIN se mandaba por un socket todavia en CONNECTING y siempre
+       fallaba con "sin conexion". */
+    var abierto = new Promise(function (listo, falla) {
+      var reloj = setTimeout(function () { falla(new Error("timeout")); }, 12000);
+      ws.onopen = function () {
+        clearTimeout(reloj);
+        pulso("comprobando tu PIN…");
+        listo();
+      };
+      ws.addEventListener("error", function () { clearTimeout(reloj); falla(new Error("error")); }, { once: true });
+      ws.addEventListener("close", function (ev) { clearTimeout(reloj); falla(new Error(ev.reason || "sync unavailable")); }, { once: true });
+    });
+    ws.onmessage = async function (ev) {
+      if (typeof ev.data === "string") return;   /* presencia, en claro */
+      try {
+        var op = await descifrar(ev.data);
+        /* La respuesta al PIN es lo UNICO que se atiende antes de estar
+           autorizado. Todo lo demas se descarta: sin PIN no se pinta un dato. */
+        if (op && op.tipo === TIPO_RESPUESTA) { recibirRespuesta(op.payload); return; }
+        if (!autorizado) return;
+        if (op && op.tipo === TIPO_FOTO_TROZO) { recibirTrozo(op.payload, op.deviceId); return; }
+        /* Latido: quien esta vivo y como se llama. No es dato del negocio y no
+           se guarda en ningun lado; vive en memoria hasta que se cierre esta
+           pestana, como todo lo demas en este lienzo. */
+        if (op && op.tipo === TIPO_LATIDO && op.payload && op.payload.id) {
+          latidos[op.payload.id] = { apodo: op.payload.apodo || "", rol: op.payload.rol || "", visto: Date.now() };
+          pintarMicelio();
+          return;
+        }
+        /* Una op de negocio en vivo: se vuelve a pedir la foto para no
+           reimplementar aqui la logica de aplicar cambios. El lienzo se
+           repinta entero, que es barato y no puede quedar a medias. */
+        if (op && op.tipo && op.tipo.indexOf("__") !== 0) {
+          /* Una venta puede generar varias ops seguidas. Pedir una foto por
+             cada una multiplicaba frames y trabajo del relay; 120 ms agrupa
+             la ráfaga y mantiene el tablero perceptiblemente instantáneo. */
+          clearTimeout(fotoTimer);
+          fotoTimer = setTimeout(pedirFoto, 120);
+        }
+      } catch (_) { /* cifrado con otra clave: ruido, se ignora */ }
+    };
+    /* Al reconectar se vuelve a pedir la foto sin volver a pedir el PIN: la
+       sesion ya esta autorizada en esta pestana, y hacerle teclear el PIN cada
+       vez que parpadea el wifi seria insufrible. Al cerrar la pestana se
+       pierde todo, que es justo lo que tiene que pasar. */
+    ws.onclose = function () { programarReconexion(codigo); };
+    ws.onerror = function () { try { ws.close(); } catch (_) {} };
+    await abierto;
+  }
+
+  async function pedirFoto() {
+    if (!ws || ws.readyState !== 1) return;
+    try {
+      // Compatibilidad durante el cambio de shell: un aparato v318 no entrega
+      // token. El aparato v319 exige uno; el antiguo aún puede responder y la
+      // cobertura de finanzas se rotula incompleta, sin fingir paridad.
+      ws.send(await cifrar({ opId: miId + "-" + Date.now(), deviceId: miId, tipo: TIPO_FOTO_PEDIDA, payload: { fotoToken: fotoToken } }));
+    } catch (_) {}
+  }
+
+  /* --- La foto llega por partes. Se pinta lo que va llegando. --- */
+  var editorDeviceId = "";
+  function recibirTrozo(p, emisor) {
+    if (!p || !p.tabla) return;
+    // Ya llegó data válida: la conexión sí fue estable y puede reiniciar backoff.
+    reconexionMs = 1500;
+    /* Foto nueva: se tira lo que habia a medias. Mezclar es peor que esperar.
+
+       Y si dos dispositivos del equipo contestan a la vez, gana LA MAS
+       RECIENTE, no la ultima en llegar: el que tiene peor conexion suele
+       contestar despues y con datos mas viejos, y quedarse con esa seria
+       mostrar el negocio de hace media hora sin decirlo. */
+    var sello = String(p.fotoId || p.generadaEn || "");
+    if (sello && sello !== fotoEnCurso) {
+      if (fotoEnCurso && String(p.generadaEn || "") <= fotoFecha) return;
+      fotoEnCurso = sello;
+      fotoFecha = String(p.generadaEn || "");
+      esperados = {}; recibidos = {}; fotoTemporal = {}; totalTrozos = 0; clavesTrozos = {};
+    }
+    ultimoDato = Date.now();
+    if (p.negocio) $("neg-nombre").textContent = p.negocio;
+    if (Number.isInteger(p.deTotal) && p.deTotal > 0) totalTrozos = p.deTotal;
+    if (Number.isInteger(p.k) && p.k >= 0) clavesTrozos[p.k] = true;
+    esperados[p.tabla] = p.total;
+    recibidos[p.tabla] = recibidos[p.tabla] || {};
+    recibidos[p.tabla][p.i] = p.filas || [];
+    var partes = [], listo = true;
+    for (var i = 0; i < p.total; i++) {
+      if (!recibidos[p.tabla][i]) { listo = false; break; }
+      partes = partes.concat(recibidos[p.tabla][i]);
+    }
+    if (!listo) { pulso("recibiendo… " + Object.keys(recibidos[p.tabla]).length + "/" + p.total); return; }
+    fotoTemporal[p.tabla] = (p.tabla === "resumen" || p.tabla === "gastosMensuales" || p.tabla === "cobertura") ? (partes[0] || null) : partes;
+    if (!totalTrozos || Object.keys(clavesTrozos).length < totalTrozos) {
+      pulso("recibiendo foto… " + Object.keys(clavesTrozos).length + "/" + totalTrozos);
+      return;
+    }
+    for (var nombre in esperados) {
+      if (!Object.prototype.hasOwnProperty.call(fotoTemporal, nombre)) return;
+    }
+    /* v524 DASHBOARD-ONLY: a peer with a newer wall clock is not necessarily
+       ahead in business history. Never replace a complete remote view by one
+       that lost confirmed sale IDs or failed to read the sales table.
+       No record is written, restored, deleted or synthesized here. */
+    var prevCobertura = datos && datos.cobertura;
+    var nuevaCobertura = fotoTemporal && fotoTemporal.cobertura;
+    var ventasVistas = datos && Array.isArray(datos.ventas) ? datos.ventas : [];
+    var ventasRecibidas = Array.isArray(fotoTemporal.ventas) ? fotoTemporal.ventas : [];
+    var idsRecibidos = Object.create(null);
+    ventasRecibidas.forEach(function(v) {
+      if (v && v.id != null) idsRecibidos[String(v.id)] = true;
+    });
+    var faltaHistorial = ventasVistas.some(function(v) {
+      return v && v.id != null && !idsRecibidos[String(v.id)];
+    });
+    var faltaLectura = !nuevaCobertura || nuevaCobertura.ventas !== true;
+    /* v525: a new wall-clock timestamp is not a new accounting revision.
+       Compare only stable record identities and business-critical values; if two
+       distinct peers disagree, retain the last known display, never edit data.
+       Same-source edits and additive sales remain valid and visible. */
+    var faltaCobertura = !!(prevCobertura && nuevaCobertura &&
+      ["productos", "ventas", "gastos", "liquidaciones", "transferencias", "hechosFinancieros"].some(function(k) {
+        return prevCobertura[k] === true && nuevaCobertura[k] !== true;
+      }));
+    var otroEmisor = typeof editorDeviceId === "string" && editorDeviceId.length > 0 &&
+      typeof emisor === "string" && emisor.length > 0 && editorDeviceId !== emisor;
+    function valorComparable(obj, campo) {
+      var valor = obj && obj[campo];
+      if (valor == null || valor === "") return null;
+      if (campo === "devuelta" || campo === "anulada" || campo === "borrado") return valor === true;
+      if (["cantidad", "precioUnit", "costoUnit", "stockActual", "precio", "costo",
+           "monto", "total", "saldo", "valor", "comision", "pagado"].indexOf(campo) >= 0) {
+        var n = Number(valor);
+        return Number.isFinite(n) ? n : String(valor);
+      }
+      return String(valor);
+    }
+    function diferenciasPorId(anteriores, siguientes, campos) {
+      var mapa = Object.create(null);
+      (anteriores || []).forEach(function(item) {
+        if (item && item.id != null) mapa[String(item.id)] = item;
+      });
+      return (siguientes || []).some(function(item) {
+        if (!item || item.id == null) return false;
+        var previo = mapa[String(item.id)];
+        return !!previo && campos.some(function(k) {
+          return valorComparable(previo, k) !== valorComparable(item, k);
+        });
+      });
+    }
+    var mismasVentas = ventasVistas.length === ventasRecibidas.length && !faltaHistorial;
+    var cambioMonetario = otroEmisor && diferenciasPorId(ventasVistas, ventasRecibidas,
+      ["cantidad", "precioUnit", "costoUnit", "devuelta", "anulada", "borrado",
+       "fechaDevolucion", "clienteId", "productoId", "total", "saldo"]);
+    var cambioInventario = otroEmisor && mismasVentas && !cambioMonetario &&
+      diferenciasPorId(datos && datos.productos, fotoTemporal.productos,
+        ["stockActual", "precio", "costo"]);
+    var cambioGastos = otroEmisor && diferenciasPorId(datos && datos.gastos, fotoTemporal.gastos,
+      ["monto", "total", "saldo", "fecha", "anulada", "borrado"]);
+    var cambioLiquidaciones = otroEmisor &&
+      diferenciasPorId(datos && datos.liquidaciones, fotoTemporal.liquidaciones,
+        ["monto", "total", "saldo", "pagado", "fecha", "estado"]);
+    var cifrasDiscrepantes = cambioMonetario || cambioInventario || cambioGastos || cambioLiquidaciones;
+    if (typeof _fuenteDatosDashboard !== "undefined" && _fuenteDatosDashboard === "remota" && prevCobertura &&
+        ((prevCobertura.ventas === true && (faltaHistorial || faltaLectura)) ||
+         faltaCobertura || cifrasDiscrepantes)) {
+      recibirTrozo.sinConciliar = true;
+      // Reset the candidate cursor: an untrusted timestamp must not block
+      // recovery from another peer whose device clock runs behind it.
+      fotoEnCurso = ""; fotoFecha = "";
+      esperados = {}; recibidos = {}; fotoTemporal = {}; totalTrozos = 0; clavesTrozos = {};
+      pulso((typeof document !== "undefined" && document.documentElement &&
+        document.documentElement.lang === "es")
+        ? "Datos distintos entre aparatos · última lectura conservada"
+        : "Device data differs · last reading preserved", "viejo");
+      return;
+    }
+    recibirTrozo.sinConciliar = false;
+    datos = fotoTemporal;
+    /* The editable snapshot must carry a single, actual origin device. */
+    editorDeviceId = typeof emisor === "string" && emisor.length <= 80 ? emisor : "";
+    datos.productos = (datos.productos || []).map(function(p){return Object.assign({},p,{stockActual:window.OCBusinessReadModel.stock(p).units,fechaCaducidad:window.OCBusinessReadModel.expiry(p)});});
+    if(datos.cobertura && datos.cobertura.resumen===false)datos.resumen={resumenDia:{entra:null,gananciaHoy:null}};
+    _fuenteDatosDashboard = 'remota';
+    mostrar();
+  }
+
+  /* Belén 2026-10-14: historical purchases must not say "never" while the
+     same customer is shown as having bought items. Stable ID is authoritative;
+     name-only legacy records are attributed only when the name is unique.
+     Keep unknown coverage and invalid dates unknown, never turn them into 0. */
+  function ventaEsDeCliente(v, c) {
+    if (!v || v.anulada || !c || !c.id) return false;
+    if (v.clienteId) return String(v.clienteId) === String(c.id);
+    var nombre = String(c.nombre || "").trim().toLocaleLowerCase();
+    if (!nombre) return false;
+    var iguales = (datos.clientes || []).filter(function (x) {
+      return String(x.nombre || "").trim().toLocaleLowerCase() === nombre;
+    }).length;
+    return iguales === 1 && String(v.clienteNombre || "").trim().toLocaleLowerCase() === nombre;
+  }
+  function clientesConCompras() {
+    var ventas = Array.isArray(datos.ventas) ? datos.ventas : [];
+    var ahora = Date.now();
+    return (datos.clientes || []).map(function (c) {
+      if (c.recencia != null) return c;
+      var fechas = ventas.filter(function (v) { return ventaEsDeCliente(v, c); })
+        .map(function (v) { return Date.parse(v.fecha); })
+        .filter(function (t) { return Number.isFinite(t) && t <= ahora + 300000; });
+      if (!fechas.length) {
+        if (ventas.some(function(v) { return ventaEsDeCliente(v,c); }))
+          return Object.assign({},c,{recencia:"pending"});
+        return c;
+      }
+      var masReciente = fechas.reduce(function(a,b){return Math.max(a,b);},0);
+      return Object.assign({}, c, { recencia: Math.max(0, Math.floor((ahora - masReciente) / 86400000)) });
+    });
+  }
+
+  /* ---------------------------------------------------------------- VISTAS */
+  var VISTAS = {
+    productos: {
+      nombre: "Products",
+      cols: [
+        { title: "Product", field: "nombre", minWidth: 200, widthGrow: 3, headerFilter: false },
+        { title: "SKU", field: "sku", width: 130, cssClass: "num" },
+        { title: "Category", field: "categoria", width: 130 },
+        { title: "Stock", field: "stockActual", width: 110, hozAlign: "right", cssClass: "num", formatter: function(c){return c.getValue() === null ? 'Stock pending' : String(c.getValue());} },
+        { title: "Expiry date", field: "fechaCaducidad", width: 140 },
+        { title: "Price", field: "precio", width: 105, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Cost", field: "costo", width: 105, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Margin", field: "margen", width: 110, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        /* El color Simon ES el lenguaje de la app, no decoracion. Aqui va
+           como chip con su palabra dentro: el color para el vistazo, la
+           palabra para quien no distingue colores y para el buscador. */
+        { title: "Status", field: "estado", width: 125, formatter: function (c) {
+            var v = String(c.getValue() || "");
+            var col = SIMON[v] || { bg: "#FFFFFF", txt: "#2C3E50", nom: v };
+            return '<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:13px;' +
+              'font-weight:700;background:' + col.bg + ';color:' + col.txt + ';">' + col.nom + "</span>";
+          } },
+        { title: "Shelf", field: "ubicacionNombre", width: 150 },
+      ],
+      filas: function () {
+        return (datos.productos || []).map(function (p) {
+          return Object.assign({}, p, { margen: window.OCBusinessReadModel.margin(p) });
+        });
+      },
+      /* M12: la vista termina nombrando la herramienta que resuelve lo que
+         acaba de mostrar. Se nombra la herramienta, nunca el razonamiento. */
+      cierre: function (f) {
+        var dormidos = f.filter(function (p) { return p.estado === "negro"; }).length;
+        if (dormidos) return "<strong>" + dormidos + " productos sin movimiento.</strong>" +
+          "En la app, Perchas &rarr; Reposición arma la lista de qué mover primero.";
+        var rojos = f.filter(function (p) { return p.estado === "rojo"; }).length;
+        if (rojos) return "<strong>" + rojos + " en rojo.</strong>Inventario, filtro Urgente, te los deja juntos para reponer.";
+        return "<strong>Inventario sano.</strong>La matriz BCG de la app te dice cuáles empujar para que rindan más.";
+      },
+    },
+
+    clientes: {
+      nombre: "Customers",
+      cols: [
+        { title: "", field: "id", width: 50, hozAlign: "center", headerSort: false, download: false,
+          formatter: function(c) {
+            return '<button type="button" data-edit-cliente="' + esc(c.getValue() || "") +
+              '" aria-label="Edit customer" title="Edit customer here" style="min-width:40px;min-height:40px;border:1px solid #1C3049;border-radius:6px;background:#FFF;color:#1C3049;font-size:21px;cursor:pointer;">✎</button>';
+          } },
+        { title: "Customer", field: "nombre", minWidth: 180, widthGrow: 3 },
+        { title: "Código", field: "codigo", width: 110, cssClass: "num" },
+        /* Campos reales de fichaCliente() en mock-backend.js: recencia,
+           frecuencia y monto (RFM de 90 dias). No inventar otros. */
+        { title: "Compró hace", field: "recencia", width: 130, hozAlign: "right", cssClass: "num",
+          formatter: function (c) {
+            var v = c.getValue();
+            if (v === "pending" || (v == null && datos.cobertura && datos.cobertura.ventas === false)) return "pending";
+            return v == null ? "nunca" : v + " días";
+          } },
+        { title: "Compras 90d", field: "frecuencia", width: 125, hozAlign: "right", cssClass: "num" },
+        { title: "Monto 90d", field: "monto", width: 125, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "WhatsApp", field: "telefono", width: 160, cssClass: "num", formatter: function(c) { return esc(window.OCCustomerProfile.whatsapp(c.getValue())); }, accessorDownload: function(v) { return window.OCCustomerProfile.whatsapp(v); } },
+        { title: "Lives in Cuenca", field: "resideCuenca", width: 150, formatter: function(c) { return window.OCCustomerProfile.residentLabel(c.getValue(),localStorage.getItem('f123_lang')==='es'); }, accessorDownload: function(v) { return window.OCCustomerProfile.residentLabel(v,localStorage.getItem('f123_lang')==='es'); } },
+        { title: "Gender", field: "genero", width: 130, formatter: function(c) { return window.OCCustomerProfile.genderLabel(c.getValue(),localStorage.getItem('f123_lang')==='es'); }, accessorDownload: function(v) { return window.OCCustomerProfile.genderLabel(v,localStorage.getItem('f123_lang')==='es'); } },
+        /* JFC 2026-09-02: refleja el rango de edad y país capturados en My customers. */
+        { title: "Age", field: "rangoEdad", width: 100 },
+        { title: "Country", field: "pais", width: 130 },
+        /* "Compró" (JFC 2026-08-27): qué productos ha comprado cada cliente.
+           Se deriva en vivo de datos.ventas (clienteNombre → productoNombre),
+           no se inventa un campo nuevo del backend. */
+        { title: "Compró", field: "compro", minWidth: 200, widthGrow: 2,
+          formatter: function (c) {
+            var nombre = c.getRow().getData().nombre;
+            var prods = {};
+            (datos.ventas || []).forEach(function (v) {
+              if (ventaEsDeCliente(v, c.getRow().getData()) && v.productoNombre) prods[v.productoNombre] = true;
+            });
+            var lista = Object.keys(prods);
+            if (!lista.length) return "—";
+            return lista.slice(0, 4).join(", ") + (lista.length > 4 ? "…" : "");
+          } },
+      ],
+      filas: function () { return clientesConCompras(); },
+      cierre: function (f) {
+        return "<strong>" + plural(f.length, "cliente", "clientes") + ".</strong>" +
+          "En Clientes, la matriz de comportamiento te dice con quién puedes contar, y el fiado con plan de cuotas está ahí mismo.";
+      },
+    },
+    ventas: {
+      nombre: "Sales",
+      cols: [
+        /* LAPICITO (JFC 2026-09-10, #6): editar una venta ya asentada — corregir
+           el precio/cantidad para cuadrar la ganancia real (lo que pide Belén).
+           El dashboard delega al editor probado dentro de un embed, por
+           deep-link (#editar=venta:<id>), solo dueño/admin. Las liquidadas van
+           bloqueadas (no se tocan). */
+        { title: "", field: "id", width: 48, hozAlign: "center", headerSort: false, download: false,
+          formatter: function (c) {
+            var v = c.getRow().getData();
+            if (v.liquidada) return '<span title="Liquidada — bloqueada">·</span>';
+            return '<a href="index.html#editar=venta:' + encodeURIComponent(v.id) +
+              '" title="Corregir esta venta (precio, cantidad) aquí" ' +
+              'style="text-decoration:none;font-size:17px;font-weight:700;color:var(--azul-medio,#2c4a68);">✎</a>';
+          } },
+        { title: "Date", field: "fecha", width: 155, cssClass: "num",
+          formatter: function (c) { return fecha(c.getValue()); },
+          /* Se ordena por el ISO original, no por el texto pintado: si no,
+             "01/09" quedaria antes que "31/08". */
+          sorter: "string" },
+        { title: "Product", field: "productoNombre", minWidth: 190, widthGrow: 3 },
+        { title: "Cant.", field: "cantidad", width: 85, hozAlign: "right", cssClass: "num" },
+        { title: "Price", field: "precioUnit", width: 110, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Total", field: "total", width: 115, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Customer", field: "clienteNombre", width: 160 },
+        /* JFC 2026-09-02: refleja forma de pago y número de factura de la venta. */
+        { title: "Payment", field: "formaPago", width: 110 },
+        { title: "Invoice", field: "factura", width: 150 },
+        { title: "Shelf", field: "ubicacionNombre", width: 150 },
+      ],
+      filas: function () {
+        return (datos.ventas || []).map(function (v) {
+          var price=window.OCBusinessReadModel.number(v.precioUnit),qty=window.OCBusinessReadModel.quantity(v.cantidad);
+          return Object.assign({}, v, { total: price===null||qty===null?null:price*qty });
+        });
+      },
+      cierre: function (f) {
+        var t = window.OCBusinessReadModel.sum(f.map(function(v){return v.total;}));
+        return "<strong>" + plural(f.length, "venta", "ventas") + " por " + money(t) + " en lo que ves.</strong>" +
+          "Toca el lápiz ✎ de una fila para corregir su precio o cantidad en la app y cuadrar la ganancia real. Filtra por fecha y exporta a PDF para tu contador.";
+      },
+    },
+
+    /* Eventos va JUSTO DESPUES de Ventas y Clientes, como se pidio. */
+    eventos: {
+      nombre: "Events",
+      cols: [
+        { title: "Event", field: "evento", minWidth: 200, widthGrow: 3 },
+        { title: "Date", field: "fecha", width: 120 },
+        { title: "Sales", field: "ventas", width: 90, hozAlign: "right", cssClass: "num" },
+        { title: "Tickets", field: "unidades", width: 100, hozAlign: "right", cssClass: "num" },
+        { title: "People", field: "personas", width: 100, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return c.getValue() || "—"; } },
+        { title: "Net sales (not cash received)", field: "recaudado", width: 125, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Gross margin (before commissions and event expenses)", field: "ganancia", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Artist share", field: "comision", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "House share (before costs and expenses)", field: "casa", width: 160, hozAlign: "right", cssClass: "num",
+          formatter: function(c){return money(c.getValue());} },
+        { title: "Direct expenses", field: "gastosDirectos", width: 140, hozAlign: "right", cssClass: "num", formatter:function(c){return money(c.getValue());} },
+        { title: "House contribution (before general expenses)", field: "contribucion", width: 180, hozAlign: "right", cssClass: "num", formatter:function(c){return money(c.getValue());} },
+        { title: "Shelf", field: "perchas", width: 160 },
+        { title: "Buyers", field: "compradores", width: 130, hozAlign: "right", cssClass: "num" },
+        { title: "Last sale", field: "ultimaVenta", width: 130 },
+      ],
+      filas: filasEventos,
+      cierre: function (f) {
+        var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
+        if (!f.length) return es ? "<strong>Todavía no hay eventos.</strong> Aparecen al vender una entrada con nombre de función o clase." : "<strong>No events yet.</strong> Events appear when you sell a ticket with an event or class name.";
+        var RM=window.OCBusinessReadModel,total=function(field){return money(RM.sum(f.map(function(v){return v[field];})));};
+        var returns=f.reduce(function(n,v){return n+(v.devoluciones||0);},0);
+        var top=f.filter(function(v){return v.recaudado!==null;}).sort(function(a,b){return b.recaudado-a.recaudado;})[0];
+        return "<strong>" + f.length + (es ? (f.length===1?" función · ventas netas ":" funciones · ventas netas ") : (f.length===1?" event · net sales ":" events · net sales ")) + total("recaudado") +
+          (es ? " · margen bruto antes de comisiones y gastos " : " · gross margin before commissions and expenses ") + total("ganancia") +
+          (es ? " · parte de artistas " : " · artist share ") + total("comision") +
+          (es ? " · parte de la Casa " : " · house share ") + total("casa") +
+          (es ? " · contribución de la Casa antes de gastos generales " : " · house contribution before general expenses ") + total("contribucion") +
+          (returns?(es?" · devoluciones ":" · returns ")+returns:"") + ".</strong> " +
+          (top?(es?"Mayor venta neta: ":"Highest net sales: ")+esc(top.evento)+" ("+esc(top.fecha||(es?"fecha pendiente":"date pending"))+") "+money(top.recaudado)+". ":"")+
+          (es ? "La contribución descuenta costos de productos y gastos vinculados expresamente a cada función. Los gastos generales quedan separados; no es dinero disponible ni utilidad neta final. Un guion indica datos pendientes de conciliar." : "Contribution deducts product costs and expenses explicitly linked to each occurrence. General expenses remain separate; this is not available cash or final net profit. A dash means data is pending reconciliation.");
+      },
+    },
+
+    comisiones: {
+      nombre: "Commissions",
+      cols: [
+        /* #2 (JFC 2026-09-11): editar la comisión de la percha desde el dashboard.
+           Aditivo: el lápiz solo aparece si la fila trae ubicacionId; si no, no se
+           pinta y no rompe nada. Abre el editor probado en un embed por deep-link. */
+        { title: "", field: "ubicacionId", width: 44, hozAlign: "center", headerSort: false, download: false,
+          formatter: function (c) {
+            var id = c.getValue();
+            if (!id) return "";
+            return '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(id) +
+              '" title="Ajustar la comisión de esta percha aquí" ' +
+              'style="text-decoration:none;font-size:17px;font-weight:700;color:var(--azul-medio,#2c4a68);">✎</a>';
+          } },
+        { title: "Who gets paid", field: "quien", minWidth: 170, widthGrow: 2 },
+        { title: "Deal", field: "percha", minWidth: 160, widthGrow: 2 },
+        { title: "Type", field: "modalidad", width: 190 },
+        { title: "%", field: "pct", width: 85, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return (Number(c.getValue()) || 0) + "%"; } },
+        { title: "% house", field: "pctCasa", width: 95, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return (Number(c.getValue()) || 0) + "%"; } },
+        { title: "Sold", field: "ventasBrutas", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Takes", field: "comision", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "House keeps", field: "casa", width: 140, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return money(c.getValue()); } },
+        { title: "Status", field: "estado", width: 120, formatter: function (c) {
+            var v = String(c.getValue() || "");
+            var bg = v === "pagado" ? "#00C87A" : "#E8A020";
+            /* v391: junto a "pagado", como se pago (si se registro). */
+            var medio = ({ efectivo: "cash", transferencia: "transfer", "credito-tienda": "store credit", otro: "other" })[(c.getRow().getData() || {}).medioPago] || "";
+            return '<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:13px;' +
+              'font-weight:700;background:' + bg + ';color:#0F1923;">' + esc(v) + (v === "pagado" && medio ? " · " + esc(medio) : "") + "</span>";
+          } },
+        { title: "Corrected", field: "corregidas", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { return Number(c.getValue()) ? c.getValue() : "—"; } },
+      ],
+      filas: filasComisiones,
+      cierre: function (f) {
+        if (!f.length) {
+          return "<strong>Ninguna percha reparte comisión todavía.</strong>" +
+            "Las perchas de tipo socio, consignación o feria aparecen aquí solas " +
+            "en cuanto venden.";
+        }
+        var deb = f.reduce(function (a, v) { return a + (Number(v.comision) || 0); }, 0);
+        var casa = f.reduce(function (a, v) { return a + (Number(v.casa) || 0); }, 0);
+        var pend = f.filter(function (v) { return v.estado === "pendiente"; });
+        var corr = f.reduce(function (a, v) { return a + (Number(v.corregidas) || 0); }, 0);
+        /* Los dos botones cambian la lectura del MISMO dato, no piden nada al
+           equipo. Por eso el cambio es instantaneo aunque no haya internet. */
+        return "<strong>" + money(deb) + " para quienes cobran comisión · " +
+          money(casa) + " queda en la casa</strong>" +
+          (pend.length ? "Sin liquidar: " + pend.map(function (v) { return esc(v.quien); }).join(", ") + ". " : "Todo liquidado. ") +
+          (corr ? corr + " venta(s) con el porcentaje corregido a mano. " : "") +
+          'Ver por: <button type="button" data-agr="percha"' +
+          (agruparComisionesPor === "percha" ? ' style="font-weight:700;text-decoration:underline;"' : "") +
+          ">deal/shelf</button> · " +
+          '<button type="button" data-agr="persona"' +
+          (agruparComisionesPor === "persona" ? ' style="font-weight:700;text-decoration:underline;"' : "") +
+          ">person</button>" +
+          " — la misma persona puede ser vendedora en una percha y artista en otra, " +
+          "con % distintos, y las dos cosas son ciertas a la vez.";
+      },
+    },
+
+    /* RESTOCK (JFC 2026-09-10, best-practice de dashboards para negocios chicos:
+       la vista más útil no es la más llena, es la que deja ver la PRÓXIMA ACCIÓN.
+       Esta junta lo que está en o bajo su punto de reorden — la excepción
+       operativa que el dueño quiere ver antes de decidir qué comprar. Usa los
+       datos que ya llegan en la foto (productos con stock y umbrales). */
+    reposicion: {
+      nombre: "Restock",
+      cols: [
+        { title: "Product", field: "nombre", minWidth: 200, widthGrow: 3 },
+        { title: "Shelf", field: "ubicacionNombre", width: 150 },
+        { title: "Stock", field: "stockActual", width: 90, hozAlign: "right", cssClass: "num" },
+        { title: "Reorder at", field: "umbralRojo", width: 110, hozAlign: "right", cssClass: "num" },
+        { title: "Order", field: "faltan", width: 100, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = Number(c.getValue()) || 0; return v > 0 ? "+" + v : "—"; } },
+        { title: "Status", field: "estado", width: 125, formatter: function (c) {
+            var v = String(c.getValue() || "");
+            var col = SIMON[v] || { bg: "#FFFFFF", txt: "#2C3E50", nom: v };
+            return '<span style="display:inline-block;padding:3px 11px;border-radius:20px;font-size:13px;' +
+              'font-weight:700;background:' + col.bg + ';color:' + col.txt + ';">' + col.nom + "</span>";
+          } },
+      ],
+      filas: function () {
+        return (datos.productos || []).filter(function (p) {
+          if (!window.OCBusinessReadModel.stock(p).known) return false;
+          var s = Number(p.stockActual) || 0, r = Number(p.umbralRojo) || 0;
+          return p.estado === "rojo" || p.estado === "negro" || (r > 0 && s <= r);
+        }).map(function (p) {
+          var s = Number(p.stockActual) || 0, a = Number(p.umbralAmarillo) || 0, r = Number(p.umbralRojo) || 0;
+          /* F (fix 2026-09-10): "Order +N" salía en blanco cuando la percha no tiene
+             umbral amarillo (a=0 → max(0, 0-s)=0). Objetivo de reposición: el
+             amarillo si existe; si no, el doble del rojo; y si tampoco hay rojo,
+             al menos 1 (la percha ya está en rojo/negro, algo hay que pedir). */
+          var objetivo = a > 0 ? a : (r > 0 ? r * 2 : 1);
+          return Object.assign({}, p, { faltan: Math.max(0, objetivo - s) });
+        }).sort(function (a, b) { return (Number(a.stockActual) || 0) - (Number(b.stockActual) || 0); });
+      },
+      cierre: function (f) {
+        var pending = (datos.productos || []).filter(function(p){return !window.OCBusinessReadModel.stock(p).known;}).length;
+        if (pending && !f.length) return '<strong>Stock data pending.</strong> Reorder quantities cannot yet be verified.';
+        var note = pending ? '<p><strong>Some stock data is pending; those products are not counted as zero.</strong></p>' : '';
+        if (!f.length) return "<strong>Nada por reponer.</strong>Todo el stock está sobre su punto de reorden.";
+        var cero = f.filter(function (p) { return (Number(p.stockActual) || 0) === 0; }).length;
+        return note + "<strong>" + plural(f.length, "producto por reponer", "productos por reponer") + "." +
+          (cero ? " " + cero + " en cero." : "") + "</strong>En la app, Inventario con el filtro Urgente los deja juntos para reponer.";
+      },
+    },
+
+    /* COMISIONISTAS (JFC 2026-09-10). La entidad que ahora SÍ sincroniza entre
+       aparatos: el dueño ve su equipo de comisionistas con su % vigente, venga
+       el alta de donde venga. Usa datos.promotoras, que ya viaja en la foto. */
+    comisionistas: {
+      nombre: "Sales associates and consignors",
+      cols: [
+        { title: "Sales associate / consignor", field: "nombre", minWidth: 180, widthGrow: 3 },
+        { title: "Commission", field: "comisionBase", width: 120, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = c.getValue(); if (v == null) v = c.getRow().getData().comision; return (Number(v) || 0) + "%"; } },
+        { title: "Monthly goal", field: "metaMensual", width: 130, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = Number(c.getValue()) || 0; return v ? money(v) : "—"; } },
+        { title: "Tiers", field: "escalasComision", width: 85, hozAlign: "right", cssClass: "num",
+          formatter: function (c) { var v = c.getValue(); return (Array.isArray(v) && v.length) ? v.length : "—"; } },
+        { title: "Phone", field: "telefono", width: 150, cssClass: "num" },
+      ],
+      filas: function () { return datos.promotoras || []; },
+      cierre: function (f) {
+        return "<strong>" + plural(f.length, "comisionista", "comisionistas") + ".</strong>" +
+          "Se dan de alta en el formulario de comisionista y ahora se sincronizan a todos los aparatos del negocio.";
+      },
+    },
+    gastos: {
+      nombre: "Expenses",
+      cols: [
+        { title: "Date", field: "fecha", width: 125 },
+        { title: "Description", field: "concepto", minWidth: 190, widthGrow: 3 },
+        { title: "Payment method", field: "metodoPago", width: 130, formatter: function(c) { var v=c.getValue(), es=localStorage.getItem('f123_lang')==='es'; return v==='cash'?(es?'Efectivo':'Cash'):v==='transfer'?(es?'Transferencia':'Transfer'):'—'; } },
+        { title: "Category", field: "categoria", width: 125 },
+        { title: "Amount", field: "monto", width: 115, hozAlign: "right", formatter: function (c) { return money(c.getValue()); } },
+        { title: "Shelf", field: "ubicacionId", width: 130 },
+      ],
+      filas: function () { return datos.gastos || []; },
+      cierre: function (f) { return "<strong>" + f.length + " detailed expenses.</strong> The monthly shelf budget is listed separately."; },
+    },
+    transferencias: {
+      nombre: "Transfers",
+      cols: [
+        { title: "Date", field: "fecha", width: 140 },
+        { title: "Status", field: "estado", width: 135 },
+        { title: "From", field: "productoOrigenId", minWidth: 140, widthGrow: 2 },
+        { title: "To", field: "productoDestinoId", minWidth: 140, widthGrow: 2 },
+        { title: "Units", field: "cantidad", width: 90, hozAlign: "right" },
+      ],
+      filas: function () { return datos.transferencias || []; },
+      cierre: function (f) { return "<strong>" + f.length + " transfers.</strong> Their status comes from the current shared notebook."; },
+    },
+    gastoMensual: {
+      nombre: "Monthly costs",
+      cols: [
+        { title: "Shelf", field: "percha", minWidth: 190, widthGrow: 2 },
+        { title: "Monthly cost", field: "monto", width: 140, hozAlign: "right", formatter: function (c) { return money(c.getValue()); } },
+      ],
+      filas: function () {
+        var g = (datos.gastosMensuales || {}).porUbicacion || {};
+        return Object.keys(g).map(function (id) {
+          var u = (datos.perchas || []).find(function (x) { return String(x.id) === id; });
+          return { percha: (u && u.nombre) || id, monto: Number(g[id]) || 0 };
+        });
+      },
+      cierre: function (f) { return "<strong>" + f.length + " shelf budgets.</strong>"; },
+    },
+    hechosFinancieros: {
+      nombre: "Credit & cash facts",
+      cols: [
+        { title: "When", field: "ts", width: 165, formatter: function (c) { return new Date(Number(c.getValue()) || 0).toLocaleString(); } },
+        { title: "Type", field: "tipo", width: 155 },
+        { title: "Customer / shelf", field: "destino", minWidth: 150, widthGrow: 2 },
+        { title: "Amount", field: "monto", width: 115, hozAlign: "right", formatter: function (c) { return money(c.getValue()); } },
+        { title: "Fact ID", field: "id", minWidth: 180, widthGrow: 2 },
+      ],
+      filas: function () { return (datos.hechosFinancieros || []).map(function (h) {
+        var d = h.datos && h.datos.payload || h.datos || {};
+        return { id: h.id, ts: h.ts, tipo: h.tipo, destino: d.clienteId || d.perchaId || d.ubicacionId || "—", monto: d.monto };
+      }); },
+      cierre: function (f) { return "<strong>" + f.length + " immutable facts.</strong> Balances require complete chains on the app."; },
+    },
+  };
+
+  /* ======================================================================
+     PESTANIA EVENTOS — la actividad desplegada POR EVENTO
+     ======================================================================
+     JFC 2026-08-18: "Despliegue de actividad POR EVENTO, cuando se trate de
+     eventos, tanto ventas como cambios etc (...) que sea la siguiente pestania
+     a Ventas y Clientes".
+
+     Un evento no es una percha ni un producto: es una funcion, una clase, una
+     feria con fecha. Sus ventas quedaban desperdigadas en la lista general y
+     para saber como fue "el concierto del sabado" habia que filtrar a ojo por
+     fecha y rezar. Aqui cada evento es UNA fila con todo lo suyo.
+
+     Se agrupa por nombre de evento y NO por producto: el mismo ticket puede
+     venderse para tres funciones distintas, y tres productos distintos pueden
+     pertenecer al mismo evento. El nombre es lo que la gente escribio y lo que
+     va a buscar.
+     ====================================================================== */
+  function filasEventos() {
+    var RM = window.OCBusinessReadModel, zone = typeof zonaNegocioDashboard === "function" ? zonaNegocioDashboard() : "America/Guayaquil";
+    var groups = Object.create(null), copies = Object.create(null), coverage = datos.cobertura || {};
+    (datos.ventas || []).forEach(function(v,idx) {
+      if (!v || v.anulada || v.borrado) return;
+      if (v.id) (copies[v.id] || (copies[v.id]=[])).push(v);
+      var name = String(v.eventoNombre || "").trim();
+      if (!name) { if (v.tipoProducto !== "ticket") return; name = "(ticket with no event name)"; }
+      var identity=RM.eventKey(v,zone),key=identity || "missing:" + idx;
+      if(v.id==null&&!RM.day(v.eventoFecha,zone)&&!v.eventoId&&!v.eventoOccurrenceId&&!v.ocurrenciaId)key+='|row:'+idx;
+      var g = groups[key] || (groups[key] = {eventKey:identity,evento:name,fecha:RM.day(v.eventoFecha,zone),ventas:0,unidades:0,personas:0,devoluciones:0,corregidas:0,perchas:{},compradores:{},seen:{},records:[],ultima:""});
+      g.records.push(v);
+      // Counts are metadata. Every financial total below comes from the core,
+      // which sees ALL copies and quarantines contradictory IDs as a set.
+      if (v.id && g.seen[v.id]) return;
+      if (v.id) g.seen[v.id] = true;
+      if (v.devuelta) g.devoluciones++;
+      else { g.ventas++; g.unidades=RM.sum([g.unidades,RM.quantity(v.cantidad)]);g.personas+=Number(v.eventoPersonas)||0; }
+      if(v.comisionCorregida)g.corregidas++;
+      if(v.ubicacionNombre)g.perchas[v.ubicacionNombre]=1;
+      if(v.pagador||v.clienteNombre)g.compradores[v.pagador||v.clienteNombre]=1;
+      if(String(v.fecha||"")>g.ultima)g.ultima=v.fecha;
+    });
+    return Object.keys(groups).map(function(key){
+      var g=groups[key], ids=Object.create(null), records=[];
+      g.records.forEach(function(v){if(!v.id){records.push(v);return;}if(ids[v.id])return;ids[v.id]=true;copies[v.id].forEach(function(copy){records.push(copy);});});
+      var r=RM.businessResult({sales:records,expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],zone:zone,scope:{eventKey:g.eventKey},
+        coverage:{sales:coverage.ventas!==false,expenses:coverage.gastos===true,adjustments:coverage.ajustesComision===true,coherent:coverage.finanzasCoherentes===true}});
+      var moneyValue=function(c){return c===null?null:c/100;};
+      return {evento:g.evento,fecha:g.fecha||"",ventas:g.ventas,unidades:g.unidades,personas:g.personas||null,
+        recaudado:moneyValue(r.netCents),ganancia:r.netCents===null||r.costCents===null?null:(r.netCents-r.costCents)/100,
+        comision:moneyValue(r.artistShareCents),casa:moneyValue(r.houseShareCents),
+        gastosDirectos:moneyValue(r.directExpensesCents),contribucion:moneyValue(r.contributionCents),
+        gastosSinAtribuir:moneyValue(r.generalExpensesCents),devoluciones:g.devoluciones,
+        perchas:Object.keys(g.perchas).join(", "),compradores:Object.keys(g.compradores).length,
+        ultimaVenta:String(g.ultima).slice(0,10),corregidas:g.corregidas};
+    }).sort(function(a,b){return String(b.ultimaVenta).localeCompare(String(a.ultimaVenta));});
+  }
+
+  /* ======================================================================
+     PESTANIA COMISIONES — liquidar, y poder mirarlo de todas las formas
+     ======================================================================
+     JFC 2026-08-18: "agreguemos otro tab de Comisiones, para hacer
+     liquidaciones, y variados reportes por comisionista/promotora o artista
+     (cuando el artista por ejemplo le deja 15% al local (...) y se lleva el
+     resto) (...) debe agrupar lo de cada comisionista PERO admitir a la vez
+     que cada uno puede tener tratos y % distintos con la casa anfitriona".
+
+     Esa ultima parte es la que manda el diseno. La misma persona puede ser
+     vendedora en una percha al 10% y artista en otra al 85%, y las dos cosas
+     son ciertas al mismo tiempo. Por eso NO se guarda un porcentaje por
+     persona: se agrupa la plata real de cada trato y se muestra el % efectivo
+     que sale de esa plata. Un unico numero por persona seria mentira en cuanto
+     alguien tenga dos tratos, que es el caso normal, no el raro.
+
+     Se puede mirar por percha (un trato = una fila) o por persona (todos sus
+     tratos sumados). Las dos lecturas salen del mismo dato.
+     ====================================================================== */
+  var agruparComisionesPor = "percha";
+
+  function filasComisiones() {
+    var liq = datos.liquidaciones || [];
+    if (agruparComisionesPor === "percha") {
+      return liq.map(function (l) {
+        var pct = l.pctEfectivo != null ? l.pctEfectivo : (l.pctBase || 0);
+        return {
+          ubicacionId: l.ubicacionId || l.perchaId || "", // #2 (JFC 2026-09-11): id para el lapicito -> editor de comision de la app
+          quien: l.asociadoNombre || l.promotorNombre || "(no associate assigned)",
+          percha: l.ubicacion,
+          modalidad: pct >= 50 ? "Artist — house keeps" : "Seller — takes",
+          pct: pct,
+          /* FIX (JFC 2026-09-11): el % de la casa se enchufa al valor que YA calcula
+             la app (pctQuedaEnCasa), no a un 100-pct ingenuo. Con aporte fijo o
+             mínimo garantizado la casa NO es 100-pct; recomputarlo aquí mentía. */
+          pctCasa: l.pctQuedaEnCasa != null ? l.pctQuedaEnCasa : +(100 - pct).toFixed(2),
+          ventasBrutas: l.ventasBrutas || 0,
+          comision: l.comisionSocio || 0,
+          casa: l.netoDueno != null ? l.netoDueno : +((l.ventasBrutas || 0) - (l.comisionSocio || 0)).toFixed(2),
+          estado: l.estado || "",
+          pendientes: l.ventasPendientes || 0,
+          corregidas: l.ventasCorregidas || 0,
+        };
+      }).sort(function (a, b) { return b.comision - a.comision; });
+    }
+    /* Por persona: se SUMA la plata de todos sus tratos y el % se deriva del
+       total. Alguien con 10% en una percha y 85% en otra sale con su % real
+       combinado, que es un dato util y no una etiqueta inventada. */
+    var porQuien = {};
+    (datos.liquidaciones || []).forEach(function (l) {
+      var quien = l.asociadoNombre || l.promotorNombre || "(no associate assigned)";
+      if (!porQuien[quien]) porQuien[quien] = {
+        quien: quien, perchas: [], ventasBrutas: 0, comision: 0, casa: 0,
+        pendientes: 0, corregidas: 0,
+      };
+      var g = porQuien[quien];
+      g.perchas.push(l.ubicacion + " (" + (l.pctEfectivo != null ? l.pctEfectivo : l.pctBase || 0) + "%)");
+      g.ventasBrutas += l.ventasBrutas || 0;
+      g.comision += l.comisionSocio || 0;
+      g.casa += l.netoDueno != null ? l.netoDueno : ((l.ventasBrutas || 0) - (l.comisionSocio || 0));
+      g.pendientes += l.ventasPendientes || 0;
+      g.corregidas += l.ventasCorregidas || 0;
+      if (l.medioPago) g.medioPago = l.medioPago;
+    });
+    return Object.keys(porQuien).map(function (k) {
+      var g = porQuien[k];
+      var pct = g.ventasBrutas > 0 ? +(g.comision / g.ventasBrutas * 100).toFixed(2) : 0;
+      return {
+        quien: g.quien,
+        percha: g.perchas.join(" · "),
+        modalidad: g.perchas.length > 1 ? "Multiple deals" : (pct >= 50 ? "Artist — house keeps" : "Seller — takes"),
+        pct: pct,
+        pctCasa: +(100 - pct).toFixed(2),
+        ventasBrutas: +g.ventasBrutas.toFixed(2),
+        comision: +g.comision.toFixed(2),
+        casa: +g.casa.toFixed(2),
+        estado: g.pendientes ? "pendiente" : "pagado",
+        medioPago: g.pendientes ? null : (g.medioPago || null),
+        pendientes: g.pendientes,
+        corregidas: g.corregidas,
+      };
+    }).sort(function (a, b) { return b.comision - a.comision; });
+  }
+
+  /* ---------------------------------------------------------- COMMISSIONS */
+  var cmMes = null, cmVista = "producto";
+  function cmMesActual() { return mesLocalDe(new Date().toISOString()); }
+  function cmEtiquetaMes(m) {
+    var p = String(m || "").split("-").map(Number);
+    if (p.length !== 2 || !p[0] || !p[1]) return String(m || "");
+    try { return new Date(p[0], p[1] - 1, 15).toLocaleDateString((function () { try { return localStorage.getItem("f123_lang") === "es" ? "es-US" : "en-US"; } catch (_) { return undefined; } })(), { month: "long", year: "numeric" }); } catch (_) { return String(m); }
+  }
+  /* Signed rows are projections only: original sales and dated credits stay untouched. */
+  function cmAjustes(d) {
+    if (Array.isArray(d.ajustesComision)) return d.ajustesComision;
+    var seen = {};
+    return (d.liquidaciones || []).reduce(function (rows, l) {
+      (l.ajustes || []).forEach(function (a) {
+        if (!a || seen[String(a.id)]) return;
+        seen[String(a.id)] = true;
+        rows.push(Object.assign({ ubicacionId: l.ubicacionId }, a));
+      });
+      return rows;
+    }, []);
+  }
+  function cmObligaciones(d) {
+    if (Array.isArray(d.payoutObligations)) return d.payoutObligations;
+    var ledger = window.OCPayoutLedger;
+    if (!ledger) return [];
+    var sales = (d.ventas || []).map(function (v) {
+      return Object.assign({}, v, { split: v.split || (v.comisionPct != null && !v.comisionAjusteRetroIncluido ? {
+        montoComisionSocio: v.comisionAsociado, reparto: v.reparto
+      } : null) });
+    });
+    var obs = ledger.buildObligations({ sales: sales, adjustments: cmAjustes(d),
+      locations: d.perchas || [], payouts: d.payouts || [], payoutConflicts: d.payoutConflicts || [] });
+    /* Older remote snapshots may carry the exact residual without receipts.
+       Preserve it for one beneficiary; never invent a multi-person allocation. */
+    if (!(d.payouts || []).length && !(d.payoutConflicts || []).length) sales.forEach(function (v) {
+      if (typeof v.comisionPendiente !== "number" || !Number.isFinite(v.comisionPendiente)) return;
+      var own = obs.filter(function (o) { return o.kind === "sale" && o.sourceId === String(v.id); });
+      var due = Math.round(v.comisionPendiente * 100), held = Math.round((Number(v.comisionRetenida) || 0) * 100);
+      if (own.length === 1) {
+        own[0].dueCents = due; own[0].heldCents = held;
+        own[0].paidCents = own[0].signedAmountCents - due - held;
+      } else if (own.length > 1 && due === 0 && held === 0) {
+        own.forEach(function (o) { o.paidCents = o.signedAmountCents; o.dueCents = 0; });
+      } else if (own.length > 1 && own.reduce(function (n, o) { return n + o.dueCents; }, 0) !== due) {
+        own.forEach(function (o) { o.projectionUnknown = true; });
+      }
+    });
+    /* The remote sale carries the backend's hold decision, including its clock. */
+    obs.forEach(function (o) {
+      var v = sales.find(function (x) { return String(x.id) === o.sourceId; });
+      if (o.kind === "sale" && v && Number(v.comisionRetenida) > 0 && o.dueCents > 0 && o.heldCents == null) {
+        o.heldCents = o.dueCents; o.dueCents = 0;
+      }
+    });
+    return obs;
+  }
+  function cmFilasDesde(d, mes) {
+    var all = (d.ventas || []).filter(function (v) { return v && !v.anulada; });
+    var obs = cmObligaciones(d);
+    var rows = all.filter(function (v) {
+      var con = v.comisionPct != null;
+      return (!mes || v.mes === mes) && (con || v.noCommission !== true || (!con && v.modoComision === "counter" && v.ubicacionTipo && v.ubicacionTipo !== "propio"));
+    }).map(function (v) {
+      var own = obs.filter(function (o) { return o.kind === "sale" && o.sourceId === String(v.id); });
+      if (v.comisionAjusteRetroIncluido) own = own.concat(obs.filter(function (o) {
+        return o.kind === "adjustment" && (cmAjustes(d)).some(function (a) {
+          return String(a.id) === o.sourceId && String(a.ventaId) === String(v.id) && a.tipo === "recalculo-retroactivo";
+        });
+      }));
+      return Object.assign({}, v, { _obligations: own });
+    });
+    (cmAjustes(d)).forEach(function (a) {
+      if (!a || (mes && mesLocalDe(a.fecha) !== mes)) return;
+      var v = all.find(function (x) { return String(x.id) === String(a.ventaId); }) || {};
+      if (a.tipo === "recalculo-retroactivo" && v.comisionAjusteRetroIncluido) return;
+      var own = obs.filter(function (o) { return o.kind === "adjustment" && o.sourceId === String(a.id); });
+      if (!own.length && a.montoComisionSocio != null && !Number(a.montoComisionSocio)) return;
+      var qty = Math.abs(Number(a.cantidad)) || 1;
+      var gross = Number(a.montoBruto) || 0;
+      rows.push(Object.assign({}, v, { id: "adjustment:" + a.id, ajusteId: a.id,
+        fecha: a.fecha, mes: mesLocalDe(a.fecha), ubicacionId: a.ubicacionId || v.ubicacionId,
+        productoId: a.productoId || v.productoId, productoNombre: v.productoNombre || "Return / adjustment",
+        ubicacionNombre: v.ubicacionNombre || ((d.perchas || []).find(function (u) { return u.id === a.ubicacionId; }) || {}).nombre || "",
+        cantidad: gross < 0 ? -qty : gross > 0 ? qty : 0, precioUnit: Math.abs(gross) / qty,
+        comisionPct: a.montoComisionSocio == null ? null : a.comisionPct != null ? a.comisionPct : v.comisionPct != null ? v.comisionPct : 0,
+        noCommission: a.montoComisionSocio == null ? false : v.noCommission,
+        comisionAsociado: a.montoComisionSocio == null ? null : Number(a.montoComisionSocio) || 0,
+        netoCasa: a.montoNetoDueno == null ? null : Number(a.montoNetoDueno) || 0,
+        liquidada: !!a.liquidada, devuelta: false, reparto: a.reparto || null,
+        comisionPendiente: a.montoComisionSocio == null ? null : own.length ? own.reduce(function (n, o) { return n + o.dueCents; }, 0) / 100 : a.liquidada ? 0 : Number(a.montoComisionSocio) || 0,
+        comisionRetenida: 0, _obligations: own }));
+    });
+    /* Paid cancellations carry their unused credit into the selected settlement period. */
+    var voids = {};
+    obs.forEach(function (o) {
+      if (o.kind !== "void") return;
+      var originalMonth = mesLocalDe(String(o.order || "").split("|")[0]);
+      var targetMonth = mes || cmMesActual();
+      if (originalMonth > targetMonth) return;
+      var key = String(o.sourceId);
+      var row = voids[key];
+      if (!row) {
+        var sale = all.find(function (v) { return String(v.id) === key; }) || {};
+        row = voids[key] = Object.assign({}, sale, { id: "void:" + key, ajusteId: "void:" + key,
+          mes: targetMonth, ubicacionId: o.locationId, productoNombre: sale.productoNombre || "Cancellation credit",
+          cantidad: 0, precioUnit: 0, comisionPct: 0, comisionAsociado: 0, netoCasa: 0,
+          comisionPendiente: 0, devuelta: false, _obligations: [] });
+        rows.push(row);
+      }
+      row._obligations.push(o); row.comisionPendiente += o.dueCents / 100;
+    });
+    return rows;
+  }
+  function cmFilas(mes) { return cmFilasDesde(datos, mes); }
+  /* Credits belong to a beneficiary, rack and settlement period. An unrelated debt must stay payable. */
+  function cmSaldos(filas) {
+    var groups = {};
+    (filas || []).forEach(function (v) {
+      var obs = v._obligations || [];
+      if (!obs.length) obs = [{ payeeId: v.promotoraId || v.asociadoNombre || "", dueCents: Math.round(cmPendienteVenta(v) * 100) }];
+      obs.forEach(function (o) {
+        var key = [v.mes || "", v.ubicacionId || v.ubicacionNombre || "", o.payeeId || ""].join("|");
+        var row = groups[key] || (groups[key] = { payeeId: o.payeeId || null, ubicacionId: v.ubicacionId || "", dueCents: 0, paidCents: 0, heldCents: 0 });
+        row.dueCents += Number(o.dueCents) || 0;
+        row.paidCents += (Number(o.paidCents) || 0) * (o.signedAmountCents < 0 ? -1 : 1);
+        row.heldCents += Number(o.heldCents) || 0;
+      });
+    });
+    return Object.keys(groups).map(function (k) { var row = groups[k]; row.due = row.dueCents / 100; row.paid = row.paidCents / 100; row.held = row.heldCents / 100; return row; });
+  }
+  function cmSaldosPeriodo(mes) {
+    var rows = cmSaldos(cmFilas(mes));
+    /* Remote snapshots omit cancelled sales; their current per-payee settlement
+       still includes the ledger's cancellation credit and conflict decisions. */
+    if (mes === cmMesActual()) (datos.liquidaciones || []).forEach(function (l) {
+      if (!Array.isArray(l.payoutBalances)) return;
+      rows = rows.filter(function (r) { return String(r.ubicacionId) !== String(l.ubicacionId); });
+      rows = rows.concat(l.payoutBalances.map(function (r) {
+        return Object.assign({}, r, { ubicacionId: l.ubicacionId });
+      }));
+    });
+    return rows;
+  }
+  function cmMeses() {
+    var set = {}; set[cmMesActual()] = 1;
+    (datos.ventas || []).forEach(function (v) { if (v && v.mes && (v.comisionPct != null || v.noCommission !== true)) set[v.mes] = 1; });
+    cmAjustes(datos).forEach(function (a) { if (a && a.fecha) set[mesLocalDe(a.fecha)] = 1; });
+    return Object.keys(set).sort().reverse();
+  }
+
+  /* No missing price or incomplete photo may become a commission total of 0. */
+  function comisionesConImportePendiente(filas, soloFilas) {
+    if (!soloFilas && datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false || datos.cobertura.ajustesComision === false)) return true;
+    if (!Array.isArray(datos.ajustesComision) && (filas || []).some(function (v) { return v.devuelta; })) return true;
+    return (filas || []).some(function(v) {
+      return v && (((v._obligations || []).some(function (o) { return o.projectionUnknown; })) || (v.comisionPct == null && v.noCommission !== true) || v.comisionPct != null &&
+        (window.OCBusinessReadModel.number(v.precioUnit) === null ||
+         (v.ajusteId && Number.isFinite(v.cantidad) ? v.cantidad : window.OCBusinessReadModel.quantity(v.cantidad)) === null ||
+         (v.comisionAsociado == null && v.comisionPendiente == null)));
+    });
+  }
+  function cmPendienteVenta(v) {
+    if (!v || v.comisionPct == null) return 0;
+    if (v.comisionPendiente != null && Number.isFinite(Number(v.comisionPendiente))) return Number(v.comisionPendiente) || 0;
+    return v.liquidada ? 0 : (Number(v.comisionAsociado) || 0);
+  }
+  function cmPendienteDe(mes) {
+    return cmSaldosPeriodo(mes).reduce(function (a, r) { return a + Math.max(0, r.due); }, 0);
+  }
+  function cmAgrupar(filas, por) {
+    var map = {};
+    filas.forEach(function (v) {
+      var k = por === "producto" ? (v.productoId || v.productoNombre) : (v.ubicacionId || v.ubicacionNombre);
+      var g = map[k] || (map[k] = { id: k, nombre: por === "producto" ? v.productoNombre : v.ubicacionNombre, sku: v.sku || "", ubicacionId: v.ubicacionId || "", ubicacionIds: {}, perchas: {}, personas: {}, unid: 0, bruto: 0, socio: 0, casa: 0, pend: 0, counterUnid: 0, counterMonto: 0, devueltas: 0 });
+      var cantidad=v.ajusteId && Number.isFinite(v.cantidad) ? v.cantidad : window.OCBusinessReadModel.quantity(v.cantidad),precio=window.OCBusinessReadModel.number(v.precioUnit);
+      var monto=cantidad===null||precio===null?null:precio*cantidad;
+      if (v.comisionPct != null) {
+        g.unid=window.OCBusinessReadModel.sum([g.unid,cantidad]); g.bruto=window.OCBusinessReadModel.sum([g.bruto,monto]); g.socio += Number(v.comisionAsociado) || 0;
+        g.casa=window.OCBusinessReadModel.sum([g.casa,v.netoCasa != null ? Number(v.netoCasa) : (monto===null?null:monto - (Number(v.comisionAsociado) || 0))]);
+        g.pend += cmPendienteVenta(v);
+        g.held = (g.held || 0) + (Number(v.comisionRetenida) || 0);
+        if (v.devuelta) g.devueltas++;
+        if (v.asociadoNombre) g.personas[v.asociadoNombre] = 1;
+        if (v.asistenteNombre) g.personas[v.asistenteNombre] = 1;
+      } else if (v.noCommission === true) { g.counterUnid=window.OCBusinessReadModel.sum([g.counterUnid,cantidad]); g.counterMonto=window.OCBusinessReadModel.sum([g.counterMonto,monto]); } else { g.unknown = true; }
+      if (v.ubicacionNombre) g.perchas[v.ubicacionNombre] = 1;
+      if (v.ubicacionId) g.ubicacionIds[v.ubicacionId] = 1;
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return (Number(b.bruto || 0) + Number(b.counterMonto || 0)) - (Number(a.bruto || 0) + Number(a.counterMonto || 0)); });
+  }
+  function cmRanking(filas) {
+    var map = {};
+    filas.forEach(function (v) {
+      if (v.comisionPct == null) return;
+      var partes = Array.isArray(v.reparto) && v.reparto.length ? v.reparto.map(function (r, i) { return { n: i === 1 ? (v.asistenteNombre || "") : (v.asociadoNombre || ""), m: Number(r.monto) || 0 }; }) : [{ n: v.asociadoNombre || "", m: Number(v.comisionAsociado) || 0 }];
+      partes.forEach(function (p) { if (!p.n) return; var g = map[p.n] || (map[p.n] = { nombre: p.n, monto: 0, ventas: 0 }); g.monto += p.m; g.ventas++; });
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.monto - a.monto; });
+  }
+  function cmRecibo(ubicacionId, mes) {
+    /* Recibo imprimible SIN logo nuestro (JFC): es el papel del cliente para su asociado. */
+    var todas = cmFilas(mes).filter(function (v) { return v.ubicacionId === ubicacionId; });
+    var faltanMontos = comisionesConImportePendiente(todas);
+    var filas = todas.filter(function (v) { return (v.comisionPct != null || v.noCommission !== true) && !v.ajusteId; });
+    /* v423 (JFC 2026-09-29): la liquidacion viva es del MES ACTUAL. Antes el recibo de un mes pasado
+       copiaba sus devoluciones (y su asociado vigente). Ahora: mes pasado = solo sus ventas. */
+    var esActual = mes === cmMesActual();
+    var liqViva = (datos.liquidaciones || []).find(function (l) { return l.ubicacionId === ubicacionId; }) || {};
+    var f0 = filas[0] || {};
+    var liq = Object.assign({}, esActual ? liqViva : { ubicacion: liqViva.ubicacion || f0.ubicacionNombre || "", asociadoNombre: f0.asociadoNombre || "" }, { ajustes: cmAjustes(datos).filter(function (a) { return String(a.ubicacionId) === String(ubicacionId) && mesLocalDe(a.fecha) === mes && !(a.tipo === "recalculo-retroactivo" && filas.some(function (v) { return v.comisionAjusteRetroIncluido && String(v.id) === String(a.ventaId); })); }) });
+    var neg = (datos.resumen && datos.resumen.nombreNegocio) || ($("neg-nombre") && $("neg-nombre").textContent) || "";
+    var porProd = cmAgrupar(filas, "producto");
+    var tot = faltanMontos ? null : filas.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
+    var html = "<!doctype html><html><head><meta charset=utf-8><title>Commission receipt</title><style>body{font-family:Inter,Arial,sans-serif;color:#0F1923;margin:32px;font-size:14px}h1{font-size:20px;margin:0 0 4px}h2{font-size:16px;margin:18px 0 6px}table{width:100%;border-collapse:collapse}td,th{padding:6px 0;border-bottom:1px solid #E8ECF2;text-align:left}td.n,th.n{text-align:right;font-family:'JetBrains Mono',Consolas,monospace}tfoot td{font-weight:700;border-top:2px solid #0F1923}</style></head><body>" +
+      "<h1>" + esc(neg || "Commission receipt") + "</h1><div>" + esc(liq.ubicacion || "") + (liq.asociadoNombre ? " · " + esc(liq.asociadoNombre) : "") + " · " + esc(cmEtiquetaMes(mes)) + "</div>" +
+      "<h2>Sales with commission</h2><table><thead><tr><th>Product</th><th class=n>Units</th><th class=n>Sold</th><th class=n>Commission</th></tr></thead><tbody>" +
+      porProd.map(function (d) { return "<tr><td>" + esc(d.nombre) + (d.sku ? " <small>" + esc(d.sku) + "</small>" : "") + "</td><td class=n>" + (d.unid===null?"pending":d.unid) + "</td><td class=n>" + money(d.bruto) + "</td><td class=n>" + (d.unknown ? "pending" : money(d.socio)) + "</td></tr>"; }).join("") +
+      "</tbody><tfoot><tr><td colspan=3>Total commission</td><td class=n>" + (faltanMontos ? "pending" : money(tot)) + "</td></tr></tfoot></table>" +
+      ((liq.ajustes && liq.ajustes.length) ? "<h2>Returns of already-paid sales</h2><table>" + liq.ajustes.map(function (x) { return "<tr><td>" + esc(String(x.fecha || "").slice(0, 10)) + " · " + esc(x.quien || "") + (x.motivo ? " · " + esc(x.motivo) : "") + "</td><td class=n>" + money(x.montoComisionSocio) + "</td></tr>"; }).join("") +
+        "<tfoot><tr><td>Net after returns</td><td class=n>" + money(faltanMontos ? null : tot + liq.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + "</td></tr></tfoot></table>" : "") +
+      "<p style='margin-top:24px'>Signature: ____________________________</p></body></html>";
+    var w = window.open("", "_blank"); if (!w) return;
+    w.document.open(); w.document.write(html); w.document.close();
+    try { w.focus(); w.print(); } catch (_) {}
+  }
+  function pintarComisiones() {
+    var cont = $("cm"); if (!cont) return;
+    var meses = cmMeses(); var actual = cmMesActual();
+    if (!cmMes || meses.indexOf(cmMes) < 0) cmMes = actual;
+    var filas = cmFilas(cmMes);
+    var conCom = filas.filter(function (v) { return v.comisionPct != null; });
+    var liqs = (cmMes === actual) ? (datos.liquidaciones || []) : [];
+    var bruto = conCom.reduce(function (a, v) { return a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1); }, 0);
+    var socio = conCom.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
+    var pend = cmSaldosPeriodo(cmMes).reduce(function (a, r) { return a + Math.max(0, r.due); }, 0);
+    var faltanMontos = comisionesConImportePendiente(filas);
+    if (faltanMontos) { bruto = null; socio = null; pend = null; }
+    var casa = bruto === null || socio === null ? null : bruto - socio;
+    var atrasados = meses.filter(function (m) { return m !== actual && cmPendienteDe(m) > 0; });
+    var k = function (et, n, cls) { return '<div class="cm-card cm-k" style="margin:0"><div class="et">' + et + '</div><div class="n' + (cls ? " " + cls : "") + '">' + (n === null ? (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") : money(n)) + "</div></div>"; };
+    var grupos = cmAgrupar(filas, cmVista);
+    grupos.forEach(function (g) {
+      var selected = filas.filter(function (v) { return (cmVista === "producto" ? v.productoId || v.productoNombre : v.ubicacionId || v.ubicacionNombre) === g.id; });
+      g.unknown = g.unknown || comisionesConImportePendiente(selected, true);
+      g.pend = cmSaldos(selected).reduce(function (n, r) { return n + Math.max(0, r.due); }, 0);
+      g.credit = cmSaldos(selected).reduce(function (n, r) { return n + Math.max(0, -r.due); }, 0);
+    });
+    /* v423: barras (JFC "visualizacion amplia e impactante"). Azul = asociado, verde = casa (validado para
+       daltonismo). Largo de cada barra = lo vendido con comision de esa fila frente a la mayor. */
+    var cmMax = grupos.reduce(function (a, g) { return Math.max(a, g.bruto); }, 0);
+    var cmBarra = function (socioM, casaM, cls, ancho) {
+      var s = Math.max(0, socioM), c = Math.max(0, casaM), t = s + c; if (t <= 0) return "";
+      var ps = Math.round(s / t * 1000) / 10;
+      return '<div class="cm-barra' + (cls || "") + '" style="width:' + ancho + '%" title="Associate ' + money(s) + " · House " + money(c) + '"><i class="cm-s-asoc" style="width:' + ps + '%"></i><i class="cm-s-casa" style="width:' + (100 - ps) + '%"></i></div>';
+    };
+    var tarjeta = function (g) {
+      var l = cmVista === "percha" ? (liqs.find(function (x) { return x.ubicacionId === g.id; }) || null) : null;
+      if (l && l.payoutBalances) g.pend = l.payoutBalances.reduce(function (n, r) { return n + Math.max(0, Number(r.due) || 0); }, 0);
+      if (l && l.held != null) g.held = Number(l.held) || 0;
+      if (g.unknown) { g.pend = null; g.credit = null; }
+      var moneyReview = l && l.needsReview || liqs.some(function(x){return x.needsReview && (g.ubicacionId===x.ubicacionId || g.ubicacionIds && g.ubicacionIds[x.ubicacionId]);});
+      var estado = moneyReview ? '<span class="cm-chip pend">' + (localStorage.getItem('f123_lang')==='es' ? 'revisar pagos' : 'review payments') + '</span>' : g.unknown ? '<span class="cm-chip pend">pending</span>' : g.socio !== 0 || g.credit > 0 || (l && (l.ajustes || []).length) ? (g.pend !== 0 || g.credit > 0 || g.held > 0 || (l && (l.ajustes || []).some(function (x) { return !x.liquidada; })) ? '<span class="cm-chip pend">pending</span>' : '<span class="cm-chip ok">paid</span>') : '<span class="cm-chip none">no commission</span>';
+      var sub = cmVista === "producto"
+        ? "Rack: " + esc(Object.keys(g.perchas).join(", ") || "-") + (Object.keys(g.personas).length ? " · Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : "")
+          + (g.unid && g.bruto > 0 ? " · <strong>" + (Math.round(g.socio / g.bruto * 1000) / 10) + "%</strong> to the associate" : "")
+        : (l && l.asociadoNombre ? "Associate: <strong>" + esc(l.asociadoNombre) + "</strong>" + (l.pctEfectivo != null ? " · " + l.pctEfectivo + "%" : "") + (l.baseComision === "margen" ? " · on margin" : "") : (Object.keys(g.personas).length ? "Associate: <strong>" + esc(Object.keys(g.personas).join(", ")) + "</strong>" : ""));
+      var stats = '<div class="cm-stats">' +
+        (g.unknown ? '<div><div class="et">Commission</div><div class="n">' + (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") + "</div></div>" : "") +
+        (g.unid !== 0 ? '<div><div class="et">Sold with commission</div><div class="n">' + money(g.bruto) + " <small>" + (g.unid===null?"pending":g.unid+"u") + "</small></div></div>" +
+          '<div><div class="et">Associate takes</div><div class="n">' + money(g.socio) + "</div></div>" +
+          '<div><div class="et">House keeps</div><div class="n">' + money(g.casa) + "</div></div>" : "") +
+        (g.pend > 0 ? '<div><div class="et cm-rojo">Still to pay</div><div class="n cm-rojo">' + money(g.pend) + "</div></div>" : "") +
+        (g.credit > 0 ? '<div><div class="et">' + (localStorage.getItem('f123_lang') === 'es' ? 'Saldo a favor' : 'Credit balance') + '</div><div class="n">' + money(-g.credit) + "</div></div>" : "") +
+        (g.held > 0 ? '<div><div class="et">' + (localStorage.getItem("f123_lang") === "es" ? "Retenido" : "On hold") + '</div><div class="n">' + money(g.held) + '</div></div>' : '') +
+        (g.counterUnid !== 0 ? '<div><div class="et">House sale (no commission)</div><div class="n">' + money(g.counterMonto) + " <small>" + (g.counterUnid===null?"pending":g.counterUnid+"u") + "</small></div></div>" : "") +
+        "</div>";
+      var extra = "";
+      if(moneyReview){
+        var reviewRows=liqs.filter(function(x){return x.needsReview && (l===x || g.ubicacionIds && g.ubicacionIds[x.ubicacionId]);});
+        extra += reviewRows.map(function(x){return '<div data-dashboard-money-review style="color:#19354B;border:2px solid #B0183E;border-radius:8px;padding:10px;margin:8px 0;font-size:15px;"><strong>' + (localStorage.getItem('f123_lang')==='es' ? 'Revisar pagos' : 'Review payments') + '</strong>' + (x.overpaid ? '<div>' + (localStorage.getItem('f123_lang')==='es' ? 'Pagado de más: ' : 'Overpaid: ') + money(x.overpaid) + '</div><div>' + (localStorage.getItem('f123_lang')==='es' ? 'Pagado registrado: ' : 'Recorded paid: ') + money(x.payoutBalances ? x.payoutBalances.reduce(function(n,p){return n+(Number(p.paid) || 0);},0) : x.paid) + '</div>' : '') + (x.paymentConflicts || []).map(function(c){return '<div>' + (localStorage.getItem('f123_lang')==='es' ? 'Comprobantes en conflicto: ' : 'Conflicting receipts: ') + c.records.map(function(p){return money(p.amountCents/100);}).join(' / ') + '</div>';}).join('') + '</div>';}).join('');
+      }
+      if (l) {
+        if (l.metaMensual) extra += '<div class="cm-sub">Target ' + money(l.metaMensual) + " · " + (l.cumplimientoMeta != null ? l.cumplimientoMeta + "% met" : "") + (l.tieneEscalas ? " · goal-based tiers" : "") + "</div>";
+        if ((l.ajustes || []).length) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ajustes.length + " return(s) of already-paid sales: " + money(l.ajustes.reduce(function (a, x) { return a + (Number(x.montoComisionSocio) || 0); }, 0)) + " deducted</strong></div>";
+        if ((l.repartoPersonas || []).length > 1) extra += "<details><summary>Split between people</summary><table>" + l.repartoPersonas.map(function (p) { return "<tr><td>" + esc(p.nombre) + '</td><td class="num">' + money(p.monto) + "</td></tr>"; }).join("") + "</table></details>";
+        if ((l.detallePendientes || []).length) extra += "<details><summary>Which sales does this payment cover?</summary><table>" + l.detallePendientes.map(function (d) { return "<tr><td>" + d.cantidad + "× " + esc(d.producto) + '</td><td class="num">' + money(d.comisionSocio) + "</td></tr>"; }).join("") + "</table></details>";
+        if (l.ventasCorregidas) extra += '<div class="cm-sub cm-rojo"><strong>' + l.ventasCorregidas + " sale(s) with the percentage manually corrected.</strong></div>";
+      }
+      /* v448 GOLDEN golden14: Belén trabaja normalmente en "By product / SKU".
+         El botón para pagar desapareció porque las acciones se limitaron a "By rack".
+         En producto se restaura SOLO cuando todas las ventas del producto pertenecen
+         a una única percha; así el deep-link no puede pagar accidentalmente otra percha. */
+      var _idsPercha = Object.keys(g.ubicacionIds || {});
+      var _perchaPago = cmVista === "percha" ? g.ubicacionId : (_idsPercha.length === 1 ? _idsPercha[0] : "");
+      var acciones = "";
+      if ((cmVista === "producto" ? g.id : _perchaPago) && g.pend > 0 && !moneyReview && !g.unknown) {
+        var _pagoDestino = cmVista === "producto" ? 'comisionproducto:' + encodeURIComponent(g.id) : 'comisiones:' + encodeURIComponent(_perchaPago);
+        acciones += '<div class="cm-actions"><a class="pagar" href="index.html#editar=' + _pagoDestino + '&mes=' + encodeURIComponent(cmMes || actual) + '">' + (function () { try { return localStorage.getItem("f123_lang") === "es" ? "Registrar pago total/parcial" : "Record full/partial payment"; } catch (_) { return "Record full/partial payment"; } })() + '</a>';
+        if (cmVista === "percha") acciones += '<a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button>';
+        acciones += "</div>";
+      } else if (cmVista === "percha" && _perchaPago) {
+        acciones = '<div class="cm-actions"><a href="index.html#editar=comisionpercha:' + encodeURIComponent(_perchaPago) + '">Adjust the deal</a><button type="button" data-cm-recibo="' + esc(_perchaPago) + '">Receipt</button></div>';
+      }
+      var barra = g.bruto > 0 && cmMax > 0 ? '<div class="cm-fila-barra">' + cmBarra(g.socio, g.casa, "", Math.max(6, Math.round(g.bruto / cmMax * 100))) + "</div>" : "";
+      return '<div class="cm-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><div><h3 class="cm-h">' + esc(g.nombre) + (g.sku ? ' <span style="font-weight:400;font-size:13px;">' + esc(g.sku) + "</span>" : "") + "</h3>" + (sub ? '<div class="cm-sub">' + sub + "</div>" : "") + "</div>" + estado + "</div>" + barra + stats + extra + acciones + "</div>";
+    };
+    var rank = cmRanking(conCom);
+    cont.innerHTML =
+      '<h2 id="cm-titulo" style="font-family:var(--font-display);font-size:22px;margin:0 0 8px;">Commissions</h2>' +
+      '<div class="cm-card cm-bar">' +
+        '<label>Month <select id="cm-mes">' + meses.map(function (m) { var p = cmPendienteDe(m); return '<option value="' + m + '"' + (m === cmMes ? " selected" : "") + ">" + esc(cmEtiquetaMes(m)) + (m === actual ? " (current)" : "") + (p > 0 ? " · " + money(p) + " still to pay" : "") + "</option>"; }).join("") + "</select></label>" +
+        atrasados.map(function (m) { return '<button type="button" class="cm-key rojo" data-cm-mes="' + m + '" title="Commissions still unpaid from earlier months">' + esc(cmEtiquetaMes(m)) + " · " + money(cmPendienteDe(m)) + "</button>"; }).join("") +
+        '<div style="display:flex;gap:6px;"><button type="button" class="cm-key' + (cmVista === "producto" ? " on" : "") + '" data-cm-vista="producto">By product / SKU</button><button type="button" class="cm-key' + (cmVista === "percha" ? " on" : "") + '" data-cm-vista="percha">By rack / event</button></div>' +
+      "</div>" +
+      '<div class="cm-grid">' + k("Sales with commission", bruto) + k("Associates take", socio) + k("House keeps", casa, "cm-verde") + k("Still to pay", pend, pend > 0 ? "cm-rojo" : "cm-verde") + "</div>" +
+      (bruto > 0 ? (function () {
+        var s = Math.max(0, socio), c = Math.max(0, casa), t = s + c; if (t <= 0) return "";
+        var ps = Math.round(s / t * 100), pc = 100 - ps;
+        return '<div class="cm-card cm-reparto" role="img" aria-label="Of ' + money(bruto) + ' sold with commission, associates take ' + ps + '% and the house keeps ' + pc + '%">' +
+          '<div class="et">Where each dollar sold with commission goes</div>' + cmBarra(s, c, " cm-barra-xl", 100) +
+          '<div class="cm-leyenda"><span><b class="sw cm-s-asoc"></b>Associates ' + ps + "% · " + money(s) + '</span><span><b class="sw cm-s-casa"></b>House ' + pc + "% · " + money(c) + "</span></div></div>";
+      })() : "") +
+      (grupos.length ? grupos.map(tarjeta).join("") : '<div class="cm-card">No commissioned sales this month. Partner, consignment and event racks appear here on their own as soon as they sell.</div>') +
+      (rank.length ? '<details class="cm-card" style="padding:10px 16px;"><summary>Ranking · who earned the most this month</summary><table style="margin-top:8px;">' + rank.map(function (r, i) { return "<tr><td>" + (i + 1) + ". " + esc(r.nombre) + " <small>(" + r.ventas + " sale" + (r.ventas === 1 ? "" : "s") + ")</small></td><td class=\"num\">" + money(r.monto) + "</td></tr>"; }).join("") + "</table></details>" : "");
+    var sel = $("cm-mes"); if (sel) sel.addEventListener("change", function () { cmMes = sel.value; pintarComisiones(); });
+    cont.querySelectorAll("[data-cm-mes]").forEach(function (b) { b.addEventListener("click", function () { cmMes = b.getAttribute("data-cm-mes"); pintarComisiones(); }); });
+    cont.querySelectorAll("[data-cm-vista]").forEach(function (b) { b.addEventListener("click", function () { cmVista = b.getAttribute("data-cm-vista"); pintarComisiones(); }); });
+    cont.querySelectorAll("[data-cm-recibo]").forEach(function (b) { b.addEventListener("click", function () { cmRecibo(b.getAttribute("data-cm-recibo"), cmMes); }); });
+  }
+  /* Para pruebas de navegador: pintar con una foto dada, sin pasar por la puerta. */
+  /* v462: pintarConDatos es el gancho de pruebas de Commissions; con el hub, #cm vive en su tarjeta, asi que el gancho
+     tambien abre esa vista (sin pintar tablas) para que "Pay in the app" quede a la vista como antes. */
+  window.OCDashComisiones = { pintarConDatos: function (d) { datos = d || datos; pintarComisiones(); try { aplicarRuta("comisiones", { sinTabla: true }); } catch (_) {} }, meses: cmMeses };
+
+  function mostrar() {
+    if (!autorizado) return;
+    revisionVistaExportacion++;
+    document.body.setAttribute("data-dashboard-auth", "yes");
+    $("puerta").style.display = "none";
+    $("cabecera").style.display = "block";
+    $("tablero").style.display = "block";
+    document.body.classList.add("hub-on");   /* v462: enciende isla y barra de navegacion */
+    pintarKpis();
+    try { pintarComisiones(); } catch (e) { console.warn("[dashboard] comisiones", e); }
+    if (!$("tabsel").children.length) pintarSelector();
+    /* v462: la primera vez se aplica la ruta del enlace (o el inicio); ella pinta la tabla y Avanzado si esa vista
+       los usa. Las veces siguientes (cada repintado en vivo) solo se repinta lo que esta a la vista. */
+    logPendiente = true;
+    if (!rutaAplicada) aplicarRuta(rutaDeHash());
+    else {
+      if (RUTAS[rutaHub].tablas) pintarTabla();
+      if (rutaHub === "equipo") { try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {} }
+    }
+    pintarLogVisible();
+    pintarFinanzasFoto();
+    pintarHistorialVentas();
+    try { pintarHub(); actualizarIsla(); } catch (e) { console.warn("[dashboard] hub", e); }
+    restaurarBorradorHotfix();
+  }
+
+  /* ======================================================================== HUB v462
+     (JFC 2026-10-07: "el dashboard pasa a ser un hub"). Rutas por hash (#/hoy, #/comisiones...), tarjetas en el
+     inicio e isla viva. NADA se borro: cada seccion vieja conserva su id y solo se muestra la de la ruta abierta
+     (atributo hidden; sin JS todo queda visible, apilado como antes). Todo se calcula con lo que ya hay en `datos`
+     y con las mismas funciones de siempre (cmPendienteVenta, VISTAS.reposicion): el hub no inventa dinero. */
+  var RUTAS = {
+    inicio:       { nom: "Home" },
+    hoy:          { nom: "Today",       tablas: ["ventas", "eventos", "gastos", "gastoMensual"] },
+    comisiones:   { nom: "Commissions", tablas: ["comisiones", "comisionistas"] },
+    inventario:   { nom: "Inventory",   tablas: ["productos", "reposicion"] },
+    clientes:     { nom: "Customers",   tablas: ["clientes", "transferencias", "hechosFinancieros"] },
+    equipo:       { nom: "Team" },
+    alertas:      { nom: "Alerts" },
+    herramientas: { nom: "Tools" }
+  };
+  var rutaHub = "inicio", rutaAplicada = false;
+  function rutaDeHash() {
+    var m = /^#\/([a-z]+)/.exec(location.hash || "");
+    return m && RUTAS[m[1]] ? m[1] : "inicio";
+  }
+  /* opc.sinTabla: solo cambia lo visible (lo usa el gancho de pruebas de Commissions). */
+  function aplicarRuta(r, opc) {
+    if (!RUTAS[r]) r = "inicio";
+    rutaHub = r; rutaAplicada = true;
+    document.documentElement.setAttribute("data-hub-ruta", r);   /* (no "data-ruta": eso es de los enlaces de la barra) */
+    Array.prototype.forEach.call(document.querySelectorAll("[data-vista]"), function (el) {
+      el.hidden = (" " + el.getAttribute("data-vista") + " ").indexOf(" " + r + " ") < 0;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#nav-hub a[data-ruta]"), function (a) {
+      if (a.getAttribute("data-ruta") === r) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+    });
+    var tit = $("vista-tit"); if (tit) tit.textContent = RUTAS[r].nom;
+    var tb = RUTAS[r].tablas;
+    if (tb && !(opc && opc.sinTabla)) {
+      /* Solo se ven las pestanas de esta tarjeta; si la vista activa no es de ellas, se abre la primera. */
+      if (tb.indexOf(vista) < 0) vista = tb[0];
+      Array.prototype.forEach.call($("tabsel").children, function (b) {
+        var k = b.getAttribute("data-v");
+        b.hidden = tb.indexOf(k) < 0;
+        b.classList.toggle("on", k === vista);
+      });
+      pintarTabla();
+      /* Tabulator mide su contenedor al montarse: si estuvo oculto hay que pedirle que se redibuje. */
+      try { if (tabla && tabla.redraw) tabla.redraw(true); } catch (_) {}
+    }
+    if (r === "equipo" && !(opc && opc.sinTabla)) { try { if (window.OCTableroAvanzado) window.OCTableroAvanzado.pintar(); } catch (_) {} }
+    pintarLogVisible();
+    try { window.scrollTo(0, 0); } catch (_) {}
+  }
+  window.addEventListener("hashchange", function () { if (autorizado) aplicarRuta(rutaDeHash()); });
+
+  /* Una sola pasada sobre la foto: lo que alimenta tarjetas, isla y alertas. */
+  function totalesHub() {
+    var d = ((datos.resumen || {}).resumenDia) || {};
+    var prods = datos.productos || [], ventas = datos.ventas || [];
+    var col = { verde: 0, amarillo: 0, naranja: 0, rojo: 0, negro: 0 };
+    prods.forEach(function (p) {
+      var e = p.estado === "dorado" ? "amarillo" : p.estado;
+      if (col[e] != null) col[e]++;
+    });
+    var pend = 0, perchas = {}, ultima = null;
+    cmMeses().forEach(function (mes) {
+      cmSaldosPeriodo(mes).forEach(function (r) {
+        if (r.due > 0) { pend += r.due; perchas[r.ubicacionId] = 1; }
+      });
+    });
+    ventas.forEach(function (v) {
+      if (!ultima || String(v.fecha || "") > String(ultima.fecha || "")) ultima = v;
+    });
+    if (typeof comisionesConImportePendiente === "function" ? comisionesConImportePendiente(ventas) : !!(datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.liquidaciones === false))) pend = null;
+    var ciegos = 0, ahora = Date.now();
+    Object.keys(latidos).forEach(function (id) { if (micEstado(ahora - latidos[id].visto) === "ciegas") ciegos++; });
+    /* v506 (auditoria 2026-10-14): el mosaico Today y la isla mostraban $0 cuando el
+       monto del dia es desconocido (null) o la foto no trajo ventas, mientras las
+       tarjetas KPI decian "—". Misma regla que pintarKpis: desconocido queda null. */
+    var sinVentas = datos.cobertura && (datos.cobertura.ventas === false || datos.cobertura.resumen === false);
+    var entraHoy = sinVentas || d.entra === null || d.entra === undefined || d.entra === "" || !Number.isFinite(Number(d.entra)) ? null : Number(d.entra);
+    return {
+      entra: entraHoy, nVentas: sinVentas ? null : Number(d.ventasCount) || 0,
+      nProds: prods.length, col: col, pend: pend, nPerchas: Object.keys(perchas).length,
+      restock: VISTAS.reposicion.filas().length, ciegos: ciegos, nDisp: Object.keys(latidos).length,
+      nClientes: (datos.clientes || []).length, ultima: ultima
+    };
+  }
+  function textoVenta(v) {
+    if (!v) return "";
+    return (Number(v.cantidad) || 0) + "× " + (v.productoNombre || "") + " · " +
+      money((Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0)) + (v.asociadoNombre ? " · " + v.asociadoNombre : "");
+  }
+  /* Alertas = lo accionable: reponer, pagos por liquidar, dispositivos a ciegas. Texto reutilizado de las vistas. */
+  function alertasHub(t) {
+    var a = [];
+    if (t.restock) a.push({ k: "stock", n: t.restock, ruta: "inventario", tit: "Restock", txt: plural(t.restock, "producto por reponer", "productos por reponer") });
+    if (t.pend > 0.004) a.push({ k: "pagos", n: t.nPerchas || 1, ruta: "comisiones", tit: "Commissions", txt: "Still to pay " + money(t.pend) });
+    if (t.ciegos) a.push({ k: "ciegos", n: t.ciegos, ruta: "equipo", tit: "Team", txt: (t.ciegos === 1 ? "Un dispositivo lleva" : t.ciegos + " dispositivos llevan") + " rato sin sincronizar." });
+    return a;
+  }
+  function pintarHub() {
+    var t = totalesHub(), al = alertasHub(t), set = function (id, txt) { var e = $(id); if (e) e.textContent = txt; };
+    set("t-hoy-n", money(t.entra)); set("t-hoy-p", t.nVentas === null ? "Ventas pendientes" : plural(t.nVentas, "venta", "ventas"));
+    set("t-hoy-p2", t.ultima ? textoVenta(t.ultima) : "");
+    set("t-comisiones-n", t.pend === null ? (localStorage.getItem("f123_lang") === "es" ? "pendiente" : "pending") : money(t.pend));
+    var tc = document.querySelector('[data-tile="comisiones"]'); if (tc) tc.setAttribute("data-color", t.pend === null || t.pend > 0.004 ? "naranja" : "verde");
+    set("t-inventario-n", plural(t.nProds, "producto", "productos"));
+    var chips = $("t-inventario-chips");
+    if (chips) chips.innerHTML = ["verde", "amarillo", "naranja", "rojo", "negro"].map(function (k) {
+      var c = SIMON[k];
+      return '<span class="tile-chip" style="background:' + c.bg + ';color:' + c.txt + ' !important;-webkit-text-fill-color:' + c.txt + ' !important;">' + esc(c.nom) + " · " + t.col[k] + "</span>";
+    }).join("");
+    var ti = document.querySelector('[data-tile="inventario"]'); if (ti) ti.setAttribute("data-color", t.col.rojo || t.col.negro ? "rojo" : (t.col.naranja ? "naranja" : "verde"));
+    set("t-clientes-n", String(t.nClientes)); set("t-clientes-p", t.nClientes === 1 ? "cliente" : "clientes");
+    set("t-equipo-n", String(t.nDisp));
+    set("t-equipo-p", t.ciegos ? (t.ciegos === 1 ? "Un dispositivo lleva" : t.ciegos + " dispositivos llevan") + " rato sin sincronizar." : (($("pulso-txt") || {}).textContent || ""));
+    var te = document.querySelector('[data-tile="equipo"]'); if (te) te.setAttribute("data-color", t.ciegos ? "naranja" : "verde");
+    set("t-alertas-n", String(al.length));
+    set("t-alertas-p", al.length ? al.map(function (x) { return x.tit; }).join(" · ") : "");
+    var tl = document.querySelector('[data-tile="alertas"]'); if (tl) tl.setAttribute("data-color", al.length ? "rojo" : "verde");
+    var cont = $("alertas-lista");
+    if (cont) cont.innerHTML = al.length ? al.map(function (x) {
+      return '<a href="#/' + x.ruta + '"><strong>' + esc(x.tit) + "</strong>" + esc(x.txt) + "</a>";
+    }).join("") : '<p data-copy="nuevo">No alerts</p>';
+  }
+
+  /* ---------- ISLA VIVA ----------
+     Estados: reposo (punto + dinero de hoy), evento (venta nueva, 4 s), alerta (queda hasta que se toca),
+     expandida (tap: Sync, Last sale, Payments, Alerts, cada fila lleva a su tarjeta). Se pinta desde mostrar()
+     (el mismo evento de storage / BroadcastChannel / relay) y desde pulso(); no hay polling propio. */
+  var isla = { abierta: false, evento: null, tEvento: 0, vistas: null, ack: "", sync: "", syncTxt: "", cierre: 0 };
+  function islaSync(txt, clase) {
+    isla.sync = clase || ""; isla.syncTxt = txt || "";
+    var el = $("isla"); if (!el) return;
+    el.setAttribute("data-sync", isla.sync);
+    var v = $("isla-v-sync"); if (v) v.textContent = isla.syncTxt || "—";
+  }
+  function actualizarIsla() {
+    var t = totalesHub(), al = alertasHub(t);
+    /* Venta nueva = id que no estaba en la foto anterior. La primera foto solo fija la base (no anuncia el historial).
+       Si llegan mas de 3 de golpe es una resincronizacion, no una venta: se actualiza la base y no se anuncia. */
+    var ids = {}, nuevas = [];
+    (datos.ventas || []).forEach(function (v) { if (v && v.id != null) { ids[v.id] = 1; if (isla.vistas && !isla.vistas[v.id]) nuevas.push(v); } });
+    isla.vistas = ids;
+    if (nuevas.length && nuevas.length <= 3) {
+      nuevas.sort(function (a, b) { return String(b.fecha || "") > String(a.fecha || "") ? 1 : -1; });
+      isla.evento = nuevas[0];
+      clearTimeout(isla.tEvento);
+      isla.tEvento = setTimeout(function () { isla.evento = null; pintarIsla(); }, 4000);
+      var vivo = $("isla-vivo"); if (vivo) vivo.textContent = textoVenta(nuevas[0]);
+    }
+    isla.alertas = al; isla.t = t;
+    var firma = al.map(function (x) { return x.k + x.n; }).join("|");
+    if (!al.length) isla.ack = "";
+    isla.firma = firma;
+    pintarIsla();
+  }
+  function pintarIsla() {
+    var el = $("isla"); if (!el || !isla.t) return;
+    var t = isla.t, al = isla.alertas || [];
+    var pendiente = al.length && isla.firma !== isla.ack;
+    var estado = isla.abierta ? "expandida" : (isla.evento ? "evento" : (pendiente ? "alerta" : "reposo"));
+    el.setAttribute("data-estado", estado);
+    $("isla-dinero").textContent = money(t.entra);
+    $("isla-txt").textContent = isla.evento && estado === "evento" ? textoVenta(isla.evento) : "Alerts · " + al.length;
+    $("isla-cab").setAttribute("aria-label", (estado === "evento" ? textoVenta(isla.evento) : "Entró hoy " + money(t.entra)) + (pendiente ? " · Alerts " + al.length : ""));
+    $("isla-cab").setAttribute("aria-expanded", isla.abierta ? "true" : "false");
+    $("isla-v-sync").textContent = isla.syncTxt || "—";
+    $("isla-v-venta").textContent = t.ultima ? textoVenta(t.ultima) : "—";
+    $("isla-v-pagos").textContent = t.pend > 0.004 ? money(t.pend) : "—";
+    $("isla-v-alertas").textContent = al.length ? String(al.length) : "—";
+  }
+  function islaAbrir(abrir) {
+    var ul = $("isla-filas"); if (!ul) return;
+    clearTimeout(isla.cierre);
+    isla.abierta = abrir;
+    if (abrir) { ul.hidden = false; isla.ack = isla.firma || ""; void ul.offsetHeight; }
+    else isla.cierre = setTimeout(function () { if (!isla.abierta) ul.hidden = true; }, 320);
+    pintarIsla();
+  }
+  (function () {
+    var cab = $("isla-cab"); if (!cab) return;
+    cab.addEventListener("click", function () { islaAbrir(!isla.abierta); });
+    $("isla-filas").addEventListener("click", function (e) { if (e.target.closest("a")) islaAbrir(false); });
+    document.addEventListener("click", function (e) { if (isla.abierta && !e.target.closest("#isla")) islaAbrir(false); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape" && isla.abierta) { islaAbrir(false); cab.focus(); } });
+  })();
+
+  function pintarHistorialVentas() {
+    if (!window.OCSalesAuditUI) return;
+    window.OCSalesAuditUI.mount($("sales-audit"), datos.ventas || [], {lang:localStorage.getItem("f123_lang") || "en", timeZone:localStorage.getItem("f123_timezone") || Intl.DateTimeFormat().resolvedOptions().timeZone});
+  }
+  // Read-only adapter used by refreshes and isolated evidence journeys.
+  window.OCDashSalesAudit = {pintarConDatos:function(d){datos=d || datos;pintarHistorialVentas();}};
+  /* v521 FLECHA DE COMISION (JFC 2026-10-14, Belen): igual que Expenses de la app. Comisiones del mes
+     por direccion: la casa paga = gasto; el asociado paga a la casa = ingreso (la parte de la casa).
+     Sale de las mismas ventas del tablero: cero consultas nuevas. Monto desconocido = pendiente, nunca 0. */
+  function flechaComisionesMesHtml(result) {
+    var es = false; try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
+    if (datos.cobertura && datos.cobertura.ventas === false) return "";
+    var RM = window.OCBusinessReadModel, mes = String(fechaLocalDashboard(new Date().toISOString()) || "").slice(0, 7);
+    var coverage = datos.cobertura || {};
+    result = result || RM.businessResult({ sales: datos.ventas || [], adjustments: datos.ajustesComision || [], month: mes,
+      zone: zonaNegocioDashboard(), coverage: { sales: coverage.ventas === true, adjustments: coverage.ajustesComision === true, coherent: coverage.finanzasCoherentes === true } });
+    var paga = result.commissionPayableCents === null ? null : result.commissionPayableCents / 100;
+    var recibe = result.commissionReceivableCents === null ? null : result.commissionReceivableCents / 100;
+    var m = function (n) { return n === null ? (es ? "pendiente" : "pending") : money(n); };
+    return '<p style="margin:0 0 7px;">' + (es ? "Comisiones devengadas del mes · paga la casa (antes de pagos): " : "Accrued commissions this month · house pays (before payments): ") + '<b style="color:#B0183E;">' + esc(m(paga)) + '</b> · ' +
+      (es ? "Parte de la casa devengada del mes · paga el asociado (antes de pagos): " : "Accrued house share this month · associate pays (before payments): ") + '<b style="color:#006B3C;">' + esc(m(recibe)) + '</b></p>';
+  }
+  function pintarFinanzasFoto() {
+    var el = $("finanzas-foto-contenido");
+    if (!el) return;
+    var RM = window.OCBusinessReadModel;
+    var zone = typeof zonaNegocioDashboard === "function" ? zonaNegocioDashboard() : "America/Guayaquil";
+    var month = RM.day(new Date().toISOString(),zone).slice(0,7), coverage=datos.cobertura||{};
+    if (window.OCFinanceReport) window.OCFinanceReport.update(datos, zone);
+    var result=RM.businessResult({sales:datos.ventas||[],expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],month:month,zone:zone,
+      coverage:{sales:coverage.ventas===true,expenses:coverage.gastos===true,adjustments:coverage.ajustesComision===true,coherent:coverage.finanzasCoherentes===true}});
+    var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
+    var houseHtml='<p style="margin:0 0 7px;font-weight:700;color:var(--ink);">'+
+      (es?'Casa después de costos, reparto y gastos registrados':'House after costs, split and recorded expenses')+' · '+esc(month)+': <b>'+esc(money(result.houseAfterExpensesCents===null?null:result.houseAfterExpensesCents/100))+'</b></p>'+
+      '<p style="margin:0 0 7px;color:var(--ink);">'+(es?'El reparto se descuenta una sola vez. No representa dinero disponible; un guion indica datos pendientes de conciliar.':'The split is deducted once. This is not available cash; a dash means data is pending reconciliation.')+'</p>';
+    var tiene = ["gastos", "transferencias", "gastosMensuales", "hechosFinancieros"]
+      .every(function (k) { return Object.prototype.hasOwnProperty.call(datos, k); });
+    if (datos.cobertura && (datos.cobertura.gastos === false || datos.cobertura.hechosFinancieros === false)) { el.innerHTML=houseHtml+'<p>'+(es?'Los movimientos de caja y crédito siguen pendientes de completar.':'Cash and credit facts are still incomplete.')+'</p>'; return; }
+    if (!tiene) { el.innerHTML=houseHtml+'<p>'+(es?'La cobertura financiera de este dispositivo está incompleta.':'Finance coverage from this device is incomplete.')+'</p>'; return; }
+    var gastos = datos.gastos || [], tras = datos.transferencias || [], hechos = datos.hechosFinancieros || [];
+    var gm = datos.gastosMensuales || {};
+    var activos = gastos.filter(function(g){return g && !g.borrado;});
+    var mensual = RM.number(gm.gastosMensuales);
+    var sumaGastos = RM.sum(activos.map(function(g){return RM.number(g.monto);}));
+    var cartera = hechos.filter(function (h) { return /^cartera_/.test(h.tipo || ""); });
+    var caja = hechos.filter(function (h) { return /^caja_chica_/.test(h.tipo || ""); });
+    el.innerHTML = houseHtml+'<p style="margin:0 0 7px;">Detailed expenses: <b>' + activos.length + '</b> · total <b>' + esc(money(sumaGastos)) +
+      '</b> · monthly shelf budget <b>' + esc(money(mensual)) + '</b> (not added to expense totals)</p>' +
+      '<p style="margin:0 0 7px;">Transfers: <b>' + tras.length + '</b> · customer credit facts: <b>' + cartera.length +
+      '</b> · petty cash facts: <b>' + caja.length + '</b></p>' +
+      flechaComisionesMesHtml(result) +
+      '<p style="margin:0;">Latest expenses: ' + esc(activos.slice(0, 5).map(function (g) { return (g.concepto || "expense") + " " + money(RM.number(g.monto)); }).join(" · ") || "none") + '</p>';
+  }
+
+  /* PERISCOPIO DE DATOS (JFC 2026-08-27). Pinta el log de movimientos y el
+     estado de sync/accesos al fondo del tablero. Solo lee la foto que llegó
+     del dispositivo y el localStorage local (mismo origen); no guarda nada. */
+  var logPendiente = true;
+  function pintarLogVisible() {
+    var panel = $("oc-log-tablero");
+    if (!autorizado || rutaHub !== "herramientas" || !panel || !panel.open || !logPendiente) return;
+    pintarLog();
+    logPendiente = false;
+  }
+  $("oc-log-tablero").addEventListener("toggle", pintarLogVisible);
+  function pintarLog() {
+    var syncEl = $("oc-log-sync");
+    var tablaEl = $("oc-log-tabla");
+    if (!syncEl || !tablaEl) return;
+    var accesos = 0;
+    try { accesos = (JSON.parse(localStorage.getItem("f123_accesos") || "[]") || []).length; } catch (_) {}
+    var neg = "";
+    try { neg = $("neg-nombre") ? $("neg-nombre").textContent : ""; } catch (_) {}
+    var filas = Array.isArray(datos.movimientos) ? datos.movimientos : [];
+    /* CONTROL DE CAMBIOS EN COLORES (JFC 2026-09-10, "world class"). Cada
+       dispositivo recibe un color ESTABLE (derivado de su apodo), y cada
+       movimiento se pinta con el color de quién lo hizo: una franja a la
+       izquierda + un punto en la columna Device. Así, de un vistazo, se ve qué
+       aparato tocó qué. Además el TIPO se tiñe por categoría (venta = verde,
+       borrado = rojo, edición/sync = ámbar). Todo con color SÓLIDO y legible
+       sobre el fondo oscuro — nunca gris ni opaco. */
+    function colorDisp(nombre) {
+      var s = String(nombre || "—"), h = 0;
+      for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+      return "hsl(" + (h % 360) + ",75%,63%)"; // sólido, brillante, sobre fondo oscuro
+    }
+    function colorTipo(t) {
+      t = String(t || "");
+      if (/venta|sold|sale|cortes/i.test(t)) return "#28ECAA";
+      if (/borr|elimin|delete|anul|cancel|baja/i.test(t)) return "#FF6B6B";
+      if (/edic|edit|actualiz|update|merge|sync|promov|degrad/i.test(t)) return "#E8A020";
+      return "#CFE3F5";
+    }
+    // Leyenda: un chip por dispositivo con su color y cuántas acciones hizo.
+    var porDisp = {};
+    filas.forEach(function (m) { var k = m.dispositivoApodo || "—"; porDisp[k] = (porDisp[k] || 0) + 1; });
+    var leyenda = Object.keys(porDisp).sort(function (a, b) { return porDisp[b] - porDisp[a]; }).map(function (k) {
+      return '<span style="display:inline-flex;align-items:center;gap:6px;margin:0 12px 6px 0;font-size:12px;color:#E6EDF3;">' +
+        '<span style="width:11px;height:11px;border-radius:50%;background:' + colorDisp(k) + ';display:inline-block;"></span>' +
+        esc(k) + ' <span style="color:#E6E6E6;">(' + porDisp[k] + ')</span></span>';
+    }).join("");
+    syncEl.innerHTML =
+      '<div style="margin-bottom:8px;">store: <b>' + esc(neg || "—") + '</b> · foto: ' + esc(fotoEnCurso || "—") + ' · accesos: ' + accesos + '</div>' +
+      (leyenda ? '<div style="margin-bottom:6px;">' + leyenda + '</div>' : "");
+    if (!filas.length) { tablaEl.innerHTML = '<tr><td style="padding:6px 0;color:#E6E6E6;">No activity yet.</td></tr>'; return; }
+    var html = '<tr style="text-align:left;color:#E6E6E6;font-size:12px;">' +
+      "<th style=\"padding:4px 8px;\">Type</th><th style=\"padding:4px 8px;\">Detail</th>" +
+      "<th style=\"padding:4px 8px;\">Who</th><th style=\"padding:4px 8px;\">Device</th><th style=\"padding:4px 8px;\">When</th></tr>";
+    // JFC 2026-09-02: quién (usuario + rol) Y desde qué dispositivo (apodo) hizo
+    // cada acción — el tablero refleja el responsable de todo movimiento.
+    var detalleTxt = function (d) {
+      if (d == null) return "—";
+      if (typeof d === "string") return d;
+      try {
+        return Object.keys(d).map(function (k) {
+          var v = d[k];
+          if (v && typeof v === "object") v = JSON.stringify(v);
+          return k + ": " + v;
+        }).join(" · ");
+      } catch (_) { return "—"; }
+    };
+    filas.forEach(function (m) {
+      var cd = colorDisp(m.dispositivoApodo || "—");
+      var quien = esc(m.usuarioNombre || "—") + (m.usuarioRol ? ' <span style="color:#E6E6E6;">(' + esc(m.usuarioRol) + ")</span>" : "");
+      html += "<tr style=\"border-top:1px solid #2a3a4a;\">" +
+        '<td style="padding:4px 8px;border-left:4px solid ' + cd + ';font-weight:700;color:' + colorTipo(m.tipo) + ';">' + esc(m.tipo || "—") + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;">' + esc(detalleTxt(m.detalle)) + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;">' + quien + "</td>" +
+        '<td style="padding:4px 8px;color:#E6EDF3;"><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:' + cd + ';margin-right:6px;"></span>' + esc(m.dispositivoApodo || "—") + "</td>" +
+        '<td style="padding:4px 8px;color:#E6E6E6;">' + esc(m.fecha || "—") + "</td></tr>";
+    });
+    tablaEl.innerHTML = html;
+  }
+
+  function pintarKpis() {
+    var r = datos.resumen || {};
+    var d = r.resumenDia || {};
+    if(datos.cobertura && (datos.cobertura.ventas===false || datos.cobertura.resumen===false))d={entra:null,gananciaHoy:null,ventasCount:null};
+    var prods = datos.productos || [];
+    var valuation = window.OCBusinessReadModel.inventory(prods);
+    var dormant = window.OCBusinessReadModel.inventory(prods.filter(function(p){return p.estado === 'negro';}));
+    if(datos.cobertura && datos.cobertura.productos===false){valuation.valueCents=null;dormant.valueCents=null;}
+    var valor = valuation.valueCents === null ? null : valuation.valueCents / 100;
+    var dormido = dormant.valueCents === null ? null : dormant.valueCents / 100;
+    var k = [
+      ["Entró hoy", money(d.entra), d.ventasCount===null ? "Ventas pendientes" : plural(d.ventasCount || 0, "venta", "ventas")],
+      ["Margen bruto de hoy", money(d.gananciaHoy), "antes de comisiones y gastos"],
+      ["Inventario", valor === null ? 'Stock / cost pending' : money(valor), prods.length + " productos"],
+      ["Capital dormido", dormido === null ? 'Stock / cost pending' : money(dormido), "sin movimiento"],
+    ];
+    $("kpis").innerHTML = k.map(function (x) {
+      return '<div class="kpi"><p class="et">' + esc(x[0]) + '</p><div class="n">' + esc(x[1]) + '</div><p class="pie">' + esc(x[2]) + "</p></div>";
+    }).join("");
+  }
+
+  var herramientasExportacion = {};
+  function cargarHerramientaExportacion(src, lista) {
+    if (lista()) return Promise.resolve();
+    if (herramientasExportacion[src]) return herramientasExportacion[src];
+    herramientasExportacion[src] = new Promise(function (resolve, reject) {
+      var script = document.createElement("script");
+      var timer = setTimeout(function () { terminar(new Error("Export load timeout")); }, 20000);
+      function terminar(error) {
+        clearTimeout(timer); script.onload = null; script.onerror = null;
+        if (error) { script.remove(); reject(error); } else resolve();
+      }
+      script.onload = function () { terminar(lista() ? null : new Error("Export dependency unavailable")); };
+      script.onerror = function () { terminar(new Error("Export dependency unavailable")); };
+      script.src = src; document.head.appendChild(script);
+    }).catch(function (error) { delete herramientasExportacion[src]; throw error; });
+    return herramientasExportacion[src];
+  }
+  function prepararExportacion(tipo) {
+    if (tipo === "xlsx") return cargarHerramientaExportacion("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js", function () { return !!window.XLSX; });
+    if (tipo !== "pdf") return Promise.resolve();
+    return cargarHerramientaExportacion("./vendor/jspdf-4.2.1.umd.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF); }).then(function () {
+      return cargarHerramientaExportacion("./vendor/jspdf-autotable-5.0.9.min.js", function () { return !!(window.jspdf && window.jspdf.jsPDF.API.autoTable); });
+    }).then(function () {
+      return cargarHerramientaExportacion("./pdf-report-layout.js", function () { return !!window.OCReportPDF; });
+    });
+  }
+  function capturarSesionExportacion() {
+    var sesion = codigoSesionActual;
+    return function () { return autorizado && sesion === codigoSesionActual && !bloquearSesionSiCambioTienda(); };
+  }
+  window.OCDashboardExports = { prepare: prepararExportacion, captureSession: capturarSesionExportacion, brand: LOGO };
+  function seleccionExportacion() {
+    var orden = tabla && typeof tabla.getSorters === "function" ? tabla.getSorters().map(function (s) { return [s.field, s.dir]; }) : [];
+    return JSON.stringify([vista, rutaHub, $("buscar").value, orden]);
+  }
+  async function ejecutarExportacion(boton, tipo, accion) {
+    if (boton.disabled) return;
+    // CSV/JSON/copy keep their synchronous user gesture (notably clipboard).
+    if (tipo !== "pdf" && tipo !== "xlsx") { accion(); return; }
+    var seleccionPedida = seleccionExportacion(), revisionPedida = revisionVistaExportacion;
+    var sesionValida = capturarSesionExportacion();
+    var cierreAnterior = $("cierre").innerHTML;
+    var es = localStorage.getItem("f123_lang") === "es";
+    boton.disabled = true; boton.setAttribute("aria-busy", "true");
+    $("cierre").textContent = es ? "Preparando exportación…" : "Preparing export…";
+    try {
+      await prepararExportacion(tipo);
+      if (!sesionValida()) return;
+      if (revisionPedida !== revisionVistaExportacion || seleccionPedida !== seleccionExportacion()) {
+        $("cierre").textContent = es ? "La vista cambió. Vuelve a exportar los datos actuales." : "The view changed. Export the current data again.";
+        return;
+      }
+      $("cierre").innerHTML = cierreAnterior;
+      accion();
+    } catch (_) {
+      if (sesionValida()) $("cierre").textContent = es ? "No se pudo cargar la herramienta de exportación. Comprueba la conexión y vuelve a pulsar el botón." : "The export tool could not load. Check your connection and press the button again.";
+    } finally { boton.disabled = false; boton.removeAttribute("aria-busy"); }
+  }
+
+  function pintarSelector() {
+    $("tabsel").innerHTML = Object.keys(VISTAS).map(function (k) {
+      return '<button type="button" data-v="' + k + '"' + (k === vista ? ' class="on"' : "") + ">" + esc(VISTAS[k].nombre) + "</button>";
+    }).join("");
+    $("tabsel").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-v]");
+      if (!b) return;
+      vista = b.dataset.v;
+      Array.prototype.forEach.call($("tabsel").children, function (x) { x.classList.toggle("on", x === b); });
+      pintarTabla();
+    });
+    $("exp").innerHTML =
+      '<button type="button" data-x="csv">CSV</button>' +
+      '<button type="button" data-x="xlsx">Excel</button>' +
+      '<button type="button" data-x="pdf">PDF</button>' +
+      '<button type="button" data-x="json">JSON</button>' +
+      '<button type="button" data-x="copy">Copy</button>';
+    /* M10: tres reportes de UNA pagina, listos para el contador o el banco.
+       Un CSV de 4.000 filas no le sirve a nadie; un resumen firmado con fecha
+       si. Se arman con jsPDF directo, no con el export de la tabla, porque no
+       son la tabla: son un cierre. */
+    $("exp").insertAdjacentHTML("beforeend",
+      '<button type="button" data-r="mes" style="border-color:#0F1923;">Monthly report</button>' +
+      '<button type="button" data-r="inv" style="border-color:#0F1923;">Valued inventory</button>' +
+      '<button type="button" data-r="cli" style="border-color:#0F1923;">Customers up to date</button>');
+    $("exp").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-r]");
+      if (b) ejecutarExportacion(b, "pdf", function () { reporte(b.dataset.r); });
+    });
+    $("exp").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-x]");
+      if (!b) return;
+      /* Un boton que no hace nada al tocarlo es peor que uno que dice por que. */
+      if (!tabla) {
+        $("cierre").innerHTML = "<strong>Ahora mismo no se puede exportar.</strong>" +
+          "No cargó la herramienta de exportación. Recarga la página con internet y vuelve a intentarlo.";
+        return;
+      }
+      ejecutarExportacion(b, b.dataset.x, function () { exportar(b.dataset.x); });
+    });
+    $("buscar").addEventListener("input", function () { filtrar(this.value); });
+    /* Agrupar Comisiones por trato o por persona. Vive en el pie porque es una
+       lectura del dato que ya esta en pantalla, no un filtro nuevo: no pide
+       nada al equipo y funciona igual sin internet. */
+    $("cierre").addEventListener("click", function (e) {
+      var b = e.target.closest("[data-agr]");
+      if (!b) return;
+      agruparComisionesPor = b.dataset.agr;
+      pintarTabla();
+    });
+  }
+
+  /* Un solo campo que busca en TODAS las columnas: el dueño no piensa en
+     columnas, piensa "la camiseta de Metallica". Sin acentos y sin
+     distinguir mayusculas. */
+  function normalizar(s) {
+    return String(s == null ? "" : s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  }
+  function filtrar(q) {
+    /* Sin Tabulator no hay filtro. Se filtra a mano sobre la tabla simple en
+       vez de dejar al duenio tecleando contra una caja que no responde. */
+    if (!tabla) { filtrarDegradado(q); return; }
+    var t = normalizar(q).trim();
+    if (!t) { tabla.clearFilter(); return; }
+    tabla.setFilter(function (fila) {
+      for (var k in fila) {
+        if (normalizar(fila[k]).indexOf(t) >= 0) return true;
+      }
+      return false;
+    });
+  }
+
+  /* Filtro de emergencia: oculta filas de la tabla en HTML plano. Lento
+     comparado con Tabulator, pero con 500 filas como tope no se nota. */
+  function filtrarDegradado(q) {
+    var t = normalizar(q).trim();
+    var filas = document.querySelectorAll("#tabla tbody tr");
+    if (!filas.length) return;
+    Array.prototype.forEach.call(filas, function (tr) {
+      tr.style.display = (!t || normalizar(tr.textContent).indexOf(t) >= 0) ? "" : "none";
+    });
+  }
+
+  function pintarTabla() {
+    var v = VISTAS[vista];
+    var filas = v.filas();
+    var dependencias={productos:['productos'],clientes:['clientes'],ventas:['ventas'],reposicion:['productos'],eventos:['ventas'],liquidaciones:['liquidaciones'],perchas:['perchas'],movimientos:['movimientos'],promotoras:['promotoras'],gastos:['gastos'],transferencias:['transferencias'],hechosFinancieros:['hechosFinancieros']};
+    var incompleta=(dependencias[vista]||[]).some(function(k){return datos.cobertura&&datos.cobertura[k]===false;});
+    $("cierre").innerHTML = incompleta ? '<strong>Información pendiente de actualizar. Una lista incompleta no significa que no haya registros.</strong>' : v.cierre(filas);
+    if (typeof Tabulator === "undefined") { degradarSinTabulator(v, filas); return; }
+    /* Si la vista es la misma, se REEMPLAZAN los datos en vez de reconstruir.
+       Destruir la tabla en cada actualizacion tiraba el scroll, el orden que el
+       duenio habia elegido y la fila donde estaba mirando — y aqui los datos
+       llegan en vivo, asi que pasaba con cada venta. */
+    if (tabla && tablaDe === vista && !degradado) {
+      try { tabla.replaceData(filas); filtrar($("buscar").value); return; }
+      catch (_) { /* si falla, se reconstruye abajo */ }
+    }
+    if (tabla) { try { tabla.destroy(); } catch (_) {} }
+    degradado = false;   /* si Tabulator llego tarde, ya no estamos degradados */
+    tablaDe = vista;
+    tabla = new Tabulator("#tabla", {
+      data: filas,
+      columns: v.cols,
+      layout: "fitColumns",   /* llena el ancho: es una pantalla grande, hay que usarla */
+      height: "58vh",
+      renderVertical: "virtual",     /* miles de filas sin matar un teléfono viejo */
+      placeholder: "Nada que mostrar todavía.",
+      movableColumns: true,
+      /* El nombre largo se corta por ancho; el tooltip lo devuelve entero sin
+         obligar a ensanchar la columna ni a hacer scroll lateral. */
+      /* El tooltip devuelve lo que se VE, no el dato crudo: sobre la columna
+         Estado mostraba "rojo" en vez de "Urgente". */
+      tooltip: function (e, cell) {
+        try {
+          var f = cell.getColumn().getDefinition().formatter;
+          if (typeof f === "function") {
+            var tmp = document.createElement("div");
+            tmp.innerHTML = f(cell);
+            return tmp.textContent || "";
+          }
+        } catch (_) {}
+        return String(cell.getValue() == null ? "" : cell.getValue());
+      },
+    });
+    filtrar($("buscar").value);
+  }
+
+  /* Si un CDN no carga, la tabla SE SIGUE VIENDO. Sin orden ni exports, y se
+     dice. Degradar no es fallar. */
+  function degradarSinTabulator(v, filas) {
+    degradado = true;
+    /* Se suelta la instancia vieja: si no, filtrar() la seguiria usando y
+       llamaria setFilter sobre una tabla que ya no existe en el DOM. */
+    if (tabla) { try { tabla.destroy(); } catch (_) {} tabla = null; }
+    tablaDe = "";
+    var th = v.cols.map(function (c) { return "<th style='text-align:left;padding:9px 8px;border-bottom:2px solid #0F1923;font-size:13px;'>" + esc(c.title) + "</th>"; }).join("");
+    var tr = filas.slice(0, 500).map(function (f) {
+      /* esc(undefined) pintaba la palabra "undefined" en la celda. Aqui no hay
+         formatters, asi que al menos el dinero se formatea a mano. */
+      return "<tr>" + v.cols.map(function (c) {
+        if (vista === "clientes" && c.field === "id") return "<td style='padding:4px;'><button type='button' data-edit-cliente='" + esc(f.id || "") + "' aria-label='Edit customer' style='min-width:44px;min-height:44px;'>✎</button></td>";
+        // Keep the same in-dashboard editors on a tablet when the table CDN fails.
+        // The existing same-origin link handler opens the authenticated iframe.
+        if (vista === "ventas" && c.field === "id") {
+          if (f.liquidada || !f.id) return "<td style='padding:8px;'>·</td>";
+          return "<td style='padding:4px;'><a href='index.html#editar=venta:" + esc(encodeURIComponent(f.id)) + "' aria-label='" + (localStorage.getItem("f123_lang") === "es" ? "Editar venta" : "Edit sale") + "' style='display:inline-block;padding:8px;min-width:44px;min-height:44px;box-sizing:border-box;'>✎</a></td>";
+        }
+        if (vista === "comisiones" && c.field === "ubicacionId") {
+          if (!f.ubicacionId) return "<td style='padding:8px;'>—</td>";
+          return "<td style='padding:4px;'><a href='index.html#editar=comisionpercha:" + esc(encodeURIComponent(f.ubicacionId)) + "' aria-label='" + (localStorage.getItem("f123_lang") === "es" ? "Editar comisión de percha" : "Edit shelf commission") + "' style='display:inline-block;padding:8px;min-width:44px;min-height:44px;box-sizing:border-box;'>✎</a></td>";
+        }
+        var val = f[c.field];
+        if (val == null || val === "") return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + (c.field === 'stockActual' ? 'Stock pending' : '—') + "</td>";
+        if (/^(precio|costo|margen|precioUnit|costoUnit|monto)$/.test(c.field)) val = money(val);
+        return "<td style='padding:8px;border-bottom:1px solid #E8ECF2;font-size:15px;'>" + esc(val) + "</td>";
+      }).join("") + "</tr>";
+    }).join("");
+    $("tabla").innerHTML =
+      "<div style='padding:11px 14px;background:#FFF6F2;border-bottom:1px solid #E8ECF2;font-size:15px;'>" +
+      "Se está mostrando la tabla simple: no cargaron las herramientas de orden y exportación. Los datos son los mismos." +
+      "</div><div style='overflow:auto;max-height:62vh;'><table style='width:100%;border-collapse:collapse;'><thead><tr>" +
+      th + "</tr></thead><tbody>" + tr + "</tbody></table></div>";
+  }
+
+
+  /* Tabulator's PDF downloader may cancel the browser download even when
+     CSV/XLSX work. Use the same jsPDF+autoTable engine as our three reports,
+     directly in the click handler, with the currently filtered table rows. */
+  function etiquetaExportacion(label) {
+    var translated = window.OCDashIdioma && window.OCDashIdioma.traducir(label);
+    return translated == null ? String(label) : translated;
+  }
+
+  function pdfDeTabla(filename, negocio) {
+    var JsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!JsPDF) throw new Error("jsPDF is unavailable");
+    var doc = new JsPDF({orientation:"landscape",unit:"pt",format:"a4"});
+    if (typeof doc.autoTable !== "function") throw new Error("jsPDF-AutoTable is unavailable");
+    var cols = VISTAS[vista].cols.filter(function(c) { return c.field && c.title && c.download !== false; });
+    var filas = tabla.getData("active");
+    var titulos = cols.map(function(c) { return etiquetaExportacion(c.title); });
+    var celdas = filas.map(function(r) {
+      return cols.map(function(c) {
+        var v = r[c.field];
+        if(vista==='clientes' && typeof c.accessorDownload==='function')return c.accessorDownload(v);
+        if (c.field === "compro") {
+          var nombres = {};
+          (datos.ventas || []).forEach(function(venta) {
+            if (ventaEsDeCliente(venta,r) && venta.productoNombre) nombres[venta.productoNombre] = true;
+          });
+          return Object.keys(nombres).join(", ") || "—";
+        }
+        if (c.field === "recencia") return v === "pending" || (v == null && datos.cobertura && datos.cobertura.ventas === false) ? "pending" : (v == null ? "never" : String(v) + " days");
+        if (v == null || v === "") return c.field === "stockActual" ? "Stock pending" : "—";
+        if (/^(precio|costo|margen|precioUnit|costoUnit|monto|comision|ventasBrutas|casa)$/.test(c.field))
+          return money(v);
+        if (typeof v === "object") return "—";
+        return String(v);
+      });
+    });
+    var layout = window.OCReportPDF.create(doc, { business: String(negocio || "Business"),
+      title: etiquetaExportacion(VISTAS[vista].nombre),
+      subtitle: new Date().toLocaleString(localStorage.getItem("f123_lang") === "es" ? "es-EC" : "en-US"),
+      language: localStorage.getItem("f123_lang"), logo: typeof LOGO === "string" ? LOGO : null });
+    layout.table({head:[titulos],body:celdas});
+    layout.finish();
+    doc.save(filename);
+  }
+
+  function exportar(tipo) {
+    /* \w no incluye acentos ni ñ: "Panadería Ñusta" salia como "Panadera usta".
+       Se quitan solo los caracteres que los sistemas de archivos prohiben. */
+    var nombre = ($("neg-nombre").textContent || "negocio").replace(/[\\/:*?"<>|]/g, "").trim();
+    var titulo = etiquetaExportacion(VISTAS[vista].nombre);
+    var f = nombre + " · " + titulo + " · " + new Date().toISOString().slice(0, 10);
+    try {
+      // Screen translations change DOM text, not Tabulator's export definitions.
+      // Refresh download-only labels so a language change also reaches the file.
+      if ((tipo === "csv" || tipo === "xlsx") && tabla.getColumns) tabla.getColumns().forEach(function (column) {
+        var definition = column.getDefinition();
+        definition.titleDownload = etiquetaExportacion(definition.title || "");
+      });
+      if (tipo === "csv") tabla.download("csv", f + ".csv", { bom: true });
+      else if (tipo === "xlsx") tabla.download("xlsx", f + ".xlsx", { sheetName: titulo });
+      else if (tipo === "json") tabla.download("json", f + ".json");
+      else if (tipo === "copy") { tabla.copyToClipboard("all"); }
+      else if (tipo === "pdf") pdfDeTabla(f + ".pdf", nombre);
+    } catch (e) {
+      $("cierre").innerHTML = "<strong>No se pudo exportar.</strong>Puede que no haya cargado la herramienta de exportación. Recarga la página e inténtalo de nuevo.";
+      try { if (window.AMG && window.AMG.Salud) window.AMG.Salud.registrar("export " + tipo + ": " + e.message, "tablero.html", 0); } catch (_) {}
+    }
+  }
+
+  /* ================================================== QUIEN ESTA EN EL LOOP
+     Mismos umbrales y mismos tres estados que la app (ver micelio-vivo.js).
+     Aqui no hay perilla: el tablero solo mira. Los umbrales se cambian desde
+     Avanzado, en el dispositivo del dueno, que es donde vive esa decision.
+
+     UN DISPOSITIVO DESCONECTADO NO PUEDE AVISAR QUE ESTA DESCONECTADO. Por eso
+     no se pregunta "estas ahi": se recuerda la ultima vez que se le oyo. El
+     silencio ES la senal.
+     ======================================================================== */
+  var latidos = {};
+  var UMB = { rezagado: 5, ciegas: 120 };   /* minutos, igual que de fabrica */
+  var MIC = {
+    al_dia:   { texto: "Al día",   bg: "#00C87A", txt: "#0A2E1E" },
+    rezagado: { texto: "Rezagado", bg: "#FFC700", txt: "#3D2E00" },
+    ciegas:   { texto: "A ciegas", bg: "#E8365D", txt: "#FFFFFF" },
+  };
+  var ROLES = { dueno: "Dueño", admin: "Admin", empleado: "Empleado", contador: "Contador", soporte: "Maintenance / Support" };
+
+  function micEstado(ms) {
+    if (ms < UMB.rezagado * 60000) return "al_dia";
+    if (ms < UMB.ciegas * 60000) return "rezagado";
+    return "ciegas";
+  }
+  function micCuando(ms) {
+    if (ms < 45000) return "hace un momento";
+    var min = Math.round(ms / 60000);
+    if (min < 60) return "hace " + min + (min === 1 ? " minuto" : " minutos");
+    var h = Math.round(min / 60);
+    if (h < 24) return "hace " + h + (h === 1 ? " hora" : " horas");
+    var d = Math.round(h / 24);
+    return "hace " + d + (d === 1 ? " día" : " días");
+  }
+
+  function pintarMicelio() {
+    /* v462: el mismo evento (latido o reloj de 20 s que ya existian) refresca equipo y alertas de la isla. */
+    try { if (autorizado) actualizarIsla(); } catch (_) {}
+    var ahora = Date.now(), ORDEN = { ciegas: 0, rezagado: 1, al_dia: 2 };
+    var lista = Object.keys(latidos).map(function (id) {
+      var e = latidos[id], ms = ahora - e.visto;
+      return { id: id, apodo: e.apodo, rol: e.rol, ms: ms, estado: micEstado(ms) };
+    }).sort(function (a, b) { return (ORDEN[a.estado] - ORDEN[b.estado]) || (b.ms - a.ms); });
+
+    if (!lista.length) {
+      $("micelio-resumen").textContent =
+        "Esperando a que se presente algún dispositivo.";
+      $("micelio-lista").innerHTML = "";
+      $("micelio-nota").textContent = "";
+      return;
+    }
+
+    var ciegos = lista.filter(function (m) { return m.estado === "ciegas"; });
+    $("micelio-resumen").textContent = ciegos.length
+      ? (ciegos.length === 1 ? "Un dispositivo lleva" : ciegos.length + " dispositivos llevan") +
+        " rato sin enviar señales recientes de conexión. Sus datos pueden estar pendientes de actualizar."
+      : "Los dispositivos listados han enviado señales recientes de conexión. Esto no comprueba que todos sus datos coincidan.";
+
+    $("micelio-lista").innerHTML = lista.map(function (m) {
+      var c = MIC[m.estado];
+      /* El apodo manda; si no lo pusieron, el número estable (001, 002...);
+         si tampoco, el rol. Nunca el PIN. (JFC 2026-08-27: auto-numeración.) */
+      var nombre = m.apodo
+        || (window.OCMicelio && window.OCMicelio.numeroEstable ? window.OCMicelio.numeroEstable(m.id) : "")
+        || ROLES[m.rol] || ("Dispositivo " + String(m.id).slice(1, 5));
+      var rolTxt = ROLES[m.rol] ? '<span style="font-size:14px;color:var(--ink-soft);">' + esc(ROLES[m.rol]) + "</span>" : "";
+      /* Lapicito ✎ (JFC 2026-08-27): renombra el dispositivo desde el tablero.
+         Manda una orden orientada a ese deviceId (para) que el dispositivo
+         aplica con OCMicelio.ponerApodo. */
+      var lapiz = '<button type="button" title="Renombrar este dispositivo" data-renombrar="' + esc(m.id) + '" ' +
+        'style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;cursor:pointer;font-size:15px;padding:0 2px;">✎</button>';
+      return '<div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;padding:11px 0;border-bottom:1px solid var(--hairline);">' +
+        '<span style="display:inline-block;min-width:100px;text-align:center;padding:4px 12px;border-radius:20px;' +
+        'font-size:13px;font-weight:700;background:' + c.bg + ';color:' + c.txt + ' !important;-webkit-text-fill-color:' + c.txt + ' !important;">' + c.texto + "</span>" +
+        '<span style="font-size:16px;font-weight:700;">' + esc(nombre) + "</span>" + lapiz +
+        rolTxt +
+        '<span style="font-size:14px;margin-left:auto;">' + esc(micCuando(m.ms)) + "</span></div>";
+    }).join("");
+    /* Delegación: un solo listener para todos los lapicitos (se re-renderiza
+       cada 20s, así que no se pueden enlazar listeners directos). */
+    var _listaEl = $("micelio-lista");
+    if (_listaEl && !_listaEl.dataset.renombrarOk) {
+      _listaEl.dataset.renombrarOk = "1";
+      _listaEl.addEventListener("click", function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest("[data-renombrar]") : null;
+        if (!b) return;
+        var id = b.getAttribute("data-renombrar");
+        var actual = (latidos[id] && latidos[id].apodo) || "";
+        var v = prompt("Renombrar este dispositivo:", actual);
+        if (v === null) return;
+        ordenar("POST", "/micelio/apodo", { apodo: v }, id).then(function (r) {
+          if (r && r.ok) { latidos[id] = latidos[id] || {}; latidos[id].apodo = v; pintarMicelio(); }
+          else alert("No se pudo renombrar: " + ((r && r.datos && r.datos.error) || "sin respuesta"));
+        });
+      });
+    }
+
+    $("micelio-nota").innerHTML = ciegos.length
+      ? "Se ponen al día solos en cuanto haya señal."
+      : "Si ves un nombre que no reconoces, cambia el código de tu sala.";
+  }
+  /* Los estados envejecen aunque no llegue nada: sin este reloj, alguien que
+     se apago hace una hora seguiria pintado en verde. */
+  setInterval(pintarMicelio, 20000);
+
+  /* --------------------------------------------------------------- M10 --- */
+  function reporte(cual) {
+    // 2026-08-19, aprobado JFC: bilingual y con nombre del CDN caido para
+    // que el owner sepa que no es la app — es la red o un CDN. Antes decia
+    // solo "Recarga y prueba" y le quitaba pista al usuario.
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+      var _es_p = (function(){try{return localStorage.getItem("f123_lang")==="es";}catch(_){return false;}})();
+      $("cierre").innerHTML = _es_p
+        ? "<strong>No se pudo armar el reporte.</strong> No cargó la herramienta de PDF (cdnjs). Recarga la página e inténtalo; si sigue fallando, el reporte tambien se puede exportar desde la tabla de arriba como XLSX o CSV."
+        : "<strong>Could not build the report.</strong> The PDF tool did not load (cdnjs). Reload the page and try again; if it still fails, the report can also be exported from the table above as XLSX or CSV.";
+      return;
+    }
+    var esReporte=false;try{esReporte=localStorage.getItem('f123_lang')==='es';}catch(_){}
+    var neg = $("neg-nombre").textContent || "Mi negocio";
+    var doc = new window.jspdf.jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
+    var titulo, cols, filas, pie = "", gastosReporte = null, resumenReporte = null;
+
+    if (cual === "inv") {
+      titulo = esReporte ? "Inventario valorizado" : "Inventory valuation";
+      cols = esReporte ? ["Producto", "Percha", "Stock", "Costo", "Valor"] : ["Product","Shelf","Stock","Cost","Value"];
+      var totalInv = datos.cobertura&&datos.cobertura.productos===false?null:window.OCBusinessReadModel.inventory(datos.productos || []).valueCents;
+      filas = (datos.productos || []).map(function (p) {
+        var s = window.OCBusinessReadModel.stock(p), v = window.OCBusinessReadModel.inventory([p]).valueCents;
+        return [p.nombre, p.ubicacionNombre || "", s.known ? String(s.units) : (esReporte?'Stock pendiente':'Stock pending'), p.costo == null ? '—' : money(p.costo), v === null ? '—' : money(v / 100)];
+      });
+      pie = totalInv === null ? (esReporte?'Valor pendiente: faltan datos de stock o costo.':'Inventory value pending: some stock or cost data is missing.') : (esReporte?"Valor total del inventario, a costo: ":"Total inventory value, at cost: ") + money(totalInv / 100);
+
+    } else if (cual === "cli") {
+      titulo = esReporte ? "Clientes al día" : "Customer summary";
+      cols = esReporte ? ["Cliente", "WhatsApp", "Reside en Cuenca", "Género", "Compró hace", "Compras 90d", "Monto 90d"] : ["Customer","WhatsApp","Lives in Cuenca","Gender","Last purchase","Purchases 90d","Amount 90d"];
+      filas = (datos.clientes || []).map(function (c) {
+        return [c.nombre, window.OCCustomerProfile.whatsapp(c.telefono), window.OCCustomerProfile.residentLabel(c.resideCuenca,esReporte), window.OCCustomerProfile.genderLabel(c.genero,esReporte), c.recencia === "pending" || (c.recencia == null && datos.cobertura && datos.cobertura.ventas === false) ? (esReporte?"pendiente":"pending") : (c.recencia == null ? (esReporte?"nunca":"never") : c.recencia + (esReporte?" días":" days")),
+                String(c.frecuencia || 0), money(c.monto)];
+      });
+      pie = filas.length+(esReporte?" clientes activos.":" active customers.");
+
+    } else {
+      titulo = esReporte ? "Reporte del mes" : "Monthly report";
+      /* Se filtra por el mes en curso sobre lo que hay en pantalla: el tablero
+         muestra lo que el equipo tiene, y eso es lo que se reporta. */
+      var mes = mesLocalDe(new Date().toISOString());
+      titulo += ' · ' + mes;
+      var zone=zonaNegocioDashboard();
+      var monthReport=window.OCBusinessReadModel.monthly(datos.ventas || [],datos.gastos || [],mes,zone);
+      var houseReport=window.OCBusinessReadModel.businessResult({sales:datos.ventas||[],expenses:datos.gastos||[],adjustments:datos.ajustesComision||[],month:mes,zone:zone,
+        coverage:{sales:!(datos.cobertura&&datos.cobertura.ventas===false),expenses:!!(datos.cobertura&&datos.cobertura.gastos===true),adjustments:!!(datos.cobertura&&datos.cobertura.ajustesComision===true),coherent:_fuenteDatosDashboard!=="remota"||!!(datos.cobertura&&datos.cobertura.finanzasCoherentes===true)}});
+      var porProd={};
+      monthReport.rows.forEach(function(row){var k=String(row.id);var group=porProd[k] || (porProd[k]={name:row.product,u:0,c:0});group.u+=row.units;group.c+=row.amountCents;});
+      cols=esReporte ? ['Producto','Unidades netas','Vendido menos devoluciones'] : ['Product','Net units','Sales less returns'];
+      filas=Object.keys(porProd).sort(function(a,b){return porProd[b].c-porProd[a].c;}).map(function(k){var p=porProd[k];return [p.name,String(p.u),money(p.c/100)];});
+      gastosReporte=monthReport.expenses.concat(monthReport.unassignedExpenses).map(function(g){return [window.OCBusinessReadModel.day(g.fecha,zone)?fechaLocalDashboard(g.fecha):(esReporte?'Sin fecha válida':'No valid date'),g.concepto || '',money(g.monto)];});
+      var labels=esReporte ? ['Vendido','Devoluciones registradas','Vendido menos devoluciones','Costo neto de lo vendido','Margen','Gastos registrados','Margen menos gastos registrados'] : ['Sold','Recorded returns','Sales less returns','Net cost of sold goods','Margin','Recorded expenses','Margin less recorded expenses'];
+      var values=[monthReport.salesCents,monthReport.returnedCents,monthReport.netCents,monthReport.costCents,monthReport.marginCents,monthReport.expensesCents,monthReport.marginLessExpensesCents];
+      if(!datos.cobertura || datos.cobertura.gastos!==true){values[5]=null;values[6]=null;}
+      if(datos.cobertura && datos.cobertura.ventas===false){values[0]=null;values[1]=null;values[2]=null;values[3]=null;values[4]=null;values[6]=null;}
+      resumenReporte=labels.map(function(label,i){return [label,money(values[i]===null?null:values[i]/100)];});
+      resumenReporte.push([esReporte?"Parte del artista devengada":"Artist share earned",money(houseReport.artistShareCents===null?null:houseReport.artistShareCents/100)]);
+      resumenReporte.push([esReporte?"Parte de la Casa antes de costos y gastos":"House share before costs and expenses",money(houseReport.houseShareCents===null?null:houseReport.houseShareCents/100)]);
+      resumenReporte.push([esReporte?"Casa después de costos, reparto y gastos registrados":"House after costs, split and recorded expenses",money(houseReport.houseAfterExpensesCents===null?null:houseReport.houseAfterExpensesCents/100)]);
+      pie=esReporte ? 'El resultado de la Casa descuenta el reparto devengado una sola vez, además del costo de productos y los gastos registrados. Los pagos al artista no se descuentan otra vez. No representa dinero disponible; presupuestos mensuales no registrados como gasto quedan fuera. Un guion indica datos pendientes de conciliar.' : 'The house result deducts the earned split once, product costs and recorded expenses. Paying the artist does not deduct that split again. This is not available cash; monthly budgets not recorded as expenses are excluded. A dash means data is pending reconciliation.';
+      if(monthReport.inventoryExpenseUnclassified)pie+=' '+(esReporte?'Gastos de inventario/suministros sin clasificar: resultado pendiente para evitar descontar dos veces la compra.':'Unclassified inventory/supplies expenses: result pending to avoid deducting purchases twice.');
+      if(monthReport.undatedExpenses)pie+=' '+(esReporte?'Hay gastos sin fecha válida: no se asignan al mes y el resultado queda pendiente.':'Expenses with no valid date cannot be assigned to a month; the result is pending.');
+      if(!datos.cobertura || datos.cobertura.gastos!==true)pie+=' '+(esReporte?'Gastos pendientes de comprobar.':'Expense coverage is pending.');
+      if(_fuenteDatosDashboard==='remota'&&(!datos.cobertura||!datos.cobertura.timezone))pie+=' '+(esReporte?'Zona del negocio pendiente; el periodo usa la zona de este aparato.':'Business time zone pending; period uses this device time zone.');
+      if(monthReport.undatedReturns)pie+=' '+(esReporte?'Hay devoluciones sin fecha registrada; el resultado queda pendiente.':'Some returns have no recorded date; the result is pending.');
+
+    }
+
+    var layout = window.OCReportPDF.create(doc, { business: neg, title: titulo,
+      subtitle: (esReporte?"Generado el ":"Generated on ") + new Date().toLocaleString(esReporte?'es-EC':'en-US'),
+      language: esReporte ? 'es' : 'en', logo: typeof LOGO === "string" ? LOGO : null });
+    layout.table({head:[cols],body:filas});
+    if (gastosReporte) {
+      layout.table({head:[esReporte ? ["Fecha","Gasto","Monto"] : ["Date","Expense","Amount"]],body:gastosReporte,startY:doc.lastAutoTable.finalY+24});
+      layout.table({body:resumenReporte,startY:doc.lastAutoTable.finalY+24});
+    }
+    var y = layout.paragraph(pie, doc.lastAutoTable.finalY + 24);
+    /* This qualification travels with the PDF when forwarded to an accountant. */
+    layout.paragraph(esReporte?"Resumen para tu contador. No es una declaración tributaria.":"Summary for your accountant. This is not a tax filing.", y + 16);
+    layout.finish();
+    doc.save(neg.replace(/[\\/:*?"<>|]/g, "").trim() + " - " + titulo + " - " + (new Date()).toISOString().slice(0, 10) + ".pdf");
+  }
+
+  /* ================================================== EL MANDO A DISTANCIA
+     Este lienzo no tiene backend y no reimplementa ni una regla de negocio.
+     Manda una orden cifrada y el dispositivo del duenio la ejecuta contra su
+     propio /api. La regla vive en un solo sitio; aqui solo se pide y se pinta.
+     ======================================================================== */
+  var pedidos = {};   /* pedidoId -> resolve. En memoria y nada mas. */
+
+  function ordenar(metodo, ruta, cuerpo, para) {
+    return new Promise(function (resolve) {
+      if (!ws || ws.readyState !== 1) {
+        resolve({ ok: false, datos: { error: "Sin conexión con tu equipo." } });
+        return;
+      }
+      var id = "o" + Math.random().toString(36).slice(2, 10);
+      /* Timeout SIEMPRE. Si el telefono se apago justo ahora, esta pantalla no
+         puede quedarse girando para siempre esperando algo que no va a venir. */
+      var reloj = setTimeout(function () {
+        if (!pedidos[id]) return;
+        delete pedidos[id];
+        resolve({ ok: false, datos: { error: "Tu dispositivo no contestó. Revisa que la app esté abierta." } });
+      }, 12000);
+      /* A diferencia del PIN, aqui la PRIMERA respuesta manda: son ordenes
+         ejecutadas contra un backend, no votos. */
+      pedidos[id] = function (r) { clearTimeout(reloj); delete pedidos[id]; resolve(r); };
+      /* `para` (JFC 2026-08-27): orienta la orden a un dispositivo concreto
+         (ej. renombrar su apodo). Si viene, solo ese dispositivo la aplica. */
+      cifrar({ opId: id, deviceId: miId, tipo: TIPO_ORDEN,
+               payload: { pedidoId: id, metodo: metodo, ruta: ruta, cuerpo: cuerpo || null, para: para || "",
+                          ...(metodo === "PATCH" && /^\/api\/clientes\/[^/]+\/contacto$/.test(ruta) ? { fotoToken: fotoToken } : {}) } })
+        .then(function (buf) { try { ws.send(buf); } catch (_) {} });
+    });
+  }
+
+  /* Si dos dispositivos del negocio contestan la misma orden, solo cuenta el
+     primero: el pedido ya se borro y el segundo cae aqui sin hacer nada. */
+  function recibirRespuesta(p) {
+    var fn = pedidos[p && p.pedido];
+    if (!fn) return;
+    /* El pedido NO se borra aqui: para el PIN puede llegar mas de una respuesta
+       y solo el "si" cierra el trato. Cada handler decide cuando borrarse. */
+    fn({ ok: !!p.ok, datos: p.datos });
+  }
+
+  /* El puente para tablero-avanzado.js. Se expone lo minimo: pedir, y las
+     cuatro funciones de formato. Nada de ws ni de la clave. */
+  window.__lienzo = { $: $, esc: esc, money: money, fecha: fecha, ordenar: ordenar };
+
+  /* ======================================================== MODO LOCAL ====
+     LO PRIMERO QUE HAY QUE INTENTAR (JFC, 2026-08-15, y con toda la razon): si
+     el tablero se abre en el MISMO dispositivo donde esta la app, los datos ya
+     estan aqui. Pedirselos por el relay a un tercero era absurdo, y si nadie
+     contestaba el duenio se quedaba mirando una pantalla vacia con sus propios
+     datos a dos centimetros.
+
+     Mismo origen = mismo localStorage. Se lee el buffer del backend
+     directamente. NO se carga mock-backend.js: arrastra media app y solo hace
+     falta leer. Si el formato cambiara, esto degrada al modo remoto en vez de
+     romperse.
+
+     El relay sigue existiendo para lo que si lo necesita: ver el negocio desde
+     OTRO dispositivo.
+     ======================================================================== */
+  var K_ESTADO = "f123_estado_v4";
+  /* v457 (JFC 2026-10-07): la app escribe el cuaderno en f123_estado_v4 + SUFIJO + _A/_B/_ptr, donde el sufijo es
+     el literal guardado en f123_tienda_activa ("" para la tienda propia, "::<licencia>" para una tienda unida).
+     Antes el tablero leia siempre la clave SIN sufijo y, en una tienda unida, pintaba un cuaderno viejo o vacio.
+     Misma resolucion que _sufijoTiendaActiva() de mock-backend.js. */
+  function sufijoTienda() {
+    try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
+  }
+
+  function leerEstadoLocal() {
+    /* JFC 2026-10-01 EMERGENCIA (Belen): con el telefono de la tienda sin contestar, el tablero
+       pintaba lo guardado en ESTE navegador, y ese navegador tenia la DEMO: la duena entro con su
+       PIN y vio un negocio de ejemplo. Misma regla que la app (_esAparatoDemo en mock-backend):
+       sin cuaderno propio activado no hay negocio local; se va al equipo por la sala. */
+    try {
+      if (!localStorage.getItem("f123_tienda_activa") && !localStorage.getItem("f123_owned")) {
+        /* v441: si ademas hay un cuaderno guardado (la demo), el tablero estuvo a punto de pintarla:
+           se avisa al canario demo-visto (una vez por sesion). */
+        try { if ((localStorage.getItem(K_ESTADO + sufijoTienda() + "_A") || localStorage.getItem(K_ESTADO + sufijoTienda() + "_B")) && window.OCSalud && window.OCSalud.demoVisto) window.OCSalud.demoVisto("tablero"); } catch (_) {}
+        return null;
+      }
+    } catch (_) { return null; }
+    try {
+      var suf = sufijoTienda();
+      if (!window.OCEstadoAB) return null;
+      var vista = window.OCEstadoAB.crear({claveBase: K_ESTADO + suf}).leer();
+      if (vista.conflictos.length) window.OCEstadoAB.avisarConflicto();
+      var ptr = vista.activo || "B";
+      /* Doble buffer A/B: se prueba el activo y, si esta corrupto o vacio, el
+         otro. Por eso existen dos: para que nunca haya un unico punto de fallo. */
+      var orden = [ptr, ptr === "A" ? "B" : "A"];
+      for (var i = 0; i < orden.length; i++) {
+        var raw = vista.buffers[orden[i]];
+        if (!raw) continue;
+        var e; try { e = JSON.parse(raw); } catch (_) { continue; }
+        if (e && Array.isArray(e.productos)) return e;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /* Read the complete IndexedDB mirror when localStorage hit its quota.
+     Read-only; same active shop namespace and monotonic _rev as the app.
+     Never use a disconnected demo state as authority and never merge half
+     of one snapshot into another snapshot. */
+  async function leerEstadoLocalActual() {
+    var identidadAlLeer = codigoLocalActivo();
+    var visible = leerEstadoLocal();
+    try {
+      if (!localStorage.getItem("f123_owned") && !localStorage.getItem("f123_tienda_activa")) return visible;
+      if (!window.OCEstadoIDB || typeof window.OCEstadoIDB.leer !== "function") return visible;
+      var espejo = await window.OCEstadoIDB.leer();
+      if (codigoLocalActivo() !== identidadAlLeer) return null;
+      if (!espejo || !Array.isArray(espejo.productos) || !Number.isSafeInteger(espejo._rev)) return visible;
+      var visibleRev = visible && Number.isSafeInteger(visible._rev) ? visible._rev : -1;
+      return espejo._rev > visibleRev ? espejo : visible;
+    } catch (_) { return visible; }
+  }
+  /* Local notebook identity is the active joined shop, NOT the text field.
+     A locally verified PIN must never grant access to a different code. */
+  function codigoLocalActivo() {
+    try {
+      var suf = localStorage.getItem("f123_tienda_activa") || "";
+      if (suf.indexOf("::") === 0) return normalizarCodigo(suf.slice(2));
+      var owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      return normalizarCodigo(owned.licenseCode || owned.syncCode || "");
+    } catch (_) { return ""; }
+  }
+
+  /* Arma la misma forma que llega por el relay, para que el resto del tablero
+     no sepa ni le importe de donde vinieron los datos. */
+  /* Mes LOCAL del negocio (zona de f123_timezone o la del navegador), con el desfase de reloj de la venta: la misma
+     regla que fechaLocalDe() de mock-backend.js. El prefijo UTC crudo manda la venta de las 19:00 al mes siguiente. */
+  function zonaNegocioDashboard() {
+    return (_fuenteDatosDashboard === 'remota' && datos && datos.cobertura && datos.cobertura.timezone) || localStorage.getItem('f123_timezone') || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+  function fechaLocalDashboard(iso, desfaseMs) {
+    try {
+      var tz = null;
+      try { tz = zonaNegocioDashboard(); if (tz) Intl.DateTimeFormat(undefined, { timeZone: tz }); } catch (_) { tz = null; }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(String(iso || ''))) return window.OCBusinessReadModel.day(iso,tz);
+      var base = Date.parse(iso), d = Number(desfaseMs);
+      var ms = base + (Number.isFinite(d) ? d : 0);
+      var o = { year: "numeric", month: "2-digit", day: "2-digit" };
+      if (tz) o.timeZone = tz;
+      return new Intl.DateTimeFormat("en-CA", o).format(new Date(Number.isFinite(ms) ? ms : iso));
+    } catch (_) { return String(iso || "").slice(0, 10); }
+  }
+  function mesLocalDe(iso, desfaseMs) { return fechaLocalDashboard(iso, desfaseMs).slice(0, 7); }
+  /* v457 (LEY JFC 2026-10-07): el demo nunca se mezcla con un negocio con licencia. A la LECTURA se quitan los registros con
+     la huella exacta de la semilla (core/demo-huellas.js, misma regla que la app); NO se borra nada del almacenamiento. */
+  function sinDemoSiHayLicencia(e) {
+    try {
+      if (!window.OCDemoHuellas) return e;
+      var o = {}; try { o = JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}; } catch (_) {}
+      if (!window.OCDemoHuellas.negocioConLicencia(o, sufijoTienda())) return e;
+      return window.OCDemoHuellas.sinDemo(e);
+    } catch (_) { return e; }
+  }
+  function datosDesdeLocal(e) {
+    var ubic = {}, ubTipo = {};
+    (e.ubicaciones || []).forEach(function (u) { ubic[u.id] = u.nombre; ubTipo[u.id] = u.tipo || "propio"; });
+    var prods = {}, clientesArr = e.clientes || [];
+    var cli = {};
+    clientesArr.forEach(function (c) { cli[c.id] = c.nombre; });
+
+    var productos = (e.productos || []).map(function (p) {
+      prods[p.id] = p;
+      var precio = window.OCBusinessReadModel.number(p.precio), costo = window.OCBusinessReadModel.number(p.costo);
+      return {
+        id: p.id, nombre: p.nombre, sku: p.sku || "", categoria: p.categoria || "",
+        stockActual: window.OCBusinessReadModel.stock(p).units, precio: precio, costo: costo,
+        perecible: !!p.perecible, fechaCaducidad: window.OCBusinessReadModel.expiry(p),
+        margen: window.OCBusinessReadModel.margin(p),
+        estado: estadoSimon(p),
+        ubicacionNombre: ubic[p.ubicacionId] || "",
+      };
+    });
+
+    /* Quien cobra en cada percha. Se resuelve una vez y no percha por venta. */
+    var asoc = {};
+    (e.ubicaciones || []).forEach(function (u) {
+      if (!u.promotoraId) return;
+      var pr = (e.promotoras || []).find(function (x) { return x.id === u.promotoraId; });
+      if (pr) asoc[u.id] = pr.nombre;
+    });
+
+    var ahora = new Date().toISOString();
+    var hoy = fechaLocalDashboard(ahora);
+    var _ledgerCore = window.OCPayoutLedger || null;
+    var _retencion = (e.configuracion || {}).retencion || {};
+    var _ledgerObs = _ledgerCore ? _ledgerCore.buildObligations({ sales:e.ventas || [], adjustments:e.ajustesComision || [], locations:e.ubicaciones || [], payouts:e.payouts || [], payoutConflicts:e.payoutConflicts || [], holdDays:Number(_retencion.dias) || 0, asOf:ahora }) : [];
+    var _ledgerDueVenta = {};
+    var _ledgerHeldVenta = {};
+    var _ledgerDueRackMes = {};
+    var _ledgerHeldRackMes = {};
+    _ledgerObs.forEach(function (o) {
+      if (o.kind === "sale") _ledgerDueVenta[o.sourceId] = (_ledgerDueVenta[o.sourceId] || 0) + Number(o.dueCents || 0);
+      if (o.kind === "sale") _ledgerHeldVenta[o.sourceId] = (_ledgerHeldVenta[o.sourceId] || 0) + Number(o.heldCents || 0);
+      var mesO = mesLocalDe(String(o.order || "").split("|")[0]);
+      var rk = mesO + "|" + String(o.locationId || "");
+      _ledgerDueRackMes[rk] = (_ledgerDueRackMes[rk] || 0) + Number(o.dueCents || 0);
+      _ledgerHeldRackMes[rk] = (_ledgerHeldRackMes[rk] || 0) + Number(o.heldCents || 0);
+      if (o.kind === "void" && mesO < mesLocalDe(ahora)) {
+        var carryKey = mesLocalDe(ahora) + "|" + String(o.locationId || "");
+        _ledgerDueRackMes[carryKey] = (_ledgerDueRackMes[carryKey] || 0) + Number(o.dueCents || 0);
+      }
+    });
+    /* v457: lo que el ledger dice que gano cada venta (centavos exactos). ADR-001: las vistas leen el ledger,
+       no vuelven a sumar v.split. Una venta que el ledger no cubre (devuelta) cae al monto guardado, igual que la app. */
+    var _ledgerGanado = {};
+    _ledgerObs.forEach(function (o) {
+      if (o.kind === "sale") _ledgerGanado[o.sourceId] = (_ledgerGanado[o.sourceId] || 0) + Number(o.signedAmountCents || 0);
+    });
+    /* v457 (b): una venta vieja sin reparto recalculada al % del producto no se reescribe; su comision vive en el ajuste
+       "adj-retro-<id>" (tipo recalculo-retroactivo). Se lee DEL LEDGER igual que la app, sin recalcular aqui. */
+    var _retroPorVenta = {};
+    var _ajPorId = {};
+    (e.ajustesComision || []).forEach(function (a) { if (a && a.id != null) _ajPorId[String(a.id)] = a; });
+    _ledgerObs.forEach(function (o) {
+      if (o.kind !== "adjustment") return;
+      var a = _ajPorId[String(o.sourceId)];
+      if (!a || a.tipo !== "recalculo-retroactivo") return;
+      var r = _retroPorVenta[String(a.ventaId)] || (_retroPorVenta[String(a.ventaId)] = { ganadoC: 0, dueC: 0, pct: a.comisionPct != null ? a.comisionPct : null, payeeId: o.payeeId });
+      r.ganadoC += Number(o.signedAmountCents || 0); r.dueC += Number(o.dueCents || 0);
+    });
+    var entra = 0, sale = 0, nHoy = 0;
+    var ventas = (e.ventas || []).filter(function (v) { return v && !v.anulada; }).map(function (v) {
+      var p = prods[v.productoId] || {};
+      var cant = Number(v.cantidad) || 0;
+      var pu = window.OCBusinessReadModel.number(v.precioUnit), cu = window.OCBusinessReadModel.number(v.costoUnit);
+      if (fechaLocalDashboard(v.fecha, v.relojDesfaseMs) === hoy) { entra += pu * cant; sale += cu * cant; nHoy++; }
+      return {
+        id: v.id, productoId: v.productoId, fecha: v.fecha, fechaLocal: fechaLocalDashboard(v.fecha, v.relojDesfaseMs), productoNombre: p.nombre || "(deleted product)",
+        sku: p.sku || "", categoria: p.categoria || "", cantidad: cant,
+        precioUnit: pu, costoUnit: cu, impuesto: v.impuesto == null ? null : v.impuesto, noCommission: v.noCommission === true, split: v.split || null,
+        clienteNombre: cli[v.clienteId] || "",
+        ubicacionId: v.ubicacionId,
+        ubicacionNombre: ubic[v.ubicacionId] || "",
+        /* Lo mismo que manda /api/ventas/todas por el relay: sin esto, las
+           pestanias de Eventos y Comisiones funcionarian conectadas al equipo y
+           quedarian vacias en el propio dispositivo del duenio, que es
+           exactamente el bug que ya nos costo un tablero en blanco. */
+        tipoProducto: p.tipoProducto || "normal",
+        eventoNombre: (v.info && v.info.nombreEvento) || "",
+        eventoId: (v.info && (v.info.eventoId || v.info.eventOccurrenceId || v.info.ocurrenciaId)) || null,
+        formaPago: (v.info && v.info.formaPago) || "",
+        eventoFecha: (v.info && v.info.fechaEvento) || "",
+        eventoPersonas: (v.info && v.info.numPersonas) || null,
+        pagador: (v.info && v.info.nombrePagador) || "",
+        comisionPct: v.split ? v.split.comisionPct : (_ledgerCore && _retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].pct : null),
+        comisionAjusteRetroIncluido: !!(!v.split && _retroPorVenta[String(v.id)]),
+        comisionAsociado: v.split ? (_ledgerCore && _ledgerGanado[String(v.id)] != null ? +_ledgerCore.money(_ledgerGanado[String(v.id)]).toFixed(2) : v.split.montoComisionSocio) : (_ledgerCore && _retroPorVenta[String(v.id)] ? +_ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC).toFixed(2) : v.noCommission === true ? 0 : null),
+        netoCasa: v.split ? v.split.montoNetoDueno : (_ledgerCore && _retroPorVenta[String(v.id)] ? +(pu * cant - _ledgerCore.money(_retroPorVenta[String(v.id)].ganadoC)).toFixed(2) : null),
+        comisionCorregida: !!(v.split && v.split.corregida),
+        direccionComision: v.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha
+        liquidada: !!v.liquidada,
+        comisionPendiente: !v.split && !_retroPorVenta[String(v.id)] && v.noCommission !== true ? null : _ledgerCore ? +_ledgerCore.money((_ledgerDueVenta[String(v.id)] || 0) + (_retroPorVenta[String(v.id)] ? _retroPorVenta[String(v.id)].dueC : 0)).toFixed(2) : null,
+        comisionRetenida: _ledgerCore ? _ledgerCore.money(_ledgerHeldVenta[String(v.id)] || 0) : 0,
+        medioPagoComision: v.medioPagoComision || null, /* v391: como se pago */
+        asociadoNombre: asoc[v.ubicacionId] || (!v.split && _retroPorVenta[String(v.id)] && _retroPorVenta[String(v.id)].payeeId ? ((e.promotoras || []).find(function (x) { return x.id === _retroPorVenta[String(v.id)].payeeId; }) || {}).nombre || "" : ""),
+        /* v457: lo mismo que emite /api/ventas/todas por el relay (mock-backend.js). Sin `mes`, `modoComision` y
+           `ubicacionTipo` la pestania Commissions filtraba TODAS las ventas y la duena veia $0 en su propio equipo. */
+        mes: v.fecha ? mesLocalDe(v.fecha, v.relojDesfaseMs) : "",
+        delMesActual: v.fecha ? mesLocalDe(v.fecha, v.relojDesfaseMs) === mesLocalDe(new Date().toISOString(), 0) : false,
+        modoComision: v.modoComision || (v.split ? "acuerdo" : "counter"),
+        ubicacionTipo: ubTipo[v.ubicacionId] != null ? (ubTipo[v.ubicacionId] || "propio") : "",
+        comisionistaIdProducto: p.comisionistaId || null,
+        pctAsociadoProducto: p.pctAsociado == null || p.pctAsociado === "" || !Number.isFinite(Number(p.pctAsociado)) ? null : Math.max(0, Math.min(100, Number(p.pctAsociado))),
+        devuelta: !!v.devuelta,
+        fechaDevolucion: v.fechaDevolucion || (((e.ajustesComision || []).find(function(a){return a.id === v.devolucionId;}) || {}).fecha) || null,
+        reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
+        asistenteNombre: (v.split && v.split.reparto && v.split.reparto[1]) ? ((e.promotoras || []).find(function (x) { return x.id === v.split.reparto[1].promotoraId; }) || {}).nombre || "" : "",
+        promotoraId: v.promotoraId || null,
+      };
+    });
+
+    /* LIQUIDACIONES EN LOCAL. Cuando el tablero se abre conectado al equipo,
+       estas llegan calculadas por el backend. Aqui se rehacen con la misma
+       definicion —agrupar el mes por percha— para que la pestania de Comisiones
+       diga lo mismo por los dos caminos. Se suma la plata REAL de cada venta,
+       no se reaplica un porcentaje: si alguien corrigio una comision en
+       retrospectiva, este total ya la trae corregida. */
+    var mesActual = mesLocalDe(ahora);
+    var liqPorPercha = {};
+    cmFilasDesde({ ventas: ventas, ajustesComision: e.ajustesComision || [], perchas: e.ubicaciones || [], payoutObligations: _ledgerObs }, mesActual).forEach(function (v) {
+      if (v.comisionPct == null) return;              /* percha propia: no reparte */
+      var id = v.ubicacionId || "";
+      if (!liqPorPercha[id]) liqPorPercha[id] = {
+        ubicacionId: id, ubicacion: ubic[id] || "(percha borrada)",
+        asociadoNombre: v.asociadoNombre || "", ventasBrutas: 0,
+        comisionSocio: 0, netoDueno: 0, ventasPendientes: 0,
+        ventasCorregidas: 0, transacciones: 0,
+      };
+      var g = liqPorPercha[id];
+      g.ventasBrutas += (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 0);
+      g.comisionSocio += Number(v.comisionAsociado) || 0;
+      g.netoDueno += Number(v.netoCasa) || 0;
+      g.transacciones++;
+      if (!v.liquidada) g.ventasPendientes++;
+      if (v.liquidada && v.medioPagoComision) g.medioPago = v.medioPagoComision;
+      if (v.comisionCorregida) g.ventasCorregidas++;
+    });
+    var liquidaciones = Object.keys(liqPorPercha).map(function (k) {
+      var g = liqPorPercha[k];
+      g.ventasBrutas = +g.ventasBrutas.toFixed(2);
+      g.comisionSocio = +g.comisionSocio.toFixed(2);
+      g.netoDueno = +g.netoDueno.toFixed(2);
+      g.pctEfectivo = g.ventasBrutas > 0 ? +(g.comisionSocio / g.ventasBrutas * 100).toFixed(2) : 0;
+      if (_ledgerCore) {
+        var _dueC = _ledgerDueRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0;
+        g.stillDue = +_ledgerCore.money(_dueC).toFixed(2);
+        g.payoutBalances = cmSaldos(cmFilasDesde({ ventas: ventas, ajustesComision: e.ajustesComision || [], perchas: e.ubicaciones || [], payoutObligations: _ledgerObs }, mesActual).filter(function (v) { return String(v.ubicacionId || "") === String(g.ubicacionId || ""); }));
+        g.ajustes = (e.ajustesComision || []).filter(function (a) { return String(a.ubicacionId || "") === String(g.ubicacionId || "") && mesLocalDe(a.fecha) === mesActual; });
+        g.held = _ledgerCore.money(_ledgerHeldRackMes[mesActual + "|" + String(g.ubicacionId || "")] || 0);
+        g.paymentConflicts = (e.payoutConflicts || []).filter(function(c){return c.records.some(function(p){return String(p.locationId)===String(g.ubicacionId) && p.period===mesActual;});});
+        g.paid = _ledgerCore.money(_ledgerObs.filter(function(o){return String(o.locationId)===String(g.ubicacionId) && mesLocalDe(String(o.order || '').split('|')[0])===mesActual;}).reduce(function(n,o){return n+(o.paidCents || 0)*(o.signedAmountCents < 0 ? -1 : 1);},0));
+        g.overpaid = _ledgerCore.money(_ledgerObs.filter(function(o){return String(o.locationId)===String(g.ubicacionId) && mesLocalDe(String(o.order || '').split('|')[0])===mesActual;}).reduce(function(n,o){return n+(o.overpaidCents || 0);},0));
+        g.needsReview = g.paymentConflicts.length>0 || g.overpaid>0;
+        g.estado = g.payoutBalances.every(function (r) { return r.dueCents === 0; }) && !g.held && !g.needsReview ? "pagado" : "pendiente";
+        g.paymentStatus = g.needsReview ? 'review' : g.estado==='pagado' ? 'paid' : 'due';
+      } else {
+        g.estado = g.ventasPendientes === 0 ? "pagado" : "pendiente";
+      }
+      return g;
+    });
+
+    return {
+      productos: productos,
+      clientes: clientesArr.filter(function (c) { return !c.despedido; }),
+      ventas: ventas,
+      liquidaciones: liquidaciones,
+      payouts: e.payouts || [],
+      payoutConflicts: e.payoutConflicts || [],
+      payoutObligations: _ledgerObs,
+      ajustesComision: e.ajustesComision || [],
+      perchas: e.ubicaciones || [],
+      resumen: { resumenDia: window.OCBusinessReadModel.daily(ventas,hoy,zonaNegocioDashboard()) },
+    };
+  }
+
+  /* El color Simon replicado a partir de los umbrales del propio producto. Si
+     faltan, se usan los mismos valores de fabrica que la app. */
+  function estadoSimon(p) {
+    if (!window.OCBusinessReadModel.stock(p).known) return '';
+    var s = Number(p.stockActual) || 0;
+    var rojo = Number(p.umbralRojo) || 2, ambar = Number(p.umbralAmarillo) || 5;
+    if (s <= 0) return "rojo";
+    if (s <= rojo) return "rojo";
+    if (s <= ambar) return "naranja";
+    return "verde";
+  }
+
+  /* El PIN en modo local se comprueba AQUI mismo, contra el secreto cifrado de
+     este dispositivo. Sin relay y sin esperar a nadie. */
+  async function pinLocalOk(pin) {
+    try {
+      /* GUARD: crypto-store se carga con la pagina, pero si por lo que sea
+         todavia no esta, se espera un poco antes de rendirse. Devolver null a
+         la primera mandaba al duenio al camino remoto sin necesidad. */
+      for (var i = 0; i < 20 && !window.OCSecure; i++) {
+        await new Promise(function (r) { setTimeout(r, 100); });
+      }
+      /* v457 (JFC 2026-10-07, regla del dueno: el admin ve TODO lo que ve el dueno salvo borrar el negocio).
+         Un admin creado con /api/usuarios NO esta en el secreto cifrado de este dispositivo (solo en la lista
+         f123_admins_pins que publica la app), asi que antes el verificador cripto lo rechazaba. Ahora la lista de
+         admins se mira ANTES e independiente del rol cripto. El bloqueo por intentos sigue mandando: un PIN
+         equivocado cae mas abajo en el verificador y suma fallo; el PIN correcto de admin no suma nada. */
+      var _esAdminPin = false;
+      try {
+        var _adm = JSON.parse(localStorage.getItem("f123_admins_pins") || "[]");
+        _esAdminPin = Array.isArray(_adm) && _adm.indexOf(String(pin)) >= 0;
+      } catch (_) {}
+      if (_esAdminPin) {
+        try {
+          if (window.OCSecure && window.OCSecure.segundosBloqueo) {
+            var _espA = Number(window.OCSecure.segundosBloqueo("login")) || 0;
+            if (_espA > 0) return { bloqueado: _espA };
+          }
+          if (window.OCSecure && window.OCSecure.anotarExitoLogin) window.OCSecure.anotarExitoLogin();
+        } catch (_) {}
+        return true;
+      }
+      if (!window.OCSecure) return null;   /* null = no se puede juzgar */
+      if (window.OCSecure.migrarSiHaceFalta) { try { await window.OCSecure.migrarSiHaceFalta(); } catch (_) {} }
+      /* Si el intento esta en penalizacion por fallos previos EN LA APP, el
+         verificador devuelve null igual que si no hubiera secreto. Se
+         distingue aqui: no es lo mismo "no puedo juzgar" que "espera 40 s", y
+         mandar a alguien penalizado al relay solo le da una pantalla vacia
+         (bug en vivo, PC de la hermana de JFC, 2026-08-17). */
+      try {
+        if (window.OCSecure.segundosBloqueo) {
+          var esp = Number(window.OCSecure.segundosBloqueo("login")) || 0;
+          if (esp > 0) return { bloqueado: esp };
+        }
+      } catch (_) {}
+      if (!window.OCSecure.verificarOwnerOEmpleado) return null;
+      var rol = await window.OCSecure.verificarOwnerOEmpleado(pin);
+      if (rol === "dueno" || rol === "admin") return true;
+      /* #3 (JFC 2026-09-10): los PIN de admin TAMBIEN abren el dashboard. A nivel
+         cripto un admin cuenta como "empleado", así que se comprueba contra la
+         lista de PINs de admin que la app publica (f123_admins_pins, mismo origen).
+         Un empleado normal NO entra. */
+      if (rol === "empleado") {
+        try {
+          var _admins = JSON.parse(localStorage.getItem("f123_admins_pins") || "[]");
+          if (Array.isArray(_admins) && _admins.indexOf(String(pin)) >= 0) return true;
+        } catch (_) {}
+      }
+      return false;
+    } catch (_) { return null; }
+  }
+
+  /* ------------------------------------------------------------------------
+     PINTAR CON LO QUE HAY AQUI. El negocio vive en ESTE dispositivo: si por lo
+     que sea el camino local no se pudo tomar (PIN penalizado, secreto no
+     disponible), no hay ninguna razon para que las pestanias salgan vacias.
+     Devuelve true si de verdad pinto algo.
+     ------------------------------------------------------------------------ */
+  /* Authenticated notebook identity: never compare against an undeclared global. */
+  var codigoSesionActual = "";
+  var _sesionLocal = false;
+  /* A one-use handoff created only during automatic update. It expires after
+     30 seconds and binds to unchanged credentials and notebook identity.
+     No PIN or business snapshot is stored here. Remote access reuses the
+     existing expiring encrypted-photo token; it does not issue a new one. */
+  var DASH_HANDOFF = 'f123_dashboard_update_handoff';
+  var borradorHotfix = null;
+  var CAMPOS_HOTFIX = ['buscar','cu-total','cu-flete','cu-imp','cu-otros','cu-unid','cu-merma','cu-precio'];
+  function capturarBorradorHotfix() {
+    var fields = {};
+    CAMPOS_HOTFIX.forEach(function(id){if($(id))fields[id]=$(id).value;});
+    return {fields:fields,vista:vista,grupo:agruparComisionesPor};
+  }
+  function restaurarBorradorHotfix() {
+    if (!borradorHotfix || !autorizado) return;
+    var draft = borradorHotfix; borradorHotfix = null;
+    CAMPOS_HOTFIX.forEach(function(id){
+      if ($(id) && draft.fields && typeof draft.fields[id] === 'string') {
+        $(id).value = draft.fields[id];
+        $(id).dispatchEvent(new Event('input',{bubbles:true}));
+      }
+    });
+    if (draft.grupo === 'percha' || draft.grupo === 'persona') agruparComisionesPor = draft.grupo;
+    if (draft.vista && Object.prototype.hasOwnProperty.call(VISTAS,draft.vista)) { vista = draft.vista; pintarTabla(); }
+    filtrar($('buscar').value);
+  }
+  async function credencialDashboard() {
+    var text = [codigoLocalActivo(),localStorage.getItem('f123_secure') || '',localStorage.getItem('f123_admins_pins') || ''].join('|');
+    var bytes = await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));
+    return Array.from(new Uint8Array(bytes)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+  }
+  function actualizacionSeguraDashboard() {
+    if (editorDialog && editorDialog.open) return false;
+    if (Array.from(document.querySelectorAll('dialog[open], [role="dialog"]')).some(function(el){return getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0;})) return false;
+    var active = document.activeElement;
+    if (active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName)) return false;
+    if (!autorizado && $("pin").value) return false;
+    return true;
+  }
+  window.__dashboardUpdate = {
+    safe: actualizacionSeguraDashboard,
+    prepare: async function() {
+      if (!actualizacionSeguraDashboard()) return false;
+      if (!autorizado) return true;
+      if (_sesionLocal && bloquearSesionSiCambioTienda()) return false;
+      var proof = await credencialDashboard();
+      if (!actualizacionSeguraDashboard() || !autorizado) return false;
+      try { sessionStorage.setItem(DASH_HANDOFF,JSON.stringify({at:Date.now(),code:codigoSesionActual,local:_sesionLocal,token:fotoToken,proof:proof,scroll:window.scrollY,draft:capturarBorradorHotfix()}));return true; }
+      catch (_) { return false; }
+    }
+  };
+  /* Invalidates older finance-IDB reads whenever a new local view is painted. */
+  var _generacionPinturaLocal = 0;
+  function bloquearSesionSiCambioTienda() {
+    if (!autorizado || !_sesionLocal) return false;
+    if (codigoLocalActivo() === codigoSesionActual) return false;
+    autorizado = false;
+    if (typeof cerrarEditorDashboard === 'function') cerrarEditorDashboard();
+    _sesionLocal = false;
+    codigoSesionActual = "";
+    fotoToken = "";
+    clearTimeout(_repintarVivoT);
+    clearTimeout(fotoTimer);
+    clearTimeout(reconexionTimer);
+    try { if (ws) { ws.onclose = null; ws.close(); } } catch (_) {}
+    ws = null;
+    $("tablero").style.display = "none";
+    $("cabecera").style.display = "none";
+    $("puerta").style.display = "flex";
+    $("entrar").disabled = false;
+    $("msg").textContent = "El cuaderno activo cambió. Ingresa nuevamente con el PIN de este negocio.";
+    document.body.classList.remove("hub-on");
+    document.body.removeAttribute("data-dashboard-auth");
+    return true;
+  }
+  function pintarDesdeLocal(estadoOpcional) {
+    try {
+      var codeHere = codigoLocalActivo();
+      if (codigoSesionActual && codigoSesionActual !== codeHere) return false;
+      var e = estadoOpcional || leerEstadoLocal();
+      if (!e) return false;
+      e = sinDemoSiHayLicencia(e);
+      var d = datosDesdeLocal(e);
+      /* Un estado local vacio no es un tablero: es una app recien instalada.
+         Pintarlo taparia el mensaje honesto de "no hay nadie conectado". */
+      // An authenticated notebook can legitimately be empty or contain only expenses.
+      datos.productos = d.productos; datos.clientes = d.clientes;
+      datos.ventas = d.ventas; datos.resumen = d.resumen;
+      datos.liquidaciones = d.liquidaciones; datos.payouts = d.payouts || []; datos.payoutConflicts = d.payoutConflicts || []; datos.payoutObligations = d.payoutObligations; datos.ajustesComision = cmAjustes(d); datos.perchas = d.perchas;
+      datos.gastos = (e.gastos || []).filter(function (g) { return !g.borrado; });
+      datos.transferencias = e.transferencias || [];
+      datos.gastosMensuales = { porUbicacion: e.gastosMensuales || {},
+        gastosMensuales: Object.values(e.gastosMensuales || {}).reduce(function (a, v) { return a + (Number(v) || 0); }, 0) };
+      datos.movimientos = e.movimientos || [];
+      datos.promotoras = e.promotoras || [];
+      /* No previous shop / revision finance facts may survive until IDB replies. */
+      datos.hechosFinancieros = [];
+      datos.cobertura = {ajustesComision:Array.isArray(e.ajustesComision),finanzasCoherentes:true,productos:Array.isArray(e.productos),ventas:Array.isArray(e.ventas),clientes:Array.isArray(e.clientes),gastos:Array.isArray(e.gastos),hechosFinancieros:false,resumen:!!d.resumen,timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone};
+      var fotoLocalRef = datos;
+      var generacionFoto = ++_generacionPinturaLocal;
+      var licenciaFoto = codigoSesionActual;
+      try {
+        var req = indexedDB.open("f123_hechos_db");
+        req.onsuccess = function () {
+          var db = req.result;
+          if (!db.objectStoreNames.contains("hechos")) { db.close(); return; }
+          var q = db.transaction("hechos", "readonly").objectStore("hechos").getAll();
+          q.onsuccess = function () {
+            if (!autorizado || datos !== fotoLocalRef ||
+                _generacionPinturaLocal !== generacionFoto ||
+                codigoSesionActual !== licenciaFoto || codigoLocalActivo() !== codeHere) {
+              db.close(); return;
+            }
+            datos.cobertura.hechosFinancieros = true;
+            datos.hechosFinancieros = (q.result || []).filter(function (h) { return /^(cartera_|caja_chica_)/.test(h.tipo || ""); });
+            db.close(); mostrar();
+          };
+        };
+      } catch (_) {}
+      try {
+        var o = JSON.parse(localStorage.getItem("f123_owned") || "{}");
+        if (o.nombreNegocio) $("neg-nombre").textContent = o.nombreNegocio;
+      } catch (_) {}
+      ultimoDato = Date.now();
+      /* SOLO es modo local si de verdad no hay sala escuchando. Antes esto se
+         quedaba en true para siempre: si el WebSocket se caia despues, el pulso
+         seguia diciendo "desde este dispositivo" aunque los datos hubieran
+         llegado del equipo. Un indicador que miente es peor que no tenerlo
+         (caza de bugs 2026-08-18). */
+      modoLocal = !ws;
+      _fuenteDatosDashboard = 'local';
+      pulso("from this device", "vivo");
+      mostrar();
+      return true;
+    } catch (_) { return false; }
+  }
+
+  /* ======================================================= TABLERO AL INSTANTE
+     v457 (JFC 2026-10-07; Belen: "el dashboard refleje en mili segundos un cambio retroactivo en comisiones y en general
+     en cualquier cambio"). Antes el tablero leia el cuaderno UNA vez al entrar y nunca mas: un cambio hecho en la app
+     (una comision corregida, una venta) no se veia hasta recargar. Ahora, ya autorizado, escucha lo mismo que oye la app:
+       - el evento `storage` (otra pestania del mismo origen escribio el cuaderno), y
+       - el BroadcastChannel de aislamiento.js (AMG.Aislamiento.onCambio).
+     Cualquiera de los dos repinta con el MISMO camino local del login (pintarDesdeLocal), con 50 ms de espera para
+     juntar la rafaga de escrituras (buffer A/B + puntero + sello). La puerta del PIN NO se toca: sin `autorizado` no se
+     pinta nada. Si no hay cuaderno en este dispositivo (se ve el negocio por el relay) no hay nada que releer. */
+  var _repintarVivoT = null;
+  var _ultimaRevRepintada = -1;
+  async function refrescarLocal(forzar) {
+    if (!autorizado || bloquearSesionSiCambioTienda()) return false;
+    var actual = await leerEstadoLocalActual();
+    if (!autorizado || bloquearSesionSiCambioTienda() || !actual) return false;
+    var rev = Number.isSafeInteger(actual._rev) ? actual._rev : -1;
+    if (rev >= 0 && rev < _ultimaRevRepintada) return false;
+    // A storage/focus event is not new stock. Repainting an unchanged local
+    // revision used to replace a newer remote photo with stale zero units.
+    if (rev >= 0 && rev === _ultimaRevRepintada && (!forzar || typeof _fuenteDatosDashboard !== 'undefined' && _fuenteDatosDashboard === 'remota')) return false;
+    if (pintarDesdeLocal(actual)) { _ultimaRevRepintada = rev; return true; }
+    return false;
+  }
+  function repintarVivo() {
+    if (!autorizado) return;
+    clearTimeout(_repintarVivoT);
+    _repintarVivoT = setTimeout(function () { refrescarLocal(true).catch(function () {}); }, 50);
+  }
+  /* Storage events are instant for normal writes. The IDB mirror has no
+     cross-tab event of its own, so reconcile while visible and on focus. */
+  document.addEventListener("visibilitychange", function () {
+    if (document.hidden || !autorizado || bloquearSesionSiCambioTienda()) return;
+    repintarVivo();
+    if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
+  });
+  window.addEventListener("pageshow", function () { if (autorizado && !bloquearSesionSiCambioTienda()) repintarVivo(); });
+  /* v514 (JFC 2026-10-14, "estoy harto de saturar cloudflare", pedido ~70 veces): la foto
+     COMPLETA del negocio viaja por el relay de Cloudflare y se reparte a todos los aparatos.
+     Pedirla cada 20 s con el tablero abierto era el mayor consumo fijo. Los cambios reales
+     siguen llegando al instante (cada venta avisa y el tablero pide la foto a los 120 ms);
+     esta foto periodica es solo un respaldo: ahora cada 60 s. La relectura local (sin red)
+     sigue cada 20 s. */
+  var _fotoTick = 0;
+  setInterval(function () {
+    if (!autorizado || document.hidden || bloquearSesionSiCambioTienda()) return;
+    refrescarLocal(false).catch(function () {});
+    if (++_fotoTick % 3 === 0 && ws && ws.readyState === 1 && fotoToken) pedirFoto();
+  }, 20000);
+  window.addEventListener("storage", function (ev) {
+    if (ev && (ev.key === "f123_tienda_activa" || ev.key === "f123_owned" ||
+      String(ev.key || "").endsWith("::f123_tienda_activa") || String(ev.key || "").endsWith("::f123_owned"))) {
+      if (bloquearSesionSiCambioTienda()) return;
+    }
+    /* key == null: alguien llamo a clear(). Con clave: solo las del cuaderno (sin importar prefijo ni sufijo). */
+    if (!ev || ev.key == null || String(ev.key).indexOf("f123_estado_v4") >= 0 || String(ev.key).indexOf("f123_admins_pins") >= 0) repintarVivo();
+  });
+  try {
+    if (window.AMG && window.AMG.Aislamiento && window.AMG.Aislamiento.onCambio) {
+      window.AMG.Aislamiento.onCambio(function (c) {
+        if (!c || !c.clave || String(c.clave).indexOf("f123_estado_v4") === 0 || c.clave === "*") repintarVivo();
+      });
+    }
+  } catch (_) {}
+
+  /* ==================================================== COSTO UNITARIO REAL
+     Todo lo que se paga por traer una caja se reparte entre las unidades que
+     de verdad quedan vendibles. Las que se rompen no desaparecen del costo: su
+     plata se la comen las que sobreviven, que es por que el costo real casi
+     siempre es mayor que "la factura dividido para las unidades".
+
+     No guarda nada: el tablero es un lienzo. Da el numero para que se escriba
+     en la ficha del producto desde la app.
+     ====================================================================== */
+  (function () {
+    var ids = ["cu-total", "cu-flete", "cu-imp", "cu-otros", "cu-unid", "cu-merma", "cu-precio"];
+    var out = $("cu-out");
+    if (!out) return;
+    var num = function (id) { var v = Number(($(id) || {}).value); return Number.isFinite(v) ? v : 0; };
+
+    function calcular() {
+      var unidades = num("cu-unid");
+      var desembolso = num("cu-total") + num("cu-flete") + num("cu-imp") + num("cu-otros");
+      if (!unidades || unidades <= 0 || desembolso <= 0) {
+        out.innerHTML = '<span style="color:#2C3E50;">Escribe al menos cuánto pagaste y cuántas unidades llegaron.</span>';
+        return;
+      }
+      var merma = Math.max(0, Math.min(99, num("cu-merma")));
+      var vendibles = unidades * (1 - merma / 100);
+      /* Si la merma deja menos de una unidad, la division se vuelve absurda y
+         escupiria un costo gigante presentado como si fuera un dato. */
+      if (vendibles < 1) {
+        out.innerHTML = '<span style="color:#A8123A;font-weight:700;">Con esa merma no queda ni una unidad vendible. Revisa el porcentaje.</span>';
+        return;
+      }
+      var unitarioBruto = desembolso / unidades;
+      var unitarioReal = desembolso / vendibles;
+      var precio = num("cu-precio");
+
+      var html = '<div style="display:flex;gap:20px;flex-wrap:wrap;">';
+      html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#2C3E50;font-weight:700;">Te cuesta cada una</div>' +
+        '<div style="font-size:26px;font-weight:700;">' + money(unitarioReal) + "</div>" +
+        '<div style="font-size:13px;color:#2C3E50;">' + vendibles.toFixed(vendibles % 1 ? 1 : 0) + " vendibles de " + unidades + "</div></div>";
+      if (merma > 0) {
+        html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#2C3E50;font-weight:700;">Sin contar lo que se rompe</div>' +
+          '<div style="font-size:26px;font-weight:700;color:#2C3E50;">' + money(unitarioBruto) + "</div>" +
+          '<div style="font-size:13px;color:#2C3E50;">la merma le suma ' + money(unitarioReal - unitarioBruto) + "</div></div>";
+      }
+      if (precio > 0) {
+        var margen = precio - unitarioReal;
+        var pct = precio > 0 ? (margen / precio) * 100 : 0;
+        var col = margen <= 0 ? "#A8123A" : pct < 20 ? "#B8760A" : "#00975C";
+        html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#2C3E50;font-weight:700;">Ganas por unidad</div>' +
+          '<div style="font-size:26px;font-weight:700;color:' + col + ';">' + money(margen) + "</div>" +
+          '<div style="font-size:13px;color:#2C3E50;">' + pct.toFixed(1) + "% del precio</div></div>";
+        /* El punto de equilibrio contesta la pregunta que sigue siempre despues
+           de la primera: cuantas hay que vender para no perder. */
+        if (margen > 0) {
+          var equilibrio = Math.ceil(desembolso / margen);
+          html += '<div><div style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#2C3E50;font-weight:700;">Para recuperar lo invertido</div>' +
+            '<div style="font-size:26px;font-weight:700;">' + equilibrio + "</div>" +
+            '<div style="font-size:13px;color:#2C3E50;">unidades vendidas</div></div>';
+        }
+      }
+      html += "</div>";
+      if (precio > 0 && precio <= unitarioReal) {
+        html += '<p style="margin:12px 0 0;color:#A8123A;font-weight:700;">A ' + money(precio) +
+          " estarías vendiendo con pérdida: cada unidad te cuesta " + money(unitarioReal) + ".</p>";
+      }
+      html += '<p style="margin:12px 0 0;font-size:13px;color:#2C3E50;">Este número no se guarda solo. Escríbelo como "Costo" en la ficha del producto desde la app.</p>';
+      out.innerHTML = html;
+    }
+
+    ids.forEach(function (id) {
+      var el = $(id);
+      if (el) el.addEventListener("input", calcular);
+    });
+    calcular();
+  })();
+
+
+  /* Dashboard customer corrections: authenticated, targeted remote API writes.
+     These edit the existing customer record, never sales, debt or stock. */
+  var editorClienteDialog = null;
+  function abrirEditorContactoDashboard(id) {
+    if (!autorizado || editorClienteDialog) return;
+    if (datos.cobertura && datos.cobertura.clientes === false) return;
+    var cli = (datos.clientes || []).find(function(c) { return String(c.id) === String(id); });
+    if (!cli) return;
+    var destino = editorDeviceId; // bind the command to the exact snapshot source
+    var es = false;
+    try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
+    var campos = [
+      ["nombre", es ? "Nombre" : "Name",120],
+      ["telefono", "WhatsApp",40],
+      ["email", "Email",160],
+      ["notas", es ? "Notas" : "Notes",1200],
+      ["rangoEdad", es ? "Rango de edad" : "Age range",12],
+      ["pais", es ? "País" : "Country",60],
+      ["resideCuenca", es ? "Reside en Cuenca" : "Lives in Cuenca"],
+      ["genero", es ? "Género" : "Gender"]
+    ];
+    var original = {}, inputs = {};
+    function contactoValor(record,key) {
+      if(key==='resideCuenca')return window.OCCustomerProfile.resident(record[key]);
+      if(key==='genero')return window.OCCustomerProfile.gender(record[key]);
+      return String(record[key] || '');
+    }
+    function valorEditado(key) {
+      var input=inputs[key];
+      if(key==='resideCuenca')return input.indeterminate?null:input.checked;
+      if(key==='telefono' && input.value===window.OCCustomerProfile.whatsapp(original[key]))return original[key];
+      return input.value.trim();
+    }
+    var dlg = document.createElement("dialog");
+    dlg.id = "dashboard-contact-editor";
+    dlg.style.cssText = "width:min(620px,calc(100% - 24px));max-height:90dvh;overflow:auto;padding:24px;border:2px solid #1C3049;border-radius:12px;background:white;color:#0F1923;box-sizing:border-box;";
+    var h = document.createElement("h2");
+    h.textContent = (es ? "Corregir ficha de " : "Edit customer: ") + String(cli.nombre || "");
+    h.style.cssText = "font-size:21px;margin:0 0 14px;";
+    dlg.appendChild(h);
+    var campoCaja = document.createElement("div");
+    campoCaja.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px;";
+    campos.forEach(function(spec) {
+      var k = spec[0]; original[k] = contactoValor(cli,k);
+      var label = document.createElement("label");
+      label.style.cssText = "display:flex;flex-direction:column;gap:5px;font-size:14px;font-weight:700;";
+      var tit = document.createElement("span"); tit.textContent = spec[1]; label.appendChild(tit);
+      var input = document.createElement(k==='genero'?'select':k==='notas'?'textarea':'input');
+      if(k==='genero') ['unknown','male','female'].forEach(function(g){var option=document.createElement('option');option.value=g;option.textContent=window.OCCustomerProfile.genderLabel(g,es);input.appendChild(option);});
+      else if(k==='resideCuenca') {
+        input.type='checkbox';input.checked=original[k]===true;input.indeterminate=original[k]===null;
+        var estado=document.createElement('small');estado.textContent=window.OCCustomerProfile.residentLabel(original[k],es);label.appendChild(estado);
+        input.addEventListener('change',function(){estado.textContent=window.OCCustomerProfile.residentLabel(input.checked,es);});
+      } else if(k!=='notas')input.type=k==='email'?'email':k==='telefono'?'tel':'text';
+      if(k!=='resideCuenca')input.value=k==='telefono'?window.OCCustomerProfile.whatsapp(original[k]):original[k];
+      if(spec[2])input.maxLength=spec[2];
+      if(k==='telefono')input.addEventListener('blur',function(){input.value=window.OCCustomerProfile.whatsapp(input.value);});
+      input.style.cssText = "width:100%;min-height:44px;padding:9px;border:2px solid #617388;border-radius:6px;color:#0F1923;background:#fff;font-size:16px;box-sizing:border-box;";
+      if(k==='resideCuenca')input.style.width='24px';
+      inputs[k] = input; label.appendChild(input); campoCaja.appendChild(label);
+    });
+    dlg.appendChild(campoCaja);
+    var msg = document.createElement("p"); msg.setAttribute("role","status");
+    msg.style.cssText = "font-size:14px;min-height:22px;margin:12px 0;color:#0F1923;"; dlg.appendChild(msg);
+    var actions = document.createElement("div");
+    actions.style.cssText = "display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;";
+    var cancelar = document.createElement("button"), guardar = document.createElement("button");
+    cancelar.type = guardar.type = "button";
+    cancelar.textContent = es ? "Volver" : "Back";
+    guardar.textContent = es ? "Guardar cambios" : "Save changes";
+    [cancelar,guardar].forEach(function(b) {
+      b.style.cssText = "min-height:44px;padding:8px 15px;border:2px solid #1C3049;border-radius:6px;background:#fff;color:#1C3049;font-size:15px;font-weight:700;cursor:pointer;";
+      actions.appendChild(b);
+    });
+    guardar.style.background = "#1C3049"; guardar.style.color = "#fff";
+    dlg.appendChild(actions);
+    function cerrar() {
+      try { dlg.close(); } catch (_) {}
+      dlg.remove(); editorClienteDialog = null;
+    }
+    cancelar.addEventListener("click",cerrar);
+    dlg.addEventListener("cancel",function(e) { e.preventDefault(); cerrar(); });
+    guardar.addEventListener("click",async function() {
+      if (!autorizado) { msg.textContent = es ? "La sesión terminó." : "Session expired."; return; }
+      if (!inputs.nombre.value.trim()) { msg.textContent = es ? "Falta el nombre." : "Name is required."; return; }
+      if (inputs.email.value && !inputs.email.checkValidity()) { msg.textContent = es ? "Email inválido." : "Invalid email."; return; }
+      var cambios = {}, hayCambio = false;
+      campos.forEach(function(spec) {
+        var k = spec[0], val = valorEditado(k);
+        if (val !== original[k]) { cambios[k] = val; hayCambio = true; }
+      });
+      if (!hayCambio) { cerrar(); return; }
+      var actual = (datos.clientes || []).find(function(c) { return String(c.id) === String(id); });
+      if (!actual || campos.some(function(spec) {
+        var k = spec[0]; return contactoValor(actual,k) !== original[k];
+      })) {
+        msg.textContent = es ? "La ficha cambió. Actualiza antes de editar." : "Customer changed. Refresh before editing.";
+        return;
+      }
+      if (!_sesionLocal && !destino) {
+        msg.textContent = es ? "No hay dispositivo de origen para guardar. Actualiza el tablero." : "No source device available. Refresh the dashboard.";
+        return;
+      }
+      var ruta = "/api/clientes/" + encodeURIComponent(String(id)) + "/contacto";
+      var payload = Object.assign({baseContacto:original},cambios);
+      guardar.disabled = true;
+      msg.textContent = es ? "Guardando en la aplicación…" : "Saving in the app…";
+      try {
+        var r;
+        if (_sesionLocal) {
+          var response = await fetch(ruta,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+          r = {ok:response.ok,datos:await response.json()};
+        } else {
+          r = await ordenar("PATCH",ruta,payload,destino);
+        }
+        if (!r || !r.ok || !r.datos || String(r.datos.id || "") !== String(id) ||
+            Object.keys(cambios).some(function(k) { return contactoValor(r.datos,k) !== cambios[k]; })) {
+          msg.textContent = (r && r.datos && r.datos.error) || (es ? "El guardado no se confirmó." : "Save was not confirmed.");
+          return;
+        }
+        guardar.textContent = es ? "Guardado" : "Saved";
+        msg.textContent = es ? "Guardado en la aplicación. Actualizando el tablero…" : "Saved in the app. Refreshing dashboard…";
+        if (_sesionLocal && typeof refrescarLocal === "function") refrescarLocal();
+        else pedirFoto();
+        guardar.disabled = true;
+      } catch (_) {
+        msg.textContent = es ? "No se pudo guardar. Comprueba la conexión." : "Could not save. Check the connection.";
+      } finally {
+        if (guardar.textContent !== (es ? "Guardado" : "Saved")) guardar.disabled = false;
+      }
+    });
+    editorClienteDialog = dlg;
+    document.body.appendChild(dlg); dlg.showModal(); inputs.nombre.focus();
+  }
+  document.addEventListener("click",function(e) {
+    var b = e.target.closest && e.target.closest("[data-edit-cliente]");
+    if (b) { e.preventDefault(); abrirEditorContactoDashboard(b.getAttribute("data-edit-cliente")); }
+  });
+
+  /* JFC 2026-10-09: edits stay in this dashboard. The same-origin frame uses
+     the existing authenticated editors and ledger; no PIN is copied or sent
+     through the URL, and the parent never becomes the app. */
+  var editorDialog = null, editorTrigger = null, editorScrollY = 0;
+  function cerrarEditorDashboard() {
+    if (!editorDialog) return;
+    var frame = editorDialog.querySelector('iframe');
+    try { if (frame && frame.contentWindow.OCAuth) frame.contentWindow.OCAuth.salir(); } catch (_) {}
+    editorDialog.close();
+    editorDialog.remove(); editorDialog = null;
+    document.body.classList.remove('dashboard-editor-open');
+    document.body.style.removeProperty('--dashboard-editor-scroll');
+    if (editorTrigger && editorTrigger.isConnected) editorTrigger.focus({preventScroll:true});
+    window.scrollTo(0, editorScrollY);
+    editorTrigger = null;
+    if (autorizado) repintarVivo();
+  }
+  document.addEventListener('click', function (event) {
+    var link = event.target.closest && event.target.closest('a[href]');
+    if (!link) return;
+    var url; try { url = new URL(link.getAttribute('href'), location.href); } catch (_) { return; }
+    var ownIndex = new URL('index.html', location.href);
+    if (url.origin !== ownIndex.origin || url.pathname !== ownIndex.pathname ||
+        !/^#editar=(?:venta|producto|comisionpercha|comisionproducto|comisiones):[^&]+(?:&mes=\d{4}-\d{2})?$/.test(url.hash)) return;
+    event.preventDefault();
+    if (!autorizado || editorDialog) return;
+    editorTrigger = link;
+    // Freeze the inert report while native inputs inside the frame take focus.
+    // Closing restores its position and every report control remains available.
+    editorScrollY = window.scrollY;
+    document.body.style.setProperty('--dashboard-editor-scroll', -editorScrollY + 'px');
+    document.body.classList.add('dashboard-editor-open');
+    var es = localStorage.getItem('f123_lang') === 'es';
+    editorDialog = document.createElement('dialog'); editorDialog.id = 'dashboard-editor';
+    editorDialog.setAttribute('aria-labelledby', 'dashboard-editor-title');
+    var bar = document.createElement('header'), title = document.createElement('h2'), close = document.createElement('button');
+    title.id = 'dashboard-editor-title'; title.textContent = es ? 'Editar en el dashboard' : 'Edit in dashboard';
+    close.id = 'dashboard-editor-close'; close.type = 'button'; close.textContent = es ? 'Volver al dashboard' : 'Back to dashboard';
+    close.addEventListener('click', cerrarEditorDashboard); bar.append(title, close);
+    var frame = document.createElement('iframe'); frame.title = es ? 'Editor de Friendly' : 'Friendly editor';
+    var loading = document.createElement('span'); loading.setAttribute('role', 'status');
+    loading.textContent = es ? 'Cargando editor…' : 'Loading editor…'; bar.appendChild(loading);
+    frame.setAttribute('aria-busy', 'true');
+    frame.addEventListener('load', function () { loading.hidden = true; frame.removeAttribute('aria-busy'); });
+    frame.src = url.href; editorDialog.append(bar, frame); document.body.appendChild(editorDialog);
+    editorDialog.addEventListener('cancel', function (e) { e.preventDefault(); cerrarEditorDashboard(); });
+    editorDialog.showModal(); close.focus();
+  });
+  var editorStyle = document.createElement('style');
+  editorStyle.textContent = 'body.dashboard-editor-open{position:fixed;top:var(--dashboard-editor-scroll);left:0;width:100%;height:100%;overflow:hidden}#dashboard-editor{width:calc(100% - 16px);height:94dvh;max-width:1200px;max-height:100dvh;min-width:0;inset:0;margin:auto;padding:0;overflow:hidden;border:2px solid #1C3049;background:#FFFFFF;color:#1C3049;box-sizing:border-box}#dashboard-editor[open]{display:flex;flex-direction:column}#dashboard-editor::backdrop{background:#1C3049cc}#dashboard-editor header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px;background:#FFFFFF;border-bottom:2px solid #1C3049}#dashboard-editor h2{font-size:18px;color:#1C3049;margin:0}#dashboard-editor button{min-height:44px;padding:10px;border:2px solid #1C3049;border-radius:6px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;font-size:16px;font-weight:700;cursor:pointer}#dashboard-editor iframe{display:block;flex:1;width:100%;min-width:0;min-height:0;border:0;background:#FFFFFF}#dashboard-editor :focus-visible{outline:3px solid #E86040;outline-offset:2px}@media print{#dashboard-editor{display:none!important}}';
+  document.head.appendChild(editorStyle);
+
+  /* ------------------------------------------------------------- arranque */
+  function normalizarCodigo(c) {
+    var v = String(c || "").trim().toUpperCase().replace(/\s+/g, "");
+    if (v.indexOf("TEAM-") === 0) v = "F123-" + v.slice(5);
+    return v.replace(/[IL]/g, "1").replace(/O/g, "0").replace(/[^A-Z0-9*~$=-]/g, "");
+  }
+  $("entrar").addEventListener("click", async function () {
+    var local = await leerEstadoLocalActual();
+    var c = normalizarCodigo($("codigo").value);
+    var localCode = codigoLocalActivo();
+    /* A user may deliberately enter a DIFFERENT license. In that case
+       do not authorize with the PIN of the notebook stored in this browser. */
+    if (local && c && localCode && c !== localCode) local = null;
+    else if (local && localCode) c = localCode;
+    var cuerpo = c.replace(/^F123-/, "").replace(/-/g, "");
+    /* La licencia se exige SIEMPRE, en todos los dispositivos por igual (JFC,
+       2026-08-15). Lo unico que cambia entre un telefono y una computadora es
+       el layout, nunca quien puede entrar. */
+    /* GUARD 4 (JFC 2026-08-27, bloque 2): si el negocio está en ESTE
+       dispositivo, la licencia sobra — solo hace falta el PIN. Se valida el
+       formato SOLO cuando hay que conectar con el equipo (sin estado local).
+       Antes se exigía el código aunque el negocio estuviera aquí, y el campo
+       estorbaba en la primera pantalla. */
+    if (!local && (c.indexOf("F123-") !== 0 || (cuerpo.length !== 12 && cuerpo.length !== 17))) {
+      $("msg").style.color = "#A8123A";
+      $("msg").textContent = "Revisa el código: va completo, como F123-XXXX-XXXX-XXXX-XXXXX.";
+      return;
+    }
+    var pin = String($("pin").value || "").trim();
+    /* El PIN de friendly-123 es de 3 digitos. Se avisa antes de gastar 12 s
+       de espera contra la sala por algo que no puede ser un PIN. */
+    if (!/^[0-9]{3}$/.test(pin)) {
+      $("msg").style.color = "#A8123A";
+      $("msg").textContent = pin ? "El PIN es de 3 dígitos." : "Escribe tu PIN.";
+      $("pin").focus();
+      return;
+    }
+    $("entrar").disabled = true;
+    $("msg").style.color = "#00975C";
+
+    /* PRIMERO LO LOCAL. Si el negocio esta en ESTE dispositivo, no hay nada que
+       pedirle a nadie: ni relay, ni esperar, ni fallar porque otro no contesto. */
+    if (local) {
+      $("msg").textContent = "Comprobando tu PIN…";
+      var vale = await pinLocalOk(pin);
+      if (vale && typeof vale === "object" && vale.bloqueado) {
+        $("entrar").disabled = false;
+        $("msg").style.color = "#A8123A";
+        $("msg").textContent = "Demasiados intentos fallidos. Espera " + vale.bloqueado +
+          " s y vuelve a escribir tu PIN — no es que el PIN este mal.";
+        $("pin").value = "";
+        return;
+      }
+      if (vale === false) {
+        $("entrar").disabled = false;
+        $("msg").style.color = "#A8123A";
+        $("msg").textContent = "Ese PIN no abre el tablero. Tiene que ser el del dueño o el de un admin.";
+        $("pin").value = "";
+        return;
+      }
+      if (vale === true) {
+        autorizado = true;
+        _sesionLocal = true;
+        codigoSesionActual = c;
+        recordarLicencia(c);   /* una hora, para no reteclearla */
+        $("pin").value = "";
+        try {
+          if (!pintarDesdeLocal(local)) throw new Error("estado local vacio");
+          _ultimaRevRepintada = Number.isSafeInteger(local._rev) ? local._rev : -1;
+        } catch (err) {
+          /* Si armar los datos locales falla, se sigue al relay en vez de
+             dejar la pantalla en blanco. */
+          $("msg").textContent = "Conectando con tus dispositivos…";
+          try { if (!c) throw new Error("no active license"); await conectar(c); var remotoOk = await verificarPin(pin); if (remotoOk.ok) { fotoToken = (remotoOk.datos && remotoOk.datos.fotoToken) || ""; pedirFoto(); } sinNadie(); } catch (_) {}
+          $("entrar").disabled = false;
+          return;
+        }
+        /* Ya se ve el negocio. La conexion se levanta DESPUES y en segundo
+           plano, para que las ventas de los demas sigan llegando en vivo. Si
+           falla, el tablero ya esta lleno: no se avisa de nada. */
+        /* La conexion se levanta DESPUES y en segundo plano: si falla, el
+           tablero ya esta lleno con los datos de aqui y no hay nada que avisar. */
+        if (c) conectar(c).then(function () { return verificarPin(pin); }).then(function (r) { if (r.ok) { fotoToken = (r.datos && r.datos.fotoToken) || ""; pedirFoto(); } }).catch(function () {});
+        return;
+      }
+      /* vale === null: no se pudo juzgar aqui (secreto no disponible). Se cae
+         al camino remoto en vez de dejar al duenio fuera. */
+    }
+
+    $("msg").textContent = "Conectando con tus dispositivos…";
+    try {
+      await conectar(c);
+      $("msg").textContent = "Comprobando tu PIN con tu equipo…";
+      var v = await verificarPin(pin);
+      if (!v.ok) {
+        /* Se corta la conexion: sin PIN valido este lienzo no se queda
+           escuchando la sala. */
+        try { ws.close(); } catch (_) {}
+        ws = null;
+        $("entrar").disabled = false;
+        $("msg").style.color = "#A8123A";
+        $("msg").textContent = (v.datos && v.datos.error) || "No se pudo comprobar tu PIN.";
+        $("pin").value = "";
+        return;
+      }
+      autorizado = true;
+      _sesionLocal = false;
+      codigoSesionActual = c;
+      fotoToken = (v.datos && v.datos.fotoToken) || "";
+      recordarLicencia(c);   /* una hora, para no reteclearla */
+      $("pin").value = "";
+      /* EL PIN YA PASO. Si el negocio tambien esta en ESTE dispositivo, se
+         pinta ya mismo en vez de esperar a que alguien de la sala conteste.
+         Antes, si nadie contestaba, la duenia se quedaba mirando las pestanias
+         vacias sentada delante del computador donde estan todos sus datos. */
+      if (!local || !localCode || c === localCode) {
+        var ultimaLocal = await leerEstadoLocalActual();
+        if (ultimaLocal && pintarDesdeLocal(ultimaLocal)) _ultimaRevRepintada = Number.isSafeInteger(ultimaLocal._rev) ? ultimaLocal._rev : -1;
+      }
+      pulso("pidiendo tu negocio...");
+      pedirFoto();
+      cargarAcceso();
+      sinNadie();
+    } catch (e) {
+      $("entrar").disabled = false;
+      $("msg").style.color = "#A8123A";
+      $("msg").textContent = "No se pudo conectar. Revisa tu internet.";
+    } finally {
+      /* GUARD: el boton vuelve SIEMPRE. Sin esto, cualquier excepcion en un
+         camino nuevo dejaba la puerta trabada y solo se salia recargando. */
+      if (!autorizado) $("entrar").disabled = false;
+    }
+  });
+
+  /* ========================================================================
+     QUIEN TIENE ACCESO + SOPORTE (JFC 2026-08-28).
+     El directorio de acceso se pide al dispositivo del duenio (GET
+     /api/directorio) y se pinta. Los botones de soporte piden una accion por
+     orden remota (fixlic / rotar) o re-sincronizan.
+     ======================================================================== */
+  function cargarAcceso() {
+    var el = $("acceso-cuerpo");
+    if (!el) return;
+    el.innerHTML = '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">Cargando…</p>';
+    ordenar("GET", "/api/directorio", null).then(function (r) {
+      if (!r.ok || !r.datos || !r.datos.directorio) {
+        el.innerHTML = '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">' +
+          esc((r.datos && r.datos.error) || "No se pudo leer el directorio. ¿La app está abierta en tu dispositivo?") + "</p>";
+        return;
+      }
+      var d = r.datos.directorio;
+      var filas = [];
+      var fila = function (rol, pin, persona) {
+        var nombre = (persona && persona.nombre) ? esc(persona.nombre) : '<span style="color:#A8123A;">sin nombre</span>';
+        var correo = (persona && persona.correo) ? esc(persona.correo) : "";
+        var notas = (persona && persona.notas) ? esc(persona.notas) : "";
+        return '<div style="padding:8px 0;border-bottom:1px solid #E3EAF0;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;">' +
+          '<span style="font-weight:700;min-width:110px;">' + rol + '</span>' +
+          '<code style="font-family:monospace;letter-spacing:.08em;color:#2C4A68;">' + esc(pin || "—") + '</code>' +
+          '<span style="flex:1;min-width:160px;">' + nombre + (correo ? ' <span style="color:#2C3E50;font-size:12px;">· ' + correo + "</span>" : "") + "</span>" +
+          (notas ? '<span style="color:#2C3E50;font-size:12px;width:100%;">' + notas + "</span>" : "") +
+          "</div>";
+      };
+      filas.push(fila("Owner", d.owner && d.owner.pin, d.owner));
+      (d.empleados || []).forEach(function (e) { filas.push(fila("Staff", e.pin, e)); });
+      filas.push(fila("Accounting", d.acct && d.acct.pin, d.acct));
+      el.innerHTML = filas.join("") || '<p style="font-size:14px;color:#2C3E50;margin:8px 0;">Aún no hay directorio. Edita un PIN en la app (Acceso y recuperación) para asignarle quién es.</p>';
+    });
+  }
+
+  function sopMsg(txt, ok) {
+    var m = $("sop-msg");
+    if (!m) return;
+    m.style.color = ok ? "#00805A" : "#A8123A";
+    m.textContent = txt;
+  }
+
+  function bindSoporte() {
+    var bFix = $("sop-fixlic");
+    if (bFix) bFix.addEventListener("click", function () {
+      if (!confirm("Esto le da a ESTE dispositivo una licencia nueva completa y lo mueve a un cuaderno nuevo (tus datos locales se quedan). Cualquier otro dispositivo debe entrar con el código nuevo para volver a unirse. ¿Continuar?")) return;
+      sopMsg("Pidiendo licencia nueva a tu dispositivo…", true);
+      ordenar("POST", "/micelio/fixlic", {}).then(function (r) {
+        sopMsg(r.ok ? "Listo — tu dispositivo generó la licencia nueva (mírala en la app)." : ((r.datos && r.datos.error) || "Tu dispositivo no contestó."), r.ok);
+      });
+    });
+    var bRes = $("sop-resync");
+    if (bRes) bRes.addEventListener("click", function () {
+      sopMsg("Pidiendo reconexión…", true);
+      ordenar("POST", "/micelio/apodo", { apodo: "" }).then(function () {
+        /* La reconexión real la hace el dispositivo; aquí solo se avisa. */
+        sopMsg("Hecho — tu dispositivo se está reconectando a tu equipo.", true);
+      });
+    });
+  }
+
+  /* Se cargan al entrar (autorizado) y cada vez que llega una foto nueva. */
+  var _cargarAccesoY = function () { cargarAcceso(); };
+  try { window.addEventListener("oc-dashboard-entro", _cargarAccesoY); } catch (_) {}
+  try { bindSoporte(); } catch (_) {}
+  /* Si ya se entró antes de bindear, cargar igual. */
+  try { if (autorizado) cargarAcceso(); } catch (_) {}
+  $("refrescar-tablero").addEventListener("click", function () {
+    if (!autorizado) return;
+    repintarVivo();
+    if (ws && ws.readyState === 1 && fotoToken) pedirFoto();
+    else pulso("local snapshot · no remote device connected", "viejo");
+  });
+  $("imprimir-tablero").addEventListener("click", function () {
+    if (autorizado) window.print();
+  });
+  $("codigo").addEventListener("keydown", function (e) { if (e.key === "Enter") $("entrar").click(); });
+
+  /* ------------------------------------------------ LOS GUIONES LOS PONE LA APP
+     MISMA MÁSCARA QUE LA CAJITA DE "JOIN" DEL APP PRINCIPAL (JFC 2026-08-26).
+     Antes esta versión agrupaba 3 + 4-4-4 (herencia de AMG, prefijo de 3), que
+     para una licencia F123- (prefijo de 4, forma 4-4-4-5) partía mal el código y
+     arruinaba el pegado. Se porta TAL CUAL la lógica ya aprobada de auth-ui.js
+     (_ocMascaraCodigo): alfabeto Crockford exacto, pela el prefijo repetido,
+     agrupa 4-4-4-5 (el último grupo lleva 5 = 4 del cuerpo + símbolo de
+     verificación) y el pegado REEMPLAZA el valor entero. Sin inventar nada. */
+  (function () {
+    var inp = $("codigo");
+    var PRE = "F123";
+    inp.setAttribute("autocapitalize", "characters");
+    inp.setAttribute("autocorrect", "off");
+    inp.setAttribute("spellcheck", "false");
+    inp.setAttribute("maxlength", "25"); // F123- + 4 + 4 + 4 + 5 = 22, con holgura
+
+    function formatear(raw) {
+      var v = String(raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0").replace(/[^0-9A-Z*~$=]/g, "");
+      // Pela TODAS las repeticiones del prefijo (y "TEAM" de papeles viejos): al
+      // pegar "F123-..." sobre un campo que ya mostraba "F123-", no queda "F123F123".
+      var cambio = true;
+      while (cambio) {
+        cambio = false;
+        if (v.indexOf("TEAM") === 0) { v = v.slice(4); cambio = true; }
+        else if (v.indexOf(PRE) === 0) { v = v.slice(PRE.length); cambio = true; }
+      }
+      // Preserve Crockford aliases and the issuer's checksum-only final symbols.
+      v = v.slice(0, 16).replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ]/g, "") +
+        v.slice(16, 17).replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=U]/g, "");
+      if (!v) return "";
+      var out = PRE, i = 0;
+      while (i < v.length) {
+        var corte = (i === 12) ? 5 : 4; // 4-4-4-5, el 4o grupo lleva 5
+        out += "-" + v.slice(i, i + corte);
+        i += corte;
+      }
+      return out;
+    }
+    function alEscribir() {
+      var antes = inp.value;
+      var despues = formatear(antes);
+      if (antes !== despues) {
+        inp.value = despues;
+        try { inp.setSelectionRange(despues.length, despues.length); } catch (_) {}
+      }
+    }
+    inp.addEventListener("input", alEscribir);
+    inp.addEventListener("paste", function (e) {
+      try {
+        var cb = (e.clipboardData || window.clipboardData);
+        if (!cb) { setTimeout(alEscribir, 0); return; }
+        var pegado = cb.getData("text");
+        // iOS may expose empty clipboardData even when native paste works.
+        if (!pegado) { setTimeout(alEscribir, 0); return; }
+        e.preventDefault();
+        inp.value = formatear(pegado);
+        try { inp.setSelectionRange(inp.value.length, inp.value.length); } catch (_) {}
+      } catch (_) { setTimeout(alEscribir, 0); }
+    });
+    inp.addEventListener("focus", function () {
+      if (!inp.value) { inp.value = PRE + "-"; try { inp.setSelectionRange(PRE.length + 1, PRE.length + 1); } catch (_) {} }
+    });
+    inp.addEventListener("blur", function () {
+      if (inp.value === PRE + "-" || inp.value === PRE) inp.value = "";
+    });
+  })();
+
+  /* El código puede venir en el enlace, para no teclearlo en el teléfono.
+     Se limpia de la barra de direcciones apenas se lee: no tiene por qué
+     quedar en el historial del navegador. */
+  (function () {
+    var m = (location.hash || "").match(/c=([A-Z0-9$*~=-]+)/i);
+    if (!m) return;
+    $("codigo").value = normalizarCodigo(decodeURIComponent(m[1]));
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
+    setTimeout(function () { $("entrar").click(); }, 200);
+  })();
+
+  /* La politica se abre desde la puerta y desde el pie. Un solo popup, dos
+     botones: si hubiera dos textos, uno se quedaria viejo. */
+  (function () {
+    var pol = $("pol");
+    var abrir = function () { pol.classList.add("on"); };
+    var cerrar = function () { pol.classList.remove("on"); };
+    ["ver-politica", "ver-politica-2"].forEach(function (id) {
+      var b = $(id);
+      if (b) b.addEventListener("click", abrir);
+    });
+    $("pol-x").addEventListener("click", cerrar);
+    pol.addEventListener("click", function (e) { if (e.target === pol) cerrar(); });
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") cerrar(); });
+  })();
+
+  /* Logo: se inyecta desde la constante de abajo para no repetir el base64. */
+  /* ------------------------------------------------------ RECORDAR 1 HORA
+     La licencia se pide siempre, pero no se hace teclear 17 caracteres cada
+     vez: tras una entrada valida se guarda una hora en ESTE navegador y se
+     precarga sola. Pasada la hora, se vuelve a pedir entera.
+
+     Una hora y no mas: es una sesion de trabajo. Y se guarda en
+     sessionStorage aparte de la marca de tiempo, para que cerrar el navegador
+     tambien la olvide aunque el reloj no haya vencido.
+
+     Nunca se guarda el PIN. Eso no se recuerda nunca. */
+  var K_LIC = "f123_tablero_lic";
+  var LIC_MS = 3600000;
+
+  (async function restaurarTrasHotfix() {
+    try {
+      var raw = sessionStorage.getItem(DASH_HANDOFF);
+      sessionStorage.removeItem(DASH_HANDOFF);
+      if (!raw) return;
+      var h = JSON.parse(raw);
+      if (!h || !h.code || Date.now()-h.at < 0 || Date.now()-h.at > 30000 || h.proof !== await credencialDashboard()) return;
+      if (h.local && codigoLocalActivo() !== h.code) return;
+      if (!actualizacionSeguraDashboard()) return;
+      if (h.local) {
+        var state = await leerEstadoLocalActual();
+        if (!state || codigoLocalActivo() !== h.code || !actualizacionSeguraDashboard()) return;
+        borradorHotfix = h.draft || null;
+        autorizado = true; _sesionLocal = true; codigoSesionActual = h.code;
+        if (!pintarDesdeLocal(state)) { autorizado = false; return; }
+        restaurarBorradorHotfix();
+        _ultimaRevRepintada = Number.isSafeInteger(state._rev) ? state._rev : -1;
+        setTimeout(function(){window.scrollTo(0,Number(h.scroll)||0);},0);
+      } else if (h.token) {
+        await conectar(h.code);
+        borradorHotfix = h.draft || null;
+        autorizado = true; _sesionLocal = false; codigoSesionActual = h.code; fotoToken = h.token;
+        pedirFoto(); sinNadie();
+      }
+    } catch (_) { /* Failed handoff reveals no data and preserves the PIN gate. */ }
+  })();
+
+  function recordarLicencia(cod) {
+    try { sessionStorage.setItem(K_LIC, JSON.stringify({ c: cod, t: Date.now() })); } catch (_) {}
+  }
+  function licenciaRecordada() {
+    try {
+      var o = JSON.parse(sessionStorage.getItem(K_LIC) || "null");
+      if (!o || !o.c || (Date.now() - (o.t || 0)) > LIC_MS) return "";
+      return /^F123-/i.test(o.c) ? o.c : "";
+    } catch (_) { return ""; }
+  }
+
+  (function () {
+    var r = licenciaRecordada();
+    if (r && !$("codigo").value) {
+      $("codigo").value = r;
+      setTimeout(function () { try { $("pin").focus(); } catch (_) {} }, 250);
+    }
+  })();
+
+  /* GUARD 4: la puerta se adapta a lo que hay. Si el negocio esta en ESTE
+     dispositivo, la licencia sobra y el campo estorba: pedir un dato que no
+     hace falta es como se pierde a la gente en la primera pantalla. */
+  (function () {
+    try {
+      if (!leerEstadoLocal()) return;
+      $("aviso-app-abierta").style.display = "none";
+      document.querySelector(".hint-boton").textContent = "Use your owner or admin PIN. No other app tab needs to stay open.";
+      var cod = $("codigo");
+      cod.insertAdjacentHTML("beforebegin",
+        '<p style="font-size:14px;line-height:1.5;margin:0 0 12px;color:#00975C;' +
+        'font-weight:700;">Tu negocio está guardado en este dispositivo.</p>');
+    } catch (_) {}
+  })();
+
+  if (LOGO) { $("logo-puerta").src = LOGO; $("logo-top").src = LOGO; }
+  else {
+    $("logo-puerta").outerHTML = '<div style="font-family:var(--font-display);font-size:24px;font-weight:700;color:#0F1923;margin-bottom:16px;">friendly-123</div>';
+    $("logo-top").outerHTML = '<span style="font-family:var(--font-display);font-weight:700;color:#0F1923;">friendly-123</span>';
+  }
+})();
+
+
+(function () {
+  "use strict";
+  var PARES = [
+    // Puerta y politica de datos
+    ["Dashboard", "Tablero de control"],
+    ["Dashboard · friendly-123", "Tablero de control · friendly-123"],
+    ["Your whole business, on one big screen.", "Todo tu negocio, en una pantalla grande."],
+    ["Your business is saved on this device.", "Tu negocio está guardado en este dispositivo."],
+    ["Use your owner or admin PIN. No other app tab needs to stay open.", "Usa tu PIN de dueño o de admin. No hace falta dejar abierta otra pestaña de la app."],
+    ["Open the friendly-123 app on your phone or tablet BEFORE you sign in here.", "Abre la app friendly-123 en tu teléfono o tablet ANTES de entrar aquí."],
+    ["1. On your phone, open the app and log in with your PIN.", "1. En tu teléfono, abre la app y entra con tu PIN."],
+    ["2. Keep that tab open (do not close it).", "2. Deja esa pestaña abierta (no la cierres)."],
+    ["3. Then come back here and enter your code + PIN below.", "3. Luego vuelve aquí y escribe tu código + PIN abajo."],
+    ["This board has no data of its own — it reads live from your device.", "Este tablero no tiene datos propios: lee en vivo desde tu dispositivo."],
+    ["The app must be open on another device for this to show anything.", "La app tiene que estar abierta en otro dispositivo para que esto muestre algo."],
+    ["Your business code", "El código de tu negocio"],
+    ["Your PIN", "Tu PIN"],
+    ["Your owner or admin PIN", "Tu PIN de dueño o de admin"],
+    ["See my business", "Ver mi negocio"],
+    ["This board is a canvas: it stores nothing. What you see arrives encrypted from your team's devices and disappears when you close this tab.", "Este tablero es un lienzo: no guarda nada. Lo que ves llega cifrado desde los dispositivos de tu equipo y desaparece al cerrar esta pestaña."],
+    ["How we handle your data", "Cómo tratamos tus datos"],
+    ["We do not handle them. We do not have them.", "No los tratamos. No los tenemos."],
+    ["Your products, sales and customers are stored on your team's devices. On no server of ours.", "Tus productos, ventas y clientes se guardan en los dispositivos de tu equipo. En ningún servidor nuestro."],
+    ["For them to appear here, they travel encrypted with a key derived from your license code — the key never leaves your devices.", "Para que aparezcan aquí, viajan cifrados con una clave que sale de tu código de licencia; la clave nunca sale de tus dispositivos."],
+    ["The server they pass through only bounces bytes it cannot read, and does not store them.", "El servidor por el que pasan solo rebota bytes que no puede leer, y no los guarda."],
+    ["Reports stay on your device. A temporary session keeps automatic updates from asking for your PIN again; the PIN is not stored by the dashboard.", "Los reportes se quedan en tu dispositivo. Una sesión temporal evita que las actualizaciones automáticas te pidan el PIN otra vez; el tablero no guarda el PIN."],
+    ["No analytics, no trackers, no ads.", "Sin analítica, sin rastreadores, sin anuncios."],
+    ["The only things we do keep, in our license panel: your code, your name and contact email, and the technical failures the app self-reports so we can fix them. Nothing about your business.", "Lo único que sí guardamos, en nuestro panel de licencias: tu código, tu nombre y correo de contacto, y las fallas técnicas que la app reporta sola para poder arreglarlas. Nada de tu negocio."],
+    ["Got it", "Entendido"],
+    // Cabecera, pulso e isla
+    ["Your business", "Tu negocio"],
+    ["Report tools", "Herramientas del reporte"],
+    ["↻ Refresh", "↻ Actualizar"],
+    ["⎙ Print", "⎙ Imprimir"],
+    ["Ask the connected app for a fresh report / Actualizar", "Pedirle a la app conectada un reporte nuevo"],
+    ["Print current report / Imprimir reporte", "Imprimir el reporte actual"],
+    ["live · instant", "en vivo · al instante"],
+    ["connecting…", "conectando…"],
+    ["checking your PIN…", "comprobando tu PIN…"],
+    ["reconnecting…", "reconectando…"],
+    ["receiving…", "recibiendo…"],
+    ["receiving snapshot…", "recibiendo foto…"],
+    ["no connection.", "sin conexión."],
+    ["from this device", "desde este dispositivo"],
+    ["no device connected", "ningún dispositivo conectado"],
+    ["local snapshot · no remote device connected", "foto local · ningún otro dispositivo conectado"],
+    ["no active license", "sin licencia activa"],
+    ["Sync", "Sincronización"],
+    ["Last sale", "Última venta"],
+    ["Payments", "Pagos"],
+    ["Alerts", "Alertas"],
+    ["No alerts", "Sin alertas"],
+    ["Came in today", "Entró hoy"],
+    // Navegacion y tarjetas
+    ["Home", "Inicio"],
+    ["Today", "Hoy"],
+    ["Commissions", "Comisiones"],
+    ["Inventory", "Inventario"],
+    ["Customers", "Clientes"],
+    ["Team", "Equipo"],
+    ["Tools", "Herramientas"],
+    ["Still to pay", "Por pagar"],
+    ["Restock", "Reposición"],
+    ["Real unit cost", "Costo real por unidad"],
+    ["Support", "Soporte"],
+    ["My log", "Mi registro"],
+    ["Sales pending", "Ventas pendientes"],
+    // KPIs de Hoy
+    ["Today's gross margin", "Margen bruto de hoy"],
+    ["before commissions and expenses", "antes de comisiones y gastos"],
+    ["after cost", "después del costo"],
+    ["Idle capital", "Capital dormido"],
+    ["no movement", "sin movimiento"],
+    ["Stock / cost pending", "Stock / costo pendiente"],
+    ["Healthy", "Sano"],
+    ["Opportunity", "Oportunidad"],
+    ["Running low", "Se acaba"],
+    ["Urgent", "Urgente"],
+    ["Dormant", "Dormido"],
+    ["red", "rojo"],
+    ["pending", "pendiente"],
+    ["paid", "pagado"],
+    ["no commission", "sin comisión"],
+    ["review payments", "revisar pagos"],
+    // Tablas: pestanas, exportar, buscar
+    ["Sales", "Ventas"],
+    ["Events", "Eventos"],
+    ["Expenses", "Gastos"],
+    ["Monthly costs", "Costos mensuales"],
+    ["Products", "Productos"],
+    ["Transfers", "Transferencias"],
+    ["Credit & cash facts", "Hechos de fiado y caja"],
+    ["Sales associates and consignors", "Lista de comisionistas"],
+    ["Copy", "Copiar"],
+    ["Monthly report", "Reporte del mes"],
+    ["Valued inventory", "Inventario valorizado"],
+    ["Customers up to date", "Clientes al día"],
+    ["Search everything: a product, a customer, an amount…", "Busca lo que sea: un producto, un cliente, un monto…"],
+    ["Search", "Buscar"],
+    ["Showing the simple table: the sort and export tools did not load. The data is the same.", "Se está mostrando la tabla simple: no cargaron las herramientas de orden y exportación. Los datos son los mismos."],
+    ["Exporting is not possible right now.", "Ahora mismo no se puede exportar."],
+    ["Nothing to show yet.", "Nada que mostrar todavía."],
+    ["Information pending update. An incomplete list does not mean there are no records.", "Información pendiente de actualizar. Una lista incompleta no significa que no haya registros."],
+    // Columnas
+    ["Date", "Fecha"],
+    ["Product", "Producto"],
+    ["Qty.", "Cant."],
+    ["Price", "Precio"],
+    ["Customer", "Cliente"],
+    ["Payment", "Pago"],
+    ["Invoice", "Factura"],
+    ["Shelf", "Percha"],
+    ["Event", "Evento"],
+    ["Tickets", "Entradas"],
+    ["People", "Personas"],
+    ["Collected", "Recaudado"],
+    // v526 idiomARTE: do not leak new financial headings into the Spanish accountant view.
+    ["Net sales (not cash received)", "Ventas netas (no equivale a efectivo cobrado)"],
+    ["Gross margin (before commissions and event expenses)", "Margen bruto (antes de comisiones y gastos del evento)"],
+    ["Artist share", "Parte del artista"],
+    ["House share (before costs and expenses)", "Parte de la casa (antes de costos y gastos)"],
+    ["Direct expenses", "Gastos directos"],
+    ["House contribution (before general expenses)", "Contribución de la casa (antes de gastos generales)"],
+    ["Payment method", "Medio de pago"],
+    ["monthly shelf budget", "presupuesto mensual de perchas"],
+    ["(not added to expense totals)", "(no se suma a los gastos registrados)"],
+    ["Profit", "Ganancia"],
+    ["Commission", "Comisión"],
+    ["Buyers", "Compradores"],
+    ["Description", "Descripción"],
+    ["Category", "Categoría"],
+    ["Amount", "Monto"],
+    ["Month", "Mes"],
+    ["Monthly cost", "Costo mensual"],
+    ["Who gets paid", "Quién cobra"],
+    ["Deal", "Trato"],
+    ["Type", "Tipo"],
+    ["% house", "% casa"],
+    ["Sold", "Vendido"],
+    ["Takes", "Se lleva"],
+    ["Status", "Estado"],
+    ["Corrected", "Corregidas"],
+    ["Sales associate / consignor", "Promotora/e"],
+    ["Monthly goal", "Meta mensual"],
+    ["Tiers", "Escalas"],
+    ["Phone", "Teléfono"],
+    ["Lives in Cuenca", "Reside en Cuenca"],
+    ["Gender", "Género"],
+    ["Stock pending", "Stock pendiente de actualizar"],
+    ["Expiry date", "Fecha de caducidad"],
+    ["Cost", "Costo"],
+    ["Margin", "Margen"],
+    ["Reorder at", "Reponer en"],
+    ["Order", "Pedir"],
+    ["Code", "Código"],
+    ["Bought", "Compró"],
+    ["Last bought", "Compró hace"],
+    ["Purchases 90d", "Compras 90d"],
+    ["Amount 90d", "Monto 90d"],
+    ["Age", "Edad"],
+    ["Country", "País"],
+    ["From", "Desde"],
+    ["To", "Hasta"],
+    ["Units", "Unidades"],
+    ["When", "Cuándo"],
+    ["Customer / shelf", "Cliente / percha"],
+    ["Fact ID", "ID del hecho"],
+    ["Seller — takes", "Vendedor/a: se lleva"],
+    ["Artist — house keeps", "Artista: la casa retiene"],
+    ["Multiple deals", "Varios tratos"],
+    ["(ticket with no event name)", "(entrada sin nombre de evento)"],
+    ["(no associate assigned)", "(sin asociado/a asignado/a)"],
+    ["(deleted product)", "(producto borrado)"],
+    ["(deleted shelf)", "(percha borrada)"],
+    ["store credit", "saldo a favor"],
+    // Cierres de las tablas
+    ["Tap the pencil ✎ on a row to fix its price or quantity in the app and square up the real profit. Filter by date and export to PDF for your accountant.", "Toca el lápiz ✎ de una fila para corregir su precio o cantidad en la app y cuadrar la ganancia real. Filtra por fecha y exporta a PDF para tu contador."],
+    ["No events yet.", "Todavía no hay eventos."],
+    ["An event shows up here as soon as you sell a Ticket/Event product and write the name of the show or class.", "Un evento aparece aquí en cuanto vendes un producto de tipo Ticket/Evento y le escribes el nombre de la función o la clase."],
+    ["Each row gathers ALL the sales of that show, whatever the product or shelf.", "Cada fila junta TODAS las ventas de esa función, sin importar el producto ni la percha."],
+    ["No shelf shares commission yet.", "Ninguna percha reparte comisión todavía."],
+    ["Partner, consignment and fair shelves appear here on their own as soon as they sell.", "Las perchas de tipo socio, consignación o feria aparecen aquí solas en cuanto venden."],
+    ["All settled.", "Todo liquidado."],
+    ["View by:", "Ver por:"],
+    ["deal/shelf", "trato/percha"],
+    ["person", "persona"],
+    ["— the same person can be a seller on one shelf and an artist on another, with different %, and both things are true at once.", "— la misma persona puede ser vendedora en una percha y artista en otra, con % distintos, y las dos cosas son ciertas a la vez."],
+    ["Stock data pending. Reorder quantities cannot yet be verified.", "Datos de stock pendientes. Todavía no se pueden comprobar las cantidades por reponer."],
+    ["Nothing to restock. All stock is above its reorder point.", "Nada por reponer. Todo el stock está sobre su punto de reorden."],
+    ["In the app, Inventory with the Urgent filter puts them together for restocking.", "En la app, Inventario con el filtro Urgente los deja juntos para reponer."],
+    ["Inventory, Urgent filter, puts them together for restocking.", "Inventario, filtro Urgente, te los deja juntos para reponer."],
+    ["In the app, Racks → Restock builds the list of what to move first.", "En la app, Perchas → Reposición arma la lista de qué mover primero."],
+    ["Healthy inventory.", "Inventario sano."],
+    ["The app's BCG matrix tells you which ones to push so they yield more.", "La matriz BCG de la app te dice cuáles empujar para que rindan más."],
+    ["In Customers, the behavior matrix tells you who you can count on, and debt with an installment plan is right there.", "En Clientes, la matriz de comportamiento te dice con quién puedes contar, y el fiado con plan de cuotas está ahí mismo."],
+    ["They are added in the sales associate form and now sync to all the business's devices.", "Se dan de alta en el formulario de comisionista y ahora se sincronizan a todos los aparatos del negocio."],
+    ["The monthly shelf budget is listed separately.", "El presupuesto mensual de perchas va aparte."],
+    ["Their status comes from the current shared notebook.", "Su estado sale del cuaderno compartido actual."],
+    ["Balances require complete chains on the app.", "Los saldos necesitan cadenas completas en la app."],
+    // Comisiones
+    ["By product / SKU", "Por producto / SKU"],
+    ["By rack / event", "Por percha / evento"],
+    ["Sales with commission", "Ventas con comisión"],
+    ["Associates take", "Se llevan los/las asociados/as"],
+    ["House keeps", "La casa retiene"],
+    ["Where each dollar sold with commission goes", "A dónde va cada dólar vendido con comisión"],
+    ["Associates", "Asociados/as"],
+    ["Associate", "Asociado/a"],
+    ["House", "Casa"],
+    ["Rack", "Percha"],
+    ["to the associate", "para el/la asociado/a"],
+    ["Sold with commission", "Vendido con comisión"],
+    ["Associate takes", "Se lleva el/la asociado/a"],
+    ["On hold", "Retenido"],
+    ["House sale (no commission)", "Venta de la casa (sin comisión)"],
+    ["Review payments", "Revisar pagos"],
+    ["Overpaid:", "Pagado de más:"],
+    ["Recorded paid:", "Pagado registrado:"],
+    ["Conflicting receipts:", "Comprobantes en conflicto:"],
+    ["Target", "Meta"],
+    ["% met", "% cumplido"],
+    ["goal-based tiers", "escalas por meta"],
+    ["on margin", "sobre el margen"],
+    ["Split between people", "Repartido entre personas"],
+    ["Which sales does this payment cover?", "¿Qué ventas cubre este pago?"],
+    ["Record full/partial payment", "Registrar pago total/parcial"],
+    ["Adjust the deal", "Ajustar el trato"],
+    ["Receipt", "Recibo"],
+    ["Commissions still unpaid from earlier months", "Comisiones por pagar de meses anteriores"],
+    ["No commissioned sales this month. Partner, consignment and event racks appear here on their own as soon as they sell.", "No hay ventas con comisión este mes. Las perchas de socio, consignación y evento aparecen aquí solas en cuanto venden."],
+    ["Ranking · who earned the most this month", "Ranking · quién ganó más este mes"],
+    ["still to pay", "por pagar"],
+    ["current", "actual"],
+    // Finanzas
+    ["Finance snapshot", "Foto de finanzas"],
+    ["Waiting for a verified snapshot…", "Esperando una foto comprobada…"],
+    ["Finance data is incomplete or still loading. Missing records are not zero balances.", "Los datos de finanzas están incompletos o todavía cargando. Un registro que falta no es un saldo en cero."],
+    ["This device uses an older shell. Finance coverage is incomplete.", "Este dispositivo usa una versión anterior. Las finanzas están incompletas."],
+    ["Detailed expenses:", "Gastos detallados:"],
+    ["total", "total"],
+    ["monthly shelf costs", "costos mensuales de perchas"],
+    ["Transfers:", "Transferencias:"],
+    ["customer credit facts", "hechos de fiado de clientes"],
+    ["petty cash facts", "hechos de caja chica"],
+    ["Latest expenses: none", "Últimos gastos: ninguno"],
+    ["Latest expenses:", "Últimos gastos:"],
+    // Equipo
+    ["Your team right now", "Tu equipo ahora"],
+    ["Advanced", "Avanzado"],
+    ["My team", "Mi equipo"],
+    ["Activity log", "Log de actividad"],
+    ["Anti-fraud check", "Control anti fraude"],
+    ["Report for the accountant", "Reporte para el contador"],
+    ["No connection with your team.", "Sin conexión con tu equipo."],
+    ["Who has access", "Quién tiene acceso"],
+    ["Each PIN in your notebook, with the person who uses it. If a PIN has no name, edit it in the app (Access & recovery) and say who it is.", "Cada PIN de tu cuaderno, con la persona que lo usa. Si un PIN no tiene nombre, edítalo en la app (Acceso y recuperación) y asígnale quién es."],
+    ["Loading…", "Cargando…"],
+    ["Up to date", "Al día"],
+    ["Lagging", "Rezagado"],
+    ["Blind", "A ciegas"],
+    ["Owner", "Dueño"],
+    ["Employee", "Empleado"],
+    ["Accountant", "Contador"],
+    ["Manager", "Encargado"],
+    ["Maintenance / Support", "Mantenimiento / Soporte"],
+    ["just now", "hace un momento"],
+    ["Device", "Dispositivo"],
+    ["Rename this device", "Renombrar este dispositivo"],
+    ["no answer", "sin respuesta"],
+    ["They catch up on their own as soon as there is signal.", "Se ponen al día solos en cuanto haya señal."],
+    ["If you see a name you don't recognize, change your room code.", "Si ves un nombre que no reconoces, cambia el código de tu sala."],
+    ["Waiting for a device to show up.", "Esperando a que se presente algún dispositivo."],
+    ["The listed devices have sent recent connection signals. This does not prove that all their data matches.", "Los dispositivos listados han enviado señales recientes de conexión. Esto no comprueba que todos sus datos coincidan."],
+    ["My business", "Mi negocio"],
+    ["unnamed", "sin nombre"],
+    ["Staff", "Personal"],
+    ["Accounting", "Contabilidad"],
+    ["Could not read the directory. Is the app open on your device?", "No se pudo leer el directorio. ¿La app está abierta en tu dispositivo?"],
+    ["No directory yet. Edit a PIN in the app (Access & recovery) to say who it is.", "Aún no hay directorio. Edita un PIN en la app (Acceso y recuperación) para asignarle quién es."],
+    ["Your device did not answer. Check that the app is open.", "Tu dispositivo no contestó. Revisa que la app esté abierta."],
+    ["Your device did not answer.", "Tu dispositivo no contestó."],
+    ["The active notebook changed. Sign in again with this business's PIN.", "El cuaderno activo cambió. Ingresa nuevamente con el PIN de este negocio."],
+    // Avanzado (tablero-avanzado.js)
+    ["Asking your device for the list…", "Pidiendo la lista a tu dispositivo…"],
+    ["The list did not arrive.", "No llegó la lista."],
+    ["Active", "Activo"],
+    ["Deactivated", "Dado de baja"],
+    ["Deactivate", "Dar de baja"],
+    ["Reactivate", "Reactivar"],
+    ["Each person signs in with their own PIN. PINs are not shown here.", "Cada persona entra con su propio PIN. Los PIN no se muestran aquí."],
+    ["Name", "Nombre"],
+    ["Role", "Rol"],
+    ["Email", "Correo"],
+    ["Nobody else on the team yet.", "Todavía no hay nadie más en el equipo."],
+    ["Add someone", "Agregar a alguien"],
+    ["Add", "Agregar"],
+    ["Their PIN appears on your device, not here.", "Su PIN aparece en tu dispositivo, no aquí."],
+    ["Asking your device for the change…", "Pidiendo el cambio a tu dispositivo…"],
+    ["Could not do it.", "No se pudo."],
+    ["Done.", "Hecho."],
+    ["Write the name.", "Escribe el nombre."],
+    ["Asking your device to add them…", "Pidiendo a tu dispositivo que lo agregue…"],
+    ["Could not add.", "No se pudo agregar."],
+    ["Asking for the log…", "Pidiendo el registro…"],
+    ["The log did not arrive.", "No llegó el registro."],
+    ["Who", "Quién"],
+    ["What", "Qué"],
+    ["Detail", "Detalle"],
+    ["No activity recorded yet.", "Todavía no hay actividad registrada."],
+    ["No activity yet.", "Todavía no hay actividad."],
+    ["Checking the history…", "Revisando el historial…"],
+    ["Could not check.", "No se pudo revisar."],
+    ["History is intact.", "El historial está intacto."],
+    ["History was altered.", "El historial fue alterado."],
+    ["Every movement is sealed and chained to the previous one: if anyone edits or deletes one, it shows.", "Cada movimiento queda sellado y encadenado al anterior: si alguien edita o borra uno, se nota."],
+    ["Where it broke", "Dónde se rompió"],
+    ["the movement was edited", "el movimiento fue editado"],
+    ["it was deleted or reordered", "fue borrado o cambiado de orden"],
+    ["Asking for the transfers…", "Pidiendo las transferencias…"],
+    ["They did not arrive.", "No llegaron."],
+    ["Product moves between your shelves. Pending ones are accepted by whoever receives them.", "Movimientos de producto entre tus perchas. Los pendientes los acepta quien los recibe."],
+    ["No product has moved between shelves yet.", "Todavía no se ha movido ningún producto entre perchas."],
+    ["Building the report…", "Armando el reporte…"],
+    ["The report did not arrive.", "No llegó el reporte."],
+    ["Profit and loss (today)", "Pérdidas y ganancias (hoy)"],
+    ["Sales collected", "Ventas cobradas"],
+    ["Cost of sales", "Costo de ventas"],
+    ["Gross profit", "Utilidad bruta"],
+    ["Operating expenses", "Gastos operativos"],
+    ["Net profit", "Utilidad neta"],
+    ["Simplified balance", "Balance simplificado"],
+    ["Estimated cash for the day", "Efectivo estimado del día"],
+    ["Inventory at cost", "Inventario a costo"],
+    ["Input for your bookkeeper. It is not a filing-ready tax return.", "Insumo para tu contador. No es una declaración lista para presentar."],
+    ["The closed-month PDF is further up, under Monthly report.", "El PDF del mes cerrado está más arriba, en Reporte del mes."],
+    // Herramientas: calculadora y soporte
+    ["What ONE unit really costs you, with freight, customs and what breaks on the way spread on top. It is almost always more than the invoice price, and it is the number a selling price is decided with.", "Lo que de verdad te cuesta UNA unidad, con el flete, la aduana y lo que se rompe en el camino repartido encima. Casi siempre es más que el precio de la factura, y es el número con el que se decide un precio de venta."],
+    ["You paid in total", "Pagaste en total"],
+    ["Freight & shipping", "Flete y envío"],
+    ["Taxes & customs", "Impuestos y aduana"],
+    ["Other costs", "Otros costos"],
+    ["Units received", "Unidades recibidas"],
+    ["Broken or lost (%)", "Rotas o perdidas (%)"],
+    ["Your selling price", "Tu precio de venta"],
+    ["Write at least how much you paid and how many units arrived.", "Escribe al menos cuánto pagaste y cuántas unidades llegaron."],
+    ["With that loss not a single sellable unit is left. Check the percentage.", "Con esa merma no queda ni una unidad vendible. Revisa el porcentaje."],
+    ["Each one costs you", "Te cuesta cada una"],
+    ["Not counting breakage", "Sin contar lo que se rompe"],
+    ["You make per unit", "Ganas por unidad"],
+    ["To recover the investment", "Para recuperar lo invertido"],
+    ["units sold", "unidades vendidas"],
+    ["This number is not saved on its own. Write it as \"Cost\" on the product card in the app.", "Este número no se guarda solo. Escríbelo como \"Costo\" en la ficha del producto desde la app."],
+    ["Something stuck? Pick what is happening and we help you get unstuck. None of this deletes your data.", "¿Algo se atascó? Elige lo que te pasa y te ayudamos a desatascarlo. Nada de esto borra tus datos."],
+    ["🔑 My license is broken or too short", "🔑 Mi licencia está rota o es muy corta"],
+    ["Get a fresh full license for this device", "Pide una licencia nueva y completa para este dispositivo"],
+    ["🔄 My devices aren't talking to each other", "🔄 Mis dispositivos no se hablan entre sí"],
+    ["Reconnect this device to your team", "Reconecta este dispositivo con tu equipo"],
+    ["Asking your device for a new license…", "Pidiendo licencia nueva a tu dispositivo…"],
+    ["Done: your device generated the new license (see it in the app).", "Listo — tu dispositivo generó la licencia nueva (mírala en la app)."],
+    ["Asking for reconnection…", "Pidiendo reconexión…"],
+    ["Done: your device is reconnecting to your team.", "Hecho — tu dispositivo se está reconectando a tu equipo."],
+    ["My log · data & sync control (periscope)", "Mi registro · control de datos y sincronización (periscopio)"],
+    // Entrada (mensajes de la puerta)
+    ["That PIN does not open the dashboard. It must be the owner's or an admin's.", "Ese PIN no abre el tablero. Tiene que ser el del dueño o el de un admin."],
+    ["No device on your team answered. Open friendly-123 and try again.", "Ningún dispositivo de tu equipo contestó. Abre friendly-123 y vuelve a intentar."],
+    ["No other device on your team answered.", "Ningún otro dispositivo de tu equipo contestó."],
+    ["This is what is saved on this computer. If your team opens friendly-123, this screen updates on its own.", "Esto es lo que hay guardado en este computador. Si tu equipo abre friendly-123, esta pantalla se actualiza sola."],
+    ["No device on your team is connected.", "Ningún dispositivo de tu equipo está conectado."],
+    ["Open friendly-123 and this screen fills in on its own.", "Abre friendly-123 y esta pantalla se llena sola."],
+    ["Check the code: it goes complete, like F123-XXXX-XXXX-XXXX-XXXXX.", "Revisa el código: va completo, como F123-XXXX-XXXX-XXXX-XXXXX."],
+    ["The PIN has 3 digits.", "El PIN es de 3 dígitos."],
+    ["Write your PIN.", "Escribe tu PIN."],
+    ["Checking your PIN…", "Comprobando tu PIN…"],
+    ["Connecting to your devices…", "Conectando con tus dispositivos…"],
+    ["Checking your PIN with your team…", "Comprobando tu PIN con tu equipo…"],
+    ["Could not check your PIN.", "No se pudo comprobar tu PIN."],
+    ["asking for your business...", "pidiendo tu negocio..."],
+    ["Could not connect. Check your internet.", "No se pudo conectar. Revisa tu internet."],
+    ["Could not export. The export tool may not have loaded. Reload the page and try again.", "No se pudo exportar. Puede que no haya cargado la herramienta de exportación. Recarga la página e inténtalo de nuevo."],
+    ["The export tool did not load. Reload the page with internet and try again.", "No cargó la herramienta de exportación. Recarga la página con internet y vuelve a intentarlo."],
+    ["Edit in dashboard", "Editar en el tablero"],
+    ["Back to dashboard", "Volver al tablero"],
+    ["Inventory value pending: some stock or cost data is missing.", "Valor del inventario pendiente: faltan datos de stock o de costo."]
+  ];
+  /* Frases con numeros, montos o nombres. [regex ingles, regex espanol, plantilla ingles, plantilla espanol].
+     Las capturas ($1, $2...) pasan tal cual: montos y nombres no se tocan. */
+  var PATRONES = [
+    [/^(\d+) sales?$/, /^(\d+) ventas?$/, "$1 sales", "$1 ventas"],
+    [/^\((\d+) sales?\)$/, /^\((\d+) ventas?\)$/, "($1 sales)", "($1 ventas)"],
+    [/^(\d+) products?$/, /^(\d+) productos?$/, "$1 products", "$1 productos"],
+    [/^(\d+) customers?\.?$/, /^(\d+) clientes?\.?$/, "$1 customers.", "$1 clientes."],
+    [/^customers$/, /^clientes$/, "customers", "clientes"],
+    [/^(\d+) events?$/, /^(\d+) eventos?$/, "$1 events", "$1 eventos"],
+    [/^(\d+) sales? associates?\.$/, /^(\d+) comisionistas?\.$/, "$1 sales associates.", "$1 comisionistas."],
+    [/^(\d+) detailed expenses\.$/, /^(\d+) gastos detallados\.$/, "$1 detailed expenses.", "$1 gastos detallados."],
+    [/^(\d+) shelf budgets\.$/, /^(\d+) presupuestos de percha\.$/, "$1 shelf budgets.", "$1 presupuestos de percha."],
+    [/^(\d+) transfers\.$/, /^(\d+) transferencias\.$/, "$1 transfers.", "$1 transferencias."],
+    [/^(\d+) immutable facts\.$/, /^(\d+) hechos inmutables\.$/, "$1 immutable facts.", "$1 hechos inmutables."],
+    [/^(\d+) sales? for (.+) in what you see\.$/, /^(\d+) ventas? por (.+) en lo que ves\.$/, "$1 sales for $2 in what you see.", "$1 ventas por $2 en lo que ves."],
+    [/^(\d+) in red\.$/, /^(\d+) en rojo\.$/, "$1 in red.", "$1 en rojo."],
+    [/^(\d+) products? to restock$/, /^(\d+) productos? por reponer$/, "$1 products to restock", "$1 productos por reponer"],
+    [/^(\d+) products? to restock\. (\d+) at zero\.$/, /^(\d+) productos? por reponer\. (\d+) en cero\.$/, "$1 products to restock. $2 at zero.", "$1 productos por reponer. $2 en cero."],
+    [/^(\d+) idle products\.$/, /^(\d+) productos sin movimiento\.$/, "$1 idle products.", "$1 productos sin movimiento."],
+    [/^(\d+) active customers?\.$/, /^(\d+) clientes? activos?\.$/, "$1 active customers.", "$1 clientes activos."],
+    [/^(.+) for those who earn commission$/, /^(.+) para quienes cobran comisión$/, "$1 for those who earn commission", "$1 para quienes cobran comisión"],
+    [/^(.+) stays with the house$/, /^(.+) queda en la casa$/, "$1 stays with the house", "$1 queda en la casa"],
+    [/^Unsettled: (.+)\. View by:$/, /^Sin liquidar: (.+)\. Ver por:$/, "Unsettled: $1. View by:", "Sin liquidar: $1. Ver por:"],
+    [/^All settled\. View by:$/, /^Todo liquidado\. Ver por:$/, "All settled. View by:", "Todo liquidado. Ver por:"],
+    [/^(\d+) sale\(s\) with the percentage corrected by hand\.(.*)$/, /^(\d+) venta\(s\) con el porcentaje corregido a mano\.(.*)$/, "$1 sale(s) with the percentage corrected by hand.$2", "$1 venta(s) con el porcentaje corregido a mano.$2"],
+    [/^(.+) sellable of (.+)$/, /^(.+) vendibles de (.+)$/, "$1 sellable of $2", "$1 vendibles de $2"],
+    [/^(.+)% of the price$/, /^(.+)% del precio$/, "$1% of the price", "$1% del precio"],
+    [/^breakage adds (.+)$/, /^la merma le suma (.+)$/, "breakage adds $1", "la merma le suma $1"],
+    [/^(.+) \(current\)$/, /^(.+) \(actual\)$/, "$1 (current)", "$1 (actual)"],
+    [/^Of (.+) sold with commission, associates take (.+)% and the house keeps (.+)%$/, /^De (.+) vendido con comisión, los\/las asociados\/as se llevan (.+)% y la casa retiene (.+)%$/, "Of $1 sold with commission, associates take $2% and the house keeps $3%", "De $1 vendido con comisión, los/las asociados/as se llevan $2% y la casa retiene $3%"],
+    [/^(\d+) minutes? ago$/, /^hace (\d+) minutos?$/, "$1 minutes ago", "hace $1 minutos"],
+    [/^(\d+) hours? ago$/, /^hace (\d+) horas?$/, "$1 hours ago", "hace $1 horas"],
+    [/^(\d+) days? ago$/, /^hace (\d+) días?$/, "$1 days ago", "hace $1 días"],
+    [/^connected · no device with the app open since (.+)$/, /^conectado · ningún aparato con la app abierta desde las (.+)$/, "connected · no device with the app open since $1", "conectado · ningún aparato con la app abierta desde las $1"],
+    [/^no connection · last data at (.+)$/, /^sin conexión · último dato a las (.+)$/, "no connection · last data at $1", "sin conexión · último dato a las $1"],
+    [/^One device has gone a while without syncing\.$/, /^Un dispositivo lleva rato sin sincronizar\.$/, "One device has gone a while without syncing.", "Un dispositivo lleva rato sin sincronizar."],
+    [/^(\d+) devices have gone a while without syncing\.$/, /^(\d+) dispositivos llevan rato sin sincronizar\.$/, "$1 devices have gone a while without syncing.", "$1 dispositivos llevan rato sin sincronizar."],
+    [/^Too many failed attempts\. Wait (\d+)s and type your PIN again: the PIN is not wrong\.$/, /^Demasiados intentos fallidos\. Espera (\d+)s y vuelve a escribir tu PIN — no es que el PIN este mal\.$/, "Too many failed attempts. Wait $1s and type your PIN again: the PIN is not wrong.", "Demasiados intentos fallidos. Espera $1s y vuelve a escribir tu PIN — no es que el PIN este mal."],
+    [/^History sealed: (\d+) of (\d+)\.$/, /^Sellados: (\d+) de (\d+)\.$/, "Sealed: $1 of $2.", "Sellados: $1 de $2."]
+  ];
+  var LANG = "en";
+  var MAPA = {};
+  var norm = function (s) { return String(s).replace(/\s+/g, " ").trim(); };
+  function leerLang() { try { return localStorage.getItem("f123_lang") === "es" ? "es" : "en"; } catch (_) { return "en"; } }
+  function armar() {
+    MAPA = {};
+    PARES.forEach(function (p) {
+      var de = norm(LANG === "es" ? p[0] : p[1]), a = LANG === "es" ? p[1] : p[0];
+      if (de !== norm(a) && !MAPA.hasOwnProperty(de)) MAPA[de] = a;
+    });
+  }
+  /* Traduce una frase; devuelve null si no la reconoce (entonces se deja como esta: nombres, montos, codigos). */
+  function trad(s, hondo) {
+    if (!s) return null;
+    if (MAPA.hasOwnProperty(s)) return MAPA[s];
+    for (var i = 0; i < PATRONES.length; i++) {
+      var p = PATRONES[i], re = LANG === "es" ? p[0] : p[1];
+      if (re.test(s)) return s.replace(re, LANG === "es" ? p[3] : p[2]);
+    }
+    if (hondo > 3) return null;
+    /* "Restock · Commissions", "Alerts · 2": cada tramo por separado. */
+    if (s.split(" · ").length > 1) {
+      var tramos = s.split(" · "), cambio = false;
+      tramos = tramos.map(function (t) { var r = trad(t.trim(), hondo + 1); if (r != null) { cambio = true; return r; } return t; });
+      if (cambio) return tramos.join(" · ");
+    }
+    /* Puntuacion alrededor: "· total", "Transfers:", "Associate:". */
+    var m = /^([\s·—(\-]*)(.*?)([\s:.,;)…]*)$/.exec(s);
+    if (m && (m[1] || m[3]) && m[2]) { var c = trad(m[2], hondo + 1); if (c != null) return m[1] + c + m[3]; }
+    /* Etiqueta + numero: "Still to pay $80.00", "House 60%", "Alerts 2". */
+    m = /^(.*?[^\s\d$.,%-])\s+([-$]?[\d][\d.,]*%?)$/.exec(s);
+    if (m) { var e = trad(m[1], hondo + 1); if (e != null) return e + " " + m[2]; }
+    /* Numero + etiqueta: "$80.00 still to pay". */
+    m = /^([-$]?[\d][\d.,]*%?)\s+(.+)$/.exec(s);
+    if (m) { var f = trad(m[2], hondo + 1); if (f != null) return m[1] + " " + f; }
+    /* Etiqueta: resto (nombres): "Rack: Mora 7", "Associate: Ana". */
+    m = /^([^:]{2,30}):\s+(.+)$/.exec(s);
+    if (m) { var l = trad(m[1], hondo + 1); if (l != null) return l + ": " + m[2]; }
+    return null;
+  }
+  function exento(el) {
+    return !el || /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/.test(el.tagName) || el.isContentEditable ||
+      (el.closest && el.closest("#dashboard-version, #oc-log-tabla, #oc-log-sync, [data-sin-traducir]"));
+  }
+  function nodoTexto(n) {
+    var v = n.nodeValue, s = norm(v);
+    if (!s || exento(n.parentElement)) return;
+    var r = trad(s, 0);
+    if (r != null && r !== s) {
+      var ini = /^\s*/.exec(v)[0], fin = /\s*$/.exec(v)[0];
+      n.nodeValue = ini + r + fin;
+    }
+  }
+  var ATRIBUTOS = ["placeholder", "title", "aria-label"];
+  function elemento(el) {
+    if (exento(el)) return;
+    ATRIBUTOS.forEach(function (a) {
+      var v = el.getAttribute(a);
+      if (!v) return;
+      var r = trad(norm(v), 0);
+      if (r != null && r !== norm(v)) el.setAttribute(a, r);
+    });
+  }
+  function recorrer(raiz) {
+    if (!raiz) return;
+    if (raiz.nodeType === 3) return nodoTexto(raiz);
+    if (raiz.nodeType !== 1 || exento(raiz)) return;
+    elemento(raiz);
+    raiz.querySelectorAll("[placeholder],[title],[aria-label]").forEach(elemento);
+    var w = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT), n, lista = [];
+    while ((n = w.nextNode())) lista.push(n);
+    lista.forEach(nodoTexto);
+  }
+  function aplicar() {
+    LANG = leerLang();
+    armar();
+    document.documentElement.lang = LANG;
+    var t = trad(norm(document.title), 0);
+    if (t != null) document.title = t;
+    recorrer(document.body);
+  }
+  aplicar();
+  /* Lo que el tablero pinta despues (vistas, tablas, isla, pulso) pasa por la misma capa.
+     No hay bucle: lo ya traducido no esta en el MAPA del idioma activo. */
+  new MutationObserver(function (cambios) {
+    cambios.forEach(function (c) {
+      if (c.type === "characterData") nodoTexto(c.target);
+      else if (c.type === "attributes") elemento(c.target);
+      else c.addedNodes.forEach(recorrer);
+    });
+  }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATRIBUTOS });
+  /* Si en la app se cambia el idioma con el tablero abierto, el tablero lo sigue. */
+  window.addEventListener("storage", function (e) { if (e.key && /f123_lang$/.test(e.key)) aplicar(); });
+  window.OCDashIdioma = { aplicar: aplicar, traducir: function (s) { return trad(norm(s), 0); } };
+})();

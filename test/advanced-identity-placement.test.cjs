@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const html=fs.readFileSync(path.resolve(__dirname,'../docs/index.html'),'utf8').replace(/\r\n/g,'\n');
+const html=require('./helpers/page-source.cjs').readFileSync(path.resolve(__dirname,'../docs/index.html'),'utf8').replace(/\r\n/g,'\n');
 const i18n=fs.readFileSync(path.resolve(__dirname,'../docs/i18n.js'),'utf8');
 const header=html.slice(html.indexOf('<header>'),html.indexOf('</header>')+9);
 const adv=html.slice(html.indexOf('<section id="vista-avanzado"'),html.indexOf('</section>',html.indexOf('<section id="vista-avanzado"'))+10);

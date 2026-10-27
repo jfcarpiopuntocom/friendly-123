@@ -1,0 +1,1406 @@
+
+  :root{
+    /* --- superficies y tinta (reasignadas, mismos nombres usados por el script) --- */
+    --crema:#F8F9FB;          /* fondo frio — sin beige, sin cafe */
+    --blanco-calido:#F8F9FB;  /* frio puro — sin beige */
+    --azul-oscuro:#0F1923;    /* tinta-azul de cabecera */
+    --azul-medio:#2E6278;
+    --dorado:#5294AC;         /* alias -> azul Sinclair */
+    --ambar:#E86040;          /* alias -> naranja Simon */
+    --negro:#1e1a12;          /* tinta */
+    --verde:#00C87A;
+    --verde-claro:#C0F5E0;
+    --amarillo:#5294AC;
+    --amarillo-claro:#E8ECF2;
+    --rojo:#E8365D;
+    --rojo-claro:#FAD5DE;
+    --azul-op:#5294AC;
+    --azul-op-claro:#D4ECF5;
+
+    /* Dinero coherente (JFC 2026-09-02, micromejora #2): un solo par para
+       crédito/verde y deuda/gasto/rojo en TODA la app — paleta semáforo exacta. */
+    --dinero-verde:#00C87A;
+    --dinero-verde-dk:#00704A;
+    --dinero-rojo:#E8365D;
+    --dinero-rojo-bg:#FDECEA;
+
+    /* --- nuevas variables del sistema --- */
+    --paper-deep:#E2E8ED;
+    --ink:#0F1923;
+    --ink-soft:#2C3E50;
+    --rust:#E86040;
+    /* 2026-09-26 (axe-core): naranja para FONDOS de boton con texto blanco (4.7:1). --rust sigue para acentos. */
+    --rust-boton:#C0472B;
+    --rust-deep:#C05000;
+    /* TINTAS SOLO PARA TEXTO (JFC 2026-09-24, auditoria de contraste): el rojo y el naranja de marca
+       dan 3.2-3.9:1 como letra sobre blanco. Fondos y bordes del semaforo NO cambian. */
+    --rojo-ink:#B8123C;   /* 6.4:1 sobre blanco */
+    --rust-ink:#A84300;   /* 5.9:1 sobre blanco */
+    --brass:#5294AC;
+    --font-display:"Space Grotesk", "Avenir Next Condensed", sans-serif;
+    --font-body:"Source Sans 3", "Segoe UI", sans-serif;
+    --font-mono:"JetBrains Mono", monospace;
+    --font-serif:"Space Grotesk", "Avenir Next Condensed", sans-serif;
+    --nav-h:78px;
+    --sidebar-w:248px;
+
+    /* Easings del sistema (Fase C 2026-09-01, basado en Emil Kowalski): las
+       curvas nativas de CSS son débiles; se usa una curva ease-out fuerte para
+       entradas/salidas y una ease-in-out fuerte para movimiento en pantalla.
+       No se tocan hover/color (esos siguen con `ease`, que es lo correcto). */
+    --ease-out:cubic-bezier(.23,1,.32,1);
+    --ease-in-out:cubic-bezier(.77,0,.175,1);
+    --header-h:104px;
+    /* === SISTEMA SIMON — paleta oficial, aprobado JFC 2026-07-03 ===
+       Inventario (core):  Verde · Amarillo · Naranja · Rojo · Azul · Negro
+       Accents Sinclair:   Cyan · Magenta  (uso contable / secundario; lavanda
+       se elimino 2026-07-04 por ser duplicado exacto de azul, 0 usos reales)
+       CORREGIDO 2026-07-04: "amarillo" usaba --sim-plata (gris) por error — la plata
+       es el chasis metálico Timex Sinclair (chrome de fotos, menús, bordes UI),
+       NUNCA el estado de inventario. Amarillo ahora es amarillo real.
+       3 grados por color = semaforo de colores: -bg (tenue) · base (medio) · -dk (encendido)
+       Cada tarjeta enciende 1-3 grados de SU PROPIO color según intensidad real — nunca
+       un color nuevo, solo más o menos profundo. */
+
+    /* — Inventario Simon core — */
+    /* === 1 TONO POR ESTADO (JFC 2026-08-05) — semaforo de colores retirado ===
+       -X y -X-bg son EL MISMO tono plano: la tarjeta esta prendida o no, ya
+       no hay 3 grados de encendido. -X-dk es sombra del mismo matiz y sirve
+       SOLO para bordes/biseles/sombras: nunca relleno, nunca texto sobre ese
+       mismo color. Los hues propios de esta app se conservan. */
+    --sim-verde:#0FA46A;    --sim-verde-bg:#0FA46A;    --sim-verde-dk:#086944;
+    --sim-amarillo:#FFC700; --sim-amarillo-bg:#FFC700; --sim-amarillo-dk:#B8860B; /* JFC 2026-08-26: amarillo alineado al MANUAL (manda el manual); antes derivó a olivo opaco (#F5C518/#9E7C00) sin autorización */
+    --sim-plata:#C4CDD8;    --sim-plata-bg:#E8ECF2;    --sim-plata-dk:#8A9AAA;
+    --sim-naranja:#F97316;  --sim-naranja-bg:#F97316;  --sim-naranja-dk:#A24608;
+    --sim-rojo:#C41E3A;     --sim-rojo-bg:#C41E3A;     --sim-rojo-dk:#7C1024;
+    --sim-azul:#5294AC;     --sim-azul-mid:#5294AC;    --sim-azul-bg:#5294AC;   --sim-azul-dk:#2E6278;
+    --sim-negro:#0A0A0F;    --sim-negro-bg:#0A0A0F;    --sim-negro-dk:#000000;
+
+    /* — accents (contable / secundario) — mismo criterio, 1 tono */
+    --sim-cyan:#00D4FF;     --sim-cyan-bg:#00D4FF;     --sim-cyan-dk:#00697F;
+    --sim-magenta:#D946A8;  --sim-magenta-bg:#D946A8;  --sim-magenta-dk:#8C1E68;
+
+    /* === CHASIS METALICO — Timex Sinclair 2068 (JFC 2026-08-05) ===
+       Aluminio cepillado tibio, panel de teclado charcoal, ranuras finas,
+       biseles duros. Precision japonesa, gusto britanico. Es CHROME: nunca
+       compite con el color de estado de una tarjeta. */
+    /* PLATA LUMINOSA. La plata refleja: va de casi-blanco a gris medio en la
+       MISMA superficie. Un gris plano se ve muerto — JFC lo rechaza. Todos
+       estos son SOLIDOS: el brillo sale del gradiente, nunca de opacidad.
+       La opacidad solo se permite en sombras y cantos (relieve del case). */
+    --plata-brillo:#FCFDFC;   /* punto de luz alto */
+    --plata-claro:#EDEFEC;
+    --plata:#D8DBD6;
+    --plata-media:#BFC3BD;
+    --plata-honda:#9DA29B;    /* fondo de bisel */
+    --plata-canto:#7C817A;    /* canto oscuro del case */
+    /* Alias heredados: muchas reglas ya los referencian. */
+    --metal-claro:#EDEFEC;
+    --metal:#D8DBD6;
+    --metal-medio:#BFC3BD;
+    --metal-oscuro:#9DA29B;
+    /* El header YA NO es charcoal: es case plateado. Se conservan los nombres
+       para no romper reglas viejas, pero apuntan a plata. */
+    --panel-charcoal:#D8DBD6;
+    --panel-charcoal-dk:#BFC3BD;
+    --bisel-luz:#FCFDFC;
+    --bisel-sombra:#7C817A;
+  }
+
+  .metal-superficie{
+    background-color:var(--metal);
+    background-image:
+      repeating-linear-gradient(90deg, var(--plata-claro) 0 1px, var(--plata) 1px 3px),
+      linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 22%, var(--plata) 60%, var(--plata-media) 100%);
+    border-top:1px solid var(--bisel-luz);
+    border-bottom:1px solid var(--bisel-sombra);
+  }
+  .metal-ranuras{
+    height:14px;
+    /* Rejilla FISICA del tope de la 2068: es una banda decorativa corta y
+       aislada, nunca una textura detras de contenido (eso seria un CRT). */
+    background-image:repeating-linear-gradient(180deg,
+      var(--metal-medio) 0 1px, var(--metal-claro) 1px 4px);
+    border-top:1px solid var(--bisel-luz);
+    border-bottom:1px solid var(--bisel-sombra);
+  }
+  .metal-tecla{
+    /* Tecla 2.5D: luz arriba, cuerpo plata, canto oscuro abajo. */
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 40%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    border-radius:6px;
+    box-shadow:0 2px 0 var(--plata-canto), 0 3px 5px rgba(0,0,0,.18);
+  }
+  .metal-tecla:active{ transform:translateY(2px); box-shadow:0 0 0 var(--bisel-sombra); }
+
+  /* === FAILSAFE COLORES — navegadores sin CSS variables (Chrome <49, IE, Opera Mini)
+     JFC 2026-07-03. Colores literales como base; el bloque :root los sobreescribe
+     en cualquier browser moderno. Nunca borrar este bloque — es la capa "forever". === */
+  /* M3 (JFC 2026-08-14): LA FOTO MANDA, EL BORDE ES EL SEMAFORO.
+     Antes cada .caja era un rectangulo de color solido con el nombre encima.
+     Con dos variantes del mismo producto ese bloque no distinguia nada. Ahora
+     el fondo es blanco, la foto ocupa el primer golpe de vista y el color
+     Simon vive en el borde, donde se lee igual de rapido sin tapar nada.
+     El mismo patron que ya usaba la cuadricula de Vender.
+     Si se vuelve al relleno solido, hay que devolver tambien los colores de
+     texto en blanco que estaban aca. */
+  .caja{background:#FFFFFF !important;border-width:4px !important;}
+  .caja .nombre,.caja .detalle,.caja .stock{
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+  .caja .detalle{color:var(--ink-soft) !important;-webkit-text-fill-color:var(--ink-soft) !important;}
+  /* Los botones de ajuste rapido usaban currentColor, que antes era el blanco
+     del relleno. Con fondo blanco hay que fijarlos a tinta. */
+  .caja .ajuste-rapido button{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+
+  /* LIQUID: proporcion fija, ancho libre. Nada de alturas en px. */
+  /* M5: la etiqueta de variante. Mono para que se lea como un codigo y no
+     se confunda con el nombre del producto. 13px es el piso de JFC. */
+  .fam-chip{
+    font-family:var(--font-mono,monospace);font-size:14px;font-weight:700;min-height:44px;
+    padding:9px 14px;border:2px solid var(--linea,#D7E0E8);border-radius:10px;background:#FFFFFF;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;cursor:pointer;
+  }
+  .fam-chip{
+    font-family:var(--font-mono,monospace);font-size:14px;font-weight:700;min-height:44px;
+    padding:9px 14px;border:2px solid var(--linea,#D7E0E8);border-radius:10px;background:#FFFFFF;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;cursor:pointer;
+  }
+  .chip-var{
+    display:inline-block;font-family:var(--font-mono,monospace);font-size:13px;font-weight:700;
+    padding:2px 8px;border-radius:6px;margin-top:5px;background:#EEF2F6;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;
+  }
+  .caja .fotowrap{
+    position:relative;width:100%;aspect-ratio:4/3;border-radius:8px;overflow:hidden;
+    background:linear-gradient(135deg,#DCE4EC 0%,#C4CDD8 100%);margin-bottom:9px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  /* Eslabon 3 de la cadena: SIEMPRE pintado, debajo de la imagen. */
+  .caja .fotowrap .iniciales{
+    font-family:var(--font-display);font-weight:700;
+    font-size:clamp(24px,7vw,38px);letter-spacing:.02em;
+    color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;
+  }
+  .caja .fotowrap img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;
+  }
+  /* Marca discreta cuando la foto es prestada de otra variante de la familia:
+     el dueno tiene que poder saber que esa no es la foto de ESTE producto. */
+  .caja .fotowrap .heredada{
+    position:absolute;left:0;bottom:0;right:0;
+    font-size:13px;font-weight:700;padding:3px 7px;text-align:center;
+    background:#0F1923;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
+  }
+  @media (max-width:360px){ .caja .fotowrap{aspect-ratio:3/2;} }
+
+  /* BORDES = SISTEMA DE SEMÁFORO EXACTO (JFC 2026-08-26). Los mismos hex que
+     usa el semáforo en TODA la app: alertas (.lista-alertas), hero (.hero-semaforo)
+     y filtros (.filtros-estado). Esta paleta es la BASE de toda la experiencia de
+     usuario (solo se le sacó el azul); NO se inventa ni se cambia por estética.
+     Antes estos bordes usaban shades oscuros distintos (olivo/muddy) que rompían
+     la coherencia del semáforo. */
+  .caja.verde   {border-color:#00C87A;}
+  .caja.amarillo{border-color:#FFC700;}
+  .caja.naranja {border-color:#F97316;}
+  .caja.rojo    {border-color:#E8365D;}
+  .caja.azul    {border-color:#5294AC;}
+  .caja.negro   {border-color:#0A0A0F;}
+
+  .lista-alertas li.verde   {background:#C0F5E0;color:#009A5A;border:2px solid #00C87A;}
+  .lista-alertas li.amarillo{background:#FFF3C2;color:#8A6800;border:2px solid #FFC700;}
+  .lista-alertas li.naranja {background:#FDD9BE;color:#A84300;border:2px solid #F97316;}
+  .lista-alertas li.rojo    {background:#FAD5DE;color:#B0183E;border:2px solid #E8365D;}
+  .lista-alertas li.negro   {background:#17171D;color:#E0E0E2;border:2px solid #000000;}
+
+  .hero-semaforo.verde   {background-color:#00C87A;}
+  .hero-semaforo.amarillo{background-color:#FFC700;}
+  .hero-semaforo.rojo    {background-color:#E8365D;}
+
+  .filtros-estado button[data-estado="verde"]::before   {background:#00C87A;}
+  .filtros-estado button[data-estado="amarillo"]::before{background:#FFC700;}
+  .filtros-estado button[data-estado="naranja"]::before {background:#F97316;}
+  .filtros-estado button[data-estado="rojo"]::before    {background:#E8365D;}
+  /* v356: sin filtro "azul": el azul NO es estado del semáforo (JFC 2026-09-23). */
+  .filtros-estado button[data-estado="negro"]::before   {background:#0A0A0F;}
+  /* === fin FAILSAFE === */
+
+  *{box-sizing:border-box;}
+  html{-webkit-tap-highlight-color:transparent;}
+  /* ANTI-DOBLE-TAP-ZOOM (JFC 2026-09-09): en iOS Safari, tocar rápido un botón
+     (ej. "Sold" en cada card, o los +/- de cantidad al vender varias unidades)
+     se interpreta como doble-tap = zoom; la página salta de escala y rompe la
+     UI (toca achicar con los dedos). touch-action:manipulation mata SOLO el
+     doble-tap-zoom del elemento, dejando el pinch-zoom global intacto (buena
+     accesibilidad). Regla GLOBAL a propósito: antes solo estaba inline en los
+     tiles y se colaba en todos los demás botones. */
+  button, a, input, select, textarea, label, summary, [role="button"], [onclick]{ touch-action:manipulation; }
+  ::selection{ background:var(--brass); color:var(--blanco-calido); }
+  :focus-visible{ outline:2.5px solid var(--rust); outline-offset:2px; border-radius:3px; }
+  ::-webkit-scrollbar{ width:10px; height:10px; }
+  ::-webkit-scrollbar-track{ background:var(--paper-deep); }
+  ::-webkit-scrollbar-thumb{ background:var(--brass); border-radius:6px; border:2px solid var(--paper-deep); }
+  body{
+    margin:0;
+    font-family:var(--font-body);
+    background-color:#FFFFFF;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+
+  /* Tarjetas completas: mandato JFC 2026-09-18. Ninguna esquina rota. */
+  .tag-card{
+    position:relative;
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+    border-radius:8px;
+    box-shadow:0 1px 2px rgba(33,28,20,0.06), 0 6px 16px -8px rgba(33,28,20,0.28);
+    transition:box-shadow .2s ease, transform .2s ease;
+  }
+  /* 2026-10-06: people are a readable contact list, not stamped product tiles.
+     Preserve stored spelling, the existing editor and archive action. */
+  .comm-agent-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 14px;margin-bottom:8px;box-shadow:none}
+  .comm-agent-open{box-shadow:none;text-transform:none;letter-spacing:normal;min-width:0;line-height:1.4}
+  .comm-agent-open strong{font-family:var(--font-body,inherit);font-weight:700}
+  .comm-agent-row .comm-agent-open:hover,.comm-agent-row .comm-agent-open:active{box-shadow:none;transform:none;text-decoration:underline;text-underline-offset:3px}
+  .comm-agent-contact{grid-column:1/-1;font-size:14px;color:var(--ink);overflow-wrap:anywhere;line-height:1.4}
+  .comm-agent-contact a{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+  .comm-agent-row button:focus-visible,.comm-agent-contact a:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+  @media (hover:hover){
+    .caja.tag-card:hover, .etiqueta-card.tag-card:hover{
+      transform:translateY(-3px);
+      box-shadow:0 2px 3px rgba(33,28,20,0.08), 0 14px 26px -10px rgba(33,28,20,0.34);
+    }
+  }
+
+  /* ---------- botones tipo sello ---------- */
+  button{
+    font-family:var(--font-display);
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    border:2px solid var(--ink);
+    border-radius:5px;
+    background:var(--blanco-calido);
+    color:var(--ink);
+    box-shadow:3px 3px 0 rgba(33,28,20,0.18);
+    cursor:pointer;
+    transition:transform .1s ease, box-shadow .1s ease, background-color .15s ease;
+  }
+  @media (hover:hover){
+    button:not(:disabled):hover{
+      transform:translate(-1px,-1px);
+      box-shadow:4px 4px 0 rgba(33,28,20,0.2);
+    }
+  }
+  button:active:not(:disabled){
+    transform:translate(2px,2px);
+    box-shadow:0 0 0 rgba(33,28,20,0);
+  }
+
+  /* TECLA DEL CASE, REUTILIZABLE (JFC 2026-09-24, Bloque 6): la misma tecla
+     metalica del header y del nav (luz arriba, cuerpo plata, canto oscuro) para
+     los controles de las secciones de adentro. Asi el interior habla el mismo
+     idioma que el case "metalico ochentero" sin cambiar nada del case. Estado
+     .hundida = tecla apretada (igual que la de idioma). Cero opacidad. */
+  .tecla{
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 45%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    border-radius:8px;
+    color:#14181C;
+    box-shadow:0 2px 0 var(--plata-canto), 0 2px 4px rgba(0,0,0,.16);
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    min-height:40px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .tecla:active:not(:disabled){ transform:translateY(2px); box-shadow:0 0 0 var(--plata-canto); }
+  .tecla.hundida{
+    background-image:linear-gradient(180deg, var(--plata-media) 0%, var(--plata-honda) 100%);
+    color:#FFFFFF;
+    box-shadow:inset 0 2px 3px rgba(0,0,0,.35);
+  }
+  /* Ventana de estado (RPG): rotulo en mono mayusculas como los del header
+     ("STORE / SHELF") y la cifra en tabular. Solo tipografia, misma tarjeta. */
+  .ventana-estado .rotulo{ font-family:var(--font-mono); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--ink); }
+  .ventana-estado .cifra{ font-family:var(--font-mono); font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:2px; }
+  /* FILA DE STATS (JFC 2026-09-24): las mismas cuatro cifras de siempre, en el
+     mismo orden y con las mismas palabras, pero en una fila (como la ficha de un
+     personaje) en vez de cuatro renglones de tabla. En movil envuelve a 2x2. */
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px 14px; margin-top:10px; }
+  .stats .rotulo{ font-family:var(--font-mono); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink); }
+  .stats .cifra{ font-family:var(--font-mono); font-size:16px; font-weight:700; font-variant-numeric:tabular-nums; color:var(--ink); }
+  .stats .cifra small{ font-family:var(--font-body); font-size:13px; font-weight:400; }
+  /* Barra de Commissions en telefono: las acciones comparten fila en vez de
+     caer una por linea (el texto de WhatsApp es largo a proposito). */
+  [data-commissions-toolbar] .acciones{ display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
+  @media (max-width:640px){
+    [data-commissions-toolbar] .acciones{ width:100%; margin-left:0; }
+    [data-commissions-toolbar] .acciones button{ flex:1 1 140px; }
+    [data-commissions-toolbar] [role="tablist"] button{ flex:1 1 140px; }
+  }
+
+  /* ================= HEADER ================= */
+  header{
+    /* Panel de teclado de la Timex Sinclair 2068: charcoal con veta y biseles. */
+    /* CASE PLATEADO 2.5D (JFC: "el header no puede ser negro sino parecer case
+       metalico plateado"). El brillo sale de un gradiente de solidos con un
+       punto de luz alto; el relieve, de cantos claros/oscuros. Sin opacidad
+       en la superficie: solo en la sombra inferior. */
+    background-color:var(--plata);
+    background-image:linear-gradient(180deg,
+      var(--plata-brillo) 0%,
+      var(--plata-claro) 18%,
+      var(--plata) 52%,
+      var(--plata-media) 82%,
+      var(--plata-honda) 100%);
+    border-bottom:1px solid var(--plata-canto);
+    box-shadow:inset 0 1px 0 var(--plata-brillo), 0 2px 6px rgba(0,0,0,.22);
+    color:var(--ink) !important;
+    -webkit-text-fill-color:var(--ink) !important;
+    padding:18px 20px;
+    min-height:var(--header-h);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:14px;
+    position:sticky;
+    top:0;
+    z-index:40;
+    border-bottom:3px solid var(--brass);
+  }
+  header .marca{
+    display:flex;
+    align-items:center;
+    gap:12px;
+  }
+  header .sello{
+    width:44px; height:44px;
+    border-radius:50%;
+    border:2px solid var(--brass);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-family:var(--font-serif);
+    font-style:italic;
+    font-weight:400;
+    font-size:20px;
+    color:var(--brass);
+    flex-shrink:0;
+    overflow:hidden;
+    cursor:pointer;
+    background:var(--azul-oscuro);
+    transition:width 0.15s, border-radius 0.15s;
+  }
+  /* Cuando el logo horizontal carga, el sello se abre al wordmark recortado.
+     FONDO TRANSPARENTE — el logo es dorado con contorno navy, se lee perfecto
+     sobre el header oscuro. NUNCA poner background blanco aquí (ver memoria
+     feedback_logo_header: JFC se frustró 2 veces con la pastilla blanca).
+     176x40 = proporción real del wordmark recortado (765x174).
+     ═══════════════════════════════════════════════════════════════════════
+     ESTADO APROBADO POR JFC (2026-07-15). NO TOCAR.
+     ═══════════════════════════════════════════════════════════════════════
+     DESCRIPCIÓN: wordmark friendly-123 (176×40px), transparente sobre
+     el header azul oscuro. El logo es dorado/naranja con contorno oscuro,
+     legible directamente — no necesita fondo blanco ni filtros.
+
+     LO QUE NO DEBES CAMBIAR NUNCA:
+       ❌ NO agregar background:#ffffff o cualquier color sólido.
+       ❌ NO agregar border-radius mayor a 0 (crea pastilla).
+       ❌ NO agregar filter:invert() o brightness() sobre este elemento.
+       ❌ NO cambiar width>176px ni height>40px.
+       ❌ NO copiar CSS de AMIGABLE aquí — friendly-123 y AMIGABLE tienen
+          logos distintos con tratamiento CSS distinto (AMIGABLE: 104×26px
+          esquinado; friendly-123: 176×40px centrado en .marca).
+     ═══════════════════════════════════════════════════════════════════════ */
+  header .sello.con-logo{
+    width:176px;
+    height:40px;
+    border-radius:0;
+    background:transparent;
+    border-color:transparent;
+  }
+
+  /* === HEADER PLATEADO: tinta oscura obligatoria (JFC 2026-08-05) ===
+     El header dejo de ser oscuro y paso a case plateado claro. Todo lo que
+     escribe encima tiene que ser tinta solida, o queda ilegible. Colores
+     solidos y -webkit-text-fill-color por iOS. NO usar opacidad aqui. */
+  header, header h1, header .marca, header .slogan-app, header .sub,
+  header span, header small, header em, header strong, header label, header a{
+    color:#14181C !important;
+    -webkit-text-fill-color:#14181C !important;
+  }
+  header .slogan-app{ color:#3A4048 !important; -webkit-text-fill-color:#3A4048 !important; }
+  /* Botones del header como teclas del case: plata con relieve, tinta oscura. */
+  header button{
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 45%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    color:#14181C !important;
+    -webkit-text-fill-color:#14181C !important;
+    box-shadow:0 2px 0 var(--plata-canto);
+  }
+  header button:active{ transform:translateY(2px); box-shadow:0 0 0 var(--plata-canto); }
+  /* Tecla de idioma activa: se hunde y se oscurece, sin perder legibilidad. */
+  .oc-lang-btn.activo{
+    background-image:linear-gradient(180deg, var(--plata-media) 0%, var(--plata-honda) 100%) !important;
+    color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;
+    box-shadow:inset 0 2px 3px rgba(0,0,0,.35) !important;
+  }
+  header h1{
+    margin:0;
+    font-family:var(--font-serif);
+    font-weight:400;
+    font-size:22px;
+    letter-spacing:0.01em;
+  }
+  header .slogan-app{
+    display:block;
+    font-family:Verdana,"Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-style:italic;
+    font-size:13px;
+    color:#E6E6E6;
+    letter-spacing:0.02em;
+    margin:2px 0 3px;
+    font-weight:400;
+  }
+  header .sub{
+    font-family:var(--font-mono);
+    font-size:13px;
+    letter-spacing:0.04em;
+    color:var(--brass);
+    margin-top:3px;
+    text-transform:uppercase;
+  }
+  .selector-ubicacion{
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:3px;
+    flex-shrink:0;
+  }
+  .selector-ubicacion label{
+    font-family:var(--font-body);
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.07em;
+    text-transform:uppercase;
+    color:#E6E6E6;
+    -webkit-text-fill-color:#E6E6E6;
+  }
+  .selector-ubicacion select{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:14px;
+    padding:8px 12px;
+    border-radius:5px;
+    border:2px solid var(--brass);
+    background:var(--blanco-calido);
+    color:var(--azul-oscuro);
+    -webkit-text-fill-color:var(--azul-oscuro);
+    cursor:pointer;
+    max-width:180px;
+  }
+
+  /* ================= NAV — barra inferior en móvil, riel lateral en tablet/desktop ================= */
+  nav{
+    display:flex;
+    gap:4px;
+    /* Case plateado liso (JFC 2026-08-05): FUERA la veta/microrayas verticales
+       — leian como lineas zebra y agregaban ruido. La chapa del case es un
+       gradiente vertical limpio; el relieve metalico ahora vive en los BOTONES
+       (teclas del case), no en una textura de fondo. NO reintroducir el
+       repeating-linear-gradient aqui. */
+    background-color:var(--plata);
+    background-image:
+      linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 22%, var(--plata) 60%, var(--plata-media) 100%);
+    border-top:2px solid var(--bisel-sombra);
+    box-shadow:inset 0 1px 0 var(--bisel-luz);
+    position:fixed;
+    left:0; right:0; bottom:0;
+    /* ALTURA FIJA + content-box (homologado de AMIGABLE, 2026-07-28).
+       Con border-box (el default aqui), la altura INCLUIA el safe-area, asi
+       que en iPhones con notch el padding inferior se comia el alto util y
+       aplastaba los botones. Con content-box el alto del contenido es fijo y
+       solo el padding absorbe el home indicator. align-items:center evita
+       que los botones se estiren si iOS cambia el inset al colapsar la barra
+       de URL — la causa de que la nav "creciera" hasta el siguiente refresh. */
+    box-sizing:content-box;
+    height:var(--nav-h);
+    align-items:center;
+    padding:4px 6px env(safe-area-inset-bottom, 4px);
+    z-index:35;
+    /* Con 7 botones (Comisiones y Avanzado se agregaron después), flex:1
+       ya no cabía en pantallas angostas y los últimos quedaban totalmente
+       fuera del viewport, sin ninguna forma de llegar a ellos (ni siquiera
+       con swipe, porque nav no tenía overflow-x). Ahora se puede deslizar
+       horizontalmente, y un botón parcialmente visible en el borde es la
+       pista de que hay más — sin flechas ni indicadores extra que mantener. */
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+  }
+  nav::-webkit-scrollbar{ display:none; }
+  /* v360 — Hugo/Paco/Luis corrida 1 (JFC 2026-09-23). Solo tamaños de toque
+     (>=44 px) y proporción; ninguna pieza cambia de lugar. Acotado por id. */
+  #oc-ventainfo-caja input:not([type="checkbox"]), #oc-ventainfo-caja select{ min-height:44px; box-sizing:border-box; }
+  #oc-ventainfo-caja input[type="checkbox"]{ width:22px !important; height:22px !important; flex:0 0 auto; }
+  #oc-ventainfo-caja label:has(> input[type="checkbox"]){ min-height:44px; }
+  #oc-ventainfo-caja .acciones-rapidas button{ font-size:16px !important; font-weight:700; min-height:48px; padding:10px 20px; }
+  #vi-precio-toggle, #vi-toggle-pagador, #vi-nuevo-cliente{ min-height:44px !important; min-width:44px; }
+  #vi-com-toggle{ min-height:44px; display:inline-flex !important; align-items:center; gap:5px; flex-wrap:wrap; text-transform:none !important; text-decoration:none !important; font-weight:700; }
+  #oc-gate-demo-pins strong{ color:#211c14 !important; -webkit-text-fill-color:#211c14 !important; }
+  #oc-gate-landing a{ color:#0F1923 !important; -webkit-text-fill-color:#0F1923 !important; font-weight:700; text-decoration:underline; }
+  nav button{
+    flex:0 0 auto;
+    /* JFC 2026-10-07: CUSTOMERS y COMMISSIONS desbordaban la caja fija de 74px
+       en telefono. min-width deja que el boton crezca para caber el nombre sin
+       tocar la tipografia. */
+    min-width:74px;
+    width:auto;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    font-size:13px;
+    font-weight:600;
+    letter-spacing:0.02em;
+    padding:6px 2px;
+    min-height:44px;
+    /* TECLA METALICA 2.5D (JFC 2026-08-05): cada boton del menu es una tecla
+       del case — luz arriba, cuerpo plata, canto oscuro abajo. Reemplaza el
+       fondo transparente que dejaba ver la textura del riel. Solidos, cero
+       opacidad. El estado .activo (mas abajo) pinta la tecla con su color. */
+    background-image:linear-gradient(180deg, var(--plata-brillo) 0%, var(--plata-claro) 42%, var(--plata) 100%);
+    border:1px solid var(--plata-honda);
+    border-top-color:var(--plata-brillo);
+    box-shadow:0 2px 0 var(--plata-canto), 0 2px 4px rgba(0,0,0,.16);
+    color:var(--ink);
+    border-radius:8px;
+    transition:filter .12s ease, transform .08s ease, color .15s ease;
+  }
+  nav button svg{ width:20px; height:20px; transition:transform .15s ease; }
+  @media (hover:hover){
+    nav button:not(.activo):hover{ background-image:linear-gradient(180deg, #FFFFFF 0%, var(--plata-brillo) 45%, var(--plata-claro) 100%); color:var(--ink); }
+  }
+  nav button svg{ width:20px; height:20px; }
+  /* Tecla presionada, sin color (portado de amigable-123, JFC 2026-08-11;
+     aplicado aqui 2026-08-19). Antes cada boton se pintaba de un color al
+     estar activo, y eran los colores del Simon: var(--sim-verde) y
+     var(--sim-azul). Eso competia con el Simon real — el color de los
+     PRODUCTOS, que es la unica paleta que debe significar algo en la app.
+     El estado activo ahora es la MISMA tecla plata, pero hundida: gradiente
+     invertido + sombra interior, como si el dedo la mantuviera presionada.
+     Ningun matiz nuevo, solo profundidad 2.5D.
+     NO volver a meter color aqui: se rompe la lectura del semaforo. */
+  nav button.activo{
+    background-image:linear-gradient(180deg, var(--plata-honda) 0%, var(--plata-media) 55%, var(--plata-claro) 100%);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.28), inset 0 -1px 0 rgba(255,255,255,.5);
+    border-color:var(--plata-canto);
+    border-top-color:var(--plata-honda);
+    color:var(--ink);
+  }
+  nav button.activo svg{ transform:scale(1.05); }
+  nav button:active{ transform:scale(0.94); }
+  /* Lapicito único y consistente (JFC 2026-09-02, micromejora #1): un solo estilo
+     de "editar" en toda la app, con el mismo micro-hundimiento de las teclas del
+     PIN. Reemplaza los estilos sueltos (✎ azul/gris, ✏️ ámbar). */
+  .oc-edit-btn{
+    font-size:13px; font-weight:700; line-height:1; cursor:pointer;
+    padding:5px 10px; border-radius:6px;
+    border:2px solid var(--azul-medio,#2c4a68); background:transparent;
+    color:var(--azul-medio,#2c4a68) !important; -webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;
+    transition:transform .12s var(--ease-out,cubic-bezier(.23,1,.32,1)), background .12s var(--ease-out,cubic-bezier(.23,1,.32,1));
+  }
+  .oc-edit-btn:hover{ background:var(--azul-op-claro,#D4ECF5); }
+  .oc-edit-btn:active{ transform:translateY(2px) scale(.97); }
+  /* Variante NARANJA de precaución (JFC 2026-09-02): para ediciones que tocan
+     dinero o registros ya asentados (una venta, una comisión, la expiración de
+     un crédito) — el naranja del semáforo #F97316 avisa "cuidado, esto cambia
+     algo real". Los lapicitos seguros (contacto, notas, categoría) siguen azules. */
+  .oc-edit-btn--warn{ border-color:#F97316; color:#c2560c !important; -webkit-text-fill-color:#c2560c !important; }
+  .oc-edit-btn--warn:hover{ background:#FFF1E6; }
+  @media (prefers-reduced-motion: reduce){ .oc-edit-btn{ transition:none; } .oc-edit-btn:active{ transform:none; } }
+  /* Flash de llegada a una tarjeta (JFC 2026-09-02, Emil — feedback + continuidad
+     espacial): al SELECT en Show customers, la tarjeta del cliente pulsa en verde
+     para que se vea "a dónde llegaste". */
+  @keyframes oc-flash-card{ 0%{ box-shadow:0 0 0 3px rgba(0,200,122,0); } 25%{ box-shadow:0 0 0 3px rgba(0,200,122,.65); } 100%{ box-shadow:0 0 0 3px rgba(0,200,122,0); } }
+  .oc-card-flash{ animation:oc-flash-card 1.5s var(--ease-out,cubic-bezier(.23,1,.32,1)) 1; }
+  @media (prefers-reduced-motion: reduce){ .oc-card-flash{ animation:none; outline:2px solid #00C87A; outline-offset:2px; } }
+
+  main{
+    padding:18px 16px calc(var(--nav-h) + 28px);
+    max-width:1200px;
+    margin:0 auto;
+  }
+  .vista{display:none;}
+  .vista.activa{display:block; animation:vistaEntra .32s var(--ease-out,cubic-bezier(.23,1,.32,1));}
+  @keyframes vistaEntra{
+    /* Solo transform — NUNCA opacity: el contenido debe ser visible aunque
+       la animacion no corra (regla IN STONE de JFC, contenido visible x default). */
+    from{ transform:translateY(8px); }
+    to{ transform:translateY(0); }
+  }
+
+  /* ================= HERO SEMÁFORO ================= */
+  /* Aligerado (JFC 2026-08-25): "se traga mucho espacio". Se le baja el peso
+     visual —sombra grande fuera, padding y margen mas justos— para dar amplitud
+     y holgura (estilo Airtable) sin quitar el semaforo, que es el corazon de
+     Hoy. Es puro CSS y reversible: subir de nuevo padding/sombra lo restaura. */
+  .hero-semaforo{
+    padding:8px 16px;
+    margin-bottom:3px;
+    color:var(--blanco-calido);
+    border-color:rgba(255,255,255,0.35);
+    box-shadow:0 1px 2px rgba(0,0,0,0.08);
+    background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,0.09) 1px, transparent 0);
+    background-size:14px 14px, auto;
+  }
+  .hero-semaforo.verde{background-color:var(--sim-verde); --tc-bg:var(--sim-verde);}
+  .hero-semaforo.amarillo{background-color:var(--sim-amarillo); --tc-bg:var(--sim-amarillo);}
+  /* JFC: conservar la señal roja sin un bloque rojo invasivo al entrar. */
+  .hero-semaforo.rojo{background-color:var(--blanco-calido); --tc-bg:var(--blanco-calido);border:1px solid var(--sim-rojo);border-left-width:4px;color:var(--ink);}
+  .hero-semaforo.rojo h2,.hero-semaforo.rojo p{color:var(--ink);-webkit-text-fill-color:var(--ink);}
+  .avisos-hoy{margin:8px 0;border:1px solid var(--linea);border-left:4px solid var(--sim-rojo);border-radius:8px;background:var(--blanco-calido);color:var(--ink);}
+  .avisos-hoy > summary{padding:12px;min-height:44px;box-sizing:border-box;cursor:pointer;font-size:14px;font-weight:700;}
+  .avisos-hoy > summary:focus-visible{outline:3px solid var(--azul-medio);outline-offset:3px;}
+  .avisos-hoy > ul{margin:0;padding:0 12px 12px;}
+  .hero-semaforo h2{
+    margin:0 0 2px 0;
+    font-family:var(--font-serif);
+    font-weight:400;
+    font-size:15px;
+    line-height:1.08;
+  }
+  .hero-semaforo p{
+    font-size:13px;
+    line-height:1.15;
+    margin:0;
+    color:var(--blanco-calido);
+  }
+
+  /* ================= TARJETAS RESUMEN ================= */
+  .grid-resumen{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+    gap:12px;
+    margin-bottom:22px;
+  }
+  .tarjeta{
+    padding:14px 16px;
+  }
+  .tarjeta .etiqueta{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--ink-soft);
+    text-transform:uppercase;
+    letter-spacing:0.07em;
+  }
+  .tarjeta .valor{
+    font-family:var(--font-serif);
+    font-size:24px;
+    font-weight:400;
+    color:var(--ink);
+    margin-top:5px;
+  }
+
+  h3.seccion{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:18px;
+    color:var(--ink);
+    border-bottom:3px solid var(--brass);
+    padding-bottom:9px;
+    margin-top:30px;
+  }
+  /* Advanced: escala de texto plana (JFC 2026-09-01). "Todo texto del tamaño de
+     Member/Role/Status o en sus inmediaciones": los titulos de seccion (18px,
+     repetidos por toda la vista) se veian grotescamente grandes. Se capan a 15px
+     SOLO dentro de #vista-avanzado — no afecta ninguna otra vista. !important
+     tambien alcanza titulos con font-size inline del contenido dinamico. */
+  #vista-avanzado h2, #vista-avanzado h3, #vista-avanzado h3.seccion, #vista-avanzado h4{ font-size:15px !important; }
+
+  /* ================= ALERTAS ================= */
+  .lista-alertas{
+    list-style:none;
+    padding:0;
+    margin:0;
+  }
+  .lista-alertas li{
+    font-size:15px;
+    padding:13px 14px;
+    border-radius:5px;
+    margin-bottom:9px;
+    font-weight:600;
+    display:flex;
+    align-items:center;
+  }
+  .lista-alertas li.verde{background:var(--sim-verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-verde-dk);}
+  .lista-alertas li.amarillo{background:var(--sim-amarillo); color:#1A1A1A !important; -webkit-text-fill-color:#1A1A1A !important; border:2px solid var(--sim-amarillo-dk);}
+  /* Bloque 2 (JFC 2026-09-24, legibilidad): blanco sobre el naranja SIMON da
+     2.8:1 y falla la regla. La alerta naranja conserva su borde y su fondo de
+     marca, pero el TEXTO va en tinta oscura del mismo naranja (#7C2D12 sobre
+     #FDD9BE: 8:1). El semaforo se sigue leyendo por el borde y el fondo. */
+  .lista-alertas li.naranja{background:#FDD9BE; color:#7C2D12 !important; -webkit-text-fill-color:#7C2D12 !important; border:2px solid var(--sim-naranja-dk);}
+  .lista-alertas li.rojo{background:var(--sim-rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important; border:2px solid var(--sim-rojo-dk);}
+  .lista-alertas li.negro{background:var(--sim-negro-bg); color:#E0E0E2; border:2px solid var(--sim-negro);}
+
+  /* ================= INVENTARIO ================= */
+  .grid-cajas{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(190px,1fr));
+    gap:14px;
+  }
+  /* Tipografía de formularios compacta y coherente. En iPhone se conservan
+     16px: Safari amplía la página al enfocar campos menores y desarma la UI.
+     En tablet/PC 14px permite ver más datos sin aspecto sobredimensionado. */
+  input, select, textarea{ font-size:16px !important; }
+  main input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),
+  main select, main textarea{ padding:7px 9px !important; line-height:1.25; }
+  @media (min-width:768px){
+    main input, main select, main textarea{ font-size:14px !important; }
+  }
+  main h2, main h3, main h4{ text-wrap:balance; }
+  main p, main li, main label{ text-wrap:pretty; }
+  .valor, .precio, [id*="Monto"], [id*="Total"], [id*="subtotal"]{ font-variant-numeric:tabular-nums; }
+
+  /* ============ TARJETAS INVENTARIO — SIMON-STYLE ============ */
+  /* Colores vivos + esquinas redondeadas + hover. Portado de OC. */
+  .caja{
+    padding:16px;
+    border:3px solid transparent;
+    cursor:pointer;
+    min-height:44px;
+    border-radius:12px;
+    position:relative;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .caja:hover{transform:translateY(-2px); box-shadow:0 6px 18px rgba(0,0,0,0.18);}
+  .caja:active{transform:translateY(0); box-shadow:none;}
+  /* Intensidad/degradé por color (JFC 2026-07-04): el color base y el
+     estado que dispara cada uno NO cambian (eso sigue siendo el canon
+     estricto de calcularEstado() en server.js/mock-backend.js/pocketbase-
+     client.js, religiosamente identico en los 3). Lo que se enriquece aqui
+     es solo el RENDER: degradé full->dk para dar profundidad, y en rojo
+     (emergencia) un pulso sutil que sube la urgencia percibida un grado
+     mas que naranja (urgente pero no emergencia). Negro es la excepcion:
+     nada de degradé de color, solo un vinieta hacia el negro absoluto —
+     "oscuridad que se traga todo". */
+  /* ============ ENCENDIDOS EN LA PROPIA TARJETA (JFC 2026-07-07) ============
+     La semaforo de colores se APLICA a la tarjeta entera, no se dibuja como
+     indicador aparte (la mini-escala de barras quedo DORMANT abajo):
+       n1 (tenue)     -> fondo -bg del color, borde base, TINTA OSCURA
+       n2 (medio)     -> degrade base->dk (el look clasico), texto blanco
+       n3 (encendido) -> degrade cargado al -dk + GLOW del propio color
+     Mismo color siempre; solo cambia que tan fuerte esta encendido.
+     Sin clase n* cae al look n2 (retrocompatible). Negro es excepcion: sus
+     3 niveles oscurecen hacia el negro absoluto, texto blanco siempre. */
+  /* === 1 TONO PLANO POR ESTADO (JFC 2026-08-05) ===
+     Se retiran los degradados y los overrides por nivel (.n1/.n2/.n3): daban
+     a cada tarjeta un tono distinto segun intensidad, que es exactamente el
+     semaforo de colores retirado. Ahora el estado es UN color plano y el -dk solo
+     pinta el borde/bisel. El pulso del rojo se queda: es movimiento, no un
+     tono extra. NO reintroducir degradados por nivel. */
+  /* COLORES EXACTOS DEL SEMÁFORO (JFC 2026-08-26) — paleta BASE de la UX (solo
+     sin azul). Antes usaban var(--sim-*-dk), shades oscuros (amarillo=#9E7C00
+     olivo "caca") que rompían la coherencia con alertas/hero/filtros. Estos son
+     los mismos hex del semáforo en toda la app. Esta regla pisa a las de arriba. */
+  .caja.verde{border-color:#00C87A;border-width:4px;}
+  .caja.amarillo{border-color:#FFC700;border-width:4px;}
+  .caja.rojo{border-color:#E8365D; animation:pulsoEmergencia 2.2s ease-in-out infinite;}
+  .caja.naranja{border-color:#F97316;border-width:4px;}
+  .caja.negro{border-color:#0A0A0F;border-width:4px;}
+  @keyframes pulsoEmergencia{
+    0%, 100%{box-shadow:0 0 0 0 rgba(232,54,93,0.55), 0 4px 8px rgba(0,0,0,0.18);}
+    50%{box-shadow:0 0 0 8px rgba(232,54,93,0), 0 4px 8px rgba(0,0,0,0.18);}
+  }
+  /* Fondos oscuros: texto blanco */
+  .caja.verde .nombre,.caja.rojo .nombre,.caja.naranja .nombre,.caja.negro .nombre{color:var(--ink) !important;}
+  .caja.verde .detalle,.caja.rojo .detalle,.caja.naranja .detalle,.caja.negro .detalle{color:var(--ink-soft) !important;}
+  .caja.verde .stock,.caja.rojo .stock,.caja.naranja .stock,.caja.negro .stock{color:var(--ink) !important;}/* M3 (2026-08-14): esta regla forzaba BLANCO en los botones de ajuste
+     porque la tarjeta era un rectangulo de color oscuro. Ahora el fondo es
+     blanco y la foto manda, asi que el blanco los volvia invisibles.
+     Pasan a tinta. Si algun dia vuelve el relleno solido, esto vuelve a blanco. */
+  .caja.verde [data-ajuste-menos],.caja.rojo [data-ajuste-menos],.caja.naranja [data-ajuste-menos],.caja.negro [data-ajuste-menos],
+  .caja.verde [data-ajuste-mas],.caja.rojo [data-ajuste-mas],.caja.naranja [data-ajuste-mas],.caja.negro [data-ajuste-mas],
+  .caja.verde [data-estrella-toggle],.caja.rojo [data-estrella-toggle],.caja.naranja [data-estrella-toggle],.caja.negro [data-estrella-toggle]
+  {color:var(--ink) !important; border-color:var(--ink) !important;}
+  /* Dorado=oportunidad: tinta oscura (el amarillo nunca soporta texto blanco) */
+  .caja.amarillo .nombre{color:#0F1923 !important;}
+  .caja.amarillo .detalle{color:#2C3E50 !important;}
+  .caja.amarillo .stock{color:#0F1923 !important;}
+  .caja.amarillo [data-ajuste-menos],.caja.amarillo [data-ajuste-mas],.caja.amarillo [data-estrella-toggle]{color:#0F1923 !important; border-color:var(--sim-amarillo-dk) !important;}
+  /* Nivel 1 (fondo tenue -bg, claro): tinta oscura para legibilidad — regla
+     absoluta de contraste. Negro queda fuera: su n1 sigue siendo oscuro.
+     3 clases (>2) para ganarle a las reglas blancas de arriba. */
+  /* 1 TONO (2026-08-05): n1 ya no es un tinte claro, es el color solido,
+     asi que forzar tinta oscura aqui dejaba el texto ilegible. Se anula. */
+  /* Estrella visible dentro de la esquina completa de la tarjeta. */
+  .caja .estrella-badge{
+    position:absolute; top:5px; right:6px; z-index:3;
+    font-size:20px; line-height:1;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,0.35));
+  }
+  .caja .nombre{
+    font-family:var(--font-display);
+    font-size:16px;
+    font-weight:700;
+    color:var(--ink);
+  }
+  .caja .detalle{
+    font-size:13px;
+    margin-top:5px;
+    color:var(--ink-soft);
+  }
+  .caja .stock{
+    font-family:var(--font-serif);
+    font-size:34px;
+    font-weight:700;
+    margin-top:4px;
+  }
+
+  .filtros-estado{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .filtros-estado button{
+    padding:9px 14px 9px 28px;
+    border-radius:20px;
+    border:2px solid var(--azul-medio);
+    background:var(--blanco-calido);
+    color:var(--azul-medio);
+    font-weight:600;
+    font-size:13px;
+    box-shadow:none;
+    min-height:40px;
+    position:relative;
+  }
+  .filtros-estado button::before{
+    content:"";
+    position:absolute;
+    left:12px; top:50%;
+    width:8px; height:8px;
+    border-radius:50%;
+    transform:translateY(-50%);
+    background:var(--ink-soft);
+  }
+  .filtros-estado button[data-estado="rojo"]::before{background:var(--sim-rojo);}
+  .filtros-estado button[data-estado="amarillo"]::before{background:var(--sim-amarillo);}
+  .filtros-estado button[data-estado="verde"]::before{background:var(--sim-verde);}
+  .filtros-estado button[data-estado="naranja"]::before{background:var(--sim-naranja);}
+  .filtros-estado button[data-estado="negro"]::before{background:var(--sim-negro);}
+  .filtros-estado button[data-estado=""]{padding-left:14px;}
+  .filtros-estado button[data-estado=""]::before{content:none;}
+  .filtros-estado button.activo{
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+  }
+
+  /* ================= ESCANEAR ================= */
+  .panel-escaner{
+    padding:30px 22px;
+    text-align:center;
+  }
+  .panel-escaner p{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin-top:0;
+  }
+  .panel-escaner input{
+    font-size:19px;
+    padding:15px 16px;
+    width:100%;
+    max-width:420px;
+    border-radius:5px;
+    border:2px solid var(--azul-medio);
+    font-family:var(--font-mono);
+    text-align:center;
+    background:var(--crema);
+    color:var(--ink);
+  }
+  .panel-escaner button.ir{
+    font-size:15px;
+    padding:14px 26px;
+    margin-top:14px;
+    background:var(--rust-deep); /* blanco sobre --rust daba 3.2:1; --rust-deep 5:1 (2026-09-24) */
+    color:var(--blanco-calido);
+    border-color:var(--rust-deep);
+    min-height:48px;
+  }
+  .ficha-resultado{
+    margin-top:24px;
+    text-align:left;
+  }
+
+  .ficha-producto{
+    padding:20px;
+  }
+  .ficha-producto .titulo{
+    font-family:var(--font-serif);
+    font-size:22px;
+    font-weight:400;
+    color:var(--ink);
+  }
+  .ficha-producto .precio{
+    font-family:var(--font-serif);
+    font-size:26px;
+    color:var(--rust-ink);
+    font-weight:400;
+    font-style:italic;
+    margin:4px 0 8px;
+  }
+  .ficha-producto .linea{
+    font-size:15px;
+    margin:4px 0;
+    color:var(--ink-soft);
+  }
+  .ficha-producto .linea strong{ color:var(--ink); }
+  .badge-estado{
+    display:inline-block;
+    font-family:var(--font-display);
+    font-size:13px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    padding:6px 14px;
+    border-radius:20px;
+    margin-top:10px;
+  }
+  .badge-estado.verde{background:var(--sim-verde); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
+  .badge-estado.amarillo{background:var(--sim-amarillo); color:#1A1A1A !important; -webkit-text-fill-color:#1A1A1A !important;}
+  .badge-estado.rojo{background:var(--sim-rojo); color:#FFFFFF !important; -webkit-text-fill-color:#FFFFFF !important;}
+  /* Calificador de clientes 1-5 (JFC 2026-08-06, portado de amigable-123):
+     estrella=confiabilidad, corazon=trato. Tap acumulativo: tocar el valor N
+     enciende 1..N. Tocar el mismo N otra vez limpia (0). */
+  .oc-rate-btn{
+    background:transparent; border:none; padding:2px; cursor:pointer; line-height:1;
+    min-width:32px; min-height:32px;
+    display:inline-flex; align-items:center; justify-content:center;
+  }
+  .oc-rate-btn svg{ transition:transform 0.12s ease; }
+  @media (prefers-reduced-motion: reduce){ .oc-rate-btn svg{ transition:none; } }
+
+  .acciones-rapidas{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:16px;
+  }
+  .acciones-rapidas button{
+    font-size:13px;
+    padding:11px 15px;
+    border-color:var(--azul-medio);
+    color:var(--azul-medio);
+    min-height:44px;
+  }
+  .acciones-rapidas button.vender{background:var(--verde); color:var(--blanco-calido); border-color:var(--verde);}
+  .acciones-rapidas button.etiqueta{background:var(--brass); color:var(--blanco-calido); border-color:var(--brass);}
+
+  /* ================= ETIQUETAS ================= */
+  .grid-etiquetas{
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(180px,1fr));
+    gap:16px;
+  }
+  .etiqueta-card{
+    padding:16px;
+    text-align:center;
+    cursor:pointer;
+    border-style:dashed;
+    min-height:44px;
+  }
+  .etiqueta-card .nombre-prod{
+    font-family:var(--font-display);
+    font-weight:700;
+    font-size:14px;
+    color:var(--ink);
+  }
+  .etiqueta-card .precio-prod{
+    color:var(--rust-deep); /* el ambar/naranja claro daba 3.2:1 como texto (2026-09-24) */
+    font-family:var(--font-serif);
+    font-weight:400;
+    font-style:italic;
+    font-size:24px;
+    margin:4px 0;
+  }
+  .etiqueta-card .sku-prod{
+    font-family:var(--font-mono);
+    font-size:13px;
+    color:var(--ink-soft);
+  }
+
+  /* ================= MODAL ETIQUETA ================= */
+  .modal-fondo{
+    display:none;
+    position:fixed;
+    top:0;left:0;right:0;bottom:0;
+    background:rgba(28,48,73,0.82);
+    z-index:50;
+    overflow:auto;
+    padding:20px;
+  }
+  .modal-fondo.activo{display:flex; align-items:center; justify-content:center; overscroll-behavior:contain;}
+  .etiqueta-imprimible{
+    background:var(--blanco-calido);
+    padding:30px;
+    width:340px;
+    max-width:100%;
+    text-align:center;
+    position:relative;
+  }
+  /* X de cierre con contraste (JFC 2026-08-27): fondo blanco, borde y sombra
+     para que se vea en tablets/celulares y a pleno sol en ferias. */
+  .cerrar{
+    position:absolute;
+    top:8px; right:10px;
+    font-size:20px;
+    line-height:1;
+    cursor:pointer;
+    color:#0F1923;
+    background:#FFFFFF;
+    border:2px solid #0F1923;
+    border-radius:50%;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+    font-family:var(--font-body);
+    width:36px; height:36px;
+    display:flex; align-items:center; justify-content:center;
+    z-index:5;
+  }
+  .etiqueta-imprimible .cerrar{
+    position:absolute;
+    top:8px; left:10px;
+    font-size:20px;
+    cursor:pointer;
+    color:#0F1923;
+    background:#FFFFFF;
+    border:2px solid #0F1923;
+    border-radius:50%;
+    box-shadow:0 2px 6px rgba(0,0,0,.35);
+    font-family:var(--font-body);
+    width:36px; height:36px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .etiqueta-imprimible h4{
+    font-family:var(--font-display);
+    font-size:20px;
+    color:var(--ink);
+    margin:14px 0 4px 0;
+  }
+  .etiqueta-imprimible .precio-grande{
+    font-family:var(--font-display);
+    font-size:34px;
+    color:var(--rust-ink);
+    font-weight:700;
+    margin:8px 0;
+  }
+  .etiqueta-imprimible img{
+    margin:14px 0;
+  }
+  .etiqueta-imprimible .codigo{
+    font-family:var(--font-mono);
+    font-size:15px;
+    letter-spacing:2px;
+    color:var(--ink);
+  }
+  .etiqueta-imprimible .barras{
+    /* Antes esto era un fondo CSS decorativo (rayas falsas, no escaneables).
+       Ahora aquí se inyecta un <svg> Code128 real (ver abrirEtiqueta() y
+       barcode.js) — solo centramos el contenido, el barcode dibuja sus
+       propias barras y fondo blanco. */
+    display:flex;
+    justify-content:center;
+    margin:10px 0;
+  }
+  .etiqueta-imprimible .barras svg{ max-width:100%; height:auto; }
+  .etiqueta-imprimible button.imprimir{
+    margin-top:14px;
+    font-size:14px;
+    padding:11px 20px;
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+    border-color:var(--azul-oscuro);
+    min-height:44px;
+  }
+
+  /* ================= SWITCH BILINGÜE (header) ================= */
+  .oc-lang-wrap{ display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .oc-lang-pill{ display:inline-flex; border:1.5px solid var(--azul-medio,#2E6278); border-radius:999px; overflow:hidden; background:#fff; }
+  .oc-lang-btn{ font-family:var(--font-body); font-size:13px; font-weight:700; padding:5px 12px; min-height:32px; border:none; background:transparent; color:var(--azul-medio,#2E6278); cursor:pointer; letter-spacing:1px; }
+  .oc-lang-btn.activo{ background:var(--azul-medio,#2E6278); color:#fff; }
+  .oc-bilingual{ font-size:13px; font-weight:700; color:var(--rust-ink,#E86040); letter-spacing:.3px; white-space:nowrap; }
+
+  /* ================= PRINT =================
+     Safari exige que print() conserve el gesto directo del usuario. Imprimimos
+     el modal actual en vez de esperar el load de un iframe invisible. */
+  @media print {
+    body * { visibility:hidden !important; }
+    #modalEtiqueta.activo, #modalEtiqueta.activo * { visibility:visible !important; }
+    #modalEtiqueta.activo { position:absolute; inset:0; background:#fff !important; display:block !important; padding:0; }
+    #modalEtiqueta.activo .cerrar,
+    #modalEtiqueta.activo .imprimir,
+    #modalEtiqueta.activo #oc-print-completa,
+    #modalEtiqueta.activo #barrasClicable + div,
+    #modalEtiqueta.activo .no-print { display:none !important; }
+    body.oc-print-barcode-only #contenidoEtiqueta > * { display:none !important; }
+    body.oc-print-barcode-only #contenidoEtiqueta .codigo,
+    body.oc-print-barcode-only #contenidoEtiqueta .barras { display:block !important; visibility:visible !important; }
+  }
+
+  /* ================= AVANZADO ================= */
+  .avanzado-aviso{
+    background:var(--azul-op-claro);
+    color:#2F6F86; /* --azul-op sobre su fondo claro daba ~3:1 (2026-09-24) */
+    padding:14px 16px;
+    border-radius:5px;
+    margin-bottom:18px;
+    font-size:14px;
+    border-left:none;
+  }
+  .tabla-wrap{ overflow-x:auto; border-radius:6px; }
+  table.reporte{
+    width:100%;
+    min-width:420px;
+    border-collapse:collapse;
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+  }
+  table.reporte th, table.reporte td{
+    text-align:left;
+    padding:12px 14px;
+    border-bottom:1px solid rgba(33,28,20,0.13);
+    font-size:14px;
+  }
+  table.reporte th{
+    background:var(--azul-medio);
+    color:var(--blanco-calido);
+    font-family:var(--font-display);
+    font-weight:600;
+    text-transform:uppercase;
+    font-size:13px;
+    letter-spacing:0.04em;
+  }
+
+  /* ================= ACTIVIDAD ================= */
+  .actividad-item{
+    background:var(--blanco-calido);
+    border:1.5px solid rgba(33,28,20,0.22);
+    padding:12px 15px;
+    border-radius:5px;
+    margin-bottom:9px;
+    font-size:14px;
+  }
+  .actividad-item .tipo{
+    font-family:var(--font-display);
+    font-weight:700;
+    color:var(--ink);
+    text-transform:uppercase;
+    font-size:13px;
+    letter-spacing:0.05em;
+  }
+
+  footer{
+    display:none;
+    text-align:center;
+    font-size:13px;
+    color:var(--ink-soft);
+    padding:26px 16px;
+  }
+
+  /* ================= TABLET (≥768px): riel lateral ================= */
+  @media (min-width:768px){
+    nav{
+      flex-direction:column;
+      left:0; top:0; bottom:0; right:auto;
+      width:var(--sidebar-w);
+      height:auto;
+      padding:var(--riel-top, calc(var(--header-h) + 16px)) 12px 16px;
+      border-top:none;
+      border-right:2px solid var(--ink);
+      gap:6px;
+      z-index:30;
+    }
+    nav button{
+      flex:none;
+      width:100%;            /* FIX: sin esto heredaba width:74px del movil y el
+                                texto (ESCANEAR, LIQUIDACIONES) desbordaba el boton */
+      flex-direction:row;
+      justify-content:flex-start;
+      gap:12px;
+      font-size:14px;
+      padding:13px 16px;
+      text-align:left;
+    }
+    main{
+      margin-left:var(--sidebar-w);
+      padding:28px 32px calc(28px + var(--nav-h));
+    }
+    footer{ display:block; margin-left:var(--sidebar-w); }
+    .grid-resumen{ grid-template-columns:repeat(4,1fr); gap:16px; }
+    header h1{ font-size:25px; }
+    .hero-semaforo h2{ font-size:17px; }
+    .tarjeta .valor{ font-size:26px; }
+  }
+
+  @media (min-width:768px) and (max-width:1023px){
+    main{ padding-bottom:28px; }
+  }
+
+  /* ================= DESKTOP (≥1024px) ================= */
+  @media (min-width:1024px){
+    :root{ --sidebar-w:268px; }
+    main{ max-width:1280px; }
+    .grid-resumen{ gap:18px; }
+    .tarjeta .valor{ font-size:28px; }
+    header h1{ font-size:28px; }
+    .hero-semaforo h2{ font-size:18px; }
+    .ficha-producto .titulo{ font-size:26px; }
+    .ficha-producto .precio{ font-size:30px; }
+  }
+
+  /* ================= MÓVIL: tablas navegables (JFC 2026-08-28) =============
+     Antes table.reporte forzaba min-width:420px dentro de .tabla-wrap con
+     overflow-x:auto → en el celular la tabla era imposible de recorrer (scroll
+     horizontal a ciegas). Ahora en pantallas angostas la tabla se compacta
+     (menos min-width y padding) para que quepa en el ancho del teléfono con
+     scroll mínimo. Mobile-first: en tablet/PC se mantiene la tabla con aire. */
+  @media (max-width:600px){
+    table.reporte{ min-width:0; width:100%; }
+    table.reporte th, table.reporte td{ padding:7px 8px; font-size:12px; }
+    table.reporte th{ font-size:13px; }
+  }
+
+  @media (max-width:380px){
+    header h1{font-size:18px;}
+    .hero-semaforo h2{font-size:18px;}
+    nav button{font-size:13px;}
+  }
+
+  /* Solo móvil: controles compactos en flujo; PC conserva el header original. */
+  @media (max-width:767px){
+    :root{--nav-h:62px;}
+    /* Densidad interior: referencia visual = filas de “Lista de compradores”.
+       Más información por pantalla, sin bajar inputs de 16px (Safari haría
+       auto-zoom) ni tocar la página de PIN. */
+    main{padding:12px 10px calc(var(--nav-h) + 16px);}
+    h3.seccion{font-size:16px;margin-top:20px;padding-bottom:6px;}
+    .grid-resumen{gap:8px;margin-bottom:14px;}
+    .tarjeta{padding:10px 12px;}
+    .tarjeta .etiqueta{font-size:13px;letter-spacing:.045em;} /* 11->13 px: regla de legibilidad (auditoria Chromium 2026-09-24) */
+    .tarjeta .valor{font-size:21px;margin-top:2px;}
+    .lista-alertas li{font-size:13px;padding:9px 10px;margin-bottom:6px;}
+    .grid-cajas{grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:8px;}
+    .caja{padding:10px;border-width:3px !important;border-radius:8px;}
+    .caja .nombre{font-size:14px;line-height:1.2;}
+    .caja .detalle{font-size:13px;line-height:1.25;margin-top:3px;} /* 11->13 px */
+    .caja .stock{font-size:26px;line-height:1;margin-top:3px;}
+    .caja .ajuste-rapido{margin-top:6px !important;gap:4px !important;}
+    .caja .ajuste-rapido button{width:32px !important;height:32px !important;font-size:15px !important;}
+    .panel-escaner{padding:16px 12px;}
+    .panel-escaner input{padding:9px 10px;font-size:16px;}
+    .panel-escaner button.ir{padding:9px 16px;min-height:40px;margin-top:8px;}
+    .ficha-resultado{margin-top:14px;}
+    .ficha-producto{padding:13px;}
+    .ficha-producto .titulo{font-size:18px;line-height:1.2;}
+    .ficha-producto .precio{font-size:22px;margin:2px 0 5px;}
+    .ficha-producto .linea{font-size:13px;margin:2px 0;}
+    .badge-estado{font-size:13px;padding:4px 9px;margin-top:6px;} /* JFC 2026-09-23: era 11px en movil; minimo absoluto 13px */
+    .acciones-rapidas{gap:6px;margin-top:9px;}
+    .acciones-rapidas button{padding:7px 10px;min-height:40px;font-size:12px;}
+    .grid-etiquetas{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+    .etiqueta-card{padding:10px;}
+    .etiqueta-card .precio-prod{font-size:20px;}
+    header{
+      position:relative;top:auto;min-height:0;padding:6px 10px;
+      display:grid;grid-template-columns:minmax(0,1fr) auto auto;
+      gap:3px 6px;align-items:center;
+    }
+    header .marca{grid-column:1/3;grid-row:1;min-width:0;}
+    header h1{font-size:clamp(18px,5vw,23px);line-height:1.1;display:flex;align-items:center;min-width:0;}
+    header h1 #oc-negocio-nombre{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    header h1 #oc-negocio-editar{flex-shrink:0;}
+    header #oc-header-apodo{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    header .sub{display:none;}
+    header .oc-lang-wrap{grid-column:3;grid-row:1;align-self:start;}
+    header .oc-bilingual{display:none;}
+    header .selector-ubicacion{
+      grid-column:1/3;grid-row:2;display:flex;flex-direction:row;
+      align-items:center;gap:7px;min-width:0;
+    }
+    header .selector-ubicacion label{font-size:12px;white-space:nowrap;letter-spacing:0;} /* 2026-09-26 revision Linus bloque 5: minimo 12px (regla JFC), antes 10px. */
+    header .selector-ubicacion select{flex:1;min-width:0;max-width:none;width:100%;}
+    header #oc-user-chip{grid-column:3;grid-row:2;margin:0 !important;max-width:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    header #oc-rol-chip{grid-column:1;grid-row:3;justify-self:start;margin:0 !important;}
+    header #oc-logout{grid-column:2;grid-row:3;justify-self:start;}
+    header #oc-brand-help{grid-column:3;grid-row:3;margin:0 !important;justify-self:end;}
+    /* El logo grande permanece en el PIN y en PC. En móvil, ayuda y estado
+       ocupan esta esquina: un segundo logo inflaba toda la tercera fila. */
+    header #oc-brand-help img{display:none !important;}
+    header #oc-brand-help #oc-sync-mini{margin-top:0 !important;}
+    nav{height:var(--nav-h);align-items:flex-end;padding-top:2px;padding-bottom:0;}
+    #heroSemaforo{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:10px;row-gap:2px;align-items:center;}
+    #heroTitulo{grid-column:1;grid-row:1;margin:0 !important;}
+    #heroSubtitulo{grid-column:1;grid-row:2;margin:0 !important;}
+    #heroReloj{grid-column:2;grid-row:1 / span 2;position:static !important;align-self:center;margin:0 !important;max-width:none;font-size:12px !important;padding:4px 8px !important;white-space:nowrap;}
+  }
+  @media (max-width:479px){
+    #heroReloj{grid-column:1 / -1;grid-row:3;justify-self:end;margin-top:2px !important;font-size:12px !important;padding:3px 8px !important;}
+  }
+  /* Safari en pestaña ya deja la barra del navegador fuera del viewport. Solo
+     una app instalada a pantalla completa necesita reservar el home indicator. */
+  @media (max-width:767px) and (display-mode:standalone){
+    nav{padding-bottom:env(safe-area-inset-bottom,0px);}
+  }
+
+  /* ---------- SPLASH breve de arranque (marca "friendly-123" ~0.8s) ---------- */
+  #oc-splash{position:fixed;top:0;left:0;right:0;bottom:0;background:var(--azul-oscuro);display:flex;align-items:center;justify-content:center;z-index:999;transition:opacity .45s ease;
+    /* pointer-events:none SIEMPRE: es decorativo, jamas debe bloquear taps.
+       La animacion CSS con forwards lo oculta AUNQUE el JS falle (red de
+       seguridad para Safari/iOS): no depende de nadie para quitarse. */
+    pointer-events:none;
+    animation:ocSplashOut .45s ease 1.15s forwards;}
+  @keyframes ocSplashOut{ to{ opacity:0; visibility:hidden; } }
+  #oc-splash{flex-direction:column;gap:16px;}#oc-splash img{width:min(72vw,340px);height:auto;display:block;}#oc-splash .oc-splash-tag{font-family:var(--font-display,sans-serif);font-size:17px;font-weight:700;color:#F8F9FB !important;-webkit-text-fill-color:#F8F9FB !important;margin:0;text-align:center;letter-spacing:.01em;}
+  #oc-splash.fuera{opacity:0;pointer-events:none;}
+  /* ---------- Landscape en telefonos: compactar header/hero ---------- */
+  @media (orientation:landscape) and (max-height:520px){
+    header{min-height:64px;padding:10px 20px;}
+    .hero-semaforo{padding:14px 20px;margin-bottom:12px;}
+    .hero-semaforo h2{font-size:18px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .vista.activa{animation:none;}
+    #oc-splash{transition:none;}
+    .tag-card, button, nav button svg{transition:none;}
+    .caja.rojo{animation:none;}
+  }
+/* JFC 2026-09-25: "Counter sale" en tipo normal y cursiva, aunque la etiqueta que lo contiene vaya en mayusculas. */
+.rotulo em,.cifra em{text-transform:none;letter-spacing:0;font-style:italic}
+  /* AIRE (JFC 2026-09-26, jueces del Sonar: en el telefono Sold gastaba 103 % de la pantalla
+     en categorias antes del primer producto, e Inventory la mitad en filtros). Cada fila de
+     controles ocupa UNA linea y se desliza de lado; buscador y orden comparten linea. */
+  .fila-deslizable{display:flex !important;flex-wrap:nowrap !important;gap:6px;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin;padding-bottom:4px;}
+  .fila-deslizable > *{flex:0 0 auto;}
+  .barra-busca-orden{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 10px;}
+  .barra-busca-orden input[type=search]{flex:1 1 180px;max-width:360px;min-width:0;margin:0 !important;}
+  .barra-busca-orden #ordenInventario{margin:0 !important;flex:1 1 auto;}
+  /* MEDIA LINEA (JFC 2026-09-26: "no necesitas darle tooooda la linea a una caja de search";
+     Jev: Inventory HALF 0.58, Sell ICON/HALF sin confianza -> decide Claude con la filosofia
+     "navaja suiza": siempre a la mano, nunca protagonista). El buscador toma media linea y
+     comparte la fila con las categorias (Sold) o el orden (Inventory), que se deslizan. */
+  .barra-media{display:flex !important;flex-wrap:nowrap !important;gap:8px;align-items:center;}
+  .barra-media > input{flex:0 0 48% !important;max-width:48% !important;width:auto !important;margin:0 !important;}
+  .barra-media > .fila-deslizable{flex:1 1 0 !important;min-width:0;margin:0 !important;}
+  #vp-orden{flex-wrap:nowrap !important;overflow-x:auto;background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 0 4px !important;}
+  #vp-orden > *{flex:0 0 auto;}
+  .alta-plegable > summary::-webkit-details-marker{display:none;}
+  /* Instrucciones repetidas (ya estan en "How does it work?"): solo en pantallas anchas. */
+  @media (max-width:700px){.solo-pc{display:none !important;}}

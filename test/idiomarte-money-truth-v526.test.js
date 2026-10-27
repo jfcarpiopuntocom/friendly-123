@@ -4,8 +4,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
-const app = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+const source = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
+const app = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
 const model = require('../docs/core/business-read-model.js');
 function extract(start, end) {
   const a = source.indexOf(start), b = source.indexOf(end, a);

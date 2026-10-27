@@ -39,7 +39,7 @@ test('a real customer with the same old id and a changed name/contact stays visi
  const {app}=await fixture(seed,{licenseCode:'SYNTHETIC',instanceId:'fixture-owner'});assert.ok((await app.request('/api/clientes')).some(c=>c.nombre==='Owner created Ashley'));assert.ok(app.catalog().clientes.some(c=>c.nombre==='Owner created Ashley'));
 });
 test('no technical demo workaround or demo label is shipped in commission copy',()=>{
- const index=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');const i18n=fs.readFileSync(path.join(__dirname,'../docs/i18n.js'),'utf8');
+ const index=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');const i18n=fs.readFileSync(path.join(__dirname,'../docs/i18n.js'),'utf8');
  assert.doesNotMatch(index,/comm\.sampleRack|esPerchaSemillaVieja/,'never mark an owner-created rack as demo by id');
  assert.doesNotMatch(i18n,/came with an early version of the app|vino con una versión antigua de la app/,'never ask the owner to disable leaked sample data');
 });

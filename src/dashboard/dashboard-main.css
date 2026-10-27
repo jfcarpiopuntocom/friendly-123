@@ -1,0 +1,356 @@
+
+@font-face{font-family:"Space Grotesk";font-style:normal;font-weight:300 700;font-display:optional;src:url(./fonts/space-grotesk-latin.woff2) format("woff2");}
+@font-face{font-family:"Source Sans 3";font-style:normal;font-weight:200 900;font-display:optional;src:url(./fonts/source-sans-3-latin.woff2) format("woff2");}
+@font-face{font-family:"JetBrains Mono";font-style:normal;font-weight:100 800;font-display:optional;src:url(./fonts/jetbrains-mono-latin.woff2) format("woff2");}
+@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:optional;src:url(./fonts/inter-latin.woff2) format("woff2");}
+
+
+  :root{
+    color-scheme: light only;
+    forced-color-adjust: none;
+    --verde:#00C87A;   --verde-dk:#00975C;
+    --amarillo:#FFC700; --amarillo-dk:#8A5A00;
+    --naranja:#F97316; --naranja-dk:#B54E0A;
+    --rojo:#E8365D;    --rojo-dk:#A8123A;
+    --negro:#0A0A0F;
+    --rust:#E86040;
+    --ink:#0F1923;
+    --body-c:#2C3E50;
+    --canvas:#F8F9FB;
+    --card:#FFFFFF;
+    --hairline:#E8ECF2;
+    --font-display:'Space Grotesk',Inter,-apple-system,'Helvetica Neue',sans-serif;
+    --font-body:Inter,-apple-system,'Helvetica Neue',sans-serif;
+    --font-mono:'JetBrains Mono','Cascadia Code',Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{
+    margin:0;padding:0;background:var(--canvas) !important;
+    color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;
+    font-family:var(--font-body);font-size:16px;line-height:1.55;
+    -webkit-text-size-adjust:100%;
+  }
+  h1,h2,h3,p,li,span,strong,a,td,th,label,button,div{
+    color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;
+  }
+  h1,h2,h3,strong{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;font-family:var(--font-display);}
+  @media (prefers-color-scheme: dark){
+    html,body{background:var(--canvas) !important;color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;}
+    h1,h2,h3,strong{color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;}
+    p,li,span,td,th,label,a,div{color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;}
+    .card,.top{background:var(--card) !important;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important;}
+  }
+
+  .wrap{width:100%;max-width:1500px;margin:0 auto;padding:0 clamp(12px,2.4vw,26px)}
+
+  .top{
+    background:var(--card);border-bottom:3px solid var(--amarillo);
+    padding:12px 0;position:sticky;top:0;z-index:30;
+  }
+  .top .wrap{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .top img{height:30px;width:auto;display:block;flex-shrink:0}
+  .top .neg{font-family:var(--font-display);font-size:clamp(16px,2vw,20px);font-weight:700}
+  .top .tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .top .tools button{background:#fff;border:2px solid var(--hairline);border-radius:10px;min-height:42px;padding:8px 12px;font:700 14px var(--font-body);cursor:pointer}
+  .top .tools button:focus-visible{outline:3px solid var(--rust);outline-offset:2px}
+  @media print{
+    @page{size:auto;margin:14mm}
+    body,html{background:#fff !important;color:#111 !important;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    #puerta,#pol,.nav-hub,.isla-caja,.top .tools,#buscar,#exp,#tabsel,.barra button,.cm-actions,#soporte{display:none !important}
+    .top{position:static;border-bottom:2px solid #333;break-after:avoid}
+    #cabecera,#tablero{display:block !important}
+    body:not([data-dashboard-auth="yes"]) #tablero{display:none !important}
+    body:not([data-dashboard-auth="yes"]) #cabecera{display:none !important}
+    #tablero{padding:10px 0 0}
+    .card,.cm-card,.kpi{box-shadow:none !important;break-inside:avoid}
+    [data-vista]{break-inside:auto}
+    table{width:100%;border-collapse:collapse}
+    tr{break-inside:avoid}
+    a[href]:after{content:none !important}
+  }
+  .pulso{
+    margin-left:auto;display:flex;align-items:center;gap:8px;
+    font-family:var(--font-mono);font-size:13px;font-weight:700;
+  }
+  .punto{width:10px;height:10px;border-radius:50%;background:#C4CDD8;flex-shrink:0}
+  .punto.vivo{background:var(--verde)}
+  .punto.viejo{background:var(--naranja)}
+  .punto.solo{background:var(--rojo)}
+
+  /* ---------- puerta ---------- */
+  #puerta{min-height:100vh;min-height:100svh;display:flex;align-items:center;justify-content:center;padding:24px}
+  /* DESKTOP FIRST, a proposito (JFC 2026-08-15): el tablero es para llegar a
+     casa y mirar el negocio con calma en una pantalla que si cabe. La app del
+     dia a dia ya es mobile-first; esta no. Igual funciona a 320px, pero las
+     medidas base son las de escritorio y se APRIETAN hacia abajo. */
+  #puerta .card{max-width:520px;width:100%;text-align:center}
+  .wrap{max-width:1500px}
+  @media (max-width: 900px){
+    .wrap{padding-left:14px;padding-right:14px}
+  }
+  .card{
+    background:var(--card);border:1px solid var(--hairline);border-radius:18px;
+    padding:clamp(20px,3.4vw,30px);
+  }
+  #puerta img{height:38px;width:auto;margin:0 auto 16px;display:block}
+  h1{font-size:clamp(24px,4vw,32px);line-height:1.2;margin:0 0 8px}
+  .sub{font-size:16px;line-height:1.55;margin:0 0 20px}
+  #puerta input[type=text],#puerta input[type=password]{
+    width:100%;min-height:52px;padding:13px 15px;border:2px solid var(--hairline);
+    border-radius:12px;font-family:var(--font-mono);font-size:17px;letter-spacing:.06em;
+    text-align:center;text-transform:uppercase;background:#FFFFFF;
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;
+  }
+  #puerta input[type=password]{margin-top:10px;letter-spacing:.4em}
+  #puerta input:focus-visible{outline:3px solid var(--rust);outline-offset:2px}
+  /* Enlaces de texto: subrayados y del color del cuerpo. Nunca gris apagado. */
+  .enlace{
+    background:none;border:none;padding:4px 2px;font-family:inherit;font-size:inherit;
+    text-decoration:underline;cursor:pointer;
+    color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;
+  }
+  /* POLITICA DE DATOS: popup ligero, sin pagina aparte. Se abre desde los dos
+     sitios donde alguien se lo puede preguntar: la puerta y el pie. */
+  #pol{position:fixed;inset:0;z-index:990;background:#0F1923D9;display:none;
+    align-items:center;justify-content:center;padding:18px;}
+  #pol.on{display:flex}
+  #pol .card{max-width:520px;width:100%;max-height:88vh;overflow-y:auto;text-align:left}
+  #pol h2{font-size:21px;margin:0 0 12px}
+  #pol p{font-size:15px;line-height:1.6;margin:0 0 11px}
+  #pol li{font-size:15px;line-height:1.6;margin:0 0 7px}
+  .btn{
+    width:100%;min-height:50px;padding:13px;border:none;border-radius:12px;
+    background:var(--rust);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;
+    font-family:var(--font-display);font-weight:700;font-size:16px;cursor:pointer;margin-top:12px;
+  }
+  .btn.sec{background:#FFFFFF;border:2px solid var(--hairline);color:var(--body-c) !important;-webkit-text-fill-color:var(--body-c) !important;}
+  .btn:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  .nota{
+    font-size:15px;line-height:1.5;text-align:left;background:var(--canvas);
+    border-left:4px solid var(--verde);border-radius:0 10px 10px 0;padding:12px 14px;margin:18px 0 0;
+  }
+  .msg{font-size:15px;font-weight:700;min-height:22px;margin:12px 0 0}
+
+  /* ---------- tablero ---------- */
+  #tablero{display:none;padding:18px 0 60px}
+  .kpis{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));
+    gap:12px;margin:0 0 18px;
+  }
+  .kpi{background:var(--card);border:1px solid var(--hairline);border-radius:14px;padding:14px 16px}
+  .kpi .et{
+    font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.05em;margin:0 0 5px;
+  }
+  .kpi .n{font-family:var(--font-display);font-size:clamp(22px,3vw,30px);font-weight:700;line-height:1.1;
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;font-variant-numeric:tabular-nums}
+  .kpi .pie{font-size:14px;margin-top:4px}
+
+  .barra{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 12px}
+  .tabsel{display:flex;gap:6px;flex-wrap:wrap}
+  .tabsel button{
+    min-height:44px;padding:10px 16px;border:2px solid var(--hairline);border-radius:11px;
+    background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:15px;cursor:pointer;
+  }
+  .tabsel button.on{background:var(--ink);border-color:var(--ink);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+  /* Tabs (JFC 2026-09-11): con 7 vistas la barra se apretaba/envolvia. Ahora
+     scrollea en horizontal (los botones no se encogen) — aditivo, mismo look. */
+  .tabsel{overflow-x:auto;-webkit-overflow-scrolling:touch;flex-wrap:nowrap;padding-bottom:2px;min-width:0;max-width:100%;contain:layout paint;}
+  .tabsel button{flex:0 0 auto;white-space:nowrap;}
+  #buscar{
+    flex:1;min-width:min(100%,240px);min-height:44px;padding:10px 14px;
+    border:2px solid var(--hairline);border-radius:11px;font-size:16px;background:#FFFFFF;
+    color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;
+    text-transform:none;text-align:left;font-family:var(--font-body);letter-spacing:normal;
+  }
+  .exp{display:flex;gap:6px;flex-wrap:wrap}
+  .exp button{
+    min-height:44px;padding:10px 13px;border:2px solid var(--hairline);border-radius:11px;
+    background:#FFFFFF;font-family:var(--font-mono);font-weight:700;font-size:13px;cursor:pointer;
+  }
+  #tabla{background:var(--card);border:1px solid var(--hairline);border-radius:14px;overflow:hidden}
+  .cierre{
+    background:var(--card);border:1px solid var(--hairline);border-left:4px solid var(--rust);
+    border-radius:0 14px 14px 0;padding:14px 16px;margin:14px 0 0;font-size:15px;line-height:1.55;
+  }
+  .cierre strong{display:block;margin-bottom:2px}
+  .pie-lienzo{
+    text-align:center;font-size:14px;line-height:1.55;margin:26px auto 0;max-width:640px;
+  }
+  .tabulator{font-family:var(--font-body);font-size:15px;border:none}
+  .tabulator .tabulator-header{background:var(--canvas);border-bottom:2px solid var(--ink)}
+  .tabulator .tabulator-col-title{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase}
+  .tabulator-row.tabulator-row-even{background:#FCFDFE}
+  .num{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  /* COMMISSIONS, LA ESTRELLA (JFC 2026-09-24, Bloque 6b). Mismo lenguaje que la
+     app (DESIGN.md, look A): tarjeta blanca borde 2px radio 6px, rotulos mono en
+     mayusculas 13px, cifras tabulares, escala 13/14/16. Color solo en cifras y
+     chips; nunca tarjetas pintadas (eso es de SIMON). */
+  #cm{margin:0 0 22px}
+  .cm-card{background:var(--card);border:2px solid var(--hairline);border-radius:6px;padding:14px 16px;margin:0 0 12px}
+  .cm-bar{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap}
+  .cm-bar label{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700;flex:1 1 240px;min-width:0;overflow-x:clip}
+  .cm-bar select{flex:1 1 180px;min-width:0;max-width:100%;min-height:40px;font-size:14px;font-weight:700;padding:4px 10px;border:2px solid var(--body-c);border-radius:6px;background:#FFFFFF;color:var(--ink)}
+  .cm-key{min-height:40px;padding:6px 12px;border:2px solid var(--body-c);border-radius:6px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:14px;cursor:pointer;color:var(--ink)}
+  .cm-key.on{background:var(--body-c);color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+  .cm-key.rojo{border-color:#B0183E;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px;margin:0 0 14px}
+  .cm-k .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .cm-k .n{font-family:var(--font-mono);font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+  .cm-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px 14px;margin-top:10px}
+  .cm-stats .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .cm-stats .n{font-family:var(--font-mono);font-size:16px;font-weight:700;font-variant-numeric:tabular-nums}
+  .cm-stats .n small{font-family:var(--font-body);font-size:13px;font-weight:400}
+  .cm-chip{display:inline-block;font-family:var(--font-display);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding:4px 10px;border-radius:6px}
+  .cm-chip.pend{background:#FAD5DE;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-chip.ok{background:#C0F5E0;color:#086944 !important;-webkit-text-fill-color:#086944 !important}
+  .cm-chip.none{background:#E8ECF2;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important}
+  .cm-verde{color:#086944 !important;-webkit-text-fill-color:#086944 !important}
+  .cm-rojo{color:#B0183E !important;-webkit-text-fill-color:#B0183E !important}
+  .cm-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .cm-actions a,.cm-actions button{min-height:40px;padding:6px 12px;border:2px solid var(--ink);border-radius:6px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:14px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;text-decoration:none;display:inline-flex;align-items:center;cursor:pointer}
+  .cm-actions a.pagar{background:var(--rust);border-color:#C05000;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px}
+  .cm-h{font-family:var(--font-display);font-size:16px;font-weight:700;margin:0}
+  /* v423: barras de reparto. Azul #1F5FB8 = asociado, verde #086944 = casa (paleta validada, CVD dE 19).
+     Texto siempre en tinta; el color solo va en la barra y en el cuadrito de la leyenda. */
+  .cm-reparto .et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px}
+  .cm-barra{display:flex;gap:2px;height:12px;max-width:100%;border-radius:4px;overflow:hidden}
+  .cm-barra i{display:block;height:100%;min-width:0}
+  .cm-barra-xl{height:28px}
+  .cm-s-asoc{background:#1F5FB8}.cm-s-casa{background:#086944}
+  .cm-leyenda{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:10px;font-size:15px;font-weight:700}
+  .cm-leyenda .sw{display:inline-block;width:14px;height:14px;border-radius:3px;margin-right:6px;vertical-align:-2px}
+  .cm-fila-barra{margin-top:10px}
+  .cm-sub{font-size:13px;margin:2px 0 0}
+  #cm details summary{cursor:pointer;font-size:14px;font-weight:700;color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important}
+  #cm table{width:100%;font-size:14px;border-collapse:collapse}
+  #cm td{padding:4px 0;vertical-align:top}
+  #cm td.num{text-align:right;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  mark{background:#FFF3C2;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;padding:0 2px;border-radius:3px}
+
+
+  /* =====================================================================
+     HUB v462 (JFC 2026-10-07): el dashboard pasa a ser un hub. Isla viva arriba,
+     tarjetas en el inicio, barra inferior en movil y barra lateral en escritorio.
+     Mobile-first: la base es 320px; min-width agrega lo grande. Sin backdrop-filter,
+     sin opacity ni rgba en texto, texto solido, nada bajo 12px, targets de 44px.
+     Cada seccion vieja sigue en el DOM con sus ids: solo se muestra la de la ruta.
+     ===================================================================== */
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+  /* El atributo hidden gana a cualquier display de autor (grid/flex) en lo que el router esconde. */
+  [data-vista][hidden]{display:none !important}
+
+  /* ---------- isla ---------- */
+  .isla-caja{display:none;position:sticky;top:0;z-index:40;height:60px;padding:8px 12px 0;
+    background:var(--canvas);justify-content:center;align-items:flex-start}
+  body.hub-on .isla-caja{display:flex}
+  .isla{position:relative;width:11.5rem;max-width:100%;max-height:48px;overflow:hidden;
+    background:#0A0A0F;border:2px solid #0A0A0F;border-radius:24px;
+    transition:width .3s cubic-bezier(.2,.8,.2,1),max-height .3s cubic-bezier(.2,.8,.2,1),border-radius .3s,border-color .2s}
+  .isla[data-estado="evento"],.isla[data-estado="alerta"]{width:min(100%,22rem)}
+  .isla[data-estado="expandida"]{width:min(100%,26rem);max-height:300px;border-radius:22px}
+  .isla[data-sync="viejo"]{border-color:#F97316}
+  .isla[data-sync="solo"]{border-color:#E8365D}
+  .isla,.isla button,.isla span,.isla a,.isla li{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+  .isla-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;
+    padding:0 14px;margin:0;background:none;border:0;font-family:var(--font-display);font-size:16px;font-weight:700;
+    line-height:1.2;text-align:left;cursor:pointer}
+  .isla-punto{width:12px;height:12px;border-radius:50%;background:#C4CDD8;flex:none}
+  .isla[data-sync="vivo"] .isla-punto{background:#00C87A}
+  .isla[data-sync="viejo"] .isla-punto{background:#F97316}
+  .isla[data-sync="solo"] .isla-punto{background:#E8365D}
+  .isla-txt{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .isla[data-estado="reposo"] .isla-txt,.isla[data-estado="expandida"] .isla-txt{display:none}
+  .isla[data-estado="evento"] .isla-txt{color:#28ECAA !important;-webkit-text-fill-color:#28ECAA !important}
+  .isla[data-estado="alerta"] .isla-txt{color:#E8A020 !important;-webkit-text-fill-color:#E8A020 !important}
+  .isla-dinero{flex:none;margin-left:auto;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+  .isla[data-estado="evento"] .isla-dinero{display:none}
+  .isla-filas{list-style:none;margin:0;padding:0 6px 8px}
+  .isla-filas a{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:6px 10px;
+    border-radius:12px;text-decoration:none;font-size:16px}
+  .isla-filas li+li{border-top:1px solid #2C3E50}
+  .isla-et{font-weight:700;flex:none}
+  .isla-v{min-width:0;text-align:right;font-weight:400;overflow-wrap:anywhere}
+  .isla-cab:focus-visible,.isla-filas a:focus-visible{outline:3px solid #FFC700;outline-offset:-3px}
+  /* El header ya no es sticky: la isla es lo que acompana al scroll. */
+  body.hub-on .top{position:static}
+
+  /* ---------- navegacion: barra inferior (movil) / lateral (escritorio) ---------- */
+  .nav-hub{display:none;position:fixed;z-index:35;left:0;right:0;bottom:0;min-height:56px;
+    padding:0 0 env(safe-area-inset-bottom);background:#0F1923;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  body.hub-on .nav-hub{display:flex}
+  .nav-hub a{flex:1 0 auto;min-width:64px;min-height:56px;display:flex;align-items:center;justify-content:center;
+    padding:0 6px;font-family:var(--font-display);font-size:12px;font-weight:700;line-height:1.15;text-align:center;
+    text-decoration:none;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+  .nav-hub a span{color:inherit !important;-webkit-text-fill-color:inherit !important}
+  .nav-hub a[aria-current="page"]{background:#FFC700;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important}
+  .nav-hub a:focus-visible{outline:3px solid #FFC700;outline-offset:-3px}
+  .nav-hub a[aria-current="page"]:focus-visible{outline-color:#0F1923}
+  .nav-hub .solo-lado{display:none}
+  body.hub-on{padding-bottom:72px;padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+
+  /* ---------- inicio: tarjetas ---------- */
+  #hub{margin:0 0 22px}
+  .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .tile{display:flex;flex-direction:column;gap:5px;min-height:132px;padding:14px;background:var(--card);
+    border:2px solid var(--hairline);border-left-width:8px;border-radius:14px;text-decoration:none}
+  .tile[data-color="verde"]{border-left-color:#00C87A}
+  .tile[data-color="naranja"]{border-left-color:#F97316}
+  .tile[data-color="rojo"]{border-left-color:#E8365D}
+  .tile:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  .tile .tile-et{font-family:var(--font-mono);font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+  .tile .tile-n{font-family:var(--font-display);font-size:22px;font-size:clamp(22px,6vw,30px);font-weight:700;line-height:1.1;
+    overflow-wrap:anywhere;font-variant-numeric:tabular-nums;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important}
+  .tile .tile-pie{font-size:14px;line-height:1.4;overflow-wrap:anywhere}
+  .tile-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .tile-chip{display:inline-block;padding:3px 9px;border-radius:20px;font-size:13px;font-weight:700}
+  @media (min-width:640px){.tiles{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  @media (min-width:1100px){.tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+  /* ---------- vistas: cabecera con Atras, y alertas ---------- */
+  .vista-cab{display:flex;align-items:center;gap:12px;margin:0 0 14px}
+  .vista-cab h2{margin:0;font-size:22px}
+  .atras{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;border:2px solid var(--hairline);
+    border-radius:11px;background:#FFFFFF;font-family:var(--font-display);font-weight:700;font-size:15px;text-decoration:none}
+  .atras:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+  #alertas-lista a{display:block;min-height:44px;padding:12px 14px;margin:0 0 10px;background:var(--card);
+    border:2px solid var(--hairline);border-left:8px solid #E8365D;border-radius:14px;text-decoration:none}
+  #alertas-lista a strong{display:block}
+  #alertas-lista p{margin:0;font-weight:700}
+
+
+  /* Escritorio: barra lateral fija de 208px; la isla y el contenido se corren. */
+  @media (min-width:900px){
+    .nav-hub{top:0;right:auto;width:208px;flex-direction:column;justify-content:flex-start;gap:6px;padding:18px 10px;overflow-x:visible;overflow-y:auto}
+    .nav-hub a{flex:0 0 auto;justify-content:flex-start;min-height:48px;padding:0 14px;border-radius:12px;font-size:16px;text-align:left}
+    .nav-hub .solo-lado{display:flex}
+    body.hub-on{padding-left:208px;padding-bottom:0}
+  }
+  /* iOS dark mode: se repiten las reglas de texto del hub para que el filtro automatico no las pise. */
+  @media (prefers-color-scheme: dark){
+    .isla,.isla button,.isla span,.isla a,.isla li{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+    .isla[data-estado="evento"] .isla-txt{color:#28ECAA !important;-webkit-text-fill-color:#28ECAA !important}
+    .isla[data-estado="alerta"] .isla-txt{color:#E8A020 !important;-webkit-text-fill-color:#E8A020 !important}
+    .nav-hub a,.nav-hub a span{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important}
+    .nav-hub a[aria-current="page"],.nav-hub a[aria-current="page"] span{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important}
+    .tile .tile-n{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important}
+    .tile,.atras,#alertas-lista a{background:#FFFFFF !important}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .isla{transition-duration:0s !important}
+  }
+
+
+  /* JFC 2026-10-09: this requirement is vestigial for a saved local notebook.
+     The old remote photo/PIN protocol still needs another device; hide these
+     legacy instructions when independent local access is actually available. */
+  #aviso-app-abierta{background:#FFF4C2;border:2px solid #B8860B;color:#4a3410;
+    border-radius:10px;padding:12px 14px;margin:0 0 14px;font-size:14px;line-height:1.5;
+    display:flex;align-items:flex-start;gap:10px;}
+  #aviso-app-abierta .icon{font-size:20px;line-height:1;flex-shrink:0;margin-top:2px;font-weight:800;}
+  #aviso-app-abierta strong{color:#2a1d0a;}
+  #aviso-app-abierta .paso{display:block;font-size:13px;color:#4a3410;margin-top:4px;}
+  .hint-boton{font-size:13px;color:#2C3E50;text-align:center;margin:6px 0 10px;}

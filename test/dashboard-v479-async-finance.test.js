@@ -1,6 +1,6 @@
 'use strict';
 const {test}=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const vm=require('node:vm');const path=require('node:path');
-const html=()=>fs.readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8');
+const html=()=>require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8');
 function extract(name){const s=html(),start=s.indexOf('function '+name+'(');assert(start>=0,name);const brace=s.indexOf('{',start);let n=0,inStr='',escape=false;for(let i=brace;i<s.length;i++){const ch=s[i];if(inStr){if(escape)escape=false;else if(ch==='\\')escape=true;else if(ch===inStr)inStr='';continue;}if(ch==='"'||ch==="'"||ch==='`'){inStr=ch;continue;}if(ch==='{')n++;else if(ch==='}'&&!--n)return s.slice(start,i+1);}throw Error('broken function '+name)}
 function fixture() {
  const reqs = [];

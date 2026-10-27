@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
-const html = fs.readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8').replace(/\r\n/g, '\n');
+const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8').replace(/\r\n/g, '\n');
 const a = html.indexOf('  setInterval(function () {\n    if (!ultimoDato) return;');
 const b = html.indexOf('}, 5000);', a);
 function pulsoCon(edadMs, wsAbierto) {

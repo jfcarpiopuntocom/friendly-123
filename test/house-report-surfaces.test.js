@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
 const R=require('../docs/core/business-read-model.js');
-const dash=fs.readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8').replace(/\r\n/g,'\n');
+const dash=require('./helpers/page-source.cjs').readFileSync(path.join(__dirname,'../docs/dashboard.html'),'utf8').replace(/\r\n/g,'\n');
 const sync=fs.readFileSync(path.join(__dirname,'../docs/sync-realtime.js'),'utf8').replace(/\r\n/g,'\n');
 const slice=(s,start,end)=>{const a=s.indexOf(start),b=s.indexOf(end,a);assert.ok(a>=0&&b>a);return s.slice(a,b);};
 const sale=(extra={})=>({id:'synthetic-sale',productoId:'p',eventoId:'synthetic-am',eventoNombre:'Synthetic workshop',eventoFecha:'2026-10-15',fecha:'2026-10-15',cantidad:1,precioUnit:100,costoUnit:10,comisionAsociado:80,netoCasa:20,modoComision:'acuerdo',...extra});

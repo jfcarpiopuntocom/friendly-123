@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 test('Commissions payment UI asks the exact amount and sends integer cents to the payout ledger', () => {
-  const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
   const start = html.indexOf('async function marcarComisionPagada');
   const end = html.indexOf('// --- VISTA AVANZADO ---', start);
   assert.ok(start >= 0 && end > start, 'payment function must exist');
@@ -18,7 +18,7 @@ test('Commissions payment UI asks the exact amount and sends integer cents to th
 
 
 test('Commissions rack card exposes a partially-paid state instead of generic pending', () => {
-  const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
   const start = html.indexOf('const tarjetaPercha = f =>');
   const end = html.indexOf('const cardsHtml', start);
   assert.ok(start >= 0 && end > start, 'rack card renderer must exist');

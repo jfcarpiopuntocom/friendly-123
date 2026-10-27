@@ -76,7 +76,7 @@ test('an invalid month falls back to the current month, never to "everything"', 
 });
 
 test('Commissions UI has a month selector wired to every money read', () => {
-  const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
   assert.match(html, /data-commissions-month/, 'selector de mes presente');
   assert.match(html, /liquidaciones\?mes=\$\{/, 'la lectura de liquidaciones manda el mes elegido');
   assert.match(html, /marcar-pagado`,\s*\{[^}]*body: JSON\.stringify\(\{ mes/, 'pagar manda el mes elegido');
