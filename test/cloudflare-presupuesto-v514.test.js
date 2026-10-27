@@ -1,9 +1,11 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 // REGLA DURA JFC (pedida ~70 veces; textual 2026-10-14): "que no nos sature las cuentas el uso
 // de los clientes en ninguna de mis apps". Estas pruebas fijan cada cuanto la app y el tablero
 // pueden tocar Cloudflare. Subir una frecuencia exige cambiar esta prueba a proposito.
 // Spec: CLAUDE.md, seccion "CLOUDFLARE: PRESUPUESTO DE CONSULTAS".
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const leer=(f)=>fs.readFileSync(path.join(__dirname,'../docs',f),'utf8').replace(/\r\n/g,'\n');
+const leer=(f)=>P(path.join(__dirname,'../docs',f),'utf8').replace(/\r\n/g,'\n');
 
 test('tablero: version.json como maximo cada 10 min de fondo (antes cada 15 s)',()=>{
   const ms=[];const c={navigator:{serviceWorker:{addEventListener(){},controller:null}},window:{addEventListener(){}},document:{querySelector:()=>null,getElementById:()=>null,addEventListener(){},hidden:false},

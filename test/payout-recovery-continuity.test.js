@@ -1,3 +1,5 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const L=require('../docs/core/payout-ledger.js');
@@ -75,7 +77,7 @@ test('product statement reflects recovered void, including the compatible wire r
  }
 });
 test('local dashboard agrees with held obligations and the local day, including UTC midnight',()=>{
- const html=fs.readFileSync(require.resolve('../docs/dashboard.html'),'utf8');
+ const html=P(require.resolve('../docs/dashboard.html'),'utf8');
  const start=html.indexOf('  function zonaNegocioDashboard(');
  const chunk=html.slice(start,html.indexOf('  function estadoSimon('));
  class Clock extends Date{constructor(...a){super(...(a.length?a:['2026-10-08T01:00:00Z']));}}

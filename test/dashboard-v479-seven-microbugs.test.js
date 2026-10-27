@@ -1,9 +1,11 @@
 'use strict';
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const html=()=>fs.readFileSync(require('node:path').join(__dirname,'../docs/dashboard.html'),'utf8');
+const html=()=>P(require('node:path').join(__dirname,'../docs/dashboard.html'),'utf8');
 function extract(prefix){const s=html();const start=s.indexOf(prefix);assert(start>=0,'function '+prefix+' present');const brace=s.indexOf('{',start);let level=0,inString='',escape=false;for(let i=brace;i<s.length;i++){const c=s[i];if(inString){if(escape){escape=false;continue}if(c==='\\'){escape=true;continue}if(c===inString)inString='';continue;}if(c==='"'||c==="'"||c==='`'){inString=c;continue}if(c==='{')level++;else if(c==='}'&&!--level)return s.slice(start,i+1);}throw Error('unterminated '+prefix)}
 test('MB1 [RED] same-revision storage signal forces repaint (no lost dashboard updates)',async()=>{
  const src=extract('async function refrescarLocal('); const result=[];let rev=4;const ctx={autorizado:true,leerEstadoLocalActual:async()=>({_rev:4,productos:[]}),_ultimaRevRepintada:4,bloquearSesionSiCambioTienda:()=>false,pintarDesdeLocal:(s)=>{result.push(s);return true}};vm.createContext(ctx);vm.runInContext(src+';this.callRefresh=refrescarLocal',ctx);await ctx.callRefresh(true);assert.equal(result.length,1,'explicit storage signal must repaint even if revision unchanged');

@@ -1,3 +1,5 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -15,7 +17,7 @@ async function fixture() {
 }
 
 async function statement(s) {
-  const source = fs.readFileSync(require.resolve('../docs/index.html'), 'utf8');
+  const source = P(require.resolve('../docs/index.html'), 'utf8');
   const start = source.indexOf('async function enviarEstadoComisionista(');
   const end = source.indexOf('\n/* Diccionario de textos de dinero', start);
   assert.ok(start > 0 && end > start);

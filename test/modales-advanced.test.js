@@ -1,3 +1,5 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 /* REGLA DURA de JFC (2026-09-24): "odio los modales de notificaciones de backup y
    cosas asi". Los avisos RUTINARIOS (recordatorio y confirmacion de respaldo,
    oferta de resumen semanal) solo se disparan cuando el usuario ENTRA a
@@ -8,7 +10,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const leer = (f) => fs.readFileSync(path.join(__dirname, '../docs', f), 'utf8');
+const leer = (f) => P(path.join(__dirname, '../docs', f), 'utf8');
 
 test('routine notices never fire on login or app start', () => {
   const sched = leer('backup-scheduler.js');

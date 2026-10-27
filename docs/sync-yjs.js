@@ -117,6 +117,8 @@
     // Leave headroom under this socket's 4 MiB cap for new changes and control frames.
     var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
     var _groupAcks = new Set();
+    // v594: legacy outbox classification runs once per channel lifetime (see clasificarHeredados).
+    var _heredadosListo = false;
     var _lastRelayProgressAt = 0;
     var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
     // Bounded v1 checkpoint repair across socket reconnects (never per socket).
@@ -264,10 +266,68 @@
     }
     var _unsaved = [];
     function avisarDurable() {
-      canal.pendientesRelay = _outbox.pending.length + _unsaved.filter(function (entry) {
+      // v594: legacy orphan fragments (huerfano) are stored but not retryable: they do not count as pending work.
+      canal.pendientesRelay = _vivos().length + _unsaved.filter(function (entry) {
         return !_outbox.pending.some(function (x) { return x.id === entry.id; });
       }).length;
+      canal.huerfanosHeredados = _outbox.pending.length - _vivos().length;
       try { window.dispatchEvent(new CustomEvent("oc-relay-durable", { detail: { canal: nombre, pendientes: canal.pendientesRelay } })); } catch (_) {}
+    }
+    // v594: entries still eligible for sending. An entry flagged `huerfano` stays in the persisted outbox
+    // (never purged blindly) but is excluded from sends, in-flight slots, timers and the pending counter.
+    function _vivos() { return _outbox.pending.filter(function (entry) { return !entry.huerfano; }); }
+    /* v594 (pendiente 2, "envios antiguos incompletos"). Builds <= v592 retired every fragment of a durable group on
+       ITS OWN ACK, so one lost sibling ACK left a persisted group with some fragments missing. v593 keeps complete
+       groups for NEW sends (local `group` id), but those old entries carry no `group`, the receiver can never assemble
+       them and so never ACKs: endless resends (relay cost) and pending > 0 forever, with up to 4 in-flight slots held.
+       The group id/index/total are inside the encrypted frame (tag 3, same layout manejar() reads), so this device,
+       which owns the key, can read them without guessing or rebuilding anything:
+         - all `total` siblings present  -> adopt `group = id` (the exact v593 format) and keep the old behaviour.
+         - siblings missing              -> flag `huerfano`: kept on disk, never sent again, not counted as pending.
+       Orphans are retired ONLY by confirmarDurable, after the relay confirmed a full-state checkpoint created after
+       the detection (the content of a local fragment is already in the local Y.Doc, and that checkpoint carries the
+       whole Y.Doc). Channels without checkpoints (fotos, direct peer) keep the flagged entry untouched. */
+    function clasificarHeredados() {
+      if (_heredadosListo || !API.clave) return Promise.resolve();
+      var candidatos = _outbox.pending.filter(function (entry) {
+        return entry.k === "op" && !entry.group && !entry.huerfano && typeof entry.c === "string";
+      });
+      if (!candidatos.length) { _heredadosListo = true; return Promise.resolve(); }
+      return Promise.all(candidatos.map(function (entry) {
+        return Promise.resolve().then(function () {
+          var binary = atob(entry.c), encrypted = new Uint8Array(binary.length);
+          for (var i = 0; i < binary.length; i++) encrypted[i] = binary.charCodeAt(i);
+          return descifrarBin(API.clave, encrypted.buffer);
+        }).then(function (bytes) {
+          if (bytes.length < 22 || bytes[0] !== 3) return null; // single-frame update: not a fragment
+          var gid = ""; for (var q = 2; q < 18; q++) gid += String.fromCharCode(bytes[q]);
+          return { id: entry.id, gid: gid, idx: bytes[18] * 256 + bytes[19], total: bytes[20] * 256 + bytes[21] };
+        }).catch(function () { return null; }); // unreadable entry: leave it exactly as before
+      })).then(function (heads) {
+        var info = Object.create(null), found = 0;
+        heads.forEach(function (h) { if (h && h.total && h.idx < h.total) { info[h.id] = h; found++; } });
+        if (!found) return;
+        var marcados = 0;
+        return mutarOutbox(function () {
+          var grupos = Object.create(null);
+          _outbox.pending.forEach(function (entry) {
+            var h = info[entry.id];
+            if (!h || entry.k !== "op" || entry.group || entry.huerfano) return;
+            var g = grupos[h.gid] || (grupos[h.gid] = { total: h.total, idx: Object.create(null), items: [], coherente: true });
+            if (g.total !== h.total) g.coherente = false;
+            g.idx[h.idx] = true; g.items.push({ entry: entry, h: h });
+          });
+          Object.keys(grupos).forEach(function (gid) {
+            var g = grupos[gid], completo = g.coherente && Object.keys(g.idx).length === g.total;
+            g.items.forEach(function (it) {
+              if (completo) it.entry.group = gid;
+              else { it.entry.huerfano = { at: Date.now(), gid: gid, idx: it.h.idx, total: g.total }; marcados++; }
+            });
+          });
+        }).then(function () {
+          if (marcados) { try { log("v594: " + marcados + " fragmento(s) heredado(s) sin hermanos en " + nombre + "; no se reintentan, se conservan"); } catch (_) {} }
+        });
+      }).catch(function () {}).then(function () { _heredadosListo = true; }); // one attempt per lifetime: failure = old behaviour
     }
     function leerOutbox() {
       if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
@@ -330,9 +390,10 @@
           _durableQueue.then(drenarDurable).catch(function () { programarDurable(); });
         }, Math.max(1, oldest + 10000 - Date.now()));
       }
-      if (_durableTimer || (!_outbox.pending.length && !_unsaved.length)) return;
+      if (_durableTimer || (!_vivos().length && !_unsaved.length)) return;
       if (canal.ws && canal.ws.readyState === 1 && inFlight.length >= MAX_DURABLE_INFLIGHT) return;
-      if (_outbox.pending.length && _outbox.pending.every(function (entry) { return _groupAcks.has(entry.id) || !!_durableInFlight[entry.id]; })) return;
+      var vivos = _vivos();
+      if (vivos.length && vivos.every(function (entry) { return _groupAcks.has(entry.id) || !!_durableInFlight[entry.id]; })) return;
       _durableTimer = setTimeout(function () {
         _durableTimer = null;
         _durableDelay = Math.min(60000, _durableDelay * 2);
@@ -384,7 +445,7 @@
       if (canal.pend.length && ws.readyState === 1) programarBufferPump();
     }
     function enviarDurable(entry) {
-      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group;
+      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano;
       var result = enviarConLimite(canal.ws, JSON.stringify(msg));
       if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
       if (result === "blocked") programarBufferPump();
@@ -394,16 +455,21 @@
       if (_pausado || !permitido()) return;
       var ws = canal.ws;
       if (!ws || ws.readyState !== 1) { programarDurable(); return; }
+      // v594: classify persisted legacy entries once, before anything is sent (serialized on the outbox queue).
+      if (!_heredadosListo && API.clave) {
+        _durableQueue = _durableQueue.then(clasificarHeredados).then(drenarDurable).catch(function () { programarDurable(); });
+        return;
+      }
       // A peer ACKs a complete fragment group; a four-fragment window can deadlock it.
-      var capacity = ws.peerOnly ? _outbox.pending.length : Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
+      var capacity = ws.peerOnly ? _vivos().length : Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
       if (!capacity) { programarDurable(); return; }
-      var available = _outbox.pending.filter(function (entry) { return !_groupAcks.has(entry.id) && !_durableInFlight[entry.id]; });
+      var available = _vivos().filter(function (entry) { return !_groupAcks.has(entry.id) && !_durableInFlight[entry.id]; });
       if (available.length > capacity) {
         // Reserve one in-flight slot for the newest business change behind a history backlog.
         available = available.slice(0, Math.max(0, capacity - 1)).concat(available[available.length - 1]);
       }
       for (var i = 0; i < available.length; i++) if (!enviarDurable(available[i])) break;
-      if (_outbox.pending.some(function (entry) { return !_durableInFlight[entry.id]; }) && ws.readyState === 1) programarDurable();
+      if (_vivos().some(function (entry) { return !_durableInFlight[entry.id]; }) && ws.readyState === 1) programarDurable();
       if (Object.keys(_durableInFlight).length) programarDurable();
     }
     function guardarSobre(entry) { guardarSobres([entry]); }
@@ -444,14 +510,23 @@
           }
           _outbox.pending = _outbox.pending.filter(function (x) { return !completed.includes(x); });
           if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
-          if (entry.k === "ckpt" && result.ok === true) _outbox.checkpoint = entry.state;
+          if (entry.k === "ckpt" && result.ok === true) {
+            _outbox.checkpoint = entry.state;
+            // v594: a relay-confirmed full-state checkpoint created AFTER the orphans were detected covers their
+            // content (it already lives in the local Y.Doc). Older checkpoints prove nothing about them.
+            var cubiertos = _outbox.pending.filter(function (x) { return x.huerfano && x.huerfano.at <= (entry.lam || 0); });
+            if (cubiertos.length) {
+              _outbox.pending = _outbox.pending.filter(function (x) { return !cubiertos.includes(x); });
+              try { log("v594: " + cubiertos.length + " fragmento(s) heredado(s) sin hermanos retirados en " + nombre + " tras checkpoint confirmado"); } catch (_) {}
+            }
+          }
         }).then(function () {
           avisarDurable();
           if (result.conflict && canal.ws && _currentPullState) {
             pedirPagina(canal.ws, _currentPullState);
             clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 60000);
           }
-          if (!_outbox.pending.length) { clearTimeout(_durableTimer); _durableTimer = null; _durableDelay = 2000; }
+          if (!_vivos().length) { clearTimeout(_durableTimer); _durableTimer = null; _durableDelay = 2000; }
           else { clearTimeout(_durableTimer); _durableTimer = null; drenarDurable(); }
         }).catch(function () {
           _groupAcks.clear(); _durableInFlight = Object.create(null);

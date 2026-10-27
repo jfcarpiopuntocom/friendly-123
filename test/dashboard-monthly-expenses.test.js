@@ -1,3 +1,5 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -6,7 +8,7 @@ const root=require('node:path').join(__dirname,'../docs');
 const month=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'2-digit'});
 const period=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
 test('Expenses compares actual monthly sales and expenses; returned sales do not inflate net',async()=>{
- const html=fs.readFileSync(root+'/index.html','utf8');
+ const html=P(root+'/index.html','utf8');
  const code=html.slice(html.indexOf('async function cargarGastos(){'),html.indexOf('async function registrarGasto(){'));
  const nodes=Object.fromEntries(['listaGastos','gastosResumen','gastoFecha','gastosPorCategoria'].map(k=>[k,{innerHTML:'',value:'',querySelectorAll:()=>[]}]));
  const sales=[{fecha:period+'-10T12:00:00Z',cantidad:2,precioUnit:25,ubicacionId:'a'},{fecha:period+'-11T12:00:00Z',cantidad:1,precioUnit:10,ubicacionId:'a',devuelta:true,fechaDevolucion:period+'-11'},{fecha:'2020-01-01',cantidad:1,precioUnit:1000}];
@@ -16,7 +18,7 @@ test('Expenses compares actual monthly sales and expenses; returned sales do not
  assert.match(nodes.gastosResumen.innerHTML,/Sales less expenses[\s\S]*?\$38\.00/);
 });
 test('Monthly PDF contains sales and detailed expenses for the same month',()=>{
- const html=fs.readFileSync(root+'/dashboard.html','utf8');
+ const html=P(root+'/dashboard.html','utf8');
  const code=html.slice(html.indexOf('  function reporte(cual) {'),html.indexOf('  /* ================================================== EL MANDO'));
  const tables=[],texts=[];
  const PDF=require('./helpers/report-pdf.cjs').instrumentPDF(tables,texts);
@@ -28,7 +30,7 @@ test('Monthly PDF contains sales and detailed expenses for the same month',()=>{
 });
 
 test('App expense month stays pending when an expense cannot be assigned a date',async()=>{
- const html=fs.readFileSync(root+'/index.html','utf8');
+ const html=P(root+'/index.html','utf8');
  const code=html.slice(html.indexOf('async function cargarGastos(){'),html.indexOf('async function registrarGasto(){'));
  const nodes=Object.fromEntries(['listaGastos','gastosResumen','gastoFecha','gastosPorCategoria'].map(k=>[k,{innerHTML:'',value:'',querySelectorAll:()=>[]}]));
  const sales=[{fecha:period+'-10T12:00:00Z',cantidad:2,precioUnit:25,ubicacionId:'a'},{fecha:period+'-11T12:00:00Z',cantidad:1,precioUnit:10,ubicacionId:'a',devuelta:true,fechaDevolucion:period+'-11'},{fecha:'2020-01-01',cantidad:1,precioUnit:1000}];

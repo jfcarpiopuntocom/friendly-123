@@ -32,6 +32,7 @@ function runner(mode, role = 'dueno') {
   const compile = new Function('deps',
     'const {_rolLocal,_normRetencion,_revNueva,J}=deps;\n'
     + 'const RETENCION_DIAS=[0,7,14,30];\n'
+    + 'let _conflictoEstadoAB=null;\n' /* v587 lexical dependency of aplicarCatalogo: no A/B storage conflict in this fixture */
     + 'let ajusteRetencion={id:"retencion",dias:7,rev:{c:1,d:"fixture"}};\n'
     + 'let movimientos=[],selloUltimo="original",_payoutConfirmando=false,_payoutCatalogosPendientes=[];\n'
     + 'const clonar=o=>JSON.parse(JSON.stringify(o));\n'

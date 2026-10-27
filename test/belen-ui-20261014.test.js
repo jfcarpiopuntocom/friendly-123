@@ -8,7 +8,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]])test(`Belé
   await ctx.route('**/*',async route=>{
    const u=new URL(route.request().url());if(u.origin!==ORIGIN)return route.abort();
    const file=path.resolve(DOCS,u.pathname.slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();
-   try{let body=fs.readFileSync(file);if(u.pathname==='/dashboard.html')body=Buffer.from(body.toString().replace('  window.OCDashComisiones =','  window.__stockAudit = {receive:recibirTrozo,refresh:refrescarLocal};\n  window.OCDashComisiones ='));
+   try{let body=fs.readFileSync(file);/* v593 follow-up: dashboard code now ships as dashboard-main.min.js (identifiers are not mangled, only whitespace); serve its unminified source so the same hook anchor still exists. */if(u.pathname==='/dashboard-main.min.js')body=Buffer.from(fs.readFileSync(path.resolve(DOCS,'../src/dashboard/dashboard-main.js'),'utf8').replace('  window.OCDashComisiones =','  window.__stockAudit = {receive:recibirTrozo,refresh:refrescarLocal};\n  window.OCDashComisiones ='));
     await route.fulfill({status:200,contentType:({'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css','.woff2':'font/woff2'})[path.extname(file)]||'application/octet-stream',body});
    }catch(_){await route.fulfill({status:404,body:'fixture asset absent'});}
   });

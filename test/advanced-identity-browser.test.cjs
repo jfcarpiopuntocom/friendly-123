@@ -1,9 +1,11 @@
 'use strict';
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 // Real markup/styles/identity handlers, synthetic local session and network only.
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const {chromium}=require('playwright');
-const html=fs.readFileSync(path.join(__dirname,'../docs/index.html'),'utf8');
+const html=P(path.join(__dirname,'../docs/index.html'),'utf8');
 const header=html.slice(html.indexOf('<header>'),html.indexOf('</header>')+9);
 const start=html.indexOf('<section id="vista-avanzado"');
 const advanced=html.slice(start,html.indexOf('</section>',start)+10);

@@ -1,10 +1,12 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
 const docs = path.join(__dirname, '..', 'docs');
-const read = name => fs.readFileSync(path.join(docs, name), 'utf8');
+const read = name => P(path.join(docs, name), 'utf8');
 
 test('labels cannot route a product QR to another JFC app', () => {
   const backend = read('mock-backend.js');

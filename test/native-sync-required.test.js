@@ -1,10 +1,12 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const read = name => fs.readFileSync(path.join(__dirname, '..', 'docs', name), 'utf8');
+const read = name => P(path.join(__dirname, '..', 'docs', name), 'utf8');
 const base = 'a'.repeat(40);
 function forbiddenSocket() { throw Error('Cloudflare data connection attempted'); }
 

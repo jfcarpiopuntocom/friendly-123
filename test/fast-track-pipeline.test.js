@@ -42,8 +42,11 @@ test('hotfix hands off tested SHA after promotion; broad regression cannot dupli
   assert.match(publish, /elif \[ -n "\$EXPECT_CANDIDATE" \]; then\n\s*#.*\n\s*CANDIDATE="\$EXPECT_CANDIDATE"/);
   assert.ok(publish.indexOf('CANDIDATE="$EXPECT_CANDIDATE"') < publish.indexOf('elif [ "$QA" = "true" ]'));
   assert.match(publish, /EXPECT_STABLE/); assert.match(publish, /EXPECT_PREVIOUS/);
-  assert.match(hotfix, /path: ~\/\.cache\/ms-playwright/);
-  assert.match(hotfix, /hashFiles\('package-lock.json'\)/);
+  // v594: hotfix moved to the same version-matched official Playwright image as the broad gate
+  // (run 40504468263 stalled on apt in install-deps). Same contract, asserted for both workflows.
+  const pinnedHotfix = require('../package-lock.json').packages['node_modules/playwright'].version;
+  assert.ok(hotfix.includes('image: mcr.microsoft.com/playwright:v' + pinnedHotfix + '-noble'));
+  assert.doesNotMatch(hotfix, /npx playwright install-deps/);
   assert.match(hotfix, /npm ci/);
   // The full release gate now uses browsers already installed in a version-matched
   // official Playwright image. Assert THAT contract, not the obsolete cache layout.

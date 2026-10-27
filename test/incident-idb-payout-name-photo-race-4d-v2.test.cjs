@@ -83,6 +83,10 @@ function fixture(options = {}) {
 
   const ctx = {
     _guardadoEstrictoPendiente: null, _retencionPendiente: null, _rolLocal: () => 'dueno',
+    // v587 lexical dependencies of guardarEstadoLocal: this fixture models the A/B buffer as unavailable (localStorage quota), so only the IDB mirror can commit.
+    _estadoAB: () => null, _conflictoEstadoAB: null, _estadoLecturaBloqueada: false,
+    _guardadoCatalogoPendiente: null, _ultimoGuardadoPublicable: true, _guardandoAB: false, _estadoPublicableConfirmado: null,
+    _huellaPublicable(estado) { const { _rev, _abCommit, ...datos } = estado; return JSON.stringify(datos); },
     window: win,
     localStorage: {
       getItem: k => storage.get(k) ?? null,

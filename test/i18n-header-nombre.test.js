@@ -1,3 +1,5 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 /* Cambiar de idioma NO puede borrar el nombre del negocio (JFC 2026-09-22).
 
    EL BUG REPORTADO: "aprieto el botón de idiomas y se rompe el name del header
@@ -22,7 +24,7 @@ const { chromium } = require('playwright');
 const { pathToFileURL } = require('node:url');
 const { browser: fixtureBrowser } = require('./helpers/browser.cjs');
 
-const html = fs.readFileSync(path.join(__dirname, '../docs/index.html'), 'utf8');
+const html = P(path.join(__dirname, '../docs/index.html'), 'utf8');
 const bloque = html.slice(html.indexOf('// --- Nombre editable del negocio'), html.indexOf('// --- Navegación ---'));
 const i18nSrc = fs.readFileSync(path.join(__dirname, '../docs/i18n.js'), 'utf8');
 

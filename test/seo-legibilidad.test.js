@@ -9,7 +9,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const DOCS = path.join(__dirname, '../docs');
-const leer = (f) => fs.readFileSync(path.join(DOCS, f), 'utf8');
+// v593 follow-up: index.html now links app-style-02.min.css; read the extracted source so the exact CSS rule assertions stay meaningful.
+const leer = (f) => require('./helpers/page-source.cjs').readFileSync(path.join(DOCS, f), 'utf8');
 
 test('robots.txt y sitemap.xml existen, se apuntan y no exponen el panel', () => {
   const robots = leer('robots.txt'), sitemap = leer('sitemap.xml');

@@ -13,7 +13,8 @@ test('demo hooks are inline, demo-only and point to the price page', () => {
   assert.match(js, /if \(!esDemo\(\)\) \{[^}]*remove\(\)/, 'fuera del demo se quitan');
   assert.doesNotMatch(js, /position:\s*fixed|aria-modal/, 'nunca modal ni fijo');
   assert.match(js, /PRECIO_URL = "\.\/save\.html"/);
-  assert.match(leer('index.html'), /<script src="\.\/ganchos-demo\.js"><\/script>/);
+  // v589 added defer to the script tag; accept any attribute order, same file must still be referenced.
+  assert.match(leer('index.html'), /<script[^>]*\bsrc="\.\/ganchos-demo\.js"[^>]*><\/script>/);
   assert.match(leer('sw.js'), /"\.\/ganchos-demo\.js"/, 'en el SHELL');
 });
 

@@ -4202,7 +4202,10 @@
       nombreNegocio = remoto.nombreNegocio.trim().slice(0, 80);
       if (_tsRemoto) nombreNegocioTs = _tsRemoto;
       if (_revRemoto > nombreNegocioRev) nombreNegocioRev = _revRemoto; // Lamport: sincroniza el contador
-      try {
+      // v594: f123_owned describe el negocio PROPIO. Dentro de una tienda unida el
+      // nombre del equipo vive solo en el namespace activo; copiarlo al sidecar
+      // hacia que el candado/header mostraran el nombre ajeno al volver a casa.
+      if (_cuadernoPropio()) try {
         const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
         _ow.nombreNegocio = nombreNegocio;
         if (_tsRemoto) _ow.nombreNegocioTs = _tsRemoto;
@@ -4405,6 +4408,21 @@
     // "licencia canónica del lord" se retiró (ver RETIRO DEL LORD arriba).
     try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); return o && o.licenseCode ? _normLic(o.licenseCode) : ""; } catch (_) { return ""; }
   }
+  /* v594: ¿el cuaderno ACTIVO es el del negocio propio? Si (a) el sufijo es "" o
+     (b) apunta a la misma licencia que f123_owned.licenseCode (aparato reclamado a
+     su licencia canonica). Solo entonces f123_owned (sidecar propio) puede seguir
+     el nombre del cuaderno. En una tienda unida el nombre es del equipo, no del
+     sidecar: antes aplicarCatalogo/aplicarCheckpoint/renombrar lo copiaban igual. */
+  function _cuadernoPropio() {
+    try { return !OC_STATE_SUFIJO || _normLic(OC_STATE_SUFIJO.slice(2)) === _licenciaPropia(); } catch (_) { return true; }
+  }
+  /* v594: hash corto (4 hex, FNV-1a) para la traza de diagnostico: permite comparar
+     "la misma cosa" entre dos aparatos sin sacar nombres ni licencias de la pantalla. */
+  function _h4(x) {
+    var h = 0x811c9dc5, s = String(x || "");
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ("0000" + (h & 0xffff).toString(16)).slice(-4);
+  }
   function _licenciaActual() {
     // La licencia de la tienda activa: si hay sufijo "::L", es L; si no, la propia.
     return OC_STATE_SUFIJO ? OC_STATE_SUFIJO.slice(2) : _licenciaPropia();
@@ -4418,6 +4436,30 @@
     /* Nombre de la tienda ACTIVA (namespaceado, en memoria). "" si aún no tiene
        nombre (tienda unida recién creada que todavía no sincronizó). */
     nombreActivo() { try { return nombreNegocio || ""; } catch (_) { return ""; } },
+    /* v594: UNICA regla de "nombre que se puede mostrar" para quien no quiere
+       esperar al cuaderno: el nombre del cuaderno activo; si aun esta vacio, el
+       ultimo nombre conocido del negocio PROPIO (sidecar) y NUNCA en tienda unida
+       (alli un nombre ajeno del sidecar rotularia el cuaderno equivocado). */
+    nombreConocido() {
+      try {
+        if (nombreNegocio) return nombreNegocio;
+        if (!_cuadernoPropio()) return "";
+        const o = JSON.parse(localStorage.getItem("f123_owned") || "null");
+        return (o && typeof o.nombreNegocio === "string") ? o.nombreNegocio.trim() : "";
+      } catch (_) { return ""; }
+    },
+    /* v594: TRAZA DE DIAGNOSTICO, SOLO LECTURA. Sin nombres, licencias ni datos de
+       clientes: solo hashes de 4 hex, la revision y que fuente ganaria. La pinta la
+       linea "Sync:" de Advanced para que se pueda copiar y comparar entre aparatos. */
+    trazaNombre() {
+      try {
+        let o = null; try { o = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) {}
+        const car = (o && typeof o.nombreNegocio === "string") ? o.nombreNegocio.trim() : "";
+        const fuente = nombreNegocio ? "ram" : (_cuadernoPropio() && car ? "sidecar" : "vacio");
+        return { unida: !!OC_STATE_SUFIJO, ns: _h4(OC_STATE_SUFIJO), rev: Number(nombreNegocioRev) || 0,
+          nombre: _h4(nombreNegocio), sidecar: _h4(car), sidecarRev: Number(o && o.nombreNegocioRev) || 0, fuente: fuente };
+      } catch (_) { return { fuente: "error" }; }
+    },
     /* Cambia la app a la tienda de la licencia dada. Devuelve
        { ok, cambiado, mismo } sin recargar si ya estás en esa tienda. */
     cambiar(licencia, opts) {
@@ -4775,7 +4817,8 @@
            aplica la regla "el dueño gana" — esa corre por el catálogo en vivo. */
         if (snap && typeof snap.nombreNegocio === "string" && snap.nombreNegocio.trim() && !String(nombreNegocio || "").trim()) {
           nombreNegocio = snap.nombreNegocio.trim().slice(0, 80);
-          try {
+          // v594: igual que aplicarCatalogo, el sidecar solo sigue al cuaderno propio.
+          if (_cuadernoPropio()) try {
             const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
             _ow.nombreNegocio = nombreNegocio;
             localStorage.setItem("f123_owned", JSON.stringify(_ow));
@@ -7912,7 +7955,9 @@
         }
         if (!sigueSiendoIntento) return J({ error: "Business name changed while saving. Check the current name and retry." }, 409);
         // Cache and notify only AFTER the full notebook state is durable.
-        try {
+        // v594: renombrar dentro de una tienda unida no toca el sidecar del negocio propio.
+        // (typeof: las pruebas E4/1AAA ejecutan este manejador extraido sin el helper; ausente = comportamiento previo.)
+        if (typeof _cuadernoPropio !== "function" || _cuadernoPropio()) try {
           const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
           _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs;
           _o.nombreNegocioRev = nombreNegocioRev;

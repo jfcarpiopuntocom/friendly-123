@@ -65,7 +65,7 @@ test('a financial export waiting for its PDF tool is cancelled when the notebook
 });
 
 test('export cancels when data mutates in place or the search changes while loading', async () => {
-  const html = await fs.readFile(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8') /* v593 follow-up: read extracted dashboard-main source */;
   const from = html.indexOf('  async function ejecutarExportacion('), to = html.indexOf('  function pintarSelector()', from);
   for (const change of ['revision', 'search']) {
     let finish;
@@ -121,7 +121,7 @@ test('PDF tools stay unloaded until requested; failed first load retries and all
 
 test('collapsed history avoids DOM work and preserves every latest movement on opening', async () => {
   const { context, page } = await shop();
-  const html = await fs.readFile(path.join(__dirname, '../docs/dashboard.html'), 'utf8');
+  const html = require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, '../docs/dashboard.html'), 'utf8') /* v593 follow-up: read extracted dashboard-main source */;
   await context.route('**/dashboard.html', route => route.fulfill({ contentType: 'text/html', body: html.replace('  function mostrar() {',
     '  window.__performanceFixture = { snapshot: function(rows) { datos = Object.assign({}, datos, {movimientos: rows}); mostrar(); } };\n  function mostrar() {') }));
   try {

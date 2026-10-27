@@ -1,10 +1,10 @@
 {
-  "version": "shell v593",
+  "version": "shell v594",
   "fecha": "2026-10-27",
-  "changelog": "v593: retain full durable fragment groups until every acknowledgement, preserve deferred UI subscriptions and valid escaped direct-sync frames.",
+  "changelog": "v594: legacy partial outbox groups stop resending without data loss, joined-store names no longer overwrite the own-store name, Advanced init waits for deferred scripts.",
   "requerida": false,
-  "shell": "f123-shell-v593",
+  "shell": "f123-shell-v594",
   "apagar": [],
-  "releaseName": "shell v593",
-  "cacheGeneration": "golden139"
+  "releaseName": "shell v594",
+  "cacheGeneration": "golden140"
 }

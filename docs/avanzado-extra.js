@@ -2,6 +2,13 @@
 //   1) Gestión (gastos, correo de recuperación, claves) — visible al dueño.
 //   2) Contable (cuentas T, P&G, balance, valorizado) — detrás de la SUBCLAVE.
 // Depende de window.OCAuth (auth-ui.js).
+// v594: capturar ANTES de todo, porque document.currentScript solo vale durante la ejecucion
+// sincronica del script. v590 puso `defer` en index.html: un script defer corre con readyState
+// "interactive" (no "loading"), asi que el chequeo de abajo llamaba init() sincronico a mitad del
+// archivo, antes de definirse window.OCPinOculto (fin del archivo) y antes de OCCargador/OCSalud.
+// Si es defer, init espera a DOMContentLoaded (los defer ya habran corrido todos). Si lo inyecta
+// el cargador despues de DCL, currentScript no es defer y corre ya, como antes.
+var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
 (function () {
   // FIX preventivo 2026-07-07: escHtml vive en index.html; si algun dia
   // cambia el orden de los <script>, todo Avanzado moriria con
@@ -797,6 +804,25 @@
             var lat = "";
             try { if (window.OCLatencia) lat = " · " + window.OCLatencia.texto(); } catch (_) {}
             lat += window._ocRelojNota || "";
+            /* v594: TRAZA DE NOMBRE, SOLO LECTURA, en la misma linea "Sync:" (visible solo
+               a JFC/canario, ver _verDiag). Formato: name ns=<hash> rev=<n> src=<ram|sidecar|vacio>
+               ram=<hash del nombre del cuaderno> hdr=<hash del texto del header, o "-" si aun es
+               el titulo por defecto>. Solo hashes de 4 hex: sin nombres ni licencias. ram y hdr
+               iguales = header y cuaderno coinciden; distintos = divergencia. No cambia la UI
+               ni escribe nada. */
+            try {
+              if (window.OCTienda && window.OCTienda.trazaNombre) {
+                var _tz = window.OCTienda.trazaNombre();
+                var _hn = document.getElementById("oc-negocio-nombre");
+                var _hh = "-";
+                if (_hn && !(_hn.hasAttribute && _hn.hasAttribute("data-i18n"))) {
+                  var _ht = String(_hn.textContent || "").trim(), _x = 0x811c9dc5;
+                  for (var _i = 0; _i < _ht.length; _i++) { _x ^= _ht.charCodeAt(_i); _x = Math.imul(_x, 0x01000193) >>> 0; }
+                  _hh = ("0000" + (_x & 0xffff).toString(16)).slice(-4);
+                }
+                lat += " · name ns=" + _tz.ns + (_tz.unida ? "(joined)" : "") + " rev=" + _tz.rev + " src=" + _tz.fuente + " ram=" + _tz.nombre + " hdr=" + _hh;
+              }
+            } catch (_) {}
             el.textContent = "Sync: " + (conectado ? "connected" : "NOT connected") +
               " · products " + prod + " · shelves " + perchas + " · photos " + fotos + lat;
             el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
@@ -1613,8 +1639,11 @@
       const _soyDueno = isDueno();
       let _nombreNegocio = "";
       try {
-        _nombreNegocio = (window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo())
-          || (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || "";
+        /* v594: misma regla que el candado y el header (OCTienda.nombreConocido): el
+           sidecar del negocio propio solo vale en el cuaderno propio; en una tienda unida
+           rotulaba el cuaderno con el nombre del negocio propio. */
+        _nombreNegocio = (window.OCTienda && window.OCTienda.nombreConocido && window.OCTienda.nombreConocido())
+          || (window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo()) || "";
       } catch (_) {}
       let _correoDueno = "";
       try { _correoDueno = (window.OCSecure && window.OCSecure.leerCorreo && window.OCSecure.leerCorreo()) || ""; } catch (_) {}
@@ -3324,7 +3353,8 @@
   // Wall defensiva (2026-07-08): si init() lanzara al construir Avanzado, el
   // error queda aislado aquí — no rompe el resto de la app ni el arranque.
   function initSeguro() { try { init(); } catch (e) { console.error("Avanzado init falló (aislado):", e); } }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initSeguro);
+  // v594: ver _avxEsDefer arriba (defer corre en readyState "interactive", antes de DOMContentLoaded).
+  if (document.readyState === "loading" || _avxEsDefer) document.addEventListener("DOMContentLoaded", initSeguro);
   else initSeguro();
 
   // ===========================================================================

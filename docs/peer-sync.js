@@ -2,7 +2,7 @@
 (function () {
   'use strict';
   const ID = /^[a-f0-9]{32}$/, HASH = /^[a-f0-9]{64}$/;
-  const MAX_PACKET = 384 * 1024, CHUNK = 12000, MAX_BUFFER = 512 * 1024;
+  const MAX_PACKET = 384 * 1024, CHUNK = 12000, MAX_BUFFER = 512 * 1024, NUDGE_AFTER = 1000;
   function create(options = {}) {
     const WS = options.WebSocket || window.WebSocket, RTC = options.RTCPeerConnection || window.RTCPeerConnection;
     const secure = options.crypto || window.crypto, hubs = new Map();
@@ -20,7 +20,7 @@
         hub.sockets.add(this); hub.start();
         if (hub.connected().length) queueMicrotask(() => this.open());
       }
-      get bufferedAmount() { return this.queuedBytes + this.hub.connected().reduce((n, peer) => n + (peer.dc.bufferedAmount || 0), 0); }
+      get bufferedAmount() { this.hub.nudge(); return this.queuedBytes + this.hub.connected().reduce((n, peer) => n + (peer.dc.bufferedAmount || 0), 0); }
       emit(type, properties = {}) {
         const event = type === 'message' ? new MessageEvent(type, { data: properties.data }) : new Event(type);
         for (const [key, value] of Object.entries(properties)) if (key !== 'data') Object.defineProperty(event, key, { value });
@@ -94,6 +94,23 @@
     class Hub {
       constructor(room) { this.room = room; this.id = random(); this.peers = new Map(); this.sockets = new Set(); this.signal = null; this.attempts = 0; this.timer = null; }
       connected() { return [...this.peers.values()].filter(peer => peer.dc && peer.dc.readyState === 'open'); }
+      // v594: Chromium serves RTCDataChannel.bufferedAmount from a cached copy of the SCTP queue that it
+      // refreshes only on send() and via a threshold callback. In real Chromium runs (CPU x6) the copy froze
+      // at the total bytes sent (527889) while the receiver already held every byte, so both Socket.send and
+      // deliver stayed blocked until the 5 s / 10 s deadlines. A frozen non-zero counter is refreshed with a
+      // 2-byte '{}' frame: receive() already drops it (piece.v !== 1), also in older receivers. Counters that
+      // move, or sit at 0, are never touched. No timer on purpose: nudge() runs only while somebody is waiting on the counter
+      // (Socket.bufferedAmount, read by the sync-yjs pump every 100 ms, and the deliver() wait loop), so tests that count
+      // pending timers and idle channels are unaffected. Tune NUDGE_AFTER only with a Chromium A/B run, not by guess.
+      nudge() {
+        const now = Date.now();
+        for (const peer of this.peers.values()) {
+          const dc = peer.dc; if (!dc || dc.readyState !== 'open') continue;
+          const value = dc.bufferedAmount || 0, mark = peer.mark;
+          if (!value || !mark || mark.channel !== dc || mark.value !== value) { peer.mark = { channel: dc, value, since: now, at: 0 }; continue; }
+          if (now - mark.since >= NUDGE_AFTER && now - mark.at >= NUDGE_AFTER) { mark.at = now; try { dc.send('{}'); } catch (_) {} }
+        }
+      }
       start() {
         if (this.signal && this.signal.readyState < 2 || this.timer || this.attempts >= 5 || !this.sockets.size) return;
         this.attempts++;
@@ -177,7 +194,7 @@
         for (let i = 0; i < count; i++) {
           const until = Date.now() + 5000;
           while (peer.dc.readyState === 'open' && peer.dc.bufferedAmount > MAX_BUFFER) {
-            if (Date.now() > until) return false; await new Promise(resolve => setTimeout(resolve, 20));
+            if (Date.now() > until) return false; this.nudge(); await new Promise(resolve => setTimeout(resolve, 20));
           }
           if (peer.dc.readyState !== 'open') return false;
           peer.dc.send(JSON.stringify({ v: 1, id, i, count, data: text.slice(i * CHUNK, (i + 1) * CHUNK) }));

@@ -44,9 +44,9 @@ test('direct adapter bounds its JS queue and binds legacy retries to the new cip
   }finally{factory.closeAll();win.F123Relay.closeAll();}
 });
 
-async function fixture(name='catalogo',initialSaved=[]){
+async function fixture(name='catalogo',initialSaved=[],peerOnly=true,ckpt=false){
   const receipts=[],sent=[],transactions=[],saved=new Map(initialSaved),timers=[];let storeResult=true,failNextSave=false,failReadAfterWrite=false,failNextRead=false;
-  const socket={peerOnly:true,readyState:1,send:value=>sent.push(value),close(code){if(code!==undefined&&code!==1000&&(!Number.isInteger(code)||code<3000||code>4999))throw new DOMException('Invalid WebSocket close code','InvalidAccessError');this.readyState=3;},
+  const socket={peerOnly,readyState:1,send:value=>sent.push(value),close(code){if(code!==undefined&&code!==1000&&(!Number.isInteger(code)||code<3000||code>4999))throw new DOMException('Invalid WebSocket close code','InvalidAccessError');this.readyState=3;},
     confirmPeerReceipt(receipt,proof){receipts.push({receipt,proof});},acceptPeerAck(meta){this.onmessage({data:JSON.stringify({k:'persist-result',kind:meta.kind,id:meta.id,ok:true}),peerAccepted:true});}};
   const persistence={whenSynced:Promise.resolve(),get:async key=>{if(failNextRead){failNextRead=false;throw Error('synthetic outbox read rejected');}return structuredClone(saved.get(key));},set:async(key,value)=>{if(failNextSave){failNextSave=false;failNextRead=failReadAfterWrite;throw Error('synthetic outbox write rejected');}saved.set(key,structuredClone(value));},
     db:{objectStoreNames:{contains:key=>key==='updates'},transaction(){const tx={};transactions.push(tx);return tx;}}};
@@ -60,7 +60,7 @@ async function fixture(name='catalogo',initialSaved=[]){
   vm.createContext(ctx);vm.runInContext(block+'\nthis.make=crearCanal;',ctx);
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
   const doc=new ctx.Y.Doc(),remote=new ctx.Y.Doc();
-  const channel=ctx.make(ctx.Y,doc,'-y',name,false,null,persistence);channel.conectar();socket.onopen();await settle();
+  const channel=ctx.make(ctx.Y,doc,'-y',name,ckpt,null,persistence);channel.conectar();socket.onopen();await settle();
   function send(bytes,id='synthetic-op'){
     const receipt={id,kind:'op',peer:'synthetic-peer',hash:require('node:crypto').createHash('sha256').update(bytes).digest('hex')};
     socket.onmessage({data:bytes.slice().buffer,relaySource:'peer',peerReceipt:receipt});return receipt;
@@ -315,5 +315,64 @@ test('transient snapshot persistence failure retries direct catch-up on the same
     assert.ok(f.sent.filter(value=>value instanceof ArrayBuffer&&new Uint8Array(value)[0]===1).length>before,'automatic retry sends only a direct hydrated state vector');
     f.setStoreResult(true);f.socket.onmessage({data:bytes.buffer,relaySource:'peer'});await settle();f.transactions.at(-1).oncomplete();await settle();
     assert.equal(f.channel.recuperando,false);
+  }finally{f.close();}
+});
+
+// v594: outbox persisted by <=v592 (no local `group` id). Those builds retired each fragment on ITS OWN ACK, so a lost
+// sibling ACK left a group with some fragments missing. The receiver can never assemble it, so it never ACKs.
+const OUTBOX_KEY='f123_relay_outbox_v1-y';
+function legacyFragment(gid,index,total,fill=7){const out=new Uint8Array(22+16);out[0]=3;out[1]=0;for(let i=0;i<16;i++)out[2+i]=gid.charCodeAt(i);out[18]=index>>8;out[19]=index&255;out[20]=total>>8;out[21]=total&255;out.fill(fill,22);return out;}
+function legacyOp(id,frame){return {k:'op',ack:1,id,fingerprint:'fp-'+id,lam:1,c:Buffer.from(frame).toString('base64')};}
+const savedOutbox=pending=>[[OUTBOX_KEY,{pending,checkpoint:'',confirmed:[]}]];
+const opsSent=f=>f.sent.filter(v=>typeof v==='string').map(JSON.parse).filter(v=>v.k==='op');
+const ackFrame=(f,id,kind='op')=>f.socket.onmessage({data:JSON.stringify({k:'persist-result',kind,id,ok:true}),peerAccepted:true});
+
+test('v594 legacy orphan fragment (part 2/3 alone) is not retried forever and is not counted as pending',async()=>{
+  const f=await fixture('catalogo',savedOutbox([legacyOp('legacy-2of3',legacyFragment('LEGACYGROUP00001',1,3))]));try{
+    await settle();
+    assert.equal(opsSent(f).length,0,'a fragment whose siblings cannot exist must not be sent to the relay/peer');
+    f.ctx.Date={now:()=>Date.now()+11000};
+    for(let i=0;i<3;i++){for(const t of f.timers.filter(t=>!t.cancelled&&!t.fired&&t.ms>=1&&t.ms<60000)){t.fired=true;t.fn();}await settle();}
+    assert.equal(opsSent(f).length,0,'watchdog/backoff cycles cannot replay the orphan (relay cost loop)');
+    assert.equal(f.channel.pendientesRelay,0,'an unretryable orphan cannot keep the pending counter above zero forever');
+    assert.equal(f.channel.huerfanosHeredados,1,'orphan stays visible to diagnostics');
+    assert.equal(f.saved.get(OUTBOX_KEY).pending.length,1,'no ciphertext is purged without proof the data is safe');
+    assert.ok(f.saved.get(OUTBOX_KEY).pending[0].huerfano,'orphan is marked non-retryable in the persisted outbox');
+  }finally{f.close();}
+});
+
+test('v594 legacy orphans cannot starve a new update behind the in-flight window (relay socket)',async()=>{
+  const orphans=[0,1,2,3,4,5].map(n=>legacyOp('legacy-o'+n,legacyFragment('LEGACYGROUP0000'+n,1,3)));
+  const f=await fixture('catalogo',savedOutbox(orphans),false);try{
+    await settle();
+    f.channel.enviarUpdate(new Uint8Array([1,2,3,4,5,6,7,8]));
+    await until(()=>opsSent(f).some(op=>!op.id.startsWith('legacy-o')),'the new business change is sent promptly');
+    assert.equal(opsSent(f).filter(op=>op.id.startsWith('legacy-o')).length,0,'orphans never occupy in-flight slots');
+  }finally{f.close();}
+});
+
+test('v594 a legacy group whose siblings are all present is adopted as a local group and still retires together',async()=>{
+  const gid='LEGACYGROUPFULL1',a=legacyOp('legacy-full-0',legacyFragment(gid,0,2)),b=legacyOp('legacy-full-1',legacyFragment(gid,1,2));
+  const f=await fixture('catalogo',savedOutbox([a,b]));try{
+    await until(()=>opsSent(f).length===2,'complete legacy group is still delivered');
+    assert.deepEqual(f.saved.get(OUTBOX_KEY).pending.map(e=>e.group),[gid,gid],'adopted with the same group id v593 uses');
+    assert.ok(opsSent(f).every(op=>!('group' in op)&&!('huerfano' in op)),'local metadata never reaches the wire');
+    ackFrame(f,'legacy-full-0');await settle();
+    assert.equal(f.saved.get(OUTBOX_KEY).pending.length,2,'one ACK keeps the whole adopted group');
+    ackFrame(f,'legacy-full-1');await until(()=>f.saved.get(OUTBOX_KEY).pending.length===0,'both ACKs retire the group');
+    assert.equal(f.channel.huerfanosHeredados,0);
+  }finally{f.close();}
+});
+
+test('v594 orphan retires only after a relay-confirmed checkpoint created after detection; stale checkpoint keeps it',async()=>{
+  const orphan=legacyOp('legacy-ck',legacyFragment('LEGACYGROUPCKPT1',2,3));
+  const stale={k:'ckpt',ack:1,id:'ck-stale',v:2,rev:0,seq:0,lam:1,c:'AA==',state:'stale'};
+  const fresh={k:'ckpt',ack:1,id:'ck-fresh',v:2,rev:0,seq:0,lam:Date.now()+3600000,c:'AA==',state:'fresh'};
+  const f=await fixture('catalogo',savedOutbox([orphan,stale,fresh]));try{
+    await settle();
+    ackFrame(f,'ck-stale','ckpt');await settle();
+    assert.ok(f.saved.get(OUTBOX_KEY).pending.some(e=>e.id==='legacy-ck'),'a checkpoint older than the detection cannot prove coverage');
+    ackFrame(f,'ck-fresh','ckpt');await until(()=>!f.saved.get(OUTBOX_KEY).pending.some(e=>e.id==='legacy-ck'),'confirmed newer checkpoint retires the orphan');
+    assert.equal(f.channel.huerfanosHeredados,0);assert.equal(f.channel.pendientesRelay,0);
   }finally{f.close();}
 });

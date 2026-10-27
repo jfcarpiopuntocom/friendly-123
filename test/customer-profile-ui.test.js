@@ -1,3 +1,5 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -47,7 +49,7 @@ function editor(customer) {
     pedirFoto() {}
   };
   vm.createContext(context);
-  const source = fs.readFileSync(require.resolve('../docs/dashboard.html'), 'utf8');
+  const source = P(require.resolve('../docs/dashboard.html'), 'utf8');
   const start = source.indexOf('  var editorClienteDialog = null;');
   const end = source.indexOf('  /* JFC 2026-10-09: edits stay', start);
   vm.runInContext(source.slice(start, end), context);

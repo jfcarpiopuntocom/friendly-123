@@ -1,9 +1,11 @@
+// v593 follow-up: HTML shells now load extracted assets; read the extracted source so source-slice assertions keep working.
+const P=require('./helpers/page-source.cjs').readFileSync;
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const read = name => fs.readFileSync(path.join(__dirname, '..', name), 'utf8');
+const read = name => P(path.join(__dirname, '..', name), 'utf8');
 
 test('relay avoids per-operation table scans and indexes catch-up cursor', () => {
   const relay = read('cloudflare-sync-relay/worker.js');
