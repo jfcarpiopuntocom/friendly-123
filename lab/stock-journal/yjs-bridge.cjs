@@ -67,6 +67,8 @@ class ShadowYjsBridge {
    }).catch(err=>this.errors.push({key,reason:err.message}));
  }
  async publish(event) {
+   if (this.journal.rejectedBatches.length)
+     throw Error('rejected-batch quarantine has no reviewed Yjs transport; publish blocked');
    const e=validate(event,this.journal.notebook);
    const raw=stable(e),key=e.id+'#'+await sha256(raw);
    const checked=this.journal.append(e);
@@ -84,6 +86,11 @@ class ShadowYjsBridge {
    // After a local backup/IDB restoration, anti-entropy must be able to
    // republish every accepted fact AND every known conflicting witness.
    const backup=this.journal.export();
+   // Rejected *batches* are not authorized events. Until a separate
+   // quarantine transport is specified, fail closed rather than silently
+   // letting another peer calculate an apparently clean inventory.
+   if (backup.rejectedBatches && backup.rejectedBatches.length)
+     throw Error('rejected-batch quarantine has no reviewed Yjs transport; seed blocked');
    const facts=backup.events.concat(backup.quarantine.map(x=>x.attempted));
    const entries=[];
    for (const e of facts) {

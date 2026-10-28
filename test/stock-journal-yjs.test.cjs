@@ -52,6 +52,17 @@ test('real Yjs: three peers, offline operations in different orders and duplicat
  assert.equal(a.journal.size,4);assert.equal(b.journal.size,4);assert.equal(c.journal.size,4);
  for(const peer of [a,b,c])peer.bridge.close();
 });
+test('Yjs fails closed rather than propagating rejected batch witnesses as accepted sales',async()=>{
+ const x=make();
+ await x.bridge.publish(ev('base',1,'OPEN','cream',1));
+ const first=ev('pc',1,'RECEIVE','cream',3),alt={...first,qty:8};
+ assert.equal(x.journal.merge([first,alt]).rejectedBatchStored,true);
+ assert.equal(x.journal.project('cream').trust,'needs-reconciliation');
+ await assert.rejects(()=>x.bridge.seedFromJournal(),/rejected-batch quarantine/);
+ await assert.rejects(()=>x.bridge.publish(ev('phone',1,'ORDER','cream',1,{orderId:'sale-1'})),/rejected-batch quarantine/);
+ assert.equal(x.bridge.map.size,1,'unsafe batch facts never appear on the normal event map');
+ x.bridge.close();
+});
 test('real Yjs: SAME ID with DIFFERENT payload survives on separate witness keys and is quarantined',async()=>{
  const [a,b]=[make(),make()];
  const base=ev('base',1,'OPEN','cream',10);

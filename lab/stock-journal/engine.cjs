@@ -66,6 +66,7 @@
       this._events = new Map();
       this._product = new Map();
       this._quarantine = new Map();
+      this._rejectedBatches = new Map(); // local-only, never replayed as business facts
       this._sequences = new Map();
     }
     _check(e) {
@@ -80,6 +81,13 @@
       // A second/third payload with the same ID is a separate piece of
       // immutable evidence, not an overwrite of the previous rejection.
       this._quarantine.set(e.id+'\u0000'+stable(e),{reason,attempted:clone(e)});
+    }
+    _rememberRejectedBatch(events,reason) {
+      if (!['id-collision','sequence-collision'].includes(reason) ||
+          !Array.isArray(events) || events.length===0) throw Error('invalid rejected batch');
+      const envelope={reason,events:events.map(e=>validate(e,this.notebook))};
+      this._rejectedBatches.set(stable(envelope),envelope);
+      return envelope;
     }
     _remember(e) {
       const frozen = Object.freeze(e);
@@ -104,11 +112,21 @@
       for (const raw of events) {
         const e=validate(raw,this.notebook), key=e.device+'\u0000'+e.seq;
         const prior=incoming.get(e.id);
-        if (prior && stable(prior)!==stable(e)) { this._recordConflict(e,'id-collision'); return {ok:false,reason:'id-collision',id:e.id,added:0}; }
-        if (seenSeq.has(key) && seenSeq.get(key)!==e.id) { this._recordConflict(e,'sequence-collision'); return {ok:false,reason:'sequence-collision',id:e.id,added:0}; }
+        if (prior && stable(prior)!==stable(e)) {
+          this._rememberRejectedBatch(events,'id-collision');
+          return {ok:false,reason:'id-collision',id:e.id,added:0,rejectedBatchStored:true};
+        }
+        if (seenSeq.has(key) && seenSeq.get(key)!==e.id) {
+          this._rememberRejectedBatch(events,'sequence-collision');
+          return {ok:false,reason:'sequence-collision',id:e.id,added:0,rejectedBatchStored:true};
+        }
         incoming.set(e.id,e);seenSeq.set(key,e.id);
         const check=this._check(e);
-        if (check!=='added'&&check!=='duplicate') { this._recordConflict(e,check); return {ok:false,reason:check,id:e.id,added:0}; }
+        if (check!=='added'&&check!=='duplicate') {
+          this._recordConflict(e,check); // accepted anchor exists already
+          this._rememberRejectedBatch(events,check); // all unapplied batch witnesses survive
+          return {ok:false,reason:check,id:e.id,added:0,rejectedBatchStored:true};
+        }
       }
       for (const e of incoming.values()) if (!this._events.has(e.id)) additions.push(e);
       for (const e of additions) this._remember(e);
@@ -118,7 +136,9 @@
       const events=[...this._events.values()].map(clone).sort((a,b)=>a.id.localeCompare(b.id));
       const quarantine=[...this._quarantine.values()].map(clone)
         .sort((a,b)=>(a.attempted.id+'|'+stable(a.attempted)).localeCompare(b.attempted.id+'|'+stable(b.attempted)));
-      return {schema:1,notebook:this.notebook,events,quarantine};
+      const rejectedBatches=[...this._rejectedBatches.values()].map(clone)
+        .sort((a,b)=>stable(a).localeCompare(stable(b)));
+      return {schema:1,notebook:this.notebook,events,quarantine,rejectedBatches};
     }
     import(snapshot) {
       if (!snapshot || snapshot.schema!==1 || snapshot.notebook!==this.notebook)
@@ -137,13 +157,35 @@
         if (!ids.has(attempted.id) && !sequences.has(attempted.device+'\u0000'+attempted.seq))
           throw Error('orphan conflict evidence in backup');
       }
+      // Batch rejection remains distinct from valid append-only business facts.
+      // A rejection must be corroborated by two contradictory witnesses, one
+      // of which belongs to that batch (the other may be an accepted event).
+      const rejected=snapshot.rejectedBatches||[];
+      if (!Array.isArray(rejected)) throw Error('invalid rejected-batch list');
+      const verified=[];
+      const accepted=snapshot.events.map(e=>validate(e,this.notebook));
+      for (const batch of rejected) {
+        if (!batch || !Array.isArray(batch.events) || !batch.events.length ||
+            !['id-collision','sequence-collision'].includes(batch.reason))
+          throw Error('invalid rejected-batch envelope');
+        const items=batch.events.map(e=>validate(e,this.notebook));
+        const witnesses=accepted.concat(items);
+        const conflict=items.some(a=>witnesses.some(b=>
+          batch.reason==='id-collision'
+            ? (a.id===b.id && stable(a)!==stable(b))
+            : (a.device===b.device && a.seq===b.seq && a.id!==b.id)));
+        if (!conflict) throw Error('unsubstantiated rejected-batch envelope');
+        verified.push({reason:batch.reason,events:items});
+      }
       const merged=this.merge(snapshot.events);
       if (!merged.ok) return merged;
       for (const c of alternatives) this.append(c.attempted);
-      return {...merged,restoredConflicts:alternatives.length};
+      for (const batch of verified) this._rememberRejectedBatch(batch.events,batch.reason);
+      return {...merged,restoredConflicts:alternatives.length,restoredRejectedBatches:verified.length};
     }
     get size() { return this._events.size; }
     get quarantined() { return [...this._quarantine.values()].map(clone); }
+    get rejectedBatches() { return [...this._rejectedBatches.values()].map(clone); }
     project(product) {
       if (!label(product)) throw Error('invalid product id');
       const ids=this._product.get(product)||new Set();
@@ -196,6 +238,9 @@
         if (attempted.product===product || (accepted && accepted.product===product))
           issues.push('quarantined-'+item.reason);
       }
+      for (const batch of this._rejectedBatches.values())
+        if (batch.events.some(e=>e.product===product))
+          issues.push('local-rejected-batch:'+batch.reason);
       let physicalClaim=null;
       if (base!==null && !issues.length) {
         physicalClaim=base;

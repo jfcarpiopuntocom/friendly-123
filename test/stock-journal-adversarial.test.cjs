@@ -67,6 +67,47 @@ test('P0: same-ID cross-product collisions taint accepted product, not only reje
    assert.ok(j.project(product).issues.includes('quarantined-id-collision'));
  }
 });
+test('P0: internally contradictory NEW batch is never applied, and its entire envelope restores',()=>{
+ const j=new Journal(book);
+ j.append(e('base',1,'OPEN','cream',10));
+ const first=e('pc',1,'RECEIVE','cream',3),second={...first,qty:5};
+ const r=j.merge([first,second]);
+ assert.equal(r.ok,false);assert.equal(r.rejectedBatchStored,true);
+ assert.equal(j.size,1,'neither disputed fact becomes physical inventory');
+ assert.equal(j.quarantined.length,0,'no orphan single-witness quarantine');
+ assert.equal(j.rejectedBatches.length,1);
+ assert.deepEqual(j.rejectedBatches[0].events,[first,second]);
+ assert.equal(j.project('cream').onHand,null);
+ const backup=j.export(),reopened=new Journal(book);
+ assert.equal(reopened.import(backup).ok,true);
+ assert.deepEqual(reopened.export(),backup);
+ assert.equal(reopened.project('cream').onHand,null);
+});
+test('P0: a rejected batch retains unrelated movements without applying them',()=>{
+ const j=new Journal(book);
+ j.append(e('base',1,'OPEN','cream',5));
+ j.append(e('base',2,'OPEN','soap',7));
+ j.append(e('pc',1,'RECEIVE','cream',2));
+ const attempted=e('pc',1,'RECEIVE','cream',5);
+ const unrelated=e('supplier',1,'RECEIVE','soap',9);
+ const r=j.merge([unrelated,attempted]);
+ assert.equal(r.ok,false);assert.equal(j.size,3);
+ assert.equal(j.rejectedBatches[0].events.length,2);
+ assert.equal(j.project('soap').onHand,null,'unapplied but disputed batch cannot look complete');
+ assert.equal(j.project('cream').onHand,null);
+ const reopened=new Journal(book);
+ assert.equal(reopened.import(j.export()).ok,true);
+ assert.deepEqual(reopened.export(),j.export());
+});
+test('P0: fabricated rejected batch without contradictory witnesses is not importable',()=>{
+ const j=new Journal(book);
+ j.append(e('base',1,'OPEN','cream',1));
+ const backup=j.export();
+ backup.rejectedBatches=[{reason:'id-collision',events:[e('pc',1,'RECEIVE','cream',5)]}];
+ const reopened=new Journal(book);
+ assert.throws(()=>reopened.import(backup),/unsubstantiated/);
+ assert.equal(reopened.size,0);
+});
 test('P0: backup preserves conflicting evidence, not only the winner of an event ID',()=>{
  const j=new Journal(book);
  j.append(e('base',1,'OPEN','cream',10));
