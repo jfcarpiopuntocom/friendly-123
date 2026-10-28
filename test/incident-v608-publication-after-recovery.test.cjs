@@ -110,9 +110,9 @@ async function exchangeBinaryDelta(a,b){
   B.applyUpdate(b.w.OCYjs.doc,bytesFromA,'red');
   A.applyUpdate(a.w.OCYjs.doc,bytesFromB,'red');
   const t2=Date.now();
-  // Live event applies at the receiving peer; re-applying the emitter's entire
-  // read model is a benchmark artefact, not a real network round trip.
-  b.w.OCYjs._store.aplicar();
+  // The production Y.Doc "update" listener itself schedules the receiver
+  // application. Do not call _store.aplicar() again; that would artificially
+  // duplicate a full-catalog pass in the benchmark.
   await b.flush();
   const t3=Date.now();
   return {bytesA:bytesFromA.byteLength,bytesB:bytesFromB.byteLength,encodeMs:t1-t0,applyYjsMs:t2-t1,receiverStoreMs:t3-t2,totalMs:t3-t0};
