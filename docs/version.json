@@ -1,10 +1,10 @@
 {
-  "version": "shell v609",
+  "version": "shell v610",
   "fecha": "2026-10-28",
-  "changelog": "v609: PN del inventario por época física, verificación SHA-256 de solo lectura, watchdog de latidos, fragmentos UTF-8 y avisos de respaldo corregidos.",
+  "changelog": "v610: convergencia de inventario por época física; verificación de stock, watchdog y respaldos UTF-8; compatibilidad v606/v607 comprobada.",
   "requerida": false,
-  "shell": "f123-shell-v609",
+  "shell": "f123-shell-v610",
   "apagar": [],
-  "releaseName": "shell v609",
-  "cacheGeneration": "golden155"
+  "releaseName": "shell v610",
+  "cacheGeneration": "golden156"
 }
