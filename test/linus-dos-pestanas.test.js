@@ -70,11 +70,20 @@ test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes 
     const t2 = await ctx.newPage(); await t2.goto(base, { waitUntil: 'networkidle' }); await t2.waitForTimeout(1200);
     assert.equal(await t2.locator('#oc-doble-tab').count(),0,'Web Locks coordinates each write; a second app tab must remain usable');
     const vender = (pg, pid) => pg.evaluate(async (x) => (await fetch(`/api/productos/${x}/venta`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad: 1 }) })).status, pid);
-    await Promise.all([vender(t1, ids[0]), vender(t2, ids[1])]);
-    await vender(t1, ids[0]); // t1 escribe de nuevo con lo que tenga en memoria
+    const firstStatuses = await Promise.all([vender(t1, ids[0]), vender(t2, ids[1])]);
+    const thirdStatus = await vender(t1, ids[0]); // no silent rejection or duplicate
     await t2.reload({ waitUntil: 'networkidle' }); await t2.waitForTimeout(1200);
-    const n = await t2.evaluate(async (x) => (await (await fetch('/api/ventas/todas')).json()).filter((v) => x.includes(v.productoId)).length, ids);
-    assert.equal(n, 3, 'las 3 ventas quedan registradas');
+    const audit = (pg) => pg.evaluate(async (x) => {
+      const ventas=(await (await fetch('/api/ventas/todas')).json()).filter(v=>x.includes(v.productoId));
+      return {count:ventas.length,byProduct:x.map(id=>ventas.filter(v=>v.productoId===id).length),
+        ids:ventas.map(v=>v.id)};
+    },ids);
+    const [a,b]=await Promise.all([audit(t1),audit(t2)]);
+    console.log('TWO-TAB-FORENSIC',JSON.stringify({engineName,firstStatuses,thirdStatus,a,b}));
+    assert.deepEqual(firstStatuses,[200,200],'each independent concurrent sale must ACK explicitly');
+    assert.equal(thirdStatus,200,'same tab subsequent sale also ACKs');
+    assert.equal(b.count,3,'all three acknowledged sales survive other tab reload');
+    assert.deepEqual(b.byProduct,[2,1],'both products retain their distinct sales');
   } finally { await web.close(); srv.close(); }
 });
 }

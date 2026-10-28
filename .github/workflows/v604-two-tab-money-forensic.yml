@@ -1,0 +1,25 @@
+name: v604-two-tab-money-P0-forensic
+on:
+  push:
+    branches: [fix/v604-two-tab-sale-forensics-20261028]
+permissions:
+  contents: read
+jobs:
+  two-tab-sale:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Single exact two-tab test in real Chromium/WebKit and compatibility lock
+        env:
+          NODE_OPTIONS: "--require ./test/helpers/sin-red-produccion.cjs"
+        run: node --test --test-concurrency=1 test/linus-dos-pestanas.test.js
