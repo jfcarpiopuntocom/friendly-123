@@ -42,6 +42,15 @@ async function peer(n){
  const t0=performance.now();
  a.OCYjs._store.sembrar();
  const seedMs=performance.now()-t0;
+ const remoteKeys={};
+ for (const col of b.OCYjs.colecciones) {
+   b.OCYjs.mapas[col].observe((event,tr)=>{
+      if(tr.origin==='red')remoteKeys[col]=[...(remoteKeys[col]||[]),...Array.from(event.keysChanged).slice(0,5)];
+   });
+ }
+ b.OCYjs.meta.observe((event,tr)=>{
+   if(tr.origin==='red')remoteKeys._meta=[...(remoteKeys._meta||[]),...Array.from(event.keysChanged)];
+ });
  const applyShapes=[];
  const originalApply=b.OCSync.aplicarCatalogo;
  b.OCSync.aplicarCatalogo=function(cat,rol,canonical) {
@@ -64,7 +73,7 @@ async function peer(n){
    sourceYjsCount:Object.keys(a.OCYjs.getProductos()).length,targetYjsCount:Object.keys(b.OCYjs.getProductos()).length,
    sourceYjsFirst:Object.keys(a.OCYjs.getProductos()).slice(0,4),targetYjsFirst:Object.keys(b.OCYjs.getProductos()).slice(0,4)}));
 
- console.log(JSON.stringify({kind:'single-remote-edit-1000',seedMs:+seedMs.toFixed(2),applyMs:+applyMs.toFixed(2),updates:pending.length,applyShapes,
+ console.log(JSON.stringify({kind:'single-remote-edit-1000',seedMs:+seedMs.toFixed(2),applyMs:+applyMs.toFixed(2),updates:pending.length,applyShapes,remoteKeys,
   sourceName:local?.nombre,targetName:remote?.nombre,targetPrice:remote?.precio}));
  assert.equal(remote?.nombre,local?.nombre,'Remote must receive a single edited name');
  assert.equal(remote?.precio,local?.precio,'Remote must receive a single edited price');
