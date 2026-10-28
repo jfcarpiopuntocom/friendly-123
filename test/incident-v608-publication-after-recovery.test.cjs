@@ -996,3 +996,25 @@ test('P0 snapshot transport preserves multibyte product names crossing 200 KiB U
   assert.equal(restored.data.productos[0].nombre,snapshot.productos[0].nombre,
     'fragmentation may not replace accents or emojis with Unicode replacement chars');
 });
+
+test('P0 team panel does not claim inventory equality from a metadata heartbeat',()=>{
+  const w=browser(),panel={innerHTML:''};
+  w.document.readyState='loading';
+  w.document.getElementById=id=>id==='oc-micelio-panel'?panel:null;
+  w.OCMicelio={
+    equipo:()=>[{id:'pc',soyYo:true,estado:'rezagado',rol:'dueno',
+      apodo:'Synthetic PC',cuando:'1 hour ago',huella:'#META'}],
+    umbrales:()=>({rezagado:5,ciegas:120}),
+    yo:()=>({id:'pc',apodo:'Synthetic PC'}),
+    miHuella:()=> '#META',
+    desalineados:()=>[]
+  };
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/micelio-ui.js'),'utf8'),w);
+  assert.ok(w.OCMicelioUI&&w.OCMicelioUI.pintarPanel,'real team UI is loaded');
+  w.OCMicelioUI.pintarPanel();
+  assert.match(panel.innerHTML,/Inventory equality is not verified/,
+    'a behind device cannot be presented as synchronized inventory');
+  assert.match(panel.innerHTML,/Catalog fingerprint \(not stock\)/,
+    'the metadata checksum must not be described as a stock checksum');
+  assert.doesNotMatch(panel.innerHTML,/Every device on your team is talking to the others/);
+});
