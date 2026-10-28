@@ -127,3 +127,21 @@ test('v602 phone rejoin with an older 14-versus-13 stock mismatch and a fresh sa
   const snapshot=await pc.request('/api/respaldo/exportar');
   assert.equal(snapshot.ventas.filter(v=>v.id===sold.ventaId).length,1,'rejoin preserves the exact sale ID once');
 });
+
+test('P0 v603: diverging physical bases cannot discard a different device unique adjustment', async () => {
+  // Both replicas know the same product ID but started from distinct historical
+  // baselines. Each holds its OWN independent stock operation. LWW must not
+  // silently replace one entire operation set with the other.
+  const pc = await aparato('fixture-fork', 15, { pc_unique: { add: 3, sub: 0 } }, 18, 1000);
+  const phone = await aparato('fixture-fork', 13, { phone_unique: { add: 3, sub: 0 } }, 16, 2000);
+  const before = (await pc.request('/api/respaldo/exportar')).productos[0];
+  assert.equal(before.stockPN.pc_unique.add, 3);
+  pc.OCSync.aplicarCatalogo(phone.catalog(), null);
+  const after = (await pc.request('/api/respaldo/exportar')).productos.find(p => p.id === 'fixture-fork');
+  // No single correct total can be inferred without reconciling the original
+  // baselines. But neither distinct fact may silently disappear.
+  assert.ok(after.stockPN && after.stockPN.pc_unique && after.stockPN.pc_unique.add === 3,
+    'FAIL DATA INTEGRITY: remote epoch silently discarded a local unique adjustment');
+  assert.ok(after.stockPN && after.stockPN.phone_unique && after.stockPN.phone_unique.add === 3,
+    'FAIL DATA INTEGRITY: missing remote adjustment after diverging epochs');
+});
