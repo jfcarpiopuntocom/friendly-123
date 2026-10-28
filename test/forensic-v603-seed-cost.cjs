@@ -1,3 +1,4 @@
+const assert=require('node:assert/strict');
 'use strict';
 // Read-only synthetic performance investigation. No real rooms, backups or sales.
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
@@ -25,6 +26,8 @@ async function run(n){
  for(let i=0;i<100&&w.OCYjs.estado!=='activo';i++)await delay(10);
  if(w.OCYjs.estado!=='activo')throw Error('Yjs failed to start');
  await w.request('/api/respaldo/importar','POST',fixture);
+ w.OCYjs._store.sembrar();
+ assert.equal(Object.keys(w.OCYjs.getProductos()).length,n,'Yjs fixture must contain N real synthetic product rows');
  const times=[];
  for(let i=0;i<5;i++){
    const start=performance.now();
