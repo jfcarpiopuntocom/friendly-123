@@ -41,6 +41,12 @@ async function peer(n){
  a.OCYjs._store.aplicar();b.OCYjs._store.aplicar();
  console.log(JSON.stringify({kind:'initial-merge-readiness',firstResult}));
  b.OCSync.aplicarCatalogo=bOriginal;
+ // Synthetic backend's WebSocket intentionally throws. Model the post-recovery
+ // state explicitly: initial full merge was already accepted and complete.
+ assert.equal(firstResult[0]?.ok,true);
+ assert.equal(firstResult[0]?.actividadCompleta,true);
+ a.OCYjs.canal.recuperando=false;
+ b.OCYjs.canal.recuperando=false;
  const pending=[];
  a.OCYjs.doc.on('update',(u,origin)=>{if(origin==='seed')pending.push(new Uint8Array(u))});
  const patch=await a.request('/api/productos/perf-merge-0','PATCH',{nombre:'Synthetic edited',precio:42});
