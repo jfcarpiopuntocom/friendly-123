@@ -44,6 +44,12 @@ async function peer(n){
  const applyMs=performance.now()-t1;
  const local=(await a.request('/api/productos')).find(p=>p.id==='perf-merge-0');
  const remote=(await b.request('/api/productos')).find(p=>p.id==='perf-merge-0');
+ const yFrom=a.OCYjs.getProductos()['perf-merge-0']||null;
+ const yTo=b.OCYjs.getProductos()['perf-merge-0']||null;
+ console.log(JSON.stringify({kind:'forensic-meta-visibility',patch,sourceRev:local?.rev,targetRev:remote?.rev,
+   yFromName:yFrom?.nombre,yFromRev:yFrom?.rev,yToName:yTo?.nombre,yToRev:yTo?.rev,
+   sourceStockBase:local?.stockBase,targetStockBase:remote?.stockBase}));
+
  console.log(JSON.stringify({kind:'single-remote-edit-1000',seedMs:+seedMs.toFixed(2),applyMs:+applyMs.toFixed(2),updates:pending.length,
   sourceName:local?.nombre,targetName:remote?.nombre,targetPrice:remote?.precio}));
  assert.equal(remote?.nombre,local?.nombre,'Remote must receive a single edited name');
