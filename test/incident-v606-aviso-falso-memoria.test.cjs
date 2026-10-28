@@ -26,7 +26,7 @@ test('AbortError en el candado: NO cartel de memoria llena, devuelve false y pro
   assert.equal(llenas(), 0, 'sin aviso falso de memoria llena');
   const reint = timers.filter((t) => t.ms === 3000);
   assert.equal(reint.length, 1, 'exactamente un reintento programado (no apilado)');
-  
+
 });
 
 for (const [nombre, code] of [['QuotaExceededError', 22], ['NS_ERROR_DOM_QUOTA_REACHED', 1014], ['DOMException', 22]]) {
