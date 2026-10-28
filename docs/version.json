@@ -1,10 +1,10 @@
 {
-  "version": "shell v604",
+  "version": "shell v606",
   "fecha": "2026-10-28",
-  "changelog": "v604 candidate: preserve cross-device stock fork evidence and performance improvements; prevent unconsented auto-reload during active sessions; retain client business identity and PIN; render store name in friendly display gold. No automatic stock reconciliation or journal migration.",
+  "changelog": "v606: corrige el aviso falso de memoria llena; evita ventas y productos duplicados por doble toque; protege restaurar respaldos en cuadernos con datos.",
   "requerida": false,
-  "shell": "f123-shell-v604",
+  "shell": "f123-shell-v606",
   "apagar": [],
-  "releaseName": "shell v604",
-  "cacheGeneration": "golden150"
+  "releaseName": "shell v606",
+  "cacheGeneration": "golden152"
 }

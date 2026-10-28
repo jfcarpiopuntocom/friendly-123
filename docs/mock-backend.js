@@ -989,6 +989,25 @@
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
+  /* (JFC 2026-10-28) true si el Y.Doc LOCAL persistido ya tiene datos de negocio (cualquier coleccion salvo "dispositivos"),
+     o si "dispositivos" trae un id que no es el nuestro (sync-yjs.js:1383-1388, mock-backend.js ~4809-4818; add-only, vive en IndexedDB).
+     Ese doc gana al reabrir y desharia lo importado. Falla CERRADO: si hay sala/doc pero no se puede leer (inactivo, recuperacion
+     local pendiente o sin almacenamiento) se bloquea. Sin OCYjs (harness/VM) o sin sala nunca iniciada -> false. */
+  function _cuadernoConDatosEnDoc() {
+    try {
+      const y = window.OCYjs;
+      if (!y) return false;
+      if (y.estado !== "activo" || typeof y._diag !== "function") return !!y.roomId; // sala sin doc legible -> bloquear
+      const d = y._diag();
+      if (d.recuperacionLocalPendiente) return true;
+      const yo = (window.OCMicelio && window.OCMicelio.yo) ? window.OCMicelio.yo() : null;
+      const miId = yo && yo.id ? String(yo.id) : "";
+      const n = d.n || {};
+      if (Object.keys(n).some((k) => k !== "dispositivos" && Number(n[k]) > 0)) return true;
+      if (Number(d.ops) > 0) return true; // hechos/operaciones del doc de ops
+      return Object.keys(y.get("dispositivos") || {}).some((k) => k !== miId);
+    } catch (_) { return true; } // ante la duda, NO sobrescribir
+  }
   function aplicarRespaldo(body) {
     productos.length = 0; productos.push(...body.productos);
     ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
@@ -1476,8 +1495,28 @@
     try {
       const resultado = ab ? ab.conCandado(ejecutar) : ejecutar();
       return resultado && typeof resultado.then === "function"
-        ? resultado.catch(() => { avisoMemoriaLlena(); return false; }) : resultado;
-    } catch (_) { avisoMemoriaLlena(); return false; }
+        ? resultado.catch(_falloGuardadoLocal) : resultado;
+    } catch (e) { return _falloGuardadoLocal(e); }
+  }
+  /* v606 (JFC 2026-10-28): el cartel rojo "memoria llena" SOLO sale con un error REAL de cuota.
+     AbortError / vencimiento del candado "f123-estado-ab" / cualquier otro error NO es memoria llena (en v605 mostro un
+     aviso falso y los aparatos dejaron de publicar su catalogo). Aqui: solo consola, devuelve false y programa UN reintento
+     silencioso (nunca apilado). NO hay ningun await de guardado dentro del candado de escrituras: el reintento corre fuera. */
+  let _reintentoGuardadoSilencioso = null;
+  function _esErrorDeCuota(e) {
+    try { return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014); }
+    catch (_) { return false; }
+  }
+  function _falloGuardadoLocal(e) {
+    if (_esErrorDeCuota(e)) { avisoMemoriaLlena(); return false; }
+    try { console.warn("[storage] guardado local no completado (no es falta de memoria); un reintento silencioso", e && e.name ? e.name : e); } catch (_) {}
+    if (!_reintentoGuardadoSilencioso) {
+      _reintentoGuardadoSilencioso = setTimeout(() => {
+        _reintentoGuardadoSilencioso = null;
+        try { const r = guardarEstadoLocal(); if (r && typeof r.then === "function") r.catch(() => {}); } catch (_) {}
+      }, 3000);
+    }
+    return false;
   }
 
   /* SOLO CONSOLA (JFC 2026-08-26): este aviso ("todo se guardó, la memoria
@@ -6145,6 +6184,12 @@
           if (body.umbralRojo == null) body.umbralRojo = baseVariante.umbralRojo;
           if (body.umbralAmarillo == null) body.umbralAmarillo = baseVariante.umbralAmarillo;
         }
+        /* (JFC 2026-10-28) Doble toque en "crear producto": mismo codigo ya existente (no borrado) -> 409, no un duplicado.
+           Seccion sincrona hasta productos.push: dos llamadas concurrentes no se cuelan. Las variantes ya se validaron arriba. */
+        if (!body.familiaId) {
+          const _bc = String(body.barcode || "").trim().toLocaleLowerCase();
+          if (_bc && productos.some((p) => !p.borrado && !_demoOculto("productos", p) && String(p.barcode || "").trim().toLocaleLowerCase() === _bc)) return J({ error: "That barcode or internal code is already used by another product." }, 409);
+        }
         const nuevo = {
           // M5 (2026-08-14): variante interna, hasta 12 caracteres. Vacio por
           // defecto: un producto sin variante se comporta igual que siempre.
@@ -7001,6 +7046,9 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
+          /* (JFC 2026-10-28) Restaurar NO se permite si el Y.Doc local ya tiene datos: gana al reabrir
+             (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
+          if (_cuadernoConDatosEnDoc()) return J({ error: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
           guardarEstadoLocal();
