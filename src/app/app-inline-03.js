@@ -335,7 +335,7 @@ const _ocActSolaOn = true;
       if (!seguroCon(false)) { el.textContent = textoAviso("ocupado"); return; }
       const ok = await guardarDuradero();
       // Se revisa de nuevo: durante el guardado pudo abrirse una venta o editor.
-      if (!ok || !seguroCon(true)) { el.textContent = textoAviso(ok ? "ocupado" : "guardando"); return; }
+      if (!ok || !seguroCon(false)) { el.textContent = textoAviso(ok ? "ocupado" : "guardando"); return; }
       try {
         sessionStorage.removeItem(KP);
         sessionStorage.removeItem("f123_reload_al_entrar");
