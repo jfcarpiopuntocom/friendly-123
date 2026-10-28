@@ -572,3 +572,14 @@ test('P0 newly created products issue distinct persistent physical epochs',async
   a.w.OCYjs._store.sembrar();await a.flush();
   assert.equal(a.w.OCYjs.getProductos()[one.id].stockEpochId,p1.stockEpochId);
 });
+
+test('P0 invalid physical epoch in backup rejects import before any mutation',async()=>{
+  const a=await peer();
+  const before=await a.w.request('/api/respaldo/exportar');
+  const invalid=JSON.parse(JSON.stringify(before));
+  invalid.productos[0].stockEpochId='X'.repeat(161);
+  const r=await a.w.request('/api/respaldo/importar','POST',invalid);
+  assert.ok(r.error,'malformed epoch must be rejected');
+  const after=await a.w.request('/api/respaldo/exportar');
+  assert.deepEqual(after.productos,before.productos,'rejected backup must not change products');
+});
