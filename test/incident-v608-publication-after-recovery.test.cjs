@@ -7,7 +7,7 @@ const {webcrypto}=require('node:crypto');
 const {browser}=require('./helpers/browser.cjs');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function settle(){for(let i=0;i<20;i++)await tick();}
-async function peer(){
+async function peer(options={}){
   const w=browser(),timers=[];delete w.JSON;
   w.setTimeout=(fn,ms)=>{const timer={fn,ms,on:true};timers.push(timer);return timer;};
   w.clearTimeout=timer=>{if(timer)timer.on=false;};
@@ -25,7 +25,9 @@ async function peer(){
   w.IndexeddbPersistence=class{once(){}};
   w.localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-V608-PUBLICATION'}));
   w.OCAuth={rolActual:()=> 'dueno'};
-  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8'),w);
+  const syncFile=options.legacy ? process.env.F123_V607_SYNC_FILE : path.join(__dirname,'../docs/sync-yjs.js');
+  assert.ok(syncFile&&fs.existsSync(syncFile),'v607 historical sync script must be fetched at exact pinned SHA');
+  vm.runInContext(fs.readFileSync(syncFile,'utf8'),w);
   for(let i=0;i<100&&w.OCYjs.estado!=='activo';i++)await new Promise(resolve=>setTimeout(resolve,10));
   assert.equal(w.OCYjs.estado,'activo');
   return {w,timers,flush};
@@ -366,4 +368,21 @@ test('P0 unexpected Yjs witness rewrite invalidates cache but does not alter com
     assert.equal((await fixtureProduct(b)).stockActual,14,'committed stock is unchanged');
     assert.ok(fullReads>=1,'cache rebuilt after illegal same-key update');
   } finally { mapa.forEach=forEach; }
+});
+
+
+test('P0 pinned v607 bridge with new bridge: two disconnected sales retain each physical decrement and both receipts',async()=>{
+  const a=await peer(),b=await peer({legacy:true});
+  await physicalFixture(a,b,6,6);
+  const rA=await a.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  const rB=await b.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  assert.ok(rA.ventaId&&rB.ventaId&&rA.ventaId!==rB.ventaId);
+  await a.flush();await b.flush();await exchange(a,b,3);
+  for(const p of [a,b]){
+    const snapshot=await p.w.request('/api/respaldo/exportar');
+    assert.equal(snapshot.productos.find(x=>x.id==='p0-two-actors').stockActual,4,
+      'different shell Yjs versions must not lose either offline physical movement');
+    assert.equal(snapshot.ventas.filter(x=>x.id===rA.ventaId).length,1);
+    assert.equal(snapshot.ventas.filter(x=>x.id===rB.ventaId).length,1);
+  }
 });
