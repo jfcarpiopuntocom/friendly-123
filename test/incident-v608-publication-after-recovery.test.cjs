@@ -788,3 +788,35 @@ test('P0 late third peer converges explicit-epoch stock after independent offlin
     assert.equal(item.stockActual,6,'replaying stale Y.Doc history is idempotent');
   }
 });
+
+test('P0 third late peer cannot resolve rival physical epochs by guessing stock totals',async()=>{
+  const a=await peer(),b=await peer(),c=await peer();
+  const one=await a.w.request('/api/respaldo/exportar');
+  one.productos=[{...one.productos[0],id:'p0-rival-third',
+    nombre:'Synthetic rival late third',barcode:'SYN-RIVAL-THIRD',stockBase:5,
+    stockActual:5,stockPN:{},stockEpochId:'SYN-RECOUNT-A',stockTs:100,
+    rev:{c:1,d:'fixture'}}];
+  one.ventas=[];one.movimientos=[];
+  const two=JSON.parse(JSON.stringify(one));
+  two.productos[0].stockBase=9;two.productos[0].stockActual=9;
+  two.productos[0].stockEpochId='SYN-RECOUNT-B';two.productos[0].stockTs=200;
+  for(const [p,snapshot] of [[a,one],[b,two]]){
+    assert.equal((await p.w.request('/api/respaldo/importar','POST',snapshot)).ok,true);
+    p.w.OCYjs._store.sembrar();await p.flush();
+  }
+  // C learns a physical history from A before the competing B history arrives.
+  await exchange(a,c,2);await exchange(b,c,2);
+  await exchange(c,a,3);await exchange(c,b,3);
+  const get=async p=>(await p.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-rival-third');
+  const pa=await get(a),pb=await get(b),pc=await get(c);
+  assert.equal(pa.stockActual,5,'A retains its distinct physical count');
+  assert.equal(pa.stockEpochId,'SYN-RECOUNT-A');
+  assert.equal(pb.stockActual,9,'B retains its distinct physical count');
+  assert.equal(pb.stockEpochId,'SYN-RECOUNT-B');
+  assert.ok([5,9].includes(pc.stockActual),'third peer cannot invent 14 from rival counts');
+  assert.ok(['SYN-RECOUNT-A','SYN-RECOUNT-B'].includes(pc.stockEpochId),
+    'third device must not invent an epoch for unresolved history');
+  await exchange(c,b,2);await exchange(b,a,2);await exchange(a,c,2);
+  assert.equal((await get(a)).stockActual,5);
+  assert.equal((await get(b)).stockActual,9);
+});
