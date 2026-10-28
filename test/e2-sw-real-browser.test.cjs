@@ -3,7 +3,8 @@ const {test}=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),http=require("node:http");
 // Local npm test prerequisite: npx playwright install chromium (CI already installs it).
 const {chromium}=require("playwright");
-const html=require("./helpers/page-source.cjs").readFileSync("docs/index.html","utf8");
+// E2 runtime was split out of index.html after v487; read the live authored JS.
+const app=fs.readFileSync("src/app/app-inline-03.js","utf8");
 const swOriginal=fs.readFileSync("docs/sw.js","utf8");
 // Only the localhost fixture narrows SW precache. Production sw.js is untouched.
 const sw=swOriginal.replace(/const SHELL = \[[\s\S]*?\n\];/,
@@ -14,15 +15,15 @@ assert.ok(shellNow,"read the real release shell from sw.js");
 const shellNext=shellNow+"-e2fixture";
 const swNew=sw.replace(`const CACHE = "${shellNow}";`,`const CACHE = "${shellNext}";`);
 assert.notEqual(swNew,sw,"updated SW fixture must change actual bytes");
-const reg=html.split("\n").find(s=>s.includes('navigator.serviceWorker.register("./sw.js"'));
-const helperStart=html.indexOf("function _recargarSeguroVersion() {");
-const helperEnd=html.indexOf("\n}",helperStart)+2;
-const start=html.indexOf("const _ocActSolaOn = true;");
-const end=html.indexOf("// Microcirugia 5",start);
+const reg=app.split("\n").find(s=>s.includes('navigator.serviceWorker.register("./sw.js"'));
+const helperStart=app.indexOf("function _recargarSeguroVersion() {");
+const helperEnd=app.indexOf("\n}",helperStart)+2;
+const start=app.indexOf("const _ocActSolaOn = true;");
+const end=app.indexOf("// Microcirugia 5",start);
 assert.ok(reg&&helperStart>0&&helperEnd>helperStart&&start>helperEnd&&end>start,
   "use actual E2 registration, safe-version helper and auto-update IIFE");
-const safeReloadHelper=html.slice(helperStart,helperEnd);
-const auto=html.slice(start,end);
+const safeReloadHelper=app.slice(helperStart,helperEnd);
+const auto=app.slice(start,end);
 assert.match(safeReloadHelper,/sessionStorage\.setItem\("f123_reload_al_entrar", "1"\)/,
   "fixture must extract the actual deferred-reload helper, not stub it");
 function pageHtml(candidate) {
@@ -104,16 +105,22 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
   await p.clock.fastForward(21000); // actual revisar() timer, no manual update button
   mark("wait pending safe reload marker");
   await p.waitForFunction(()=>sessionStorage.getItem("f123_act_sola_pendiente")==="1",{timeout:25000});
-  mark("fast-forward 92s safe idle gate");
-  await p.clock.fastForward(92000); // simulate user idle, honoring the existing safe gate
-  mark("wait one safe reload");
+  mark("fast-forward 92s with NO update consent");
+  await p.clock.fastForward(92000); // being idle is not a decision to replace the running notebook
+  const beforeClick=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
+  assert.equal(beforeClick,initial,"JFC: no unexpected reload on idle or hidden");
+  mark("wait immediate nonblocking update notice");
+  await p.waitForSelector("#f123-aviso-version",{timeout:15000});
+  await p.evaluate(()=>{window.OCSync={confirmarCatalogoDurable:async()=>true};});
+  mark("approve update with a deliberate click after synthetic durable confirmation");
+  await p.click("#f123-aviso-version");
   await p.waitForFunction(n=>Number(sessionStorage.getItem("e2-loads"))===n+1,initial,{timeout:15000});
   mark("assert adoption state");
   const result=await p.evaluate(()=>({loads:Number(sessionStorage.getItem("e2-loads")),
     session:sessionStorage.getItem("f123_sesion"),
     version:localStorage.getItem("f123_version_vista"),
     text:document.body.innerText}));
-  assert.equal(result.loads,initial+1,"only one automatic safe reload for this shell");
+  assert.equal(result.loads,initial+1,"only one user-approved reload for this shell");
   assert.equal(result.session,"synthetic-e2","preserve session on worker replacement");
   assert.equal(result.version,"1.0|"+shellNext,"record precise version and current SW shell");
   assert.doesNotMatch(result.text,/Purge|reload/i);
