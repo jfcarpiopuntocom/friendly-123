@@ -14,4 +14,5 @@ jobs:
         with:
           node-version: '22'
       - name: One P0 regression, no customer data or production network
-        run: node --test --test-name-pattern="P0 v603: diverging physical bases" test/stock-base-conflicto-v515.test.js
+        run: |
+          node --test --test-name-pattern="P0 v603: diverging physical bases" test/stock-base-conflicto-v515.test.js
