@@ -344,3 +344,26 @@ test('P0 hot-path witness scan: increment only one product without walking every
     map.forEach=original;
   }
 });
+
+
+test('P0 unexpected Yjs witness rewrite invalidates cache but does not alter committed stock',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'synthetic witness'});
+  await a.flush();await exchangeBinaryDelta(a,b);
+  assert.equal((await fixtureProduct(b)).stockActual,14);
+  const mapa=b.w.OCYjs.stockPNTestigos;
+  const key=Array.from(mapa.keys())[0];
+  assert.ok(key,'witness key exists');
+  const original=mapa.get(key);
+  let fullReads=0;const forEach=mapa.forEach;
+  mapa.forEach=function(fn,...args){return forEach.call(this,function(...row){fullReads++;return fn(...row);},...args);};
+  try {
+    // Unexpected external write to the SAME Y.Map key must fail closed and
+    // rebuild the index. This is not an authorized way to cancel a sale.
+    mapa.set(key,{...original});
+    b.w.OCYjs._store.aplicar();await b.flush();
+    assert.equal((await fixtureProduct(b)).stockActual,14,'committed stock is unchanged');
+    assert.ok(fullReads>=1,'cache rebuilt after illegal same-key update');
+  } finally { mapa.forEach=forEach; }
+});
