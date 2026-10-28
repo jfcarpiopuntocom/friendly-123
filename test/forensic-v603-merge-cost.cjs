@@ -35,7 +35,12 @@ async function peer(n){
  assert.equal(Object.keys(b.OCYjs.getProductos()).length,1000,'target Yjs must hold the real synthetic catalog');
  a.Y.applyUpdate(a.OCYjs.doc,b.Y.encodeStateAsUpdate(b.OCYjs.doc),'red');
  b.Y.applyUpdate(b.OCYjs.doc,a.Y.encodeStateAsUpdate(a.OCYjs.doc),'red');
+ const firstResult=[];
+ const bOriginal=b.OCSync.aplicarCatalogo;
+ b.OCSync.aplicarCatalogo=function(cat,role,canonical){const r=bOriginal(cat,role,canonical); firstResult.push({ok:r?.ok,actividadCompleta:r?.actividadCompleta,metadata:cat.nombreNegocio||''});return r;};
  a.OCYjs._store.aplicar();b.OCYjs._store.aplicar();
+ console.log(JSON.stringify({kind:'initial-merge-readiness',firstResult}));
+ b.OCSync.aplicarCatalogo=bOriginal;
  const pending=[];
  a.OCYjs.doc.on('update',(u,origin)=>{if(origin==='seed')pending.push(new Uint8Array(u))});
  const patch=await a.request('/api/productos/perf-merge-0','PATCH',{nombre:'Synthetic edited',precio:42});
