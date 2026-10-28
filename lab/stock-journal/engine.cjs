@@ -144,7 +144,16 @@
         else {
           anchor=last[0];base=anchor.qty;
           for (const parent of anchor.supersedes) if (!byId.has(parent)) issues.push('missing-count-ancestor');
-          for (const seen of anchor.observes) if (!this._events.has(seen)) issues.push('missing-observed-movement');
+          // A physical count cannot bless a prior opening it never saw.
+          // Its frontier may contain only physical events of THIS product.
+          for (const open of openings)
+            if (!anchor.observes.includes(open.id)) issues.push('unobserved-opening:'+open.id);
+          for (const seen of anchor.observes) {
+            const fact=this._events.get(seen);
+            if (!fact) issues.push('missing-observed-movement');
+            else if (fact.product!==product) issues.push('observed-other-product:'+seen);
+            else if (!PHYSICAL.has(fact.kind)) issues.push('observed-nonphysical:'+seen);
+          }
           for (const e of physical) {
             if (anchor.observes.includes(e.id)) continue;
             if (e.afterCountId===anchor.id ||
