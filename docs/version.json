@@ -1,10 +1,10 @@
 {
-  "version": "shell v601",
+  "version": "shell v602",
   "fecha": "2026-10-27",
-  "changelog": "v601: every non-money change (team, PIN, customers, expenses, categories, settings, merged changes from another device) now goes out to your other devices while it is still being saved, instead of after. Sales, payouts, returns and retentions still wait until they are safely saved.",
+  "changelog": "v602 (v601 content with a corrected integrity manifest): every non-money change (team, PIN, customers, expenses, categories, settings, merged changes from another device) now goes out to your other devices while it is still being saved, instead of after. Sales, payouts, returns and retentions still wait until they are safely saved.",
   "requerida": false,
-  "shell": "f123-shell-v601",
+  "shell": "f123-shell-v602",
   "apagar": [],
-  "releaseName": "shell v601",
-  "cacheGeneration": "golden147"
+  "releaseName": "shell v602",
+  "cacheGeneration": "golden148"
 }
