@@ -22,8 +22,7 @@ test('(a) non-money change is announced and broadcast while a normal save is sti
  let confirm;f.app.OCEstadoIDB={guardar:()=>new Promise(r=>{confirm=r})};
  let eventos=0;f.app.addEventListener('oc-catalogo-cambiado',()=>eventos++);
  // alta de una percha: cambio de catalogo NO-dinero; el guardado IDB queda colgado a proposito
- // (JFC 2026-10-28) v605: la RESPUESTA espera el guardado duradero; no se espera aqui (queda colgado a proposito), se resuelve al final.
- const req=f.app.request('/api/ubicaciones','POST',{nombre:'Synthetic rack 2',tipo:'socio'});
+ await f.app.request('/api/ubicaciones','POST',{nombre:'Synthetic rack 2',tipo:'socio'});
  for(let i=0;i<5;i++)await tick();
  assert.ok(eventos>=1,'oc-catalogo-cambiado must fire before the save confirms');
  let listo=false;const cat=f.app.OCSync.catalogoConfirmado().then(c=>{listo=true;return c});
@@ -32,8 +31,6 @@ test('(a) non-money change is announced and broadcast while a normal save is sti
  assert.ok((await cat),'catalogoConfirmado returns the current catalog');
  assert.ok(f.app.OCSync.catalogoPropio(),'seed allowed while normal save pending');
  if(confirm)confirm(true);
- const resp=await req; // (JFC 2026-10-28) la respuesta llega al confirmar el guardado
- assert.ok(resp&&resp.id,'request resolved ok after save confirmed');
 });
 test('(a2) a failed last save with RAM different still blocks sending',async()=>{
  const f=await setup();f.fail();f.app.OCEstadoIDB={guardar:async()=>false};

@@ -1,10 +1,10 @@
 {
-  "version": "shell v605",
+  "version": "shell v606",
   "fecha": "2026-10-28",
-  "changelog": "v605: los cambios (cancelar venta, cierre, ajustes de stock, comisiones, productos, clientes, importar respaldo) responden solo cuando ya quedaron guardados; pruebas de entrega cifrada y percha estabilizadas.",
+  "changelog": "v606: corrige el aviso falso de memoria llena; evita ventas y productos duplicados por doble toque; protege restaurar respaldos en cuadernos con datos.",
   "requerida": false,
-  "shell": "f123-shell-v605",
+  "shell": "f123-shell-v606",
   "apagar": [],
-  "releaseName": "shell v605",
-  "cacheGeneration": "golden151"
+  "releaseName": "shell v606",
+  "cacheGeneration": "golden152"
 }
