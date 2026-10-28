@@ -1995,10 +1995,15 @@
       if (!p || p.id == null) return p;
       var porBase = hechos[String(p.id)];
       if (!porBase) return p;
-      var e = unirEvidenciasStockYjs(p, { stockEvidencias: porBase });
       var b = p.stockBase == null ? null : Number(p.stockBase);
+      var prevProof = p.stockEvidencias && typeof p.stockEvidencias === "object" &&
+        Object.keys(p.stockEvidencias).length > 0;
+      var conflictProof = Object.keys(porBase).some(function (base) { return b === null || Number(base) !== b; });
+      // Keep historical fork evidence, but avoid copying every ordinary
+      // same-baseline movement into a second ever-growing backup field.
+      var e = (prevProof || conflictProof) ? unirEvidenciasStockYjs(p, { stockEvidencias: porBase }) : null;
       if (b === null || !Number.isSafeInteger(b) || !porBase[String(b)]) {
-        return Object.assign({}, p, { stockEvidencias: e }); // conflicting baselines: evidence ONLY
+        return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
       }
       var vistos = porBase[String(b)], pn = Object.assign({}, p.stockPN || {});
       Object.keys(vistos.pn).forEach(function (actor) {
@@ -2009,11 +2014,12 @@
       var neto = b + Object.keys(pn).reduce(function (total, actor) {
         return total + (Number(pn[actor].add) || 0) - (Number(pn[actor].sub) || 0);
       }, 0);
-      if (!Number.isSafeInteger(neto)) return Object.assign({}, p, { stockEvidencias: e });
+      if (!Number.isSafeInteger(neto)) return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
       return Object.assign({}, p, {
         stockBase: b, stockPN: pn, stockActual: Math.max(0, neto),
         stockDeficit: neto < 0 ? -neto : 0,
-        stockTs: Math.max(Number(p.stockTs) || 0, vistos.ts), stockEvidencias: e
+        stockTs: Math.max(Number(p.stockTs) || 0, vistos.ts),
+        ...(e ? { stockEvidencias: e } : {})
       });
     });
   }
