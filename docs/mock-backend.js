@@ -881,6 +881,7 @@
   const OC_STATE_KEY_VIEJA = "amigable_demo_state_v4";
   const OC_STATE_KEY = "f123_estado_v4";
   let _estadoLecturaBloqueada = false, _conflictoEstadoAB = null, _evidenciaEstadoAB = null;
+  var _avisoCatalogoPendiente = false; // (JFC 2026-10-28) aviso de catalogo bloqueado, se reintenta al recuperar el guardado (mismo ambito que avisarCatalogoCambiado)
   var _errorBloqueoLectura = null; // (JFC 2026-10-28) causa de la lectura bloqueada, para clasificar el fallo de guardado
   function _leerEstadoEstricto(clave) {
     try {
@@ -1393,7 +1394,7 @@
     } catch (_) {}
   }
   let _guardadoEstrictoPendiente = null;
-  let _guardadoCatalogoPendiente = null, _ultimoGuardadoPublicable = true, _avisoCatalogoPendiente = false;
+  let _guardadoCatalogoPendiente = null, _ultimoGuardadoPublicable = true;
   let _guardandoAB = false, _estadoPublicableConfirmado = null;
   function _huellaPublicable(estado = estadoActualExportable()) {
     const { _rev, _abCommit, ...datos } = estado;
