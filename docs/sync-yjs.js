@@ -1976,21 +1976,55 @@
     }
   }
 
+  // Build once per Y.Map. A single remote PN fact must not walk ALL historical
+  // witnesses during each inventory update. No mutation of Yjs or customer data.
+  // A deletion, rewrite or unrecognized change invalidates the index and forces
+  // a full rebuild at the next read (fail closed). Indexed maxima are monotone.
+  var _indicesPNTestigos = new WeakMap();
+  function _indexarPNTestigo(hechos, w) {
+    if (!w || typeof w !== "object") return;
+    var pid = String(w.p || ""), actor = String(w.d || "");
+    var base = Number(w.b), add = Number(w.a), sub = Number(w.s);
+    if (!pid || pid.length > 160 || !actor || actor.length > 160 || !Number.isSafeInteger(base) ||
+        !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
+    var byProduct = hechos[pid] || (hechos[pid] = Object.create(null));
+    var byBase = byProduct[String(base)] || (byProduct[String(base)] = { base: base, pn: {}, ts: 0 });
+    var old = byBase.pn[actor] || { add: 0, sub: 0 };
+    byBase.pn[actor] = { add: Math.max(old.add, add), sub: Math.max(old.sub, sub) };
+    byBase.ts = Math.max(byBase.ts, Number(w.t) || 0);
+  }
+  function _indexPNTestigos(mapa) {
+    var state = _indicesPNTestigos.get(mapa);
+    if (!state) {
+      state = { hechos: Object.create(null), dirty: true };
+      _indicesPNTestigos.set(mapa, state);
+      mapa.observe(function (event) {
+        if (state.dirty) return;
+        // Yjs reports 'add', 'update' and 'delete' for changed keys. Only
+        // brand-new add-only witnesses may be indexed incrementally.
+        if (!event || !event.keysChanged || !event.changes || !event.changes.keys) {
+          state.dirty = true; return;
+        }
+        event.keysChanged.forEach(function (key) {
+          var change = event.changes.keys.get(key);
+          if (!change || change.action !== "add" || !mapa.has(key)) {
+            state.dirty = true; return;
+          }
+          if (!state.dirty) _indexarPNTestigo(state.hechos, mapa.get(key));
+        });
+      });
+    }
+    if (state.dirty) {
+      var hechos = Object.create(null);
+      mapa.forEach(function (w) { _indexarPNTestigo(hechos, w); });
+      state.hechos = hechos;
+      state.dirty = false;
+    }
+    return state.hechos;
+  }
   function incorporarTestigosStock(productos, mapa) {
     if (!mapa || !mapa.size || !Array.isArray(productos) || !productos.length) return productos;
-    var hechos = Object.create(null);
-    mapa.forEach(function (w) {
-      if (!w || typeof w !== "object") return;
-      var pid = String(w.p || ""), actor = String(w.d || "");
-      var base = Number(w.b), add = Number(w.a), sub = Number(w.s);
-      if (!pid || pid.length > 160 || !actor || actor.length > 160 || !Number.isSafeInteger(base) ||
-          !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
-      var byProduct = hechos[pid] || (hechos[pid] = Object.create(null));
-      var byBase = byProduct[String(base)] || (byProduct[String(base)] = { base: base, pn: {}, ts: 0 });
-      var old = byBase.pn[actor] || { add: 0, sub: 0 };
-      byBase.pn[actor] = { add: Math.max(old.add, add), sub: Math.max(old.sub, sub) };
-      byBase.ts = Math.max(byBase.ts, Number(w.t) || 0);
-    });
+    var hechos = _indexPNTestigos(mapa);
     return productos.map(function (p) {
       if (!p || p.id == null) return p;
       var porBase = hechos[String(p.id)];
