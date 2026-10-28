@@ -162,10 +162,16 @@
       var raw = localStorage.getItem("f123_micelio_vistos") || "{}";
       var obj = JSON.parse(raw);
       var out = {};
+      var ahora = Date.now();
+      // Micelio emits a locally stamped heartbeat once per minute. An
+      // offline or unproven peer is not an active inventory contradiction and
+      // must NOT trigger the costly full-resync loop every five minutes.
       for (var k in obj) {
         if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
-        var v = obj[k];
-        if (v && v.huella) out[k] = v.huella;
+        var v = obj[k], visto = Number(v && v.visto);
+        if (!Number.isFinite(visto) || visto <= 0 ||
+            visto > ahora || ahora - visto > 5 * 60 * 1000) continue;
+        if (v && typeof v.huella === "string" && v.huella) out[k] = v.huella;
       }
       return out;
     } catch (_) { return {}; }
