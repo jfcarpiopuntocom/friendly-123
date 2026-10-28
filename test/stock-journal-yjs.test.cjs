@@ -71,6 +71,25 @@ test('real Yjs: SAME ID with DIFFERENT payload survives on separate witness keys
   peer.bridge.close();
  }
 });
+test('rejected local collision is still propagated as a quarantined witness to the other peer',async()=>{
+ const [a,b]=[make(),make()];
+ await a.bridge.publish(ev('base',1,'OPEN','cream',10));
+ const original=ev('pc',1,'RECEIVE','cream',3);
+ assert.equal((await a.bridge.publish(original)).ok,true);
+ const rejected=await a.bridge.publish({...original,qty:5});
+ assert.equal(rejected.ok,false,'business operation must remain rejected');
+ assert.equal(rejected.witnessPublished,true,'conflicting evidence must not be hidden locally');
+ await a.bridge.flush();
+ await transmit(a,b);
+ assert.equal(a.bridge.map.size,3);
+ assert.equal(b.bridge.map.size,3);
+ for(const peer of [a,b]){
+   assert.equal(peer.journal.project('cream').trust,'needs-reconciliation');
+   assert.equal(peer.journal.quarantined.length,1);
+   assert.equal(peer.journal.size,2,'only the first canonical movement is accepted');
+   peer.bridge.close();
+ }
+});
 test('real Yjs: forged or corrupted event witness cannot enter journal',async()=>{
  const a=make();
  a.bridge.map.set('fake#notsha256',JSON.stringify(ev('base',1,'OPEN','cream',999)));
