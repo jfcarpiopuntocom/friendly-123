@@ -91,3 +91,20 @@ test('real Yjs: one new product event updates only one Y.Map key, not other 1000
  assert.equal(b.bridge.inbound-before,1,'the bridge must consume one changed key');
  a.bridge.close();b.bridge.close();
 });
+
+test('P0 Yjs tombstone: accidental deletion of a known immutable witness must self-heal',async()=>{
+ const [a,b]=[make(),make()];
+ await a.bridge.publish(ev('base',1,'OPEN','cream',7));
+ await transmit(a,b);
+ assert.equal(b.journal.project('cream').onHand,7);
+ const key=[...a.bridge.map.keys()][0];
+ a.bridge.map.delete(key); // simulate accidental remote map tombstone
+ await a.bridge.flush();
+ await transmit(a,b);
+ await b.bridge.flush();
+ assert.ok(a.bridge.map.has(key),'source must restore its local immutable event witness');
+ assert.ok(b.bridge.map.has(key),'other peers must retain/relearn the evidence');
+ assert.equal(a.journal.project('cream').onHand,7);
+ assert.equal(b.journal.project('cream').onHand,7);
+ a.bridge.close();b.bridge.close();
+});
