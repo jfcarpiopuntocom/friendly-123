@@ -716,9 +716,18 @@
       "adv.pnlHeading": "Profit & loss (today)",
       "adv.balanceHeading": "Simplified balance sheet",
       "auth.act.tagline": "friendly-123 · activate my business",
+      "auth.choice.title": "Before we set this up",
+      "auth.choice.body": "Is this the first device for a brand new business, or another device for a business you already run?",
+      "auth.choice.newBtn": "A brand new business",
+      "auth.choice.newDesc": "Creates a new business with its own license. Starts empty.",
+      "auth.choice.otherBtn": "Another device for my business",
+      "auth.choice.otherDesc": "Joins the business you already have, with all its products and sales. You will need its team code.",
+      "auth.choice.never": "Never mind",
+      "auth.act.nameLabel": "Your full name",
+      "auth.act.namePlaceholder": "First and last name",
       "auth.act.title": "This device becomes yours",
       "auth.act.intro": "This device keeps a recoverable copy of your business. Devices activated with the same license synchronize the shared notebook.",
-      "auth.act.dataPromise": "The only thing you need to register is your program license — everything else about your data stays with you, by design.",
+      "auth.act.dataPromise": "The only thing you need to register is your license — everything else about your data stays with you, by design.",
       "auth.act.startEmptyTitle": "Start empty",
       "auth.act.startEmptyDesc": "Removes the sample data. You start from zero with your own.",
       "auth.act.keepTitle": "Keep what I already loaded here",
@@ -815,8 +824,8 @@
       "auth.gate.repair": "Repair app loading",
       "auth.gate.repairHelp": "Updates arrive automatically. Use this only if the app fails to open, with an internet connection. It repairs cached app files without deleting your notebook data.",
       "auth.gate.forgot": "Forgot?",
-      "auth.gate.joinTeam": "Join a notebook",
-      "auth.join.title": "Join notebook",
+      "auth.gate.joinTeam": "Join a shared notebook",
+      "auth.join.title": "Join a shared notebook",
       "auth.join.body": "Paste the notebook license once. This device opens that notebook and keeps it up to date automatically.",
       "auth.join.placeholder": "F123-XXXX-XXXX-XXXX-XXXXX",
       "auth.join.confirm": "Join",
@@ -824,7 +833,7 @@
       "auth.join.unavailable": "Sync is not available on this device.",
       "auth.join.success": "Done. This device joined the notebook and will keep it up to date automatically.",
       "sync.panel.title": "Shared notebook",
-      "sync.panel.joinNotebook": "Join notebook",
+      "sync.panel.joinNotebook": "Join a shared notebook",
       "sync.panel.checkConnection": "Check connection",
       "sync.panel.technicalDetails": "Technical details",
       "sync.panel.copyDetails": "Copy",
@@ -936,7 +945,7 @@
       "sale.taxAdded": "{name} {rate}%: +{tax} · Total to collect: {total}",
       "sync.mini.demo": "Demo",
       "auth.gate.tryTitle": "First time? Try these codes",
-      "auth.gate.tryCodes": "<strong>456</strong> demo &middot; <strong>260</strong> employee &middot; <strong>357</strong> bookkeeper &mdash; or <strong>789</strong> to activate your own instance: full 30-day trial.",
+      "auth.gate.tryCodes": "<strong>456</strong> demo &middot; <strong>260</strong> employee &middot; <strong>357</strong> bookkeeper &mdash; or <strong>789</strong> to start your own shared notebook: full 30-day trial.",
       "auth.gate.tryNote": "Each code shows the app the way that person sees it. The employee does not see the profits.",
       "auth.gate.landing": "Not sure what this is? <a href=\"./save.html\">See what it does in 10 seconds</a>.",
       "adv.tax.enable": "Apply a tax to my sales (VAT, IVA, GST, sales tax)",
@@ -1888,9 +1897,18 @@
       "adv.pnlHeading": "Pérdidas y ganancias (hoy)",
       "adv.balanceHeading": "Balance simplificado",
       "auth.act.tagline": "friendly-123 · activar mi negocio",
+      "auth.choice.title": "Antes de configurar esto",
+      "auth.choice.body": "¿Es el primer dispositivo de un negocio totalmente nuevo, o es otro dispositivo de un negocio que ya manejas?",
+      "auth.choice.newBtn": "Un negocio nuevo",
+      "auth.choice.newDesc": "Crea un negocio nuevo con su propia licencia. Empieza vacío.",
+      "auth.choice.otherBtn": "Otro dispositivo para mi negocio",
+      "auth.choice.otherDesc": "Te une al negocio que ya tienes, con todos sus productos y ventas. Necesitarás su código de equipo.",
+      "auth.choice.never": "Mejor no",
+      "auth.act.nameLabel": "Tu nombre completo",
+      "auth.act.namePlaceholder": "Nombre y apellido",
       "auth.act.title": "Este dispositivo pasa a ser tuyo",
       "auth.act.intro": "Este aparato conserva una copia recuperable de tu negocio. Los aparatos activados con la misma licencia sincronizan el cuaderno compartido.",
-      "auth.act.dataPromise": "Lo único que necesitas registrar es tu licencia del programa — todo el resto de tus datos permanece solamente contigo, por diseño.",
+      "auth.act.dataPromise": "Lo único que necesitas registrar es tu licencia — todo el resto de tus datos permanece solamente contigo, por diseño.",
       "auth.act.startEmptyTitle": "Empezar vacío",
       "auth.act.startEmptyDesc": "Quita los datos de ejemplo. Arrancas de cero con lo tuyo.",
       "auth.act.keepTitle": "Conservar lo que ya cargué aquí",
@@ -1987,8 +2005,8 @@
       "auth.gate.repair": "Reparar apertura de la app",
       "auth.gate.repairHelp": "Las actualizaciones llegan automáticamente. Usa esto solo si la app no abre, con conexión a internet. Repara los archivos de la app sin borrar los datos de tu cuaderno.",
       "auth.gate.forgot": "¿Olvidaste?",
-      "auth.gate.joinTeam": "Unirse a un cuaderno",
-      "auth.join.title": "Unirse al cuaderno",
+      "auth.gate.joinTeam": "Unirme a un cuaderno compartido",
+      "auth.join.title": "Unirme a un cuaderno compartido",
       "auth.join.body": "Pega una vez la licencia del cuaderno. Este dispositivo abrirá ese cuaderno y lo mantendrá actualizado automáticamente.",
       "auth.join.placeholder": "F123-XXXX-XXXX-XXXX-XXXXX",
       "auth.join.confirm": "Unirme",
@@ -1996,7 +2014,7 @@
       "auth.join.unavailable": "Sincronización no disponible en este dispositivo.",
       "auth.join.success": "Listo. Este dispositivo se unió al cuaderno y lo mantendrá actualizado automáticamente.",
       "sync.panel.title": "Cuaderno compartido",
-      "sync.panel.joinNotebook": "Unirse al cuaderno",
+      "sync.panel.joinNotebook": "Unirme a un cuaderno compartido",
       "sync.panel.checkConnection": "Comprobar conexión",
       "sync.panel.technicalDetails": "Detalles técnicos",
       "sync.panel.copyDetails": "Copiar",
@@ -2104,7 +2122,7 @@
       "sale.taxAdded": "{name} {rate}%: +{tax} · Total a cobrar: {total}",
       "sync.mini.demo": "Demo",
       "auth.gate.tryTitle": "¿Primera vez? Prueba estos códigos",
-      "auth.gate.tryCodes": "<strong>456</strong> demo &middot; <strong>260</strong> empleado &middot; <strong>357</strong> contable &mdash; o <strong>789</strong> para activar tu propia tienda: prueba completa de 30 días.",
+      "auth.gate.tryCodes": "<strong>456</strong> demo &middot; <strong>260</strong> empleado &middot; <strong>357</strong> contable &mdash; o <strong>789</strong> para empezar tu propio cuaderno compartido: prueba completa de 30 días.",
       "auth.gate.tryNote": "Cada código muestra la app como la ve esa persona. El empleado no ve las ganancias.",
       "auth.gate.landing": "¿No sabes qué es esto? <a href=\"./save.html\">Mira lo que hace en 10 segundos</a>.",
       "adv.tax.enable": "Aplicar un impuesto a mis ventas (IVA, VAT, GST, sales tax)",
@@ -2365,7 +2383,17 @@
 
   const LS_KEY = "f123_lang"; // f123_ prefijo (2026-07-17): namespace propio, no compartir con AMIGABLE
   let lang = localStorage.getItem(LS_KEY);
-  if (lang !== "en" && lang !== "es") lang = "en"; // default English
+  if (lang !== "en" && lang !== "es") {
+    // v599: SOLO en un aparato NUEVO (ninguna clave f123_ en localStorage = nunca tuvo cuaderno ni
+    // eligio idioma) el navegador en espanol (es, es-EC, es-US...) arranca en ES. Un cliente que ya
+    // usa la app sin haber elegido idioma sigue en ingles como siempre: no cambiarle el idioma de golpe.
+    lang = "en";
+    try {
+      let aparatoNuevo = true;
+      for (let i = 0; i < localStorage.length; i++) { if (String(localStorage.key(i)).indexOf("f123_") === 0) { aparatoNuevo = false; break; } }
+      if (aparatoNuevo && /^es(-|$)/i.test(String(navigator.language || ""))) lang = "es";
+    } catch (_) { lang = "en"; }
+  }
 
   function t(key, fallback) {
     const d = DICT[lang] || DICT.en;

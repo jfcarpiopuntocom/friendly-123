@@ -512,7 +512,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     box-shadow:0 2px 0 rgba(15,25,35,.55);
     transition:transform .07s ease, box-shadow .07s ease;}
   .oc-pad button .dig{font-family:var(--font-display,sans-serif);font-weight:700;font-size:20px;color:var(--ink,#211c14);line-height:1;}
-  .oc-pad button .emo{font-size:15px;line-height:1;}
   #oc-gate .oc-pad button:nth-child(3n+1){border-color:var(--rust,#b2461f);}
   #oc-gate .oc-pad button:focus-visible{outline:3px solid var(--rust,#b2461f);outline-offset:2px;}
   .oc-pad button:active{transform:translateY(2px); box-shadow:0 0 0 rgba(15,25,35,0);}
@@ -606,18 +605,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     let entrada = [];
     let ultimoVisible = -1;
     let ocultarTimer = null;
-    // Como en amigable-123: iconos alegres, barajados en cada apertura.
-    // El digito visible sigue siendo la unica entrada y no cambia el PIN.
-    const iconos = ["💼", "📊", "📋", "📁", "🗂️", "📌", "📎", "📝", "🖊️", "✏️", "🔑", "💰", "📦", "🏷️", "⚖️", "🔍", "🖨️", "📞", "📱", "🏢", "💡", "⏰", "📅", "🗓️", "💳"];
-    for (let i = iconos.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [iconos[i], iconos[j]] = [iconos[j], iconos[i]];
-    }
+    // Teclas solo con el digito (JFC 2026-10-27): se quitaron los emojis barajados.
     padEl.innerHTML = "";
     for (let d = 0; d <= 9; d++) {
       const b = document.createElement("button");
       b.dataset.d = String(d);
-      b.innerHTML = `<span class="dig">${d}</span><span class="emo" aria-hidden="true">${iconos[d]}</span>`;
+      b.innerHTML = `<span class="dig">${d}</span>`;
       padEl.appendChild(b);
     }
     const slots = () => slotsEl.querySelectorAll(".slot");
@@ -697,11 +690,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       <!-- v360 (Hugo/Paco/Luis #26): textos traducibles EN/ES. El "30" de la prueba
            está escrito en auth.gate.tryCodes: si cambia PRUEBA_DIAS, cambiarlo allí. -->
       <div id="oc-gate-demo-pins" style="margin:14px 0 0;padding:12px;border:2px dashed var(--rust,#b2461f);border-radius:6px;text-align:center;">
-        <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;" data-i18n="auth.gate.tryTitle">First time? Try these codes</p>
-        <p style="margin:0;font-size:13px;line-height:1.6;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.tryCodes">${(window.t && window.t("auth.gate.tryCodes")) || ""}</p>
-        <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n="auth.gate.tryNote">${(window.t && window.t("auth.gate.tryNote")) || "Each code shows the app the way that person sees it. The employee does not see the profits."}</p>
+        <p style="margin:0 0 6px;font-size:16px;font-weight:800;color:#A83D1F !important;-webkit-text-fill-color:#A83D1F !important;" data-i18n="auth.gate.tryTitle">First time? Try these codes</p>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.tryCodes">${(window.t && window.t("auth.gate.tryCodes")) || ""}</p>
+        <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n="auth.gate.tryNote">${(window.t && window.t("auth.gate.tryNote")) || "Each code shows the app the way that person sees it. The employee does not see the profits."}</p>
       </div>
-      <p id="oc-gate-landing" style="margin:12px 0 0;font-size:13px;line-height:1.5;text-align:center;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.landing">${(window.t && window.t("auth.gate.landing")) || ""}</p>
+      <p id="oc-gate-landing" style="margin:12px 0 0;font-size:14px;line-height:1.5;text-align:center;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.landing">${(window.t && window.t("auth.gate.landing")) || ""}</p>
+      <p id="oc-gate-links" style="margin:10px 0 0;text-align:center;"><a href="./save.html" data-i18n="gancho.cta.precio" style="display:inline-block;min-height:44px;line-height:44px;padding:0 8px;font-size:14px;font-weight:700;text-decoration:underline;color:#A83D1F !important;-webkit-text-fill-color:#A83D1F !important;">See the one-time price</a></p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
       <p id="oc-gate-build" style="margin:8px 0 0;font-size:12px;letter-spacing:.06em;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">&nbsp;</p>
       <!-- Acceso al "campo de pruebas" (workshop) RETIRADO (JFC 2026-09-10):
@@ -880,7 +874,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const rec = document.getElementById("oc-recuperar");
       if (rec) rec.textContent = tt("auth.gate.forgot", "Forgot?");
       const join = document.getElementById("oc-unirse-equipo");
-      if (join) join.textContent = tt("auth.gate.joinTeam", "Join a notebook");
+      if (join) join.textContent = tt("auth.gate.joinTeam", "Join a shared notebook");
+      /* Textos marcados con data-i18n / data-i18n-html dentro del candado (pistas, enlace de precio). */
+      try { if (window.OCI18n && window.OCI18n.applyStatic) window.OCI18n.applyStatic(gate); } catch (_) {}
     } catch (_) {}
   }
   try { window.addEventListener("oc-lang-change", pintarGateIdioma); } catch (_) {}
@@ -1254,7 +1250,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   let modalActivacion = null;
   function construirModalActivacion() {
     if (modalActivacion) return modalActivacion;
-    var st = document.createElement("style");
+    var st = document.getElementById("oc-act-style") || document.createElement("style");
+    st.id = "oc-act-style";
     st.textContent = ""
       + "#oc-act{position:fixed;inset:0;z-index:10010;background:#0F1923;display:flex;align-items:center;justify-content:center;padding:18px;}"
       + "#oc-act-card{background:#F8F9FB;width:100%;max-width:460px;border-radius:14px;border:2px solid #C4CDD8;border-top:4px solid #E86040;padding:26px 22px 24px;box-shadow:0 12px 40px #060d14;max-height:92vh;overflow-y:auto;}"
@@ -1269,10 +1266,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       + "#oc-act input[type=email]{width:100%;box-sizing:border-box;padding:11px 12px;border:2px solid #5294AC;border-radius:8px;font-size:16px;font-family:var(--font-mono,monospace);color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;background:#FFFFFF;}"
       + "#oc-act .primario{width:100%;min-height:48px;margin-top:16px;padding:14px;border-radius:9px;border:2px solid #E86040;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;}"
       + "#oc-act .secundario{width:100%;min-height:44px;margin-top:10px;padding:11px;border-radius:9px;border:2px solid #5294AC;background:transparent;color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important;font-size:15px;font-weight:700;cursor:pointer;}"
+      /* Fila de acciones pegada al fondo de la tarjeta (JFC 2026-10-27): en un
+         celular 375x667 "Activar mi negocio" quedaba bajo el doblez. sticky dentro
+         de la tarjeta que hace scroll => siempre visible, objetivos >=44px. */
+      + "#oc-act .acciones{position:sticky;bottom:-24px;background:#F8F9FB;margin:0 -22px -24px;padding:8px 22px 14px;border-top:1px solid #C4CDD8;}"
+      + "#oc-act .acciones .primario{margin-top:0;}"
+      + "@media (max-height:700px){#oc-act-card{padding:16px 18px 24px;}#oc-act .acciones{margin:0 -18px -24px;padding:8px 18px 14px;}#oc-act h2{font-size:21px;margin-bottom:6px;}#oc-act p{margin-bottom:8px;}#oc-act .lbl{margin:8px 0 4px;}#oc-act label.op{padding:8px 12px;margin-bottom:6px;}}"
       + "#oc-act .msg{font-size:14px;font-weight:700;margin:10px 0 0;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important;}"
       + "#oc-act .ok{color:#0F7A3D !important;-webkit-text-fill-color:#0F7A3D !important;}"
       + "@media (prefers-color-scheme: dark){#oc-act-card{background:#F8F9FB;}#oc-act h2,#oc-act p,#oc-act label.op strong,#oc-act .lbl,#oc-act input[type=email]{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;}#oc-act label.op span{color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;}#oc-act .primario{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}}";
-    document.head.appendChild(st);
+    if (!st.parentNode) document.head.appendChild(st);
 
     var wrap = document.createElement("div");
     wrap.id = "oc-act";
@@ -1289,8 +1292,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          QUIÉN es el dueño de cada licencia en el panel — hasta ahora solo había
          correo y WhatsApp, y la columna Nombre salía vacía. Va primero porque es
          lo más natural de responder. */
-      +     '<label class="lbl" for="oc-act-nombre">Your full name</label>'
-      +     '<input id="oc-act-nombre" type="text" autocomplete="name" placeholder="First and last name">'
+      +     '<label class="lbl" for="oc-act-nombre">' + window.t("auth.act.nameLabel") + '</label>'
+      +     '<input id="oc-act-nombre" type="text" autocomplete="name" placeholder="' + window.t("auth.act.namePlaceholder") + '">'
       +     '<label class="lbl" for="oc-act-email">' + window.t("auth.act.emailLabel") + '</label>'
       +     '<input id="oc-act-email" type="email" inputmode="email" autocomplete="email" placeholder="' + window.t("auth.act.emailPlaceholder") + '">'
       /* TELEFONO OBLIGATORIO (JFC 2026-08-19, regla para TODAS sus apps).
@@ -1306,9 +1309,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       +     '<label class="lbl" for="oc-act-tel">' + window.t("auth.act.phoneLabel") + '</label>'
       +     '<input id="oc-act-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="' + window.t("auth.act.phonePlaceholder") + '">'
       +     '<p style="font-size:13px;line-height:1.45;margin:4px 0 0;color:var(--ink-soft,#5d5340);">' + window.t("auth.act.phoneHint") + '</p>'
-      +     '<button id="oc-act-confirmar" class="primario">' + window.t("auth.act.confirmBtn") + '</button>'
-      +     '<button id="oc-act-cancelar" class="secundario">' + window.t("auth.act.cancelBtn") + '</button>'
       +     '<p id="oc-act-msg" class="msg"></p>'
+      +     '<div class="acciones">'
+      +       '<button id="oc-act-confirmar" class="primario">' + window.t("auth.act.confirmBtn") + '</button>'
+      +       '<button id="oc-act-cancelar" class="secundario">' + window.t("auth.act.cancelBtn") + '</button>'
+      +     '</div>'
       +   '</div>'
       +   '<div id="oc-act-exito" style="display:none;">'
       +     '<p class="marca">' + window.t("auth.act.doneTagline") + '</p>'
@@ -1468,13 +1473,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     b.style.cssText = "position:fixed;inset:0;z-index:10005;background:#0F1923EE;display:flex;align-items:center;justify-content:center;padding:20px;";
     b.innerHTML =
       '<div style="background:#FFFFFF;border-radius:16px;padding:26px 22px;max-width:440px;width:100%;text-align:left;">' +
-      '<h2 style="font-size:21px;font-weight:800;margin:0 0 10px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">Before we set this up</h2>' +
-      '<p style="font-size:16px;line-height:1.5;margin:0 0 18px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Is this the first device for a brand new business, or another device for a business you already run?</p>' +
-      '<button type="button" id="oc-act-nuevo" style="width:100%;min-height:52px;padding:14px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">A brand new business</button>' +
-      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Creates a new business with its own license. Starts empty.</p>' +
-      '<button type="button" id="oc-act-unirme" style="width:100%;min-height:52px;padding:14px;border:2px solid #2C3E50;border-radius:12px;background:transparent;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-weight:800;font-size:16px;cursor:pointer;">Another device for my business</button>' +
-      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Joins the business you already have, with all its products and sales. You will need its team code.</p>' +
-      '<button type="button" id="oc-act-nada" style="width:100%;min-height:44px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">Never mind</button>' +
+      '<h2 style="font-size:21px;font-weight:800;margin:0 0 10px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">' + window.t("auth.choice.title") + '</h2>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 18px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">' + window.t("auth.choice.body") + '</p>' +
+      '<button type="button" id="oc-act-nuevo" style="width:100%;min-height:52px;padding:14px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">' + window.t("auth.choice.newBtn") + '</button>' +
+      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">' + window.t("auth.choice.newDesc") + '</p>' +
+      '<button type="button" id="oc-act-unirme" style="width:100%;min-height:52px;padding:14px;border:2px solid #2C3E50;border-radius:12px;background:transparent;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-weight:800;font-size:16px;cursor:pointer;">' + window.t("auth.choice.otherBtn") + '</button>' +
+      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">' + window.t("auth.choice.otherDesc") + '</p>' +
+      '<button type="button" id="oc-act-nada" style="width:100%;min-height:44px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">' + window.t("auth.choice.never") + '</button>' +
       "</div>";
     document.body.appendChild(b);
     var cerrar = function () { try { b.remove(); } catch (_) {} };
@@ -1490,6 +1495,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
 
   function _activacionRealmente() {
+    /* Se reconstruye en cada apertura para tomar el idioma vigente (EN/ES). */
+    try { if (modalActivacion) { modalActivacion.remove(); modalActivacion = null; } } catch (_) {}
     var w = construirModalActivacion();
     w.querySelector("#oc-act-form").style.display = "block";
     w.querySelector("#oc-act-exito").style.display = "none";
