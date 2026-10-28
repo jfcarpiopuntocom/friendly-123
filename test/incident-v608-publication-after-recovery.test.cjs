@@ -151,3 +151,46 @@ test('P0 two offline sales preserve money IDs once and both physical decrements'
   await exchange(a,b,2);
   assert.equal((await fixtureProduct(a)).stockActual,4,'replay cannot subtract again');
 });
+
+
+test('P0 third peer adopting two disconnected sales retains both receipts exactly once',async()=>{
+  const a=await peer(),b=await peer(),c=await peer();
+  await physicalFixture(a,b,8,8);
+  const snap=await a.w.request('/api/respaldo/exportar');
+  await c.w.request('/api/respaldo/importar','POST',snap);
+  c.w.OCYjs._store.sembrar();
+  const r1=await a.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:2});
+  const r2=await b.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  await a.flush();await b.flush();
+  await exchange(a,b,3);
+  const state=a.w.Y.encodeStateAsUpdate(a.w.OCYjs.doc);
+  c.w.Y.applyUpdate(c.w.OCYjs.doc,state,'red');
+  c.w.OCYjs._store.aplicar();await c.flush();
+  // Third peer has its own concurrent old whole-object product in its Y.Doc.
+  // The independent PN witnesses must override only derived SAME-base counts.
+  await exchange(c,a,2);await exchange(c,b,2);
+  const history=await c.w.request('/api/respaldo/exportar');
+  assert.equal(history.productos.find(p=>p.id==='p0-two-actors').stockActual,5);
+  assert.equal(history.ventas.filter(v=>v.id===r1.ventaId).length,1);
+  assert.equal(history.ventas.filter(v=>v.id===r2.ventaId).length,1);
+});
+
+test('P0 300-product notebook: remote PN update converges without full-item write loss',async()=>{
+  const a=await peer(),b=await peer();
+  const f=await a.w.request('/api/respaldo/exportar');
+  const seed={...f.productos[0],stockActual:2,stockBase:2,stockPN:{},stockTs:1,rev:{c:1,d:'fixture'}};
+  f.productos=Array.from({length:300},(_,i)=>({...seed,id:'p0-perf-'+i,
+    nombre:'Synthetic performance item '+i,barcode:'P0-PERF-'+i}));
+  f.ventas=[];f.movimientos=[];
+  await a.w.request('/api/respaldo/importar','POST',f);
+  await b.w.request('/api/respaldo/importar','POST',f);
+  a.w.OCYjs._store.sembrar();b.w.OCYjs._store.sembrar();await a.flush();await b.flush();
+  await a.w.request('/api/productos/p0-perf-299/ajustar','POST',{delta:9,motivo:'300 product sync'});
+  await a.flush();
+  const start=Date.now();
+  await exchange(a,b,2);
+  const elapsed=Date.now()-start;
+  assert.equal((await b.w.request('/api/productos/p0-perf-299')).stockActual,11);
+  assert.equal((await b.w.request('/api/respaldo/exportar')).productos.length,300);
+  console.error('P0_300_PRODUCT_NOTEBOOK_SYNTHETIC_REPLAY_MS',elapsed);
+});
