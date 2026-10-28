@@ -979,9 +979,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       // The active notebook is authoritative. f123_owned can retain a previous
       // activation name while this notebook already has a newer synced name.
       const activo = (T && typeof T.nombreActivo === "function") ? String(T.nombreActivo() || "").trim() : "";
-      // Solo en la tienda PROPIA: si el store aun no cargo, conservar el ultimo
-      // nombre conocido de esta licencia. Nunca mostrarlo en una tienda unida.
-      const nombre = activo || ((owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "");
+      // P0 v602: never display the stale own-license sidecar name on the PIN screen.
+      // The ACTIVE notebook name is authoritative. Until its store is hydrated,
+      // hide the label rather than showing an unrelated historical shop name.
+      const nombre = activo;
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
       _pintar(nombre);
       const licP = (owned && typeof owned.licenseCode === "string") ? owned.licenseCode : "";
