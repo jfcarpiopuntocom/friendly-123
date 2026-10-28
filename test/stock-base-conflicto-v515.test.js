@@ -100,14 +100,14 @@ test('Belen por el sync real: bases distintas convergen, y su correccion manual 
 test('v602 real Yjs phones-to-PC: saved sale keeps stock and money aligned', async () => {
   const cel = await peer(), pc = await peer();
   const ts = Date.now() - 10000;
-  await conBase(cel,'p-crema-007',14,{},14,ts);
-  await conBase(pc, 'p-crema-007',14,{},14,ts);
+  await conBase(cel,'p-fixture-alpha',14,{},14,ts);
+  await conBase(pc, 'p-fixture-alpha',14,{},14,ts);
   await sincronizar(cel,pc);
-  const result = await cel.request('/api/productos/p-crema-007/venta','POST',{cantidad:1});
+  const result = await cel.request('/api/productos/p-fixture-alpha/venta','POST',{cantidad:1});
   assert.ok(result.ventaId,'a durable sale must return its immutable ID');
   await sincronizar(cel,pc);
-  assert.equal(await stockDe(cel,'p-crema-007'),13,'phone decremented one real unit');
-  assert.equal(await stockDe(pc,'p-crema-007'),13,'PC received one real unit sale');
+  assert.equal(await stockDe(cel,'p-fixture-alpha'),13,'phone decremented one real unit');
+  assert.equal(await stockDe(pc,'p-fixture-alpha'),13,'PC received one real unit sale');
   const pcBackup = await pc.request('/api/respaldo/exportar');
   assert.equal(pcBackup.ventas.filter(v=>String(v.id)===String(result.ventaId)).length,1,'sale arrived once, not duplicated');
   await sincronizar(cel,pc);
@@ -116,14 +116,14 @@ test('v602 real Yjs phones-to-PC: saved sale keeps stock and money aligned', asy
 
 test('v602 phone rejoin with an older 14-versus-13 stock mismatch and a fresh sale',async()=>{
   const cel=await peer(),pc=await peer();
-  await conBase(cel,'p-crema-r',13,{},13,Date.now()-10000);
-  await conBase(pc, 'p-crema-r',14,{},14,Date.now()-20000);
-  const sold=await cel.request('/api/productos/p-crema-r/venta','POST',{cantidad:1});
+  await conBase(cel,'p-fixture-beta',13,{},13,Date.now()-10000);
+  await conBase(pc, 'p-fixture-beta',14,{},14,Date.now()-20000);
+  const sold=await cel.request('/api/productos/p-fixture-beta/venta','POST',{cantidad:1});
   assert.ok(sold.ventaId,'phone sale is durably recorded');
-  assert.equal(await stockDe(pc,'p-crema-r'),14,'PC remains offline with its old inventory');
+  assert.equal(await stockDe(pc,'p-fixture-beta'),14,'PC remains offline with its old inventory');
   await sincronizar(cel,pc);
-  assert.equal(await stockDe(pc,'p-crema-r'),12,'newer proven phone stock must arrive after rejoin');
-  assert.equal(await stockDe(cel,'p-crema-r'),12);
+  assert.equal(await stockDe(pc,'p-fixture-beta'),12,'newer proven phone stock must arrive after rejoin');
+  assert.equal(await stockDe(cel,'p-fixture-beta'),12);
   const snapshot=await pc.request('/api/respaldo/exportar');
   assert.equal(snapshot.ventas.filter(v=>v.id===sold.ventaId).length,1,'rejoin preserves the exact sale ID once');
 });
