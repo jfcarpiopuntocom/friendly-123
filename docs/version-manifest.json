@@ -1,6 +1,6 @@
 {
-  "version": "shell v599",
-  "shell": "f123-shell-v599",
+  "version": "shell v600",
+  "shell": "f123-shell-v600",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-29a90365f05af63872b3ff33eca9c73d7de487755157193155bddbb109640467",
@@ -76,7 +76,7 @@
     "./micelio-vivo.js": "sha256-4e9201311c932092e1b4bf4755e95410dd9b822bfc046a39f1534e6b3a7d8cda",
     "./micelio-ui.js": "sha256-85f2e15243f9961047efdec851bd84634839c6f733317f0197f1d6632a82e306",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-dfe029d98839f90c93611cb9692cf8cb2d6f1f28a4e99eee8a617a7e90b5abef",
+    "./dashboard.html": "sha256-d51d3523d04bcf5f767d4d761033ce7207358e8954fe61650a077401c279c529",
     "./dashboard-updates.js": "sha256-3591152be96f22060daae69763ba6e80325b75b302772551544b4d31d48bb4cf",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
