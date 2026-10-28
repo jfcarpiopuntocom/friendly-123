@@ -25,7 +25,8 @@ async function peer(options={}){
   w.IndexeddbPersistence=class{once(){}};
   w.localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-V608-PUBLICATION'}));
   w.OCAuth={rolActual:()=> 'dueno'};
-  const syncFile=options.legacy ? process.env.F123_V607_SYNC_FILE : path.join(__dirname,'../docs/sync-yjs.js');
+  const syncFile=options.legacy === 'v606' ? process.env.F123_V606_SYNC_FILE :
+    options.legacy ? process.env.F123_V607_SYNC_FILE : path.join(__dirname,'../docs/sync-yjs.js');
   assert.ok(syncFile&&fs.existsSync(syncFile),'v607 historical sync script must be fetched at exact pinned SHA');
   vm.runInContext(fs.readFileSync(syncFile,'utf8'),w);
   for(let i=0;i<100&&w.OCYjs.estado!=='activo';i++)await new Promise(resolve=>setTimeout(resolve,10));
@@ -382,6 +383,23 @@ test('P0 pinned v607 bridge with new bridge: two disconnected sales retain each 
     const snapshot=await p.w.request('/api/respaldo/exportar');
     assert.equal(snapshot.productos.find(x=>x.id==='p0-two-actors').stockActual,4,
       'different shell Yjs versions must not lose either offline physical movement');
+    assert.equal(snapshot.ventas.filter(x=>x.id===rA.ventaId).length,1);
+    assert.equal(snapshot.ventas.filter(x=>x.id===rB.ventaId).length,1);
+  }
+});
+
+
+test('P0 pinned v606 Yjs bridge versus new bridge: two offline sales remain unique',async()=>{
+  // Real historical v606 bridge, common synthetic backend; NOT full mixed-shell test.
+  const a=await peer(),b=await peer({legacy:'v606'});
+  await physicalFixture(a,b,6,6);
+  const rA=await a.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  const rB=await b.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  assert.ok(rA.ventaId&&rB.ventaId&&rA.ventaId!==rB.ventaId);
+  await a.flush();await b.flush();await exchange(a,b,3);
+  for(const p of [a,b]){
+    const snapshot=await p.w.request('/api/respaldo/exportar');
+    assert.equal(snapshot.productos.find(x=>x.id==='p0-two-actors').stockActual,4);
     assert.equal(snapshot.ventas.filter(x=>x.id===rA.ventaId).length,1);
     assert.equal(snapshot.ventas.filter(x=>x.id===rB.ventaId).length,1);
   }
