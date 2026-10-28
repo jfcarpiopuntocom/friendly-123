@@ -1956,22 +1956,25 @@
     if (!r || r.id == null || !mapa) return;
     var pid = String(r.id);
     if (!pid || pid.length > 160) return;
-    function registrar(base, pn, ts) {
+    function registrar(base, pn, ts, epoch) {
+      // New explicit epochs cannot inherit legacy witnesses by numeric coincidence.
+      var ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+
       var b = Number(base);
       if (base == null || !Number.isSafeInteger(b) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
       Object.keys(pn).forEach(function (actor) {
         if (!actor || actor.length > 160) return;
         var z = pn[actor] || {}, add = Number(z.add), sub = Number(z.sub);
         if (!Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0 || !(add || sub)) return;
-        var key = JSON.stringify([pid, b, actor, add, sub]);
-        if (!mapa.has(key)) mapa.set(key, { p: pid, b: b, d: actor, a: add, s: sub, t: Number(ts) || 0 });
+        var key = JSON.stringify([pid, b, ep, actor, add, sub]);
+        if (!mapa.has(key)) mapa.set(key, { p: pid, b: b, e: ep, d: actor, a: add, s: sub, t: Number(ts) || 0 });
       });
     }
-    registrar(r.stockBase, r.stockPN, r.stockTs);
+    registrar(r.stockBase, r.stockPN, r.stockTs, r.stockEpochId);
     var evidencias = r.stockEvidencias;
     if (evidencias && typeof evidencias === "object" && !Array.isArray(evidencias)) {
       Object.keys(evidencias).forEach(function (key) {
-        var e = evidencias[key]; if (e) registrar(e.base, e.pn, e.ts);
+        var e = evidencias[key]; if (e) registrar(e.base, e.pn, e.ts, e.epoch);
       });
     }
   }
@@ -1985,10 +1988,12 @@
     if (!w || typeof w !== "object") return;
     var pid = String(w.p || ""), actor = String(w.d || "");
     var base = Number(w.b), add = Number(w.a), sub = Number(w.s);
+    var epoch = typeof w.e === "string" && w.e.length <= 160 ? w.e : "";
     if (!pid || pid.length > 160 || !actor || actor.length > 160 || !Number.isSafeInteger(base) ||
         !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
     var byProduct = hechos[pid] || (hechos[pid] = Object.create(null));
-    var byBase = byProduct[String(base)] || (byProduct[String(base)] = { base: base, pn: {}, ts: 0 });
+    var groupKey = JSON.stringify([base, epoch]);
+    var byBase = byProduct[groupKey] || (byProduct[groupKey] = { base: base, epoch: epoch, pn: {}, ts: 0 });
     var old = byBase.pn[actor] || { add: 0, sub: 0 };
     byBase.pn[actor] = { add: Math.max(old.add, add), sub: Math.max(old.sub, sub) };
     byBase.ts = Math.max(byBase.ts, Number(w.t) || 0);
@@ -2030,16 +2035,25 @@
       var porBase = hechos[String(p.id)];
       if (!porBase) return p;
       var b = p.stockBase == null ? null : Number(p.stockBase);
+      var epoch = typeof p.stockEpochId === "string" && p.stockEpochId.length <= 160 ? p.stockEpochId : "";
+      var activeKey = JSON.stringify([b, epoch]);
       var prevProof = p.stockEvidencias && typeof p.stockEvidencias === "object" &&
         Object.keys(p.stockEvidencias).length > 0;
-      var conflictProof = Object.keys(porBase).some(function (base) { return b === null || Number(base) !== b; });
+      var conflictProof = Object.keys(porBase).some(function (key) { return b === null || key !== activeKey; });
       // Keep historical fork evidence, but avoid copying every ordinary
       // same-baseline movement into a second ever-growing backup field.
-      var e = (prevProof || conflictProof) ? unirEvidenciasStockYjs(p, { stockEvidencias: porBase }) : null;
-      if (b === null || !Number.isSafeInteger(b) || !porBase[String(b)]) {
+      var legacyProof = Object.create(null);
+      Object.keys(porBase).forEach(function (key) {
+        var fact = porBase[key];
+        if (fact.epoch === "" && String(fact.base) !== String(b)) legacyProof[String(fact.base)] = fact;
+      });
+      var e = (prevProof || Object.keys(legacyProof).length) ? unirEvidenciasStockYjs(p, { stockEvidencias: legacyProof }) : null;
+      // Distinct explicit epochs are retained in the encrypted witness map;
+      // legacy stockEvidencias cannot represent two equal-number epochs safely.
+      if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
         return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
       }
-      var vistos = porBase[String(b)], pn = Object.assign({}, p.stockPN || {});
+      var vistos = porBase[activeKey], pn = Object.assign({}, p.stockPN || {});
       Object.keys(vistos.pn).forEach(function (actor) {
         var old = pn[actor] || {}, newValue = vistos.pn[actor];
         pn[actor] = { add: Math.max(Number(old.add) || 0, newValue.add),
