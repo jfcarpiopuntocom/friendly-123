@@ -450,5 +450,9 @@ test('P0 two peers retain E2 physical recount and its subsequent movement',async
     const item=await fixtureProduct(p);
     assert.equal(item.stockActual,4);
     assert.equal(item.stockEpochId,'E2-synthetic');
+    assert.ok(p.w.OCYjs.stockPNTestigos.size >= 2,'historic and active movement witnesses remain durable');
   }
+  await exchange(a,b,3);
+  assert.equal((await fixtureProduct(a)).stockActual,4,'repeated replay cannot resurrect E1 movements');
+  assert.equal((await fixtureProduct(b)).stockActual,4,'reverse replay cannot duplicate E2 decrement');
 });
