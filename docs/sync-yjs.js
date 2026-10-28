@@ -2003,7 +2003,8 @@
                   };
                   var tMio = Number(r.stockTs) || 0, tDoc = Number(prev.stockTs) || 0;
                   // v517 (informe Codex #2): mismo filtro que mock-backend: un sello >5 min en el futuro del reloj comun no gana.
-                  var ahoraC = (window.OCLatencia && window.OCLatencia.ahoraRelay) ? Number(window.OCLatencia.ahoraRelay()) : NaN;
+                  var relojRaw = (window.OCLatencia && window.OCLatencia.ahoraRelay) ? window.OCLatencia.ahoraRelay() : null;
+                  var ahoraC = typeof relojRaw === "number" && Number.isFinite(relojRaw) && relojRaw >= 1000000000000 ? relojRaw : NaN;
                   var futuroMio = Number.isFinite(ahoraC) && tMio > ahoraC + 300000, futuroDoc = Number.isFinite(ahoraC) && tDoc > ahoraC + 300000;
                   var ganoYo = futuroMio !== futuroDoc ? !futuroMio : (tMio !== tDoc ? tMio > tDoc : claveEp(r) > claveEp(prev));
                   if (!ganoYo) r = Object.assign({}, r, { stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual, stockTs: prev.stockTs, stockDeficit: prev.stockDeficit });
