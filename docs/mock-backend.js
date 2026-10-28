@@ -3529,6 +3529,59 @@
     } catch (_) { return null; }
   }
 
+  /*
+   * P0 READ-ONLY stock checksum for a physical PC–phone verification gate.
+   * Existing huellaCatalogo intentionally ignores stock. Never relabel that
+   * metadata-only checksum as proof of inventory equality. This method does
+   * not publish to the relay, rewrite the local notebook, or trigger a sync.
+   */
+  async function huellaInventario() {
+    const rows = productos.map((p) => {
+      const rawPN = p && p.stockPN && typeof p.stockPN === "object" && !Array.isArray(p.stockPN) ? p.stockPN : {};
+      return {
+        id: String(p && p.id || ""),
+        stock: Number(p && p.stockActual),
+        deficit: Number(p && p.stockDeficit || 0),
+        base: p && p.stockBase != null ? Number(p.stockBase) : null,
+        epoch: typeof (p && p.stockEpochId) === "string" ? p.stockEpochId : "",
+        pn: Object.keys(rawPN).sort().map((actor) => [
+          actor, Number(rawPN[actor] && rawPN[actor].add || 0), Number(rawPN[actor] && rawPN[actor].sub || 0)
+        ]),
+        conflict: !!(p && p.stockEvidencias && Object.keys(p.stockEvidencias).length)
+      };
+    }).sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    const invalidos = rows.filter((r) => !r.id || !Number.isSafeInteger(r.stock) || r.stock < 0 ||
+      !Number.isSafeInteger(r.deficit) || r.deficit < 0 ||
+      (r.base !== null && !Number.isSafeInteger(r.base)) ||
+      r.epoch.length > 160 || r.pn.some((v) => !v[0] || !Number.isSafeInteger(v[1]) ||
+      !Number.isSafeInteger(v[2]) || v[1] < 0 || v[2] < 0)).length;
+    const sinEpoca = rows.filter((r) => !r.epoch).length;
+    const conflictos = rows.filter((r) => r.conflict).length;
+    // Never issue a clean checksum for structurally corrupt data or a browser
+    // without SubtleCrypto: absence of proof is not evidence of equality.
+    if (invalidos || !window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined")
+      return { ok:false, verificable:false, productos:rows.length,
+        sinEpoca, conflictos, invalidos, razon:"checksum-no-disponible-o-datos-invalidos" };
+    const digest = async (data) => {
+      const bytes = new TextEncoder().encode(JSON.stringify(data));
+      const hash = await window.crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(hash), (n) => n.toString(16).padStart(2,"0")).join("");
+    };
+    try {
+      const [existencias, movimientos] = await Promise.all([
+        digest(rows.map((r) => [r.id,r.stock,r.deficit])),
+        digest(rows.map((r) => [r.id,r.stock,r.deficit,r.base,r.epoch,r.pn,r.conflict]))
+      ]);
+      return { ok:true, verificable:sinEpoca === 0 && conflictos === 0,
+        productos:rows.length, sinEpoca, conflictos, invalidos:0,
+        algoritmo:"SHA-256", existencias, movimientos,
+        advertencia:"Solo huellas locales: la igualdad NO demuestra recepción duradera ni conciliación física" };
+    } catch (_) {
+      return { ok:false, verificable:false, productos:rows.length,
+        sinEpoca, conflictos, invalidos, razon:"checksum-fallo" };
+    }
+  }
+
   /* ==========================================================================
      PASOS 4 y 5 — MERGE DE CATALOGO ENTRE DISPOSITIVOS DEL EQUIPO
      (JFC 2026-08-19)
@@ -5126,6 +5179,7 @@
     /* La huella de ESTE dispositivo. La usan el latido del micelio, el panel
        del equipo y el codigo TEAM- al compartirse. */
     huella: huellaCatalogo,
+    huellaInventario: huellaInventario,
     // Llamado por sync-realtime.js al recibir un Op de otro dispositivo. Si
     // el resultado queda negativo, se deja ver (mov "alerta-descuadre") en
     // vez de esconderlo: eso es un sobrante real que ocurrio en el mundo
