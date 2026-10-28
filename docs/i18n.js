@@ -2391,7 +2391,7 @@
     try {
       let aparatoNuevo = true;
       for (let i = 0; i < localStorage.length; i++) { if (String(localStorage.key(i)).indexOf("f123_") === 0) { aparatoNuevo = false; break; } }
-      if (aparatoNuevo && /^es/i.test(String(navigator.language || ""))) lang = "es";
+      if (aparatoNuevo && /^es(-|$)/i.test(String(navigator.language || ""))) lang = "es";
     } catch (_) { lang = "en"; }
   }
 
