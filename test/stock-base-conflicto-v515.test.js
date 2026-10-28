@@ -140,8 +140,33 @@ test('P0 v603: diverging physical bases cannot discard a different device unique
   const after = (await pc.request('/api/respaldo/exportar')).productos.find(p => p.id === 'fixture-fork');
   // No single correct total can be inferred without reconciling the original
   // baselines. But neither distinct fact may silently disappear.
-  assert.ok(after.stockPN && after.stockPN.pc_unique && after.stockPN.pc_unique.add === 3,
-    'FAIL DATA INTEGRITY: remote epoch silently discarded a local unique adjustment');
-  assert.ok(after.stockPN && after.stockPN.phone_unique && after.stockPN.phone_unique.add === 3,
-    'FAIL DATA INTEGRITY: missing remote adjustment after diverging epochs');
+  assert.equal(after.stockActual, 16, 'preserve winner display until baselines can be proven common');
+  assert.ok(after.stockEvidencias && after.stockEvidencias['15'] &&
+    after.stockEvidencias['15'].pn.pc_unique.add === 3,
+    'FAIL DATA INTEGRITY: local unique operation lost from persistent fork evidence');
+  assert.ok(after.stockEvidencias && after.stockEvidencias['13'] &&
+    after.stockEvidencias['13'].pn.phone_unique.add === 3,
+    'FAIL DATA INTEGRITY: remote unique operation lost from persistent fork evidence');
+  const emitted = pc.catalog().productos.find(p => p.id === 'fixture-fork');
+  assert.deepEqual(emitted.stockEvidencias, after.stockEvidencias,
+    'fork evidence survives the catalog serialization (and can reach Yjs)');
+  pc.OCSync.aplicarCatalogo(phone.catalog(), null);
+  const twice = (await pc.request('/api/respaldo/exportar')).productos.find(p => p.id === 'fixture-fork');
+  assert.deepEqual(twice.stockEvidencias, after.stockEvidencias, 'replay is idempotent; no evidence explosion');
+});
+
+test('P0 v603: two Yjs peers preserve both forked baselines after bidirectional replay', async () => {
+  const cel = await peer(), pc = await peer();
+  await conBase(cel, 'fork-yjs', 13, {phone_op:{add:3,sub:0}}, 16, 2000);
+  await conBase(pc, 'fork-yjs', 15, {pc_op:{add:3,sub:0}}, 18, 1000);
+  await sincronizar(cel,pc);
+  for (const w of [cel,pc]) {
+    const snapshot=(await w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='fork-yjs');
+    assert.ok(snapshot.stockEvidencias?.['13']?.pn.phone_op?.add===3, 'phone operation retained');
+    assert.ok(snapshot.stockEvidencias?.['15']?.pn.pc_op?.add===3, 'PC operation retained');
+  }
+  await sincronizar(cel,pc);
+  const ca=(await cel.request('/api/respaldo/exportar')).productos.find(p=>p.id==='fork-yjs');
+  const pa=(await pc.request('/api/respaldo/exportar')).productos.find(p=>p.id==='fork-yjs');
+  assert.deepEqual(ca.stockEvidencias,pa.stockEvidencias,'evidence converges independent of replay order');
 });
