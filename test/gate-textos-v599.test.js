@@ -40,6 +40,9 @@ test('navegador es-EC sin eleccion guardada arranca en ES', () => {
 
 test('aparato con cuaderno previo y sin eleccion guardada sigue en EN aunque el navegador sea es-EC', () => {
   assert.equal(cargarI18n('es-EC', { f123_owned: '{}' }).getLang(), 'en');
+  assert.equal(cargarI18n('es-EC', { f123_tiendas: '[]' }).getLang(), 'en');
+  // Claves que el <head> escribe en un aparato recien estrenado NO lo convierten en "viejo".
+  assert.equal(cargarI18n('es-EC', { f123_sw_nuke_v1: '1', f123_canario_anon: 'x' }).getLang(), 'es');
   assert.equal(cargarI18n('en-US', { f123_lang: 'es' }).getLang(), 'es', 'la eleccion guardada siempre gana');
 });
 

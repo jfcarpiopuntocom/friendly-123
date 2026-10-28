@@ -2384,14 +2384,16 @@
   const LS_KEY = "f123_lang"; // f123_ prefijo (2026-07-17): namespace propio, no compartir con AMIGABLE
   let lang = localStorage.getItem(LS_KEY);
   if (lang !== "en" && lang !== "es") {
-    // v599: SOLO en un aparato NUEVO (ninguna clave f123_ en localStorage = nunca tuvo cuaderno ni
-    // eligio idioma) el navegador en espanol (es, es-EC, es-US...) arranca en ES. Un cliente que ya
-    // usa la app sin haber elegido idioma sigue en ingles como siempre: no cambiarle el idioma de golpe.
+    // v599: SOLO en un aparato NUEVO (sin licencia f123_owned ni lista de tiendas f123_tiendas, y sin
+    // idioma elegido) el navegador en espanol (es, es-EC, es-US...) arranca en ES y esa eleccion se
+    // GUARDA, para que no salte a ingles al activar la licencia. Un cliente que ya usa la app sin haber
+    // elegido idioma sigue en ingles como siempre: no cambiarle el idioma de golpe.
+    // OJO: no usar "cualquier clave f123_": los scripts del <head> (sw_nuke, canario) ya escriben
+    // claves f123_ antes de que corra este archivo, incluso en un aparato recien estrenado.
     lang = "en";
     try {
-      let aparatoNuevo = true;
-      for (let i = 0; i < localStorage.length; i++) { if (String(localStorage.key(i)).indexOf("f123_") === 0) { aparatoNuevo = false; break; } }
-      if (aparatoNuevo && /^es(-|$)/i.test(String(navigator.language || ""))) lang = "es";
+      const aparatoNuevo = !localStorage.getItem("f123_owned") && !localStorage.getItem("f123_tiendas");
+      if (aparatoNuevo && /^es(-|$)/i.test(String(navigator.language || ""))) { lang = "es"; localStorage.setItem(LS_KEY, "es"); }
     } catch (_) { lang = "en"; }
   }
 
