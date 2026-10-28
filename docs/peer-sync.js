@@ -157,7 +157,10 @@
         this.peers.delete(peer.id); try { peer.pc.close(); } catch (_) {}
         for (const socket of [...this.sockets]) { socket.presence(); if (!this.connected().length && socket.readyState === 1) socket.close(1013, 'direct peer disconnected; local changes retained'); }
         // Restart a failed first negotiation within the existing finite signaling budget.
-        if (retryInitial && this.sockets.size && !this.connected().length && this.signal && this.signal.readyState < 2) {
+        // Exhausting five RTC retries must not deafen an idle PC forever.
+        // Keep the already-open metadata-only socket subscribed so a NEW phone
+        // joining later can trigger another negotiation without periodic polling.
+        if (retryInitial && this.attempts < 5 && this.sockets.size && !this.connected().length && this.signal && this.signal.readyState < 2) {
           this.signal.initialRTCFailed = true;
           try { this.signal.close(); } catch (_) {}
         }

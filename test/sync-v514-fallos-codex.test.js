@@ -56,6 +56,10 @@ test('4) si falla la cache local, el archivo del shell se pide a la red y no se 
  const ctx={caches:{open:async()=>{throw Error('cache broken')}},CACHE_LOCAL:'x',
   fetch:async()=>{red++;return {ok:true,clone(){return this}}},guardar:r=>r,respuestaOffline:()=>{offline++;return 'OFFLINE'},
   evento:{request:{},respondWith(p){respuesta=p}}};
+ // The production SW calls abrirCacheLocal() to access its cache. Model that
+ // exact dependency with the failing cache.open(), rather than throwing an
+ // unrelated ReferenceError before the network fallback can be exercised.
+ ctx.abrirCacheLocal=()=>ctx.caches.open('x');
  vm.createContext(ctx);vm.runInContext(rama.replace('      if (esArchivoDelShell) {','{')+'}',ctx);
  await respuesta;
  assert.equal(red,1,'hay red: se pide el archivo');assert.equal(offline,0,'no se responde Offline con red disponible');

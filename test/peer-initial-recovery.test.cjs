@@ -59,16 +59,20 @@ test('initial RTC failure retries metadata negotiation with a finite budget and 
       f.advance(31000); // A healthy metadata socket alone does not prove healthy RTC.
       pc.fail();
       assert.equal(f.socket.readyState, 0, 'the initial business channel remains unconfirmed');
-      assert.equal(f.sockets.at(-1).readyState, 3, 'failed initial RTC releases stale signaling');
+      assert.equal(f.sockets.at(-1).readyState, attempt < 5 ? 3 : 1, 'after budget exhaustion the final metadata-only socket stays subscribed');
       assert.equal(f.pcs.length, attempt);
       if (attempt < 5) { assert.equal(f.pending().length, 1); f.retry(); }
     }
     assert.equal(f.sockets.length, 5, 'failed negotiations cannot reconnect forever');
     assert.equal(f.pending().length, 0, 'budget exhaustion stops retries');
+    // A new phone arrives later. Metadata-only presence must wake an exhausted PC.
+    await f.socket.hub.receiveSignal({ v: 1, k: 'peers', peers: ['c'.repeat(32)] });
+    assert.equal(f.pcs.length, 6, 'late-joining phone triggers RTC without requiring PC reload');
+    const late = f.pcs.at(-1); late.dc.readyState = 'open'; late.dc.onopen();
+    assert.equal(f.socket.readyState, 1, 'late join restored the data channel');
+    assert.equal(f.socket.hub.attempts, 0, 'successful late-join renews retry budget');
     f.window.dispatchEvent(new Event('online'));
-    const recovered = await f.negotiate();
-    assert.equal(f.pcs.length, 6, 'online creates another RTC after the exhausted bounded run');
-    recovered.dc.readyState = 'open'; recovered.dc.onopen();
+    assert.equal(f.pcs.length, 6, 'an online event does not multiply a healthy RTC');
     assert.equal(f.socket.readyState, 1);
     assert.equal(f.socket.hub.attempts, 0, 'an actual healthy peer renews the budget');
   } finally { f.close(); }

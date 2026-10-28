@@ -1,0 +1,37 @@
+name: p0-v602-targeted-regressions
+on:
+  push:
+    branches:
+      - fix/p0-v602-stock-convergence-forensic
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - docs/peer-sync.js
+      - docs/auth-ui.js
+      - docs/app-inline-01.min.js
+      - src/app/app-inline-01.js
+      - test/incident-v602-*.cjs
+jobs:
+  forensic:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and two focused incident guards
+        run: |
+          node --check docs/sync-yjs.js
+          node --check docs/auth-ui.js
+          node --check docs/peer-sync.js
+          node --check docs/app-inline-01.min.js
+          node test/incident-v602-relay-null-stock-epoch.test.cjs
+          node test/incident-v602-pin-identity-guard.test.cjs
+          node test/incident-v602-today-after-sale.test.cjs
+          node --test test/peer-initial-recovery.test.cjs
+      - name: Stock conflict and old metadata regressions
+        run: |
+          node --test test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js
