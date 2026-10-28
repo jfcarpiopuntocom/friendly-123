@@ -2055,8 +2055,21 @@
       });
     });
     if (API.stockPNTestigos && typeof API.stockPNTestigos.observe === "function") {
-      API.stockPNTestigos.observe(function (_event, txn) {
-        if (!txn || txn.origin !== "seed") _otroRemoto = true;
+      API.stockPNTestigos.observe(function (event, txn) {
+        // A stock-only witness changes just one product's read model.
+        // An unknown origin, deletion or missing product must instead run the
+        // proven full merge; never silently ignore out-of-order history.
+        if (!txn || (txn.origin !== "seed" && txn.origin !== "red" && txn.origin !== "bc")) {
+          _otroRemoto = true; return;
+        }
+        if (txn.origin === "seed") return;
+        event.keysChanged.forEach(function (key) {
+          var fact = API.stockPNTestigos.get(key), pid = fact && String(fact.p || "");
+          if (!fact || !pid || !API.mapas.productos.has(pid)) {
+            _otroRemoto = true; return;
+          }
+          _productosRemotos.add(pid);
+        });
       });
     }
     if (API.meta && typeof API.meta.observe === "function") {
