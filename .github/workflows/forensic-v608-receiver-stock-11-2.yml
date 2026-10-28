@@ -21,11 +21,15 @@ jobs:
           git fetch --no-tags --depth=1 origin 82952a84958641010c48bfbee6aab80007ba12e9
           git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
           test -s /tmp/f123_v607_sync_yjs.js
+          git fetch --no-tags --depth=1 origin 7e51ed51560d6138866dae98e4a01ff1772db51c
+          git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > /tmp/f123_v606_sync_yjs.js
+          test -s /tmp/f123_v606_sync_yjs.js
       - name: Syntax check actual production bridge
         run: node --check docs/sync-yjs.js
       - name: Only isolated P0 receiver regression (no customer data or live relay)
         env:
           F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
+          F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-v608-publication-after-recovery.test.cjs
       - name: Four existing focused PN and Yjs regression files (no broad suite)
         run: |
