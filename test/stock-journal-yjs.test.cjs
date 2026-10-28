@@ -1,13 +1,16 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const {webcrypto}=require('node:crypto');
 const {browser}=require('./helpers/browser.cjs');
 const {Journal}=require('../lab/stock-journal/engine.cjs');
 const {ShadowYjsBridge}=require('../lab/stock-journal/yjs-bridge.cjs');
 const vendor=fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8');
 const BOOK='synthetic-journal-fixture';
 function make() {
- const context=browser();vm.runInContext(vendor,context);
+ const context=browser();
+ Object.assign(context,{crypto:webcrypto,TextEncoder,TextDecoder});
+ vm.runInContext(vendor,context);
  const Y=context.Y;
  assert(Y && Y.Doc && Y.applyUpdate,'must load the actual vendored Yjs distribution');
  const doc=new Y.Doc(),journal=new Journal(BOOK),bridge=new ShadowYjsBridge(doc,journal);
