@@ -21,9 +21,11 @@ class ShadowYjsBridge {
    if (!(journal instanceof Journal)) throw Error('Journal required');
    this.doc=doc;this.journal=journal;this.map=doc.getMap(namespace);
    this.errors=[];this.inbound=0;this._queue=Promise.resolve();
+   this._witnesses=new Map(); // known, already hash-verified immutable evidence
    this._observer=e=>{
      for (const key of e.keysChanged) {
        if (this.map.has(key)) this._schedule(key);
+       else this._restoreKnown(key); // Yjs allows tombstones; business facts do not.
      }
    };
    this.map.observe(this._observer);
@@ -39,11 +41,19 @@ class ShadowYjsBridge {
      if (key!==expected || raw!==stable(normalized))
        throw Error('event witness hash mismatch');
      const r=this.journal.append(normalized);
+     this._witnesses.set(key,raw);
      this.inbound++;
      if (!r.ok) this.errors.push({key,reason:r.reason,id:normalized.id});
    }).catch(err=>{
      this.errors.push({key,reason:err.message});
    });
+ }
+ _restoreKnown(key) {
+   this._queue=this._queue.then(()=>{
+     const raw=this._witnesses.get(key);
+     if (raw && !this.map.has(key)) this.map.set(key,raw);
+     else if (!raw) this.errors.push({key,reason:'deleted-unknown-witness'});
+   }).catch(err=>this.errors.push({key,reason:err.message}));
  }
  async publish(event) {
    const e=validate(event,this.journal.notebook);
@@ -52,10 +62,16 @@ class ShadowYjsBridge {
    if (!checked.ok) return checked;
    if (this.map.has(key) && this.map.get(key)!==raw)
      throw Error('witness-key digest collision');
+   this._witnesses.set(key,raw);
    if (!this.map.has(key)) this.map.set(key,raw);
    return {ok:true,added:checked.added,key};
  }
- async flush() {await this._queue;return {inbound:this.inbound,errors:this.errors.length};}
+ async flush() {
+   // Restoring a tombstone emits another Y.Map update; drain the resulting
+   // observer work before claiming the peer has processed the state.
+   while (true) { const pending=this._queue; await pending; if (pending===this._queue) break; }
+   return {inbound:this.inbound,errors:this.errors.length};
+ }
  close(){this.map.unobserve(this._observer);}
 }
 module.exports={ShadowYjsBridge,sha256};
