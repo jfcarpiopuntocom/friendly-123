@@ -1,0 +1,11 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const code = fs.readFileSync(require('node:path').join(__dirname,'../docs/auth-ui.js'),'utf8');
+const begin = code.indexOf('function pintarNegocioGate() {');
+const end = code.indexOf('/* Pinta la versión REAL',begin);
+assert.ok(begin>0 && end>begin);
+const block = code.slice(begin,end);
+assert.match(block,/const nombre = activo;/);
+assert.doesNotMatch(block,/const nombre = activo \|\|/);
+console.log('PASS: PIN name comes exclusively from the current active notebook');
