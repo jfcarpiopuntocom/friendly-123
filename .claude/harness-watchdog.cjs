@@ -95,7 +95,7 @@ function check(nombre, cond, extra) {
     // A: verificador de consistencia (Capability B) — fabricar huella divergente.
     // La divergencia debe persistir ≥2 checks consecutivos (anti-falsos positivos).
     const div = await pageA.evaluate(() => {
-      try { localStorage.setItem("f123_micelio_vistos", JSON.stringify({ "device-otro": { huella: "HUELLA-DIVERGENTE-XYZ" } })); } catch (_) {}
+      try { localStorage.setItem("f123_micelio_vistos", JSON.stringify({ "device-otro": { huella: "HUELLA-DIVERGENTE-XYZ", visto: Date.now() } })); } catch (_) {}
       window.OCSyncWatchdog.verificarConsistencia(); // 1er check: cuenta 1
       const res = window.OCSyncWatchdog.verificarConsistencia(); // 2do check: llega al umbral
       return res;
