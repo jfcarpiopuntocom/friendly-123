@@ -430,3 +430,25 @@ test('P0 RED epoch ABA: same numeric recount base must not inherit old physical 
   const actual=(await a.w.request('/api/productos/p0-epoch-aba')).stockActual;
   assert.equal(actual,5,'a distinct physical recount at base 5 must not inherit E1 +3');
 });
+
+test('P0 two peers retain E2 physical recount and its subsequent movement',async()=>{
+  const a=await peer(), b=await peer();
+  await physicalFixture(a,b,5,5);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:3,motivo:'E1'});
+  await a.flush(); await exchange(a,b,2);
+  const previous=a.w.OCYjs.getProductos()['p0-two-actors'];
+  const recount={...previous,stockBase:5,stockActual:5,stockPN:{},
+    stockEpochId:'E2-synthetic',stockTs:previous.stockTs+100,
+    rev:{c:1000,d:'recount'}};
+  a.w.OCYjs.mapas.productos.set('p0-two-actors',
+    vm.runInContext('('+JSON.stringify(recount)+')',a.w));
+  a.w.OCYjs._store.aplicar(); await a.flush(); await exchange(a,b,2);
+  assert.equal((await fixtureProduct(b)).stockActual,5);
+  await b.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:-1,motivo:'E2'});
+  await b.flush(); await exchange(b,a,3);
+  for(const p of [a,b]){
+    const item=await fixtureProduct(p);
+    assert.equal(item.stockActual,4);
+    assert.equal(item.stockEpochId,'E2-synthetic');
+  }
+});
