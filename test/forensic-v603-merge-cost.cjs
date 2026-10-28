@@ -42,6 +42,14 @@ async function peer(n){
  const t0=performance.now();
  a.OCYjs._store.sembrar();
  const seedMs=performance.now()-t0;
+ const applyShapes=[];
+ const originalApply=b.OCSync.aplicarCatalogo;
+ b.OCSync.aplicarCatalogo=function(cat,rol,canonical) {
+   applyShapes.push({productos:(cat.productos||[]).length,ubicaciones:(cat.ubicaciones||[]).length,
+      ventas:(cat.ventas||[]).length,clientes:(cat.clientes||[]).length,
+      nombre:cat.nombreNegocio||'',metaCanonical:canonical});
+   return originalApply(cat,rol,canonical);
+ };
  const t1=performance.now();
  for(const u of pending)b.Y.applyUpdate(b.OCYjs.doc,u,'red');
  b.OCYjs._store.aplicar();
@@ -56,7 +64,7 @@ async function peer(n){
    sourceYjsCount:Object.keys(a.OCYjs.getProductos()).length,targetYjsCount:Object.keys(b.OCYjs.getProductos()).length,
    sourceYjsFirst:Object.keys(a.OCYjs.getProductos()).slice(0,4),targetYjsFirst:Object.keys(b.OCYjs.getProductos()).slice(0,4)}));
 
- console.log(JSON.stringify({kind:'single-remote-edit-1000',seedMs:+seedMs.toFixed(2),applyMs:+applyMs.toFixed(2),updates:pending.length,
+ console.log(JSON.stringify({kind:'single-remote-edit-1000',seedMs:+seedMs.toFixed(2),applyMs:+applyMs.toFixed(2),updates:pending.length,applyShapes,
   sourceName:local?.nombre,targetName:remote?.nombre,targetPrice:remote?.precio}));
  assert.equal(remote?.nombre,local?.nombre,'Remote must receive a single edited name');
  assert.equal(remote?.precio,local?.precio,'Remote must receive a single edited price');
