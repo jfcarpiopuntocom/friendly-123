@@ -994,7 +994,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
               if (!confirm("This REPLACES your current products, sales and inventory with the copy. Your PIN and keys stay as they are. Continue?")) return;
               var res = await fetch(API + "/respaldo/importar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
               var rr = await res.json();
-              if (!res.ok) { _copiaMsg(rr.error || "Could not import the copy.", false); return; }
+              if (!res.ok) { _copiaMsg((rr.errorEs && (function(){try{return !!(window.OCI18n&&window.OCI18n.getLang&&window.OCI18n.getLang()==="es");}catch(_){return false;}})() ? rr.errorEs : rr.error) || "Could not import the copy.", false); return; }
               if (paquete.fotosPerchas) { try { Object.keys(paquete.fotosPerchas).forEach(function (k) { try { localStorage.setItem(k, paquete.fotosPerchas[k]); } catch (_) {} }); } catch (_) {} }
               /* Contraparte del fix de fotos (JFC 2026-09-22): restaurar tambien
                  el almacen REAL (IndexedDB por hash). Un respaldo viejo no trae
@@ -2974,7 +2974,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         if (!confirm("This REPLACES all current data (products, sales, keys) with the backup data. Continue?")) return;
         const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
         const r = await res.json();
-        if (!res.ok) { msg("oc-respaldo-msg", r.error, "var(--rojo)"); return; }
+        if (!res.ok) { msg("oc-respaldo-msg", (r.errorEs && (function(){try{return !!(window.OCI18n&&window.OCI18n.getLang&&window.OCI18n.getLang()==="es");}catch(_){return false;}})() ? r.errorEs : r.error), "var(--rojo)"); return; }
         let secretoOk = true;
         if (paquete.oc_secure) {
           secretoOk = false;
@@ -3111,7 +3111,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
       if (!confirm(`This REPLACES current data with the checkpoint from ${new Date(punto.fecha).toLocaleString()}. Continue?`)) return;
       if (cajaClave(cajaOrigen()) !== cajaClave(origen)) return;
       const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
-      if (!res.ok) { const r = await res.json(); msg("oc-respaldo-msg", r.error || "Could not restore.", "var(--rojo)"); return; }
+      if (!res.ok) { const r = await res.json(); msg("oc-respaldo-msg", (r.errorEs && (function(){try{return !!(window.OCI18n&&window.OCI18n.getLang&&window.OCI18n.getLang()==="es");}catch(_){return false;}})() ? r.errorEs : r.error) || "Could not restore.", "var(--rojo)"); return; }
       window.dispatchEvent(new CustomEvent("oc-datos-importados"));
       msg("oc-respaldo-msg", "Restored. Screen now shows data from the chosen checkpoint.", "var(--verde)");
     }

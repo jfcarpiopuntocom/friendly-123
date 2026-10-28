@@ -210,6 +210,8 @@
     });
     if (!res.ok) {
       var e = await res.json().catch(function () { return {}; });
+      /* (JFC 2026-10-28) 409 de restaurar: texto en espanol si la UI esta en espanol. */
+      if (e.errorEs && (function(){try{return !!(window.OCI18n&&window.OCI18n.getLang&&window.OCI18n.getLang()==="es");}catch(_){return false;}})()) e.error = e.errorEs;
       throw new Error(e.error || ("No se pudo restaurar (HTTP " + res.status + ")"));
     }
     return true;

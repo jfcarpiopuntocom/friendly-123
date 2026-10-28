@@ -62,8 +62,11 @@
       throw new Error("A/B state changed during recovery read");
     }
     let espejoPermitido = false;
+    // (JFC 2026-10-28) causa real del ultimo fallo de guardarAhora (null = no hubo excepcion); la lee el clasificador de mock-backend.
+    let ultimoError = null;
     function guardarAhora(raw) {
       espejoPermitido = false;
+      ultimoError = null;
       try {
         const body = cuerpo(raw);
         if (!body || !Number.isSafeInteger(body._rev) || body._rev < 1) return false;
@@ -112,7 +115,7 @@
         // The pointer is a legacy hint; the confirmed journal is the commit boundary.
         try { storage.setItem(base + "_ptr", destino); } catch (_) {}
         return true;
-      } catch (_) { return false; }
+      } catch (e) { ultimoError = e || null; return false; }
     }
     function conCandado(ejecutar) {
       const candados = window.navigator && window.navigator.locks;
@@ -135,7 +138,7 @@
       }
       return resultado;
     }
-    return { leer, guardarAhora, conCandado, nuevoToken, permiteEspejo: () => espejoPermitido,
+    return { leer, guardarAhora, conCandado, nuevoToken, permiteEspejo: () => espejoPermitido, ultimoError: () => ultimoError,
       guardar: raw => conCandado(() => guardarAhora(raw)), claveJournal };
   }
   function avisarConflicto() {

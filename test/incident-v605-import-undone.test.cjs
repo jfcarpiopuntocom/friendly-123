@@ -49,7 +49,7 @@ test('cuaderno sincronizado con otro aparato: importar -> 409, nada cambia, tamp
     await page.waitForTimeout(800);
     const r = await importar(page, respaldo);
     assert.equal(r.st, 409);
-    assert.match(r.j.error, /Restaurar un respaldo solo se puede en un aparato nuevo, sin datos/);
+    assert.match(r.j.errorEs, /Restaurar un respaldo solo se puede en un aparato nuevo, sin datos/);
     assert.equal(await stock(page, p.id), 7, 'sin cambios en memoria');
     await ctx.close();
     ({ ctx, page } = await abrir(base, dir));
@@ -68,7 +68,7 @@ test('aparato solo con datos (sin otros aparatos): importar -> 409, memoria igua
     await page.waitForTimeout(800); // el doc Yjs local se escribe en segundo plano
     const r = await importar(page, respaldo);
     assert.equal(r.st, 409);
-    assert.match(r.j.error, /lo restaurado se desharía al reabrir/);
+    assert.match(r.j.errorEs, /lo restaurado se desharía al reabrir/);
     assert.equal(await stock(page, p.id), 7);
     await ctx.close();
     ({ ctx, page } = await abrir(base, dir));

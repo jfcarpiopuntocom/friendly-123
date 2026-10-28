@@ -308,6 +308,9 @@ function montarBuscadorVender(productos){
       idx.addAll(productos);
     }
   } catch (_) { idx = null; }
+  // Each visible tile belongs to this rendered catalog. Index it once instead
+  // of scanning the entire catalog again for every tile on every keystroke.
+  const productosPorId = new Map(productos.map(p => [p.id, p]));
   function aplicarFiltro(){
     const q = (input.value || "").trim();
     let idsCoinciden = null;
@@ -316,7 +319,7 @@ function montarBuscadorVender(productos){
     }
     const qLower = q.toLowerCase();
     document.querySelectorAll("#gridVender [data-vender-tile]").forEach(btn => {
-      const p = (window._productosVenderCache || []).find(x => x.id === btn.dataset.venderTile);
+      const p = productosPorId.get(btn.dataset.venderTile);
       if (!p) return;
       const matchTexto = !q
         ? true
@@ -327,6 +330,9 @@ function montarBuscadorVender(productos){
       btn.style.display = (matchTexto && matchCategoria) ? "" : "none";
     });
   }
+  // A refresh replaces the search index too. The single input listener must
+  // call the current filter, rather than retain the first catalog's index.
+  input._ocAplicarFiltroVender = aplicarFiltro;
   if (!chips.dataset.listenerListo) {
     chips.dataset.listenerListo = "1";
     chips.addEventListener("click", (e) => {
@@ -340,7 +346,7 @@ function montarBuscadorVender(productos){
   }
   if (!input.dataset.listenerListo) {
     input.dataset.listenerListo = "1";
-    input.addEventListener("input", aplicarFiltro);
+    input.addEventListener("input", () => input._ocAplicarFiltroVender());
   }
   aplicarFiltro();
 }
