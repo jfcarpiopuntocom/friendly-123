@@ -16,9 +16,16 @@ jobs:
           node-version: '22'
       - name: Install test dependencies (no scripts, no customer data)
         run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Pin legacy v607 Yjs bridge by immutable Git SHA (test fixture only)
+        run: |
+          git fetch --no-tags --depth=1 origin 82952a84958641010c48bfbee6aab80007ba12e9
+          git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
+          test -s /tmp/f123_v607_sync_yjs.js
       - name: Syntax check actual production bridge
         run: node --check docs/sync-yjs.js
-      - name: Only isolated P0 receiver regression (no external network, no customer data)
+      - name: Only isolated P0 receiver regression (no customer data or live relay)
+        env:
+          F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-v608-publication-after-recovery.test.cjs
       - name: Four existing focused PN and Yjs regression files (no broad suite)
         run: |
