@@ -5,12 +5,19 @@
  * payloads with the SAME event ID remain visible as separate witness entries.
  * Never use eventId alone as a Y.Map key (LWW hides evidence of collisions).
  */
-const {Journal,validate,stable}=require('./engine.cjs');
+(function (root,factory) {
+  const dep=(typeof module!=='undefined' && module.exports)
+    ? require('./engine.cjs') : root.F123StockJournalShadow;
+  const api=factory(dep,root);
+  if (typeof module!=='undefined' && module.exports) module.exports=api;
+  else root.F123StockJournalYjsShadow=api;
+})(typeof globalThis!=='undefined'?globalThis:this,function (deps,root) {
+const {Journal,validate,stable}=deps;
 async function sha256(s) {
- if (typeof globalThis.crypto!=='undefined' && globalThis.crypto.subtle &&
-     typeof globalThis.TextEncoder!=='undefined') {
-   const data=new TextEncoder().encode(s);
-   const bytes=new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256',data));
+ if (typeof root.crypto!=='undefined' && root.crypto.subtle &&
+     typeof root.TextEncoder!=='undefined') {
+   const data=new root.TextEncoder().encode(s);
+   const bytes=new Uint8Array(await root.crypto.subtle.digest('SHA-256',data));
    return [...bytes].map(x=>x.toString(16).padStart(2,'0')).join('');
  }
  return require('node:crypto').createHash('sha256').update(s).digest('hex');
@@ -66,6 +73,23 @@ class ShadowYjsBridge {
    if (!this.map.has(key)) this.map.set(key,raw);
    return {ok:true,added:checked.added,key};
  }
+  async seedFromJournal() {
+   // After a local backup/IDB restoration, anti-entropy must be able to
+   // republish every accepted fact AND every known conflicting witness.
+   const backup=this.journal.export();
+   const facts=backup.events.concat(backup.quarantine.map(x=>x.attempted));
+   const entries=[];
+   for (const e of facts) {
+     const raw=stable(e),key=e.id+'#'+await sha256(raw);
+     entries.push([key,raw]);
+     this._witnesses.set(key,raw);
+   }
+   this.doc.transact(()=>{
+     for (const [key,raw] of entries) if (!this.map.has(key)) this.map.set(key,raw);
+   },'shadow-recovery');
+   await this.flush();
+   return entries.length;
+  }
  async flush() {
    // Restoring a tombstone emits another Y.Map update; drain the resulting
    // observer work before claiming the peer has processed the state.
@@ -74,4 +98,5 @@ class ShadowYjsBridge {
  }
  close(){this.map.unobserve(this._observer);}
 }
-module.exports={ShadowYjsBridge,sha256};
+return Object.freeze({ShadowYjsBridge,sha256});
+});
