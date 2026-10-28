@@ -6,7 +6,7 @@ const {performance}=require('node:perf_hooks'),{webcrypto}=require('node:crypto'
 const {setTimeout:delay}=require('node:timers/promises');
 const {browser}=require('./helpers/browser.cjs');
 async function run(n){
- const w=browser();
+ const w=browser(); delete w.JSON;
  const fixture=await w.request('/api/respaldo/exportar');
  const template=fixture.productos.find(x=>Number(x.stockActual)>=1);
  if(!template)throw Error('Synthetic product template missing');
