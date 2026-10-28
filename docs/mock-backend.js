@@ -3969,6 +3969,9 @@
         const _pnL = mio.stockPN && typeof mio.stockPN === "object" ? mio.stockPN : null;
         const _baseR = p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null;
         const _baseL = mio.stockBase != null && Number.isFinite(Number(mio.stockBase)) ? Number(mio.stockBase) : null;
+        const epochRemote = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
+        const epochLocal = typeof mio.stockEpochId === "string" ? mio.stockEpochId : "";
+        const epochConflict = (epochRemote || epochLocal) && epochRemote !== epochLocal;
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
         if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
@@ -3980,7 +3983,20 @@
             try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if (_baseR !== null && (_baseL === _baseR || (_baseL === null &&
+        if (epochConflict && epochRemote && _tsR > _tsL && _baseR !== null) {
+          const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
+          const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
+            sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
+          if (Number.isSafeInteger(net)) {
+            mio.stockEpochId = epochRemote;
+            mio.stockBase = _baseR;
+            mio.stockPN = newCounters;
+            mio.stockActual = Math.max(0,net);
+            mio.stockDeficit = Math.max(0,-net);
+            mio.stockTs = _tsR;
+            actualizados++;
+          }
+        } else if (!epochConflict && _baseR !== null && (_baseL === _baseR || (_baseL === null &&
             (Number(mio.stockActual) === _baseR || Number(mio.stockActual) === Number(p.stockActual))))) {
           const pn = Object.assign({}, _pnL || {});
           Object.keys(_pnR || {}).forEach((id) => {
@@ -3996,7 +4012,7 @@
           if (calculado !== Number(mio.stockActual) || JSON.stringify(pn) !== JSON.stringify(_pnL) || _baseL === null || _deficit !== (Number(mio.stockDeficit) || 0)) actualizados++;
           mio.stockBase = _baseR; mio.stockPN = pn; mio.stockActual = calculado; mio.stockDeficit = _deficit;
           mio.stockTs = Math.max(_tsL, _tsR);
-        } else if (_baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
+        } else if (!epochConflict && _baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
           /* Compatibilidad con aparatos anteriores al ledger de stock.
              v445 bloqueo el cero legado destructivo. v447 agrega la otra mitad:
              si YA existe un reloj comun, un stockTs legado que esta >5 min en el
@@ -4802,6 +4818,7 @@
              edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
           stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0,
           stockBase: p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null,
+          stockEpochId: typeof p.stockEpochId === "string" ? p.stockEpochId : "",
           stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
           stockEvidencias: p.stockEvidencias && typeof p.stockEvidencias === "object" ? JSON.parse(JSON.stringify(p.stockEvidencias)) : null,
           /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
