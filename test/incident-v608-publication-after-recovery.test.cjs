@@ -695,6 +695,27 @@ test('P0 a v607 offline sale is not erased by a competing modern physical epoch'
   assert.equal((await old.w.request('/api/respaldo/importar','POST',oldSnap)).ok,true);
   current.w.OCYjs._store.sembrar();old.w.OCYjs._store.sembrar();
   await current.flush();await old.flush();
+  const _priorApply=current.w.OCSync.aplicarCatalogo;
+  current.w.OCSync.aplicarCatalogo=function(remoto,...params) {
+    const rid='p0-mixed-sale-epochs';
+    const product=(remoto.productos||[]).find(p=>p.id===rid);
+    const before=(current.w.OCSync.catalogoPropio()?.productos||[]).find(p=>p.id===rid);
+    const applied=_priorApply(remoto,...params);
+    const after=(current.w.OCSync.catalogoPropio()?.productos||[]).find(p=>p.id===rid);
+    console.error('P0_MIXED_BACKEND_MERGE',JSON.stringify({
+      before:before&&{s:before.stockActual,e:before.stockEpochId,pn:before.stockPN},
+      remote:product&&{s:product.stockActual,e:product.stockEpochId,pn:product.stockPN},
+      after:after&&{s:after.stockActual,e:after.stockEpochId,pn:after.stockPN}
+    }));
+    return applied;
+  };
+  const _yMap=current.w.OCYjs.mapas.productos;
+  const _priorSet=_yMap.set;
+  _yMap.set=function(id,value){
+    if(id==='p0-mixed-sale-epochs')
+      console.error('P0_MIXED_CURRENT_YMAP_WRITE',JSON.stringify({s:value.stockActual,e:value.stockEpochId,pn:value.stockPN}));
+    return _priorSet.call(this,id,value);
+  };
   const sold=await old.w.request('/api/productos/p0-mixed-sale-epochs/venta','POST',{cantidad:1});
   assert.ok(sold.ventaId,'legacy peer produced real sale receipt');
   await old.flush();await exchange(old,current,3);
