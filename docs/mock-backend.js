@@ -989,18 +989,23 @@
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
-  /* (JFC 2026-10-28) true SOLO si el cuaderno comparte datos con OTRO aparato: la coleccion Yjs "dispositivos" (add-only,
-     cada aparato publica su entrada con id = OCMicelio.yo().id; sync-yjs.js:1383-1388, mock-backend.js ~4809) tiene un id que no es el nuestro.
-     Persiste en IndexedDB, asi que cubre "emparejado pero sin red ahora" y "desemparejado despues de sincronizar" (nunca se borra).
-     Riesgo residual: un par viejo (v604) que nunca publico su entrada no se detecta. Sin Yjs (harness/VM, aparato solo) -> false. */
-  function _cuadernoSincronizaConOtros() {
+  /* (JFC 2026-10-28) true si el Y.Doc LOCAL persistido ya tiene datos de negocio (cualquier coleccion salvo "dispositivos"),
+     o si "dispositivos" trae un id que no es el nuestro (sync-yjs.js:1383-1388, mock-backend.js ~4809-4818; add-only, vive en IndexedDB).
+     Ese doc gana al reabrir y desharia lo importado. Falla CERRADO: si hay sala/doc pero no se puede leer (inactivo, recuperacion
+     local pendiente o sin almacenamiento) se bloquea. Sin OCYjs (harness/VM) o sin sala nunca iniciada -> false. */
+  function _cuadernoConDatosEnDoc() {
     try {
       const y = window.OCYjs;
-      if (!y || y.estado !== "activo" || typeof y.get !== "function") return false;
+      if (!y) return false;
+      if (y.estado !== "activo" || typeof y._diag !== "function") return !!y.roomId; // sala sin doc legible -> bloquear
+      const d = y._diag();
+      if (d.recuperacionLocalPendiente) return true;
       const yo = (window.OCMicelio && window.OCMicelio.yo) ? window.OCMicelio.yo() : null;
       const miId = yo && yo.id ? String(yo.id) : "";
-      const ids = Object.keys(y.get("dispositivos") || {});
-      return ids.some((k) => k !== miId);
+      const n = d.n || {};
+      if (Object.keys(n).some((k) => k !== "dispositivos" && Number(n[k]) > 0)) return true;
+      if (Number(d.ops) > 0) return true; // hechos/operaciones del doc de ops
+      return Object.keys(y.get("dispositivos") || {}).some((k) => k !== miId);
     } catch (_) { return true; } // ante la duda, NO sobrescribir
   }
   function aplicarRespaldo(body) {
@@ -7029,9 +7034,9 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
-          /* (JFC 2026-10-28) Restaurar NO se permite si el cuaderno sincroniza con otro aparato: el Y.Doc compartido gana al reabrir
+          /* (JFC 2026-10-28) Restaurar NO se permite si el Y.Doc local ya tiene datos: gana al reabrir
              (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
-          if (_cuadernoSincronizaConOtros()) return J({ error: "A backup can only be restored on a new device or in an empty notebook: in a notebook that syncs, what already exists would come back when you reopen. (Restaurar un respaldo solo se puede en un aparato nuevo o en un cuaderno vacío: en un cuaderno que se sincroniza, lo que ya existe volvería al reabrir.)" }, 409);
+          if (_cuadernoConDatosEnDoc()) return J({ error: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
           // v605 (JFC 2026-10-28): no decir "listo" hasta que el guardado este en disco (antes quedaba en cola del candado Web Locks y cerrar la pestana perdia el respaldo).

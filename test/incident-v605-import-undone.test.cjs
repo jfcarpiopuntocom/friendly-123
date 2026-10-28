@@ -27,7 +27,7 @@ const J = (page, u, m, b) => page.evaluate(async ([u, m, b]) => {
   return r.json();
 }, [u, m, b]);
 
-// (JFC 2026-10-28) Regla: bloquear importar SOLO si el cuaderno sincroniza con otro aparato (Yjs "dispositivos" con id ajeno).
+// (JFC 2026-10-28) Regla: bloquear importar si el doc Yjs local ya tiene datos (doc Yjs local con datos, o "dispositivos" con id ajeno).
 // C = prueba decisiva (cierra y reabre con perfil persistente).
 async function sembrarYAjustar(page) {
   const p = await J(page, '/api/productos', 'POST', { nombre: 'P', barcode: 'P1', precio: 10, costo: 4, stockInicial: 10 });
@@ -49,7 +49,7 @@ test('cuaderno sincronizado con otro aparato: importar -> 409, nada cambia, tamp
     await page.waitForTimeout(800);
     const r = await importar(page, respaldo);
     assert.equal(r.st, 409);
-    assert.match(r.j.error, /Restaurar un respaldo solo se puede en un aparato nuevo o en un cuaderno vac/);
+    assert.match(r.j.error, /Restaurar un respaldo solo se puede en un aparato nuevo, sin datos/);
     assert.equal(await stock(page, p.id), 7, 'sin cambios en memoria');
     await ctx.close();
     ({ ctx, page } = await abrir(base, dir));
@@ -59,33 +59,22 @@ test('cuaderno sincronizado con otro aparato: importar -> 409, nada cambia, tamp
   } finally { srv.close(); try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} }
 });
 
-test('aparato solo con datos (nunca sincronizo): importar responde 200 y cambia la memoria', async () => {
-  const { srv, base } = await startServer();
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-import-'));
-  try {
-    const { ctx, page } = await abrir(base, dir);
-    const { p, respaldo } = await sembrarYAjustar(page);
-    const r = await importar(page, respaldo);
-    assert.equal(r.st, 200);
-    assert.equal(await stock(page, p.id), 10);
-    await ctx.close();
-  } finally { srv.close(); try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} }
-});
-
-// CONOCIDO (evidencia: este mismo caso fallaba en un aparato solo antes de la regla): el Y.Doc LOCAL persistido gana al reabrir
-// (stock 10 -> vuelve 7). Pendiente de decision: re-sembrar el doc local al importar. Marcado todo: documenta el hueco sin romper la corrida.
-test('aparato solo con datos: lo importado sobrevive a reabrir (stock 10)', { todo: 'el Y.Doc local gana al reabrir; falta re-sembrarlo al importar' }, async () => {
+test('aparato solo con datos (sin otros aparatos): importar -> 409, memoria igual y tras reabrir sigue 7', async () => {
   const { srv, base } = await startServer();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-import-'));
   try {
     let { ctx, page } = await abrir(base, dir);
     const { p, respaldo } = await sembrarYAjustar(page);
-    assert.equal((await importar(page, respaldo)).st, 200);
+    await page.waitForTimeout(800); // el doc Yjs local se escribe en segundo plano
+    const r = await importar(page, respaldo);
+    assert.equal(r.st, 409);
+    assert.match(r.j.error, /lo restaurado se desharía al reabrir/);
+    assert.equal(await stock(page, p.id), 7);
     await ctx.close();
     ({ ctx, page } = await abrir(base, dir));
     const despues = await stock(page, p.id);
     await ctx.close();
-    assert.equal(despues, 10);
+    assert.equal(despues, 7);
   } finally { srv.close(); try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {} }
 });
 
