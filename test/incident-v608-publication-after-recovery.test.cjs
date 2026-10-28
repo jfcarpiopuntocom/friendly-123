@@ -911,3 +911,23 @@ test('P0 legitimate physical deficit retains a consistent read-only digest',asyn
   assert.equal(result.certificado,false);
   assert.equal(result.existencias.length,64);
 });
+
+test('P0 watchdog does not trigger repair when peer heartbeat and local metadata fingerprints are equal',()=>{
+  const w=browser();
+  // Do not run watchdog timers/IndexedDB in this isolated VM.
+  w.document.readyState='loading';
+  w.localStorage.setItem('f123_micelio_vistos',JSON.stringify({
+    'peer-equal':{huella:'#ABCD',rol:'empleado',visto:Date.now()}
+  }));
+  w.OCSync={huella:()=>({corta:'#ABCD',completa:'ABCD'})};
+  w.OCAuth={rolActual:()=> 'dueno'};
+  w.OCSyncControl={deviceIdActual:()=> 'local-owner'};
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/sync-watchdog.js'),'utf8'),w);
+  const a=w.OCSyncWatchdog.verificarConsistencia();
+  const b=w.OCSyncWatchdog.verificarConsistencia();
+  assert.deepEqual(Array.from(a.divergentes),[]);
+  assert.deepEqual(Array.from(b.divergentes),[],
+    'same fingerprint must not be reported divergent on second poll');
+  assert.equal(b.accion,null,'same fingerprint must never trigger automatic resync');
+  assert.equal(w.OCSyncWatchdog.estado().divergencias['peer-equal'],0);
+});
