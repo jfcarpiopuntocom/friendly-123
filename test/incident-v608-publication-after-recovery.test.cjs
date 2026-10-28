@@ -500,4 +500,10 @@ test('P0 explicit competing physical epochs must not auto-overwrite by timestamp
   const local=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
   assert.equal(local.stockEpochId,'E2-local','unrelated explicit physical epochs cannot be chosen by timestamp alone');
   assert.equal(local.stockActual,5,'preserve local physical stock pending manual reconciliation');
+  const other=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
+  assert.equal(other.stockEpochId,'E3-remote','other peer retains independent epoch');
+  assert.equal(other.stockActual,9,'other physical count is not silently replaced');
+  await exchange(b,a,3);
+  assert.equal((await a.w.request('/api/productos/p0-competing-epochs')).stockActual,5);
+  assert.equal((await b.w.request('/api/productos/p0-competing-epochs')).stockActual,9);
 });
