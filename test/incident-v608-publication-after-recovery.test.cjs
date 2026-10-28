@@ -713,6 +713,16 @@ test('P0 a v607 offline sale is not erased by a competing modern physical epoch'
   assert.equal(item.stockActual,5,'legacy E1 sale must not be counted twice in E2');
   assert.equal(live.ventas.filter(x=>x.id===sold.ventaId).length,1,
     'old-sale receipt must survive without applying its physical movement to E2');
+  // Force the stale v607 whole-product snapshot to win the Y.Map's
+  // last-writer slot, regardless of random CRDT client IDs. The protected
+  // physical E2 count must remain unchanged while its old receipt survives.
+  const legacyRecord=old.w.OCYjs.getProductos()['p0-mixed-sale-epochs'];
+  current.w.OCYjs.mapas.productos.set('p0-mixed-sale-epochs',
+    vm.runInContext('('+JSON.stringify(legacyRecord)+')',current.w));
+  current.w.OCYjs._store.aplicar();await current.flush();
+  const forced=(await current.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-mixed-sale-epochs');
+  assert.equal(forced.stockEpochId,'E2-physical-recount');
+  assert.equal(forced.stockActual,5,'forced legacy Y.Map overwrite cannot change active E2 physical count');
   await exchange(current,old,3);
   const repeated=await current.w.request('/api/respaldo/exportar');
   assert.equal(repeated.ventas.filter(x=>x.id===sold.ventaId).length,1,
