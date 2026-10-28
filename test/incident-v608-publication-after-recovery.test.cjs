@@ -578,8 +578,11 @@ test('P0 invalid physical epoch in backup rejects import before any mutation',as
   const before=await a.w.request('/api/respaldo/exportar');
   const invalid=JSON.parse(JSON.stringify(before));
   invalid.productos[0].stockEpochId='X'.repeat(161);
-  const r=await a.w.request('/api/respaldo/importar','POST',invalid);
-  assert.ok(r.error,'malformed epoch must be rejected');
+  await assert.rejects(
+    a.w.request('/api/respaldo/importar','POST',invalid),
+    /invalid physical inventory epoch/,
+    'malformed epoch must be rejected before import'
+  );
   const after=await a.w.request('/api/respaldo/exportar');
   assert.deepEqual(after.productos,before.productos,'rejected backup must not change products');
 });
