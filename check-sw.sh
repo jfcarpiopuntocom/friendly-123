@@ -110,7 +110,7 @@ if [ -f docs/version-manifest.json ]; then
       if(!fs.existsSync(p)){ bad.push(rel+" (falta el archivo)"); continue; }
       let bytes=fs.readFileSync(p);
       // Pages sirve LF desde Git aunque el checkout Windows use CRLF.
-      if([".html",".js",".json"].includes(path.extname(p).toLowerCase()))
+      if([".html",".js",".json",".css"].includes(path.extname(p).toLowerCase()))
         bytes=Buffer.from(bytes.toString("utf8").replace(/\r\n/g,"\n"),"utf8");
       const real="sha256-"+crypto.createHash("sha256").update(bytes).digest("hex");
       if(real!==esp) bad.push(rel);

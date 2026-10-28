@@ -26,7 +26,7 @@ function sha256(file) {
   // GitHub Pages sirve el blob de Git. En Windows, core.autocrlf puede dejar
   // CRLF en el checkout aunque Git publique LF: el hash debe ser el publicado.
   // Nunca convertir PNG ni otros binarios.
-  if ([".html", ".js", ".json"].includes(path.extname(file).toLowerCase())) {
+  if ([".html", ".js", ".json", ".css"].includes(path.extname(file).toLowerCase())) {
     bytes = Buffer.from(bytes.toString("utf8").replace(/\r\n/g, "\n"), "utf8");
   }
   return crypto.createHash("sha256").update(bytes).digest("hex");
