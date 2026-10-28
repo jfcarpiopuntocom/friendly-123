@@ -16,7 +16,7 @@ const begin=source.indexOf('// SW nuke: flag va PRIMERO');
 const end=source.indexOf('</script>',begin);
 assert.ok(begin>0&&end>begin);
 const script=source.slice(source.indexOf('(function(){',begin),end);
-async function run({path='',quota=false,flagged=false,empty=false,foreignOnly=false}={}){
+async function run({path='',quota=false,flagged=false,empty=false,foreignOnly=false,loggedIn=false}={}){
  const p=home+path;
  const actions={get:0,mark:0,unregister:[],deleted:[],reloaded:0};
  const entries=empty?[]:[
@@ -25,6 +25,7 @@ async function run({path='',quota=false,flagged=false,empty=false,foreignOnly=fa
  ];
  if(foreignOnly)entries.shift();
  const context={URL,location:{href:p,reload(){actions.reloaded++}},navigator:{serviceWorker:{getRegistrations(){actions.get++;return Promise.resolve(entries)}}},
+ sessionStorage:{getItem:k=>loggedIn&&k==='f123_sesion'?'synthetic-session':null},
  localStorage:{getItem(){return flagged?'1':null},setItem(){actions.mark++;if(quota)throw Object.assign(Error('quota'),{name:'QuotaExceededError'})}},
  caches:{keys(){return Promise.resolve(allCaches)},delete(k){actions.deleted.push(k);return Promise.resolve(true)}},
  Promise,console,setTimeout(fn){fn()}};
@@ -37,3 +38,5 @@ test('previo deletes only previo channel cache',async()=>{const a=await run({pat
 test('under full localStorage quota no destructive action is attempted',async()=>{const a=await run({quota:true});assert.equal(a.get,0);assert.deepEqual(a.deleted,[]);assert.deepEqual(a.unregister,[]);assert.equal(a.reloaded,0)});
 test('already flagged or no SW does not clear caches',async()=>{const a=await run({flagged:true});assert.equal(a.get,0);const b=await run({empty:true});assert.deepEqual(b.deleted,[])});
 test('foreign SW alone does not trigger cleanup or reload',async()=>{const a=await run({foreignOnly:true});assert.equal(a.get,1);assert.deepEqual(a.unregister,[]);assert.deepEqual(a.deleted,[]);assert.equal(a.reloaded,0)});
+
+test('active client session forbids all SW unregister, cache purge and reload',async()=>{const a=await run({loggedIn:true});assert.equal(a.get,0);assert.equal(a.mark,0);assert.deepEqual(a.deleted,[]);assert.deepEqual(a.unregister,[]);assert.equal(a.reloaded,0);});

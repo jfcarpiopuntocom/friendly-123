@@ -14,9 +14,9 @@ function fixture(visibility,elapsed,safe=true){
 test('E2: version response cannot reload a visible app during recent user activity',()=>{
  const f=fixture('visible',1000);f.attempt();assert.equal(f.reloads(),0);
 });
-test('E2: idle or hidden app can adopt once while existing safety checks remain',()=>{
+test('E2: idle or hidden is not consent for an app update',()=>{
  for(const [visibility,elapsed]of [['visible',90001],['hidden',1000]]){
-  const f=fixture(visibility,elapsed);f.attempt();f.attempt();assert.equal(f.reloads(),1);
+  const f=fixture(visibility,elapsed);f.attempt();f.attempt();assert.equal(f.reloads(),0);
  }
  const blocked=fixture('hidden',100000,false);blocked.attempt();assert.equal(blocked.reloads(),0);
 });

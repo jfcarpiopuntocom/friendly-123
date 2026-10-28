@@ -69,13 +69,14 @@ for(const file of sources){
   assert.equal(a.tag,'button');assert.equal(a.attrs.role,'status');assert.equal(a.attrs['aria-live'],'polite');
   assert.match(a.textContent,/Hay una versión nueva/);
   assert.equal(f.reloads.length,0);
-  f=cargar(file,{recup:false}); // pendiente pero sin recuperacion: no se frena, no hay aviso
+  f=cargar(file,{recup:false}); // pending version still needs user consent after recovery
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();assert.equal(f.aviso(),undefined);
+  f.sola.vigilar();assert.ok(f.aviso());
+  assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);
   f=cargar(file); // frenada pero sin version pendiente: no hay aviso
   f.sola.vigilar();f.sola.intentar();assert.equal(f.aviso(),undefined);
  });
- test(file+' - se quita si ya no hay pendiente o termino la recuperacion',()=>{
+ test(file+' - no pending clears notice; recovery completion keeps user update notice',()=>{
   let f=cargar(file);
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
   f.sola.vigilar();f.sola.vigilar();assert.ok(f.aviso());
@@ -86,12 +87,14 @@ for(const file of sources){
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
   f.sola.vigilar();f.sola.vigilar();assert.ok(f.aviso());
   f.yjs.canal.recuperando=false;f.sola.vigilar();
-  assert.equal(f.aviso(),undefined);
+  assert.ok(f.aviso());
   assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);
+  f.ctx.sessionStorage.removeItem('f123_act_sola_pendiente');f.sola.vigilar();
+  assert.equal(f.aviso(),undefined);
  });
  test(file+' - tocar con guardado OK recarga una vez y registra aviso-usuario',async()=>{
   let guardados=0;
-  const f=cargar(file,{save:async()=>{guardados++;return true;}});
+  const f=cargar(file,{recup:false,save:async()=>{guardados++;return true;}});
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
   f.sola.vigilar();f.sola.vigilar();
   const a=f.aviso();
@@ -104,7 +107,7 @@ for(const file of sources){
  test(file+' - guardado que falla, devuelve no-true, o se cuelga (5 s): nunca recarga',async()=>{
   const casos=[async()=>false,async()=>{throw new Error('x');},async()=>undefined,()=>new Promise(()=>{}),null];
   for(const save of casos){
-   const f=cargar(file,{save:save||undefined});
+   const f=cargar(file,{recup:false,save:save||undefined});
    f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
    f.sola.vigilar();f.sola.vigilar();
    const a=f.aviso();
@@ -125,7 +128,7 @@ for(const file of sources){
   ];
   for(const poner of casos){
    let guardados=0;
-   const f=cargar(file,{save:async()=>{guardados++;return true;}});
+   const f=cargar(file,{recup:false,save:async()=>{guardados++;return true;}});
    f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
    f.sola.vigilar();f.sola.vigilar();
    const a=f.aviso();poner(f);

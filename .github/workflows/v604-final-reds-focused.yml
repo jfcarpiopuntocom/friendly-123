@@ -1,0 +1,58 @@
+name: v604-final-reds-focused-repair
+on:
+  push:
+    branches: [fix/v604-final-reds-isolated-20261028]
+permissions:
+  contents: write
+jobs:
+  reproduce-and-seal:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Generate EXACT reviewed JS/CSS (same esbuild as asset-contract test)
+        run: |
+          node - <<'NODE'
+          const fs=require('fs'),path=require('path'),esbuild=require('esbuild');
+          for(const [area,name]of[['app','app-style-02.css'],['dashboard','dashboard-main.css'],['app','app-inline-03.js']]){
+            const src=fs.readFileSync('src/'+area+'/'+name,'utf8');
+            fs.writeFileSync('docs/'+name.replace(/\.(js|css)$/,'.min.$1'),
+              esbuild.transformSync(src,{loader:path.extname(name).slice(1),target:'es2020',
+                minifySyntax:true,minifyWhitespace:true,minifyIdentifiers:false,legalComments:'none'}).code);
+          }
+          NODE
+          node scripts/gen-manifest.js
+          node scripts/release-control.cjs validate 6f427f6f4c582ed6b4eda0ecdaad5492e0fd99d9
+          bash check-sw.sh
+      - name: Rerun only the old 17 contradictory contracts + newest strict consent
+        env:
+          NODE_OPTIONS: "--require ./test/helpers/sin-red-produccion.cjs"
+        run: |
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            test/e2-active-user-reload.test.js test/entry-assets.test.cjs \
+            test/pr439-update-notice.test.cjs test/sw-nuke-scope-4d.test.cjs \
+            test/v492-actualizacion-sola.test.js \
+            test/audit-v603-update-consent.red.test.cjs test/p0-v603-update-consent-click.test.cjs
+      - name: Seal only generated assets and deterministic SHA256 manifest
+        run: |
+          set -eu
+          git diff --check
+          git add docs/app-style-02.min.css docs/dashboard-main.min.css docs/app-inline-03.min.js docs/version-manifest.json docs/sw.js
+          if git diff --cached --quiet; then echo 'already sealed'; else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'release: generate minified assets from source and reseal exact v604 hashes'
+            git push origin HEAD:fix/v604-final-reds-isolated-20261028
+          fi

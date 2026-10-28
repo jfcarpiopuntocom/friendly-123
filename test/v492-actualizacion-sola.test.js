@@ -1,5 +1,5 @@
 // v492 (JFC 2026-10-13, decision mayor: los clientes nunca reenganchan). A pending new
-// version reloads by itself only at a safe moment, keeps the session (no PIN) and never
+// version requires an explicit user click and durable confirmation (no PIN), and never
 // loops. Without this, a client with an open session stayed on the old version forever.
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium,webkit}=require('playwright');
@@ -23,7 +23,7 @@ async function assertNoMainFrameNavigation(page,label,action){
  if(actionError)throw actionError;
 }
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
- test('pending version reloads itself only when safe, once per version ('+name+')',async()=>{
+ test('pending version NEVER reloads unattended; only explicit durable-confirmed click ('+name+')',async()=>{
   const {web,page}=await abrir(engine);try{
   // The real published version is used, so the pre-existing load-time version check stays quiet.
   const prep=()=>page.evaluate(async()=>{const vj=await (await fetch('./version.json',{cache:'no-store'})).json();
@@ -40,14 +40,24 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   await page.evaluate(()=>{document.getElementById('oc-modal-overlay').style.display='flex';});
   await assertNoMainFrameNavigation(page,'open dialog after idle window',()=>page.clock.fastForward(92000));
   assert.equal(await page.evaluate(()=>window.__marca),m,'idle interval does not reload while a dialog is open');
-  // With the dialog closed and idle age still over 90 seconds, one reload is safe.
+  // Even after the idle window, no page transition occurs without consent.
+  await page.evaluate(()=>document.getElementById('oc-modal-overlay').style.display='none');
+  await assertNoMainFrameNavigation(page,'idle without consent',()=>page.evaluate(()=>window._ocActSola.intentar()));
+  assert.equal(await page.evaluate(()=>window.__marca),m,'never reload unattended');
+  // On explicit tap, user must have a durable ACK and no active recovery.
+  await page.evaluate(()=>{
+    window.OCYjs={estado:'apagado'};
+    window.OCSync.confirmarCatalogoDurable=async()=>true;
+    window._ocActSola.vigilar();
+    if(document.activeElement)document.activeElement.blur();
+  });
   const loaded=page.waitForEvent('load',{timeout:5000});
-  await page.evaluate(()=>{document.getElementById('oc-modal-overlay').style.display='none';window._ocActSola.intentar();});
+  await page.locator('#f123-aviso-version').click();
   await loaded;
   await page.waitForFunction(()=>window._ocActSola);
-  assert.equal(await page.evaluate(()=>window.__marca),undefined,'page reloaded');
-  assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_sesion')!==null),true,'session kept: no PIN');
-  assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_act_sola_pendiente')),null,'pending flag cleared');
+  assert.equal(await page.evaluate(()=>window.__marca),undefined,'user-approved click reloads');
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_sesion')!==null),true,'session kept');
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_act_sola_pendiente')),null,'pending cleared');
   // Anti-loop: once the page is idle again, the same shell still cannot reload twice within 10 min.
   m=await prep();
   await assertNoMainFrameNavigation(page,'same-version anti-loop after idle',()=>page.clock.fastForward(92000));
