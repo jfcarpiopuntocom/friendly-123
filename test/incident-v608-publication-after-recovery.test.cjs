@@ -654,3 +654,28 @@ test('P0 reboot from persisted local state plus restored Yjs snapshot retains ep
   assert.equal(final.stockActual,3,'replaying a known peer cannot resurrect spent stock');
   assert.equal(final.stockEpochId,before.stockEpochId);
 });
+
+test('P0 v607 stale same-number legacy stock cannot contaminate explicit physical epoch',async()=>{
+  const current=await peer(),legacy=await peer({legacy:true});
+  const fixture=await current.w.request('/api/respaldo/exportar');
+  fixture.productos=[{...fixture.productos[0],id:'p0-stale-v607',
+    nombre:'Synthetic stale bridge',barcode:'SYN-P0-STALE-V607',
+    stockActual:5,stockBase:5,stockPN:{},stockEpochId:'E2-current',
+    stockTs:200,rev:{c:1,d:'synthetic'}}];
+  fixture.ventas=[];fixture.movimientos=[];
+  const older=JSON.parse(JSON.stringify(fixture));
+  delete older.productos[0].stockEpochId;
+  older.productos[0].stockTs=100;
+  assert.equal((await current.w.request('/api/respaldo/importar','POST',fixture)).ok,true);
+  assert.equal((await legacy.w.request('/api/respaldo/importar','POST',older)).ok,true);
+  current.w.OCYjs._store.sembrar();legacy.w.OCYjs._store.sembrar();
+  await current.flush();await legacy.flush();
+  await legacy.w.request('/api/productos/p0-stale-v607/ajustar','POST',{delta:2,motivo:'older bridge local stock'});
+  await legacy.flush();await exchange(legacy,current,3);
+  const now=(await current.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-stale-v607');
+  assert.equal(now.stockEpochId,'E2-current','old bridge cannot revoke confirmed physical epoch');
+  assert.equal(now.stockActual,5,'unscoped legacy movement cannot increase a new physical count');
+  await exchange(current,legacy,2);
+  const final=(await current.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-stale-v607');
+  assert.equal(final.stockActual,5,'repeated old bridge traffic cannot resurrect obsolete stock');
+});
