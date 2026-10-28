@@ -1061,6 +1061,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      mock-backend emite oc-negocio-actualizado y aquí el candado pasa de "Team ·
      …licencia" a mostrar el nombre real ("idiomARTE") sin recargar. */
   try { window.addEventListener("oc-negocio-actualizado", function () { try { pintarNegocioGate(); } catch (_) {} }); } catch (_) {}
+  // A store reload or cross-tab merge may hydrate the canonical shop name without
+  // emitting oc-negocio-actualizado; repaint the PIN label from the active notebook.
+  try { window.addEventListener("oc-sync-merge", function () { try { pintarNegocioGate(); } catch (_) {} }); } catch (_) {}
 
   let teclado = null;
   let intervaloCountdown = null;
