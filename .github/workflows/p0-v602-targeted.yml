@@ -30,6 +30,7 @@ jobs:
           node --check docs/app-inline-01.min.js
           node test/incident-v602-relay-null-stock-epoch.test.cjs
           node test/incident-v602-pin-identity-guard.test.cjs
+          node test/incident-v602-today-after-sale.test.cjs
           node --test test/peer-initial-recovery.test.cjs
       - name: Stock conflict and old metadata regressions
         run: |
