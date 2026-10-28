@@ -28,6 +28,45 @@ test('P0: count references business order as observed physical movement, must re
  assert.equal(s.trust,'needs-reconciliation');
 });
 
+test('P0: sequence-only collisions with distinct IDs survive backup without inventing stock',()=>{
+ const j=new Journal(book);
+ j.append(e('base',1,'OPEN','cream',10));
+ j.append(e('pc',1,'RECEIVE','cream',3));
+ const alt={...e('pc',1,'RECEIVE','cream',5),id:'different-id'};
+ assert.equal(j.append(alt).reason,'sequence-collision');
+ const saved=j.export(),reopened=new Journal(book);
+ assert.equal(reopened.import(saved).ok,true);
+ assert.deepEqual(reopened.export(),saved);
+ assert.equal(reopened.project('cream').onHand,null);
+ assert.ok(reopened.project('cream').issues.includes('quarantined-sequence-collision'));
+});
+test('P0: a device sequence reused for another product taints BOTH products',()=>{
+ const j=new Journal(book);
+ j.append(e('base',1,'OPEN','cream',10));
+ j.append(e('base',2,'OPEN','soap',20));
+ j.append(e('pc',1,'RECEIVE','cream',3));
+ const alt={...e('pc',1,'RECEIVE','soap',5),id:'reused-id'};
+ assert.equal(j.append(alt).reason,'sequence-collision');
+ for (const product of ['cream','soap']) {
+   assert.equal(j.project(product).onHand,null);
+   assert.ok(j.project(product).issues.includes('quarantined-sequence-collision'));
+ }
+ const restored=new Journal(book);
+ assert.equal(restored.import(j.export()).ok,true);
+ for (const product of ['cream','soap']) assert.equal(restored.project(product).onHand,null);
+});
+test('P0: same-ID cross-product collisions taint accepted product, not only rejected one',()=>{
+ const j=new Journal(book);
+ j.append(e('base',1,'OPEN','cream',10));
+ j.append(e('base',2,'OPEN','soap',20));
+ const original=e('pc',1,'RECEIVE','cream',3);
+ j.append(original);
+ assert.equal(j.append({...original,product:'soap',qty:7}).reason,'id-collision');
+ for(const product of ['cream','soap']){
+   assert.equal(j.project(product).onHand,null);
+   assert.ok(j.project(product).issues.includes('quarantined-id-collision'));
+ }
+});
 test('P0: backup preserves conflicting evidence, not only the winner of an event ID',()=>{
  const j=new Journal(book);
  j.append(e('base',1,'OPEN','cream',10));

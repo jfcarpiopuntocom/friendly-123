@@ -53,6 +53,10 @@ class ShadowYjsBridge {
      if (!r.ok) this.errors.push({key,reason:r.reason,id:normalized.id});
    }).catch(err=>{
      this.errors.push({key,reason:err.message});
+     // An already verified immutable witness can be overwritten by a Y.Map
+     // update; put the known bytes back rather than letting the tamper stand.
+     const known=this._witnesses.get(key);
+     if (known && this.map.get(key)!==known) this.map.set(key,known);
    });
  }
  _restoreKnown(key) {

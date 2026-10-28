@@ -125,11 +125,17 @@
         throw Error('incompatible notebook or schema');
       const alternatives=snapshot.quarantine||[];
       if (!Array.isArray(alternatives)) throw Error('invalid conflicting evidence');
-      const ids=new Set((snapshot.events||[]).map(e=>e.id));
+      // Conflicts may reuse a DEVICE SEQUENCE with a different event ID.
+      // A valid backup can anchor its rejected witness by either identifier
+      // or (device, sequence); refusing the latter would lose a real fact.
+      if (!Array.isArray(snapshot.events)) throw Error('backup events array required');
+      const ids=new Set(snapshot.events.map(e=>e.id));
+      const sequences=new Set(snapshot.events.map(e=>e.device+'\u0000'+e.seq));
       for (const c of alternatives) {
-        if (!c || !c.attempted || !ids.has(c.attempted.id))
+        if (!c || !c.attempted) throw Error('invalid conflicting evidence');
+        const attempted=validate(c.attempted,this.notebook);
+        if (!ids.has(attempted.id) && !sequences.has(attempted.device+'\u0000'+attempted.seq))
           throw Error('orphan conflict evidence in backup');
-        validate(c.attempted,this.notebook);
       }
       const merged=this.merge(snapshot.events);
       if (!merged.ok) return merged;
@@ -181,8 +187,15 @@
         }
       } else if (openings.length===1) { anchor=openings[0];base=anchor.qty;after=physical; }
       else issues.push('missing-unambiguous-physical-baseline');
-      if (this._quarantine.size) for (const item of this._quarantine.values())
-        if (item.attempted.product===product) issues.push('quarantined-'+item.reason);
+      if (this._quarantine.size) for (const item of this._quarantine.values()) {
+        const attempted=item.attempted;
+        const accepted=this._events.get(attempted.id) ||
+          this._events.get(this._sequences.get(attempted.device+'\u0000'+attempted.seq));
+        // Cross-product ID/sequence collisions taint BOTH claimed products,
+        // including the one belonging to the previously accepted witness.
+        if (attempted.product===product || (accepted && accepted.product===product))
+          issues.push('quarantined-'+item.reason);
+      }
       let physicalClaim=null;
       if (base!==null && !issues.length) {
         physicalClaim=base;

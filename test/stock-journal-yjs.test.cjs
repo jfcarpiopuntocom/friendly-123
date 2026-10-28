@@ -90,6 +90,38 @@ test('rejected local collision is still propagated as a quarantined witness to t
    peer.bridge.close();
  }
 });
+test('Yjs: a sequence-only rejected witness reaches peers and survives rehydration',async()=>{
+ const [source,remote,reopened]=[make(),make(),make()];
+ await source.bridge.publish(ev('base',1,'OPEN','cream',10));
+ const original=ev('pc',1,'RECEIVE','cream',3);
+ await source.bridge.publish(original);
+ const alt={...original,id:'pc:other-id',qty:5};
+ const result=await source.bridge.publish(alt);
+ assert.equal(result.ok,false);assert.equal(result.reason,'sequence-collision');
+ assert.equal(result.witnessPublished,true);
+ await transmit(source,remote);
+ assert.equal(remote.journal.project('cream').trust,'needs-reconciliation');
+ const backup=remote.journal.export();
+ assert.equal(reopened.journal.import(backup).ok,true);
+ assert.equal(await reopened.bridge.seedFromJournal(),3);
+ assert.equal(reopened.journal.project('cream').trust,'needs-reconciliation');
+ for(const p of [source,remote,reopened])p.bridge.close();
+});
+test('Yjs: overwrite of a known immutable witness repairs its bytes and preserves peer state',async()=>{
+ const [a,b]=[make(),make()];
+ const opening=ev('base',1,'OPEN','cream',7);
+ await a.bridge.publish(opening);
+ await transmit(a,b);
+ const [key]=[...a.bridge.map.keys()];
+ const canonical=a.bridge.map.get(key);
+ a.bridge.map.set(key,JSON.stringify({...opening,qty:900}));
+ await a.bridge.flush();
+ assert.equal(a.bridge.map.get(key),canonical,'corrupted witness must self-heal');
+ await transmit(a,b);
+ assert.equal(a.journal.project('cream').onHand,7);
+ assert.equal(b.journal.project('cream').onHand,7);
+ a.bridge.close();b.bridge.close();
+});
 test('real Yjs: forged or corrupted event witness cannot enter journal',async()=>{
  const a=make();
  a.bridge.map.set('fake#notsha256',JSON.stringify(ev('base',1,'OPEN','cream',999)));
