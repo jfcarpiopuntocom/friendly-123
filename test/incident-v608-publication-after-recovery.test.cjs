@@ -277,6 +277,9 @@ test('P0 1000-product notebook: one remote PN change must be preserved without d
   await b.w.request('/api/respaldo/importar','POST',f);
   a.w.OCYjs._store.sembrar();b.w.OCYjs._store.sembrar();
   await a.flush();await b.flush();
+  // Separate initial full 1000-product hydration from the steady-state edit.
+  const bootstrapStart=Date.now();await exchange(a,b,2);
+  const bootstrapElapsed=Date.now()-bootstrapStart;
   const x=await a.w.request('/api/productos/large-stock-999/ajustar','POST',{delta:7,motivo:'1000 item consistency'});
   assert.equal(x.stockActual,11);
   await a.flush();
@@ -285,5 +288,6 @@ test('P0 1000-product notebook: one remote PN change must be preserved without d
   const p=(await b.w.request('/api/respaldo/exportar')).productos;
   assert.equal(p.length,1000);
   assert.equal(p.find(x=>x.id==='large-stock-999').stockActual,11);
-  console.error('P0_1000_PRODUCT_NOTEBOOK_SYNTHETIC_REPLAY_MS',elapsed);
+  console.error('P0_1000_PRODUCT_BOOTSTRAP_MS',bootstrapElapsed);
+  console.error('P0_1000_PRODUCT_STEADY_EDIT_REPLAY_MS',elapsed);
 });
