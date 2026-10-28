@@ -1526,6 +1526,7 @@
     // FASE 2 (JFC 2026-09-09): mapa aparte para el nombre del negocio y los PINs
     // de rol, que viajan CON el catálogo pero no son una colección de ítems. Así
     // Plan C converge un negocio completo por sí solo, sin depender del sync casero.
+    API.stockPNTestigos = API.doc.getMap("_stock_pn_testigos_v1");
     API.meta = API.doc.getMap("_meta");
     API.clave = await derivarClave(codigo);
     /* LIMPIEZA (2026-09-16): SOLO la licencia canonica de JFC estrena sala NUEVA
@@ -1939,6 +1940,83 @@
     Object.keys(out).sort(function (x,y) {return Number(x)-Number(y);}).forEach(function (key) {sorted[key]=out[key];});
     return sorted;
   }
+
+  /*
+   * P0 forensic candidate: monotonically growing, per-actor stock witnesses.
+   * Y.Map("productos").set(productId, wholeProduct) has LAST-WRITER conflicts:
+   * the peer with stock=2 can mask a confirmed +9 from another peer. Stock
+   * counters therefore need independent Yjs keys, not a single product value.
+   * This witness map is encrypted in the SAME existing Y.Doc, never sent in
+   * plaintext, and never chooses a physical baseline from conflicting bases.
+   *
+   * The key includes the counter snapshot: a stale concurrent write can never
+   * delete a newer counter. No migration, reset, or pruning of historical ops.
+   */
+  function publicarTestigosStock(r, mapa) {
+    if (!r || r.id == null || !mapa) return;
+    var pid = String(r.id);
+    if (!pid || pid.length > 160) return;
+    function registrar(base, pn, ts) {
+      var b = Number(base);
+      if (base == null || !Number.isSafeInteger(b) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
+      Object.keys(pn).forEach(function (actor) {
+        if (!actor || actor.length > 160) return;
+        var z = pn[actor] || {}, add = Number(z.add), sub = Number(z.sub);
+        if (!Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0 || !(add || sub)) return;
+        var key = JSON.stringify([pid, b, actor, add, sub]);
+        if (!mapa.has(key)) mapa.set(key, { p: pid, b: b, d: actor, a: add, s: sub, t: Number(ts) || 0 });
+      });
+    }
+    registrar(r.stockBase, r.stockPN, r.stockTs);
+    var evidencias = r.stockEvidencias;
+    if (evidencias && typeof evidencias === "object" && !Array.isArray(evidencias)) {
+      Object.keys(evidencias).forEach(function (key) {
+        var e = evidencias[key]; if (e) registrar(e.base, e.pn, e.ts);
+      });
+    }
+  }
+
+  function incorporarTestigosStock(productos, mapa) {
+    if (!mapa || !mapa.size || !Array.isArray(productos) || !productos.length) return productos;
+    var hechos = Object.create(null);
+    mapa.forEach(function (w) {
+      if (!w || typeof w !== "object") return;
+      var pid = String(w.p || ""), actor = String(w.d || "");
+      var base = Number(w.b), add = Number(w.a), sub = Number(w.s);
+      if (!pid || pid.length > 160 || !actor || actor.length > 160 || !Number.isSafeInteger(base) ||
+          !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
+      var byProduct = hechos[pid] || (hechos[pid] = Object.create(null));
+      var byBase = byProduct[String(base)] || (byProduct[String(base)] = { base: base, pn: {}, ts: 0 });
+      var old = byBase.pn[actor] || { add: 0, sub: 0 };
+      byBase.pn[actor] = { add: Math.max(old.add, add), sub: Math.max(old.sub, sub) };
+      byBase.ts = Math.max(byBase.ts, Number(w.t) || 0);
+    });
+    return productos.map(function (p) {
+      if (!p || p.id == null) return p;
+      var porBase = hechos[String(p.id)];
+      if (!porBase) return p;
+      var e = unirEvidenciasStockYjs(p, { stockEvidencias: porBase });
+      var b = p.stockBase == null ? null : Number(p.stockBase);
+      if (b === null || !Number.isSafeInteger(b) || !porBase[String(b)]) {
+        return Object.assign({}, p, { stockEvidencias: e }); // conflicting baselines: evidence ONLY
+      }
+      var vistos = porBase[String(b)], pn = Object.assign({}, p.stockPN || {});
+      Object.keys(vistos.pn).forEach(function (actor) {
+        var old = pn[actor] || {}, newValue = vistos.pn[actor];
+        pn[actor] = { add: Math.max(Number(old.add) || 0, newValue.add),
+                      sub: Math.max(Number(old.sub) || 0, newValue.sub) };
+      });
+      var neto = b + Object.keys(pn).reduce(function (total, actor) {
+        return total + (Number(pn[actor].add) || 0) - (Number(pn[actor].sub) || 0);
+      }, 0);
+      if (!Number.isSafeInteger(neto)) return Object.assign({}, p, { stockEvidencias: e });
+      return Object.assign({}, p, {
+        stockBase: b, stockPN: pn, stockActual: Math.max(0, neto),
+        stockDeficit: neto < 0 ? -neto : 0,
+        stockTs: Math.max(Number(p.stockTs) || 0, vistos.ts), stockEvidencias: e
+      });
+    });
+  }
   function conectarStore(Y) {
     if (!window.OCSync || typeof window.OCSync.catalogoPropio !== "function" ||
         typeof window.OCSync.aplicarCatalogo !== "function") {
@@ -1976,6 +2054,11 @@
         });
       });
     });
+    if (API.stockPNTestigos && typeof API.stockPNTestigos.observe === "function") {
+      API.stockPNTestigos.observe(function (_event, txn) {
+        if (!txn || txn.origin !== "seed") _otroRemoto = true;
+      });
+    }
     if (API.meta && typeof API.meta.observe === "function") {
       API.meta.observe(function (_event, txn) {
         if (txn && txn.origin !== "seed") _otroRemoto = true; // red/bc/desconocido (JFC 2026-10-27)
@@ -2024,6 +2107,9 @@
               if (!r || r.id == null) return;
               var k = String(r.id);
               var prev = API.mapas[col].get(k);
+              // Even if the complete product object loses Y.Map arbitration,
+              // its PN movements survive as distinct add-only CRDT keys.
+              if (col === "productos") publicarTestigosStock(r, API.stockPNTestigos);
               var productoEntrada = col === "productos" ? JSON.stringify(r) : null;
               if (productoEntrada && prev && _productosSinCambios.get(prev) === productoEntrada) return;
               // A locked tab may know the device profile but no longer have an authenticated role.
@@ -2296,6 +2382,9 @@
         soloProductos = false;
         COLECCIONES.forEach(function (c) { remoto[c] = valores(c); });
       }
+      // Never trust the winning whole-object Y.Map value to contain every
+      // independent device's PN counters. Restore them from append-only keys.
+      remoto.productos = incorporarTestigosStock(remoto.productos, API.stockPNTestigos);
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
       // aplicarse aunque no haya entidades — antes se descartaba y el nombre nunca
       // llegaba a un aparato que recibió primero el _meta.
