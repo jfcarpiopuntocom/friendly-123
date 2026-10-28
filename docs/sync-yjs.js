@@ -2051,6 +2051,16 @@
       // Distinct explicit epochs are retained in the encrypted witness map;
       // legacy stockEvidencias cannot represent two equal-number epochs safely.
       if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
+        // An old bridge may win Y.Map.productos with E2 metadata but E1 PN.
+        // When historical witnesses exist and none are scoped to explicit E2,
+        // those unscoped PN counters are NOT evidence of a new E2 movement.
+        // Retain their original witnesses in the encrypted Y.Doc unchanged.
+        if (epoch && Number.isSafeInteger(b) && Object.keys(porBase).length) {
+          return Object.assign({}, p, {
+            stockPN: {}, stockActual: Math.max(0, b), stockDeficit: 0,
+            ...(e ? { stockEvidencias: e } : {})
+          });
+        }
         return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
       }
       var vistos = porBase[activeKey];
