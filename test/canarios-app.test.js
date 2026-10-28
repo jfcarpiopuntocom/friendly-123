@@ -160,6 +160,10 @@ test('invariantes al arrancar: avisa el dinero partido sin tocarlo y llena la pe
     await page.goto(base + 'next/', { waitUntil: 'networkidle' });
     await lista(page);
     await page.waitForTimeout(2500);
+    /* Orden bajo carga (CI run 40647697979): /api/respaldo/importar responde ok antes de que el candado
+       Web Locks entregue el guardado (estado-ab.js conCandado). Se retrasa el candado 1200 ms para forzar
+       ese orden siempre; el guardado igual termina, asi que la prueba espera el buffer en vez de leerlo ya. */
+    await page.evaluate(() => { const L = navigator.locks, r = L.request.bind(L); L.request = (...a) => new Promise((ok) => setTimeout(ok, 1200)).then(() => r(...a)); });
     const sembrado = await page.evaluate(async () => {
       const exp = await (await fetch('/api/respaldo/exportar')).json();
       exp.ubicaciones = [{ id: 'u-t', nombre: 'Shelf T', tipo: 'propio' }];
@@ -175,6 +179,7 @@ test('invariantes al arrancar: avisa el dinero partido sin tocarlo y llena la pe
     });
     assert.equal(sembrado.ok, true, 'el respaldo sembrado se importo');
     const bufferUbi = () => page.evaluate(() => { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); try { const b = JSON.parse(localStorage.getItem(k)); const v = b && b.ventas && b.ventas.find((x) => x.id === 'v-vacia'); if (v) return v.ubicacionId; } catch (_) {} } return null; });
+    await page.waitForFunction(() => { for (let i = 0; i < localStorage.length; i++) { try { const b = JSON.parse(localStorage.getItem(localStorage.key(i))); if (b && b.ventas && b.ventas.some((x) => x.id === 'v-vacia')) return true; } catch (_) {} } return false; }, null, { timeout: 15000 });
     assert.equal(await bufferUbi(), '', 'antes de reiniciar la venta guardada trae la percha vacia (prueba de que el llenado es de v428)');
     await page.reload({ waitUntil: 'networkidle' });
     await lista(page);
