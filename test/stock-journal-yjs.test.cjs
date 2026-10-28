@@ -108,17 +108,28 @@ test('Yjs quarantine: tampered or forged rejected-batch key never enters journal
  assert.ok(a.bridge.errors.length>=1);
  a.bridge.close();
 });
-test('Yjs refuses new business publication during unresolved rejected batch',async()=>{
- const x=make();
+test('Yjs: quarantined inventory NEVER blocks preorders or loses new physical facts',async()=>{
+ const [x,remote]=[make(),make()];
  await x.bridge.publish(ev('base',1,'OPEN','cream',1));
  const first=ev('pc',1,'RECEIVE','cream',3),alt={...first,qty:8};
  assert.equal(x.journal.merge([first,alt]).rejectedBatchStored,true);
  assert.equal(x.journal.project('cream').trust,'needs-reconciliation');
- assert.equal(await x.bridge.seedFromJournal(),2,'quarantine published separately from valid opening');
- await assert.rejects(()=>x.bridge.publish(ev('phone',1,'ORDER','cream',1,{orderId:'sale-1'})),/rejected-batch quarantine/);
- assert.equal(x.bridge.map.size,1,'unsafe batch facts never appear on the normal event map');
- assert.equal(x.bridge.quarantineMap.size,1);
- x.bridge.close();
+ assert.equal(await x.bridge.seedFromJournal(),2,'quarantine separate from opening');
+ const placed=await x.bridge.publish(ev('phone',1,'ORDER','cream',1,{orderId:'sale-1'}));
+ assert.equal(placed.ok,true,'preorders are obligations, not physical decrements');
+ const deliveredBySupplier=await x.bridge.publish(ev('supplier',1,'RECEIVE','cream',2));
+ assert.equal(deliveredBySupplier.ok,true,'real physical facts must not be lost during a dispute');
+ await transmit(x,remote);
+ for(const p of [x,remote]){
+   const s=p.journal.project('cream');
+   assert.equal(s.onHand,null,'neither peer may claim certain physical inventory');
+   assert.equal(s.unfulfilled,1,'sale commitment remains');
+   assert.equal(s.trust,'needs-reconciliation');
+   assert.equal(p.bridge.map.size,3,'only opening, order, valid receipt on event map');
+   assert.equal(p.bridge.quarantineMap.size,1);
+   assert.equal(p.journal.rejectedBatches.length,1);
+   p.bridge.close();
+ }
 });
 test('real Yjs: SAME ID with DIFFERENT payload survives on separate witness keys and is quarantined',async()=>{
  const [a,b]=[make(),make()];

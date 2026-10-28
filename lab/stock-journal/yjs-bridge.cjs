@@ -104,8 +104,9 @@ class ShadowYjsBridge {
    }).catch(err=>this.errors.push({key,reason:err.message}));
  }
  async publish(event) {
-   if (this.journal.rejectedBatches.length)
-     throw Error('rejected-batch quarantine has no reviewed Yjs transport; publish blocked');
+   // A disputed physical count must never prevent new preorders or erase real
+   // movements. The separate rejection map makes every peer mark affected
+   // inventory untrusted, while accepted append-only facts keep replicating.
    const e=validate(event,this.journal.notebook);
    const raw=stable(e),key=e.id+'#'+await sha256(raw);
    const checked=this.journal.append(e);
