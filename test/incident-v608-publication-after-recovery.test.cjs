@@ -8,7 +8,7 @@ const {browser}=require('./helpers/browser.cjs');
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 async function settle(){for(let i=0;i<20;i++)await tick();}
 async function peer(options={}){
-  const w=browser(),timers=[];delete w.JSON;
+  const w=browser(options.storage),timers=[];delete w.JSON;
   w.setTimeout=(fn,ms)=>{const timer={fn,ms,on:true};timers.push(timer);return timer;};
   w.clearTimeout=timer=>{if(timer)timer.on=false;};
   w.setInterval=(fn,ms)=>{const timer={fn,ms,on:true,interval:true};timers.push(timer);return timer;};
@@ -623,4 +623,34 @@ test('P0 new product has independent offline adjustments on both peers and stabl
     assert.equal(item.stockActual,11,'both independent physical movements preserved');
     assert.equal(item.stockEpochId,original.stockEpochId,'epoch ID remains unchanged');
   }
+});
+
+test('P0 reboot from persisted local state plus restored Yjs snapshot retains epoch and stock exactly once',async()=>{
+  const a=await peer(),b=await peer();
+  const created=await a.w.request('/api/productos','POST',{
+    nombre:'Synthetic durable reboot',barcode:'SYN-P0-REBOOT',precio:12,costo:4,stockInicial:5
+  });
+  assert.ok(created.id);
+  await a.w.request('/api/productos/'+created.id+'/ajustar','POST',
+    {delta:-2,motivo:'reboot physical movement'});
+  await a.flush();await exchange(a,b,2);
+  const before=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id===created.id);
+  assert.equal(before.stockActual,3);
+  assert.ok(before.stockEpochId);
+  const persistedDocBytes=a.w.Y.encodeStateAsUpdate(a.w.OCYjs.doc);
+  // New browser VM shares only the persisted localStorage from the original
+  // device. The encrypted IndexedDB Yjs bytes are injected separately,
+  // modelling a reboot without using any real browser/customer storage.
+  const reloaded=await peer({storage:a.w.localStorage});
+  await reloaded.flush();
+  reloaded.w.Y.applyUpdate(reloaded.w.OCYjs.doc,persistedDocBytes,'red');
+  reloaded.w.OCYjs._store.aplicar();await reloaded.flush();
+  const restored=(await reloaded.w.request('/api/respaldo/exportar')).productos.find(p=>p.id===created.id);
+  assert.ok(restored,'product persists after reboot');
+  assert.equal(restored.stockEpochId,before.stockEpochId,'reboot cannot invent a new epoch');
+  assert.equal(restored.stockActual,3,'reboot cannot duplicate a decrement');
+  await exchange(b,reloaded,3);
+  const final=(await reloaded.w.request('/api/respaldo/exportar')).productos.find(p=>p.id===created.id);
+  assert.equal(final.stockActual,3,'replaying a known peer cannot resurrect spent stock');
+  assert.equal(final.stockEpochId,before.stockEpochId);
 });
