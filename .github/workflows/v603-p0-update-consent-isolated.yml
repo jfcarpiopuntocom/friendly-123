@@ -1,0 +1,20 @@
+name: v603-p0-update-consent-isolated
+on:
+  push:
+    branches: [lab/v603-p0-explicit-update-consent-20261028]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  explicit-consent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax + source and shipped bundle consent contracts
+        run: |
+          node --check src/app/app-inline-03.js
+          node --check docs/app-inline-03.min.js
+          node --test test/audit-v603-update-consent.red.test.cjs test/p0-v603-update-consent-click.test.cjs test/incident-v604-no-auto-reload-pending-yjs.test.cjs test/incident-v604-login-reload-guard.test.cjs
