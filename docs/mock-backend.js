@@ -3972,6 +3972,13 @@
         const epochRemote = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
         const epochLocal = typeof mio.stockEpochId === "string" ? mio.stockEpochId : "";
         const epochConflict = (epochRemote || epochLocal) && epochRemote !== epochLocal;
+        if (epochConflict && epochLocal && epochRemote) {
+          // Two explicit recount identities conflict even when both numerical
+          // stock bases are identical. Report the conflict without fabricating
+          // an old-format, base-keyed stockEvidencias merge.
+          try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto",
+            {detail:{productoId:mio.id, epochConflict:true}})); } catch (_) {}
+        }
         const protectedStock = epochLocal && epochRemote && epochConflict
           ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
              actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
