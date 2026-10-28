@@ -7003,7 +7003,10 @@
           if (error) return J({ error }, 400);
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
-          guardarEstadoLocal();
+          // v605 (JFC 2026-10-28): no decir "listo" hasta que el guardado este en disco (antes quedaba en cola del candado Web Locks y cerrar la pestana perdia el respaldo).
+          let _durable = false;
+          try { _durable = (await guardarEstadoLocal(true, true)) === true; } catch (_) { _durable = false; }
+          if (!_durable) return J({ error: "The backup was applied but could not be saved. Do not close the app and try again." }, 503);
           return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
         } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
       }
@@ -8208,7 +8211,9 @@
     } finally {
       // Item 1: persistir tras cada mutacion — asi un refresh (o cerrar la
       // pestana) ya no pierde ventas ni productos nuevos.
-      if (debePersistir) guardarEstadoLocal();
+      // v605 (JFC 2026-10-28): esperar el guardado duradero ANTES de entregar la respuesta (antes quedaba en cola del candado y cerrar la pestana perdia la mutacion).
+      // NO cambia el codigo de estado: la mutacion ya se aplico en memoria; si el guardado falla se avisa por evento (un error aqui invitaria a reintentar y duplicar).
+      if (debePersistir) { try { if ((await guardarEstadoLocal()) === false) { try { window.dispatchEvent(new CustomEvent("oc-guardado-fallo")); } catch (_) {} } } catch (_) {} }
     }
   };
   window.fetch = _fetchConCandado;
