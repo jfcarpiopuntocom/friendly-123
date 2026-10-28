@@ -2109,6 +2109,9 @@ window.OCReactivo = (function () {
     window.addEventListener("oc-sync-merge", function (ev) { var d = (ev && ev.detail) || {}; if (d.ventas || d.actualizados || d.promotoras || d.perchas) pedir(); });
   })();
   on("ventas", function () {
+    // Keep Today stock and money tiles in sync with the same sale already committed to the store.
+    // Refresh only when Today is active; never re-run a sale or alter business data.
+    try { var vh = document.getElementById("vista-hoy"); if (vh && vh.classList.contains("activa") && typeof cargarHoy === "function") cargarHoy(); } catch (_) {}
     try { var vs = document.getElementById("ventasSold"); if (vs && vs.open && typeof cargarVentasSold === "function") cargarVentasSold(); } catch (_) {}
     try { var vc = document.getElementById("vista-comisiones"); if (vc && vc.classList.contains("activa") && typeof cargarComisiones === "function") cargarComisiones(); } catch (_) {}
     try { var vp = document.getElementById("vista-perchas"); if (vp && vp.classList.contains("activa") && window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
