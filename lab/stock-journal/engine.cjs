@@ -76,6 +76,11 @@
       if (this._sequences.has(seqKey)) return 'sequence-collision';
       return 'added';
     }
+    _recordConflict(e,reason) {
+      // A second/third payload with the same ID is a separate piece of
+      // immutable evidence, not an overwrite of the previous rejection.
+      this._quarantine.set(e.id+'\u0000'+stable(e),{reason,attempted:clone(e)});
+    }
     _remember(e) {
       const frozen = Object.freeze(e);
       this._events.set(e.id,frozen);
@@ -87,7 +92,7 @@
       const e=validate(event,this.notebook), result=this._check(e);
       if (result === 'added') { this._remember(e); return {ok:true,added:1,duplicate:0}; }
       if (result === 'duplicate') return {ok:true,added:0,duplicate:1};
-      this._quarantine.set(e.id,{reason:result,attempted:clone(e)});
+      this._recordConflict(e,result);
       return {ok:false,reason:result,id:e.id};
     }
     merge(events) {
@@ -99,11 +104,11 @@
       for (const raw of events) {
         const e=validate(raw,this.notebook), key=e.device+'\u0000'+e.seq;
         const prior=incoming.get(e.id);
-        if (prior && stable(prior)!==stable(e)) { this._quarantine.set(e.id,{reason:'id-collision',attempted:e}); return {ok:false,reason:'id-collision',id:e.id,added:0}; }
-        if (seenSeq.has(key) && seenSeq.get(key)!==e.id) { this._quarantine.set(e.id,{reason:'sequence-collision',attempted:e}); return {ok:false,reason:'sequence-collision',id:e.id,added:0}; }
+        if (prior && stable(prior)!==stable(e)) { this._recordConflict(e,'id-collision'); return {ok:false,reason:'id-collision',id:e.id,added:0}; }
+        if (seenSeq.has(key) && seenSeq.get(key)!==e.id) { this._recordConflict(e,'sequence-collision'); return {ok:false,reason:'sequence-collision',id:e.id,added:0}; }
         incoming.set(e.id,e);seenSeq.set(key,e.id);
         const check=this._check(e);
-        if (check!=='added'&&check!=='duplicate') { this._quarantine.set(e.id,{reason:check,attempted:e}); return {ok:false,reason:check,id:e.id,added:0}; }
+        if (check!=='added'&&check!=='duplicate') { this._recordConflict(e,check); return {ok:false,reason:check,id:e.id,added:0}; }
       }
       for (const e of incoming.values()) if (!this._events.has(e.id)) additions.push(e);
       for (const e of additions) this._remember(e);
@@ -111,12 +116,25 @@
     }
     export() {
       const events=[...this._events.values()].map(clone).sort((a,b)=>a.id.localeCompare(b.id));
-      return {schema:1,notebook:this.notebook,events};
+      const quarantine=[...this._quarantine.values()].map(clone)
+        .sort((a,b)=>(a.attempted.id+'|'+stable(a.attempted)).localeCompare(b.attempted.id+'|'+stable(b.attempted)));
+      return {schema:1,notebook:this.notebook,events,quarantine};
     }
     import(snapshot) {
       if (!snapshot || snapshot.schema!==1 || snapshot.notebook!==this.notebook)
         throw Error('incompatible notebook or schema');
-      return this.merge(snapshot.events);
+      const alternatives=snapshot.quarantine||[];
+      if (!Array.isArray(alternatives)) throw Error('invalid conflicting evidence');
+      const ids=new Set((snapshot.events||[]).map(e=>e.id));
+      for (const c of alternatives) {
+        if (!c || !c.attempted || !ids.has(c.attempted.id))
+          throw Error('orphan conflict evidence in backup');
+        validate(c.attempted,this.notebook);
+      }
+      const merged=this.merge(snapshot.events);
+      if (!merged.ok) return merged;
+      for (const c of alternatives) this.append(c.attempted);
+      return {...merged,restoredConflicts:alternatives.length};
     }
     get size() { return this._events.size; }
     get quarantined() { return [...this._quarantine.values()].map(clone); }
