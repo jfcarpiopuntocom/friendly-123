@@ -1,0 +1,53 @@
+name: stable-breakit-v603-five-profiles
+on:
+  push:
+    branches: [lab/v603-stable-breakit-gate-20261028]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  five-independent-breakit-profiles:
+    name: "Break-it / ${{ matrix.profile }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [chaos, weird-input, slow-flaky, sneaky, first-timer]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # historic guard requires complete history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install test dependencies (no production access)
+        run: npm ci --ignore-scripts
+      - name: Install Chromium only for browser profiles
+        if: matrix.profile == 'chaos' || matrix.profile == 'weird-input'
+        run: npx playwright install --with-deps chromium
+      - name: Isolated targeted break-it profile, no customer notebooks
+        shell: bash
+        env:
+          PROFILE: ${{ matrix.profile }}
+          NODE_OPTIONS: "--require ./test/helpers/sin-red-produccion.cjs"
+        run: |
+          set -euo pipefail
+          echo "BREAKIT_PROFILE=$PROFILE"
+          case "$PROFILE" in
+            chaos)
+              node --test --test-concurrency=1 test/ab-conflict-browser.test.cjs test/realtime-sale-ack-barrier.test.cjs test/incident-v604-no-auto-reload-pending-yjs.test.cjs
+              ;;
+            weird-input)
+              node --test --test-concurrency=1 test/customer-profile-browser.test.js test/customer-profile-ui.test.js test/license-crockford-mask.test.cjs
+              ;;
+            slow-flaky)
+              node --test --test-concurrency=1 test/idb-open-retry.test.js test/incident-v604-selective-apply-retry.test.cjs test/incident-relay-quota-budget-v559.test.js
+              ;;
+            sneaky)
+              node --test --test-concurrency=1 test/signed-import.test.js test/pin-owner-integrity.test.js test/license-identity-stale-kv.test.js
+              ;;
+            first-timer)
+              node --test --test-concurrency=1 test/incident-first-sync-integrity-v558.test.js test/yjs-first-join-start.test.js test/e2-shell-auto-update.test.js
+              ;;
+          esac
