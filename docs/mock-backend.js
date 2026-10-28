@@ -3972,6 +3972,10 @@
         const epochRemote = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
         const epochLocal = typeof mio.stockEpochId === "string" ? mio.stockEpochId : "";
         const epochConflict = (epochRemote || epochLocal) && epochRemote !== epochLocal;
+        const protectedStock = epochLocal && epochRemote && epochConflict
+          ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
+             actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
+          : null;
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
         if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
@@ -4045,6 +4049,16 @@
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
         } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "local" } })); } catch (_) {}
+        }
+        // A conflicting explicit physical epoch is not proof of a recount.
+        // Preserve this device's active physical inventory, even if a legacy
+        // branch inadvertently tried to adopt a remote numeric base.
+        if (protectedStock) {
+          mio.stockBase = protectedStock.base;
+          mio.stockPN = protectedStock.pn;
+          mio.stockActual = protectedStock.actual;
+          mio.stockDeficit = protectedStock.deficit;
+          mio.stockTs = protectedStock.ts;
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
