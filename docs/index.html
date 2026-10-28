@@ -91,8 +91,9 @@
      roto, hero de error). Deben cargar EN EL HEAD, antes del script principal,
      para que el mock ya este instalado cuando el app arranque. NO QUITAR. -->
 <script defer src="./barcode128.js"></script>
-<!-- Generador QR 100% local (Kazuhiko Arase, MIT, vendoreado): etiquetas y sync por QR sin internet -->
 <script defer src="./qrcode-local.js"></script>
+<!-- tutorial-ui.js: ahora lo pide carga-tardia.js despues de la primera pantalla (v599). barcode128/qrcode siguen al arranque: una etiqueta impresa en los primeros segundos no puede salir sin codigo. -->
+<!-- Generador QR 100% local (Kazuhiko Arase, MIT, vendoreado): etiquetas y sync por QR sin internet -->
 <!-- Local-first: pocketbase-client.js se carga SIEMPRE pero queda dormido
      si el dueño no guardó una URL de PocketBase en Avanzado (localStorage
      OC_PB_URL). Por defecto todo corre local: mock-backend.js en la demo
@@ -164,6 +165,8 @@
 <link rel="preload" href="./fonts/source-sans-3-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="./app-style-01.min.css">
 <link rel="stylesheet" href="./app-style-02.min.css">
+<!-- app-style-03 (FAB Daily Summary / modal): antes estaba a mitad del body y bloqueaba el render; v599 lo sube al head. -->
+<link rel="stylesheet" href="./app-style-03.min.css">
 <link rel="preload" as="image" href="./img/logo-720.png">
 </head>
 <body>
@@ -935,7 +938,7 @@
 <script defer src="./borradores.js"></script>
 <script defer src="./vista-perchas.js"></script>
 <script defer src="./welcome-ui.js"></script>
-<script defer src="./tutorial-ui.js"></script>
+<script defer src="./carga-tardia.js"></script>
 <!-- Ganchos del embudo SOLO en el demo (JFC 2026-09-24, shell 375). Tarjetas en linea, nunca modales. Ver ganchos-demo.js. -->
 <script defer src="./ganchos-demo.js"></script>
 <!-- MICELIO (homologado de AMIGABLE, 2026-07-28). El bus va primero:
@@ -1042,7 +1045,6 @@
      ninguna logica de negocio — solo llama endpoints existentes y usa el
      mismo Blob-download que Avanzado. Si /api/dashboard falla, dice por
      que. Solo se muestra si hay sesion de dueno o admin. -->
-<link rel="stylesheet" href="./app-style-03.min.css">
 <button type="button" id="fab-eod" aria-label="Daily Summary">Daily Summary</button>
 <div id="eod-modal" role="dialog" aria-modal="true" aria-labelledby="eod-t">
   <div class="card">
