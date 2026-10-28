@@ -586,3 +586,22 @@ test('P0 invalid physical epoch in backup rejects import before any mutation',as
   const after=await a.w.request('/api/respaldo/exportar');
   assert.deepEqual(after.productos,before.productos,'rejected backup must not change products');
 });
+
+test('P0 new product keeps physical epoch after sale and two-peer stock publication',async()=>{
+  const a=await peer(),b=await peer();
+  const created=await a.w.request('/api/productos','POST',
+    {nombre:'Synthetic new sale',barcode:'SYN-P0-CREATE-SALE',precio:12,costo:4,stockInicial:5});
+  assert.ok(created.id);
+  const start=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id===created.id);
+  assert.ok(start.stockEpochId);
+  await a.flush();a.w.OCYjs._store.sembrar();await a.flush();
+  await exchange(a,b,2);
+  const received=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id===created.id);
+  assert.ok(received,'new product must reach peer B');
+  assert.equal(received.stockEpochId,start.stockEpochId);
+  await a.w.request('/api/productos/'+created.id+'/ajustar','POST',{delta:-1,motivo:'synthetic first sale stock'});
+  await a.flush();await exchange(a,b,2);
+  const next=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id===created.id);
+  assert.equal(next.stockActual,4);
+  assert.equal(next.stockEpochId,start.stockEpochId);
+});
