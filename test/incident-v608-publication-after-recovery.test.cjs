@@ -504,6 +504,7 @@ test('P0 explicit competing physical epochs must not auto-overwrite by timestamp
     await exchange(a,b,1);
     const currentA=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
     const currentB=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
+    console.error('P0_EPOCH_ROUND',JSON.stringify({round,a:{e:currentA.stockEpochId,s:currentA.stockActual,b:currentA.stockBase,pn:currentA.stockPN,ts:currentA.stockTs},b:{e:currentB.stockEpochId,s:currentB.stockActual,b:currentB.stockBase,pn:currentB.stockPN,ts:currentB.stockTs}}));
     assert.equal(currentA.stockEpochId,'E2-local','A physical epoch round '+round);
     assert.equal(currentA.stockActual,5,'A physical count round '+round);
     assert.equal(currentB.stockEpochId,'E3-remote','B physical epoch round '+round);
