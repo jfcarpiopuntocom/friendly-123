@@ -9,7 +9,14 @@ function staleProductProjection(prev,remote,clock) {
   const a=src.indexOf("              // Una réplica rezagada no debe volver a publicar");
   const b=src.indexOf("              var js = JSON.stringify(r);",a);
   assert.ok(a>0&&b>a,"stock metadata/ledger guard present");
-  const ctx={prev,r:remote,col:"productos",window:{OCLatencia:{ahoraRelay:()=>clock}}};
+  // This fixture extracts the stale-metadata branch alone; recreate the
+  // physical-epoch guard computed immediately before that branch in the bridge.
+  const epochMine=typeof remote.stockEpochId==="string" ? remote.stockEpochId : "";
+  const epochDoc=typeof prev.stockEpochId==="string" ? prev.stockEpochId : "";
+  const ctx={prev,r:remote,col:"productos",
+    _samePhysicalEpoch:epochMine===epochDoc,
+    _epochPreferred:epochMine===epochDoc ? null : (epochMine&&!epochDoc ? remote : prev),
+    window:{OCLatencia:{ahoraRelay:()=>clock}}};
   vm.createContext(ctx);
   vm.runInContext("(function(){\n"+src.slice(a,b)+"\nthis.result=r;\n}).call(this);",ctx);
   return ctx.result;
@@ -89,6 +96,17 @@ test("P0 legacy zero never masks positive stock without a trusted ledger",()=>{
   const actual=staleProductProjection(current,{id:"p",nombre:"Old",rev:{c:2,d:"cel"},
     stockActual:0,stockTs:2000},3000);
   assert.equal(actual.stockActual,7);
+});
+
+test("P0 stale metadata and legacy PN cannot steal an explicitly tagged physical stock epoch",()=>{
+  const active={id:"p",nombre:"Physical count",rev:{c:12,d:"pc"},
+    stockBase:5,stockPN:{},stockActual:5,stockEpochId:"E2-physical",stockTs:100};
+  const legacy={id:"p",nombre:"Old metadata",rev:{c:2,d:"old"},
+    stockBase:5,stockPN:{old:{add:0,sub:1}},stockActual:4,stockTs:2000};
+  const result=staleProductProjection(active,legacy,3000);
+  assert.equal(result.stockEpochId,"E2-physical");
+  assert.equal(result.stockActual,5);
+  assert.deepEqual(result.stockPN,{});
 });
 
 function seedWith(name,rev,recovering) {
