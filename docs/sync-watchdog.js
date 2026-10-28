@@ -231,10 +231,16 @@
     try { json = JSON.stringify(snap); } catch (_) { return []; }
     var bytes = new TextEncoder().encode(json);
     var trozos = [];
-    for (var i = 0; i < bytes.length; i += TROZO_BYTES) {
-      var chunk = bytes.slice(i, i + TROZO_BYTES);
-      var dec = new TextDecoder().decode(chunk);
-      trozos.push(dec);
+    for (var i = 0; i < bytes.length;) {
+      var end = Math.min(i + TROZO_BYTES, bytes.length);
+      // UTF-8 continuation bytes are 10xxxxxx. Cutting inside a character
+      // before TextDecoder.decode irreversibly replaces that character with
+      // U+FFFD, corrupting Spanish product names in large peer snapshots.
+      // Rewind by at most three bytes to the start of a complete code point.
+      while (end < bytes.length && end > i && (bytes[end] & 0xC0) === 0x80) end--;
+      if (end <= i) return []; // fail closed, never publish a corrupt backup
+      trozos.push(new TextDecoder("utf-8", { fatal:true }).decode(bytes.slice(i,end)));
+      i = end;
     }
     return trozos;
   }
