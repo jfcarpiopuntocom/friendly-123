@@ -700,6 +700,14 @@ test('P0 a v607 offline sale is not erased by a competing modern physical epoch'
   await old.flush();await exchange(old,current,3);
   const live=await current.w.request('/api/respaldo/exportar');
   const item=live.productos.find(x=>x.id==='p0-mixed-sale-epochs');
+  const oldNow=(await old.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-mixed-sale-epochs');
+  console.error('P0_MIXED_OLD_SALE_BOUNDARY',JSON.stringify({
+    current:{s:item.stockActual,b:item.stockBase,e:item.stockEpochId,pn:item.stockPN,ts:item.stockTs},
+    old:{s:oldNow.stockActual,b:oldNow.stockBase,e:oldNow.stockEpochId,pn:oldNow.stockPN,ts:oldNow.stockTs},
+    yCurrent:current.w.OCYjs.getProductos()['p0-mixed-sale-epochs'],
+    witnesses:current.w.OCYjs.stockPNTestigos.size,
+    saleCount:live.ventas.filter(v=>v.id===sold.ventaId).length
+  }));
   assert.equal(item.stockEpochId,'E2-physical-recount');
   assert.equal(item.stockActual,5,'legacy E1 sale must not be counted twice in E2');
   assert.equal(live.ventas.filter(x=>x.id===sold.ventaId).length,1,
