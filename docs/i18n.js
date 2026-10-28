@@ -2384,8 +2384,15 @@
   const LS_KEY = "f123_lang"; // f123_ prefijo (2026-07-17): namespace propio, no compartir con AMIGABLE
   let lang = localStorage.getItem(LS_KEY);
   if (lang !== "en" && lang !== "es") {
-    // Sin eleccion guardada: navegador en espanol (es, es-EC, es-US...) arranca en ES; si no, ingles.
-    try { lang = /^es\b/i.test(String(navigator.language || "")) ? "es" : "en"; } catch (_) { lang = "en"; }
+    // v599: SOLO en un aparato NUEVO (ninguna clave f123_ en localStorage = nunca tuvo cuaderno ni
+    // eligio idioma) el navegador en espanol (es, es-EC, es-US...) arranca en ES. Un cliente que ya
+    // usa la app sin haber elegido idioma sigue en ingles como siempre: no cambiarle el idioma de golpe.
+    lang = "en";
+    try {
+      let aparatoNuevo = true;
+      for (let i = 0; i < localStorage.length; i++) { if (String(localStorage.key(i)).indexOf("f123_") === 0) { aparatoNuevo = false; break; } }
+      if (aparatoNuevo && /^es/i.test(String(navigator.language || ""))) lang = "es";
+    } catch (_) { lang = "en"; }
   }
 
   function t(key, fallback) {

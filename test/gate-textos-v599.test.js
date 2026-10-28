@@ -9,12 +9,13 @@ const docs = path.join(__dirname, '../docs');
 const auth = fs.readFileSync(path.join(docs, 'auth-ui.js'), 'utf8');
 const i18nSrc = fs.readFileSync(path.join(docs, 'i18n.js'), 'utf8');
 
-function cargarI18n(navLang) {
-  const store = {};
+function cargarI18n(navLang, previo) {
+  const store = Object.assign({}, previo || {});
   const win = { addEventListener() {}, dispatchEvent() {}, CustomEvent: function () {} };
   const ctx = {
     window: win, navigator: { language: navLang }, CustomEvent: function () {},
-    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = v; } },
+    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = v; },
+      get length() { return Object.keys(store).length; }, key: i => Object.keys(store)[i] ?? null },
     document: { addEventListener() {}, documentElement: {}, querySelectorAll: () => [], querySelector: () => null },
   };
   vm.createContext(ctx);
@@ -35,6 +36,11 @@ test('ES: textos del candado, de la bifurcacion y de la activacion estan en espa
 test('navegador es-EC sin eleccion guardada arranca en ES', () => {
   assert.equal(cargarI18n('es-EC').getLang(), 'es');
   assert.equal(cargarI18n('en-US').getLang(), 'en');
+});
+
+test('aparato con cuaderno previo y sin eleccion guardada sigue en EN aunque el navegador sea es-EC', () => {
+  assert.equal(cargarI18n('es-EC', { f123_owned: '{}' }).getLang(), 'en');
+  assert.equal(cargarI18n('en-US', { f123_lang: 'es' }).getLang(), 'es', 'la eleccion guardada siempre gana');
 });
 
 test('EN: etiqueta "Join a shared notebook" y sin jerga', () => {
