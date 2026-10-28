@@ -4408,8 +4408,13 @@
       }
       if (!huboExito) return;
       if (!cambioPersistible) mov("merge-catalogo", { perchasAgregadas: 0, productosAgregados: 0, actualizados: 0, miembrosAgregados: 0, miembrosQuitados: 0, clientesAgregados: 0, desde: remoto.deviceNombre || "another device" }, false);
-      return Promise.resolve(guardarEstadoLocal()).then(function (guardado) {
-        if (guardado) avisarCatalogoCambiado();
+      // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27). El aviso sale ya (se auto-filtra con
+      // _estadoPuedeEnviarse); si quedo bloqueado por un guardado estricto, se repite al terminar de guardar.
+      const _persistiendo = Promise.resolve(guardarEstadoLocal());
+      const _avisadoYa = _estadoPuedeEnviarse();
+      avisarCatalogoCambiado();
+      return _persistiendo.then(function (guardado) {
+        if (guardado && !_avisadoYa) avisarCatalogoCambiado();
       });
     }).catch(function () {});
     // Ambos caminos de sync (Yjs y realtime) pasan por aquí. Una baja debe
@@ -4836,7 +4841,13 @@
     },
     async catalogoConfirmado() {
       while (_ventaPendiente) await _ventaPendiente;
-      while (_guardadoCatalogoPendiente) await _guardadoCatalogoPendiente;
+      // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27).
+      // Un guardado NORMAL ya no frena el difundido por el canal legacy (sync-realtime): sale de
+      // inmediato y la persistencia sigue en paralelo. Solo se espera si hay DINERO en curso
+      // (guardado estricto, venta, pago, retencion): ese estado provisional puede revertirse.
+      // catalogoPropio() sigue devolviendo null si la lectura esta bloqueada o el ultimo guardado fallo.
+      while (_guardadoCatalogoPendiente && (_guardadoEstrictoPendiente || _ventaConfirmando ||
+             _payoutConfirmando || _retencionConfirmando)) await _guardadoCatalogoPendiente;
       return this.catalogoPropio();
     },
     unirActividad: _actividadUnir,
