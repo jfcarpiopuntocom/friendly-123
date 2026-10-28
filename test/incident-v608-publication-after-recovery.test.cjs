@@ -499,7 +499,16 @@ test('P0 explicit competing physical epochs must not auto-overwrite by timestamp
   const beforeB=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
   console.error('P0_COMPETING_EPOCH_BEFORE',JSON.stringify({a:{epoch:beforeA.stockEpochId,stock:beforeA.stockActual,ts:beforeA.stockTs},b:{epoch:beforeB.stockEpochId,stock:beforeB.stockActual,ts:beforeB.stockTs}}));
   a.w.OCYjs._store.sembrar();b.w.OCYjs._store.sembrar();
-  await a.flush();await b.flush();await exchange(a,b,2);
+  await a.flush();await b.flush();
+  for(let round=0;round<4;round++) {
+    await exchange(a,b,1);
+    const currentA=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
+    const currentB=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
+    assert.equal(currentA.stockEpochId,'E2-local','A physical epoch round '+round);
+    assert.equal(currentA.stockActual,5,'A physical count round '+round);
+    assert.equal(currentB.stockEpochId,'E3-remote','B physical epoch round '+round);
+    assert.equal(currentB.stockActual,9,'B physical count round '+round);
+  }
   const local=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
   console.error('P0_COMPETING_EPOCH_AFTER',JSON.stringify({a:{epoch:local.stockEpochId,stock:local.stockActual,base:local.stockBase,ts:local.stockTs},remote:a.w.OCYjs.getProductos()['p0-competing-epochs']?.stockEpochId}));
   assert.equal(local.stockEpochId,'E2-local','unrelated explicit physical epochs cannot be chosen by timestamp alone');
