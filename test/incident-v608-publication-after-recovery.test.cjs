@@ -419,10 +419,10 @@ test('P0 RED epoch ABA: same numeric recount base must not inherit old physical 
   assert.equal((await a.w.request('/api/productos/p0-epoch-aba')).stockActual,8);
   assert.ok(a.w.OCYjs.stockPNTestigos.size>0,'old epoch movements are recorded');
   // Simulate a distinct physical recount E2 with the SAME numerical base.
-  // Without an immutable epoch ID, its full-product value is indistinguishable
-  // from E1; this test MUST FAIL until the format can prove E2.
+  // Give the recount a distinct durable epoch. Old untagged witnesses from E1
+  // must not be admitted to this new physical recount E2.
   const old=a.w.OCYjs.getProductos()['p0-epoch-aba'];
-  const recount={...old,stockBase:5,stockActual:5,stockPN:{},stockTs:old.stockTs+1,
+  const recount={...old,stockBase:5,stockActual:5,stockPN:{},stockEpochId:'synthetic-epoch-E2',stockTs:old.stockTs+1,
     rev:{c:(old.rev?.c||1)+100,d:'synthetic-distinct-physical-recount'}};
   // Yjs is vendored in the VM: provide a same-realm object, not a Node object.
   a.w.OCYjs.mapas.productos.set('p0-epoch-aba',vm.runInContext('('+JSON.stringify(recount)+')',a.w));
