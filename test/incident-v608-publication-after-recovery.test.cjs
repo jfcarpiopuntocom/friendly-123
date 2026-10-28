@@ -605,3 +605,22 @@ test('P0 new product keeps physical epoch after sale and two-peer stock publicat
   assert.equal(next.stockActual,4);
   assert.equal(next.stockEpochId,start.stockEpochId);
 });
+
+test('P0 new product has independent offline adjustments on both peers and stable replay',async()=>{
+  const a=await peer(),b=await peer();
+  const created=await a.w.request('/api/productos','POST',
+    {nombre:'Synthetic bidirectional',barcode:'SYN-BIDIRECTIONAL-EPOCH',precio:8,costo:2,stockInicial:10});
+  const id=created.id;
+  const original=(await a.w.request('/api/respaldo/exportar')).productos.find(x=>x.id===id);
+  a.w.OCYjs._store.sembrar();await a.flush();await exchange(a,b,2);
+  assert.equal((await b.w.request('/api/productos/'+id)).stockActual,10);
+  await a.w.request('/api/productos/'+id+'/ajustar','POST',{delta:3,motivo:'offline A'});
+  await b.w.request('/api/productos/'+id+'/ajustar','POST',{delta:-2,motivo:'offline B'});
+  await a.flush();await b.flush();
+  for(let round=0;round<4;round++)await exchange(a,b,1);
+  for(const p of [a,b]){
+    const item=(await p.w.request('/api/respaldo/exportar')).productos.find(x=>x.id===id);
+    assert.equal(item.stockActual,11,'both independent physical movements preserved');
+    assert.equal(item.stockEpochId,original.stockEpochId,'epoch ID remains unchanged');
+  }
+});
