@@ -749,3 +749,42 @@ test('P0 a v607 offline sale is not erased by a competing modern physical epoch'
   assert.equal(repeated.ventas.filter(x=>x.id===sold.ventaId).length,1,
     'receipt cannot duplicate after replay');
 });
+
+test('P0 late third peer converges explicit-epoch stock after independent offline movements and stale replay',async()=>{
+  const a=await peer(),b=await peer(),c=await peer();
+  const original=await a.w.request('/api/respaldo/exportar');
+  original.productos=[{...original.productos[0],id:'p0-three-peers',nombre:'Synthetic 3 peers',
+    barcode:'SYN-P0-THIRD',stockBase:5,stockActual:5,stockPN:{},
+    stockEpochId:'SYN-ONE-PHYSICAL-EPOCH',stockTs:1,rev:{c:1,d:'fixture'}}];
+  original.ventas=[];original.movimientos=[];
+  for(const p of [a,b]){
+    assert.equal((await p.w.request('/api/respaldo/importar','POST',original)).ok,true);
+    p.w.OCYjs._store.sembrar();await p.flush();
+  }
+  // Two independent devices operate without exchanging their new PN facts.
+  await a.w.request('/api/productos/p0-three-peers/ajustar','POST',{delta:3,motivo:'offline A'});
+  await b.w.request('/api/productos/p0-three-peers/ajustar','POST',{delta:-2,motivo:'offline B'});
+  await a.flush();await b.flush();
+  // Late peer C first learns only A's historical state, then meets B.
+  await exchange(a,c,2);
+  const cInitial=(await c.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-three-peers');
+  assert.equal(cInitial.stockActual,8,'late third device sees known A movement');
+  await exchange(b,c,2);
+  await exchange(c,a,3);
+  await exchange(c,b,3);
+  for(const p of [a,b,c]){
+    const item=(await p.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-three-peers');
+    assert.ok(item,'late peer must retain product');
+    assert.equal(item.stockEpochId,'SYN-ONE-PHYSICAL-EPOCH');
+    assert.equal(item.stockActual,6,'base 5 + 3 - 2 converges on all devices');
+    assert.equal(Object.keys(item.stockPN).length,2,'distinct PN actors are not merged or lost');
+  }
+  // Replay the earliest snapshots after full convergence. Old packets may
+  // arrive late and must not silently reverse a committed movement.
+  await exchange(a,c,2);
+  await exchange(b,a,2);
+  for(const p of [a,b,c]){
+    const item=(await p.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-three-peers');
+    assert.equal(item.stockActual,6,'replaying stale Y.Doc history is idempotent');
+  }
+});
