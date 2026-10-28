@@ -222,3 +222,46 @@ test('P0 Yjs witness remains unique and idempotent on many same-actor counter up
   await exchange(b,a,3);
   assert.equal((await fixtureProduct(b)).stockActual,15);
 });
+
+
+test('P0 offline last unit: two distinct sales are both recorded, negative physical count remains visible as deficit',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,1,1);
+  const saleA=await a.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  const saleB=await b.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  assert.ok(saleA.ventaId&&saleB.ventaId&&saleA.ventaId!==saleB.ventaId);
+  await a.flush();await b.flush();await exchange(a,b,3);
+  for(const device of [a,b]){
+    const snap=await device.w.request('/api/respaldo/exportar');
+    const p=snap.productos.find(x=>x.id==='p0-two-actors');
+    assert.equal(p.stockActual,0,'do not fabricate negative physical stock as a count');
+    assert.equal(p.stockDeficit,1,'do not hide the oversold physical unit');
+    assert.equal(snap.ventas.filter(x=>x.id===saleA.ventaId).length,1);
+    assert.equal(snap.ventas.filter(x=>x.id===saleB.ventaId).length,1);
+  }
+});
+
+test('P0 adversarial replay order: 4 deterministic disconnect/reconnect schedules preserve same-base PN facts',async()=>{
+  const sequences=[[0,1,2],[2,1,0],[1,2,0],[2,0,1]];
+  for(let index=0;index<sequences.length;index++){
+    const a=await peer(),b=await peer();
+    await physicalFixture(a,b,10,10);
+    await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:3,motivo:'schedule '+index+' A'});
+    await b.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:-2,motivo:'schedule '+index+' B'});
+    await a.flush();await b.flush();
+    const updates=[
+      a.w.Y.encodeStateAsUpdate(a.w.OCYjs.doc),
+      b.w.Y.encodeStateAsUpdate(b.w.OCYjs.doc)
+    ];
+    for(const op of sequences[index]){
+      if(op===0) b.w.Y.applyUpdate(b.w.OCYjs.doc,updates[0],'red');
+      else if(op===1) a.w.Y.applyUpdate(a.w.OCYjs.doc,updates[1],'red');
+      else { a.w.Y.applyUpdate(a.w.OCYjs.doc,updates[1],'red');b.w.Y.applyUpdate(b.w.OCYjs.doc,updates[0],'red'); }
+    }
+    a.w.OCYjs._store.aplicar();b.w.OCYjs._store.aplicar();
+    await a.flush();await b.flush();
+    await exchange(a,b,2);
+    assert.equal((await fixtureProduct(a)).stockActual,11,'A invariant schedule '+index);
+    assert.equal((await fixtureProduct(b)).stockActual,11,'B invariant schedule '+index);
+  }
+});
