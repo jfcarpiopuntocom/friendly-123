@@ -87,3 +87,53 @@ test('costo por mutacion (ms, fixture de 1000 productos)', async () => {
   for (let i = 0; i < 20; i++) await alta(w, 'M' + i);
   console.log('MS_POR_MUTACION', (Number(process.hrtime.bigint() - t0) / 1e6 / 20).toFixed(1));
 });
+
+// ---- v605 tope anti-cuelgue (JFC 2026-10-28): guardado que nunca resuelve no debe colgar respuesta ni escrituras siguientes ----
+// Candado de guardado que jamas resuelve; el de escrituras pasa directo. Reloj falso: el harness trae setTimeout inerte.
+const stReal = global.setTimeout;
+function relojFalso(w) {
+  const pend = []; let id = 0;
+  w.setTimeout = (cb, ms) => { pend.push({ id: ++id, cb, ms, vivo: true }); return id; };
+  w.clearTimeout = (i) => { const t = pend.find((x) => x.id === i); if (t) t.vivo = false; };
+  return { tope: () => pend.filter((t) => t.vivo && t.ms >= 10000).length, avanzar: () => { for (const t of pend.filter((x) => x.vivo && x.ms >= 10000)) { t.vivo = false; t.cb(); } } };
+}
+const conTope = (p, ms) => Promise.race([p, new Promise((_, rej) => stReal(() => rej(new Error('COLGADO')), ms))]);
+const colgado = (w) => { w.navigator.locks = { request: (n, _o, cb) => /estado-ab/.test(n) ? new Promise(() => {}) : Promise.resolve().then(cb) }; };
+
+test('v605 tope: guardado que nunca resuelve -> la respuesta vuelve y avisa motivo timeout; la siguiente escritura no se cuelga', async () => {
+  const { w } = await aparato();
+  const motivos = []; w.addEventListener('oc-guardado-fallo', (e) => motivos.push(e && e.detail && e.detail.motivo));
+  colgado(w); const rel = relojFalso(w);
+  const p1 = alta(w, 'Hang1'); let listo = false; p1.then(() => { listo = true; });
+  for (let i = 0; i < 30; i++) await tick();
+  assert.equal(listo, false, 'antes del tope sigue esperando el guardado');
+  rel.avanzar();
+  const r1 = await conTope(p1, 3000);
+  assert.equal(r1.status, 200);
+  assert.equal((await r1.json()).nombre, 'Hang1');
+  assert.deepEqual(motivos, ['timeout']);
+  const p2 = alta(w, 'Hang2');
+  for (let i = 0; i < 30; i++) await tick();
+  rel.avanzar();
+  const r2 = await conTope(p2, 3000);
+  assert.equal(r2.status, 200);
+});
+
+test('v605 tope: guardado que gana limpia el timer (no queda tope vivo)', async () => {
+  const { w } = await aparato();
+  w.navigator.locks = { request: (n, _o, cb) => Promise.resolve().then(cb) };
+  const rel = relojFalso(w);
+  const r = await conTope(alta(w, 'Rapido'), 3000);
+  assert.equal(r.status, 200);
+  assert.equal(rel.tope(), 0);
+});
+
+test('v605 tope: importar con guardado colgado -> 503 tras el tope', async () => {
+  const { w, exp } = await aparato();
+  colgado(w); const rel = relojFalso(w);
+  const p = importar(w, exp); let r = null; p.then((x) => { r = x; });
+  // el tope se arma tras aplicar el respaldo (varias vueltas): avanzar el reloj hasta que haya respuesta
+  for (let i = 0; i < 200 && !r; i++) { await tick(); rel.avanzar(); }
+  r = await conTope(p, 3000);
+  assert.equal(r.status, 503);
+});
