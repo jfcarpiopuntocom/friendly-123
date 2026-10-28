@@ -298,8 +298,17 @@
     /* Se comprueba una vez, ya cargada la pagina, para no competir con el
        arranque. No se repite en bucle: el shell no cambia mientras la pestana
        vive. */
-    if (document.readyState === "complete") setTimeout(comprobar, 2500);
-    else window.addEventListener("load", function () { setTimeout(comprobar, 2500); });
+    /* v599 (perf, JFC 2026-10-27): diagnostico de segundo plano. Espera >= 15 s tras la carga y
+       luego corre en un hueco ocioso (requestIdleCallback), para no competir con el primer uso
+       en moviles lentos. Sin requestIdleCallback cae a setTimeout. */
+    function cuandoOcioso(fn) {
+      setTimeout(function () {
+        try { if (window.requestIdleCallback) window.requestIdleCallback(function () { fn(); }, { timeout: 10000 }); else fn(); }
+        catch (_) { try { fn(); } catch (__) {} }
+      }, 15000);
+    }
+    if (document.readyState === "complete") cuandoOcioso(comprobar);
+    else window.addEventListener("load", function () { cuandoOcioso(comprobar); });
   } catch (_) { /* el autodiagnostico es un extra: jamas puede tumbar la app */ }
 })();
 
@@ -396,8 +405,15 @@
       }
     }
 
-    if (document.readyState === "complete") setTimeout(correr, 4000);
-    else window.addEventListener("load", function () { setTimeout(correr, 4000); });
+    /* v599 (perf): igual que en la comprobacion de version: >= 15 s tras la carga y en hueco ocioso. */
+    function cuandoOcioso(fn) {
+      setTimeout(function () {
+        try { if (window.requestIdleCallback) window.requestIdleCallback(function () { fn(); }, { timeout: 10000 }); else fn(); }
+        catch (_) { try { fn(); } catch (__) {} }
+      }, 15000);
+    }
+    if (document.readyState === "complete") cuandoOcioso(correr);
+    else window.addEventListener("load", function () { cuandoOcioso(correr); });
   } catch (_) { /* la verificacion de integridad es un extra: jamas puede tumbar la app */ }
 })();
 

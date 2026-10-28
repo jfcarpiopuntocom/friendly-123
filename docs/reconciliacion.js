@@ -559,10 +559,19 @@
     } catch (_) {}
   }
 
+  /* v599 (perf, JFC 2026-10-27): las copias diarias esperan >= 15 s y corren en un hueco ocioso
+     (antes 6 s y 9 s tras cargar), para no competir con el primer uso en moviles lentos.
+     Sin requestIdleCallback cae a setTimeout. */
+  function diferir(fn, ms) {
+    setTimeout(function () {
+      try { if (global.requestIdleCallback) global.requestIdleCallback(function () { fn(); }, { timeout: 10000 }); else fn(); }
+      catch (_) { try { fn(); } catch (__) {} }
+    }, ms);
+  }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { setTimeout(archivoDiario, 6000); setTimeout(sombraDiaria, 9000); }, { once: true });
+    document.addEventListener("DOMContentLoaded", function () { diferir(archivoDiario, 15000); diferir(sombraDiaria, 18000); }, { once: true });
   } else {
-    setTimeout(archivoDiario, 6000);
-    setTimeout(sombraDiaria, 9000);
+    diferir(archivoDiario, 15000);
+    diferir(sombraDiaria, 18000);
   }
 })(typeof window !== "undefined" ? window : this);

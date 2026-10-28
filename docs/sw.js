@@ -130,6 +130,7 @@ const SHELL = [
   "./welcome-ui.js",
   "./ganchos-demo.js",
   "./tutorial-ui.js",
+  "./carga-tardia.js",
   "./event-bus.js", "./logger.js", "./telemetry.js", "./identity-context.js", "./feature-gate.js", "./audit-store.js", "./sync-queue.js", "./sync-outbox.js", "./ui-actions.js", "./salud-app.js", "./canarios.js", "./hechos.js", "./reconciliacion.js", "./cartera.js", "./plan-pagos.js", "./plan-pagos-ui.js", "./caja-chica.js", "./respaldo-empleado.js", "./estado-cifrado.js", "./estado.html", "./cargador.js", "./edutips.js", "./workshop-brand.js", "./inspector.js", "./inspector-ui.js", "./manifest.json",
   "./version-manifest.json",
   "./app-inline-01.min.js", "./app-inline-02.min.js", "./app-inline-03.min.js", "./app-inline-04.min.js", "./app-inline-05.min.js", "./app-inline-06.min.js", "./app-inline-07.min.js", "./app-style-01.min.css", "./app-style-02.min.css", "./app-style-03.min.css", "./dashboard-main.min.css", "./dashboard-main.min.js"
@@ -150,6 +151,14 @@ const HOSTS_PERMITIDOS = [self.location.origin, "https://fonts.googleapis.com", 
 const _mCanal = self.registration ? /\/(next|previo)\/$/.exec(self.registration.scope || "") : null;
 const CANAL = _mCanal ? "-" + _mCanal[1] : "";
 const CACHE_LOCAL = CACHE + CACHE_GENERACION + CANAL;
+// v599 (perf, JFC 2026-10-27): una sola promesa de caches.open(CACHE_LOCAL) para las lecturas
+// del shell; antes se abria el cache en CADA peticion (85 aperturas por arranque). Si la
+// apertura falla se olvida la promesa para reintentar. La semantica de cache no cambia.
+let _cacheLocalAbierta = null;
+function abrirCacheLocal() {
+  if (!_cacheLocalAbierta) _cacheLocalAbierta = caches.open(CACHE_LOCAL).catch((e) => { _cacheLocalAbierta = null; throw e; });
+  return _cacheLocalAbierta;
+}
 function esDeMiCanal(nombre) {
   if (!nombre.startsWith("f123-shell-")) return false;
   const m = /-(next|previo)$/.exec(nombre);
@@ -307,7 +316,7 @@ self.addEventListener("fetch", (evento) => {
         // locally; version.json and the SW updater still discover new releases.
         // v514 (fallo 4 de Codex): si la cache local falla, se sigue a la red; antes saltaba
         // directo a respuestaOffline() aunque hubiera internet.
-        evento.respondWith(caches.open(CACHE_LOCAL).then((cache) => cache.match(evento.request)).catch(() => null)
+        evento.respondWith(abrirCacheLocal().then((cache) => cache.match(evento.request)).catch(() => null)
           .then((local) => local || fetch(evento.request, { cache: "no-cache" }).then(guardar))
           .catch(() => respuestaOffline()));
         return;
