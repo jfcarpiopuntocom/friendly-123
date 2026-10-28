@@ -14,7 +14,7 @@ async function run(n){
    stockActual:10,stockBase:10,stockPN:{},stockTs:1,rev:{c:1,d:'benchmark'}
  }));
  fixture.ventas=[];fixture.movimientos=[];
- await w.request('/api/respaldo/importar','POST',fixture);
+
  Object.assign(w,{crypto:webcrypto,TextEncoder,TextDecoder,
    WebSocket:class{constructor(){throw Error('production relay forbidden')}},
    BroadcastChannel:class{constructor(){throw Error('network forbidden')}}});
@@ -24,6 +24,7 @@ async function run(n){
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8'),w);
  for(let i=0;i<100&&w.OCYjs.estado!=='activo';i++)await delay(10);
  if(w.OCYjs.estado!=='activo')throw Error('Yjs failed to start');
+ await w.request('/api/respaldo/importar','POST',fixture);
  const times=[];
  for(let i=0;i<5;i++){
    const start=performance.now();
