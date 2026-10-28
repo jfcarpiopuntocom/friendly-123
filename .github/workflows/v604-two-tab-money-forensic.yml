@@ -22,4 +22,9 @@ jobs:
       - name: Single exact two-tab test in real Chromium/WebKit and compatibility lock
         env:
           NODE_OPTIONS: "--require ./test/helpers/sin-red-produccion.cjs"
-        run: node --test --test-concurrency=1 test/linus-dos-pestanas.test.js
+        run: |
+          set -euo pipefail
+          for run in 1 2 3; do
+            echo "P0 TWO-TAB ACK / converged ledger — replay $run"
+            node --test --test-concurrency=1 test/linus-dos-pestanas.test.js
+          done

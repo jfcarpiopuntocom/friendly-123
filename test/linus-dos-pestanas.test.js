@@ -72,7 +72,15 @@ test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes 
     const vender = (pg, pid) => pg.evaluate(async (x) => (await fetch(`/api/productos/${x}/venta`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad: 1 }) })).status, pid);
     const firstStatuses = await Promise.all([vender(t1, ids[0]), vender(t2, ids[1])]);
     const thirdStatus = await vender(t1, ids[0]); // no silent rejection or duplicate
-    await t2.reload({ waitUntil: 'networkidle' }); await t2.waitForTimeout(1200);
+    await t2.reload({ waitUntil: 'networkidle' });
+    // A hard-coded 1200 ms under loaded WebKit was not an observation barrier.
+    // Still FAIL after a bounded 8 s if any acknowledged sale is truly absent.
+    await t2.waitForFunction(async (x) => {
+      const res = await fetch('/api/ventas/todas');
+      if (!res.ok) return false;
+      const rows=(await res.json()).filter(v=>x.includes(v.productoId));
+      return rows.length===3;
+    },ids,{timeout:8000,polling:150});
     const audit = (pg) => pg.evaluate(async (x) => {
       const ventas=(await (await fetch('/api/ventas/todas')).json()).filter(v=>x.includes(v.productoId));
       return {count:ventas.length,byProduct:x.map(id=>ventas.filter(v=>v.productoId===id).length),
