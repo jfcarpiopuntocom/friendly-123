@@ -422,10 +422,10 @@ test('P0 RED epoch ABA: same numeric recount base must not inherit old physical 
   // Without an immutable epoch ID, its full-product value is indistinguishable
   // from E1; this test MUST FAIL until the format can prove E2.
   const old=a.w.OCYjs.getProductos()['p0-epoch-aba'];
-  a.w.OCYjs.mapas.productos.set('p0-epoch-aba',{
-    ...old,stockBase:5,stockActual:5,stockPN:{},stockTs:old.stockTs+1,
-    rev:{c:(old.rev?.c||1)+100,d:'synthetic-distinct-physical-recount'}
-  });
+  const recount={...old,stockBase:5,stockActual:5,stockPN:{},stockTs:old.stockTs+1,
+    rev:{c:(old.rev?.c||1)+100,d:'synthetic-distinct-physical-recount'}};
+  // Yjs is vendored in the VM: provide a same-realm object, not a Node object.
+  a.w.OCYjs.mapas.productos.set('p0-epoch-aba',vm.runInContext('('+JSON.stringify(recount)+')',a.w));
   a.w.OCYjs._store.aplicar();await a.flush();
   const actual=(await a.w.request('/api/productos/p0-epoch-aba')).stockActual;
   assert.equal(actual,5,'a distinct physical recount at base 5 must not inherit E1 +3');
