@@ -4070,7 +4070,19 @@ function mostrarFormNuevoProducto(codigoEscaneado){
   } catch (_) {}
 }
 
+/* (JFC 2026-10-28) Anti doble toque: un solo alta a la vez y boton deshabilitado durante todo el flujo async
+   (confirmacion de precio 0, lectura de foto, POST). Se restaura en finally. El servidor tambien da 409 por codigo repetido. */
+let _npCreando = false;
 async function crearProductoNuevo(codigoEscaneado){
+  if (_npCreando) return;
+  _npCreando = true;
+  const _sc = document.getElementById(fichaTargetActual) || document;
+  const _btns = Array.from(_sc.querySelectorAll('button[onclick^="crearProductoNuevo"]'));
+  _btns.forEach((b) => { b.disabled = true; });
+  try { return await _crearProductoNuevoInterno(codigoEscaneado); }
+  finally { _npCreando = false; _btns.forEach((b) => { b.disabled = false; }); }
+}
+async function _crearProductoNuevoInterno(codigoEscaneado){
   // FIX (JFC 2026-08-20, caza microbugs): dos bugs reales, homologado del
   // mismo fix ya aplicado en AMIGABLE y consultorio-123.
   // 1) el("np-chip") llamaba a una funcion que NO existe en ningun archivo

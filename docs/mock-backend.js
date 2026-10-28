@@ -989,6 +989,26 @@
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
+  /* (JFC 2026-10-28) true si el cuaderno tiene datos propios (fuera de la semilla demo exacta) o historial Yjs.
+     Cuenta tambien borrados (tombstones). Se usa para bloquear /api/respaldo/importar. */
+  function _cuadernoConDatosOSync() {
+    try {
+      const sel = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales }, true);
+      const ids = (t) => new Set((sel[t] || []).map((x) => String(x.id)));
+      const sp = ids("productos"), sv = ids("ventas"), su = ids("ubicaciones"), sc = ids("clientes");
+      if (productos.some((x) => x && !sp.has(String(x.id)))) return true;
+      if (ventas.some((x) => x && !sv.has(String(x.id)))) return true;
+      if (ubicaciones.some((x) => x && !su.has(String(x.id)))) return true;
+      if (clientes.some((x) => x && !sc.has(String(x.id)))) return true;
+      if (movimientos.some((x) => x && !sp.has(String(x && x.productoId)))) return true;
+      const y = window.OCYjs;
+      if (y && y.estado === "activo" && typeof y._diag === "function") {
+        const n = y._diag().n || {};
+        if (Object.keys(n).some((k) => k !== "dispositivos" && Number(n[k]) > 0) /* "dispositivos" = el propio aparato, no datos */) return true;
+      }
+      return false;
+    } catch (_) { return true; } // ante la duda, NO sobrescribir
+  }
   function aplicarRespaldo(body) {
     productos.length = 0; productos.push(...body.productos);
     ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
@@ -6153,6 +6173,12 @@
           if (body.umbralRojo == null) body.umbralRojo = baseVariante.umbralRojo;
           if (body.umbralAmarillo == null) body.umbralAmarillo = baseVariante.umbralAmarillo;
         }
+        /* (JFC 2026-10-28) Doble toque en "crear producto": mismo codigo ya existente (no borrado) -> 409, no un duplicado.
+           Seccion sincrona hasta productos.push: dos llamadas concurrentes no se cuelan. Las variantes ya se validaron arriba. */
+        if (!body.familiaId) {
+          const _bc = String(body.barcode || "").trim().toLocaleLowerCase();
+          if (_bc && productos.some((p) => !p.borrado && !_demoOculto("productos", p) && String(p.barcode || "").trim().toLocaleLowerCase() === _bc)) return J({ error: "That barcode or internal code is already used by another product." }, 409);
+        }
         const nuevo = {
           // M5 (2026-08-14): variante interna, hasta 12 caracteres. Vacio por
           // defecto: un producto sin variante se comporta igual que siempre.
@@ -7009,6 +7035,9 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
+          /* (JFC 2026-10-28) Restaurar SOLO en cuaderno vacio y sin historial de sync: el Y.Doc persistido gana al reabrir
+             (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Semilla demo exacta cuenta como vacio. */
+          if (_cuadernoConDatosOSync()) return J({ error: "A backup can only be restored on a new device or in an empty notebook: in a notebook that syncs, what already exists would come back when you reopen. (Restaurar un respaldo solo se puede en un aparato nuevo o en un cuaderno vacío: en un cuaderno que se sincroniza, lo que ya existe volvería al reabrir.)" }, 409);
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
           // v605 (JFC 2026-10-28): no decir "listo" hasta que el guardado este en disco (antes quedaba en cola del candado Web Locks y cerrar la pestana perdia el respaldo).
