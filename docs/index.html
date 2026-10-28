@@ -44,6 +44,9 @@
 (function(){
   try{
     if(!("serviceWorker" in navigator))return;
+    // Do not unregister/cache-purge/reload an already authenticated notebook
+    // from the HTML HEAD, before Yjs/IDB have even started to recover.
+    if(sessionStorage.getItem("f123_sesion"))return;
     var K="f123_sw_nuke_v1";
     if(localStorage.getItem(K))return;
     // Marcar ANTES de hacer nada — si el proceso revienta, no vuelve a disparar.

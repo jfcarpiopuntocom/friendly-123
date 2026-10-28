@@ -1,0 +1,48 @@
+name: v604-stable-one-sha-no-deploy
+on:
+  push:
+    branches: [lab/v604-stable-one-sha-no-deploy-20261028]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  p0-targeted:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Exact SHA — update consent, stock forks, sale ACK, Yjs recovery
+        env:
+          NODE_OPTIONS: "--require ./test/helpers/sin-red-produccion.cjs"
+        run: |
+          node --check src/app/app-inline-03.js
+          node --check docs/app-inline-03.min.js
+          node --test --test-concurrency=2 \
+            test/audit-v603-update-consent.red.test.cjs \
+            test/p0-v603-update-consent-click.test.cjs \
+            test/incident-v604-no-auto-reload-pending-yjs.test.cjs \
+            test/incident-v604-login-reload-guard.test.cjs \
+            test/incident-first-sync-integrity-v558.test.js \
+            test/v579-venta-pn-ack.test.js \
+            test/stock-base-conflicto-v515.test.js \
+            test/e2-shell-auto-update.test.js
+  visual-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Exact SHA — brand wordmarks in real static Chromium PWA + Dashboard
+        env:
+          NODE_OPTIONS: "--require ./test/helpers/sin-red-produccion.cjs"
+        run: node --test test/stable-store-wordmark-browser.test.cjs
