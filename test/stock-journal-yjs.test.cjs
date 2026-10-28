@@ -108,3 +108,21 @@ test('P0 Yjs tombstone: accidental deletion of a known immutable witness must se
  assert.equal(b.journal.project('cream').onHand,7);
  a.bridge.close();b.bridge.close();
 });
+
+test('restored local backup reseeds all witnesses, including multiple divergent payloads',async()=>{
+ const source=make(),reopened=make(),remote=make();
+ await source.bridge.publish(ev('base',1,'OPEN','cream',10));
+ const original=ev('pc',1,'RECEIVE','cream',3);
+ await source.bridge.publish(original);
+ await source.bridge.publish({...original,qty:5}); // intentional hash/key collision; must quarantine
+ assert.equal(source.journal.quarantined.length,1);
+ const snapshot=source.journal.export();
+ assert.equal(reopened.journal.import(snapshot).ok,true);
+ assert.equal(await reopened.bridge.seedFromJournal(),3);
+ await transmit(reopened,remote);
+ assert.equal(remote.bridge.map.size,3);
+ assert.equal(remote.journal.size,2);
+ assert.equal(remote.journal.quarantined.length,1);
+ assert.equal(remote.journal.project('cream').trust,'needs-reconciliation');
+ source.bridge.close();reopened.bridge.close();remote.bridge.close();
+});
