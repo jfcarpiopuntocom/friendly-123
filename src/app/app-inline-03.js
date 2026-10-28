@@ -258,7 +258,7 @@ const _ocActSolaOn = true;
       sessionStorage.removeItem(KP);
       sessionStorage.removeItem("f123_reload_al_entrar");
     } catch (_) { return; }
-    marcarRecarga("version-idle");
+    try { marcarRecarga("version-idle"); } catch (_) {} // (JFC 2026-10-27) nunca bloquea la recarga
     location.reload();
   }
   function shellDelSW() {
