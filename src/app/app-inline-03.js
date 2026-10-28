@@ -198,6 +198,15 @@ const _ocActSolaOn = true;
   function seguro() {
     try {
       if (!sessionStorage.getItem("f123_sesion")) return false;            // sin sesion: lo resuelve el login
+      // Never auto-reload while a notebook still needs local IDB recovery or
+      // peer history replay. A SW update is not permission to interrupt money.
+      const y = window.OCYjs;
+      if (y && y.estado === "activo") {
+        if ([y.canal, y.opsCanal, y.fotosCanal].some(function (c) {
+          return c && (c.recuperando || (c.recuperacionLocal && c.recuperacionLocal !== "listo"));
+        })) return false;
+        if (y._diag && y._diag().recuperacionLocalPendiente) return false;
+      }
       const gate = document.getElementById("oc-gate");
       if (gate && gate.style.display !== "none") return false;            // tecleando el PIN
       if (visible(document.getElementById("oc-modal-overlay"))) return false;
