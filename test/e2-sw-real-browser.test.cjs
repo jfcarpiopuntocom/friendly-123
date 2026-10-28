@@ -106,7 +106,12 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
   mark("wait pending safe reload marker");
   await p.waitForFunction(()=>sessionStorage.getItem("f123_act_sola_pendiente")==="1",{timeout:25000});
   mark("fast-forward 92s with NO update consent");
+  let navigationWithoutClick=0;
+  p.on("framenavigated",frame=>{if(frame===p.mainFrame())navigationWithoutClick++;});
   await p.clock.fastForward(92000); // being idle is not a decision to replace the running notebook
+  // Host-clock microtasks: the app's Navigation starts asynchronously after SW takeover.
+  await new Promise(resolve=>setTimeout(resolve,300));
+  assert.equal(navigationWithoutClick,0,"JFC: browser navigated before explicit update click");
   const beforeClick=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
   assert.equal(beforeClick,initial,"JFC: no unexpected reload on idle or hidden");
   mark("wait immediate nonblocking update notice");
