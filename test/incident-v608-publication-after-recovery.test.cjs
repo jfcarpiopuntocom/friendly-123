@@ -679,3 +679,33 @@ test('P0 v607 stale same-number legacy stock cannot contaminate explicit physica
   const final=(await current.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-stale-v607');
   assert.equal(final.stockActual,5,'repeated old bridge traffic cannot resurrect obsolete stock');
 });
+
+test('P0 a v607 offline sale is not erased by a competing modern physical epoch',async()=>{
+  const current=await peer(),old=await peer({legacy:true});
+  const snap=await current.w.request('/api/respaldo/exportar');
+  snap.productos=[{...snap.productos[0],id:'p0-mixed-sale-epochs',
+    nombre:'Synthetic legacy sale preservation',barcode:'SYN-MIXED-EPOCH-SALE',
+    stockBase:5,stockActual:5,stockPN:{},stockEpochId:'E2-physical-recount',
+    stockTs:200,rev:{c:1,d:'synthetic'}}];
+  snap.ventas=[];snap.movimientos=[];
+  const oldSnap=JSON.parse(JSON.stringify(snap));
+  delete oldSnap.productos[0].stockEpochId;
+  oldSnap.productos[0].stockTs=100;
+  assert.equal((await current.w.request('/api/respaldo/importar','POST',snap)).ok,true);
+  assert.equal((await old.w.request('/api/respaldo/importar','POST',oldSnap)).ok,true);
+  current.w.OCYjs._store.sembrar();old.w.OCYjs._store.sembrar();
+  await current.flush();await old.flush();
+  const sold=await old.w.request('/api/productos/p0-mixed-sale-epochs/venta','POST',{cantidad:1});
+  assert.ok(sold.ventaId,'legacy peer produced real sale receipt');
+  await old.flush();await exchange(old,current,3);
+  const live=await current.w.request('/api/respaldo/exportar');
+  const item=live.productos.find(x=>x.id==='p0-mixed-sale-epochs');
+  assert.equal(item.stockEpochId,'E2-physical-recount');
+  assert.equal(item.stockActual,5,'legacy E1 sale must not be counted twice in E2');
+  assert.equal(live.ventas.filter(x=>x.id===sold.ventaId).length,1,
+    'old-sale receipt must survive without applying its physical movement to E2');
+  await exchange(current,old,3);
+  const repeated=await current.w.request('/api/respaldo/exportar');
+  assert.equal(repeated.ventas.filter(x=>x.id===sold.ventaId).length,1,
+    'receipt cannot duplicate after replay');
+});
