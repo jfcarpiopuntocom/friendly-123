@@ -19,11 +19,11 @@ function arbitrate(clock, local, doc) {
   return ctx.r;
 }
 const newer = {stockBase: 12, stockPN: {phone:{add:0,sub:1}}, stockActual:11,stockTs:1_790_000_000_500};
-const older = {stockBase: 14, stockPN: {},stockActual:14,stockTs:1_790_000_000_000};
+const older = {stockBase: 14, stockPN: {},stockActual:14,stockTs:0};
 for (const unready of [null,undefined,NaN]) {
   const result = arbitrate(unready,newer,older);
   assert.equal(result.stockBase,12,'Unready relay clock must not downgrade a newer phone change');
 }
-const invalidFuture = arbitrate(1_790_000_000_000,newer,older);
+const invalidFuture = arbitrate(1_790_000_000_000,{...newer,stockTs:1_790_000_600_500},older);
 assert.equal(invalidFuture.stockBase,14,'Trusted relay clock may reject a future-dated phone edit');
 console.log('PASS stock epoch with null/undefined/NaN and trusted relay clock');
