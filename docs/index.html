@@ -90,7 +90,9 @@
      interceptaba fetch() y todo /api/* devolvia 404 (selector de sucursal
      roto, hero de error). Deben cargar EN EL HEAD, antes del script principal,
      para que el mock ya este instalado cuando el app arranque. NO QUITAR. -->
-<!-- barcode128.js, qrcode-local.js y tutorial-ui.js: ahora los pide carga-tardia.js despues de la primera pantalla (v599). -->
+<script defer src="./barcode128.js"></script>
+<script defer src="./qrcode-local.js"></script>
+<!-- tutorial-ui.js: ahora lo pide carga-tardia.js despues de la primera pantalla (v599). barcode128/qrcode siguen al arranque: una etiqueta impresa en los primeros segundos no puede salir sin codigo. -->
 <!-- Generador QR 100% local (Kazuhiko Arase, MIT, vendoreado): etiquetas y sync por QR sin internet -->
 <!-- Local-first: pocketbase-client.js se carga SIEMPRE pero queda dormido
      si el dueño no guardó una URL de PocketBase en Avanzado (localStorage

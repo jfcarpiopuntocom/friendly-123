@@ -11,7 +11,7 @@
  */
 (function () {
   "use strict";
-  var LISTA = ["./barcode128.js", "./qrcode-local.js", "./tutorial-ui.js"];
+  var LISTA = ["./tutorial-ui.js"]; /* v599 revision: barcode128/qrcode volvieron al arranque (etiqueta sin codigo = riesgo). */
   function cargar() {
     for (var i = 0; i < LISTA.length; i++) {
       var s = document.createElement("script");
