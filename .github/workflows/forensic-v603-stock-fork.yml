@@ -31,3 +31,15 @@ jobs:
         run: node test/forensic-v603-seed-cost.cjs
       - name: One 1000-product remote edit with actual Yjs bridge
         run: node test/forensic-v603-merge-cost.cjs
+  regression-guards:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Small first-join, money, PN, PIN and idle sync regressions
+        run: |
+          node --test test/incident-first-sync-integrity-v558.test.js test/incident-stale-stock-metadata-v558.test.js test/v579-venta-pn-ack.test.js test/yjs-pin-seed.test.js test/yjs-idle-write-budget.test.js test/peer-initial-recovery.test.cjs
