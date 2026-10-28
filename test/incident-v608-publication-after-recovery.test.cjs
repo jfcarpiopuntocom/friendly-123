@@ -554,3 +554,21 @@ test('P0 same numeric base with two explicit epochs cannot merge counter witness
   assert.equal(pa.stockEpochId,'E2-A');
   assert.equal(pb.stockEpochId,'E3-B');
 });
+
+test('P0 newly created products issue distinct persistent physical epochs',async()=>{
+  const a=await peer();
+  const one=await a.w.request('/api/productos','POST',{
+    nombre:'Synthetic epoch one',barcode:'SYN-EPOCH-ONE',precio:10,costo:3,stockInicial:5
+  });
+  const two=await a.w.request('/api/productos','POST',{
+    nombre:'Synthetic epoch two',barcode:'SYN-EPOCH-TWO',precio:10,costo:3,stockInicial:5
+  });
+  assert.ok(one.id && two.id,'products created');
+  const exported=await a.w.request('/api/respaldo/exportar');
+  const p1=exported.productos.find(p=>p.id===one.id);
+  const p2=exported.productos.find(p=>p.id===two.id);
+  assert.ok(p1.stockEpochId && p2.stockEpochId,'physical epochs persisted in backup');
+  assert.notEqual(p1.stockEpochId,p2.stockEpochId,'physical epochs are not the numeric stock base');
+  a.w.OCYjs._store.sembrar();await a.flush();
+  assert.equal(a.w.OCYjs.getProductos()[one.id].stockEpochId,p1.stockEpochId);
+});
