@@ -1005,6 +1005,7 @@ test('P0 team panel does not claim inventory equality from a metadata heartbeat'
     equipo:()=>[{id:'pc',soyYo:true,estado:'rezagado',rol:'dueno',
       apodo:'Synthetic PC',cuando:'1 hour ago',huella:'#META'}],
     umbrales:()=>({rezagado:5,ciegas:120}),
+    etiquetas:{rezagado:{color:'#ccc',tinta:'#111',texto:'Behind'}},
     yo:()=>({id:'pc',apodo:'Synthetic PC'}),
     miHuella:()=> '#META',
     desalineados:()=>[]
