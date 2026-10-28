@@ -66,11 +66,14 @@ class ShadowYjsBridge {
    const e=validate(event,this.journal.notebook);
    const raw=stable(e),key=e.id+'#'+await sha256(raw);
    const checked=this.journal.append(e);
-   if (!checked.ok) return checked;
+   // A rejected ID/sequence collision is still immutable evidence. Publish
+   // its distinct content-addressed witness so every peer can quarantine it.
+   // Never convert the rejected business operation into a successful sale.
    if (this.map.has(key) && this.map.get(key)!==raw)
      throw Error('witness-key digest collision');
    this._witnesses.set(key,raw);
    if (!this.map.has(key)) this.map.set(key,raw);
+   if (!checked.ok) return {...checked,key,witnessPublished:true};
    return {ok:true,added:checked.added,key};
  }
   async seedFromJournal() {
