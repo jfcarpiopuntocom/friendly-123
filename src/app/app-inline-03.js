@@ -261,23 +261,9 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
+  // Only a user click can upgrade an open notebook. Idle/hidden is NOT consent.
   function intentar() {
-    try { vigilar(); } catch (_) {} // (JFC 2026-10-28) aviso inmediato en cuanto se frena la recarga (sin plazo)
-    if (!pendiente() || !seguro()) return;
-    // Every caller must honor the idle window, including a late version reply.
-    if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
-    let destino = "";
-    try { destino = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || ""; } catch (_) {}
-    try {
-      const prev = JSON.parse(localStorage.getItem(KA) || "null");
-      if (prev && prev.shell === destino && Date.now() - prev.ts < 600000) return;
-      localStorage.setItem(KA, JSON.stringify({ shell: destino, ts: Date.now() }));
-      sessionStorage.removeItem(KP);
-      sessionStorage.removeItem("f123_reload_al_entrar");
-    } catch (_) { return; }
-    try { limpiarFrenada(); } catch (_) {} // (JFC 2026-10-28) fuera del try critico: nunca bloquea la recarga
-    try { marcarRecarga("version-idle"); } catch (_) {} // (JFC 2026-10-27) nunca bloquea la recarga
-    location.reload();
+    try { vigilar(); } catch (_) {}
   }
   function shellDelSW() {
     return new Promise(function (resolve) {
@@ -346,10 +332,10 @@ const _ocActSolaOn = true;
     if (!el || _avisoOcupado) return;
     _avisoOcupado = true;
     try {
-      if (!seguroCon(true)) { el.textContent = textoAviso("ocupado"); return; }
+      if (!seguroCon(false)) { el.textContent = textoAviso("ocupado"); return; }
       const ok = await guardarDuradero();
       // Se revisa de nuevo: durante el guardado pudo abrirse una venta o editor.
-      if (!ok || !seguroCon(true)) { el.textContent = textoAviso(ok ? "ocupado" : "guardando"); return; }
+      if (!ok || !seguroCon(false)) { el.textContent = textoAviso(ok ? "ocupado" : "guardando"); return; }
       try {
         sessionStorage.removeItem(KP);
         sessionStorage.removeItem("f123_reload_al_entrar");
@@ -385,8 +371,9 @@ const _ocActSolaOn = true;
   // el setInterval de 60 s solo sirve para QUITAR el aviso al terminar la recuperacion, no retrasa mostrarlo.
   function vigilar() {
     try {
-      if (!pendiente() || !recuperacionPendiente()) { limpiarFrenada(); quitarAviso(); return; }
-      marcarFrenada();
+      if (!pendiente()) { limpiarFrenada(); quitarAviso(); return; }
+      if (recuperacionPendiente()) marcarFrenada();
+      else limpiarFrenada();
       mostrarAviso();
     } catch (_) {}
   }
