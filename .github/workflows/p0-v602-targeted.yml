@@ -7,7 +7,10 @@ on:
     branches: [master]
     paths:
       - docs/sync-yjs.js
+      - docs/peer-sync.js
       - docs/auth-ui.js
+      - docs/app-inline-01.min.js
+      - src/app/app-inline-01.js
       - test/incident-v602-*.cjs
 jobs:
   forensic:
@@ -23,8 +26,11 @@ jobs:
         run: |
           node --check docs/sync-yjs.js
           node --check docs/auth-ui.js
+          node --check docs/peer-sync.js
+          node --check docs/app-inline-01.min.js
           node test/incident-v602-relay-null-stock-epoch.test.cjs
           node test/incident-v602-pin-identity-guard.test.cjs
+          node --test test/peer-initial-recovery.test.cjs
       - name: Stock conflict and old metadata regressions
         run: |
           node --test test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js
