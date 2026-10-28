@@ -479,3 +479,25 @@ test('P0 epoch-tagged backup retains identity after local restore and Yjs public
     assert.equal(item.stockActual,5);
   }
 });
+
+test('P0 explicit competing physical epochs must not auto-overwrite by timestamp',async()=>{
+  const a=await peer(), b=await peer();
+  const original=await a.w.request('/api/respaldo/exportar');
+  original.productos=[{...original.productos[0],id:'p0-competing-epochs',
+    nombre:'Synthetic conflict',barcode:'SYN-EPOCH-CONFLICT',stockBase:5,
+    stockActual:5,stockPN:{},stockEpochId:'E2-local',stockTs:10,
+    rev:{c:1,d:'fixture'}}];
+  original.ventas=[];original.movimientos=[];
+  const alternate=JSON.parse(JSON.stringify(original));
+  alternate.productos[0].stockBase=9;
+  alternate.productos[0].stockActual=9;
+  alternate.productos[0].stockEpochId='E3-remote';
+  alternate.productos[0].stockTs=100;
+  assert.equal((await a.w.request('/api/respaldo/importar','POST',original)).ok,true);
+  assert.equal((await b.w.request('/api/respaldo/importar','POST',alternate)).ok,true);
+  a.w.OCYjs._store.sembrar();b.w.OCYjs._store.sembrar();
+  await a.flush();await b.flush();await exchange(a,b,2);
+  const local=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
+  assert.equal(local.stockEpochId,'E2-local','unrelated explicit physical epochs cannot be chosen by timestamp alone');
+  assert.equal(local.stockActual,5,'preserve local physical stock pending manual reconciliation');
+});
