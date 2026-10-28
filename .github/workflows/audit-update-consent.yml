@@ -1,0 +1,47 @@
+name: audit-update-consent-only
+on:
+  push:
+    branches:
+      - audit/v603-update-consent
+jobs:
+  safe-existing-session-startup:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing notebook cannot be auto-purged or reloaded by HTML HEAD
+        run: |
+          node --test test/audit-v603-head-sw-nuke.red.test.cjs
+  consent-contract-red:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Four user-consent assertions (RED until Claude repairs owned updater files)
+        run: |
+          node --test test/audit-v603-update-consent.red.test.cjs
+  browser-update-consent:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Prepare one Chromium smoke scenario
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: Real Chromium E2 — no reload before explicit update click
+        run: |
+          node --test test/e2-sw-real-browser.test.cjs
