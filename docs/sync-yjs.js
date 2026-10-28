@@ -2229,6 +2229,26 @@
                 }
               }
               if (prev && col === "productos") {
+                // Never conflate physical epochs solely because stockBase matches.
+                // Y.Map.productos is last-writer metadata, not an epoch-proof ledger.
+                var _stockEpochMine = typeof r.stockEpochId === "string" ? r.stockEpochId : "";
+                var _stockEpochDoc = typeof prev.stockEpochId === "string" ? prev.stockEpochId : "";
+                var _samePhysicalEpoch = _stockEpochMine === _stockEpochDoc;
+                // An explicit epoch supersedes untagged legacy stock in the
+                // shared read model. Two competing explicit epochs retain the
+                // existing map value; independent witnesses preserve both.
+                var _epochPreferred = _samePhysicalEpoch ? null :
+                  (_stockEpochMine && !_stockEpochDoc ? r : prev);
+                if (_epochPreferred) {
+                  r = Object.assign({}, r, {
+                    stockBase: _epochPreferred.stockBase,
+                    stockPN: _epochPreferred.stockPN,
+                    stockActual: _epochPreferred.stockActual,
+                    stockDeficit: _epochPreferred.stockDeficit,
+                    stockTs: _epochPreferred.stockTs,
+                    stockEpochId: _epochPreferred.stockEpochId
+                  });
+                }
                 var fork = r.stockBase != null && prev.stockBase != null &&
                   Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
                   Number(r.stockBase) !== Number(prev.stockBase);
@@ -2243,7 +2263,7 @@
                    stock mas reciente; el resto de la ficha se publica igual. Regla identica a
                    _ganaEpocaStockRemota en mock-backend.js. Prueba: test/stock-base-conflicto-v515. */
                 var conflictoBase = basePrev !== null && baseMia !== null && basePrev !== baseMia;
-                if (conflictoBase) {
+                if (conflictoBase && _samePhysicalEpoch) {
                   var claveEp = function (x) {
                     var q = x && x.stockPN && typeof x.stockPN === "object" ? x.stockPN : {};
                     return JSON.stringify([Number(x && x.stockBase), Object.keys(q).sort().map(function (k) { return [k, Number(q[k].add) || 0, Number(q[k].sub) || 0]; })]);
@@ -2257,7 +2277,7 @@
                   if (!ganoYo) r = Object.assign({}, r, { stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual, stockTs: prev.stockTs, stockDeficit: prev.stockDeficit });
                 }
                 var base = baseMia !== null ? baseMia : basePrev;
-                if (!conflictoBase && base !== null && Number.isFinite(base)) {
+                if (_samePhysicalEpoch && !conflictoBase && base !== null && Number.isFinite(base)) {
                   var pn = Object.assign({}, prev.stockPN || {});
                   Object.keys(r.stockPN || {}).forEach(function (id) {
                     var antes = pn[id] || {}, nuevo = r.stockPN[id] || {};
@@ -2322,13 +2342,16 @@
                     var _firstLedger = _rb !== null && _pb === null && _pnProof &&
                       Number(prev.stockActual) === _rb && _rt > 0 &&
                       _rt >= _pt - 2000 && _notFuture;
-                    var _stockValido = _sameLedger || _epochNewer || _legacyNewer || _firstLedger;
-                    r = Object.assign({}, prev, _stockValido ? {
-                      stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual,
-                      stockTs: Math.max(_pt, _rt), stockDeficit: r.stockDeficit
-                    } : {
-                      stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual,
-                      stockTs: _pt, stockDeficit: prev.stockDeficit
+                    var _stockValido = _samePhysicalEpoch &&
+                      (_sameLedger || _epochNewer || _legacyNewer || _firstLedger);
+                    var _safeStock = !_samePhysicalEpoch ? _epochPreferred : (_stockValido ? r : prev);
+                    r = Object.assign({}, prev, {
+                      stockBase: _safeStock.stockBase,
+                      stockPN: _safeStock.stockPN,
+                      stockActual: _safeStock.stockActual,
+                      stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
+                      stockDeficit: _safeStock.stockDeficit,
+                      stockEpochId: _safeStock.stockEpochId
                     });
                   }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
