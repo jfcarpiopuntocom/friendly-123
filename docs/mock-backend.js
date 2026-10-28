@@ -881,11 +881,13 @@
   const OC_STATE_KEY_VIEJA = "amigable_demo_state_v4";
   const OC_STATE_KEY = "f123_estado_v4";
   let _estadoLecturaBloqueada = false, _conflictoEstadoAB = null, _evidenciaEstadoAB = null;
+  var _avisoCatalogoPendiente = false; // (JFC 2026-10-28) aviso de catalogo bloqueado, se reintenta al recuperar el guardado (mismo ambito que avisarCatalogoCambiado)
+  var _errorBloqueoLectura = null; // (JFC 2026-10-28) causa de la lectura bloqueada, para clasificar el fallo de guardado
   function _leerEstadoEstricto(clave) {
     try {
       const aislamiento = window.AMG && window.AMG.Aislamiento;
       return aislamiento && aislamiento.leerEstadoEstricto ? aislamiento.leerEstadoEstricto(clave) : localStorage.getItem(clave);
-    } catch (error) { _estadoLecturaBloqueada = true; throw error; }
+    } catch (error) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = error; throw error; }
   }
   // Migracion de un solo uso: si ya hay estado bajo la clave nueva, no tocar
   // nada. Si NO hay nada bajo la nueva pero SI bajo la vieja compartida,
@@ -1371,8 +1373,8 @@
   function _espejarEnIDB(completo, exigirCompleto = false) {
     try {
       if (!window.OCEstadoIDB) return Promise.resolve(false);
-      return window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(() => false);
-    } catch (_) { return Promise.resolve(false); }
+      return window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(e => { _ultimoErrorIDB = e; return false; });
+    } catch (e) { _ultimoErrorIDB = e; return Promise.resolve(false); }
   }
   /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
        Los admin cuentan como "empleado" a nivel cripto (mismo employeeHashes), así
@@ -1447,7 +1449,12 @@
     if (resultado && typeof resultado.then === "function") {
       const publicable = Promise.resolve(resultado);
       _guardadoCatalogoPendiente = publicable;
-      const publicar = ok => { if (_guardadoCatalogoPendiente === publicable) { _guardadoCatalogoPendiente = null; _ultimoGuardadoPublicable = ok === true; } };
+      const publicar = ok => {
+        if (_guardadoCatalogoPendiente === publicable) {
+          _guardadoCatalogoPendiente = null; _ultimoGuardadoPublicable = ok === true;
+          if (ok === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) avisarCatalogoCambiado();
+        }
+      };
       publicable.then(publicar, () => publicar(false));
     }
     if (exigirCompleto && resultado && typeof resultado.then === "function") {
@@ -1457,16 +1464,20 @@
       pendiente.then(terminar, terminar);
       return pendiente;
     }
-    if (!resultado || typeof resultado.then !== "function") _ultimoGuardadoPublicable = resultado === true;
+    if (!resultado || typeof resultado.then !== "function") {
+      _ultimoGuardadoPublicable = resultado === true;
+      if (resultado === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) avisarCatalogoCambiado();
+    }
     return resultado;
   }
   function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
     const ab = _estadoAB();
     const ejecutar = () => {
-      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else avisoMemoriaLlena(); return false; }
+      _ultimoErrorIDB = null;
+      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
       let revisionDisco = 0;
-      try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (_) { _estadoLecturaBloqueada = true; }
-      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else avisoMemoriaLlena(); return false; }
+      try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (e) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = e; }
+      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
       const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
       _localRevReservado = _revIntento;
       const completo = estadoActualExportable();
@@ -1482,9 +1493,9 @@
           _estadoPublicableConfirmado = _huellaPublicable(completo);
           _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
-          ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _publicarAdminPins();
+          ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else avisoMemoriaLlena();
+        } else _falloGuardadoLocal(_causaGuardado(ab));
         return ok;
       };
       // Only an exact IDB snapshot may acknowledge a failed local commit.
@@ -1498,23 +1509,45 @@
         ? resultado.catch(_falloGuardadoLocal) : resultado;
     } catch (e) { return _falloGuardadoLocal(e); }
   }
-  /* v606 (JFC 2026-10-28): el cartel rojo "memoria llena" SOLO sale con un error REAL de cuota.
-     AbortError / vencimiento del candado "f123-estado-ab" / cualquier otro error NO es memoria llena (en v605 mostro un
-     aviso falso y los aparatos dejaron de publicar su catalogo). Aqui: solo consola, devuelve false y programa UN reintento
-     silencioso (nunca apilado). NO hay ningun await de guardado dentro del candado de escrituras: el reintento corre fuera. */
-  let _reintentoGuardadoSilencioso = null;
+  /* v608 (JFC 2026-10-28): UN solo clasificador de fallos de guardado (_falloGuardadoLocal).
+     - Cuota REAL (QuotaExceededError / code 22 / 1014 / NS_ERROR_DOM_QUOTA_REACHED) -> cartel rojo "memoria llena".
+     - Cualquier otro (AbortError, candado vencido, SecurityError, IDB false...) -> NUNCA el cartel rojo: consola,
+       reintento acotado 3-6-12-24-48 s (max 5, nunca apilado). SIN aviso visible (orden del dueno, JFC 2026-10-28): solo consola.
+     - Todo guardado exitoso (_guardadoLocalExitoso) reinicia el conteo.
+     No hay ningun await de guardado dentro del candado de escrituras: el reintento corre fuera. */
+  var _reintentoGuardadoSilencioso = null, _intentosReintentoGuardado = 0, _fallosGuardadoSeguidos = 0;
+  var _ultimoErrorGuardado = null, _ultimoErrorIDB = null;
+  var _ESPERAS_REINTENTO_GUARDADO = [3000, 6000, 12000, 24000, 48000];
   function _esErrorDeCuota(e) {
     try { return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014); }
     catch (_) { return false; }
   }
+  // Causa del fallo de un guardado que devolvio false: si alguna es de cuota gana (cartel rojo); si no, la primera conocida.
+  function _causaGuardado(ab) {
+    let a = null;
+    try { a = ab && ab.ultimoError ? ab.ultimoError() : null; } catch (_) {}
+    let b = _ultimoErrorIDB;
+    try { if (!b && window.OCEstadoIDB && window.OCEstadoIDB.ultimoError) b = window.OCEstadoIDB.ultimoError(); } catch (_) {}
+    if (_esErrorDeCuota(a)) return a;
+    if (_esErrorDeCuota(b)) return b;
+    return a || b || null;
+  }
+  function _guardadoLocalExitoso() {
+    _fallosGuardadoSeguidos = 0; _intentosReintentoGuardado = 0; _ultimoErrorGuardado = null;
+    if (_reintentoGuardadoSilencioso) { clearTimeout(_reintentoGuardadoSilencioso); _reintentoGuardadoSilencioso = null; }
+  }
   function _falloGuardadoLocal(e) {
+    _ultimoErrorGuardado = e || null;
     if (_esErrorDeCuota(e)) { avisoMemoriaLlena(); return false; }
-    try { console.warn("[storage] guardado local no completado (no es falta de memoria); un reintento silencioso", e && e.name ? e.name : e); } catch (_) {}
-    if (!_reintentoGuardadoSilencioso) {
+    try { console.warn("[storage] guardado local no completado (no es falta de memoria)", e && e.name ? e.name : e); } catch (_) {}
+    try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "guardado-fallido"); } catch (_) {}
+    _fallosGuardadoSeguidos++;
+    if (!_reintentoGuardadoSilencioso && _intentosReintentoGuardado < _ESPERAS_REINTENTO_GUARDADO.length) {
+      const espera = _ESPERAS_REINTENTO_GUARDADO[_intentosReintentoGuardado++];
       _reintentoGuardadoSilencioso = setTimeout(() => {
         _reintentoGuardadoSilencioso = null;
         try { const r = guardarEstadoLocal(); if (r && typeof r.then === "function") r.catch(() => {}); } catch (_) {}
-      }, 3000);
+      }, espera);
     }
     return false;
   }
@@ -3190,8 +3223,10 @@
      propias ops, no por aqui. */
   function avisarCatalogoCambiado() {
     // v599: sale de inmediato aunque haya un guardado en curso (ver _estadoPuedeEnviarse).
-    if (!_estadoPuedeEnviarse()) return;
-    try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
+    // Retry a blocked notification after durable recovery, without waiting for the periodic sweep.
+    // typeof guard: test harnesses extract this function without the flag declared (JFC 2026-10-28)
+    if (!_estadoPuedeEnviarse()) { if (typeof _avisoCatalogoPendiente !== "undefined") _avisoCatalogoPendiente = true; return; }
+    try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); if (typeof _avisoCatalogoPendiente !== "undefined") _avisoCatalogoPendiente = false; } catch (_) {}
   }
 
   function mov(tipo, detalle, avisar = true) {
@@ -7048,7 +7083,8 @@
           if (error) return J({ error }, 400);
           /* (JFC 2026-10-28) Restaurar NO se permite si el Y.Doc local ya tiene datos: gana al reabrir
              (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
-          if (_cuadernoConDatosEnDoc()) return J({ error: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
+          /* (JFC 2026-10-28) `error` en ingles (default de la app); `errorEs` para la UI en espanol. */
+          if (_cuadernoConDatosEnDoc()) return J({ error: "A backup can only be restored on a new device with no data. In a notebook that already has data, the restore would be undone when the app reopens.", errorEs: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
           guardarEstadoLocal();

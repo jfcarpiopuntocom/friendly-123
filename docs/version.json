@@ -1,10 +1,10 @@
 {
-  "version": "shell v607",
+  "version": "shell v608",
   "fecha": "2026-10-28",
-  "changelog": "v607: retira la franja de actualización y conserva la adopción automática segura; reduce el trabajo repetido del catálogo durante la sincronización.",
+  "changelog": "v608: los fallos de guardado ahora se avisan con la verdad (sin aviso falso de memoria llena) y con reintento acotado; el nombre de la tienda en dorado.",
   "requerida": false,
-  "shell": "f123-shell-v607",
+  "shell": "f123-shell-v608",
   "apagar": [],
-  "releaseName": "shell v607",
-  "cacheGeneration": "golden153"
+  "releaseName": "shell v608",
+  "cacheGeneration": "golden154"
 }

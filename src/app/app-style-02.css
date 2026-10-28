@@ -1406,8 +1406,10 @@
   @media (max-width:700px){.solo-pc{display:none !important;}}
 
 /* Approved scope: business-name wordmark only. Same bundled display font as friendly-123; live editable TEXT, not generated SVG. */
-:root{--f123-business-gold-ink:#6B4800}
-header h1 #oc-negocio-nombre{font-family:var(--font-display,"Space Grotesk",sans-serif)!important;font-weight:700!important;font-size:clamp(21px,2.5vw,30px);line-height:1.12;letter-spacing:-.035em;text-transform:none!important;color:var(--f123-business-gold-ink)!important;-webkit-text-fill-color:var(--f123-business-gold-ink)!important;text-shadow:0 1px 0 rgba(255,225,145,.75);display:inline-block;min-width:0;max-inline-size:min(44ch,52vw);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;vertical-align:bottom}
+:root{--f123-business-gold-ink:#E8A020}
+header h1 #oc-negocio-nombre{font-family:var(--font-display,"Space Grotesk",sans-serif)!important;font-weight:700!important;font-size:clamp(21px,2.5vw,30px);line-height:1.12;letter-spacing:-.035em;text-transform:none!important;color:var(--f123-business-gold-ink)!important;-webkit-text-fill-color:var(--f123-business-gold-ink)!important;-webkit-text-stroke:1px #2C1A00;paint-order:stroke fill;text-shadow:0 1px 0 #2C1A00;display:inline-block;min-width:0;max-inline-size:min(44ch,52vw);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;vertical-align:bottom}
+/* (JFC 2026-10-28) Nombre de la tienda en dorado solido #E8A020. El encabezado es plateado claro: el dorado solo no da contraste, por eso el contorno oscuro #2C1A00. */
+@media (prefers-color-scheme:dark){header h1 #oc-negocio-nombre{color:#E8A020!important;-webkit-text-fill-color:#E8A020!important;-webkit-text-stroke:1px #2C1A00;text-shadow:0 1px 0 #2C1A00}}
 @media(max-width:600px){header h1 #oc-negocio-nombre{font-size:clamp(19px,5.3vw,23px);max-inline-size:100%}}
 @media(forced-colors:active){header h1 #oc-negocio-nombre{color:CanvasText!important;-webkit-text-fill-color:CanvasText!important;text-shadow:none}}
 
