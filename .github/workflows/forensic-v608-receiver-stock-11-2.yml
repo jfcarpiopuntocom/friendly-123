@@ -20,3 +20,10 @@ jobs:
         run: node --check docs/sync-yjs.js
       - name: Only isolated P0 receiver regression (no external network, no customer data)
         run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-v608-publication-after-recovery.test.cjs
+      - name: Four existing focused PN and Yjs regression files (no broad suite)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test \
+            test/stock-base-conflicto-v515.test.js \
+            test/yjs-idle-write-budget.test.js \
+            test/v579-venta-pn-ack.test.js \
+            test/incident-v604-selective-apply-retry.test.cjs
