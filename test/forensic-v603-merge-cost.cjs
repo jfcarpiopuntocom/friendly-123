@@ -6,7 +6,8 @@ const {webcrypto}=require('node:crypto'),{performance}=require('node:perf_hooks'
 const {setTimeout:delay}=require('node:timers/promises');
 const {browser}=require('./helpers/browser.cjs');
 async function peer(n){
- const w=browser(),fx=await w.request('/api/respaldo/exportar');
+ const w=browser(); delete w.JSON;
+ const fx=await w.request('/api/respaldo/exportar');
  const template=fx.productos.find(p=>Number(p.stockActual)>=1);
  assert.ok(template);
  fx.productos=Array.from({length:n},(_,i)=>({
