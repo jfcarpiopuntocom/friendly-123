@@ -170,3 +170,20 @@ test('P0 v603: two Yjs peers preserve both forked baselines after bidirectional 
   const pa=(await pc.request('/api/respaldo/exportar')).productos.find(p=>p.id==='fork-yjs');
   assert.deepEqual(ca.stockEvidencias,pa.stockEvidencias,'evidence converges independent of replay order');
 });
+
+test('P0: stock fork evidence survives local backup export and clean rehydration',async()=>{
+  const source=await aparato('fork-backup',15,{pc_local:{add:3,sub:0}},18,1000);
+  source.OCSync.aplicarCatalogo(remotoCon(source,'fork-backup',13,
+    {phone_remote:{add:3,sub:0}},16,2000),null);
+  const exported=await source.request('/api/respaldo/exportar');
+  assert.equal(exported.productos.find(p=>p.id==='fork-backup').stockEvidencias['15'].pn.pc_local.add,3);
+  const fresh=browser();
+  await fresh.request('/api/respaldo/importar','POST',exported);
+  const recovered=(await fresh.request('/api/respaldo/exportar')).productos.find(p=>p.id==='fork-backup');
+  assert.equal(recovered.stockEvidencias?.['15']?.pn?.pc_local?.add,3,
+    'backup import may not discard a contested local operation');
+  assert.equal(recovered.stockEvidencias?.['13']?.pn?.phone_remote?.add,3,
+    'backup import may not discard remote operation');
+  assert.equal(recovered.stockActual,16,
+    'uncertain physical stock must not be fabricated during backup recovery');
+});
