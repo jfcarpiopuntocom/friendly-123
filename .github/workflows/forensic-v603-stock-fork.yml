@@ -27,3 +27,5 @@ jobs:
           node-version: '22'
       - name: Two synthetic notebook profiles, no business data
         run: node test/forensic-v603-seed-cost.cjs
+      - name: One 1000-product remote edit with actual Yjs bridge
+        run: node test/forensic-v603-merge-cost.cjs
