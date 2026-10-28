@@ -4,7 +4,7 @@ on:
     branches:
       - audit/v603-update-consent
 jobs:
-  visible-consent:
+  safe-existing-session-startup:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -13,6 +13,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Run two user-visible update-consent contracts (expected RED on Claude candidate)
+      - name: Existing notebook cannot be auto-purged or reloaded by HTML HEAD
         run: |
-          node --test test/audit-v603-update-consent.red.test.cjs test/audit-v603-head-sw-nuke.red.test.cjs
+          node --test test/audit-v603-head-sw-nuke.red.test.cjs
+  consent-contract-red:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Four user-consent assertions (RED until Claude repairs owned updater files)
+        run: |
+          node --test test/audit-v603-update-consent.red.test.cjs
