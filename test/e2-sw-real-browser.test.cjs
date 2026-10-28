@@ -109,9 +109,11 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
   let navigationWithoutClick=0;
   p.on("framenavigated",frame=>{if(frame===p.mainFrame())navigationWithoutClick++;});
   await p.clock.fastForward(92000); // being idle is not a decision to replace the running notebook
-  // Host-clock microtasks: the app's Navigation starts asynchronously after SW takeover.
-  await new Promise(resolve=>setTimeout(resolve,300));
+  // Host-clock wait: capture async navigation triggered after the virtual idle gate.
+  // Do NOT inspect the page before this assertion: its JS context may be gone.
+  await new Promise(resolve=>setTimeout(resolve,1200));
   assert.equal(navigationWithoutClick,0,"JFC: browser navigated before explicit update click");
+  await p.waitForLoadState("load");
   const beforeClick=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
   assert.equal(beforeClick,initial,"JFC: no unexpected reload on idle or hidden");
   mark("wait immediate nonblocking update notice");
