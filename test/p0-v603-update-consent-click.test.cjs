@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const files=['src/app/app-inline-03.js','docs/app-inline-03.min.js'];
 for (const file of files) {
  const src=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
- const begin=src.indexOf('function alTocarAviso()'),end=src.indexOf('function mostrarAviso()',begin);
+ const begin=src.indexOf('async function alTocarAviso()'),end=src.indexOf('function mostrarAviso()',begin);
  assert.ok(begin>=0&&end>begin,'actual user-click handler must exist');
  const fragment=src.slice(begin,end);
  async function run({safe,confirmed}){
@@ -16,7 +16,7 @@ for (const file of files) {
     textoAviso:k=>k,sessionStorage:{removeItem:k=>values.delete(k)},location:{reload:()=>{reloads++;}},
     marcarRecarga:x=>marks.push(x)};
   vm.createContext(ctx);
-  vm.runInContext(fragment+'\\nthis.press=alTocarAviso;',ctx);
+  vm.runInContext(fragment+'\nthis.press=alTocarAviso;',ctx);
   await ctx.press();
   return {reloads,durableCalls,marks,text:node.textContent,session:values,checks:ctx.safeCalls};
  }
