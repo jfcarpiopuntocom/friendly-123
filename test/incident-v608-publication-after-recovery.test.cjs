@@ -404,3 +404,29 @@ test('P0 pinned v606 Yjs bridge versus new bridge: two offline sales remain uniq
     assert.equal(snapshot.ventas.filter(x=>x.id===rB.ventaId).length,1);
   }
 });
+
+
+test('P0 RED epoch ABA: same numeric recount base must not inherit old physical epoch witnesses',async()=>{
+  const a=await peer();
+  const snapshot=await a.w.request('/api/respaldo/exportar');
+  snapshot.productos=[{...snapshot.productos[0],id:'p0-epoch-aba',nombre:'Synthetic ABA',
+    barcode:'SYN-EPOCH-ABA',stockActual:5,stockBase:5,stockPN:{},stockTs:1,rev:{c:1,d:'fixture'}}];
+  snapshot.ventas=[];snapshot.movimientos=[];
+  await a.w.request('/api/respaldo/importar','POST',snapshot);
+  a.w.OCYjs._store.sembrar();await a.flush();
+  await a.w.request('/api/productos/p0-epoch-aba/ajustar','POST',{delta:3,motivo:'epoch E1'});
+  await a.flush();
+  assert.equal((await a.w.request('/api/productos/p0-epoch-aba')).stockActual,8);
+  assert.ok(a.w.OCYjs.stockPNTestigos.size>0,'old epoch movements are recorded');
+  // Simulate a distinct physical recount E2 with the SAME numerical base.
+  // Without an immutable epoch ID, its full-product value is indistinguishable
+  // from E1; this test MUST FAIL until the format can prove E2.
+  const old=a.w.OCYjs.getProductos()['p0-epoch-aba'];
+  a.w.OCYjs.mapas.productos.set('p0-epoch-aba',{
+    ...old,stockBase:5,stockActual:5,stockPN:{},stockTs:old.stockTs+1,
+    rev:{c:(old.rev?.c||1)+100,d:'synthetic-distinct-physical-recount'}
+  });
+  a.w.OCYjs._store.aplicar();await a.flush();
+  const actual=(await a.w.request('/api/productos/p0-epoch-aba')).stockActual;
+  assert.equal(actual,5,'a distinct physical recount at base 5 must not inherit E1 +3');
+});
