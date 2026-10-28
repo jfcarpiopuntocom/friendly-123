@@ -72,3 +72,82 @@ test('accepted stock republishes after a previous background save failure withou
   assert.equal((await b.w.request('/api/productos/synthetic-stock')).stockActual,11,'receiver backend adopts accepted stock');
   assert.ok(a.timers.some(t=>t.interval&&t.ms===2000),'existing fallback remains available but was never invoked');
 });
+
+
+// Minimal synthetic stress: these tests do NOT exercise customer records, relay
+// credentials, GitHub production deployments, or arbitrary browser data.
+async function physicalFixture(a,b,stockBaseA,stockBaseB) {
+  const f=await a.w.request('/api/respaldo/exportar');
+  f.productos=[{...f.productos[0],id:'p0-two-actors',nombre:'Synthetic two-actor inventory',
+    barcode:'P0-FIXTURE-TWO-PEERS',stockActual:stockBaseA,stockBase:stockBaseA,
+    stockPN:{},stockTs:1,rev:{c:1,d:'fixture'}}];
+  f.ventas=[];f.movimientos=[];
+  const g=JSON.parse(JSON.stringify(f));
+  g.productos[0].stockActual=stockBaseB;g.productos[0].stockBase=stockBaseB;
+  await a.w.request('/api/respaldo/importar','POST',f);
+  await b.w.request('/api/respaldo/importar','POST',g);
+  a.w.OCYjs._store.sembrar();b.w.OCYjs._store.sembrar();
+  await a.flush();await b.flush();
+}
+async function exchange(a,b,rounds=1){
+  for(let i=0;i<rounds;i++){
+    const aState=a.w.Y.encodeStateAsUpdate(a.w.OCYjs.doc);
+    const bState=b.w.Y.encodeStateAsUpdate(b.w.OCYjs.doc);
+    b.w.Y.applyUpdate(b.w.OCYjs.doc,aState,'red');
+    a.w.Y.applyUpdate(a.w.OCYjs.doc,bState,'red');
+    a.w.OCYjs._store.aplicar();b.w.OCYjs._store.aplicar();
+    await a.flush();await b.flush();
+  }
+}
+const fixtureProduct=async p=>(await p.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-two-actors');
+
+test('P0 independent PN witnesses converge two offline additions and repeated replay exactly once',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,2,2);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'actor A'});
+  await b.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:4,motivo:'actor B'});
+  await a.flush();await b.flush();
+  await exchange(a,b,3);
+  for(const p of [a,b]){
+    const item=await fixtureProduct(p);
+    assert.equal(item.stockActual,15,'both independent additions survive concurrent Y.Map object writes');
+    assert.equal(Object.keys(item.stockPN).length,2,'one PN actor per device, not duplicated');
+  }
+  await exchange(b,a,3);
+  assert.equal((await fixtureProduct(a)).stockActual,15,'replay cannot duplicate a counter');
+  assert.equal((await fixtureProduct(b)).stockActual,15,'reverse replay cannot duplicate a counter');
+});
+
+test('P0 distinct physical baselines preserve BOTH witnesses, never fabricate summed stock',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,2,11);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:9,motivo:'baseline A'});
+  await b.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:4,motivo:'baseline B'});
+  await a.flush();await b.flush();
+  await exchange(a,b,3);
+  for(const p of [a,b]){
+    const item=await fixtureProduct(p);
+    assert.ok(item.stockEvidencias?.['2']?.pn,'first physical baseline retained');
+    assert.ok(item.stockEvidencias?.['11']?.pn,'second physical baseline retained');
+    assert.ok([11,15].includes(item.stockActual),'effective display must be one legacy baseline, not an invented sum');
+  }
+});
+
+test('P0 two offline sales preserve money IDs once and both physical decrements',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,6,6);
+  const sA=await a.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  const sB=await b.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1});
+  assert.ok(sA.ventaId && sB.ventaId && sA.ventaId!==sB.ventaId,'two distinct receipt IDs');
+  await a.flush();await b.flush();
+  await exchange(a,b,3);
+  for(const p of [a,b]){
+    const snap=await p.w.request('/api/respaldo/exportar');
+    const item=snap.productos.find(x=>x.id==='p0-two-actors');
+    assert.equal(item.stockActual,4,'both sales subtract one each');
+    assert.equal(snap.ventas.filter(x=>x.id===sA.ventaId).length,1,'sale A economic receipt exactly once');
+    assert.equal(snap.ventas.filter(x=>x.id===sB.ventaId).length,1,'sale B economic receipt exactly once');
+  }
+  await exchange(a,b,2);
+  assert.equal((await fixtureProduct(a)).stockActual,4,'replay cannot subtract again');
+});
