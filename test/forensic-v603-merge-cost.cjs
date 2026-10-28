@@ -30,6 +30,8 @@ async function peer(n){
 (async()=>{
  const [a,b]=await Promise.all([peer(1000),peer(1000)]);
  a.OCYjs._store.sembrar();b.OCYjs._store.sembrar();
+ assert.equal(Object.keys(a.OCYjs.getProductos()).length,1000,'source Yjs must hold the real synthetic catalog');
+ assert.equal(Object.keys(b.OCYjs.getProductos()).length,1000,'target Yjs must hold the real synthetic catalog');
  a.Y.applyUpdate(a.OCYjs.doc,b.Y.encodeStateAsUpdate(b.OCYjs.doc),'red');
  b.Y.applyUpdate(b.OCYjs.doc,a.Y.encodeStateAsUpdate(a.OCYjs.doc),'red');
  a.OCYjs._store.aplicar();b.OCYjs._store.aplicar();
