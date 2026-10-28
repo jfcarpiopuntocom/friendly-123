@@ -10,8 +10,6 @@ assert.match(block,/const nombre = activo;/);
 assert.doesNotMatch(block,/const nombre = activo \|\|/);
 console.log('PASS: PIN name comes exclusively from the current active notebook');
 
-const block = code.slice(begin,end);
-
 const vm = require('node:vm');
 function gateDisplay(activeName) {
   const el = { innerHTML: '', style: { display: 'none' } };
