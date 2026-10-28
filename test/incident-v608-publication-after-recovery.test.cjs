@@ -842,7 +842,9 @@ test('P0 same catalog fingerprint cannot masquerade as equal physical stock',asy
   const beforeB=await b.w.request('/api/respaldo/exportar');
   const [ha,hb]=await Promise.all([a.w.OCSync.huellaInventario(),b.w.OCSync.huellaInventario()]);
   assert.equal(ha.ok,true);assert.equal(hb.ok,true);
-  assert.equal(ha.verificable,true);assert.equal(hb.verificable,true);
+  assert.equal(ha.comparable,true);assert.equal(hb.comparable,true);
+  assert.equal(ha.certificado,false,'one-device hash never certifies peer synchronization');
+  assert.equal(hb.certificado,false,'one-device hash never certifies peer synchronization');
   assert.equal(ha.algoritmo,'SHA-256');
   assert.equal(ha.existencias.length,64);
   assert.notEqual(ha.existencias,hb.existencias,'11 and 2 cannot share the stock checksum');
@@ -871,6 +873,7 @@ test('P0 historical untagged inventory checksum refuses a verified verdict',asyn
   assert.equal((await a.w.request('/api/respaldo/importar','POST',backup)).ok,true);
   const digest=await a.w.OCSync.huellaInventario();
   assert.equal(digest.ok,true);
-  assert.equal(digest.verificable,false,'a legacy epoch is not independently certified');
+  assert.equal(digest.comparable,false,'a legacy epoch cannot provide complete physical proof');
+  assert.equal(digest.certificado,false,'no standalone hash is a peer certification');
   assert.equal(digest.sinEpoca,1);
 });
