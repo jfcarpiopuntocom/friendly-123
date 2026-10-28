@@ -1948,6 +1948,12 @@
     }
     var _aplicando = false;   // guard: no re-volcar mientras aplicamos al store
     var _tSeed = null, _tAplica = null;
+    /* Reintento de aplicar() tras fallo (JFC 2026-10-27). Si una aplicacion (selectiva o
+       completa) lanza o termina con ultimaAplicacionAceptada=false, los IDs de
+       _productosRemotos ya se vaciaron: se baja _primerMergeAceptado para que la
+       siguiente aplicacion sea COMPLETA y se agenda UN solo reintento (flag de modulo,
+       nunca se apilan). Tope _MAX_FALLOS_APLICAR seguidos; se reinicia al aceptar. */
+    var _reintentoAplicar = null, _fallosAplicar = 0, _MAX_FALLOS_APLICAR = 5;
     // v604 candidate, fail-closed incremental remote product application.
     // Track Y.Map keys changed by a remote transaction, NOT the caller's
     // assumption about a sale; any other map/meta change forces full merge.
@@ -1956,6 +1962,10 @@
       var m = API.mapas[col];
       if (!m || typeof m.observe !== "function") return;
       m.observe(function (event, txn) {
+        /* Fail closed (JFC 2026-10-27): el unico origen de escritura LOCAL de esta
+           pestana es "seed" (sembrar()); se ignora. Cualquier origen que no sea
+           "seed"/"red"/"bc" (null, idb, otro) fuerza el merge completo. */
+        if (txn && txn.origin !== "seed" && txn.origin !== "red" && txn.origin !== "bc") { _otroRemoto = true; return; }
         if (!txn || (txn.origin !== "red" && txn.origin !== "bc")) return;
         if (col !== "productos" && col !== "actividad") { _otroRemoto = true; return; }
         event.keysChanged.forEach(function (id) {
@@ -1967,14 +1977,14 @@
     });
     if (API.meta && typeof API.meta.observe === "function") {
       API.meta.observe(function (_event, txn) {
-        if (txn && (txn.origin === "red" || txn.origin === "bc")) _otroRemoto = true;
+        if (txn && txn.origin !== "seed") _otroRemoto = true; // red/bc/desconocido (JFC 2026-10-27)
       });
     }
     // Financial facts share the Y.Doc but not COLECCIONES. Never let an
     // update mixing products and immutable ledger entries use a partial merge.
     if (API.hechosMap && typeof API.hechosMap.observe === "function") {
       API.hechosMap.observe(function (_event, txn) {
-        if (txn && (txn.origin === "red" || txn.origin === "bc")) _otroRemoto = true;
+        if (txn && txn.origin !== "seed") _otroRemoto = true; // red/bc/desconocido (JFC 2026-10-27)
       });
     }
 
@@ -2292,6 +2302,7 @@
       // dueño gane; el add-only del catálogo no cambia.
       var rolRemoto = (API.meta.get("nombreEsDueno") === true) ? "dueno" : null;
       _aplicando = true;
+      var _fallo = false;
       try {
         var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only real Yjs bridge grants canonical name
         ultimaAplicacionAceptada = !!(r && r.ok && r.actividadCompleta !== false);
@@ -2318,8 +2329,18 @@
           } catch (_) {}
         }
       }
-      catch (e) { log("aplicar:", e && e.message); }
+      catch (e) { log("aplicar:", e && e.message); _fallo = true; }
       _aplicando = false;
+      // (JFC 2026-10-27) excepcion o no aceptada -> proxima aplicacion completa + 1 reintento.
+      if (_fallo || !ultimaAplicacionAceptada) falloAplicacion();
+      else _fallosAplicar = 0;
+    }
+    function falloAplicacion() {
+      _primerMergeAceptado = false;
+      if (_reintentoAplicar) return;
+      if (_fallosAplicar >= _MAX_FALLOS_APLICAR) { log("aplicar: reintentos agotados (" + _fallosAplicar + ")"); return; }
+      _fallosAplicar++;
+      _reintentoAplicar = setTimeout(function () { _reintentoAplicar = null; try { aplicar(); } catch (_) {} }, 2000);
     }
     function valores(col) { var o = API.get(col), a = []; for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) a.push(o[k]); return a; }
 
@@ -2337,7 +2358,11 @@
     // Convergencia remota (relay) o de otra pestaña (BroadcastChannel) -> aplicar.
     // Los updates propios de sembrar() llevan origin "seed" y se ignoran aquí.
     API.doc.on("update", function (update, origin) {
-      if (origin !== "red" && origin !== "bc") return;
+      if (origin !== "red" && origin !== "bc") {
+        // (JFC 2026-10-27) origen propio = "seed"; cualquier otro desconocido fuerza merge completo.
+        if (origin !== "seed") _otroRemoto = true;
+        return;
+      }
       API._catalogoRevision++;
       /* Coalescer con espera máxima acotada. El debounce anterior reiniciaba
          300 ms con CADA update y una ráfaga podía posponer indefinidamente el
