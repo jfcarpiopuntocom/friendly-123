@@ -1452,7 +1452,7 @@
       const publicar = ok => {
         if (_guardadoCatalogoPendiente === publicable) {
           _guardadoCatalogoPendiente = null; _ultimoGuardadoPublicable = ok === true;
-          if (ok === true && _avisoCatalogoPendiente) avisarCatalogoCambiado();
+          if (ok === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) avisarCatalogoCambiado();
         }
       };
       publicable.then(publicar, () => publicar(false));
@@ -1466,7 +1466,7 @@
     }
     if (!resultado || typeof resultado.then !== "function") {
       _ultimoGuardadoPublicable = resultado === true;
-      if (resultado === true && _avisoCatalogoPendiente) avisarCatalogoCambiado();
+      if (resultado === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) avisarCatalogoCambiado();
     }
     return resultado;
   }
@@ -1512,13 +1512,12 @@
   /* v608 (JFC 2026-10-28): UN solo clasificador de fallos de guardado (_falloGuardadoLocal).
      - Cuota REAL (QuotaExceededError / code 22 / 1014 / NS_ERROR_DOM_QUOTA_REACHED) -> cartel rojo "memoria llena".
      - Cualquier otro (AbortError, candado vencido, SecurityError, IDB false...) -> NUNCA el cartel rojo: consola,
-       reintento acotado 3-6-12-24-48 s (max 5, nunca apilado) y, tras el 2o fallo seguido, aviso naranja veraz.
-     - Todo guardado exitoso (_guardadoLocalExitoso) reinicia el conteo y quita el aviso.
+       reintento acotado 3-6-12-24-48 s (max 5, nunca apilado). SIN aviso visible (orden del dueno, JFC 2026-10-28): solo consola.
+     - Todo guardado exitoso (_guardadoLocalExitoso) reinicia el conteo.
      No hay ningun await de guardado dentro del candado de escrituras: el reintento corre fuera. */
   var _reintentoGuardadoSilencioso = null, _intentosReintentoGuardado = 0, _fallosGuardadoSeguidos = 0;
   var _ultimoErrorGuardado = null, _ultimoErrorIDB = null;
   var _ESPERAS_REINTENTO_GUARDADO = [3000, 6000, 12000, 24000, 48000];
-  var ID_AVISO_GUARDADO = "f123-aviso-guardado";
   function _esErrorDeCuota(e) {
     try { return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014); }
     catch (_) { return false; }
@@ -1527,59 +1526,15 @@
   function _causaGuardado(ab) {
     let a = null;
     try { a = ab && ab.ultimoError ? ab.ultimoError() : null; } catch (_) {}
-    const b = _ultimoErrorIDB;
+    let b = _ultimoErrorIDB;
+    try { if (!b && window.OCEstadoIDB && window.OCEstadoIDB.ultimoError) b = window.OCEstadoIDB.ultimoError(); } catch (_) {}
     if (_esErrorDeCuota(a)) return a;
     if (_esErrorDeCuota(b)) return b;
     return a || b || null;
   }
-  function _textoAvisoGuardado() {
-    let es = false;
-    try { es = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es"); } catch (_) {}
-    return es ? "No se pudo guardar el último cambio. Cierra la app y vuelve a abrirla."
-              : "Your last change could not be saved. Close the app and open it again.";
-  }
-  function quitarAvisoGuardado() { try { const a = document.getElementById(ID_AVISO_GUARDADO); if (a && a.remove) a.remove(); } catch (_) {} }
-  let _avisoGuardadoOcupado = false;
-  // Toque: UN guardado duradero con tope de 5 s. Exito -> se quita (via _guardadoLocalExitoso); fallo -> mismo texto.
-  async function _alTocarAvisoGuardado() {
-    if (_avisoGuardadoOcupado) return;
-    _avisoGuardadoOcupado = true;
-    try {
-      const ok = await Promise.race([
-        Promise.resolve().then(() => guardarEstadoLocal(true, true)).then(r => r === true, () => false),
-        new Promise(r => setTimeout(() => r(false), 5000))
-      ]);
-      if (ok) quitarAvisoGuardado();
-      else { const el = document.getElementById(ID_AVISO_GUARDADO); if (el) el.textContent = _textoAvisoGuardado(); }
-    } finally { _avisoGuardadoOcupado = false; }
-  }
-  // Tira naranja fija abajo (mismo estilo que la antigua franja de version): sin opacidad/rgba/fondo oscuro, z-index < #oc-gate (9999).
-  function mostrarAvisoGuardado() {
-    try {
-      const previo = document.getElementById(ID_AVISO_GUARDADO);
-      if (previo) { previo.textContent = _textoAvisoGuardado(); return; }
-      if (!document.body) return;
-      const b = document.createElement("button");
-      b.id = ID_AVISO_GUARDADO;
-      b.type = "button";
-      b.setAttribute("role", "alert");
-      b.textContent = _textoAvisoGuardado();
-      const est = {
-        position: "fixed", left: "0", right: "0", bottom: "0", width: "100%", "box-sizing": "border-box",
-        "z-index": "9990", "min-height": "48px", padding: "12px 16px", border: "0", margin: "0",
-        "background-color": "#E86040", color: "#FFFFFF", "-webkit-text-fill-color": "#FFFFFF",
-        "font-size": "16px", "font-weight": "700", "line-height": "1.3", "text-align": "center",
-        cursor: "pointer", "border-radius": "0", animation: "none", transition: "none"
-      };
-      Object.keys(est).forEach(function (k) { b.style.setProperty(k, est[k], "important"); });
-      b.addEventListener("click", _alTocarAvisoGuardado);
-      document.body.appendChild(b);
-    } catch (_) {}
-  }
   function _guardadoLocalExitoso() {
     _fallosGuardadoSeguidos = 0; _intentosReintentoGuardado = 0; _ultimoErrorGuardado = null;
     if (_reintentoGuardadoSilencioso) { clearTimeout(_reintentoGuardadoSilencioso); _reintentoGuardadoSilencioso = null; }
-    quitarAvisoGuardado();
   }
   function _falloGuardadoLocal(e) {
     _ultimoErrorGuardado = e || null;
@@ -1594,7 +1549,6 @@
         try { const r = guardarEstadoLocal(); if (r && typeof r.then === "function") r.catch(() => {}); } catch (_) {}
       }, espera);
     }
-    if (_fallosGuardadoSeguidos >= 2 || _intentosReintentoGuardado >= _ESPERAS_REINTENTO_GUARDADO.length) mostrarAvisoGuardado();
     return false;
   }
 
@@ -3270,8 +3224,9 @@
   function avisarCatalogoCambiado() {
     // v599: sale de inmediato aunque haya un guardado en curso (ver _estadoPuedeEnviarse).
     // Retry a blocked notification after durable recovery, without waiting for the periodic sweep.
-    if (!_estadoPuedeEnviarse()) { _avisoCatalogoPendiente = true; return; }
-    try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); _avisoCatalogoPendiente = false; } catch (_) {}
+    // typeof guard: test harnesses extract this function without the flag declared (JFC 2026-10-28)
+    if (!_estadoPuedeEnviarse()) { if (typeof _avisoCatalogoPendiente !== "undefined") _avisoCatalogoPendiente = true; return; }
+    try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); if (typeof _avisoCatalogoPendiente !== "undefined") _avisoCatalogoPendiente = false; } catch (_) {}
   }
 
   function mov(tipo, detalle, avisar = true) {

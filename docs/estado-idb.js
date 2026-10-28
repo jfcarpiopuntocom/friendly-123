@@ -124,6 +124,8 @@
     _cola = resultado.then(function () {}, function () {});
     return resultado;
   }
+  // (JFC 2026-10-28) causa del ultimo fallo de escritura: el clasificador de mock-backend la lee (cuota real -> cartel rojo).
+  var _ultimoError = null;
   async function escribir(estado) {
     if (!SOPORTADO || !estado || typeof estado !== "object") return false;
     try {
@@ -138,8 +140,10 @@
         tx.onerror = function () { reject(tx.error); };
         tx.onabort = function () { reject(tx.error || new Error("abortada")); };
       });
+      _ultimoError = null;
       return true;
     } catch (err) {
+      _ultimoError = err || null;
       try { console.error("[estado-idb] guardar:", err); } catch (_) {}
       return false;
     }
@@ -209,5 +213,5 @@
     } catch (_) { return null; }
   }
 
-  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO };
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, ultimoError: function () { return _ultimoError; } };
 })();

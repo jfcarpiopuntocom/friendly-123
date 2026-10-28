@@ -19,7 +19,7 @@ const FALLA=()=>{
   Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(n,o,cb)=>window.__lock?Promise.reject(new DOMException('lock timeout','AbortError')):Promise.resolve(cb())}});
 };
 
-test('retry backoff is 3,6,12,24,48 s and stops at 5 attempts; notice appears; no red banner',async()=>{
+test('retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and no notice',async()=>{
   await withDevice(async page=>{
     await page.evaluate(FALLA);
     await POST(page,NUEVO('R1'));
@@ -27,51 +27,28 @@ test('retry backoff is 3,6,12,24,48 s and stops at 5 attempts; notice appears; n
     const r=await page.evaluate(()=>({d:window.__delays.slice(),aviso:!!document.getElementById('f123-aviso-guardado'),quota:!!document.getElementById('oc-quota-aviso')}));
     assert.deepEqual(r.d,[3000,6000,12000,24000,48000]);
     assert.equal(r.quota,false);
-    assert.equal(r.aviso,true);
+    assert.equal(r.aviso,false,'no visible notice element (owner order)');
     await page.waitForTimeout(500);
     assert.equal(await page.evaluate(()=>window.__delays.length),5,'no 6th attempt');
   });
 });
 
-test('notice EN: style, below #oc-gate; tap keeps text on failure and hides on success',async()=>{
-  await withDevice(async page=>{
-    await page.evaluate(()=>{window.OCI18n.getLang=()=>'en';});
-    await page.evaluate(FALLA);
-    await POST(page,NUEVO('N1'));
-    await page.waitForSelector('#f123-aviso-guardado');
-    const st=await page.evaluate(()=>{const e=document.getElementById('f123-aviso-guardado'),c=getComputedStyle(e);
-      return {t:e.textContent,bg:c.backgroundColor,fg:c.color,fs:c.fontSize,mh:c.minHeight,pos:c.position,z:c.zIndex,op:c.opacity};});
-    assert.equal(st.t,'Your last change could not be saved. Close the app and open it again.');
-    assert.equal(st.bg,'rgb(232, 96, 64)');assert.equal(st.fg,'rgb(255, 255, 255)');assert.equal(st.fs,'16px');
-    assert.equal(st.pos,'fixed');assert.equal(st.op,'1');assert.ok(Number(st.z)<9999);assert.ok(parseFloat(st.mh)>=48);
-    // tap while still failing: same text, still there (never "still saving")
-    await page.evaluate(()=>document.getElementById('f123-aviso-guardado').click());await page.waitForTimeout(400);
-    assert.equal(await page.evaluate(()=>{const e=document.getElementById('f123-aviso-guardado');return e&&e.textContent;}),st.t);
-    // storage heals: tap -> durable save ok -> hidden
-    await page.evaluate(()=>{window.__lock=false;});
-    await page.evaluate(()=>document.getElementById('f123-aviso-guardado').click());
-    await page.waitForFunction(()=>!document.getElementById('f123-aviso-guardado'),null,{timeout:7000});
-  });
-});
-
-test('notice ES text when UI language is Spanish',async()=>{
-  await withDevice(async page=>{
-    await page.evaluate(()=>{window.OCI18n.getLang=()=>'es';});
-    await page.evaluate(FALLA);
-    await POST(page,NUEVO('E1'));
-    await page.waitForSelector('#f123-aviso-guardado');
-    assert.equal(await page.evaluate(()=>document.getElementById('f123-aviso-guardado').textContent),'No se pudo guardar el último cambio. Cierra la app y vuelve a abrirla.');
-  });
-});
-
-test('a later successful save resets the counter and hides the notice',async()=>{
+test('a later successful save resets the retry counter; no visible notice ever',async()=>{
   await withDevice(async page=>{
     await page.evaluate(FALLA);
     await POST(page,NUEVO('S1'));
-    await page.waitForSelector('#f123-aviso-guardado');
-    await page.evaluate(()=>{window.__lock=false;});
+    await page.waitForTimeout(800);
+    assert.equal(await page.evaluate(()=>!!document.getElementById('f123-aviso-guardado')),false,'owner order: no notice element');
+    await page.evaluate(()=>{window.__lock=false;window.__delays.length=0;});
     await POST(page,NUEVO('S2'));
-    await page.waitForFunction(()=>!document.getElementById('f123-aviso-guardado'),null,{timeout:7000});
+    await page.waitForTimeout(300);
+    // counter was reset by the success: a new failure series starts again at 3000
+    await page.evaluate(()=>{window.__lock=true;});
+    await POST(page,NUEVO('S3'));
+    await page.waitForTimeout(300);
+    const d=await page.evaluate(()=>window.__delays.slice());
+    assert.equal(d[0],3000,'backoff restarted after a success: '+JSON.stringify(d));
+    assert.equal(await page.evaluate(()=>!!document.getElementById('f123-aviso-guardado')),false);
   });
 });
 
@@ -97,5 +74,22 @@ test('store name is gold #E8A020 (computed) in light and dark scheme',async()=>{
       assert.ok(r,'wordmark element exists');
       assert.equal(r.c,'rgb(232, 160, 32)',scheme);assert.equal(r.f,'rgb(232, 160, 32)',scheme);
     }
+  });
+});
+
+test('real IndexedDB quota error (localStorage unavailable) still shows the red banner',async()=>{
+  await withDevice(async page=>{
+    await page.evaluate(()=>{
+      const orig=localStorage.setItem.bind(localStorage);
+      localStorage.setItem=function(k,v){ if(String(k).indexOf('f123_estado_v4')===0) throw new DOMException('denied','SecurityError'); return orig(k,v); };
+      // Real estado-idb path: its write rejects with a quota error, estado-idb catches it and returns false.
+      const orig2=IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put=function(){ throw new DOMException('full','QuotaExceededError'); };
+      window.__restorePut=()=>{IDBObjectStore.prototype.put=orig2;};
+    });
+    await POST(page,NUEVO('IQ1'));
+    await page.waitForTimeout(500);
+    const r=await page.evaluate(()=>({q:!!document.getElementById('oc-quota-aviso'),a:!!document.getElementById('f123-aviso-guardado')}));
+    assert.deepEqual(r,{q:true,a:false});
   });
 });
