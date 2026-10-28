@@ -88,4 +88,20 @@ async function peer(n){
   sourceName:local?.nombre,targetName:remote?.nombre,targetPrice:remote?.precio}));
  assert.equal(remote?.nombre,local?.nombre,'Remote must receive a single edited name');
  assert.equal(remote?.precio,local?.precio,'Remote must receive a single edited price');
+
+ assert.equal(applyShapes.at(-1)?.productos,1,'only the product changed on a recovered channel');
+ assert.equal(applyShapes.at(-1)?.ubicaciones,0,'unmodified shelves cannot be replayed as work');
+ // Mixed metadata and product changes must NOT take the fast route.
+ const prior=b.Y.encodeStateVector(b.OCYjs.doc);
+ a.OCYjs.doc.transact(()=>{
+   const p=a.OCYjs.getProductos()['perf-merge-1'];
+   a.OCYjs.mapas.productos.set('perf-merge-1',{...p,nombre:'Synthetic also changed'});
+   a.OCYjs.meta.set('nombreNegocio','SYNTHETIC-MIXED-METADATA');
+ },'seed');
+ const patchMixed=a.Y.encodeStateAsUpdate(a.OCYjs.doc,prior);
+ b.Y.applyUpdate(b.OCYjs.doc,patchMixed,'red');
+ b.OCYjs._store.aplicar();
+ assert.equal(applyShapes.at(-1)?.productos,1000,
+   'mixed store identity change demands the full notebook merge');
+
 })().catch(e=>{console.error(e);process.exitCode=1});
