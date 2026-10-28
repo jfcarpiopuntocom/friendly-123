@@ -27,3 +27,18 @@ test('P0: count references business order as observed physical movement, must re
  assert.equal(s.onHand,null,'orders do not alter physical stock');
  assert.equal(s.trust,'needs-reconciliation');
 });
+
+test('P0: backup preserves conflicting evidence, not only the winner of an event ID',()=>{
+ const j=new Journal(book);
+ j.append(e('base',1,'OPEN','cream',10));
+ const original=e('pc',1,'RECEIVE','cream',3);
+ j.append(original);
+ j.append({...original,qty:4});
+ j.append({...original,qty:5});
+ assert.equal(j.quarantined.length,2,'three signed claims imply two losing alternatives');
+ const backup=j.export(),restored=new Journal(book);
+ restored.import(backup);
+ assert.equal(restored.quarantined.length,2,'two different losing facts survive export and restore');
+ assert.equal(restored.project('cream').trust,'needs-reconciliation');
+ assert.equal(restored.size,2);
+});
