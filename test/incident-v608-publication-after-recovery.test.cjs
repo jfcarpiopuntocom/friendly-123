@@ -931,3 +931,34 @@ test('P0 watchdog does not trigger repair when peer heartbeat and local metadata
   assert.equal(b.accion,null,'same fingerprint must never trigger automatic resync');
   assert.equal(w.OCSyncWatchdog.estado().divergencias['peer-equal'],0);
 });
+
+test('P0 watchdog must not repeatedly resync for a peer offline longer than a day',()=>{
+  const w=browser();w.document.readyState='loading';
+  w.localStorage.setItem('f123_micelio_vistos',JSON.stringify({
+    'peer-offline':{huella:'#OLD1',rol:'empleado',visto:Date.now()-24*60*60*1000}
+  }));
+  w.OCSync={huella:()=>({corta:'#NOW1'})};
+  w.OCAuth={rolActual:()=> 'dueno'};
+  w.OCSyncControl={deviceIdActual:()=> 'local-owner'};
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/sync-watchdog.js'),'utf8'),w);
+  w.OCSyncWatchdog.verificarConsistencia();
+  const result=w.OCSyncWatchdog.verificarConsistencia();
+  assert.deepEqual(Array.from(result.divergentes),[],
+    'silent historical device cannot force continuous resync of the active one');
+  assert.equal(result.accion,null);
+});
+test('P0 watchdog still detects a freshly seen genuinely different catalog',()=>{
+  const w=browser();w.document.readyState='loading';
+  w.localStorage.setItem('f123_micelio_vistos',JSON.stringify({
+    'peer-active':{huella:'#DIFF',rol:'empleado',visto:Date.now()}
+  }));
+  w.OCSync={huella:()=>({corta:'#LOCAL'})};
+  w.OCAuth={rolActual:()=> 'dueno'};
+  w.OCSyncControl={deviceIdActual:()=> 'local-owner'};
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/sync-watchdog.js'),'utf8'),w);
+  const first=w.OCSyncWatchdog.verificarConsistencia();
+  const second=w.OCSyncWatchdog.verificarConsistencia();
+  assert.equal(first.accion,null,'one divergent heartbeat cannot trigger resync');
+  assert.deepEqual(Array.from(second.divergentes),['peer-active']);
+  assert.equal(second.accion,'resincronizar','a recently seen real difference still triggers repair');
+});
