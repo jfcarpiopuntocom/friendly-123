@@ -113,3 +113,17 @@ test('v602 real Yjs phones-to-PC: saved sale keeps stock and money aligned', asy
   await sincronizar(cel,pc);
   assert.equal((await pc.request('/api/respaldo/exportar')).ventas.filter(v=>String(v.id)===String(result.ventaId)).length,1,'replay cannot duplicate money');
 });
+
+test('v602 phone rejoin with an older 14-versus-13 stock mismatch and a fresh sale',async()=>{
+  const cel=await peer(),pc=await peer();
+  await conBase(cel,'p-crema-r',13,{},13,Date.now()-10000);
+  await conBase(pc, 'p-crema-r',14,{},14,Date.now()-20000);
+  const sold=await cel.request('/api/productos/p-crema-r/venta','POST',{cantidad:1});
+  assert.ok(sold.ventaId,'phone sale is durably recorded');
+  assert.equal(await stockDe(pc,'p-crema-r'),14,'PC remains offline with its old inventory');
+  await sincronizar(cel,pc);
+  assert.equal(await stockDe(pc,'p-crema-r'),12,'newer proven phone stock must arrive after rejoin');
+  assert.equal(await stockDe(cel,'p-crema-r'),12);
+  const snapshot=await pc.request('/api/respaldo/exportar');
+  assert.equal(snapshot.ventas.filter(v=>v.id===sold.ventaId).length,1,'rejoin preserves the exact sale ID once');
+});
