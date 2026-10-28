@@ -92,14 +92,14 @@ async function peer(n){
  assert.equal(applyShapes.at(-1)?.productos,1,'only the product changed on a recovered channel');
  assert.equal(applyShapes.at(-1)?.ubicaciones,0,'unmodified shelves cannot be replayed as work');
  // Mixed metadata and product changes must NOT take the fast route.
- const prior=b.Y.encodeStateVector(b.OCYjs.doc);
+ const mixedUpdates=[];
+ a.OCYjs.doc.on('update',(update,origin)=>{ if(origin==='seed')mixedUpdates.push(new Uint8Array(update)); });
  a.OCYjs.doc.transact(()=>{
    const p=a.OCYjs.getProductos()['perf-merge-1'];
    a.OCYjs.mapas.productos.set('perf-merge-1',{...p,nombre:'Synthetic also changed'});
    a.OCYjs.meta.set('nombreNegocio','SYNTHETIC-MIXED-METADATA');
  },'seed');
- const patchMixed=a.Y.encodeStateAsUpdate(a.OCYjs.doc,prior);
- b.Y.applyUpdate(b.OCYjs.doc,patchMixed,'red');
+ for(const update of mixedUpdates)b.Y.applyUpdate(b.OCYjs.doc,update,'red');
  b.OCYjs._store.aplicar();
  assert.equal(applyShapes.at(-1)?.productos,1000,
    'mixed store identity change demands the full notebook merge');
