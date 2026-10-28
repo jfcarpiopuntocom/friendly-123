@@ -1948,6 +1948,27 @@
     }
     var _aplicando = false;   // guard: no re-volcar mientras aplicamos al store
     var _tSeed = null, _tAplica = null;
+    // v604 candidate, fail-closed incremental remote product application.
+    // Track Y.Map keys changed by a remote transaction, NOT the caller's
+    // assumption about a sale; any other map/meta change forces full merge.
+    var _productosRemotos = new Set(), _otroRemoto = false, _primerMergeAceptado = false;
+    COLECCIONES.forEach(function (col) {
+      var m = API.mapas[col];
+      if (!m || typeof m.observe !== "function") return;
+      m.observe(function (event, txn) {
+        if (!txn || (txn.origin !== "red" && txn.origin !== "bc")) return;
+        if (col !== "productos") { _otroRemoto = true; return; }
+        event.keysChanged.forEach(function (id) {
+          if (!API.mapas.productos.has(String(id))) _otroRemoto = true;
+          else _productosRemotos.add(String(id));
+        });
+      });
+    });
+    if (API.meta && typeof API.meta.observe === "function") {
+      API.meta.observe(function (_event, txn) {
+        if (txn && (txn.origin === "red" || txn.origin === "bc")) _otroRemoto = true;
+      });
+    }
 
     // store -> Yjs. Add/update por id; nunca borra del Y.Map (add-only también
     // aguas arriba). Las bajas de equipo viajan como tombstone (borrado:true),
@@ -2229,8 +2250,27 @@
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
       var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando && !API.canal.peerSnapshot ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      // Only after a verified full application. A product-only Yjs update has
+      // already been decrypted, and the unchanged collections are no-ops.
+      // Financial ops live in the separate append-only channel and are NEVER
+      // inferred or omitted based on a product's stock revision.
+      var soloProductos = _primerMergeAceptado && !_otroRemoto && _productosRemotos.size > 0 &&
+        !(API.canal && API.canal.recuperando);
+      var cambiosProductos = soloProductos ? Array.from(_productosRemotos) : [];
+      _productosRemotos.clear(); _otroRemoto = false;
       var hay = false;
-      COLECCIONES.forEach(function (c) { remoto[c] = valores(c); if (remoto[c].length) hay = true; });
+      COLECCIONES.forEach(function (c) {
+        remoto[c] = soloProductos ? (c === "productos" ? cambiosProductos.map(function (id) {
+          return API.mapas.productos.get(id);
+        }).filter(Boolean) : []) : valores(c);
+        if (remoto[c].length) hay = true;
+      });
+      // The app's catalog API accepts partial arrays but requires these two.
+      // Empty shelves never mean deletion: the merge is append-only.
+      if (soloProductos && remoto.productos.length !== cambiosProductos.length) {
+        soloProductos = false;
+        COLECCIONES.forEach(function (c) { remoto[c] = valores(c); });
+      }
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
       // aplicarse aunque no haya entidades — antes se descartaba y el nombre nunca
       // llegaba a un aparato que recibió primero el _meta.
@@ -2244,6 +2284,7 @@
       try {
         var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only real Yjs bridge grants canonical name
         ultimaAplicacionAceptada = !!(r && r.ok && r.actividadCompleta !== false);
+        if (ultimaAplicacionAceptada && !soloProductos) _primerMergeAceptado = true;
         ultimaAplicacionPins = Promise.resolve(r && r.pinsConfirmados).then(function (ok) { return ok === true; }, function () { return false; });
         // A2/A3 (JFC 2026-09-10): si el merge sumó algo, avisar a la UI para que
         // (a) lo muestre como alerta dentro de "Today's alerts", no como banner
