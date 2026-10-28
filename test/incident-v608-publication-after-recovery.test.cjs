@@ -315,3 +315,32 @@ test('P0 1000-product notebook: one remote PN change must be preserved without d
   console.error('P0_1000_PRODUCT_BOOTSTRAP_MS',bootstrapElapsed);
   console.error('P0_1000_PRODUCT_INCREMENTAL_DELTA_METRICS',JSON.stringify(deltaMetrics));
 });
+
+
+test('P0 hot-path witness scan: increment only one product without walking every historical witness',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,5,5);
+  for(let i=0;i<32;i++){
+    const r=await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:1,motivo:'synthetic forensic PN '+i});
+    assert.equal(r.stockActual,6+i);
+    await a.flush();
+  }
+  await exchangeBinaryDelta(a,b);
+  assert.equal((await fixtureProduct(b)).stockActual,37);
+  const map=b.w.OCYjs.stockPNTestigos;
+  assert.ok(map&&map.size>=32,'enough independent history to detect a full map walk');
+  const original=map.forEach;
+  let historicalVisits=0;
+  map.forEach=function(callback,...rest){
+    return original.call(this,function(...args){historicalVisits++;return callback(...args);},...rest);
+  };
+  try{
+    await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:1,motivo:'only new fact'});
+    await a.flush();
+    await exchangeBinaryDelta(a,b);
+    assert.equal((await fixtureProduct(b)).stockActual,38,'new operation preserved');
+    assert.equal(historicalVisits,0,'hot path must use indexed facts, not iterate all immutable history for one change');
+  } finally {
+    map.forEach=original;
+  }
+});
