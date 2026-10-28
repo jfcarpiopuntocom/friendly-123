@@ -10,7 +10,7 @@ async function peer(n){
  const template=fx.productos.find(p=>Number(p.stockActual)>=1);
  assert.ok(template);
  fx.productos=Array.from({length:n},(_,i)=>({
-  ...template,id:'perf-merge-'+i,nombre:'Synthetic '+i,barcode:'PM'+i,
+  ...template,id:'perf-merge-'+i,nombre:'Synthetic '+i,barcode:'PM'+i,sku:'SKU-PM-'+i,familiaId:'',productoBaseId:null,
   stockActual:10,stockBase:10,stockPN:{},stockTs:1,rev:{c:1,d:'benchmark'}
  }));
  fx.ventas=[];fx.movimientos=[];
@@ -46,9 +46,11 @@ async function peer(n){
  const remote=(await b.request('/api/productos')).find(p=>p.id==='perf-merge-0');
  const yFrom=a.OCYjs.getProductos()['perf-merge-0']||null;
  const yTo=b.OCYjs.getProductos()['perf-merge-0']||null;
- console.log(JSON.stringify({kind:'forensic-meta-visibility',patch,sourceRev:local?.rev,targetRev:remote?.rev,
+ console.log(JSON.stringify({kind:'forensic-meta-visibility',patch:{id:patch?.id,nombre:patch?.nombre,precio:patch?.precio},sourceRev:local?.rev,targetRev:remote?.rev,
    yFromName:yFrom?.nombre,yFromRev:yFrom?.rev,yToName:yTo?.nombre,yToRev:yTo?.rev,
-   sourceStockBase:local?.stockBase,targetStockBase:remote?.stockBase}));
+   sourceStockBase:local?.stockBase,targetStockBase:remote?.stockBase,
+   sourceYjsCount:Object.keys(a.OCYjs.getProductos()).length,targetYjsCount:Object.keys(b.OCYjs.getProductos()).length,
+   sourceYjsFirst:Object.keys(a.OCYjs.getProductos()).slice(0,4),targetYjsFirst:Object.keys(b.OCYjs.getProductos()).slice(0,4)}));
 
  console.log(JSON.stringify({kind:'single-remote-edit-1000',seedMs:+seedMs.toFixed(2),applyMs:+applyMs.toFixed(2),updates:pending.length,
   sourceName:local?.nombre,targetName:remote?.nombre,targetPrice:remote?.precio}));
