@@ -181,12 +181,19 @@
     var res = { divergentes: [], accion: null };
     try {
       if (!window.OCSync || !window.OCSync.huella) return res;
-      var miHuella = window.OCSync.huella();
+      // Heartbeats contain the short STRING (micelio-vivo.miHuella), while
+      // OCSync.huella() returns an OBJECT {corta,completa,...}. Comparing the
+      // two directly made every healthy peer appear divergent on every poll.
+      var _h = window.OCSync.huella();
+      var miHuella = typeof _h === "string" ? _h :
+        (_h && typeof _h.corta === "string" ? _h.corta : "");
+      if (!miHuella) return res; // unknown is not proof of divergence
       var pares = huellasDePares();
       var miRango = rangoRol(rolLocal());
       for (var id in pares) {
         if (!Object.prototype.hasOwnProperty.call(pares, id)) continue;
         if (id === (window.OCSyncControl && window.OCSyncControl.deviceIdActual ? window.OCSyncControl.deviceIdActual() : "")) continue;
+        if (typeof pares[id] !== "string" || !pares[id]) continue;
         if (pares[id] === miHuella) { _divergencias[id] = 0; continue; }
         _divergencias[id] = (_divergencias[id] || 0) + 1;
         if (_divergencias[id] >= DIVERGENCIA_MIN) {
