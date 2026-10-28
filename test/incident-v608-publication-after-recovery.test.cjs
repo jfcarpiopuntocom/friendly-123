@@ -962,3 +962,34 @@ test('P0 watchdog still detects a freshly seen genuinely different catalog',()=>
   assert.deepEqual(Array.from(second.divergentes),['peer-active']);
   assert.equal(second.accion,'resincronizar','a recently seen real difference still triggers repair');
 });
+
+test('P0 snapshot transport preserves multibyte product names crossing 200 KiB UTF-8 boundary',()=>{
+  const w=browser();w.document.readyState='loading';
+  Object.assign(w,{TextEncoder,TextDecoder});
+  const sent=[];
+  let snapshot;
+  w.OCSync={estadoParaCheckpoint:()=>snapshot};
+  w.OCSyncControl={enviarMensaje:(type,payload)=>{if(type==='__snapshot_trozo__')sent.push(payload);}};
+  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/sync-watchdog.js'),'utf8'),w);
+  const limit=200*1024;
+  let found=false;
+  // Find a reproducible product name where the UTF-8 byte boundary falls in
+  // the middle of a real four-byte Unicode character, without depending on
+  // timestamps or ID lengths of a specific CI runner.
+  for(let n=limit-240;n<limit+80;n++){
+    snapshot={productos:[{id:'synthetic-boundary',nombre:'X'.repeat(n)+'🌿 Cuenca café'}],huella:'SYN'};
+    const serialized=JSON.stringify(w.OCSyncWatchdog.armarSnapshot());
+    const pos=serialized.indexOf('🌿');
+    const before=new TextEncoder().encode(serialized.slice(0,pos)).byteLength;
+    if(before%limit>=limit-3){found=true;break;}
+  }
+  assert.ok(found,'test constructed a boundary inside the emoji');
+  w.OCSyncWatchdog.responderSnapshot({deviceId:'synthetic-device'});
+  assert.ok(sent.length>=2,'snapshot must actually cross the chunk boundary');
+  assert.ok(sent.every(x=>new TextEncoder().encode(x.trozo).length<=limit),
+    'no transport fragment may exceed the bounded byte limit');
+  const full=sent.sort((a,b)=>a.idx-b.idx).map(x=>x.trozo).join('');
+  const restored=JSON.parse(full);
+  assert.equal(restored.data.productos[0].nombre,snapshot.productos[0].nombre,
+    'fragmentation may not replace accents or emojis with Unicode replacement chars');
+});
