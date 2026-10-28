@@ -44,5 +44,5 @@ jobs:
         run: |
           node --check docs/app-inline-03.min.js
           node --check src/app/app-inline-03.js
-          node --test test/incident-v604-no-auto-reload-pending-yjs.test.cjs test/e2-active-user-reload.test.js test/incident-v604-selective-apply-retry.test.cjs test/incident-v604-login-reload-guard.test.cjs test/pr439-update-notice-10min.test.cjs
+          node --test test/incident-v604-no-auto-reload-pending-yjs.test.cjs test/e2-active-user-reload.test.js test/incident-v604-selective-apply-retry.test.cjs test/incident-v604-login-reload-guard.test.cjs test/pr439-update-notice.test.cjs
           node --test test/incident-first-sync-integrity-v558.test.js test/incident-stale-stock-metadata-v558.test.js test/v579-venta-pn-ack.test.js test/yjs-pin-seed.test.js test/yjs-idle-write-budget.test.js test/peer-initial-recovery.test.cjs

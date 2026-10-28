@@ -249,9 +249,9 @@ const _ocActSolaOn = true;
   try { window.__f123MarcarRecarga = marcarRecarga; } catch (_) {}
   /* (JFC 2026-10-28) Recarga frenada por recuperacion Yjs/IDB: se anota desde cuando (sessionStorage
      "f123_update_frenada_desde", no se sobrescribe) y se registra UNA vez "frenada-recuperacion" en la
-     bitacora. Nunca recarga. Tras 10 min el vigia muestra un aviso; solo recarga si el usuario lo toca. */
+     bitacora. Nunca recarga. (JFC 2026-10-28) sin plazo: aviso inmediato; ver Workbox
+     handling-service-worker-updates. Solo recarga si el usuario toca el aviso. */
   const KF = "f123_update_frenada_desde";
-  const FRENADA_MAX_MS = 600000;
   function frenadaDesde() { try { return Number(sessionStorage.getItem(KF)) || 0; } catch (_) { return 0; } }
   function marcarFrenada() {
     try {
@@ -262,7 +262,7 @@ const _ocActSolaOn = true;
   }
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
   function intentar() {
-    try { if (pendiente() && recuperacionPendiente()) marcarFrenada(); } catch (_) {} // (JFC 2026-10-28)
+    try { vigilar(); } catch (_) {} // (JFC 2026-10-28) aviso inmediato en cuanto se frena la recarga (sin plazo)
     if (!pendiente() || !seguro()) return;
     // Every caller must honor the idle window, including a late version reply.
     if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
@@ -310,7 +310,7 @@ const _ocActSolaOn = true;
       intentar();
     } catch (_) {}
   }
-  /* (JFC 2026-10-28) AVISO tras 10 min frenado por recuperacion. Una tira fija abajo (boton), sin
+  /* (JFC 2026-10-28) AVISO apenas la recarga se frena por recuperacion (sin plazo). Una tira fija abajo (boton), sin
      fondo oscuro ni opacidad ni rgba; estilos inline con !important (sin tocar CSS). z-index 9990:
      por debajo del PIN gate (#oc-gate = 9999). Tocarlo GUARDA y luego recarga; nunca recarga a la fuerza. */
   const ID_AVISO = "f123-aviso-version";
@@ -380,13 +380,14 @@ const _ocActSolaOn = true;
       document.body.appendChild(b);
     } catch (_) {}
   }
-  // Vigia de 60 s (uno solo, ver setInterval abajo): muestra el aviso tras 10 min frenado.
+  // (JFC 2026-10-28) sin plazo: aviso inmediato; ver Workbox handling-service-worker-updates.
+  // Se llama donde se frena la recarga (intentar) y donde se marca el pendiente (revisar, onShellTomado);
+  // el setInterval de 60 s solo sirve para QUITAR el aviso al terminar la recuperacion, no retrasa mostrarlo.
   function vigilar() {
     try {
       if (!pendiente() || !recuperacionPendiente()) { limpiarFrenada(); quitarAviso(); return; }
       marcarFrenada();
-      const d = frenadaDesde();
-      if (d && Date.now() - d >= FRENADA_MAX_MS) mostrarAviso();
+      mostrarAviso();
     } catch (_) {}
   }
   // E2: a takeover can already match version.json while this document is stale.
@@ -398,6 +399,7 @@ const _ocActSolaOn = true;
     ultimoControladorSW = actual;
     try { sessionStorage.setItem(KP, "1"); } catch (_) {}
     _recargarSeguroVersion();
+    vigilar();
     if (document.visibilityState === "hidden" || Date.now() - ultimoToque > 90000) intentar();
   }
   navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
@@ -421,7 +423,7 @@ const _ocActSolaOn = true;
   });
   setInterval(function () { if (Date.now() - ultimoToque > 90000) intentar(); }, 15000);
   setInterval(revisar, 600000);
-  setInterval(vigilar, 60000); // (JFC 2026-10-28) unico vigia del aviso; no se apila
+  setInterval(vigilar, 60000); // (JFC 2026-10-28) unico re-chequeo: solo quita el aviso tras la recuperacion
   setTimeout(revisar, 20000);
 })();
 

@@ -1,12 +1,11 @@
 'use strict';
-// (JFC 2026-10-28) Aviso tras 10 min frenado por recuperacion Yjs/IDB: no bloqueante, solo recarga si el
+// (JFC 2026-10-28) Aviso inmediato (sin plazo) al frenar la recarga por recuperacion Yjs/IDB: no bloqueante, solo recarga si el
 // usuario lo toca, y SIEMPRE guarda antes. Se carga el fuente Y el bundle minificado en un VM con DOM falso.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const read=f=>fs.readFileSync(path.join(__dirname,'..',f),'utf8');
 const sources=['src/app/app-inline-03.js','docs/app-inline-03.min.js'];
-const MIN10=600000;
 function store(){const m=new Map();return {getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>{m.set(k,String(v));},removeItem:k=>{m.delete(k);},m};}
 function el(tag){
  const props=new Map(),attrs={},l={};
@@ -59,28 +58,33 @@ for(const file of sources){
   assert.deepEqual(f.log(),['frenada-recuperacion']);
   assert.equal(f.reloads.length,0,'nunca recarga por si solo');
  });
- test(file+' - no se muestra antes de 10 min; se muestra a los >= 10 min',()=>{
-  const f=cargar(file);
+ test(file+' - se muestra de inmediato al frenarse (sin avanzar el reloj); no si no esta frenado',()=>{
+  let f=cargar(file);
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();
-  f.clock.t+=MIN10-1;f.sola.vigilar();
-  assert.equal(f.aviso(),undefined);
-  f.clock.t+=1;f.sola.vigilar();f.sola.vigilar();
+  f.sola.intentar(); // el rechazo de recarga dispara el chequeo
   assert.equal(f.body.filter(e=>e.id==='f123-aviso-version').length,1,'una sola tira');
+  f.sola.vigilar();f.sola.intentar();
+  assert.equal(f.body.filter(e=>e.id==='f123-aviso-version').length,1,'sin duplicados');
   const a=f.aviso();
   assert.equal(a.tag,'button');assert.equal(a.attrs.role,'status');assert.equal(a.attrs['aria-live'],'polite');
   assert.match(a.textContent,/Hay una versión nueva/);
+  assert.equal(f.reloads.length,0);
+  f=cargar(file,{recup:false}); // pendiente pero sin recuperacion: no se frena, no hay aviso
+  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
+  f.sola.vigilar();assert.equal(f.aviso(),undefined);
+  f=cargar(file); // frenada pero sin version pendiente: no hay aviso
+  f.sola.vigilar();f.sola.intentar();assert.equal(f.aviso(),undefined);
  });
  test(file+' - se quita si ya no hay pendiente o termino la recuperacion',()=>{
   let f=cargar(file);
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();f.clock.t+=MIN10;f.sola.vigilar();assert.ok(f.aviso());
+  f.sola.vigilar();f.sola.vigilar();assert.ok(f.aviso());
   f.ctx.sessionStorage.removeItem('f123_act_sola_pendiente');f.sola.vigilar();
   assert.equal(f.aviso(),undefined);
   assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);
   f=cargar(file);
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();f.clock.t+=MIN10;f.sola.vigilar();assert.ok(f.aviso());
+  f.sola.vigilar();f.sola.vigilar();assert.ok(f.aviso());
   f.yjs.canal.recuperando=false;f.sola.vigilar();
   assert.equal(f.aviso(),undefined);
   assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);
@@ -89,7 +93,7 @@ for(const file of sources){
   let guardados=0;
   const f=cargar(file,{save:async()=>{guardados++;return true;}});
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();f.clock.t+=MIN10;f.sola.vigilar();
+  f.sola.vigilar();f.sola.vigilar();
   const a=f.aviso();
   await Promise.all([a.l.click(),a.l.click()]); // doble toque simultaneo: un solo guardado y una recarga
   assert.equal(guardados,1);assert.equal(f.reloads.length,1);
@@ -102,7 +106,7 @@ for(const file of sources){
   for(const save of casos){
    const f=cargar(file,{save:save||undefined});
    f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-   f.sola.vigilar();f.clock.t+=MIN10;f.sola.vigilar();
+   f.sola.vigilar();f.sola.vigilar();
    const a=f.aviso();
    const p=a.l.click();
    const tope=f.timers.find(t=>t.k==='t'&&t.ms===5000);
@@ -123,7 +127,7 @@ for(const file of sources){
    let guardados=0;
    const f=cargar(file,{save:async()=>{guardados++;return true;}});
    f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-   f.sola.vigilar();f.clock.t+=MIN10;f.sola.vigilar();
+   f.sola.vigilar();f.sola.vigilar();
    const a=f.aviso();poner(f);
    await a.l.click();
    assert.equal(guardados,0);assert.equal(f.reloads.length,0);
@@ -133,7 +137,7 @@ for(const file of sources){
  test(file+' - estilos del aviso: 16px+, #FFFFFF important, sin opacity ni rgba, z-index bajo el PIN gate',()=>{
   const f=cargar(file);
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();f.clock.t+=MIN10;f.sola.vigilar();
+  f.sola.vigilar();f.sola.vigilar();
   const p=f.aviso().style.props;
   assert.deepEqual(p.get('color'),{v:'#FFFFFF',p:'important'});
   assert.deepEqual(p.get('-webkit-text-fill-color'),{v:'#FFFFFF',p:'important'});
