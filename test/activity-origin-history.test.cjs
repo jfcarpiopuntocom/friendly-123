@@ -64,7 +64,7 @@ test('the authentic bridge withholds durable peer acknowledgement while origin h
  const sync=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
  const start=sync.indexOf('    var ultimaAplicacionVisible ='),end=sync.indexOf('    // Cambios locales del catálogo',start);
  let complete=false,commits=0;
- const ctx={Promise,Map,API:{meta:new Map(),get:()=>({one:{id:'entry'}}),hechosListos:()=>true},COLECCIONES:['actividad'],_aplicando:false,_tAplica:null,
+ const ctx={Promise,Map,incorporarTestigosStock:items=>items,API:{meta:new Map(),get:()=>({one:{id:'entry'}}),hechosListos:()=>true},COLECCIONES:['actividad'],_aplicando:false,_tAplica:null,
     _primerMergeAceptado:false,_otroRemoto:false,_productosRemotos:new Set(),_actividadRemota:new Set(),
     _reintentoAplicar:null,_fallosAplicar:0,_MAX_FALLOS_APLICAR:5,
   window:{OCSync:{aplicarCatalogo:()=>({ok:true,actividadCompleta:complete,pinsConfirmados:Promise.resolve(true)}),confirmarCatalogoDurable(){commits++;return Promise.resolve(true);}}},log(){},clearTimeout(){},setTimeout(){return 1;}};

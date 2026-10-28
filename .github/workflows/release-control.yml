@@ -38,7 +38,18 @@ jobs:
         run: node .claude/check-inline.cjs docs/index.html
       - name: Fast-fail mobile dashboard payments in Chromium and WebKit
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/dashboard-embed.test.js
+      - name: Pin historic v607/v606 sync bridge fixtures at immutable SHAs (synthetic tests only)
+        run: |
+          git fetch --no-tags --depth=1 origin 82952a84958641010c48bfbee6aab80007ba12e9
+          git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
+          git fetch --no-tags --depth=1 origin 7e51ed51560d6138866dae98e4a01ff1772db51c
+          git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > /tmp/f123_v606_sync_yjs.js
+          test -s /tmp/f123_v607_sync_yjs.js
+          test -s /tmp/f123_v606_sync_yjs.js
       - name: Full regression suite including browser and financial contracts
+        env:
+          F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
+          F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
         run: npm test
       - name: Artifact integrity
         run: |

@@ -14,6 +14,8 @@ function actualSyncApply(recuperando){
   const c=sync.indexOf("    // Cambios locales del catálogo",b);
   assert.ok(a>0&&b>a&&c>b,"production Yjs store apply functions found");
   const ctx={
+    // Extracted apply() excludes the independently tested physical PN index.
+    incorporarTestigosStock:items=>items,
     API:{
       meta:{get:key=>({nombreNegocio:"Synthetic Owner Shop",nombreRev:8,nombreTs:1700000000000,nombreEsDueno:true,
         pinsRol:{owner:"843"}}[key]??null)},

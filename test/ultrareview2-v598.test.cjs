@@ -107,7 +107,7 @@ test('punto 3: si ni ancla + nuevo caben, el punto automatico avisa en texto den
   await w.cajaGuardarPunto(true);
   const m = messages.find(x => x[0] === 'oc-respaldo-msg');
   assert.ok(m, 'hay mensaje en la zona de respaldos');
-  assert.match(m[1], /storage is full/);
+  assert.match(m[1], /localStorage has its own small limit/);
   assert.equal(m[2], 'var(--rojo)');
 });
 
