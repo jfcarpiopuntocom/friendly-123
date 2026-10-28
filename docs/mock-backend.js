@@ -3550,11 +3550,25 @@
         conflict: !!(p && p.stockEvidencias && Object.keys(p.stockEvidencias).length)
       };
     }).sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
-    const invalidos = rows.filter((r) => !r.id || !Number.isSafeInteger(r.stock) || r.stock < 0 ||
-      !Number.isSafeInteger(r.deficit) || r.deficit < 0 ||
-      (r.base !== null && !Number.isSafeInteger(r.base)) ||
-      r.epoch.length > 160 || r.pn.some((v) => !v[0] || !Number.isSafeInteger(v[1]) ||
-      !Number.isSafeInteger(v[2]) || v[1] < 0 || v[2] < 0)).length;
+    const idDuplicado = new Set();
+    const idsVistos = new Set();
+    rows.forEach((r) => { if (idsVistos.has(r.id)) idDuplicado.add(r.id); idsVistos.add(r.id); });
+    const invalidos = rows.filter((r) => {
+      if (!r.id || idDuplicado.has(r.id) || !Number.isSafeInteger(r.stock) || r.stock < 0 ||
+          !Number.isSafeInteger(r.deficit) || r.deficit < 0 ||
+          (r.base !== null && !Number.isSafeInteger(r.base)) || r.epoch.length > 160 ||
+          r.pn.some((v) => !v[0] || !Number.isSafeInteger(v[1]) ||
+            !Number.isSafeInteger(v[2]) || v[1] < 0 || v[2] < 0)) return true;
+      if (r.pn.length) {
+        // The movement ledger must derive the displayed physical stock.
+        // A partial or corrupted PN read model must NOT get a clean proof.
+        if (r.base === null) return true;
+        const expected = r.base + r.pn.reduce((sum,v) => sum + v[1] - v[2],0);
+        if (!Number.isSafeInteger(expected) || r.stock !== Math.max(0,expected) ||
+            r.deficit !== Math.max(0,-expected)) return true;
+      }
+      return false;
+    }).length;
     const sinEpoca = rows.filter((r) => !r.epoch).length;
     const conflictos = rows.filter((r) => r.conflict).length;
     // Never issue a clean checksum for structurally corrupt data or a browser
