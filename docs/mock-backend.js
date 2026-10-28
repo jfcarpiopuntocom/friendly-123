@@ -55,10 +55,19 @@
     const d = Number(relojDesfaseMs);
     return base + (Number.isFinite(d) ? d : 0);
   }
+  /* v609 perf: el Intl.DateTimeFormat se construye UNA vez por zona (antes se creaba en cada llamada,
+     y fechaLocalDe corre por cada venta en cada filtro). Mismo resultado; si ZONA cambia se reconstruye. */
+  let _fmtFechaZona = null, _fmtFechaObj = null;
+  function _fmtFechaLocal() {
+    if (_fmtFechaObj && _fmtFechaZona === ZONA) return _fmtFechaObj;
+    _fmtFechaObj = new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" });
+    _fmtFechaZona = ZONA;
+    return _fmtFechaObj;
+  }
   function fechaLocalDe(fechaISO, relojDesfaseMs) {
     try {
       const ms = instanteCorregidoMs(fechaISO, relojDesfaseMs);
-      return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Number.isFinite(ms) ? ms : fechaISO));
+      return _fmtFechaLocal().format(new Date(Number.isFinite(ms) ? ms : fechaISO));
     } catch (_) {
       /* Fecha ilegible: se devuelve el prefijo crudo. Peor que exacto, pero
          mucho mejor que romper el filtro entero por un dato malo. */
