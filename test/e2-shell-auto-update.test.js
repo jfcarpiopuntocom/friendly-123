@@ -89,6 +89,8 @@ test("E2: controllerchange and shell-actualizado arm safe deferred reload, never
     document:{visibilityState:"visible"},
     Date:{now:()=>100000},ultimoToque:100000,
     KP:"pending",_recargarSeguroVersion:()=>events.push("defer"),
+    // Source slice invokes vigilar() defined earlier in production.
+    vigilar:()=>{},
     intentar:()=>events.push("attempt"),
     location:{reload:()=>events.push("UNSAFE reload")}
   };
