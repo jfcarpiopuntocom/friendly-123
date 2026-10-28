@@ -828,6 +828,9 @@ test('P0 same catalog fingerprint cannot masquerade as equal physical stock',asy
     nombre:'Synthetic inventory comparison',barcode:'SYN-P0-HASH',
     stockBase:11,stockActual:11,stockPN:{},stockEpochId:'E1-11',
     stockTs:1,rev:{c:1,d:'fixture'}}];
+  base.productos.push({...base.productos[0],id:'p0-stock-fingerprint-second',
+    nombre:'Synthetic second product',barcode:'SYN-P0-HASH-SECOND',
+    stockActual:3,stockBase:3,stockPN:{},stockEpochId:'E1-3'});
   base.ventas=[];base.movimientos=[];
   const other=JSON.parse(JSON.stringify(base));
   other.productos[0].stockBase=2;
