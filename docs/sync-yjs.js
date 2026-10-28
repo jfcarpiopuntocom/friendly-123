@@ -2028,15 +2028,26 @@
     return state.hechos;
   }
   function incorporarTestigosStock(productos, mapa) {
-    if (!mapa || !mapa.size || !Array.isArray(productos) || !productos.length) return productos;
-    var hechos = _indexPNTestigos(mapa);
+    if (!Array.isArray(productos) || !productos.length) return productos;
+    var hechos = mapa && mapa.size ? _indexPNTestigos(mapa) : Object.create(null);
     return productos.map(function (p) {
       if (!p || p.id == null) return p;
       var porBase = hechos[String(p.id)];
-      if (!porBase) return p;
       var b = p.stockBase == null ? null : Number(p.stockBase);
       var epoch = typeof p.stockEpochId === "string" && p.stockEpochId.length <= 160 ? p.stockEpochId : "";
       var activeKey = JSON.stringify([b, epoch]);
+      // An explicit epoch requires independently authenticated Y.Doc facts,
+      // not merely a whole-product PN object (old bridges can relabel it).
+      // Sanitizing the incoming read-model never deletes the local ledger.
+      function sinPruebaEpoca(proof) {
+        if (!epoch || !Number.isSafeInteger(b) || !p.stockPN ||
+            !Object.keys(p.stockPN).length) return proof || p;
+        return Object.assign({}, p, {
+          stockPN: {}, stockActual: Math.max(0, b), stockDeficit: 0,
+          ...(proof ? { stockEvidencias: proof } : {})
+        });
+      }
+      if (!porBase) return sinPruebaEpoca(null);
       var prevProof = p.stockEvidencias && typeof p.stockEvidencias === "object" &&
         Object.keys(p.stockEvidencias).length > 0;
       var conflictProof = Object.keys(porBase).some(function (key) { return b === null || key !== activeKey; });
@@ -2055,20 +2066,13 @@
         // When historical witnesses exist and none are scoped to explicit E2,
         // those unscoped PN counters are NOT evidence of a new E2 movement.
         // Retain their original witnesses in the encrypted Y.Doc unchanged.
-        if (epoch && Number.isSafeInteger(b) && Object.keys(porBase).length) {
-          return Object.assign({}, p, {
-            stockPN: {}, stockActual: Math.max(0, b), stockDeficit: 0,
-            ...(e ? { stockEvidencias: e } : {})
-          });
-        }
-        return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
+        return sinPruebaEpoca(e);
       }
       var vistos = porBase[activeKey];
       // A winning whole-product value is not proof that all its counters belong
       // to this physical epoch. When independent epoch witnesses conflict,
       // derive the active counters from the epoch-scoped witness index only.
-      var competingEpoch = epoch && Object.keys(porBase).some(function (key) { return key !== activeKey; });
-      var pn = Object.assign({}, competingEpoch ? vistos.pn : (p.stockPN || {}));
+      var pn = Object.assign({}, epoch ? vistos.pn : (p.stockPN || {}));
       Object.keys(vistos.pn).forEach(function (actor) {
         var old = pn[actor] || {}, newValue = vistos.pn[actor];
         pn[actor] = { add: Math.max(Number(old.add) || 0, newValue.add),
