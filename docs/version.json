@@ -1,10 +1,10 @@
 {
-  "version": "shell v602",
+  "version": "shell v603",
   "fecha": "2026-10-27",
-  "changelog": "v602 (v601 content with a corrected integrity manifest): every non-money change (team, PIN, customers, expenses, categories, settings, merged changes from another device) now goes out to your other devices while it is still being saved, instead of after. Sales, payouts, returns and retentions still wait until they are safely saved.",
+  "changelog": "v603 candidate: preserve a metadata-only listener after exhausted peer negotiation so a later device can rejoin; guard stock arbitration against an unavailable relay clock; show only the active notebook name at PIN; refresh Today's summary when a sale is saved. No automatic stock rewrite.",
   "requerida": false,
-  "shell": "f123-shell-v602",
+  "shell": "f123-shell-v603",
   "apagar": [],
-  "releaseName": "shell v602",
-  "cacheGeneration": "golden148"
+  "releaseName": "shell v603",
+  "cacheGeneration": "golden149"
 }
