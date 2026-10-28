@@ -3983,7 +3983,7 @@
             try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if (epochConflict && epochRemote && _tsR > _tsL && _baseR !== null) {
+        if (epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) {
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
