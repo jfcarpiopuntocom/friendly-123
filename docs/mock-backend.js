@@ -3262,6 +3262,41 @@
     if (tR !== tL) return tR > tL;
     return _claveEpocaStock(remoto) > _claveEpocaStock(local);
   }
+  /* P0 fork-preservation: two different physical baselines are NOT evidence
+     that all independent stock operations have been counted. Preserve both
+     existing per-device ledgers for later human/immutable-event reconciliation.
+     This NEVER changes the displayed stock or invents a common baseline. */
+  function _pruebasStockUnir(...fuentes) {
+    const out = {};
+    function guardar(base, pn, ts) {
+      if (base == null || !Number.isSafeInteger(Number(base)) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
+      const key = String(Number(base));
+      const prev = out[key] || {};
+      const acc = Object.assign({}, prev.pn || {});
+      Object.keys(pn).sort().forEach((id) => {
+        if (!id || id.length > 120) return;
+        const v = pn[id] || {}, a = Number(v.add), b = Number(v.sub);
+        if (!Number.isSafeInteger(a) || !Number.isSafeInteger(b) || a < 0 || b < 0) return;
+        const old = acc[id] || {};
+        acc[id] = { add: Math.max(Number(old.add) || 0, a),
+                    sub: Math.max(Number(old.sub) || 0, b) };
+      });
+      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0) };
+    }
+    fuentes.forEach((x) => {
+      if (!x) return;
+      const e = x.stockEvidencias;
+      if (e && typeof e === "object" && !Array.isArray(e)) {
+        Object.keys(e).sort().forEach((key) => {
+          const v = e[key]; if (v) guardar(v.base, v.pn, v.ts);
+        });
+      }
+    });
+    fuentes.forEach((x) => { if (x) guardar(x.stockBase, x.stockPN, x.stockTs); });
+    const sorted = {};
+    Object.keys(out).sort((a,b) => Number(a)-Number(b)).forEach((key) => { sorted[key] = out[key]; });
+    return sorted;
+  }
   function _prepararOpStock(payload, idOperacion) {
     /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
        Dos dispositivos del mismo negocio pueden tener el MISMO producto con ids
@@ -3860,6 +3895,17 @@
         const _pnL = mio.stockPN && typeof mio.stockPN === "object" ? mio.stockPN : null;
         const _baseR = p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null;
         const _baseL = mio.stockBase != null && Number.isFinite(Number(mio.stockBase)) ? Number(mio.stockBase) : null;
+        // Keep the losing baseline's independent operation IDs even after LWW.
+        // The effective stock remains unchanged until a proven common epoch exists.
+        if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
+            (mio.stockEvidencias && Object.keys(mio.stockEvidencias).length) ||
+            (p.stockEvidencias && Object.keys(p.stockEvidencias).length)) {
+          const evidence = _pruebasStockUnir(mio, p);
+          if (JSON.stringify(mio.stockEvidencias || {}) !== JSON.stringify(evidence)) {
+            mio.stockEvidencias = evidence; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
+          }
+        }
         if (_baseR !== null && (_baseL === _baseR || (_baseL === null &&
             (Number(mio.stockActual) === _baseR || Number(mio.stockActual) === Number(p.stockActual))))) {
           const pn = Object.assign({}, _pnL || {});
@@ -4683,6 +4729,7 @@
           stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0,
           stockBase: p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null,
           stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
+          stockEvidencias: p.stockEvidencias && typeof p.stockEvidencias === "object" ? JSON.parse(JSON.stringify(p.stockEvidencias)) : null,
           /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
              (un dataURL de ~180KB reventaria el frame del catalogo al agrupar
              varios). Viaja solo el puntero fotoHash; los bytes van por el canal de
