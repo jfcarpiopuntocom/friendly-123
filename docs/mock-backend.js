@@ -3137,10 +3137,27 @@
     return (m.prevSello || "") + "|" + m.tipo + "|" + JSON.stringify(m.detalle) + "|" + m.fecha + "|" + (m.usuarioId || "sistema");
   }
   function _actividadClave(origen, clase, id) { return JSON.stringify([origen, clase, id]); }
+  /* v609 perf (indice incremental). Antes, CADA guardado re-validaba, re-serializaba (JSON.stringify de cada
+     version), re-clonaba y re-ordenaba (localeCompare) TODO el historial de actividad: ~100 ms por operacion
+     con historial de ventas. Ahora:
+       - _salidasActividad = arreglos que _actividadUnir devolvio. Si `antes` ES uno de ellos (misma
+         identidad; nadie lo muta, solo se reasigna) ya esta validado, deduplicado y ordenado: se parte de el sin revalidarlo,
+         y solo se revisan las entradas nuevas (indice Map por id). Cualquier otro `antes` (carga, merge
+         remoto, tests) hace la reconstruccion completa de siempre.
+       - Las versiones que ya son copias propias se registran en _claveVersion (WeakMap version -> su JSON)
+         y no se vuelven a serializar ni a clonar.
+       - Un id nuevo se inserta por mezcla de listas ordenadas; sin ids nuevos no se reordena nada.
+     Misma salida, mismo orden, misma semantica de dedup que la version v608 (ver test/v609-actividad-incremental). */
+  const _cmpActividad = new Intl.Collator().compare; // igual a String.prototype.localeCompare() sin argumentos
+  const _claveVersion = new WeakMap();
+  const _salidasActividad = new WeakSet(); // arreglos que _actividadUnir devolvio (confiables como `antes`)
   function _actividadUnir(antes, entrantes) {
     if (!Array.isArray(antes) || !Array.isArray(entrantes)) throw new Error("Invalid shared activity list");
     const entradas = new Map();
-    for (const e of antes.concat(entrantes)) {
+    const confiable = antes.length > 0 && _salidasActividad.has(antes);
+    if (confiable) for (const e of antes) entradas.set(e.id, e);
+    const idsNuevos = [];
+    for (const e of (confiable ? entrantes : antes.concat(entrantes))) {
       if (!e || typeof e.origen !== "string" || !e.origen || e.origen.length > 160 ||
           !["evento", "inicio", "cola"].includes(e.clase) || !Array.isArray(e.versiones) || !e.versiones.length)
         throw new Error("Invalid shared activity envelope");
@@ -3157,11 +3174,29 @@
         if (e.id !== key) throw new Error("Activity identity mismatch");
       }
       const anterior = entradas.get(e.id), versiones = new Map();
-      for (const v of (anterior ? anterior.versiones : []).concat(e.versiones)) versiones.set(JSON.stringify(v), v);
+      if (anterior) for (const v of anterior.versiones) versiones.set(_claveVersion.get(v) || JSON.stringify(v), v);
+      const tenia = versiones.size;
+      for (const v of e.versiones) versiones.set(JSON.stringify(v), v);
+      if (anterior && versiones.size === tenia) continue; // nada nuevo: la entrada previa queda tal cual
+      if (!anterior) idsNuevos.push(e.id);
       entradas.set(e.id, { id: e.id, origen: e.origen, clase: e.clase,
-        versiones: [...versiones.keys()].sort().map(k => clonar(versiones.get(k))) });
+        versiones: [...versiones.keys()].sort().map(k => {
+          const v = versiones.get(k);
+          if (_claveVersion.has(v)) return v;
+          const c = clonar(v); _claveVersion.set(c, k); return c;
+        }) });
     }
-    return [...entradas.values()].sort((a, b) => a.id.localeCompare(b.id));
+    let salida = [...entradas.values()];
+    if (idsNuevos.length) {
+      const nuevos = salida.splice(salida.length - idsNuevos.length).sort((a, b) => _cmpActividad(a.id, b.id));
+      const mezcla = []; let x = 0, y = 0;
+      while (x < salida.length && y < nuevos.length) mezcla.push(_cmpActividad(nuevos[y].id, salida[x].id) < 0 ? nuevos[y++] : salida[x++]);
+      while (x < salida.length) mezcla.push(salida[x++]);
+      while (y < nuevos.length) mezcla.push(nuevos[y++]);
+      salida = mezcla;
+    }
+    _salidasActividad.add(salida);
+    return salida;
   }
   function _actividadExportable() {
     const origen = String(instanceId || "amigable"), propios = [];
@@ -3171,9 +3206,18 @@
       agregar("inicio", "", { sello: sellados.length ? sellados[0].prevSello || "" : "" });
     for (const m of movimientos) if (m && m.id) agregar("evento", m.id, m);
     if (selloUltimo) agregar("cola", selloUltimo, { sello: selloUltimo });
-    return _actividadUnir(actividadCompartida, propios);
+    const desde = actividadCompartida, r = _actividadUnir(desde, propios);
+    _exportadaDesde = desde; _exportada = r;
+    return r;
   }
-  function _confirmarActividad(entradas) { actividadCompartida = _actividadUnir(actividadCompartida, entradas); }
+  /* v609 perf: _confirmarActividad(completo.actividadCompartida) volvia a unir el historial entero contra si
+     mismo. Si lo que se confirma ES la ultima exportacion y actividadCompartida no cambio desde entonces,
+     la union ya esta hecha (export = union(actividadCompartida, propios)): se adopta tal cual. */
+  let _exportadaDesde = null, _exportada = null;
+  function _confirmarActividad(entradas) {
+    if (entradas === _exportada && actividadCompartida === _exportadaDesde) { actividadCompartida = entradas; return; }
+    actividadCompartida = _actividadUnir(actividadCompartida, entradas);
+  }
   function _actividadEstado(entradas) {
     const grupos = new Map(), problemas = [], validos = new Set(); let historicos = 0;
     const problema = (origen, tipo) => problemas.push({ origen, tipo });
