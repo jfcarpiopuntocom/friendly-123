@@ -99,6 +99,22 @@ async function exchange(a,b,rounds=1){
     await a.flush();await b.flush();
   }
 }
+async function exchangeBinaryDelta(a,b){
+  const A=a.w.Y,B=b.w.Y;
+  const bVector=B.encodeStateVector(b.w.OCYjs.doc);
+  const aVector=A.encodeStateVector(a.w.OCYjs.doc);
+  const t0=Date.now();
+  const bytesFromA=A.encodeStateAsUpdate(a.w.OCYjs.doc,bVector);
+  const bytesFromB=B.encodeStateAsUpdate(b.w.OCYjs.doc,aVector);
+  const t1=Date.now();
+  B.applyUpdate(b.w.OCYjs.doc,bytesFromA,'red');
+  A.applyUpdate(a.w.OCYjs.doc,bytesFromB,'red');
+  const t2=Date.now();
+  a.w.OCYjs._store.aplicar();b.w.OCYjs._store.aplicar();
+  await a.flush();await b.flush();
+  const t3=Date.now();
+  return {bytesA:bytesFromA.byteLength,bytesB:bytesFromB.byteLength,encodeMs:t1-t0,applyYjsMs:t2-t1,storeMs:t3-t2,totalMs:t3-t0};
+}
 const fixtureProduct=async p=>(await p.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-two-actors');
 
 test('P0 independent PN witnesses converge two offline additions and repeated replay exactly once',async()=>{
@@ -283,11 +299,10 @@ test('P0 1000-product notebook: one remote PN change must be preserved without d
   const x=await a.w.request('/api/productos/large-stock-999/ajustar','POST',{delta:7,motivo:'1000 item consistency'});
   assert.equal(x.stockActual,11);
   await a.flush();
-  const begin=Date.now();await exchange(a,b,2);
-  const elapsed=Date.now()-begin;
+  const deltaMetrics=await exchangeBinaryDelta(a,b);
   const p=(await b.w.request('/api/respaldo/exportar')).productos;
   assert.equal(p.length,1000);
   assert.equal(p.find(x=>x.id==='large-stock-999').stockActual,11);
   console.error('P0_1000_PRODUCT_BOOTSTRAP_MS',bootstrapElapsed);
-  console.error('P0_1000_PRODUCT_STEADY_EDIT_REPLAY_MS',elapsed);
+  console.error('P0_1000_PRODUCT_INCREMENTAL_DELTA_METRICS',JSON.stringify(deltaMetrics));
 });
