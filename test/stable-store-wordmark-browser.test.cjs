@@ -26,7 +26,7 @@ test('real PWA: dynamic store wordmark uses bundled display, accessible dark gol
     assert.equal(result.text,name,'full Unicode name survives DOM and exportable text');
     assert.ok(result.font.includes('Space Grotesk'),'reuse already bundled friendly display font');
     assert.equal(result.weight,'700');assert.equal(result.color,GOLD);assert.equal(result.fill,GOLD);
-    assert.ok(result.spanRight<=result.headerRight+2,'header branding cannot overrun header');
+    assert.ok(result.spanRight<=result.headerRight+2,`header branding overflow width=${width} nameLength=${name.length}: ${JSON.stringify(result)}`);
     if(name.length>100)assert.ok(result.scrollWidth>=result.clientWidth,'long name is clipped ONLY visually');
     assert.ok(!result.html.includes('<svg'),'no generated per-client graphic nor HTML injection');
    }
