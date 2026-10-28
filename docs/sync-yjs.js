@@ -1910,6 +1910,36 @@
   // el volcado y comparando por JSON antes de cada set(), el re-vuelco no genera
   // updates nuevos (no hay diferencias) y el bucle muere solo.
   // ===================================================================
+  /* Preserve stock fork evidence in the same encrypted Yjs notebook. Every
+     distinct stockBase retains independent PN counters; a conflicting base
+     is NOT automatically a safe common starting stock. */
+  function unirEvidenciasStockYjs(a, b) {
+    var out = {};
+    function guardar(base, pn, ts) {
+      if (base == null || !Number.isSafeInteger(Number(base)) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
+      var key = String(Number(base)), prev = out[key] || {}, acc = Object.assign({}, prev.pn || {});
+      Object.keys(pn).sort().forEach(function (id) {
+        if (!id || id.length > 120) return;
+        var v = pn[id] || {}, add = Number(v.add), sub = Number(v.sub), p = acc[id] || {};
+        if (!Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
+        acc[id] = { add: Math.max(Number(p.add) || 0, add), sub: Math.max(Number(p.sub) || 0, sub) };
+      });
+      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0) };
+    }
+    [a,b].forEach(function (source) {
+      var e = source && source.stockEvidencias;
+      if (!e || typeof e !== "object" || Array.isArray(e)) return;
+      Object.keys(e).sort().forEach(function (key) {
+        var v = e[key]; if (v) guardar(v.base, v.pn, v.ts);
+      });
+    });
+    [a,b].forEach(function (source) {
+      if (source) guardar(source.stockBase, source.stockPN, source.stockTs);
+    });
+    var sorted = {};
+    Object.keys(out).sort(function (x,y) {return Number(x)-Number(y);}).forEach(function (key) {sorted[key]=out[key];});
+    return sorted;
+  }
   function conectarStore(Y) {
     if (!window.OCSync || typeof window.OCSync.catalogoPropio !== "function" ||
         typeof window.OCSync.aplicarCatalogo !== "function") {
@@ -1989,6 +2019,13 @@
                 }
               }
               if (prev && col === "productos") {
+                var fork = r.stockBase != null && prev.stockBase != null &&
+                  Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
+                  Number(r.stockBase) !== Number(prev.stockBase);
+                if (fork || (r.stockEvidencias && Object.keys(r.stockEvidencias).length) ||
+                    (prev.stockEvidencias && Object.keys(prev.stockEvidencias).length)) {
+                  r = Object.assign({}, r, { stockEvidencias: unirEvidenciasStockYjs(prev, r) });
+                }
                 var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
                 var baseMia = r.stockBase == null ? null : Number(r.stockBase);
                 /* v515: con bases distintas ANTES se hacia `return`: este aparato dejaba de publicar
