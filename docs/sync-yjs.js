@@ -1951,16 +1951,17 @@
     // v604 candidate, fail-closed incremental remote product application.
     // Track Y.Map keys changed by a remote transaction, NOT the caller's
     // assumption about a sale; any other map/meta change forces full merge.
-    var _productosRemotos = new Set(), _otroRemoto = false, _primerMergeAceptado = false;
+    var _productosRemotos = new Set(), _actividadRemota = new Set(), _otroRemoto = false, _primerMergeAceptado = false;
     COLECCIONES.forEach(function (col) {
       var m = API.mapas[col];
       if (!m || typeof m.observe !== "function") return;
       m.observe(function (event, txn) {
         if (!txn || (txn.origin !== "red" && txn.origin !== "bc")) return;
-        if (col !== "productos") { _otroRemoto = true; return; }
+        if (col !== "productos" && col !== "actividad") { _otroRemoto = true; return; }
         event.keysChanged.forEach(function (id) {
-          if (!API.mapas.productos.has(String(id))) _otroRemoto = true;
-          else _productosRemotos.add(String(id));
+          if (!API.mapas[col].has(String(id))) { _otroRemoto = true; return; }
+          if (col === "productos") _productosRemotos.add(String(id));
+          else _actividadRemota.add(String(id));
         });
       });
     });
@@ -2257,17 +2258,20 @@
       var soloProductos = _primerMergeAceptado && !_otroRemoto && _productosRemotos.size > 0 &&
         !(API.canal && API.canal.recuperando);
       var cambiosProductos = soloProductos ? Array.from(_productosRemotos) : [];
-      _productosRemotos.clear(); _otroRemoto = false;
+      var cambiosActividad = soloProductos ? Array.from(_actividadRemota) : [];
+      _productosRemotos.clear(); _actividadRemota.clear(); _otroRemoto = false;
       var hay = false;
       COLECCIONES.forEach(function (c) {
-        remoto[c] = soloProductos ? (c === "productos" ? cambiosProductos.map(function (id) {
-          return API.mapas.productos.get(id);
-        }).filter(Boolean) : []) : valores(c);
+        remoto[c] = soloProductos ?
+          (c === "productos" ? cambiosProductos.map(function (id) { return API.mapas.productos.get(id); }).filter(Boolean) :
+            c === "actividad" ? cambiosActividad.map(function (id) { return API.mapas.actividad.get(id); }).filter(Boolean) : [])
+          : valores(c);
         if (remoto[c].length) hay = true;
       });
       // The app's catalog API accepts partial arrays but requires these two.
       // Empty shelves never mean deletion: the merge is append-only.
-      if (soloProductos && remoto.productos.length !== cambiosProductos.length) {
+      if (soloProductos && (remoto.productos.length !== cambiosProductos.length ||
+          remoto.actividad.length !== cambiosActividad.length)) {
         soloProductos = false;
         COLECCIONES.forEach(function (c) { remoto[c] = valores(c); });
       }
