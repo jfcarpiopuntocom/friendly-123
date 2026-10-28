@@ -3283,7 +3283,9 @@ async function cargarInventario(){
         r8 = await res8.json();
       } catch (_) { await ocAlert('Could not adjust stock. Try again.'); return; }
       if (!res8.ok){ await ocAlert(r8.error); return; }
-      cargarInventario();
+      // Keep Today notices/starred stock in sync with the confirmed local adjustment.
+      // These are read-only GETs: never replay a movement or financial event.
+      await Promise.all([cargarInventario(), cargarHoy()]);
     });
   });
 
