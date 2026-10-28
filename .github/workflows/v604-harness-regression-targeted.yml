@@ -1,0 +1,18 @@
+name: v604-harness-regression-targeted
+on:
+  push:
+    branches: [release/v604-stable-candidate-20261028]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  source-slice-bridge-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Three synthetic harnesses bind same selective-merge state as actual Yjs closure
+        run: |
+          node --test test/activity-origin-history.test.cjs test/incident-identity-continuity-v559.test.js test/sync-peer-durable.test.js

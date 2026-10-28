@@ -22,6 +22,8 @@ function actualSyncApply(recuperando){
     },
     COLECCIONES:["productos","ubicaciones","usuarios","clientes","promotoras","sucursales","ventas","gastos","transferencias","dispositivos","categorias","ajustes"],
     _aplicando:false,ultimaAplicacionVisible:Promise.resolve(false),
+    _primerMergeAceptado:false,_otroRemoto:false,_productosRemotos:new Set(),_actividadRemota:new Set(),
+    _reintentoAplicar:null,_fallosAplicar:0,_MAX_FALLOS_APLICAR:5,
     window:{OCSync:{aplicarCatalogo:(remote,role)=>{ctx.received={remote,role};return {ok:true};}},dispatchEvent(){}},
     Promise,Number,Object,Array,JSON,setTimeout,CustomEvent:class{}
   };

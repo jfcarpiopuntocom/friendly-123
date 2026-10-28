@@ -11,7 +11,9 @@ async function until(condition,message){const deadline=Date.now()+2000;while(!co
 test('catalog receipt waits for real PIN persistence and rejects a superseded application',async()=>{
   let releasePins,releaseStore,stores=0;
   const ctx={Promise,API:{meta:new Map(),get:()=>({one:{id:'one'}})},COLECCIONES:['productos'],_aplicando:false,_tAplica:null,
-    window:{OCSync:{aplicarCatalogo:()=>({ok:true,pinsConfirmados:new Promise(resolve=>{releasePins=resolve;})}),confirmarCatalogoDurable(){stores++;return new Promise(resolve=>{releaseStore=resolve;});}}},log(){},clearTimeout(){}};
+    _primerMergeAceptado:false,_otroRemoto:false,_productosRemotos:new Set(),_actividadRemota:new Set(),
+    _reintentoAplicar:null,_fallosAplicar:0,_MAX_FALLOS_APLICAR:5,
+    window:{OCSync:{aplicarCatalogo:()=>({ok:true,pinsConfirmados:new Promise(resolve=>{releasePins=resolve;})}),confirmarCatalogoDurable(){stores++;return new Promise(resolve=>{releaseStore=resolve;});}}},log(){},clearTimeout(){},setTimeout(){return 1;}};
   vm.createContext(ctx);
   const start=source.indexOf('    var ultimaAplicacionVisible ='),end=source.indexOf('\n    // Cambios locales del catálogo',start);
   vm.runInContext(source.slice(start,end)+'\nthis.apply=aplicar;',ctx);
