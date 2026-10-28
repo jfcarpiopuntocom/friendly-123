@@ -1,0 +1,22 @@
+name: v603-store-wordmark-visual-only
+on:
+  push:
+    branches: [lab/v603-store-wordmark-gold-stable-20261028]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  desktop-mobile-wordmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Genuine static PWA / dashboard + Unicode wordmarks at 320, 390 and 1280
+        env:
+          NODE_OPTIONS: "--require ./test/helpers/sin-red-produccion.cjs"
+        run: node --test test/stable-store-wordmark-browser.test.cjs
