@@ -11,7 +11,7 @@ function store(){const m=new Map();return {getItem:k=>m.has(k)?m.get(k):null,set
 // Carga solo el tramo recuperacionPendiente..marcarRecarga (hasta function intentar) con un window sintetico.
 function cargar(file,{yjs,ls}={}){
  const s=read(file);
- const a=s.indexOf('function recuperacionPendiente()'),b=s.indexOf('function intentar()',a);
+ const a=s.indexOf('function recuperacionPendiente()'),b=s.indexOf('async function intentar()',a);
  assert(a>0&&b>a,'helpers reales presentes en '+file);
  const window={OCYjs:yjs};
  const ctx={window,localStorage:ls||store(),sessionStorage:store(),Date,JSON,Array,String};

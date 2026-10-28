@@ -6,7 +6,7 @@ const sources=['src/app/app-inline-03.js','docs/app-inline-03.min.js'];
 function safe(file,state,gateOpen=false) {
  const s=fs.readFileSync(path.join(__dirname,'..',file),'utf8');
  const start=s.indexOf('function seguro()');
- const end=s.indexOf('function intentar()',start);
+ const end=s.indexOf('async function intentar()',start);
  assert(start>0&&end>start,'real safety function must exist in '+file);
  const context={
   window:{OCYjs:state},

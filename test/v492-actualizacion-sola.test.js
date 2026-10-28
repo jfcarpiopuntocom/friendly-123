@@ -1,5 +1,5 @@
 // v492 (JFC 2026-10-13, decision mayor: los clientes nunca reenganchan). A pending new
-// version requires an explicit user click and durable confirmation (no PIN), and never
+// version adopts automatically at a safe moment after durable confirmation (no PIN), and never
 // loops. Without this, a client with an open session stayed on the old version forever.
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {chromium,webkit}=require('playwright');
@@ -23,7 +23,7 @@ async function assertNoMainFrameNavigation(page,label,action){
  if(actionError)throw actionError;
 }
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
- test('pending version NEVER reloads unattended; only explicit durable-confirmed click ('+name+')',async()=>{
+ test('pending version adopts at safe idle after durable confirmation ('+name+')',async()=>{
   const {web,page}=await abrir(engine);try{
   // The real published version is used, so the pre-existing load-time version check stays quiet.
   const prep=()=>page.evaluate(async()=>{const vj=await (await fetch('./version.json',{cache:'no-store'})).json();
@@ -32,6 +32,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    if(document.activeElement)document.activeElement.blur();window.__marca=Math.random();return window.__marca;});
   // A recent input/gesture wins even if the version is already pending.
   let m=await prep();
+  await page.evaluate(()=>{window.OCSync.confirmarCatalogoDurable=async()=>false;});
   await assertNoMainFrameNavigation(page,'recent input',()=>page.evaluate(()=>{window.dispatchEvent(new Event('input'));window._ocActSola.intentar();}));
   assert.equal(await page.evaluate(()=>window.__marca),m,'recent input preserves the current page');
   await assertNoMainFrameNavigation(page,'recent pointer gesture',()=>page.evaluate(()=>{window.dispatchEvent(new Event('pointerdown'));window._ocActSola.intentar();}));
@@ -40,11 +41,11 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   await page.evaluate(()=>{document.getElementById('oc-modal-overlay').style.display='flex';});
   await assertNoMainFrameNavigation(page,'open dialog after idle window',()=>page.clock.fastForward(92000));
   assert.equal(await page.evaluate(()=>window.__marca),m,'idle interval does not reload while a dialog is open');
-  // Even after the idle window, no page transition occurs without consent.
+  // Even after the idle window, failed durable confirmation must defer adoption.
   await page.evaluate(()=>document.getElementById('oc-modal-overlay').style.display='none');
-  await assertNoMainFrameNavigation(page,'idle without consent',()=>page.evaluate(()=>window._ocActSola.intentar()));
-  assert.equal(await page.evaluate(()=>window.__marca),m,'never reload unattended');
-  // On explicit tap, user must have a durable ACK and no active recovery.
+  await assertNoMainFrameNavigation(page,'idle without durable ACK',()=>page.evaluate(()=>window._ocActSola.intentar()));
+  assert.equal(await page.evaluate(()=>window.__marca),m,'failed save preserves the page');
+  // Safe idle adoption requires a durable ACK and no active recovery.
   await page.evaluate(()=>{
     window.OCYjs={estado:'apagado'};
     window.OCSync.confirmarCatalogoDurable=async()=>true;
@@ -52,10 +53,11 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     if(document.activeElement)document.activeElement.blur();
   });
   const loaded=page.waitForEvent('load',{timeout:5000});
-  await page.locator('#f123-aviso-version').click();
+  assert.equal(await page.locator('#f123-aviso-version').count(),0,'no update banner');
+  await page.evaluate(()=>window._ocActSola.intentar());
   await loaded;
   await page.waitForFunction(()=>window._ocActSola);
-  assert.equal(await page.evaluate(()=>window.__marca),undefined,'user-approved click reloads');
+  assert.equal(await page.evaluate(()=>window.__marca),undefined,'safe idle durable adoption reloads');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_sesion')!==null),true,'session kept');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_act_sola_pendiente')),null,'pending cleared');
   // Anti-loop: once the page is idle again, the same shell still cannot reload twice within 10 min.

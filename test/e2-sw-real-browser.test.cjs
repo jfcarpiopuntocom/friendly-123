@@ -105,29 +105,28 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
   await p.clock.fastForward(21000); // actual revisar() timer, no manual update button
   mark("wait pending safe reload marker");
   await p.waitForFunction(()=>sessionStorage.getItem("f123_act_sola_pendiente")==="1",{timeout:25000});
-  mark("fast-forward 92s with NO update consent");
+  mark("fast-forward idle while durable confirmation is unavailable");
   let navigationWithoutClick=0;
   p.on("framenavigated",frame=>{if(frame===p.mainFrame())navigationWithoutClick++;});
-  await p.clock.fastForward(92000); // being idle is not a decision to replace the running notebook
+  await p.clock.fastForward(92000);
   // Host-clock wait: capture async navigation triggered after the virtual idle gate.
   // Do NOT inspect the page before this assertion: its JS context may be gone.
   await new Promise(resolve=>setTimeout(resolve,1200));
-  assert.equal(navigationWithoutClick,0,"JFC: browser navigated before explicit update click");
+  assert.equal(navigationWithoutClick,0,"must not navigate without durable confirmation");
   await p.waitForLoadState("load");
   const beforeClick=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
-  assert.equal(beforeClick,initial,"JFC: no unexpected reload on idle or hidden");
-  mark("wait immediate nonblocking update notice");
-  await p.waitForSelector("#f123-aviso-version",{timeout:15000});
+  assert.equal(beforeClick,initial,"pending save must preserve the running page");
+  assert.equal(await p.locator("#f123-aviso-version").count(),0,"no update banner");
   await p.evaluate(()=>{window.OCSync={confirmarCatalogoDurable:async()=>true};});
-  mark("approve update with a deliberate click after synthetic durable confirmation");
-  await p.click("#f123-aviso-version");
+  mark("safe idle adoption after synthetic durable confirmation");
+  await p.evaluate(()=>window._ocActSola.intentar());
   await p.waitForFunction(n=>Number(sessionStorage.getItem("e2-loads"))===n+1,initial,{timeout:15000});
   mark("assert adoption state");
   const result=await p.evaluate(()=>({loads:Number(sessionStorage.getItem("e2-loads")),
     session:sessionStorage.getItem("f123_sesion"),
     version:localStorage.getItem("f123_version_vista"),
     text:document.body.innerText}));
-  assert.equal(result.loads,initial+1,"only one user-approved reload for this shell");
+  assert.equal(result.loads,initial+1,"one durable-confirmed safe reload for this shell");
   assert.equal(result.session,"synthetic-e2","preserve session on worker replacement");
   assert.equal(result.version,"1.0|"+shellNext,"record precise version and current SW shell");
   assert.doesNotMatch(result.text,/Purge|reload/i);

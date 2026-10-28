@@ -1822,9 +1822,8 @@
      256KB con historiales grandes. Add-only por id: el receptor la suma una sola
      vez (aplicarCatalogo). No duplica plata ni stock (el stock es LWW aparte).
      Guard de sesion para no re-mandar la misma venta. */
-  function sembrarVentasAlRelay() {
+  function sembrarVentasAlRelay(cat) {
     if (!window.OCSync || !API.canal || !window.Y || !API.doc) return;
-    var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
     var ventas = (cat && cat.ventas) || [];
     ventas.forEach(function (v) {
       if (!v || v.id == null) return;
@@ -1948,6 +1947,8 @@
     }
     var _aplicando = false;   // guard: no re-volcar mientras aplicamos al store
     var _tSeed = null, _tAplica = null;
+    // Reuse only verified product fixed points; either local bytes or a new Y.Map value invalidates them.
+    var _productosSinCambios = new WeakMap();
     /* Reintento de aplicar() tras fallo (JFC 2026-10-27). Si una aplicacion (selectiva o
        completa) lanza o termina con ultimaAplicacionAceptada=false, los IDs de
        _productosRemotos ya se vaciaron: se baja _primerMergeAceptado para que la
@@ -2023,6 +2024,8 @@
               if (!r || r.id == null) return;
               var k = String(r.id);
               var prev = API.mapas[col].get(k);
+              var productoEntrada = col === "productos" ? JSON.stringify(r) : null;
+              if (productoEntrada && prev && _productosSinCambios.get(prev) === productoEntrada) return;
               // A locked tab may know the device profile but no longer have an authenticated role.
               // Preserve that role while still allowing nickname edits and explicit role changes.
               if (col === "dispositivos" && prev && !r.rol && prev.rol) r = Object.assign({}, r, { rol: prev.rol });
@@ -2167,6 +2170,7 @@
               var js = JSON.stringify(r);
               // Solo si cambió: evita tormenta de updates binarios por el relay.
               if (!prev || JSON.stringify(prev) !== js) API.mapas[col].set(k, JSON.parse(js));
+              if (productoEntrada === js) _productosSinCambios.set(API.mapas[col].get(k), productoEntrada);
             });
           });
           /* NOMBRE DEL NEGOCIO (A1, JFC 2026-09-10). No mergeaba porque el
@@ -2229,7 +2233,7 @@
         } else { publicarFotosLocales(); }
       } catch (_) { try { publicarFotosLocales(); } catch (_) {} }
       // v292: sembrar las ventas (dinero) como ops individuales (add-only).
-      try { sembrarVentasAlRelay(); } catch (_) {}
+      try { sembrarVentasAlRelay(cat); } catch (_) {}
       try { sembrarFinanzas(cat); } catch (_) {}
       try { sembrarActividad(cat); } catch (_) {}
     }

@@ -1,6 +1,6 @@
 'use strict';
-// (JFC 2026-10-28) Aviso inmediato (sin plazo) al frenar la recarga por recuperacion Yjs/IDB: no bloqueante, solo recarga si el
-// usuario lo toca, y SIEMPRE guarda antes. Se carga el fuente Y el bundle minificado en un VM con DOM falso.
+// v607: automatic safe adoption without an update banner; durable-save and recovery guards remain.
+// Source and published bundle execute in a synthetic DOM.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
@@ -47,107 +47,37 @@ function cargar(file,{recup=true,save}={}){
   log:()=>JSON.parse(ctx.localStorage.getItem('f123_recargas_log')||'[]').map(x=>x.m)};
 }
 for(const file of sources){
- test(file+' - un solo vigia de 60 s; bandera frenada se fija una vez y se registra una vez',()=>{
-  const f=cargar(file);
-  assert.equal(f.vigia.length,1);
+ test(file+' - recovery keeps its first timestamp without a banner or redundant watcher',async()=>{
+  const f=cargar(file);assert.equal(f.vigia.length,0);
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
   f.sola.vigilar();const t0=f.ctx.sessionStorage.getItem('f123_update_frenada_desde');
-  assert.equal(t0,String(f.clock.t));
-  f.clock.t+=60000;f.sola.vigilar();f.sola.intentar();
-  assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),t0,'no se sobrescribe');
-  assert.deepEqual(f.log(),['frenada-recuperacion']);
-  assert.equal(f.reloads.length,0,'nunca recarga por si solo');
- });
- test(file+' - se muestra de inmediato al frenarse (sin avanzar el reloj); no si no esta frenado',()=>{
-  let f=cargar(file);
-  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.intentar(); // el rechazo de recarga dispara el chequeo
-  assert.equal(f.body.filter(e=>e.id==='f123-aviso-version').length,1,'una sola tira');
-  f.sola.vigilar();f.sola.intentar();
-  assert.equal(f.body.filter(e=>e.id==='f123-aviso-version').length,1,'sin duplicados');
-  const a=f.aviso();
-  assert.equal(a.tag,'button');assert.equal(a.attrs.role,'status');assert.equal(a.attrs['aria-live'],'polite');
-  assert.match(a.textContent,/Hay una versión nueva/);
-  assert.equal(f.reloads.length,0);
-  f=cargar(file,{recup:false}); // pending version still needs user consent after recovery
-  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();assert.ok(f.aviso());
-  assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);
-  f=cargar(file); // frenada pero sin version pendiente: no hay aviso
-  f.sola.vigilar();f.sola.intentar();assert.equal(f.aviso(),undefined);
- });
- test(file+' - no pending clears notice; recovery completion keeps user update notice',()=>{
-  let f=cargar(file);
-  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();f.sola.vigilar();assert.ok(f.aviso());
-  f.ctx.sessionStorage.removeItem('f123_act_sola_pendiente');f.sola.vigilar();
-  assert.equal(f.aviso(),undefined);
-  assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);
-  f=cargar(file);
-  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();f.sola.vigilar();assert.ok(f.aviso());
+  f.clock.t+=100000;await f.sola.intentar();
+  assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),t0);
+  assert.deepEqual(f.log(),['frenada-recuperacion']);assert.equal(f.reloads.length,0);assert.equal(f.body.length,0);
   f.yjs.canal.recuperando=false;f.sola.vigilar();
-  assert.ok(f.aviso());
-  assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);
-  f.ctx.sessionStorage.removeItem('f123_act_sola_pendiente');f.sola.vigilar();
-  assert.equal(f.aviso(),undefined);
+  assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);assert.equal(f.body.length,0);
  });
- test(file+' - tocar con guardado OK recarga una vez y registra aviso-usuario',async()=>{
-  let guardados=0;
-  const f=cargar(file,{recup:false,save:async()=>{guardados++;return true;}});
-  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();f.sola.vigilar();
-  const a=f.aviso();
-  await Promise.all([a.l.click(),a.l.click()]); // doble toque simultaneo: un solo guardado y una recarga
-  assert.equal(guardados,1);assert.equal(f.reloads.length,1);
-  assert.equal(f.log().at(-1),'aviso-usuario');
-  assert.equal(f.ctx.sessionStorage.getItem('f123_act_sola_pendiente'),null);
-  assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);
+ test(file+' - safe idle durable adoption coalesces and keeps the session',async()=>{
+  let saved=0;const f=cargar(file,{recup:false,save:async()=>{saved++;return true;}});
+  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');f.clock.t+=100000;
+  await Promise.all([f.sola.intentar(),f.sola.intentar()]);await f.sola.intentar();
+  assert.equal(saved,1);assert.equal(f.reloads.length,1);assert.equal(f.body.length,0);
+  assert.equal(f.log().at(-1),'version-segura');assert.equal(f.ctx.sessionStorage.getItem('f123_act_sola_pendiente'),null);
+  assert.ok(f.ctx.sessionStorage.getItem('f123_sesion'));
  });
- test(file+' - guardado que falla, devuelve no-true, o se cuelga (5 s): nunca recarga',async()=>{
-  const casos=[async()=>false,async()=>{throw new Error('x');},async()=>undefined,()=>new Promise(()=>{}),null];
-  for(const save of casos){
-   const f=cargar(file,{recup:false,save:save||undefined});
-   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-   f.sola.vigilar();f.sola.vigilar();
-   const a=f.aviso();
-   const p=a.l.click();
-   const tope=f.timers.find(t=>t.k==='t'&&t.ms===5000);
-   if(tope)tope.fn();
-   await p;
-   assert.equal(f.reloads.length,0);
-   assert.match(a.textContent,/Aún guardando/);
-   assert.ok(!f.log().includes('aviso-usuario'));
+ test(file+' - failed, missing, non-true or timed-out durable ACK never reloads',async()=>{
+  for(const save of [async()=>false,async()=>{throw Error('save failed');},async()=>undefined,()=>new Promise(()=>{}),null]){
+   const f=cargar(file,{recup:false,save:save||undefined});f.clock.t+=100000;
+   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');const pending=f.sola.intentar();
+   const timer=f.timers.find(t=>t.k==='t'&&t.ms===5000);if(timer)timer.fn();await pending;
+   assert.equal(f.reloads.length,0);assert.equal(f.body.length,0);assert.equal(f.ctx.sessionStorage.getItem('f123_act_sola_pendiente'),'1');
   }
  });
- test(file+' - tocar durante PIN, editor o venta en curso: no guarda ni recarga',async()=>{
-  const casos=[
-   f=>{f.ctx.document.getElementById=id=>id==='oc-gate'?{style:{display:'flex'}}:(id==='f123-aviso-version'?f.aviso()||null:null);},
-   f=>{f.ctx.document.querySelectorAll=s=>s==='.oc-vs-editor'?[{style:{display:'block'}}]:[];},
-   f=>{f.ctx._ventasEnCurso.add('v1');}
-  ];
-  for(const poner of casos){
-   let guardados=0;
-   const f=cargar(file,{recup:false,save:async()=>{guardados++;return true;}});
-   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-   f.sola.vigilar();f.sola.vigilar();
-   const a=f.aviso();poner(f);
-   await a.l.click();
-   assert.equal(guardados,0);assert.equal(f.reloads.length,0);
-   assert.match(a.textContent,/Termina lo que estás haciendo/);
+ test(file+' - PIN, editor and active transaction block saving and adoption',async()=>{
+  for(const block of [f=>{f.ctx.document.getElementById=id=>id==='oc-gate'?{style:{display:'flex'}}:null;},f=>{f.ctx.document.querySelectorAll=s=>s==='.oc-vs-editor'?[{style:{display:'block'}}]:[];},f=>f.ctx._ventasEnCurso.add('sale')]){
+   let saved=0;const f=cargar(file,{recup:false,save:async()=>{saved++;return true;}});f.clock.t+=100000;
+   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');block(f);await f.sola.intentar();
+   assert.equal(saved,0);assert.equal(f.reloads.length,0);assert.equal(f.body.length,0);
   }
- });
- test(file+' - estilos del aviso: 16px+, #FFFFFF important, sin opacity ni rgba, z-index bajo el PIN gate',()=>{
-  const f=cargar(file);
-  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
-  f.sola.vigilar();f.sola.vigilar();
-  const p=f.aviso().style.props;
-  assert.deepEqual(p.get('color'),{v:'#FFFFFF',p:'important'});
-  assert.deepEqual(p.get('-webkit-text-fill-color'),{v:'#FFFFFF',p:'important'});
-  assert.deepEqual(p.get('background-color'),{v:'#E86040',p:'important'});
-  assert.ok(parseFloat(p.get('font-size').v)>=16);
-  assert.ok(parseFloat(p.get('min-height').v)>=48);
-  assert.ok(Number(p.get('z-index').v)<9999);
-  for(const [k,x] of p){assert.ok(!/opacity|backdrop|filter/.test(k),k);assert.ok(!/rgba/i.test(x.v),k);assert.equal(x.p,'important',k);}
  });
 }

@@ -1,10 +1,10 @@
 {
-  "version": "shell v606",
+  "version": "shell v607",
   "fecha": "2026-10-28",
-  "changelog": "v606: corrige el aviso falso de memoria llena; evita ventas y productos duplicados por doble toque; protege restaurar respaldos en cuadernos con datos.",
+  "changelog": "v607: retira la franja de actualización y conserva la adopción automática segura; reduce el trabajo repetido del catálogo durante la sincronización.",
   "requerida": false,
-  "shell": "f123-shell-v606",
+  "shell": "f123-shell-v607",
   "apagar": [],
-  "releaseName": "shell v606",
-  "cacheGeneration": "golden152"
+  "releaseName": "shell v607",
+  "cacheGeneration": "golden153"
 }

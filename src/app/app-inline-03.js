@@ -201,7 +201,6 @@ const _ocActSolaOn = true;
       if (!sessionStorage.getItem("f123_sesion")) return false;            // sin sesion: lo resuelve el login
       // Never auto-reload while a notebook still needs local IDB recovery or
       // peer history replay. A SW update is not permission to interrupt money.
-      // (JFC 2026-10-28) sinRecuperacion solo lo usa el aviso tocado por el usuario (guarda antes de recargar).
       if (!sinRecuperacion && recuperacionPendiente()) return false;
       const gate = document.getElementById("oc-gate");
       if (gate && gate.style.display !== "none") return false;            // tecleando el PIN
@@ -249,8 +248,7 @@ const _ocActSolaOn = true;
   try { window.__f123MarcarRecarga = marcarRecarga; } catch (_) {}
   /* (JFC 2026-10-28) Recarga frenada por recuperacion Yjs/IDB: se anota desde cuando (sessionStorage
      "f123_update_frenada_desde", no se sobrescribe) y se registra UNA vez "frenada-recuperacion" en la
-     bitacora. Nunca recarga. (JFC 2026-10-28) sin plazo: aviso inmediato; ver Workbox
-     handling-service-worker-updates. Solo recarga si el usuario toca el aviso. */
+     bitacora. No recarga mientras la recuperacion siga pendiente. */
   const KF = "f123_update_frenada_desde";
   function frenadaDesde() { try { return Number(sessionStorage.getItem(KF)) || 0; } catch (_) { return 0; } }
   function marcarFrenada() {
@@ -261,9 +259,26 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
-  // Only a user click can upgrade an open notebook. Idle/hidden is NOT consent.
-  function intentar() {
+  let recargando = false;
+  async function intentar() {
     try { vigilar(); } catch (_) {}
+    if (recargando || !pendiente() || !seguro()) return;
+    if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
+    recargando = true;
+    try {
+      const v = localStorage.getItem("f123_version_vista") || "";
+      const anterior = JSON.parse(localStorage.getItem(KA) || "null");
+      if (anterior && anterior.v === v && Date.now() - anterior.t < 600000) return;
+      if (!await guardarDuradero() || !seguro()) return;
+      // Activity during the durable save must defer adoption too.
+      if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
+      localStorage.setItem(KA, JSON.stringify({ v: v, t: Date.now() }));
+      sessionStorage.removeItem(KP);
+      sessionStorage.removeItem("f123_reload_al_entrar");
+      limpiarFrenada();
+      marcarRecarga("version-segura");
+      location.reload();
+    } catch (_) {} finally { recargando = false; }
   }
   function shellDelSW() {
     return new Promise(function (resolve) {
@@ -296,21 +311,6 @@ const _ocActSolaOn = true;
       intentar();
     } catch (_) {}
   }
-  /* (JFC 2026-10-28) AVISO apenas la recarga se frena por recuperacion (sin plazo). Una tira fija abajo (boton), sin
-     fondo oscuro ni opacidad ni rgba; estilos inline con !important (sin tocar CSS). z-index 9990:
-     por debajo del PIN gate (#oc-gate = 9999). Tocarlo GUARDA y luego recarga; nunca recarga a la fuerza. */
-  const ID_AVISO = "f123-aviso-version";
-  function textoAviso(clave) {
-    let es = true;
-    try { if (window.OCI18n && window.OCI18n.getLang) es = window.OCI18n.getLang() === "es"; } catch (_) {}
-    const T = {
-      listo: ["Hay una versión nueva de la app. Toca para guardar y actualizar.", "A new version is ready. Tap to save and update."],
-      ocupado: ["Termina lo que estás haciendo y vuelve a tocar.", "Finish what you're doing and tap again."],
-      guardando: ["Aún guardando. Intenta en un momento.", "Still saving. Try again in a moment."]
-    };
-    return T[clave][es ? 0 : 1];
-  }
-  function quitarAviso() { try { const a = document.getElementById(ID_AVISO); if (a && a.remove) a.remove(); } catch (_) {} }
   // Guardado duradero REAL: OCSync.confirmarCatalogoDurable (mock-backend.js) espera ventas/pagos en
   // curso y hace guardarEstadoLocal(true,true) (snapshot completo exigido en localStorage/IDB);
   // devuelve true SOLO si quedo escrito. Aqui: tope de 5 s y solo === true cuenta como exito.
@@ -326,55 +326,11 @@ const _ocActSolaOn = true;
       } catch (_) { listo(false); }
     });
   }
-  let _avisoOcupado = false;
-  async function alTocarAviso() {
-    const el = document.getElementById(ID_AVISO);
-    if (!el || _avisoOcupado) return;
-    _avisoOcupado = true;
-    try {
-      if (!seguroCon(false)) { el.textContent = textoAviso("ocupado"); return; }
-      const ok = await guardarDuradero();
-      // Se revisa de nuevo: durante el guardado pudo abrirse una venta o editor.
-      if (!ok || !seguroCon(false)) { el.textContent = textoAviso(ok ? "ocupado" : "guardando"); return; }
-      try {
-        sessionStorage.removeItem(KP);
-        sessionStorage.removeItem("f123_reload_al_entrar");
-        sessionStorage.removeItem(KF);
-      } catch (_) {}
-      try { marcarRecarga("aviso-usuario"); } catch (_) {}
-      location.reload();
-    } finally { _avisoOcupado = false; }
-  }
-  function mostrarAviso() {
-    try {
-      if (document.getElementById(ID_AVISO)) return;
-      const b = document.createElement("button");
-      b.id = ID_AVISO;
-      b.type = "button";
-      b.setAttribute("role", "status");
-      b.setAttribute("aria-live", "polite");
-      b.textContent = textoAviso("listo");
-      const est = {
-        position: "fixed", left: "0", right: "0", bottom: "0", width: "100%", "box-sizing": "border-box",
-        "z-index": "9990", "min-height": "48px", padding: "12px 16px", border: "0", margin: "0",
-        "background-color": "#E86040", color: "#FFFFFF", "-webkit-text-fill-color": "#FFFFFF",
-        "font-size": "16px", "font-weight": "700", "line-height": "1.3", "text-align": "center",
-        cursor: "pointer", "border-radius": "0", animation: "none", transition: "none"
-      };
-      Object.keys(est).forEach(function (k) { b.style.setProperty(k, est[k], "important"); });
-      b.addEventListener("click", alTocarAviso);
-      document.body.appendChild(b);
-    } catch (_) {}
-  }
-  // (JFC 2026-10-28) sin plazo: aviso inmediato; ver Workbox handling-service-worker-updates.
-  // Se llama donde se frena la recarga (intentar) y donde se marca el pendiente (revisar, onShellTomado);
-  // el setInterval de 60 s solo sirve para QUITAR el aviso al terminar la recuperacion, no retrasa mostrarlo.
   function vigilar() {
     try {
-      if (!pendiente()) { limpiarFrenada(); quitarAviso(); return; }
+      if (!pendiente()) { limpiarFrenada(); return; }
       if (recuperacionPendiente()) marcarFrenada();
       else limpiarFrenada();
-      mostrarAviso();
     } catch (_) {}
   }
   // E2: a takeover can already match version.json while this document is stale.
@@ -410,7 +366,6 @@ const _ocActSolaOn = true;
   });
   setInterval(function () { if (Date.now() - ultimoToque > 90000) intentar(); }, 15000);
   setInterval(revisar, 600000);
-  setInterval(vigilar, 60000); // (JFC 2026-10-28) unico re-chequeo: solo quita el aviso tras la recuperacion
   setTimeout(revisar, 20000);
 })();
 

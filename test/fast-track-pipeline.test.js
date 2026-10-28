@@ -39,7 +39,7 @@ test('hotfix hands off tested SHA after promotion; broad regression cannot dupli
   assert.match(hotfix, /candidate: \$\{\{ needs\.probar-y-mover\.outputs\.candidate \}\}/);
   assert.ok(hotfix.indexOf('git push --atomic') < hotfix.indexOf('echo "candidate=$GITHUB_SHA"'));
   assert.match(publish, /node scripts\/release-candidate\.cjs "\$EXPECT_CANDIDATE" "\$STABLE"/);
-  assert.match(publish, /elif \[ -n "\$EXPECT_CANDIDATE" \]; then\n\s*#.*\n\s*CANDIDATE="\$EXPECT_CANDIDATE"/);
+  assert.match(publish.replace(/\r\n/g, '\n'), /elif \[ -n "\$EXPECT_CANDIDATE" \]; then\n\s*#.*\n\s*CANDIDATE="\$EXPECT_CANDIDATE"/);
   assert.ok(publish.indexOf('CANDIDATE="$EXPECT_CANDIDATE"') < publish.indexOf('elif [ "$QA" = "true" ]'));
   assert.match(publish, /EXPECT_STABLE/); assert.match(publish, /EXPECT_PREVIOUS/);
   // v594: hotfix moved to the same version-matched official Playwright image as the broad gate
