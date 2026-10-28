@@ -13,13 +13,29 @@
     };
     const clave = (letra) => base + "_" + letra;
     function cuerpo(raw) { try { return JSON.parse(raw); } catch (_) { return null; } }
+    /* v609 perf: dentro de una misma lectura/guardado, el MISMO texto se parseaba hasta 8 veces
+       (candidateRaw x3, copias A y B, buffers). memo = cache de parseo SOLO durante la llamada en curso
+       (se descarta al salir; nunca persiste entre llamadas). Solo para lecturas de solo lectura:
+       el cuerpo que guardarAhora MUTA (_abCommit) se sigue parseando con cuerpo() sin cache. */
+    let memo = null;
+    function cuerpoL(raw) {
+      if (!memo || typeof raw !== "string") return cuerpo(raw);
+      if (memo.has(raw)) return memo.get(raw);
+      const v = cuerpo(raw); memo.set(raw, v); return v;
+    }
+    function conMemo(fn) {
+      const propio = !memo;
+      if (propio) memo = new Map();
+      try { return fn(); } finally { if (propio) memo = null; }
+    }
     function nuevoToken() {
       const cripto = window.crypto;
       if (cripto && cripto.randomUUID) return cripto.randomUUID();
       if (!cripto || !cripto.getRandomValues) throw new Error("Secure storage transaction IDs unavailable");
       return Array.from(cripto.getRandomValues(new Uint32Array(4)), n => n.toString(16).padStart(8, "0")).join("");
     }
-    function leer() {
+    function leer() { return conMemo(leerInterno); }
+    function leerInterno() {
       for (let intento = 0; intento < 3; intento++) {
         const rawJournal = leerClave(claveJournal);
         const puntero = leerClave(base + "_ptr");
@@ -29,15 +45,15 @@
         let registro = null, activo = puntero;
         const buffers = { ...fisicos };
         if (rawJournal !== null) {
-          registro = cuerpo(rawJournal);
+          registro = cuerpoL(rawJournal);
           if (!registro || registro.v !== 1 || !["PREPARED", "COMMITTED"].includes(registro.phase) ||
               !["A", "B"].includes(registro.destino) || ![null, "A", "B"].includes(registro.activo) ||
               registro.activo === registro.destino ||
               !(registro.anterior === null || typeof registro.anterior === "string") ||
               typeof registro.token !== "string" || !registro.token ||
               typeof registro.candidateRaw !== "string" ||
-              !cuerpo(registro.candidateRaw) || cuerpo(registro.candidateRaw)._abCommit !== registro.token ||
-              cuerpo(registro.candidateRaw)._rev !== registro.revision ||
+              !cuerpoL(registro.candidateRaw) || cuerpoL(registro.candidateRaw)._abCommit !== registro.token ||
+              cuerpoL(registro.candidateRaw)._rev !== registro.revision ||
               !Number.isSafeInteger(registro.revision) || registro.revision < 1 ||
               ![null, "A", "B"].includes(registro.punteroAnterior)) throw new Error("Invalid A/B recovery journal");
           if (registro.phase === "PREPARED") {
@@ -50,13 +66,13 @@
         }
         const conflictos = [], danados = [];
         if (registro) for (const letra of ["A", "B"]) {
-          const raw = fisicos[letra], body = cuerpo(raw);
+          const raw = fisicos[letra], body = cuerpoL(raw);
           if (!body || typeof body !== "object") { if (raw !== null) danados.push(letra); continue; }
           const ajeno = letra === registro.destino && raw !== registro.candidateRaw &&
             (registro.phase !== "PREPARED" || raw !== registro.anterior);
           if (ajeno || Number(body._rev) > registro.revision) conflictos.push(letra);
         }
-        const revisiones = Object.values(buffers).map(raw => Number((cuerpo(raw) || {})._rev) || 0);
+        const revisiones = Object.values(buffers).map(raw => Number((cuerpoL(raw) || {})._rev) || 0);
         return { activo, buffers, revMax: Math.max(0, ...revisiones, registro ? registro.revision : 0), registro, fisicos, puntero, rawJournal, conflictos, danados };
       }
       throw new Error("A/B state changed during recovery read");
@@ -64,7 +80,8 @@
     let espejoPermitido = false;
     // (JFC 2026-10-28) causa real del ultimo fallo de guardarAhora (null = no hubo excepcion); la lee el clasificador de mock-backend.
     let ultimoError = null;
-    function guardarAhora(raw) {
+    function guardarAhora(raw) { return conMemo(() => guardarAhoraInterno(raw)); }
+    function guardarAhoraInterno(raw) {
       espejoPermitido = false;
       ultimoError = null;
       try {
