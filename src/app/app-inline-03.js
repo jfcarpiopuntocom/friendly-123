@@ -200,13 +200,7 @@ const _ocActSolaOn = true;
       if (!sessionStorage.getItem("f123_sesion")) return false;            // sin sesion: lo resuelve el login
       // Never auto-reload while a notebook still needs local IDB recovery or
       // peer history replay. A SW update is not permission to interrupt money.
-      const y = window.OCYjs;
-      if (y && y.estado === "activo") {
-        if ([y.canal, y.opsCanal, y.fotosCanal].some(function (c) {
-          return c && (c.recuperando || (c.recuperacionLocal && c.recuperacionLocal !== "listo"));
-        })) return false;
-        if (y._diag && y._diag().recuperacionLocalPendiente) return false;
-      }
+      if (recuperacionPendiente()) return false;
       const gate = document.getElementById("oc-gate");
       if (gate && gate.style.display !== "none") return false;            // tecleando el PIN
       if (visible(document.getElementById("oc-modal-overlay"))) return false;
@@ -220,6 +214,37 @@ const _ocActSolaOn = true;
       return true;
     } catch (_) { return false; }
   }
+  /* (JFC 2026-10-27) Parte Yjs/IDB de seguro(), compartida con auth-ui.js: true si
+     recargar ahora interrumpiria la recuperacion local (IDB) o el replay de pares.
+     Nunca lanza; sin OCYjs devuelve false. Si algo falla con Yjs presente, true
+     (conservador: no recargar). */
+  function recuperacionPendiente() {
+    try {
+      const y = window.OCYjs;
+      if (!y || y.estado !== "activo") return false;
+      if ([y.canal, y.opsCanal, y.fotosCanal].some(function (c) {
+        return c && (c.recuperando || (c.recuperacionLocal && c.recuperacionLocal !== "listo"));
+      })) return true;
+      if (y._diag && y._diag().recuperacionLocalPendiente) return true;
+      return false;
+    } catch (_) { return true; }
+  }
+  try { window.__f123RecuperacionPendiente = recuperacionPendiente; } catch (_) {}
+  /* (JFC 2026-10-27) Bitacora de recargas para diagnostico en campo: ultimas 15 en
+     localStorage "f123_recargas_log" = [{m: motivo, t: ms, v: shell}]. Sin UI, sin red,
+     sin datos de clientes. Nunca lanza. */
+  function marcarRecarga(motivo) {
+    try {
+      let v = "";
+      try { v = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || ""; } catch (_) {}
+      let a = [];
+      try { a = JSON.parse(localStorage.getItem("f123_recargas_log") || "[]"); } catch (_) {}
+      if (!Array.isArray(a)) a = [];
+      a.push({ m: String(motivo || ""), t: Date.now(), v: v });
+      localStorage.setItem("f123_recargas_log", JSON.stringify(a.slice(-15)));
+    } catch (_) {}
+  }
+  try { window.__f123MarcarRecarga = marcarRecarga; } catch (_) {}
   function intentar() {
     if (!pendiente() || !seguro()) return;
     // Every caller must honor the idle window, including a late version reply.
@@ -233,6 +258,7 @@ const _ocActSolaOn = true;
       sessionStorage.removeItem(KP);
       sessionStorage.removeItem("f123_reload_al_entrar");
     } catch (_) { return; }
+    marcarRecarga("version-idle");
     location.reload();
   }
   function shellDelSW() {

@@ -188,7 +188,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
               if (!/^F123-/i.test(String(_ow.syncCode || ""))) _ow.syncCode = _licNueva;
               localStorage.setItem("f123_owned", JSON.stringify(_ow));
               try { localStorage.setItem("f123_licencia_rescatada_en", String(Date.now())); } catch (_) {}
-              setTimeout(function () { try { location.reload(); } catch (_) {} }, 1200);
+              setTimeout(function () { try { window.__f123MarcarRecarga && window.__f123MarcarRecarga("rescate-licencia"); location.reload(); } catch (_) {} }, 1200);
             }
           } catch (_) {}
           /* APARATO DE JFC (v349). Lo decide JFC en su panel ("Aparato JFC").
@@ -846,6 +846,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           setTimeout(function () {
             try {
               var url = location.pathname + "?_purge=" + Date.now() + location.hash;
+              window.__f123MarcarRecarga && window.__f123MarcarRecarga("purga-failsafe");
               location.replace(url);
             } catch (eNav) {
               try { location.reload(true); } catch (_) { location.reload(); }
@@ -1512,7 +1513,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
 
   function entrar(nuevoRol) {
     try {
-      if (sessionStorage.getItem("f123_reload_al_entrar") === "1") {
+      /* (JFC 2026-10-27) Si la recuperacion Yjs/IDB sigue pendiente NO se recarga:
+         la bandera queda puesta (se honra en el proximo login) y el login sigue normal. */
+      var _recPend = false;
+      try { _recPend = !!(window.__f123RecuperacionPendiente && window.__f123RecuperacionPendiente()); } catch (_) {}
+      if (sessionStorage.getItem("f123_reload_al_entrar") === "1" && !_recPend) {
         sessionStorage.removeItem("f123_reload_al_entrar");
         /* BUG (JFC 2026-09-02): aquí se mapeaba demo→"dueno" en la sesión diferida,
            así que tras el reload forzado de versión el auto-login entraba como
@@ -1520,6 +1525,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
            el rol tal cual: tras el reload, entrar("demo") corre con el flag ya
            limpio y hace la entrada demo correcta. */
         try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol, demo: nuevoRol === "demo" })); } catch (_) {}
+        window.__f123MarcarRecarga && window.__f123MarcarRecarga("login-diferida");
         location.reload();
         return;
       }
