@@ -1,0 +1,41 @@
+name: seal-v604-shell-manifest-isolated
+on:
+  push:
+    branches: [release/v604-stable-candidate-20261028]
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: seal-v604-isolated
+  cancel-in-progress: false
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check exact new release identity against production
+        run: node scripts/release-control.cjs validate 6f427f6f4c582ed6b4eda0ecdaad5492e0fd99d9
+      - name: Regenerate deterministic manifest from exact repository bytes
+        run: |
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+          git status --short
+      - name: Commit ONLY deterministic shell manifest changes
+        run: |
+          set -eu
+          git add docs/version-manifest.json docs/sw.js
+          if git diff --cached --quiet; then
+            echo 'Exact manifest already sealed'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'release(candidate): reseal exact shell v604 SHA256 manifest'
+            git push origin HEAD:release/v604-stable-candidate-20261028
+          fi
