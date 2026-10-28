@@ -82,12 +82,26 @@
       // immutable evidence, not an overwrite of the previous rejection.
       this._quarantine.set(e.id+'\u0000'+stable(e),{reason,attempted:clone(e)});
     }
-    _rememberRejectedBatch(events,reason) {
+    _rememberRejectedBatch(events,reason,anchor=null) {
       if (!['id-collision','sequence-collision'].includes(reason) ||
           !Array.isArray(events) || events.length===0) throw Error('invalid rejected batch');
-      const envelope={reason,events:events.map(e=>validate(e,this.notebook))};
+      const accepted=events.map(e=>validate(e,this.notebook));
+      const verifiedAnchor=anchor==null?null:validate(anchor,this.notebook);
+      const witnesses=accepted.concat(verifiedAnchor?[verifiedAnchor]:[]);
+      const conflict=accepted.some(a=>witnesses.some(b=>
+        reason==='id-collision'
+          ? (a.id===b.id && stable(a)!==stable(b))
+          : (a.device===b.device && a.seq===b.seq && a.id!==b.id)));
+      if (!conflict) throw Error('unsubstantiated rejected-batch envelope');
+      const envelope={reason,events:accepted,anchor:verifiedAnchor};
       this._rejectedBatches.set(stable(envelope),envelope);
       return envelope;
+    }
+    ingestRejectedBatch(envelope) {
+      if (!envelope || typeof envelope!=='object' || Array.isArray(envelope) ||
+          Object.keys(envelope).some(k=>!['reason','events','anchor'].includes(k)))
+        throw Error('invalid rejected-batch envelope');
+      return this._rememberRejectedBatch(envelope.events,envelope.reason,envelope.anchor||null);
     }
     _remember(e) {
       const frozen = Object.freeze(e);
@@ -124,7 +138,9 @@
         const check=this._check(e);
         if (check!=='added'&&check!=='duplicate') {
           this._recordConflict(e,check); // accepted anchor exists already
-          this._rememberRejectedBatch(events,check); // all unapplied batch witnesses survive
+          const acceptedAnchor=this._events.get(e.id) ||
+            this._events.get(this._sequences.get(e.device+'\u0000'+e.seq));
+          this._rememberRejectedBatch(events,check,acceptedAnchor); // self-contained proof
           return {ok:false,reason:check,id:e.id,added:0,rejectedBatchStored:true};
         }
       }
@@ -169,18 +185,23 @@
             !['id-collision','sequence-collision'].includes(batch.reason))
           throw Error('invalid rejected-batch envelope');
         const items=batch.events.map(e=>validate(e,this.notebook));
-        const witnesses=accepted.concat(items);
-        const conflict=items.some(a=>witnesses.some(b=>
-          batch.reason==='id-collision'
-            ? (a.id===b.id && stable(a)!==stable(b))
-            : (a.device===b.device && a.seq===b.seq && a.id!==b.id)));
-        if (!conflict) throw Error('unsubstantiated rejected-batch envelope');
-        verified.push({reason:batch.reason,events:items});
+        const pair=(a,b)=>batch.reason==='id-collision'
+          ? (a.id===b.id && stable(a)!==stable(b))
+          : (a.device===b.device && a.seq===b.seq && a.id!==b.id);
+        // Older LOCAL-only envelopes had no anchor; infer one from accepted
+        // backup facts, but any newly replicated envelope carries its own.
+        const anchor=batch.anchor==null
+          ? (accepted.find(b=>items.some(a=>pair(a,b)))||null)
+          : validate(batch.anchor,this.notebook);
+        const witnesses=items.concat(anchor?[anchor]:[]);
+        if (!items.some(a=>witnesses.some(b=>pair(a,b))))
+          throw Error('unsubstantiated rejected-batch envelope');
+        verified.push({reason:batch.reason,events:items,anchor});
       }
       const merged=this.merge(snapshot.events);
       if (!merged.ok) return merged;
       for (const c of alternatives) this.append(c.attempted);
-      for (const batch of verified) this._rememberRejectedBatch(batch.events,batch.reason);
+      for (const batch of verified) this._rememberRejectedBatch(batch.events,batch.reason,batch.anchor);
       return {...merged,restoredConflicts:alternatives.length,restoredRejectedBatches:verified.length};
     }
     get size() { return this._events.size; }
@@ -239,8 +260,9 @@
           issues.push('quarantined-'+item.reason);
       }
       for (const batch of this._rejectedBatches.values())
-        if (batch.events.some(e=>e.product===product))
-          issues.push('local-rejected-batch:'+batch.reason);
+        if (batch.events.some(e=>e.product===product) ||
+            (batch.anchor && batch.anchor.product===product))
+          issues.push('rejected-batch:'+batch.reason);
       let physicalClaim=null;
       if (base!==null && !issues.length) {
         physicalClaim=base;

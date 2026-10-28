@@ -52,15 +52,72 @@ test('real Yjs: three peers, offline operations in different orders and duplicat
  assert.equal(a.journal.size,4);assert.equal(b.journal.size,4);assert.equal(c.journal.size,4);
  for(const peer of [a,b,c])peer.bridge.close();
 });
-test('Yjs fails closed rather than propagating rejected batch witnesses as accepted sales',async()=>{
+test('Yjs quarantine: two peers preserve a rejected batch without applying physical events',async()=>{
+ const [a,b,restore]=[make(),make(),make()];
+ await a.bridge.publish(ev('base',1,'OPEN','cream',10));
+ const first=ev('pc',1,'RECEIVE','cream',3),other={...first,qty:5};
+ assert.equal(a.journal.merge([first,other]).rejectedBatchStored,true);
+ assert.equal(await a.bridge.seedFromJournal(),2,'opening plus ONE quarantine envelope');
+ await transmit(a,b);
+ assert.equal(a.journal.size,1);
+ assert.equal(b.journal.size,1,'neither rejected movement is an accepted sale');
+ assert.equal(b.bridge.map.size,1,'ordinary event channel remains clean');
+ assert.equal(b.bridge.quarantineMap.size,1);
+ assert.equal(b.journal.rejectedBatches.length,1);
+ assert.equal(b.journal.project('cream').onHand,null);
+ const snap=b.journal.export();
+ assert.equal(restore.journal.import(snap).ok,true);
+ assert.equal(await restore.bridge.seedFromJournal(),2);
+ assert.equal(restore.journal.project('cream').onHand,null);
+ for(const p of [a,b,restore])p.bridge.close();
+});
+test('Yjs quarantine: external cross-product collision invalidates BOTH products remotely',async()=>{
+ const [a,b]=[make(),make()];
+ await a.bridge.publish(ev('base',1,'OPEN','cream',10));
+ await a.bridge.publish(ev('base',2,'OPEN','soap',8));
+ await a.bridge.publish(ev('pc',1,'RECEIVE','cream',2));
+ const batch=[ev('supplier',1,'RECEIVE','soap',4),{...ev('pc',1,'RECEIVE','cream',5)}];
+ assert.equal(a.journal.merge(batch).rejectedBatchStored,true);
+ await a.bridge.seedFromJournal(); await transmit(a,b);
+ assert.equal(b.journal.size,3,'rejected soap receipt never lands in normal stock journal');
+ assert.equal(b.bridge.quarantineMap.size,1);
+ for(const product of ['cream','soap']){
+   assert.equal(b.journal.project(product).onHand,null);
+   assert.ok(b.journal.project(product).issues.some(x=>x.startsWith('rejected-batch:')));
+ }
+ assert.equal(b.journal.rejectedBatches.length,1);
+ a.bridge.close();b.bridge.close();
+});
+test('Yjs quarantine: verified rejected envelope restores after Y.Map deletion',async()=>{
+ const a=make();
+ await a.bridge.publish(ev('base',1,'OPEN','cream',1));
+ const first=ev('pc',1,'RECEIVE','cream',3);
+ a.journal.merge([first,{...first,qty:4}]);
+ await a.bridge.seedFromJournal();
+ const [key]=[...a.bridge.quarantineMap.keys()];
+ a.bridge.quarantineMap.delete(key);
+ await a.bridge.flush();
+ assert.ok(a.bridge.quarantineMap.has(key));
+ a.bridge.close();
+});
+test('Yjs quarantine: tampered or forged rejected-batch key never enters journal',async()=>{
+ const a=make();
+ a.bridge.quarantineMap.set('forged#bad',JSON.stringify({reason:'id-collision',events:[]}));
+ await a.bridge.flush();
+ assert.equal(a.journal.rejectedBatches.length,0);
+ assert.ok(a.bridge.errors.length>=1);
+ a.bridge.close();
+});
+test('Yjs refuses new business publication during unresolved rejected batch',async()=>{
  const x=make();
  await x.bridge.publish(ev('base',1,'OPEN','cream',1));
  const first=ev('pc',1,'RECEIVE','cream',3),alt={...first,qty:8};
  assert.equal(x.journal.merge([first,alt]).rejectedBatchStored,true);
  assert.equal(x.journal.project('cream').trust,'needs-reconciliation');
- await assert.rejects(()=>x.bridge.seedFromJournal(),/rejected-batch quarantine/);
+ assert.equal(await x.bridge.seedFromJournal(),2,'quarantine published separately from valid opening');
  await assert.rejects(()=>x.bridge.publish(ev('phone',1,'ORDER','cream',1,{orderId:'sale-1'})),/rejected-batch quarantine/);
  assert.equal(x.bridge.map.size,1,'unsafe batch facts never appear on the normal event map');
+ assert.equal(x.bridge.quarantineMap.size,1);
  x.bridge.close();
 });
 test('real Yjs: SAME ID with DIFFERENT payload survives on separate witness keys and is quarantined',async()=>{

@@ -27,8 +27,12 @@ class ShadowYjsBridge {
    if (!doc || typeof doc.getMap!=='function') throw Error('Y.Doc required');
    if (!(journal instanceof Journal)) throw Error('Journal required');
    this.doc=doc;this.journal=journal;this.map=doc.getMap(namespace);
+   // Conflict evidence is NOT a business event. It has its own Y.Map so
+   // recipients can invalidate projections without accepting rejected sales.
+   this.quarantineMap=doc.getMap(namespace+'-quarantine-v1');
    this.errors=[];this.inbound=0;this._queue=Promise.resolve();
    this._witnesses=new Map(); // known, already hash-verified immutable evidence
+   this._quarantineWitnesses=new Map();
    this._observer=e=>{
      for (const key of e.keysChanged) {
        if (this.map.has(key)) this._schedule(key);
@@ -36,7 +40,15 @@ class ShadowYjsBridge {
      }
    };
    this.map.observe(this._observer);
+   this._quarantineObserver=e=>{
+     for(const key of e.keysChanged) {
+       if(this.quarantineMap.has(key))this._scheduleQuarantine(key);
+       else this._restoreKnownQuarantine(key);
+     }
+   };
+   this.quarantineMap.observe(this._quarantineObserver);
    for (const key of this.map.keys()) this._schedule(key);
+   for (const key of this.quarantineMap.keys()) this._scheduleQuarantine(key);
  }
  _schedule(key) {
    this._queue=this._queue.then(async()=>{
@@ -66,6 +78,31 @@ class ShadowYjsBridge {
      else if (!raw) this.errors.push({key,reason:'deleted-unknown-witness'});
    }).catch(err=>this.errors.push({key,reason:err.message}));
  }
+ _scheduleQuarantine(key) {
+   this._queue=this._queue.then(async()=>{
+     const raw=this.quarantineMap.get(key);
+     if(typeof raw!=='string')throw Error('rejected-batch witness must be string');
+     const envelope=JSON.parse(raw);
+     const expected='rejected#'+await sha256(stable(envelope));
+     if(key!==expected || raw!==stable(envelope))
+       throw Error('rejected-batch witness hash mismatch');
+     this.journal.ingestRejectedBatch(envelope);
+     this._quarantineWitnesses.set(key,raw);
+     this.inbound++;
+   }).catch(err=>{
+     this.errors.push({key,reason:err.message});
+     const known=this._quarantineWitnesses.get(key);
+     if(known && this.quarantineMap.get(key)!==known)
+       this.quarantineMap.set(key,known);
+   });
+ }
+ _restoreKnownQuarantine(key) {
+   this._queue=this._queue.then(()=>{
+     const known=this._quarantineWitnesses.get(key);
+     if(known && !this.quarantineMap.has(key))this.quarantineMap.set(key,known);
+     else if(!known)this.errors.push({key,reason:'deleted-unknown-rejection'});
+   }).catch(err=>this.errors.push({key,reason:err.message}));
+ }
  async publish(event) {
    if (this.journal.rejectedBatches.length)
      throw Error('rejected-batch quarantine has no reviewed Yjs transport; publish blocked');
@@ -86,11 +123,14 @@ class ShadowYjsBridge {
    // After a local backup/IDB restoration, anti-entropy must be able to
    // republish every accepted fact AND every known conflicting witness.
    const backup=this.journal.export();
-   // Rejected *batches* are not authorized events. Until a separate
-   // quarantine transport is specified, fail closed rather than silently
-   // letting another peer calculate an apparently clean inventory.
-   if (backup.rejectedBatches && backup.rejectedBatches.length)
-     throw Error('rejected-batch quarantine has no reviewed Yjs transport; seed blocked');
+   // Separate map: backup rejection envelopes are evidence, never stock.
+   const rejected=backup.rejectedBatches||[];
+   const rejectedEntries=[];
+   for(const envelope of rejected){
+     const raw=stable(envelope),key='rejected#'+await sha256(raw);
+     rejectedEntries.push([key,raw]);
+     this._quarantineWitnesses.set(key,raw);
+   }
    const facts=backup.events.concat(backup.quarantine.map(x=>x.attempted));
    const entries=[];
    for (const e of facts) {
@@ -100,9 +140,11 @@ class ShadowYjsBridge {
    }
    this.doc.transact(()=>{
      for (const [key,raw] of entries) if (!this.map.has(key)) this.map.set(key,raw);
+     for (const [key,raw] of rejectedEntries)
+       if (!this.quarantineMap.has(key)) this.quarantineMap.set(key,raw);
    },'shadow-recovery');
    await this.flush();
-   return entries.length;
+   return entries.length+rejectedEntries.length;
   }
  async flush() {
    // Restoring a tombstone emits another Y.Map update; drain the resulting
@@ -110,7 +152,10 @@ class ShadowYjsBridge {
    while (true) { const pending=this._queue; await pending; if (pending===this._queue) break; }
    return {inbound:this.inbound,errors:this.errors.length};
  }
- close(){this.map.unobserve(this._observer);}
+ close(){
+   this.map.unobserve(this._observer);
+   this.quarantineMap.unobserve(this._quarantineObserver);
+ }
 }
 return Object.freeze({ShadowYjsBridge,sha256});
 });
