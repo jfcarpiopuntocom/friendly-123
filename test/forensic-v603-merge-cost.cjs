@@ -94,11 +94,11 @@ async function peer(n){
  // Mixed metadata and product changes must NOT take the fast route.
  const mixedUpdates=[];
  a.OCYjs.doc.on('update',(update,origin)=>{ if(origin==='seed')mixedUpdates.push(new Uint8Array(update)); });
- a.OCYjs.doc.transact(()=>{
-   const p=a.OCYjs.getProductos()['perf-merge-1'];
-   a.OCYjs.mapas.productos.set('perf-merge-1',{...p,nombre:'Synthetic also changed'});
-   a.OCYjs.meta.set('nombreNegocio','SYNTHETIC-MIXED-METADATA');
- },'seed');
+ vm.runInContext(`OCYjs.doc.transact(function(){
+   var p=OCYjs.getProductos()['perf-merge-1'];
+   OCYjs.mapas.productos.set('perf-merge-1',Object.assign({},p,{nombre:'Synthetic also changed'}));
+   OCYjs.meta.set('nombreNegocio','SYNTHETIC-MIXED-METADATA');
+ },'seed');`,a);
  for(const update of mixedUpdates)b.Y.applyUpdate(b.OCYjs.doc,update,'red');
  b.OCYjs._store.aplicar();
  assert.equal(applyShapes.at(-1)?.productos,1000,
