@@ -4029,7 +4029,7 @@
           } else {
             try { window.dispatchEvent(new CustomEvent("oc-stock-cero-legado-ignorado", { detail: { productoId: mio.id } })); } catch (_) {}
           }
-        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && _ganaEpocaStockRemota(p, mio)) {
+        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && !(epochLocal && epochRemote && epochConflict) && _ganaEpocaStockRemota(p, mio)) {
           /* v515 (Belen 2026-10-14: "Yo arregle manualmente... no afecto a lo de mi compu").
              Antes, con bases distintas solo se avisaba y NADIE convergia nunca: cada aparato
              quedaba con su numero y una correccion manual no cruzaba. Ahora gana el cambio de
