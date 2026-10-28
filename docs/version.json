@@ -1,10 +1,10 @@
 {
-  "version": "shell v600",
+  "version": "shell v601",
   "fecha": "2026-10-27",
-  "changelog": "v600 (v599 content with a corrected integrity manifest): faster sync between devices (a change no longer waits for the whole notebook to finish saving; money operations still wait), lighter start (health checks and backups run after the first screen), Join a shared notebook wording, the PIN keypad shows only digits, the entry screens are in Spanish on a Spanish phone, a price link on the entry screen, and the activate button is visible on small phones.",
+  "changelog": "v601: every non-money change (team, PIN, customers, expenses, categories, settings, merged changes from another device) now goes out to your other devices while it is still being saved, instead of after. Sales, payouts, returns and retentions still wait until they are safely saved.",
   "requerida": false,
-  "shell": "f123-shell-v600",
+  "shell": "f123-shell-v601",
   "apagar": [],
-  "releaseName": "shell v600",
-  "cacheGeneration": "golden146"
+  "releaseName": "shell v601",
+  "cacheGeneration": "golden147"
 }
