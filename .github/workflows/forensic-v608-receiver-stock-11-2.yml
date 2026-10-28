@@ -14,6 +14,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install test dependencies (no scripts, no customer data)
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Syntax check actual production bridge
         run: node --check docs/sync-yjs.js
       - name: Only isolated P0 receiver regression (no external network, no customer data)
