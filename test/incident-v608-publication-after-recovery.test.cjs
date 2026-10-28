@@ -520,3 +520,30 @@ test('P0 explicit competing physical epochs must not auto-overwrite by timestamp
   assert.equal((await a.w.request('/api/productos/p0-competing-epochs')).stockActual,5);
   assert.equal((await b.w.request('/api/productos/p0-competing-epochs')).stockActual,9);
 });
+
+test('P0 same numeric base with two explicit epochs cannot merge counter witnesses',async()=>{
+  const a=await peer(),b=await peer();
+  const base=await a.w.request('/api/respaldo/exportar');
+  base.productos=[{...base.productos[0],id:'p0-epoch-equal',
+    nombre:'Synthetic equal base epochs',barcode:'SYN-EQUAL-EPOCH',
+    stockActual:5,stockBase:5,stockPN:{},stockEpochId:'E2-A',stockTs:10,
+    rev:{c:1,d:'fixture'}}];
+  base.ventas=[];base.movimientos=[];
+  const other=JSON.parse(JSON.stringify(base));
+  other.productos[0].stockEpochId='E3-B';
+  other.productos[0].stockTs=200;
+  for(const [device,fixture] of [[a,base],[b,other]]){
+    assert.equal((await device.w.request('/api/respaldo/importar','POST',fixture)).ok,true);
+    device.w.OCYjs._store.sembrar();await device.flush();
+  }
+  await a.w.request('/api/productos/p0-epoch-equal/ajustar','POST',{delta:2,motivo:'E2 only'});
+  await b.w.request('/api/productos/p0-epoch-equal/ajustar','POST',{delta:4,motivo:'E3 only'});
+  await a.flush();await b.flush();
+  for(let round=0;round<3;round++)await exchange(a,b,1);
+  const pa=(await a.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-epoch-equal');
+  const pb=(await b.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-epoch-equal');
+  assert.equal(pa.stockActual,7,'do not add E3 movement to E2');
+  assert.equal(pb.stockActual,9,'do not add E2 movement to E3');
+  assert.equal(pa.stockEpochId,'E2-A');
+  assert.equal(pb.stockEpochId,'E3-B');
+});
