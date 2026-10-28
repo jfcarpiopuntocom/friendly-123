@@ -955,6 +955,8 @@
       idsProd.add(String(p.id));
       if (!esTextoCorto(String(p.nombre || ""), 240)) return "There is a product without a valid name.";
       if (!Number.isFinite(Number(p.precio)) || !Number.isFinite(Number(p.costo)) || !Number.isFinite(Number(p.stockActual))) return "There are invalid numeric values in products.";
+      if (p.stockEpochId != null && (typeof p.stockEpochId !== "string" || p.stockEpochId.length > 160))
+        return "There is an invalid physical inventory epoch in the backup.";
       if (Number(p.precio) < 0 || Number(p.costo) < 0 || Number(p.stockActual) < 0) return "There are negative prices, costs or stock in products.";
     }
     const idsUbic = new Set();
@@ -3527,6 +3529,74 @@
     } catch (_) { return null; }
   }
 
+  /*
+   * P0 READ-ONLY stock checksum for a physical PC–phone verification gate.
+   * Existing huellaCatalogo intentionally ignores stock. Never relabel that
+   * metadata-only checksum as proof of inventory equality. This method does
+   * not publish to the relay, rewrite the local notebook, or trigger a sync.
+   */
+  async function huellaInventario() {
+    const rows = productos.map((p) => {
+      const rawPN = p && p.stockPN && typeof p.stockPN === "object" && !Array.isArray(p.stockPN) ? p.stockPN : {};
+      return {
+        id: String(p && p.id || ""),
+        stock: Number(p && p.stockActual),
+        deficit: Number(p && p.stockDeficit || 0),
+        base: p && p.stockBase != null ? Number(p.stockBase) : null,
+        epoch: typeof (p && p.stockEpochId) === "string" ? p.stockEpochId : "",
+        pn: Object.keys(rawPN).sort().map((actor) => [
+          actor, Number(rawPN[actor] && rawPN[actor].add || 0), Number(rawPN[actor] && rawPN[actor].sub || 0)
+        ]),
+        conflict: !!(p && p.stockEvidencias && Object.keys(p.stockEvidencias).length)
+      };
+    }).sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    const idDuplicado = new Set();
+    const idsVistos = new Set();
+    rows.forEach((r) => { if (idsVistos.has(r.id)) idDuplicado.add(r.id); idsVistos.add(r.id); });
+    const invalidos = rows.filter((r) => {
+      if (!r.id || idDuplicado.has(r.id) || !Number.isSafeInteger(r.stock) || r.stock < 0 ||
+          !Number.isSafeInteger(r.deficit) || r.deficit < 0 ||
+          (r.base !== null && !Number.isSafeInteger(r.base)) || r.epoch.length > 160 ||
+          r.pn.some((v) => !v[0] || !Number.isSafeInteger(v[1]) ||
+            !Number.isSafeInteger(v[2]) || v[1] < 0 || v[2] < 0)) return true;
+      if (r.pn.length) {
+        // The movement ledger must derive the displayed physical stock.
+        // A partial or corrupted PN read model must NOT get a clean proof.
+        if (r.base === null) return true;
+        const expected = r.base + r.pn.reduce((sum,v) => sum + v[1] - v[2],0);
+        if (!Number.isSafeInteger(expected) || r.stock !== Math.max(0,expected) ||
+            r.deficit !== Math.max(0,-expected)) return true;
+      }
+      return false;
+    }).length;
+    const sinEpoca = rows.filter((r) => !r.epoch).length;
+    const conflictos = rows.filter((r) => r.conflict).length;
+    // Never issue a clean checksum for structurally corrupt data or a browser
+    // without SubtleCrypto: absence of proof is not evidence of equality.
+    if (invalidos || !window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined")
+      return { ok:false, comparable:false, certificado:false, productos:rows.length,
+        sinEpoca, conflictos, invalidos, razon:"checksum-no-disponible-o-datos-invalidos" };
+    const digest = async (data) => {
+      const bytes = new TextEncoder().encode(JSON.stringify(data));
+      const hash = await window.crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(hash), (n) => n.toString(16).padStart(2,"0")).join("");
+    };
+    try {
+      const [existencias, movimientos] = await Promise.all([
+        digest(rows.map((r) => [r.id,r.stock,r.deficit])),
+        digest(rows.map((r) => [r.id,r.stock,r.deficit,r.base,r.epoch,r.pn,r.conflict]))
+      ]);
+      return { ok:true, comparable:sinEpoca === 0 && conflictos === 0,
+        certificado:false, // Not a cross-device confirmation: requires independent durable peer evidence.
+        productos:rows.length, sinEpoca, conflictos, invalidos:0,
+        algoritmo:"SHA-256", existencias, movimientos,
+        advertencia:"Solo huellas locales: la igualdad NO demuestra recepción duradera ni conciliación física" };
+    } catch (_) {
+      return { ok:false, comparable:false, certificado:false, productos:rows.length,
+        sinEpoca, conflictos, invalidos, razon:"checksum-fallo" };
+    }
+  }
+
   /* ==========================================================================
      PASOS 4 y 5 — MERGE DE CATALOGO ENTRE DISPOSITIVOS DEL EQUIPO
      (JFC 2026-08-19)
@@ -3969,6 +4039,20 @@
         const _pnL = mio.stockPN && typeof mio.stockPN === "object" ? mio.stockPN : null;
         const _baseR = p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null;
         const _baseL = mio.stockBase != null && Number.isFinite(Number(mio.stockBase)) ? Number(mio.stockBase) : null;
+        const epochRemote = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
+        const epochLocal = typeof mio.stockEpochId === "string" ? mio.stockEpochId : "";
+        const epochConflict = (epochRemote || epochLocal) && epochRemote !== epochLocal;
+        if (epochConflict && epochLocal && epochRemote) {
+          // Two explicit recount identities conflict even when both numerical
+          // stock bases are identical. Report the conflict without fabricating
+          // an old-format, base-keyed stockEvidencias merge.
+          try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto",
+            {detail:{productoId:mio.id, epochConflict:true}})); } catch (_) {}
+        }
+        const protectedStock = epochLocal && epochRemote && epochConflict
+          ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
+             actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
+          : null;
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
         if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
@@ -3980,7 +4064,20 @@
             try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if (_baseR !== null && (_baseL === _baseR || (_baseL === null &&
+        if (epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) {
+          const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
+          const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
+            sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
+          if (Number.isSafeInteger(net)) {
+            mio.stockEpochId = epochRemote;
+            mio.stockBase = _baseR;
+            mio.stockPN = newCounters;
+            mio.stockActual = Math.max(0,net);
+            mio.stockDeficit = Math.max(0,-net);
+            mio.stockTs = _tsR;
+            actualizados++;
+          }
+        } else if (!epochConflict && _baseR !== null && (_baseL === _baseR || (_baseL === null &&
             (Number(mio.stockActual) === _baseR || Number(mio.stockActual) === Number(p.stockActual))))) {
           const pn = Object.assign({}, _pnL || {});
           Object.keys(_pnR || {}).forEach((id) => {
@@ -3996,7 +4093,7 @@
           if (calculado !== Number(mio.stockActual) || JSON.stringify(pn) !== JSON.stringify(_pnL) || _baseL === null || _deficit !== (Number(mio.stockDeficit) || 0)) actualizados++;
           mio.stockBase = _baseR; mio.stockPN = pn; mio.stockActual = calculado; mio.stockDeficit = _deficit;
           mio.stockTs = Math.max(_tsL, _tsR);
-        } else if (_baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
+        } else if (!epochConflict && _baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
           /* Compatibilidad con aparatos anteriores al ledger de stock.
              v445 bloqueo el cero legado destructivo. v447 agrega la otra mitad:
              si YA existe un reloj comun, un stockTs legado que esta >5 min en el
@@ -4013,7 +4110,7 @@
           } else {
             try { window.dispatchEvent(new CustomEvent("oc-stock-cero-legado-ignorado", { detail: { productoId: mio.id } })); } catch (_) {}
           }
-        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && _ganaEpocaStockRemota(p, mio)) {
+        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && !epochLocal && _ganaEpocaStockRemota(p, mio)) {
           /* v515 (Belen 2026-10-14: "Yo arregle manualmente... no afecto a lo de mi compu").
              Antes, con bases distintas solo se avisaba y NADIE convergia nunca: cada aparato
              quedaba con su numero y una correccion manual no cruzaba. Ahora gana el cambio de
@@ -4029,6 +4126,16 @@
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
         } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "local" } })); } catch (_) {}
+        }
+        // A conflicting explicit physical epoch is not proof of a recount.
+        // Preserve this device's active physical inventory, even if a legacy
+        // branch inadvertently tried to adopt a remote numeric base.
+        if (protectedStock) {
+          mio.stockBase = protectedStock.base;
+          mio.stockPN = protectedStock.pn;
+          mio.stockActual = protectedStock.actual;
+          mio.stockDeficit = protectedStock.deficit;
+          mio.stockTs = protectedStock.ts;
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
@@ -4802,6 +4909,7 @@
              edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
           stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0,
           stockBase: p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null,
+          stockEpochId: typeof p.stockEpochId === "string" ? p.stockEpochId : "",
           stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
           stockEvidencias: p.stockEvidencias && typeof p.stockEvidencias === "object" ? JSON.parse(JSON.stringify(p.stockEvidencias)) : null,
           /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
@@ -5086,6 +5194,7 @@
     /* La huella de ESTE dispositivo. La usan el latido del micelio, el panel
        del equipo y el codigo TEAM- al compartirse. */
     huella: huellaCatalogo,
+    huellaInventario: huellaInventario,
     // Llamado por sync-realtime.js al recibir un Op de otro dispositivo. Si
     // el resultado queda negativo, se deja ver (mov "alerta-descuadre") en
     // vez de esconderlo: eso es un sobrante real que ocurrio en el mundo
@@ -6238,6 +6347,7 @@
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.
           precio: aCent(Math.max(0, Number(body.precio) || 0)), costo: aCent(Math.max(0, Number(body.costo) || 0)), stockActual: Math.max(0, Number(body.stockInicial) || 0),
+          stockEpochId: uuid("stock-epoch-"), // Unique physical epoch for new products; do not retrofit ambiguous historical products.
           stockTs: (function () { const _r = ahoraRelayComun(); return _r === null ? Date.now() : _r; })(), // v447: stock inicial no hereda un reloj civil adelantado
           /* PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio
              OPCIONAL, más bajo, para la gente de la casa (ej. cerveza $5 al

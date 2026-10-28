@@ -1526,6 +1526,7 @@
     // FASE 2 (JFC 2026-09-09): mapa aparte para el nombre del negocio y los PINs
     // de rol, que viajan CON el catálogo pero no son una colección de ítems. Así
     // Plan C converge un negocio completo por sí solo, sin depender del sync casero.
+    API.stockPNTestigos = API.doc.getMap("_stock_pn_testigos_v1");
     API.meta = API.doc.getMap("_meta");
     API.clave = await derivarClave(codigo);
     /* LIMPIEZA (2026-09-16): SOLO la licencia canonica de JFC estrena sala NUEVA
@@ -1939,6 +1940,156 @@
     Object.keys(out).sort(function (x,y) {return Number(x)-Number(y);}).forEach(function (key) {sorted[key]=out[key];});
     return sorted;
   }
+
+  /*
+   * P0 forensic candidate: monotonically growing, per-actor stock witnesses.
+   * Y.Map("productos").set(productId, wholeProduct) has LAST-WRITER conflicts:
+   * the peer with stock=2 can mask a confirmed +9 from another peer. Stock
+   * counters therefore need independent Yjs keys, not a single product value.
+   * This witness map is encrypted in the SAME existing Y.Doc, never sent in
+   * plaintext, and never chooses a physical baseline from conflicting bases.
+   *
+   * The key includes the counter snapshot: a stale concurrent write can never
+   * delete a newer counter. No migration, reset, or pruning of historical ops.
+   */
+  function publicarTestigosStock(r, mapa) {
+    if (!r || r.id == null || !mapa) return;
+    var pid = String(r.id);
+    if (!pid || pid.length > 160) return;
+    function registrar(base, pn, ts, epoch) {
+      // New explicit epochs cannot inherit legacy witnesses by numeric coincidence.
+      var ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+
+      var b = Number(base);
+      if (base == null || !Number.isSafeInteger(b) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
+      Object.keys(pn).forEach(function (actor) {
+        if (!actor || actor.length > 160) return;
+        var z = pn[actor] || {}, add = Number(z.add), sub = Number(z.sub);
+        if (!Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0 || !(add || sub)) return;
+        var key = JSON.stringify([pid, b, ep, actor, add, sub]);
+        if (!mapa.has(key)) mapa.set(key, { p: pid, b: b, e: ep, d: actor, a: add, s: sub, t: Number(ts) || 0 });
+      });
+    }
+    registrar(r.stockBase, r.stockPN, r.stockTs, r.stockEpochId);
+    var evidencias = r.stockEvidencias;
+    if (evidencias && typeof evidencias === "object" && !Array.isArray(evidencias)) {
+      Object.keys(evidencias).forEach(function (key) {
+        var e = evidencias[key]; if (e) registrar(e.base, e.pn, e.ts, e.epoch);
+      });
+    }
+  }
+
+  // Build once per Y.Map. A single remote PN fact must not walk ALL historical
+  // witnesses during each inventory update. No mutation of Yjs or customer data.
+  // A deletion, rewrite or unrecognized change invalidates the index and forces
+  // a full rebuild at the next read (fail closed). Indexed maxima are monotone.
+  var _indicesPNTestigos = new WeakMap();
+  function _indexarPNTestigo(hechos, w) {
+    if (!w || typeof w !== "object") return;
+    var pid = String(w.p || ""), actor = String(w.d || "");
+    var base = Number(w.b), add = Number(w.a), sub = Number(w.s);
+    var epoch = typeof w.e === "string" && w.e.length <= 160 ? w.e : "";
+    if (!pid || pid.length > 160 || !actor || actor.length > 160 || !Number.isSafeInteger(base) ||
+        !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
+    var byProduct = hechos[pid] || (hechos[pid] = Object.create(null));
+    var groupKey = JSON.stringify([base, epoch]);
+    var byBase = byProduct[groupKey] || (byProduct[groupKey] = { base: base, epoch: epoch, pn: {}, ts: 0 });
+    var old = byBase.pn[actor] || { add: 0, sub: 0 };
+    byBase.pn[actor] = { add: Math.max(old.add, add), sub: Math.max(old.sub, sub) };
+    byBase.ts = Math.max(byBase.ts, Number(w.t) || 0);
+  }
+  function _indexPNTestigos(mapa) {
+    var state = _indicesPNTestigos.get(mapa);
+    if (!state) {
+      state = { hechos: Object.create(null), dirty: true };
+      _indicesPNTestigos.set(mapa, state);
+      mapa.observe(function (event) {
+        if (state.dirty) return;
+        // Yjs reports 'add', 'update' and 'delete' for changed keys. Only
+        // brand-new add-only witnesses may be indexed incrementally.
+        if (!event || !event.keysChanged || !event.changes || !event.changes.keys) {
+          state.dirty = true; return;
+        }
+        event.keysChanged.forEach(function (key) {
+          var change = event.changes.keys.get(key);
+          if (!change || change.action !== "add" || !mapa.has(key)) {
+            state.dirty = true; return;
+          }
+          if (!state.dirty) _indexarPNTestigo(state.hechos, mapa.get(key));
+        });
+      });
+    }
+    if (state.dirty) {
+      var hechos = Object.create(null);
+      mapa.forEach(function (w) { _indexarPNTestigo(hechos, w); });
+      state.hechos = hechos;
+      state.dirty = false;
+    }
+    return state.hechos;
+  }
+  function incorporarTestigosStock(productos, mapa) {
+    if (!Array.isArray(productos) || !productos.length) return productos;
+    var hechos = mapa && mapa.size ? _indexPNTestigos(mapa) : Object.create(null);
+    return productos.map(function (p) {
+      if (!p || p.id == null) return p;
+      var porBase = hechos[String(p.id)];
+      var b = p.stockBase == null ? null : Number(p.stockBase);
+      var epoch = typeof p.stockEpochId === "string" && p.stockEpochId.length <= 160 ? p.stockEpochId : "";
+      var activeKey = JSON.stringify([b, epoch]);
+      // An explicit epoch requires independently authenticated Y.Doc facts,
+      // not merely a whole-product PN object (old bridges can relabel it).
+      // Sanitizing the incoming read-model never deletes the local ledger.
+      function sinPruebaEpoca(proof) {
+        if (!epoch || !Number.isSafeInteger(b) || !p.stockPN ||
+            !Object.keys(p.stockPN).length) return proof || p;
+        return Object.assign({}, p, {
+          stockPN: {}, stockActual: Math.max(0, b), stockDeficit: 0,
+          ...(proof ? { stockEvidencias: proof } : {})
+        });
+      }
+      if (!porBase) return sinPruebaEpoca(null);
+      var prevProof = p.stockEvidencias && typeof p.stockEvidencias === "object" &&
+        Object.keys(p.stockEvidencias).length > 0;
+      var conflictProof = Object.keys(porBase).some(function (key) { return b === null || key !== activeKey; });
+      // Keep historical fork evidence, but avoid copying every ordinary
+      // same-baseline movement into a second ever-growing backup field.
+      var legacyProof = Object.create(null);
+      Object.keys(porBase).forEach(function (key) {
+        var fact = porBase[key];
+        if (fact.epoch === "" && String(fact.base) !== String(b)) legacyProof[String(fact.base)] = fact;
+      });
+      var e = (prevProof || Object.keys(legacyProof).length) ? unirEvidenciasStockYjs(p, { stockEvidencias: legacyProof }) : null;
+      // Distinct explicit epochs are retained in the encrypted witness map;
+      // legacy stockEvidencias cannot represent two equal-number epochs safely.
+      if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
+        // An old bridge may win Y.Map.productos with E2 metadata but E1 PN.
+        // When historical witnesses exist and none are scoped to explicit E2,
+        // those unscoped PN counters are NOT evidence of a new E2 movement.
+        // Retain their original witnesses in the encrypted Y.Doc unchanged.
+        return sinPruebaEpoca(e);
+      }
+      var vistos = porBase[activeKey];
+      // A winning whole-product value is not proof that all its counters belong
+      // to this physical epoch. When independent epoch witnesses conflict,
+      // derive the active counters from the epoch-scoped witness index only.
+      var pn = Object.assign({}, epoch ? vistos.pn : (p.stockPN || {}));
+      Object.keys(vistos.pn).forEach(function (actor) {
+        var old = pn[actor] || {}, newValue = vistos.pn[actor];
+        pn[actor] = { add: Math.max(Number(old.add) || 0, newValue.add),
+                      sub: Math.max(Number(old.sub) || 0, newValue.sub) };
+      });
+      var neto = b + Object.keys(pn).reduce(function (total, actor) {
+        return total + (Number(pn[actor].add) || 0) - (Number(pn[actor].sub) || 0);
+      }, 0);
+      if (!Number.isSafeInteger(neto)) return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
+      return Object.assign({}, p, {
+        stockBase: b, stockPN: pn, stockActual: Math.max(0, neto),
+        stockDeficit: neto < 0 ? -neto : 0,
+        stockTs: Math.max(Number(p.stockTs) || 0, vistos.ts),
+        ...(e ? { stockEvidencias: e } : {})
+      });
+    });
+  }
   function conectarStore(Y) {
     if (!window.OCSync || typeof window.OCSync.catalogoPropio !== "function" ||
         typeof window.OCSync.aplicarCatalogo !== "function") {
@@ -1976,6 +2127,24 @@
         });
       });
     });
+    if (API.stockPNTestigos && typeof API.stockPNTestigos.observe === "function") {
+      API.stockPNTestigos.observe(function (event, txn) {
+        // A stock-only witness changes just one product's read model.
+        // An unknown origin, deletion or missing product must instead run the
+        // proven full merge; never silently ignore out-of-order history.
+        if (!txn || (txn.origin !== "seed" && txn.origin !== "red" && txn.origin !== "bc")) {
+          _otroRemoto = true; return;
+        }
+        if (txn.origin === "seed") return;
+        event.keysChanged.forEach(function (key) {
+          var fact = API.stockPNTestigos.get(key), pid = fact && String(fact.p || "");
+          if (!fact || !pid || !API.mapas.productos.has(pid)) {
+            _otroRemoto = true; return;
+          }
+          _productosRemotos.add(pid);
+        });
+      });
+    }
     if (API.meta && typeof API.meta.observe === "function") {
       API.meta.observe(function (_event, txn) {
         if (txn && txn.origin !== "seed") _otroRemoto = true; // red/bc/desconocido (JFC 2026-10-27)
@@ -2024,6 +2193,9 @@
               if (!r || r.id == null) return;
               var k = String(r.id);
               var prev = API.mapas[col].get(k);
+              // Even if the complete product object loses Y.Map arbitration,
+              // its PN movements survive as distinct add-only CRDT keys.
+              if (col === "productos") publicarTestigosStock(r, API.stockPNTestigos);
               var productoEntrada = col === "productos" ? JSON.stringify(r) : null;
               if (productoEntrada && prev && _productosSinCambios.get(prev) === productoEntrada) return;
               // A locked tab may know the device profile but no longer have an authenticated role.
@@ -2061,6 +2233,26 @@
                 }
               }
               if (prev && col === "productos") {
+                // Never conflate physical epochs solely because stockBase matches.
+                // Y.Map.productos is last-writer metadata, not an epoch-proof ledger.
+                var _stockEpochMine = typeof r.stockEpochId === "string" ? r.stockEpochId : "";
+                var _stockEpochDoc = typeof prev.stockEpochId === "string" ? prev.stockEpochId : "";
+                var _samePhysicalEpoch = _stockEpochMine === _stockEpochDoc;
+                // An explicit epoch supersedes untagged legacy stock in the
+                // shared read model. Two competing explicit epochs retain the
+                // existing map value; independent witnesses preserve both.
+                var _epochPreferred = _samePhysicalEpoch ? null :
+                  (_stockEpochMine && !_stockEpochDoc ? r : prev);
+                if (_epochPreferred) {
+                  r = Object.assign({}, r, {
+                    stockBase: _epochPreferred.stockBase,
+                    stockPN: _epochPreferred.stockPN,
+                    stockActual: _epochPreferred.stockActual,
+                    stockDeficit: _epochPreferred.stockDeficit,
+                    stockTs: _epochPreferred.stockTs,
+                    stockEpochId: _epochPreferred.stockEpochId
+                  });
+                }
                 var fork = r.stockBase != null && prev.stockBase != null &&
                   Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
                   Number(r.stockBase) !== Number(prev.stockBase);
@@ -2075,7 +2267,7 @@
                    stock mas reciente; el resto de la ficha se publica igual. Regla identica a
                    _ganaEpocaStockRemota en mock-backend.js. Prueba: test/stock-base-conflicto-v515. */
                 var conflictoBase = basePrev !== null && baseMia !== null && basePrev !== baseMia;
-                if (conflictoBase) {
+                if (conflictoBase && _samePhysicalEpoch) {
                   var claveEp = function (x) {
                     var q = x && x.stockPN && typeof x.stockPN === "object" ? x.stockPN : {};
                     return JSON.stringify([Number(x && x.stockBase), Object.keys(q).sort().map(function (k) { return [k, Number(q[k].add) || 0, Number(q[k].sub) || 0]; })]);
@@ -2089,7 +2281,7 @@
                   if (!ganoYo) r = Object.assign({}, r, { stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual, stockTs: prev.stockTs, stockDeficit: prev.stockDeficit });
                 }
                 var base = baseMia !== null ? baseMia : basePrev;
-                if (!conflictoBase && base !== null && Number.isFinite(base)) {
+                if (_samePhysicalEpoch && !conflictoBase && base !== null && Number.isFinite(base)) {
                   var pn = Object.assign({}, prev.stockPN || {});
                   Object.keys(r.stockPN || {}).forEach(function (id) {
                     var antes = pn[id] || {}, nuevo = r.stockPN[id] || {};
@@ -2154,13 +2346,16 @@
                     var _firstLedger = _rb !== null && _pb === null && _pnProof &&
                       Number(prev.stockActual) === _rb && _rt > 0 &&
                       _rt >= _pt - 2000 && _notFuture;
-                    var _stockValido = _sameLedger || _epochNewer || _legacyNewer || _firstLedger;
-                    r = Object.assign({}, prev, _stockValido ? {
-                      stockBase: r.stockBase, stockPN: r.stockPN, stockActual: r.stockActual,
-                      stockTs: Math.max(_pt, _rt), stockDeficit: r.stockDeficit
-                    } : {
-                      stockBase: prev.stockBase, stockPN: prev.stockPN, stockActual: prev.stockActual,
-                      stockTs: _pt, stockDeficit: prev.stockDeficit
+                    var _stockValido = _samePhysicalEpoch &&
+                      (_sameLedger || _epochNewer || _legacyNewer || _firstLedger);
+                    var _safeStock = !_samePhysicalEpoch ? _epochPreferred : (_stockValido ? r : prev);
+                    r = Object.assign({}, prev, {
+                      stockBase: _safeStock.stockBase,
+                      stockPN: _safeStock.stockPN,
+                      stockActual: _safeStock.stockActual,
+                      stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
+                      stockDeficit: _safeStock.stockDeficit,
+                      stockEpochId: _safeStock.stockEpochId
                     });
                   }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
@@ -2296,6 +2491,9 @@
         soloProductos = false;
         COLECCIONES.forEach(function (c) { remoto[c] = valores(c); });
       }
+      // Never trust the winning whole-object Y.Map value to contain every
+      // independent device's PN counters. Restore them from append-only keys.
+      remoto.productos = incorporarTestigosStock(remoto.productos, API.stockPNTestigos);
       // #2 (fix 2026-09-10): un update de SOLO el nombre (o pinsRol) también debe
       // aplicarse aunque no haya entidades — antes se descartaba y el nombre nunca
       // llegaba a un aparato que recibió primero el _meta.

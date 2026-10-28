@@ -12,6 +12,9 @@ function arbitrate(clock, local, doc) {
   const ctx = {
     r: structuredClone(local), prev: structuredClone(doc),
     basePrev: doc.stockBase, baseMia: local.stockBase,
+    // This fixture extracts the arbitration block rather than executing the
+    // full bridge. Recreate its enclosing physical-epoch comparison exactly.
+    _samePhysicalEpoch: String(local.stockEpochId || '') === String(doc.stockEpochId || ''),
     window: { OCLatencia: { ahoraRelay: () => clock } },
     Number, JSON, Object
   };
@@ -26,4 +29,9 @@ for (const unready of [null,undefined,NaN]) {
 }
 const invalidFuture = arbitrate(1_790_000_000_000,{...newer,stockTs:1_790_000_600_500},older);
 assert.equal(invalidFuture.stockBase,14,'Trusted relay clock may reject a future-dated phone edit');
-console.log('PASS stock epoch with null/undefined/NaN and trusted relay clock');
+const splitEpochs = arbitrate(null,
+  {...newer,stockEpochId:'E2-current'},
+  {...older,stockEpochId:'E3-other'});
+assert.equal(splitEpochs.stockBase,12,
+  'legacy clock arbitration cannot choose between different explicit physical epochs');
+console.log('PASS stock epoch with null/undefined/NaN, trusted relay clock and explicit epoch barrier');

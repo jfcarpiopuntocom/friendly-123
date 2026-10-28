@@ -1,10 +1,10 @@
 {
-  "version": "shell v608",
+  "version": "shell v609",
   "fecha": "2026-10-28",
-  "changelog": "v608: los fallos de guardado ahora se avisan con la verdad (sin aviso falso de memoria llena) y con reintento acotado; el nombre de la tienda en dorado.",
+  "changelog": "v609: PN del inventario por época física, verificación SHA-256 de solo lectura, watchdog de latidos, fragmentos UTF-8 y avisos de respaldo corregidos.",
   "requerida": false,
-  "shell": "f123-shell-v608",
+  "shell": "f123-shell-v609",
   "apagar": [],
-  "releaseName": "shell v608",
-  "cacheGeneration": "golden154"
+  "releaseName": "shell v609",
+  "cacheGeneration": "golden155"
 }

@@ -162,10 +162,16 @@
       var raw = localStorage.getItem("f123_micelio_vistos") || "{}";
       var obj = JSON.parse(raw);
       var out = {};
+      var ahora = Date.now();
+      // Micelio emits a locally stamped heartbeat once per minute. An
+      // offline or unproven peer is not an active inventory contradiction and
+      // must NOT trigger the costly full-resync loop every five minutes.
       for (var k in obj) {
         if (!Object.prototype.hasOwnProperty.call(obj, k)) continue;
-        var v = obj[k];
-        if (v && v.huella) out[k] = v.huella;
+        var v = obj[k], visto = Number(v && v.visto);
+        if (!Number.isFinite(visto) || visto <= 0 ||
+            visto > ahora || ahora - visto > 5 * 60 * 1000) continue;
+        if (v && typeof v.huella === "string" && v.huella) out[k] = v.huella;
       }
       return out;
     } catch (_) { return {}; }
@@ -181,12 +187,19 @@
     var res = { divergentes: [], accion: null };
     try {
       if (!window.OCSync || !window.OCSync.huella) return res;
-      var miHuella = window.OCSync.huella();
+      // Heartbeats contain the short STRING (micelio-vivo.miHuella), while
+      // OCSync.huella() returns an OBJECT {corta,completa,...}. Comparing the
+      // two directly made every healthy peer appear divergent on every poll.
+      var _h = window.OCSync.huella();
+      var miHuella = typeof _h === "string" ? _h :
+        (_h && typeof _h.corta === "string" ? _h.corta : "");
+      if (!miHuella) return res; // unknown is not proof of divergence
       var pares = huellasDePares();
       var miRango = rangoRol(rolLocal());
       for (var id in pares) {
         if (!Object.prototype.hasOwnProperty.call(pares, id)) continue;
         if (id === (window.OCSyncControl && window.OCSyncControl.deviceIdActual ? window.OCSyncControl.deviceIdActual() : "")) continue;
+        if (typeof pares[id] !== "string" || !pares[id]) continue;
         if (pares[id] === miHuella) { _divergencias[id] = 0; continue; }
         _divergencias[id] = (_divergencias[id] || 0) + 1;
         if (_divergencias[id] >= DIVERGENCIA_MIN) {
@@ -218,10 +231,16 @@
     try { json = JSON.stringify(snap); } catch (_) { return []; }
     var bytes = new TextEncoder().encode(json);
     var trozos = [];
-    for (var i = 0; i < bytes.length; i += TROZO_BYTES) {
-      var chunk = bytes.slice(i, i + TROZO_BYTES);
-      var dec = new TextDecoder().decode(chunk);
-      trozos.push(dec);
+    for (var i = 0; i < bytes.length;) {
+      var end = Math.min(i + TROZO_BYTES, bytes.length);
+      // UTF-8 continuation bytes are 10xxxxxx. Cutting inside a character
+      // before TextDecoder.decode irreversibly replaces that character with
+      // U+FFFD, corrupting Spanish product names in large peer snapshots.
+      // Rewind by at most three bytes to the start of a complete code point.
+      while (end < bytes.length && end > i && (bytes[end] & 0xC0) === 0x80) end--;
+      if (end <= i) return []; // fail closed, never publish a corrupt backup
+      trozos.push(new TextDecoder("utf-8", { fatal:true }).decode(bytes.slice(i,end)));
+      i = end;
     }
     return trozos;
   }

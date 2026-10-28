@@ -1,0 +1,40 @@
+name: forensic P0 stock 11 versus 2 (isolated)
+on:
+  push:
+    branches: [forensic/v608-receiver-stock-11-2-20261028]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  exact-repro:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install test dependencies (no scripts, no customer data)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Pin legacy v607 Yjs bridge by immutable Git SHA (test fixture only)
+        run: |
+          git fetch --no-tags --depth=1 origin 82952a84958641010c48bfbee6aab80007ba12e9
+          git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
+          test -s /tmp/f123_v607_sync_yjs.js
+          git fetch --no-tags --depth=1 origin 7e51ed51560d6138866dae98e4a01ff1772db51c
+          git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > /tmp/f123_v606_sync_yjs.js
+          test -s /tmp/f123_v606_sync_yjs.js
+      - name: Syntax check actual production bridge
+        run: node --check docs/sync-yjs.js
+      - name: Only isolated P0 receiver regression (no customer data or live relay)
+        env:
+          F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
+          F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-v608-publication-after-recovery.test.cjs
+      - name: Four existing focused PN and Yjs regression files (no broad suite)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test \
+            test/stock-base-conflicto-v515.test.js \
+            test/yjs-idle-write-budget.test.js \
+            test/v579-venta-pn-ack.test.js \
+            test/incident-v604-selective-apply-retry.test.cjs
