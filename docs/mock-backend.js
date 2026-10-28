@@ -3560,7 +3560,7 @@
     // Never issue a clean checksum for structurally corrupt data or a browser
     // without SubtleCrypto: absence of proof is not evidence of equality.
     if (invalidos || !window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined")
-      return { ok:false, verificable:false, productos:rows.length,
+      return { ok:false, comparable:false, certificado:false, productos:rows.length,
         sinEpoca, conflictos, invalidos, razon:"checksum-no-disponible-o-datos-invalidos" };
     const digest = async (data) => {
       const bytes = new TextEncoder().encode(JSON.stringify(data));
@@ -3572,12 +3572,13 @@
         digest(rows.map((r) => [r.id,r.stock,r.deficit])),
         digest(rows.map((r) => [r.id,r.stock,r.deficit,r.base,r.epoch,r.pn,r.conflict]))
       ]);
-      return { ok:true, verificable:sinEpoca === 0 && conflictos === 0,
+      return { ok:true, comparable:sinEpoca === 0 && conflictos === 0,
+        certificado:false, // Not a cross-device confirmation: requires independent durable peer evidence.
         productos:rows.length, sinEpoca, conflictos, invalidos:0,
         algoritmo:"SHA-256", existencias, movimientos,
         advertencia:"Solo huellas locales: la igualdad NO demuestra recepción duradera ni conciliación física" };
     } catch (_) {
-      return { ok:false, verificable:false, productos:rows.length,
+      return { ok:false, comparable:false, certificado:false, productos:rows.length,
         sinEpoca, conflictos, invalidos, razon:"checksum-fallo" };
     }
   }
