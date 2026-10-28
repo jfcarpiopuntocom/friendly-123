@@ -3093,7 +3093,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
           // v598 (ultrareview 2, punto 3; JFC 2026-10-27: avisar en texto dentro de la UI, sin modales,
           // como los demas mensajes de Advanced). Solo cuando el ESPACIO impide guardar; los demas
           // fallos del punto automatico (export 409 pasajero, cambio de cuaderno) siguen callados.
-          msg("oc-respaldo-msg", "The automatic checkpoint could not be saved: this browser's storage is full. Export a manual backup (above) to keep a safe copy.", "var(--rojo)");
+          msg("oc-respaldo-msg", "The automatic local checkpoint was not saved. Browser localStorage has its own small limit (separate from the storage quota shown below), or the write failed. Export a manual backup above to protect your data.", "var(--rojo)");
         }
       } catch (_) { if (!silencioso) msg("oc-respaldo-msg", "Could not take a checkpoint.", "var(--rojo)"); }
     }
