@@ -15,4 +15,4 @@ jobs:
           node-version: '22'
       - name: Run two user-visible update-consent contracts (expected RED on Claude candidate)
         run: |
-          node --test test/audit-v603-update-consent.red.test.cjs
+          node --test test/audit-v603-update-consent.red.test.cjs test/audit-v603-head-sw-nuke.red.test.cjs
