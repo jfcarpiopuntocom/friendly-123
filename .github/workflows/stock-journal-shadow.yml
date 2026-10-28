@@ -19,4 +19,4 @@ jobs:
       - name: Causal counts, preorders, three offline peers, backup and idempotence
         run: |
           node --check lab/stock-journal/yjs-bridge.cjs
-          node --test test/stock-journal-invariants.test.cjs test/stock-journal-yjs.test.cjs
+          node --test test/stock-journal-invariants.test.cjs test/stock-journal-yjs.test.cjs test/stock-journal-adversarial.test.cjs
