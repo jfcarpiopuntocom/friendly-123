@@ -169,7 +169,19 @@ document.getElementById("btnVaciarCarrito") && document.getElementById("btnVacia
 // producto, ya probado), amarradas al mismo cliente. Si una linea falla a
 // mitad de camino (ej. alguien mas vendio el ultimo justo antes), se PARA y
 // se informa exactamente que quedo hecho y que no — nunca un "listo" falso.
+/* (JFC 2026-10-28) Anti doble toque en "sellar": el boton antes se deshabilitaba DESPUES de ocConfirm, asi que dos toques
+   abrian dos confirmaciones y vendian dos veces (la ruta de venta no es idempotente por opId). Bandera + boton deshabilitado
+   durante todo el flujo, restaurado en finally. Los otros dos llamadores (venderUno, confirmar venta) ya usan _ventasEnCurso. */
+let _sellando = false;
 async function sellarVenta() {
+  if (_sellando) return;
+  _sellando = true;
+  const _b = document.getElementById("btnSellarVenta");
+  if (_b) _b.disabled = true;
+  try { return await _sellarVentaInterno(); }
+  finally { _sellando = false; if (_b) _b.disabled = false; }
+}
+async function _sellarVentaInterno() {
   if (!_carritoVenta.length) return;
   const sel = document.getElementById("ventaCliente");
   const nombreCliente = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "Counter sale";
@@ -4070,7 +4082,19 @@ function mostrarFormNuevoProducto(codigoEscaneado){
   } catch (_) {}
 }
 
+/* (JFC 2026-10-28) Anti doble toque: un solo alta a la vez y boton deshabilitado durante todo el flujo async
+   (confirmacion de precio 0, lectura de foto, POST). Se restaura en finally. El servidor tambien da 409 por codigo repetido. */
+let _npCreando = false;
 async function crearProductoNuevo(codigoEscaneado){
+  if (_npCreando) return;
+  _npCreando = true;
+  const _sc = document.getElementById(fichaTargetActual) || document;
+  const _btns = Array.from(_sc.querySelectorAll('button[onclick^="crearProductoNuevo"]'));
+  _btns.forEach((b) => { b.disabled = true; });
+  try { return await _crearProductoNuevoInterno(codigoEscaneado); }
+  finally { _npCreando = false; _btns.forEach((b) => { b.disabled = false; }); }
+}
+async function _crearProductoNuevoInterno(codigoEscaneado){
   // FIX (JFC 2026-08-20, caza microbugs): dos bugs reales, homologado del
   // mismo fix ya aplicado en AMIGABLE y consultorio-123.
   // 1) el("np-chip") llamaba a una funcion que NO existe en ningun archivo

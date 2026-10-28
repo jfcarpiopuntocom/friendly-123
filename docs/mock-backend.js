@@ -989,6 +989,25 @@
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
+  /* (JFC 2026-10-28) true si el Y.Doc LOCAL persistido ya tiene datos de negocio (cualquier coleccion salvo "dispositivos"),
+     o si "dispositivos" trae un id que no es el nuestro (sync-yjs.js:1383-1388, mock-backend.js ~4809-4818; add-only, vive en IndexedDB).
+     Ese doc gana al reabrir y desharia lo importado. Falla CERRADO: si hay sala/doc pero no se puede leer (inactivo, recuperacion
+     local pendiente o sin almacenamiento) se bloquea. Sin OCYjs (harness/VM) o sin sala nunca iniciada -> false. */
+  function _cuadernoConDatosEnDoc() {
+    try {
+      const y = window.OCYjs;
+      if (!y) return false;
+      if (y.estado !== "activo" || typeof y._diag !== "function") return !!y.roomId; // sala sin doc legible -> bloquear
+      const d = y._diag();
+      if (d.recuperacionLocalPendiente) return true;
+      const yo = (window.OCMicelio && window.OCMicelio.yo) ? window.OCMicelio.yo() : null;
+      const miId = yo && yo.id ? String(yo.id) : "";
+      const n = d.n || {};
+      if (Object.keys(n).some((k) => k !== "dispositivos" && Number(n[k]) > 0)) return true;
+      if (Number(d.ops) > 0) return true; // hechos/operaciones del doc de ops
+      return Object.keys(y.get("dispositivos") || {}).some((k) => k !== miId);
+    } catch (_) { return true; } // ante la duda, NO sobrescribir
+  }
   function aplicarRespaldo(body) {
     productos.length = 0; productos.push(...body.productos);
     ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
@@ -1416,6 +1435,14 @@
   const _ventaCatalogosPendientes = [];
   let _retencionConfirmando = false, _retencionPendiente = null;
   const _retencionCatalogosPendientes = [];
+  // (JFC 2026-10-28) tope anti-cuelgue, no es espera de UX; mismo orden que el timer del candado "f123-escrituras" (10 s).
+  // Si el candado "f123-estado-ab" nunca responde (IDB/pestana colgada), sin tope la respuesta y TODA escritura posterior quedarian
+  // colgadas para siempre (el finally de _fetchInterno aun tiene el candado de escrituras). Devuelve el resultado del guardado o "timeout".
+  function _guardarConTope(exigirCompleto, preservarFotos) {
+    let timer;
+    const tope = new Promise((r) => { timer = setTimeout(() => r("timeout"), 10000); });
+    return Promise.race([Promise.resolve(guardarEstadoLocal(exigirCompleto, preservarFotos)), tope]).finally(() => clearTimeout(timer));
+  }
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
     // Retention rollback must finish before any background photo captures RAM.
     if (!exigirCompleto && _retencionPendiente)
@@ -6145,6 +6172,12 @@
           if (body.umbralRojo == null) body.umbralRojo = baseVariante.umbralRojo;
           if (body.umbralAmarillo == null) body.umbralAmarillo = baseVariante.umbralAmarillo;
         }
+        /* (JFC 2026-10-28) Doble toque en "crear producto": mismo codigo ya existente (no borrado) -> 409, no un duplicado.
+           Seccion sincrona hasta productos.push: dos llamadas concurrentes no se cuelan. Las variantes ya se validaron arriba. */
+        if (!body.familiaId) {
+          const _bc = String(body.barcode || "").trim().toLocaleLowerCase();
+          if (_bc && productos.some((p) => !p.borrado && !_demoOculto("productos", p) && String(p.barcode || "").trim().toLocaleLowerCase() === _bc)) return J({ error: "That barcode or internal code is already used by another product." }, 409);
+        }
         const nuevo = {
           // M5 (2026-08-14): variante interna, hasta 12 caracteres. Vacio por
           // defecto: un producto sin variante se comporta igual que siempre.
@@ -7001,9 +7034,15 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
+          /* (JFC 2026-10-28) Restaurar NO se permite si el Y.Doc local ya tiene datos: gana al reabrir
+             (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
+          if (_cuadernoConDatosEnDoc()) return J({ error: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
-          guardarEstadoLocal();
+          // v605 (JFC 2026-10-28): no decir "listo" hasta que el guardado este en disco (antes quedaba en cola del candado Web Locks y cerrar la pestana perdia el respaldo).
+          let _durable = false;
+          try { _durable = (await _guardarConTope(true, true)) === true; } catch (_) { _durable = false; } // tope anti-cuelgue: "timeout" -> 503
+          if (!_durable) return J({ error: "The backup was applied but could not be saved. Do not close the app and try again." }, 503);
           return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
         } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
       }
@@ -8208,7 +8247,14 @@
     } finally {
       // Item 1: persistir tras cada mutacion — asi un refresh (o cerrar la
       // pestana) ya no pierde ventas ni productos nuevos.
-      if (debePersistir) guardarEstadoLocal();
+      // v605 (JFC 2026-10-28): esperar el guardado duradero ANTES de entregar la respuesta (antes quedaba en cola del candado y cerrar la pestana perdia la mutacion).
+      // NO cambia el codigo de estado: la mutacion ya se aplico en memoria; si el guardado falla se avisa por evento (un error aqui invitaria a reintentar y duplicar).
+      // (JFC 2026-10-28) tope anti-cuelgue, no es espera de UX; mismo orden que el timer del candado (ver _guardarConTope).
+      if (debePersistir) {
+        let _motivo = "";
+        try { const _r = await _guardarConTope(); if (_r === "timeout") _motivo = "timeout"; else if (_r === false) _motivo = "falso"; } catch (_) { _motivo = "error"; }
+        if (_motivo) { try { window.dispatchEvent(new CustomEvent("oc-guardado-fallo", { detail: { motivo: _motivo } })); } catch (_) {} }
+      }
     }
   };
   window.fetch = _fetchConCandado;

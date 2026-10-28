@@ -90,7 +90,7 @@ test('failed final sale persistence rolls back quantity, method, log, and sends 
 test('IndexedDB fallback is awaited before response and stock notification',async()=>{
  const s=await setup();const original=s.w.localStorage.setItem.bind(s.w.localStorage);let resolveSave,sent=0;
  s.w.OCSyncEmit=()=>sent++;s.w.localStorage.setItem=()=>{throw Error('synthetic quota')};
- s.w.OCEstadoIDB={guardar:()=>new Promise(r=>{resolveSave=r;})};
+ s.w.OCEstadoIDB={guardar:()=>new Promise(r=>{if(!resolveSave)resolveSave=r;else r(true);})};/* v605: el guardado final de la ruta ahora se espera; solo el PRIMERO queda bajo control de la prueba, los siguientes resuelven solos */
  let finished=false;const pending=edit(s,{cantidad:3,info:{formaPago:'fiado'}}).then(r=>{finished=true;return r});
  for(let i=0;i<20&&!resolveSave;i++)await new Promise(r=>setTimeout(r,2));
  assert.equal(finished,false);assert.equal(sent,0);resolveSave(true);await pending;
