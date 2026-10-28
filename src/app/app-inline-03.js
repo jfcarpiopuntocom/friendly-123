@@ -195,12 +195,14 @@ const _ocActSolaOn = true;
   function pendiente() { try { return sessionStorage.getItem(KP) === "1"; } catch (_) { return false; } }
   // offsetParent es null en elementos position:fixed (los overlays): se mide con getClientRects.
   function visible(el) { try { return !!(el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0); } catch (_) { return false; } }
-  function seguro() {
+  function seguro() { return seguroCon(false); }
+  function seguroCon(sinRecuperacion) {
     try {
       if (!sessionStorage.getItem("f123_sesion")) return false;            // sin sesion: lo resuelve el login
       // Never auto-reload while a notebook still needs local IDB recovery or
       // peer history replay. A SW update is not permission to interrupt money.
-      if (recuperacionPendiente()) return false;
+      // (JFC 2026-10-28) sinRecuperacion solo lo usa el aviso tocado por el usuario (guarda antes de recargar).
+      if (!sinRecuperacion && recuperacionPendiente()) return false;
       const gate = document.getElementById("oc-gate");
       if (gate && gate.style.display !== "none") return false;            // tecleando el PIN
       if (visible(document.getElementById("oc-modal-overlay"))) return false;
@@ -245,7 +247,22 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   try { window.__f123MarcarRecarga = marcarRecarga; } catch (_) {}
+  /* (JFC 2026-10-28) Recarga frenada por recuperacion Yjs/IDB: se anota desde cuando (sessionStorage
+     "f123_update_frenada_desde", no se sobrescribe) y se registra UNA vez "frenada-recuperacion" en la
+     bitacora. Nunca recarga. Tras 10 min el vigia muestra un aviso; solo recarga si el usuario lo toca. */
+  const KF = "f123_update_frenada_desde";
+  const FRENADA_MAX_MS = 600000;
+  function frenadaDesde() { try { return Number(sessionStorage.getItem(KF)) || 0; } catch (_) { return 0; } }
+  function marcarFrenada() {
+    try {
+      if (frenadaDesde()) return;
+      sessionStorage.setItem(KF, String(Date.now()));
+      marcarRecarga("frenada-recuperacion");
+    } catch (_) {}
+  }
+  function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
   function intentar() {
+    try { if (pendiente() && recuperacionPendiente()) marcarFrenada(); } catch (_) {} // (JFC 2026-10-28)
     if (!pendiente() || !seguro()) return;
     // Every caller must honor the idle window, including a late version reply.
     if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
@@ -258,6 +275,7 @@ const _ocActSolaOn = true;
       sessionStorage.removeItem(KP);
       sessionStorage.removeItem("f123_reload_al_entrar");
     } catch (_) { return; }
+    try { limpiarFrenada(); } catch (_) {} // (JFC 2026-10-28) fuera del try critico: nunca bloquea la recarga
     try { marcarRecarga("version-idle"); } catch (_) {} // (JFC 2026-10-27) nunca bloquea la recarga
     location.reload();
   }
@@ -292,6 +310,85 @@ const _ocActSolaOn = true;
       intentar();
     } catch (_) {}
   }
+  /* (JFC 2026-10-28) AVISO tras 10 min frenado por recuperacion. Una tira fija abajo (boton), sin
+     fondo oscuro ni opacidad ni rgba; estilos inline con !important (sin tocar CSS). z-index 9990:
+     por debajo del PIN gate (#oc-gate = 9999). Tocarlo GUARDA y luego recarga; nunca recarga a la fuerza. */
+  const ID_AVISO = "f123-aviso-version";
+  function textoAviso(clave) {
+    let es = true;
+    try { if (window.OCI18n && window.OCI18n.getLang) es = window.OCI18n.getLang() === "es"; } catch (_) {}
+    const T = {
+      listo: ["Hay una versión nueva de la app. Toca para guardar y actualizar.", "A new version is ready. Tap to save and update."],
+      ocupado: ["Termina lo que estás haciendo y vuelve a tocar.", "Finish what you're doing and tap again."],
+      guardando: ["Aún guardando. Intenta en un momento.", "Still saving. Try again in a moment."]
+    };
+    return T[clave][es ? 0 : 1];
+  }
+  function quitarAviso() { try { const a = document.getElementById(ID_AVISO); if (a && a.remove) a.remove(); } catch (_) {} }
+  // Guardado duradero REAL: OCSync.confirmarCatalogoDurable (mock-backend.js) espera ventas/pagos en
+  // curso y hace guardarEstadoLocal(true,true) (snapshot completo exigido en localStorage/IDB);
+  // devuelve true SOLO si quedo escrito. Aqui: tope de 5 s y solo === true cuenta como exito.
+  function guardarDuradero() {
+    return new Promise(function (resolve) {
+      let fin = false;
+      const t = setTimeout(function () { if (!fin) { fin = true; resolve(false); } }, 5000);
+      function listo(ok) { if (fin) return; fin = true; clearTimeout(t); resolve(ok === true); }
+      try {
+        const s = window.OCSync;
+        if (!s || typeof s.confirmarCatalogoDurable !== "function") return listo(false);
+        Promise.resolve(s.confirmarCatalogoDurable()).then(listo, function () { listo(false); });
+      } catch (_) { listo(false); }
+    });
+  }
+  let _avisoOcupado = false;
+  async function alTocarAviso() {
+    const el = document.getElementById(ID_AVISO);
+    if (!el || _avisoOcupado) return;
+    _avisoOcupado = true;
+    try {
+      if (!seguroCon(true)) { el.textContent = textoAviso("ocupado"); return; }
+      const ok = await guardarDuradero();
+      // Se revisa de nuevo: durante el guardado pudo abrirse una venta o editor.
+      if (!ok || !seguroCon(true)) { el.textContent = textoAviso(ok ? "ocupado" : "guardando"); return; }
+      try {
+        sessionStorage.removeItem(KP);
+        sessionStorage.removeItem("f123_reload_al_entrar");
+        sessionStorage.removeItem(KF);
+      } catch (_) {}
+      try { marcarRecarga("aviso-usuario"); } catch (_) {}
+      location.reload();
+    } finally { _avisoOcupado = false; }
+  }
+  function mostrarAviso() {
+    try {
+      if (document.getElementById(ID_AVISO)) return;
+      const b = document.createElement("button");
+      b.id = ID_AVISO;
+      b.type = "button";
+      b.setAttribute("role", "status");
+      b.setAttribute("aria-live", "polite");
+      b.textContent = textoAviso("listo");
+      const est = {
+        position: "fixed", left: "0", right: "0", bottom: "0", width: "100%", "box-sizing": "border-box",
+        "z-index": "9990", "min-height": "48px", padding: "12px 16px", border: "0", margin: "0",
+        "background-color": "#E86040", color: "#FFFFFF", "-webkit-text-fill-color": "#FFFFFF",
+        "font-size": "16px", "font-weight": "700", "line-height": "1.3", "text-align": "center",
+        cursor: "pointer", "border-radius": "0", animation: "none", transition: "none"
+      };
+      Object.keys(est).forEach(function (k) { b.style.setProperty(k, est[k], "important"); });
+      b.addEventListener("click", alTocarAviso);
+      document.body.appendChild(b);
+    } catch (_) {}
+  }
+  // Vigia de 60 s (uno solo, ver setInterval abajo): muestra el aviso tras 10 min frenado.
+  function vigilar() {
+    try {
+      if (!pendiente() || !recuperacionPendiente()) { limpiarFrenada(); quitarAviso(); return; }
+      marcarFrenada();
+      const d = frenadaDesde();
+      if (d && Date.now() - d >= FRENADA_MAX_MS) mostrarAviso();
+    } catch (_) {}
+  }
   // E2: a takeover can already match version.json while this document is stale.
   var ultimoControladorSW = navigator.serviceWorker.controller;
   function onShellTomado() {
@@ -307,7 +404,7 @@ const _ocActSolaOn = true;
   navigator.serviceWorker.addEventListener("message", function (ev) {
     if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
   });
-  window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro }; // para pruebas
+  window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro, vigilar: vigilar }; // para pruebas
   // Installed iPhone PWAs can stay open: check the SW on return, not just load.
   // One network check per 15 minutes on user activity; no background polling.
   let ultimoUpdateAlVolver = 0;
@@ -324,6 +421,7 @@ const _ocActSolaOn = true;
   });
   setInterval(function () { if (Date.now() - ultimoToque > 90000) intentar(); }, 15000);
   setInterval(revisar, 600000);
+  setInterval(vigilar, 60000); // (JFC 2026-10-28) unico vigia del aviso; no se apila
   setTimeout(revisar, 20000);
 })();
 
