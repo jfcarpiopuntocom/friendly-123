@@ -2053,7 +2053,12 @@
       if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
         return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
       }
-      var vistos = porBase[activeKey], pn = Object.assign({}, p.stockPN || {});
+      var vistos = porBase[activeKey];
+      // A winning whole-product value is not proof that all its counters belong
+      // to this physical epoch. When independent epoch witnesses conflict,
+      // derive the active counters from the epoch-scoped witness index only.
+      var competingEpoch = epoch && Object.keys(porBase).some(function (key) { return key !== activeKey; });
+      var pn = Object.assign({}, competingEpoch ? vistos.pn : (p.stockPN || {}));
       Object.keys(vistos.pn).forEach(function (actor) {
         var old = pn[actor] || {}, newValue = vistos.pn[actor];
         pn[actor] = { add: Math.max(Number(old.add) || 0, newValue.add),
