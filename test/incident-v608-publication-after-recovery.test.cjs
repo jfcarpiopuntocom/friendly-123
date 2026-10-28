@@ -194,3 +194,31 @@ test('P0 300-product notebook: remote PN update converges without full-item writ
   assert.equal((await b.w.request('/api/respaldo/exportar')).productos.length,300);
   console.error('P0_300_PRODUCT_NOTEBOOK_SYNTHETIC_REPLAY_MS',elapsed);
 });
+
+test('P0 same-base PN witness does not duplicate its counter into stockEvidencias of ordinary catalog',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,7,7);
+  await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:1,motivo:'ordinary in-stock addition'});
+  await a.flush();await exchange(a,b,2);
+  const p=await fixtureProduct(b);
+  assert.equal(p.stockActual,8);
+  assert.equal(Object.keys(p.stockPN).length,1);
+  assert.equal(Object.keys(p.stockEvidencias||{}).length,0,
+    'same-base movements are already in stockPN and individual Yjs witnesses; dont duplicate every sale into a backup-sized conflict log');
+});
+
+test('P0 Yjs witness remains unique and idempotent on many same-actor counter updates',async()=>{
+  const a=await peer(),b=await peer();
+  await physicalFixture(a,b,7,7);
+  // Deliberately reuse the same device actor in a synthetic local client:
+  // PN counter advances, but old witness entries must never be double-added.
+  for(let i=0;i<8;i++){
+    await a.w.request('/api/productos/p0-two-actors/ajustar','POST',{delta:1,motivo:'repeated synthetic movement '+i});
+    await a.flush();
+  }
+  await exchange(a,b,3);
+  assert.equal((await fixtureProduct(a)).stockActual,15);
+  assert.equal((await fixtureProduct(b)).stockActual,15);
+  await exchange(b,a,3);
+  assert.equal((await fixtureProduct(b)).stockActual,15);
+});
