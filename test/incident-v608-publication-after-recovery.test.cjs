@@ -54,6 +54,17 @@ test('accepted stock republishes after a previous background save failure withou
   let events=0;a.w.addEventListener('oc-catalogo-cambiado',()=>events++);
   const accepted=await a.w.request('/api/productos/synthetic-stock/ajustar','POST',{delta:9,motivo:'Synthetic recovery'});
   await settle();await a.flush();transfer();await b.flush();
+  // P0 FORENSIC: observe every boundary; synthetic data only.
+  const _aY=a.w.OCYjs.getProductos()['synthetic-stock'];
+  const _bY=b.w.OCYjs.getProductos()['synthetic-stock'];
+  const _bState=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='synthetic-stock');
+  console.error('P0_STOCK_11_VS_2_BOUNDARY',JSON.stringify({
+    emitterAccepted:accepted.stockActual,
+    emitterYjs:_aY&&{stock:_aY.stockActual,base:_aY.stockBase,pn:_aY.stockPN,ts:_aY.stockTs},
+    receiverYjs:_bY&&{stock:_bY.stockActual,base:_bY.stockBase,pn:_bY.stockPN,ts:_bY.stockTs},
+    receiverStore:_bState&&{stock:_bState.stockActual,base:_bState.stockBase,pn:_bState.stockPN,ts:_bState.stockTs},
+    receiverYjsRevision:b.w.OCYjs._catalogoRevision
+  }));
   assert.equal(accepted.stockActual,11);
   assert.ok(a.w.OCSync.catalogoPropio(),'recovered durable save opens the existing publication guard');
   assert.ok(events>0,'a previously blocked notification must resume after durable confirmation');

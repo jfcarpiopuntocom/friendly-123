@@ -1,0 +1,20 @@
+name: forensic P0 stock 11 versus 2 (isolated)
+on:
+  push:
+    branches: [forensic/v608-receiver-stock-11-2-20261028]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  exact-repro:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check actual production bridge
+        run: node --check docs/sync-yjs.js
+      - name: Only isolated P0 receiver regression (no external network, no customer data)
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/incident-v608-publication-after-recovery.test.cjs
