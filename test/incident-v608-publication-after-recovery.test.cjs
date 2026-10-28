@@ -820,3 +820,57 @@ test('P0 third late peer cannot resolve rival physical epochs by guessing stock 
   assert.equal((await get(a)).stockActual,5);
   assert.equal((await get(b)).stockActual,9);
 });
+
+test('P0 same catalog fingerprint cannot masquerade as equal physical stock',async()=>{
+  const a=await peer(),b=await peer();
+  const base=await a.w.request('/api/respaldo/exportar');
+  base.productos=[{...base.productos[0],id:'p0-stock-fingerprint',
+    nombre:'Synthetic inventory comparison',barcode:'SYN-P0-HASH',
+    stockBase:11,stockActual:11,stockPN:{},stockEpochId:'E1-11',
+    stockTs:1,rev:{c:1,d:'fixture'}}];
+  base.ventas=[];base.movimientos=[];
+  const other=JSON.parse(JSON.stringify(base));
+  other.productos[0].stockBase=2;
+  other.productos[0].stockActual=2;
+  other.productos[0].stockEpochId='E2-2';
+  for(const [p,bak] of [[a,base],[b,other]])
+    assert.equal((await p.w.request('/api/respaldo/importar','POST',bak)).ok,true);
+  // Preserve the older metadata-only catalog checksum for compatibility;
+  // explicitly prove that it cannot certify inventory equality.
+  assert.equal(a.w.OCSync.huella().completa,b.w.OCSync.huella().completa);
+  const beforeA=await a.w.request('/api/respaldo/exportar');
+  const beforeB=await b.w.request('/api/respaldo/exportar');
+  const [ha,hb]=await Promise.all([a.w.OCSync.huellaInventario(),b.w.OCSync.huellaInventario()]);
+  assert.equal(ha.ok,true);assert.equal(hb.ok,true);
+  assert.equal(ha.verificable,true);assert.equal(hb.verificable,true);
+  assert.equal(ha.algoritmo,'SHA-256');
+  assert.equal(ha.existencias.length,64);
+  assert.notEqual(ha.existencias,hb.existencias,'11 and 2 cannot share the stock checksum');
+  assert.notEqual(ha.movimientos,hb.movimientos,'physical epochs also differ');
+  assert.deepEqual((await a.w.request('/api/respaldo/exportar')).productos,beforeA.productos,
+    'read-only checksum may not change notebook A');
+  assert.deepEqual((await b.w.request('/api/respaldo/exportar')).productos,beforeB.productos,
+    'read-only checksum may not change notebook B');
+  // Identical inventory independent of array order must have the same checksums.
+  const copy=JSON.parse(JSON.stringify(base));
+  copy.productos.reverse();
+  assert.equal((await b.w.request('/api/respaldo/importar','POST',copy)).ok,true);
+  const equal=await b.w.OCSync.huellaInventario();
+  assert.equal(ha.existencias,equal.existencias);
+  assert.equal(ha.movimientos,equal.movimientos);
+});
+
+test('P0 historical untagged inventory checksum refuses a verified verdict',async()=>{
+  const a=await peer();
+  const backup=await a.w.request('/api/respaldo/exportar');
+  backup.productos=[{...backup.productos[0],id:'p0-legacy-unverified',
+    nombre:'Synthetic legacy',barcode:'SYN-P0-LEGACY',
+    stockActual:5,stockBase:5,stockPN:{},stockTs:1}];
+  delete backup.productos[0].stockEpochId;
+  backup.ventas=[];backup.movimientos=[];
+  assert.equal((await a.w.request('/api/respaldo/importar','POST',backup)).ok,true);
+  const digest=await a.w.OCSync.huellaInventario();
+  assert.equal(digest.ok,true);
+  assert.equal(digest.verificable,false,'a legacy epoch is not independently certified');
+  assert.equal(digest.sinEpoca,1);
+});
