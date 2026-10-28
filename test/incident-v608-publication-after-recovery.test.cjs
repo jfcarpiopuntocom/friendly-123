@@ -542,6 +542,12 @@ test('P0 same numeric base with two explicit epochs cannot merge counter witness
   for(let round=0;round<3;round++)await exchange(a,b,1);
   const pa=(await a.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-epoch-equal');
   const pb=(await b.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-epoch-equal');
+  console.error('P0_EQUAL_EPOCH_BOUNDARIES',JSON.stringify({
+    a:{epoch:pa.stockEpochId,base:pa.stockBase,pn:pa.stockPN,stock:pa.stockActual},
+    b:{epoch:pb.stockEpochId,base:pb.stockBase,pn:pb.stockPN,stock:pb.stockActual},
+    yA:a.w.OCYjs.getProductos()['p0-epoch-equal'],
+    yB:b.w.OCYjs.getProductos()['p0-epoch-equal']
+  }));
   assert.equal(pa.stockActual,7,'do not add E3 movement to E2');
   assert.equal(pb.stockActual,9,'do not add E2 movement to E3');
   assert.equal(pa.stockEpochId,'E2-A');
