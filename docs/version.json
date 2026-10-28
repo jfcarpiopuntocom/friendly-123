@@ -1,10 +1,10 @@
 {
-  "version": "shell v603",
-  "fecha": "2026-10-27",
-  "changelog": "v603 candidate: preserve a metadata-only listener after exhausted peer negotiation so a later device can rejoin; guard stock arbitration against an unavailable relay clock; show only the active notebook name at PIN; refresh Today's summary when a sale is saved. No automatic stock rewrite.",
+  "version": "shell v604",
+  "fecha": "2026-10-28",
+  "changelog": "v604 candidate: preserve cross-device stock fork evidence and performance improvements; prevent unconsented auto-reload during active sessions; retain client business identity and PIN; render store name in friendly display gold. No automatic stock reconciliation or journal migration.",
   "requerida": false,
-  "shell": "f123-shell-v603",
+  "shell": "f123-shell-v604",
   "apagar": [],
-  "releaseName": "shell v603",
-  "cacheGeneration": "golden149"
+  "releaseName": "shell v604",
+  "cacheGeneration": "golden150"
 }
