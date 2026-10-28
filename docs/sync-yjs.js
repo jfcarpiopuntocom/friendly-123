@@ -1970,6 +1970,13 @@
         if (txn && (txn.origin === "red" || txn.origin === "bc")) _otroRemoto = true;
       });
     }
+    // Financial facts share the Y.Doc but not COLECCIONES. Never let an
+    // update mixing products and immutable ledger entries use a partial merge.
+    if (API.hechosMap && typeof API.hechosMap.observe === "function") {
+      API.hechosMap.observe(function (_event, txn) {
+        if (txn && (txn.origin === "red" || txn.origin === "bc")) _otroRemoto = true;
+      });
+    }
 
     // store -> Yjs. Add/update por id; nunca borra del Y.Map (add-only también
     // aguas arriba). Las bajas de equipo viajan como tombstone (borrado:true),
