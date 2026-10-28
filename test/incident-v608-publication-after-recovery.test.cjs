@@ -877,3 +877,37 @@ test('P0 historical untagged inventory checksum refuses a verified verdict',asyn
   assert.equal(digest.certificado,false,'no standalone hash is a peer certification');
   assert.equal(digest.sinEpoca,1);
 });
+
+test('P0 stock fingerprint refuses PN arithmetic inconsistent with the displayed quantity',async()=>{
+  const a=await peer();
+  const backup=await a.w.request('/api/respaldo/exportar');
+  backup.productos=[{...backup.productos[0],id:'p0-bad-ledger-proof',
+    nombre:'Synthetic invalid PN',barcode:'SYN-BAD-PN',
+    stockActual:5,stockBase:5,stockPN:{actor:{add:2,sub:0}},
+    stockEpochId:'SYN-CONSISTENCY-EPOCH',stockTs:1}];
+  backup.ventas=[];backup.movimientos=[];
+  assert.equal((await a.w.request('/api/respaldo/importar','POST',backup)).ok,true);
+  const prior=await a.w.request('/api/respaldo/exportar');
+  const result=await a.w.OCSync.huellaInventario();
+  assert.equal(result.ok,false,'cannot certify 5 if ledger computes 7');
+  assert.equal(result.comparable,false);
+  assert.equal(result.certificado,false);
+  assert.equal(result.invalidos,1);
+  assert.equal(result.existencias,undefined,'no clean digest of contradictory stock');
+  assert.deepEqual((await a.w.request('/api/respaldo/exportar')).productos,prior.productos);
+});
+test('P0 legitimate physical deficit retains a consistent read-only digest',async()=>{
+  const a=await peer();
+  const backup=await a.w.request('/api/respaldo/exportar');
+  backup.productos=[{...backup.productos[0],id:'p0-deficit-ledger-proof',
+    nombre:'Synthetic deficit',barcode:'SYN-DEFICIT-PN',
+    stockActual:0,stockDeficit:1,stockBase:1,stockPN:{actor:{add:0,sub:2}},
+    stockEpochId:'SYN-DEFICIT-EPOCH',stockTs:1}];
+  backup.ventas=[];backup.movimientos=[];
+  assert.equal((await a.w.request('/api/respaldo/importar','POST',backup)).ok,true);
+  const result=await a.w.OCSync.huellaInventario();
+  assert.equal(result.ok,true);
+  assert.equal(result.comparable,true);
+  assert.equal(result.certificado,false);
+  assert.equal(result.existencias.length,64);
+});
