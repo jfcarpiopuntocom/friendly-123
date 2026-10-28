@@ -203,7 +203,7 @@
           var mia = M.miHuella ? M.miHuella() : "";
           if (!m.soyYo && mia && m.huella && m.huella !== mia) {
             return '<span style="font-size:13px;font-weight:700;color:#B54E0A;background:#FFF6F2;'
-              + 'border:1px solid #E86040;border-radius:10px;padding:3px 9px;">different inventory ('
+              + 'border:1px solid #E86040;border-radius:10px;padding:3px 9px;">catalog differs ('
               + esc(m.huella) + ")</span>";
           }
         } catch (_) {}
@@ -219,6 +219,7 @@
     var eq = M.equipo();
     var u = M.umbrales();
     var ciegos = eq.filter(function (m) { return m.estado === "ciegas"; }).length;
+    var rezagados = eq.filter(function (m) { return m.estado === "rezagado"; }).length;
     var yo = M.yo();
 
     /* PASO 2 (JFC 2026-08-19): DECIR LA VERDAD SOBRE EL INVENTARIO.
@@ -234,10 +235,10 @@
     var avisoHuella = _desal.length
       ? '<div style="margin:0 0 12px;padding:11px 13px;background:#FFF6F2;border-left:4px solid #E86040;border-radius:0 8px 8px 0;">' +
         '<p style="font-size:15px;font-weight:700;line-height:1.5;margin:0 0 4px;color:#0F1923;">' +
-        (_desal.length === 1 ? "1 device is showing a different inventory" : _desal.length + " devices are showing a different inventory") +
+        (_desal.length === 1 ? "1 device is showing different catalog details" : _desal.length + " devices are showing different catalog details") +
         "</p>" +
         '<p style="font-size:14px;line-height:1.5;margin:0;color:#2C3E50;">' +
-        "They are connected, but they do not have the same products and shelves as this device: " +
+        "Their product, shelf, or team metadata differs from this device; this does not compare stock quantities: " +
         _desal.map(function (x) { return esc(comoSeLlama(x)) + " (" + esc(x.huella) + ")"; }).join(", ") +
         ". This device is " + esc(M.miHuella ? M.miHuella() : "?") + "." +
         "</p></div>"
@@ -249,15 +250,19 @@
       (ciegos
         ? (ciegos === 1 ? "1 device has not" : ciegos + " devices have not") +
           " synced in a while. Until they do, they can sell something that was already sold here."
-        : "Every device on your team is talking to the others.") +
+        : rezagados
+          ? (rezagados === 1 ? "1 device has not been heard from recently." : rezagados + " devices have not been heard from recently.") + " Inventory equality is not verified."
+          : eq.length < 2
+            ? "No other active device is confirmed. Inventory equality is not verified."
+            : "Device heartbeats are recent. Inventory equality is not verified.") +
       "</p>" +
       '<div>' + eq.map(filaEquipo).join("") + "</div>" +
       /* La huella propia, siempre a la vista: es lo que dos duenos comparan
          por telefono para saber si estan viendo lo mismo, sin entender nada
          de hashes. */
       '<p style="font-size:14px;line-height:1.5;margin:10px 0 0;color:#2C3E50;">' +
-      "This device's inventory fingerprint: <strong style=\"font-family:var(--font-mono,monospace);color:#0F1923;\">" +
-      esc(M.miHuella ? (M.miHuella() || "?") : "?") + "</strong>. Two devices showing the same products and shelves have the same fingerprint.</p>" +
+      "Catalog fingerprint (not stock): <strong style=\"font-family:var(--font-mono,monospace);color:#0F1923;\">" +
+      esc(M.miHuella ? (M.miHuella() || "?") : "?") + "</strong>. Matching codes do NOT prove that stock quantities agree.</p>" +
 
       /* --- el apodo --- */
       '<div style="margin-top:16px;">' +
