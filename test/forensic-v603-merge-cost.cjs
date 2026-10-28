@@ -14,7 +14,7 @@ async function peer(n){
   ...template,id:'perf-merge-'+i,nombre:'Synthetic '+i,barcode:'PM'+i,sku:'SKU-PM-'+i,familiaId:'',productoBaseId:null,
   stockActual:10,stockBase:10,stockPN:{},stockTs:1,rev:{c:1,d:'benchmark'}
  }));
- fx.ventas=[];fx.movimientos=[];
+ fx.ventas=[];fx.movimientos=[];fx.selloUltimo='';fx.actividadCompartida=[];fx.actividad=[];
 
  Object.assign(w,{crypto:webcrypto,TextEncoder,TextDecoder,
    WebSocket:class{constructor(){throw Error('No production transport')}},
