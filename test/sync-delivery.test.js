@@ -12,25 +12,29 @@ const tick = () => new Promise(resolve => setTimeout(resolve, 2));
 
 async function fixture() {
   const sent = [], applied = [], saved = new Map();
+  // In-flight WebCrypto/async work counter: pump() waits for quiescence, not wall-clock rounds.
+  let busy = 0;
+  const track = fn => async (...args) => { busy++; try { return await fn(...args); } finally { busy--; } };
+  const trackedCrypto = { getRandomValues: x => webcrypto.getRandomValues(x), subtle: { digest: track((...x) => webcrypto.subtle.digest(...x)) } };
   let now = 0, render = Promise.resolve(true), failApply = false, duplicate = false;
   const key = await webcrypto.subtle.importKey('raw', new Uint8Array(32).fill(19), 'AES-GCM', false, ['encrypt', 'decrypt']);
   const socket = { readyState: 1, send(value) { sent.push(value); } };
   const api = { clave: key, roomId: 'synthetic', _catalogoRevision: 0, confirmarCatalogoVisible: () => render };
   const context = {
-    API: api, RELAY_URL: 'fixture:', crypto: webcrypto, performance: { now: () => now },
+    API: api, RELAY_URL: 'fixture:', crypto: trackedCrypto, performance: { now: () => now },
     Uint8Array, ArrayBuffer, TextEncoder, TextDecoder, Date, Math, JSON, Map, Promise,
     navigator: {}, document:{hidden:false,addEventListener(){}}, log() {}, CustomEvent: class {},
     setTimeout() { return 1; }, clearTimeout() {},
     btoa: x => Buffer.from(x, 'binary').toString('base64'),
-    async cifrarBin(_, bytes) {
+    cifrarBin: track(async (_, bytes) => {
       const iv = webcrypto.getRandomValues(new Uint8Array(12));
       const cipher = new Uint8Array(await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, bytes));
       const out = new Uint8Array(iv.length + cipher.length); out.set(iv); out.set(cipher, 12); return out.buffer;
-    },
-    async descifrarBin(_, buffer) {
+    }),
+    descifrarBin: track(async (_, buffer) => {
       const bytes = new Uint8Array(buffer);
       return new Uint8Array(await webcrypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes.slice(0, 12) }, key, bytes.slice(12)));
-    }
+    })
   };
   context.window = context;
   context.F123Relay = { connect: () => socket };
@@ -50,19 +54,25 @@ async function fixture() {
     get: async key => saved.get(key), set: async (key, value) => saved.set(key, structuredClone(value)) };
   const channel = context.make(Y, doc, '-y', 'catalogo', false, null, persistence);
   channel.conectar(); socket.onopen(); socket.onmessage({ data: JSON.stringify({ k: 'peer-count', n: 2 }) });
-  return { context, api, channel, socket, sent, applied, doc, saved,
+  return { busy: () => busy, context, api, channel, socket, sent, applied, doc, saved,
     time(value) { now = value; }, render(value) { render = value; }, fail(value) { failApply = value; }, duplicate(value) { duplicate = value; } };
 }
+// Deliver frames until BOTH peers are quiescent (no frame queued, no crypto in flight) for 3
+// consecutive ticks. `rounds` is only the minimum; the cap is a hang guard, not a timing budget.
 async function pump(a, b, rounds = 12, filter = () => true) {
-  for (let n = 0; n < rounds; n++) {
+  let idle = 0;
+  for (let n = 0; n < 5000 && (n < rounds || idle < 3); n++) {
+    let moved = false;
     for (const [from, to] of [[a, b], [b, a]]) {
       for (const frame of from.sent.splice(0)) {
         if (!(frame instanceof ArrayBuffer)) continue; // durability is tested separately
+        moved = true;
         const clear = await from.context.descifrarBin(null, frame);
         if (filter(clear, from)) to.socket.onmessage({ data: frame });
       }
     }
     await tick();
+    idle = moved || a.busy() || b.busy() || a.sent.length || b.sent.length ? 0 : idle + 1;
   }
 }
 async function pair() { const a = await fixture(), b = await fixture(); await pump(a, b); return [a, b]; }
