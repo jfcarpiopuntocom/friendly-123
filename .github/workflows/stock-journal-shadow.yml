@@ -17,4 +17,5 @@ jobs:
       - name: Syntax of dormant standalone engine
         run: node --check lab/stock-journal/engine.cjs
       - name: Causal counts, preorders, three offline peers, backup and idempotence
-        run: node --test test/stock-journal-invariants.test.cjs
+        run: node --check lab/stock-journal/yjs-bridge.cjs
+          node --test test/stock-journal-invariants.test.cjs test/stock-journal-yjs.test.cjs
