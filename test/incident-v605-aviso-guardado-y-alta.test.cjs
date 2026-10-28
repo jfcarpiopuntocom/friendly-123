@@ -117,3 +117,19 @@ test('ruta: mismo codigo despues -> 409 con mensaje de la rama de variantes; otr
   assert.equal((await alta(w, 'ABC-2')).status, 200);
   assert.equal((await alta(w, '')).status, 400, 'sin codigo: comportamiento anterior (400) sin cambios');
 });
+// ---- Sellar venta (carrito): re-entrada (JFC 2026-10-28). La ruta de venta no es idempotente por opId; la UI es la unica barrera. ----
+for (const file of ['src/app/app-inline-01.js', 'docs/app-inline-01.min.js']) {
+  test(file + ' - sellarVenta: doble toque concurrente entra una vez (aun antes de la confirmacion); boton restaurado', async () => {
+    const s = read(file);
+    const a = s.indexOf('let _sellando'), b = s.indexOf('async function _sellarVentaInterno');
+    assert(a > 0 && b > a, 'wrapper presente');
+    const btn = { disabled: false }; let n = 0, soltar;
+    const ctx = { document: { getElementById: () => btn }, Promise,
+      _sellarVentaInterno: () => { n++; return new Promise((r) => { soltar = r; }); } };
+    vm.runInNewContext(s.slice(a, b) + ';this.f=sellarVenta;', ctx);
+    const p1 = ctx.f(), p2 = ctx.f(); await tick();
+    assert.equal(n, 1); assert.equal(btn.disabled, true);
+    soltar(); await p1; await p2; assert.equal(btn.disabled, false);
+    const p3 = ctx.f(); await tick(); assert.equal(n, 2); soltar(); await p3;
+  });
+}

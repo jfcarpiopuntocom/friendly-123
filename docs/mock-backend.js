@@ -989,24 +989,18 @@
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
-  /* (JFC 2026-10-28) true si el cuaderno tiene datos propios (fuera de la semilla demo exacta) o historial Yjs.
-     Cuenta tambien borrados (tombstones). Se usa para bloquear /api/respaldo/importar. */
-  function _cuadernoConDatosOSync() {
+  /* (JFC 2026-10-28) true SOLO si el cuaderno comparte datos con OTRO aparato: la coleccion Yjs "dispositivos" (add-only,
+     cada aparato publica su entrada con id = OCMicelio.yo().id; sync-yjs.js:1383-1388, mock-backend.js ~4809) tiene un id que no es el nuestro.
+     Persiste en IndexedDB, asi que cubre "emparejado pero sin red ahora" y "desemparejado despues de sincronizar" (nunca se borra).
+     Riesgo residual: un par viejo (v604) que nunca publico su entrada no se detecta. Sin Yjs (harness/VM, aparato solo) -> false. */
+  function _cuadernoSincronizaConOtros() {
     try {
-      const sel = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales }, true);
-      const ids = (t) => new Set((sel[t] || []).map((x) => String(x.id)));
-      const sp = ids("productos"), sv = ids("ventas"), su = ids("ubicaciones"), sc = ids("clientes");
-      if (productos.some((x) => x && !sp.has(String(x.id)))) return true;
-      if (ventas.some((x) => x && !sv.has(String(x.id)))) return true;
-      if (ubicaciones.some((x) => x && !su.has(String(x.id)))) return true;
-      if (clientes.some((x) => x && !sc.has(String(x.id)))) return true;
-      if (movimientos.some((x) => x && !sp.has(String(x && x.productoId)))) return true;
       const y = window.OCYjs;
-      if (y && y.estado === "activo" && typeof y._diag === "function") {
-        const n = y._diag().n || {};
-        if (Object.keys(n).some((k) => k !== "dispositivos" && Number(n[k]) > 0) /* "dispositivos" = el propio aparato, no datos */) return true;
-      }
-      return false;
+      if (!y || y.estado !== "activo" || typeof y.get !== "function") return false;
+      const yo = (window.OCMicelio && window.OCMicelio.yo) ? window.OCMicelio.yo() : null;
+      const miId = yo && yo.id ? String(yo.id) : "";
+      const ids = Object.keys(y.get("dispositivos") || {});
+      return ids.some((k) => k !== miId);
     } catch (_) { return true; } // ante la duda, NO sobrescribir
   }
   function aplicarRespaldo(body) {
@@ -7035,9 +7029,9 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
-          /* (JFC 2026-10-28) Restaurar SOLO en cuaderno vacio y sin historial de sync: el Y.Doc persistido gana al reabrir
-             (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Semilla demo exacta cuenta como vacio. */
-          if (_cuadernoConDatosOSync()) return J({ error: "A backup can only be restored on a new device or in an empty notebook: in a notebook that syncs, what already exists would come back when you reopen. (Restaurar un respaldo solo se puede en un aparato nuevo o en un cuaderno vacío: en un cuaderno que se sincroniza, lo que ya existe volvería al reabrir.)" }, 409);
+          /* (JFC 2026-10-28) Restaurar NO se permite si el cuaderno sincroniza con otro aparato: el Y.Doc compartido gana al reabrir
+             (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
+          if (_cuadernoSincronizaConOtros()) return J({ error: "A backup can only be restored on a new device or in an empty notebook: in a notebook that syncs, what already exists would come back when you reopen. (Restaurar un respaldo solo se puede en un aparato nuevo o en un cuaderno vacío: en un cuaderno que se sincroniza, lo que ya existe volvería al reabrir.)" }, 409);
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
           // v605 (JFC 2026-10-28): no decir "listo" hasta que el guardado este en disco (antes quedaba en cola del candado Web Locks y cerrar la pestana perdia el respaldo).

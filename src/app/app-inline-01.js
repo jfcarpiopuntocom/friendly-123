@@ -169,7 +169,19 @@ document.getElementById("btnVaciarCarrito") && document.getElementById("btnVacia
 // producto, ya probado), amarradas al mismo cliente. Si una linea falla a
 // mitad de camino (ej. alguien mas vendio el ultimo justo antes), se PARA y
 // se informa exactamente que quedo hecho y que no — nunca un "listo" falso.
+/* (JFC 2026-10-28) Anti doble toque en "sellar": el boton antes se deshabilitaba DESPUES de ocConfirm, asi que dos toques
+   abrian dos confirmaciones y vendian dos veces (la ruta de venta no es idempotente por opId). Bandera + boton deshabilitado
+   durante todo el flujo, restaurado en finally. Los otros dos llamadores (venderUno, confirmar venta) ya usan _ventasEnCurso. */
+let _sellando = false;
 async function sellarVenta() {
+  if (_sellando) return;
+  _sellando = true;
+  const _b = document.getElementById("btnSellarVenta");
+  if (_b) _b.disabled = true;
+  try { return await _sellarVentaInterno(); }
+  finally { _sellando = false; if (_b) _b.disabled = false; }
+}
+async function _sellarVentaInterno() {
   if (!_carritoVenta.length) return;
   const sel = document.getElementById("ventaCliente");
   const nombreCliente = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "Counter sale";
