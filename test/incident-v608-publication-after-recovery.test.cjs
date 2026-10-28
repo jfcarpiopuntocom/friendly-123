@@ -361,7 +361,7 @@ test('P0 unexpected Yjs witness rewrite invalidates cache but does not alter com
   try {
     // Unexpected external write to the SAME Y.Map key must fail closed and
     // rebuild the index. This is not an authorized way to cancel a sale.
-    mapa.set(key,{...original});
+    mapa.set(key,vm.runInContext('('+JSON.stringify(original)+')',b.w));
     b.w.OCYjs._store.aplicar();await b.flush();
     assert.equal((await fixtureProduct(b)).stockActual,14,'committed stock is unchanged');
     assert.ok(fullReads>=1,'cache rebuilt after illegal same-key update');
