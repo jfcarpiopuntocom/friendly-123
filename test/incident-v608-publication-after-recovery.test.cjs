@@ -265,3 +265,25 @@ test('P0 adversarial replay order: 4 deterministic disconnect/reconnect schedule
     assert.equal((await fixtureProduct(b)).stockActual,11,'B invariant schedule '+index);
   }
 });
+
+test('P0 1000-product notebook: one remote PN change must be preserved without destructive catalog overwrite',async()=>{
+  const a=await peer(),b=await peer();
+  const f=await a.w.request('/api/respaldo/exportar');
+  const p0={...f.productos[0],stockActual:4,stockBase:4,stockPN:{},stockTs:1,rev:{c:1,d:'fixture'}};
+  f.productos=Array.from({length:1000},(_,i)=>({...p0,id:'large-stock-'+i,
+    nombre:'Synthetic product '+i,barcode:'SYN-PERF-LARGE-'+i}));
+  f.ventas=[];f.movimientos=[];
+  await a.w.request('/api/respaldo/importar','POST',f);
+  await b.w.request('/api/respaldo/importar','POST',f);
+  a.w.OCYjs._store.sembrar();b.w.OCYjs._store.sembrar();
+  await a.flush();await b.flush();
+  const x=await a.w.request('/api/productos/large-stock-999/ajustar','POST',{delta:7,motivo:'1000 item consistency'});
+  assert.equal(x.stockActual,11);
+  await a.flush();
+  const begin=Date.now();await exchange(a,b,2);
+  const elapsed=Date.now()-begin;
+  const p=(await b.w.request('/api/respaldo/exportar')).productos;
+  assert.equal(p.length,1000);
+  assert.equal(p.find(x=>x.id==='large-stock-999').stockActual,11);
+  console.error('P0_1000_PRODUCT_NOTEBOOK_SYNTHETIC_REPLAY_MS',elapsed);
+});
