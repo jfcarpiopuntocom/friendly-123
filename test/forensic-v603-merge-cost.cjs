@@ -14,7 +14,7 @@ async function peer(n){
   stockActual:10,stockBase:10,stockPN:{},stockTs:1,rev:{c:1,d:'benchmark'}
  }));
  fx.ventas=[];fx.movimientos=[];
- await w.request('/api/respaldo/importar','POST',fx);
+
  Object.assign(w,{crypto:webcrypto,TextEncoder,TextDecoder,
    WebSocket:class{constructor(){throw Error('No production transport')}},
    BroadcastChannel:class{constructor(){throw Error('No external channel')}}});
@@ -24,6 +24,7 @@ async function peer(n){
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8'),w);
  for(let i=0;i<100&&w.OCYjs.estado!=='activo';i++)await delay(10);
  assert.equal(w.OCYjs.estado,'activo');
+ await w.request('/api/respaldo/importar','POST',fx);
  return w;
 }
 (async()=>{
