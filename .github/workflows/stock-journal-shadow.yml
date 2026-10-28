@@ -1,0 +1,20 @@
+name: stock-journal-shadow-only
+on:
+  push:
+    branches:
+      - lab/v603-stock-journal-shadow
+  workflow_dispatch: {}
+jobs:
+  immutable-journal:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax of dormant standalone engine
+        run: node --check lab/stock-journal/engine.cjs
+      - name: Causal counts, preorders, three offline peers, backup and idempotence
+        run: node --test test/stock-journal-invariants.test.cjs
