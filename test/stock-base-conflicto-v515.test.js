@@ -96,3 +96,20 @@ test('Belen por el sync real: bases distintas convergen, y su correccion manual 
   await sincronizar(cel, pc);
   assert.equal(await stockDe(cel, 'p-aya'), 1); assert.equal(await stockDe(pc, 'p-aya'), 1);
 });
+
+test('v602 real Yjs phones-to-PC: saved sale keeps stock and money aligned', async () => {
+  const cel = await peer(), pc = await peer();
+  const ts = Date.now() - 10000;
+  await conBase(cel,'p-crema-007',14,{},14,ts);
+  await conBase(pc, 'p-crema-007',14,{},14,ts);
+  await sincronizar(cel,pc);
+  const result = await cel.request('/api/productos/p-crema-007/venta','POST',{cantidad:1});
+  assert.ok(result.ventaId,'a durable sale must return its immutable ID');
+  await sincronizar(cel,pc);
+  assert.equal(await stockDe(cel,'p-crema-007'),13,'phone decremented one real unit');
+  assert.equal(await stockDe(pc,'p-crema-007'),13,'PC received one real unit sale');
+  const pcBackup = await pc.request('/api/respaldo/exportar');
+  assert.equal(pcBackup.ventas.filter(v=>String(v.id)===String(result.ventaId)).length,1,'sale arrived once, not duplicated');
+  await sincronizar(cel,pc);
+  assert.equal((await pc.request('/api/respaldo/exportar')).ventas.filter(v=>String(v.id)===String(result.ventaId)).length,1,'replay cannot duplicate money');
+});
