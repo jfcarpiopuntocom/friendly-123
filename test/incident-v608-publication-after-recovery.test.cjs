@@ -456,3 +456,26 @@ test('P0 two peers retain E2 physical recount and its subsequent movement',async
   assert.equal((await fixtureProduct(a)).stockActual,4,'repeated replay cannot resurrect E1 movements');
   assert.equal((await fixtureProduct(b)).stockActual,4,'reverse replay cannot duplicate E2 decrement');
 });
+
+test('P0 epoch-tagged backup retains identity after local restore and Yjs publication',async()=>{
+  const a=await peer(), b=await peer();
+  const backup=await a.w.request('/api/respaldo/exportar');
+  backup.productos=[{...backup.productos[0],id:'p0-epoch-backup',
+    nombre:'Synthetic epoch backup',barcode:'SYN-EPOCH-RESTORE',
+    stockBase:5,stockActual:5,stockPN:{},stockEpochId:'synthetic-backup-E2',
+    stockTs:1,rev:{c:1,d:'fixture'}}];
+  backup.ventas=[];backup.movimientos=[];
+  for(const device of [a,b]){
+    const result=await device.w.request('/api/respaldo/importar','POST',backup);
+    assert.equal(result.ok,true);
+    const stored=(await device.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-epoch-backup');
+    assert.equal(stored.stockEpochId,'synthetic-backup-E2');
+    device.w.OCYjs._store.sembrar();await device.flush();
+  }
+  await exchange(a,b,2);
+  for(const device of [a,b]){
+    const item=(await device.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-epoch-backup');
+    assert.equal(item.stockEpochId,'synthetic-backup-E2');
+    assert.equal(item.stockActual,5);
+  }
+});
