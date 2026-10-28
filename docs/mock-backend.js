@@ -955,6 +955,8 @@
       idsProd.add(String(p.id));
       if (!esTextoCorto(String(p.nombre || ""), 240)) return "There is a product without a valid name.";
       if (!Number.isFinite(Number(p.precio)) || !Number.isFinite(Number(p.costo)) || !Number.isFinite(Number(p.stockActual))) return "There are invalid numeric values in products.";
+      if (p.stockEpochId != null && (typeof p.stockEpochId !== "string" || p.stockEpochId.length > 160))
+        return "There is an invalid physical inventory epoch in the backup.";
       if (Number(p.precio) < 0 || Number(p.costo) < 0 || Number(p.stockActual) < 0) return "There are negative prices, costs or stock in products.";
     }
     const idsUbic = new Set();
@@ -6276,6 +6278,7 @@
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.
           precio: aCent(Math.max(0, Number(body.precio) || 0)), costo: aCent(Math.max(0, Number(body.costo) || 0)), stockActual: Math.max(0, Number(body.stockInicial) || 0),
+          stockEpochId: uuid("stock-epoch-"), // Unique physical epoch for new products; do not retrofit ambiguous historical products.
           stockTs: (function () { const _r = ahoraRelayComun(); return _r === null ? Date.now() : _r; })(), // v447: stock inicial no hereda un reloj civil adelantado
           /* PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio
              OPCIONAL, más bajo, para la gente de la casa (ej. cerveza $5 al
