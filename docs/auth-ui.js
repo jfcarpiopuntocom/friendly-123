@@ -1176,7 +1176,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // is incomplete or the team's PIN metadata has not arrived.
     try {
       const T = window.OCTienda, Y = window.OCYjs;
-      if (T && T.esUnida && T.esUnida()) {
+      // P0 v619: an installed owned PWA is the SAME licensed notebook as a
+      // joined browser. Its encrypted room/PIN metadata can still be replaying.
+      // A legitimate room PIN must not consume lockout attempts while the room
+      // has not supplied its complete verified credentials. A locally verified
+      // PIN already entered above and is unaffected by this read-only guard.
+      let mismaLicenciaPropia = false;
+      try {
+        const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
+        const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        mismaLicenciaPropia = /^F123-/.test(lic) && own.licenseCode === lic;
+      } catch (_) {}
+      if ((T && T.esUnida && T.esUnida()) || mismaLicenciaPropia) {
         const team = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
         const owner = String((team && team.owner) || "");
         if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
