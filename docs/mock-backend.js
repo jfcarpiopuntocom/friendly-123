@@ -4860,6 +4860,11 @@
       // Registro licencia -> sufijo.
       let reg = {};
       try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
+      // Capture v614 alias collisions BEFORE pruning stale registry entries:
+      // pruning removes precisely the old-license witness needed for recovery.
+      var aliasActivoAntes = Object.keys(reg).some(function (k) {
+        return _normLic(k) !== norm && reg[k] === OC_STATE_SUFIJO;
+      });
       /* Guest licenses must not map to the own-store suffix "". That was the
          f123_tiendas corruption (P3W1D/JENF → ""). Own license MAY be "". */
       try {
@@ -4921,9 +4926,7 @@
       } catch (_) {}
       var destinoRegistrado = Object.prototype.hasOwnProperty.call(reg, norm);
       var colisionAnterior = joinPendiente && destinoRegistrado &&
-        reg[norm] === OC_STATE_SUFIJO && Object.keys(reg).some(function (k) {
-          return _normLic(k) !== norm && reg[k] === OC_STATE_SUFIJO;
-        });
+        reg[norm] === OC_STATE_SUFIJO && aliasActivoAntes;
       if (colisionAnterior) sufDest = "::" + norm; // isolate the selected license; never overwrite its predecessor
       else if (norm === desde && destinoRegistrado && reg[norm] !== OC_STATE_SUFIJO) sufDest = reg[norm];
       else if (norm === desde) sufDest = OC_STATE_SUFIJO;
