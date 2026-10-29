@@ -112,7 +112,7 @@
         }
       }
       start() {
-        if (this.signal && this.signal.readyState < 2 || this.timer || this.attempts >= 5 || !this.sockets.size) return;
+        if (this.signal && this.signal.readyState < 2 || this.timer || !this.sockets.size) return;
         this.attempts++;
         let ws; try { ws = new WS(signalURL + this.room + '?peer=' + this.id); } catch (_) { this.retry(); return; }
         this.signal = ws;
@@ -125,7 +125,8 @@
         ws.onclose = () => { if (this.signal === ws) { if (!ws.initialRTCFailed && openedAt && Date.now() - openedAt >= 30000) this.attempts = 0; this.signal = null; this.retry(); } };
         ws.onerror = () => { try { ws.close(); } catch (_) {} };
       }
-      retry() { if (this.timer || this.attempts >= 5 || !this.sockets.size) return; this.timer = setTimeout(() => { this.timer = null; this.start(); }, Math.min(30000, 1000 * 2 ** (this.attempts - 1))); }
+      /* v609: antes se rendia tras 5 intentos y el aparato quedaba sordo para siempre. Ahora sigue intentando mientras haya sockets que lo pidan; el retraso se topa en 30 s (sin bucle apretado). */
+      retry() { if (this.timer || !this.sockets.size) return; this.timer = setTimeout(() => { this.timer = null; this.start(); }, Math.min(30000, 1000 * 2 ** (this.attempts - 1))); }
       signalTo(kind, to, data) { if (this.signal && this.signal.readyState === 1) this.signal.send(JSON.stringify({ v: 1, k: kind, to, data })); }
       clock(t0) { if (Number.isFinite(t0) && this.signal && this.signal.readyState === 1) this.signal.send(JSON.stringify({ v: 1, k: 'clock', t0 })); }
       peer(id) {
