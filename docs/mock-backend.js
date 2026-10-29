@@ -4633,7 +4633,14 @@
         if (nuevoEquipoSinPIN) {
           promesasPins.push(Promise.resolve().then(function () {
             return window.OCSecure.instalarCredencialesDesdeSala(pr);
-          }).then(function (ok) { return ok === true; }, function () { return false; }));
+          }).then(function (ok) {
+            if (ok === true) return true;
+            if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
+            const localEmp = (vis.empleados && vis.empleados[0]) || "";
+            if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
+            if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+            return false;
+          }, function () { return false; }));
         } else {
           if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
           const localEmp = (vis.empleados && vis.empleados[0]) || "";
