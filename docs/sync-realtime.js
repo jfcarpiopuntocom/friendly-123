@@ -1460,6 +1460,19 @@
          sufDest caería a "" y el switch nunca ocurriría. `desde` se pasa a
          cambiar() para que el destino sea "::<lic>" (namespace aparte). */
       const _desde = (window.OCTienda && window.OCTienda.licenciaActual) ? window.OCTienda.licenciaActual() : "";
+      // P0 v616: activar() adopts the requested license before cambiar().
+      // Keep the previous identity to restore if the active notebook marker
+      // could not be committed. Never make a failed join look successful.
+      var _previousJoin = {};
+      ["f123_owned", ROOM_KEY, "f123_join_pending_v1"].forEach(function (key) {
+        try { _previousJoin[key] = localStorage.getItem(key); } catch (_) { _previousJoin[key] = null; }
+      });
+      function revertirJoin() {
+        Object.keys(_previousJoin).forEach(function (key) {
+          try { if (_previousJoin[key] === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, _previousJoin[key]); } catch (_) {}
+        });
+      }
       // Do not change any room/identity until the notebook switch is available.
       if (!window.OCTienda || typeof window.OCTienda.cambiar !== "function") {
         return { ok: false, error: "Notebook selection is not ready. Nothing was changed." };
@@ -1531,10 +1544,15 @@
         if (r && r.ok && window.OCTienda && window.OCTienda.cambiar) {
           const sala = leerSala();
           if (!sala || !sala.codigo) {
-            return { ok: false, error: "Failed to set sync room. Try again." };
+            revertirJoin();
+            return { ok: false, error: "Failed to set sync room. The old notebook remains intact." };
           }
           const cod = sala.codigo;
           const c = window.OCTienda.cambiar(cod, { desde: _desde }); // recarga la página si cambia de tienda
+          if (!c || c.ok !== true) {
+            revertirJoin();
+            return { ok: false, error: (c && c.error) || "Business selection was not saved; your previous notebook remains intact." };
+          }
           /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
              tienda en la que YA estás, cambiar() no recarga (mismo:true). NO es
              callejón sin salida: se FUERZA una re-sincronización (reconecta +
@@ -1548,8 +1566,9 @@
           }
         }
       } catch (err) {
-        try { console.error("[unirse] error:", err); } catch (_) {}
-        return { ok: false, error: "Unexpected error. Try again." };
+        revertirJoin();
+        try { console.error("[unirse] error:", err && err.name); } catch (_) {}
+        return { ok: false, error: "Could not safely switch notebook. Your existing business was preserved." };
       }
       return r;
     },
