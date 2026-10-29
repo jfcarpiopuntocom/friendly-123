@@ -1,0 +1,33 @@
+name: v619 P0 explicit notebook rejoin guard
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'docs/sync-realtime.js'
+      - 'test/p0-v619-explicit-yjs-rejoin.test.cjs'
+      - 'test/p0-v617-recovered-team-gate.test.cjs'
+      - '.github/workflows/p0-v619-rejoin-guard.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  same-notebook:
+    name: Same-notebook rejoin and PIN safety (synthetic, read-only)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify changed module syntax
+        run: node --check docs/sync-realtime.js
+      - name: Focused production-method regression (no production network)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 \
+            test/p0-v619-explicit-yjs-rejoin.test.cjs \
+            test/p0-v617-recovered-team-gate.test.cjs \
+            test/p0-v618-browser-pwa-same-notebook.test.cjs \
+            test/p0-v616-identity-commit.test.cjs
+      - name: Diff hygiene
+        run: git diff --check
