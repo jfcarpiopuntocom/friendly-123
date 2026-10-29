@@ -1568,6 +1568,18 @@
              intento vuelve a jalar todo. */
           if (c && c.mismo) {
             try { reintentoMs = 1000; intentosSeguidos = 0; conectar(); } catch (_) {}
+            // P0: same-license rejoin must also retry the encrypted Yjs catalog.
+            // The legacy socket above does not recover Yjs _meta (shop name/PINs).
+            // Only an explicit user rejoin reopens the existing catalog channel;
+            // never reset the Y.Doc, IDB, local owner verifier or notebook.
+            try {
+              const y = window.OCYjs;
+              if (y && y.estado === "activo" && y.canal &&
+                  typeof y.canal.pausar === "function" && typeof y.canal.reanudar === "function") {
+                y.canal.pausar();
+                y.canal.reanudar();
+              }
+            } catch (_) { /* retry remains available on next deliberate join */ }
             try { window.dispatchEvent(new CustomEvent("oc-licencia-disponible", { detail: { origen: "unirse" } })); } catch (_) {}
             return { ok: true, mismo: true, error: "You're already in this store — re-syncing with the team now. If a teammate's device is on, their shelves and customers will land in a moment." };
           }
