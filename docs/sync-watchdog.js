@@ -126,10 +126,18 @@
     if (!snap) return Promise.resolve(null);
     return tx(STORE_SNAP, "readwrite", function (s, cb) {
       s.put(snap);
-      var all = s.getAll();
-      all.onsuccess = function () {
-        var arr = (all.result || []).sort(function (a, b) { return (a.ts < b.ts) ? 1 : -1; });
-        for (var i = MAX_SNAPSHOTS; i < arr.length; i++) s.delete(arr[i].id);
+      // Pruning only needs metadata, not simultaneous copies of every notebook.
+      var metadata = [], cursor = s.openCursor();
+      cursor.onsuccess = function () {
+        var actual = cursor.result;
+        if (actual) {
+          var registro = actual.value;
+          metadata.push({ id: registro.id, ts: registro.ts });
+          actual.continue();
+          return;
+        }
+        metadata.sort(function (a, b) { return (a.ts < b.ts) ? 1 : -1; });
+        for (var i = MAX_SNAPSHOTS; i < metadata.length; i++) s.delete(metadata[i].id);
         cb(snap);
       };
     });
