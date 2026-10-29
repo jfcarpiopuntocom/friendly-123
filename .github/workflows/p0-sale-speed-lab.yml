@@ -29,9 +29,9 @@ jobs:
         run: node scripts/lab-venta-latencia.js
       - name: Install pinned browser test harness
         run: npm ci --ignore-scripts
-      - name: Install headless Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Two-tab atomic sale test (synthetic)
+      - name: Install Chromium and WebKit
+        run: npx playwright install --with-deps chromium webkit
+      - name: Chromium and Safari-WebKit two-tab atomic sales (synthetic)
         run: node --test test/p0-sales-atomic-idb-webkit-browser.test.cjs
       - name: Validate changed JavaScript syntax
         run: |
