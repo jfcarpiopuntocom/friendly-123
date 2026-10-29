@@ -648,7 +648,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const b = e.target.closest("button[data-d]"); if (!b || st.entrada().length >= 3) return;
         st.push(Number(b.dataset.d));
         st.revelarUltimo();
-        if (st.entrada().length === 3) { const code = st.entrada().join(""); setTimeout(() => st.onComplete(code), 900); }
+        if (st.entrada().length === 3) { const code = st.entrada().join(""); setTimeout(() => st.onComplete(code), 0); }
       });
     }
     pintar();
