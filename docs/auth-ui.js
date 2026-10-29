@@ -1183,7 +1183,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const team = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
         const owner = String((team && team.owner) || "");
         if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
-            !/^\\d{3}$/.test(owner) || owner === "456" || owner === "789") {
+            !/^\d{3}$/.test(owner) || owner === "456" || owner === "789") {
           error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
           return;
         }
