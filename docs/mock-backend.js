@@ -1141,27 +1141,19 @@
       if (n) guardarEstadoLocal();
     } catch (_) {}
   }
-  // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba
-  // y un refresh le comia el dia. Ahora hay banda roja persistente.
+  // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba y un refresh le comia el dia.
+  // v608 (JFC 2026-10-28, orden del dueno): NADA encima de la UI. Antes habia una banda roja fija
+  // (#oc-quota-aviso, position:fixed). Ahora solo se levanta la bandera window.__ocMemoriaLlena y la linea
+  // de estado de Avanzado (#oc-sync-estado-min, avanzado-extra.js _pintarSyncMin) escribe el texto plano.
+  // NO volver a crear elementos fijos/overlay/modal/toast aqui. Solo se activa con error de cuota REAL
+  // (_esErrorDeCuota); un fallo no-cuota no toca esta bandera.
   // Clear a prior full-storage warning ONLY after another write succeeded durably.
-  function despejarAvisoMemoriaLlena() { try { const d = document.getElementById("oc-quota-aviso"); if (d) d.remove(); } catch (_) {} }
+  function despejarAvisoMemoriaLlena() {
+    try { if (window.__ocMemoriaLlena) { window.__ocMemoriaLlena = false; window.dispatchEvent(new CustomEvent("oc-memoria-llena", { detail: { llena: false } })); } } catch (_) {}
+  }
   function avisoMemoriaLlena() {
     try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "memoria-llena"); else (window.__ocFallos = window.__ocFallos || []).push(["", "memoria-llena"]); } catch (_) {} // canario 2026-10-01
-    try {
-      if (document.getElementById("oc-quota-aviso")) return;
-      const d = document.createElement("div");
-      d.id = "oc-quota-aviso";
-      d.setAttribute("role", "alert");
-      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10002;background:#B0183E;padding:12px 16px;text-align:center;";
-      // BUG FIJADO (JFC 2026-08-19, caza produccion): aviso hardcoded en
-      // espanol en app cuyo default es ingles.
-      var _es_q = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;">'
-        + (_es_q ? 'La memoria de este navegador está llena: los cambios nuevos NO se están guardando. Ve a AVANZADO y descarga un respaldo AHORA.'
-                 : 'This browser storage is full: new changes are NOT being saved. Go to ADVANCED and download a backup NOW.')
-        + '</span>';
-      (document.body || document.documentElement).appendChild(d);
-    } catch (_) {}
+    try { window.__ocMemoriaLlena = true; window.dispatchEvent(new CustomEvent("oc-memoria-llena", { detail: { llena: true } })); } catch (_) {}
   }
   // Fase 2 (2026-08-04): si no cabe el estado completo, antes de darse por
   // vencido se archivan los movimientos mas viejos en IndexedDB (idb-archivo.js

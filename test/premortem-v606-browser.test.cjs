@@ -30,7 +30,7 @@ test('P1 item1: persistent AbortError -> retry loop is infinite (3 s each) and u
     await POST(page,NUEVO('P1A'));
     await page.evaluate(()=>OCSync.confirmarCatalogoDurable().catch(()=>false));
     await page.waitForTimeout(2500); // 2.5 s real == ~160 accelerated 3 s cycles
-    const r=await page.evaluate(()=>({retries:window.__retries,banner:!!document.getElementById('oc-quota-aviso'),aviso:!!document.getElementById('f123-aviso-guardado'),
+    const r=await page.evaluate(()=>({retries:window.__retries,banner:!!document.getElementById('oc-quota-aviso')||!!window.__ocMemoriaLlena,aviso:!!document.getElementById('f123-aviso-guardado'),
       cat:OCSync.catalogoPropio()}));
     // SAFE behaviour: bounded retries (<=5) and a visible message when the retries are exhausted.
     console.log('item1 diag',JSON.stringify({retries:r.retries,banner:r.banner,cat:r.cat===null}));
@@ -68,7 +68,7 @@ test('P1 item B2: non-quota failure returning false (SecurityError + IDB false) 
     });
     await POST(page,NUEVO('B2A'));
     await page.waitForTimeout(500);
-    const banner=await page.evaluate(()=>!!document.getElementById('oc-quota-aviso'));
+    const banner=await page.evaluate(()=>!!document.getElementById('oc-quota-aviso')||!!window.__ocMemoriaLlena);
     assert.equal(banner,false,'false "memory full" banner still appears on a non-quota failure (mock-backend.js terminar(false) -> avisoMemoriaLlena)');
   });
 });
