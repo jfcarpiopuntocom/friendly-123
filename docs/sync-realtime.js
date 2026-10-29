@@ -1351,7 +1351,7 @@
     // 2026-07-23 (ajuste del plan sincro-equipos): una vez guardado el
     // codigo, sync queda encendido PARA SIEMPRE en este dispositivo — no es
     // un "modo evento" que se prende y apaga, es un estado permanente.
-    activar(codigo) {
+    activar(codigo, opciones) {
       // Prender a mano borra la marca de "apagado por el dueño" (ver alinearSalaConLicencia).
       try { localStorage.removeItem(APAGADO_KEY); } catch (_) {}
       // Refuerzo (2026-07-23): normalizar SIEMPRE antes de guardar — "amg-x"
@@ -1431,7 +1431,9 @@
       } catch (_) {}
       reintentoMs = 1000;
       intentosSeguidos = 0;
-      conectar();
+      // P0 v615: a JOIN must first select the destination notebook; connecting
+      // here would announce the old notebook data in the NEW license room.
+      if (!(opciones && opciones.esJoin)) conectar();
       return _aviso ? { ok: true, warning: _aviso } : { ok: true };
     },
     /* Fija la sala de sync a un código SIN conectar (JFC 2026-08-26, NB-1).
@@ -1458,7 +1460,11 @@
          sufDest caería a "" y el switch nunca ocurriría. `desde` se pasa a
          cambiar() para que el destino sea "::<lic>" (namespace aparte). */
       const _desde = (window.OCTienda && window.OCTienda.licenciaActual) ? window.OCTienda.licenciaActual() : "";
-      const r = this.activar(codigo);
+      // Do not change any room/identity until the notebook switch is available.
+      if (!window.OCTienda || typeof window.OCTienda.cambiar !== "function") {
+        return { ok: false, error: "Notebook selection is not ready. Nothing was changed." };
+      }
+      const r = this.activar(codigo, { esJoin: true });
       /* APROPIAR EL DISPOSITIVO AL UNIRSE (JFC 2026-08-26). Un aparato que se une
          a un equipo con licencia válida deja de ser DEMO: es un dispositivo REAL
          de esa tienda. Sin esto se quedaba en modo demo y por eso Belén veía los
