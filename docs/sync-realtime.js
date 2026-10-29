@@ -1402,7 +1402,14 @@
           if (!_aviso) _aviso = "El código no pasa la verificación. Revisa que esté bien tecleado (I/L valen 1, O vale 0).";
         }
       }
-      try { localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm })); } catch (_) {}
+      // A join cannot be reported successful if the requested encrypted
+      // room was not stored. Never adopt a new license on failed persistence.
+      try {
+        localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm }));
+        if (!leerSala() || leerSala().codigo !== codigoNorm) throw new Error("room not committed");
+      } catch (_) {
+        return { ok: false, error: "Could not save the synchronization room. Your previous notebook was preserved." };
+      }
       /* ADOPTAR LA LICENCIA AL ACTIVAR (JFC 2026-08-27). Bug de entrada real:
          "Sync your team" llamaba a activar(), que guardaba la sala de sync pero
          NO actualizaba f123_owned.licenseCode. Así el aparato sincronizaba a la
