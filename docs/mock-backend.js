@@ -927,9 +927,14 @@
     return (prefijo || "") + id;
   }
   function clonar(obj) { return JSON.parse(JSON.stringify(obj)); }
+  const clonarProfundo = clonar;
   // Foto completa del estado, con schemaVersion (item 18) para poder migrar
   // formatos futuros sin romper respaldos viejos.
-  function estadoActualExportable() {
+  /* v609 perf: estadoActualExportable({ vivo: true }) NO copia las colecciones: devuelve referencias a los
+     arreglos vivos. SOLO para quien lo serializa de inmediato y de forma sincrona (guardado A/B), porque
+     una mutacion posterior lo alteraria. Todos los demas llamadores siguen recibiendo copias profundas. */
+  function estadoActualExportable(opc) {
+    const clonar = opc && opc.vivo ? (x => x) : clonarProfundo;
     const payoutView = _payoutCore() && _payoutCore().compatiblePayouts;
     return {
       schemaVersion: 3,
@@ -1491,15 +1496,23 @@
       if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
       const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
       _localRevReservado = _revIntento;
-      const completo = estadoActualExportable();
-      completo._rev = _revIntento;
+      /* v609 perf: antes = copia profunda de cada coleccion (stringify+parse) y luego OTRO stringify para el A/B.
+         Ahora se serializa UNA vez el estado vivo y `completo` es el parse de ese mismo texto (identico a la
+         copia anterior: clonar() era justo ese viaje JSON). El texto sale en el mismo punto del flujo. */
+      const vivo = estadoActualExportable({ vivo: true });
+      vivo._rev = _revIntento;
+      let tokenOk = !!ab; // antes nuevoToken() corria dentro del try: si fallaba, no se intentaba el A/B pero el espejo seguia
+      if (ab) { try { vivo._abCommit = ab.nuevoToken(); } catch (_) { tokenOk = false; } }
+      const actividadVigente = vivo.actividadCompartida; // arreglo propio de _actividadExportable (identidad usada por _confirmarActividad)
+      const crudo = JSON.stringify(vivo);
+      const completo = JSON.parse(crudo);
       let local = false;
       try {
-        if (ab) { completo._abCommit = ab.nuevoToken(); _guardandoAB = true; local = ab.guardarAhora(JSON.stringify(completo)); }
+        if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
       } catch (_) {} finally { _guardandoAB = false; }
       const terminar = ok => {
         if (ok) {
-          if (completo.actividadCompartida) _confirmarActividad(completo.actividadCompartida);
+          if (actividadVigente) _confirmarActividad(actividadVigente);
           _localRev = Math.max(_localRev, _revIntento);
           _estadoPublicableConfirmado = _huellaPublicable(completo);
           _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
