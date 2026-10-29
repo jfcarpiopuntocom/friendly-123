@@ -7241,6 +7241,7 @@
         });
       }
       if (path === "/api/respaldo/importar") {
+        debePersistir = false; // Import owns its durable boundary; a rejected restore must never be saved by finally.
         const _rolImp = _rolLocal();
         if (_rolImp && _rolImp !== "dueno" && _rolImp !== "demo") return J({ error: "Only the owner can import a backup: it replaces the whole notebook." }, 403);
         try {
@@ -7255,21 +7256,43 @@
              (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
           /* (JFC 2026-10-28) `error` en ingles (default de la app); `errorEs` para la UI en espanol. */
           if (_cuadernoConDatosEnDoc()) return J({ error: "A backup can only be restored on a new device with no data. In a notebook that already has data, the restore would be undone when the app reopens.", errorEs: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
-          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
-          aplicarRespaldo(body);
-          /* v611 (JFC 2026-10-28): NO responder {ok:true} hasta que el guardado sea durable. Antes se llamaba
-             guardarEstadoLocal() sin esperar (devuelve Promise): si la app se cerraba justo despues de "Restaurado",
-             el respaldo se perdia en el aparato nuevo. Espera acotada a 10 s (guarda contra cuelgues); si no queda
-             guardado, error NO-OK con el texto que la UI ya muestra. La regla 409 de arriba no se toca. */
-          let _impGuardado = false;
+          const anterior = estadoActualExportable(), actividadAnterior = actividadCompartida, pagosAnteriores = payouts.slice();
+          const listas = [_CAT_BASE_CUSTOM, _CAT_BASE_OCULTAS].map(base => { const clave = _catKey(base); return { clave, raw: localStorage.getItem(clave) }; });
+          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(anterior)); } catch (_) {}
+          const restaurar = () => {
+            aplicarRespaldo(anterior);
+            actividadCompartida = actividadAnterior;
+            payouts.splice(0, payouts.length, ...pagosAnteriores);
+            instanceId = anterior.instanceId; nombreNegocioTs = anterior.nombreNegocioTs; nombreNegocioRev = anterior.nombreNegocioRev;
+            ajusteImpuesto = anterior.configuracion.impuesto; ajusteMoneda = anterior.configuracion.moneda;
+            ajusteLealtad = anterior.configuracion.lealtad; ajusteRetencion = anterior.configuracion.retencion;
+            for (const {clave,raw} of listas) try { if (raw === null) localStorage.removeItem(clave); else localStorage.setItem(clave, raw); } catch (_) {}
+          };
+          // Reuse the catalog rollback fence so background saves and incoming sync cannot capture a provisional restore.
+          let liberarImportacion;
+          _retencionConfirmando = true;
+          _retencionPendiente = new Promise(resolve => { liberarImportacion = resolve; });
           try {
-            _impGuardado = (await Promise.race([
-              Promise.resolve(guardarEstadoLocal(true, true)),
-              new Promise((res) => setTimeout(() => res(false), 10000))
-            ])) === true;
-          } catch (_) { _impGuardado = false; }
-          if (!_impGuardado) return J({ error: "Could not import: the backup was NOT saved on this device. Free up storage and try again.", errorEs: "No se pudo importar: el respaldo NO quedó guardado en este aparato. Libera espacio e inténtalo de nuevo." }, 507);
-          return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
+            aplicarRespaldo(body);
+            let guardado = false;
+            // Once storage starts, wait for its real result: a timed-out Promise can still commit later.
+            try { guardado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+            if (!guardado) {
+              restaurar();
+              return J({ error: "Could not import: the backup was NOT saved on this device. Free up storage and try again.", errorEs: "No se pudo importar: el respaldo NO quedó guardado en este aparato. Libera espacio e inténtalo de nuevo." }, 507);
+            }
+            avisarCatalogoCambiado();
+            return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
+          } catch (e) { restaurar(); throw e; }
+          finally {
+            _retencionConfirmando = false; _retencionPendiente = null;
+            try {
+              while (_retencionCatalogosPendientes.length) {
+                const siguiente = _retencionCatalogosPendientes.shift();
+                aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
+              }
+            } finally { liberarImportacion(); }
+          }
         } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
       }
 
