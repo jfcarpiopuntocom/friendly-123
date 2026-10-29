@@ -951,6 +951,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const T = window.OCTienda;
       if (T && T.esUnida && T.esUnida()) {
         let nom = (T.nombreActivo && T.nombreActivo().trim()) || "";
+        // The UI store can hydrate after encrypted Yjs metadata. Display ONLY
+        // the current fully recovered team's name; never use the own-sidecar name.
+        if (!nom) try {
+          const Y = window.OCYjs;
+          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          const lic = T.licenciaActual && T.licenciaActual();
+          if (lic && own.licenseCode === lic && Y && Y.roomId && Y.canal &&
+              Y.canal.recuperando === false && Y.meta && typeof Y.meta.get === "function") {
+            nom = String(Y.meta.get("nombreNegocio") || "").trim();
+          }
+        } catch (_) {}
         let sinSincronizar = false;
         if (!nom) {
           const lic = (T.licenciaActual && T.licenciaActual()) || "";
