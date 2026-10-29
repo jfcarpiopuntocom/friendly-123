@@ -168,7 +168,8 @@
       const db = await abrirDB();
       return new Promise(function (resolve) {
         let accepted = false;
-        const tx = db.transaction(STORE, "readwrite");
+        // Money/stock uses strict durability where the browser supports the hint.
+        const tx = db.transaction(STORE, "readwrite", { durability: "strict" });
         const req = tx.objectStore(STORE).get(CLAVE);
         req.onsuccess = function () {
           const actual = req.result;
