@@ -178,7 +178,8 @@ test('invariantes al arrancar: avisa el dinero partido sin tocarlo y llena la pe
       return { ok: r.ok, ubi: p.ubicacionId };
     });
     assert.equal(sembrado.ok, true, 'el respaldo sembrado se importo');
-    const bufferUbi = () => page.evaluate(() => { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); try { const b = JSON.parse(localStorage.getItem(k)); const v = b && b.ventas && b.ventas.find((x) => x.id === 'v-vacia'); if (v) return v.ubicacionId; } catch (_) {} } return null; });
+    /* v611: el estado vive en dos ranuras A/B (estado-ab.js); se lee la de revision mas alta, no la primera que aparezca. */
+    const bufferUbi = () => page.evaluate(() => { let mejor = null, rmax = -1; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); try { const b = JSON.parse(localStorage.getItem(k)); const v = b && b.ventas && b.ventas.find((x) => x.id === 'v-vacia'); if (v && (Number(b._rev) || 0) > rmax) { rmax = Number(b._rev) || 0; mejor = v.ubicacionId; } } catch (_) {} } return mejor; });
     await page.waitForFunction(() => { for (let i = 0; i < localStorage.length; i++) { try { const b = JSON.parse(localStorage.getItem(localStorage.key(i))); if (b && b.ventas && b.ventas.some((x) => x.id === 'v-vacia')) return true; } catch (_) {} } return false; }, null, { timeout: 15000 });
     assert.equal(await bufferUbi(), '', 'antes de reiniciar la venta guardada trae la percha vacia (prueba de que el llenado es de v428)');
     await page.reload({ waitUntil: 'networkidle' });
