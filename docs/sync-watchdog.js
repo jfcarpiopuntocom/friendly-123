@@ -73,30 +73,25 @@
     return abrirDB().then(function (db) {
       if (!db) return null;
       return new Promise(function (resolve) {
+        var t;
         try {
-          var t = db.transaction(store, modo);
+          t = db.transaction(store, modo);
           var s = t.objectStore(store);
           var resultado = null;
-          var pendientes = 0;
-          var resuelto = false;
-          function terminar() {
-            if (resuelto) return;
-            resuelto = true;
-            resolve(resultado);
-          }
+          // A request result is provisional until the transaction commits.
+          t.oncomplete = function () { resolve(resultado); };
+          t.onerror = t.onabort = function () { resolve(null); };
           // fn recibe el store y puede devolver un IDBRequest o un valor.
           var ret = fn(s, function (val) { resultado = val; });
-          if (ret && typeof ret.onsuccess === "function") {
-            pendientes++;
-            ret.onsuccess = function () { resultado = ret.result; pendientes--; if (pendientes === 0) terminar(); };
-            ret.onerror = function () { pendientes--; if (pendientes === 0) terminar(); };
+          if (ret && typeof ret === "object" && "onsuccess" in ret) {
+            ret.onsuccess = function () { resultado = ret.result; };
           } else if (ret !== undefined) {
             resultado = ret;
           }
-          t.oncomplete = function () { terminar(); };
-          t.onerror = function () { terminar(); };
-          t.onabort = function () { terminar(); };
-        } catch (_) { resolve(null); }
+        } catch (_) {
+          try { if (t) t.abort(); } catch (_) {}
+          resolve(null);
+        }
       });
     });
   }
