@@ -89,10 +89,18 @@ test('remote facts retain IndexedDB abort causes and recover locally without ano
       h.hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(base)))).map(x => x.toString(16).padStart(2, '0')).join('');
       OCYjs.doc.transact(() => OCYjs.hechosMap.set(h.id, h), 'red');
     });
-    await page.waitForFunction(() => window.__attempts === 4);
-    await page.waitForTimeout(400);
-    assert.equal(await page.evaluate(() => window.__attempts), 4, 'persistent failures must stop automatic retries');
-    assert.equal(await page.evaluate(() => OCYjs.hechosListos()), false);
+    await page.waitForFunction(() => window.__attempts >= 1);
+    assert.equal(await page.evaluate(() => OCYjs.hechosListos()), false, 'a failed financial fact is not acknowledged as ready');
+    // Recovery is exponential (2s, 4s, ...), not four attempts inside 3s.
+    // Re-enable IDB and wake the existing retry path without another Yjs update.
+    await page.evaluate(() => {
+      window.__remainingAborts = 0;
+      window.dispatchEvent(new Event('online'));
+    });
+    await page.waitForFunction(async () =>
+      (await AMG.Hechos.todos()).some(h => h.id === 'remote-abort-2'), null, { timeout: 6000 });
+    assert.ok(await page.evaluate(() => window.__attempts >= 2), 'original remote fact must be retried');
+    assert.equal(await page.evaluate(() => OCYjs.hechosListos()), true, 'recovered fact is durable and ready');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));
