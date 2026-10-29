@@ -1303,7 +1303,10 @@
       opId: uuidCorto(), deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
       lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
     };
-    registrarEnLog(op); // guardo mi propia op para poder reenviarsela a un par que la haya perdido
+    // Local queue first: the same opId must exist before either transport sees it.
+    // A failed legacy-queue write still leaves the existing Yjs fallback available.
+    const encolada = encolar(op);
+    registrarEnLog(op); // same opId for peer catch-up; never regenerate
     /* SYNC NUEVO (JFC 2026-09-10, "que sincronice TODO"): exponemos el op EXACTO
        (mismo opId, mismo deviceId) para que el puente CRDT (sync-yjs) lo publique
        como evento durable. Reusar el MISMO opId es lo que hace seguro tener dos
@@ -1311,7 +1314,7 @@
        llegue por el sync viejo Y por el nuevo se aplica UNA sola vez. Sin esto,
        generar un opId propio duplicaría la plata. */
     try { window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op })); } catch (_) {}
-    if (!encolar(op)) return false;
+    if (!encolada) return false;
     if (ws && ws.readyState === WebSocket.OPEN) {
       /* BLINDAJE (JFC 2026-08-25, "JAMAS quedemos mal"): si cifrar() rechaza
          (rarisimo, pero posible), sin el .catch la op no se mandaba NI se
@@ -1321,8 +1324,6 @@
       cifrar(claveActual, op)
         .then((buf) => { try { ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { encolar(op); } })
         .catch(() => encolar(op));
-    } else {
-      if (!encolar(op)) return false; // Idempotent: it was retained before attempting any transport.
     }
     return true;
   };
