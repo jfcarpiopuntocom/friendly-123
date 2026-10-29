@@ -1,7 +1,7 @@
 'use strict';
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http');
-const {chromium}=require('playwright');
+const {chromium,webkit}=require('playwright');
 const root=path.join(__dirname,'..');
 const runtime=fs.readFileSync(path.join(root,'docs/estado-idb.js'),'utf8');
 const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
@@ -61,4 +61,25 @@ test('P0: no 10-second Web Locks in either sales write gate, strict sale require
  assert.match(save,/const ack = terminar\(true\)/);
  assert.match(save,/if \(ab && tokenOk\) setTimeout/);
  assert.doesNotMatch(save,/ab\.conCandado\(/);
+});
+
+test('P0 WebKit: atomic IndexedDB sale across two installed-PWA-style pages',async()=>{
+ const server=http.createServer((_,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('synthetic notebook')});
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ const browser=await webkit.launch({headless:true});
+ try{const context=await browser.newContext(),base='http://127.0.0.1:'+server.address().port+'/';
+ const p1=await context.newPage(),p2=await context.newPage();
+ await Promise.all([p1.goto(base),p2.goto(base)]);
+ await Promise.all([p1.addScriptTag({content:runtime}),p2.addScriptTag({content:runtime})]);
+ const [one,two]=await Promise.all([
+  p1.evaluate(state=>window.OCEstadoIDB.guardarConRevision(state,0),sale(1,'webkit-a',7)),
+  p2.evaluate(state=>window.OCEstadoIDB.guardarConRevision(state,0),sale(1,'webkit-b',7))]);
+ assert.equal(Number(one)+Number(two),1);
+ const saved=await p1.evaluate(()=>window.OCEstadoIDB.leer());
+ assert.equal(saved.ventas.length,1);
+ assert.equal(saved._rev,1);
+ assert.equal(saved.productos[0].stockActual,7);
+ const retry=await p2.evaluate(state=>window.OCEstadoIDB.guardarConRevision(state,0),sale(2,'stale',6));
+ assert.equal(retry,false);
+ }finally{await browser.close();await new Promise(r=>server.close(r));}
 });
