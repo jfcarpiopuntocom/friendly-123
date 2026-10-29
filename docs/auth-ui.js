@@ -1147,6 +1147,15 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
       return entrar("artista");
     }
+    // A licensed browser with no local verifier has not proven an incorrect PIN:
+    // it may not have completed authenticated notebook credential recovery.
+    // Do not consume lockout attempts for an unavailable credential store.
+    // Never grant access here; only the existing recovery flow may restore it.
+    if (dispositivoApropiado() && window.OCSecure.estadoSecreto &&
+        window.OCSecure.estadoSecreto() === "vacio") {
+      error("This browser has no saved PIN credentials for this business. Use the existing recovery or join flow; your PIN has not been rejected.");
+      return;
+    }
     const sb = window.OCSecure.segundosBloqueo ? (window.OCSecure.segundosBloqueo("login") || 0) : 0;
     if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
     registrarFallo();
