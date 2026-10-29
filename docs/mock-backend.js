@@ -4980,10 +4980,23 @@
          siga siempre a la tienda activa. Fail-safe: si el módulo de sync no está,
          se deja ROOM_KEY como estaba (comportamiento previo). */
       try {
-        if (window.OCSyncControl && window.OCSyncControl.fijarSala) {
-          window.OCSyncControl.fijarSala(norm);
+        if (!window.OCSyncControl || typeof window.OCSyncControl.fijarSala !== "function") {
+          throw new Error("sync module missing");
         }
-      } catch (_) {}
+        const resultadoSala = window.OCSyncControl.fijarSala(norm);
+        if (!resultadoSala || resultadoSala.ok !== true) throw new Error("room was not saved");
+      } catch (_) {
+        // Persisted active notebook and room must agree before any reload.
+        try {
+          if (marcadorAnterior === null) localStorage.removeItem("f123_tienda_activa");
+          else localStorage.setItem("f123_tienda_activa", marcadorAnterior);
+        } catch (_) {}
+        try {
+          if (registroPrevio === null) localStorage.removeItem("f123_tiendas");
+          else localStorage.setItem("f123_tiendas", registroPrevio);
+        } catch (_) {}
+        return { ok: false, error: "Could not save the synchronization room. Your previous notebook remains selected." };
+      }
       // Recargar: en el boot el sufijo ya será el de la tienda destino.
       if (!sinRecargar) { try { location.reload(); } catch (_) {} }
       return { ok: true, cambiado: true };
