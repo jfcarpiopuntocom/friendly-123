@@ -1,10 +1,10 @@
 {
-  "version": "shell v612",
+  "version": "shell v613",
   "fecha": "2026-10-28",
-  "changelog": "v612: la app responde mas rapido al vender, abonar y ajustar stock, y gasta menos bateria en reposo; la conexion entre aparatos sigue reintentando.",
+  "changelog": "v613: Hoy se actualiza tras ajustar stock; restaurar respaldo en aparato nuevo confirma el guardado antes de responder; aviso de memoria llena como texto dentro de Avanzado.",
   "requerida": false,
-  "shell": "f123-shell-v612",
+  "shell": "f123-shell-v613",
   "apagar": [],
-  "releaseName": "shell v612",
-  "cacheGeneration": "golden158"
+  "releaseName": "shell v613",
+  "cacheGeneration": "golden159"
 }
