@@ -1108,7 +1108,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         }
       }
       if (rolEntrada === "dueno" && window.OCSecure && window.OCSecure.fijarOwnerPin) {
-        await window.OCSecure.fijarOwnerPin(code);
+        // A joined team's owner credential is NOT this device's original PIN.
+        // Never rewrite f123_secure after verified Yjs team login.
+        let entradaEquipo = false;
+        try {
+          const T = window.OCTienda;
+          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+          const lic = T && T.licenciaActual && T.licenciaActual();
+          entradaEquipo = !!((T && T.esUnida && T.esUnida()) ||
+            (join.instanceId && join.instanceId === own.instanceId && join.licenseCode === lic));
+        } catch (_) {}
+        if (!entradaEquipo) await window.OCSecure.fijarOwnerPin(code);
       }
     } catch (_) {}
     return entrar(rolEntrada);
@@ -1131,6 +1142,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     }
     if (rolHash === "contador") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "contador"); }
     if (code === DEMO_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return entrar("demo"); }
+    if (code === DEMO_PIN && dispositivoApropiado()) {
+      // 456 must never unlock real customer data or consume a lockout attempt.
+      error("PIN 456 is for an unlicensed demo, not an existing store. This device is linked to a business; its team PINs are recovered from that business.");
+      return;
+    }
     const uNombrado = await verificarUsuarioNombrado(code);
     if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, uNombrado.rol === "admin" ? "admin" : "empleado"); }
     /* ARTISTA (benchmark #6, JFC 2026-09-24). Va al final a proposito: un PIN
