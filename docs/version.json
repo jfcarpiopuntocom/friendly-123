@@ -1,10 +1,10 @@
 {
-  "version": "shell v617",
+  "version": "shell v618",
   "fecha": "2026-10-29",
-  "changelog": "P0: verified encrypted-room team PINs unlock their actual joined notebook without replacing another device owner PIN; show verified team name on the PIN screen; keep demo 456 isolated from licensed business data. No ledger, stock, migration or reset changes.",
+  "changelog": "P0: the same fully recovered encrypted notebook PIN and store name work in owned PWA and joined browser; successful login does not rewrite owner PIN or duplicate PBKDF2. No room, stock, ledger or data migrations.",
   "requerida": false,
-  "shell": "f123-shell-v617",
+  "shell": "f123-shell-v618",
   "apagar": [],
-  "releaseName": "shell v617",
-  "cacheGeneration": "golden163"
+  "releaseName": "shell v618",
+  "cacheGeneration": "golden164"
 }
