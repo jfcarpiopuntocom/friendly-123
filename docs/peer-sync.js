@@ -125,8 +125,8 @@
         ws.onclose = () => { if (this.signal === ws) { if (!ws.initialRTCFailed && openedAt && Date.now() - openedAt >= 30000) this.attempts = 0; this.signal = null; this.retry(); } };
         ws.onerror = () => { try { ws.close(); } catch (_) {} };
       }
-      /* v609: antes se rendia tras 5 intentos y el aparato quedaba sordo para siempre. Ahora sigue intentando mientras haya sockets que lo pidan; el retraso se topa en 30 s (sin bucle apretado). */
-      retry() { if (this.timer || !this.sockets.size) return; this.timer = setTimeout(() => { this.timer = null; this.start(); }, Math.min(30000, 1000 * 2 ** (this.attempts - 1))); }
+      // Keep listening without a fixed retry limit, while spacing failed signaling requests up to ten minutes.
+      retry() { if (this.timer || !this.sockets.size) return; this.timer = setTimeout(() => { this.timer = null; this.start(); }, Math.min(600000, 1000 * 2 ** (this.attempts - 1))); }
       signalTo(kind, to, data) { if (this.signal && this.signal.readyState === 1) this.signal.send(JSON.stringify({ v: 1, k: kind, to, data })); }
       clock(t0) { if (Number.isFinite(t0) && this.signal && this.signal.readyState === 1) this.signal.send(JSON.stringify({ v: 1, k: 'clock', t0 })); }
       peer(id) {
@@ -244,7 +244,7 @@
       }
       stop() { clearTimeout(this.timer); this.timer = null; this.attempts = 0; const ws = this.signal; this.signal = null; if (ws) try { ws.close(); } catch (_) {} for (const peer of this.peers.values()) try { peer.pc.close(); } catch (_) {} this.peers.clear(); }
     }
-    const resume = () => { if (document.hidden) return; for (const hub of hubs.values()) { hub.attempts = 0; hub.start(); } };
+    const resume = () => { if (document.hidden) return; for (const hub of hubs.values()) { clearTimeout(hub.timer); hub.timer = null; hub.attempts = 0; hub.start(); } };
     window.addEventListener('online', resume); document.addEventListener('visibilitychange', resume);
     return { connect(url) {
       if (typeof RTC !== 'function') throw new Error('Direct peer connections are unavailable in this browser');

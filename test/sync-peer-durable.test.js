@@ -46,6 +46,36 @@ test('direct adapter bounds its JS queue and binds legacy retries to the new cip
   }finally{factory.closeAll();win.F123Relay.closeAll();}
 });
 
+test('signaling retries keep backing off to ten minutes and resume immediately on foreground or online',()=>{
+  const win=new EventTarget(),document=new EventTarget();document.hidden=false;
+  const timers=new Map(),waits=[];let next=0,starts=0;
+  class WS{constructor(){starts++;this.readyState=0;}close(){this.readyState=3;this.onclose?.();}}
+  Object.assign(win,{WebSocket:WS,RTCPeerConnection:function(){},crypto:require('node:crypto').webcrypto});
+  const ctx={window:win,document,EventTarget,MessageEvent,Event,DOMException,Blob,ArrayBuffer,Uint8Array,Map,Set,Promise,queueMicrotask,TextEncoder,
+    setTimeout(fn,ms){const id=++next;timers.set(id,fn);waits.push(ms);return id;},clearTimeout(id){timers.delete(id);}};
+  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/peer-sync.js'),'utf8'),ctx);
+  const factory=win.F123Peer.create(),socket=factory.connect('wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/'+'a'.repeat(40));
+  const hub=socket.hub;
+  try{
+    for(let i=0;i<13;i++){
+      hub.signal.close();
+      const id=hub.timer,run=timers.get(id);assert.ok(run,'retry continues after the old attempt limit');timers.delete(id);run();
+    }
+    assert.deepEqual(waits.slice(0,3),[1000,2000,4000]);
+    assert.equal(Math.max(...waits),600000,'ten-minute ceiling');
+    assert.equal(waits.at(-1),600000,'backoff remains capped');
+    for(const [target,event] of [[win,'online'],[document,'visibilitychange']]){
+      hub.signal.close();const pending=hub.timer,before=starts;
+      document.hidden=true;document.dispatchEvent(new Event('visibilitychange'));
+      assert.equal(starts,before,'hidden tab does not reconnect');
+      document.hidden=false;target.dispatchEvent(new Event(event));
+      assert.equal(starts,before+1,'active device reconnects without waiting for backoff');
+      assert.equal(timers.has(pending),false,'old retry timer is cancelled');
+      assert.equal(hub.timer,null);
+    }
+  }finally{factory.closeAll();win.F123Relay.closeAll();}
+});
+
 async function fixture(name='catalogo',initialSaved=[],peerOnly=true,ckpt=false){
   const receipts=[],sent=[],transactions=[],saved=new Map(initialSaved),timers=[];let storeResult=true,failNextSave=false,failReadAfterWrite=false,failNextRead=false;
   const socket={peerOnly,readyState:1,send:value=>sent.push(value),close(code){if(code!==undefined&&code!==1000&&(!Number.isInteger(code)||code<3000||code>4999))throw new DOMException('Invalid WebSocket close code','InvalidAccessError');this.readyState=3;},

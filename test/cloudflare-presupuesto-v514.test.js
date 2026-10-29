@@ -27,7 +27,7 @@ test('tablero: la foto completa por el relay como maximo cada 60 s (antes cada 2
 test('app: reintentos de ops sin confirmar se espacian hasta 10 min y no golpean cada 30 s para siempre',()=>{
   const src=leer('sync-realtime.js');
   const a=src.indexOf('  let _retryDurableMs = 30000;'),b=src.indexOf('\n  }\n',src.indexOf('function reintentarDurable',a))+4;
-  const esperas=[];let pend;const c={Math:{min:Math.min,round:Math.round,random:()=>0},leerCola:()=>[1],vaciarCola(){},
+  const esperas=[];let pend;const c={Math:{min:Math.min,round:Math.round,random:()=>0},colaLargo:()=>1,vaciarCola(){},
     setTimeout:(f,n)=>{esperas.push(n);pend=f;return 1},_retryDurable:null};
   vm.createContext(c);vm.runInContext('var _retryDurable=null;'+src.slice(a,b)+';this.go=reintentarDurable;',c);
   c.go();for(let i=0;i<8;i++){const f=pend;pend=null;f();}
