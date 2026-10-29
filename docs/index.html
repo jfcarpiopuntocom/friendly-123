@@ -1,5 +1,18 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
+<script>
+// A manual Purge & Reload may use ?_purge=TIMESTAMP to bypass HTTP caches.
+// Once this document has loaded, remove only that transient marker from the
+// shareable address. Preserve other query parameters, hash and recovery button.
+(function () {
+  try {
+    var clean = new URL(location.href);
+    if (!clean.searchParams.has("_purge")) return;
+    clean.searchParams.delete("_purge");
+    history.replaceState(history.state, "", clean.pathname + clean.search + clean.hash);
+  } catch (_) { /* URL cleanup must never prevent app startup. */ }
+})();
+</script>
 <!-- Fetch the login dependencies while the parser keeps their original execution order. -->
 
 
