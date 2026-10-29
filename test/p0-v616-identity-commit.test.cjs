@@ -78,5 +78,5 @@ test('P0: join must propagate notebook-switch failure instead of earlier activat
  const start=realtime.indexOf('    unirse(codigo) {');
  const end=realtime.indexOf('    desactivar() {',start);
  const part=realtime.slice(start,end);
- assert.match(part,/if\s*\(!c\s*\|\|\s*c\.ok\s*!==\s*true\)\s*return\s*\{\s*ok:\s*false/);
+ assert.match(part,/if\s*\(!c\s*\|\|\s*c\.ok\s*!==\s*true\)[\s\S]*?revertirJoin\(\);[\s\S]*?return\s*\{\s*ok:\s*false/);
 });
