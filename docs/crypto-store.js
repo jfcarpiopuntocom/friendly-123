@@ -275,7 +275,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // Admit credentials ONLY from the current encrypted, recovered Yjs room.
   // Never synthesize factory PINs, never overwrite existing local credentials.
   async function instalarCredencialesDesdeSala(pins) {
-    if (estadoSecreto() !== "vacio" || !pins) return false;
+    if (!pins) return false;
     const owner = String(pins.owner || "");
     if (!/^\d{3}$/.test(owner) || owner === "456") return false;
     try {
@@ -287,13 +287,36 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
           !Y.meta || typeof Y.meta.get !== "function") return false;
       const actual = Y.meta.get("pinsRol");
       if (!actual || String(actual.owner || "") !== owner) return false;
+      // Fresh visits often created a DEMO 789 verifier BEFORE the user could
+      // paste a license. Treat that verifier as bootstrappable only when the
+      // SAME device explicitly joined this exact license and has no custom
+      // owner verifier. Never replace a real personalized PIN.
+      const estado = estadoSecreto();
+      if (estado !== "vacio") {
+        if (estado !== "ok" || owner === "789") return false;
+        const pendiente = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+        if (!pendiente.instanceId || pendiente.instanceId !== own.instanceId ||
+            pendiente.licenseCode !== lic) return false;
+        if (!await coincidePin("789", "owner")) return false;
+      }
       // No guessed values: missing employee/accounting credentials stay absent.
       const emp = String(pins.emp || "");
       const acct = String(pins.acct || "");
       const employees = /^\d{3}$/.test(emp) && emp !== "456" ? [emp] : [];
       const accounting = /^\d{3}$/.test(acct) && acct !== "456" ? acct : "";
-      if (estadoSecreto() !== "vacio") return false;
-      return await guardarSecreto(owner, employees, accounting, "", null);
+      if (estadoSecreto() !== estado) return false;
+      const saved = await guardarSecreto(owner, employees, accounting, "", null);
+      if (saved) {
+        // This marker authorized a ONE-TIME recovery from the original demo
+        // verifier; it must not survive and later override a real owner PIN.
+        try {
+          const pending = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+          if (pending.licenseCode === lic && pending.instanceId === own.instanceId) {
+            localStorage.removeItem("f123_join_pending_v1");
+          }
+        } catch (_) {}
+      }
+      return saved === true;
     } catch (_) { return false; }
   }
 
