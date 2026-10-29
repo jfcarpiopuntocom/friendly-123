@@ -20,6 +20,7 @@ function actualFragment(left, right) {
 const mirror = actualFragment('  function _espejarEnIDB(', '  /* #3 (JFC');
 const save = actualFragment('  function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {', '  /* SOLO CONSOLA');
 const payout = actualFragment('  async function _payoutDurable(accion, falloGuardado) {', '  /* mes opcional');
+const catalogWork = actualFragment('  let _drenandoCatalogos = false;', '  function guardarEstadoLocal(');
 const rename = actualFragment('      if (path === "/api/instancia/nombre" && opts && opts.method === "POST") {', '      /* DIAGNOSTICO FORENSE DE RELOJ');
 assert.match(backend, /hidratarFotosProductos\(\)/);
 assert.match(backend, /if \(n\) \{ try \{ guardarEstadoLocal\(\); \} catch \(_\) \{\} try \{ window\.dispatchEvent/,
@@ -98,7 +99,8 @@ function fixture(options = {}) {
     OC_STATE_PTR: 'f123_estado_v4_ptr', claveBuffer: x => 'f123_estado_v4_' + x,
     _localRev: 0, _localRevReservado: 0, payouts: [], gastos: [], movimientos: [], ventas: [], ajustesComision: [],
     selloUltimo: '', photo: null, nombreNegocio: 'Name A', nombreNegocioRev:1, nombreNegocioTs:12, _payoutConfirmando: false, _payoutPendiente: null,
-    _payoutCatalogosPendientes: [],
+    _payoutCatalogosPendientes: [], _ventaCatalogosPendientes: [], _retencionCatalogosPendientes: [],
+    _ventaConfirmando: false, _retencionConfirmando: false,
     clonar: x => JSON.parse(JSON.stringify(x)),
     aplicarCatalogo() {}, avisarCatalogoCambiado() {},
     estadoActualExportable: () => ({
@@ -110,8 +112,8 @@ function fixture(options = {}) {
     J:(data,status)=>({status:status??200,...data}),CustomEvent:class{},Date,
   };
   // Reuse exact production function bodies and their lexical dependencies.
-  new Function('ctx', `with(ctx){${mirror}\n${save}\n${payout}\nctx.save=guardarEstadoLocal;ctx.pay=_payoutDurable;}`)(ctx);
-  ctx.rename = new Function('ctx','body',`with(ctx){${mirror}\n${save}\nconst path='/api/instancia/nombre',opts={method:'POST'}; return (async()=>{${rename}})();}`);
+  new Function('ctx', `with(ctx){${catalogWork}\n${mirror}\n${save}\n${payout}\nctx.save=guardarEstadoLocal;ctx.pay=_payoutDurable;}`)(ctx);
+  ctx.rename = new Function('ctx','body',`with(ctx){${catalogWork}\n${mirror}\n${save}\nconst path='/api/instancia/nombre',opts={method:'POST'}; return (async()=>{${rename}})();}`);
   const runner=ctx.rename;ctx.rename=body=>runner(ctx,body);
   const reopen = () => {
     const fresh = {indexedDB};

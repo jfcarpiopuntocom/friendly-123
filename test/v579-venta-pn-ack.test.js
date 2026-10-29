@@ -46,7 +46,9 @@ test('sale: in-flight attempt cannot be seeded, merged or read as committed',()=
   const outgoing=part('    catalogoPropio() {','    estadoParaCheckpoint() {');
   const fetch=part('  const _fetchConCandado = async function (url, opts) {','    const rolAlPedir=');
   assert.match(sale,/_ventaConfirmando\s*=\s*true/, 'sale locks provisional state');
-  assert.match(sale,/finally\s*\{[\s\S]*?_ventaCatalogosPendientes/, 'sale must drain merge queue');
+  assert.match(sale,/finally\s*\{[\s\S]*?_drenarCatalogosPendientes\(\)/, 'sale must use the common accepted-only merge drain');
+  const drain=part('  function _drenarCatalogosPendientes()', '  function guardarEstadoLocal(');
+  assert.ok(drain.includes('_ventaCatalogosPendientes'),'the common drain includes the sale queue');
   assert.match(incoming,/_ventaConfirmando[\s\S]*?_ventaCatalogosPendientes/, 'remote merge waits for rollback/ACK');
   assert.match(outgoing,/_ventaConfirmando[\s\S]*?return null/, 'Yjs must not seed uncommitted stock');
   assert.match(fetch,/_ventaPendiente[\s\S]*?await _ventaPendiente/, 'reads await ACK/rollback');

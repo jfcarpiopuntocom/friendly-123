@@ -2,6 +2,66 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {browser}=require('./helpers/browser.cjs');
 
+function faultBrowser(){
+  const fs=require('node:fs'),read=fs.readFileSync;
+  fs.readFileSync=function(file,...args){
+    const source=read.call(this,file,...args);
+    if(!String(file).endsWith('mock-backend.js'))return source;
+    return source.replace('  function avisarCatalogoCambiado() {',
+      '  function avisarCatalogoCambiado() { if(window.__noticeThrows) throw Error("synthetic postcommit notice");')
+      .replaceAll('    const _demoRemoto = _seleccionarSemillaDemoPura(remoto);',
+      '    if(window.__queueFailure === "throw") throw Error("synthetic queued apply"); if(window.__queueFailure === "false") return {ok:false};\n    const _demoRemoto = _seleccionarSemillaDemoPura(remoto);')
+      .replace('    const negocioDespues = _huellaEstadoMerge();',
+      '    if(window.__queueFailure === "partial") throw Error("synthetic failure after business mutation");\n    const negocioDespues = _huellaEstadoMerge();');
+  };
+  try{return browser();}finally{fs.readFileSync=read;}
+}
+
+test('a postcommit notification failure cannot undo an imported notebook or return a false HTTP failure',async()=>{
+  const w=faultBrowser(),backup=await w.request('/api/respaldo/exportar');
+  backup.nombreNegocio='Committed import';backup.productos=[{id:'committed-import',nombre:'Committed',precio:7,costo:2,stockActual:10}];
+  w.__noticeThrows=true;
+  const response=await w.fetch('/api/respaldo/importar',{method:'POST',body:JSON.stringify(backup)});
+  assert.equal(response.status,200,'the actual durable commit defines HTTP success');
+  assert.equal((await response.json()).ok,true);
+  const live=await w.request('/api/respaldo/exportar');
+  assert.equal(live.nombreNegocio,'Committed import');assert.equal(live.productos[0].stockActual,10);
+  const reopened=browser(w.localStorage),saved=await reopened.request('/api/respaldo/exportar');
+  assert.equal(saved.nombreNegocio,live.nombreNegocio);assert.deepEqual(saved.productos,live.productos);
+});
+
+for(const failure of ['throw','false','partial'])test('queued catalog '+failure+' after import commit preserves the result and retries without dropping its head',async()=>{
+  const w=faultBrowser(),remote=browser();
+  const product=await remote.request('/api/productos','POST',{nombre:'Queued survivor',barcode:'QUEUE-'+failure,precio:3,costo:1,stockInicial:4});
+  const sale=await remote.request('/api/productos/'+product.id+'/venta','POST',{cantidad:1});
+  const catalog=remote.catalog(),backup=await w.request('/api/respaldo/exportar');
+  backup.nombreNegocio='Committed despite remote '+failure;
+  let release,started;const ready=new Promise(resolve=>{started=resolve;});
+  w.navigator.locks={request:(name,_options,fn)=>String(name).startsWith('f123-estado-ab')?
+    new Promise(resolve=>{release=()=>resolve(fn());started();}):Promise.resolve(fn())};
+  const result=w.fetch('/api/respaldo/importar',{method:'POST',body:JSON.stringify(backup)});
+  await ready;
+  assert.equal(w.OCSync.aplicarCatalogo(catalog,null),false);
+  w.__queueFailure=failure;release();
+  const response=await result;
+  assert.equal(response.status,200,'remote drain cannot turn a confirmed import into an HTTP error');
+  assert.equal((await w.request('/api/respaldo/exportar')).nombreNegocio,backup.nombreNegocio);
+  w.__queueFailure=null;w.navigator.locks={request:(_name,_options,fn)=>Promise.resolve(fn())};
+  const empty={...catalog,productos:[]};
+  assert.equal(w.OCSync.aplicarCatalogo(empty,null).ok,true,'a later source replay drains retained work first');
+  await w.OCSync.confirmarCatalogoDurable();
+  const once=await w.request('/api/respaldo/exportar');
+  assert.equal(once.productos.filter(p=>p.id===product.id).length,1,'the failed queue head survives until real application');
+  assert.equal(once.productos.find(p=>p.id===product.id).stockActual,3,'one physical sale changes stock once');
+  assert.equal(once.ventas.filter(v=>v.id===sale.ventaId).length,1,'partial application and replay retain the same sale ID');
+  w.OCSync.aplicarCatalogo(catalog,null);await w.OCSync.confirmarCatalogoDurable();
+  const twice=await w.request('/api/respaldo/exportar');
+  const comparable=items=>items.map(p=>({...p,stockDeficit:Number(p.stockDeficit)||0}));
+  assert.deepEqual(comparable(twice.productos),comparable(once.productos),'replay is idempotent for stock, PN and product identity (missing deficit means zero)');
+  assert.deepEqual(twice.ventas,once.ventas,'sale and money are not appended twice');
+  assert.deepEqual(twice.movimientos,once.movimientos,'retry cannot append a duplicate merge audit');
+});
+
 test('a rejected import preserves the complete notebook and never auto-saves its provisional state',async()=>{
   const w=browser();
   const original=await w.request('/api/respaldo/exportar');

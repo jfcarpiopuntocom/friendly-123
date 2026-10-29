@@ -1445,6 +1445,32 @@
   const _ventaCatalogosPendientes = [];
   let _retencionConfirmando = false, _retencionPendiente = null;
   const _retencionCatalogosPendientes = [];
+  let _drenandoCatalogos = false;
+  function _registrarCatalogoPendiente(motivo) {
+    try { console.warn("[sync] catalog work remains pending: " + motivo); } catch (_) {}
+  }
+  function _avisarCatalogoConfirmado() {
+    try { avisarCatalogoCambiado(); }
+    catch (_) { _avisoCatalogoPendiente = true; _registrarCatalogoPendiente("postcommit-notice"); }
+  }
+  function _drenarCatalogosPendientes() {
+    if (_drenandoCatalogos) return true;
+    if (_ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return false;
+    _drenandoCatalogos = true;
+    try {
+      for (const cola of [_ventaCatalogosPendientes, _retencionCatalogosPendientes, _payoutCatalogosPendientes]) while (cola.length) {
+        const siguiente = cola[0];
+        let resultado;
+        try { resultado = aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs); }
+        catch (_) { _registrarCatalogoPendiente("apply-threw"); return false; }
+        if (!resultado || resultado.ok !== true || resultado.actividadCompleta === false) {
+          _registrarCatalogoPendiente("apply-not-accepted"); return false;
+        }
+        cola.shift();
+      }
+      return true;
+    } finally { _drenandoCatalogos = false; }
+  }
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
     // Retention rollback must finish before any background photo captures RAM.
     if (!exigirCompleto && _retencionPendiente)
@@ -1460,7 +1486,7 @@
       const publicar = ok => {
         if (_guardadoCatalogoPendiente === publicable) {
           _guardadoCatalogoPendiente = null; _ultimoGuardadoPublicable = ok === true;
-          if (ok === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) avisarCatalogoCambiado();
+          if (ok === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) _avisarCatalogoConfirmado();
         }
       };
       publicable.then(publicar, () => publicar(false));
@@ -1474,7 +1500,7 @@
     }
     if (!resultado || typeof resultado.then !== "function") {
       _ultimoGuardadoPublicable = resultado === true;
-      if (resultado === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) avisarCatalogoCambiado();
+      if (resultado === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) _avisarCatalogoConfirmado();
     }
     return resultado;
   }
@@ -2445,16 +2471,13 @@
         restaurar();
         return { error:falloGuardado || "This payment change was NOT saved. Free up storage and retry the same payment.", status:507 };
       }
-      avisarCatalogoCambiado();
+      _avisarCatalogoConfirmado();
       return resultado;
     } catch (error) { restaurar(); throw error; }
     finally {
       _payoutConfirmando = false; _payoutPendiente = null;
       try {
-        while (_payoutCatalogosPendientes.length) {
-          const siguiente = _payoutCatalogosPendientes.shift();
-          aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-        }
+        _drenarCatalogosPendientes();
       } finally { terminar(); }
     }
   }
@@ -3941,6 +3964,8 @@
       _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
     }
+    // Reprojection from the existing Y.Doc retries retained work; no second ledger or retry timer.
+    if (!_drenandoCatalogos && !_drenarCatalogosPendientes()) return { ok:false, error:"An incoming catalog is still pending application." };
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
     const dif = compararCatalogo(remoto, rolRemoto);
     if (!dif) return { ok: false, error: "The catalog received is not readable." };
@@ -5959,11 +5984,8 @@
           if (_conversionBar) {
             _ventaConfirmando = false; _ventaPendiente = null;
             try {
-              while (_ventaCatalogosPendientes.length) {
-                const siguiente = _ventaCatalogosPendientes.shift();
-                aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-              }
-              if (_barGuardada) avisarCatalogoCambiado();
+              _drenarCatalogosPendientes();
+              if (_barGuardada) _avisarCatalogoConfirmado();
             } finally { terminarBar(); }
           }
         }
@@ -6664,11 +6686,8 @@
         } finally {
           _ventaConfirmando = false; _ventaPendiente = null;
           try {
-            while (_ventaCatalogosPendientes.length) {
-              const siguiente = _ventaCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-            }
-            if (_ventaGuardada) avisarCatalogoCambiado();
+            _drenarCatalogosPendientes();
+            if (_ventaGuardada) _avisarCatalogoConfirmado();
           } finally { terminarVenta(); }
         }
       }
@@ -6770,15 +6789,12 @@
             return J({ error: "The return could not be saved. No sale, stock or commission changes recorded." }, 507);
           }
           emitirOpStock("devolucion", opStock, true);
-          avisarCatalogoCambiado();
+          _avisarCatalogoConfirmado();
           return J({ ok: true, ajuste: aj, producto: ficha(p) });
         } finally {
           _payoutConfirmando = false; _payoutPendiente = null;
           try {
-            while (_payoutCatalogosPendientes.length) {
-              const siguiente = _payoutCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-            }
+            _drenarCatalogosPendientes();
           } finally { terminarRetorno(); }
         }
       }
@@ -7274,25 +7290,22 @@
           let liberarImportacion;
           _retencionConfirmando = true;
           _retencionPendiente = new Promise(resolve => { liberarImportacion = resolve; });
+          let guardado = false;
           try {
             aplicarRespaldo(body);
-            let guardado = false;
             // Once storage starts, wait for its real result: a timed-out Promise can still commit later.
             try { guardado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
             if (!guardado) {
               restaurar();
               return J({ error: "Could not import: the backup was NOT saved on this device. Free up storage and try again.", errorEs: "No se pudo importar: el respaldo NO quedó guardado en este aparato. Libera espacio e inténtalo de nuevo." }, 507);
             }
-            avisarCatalogoCambiado();
+            _avisarCatalogoConfirmado();
             return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
-          } catch (e) { restaurar(); throw e; }
+          } catch (e) { if (!guardado) restaurar(); throw e; }
           finally {
             _retencionConfirmando = false; _retencionPendiente = null;
             try {
-              while (_retencionCatalogosPendientes.length) {
-                const siguiente = _retencionCatalogosPendientes.shift();
-                aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-              }
+              _drenarCatalogosPendientes();
             } finally { liberarImportacion(); }
           }
         } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
@@ -7628,15 +7641,12 @@
             ajusteRetencion = anterior; movimientos.length = len; selloUltimo = sello;
             return J({ error: "Payment hold was NOT saved. Free up storage and retry." }, 507);
           }
-          avisarCatalogoCambiado();
+          _avisarCatalogoConfirmado();
           return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
         } finally {
           _retencionConfirmando = false; _retencionPendiente = null;
           try {
-            while (_retencionCatalogosPendientes.length) {
-              const siguiente = _retencionCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-            }
+            _drenarCatalogosPendientes();
           } finally { liberar(); }
         }
       }
@@ -7929,15 +7939,12 @@
           movimientos.length = movimientosAntes; selloUltimo = selloAntes;
           return J({ error: "The contact could not be saved. No changes recorded." }, 507);
         }
-        avisarCatalogoCambiado();
+        _avisarCatalogoConfirmado();
         return J(fichaCliente(c));
         } finally {
           _retencionConfirmando = false; _retencionPendiente = null;
           try {
-            while (_retencionCatalogosPendientes.length) {
-              const siguiente = _retencionCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-            }
+            _drenarCatalogosPendientes();
           } finally { liberarContacto(); }
         }
       }

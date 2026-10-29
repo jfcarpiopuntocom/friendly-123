@@ -59,19 +59,14 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   assert.match(sync,/aplicarCatalogo\(remoto, rolRemoto, true\)/,
     'only actual Yjs bridge explicitly confers canonical name context');
   const backend=fs.readFileSync(path.resolve(__dirname,'../docs/mock-backend.js'),'utf8');
-  assert.equal((backend.match(/aplicarCatalogo\(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs\)/g)||[]).length,6,
-    'all six deferred drains (two payout, two sale, retention and contact) preserve trusted name origin');
-  for (const [queue, expected] of [
-    ['_payoutCatalogosPendientes', 2],
-    ['_ventaCatalogosPendientes', 2],
-    ['_retencionCatalogosPendientes', 2],
-  ]) {
-    const drain = new RegExp(queue + '\\.shift\\(\\);\\s+aplicarCatalogo\\(siguiente\\.remoto, siguiente\\.rolRemoto, siguiente\\.nombreCanonicoYjs\\)', 'g');
-    assert.equal((backend.match(drain) || []).length, expected,
-      queue + ' drains must preserve remote role and trusted canonical name origin');
-  }
-  assert.match(backend, /_ventaCatalogosPendientes\.shift\(\)/,
-    'the newly protected sale must drain its pending remote catalog too');
+  assert.equal((backend.match(/aplicarCatalogo\(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs\)/g)||[]).length,1,
+    'the common drain preserves the original remote role and canonical name context');
+  const drain=backend.slice(backend.indexOf('  function _drenarCatalogosPendientes()'),backend.indexOf('  function guardarEstadoLocal('));
+  for(const queue of ['_payoutCatalogosPendientes','_ventaCatalogosPendientes','_retencionCatalogosPendientes'])assert.ok(drain.includes(queue),queue+' uses the shared trusted drain');
+  assert.ok(drain.indexOf('aplicarCatalogo(')<drain.indexOf('cola.shift()'),'a failed application must retain its queue entry');
+  assert.match(drain,/resultado\.ok !== true/,'only an accepted application may leave the queue');
+  assert.equal((backend.match(/_drenarCatalogosPendientes\(\);/g)||[]).length,7,
+    'payout, conversion, sale, return, import, retention and contact all drain through the trusted helper');
 });
 
 

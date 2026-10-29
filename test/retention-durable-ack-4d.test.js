@@ -45,7 +45,7 @@ function runner(mode, role = 'dueno') {
     + 'async function run(body){const path="/api/config/retencion",method="PUT";let debePersistir=true;try{\n'
     + put + '\n}finally{if(debePersistir)guardarEstadoLocal();}}\n'
     + 'function finishPin(pin){const promesasPins=[pin],cambioPersistible=false,remoto={deviceNombre:"synthetic"},window={};' + pinCompletion + '}\n'
-    + 'return {run, finishPin, merge:aplicarCatalogo, photo:()=>guardarEstadoLocal(), setPayoutActive:x=>{_payoutConfirmando=x;}, drainPayout:()=>{_payoutConfirmando=false;let n=0;while(_payoutCatalogosPendientes.length){if(++n>5)throw Error("recursive queue");const q=_payoutCatalogosPendientes.shift();aplicarCatalogo(q.remoto,q.rolRemoto,q.nombreCanonicoYjs);}}, snapshot:()=>({retencion:ajusteRetencion,movimientos:movimientos.slice(),selloUltimo})};');
+    + 'return {run, finishPin, merge:aplicarCatalogo, photo:()=>guardarEstadoLocal(), setPayoutActive:x=>{_payoutConfirmando=x;}, drainPayout:()=>{_payoutConfirmando=false;_drenarCatalogosPendientes();}, snapshot:()=>({retencion:ajusteRetencion,movimientos:movimientos.slice(),selloUltimo})};');
   return {...compile(deps), stats:()=>({writes,notified,snapshots}), release:ok=>release(ok)};
 }
 
