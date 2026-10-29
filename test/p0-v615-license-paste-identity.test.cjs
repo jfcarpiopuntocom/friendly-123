@@ -53,12 +53,14 @@ test('P0: an old own-license notebook remains in its existing slot on same-licen
  assert.equal(r.result.mismo,true);
  assert.equal(r.active,'');
 });
-test('P0: a browser already damaged by v614 duplicate same-slot mapping can rejoin safely',()=>{
+test('P0: a v614 duplicated alias MUST NOT silently hide its existing notebook',()=>{
  const registry=JSON.stringify({[A]:'',[B]:''});
  const r=change(B,B,'',B,registry,B);
- assert.equal(r.result.cambiado,true,'explicit rejoin must not remain in the wrong old notebook');
- assert.equal(r.active,'::'+B);
- assert.equal(r.reloads,1);
+ // v615 incorrectly auto-jumped to an empty ::B despite no proof who
+ // actually owns the original namespace. v616 fails closed instead.
+ assert.equal(r.result.ok,false,'a shared alias is not authenticated notebook ownership');
+ assert.equal(r.active,'','the existing notebook stays selected');
+ assert.equal(r.reloads,0,'no reload that hides the original shop');
  assert.match(r.oldData,/Store A/,'old business data was preserved byte-for-byte');
 });
 test('P0: a registered target namespace is honored even after the owned sidecar was changed',()=>{

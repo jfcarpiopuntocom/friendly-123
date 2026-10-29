@@ -1,10 +1,10 @@
 {
-  "version": "shell v615",
+  "version": "shell v616",
   "fecha": "2026-10-29",
-  "changelog": "P0 hotfix: license join switches to the requested notebook using pre-join identity; delays relay connection until notebook selection; mobile license input preserves native long-press paste. No PIN reset, data migration or stock logic changes.",
+  "changelog": "P0: fail-closed license join on ambiguous notebook or storage failure; preserve the active shop on failed identity writes; block cross-license in-place claim; install real verified encrypted-room team PIN on fresh joined devices without factory credentials; restore native paste and approved Simon yellow. No stock/ledger migrations or resets.",
   "requerida": false,
-  "shell": "f123-shell-v615",
+  "shell": "f123-shell-v616",
   "apagar": [],
-  "releaseName": "shell v615",
-  "cacheGeneration": "golden161"
+  "releaseName": "shell v616",
+  "cacheGeneration": "golden162"
 }
