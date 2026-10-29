@@ -9,7 +9,7 @@ test('manual purge recovery is retained and automatic pre-PIN cache nuke is abse
   assert.doesNotMatch(html,/f123_sw_nuke_v1|navigator\.serviceWorker\.getRegistrations\(/);
 });
 test('purge URL cleanup preserves unrelated params/hash without reload or storage writes',()=>{
-  const script=html.match(/<script>\s*\/\/ A manual Purge & Reload([\s\S]*?)<\/script>/);
+  const script=html.match(/<script>\s*\/\/ A manual Purge & Reload[^\n]*\n([\s\S]*?)<\/script>/);
   assert.ok(script,'canonical URL cleanup script is present');
   for(const input of ['/app/?_purge=123#pin','/app/?keep=one&_purge=456&other=two#x','/app/?keep=x#tab']){
     const initial=new URL(input,'https://example.test'),written=[];
