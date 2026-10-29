@@ -49,15 +49,16 @@ test('unrecovered team metadata shows pending without classifying the PIN as wro
   const stop = authSource.indexOf('    // A licensed browser with no local verifier', at);
   assert.ok(at > 0 && stop > at);
   const readiness = authSource.slice(at, stop);
-  const check = (ready, owner) => {
+  const check = (ready, owner, joined = true, licenseMatches = true) => {
     const messages = [];
-    const fn = new Function('window', 'error', readiness + ';return true;');
+    const fn = new Function('window', 'error', 'localStorage', readiness + ';return true;');
     const window = {
-      OCTienda: { esUnida: () => true },
+      OCTienda: { esUnida: () => joined, licenciaActual: () => 'F123-SYNTHETIC-OWN' },
       OCYjs: { roomId: 'synthetic-room', canal: { recuperando: !ready },
         meta: { get: () => ({ owner }) } }
     };
-    const ok = fn(window, msg => messages.push(msg));
+    const localStorage = { getItem: key => key === 'f123_owned' ? JSON.stringify({licenseCode:licenseMatches?'F123-SYNTHETIC-OWN':'F123-SYNTHETIC-OTHER'}) : null };
+    const ok = fn(window, msg => messages.push(msg), localStorage);
     return { ok, messages };
   };
   assert.equal(check(false, '432').ok, undefined);
@@ -65,4 +66,8 @@ test('unrecovered team metadata shows pending without classifying the PIN as wro
   assert.equal(check(true, '432').ok, true);
   assert.equal(check(true, '432').messages.length, 0);
   assert.equal(check(true, '456').ok, undefined);
+  assert.equal(check(false, '432', false).ok, undefined, 'owned PWA must not mark legitimate room PIN incorrect while replay pending');
+  assert.equal(check(false, '432', false).messages.length, 1);
+  assert.equal(check(true, '432', false).ok, true, 'owned PWA can continue checking real wrong PIN after full recovery');
+  assert.equal(check(false, '432', false, false).ok, true, 'another license cannot borrow the owned room wait guard');
 });
