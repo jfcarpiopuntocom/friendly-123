@@ -5019,24 +5019,36 @@
       const norm = _normLic(licencia);
       if (!norm) return { ok: false, error: "Empty license." };
       const desde = _licenciaActual();
-      // P0 v616: a claim is NOT a join. The live JS writes with the fixed
-      // OC_STATE_SUFIJO and sinRecargar could strand stock, photos and sales
-      // behind a new persistent namespace. Never re-label another notebook.
       if (norm !== desde) {
         return { ok: false, error: "This is a different notebook. Claiming it without a verified data handoff is blocked; your current business remains unchanged." };
       }
+      // A joined notebook is not the local device's own notebook.
+      // Reconcile its room only; never turn f123_owned into the joined license.
+      let oldOwned = null, touchedOwned = false;
       try {
-        const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        ow.licenseCode = norm; ow.syncCode = norm;
-        localStorage.setItem("f123_owned", JSON.stringify(ow));
-        if (localStorage.getItem("f123_owned") !== JSON.stringify(ow)) throw new Error("identity not persisted");
-      } catch (_) { return { ok: false, error: "Could not save this device identity. The notebook was not switched." }; }
-      try {
-        if (window.OCSyncControl && window.OCSyncControl.fijarSala) {
-          const r = window.OCSyncControl.fijarSala(norm);
-          if (r && r.ok === false) return { ok: false, error: "Could not connect this notebook's synchronization room." };
+        oldOwned = localStorage.getItem("f123_owned");
+        if (!OC_STATE_SUFIJO) {
+          const ow = JSON.parse(oldOwned || "null") || {};
+          ow.licenseCode = norm; ow.syncCode = norm;
+          const nextOwned = JSON.stringify(ow);
+          localStorage.setItem("f123_owned", nextOwned);
+          if (localStorage.getItem("f123_owned") !== nextOwned) throw new Error("identity not persisted");
+          touchedOwned = true;
         }
-      } catch (_) { return { ok: false, error: "Could not connect this notebook's synchronization room." }; }
+      } catch (_) {
+        try { if (oldOwned === null) localStorage.removeItem("f123_owned"); else localStorage.setItem("f123_owned", oldOwned); } catch (_) {}
+        return { ok: false, error: "Could not save this device identity. The notebook was not switched." };
+      }
+      try {
+        if (!window.OCSyncControl || typeof window.OCSyncControl.fijarSala !== "function") throw new Error("sync module missing");
+        const r = window.OCSyncControl.fijarSala(norm);
+        if (!r || r.ok !== true) throw new Error("sync room not persisted");
+      } catch (_) {
+        if (touchedOwned) {
+          try { if (oldOwned === null) localStorage.removeItem("f123_owned"); else localStorage.setItem("f123_owned", oldOwned); } catch (_) {}
+        }
+        return { ok: false, error: "Could not connect this notebook's synchronization room." };
+      }
       try { if (window.OCSyncControl && window.OCSyncControl.resincronizar) window.OCSyncControl.resincronizar(); } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: {} })); } catch (_) {}
       return { ok: true, licencia: norm };
