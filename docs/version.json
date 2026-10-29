@@ -1,10 +1,10 @@
 {
-  "version": "shell v610",
+  "version": "shell v612",
   "fecha": "2026-10-28",
-  "changelog": "v610: convergencia de inventario por época física; verificación de stock, watchdog y respaldos UTF-8; compatibilidad v606/v607 comprobada.",
+  "changelog": "v612: la app responde mas rapido al vender, abonar y ajustar stock, y gasta menos bateria en reposo; la conexion entre aparatos sigue reintentando.",
   "requerida": false,
-  "shell": "f123-shell-v610",
+  "shell": "f123-shell-v612",
   "apagar": [],
-  "releaseName": "shell v610",
-  "cacheGeneration": "golden156"
+  "releaseName": "shell v612",
+  "cacheGeneration": "golden158"
 }
