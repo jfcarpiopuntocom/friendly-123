@@ -1508,13 +1508,22 @@
   async function arrancarInicial() {
     /* UNA LICENCIA = UNA SALA (v295, JFC 2026-09-16). "salas"/f123_sync_room es
        VESTIGIAL y ya NO decide nada: la sala es SIEMPRE la LICENCIA
-       (f123_owned.licenseCode). Antes f123_sync_room podía quedar desalineado de la
+       del cuaderno activo (OCTienda.licenciaActual). Antes f123_sync_room podía quedar desalineado de la
        licencia y mandar el aparato a otra sala -> no convergía. Ya no se lee como
        fuente de sala. Si el aparato no tiene licencia (demo/sin activar), no hay
        sync. La CLAVE y la sala salen de la MISMA licencia, así todos los aparatos
        de una licencia caen en la misma sala, siempre. */
     var _licProp = "";
-    try { var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; if (_ow.licenseCode) _licProp = String(_ow.licenseCode); } catch (_) {}
+    try {
+      if (window.OCTienda && typeof window.OCTienda.licenciaActual === "function") {
+        _licProp = window.OCTienda.licenciaActual();
+      } else {
+        // Before backend boot only the own-store namespace can safely use its sidecar.
+        if (localStorage.getItem("f123_tienda_activa")) return;
+        var _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        if (_ow.licenseCode) _licProp = String(_ow.licenseCode);
+      }
+    } catch (_) { log("identidad del cuaderno no disponible — sin sync"); return; }
     if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
     var codigo = normalizarCodigo(_licProp);
     try { await cargarBundle(); } catch (e) { log("bundle:", e && e.message); return; }
