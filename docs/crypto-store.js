@@ -277,7 +277,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   async function instalarCredencialesDesdeSala(pins) {
     if (estadoSecreto() !== "vacio" || !pins) return false;
     const owner = String(pins.owner || "");
-    if (!/^\\d{3}$/.test(owner) || owner === "456") return false;
+    if (!/^\d{3}$/.test(owner) || owner === "456") return false;
     try {
       const Y = window.OCYjs, T = window.OCTienda;
       const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
@@ -290,8 +290,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       // No guessed values: missing employee/accounting credentials stay absent.
       const emp = String(pins.emp || "");
       const acct = String(pins.acct || "");
-      const employees = /^\\d{3}$/.test(emp) && emp !== "456" ? [emp] : [];
-      const accounting = /^\\d{3}$/.test(acct) && acct !== "456" ? acct : "";
+      const employees = /^\d{3}$/.test(emp) && emp !== "456" ? [emp] : [];
+      const accounting = /^\d{3}$/.test(acct) && acct !== "456" ? acct : "";
       if (estadoSecreto() !== "vacio") return false;
       return await guardarSecreto(owner, employees, accounting, "", null);
     } catch (_) { return false; }
