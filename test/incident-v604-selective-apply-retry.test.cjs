@@ -87,24 +87,27 @@ for(const modo of ['throw','ok:false']){
  });
 }
 
-test('tope de reintentos: tras 5 fallos seguidos deja de agendar; un exito reinicia el contador',async()=>{
+test('reintentos: backoff progresivo no martillea relay; un exito reinicia el contador',async()=>{
  const {a,b,timers,orig}=await listo();
  const ups=await editar(a,'retry-0','A cap');
  for(const u of ups)b.Y.applyUpdate(b.OCYjs.doc,u,'red');
  b.OCSync.aplicarCatalogo=function(){throw new Error('boom');};
  b.OCYjs._store.aplicar();
- let n=0;
- for(let g=0;g<20;g++){const i=timers.findIndex(t=>t.ms===2000);if(i<0)break;const t=timers.splice(i,1)[0];n++;t.fn();}
- assert.equal(n,5,'maximo 5 reintentos');
- assert.equal(timers.filter(t=>t.ms===2000).length,0,'sin mas reintentos agendados');
+ const delays=[2000,4000,8000,16000,32000];
+ for(const ms of delays){
+  const i=timers.findIndex(t=>t.ms===ms);
+  assert.ok(i>=0,'expected bounded retry delay '+ms);
+  const t=timers.splice(i,1)[0];t.fn();
+ }
+ assert.ok(timers.some(t=>t.ms===64000),'unresolved work is retained but next retry backs off');
  b.OCSync.aplicarCatalogo=orig;
- b.OCYjs._store.aplicar();                                   // exito
+ b.OCYjs._store.aplicar();
  assert.equal(await nombre(b,'retry-0'),'A cap');
  b.OCSync.aplicarCatalogo=function(){throw new Error('boom');};
  const ups2=await editar(a,'retry-1','A cap 2');
  for(const u of ups2)b.Y.applyUpdate(b.OCYjs.doc,u,'red');
  b.OCYjs._store.aplicar();
- assert.equal(timers.filter(t=>t.ms===2000).length,1,'tras un exito el contador se reinicia');
+ assert.ok(timers.some(t=>t.ms===2000),'successful application resets retry delay');
 });
 
 test('1b: un update con origen desconocido (idb) tras el primer merge fuerza el merge completo',async()=>{
