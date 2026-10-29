@@ -1,10 +1,10 @@
 {
-  "version": "shell v614",
+  "version": "shell v615",
   "fecha": "2026-10-29",
-  "changelog": "v614 candidate: pre-login cache purge retired (manual repair retained); canonical share URL after purge; activated notebooks do not invent a factory PIN; an unavailable local PIN verifier is not a wrong attempt; legacy opId queue precedes Yjs publication; existing business yellow and navy outline preserved. Browser and device verification pending.",
+  "changelog": "P0 hotfix: license join switches to the requested notebook using pre-join identity; delays relay connection until notebook selection; mobile license input preserves native long-press paste. No PIN reset, data migration or stock logic changes.",
   "requerida": false,
-  "shell": "f123-shell-v614",
+  "shell": "f123-shell-v615",
   "apagar": [],
-  "releaseName": "shell v614",
-  "cacheGeneration": "golden160"
+  "releaseName": "shell v615",
+  "cacheGeneration": "golden161"
 }
