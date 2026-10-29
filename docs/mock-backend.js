@@ -4927,19 +4927,38 @@
       var destinoRegistrado = Object.prototype.hasOwnProperty.call(reg, norm);
       var colisionAnterior = joinPendiente && destinoRegistrado &&
         reg[norm] === OC_STATE_SUFIJO && aliasActivoAntes;
-      if (colisionAnterior) sufDest = "::" + norm; // isolate the selected license; never overwrite its predecessor
+      // P0 v616: two saved licenses pointing at the same physical notebook
+      // have NO reliable owner. Do not invent an empty destination and conceal
+      // real shop data; refuse the join without moving its storage pointer.
+      if (colisionAnterior) return { ok: false, error: "Two licenses reference the same saved notebook. The existing business has been preserved; automatic switching is blocked until its identity can be verified." };
+      if (colisionAnterior) sufDest = "::" + norm; // unreachable, retained guard
       else if (norm === desde && destinoRegistrado && reg[norm] !== OC_STATE_SUFIJO) sufDest = reg[norm];
       else if (norm === desde) sufDest = OC_STATE_SUFIJO;
       else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
       else sufDest = "::" + norm;                                // tienda ajena nueva
       reg[norm] = sufDest;
-      try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
+      var registroPrevio = null;
+      try {
+        registroPrevio = localStorage.getItem("f123_tiendas");
+        localStorage.setItem("f123_tiendas", JSON.stringify(reg));
+        if (localStorage.getItem("f123_tiendas") !== JSON.stringify(reg)) throw new Error("registry not committed");
+      } catch (_) { return { ok: false, error: "Could not save the business registry. Your previous notebook was left unchanged." }; }
       if (sufDest === OC_STATE_SUFIJO) {
         return { ok: true, cambiado: false, mismo: true };
       }
       // Flush de la tienda actual bajo SUS claves antes de cambiar el marcador.
       try { guardarEstadoLocal(); } catch (_) {}
-      try { localStorage.setItem("f123_tienda_activa", sufDest); } catch (_) {}
+      // Do not reload or change the network room unless the active namespace
+      // has actually persisted. Quota errors are NOT a successful join.
+      var marcadorAnterior = null;
+      try {
+        marcadorAnterior = localStorage.getItem("f123_tienda_activa");
+        localStorage.setItem("f123_tienda_activa", sufDest);
+        if (localStorage.getItem("f123_tienda_activa") !== sufDest) throw new Error("active namespace not committed");
+      } catch (_) {
+        try { if (registroPrevio === null) localStorage.removeItem("f123_tiendas"); else localStorage.setItem("f123_tiendas", registroPrevio); } catch (_) {}
+        return { ok: false, error: "Could not save the active business. Nothing was deleted; this device remains on its previous notebook." };
+      }
       /* FIJAR LA SALA DE LA TIENDA DESTINO (JFC 2026-08-26, NB-1). CRÍTICO:
          cada tienda sincroniza en SU PROPIA sala (= su licencia). ROOM_KEY es
          global; si no la re-apuntamos al cambiar, la tienda destino heredaría la
@@ -4968,37 +4987,29 @@
     reconciliar(licencia) {
       const norm = _normLic(licencia);
       if (!norm) return { ok: false, error: "Empty license." };
-      /* JFC 2026-08-28 (bug de join): capturar la tienda de la que se sale ANTES
-         de escribir licenseCode, y pasarla a cambiar() para que el destino sea
-         correcto (mismo bug que unirse()). */
-      const _desde = _licenciaActual();
+      const desde = _licenciaActual();
+      // P0 v616: a claim is NOT a join. The live JS writes with the fixed
+      // OC_STATE_SUFIJO and sinRecargar could strand stock, photos and sales
+      // behind a new persistent namespace. Never re-label another notebook.
+      if (norm !== desde) {
+        return { ok: false, error: "This is a different notebook. Claiming it without a verified data handoff is blocked; your current business remains unchanged." };
+      }
       try {
         const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        ow.licenseCode = norm;
-        ow.syncCode = norm;              // la cajita de compartir deja de mostrar residuo
+        ow.licenseCode = norm; ow.syncCode = norm;
         localStorage.setItem("f123_owned", JSON.stringify(ow));
-        if (ow.instanceId) localStorage.setItem("f123_join_pending_v1", JSON.stringify({ instanceId: ow.instanceId, licenseCode: norm }));
-      } catch (_) {}
-      try { if (window.OCSyncControl && window.OCSyncControl.fijarSala) window.OCSyncControl.fijarSala(norm); } catch (_) {}
-      /* A5 (2026-08-27, auditoría de integridad): alinear el NAMESPACE de tienda
-         con la licencia canónica. Antes solo se fijaba la sala de sync; el
-         f123_tienda_activa quedaba apuntando al namespace viejo → el aparato
-         quedaba "partido" (identidad canónica pero tienda activa vieja) y el
-         merge posterior aterrizaba en el namespace equivocado. cambiar() registra
-         la tienda actual, flushea sus datos bajo sus claves, apunta
-         f123_tienda_activa al namespace de la canónica y fija la sala. sinRecargar:
-         el merge add-only ocurre en memoria al reconectar; recargar aquí vaciaría
-         el estado local que el merge debe sumar. */
+        if (localStorage.getItem("f123_owned") !== JSON.stringify(ow)) throw new Error("identity not persisted");
+      } catch (_) { return { ok: false, error: "Could not save this device identity. The notebook was not switched." }; }
       try {
-        if (window.OCTienda && window.OCTienda.cambiar) window.OCTienda.cambiar(norm, { sinRecargar: true, desde: _desde });
-      } catch (_) {}
-      // NO se llama a _vaciarTiendaFresca(): los datos locales se conservan para que
-      // el merge posterior los sume a la tienda canónica.
+        if (window.OCSyncControl && window.OCSyncControl.fijarSala) {
+          const r = window.OCSyncControl.fijarSala(norm);
+          if (r && r.ok === false) return { ok: false, error: "Could not connect this notebook's synchronization room." };
+        }
+      } catch (_) { return { ok: false, error: "Could not connect this notebook's synchronization room." }; }
       try { if (window.OCSyncControl && window.OCSyncControl.resincronizar) window.OCSyncControl.resincronizar(); } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: {} })); } catch (_) {}
       return { ok: true, licencia: norm };
-    },
-  };
+    },  };
 
   function _catalogoInterno(incluirActividad = true) {
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
