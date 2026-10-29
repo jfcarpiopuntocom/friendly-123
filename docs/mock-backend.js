@@ -4910,7 +4910,23 @@
       // P0 v615: compare against the PRE-JOIN active license. unirse() has already
       // written the requested license into f123_owned, so _licenciaPropia() is NOT
       // evidence that the current notebook is the requested notebook.
-      if (norm === desde) sufDest = OC_STATE_SUFIJO; // genuinely same active notebook
+      // P0 v615 recovery: v614 may already have registered TWO licenses to one
+      // active namespace after the premature owned-license mutation. On an
+      // explicit pending join, that alias is not proof that the requested
+      // license's actual notebook was selected. Keep every old buffer intact.
+      var joinPendiente = false;
+      try {
+        var pedido = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+        joinPendiente = _normLic(pedido.licenseCode || "") === norm;
+      } catch (_) {}
+      var destinoRegistrado = Object.prototype.hasOwnProperty.call(reg, norm);
+      var colisionAnterior = joinPendiente && destinoRegistrado &&
+        reg[norm] === OC_STATE_SUFIJO && Object.keys(reg).some(function (k) {
+          return _normLic(k) !== norm && reg[k] === OC_STATE_SUFIJO;
+        });
+      if (colisionAnterior) sufDest = "::" + norm; // isolate the selected license; never overwrite its predecessor
+      else if (norm === desde && destinoRegistrado && reg[norm] !== OC_STATE_SUFIJO) sufDest = reg[norm];
+      else if (norm === desde) sufDest = OC_STATE_SUFIJO;
       else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
       else sufDest = "::" + norm;                                // tienda ajena nueva
       reg[norm] = sufDest;
