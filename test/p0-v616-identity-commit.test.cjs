@@ -25,7 +25,7 @@ function go({from=A,target=B,active='',owned=B,registry={},pending=false,fail=''
  'const _licenciaPropia=()=>JSON.parse(localStorage.getItem("f123_owned")||"{}").licenseCode||"";',
  'const _licenciaActual=()=>from;','const OC_STATE_SUFIJO=active;',
  'const guardarEstadoLocal=()=>{};',
- 'const window={OCSyncControl:{fijarSala:x=>{room=x;return {ok:true}},resincronizar:()=>({ok:true})},dispatchEvent(){}};',
+ 'const window={OCSyncControl:{fijarSala:x=>{localStorage.setItem("f123_sync_room",JSON.stringify({codigo:x}));room=x;return {ok:true}},resincronizar:()=>({ok:true})},dispatchEvent(){}};',
  'const CustomEvent=class{constructor(type,opts){this.type=type;this.detail=opts?.detail}};',
  'const location={reload:()=>{reloads++}};',
  'const obj={'+cambiar+reconciliar+'};window.OCTienda=obj;',
@@ -60,6 +60,13 @@ test('P0: failed registry write cannot move notebook or room',()=>{
  assert.equal(r.active,'');
  assert.equal(r.reloads,0);
  assert.equal(r.room,'');
+});
+test('P0: room key not saved must reject joining and restore previous notebook pointer',()=>{
+ const r=go({fail:'f123_sync_room'});
+ assert.equal(r.result.ok,false);
+ assert.equal(r.active,'');
+ assert.equal(r.reloads,0);
+ assert.match(r.oldData,/sale-a/);
 });
 test('P0: cross-license owner claim cannot strand current ledger by changing pointer without reload',()=>{
  const r=go({from:A,target:B,owned:A,claim:true});
