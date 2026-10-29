@@ -31,6 +31,20 @@
      otros scripts leen/escriben sin namespace y el aislamiento se rompe. -->
 <script src="./aislamiento.js"></script>
 <script>
+/* AMIGABLE -> friendly-123: one entry preference, not a new account or notebook.
+   After aislamiento.js, before the i18n module; never touch business data. */
+(function () {
+  try {
+    var p = new URLSearchParams(location.search);
+    if (p.get("via") !== "amigable" || p.get("lang") !== "es") return;
+    window.__f123EntrySpanish = true;
+    try { localStorage.setItem("f123_lang", "es"); } catch (_) {}
+    p.delete("via"); p.delete("lang");
+    try { history.replaceState(history.state, "", location.pathname + (p.toString() ? "?" + p.toString() : "") + location.hash); } catch (_) {}
+  } catch (_) {}
+})();
+</script>
+<script>
 /* Las rutas historicas de canario y rewind permanecen fuera de indexacion. */
 (function(){
   try{
