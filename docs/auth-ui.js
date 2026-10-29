@@ -1118,20 +1118,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           window.OCSecure.recordarPinQueAbre(code, rolEntrada);
         }
       }
-      if (rolEntrada === "dueno" && window.OCSecure && window.OCSecure.fijarOwnerPin) {
-        // A joined team's owner credential is NOT this device's original PIN.
-        // Never rewrite f123_secure after verified Yjs team login.
-        let entradaEquipo = false;
-        try {
-          const T = window.OCTienda;
-          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-          const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
-          const lic = T && T.licenciaActual && T.licenciaActual();
-          entradaEquipo = !!((T && T.esUnida && T.esUnida()) ||
-            (join.instanceId && join.instanceId === own.instanceId && join.licenseCode === lic));
-        } catch (_) {}
-        if (!entradaEquipo) await window.OCSecure.fijarOwnerPin(code);
-      }
+      // Authentication is read-only: do not re-hash or mutate the owner's PIN
+      // on every login. PIN changes belong exclusively to Advanced/Team.
+      // In particular, a verified team PIN must never replace the PWA's
+      // existing local owner verifier.
     } catch (_) {}
     return entrar(rolEntrada);
   }
