@@ -71,7 +71,7 @@ test('P0: iOS native license paste focus must not inject prefix into editable se
  ctx.mask(input);
  if(events.focus)events.focus();
  assert.equal(input.value,'','native selection and Paste UI require an untouched empty field');
- input.value='F123-ABCD-EFGH-JKLM-NPQRS';
+ input.value='F123-TEST';
  events.input();
  assert.match(input.value,/^F123-/);
 });
