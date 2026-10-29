@@ -18,6 +18,7 @@ function exercise({from=OWN,target=OWN,result={ok:true,mismo:true},active=true,a
     let yjsPause=0,yjsResume=0,legacyConnect=0,events=0;
     const localStorage={getItem:k=>disk.has(k)?disk.get(k):null,
       setItem:(k,v)=>disk.set(k,String(v)),removeItem:k=>disk.delete(k)};
+    const ROOM_KEY='f123_sync_room';
     const normalizarCodigo=c=>String(c||'').trim().toUpperCase();
     const _esLord=()=>false,_registrarAcceso=()=>{};
     const conectar=()=>{legacyConnect++};
