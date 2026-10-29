@@ -35,3 +35,16 @@ test('existing verifier is never replaced by missing-secret migration',async()=>
  const x=await migrateFixture({'f123_owned':JSON.stringify({instanceId:'synthetic'}),'f123_secure':'unchanged'});
  assert.equal(x.writes,0);assert.equal(x.secret,'unchanged');
 });
+
+test('legacy licensed notebook without instanceId never invents a new owner PIN',async()=>{
+ const x=await migrateFixture({'f123_owned':JSON.stringify({licenseCode:'F123-SYNTHETIC-LICENSE'})});
+ assert.equal(x.result,false);assert.equal(x.writes,0);
+});
+test('joined business without owned metadata never invents new PINs',async()=>{
+ const x=await migrateFixture({'f123_tienda_activa':'synthetic-business'});
+ assert.equal(x.result,false);assert.equal(x.writes,0);
+});
+test('a stored collection of businesses without active selection is protected',async()=>{
+ const x=await migrateFixture({'f123_tiendas':JSON.stringify({'synthetic-store':{}})});
+ assert.equal(x.result,false);assert.equal(x.writes,0);
+});
