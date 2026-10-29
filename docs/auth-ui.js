@@ -990,10 +990,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       // The active notebook is authoritative. f123_owned can retain a previous
       // activation name while this notebook already has a newer synced name.
-      const activo = (T && typeof T.nombreActivo === "function") ? String(T.nombreActivo() || "").trim() : "";
-      // P0 v602: never display the stale own-license sidecar name on the PIN screen.
-      // The ACTIVE notebook name is authoritative. Until its store is hydrated,
-      // hide the label rather than showing an unrelated historical shop name.
+      let activo = (T && typeof T.nombreActivo === "function") ? String(T.nombreActivo() || "").trim() : "";
+      // The installed PWA may have the same licensed notebook in its OWN slot
+      // while the browser has it in JOINED. The name is the encrypted room's,
+      // not the classification of this local device.
+      if (!activo) try {
+        const Y = window.OCYjs;
+        const lic = T && T.licenciaActual && T.licenciaActual();
+        if (lic && owned.licenseCode === lic && Y && Y.roomId && Y.canal &&
+            Y.canal.recuperando === false && Y.meta && typeof Y.meta.get === "function")
+          activo = String(Y.meta.get("nombreNegocio") || "").trim();
+      } catch (_) {}
       const nombre = activo;
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
       _pintar(nombre);
@@ -1118,20 +1125,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           window.OCSecure.recordarPinQueAbre(code, rolEntrada);
         }
       }
-      if (rolEntrada === "dueno" && window.OCSecure && window.OCSecure.fijarOwnerPin) {
-        // A joined team's owner credential is NOT this device's original PIN.
-        // Never rewrite f123_secure after verified Yjs team login.
-        let entradaEquipo = false;
-        try {
-          const T = window.OCTienda;
-          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-          const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
-          const lic = T && T.licenciaActual && T.licenciaActual();
-          entradaEquipo = !!((T && T.esUnida && T.esUnida()) ||
-            (join.instanceId && join.instanceId === own.instanceId && join.licenseCode === lic));
-        } catch (_) {}
-        if (!entradaEquipo) await window.OCSecure.fijarOwnerPin(code);
-      }
+      // Authentication is read-only: do not re-hash or mutate the owner's PIN
+      // on every login. PIN changes belong exclusively to Advanced/Team.
+      // In particular, a verified team PIN must never replace the PWA's
+      // existing local owner verifier.
     } catch (_) {}
     return entrar(rolEntrada);
   }

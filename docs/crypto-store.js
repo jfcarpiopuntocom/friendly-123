@@ -834,10 +834,10 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       const T = window.OCTienda, Y = window.OCYjs;
       const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
       const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
-      const joined = T && T.esUnida && T.esUnida();
-      const explicit = join.instanceId && join.instanceId === own.instanceId && join.licenseCode === lic;
-      if ((joined || explicit) && /^F123-/.test(lic) && own.licenseCode === lic &&
+      // The same license may be classified as 'owned' in an installed PWA
+      // and 'joined' in a browser. Neither local classification decides
+      // which encrypted Yjs notebook the current PIN belongs to.
+      if (/^F123-/.test(lic) && own.licenseCode === lic &&
           Y && Y.roomId && Y.canal && Y.canal.recuperando === false &&
           Y.meta && typeof Y.meta.get === "function") {
         const team = Y.meta.get("pinsRol");
