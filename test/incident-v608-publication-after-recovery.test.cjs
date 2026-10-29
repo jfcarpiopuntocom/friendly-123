@@ -41,6 +41,10 @@ test('accepted stock republishes after a previous background save failure withou
   const transfer=()=>{
     b.w.Y.applyUpdate(b.w.OCYjs.doc,a.w.Y.encodeStateAsUpdate(a.w.OCYjs.doc),'red');
     b.w.OCYjs._store.aplicar();
+    // Two-way exchange like a real relay. One-way delivery left B's own concurrent seed item of the same key
+    // un-merged on A; Yjs breaks that tie by random clientID, so B's stale seed won ~50% of runs.
+    a.w.Y.applyUpdate(a.w.OCYjs.doc,b.w.Y.encodeStateAsUpdate(b.w.OCYjs.doc),'red');
+    a.w.OCYjs._store.aplicar();
   };
   transfer();await a.flush();await b.flush();
   let fail=true;

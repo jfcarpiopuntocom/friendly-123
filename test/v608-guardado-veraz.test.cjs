@@ -1,7 +1,7 @@
 'use strict';
 // v608 (JFC 2026-10-28): fallos de guardado veraces, reintento acotado, aviso naranja, nombre dorado. Datos sinteticos, app real en Chromium.
 const {test}=require('node:test'),assert=require('node:assert/strict');
-const {chromium,startServer,openDevice,enterAs}=require('./helpers/e2e-app.cjs');
+const {chromium,startServer,openDevice,enterAs,go}=require('./helpers/e2e-app.cjs');
 async function withDevice(fn){
   const {srv,base}=await startServer();let browser;
   try{browser=await chromium.launch({headless:true});const d=await openDevice(browser,base);d.page.setDefaultTimeout(8000);await enterAs(d.page);
@@ -24,7 +24,7 @@ test('retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and
     await page.evaluate(FALLA);
     await POST(page,NUEVO('R1'));
     await page.waitForTimeout(1500);
-    const r=await page.evaluate(()=>({d:window.__delays.slice(),aviso:!!document.getElementById('f123-aviso-guardado'),quota:!!document.getElementById('oc-quota-aviso')}));
+    const r=await page.evaluate(()=>({d:window.__delays.slice(),aviso:!!document.getElementById('f123-aviso-guardado'),quota:!!document.getElementById('oc-quota-aviso')||!!window.__ocMemoriaLlena}));
     assert.deepEqual(r.d,[3000,6000,12000,24000,48000]);
     assert.equal(r.quota,false);
     assert.equal(r.aviso,false,'no visible notice element (owner order)');
@@ -52,7 +52,7 @@ test('a later successful save resets the retry counter; no visible notice ever',
   });
 });
 
-test('real quota error still shows the red banner and no orange notice',async()=>{
+test('real quota error writes plain text in the Avanzado status line (no overlay element)',async()=>{
   await withDevice(async page=>{
     await page.evaluate(()=>{
       const orig=localStorage.setItem.bind(localStorage);
@@ -61,8 +61,11 @@ test('real quota error still shows the red banner and no orange notice',async()=
     });
     await POST(page,NUEVO('Q1'));
     await page.waitForTimeout(400);
-    const r=await page.evaluate(()=>({q:!!document.getElementById('oc-quota-aviso'),a:!!document.getElementById('f123-aviso-guardado')}));
-    assert.deepEqual(r,{q:true,a:false});
+    await go(page,'avanzado');
+    const r=await page.evaluate(()=>{const e=document.getElementById('oc-sync-estado-min');return {q:!!document.getElementById('oc-quota-aviso'),a:!!document.getElementById('f123-aviso-guardado'),
+      t:e?e.textContent:null,vis:e?getComputedStyle(e).display!=='none':false,pos:e?getComputedStyle(e).position:null};});
+    assert.deepEqual({q:r.q,a:r.a,vis:r.vis,pos:r.pos},{q:false,a:false,vis:true,pos:'static'});
+    assert.equal(r.t,'Memoria del aparato llena: no se pudo guardar el último cambio.');
   });
 });
 
@@ -77,7 +80,7 @@ test('store name is gold #E8A020 (computed) in light and dark scheme',async()=>{
   });
 });
 
-test('real IndexedDB quota error (localStorage unavailable) still shows the red banner',async()=>{
+test('real IndexedDB quota error (localStorage unavailable) writes the in-UI status text',async()=>{
   await withDevice(async page=>{
     await page.evaluate(()=>{
       const orig=localStorage.setItem.bind(localStorage);
@@ -89,7 +92,10 @@ test('real IndexedDB quota error (localStorage unavailable) still shows the red 
     });
     await POST(page,NUEVO('IQ1'));
     await page.waitForTimeout(500);
-    const r=await page.evaluate(()=>({q:!!document.getElementById('oc-quota-aviso'),a:!!document.getElementById('f123-aviso-guardado')}));
-    assert.deepEqual(r,{q:true,a:false});
+    await go(page,'avanzado');
+    const r=await page.evaluate(()=>{const e=document.getElementById('oc-sync-estado-min');return {q:!!document.getElementById('oc-quota-aviso'),a:!!document.getElementById('f123-aviso-guardado'),
+      t:e?e.textContent:null,vis:e?getComputedStyle(e).display!=='none':false,pos:e?getComputedStyle(e).position:null};});
+    assert.deepEqual({q:r.q,a:r.a,vis:r.vis,pos:r.pos},{q:false,a:false,vis:true,pos:'static'});
+    assert.equal(r.t,'Memoria del aparato llena: no se pudo guardar el último cambio.');
   });
 });

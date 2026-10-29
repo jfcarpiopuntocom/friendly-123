@@ -783,6 +783,15 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         var _pintarSyncMin = function () {
           var el = document.getElementById("oc-sync-estado-min"); if (!el) return;
           try {
+            /* v608 (JFC 2026-10-28): aviso de memoria llena como TEXTO en esta linea (antes banda roja fija).
+               Solo con error de cuota real (mock-backend.js avisoMemoriaLlena levanta window.__ocMemoriaLlena). */
+            if (window.__ocMemoriaLlena) {
+              var _esQ = false; try { _esQ = (window.OCI18n && window.OCI18n.getLang ? window.OCI18n.getLang() : document.documentElement.lang) === "es"; } catch (_) {}
+              if (el.style.display === "none") { el.style.display = ""; el.dataset.e1AutoShow = "1"; }
+              el.textContent = _esQ ? "Memoria del aparato llena: no se pudo guardar el último cambio." : "Device storage full: the last change could not be saved.";
+              el.style.color = "var(--rojo-ink,#a3392a)";
+              return;
+            }
             if (!window.OCYjs || !window.OCYjs._diag) { el.textContent = "Sync: off on this device"; return; }
             var d = window.OCYjs._diag();
             if (d && d.recuperacionLocalPendiente) {
@@ -902,6 +911,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         _pintarSyncMin();
         if (window._ocSyncMinTimer) clearInterval(window._ocSyncMinTimer);
         window._ocSyncMinTimer = setInterval(_pintarSyncMin, 3000);
+        window.addEventListener("oc-memoria-llena", function () { try { _pintarSyncMin(); } catch (_) {} });
       } catch (_) {}
 
 

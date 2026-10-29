@@ -32,7 +32,7 @@ test('quota recovery retains historical photos, movements and every previous sto
 
 test('stale red warning clears only after an exact confirmed durable acknowledgement',async()=>{
   const app=browser();app.OCAuth={rolActual:()=> 'dueno'};
-  let cleared=0;app.document.getElementById=id=>id==='oc-quota-aviso'?{remove(){cleared++;}}:null;
+  let cleared=0;app.addEventListener('oc-memoria-llena',e=>{if(e.detail&&e.detail.llena===false)cleared++;});
   app.localStorage.setItem=()=>{throw new DOMException('synthetic quota','QuotaExceededError');};
   let finish,started=false;
   app.OCEstadoIDB={guardar:()=>{started=true;return new Promise(resolve=>{finish=resolve;});}};
