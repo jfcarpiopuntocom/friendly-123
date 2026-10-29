@@ -7265,7 +7265,18 @@
           if (_cuadernoConDatosEnDoc()) return J({ error: "A backup can only be restored on a new device with no data. In a notebook that already has data, the restore would be undone when the app reopens.", errorEs: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
           aplicarRespaldo(body);
-          guardarEstadoLocal();
+          /* v611 (JFC 2026-10-28): NO responder {ok:true} hasta que el guardado sea durable. Antes se llamaba
+             guardarEstadoLocal() sin esperar (devuelve Promise): si la app se cerraba justo despues de "Restaurado",
+             el respaldo se perdia en el aparato nuevo. Espera acotada a 10 s (guarda contra cuelgues); si no queda
+             guardado, error NO-OK con el texto que la UI ya muestra. La regla 409 de arriba no se toca. */
+          let _impGuardado = false;
+          try {
+            _impGuardado = (await Promise.race([
+              Promise.resolve(guardarEstadoLocal(true, true)),
+              new Promise((res) => setTimeout(() => res(false), 10000))
+            ])) === true;
+          } catch (_) { _impGuardado = false; }
+          if (!_impGuardado) return J({ error: "Could not import: the backup was NOT saved on this device. Free up storage and try again.", errorEs: "No se pudo importar: el respaldo NO quedó guardado en este aparato. Libera espacio e inténtalo de nuevo." }, 507);
           return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
         } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
       }
