@@ -1174,6 +1174,24 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
       return entrar("artista");
     }
+    // A newly joined notebook with no verified owner credentials cannot
+    // classify an entered PIN as wrong. Avoid lockouts while encrypted replay
+    // is incomplete or the team's PIN metadata has not arrived.
+    try {
+      const T = window.OCTienda, Y = window.OCYjs;
+      if (T && T.esUnida && T.esUnida()) {
+        const team = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
+        const owner = String((team && team.owner) || "");
+        if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
+            !/^\\d{3}$/.test(owner) || owner === "456" || owner === "789") {
+          error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
+          return;
+        }
+      }
+    } catch (_) {
+      error("Team credential status is unavailable. No incorrect PIN attempt has been recorded.");
+      return;
+    }
     // A licensed browser with no local verifier has not proven an incorrect PIN:
     // it may not have completed authenticated notebook credential recovery.
     // Do not consume lockout attempts for an unavailable credential store.
