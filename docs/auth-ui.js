@@ -951,6 +951,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const T = window.OCTienda;
       if (T && T.esUnida && T.esUnida()) {
         let nom = (T.nombreActivo && T.nombreActivo().trim()) || "";
+        // The UI store can hydrate after encrypted Yjs metadata. Display ONLY
+        // the current fully recovered team's name; never use the own-sidecar name.
+        if (!nom) try {
+          const Y = window.OCYjs;
+          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          const lic = T.licenciaActual && T.licenciaActual();
+          if (lic && own.licenseCode === lic && Y && Y.roomId && Y.canal &&
+              Y.canal.recuperando === false && Y.meta && typeof Y.meta.get === "function") {
+            nom = String(Y.meta.get("nombreNegocio") || "").trim();
+          }
+        } catch (_) {}
         let sinSincronizar = false;
         if (!nom) {
           const lic = (T.licenciaActual && T.licenciaActual()) || "";
@@ -1108,7 +1119,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         }
       }
       if (rolEntrada === "dueno" && window.OCSecure && window.OCSecure.fijarOwnerPin) {
-        await window.OCSecure.fijarOwnerPin(code);
+        // A joined team's owner credential is NOT this device's original PIN.
+        // Never rewrite f123_secure after verified Yjs team login.
+        let entradaEquipo = false;
+        try {
+          const T = window.OCTienda;
+          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+          const lic = T && T.licenciaActual && T.licenciaActual();
+          entradaEquipo = !!((T && T.esUnida && T.esUnida()) ||
+            (join.instanceId && join.instanceId === own.instanceId && join.licenseCode === lic));
+        } catch (_) {}
+        if (!entradaEquipo) await window.OCSecure.fijarOwnerPin(code);
       }
     } catch (_) {}
     return entrar(rolEntrada);
@@ -1131,6 +1153,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     }
     if (rolHash === "contador") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "contador"); }
     if (code === DEMO_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return entrar("demo"); }
+    if (code === DEMO_PIN && dispositivoApropiado()) {
+      // 456 must never unlock real customer data or consume a lockout attempt.
+      error("PIN 456 is for an unlicensed demo, not an existing store. This device is linked to a business; its team PINs are recovered from that business.");
+      return;
+    }
     const uNombrado = await verificarUsuarioNombrado(code);
     if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, uNombrado.rol === "admin" ? "admin" : "empleado"); }
     /* ARTISTA (benchmark #6, JFC 2026-09-24). Va al final a proposito: un PIN
@@ -1146,6 +1173,24 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { sessionStorage.setItem("f123_sesion_artista", JSON.stringify(window.OCCurrentArtista)); } catch (_) {}
       registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
       return entrar("artista");
+    }
+    // A newly joined notebook with no verified owner credentials cannot
+    // classify an entered PIN as wrong. Avoid lockouts while encrypted replay
+    // is incomplete or the team's PIN metadata has not arrived.
+    try {
+      const T = window.OCTienda, Y = window.OCYjs;
+      if (T && T.esUnida && T.esUnida()) {
+        const team = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
+        const owner = String((team && team.owner) || "");
+        if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
+            !/^\d{3}$/.test(owner) || owner === "456" || owner === "789") {
+          error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
+          return;
+        }
+      }
+    } catch (_) {
+      error("Team credential status is unavailable. No incorrect PIN attempt has been recorded.");
+      return;
     }
     // A licensed browser with no local verifier has not proven an incorrect PIN:
     // it may not have completed authenticated notebook credential recovery.

@@ -1,10 +1,10 @@
 {
-  "version": "shell v616",
+  "version": "shell v617",
   "fecha": "2026-10-29",
-  "changelog": "P0: fail-closed license join on ambiguous notebook or storage failure; preserve the active shop on failed identity writes; block cross-license in-place claim; install real verified encrypted-room team PIN on fresh joined devices without factory credentials; restore native paste and approved Simon yellow. No stock/ledger migrations or resets.",
+  "changelog": "P0: verified encrypted-room team PINs unlock their actual joined notebook without replacing another device owner PIN; show verified team name on the PIN screen; keep demo 456 isolated from licensed business data. No ledger, stock, migration or reset changes.",
   "requerida": false,
-  "shell": "f123-shell-v616",
+  "shell": "f123-shell-v617",
   "apagar": [],
-  "releaseName": "shell v616",
-  "cacheGeneration": "golden162"
+  "releaseName": "shell v617",
+  "cacheGeneration": "golden163"
 }
