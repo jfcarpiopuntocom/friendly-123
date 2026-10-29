@@ -1,7 +1,7 @@
 {
   "version": "shell v613",
-  "fecha": "2026-10-28",
-  "changelog": "v613: entrada con PIN sin espera artificial; menos trabajo repetido al guardar y antes del acceso; restauración durable con rollback; reintentos progresivos; Hoy actualizado tras ajuste; nombre amarillo del logo con borde negro; comparación simétrica del reloj legado de stock.",
+  "fecha": "2026-10-29",
+  "changelog": "v613: PIN sin espera artificial; menos copias de respaldo en memoria; cuaderno activo y cifrado con una misma identidad; recuperación autónoma de catálogo y hechos financieros; importación durable que conserva su resultado; colas sin descarte prematuro; Hoy tras ajuste; nombre con amarillo y contorno del logo; reloj legado de stock simétrico.",
   "requerida": false,
   "shell": "f123-shell-v613",
   "apagar": [],

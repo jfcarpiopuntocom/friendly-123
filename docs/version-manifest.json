@@ -25,13 +25,13 @@
     "./pocketbase-client.js": "sha256-1b038581ecb22a491f388bddf5de6729209db5d7c67a404d1def8f8edb236469",
     "./estado-ab.js": "sha256-4edd7ff015047aff1646c5b7760fd7b149a145999986387498981ad840a987d4",
     "./estado-idb.js": "sha256-97972c765a021fe7ebe2a53ec3574e47e0791fe553d5ac1bf5e7b56f6c4c3ea4",
-    "./mock-backend.js": "sha256-e630c2c0d210d80b91283013faf81edf53e56aee189965463bc9004352bc7c9f",
+    "./mock-backend.js": "sha256-614b7c87ae9386c8c3826095523892861053eaf5409e2137646f86fba987cabb",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
     "./sync-realtime.js": "sha256-5751b156a4d4737249bf4a4ca0ce7d5d330ed222725fd763fa54bebb4cf34c4e",
-    "./sync-watchdog.js": "sha256-7b809034cf53347ad1d8eb171ff4c491180612c88f0c4ef959c5e8943d975ab2",
-    "./sync-yjs.js": "sha256-3f3c64b8513524b7a6f8ba6dc3494759f3fe1787f5441a813a227bef76d9f02e",
+    "./sync-watchdog.js": "sha256-c132f08b1801e765f6e83eeefaccff1d5186642dbac990f9666a7fcf3ef05127",
+    "./sync-yjs.js": "sha256-4db67e84feba22d8771c3134c6b2bb827c5050e7a8011935b427622dabe29133",
     "./sync-latencia.js": "sha256-faf49a6fd8b60e3bd4cb78247b4fee986db94b5a3fa92c86f7ac2e50287d3524",
     "./invariantes.js": "sha256-4df7170b0f6f1227ce3b6ffadf9feaac7843d63cb274699a3b6ab230ff8ecdbc",
     "./licencia-prueba.js": "sha256-1c967bde35eb8bb20c9a160946548e2bed7b89cbfe1e04de93f32186ee780c4b",
@@ -119,9 +119,9 @@
     "./app-inline-06.min.js": "sha256-91202f1a8d970ee9d24bfd8d837e404e55db021dc582fce07dcb60632fe1dc99",
     "./app-inline-07.min.js": "sha256-027d6c7fba33ca91a9a72251e3ef2d6d86890d869080d448452ff6e83366392b",
     "./app-style-01.min.css": "sha256-0e8363b32f380e597a3bc269b47d80dc100e11f6b2cc55989226c3f7be744cad",
-    "./app-style-02.min.css": "sha256-ec006508e077661afb62f9c34ded78f4788a342bdfa3e46757bcd658bb2926bf",
+    "./app-style-02.min.css": "sha256-dec54d91b2a30da97579ad417d88107cb982b7cff5889a3b3da8701cead54b9c",
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
-    "./dashboard-main.min.css": "sha256-2ab85ce4f70e2b5c5244d9e5cb62876fc86332ce17ab4d08d38346147adac783",
+    "./dashboard-main.min.css": "sha256-2424bab4d07cea63fc00e2d65ae332a234881b580011eb97fb67c507d4cc50ee",
     "./dashboard-main.min.js": "sha256-3ac9449757567fe64ebf861d49049344718f793646021a92e62a1d4d7b59812d"
   }
 }
