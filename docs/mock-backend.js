@@ -4620,9 +4620,16 @@
         // v616: an already licensed phone with NO f123_secure cannot use
         // fijarOwnerPin (it requires a previous salt). Install exactly the
         // encrypted room's PINs once; never fabricate or replace an owner PIN.
-        const nuevoEquipoSinPIN = window.OCSecure.estadoSecreto &&
-          window.OCSecure.estadoSecreto() === "vacio" &&
-          window.OCSecure.instalarCredencialesDesdeSala && pr.owner;
+        const estadoPinLocal = window.OCSecure.estadoSecreto && window.OCSecure.estadoSecreto();
+        let ingresoExplicito = false;
+        try {
+          const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          ingresoExplicito = !!(join.instanceId && join.instanceId === own.instanceId &&
+            join.licenseCode === own.licenseCode && pr.owner && pr.owner !== "789");
+        } catch (_) {}
+        const nuevoEquipoSinPIN = window.OCSecure.instalarCredencialesDesdeSala && pr.owner &&
+          (estadoPinLocal === "vacio" || (estadoPinLocal === "ok" && ingresoExplicito));
         if (nuevoEquipoSinPIN) {
           promesasPins.push(Promise.resolve().then(function () {
             return window.OCSecure.instalarCredencialesDesdeSala(pr);
