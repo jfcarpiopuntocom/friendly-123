@@ -130,7 +130,7 @@
     if (!SOPORTADO || !estado || typeof estado !== "object") return false;
     try {
       var db = await abrirDB();
-      await new Promise(function (resolve, reject) {
+      const guardado = await new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE, "readwrite");
         // A late mirror must never overwrite a newer cross-tab sale.
         const copia = JSON.parse(JSON.stringify(estado));
@@ -150,7 +150,7 @@
         tx.onabort = function () { reject(tx.error || new Error("abortada")); };
       });
       _ultimoError = null;
-      return true;
+      return guardado === true;
     } catch (err) {
       _ultimoError = err || null;
       try { console.error("[estado-idb] guardar:", err); } catch (_) {}
