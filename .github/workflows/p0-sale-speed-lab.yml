@@ -4,6 +4,10 @@ on:
     branches: [master]
     paths:
       - scripts/lab-venta-latencia.js
+      - docs/mock-backend.js
+      - docs/estado-ab.js
+      - docs/estado-idb.js
+      - test/p0-sales-atomic-idb-webkit-browser.test.cjs
       - docs/ADR-P0-ventas-rapidas.md
       - .github/workflows/p0-sale-speed-lab.yml
   workflow_dispatch: {}
@@ -23,5 +27,16 @@ jobs:
         run: node --check scripts/lab-venta-latencia.js
       - name: Benchmark 1, 300, and 1000 products (no client data)
         run: node scripts/lab-venta-latencia.js
+      - name: Install pinned browser test harness
+        run: npm ci --ignore-scripts
+      - name: Install headless Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Two-tab atomic sale test (synthetic)
+        run: node --test test/p0-sales-atomic-idb-webkit-browser.test.cjs
+      - name: Validate changed JavaScript syntax
+        run: |
+          node --check docs/mock-backend.js
+          node --check docs/estado-ab.js
+          node --check docs/estado-idb.js
       - name: Diff hygiene
         run: git diff --check
