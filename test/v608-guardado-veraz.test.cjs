@@ -69,13 +69,13 @@ test('real quota error writes plain text in the Avanzado status line (no overlay
   });
 });
 
-test('store name is gold #E8A020 (computed) in light and dark scheme',async()=>{
+test('store name uses logo yellow #EFC31A in light and dark scheme',async()=>{
   await withDevice(async page=>{
     for(const scheme of ['light','dark']){
       await page.emulateMedia({colorScheme:scheme});
       const r=await page.evaluate(()=>{const e=document.getElementById('oc-negocio-nombre');if(!e)return null;const c=getComputedStyle(e);return {c:c.color,f:c.webkitTextFillColor};});
       assert.ok(r,'wordmark element exists');
-      assert.equal(r.c,'rgb(232, 160, 32)',scheme);assert.equal(r.f,'rgb(232, 160, 32)',scheme);
+      assert.equal(r.c,'rgb(239, 195, 26)',scheme);assert.equal(r.f,'rgb(239, 195, 26)',scheme);
     }
   });
 });

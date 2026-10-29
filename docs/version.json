@@ -1,7 +1,7 @@
 {
   "version": "shell v613",
   "fecha": "2026-10-28",
-  "changelog": "v613: Hoy se actualiza tras ajustar stock; restaurar respaldo en aparato nuevo confirma el guardado antes de responder; aviso de memoria llena como texto dentro de Avanzado.",
+  "changelog": "v613: entrada con PIN sin espera artificial; menos trabajo repetido al guardar y antes del acceso; restauración durable con rollback; reintentos progresivos; Hoy actualizado tras ajuste; nombre amarillo del logo con borde negro; comparación simétrica del reloj legado de stock.",
   "requerida": false,
   "shell": "f123-shell-v613",
   "apagar": [],
