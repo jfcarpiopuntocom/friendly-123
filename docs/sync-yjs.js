@@ -1637,9 +1637,31 @@
     log("Plan C activo (Fase 2 + fotos + ops). Sala:", API.roomId);
   }
 
+  function reintentoLocalAplicacion(aplicar) {
+    var timer = null, espera = 2000, pendiente = false, detenido = false, doc = API.doc;
+    function licencia() { try { return window.OCTienda && window.OCTienda.licenciaActual ? window.OCTienda.licenciaActual() : (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).licenseCode; } catch (_) { return null; } }
+    var origen = licencia();
+    function vigente() { return !detenido && API.doc === doc && !doc.isDestroyed && licencia() === origen; }
+    function cancelar() { clearTimeout(timer); timer = null; pendiente = false; espera = 2000; }
+    function ejecutar() { timer = null; if (!vigente()) { cancelar(); return; } if (document.hidden) return; pendiente = false; try { aplicar(); } catch (e) { log("reintento local:", e && e.message); pedir(); } }
+    function pedir() {
+      if (!vigente() || timer) return;
+      pendiente = true;
+      if (document.hidden) return;
+      var demora = espera; espera = Math.min(600000, espera * 2);
+      timer = setTimeout(ejecutar, demora);
+    }
+    function volver() { if (!vigente()) { cancelar(); return; } if (pendiente && !document.hidden) { clearTimeout(timer); ejecutar(); } }
+    window.addEventListener("online", volver); document.addEventListener("visibilitychange", volver);
+    window.addEventListener("oc-licencia-disponible", volver);
+    doc.on("destroy", function () { detenido = true; cancelar(); window.removeEventListener("online", volver); document.removeEventListener("visibilitychange", volver); window.removeEventListener("oc-licencia-disponible", volver); });
+    return { pedir: pedir, cancelar: cancelar, vigente: vigente };
+  }
+
   function conectarHechos() {
     var intentos = 0, importando = false, pendiente = false;
     var conocidos = Object.create(null);
+    var rechazados = Object.create(null), retry = reintentoLocalAplicacion(importar);
     function hechos() { return window.AMG && window.AMG.Hechos; }
     function publicar(h) {
       if (!h || !h.id || !API.hechosMap) return;
@@ -1651,28 +1673,25 @@
     }
     function importar() {
       var ledger = hechos();
-      if (!ledger) return;
+      if (!ledger || !retry.vigente()) return;
       if (importando) { pendiente = true; return; }
       importando = true;
       var lista = [];
-      API.hechosMap.forEach(function (h) { if (h && h.id && !conocidos[h.id]) lista.push(h); });
-      function importarConReintento(h, intento) {
-        return Promise.resolve().then(function () { return ledger.importarRemoto(h); }).catch(function (e) {
-          // Only transient local storage failures retry; immutable-content failures remain rejected.
-          if (!e || (e.name !== "AbortError" && e.name !== "UnknownError") || intento >= 3) throw e;
-          return new Promise(function (resolve) { setTimeout(resolve, 250); }).then(function () {
-            return importarConReintento(h, intento + 1);
-          });
-        });
-      }
-      Promise.allSettled(lista.map(function (h) { return importarConReintento(h, 0); }))
+      API.hechosMap.forEach(function (h) { if (h && h.id && !conocidos[h.id] && rechazados[h.id] !== h) lista.push(h); });
+      var transitorio = false;
+      Promise.allSettled(lista.map(function (h) { return Promise.resolve().then(function () { return ledger.importarRemoto(h); }); }))
         .then(function (resultados) {
           resultados.forEach(function (r, i) {
-            if (r.status === "rejected") log("hecho remoto rechazado:", r.reason && r.reason.message);
+            if (r.status === "rejected") {
+              log("hecho remoto rechazado:", r.reason && r.reason.message);
+              if (r.reason && /^(AbortError|UnknownError|QuotaExceededError|InvalidStateError|TimeoutError)$/.test(r.reason.name)) transitorio = true;
+              else rechazados[lista[i].id] = lista[i];
+            }
             else conocidos[lista[i].id] = true;
           });
         }).finally(function () {
           importando = false;
+          if (transitorio) retry.pedir(); else retry.cancelar();
           if (pendiente) { pendiente = false; importar(); }
         });
     }
@@ -2113,8 +2132,8 @@
        completa) lanza o termina con ultimaAplicacionAceptada=false, los IDs de
        _productosRemotos ya se vaciaron: se baja _primerMergeAceptado para que la
        siguiente aplicacion sea COMPLETA y se agenda UN solo reintento (flag de modulo,
-       nunca se apilan). Tope _MAX_FALLOS_APLICAR seguidos; se reinicia al aceptar. */
-    var _reintentoAplicar = null, _fallosAplicar = 0, _MAX_FALLOS_APLICAR = 5;
+       nunca se apilan). Backoff acotado sin abandonar; se reinicia al aceptar. */
+    var _retryAplicar = reintentoLocalAplicacion(aplicar);
     // v604 candidate, fail-closed incremental remote product application.
     // Track Y.Map keys changed by a remote transaction, NOT the caller's
     // assumption about a sale; any other map/meta change forces full merge.
@@ -2544,14 +2563,11 @@
       _aplicando = false;
       // (JFC 2026-10-27) excepcion o no aceptada -> proxima aplicacion completa + 1 reintento.
       if (_fallo || !ultimaAplicacionAceptada) falloAplicacion();
-      else _fallosAplicar = 0;
+      else _retryAplicar.cancelar();
     }
     function falloAplicacion() {
       _primerMergeAceptado = false;
-      if (_reintentoAplicar) return;
-      if (_fallosAplicar >= _MAX_FALLOS_APLICAR) { log("aplicar: reintentos agotados (" + _fallosAplicar + ")"); return; }
-      _fallosAplicar++;
-      _reintentoAplicar = setTimeout(function () { _reintentoAplicar = null; try { aplicar(); } catch (_) {} }, 2000);
+      _retryAplicar.pedir();
     }
     function valores(col) { var o = API.get(col), a = []; for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) a.push(o[k]); return a; }
 
