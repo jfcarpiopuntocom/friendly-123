@@ -137,7 +137,10 @@ test('el stock viaja como operaciones con dedup, no como ultima escritura', () =
 
 test('una venta sin conexion se encola y nunca se pierde', () => {
   // Sin WebSocket abierto, la op se encola.
-  assert.match(SYNC, /else\s*\{\s*\n\s*if\s*\(!encolar\(op\)\) return false;/);
+  const emitter = SYNC.slice(SYNC.indexOf('window.OCSyncEmit = function'), SYNC.indexOf('function encolar(op)'));
+  const queued = emitter.indexOf('const encolada = encolar(op)');
+  assert.ok(queued >= 0 && queued < emitter.indexOf('oc-op-local'), 'durable queue precedes Yjs event');
+  assert.match(emitter, /if \(!encolada\) return false;/);
   // Y si cifrar() falla con el socket abierto, tambien cae a la cola (no se pierde).
   assert.match(SYNC, /\.catch\(\(\)\s*=>\s*encolar\(op\)\)/);
 });

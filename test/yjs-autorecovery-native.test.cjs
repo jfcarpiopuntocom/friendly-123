@@ -43,6 +43,7 @@ test('real durable ledgers recover four IDB aborts without a new Yjs update and 
   await until(b,async()=>{const h=await AMG.Hechos.todos();return h.some(x=>x.tipo==='cartera_abono');}).catch(async e=>{throw Error(e.message+': '+JSON.stringify(await b.evaluate(async()=>({aborts:__aborts,ledger:(await AMG.Hechos.todos()).map(h=>h.tipo),yjs:Array.from(OCYjs.hechosMap.values()).map(h=>h.tipo)}))));});
   assert.equal(await b.evaluate(()=>__aborts),4,'four real IndexedDB transactions aborted before autonomous recovery: '+JSON.stringify(await b.evaluate(()=>AMG.Hechos.todos())));
   assert.equal((await b.evaluate(id=>AMG.Cartera.saldoDeCliente(id),client.id)).saldo,-10);
+  await until(b,async id=>{const r=await fetch('/api/productos');return(await r.json()).find(p=>p.id===id)?.stockActual===7;},product.id,8000);
   assert.equal((await request(b,'/api/productos')).value.find(p=>p.id===product.id).stockActual,7);
   await pump(a,b);await pump(a,b);await pump(b,a);
   assert.equal((await b.evaluate(()=>AMG.Hechos.todos())).filter(h=>h.tipo==='cartera_abono').length,1);

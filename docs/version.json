@@ -1,10 +1,10 @@
 {
-  "version": "shell v613",
+  "version": "shell v614",
   "fecha": "2026-10-29",
-  "changelog": "v613: PIN sin espera artificial; menos copias de respaldo en memoria; cuaderno activo y cifrado con una misma identidad; recuperación autónoma de catálogo y hechos financieros; importación durable que conserva su resultado; colas sin descarte prematuro; Hoy tras ajuste; nombre con amarillo y contorno del logo; reloj legado de stock simétrico.",
+  "changelog": "v614 candidate: pre-login cache purge retired (manual repair retained); canonical share URL after purge; activated notebooks do not invent a factory PIN; an unavailable local PIN verifier is not a wrong attempt; legacy opId queue precedes Yjs publication; existing business yellow and navy outline preserved. Browser and device verification pending.",
   "requerida": false,
-  "shell": "f123-shell-v613",
+  "shell": "f123-shell-v614",
   "apagar": [],
-  "releaseName": "shell v613",
-  "cacheGeneration": "golden159"
+  "releaseName": "shell v614",
+  "cacheGeneration": "golden160"
 }
