@@ -1550,7 +1550,14 @@
       // check the prior revision and put the full exact snapshot together.
       // A/B becomes a best-effort post-ACK backup, never a second Web Lock.
       if (exigirCompleto) {
-        if (!casDisponible) return terminar(false);
+        // Browsers without IndexedDB keep the historical durable A/B path.
+        // Never silently downgrade an IndexedDB-capable browser on a CAS error.
+        if (!casDisponible) {
+          if (idb && idb.soportado !== false) return terminar(false);
+          try { if (tokenOk && ab) { _guardandoAB = true; local = ab.guardarAhora(crudo); } }
+          catch (_) {} finally { _guardandoAB = false; }
+          return terminar(local === true);
+        }
         return idb.guardarConRevision(completo, _localRev).then(ok => {
           if (!ok) return terminar(false);
           const ack = terminar(true);
