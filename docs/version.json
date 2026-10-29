@@ -1,10 +1,10 @@
 {
-  "version": "shell v618",
+  "version": "shell v619",
   "fecha": "2026-10-29",
-  "changelog": "P0: the same fully recovered encrypted notebook PIN and store name work in owned PWA and joined browser; successful login does not rewrite owner PIN or duplicate PBKDF2. No room, stock, ledger or data migrations.",
+  "changelog": "P0: explicit same-license rejoin retries encrypted Yjs catalog recovery of store identity and team PIN metadata. No stock, ledger, notebook, or stored PIN changes.",
   "requerida": false,
-  "shell": "f123-shell-v618",
+  "shell": "f123-shell-v619",
   "apagar": [],
-  "releaseName": "shell v618",
-  "cacheGeneration": "golden164"
+  "releaseName": "shell v619",
+  "cacheGeneration": "golden165"
 }
