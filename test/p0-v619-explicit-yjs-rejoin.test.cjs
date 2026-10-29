@@ -21,7 +21,7 @@ function exercise({from=OWN,target=OWN,result={ok:true,mismo:true},active=true,a
     const normalizarCodigo=c=>String(c||'').trim().toUpperCase();
     const _esLord=()=>false,_registrarAcceso=()=>{};
     const conectar=()=>{legacyConnect++};
-    const reintentoMs=1000,intentosSeguidos=0;
+    let reintentoMs=1000,intentosSeguidos=0;
     const leerSala=()=>JSON.parse(localStorage.getItem('f123_sync_room')||'null');
     const self={crypto:{randomUUID:()=> 'synthetic-pwa'}};
     const CustomEvent=class {constructor(name,options){this.type=name;this.detail=options?.detail}};
