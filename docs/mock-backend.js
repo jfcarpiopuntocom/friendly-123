@@ -1512,6 +1512,8 @@
       let revisionDisco = 0;
       try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (e) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = e; }
       if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
+      // P0: reject a stale local snapshot instead of overwriting another tab.
+      if (exigirCompleto && revisionDisco > _localRev) return false;
       const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
       _localRevReservado = _revIntento;
       /* v609 perf: antes = copia profunda de cada coleccion (stringify+parse) y luego OTRO stringify para el A/B.
@@ -1525,9 +1527,13 @@
       const crudo = JSON.stringify(vivo);
       const completo = JSON.parse(crudo);
       let local = false;
-      try {
-        if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
-      } catch (_) {} finally { _guardandoAB = false; }
+      const idb = window.OCEstadoIDB;
+      const casDisponible = exigirCompleto && idb && typeof idb.guardarConRevision === "function";
+      if (!exigirCompleto) {
+        try {
+          if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
+        } catch (_) {} finally { _guardandoAB = false; }
+      }
       const terminar = ok => {
         if (ok) {
           if (actividadVigente) _confirmarActividad(actividadVigente);
@@ -1540,13 +1546,35 @@
         } else _falloGuardadoLocal(_causaGuardado(ab));
         return ok;
       };
-      // Only an exact IDB snapshot may acknowledge a failed local commit.
+      // Strict money/stock commits use ONE atomic IDB readwrite transaction:
+      // check the prior revision and put the full exact snapshot together.
+      // A/B becomes a best-effort post-ACK backup, never a second Web Lock.
+      if (exigirCompleto) {
+        // Browsers without IndexedDB keep the historical durable A/B path.
+        // Never silently downgrade an IndexedDB-capable browser on a CAS error.
+        if (!casDisponible) {
+          if (idb && idb.soportado !== false) return terminar(false);
+          try { if (tokenOk && ab) { _guardandoAB = true; local = ab.guardarAhora(crudo); } }
+          catch (_) {} finally { _guardandoAB = false; }
+          return terminar(local === true);
+        }
+        return idb.guardarConRevision(completo, _localRev).then(ok => {
+          if (!ok) return terminar(false);
+          const ack = terminar(true);
+          if (ab && tokenOk) setTimeout(() => {
+            try { _guardandoAB = true; ab.guardarAhora(crudo); }
+            catch (_) {} finally { _guardandoAB = false; }
+          }, 0);
+          return ack;
+        }, () => terminar(false));
+      }
+      // Non-financial background state still uses existing A/B recovery.
       if (local) { _espejarEnIDB(completo, true); return terminar(true); }
       if (_estadoLecturaBloqueada || (ab && !ab.permiteEspejo())) return terminar(false);
       return Promise.resolve(_espejarEnIDB(completo, true)).then(ok => terminar(ok === true), () => terminar(false));
     };
     try {
-      const resultado = ab ? ab.conCandado(ejecutar) : ejecutar();
+      const resultado = ejecutar();
       return resultado && typeof resultado.then === "function"
         ? resultado.catch(_falloGuardadoLocal) : resultado;
     } catch (e) { return _falloGuardadoLocal(e); }
@@ -5802,59 +5830,10 @@
       if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
       return _fetchInterno(url,opts);
     };
-    if (navigator.locks && navigator.locks.request) {
-      // iOS may keep a Web Lock zombie after PWA backgrounding. Time out ONLY
-      // before entry: once the business write starts, never claim it failed.
-      const safeAbort = typeof AbortController === "function";
-      const controller = safeAbort ? new AbortController() : null;
-      let entered = false, expired = false, timer, failure;
-      const timeoutError = () => {
-        if (failure) return failure;
-        let spanish = false;
-        try { spanish = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es"); } catch (_) {}
-        const error = spanish ? "No se guardó. Intenta de nuevo." : "Not saved. Please try again.";
-        try {
-          let notice = document.getElementById("oc-write-timeout");
-          if (!notice) {
-            notice = document.createElement("div");
-            notice.id = "oc-write-timeout";
-            notice.setAttribute("role", "alert");
-            notice.style.cssText = "position:fixed;z-index:10005;left:16px;right:16px;bottom:16px;padding:16px;border-radius:8px;background:#7C1722;color:#FFFFFF;font-size:16px;font-weight:700;line-height:1.4;";
-            notice.addEventListener("click", () => notice.remove());
-            document.body.appendChild(notice);
-          }
-          notice.textContent = error;
-          setTimeout(() => { try { notice.remove(); } catch (_) {} }, 15000);
-        } catch (_) {}
-        failure = new Response(JSON.stringify({ error }), { status: 503, headers: { "Content-Type": "application/json" } });
-        return failure;
-      };
-      // Never bypass cross-tab serialization when an unabortable lock is present.
-      if (!safeAbort) return timeoutError(); // read-only on unsafe old browsers
-      const timeout = new Promise(resolve => {
-        timer = setTimeout(() => {
-          if (entered) return;
-          expired = true;
-          controller.abort();
-          resolve(timeoutError());
-        }, 10000);
-      });
-      try {
-        const locked = Promise.resolve(navigator.locks.request("f123-escrituras",
-          { signal: controller.signal }, () => {
-            if (expired || controller.signal.aborted) return timeoutError();
-            entered = true;
-            clearTimeout(timer);
-            return ejecutar();
-          })).catch(error => {
-            if (expired || (error && error.name === "AbortError")) return timeoutError();
-            throw error;
-          });
-        return await Promise.race([locked, timeout]);
-      } finally { clearTimeout(timer); }
-    }
-    // Same-device serialization is also needed where Web Locks is absent.
-    // This is not a lock or reservation between disconnected devices.
+    // P0: a tab-local FIFO + session fencing replaces the 10-second Web Lock
+    // queue. Durable cross-tab conflict detection is delegated to IndexedDB's
+    // atomic revision check (OCEstadoIDB.guardarConRevision), not to this lease.
+    // Never execute two business mutations at once in this tab.
     const operacion = _colaEscriturasLocal.then(ejecutar);
     _colaEscriturasLocal = operacion.catch(() => {});
     return operacion;

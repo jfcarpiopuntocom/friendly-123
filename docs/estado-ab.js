@@ -135,17 +135,9 @@
       } catch (e) { ultimoError = e || null; return false; }
     }
     function conCandado(ejecutar) {
-      const candados = window.navigator && window.navigator.locks;
-      if (candados && candados.request) {
-        if (typeof AbortController !== "function") return Promise.reject(new Error("Abortable storage lock unavailable"));
-        const control = new AbortController();
-        let entro = false;
-        const reloj = setTimeout(() => { if (!entro) control.abort(); }, 10000);
-        return Promise.resolve(candados.request("f123-estado-ab:" + base, {signal: control.signal}, () => {
-          entro = true; clearTimeout(reloj); return ejecutar();
-        })).finally(() => clearTimeout(reloj));
-      }
-      // Existing single-tab compatibility guard owns browsers without Web Locks.
+      // P0: no Web Locks or 10-second wait. Synchronous A/B writes are
+      // serialized within this tab; the strict durable sale path is fenced
+      // separately by an atomic IndexedDB revision transaction.
       const previo = colas.get(base);
       const resultado = previo ? previo.then(ejecutar) : ejecutar();
       if (resultado && typeof resultado.then === "function") {

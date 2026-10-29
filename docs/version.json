@@ -1,10 +1,10 @@
 {
-  "version": "shell v618",
+  "version": "shell v620",
   "fecha": "2026-10-29",
-  "changelog": "P0: the same fully recovered encrypted notebook PIN and store name work in owned PWA and joined browser; successful login does not rewrite owner PIN or duplicate PBKDF2. No room, stock, ledger or data migrations.",
+  "changelog": "P0: sales and financial writes use native atomic IndexedDB revision commit; remove the two 10-second Web Lock waits. Keep durable sale ACK, original Sold confirmation, PIN, license, Yjs and business data intact.",
   "requerida": false,
-  "shell": "f123-shell-v618",
+  "shell": "f123-shell-v620",
   "apagar": [],
-  "releaseName": "shell v618",
-  "cacheGeneration": "golden164"
+  "releaseName": "shell v620",
+  "cacheGeneration": "golden166"
 }

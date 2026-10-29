@@ -130,23 +130,61 @@
     if (!SOPORTADO || !estado || typeof estado !== "object") return false;
     try {
       var db = await abrirDB();
-      await new Promise(function (resolve, reject) {
+      const guardado = await new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE, "readwrite");
-        /* Se clona a JSON y de vuelta: el estructurado de IndexedDB revienta
-           con funciones o referencias ciclicas, y aqui entra un objeto armado
-           por otro modulo. Mejor pagar la copia que perder el guardado. */
-        tx.objectStore(STORE).put(JSON.parse(JSON.stringify(estado)), CLAVE);
-        tx.oncomplete = resolve;
+        // A late mirror must never overwrite a newer cross-tab sale.
+        const copia = JSON.parse(JSON.stringify(estado));
+        let accepted = false;
+        const req = tx.objectStore(STORE).get(CLAVE);
+        req.onsuccess = function () {
+          const old = req.result;
+          if (old && Number(old._rev) >= Number(copia._rev)) {
+            accepted = old._rev === copia._rev && old._abCommit === copia._abCommit;
+            return;
+          }
+          tx.objectStore(STORE).put(copia, CLAVE);
+          accepted = true;
+        };
+        tx.oncomplete = function () { resolve(accepted); };
         tx.onerror = function () { reject(tx.error); };
         tx.onabort = function () { reject(tx.error || new Error("abortada")); };
       });
       _ultimoError = null;
-      return true;
+      return guardado === true;
     } catch (err) {
       _ultimoError = err || null;
       try { console.error("[estado-idb] guardar:", err); } catch (_) {}
       return false;
     }
+  }
+
+  // Atomic durable revision fence. Two tabs cannot acknowledge two different
+  // sales from the same base revision. IndexedDB serializes overlapping
+  // readwrite transactions; no 10-second Web Locks wait or cross-tab lease.
+  function guardarConRevision(estado, revisionAplicada) {
+    if (!SOPORTADO || !estado || !Number.isSafeInteger(revisionAplicada)) return Promise.resolve(false);
+    const op = _cola.then(async function () {
+      const copia = JSON.parse(JSON.stringify(estado));
+      const db = await abrirDB();
+      return new Promise(function (resolve) {
+        let accepted = false;
+        // Money/stock uses strict durability where the browser supports the hint.
+        const tx = db.transaction(STORE, "readwrite", { durability: "strict" });
+        const req = tx.objectStore(STORE).get(CLAVE);
+        req.onsuccess = function () {
+          const actual = req.result;
+          const rev = Number((actual && actual._rev) || 0);
+          if (rev > revisionAplicada || rev >= Number(copia._rev)) return;
+          tx.objectStore(STORE).put(copia, CLAVE);
+          accepted = true;
+        };
+        tx.oncomplete = function () { resolve(accepted); };
+        tx.onabort = function () { resolve(false); };
+        tx.onerror = function () { _ultimoError = tx.error || null; };
+      });
+    }).catch(function (e) { _ultimoError = e || null; return false; });
+    _cola = op.then(function () {}, function () {});
+    return op;
   }
 
   async function leer() {
@@ -213,5 +251,5 @@
     } catch (_) { return null; }
   }
 
-  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, ultimoError: function () { return _ultimoError; } };
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, guardarConRevision: guardarConRevision, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, ultimoError: function () { return _ultimoError; } };
 })();
