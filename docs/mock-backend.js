@@ -5802,59 +5802,10 @@
       if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
       return _fetchInterno(url,opts);
     };
-    if (navigator.locks && navigator.locks.request) {
-      // iOS may keep a Web Lock zombie after PWA backgrounding. Time out ONLY
-      // before entry: once the business write starts, never claim it failed.
-      const safeAbort = typeof AbortController === "function";
-      const controller = safeAbort ? new AbortController() : null;
-      let entered = false, expired = false, timer, failure;
-      const timeoutError = () => {
-        if (failure) return failure;
-        let spanish = false;
-        try { spanish = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es"); } catch (_) {}
-        const error = spanish ? "No se guardó. Intenta de nuevo." : "Not saved. Please try again.";
-        try {
-          let notice = document.getElementById("oc-write-timeout");
-          if (!notice) {
-            notice = document.createElement("div");
-            notice.id = "oc-write-timeout";
-            notice.setAttribute("role", "alert");
-            notice.style.cssText = "position:fixed;z-index:10005;left:16px;right:16px;bottom:16px;padding:16px;border-radius:8px;background:#7C1722;color:#FFFFFF;font-size:16px;font-weight:700;line-height:1.4;";
-            notice.addEventListener("click", () => notice.remove());
-            document.body.appendChild(notice);
-          }
-          notice.textContent = error;
-          setTimeout(() => { try { notice.remove(); } catch (_) {} }, 15000);
-        } catch (_) {}
-        failure = new Response(JSON.stringify({ error }), { status: 503, headers: { "Content-Type": "application/json" } });
-        return failure;
-      };
-      // Never bypass cross-tab serialization when an unabortable lock is present.
-      if (!safeAbort) return timeoutError(); // read-only on unsafe old browsers
-      const timeout = new Promise(resolve => {
-        timer = setTimeout(() => {
-          if (entered) return;
-          expired = true;
-          controller.abort();
-          resolve(timeoutError());
-        }, 10000);
-      });
-      try {
-        const locked = Promise.resolve(navigator.locks.request("f123-escrituras",
-          { signal: controller.signal }, () => {
-            if (expired || controller.signal.aborted) return timeoutError();
-            entered = true;
-            clearTimeout(timer);
-            return ejecutar();
-          })).catch(error => {
-            if (expired || (error && error.name === "AbortError")) return timeoutError();
-            throw error;
-          });
-        return await Promise.race([locked, timeout]);
-      } finally { clearTimeout(timer); }
-    }
-    // Same-device serialization is also needed where Web Locks is absent.
-    // This is not a lock or reservation between disconnected devices.
+    // P0: a tab-local FIFO + session fencing replaces the 10-second Web Lock
+    // queue. Durable cross-tab conflict detection is delegated to IndexedDB's
+    // atomic revision check (OCEstadoIDB.guardarConRevision), not to this lease.
+    // Never execute two business mutations at once in this tab.
     const operacion = _colaEscriturasLocal.then(ejecutar);
     _colaEscriturasLocal = operacion.catch(() => {});
     return operacion;
