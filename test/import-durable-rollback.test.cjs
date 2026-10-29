@@ -62,6 +62,32 @@ for(const failure of ['throw','false','partial'])test('queued catalog '+failure+
   assert.deepEqual(twice.movimientos,once.movimientos,'retry cannot append a duplicate merge audit');
 });
 
+test('a newer complete source projection can supply the missing parent of retained incomplete history',async()=>{
+  const w=browser(),remote=browser();
+  const product=await remote.request('/api/productos','POST',{nombre:'History survivor',barcode:'QUEUE-HISTORY',precio:9,costo:2,stockInicial:4});
+  const sale=await remote.request('/api/productos/'+product.id+'/venta','POST',{cantidad:1});
+  const complete=remote.catalog(),events=complete.actividad.filter(entry=>entry.clase==='evento');
+  assert.ok(events.length>=2,'the actual sealed source has a parent and child');
+  const parent=events[events.length-2],incomplete={...complete,actividad:complete.actividad.filter(entry=>entry!==parent)};
+  const backup=await w.request('/api/respaldo/exportar');
+  let release,started;const ready=new Promise(resolve=>{started=resolve;});
+  w.navigator.locks={request:(name,_options,fn)=>String(name).startsWith('f123-estado-ab')?
+    new Promise(resolve=>{release=()=>resolve(fn());started();}):Promise.resolve(fn())};
+  const imported=w.fetch('/api/respaldo/importar',{method:'POST',body:JSON.stringify(backup)});
+  await ready;assert.equal(w.OCSync.aplicarCatalogo(incomplete,null,true),false);release();
+  assert.equal((await imported).status,200);
+  w.navigator.locks={request:(_name,_options,fn)=>Promise.resolve(fn())};
+  const recovered=w.OCSync.aplicarCatalogo(complete,null,true);
+  assert.equal(recovered.ok,true,'retained incomplete data cannot block a newer complete Yjs projection');
+  assert.equal(recovered.actividadCompleta,true);
+  await w.OCSync.confirmarCatalogoDurable();
+  const snapshot=await w.request('/api/respaldo/exportar');
+  assert.equal(snapshot.ventas.filter(v=>v.id===sale.ventaId).length,1);
+  assert.equal(snapshot.productos.find(p=>p.id===product.id).stockActual,3);
+  const history=await w.request('/api/actividad');
+  assert.equal(history.filter(entry=>entry.id===parent.versiones[0].id).length,1,'the authentic parent arrives once');
+});
+
 test('a rejected import preserves the complete notebook and never auto-saves its provisional state',async()=>{
   const w=browser();
   const original=await w.request('/api/respaldo/exportar');

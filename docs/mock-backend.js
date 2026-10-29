@@ -3964,8 +3964,6 @@
       _payoutCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
     }
-    // Reprojection from the existing Y.Doc retries retained work; no second ledger or retry timer.
-    if (!_drenandoCatalogos && !_drenarCatalogosPendientes()) return { ok:false, error:"An incoming catalog is still pending application." };
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
     const dif = compararCatalogo(remoto, rolRemoto);
     if (!dif) return { ok: false, error: "The catalog received is not readable." };
@@ -4742,7 +4740,10 @@
        sincroniza (el producto ya tiene fotoHash), se intenta poner p.foto desde el
        blob ya guardado en OCFotos. */
     try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
-    return { ok: true, actividadCompleta: _actividadEstado(_actividadExportable()).ok, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo(), pinsConfirmados: Promise.all(promesasPins).then(resultados => resultados.every(ok => ok === true), () => false) };
+    const resultado = { ok: true, actividadCompleta: _actividadEstado(_actividadExportable()).ok, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo(), pinsConfirmados: Promise.all(promesasPins).then(resultados => resultados.every(ok => ok === true), () => false) };
+    // A current Y.Doc projection may supply missing history required by a retained older batch.
+    if (!_drenandoCatalogos && !_drenarCatalogosPendientes()) return Object.assign(resultado, { ok:false, error:"An incoming catalog is still pending application." });
+    return resultado;
   }
 
   /* ===================================================================
