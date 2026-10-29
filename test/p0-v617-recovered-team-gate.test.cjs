@@ -42,3 +42,26 @@ test('joined team login cannot overwrite original device owner PIN', () => {
 test('activated businesses reject demo PIN before lockout or another shop access', () => {
   assert.match(authSource, /if \(code === DEMO_PIN && dispositivoApropiado\(\)\) \{[\s\S]*?return;/);
 });
+
+test('unrecovered team metadata shows pending without classifying the PIN as wrong', () => {
+  const at = authSource.indexOf('    // A newly joined notebook with no verified owner credentials');
+  const stop = authSource.indexOf('    // A licensed browser with no local verifier', at);
+  assert.ok(at > 0 && stop > at);
+  const readiness = authSource.slice(at, stop);
+  const check = (ready, owner) => {
+    const messages = [];
+    const fn = new Function('window', 'error', readiness + ';return true;');
+    const window = {
+      OCTienda: { esUnida: () => true },
+      OCYjs: { roomId: 'synthetic-room', canal: { recuperando: !ready },
+        meta: { get: () => ({ owner }) } }
+    };
+    const ok = fn(window, msg => messages.push(msg));
+    return { ok, messages };
+  };
+  assert.equal(check(false, '432').ok, undefined);
+  assert.equal(check(false, '432').messages.length, 1);
+  assert.equal(check(true, '432').ok, true);
+  assert.equal(check(true, '432').messages.length, 0);
+  assert.equal(check(true, '456').ok, undefined);
+});
