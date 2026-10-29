@@ -5146,6 +5146,8 @@
       return this.catalogoPropio();
     },
     unirActividad: _actividadUnir,
+    /* v609: revision durable local; la usa el barrido periodico de sync-yjs para saltarse ciclos sin cambios. */
+    revisionLocal() { return _localRev; },
     catalogoPropio() {
       if (!_estadoPuedeEnviarse()) return null; // v599: no espera al guardado en curso
       if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK

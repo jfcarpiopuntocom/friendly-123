@@ -2593,7 +2593,25 @@
     // The live event path publishes immediately. The current 150ms diagnostic
     // starts at publication and cannot certify time spent before that boundary.
     // This local sweep sends nothing when the catalog is unchanged.
-    if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () { try { if (API.estado === "activo") sembrar(); } catch (_) {} }, 2000);
+    /* v609 perf (CPU en reposo): el barrido se salta si NO cambio nada desde el ultimo: misma revision durable
+       local (OCSync.revisionLocal) y ningun update del doc Yjs. Maximo 4 saltos seguidos, asi que la
+       garantia "se publica en <=10 s" se mantiene aunque la firma no detecte un cambio. Sin revisionLocal
+       (arneses viejos) nunca se salta. */
+    var _barridoFirma = null, _barridoSaltos = 0, _docUpdates = 0;
+    if (!API._cuentaUpdatesBarrido && API.doc && API.doc.on) { API._cuentaUpdatesBarrido = true; API.doc.on("update", function () { _docUpdates++; }); }
+    function firmaBarrido() {
+      try { var f = window.OCSync && window.OCSync.revisionLocal; return typeof f === "function" ? f.call(window.OCSync) + "|" + _docUpdates : null; } catch (_) { return null; }
+    }
+    if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () {
+      try {
+        if (API.estado !== "activo") return;
+        var firma = firmaBarrido();
+        if (firma !== null && firma === _barridoFirma && _barridoSaltos < 4) { _barridoSaltos++; return; }
+        _barridoSaltos = 0; _barridoFirma = firma;
+        sembrar();
+        _barridoFirma = firmaBarrido(); // sembrar() puede escribir al doc: la firma de referencia es la posterior
+      } catch (_) {}
+    }, 2000);
 
     API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
   }

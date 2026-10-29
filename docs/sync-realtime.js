@@ -223,6 +223,17 @@
     try { const a = JSON.parse(localStorage.getItem(COLA_KEY) || "[]"); return Array.isArray(a) ? a : []; }
     catch (_) { return []; }
   }
+  /* v609 perf: la pregunta "hay algo en la cola?" se hace en cada tick/estado. Se cachea el LARGO por el texto
+     crudo de localStorage (si otro tab o guardarCola lo cambian, el texto cambia y se reparsea). */
+  let _colaCrudo = null, _colaLargo = 0;
+  function colaLargo() {
+    let crudo = null;
+    try { crudo = localStorage.getItem(COLA_KEY); } catch (_) { return leerCola().length; }
+    if (crudo !== null && crudo === _colaCrudo) return _colaLargo;
+    const n = leerCola().length;
+    _colaCrudo = crudo; _colaLargo = n;
+    return n;
+  }
   function guardarCola(cola) {
     try {
       /* FASE 2 (2026-08-27): antes se descartaba en silencio lo que pasara de
@@ -359,7 +370,7 @@
   const pendientesCanales = Object.create(null);
   let _retryDurable = null;
   function tienePendientesDurables() {
-    return leerCola().length > 0 || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
+    return colaLargo() > 0 || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
   }
   function notificarEstado(nuevo) {
     estadoActual = nuevo;
@@ -377,7 +388,7 @@
      sin fin. Ahora la espera se duplica hasta 10 min y vuelve a 30 s cuando la cola se vacia. */
   let _retryDurableMs = 30000;
   function reintentarDurable() {
-    if (_retryDurable || !leerCola().length) { if (!leerCola().length) _retryDurableMs = 30000; return; }
+    if (_retryDurable || !colaLargo()) { if (!colaLargo()) _retryDurableMs = 30000; return; }
     _retryDurable = setTimeout(function () {
       _retryDurable = null; vaciarCola();
       _retryDurableMs = Math.min(600000, _retryDurableMs * 2);
