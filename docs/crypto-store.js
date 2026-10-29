@@ -148,7 +148,15 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       // activated on this browser. A different browser needs authenticated
       // credential recovery, not a silently generated competing owner.
       let activado = false;
-      try { activado = !!(JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).instanceId; } catch (_) {}
+      try {
+        const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        activado = !!(owned.instanceId || /^F123-/i.test(String(owned.licenseCode || "").trim()));
+        if (!activado && localStorage.getItem("f123_tienda_activa")) activado = true;
+        if (!activado) {
+          const tiendas = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {};
+          activado = Object.keys(tiendas).length > 0;
+        }
+      } catch (_) { activado = true; /* malformed business identity: fail closed */ }
       if (activado && !viejo) return false;
       const DEF = { owner: "789", encargados: ["260"], acct: "357", email: "" };
       const base = viejo || DEF;
