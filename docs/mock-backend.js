@@ -4907,8 +4907,10 @@
          licencia canónica _licenciaPropia() ya la devuelve y esta rama la ancla a
          "" (mismo:true, sin switch ni movimiento de data). */
       let sufDest;
-      if (norm === _licenciaPropia()) sufDest = OC_STATE_SUFIJO; // mi casa: quedarme en el cajón con data (elegido al arrancar), nunca forzar "" vacío
-      else if (norm === desde) sufDest = OC_STATE_SUFIJO;        // ya estoy en esa tienda
+      // P0 v615: compare against the PRE-JOIN active license. unirse() has already
+      // written the requested license into f123_owned, so _licenciaPropia() is NOT
+      // evidence that the current notebook is the requested notebook.
+      if (norm === desde) sufDest = OC_STATE_SUFIJO; // genuinely same active notebook
       else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
       else sufDest = "::" + norm;                                // tienda ajena nueva
       reg[norm] = sufDest;
