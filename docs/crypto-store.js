@@ -269,6 +269,34 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       ...(retiradosAnteriores ? { retiredOwnerCredentials: retiradosAnteriores } : {}) });
   }
 
+  // P0 v616: first join on an activated browser may have NO local f123_secure.
+  // Existing fijarOwnerPin()/fijarEmpleadoPin() intentionally refuse that state,
+  // leaving a real owner locked out despite receiving the actual team PINs.
+  // Admit credentials ONLY from the current encrypted, recovered Yjs room.
+  // Never synthesize factory PINs, never overwrite existing local credentials.
+  async function instalarCredencialesDesdeSala(pins) {
+    if (estadoSecreto() !== "vacio" || !pins) return false;
+    const owner = String(pins.owner || "");
+    if (!/^\\d{3}$/.test(owner) || owner === "456") return false;
+    try {
+      const Y = window.OCYjs, T = window.OCTienda;
+      const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
+      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (!/^F123-/.test(lic) || own.licenseCode !== lic) return false;
+      if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
+          !Y.meta || typeof Y.meta.get !== "function") return false;
+      const actual = Y.meta.get("pinsRol");
+      if (!actual || String(actual.owner || "") !== owner) return false;
+      // No guessed values: missing employee/accounting credentials stay absent.
+      const emp = String(pins.emp || "");
+      const acct = String(pins.acct || "");
+      const employees = /^\\d{3}$/.test(emp) && emp !== "456" ? [emp] : [];
+      const accounting = /^\\d{3}$/.test(acct) && acct !== "456" ? acct : "";
+      if (estadoSecreto() !== "vacio") return false;
+      return await guardarSecreto(owner, employees, accounting, "", null);
+    } catch (_) { return false; }
+  }
+
   // Lee los PINs visibles (copias XOR) para mostrarlos en Advanced/Team.
   // Devuelve { owner, empleados:[...], acct } o null si no hay copias (PINs
   // fijados antes de este cambio). Solo para JFC (master admin / soporte).
@@ -873,7 +901,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   }
 
   window.OCSecure = {
-    migrarSiHaceFalta, guardarSecreto, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
+    migrarSiHaceFalta, guardarSecreto, instalarCredencialesDesdeSala, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
     estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
