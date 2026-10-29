@@ -9,13 +9,14 @@ const method=mock.slice(mock.indexOf('    cambiar(licencia, opts) {'),
  mock.indexOf('    /* CLAIM / MERGE',mock.indexOf('    cambiar(licencia, opts) {')));
 assert.ok(method.startsWith('    cambiar(')&&method.includes('sufDest'));
 
-function change(from,destination,active,storedOwned){
+function change(from,destination,active,storedOwned,registry='{}',pending=''){
  const m=new Map([
  ['f123_owned',JSON.stringify({licenseCode:storedOwned})],
  ['f123_tienda_activa',active],
- ['f123_tiendas','{}'],
+ ['f123_tiendas',registry],
  ['f123_estado_v4_A','{"nombreNegocio":"Store A","productos":[{"id":"A"}]}']
  ]);
+ if (pending) m.set('f123_join_pending_v1',JSON.stringify({licenseCode:pending,instanceId:'synthetic-actor'}));
  let reloads=0, flushes=0;
  const env=[
  'const localStorage={getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,String(v))};',
@@ -51,6 +52,19 @@ test('P0: an old own-license notebook remains in its existing slot on same-licen
  const r=change(A,A,'',A);
  assert.equal(r.result.mismo,true);
  assert.equal(r.active,'');
+});
+test('P0: a browser already damaged by v614 duplicate same-slot mapping can rejoin safely',()=>{
+ const registry=JSON.stringify({[A]:'',[B]:''});
+ const r=change(B,B,'',B,registry,B);
+ assert.equal(r.result.cambiado,true,'explicit rejoin must not remain in the wrong old notebook');
+ assert.equal(r.active,'::'+B);
+ assert.equal(r.reloads,1);
+ assert.match(r.oldData,/Store A/,'old business data was preserved byte-for-byte');
+});
+test('P0: a registered target namespace is honored even after the owned sidecar was changed',()=>{
+ const r=change(B,B,'',B,JSON.stringify({[B]:'::'+B}),B);
+ assert.equal(r.result.cambiado,true);
+ assert.equal(r.active,'::'+B);
 });
 test('P0: joining must not connect to destination relay before notebook switch',()=>{
  assert.match(sync,/unirse\(codigo\)\s*\{[\s\S]*?this\.activar\(codigo,\s*\{\s*esJoin:\s*true\s*\}\)/);
