@@ -4860,6 +4860,11 @@
       // Registro licencia -> sufijo.
       let reg = {};
       try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
+      // Capture v614 alias collisions BEFORE pruning stale registry entries:
+      // pruning removes precisely the old-license witness needed for recovery.
+      var aliasActivoAntes = Object.keys(reg).some(function (k) {
+        return _normLic(k) !== norm && reg[k] === OC_STATE_SUFIJO;
+      });
       /* Guest licenses must not map to the own-store suffix "". That was the
          f123_tiendas corruption (P3W1D/JENF → ""). Own license MAY be "". */
       try {
@@ -4907,8 +4912,24 @@
          licencia canónica _licenciaPropia() ya la devuelve y esta rama la ancla a
          "" (mismo:true, sin switch ni movimiento de data). */
       let sufDest;
-      if (norm === _licenciaPropia()) sufDest = OC_STATE_SUFIJO; // mi casa: quedarme en el cajón con data (elegido al arrancar), nunca forzar "" vacío
-      else if (norm === desde) sufDest = OC_STATE_SUFIJO;        // ya estoy en esa tienda
+      // P0 v615: compare against the PRE-JOIN active license. unirse() has already
+      // written the requested license into f123_owned, so _licenciaPropia() is NOT
+      // evidence that the current notebook is the requested notebook.
+      // P0 v615 recovery: v614 may already have registered TWO licenses to one
+      // active namespace after the premature owned-license mutation. On an
+      // explicit pending join, that alias is not proof that the requested
+      // license's actual notebook was selected. Keep every old buffer intact.
+      var joinPendiente = false;
+      try {
+        var pedido = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+        joinPendiente = _normLic(pedido.licenseCode || "") === norm;
+      } catch (_) {}
+      var destinoRegistrado = Object.prototype.hasOwnProperty.call(reg, norm);
+      var colisionAnterior = joinPendiente && destinoRegistrado &&
+        reg[norm] === OC_STATE_SUFIJO && aliasActivoAntes;
+      if (colisionAnterior) sufDest = "::" + norm; // isolate the selected license; never overwrite its predecessor
+      else if (norm === desde && destinoRegistrado && reg[norm] !== OC_STATE_SUFIJO) sufDest = reg[norm];
+      else if (norm === desde) sufDest = OC_STATE_SUFIJO;
       else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
       else sufDest = "::" + norm;                                // tienda ajena nueva
       reg[norm] = sufDest;
