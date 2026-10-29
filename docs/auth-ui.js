@@ -1932,9 +1932,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         try { inp.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
       } catch (_) { setTimeout(alEscribir, 0); }
     });
-    inp.addEventListener("focus", function () {
-      if (!inp.value) { inp.value = PRE + "-"; try { inp.setSelectionRange(PRE.length + 1, PRE.length + 1); } catch (_) {} }
-    });
+    // P0 v615 mobile: keep an empty input truly empty on focus. Injecting
+    // "F123-" programmatically interferes with native long-press Paste/selection.
+    // The existing input event still formats real text after typing or paste.
     inp.addEventListener("blur", function () {
       if (inp.value === PRE + "-" || inp.value === PRE) inp.value = "";
     });
@@ -1946,7 +1946,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
       <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;">${window.t("auth.join.title")}</h2>
       <p style="font-size:14px;color:var(--ink-soft,#5d5340);margin:0 0 14px;">${window.t("auth.join.body")}</p>
-      <input id="oc-ue-codigo" type="text" placeholder="${window.t("auth.join.placeholder")}" style="width:100%;box-sizing:border-box;padding:11px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:16px;font-family:var(--font-mono,monospace);text-align:center;text-transform:uppercase;margin-bottom:10px;">
+      <input id="oc-ue-codigo" type="text" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${window.t("auth.join.placeholder")}" style="width:100%;box-sizing:border-box;padding:14px 12px;min-height:52px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:16px;font-family:var(--font-mono,monospace);text-align:left;text-transform:uppercase;user-select:text;-webkit-user-select:text;touch-action:manipulation;margin-bottom:10px;">
       <button id="oc-ue-confirmar" style="width:100%;min-height:48px;padding:14px;border-radius:9px;border:2px solid var(--rust,#b2461f);background:var(--rust,#b2461f);color:#fff;font-size:16px;font-weight:700;cursor:pointer;">${window.t("auth.join.confirm")}</button>
       <button id="oc-ue-cancelar" style="width:100%;min-height:44px;margin-top:10px;padding:11px;border-radius:9px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68);font-size:15px;font-weight:700;cursor:pointer;">${window.t("auth.join.cancel")}</button>
       <p id="oc-ue-msg" style="min-height:20px;font-size:14px;font-weight:700;color:var(--rojo,#a3392a);margin-top:12px;"></p>
