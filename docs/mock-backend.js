@@ -4617,10 +4617,22 @@
             return !!ok;
           }).catch(function () { return false; }));
         };
-        if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
-        const localEmp = (vis.empleados && vis.empleados[0]) || "";
-        if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
-        if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+        // v616: an already licensed phone with NO f123_secure cannot use
+        // fijarOwnerPin (it requires a previous salt). Install exactly the
+        // encrypted room's PINs once; never fabricate or replace an owner PIN.
+        const nuevoEquipoSinPIN = window.OCSecure.estadoSecreto &&
+          window.OCSecure.estadoSecreto() === "vacio" &&
+          window.OCSecure.instalarCredencialesDesdeSala && pr.owner;
+        if (nuevoEquipoSinPIN) {
+          promesasPins.push(Promise.resolve().then(function () {
+            return window.OCSecure.instalarCredencialesDesdeSala(pr);
+          }).then(function (ok) { return ok === true; }, function () { return false; }));
+        } else {
+          if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
+          const localEmp = (vis.empleados && vis.empleados[0]) || "";
+          if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
+          if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+        }
       }
     } catch (_) {}
     /* Categorías (ver categoriasMeta). Gana la revisión mayor; una entrada
@@ -4931,8 +4943,7 @@
       // have NO reliable owner. Do not invent an empty destination and conceal
       // real shop data; refuse the join without moving its storage pointer.
       if (colisionAnterior) return { ok: false, error: "Two licenses reference the same saved notebook. The existing business has been preserved; automatic switching is blocked until its identity can be verified." };
-      if (colisionAnterior) sufDest = "::" + norm; // unreachable, retained guard
-      else if (norm === desde && destinoRegistrado && reg[norm] !== OC_STATE_SUFIJO) sufDest = reg[norm];
+      if (norm === desde && destinoRegistrado && reg[norm] !== OC_STATE_SUFIJO) sufDest = reg[norm];
       else if (norm === desde) sufDest = OC_STATE_SUFIJO;
       else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
       else sufDest = "::" + norm;                                // tienda ajena nueva
