@@ -34,6 +34,24 @@ test('base distinta: un dato mas viejo del otro aparato no pisa la correccion lo
   cel.OCSync.aplicarCatalogo(remotoCon(cel, 'p-aya-2', 3, { pc: { add: 0, sub: 2 } }, 1, 1000), null);
   assert.equal(await stockDe(cel, 'p-aya-2'), 0);
 });
+
+test('legacy baseline fork: a future local clock cannot reject the valid remote inventory forever',async()=>{
+  const now=Date.now();
+  const valid=await aparato('future-fork',4,{valid:{add:5,sub:0}},9,now);
+  const future=await aparato('future-fork',8,{future:{add:0,sub:2}},6,now+3600000);
+  for(const w of [valid,future])w.OCLatencia={ahoraRelay:()=>now};
+  for(let round=0;round<3;round++){
+    const a=valid.catalog(),b=future.catalog();
+    valid.OCSync.aplicarCatalogo(b,null);future.OCSync.aplicarCatalogo(a,null);
+  }
+  for(const w of [valid,future]){
+    const p=(await w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='future-fork');
+    assert.equal(p.stockActual,9,'both directions choose the existing valid legacy winner');
+    assert.equal(p.stockBase,4);assert.equal(p.stockTs,now);
+    assert.equal(p.stockEvidencias['8'].pn.future.sub,2,'the losing baseline evidence remains recoverable');
+    assert.equal(p.stockEvidencias['4'].pn.valid.add,5);
+  }
+});
 test('base distinta con la misma hora: los dos aparatos eligen el mismo numero', async () => {
   const a = await aparato('p-x', 3, { a: { add: 0, sub: 2 } }, 1, 7000);
   a.OCSync.aplicarCatalogo(remotoCon(a, 'p-x', 1, { b: { add: 0, sub: 1 } }, 0, 7000), null);

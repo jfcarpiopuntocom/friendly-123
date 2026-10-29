@@ -3392,7 +3392,9 @@
   function _ganaEpocaStockRemota(remoto, local) {
     const tR = Number(remoto && remoto.stockTs) || 0, tL = Number(local && local.stockTs) || 0;
     const ahora = typeof ahoraRelayComun === "function" ? ahoraRelayComun() : null;
-    if (ahora !== null && tR > ahora + 5 * 60 * 1000) return false;
+    const futuroRemoto = ahora !== null && tR > ahora + 5 * 60 * 1000;
+    const futuroLocal = ahora !== null && tL > ahora + 5 * 60 * 1000;
+    if (futuroRemoto !== futuroLocal) return !futuroRemoto;
     if (tR !== tL) return tR > tL;
     return _claveEpocaStock(remoto) > _claveEpocaStock(local);
   }
