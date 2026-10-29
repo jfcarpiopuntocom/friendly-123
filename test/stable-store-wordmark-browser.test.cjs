@@ -4,10 +4,9 @@
 // No production network, no user notebook and no mutations of real business data.
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {startServer,openDevice,chromium}=require('./helpers/e2e-app.cjs');
-// OWNER DECISION (JFC 2026-10-28): store name in solid gold #E8A020 (was dark gold 107,72,0). The silver header is light,
-// so a 1px #2C1A00 outline keeps it readable; the outline is asserted below.
-const GOLD='rgb(232, 160, 32)';
-const DASH_GOLD='rgb(107, 72, 0)'; // dashboard.html keeps its own dark-gold wordmark rule (owner decision covers the app header only)
+// JFC 2026-10-28: use the logo yellow and a black outline in app and dashboard.
+const GOLD='rgb(239, 195, 26)';
+const DASH_GOLD=GOLD;
 test('real PWA: dynamic store wordmark uses bundled display, accessible dark gold, no mobile header overflow', {timeout:120000},async()=>{
  const {srv,base}=await startServer();let browser;
  try{
@@ -28,7 +27,7 @@ test('real PWA: dynamic store wordmark uses bundled display, accessible dark gol
     },name);
     assert.equal(result.text,name,'full Unicode name survives DOM and exportable text');
     assert.ok(result.font.includes('Space Grotesk'),'reuse already bundled friendly display font');
-    assert.equal(result.weight,'700');assert.equal(result.color,GOLD);assert.equal(result.fill,GOLD);assert.equal(result.strokeW,'1px');assert.equal(result.strokeC,'rgb(44, 26, 0)');
+    assert.equal(result.weight,'700');assert.equal(result.color,GOLD);assert.equal(result.fill,GOLD);assert.equal(result.strokeW,'1px');assert.equal(result.strokeC,'rgb(0, 0, 0)');
     assert.ok(result.spanRight<=result.headerRight+2,`header branding overflow width=${width} nameLength=${name.length}: ${JSON.stringify(result)}`);
     if(name.length>100)assert.ok(result.scrollWidth>=result.clientWidth,'long name is clipped ONLY visually');
     assert.ok(!result.html.includes('<svg'),'no generated per-client graphic nor HTML injection');

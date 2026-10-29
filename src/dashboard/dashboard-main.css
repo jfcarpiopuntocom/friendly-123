@@ -355,7 +355,7 @@
   #aviso-app-abierta .paso{display:block;font-size:13px;color:#4a3410;margin-top:4px;}
   .hint-boton{font-size:13px;color:#2C3E50;text-align:center;margin:6px 0 10px;}
 
-/* Business wordmark uses the same locally bundled friendly display face and restrained gold. */
-.top #neg-nombre{font-family:var(--font-display,"Space Grotesk",sans-serif)!important;font-weight:700!important;letter-spacing:-.035em;color:#6B4800!important;-webkit-text-fill-color:#6B4800!important;text-shadow:0 1px 0 rgba(255,225,145,.75);display:inline-block;min-width:0;max-inline-size:min(44ch,52vw);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* JFC: business name matches the logo yellow, with the requested black outline. */
+.top #neg-nombre{font-family:var(--font-display,"Space Grotesk",sans-serif)!important;font-weight:700!important;letter-spacing:-.035em;color:#EFC31A!important;-webkit-text-fill-color:#EFC31A!important;-webkit-text-stroke:1px #000;paint-order:stroke fill;text-shadow:0 1px 0 #000;display:inline-block;min-width:0;max-inline-size:min(44ch,52vw);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 @media(max-width:600px){.top #neg-nombre{max-inline-size:75vw}}
 @media(forced-colors:active){.top #neg-nombre{color:CanvasText!important;-webkit-text-fill-color:CanvasText!important;text-shadow:none}}
