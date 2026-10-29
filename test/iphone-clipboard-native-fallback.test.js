@@ -13,7 +13,9 @@ for (const file of ["auth-ui.js", "dashboard.html"]) {
       ? require('./helpers/page-source.cjs').readFileSync(path.join(__dirname, "../docs", file), "utf8")
       : fs.readFileSync(path.join(__dirname, "../docs", file), "utf8");
     const begin = text.indexOf('inp.addEventListener("paste", function (e) {');
-    const end = text.indexOf('inp.addEventListener("focus", function () {', begin);
+    // Focus must remain empty for native iOS Paste; the blur listener is the
+    // next stable boundary after the paste handler in both entry points.
+    const end = text.indexOf('inp.addEventListener("blur", function () {', begin);
     assert.ok(begin > 0 && end > begin, "paste and focus handlers must be located in the real source");
     const listeners = {};
     let formatted = 0, inputEvents = 0, deferred = 0;
