@@ -100,7 +100,7 @@ test('remote facts retain IndexedDB abort causes and recover locally without ano
     await page.waitForFunction(async () =>
       (await AMG.Hechos.todos()).some(h => h.id === 'remote-abort-2'), null, { timeout: 6000 });
     assert.ok(await page.evaluate(() => window.__attempts >= 2), 'original remote fact must be retried');
-    assert.equal(await page.evaluate(() => OCYjs.hechosListos()), true, 'recovered fact is durable and ready');
+    assert.equal(await page.evaluate(() => OCYjs.hechosListos()), false, 'permanently invalid hash remains quarantined after a valid fact recovers');
   } finally {
     await browser.close();
     await new Promise(resolve => server.close(resolve));
