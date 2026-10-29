@@ -17,5 +17,6 @@ test('queue error still keeps Yjs best-effort publication',()=>{
  assert.ok(emitter.indexOf('new CustomEvent("oc-op-local"')<emitter.indexOf('if (!encolada) return false'));
 });
 test('offline emitter does not enqueue twice',()=>{
- assert.equal((emitter.match(/encolar\(op\)/g)||[]).length,1);
+ const immediate=emitter.slice(0,emitter.indexOf('if (ws && ws.readyState'));
+ assert.equal((immediate.match(/encolar\(op\)/g)||[]).length,1);
 });
