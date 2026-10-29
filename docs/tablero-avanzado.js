@@ -191,6 +191,55 @@
           });
         });
 
+        // Named member PINs are changed by the SAME authorized PATCH endpoint
+        // as Advanced. Never expose existing PINs or keep entered PINs in logs.
+        c.querySelectorAll("[data-pin-edit]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            if (b.dataset.editing === "1") return;
+            b.dataset.editing = "1";
+            var editor = document.createElement("span");
+            editor.style.cssText = "display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0;";
+            var input = document.createElement("input");
+            input.type = "password";
+            input.inputMode = "numeric";
+            input.autocomplete = "new-password";
+            input.maxLength = 3;
+            input.placeholder = _es_ta() ? "PIN nuevo" : "New PIN";
+            input.setAttribute("aria-label", _es_ta() ? "Nuevo PIN de 3 dígitos" : "New 3-digit PIN");
+            input.style.cssText = "width:120px;min-height:44px;padding:9px;border:2px solid var(--hairline);border-radius:8px;font-size:16px;";
+            var save = document.createElement("button");
+            save.type = "button";
+            save.textContent = _es_ta() ? "Guardar" : "Save";
+            save.style.cssText = "min-height:44px;padding:9px 12px;border:2px solid var(--hairline);border-radius:8px;cursor:pointer;";
+            var cancel = document.createElement("button");
+            cancel.type = "button";
+            cancel.textContent = _es_ta() ? "Cancelar" : "Cancel";
+            cancel.style.cssText = save.style.cssText;
+            var close = function () { input.value = ""; editor.remove(); b.dataset.editing = "0"; b.disabled = false; };
+            cancel.addEventListener("click", close);
+            save.addEventListener("click", async function () {
+              var newPin = input.value.trim();
+              if (!/^\d{3}$/.test(newPin)) { msg(_es_ta() ? "El PIN debe tener exactamente 3 cifras." : "PIN must have exactly 3 digits.", true); return; }
+              save.disabled = true;
+              var r2;
+              try { r2 = await ordenar("PATCH", "/api/usuarios/" + encodeURIComponent(b.dataset.pinEdit), { pin: newPin }); }
+              catch (_) { r2 = { ok: false, datos: { error: "The authorized device is unavailable." } }; }
+              input.value = "";
+              save.disabled = false;
+              if (!r2 || !r2.ok) { msg((r2 && r2.datos && r2.datos.error) || "PIN not changed.", true); return; }
+              close();
+              msg(_es_ta() ? "PIN cambiado en el dispositivo autorizado. Comprueba la sincronización del equipo." :
+                             "PIN changed on the authorized device. Check team synchronization.");
+              AVZ.equipo.pintar(c);
+            });
+            editor.appendChild(input);
+            editor.appendChild(save);
+            editor.appendChild(cancel);
+            b.insertAdjacentElement("afterend", editor);
+            input.focus();
+          });
+        });
+
         var add = document.getElementById("avz-add");
         if (add) add.addEventListener("click", async function () {
           var nombre = document.getElementById("avz-nom").value.trim();
