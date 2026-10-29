@@ -827,6 +827,29 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   async function identificarPin(pin) {
     const p = String(pin || "");
     if (!/^\d{3}$/.test(p)) return null;
+    // P0 v617: a joined phone can have an unrelated local f123_secure.
+    // Consult ONLY the fully recovered encrypted Yjs notebook for its team PINs.
+    // This is read-only: no factory PIN, sidecar owner, reset or credential rewrite.
+    try {
+      const T = window.OCTienda, Y = window.OCYjs;
+      const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
+      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+      const joined = T && T.esUnida && T.esUnida();
+      const explicit = join.instanceId && join.instanceId === own.instanceId && join.licenseCode === lic;
+      if ((joined || explicit) && /^F123-/.test(lic) && own.licenseCode === lic &&
+          Y && Y.roomId && Y.canal && Y.canal.recuperando === false &&
+          Y.meta && typeof Y.meta.get === "function") {
+        const team = Y.meta.get("pinsRol");
+        const valid = (v, factory) => /^\d{3}$/.test(String(v || "")) &&
+          String(v) !== "456" && String(v) !== factory;
+        if (team && valid(team.owner, "789")) {
+          if (p === String(team.owner)) return "dueno";
+          if (valid(team.emp, "260") && p === String(team.emp)) return "empleado";
+          if (valid(team.acct, "357") && p === String(team.acct)) return "contador";
+        }
+      }
+    } catch (_) { /* no unverified access on malformed room metadata */ }
     const s = leerSecreto();
     if (!s) return null;
     let hashOwnerCandidato = null;
