@@ -130,13 +130,24 @@
             '<button type="button" data-u="' + esc(u.id) + '" data-act="' + (act ? "0" : "1") + '" ' +
               'style="min-height:44px;padding:9px 14px;border-radius:9px;border:2px solid var(--hairline);' +
               'background:#FFFFFF;font-size:14px;font-weight:700;cursor:pointer;">' +
-              (act ? "Dar de baja" : "Reactivar") + "</button>",
+              (act ? "Dar de baja" : "Reactivar") + "</button> " +
+              '<button type="button" data-pin-edit="' + esc(u.id) + '" ' +
+              'style="min-height:44px;padding:9px 14px;border-radius:9px;border:2px solid var(--hairline);' +
+              'background:#FFFFFF;font-size:14px;font-weight:700;cursor:pointer;">' +
+              (_es_ta() ? "Cambiar PIN" : "Change PIN") + '</button>', 
           ];
         });
 
         c.innerHTML =
-          '<p style="font-size:15px;line-height:1.55;margin:0 0 12px;">' +
-          "Each person signs in with their own PIN. PINs are not shown here." + "</p>" +
+          '<div role="note" style="padding:15px 17px;margin:0 0 15px;border:1px solid var(--hairline);border-radius:12px;background:#F8F9FB;color:#0F1923;">' +
+          '<strong style="display:block;font-size:17px;margin-bottom:7px;">' + esc(_es_ta() ? "Controla quién entra a tu negocio" : "You control who enters your business") + '</strong>' +
+          '<p style="font-size:14px;line-height:1.6;margin:0 0 8px;">' + esc(_es_ta() ?
+            "1. Da de baja a quien ya no trabaja contigo. 2. Cambia su PIN si sospechas que se compartió. 3. Si también se filtró el código del negocio, rótalo desde Advanced de tu aplicación." :
+            "1. Deactivate former team members. 2. Change a PIN if you suspect it was shared. 3. If your business code also leaked, rotate it in your app’s Advanced section.") + '</p>' +
+          '<p style="font-size:13px;line-height:1.55;margin:0;">' + esc(_es_ta() ?
+            "Las sesiones conectadas se revalidan cuando reciben el cambio. Un aparato desconectado puede conservar datos anteriores hasta reconectarse. Ningún cambio puede retirar lo que alguien ya copió." :
+            "Connected sessions are rechecked when the update arrives. Offline devices may retain previously downloaded data until reconnection. No action can erase copies someone already made.") + '</p>' +
+          '</div>' +
           tabla(["Nombre", "Rol", "Correo", "Estado", ""], filas, "Todavía no hay nadie más en el equipo.") +
 
           '<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--hairline);">' +
@@ -154,13 +165,28 @@
           "</div>";
 
         c.querySelectorAll("[data-u]").forEach(function (b) {
+          var confirmando = false;
+          var tituloOriginal = b.textContent;
           b.addEventListener("click", async function () {
+            // Inline two-step confirmation: no modal, no disruptive overlay.
+            if (b.dataset.act === "0" && !confirmando) {
+              confirmando = true;
+              b.textContent = _es_ta() ? "Confirmar baja" : "Confirm deactivation";
+              msg(_es_ta() ? "Pulsa de nuevo para dar de baja. La sesión se cerrará cuando el cambio llegue a ese aparato." :
+                               "Press again to deactivate. Their session closes when their device receives the update.");
+              return;
+            }
             b.disabled = true;
-            msg("Pidiendo el cambio a tu dispositivo…");
-            var r2 = await ordenar("PATCH", "/api/usuarios/" + b.dataset.u, { activo: b.dataset.act === "1" });
+            msg(_es_ta() ? "Enviando cambio al dispositivo autorizado…" : "Sending change to the authorized device…");
+            var r2;
+            try { r2 = await ordenar("PATCH", "/api/usuarios/" + encodeURIComponent(b.dataset.u), { activo: b.dataset.act === "1" }); }
+            catch (e) { r2 = { ok: false, datos: { error: "Could not reach the authorized device." } }; }
             b.disabled = false;
-            if (!r2.ok) { msg((r2.datos && r2.datos.error) || "No se pudo.", true); return; }
-            msg("Hecho.");
+            confirmando = false;
+            b.textContent = tituloOriginal;
+            if (!r2 || !r2.ok) { msg((r2 && r2.datos && r2.datos.error) || "No se pudo guardar el cambio.", true); return; }
+            msg(_es_ta() ? "Cambio guardado. Comprueba la sincronización del otro aparato." :
+                           "Change saved. Check that the other device has synced.");
             AVZ.equipo.pintar(c);
           });
         });
