@@ -1512,6 +1512,8 @@
       let revisionDisco = 0;
       try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (e) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = e; }
       if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
+      // P0: reject a stale local snapshot instead of overwriting another tab.
+      if (exigirCompleto && revisionDisco > _localRev) return false;
       const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
       _localRevReservado = _revIntento;
       /* v609 perf: antes = copia profunda de cada coleccion (stringify+parse) y luego OTRO stringify para el A/B.
@@ -1525,9 +1527,13 @@
       const crudo = JSON.stringify(vivo);
       const completo = JSON.parse(crudo);
       let local = false;
-      try {
-        if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
-      } catch (_) {} finally { _guardandoAB = false; }
+      const idb = window.OCEstadoIDB;
+      const casDisponible = exigirCompleto && idb && typeof idb.guardarConRevision === "function";
+      if (!exigirCompleto) {
+        try {
+          if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
+        } catch (_) {} finally { _guardandoAB = false; }
+      }
       const terminar = ok => {
         if (ok) {
           if (actividadVigente) _confirmarActividad(actividadVigente);
@@ -1540,13 +1546,28 @@
         } else _falloGuardadoLocal(_causaGuardado(ab));
         return ok;
       };
-      // Only an exact IDB snapshot may acknowledge a failed local commit.
+      // Strict money/stock commits use ONE atomic IDB readwrite transaction:
+      // check the prior revision and put the full exact snapshot together.
+      // A/B becomes a best-effort post-ACK backup, never a second Web Lock.
+      if (exigirCompleto) {
+        if (!casDisponible) return terminar(false);
+        return idb.guardarConRevision(completo, _localRev).then(ok => {
+          if (!ok) return terminar(false);
+          const ack = terminar(true);
+          if (ab && tokenOk) setTimeout(() => {
+            try { _guardandoAB = true; ab.guardarAhora(crudo); }
+            catch (_) {} finally { _guardandoAB = false; }
+          }, 0);
+          return ack;
+        }, () => terminar(false));
+      }
+      // Non-financial background state still uses existing A/B recovery.
       if (local) { _espejarEnIDB(completo, true); return terminar(true); }
       if (_estadoLecturaBloqueada || (ab && !ab.permiteEspejo())) return terminar(false);
       return Promise.resolve(_espejarEnIDB(completo, true)).then(ok => terminar(ok === true), () => terminar(false));
     };
     try {
-      const resultado = ab ? ab.conCandado(ejecutar) : ejecutar();
+      const resultado = ejecutar();
       return resultado && typeof resultado.then === "function"
         ? resultado.catch(_falloGuardadoLocal) : resultado;
     } catch (e) { return _falloGuardadoLocal(e); }
