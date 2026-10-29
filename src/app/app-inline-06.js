@@ -32,7 +32,7 @@
        B11: al cerrar sesion las clases se quitan, pero el sondeo tarda hasta
        3 s en enterarse y el boton quedaba flotando encima del teclado del PIN.
        Se comprueba tambien que el candado no este visible. */
-    if (b.classList.contains("rol-demo")) return false;
+    if (b.classList.contains("rol-demo") || !(b.classList.contains("rol-dueno") || b.classList.contains("rol-admin"))) return false;
     try {
       var gate=document.getElementById("oc-gate")||document.querySelector("#gate");
       if (gate && gate.style.display!=="none" && gate.offsetParent!==null) return false;
@@ -58,7 +58,7 @@
     document.getElementById("eod-backup").textContent=t.backup;
     document.getElementById("eod-close").textContent=t.close;
     document.getElementById("eod-msg").textContent="";
-    body.innerHTML='<p style="color:#6b7280;">'+t.loading+'</p>';
+    body.innerHTML='<p style="color:#1c3049;">'+t.loading+'</p>';
     m.classList.add("visible");
     fetch("/api/dashboard").then(function(r){
       if(!r.ok) throw new Error("HTTP "+r.status);
