@@ -10,23 +10,24 @@ const end = cryptoSource.indexOf('  function limpiarLockouts()', start);
 assert.ok(start > 0 && end > start);
 const method = cryptoSource.slice(start, end);
 const fakeLicense = 'F123-SYNTHETIC-TEST';
-function check({ pin = '432', ready = true, room = true, owner = '432', joined = true } = {}) {
-  const fn = new Function('pin', 'ready', 'room', 'owner', 'joined', 'lic',
+function check({ pin = '432', ready = true, room = true, owner = '432', joined = true, correctLicense = true } = {}) {
+  const fn = new Function('pin', 'ready', 'room', 'owner', 'joined', 'correctLicense', 'lic',
     'const window={OCTienda:{licenciaActual:()=>lic,esUnida:()=>joined},OCYjs:room?{roomId:"synthetic-room",canal:{recuperando:!ready},meta:{get:k=>k==="pinsRol"?{owner,emp:"671",acct:"128"}:null}}:null};' +
-    'const localStorage={getItem:k=>k==="f123_owned"?JSON.stringify({licenseCode:lic,instanceId:"synthetic-device"}):null};' +
+    'const localStorage={getItem:k=>k==="f123_owned"?JSON.stringify({licenseCode:correctLicense?lic:"F123-SYNTHETIC-OTHER",instanceId:"synthetic-device"}):null};' +
     'const leerSecreto=()=>null;'+ method + ';return identificarPin(pin);'
   );
-  return fn(pin, ready, room, owner, joined, fakeLicense);
+  return fn(pin, ready, room, owner, joined, correctLicense, fakeLicense);
 }
 test('real fully recovered team roles work without any local f123_secure', async () => {
   assert.equal(await check(), 'dueno');
   assert.equal(await check({pin:'671'}), 'empleado');
   assert.equal(await check({pin:'128'}), 'contador');
 });
-test('no PIN grants access before full encrypted-room recovery or from other notebook', async () => {
+test('no PIN grants access before complete recovery or from a different licensed notebook', async () => {
   assert.equal(await check({ready:false}), null);
   assert.equal(await check({room:false}), null);
-  assert.equal(await check({joined:false}), null);
+  assert.equal(await check({joined:false}), 'dueno','fully verified owned PWA uses the same PIN as joined browser');
+  assert.equal(await check({joined:false,correctLicense:false}),null,'cross-license room cannot grant entry');
   assert.equal(await check({pin:'321'}), null);
   assert.equal(await check({pin:'456',owner:'456'}), null);
   assert.equal(await check({pin:'789',owner:'789'}), null);
@@ -36,8 +37,8 @@ test('joined team login cannot overwrite original device owner PIN', () => {
   const stop = authSource.indexOf('  async function validar(code)', at);
   assert.ok(at > 0 && stop > at);
   const entry = authSource.slice(at, stop);
-  assert.match(entry, /entradaEquipo/);
-  assert.match(entry, /if \(!entradaEquipo\) await window\.OCSecure\.fijarOwnerPin\(code\)/);
+  assert.doesNotMatch(entry, /fijarOwnerPin\s*\(/,'a successful login must never rewrite owner credentials');
+  assert.match(entry, /return entrar\(rolEntrada\)/);
 });
 test('activated businesses reject demo PIN before lockout or another shop access', () => {
   assert.match(authSource, /if \(code === DEMO_PIN && dispositivoApropiado\(\)\) \{[\s\S]*?return;/);
