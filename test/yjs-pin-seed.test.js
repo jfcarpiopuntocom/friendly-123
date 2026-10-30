@@ -144,3 +144,23 @@ test('P0 v621: only deliberate owner PIN rotation publishes a replacement; catal
   fresh.OCYjs._store.sembrar();
   assert.equal(fresh.OCYjs.meta.get('ownerPinConfirmado'), '731');
 });
+
+test('v632: a later authorized A-B-A return increments the shared revision, and a stale B retry is fenced', async () => {
+  const pc=await peer({owner:'642',emp:'583',acct:'914'});
+  pc.OCYjs._store.sembrar();
+  assert.equal(pc.OCYjs.publicarCambioPinOwner('731',0),true);
+  assert.equal(pc.OCYjs.meta.get('ownerPinCambioRev'),1);
+  const phone=await peer({owner:'731',emp:'583',acct:'914'});
+  phone.Y.applyUpdate(phone.OCYjs.doc,pc.Y.encodeStateAsUpdate(pc.OCYjs.doc),'red');
+  assert.equal(phone.OCYjs.meta.get('ownerPinCambioRev'),1);
+  assert.equal(phone.OCYjs.publicarCambioPinOwner('642',1),true);
+  assert.equal(phone.OCYjs.meta.get('ownerPinCambioRev'),2);
+  pc.Y.applyUpdate(pc.OCYjs.doc,phone.Y.encodeStateAsUpdate(phone.OCYjs.doc),'red');
+  assert.equal(pc.OCYjs.meta.get('ownerPinConfirmado'),'642');
+  assert.equal(pc.OCYjs.meta.get('ownerPinCambioRev'),2);
+  assert.equal(pc.OCYjs.publicarCambioPinOwner('731',0),false);
+  assert.equal(pc.OCYjs.publicarCambioPinOwner('731',1),false);
+  assert.equal(pc.OCYjs.meta.get('ownerPinConfirmado'),'642');
+  assert.equal(pc.OCYjs.meta.get('pinsRol').emp,'583');
+  assert.equal(pc.OCYjs.meta.get('pinsRol').acct,'914');
+});
