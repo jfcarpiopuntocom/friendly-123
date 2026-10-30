@@ -517,6 +517,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     // overwritten by an earlier editor whose PBKDF2 finishes last.
     const s = leerSecreto();
     if (!s || s.salt !== anterior.salt || s.ownerHash !== anterior.ownerHash) return false;
+    const secureSnapshot = localStorage.getItem("f123_secure");
     const retirados = Array.isArray(s.retiredOwnerHashes) ? s.retiredOwnerHashes : [];
     if (desdeSesion === true && s.ownerHash && s.ownerHash !== hashNuevo) {
       try {
@@ -544,6 +545,9 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     s.retiredOwnerHashes = [...new Set(retirados)].filter(h => h !== hashNuevo).slice(-20);
     s.ownerHash = hashNuevo;
     s.ownerPinR = xorPin(nuevoPin);
+    // A second PBKDF2 above can yield. Never commit a stale local secret
+    // after another authorized edit saved a newer verifier in that interval.
+    if (localStorage.getItem("f123_secure") !== secureSnapshot) return false;
     return guardarSecureResiliente(s);
   }
 
