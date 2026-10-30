@@ -1,10 +1,10 @@
 {
-  "version": "shell v630",
+  "version": "shell v631",
   "fecha": "2026-10-30",
-  "changelog": "Sale quantity edits now include physical stock PN in the first strict durable ACK; no early publication or second stock mutation. Owner PIN, layout and transport unchanged.",
+  "changelog": "Keep an explicit Owner PIN rotation durable during notebook recovery; reject retired Owner credentials and reconcile only against the exact previous shared PIN. No changes to sales, stock, photos or UI layout.",
   "requerida": false,
-  "shell": "f123-shell-v630",
+  "shell": "f123-shell-v631",
   "apagar": [],
-  "releaseName": "shell v630",
-  "cacheGeneration": "golden176"
+  "releaseName": "shell v631",
+  "cacheGeneration": "golden177"
 }
