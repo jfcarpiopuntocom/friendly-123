@@ -47,3 +47,10 @@
 ## HARDRULE — transparencia con el propietario
 
 **Siempre explicar cómo funciona la app** antes de cambiar la arquitectura o añadir defensas: qué se escribe, en qué dispositivo, ruta de sincronización, qué bloquea la venta, impacto en latencia, alternativa, riesgos y aprobación real. Nunca suponer aprobación de un commit técnico ni esconder cambios tras pruebas verdes. El propietario ha pedido esta explicación explícitamente y repetidamente.
+
+
+## Release v622 — 29 oct 2026 — corrección de arnés del contrato financiero
+
+El hotfix de PIN Owner v622 (commit de aplicación `faebb76530d93a112b55dd93966646b8fdfc2af4`) fue integrado en `master`, pero la publicación automática se detuvo en [run 40980134287](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/40980134287) por una prueba sintética de venta antigua. Esa prueba sustituía `OCEstadoIDB` con solo `guardar()`, método que ya no confirma ventas estrictas desde v620; el backend correctamente respondió HTTP 507 al no existir `guardarConRevision(snapshot, revisionAnterior)`. Este fallo del *arnés* no acredita daño al cuaderno real.
+
+[PR #478](https://github.com/jfcarpiopuntocom/friendly-123/pull/478): únicamente adapta la prueba de `test/venta-durable-deficit.test.js` para simular el commit atómico por revisión y añade una comprobación del stock efectivamente guardado antes del HTTP 200. Ningún runtime, PIN, stock real, flujo de venta ni modal de confirmación se modifica. Esta nota explica por qué la publicación debe volver a recorrer los controles. **No declarar v622 pública sin verificar que `estable` y `release-proof.json` coincidan con el SHA de la publicación y que el recorrido termine.** Los PIN del propietario y los datos de idiomARTE quedan fuera de las pruebas.
