@@ -1,0 +1,23 @@
+name: v622 durable sale IDB CAS fixture
+on:
+  pull_request:
+    paths:
+      - test/venta-durable-deficit.test.js
+      - .github/workflows/p0-v622-idb-cas-fixture.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  sale-durable:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Confirm sale only after durable commit with full localStorage
+        run: node --test test/venta-durable-deficit.test.js
+      - name: Verify only test and workflow changed
+        run: |
+          git diff --check

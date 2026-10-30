@@ -128,10 +128,24 @@ test('4. pinning: localStorage full but IndexedDB accepts -> the sale is confirm
   w.OCSyncEmit = () => { emitidas++; };
   const setItem = w.localStorage.setItem.bind(w.localStorage);
   w.localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
-  w.OCEstadoIDB = { guardar: async () => true };
+  // Since v620 strict money/stock ACK uses guardarConRevision(), not the
+  // retired guardar() mirror API. The fixture must simulate that durable CAS.
+  let idbCommit = null;
+  w.OCEstadoIDB = {
+    guardarConRevision: async (snapshot, expectedRevision) => {
+      assert.ok(Number.isSafeInteger(expectedRevision), 'valid prior revision required');
+      assert.ok(snapshot._rev > expectedRevision, 'write must advance revision');
+      idbCommit = JSON.parse(JSON.stringify(snapshot));
+      return true;
+    },
+    guardar: async () => true
+  };
   const r = await w.fetch('/api/productos/p-idb/venta', { method: 'POST', body: JSON.stringify({ cantidad: 2 }) });
   w.localStorage.setItem = setItem; delete w.OCEstadoIDB;
   assert.equal(r.status, 200);
+  assert.ok(idbCommit, 'sale may be acknowledged only after simulated IDB commit');
+  assert.equal(idbCommit.productos.find((p) => p.id === 'p-idb').stockActual, 3,
+    'the committed snapshot must include the physical stock movement');
   assert.equal((await prod(w, 'p-idb')).stockActual, 3);
   assert.equal(emitidas, 1);
 });
