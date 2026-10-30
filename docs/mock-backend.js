@@ -3472,9 +3472,12 @@
      This NEVER changes the displayed stock or invents a common baseline. */
   function _pruebasStockUnir(...fuentes) {
     const out = {};
-    function guardar(base, pn, ts) {
+    function guardar(base, pn, ts, epoch) {
       if (base == null || !Number.isSafeInteger(Number(base)) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
-      const key = String(Number(base));
+      const ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+      // Distinct physical epochs may reuse the SAME numeric base.
+      // Keep legacy numeric keys for old backups; add epoch-scoped keys for new ones.
+      const key = ep ? JSON.stringify([Number(base),ep]) : String(Number(base));
       const prev = out[key] || {};
       const acc = Object.assign({}, prev.pn || {});
       Object.keys(pn).sort().forEach((id) => {
@@ -3485,20 +3488,21 @@
         acc[id] = { add: Math.max(Number(old.add) || 0, a),
                     sub: Math.max(Number(old.sub) || 0, b) };
       });
-      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0) };
+      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0),
+        ...(ep ? {epoch:ep} : {}) };
     }
     fuentes.forEach((x) => {
       if (!x) return;
       const e = x.stockEvidencias;
       if (e && typeof e === "object" && !Array.isArray(e)) {
         Object.keys(e).sort().forEach((key) => {
-          const v = e[key]; if (v) guardar(v.base, v.pn, v.ts);
+          const v = e[key]; if (v) guardar(v.base, v.pn, v.ts, v.epoch);
         });
       }
     });
-    fuentes.forEach((x) => { if (x) guardar(x.stockBase, x.stockPN, x.stockTs); });
+    fuentes.forEach((x) => { if (x) guardar(x.stockBase, x.stockPN, x.stockTs, x.stockEpochId); });
     const sorted = {};
-    Object.keys(out).sort((a,b) => Number(a)-Number(b)).forEach((key) => { sorted[key] = out[key]; });
+    Object.keys(out).sort((a,b) => (Number(a)-Number(b)) || a.localeCompare(b)).forEach((key) => { sorted[key] = out[key]; });
     return sorted;
   }
   function _prepararOpStock(payload, idOperacion) {
@@ -4191,6 +4195,7 @@
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
         if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
+            _epochDoble ||
             (mio.stockEvidencias && Object.keys(mio.stockEvidencias).length) ||
             (p.stockEvidencias && Object.keys(p.stockEvidencias).length)) {
           const evidence = _pruebasStockUnir(mio, p);
