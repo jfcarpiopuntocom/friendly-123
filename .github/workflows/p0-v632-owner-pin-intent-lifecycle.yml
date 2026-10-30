@@ -1,0 +1,30 @@
+name: p0-v632-owner-pin-intent-lifecycle
+on:
+  push:
+    branches:
+      - hotfix/v632-owner-pin-intent-lifecycle-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  red-and-focal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          node --check docs/crypto-store.js
+          node --check docs/sync-yjs.js
+          node --check test/p0-v632-owner-pin-intent-lifecycle.test.cjs
+          node --test test/p0-v632-owner-pin-intent-lifecycle.test.cjs test/p0-v631-owner-pin-recovery.test.cjs
+      - name: linecount and sha256
+        if: always()
+        run: |
+          wc -l docs/crypto-store.js docs/sync-yjs.js test/p0-v632-owner-pin-intent-lifecycle.test.cjs
+          sha256sum docs/crypto-store.js docs/sync-yjs.js test/p0-v632-owner-pin-intent-lifecycle.test.cjs
