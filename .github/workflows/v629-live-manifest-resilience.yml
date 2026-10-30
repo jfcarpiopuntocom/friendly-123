@@ -1,0 +1,33 @@
+name: v629 public manifest resilience verification
+on:
+  push:
+    branches: [forensic/v629-live-manifest-transient-check-20261030]
+  pull_request:
+    paths:
+      - 'scripts/recorrido-vivo.cjs'
+      - '.github/workflows/v629-live-manifest-resilience.yml'
+permissions:
+  contents: read
+jobs:
+  public-readonly:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Exact checksum, linecount and source syntax
+        run: |
+          sha256sum scripts/recorrido-vivo.cjs
+          wc -l scripts/recorrido-vivo.cjs
+          node --check scripts/recorrido-vivo.cjs
+      - name: Verify all 120 live deployed assets and two browser dashboards
+        run: node scripts/recorrido-vivo.cjs https://jfcarpiopuntocom.github.io/friendly-123/
