@@ -1,10 +1,10 @@
 {
-  "version": "shell v622",
+  "version": "shell v623",
   "fecha": "2026-10-29",
-  "changelog": "P0: Owner PIN changes are explicit, retained in encrypted Yjs notebook metadata and protected from stale devices. Preserve existing v621 owner verifier recovery, sales, money, stock, original confirmation UI and all client data.",
+  "changelog": "P0: owner PIN editing pencils restored after recovered iPhone sessions and Advanced navigation; preserve v622 retired-PIN anti-reversion, durable sales and original sale modal.",
   "requerida": false,
-  "shell": "f123-shell-v622",
+  "shell": "f123-shell-v623",
   "apagar": [],
-  "releaseName": "shell v622",
-  "cacheGeneration": "golden168"
+  "releaseName": "shell v623",
+  "cacheGeneration": "golden169"
 }
