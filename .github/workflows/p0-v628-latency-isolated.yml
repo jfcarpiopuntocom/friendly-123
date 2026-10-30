@@ -1,0 +1,25 @@
+name: P0 v628 isolated 300-product latency
+on:
+  push:
+    branches: [forensic/v628-two-device-replay-20261030]
+    paths: ['.github/workflows/p0-v628-latency-isolated.yml']
+permissions:
+  contents: read
+jobs:
+  bench:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Isolate 300-product A-to-B visual p95 without external network
+        env:
+          LAT_BIG: '300'
+          LAT_N: '8'
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-name-pattern='latencia A->B cuaderno grande' test/sync-latencia-dos-aparatos-v599.test.cjs
