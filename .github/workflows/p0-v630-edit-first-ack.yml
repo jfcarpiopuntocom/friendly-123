@@ -24,3 +24,7 @@ jobs:
           wc -l docs/mock-backend.js test/p0-v630-sale-edit-first-ack-pn.test.cjs
       - name: First committed snapshot and rollback
         run: node --test test/p0-v630-sale-edit-first-ack-pn.test.cjs
+      - name: Stock durability, PN, stale metadata, clock and two-peer convergence
+        run: node --test test/p0-durable-stock-adjustment.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-stock-monotonic-clock-v559.test.js
+      - name: Corrections of sales and immutable money receipts (isolated cases)
+        run: node --test --test-name-pattern='settled cash walk-in|manually linked legacy debt|sale-linked receipt|cash fiado cash|settled commission|reload, synthetic peer' test/sale-credit-corrections-v489.test.js
