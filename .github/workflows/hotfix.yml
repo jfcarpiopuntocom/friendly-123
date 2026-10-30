@@ -11,7 +11,7 @@ name: hotfix
 on:
   push:
     branches: [master]
-    paths: ["docs/**"]
+    paths: ["docs/**", ".github/workflows/hotfix.yml"]
   workflow_dispatch: {}
 
 permissions:
