@@ -40,7 +40,7 @@ test('(a2) a failed last save with RAM different still blocks sending',async()=>
 });
 test('(b) a payout during a strict save does NOT publish provisional state',async()=>{
  const f=await setup();f.fail();
- let confirm;f.app.OCEstadoIDB={guardar:()=>new Promise(r=>{confirm=r})};
+ let confirm;f.app.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return new Promise(r=>{confirm=r})}};
  let eventos=0;f.app.addEventListener('oc-catalogo-cambiado',()=>eventos++);
  let terminado=false;
  const pago=f.app.request('/api/payouts','POST',{ubicacionId:f.r.id,payeeId:f.a.id,amountCents:1500,medioPago:'efectivo',opId:'v601'}).then(x=>{terminado=true;return x});
