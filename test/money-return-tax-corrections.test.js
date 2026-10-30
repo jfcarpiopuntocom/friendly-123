@@ -1,4 +1,6 @@
 const { test } = require('node:test');
+// Durable return fixtures must mock the production CAS contract (guardarConRevision),
+// not the retired non-atomic IndexedDB guardar fallback.
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
@@ -35,7 +37,7 @@ for (const commission of [false, true]) {
     s.app.addEventListener('oc-catalogo-cambiado', () => { catalogEvents++; });
     const save = s.app.localStorage.setItem.bind(s.app.localStorage);
     s.app.localStorage.setItem = () => { throw Error('Synthetic quota'); };
-    s.app.OCEstadoIDB = { guardar: async () => false };
+    s.app.OCEstadoIDB = { guardarConRevision: async () => false };
     await assert.rejects(() => returnSale(s), /507/);
     const after = await backup(s.app);
     for (const field of ['ventas', 'productos', 'ajustesComision', 'payouts', 'movimientos']) {
@@ -65,7 +67,7 @@ test('a return waits for IndexedDB confirmation before publishing any stock or c
   const s = await setup();
   let finish, events = 0, settled = false;
   s.app.localStorage.setItem = () => { throw Error('Synthetic quota'); };
-  s.app.OCEstadoIDB = { guardar: () => new Promise(resolve => { finish = resolve; }) };
+  s.app.OCEstadoIDB = { guardarConRevision: () => new Promise(resolve => { finish = resolve; }) };
   s.app.OCSyncEmit = () => { events++; };
   s.app.addEventListener('oc-catalogo-cambiado', () => { events++; });
   const pending = returnSale(s).then(r => { settled = true; return r; });
@@ -119,7 +121,7 @@ for (const mode of ['incluido', 'agregado', null]) {
     }
     const before = await getSale(s);
     s.app.localStorage.setItem = () => { throw Error('Synthetic quota'); };
-    s.app.OCEstadoIDB = { guardar: async () => false };
+    s.app.OCEstadoIDB = { guardarConRevision: async () => false };
     await assert.rejects(() => s.app.request('/api/ventas/' + s.ventaId, 'PATCH', { precioUnit: 115 }), /503/);
     assert.deepEqual(await getSale(s), before, 'failed correction also restores frozen tax');
   });
@@ -148,7 +150,7 @@ test('incoming money evidence survives a return rollback while IndexedDB is pend
   const expense = await other.request('/api/gastos', 'POST', { concepto: 'Synthetic concurrent expense', monto: 12 });
   let finish;
   s.app.localStorage.setItem = () => { throw Error('Synthetic quota'); };
-  s.app.OCEstadoIDB = { guardar: () => new Promise(resolve => { finish = resolve; }) };
+  s.app.OCEstadoIDB = { guardarConRevision: () => new Promise(resolve => { finish = resolve; }) };
   const pending = returnSale(s);
   await new Promise(resolve => setImmediate(resolve));
   s.app.receive(other);
