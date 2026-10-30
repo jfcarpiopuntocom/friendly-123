@@ -1,0 +1,33 @@
+name: qa-v631-legacy-cas-contracts
+on:
+  push:
+    branches:
+      - qa/v631-legacy-cas-contracts-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  real-strict-cas-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Syntax tests before running
+        run: |
+          node --check test/bar-conversion-durable-ack.test.js
+          node --check test/commission-partial-balance.test.js
+          node --check test/money-return-tax-corrections.test.js
+          node --check test/v579-venta-pn-ack.test.js
+          node --check test/enviar-mientras-guarda-v601.test.js
+      - name: Financial and inventory atomic CAS contracts
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=90000 test/bar-conversion-durable-ack.test.js test/commission-partial-balance.test.js test/money-return-tax-corrections.test.js test/v579-venta-pn-ack.test.js test/enviar-mientras-guarda-v601.test.js
+      - name: Audit source identity and SHA-256 (even on red)
+        if: always()
+        run: |
+          wc -l docs/mock-backend.js docs/estado-idb.js test/bar-conversion-durable-ack.test.js test/commission-partial-balance.test.js test/money-return-tax-corrections.test.js test/v579-venta-pn-ack.test.js test/enviar-mientras-guarda-v601.test.js
+          sha256sum docs/mock-backend.js docs/estado-idb.js test/bar-conversion-durable-ack.test.js test/commission-partial-balance.test.js test/money-return-tax-corrections.test.js test/v579-venta-pn-ack.test.js test/enviar-mientras-guarda-v601.test.js
