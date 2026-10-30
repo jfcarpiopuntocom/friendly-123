@@ -1,0 +1,26 @@
+name: P0 owner PIN pencils restored-session
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/avanzado-extra.js
+      - test/p0-owner-pin-pencils-repaint.test.cjs
+      - .github/workflows/p0-owner-pin-pencils.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  owner-pencils:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Readable owner PIN controls after restored session and navigation
+        run: node --test test/p0-owner-pin-pencils-repaint.test.cjs
+      - name: Syntax and diff
+        run: |
+          node --check docs/avanzado-extra.js
+          git diff --check
