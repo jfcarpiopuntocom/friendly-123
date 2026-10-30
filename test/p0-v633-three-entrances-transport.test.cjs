@@ -12,6 +12,7 @@ function peer(name,origin){
   const doc=new w.Y.Doc();
   return {w,doc,meta:doc.getMap('_meta'),sales:doc.getMap('ventas'),facts:doc.getMap('hechos')};
 }
+function objectIn(p,value){return vm.runInContext('JSON',p.w).parse(JSON.stringify(value))}
 function exchange(a,b){
   const u=a.w.Y.encodeStateAsUpdate(a.doc),v=b.w.Y.encodeStateAsUpdate(b.doc);
   a.w.Y.applyUpdate(a.doc,v,'red');b.w.Y.applyUpdate(b.doc,u,'red');
@@ -23,14 +24,14 @@ test('PWA + second browser + official site merge PIN, sales and stock facts by I
   assert.notEqual(a.w.localStorage,b.w.localStorage);
   assert.notEqual(b.w.localStorage,c.w.localStorage);
   for(const p of [a,b,c])assert.equal(JSON.parse(p.w.localStorage.getItem('f123_owned')).licenseCode,'F123-SYNTHETIC-SAME-ROOM');
-  a.meta.set('pinsRol',{owner:'642',emp:'583',acct:'914'});
+  a.meta.set('pinsRol',objectIn(a,{owner:'642',emp:'583',acct:'914'}));
   a.meta.set('ownerPinConfirmado','642');a.meta.set('ownerPinCambioRev',0);
   exchange(a,b);exchange(a,c);
-  a.doc.transact(()=>{a.meta.set('pinsRol',{owner:'731',emp:'583',acct:'914'});a.meta.set('ownerPinConfirmado','731');a.meta.set('ownerPinCambioRev',1)});
-  a.sales.set('sale-a',{id:'sale-a',amount:12});
-  b.sales.set('sale-b',{id:'sale-b',amount:14});
-  b.facts.set('payment-b',{id:'payment-b',kind:'payment',amount:4});
-  c.facts.set('stock-c',{id:'stock-c',kind:'stock',delta:-1});
+  a.doc.transact(()=>{a.meta.set('pinsRol',objectIn(a,{owner:'731',emp:'583',acct:'914'}));a.meta.set('ownerPinConfirmado','731');a.meta.set('ownerPinCambioRev',1)});
+  a.sales.set('sale-a',objectIn(a,{id:'sale-a',amount:12}));
+  b.sales.set('sale-b',objectIn(b,{id:'sale-b',amount:14}));
+  b.facts.set('payment-b',objectIn(b,{id:'payment-b',kind:'payment',amount:4}));
+  c.facts.set('stock-c',objectIn(c,{id:'stock-c',kind:'stock',delta:-1}));
   for(let i=0;i<4;i++){exchange(a,b);exchange(b,c);exchange(c,a)}
   for(const p of [a,b,c]){
     assert.equal(p.meta.get('ownerPinConfirmado'),'731');

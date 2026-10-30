@@ -28,7 +28,7 @@ function fixture(){
   }};
   const API={doc,meta,roomId:'synthetic-room',idb:{db},canal:{recuperando:false}};
   API.confirmarPinOwnerDurable=new Function('API','Y',fn+';return API.confirmarPinOwnerDurable;')(API,w.Y);
-  const put=(pin,rev)=>doc.transact(()=>{meta.set('ownerPinConfirmado',pin);meta.set('ownerPinCambioRev',rev);meta.set('pinsRol',{owner:pin,emp:'583',acct:'914'})});
+  const put=(pin,rev)=>doc.transact(()=>{meta.set('ownerPinConfirmado',pin);meta.set('ownerPinCambioRev',rev);meta.set('pinsRol',vm.runInContext('JSON',w).parse(JSON.stringify({owner:pin,emp:'583',acct:'914'})))});
   return {w,doc,meta,API,put,commit:()=>{committed=[w.Y.encodeStateAsUpdate(doc)]},setAbort:v=>{abort=v},setHold:v=>{hold=v}};
 }
 test('P0 R3: RAM-only owner change cannot retire retry after crash',async()=>{
