@@ -1,0 +1,27 @@
+name: qa-v631-sale-credit-cas
+on:
+  push:
+    branches:
+      - qa/v631-sale-credit-cas-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  sale-credit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Sale correction financial contracts
+        run: |
+          set -euo pipefail
+          node --check test/sale-credit-corrections-v489.test.js
+          node --test test/sale-credit-corrections-v489.test.js
+      - name: Linecounts and hashes
+        if: always()
+        run: |
+          wc -l docs/mock-backend.js test/sale-credit-corrections-v489.test.js
+          sha256sum docs/mock-backend.js test/sale-credit-corrections-v489.test.js
