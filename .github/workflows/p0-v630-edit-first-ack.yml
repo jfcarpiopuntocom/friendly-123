@@ -1,0 +1,26 @@
+name: P0 v630 sale edit first durable PN ACK
+on:
+  push:
+    branches: [hotfix/v630-sale-edit-durable-pn-20261030]
+  pull_request:
+    paths:
+      - 'docs/mock-backend.js'
+      - 'test/p0-v630-sale-edit-first-ack-pn.test.cjs'
+      - '.github/workflows/p0-v630-edit-first-ack.yml'
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: File identity
+        run: |
+          sha256sum docs/mock-backend.js test/p0-v630-sale-edit-first-ack-pn.test.cjs
+          wc -l docs/mock-backend.js test/p0-v630-sale-edit-first-ack-pn.test.cjs
+      - name: First committed snapshot and rollback
+        run: node --test test/p0-v630-sale-edit-first-ack-pn.test.cjs
