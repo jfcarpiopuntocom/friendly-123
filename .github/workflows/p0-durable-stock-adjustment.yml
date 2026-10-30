@@ -15,4 +15,4 @@ jobs:
         with:
           node-version: '22'
       - name: Two synthetic persistence contracts (no production network)
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/p0-durable-stock-adjustment.test.cjs
+        run: node --test test/p0-durable-stock-adjustment.test.cjs
