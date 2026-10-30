@@ -1,0 +1,52 @@
+name: Seal v631 exact shell manifest
+on:
+  push:
+    branches:
+      - hotfix/v631-owner-pin-pending-20261030
+    paths:
+      - .github/workflows/seal-v631-owner-pin.yml
+      - docs/version.json
+      - docs/sw.js
+      - docs/dashboard.html
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: seal-v631-owner-pin
+  cancel-in-progress: false
+
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify exact v631 identity and protected contracts
+        run: node scripts/release-control.cjs validate 172645d5770b87b3509f195b6fda731bb77a4757
+      - name: Seal hashes from exact checked out bytes
+        run: |
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+          wc -l docs/crypto-store.js docs/sync-yjs.js docs/sw.js docs/dashboard.html docs/version-manifest.json
+          sha256sum docs/crypto-store.js docs/sync-yjs.js docs/sw.js docs/dashboard.html docs/version-manifest.json
+      - name: Commit deterministic manifest on isolated branch
+        run: |
+          set -euo pipefail
+          git add docs/version-manifest.json docs/sw.js
+          if git diff --cached --quiet; then
+            echo "No new manifest bytes"
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'release(v631): seal exact Owner PIN shell hashes'
+            git push origin HEAD:hotfix/v631-owner-pin-pending-20261030
+          fi
