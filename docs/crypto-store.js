@@ -518,6 +518,33 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     return guardarSecureResiliente(s);
   }
 
+  // P0 v621: owner may have logged in with the authenticated encrypted Yjs
+  // notebook while this iPhone has no local f123_secure verifier yet.
+  // Bootstrap ONLY from that fully recovered notebook and the PIN just used
+  // for the current owner session; never create defaults or replace a corrupt
+  // verifier. An existing local verifier follows the original rotation path.
+  async function fijarOwnerPinDesdeSesion(nuevoPin) {
+    if (estadoSecreto() === "ok") return fijarOwnerPin(nuevoPin);
+    if (estadoSecreto() !== "vacio") return false;
+    try {
+      if (!window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
+      const T = window.OCTienda, Y = window.OCYjs;
+      const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
+      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (!/^F123-/.test(lic) || own.licenseCode !== lic ||
+          !Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
+          !Y.meta || typeof Y.meta.get !== "function") return false;
+      const team = Y.meta.get("pinsRol");
+      const previo = String(team && team.owner || "");
+      if (!/^\\d{3}$/.test(previo) || previo === "456" ||
+          (leerPinQueAbre().owner || "") !== previo) return false;
+      if (!await instalarCredencialesDesdeSala(team)) return false;
+      if (T.licenciaActual() !== lic || Y.canal.recuperando !== false ||
+          String((Y.meta.get("pinsRol") || {}).owner || "") !== previo) return false;
+      return fijarOwnerPin(nuevoPin);
+    } catch (_) { return false; }
+  }
+
   // Cambia SOLO el PIN de encargado (re-hash bajo el salt existente) sin rotar
   // dueño/contable/correo. (JFC 2026-08-28: edición individual de PINs con
   // lapicito en Access & recovery.) Reemplaza la lista de encargados por el
@@ -950,6 +977,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     migrarSiHaceFalta, guardarSecreto, instalarCredencialesDesdeSala, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
     estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
+    fijarOwnerPinDesdeSesion, // P0: owner already verified by recovered room, local verifier missing
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
     fijarEmpleadoPin, fijarAcctPin, // JFC 2026-08-28: edición individual de PINs (lapicito en Access & recovery)
     leerDirectorio, guardarDirectorio, directorioNormalizado, // JFC 2026-08-28: directorio de acceso (PINs atados a personas)
