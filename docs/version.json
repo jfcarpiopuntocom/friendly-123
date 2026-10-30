@@ -1,10 +1,10 @@
 {
-  "version": "shell v631",
+  "version": "shell v632",
   "fecha": "2026-10-30",
-  "changelog": "Keep an explicit Owner PIN rotation durable during notebook recovery; reject retired Owner credentials and reconcile only against the exact previous shared PIN. No changes to sales, stock, photos or UI layout.",
+  "changelog": "Owner PIN: close fulfilled/superseded pending rotations; reject stale async intents and protect authorized A-B-A return with shared revision. Stock, money, photos and UI unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v631",
+  "shell": "f123-shell-v632",
   "apagar": [],
-  "releaseName": "shell v631",
-  "cacheGeneration": "golden177"
+  "releaseName": "shell v632",
+  "cacheGeneration": "golden178"
 }
