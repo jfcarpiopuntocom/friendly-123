@@ -65,8 +65,10 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   for(const queue of ['_payoutCatalogosPendientes','_ventaCatalogosPendientes','_retencionCatalogosPendientes'])assert.ok(drain.includes(queue),queue+' uses the shared trusted drain');
   assert.ok(drain.indexOf('aplicarCatalogo(')<drain.indexOf('cola.shift()'),'a failed application must retain its queue entry');
   assert.match(drain,/resultado\.ok !== true/,'only an accepted application may leave the queue');
-  assert.equal((backend.match(/_drenarCatalogosPendientes\(\);/g)||[]).length,7,
-    'payout, conversion, sale, return, import, retention and contact all drain through the trusted helper');
+  // v630 already has eight durable boundaries: the manual stock adjustment
+  // also drains the same trusted queue. Match the exact eight paths, not seven.
+  assert.equal((backend.match(/_drenarCatalogosPendientes\(\);/g)||[]).length,8,
+    'payout, conversion, sale, return, stock adjustment, import, retention and contact all drain through the trusted helper');
 });
 
 
