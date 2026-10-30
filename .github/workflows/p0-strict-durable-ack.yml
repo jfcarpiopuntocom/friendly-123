@@ -26,5 +26,7 @@ jobs:
           wc -l docs/mock-backend.js test/ab-transaction-recovery.test.cjs
       - name: Strict CAS ACK must be literal true; reject all other truthy values
         run: node --test --test-name-pattern='full backend authorizes IDB fallback|full backend waits for the real IDB acknowledgement' test/ab-transaction-recovery.test.cjs
+      - name: Entire A/B historical recovery and strict CAS suite
+        run: node --test test/ab-transaction-recovery.test.cjs
       - name: Adjacent durable stock PN and clock contracts
         run: node --test test/p0-durable-stock-adjustment.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-stock-monotonic-clock-v559.test.js

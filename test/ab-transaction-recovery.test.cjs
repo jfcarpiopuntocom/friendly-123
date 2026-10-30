@@ -319,15 +319,20 @@ test('two full backend tabs serialize writes and retain both committed audit mov
   assert.ok(reloaded.movimientos.some(m=>m.id==='history-ACTIVE-A'));
 });
 
-test('PREPARED recovery leaves its pointer untouched and accepts the next real save',async()=>{
+test('PREPARED recovery keeps pointer and every preimage byte when an unverified write is blocked',async()=>{
   const f=fixture();pointerAndRestoreFailure(f,{swallowDelete:true});
   assert.equal((await hold(f.app)).status,507);
   f.storage.beforeSet=null;f.storage.map.set(A,'{corrupt active');
   const app=browser(f.storage);app.OCAuth={rolActual:()=> 'dueno'};
+  app.OCEstadoIDB={soportado:false}; // explicit legacy A/B-only environment; no CAS adapter exists
   assert.equal((await exportState(app)).nombreNegocio,'Synthetic UNIQUE-B');
   assert.equal(f.storage.getItem(PTR),'A','virtual preimage must not point legacy readers at a rejected physical candidate');
-  assert.equal((await hold(app,30)).status,200);
-  assert.equal((await exportState(browser(f.storage))).configuracion.retencion.dias,30);
+  const journal=f.storage.getItem(JOURNAL), rawB=f.storage.getItem(B);
+  assert.equal((await hold(app,30)).status,507,'unverified PREPARED journal and newer revision must fail closed without CAS');
+  assert.equal(f.storage.getItem(PTR),'A');
+  assert.equal(f.storage.getItem(JOURNAL),journal);
+  assert.equal(f.storage.getItem(B),rawB,'never overwrite an unconfirmed physical copy');
+  assert.equal((await exportState(browser(f.storage))).configuracion.retencion.dias,7);
 });
 
 test('Dashboard uses the same preimage after active corruption instead of a rejected candidate',async()=>{
@@ -345,10 +350,10 @@ test('Dashboard uses the same preimage after active corruption instead of a reje
 
 test('known PREPARED restoration quota permits another exact IDB commit without overwriting its journal',async()=>{
   const f=fixture();pointerAndRestoreFailure(f,{swallowDelete:true});
-  f.app.OCEstadoIDB={guardar:async()=>true};
+  f.app.OCEstadoIDB={soportado:true,guardarConRevision:async()=>true};
   assert.equal((await hold(f.app,14)).status,200,'first attempt is confirmed only in IDB');
   const journal=f.storage.getItem(JOURNAL);let mirrored;
-  f.app.OCEstadoIDB={guardar:async state=>{mirrored=JSON.parse(JSON.stringify(state));return true;}};
+  f.app.OCEstadoIDB={soportado:true,guardarConRevision:async state=>{mirrored=JSON.parse(JSON.stringify(state));return true;}};
   assert.equal((await hold(f.app,30)).status,200,'restoration failure must not disable healthy IDB');
   assert.equal(mirrored.configuracion.retencion.dias,30);
   assert.equal(f.storage.getItem(JOURNAL),journal,'pending recovery evidence remains byte-identical');
@@ -357,7 +362,7 @@ test('known PREPARED restoration quota permits another exact IDB commit without 
 test('foreign physical bytes never authorize an IDB fallback from stale RAM',async()=>{
   const f=fixture();assert.equal((await hold(f.app,14)).status,200);
   f.storage.map.set(B,JSON.stringify(snapshot('FOREIGN',30)));
-  let calls=0;f.app.OCEstadoIDB={guardar:async()=>{calls++;return true;}};
+  let calls=0;f.app.OCEstadoIDB={soportado:true,guardarConRevision:async()=>{calls++;return true;}};
   assert.equal((await hold(f.app,30)).status,507);
   assert.equal(calls,0,'conflict must not masquerade as ordinary quota');
   assert.equal(JSON.parse(f.storage.getItem(B)).nombreNegocio,'Synthetic FOREIGN');
@@ -369,9 +374,16 @@ test('a third value appearing during preimage readback cannot authorize IDB fall
   let restored=false,calls=0;const foreign=JSON.stringify(snapshot('FOREIGN-READBACK',30));
   f.storage.beforeSet=(k,v)=>{if(k===B&&v===f.oldB)restored=true;};
   f.storage.beforeGet=k=>{if(k===B&&restored){restored=false;f.storage.map.set(B,foreign);}};
-  f.app.OCEstadoIDB={guardar:async()=>{calls++;return true;}};
+  f.app.OCEstadoIDB={soportado:true,guardarConRevision:async()=>{calls++;return true;}};
+  // Exercise the actual PREPARED restoration/readback boundary, not a stale
+  // high-water guard that rejects before the native A/B write is attempted.
+  const journal=f.storage.getItem(JOURNAL), pointer=f.storage.getItem(PTR);
+  assert.equal(await helper(f.storage).guardar(raw('NEXT-REJECTED',12)),false);
+  assert.equal(f.storage.getItem(B),foreign,'foreign third-party bytes must survive a failed readback');
+  assert.equal(f.storage.getItem(JOURNAL),journal);
+  assert.equal(f.storage.getItem(PTR),pointer);
   assert.equal((await hold(f.app,30)).status,507);
-  assert.equal(calls,0);assert.equal(f.storage.getItem(B),foreign);
+  assert.equal(calls,0,'no foreign preimage can authorize a CAS success');
 });
 
 test('a foreign readable snapshot is exported intact and blocks publication until resolved',async()=>{
@@ -382,7 +394,7 @@ test('a foreign readable snapshot is exported intact and blocks publication unti
   const state=await exportState(app);
   assert.ok(state.recuperacionAB.copias.some(copy=>copy.raw===foreign),'foreign bytes remain readable in the ordinary full backup');
   assert.equal(app.OCSync.catalogoPropio(),null,'do not publish a silently selected branch');
-  let calls=0;app.OCEstadoIDB={guardar:async()=>{calls++;return true;}};
+  let calls=0;app.OCEstadoIDB={soportado:true,guardarConRevision:async()=>{calls++;return true;}};
   assert.equal((await hold(app,30)).status,507);assert.equal(calls,0);
   assert.equal(f.storage.getItem(B),foreign);
 });
@@ -392,7 +404,7 @@ test('corrupt physical bytes remain preserved while healthy IDB accepts the next
   assert.equal(await reader.guardar(raw('ACCEPTED',11)),true);
   f.storage.map.set(B,'{corrupt');
   const app=browser(f.storage);app.OCAuth={rolActual:()=> 'dueno'};
-  let accepted;app.OCEstadoIDB={guardar:async body=>{accepted=body;return true;}};
+  let accepted;app.OCEstadoIDB={soportado:true,guardarConRevision:async body=>{accepted=body;return true;}};
   assert.equal((await hold(app,30)).status,200);
   assert.equal(accepted.configuracion.retencion.dias,30);
   assert.equal(f.storage.getItem(B),'{corrupt','do not destroy forensic bytes during recovery');
