@@ -3,13 +3,14 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {browser}=require('./helpers/browser.cjs');
+const {webcrypto}=require('node:crypto');
 const source=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 const start=source.indexOf('    API.confirmarPinOwnerDurable = function (nuevo, revision) {');
 const end=source.indexOf('    // P0 v621: only an explicit change',start);
 assert.ok(start>0&&end>start,'production PIN journal helper');
 const fn=source.slice(start,end);
 function fixture(){
-  const w=browser();delete w.JSON;
+  const w=browser();delete w.JSON;Object.assign(w,{crypto:webcrypto,TextEncoder,TextDecoder});
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),w);
   const doc=new w.Y.Doc(),meta=doc.getMap('_meta');
   let committed=[],abort=false,hold=null;

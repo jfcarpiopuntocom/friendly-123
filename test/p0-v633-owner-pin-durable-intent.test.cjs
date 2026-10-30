@@ -28,7 +28,7 @@ function setup(){
   const window={OCYjs:Y,OCTienda:{licenciaActual:()=>code},OCAuth:{rolActual:()=> 'dueno'}};
   const context={window,localStorage,crypto:webcrypto,self:{isSecureContext:true,crypto:webcrypto},
     location:{hostname:'localhost'},TextEncoder,TextDecoder,btoa,atob,console};
-  function reload(){vm.runInNewContext(source,context);return window.OCSecure}
+  function reload(){vm.runInNewContext(source,{...context});return window.OCSecure}
   return {window,Y,room,disk,reload,commit:()=>{committed=true},calls:()=>calls,
     secret:()=>JSON.parse(localStorage.getItem('f123_secure'))};
 }

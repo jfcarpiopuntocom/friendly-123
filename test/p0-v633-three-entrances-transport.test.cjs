@@ -4,9 +4,10 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {browser}=require('./helpers/browser.cjs');
+const {webcrypto}=require('node:crypto');
 const vendor=fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8');
 function peer(name,origin){
-  const w=browser();delete w.JSON;w.location.origin=origin;vm.runInContext(vendor,w);
+  const w=browser();delete w.JSON;Object.assign(w,{crypto:webcrypto,TextEncoder,TextDecoder});w.location.origin=origin;vm.runInContext(vendor,w);
   w.localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'F123-SYNTHETIC-SAME-ROOM',instanceId:name}));
   const doc=new w.Y.Doc();
   return {w,doc,meta:doc.getMap('_meta'),sales:doc.getMap('ventas'),facts:doc.getMap('hechos')};
