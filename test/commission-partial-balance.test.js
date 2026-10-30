@@ -21,7 +21,7 @@ async function raw(app,url,body){const r=await app.fetch(url,{method:'POST',body
 test('partial commission cannot report success when both durable stores fail, and retry can later succeed once',async()=>{
  const f=await setup();const before=await f.app.request('/api/respaldo/exportar');
  f.storage.setItem('f123_foto_percha_fixture','synthetic-photo-bytes');
- f.fail();f.app.OCEstadoIDB={guardar:async()=>false};
+ f.fail();f.app.OCEstadoIDB={guardarConRevision:async()=>false};
  const failed=await raw(f.app,'/api/payouts',pay(f));
  assert.equal(failed.status,507);assert.equal(failed.body.ok,undefined);
  const after=await f.app.request('/api/respaldo/exportar');
@@ -35,7 +35,7 @@ test('partial commission cannot report success when both durable stores fail, an
 test('IDB fallback must confirm before payout response or catalog notification',async()=>{
  const f=await setup();f.fail();let confirm;let notifications=0;
  f.app.addEventListener('oc-catalogo-cambiado',()=>notifications++);
- f.app.OCEstadoIDB={guardar:()=>new Promise(r=>{confirm=r})};
+ f.app.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return new Promise(r=>{confirm=r})}};
  let finished=false;const pending=raw(f.app,'/api/payouts',pay(f)).then(r=>{finished=true;return r});
  await new Promise(r=>setTimeout(r,0));
  assert.equal(finished,false);assert.equal(notifications,0);
@@ -44,7 +44,7 @@ test('IDB fallback must confirm before payout response or catalog notification',
 });
 test('failed reversal preserves the original payment, flags and financial history',async()=>{
  const f=await setup();const p=await f.app.request('/api/payouts','POST',pay(f));
- const before=await f.app.request('/api/respaldo/exportar');f.fail();f.app.OCEstadoIDB={guardar:async()=>false};
+ const before=await f.app.request('/api/respaldo/exportar');f.fail();f.app.OCEstadoIDB={guardarConRevision:async()=>false};
  const result=await raw(f.app,'/api/payouts/'+p.payout.id+'/reverse',{reason:'Synthetic correction'});
  assert.equal(result.status,507);
  const after=await f.app.request('/api/respaldo/exportar');
@@ -52,7 +52,7 @@ test('failed reversal preserves the original payment, flags and financial histor
 });
 test('legacy multi-person payment is stored as one durable batch or restores the entire batch',async()=>{
  const f=await setup(true);const before=await f.app.request('/api/respaldo/exportar');
- f.fail();f.app.OCEstadoIDB={guardar:async()=>false};
+ f.fail();f.app.OCEstadoIDB={guardarConRevision:async()=>false};
  const r=await raw(f.app,'/api/liquidaciones/'+f.r.id+'/marcar-pagado',{medioPago:'efectivo',opId:'legacy-batch'});
  assert.equal(r.status,507);
  const after=await f.app.request('/api/respaldo/exportar');
@@ -72,7 +72,7 @@ test('two simultaneous local retries share one durable intent without Web Locks'
 });
 test('legacy multi-person success confirms one full snapshot containing both payouts',async()=>{
  const f=await setup(true);f.fail();let saves=0;let persisted;
- f.app.OCEstadoIDB={guardar:async snapshot=>{saves++;persisted=JSON.parse(JSON.stringify(snapshot));return true}};
+ f.app.OCEstadoIDB={guardarConRevision:async (snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);saves++;persisted=JSON.parse(JSON.stringify(snapshot));return true}};
  const r=await raw(f.app,'/api/liquidaciones/'+f.r.id+'/marcar-pagado',{medioPago:'efectivo',opId:'durable-batch'});
  assert.equal(r.status,200);assert.equal(r.body.payoutIds.length,2);assert.equal(saves,1);
  assert.equal(persisted.payouts.length,2);
@@ -84,7 +84,7 @@ test('incoming sync survives rollback of a failed payout and keeps deferred Yjs 
  const canonical=f.app.catalog();canonical.nombreNegocio='Queued Yjs after payout';
  canonical.nombreNegocioTs=1;canonical._nombreDesdeYjs=true;
  f.fail();const acks=[];
- f.app.OCEstadoIDB={guardar:(snapshot,strict)=>strict?new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve})):Promise.resolve(false)};
+ f.app.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))},guardar:snapshot=>new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))};
  const pending=raw(f.app,'/api/payouts',pay(f));await waitForAck(acks,1);
  f.app.receive(peer);
  f.app.OCSync.aplicarCatalogo(canonical,'dueno',true);
@@ -112,7 +112,7 @@ test('failed sale return replays deferred Yjs owner name without losing stock or
  canonical.nombreNegocioTs=1;canonical._nombreDesdeYjs=true;
  const before=await f.app.request('/api/respaldo/exportar');
  f.fail();const acks=[];
- f.app.OCEstadoIDB={guardar:(snapshot,strict)=>strict?new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve})):Promise.resolve(false)};
+ f.app.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))},guardar:snapshot=>new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))};
  const pending=raw(f.app,'/api/ventas/'+f.sale.ventaId+'/devolucion',{motivo:'Synthetic deferred name'});
  await waitForAck(acks,1);
  f.app.OCSync.aplicarCatalogo(canonical,'dueno',true);
