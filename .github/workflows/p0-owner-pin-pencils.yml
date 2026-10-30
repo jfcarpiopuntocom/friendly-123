@@ -20,6 +20,8 @@ jobs:
           node-version: 22
       - name: Readable owner PIN controls after restored session and navigation
         run: node --test test/p0-owner-pin-pencils-repaint.test.cjs
+      - name: Check release gate documentation-only identity contract
+        run: node --test test/release-control.test.js
       - name: Syntax and diff
         run: |
           node --check docs/avanzado-extra.js
