@@ -61,5 +61,10 @@ test('custom local PIN remains protected and unauthenticated seed cannot publish
   assert.equal(local.w.OCYjs.meta.get('pinsRol').owner, '642', 'locked tabs cannot re-seed a transient PIN');
   local.setRole('dueno');
   local.w.OCYjs._store.sembrar();
-  assert.equal(local.w.OCYjs.meta.get('pinsRol').owner, '888', 'authenticated custom PIN edits still publish');
+  assert.equal(local.w.OCYjs.meta.get('pinsRol').owner, '642',
+    'logging in on an out-of-date device must not publish its old PIN');
+  assert.equal(local.w.OCYjs.publicarCambioPinOwner('888'), true,
+    'an explicit authenticated owner action may rotate the PIN');
+  assert.equal(local.w.OCYjs.meta.get('ownerPinConfirmado'), '888',
+    'explicit owner rotation is durable shared metadata');
 });
