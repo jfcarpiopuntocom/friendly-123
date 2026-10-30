@@ -1,0 +1,18 @@
+name: P0 durable manual stock adjustments
+on:
+  pull_request:
+    paths:
+      - 'docs/mock-backend.js'
+      - 'test/p0-durable-stock-adjustment.test.cjs'
+      - '.github/workflows/p0-durable-stock-adjustment.yml'
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Two synthetic persistence contracts (no production network)
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/p0-durable-stock-adjustment.test.cjs
