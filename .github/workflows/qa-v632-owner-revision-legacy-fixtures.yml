@@ -1,0 +1,34 @@
+name: qa-v632-owner-revision-legacy-fixtures
+on:
+  push:
+    branches:
+      - qa/v632-revision-owner-fixture-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  owner-revision-fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check legacy harness and real role contracts
+        run: |
+          set -euo pipefail
+          node --check test/p0-v617-recovered-team-gate.test.cjs
+          node --check test/p0-v618-browser-pwa-same-notebook.test.cjs
+          node --test test/p0-v617-recovered-team-gate.test.cjs test/p0-v618-browser-pwa-same-notebook.test.cjs test/p0-v631-owner-pin-recovery.test.cjs test/p0-v632-owner-pin-intent-lifecycle.test.cjs test/p0-v622-owner-pin-confirmed-room.test.cjs test/p0-v621-owner-pin-rotation-verified-room.test.cjs
+      - name: Verify runtime byte identity and linecounts
+        if: always()
+        run: |
+          set -euo pipefail
+          for file in docs/crypto-store.js docs/sync-yjs.js docs/mock-backend.js; do
+            test "$(git rev-parse HEAD:"$file")" = "$(git rev-parse f98c7e5c6669ef022f51372fd4a8227a36a0e584:"$file")"
+          done
+          wc -l test/p0-v617-recovered-team-gate.test.cjs test/p0-v618-browser-pwa-same-notebook.test.cjs docs/crypto-store.js docs/sync-yjs.js
+          sha256sum test/p0-v617-recovered-team-gate.test.cjs test/p0-v618-browser-pwa-same-notebook.test.cjs docs/crypto-store.js docs/sync-yjs.js

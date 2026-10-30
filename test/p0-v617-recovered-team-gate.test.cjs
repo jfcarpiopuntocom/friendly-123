@@ -13,13 +13,17 @@ const retiredStart=cryptoSource.indexOf('  async function duenoRetirado(pin, s, 
 const retiredEnd=cryptoSource.indexOf('  function pinOwnerPendienteLocal()', retiredStart);
 assert.ok(retiredStart>0 && retiredEnd>retiredStart,'load production helper needed by identificarPin');
 const retiredHelper=cryptoSource.slice(retiredStart,retiredEnd);
+const revStart=cryptoSource.indexOf('  function revisionCambioOwner(Y) {');
+const revEnd=cryptoSource.indexOf('  async function fijarOwnerPin(nuevoPin, desdeSesion) {',revStart);
+assert.ok(revStart>0 && revEnd>revStart,'load actual owner revision helper');
+const revisionHelper=cryptoSource.slice(revStart,revEnd);
 
 const fakeLicense = 'F123-SYNTHETIC-TEST';
 function check({ pin = '432', ready = true, room = true, owner = '432', joined = true } = {}) {
   const fn = new Function('pin', 'ready', 'room', 'owner', 'joined', 'lic',
     'const window={OCTienda:{licenciaActual:()=>lic,esUnida:()=>joined},OCYjs:room?{roomId:"synthetic-room",canal:{recuperando:!ready},meta:{get:k=>k==="pinsRol"?{owner,emp:"671",acct:"128"}:null}}:null};' +
     'const localStorage={getItem:k=>k==="f123_owned"?JSON.stringify({licenseCode:lic,instanceId:"synthetic-device"}):null};' +
-    'const leerSecreto=()=>null;'+ retiredHelper + method + ';return identificarPin(pin);'
+    'const leerSecreto=()=>null;'+ retiredHelper + revisionHelper + method + ';return identificarPin(pin);'
   );
   return fn(pin, ready, room, owner, joined, fakeLicense);
 }
