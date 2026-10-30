@@ -17,6 +17,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Prove R1 and R2 failed on exact previous runtime (expected RED)
+        run: |
+          set -euo pipefail
+          cp docs/crypto-store.js /tmp/v632-owner-current.js
+          git show 24cb66b23639c033ff6529df1d5f3eb5909b4de6:docs/crypto-store.js > docs/crypto-store.js
+          set +e
+          node --test test/p0-v632-owner-pin-intent-lifecycle.test.cjs >/tmp/v631-owner-red.log 2>&1
+          CODE=$?
+          set -e
+          cat /tmp/v631-owner-red.log | grep -E 'not ok|# tests |# pass |# fail '
+          cp /tmp/v632-owner-current.js docs/crypto-store.js
+          test "$CODE" -ne 0
+          grep -q 'not ok .*R1 authorized return' /tmp/v631-owner-red.log
+          grep -q 'not ok .*R2 derivation suspended' /tmp/v631-owner-red.log
+          grep -q '# fail 2' /tmp/v631-owner-red.log
+          git diff --quiet -- docs/crypto-store.js || { echo "Source restoration failed"; exit 1; }
+          echo "RED confirmed for both scenarios on previous published runtime"
       - run: |
           set -euo pipefail
           node --check docs/crypto-store.js
