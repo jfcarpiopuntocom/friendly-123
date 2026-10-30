@@ -1,0 +1,51 @@
+name: P0 v628 two-device isolated evidence
+on:
+  push:
+    branches: [forensic/v628-two-device-replay-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  ledger-and-epochs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Pin original legacy clients by immutable SHA (synthetic only)
+        run: |
+          git fetch --no-tags --depth=1 origin 82952a84958641010c48bfbee6aab80007ba12e9
+          git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
+          git fetch --no-tags --depth=1 origin 7e51ed51560d6138866dae98e4a01ff1772db51c
+          git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > /tmp/f123_v606_sync_yjs.js
+          test -s /tmp/f123_v607_sync_yjs.js && test -s /tmp/f123_v606_sync_yjs.js
+      - name: Independent PC/mobile stock and sale receipt reconstruction
+        env:
+          F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
+          F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=90000 \
+            --test-name-pattern='P0 independent PN|P0 two offline sales|P0 third peer adopting|P0 RED epoch ABA|P0 two peers retain E2|P0 same catalog fingerprint|P0 stock fingerprint|P0 late third peer|P0 third late peer|P0 pinned v607 bridge|P0 pinned v606 Yjs bridge' \
+            test/incident-v608-publication-after-recovery.test.cjs
+      - name: Real Yjs bidirectional fork preservation and stock parity
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/stock-base-conflicto-v515.test.js
+  browser-transport:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Two independent browser contexts, encrypted direct sync, photo and recovery
+        run: node --test --test-timeout=120000 test/peer-sync-browser.test.js
+      - name: Local same-origin concurrent sales and read-after-reload
+        run: node --test --test-timeout=120000 test/linus-dos-pestanas.test.js
