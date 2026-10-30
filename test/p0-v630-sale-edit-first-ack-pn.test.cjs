@@ -13,6 +13,7 @@ const product = state => state.productos.find(p=>p.id==='p24');
 const ledger = p => p.stockBase + Object.values(p.stockPN||{}).reduce((v,n)=>v+n.add-n.sub,0);
 async function setup() {
   const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
   w.localStorage.setItem('f123_device_id','edit-pn-fixture-device');
   const created = await w.request('/api/productos/p24/venta','POST',{cantidad:2});
   const before = await w.request('/api/respaldo/exportar');
