@@ -43,7 +43,7 @@
     "./vendor/jspdf-4.2.1.umd.min.js": "sha256-5feb83f439480e06687f9e6f23a8a162b12157b9606aa6ffc70c7e961b7c6013",
     "./vendor/jspdf-autotable-5.0.9.min.js": "sha256-efe0106af8224d8480b94e83ceafe4a5f889b13e028f3bec6d33c0a64a3133f5",
     "./i18n.js": "sha256-ff5b5889d74d0c0c1133272156295d45ddac9bc044c77fae8662819059117c44",
-    "./crypto-store.js": "sha256-e7f94cc66e2c21a30e53c05e41e4ba18085f958d990fe7f7d03487d6bbfaa7ac",
+    "./crypto-store.js": "sha256-c0c5b5e0232bbec4013c144d260a71a1065b342e91b83b510d417aa07161b9f5",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-8462063d5483d74862fb2b17d9be1f55a3ded27dd996337da4acb6cc1eca8f64",
     "./tab-session.js": "sha256-86a5e96d1e3b271c8899481274ae2d77fa4a52ec4e207b421eef27f13061b863",
