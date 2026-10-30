@@ -1,10 +1,10 @@
 {
-  "version": "shell v629",
+  "version": "shell v630",
   "fecha": "2026-10-30",
-  "changelog": "Strict IndexedDB durability confirmation now requires literal true. Non-boolean or failed storage replies cannot falsely acknowledge sales, stock or payments. No UI, PIN, or sync changes.",
+  "changelog": "Sale quantity edits now include physical stock PN in the first strict durable ACK; no early publication or second stock mutation. Owner PIN, layout and transport unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v629",
+  "shell": "f123-shell-v630",
   "apagar": [],
-  "releaseName": "shell v629",
-  "cacheGeneration": "golden175"
+  "releaseName": "shell v630",
+  "cacheGeneration": "golden176"
 }
