@@ -1,10 +1,10 @@
 {
-  "version": "shell v624",
-  "fecha": "2026-10-29",
-  "changelog": "Owner PIN screen uses the confirmed notebook credential; explicit rotation updates the confirmed credential even when legacy team metadata already matches. Preserves sales, stock and other roles.",
+  "version": "shell v625",
+  "fecha": "2026-10-30",
+  "changelog": "Business names remain fully visible with a black outline that scales with their text size in the app and dashboard. No changes to business data or PIN credentials.",
   "requerida": false,
-  "shell": "f123-shell-v624",
+  "shell": "f123-shell-v625",
   "apagar": [],
-  "releaseName": "shell v624",
-  "cacheGeneration": "golden170"
+  "releaseName": "shell v625",
+  "cacheGeneration": "golden171"
 }
