@@ -2661,7 +2661,7 @@
 
     // P0 v621: only an explicit change from an authenticated Owner screen may
     // replace a custom notebook owner PIN. Routine background seeding cannot.
-    API.publicarCambioPinOwner = function (nuevo) {
+    API.publicarCambioPinOwner = function (nuevo, revisionEsperada) {
       var pin = String(nuevo || "");
       if (!/^\d{3}$/.test(pin) || pin === "456" || pin === "789" ||
           API.estado !== "activo" || !API.doc || !API.meta || !API.roomId ||
@@ -2675,14 +2675,20 @@
           if (!/^F123-/.test(lic) || lic !== String(own.licenseCode || "")) return false;
         }
         var prev = API.meta.get("pinsRol") || {};
+        var revRaw = Number(API.meta.get("ownerPinCambioRev"));
+        var rev = Number.isSafeInteger(revRaw) && revRaw >= 0 ? revRaw : 0;
+        if (revisionEsperada !== undefined && revisionEsperada !== rev) return false;
         if (prev.owner === pin && API.meta.get("ownerPinConfirmado") === pin) return true;
+        if (rev >= Number.MAX_SAFE_INTEGER) return false;
         API.doc.transact(function () {
           API.meta.set("pinsRol", Object.assign({}, prev, { owner: pin }));
-          // New owner writes use a separate key. Old v620 devices only know
-          // pinsRol and cannot undo an explicit rotation through idle seeding.
+          // A later authorized return to an earlier PIN must be distinguishable
+          // from an old offline retry with the same three digits.
           API.meta.set("ownerPinConfirmado", pin);
+          API.meta.set("ownerPinCambioRev", rev + 1);
         }, "seed");
-        return API.meta.get("ownerPinConfirmado") === pin;
+        return API.meta.get("ownerPinConfirmado") === pin &&
+          API.meta.get("ownerPinCambioRev") === rev + 1;
       } catch (_) { return false; }
     };
 

@@ -1,0 +1,65 @@
+name: p0-v632-owner-pin-intent-lifecycle
+on:
+  push:
+    branches:
+      - hotfix/v632-owner-pin-intent-lifecycle-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  red-and-focal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove R1 and R2 failed on exact previous runtime (expected RED)
+        run: |
+          set -euo pipefail
+          cp docs/crypto-store.js /tmp/v632-owner-current.js
+          git show 24cb66b23639c033ff6529df1d5f3eb5909b4de6:docs/crypto-store.js > docs/crypto-store.js
+          set +e
+          node --test test/p0-v632-owner-pin-intent-lifecycle.test.cjs >/tmp/v631-owner-red.log 2>&1
+          CODE=$?
+          set -e
+          cat /tmp/v631-owner-red.log | grep -E 'not ok|# tests |# pass |# fail '
+          cp /tmp/v632-owner-current.js docs/crypto-store.js
+          test "$CODE" -ne 0
+          grep -q 'not ok .*R1 authorized return' /tmp/v631-owner-red.log
+          grep -q 'not ok .*R2 derivation suspended' /tmp/v631-owner-red.log
+          grep -q '# fail 2' /tmp/v631-owner-red.log
+          git diff --quiet -- docs/crypto-store.js || { echo "Source restoration failed"; exit 1; }
+          echo "RED confirmed for both scenarios on previous published runtime"
+      - run: |
+          set -euo pipefail
+          node --check docs/crypto-store.js
+          node --check docs/sync-yjs.js
+          node --check test/p0-v632-owner-pin-intent-lifecycle.test.cjs
+          node --test test/p0-v632-owner-pin-intent-lifecycle.test.cjs test/p0-v631-owner-pin-recovery.test.cjs test/p0-v622-owner-pin-confirmed-room.test.cjs test/p0-v621-owner-pin-rotation-verified-room.test.cjs test/yjs-pin-seed.test.js test/yjs-pin-replay-readiness.test.js
+      - name: linecount and sha256
+        if: always()
+        run: |
+          wc -l docs/crypto-store.js docs/sync-yjs.js test/p0-v632-owner-pin-intent-lifecycle.test.cjs
+          sha256sum docs/crypto-store.js docs/sync-yjs.js test/p0-v632-owner-pin-intent-lifecycle.test.cjs
+
+  owner-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Real Owner editor in WebKit
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/p0-owner-pin-current-ui-browser.test.cjs
