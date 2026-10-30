@@ -536,7 +536,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
           !Y.meta || typeof Y.meta.get !== "function") return false;
       const team = Y.meta.get("pinsRol");
       const previo = String(team && team.owner || "");
-      if (!/^\\d{3}$/.test(previo) || previo === "456" ||
+      if (!/^\d{3}$/.test(previo) || previo === "456" ||
           (leerPinQueAbre().owner || "") !== previo) return false;
       if (!await instalarCredencialesDesdeSala(team)) return false;
       if (T.licenciaActual() !== lic || Y.canal.recuperando !== false ||
