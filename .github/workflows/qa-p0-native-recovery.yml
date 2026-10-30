@@ -1,0 +1,41 @@
+name: qa-p0-native-recovery
+on:
+  push:
+    branches: [fix/p0-native-recovery-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and native encrypted durable channel tests
+        run: |
+          set -euo pipefail
+          node --check supabase-relay/gateway.mjs
+          node --check supabase-relay/transport.mjs
+          node --check test/p0-native-recovery-entry.test.cjs
+          node --test test/p0-native-recovery-entry.test.cjs \
+            test/supabase-relay-transport.test.js \
+            test/supabase-relay-gateway.test.js \
+            test/e1-browser-relay-head-parity.test.cjs \
+            test/native-sync-required.test.js \
+            test/sync-delivery.test.js \
+            test/yjs-durable-outbox.test.js \
+            test/yjs-unresolved-checkpoint.test.js \
+            test/yjs-relay-backpressure.test.js \
+            test/p0-yjs-pending-snapshot.test.js \
+            test/incident-yjs-receive-queue-v558.test.js
+      - name: Verify diff, file lengths and checksums
+        if: always()
+        run: |
+          git diff --check HEAD~3 HEAD
+          wc -l docs/index.html docs/dashboard.html test/p0-native-recovery-entry.test.cjs
+          sha256sum docs/index.html docs/dashboard.html test/p0-native-recovery-entry.test.cjs docs/vendor/supabase-relay.min.js
