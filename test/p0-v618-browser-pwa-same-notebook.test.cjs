@@ -13,13 +13,17 @@ const retiredStart=c.indexOf('  async function duenoRetirado(pin, s, candidate) 
 const retiredEnd=c.indexOf('  function pinOwnerPendienteLocal()', retiredStart);
 assert.ok(retiredStart>0 && retiredEnd>retiredStart,'load production helper needed by identificarPin');
 const retiredHelper=c.slice(retiredStart,retiredEnd);
+const revStart=c.indexOf('  function revisionCambioOwner(Y) {');
+const revEnd=c.indexOf('  async function fijarOwnerPin(nuevoPin, desdeSesion) {',revStart);
+assert.ok(revStart>0 && revEnd>revStart,'load actual owner revision helper');
+const revisionHelper=c.slice(revStart,revEnd);
 
 const lic='F123-SYNTHETIC-NOT-REAL';
 async function identify(joined, ready, pin='432', isCurrent=true) {
  const fn=new Function('joined','ready','pin','isCurrent','lic',
  'const window={OCTienda:{licenciaActual:()=>lic,esUnida:()=>joined},OCYjs:{roomId:"synthetic-room",canal:{recuperando:!ready},meta:{get:k=>k==="pinsRol"?{owner:"432",emp:"671",acct:"128"}:null}}};'+
  'const localStorage={getItem:k=>k==="f123_owned"?JSON.stringify({licenseCode:isCurrent?lic:"F123-OTHER",instanceId:"synthetic-device"}):null};'+
- 'const leerSecreto=()=>null;'+retiredHelper+method+';return identificarPin(pin);');
+ 'const leerSecreto=()=>null;'+retiredHelper+revisionHelper+method+';return identificarPin(pin);');
  return fn(joined,ready,pin,isCurrent,lic);
 }
 test('same authenticated, recovered license unlocks browser-joined AND installed-PWA-owned contexts',async()=>{
