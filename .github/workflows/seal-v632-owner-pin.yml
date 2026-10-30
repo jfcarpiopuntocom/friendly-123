@@ -6,6 +6,8 @@ on:
     paths:
       - .github/workflows/seal-v632-owner-pin.yml
       - docs/version.json
+      - docs/crypto-store.js
+      - docs/sync-yjs.js
       - docs/sw.js
       - docs/dashboard.html
   workflow_dispatch: {}
