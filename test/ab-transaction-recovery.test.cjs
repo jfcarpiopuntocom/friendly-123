@@ -153,12 +153,12 @@ test('completed preimage restoration allows repeated A/B/A commits and fresh vie
 for (const idbResult of [true,false,1,'true',{},null,undefined]) {
   test('full backend authorizes IDB fallback only for exact true: '+String(idbResult),async()=>{
     const f=fixture(),before=await exportState(f.app),writes=[];
-    f.app.OCEstadoIDB={guardar:async(body,strict)=>{writes.push({body:JSON.parse(JSON.stringify(body)),strict});return idbResult;}};
+    f.app.OCEstadoIDB={soportado:true,guardarConRevision:async(body,priorRev)=>{writes.push({body:JSON.parse(JSON.stringify(body)),priorRev});return idbResult;}};
     f.storage.beforeSet=()=>{throw new DOMException('synthetic quota','QuotaExceededError');};
     const response=await hold(f.app);
     assert.equal(response.status,idbResult===true?200:507);
     assert.equal(writes.length,1,'one full snapshot mirrored after the local decision');
-    assert.equal(writes[0].strict,true,'fallback cannot accept a reduced snapshot');
+    assert.equal(writes[0].priorRev,10,'CAS requires the exact durable previous revision, not an unguarded fallback');
     assert.equal(writes[0].body.configuracion.retencion.dias,14);
     const after=await exportState(f.app);
     assert.equal(after.configuracion.retencion.dias,idbResult===true?14:before.configuracion.retencion.dias);
@@ -168,7 +168,7 @@ for (const idbResult of [true,false,1,'true',{},null,undefined]) {
 
 test('full backend waits for the real IDB acknowledgement before reporting success',async()=>{
   const f=fixture();let resolve,entered=false;
-  f.app.OCEstadoIDB={guardar:()=>{entered=true;return new Promise(r=>{resolve=r;});}};
+  f.app.OCEstadoIDB={soportado:true,guardarConRevision:(_body,priorRev)=>{assert.equal(priorRev,10);entered=true;return new Promise(r=>{resolve=r;});}};
   f.storage.beforeSet=()=>{throw new DOMException('synthetic quota','QuotaExceededError');};
   let finished=false;const pending=hold(f.app).then(r=>{finished=true;return r;});
   for(let i=0;i<12&&!entered;i++)await Promise.resolve();
