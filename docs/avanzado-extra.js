@@ -2753,8 +2753,34 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             }
           } catch (_) { alert(window.t("team.pinCheckFailed")); return; }
           try {
+            if (rol === "owner") {
+              // P0 v621: an owner session may originate from the recovered
+              // encrypted Yjs room with no local verifier on this device.
+              // The legacy PIN editor returned false without even attempting
+              // a rotation. Restore EXACT room credentials before editing.
+              const Y = window.OCYjs, S = window.OCSecure;
+              if (!Y || !Y.canal || Y.canal.recuperando !== false ||
+                  !Y.meta || !Y.roomId || typeof Y.publicarCambioPinOwner !== "function" ||
+                  !window.OCAuth || window.OCAuth.rolActual() !== "dueno") {
+                msg("oc-codes-msg", "The shared notebook PINs are still synchronizing. Nothing was changed.", "var(--rojo)");
+                return;
+              }
+              if (S.estadoSecreto && S.estadoSecreto() === "vacio") {
+                const equipo = Y.meta.get("pinsRol");
+                const recuperado = equipo && S.instalarCredencialesDesdeSala &&
+                  await S.instalarCredencialesDesdeSala(equipo);
+                if (!recuperado) {
+                  msg("oc-codes-msg", "The local Owner PIN verifier is not ready. Nothing was changed.", "var(--rojo)");
+                  return;
+                }
+              }
+            }
             const ok = await window.OCSecure[fn](v);
             if (!ok) { msg("oc-codes-msg", window.tf("team.pinUpdateFailed", { role: etiqueta }), "var(--rojo)"); return; }
+            if (rol === "owner" && !window.OCYjs.publicarCambioPinOwner(v)) {
+              msg("oc-codes-msg", "Owner PIN saved on this device; the shared notebook has not confirmed the change yet. Keep this session open.", "var(--rojo)");
+              return;
+            }
             try {
               if (window.OCSecure.recordarPinQueAbre) {
                 window.OCSecure.recordarPinQueAbre(v, rol === "owner" ? "dueno" : (rol === "emp" ? "empleado" : "contador"));
