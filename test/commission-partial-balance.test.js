@@ -28,7 +28,7 @@ test('partial commission cannot report success when both durable stores fail, an
  assert.deepEqual(after.payouts,before.payouts);assert.deepEqual(after.ventas,before.ventas);
  assert.deepEqual(after.movimientos,before.movimientos);
  assert.equal(f.storage.getItem('f123_foto_percha_fixture'),'synthetic-photo-bytes','payment failure must not sacrifice legacy photo evidence');
- f.recover();await f.app.request('/api/payouts','POST',pay(f));await f.app.request('/api/payouts','POST',pay(f));
+ f.recover();delete f.app.OCEstadoIDB;await f.app.request('/api/payouts','POST',pay(f));await f.app.request('/api/payouts','POST',pay(f));
  assert.equal((await f.app.request('/api/payouts')).filter(p=>p.opId==='partial').length,1);
  assert.equal((await f.app.request('/api/liquidaciones')).find(x=>x.ubicacionId===f.r.id).stillDue,25);
 });
