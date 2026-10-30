@@ -1,0 +1,33 @@
+name: P0 two-tab sale conflict (Chromium + WebKit)
+on:
+  push:
+    branches: [hotfix/v628-p0-rebase-sale-conflict-20261030]
+    paths:
+      - 'docs/mock-backend.js'
+      - 'test/linus-dos-pestanas.test.js'
+      - '.github/workflows/p0-two-tab-sale-conflict.yml'
+  pull_request:
+    paths:
+      - 'docs/mock-backend.js'
+      - 'test/linus-dos-pestanas.test.js'
+      - '.github/workflows/p0-two-tab-sale-conflict.yml'
+jobs:
+  two-tab-sales:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Reproduce last-unit and distinct-product concurrency
+        run: node --test --test-timeout=120000 test/linus-dos-pestanas.test.js
+      - name: Verify adjacent stock durability, PN and clock contracts
+        run: node --test test/p0-durable-stock-adjustment.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-stock-monotonic-clock-v559.test.js
