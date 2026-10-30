@@ -1,10 +1,10 @@
 {
-  "version": "shell v620",
+  "version": "shell v621",
   "fecha": "2026-10-29",
-  "changelog": "P0: sales and financial writes use native atomic IndexedDB revision commit; remove the two 10-second Web Lock waits. Keep durable sale ACK, original Sold confirmation, PIN, license, Yjs and business data intact.",
+  "changelog": "P0: owner logged in from the fully recovered encrypted notebook can change the Owner PIN even when this device has not yet restored its local verifier. No reset, no change to sales, stock or Sold modal.",
   "requerida": false,
-  "shell": "f123-shell-v620",
+  "shell": "f123-shell-v621",
   "apagar": [],
-  "releaseName": "shell v620",
-  "cacheGeneration": "golden166"
+  "releaseName": "shell v621",
+  "cacheGeneration": "golden167"
 }

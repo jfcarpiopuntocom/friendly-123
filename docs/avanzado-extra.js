@@ -2753,7 +2753,8 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             }
           } catch (_) { alert(window.t("team.pinCheckFailed")); return; }
           try {
-            const ok = await window.OCSecure[fn](v);
+            const ok = await (rol === "owner" && window.OCSecure.fijarOwnerPinDesdeSesion
+              ? window.OCSecure.fijarOwnerPinDesdeSesion(v) : window.OCSecure[fn](v));
             if (!ok) { msg("oc-codes-msg", window.tf("team.pinUpdateFailed", { role: etiqueta }), "var(--rojo)"); return; }
             try {
               if (window.OCSecure.recordarPinQueAbre) {

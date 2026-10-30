@@ -1,0 +1,28 @@
+name: v621 P0 owner PIN rotation
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'docs/crypto-store.js'
+      - 'docs/avanzado-extra.js'
+      - 'test/p0-v621-owner-pin-rotation-verified-room.test.cjs'
+      - '.github/workflows/p0-v621-owner-pin.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  focused-owner-pin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax and verified-room owner PIN regression
+        run: |
+          node --check docs/crypto-store.js
+          node --check docs/avanzado-extra.js
+          node --test test/p0-v621-owner-pin-rotation-verified-room.test.cjs test/p0-v616-team-pin-adoption.test.cjs test/p0-v618-browser-pwa-same-notebook.test.cjs
+      - name: Diff hygiene
+        run: git diff --check
