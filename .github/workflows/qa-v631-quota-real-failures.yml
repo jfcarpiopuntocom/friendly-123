@@ -1,0 +1,28 @@
+name: qa-v631-quota-real-failures
+on:
+  push:
+    branches:
+      - qa/v631-quota-real-errors-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  real-storage-errors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact quota and evidence tests
+        run: |
+          set -euo pipefail
+          node --check test/incident-v606-aviso-falso-memoria.test.cjs
+          node --check test/quota-preserves-legacy-evidence.test.cjs
+          node --test test/incident-v606-aviso-falso-memoria.test.cjs test/quota-preserves-legacy-evidence.test.cjs
+      - name: Audit source identity
+        if: always()
+        run: |
+          wc -l docs/mock-backend.js test/incident-v606-aviso-falso-memoria.test.cjs test/quota-preserves-legacy-evidence.test.cjs
+          sha256sum docs/mock-backend.js test/incident-v606-aviso-falso-memoria.test.cjs test/quota-preserves-legacy-evidence.test.cjs
