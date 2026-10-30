@@ -12,10 +12,20 @@ const BASE = (process.argv[2] || 'https://jfcarpiopuntocom.github.io/friendly-12
 const fallas = [];
 const mal = (m) => { fallas.push(m); console.log('FALLA ' + m); };
 
+// Distinguish an intermittent Pages CDN 502/503/504 from a persistent outage.
+// NEVER retry a bad SHA-256, 404, or JavaScript error; each file still must match.
+const intermitentes = [];
 async function bajar(rel) {
-  const r = await fetch(BASE + rel + (rel.includes('?') ? '&' : '?') + 'r=' + Date.now(), { cache: 'no-store' });
-  if (!r.ok) throw new Error(rel + ' HTTP ' + r.status);
-  return Buffer.from(await r.arrayBuffer());
+  for (let intento = 0; intento < 3; intento++) {
+    const r = await fetch(BASE + rel + (rel.includes('?') ? '&' : '?') + 'r=' + Date.now() + '-' + intento, { cache: 'no-store' });
+    if (r.ok) return Buffer.from(await r.arrayBuffer());
+    if (![502, 503, 504].includes(r.status) || intento === 2)
+      throw new Error(rel + ' HTTP ' + r.status + ' (intentos ' + (intento + 1) + ')');
+    intermitentes.push({ rel, status: r.status });
+    console.log('AVISO transitorio ' + rel + ' HTTP ' + r.status + '; reintentando solo este recurso');
+    await new Promise(resolve => setTimeout(resolve, 200 * (intento + 1)));
+  }
+  throw new Error(rel + ' no se pudo descargar');
 }
 
 async function recorrer(nombre, engine, opciones) {
@@ -57,6 +67,7 @@ recorrer.etiquetas = [];
     } catch (e) { mal(`archivo ${rel}: ${e.message}`); }
   }
   console.log(`Manifiesto: ${ok}/${Object.keys(archivos).length} archivos cuadran`);
+  if (intermitentes.length) console.log(`AVISO: ${intermitentes.length} respuesta(s) 502/503/504 transitoria(s), con reintentos limitados; no se ocultan errores persistentes.`);
   await recorrer('Chromium escritorio', chromium, { viewport: { width: 1280, height: 800 } });
   await recorrer('Safari iPhone', webkit, { ...devices['iPhone 13'] });
   console.log(recorrer.etiquetas.join('\n'));
