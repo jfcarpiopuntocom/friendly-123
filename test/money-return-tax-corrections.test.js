@@ -65,7 +65,7 @@ test('a return waits for IndexedDB confirmation before publishing any stock or c
   const s = await setup();
   let finish, events = 0, settled = false;
   s.app.localStorage.setItem = () => { throw Error('Synthetic quota'); };
-  s.app.OCEstadoIDB = { guardar: () => new Promise(resolve => { finish = resolve; }) };
+  s.app.OCEstadoIDB = { guardarConRevision: (snapshot,priorRev) => { assert.ok(snapshot._rev>priorRev);return new Promise(resolve => { finish = resolve; }); } };
   s.app.OCSyncEmit = () => { events++; };
   s.app.addEventListener('oc-catalogo-cambiado', () => { events++; });
   const pending = returnSale(s).then(r => { settled = true; return r; });
@@ -148,7 +148,7 @@ test('incoming money evidence survives a return rollback while IndexedDB is pend
   const expense = await other.request('/api/gastos', 'POST', { concepto: 'Synthetic concurrent expense', monto: 12 });
   let finish;
   s.app.localStorage.setItem = () => { throw Error('Synthetic quota'); };
-  s.app.OCEstadoIDB = { guardar: () => new Promise(resolve => { finish = resolve; }) };
+  s.app.OCEstadoIDB = { guardarConRevision: (snapshot,priorRev) => { assert.ok(snapshot._rev>priorRev);return new Promise(resolve => { finish = resolve; }); } };
   const pending = returnSale(s);
   await new Promise(resolve => setImmediate(resolve));
   s.app.receive(other);
