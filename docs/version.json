@@ -1,10 +1,10 @@
 {
-  "version": "shell v625",
+  "version": "shell v626",
   "fecha": "2026-10-30",
   "changelog": "Business names remain fully visible with a black outline that scales with their text size in the app and dashboard. No changes to business data or PIN credentials.",
   "requerida": false,
-  "shell": "f123-shell-v625",
+  "shell": "f123-shell-v626",
   "apagar": [],
-  "releaseName": "shell v625",
-  "cacheGeneration": "golden171"
+  "releaseName": "shell v626",
+  "cacheGeneration": "golden172"
 }
