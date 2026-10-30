@@ -1,0 +1,27 @@
+name: qa-v631-local-fifo-identity
+on:
+  push:
+    branches:
+      - qa/v631-local-fifo-vs-obsolete-weblocks-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  session-fence-and-cas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Current local FIFO and stale CAS refusal
+        run: |
+          set -euo pipefail
+          node --check test/e1b3-zombie-web-lock.test.cjs
+          node --test test/e1b3-zombie-web-lock.test.cjs
+      - name: Bytes and linecounts
+        if: always()
+        run: |
+          wc -l test/e1b3-zombie-web-lock.test.cjs docs/mock-backend.js docs/estado-idb.js
+          sha256sum test/e1b3-zombie-web-lock.test.cjs docs/mock-backend.js docs/estado-idb.js
