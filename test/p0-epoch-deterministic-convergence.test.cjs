@@ -100,3 +100,34 @@ test('P0 encrypted Yjs documents eventually agree under opposite epoch replay or
     assert.equal((await item(a)).stockActual,(await item(b)).stockActual,'idempotent replay');
   }
 });
+test('P0 replica with stock 3/4/7/7/6 converges with replica 7/7/7/7/7 across five synthetic items',async()=>{
+  const a=browser(),b=browser();
+  const fa=await a.request('/api/respaldo/exportar');
+  const fb=await b.request('/api/respaldo/exportar');
+  const template=fa.productos.find(p=>Number(p.stockActual)>=1);
+  assert.ok(template);
+  const pca=[3,4,7,7,6],mobile=[7,7,7,7,7];
+  function rows(numbers,epoch,ts){
+    return numbers.map((stock,i)=>({...template,id:'synthetic-item-'+i,
+      nombre:'Synthetic item '+i,barcode:'SYN-5-'+i,
+      stockActual:stock,stockBase:stock,stockDeficit:0,
+      stockPN:{},stockEpochId:epoch+'-'+i,stockTs:ts,rev:{c:1,d:'fixture'}}));
+  }
+  fa.productos=rows(pca,'PC',1000);fa.ventas=[];fa.movimientos=[];
+  fb.productos=rows(mobile,'PHONE',2000);fb.ventas=[];fb.movimientos=[];
+  await a.request('/api/respaldo/importar','POST',fa);
+  await b.request('/api/respaldo/importar','POST',fb);
+  for(let round=0;round<4;round++){
+    const aa=a.catalog(),bb=b.catalog();
+    a.OCSync.aplicarCatalogo(bb,null);b.OCSync.aplicarCatalogo(aa,null);
+  }
+  const aa=(await a.request('/api/respaldo/exportar')).productos;
+  const bb=(await b.request('/api/respaldo/exportar')).productos;
+  for(let i=0;i<5;i++){
+    const x=aa.find(p=>p.id==='synthetic-item-'+i);
+    const y=bb.find(p=>p.id==='synthetic-item-'+i);
+    assert.equal(x.stockActual,y.stockActual,'product '+i+' must converge');
+    assert.equal(x.stockActual,7);
+    assert.equal(x.stockEpochId,y.stockEpochId);
+  }
+});
