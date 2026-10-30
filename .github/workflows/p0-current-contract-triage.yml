@@ -1,0 +1,32 @@
+name: P0 current PIN and CAS contract triage
+on:
+  push:
+    branches: [forensic/v628-regression-contracts-20261030]
+  pull_request:
+    paths:
+      - 'test/local-rev-durable-ack.test.cjs'
+      - 'test/p0-v617-recovered-team-gate.test.cjs'
+      - '.github/workflows/p0-current-contract-triage.yml'
+permissions:
+  contents: read
+jobs:
+  current-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Evidence: exact file SHA-256 and line counts
+        run: |
+          sha256sum test/local-rev-durable-ack.test.cjs test/p0-v617-recovered-team-gate.test.cjs
+          wc -l test/local-rev-durable-ack.test.cjs test/p0-v617-recovered-team-gate.test.cjs
+      - name: Current PIN and atomic durable state contracts
+        run: node --test test/local-rev-durable-ack.test.cjs test/p0-v617-recovered-team-gate.test.cjs
+      - name: No runtime changes
+        run: |
+          git diff --check HEAD^ HEAD
+          if git diff --name-only ${{ github.event.before || 'HEAD^' }} HEAD | grep '^docs/'; then exit 1; fi
