@@ -34,6 +34,10 @@ test('P0 opposite order of explicit epoch catalog merger yields identical invent
     assert.equal(p.stockActual,6);
     assert.equal(p.stockEpochId,'E-NEWER');
     assert.equal(p.stockPN.actorB.sub,1);
+    assert.equal(p.stockEvidencias?.[JSON.stringify([7,'E-OLDER'])]?.pn?.actorA?.add,2,
+      'losing same-base epoch survives full product export');
+    assert.equal(p.stockEvidencias?.[JSON.stringify([7,'E-NEWER'])]?.pn?.actorB?.sub,1,
+      'winning same-base epoch survives full product export');
   }
   for(let i=0;i<3;i++){
     const aa=a.catalog(),bb=b.catalog();
@@ -96,6 +100,10 @@ test('P0 encrypted Yjs documents eventually agree under opposite epoch replay or
     assert.equal(pb.stockEpochId,'E-NEWER');
     assert.ok(a.OCYjs.stockPNTestigos.size>=2,'both source movement witnesses retained');
     assert.ok(b.OCYjs.stockPNTestigos.size>=2,'receiver retained both movement witnesses');
+    assert.equal(pa.stockEvidencias?.[JSON.stringify([7,'E-OLDER'])]?.pn?.actorA?.add,2,
+      'Yjs export retains the superseded physical epoch');
+    assert.equal(pb.stockEvidencias?.[JSON.stringify([7,'E-NEWER'])]?.pn?.actorB?.sub,1,
+      'Yjs export retains current physical epoch');
     await converge(b,a,!reverse);
     assert.equal((await item(a)).stockActual,(await item(b)).stockActual,'idempotent replay');
   }
