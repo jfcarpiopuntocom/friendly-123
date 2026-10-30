@@ -1,0 +1,47 @@
+name: Seal v632 exact Owner PIN shell hashes
+on:
+  push:
+    branches:
+      - hotfix/v632-owner-pin-intent-lifecycle-20261030
+    paths:
+      - .github/workflows/seal-v632-owner-pin.yml
+      - docs/version.json
+      - docs/sw.js
+      - docs/dashboard.html
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: seal-v632-owner-pin
+  cancel-in-progress: false
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate exact identity, no removed capabilities
+        run: node scripts/release-control.cjs validate 24cb66b23639c033ff6529df1d5f3eb5909b4de6
+      - name: Generate deterministic manifest from checked-out shell bytes
+        run: |
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+          wc -l docs/crypto-store.js docs/sync-yjs.js docs/sw.js docs/dashboard.html docs/version-manifest.json
+          sha256sum docs/crypto-store.js docs/sync-yjs.js docs/sw.js docs/dashboard.html docs/version-manifest.json
+      - name: Commit exact shell seal on isolated candidate only
+        run: |
+          set -euo pipefail
+          git add docs/version-manifest.json docs/sw.js
+          if git diff --cached --quiet; then echo "Manifest already sealed"; else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'release(v632): seal Owner PIN lifecycle shell hashes'
+            git push origin HEAD:hotfix/v632-owner-pin-intent-lifecycle-20261030
+          fi
