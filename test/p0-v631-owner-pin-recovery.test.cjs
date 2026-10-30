@@ -93,3 +93,28 @@ test('P1: never invent a pending rotation from setup-only owner PIN change', asy
   assert.equal(await S.identificarPin('642'),null);
   assert.equal(await S.identificarPin('731'),null,'without signed explicit intent, shared room stays canonical');
 });
+
+test('P1: repeated offline edits preserve original expected shared predecessor', async () => {
+  const x=setup(), S=x.reload();
+  await S.guardarSecreto('642',['583'],'914','');
+  assert.equal(await S.fijarOwnerPinDesdeSesion('731'),true);
+  assert.equal(await S.fijarOwnerPinDesdeSesion('842'),true);
+  assert.equal(await S.identificarPin('731'),null);
+  x.Y.canal={recuperando:false,ws:{readyState:1}};
+  assert.equal(await S.identificarPin('842'),'dueno');
+  assert.equal(await S.reconciliarCambioPinOwnerPendiente(),true);
+  assert.equal(x.data.ownerPinConfirmado,'842');
+});
+test('P1: a second rotation after shared confirmation uses the current Owner as predecessor', async () => {
+  const x=setup(), S=x.reload();
+  await S.guardarSecreto('642',['583'],'914','');
+  assert.equal(await S.fijarOwnerPinDesdeSesion('731'),true);
+  x.Y.canal={recuperando:false,ws:{readyState:1}};
+  assert.equal(await S.reconciliarCambioPinOwnerPendiente(),true);
+  x.Y.canal={recuperando:true,ws:null};
+  assert.equal(await S.fijarOwnerPinDesdeSesion('842'),true);
+  x.Y.canal={recuperando:false,ws:{readyState:1}};
+  assert.equal(await S.reconciliarCambioPinOwnerPendiente(),true);
+  assert.equal(x.data.ownerPinConfirmado,'842');
+  assert.equal(await S.identificarPin('731'),null);
+});
