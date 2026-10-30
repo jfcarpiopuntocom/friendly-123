@@ -1,10 +1,10 @@
 {
-  "version": "shell v627",
+  "version": "shell v628",
   "fecha": "2026-10-30",
-  "changelog": "Manual stock adjustments now require durable storage before synchronizing; failed writes restore previous stock and audit history. No design or PIN changes.",
+  "changelog": "Two-tab concurrent sales preserve distinct receipts, stock and durable revisions without adding browser locks. Owner PIN, layout and sync transport remain unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v627",
+  "shell": "f123-shell-v628",
   "apagar": [],
-  "releaseName": "shell v627",
-  "cacheGeneration": "golden173"
+  "releaseName": "shell v628",
+  "cacheGeneration": "golden174"
 }
