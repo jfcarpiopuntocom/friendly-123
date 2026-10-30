@@ -7131,10 +7131,45 @@
         // y contaminante. Se rechaza explicitamente.
         if (d === 0) return J({ error: "The adjustment cannot be zero." }, 400);
         if (p.stockActual + d < 0) return J({ error: `That adjustment would push stock negative (currently: ${p.stockActual}).` }, 400);
-        p.stockActual += d;
-        mov("ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || "Ajuste manual", stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) });
-        emitirOpStock("ajuste", { productoId: p.id, delta: d });
-        return J(ficha(p));
+        // Same durable boundary as a sale: never publish a correction that may
+        // disappear on reload when both local storage backends reject the write.
+        debePersistir = false;
+        const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
+          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit"].map(k => ({
+            k, existe: Object.prototype.hasOwnProperty.call(p, k),
+            valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]
+          })) };
+        const revertir = () => {
+          p.stockActual = foto.stock;
+          foto.meta.forEach(({k, existe, valor}) => { if (existe) p[k] = valor; else delete p[k]; });
+          movimientos.length = foto.movLen;
+          selloUltimo = foto.sello;
+        };
+        let guardado = false, terminar;
+        _ventaConfirmando = true; // Hold Yjs seed, incoming merges and reads until ACK/rollback.
+        _ventaPendiente = new Promise(resolve => { terminar = resolve; });
+        try {
+          p.stockActual += d;
+          mov("ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || "Ajuste manual", stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
+          const op = { productoId: p.id, delta: d };
+          _prepararOpStock(op);
+          try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!guardado) {
+            revertir();
+            return J({ error: tSeguro("product.notSaved", "The stock adjustment was NOT saved. Check available storage and try again.") }, 507);
+          }
+          emitirOpStock("ajuste", op, true);
+          return J(ficha(p));
+        } catch (e) {
+          if (!guardado) revertir();
+          throw e;
+        } finally {
+          _ventaConfirmando = false; _ventaPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+            if (guardado) _avisarCatalogoConfirmado();
+          } finally { terminar(); }
+        }
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/etiqueta$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
