@@ -71,7 +71,18 @@ test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes 
     assert.equal(await t2.locator('#oc-doble-tab').count(),0,'Web Locks coordinates each write; a second app tab must remain usable');
     const vender = (pg, pid) => pg.evaluate(async (x) => (await fetch(`/api/productos/${x}/venta`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad: 1 }) })).status, pid);
     const firstStatuses = await Promise.all([vender(t1, ids[0]), vender(t2, ids[1])]);
+    const diagnostico = async pg => pg.evaluate(async () => {
+      const idb = await window.OCEstadoIDB.leer();
+      const vista = window.OCEstadoAB.crear({storage:localStorage,claveBase:"f123_estado_v4"}).leer();
+      return { idbRev:idb && idb._rev, idbSales:idb && idb.ventas && idb.ventas.length,
+        abRev:vista.revMax, abConflictos:vista.conflictos && vista.conflictos.length,
+        abDanados:vista.danados && vista.danados.length, abActivo:vista.activo,
+        abRevA:(()=>{try{return JSON.parse(vista.buffers.A)._rev}catch(_){return null}})(),
+        abRevB:(()=>{try{return JSON.parse(vista.buffers.B)._rev}catch(_){return null}})() };
+    });
+    const antesDeTercera = [await diagnostico(t1),await diagnostico(t2)];
     const thirdStatus = await vender(t1, ids[0]); // no silent rejection or duplicate
+    console.log('TWO-TAB-REV-DIAGNOSTIC',JSON.stringify({engineName,antesDeTercera,despuesDeTercera:await diagnostico(t1),thirdStatus}));
     await t2.reload({ waitUntil: 'networkidle' });
     // A hard-coded 1200 ms under loaded WebKit was not an observation barrier.
     // Still FAIL after a bounded 8 s if any acknowledged sale is truly absent.
