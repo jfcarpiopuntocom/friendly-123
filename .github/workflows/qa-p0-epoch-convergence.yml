@@ -1,0 +1,30 @@
+name: qa-p0-epoch-convergence
+on:
+  push:
+    branches: [fix/p0-convergencia-epocas-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  convergence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static syntax and epoch tests (no real customer data)
+        run: |
+          set -euo pipefail
+          node --check docs/mock-backend.js
+          node --check docs/sync-yjs.js
+          node --test test/p0-epoch-deterministic-convergence.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-v602-relay-null-stock-epoch.test.cjs
+      - name: Verify exact files
+        if: always()
+        run: |
+          wc -l docs/mock-backend.js docs/sync-yjs.js test/p0-epoch-deterministic-convergence.test.cjs
+          sha256sum docs/mock-backend.js docs/sync-yjs.js test/p0-epoch-deterministic-convergence.test.cjs
+          git diff --check HEAD^ HEAD
