@@ -2441,6 +2441,14 @@
             // A fresh device must never publish factory/demo PINs over the team's credentials.
             [["owner", "789"], ["emp", "260"], ["acct", "357"]].forEach(function (role) {
               var p = String(cat.pinsRol[role[0]] || "");
+              // Owner PIN is an explicitly rotated credential. Another phone's
+              // older local profile is not authority to overwrite the notebook.
+              // Old shells can continue writing pinsRol; the separate explicit
+              // owner key survives their automatic catalog scans.
+              if (role[0] === "owner" && (
+                  /^\d{3}$/.test(String(API.meta.get("ownerPinConfirmado") || "")) ||
+                  (/^\d{3}$/.test(String(pinsPrev.owner || "")) &&
+                   pinsPrev.owner !== "789" && pinsPrev.owner !== "456"))) return;
               if (/^\d{3}$/.test(p) && p !== role[1] && p !== "456") pinsNext[role[0]] = p;
             });
             if (JSON.stringify(pinsNext) !== JSON.stringify(pinsPrev)) API.meta.set("pinsRol", pinsNext);
@@ -2495,6 +2503,10 @@
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
       var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando && !API.canal.peerSnapshot ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var confirmado = String(API.meta.get("ownerPinConfirmado") || "");
+      if (remoto.pinsRol && /^\d{3}$/.test(confirmado) && confirmado !== "456") {
+        remoto.pinsRol = Object.assign({}, remoto.pinsRol, { owner: confirmado });
+      }
       // Only after a verified full application. A product-only Yjs update has
       // already been decrypted, and the unchanged collections are no-ops.
       // Financial ops live in the separate append-only channel and are NEVER
@@ -2637,6 +2649,33 @@
         _barridoFirma = firmaBarrido(); // sembrar() puede escribir al doc: la firma de referencia es la posterior
       } catch (_) {}
     }, 2000);
+
+    // P0 v621: only an explicit change from an authenticated Owner screen may
+    // replace a custom notebook owner PIN. Routine background seeding cannot.
+    API.publicarCambioPinOwner = function (nuevo) {
+      var pin = String(nuevo || "");
+      if (!/^\d{3}$/.test(pin) || pin === "456" || pin === "789" ||
+          API.estado !== "activo" || !API.doc || !API.meta || !API.roomId ||
+          !API.canal || API.canal.recuperando) return false;
+      try {
+        if (!window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
+        var T = window.OCTienda;
+        if (T && typeof T.licenciaActual === "function") {
+          var lic = String(T.licenciaActual() || "");
+          var own = JSON.parse(localStorage.getItem("f123_owned") || "{}") || {};
+          if (!/^F123-/.test(lic) || lic !== String(own.licenseCode || "")) return false;
+        }
+        var prev = API.meta.get("pinsRol") || {};
+        if (prev.owner === pin) return true;
+        API.doc.transact(function () {
+          API.meta.set("pinsRol", Object.assign({}, prev, { owner: pin }));
+          // New owner writes use a separate key. Old v620 devices only know
+          // pinsRol and cannot undo an explicit rotation through idle seeding.
+          API.meta.set("ownerPinConfirmado", pin);
+        }, "seed");
+        return API.meta.get("ownerPinConfirmado") === pin;
+      } catch (_) { return false; }
+    };
 
     API._store = { sembrar: sembrar, aplicar: aplicar }; // para diagnóstico manual
   }
