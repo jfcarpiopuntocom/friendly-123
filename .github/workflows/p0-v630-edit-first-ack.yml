@@ -1,0 +1,30 @@
+name: P0 v630 sale edit first durable PN ACK
+on:
+  push:
+    branches: [hotfix/v630-sale-edit-durable-pn-20261030]
+  pull_request:
+    paths:
+      - 'docs/mock-backend.js'
+      - 'test/p0-v630-sale-edit-first-ack-pn.test.cjs'
+      - '.github/workflows/p0-v630-edit-first-ack.yml'
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: File identity
+        run: |
+          sha256sum docs/mock-backend.js test/p0-v630-sale-edit-first-ack-pn.test.cjs
+          wc -l docs/mock-backend.js test/p0-v630-sale-edit-first-ack-pn.test.cjs
+      - name: First committed snapshot and rollback
+        run: node --test test/p0-v630-sale-edit-first-ack-pn.test.cjs
+      - name: Stock durability, PN, stale metadata, clock and two-peer convergence
+        run: node --test test/p0-durable-stock-adjustment.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-stock-monotonic-clock-v559.test.js
+      - name: Corrections of sales and immutable money receipts (isolated cases)
+        run: node --test --test-name-pattern='settled cash walk-in|manually linked legacy debt|sale-linked receipt|cash fiado cash|settled commission|reload, synthetic peer' test/sale-credit-corrections-v489.test.js

@@ -1,6 +1,6 @@
 {
-  "version": "shell v629",
-  "shell": "f123-shell-v629",
+  "version": "shell v630",
+  "shell": "f123-shell-v630",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-30eca8c80622213d61e554fb5ef1e5e1cba0726dbf15c0185e359a6ef3f478ee",
@@ -25,7 +25,7 @@
     "./pocketbase-client.js": "sha256-1b038581ecb22a491f388bddf5de6729209db5d7c67a404d1def8f8edb236469",
     "./estado-ab.js": "sha256-63f6664400517ec3e2cebb2a62c185295e492e401b3a9d2565d4f648c039b597",
     "./estado-idb.js": "sha256-9e23223b663b280b6bcb1a764d80b2972feaa30a5d4185c5acd85e2e38364ab2",
-    "./mock-backend.js": "sha256-3f2dd9ebe06f3020b4971436f033713db9a88c3e3b11f24e984758fc30d72103",
+    "./mock-backend.js": "sha256-125c5aebbf70a55eeaf2a9e768d543c17822f7e25e87171889e3f3e802d2eb62",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
@@ -76,7 +76,7 @@
     "./micelio-vivo.js": "sha256-4e9201311c932092e1b4bf4755e95410dd9b822bfc046a39f1534e6b3a7d8cda",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-b00fb1676b48009e0307b7710d0cb2272e713e2ed6905f5c13bc549edd89f379",
+    "./dashboard.html": "sha256-bdf17a8df6761a30e12afca70eb0b6a89fd06775093b91bc6f3a54d4f85800cf",
     "./dashboard-updates.js": "sha256-3591152be96f22060daae69763ba6e80325b75b302772551544b4d31d48bb4cf",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",

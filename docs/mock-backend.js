@@ -7133,6 +7133,10 @@
         }
         mov("venta-editada", { producto: p.nombre, ventaId: venta.id, cambios }, false);
         venta.rev = _revNueva();
+        // PN, base, and monotonic stockTs belong to the FIRST durable snapshot.
+        // Prepare without publishing, then emit exactly once after strict ACK.
+        const _opEdicionStock = _deltaEdicion ? { productoId: p.id, delta: _deltaEdicion } : null;
+        if (_opEdicionStock) _prepararOpStock(_opEdicionStock);
         let _edicionGuardada = false;
         try { _edicionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_edicionGuardada) {
@@ -7145,8 +7149,9 @@
           debePersistir = false;
           return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
         }
-        if (_deltaEdicion) emitirOpStock("venta-editada", { productoId: p.id, delta: _deltaEdicion });
+        if (_opEdicionStock) emitirOpStock("venta-editada", _opEdicionStock, true);
         avisarCatalogoCambiado();
+        debePersistir = false; // strict snapshot already contains sale, stock, PN and audit
         return J({ producto: ficha(p), venta, ok: true });
       }
       /* EDITAR UN EVENTO (JFC 2026-09-02, micromejora #10): dueño/admin puede
