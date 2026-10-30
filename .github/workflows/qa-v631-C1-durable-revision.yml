@@ -1,0 +1,26 @@
+name: qa-v631-C1-durable-revision
+on:
+  push:
+    branches:
+      - qa/v631-localrev-fixture-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  c1-revision:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          set -euo pipefail
+          node --check test/local-rev-durable-ack.test.cjs
+          node --test test/local-rev-durable-ack.test.cjs
+      - name: Source byte identity and linecounts
+        if: always()
+        run: |
+          wc -l test/local-rev-durable-ack.test.cjs docs/mock-backend.js
+          sha256sum test/local-rev-durable-ack.test.cjs docs/mock-backend.js
