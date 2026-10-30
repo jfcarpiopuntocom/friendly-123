@@ -2770,7 +2770,13 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
               const y = window.OCYjs;
               if (!y || typeof y.publicarCambioPinOwner !== "function" ||
                   !y.publicarCambioPinOwner(v)) {
-                msg("oc-codes-msg", "Owner PIN saved on this device, but the shared notebook has not confirmed it. Keep this session open until synchronization finishes.", "var(--rojo)");
+                msg("oc-codes-msg", "Owner PIN saved on this device. Shared recovery is pending; keep this session open.", "var(--rojo)");
+                return;
+              }
+              const revOwner = Number(y.meta && y.meta.get("ownerPinCambioRev"));
+              if (typeof y.confirmarPinOwnerDurable !== "function" ||
+                  await y.confirmarPinOwnerDurable(v, revOwner) !== true) {
+                msg("oc-codes-msg", "Owner PIN saved locally; durable recovery is still pending. Keep this session open.", "var(--rojo)");
                 return;
               }
             }

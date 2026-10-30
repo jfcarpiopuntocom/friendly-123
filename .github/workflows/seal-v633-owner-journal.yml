@@ -1,0 +1,47 @@
+name: seal-v633-owner-journal
+on:
+  push:
+    branches: [hotfix/v633-r3-durable-pin-20261030]
+    paths:
+      - docs/crypto-store.js
+      - docs/sync-yjs.js
+      - docs/avanzado-extra.js
+      - docs/version.json
+      - docs/sw.js
+      - docs/dashboard.html
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: seal-v633-owner-journal
+  cancel-in-progress: false
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate and validate exact manifest
+        run: |
+          set -euo pipefail
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+          wc -l docs/crypto-store.js docs/sync-yjs.js docs/avanzado-extra.js docs/sw.js docs/version-manifest.json
+          sha256sum docs/crypto-store.js docs/sync-yjs.js docs/avanzado-extra.js docs/sw.js docs/version-manifest.json
+      - name: Seal isolated shell
+        run: |
+          set -euo pipefail
+          git add docs/sw.js docs/version-manifest.json
+          if git diff --cached --quiet; then echo "Already sealed"; else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'release(v633): seal exact Owner PIN journal shell'
+            git push origin HEAD:hotfix/v633-r3-durable-pin-20261030
+          fi
