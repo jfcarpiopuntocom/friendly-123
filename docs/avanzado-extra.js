@@ -2821,6 +2821,17 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
        se renderizaban con rol vacío y NO aparecían nunca. Se re-pinta al hacer
        login (evento oc-login) para que el dueño/admin vea sus lapicitos. */
     try { window.addEventListener("oc-login", pintarPinsVisibles); } catch (_) {}
+    // P0: auth-ui.js may restore f123_sesion BEFORE Advanced registers oc-login.
+    // Paint once after credential/session readiness and whenever Advanced opens.
+    // Use OCAuth.rolActual() afresh; never grant owner edit rights from a stored badge.
+    try { window.OCAuth.listo().then(pintarPinsVisibles).catch(() => {}); } catch (_) {}
+    try { window.addEventListener("oc-logout", pintarPinsVisibles); } catch (_) {}
+    try {
+      document.addEventListener("click", (ev) => {
+        if (ev.target && ev.target.closest &&
+            ev.target.closest('nav button[data-vista="avanzado"]')) pintarPinsVisibles();
+      }, true);
+    } catch (_) {}
     try { window.addEventListener("oc-lang-change", () => { pintarPinsVisibles(); renderEmpleados().catch(() => {}); }); } catch (_) {}
 
     $("oc-descargar-csv").addEventListener("click", async () => {
