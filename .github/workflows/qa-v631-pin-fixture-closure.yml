@@ -1,0 +1,32 @@
+name: qa-v631-pin-fixture-closure
+on:
+  push:
+    branches:
+      - qa/v631-pin-fixture-dependency-20261030
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  focused-pin-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and exact historical PIN paths
+        run: |
+          set -euo pipefail
+          node --check test/p0-v617-recovered-team-gate.test.cjs
+          node --check test/p0-v618-browser-pwa-same-notebook.test.cjs
+          node --test test/p0-v617-recovered-team-gate.test.cjs test/p0-v618-browser-pwa-same-notebook.test.cjs test/p0-v631-owner-pin-recovery.test.cjs test/p0-v622-owner-pin-confirmed-room.test.cjs test/p0-v621-owner-pin-rotation-verified-room.test.cjs
+      - name: Lines checksums and unchanged production bytes
+        run: |
+          set -euo pipefail
+          wc -l test/p0-v617-recovered-team-gate.test.cjs test/p0-v618-browser-pwa-same-notebook.test.cjs docs/crypto-store.js docs/sync-yjs.js
+          sha256sum test/p0-v617-recovered-team-gate.test.cjs test/p0-v618-browser-pwa-same-notebook.test.cjs docs/crypto-store.js docs/sync-yjs.js
+          test "$(git rev-parse HEAD:docs/crypto-store.js)" = "$(git rev-parse b2b5b563d0b34c10970d7091724fa1e841c2dccb:docs/crypto-store.js)" || exit 1
+          test "$(git rev-parse HEAD:docs/sync-yjs.js)" = "$(git rev-parse b2b5b563d0b34c10970d7091724fa1e841c2dccb:docs/sync-yjs.js)" || exit 1
