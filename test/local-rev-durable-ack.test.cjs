@@ -25,6 +25,11 @@ function fixture({ failLocalStorage = true, idbWrite } = {}) {
   let storageHandler, localStorageFails = failLocalStorage;
   const ctx = {
     _conflictoEstadoAB: null, _registrarConflictoAB: ()=>false, _huellaPublicable: estado=>JSON.stringify(estado), _estadoLecturaBloqueada: false, _guardadoCatalogoPendiente: null, _guardandoAB: false,
+    // Production keeps these state fences in the same backend closure. The
+    // extracted fixtures must include them even when every intent is idle.
+    _ventaPendiente: null, _payoutPendiente: null, _retencionPendiente: null,
+    _guardadoEstrictoPendiente: null, _ventaConfirmando: false, _payoutConfirmando: false,
+    _retencionConfirmando: false, _ultimoErrorIDB: null,
     _localRev: 5, _localRevReservado: 0, _miSello: 'seed', _cargoBufferReal: false,
     OC_STATE_PTR: 'legacy_ptr', OC_STATE_SELLO: 'seal', OC_STATE_KEY: 'legacy', OC_STATE_SUFIJO: '',
     claveBuffer: x => `legacy_${x}`,
@@ -32,7 +37,13 @@ function fixture({ failLocalStorage = true, idbWrite } = {}) {
       getItem: k => disk.get(k) ?? null,
       setItem(k, v) { if (localStorageFails && k.startsWith('legacy_')) throw Error('synthetic quota'); disk.set(k, String(v)); },
     },
-    _espejarEnIDB: idbWrite || (() => Promise.resolve(false)),
+    // estado-idb.js serializes IDB writes in its private promise queue.
+    // A raw callback supplied by tests must preserve that serialization.
+    _espejarEnIDB: (() => { let tail = Promise.resolve(); return snapshot => {
+      if (!idbWrite) return Promise.resolve(false);
+      const run = tail.then(() => idbWrite(snapshot));
+      tail = run.catch(() => {}); return run;
+    }; })(),
     estadoActualExportable: () => ({ _rev: ctx._localRev, productos: structuredClone(state.productos), ubicaciones: structuredClone(state.ubicaciones) }),
     validarRespaldo: b => b && Array.isArray(b.productos) && Array.isArray(b.ubicaciones) ? null : 'invalid',
     aplicarRespaldo: b => { state.productos = structuredClone(b.productos); state.ubicaciones = structuredClone(b.ubicaciones); },
