@@ -1513,8 +1513,9 @@
       try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (e) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = e; }
       if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
       // P0: reject a stale local snapshot instead of overwriting another tab.
-      if (exigirCompleto && revisionDisco > _localRev) return false;
+      if (exigirCompleto && revisionDisco > _localRev) { window.__f123P0Strict = {phase:"AB-ahead",rev:_localRev,abRev:revisionDisco}; return false; }
       const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
+      if (exigirCompleto) window.__f123P0Strict = {phase:"CAS",rev:_localRev,abRev:revisionDisco,attemptRev:_revIntento};
       _localRevReservado = _revIntento;
       /* v609 perf: antes = copia profunda de cada coleccion (stringify+parse) y luego OTRO stringify para el A/B.
          Ahora se serializa UNA vez el estado vivo y `completo` es el parse de ese mismo texto (identico a la
@@ -5856,7 +5857,7 @@
       if (!idb || idb.soportado === false || typeof idb.leer !== "function") return primero;
       let nuevo = null;
       try { nuevo = await idb.leer(); } catch (_) { return primero; }
-      window.__f123P0Trace = {phase:"idb read after 507",rev:_localRev,freshRev:nuevo && nuevo._rev,blocked:_estadoLecturaBloqueada,conflict:!!_conflictoEstadoAB};
+      window.__f123P0Trace = {phase:"idb read after 507",rev:_localRev,freshRev:nuevo && nuevo._rev,blocked:_estadoLecturaBloqueada,conflict:!!_conflictoEstadoAB,strict:window.__f123P0Strict};
       if (!nuevo || !Number.isSafeInteger(nuevo._rev) || nuevo._rev <= _localRev ||
           validarRespaldo(nuevo)) return primero;
       if (rolAlPedir !== _rolLocal() || epocaAlPedir !== (window.OC_AUTH_SESSION_EPOCH || 0))
