@@ -2766,7 +2766,10 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
                 return;
               }
               if (S.estadoSecreto && S.estadoSecreto() === "vacio") {
-                const equipo = Y.meta.get("pinsRol");
+                const base = Y.meta.get("pinsRol");
+                const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
+                const equipo = base && /^\d{3}$/.test(confirmado) && confirmado !== "456"
+                  ? Object.assign({}, base, { owner: confirmado }) : base;
                 const recuperado = equipo && S.instalarCredencialesDesdeSala &&
                   await S.instalarCredencialesDesdeSala(equipo);
                 if (!recuperado) {
