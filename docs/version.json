@@ -1,10 +1,10 @@
 {
-  "version": "shell v626",
+  "version": "shell v627",
   "fecha": "2026-10-30",
-  "changelog": "Business names remain fully visible with a black outline that scales with their text size in the app and dashboard. No changes to business data or PIN credentials.",
+  "changelog": "Manual stock adjustments now require durable storage before synchronizing; failed writes restore previous stock and audit history. No design or PIN changes.",
   "requerida": false,
-  "shell": "f123-shell-v626",
+  "shell": "f123-shell-v627",
   "apagar": [],
-  "releaseName": "shell v626",
-  "cacheGeneration": "golden172"
+  "releaseName": "shell v627",
+  "cacheGeneration": "golden173"
 }
