@@ -25,6 +25,11 @@ function fixture({ failLocalStorage = true, idbWrite } = {}) {
   let storageHandler, localStorageFails = failLocalStorage;
   const ctx = {
     _conflictoEstadoAB: null, _registrarConflictoAB: ()=>false, _huellaPublicable: estado=>JSON.stringify(estado), _estadoLecturaBloqueada: false, _guardadoCatalogoPendiente: null, _guardandoAB: false,
+    // Production keeps these state fences in the same backend closure. The
+    // extracted fixtures must include them even when every intent is idle.
+    _ventaPendiente: null, _payoutPendiente: null, _retencionPendiente: null,
+    _guardadoEstrictoPendiente: null, _ventaConfirmando: false, _payoutConfirmando: false,
+    _retencionConfirmando: false, _ultimoErrorIDB: null,
     _localRev: 5, _localRevReservado: 0, _miSello: 'seed', _cargoBufferReal: false,
     OC_STATE_PTR: 'legacy_ptr', OC_STATE_SELLO: 'seal', OC_STATE_KEY: 'legacy', OC_STATE_SUFIJO: '',
     claveBuffer: x => `legacy_${x}`,
