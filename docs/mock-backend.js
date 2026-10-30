@@ -7156,7 +7156,7 @@
           try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
           if (!guardado) {
             revertir();
-            return J({ error: tSeguro("inv.notSaved", "The stock adjustment was NOT saved. Check available storage and try again.") }, 507);
+            return J({ error: tSeguro("product.notSaved", "The stock adjustment was NOT saved. Check available storage and try again.") }, 507);
           }
           emitirOpStock("ajuste", op, true);
           return J(ficha(p));
