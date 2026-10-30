@@ -518,8 +518,19 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
         const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
         if (!/^F123-/.test(lic) || own.licenseCode !== lic) return false;
         const old = s.ownerRotationPending;
-        const fromHash = old && old.licenseCode === lic &&
-          old.toHash === s.ownerHash ? old.fromHash : s.ownerHash;
+        let fromHash = s.ownerHash;
+        if (old && old.licenseCode === lic && old.toHash === s.ownerHash) {
+          // Preserve the original predecessor only while the previous change
+          // is still absent from the room. A second rotation after confirmation
+          // must use the newly confirmed Owner, not an obsolete ancestor.
+          const Y = window.OCYjs, team = Y && Y.meta && Y.meta.get("pinsRol") || {};
+          const confirmed = String(Y && Y.meta && Y.meta.get("ownerPinConfirmado") || "");
+          const shared = /^\d{3}$/.test(confirmed) && confirmed !== "456" &&
+            confirmed !== "789" ? confirmed : String(team.owner || "");
+          fromHash = /^\d{3}$/.test(shared) &&
+            await hashPin(shared, s.salt, "owner") === s.ownerHash
+              ? s.ownerHash : old.fromHash;
+        }
         s.ownerRotationPending = { licenseCode: lic, fromHash, toHash: hashNuevo };
       } catch (_) { return false; }
     }
