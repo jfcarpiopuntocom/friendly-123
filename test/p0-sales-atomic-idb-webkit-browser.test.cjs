@@ -57,7 +57,7 @@ test('P0: no 10-second Web Locks in either sales write gate, strict sale require
  assert.doesNotMatch(write,/navigator\.locks\.request|10000|Promise\.race\(\[locked/);
  assert.doesNotMatch(ab,/f123-estado-ab:|navigator\.locks\.request/);
  assert.match(save,/idb\.guardarConRevision\(completo, _localRev\)/);
- assert.match(save,/if \(!ok\) return terminar\(false\)/);
+ assert.match(save,/if \(ok !== true\) return terminar\(false\)/,'reject non-boolean CAS acknowledgements');
  assert.match(save,/const ack = terminar\(true\)/);
  assert.match(save,/if \(ab && tokenOk\) setTimeout/);
  assert.doesNotMatch(save,/ab\.conCandado\(/);

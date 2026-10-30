@@ -1559,7 +1559,7 @@
           return terminar(local === true);
         }
         return idb.guardarConRevision(completo, _localRev).then(ok => {
-          if (!ok) return terminar(false);
+          if (ok !== true) return terminar(false);
           const ack = terminar(true);
           if (ab && tokenOk) setTimeout(() => {
             try { _guardandoAB = true; ab.guardarAhora(crudo); }
