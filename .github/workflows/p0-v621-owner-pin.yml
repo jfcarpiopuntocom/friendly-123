@@ -1,0 +1,29 @@
+name: P0 v621 owner PIN anti-reversion (focused)
+on:
+  pull_request:
+    paths:
+      - 'docs/sync-yjs.js'
+      - 'docs/mock-backend.js'
+      - 'docs/avanzado-extra.js'
+      - 'test/yjs-pin-seed.test.js'
+      - '.github/workflows/p0-v621-owner-pin.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  owner-pin:
+    name: Live Yjs owner PIN rotation and stale-peer regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Local owner PIN Yjs RED/GREEN tests (no customer data)
+        run: node --test test/yjs-pin-seed.test.js test/yjs-pin-replay-readiness.test.js test/pin-owner-integrity.test.js
+      - name: Changed JavaScript syntax
+        run: |
+          node --check docs/sync-yjs.js
+          node --check docs/mock-backend.js
+          node --check docs/avanzado-extra.js
