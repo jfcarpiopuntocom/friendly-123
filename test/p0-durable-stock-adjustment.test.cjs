@@ -20,15 +20,15 @@ test('manual stock adjustment is not visible or emitted until strict durable ACK
   const old = before.productos.find(p => p.id === 'p24');
   let pending, emitted = 0;
   w.OCSyncEmit = () => { emitted++; return true; };
-  w.OCEstadoIDB = { guardar: (state, strict) => new Promise(resolve => {
-    pending = { state, strict, resolve };
+  w.OCEstadoIDB = { guardarConRevision: (state, priorRev) => new Promise(resolve => {
+    pending = { state, priorRev, resolve };
   }) };
   const originalSetItem = w.localStorage.setItem;
   w.localStorage.setItem = () => { throw Error('synthetic quota'); };
   try {
     const inFlight = adjust(w, +2);
     await awaitPending(() => !!pending);
-    assert.equal(pending.strict, true, 'manual correction must require strict persistence');
+    assert.ok(Number.isSafeInteger(pending.priorRev), 'manual correction must use atomic CAS storage');
     assert.equal(emitted, 0, 'stock operation must not be sent before durable commit');
     assert.equal(w.OCSync.catalogoPropio(), null, 'pending correction is not a publishable catalog');
     const staged = pending.state.productos.find(p => p.id === 'p24');
@@ -53,7 +53,7 @@ test('rejected manual stock correction rolls back stock, PN and audit; no ghost 
   const before = await snapshot(w);
   let emitted = 0;
   w.OCSyncEmit = () => { emitted++; return true; };
-  w.OCEstadoIDB = { guardar: () => Promise.resolve(false) };
+  w.OCEstadoIDB = { guardarConRevision: () => Promise.resolve(false) };
   const originalSetItem = w.localStorage.setItem;
   w.localStorage.setItem = () => { throw Error('synthetic quota'); };
   let response;
