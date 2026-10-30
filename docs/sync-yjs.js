@@ -2659,6 +2659,54 @@
       } catch (_) {}
     }, 2000);
 
+    // P0 v633 R3: verify recoverable exact Owner PIN+revision from committed
+    // local IndexedDB journal; Y.Doc RAM updates are not a durability receipt.
+    API.confirmarPinOwnerDurable = function (nuevo, revision) {
+      var pin = String(nuevo || "");
+      if (!/^\d{3}$/.test(pin) || !Number.isSafeInteger(revision) || revision < 1 ||
+          !API.doc || !API.meta || !API.roomId || !API.idb ||
+          !API.canal || API.canal.recuperando !== false) return Promise.resolve(false);
+      var room = API.roomId, doc = API.doc, idb = API.idb, db = idb.db;
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates"))
+        return Promise.resolve(false);
+      function matches(meta) {
+        return String(meta.get("ownerPinConfirmado") || "") === pin &&
+          Number(meta.get("ownerPinCambioRev")) === revision;
+      }
+      if (!matches(API.meta)) return Promise.resolve(false);
+      return new Promise(function (resolve) {
+        var rows = null, done = false;
+        function finish(ok) { if (!done) { done = true; resolve(ok === true); } }
+        try {
+          var tx = db.transaction(["updates"], "readonly");
+          var req = tx.objectStore("updates").getAll();
+          req.onsuccess = function () { rows = req.result; };
+          req.onerror = function () { finish(false); };
+          tx.onerror = function () { finish(false); };
+          tx.onabort = function () { finish(false); };
+          tx.oncomplete = function () {
+            if (!Array.isArray(rows) || !rows.length) return finish(false);
+            var restored;
+            try {
+              restored = new Y.Doc();
+              for (var i = 0; i < rows.length; i++) {
+                if (!rows[i] || !Number.isSafeInteger(rows[i].byteLength) || !rows[i].byteLength)
+                  return finish(false);
+                Y.applyUpdate(restored, new Uint8Array(rows[i]), "journal-proof");
+              }
+              if (restored.store && (restored.store.pendingStructs || restored.store.pendingDs))
+                return finish(false);
+              finish(matches(restored.getMap("_meta")) &&
+                API.roomId === room && API.doc === doc &&
+                API.idb === idb && API.idb.db === db &&
+                API.canal && API.canal.recuperando === false && matches(API.meta));
+            } catch (_) { finish(false); }
+            finally { if (restored) restored.destroy(); }
+          };
+        } catch (_) { finish(false); }
+      });
+    };
+
     // P0 v621: only an explicit change from an authenticated Owner screen may
     // replace a custom notebook owner PIN. Routine background seeding cannot.
     API.publicarCambioPinOwner = function (nuevo, revisionEsperada) {

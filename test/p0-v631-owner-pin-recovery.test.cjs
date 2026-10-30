@@ -13,14 +13,16 @@ function setup() {
   };
   localStorage.setItem('f123_owned', JSON.stringify({licenseCode:lic,instanceId:'synthetic'}));
   localStorage.setItem('photo-fixture', 'unchanged');
-  const data = {ownerPinConfirmado:'642', pinsRol:{owner:'642',emp:'583',acct:'914'}};
+  const data = {ownerPinConfirmado:'642', pinsRol:{owner:'642',emp:'583',acct:'914'},ownerPinCambioRev:0};
   const Y = {roomId:'synthetic-encrypted-room', estado:'activo',
     canal:{recuperando:true,ws:null},
     meta:{get:k=>data[k],set:(k,v)=>{data[k]=v}},
+    confirmarPinOwnerDurable:async(pin,rev)=>data.ownerPinConfirmado===pin&&data.ownerPinCambioRev===rev,
     publicarCambioPinOwner(pin) {
       if (this.canal.recuperando || !this.canal.ws || this.canal.ws.readyState!==1) return false;
       data.pinsRol = {...data.pinsRol,owner:pin};
       data.ownerPinConfirmado=pin;
+      data.ownerPinCambioRev++;
       return true;
     }
   };
@@ -63,6 +65,7 @@ test('P1: concurrent different Owner change is not overwritten by a stale pendin
   assert.equal(await S.fijarOwnerPinDesdeSesion('731'),true);
   x.Y.canal={recuperando:false,ws:{readyState:1}};
   x.data.ownerPinConfirmado='842';
+  x.data.ownerPinCambioRev=1;
   x.data.pinsRol={...x.data.pinsRol,owner:'842'};
   const restart=x.reload();
   assert.equal(await restart.reconciliarCambioPinOwnerPendiente(),false);

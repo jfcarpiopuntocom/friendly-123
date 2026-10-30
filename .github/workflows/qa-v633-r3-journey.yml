@@ -1,0 +1,30 @@
+name: qa-v633-r3-journey
+on:
+  push:
+    branches: [hotfix/v633-r3-durable-pin-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  pin-durability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Owner PIN journal and three isolated contexts
+        run: |
+          set -euo pipefail
+          node --check docs/crypto-store.js
+          node --check docs/sync-yjs.js
+          node --test test/p0-v633-owner-pin-durable-intent.test.cjs test/p0-v633-owner-pin-journal-real-yjs.test.cjs test/p0-v633-three-entrances-transport.test.cjs test/p0-v631-owner-pin-recovery.test.cjs test/p0-v632-owner-pin-intent-lifecycle.test.cjs test/p0-v622-owner-pin-confirmed-room.test.cjs test/yjs-pin-seed.test.js
+      - name: Exact linecounts / hashes
+        if: always()
+        run: |
+          wc -l docs/crypto-store.js docs/sync-yjs.js docs/avanzado-extra.js test/p0-v633-*.test.cjs
+          sha256sum docs/crypto-store.js docs/sync-yjs.js docs/avanzado-extra.js test/p0-v633-*.test.cjs
+          git diff --check HEAD^ HEAD
