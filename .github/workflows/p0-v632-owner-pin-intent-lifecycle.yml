@@ -22,9 +22,27 @@ jobs:
           node --check docs/crypto-store.js
           node --check docs/sync-yjs.js
           node --check test/p0-v632-owner-pin-intent-lifecycle.test.cjs
-          node --test test/p0-v632-owner-pin-intent-lifecycle.test.cjs test/p0-v631-owner-pin-recovery.test.cjs
+          node --test test/p0-v632-owner-pin-intent-lifecycle.test.cjs test/p0-v631-owner-pin-recovery.test.cjs test/p0-v622-owner-pin-confirmed-room.test.cjs test/p0-v621-owner-pin-rotation-verified-room.test.cjs test/yjs-pin-seed.test.js test/yjs-pin-replay-readiness.test.js
       - name: linecount and sha256
         if: always()
         run: |
           wc -l docs/crypto-store.js docs/sync-yjs.js test/p0-v632-owner-pin-intent-lifecycle.test.cjs
           sha256sum docs/crypto-store.js docs/sync-yjs.js test/p0-v632-owner-pin-intent-lifecycle.test.cjs
+
+  owner-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Real Owner editor in WebKit
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/p0-owner-pin-current-ui-browser.test.cjs
