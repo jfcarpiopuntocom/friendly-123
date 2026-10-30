@@ -81,7 +81,7 @@ test('full backend: pending IndexedDB ACK shields Yjs, GET and first durable PN'
   const w=browser();w.localStorage.setItem('f123_device_id','fixture-device-A');
   const acks=[];let emitted=0;
   w.OCSyncEmit=()=>{emitted++;return true};
-  w.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))}};
+  w.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))},guardar:snapshot=>new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))};
   w.localStorage.setItem=()=>{throw Error('quota');};
   const inFlight=sold(w,2);
   await pauseUntil(()=>acks.length===1);
