@@ -56,8 +56,10 @@ test('P0 equal timestamps deterministically choose epoch id and keep distinct ba
     const p=await item(w);
     assert.equal(p.stockActual,7);
     assert.equal(p.stockEpochId,'E-Z');
-    assert.ok(p.stockEvidencias?.['5']?.pn?.actorA?.add===3,'losing movement preserved');
-    assert.ok(p.stockEvidencias?.['9']?.pn?.actorB?.sub===2,'winning movement preserved');
+    assert.ok(p.stockEvidencias?.[JSON.stringify([5,'E-A'])]?.pn?.actorA?.add===3,
+      'losing independent epoch is exported with its identity');
+    assert.ok(p.stockEvidencias?.[JSON.stringify([9,'E-Z'])]?.pn?.actorB?.sub===2,
+      'winning independent epoch is exported with its identity');
   }
 });
 
@@ -100,10 +102,17 @@ test('P0 encrypted Yjs documents eventually agree under opposite epoch replay or
     assert.equal(pb.stockEpochId,'E-NEWER');
     assert.ok(a.OCYjs.stockPNTestigos.size>=2,'both source movement witnesses retained');
     assert.ok(b.OCYjs.stockPNTestigos.size>=2,'receiver retained both movement witnesses');
-    assert.equal(pa.stockEvidencias?.[JSON.stringify([7,'E-OLDER'])]?.pn?.actorA?.add,2,
-      'Yjs export retains the superseded physical epoch');
-    assert.equal(pb.stockEvidencias?.[JSON.stringify([7,'E-NEWER'])]?.pn?.actorB?.sub,1,
-      'Yjs export retains current physical epoch');
+    function hasEpoch(p, epoch, actor, field, n){
+      const active=p.stockEpochId===epoch && p.stockPN?.[actor]?.[field]===n;
+      const historical=p.stockEvidencias?.[JSON.stringify([7,epoch])]?.pn?.[actor]?.[field]===n;
+      return active || historical;
+    }
+    for(const p of [pa,pb]){
+      assert.ok(hasEpoch(p,'E-OLDER','actorA','add',2),
+        'export retains old epoch as active or historic evidence');
+      assert.ok(hasEpoch(p,'E-NEWER','actorB','sub',1),
+        'export retains new epoch as active or historic evidence');
+    }
     await converge(b,a,!reverse);
     assert.equal((await item(a)).stockActual,(await item(b)).stockActual,'idempotent replay');
   }
