@@ -5180,7 +5180,8 @@
             const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
             const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
             return {
-              owner: abre.owner || vis.owner || "",
+              // A stale login sidecar must never outrank the local credential.
+              owner: vis.owner || abre.owner || "",
               emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""),
               acct: abre.acct || vis.acct || ""
             };
