@@ -28,10 +28,12 @@ test('real fully recovered team roles work without any local f123_secure', async
   assert.equal(await check({pin:'671'}), 'empleado');
   assert.equal(await check({pin:'128'}), 'contador');
 });
-test('no PIN grants access before full encrypted-room recovery or from other notebook', async () => {
+test('recovery and PIN grant access on the same license, whether joined or owned', async () => {
   assert.equal(await check({ready:false}), null);
   assert.equal(await check({room:false}), null);
-  assert.equal(await check({joined:false}), null);
+  // An installed owned PWA and a joined browser must share the same verified
+  // license. The joined flag is a UI classification, not a separate identity.
+  assert.equal(await check({joined:false}), 'dueno');
   assert.equal(await check({pin:'321'}), null);
   assert.equal(await check({pin:'456',owner:'456'}), null);
   assert.equal(await check({pin:'789',owner:'789'}), null);
