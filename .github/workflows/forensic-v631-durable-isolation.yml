@@ -1,0 +1,45 @@
+name: forensic-v631-durable-isolation
+on:
+  push:
+    branches:
+      - forensic/v631-durable-isolation-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  bar-and-stock:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Exact bar stock conversion and local revision tests
+        run: |
+          set -euo pipefail
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=60000 test/bar-conversion-durable-ack.test.js test/local-rev-durable-ack.test.cjs
+      - name: Audit linecounts + hashes
+        if: always()
+        run: |
+          wc -l docs/mock-backend.js test/bar-conversion-durable-ack.test.js test/local-rev-durable-ack.test.cjs
+          sha256sum docs/mock-backend.js test/bar-conversion-durable-ack.test.js test/local-rev-durable-ack.test.cjs
+  money-and-returns:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - name: Exact payout + return tests
+        run: |
+          set -euo pipefail
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=60000 test/commission-partial-balance.test.js test/money-return-tax-corrections.test.js
+      - name: Audit hashes
+        if: always()
+        run: |
+          wc -l docs/mock-backend.js test/commission-partial-balance.test.js test/money-return-tax-corrections.test.js
+          sha256sum docs/mock-backend.js test/commission-partial-balance.test.js test/money-return-tax-corrections.test.js
