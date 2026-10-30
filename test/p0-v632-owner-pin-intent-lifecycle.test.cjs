@@ -41,7 +41,7 @@ test('R1 authorized return A to B to A does not re-publish stale B or reject new
   assert.equal(x.Y.publicarCambioPinOwner('731'),true); // first publish succeeds outside retry sweep
   assert.equal(x.data.ownerPinCambioRev,1);
   await S.reconciliarCambioPinOwnerPendiente(); // should permanently close acknowledged intent
-  const saved=JSON.parse(x.storage.getItem('f123_secure'));
+  const saved=JSON.parse(x.storage.get('f123_secure'));
   assert.equal(saved.ownerRotationPending,undefined,'confirmed intent cannot reactivate after restart');
   assert.equal(x.Y.publicarCambioPinOwner('642'),true); // second device, authorized later
   assert.equal(x.data.ownerPinCambioRev,2);
@@ -50,7 +50,7 @@ test('R1 authorized return A to B to A does not re-publish stale B or reject new
   assert.equal(x.data.ownerPinConfirmado,'642','stale intent must never undo a later authorized return');
   assert.equal(await reloaded.identificarPin('642'),'dueno','new canonical Owner may reuse previously retired value');
   assert.equal(await reloaded.identificarPin('731'),null,'superseded owner PIN is no longer canonical');
-  assert.equal(x.storage.getItem('photo-synthetic'),'unchanged');
+  assert.equal(x.storage.get('photo-synthetic'),'unchanged');
 });
 test('R2 derivation suspended during A to B cannot publish after local B to C supersedes it',async()=>{
   const x=setup(),S=x.reload();
@@ -62,7 +62,7 @@ test('R2 derivation suspended during A to B cannot publish after local B to C su
   hold.release();
   assert.equal(await stale,false,'old async resolver must detect superseded local intent');
   assert.equal(x.data.ownerPinConfirmado,'642');
-  const pending=JSON.parse(x.storage.getItem('f123_secure')).ownerRotationPending;
+  const pending=JSON.parse(x.storage.get('f123_secure')).ownerRotationPending;
   assert.ok(pending&&pending.toHash,'new intent preserved durably');
   const reloaded=x.reload();
   assert.equal(await reloaded.reconciliarCambioPinOwnerPendiente(),true);
