@@ -95,6 +95,11 @@ async function served(fallback='') {
   } catch(e) {console.error(`Previous canary proof unavailable: ${e.message}`);}
   return fallback;
 }
+// Technical Markdown under docs/ is documentation. Executable assets and
+// release manifests still require a new shell; never treat all docs/ equally.
+function hasRuntimeChange(paths) {
+  return paths.some(p => p.startsWith('docs/') && !/\.md$/i.test(p));
+}
 function validate(base) {
   const catalog=JSON.parse(fs.readFileSync('release/capabilities.json','utf8'));
   let previous=[];
@@ -107,7 +112,7 @@ function validate(base) {
   const errors=validateCapabilities(catalog.capabilities,previous,fs.existsSync);
   const version=JSON.parse(fs.readFileSync('docs/version.json','utf8'));
   const old=base?JSON.parse(git('show',`${base}:docs/version.json`)):null;
-  const runtimeChanged=base?!!git('diff','--name-only',base,'HEAD','--','docs/'):false;
+  const runtimeChanged=base?hasRuntimeChange(git('diff','--name-only',base,'HEAD','--','docs/').split(/\r?\n/)):false;
   errors.push(...validateIdentity(version,fs.readFileSync('docs/sw.js','utf8'),old,runtimeChanged));
   errors.push(...validateDashboardIdentity(version,fs.readFileSync('docs/dashboard.html','utf8')));
   if(runtimeChanged) {
@@ -125,7 +130,7 @@ function provenance(directory, sha) {
   for(const file of ['version.json','version-manifest.json','sw.js','index.html']) hashes[file]=crypto.createHash('sha256').update(fs.readFileSync(path.join(directory,file))).digest('hex');
   fs.writeFileSync(path.join(directory,'release-proof.json'),JSON.stringify({schema:1,commit:sha,shell:version.shell,cacheGeneration:version.cacheGeneration,hashes},null,2)+'\n');
 }
-module.exports={evaluateRuns,validateCapabilities,validateIdentity,validateDashboardIdentity,gate,published,provenance,served};
+module.exports={evaluateRuns,validateCapabilities,validateIdentity,validateDashboardIdentity,hasRuntimeChange,gate,published,provenance,served};
 if(require.main===module) (async()=>{
   const [command,arg,extra]=process.argv.slice(2);
   if(command==='gate') await gate(arg,Number(extra)||0);

@@ -117,3 +117,12 @@ test('missing or unavailable Pages proof never blocks recovery fallback', async 
     global.fetch=async()=>{throw new Error('offline');};assert.equal(await served(sha),sha);
   } finally {global.fetch=original;}
 });
+
+test('release identity ignores documentation-only edits without weakening JS, HTML or manifest checks',()=>{
+  const {hasRuntimeChange}=require('../scripts/release-control.cjs');
+  assert.equal(hasRuntimeChange(['docs/ADR-P0-ventas-rapidas.md']),false);
+  assert.equal(hasRuntimeChange(['docs/manual.md','docs/notas.MD']),false);
+  for(const filename of ['docs/avanzado-extra.js','docs/crypto-store.js','docs/sw.js','docs/index.html','docs/version-manifest.json']){
+    assert.equal(hasRuntimeChange(['docs/ADR-P0-ventas-rapidas.md',filename]),true,filename);
+  }
+});
