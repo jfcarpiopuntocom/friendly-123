@@ -14,7 +14,7 @@ async function peer(initialRole, localOwnerPin = '789') {
     F123Relay: { connect() { throw Error('No relay in PIN replay fixture'); } },
     WebSocket: class { constructor() { throw Error('No real relay allowed'); } },
     BroadcastChannel: class { constructor() { throw Error('No cross-test channels'); } } });
-  w.localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: 'SYNTHETIC-PIN-REPLAY' }));
+  w.localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: 'F123-SYNTHETIC-PIN-REPLAY' }));
   let role = initialRole;
   w.OCAuth = { rolActual: () => role };
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'), w);
