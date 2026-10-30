@@ -22,7 +22,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Evidence: exact file SHA-256 and line counts
+      - name: "Evidence: exact file SHA-256 and line counts"
         run: |
           sha256sum test/local-rev-durable-ack.test.cjs test/p0-v617-recovered-team-gate.test.cjs
           wc -l test/local-rev-durable-ack.test.cjs test/p0-v617-recovered-team-gate.test.cjs
