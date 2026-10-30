@@ -286,7 +286,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
           !Y.meta || typeof Y.meta.get !== "function") return false;
       const actual = Y.meta.get("pinsRol");
-      if (!actual || String(actual.owner || "") !== owner) return false;
+      const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
+      if (!actual || (String(actual.owner || "") !== owner && confirmado !== owner)) return false;
       // Fresh visits often created a DEMO 789 verifier BEFORE the user could
       // paste a license. Treat that verifier as bootstrappable only when the
       // SAME device explicitly joined this exact license and has no custom
@@ -828,8 +829,9 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     const p = String(pin || "");
     if (!/^\d{3}$/.test(p)) return null;
     // P0 v617: a joined phone can have an unrelated local f123_secure.
-    // Consult ONLY the fully recovered encrypted Yjs notebook for its team PINs.
+    // The explicit owner credential survives stale v620 pinsRol updates.
     // This is read-only: no factory PIN, sidecar owner, reset or credential rewrite.
+    let ownerCanonico = "";
     try {
       const T = window.OCTienda, Y = window.OCYjs;
       const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
@@ -843,8 +845,11 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
         const team = Y.meta.get("pinsRol");
         const valid = (v, factory) => /^\d{3}$/.test(String(v || "")) &&
           String(v) !== "456" && String(v) !== factory;
-        if (team && valid(team.owner, "789")) {
-          if (p === String(team.owner)) return "dueno";
+        const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
+        if (valid(confirmado, "789")) ownerCanonico = confirmado;
+        else if (team && valid(team.owner, "789")) ownerCanonico = String(team.owner);
+        if (team && ownerCanonico) {
+          if (p === ownerCanonico) return "dueno";
           if (valid(team.emp, "260") && p === String(team.emp)) return "empleado";
           if (valid(team.acct, "357") && p === String(team.acct)) return "contador";
         }
@@ -855,7 +860,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     let hashOwnerCandidato = null;
     try {
       hashOwnerCandidato = await hashPin(p, s.salt, "owner");
-      if (hashOwnerCandidato === s.ownerHash) return "dueno";
+      if (hashOwnerCandidato === s.ownerHash && (!ownerCanonico || ownerCanonico === p)) return "dueno";
       const hEmp = await hashPin(p, s.salt, "emp");
       if ((s.employeeHashes || []).includes(hEmp)) return "empleado";
       if ((await hashPin(p, s.salt, "acct")) === s.acctHash) return "contador";
