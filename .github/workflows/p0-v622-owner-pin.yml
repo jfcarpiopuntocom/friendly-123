@@ -1,0 +1,31 @@
+name: P0 v622 explicit Owner PIN anti-reversion
+on:
+  pull_request:
+    paths:
+      - 'docs/sync-yjs.js'
+      - 'docs/mock-backend.js'
+      - 'docs/avanzado-extra.js'
+      - 'docs/crypto-store.js'
+      - 'test/yjs-pin-seed.test.js'
+      - 'test/yjs-pin-replay-readiness.test.js'
+      - 'test/p0-v622-owner-pin-confirmed-room.test.cjs'
+      - '.github/workflows/p0-v622-owner-pin.yml'
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  owner-pin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run targeted owner credential Yjs and WebCrypto tests (synthetic)
+        run: |
+          node --check docs/sync-yjs.js
+          node --check docs/mock-backend.js
+          node --check docs/avanzado-extra.js
+          node --check docs/crypto-store.js
+          node --test test/yjs-pin-seed.test.js test/yjs-pin-replay-readiness.test.js test/pin-owner-integrity.test.js test/p0-v622-owner-pin-confirmed-room.test.cjs test/p0-v618-browser-pwa-same-notebook.test.cjs test/p0-v621-owner-pin-rotation-verified-room.test.cjs

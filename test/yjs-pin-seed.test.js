@@ -53,6 +53,7 @@ test('legitimate synthetic custom PIN edits publish all roles and preserve them 
   owner.OCYjs._store.sembrar();
   assert.deepEqual(JSON.parse(JSON.stringify(owner.OCYjs.meta.get('pinsRol'))), { owner: '642', emp: '583', acct: '914' });
   owner.setSyntheticPins({ owner: '731', emp: '583', acct: '914' });
+  assert.equal(owner.OCYjs.publicarCambioPinOwner('731'), true);
   owner.OCYjs._store.sembrar();
   assert.deepEqual(JSON.parse(JSON.stringify(owner.OCYjs.meta.get('pinsRol'))), { owner: '731', emp: '583', acct: '914' });
 });
@@ -106,4 +107,40 @@ test('E4: a stale authenticated owner peer cannot overwrite a newer shared name 
   stale.OCYjs._store.sembrar();
   assert.equal(stale.OCYjs.meta.get('nombreNegocio'), 'New owner rename',
     'a higher authenticated owner revision must still publish');
+});
+
+test('P0 v621: a stale owner device cannot re-publish an old custom PIN over the recovered notebook', async () => {
+  const source = await peer();
+  const stale = await peer({ owner: '642', emp: '583', acct: '914' });
+  vm.runInContext("window.OCYjs.meta.set('pinsRol', { owner: '731', emp: '583', acct: '914' })", source);
+  stale.Y.applyUpdate(stale.OCYjs.doc, source.Y.encodeStateAsUpdate(source.OCYjs.doc), 'red');
+  stale.OCYjs._store.sembrar();
+  assert.equal(stale.OCYjs.meta.get('pinsRol').owner, '731',
+    'an old phone must not resurrect a retired owner PIN during a routine catalog scan');
+});
+
+test('P0 v621: only deliberate owner PIN rotation publishes a replacement; catalog/data stay untouched', async () => {
+  const owner = await peer({ owner: '642', emp: '583', acct: '914' });
+  owner.OCYjs._store.sembrar();
+  const before = JSON.parse(JSON.stringify(owner.OCYjs.meta.get('pinsRol')));
+  assert.equal(typeof owner.OCYjs.publicarCambioPinOwner, 'function');
+  assert.equal(owner.OCYjs.publicarCambioPinOwner('731'), true);
+  const after = JSON.parse(JSON.stringify(owner.OCYjs.meta.get('pinsRol')));
+  assert.deepEqual(after, { ...before, owner: '731' });
+  owner.setSyntheticPins({ owner: '642', emp: '583', acct: '914' });
+  owner.OCYjs._store.sembrar();
+  assert.equal(owner.OCYjs.meta.get('pinsRol').owner, '731',
+    'old local state must not overwrite an expressly rotated owner PIN');
+  const fresh = await peer({ owner: '789', emp: '260', acct: '357' });
+  fresh.Y.applyUpdate(fresh.OCYjs.doc, owner.Y.encodeStateAsUpdate(owner.OCYjs.doc), 'red');
+  assert.equal(fresh.OCYjs.meta.get('pinsRol').owner, '731',
+    'the same notebook must transmit the deliberately rotated owner PIN');
+  assert.equal(fresh.OCYjs.meta.get('ownerPinConfirmado'), '731',
+    'explicit owner PIN intent survives inside the same Y.Doc');
+  // A legacy shell can still modify only pinsRol; new devices must retain
+  // the explicit credential and never adopt this outdated legacy field.
+  vm.runInContext("window.OCYjs.meta.set('pinsRol', { owner: '642', emp: '583', acct: '914' })", fresh);
+  assert.equal(fresh.OCYjs.meta.get('ownerPinConfirmado'), '731');
+  fresh.OCYjs._store.sembrar();
+  assert.equal(fresh.OCYjs.meta.get('ownerPinConfirmado'), '731');
 });

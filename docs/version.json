@@ -1,10 +1,10 @@
 {
-  "version": "shell v621",
+  "version": "shell v622",
   "fecha": "2026-10-29",
-  "changelog": "P0: owner logged in from the fully recovered encrypted notebook can change the Owner PIN even when this device has not yet restored its local verifier. No reset, no change to sales, stock or Sold modal.",
+  "changelog": "P0: Owner PIN changes are explicit, retained in encrypted Yjs notebook metadata and protected from stale devices. Preserve existing v621 owner verifier recovery, sales, money, stock, original confirmation UI and all client data.",
   "requerida": false,
-  "shell": "f123-shell-v621",
+  "shell": "f123-shell-v622",
   "apagar": [],
-  "releaseName": "shell v621",
-  "cacheGeneration": "golden167"
+  "releaseName": "shell v622",
+  "cacheGeneration": "golden168"
 }
