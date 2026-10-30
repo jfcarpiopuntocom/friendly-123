@@ -10,6 +10,7 @@ on:
       - 'test/money-return-tax-corrections.test.js'
       - 'test/commission-partial-balance.test.js'
       - 'test/bar-conversion-durable-ack.test.js'
+      - 'test/ab-transaction-recovery.test.cjs'
       - '.github/workflows/p0-current-contract-triage.yml'
 permissions:
   contents: read
@@ -36,6 +37,8 @@ jobs:
         run: node --test test/money-return-tax-corrections.test.js
       - name: Commissions and bar conversion strict durability
         run: node --test test/commission-partial-balance.test.js test/bar-conversion-durable-ack.test.js
+      - name: Exact A/B committed-journal and revision-CAS fallback contracts
+        run: node --test --test-name-pattern='full backend authorizes IDB fallback|full backend waits for the real IDB acknowledgement' test/ab-transaction-recovery.test.cjs
       - name: No runtime changes
         run: |
           BASE=$(git merge-base HEAD origin/master)
