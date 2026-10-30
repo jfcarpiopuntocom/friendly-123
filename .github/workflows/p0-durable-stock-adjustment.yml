@@ -14,5 +14,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Two synthetic persistence contracts (no production network)
-        run: node --test test/p0-durable-stock-adjustment.test.cjs
+      - name: Focused durability, two-peer inventory, stale-metadata contracts
+        run: |
+          node --test test/p0-durable-stock-adjustment.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-stock-monotonic-clock-v559.test.js
