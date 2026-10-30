@@ -81,7 +81,7 @@ test('full backend: pending IndexedDB ACK shields Yjs, GET and first durable PN'
   const w=browser();w.localStorage.setItem('f123_device_id','fixture-device-A');
   const acks=[];let emitted=0;
   w.OCSyncEmit=()=>{emitted++;return true};
-  w.OCEstadoIDB={guardar:snapshot=>new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))};
+  w.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(snapshot)),resolve}))}};
   w.localStorage.setItem=()=>{throw Error('quota');};
   const inFlight=sold(w,2);
   await pauseUntil(()=>acks.length===1);
@@ -117,7 +117,7 @@ test('full backend: failed IndexedDB ACK restores sale before remote merge, no g
   const before=await state(w);
   let release,emitted=0;
   w.OCSyncEmit=()=>{emitted++;return true};
-  w.OCEstadoIDB={guardar:(_snapshot,strict)=>strict?new Promise(resolve=>{release=resolve;}):Promise.resolve(false)};
+  w.OCEstadoIDB={guardarConRevision:(_snapshot,priorRev)=>new Promise(resolve=>{release=resolve;}),guardar:async()=>true};
   const originalSetItem=w.localStorage.setItem;
   w.localStorage.setItem=()=>{throw Error('quota');};
   const inFlight=sold(w,2);await pauseUntil(()=>!!release);
@@ -141,7 +141,7 @@ test('sale 507 without remote merge has no outgoing catalog notification',async(
  const w=browser(),before=await state(w),events=[];
  const dispatch=w.dispatchEvent.bind(w);
  w.dispatchEvent=e=>{if(e.type==='oc-catalogo-cambiado')events.push(e.type);return dispatch(e)};
- w.OCEstadoIDB={guardar:async()=>false};
+ w.OCEstadoIDB={guardarConRevision:async()=>false};
  const save=w.localStorage.setItem;
  w.localStorage.setItem=()=>{throw Error('quota')};
  const response=await sold(w,2);
