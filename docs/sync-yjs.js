@@ -2266,11 +2266,21 @@
                 var _stockEpochMine = typeof r.stockEpochId === "string" ? r.stockEpochId : "";
                 var _stockEpochDoc = typeof prev.stockEpochId === "string" ? prev.stockEpochId : "";
                 var _samePhysicalEpoch = _stockEpochMine === _stockEpochDoc;
-                // An explicit epoch supersedes untagged legacy stock in the
-                // shared read model. Two competing explicit epochs retain the
-                // existing map value; independent witnesses preserve both.
-                var _epochPreferred = _samePhysicalEpoch ? null :
-                  (_stockEpochMine && !_stockEpochDoc ? r : prev);
+                // Project competing explicit epochs deterministically in
+                // every Y.Doc, without combining independent physical baselines.
+                // The losing epoch's movements remain in add-only Yjs witnesses.
+                // Same tie-break on both peers: (stockTs, stable epoch ID).
+                var _epochPreferred = null;
+                if (!_samePhysicalEpoch) {
+                  if (_stockEpochMine && !_stockEpochDoc) _epochPreferred = r;
+                  else if (!_stockEpochMine && _stockEpochDoc) _epochPreferred = prev;
+                  else {
+                    var _timeMine = Number(r.stockTs) || 0;
+                    var _timeDoc = Number(prev.stockTs) || 0;
+                    _epochPreferred = (_timeMine > _timeDoc ||
+                      (_timeMine === _timeDoc && _stockEpochMine > _stockEpochDoc)) ? r : prev;
+                  }
+                }
                 if (_epochPreferred) {
                   r = Object.assign({}, r, {
                     stockBase: _epochPreferred.stockBase,
