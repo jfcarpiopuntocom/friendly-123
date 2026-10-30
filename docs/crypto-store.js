@@ -503,13 +503,26 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // por la activación 789. Devuelve boolean (Guard G1): el llamador debe
   // saber si el PIN nuevo de verdad quedó guardado antes de decirle al
   // usuario "ya puedes entrar con tu PIN nuevo".
-  async function fijarOwnerPin(nuevoPin) {
+  async function fijarOwnerPin(nuevoPin, desdeSesion) {
     const s = leerSecreto(); if (!s) return false;
     /* El directorio y el sidecar de sync pueden conservar el PIN anterior.
        Retirarlo EN EL MISMO registro duradero que el nuevo hash impide que
        identificarPin lo siga aceptando como dueño después de una rotación. */
     const hashNuevo = await hashPin(nuevoPin, s.salt, "owner");
     const retirados = Array.isArray(s.retiredOwnerHashes) ? s.retiredOwnerHashes : [];
+    // Owner screen: commit a retry intent atomically with the new verifier.
+    // Store hashes only, never PINs in clear text.
+    if (desdeSesion === true && s.ownerHash && s.ownerHash !== hashNuevo) {
+      try {
+        const T = window.OCTienda, lic = T && T.licenciaActual && String(T.licenciaActual() || "");
+        const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        if (!/^F123-/.test(lic) || own.licenseCode !== lic) return false;
+        const old = s.ownerRotationPending;
+        const fromHash = old && old.licenseCode === lic &&
+          old.toHash === s.ownerHash ? old.fromHash : s.ownerHash;
+        s.ownerRotationPending = { licenseCode: lic, fromHash, toHash: hashNuevo };
+      } catch (_) { return false; }
+    }
     if (s.ownerHash && s.ownerHash !== hashNuevo) retirados.push(s.ownerHash);
     // Solo hashes PBKDF2: nunca almacenar PINs retirados en claro.
     // v356: tope de 20 (los más recientes); siguen siendo solo hashes PBKDF2.
@@ -525,7 +538,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // for the current owner session; never create defaults or replace a corrupt
   // verifier. An existing local verifier follows the original rotation path.
   async function fijarOwnerPinDesdeSesion(nuevoPin) {
-    if (estadoSecreto() === "ok") return fijarOwnerPin(nuevoPin);
+    if (estadoSecreto() === "ok") return fijarOwnerPin(nuevoPin, true);
     if (estadoSecreto() !== "vacio") return false;
     try {
       if (!window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
@@ -545,7 +558,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       if (!await instalarCredencialesDesdeSala(credenciales)) return false;
       if (T.licenciaActual() !== lic || Y.canal.recuperando !== false ||
           String(Y.meta.get("ownerPinConfirmado") || (Y.meta.get("pinsRol") || {}).owner || "") !== previo) return false;
-      return fijarOwnerPin(nuevoPin);
+      return fijarOwnerPin(nuevoPin, true);
     } catch (_) { return false; }
   }
 
@@ -855,12 +868,72 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     return INTENTOS_MAX - enRonda;
   }
 
+  // A recovered notebook must not resurrect a locally retired owner PIN.
+  async function duenoRetirado(pin, s, candidate) {
+    if (!s) return false;
+    try {
+      const h = candidate || await hashPin(pin, s.salt, "owner");
+      if (Array.isArray(s.retiredOwnerHashes) && s.retiredOwnerHashes.includes(h)) return true;
+      for (const old of (Array.isArray(s.retiredOwnerCredentials) ? s.retiredOwnerCredentials : [])) {
+        if (old && typeof old.salt === "string" && Array.isArray(old.hashes) &&
+            old.hashes.includes(await hashPin(pin, old.salt, "owner"))) return true;
+      }
+    } catch (_) { return true; }
+    return false;
+  }
+
+  function pinOwnerPendienteLocal() {
+    try {
+      const s = leerSecreto(), p = s && s.ownerRotationPending;
+      const T = window.OCTienda, lic = T && T.licenciaActual && String(T.licenciaActual() || "");
+      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (!p || !s.ownerHash || p.toHash !== s.ownerHash || p.licenseCode !== lic ||
+          own.licenseCode !== lic || !/^F123-/.test(lic)) return null;
+      const pin = unxorPin(s.ownerPinR);
+      return /^\d{3}$/.test(String(pin || "")) ? pin : null;
+    } catch (_) { return null; }
+  }
+
+  // Re-publish only when the recovered shared credential is exactly the
+  // predecessor of this local rotation. Never overwrite a different peer edit.
+  let reconciliandoOwner = false;
+  async function reconciliarCambioPinOwnerPendiente() {
+    if (reconciliandoOwner) return false;
+    const nuevo = pinOwnerPendienteLocal();
+    if (!nuevo) return false;
+    reconciliandoOwner = true;
+    try {
+      const s = leerSecreto(), pend = s && s.ownerRotationPending;
+      const Y = window.OCYjs;
+      if (!pend || !Y || !Y.roomId || !Y.meta || !Y.canal ||
+          Y.canal.recuperando !== false || !Y.canal.ws ||
+          Y.canal.ws.readyState !== 1 || typeof Y.publicarCambioPinOwner !== "function" ||
+          !window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
+      const confirmed = String(Y.meta.get("ownerPinConfirmado") || "");
+      const team = Y.meta.get("pinsRol") || {};
+      const actual = /^\d{3}$/.test(confirmed) && confirmed !== "456" &&
+        confirmed !== "789" ? confirmed : String(team.owner || "");
+      if (actual === nuevo || !/^\d{3}$/.test(actual)) return false;
+      if (await hashPin(actual, s.salt, "owner") !== pend.fromHash) return false;
+      if (await hashPin(nuevo, s.salt, "owner") !== s.ownerHash) return false;
+      const current = String(Y.meta.get("ownerPinConfirmado") || "");
+      const other = Y.meta.get("pinsRol") || {};
+      const now = /^\d{3}$/.test(current) && current !== "456" &&
+        current !== "789" ? current : String(other.owner || "");
+      if (now !== actual || Y.canal.recuperando !== false ||
+          Y.canal.ws.readyState !== 1) return false;
+      return Y.publicarCambioPinOwner(nuevo) === true;
+    } catch (_) { return false; }
+    finally { reconciliandoOwner = false; }
+  }
+
   async function identificarPin(pin) {
     const p = String(pin || "");
     if (!/^\d{3}$/.test(p)) return null;
     // P0 v622: explicit owner credential remains valid even when old shells
     // rewrite pinsRol; do not let an old local verifier restore an old PIN.
     let ownerCanonico = "";
+    const s = leerSecreto();
     try {
       const T = window.OCTienda, Y = window.OCYjs;
       const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
@@ -878,18 +951,25 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
         if (valid(confirmado, "789")) ownerCanonico = confirmado;
         else if (team && valid(team.owner, "789")) ownerCanonico = String(team.owner);
         if (team && ownerCanonico) {
-          if (p === ownerCanonico) return "dueno";
+          if (p === ownerCanonico && !await duenoRetirado(p, s)) return "dueno";
           if (valid(team.emp, "260") && p === String(team.emp)) return "empleado";
           if (valid(team.acct, "357") && p === String(team.acct)) return "contador";
         }
       }
     } catch (_) { /* no unverified access on malformed room metadata */ }
-    const s = leerSecreto();
     if (!s) return null;
     let hashOwnerCandidato = null;
     try {
       hashOwnerCandidato = await hashPin(p, s.salt, "owner");
-      if (hashOwnerCandidato === s.ownerHash && (!ownerCanonico || ownerCanonico === p)) return "dueno";
+      if (hashOwnerCandidato === s.ownerHash) {
+        if (!ownerCanonico || ownerCanonico === p) return "dueno";
+        const pending = s.ownerRotationPending;
+        const T = window.OCTienda, lic = T && T.licenciaActual && String(T.licenciaActual() || "");
+        const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        if (pending && pending.licenseCode === lic && own.licenseCode === lic &&
+            pending.toHash === s.ownerHash &&
+            await hashPin(ownerCanonico, s.salt, "owner") === pending.fromHash) return "dueno";
+      }
       const hEmp = await hashPin(p, s.salt, "emp");
       if ((s.employeeHashes || []).includes(hEmp)) return "empleado";
       if ((await hashPin(p, s.salt, "acct")) === s.acctHash) return "contador";
@@ -985,6 +1065,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
     fijarOwnerPinDesdeSesion, // P0: owner already verified by recovered room, local verifier missing
+    pinOwnerPendienteLocal, reconciliarCambioPinOwnerPendiente,
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
     fijarEmpleadoPin, fijarAcctPin, // JFC 2026-08-28: edición individual de PINs (lapicito en Access & recovery)
     leerDirectorio, guardarDirectorio, directorioNormalizado, // JFC 2026-08-28: directorio de acceso (PINs atados a personas)
