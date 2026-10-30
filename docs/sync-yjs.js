@@ -2443,8 +2443,12 @@
               var p = String(cat.pinsRol[role[0]] || "");
               // Owner PIN is an explicitly rotated credential. Another phone's
               // older local profile is not authority to overwrite the notebook.
-              if (role[0] === "owner" && /^\d{3}$/.test(String(pinsPrev.owner || "")) &&
-                  pinsPrev.owner !== "789" && pinsPrev.owner !== "456") return;
+              // Old shells can continue writing pinsRol; the separate explicit
+              // owner key survives their automatic catalog scans.
+              if (role[0] === "owner" && (
+                  /^\d{3}$/.test(String(API.meta.get("ownerPinConfirmado") || "")) ||
+                  (/^\d{3}$/.test(String(pinsPrev.owner || "")) &&
+                   pinsPrev.owner !== "789" && pinsPrev.owner !== "456"))) return;
               if (/^\d{3}$/.test(p) && p !== role[1] && p !== "456") pinsNext[role[0]] = p;
             });
             if (JSON.stringify(pinsNext) !== JSON.stringify(pinsPrev)) API.meta.set("pinsRol", pinsNext);
@@ -2499,6 +2503,10 @@
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
       var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando && !API.canal.peerSnapshot ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var confirmado = String(API.meta.get("ownerPinConfirmado") || "");
+      if (remoto.pinsRol && /^\d{3}$/.test(confirmado) && confirmado !== "456") {
+        remoto.pinsRol = Object.assign({}, remoto.pinsRol, { owner: confirmado });
+      }
       // Only after a verified full application. A product-only Yjs update has
       // already been decrypted, and the unchanged collections are no-ops.
       // Financial ops live in the separate append-only channel and are NEVER
@@ -2661,8 +2669,11 @@
         if (prev.owner === pin) return true;
         API.doc.transact(function () {
           API.meta.set("pinsRol", Object.assign({}, prev, { owner: pin }));
+          // New owner writes use a separate key. Old v620 devices only know
+          // pinsRol and cannot undo an explicit rotation through idle seeding.
+          API.meta.set("ownerPinConfirmado", pin);
         }, "seed");
-        return (API.meta.get("pinsRol") || {}).owner === pin;
+        return API.meta.get("ownerPinConfirmado") === pin;
       } catch (_) { return false; }
     };
 
