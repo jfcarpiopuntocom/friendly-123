@@ -72,7 +72,6 @@ test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes 
     const vender = (pg, pid) => pg.evaluate(async (x) => (await fetch(`/api/productos/${x}/venta`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad: 1 }) })).status, pid);
     const firstStatuses = await Promise.all([vender(t1, ids[0]), vender(t2, ids[1])]);
     const thirdStatus = await vender(t1, ids[0]); // no silent rejection or duplicate
-    console.log('P0-REJECT-STAGE', JSON.stringify({engineName,trace:await t1.evaluate(()=>window.__f123P0Trace||null)}));
     await t2.reload({ waitUntil: 'networkidle' });
     // A hard-coded 1200 ms under loaded WebKit was not an observation barrier.
     // Still FAIL after a bounded 8 s if any acknowledged sale is truly absent.

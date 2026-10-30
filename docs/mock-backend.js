@@ -1513,9 +1513,8 @@
       try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (e) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = e; }
       if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
       // P0: reject a stale local snapshot instead of overwriting another tab.
-      if (exigirCompleto && revisionDisco > _localRev) { window.__f123P0Strict = {phase:"AB-ahead",rev:_localRev,abRev:revisionDisco}; return false; }
+      if (exigirCompleto && revisionDisco > _localRev) return false;
       const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
-      if (exigirCompleto) window.__f123P0Strict = {phase:"CAS",rev:_localRev,abRev:revisionDisco,attemptRev:_revIntento};
       _localRevReservado = _revIntento;
       /* v609 perf: antes = copia profunda de cada coleccion (stringify+parse) y luego OTRO stringify para el A/B.
          Ahora se serializa UNA vez el estado vivo y `completo` es el parse de ese mismo texto (identico a la
@@ -1887,8 +1886,25 @@
   /* 2026-09-25: la clave nativa lleva el prefijo de aislamiento.js ("f123::..."), asi que
      comparar con OC_STATE_PTR a secas NUNCA coincidia (hallazgo H1 del 2026-08-05): la otra
      pestana no se enteraba jamas. Se acepta la clave con o sin prefijo. */
+  let _refrescoDiferidoPorCommit = false;
   function _refrescarDesdeOtraPestana() {
     if (_guardandoAB) return;
+    // Storage events from another tab must not replace RAM during a provisional
+    // sale/payout/retention: rollback would otherwise truncate fresh peer facts.
+    const barrera = _ventaPendiente || _payoutPendiente || _retencionPendiente;
+    if (barrera) {
+      if (!_refrescoDiferidoPorCommit) {
+        _refrescoDiferidoPorCommit = true;
+        Promise.resolve(barrera).then(() => {
+          _refrescoDiferidoPorCommit = false;
+          _refrescarDesdeOtraPestana();
+        }, () => {
+          _refrescoDiferidoPorCommit = false;
+          _refrescarDesdeOtraPestana();
+        });
+      }
+      return;
+    }
     if (_guardadoCatalogoPendiente) { _guardadoCatalogoPendiente.then(() => _refrescarDesdeOtraPestana()); return; }
     const antes=_localRev;
     cargarEstadoLocal();try { _miSello=localStorage.getItem(OC_STATE_SELLO); } catch (_) {}
@@ -5819,7 +5835,7 @@
     } catch (_) {}
     // A legacy browser without cross-tab locks must not bypass the visible
     // compatibility guard by invoking a write directly. Reads stay available.
-    if (escribe && _conflictoEstadoAB) { window.__f123P0Trace = {phase:"pre-queue AB conflict"}; return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}}); }
+    if (escribe && _conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
     if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
     if (!escribe) { if (_ventaPendiente) await _ventaPendiente; if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
@@ -5837,9 +5853,9 @@
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
       if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
       _recargarSiOtraPestanaEscribio();
-      if (_conflictoEstadoAB) { window.__f123P0Trace = {phase:"post-reload AB conflict"}; return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}}); }
+      if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
+      const revisionAntes = _localRev; // capture before a foreign storage event can advance our revision
       const primero = await _fetchInterno(url,opts);
-      if (ventaConcurrente && primero.status === 507) window.__f123P0Trace = {phase:"after first response",rev:_localRev,reserved:_localRevReservado,blocked:_estadoLecturaBloqueada,confirm:_ventaConfirmando,catalogPending:!!_guardadoCatalogoPendiente,payout:_payoutConfirmando,retention:_retencionConfirmando};
       if (!ventaConcurrente || primero.status !== 507 || _estadoLecturaBloqueada ||
           _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
       // A local mirror may still be settling after the first durable ACK.
@@ -5857,18 +5873,15 @@
       if (!idb || idb.soportado === false || typeof idb.leer !== "function") return primero;
       let nuevo = null;
       try { nuevo = await idb.leer(); } catch (_) { return primero; }
-      window.__f123P0Trace = {phase:"idb read after 507",rev:_localRev,freshRev:nuevo && nuevo._rev,blocked:_estadoLecturaBloqueada,conflict:!!_conflictoEstadoAB,strict:window.__f123P0Strict};
-      if (!nuevo || !Number.isSafeInteger(nuevo._rev) || nuevo._rev <= _localRev ||
-          validarRespaldo(nuevo)) return primero;
+      if (!nuevo || !Number.isSafeInteger(nuevo._rev) || nuevo._rev <= revisionAntes ||
+          nuevo._rev < _localRev || validarRespaldo(nuevo)) return primero;
       if (rolAlPedir !== _rolLocal() || epocaAlPedir !== (window.OC_AUTH_SESSION_EPOCH || 0))
         return primero;
       aplicarRespaldo(nuevo);
       _localRev = nuevo._rev;
       _localRevReservado = Math.max(_localRevReservado, _localRev);
       _estadoPublicableConfirmado = _huellaPublicable();
-      const segundo = await _fetchInterno(url,opts);
-      window.__f123P0Trace = {phase:"replayed",rev:_localRev,status:segundo.status};
-      return segundo;
+      return _fetchInterno(url,opts);
     };
     // P0: a tab-local FIFO + session fencing replaces the 10-second Web Lock
     // queue. Durable cross-tab conflict detection is delegated to IndexedDB's
