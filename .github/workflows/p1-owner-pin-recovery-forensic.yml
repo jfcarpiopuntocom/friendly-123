@@ -1,0 +1,21 @@
+name: P1 Owner PIN recovery read-only reproduction
+on:
+  push:
+    branches: [forensic/v630-owner-pin-recovery-20261030]
+permissions:
+  contents: read
+jobs:
+  isolated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: File identity and linecount
+        run: |
+          sha256sum docs/crypto-store.js test/p1-owner-pin-pending-recovery.test.cjs
+          wc -l docs/crypto-store.js test/p1-owner-pin-pending-recovery.test.cjs
+      - name: Prove local pending rotation survives shared reconnect
+        run: node --test test/p1-owner-pin-pending-recovery.test.cjs
