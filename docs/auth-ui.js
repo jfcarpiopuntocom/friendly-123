@@ -494,6 +494,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     margin:auto;flex:0 0 auto;}
   #oc-gate h2{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;}
   #oc-gate .sub{font-size:15px;font-weight:700;color:var(--ink,#211c14);margin-bottom:18px;}
+  /* Language must be obvious and fully touchable before any PIN is entered. */
+  #oc-gate .oc-lang-pill{display:inline-flex;gap:3px;padding:3px;border:2px solid #2E6278 !important;border-radius:12px !important;background:#FFFFFF !important;margin:0 auto 12px;}
+  #oc-gate .oc-lang-btn{min-width:112px;min-height:44px;padding:8px 12px;border:0;border-radius:8px;background:#FFFFFF;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font:750 15px/1.25 var(--font-body,system-ui,sans-serif);cursor:pointer;}
+  #oc-gate .oc-lang-btn[aria-pressed="true"]{background:#174C6C !important;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}
+  #oc-gate .oc-lang-btn:focus-visible{outline:3px solid #E86040;outline-offset:3px;}
+  @media(max-width:360px){#oc-gate .oc-lang-btn{min-width:95px;font-size:14px;}}
+
   #oc-gate .oc-gate-logo img{width:min(70vw,280px);max-width:100%;height:auto;filter:drop-shadow(0 2px 5px rgba(178,70,31,.22));}
   #oc-gate #oc-gate-tagline{font-weight:800;color:var(--rust,#b2461f) !important;-webkit-text-fill-color:var(--rust,#b2461f) !important;}
   #oc-gate #oc-gate-negocio{border-left:4px solid var(--rust,#b2461f);background:#fff7e6;padding:9px 12px;border-radius:5px;}
@@ -666,9 +673,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         <h2 style="display:none;">friendly-123</h2>
       </div>
       <p id="oc-gate-tagline" style="margin:6px 0 10px;font-size:13px;font-weight:800;color:#A83D1F !important;-webkit-text-fill-color:#A83D1F !important;text-align:center;font-family:var(--font-mono,monospace);letter-spacing:.05em;">${window.t("auth.gate.tagline")}</p>
-      <div class="oc-lang-pill" role="group" aria-label="Language" style="display:inline-flex;border:1.5px solid var(--azul-medio,#2E6278);border-radius:999px;overflow:hidden;background:#fff;margin:0 auto 10px;">
-        <button type="button" class="oc-lang-btn" data-lang="en">EN</button>
-        <button type="button" class="oc-lang-btn" data-lang="es">ES</button>
+      <div class="oc-lang-pill" role="group" aria-label="Idioma / Language">
+        <button type="button" class="oc-lang-btn" data-lang="en" lang="en" aria-pressed="false">English</button>
+        <button type="button" class="oc-lang-btn" data-lang="es" lang="es" aria-pressed="false">Español</button>
       </div>
       <div class="sub">${window.t("auth.gate.subtitle")}</div>
       <!-- CLARIDAD DE NEGOCIO (JFC 2026-08-25): "antes de entrar debiera decirme
@@ -860,6 +867,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   function pintarGateIdioma() {
     const tt = function (k, fb) { try { return window.t ? window.t(k, fb) : (fb || k); } catch (_) { return fb || k; } };
     try {
+      var activeLang = (window.OCI18n && window.OCI18n.getLang) ? window.OCI18n.getLang() : (document.documentElement.lang || "en");
+      gate.querySelectorAll(".oc-lang-btn").forEach(function (b) {
+        var selected = b.dataset.lang === activeLang;
+        b.setAttribute("aria-pressed", selected ? "true" : "false");
+      });
       const tag = document.getElementById("oc-gate-tagline");
       if (tag) tag.textContent = tt("auth.gate.tagline", "Stop guessing. Start seeing.");
       const sub = gate.querySelector(".sub");

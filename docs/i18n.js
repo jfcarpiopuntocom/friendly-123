@@ -2382,7 +2382,7 @@
   };
 
   const LS_KEY = "f123_lang"; // f123_ prefijo (2026-07-17): namespace propio, no compartir con AMIGABLE
-  let lang = localStorage.getItem(LS_KEY);
+  let lang = window.__f123EntrySpanish ? "es" : localStorage.getItem(LS_KEY);
   if (lang !== "en" && lang !== "es") {
     // v599: SOLO en un aparato NUEVO (sin licencia f123_owned ni lista de tiendas f123_tiendas, y sin
     // idioma elegido) el navegador en espanol (es, es-EC, es-US...) arranca en ES y esa eleccion se
