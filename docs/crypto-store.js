@@ -286,7 +286,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
           !Y.meta || typeof Y.meta.get !== "function") return false;
       const actual = Y.meta.get("pinsRol");
-      if (!actual || String(actual.owner || "") !== owner) return false;
+      const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
+      if (!actual || (String(actual.owner || "") !== owner && confirmado !== owner)) return false;
       // Fresh visits often created a DEMO 789 verifier BEFORE the user could
       // paste a license. Treat that verifier as bootstrappable only when the
       // SAME device explicitly joined this exact license and has no custom
@@ -535,12 +536,15 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
           !Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
           !Y.meta || typeof Y.meta.get !== "function") return false;
       const team = Y.meta.get("pinsRol");
-      const previo = String(team && team.owner || "");
+      const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
+      const previo = /^\d{3}$/.test(confirmado) && confirmado !== "456"
+        ? confirmado : String(team && team.owner || "");
       if (!/^\d{3}$/.test(previo) || previo === "456" ||
-          (leerPinQueAbre().owner || "") !== previo) return false;
-      if (!await instalarCredencialesDesdeSala(team)) return false;
+          ((leerPinQueAbre().owner || "") !== previo && !confirmado)) return false;
+      const credenciales = Object.assign({}, team || {}, { owner: previo });
+      if (!await instalarCredencialesDesdeSala(credenciales)) return false;
       if (T.licenciaActual() !== lic || Y.canal.recuperando !== false ||
-          String((Y.meta.get("pinsRol") || {}).owner || "") !== previo) return false;
+          String(Y.meta.get("ownerPinConfirmado") || (Y.meta.get("pinsRol") || {}).owner || "") !== previo) return false;
       return fijarOwnerPin(nuevoPin);
     } catch (_) { return false; }
   }
@@ -854,9 +858,9 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   async function identificarPin(pin) {
     const p = String(pin || "");
     if (!/^\d{3}$/.test(p)) return null;
-    // P0 v617: a joined phone can have an unrelated local f123_secure.
-    // Consult ONLY the fully recovered encrypted Yjs notebook for its team PINs.
-    // This is read-only: no factory PIN, sidecar owner, reset or credential rewrite.
+    // P0 v622: explicit owner credential remains valid even when old shells
+    // rewrite pinsRol; do not let an old local verifier restore an old PIN.
+    let ownerCanonico = "";
     try {
       const T = window.OCTienda, Y = window.OCYjs;
       const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
@@ -870,8 +874,11 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
         const team = Y.meta.get("pinsRol");
         const valid = (v, factory) => /^\d{3}$/.test(String(v || "")) &&
           String(v) !== "456" && String(v) !== factory;
-        if (team && valid(team.owner, "789")) {
-          if (p === String(team.owner)) return "dueno";
+        const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
+        if (valid(confirmado, "789")) ownerCanonico = confirmado;
+        else if (team && valid(team.owner, "789")) ownerCanonico = String(team.owner);
+        if (team && ownerCanonico) {
+          if (p === ownerCanonico) return "dueno";
           if (valid(team.emp, "260") && p === String(team.emp)) return "empleado";
           if (valid(team.acct, "357") && p === String(team.acct)) return "contador";
         }
@@ -882,7 +889,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     let hashOwnerCandidato = null;
     try {
       hashOwnerCandidato = await hashPin(p, s.salt, "owner");
-      if (hashOwnerCandidato === s.ownerHash) return "dueno";
+      if (hashOwnerCandidato === s.ownerHash && (!ownerCanonico || ownerCanonico === p)) return "dueno";
       const hEmp = await hashPin(p, s.salt, "emp");
       if ((s.employeeHashes || []).includes(hEmp)) return "empleado";
       if ((await hashPin(p, s.salt, "acct")) === s.acctHash) return "contador";
