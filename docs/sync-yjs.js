@@ -2642,6 +2642,15 @@
     if (!API._tSembraPeriodica) API._tSembraPeriodica = setInterval(function () {
       try {
         if (API.estado !== "activo") return;
+        // Recover an explicit Owner PIN edit after reconnect/restart, without
+        // changing inventory or seeding credentials from an unverified room.
+        // The secure helper checks previous owner hash, license, active session
+        // and fully recovered live channel; no timers or network if no intent.
+        if (window.OCSecure && window.OCSecure.pinOwnerPendienteLocal &&
+            window.OCSecure.pinOwnerPendienteLocal() &&
+            window.OCSecure.reconciliarCambioPinOwnerPendiente) {
+          Promise.resolve(window.OCSecure.reconciliarCambioPinOwnerPendiente()).catch(function () {});
+        }
         var firma = firmaBarrido();
         if (firma !== null && firma === _barridoFirma && _barridoSaltos < 4) { _barridoSaltos++; return; }
         _barridoSaltos = 0; _barridoFirma = firma;

@@ -1,0 +1,50 @@
+name: P1 v631 Owner PIN recovery focal
+on:
+  push:
+    branches:
+      - hotfix/v631-owner-pin-pending-20261030
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  owner-pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check docs/crypto-store.js
+          node --check docs/sync-yjs.js
+          node --check test/p0-v631-owner-pin-recovery.test.cjs
+      - name: Focal Owner PIN including historical recovery contracts
+        run: |
+          node --test test/p0-v631-owner-pin-recovery.test.cjs test/p0-v622-owner-pin-confirmed-room.test.cjs test/p0-v621-owner-pin-rotation-verified-room.test.cjs
+      - name: Counts and SHA-256 evidence
+        run: |
+          wc -l docs/crypto-store.js docs/sync-yjs.js test/p0-v631-owner-pin-recovery.test.cjs
+          sha256sum docs/crypto-store.js docs/sync-yjs.js test/p0-v631-owner-pin-recovery.test.cjs
+
+  owner-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Real Owner editor and recovered-room browser regression
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/p0-owner-pin-current-ui-browser.test.cjs
