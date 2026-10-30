@@ -29,3 +29,5 @@ jobs:
       - run: npm ci
       - name: Reproduce last-unit and distinct-product concurrency
         run: node --test --test-timeout=120000 test/linus-dos-pestanas.test.js
+      - name: Verify adjacent stock durability, PN and clock contracts
+        run: node --test test/p0-durable-stock-adjustment.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-stock-monotonic-clock-v559.test.js
