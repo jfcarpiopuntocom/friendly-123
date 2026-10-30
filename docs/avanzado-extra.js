@@ -2682,6 +2682,16 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
       let owner = abre.owner || (pins && pins.owner) || "";
       if (owner === "888" && abre.owner !== "888") owner = abre.owner || "789";
       if (!owner) owner = "789";
+      // Match the explicit notebook credential used by the PIN gate.
+      try {
+        const T = window.OCTienda, Y = window.OCYjs;
+        const lic = T && T.licenciaActual && T.licenciaActual();
+        const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        if (lic && own.licenseCode === lic && Y && Y.roomId && Y.canal && !Y.canal.recuperando && Y.meta) {
+          const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
+          if (/^\d{3}$/.test(confirmado) && confirmado !== "456" && confirmado !== "789") owner = confirmado;
+        }
+      } catch (_) {}
       /* LAPICITOS DE EDICIÓN INDIVIDUAL (JFC 2026-08-28). Cada PIN se edita
          por separado con su lapicito, en la cascada de jerarquía: el dueño
          edita los tres; el admin edita SOLO el de encargado (no el del dueño

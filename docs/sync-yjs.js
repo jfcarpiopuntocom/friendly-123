@@ -2666,7 +2666,7 @@
           if (!/^F123-/.test(lic) || lic !== String(own.licenseCode || "")) return false;
         }
         var prev = API.meta.get("pinsRol") || {};
-        if (prev.owner === pin) return true;
+        if (prev.owner === pin && API.meta.get("ownerPinConfirmado") === pin) return true;
         API.doc.transact(function () {
           API.meta.set("pinsRol", Object.assign({}, prev, { owner: pin }));
           // New owner writes use a separate key. Old v620 devices only know

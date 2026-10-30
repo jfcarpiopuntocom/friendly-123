@@ -1,10 +1,10 @@
 {
-  "version": "shell v623",
+  "version": "shell v624",
   "fecha": "2026-10-29",
-  "changelog": "P0: owner PIN editing pencils restored after recovered iPhone sessions and Advanced navigation; preserve v622 retired-PIN anti-reversion, durable sales and original sale modal.",
+  "changelog": "Owner PIN screen uses the confirmed notebook credential; explicit rotation updates the confirmed credential even when legacy team metadata already matches. Preserves sales, stock and other roles.",
   "requerida": false,
-  "shell": "f123-shell-v623",
+  "shell": "f123-shell-v624",
   "apagar": [],
-  "releaseName": "shell v623",
-  "cacheGeneration": "golden169"
+  "releaseName": "shell v624",
+  "cacheGeneration": "golden170"
 }
