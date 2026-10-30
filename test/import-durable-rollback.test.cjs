@@ -37,8 +37,11 @@ for(const failure of ['throw','false','partial'])test('queued catalog '+failure+
   const catalog=remote.catalog(),backup=await w.request('/api/respaldo/exportar');
   backup.nombreNegocio='Committed despite remote '+failure;
   let release,started;const ready=new Promise(resolve=>{started=resolve;});
-  w.navigator.locks={request:(name,_options,fn)=>String(name).startsWith('f123-estado-ab')?
-    new Promise(resolve=>{release=()=>resolve(fn());started();}):Promise.resolve(fn())};
+  // Import awaits the atomic IndexedDB CAS, not the retired A/B Web Lock.
+  w.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{
+    assert.ok(snapshot._rev>priorRev,'import advances a durable revision');
+    return new Promise(resolve=>{release=()=>resolve(true);started();});
+  }};
   const result=w.fetch('/api/respaldo/importar',{method:'POST',body:JSON.stringify(backup)});
   await ready;
   assert.equal(w.OCSync.aplicarCatalogo(catalog,null),false);
@@ -46,7 +49,7 @@ for(const failure of ['throw','false','partial'])test('queued catalog '+failure+
   const response=await result;
   assert.equal(response.status,200,'remote drain cannot turn a confirmed import into an HTTP error');
   assert.equal((await w.request('/api/respaldo/exportar')).nombreNegocio,backup.nombreNegocio);
-  w.__queueFailure=null;w.navigator.locks={request:(_name,_options,fn)=>Promise.resolve(fn())};
+  w.__queueFailure=null;delete w.OCEstadoIDB;
   const empty={...catalog,productos:[]};
   assert.equal(w.OCSync.aplicarCatalogo(empty,null).ok,true,'a later source replay drains retained work first');
   await w.OCSync.confirmarCatalogoDurable();
@@ -71,12 +74,15 @@ test('a newer complete source projection can supply the missing parent of retain
   const parent=events[events.length-2],incomplete={...complete,actividad:complete.actividad.filter(entry=>entry!==parent)};
   const backup=await w.request('/api/respaldo/exportar');
   let release,started;const ready=new Promise(resolve=>{started=resolve;});
-  w.navigator.locks={request:(name,_options,fn)=>String(name).startsWith('f123-estado-ab')?
-    new Promise(resolve=>{release=()=>resolve(fn());started();}):Promise.resolve(fn())};
+  // Import awaits the atomic IndexedDB CAS, not the retired A/B Web Lock.
+  w.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{
+    assert.ok(snapshot._rev>priorRev,'import advances a durable revision');
+    return new Promise(resolve=>{release=()=>resolve(true);started();});
+  }};
   const imported=w.fetch('/api/respaldo/importar',{method:'POST',body:JSON.stringify(backup)});
   await ready;assert.equal(w.OCSync.aplicarCatalogo(incomplete,null,true),false);release();
   assert.equal((await imported).status,200);
-  w.navigator.locks={request:(_name,_options,fn)=>Promise.resolve(fn())};
+  delete w.OCEstadoIDB;
   const recovered=w.OCSync.aplicarCatalogo(complete,null,true);
   assert.equal(recovered.ok,true,'retained incomplete data cannot block a newer complete Yjs projection');
   assert.equal(recovered.actividadCompleta,true);
@@ -124,7 +130,7 @@ test('reads, background snapshots and incoming catalog wait until a pending impo
     if(key.startsWith('f123_estado_v4')&&!key.endsWith('_preimport'))throw new Error('synthetic local storage full');
     originalSet(key,value);
   };
-  w.OCEstadoIDB={guardar:()=>pending?new Promise(resolve=>{release=resolve;}):Promise.resolve(false)};
+  w.OCEstadoIDB={guardarConRevision:(snapshot,priorRev)=>{assert.ok(snapshot._rev>priorRev);return pending?new Promise(resolve=>{release=resolve;}):Promise.resolve(false)},guardar:async()=>false};
   let responded=false;
   const response=w.fetch('/api/respaldo/importar',{method:'POST',body:JSON.stringify(incoming)}).then(r=>{responded=true;return r;});
   for(let i=0;i<8&&!release;i++)await new Promise(setImmediate);
