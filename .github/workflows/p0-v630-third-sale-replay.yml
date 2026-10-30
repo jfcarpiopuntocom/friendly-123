@@ -1,0 +1,31 @@
+name: P0 v630 isolated third sale concurrency check
+on:
+  push:
+    branches: [forensic/v630-third-sale-507-20261030]
+permissions:
+  contents: read
+jobs:
+  two-tab-sale:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Three isolated replays of first two ACKs and immediate third sale
+        run: |
+          set -euo pipefail
+          for i in 1 2 3; do
+            echo "REPLAY $i"
+            node --test --test-timeout=120000 test/linus-dos-pestanas.test.js
+          done
+      - name: No product file changed
+        run: |
+          git diff --exit-code 172645d5770b87b3509f195b6fda731bb77a4757 -- docs/
