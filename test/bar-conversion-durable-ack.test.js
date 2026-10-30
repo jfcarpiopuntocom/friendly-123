@@ -70,6 +70,8 @@ for(const accepted of [false,true])test(`bar conversion: remote catalog waits th
  assert.equal(w.OCSync.aplicarCatalogo(remote,null),false,'incoming merge waits for rollback or commit');
  await tick();assert.equal(ready,false);assert.equal(events.stock.length,0);
  acks[0].resolve(accepted);assert.equal((await request).status,accepted?200:507);
+ const observed=await w.request('/api/respaldo/exportar');
+ console.error('P0-PENDING-CATALOG-BAR',JSON.stringify({accepted,acks:acks.length,remoteInMemory:observed.productos.some(x=>x.id==='synthetic-remote-bar-ack'),stock:observed.productos.find(x=>x.id===p.id)?.stockActual}));
  await waitForCount(acks,2);
  assert.ok(acks[1].snapshot.productos.some(x=>x.id==='synthetic-remote-bar-ack'),'second durable snapshot contains replayed remote catalog');
  assert.equal(acks[1].snapshot.productos.find(x=>x.id===p.id).stockActual,accepted?40:80);
