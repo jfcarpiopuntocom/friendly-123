@@ -1,6 +1,6 @@
 'use strict';
-// (JFC 2026-10-28) v606: el cartel "memoria llena" solo sale con un error REAL de cuota.
-// AbortError (candado "f123-estado-ab" vencido) o cualquier otro error: sin cartel, un solo reintento silencioso.
+// (JFC 2026-10-28) v631: el aviso "memoria llena" solo sale con un error REAL de cuota.
+// AbortError de almacenamiento (no-cuota): sin cartel, un solo reintento silencioso.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { browser } = require('./helpers/browser.cjs');
@@ -9,15 +9,20 @@ function app(errorFactory) {
   const w = browser();
   const timers = [];
   w.setTimeout = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
-  // Web Locks que rechaza como lo haria el candado vencido (AbortError) o una cuota real.
-  // El candado "f123-escrituras" funciona normal; solo "f123-estado-ab" falla.
-  w.navigator.locks = { request: (nombre, o, cb) => String(nombre).startsWith('f123-estado-ab') ? Promise.reject(errorFactory()) : Promise.resolve((cb || o)()) };
+  // The 10s Web Locks were retired in v620. Trigger an actual local A/B
+  // and IndexedDB failure; preserve the production error classifier.
+  const originalSet = w.localStorage.setItem.bind(w.localStorage);
+  w.localStorage.setItem = (key, value) => {
+    if (String(key).startsWith('f123_estado_v4')) throw errorFactory();
+    return originalSet(key, value);
+  };
+  w.OCEstadoIDB = { guardar: async () => false, ultimoError: errorFactory };
   const llenas = () => (w.__ocFallos || []).filter((f) => f[1] === 'memoria-llena').length;
   return { w, timers, llenas };
 }
 const dom = (name, code) => { const e = new Error(name); e.name = name; if (code) e.code = code; return e; };
 
-test('AbortError en el candado: NO cartel de memoria llena, devuelve false y programa UN reintento', async () => {
+test('AbortError en almacenamiento: NO cartel de memoria llena, devuelve false y programa UN reintento', async () => {
   const { w, timers, llenas } = app(() => dom('AbortError'));
   // fuerza dos guardados fallidos seguidos: el reintento no se apila
   await w.fetch('/api/productos', { method: 'POST', body: JSON.stringify({ nombre: 'S1', barcode: 'A1', precio: 1, costo: 1, stockInicial: 1 }) });
