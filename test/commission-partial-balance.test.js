@@ -91,6 +91,8 @@ test('incoming sync survives rollback of a failed payout and keeps deferred Yjs 
  assert.equal(f.app.catalog(),null,'do not publish a provisional catalog while payout durability is pending');
  acks[0].resolve(false);
  assert.equal((await pending).status,507);
+ const observed=await f.app.request('/api/respaldo/exportar');
+ console.error('P0-PENDING-CATALOG-FINANCE',JSON.stringify({acks:acks.length,payouts:observed.payouts.length,customerCount:observed.clientes.length,queuedName:observed.nombreNegocio==='Queued Yjs after payout'||observed.nombreNegocio==='Queued Yjs after return'}));
  await waitForAck(acks,2);
  assert.equal(acks[1].snapshot.payouts.length,0,'failed payout is absent from the first replay snapshot');
  assert.ok(['Before payout','Queued Yjs after payout'].includes(acks[1].snapshot.nombreNegocio),'intermediate replay snapshot retains a valid name');
@@ -119,6 +121,8 @@ test('failed sale return replays deferred Yjs owner name without losing stock or
  assert.equal(f.app.catalog(),null,'return in flight is not publishable');
  acks[0].resolve(false);
  assert.equal((await pending).status,507);
+ const observed=await f.app.request('/api/respaldo/exportar');
+ console.error('P0-PENDING-CATALOG-FINANCE',JSON.stringify({acks:acks.length,payouts:observed.payouts.length,customerCount:observed.clientes.length,queuedName:observed.nombreNegocio==='Queued Yjs after payout'||observed.nombreNegocio==='Queued Yjs after return'}));
  await waitForAck(acks,2);
  assert.equal(acks.length,2,'rollback replay reaches its separate durable catalog save');
  assert.equal(acks[1].snapshot.nombreNegocio,'Queued Yjs after return');
