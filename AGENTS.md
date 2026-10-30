@@ -1,5 +1,19 @@
 # AGENTS.md — entrada vigente para asistentes de friendly-123
 
+## PONYTAIL — STABLE ONLY · directiva JFC (30 oct 2026)
+
+**Meta:** una sola friendly-123 STABLE. Conservar la app y su UX aprobadas. No abrir rediseños, prestaciones, refactors, cambios de motor, proveedores ni optimizaciones especulativas bajo el nombre de `fix`. No buscar más trabajo cuando se cumple la aceptación. La directiva explícita más reciente de JFC prevalece.
+
+**Rutina por incidente:** 1) reproducir fallo real contra requisito vigente; 2) seguir gesto→rol/PIN→escritura durable→hechos de stock/dinero→transporte/merge→otro aparato→reinicio; 3) probar causa con RED focalizado; 4) aplicar el diff mínimo reversible; 5) verificar GREEN y contratos adyacentes con datos sintéticos; 6) revisión independiente; 7) congelar SHA, un control integral final y aceptación real PC↔móvil; 8) **STOP**. Un número de pruebas no certifica clientes. Si falta evidencia, `UNKNOWN`, nunca `PASS`.
+
+**Triple perspectiva, en orden:** A = creativo/optimista (hipótesis mínima); B = contrarian/forense (intentar romperla, buscar datos perdidos y falso positivo); C = integrador Ponytail (decisión simple respaldada por pruebas, sin nuevas arquitecturas). Este ejercicio interno NO sustituye al revisor humano o agente independiente.
+
+**1AAA por encima de todo:** mantener intactos PIN/identidad, fotos, ventas, existencias, movimientos, fiados, pagos, comisiones, nombres, permisos, snapshots y rollback. Nunca purgar, mezclar cuadernos ambiguos, inventar stock, borrar operaciones ni publicar secretos. Producción, CI y aparato real son evidencias distintas. No imponer pruebas manuales de ingeniería al cliente.
+
+**Memoria de agentes:** adoptar la idea de TencentDB Agent Memory sin instalarlo en el producto: breve mapa del estado actual, decisiones y bloqueo, con enlaces a SHA/PR/Notion y evidencias originales recuperables. No copiar logs masivos ni convertir un resumen en prueba. Leer este archivo y las decisiones vigentes en cada sesión; no asegurar ejecución permanente de un agente que no esté programado. Integrar software externo de memoria/proxy requiere decisión separada de JFC, fuera de la congelación STABLE.
+
+**Cierre:** un único candidato aislado; no fusionar un gate rojo ni rebajar aserciones. Detenerse en la primera causa reproducible; resolverla y parar. No crear nuevo shell por cambios únicamente documentales fuera de `docs/`.
+
 ## HARDRULE · VISIBILITY FIRST / NEVER GUESS IMPACT (23 Oct 2026)
 
 Before modifying a supported S1 or E1–E6: map the **specific source-to-screen path on the exact SHA**: UI action → identity/role/tab guard → durable storage and ledger/stock/photo → Yjs transport + shipped bundle → relay RPC → merge on the second device → restart. List dependent consumers, failure and rollback paths, source evidence and every UNKNOWN. A graph or static search is a navigation aid, **not proof**. Require minimal RED reproduction, smallest safe diff, GREEN targeted result, separate reviewer, and final release gate on frozen SHA. A stale graph after a commit must be rechecked. Start by reading the current [restricted internal traceability and owner decision](https://app.notion.com/p/4021642b67f381f09d96f65192326f9f), if access is authorized; **never mirror customer feedback or identifying evidence into this public Git repository**.
