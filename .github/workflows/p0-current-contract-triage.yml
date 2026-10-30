@@ -1,0 +1,43 @@
+name: P0 current PIN and CAS contract triage
+on:
+  push:
+    branches: [forensic/v628-regression-contracts-20261030]
+  pull_request:
+    paths:
+      - 'test/local-rev-durable-ack.test.cjs'
+      - 'test/p0-v617-recovered-team-gate.test.cjs'
+      - 'test/e1b3-zombie-web-lock.test.cjs'
+      - 'test/money-return-tax-corrections.test.js'
+      - 'test/commission-partial-balance.test.js'
+      - 'test/bar-conversion-durable-ack.test.js'
+      - '.github/workflows/p0-current-contract-triage.yml'
+permissions:
+  contents: read
+jobs:
+  current-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: "Evidence: exact file SHA-256 and line counts"
+        run: |
+          sha256sum test/local-rev-durable-ack.test.cjs test/p0-v617-recovered-team-gate.test.cjs test/e1b3-zombie-web-lock.test.cjs test/money-return-tax-corrections.test.js test/commission-partial-balance.test.js test/bar-conversion-durable-ack.test.js
+          wc -l test/local-rev-durable-ack.test.cjs test/p0-v617-recovered-team-gate.test.cjs test/e1b3-zombie-web-lock.test.cjs test/money-return-tax-corrections.test.js test/commission-partial-balance.test.js test/bar-conversion-durable-ack.test.js
+      - name: Current PIN and atomic durable state contracts
+        run: node --test test/local-rev-durable-ack.test.cjs test/p0-v617-recovered-team-gate.test.cjs test/e1b3-zombie-web-lock.test.cjs
+      - name: Monetary return durable ACK, refund and replay contracts
+        run: node --test test/money-return-tax-corrections.test.js
+      - name: Commissions and bar conversion strict durability
+        run: node --test test/commission-partial-balance.test.js test/bar-conversion-durable-ack.test.js
+      - name: No runtime changes
+        run: |
+          BASE=$(git merge-base HEAD origin/master)
+          git diff --check "$BASE" HEAD
+          if git diff --name-only "$BASE" HEAD | grep '^docs/'; then exit 1; fi

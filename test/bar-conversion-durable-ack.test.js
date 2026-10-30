@@ -15,7 +15,7 @@ test('bar conversion: rejected stores restore all product fields without success
  const {w,p,events}=await setup(),before=await w.request('/api/productos/'+p.id);
  const originalSet=w.localStorage.setItem.bind(w.localStorage);let writes=0;
  w.localStorage.setItem=()=>{throw Error('synthetic quota');};
- w.OCEstadoIDB={guardar:async()=>{writes++;return false;}};
+ w.OCEstadoIDB={guardarConRevision:async()=>{writes++;return false;}};
  const r=await w.fetch('/api/productos/'+p.id,{method:'PATCH',body:JSON.stringify({servingMl:100,botellaMl:900,nombre:'Unsaved name'})});
  assert.equal(r.status,507,'a rejected conversion must never report success');
  assert.deepEqual(await w.request('/api/productos/'+p.id),before);
@@ -26,7 +26,7 @@ test('bar conversion: rejected stores restore all product fields without success
 test('bar conversion: first durable ACK contains PN and waits before reads, seed and notifications',async()=>{
  const {w,p,events}=await setup();let snapshot,ack;
  w.localStorage.setItem=()=>{throw Error('synthetic quota');};
- w.OCEstadoIDB={guardar:s=>{snapshot=JSON.parse(JSON.stringify(s));return new Promise(resolve=>{ack=resolve;});}};
+ w.OCEstadoIDB={guardarConRevision:s=>{snapshot=JSON.parse(JSON.stringify(s));return new Promise(resolve=>{ack=resolve;});}};
  let done=false;
  const request=w.fetch('/api/productos/'+p.id,{method:'PATCH',body:JSON.stringify({servingMl:100})}).then(r=>{done=true;return r;});
  await tick();assert.equal(done,false);assert.equal(events.stock.length,0);assert.equal(events.catalog,0);
@@ -52,7 +52,7 @@ test('bar conversion: durable success survives restart and repeated same measure
 test('bar conversion: rejected IndexedDB promise releases waiting reads with prior state',async()=>{
  const {w,p,events}=await setup();let reject;
  w.localStorage.setItem=()=>{throw Error('synthetic quota');};
- w.OCEstadoIDB={guardar:()=>new Promise((resolve,no)=>{reject=no;})};
+ w.OCEstadoIDB={guardarConRevision:()=>new Promise((resolve,no)=>{reject=no;})};
  const request=w.fetch('/api/productos/'+p.id,{method:'PATCH',body:JSON.stringify({servingMl:100})});
  await tick();const read=w.request('/api/productos/'+p.id);
  reject(Error('synthetic IDB abort'));
@@ -62,7 +62,7 @@ test('bar conversion: rejected IndexedDB promise releases waiting reads with pri
 for(const accepted of [false,true])test(`bar conversion: remote catalog waits through ${accepted?'accepted':'rejected'} ACK without being rolled back`,async()=>{
  const {w,p,events}=await setup(),acks=[];
  w.localStorage.setItem=()=>{throw Error('synthetic quota');};
- w.OCEstadoIDB={guardar:(s,strict)=>strict?new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(s)),resolve})):Promise.resolve(false)};
+ w.OCEstadoIDB={guardarConRevision:(s,priorRev)=>Number.isSafeInteger(priorRev)?new Promise(resolve=>acks.push({snapshot:JSON.parse(JSON.stringify(s)),resolve})):Promise.resolve(false)};
  const request=w.fetch('/api/productos/'+p.id,{method:'PATCH',body:JSON.stringify({servingMl:100})});
  await waitForCount(acks,1);
  let ready=false;const confirmed=w.OCSync.catalogoConfirmado().then(c=>{ready=true;return c;});
@@ -70,10 +70,12 @@ for(const accepted of [false,true])test(`bar conversion: remote catalog waits th
  assert.equal(w.OCSync.aplicarCatalogo(remote,null),false,'incoming merge waits for rollback or commit');
  await tick();assert.equal(ready,false);assert.equal(events.stock.length,0);
  acks[0].resolve(accepted);assert.equal((await request).status,accepted?200:507);
+ const durability=w.OCSync.confirmarCatalogoDurable();
  await waitForCount(acks,2);
  assert.ok(acks[1].snapshot.productos.some(x=>x.id==='synthetic-remote-bar-ack'),'second durable snapshot contains replayed remote catalog');
  assert.equal(acks[1].snapshot.productos.find(x=>x.id===p.id).stockActual,accepted?40:80);
  acks[1].resolve(true);
+ assert.equal(await durability,true,'explicit durable catalog confirmation must finish');
  const catalog=await confirmed;
  assert.ok(catalog.productos.some(x=>x.id==='synthetic-remote-bar-ack'),'remote change survives queue drain');
  assert.equal(catalog.productos.find(x=>x.id===p.id).stockActual,accepted?40:80);
@@ -85,7 +87,7 @@ for(const missingPointer of [false,true])test(`bar conversion: failed COMMITTED 
  const ab=()=>w.OCEstadoAB.crear({storage,claveBase:'f123_estado_v4'});
  const before=ab().leer().buffers,originalSet=storage.setItem.bind(storage);
  storage.setItem=(k,v)=>{if(k==='f123_estado_v4_journal'){try{if(JSON.parse(v).phase==='COMMITTED')throw Error('synthetic COMMITTED journal failure');}catch(e){if(e.message==='synthetic COMMITTED journal failure')throw e;}}return originalSet(k,v);};
- w.OCEstadoIDB={guardar:async()=>false};
+ w.OCEstadoIDB={guardarConRevision:async()=>false};
  const r=await w.fetch('/api/productos/'+p.id,{method:'PATCH',body:JSON.stringify({servingMl:100})});
  assert.equal(r.status,507);assert.equal(events.stock.length,0);assert.equal(events.catalog,0);
  assert.deepEqual(ab().leer().buffers,before,'WAL readback exposes the exact logical preimage');

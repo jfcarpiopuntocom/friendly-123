@@ -24,6 +24,7 @@ function fixture({ failLocalStorage = true, idbWrite } = {}) {
   const state = { productos: structuredClone(durable.productos), ubicaciones: structuredClone(durable.ubicaciones) };
   let storageHandler, localStorageFails = failLocalStorage;
   const ctx = {
+    _ventaPendiente: null, _payoutPendiente: null, _retencionPendiente: null,
     _conflictoEstadoAB: null, _registrarConflictoAB: ()=>false, _huellaPublicable: estado=>JSON.stringify(estado), _estadoLecturaBloqueada: false, _guardadoCatalogoPendiente: null, _guardandoAB: false,
     _localRev: 5, _localRevReservado: 0, _miSello: 'seed', _cargoBufferReal: false,
     OC_STATE_PTR: 'legacy_ptr', OC_STATE_SELLO: 'seal', OC_STATE_KEY: 'legacy', OC_STATE_SUFIJO: '',
@@ -81,12 +82,12 @@ test('C1: late failed IDB attempt cannot lower the durable high-water adopted fr
   assert.equal(f.ctx._localRev,7,'late failure cannot lower a newer durable revision');
 });
 
-test('C1: two serialized IDB failures preserve durable revision and reserve distinct attempts', async () => {
+test('C1: concurrent rejected CAS writes reserve distinct revisions without advancing durable state', async () => {
   const completions = [], snapshots=[];
   const f = fixture({ idbWrite: snapshot => {snapshots.push(snapshot._rev);return new Promise(resolve => completions.push(resolve));} });
   const a = f.ctx.saveNow(false, false), b = f.ctx.saveNow(false, false);
   await new Promise(resolve=>setImmediate(resolve));
-  assert.deepEqual(snapshots,[6],'second same-key snapshot waits for the real helper lock');
+  assert.deepEqual(snapshots,[6,7],'two attempts must have distinct revisions; CAS handles concurrency without Web Locks');
   completions[0](false);assert.equal(await a,false);
   await new Promise(resolve=>setImmediate(resolve));
   assert.deepEqual(snapshots,[6,7]);completions[1](false);assert.equal(await b,false);
