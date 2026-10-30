@@ -5839,8 +5839,14 @@
       if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
       const primero = await _fetchInterno(url,opts);
       if (!ventaConcurrente || primero.status !== 507 || _estadoLecturaBloqueada ||
-          _ventaConfirmando || _retencionConfirmando || _payoutConfirmando ||
-          _guardadoCatalogoPendiente) return primero;
+          _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
+      // A local mirror may still be settling after the first durable ACK.
+      // Wait for it only on this failed path, before replacing any in-memory copy.
+      if (_guardadoCatalogoPendiente) {
+        try { await _guardadoCatalogoPendiente; } catch (_) { return primero; }
+        if (_guardadoCatalogoPendiente || _estadoLecturaBloqueada ||
+            _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
+      }
       // A second tab may have committed after our copy of the notebook was read.
       // On a CAS rejection, the sale handler already rolled back every provisional
       // fact. Rebase from the exact durable snapshot; execute at most ONCE again.
