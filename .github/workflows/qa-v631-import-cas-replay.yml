@@ -1,0 +1,27 @@
+name: qa-v631-import-cas-replay
+on:
+  push:
+    branches:
+      - qa/v631-import-cas-replay-20261030
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  imported-notebook-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Exact import rollback and queued Yjs replay
+        run: |
+          set -euo pipefail
+          node --check test/import-durable-rollback.test.cjs
+          node --test test/import-durable-rollback.test.cjs
+      - name: Linecount, SHA-256 and unchanged runtime
+        if: always()
+        run: |
+          wc -l test/import-durable-rollback.test.cjs docs/mock-backend.js docs/estado-idb.js
+          sha256sum test/import-durable-rollback.test.cjs docs/mock-backend.js docs/estado-idb.js
