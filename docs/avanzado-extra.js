@@ -2756,6 +2756,14 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             const ok = await (rol === "owner" && window.OCSecure.fijarOwnerPinDesdeSesion
               ? window.OCSecure.fijarOwnerPinDesdeSesion(v) : window.OCSecure[fn](v));
             if (!ok) { msg("oc-codes-msg", window.tf("team.pinUpdateFailed", { role: etiqueta }), "var(--rojo)"); return; }
+            if (rol === "owner") {
+              const y = window.OCYjs;
+              if (!y || typeof y.publicarCambioPinOwner !== "function" ||
+                  !y.publicarCambioPinOwner(v)) {
+                msg("oc-codes-msg", "Owner PIN saved on this device, but the shared notebook has not confirmed it. Keep this session open until synchronization finishes.", "var(--rojo)");
+                return;
+              }
+            }
             try {
               if (window.OCSecure.recordarPinQueAbre) {
                 window.OCSecure.recordarPinQueAbre(v, rol === "owner" ? "dueno" : (rol === "emp" ? "empleado" : "contador"));
