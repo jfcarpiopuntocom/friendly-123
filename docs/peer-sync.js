@@ -244,7 +244,20 @@
       }
       stop() { clearTimeout(this.timer); this.timer = null; this.attempts = 0; const ws = this.signal; this.signal = null; if (ws) try { ws.close(); } catch (_) {} for (const peer of this.peers.values()) try { peer.pc.close(); } catch (_) {} this.peers.clear(); }
     }
-    const resume = () => { if (document.hidden) return; for (const hub of hubs.values()) { clearTimeout(hub.timer); hub.timer = null; hub.attempts = 0; hub.start(); } };
+    // A metadata WebSocket can remain OPEN after ICE exhausted its attempts.
+    // Merely calling start() leaves that socket untouched and the notebook
+    // permanently disconnected. A real foreground/online event must rejoin
+    // the signalling room so the coordinator sends its current peer roster.
+    // Healthy RTC peers are never disturbed; no background polling is added.
+    const resume = () => {
+      if (document.hidden) return;
+      for (const hub of hubs.values()) {
+        if (!hub.sockets.size || hub.connected().length) continue;
+        hub.stop();
+        hub.attempts = 0;
+        hub.start();
+      }
+    };
     window.addEventListener('online', resume); document.addEventListener('visibilitychange', resume);
     return { connect(url) {
       if (typeof RTC !== 'function') throw new Error('Direct peer connections are unavailable in this browser');
