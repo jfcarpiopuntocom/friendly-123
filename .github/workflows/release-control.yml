@@ -47,10 +47,24 @@ jobs:
           test -s /tmp/f123_v607_sync_yjs.js
           test -s /tmp/f123_v606_sync_yjs.js
       - name: Full regression suite including browser and financial contracts
+        shell: bash
         env:
           F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
           F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
-        run: npm test
+        run: |
+          set -euo pipefail
+          # Physical-style 2/3-browser RTC, concurrent sales and p95 latency
+          # must own the runner CPU. Keep EVERY assertion, timeout and SLA.
+          HEAVY=(test/peer-sync-browser.test.js test/linus-dos-pestanas.test.js test/sync-latencia-dos-aparatos-v599.test.cjs)
+          for t in "${HEAVY[@]}"; do test -f "$t" || exit 1; done
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 "${HEAVY[@]}"
+          # Run every other .test.js/.test.cjs in the original four-worker mode.
+          # Enumerate by file to ensure the dedicated heavy files are not run twice.
+          mapfile -t REST < <(find test -type f \( -name '*.test.js' -o -name '*.test.cjs' \) \
+            ! -name 'peer-sync-browser.test.js' ! -name 'linus-dos-pestanas.test.js' \
+            ! -name 'sync-latencia-dos-aparatos-v599.test.cjs' | sort)
+          (( ${#REST[@]} > 0 ))
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=4 --test-timeout=120000 "${REST[@]}"
       - name: Artifact integrity
         run: |
           cp docs/version-manifest.json /tmp/manifest-before.json
