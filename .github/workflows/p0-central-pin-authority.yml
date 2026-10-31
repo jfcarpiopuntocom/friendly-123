@@ -40,7 +40,7 @@ jobs:
           git diff --check HEAD~1 HEAD
       - name: PIN authority, identity, recovery and WebKit regressions
         run: |
-          node --test --test-concurrency=2 --test-timeout=120000             test/p0-central-pin-authority.test.mjs             test/worker-master-recovery.test.js             test/worker-checkin.test.js             test/panel-durable-object.test.js             test/p0-v633-owner-pin-durable-intent.test.cjs             test/p0-v633-owner-pin-journal-real-yjs.test.cjs             test/p0-owner-pin-current-ui-browser.test.cjs
+          node --test --test-concurrency=2 --test-timeout=120000             test/p0-central-pin-authority.test.mjs             test/p0-central-pin-panel-browser.test.cjs             test/worker-master-recovery.test.js             test/worker-checkin.test.js             test/panel-durable-object.test.js             test/p0-v633-owner-pin-durable-intent.test.cjs             test/p0-v633-owner-pin-journal-real-yjs.test.cjs             test/p0-owner-pin-current-ui-browser.test.cjs
       - name: Worker build dry-run, never deploy
         working-directory: cloudflare-worker
         run: |
