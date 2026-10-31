@@ -33,8 +33,10 @@ function fixture(options = {}) {
   const db = {
     transaction() {
       const tx = {};
+      let writeQueued = false;
       tx.objectStore = () => ({
         put(snapshot) {
+          writeQueued = true;
           Promise.resolve().then(() => {
             if ((options.failCommits || []).includes(++disk.attempts)) {
               tx.error = Error('synthetic IDB transaction abort');
@@ -51,10 +53,14 @@ function fixture(options = {}) {
           Promise.resolve().then(() => {
             request.result = disk.current && JSON.parse(JSON.stringify(disk.current));
             request.onsuccess?.();
+            // A readwrite IDB transaction also completes when its read finds
+            // the same durable revision and no put is necessary.
+            if (!writeQueued) Promise.resolve().then(() => tx.oncomplete?.());
           });
           return request;
         },
         delete() {
+          writeQueued = true;
           Promise.resolve().then(() => { disk.current = null; tx.oncomplete?.(); });
         },
       });
