@@ -8,7 +8,7 @@ assert.ok(start>=0&&end>start,'actual shipped central Owner functions are under 
 const code=source.slice(start,end);
 const lic='F123-SYNTHETIC-SHOP';
 function fixture({legacy=false,instanceId='new_browser_pwa_01',resolved=200,identity=lic,
-  adoptedRevision=2,active=lic,hasSeen=false}={}){
+  adoptedRevision=2,active=lic,hasSeen=false,hangResolve=false}={}){
  const entries=new Map([['f123_owned',JSON.stringify({licenseCode:lic,...(instanceId?{instanceId}:{})})]]);
  if(hasSeen)entries.set('f123_pin_central_seen:'+lic,JSON.stringify({revision:1}));
  const calls=[],adoptions=[];
@@ -21,6 +21,11 @@ function fixture({legacy=false,instanceId='new_browser_pwa_01',resolved=200,iden
   fetch:async (url,opts)=>{
    const u=new URL(url);calls.push({pathname:u.pathname,method:opts.method,body:opts.body});
    let status,body;
+   if(u.pathname==='/pin/resolve'&&hangResolve){
+    return new Promise((resolve,reject)=>{
+      opts.signal.addEventListener('abort',()=>reject(Error('synthetic network timeout')),{once:true});
+    });
+   }
    if(u.pathname==='/pin/verify'){
     status=opts.method==='GET'?(legacy?404:405):404;
     body=legacy?{error:'not found'}:{ok:false,reason:'license-instance-mismatch'};
@@ -92,4 +97,15 @@ test('P0 old Worker permits legacy local PIN editing, current authority cannot b
  assert.equal(denied.ok,false);assert.equal(denied.reason,'current-pin-rejected');
  const adopted=fixture({legacy:true,hasSeen:true});
  assert.equal((await adopted.rotate('909','919')).ok,false);
+});
+
+test('P0 unresolved network obeys the 2400 ms gate timeout (no stuck PIN screen)',async()=>{
+ const f=fixture({hangResolve:true});
+ const begin=Date.now();
+ const result=await Promise.race([
+   f.verify('909'),
+   new Promise((_,reject)=>setTimeout(()=>reject(Error('PIN deadline was accidentally cleared')),3400))
+ ]);
+ assert.equal(result,'unavailable');
+ assert.ok(Date.now()-begin<3400,'network must settle before gate ceiling');
 });
