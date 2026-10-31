@@ -1,0 +1,28 @@
+name: P0 legacy PIN Worker capability contract
+on:
+  pull_request:
+    paths:
+      - docs/auth-ui.js
+      - test/p0-pin-worker-capability-probe.test.cjs
+      - .github/workflows/p0-pin-worker-capability.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capability-probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify syntax and no credential leaks from capability checks
+        run: |
+          node --check docs/auth-ui.js
+          node --test --test-timeout=120000 test/p0-pin-worker-capability-probe.test.cjs test/p0-central-pin-legacy-offline-guard.test.cjs
+      - name: Verify Worker PIN route and authority remain strictly guarded
+        run: node --test --test-timeout=120000 test/p0-central-pin-worker-entry.test.mjs test/p0-central-pin-authority.test.mjs
+      - run: git diff --check
