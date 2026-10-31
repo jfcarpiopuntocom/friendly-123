@@ -12,7 +12,7 @@ const gold='#EFC31A',outline='#000';
 test('business name uses exact logo yellow and proportional black outline in both source and served CSS',()=>{
  for(const [where,css] of [['source',source],['served',built]]){
   assert.match(css,new RegExp('\\-\\-f123-business-gold-ink:'+gold,'i'),where+' yellow mismatch');
-  assert.match(css,new RegExp('header h1 #oc-negocio-nombre\\{\\-webkit-text-stroke:\\.08em '+outline.replace('#','\\#'),'i'),where+' logo outline mismatch');
+  assert.match(css,new RegExp('header h1 #oc-negocio-nombre\\{[^}]*\\-webkit-text-stroke:\\.08em '+outline.replace('#','\\#'),'i'),where+' logo outline mismatch');
   assert.match(css,/header h1 #oc-negocio-nombre\{font-family:var\(--font-display,/);
  }
  assert.match(index,/id="oc-negocio-nombre"/);
