@@ -23,9 +23,9 @@ function storage(){
 function localStore(){
  const pending=new Map(),inbox=new Map();let cursor=0;
  return {enqueue:async x=>{pending.set(x.eventId,structuredClone(x))},
-   pending:async()=>[...pending.values()].map(structuredClone),
+   pending:async()=>[...pending.values()].map(x=>structuredClone(x)),
    sent:async id=>{pending.delete(id)},
-   inbox:async()=>[...inbox.values()].map(structuredClone),
+   inbox:async()=>[...inbox.values()].map(x=>structuredClone(x)),
    cursor:async()=>cursor,
    received:async(x,c)=>{inbox.set(x.sequence,structuredClone(x));cursor=c;},
    check:()=>({pending:pending.size,inbox:inbox.size,cursor})};
