@@ -1212,23 +1212,31 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
       const lic=String(own.licenseCode||"").trim().toUpperCase(),id=String(own.instanceId||"");
       if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!/^[a-zA-Z0-9_-]{6,120}$/.test(id))return;
+      // Fase 1: a failed upload must NOT pretend this device has reported.
+      // Existing legacy marker records attempts, not confirmed reports.
       const marker="f123_pin_census:"+lic+":"+id;
-      if(Date.now()-Number(localStorage.getItem(marker)||0)<86400000)return;
-      // Throttle ATTEMPTS too; an unavailable Worker must not produce a storm
-      // of repeated PIN requests on every login during a quota outage.
-      try{localStorage.setItem(marker,String(Date.now()))}catch(_){}
+      const now=Date.now();
+      const lastSuccess=Number(localStorage.getItem(marker+":ok")||0);
+      const lastAttempt=Number(localStorage.getItem(marker)||0);
+      if(lastSuccess>0&&now>=lastSuccess&&now-lastSuccess<86400000)return;
+      // Max one failed attempt per six hours, even if login is repeated.
+      // This avoids quota storms and still lets an outage recover without
+      // leaving a customer's prior PIN unreported for a whole day.
+      if(lastAttempt>0&&now>=lastAttempt&&now-lastAttempt<21600000)return;
       const dest=new URL(OC_WORKER_URL);
       if(dest.protocol!=="https:"||dest.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return;
-      // POST is not coupled to the login path; a 402/timeout never blocks work.
-      const controller=new AbortController();
-      const t=setTimeout(()=>controller.abort(),2000);
+      try{localStorage.setItem(marker,String(now))}catch(_){}
+      const controller=new AbortController(),t=setTimeout(()=>controller.abort(),2000);
       fetch(dest.origin+"/pin/report",{
         method:"POST",mode:"cors",cache:"no-store",credentials:"omit",
         redirect:"error",referrerPolicy:"no-referrer",signal:controller.signal,
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({licenseCode:lic,instanceId:id,pin:String(pin)})
-      }).then(r=>{if(r.ok)try{localStorage.setItem(marker,String(Date.now()))}catch(_){}},
-                ()=>{}).finally(()=>clearTimeout(t));
+      }).then(async r=>{
+        if(!r.ok)return;
+        const data=await r.json().catch(()=>null);
+        if(data&&data.ok===true)try{localStorage.setItem(marker+":ok",String(Date.now()))}catch(_){}
+      },()=>{}).finally(()=>clearTimeout(t));
     }catch(_){}
   }
 
