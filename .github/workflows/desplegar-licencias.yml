@@ -46,7 +46,11 @@ jobs:
       - name: Verify exact Worker and bindings
         working-directory: cloudflare-worker
         run: |
-          test -n "$CLOUDFLARE_API_TOKEN" && test -n "$CLOUDFLARE_ACCOUNT_ID"
+          set -euo pipefail
+          if [ -z "${CLOUDFLARE_API_TOKEN:-}" ] || [ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]; then
+            echo "::error::Missing CLOUDFLARE_API_TOKEN or CLOUDFLARE_ACCOUNT_ID in GitHub Actions secrets for the real friendly123 license Worker account."
+            exit 1
+          fi
           test "$(sed -n 's/^name = "\(.*\)"/\1/p' wrangler.toml | head -1)" = 'friendly123-licencias'
           ../node_modules/.bin/wrangler deploy --config ./wrangler.toml --dry-run > "$RUNNER_TEMP/license-dry-run.txt"
           grep -q 'env.LICENCIAS' "$RUNNER_TEMP/license-dry-run.txt"
