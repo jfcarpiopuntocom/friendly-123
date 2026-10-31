@@ -1,4 +1,5 @@
 import {pinDoRoute,pinPublicRoute} from './pin-worker-api.mjs';
+import {mailboxPublicRoute,mailboxDoRoute} from './mailbox-api.mjs';
 // worker.js — license ping for friendly-123 / amigable-123.
 // Handles both products. Endpoints:
 //   POST /checkin  — public, called on activation & login (body.accion = "register"|"login")
@@ -22,7 +23,7 @@ import {pinDoRoute,pinPublicRoute} from './pin-worker-api.mjs';
 
 function cors(resp) {
   resp.headers.set("Access-Control-Allow-Origin", "*");
-  resp.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Master-Key");
+  resp.headers.set("Access-Control-Allow-Headers", "Content-Type, X-Master-Key, Authorization");
   // FIX (homologado de amigable-123, JFC 2026-07-28/29): DELETE was missing
   // here. The browser sends a preflight OPTIONS before any DELETE (because
   // of the custom X-Master-Key header), and if this list doesn't include
@@ -1063,6 +1064,18 @@ export default {
       }
     });
     if(pin)return cors(pin);
+    // License-scoped, opaque encrypted backfill. Separate per-license DO, no
+    // business plaintext, no scans of the global license registry.
+    const mailbox=await mailboxPublicRoute(req,env,{
+      getPinDo:doLicencias,
+      getMailboxDo:(e,licenseCode)=>{
+        try {
+          if(!e.MAILBOXES)return null;
+          return e.MAILBOXES.get(e.MAILBOXES.idFromName("mailbox-v1:"+licenseCode));
+        }catch{return null}
+      }
+    });
+    if(mailbox)return cors(mailbox);
 
     if (url.pathname === "/maestro/emitir" && req.method === "POST") return issueRecovery(req, env);
     if (url.pathname === "/maestro/verificar" && req.method === "POST") return verifyRecovery(req, env);
@@ -1355,6 +1368,15 @@ export default {
    admite storage.list() por llamada. */
 const PAGINA_DO = 1000;
 
+// Separate durable storage partition per shop. No PIN authority or stock writer.
+export class BuzonCifrado {
+  constructor(state,env){this.state=state;this.env=env;}
+  async fetch(req){
+    const result=await mailboxDoRoute(req,this.state.storage);
+    return result||new Response('{"ok":false}',{status:404,
+      headers:{"content-type":"application/json"}});
+  }
+}
 export class RegistroLicencias {
   constructor(state,env) { this.state = state; this.env = env; }
 
