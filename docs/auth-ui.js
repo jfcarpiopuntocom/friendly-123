@@ -1157,6 +1157,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if(response.status===200){
           const data=await response.json();
           if(data.ok===true&&Number.isSafeInteger(data.revision)&&data.revision>0){
+            // Central verification is authoritative. Adopt its PIN locally
+            // through the existing durable Owner rotation intent; replay into
+            // Yjs is handled separately when the encrypted channel is ready.
+            if(window.OCSecure && window.OCSecure.adoptarPinOwnerCentralVerificado){
+              try{await window.OCSecure.adoptarPinOwnerCentralVerificado(String(code),data.revision,lic)}catch(_){}
+            }
             try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:data.revision,at:Date.now()}))}catch(_){}
             return "owner";
           }
