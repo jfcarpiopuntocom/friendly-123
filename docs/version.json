@@ -1,10 +1,10 @@
 {
-  "version": "shell v635",
+  "version": "shell v636",
   "fecha": "2026-10-31",
-  "changelog": "JFC PIN authority: correct dashboard visible version and preserve license recovery; verified browser and storage contracts. Business data and stock untouched.",
+  "changelog": "P0: keep peer operations pending until connected receivers confirm, and bind sync to the active licensed notebook. Preserve all stock and PIN records.",
   "requerida": false,
-  "shell": "f123-shell-v635",
+  "shell": "f123-shell-v636",
   "apagar": [],
-  "releaseName": "shell v635",
-  "cacheGeneration": "golden182"
+  "releaseName": "shell v636",
+  "cacheGeneration": "golden183"
 }
