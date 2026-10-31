@@ -7,7 +7,8 @@
 // Pruebas 1-2 rojas en v413. La 3 cuida que "Deactivate sync" siga mandando.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
+const engine = process.env.F123_BROWSER === 'webkit' ? webkit : chromium;
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 const URL = pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href;
@@ -17,7 +18,7 @@ const LIC = ['F123', 'PRUEBA', 'SAPA', 'NUEVA'].join('-');
 const VIEJO = ['F123', 'PRUEBA', 'SAPA', 'ANTES'].join('-');
 
 async function salaTrasCargar(inicial) {
-  const web = await chromium.launch({ headless: true });
+  const web = await engine.launch({ headless: true });
   try {
     const ctx = await web.newContext();
     await ctx.addInitScript((ini) => {
@@ -44,7 +45,7 @@ test('2. room left on an old code: it moves to the license room', async () => {
 });
 
 test('3. owner turned sync off on purpose: it stays off', async () => {
-  const web = await chromium.launch({ headless: true });
+  const web = await engine.launch({ headless: true });
   try {
     const page = await web.newPage();
     await page.goto(URL, { waitUntil: 'domcontentloaded' });
@@ -80,7 +81,7 @@ test('4. joined active shop wins over an obsolete owned license and legacy room'
 });
 
 test('5. unknown active identity cannot emit stock into an obsolete room',async()=>{
-  const web=await chromium.launch({headless:true});
+  const web=await engine.launch({headless:true});
   try{
     const ctx=await web.newContext();
     await ctx.addInitScript((ini)=>{
