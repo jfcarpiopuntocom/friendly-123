@@ -6,6 +6,7 @@ on:
     paths:
       - lab/license-feed/**
       - test/license-feed-contract.test.cjs
+      - test/license-feed-crypto.test.cjs
       - .github/workflows/lab-license-feed-contract.yml
   workflow_dispatch:
 permissions:
@@ -21,5 +22,6 @@ jobs:
           node-version: '22'
       - run: node --check lab/license-feed/contract.cjs
       - run: node --check test/license-feed-contract.test.cjs
-      - run: node --test --test-timeout=30000 test/license-feed-contract.test.cjs
+      - run: node --check test/license-feed-crypto.test.cjs
+      - run: node --test --test-timeout=30000 test/license-feed-contract.test.cjs test/license-feed-crypto.test.cjs
       - run: git diff --check
