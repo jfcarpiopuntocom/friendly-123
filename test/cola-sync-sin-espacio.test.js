@@ -15,7 +15,11 @@ test('queue full: OCSyncEmit reports false instead of losing the op silently', a
     const page = await web.newPage();
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href, { waitUntil: 'domcontentloaded' });
     const r = await page.evaluate(() => {
-      localStorage.setItem('f123_sync_room', JSON.stringify({ codigo: ['F123', 'PRUEBA', 'COLA', 'LLENA'].join('-') }));
+      const licencia = ['F123', 'PRUEBA', 'COLA', 'LLENA'].join('-');
+      localStorage.setItem('f123_sync_room', JSON.stringify({ codigo: licencia }));
+      // Exercise queue quota with matching active notebook, never an obsolete-room refusal.
+      if (!window.OCTienda || typeof window.OCTienda.licenciaActual !== 'function') throw Error('active notebook API unavailable');
+      window.OCTienda.licenciaActual = () => licencia;
       const ok = window.OCSyncEmit('venta', { productoId: 'p-x', delta: -1 });
       const orig = Storage.prototype.setItem;
       Storage.prototype.setItem = function (k, v) { if (String(k).indexOf('cola') >= 0) throw new Error('QuotaExceededError'); return orig.call(this, k, v); };

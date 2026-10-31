@@ -22,7 +22,7 @@ test('app retains queued data and schedules retry when native adapter is missing
     const queue = [{ opId: 'synthetic-unsent', ciphertext: 'AQID' }], states = [];
     const c = {
       window: { F123Relay: adapter }, WebSocket: forbiddenSocket,
-      leerSala: () => ({ codigo: 'SYNTHETIC' }), cerrarWsExistente() {},
+      leerSala: () => ({ codigo: 'SYNTHETIC' }), codigoCuadernoActivo: () => 'SYNTHETIC', cerrarWsExistente() {},
       notificarEstado: value => states.push(value), estadoActual: 'apagado',
       normalizarCodigo: value => value, derivarClave: async () => 'synthetic-key',
       idDeSala: async () => base, RELAY_URL: 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/',

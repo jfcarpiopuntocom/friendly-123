@@ -1,0 +1,82 @@
+name: P0 Active Notebook Transport Lab
+on:
+  push:
+    branches:
+      - fix/p0-active-notebook-transport-gate-20261031
+  pull_request:
+    paths:
+      - docs/sync-realtime.js
+      - docs/peer-sync.js
+      - test/peer-sync-browser.test.js
+      - test/sync-peer-durable.test.js
+      - test/sala-sigue-licencia.test.js
+      - .github/workflows/qa-p0-active-notebook-transport.yml
+permissions:
+  contents: read
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Exact syntax, checksums and line counts
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          node --check docs/sync-realtime.js
+          node --check docs/peer-sync.js
+          node --check test/sync-peer-durable.test.js
+          node --check test/peer-sync-browser.test.js
+          node --check test/sala-sigue-licencia.test.js
+          wc -l docs/peer-sync.js docs/sync-realtime.js test/sync-peer-durable.test.js test/peer-sync-browser.test.js test/sala-sigue-licencia.test.js
+          sha256sum docs/peer-sync.js docs/sync-realtime.js test/sync-peer-durable.test.js test/peer-sync-browser.test.js test/sala-sigue-licencia.test.js
+          git diff --check HEAD~1 HEAD
+      - name: Browser room identity regressions
+        run: |
+          node --test --test-timeout=90000 test/sala-sigue-licencia.test.js
+      - name: WebKit browser room identity regressions
+        run: |
+          F123_BROWSER=webkit node --test --test-timeout=90000 test/sala-sigue-licencia.test.js
+      - name: Durable opId and cross-notebook provenance
+        run: |
+          node --test --test-timeout=90000 test/p0-opid-before-yjs.test.cjs
+      - name: Legacy queue quota and missing native adapter contracts
+        run: |
+          node --test --test-timeout=90000 test/native-sync-required.test.js test/cola-sync-sin-espacio.test.js
+      - name: Multi-peer durable ACK unit regression
+        run: |
+          node --test --test-timeout=90000 test/sync-peer-durable.test.js
+      - name: Three isolated browsers actual WebRTC and durable recovery
+        run: |
+          node --test --test-timeout=90000 test/peer-sync-browser.test.js
+      - name: Existing active notebook Yjs regressions
+        run: |
+          node --test --test-timeout=90000 test/yjs-active-notebook-identity.test.cjs
+
+  native-webkit-macos:
+    runs-on: macos-15
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install native macOS WebKit test engine
+        run: npx playwright install webkit
+      - name: Real RTC between three independent browser stores (no skip allowed)
+        env:
+          F123_REQUIRE_WEBKIT: '1'
+        run: node --test --test-name-pattern="direct webkit" --test-timeout=90000 test/peer-sync-browser.test.js
