@@ -1,0 +1,36 @@
+name: qa-p0-diff-v632-v633
+on:
+  push:
+    branches: [fix/p0-unified-owner-stock-peer-v633]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Compare critical contracts with unchanged published v632
+        shell: bash
+        run: |
+          set -euo pipefail
+          tests="test/incident-v608-publication-after-recovery.test.cjs test/sync-peer-durable.test.js test/v608-guardado-veraz.test.cjs test/p0-pre-pin-budget-and-header-parity.test.cjs"
+          node --test --test-timeout=70000 $tests > /tmp/v633.txt 2>&1 || true
+          git worktree add --detach /tmp/v632 d69d4023663f47fc6d1f28498300475fee6f4d2e
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/v632/node_modules
+          (cd /tmp/v632 && node --test --test-timeout=70000 $tests) > /tmp/v632.txt 2>&1 || true
+          echo '=== PUBLISHED v632 ==='
+          grep -E '^not ok |^# (tests|pass|fail|cancelled|skipped) ' /tmp/v632.txt || true
+          echo '=== CANDIDATE v633 ==='
+          grep -E '^not ok |^# (tests|pass|fail|cancelled|skipped) ' /tmp/v633.txt || true
+          echo '=== NEW FAILURES ==='
+          comm -13 <(grep '^not ok' /tmp/v632.txt | sed -E 's/^not ok [0-9]+ - //' | sort) <(grep '^not ok' /tmp/v633.txt | sed -E 's/^not ok [0-9]+ - //' | sort) || true
+          test -s /tmp/v632.txt
+          test -s /tmp/v633.txt

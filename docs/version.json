@@ -1,10 +1,10 @@
 {
-  "version": "shell v632",
+  "version": "shell v633",
   "fecha": "2026-10-30",
-  "changelog": "Owner PIN: close fulfilled/superseded pending rotations; reject stale async intents and protect authorized A-B-A return with shared revision. Stock, money, photos and UI unchanged.",
+  "changelog": "Owner PIN: retain rotation intent until the exact PIN and shared revision are recoverable from committed local Yjs journal. Sales, stock, photos, roles and design unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v632",
+  "shell": "f123-shell-v633",
   "apagar": [],
-  "releaseName": "shell v632",
-  "cacheGeneration": "golden178"
+  "releaseName": "shell v633",
+  "cacheGeneration": "golden179"
 }
