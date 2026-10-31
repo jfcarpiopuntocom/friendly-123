@@ -14,6 +14,15 @@ function render(s){
   " · "+s.observedDevices+" aparatos registrados"+
   (s.conflictingReports?" · PIN distintos detectados":"")+
   (s.pendingRevision!==null?" · propuesta "+s.pendingRevision+" pendiente":"");
+ const list=el("lic-pin-devices");
+ if(list && typeof document.createElement==="function"){
+  list.replaceChildren();
+  for(const d of (s.deviceReports||[])){
+   const cell=document.createElement("span");cell.className="lic-pin-device";
+   cell.textContent="Aparato …"+d.deviceSuffix+" · grupo PIN "+d.pinGroup+" · "+new Date(d.reportedAt).toLocaleString()+" · por confirmar";
+   list.appendChild(cell);
+  }
+ }
  const stage=el("lic-pin-stage"),activate=el("lic-pin-activate");
  if(stage)stage.disabled=!s.observedDevices;
  if(activate)activate.disabled=s.pendingRevision===null;
