@@ -246,7 +246,7 @@
            ella. Antes "Re-attach" estaba escondido en "More", en la ultima columna. Reusa
            licReenganchar (ruta /reapuntar del Worker, con historial: reversible). */
         '<td class="mono" style="color:var(--gold);">' + esc(g.cod || "—") + ' <button type="button" class="lic-lapiz" onclick="licReenganchar(\'' + id + '\')" title="Set or change the license of this device">✎</button>' + (g.lote ? '<br><span class="lic-chip">' + esc(g.lote) + '</span>' : "") +
-          '<button type="button" class="lic-lapiz lic-pin-pencil" data-owner-pin-license="' + esc(g.cod || "") + '" data-owner-pin-instance="' + id + '" title="Gestionar PIN Owner de esta licencia en JFC" aria-label="Editar PIN central de ' + esc(g.cod || "") + '">✎</button> ' +
+          '<button type="button" class="lic-lapiz lic-pin-pencil" data-owner-pin-license="' + esc(g.cod || "") + '" data-owner-pin-instance="' + id + '" data-owner-pin-count="' + String(n) + '" title="Gestionar PIN Owner de esta licencia en JFC" aria-label="Editar PIN central de ' + esc(g.cod || "") + '">✎</button> ' +
           (n > 1 ? '<br><button type="button" class="btn-ok lic-mini" onclick="licToggleDisp(\'' + id + '\')" title="See each device on this license">' + esc(etiquetaDisp) + '</button>' : "") + '</td>' +
         '<td>' + (r.nombreNegocio ? '<strong>' + esc(r.nombreNegocio) + '</strong>' : '—') + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'negocio\')" title="Edit business name">✎</button></td>' +
         '<td>' + esc(nombreCompleto(r) || "—") + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'nombre\')" title="Edit this device name">✎</button>' +
