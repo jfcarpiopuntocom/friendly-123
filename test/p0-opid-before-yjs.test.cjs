@@ -16,7 +16,9 @@ function fixture(canStore) {
     'let durable=false, saved=null, published=null;',
     'const window={OCCurrentUser:{nombre:"synthetic-only"},dispatchEvent(e){trace.push({step:"publish",durable});published=e.detail;}};',
     'const CustomEvent=function(type,options){this.detail=options.detail;};',
-    'const leerSala=()=>"synthetic-room";',
+    'const leerSala=()=>({codigo:"SYNTHETIC-ROOM"});',
+    'const normalizarCodigo=v=>String(v||"").trim().toUpperCase();',
+    'const codigoCuadernoActivo=()=>"SYNTHETIC-ROOM";',
     'const uuidCorto=()=>"synthetic-operation-id";',
     'const deviceId=()=>"synthetic-device";',
     'const siguienteLamport=()=>1;',
@@ -43,4 +45,30 @@ test('failed queue still exposes Yjs fallback without fake success',()=>{
 });
 test('offline operation is enqueued only once',()=>{
   assert.equal(fixture(true).trace.filter(x=>x.step==='enqueue').length,1);
+});
+
+const proofStart=src.indexOf('  function opDeEsteCuaderno(op) {');
+const proofEnd=src.indexOf('  // --- Cripto:',proofStart);
+assert.ok(proofStart>=0&&proofEnd>proofStart,'real room provenance guard present');
+const proof=src.slice(proofStart,proofEnd);
+function isFromActive(op,active,joined,owned) {
+  const code=[
+    'const normalizarCodigo=v=>String(v||"").trim().toUpperCase();',
+    'const codigoCuadernoActivo=()=>active;',
+    'const localStorage={getItem:k=>k==="f123_tienda_activa"?joined:k==="f123_owned"?JSON.stringify({licenseCode:owned}):null};',
+    proof,
+    'return opDeEsteCuaderno(op);'
+  ].join('\\n');
+  return new Function('op','active','joined','owned',code)(op,active,joined,owned);
+}
+test('legacy catchup and queue never select a different licensed notebook',()=>{
+  const A='SYNTHETIC-A',B='SYNTHETIC-B';
+  assert.equal(isFromActive({opId:'a',_salaOrigen:A},A,'',B),true);
+  assert.equal(isFromActive({opId:'a',_salaOrigen:A},B,'',B),false);
+  assert.equal(isFromActive({opId:'a'},A,'',A),true,'old own-store op remains recoverable');
+  assert.equal(isFromActive({opId:'a'},B,'::'+B,A),false,'ambiguous old joined op held');
+  assert.equal(isFromActive({opId:'a'},'', '',A),false);
+  const emits=fixture(true);
+  assert.equal(emits.saved._salaOrigen,'SYNTHETIC-ROOM');
+  assert.deepEqual(emits.saved,emits.published,'same operation for Yjs, legacy and history');
 });
