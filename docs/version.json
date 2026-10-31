@@ -1,10 +1,10 @@
 {
-  "version": "shell v633",
-  "fecha": "2026-10-30",
-  "changelog": "Owner PIN: retain rotation intent until the exact PIN and shared revision are recoverable from committed local Yjs journal. Sales, stock, photos, roles and design unchanged.",
+  "version": "shell v634",
+  "fecha": "2026-10-31",
+  "changelog": "JFC license/PIN authority: preserve existing clients, census registered devices before central activation, responsive PIN editor. Stock and sales unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v633",
+  "shell": "f123-shell-v634",
   "apagar": [],
-  "releaseName": "shell v633",
-  "cacheGeneration": "golden180"
+  "releaseName": "shell v634",
+  "cacheGeneration": "golden181"
 }
