@@ -115,7 +115,7 @@
   function construirVectorConocido() {
     const v = {};
     leerLog().forEach((op) => {
-      if (!op.deviceId || typeof op.lamport !== "number") return;
+      if (!opDeEsteCuaderno(op) || !op.deviceId || typeof op.lamport !== "number") return;
       if (!(op.deviceId in v) || op.lamport > v[op.deviceId]) v[op.deviceId] = op.lamport;
     });
     return v;
@@ -127,7 +127,7 @@
   function buscarOpsFaltantes(vectorPedido, deviceIdPide) {
     const conocido = vectorPedido || {};
     return leerLog().filter((op) => {
-      if (op.deviceId === deviceIdPide) return false;
+      if (!opDeEsteCuaderno(op) || op.deviceId === deviceIdPide) return false;
       const max = typeof conocido[op.deviceId] === "number" ? conocido[op.deviceId] : 0;
       return op.lamport > max;
     }).slice(-200); // tope por respuesta: evitar un envio gigante de una sola vez
@@ -266,6 +266,20 @@
       const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       return normalizarCodigo(own.licenseCode || "");
     } catch (_) { return ""; }
+  }
+  // Old queues had no business provenance: they belong to the original local
+  // shop only when it is currently selected. Never guess their destination in
+  // a joined namespace, and never erase them as a side effect.
+  function opDeEsteCuaderno(op) {
+    if (!op || !op.opId) return false;
+    const lic = codigoCuadernoActivo();
+    if (!lic) return false;
+    if (op._salaOrigen) return normalizarCodigo(op._salaOrigen) === lic;
+    try {
+      if (localStorage.getItem("f123_tienda_activa")) return false;
+      const own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+      return normalizarCodigo(own.licenseCode||"")===lic;
+    } catch (_) { return false; }
   }
 
   // --- Cripto: PBKDF2(codigo) -> AES-GCM. El codigo nunca sale de este dispositivo. ---
@@ -531,7 +545,8 @@
           const msg = JSON.parse(ev.data);
           if (msg && msg.k === "persist-result") {
             if (ws.peerOnly && ev.peerAccepted !== true) return;
-            if (msg.kind === "op" && msg.ok === true) {
+            if (msg.kind === "op" && msg.ok === true &&
+              leerCola().some(op => op.opId === msg.id && opDeEsteCuaderno(op))) {
               guardarCola(leerCola().filter(op => op.opId !== msg.id));
               notificarEstado(estadoActual);
             }
@@ -633,6 +648,7 @@
            Se delega al watchdog; si no está cargado, se ignoran. */
         if (op && op.tipo === TIPO_SNAPSHOT_PEDIDO) { if (window.OCSyncWatchdog) window.OCSyncWatchdog.responderSnapshot(op); return; }
         if (op && op.tipo === TIPO_SNAPSHOT_TROZO)  { if (window.OCSyncWatchdog) window.OCSyncWatchdog.acumularSnapshot(op); return; }
+        if (op._salaOrigen && !opDeEsteCuaderno(op)) return;
         registrarEnLog(op);
         if (window.OCSync && window.OCSync.aplicarOpRemota) window.OCSync.aplicarOpRemota(op);
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
@@ -1231,6 +1247,7 @@
     const cola = leerCola();
     if (!cola.length) return;
     for (const op of cola) {
+      if (!opDeEsteCuaderno(op)) continue; // old/other-shop op stays in local queue
       if (codigoCuadernoActivo() !== normalizarCodigo((leerSala() || {}).codigo || "")) return;
       try {
         const buf = await cifrar(claveActual, op);
@@ -1351,6 +1368,7 @@
     const op = {
       opId: uuidCorto(), deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
       lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
+      _salaOrigen: codigoCuadernoActivo() // immutable business provenance for catch-up/outbox
     };
     // Local queue first: the same opId must exist before either transport sees it.
     // A failed legacy-queue write still leaves the existing Yjs fallback available.
