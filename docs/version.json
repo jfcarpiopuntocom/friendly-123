@@ -1,10 +1,10 @@
 {
-  "version": "shell v637",
+  "version": "shell v638",
   "fecha": "2026-10-31",
-  "changelog": "P0: prevent uncommitted inventory snapshots from escaping after a failed save, while preserving fast updates after confirmed persistence.",
+  "changelog": "P0: wait for durable recovery before sharing stock after storage failures; keep all movements and approved access unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v637",
+  "shell": "f123-shell-v638",
   "apagar": [],
-  "releaseName": "shell v637",
-  "cacheGeneration": "golden184"
+  "releaseName": "shell v638",
+  "cacheGeneration": "golden185"
 }
