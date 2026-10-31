@@ -1,0 +1,28 @@
+name: P0 finance-calendar and contact durable ACK (one-shot)
+on:
+  push:
+    branches: [fix/p0-legacy-worker-pin-route-404-20261031]
+    paths: [".github/workflows/p0-calendar-contact-once.yml"]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Check cash/commission month rollover on synthetic data
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/commissions-hugo-paco-luis.test.js
+      - name: Check contact commit and disk reload on Chromium
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/customer-contact-durable.test.cjs
