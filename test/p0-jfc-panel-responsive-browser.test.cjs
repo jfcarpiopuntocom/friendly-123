@@ -14,7 +14,11 @@ test('JFC panel PIN editor fits '+engineName+' at '+width+'px',{timeout:35000},a
   const result=await page.evaluate(()=>{
    const card=document.getElementById('lic-pin-control');
    if(!card)return {error:'card missing'};
+   // The private panel keeps its entire main hidden before JFC login.
+   // Move only the tested editor into the visible body in this synthetic
+   // viewport fixture; production authentication remains untouched.
    card.hidden=false;
+   document.body.appendChild(card);
    const rectangles=['lic-pin-control','lic-pin-new','lic-pin-confirm','lic-pin-stage','lic-pin-activate']
      .map(id=>{const n=document.getElementById(id),r=n?.getBoundingClientRect();return {id,left:r?.left??-1,right:r?.right??-1,visible:!!r&&r.width>0}});
    return {viewport:document.documentElement.clientWidth,rectangles,
