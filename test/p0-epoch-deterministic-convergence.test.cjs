@@ -222,3 +222,42 @@ test('P0 latest genuine phone movements with arbitrary quantities survive PC rep
   assert.equal((await item(pc)).stockActual,15);
   assert.equal((await item(phone)).stockActual,15);
 });
+
+test('P0 two copies retain latest stock and separate epochs after import/export restart',async()=>{
+  const old=browser(),recent=browser();
+  await seed(old,'E-HISTORIC',4,{},1000);
+  await seed(recent,'E-RECENT',12,{},2000);
+  for(let n=0;n<4;n++){
+    const a=old.catalog(),b=recent.catalog();
+    old.OCSync.aplicarCatalogo(b,null);
+    recent.OCSync.aplicarCatalogo(a,null);
+  }
+  await recent.request('/api/productos/epoch-convergence/ajustar','POST',
+    {delta:-3,motivo:'Synthetic physical movement before restart'});
+  for(let n=0;n<4;n++){
+    const a=old.catalog(),b=recent.catalog();
+    old.OCSync.aplicarCatalogo(b,null);
+    recent.OCSync.aplicarCatalogo(a,null);
+  }
+  const originals=[old,recent];
+  const copies=[];
+  for(const original of originals){
+    const data=await original.request('/api/respaldo/exportar');
+    const copy=browser();
+    await copy.request('/api/respaldo/importar','POST',data);
+    copies.push(copy);
+  }
+  for(const w of copies) {
+    const p=await item(w);
+    assert.equal(p.stockActual,9);
+    assert.equal(p.stockEpochId,'E-RECENT');
+    assert.ok(p.stockEvidencias && Object.keys(p.stockEvidencias).length,
+      'keep conflicting epoch source for forensic recovery');
+  }
+  for(let n=0;n<5;n++){
+    const a=copies[0].catalog(),b=copies[1].catalog();
+    copies[0].OCSync.aplicarCatalogo(b,null);
+    copies[1].OCSync.aplicarCatalogo(a,null);
+  }
+  for(const w of copies) assert.equal((await item(w)).stockActual,9);
+});
