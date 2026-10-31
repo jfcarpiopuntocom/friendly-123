@@ -11,7 +11,7 @@ test('P0: imported prior-month sale and current sale remain separate unpaid obli
  const backup=await app.request('/api/respaldo/exportar');
  const first=backup.ventas.find(v=>v.productoId===prod.id);
  assert.ok(first,'initial sale must exist');
- const d=new Date(); d.setUTCMonth(d.getUTCMonth()-1);
+ const now=new Date(); const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-1,15,12));
  const previous=d.toISOString().slice(0,7);
  first.fecha=previous+'-15T12:00:00.000Z';
  const imported=await app.request('/api/respaldo/importar','POST',backup);
