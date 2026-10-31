@@ -1,0 +1,28 @@
+name: P0 business ink proportional browser parity
+on:
+  pull_request:
+    paths:
+      - src/app/app-style-02.css
+      - src/dashboard/dashboard-main.css
+      - docs/app-style-02.min.css
+      - docs/dashboard-main.min.css
+      - test/p0-business-ink-proportional.test.cjs
+      - .github/workflows/p0-business-ink-proportional.yml
+permissions:
+  contents: read
+jobs:
+  ink-parity:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Source/bundle and Chromium/WebKit proportional ink
+        run: node --test --test-timeout=90000 test/p0-business-ink-proportional.test.cjs
+      - name: Diff validation
+        run: git diff --check
