@@ -164,6 +164,7 @@
   function guardarConRevision(estado, revisionAplicada) {
     if (!SOPORTADO || !estado || !Number.isSafeInteger(revisionAplicada)) return Promise.resolve(false);
     const op = _cola.then(async function () {
+      _ultimoError = null; // this CAS attempt must not inherit a prior quota failure
       const copia = JSON.parse(JSON.stringify(estado));
       const db = await abrirDB();
       return new Promise(function (resolve) {
