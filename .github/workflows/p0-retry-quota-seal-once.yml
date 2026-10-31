@@ -1,0 +1,54 @@
+name: P0 v637 retry quota and durable storage acceptance seal
+on:
+  push:
+    branches: [fix/p0-legacy-worker-pin-route-404-20261031]
+    paths: [".github/workflows/p0-retry-quota-seal-once.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: p0-retry-quota-seal-once
+  cancel-in-progress: false
+jobs:
+  test-and-seal:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Exact production retry schedule, PWA quota banner, IDB ordering and durable publication
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-storage-backoff-deterministic.test.cjs test/v608-guardado-veraz.test.cjs test/incident-idb-payout-name-photo-race-4d-v2.test.cjs test/p0-failed-save-publication-gate.test.cjs
+      - name: Verify syntax, v637 release identity and asset integrity
+        run: |
+          set -euo pipefail
+          node --check docs/mock-backend.js
+          node --check docs/estado-idb.js
+          test "$(node -p "require('./docs/version.json').shell")" = f123-shell-v637
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+          wc -l docs/estado-idb.js docs/mock-backend.js docs/version-manifest.json
+          sha256sum docs/estado-idb.js docs/mock-backend.js docs/version-manifest.json
+      - name: Reseal manifest to isolated v637 candidate only
+        run: |
+          set -euo pipefail
+          git add docs/sw.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'release(candidate): hash strict IDB quota error fix under v637'
+            git push origin HEAD:fix/p0-legacy-worker-pin-route-404-20261031
+          fi
