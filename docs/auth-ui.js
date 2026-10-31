@@ -1146,8 +1146,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
       if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!owned.instanceId||
          (active && active!==lic)) return "unavailable-identity";
-      const url=(localStorage.getItem("f123_cf_worker_url")||"").trim()||OC_WORKER_URL;
-      const endpoint=new URL(url);if(endpoint.protocol!=="https:")return "unavailable";
+      const url=OC_WORKER_URL; // PINs must never be sent to a localStorage-controlled origin.
+      const endpoint=new URL(url);if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return "unavailable";
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
       try {
         const response=await fetch(endpoint.origin+"/pin/verify",{
@@ -1185,9 +1185,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const instanceId=own.instanceId;
     if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return {ok:true,unconfigured:true};
     if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!instanceId)return {ok:false,reason:"identity-unavailable"};
-    const raw=(localStorage.getItem("f123_cf_worker_url")||"").trim()||OC_WORKER_URL;
+    const raw=OC_WORKER_URL; // pin secret cannot go to a user-overridden URL.
     let endpoint;try{endpoint=new URL(raw)}catch(_){return {ok:false,reason:"network-unavailable"}}
-    if(endpoint.protocol!=="https:")return {ok:false,reason:"network-unavailable"};
+    if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return {ok:false,reason:"network-unavailable"};
     const params={licenseCode:lic,instanceId,pin:String(oldPin)};
     try{
       const check=await fetch(endpoint.origin+"/pin/verify",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(params)});
@@ -1203,6 +1203,32 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     }catch(_){return {ok:false,reason:"network-unavailable"}}
   }
   window.F123CentralPin={verificar:verificarPinOwnerCentral,rotar:rotarPinOwnerCentral};
+  // PHASE 1: one reported local Owner credential per device per day.
+  // Reports do not modify or revoke any credential, and the server stores a
+  // peppered digest only. All devices remain on local PIN until JFC activates.
+  function registrarPinOwnerExistente(pin){
+    try{
+      if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return;
+      const own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+      const lic=String(own.licenseCode||"").trim().toUpperCase(),id=String(own.instanceId||"");
+      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!/^[a-zA-Z0-9_-]{6,120}$/.test(id))return;
+      const marker="f123_pin_census:"+lic+":"+id;
+      if(Date.now()-Number(localStorage.getItem(marker)||0)<86400000)return;
+      const dest=new URL(OC_WORKER_URL);
+      if(dest.protocol!=="https:"||dest.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return;
+      // POST is not coupled to the login path; a 402/timeout never blocks work.
+      const controller=new AbortController();
+      const t=setTimeout(()=>controller.abort(),2000);
+      fetch(dest.origin+"/pin/report",{
+        method:"POST",mode:"cors",cache:"no-store",credentials:"omit",
+        redirect:"error",referrerPolicy:"no-referrer",signal:controller.signal,
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({licenseCode:lic,instanceId:id,pin:String(pin)})
+      }).then(r=>{if(r.ok)try{localStorage.setItem(marker,String(Date.now()))}catch(_){}},
+                ()=>{}).finally(()=>clearTimeout(t));
+    }catch(_){}
+  }
+
   async function validar(code) {
     await listo;
     if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
@@ -1226,7 +1252,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       let seen=null;try{seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+String((JSON.parse(localStorage.getItem("f123_owned")||"{}")||{}).licenseCode||"").trim().toUpperCase())||"null")}catch(_){}
       if(seen){error("Autoridad central del PIN no disponible. Reintenta con conexión antes de entrar como Owner.");return}
     }
-    if (rolHash === "dueno") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
+    if (rolHash === "dueno") { if (central === "unconfigured") registrarPinOwnerExistente(code); registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
     if (rolHash === "empleado") {
       registrarExito();
       try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
