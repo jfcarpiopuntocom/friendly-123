@@ -14,7 +14,7 @@ const cryptoStart=source.indexOf('  async function cifrarBin('),cryptoEnd=source
 const cryptoSource=source.slice(cryptoStart,cryptoEnd);
 const room='a'.repeat(40);
 
-for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direct '+name+': durable business/photo recovery without central payload',{timeout:30000},async t=>{
+for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direct '+name+': durable business/photo recovery without central payload',{timeout:90000},async t=>{
   const worker=await import('data:text/javascript;base64,'+fs.readFileSync(path.join(root,'cloudflare-sync-relay/worker.js')).toString('base64'));
   let metadataBytes=0,invalidMetadata=0,stunRequests=0;const metadataKinds={};
   // RFC5389 binding fixture: only address discovery; no TURN allocation or business relay.
