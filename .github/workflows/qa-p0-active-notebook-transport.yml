@@ -51,6 +51,9 @@ jobs:
       - name: Durable opId and cross-notebook provenance
         run: |
           node --test --test-timeout=90000 test/p0-opid-before-yjs.test.cjs
+      - name: Legacy queue quota and missing native adapter contracts
+        run: |
+          node --test --test-timeout=90000 test/native-sync-required.test.js test/cola-sync-sin-espacio.test.js
       - name: Multi-peer durable ACK unit regression
         run: |
           node --test --test-timeout=90000 test/sync-peer-durable.test.js
