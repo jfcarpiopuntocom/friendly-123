@@ -8,7 +8,7 @@ assert.ok(start>=0&&end>start,'actual shipped central Owner functions are under 
 const code=source.slice(start,end);
 const lic='F123-SYNTHETIC-SHOP';
 function fixture({legacy=false,instanceId='new_browser_pwa_01',resolved=200,identity=lic,
-  adoptedRevision=2,active=lic,hasSeen=false,hangResolve=false}={}){
+  adoptedRevision=2,active=lic,hasSeen=false,hangResolve=false,adoptionOk=true}={}){
  const entries=new Map([['f123_owned',JSON.stringify({licenseCode:lic,...(instanceId?{instanceId}:{})})]]);
  if(hasSeen)entries.set('f123_pin_central_seen:'+lic,JSON.stringify({revision:1}));
  const calls=[],adoptions=[];
@@ -17,7 +17,7 @@ function fixture({legacy=false,instanceId='new_browser_pwa_01',resolved=200,iden
   URL,AbortController,setTimeout,clearTimeout,Date,
   localStorage:{getItem:k=>entries.get(k)||null,setItem:(k,v)=>entries.set(k,String(v))},
   window:{OCTienda:{licenciaActual:()=>active},
-   OCSecure:{adoptarPinOwnerCentralVerificado:async(...args)=>{adoptions.push(args);return true}}},
+   OCSecure:{adoptarPinOwnerCentralVerificado:async(...args)=>{adoptions.push(args);return adoptionOk}}},
   fetch:async (url,opts)=>{
    const u=new URL(url);calls.push({pathname:u.pathname,method:opts.method,body:opts.body});
    let status,body;
@@ -63,8 +63,8 @@ test('P0 current Worker resolves valid Owner PIN to same business for an unregis
  assert.equal(JSON.parse(f.entries.get('f123_pin_central_seen:'+lic)).revision,2);
 });
 test('P0 brand-new replica without an instance ID can validate a centrally active Owner PIN',async()=>{
- const f=fixture({instanceId:null});
- assert.equal(await f.verify('909'),'owner');
+ const f=fixture({instanceId:null,adoptionOk:false});
+ assert.equal(await f.verify('909'),'needs-recovery');
  assert.deepEqual(f.calls.map(c=>c.method),['GET','POST']);
 });
 test('P0 different active notebook never accepts credentials from own-device sidecar',async()=>{
@@ -108,4 +108,13 @@ test('P0 unresolved network obeys the 2400 ms gate timeout (no stuck PIN screen)
  ]);
  assert.equal(result,'unavailable');
  assert.ok(Date.now()-begin<3400,'network must settle before gate ceiling');
+});
+
+test('P0 valid central PIN cannot falsely open Owner when local durable adoption fails',async()=>{
+ const f=fixture({adoptionOk:false});
+ assert.equal(await f.verify('909'),'needs-recovery');
+ assert.equal(f.adoptions.length,1);
+ assert.equal(JSON.parse(f.entries.get('f123_pin_central_seen:'+lic)).revision,2,
+  'retain central revision so stale PIN is not accepted after a Worker outage');
+ assert.match(source,/central==="needs-recovery"/);
 });
