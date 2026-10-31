@@ -1,0 +1,54 @@
+name: P0 Central PIN Authority
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - cloudflare-worker/**
+      - docs/panel*
+      - docs/auth-ui.js
+      - docs/avanzado-extra.js
+      - test/p0-central-pin-authority.test.mjs
+      - test/p0-pin-census-retry-throttle.test.cjs
+      - test/p0-jfc-panel-responsive.test.cjs
+permissions:
+  contents: read
+jobs:
+  central-pin:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Syntax and exact changes
+        run: |
+          node --check cloudflare-worker/pin-authority.mjs
+          node --check cloudflare-worker/pin-worker-api.mjs
+          node --check cloudflare-worker/worker.js
+          node --check docs/auth-ui.js
+          node --check docs/avanzado-extra.js
+          node --check docs/panel-pin.js
+          node --check docs/panel-licencias.js
+          node --check docs/crypto-store.js
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git fetch -q --no-tags --depth=1 origin master
+          git diff --check FETCH_HEAD HEAD
+      - name: PIN authority, identity, recovery and WebKit regressions
+        run: |
+          node --test --test-concurrency=1 --test-timeout=120000             test/p0-central-pin-authority.test.mjs             test/p0-pin-census-retry-throttle.test.cjs             test/p0-central-pin-panel-browser.test.cjs             test/p0-jfc-panel-responsive-browser.test.cjs             test/p0-jfc-panel-responsive.test.cjs             test/p0-central-pin-worker-entry.test.mjs             test/worker-master-recovery.test.js             test/worker-checkin.test.js             test/panel-durable-object.test.js             test/p0-v633-owner-pin-durable-intent.test.cjs             test/p0-v633-owner-pin-journal-real-yjs.test.cjs             test/p0-owner-pin-current-ui-browser.test.cjs
+      - name: Worker build dry-run, never deploy
+        working-directory: cloudflare-worker
+        run: |
+          ../node_modules/.bin/wrangler deploy --config ./wrangler.toml --dry-run > "$RUNNER_TEMP/f123-license-worker-dry-run.txt"
+          grep -q 'env.LICENCIAS' "$RUNNER_TEMP/f123-license-worker-dry-run.txt"
+          grep -q 'env.REGISTROS' "$RUNNER_TEMP/f123-license-worker-dry-run.txt"

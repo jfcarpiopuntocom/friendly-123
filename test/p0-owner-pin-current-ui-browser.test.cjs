@@ -40,7 +40,7 @@ test('Owner screen and explicit edit use the confirmed credential despite stale 
    product:await(await fetch('/api/productos/'+id)).json(),message:document.getElementById('oc-codes-msg').textContent
   }),product.id);
   assert.equal(shown,'731','the screen must show the credential that admitted the owner, not the stale sidecar');
-  assert.equal(after.confirmed,'846','partial pinsRol equality must not skip the explicit credential update');
+  assert.equal(after.confirmed,'846','partial pinsRol equality must not skip the explicit credential update; UI status: '+after.message+'; role: '+after.role+'; previous role: '+after.oldRole);
   assert.equal(after.role,'dueno');assert.equal(after.oldRole,null);
   assert.deepEqual(after.secure.employeeHashes,before.employeeHashes);assert.equal(after.secure.acctHash,before.acctHash);
   assert.equal(after.secure.email,before.email);assert.equal(after.product.stockActual,3);assert.equal(after.product.precio,12);
