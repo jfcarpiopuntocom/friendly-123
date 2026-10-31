@@ -1,0 +1,73 @@
+name: P0 v636 verify active notebook transport and seal once
+on:
+  push:
+    branches: [fix/p0-active-notebook-v636-20261031]
+    paths: ['.github/workflows/p0-v636-transport-seal-once.yml']
+permissions:
+  contents: write
+jobs:
+  verify-seal:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 19
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Verify exact contents, linecount and checksum
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          node --check docs/peer-sync.js
+          node --check docs/sync-realtime.js
+          wc -l docs/peer-sync.js docs/sync-realtime.js test/sync-peer-durable.test.js test/sala-sigue-licencia.test.js
+          sha256sum docs/peer-sync.js docs/sync-realtime.js test/sync-peer-durable.test.js test/sala-sigue-licencia.test.js
+          git diff --check origin/master HEAD
+      - name: Browser identity Chromium, WebKit and causal durable operation receipts
+        run: |
+          set -euo pipefail
+          node --test --test-timeout=90000 --test-concurrency=1 test/sala-sigue-licencia.test.js
+          F123_BROWSER=webkit node --test --test-timeout=90000 --test-concurrency=1 test/sala-sigue-licencia.test.js
+          node --test --test-timeout=90000 --test-concurrency=1 test/p0-opid-before-yjs.test.cjs test/native-sync-required.test.js test/cola-sync-sin-espacio.test.js test/sync-peer-durable.test.js test/yjs-active-notebook-identity.test.cjs
+          node --test --test-timeout=90000 --test-concurrency=1 test/peer-sync-browser.test.js
+      - name: Seal v636 golden183 and exact service worker manifest
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),p='docs/version.json',v=JSON.parse(fs.readFileSync(p,'utf8'));
+          if(v.shell!=='f123-shell-v635'||v.cacheGeneration!=='golden182')throw Error('unexpected baseline');
+          v.version='shell v636';v.shell='f123-shell-v636';v.releaseName='shell v636';
+          v.cacheGeneration='golden183';v.fecha='2026-10-31';
+          v.changelog='P0: keep peer operations pending until connected receivers confirm, and bind sync to the active licensed notebook. Preserve all stock and PIN records.';
+          fs.writeFileSync(p,JSON.stringify(v,null,2)+'\n');
+          function edit(file,a,b){const c=fs.readFileSync(file,'utf8');if(c.split(a).length!==2)throw Error('anchor mismatch '+file);fs.writeFileSync(file,c.replace(a,b));}
+          edit('docs/sw.js','const CACHE = "f123-shell-v635";','const CACHE = "f123-shell-v636";');
+          edit('docs/sw.js','const CACHE_GENERACION = "-golden182";','const CACHE_GENERACION = "-golden183";');
+          edit('docs/dashboard.html','<meta name="dashboard-shell" content="f123-shell-v635">','<meta name="dashboard-shell" content="f123-shell-v636">');
+          edit('docs/dashboard.html','<meta name="dashboard-release" content="shell v635">','<meta name="dashboard-release" content="shell v636">');
+          edit('docs/dashboard.html','>Dashboard shell v635</span>','>Dashboard shell v636</span>');
+          NODE
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node scripts/release-control.cjs validate origin/master
+          node --test --test-timeout=90000 test/dashboard-identidad-version.test.js test/pwa-icons-multicolor-v577.test.js
+          git diff --check
+          git diff --stat
+      - name: Commit exact candidate shell checksum
+        run: |
+          set -euo pipefail
+          git config user.name "friendly-123 release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/version-manifest.json
+          git diff --cached --quiet && exit 1
+          git commit -m "release(candidate): v636 golden183 active notebook transport with SHA256 integrity"
+          git push origin HEAD:refs/heads/fix/p0-active-notebook-v636-20261031
