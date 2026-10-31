@@ -64,6 +64,17 @@ export async function ownerMailboxLogin(pin){
     await client.login(pin);
     const remote=await client.pull();
     if(!remote.complete)throw Error('causal-history-incomplete');
+    // Decryption alone is not an application receipt. A received catalogue
+    // must also be accepted by the EXISTING store and durable PIN/stock
+    // guard before claiming readiness or seeding it back to other browsers.
+    if(remote.cursor>0){
+      if(!y._store||typeof y._store.aplicar!=='function'||
+         typeof y.confirmarCatalogoDurable!=='function')
+        throw Error('business-durability-proof-unavailable');
+      y._store.aplicar();
+      if(await y.confirmarCatalogoDurable()!==true)
+        throw Error('business-durability-unconfirmed');
+    }
     // Pull first, then publish the fully hydrated local Yjs state. This
     // NEVER writes an inventory adjustment or selects stock by timestamp.
     await client.seed();
