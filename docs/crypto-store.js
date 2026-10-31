@@ -938,6 +938,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       if (!pend || !Y || !Y.roomId || !Y.meta || !Y.canal ||
           Y.canal.recuperando !== false || !Y.canal.ws ||
           Y.canal.ws.readyState !== 1 || typeof Y.publicarCambioPinOwner !== "function" ||
+          typeof Y.confirmarPinOwnerDurable !== "function" ||
           !window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
       const confirmed = String(Y.meta.get("ownerPinConfirmado") || "");
       const team = Y.meta.get("pinsRol") || {};
@@ -947,15 +948,20 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       const fromRev = Number.isSafeInteger(pend.fromRev) && pend.fromRev >= 0 ? pend.fromRev : 0;
       const sharedRev = revisionCambioOwner(Y);
       if (actual === nuevo) {
-        // UI may have published immediately. Close the intent durably once the
-        // recovered encrypted room confirms it, even after reload.
+        // R3: do not retire a retry until the PIN and revision survived IDB.
+        if (await Y.confirmarPinOwnerDurable(nuevo, sharedRev) !== true ||
+            revisionCambioOwner(Y) !== sharedRev ||
+            String(Y.meta.get("ownerPinConfirmado") || "") !== nuevo) return false;
         cerrarIntentoOwner(pend, s.ownerHash, sharedRev);
         return false;
       }
       if (sharedRev !== fromRev) {
-        // Another authorized edit advanced the room. Retire this local
-        // command permanently; never treat an A->B->A return as old A.
-        if (sharedRev > fromRev) cerrarIntentoOwner(pend, s.ownerHash, fromRev);
+        // An authoritative newer rotation must also survive IDB before fencing.
+        if (sharedRev > fromRev &&
+            await Y.confirmarPinOwnerDurable(actual, sharedRev) === true &&
+            revisionCambioOwner(Y) === sharedRev &&
+            String(Y.meta.get("ownerPinConfirmado") || "") === actual)
+          cerrarIntentoOwner(pend, s.ownerHash, fromRev);
         return false;
       }
       if (await hashPin(actual, s.salt, "owner") !== pend.fromHash) return false;
@@ -979,8 +985,11 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
           Y.canal.ws.readyState !== 1 ||
           !window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
       if (Y.publicarCambioPinOwner(nuevo, fromRev) !== true) return false;
-      cerrarIntentoOwner(pend, s.ownerHash, revisionCambioOwner(Y));
-      return true;
+      const nextRev = fromRev + 1;
+      if (await Y.confirmarPinOwnerDurable(nuevo, nextRev) !== true ||
+          revisionCambioOwner(Y) !== nextRev ||
+          String(Y.meta.get("ownerPinConfirmado") || "") !== nuevo) return false;
+      return cerrarIntentoOwner(pend, s.ownerHash, nextRev);
     } catch (_) { return false; }
     finally { reconciliandoOwner = false; }
   }
