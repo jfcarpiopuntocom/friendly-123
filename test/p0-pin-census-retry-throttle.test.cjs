@@ -15,7 +15,7 @@ function fixture(host='friendly123-licencias.jfcarpio.workers.dev'){
   const storage={getItem:k=>data.has(k)?data.get(k):null,setItem:(k,v)=>data.set(k,String(v))};
   const ctx={location:{hostname:'friendly123.com'},localStorage:storage,
     OC_WORKER_URL:'https://'+host+'/other-path',
-    Date:{now:()=>now},AbortController,
+    Date:{now:()=>now},AbortController,URL,
     setTimeout:()=>123,clearTimeout:()=>{},
     fetch:(url,opt)=>{
       calls.push({url,opt});
