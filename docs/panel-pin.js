@@ -42,7 +42,7 @@ async function request(route,options={}){
   throw Error("PIN y clave maestra sólo pueden enviarse al Worker oficial friendly123-licencias.");
  const response=await fetch(base.origin+route,{...options,cache:"no-store",headers:{"Content-Type":"application/json","X-Master-Key":key}});
  const data=await response.json().catch(()=>({ok:false}));
- if(!response.ok)throw Error(data.reason==="revision-conflict"?"Revisión cambió; vuelve a consultar.":data.reason||"Worker: "+response.status);
+ if(!response.ok||data.ok===false)throw Error(data.reason==="revision-conflict"?"Revisión cambió; vuelve a consultar.":data.reason||"Worker: "+response.status);
  return data;
 }
 async function refresh(){
