@@ -12,6 +12,7 @@ function setup(){
   const data={ownerPinConfirmado:'642',pinsRol:{owner:'642',emp:'583',acct:'914'},ownerPinCambioRev:0};
   const Y={roomId:'synthetic-room',estado:'activo',canal:{recuperando:false,ws:{readyState:1}},
     meta:{get:k=>data[k],set:(k,v)=>{data[k]=v}},
+    confirmarPinOwnerDurable:async(pin,rev)=>data.ownerPinConfirmado===pin&&data.ownerPinCambioRev===rev,
     publicarCambioPinOwner(pin,priorRev){
       if(this.canal.recuperando||!this.canal.ws||this.canal.ws.readyState!==1)return false;
       if(priorRev!==undefined&&priorRev!==data.ownerPinCambioRev)return false;
