@@ -1188,10 +1188,22 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const raw=OC_WORKER_URL; // pin secret cannot go to a user-overridden URL.
     let endpoint;try{endpoint=new URL(raw)}catch(_){return {ok:false,reason:"network-unavailable"}}
     if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return {ok:false,reason:"network-unavailable"};
+    // Clients already in production must retain their local Owner PIN editing
+    // until this exact license has actually adopted a central authority.
+    // Once a central revision was seen, outages never authorize a rollback.
+    const centralSeen=()=>{
+      try {
+        const v=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+lic)||"null");
+        return !!(v&&Number.isSafeInteger(v.revision)&&v.revision>0);
+      }catch(_){return false}
+    };
+    const legacyWhenUnprovisioned=()=>centralSeen()
+      ? {ok:false,reason:"central-authority-unavailable"}
+      : {ok:true,unconfigured:true};
     const params={licenseCode:lic,instanceId,pin:String(oldPin)};
     try{
       const check=await fetch(endpoint.origin+"/pin/verify",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(params)});
-      if(check.status===409)return {ok:true,unconfigured:true};
+      if(check.status===409||check.status===503)return legacyWhenUnprovisioned();
       if(!check.ok)return {ok:false,reason:"current-pin-rejected"};
       const current=await check.json();
       if(!current.ok||!Number.isSafeInteger(current.revision))return {ok:false,reason:"revision-unavailable"};
@@ -1200,7 +1212,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if(!response.ok||result.ok!==true)return {ok:false,reason:response.status===409?"revision-conflict":"central-update-failed"};
       try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:result.revision,at:Date.now()}))}catch(_){}
       return {ok:true,revision:result.revision};
-    }catch(_){return {ok:false,reason:"network-unavailable"}}
+    }catch(_){return legacyWhenUnprovisioned()}
   }
   window.F123CentralPin={verificar:verificarPinOwnerCentral,rotar:rotarPinOwnerCentral};
   // PHASE 1: one reported local Owner credential per device per day.
