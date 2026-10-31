@@ -8,7 +8,7 @@ function panel(options={}){
  const window={},document={getElementById:id=>values.get(id),addEventListener(){}};
  let reply=options.reply||(()=>({ok:true,revision:4}));
  const scope={window,document,URL,URLSearchParams,confirm:()=>true,
-  licWorkerUrl:()=> "https://worker.invalid",licMasterKey:()=> "synthetic-master",
+  licWorkerUrl:()=>options.workerUrl||"https://friendly123-licencias.jfcarpio.workers.dev",licMasterKey:()=> "synthetic-master",
   fetch:async(url,init)=>{
    requests.push({url,init});
    const data=reply(url,init);
@@ -79,4 +79,11 @@ test("Incomplete client PIN census blocks staging even when called directly",asy
  p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="149";
  await p.window.licFijarPinAutoridad();
  assert.equal(p.requests.length,1,"no admin mutation before complete census");
+});
+
+test("Admin master key and PIN never go to an overridden or malicious Worker URL",async()=>{
+ const p=panel({workerUrl:"https://attacker.invalid",reply:()=>observed});
+ await p.window.licAbrirPinCentral(lic,id,2);
+ assert.equal(p.requests.length,0);
+ assert.match(p.values.get("lic-pin-state").textContent,/Worker oficial/);
 });
