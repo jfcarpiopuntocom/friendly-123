@@ -3,13 +3,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {pathToFileURL} = require('node:url');
 
 const workerSource = fs.readFileSync(path.join(__dirname, '../cloudflare-worker/worker.js'), 'utf8');
 const panelSource = fs.readFileSync(path.join(__dirname, '../docs/panel.html'), 'utf8');
 const authSource = fs.readFileSync(path.join(__dirname, '../docs/auth-ui.js'), 'utf8');
 
 async function workerFrom(source) {
-  return (await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'))).default;
+  assert.equal(source, workerSource, 'use the exact real Worker fixture on disk');
+  return (await import(pathToFileURL(path.join(__dirname, '../cloudflare-worker/worker.js')).href)).default;
 }
 
 function fixture(worker) {

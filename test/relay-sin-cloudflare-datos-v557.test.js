@@ -75,7 +75,7 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
   assert.match(archivos.find(a => a.rel === 'auth-ui.js').src, /\/\*[^]*?amigable-licencias\.jfcarpio\.workers\.dev[^]*?\*\//);
   // Licencias: referencias permitidas (panel de JFC, verificacion maestra, comentarios de auth-ui).
   const lic = [...hosts.get('friendly123-licencias')].sort();
-  assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel.html']);
+  assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel-pin.js', 'panel.html']);
   assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
   // Rutas que el cliente pide al Worker de licencias: solo licencia, latido, canario y maestro. Nada de datos.
   const rutas = new Set();
