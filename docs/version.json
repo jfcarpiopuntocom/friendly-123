@@ -1,10 +1,10 @@
 {
-  "version": "shell v636",
+  "version": "shell v637",
   "fecha": "2026-10-31",
-  "changelog": "P0: keep peer operations pending until connected receivers confirm, and bind sync to the active licensed notebook. Preserve all stock and PIN records.",
+  "changelog": "P0: prevent uncommitted inventory snapshots from escaping after a failed save, while preserving fast updates after confirmed persistence.",
   "requerida": false,
-  "shell": "f123-shell-v636",
+  "shell": "f123-shell-v637",
   "apagar": [],
-  "releaseName": "shell v636",
-  "cacheGeneration": "golden183"
+  "releaseName": "shell v637",
+  "cacheGeneration": "golden184"
 }
