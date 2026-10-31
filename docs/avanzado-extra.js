@@ -2762,6 +2762,20 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
               alert(window.t("team.pinCollision")); return;
             }
           } catch (_) { alert(window.t("team.pinCheckFailed")); return; }
+          // Central revision wins before mutating a local Owner verifier.
+          // If the Worker rejects the edit, never publish a conflicting room PIN.
+          if(rol==="owner"&&window.F123CentralPin){
+            const oldPin=window.OCSecure.leerPinQueAbre&&window.OCSecure.leerPinQueAbre().owner;
+            if(!/^\d{3}$/.test(String(oldPin||""))){
+              msg("oc-codes-msg","Owner PIN actual no verificado. Ingresa de nuevo antes de cambiarlo.", "var(--rojo)");
+              return;
+            }
+            const central=await window.F123CentralPin.rotar(String(oldPin),v);
+            if(!central.ok){
+              msg("oc-codes-msg","Cambio detenido por el registro central ("+central.reason+"). El PIN anterior sigue guardado localmente.", "var(--rojo)");
+              return;
+            }
+          }
           try {
             const ok = await (rol === "owner" && window.OCSecure.fijarOwnerPinDesdeSesion
               ? window.OCSecure.fijarOwnerPinDesdeSesion(v) : window.OCSecure[fn](v));

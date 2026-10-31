@@ -1,3 +1,4 @@
+import {pinDoRoute,pinPublicRoute} from './pin-worker-api.mjs';
 // worker.js — license ping for friendly-123 / amigable-123.
 // Handles both products. Endpoints:
 //   POST /checkin  — public, called on activation & login (body.accion = "register"|"login")
@@ -1001,10 +1002,67 @@ async function handleCanarioOrden(req, env) {
   return json({ ok: true, orden });
 }
 
+// Only requested during an explicit Master PIN preparation/activation.
+// Read the existing registry (DO + KV) once per administrative action, with
+// bounded pagination. No mass polling, no business data, no Supabase calls.
+// KV is the durable registration path; DO can contain more recent records.
+async function idsRegistradosEnLicenciaParaPin(env,licenseCode) {
+  if(!env?.LICENCIAS||!env?.REGISTROS)throw Error("registry unavailable");
+  const ids=new Set();
+  const collect=value=>{
+    if(!value||typeof value.instanceId!=="string")return;
+    if(String(value.licenseCode||"").trim().toUpperCase()===licenseCode)
+      ids.add(value.instanceId);
+  };
+  let cursor,scanned=0;
+  do{
+    const page=await env.LICENCIAS.list({prefix:"inst:",limit:1000,...(cursor?{cursor}:{})});
+    if(!page||!Array.isArray(page.keys))throw Error("registry listing unavailable");
+    scanned+=page.keys.length;
+    if(scanned>3000)throw Error("registry scan bounded: admin may retry with indexed census");
+    for(let i=0;i<page.keys.length;i+=40){
+      const batch=page.keys.slice(i,i+40);
+      const rows=await Promise.all(batch.map(async k=>{
+        const raw=await env.LICENCIAS.get(k.name);
+        return raw?JSON.parse(raw):null;
+      }));
+      rows.forEach(collect);
+    }
+    if(page.list_complete)break;
+    if(!page.cursor||page.cursor===cursor)throw Error("registry cursor invalid");
+    cursor=page.cursor;
+  }while(true);
+  const stub=doLicencias(env);
+  if(!stub)throw Error("registry DO unavailable");
+  const response=await stub.fetch("https://do.invalid/all");
+  if(!response.ok)throw Error("registry DO unavailable");
+  const records=await response.json();
+  if(!Array.isArray(records)||records.length>3000)throw Error("registry DO invalid or unbounded");
+  records.forEach(collect);
+  if(ids.size>60)throw Error("census limit: review manually before cutover");
+  return [...ids].sort();
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
+    const pin = await pinPublicRoute(req,env,{
+      getDo:doLicencias,authorizeMaster:requireMasterKey,
+      listRegisteredDeviceIds:idsRegistradosEnLicenciaParaPin,
+      readLicenseInstance:async (e,id)=>{
+        const stub=doLicencias(e);
+        if(stub){
+          try{
+            const response=await stub.fetch("https://do.invalid/r/"+encodeURIComponent(id));
+            if(response.ok){const value=await response.json();if(value)return value}
+          }catch(_) { /* fall back to license KV */ }
+        }
+        const raw=await e.LICENCIAS.get("inst:"+id);
+        return raw?JSON.parse(raw):null;
+      }
+    });
+    if(pin)return cors(pin);
 
     if (url.pathname === "/maestro/emitir" && req.method === "POST") return issueRecovery(req, env);
     if (url.pathname === "/maestro/verificar" && req.method === "POST") return verifyRecovery(req, env);
@@ -1298,10 +1356,12 @@ export default {
 const PAGINA_DO = 1000;
 
 export class RegistroLicencias {
-  constructor(state) { this.state = state; }
+  constructor(state,env) { this.state = state; this.env = env; }
 
   async fetch(req) {
     const url = new URL(req.url);
+    const pinResult=pinDoRoute(req,this.state.storage,this.env);
+    if(pinResult)return pinResult;
     const esRegistro = url.pathname.startsWith("/r/");
     const id = esRegistro ? decodeURIComponent(url.pathname.slice(3)) : "";
 

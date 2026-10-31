@@ -20,7 +20,7 @@ kv_namespaces = [
 # cualquier [tabla]. Correr siempre el dry-run y confirmar que aparezca
 # env.LICENCIAS antes de desplegar.
 [secrets]
-required = ["MASTER_KEY"]
+required = ["MASTER_KEY", "PIN_PEPPER"]
 
 # Abuso de permisos temporales de recuperacion. IP: limite amplio porque
 # operadores moviles comparten IP; instancia: limite mas estricto. Estos
