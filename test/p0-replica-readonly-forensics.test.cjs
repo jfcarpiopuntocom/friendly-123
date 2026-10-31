@@ -19,10 +19,11 @@ test('P0 forensic detects equality despite separate device notebook IDs',async()
   assert.equal(result.canAutoReconcile,false);
 });
 test('P0 forensic flags epoch forks and never invents a physical winner',async()=>{
-  const [a,b]=await backups(), original=JSON.stringify(a);
+  const [a,b]=await backups();
   const p=a.productos[0],q=b.productos[0];
   p.stockActual=9;p.stockBase=7;p.stockEpochId='E-LOCAL';
   q.stockActual=6;q.stockBase=7;q.stockEpochId='E-REMOTE';
+  const original=JSON.stringify(a);
   const r=compare(a,b);
   assert.equal(r.productEvidence.physicalEpochForks,1);
   assert.equal(r.productEvidence.unequalPhysicalStock,1);
