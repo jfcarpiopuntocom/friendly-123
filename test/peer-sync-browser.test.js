@@ -165,7 +165,20 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
       ()=>doc.getMap('business').get('record')?.total===46.25,{},{timeout:12000});
     await a.waitForFunction(()=>channel.pendientesRelay>0,{},{timeout:4000});
     await c.evaluate(()=>{allowed=true;});
-    await a.waitForFunction(()=>channel.pendientesRelay===0,{},{timeout:16000});
+    try { await a.waitForFunction(()=>channel.pendientesRelay===0,{},{timeout:16000}); }
+    catch(error){
+      const diagnostic=await Promise.all([a,reopened,c].map(page=>page.evaluate(()=>({
+        pending:channel.pendientesRelay,storage:fixtureStorage,errors:rtcErrors,
+        receipts:channel.ws?.ackCandidates?.size,
+        sent:[...(channel.ws?.sent||[])].map(([id,r])=>({
+          id,pending:[...r.peers.keys()],acknowledged:[...(r.acknowledged||new Map()).keys()],
+          hash:r.hash?.slice(0,12)
+        })),
+        peers:[...(channel.ws?.hub?.peers||[])].map(([id,p])=>({id,dc:p.dc?.readyState,pc:p.pc?.connectionState}))
+      }))));
+      console.error('P0-THREE-PEER-DURABLE-ACK-FORENSIC',JSON.stringify(diagnostic));
+      throw error;
+    }
     await c.evaluate(()=>{
       const old=doc.getMap('business').get('record');
       doc.getMap('business').set('record',{...old,total:47.75,stock:11,history:old.history.concat('third-browser-move')});
