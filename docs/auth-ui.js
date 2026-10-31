@@ -1163,12 +1163,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const data=await response.json();
       if(data.ok!==true||data.role!=="owner"||data.businessId!==lic||
           !Number.isSafeInteger(data.revision)||data.revision<1)return "unavailable";
+      let adopted=false;
       if(window.OCSecure&&window.OCSecure.adoptarPinOwnerCentralVerificado){
-        try{await window.OCSecure.adoptarPinOwnerCentralVerificado(String(code),data.revision,lic)}catch(_){}
+        try{adopted=(await window.OCSecure.adoptarPinOwnerCentralVerificado(
+          String(code),data.revision,lic))===true}catch(_){}
       }
+      // Record verified central revision even when the local secret is not
+      // ready, so an old Worker cannot revive a stale local Owner PIN.
       try{localStorage.setItem("f123_pin_central_seen:"+lic,
         JSON.stringify({revision:data.revision,at:Date.now()}))}catch(_){}
-      return "owner";
+      // A valid central PIN alone is not proof that this PWA has recovered its
+      // durable encrypted notebook and local verifier. Do not open an empty
+      // owner store or claim persistence until adoption really committed.
+      return adopted?"owner":"needs-recovery";
     }catch(_){return "unavailable"}
   }
   // A configured license has a single Owner PIN revision on the license Worker.
@@ -1316,6 +1323,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const central=(rolHash==="dueno"||!rolHash) && dispositivoApropiado()
       ? await verificarPinOwnerCentral(code) : "unconfigured";
     if(central==="owner"){registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}return alinearYEntrar(code,"dueno")}
+    if(central==="needs-recovery"){
+      error("El PIN central es válido, pero este aparato todavía no recuperó sus credenciales. Reconecta la tienda y vuelve a intentarlo.");
+      return;
+    }
     if(central==="wrong"&&rolHash==="dueno"){
       error("Este PIN Owner fue reemplazado en el panel JFC. Usa el PIN central vigente.");
       return;
