@@ -18,7 +18,7 @@ function panel(options={}){
  return {window,values,requests};
 }
 const lic="F123-SYNTHETIC-AUTH",id="synthetic-device";
-const observed={configured:false,phase:"collecting",revision:0,pendingRevision:null,observedDevices:2,conflictingReports:true};
+const observed={configured:false,phase:"collecting",revision:0,pendingRevision:null,observedDevices:2,registeredDevices:2,censusComplete:true,conflictingReports:true};
 test("JFC panel displays existing device inventory and keeps activation disabled",async()=>{
  const p=panel({reply:()=>observed});
  await p.window.licAbrirPinCentral(lic,id,2);
@@ -54,7 +54,7 @@ test("JFC stage does not activate and requires a second deliberate action",async
  assert.equal(source.includes("localStorage.setItem"),false);
 });
 test("Bad confirmation or unenrolled license never submits a PIN",async()=>{
- const p=panel({reply:()=>({...observed,observedDevices:0})});
+ const p=panel({reply:()=>({...observed,observedDevices:0,censusComplete:false})});
  await p.window.licAbrirPinCentral(lic,id,2);
  assert.equal(p.values.get("lic-pin-stage").disabled,true);
  p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="148";
@@ -72,7 +72,7 @@ test("Responsive PIN panel and pencil are present outside the More menu",()=>{
 });
 
 test("Incomplete client PIN census blocks staging even when called directly",async()=>{
- const p=panel({reply:()=>({...observed,observedDevices:1})});
+ const p=panel({reply:()=>({...observed,observedDevices:1,censusComplete:false})});
  await p.window.licAbrirPinCentral(lic,id,2);
  assert.equal(p.values.get("lic-pin-stage").disabled,true);
  assert.match(p.values.get("lic-pin-summary").textContent,/Faltan aparatos/);
@@ -96,4 +96,15 @@ test("Even a malformed HTTP 200 with ok:false never activates a customer's PIN",
  assert.equal(p.requests.length,2);
  assert.match(p.values.get("lic-pin-state").textContent,/expired-proposal/);
  assert.equal(p.values.get("lic-pin-activate").disabled,true);
+});
+
+test("P0 exact server census vetoes PIN even if the two displayed counts agree",async()=>{
+ const p=panel({reply:()=>({...observed,observedDevices:2,registeredDevices:2,censusComplete:false})});
+ await p.window.licAbrirPinCentral(lic,id,2);
+ assert.equal(p.values.get("lic-pin-stage").disabled,true);
+ assert.equal(p.values.get("lic-pin-activate").disabled,true);
+ assert.match(p.values.get("lic-pin-summary").textContent,/Faltan aparatos/);
+ p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="149";
+ await p.window.licFijarPinAutoridad();
+ assert.equal(p.requests.length,1,"do not submit PIN changes with mismatched registered IDs");
 });
