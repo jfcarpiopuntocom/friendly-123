@@ -1002,12 +1002,54 @@ async function handleCanarioOrden(req, env) {
   return json({ ok: true, orden });
 }
 
+// Only requested during an explicit Master PIN preparation/activation.
+// Read the existing registry (DO + KV) once per administrative action, with
+// bounded pagination. No mass polling, no business data, no Supabase calls.
+// KV is the durable registration path; DO can contain more recent records.
+async function idsRegistradosEnLicenciaParaPin(env,licenseCode) {
+  if(!env?.LICENCIAS||!env?.REGISTROS)throw Error("registry unavailable");
+  const ids=new Set();
+  const collect=value=>{
+    if(!value||typeof value.instanceId!=="string")return;
+    if(String(value.licenseCode||"").trim().toUpperCase()===licenseCode)
+      ids.add(value.instanceId);
+  };
+  let cursor,scanned=0;
+  do{
+    const page=await env.LICENCIAS.list({prefix:"inst:",limit:1000,...(cursor?{cursor}:{})});
+    if(!page||!Array.isArray(page.keys))throw Error("registry listing unavailable");
+    scanned+=page.keys.length;
+    if(scanned>3000)throw Error("registry scan bounded: admin may retry with indexed census");
+    for(let i=0;i<page.keys.length;i+=40){
+      const batch=page.keys.slice(i,i+40);
+      const rows=await Promise.all(batch.map(async k=>{
+        const raw=await env.LICENCIAS.get(k.name);
+        return raw?JSON.parse(raw):null;
+      }));
+      rows.forEach(collect);
+    }
+    if(page.list_complete)break;
+    if(!page.cursor||page.cursor===cursor)throw Error("registry cursor invalid");
+    cursor=page.cursor;
+  }while(true);
+  const stub=doLicencias(env);
+  if(!stub)throw Error("registry DO unavailable");
+  const response=await stub.fetch("https://do.invalid/all");
+  if(!response.ok)throw Error("registry DO unavailable");
+  const records=await response.json();
+  if(!Array.isArray(records)||records.length>3000)throw Error("registry DO invalid or unbounded");
+  records.forEach(collect);
+  if(ids.size>60)throw Error("census limit: review manually before cutover");
+  return [...ids].sort();
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
     const pin = await pinPublicRoute(req,env,{
       getDo:doLicencias,authorizeMaster:requireMasterKey,
+      listRegisteredDeviceIds:idsRegistradosEnLicenciaParaPin,
       readLicenseInstance:async (e,id)=>{
         const stub=doLicencias(e);
         if(stub){
