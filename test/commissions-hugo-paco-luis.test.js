@@ -140,7 +140,7 @@ test('Paco paga el mes anterior desde este mes: el ciclo viejo se sella y el mes
   const { shelf, product } = await tienda(app);
   await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
   const v = await ultima(app, product);
-  const d = new Date(); d.setUTCMonth(d.getUTCMonth() - 1);
+  const now = new Date(); const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 15, 12));
   const mesPrev = d.toISOString().slice(0, 7);
   // Mover la venta al mes anterior por el camino de datos (como una venta real de hace 30 dias).
   const back = await app.request('/api/respaldo/exportar');
