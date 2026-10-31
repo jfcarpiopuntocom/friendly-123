@@ -19,13 +19,19 @@
     catch (_) { group.mode = "peer"; }
     group.choosing = group.first ? new Promise(resolve => {
       let finished = false;
+      // A silent native transport must not block every notebook lane forever.
+      const deadline = setTimeout(() => settle("peer"), 4000);
       function settle(mode) {
         if (finished) return;
         finished = true;
+        clearTimeout(deadline);
         group.mode = mode;
         group.first.removeEventListener("open", opened);
         group.first.removeEventListener("close", failed);
         group.first.removeEventListener("error", failed);
+        if (mode === "peer" && group.first.readyState < 2) {
+          try { group.first.close(); } catch (_) {}
+        }
         resolve(mode);
       }
       const opened = () => settle("native");
