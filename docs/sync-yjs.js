@@ -2084,26 +2084,18 @@
       var conflictProof = Object.keys(porBase).some(function (key) { return b === null || key !== activeKey; });
       // Keep historical fork evidence, but avoid copying every ordinary
       // same-baseline movement into a second ever-growing backup field.
-      // Restore BOTH explicit epochs from the add-only witness index when
-      // the whole-product Y.Map picked one competing read model. Otherwise
-      // one replica can export the old epoch's movements and the other cannot.
-      // Keep ordinary single-epoch products compact: no duplicate proof blob.
-      var witnessProof = Object.create(null);
-      if (conflictProof || prevProof) Object.keys(porBase).forEach(function (key) {
+      var alternateProof = Object.create(null);
+      Object.keys(porBase).forEach(function (key) {
+        if (key === activeKey) return;
         var fact = porBase[key];
-        if (!fact) return;
-        if (fact.epoch) {
-          witnessProof[JSON.stringify([fact.base, fact.epoch])] = {
-            base: fact.base, epoch: fact.epoch, pn: fact.pn, ts: fact.ts
-          };
-        } else if (String(fact.base) !== String(b)) {
-          witnessProof[String(fact.base)] = fact;
-        }
+        // Epoch-specific proof retains independent ledgers even when two
+        // physical histories started with the same stockBase (e.g. 7).
+        var proofKey = fact.epoch ? JSON.stringify([fact.base, fact.epoch]) : String(fact.base);
+        alternateProof[proofKey] = fact;
       });
-      var e = (prevProof || Object.keys(witnessProof).length)
-        ? unirEvidenciasStockYjs(p, { stockEvidencias: witnessProof }) : null;
-      // Distinct explicit epochs are retained in the encrypted witness map;
-      // legacy stockEvidencias cannot represent two equal-number epochs safely.
+      var e = (prevProof || Object.keys(alternateProof).length)
+        ? unirEvidenciasStockYjs(p, { stockEvidencias: alternateProof }) : null;
+      // Witness proofs are read-model evidence; movement history is not deleted.
       if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
         // An old bridge may win Y.Map.productos with E2 metadata but E1 PN.
         // When historical witnesses exist and none are scoped to explicit E2,
@@ -2282,12 +2274,28 @@
                 var _stockEpochDoc = typeof prev.stockEpochId === "string" ? prev.stockEpochId : "";
                 var _samePhysicalEpoch = _stockEpochMine === _stockEpochDoc;
                 var _stockAntesDeArbitrar = r; // preserve losing epoch proof
-                // A single explicit epoch may supersede untagged legacy
-                // metadata. Two competing explicit epochs remain independent:
-                // the owner must reconcile their physical movement histories.
-                var _epochPreferred = _samePhysicalEpoch ? null :
-                  (_stockEpochMine && !_stockEpochDoc ? r :
-                    (!_stockEpochMine && _stockEpochDoc ? prev : null));
+                // Project competing explicit epochs deterministically in
+                // every Y.Doc, without combining independent physical baselines.
+                // The losing epoch's movements remain in add-only Yjs witnesses.
+                // Same tie-break on both peers: (stockTs, stable epoch ID).
+                var _epochPreferred = null;
+                if (!_samePhysicalEpoch) {
+                  if (_stockEpochMine && !_stockEpochDoc) _epochPreferred = r;
+                  else if (!_stockEpochMine && _stockEpochDoc) _epochPreferred = prev;
+                  else {
+                    // Different physical recount baselines have no proven
+                    // successor relationship: do not infer one from clocks.
+                    var _numericMine = Number(r.stockBase), _numericDoc = Number(prev.stockBase);
+                    if (!Number.isSafeInteger(_numericMine) || !Number.isSafeInteger(_numericDoc) ||
+                        _numericMine !== _numericDoc) _epochPreferred = prev;
+                    else {
+                      var _timeMine = Number(r.stockTs) || 0;
+                      var _timeDoc = Number(prev.stockTs) || 0;
+                      _epochPreferred = (_timeMine > _timeDoc ||
+                        (_timeMine === _timeDoc && _stockEpochMine > _stockEpochDoc)) ? r : prev;
+                    }
+                  }
+                }
                 if (_epochPreferred) {
                   r = Object.assign({}, r, {
                     stockBase: _epochPreferred.stockBase,
