@@ -27,6 +27,11 @@ test('P0: the currently deployed legacy Worker generic 404 must not revoke a loc
  assert.equal(f.calls.length,1);
  assert.match(f.calls[0].url,/\/pin\/verify$/);
 });
+test('P0: a browser that already observed central authority never downgrades on legacy 404',async()=>{
+ const f=fixture({status:404,body:{error:'Not found'}});
+ f.state.set('f123_pin_central_seen:'+license,JSON.stringify({revision:3,at:1}));
+ assert.equal(await f.verify('672'),'unavailable');
+});
 test('P0: newer Worker 404 license-instance-mismatch still blocks unauthorized device',async()=>{
  const f=fixture({status:404,body:{ok:false,reason:'license-instance-mismatch'}});
  assert.equal(await f.verify('672'),'unavailable-identity');
