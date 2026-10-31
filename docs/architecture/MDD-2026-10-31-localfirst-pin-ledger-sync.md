@@ -57,3 +57,9 @@ No secretos en este ADR. Prohibido convertir esta aprobación arquitectónica en
 - Pruebas reales tres réplicas: WebKit macOS #41204004308 PASS sin omitir el caso; unidad/Chromium + manifest de 121 archivos SHA256 #41204000989 PASS. PR #513 conserva `docs/peer-sync.js` SHA256 `ba9bbdbc8c688529cf38be4ddbe192cbe0b38572b5a7c1ef577f6690e36efb1d`.
 - Hotfix inicial #41204150703 hizo fallar una transferencia Chromium bajo contención de 146 pruebas simultáneas (timeout 12s); eso bloqueó correctamente la publicación. PR #514 ajustó **solo QA**, para elegir la totalidad de cambios entre `estable` y master y ejecutar los tres navegadores aislados, seguidos del resto de las pruebas, sin saltarse aserciones.
 - Prohibido declarar convergencia PC–Safari–PWA hasta cotejar respaldos y opIDs auténticos; el navegador PC aún mostraba Offline — saved locally, James Bond 3 y Hielo del Chimborazo 4. No hay PIN real modificado ni ajustes automáticos.
+
+## v637 candidata aislada · failed-save publication gate · 31/oct
+
+- PR #516: `docs/mock-backend.js` impide publicar una edición posterior mientras su guardado está pendiente si el guardado anterior ya falló. No cambia movimientos, PIN, época ni stock inicial.
+- `test/p0-failed-save-publication-gate.test.cjs`: falla A/B+IDB, segundo guardado pendiente, bloqueo hasta ACK y recuperación posterior.
+- Sellado automatizado [run 41206190869](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/41206190869) SUCCESS sobre candidata v637, hash, linecount y cuatro grupos de pruebas focales. La versión continúa SOLO en rama; exigir suite integral y evidencia física antes de publicar. Este documento no proclama reconciliación del caso real.
