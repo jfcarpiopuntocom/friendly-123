@@ -1,0 +1,70 @@
+name: P0 seal v637 failed-save guard only after RED-GREEN
+on:
+  push:
+    branches: [fix/p0-failed-save-publication-20261031]
+    paths: [.github/workflows/p0-v637-seal-once.yml]
+permissions:
+  contents: write
+jobs:
+  test-and-seal:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Verify actual runtime and focused persistence gates
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          node --check docs/mock-backend.js
+          node --test --test-concurrency=1 --test-timeout=90000 test/p0-failed-save-publication-gate.test.cjs test/enviar-mientras-guarda-v601.test.js test/p0-durable-stock-adjustment.test.cjs test/p0-v630-sale-edit-first-ack-pn.test.cjs
+          wc -l docs/mock-backend.js
+          sha256sum docs/mock-backend.js
+      - name: Version bump exactly once and create complete deterministic manifest
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const path='docs/version.json';
+          const v=JSON.parse(fs.readFileSync(path,'utf8'));
+          if(v.shell!=='f123-shell-v636' || v.cacheGeneration!=='golden183') throw Error('Unexpected source release');
+          v.version='shell v637';
+          v.shell='f123-shell-v637';
+          v.releaseName='shell v637';
+          v.cacheGeneration='golden184';
+          v.changelog='P0: prevent uncommitted inventory snapshots from escaping after a failed save, while preserving fast updates after confirmed persistence.';
+          fs.writeFileSync(path,JSON.stringify(v,null,2)+'\n');
+          const swPath='docs/sw.js',sw=fs.readFileSync(swPath,'utf8');
+          if(!sw.includes('const CACHE = "f123-shell-v636"') || !sw.includes('const CACHE_GENERACION = "-golden183"')) throw Error('Unexpected service worker identity');
+          fs.writeFileSync(swPath,sw.replace('const CACHE = "f123-shell-v636"','const CACHE = "f123-shell-v637"').replace('const CACHE_GENERACION = "-golden183"','const CACHE_GENERACION = "-golden184"'));
+          const dash='docs/dashboard.html',html=fs.readFileSync(dash,'utf8');
+          if(!html.includes('content="f123-shell-v636"') || !html.includes('content="shell v636"')) throw Error('Unexpected dashboard identity');
+          fs.writeFileSync(dash,html.replace('content="f123-shell-v636"','content="f123-shell-v637"').replace('content="shell v636"','content="shell v637"'));
+          NODE
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node scripts/release-control.cjs validate origin/master
+          git diff --check
+          git diff --stat
+      - name: Seal v637 on isolated branch; remove single-use workflow
+        run: |
+          set -euo pipefail
+          git config user.name "friendly-123 release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/version-manifest.json
+          git rm .github/workflows/p0-v637-seal-once.yml
+          git diff --cached --quiet && exit 1
+          git commit -m "release(candidate): v637 failed-save guard, exact SHA256 and focused proof"
+          git push origin HEAD:refs/heads/fix/p0-failed-save-publication-20261031
