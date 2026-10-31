@@ -104,3 +104,20 @@ test("PIN authority never touches products, orders, money or customer notebook",
  const a=setup();await register(a);await stage(a);await activate(a);
  assert.doesNotMatch(a.store.values(),/stock|inventario|movimiento|ventas|pago/i);
 });
+
+test("Expired staged change is HTTP 409, never a false success or active PIN",async()=>{
+ const a=setup();await register(a);
+ const staged=await stage(a);assert.equal(staged.status,200);
+ await a.store.transaction(async tx=>{
+   const key="pin-owner-proposal:"+lic;
+   const p=await tx.get(key);p.createdAt=Date.now()-16*60*1000;
+   await tx.put(key,p);
+ });
+ const rejected=await activate(a);
+ assert.equal(rejected.status,409);
+ assert.equal(rejected.body.ok,false);
+ assert.equal(rejected.body.reason,"expired-proposal");
+ const state=await a.authority.status(lic);
+ assert.equal(state.configured,false);
+ assert.equal(state.pendingRevision,null);
+});
