@@ -122,7 +122,7 @@
     "./app-style-01.min.css": "sha256-0e8363b32f380e597a3bc269b47d80dc100e11f6b2cc55989226c3f7be744cad",
     "./app-style-02.min.css": "sha256-2120a7450244d5d72827131b3cbabaa071c6aa20942208c2acc78693382a0168",
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
-    "./dashboard-main.min.css": "sha256-66c48cb1d672bbfb51a258fde429b25d25a3218c4a21b819dfc4adc4e257cb19",
+    "./dashboard-main.min.css": "sha256-2bed682d2a2cb09abacb8a146ba806b88a6483df6e09b28e1c23a2b27af25fc4",
     "./dashboard-main.min.js": "sha256-3ac9449757567fe64ebf861d49049344718f793646021a92e62a1d4d7b59812d"
   }
 }
