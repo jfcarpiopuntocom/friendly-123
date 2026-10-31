@@ -4,7 +4,7 @@ const enc=new TextEncoder();
 const LICENSE=/^F123-[A-Z0-9*~$=-]{8,34}$/;
 const PIN=/^\d{3}$/;
 const RESERVED=new Set(["456","789"]);
-const WINDOW=15*60*1000,MAX=10,REPORT_INTERVAL=86400000,PROPOSAL_TTL=15*60*1000;
+const WINDOW=15*60*1000,MAX=10,REPORT_INTERVAL=86400000,REPORT_CHANGE_INTERVAL=15*60*1000,PROPOSAL_TTL=15*60*1000;
 function cleanLicense(v){const s=String(v||"").trim().toUpperCase();if(!LICENSE.test(s))throw Error("invalid license");return s}
 function cleanPin(v){if(typeof v!=="string"||!PIN.test(v)||RESERVED.has(v))throw Error("invalid PIN");return v}
 function rev(v){if(!Number.isSafeInteger(v)||v<0)throw Error("revision required");return v}
@@ -38,11 +38,21 @@ export function pinAuthority(storage,secret,clock=Date.now){
   return storage.transaction(async tx=>{
    const now=clock(),obs=await tx.get(report(l))||{devices:{}};
    const prior=obs.devices[instanceId];
-   // One bounded metadata write per device per day; no periodic uploads.
-   if(prior&&equal(prior.fingerprint,fingerprint)&&now-prior.at<REPORT_INTERVAL)
+   // One daily refresh for unchanged credentials. A changed claim is allowed
+   // only after a 15-minute cooldown to prevent quota storms and false census
+   // churn if an unauthenticated client repeatedly reports alternate PINs.
+   const elapsed=prior?now-Number(prior.at):Infinity;
+   if(prior&&(!Number.isFinite(elapsed)||elapsed<0))
+     return {ok:false,reason:"report-rate-limited"};
+   if(prior&&equal(prior.fingerprint,fingerprint)&&elapsed<REPORT_INTERVAL)
      return {ok:true,observed:true,unchanged:true};
+   if(prior&&elapsed<REPORT_CHANGE_INTERVAL)
+     return {ok:false,reason:"report-rate-limited"};
    if(!prior&&Object.keys(obs.devices).length>=60)return {ok:false,reason:"device-report-limit"};
    obs.devices[instanceId]={fingerprint,at:now,firstAt:prior?.firstAt||now,source:"client-reported"};
+   // Pin a census generation so a new report after preparation invalidates
+   // that pending activation. No customer PINs or notebook bytes are stored.
+   obs.generation=(Number.isSafeInteger(obs.generation)&&obs.generation>=0?obs.generation:0)+1;
    await tx.put(report(l),obs);
    return {ok:true,observed:true,unchanged:false};
   });
@@ -59,7 +69,8 @@ export function pinAuthority(storage,secret,clock=Date.now){
     return {ok:true,unchanged:true,...pub(prior,null,observed)};
    }
    // A stage is NEVER an effective Owner PIN. It only creates an admin proposal.
-   const staged={revision:current+1,fingerprint,createdAt:clock(),by:"JFC-panel"};
+   const staged={revision:current+1,fingerprint,createdAt:clock(),by:"JFC-panel",
+    censusGeneration:Number.isSafeInteger(observed.generation)?observed.generation:0};
    await tx.put(proposal(l),staged);
    return {ok:true,staged:true,...pub(prior,staged,observed)};
   });
@@ -76,6 +87,14 @@ export function pinAuthority(storage,secret,clock=Date.now){
    }
    if(!staged||staged.revision!==current+1||!equal(staged.fingerprint,fingerprint))
      return {ok:false,reason:"proposal-mismatch",...pub(prior,staged,observed)};
+   // An existing client may have logged in since JFC prepared the change.
+   // Require a fresh JFC review; the expired proposal changes no credentials.
+   const censusNow=Number.isSafeInteger(observed?.generation)?observed.generation:0;
+   if(!observed||!Object.keys(observed.devices||{}).length||
+      staged.censusGeneration!==censusNow){
+     await tx.delete(proposal(l));
+     return {ok:false,reason:"census-changed",...pub(prior,null,observed)};
+   }
    const next={v:1,revision:staged.revision,fingerprint,changedAt:clock(),changedBy:"JFC-panel"};
    await tx.put(key(l),next);await tx.delete(proposal(l));await tx.delete(limit(l));
    return {ok:true,activated:true,...pub(next,null,observed)};
