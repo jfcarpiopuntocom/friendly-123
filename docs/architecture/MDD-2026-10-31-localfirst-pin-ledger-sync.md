@@ -63,3 +63,11 @@ No secretos en este ADR. Prohibido convertir esta aprobación arquitectónica en
 - PR #516: `docs/mock-backend.js` impide publicar una edición posterior mientras su guardado está pendiente si el guardado anterior ya falló. No cambia movimientos, PIN, época ni stock inicial.
 - `test/p0-failed-save-publication-gate.test.cjs`: falla A/B+IDB, segundo guardado pendiente, bloqueo hasta ACK y recuperación posterior.
 - Sellado automatizado [run 41206190869](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/41206190869) SUCCESS sobre candidata v637, hash, linecount y cuatro grupos de pruebas focales. La versión continúa SOLO en rama; exigir suite integral y evidencia física antes de publicar. Este documento no proclama reconciliación del caso real.
+
+## P0 v638 candidata · recuperación tras ACK rechazado · 31 octubre
+
+- En el SHA candidato previo, [release-control #41206578433](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/41206578433) terminó FAIL: 2.396 tests, 2.379 PASS, 12 FAIL, 1 cancelado y 4 omitidos. Uno fue regresión nueva en `bar-conversion-durable-ack.test.js`: el catálogo devolvía `null` tras ACK rechazado porque el emisor no esperaba el guardado de recuperación. Otros tests fallaban por etiqueta visible Dashboard desactualizada.
+- Cambio focal `docs/mock-backend.js`: `catalogoConfirmado()` espera el siguiente guardado en curso si el anterior falló (`!_ultimoGuardadoPublicable`). `catalogoPropio()` no publica provisional tras fallo, pero reanuda una vez confirmado el ACK, incluidas conversiones de bar y sincronización histórica.
+- `test/p0-failed-save-publication-gate.test.cjs` actualizado para exigir una promesa pendiente hasta ACK, no respuesta prematura. `docs/dashboard.html` muestra exactamente el número de versión.
+- [Sellado v638 #41207485550](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/41207485550) **SUCCESS**: 25/25 tests focales y 7/7 branding/identidad, 31 contratos protegidos, 121 archivos del manifiesto SHA256, `check-sw` verde; backend **8677 líneas**, SHA256 **`fafce28b59ad311547640922df32d47ec100c043e494a7c547c357590b3edd0b`**. Solo candidata, sin desplegar.
+- Siguiente gate: CI integral sobre SHA exacto de v638; no promover mientras persistan fallos o falta prueba física PC/Safari/PWA y censo PIN real.
