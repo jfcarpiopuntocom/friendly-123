@@ -17,6 +17,6 @@ jobs:
         with:
           node-version: '22'
       - run: npm ci --no-audit --no-fund
-      - run: node --check cloudflare-worker/pin-worker-api.mjs
-      - run: node --test --test-timeout=120000 test/p0-pin-owner-resolve.test.mjs test/p0-central-pin-worker-entry.test.mjs test/p0-central-pin-authority.test.mjs
+      - run: node --check cloudflare-worker/pin-worker-api.mjs && node --check docs/auth-ui.js
+      - run: node --test --test-timeout=120000 test/p0-pin-owner-resolve.test.mjs test/p0-pin-resolve-ui.test.cjs test/p0-central-pin-worker-entry.test.mjs test/p0-central-pin-authority.test.mjs
       - run: git diff --check
