@@ -55,6 +55,23 @@ jobs:
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-failed-save-publication-gate.test.cjs test/incident-v608-publication-after-recovery.test.cjs
       - name: Chromium + WebKit real rendered responsive brand
         run: node --test --test-timeout=120000 test/p0-business-ink-proportional.test.cjs
+      - name: Durable IDB, A/B conflict, and accepted wordmark smoke
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/incident-idb-payout-name-photo-race-4d-v2.test.cjs test/p0-pre-pin-budget-and-header-parity.test.cjs test/ab-conflict-browser.test.cjs
+      - name: Recompute CSS parity and emit source-derived bytes when unequal
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'), esbuild=require('esbuild');
+          for(const [area,name] of [['app','app-style-02'],['dashboard','dashboard-main']]) {
+            const source=fs.readFileSync('src/'+area+'/'+name+'.css','utf8');
+            const built=esbuild.transformSync(source,{loader:'css',target:'es2020',minifySyntax:true,minifyWhitespace:true,minifyIdentifiers:false,legalComments:'none'}).code;
+            const file='docs/'+name+'.min.css';
+            if(fs.readFileSync(file,'utf8')===built){console.log('F123-CSS-PARITY-OK '+file);continue}
+            console.log('F123-CSS-COMPILED-START '+file);
+            const b64=Buffer.from(built).toString('base64');
+            for(let i=0;i<b64.length;i+=800)console.log(b64.slice(i,i+800));
+            console.log('F123-CSS-COMPILED-END '+file);
+          }
+          NODE
       - name: Source inventory linecounts and exact checksums
         run: |
           wc -l docs/auth-ui.js docs/mock-backend.js cloudflare-worker/pin-worker-api.mjs
