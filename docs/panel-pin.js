@@ -11,7 +11,7 @@ function render(s){
  selected.revision=s.revision;selected.pendingRevision=s.pendingRevision;
  const summary=el("lic-pin-summary");
  if(summary)summary.textContent=(s.configured?"PIN central activo · revisión "+s.revision:"Fase 1 · recopilando PIN anteriores")+
-  " · "+s.observedDevices+" aparatos registrados"+
+  " · "+s.observedDevices+(selected.knownDevices?" / "+selected.knownDevices:"")+" aparatos registrados"+
   (s.conflictingReports?" · PIN distintos detectados":"")+
   (s.pendingRevision!==null?" · propuesta "+s.pendingRevision+" pendiente":"");
  const list=el("lic-pin-devices");
@@ -44,10 +44,10 @@ async function refresh(){
  if(!selected||selected.instanceId!==before.instanceId||selected.licenseCode!==before.licenseCode)return;
  render(state);return state;
 }
-async function open(code,id){
+async function open(code,id,knownDevices){
  const licenseCode=String(code||"").trim().toUpperCase(),instanceId=String(id||"");
  if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(licenseCode)||!/^[a-zA-Z0-9_-]{6,120}$/.test(instanceId))return;
- selected={licenseCode,instanceId,revision:null,pendingRevision:null};
+ selected={licenseCode,instanceId,revision:null,pendingRevision:null,knownDevices:Number.isSafeInteger(Number(knownDevices))&&Number(knownDevices)>0?Number(knownDevices):null};
  const box=el("lic-pin-control");if(box){box.hidden=false;box.scrollIntoView?.({block:"nearest",behavior:"smooth"})}
  el("lic-pin-license").textContent=licenseCode;
  clear();say("Consultando solo metadatos centrales…",false);
@@ -73,7 +73,7 @@ async function stage(){
 async function activate(){
  if(!selected||selected.revision===null||selected.pendingRevision===null)return say("Primero registra un PIN existente y prepara la propuesta.",true);
  let pin;try{pin=getPin()}catch(e){clear();return say(e.message,true)}
- if(!confirm("PASO 2/2: JFC IMPONDRÁ esta revisión como PIN Owner central de la licencia. Los antiguos dejarán de autorizar en línea. ¿Confirmar?")){clear();return}
+ if(!confirm("PASO 2/2: JFC IMPONDRÁ esta revisión como PIN Owner central. Comprobaste los aparatos y sus PIN previos; cualquier aparato aún sin censo requerirá recuperación. ¿Confirmar?")){clear();return}
  const snap={...selected};
  try{
   const result=await request("/pin/admin/activate",{method:"POST",body:JSON.stringify({...snap,pin,expectedRevision:snap.revision})});
@@ -81,6 +81,6 @@ async function activate(){
   render(result);say("Revisión "+result.revision+" activada en la autoridad central. Verificar recuperación de cada aparato antes de declarar convergencia.",false);
  }catch(e){clear();say(e.message,true)}
 }
-document.addEventListener("click",e=>{const button=e.target?.closest?.("[data-owner-pin-license]");if(button)open(button.getAttribute("data-owner-pin-license"),button.getAttribute("data-owner-pin-instance"))});
+document.addEventListener("click",e=>{const button=e.target?.closest?.("[data-owner-pin-license]");if(button)open(button.getAttribute("data-owner-pin-license"),button.getAttribute("data-owner-pin-instance"),button.getAttribute("data-owner-pin-count"))});
 window.licAbrirPinCentral=open;window.licFijarPinAutoridad=stage;window.licActivarPinAutoridad=activate;
 })();
