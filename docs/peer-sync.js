@@ -16,7 +16,7 @@
       constructor(hub, topic, url) {
         super(); this.hub = hub; this.topic = topic; this.url = url; this.peerOnly = true;
         this.readyState = 0; this.binaryType = 'arraybuffer'; this.onopen = this.onmessage = this.onerror = this.onclose = null;
-        this.sent = new Map(); this.receipts = new Set(); this.ackCandidates = new Set(); this.serial = Promise.resolve(); this.queuedBytes = 0;
+        this.sent = new Map(); this.receipts = new Set(); this.ackCandidates = new Set(); this.serial = Promise.resolve(); this.queuedBytes = 0; this.peerRetryTimer = null;
         hub.sockets.add(this); hub.start();
         if (hub.connected().length) queueMicrotask(() => this.open());
       }
@@ -33,6 +33,44 @@
         this.readyState = 1; this.emit('open'); this.presence();
       }
       presence() { if (this.readyState === 1) this.emit('message', { data: JSON.stringify({ k: 'peers', n: this.hub.connected().length + 1 }) }); }
+      // One bounded direct-RTC retry timer per socket, only while a peer owes
+      // a durable receipt. A receiver can recover its disk AFTER rejecting the
+      // first encrypted frame; waiting only for the 10s Yjs watchdog misses
+      // that recovery. Never forward a business payload to the signaling relay.
+      schedulePeerRetry() {
+        if (this.peerRetryTimer || this.readyState !== 1) return;
+        const due = [...this.sent.values()].filter(r => r.peers.size && r.packet && r.retries < 3)
+          .map(r => r.nextRetryAt);
+        if (!due.length) return;
+        this.peerRetryTimer = setTimeout(() => {
+          this.peerRetryTimer = null;
+          this.serial = this.serial.then(async () => {
+            let budget = 8;
+            for (const [key, record] of this.sent) {
+              if (budget <= 0) break;
+              if (!record.peers.size || !record.packet || record.retries >= 3 ||
+                  Date.now() < record.nextRetryAt) continue;
+              record.retries++;
+              record.nextRetryAt = Date.now() + 2000 * 2 ** record.retries;
+              for (const [id, channel] of record.peers) {
+                const peer = this.hub.peers.get(id);
+                if (!peer || peer.dc !== channel || channel.readyState !== 'open') {
+                  record.peers.delete(id);
+                  continue;
+                }
+                await this.hub.deliver(peer, record.packet);
+                if (--budget <= 0) break;
+              }
+              if (!record.peers.size && record.acknowledged.size) {
+                this.sent.delete(key);
+                this.emit('message', { data: JSON.stringify({
+                  k: 'persist-result', kind: key.split(':')[0], id: key.slice(key.indexOf(':') + 1), ok: true
+                }), peerAccepted: true });
+              }
+            }
+          }).catch(() => {}).finally(() => this.schedulePeerRetry());
+        }, Math.max(250, Math.min(...due) - Date.now()));
+      }
       send(value) {
         if (this.readyState !== 1) throw new DOMException('No direct peer is connected', 'InvalidStateError');
         const size = typeof value === 'string' ? new TextEncoder().encode(value).byteLength : value instanceof Blob ? value.size : value.byteLength;
@@ -68,6 +106,9 @@
             }
             for (const peer of targets)
               if (record.acknowledged.get(peer.id) !== peer.dc) record.peers.set(peer.id, peer.dc);
+            record.packet = packet;
+            record.retries = 0;
+            record.nextRetryAt = Date.now() + 2000;
             this.sent.set(key, record);
             for (const peer of targets)
               if (record.peers.get(peer.id) === peer.dc) await this.hub.deliver(peer, packet);
@@ -77,6 +118,7 @@
               this.sent.delete(key);
               this.emit('message', { data: JSON.stringify({ k: 'persist-result', kind: control.k, id: control.id, ok: true }), peerAccepted: true });
             }
+            this.schedulePeerRetry();
             return;
           }
           const binary = typeof copy !== 'string';
@@ -110,7 +152,7 @@
       }
       close(code = 1000, reason = '') {
         if (this.readyState === 3) return;
-        this.readyState = 3; this.hub.sockets.delete(this); this.receipts.clear(); this.ackCandidates.clear(); this.sent.clear();
+        this.readyState = 3; clearTimeout(this.peerRetryTimer); this.peerRetryTimer = null; this.hub.sockets.delete(this); this.receipts.clear(); this.ackCandidates.clear(); this.sent.clear();
         this.emit('close', { code, reason, wasClean: code === 1000 });
         if (!this.hub.sockets.size) this.hub.stop();
       }
