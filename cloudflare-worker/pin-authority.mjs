@@ -4,7 +4,7 @@ const enc=new TextEncoder();
 const LICENSE=/^F123-[A-Z0-9*~$=-]{8,34}$/;
 const PIN=/^\d{3}$/;
 const RESERVED=new Set(["456","789"]);
-const WINDOW=15*60*1000,MAX=10,REPORT_INTERVAL=86400000;
+const WINDOW=15*60*1000,MAX=10,REPORT_INTERVAL=86400000,PROPOSAL_TTL=15*60*1000;
 function cleanLicense(v){const s=String(v||"").trim().toUpperCase();if(!LICENSE.test(s))throw Error("invalid license");return s}
 function cleanPin(v){if(typeof v!=="string"||!PIN.test(v)||RESERVED.has(v))throw Error("invalid PIN");return v}
 function rev(v){if(!Number.isSafeInteger(v)||v<0)throw Error("revision required");return v}
@@ -53,7 +53,11 @@ export function pinAuthority(storage,secret,clock=Date.now){
    const prior=await tx.get(key(l)),current=prior?.revision??0,observed=await tx.get(report(l));
    if(current!==expected)return {ok:false,reason:"revision-conflict",...pub(prior,await tx.get(proposal(l)),observed)};
    if(!observed||!Object.keys(observed.devices||{}).length)return {ok:false,reason:"enrollment-required",...pub(prior,null,observed)};
-   if(prior&&equal(prior.fingerprint,fingerprint))return {ok:true,unchanged:true,...pub(prior,null,observed)};
+   if(prior&&equal(prior.fingerprint,fingerprint)){
+    // Explicitly returning to the current PIN cancels any stale proposal.
+    await tx.delete(proposal(l));
+    return {ok:true,unchanged:true,...pub(prior,null,observed)};
+   }
    // A stage is NEVER an effective Owner PIN. It only creates an admin proposal.
    const staged={revision:current+1,fingerprint,createdAt:clock(),by:"JFC-panel"};
    await tx.put(proposal(l),staged);
@@ -66,6 +70,10 @@ export function pinAuthority(storage,secret,clock=Date.now){
    const prior=await tx.get(key(l)),current=prior?.revision??0;
    const staged=await tx.get(proposal(l)),observed=await tx.get(report(l));
    if(current!==expected)return {ok:false,reason:"revision-conflict",...pub(prior,staged,observed)};
+   if(staged&&(clock()-staged.createdAt>PROPOSAL_TTL||clock()<staged.createdAt)){
+    await tx.delete(proposal(l));
+    return {ok:false,reason:"expired-proposal",...pub(prior,null,observed)};
+   }
    if(!staged||staged.revision!==current+1||!equal(staged.fingerprint,fingerprint))
      return {ok:false,reason:"proposal-mismatch",...pub(prior,staged,observed)};
    const next={v:1,revision:staged.revision,fingerprint,changedAt:clock(),changedBy:"JFC-panel"};
