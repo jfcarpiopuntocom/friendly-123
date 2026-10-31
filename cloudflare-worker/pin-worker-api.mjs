@@ -14,20 +14,22 @@ export function pinDoRoute(req,storage,env){
    let r;
    if(body.action==="status")r=await p.status(body.licenseCode);
    else if(body.action==="master-set")r=await p.masterSet(body.licenseCode,body.pin,body.expectedRevision);
+   else if(body.action==="master-activate")r=await p.masterActivate(body.licenseCode,body.pin,body.expectedRevision);
+   else if(body.action==="report")r=await p.reportExisting(body.licenseCode,body.instanceId,body.pin);
    else if(body.action==="verify")r=await p.verify(body.licenseCode,body.pin);
    else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
    else return reply({ok:false},404);
-   const code=r.reason==="revision-conflict"||r.reason==="unconfigured"?409:r.reason==="rate-limited"?429:r.reason==="invalid-pin"?401:200;
+   const code=["revision-conflict","unconfigured","enrollment-required","proposal-mismatch","device-report-limit"].includes(r.reason)?409:r.reason==="rate-limited"?429:r.reason==="invalid-pin"?401:200;
    return reply(r,code);
   }catch{return reply({ok:false,reason:"invalid-input"},400)}
  })();
 }
 export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authorizeMaster}){
  const url=new URL(req.url);
- const action={"/pin/admin/status":"status","/pin/admin/set":"master-set","/pin/verify":"verify","/pin/rotate":"owner-rotate"}[url.pathname];
+ const action={"/pin/admin/status":"status","/pin/admin/set":"master-set","/pin/admin/activate":"master-activate","/pin/report":"report","/pin/verify":"verify","/pin/rotate":"owner-rotate"}[url.pathname];
  if(!action)return null;
  if(!env.PIN_PEPPER||!env.REGISTROS||!env.MASTER_KEY)return reply({ok:false,reason:"authority-unavailable"},503);
- const admin=action==="status"||action==="master-set";
+ const admin=action==="status"||action==="master-set"||action==="master-activate";
  if(admin&&!authorizeMaster(req,env))return reply({ok:false},401);
  if(req.method!==(action==="status"?"GET":"POST"))return reply({ok:false},405);
  let data;
