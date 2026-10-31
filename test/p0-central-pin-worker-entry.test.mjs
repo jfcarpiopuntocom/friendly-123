@@ -20,7 +20,7 @@ test("full Worker route and real Durable Object enforce JFC PIN override and dev
   MASTER_KEY:"synthetic-master-key",PIN_PEPPER:"synthetic-unrelated-private-server-key-32chars",
   LICENCIAS:{
    get:async key=>{
-    const records={"inst:"+device:{instanceId:device,licenseCode:lic,estado:"full"},
+    const records={["inst:"+device]:{instanceId:device,licenseCode:lic,estado:"full"},
       "inst:synthetic-mobile":{instanceId:"synthetic-mobile",licenseCode:lic,estado:"full"}};
     return records[key]?JSON.stringify(records[key]):null;
    },
