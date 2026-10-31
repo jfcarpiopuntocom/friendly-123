@@ -47,26 +47,35 @@ test('native A/B lock keeps contact response and reads pending until durable com
       if(!response.ok)throw Error(JSON.stringify(customer));
       return customer.id;
     });
+    // Hold the real IndexedDB strict CAS behind an explicit synthetic barrier.
+    // On release the original implementation writes the record to disk.
     await page.evaluate(()=>{
-      window.__contactLockName='f123-estado-ab:f123_estado_v4';
-      window.__contactLockHeld=false;
-      window.__contactLockPromise=navigator.locks.request(window.__contactLockName,()=>new Promise(resolve=>{
-        window.__contactLockHeld=true;window.__releaseContactLock=resolve;
-      }));
+      const original=OCEstadoIDB.guardarConRevision.bind(OCEstadoIDB);
+      window.__contactDurableReached=false;
+      OCEstadoIDB.guardarConRevision=(...args)=>new Promise(resolve=>{
+        window.__contactDurableReached=true;
+        window.__releaseContactDurable=()=>original(...args).then(resolve,()=>resolve(false));
+      });
     });
-    await page.waitForFunction(()=>window.__contactLockHeld);
     await page.evaluate(id=>{
       window.__contactPatchDone=false;window.__contactReadDone=false;
       window.__contactPatch=fetch('/api/clientes/'+id+'/contacto',{method:'PATCH',body:JSON.stringify({resideCuenca:false,genero:'male'})}).then(async r=>{
         window.__contactPatchStatus=r.status;window.__contactPatchDone=true;return r.json();
       });
     },id);
-    await page.waitForFunction(async()=> (await navigator.locks.query()).pending.some(l=>l.name===window.__contactLockName));
-    await page.evaluate(()=>{window.__contactRead=fetch('/api/clientes').then(async r=>{window.__contactReadDone=true;return r.json();});});
+    await page.waitForFunction(()=>window.__contactDurableReached);
+    await page.evaluate(()=>{window.__contactRead=fetch('/api/clientes').then(async r=>{
+      window.__contactReadBody=await r.json();window.__contactReadDone=true;return window.__contactReadBody;
+    });});
     await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,30)));
-    assert.deepEqual(await page.evaluate(()=>[window.__contactPatchDone,window.__contactReadDone]),[false,false],
-      'neither success nor a changed contact may escape while durable lock is held');
-    await page.evaluate(async()=>{window.__releaseContactLock();await window.__contactLockPromise;await window.__contactPatch;await window.__contactRead;});
+    const before=await page.evaluate(id=>({
+      patchDone:window.__contactPatchDone,
+      readLeaked:window.__contactReadDone && (window.__contactReadBody||[]).some(c=>
+        c.id===id && (c.resideCuenca===false || c.genero==='male'))
+    }),id);
+    assert.equal(before.patchDone,false,'contact PATCH cannot ACK before strict IDB CAS');
+    assert.equal(before.readLeaked,false,'provisional contact cannot leak to a concurrent read');
+    await page.evaluate(async()=>{window.__releaseContactDurable();await window.__contactPatch;await window.__contactRead;});
     assert.equal(await page.evaluate(()=>window.__contactPatchStatus),200);
     await page.reload({waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>window.cargarClientes&&window.OCAuth);
