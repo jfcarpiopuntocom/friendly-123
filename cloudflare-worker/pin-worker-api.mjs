@@ -19,7 +19,11 @@ export function pinDoRoute(req,storage,env){
    else if(body.action==="verify")r=await p.verify(body.licenseCode,body.pin);
    else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
    else return reply({ok:false},404);
-   const code=["revision-conflict","unconfigured","enrollment-required","proposal-mismatch","device-report-limit"].includes(r.reason)?409:r.reason==="rate-limited"?429:r.reason==="invalid-pin"?401:200;
+   // All rejected operations MUST have non-2xx status. A 200 for an expired
+   // proposal previously made the JFC panel falsely claim PIN activation.
+   const code=r.ok===false
+    ? (r.reason==="rate-limited"?429:r.reason==="invalid-pin"?401:409)
+    : 200;
    return reply(r,code);
   }catch{return reply({ok:false,reason:"invalid-input"},400)}
  })();
