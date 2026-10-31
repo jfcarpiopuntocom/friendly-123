@@ -18,7 +18,14 @@ function memory(){
 test("full Worker route and real Durable Object enforce JFC PIN override and device/license binding",async()=>{
  const storage=memory(),env={
   MASTER_KEY:"synthetic-master-key",PIN_PEPPER:"synthetic-unrelated-private-server-key-32chars",
-  LICENCIAS:{get:async()=>null},
+  LICENCIAS:{
+   get:async key=>{
+    const records={"inst:"+device:{instanceId:device,licenseCode:lic,estado:"full"},
+      "inst:synthetic-mobile":{instanceId:"synthetic-mobile",licenseCode:lic,estado:"full"}};
+    return records[key]?JSON.stringify(records[key]):null;
+   },
+   list:async()=>({keys:[{name:"inst:"+device},{name:"inst:synthetic-mobile"}],list_complete:true})
+  },
   REGISTROS:{idFromName:()=>({}),get:()=>stub}
  };
  const instance=new RegistroLicencias({storage},env);
@@ -32,6 +39,9 @@ test("full Worker route and real Durable Object enforce JFC PIN override and dev
  assert.equal((await req("/pin/verify",{pin:"318"})).status,409,"legacy login must remain unaffected before staging");
  assert.equal((await req("/pin/admin/set",{pin:"318",expectedRevision:0},true)).status,409,"no forced PIN before device enrollment");
  assert.equal((await req("/pin/report",{pin:"318"})).status,200);
+ const incomplete=await req("/pin/admin/set",{pin:"318",expectedRevision:0},true);
+ assert.equal(incomplete.status,409,"one of two registered devices may not be silently skipped");
+ assert.equal(incomplete.data.reason,"census-incomplete");
  assert.equal((await req("/pin/report",{instanceId:"synthetic-mobile",pin:"318"})).status,200);
  const first=await req("/pin/admin/set",{pin:"318",expectedRevision:0},true);
  assert.equal(first.status,200);assert.equal(first.data.pendingRevision,1);
