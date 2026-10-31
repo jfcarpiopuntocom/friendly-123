@@ -1,0 +1,26 @@
+name: P0 v608 current storage failure classification (one-shot)
+on:
+  push:
+    branches: [fix/p0-legacy-worker-pin-route-404-20261031]
+    paths: [".github/workflows/p0-v608-current-storage-once.yml"]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Test real browser retry/quota/brand behavior, no customer state
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/v608-guardado-veraz.test.cjs
