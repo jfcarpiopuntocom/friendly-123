@@ -140,3 +140,65 @@ test('independent A and B sessions transfer real AES-256-GCM bytes, decrypt only
   const tampered=Buffer.from(received.ciphertext,'base64');tampered[tampered.length-1]^=1;
   await assert.rejects(()=>crypto.subtle.decrypt({name:'AES-GCM',iv:nonce},symmetric,tampered));
 });
+
+
+test('P0 actual Yjs journal: A closes, B recovers encrypted facts, B writes, A reopens idempotently',async()=>{
+  const fs=await import('node:fs'),vm=await import('node:vm');
+  const {createRequire}=await import('node:module');
+  const require=createRequire(import.meta.url);
+  const {browser}=require('./helpers/browser.cjs');
+  const vendor=fs.readFileSync(new URL('../docs/vendor/yjs-bundle.min.js',import.meta.url),'utf8');
+  function instance(){
+    const context=browser();
+    Object.assign(context,{crypto:webcrypto,TextEncoder,TextDecoder});
+    vm.runInContext(vendor,context);
+    assert.ok(context.Y&&context.Y.Doc&&context.Y.encodeStateAsUpdate);
+    return {Y:context.Y,doc:new context.Y.Doc()};
+  }
+  const f=fixture(),key=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  const A=instance();
+  // Real Y.Doc events, not inventory snapshots or manually forced quantities.
+  const eventA={id:'movement-A-001',kind:'RECEIVE',productId:'product-007',qty:8};
+  A.doc.getMap('movement-journal').set(eventA.id,eventA);
+  async function push(device,doc,id){
+    const auth=await f.session(device),nonce=crypto.getRandomValues(new Uint8Array(12));
+    assert.equal(auth.status,200);
+    const bytes=doc.Y.encodeStateAsUpdate(doc.doc);
+    const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv:nonce},key,bytes);
+    const envelope={eventId:id,nonce:Buffer.from(nonce).toString('base64'),
+      ciphertext:Buffer.from(cipher).toString('base64')};
+    const sent=await f.call('POST','/mailbox/events',{token:auth.token,body:envelope});
+    assert.equal(sent.status,200);return sent.sequence;
+  }
+  async function recover(device){
+    const session=await f.session(device);assert.equal(session.status,200);
+    const restored=instance(),page=await f.call('GET','/mailbox/events?after=0&limit=50',{token:session.token});
+    assert.equal(page.status,200);
+    for(const ev of page.events){
+      const clear=await crypto.subtle.decrypt({name:'AES-GCM',
+        iv:Buffer.from(ev.nonce,'base64')},key,Buffer.from(ev.ciphertext,'base64'));
+      restored.Y.applyUpdate(restored.doc,new Uint8Array(clear),'encrypted-mailbox');
+    }
+    return {restored,session,page};
+  }
+  await push(device,A,'op-yjs-p0-transfer-A-001');
+  // A shuts down. B is a fresh Y.Doc: only mailbox ciphertext survives.
+  A.doc.destroy();
+  const B=await recover(deviceB);
+  assert.equal(B.restored.doc.getMap('movement-journal').size,1);
+  B.restored.doc.getMap('movement-journal').set('movement-B-001',
+    {id:'movement-B-001',kind:'FULFILL',productId:'product-007',qty:3,orderId:'order-01'});
+  await push(deviceB,B.restored,'op-yjs-p0-transfer-B-001');
+  B.restored.doc.destroy();
+  // A restarts from an empty document, reads both encrypted updates.
+  const Aagain=await recover(device);
+  const events=[...Aagain.restored.doc.getMap('movement-journal').values()];
+  assert.equal(events.length,2);
+  const stock=events.reduce((sum,e)=>sum+(e.kind==='RECEIVE'?e.qty:e.kind==='FULFILL'?-e.qty:0),0);
+  assert.equal(stock,5,'8 received - 3 fulfilled, never forced to a snapshot');
+  const duplicate=await recover(device);
+  assert.deepEqual([...duplicate.restored.doc.getMap('movement-journal').keys()].sort(),
+    [...Aagain.restored.doc.getMap('movement-journal').keys()].sort());
+  assert.equal(duplicate.page.latest,2,'one write per unique envelope; no network overlap');
+  Aagain.restored.doc.destroy();duplicate.restored.doc.destroy();
+});
