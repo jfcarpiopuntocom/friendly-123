@@ -402,6 +402,16 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
       <button class="btn btn-primary" type="button" onclick="licCopiarMaestro()">Copiar permiso</button>
       <button class="btn btn-outline" type="button" onclick="licCerrarMaestro()">Cerrar y borrar de pantalla</button>
     </div>
+    <section id="lic-pin-control" hidden style="border:1px solid var(--border);padding:16px;border-radius:10px;margin:12px 0;">
+      <h3>Autoridad central de PIN Owner · JFC</h3>
+      <p>Licencia: <strong id="lic-pin-license"></strong>. Registro transaccional con revisión y sello de cambio, sin guardar el PIN en el panel.</p>
+      <p id="lic-pin-state" role="status" aria-live="polite"></p>
+      <label for="lic-pin-new">PIN Owner</label>
+      <input id="lic-pin-new" type="password" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" autocomplete="new-password" class="lic-input">
+      <label for="lic-pin-confirm">Confirmar</label>
+      <input id="lic-pin-confirm" type="password" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" autocomplete="off" class="lic-input">
+      <button type="button" class="btn btn-primary" onclick="licFijarPinAutoridad()">Imponer revisión central</button>
+    </section>
     <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
     <!-- LISTA DINAMICA v2 (JFC 2026-09-24, escala 1.000-10.000). Filtros
          combinables, orden por columna (click en el encabezado), 100 por
@@ -1714,6 +1724,7 @@ initGate();
      funciones con el mismo nombre que arriba (licRenderStats) REEMPLAZAN a las
      viejas a proposito: la nueva cuenta licencias, no aparatos. -->
 <script src="./panel-licencias.js"></script>
+<script src="./panel-pin.js"></script>
 <script>
 let _licIndice = null, _licIndiceDe = null, _licLotes = null, _licPagoActual = null, _licUltimoLote = null, _licPagoVista = 0, _licPagoLectura = 0;
 
