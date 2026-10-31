@@ -117,13 +117,13 @@ test('P0 encrypted Yjs documents eventually agree under opposite epoch replay or
     assert.equal((await item(a)).stockActual,(await item(b)).stockActual,'idempotent replay');
   }
 });
-test('P0 replica with stock 3/4/7/7/6 converges with replica 7/7/7/7/7 across five synthetic items',async()=>{
+test('P0 replica with stock 3/4/7/7/6/16 converges with replica 7/7/7/7/7/7 across six synthetic items',async()=>{
   const a=browser(),b=browser();
   const fa=await a.request('/api/respaldo/exportar');
   const fb=await b.request('/api/respaldo/exportar');
   const template=fa.productos.find(p=>Number(p.stockActual)>=1);
   assert.ok(template);
-  const pca=[3,4,7,7,6],mobile=[7,7,7,7,7];
+  const pca=[3,4,7,7,6,16],mobile=[7,7,7,7,7,7];
   function rows(numbers,epoch,ts){
     return numbers.map((stock,i)=>({...template,id:'synthetic-item-'+i,
       nombre:'Synthetic item '+i,barcode:'SYN-5-'+i,
@@ -140,7 +140,7 @@ test('P0 replica with stock 3/4/7/7/6 converges with replica 7/7/7/7/7 across fi
   }
   const aa=(await a.request('/api/respaldo/exportar')).productos;
   const bb=(await b.request('/api/respaldo/exportar')).productos;
-  for(let i=0;i<5;i++){
+  for(let i=0;i<6;i++){
     const x=aa.find(p=>p.id==='synthetic-item-'+i);
     const y=bb.find(p=>p.id==='synthetic-item-'+i);
     assert.equal(x.stockActual,y.stockActual,'product '+i+' must converge');
