@@ -1,7 +1,6 @@
 name: P0 Central PIN Authority
 on:
-  push:
-    branches: [fix/panel-pin-source-of-truth-20261031]
+  workflow_dispatch:
   pull_request:
     paths:
       - cloudflare-worker/**
