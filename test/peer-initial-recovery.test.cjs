@@ -115,19 +115,19 @@ test('P0 foreground revives exhausted metadata-only connection and resumes share
   }finally{f.close();}
 });
 
-test('P0 reconnecting after online preserves original Yjs-facing business socket instance',async()=>{
+test('P0 existing Owner login revives signaling and preserves the original Yjs business socket instance',async()=>{
   const f=fixture();
   try{
     const same=f.socket;
     f.sockets[0].open();
-    f.window.dispatchEvent(new Event('online'));
+    f.window.dispatchEvent(new Event('oc-login'));
     assert.equal(f.socket,same);
     assert.equal(f.sockets.length,2);
     assert.equal(f.sockets[0].readyState,3);
     const pc=await f.negotiate();
     pc.dc.readyState='open';pc.dc.onopen();
     assert.equal(same.readyState,1);
-    f.window.dispatchEvent(new Event('online'));
+    f.window.dispatchEvent(new Event('oc-login'));
     assert.equal(f.sockets.length,2,'connected business RTC is never renegotiated unnecessarily');
   }finally{f.close();}
 });
