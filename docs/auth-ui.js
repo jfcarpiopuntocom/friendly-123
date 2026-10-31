@@ -1141,10 +1141,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       lic=String(owned.licenseCode||"").trim().toUpperCase();
       const active=window.OCTienda&&window.OCTienda.licenciaActual&&
         String(window.OCTienda.licenciaActual()||"").trim().toUpperCase();
+      // Synthetic/offline fixture hosts have no registered Worker identity.
+      // They must keep testing the existing local credential path.
+      if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
       if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!owned.instanceId||
          (active && active!==lic)) return "unavailable-identity";
-      // Synthetic test harnesses never send real license PINs to production.
-      if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
       const url=(localStorage.getItem("f123_cf_worker_url")||"").trim()||OC_WORKER_URL;
       const endpoint=new URL(url);if(endpoint.protocol!=="https:")return "unavailable";
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
