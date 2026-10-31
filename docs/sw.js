@@ -291,7 +291,7 @@ self.addEventListener("fetch", (evento) => {
     // any previously installed cache, including when the device is offline.
     // This safety override never reads or modifies the business notebook.
     if (url.pathname.endsWith("/owner-approved-inventory-repair.js")) {
-      evento.respondWith(Promise.resolve(new Response("// automatic stock repair retired\\n", {
+      evento.respondWith(Promise.resolve(new Response("// automatic stock repair retired\n", {
         status: 200,
         headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store" }
       })));
