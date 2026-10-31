@@ -12,7 +12,7 @@ export function pinDoRoute(req,storage,env){
   try{
    const p=pinAuthority(storage,env.PIN_PEPPER);
    let r;
-   if(body.action==="status")r=await p.status(body.licenseCode);
+   if(body.action==="status")r=await p.status(body.licenseCode,body.registeredIds);
    else if(body.action==="master-set")r=await p.masterSet(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
    else if(body.action==="master-activate")r=await p.masterActivate(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
    else if(body.action==="report")r=await p.reportExisting(body.licenseCode,body.instanceId,body.pin);
@@ -46,7 +46,7 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
   return reply({ok:false,reason:"license-instance-mismatch"},404);
  // Admin writes use the authoritative registry cohort, not client-supplied
  // counts or IDs. On incomplete/unavailable registry, preserve old PINs.
- if(action==="master-set"||action==="master-activate"){
+ if(action==="status"||action==="master-set"||action==="master-activate"){
   if(typeof listRegisteredDeviceIds!=="function")return reply({ok:false,reason:"census-registry-unavailable"},503);
   let ids;try{ids=await listRegisteredDeviceIds(env,licenseCode)}
   catch{return reply({ok:false,reason:"census-registry-unavailable"},503)}
