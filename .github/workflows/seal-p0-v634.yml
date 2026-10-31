@@ -1,0 +1,44 @@
+name: seal-p0-v634
+on:
+  push:
+    branches: [fix/p0-unificar-transporte-inventario-pin-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: seal-p0-v634
+  cancel-in-progress: false
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Generate actual hash manifest and assert offline shell
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./docs/version.json').version")" = "shell v634"
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+      - name: Persist all new script hashes to isolated branch
+        run: |
+          set -euo pipefail
+          git add docs/sw.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'release(v634): seal PWA and dashboard with exact integrated sync checksums'
+            git push origin HEAD:fix/p0-unificar-transporte-inventario-pin-20261030
+          fi
+      - name: Record SHA and line counts
+        run: |
+          git rev-parse HEAD
+          wc -l docs/index.html docs/sw.js docs/adaptive-relay.js docs/sync-yjs.js docs/mock-backend.js
+          sha256sum docs/index.html docs/sw.js docs/adaptive-relay.js docs/sync-yjs.js docs/mock-backend.js
