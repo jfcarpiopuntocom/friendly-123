@@ -1,0 +1,35 @@
+name: qa-p0-relay-ownership
+on:
+  push:
+    branches: [fix/p0-unified-owner-stock-peer-v633]
+    paths: [.github/workflows/qa-p0-relay-ownership.yml]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Read-only check for existing friendly123 relay Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$CF_TOKEN" || -z "$CF_ACCOUNT" ]]; then
+            echo "RESULT=NO_RELAY_CREDENTIALS"; exit 0
+          fi
+          status=$(curl -sS --max-time 20 -o "$RUNNER_TEMP/relay-workers.json" -w '%{http_code}' \
+            -H "Authorization: Bearer $CF_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/workers/scripts")
+          if [[ "$status" != "200" ]]; then
+            echo "RESULT=RELAY_ACCOUNT_UNAVAILABLE; HTTP=$status"; exit 0
+          fi
+          node -e '
+            const fs=require("fs");
+            const j=JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP+"/relay-workers.json","utf8"));
+            const names=(j.result||[]).map(x=>x.id||x.name);
+            console.log("RESULT="+(names.includes("friendly123-sync-relay")?"FRIENDLY_RELAY_ACCOUNT_CONFIRMED":"FRIENDLY_RELAY_NOT_IN_CONNECTED_ACCOUNT"));
+          '
