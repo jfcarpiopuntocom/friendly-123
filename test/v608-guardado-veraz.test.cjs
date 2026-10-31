@@ -16,7 +16,16 @@ const FALLA=()=>{
   window.__delays=[];const st=window.setTimeout;
   window.setTimeout=function(fn,ms,...a){ if([3000,6000,12000,24000,48000].includes(ms)){window.__delays.push(ms);return st(fn,10,...a);} return st(fn,ms,...a); };
   window.__lock=true;
-  Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(n,o,cb)=>window.__lock?Promise.reject(new DOMException('lock timeout','AbortError')):Promise.resolve(cb())}});
+  // The old navigator.locks lock was removed; block the actual A/B + IDB paths.
+  const set=Storage.prototype.setItem;
+  Storage.prototype.setItem=function(k,v){
+    if(window.__lock && String(k).startsWith('f123_estado_v4'))throw new DOMException('synthetic aborted A/B write','AbortError');
+    return set.call(this,k,v);
+  };
+  const idb=window.OCEstadoIDB;
+  const strict=idb.guardarConRevision.bind(idb),background=idb.guardar.bind(idb);
+  idb.guardarConRevision=(...args)=>window.__lock?Promise.resolve(false):strict(...args);
+  idb.guardar=(...args)=>window.__lock?Promise.resolve(false):background(...args);
 };
 
 test('retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and no notice',async()=>{
