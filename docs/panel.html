@@ -226,6 +226,54 @@
 .lic-chip{display:inline-block;font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);border:1px solid var(--gold);border-radius:6px;padding:1px 6px;margin-top:2px;}
 .lic-mini{font-size:13px;padding:3px 8px;margin-top:4px;background:transparent;border:1px solid var(--gold);color:var(--gold);}
 .lic-peligro{border-color:var(--red,#E8365D);color:var(--red,#E8365D);}
+.lic-pin-devices{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;max-height:180px;overflow:auto;}
+.lic-pin-device{border:1px solid var(--border);border-radius:7px;padding:5px 8px;font:600 13px var(--mono);overflow-wrap:anywhere;}
+.lic-pin-card{width:100%;max-width:860px;box-sizing:border-box;border:1px solid var(--gold-dim);border-radius:12px;background:var(--surface);padding:clamp(12px,2vw,20px);margin:12px 0;overflow-wrap:anywhere;box-shadow:0 4px 18px rgba(0,0,0,.08);}
+.lic-pin-card[hidden]{display:none!important;}
+.lic-pin-top{display:flex;justify-content:space-between;align-items:start;gap:8px;}
+.lic-pin-top h3{margin:0 0 6px;font-size:17px;}
+.lic-pin-license{font:700 13px var(--mono);letter-spacing:.02em;word-break:break-all;}
+.lic-pin-close{background:none;border:1px solid var(--border);border-radius:8px;color:var(--ink);padding:7px 12px;min-height:36px;cursor:pointer;}
+.lic-pin-summary{font-size:14px;font-weight:700;line-height:1.5;}
+.lic-pin-hint{font-size:13px;line-height:1.55;color:var(--ink);}
+.lic-pin-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.lic-pin-fields label{display:grid;gap:6px;min-width:0;font-size:13px;font-weight:700;}
+.lic-pin-fields .lic-input{width:100%;min-width:0;box-sizing:border-box;min-height:42px;}
+.lic-pin-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;}
+.lic-pin-actions button{min-height:42px;flex:1 1 180px;max-width:100%;white-space:normal;}
+.lic-pin-actions button:disabled{opacity:.45;cursor:not-allowed;}
+.lic-pin-state{min-height:1em;font-size:13px;line-height:1.4;}
+.lic-pin-pencil{font-size:14px;min-height:36px;min-width:40px;padding:5px 9px;}
+/* JFC: visible license/PIN pencils; mobile presents complete cards instead
+   of placing 11 table columns outside the viewport. No fields are hidden. */
+@media(max-width:640px){
+  .tabla-wrap:has(#lic-tabla){max-width:100%;overflow-x:hidden;overflow-y:visible;}
+  #lic-tabla:not([style*="display: none"]){display:block!important;width:100%!important;min-width:0!important;}
+  #lic-tabla thead{display:none;}
+  #lic-tabla tbody{display:block;width:100%;min-width:0;}
+  #lic-tabla tbody tr{display:block;max-width:100%;min-width:0;box-sizing:border-box;
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:0 0 12px;padding:6px 10px;}
+  #lic-tabla tbody tr.lic-disp{border-left:3px solid var(--gold);}
+  #lic-tabla tbody td{display:grid;grid-template-columns:minmax(72px,90px) minmax(0,1fr);
+    gap:8px;padding:8px 0!important;width:100%!important;max-width:100%;min-width:0;box-sizing:border-box;
+    border-bottom:1px solid var(--border);font-size:13px;overflow-wrap:anywhere;white-space:normal;}
+  #lic-tabla tbody td:last-child{border-bottom:0;}
+  #lic-tabla tbody td::before{font-weight:700;color:var(--ink);font-size:12px;line-height:1.6;align-self:start;}
+  #lic-tabla tbody td:nth-child(1)::before{content:"Elegir";}
+  #lic-tabla tbody td:nth-child(2)::before{content:"Estado";}
+  #lic-tabla tbody td:nth-child(3)::before{content:"Licencia / PIN";}
+  #lic-tabla tbody td:nth-child(4)::before{content:"Negocio";}
+  #lic-tabla tbody td:nth-child(5)::before{content:"Aparato";}
+  #lic-tabla tbody td:nth-child(6)::before{content:"Correo";}
+  #lic-tabla tbody td:nth-child(7)::before{content:"WhatsApp";}
+  #lic-tabla tbody td:nth-child(8)::before{content:"Pago";}
+  #lic-tabla tbody td:nth-child(9)::before{content:"Activado";}
+  #lic-tabla tbody td:nth-child(10)::before{content:"Último uso";}
+  #lic-tabla tbody td:nth-child(11)::before{content:"Acciones";}
+  #lic-tabla tbody td button,#lic-tabla tbody td select{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+  #lic-tabla tbody td .lic-pin-pencil{display:inline-flex;align-items:center;justify-content:center;}
+}
+@media(max-width:520px){.lic-pin-fields{grid-template-columns:1fr;}.lic-pin-card{max-width:100%;}.lic-pin-actions button{flex-basis:100%;}}
 .lic-lapiz{background:none;border:1px solid var(--border);color:var(--ink);border-radius:6px;font-size:13px;padding:0 5px;cursor:pointer;}
 tr.lic-sel td{background:rgba(255,200,0,.10);}
 .lic-check{width:18px;height:18px;cursor:pointer;}
@@ -402,6 +450,24 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
       <button class="btn btn-primary" type="button" onclick="licCopiarMaestro()">Copiar permiso</button>
       <button class="btn btn-outline" type="button" onclick="licCerrarMaestro()">Cerrar y borrar de pantalla</button>
     </div>
+    <section id="lic-pin-control" class="lic-pin-card" hidden aria-labelledby="lic-pin-heading">
+      <div class="lic-pin-top">
+        <div><h3 id="lic-pin-heading">✎ PIN Owner · autoridad JFC</h3><div class="lic-pin-license" id="lic-pin-license"></div></div>
+        <button type="button" class="lic-pin-close" onclick="document.getElementById('lic-pin-control').hidden=true" aria-label="Cerrar editor de PIN">✕</button>
+      </div>
+      <p id="lic-pin-summary" class="lic-pin-summary">Consultando aparatos existentes…</p>
+      <div id="lic-pin-devices" class="lic-pin-devices" aria-label="Aparatos y grupos PIN registrados"></div>
+      <p class="lic-pin-hint">1. Se registran los PIN ya utilizados en aparatos licenciados, sin reemplazarlos. 2. JFC prepara y activa explícitamente una revisión. Los PIN nunca se muestran ni se guardan en este panel.</p>
+      <div class="lic-pin-fields">
+        <label for="lic-pin-new">Nuevo PIN Owner<input id="lic-pin-new" type="password" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" autocomplete="new-password" class="lic-input"></label>
+        <label for="lic-pin-confirm">Confirmar PIN<input id="lic-pin-confirm" type="password" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" autocomplete="off" class="lic-input"></label>
+      </div>
+      <div class="lic-pin-actions">
+        <button id="lic-pin-stage" type="button" class="btn btn-primary" onclick="licFijarPinAutoridad()" disabled>1 · Preparar cambio</button>
+        <button id="lic-pin-activate" type="button" class="btn btn-primary" onclick="licActivarPinAutoridad()" disabled>2 · Activar PIN central</button>
+      </div>
+      <p id="lic-pin-state" role="status" aria-live="polite" class="lic-pin-state"></p>
+    </section>
     <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
     <!-- LISTA DINAMICA v2 (JFC 2026-09-24, escala 1.000-10.000). Filtros
          combinables, orden por columna (click en el encabezado), 100 por
@@ -1714,6 +1780,7 @@ initGate();
      funciones con el mismo nombre que arriba (licRenderStats) REEMPLAZAN a las
      viejas a proposito: la nueva cuenta licencias, no aparatos. -->
 <script src="./panel-licencias.js"></script>
+<script src="./panel-pin.js"></script>
 <script>
 let _licIndice = null, _licIndiceDe = null, _licLotes = null, _licPagoActual = null, _licUltimoLote = null, _licPagoVista = 0, _licPagoLectura = 0;
 

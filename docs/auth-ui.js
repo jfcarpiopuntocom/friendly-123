@@ -1132,13 +1132,150 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     } catch (_) {}
     return entrar(rolEntrada);
   }
+  // A configured license has a single Owner PIN revision on the license Worker.
+  // No central result may change notebook quantities or local credentials.
+  async function verificarPinOwnerCentral(code) {
+    let owned,lic;
+    try {
+      owned=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+      lic=String(owned.licenseCode||"").trim().toUpperCase();
+      const active=window.OCTienda&&window.OCTienda.licenciaActual&&
+        String(window.OCTienda.licenciaActual()||"").trim().toUpperCase();
+      // Synthetic/offline fixture hosts have no registered Worker identity.
+      // They must keep testing the existing local credential path.
+      if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
+      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!owned.instanceId||
+         (active && active!==lic)) return "unavailable-identity";
+      const url=OC_WORKER_URL; // PINs must never be sent to a localStorage-controlled origin.
+      const endpoint=new URL(url);if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return "unavailable";
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
+      try {
+        const response=await fetch(endpoint.origin+"/pin/verify",{
+          method:"POST",mode:"cors",cache:"no-store",signal:controller.signal,
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({licenseCode:lic,instanceId:owned.instanceId,pin:String(code)})
+        });
+        if(response.status===200){
+          const data=await response.json();
+          if(data.ok===true&&Number.isSafeInteger(data.revision)&&data.revision>0){
+            // Central verification is authoritative. Adopt its PIN locally
+            // through the existing durable Owner rotation intent; replay into
+            // Yjs is handled separately when the encrypted channel is ready.
+            if(window.OCSecure && window.OCSecure.adoptarPinOwnerCentralVerificado){
+              try{await window.OCSecure.adoptarPinOwnerCentralVerificado(String(code),data.revision,lic)}catch(_){}
+            }
+            try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:data.revision,at:Date.now()}))}catch(_){}
+            return "owner";
+          }
+          return "unavailable";
+        }
+        if(response.status===401)return "wrong";
+        if(response.status===429)return "locked";
+        if(response.status===404)return "unavailable-identity";
+        if(response.status===409)return "unconfigured";
+        return "unavailable";
+      }finally{clearTimeout(timer)}
+    }catch(_){return "unavailable"}
+  }
+  // A deliberate Owner rotation first commits a CAS revision to the
+  // license authority. Login merely verifies; it can never rotate on its own.
+  async function rotarPinOwnerCentral(oldPin,newPin){
+    let own;try{own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{}}catch(_){return {ok:false,reason:"identity-unavailable"}}
+    const lic=String(own.licenseCode||"").trim().toUpperCase();
+    const instanceId=own.instanceId;
+    if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return {ok:true,unconfigured:true};
+    if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!instanceId)return {ok:false,reason:"identity-unavailable"};
+    const raw=OC_WORKER_URL; // pin secret cannot go to a user-overridden URL.
+    let endpoint;try{endpoint=new URL(raw)}catch(_){return {ok:false,reason:"network-unavailable"}}
+    if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return {ok:false,reason:"network-unavailable"};
+    // Clients already in production must retain their local Owner PIN editing
+    // until this exact license has actually adopted a central authority.
+    // Once a central revision was seen, outages never authorize a rollback.
+    const centralSeen=()=>{
+      try {
+        const v=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+lic)||"null");
+        return !!(v&&Number.isSafeInteger(v.revision)&&v.revision>0);
+      }catch(_){return false}
+    };
+    const legacyWhenUnprovisioned=()=>centralSeen()
+      ? {ok:false,reason:"central-authority-unavailable"}
+      : {ok:true,unconfigured:true};
+    const params={licenseCode:lic,instanceId,pin:String(oldPin)};
+    try{
+      const check=await fetch(endpoint.origin+"/pin/verify",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(params)});
+      if(check.status===409||check.status===503)return legacyWhenUnprovisioned();
+      if(!check.ok)return {ok:false,reason:"current-pin-rejected"};
+      const current=await check.json();
+      if(!current.ok||!Number.isSafeInteger(current.revision))return {ok:false,reason:"revision-unavailable"};
+      const response=await fetch(endpoint.origin+"/pin/rotate",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({...params,newPin:String(newPin),expectedRevision:current.revision})});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||result.ok!==true)return {ok:false,reason:response.status===409?"revision-conflict":"central-update-failed"};
+      try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:result.revision,at:Date.now()}))}catch(_){}
+      return {ok:true,revision:result.revision};
+    }catch(_){return legacyWhenUnprovisioned()}
+  }
+  window.F123CentralPin={verificar:verificarPinOwnerCentral,rotar:rotarPinOwnerCentral};
+  // PHASE 1: one reported local Owner credential per device per day.
+  // Reports do not modify or revoke any credential, and the server stores a
+  // peppered digest only. All devices remain on local PIN until JFC activates.
+  function registrarPinOwnerExistente(pin){
+    try{
+      if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return;
+      const own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+      const lic=String(own.licenseCode||"").trim().toUpperCase(),id=String(own.instanceId||"");
+      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!/^[a-zA-Z0-9_-]{6,120}$/.test(id))return;
+      // Fase 1: a failed upload must NOT pretend this device has reported.
+      // Existing legacy marker records attempts, not confirmed reports.
+      const marker="f123_pin_census:"+lic+":"+id;
+      const now=Date.now();
+      const lastSuccess=Number(localStorage.getItem(marker+":ok")||0);
+      const lastAttempt=Number(localStorage.getItem(marker)||0);
+      if(lastSuccess>0&&now>=lastSuccess&&now-lastSuccess<86400000)return;
+      // Max one failed attempt per six hours, even if login is repeated.
+      // This avoids quota storms and still lets an outage recover without
+      // leaving a customer's prior PIN unreported for a whole day.
+      if(lastAttempt>0&&now>=lastAttempt&&now-lastAttempt<21600000)return;
+      const dest=new URL(OC_WORKER_URL);
+      if(dest.protocol!=="https:"||dest.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return;
+      try{localStorage.setItem(marker,String(now))}catch(_){}
+      const controller=new AbortController(),t=setTimeout(()=>controller.abort(),2000);
+      fetch(dest.origin+"/pin/report",{
+        method:"POST",mode:"cors",cache:"no-store",credentials:"omit",
+        redirect:"error",referrerPolicy:"no-referrer",signal:controller.signal,
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({licenseCode:lic,instanceId:id,pin:String(pin)})
+      }).then(async r=>{
+        if(!r.ok)return;
+        const data=await r.json().catch(()=>null);
+        if(data&&data.ok===true)try{localStorage.setItem(marker+":ok",String(Date.now()))}catch(_){}
+      },()=>{}).finally(()=>clearTimeout(t));
+    }catch(_){}
+  }
+
   async function validar(code) {
     await listo;
     if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
     /* identificarPin ANTES de verificarOwner/Empleado (esos suman fallos
        al candado). Un PIN bueno no puede quedar fuera por el XOR viejo. */
     const rolHash = (window.OCSecure.identificarPin) ? await window.OCSecure.identificarPin(code) : null;
-    if (rolHash === "dueno") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
+    // Central decision supersedes stale per-browser Owner PINs when reachable.
+    // Never allow central rejection to become a staff/artist PIN bypass.
+    const central=(rolHash==="dueno"||!rolHash) && dispositivoApropiado()
+      ? await verificarPinOwnerCentral(code) : "unconfigured";
+    if(central==="owner"){registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}return alinearYEntrar(code,"dueno")}
+    if(central==="wrong"&&rolHash==="dueno"){
+      error("Este PIN Owner fue reemplazado en el panel JFC. Usa el PIN central vigente.");
+      return;
+    }
+    if(central==="locked"){error("Acceso Owner bloqueado temporalmente por seguridad.");return}
+    if(central==="unavailable-identity"&&rolHash==="dueno"){
+      error("La identidad de la licencia no coincide con el registro central. Recupera la licencia desde el panel.");return;
+    }
+    if(central==="unavailable"&&rolHash==="dueno"){
+      let seen=null;try{seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+String((JSON.parse(localStorage.getItem("f123_owned")||"{}")||{}).licenseCode||"").trim().toUpperCase())||"null")}catch(_){}
+      if(seen){error("Autoridad central del PIN no disponible. Reintenta con conexión antes de entrar como Owner.");return}
+    }
+    if (rolHash === "dueno") { if (central === "unconfigured") registrarPinOwnerExistente(code); registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
     if (rolHash === "empleado") {
       registrarExito();
       try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
