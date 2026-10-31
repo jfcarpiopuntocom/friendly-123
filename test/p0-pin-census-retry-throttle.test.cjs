@@ -11,7 +11,7 @@ const fn=source.slice(begin,end);
 const base=1800000000000;
 function fixture(host='friendly123-licencias.jfcarpio.workers.dev'){
   let now=base,calls=[],outcomes=[{status:503},{status:200,ok:true}];
-  const data=new Map([['f123_owned',JSON.stringify({licenseCode:'F123-SYNTHETIC-CASE',instanceId:'synthetic_device_123'})]]);
+  const data=new Map([['f123_owned',JSON.stringify({licenseCode:'F123-SYNTHETICCASE',instanceId:'synthetic_device_123'})]]);
   const storage={getItem:k=>data.has(k)?data.get(k):null,setItem:(k,v)=>data.set(k,String(v))};
   const ctx={location:{hostname:'friendly123.com'},localStorage:storage,
     OC_WORKER_URL:'https://'+host+'/other-path',
@@ -28,7 +28,7 @@ function fixture(host='friendly123-licencias.jfcarpio.workers.dev'){
 }
 const flush=async()=>{for(let i=0;i<4;i++)await Promise.resolve()};
 test('failed report is never marked successful; retry after six hours without rapid traffic',async()=>{
-  const x=fixture(),mark='f123_pin_census:F123-SYNTHETIC-CASE:synthetic_device_123';
+  const x=fixture(),mark='f123_pin_census:F123-SYNTHETICCASE:synthetic_device_123';
   x.run('123');await flush();
   assert.equal(x.calls.length,1);
   assert.equal(x.storage.getItem(mark+':ok'),null,'503 is not a confirmed census');
