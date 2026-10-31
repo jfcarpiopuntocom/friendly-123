@@ -1,10 +1,10 @@
 {
-  "version": "shell v633",
-  "fecha": "2026-10-30",
-  "changelog": "Owner PIN: retain rotation intent until the exact PIN and shared revision are recoverable from committed local Yjs journal. Sales, stock, photos, roles and design unchanged.",
+  "version": "shell v635",
+  "fecha": "2026-10-31",
+  "changelog": "P0: licensed notebook room across browser entries; preserve movement provenance; require durable ACK from all connected peers before clearing sender outbox. Data and historical conflicts preserved; real-device reconciliation still required.",
   "requerida": false,
-  "shell": "f123-shell-v633",
+  "shell": "f123-shell-v635",
   "apagar": [],
-  "releaseName": "shell v633",
-  "cacheGeneration": "golden180"
+  "releaseName": "shell v635",
+  "cacheGeneration": "golden181"
 }
