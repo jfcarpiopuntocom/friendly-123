@@ -37,6 +37,7 @@ jobs:
           node --check docs/sync-yjs.js
           node --check docs/peer-sync.js
           node --test --test-timeout=120000 \
+            test/p0-owner-approved-six-stock-repair.test.cjs \
             test/p0-epoch-deterministic-convergence.test.cjs \
             test/p0-v633-owner-pin-durable-intent.test.cjs \
             test/p0-v633-owner-pin-journal-real-yjs.test.cjs \
