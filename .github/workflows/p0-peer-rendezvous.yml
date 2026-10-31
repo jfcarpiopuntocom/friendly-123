@@ -1,0 +1,35 @@
+name: P0 peer rendezvous without quota loops
+on:
+  push:
+    branches: [fix/p0-peer-rendezvous-wait-20261031]
+  pull_request:
+    paths:
+      - docs/peer-sync.js
+      - docs/sync-realtime.js
+      - test/p0-peer-rendezvous-no-quota-loop.test.cjs
+      - .github/workflows/p0-peer-rendezvous.yml
+permissions:
+  contents: read
+jobs:
+  peer-connection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Syntax and regression tests (no production network)
+        run: |
+          node --check docs/peer-sync.js
+          node --check docs/sync-realtime.js
+          node --test test/p0-peer-rendezvous-no-quota-loop.test.cjs test/peer-initial-recovery.test.cjs test/peer-frame-boundary.test.cjs test/peer-buffered-nudge.test.cjs
+      - name: Real Chromium/WebKit P2P data transfer in isolated synthetic LAN
+        run: |
+          node --test --test-timeout=85000 test/peer-sync-browser.test.js
