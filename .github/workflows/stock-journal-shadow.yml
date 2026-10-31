@@ -4,6 +4,11 @@ on:
     branches:
       - lab/v603-stock-journal-shadow
   workflow_dispatch: {}
+  pull_request:
+    paths:
+      - 'lab/stock-journal/**'
+      - 'test/stock-journal-*.test.cjs'
+      - '.github/workflows/stock-journal-shadow.yml'
 jobs:
   immutable-journal:
     runs-on: ubuntu-latest
