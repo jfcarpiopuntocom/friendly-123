@@ -47,6 +47,7 @@ jobs:
           test -s /tmp/f123_v607_sync_yjs.js
           test -s /tmp/f123_v606_sync_yjs.js
       - name: Full regression suite including browser and financial contracts
+        shell: bash
         env:
           F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
           F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
