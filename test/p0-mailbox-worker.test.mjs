@@ -202,3 +202,23 @@ test('P0 actual Yjs journal: A closes, B recovers encrypted facts, B writes, A r
   assert.equal(duplicate.page.latest,2,'one write per unique envelope; no network overlap');
   Aagain.restored.doc.destroy();duplicate.restored.doc.destroy();
 });
+
+
+test('zero-cursor ACK from same device is idempotent and does not consume capacity',async()=>{
+  const store=db();
+  const append=await mailboxDoRoute(new Request('https://do.invalid/mailbox/internal',{
+    method:'POST',body:JSON.stringify({action:'append',licenseCode:license,envelope:frame()})}),store);
+  assert.equal(append.status,200);
+  for(let i=0;i<75;i++){
+    const ack=await mailboxDoRoute(new Request('https://do.invalid/mailbox/internal',{
+      method:'POST',body:JSON.stringify({action:'ack',licenseCode:license,
+        deviceId:device,cursor:0})}),store);
+    assert.equal(ack.status,200,'repeat '+i);
+  }
+  assert.equal(await store.get('ack-count'),1,'one physical device uses one capacity slot');
+  const other=await mailboxDoRoute(new Request('https://do.invalid/mailbox/internal',{
+    method:'POST',body:JSON.stringify({action:'ack',licenseCode:license,
+      deviceId:deviceB,cursor:0})}),store);
+  assert.equal(other.status,200);
+  assert.equal(await store.get('ack-count'),2);
+});
