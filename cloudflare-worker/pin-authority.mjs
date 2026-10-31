@@ -11,12 +11,18 @@ function rev(v){if(!Number.isSafeInteger(v)||v<0)throw Error("revision required"
 function equal(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length!==64||b.length!==64)return false;let d=0;for(let i=0;i<64;i++)d|=a.charCodeAt(i)^b.charCodeAt(i);return d===0}
 async function mac(secret,license,pin){if(typeof secret!=="string"||secret.length<32)throw Error("PIN_PEPPER missing");const key=await crypto.subtle.importKey("raw",enc.encode("f123-pin-owner-v1:"+secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const digest=await crypto.subtle.sign("HMAC",key,enc.encode(license+"\n"+pin));return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("")}
 function pub(r,p,observations){
- const entries=Object.values(observations?.devices||{});
+ const entries=Object.entries(observations?.devices||{}).sort((a,b)=>(a[1].at||0)-(b[1].at||0));
+ const groups=new Map();
+ const devices=entries.map(([id,value])=>{
+  if(!groups.has(value.fingerprint))groups.set(value.fingerprint,String.fromCharCode(65+groups.size));
+  return {deviceSuffix:id.slice(-8),pinGroup:groups.get(value.fingerprint),reportedAt:value.at,verified:false};
+ });
  return {
   configured:!!r,phase:r?"enforced":"collecting",revision:r?.revision??0,
   changedAt:r?.changedAt??null,changedBy:r?.changedBy??null,
   pendingRevision:p?.revision??null,pendingAt:p?.createdAt??null,
-  observedDevices:entries.length,conflictingReports:new Set(entries.map(x=>x.fingerprint)).size>1,
+  observedDevices:entries.length,conflictingReports:groups.size>1,deviceReports:devices,
+  // Only anonymous group labels and ID suffixes are returned to master admin.
   // Report provenance is client-asserted, never cryptographic proof of ownership.
   reportsVerified:false
  };
