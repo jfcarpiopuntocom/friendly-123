@@ -2,7 +2,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
-const source = fs.readFileSync(path.join(__dirname, '../docs/peer-sync.js'), 'utf8');
+const source = fs.readFileSync(process.env.F123_PEER_SYNC_SOURCE || path.join(__dirname, '../docs/peer-sync.js'), 'utf8');
 
 function fixture() {
   const window = new EventTarget(), document = new EventTarget(); document.hidden = false;
@@ -91,4 +91,43 @@ test('one failed newcomer does not interrupt an established direct peer', async 
     assert.equal(f.socket.hub.connected().length, 1);
     assert.equal(f.pending().length, 0);
   } finally { f.close(); }
+});
+
+test('P0 foreground revives exhausted metadata-only connection and resumes shared notebook without logout', async () => {
+  const f = fixture();
+  try {
+    for (let attempt=1; attempt<=5; attempt++) {
+      const pc=await f.negotiate();
+      f.advance(31000); pc.fail();
+      if (attempt<5) f.retry();
+    }
+    assert.equal(f.sockets.length,5);
+    assert.equal(f.socket.readyState,0,'no actual business data channel after five ICE failures');
+    assert.equal(f.sockets.at(-1).readyState,1,'signaling is open but business channel stalled');
+    f.window.dispatchEvent(new Event('online'));
+    assert.equal(f.sockets.length,6,'network recovery must replace stale metadata socket');
+    assert.equal(f.sockets.at(-2).readyState,3,'stale socket must be closed');
+    assert.equal(f.sockets.at(-1).readyState,0,'new signaling is connecting');
+    const next=await f.negotiate('c'.repeat(32));
+    next.dc.readyState='open'; next.dc.onopen();
+    assert.equal(f.socket.readyState,1,'same original business socket reopens after RTC negotiation');
+    assert.equal(f.socket.hub.attempts,0);
+  }finally{f.close();}
+});
+
+test('P0 reconnecting after online preserves original Yjs-facing business socket instance',async()=>{
+  const f=fixture();
+  try{
+    const same=f.socket;
+    f.sockets[0].open();
+    f.window.dispatchEvent(new Event('online'));
+    assert.equal(f.socket,same);
+    assert.equal(f.sockets.length,2);
+    assert.equal(f.sockets[0].readyState,3);
+    const pc=await f.negotiate();
+    pc.dc.readyState='open';pc.dc.onopen();
+    assert.equal(same.readyState,1);
+    f.window.dispatchEvent(new Event('online'));
+    assert.equal(f.sockets.length,2,'connected business RTC is never renegotiated unnecessarily');
+  }finally{f.close();}
 });
