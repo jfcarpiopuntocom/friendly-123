@@ -1262,7 +1262,21 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // Never allow central rejection to become a staff/artist PIN bypass.
     const central=(rolHash==="dueno"||!rolHash) && dispositivoApropiado()
       ? await verificarPinOwnerCentral(code) : "unconfigured";
-    if(central==="owner"){registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}return alinearYEntrar(code,"dueno")}
+    if(central==="owner"){
+      registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}
+      const entered=await alinearYEntrar(code,"dueno");
+      // P0 lab only: a central-verified Owner may enable the new encrypted
+      // durable Yjs backfill. No localStorage PIN or existing customer changes.
+      // Current production without this explicit flag behaves as before.
+      try{
+        if(localStorage.getItem("f123_mailbox_lab_20261031")==="1"){
+          import("./mailbox-startup.mjs").then(m=>m.ownerMailboxLogin(code))
+            .catch(()=>{try{window.dispatchEvent(new CustomEvent("oc-mailbox-state",
+              {detail:{status:"pending",code:"client-unavailable"}}))}catch(_){}});
+        }
+      }catch(_){}
+      return entered;
+    }
     if(central==="wrong"&&rolHash==="dueno"){
       error("Este PIN Owner fue reemplazado en el panel JFC. Usa el PIN central vigente.");
       return;
