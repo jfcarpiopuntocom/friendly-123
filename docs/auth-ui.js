@@ -1191,7 +1191,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try {
         if(!owned.instanceId){
           const route=await detectarRutaPinWorker(endpoint,controller.signal);
-          if(route==="current")return resolverPinNuevoAparato(endpoint,lic,code,controller.signal);
+          if(route==="current")return await resolverPinNuevoAparato(endpoint,lic,code,controller.signal);
           return route==="legacy"&&!pinCentralYaActivado(lic)?"unconfigured":"unavailable";
         }
         const response=await fetch(endpoint.origin+"/pin/verify",{
@@ -1217,7 +1217,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if(response.status===429)return "locked";
         if(response.status===404){
           const route=await detectarRutaPinWorker(endpoint,controller.signal);
-          if(route==="current")return resolverPinNuevoAparato(endpoint,lic,code,controller.signal);
+          if(route==="current")return await resolverPinNuevoAparato(endpoint,lic,code,controller.signal);
           return route==="legacy"&&!pinCentralYaActivado(lic)?"unconfigured":"unavailable";
         }
         if(response.status===409)return "unconfigured";
