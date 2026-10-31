@@ -34,11 +34,17 @@ test('failed durable save blocks speculative publication during the next pending
   assert.equal(typeof settle,'function','second attempt reached durable storage');
   assert.equal(w.OCSync.catalogoPropio(),null,
     'an unresolved retry cannot publish RAM after an earlier durable failure');
-  assert.equal(await w.OCSync.catalogoConfirmado(),null,
-    'the legacy catalog sender must not bypass the prior failure');
+  let announced=false;
+  const awaitingCatalog=w.OCSync.catalogoConfirmado().then(value=>{
+    announced=true;return value;
+  });
+  for(let i=0;i<20;i++)await tick();
+  assert.equal(announced,false,'sender must WAIT for the durable recovery ACK');
 
   settle(true);
+  const recovered=await awaitingCatalog;
   for(let i=0;i<20;i++)await tick();
+  assert.ok(recovered,'sender resumes with a confirmed catalog after recovery');
   assert.ok(w.OCSync.catalogoPropio(),
     'a successful later durable confirmation clears the publication block');
 });
