@@ -50,10 +50,14 @@ test('accepted stock republishes after a previous background save failure withou
     a.w.OCYjs._store.aplicar();
   };
   transfer();await a.flush();await b.flush();
+  // Reproduce failure in the CURRENT A/B + IDB durability path.
+  // navigator.locks was retired; injecting a Web Lock rejection did nothing.
   let fail=true;
-  a.w.navigator.locks={request:(name,options,fn)=>String(name).startsWith('f123-estado-ab')&&fail
-    ?Promise.reject(Object.assign(Error('Synthetic lock failure'),{name:'AbortError'}))
-    :Promise.resolve((fn||options)())};
+  const setItem=a.w.localStorage.setItem.bind(a.w.localStorage);
+  a.w.localStorage.setItem=(key,value)=>{
+    if(fail)throw Object.assign(Error('Synthetic durable write failure'),{name:'AbortError'});
+    return setItem(key,value);
+  };
   await a.w.request('/api/productos/synthetic-stock','PATCH',{nombre:'Synthetic pending background save'});
   await settle();await a.flush();
   assert.equal(a.w.OCSync.catalogoPropio(),null,'failed storage still blocks publication');
