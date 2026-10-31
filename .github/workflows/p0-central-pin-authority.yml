@@ -37,6 +37,7 @@ jobs:
           node --check docs/auth-ui.js
           node --check docs/avanzado-extra.js
           node --check docs/panel-pin.js
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch -q --no-tags --depth=1 origin master
           git diff --check FETCH_HEAD HEAD
       - name: PIN authority, identity, recovery and WebKit regressions
