@@ -148,3 +148,35 @@ test('P0 replica with stock 3/4/7/7/6 converges with replica 7/7/7/7/7 across fi
     assert.equal(x.stockEpochId,y.stockEpochId);
   }
 });
+
+test('P0 regression: equal snapshots with distinct epochs stay converged after a normal movement',async()=>{
+  const a=browser(),b=browser();
+  await seed(a,'E-A',7,{},1000);
+  await seed(b,'E-B',7,{},2000);
+  for(let i=0;i<3;i++){
+    const ac=a.catalog(),bc=b.catalog();
+    a.OCSync.aplicarCatalogo(bc,null);
+    b.OCSync.aplicarCatalogo(ac,null);
+  }
+  assert.equal((await item(a)).stockActual,7);
+  assert.equal((await item(b)).stockActual,7);
+  const response=await a.request('/api/productos/epoch-convergence/ajustar','POST',{
+    delta:-1,motivo:'Synthetic normal inventory movement'
+  });
+  assert.ok(response,'the movement has an API response');
+  assert.equal((await item(a)).stockActual,6);
+  for(let i=0;i<6;i++){
+    const ac=a.catalog(),bc=b.catalog();
+    a.OCSync.aplicarCatalogo(bc,null);
+    b.OCSync.aplicarCatalogo(ac,null);
+  }
+  assert.equal((await item(a)).stockActual,6,'origin keeps its durable movement');
+  assert.equal((await item(b)).stockActual,6,'remote replica gets the same movement once');
+  for(let i=0;i<4;i++){
+    const ac=a.catalog(),bc=b.catalog();
+    a.OCSync.aplicarCatalogo(bc,null);
+    b.OCSync.aplicarCatalogo(ac,null);
+  }
+  assert.equal((await item(a)).stockActual,6,'replay does not duplicate');
+  assert.equal((await item(b)).stockActual,6,'restart/replay projection stable');
+});
