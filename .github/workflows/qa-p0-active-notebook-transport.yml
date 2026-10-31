@@ -45,6 +45,9 @@ jobs:
       - name: Durable opId and cross-notebook provenance
         run: |
           node --test --test-timeout=90000 test/p0-opid-before-yjs.test.cjs
+      - name: Multi-peer durable ACK unit regression
+        run: |
+          node --test --test-timeout=90000 test/sync-peer-durable.test.js
       - name: Three isolated browsers actual WebRTC and durable recovery
         run: |
           node --test --test-timeout=90000 test/peer-sync-browser.test.js
