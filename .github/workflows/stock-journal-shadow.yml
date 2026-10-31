@@ -1,0 +1,41 @@
+name: stock-journal-shadow-only
+on:
+  push:
+    branches:
+      - lab/v603-stock-journal-shadow
+  workflow_dispatch: {}
+jobs:
+  immutable-journal:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax of dormant standalone engine
+        run: node --check lab/stock-journal/engine.cjs
+      - name: Causal counts, preorders, three offline peers, backup and idempotence
+        run: |
+          node --check lab/stock-journal/yjs-bridge.cjs
+          node --check lab/stock-journal/legacy-preflight.cjs
+          node --check lab/stock-journal/forensic-reconciliation.cjs
+          node --check test/stock-journal-forensic-reconciliation.test.cjs
+          node --test test/stock-journal-invariants.test.cjs test/stock-journal-yjs.test.cjs test/stock-journal-adversarial.test.cjs test/stock-journal-legacy-preflight.test.cjs test/stock-journal-forensic-reconciliation.test.cjs
+  browser-two-peers:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install local Chromium fixture only
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+      - name: One real Chromium two-browser offline preorder plus backup roundtrip
+        run: node --test test/stock-journal-browser.test.cjs
