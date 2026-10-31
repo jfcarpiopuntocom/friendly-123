@@ -1,0 +1,41 @@
+name: P0 prove native A-B conflict forensic readback
+on:
+  push:
+    branches: [fix/p0-failed-save-publication-20261031]
+    paths: [.github/workflows/p0-ab-conflict-verify-once.yml]
+permissions:
+  contents: write
+jobs:
+  browser-test:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Preserve both conflicting raw histories and reject unsafe mutations
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/ab-conflict-browser.test.cjs
+          git diff --check
+          bash check-sw.sh
+      - name: Remove temporary diagnostic job only after PASS
+        run: |
+          set -euo pipefail
+          git config user.name "friendly-123 release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/p0-ab-conflict-verify-once.yml
+          git commit -m "ci(P0): remove completed A-B forensic one-shot gate"
+          git push origin HEAD:refs/heads/fix/p0-failed-save-publication-20261031
