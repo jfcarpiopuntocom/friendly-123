@@ -7,6 +7,7 @@ const lic="F123-SYNTHETIC-BUSINESS",device="synthetic-abc123";
 function memory(){
  let data=new Map([device,"synthetic-mobile"].map(instanceId=>["inst:"+instanceId,{instanceId,licenseCode:lic,estado:"full"}]));
  return {get:async key=>structuredClone(data.get(key)),
+ list:async({prefix="",startAfter}={})=>new Map([...data].filter(([key])=>key.startsWith(prefix)&&(!startAfter||key>startAfter))),
  put:async(key,v)=>{data.set(key,structuredClone(v))},
  delete:async key=>{data.delete(key)},
  transaction:async fn=>{
