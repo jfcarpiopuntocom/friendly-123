@@ -60,3 +60,20 @@ jobs:
       - name: Existing active notebook Yjs regressions
         run: |
           node --test --test-timeout=90000 test/yjs-active-notebook-identity.test.cjs
+
+  native-webkit-macos:
+    runs-on: macos-15
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install native macOS WebKit test engine
+        run: npx playwright install webkit
+      - name: Real RTC between three independent browser stores (no skip allowed)
+        env:
+          F123_REQUIRE_WEBKIT: '1'
+        run: node --test --test-name-pattern="direct webkit" --test-timeout=90000 test/peer-sync-browser.test.js
