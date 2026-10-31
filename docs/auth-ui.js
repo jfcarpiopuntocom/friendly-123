@@ -1134,6 +1134,24 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
   // A configured license has a single Owner PIN revision on the license Worker.
   // No central result may change notebook quantities or local credentials.
+  // The older deployed license Worker has no /pin/verify route (GET => 404).
+  // The new Worker explicitly recognizes the route (GET => 405). Probe without
+  // a PIN only after an ambiguous POST 404. Never classify an error by text.
+  async function estadoRutaPinCentral(endpoint,signal){
+    try{
+      const res=await fetch(endpoint.origin+"/pin/verify",{
+        method:"GET",mode:"cors",cache:"no-store",credentials:"omit",
+        redirect:"error",signal
+      });
+      return res.status===404?"absent":res.status===405?"supported":"unknown";
+    }catch(_){return "unknown"}
+  }
+  function pinCentralYaActivado(lic){
+    try{
+      const marker=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+lic)||"null");
+      return !!(marker&&Number.isSafeInteger(marker.revision)&&marker.revision>0);
+    }catch(_){return false}
+  }
   async function verificarPinOwnerCentral(code) {
     let owned,lic;
     try {
@@ -1171,7 +1189,14 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         }
         if(response.status===401)return "wrong";
         if(response.status===429)return "locked";
-        if(response.status===404)return "unavailable-identity";
+        if(response.status===404){
+          // An explicit mismatch from the current Worker must still deny entry.
+          const result=await response.json().catch(()=>null);
+          if(result&&result.reason==="license-instance-mismatch")return "unavailable-identity";
+          // Only a verified missing route can retain pre-census local access.
+          const route=await estadoRutaPinCentral(endpoint,controller.signal);
+          return route==="absent"&&!pinCentralYaActivado(lic)?"unconfigured":"unavailable";
+        }
         if(response.status===409)return "unconfigured";
         return "unavailable";
       }finally{clearTimeout(timer)}
@@ -1203,6 +1228,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const params={licenseCode:lic,instanceId,pin:String(oldPin)};
     try{
       const check=await fetch(endpoint.origin+"/pin/verify",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(params)});
+      if(check.status===404){
+        const route=await estadoRutaPinCentral(endpoint);
+        if(route==="absent")return legacyWhenUnprovisioned();
+        return {ok:false,reason:"current-pin-rejected"};
+      }
       if(check.status===409||check.status===503)return legacyWhenUnprovisioned();
       if(!check.ok)return {ok:false,reason:"current-pin-rejected"};
       const current=await check.json();
