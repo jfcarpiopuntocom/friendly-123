@@ -1,0 +1,33 @@
+name: p0 encrypted mailbox (isolated)
+on:
+  push:
+    branches:
+      - feature/p0-encrypted-durable-mailbox-20261031
+  pull_request:
+    paths:
+      - 'cloudflare-worker/mailbox-api.mjs'
+      - 'cloudflare-worker/worker.js'
+      - 'cloudflare-worker/wrangler.toml'
+      - 'test/p0-mailbox-worker.test.mjs'
+      - '.github/workflows/p0-encrypted-mailbox.yml'
+permissions:
+  contents: read
+jobs:
+  mailbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Syntax, signature and ephemeral Owner sessions
+        run: |
+          node --check cloudflare-worker/mailbox-api.mjs
+          node --check cloudflare-worker/worker.js
+          node --test test/p0-mailbox-worker.test.mjs
+      - name: Verify Cloudflare Worker and binding without deploying
+        run: |
+          npx wrangler deploy --dry-run --config cloudflare-worker/wrangler.toml --outdir /tmp/f123-mailbox
