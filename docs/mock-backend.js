@@ -3472,9 +3472,12 @@
      This NEVER changes the displayed stock or invents a common baseline. */
   function _pruebasStockUnir(...fuentes) {
     const out = {};
-    function guardar(base, pn, ts) {
+    function guardar(base, pn, ts, epoch) {
       if (base == null || !Number.isSafeInteger(Number(base)) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
-      const key = String(Number(base));
+      const ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+      // Distinct physical epochs may reuse the SAME numeric base.
+      // Keep legacy numeric keys for old backups; add epoch-scoped keys for new ones.
+      const key = ep ? JSON.stringify([Number(base),ep]) : String(Number(base));
       const prev = out[key] || {};
       const acc = Object.assign({}, prev.pn || {});
       Object.keys(pn).sort().forEach((id) => {
@@ -3485,20 +3488,21 @@
         acc[id] = { add: Math.max(Number(old.add) || 0, a),
                     sub: Math.max(Number(old.sub) || 0, b) };
       });
-      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0) };
+      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0),
+        ...(ep ? {epoch:ep} : {}) };
     }
     fuentes.forEach((x) => {
       if (!x) return;
       const e = x.stockEvidencias;
       if (e && typeof e === "object" && !Array.isArray(e)) {
         Object.keys(e).sort().forEach((key) => {
-          const v = e[key]; if (v) guardar(v.base, v.pn, v.ts);
+          const v = e[key]; if (v) guardar(v.base, v.pn, v.ts, v.epoch);
         });
       }
     });
-    fuentes.forEach((x) => { if (x) guardar(x.stockBase, x.stockPN, x.stockTs); });
+    fuentes.forEach((x) => { if (x) guardar(x.stockBase, x.stockPN, x.stockTs, x.stockEpochId); });
     const sorted = {};
-    Object.keys(out).sort((a,b) => Number(a)-Number(b)).forEach((key) => { sorted[key] = out[key]; });
+    Object.keys(out).sort((a,b) => (Number(a)-Number(b)) || a.localeCompare(b)).forEach((key) => { sorted[key] = out[key]; });
     return sorted;
   }
   function _prepararOpStock(payload, idOperacion) {
@@ -4177,13 +4181,21 @@
           try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto",
             {detail:{productoId:mio.id, epochConflict:true}})); } catch (_) {}
         }
-        const protectedStock = epochLocal && epochRemote && epochConflict
+        // Two independently recorded epochs must project the SAME effective
+        // stock on every replica. Choose one display epoch by (stockTs, epochId)
+        // regardless of message direction; retain both sets of movement witnesses.
+        // This is a stable projection choice, NOT a physical recount or deletion.
+        const _epochDoble = !!(epochLocal && epochRemote && epochConflict);
+        const _epochRemoteGana = _epochDoble &&
+          (_tsR > _tsL || (_tsR === _tsL && epochRemote > epochLocal));
+        const protectedStock = _epochDoble && !_epochRemoteGana
           ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
              actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
           : null;
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
         if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
+            _epochDoble ||
             (mio.stockEvidencias && Object.keys(mio.stockEvidencias).length) ||
             (p.stockEvidencias && Object.keys(p.stockEvidencias).length)) {
           const evidence = _pruebasStockUnir(mio, p);
@@ -4192,7 +4204,20 @@
             try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if (epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) {
+        if (_epochRemoteGana && _baseR !== null) {
+          const pn = JSON.parse(JSON.stringify(_pnR || {}));
+          const net = _baseR + Object.keys(pn).reduce((sum,id) =>
+            sum + (Number(pn[id].add)||0) - (Number(pn[id].sub)||0), 0);
+          if (Number.isSafeInteger(net)) {
+            mio.stockEpochId = epochRemote;
+            mio.stockBase = _baseR;
+            mio.stockPN = pn;
+            mio.stockActual = Math.max(0, net);
+            mio.stockDeficit = Math.max(0, -net);
+            mio.stockTs = _tsR;
+            actualizados++;
+          }
+        } else if (epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) {
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
