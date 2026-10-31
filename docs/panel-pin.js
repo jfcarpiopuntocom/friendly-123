@@ -11,7 +11,7 @@ function render(s){
  selected.revision=s.revision;selected.pendingRevision=s.pendingRevision;
  const summary=el("lic-pin-summary");
  if(summary)summary.textContent=(s.configured?"PIN central activo · revisión "+s.revision:"Fase 1 · recopilando PIN anteriores")+
-  " · "+s.observedDevices+(selected.knownDevices?" / "+selected.knownDevices:"")+" aparatos registrados"+
+  " · "+s.observedDevices+" / "+(Number.isSafeInteger(s.registeredDevices)?s.registeredDevices:"?")+" aparatos registrados"+
   (s.conflictingReports?" · PIN distintos detectados":"")+
   (s.pendingRevision!==null?" · propuesta "+s.pendingRevision+" pendiente":"");
  const list=el("lic-pin-devices");
@@ -27,7 +27,7 @@ function render(s){
  // Phase 1: JFC must be able to see an existing-PIN report from EVERY
  // registered device before coordinating a forced revision. Missing devices
  // keep their existing access; no silent forced migration in production.
- const censusComplete=selected.knownDevices>0 && s.observedDevices>=selected.knownDevices;
+ const censusComplete=s.censusComplete===true; // exact authoritative ID coverage, never count guessed in UI
  selected.censusComplete=censusComplete;
  if(stage)stage.disabled=!censusComplete;
  if(activate)activate.disabled=!censusComplete || s.pendingRevision===null;
