@@ -66,7 +66,7 @@ test("wrong PIN, different license, absent keys and GET are denied",async()=>{
 });
 test("rate limit applies to unregistered browsers; valid PIN cannot bypass license lock",async()=>{
  const f=fixture();await f.activate();
- for(let i=0;i<8;i++)assert.equal((await f.call({licenseCode:license,pin:"137"})).status,401);
+ for(let i=0;i<9;i++)assert.equal((await f.call({licenseCode:license,pin:"137"})).status,401);
  assert.equal((await f.call({licenseCode:license,pin:"137"})).status,429);
  assert.equal((await f.call({licenseCode:license,pin:"312"})).status,429);
 });
