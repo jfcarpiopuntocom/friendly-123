@@ -1,0 +1,29 @@
+name: P0 stock physical epoch lab only
+on:
+  push:
+    branches: [fix/p0-epoch-followup-movements-20261031]
+  pull_request:
+    paths:
+      - docs/mock-backend.js
+      - docs/sync-yjs.js
+      - test/p0-epoch-deterministic-convergence.test.cjs
+permissions:
+  contents: read
+jobs:
+  epoch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Static and executable physical ledger regressions
+        run: |
+          node --check docs/mock-backend.js
+          node --check docs/sync-yjs.js
+          node --test --test-timeout=90000 \
+            test/p0-epoch-deterministic-convergence.test.cjs \
+            test/stock-base-conflicto-v515.test.js \
+            test/incident-v602-relay-null-stock-epoch.test.cjs \
+            test/incident-v608-publication-after-recovery.test.cjs
