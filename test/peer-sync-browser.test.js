@@ -51,8 +51,8 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     const existing='C:/Users/JFC/AppData/Local/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-win64/chrome-headless-shell.exe';
     if(name==='chromium'&&!fs.existsSync(engine.executablePath())&&fs.existsSync(existing))launch.executablePath=existing;
     browser=await engine.launch(launch);
-    const first=await browser.newContext(),second=await browser.newContext();
-    for(const context of [first,second])await context.route('**/*',route=>route.request().url().startsWith(address)?route.continue():route.abort());
+    const first=await browser.newContext(),second=await browser.newContext(),third=await browser.newContext();
+    for(const context of [first,second,third])await context.route('**/*',route=>route.request().url().startsWith(address)?route.continue():route.abort());
     const probe=await first.newPage();await probe.goto(address);
     const rtc=await probe.evaluate(()=>typeof RTCPeerConnection==='function');
     if(!rtc){
@@ -148,10 +148,33 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     const reopened=await boot(second,null);
     await reopened.waitForFunction(()=>doc.getMap('business').get('record')?.total===43.25,{},{timeout:5000});
     assert.equal(await reopened.evaluate(()=>doc.getMap('business').get('record').photo),seed.photo);
+    // Third isolated browser joins AFTER the first two have exchanged and
+    // one was re-opened: it must receive exact history and pass new moves back.
+    const c=await boot(third,null);
+    await c.waitForFunction(()=>doc.getMap('business').get('record')?.total===43.25,{},{timeout:12000});
+    await c.evaluate(()=>{
+      const old=doc.getMap('business').get('record');
+      doc.getMap('business').set('record',{...old,total:47.75,stock:11,history:old.history.concat('third-browser-move')});
+    });
+    for(const page of [a,reopened])
+      await page.waitForFunction(()=>doc.getMap('business').get('record')?.total===47.75,{},{timeout:12000});
+    await c.waitForFunction(()=>channel.pendientesRelay===0,{},{timeout:12000});
+    const exactly=await Promise.all([a,reopened,c].map(page=>page.evaluate(
+      ()=>({record:doc.getMap('business').get('record'),revision:channel.pendientesRelay}))));
+    for(const entry of exactly){
+      assert.equal(entry.record.stock,11,'latest genuine third-browser movement propagates');
+      assert.deepEqual(entry.record.history,['sale','payment','edit','third-browser-move']);
+      assert.equal(entry.revision,0,'no unacknowledged ciphertext after three-way delivery');
+    }
+    await c.close();
+    const cRestart=await boot(third,null);
+    await cRestart.waitForFunction(()=>doc.getMap('business').get('record')?.total===47.75,{},{timeout:12000});
+    const durable=await cRestart.evaluate(()=>doc.getMap('business').get('record'));
+    assert.equal(durable.stock,11,'independent third browser keeps its journal across restart');
     assert.equal(invalidMetadata,0,'real browser connection metadata passes the restrictive coordinator');
     assert.ok(stunRequests>0,'native browsers exercised address discovery without a TURN/business relay');
     assert.ok(metadataBytes<100000,'fixture transfers large photo directly, keeping coordination small');
-    await first.close();await second.close();
+    await first.close();await second.close();await third.close();
   }finally{
     if(browser)await browser.close();for(const clients of groups.values())for(const socket of clients.values())socket.terminate();
     if(wss)await new Promise(resolve=>wss.close(resolve));if(server)await new Promise(resolve=>server.close(resolve));
