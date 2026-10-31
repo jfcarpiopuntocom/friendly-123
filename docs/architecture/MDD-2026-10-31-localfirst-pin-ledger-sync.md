@@ -47,3 +47,13 @@ JFC reporta nueve días consumidos intentando conseguir convergencia. Las cinco 
 - #2 por diseñar después de #3/#1/#5; #4 pendiente discusión.
 
 No secretos en este ADR. Prohibido convertir esta aprobación arquitectónica en autorización de activar cambios de PIN de clientes con censo parcial.
+
+
+## v636 · transporte por cuaderno activo y ACK durable real · 31/oct
+
+- Producción previa conservada: `estable` v635 mientras se prueba candidato. PR #513 fusionado en master SHA `f3846f5d0adbe872fb4409f5d8dd22f5cddc1e16`, shell v636 / golden183.
+- Fallo real reproducido en Mac WebKit: en tres réplicas, A conservaba dos movimientos con ACK cruzados de B y C aun cuando ambos almacenamientos habían confirmado. Evidencia CI #41203747317; ninguna confirmación de salida podía inventarse.
+- Solución integrada: `peer-sync.js` reintenta únicamente tramas cifradas para peers WebRTC que todavía deben ACK, con un temporizador por socket y máximo tres intentos por ciclo (presupuesto 8). Las operaciones siguen en outbox hasta recibo durable. `sync-realtime.js` ata el transporte a `OCTienda.licenciaActual()`, preserva proveniencia de operaciones, evita mezclar licencias y no transforma cantidades en 7.
+- Pruebas reales tres réplicas: WebKit macOS #41204004308 PASS sin omitir el caso; unidad/Chromium + manifest de 121 archivos SHA256 #41204000989 PASS. PR #513 conserva `docs/peer-sync.js` SHA256 `ba9bbdbc8c688529cf38be4ddbe192cbe0b38572b5a7c1ef577f6690e36efb1d`.
+- Hotfix inicial #41204150703 hizo fallar una transferencia Chromium bajo contención de 146 pruebas simultáneas (timeout 12s); eso bloqueó correctamente la publicación. PR #514 ajustó **solo QA**, para elegir la totalidad de cambios entre `estable` y master y ejecutar los tres navegadores aislados, seguidos del resto de las pruebas, sin saltarse aserciones.
+- Prohibido declarar convergencia PC–Safari–PWA hasta cotejar respaldos y opIDs auténticos; el navegador PC aún mostraba Offline — saved locally, James Bond 3 y Hielo del Chimborazo 4. No hay PIN real modificado ni ajustes automáticos.
