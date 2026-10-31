@@ -21,7 +21,7 @@ async function seed(w, epoch, base, pn, ts) {
 }
 const item=async w=>(await w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='epoch-convergence');
 
-test('P0 opposite order of explicit epoch catalog merger yields identical inventory',async()=>{
+test('P0 rival explicit epochs preserve each physical count and both witness histories',async()=>{
   const a=browser(),b=browser();
   await seed(a,'E-OLDER',7,{actorA:{add:2,sub:0}},1000);
   await seed(b,'E-NEWER',7,{actorB:{add:0,sub:1}},2000);
@@ -29,11 +29,10 @@ test('P0 opposite order of explicit epoch catalog merger yields identical invent
   const ar=a.catalog(),br=b.catalog();
   a.OCSync.aplicarCatalogo(br,null);
   b.OCSync.aplicarCatalogo(ar,null);
-  for(const w of [a,b]){
+  for(const [w,expected,epoch] of [[a,9,'E-OLDER'],[b,6,'E-NEWER']]){
     const p=await item(w);
-    assert.equal(p.stockActual,6);
-    assert.equal(p.stockEpochId,'E-NEWER');
-    assert.equal(p.stockPN.actorB.sub,1);
+    assert.equal(p.stockActual,expected);
+    assert.equal(p.stockEpochId,epoch);
     assert.equal(p.stockEvidencias?.[JSON.stringify([7,'E-OLDER'])]?.pn?.actorA?.add,2,
       'losing same-base epoch survives full product export');
     assert.equal(p.stockEvidencias?.[JSON.stringify([7,'E-NEWER'])]?.pn?.actorB?.sub,1,
@@ -43,19 +42,20 @@ test('P0 opposite order of explicit epoch catalog merger yields identical invent
     const aa=a.catalog(),bb=b.catalog();
     a.OCSync.aplicarCatalogo(bb,null);b.OCSync.aplicarCatalogo(aa,null);
   }
-  assert.equal((await item(a)).stockActual,(await item(b)).stockActual);
+  assert.equal((await item(a)).stockActual,9);
+  assert.equal((await item(b)).stockActual,6);
 });
 
-test('P0 equal timestamps deterministically choose epoch id and keep distinct baseline evidence',async()=>{
+test('P0 equal timestamps retain independent explicit epochs and their evidence',async()=>{
   const a=browser(),b=browser();
   await seed(a,'E-A',5,{actorA:{add:3,sub:0}},5000);
   await seed(b,'E-Z',9,{actorB:{add:0,sub:2}},5000);
   const ar=a.catalog(),br=b.catalog();
   b.OCSync.aplicarCatalogo(ar,null);a.OCSync.aplicarCatalogo(br,null);
-  for(const w of [a,b]){
+  for(const [w,expected,epoch] of [[a,8,'E-A'],[b,7,'E-Z']]){
     const p=await item(w);
-    assert.equal(p.stockActual,7);
-    assert.equal(p.stockEpochId,'E-Z');
+    assert.equal(p.stockActual,expected);
+    assert.equal(p.stockEpochId,epoch);
     assert.ok(p.stockEvidencias?.[JSON.stringify([5,'E-A'])]?.pn?.actorA?.add===3,
       'losing independent epoch is exported with its identity');
     assert.ok(p.stockEvidencias?.[JSON.stringify([9,'E-Z'])]?.pn?.actorB?.sub===2,
@@ -89,16 +89,16 @@ async function converge(a,b,reverse=false){
     await new Promise(resolve=>setImmediate(resolve));
   }
 }
-test('P0 encrypted Yjs documents eventually agree under opposite epoch replay order',async()=>{
+test('P0 Yjs cross-replay retains both movement witnesses without forging physical agreement',async()=>{
   for(const reverse of [false,true,false,true,false,true]){
     const a=await ypeer(),b=await ypeer();
     await seed(a,'E-OLDER',7,{actorA:{add:2,sub:0}},1000);
     await seed(b,'E-NEWER',7,{actorB:{add:0,sub:1}},2000);
     await converge(a,b,reverse);
     const pa=await item(a),pb=await item(b);
-    assert.equal(pa.stockActual,pb.stockActual,'same physical number on both replicas');
-    assert.equal(pa.stockActual,6);
-    assert.equal(pa.stockEpochId,'E-NEWER');
+    assert.equal(pa.stockActual,9,'first device retains its physical count');
+    assert.equal(pb.stockActual,6,'second device retains its physical count');
+    assert.equal(pa.stockEpochId,'E-OLDER');
     assert.equal(pb.stockEpochId,'E-NEWER');
     assert.ok(a.OCYjs.stockPNTestigos.size>=2,'both source movement witnesses retained');
     assert.ok(b.OCYjs.stockPNTestigos.size>=2,'receiver retained both movement witnesses');
@@ -114,10 +114,11 @@ test('P0 encrypted Yjs documents eventually agree under opposite epoch replay or
         'export retains new epoch as active or historic evidence');
     }
     await converge(b,a,!reverse);
-    assert.equal((await item(a)).stockActual,(await item(b)).stockActual,'idempotent replay');
+    assert.equal((await item(a)).stockActual,9,'stable old epoch');
+    assert.equal((await item(b)).stockActual,6,'stable new epoch');
   }
 });
-test('P0 replica with stock 3/4/7/7/6/16 converges with replica 7/7/7/7/7/7 across six synthetic items',async()=>{
+test('P0 six discrepant physical counts remain intact until owner-authorized reconciliation',async()=>{
   const a=browser(),b=browser();
   const fa=await a.request('/api/respaldo/exportar');
   const fb=await b.request('/api/respaldo/exportar');
@@ -143,8 +144,8 @@ test('P0 replica with stock 3/4/7/7/6/16 converges with replica 7/7/7/7/7/7 acro
   for(let i=0;i<6;i++){
     const x=aa.find(p=>p.id==='synthetic-item-'+i);
     const y=bb.find(p=>p.id==='synthetic-item-'+i);
-    assert.equal(x.stockActual,y.stockActual,'product '+i+' must converge');
-    assert.equal(x.stockActual,7);
-    assert.equal(x.stockEpochId,y.stockEpochId);
+    assert.equal(x.stockActual,pca[i],'PC physical ledger untouched for product '+i);
+    assert.equal(y.stockActual,7,'phone physical ledger untouched for product '+i);
+    assert.notEqual(x.stockEpochId,y.stockEpochId,'unreconciled physical epochs remain distinct');
   }
 });
