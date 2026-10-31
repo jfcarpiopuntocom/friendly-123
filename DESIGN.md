@@ -163,3 +163,7 @@ respecto de la paginación, dentro del pie y del marco.
 Ajuste de JFC (2026-10-17): 30% menos intensidad de color; opacidad del logo 70%.
 La transparencia se aplica exclusivamente al logo, conservando la tinta de la paginación.
 Cabecera y marco se repiten en cada página; pie con marca y página/total.
+
+## JFC 2026-10-31 — Nombre de negocio: contorno NEGRO proporcional
+
+En la cabecera de la app (`#oc-negocio-nombre`) y en dashboard (`#neg-nombre`) usar exactamente el amarillo del logo `#EFC31A`, el peso de la tipografía display, y borde **negro #000 proporcional al tamaño de la letra**: `-webkit-text-stroke: .08em #000`. El valor en `em` es relativo a `font-size` de ese nombre; prohibido volver a `1px`, otro ancho absoluto o un azul de sustitución. Fuente CSS y paquete publicado deben coincidir. Verificar en Chromium y WebKit con letra de 20 y 30 px, en ancho de móvil y escritorio. No modifica PIN, identidad ni inventario. La uniformidad de la marca no autoriza publicar un shell que aún falle las pruebas de acceso/sync.
