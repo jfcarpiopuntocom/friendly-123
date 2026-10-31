@@ -1132,12 +1132,67 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     } catch (_) {}
     return entrar(rolEntrada);
   }
+  // A configured license has a single Owner PIN revision on the license Worker.
+  // No central result may change notebook quantities or local credentials.
+  async function verificarPinOwnerCentral(code) {
+    let owned,lic;
+    try {
+      owned=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+      lic=String(owned.licenseCode||"").trim().toUpperCase();
+      const active=window.OCTienda&&window.OCTienda.licenciaActual&&
+        String(window.OCTienda.licenciaActual()||"").trim().toUpperCase();
+      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!owned.instanceId||
+         (active && active!==lic)) return "unavailable-identity";
+      // Synthetic test harnesses never send real license PINs to production.
+      if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
+      const url=(localStorage.getItem("f123_cf_worker_url")||"").trim()||OC_WORKER_URL;
+      const endpoint=new URL(url);if(endpoint.protocol!=="https:")return "unavailable";
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
+      try {
+        const response=await fetch(endpoint.origin+"/pin/verify",{
+          method:"POST",mode:"cors",cache:"no-store",signal:controller.signal,
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({licenseCode:lic,instanceId:owned.instanceId,pin:String(code)})
+        });
+        if(response.status===200){
+          const data=await response.json();
+          if(data.ok===true&&Number.isSafeInteger(data.revision)&&data.revision>0){
+            try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:data.revision,at:Date.now()}))}catch(_){}
+            return "owner";
+          }
+          return "unavailable";
+        }
+        if(response.status===401)return "wrong";
+        if(response.status===429)return "locked";
+        if(response.status===404)return "unavailable-identity";
+        if(response.status===409)return "unconfigured";
+        return "unavailable";
+      }finally{clearTimeout(timer)}
+    }catch(_){return "unavailable"}
+  }
   async function validar(code) {
     await listo;
     if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
     /* identificarPin ANTES de verificarOwner/Empleado (esos suman fallos
        al candado). Un PIN bueno no puede quedar fuera por el XOR viejo. */
     const rolHash = (window.OCSecure.identificarPin) ? await window.OCSecure.identificarPin(code) : null;
+    // Central decision supersedes stale per-browser Owner PINs when reachable.
+    // Never allow central rejection to become a staff/artist PIN bypass.
+    const central=(rolHash==="dueno"||!rolHash) && dispositivoApropiado()
+      ? await verificarPinOwnerCentral(code) : "unconfigured";
+    if(central==="owner"){registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}return alinearYEntrar(code,"dueno")}
+    if(central==="wrong"&&rolHash==="dueno"){
+      error("Este PIN Owner fue reemplazado en el panel JFC. Usa el PIN central vigente.");
+      return;
+    }
+    if(central==="locked"){error("Acceso Owner bloqueado temporalmente por seguridad.");return}
+    if(central==="unavailable-identity"&&rolHash==="dueno"){
+      error("La identidad de la licencia no coincide con el registro central. Recupera la licencia desde el panel.");return;
+    }
+    if(central==="unavailable"&&rolHash==="dueno"){
+      let seen=null;try{seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+String((JSON.parse(localStorage.getItem("f123_owned")||"{}")||{}).licenseCode||"").trim().toUpperCase())||"null")}catch(_){}
+      if(seen){error("Autoridad central del PIN no disponible. Reintenta con conexión antes de entrar como Owner.");return}
+    }
     if (rolHash === "dueno") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
     if (rolHash === "empleado") {
       registrarExito();
