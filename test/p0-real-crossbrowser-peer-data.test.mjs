@@ -10,16 +10,16 @@ test('P0 real RTCDataChannel exchanges business packets between Chromium and Saf
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const origin='http://127.0.0.1:'+server.address().port;
  const peers=new Map();let a,b;const instances=[];
- async function deliver(p,msg){await p.evaluate(m=>window.__testRecv?.(m),msg)}
+ function deliver(p,msg){setImmediate(()=>{p.evaluate(m=>window.__testRecv?.(m),msg).catch(()=>{});});}
  async function register(page,id) {
    peers.set(id,page);
    const identities=[...peers.keys()];
-   for(const p of peers.values())await deliver(p,{v:1,k:'peers',peers:identities});
+   for(const p of peers.values())deliver(p,{v:1,k:'peers',peers:identities});
  }
  async function signal(page,m) {
    if(m.kind==='register')return register(page,m.id);
    if(m.kind==='close'){for(const [id,p] of peers)if(p===page)peers.delete(id);return}
-   if(m.kind==='send'){const remote=peers.get(m.value.to);if(remote)await deliver(remote,{...m.value,from:m.from});}
+   if(m.kind==='send'){const remote=peers.get(m.value.to);if(remote)deliver(remote,{...m.value,from:m.from});}
  }
  async function open(browser,kind) {
    const context=await browser.newContext();
