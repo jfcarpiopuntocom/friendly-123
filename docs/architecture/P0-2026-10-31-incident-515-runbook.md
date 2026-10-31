@@ -40,3 +40,9 @@ Se autorizan shells útiles, comprobadas y selladas. Evitar la proliferación de
 ## Registro y redundancia
 
 Fuente primaria: [Notion MDD](https://app.notion.com/p/40a1642b67f381a0a02cf0bfa8b5feac), diario diario activo 15:00 Ecuador y [#515](https://github.com/jfcarpiopuntocom/friendly-123/issues/515). Copias de módulo/test de #524 en ChatGPT Library `/friendly-123/2026-10-31-mailbox/`. Hugging Face: no se acreditó conexión de escritura; nunca declarar copia allí si no se crea y verifica. Ningún PIN, credencial, exportación cliente, token ni licencia real en este archivo.
+
+## Verificación adicional 31-oct (CI sobre código real Yjs)
+
+- PR #524 pasó 14/14 en [GitHub Actions #41252921243](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/41252921243), SHA 66b943bfd2f13cc6aa6745a12cb131422a569b14. Pruebas: sesiones Owner, licencia aislada, HMAC, revocación por revisión PIN, AES-GCM, Yjs vendorizado A apagado→B→A y ACK cero idempotente. Wrangler dry-run verde; **NO DEPLOY**.
+- Corregido un bug real: ACK repetido con cursor=0 podía contar decenas de dispositivos falsos y agotar cuota. Commit de API a28f1a17dc8b6c1cce4aaf19358d29f26d38c772.
+- El buzón sigue aislado, solo Owner y sin enrolamiento de clave, fotos Yjs/productivos ni integración en app. No atribuirle reparación física al cliente. [Cloudflare DO limits](https://developers.cloudflare.com/durable-objects/platform/limits/); limitar accesos a cuota, sin scans, dedupe y ACK defensivo.
