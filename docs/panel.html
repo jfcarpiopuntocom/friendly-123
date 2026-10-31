@@ -226,6 +226,8 @@
 .lic-chip{display:inline-block;font-size:13px;font-weight:700;color:var(--ink);background:var(--surface);border:1px solid var(--gold);border-radius:6px;padding:1px 6px;margin-top:2px;}
 .lic-mini{font-size:13px;padding:3px 8px;margin-top:4px;background:transparent;border:1px solid var(--gold);color:var(--gold);}
 .lic-peligro{border-color:var(--red,#E8365D);color:var(--red,#E8365D);}
+.lic-pin-devices{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;max-height:180px;overflow:auto;}
+.lic-pin-device{border:1px solid var(--border);border-radius:7px;padding:5px 8px;font:600 13px var(--mono);overflow-wrap:anywhere;}
 .lic-pin-card{width:100%;max-width:860px;box-sizing:border-box;border:1px solid var(--gold-dim);border-radius:12px;background:var(--surface);padding:clamp(12px,2vw,20px);margin:12px 0;overflow-wrap:anywhere;box-shadow:0 4px 18px rgba(0,0,0,.08);}
 .lic-pin-card[hidden]{display:none!important;}
 .lic-pin-top{display:flex;justify-content:space-between;align-items:start;gap:8px;}
@@ -425,6 +427,7 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
         <button type="button" class="lic-pin-close" onclick="document.getElementById('lic-pin-control').hidden=true" aria-label="Cerrar editor de PIN">✕</button>
       </div>
       <p id="lic-pin-summary" class="lic-pin-summary">Consultando aparatos existentes…</p>
+      <div id="lic-pin-devices" class="lic-pin-devices" aria-label="Aparatos y grupos PIN registrados"></div>
       <p class="lic-pin-hint">1. Se registran los PIN ya utilizados en aparatos licenciados, sin reemplazarlos. 2. JFC prepara y activa explícitamente una revisión. Los PIN nunca se muestran ni se guardan en este panel.</p>
       <div class="lic-pin-fields">
         <label for="lic-pin-new">Nuevo PIN Owner<input id="lic-pin-new" type="password" inputmode="numeric" maxlength="3" pattern="[0-9]{3}" autocomplete="new-password" class="lic-input"></label>
