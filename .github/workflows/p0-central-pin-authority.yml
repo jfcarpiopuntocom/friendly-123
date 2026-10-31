@@ -1,0 +1,32 @@
+name: P0 Central PIN Authority
+on:
+  push:
+    branches: [fix/panel-pin-source-of-truth-20261031]
+  pull_request:
+    paths:
+      - cloudflare-worker/**
+      - docs/panel*
+      - test/p0-central-pin-authority.test.mjs
+permissions:
+  contents: read
+jobs:
+  central-pin:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check cloudflare-worker/pin-authority.mjs
+          node --check cloudflare-worker/pin-worker-api.mjs
+          node --check cloudflare-worker/worker.js
+          node --check docs/panel-pin.js
+      - name: PIN authority regressions
+        run: |
+          node --test test/p0-central-pin-authority.test.mjs test/worker-master-recovery.test.js
+      - name: No unintended production data edits
+        run: |
+          git diff --check HEAD~1 HEAD
