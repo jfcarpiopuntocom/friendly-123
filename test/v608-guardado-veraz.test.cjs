@@ -64,9 +64,16 @@ test('a later successful save resets the retry counter; no visible notice ever',
 test('real quota error writes plain text in the Avanzado status line (no overlay element)',async()=>{
   await withDevice(async page=>{
     await page.evaluate(()=>{
-      const orig=localStorage.setItem.bind(localStorage);
-      localStorage.setItem=function(k,v){ if(String(k).indexOf('f123_estado_v4')===0) throw new DOMException('full','QuotaExceededError'); return orig(k,v); };
-      if(window.OCEstadoIDB) window.OCEstadoIDB.guardar=()=>Promise.resolve(false);
+      const set=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(k,v){
+        if(String(k).startsWith('f123_estado_v4'))throw new DOMException('synthetic storage quota','QuotaExceededError');
+        return set.call(this,k,v);
+      };
+      // Force an actual rejected strict write as well as the A/B quota error;
+      // the retired background-only guardar() stub cannot fail strict CAS.
+      OCEstadoIDB.ultimoError=()=>new DOMException('synthetic IDB quota','QuotaExceededError');
+      OCEstadoIDB.guardar=()=>Promise.resolve(false);
+      OCEstadoIDB.guardarConRevision=()=>Promise.resolve(false);
     });
     await POST(page,NUEVO('Q1'));
     await page.waitForTimeout(400);
