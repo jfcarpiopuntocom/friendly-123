@@ -10,7 +10,7 @@ function cleanPin(v){if(typeof v!=="string"||!PIN.test(v)||RESERVED.has(v))throw
 function rev(v){if(!Number.isSafeInteger(v)||v<0)throw Error("revision required");return v}
 function equal(a,b){if(typeof a!=="string"||typeof b!=="string"||a.length!==64||b.length!==64)return false;let d=0;for(let i=0;i<64;i++)d|=a.charCodeAt(i)^b.charCodeAt(i);return d===0}
 async function mac(secret,license,pin){if(typeof secret!=="string"||secret.length<32)throw Error("PIN_PEPPER missing");const key=await crypto.subtle.importKey("raw",enc.encode("f123-pin-owner-v1:"+secret),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const digest=await crypto.subtle.sign("HMAC",key,enc.encode(license+"\n"+pin));return Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,"0")).join("")}
-function pub(r,p,observations){
+function pub(r,p,observations,registeredIds){
  const entries=Object.entries(observations?.devices||{}).sort((a,b)=>(a[1].at||0)-(b[1].at||0));
  const groups=new Map();
  const devices=entries.map(([id,value])=>{
@@ -22,6 +22,8 @@ function pub(r,p,observations){
   changedAt:r?.changedAt??null,changedBy:r?.changedBy??null,
   pendingRevision:p?.revision??null,pendingAt:p?.createdAt??null,
   observedDevices:entries.length,conflictingReports:groups.size>1,deviceReports:devices,
+  registeredDevices:Array.isArray(registeredIds)?registeredIds.length:null,
+  censusComplete:censusMatches(registeredIds,observations),
   // Only anonymous group labels and ID suffixes are returned to master admin.
   // Report provenance is client-asserted, never cryptographic proof of ownership.
   reportsVerified:false
@@ -41,7 +43,7 @@ function censusMatches(ids,observed) {
 export function pinAuthority(storage,secret,clock=Date.now){
  if(!storage||typeof storage.transaction!=="function")throw Error("transactional storage required");
  const key=l=>"pin-owner:"+l,limit=l=>"pin-owner-attempts:"+l,report=l=>"pin-owner-observed:"+l,proposal=l=>"pin-owner-proposal:"+l;
- async function status(license){const l=cleanLicense(license);return pub(await storage.get(key(l)),await storage.get(proposal(l)),await storage.get(report(l)))}
+ async function status(license,registeredIds){const l=cleanLicense(license);return pub(await storage.get(key(l)),await storage.get(proposal(l)),await storage.get(report(l)),registeredIds)}
  async function reportExisting(license,instanceId,pin){
   const l=cleanLicense(license),p=cleanPin(pin);
   if(!/^[A-Za-z0-9_-]{6,120}$/.test(String(instanceId||"")))throw Error("invalid device");
@@ -72,18 +74,18 @@ export function pinAuthority(storage,secret,clock=Date.now){
   const l=cleanLicense(license),p=cleanPin(pin),expected=rev(expectedRevision),fingerprint=await mac(secret,l,p);
   return storage.transaction(async tx=>{
    const prior=await tx.get(key(l)),current=prior?.revision??0,observed=await tx.get(report(l));
-   if(current!==expected)return {ok:false,reason:"revision-conflict",...pub(prior,await tx.get(proposal(l)),observed)};
-   if(!censusMatches(registeredIds,observed))return {ok:false,reason:"census-incomplete",...pub(prior,null,observed)};
+   if(current!==expected)return {ok:false,reason:"revision-conflict",...pub(prior,await tx.get(proposal(l)),observed,registeredIds)};
+   if(!censusMatches(registeredIds,observed))return {ok:false,reason:"census-incomplete",...pub(prior,null,observed,registeredIds)};
    if(prior&&equal(prior.fingerprint,fingerprint)){
     // Explicitly returning to the current PIN cancels any stale proposal.
     await tx.delete(proposal(l));
-    return {ok:true,unchanged:true,...pub(prior,null,observed)};
+    return {ok:true,unchanged:true,...pub(prior,null,observed,registeredIds)};
    }
    // A stage is NEVER an effective Owner PIN. It only creates an admin proposal.
    const staged={revision:current+1,fingerprint,createdAt:clock(),by:"JFC-panel",
     censusGeneration:Number.isSafeInteger(observed.generation)?observed.generation:0};
    await tx.put(proposal(l),staged);
-   return {ok:true,staged:true,...pub(prior,staged,observed)};
+   return {ok:true,staged:true,...pub(prior,staged,observed,registeredIds)};
   });
  }
  async function masterActivate(license,pin,expectedRevision,registeredIds){
@@ -91,24 +93,24 @@ export function pinAuthority(storage,secret,clock=Date.now){
   return storage.transaction(async tx=>{
    const prior=await tx.get(key(l)),current=prior?.revision??0;
    const staged=await tx.get(proposal(l)),observed=await tx.get(report(l));
-   if(current!==expected)return {ok:false,reason:"revision-conflict",...pub(prior,staged,observed)};
+   if(current!==expected)return {ok:false,reason:"revision-conflict",...pub(prior,staged,observed,registeredIds)};
    if(staged&&(clock()-staged.createdAt>PROPOSAL_TTL||clock()<staged.createdAt)){
     await tx.delete(proposal(l));
-    return {ok:false,reason:"expired-proposal",...pub(prior,null,observed)};
+    return {ok:false,reason:"expired-proposal",...pub(prior,null,observed,registeredIds)};
    }
    if(!staged||staged.revision!==current+1||!equal(staged.fingerprint,fingerprint))
-     return {ok:false,reason:"proposal-mismatch",...pub(prior,staged,observed)};
+     return {ok:false,reason:"proposal-mismatch",...pub(prior,staged,observed,registeredIds)};
    // An existing client may have logged in since JFC prepared the change.
    // Require a fresh JFC review; the expired proposal changes no credentials.
    const censusNow=Number.isSafeInteger(observed?.generation)?observed.generation:0;
    if(!censusMatches(registeredIds,observed)||
       staged.censusGeneration!==censusNow){
      await tx.delete(proposal(l));
-     return {ok:false,reason:"census-changed",...pub(prior,null,observed)};
+     return {ok:false,reason:"census-changed",...pub(prior,null,observed,registeredIds)};
    }
    const next={v:1,revision:staged.revision,fingerprint,changedAt:clock(),changedBy:"JFC-panel"};
    await tx.put(key(l),next);await tx.delete(proposal(l));await tx.delete(limit(l));
-   return {ok:true,activated:true,...pub(next,null,observed)};
+   return {ok:true,activated:true,...pub(next,null,observed,registeredIds)};
   });
  }
  async function verify(license,pin,rotation){
