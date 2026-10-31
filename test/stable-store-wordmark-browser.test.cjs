@@ -7,7 +7,7 @@ const {startServer,openDevice,chromium}=require('./helpers/e2e-app.cjs');
 // JFC 2026-10-28: use the logo yellow and a black outline in app and dashboard.
 const GOLD='rgb(239, 195, 26)';
 const DASH_GOLD=GOLD;
-test('real PWA: dynamic store wordmark uses bundled display, accessible dark gold, no mobile header overflow', {timeout:120000},async()=>{
+test('real PWA: dynamic store wordmark uses bundled display, logo yellow, no mobile header overflow', {timeout:120000},async()=>{
  const {srv,base}=await startServer();let browser;
  try{
   browser=await chromium.launch({headless:true});
@@ -28,7 +28,7 @@ test('real PWA: dynamic store wordmark uses bundled display, accessible dark gol
     assert.equal(result.text,name,'full Unicode name survives DOM and exportable text');
     assert.ok(result.font.includes('Space Grotesk'),'reuse already bundled friendly display font');
     assert.equal(result.weight,'700');assert.equal(result.color,GOLD);assert.equal(result.fill,GOLD);
-    assert.ok(Math.abs(parseFloat(result.strokeW)/result.fontSize-0.06)<0.001,'outline scales with the business name');
+    assert.ok(Math.abs(parseFloat(result.strokeW)/result.fontSize-0.08)<0.001,'outline scales with the business name');
     assert.equal(result.strokeC,'rgb(0, 0, 0)');
     assert.equal(result.whiteSpace,'normal','show the whole business name');
     assert.ok(result.spanRight<=result.headerRight+2,`header branding overflow width=${width} nameLength=${name.length}: ${JSON.stringify(result)}`);
@@ -54,7 +54,7 @@ test('real dashboard: the same dynamic business wordmark remains readable and se
   });
   assert.equal(r.text,'Tienda Cóndor 🪙');assert.ok(r.font.includes('Space Grotesk'));
   assert.equal(r.weight,'700');assert.equal(r.color,DASH_GOLD);assert.equal(r.fill,DASH_GOLD);
-  assert.equal(r.stroke,'rgb(0, 0, 0)');assert.ok(Math.abs(r.ratio-0.06)<0.001);assert.equal(r.whiteSpace,'normal');
+  assert.equal(r.stroke,'rgb(0, 0, 0)');assert.ok(Math.abs(r.ratio-0.08)<0.001);assert.equal(r.whiteSpace,'normal');
   await context.close();
  }finally{if(browser)await browser.close();await new Promise(resolve=>srv.close(resolve));}
 });
