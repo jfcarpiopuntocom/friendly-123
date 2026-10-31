@@ -1171,7 +1171,25 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         }
         if(response.status===401)return "wrong";
         if(response.status===429)return "locked";
-        if(response.status===404)return "unavailable-identity";
+        if(response.status===404){
+          // An older deployed license Worker has no /pin/verify route and
+          // answers {error:"Not found"}. That is NOT evidence that this
+          // device/license is invalid: existing local Owner access remains
+          // usable during phase-1 census unless this device already adopted
+          // an authenticated central revision. New Workers use an explicit
+          // reason for a genuine instance/license mismatch.
+          const detail=await response.json().catch(()=>null);
+          if(detail&&detail.reason==="license-instance-mismatch")return "unavailable-identity";
+          if(detail&&detail.error==="Not found"){
+            let seen=false;
+            try{
+              const marker=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+lic)||"null");
+              seen=!!(marker&&Number.isSafeInteger(marker.revision)&&marker.revision>0);
+            }catch(_){}
+            return seen?"unavailable":"unconfigured";
+          }
+          return "unavailable";
+        }
         if(response.status===409)return "unconfigured";
         return "unavailable";
       }finally{clearTimeout(timer)}
