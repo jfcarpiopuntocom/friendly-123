@@ -105,6 +105,26 @@ test("PIN authority never touches products, orders, money or customer notebook",
  assert.doesNotMatch(a.store.values(),/stock|inventario|movimiento|ventas|pago/i);
 });
 
+test("a new device census report invalidates a prior JFC activation",async()=>{
+  const a=setup();await register(a,"123",dev);
+  assert.equal((await stage(a,"908",0)).status,200);
+  await register(a,"384",other);
+  const rejected=await activate(a,"908",0);
+  assert.equal(rejected.status,409);assert.equal(rejected.body.reason,"census-changed");
+  const current=await a.authority.status(lic);
+  assert.equal(current.configured,false);assert.equal(current.pendingRevision,null);
+  assert.equal(current.observedDevices,2);
+  assert.equal((await stage(a,"908",0)).status,200);
+  assert.equal((await activate(a,"908",0)).status,200);
+});
+test("repeated conflicting census claims are bounded by HTTP 429",async()=>{
+  const a=setup();await register(a,"123",dev);
+  const rejected=await a.call("/pin/report",{instanceId:dev,pin:"908"});
+  assert.equal(rejected.status,429);
+  assert.equal(rejected.body.reason,"report-rate-limited");
+  assert.equal((await a.authority.status(lic)).observedDevices,1);
+});
+
 test("Expired staged change is HTTP 409, never a false success or active PIN",async()=>{
  const a=setup();await register(a);
  const staged=await stage(a);assert.equal(staged.status,200);
