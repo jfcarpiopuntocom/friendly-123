@@ -10,7 +10,7 @@ const cssPairs=[
 function wordmarkRule(css,selector){
  const esc=selector.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
  const matches=[...css.matchAll(new RegExp(esc+'\\s*\\{([^{}]+)\\}','g'))];
- const chosen=matches.find(m=>/-webkit-text-stroke:\\.08em\\s+#000/i.test(m[1]));
+ const chosen=matches.find(m=>/-webkit-text-stroke:\.08em\s+#000/i.test(m[1]));
  assert.ok(chosen,'missing proportional public wordmark rule: '+selector);
  return chosen[1];
 }
