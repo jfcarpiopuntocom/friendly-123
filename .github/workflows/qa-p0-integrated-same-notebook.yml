@@ -1,0 +1,54 @@
+name: qa-p0-integrated-same-notebook
+on:
+  push:
+    branches: [fix/p0-unificar-transporte-inventario-pin-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  p0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check source and verify no syntax errors
+        run: |
+          set -euo pipefail
+          node --check docs/adaptive-relay.js
+          node --check docs/mock-backend.js
+          node --check docs/crypto-store.js
+          node --check docs/avanzado-extra.js
+          node --check docs/sync-yjs.js
+      - name: Run integrated notebook, PIN, transport, money and inventory regressions
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=2 --test-timeout=120000 \
+            test/p0-adaptive-relay-convergence.test.cjs \
+            test/p0-native-recovery-entry.test.cjs \
+            test/p0-epoch-deterministic-convergence.test.cjs \
+            test/p0-v633-owner-pin-durable-intent.test.cjs \
+            test/p0-v633-owner-pin-journal-real-yjs.test.cjs \
+            test/p0-v633-three-entrances-transport.test.cjs \
+            test/p0-v631-owner-pin-recovery.test.cjs \
+            test/p0-v632-owner-pin-intent-lifecycle.test.cjs \
+            test/p0-v622-owner-pin-confirmed-room.test.cjs \
+            test/stock-base-conflicto-v515.test.js \
+            test/incident-stale-stock-metadata-v558.test.js \
+            test/incident-v602-relay-null-stock-epoch.test.cjs \
+            test/yjs-pin-seed.test.js \
+            test/supabase-relay-transport.test.js \
+            test/supabase-relay-gateway.test.js \
+            test/yjs-durable-outbox.test.js \
+            test/yjs-unresolved-checkpoint.test.js \
+            test/p0-yjs-pending-snapshot.test.js
+      - name: Check exact source diff and checksums
+        if: always()
+        run: |
+          git diff --check HEAD~9 HEAD
+          wc -l docs/adaptive-relay.js docs/mock-backend.js docs/sync-yjs.js docs/crypto-store.js docs/index.html docs/dashboard.html
+          sha256sum docs/adaptive-relay.js docs/mock-backend.js docs/sync-yjs.js docs/crypto-store.js docs/index.html docs/dashboard.html
