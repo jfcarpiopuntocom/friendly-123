@@ -246,6 +246,7 @@
            ella. Antes "Re-attach" estaba escondido en "More", en la ultima columna. Reusa
            licReenganchar (ruta /reapuntar del Worker, con historial: reversible). */
         '<td class="mono" style="color:var(--gold);">' + esc(g.cod || "—") + ' <button type="button" class="lic-lapiz" onclick="licReenganchar(\'' + id + '\')" title="Set or change the license of this device">✎</button>' + (g.lote ? '<br><span class="lic-chip">' + esc(g.lote) + '</span>' : "") +
+          '<button type="button" class="lic-lapiz lic-pin-pencil" data-owner-pin-license="' + esc(g.cod || "") + '" data-owner-pin-instance="' + id + '" title="Gestionar PIN Owner de esta licencia en JFC" aria-label="Editar PIN central de ' + esc(g.cod || "") + '">✎</button> ' +
           (n > 1 ? '<br><button type="button" class="btn-ok lic-mini" onclick="licToggleDisp(\'' + id + '\')" title="See each device on this license">' + esc(etiquetaDisp) + '</button>' : "") + '</td>' +
         '<td>' + (r.nombreNegocio ? '<strong>' + esc(r.nombreNegocio) + '</strong>' : '—') + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'negocio\')" title="Edit business name">✎</button></td>' +
         '<td>' + esc(nombreCompleto(r) || "—") + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'nombre\')" title="Edit this device name">✎</button>' +
@@ -265,7 +266,6 @@
         '<details class="lic-mas"><summary>More</summary>' +
           (g.soloJfc ? '<button type="button" class="btn-ok lic-mini" onclick="licUnificarNombre(\'' + esc(g.cod) + '\')">Unify my devices\' name</button> ' : "") +
           '<button type="button" class="btn-ok lic-mini" onclick="licAMiLicencia(\'' + id + '\')">Attach to my license</button> ' +
-          '<button type="button" class="btn-ok lic-mini" data-owner-pin-license="' + esc(g.cod || "") + '" data-owner-pin-instance="' + id + '">PIN Owner central</button> ' +
           '<button type="button" class="btn-ok lic-mini" onclick="licEmitirMaestro(\'' + id + '\')">5-min recovery</button> ' +
           '<button type="button" class="btn-ok lic-mini" onclick="licReenganchar(\'' + id + '\')">Re-attach</button> ' +
           '<button type="button" class="btn-ok lic-mini lic-peligro" onclick="licBorrar(\'' + id + '\')">Delete device</button>' +
