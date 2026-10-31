@@ -180,3 +180,45 @@ test('P0 regression: equal snapshots with distinct epochs stay converged after a
   assert.equal((await item(a)).stockActual,6,'replay does not duplicate');
   assert.equal((await item(b)).stockActual,6,'restart/replay projection stable');
 });
+
+test('P0 latest genuine phone movements with arbitrary quantities survive PC replay and later edits',async()=>{
+  const pc=browser(),phone=browser();
+  await seed(pc,'E-PC-OLD',11,{},1000);
+  await seed(phone,'E-PHONE-NEW',14,{},2000);
+  const stalePC=pc.catalog();
+  function exchange(){
+    const left=pc.catalog(),right=phone.catalog();
+    pc.OCSync.aplicarCatalogo(right,null);
+    phone.OCSync.aplicarCatalogo(left,null);
+  }
+  exchange();
+  assert.equal((await item(pc)).stockActual,14);
+  assert.equal((await item(phone)).stockActual,14);
+  const moved=await phone.request('/api/productos/epoch-convergence/ajustar','POST',
+    {delta:3,motivo:'Synthetic durable phone replenishment'});
+  assert.ok(moved);
+  for(let i=0;i<5;i++)exchange();
+  assert.equal((await item(pc)).stockActual,17);
+  assert.equal((await item(phone)).stockActual,17);
+  // A delayed catalog from the earlier PC epoch must not roll the phone movement back.
+  pc.OCSync.aplicarCatalogo(stalePC,null);
+  phone.OCSync.aplicarCatalogo(stalePC,null);
+  for(let i=0;i<5;i++)exchange();
+  assert.equal((await item(pc)).stockActual,17);
+  assert.equal((await item(phone)).stockActual,17);
+  const next=await pc.request('/api/productos/epoch-convergence/ajustar','POST',
+    {delta:-2,motivo:'Synthetic PC subsequent physical movement'});
+  assert.ok(next);
+  for(let i=0;i<5;i++)exchange();
+  for(const w of [pc,phone]){
+    const p=await item(w);
+    assert.equal(p.stockActual,15);
+    assert.equal(p.stockEpochId,'E-PHONE-NEW');
+    assert.equal(p.stockPN && Object.values(p.stockPN).reduce((n,c)=>n+(Number(c.add)||0)-(Number(c.sub)||0),0),1);
+    assert.ok(p.stockEvidencias && Object.keys(p.stockEvidencias).length,
+      'preserve source-epoch evidence');
+  }
+  for(let i=0;i<5;i++)exchange();
+  assert.equal((await item(pc)).stockActual,15);
+  assert.equal((await item(phone)).stockActual,15);
+});
