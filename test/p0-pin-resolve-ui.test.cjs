@@ -8,7 +8,7 @@ assert.ok(start>=0&&end>start,'actual shipped central Owner functions are under 
 const code=source.slice(start,end);
 const lic='F123-SYNTHETIC-SHOP';
 function fixture({legacy=false,instanceId='new_browser_pwa_01',resolved=200,identity=lic,
-  adoptedRevision=2,active=lic,hasSeen=false,hangResolve=false,adoptionOk=true}={}){
+  adoptedRevision=2,active=lic,hasSeen=false,hangResolve=false,adoptionOk=true,verifyStatus=404}={}){
  const entries=new Map([['f123_owned',JSON.stringify({licenseCode:lic,...(instanceId?{instanceId}:{})})]]);
  if(hasSeen)entries.set('f123_pin_central_seen:'+lic,JSON.stringify({revision:1}));
  const calls=[],adoptions=[];
@@ -27,8 +27,8 @@ function fixture({legacy=false,instanceId='new_browser_pwa_01',resolved=200,iden
     });
    }
    if(u.pathname==='/pin/verify'){
-    status=opts.method==='GET'?(legacy?404:405):404;
-    body=legacy?{error:'not found'}:{ok:false,reason:'license-instance-mismatch'};
+    status=opts.method==='GET'?(legacy?404:405):verifyStatus;
+    body=status===200?{ok:true,revision:adoptedRevision}:(legacy?{error:'not found'}:{ok:false,reason:status===409?'unconfigured':'license-instance-mismatch'});
    }else if(u.pathname==='/pin/resolve'){
     status=resolved;body=status===200?
       {ok:true,role:'owner',businessId:identity,revision:adoptedRevision}:
@@ -117,4 +117,14 @@ test('P0 valid central PIN cannot falsely open Owner when local durable adoption
  assert.equal(JSON.parse(f.entries.get('f123_pin_central_seen:'+lic)).revision,2,
   'retain central revision so stale PIN is not accepted after a Worker outage');
  assert.match(source,/central==="needs-recovery"/);
+});
+
+test('P0 registered browser: verified central identity cannot grant access without durable PIN adoption',async()=>{
+ const f=fixture({verifyStatus:200,adoptionOk:false});
+ assert.equal(await f.verify('909'),'needs-recovery');
+ assert.equal(f.adoptions.length,1);
+});
+test('P0 registered browser: central 409 cannot revive a stale previously superseded verifier',async()=>{
+ const f=fixture({verifyStatus:409,hasSeen:true});
+ assert.equal(await f.verify('909'),'unavailable');
 });
