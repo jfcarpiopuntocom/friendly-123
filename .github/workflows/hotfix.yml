@@ -53,7 +53,7 @@ jobs:
       # v594: browsers and OS deps come from the container image; no apt install, no browser cache.
       - name: Identidad de release y manifiesto
         env:
-          BASE_SHA: ${{ github.event.before || 'origin/estable' }}
+          BASE_SHA: origin/estable
         run: |
           node scripts/release-control.cjs validate "${BASE_SHA:-HEAD^}"
           bash check-sw.sh
@@ -69,7 +69,7 @@ jobs:
         env:
           F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
           F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
-          BASE_SHA: ${{ github.event.before || 'origin/estable' }}
+          BASE_SHA: origin/estable
         run: |
           set -euo pipefail
           BASE="${BASE_SHA:-HEAD^}"
@@ -77,7 +77,23 @@ jobs:
           node scripts/pruebas-del-area.cjs "$BASE" HEAD | tee /tmp/area.txt
           mapfile -t TESTS < /tmp/area.txt
           (( ${#TESTS[@]} > 0 )) || { echo "No hay pruebas focalizadas; no se publica"; exit 1; }
-          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 "${TESTS[@]}"
+          # Heavy real-RTC three-browser tests need sole browser CPU/port ownership.
+          # Run them FIRST, with every assertion intact; then run all remaining
+          # targeted tests. Coverage always spans stable -> candidate, not only
+          # the last intermediary push in an unpublished hotfix train.
+          REGULAR=()
+          PEER=false
+          for t in "${TESTS[@]}"; do
+            if [ "$t" = "test/peer-sync-browser.test.js" ]; then PEER=true
+            else REGULAR+=("$t")
+            fi
+          done
+          if [ "$PEER" = true ]; then
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/peer-sync-browser.test.js
+          fi
+          if (( ${#REGULAR[@]} )); then
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 "${REGULAR[@]}"
+          fi
       - name: Mover ramas (previo <- estable, estable <- este commit)
         id: promote
         run: |
