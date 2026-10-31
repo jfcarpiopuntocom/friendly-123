@@ -72,7 +72,7 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
      !key||base!==ENDPOINT)
     throw Error('mailbox identity, crypto or channel mismatch');
   let token=null,expires=0,closed=false,queue=Promise.resolve(),busy=false;
-  let processed=0,remoteComplete=false;
+  let processed=0,remoteComplete=false,replayed=false;
   const staged=new Map();
   const apiHeaders=()=>({'Authorization':'Bearer '+token});
   const authenticated=()=>token&&Date.now()+3000<expires;
@@ -132,11 +132,13 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
     return JSON.parse(textDecoder.decode(clear));
   }
   async function replay(){
+    if(replayed)return;
     const inbox=await store.inbox();
     for(const item of inbox.sort((a,b)=>a.sequence-b.sequence)){
       if(closed)return;
       acceptFrame(await decode(item));
     }
+    replayed=true;
   }
   async function pull(){
     if(!authenticated())throw Error('Owner session required');
@@ -173,7 +175,10 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
     if(closed)return;
     if(!CHANNELS.has(channel))throw Error('unknown channel');
     const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
-    const hash=new Uint8Array(await cryptoApi.subtle.digest('SHA-256',data));
+    const hashInput=new Uint8Array(textEncoder.encode(channel).length+1+data.length);
+    hashInput.set(textEncoder.encode(channel));hashInput[textEncoder.encode(channel).length]=0;
+    hashInput.set(data,textEncoder.encode(channel).length+1);
+    const hash=new Uint8Array(await cryptoApi.subtle.digest('SHA-256',hashInput));
     const group=Array.from(hash,x=>x.toString(16).padStart(2,'0')).join('');
     const total=Math.max(1,Math.ceil(data.byteLength/MAX_CHUNK));
     if(total>2048)throw Error('Yjs update too large');
