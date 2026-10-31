@@ -9,6 +9,7 @@ on:
       - docs/avanzado-extra.js
       - test/p0-central-pin-authority.test.mjs
       - test/p0-pin-census-retry-throttle.test.cjs
+      - test/p0-central-pin-legacy-offline-guard.test.cjs
       - test/p0-jfc-panel-responsive.test.cjs
 permissions:
   contents: read
@@ -45,7 +46,7 @@ jobs:
           git diff --check FETCH_HEAD HEAD
       - name: PIN authority, identity, recovery and WebKit regressions
         run: |
-          node --test --test-concurrency=1 --test-timeout=120000             test/p0-central-pin-authority.test.mjs             test/p0-pin-census-retry-throttle.test.cjs             test/p0-central-pin-panel-browser.test.cjs             test/p0-jfc-panel-responsive-browser.test.cjs             test/p0-jfc-panel-responsive.test.cjs             test/p0-central-pin-worker-entry.test.mjs             test/worker-master-recovery.test.js             test/worker-checkin.test.js             test/panel-durable-object.test.js             test/p0-v633-owner-pin-durable-intent.test.cjs             test/p0-v633-owner-pin-journal-real-yjs.test.cjs             test/p0-owner-pin-current-ui-browser.test.cjs
+          node --test --test-concurrency=1 --test-timeout=120000             test/p0-central-pin-authority.test.mjs             test/p0-pin-census-retry-throttle.test.cjs             test/p0-central-pin-legacy-offline-guard.test.cjs             test/p0-central-pin-panel-browser.test.cjs             test/p0-jfc-panel-responsive-browser.test.cjs             test/p0-jfc-panel-responsive.test.cjs             test/p0-central-pin-worker-entry.test.mjs             test/worker-master-recovery.test.js             test/worker-checkin.test.js             test/panel-durable-object.test.js             test/p0-v633-owner-pin-durable-intent.test.cjs             test/p0-v633-owner-pin-journal-real-yjs.test.cjs             test/p0-owner-pin-current-ui-browser.test.cjs
       - name: Worker build dry-run, never deploy
         working-directory: cloudflare-worker
         run: |
