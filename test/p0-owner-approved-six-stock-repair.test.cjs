@@ -48,6 +48,9 @@ test('P0 unrecognized goods, duplicate names and later sales never get altered',
  const f=fake(); f.state.productos.push({...f.state.productos[0],id:'synthetic-duplicate'});
  assert.equal(plan(f.state),null);
  const missing=fake();missing.state.productos.pop();assert.equal(plan(missing.state),null);
+ const later=fake();
+ later.state.productos[5].stockTs=Date.parse('2026-11-01T00:00:00Z');
+ assert.equal(plan(later.state),null,'newer real movements cannot be overwritten');
  const unauthorized=fake({authorized:false});
  assert.equal((await run(unauthorized.deps)).changed,0);assert.equal(unauthorized.op.length,0);
 });
