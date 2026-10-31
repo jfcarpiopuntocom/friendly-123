@@ -87,3 +87,13 @@ test("Admin master key and PIN never go to an overridden or malicious Worker URL
  assert.equal(p.requests.length,0);
  assert.match(p.values.get("lic-pin-state").textContent,/Worker oficial/);
 });
+
+test("Even a malformed HTTP 200 with ok:false never activates a customer's PIN",async()=>{
+ const p=panel({reply:u=>u.includes("/admin/status")?observed:{ok:false,reason:"expired-proposal"}});
+ await p.window.licAbrirPinCentral(lic,id,2);
+ p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="149";
+ await p.window.licFijarPinAutoridad();
+ assert.equal(p.requests.length,2);
+ assert.match(p.values.get("lic-pin-state").textContent,/expired-proposal/);
+ assert.equal(p.values.get("lic-pin-activate").disabled,true);
+});
