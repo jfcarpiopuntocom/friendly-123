@@ -1943,29 +1943,32 @@
      is NOT automatically a safe common starting stock. */
   function unirEvidenciasStockYjs(a, b) {
     var out = {};
-    function guardar(base, pn, ts) {
+    function guardar(base, pn, ts, epoch) {
       if (base == null || !Number.isSafeInteger(Number(base)) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
-      var key = String(Number(base)), prev = out[key] || {}, acc = Object.assign({}, prev.pn || {});
+      var ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+      var key = ep ? JSON.stringify([Number(base),ep]) : String(Number(base));
+      var prev = out[key] || {}, acc = Object.assign({}, prev.pn || {});
       Object.keys(pn).sort().forEach(function (id) {
         if (!id || id.length > 120) return;
         var v = pn[id] || {}, add = Number(v.add), sub = Number(v.sub), p = acc[id] || {};
         if (!Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
         acc[id] = { add: Math.max(Number(p.add) || 0, add), sub: Math.max(Number(p.sub) || 0, sub) };
       });
-      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0) };
+      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0),
+        ...(ep ? {epoch:ep} : {}) };
     }
     [a,b].forEach(function (source) {
       var e = source && source.stockEvidencias;
       if (!e || typeof e !== "object" || Array.isArray(e)) return;
       Object.keys(e).sort().forEach(function (key) {
-        var v = e[key]; if (v) guardar(v.base, v.pn, v.ts);
+        var v = e[key]; if (v) guardar(v.base, v.pn, v.ts, v.epoch);
       });
     });
     [a,b].forEach(function (source) {
-      if (source) guardar(source.stockBase, source.stockPN, source.stockTs);
+      if (source) guardar(source.stockBase, source.stockPN, source.stockTs, source.stockEpochId);
     });
     var sorted = {};
-    Object.keys(out).sort(function (x,y) {return Number(x)-Number(y);}).forEach(function (key) {sorted[key]=out[key];});
+    Object.keys(out).sort(function (x,y) {return (Number(x)-Number(y)) || (x < y ? -1 : x > y ? 1 : 0);}).forEach(function (key) {sorted[key]=out[key];});
     return sorted;
   }
 
@@ -2266,11 +2269,22 @@
                 var _stockEpochMine = typeof r.stockEpochId === "string" ? r.stockEpochId : "";
                 var _stockEpochDoc = typeof prev.stockEpochId === "string" ? prev.stockEpochId : "";
                 var _samePhysicalEpoch = _stockEpochMine === _stockEpochDoc;
-                // An explicit epoch supersedes untagged legacy stock in the
-                // shared read model. Two competing explicit epochs retain the
-                // existing map value; independent witnesses preserve both.
-                var _epochPreferred = _samePhysicalEpoch ? null :
-                  (_stockEpochMine && !_stockEpochDoc ? r : prev);
+                var _stockAntesDeArbitrar = r; // preserve losing epoch proof
+                // Project competing explicit epochs deterministically in
+                // every Y.Doc, without combining independent physical baselines.
+                // The losing epoch's movements remain in add-only Yjs witnesses.
+                // Same tie-break on both peers: (stockTs, stable epoch ID).
+                var _epochPreferred = null;
+                if (!_samePhysicalEpoch) {
+                  if (_stockEpochMine && !_stockEpochDoc) _epochPreferred = r;
+                  else if (!_stockEpochMine && _stockEpochDoc) _epochPreferred = prev;
+                  else {
+                    var _timeMine = Number(r.stockTs) || 0;
+                    var _timeDoc = Number(prev.stockTs) || 0;
+                    _epochPreferred = (_timeMine > _timeDoc ||
+                      (_timeMine === _timeDoc && _stockEpochMine > _stockEpochDoc)) ? r : prev;
+                  }
+                }
                 if (_epochPreferred) {
                   r = Object.assign({}, r, {
                     stockBase: _epochPreferred.stockBase,
@@ -2284,9 +2298,10 @@
                 var fork = r.stockBase != null && prev.stockBase != null &&
                   Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
                   Number(r.stockBase) !== Number(prev.stockBase);
-                if (fork || (r.stockEvidencias && Object.keys(r.stockEvidencias).length) ||
+                if (fork || (!_samePhysicalEpoch && _stockEpochMine && _stockEpochDoc) ||
+                    (r.stockEvidencias && Object.keys(r.stockEvidencias).length) ||
                     (prev.stockEvidencias && Object.keys(prev.stockEvidencias).length)) {
-                  r = Object.assign({}, r, { stockEvidencias: unirEvidenciasStockYjs(prev, r) });
+                  r = Object.assign({}, r, { stockEvidencias: unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar) });
                 }
                 var basePrev = prev.stockBase == null ? null : Number(prev.stockBase);
                 var baseMia = r.stockBase == null ? null : Number(r.stockBase);
@@ -2658,6 +2673,54 @@
         _barridoFirma = firmaBarrido(); // sembrar() puede escribir al doc: la firma de referencia es la posterior
       } catch (_) {}
     }, 2000);
+
+    // P0 v633 R3: verify recoverable exact Owner PIN+revision from committed
+    // local IndexedDB journal; Y.Doc RAM updates are not a durability receipt.
+    API.confirmarPinOwnerDurable = function (nuevo, revision) {
+      var pin = String(nuevo || "");
+      if (!/^\d{3}$/.test(pin) || !Number.isSafeInteger(revision) || revision < 1 ||
+          !API.doc || !API.meta || !API.roomId || !API.idb ||
+          !API.canal || API.canal.recuperando !== false) return Promise.resolve(false);
+      var room = API.roomId, doc = API.doc, idb = API.idb, db = idb.db;
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates"))
+        return Promise.resolve(false);
+      function matches(meta) {
+        return String(meta.get("ownerPinConfirmado") || "") === pin &&
+          Number(meta.get("ownerPinCambioRev")) === revision;
+      }
+      if (!matches(API.meta)) return Promise.resolve(false);
+      return new Promise(function (resolve) {
+        var rows = null, done = false;
+        function finish(ok) { if (!done) { done = true; resolve(ok === true); } }
+        try {
+          var tx = db.transaction(["updates"], "readonly");
+          var req = tx.objectStore("updates").getAll();
+          req.onsuccess = function () { rows = req.result; };
+          req.onerror = function () { finish(false); };
+          tx.onerror = function () { finish(false); };
+          tx.onabort = function () { finish(false); };
+          tx.oncomplete = function () {
+            if (!Array.isArray(rows) || !rows.length) return finish(false);
+            var restored;
+            try {
+              restored = new Y.Doc();
+              for (var i = 0; i < rows.length; i++) {
+                if (!rows[i] || !Number.isSafeInteger(rows[i].byteLength) || !rows[i].byteLength)
+                  return finish(false);
+                Y.applyUpdate(restored, new Uint8Array(rows[i]), "journal-proof");
+              }
+              if (restored.store && (restored.store.pendingStructs || restored.store.pendingDs))
+                return finish(false);
+              finish(matches(restored.getMap("_meta")) &&
+                API.roomId === room && API.doc === doc &&
+                API.idb === idb && API.idb.db === db &&
+                API.canal && API.canal.recuperando === false && matches(API.meta));
+            } catch (_) { finish(false); }
+            finally { if (restored) restored.destroy(); }
+          };
+        } catch (_) { finish(false); }
+      });
+    };
 
     // P0 v621: only an explicit change from an authenticated Owner screen may
     // replace a custom notebook owner PIN. Routine background seeding cannot.
