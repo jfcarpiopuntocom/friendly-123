@@ -39,6 +39,10 @@
       const p = hits[0], value = Number(p.stockActual);
       // Stop rather than override a legitimate new sale or a later recount.
       if (!Number.isSafeInteger(value) || value < 0 || (value !== original && value !== 7)) return null;
+      // Never undo an actual sale or recount made after the owner's captured
+      // 30-Oct state. A previously corrected item at 7 remains resumable.
+      const last = Number(p.stockTs) || 0;
+      if (value !== 7 && last > Date.parse("2026-10-31T05:00:00Z")) return null;
       seen.add(String(p.id));
       result.push({ id: String(p.id), name, before: value, target: 7, delta: 7 - value });
     }
