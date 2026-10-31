@@ -6,6 +6,9 @@ on:
   pull_request:
     paths:
       - docs/sync-realtime.js
+      - docs/peer-sync.js
+      - test/peer-sync-browser.test.js
+      - test/sync-peer-durable.test.js
       - test/sala-sigue-licencia.test.js
       - .github/workflows/qa-p0-active-notebook-transport.yml
 permissions:
@@ -32,9 +35,12 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           node --check docs/sync-realtime.js
+          node --check docs/peer-sync.js
+          node --check test/sync-peer-durable.test.js
+          node --check test/peer-sync-browser.test.js
           node --check test/sala-sigue-licencia.test.js
-          wc -l docs/sync-realtime.js test/sala-sigue-licencia.test.js
-          sha256sum docs/sync-realtime.js test/sala-sigue-licencia.test.js
+          wc -l docs/peer-sync.js docs/sync-realtime.js test/sync-peer-durable.test.js test/peer-sync-browser.test.js test/sala-sigue-licencia.test.js
+          sha256sum docs/peer-sync.js docs/sync-realtime.js test/sync-peer-durable.test.js test/peer-sync-browser.test.js test/sala-sigue-licencia.test.js
           git diff --check HEAD~1 HEAD
       - name: Browser room identity regressions
         run: |
