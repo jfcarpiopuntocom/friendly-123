@@ -20,17 +20,23 @@ function memory(){
 }
 function setup(){
  const store=memory(),env={PIN_PEPPER:pepper,MASTER_KEY:"synthetic-panel-master",REGISTROS:{}};
+ const registered=new Set([dev]);
  const hook={getDo:()=>({fetch:(url,opt)=>pinDoRoute(new Request(url,opt),store,env)}),
   authorizeMaster:r=>r.headers.get("X-Master-Key")===env.MASTER_KEY,
+  listRegisteredDeviceIds:async()=>[...registered],
   readLicenseInstance:async(_,id)=>[dev,other].includes(id)?{instanceId:id,licenseCode:lic}:null};
  const call=async(route,body={},admin=false,method="POST")=>{
   const h={"content-type":"application/json"};if(admin)h["X-Master-Key"]=env.MASTER_KEY;
   const r=await pinPublicRoute(new Request("https://worker.invalid"+route,{method,headers:h,...(method==="POST"?{body:JSON.stringify({licenseCode:lic,instanceId:dev,...body})}:{})}),env,hook);
   return {status:r.status,body:await r.json()};
  };
- return {store,env,hook,call,authority:pinAuthority(store,pepper)};
+ return {store,env,hook,call,registered,authority:pinAuthority(store,pepper)};
 }
-async function register(a,pin="123",device=dev){const r=await a.call("/pin/report",{instanceId:device,pin});assert.equal(r.status,200);return r}
+async function register(a,pin="123",device=dev){
+ a.registered.add(device); // simulated license registration precedes PIN claim
+ const r=await a.call("/pin/report",{instanceId:device,pin});
+ assert.equal(r.status,200);return r;
+}
 async function stage(a,pin="123",rev=0){return a.call("/pin/admin/set",{pin,expectedRevision:rev},true)}
 async function activate(a,pin="123",rev=0){return a.call("/pin/admin/activate",{pin,expectedRevision:rev},true)}
 test("existing clients remain locally governed until enrollment and TWO admin actions",async()=>{
@@ -140,4 +146,33 @@ test("Expired staged change is HTTP 409, never a false success or active PIN",as
  const state=await a.authority.status(lic);
  assert.equal(state.configured,false);
  assert.equal(state.pendingRevision,null);
+});
+
+test("P0: cannot stage until every registered device has reported, regardless of UI count",async()=>{
+ const a=setup();a.registered.add(other);
+ await register(a,"123",dev);
+ let r=await stage(a,"908",0);
+ assert.equal(r.status,409);assert.equal(r.body.reason,"census-incomplete");
+ assert.equal((await a.authority.status(lic)).configured,false);
+ r=await a.call("/pin/admin/set",{pin:"908",expectedRevision:0,registeredIds:[dev]},true);
+ assert.equal(r.status,409,"browser must not spoof registry cohort");
+ await register(a,"384",other);
+ assert.equal((await stage(a,"908",0)).status,200);
+ a.registered.delete(other);
+ r=await activate(a,"908",0);
+ assert.equal(r.status,409);assert.equal(r.body.reason,"census-changed");
+ assert.equal((await a.authority.status(lic)).configured,false);
+ a.registered.add(other);
+ assert.equal((await stage(a,"908",0)).status,200);
+ assert.equal((await activate(a,"908",0)).status,200);
+});
+test("P0: license registry outage blocks JFC activation without changing clients",async()=>{
+ const a=setup();await register(a);
+ a.hook.listRegisteredDeviceIds=async()=>{throw Error("synthetic registry outage")};
+ const r=await stage(a,"908",0);
+ assert.equal(r.status,503);assert.equal(r.body.reason,"census-registry-unavailable");
+ assert.equal((await a.authority.status(lic)).configured,false);
+ a.hook.listRegisteredDeviceIds=undefined;
+ assert.equal((await stage(a,"908",0)).status,503);
+ assert.equal(a.store.values().includes('"908"'),false);
 });
