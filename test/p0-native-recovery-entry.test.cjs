@@ -9,7 +9,9 @@ test('P0 browser app and dashboard load encrypted durable native relay before al
  const script='./vendor/supabase-relay.min.js';
  for(const [file,s,following] of [['app',app,'./sync-realtime.js'],['dashboard',dashboard,'./dashboard-main.min.js']]){
    assert.equal(s.split(script).length,2,file+': exactly one native adapter');
-   assert.ok(!/\<script[^>]+src=["']\.\/peer-sync\.js/.test(s),file+': no peer-only adapter');
+   assert.ok(s.indexOf('./peer-sync.js')>=0,file+': peer fallback exists');
+   assert.ok(s.indexOf('./peer-sync.js')<s.indexOf(script),file+': peer library before native');
+   assert.ok(s.indexOf(script)<s.indexOf('./adaptive-relay.js'),file+': native before adapter');
    assert.ok(s.indexOf(script)<s.indexOf(following),file+': adapter ready before consumers');
  }
  assert.ok(app.indexOf(script)<app.indexOf('./sync-yjs.js'),'Yjs initializes after native adapter');
