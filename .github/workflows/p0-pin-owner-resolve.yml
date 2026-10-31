@@ -1,0 +1,22 @@
+name: P0 canonical Owner identity by license + PIN
+on:
+  pull_request:
+    paths:
+      - cloudflare-worker/pin-worker-api.mjs
+      - test/p0-pin-owner-resolve.test.mjs
+      - .github/workflows/p0-pin-owner-resolve.yml
+permissions:
+  contents: read
+jobs:
+  identity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - run: node --check cloudflare-worker/pin-worker-api.mjs
+      - run: node --test --test-timeout=120000 test/p0-pin-owner-resolve.test.mjs test/p0-central-pin-worker-entry.test.mjs test/p0-central-pin-authority.test.mjs
+      - run: git diff --check
