@@ -159,7 +159,7 @@ test('P0 actual Yjs journal: A closes, B recovers encrypted facts, B writes, A r
   const A=instance();
   // Real Y.Doc events, not inventory snapshots or manually forced quantities.
   const eventA={id:'movement-A-001',kind:'RECEIVE',productId:'product-007',qty:8};
-  A.doc.getMap('movement-journal').set(eventA.id,eventA);
+  A.doc.getMap('movement-journal').set(eventA.id,JSON.stringify(eventA));
   async function push(device,doc,id){
     const auth=await f.session(device),nonce=crypto.getRandomValues(new Uint8Array(12));
     assert.equal(auth.status,200);
@@ -187,12 +187,12 @@ test('P0 actual Yjs journal: A closes, B recovers encrypted facts, B writes, A r
   const B=await recover(deviceB);
   assert.equal(B.restored.doc.getMap('movement-journal').size,1);
   B.restored.doc.getMap('movement-journal').set('movement-B-001',
-    {id:'movement-B-001',kind:'FULFILL',productId:'product-007',qty:3,orderId:'order-01'});
+    JSON.stringify({id:'movement-B-001',kind:'FULFILL',productId:'product-007',qty:3,orderId:'order-01'}));
   await push(deviceB,B.restored,'op-yjs-p0-transfer-B-001');
   B.restored.doc.destroy();
   // A restarts from an empty document, reads both encrypted updates.
   const Aagain=await recover(device);
-  const events=[...Aagain.restored.doc.getMap('movement-journal').values()];
+  const events=[...Aagain.restored.doc.getMap('movement-journal').values()].map(JSON.parse);
   assert.equal(events.length,2);
   const stock=events.reduce((sum,e)=>sum+(e.kind==='RECEIVE'?e.qty:e.kind==='FULFILL'?-e.qty:0),0);
   assert.equal(stock,5,'8 received - 3 fulfilled, never forced to a snapshot');
