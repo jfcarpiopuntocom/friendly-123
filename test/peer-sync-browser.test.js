@@ -90,6 +90,8 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     });
     if(!native.ok&&name==='webkit'){
       assert.equal(metadataBytes,0,'native capability probe runs before application/network code');
+      if(process.env.F123_REQUIRE_WEBKIT==='1')
+        assert.fail('WebKit native RTC is required for this CI gate: '+JSON.stringify(native));
       console.error(JSON.stringify({engine:name,nativeRTC:native}));
       await first.close();await second.close();
       t.skip('Native WebKit RTC preflight failed/timed out before app code; direct connectivity unverified: '+JSON.stringify(native));return;
