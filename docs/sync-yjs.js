@@ -2282,21 +2282,12 @@
                 var _stockEpochDoc = typeof prev.stockEpochId === "string" ? prev.stockEpochId : "";
                 var _samePhysicalEpoch = _stockEpochMine === _stockEpochDoc;
                 var _stockAntesDeArbitrar = r; // preserve losing epoch proof
-                // Project competing explicit epochs deterministically in
-                // every Y.Doc, without combining independent physical baselines.
-                // The losing epoch's movements remain in add-only Yjs witnesses.
-                // Same tie-break on both peers: (stockTs, stable epoch ID).
-                var _epochPreferred = null;
-                if (!_samePhysicalEpoch) {
-                  if (_stockEpochMine && !_stockEpochDoc) _epochPreferred = r;
-                  else if (!_stockEpochMine && _stockEpochDoc) _epochPreferred = prev;
-                  else {
-                    var _timeMine = Number(r.stockTs) || 0;
-                    var _timeDoc = Number(prev.stockTs) || 0;
-                    _epochPreferred = (_timeMine > _timeDoc ||
-                      (_timeMine === _timeDoc && _stockEpochMine > _stockEpochDoc)) ? r : prev;
-                  }
-                }
+                // A single explicit epoch may supersede untagged legacy
+                // metadata. Two competing explicit epochs remain independent:
+                // the owner must reconcile their physical movement histories.
+                var _epochPreferred = _samePhysicalEpoch ? null :
+                  (_stockEpochMine && !_stockEpochDoc ? r :
+                    (!_stockEpochMine && _stockEpochDoc ? prev : null));
                 if (_epochPreferred) {
                   r = Object.assign({}, r, {
                     stockBase: _epochPreferred.stockBase,
