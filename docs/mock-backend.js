@@ -4186,7 +4186,10 @@
         // regardless of message direction; retain both sets of movement witnesses.
         // This is a stable projection choice, NOT a physical recount or deletion.
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict);
-        const _epochRemoteGana = _epochDoble &&
+        // An independent physical recount with a different numeric baseline
+        // has no proven parent epoch. Preserve BOTH local read models, even if
+        // one device clock claims to be newer; that claim cannot rebase stock.
+        const _epochRemoteGana = _epochDoble && _baseR !== null && _baseR === _baseL &&
           (_tsR > _tsL || (_tsR === _tsL && epochRemote > epochLocal));
         // Do not undo the chosen epoch after its evidence is merged.
         // A previous local protection restore made later movement replay diverge.
