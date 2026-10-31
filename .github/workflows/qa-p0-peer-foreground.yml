@@ -1,0 +1,50 @@
+name: qa-p0-peer-foreground
+on:
+  push:
+    branches: [fix/p0-peer-recover-visible-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  real-and-regression:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Reproduce P0 RED on exact deployed master source
+        run: |
+          set -euo pipefail
+          git show d69d4023663f47fc6d1f28498300475fee6f4d2e:docs/peer-sync.js > /tmp/f123-peer-baseline.js
+          if F123_PEER_SYNC_SOURCE=/tmp/f123-peer-baseline.js node --test --test-name-pattern='P0 foreground revives' test/peer-initial-recovery.test.cjs > /tmp/p0-red.txt 2>&1; then
+            echo "Baseline unexpectedly passed: no proven regression" >&2
+            exit 1
+          fi
+          grep -q 'not ok.*P0 foreground revives' /tmp/p0-red.txt
+          echo "P0 baseline RED reproduced"
+      - name: Verify P0 GREEN and native peer relay adjacent contracts
+        run: |
+          set -euo pipefail
+          node --check docs/peer-sync.js
+          node --test --test-timeout=75000 \
+            test/peer-initial-recovery.test.cjs \
+            test/peer-buffered-nudge.test.cjs \
+            test/peer-frame-boundary.test.cjs \
+            test/peer-sync-browser.test.js
+      - name: SHA and whitespace
+        if: always()
+        run: |
+          git diff --check d69d4023663f47fc6d1f28498300475fee6f4d2e HEAD
+          wc -l docs/peer-sync.js test/peer-initial-recovery.test.cjs
+          sha256sum docs/peer-sync.js test/peer-initial-recovery.test.cjs
