@@ -287,6 +287,17 @@ self.addEventListener("fetch", (evento) => {
     if (evento.request.method !== "GET") return;
     if (!HOSTS_PERMITIDOS.includes(url.origin)) return;
 
+    // P0 emergency: never run the retired automatic stock adjustment from
+    // any previously installed cache, including when the device is offline.
+    // This safety override never reads or modifies the business notebook.
+    if (url.pathname.endsWith("/owner-approved-inventory-repair.js")) {
+      evento.respondWith(Promise.resolve(new Response("// automatic stock repair retired\\n", {
+        status: 200,
+        headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-store" }
+      })));
+      return;
+    }
+
     // Estrategia (corregida 2026-07-07, JFC reporto Ayuda vieja tras deploy):
     //   - Mismo origen (shell de la app): NETWORK-FIRST — con conexion siempre
     //     se sirve lo ultimo publicado en Pages y se refresca la copia; la
