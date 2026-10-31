@@ -551,6 +551,26 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     return guardarSecureResiliente(s);
   }
 
+  // Adopt only a PIN already verified by the license authority on this exact
+  // licensed device. This creates a durable local rotation intent for Yjs,
+  // without inventing a movement or promoting a stale browser PIN.
+  async function adoptarPinOwnerCentralVerificado(pin, rev, licVerificada) {
+    const p = String(pin || ""), lic = String(licVerificada || "").trim().toUpperCase();
+    if (!/^\\d{3}$/.test(p) || p === "456" || p === "789" ||
+        !Number.isSafeInteger(rev) || rev < 1 || !/^F123-/.test(lic)) return false;
+    try {
+      const T = window.OCTienda;
+      const actual = T && T.licenciaActual && String(T.licenciaActual() || "").trim().toUpperCase();
+      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      if (actual !== lic || own.licenseCode !== lic || !own.instanceId) return false;
+      const saved = JSON.parse(localStorage.getItem("f123_pin_central_seen:" + lic) || "null");
+      if (saved && Number.isSafeInteger(saved.revision) && saved.revision > rev) return false;
+      if (estadoSecreto() !== "ok") return false; // never replace missing/corrupt secrets by guesswork
+      if (await coincidePin(p, "owner")) return true;
+      return await fijarOwnerPin(p, true);
+    } catch (_) { return false; }
+  }
+
   // P0 v621: owner may have logged in with the authenticated encrypted Yjs
   // notebook while this iPhone has no local f123_secure verifier yet.
   // Bootstrap ONLY from that fully recovered notebook and the PIN just used
@@ -1141,6 +1161,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     migrarSiHaceFalta, guardarSecreto, instalarCredencialesDesdeSala, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
     estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
+    adoptarPinOwnerCentralVerificado,
     fijarOwnerPinDesdeSesion, // P0: owner already verified by recovered room, local verifier missing
     pinOwnerPendienteLocal, reconciliarCambioPinOwnerPendiente,
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
