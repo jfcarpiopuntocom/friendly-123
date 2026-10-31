@@ -1,0 +1,25 @@
+name: LAB encrypted envelope feed contracts — same license / three replicas
+on:
+  push:
+    branches:
+      - lab/p0-license-gated-envelope-api-20261031
+    paths:
+      - lab/license-feed/**
+      - test/license-feed-contract.test.cjs
+      - .github/workflows/lab-license-feed-contract.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  synthetic-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check lab/license-feed/contract.cjs
+      - run: node --check test/license-feed-contract.test.cjs
+      - run: node --test --test-timeout=30000 test/license-feed-contract.test.cjs
+      - run: git diff --check
