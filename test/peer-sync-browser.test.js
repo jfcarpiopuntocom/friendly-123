@@ -152,6 +152,18 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     // one was re-opened: it must receive exact history and pass new moves back.
     const c=await boot(third,null);
     await c.waitForFunction(()=>doc.getMap('business').get('record')?.total===43.25,{},{timeout:12000});
+    // One of two receiving browsers cannot commit. ACK from the other must
+    // NOT retire the sender's outbox while an active peer remains uncommitted.
+    await c.evaluate(()=>{allowed=false;});
+    await a.evaluate(()=>{
+      const old=doc.getMap('business').get('record');
+      doc.getMap('business').set('record',{...old,total:46.25,stock:9,history:old.history.concat('pending-peer')});
+    });
+    for(const page of [reopened,c])await page.waitForFunction(
+      ()=>doc.getMap('business').get('record')?.total===46.25,{},{timeout:12000});
+    await a.waitForFunction(()=>channel.pendientesRelay>0,{},{timeout:4000});
+    await c.evaluate(()=>{allowed=true;});
+    await a.waitForFunction(()=>channel.pendientesRelay===0,{},{timeout:16000});
     await c.evaluate(()=>{
       const old=doc.getMap('business').get('record');
       doc.getMap('business').set('record',{...old,total:47.75,stock:11,history:old.history.concat('third-browser-move')});
@@ -163,7 +175,7 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
       ()=>({record:doc.getMap('business').get('record'),revision:channel.pendientesRelay}))));
     for(const entry of exactly){
       assert.equal(entry.record.stock,11,'latest genuine third-browser movement propagates');
-      assert.deepEqual(entry.record.history,['sale','payment','edit','third-browser-move']);
+      assert.deepEqual(entry.record.history,['sale','payment','edit','pending-peer','third-browser-move']);
       assert.equal(entry.revision,0,'no unacknowledged ciphertext after three-way delivery');
     }
     await c.close();
