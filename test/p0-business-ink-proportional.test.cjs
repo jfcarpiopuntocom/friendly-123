@@ -9,9 +9,10 @@ const cssPairs=[
 ];
 function wordmarkRule(css,selector){
  const esc=selector.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
- const m=css.match(new RegExp(esc+'\\s*\\{([^{}]+)\\}'));
- assert.ok(m,'missing public wordmark rule: '+selector);
- return m[1];
+ const matches=[...css.matchAll(new RegExp(esc+'\\s*\\{([^{}]+)\\}','g'))];
+ const chosen=matches.find(m=>/-webkit-text-stroke:\\.08em\\s+#000/i.test(m[1]));
+ assert.ok(chosen,'missing proportional public wordmark rule: '+selector);
+ return chosen[1];
 }
 for(const p of cssPairs)test('P0 '+p.name+': source and shipped bundle use the EXACT responsive logo ink',()=>{
  for(const pathname of [p.source,p.bundle]){
