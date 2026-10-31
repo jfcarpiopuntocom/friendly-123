@@ -265,6 +265,7 @@
         '<details class="lic-mas"><summary>More</summary>' +
           (g.soloJfc ? '<button type="button" class="btn-ok lic-mini" onclick="licUnificarNombre(\'' + esc(g.cod) + '\')">Unify my devices\' name</button> ' : "") +
           '<button type="button" class="btn-ok lic-mini" onclick="licAMiLicencia(\'' + id + '\')">Attach to my license</button> ' +
+          '<button type="button" class="btn-ok lic-mini" data-owner-pin-license="' + esc(g.cod || "") + '" data-owner-pin-instance="' + id + '">PIN Owner central</button> ' +
           '<button type="button" class="btn-ok lic-mini" onclick="licEmitirMaestro(\'' + id + '\')">5-min recovery</button> ' +
           '<button type="button" class="btn-ok lic-mini" onclick="licReenganchar(\'' + id + '\')">Re-attach</button> ' +
           '<button type="button" class="btn-ok lic-mini lic-peligro" onclick="licBorrar(\'' + id + '\')">Delete device</button>' +
