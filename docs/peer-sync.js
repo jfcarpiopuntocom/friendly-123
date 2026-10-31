@@ -20,6 +20,8 @@
         hub.sockets.add(this); hub.start();
         if (hub.connected().length) queueMicrotask(() => this.open());
       }
+      // Signal metadata may be connected while no customer peer is present.
+      get signalingReady() { return !!(this.hub.signal && this.hub.signal.readyState === 1); }
       get bufferedAmount() { this.hub.nudge(); return this.queuedBytes + this.hub.connected().reduce((n, peer) => n + (peer.dc.bufferedAmount || 0), 0); }
       emit(type, properties = {}) {
         const event = type === 'message' ? new MessageEvent(type, { data: properties.data }) : new Event(type);
