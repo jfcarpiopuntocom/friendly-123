@@ -513,6 +513,15 @@
       setTimeout(function () { try { pedirCatalogo(); } catch (_) {} }, 800 + Math.random() * 1200);
     };
     ws.onmessage = async (ev) => {
+      // If the active notebook changed before page reload, do not apply
+      // bytes from the old shop or acknowledge them in the new one.
+      if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+          codigoCuadernoActivo() !== codigoNorm) {
+        ++_conexionGeneracion;
+        cerrarWsExistente();
+        notificarEstado("apagado");
+        return;
+      }
       // Frame de presencia (2026-07-23): el relay los manda en TEXTO plano,
       // sin cifrar (solo es un numero de conexiones, no dato del negocio).
       // Las Ops reales siempre son binarias (ArrayBuffer, cifradas). Este
@@ -1211,6 +1220,9 @@
   }
 
   async function vaciarCola() {
+    // Existing legacy queues must not be delivered under a newly selected
+    // business just because a socket remains open during a notebook switch.
+    if (codigoCuadernoActivo() !== normalizarCodigo((leerSala() || {}).codigo || "")) return;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const cola = leerCola();
     if (!cola.length) return;
