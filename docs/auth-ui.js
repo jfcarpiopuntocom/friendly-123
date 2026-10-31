@@ -1170,6 +1170,32 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       }finally{clearTimeout(timer)}
     }catch(_){return "unavailable"}
   }
+  // A deliberate Owner rotation first commits a CAS revision to the
+  // license authority. Login merely verifies; it can never rotate on its own.
+  async function rotarPinOwnerCentral(oldPin,newPin){
+    let own;try{own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{}}catch(_){return {ok:false,reason:"identity-unavailable"}}
+    const lic=String(own.licenseCode||"").trim().toUpperCase();
+    const instanceId=own.instanceId;
+    if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!instanceId)return {ok:false,reason:"identity-unavailable"};
+    if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return {ok:true,unconfigured:true};
+    const raw=(localStorage.getItem("f123_cf_worker_url")||"").trim()||OC_WORKER_URL;
+    let endpoint;try{endpoint=new URL(raw)}catch(_){return {ok:false,reason:"network-unavailable"}}
+    if(endpoint.protocol!=="https:")return {ok:false,reason:"network-unavailable"};
+    const params={licenseCode:lic,instanceId,pin:String(oldPin)};
+    try{
+      const check=await fetch(endpoint.origin+"/pin/verify",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(params)});
+      if(check.status===409)return {ok:true,unconfigured:true};
+      if(!check.ok)return {ok:false,reason:"current-pin-rejected"};
+      const current=await check.json();
+      if(!current.ok||!Number.isSafeInteger(current.revision))return {ok:false,reason:"revision-unavailable"};
+      const response=await fetch(endpoint.origin+"/pin/rotate",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({...params,newPin:String(newPin),expectedRevision:current.revision})});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||result.ok!==true)return {ok:false,reason:response.status===409?"revision-conflict":"central-update-failed"};
+      try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:result.revision,at:Date.now()}))}catch(_){}
+      return {ok:true,revision:result.revision};
+    }catch(_){return {ok:false,reason:"network-unavailable"}}
+  }
+  window.F123CentralPin={verificar:verificarPinOwnerCentral,rotar:rotarPinOwnerCentral};
   async function validar(code) {
     await listo;
     if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
