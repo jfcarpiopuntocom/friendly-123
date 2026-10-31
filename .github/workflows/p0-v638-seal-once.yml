@@ -1,0 +1,77 @@
+name: P0 seal v638 only after rejected-ACK recovery passes
+on:
+  push:
+    branches: [fix/p0-failed-save-publication-20261031]
+    paths: [.github/workflows/p0-v638-seal-once.yml]
+permissions:
+  contents: write
+jobs:
+  focused-before-seal:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Reject transient stock and await rejected-ACK recovery
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          node --check docs/mock-backend.js
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-failed-save-publication-gate.test.cjs \
+            test/enviar-mientras-guarda-v601.test.js \
+            test/bar-conversion-durable-ack.test.js \
+            test/p0-durable-stock-adjustment.test.cjs \
+            test/p0-v630-sale-edit-first-ack-pn.test.cjs \
+            test/dashboard-identidad-version.test.js \
+            test/pwa-icons-multicolor-v577.test.js
+          wc -l docs/mock-backend.js
+          sha256sum docs/mock-backend.js
+      - name: Bump next candidate and seal runtime hashes only after PASS
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs'),path='docs/version.json';
+          const v=JSON.parse(fs.readFileSync(path,'utf8'));
+          if(v.shell!=='f123-shell-v637'||v.cacheGeneration!=='golden184')throw Error('Unexpected previous candidate');
+          v.version='shell v638';v.shell='f123-shell-v638';
+          v.releaseName='shell v638';v.cacheGeneration='golden185';
+          v.changelog='P0: wait for durable recovery before sharing stock after storage failures; keep all movements and approved access unchanged.';
+          fs.writeFileSync(path,JSON.stringify(v,null,2)+'\n');
+          const swPath='docs/sw.js',sw=fs.readFileSync(swPath,'utf8');
+          if(!sw.includes('const CACHE = "f123-shell-v637"')||!sw.includes('const CACHE_GENERACION = "-golden184"'))throw Error('Unexpected SW identity');
+          fs.writeFileSync(swPath,sw.replace('const CACHE = "f123-shell-v637"','const CACHE = "f123-shell-v638"')
+            .replace('const CACHE_GENERACION = "-golden184"','const CACHE_GENERACION = "-golden185"'));
+          const dash='docs/dashboard.html',html=fs.readFileSync(dash,'utf8');
+          for(const needle of ['content="f123-shell-v637"','content="shell v637"','Dashboard shell v637'])if(!html.includes(needle))throw Error('Missing '+needle);
+          fs.writeFileSync(dash,html.replace('content="f123-shell-v637"','content="f123-shell-v638"')
+            .replace('content="shell v637"','content="shell v638"').replace('Dashboard shell v637','Dashboard shell v638'));
+          NODE
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node scripts/release-control.cjs validate origin/master
+          node --test test/dashboard-identidad-version.test.js test/pwa-icons-multicolor-v577.test.js
+          git diff --check
+          git diff --stat
+      - name: Seal branch only; remove one-use release job
+        run: |
+          set -euo pipefail
+          git config user.name "friendly-123 release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/version-manifest.json
+          git rm .github/workflows/p0-v638-seal-once.yml
+          git diff --cached --quiet && exit 1
+          git commit -m "release(candidate): v638 durable recovery proof and exact SHA256 manifest"
+          git push origin HEAD:refs/heads/fix/p0-failed-save-publication-20261031
