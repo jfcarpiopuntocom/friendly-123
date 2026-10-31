@@ -37,7 +37,9 @@ async function request(route,options={}){
  const cfg=typeof licWorkerUrl==="function"?licWorkerUrl():"";
  const key=typeof licMasterKey==="function"?licMasterKey():"";
  if(!cfg||!key)throw Error("Configura el Worker y la clave maestra del panel.");
- const base=new URL(cfg);if(base.protocol!=="https:")throw Error("HTTPS obligatorio");
+ const base=new URL(cfg);
+ if(base.protocol!=="https:"||base.hostname!=="friendly123-licencias.jfcarpio.workers.dev")
+  throw Error("PIN y clave maestra sólo pueden enviarse al Worker oficial friendly123-licencias.");
  const response=await fetch(base.origin+route,{...options,cache:"no-store",headers:{"Content-Type":"application/json","X-Master-Key":key}});
  const data=await response.json().catch(()=>({ok:false}));
  if(!response.ok)throw Error(data.reason==="revision-conflict"?"Revisión cambió; vuelve a consultar.":data.reason||"Worker: "+response.status);
