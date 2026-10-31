@@ -27,6 +27,17 @@ function pub(r,p,observations){
   reportsVerified:false
  };
 }
+// The client UI's count is never authorization. Require the exact server
+// registry cohort before a stage or activation can supersede real client PINs.
+function censusMatches(ids,observed) {
+ if(!Array.isArray(ids)||ids.length===0||ids.length>60||
+    !observed||!observed.devices)return false;
+ const unique=new Set(ids);
+ if(unique.size!==ids.length ||
+    [...unique].some(id=>typeof id!=="string"||!/^[a-zA-Z0-9_-]{6,120}$/.test(id)))return false;
+ const reported=Object.keys(observed.devices);
+ return reported.length===unique.size&&reported.every(id=>unique.has(id));
+}
 export function pinAuthority(storage,secret,clock=Date.now){
  if(!storage||typeof storage.transaction!=="function")throw Error("transactional storage required");
  const key=l=>"pin-owner:"+l,limit=l=>"pin-owner-attempts:"+l,report=l=>"pin-owner-observed:"+l,proposal=l=>"pin-owner-proposal:"+l;
@@ -57,12 +68,12 @@ export function pinAuthority(storage,secret,clock=Date.now){
    return {ok:true,observed:true,unchanged:false};
   });
  }
- async function masterSet(license,pin,expectedRevision){
+ async function masterSet(license,pin,expectedRevision,registeredIds){
   const l=cleanLicense(license),p=cleanPin(pin),expected=rev(expectedRevision),fingerprint=await mac(secret,l,p);
   return storage.transaction(async tx=>{
    const prior=await tx.get(key(l)),current=prior?.revision??0,observed=await tx.get(report(l));
    if(current!==expected)return {ok:false,reason:"revision-conflict",...pub(prior,await tx.get(proposal(l)),observed)};
-   if(!observed||!Object.keys(observed.devices||{}).length)return {ok:false,reason:"enrollment-required",...pub(prior,null,observed)};
+   if(!censusMatches(registeredIds,observed))return {ok:false,reason:"census-incomplete",...pub(prior,null,observed)};
    if(prior&&equal(prior.fingerprint,fingerprint)){
     // Explicitly returning to the current PIN cancels any stale proposal.
     await tx.delete(proposal(l));
@@ -75,7 +86,7 @@ export function pinAuthority(storage,secret,clock=Date.now){
    return {ok:true,staged:true,...pub(prior,staged,observed)};
   });
  }
- async function masterActivate(license,pin,expectedRevision){
+ async function masterActivate(license,pin,expectedRevision,registeredIds){
   const l=cleanLicense(license),p=cleanPin(pin),expected=rev(expectedRevision),fingerprint=await mac(secret,l,p);
   return storage.transaction(async tx=>{
    const prior=await tx.get(key(l)),current=prior?.revision??0;
@@ -90,7 +101,7 @@ export function pinAuthority(storage,secret,clock=Date.now){
    // An existing client may have logged in since JFC prepared the change.
    // Require a fresh JFC review; the expired proposal changes no credentials.
    const censusNow=Number.isSafeInteger(observed?.generation)?observed.generation:0;
-   if(!observed||!Object.keys(observed.devices||{}).length||
+   if(!censusMatches(registeredIds,observed)||
       staged.censusGeneration!==censusNow){
      await tx.delete(proposal(l));
      return {ok:false,reason:"census-changed",...pub(prior,null,observed)};
