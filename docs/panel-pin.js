@@ -24,8 +24,13 @@ function render(s){
   }
  }
  const stage=el("lic-pin-stage"),activate=el("lic-pin-activate");
- if(stage)stage.disabled=!s.observedDevices;
- if(activate)activate.disabled=s.pendingRevision===null;
+ // Phase 1: JFC must be able to see an existing-PIN report from EVERY
+ // registered device before coordinating a forced revision. Missing devices
+ // keep their existing access; no silent forced migration in production.
+ const censusComplete=selected.knownDevices>0 && s.observedDevices>=selected.knownDevices;
+ if(stage)stage.disabled=!censusComplete;
+ if(activate)activate.disabled=!censusComplete || s.pendingRevision===null;
+ if(!censusComplete && summary)summary.textContent+=" · Faltan aparatos: primero registrar PIN existentes";
 }
 async function request(route,options={}){
  const cfg=typeof licWorkerUrl==="function"?licWorkerUrl():"";
