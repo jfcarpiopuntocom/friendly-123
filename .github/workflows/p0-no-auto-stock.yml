@@ -1,0 +1,29 @@
+name: P0 reject automatic snapshot stock adjustments
+on:
+  push:
+    branches: [master, estable]
+    paths:
+      - docs/owner-approved-inventory-repair.js
+      - docs/version-manifest.json
+      - docs/sw.js
+      - test/p0-owner-approved-six-stock-repair.test.cjs
+      - .github/workflows/p0-no-auto-stock.yml
+  pull_request:
+    paths:
+      - docs/owner-approved-inventory-repair.js
+      - docs/version-manifest.json
+      - docs/sw.js
+      - test/p0-owner-approved-six-stock-repair.test.cjs
+permissions:
+  contents: read
+jobs:
+  no-fixed-stock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check test/p0-owner-approved-six-stock-repair.test.cjs
+      - run: node --test test/p0-owner-approved-six-stock-repair.test.cjs
