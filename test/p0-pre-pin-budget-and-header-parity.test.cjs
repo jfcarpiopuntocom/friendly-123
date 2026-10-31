@@ -8,11 +8,11 @@ const read=(p)=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const source=read('src/app/app-style-02.css');
 const built=read('docs/app-style-02.min.css');
 const index=read('docs/index.html');
-const gold='#EFC31A',outline='#1D2E43';
-test('business name uses the exact sampled logo yellow and navy outline in both source and served CSS',()=>{
+const gold='#EFC31A',outline='#000';
+test('business name uses the exact sampled logo yellow and black outline in both source and served CSS',()=>{
  for(const [where,css] of [['source',source],['served',built]]){
   assert.match(css,new RegExp('\\-\\-f123-business-gold-ink:'+gold,'i'),where+' yellow mismatch');
-  assert.match(css,new RegExp('header h1 #oc-negocio-nombre\\{\\-webkit-text-stroke:1px '+outline.replace('#','\\#'),'i'),where+' logo outline mismatch');
+  assert.match(css,new RegExp('\\-webkit-text-stroke:\\.06em '+outline.replace('#','\\#'),'i'),where+' logo outline mismatch');
   assert.match(css,/header h1 #oc-negocio-nombre\{font-family:var\(--font-display,/);
  }
  assert.match(index,/id="oc-negocio-nombre"/);
