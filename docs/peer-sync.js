@@ -252,7 +252,8 @@
     const resume = () => {
       if (document.hidden) return;
       for (const hub of hubs.values()) {
-        if (!hub.sockets.size || hub.connected().length) continue;
+        if (!hub.sockets.size) continue;
+        if (hub.connected().length) { hub.attempts = 0; continue; }
         hub.stop();
         hub.attempts = 0;
         hub.start();
