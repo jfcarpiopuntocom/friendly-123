@@ -112,11 +112,39 @@ function sortCounters(pn) {
   }
   return out;
 }
-module.exports={compare};
+
+/** FOR LOCAL ANALYSIS ONLY. This output may include sensitive product/event IDs. */
+function privateDetails(left,right){
+  const summary=compare(left,right);
+  if(summary.identity==='LICENSE_MISMATCH')return {...summary,PRIVATE_LOCAL_ONLY:true};
+  const byId=rows=>new Map(rows.map(x=>[x.id,x]));
+  const diff=(leftRows,rightRows)=>{
+    const a=byId(leftRows),b=byId(rightRows);
+    return {onlyInPC:[...a.keys()].filter(id=>!b.has(id)).sort(),
+      onlyInPhone:[...b.keys()].filter(id=>!a.has(id)).sort(),
+      incompatibleSameId:[...a.keys()].filter(id=>b.has(id)&&canonical(a.get(id))!==canonical(b.get(id))).sort()};
+  };
+  const pc=byId(left.productos),phone=byId(right.productos),physical=[];
+  const state=o=>({stockActual:o.stockActual??null,stockBase:o.stockBase??null,
+    stockEpochId:o.stockEpochId??null,stockPN:o.stockPN??null});
+  for(const [id,item] of pc){
+    if(!phone.has(id))continue;
+    const a=state(item),b=state(phone.get(id));
+    if(canonical(a)!==canonical(b))physical.push({productId:id,pc:a,phone:b});
+  }
+  return {PRIVATE_LOCAL_ONLY:true,summary,movements:diff(left.movimientos,right.movimientos),
+    sales:diff(left.ventas,right.ventas),
+    products:diff(left.productos,right.productos),physical,
+    warning:'Exported JSON may not contain every Yjs update or causal dependency. Do not auto-apply or upload.'};
+}
+
+module.exports={compare,privateDetails};
 if (require.main===module) {
-  const paths=process.argv.slice(2);
+  const args=process.argv.slice(2);
+  const privateMode=args[0]==='--private-local';
+  const paths=privateMode?args.slice(1):args;
   if (paths.length!==2) {
-    process.stderr.write('Use: node scripts/p0-compare-replicas.cjs LEFT.json RIGHT.json\n');
+    process.stderr.write('Use: node scripts/p0-compare-replicas.cjs [--private-local] PC.json PHONE.json\n');
     process.exitCode=2;
   } else {
     try {
@@ -124,7 +152,7 @@ if (require.main===module) {
       for (const p of paths) if (fs.statSync(p).size>64*1024*1024) throw Error('backup too large');
       const left=JSON.parse(fs.readFileSync(paths[0],'utf8'));
       const right=JSON.parse(fs.readFileSync(paths[1],'utf8'));
-      process.stdout.write(JSON.stringify(compare(left,right),null,2)+'\n');
+      process.stdout.write(JSON.stringify(privateMode?privateDetails(left,right):compare(left,right),null,2)+'\n');
     } catch(e) {
       process.stderr.write('Read-only comparison failed: '+e.message+'\n');
       process.exitCode=2;
