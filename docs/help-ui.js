@@ -130,7 +130,9 @@
       equ: [
         "One license is one shared notebook: every device you activate with it stays up to date on its own, PINs and roles included.",
         "To add a device: <b>Advanced &rarr; Shared notebook</b>.",
-        "Owner &rarr; Admin &rarr; Staff. The bookkeeper has a separate PIN for the accounting layer and expenses."
+        "Owner &rarr; Admin &rarr; Staff. The bookkeeper has a separate PIN for the accounting layer and expenses.",
+        "As the owner, manage team PINs and deactivate former staff in <b>Advanced &rarr; Team & access</b>, or use <b>Dashboard &rarr; My team</b>. You do not need JFC to handle routine PINs.",
+        "If a PIN was shared, change it. If the business code itself leaked, rotate it in Advanced. A disconnected device may still retain older data until it reconnects; copied information cannot be erased remotely."
       ],
       segTit: "Keep it safe",
       seg: [
@@ -216,7 +218,9 @@
       equ: [
         "Una licencia es un solo cuaderno compartido: cada aparato activado con ella se mantiene al día solo, PIN y roles incluidos.",
         "Para sumar un aparato: <b>Avanzado &rarr; Cuaderno compartido</b>.",
-        "Dueño &rarr; Admin &rarr; Encargado. El contador tiene un PIN aparte para la capa contable y los gastos."
+        "Dueño &rarr; Admin &rarr; Encargado. El contador tiene un PIN aparte para la capa contable y los gastos.",
+        "Como dueño, gestiona PIN y bajas del equipo en <b>Avanzado &rarr; Equipo y acceso</b> o <b>Dashboard &rarr; Mi equipo</b>. No necesitas a JFC para los cambios habituales.",
+        "Si se compartió un PIN, cámbialo. Si se filtró el código del negocio, rótalo en Avanzado. Un dispositivo desconectado puede conservar datos antiguos hasta reconectarse; no se puede borrar remotamente lo que alguien ya copió."
       ],
       segTit: "Para no perder nada",
       seg: [
