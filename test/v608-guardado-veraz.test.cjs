@@ -99,8 +99,11 @@ test('store name uses logo yellow #EFC31A in light and dark scheme',async()=>{
 test('real IndexedDB quota error (localStorage unavailable) writes the in-UI status text',async()=>{
   await withDevice(async page=>{
     await page.evaluate(()=>{
-      const orig=localStorage.setItem.bind(localStorage);
-      localStorage.setItem=function(k,v){ if(String(k).indexOf('f123_estado_v4')===0) throw new DOMException('denied','SecurityError'); return orig(k,v); };
+      const set=Storage.prototype.setItem;
+      Storage.prototype.setItem=function(k,v){
+        if(String(k).startsWith('f123_estado_v4'))throw new DOMException('denied','SecurityError');
+        return set.call(this,k,v);
+      };
       // Real estado-idb path: its write rejects with a quota error, estado-idb catches it and returns false.
       const orig2=IDBObjectStore.prototype.put;
       IDBObjectStore.prototype.put=function(){ throw new DOMException('full','QuotaExceededError'); };
