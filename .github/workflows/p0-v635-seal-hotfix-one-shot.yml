@@ -1,0 +1,67 @@
+name: P0 v635 seal and reproduce hotfix red cases
+on:
+  push:
+    branches: [fix/p0-v635-hotfix-compat-20261031]
+    paths: [.github/workflows/p0-v635-seal-hotfix-one-shot.yml]
+permissions:
+  contents: write
+jobs:
+  proof:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Reproduce ALL actual browser and Worker red contracts separately
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/license-name-fusion.test.js test/relay-sin-cloudflare-datos-v557.test.js test/linus-dos-pestanas.test.js
+      - name: Seal v635 golden182, hash ALL 121 shell assets
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const path='docs/version.json',v=JSON.parse(fs.readFileSync(path,'utf8'));
+          if(v.shell!=='f123-shell-v634'||v.cacheGeneration!=='golden181')throw Error('unexpected baseline');
+          v.version='shell v635';v.shell='f123-shell-v635';v.releaseName='shell v635';
+          v.cacheGeneration='golden182';v.fecha='2026-10-31';
+          v.changelog='JFC PIN authority: correct dashboard visible version and preserve license recovery; verified browser and storage contracts. Business data and stock untouched.';
+          fs.writeFileSync(path,JSON.stringify(v,null,2)+'\n');
+          function edit(file,oldStr,newStr){
+           const src=fs.readFileSync(file,'utf8');
+           if(src.split(oldStr).length!==2)throw Error('unexpected shell anchor: '+file);
+           fs.writeFileSync(file,src.replace(oldStr,newStr));
+          }
+          edit('docs/sw.js','const CACHE = "f123-shell-v634";','const CACHE = "f123-shell-v635";');
+          edit('docs/sw.js','const CACHE_GENERACION = "-golden181";','const CACHE_GENERACION = "-golden182";');
+          edit('docs/dashboard.html','<meta name="dashboard-shell" content="f123-shell-v634">','<meta name="dashboard-shell" content="f123-shell-v635">');
+          edit('docs/dashboard.html','<meta name="dashboard-release" content="shell v634">','<meta name="dashboard-release" content="shell v635">');
+          edit('docs/dashboard.html','>Dashboard shell v633</span>','>Dashboard shell v635</span>');
+          NODE
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node scripts/release-control.cjs validate origin/master
+          git diff --check
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/dashboard-identidad-version.test.js
+          git diff --stat
+      - name: Commit verified v635 candidate, no direct deploy
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "friendly-123 release bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/version-manifest.json
+          git diff --cached --quiet && exit 1
+          git commit -m "release(candidate): v635 golden182 hash-verified, dashboard visible and browser contracts"
+          git push origin HEAD:refs/heads/fix/p0-v635-hotfix-compat-20261031
