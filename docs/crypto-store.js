@@ -556,7 +556,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // without inventing a movement or promoting a stale browser PIN.
   async function adoptarPinOwnerCentralVerificado(pin, rev, licVerificada) {
     const p = String(pin || ""), lic = String(licVerificada || "").trim().toUpperCase();
-    if (!/^\\d{3}$/.test(p) || p === "456" || p === "789" ||
+    if (!/^\d{3}$/.test(p) || p === "456" || p === "789" ||
         !Number.isSafeInteger(rev) || rev < 1 || !/^F123-/.test(lic)) return false;
     try {
       const T = window.OCTienda;
