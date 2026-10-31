@@ -92,6 +92,7 @@ const SHELL = [
   "./sync-realtime.js",
   "./sync-watchdog.js",
   "./sync-yjs.js",
+  "./owner-approved-inventory-repair.js",
   "./sync-latencia.js",
   "./invariantes.js",
   "./licencia-prueba.js",
