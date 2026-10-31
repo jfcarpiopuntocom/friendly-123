@@ -35,7 +35,7 @@ jobs:
         if: github.event_name == 'push'
         run: |
           set -euo pipefail
-          test "$(node -p "require('./docs/version.json').shell")" = 'f123-shell-v634'
+          test "$(node -p "require('./docs/version.json').shell")" = 'f123-shell-v635'
           test "$(git rev-parse HEAD:cloudflare-worker/pin-authority.mjs)" = '758e2f95f2bc1b64b832c74383fd29d90dfd6c62'
           node --check cloudflare-worker/worker.js
           node --check cloudflare-worker/pin-worker-api.mjs
