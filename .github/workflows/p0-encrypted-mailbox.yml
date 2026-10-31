@@ -9,6 +9,7 @@ on:
       - 'docs/mailbox-startup.mjs'
       - 'docs/mailbox-bridge.mjs'
       - 'test/p0-mailbox-client.test.mjs'
+      - 'test/p0-mailbox-playwright.test.cjs'
       - 'cloudflare-worker/mailbox-api.mjs'
       - 'cloudflare-worker/worker.js'
       - 'cloudflare-worker/wrangler.toml'
@@ -38,3 +39,18 @@ jobs:
       - name: Verify Cloudflare Worker and binding without deploying
         run: |
           npx wrangler deploy --dry-run --config cloudflare-worker/wrangler.toml --outdir /tmp/f123-mailbox
+
+  browser-p0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install exact browsers for offline cross-engine acceptance
+        run: npx playwright install --with-deps chromium webkit
+      - name: Same encrypted room A Chromium off -> B WebKit -> A Chromium reopens
+        run: node --test --test-timeout=180000 test/p0-mailbox-playwright.test.cjs
