@@ -123,7 +123,7 @@
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
     "./dashboard-main.min.js": "sha256-3ac9449757567fe64ebf861d49049344718f793646021a92e62a1d4d7b59812d",
-    "./adaptive-relay.js": "sha256-8172656c823cda7686eafb45ecea732c306f8d410c68a44958c3e5774ce54e1f",
+    "./adaptive-relay.js": "sha256-01fd0f0fc8bea5db62b38f3a764ac4becc708d4c229f5591bc9202640c132c8c",
     "./vendor/supabase-relay.min.js": "sha256-9f4419cf00d16a01a59aa02e0567af7a88fe8a7b458ccd0ac601ee8b05815b08"
   }
 }
