@@ -1,84 +1,60 @@
 'use strict';
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {plan,run,fingerprint}=require('../docs/owner-approved-inventory-repair.js');
-const labels=['Aventuras de James Bond','Hielo del Chimborazo','Prueba B',
-  'Spray de la verdad','Spray de la verdad — Bourgeois','Crema'];
-const orig=[3,4,7,7,6,16];
-function fixture(numbers=orig){
-  return {productos:labels.map((nombre,i)=>({
-    nombre,id:'synthetic-'+i,stockActual:numbers[i],borrado:false
-  }))};
-}
-function fake(options={}){
-  const state=fixture(options.numbers),op=[],audit=[],marker=[];
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const vm=require('node:vm');
+const crypto=require('node:crypto');
+const {plan,run}=require('../docs/owner-approved-inventory-repair.js');
+const read=p=>fs.readFileSync(path.join(__dirname,'../docs',p),'utf8');
+
+test('P0 no snapshot quantity can become an automatic stock target',()=>{
+  for(const amounts of [[7,7,7],[3,4,16],[0,1,99],[17,22,333]]) {
+    const catalog={productos:amounts.map((stockActual,i)=>({id:'synthetic-'+i,stockActual}))};
+    assert.equal(plan(catalog),null);
+  }
+  assert.equal(plan(null),null);
+});
+
+test('P0 no automatic write, audit, marker or adjustment even when owner authorized',async()=>{
+  let writes=0;
   const deps={
-    authorized:()=>options.authorized!==false,
-    done:()=>marker.includes('done'),
-    catalog:()=>state,
-    audit:async p=>{if(options.auditFails)throw Error('audit unavailable');audit.push(JSON.parse(JSON.stringify(p)));},
-    adjust:async(id,delta)=>{
-      if(options.adjustFails&&id==='synthetic-4')throw Error('storage unavailable');
-      const row=state.productos.find(x=>x.id===id);
-      assert.ok(row,'known product ID');
-      row.stockActual+=delta;
-      op.push({id,delta});
-      return {stockActual:row.stockActual};
-    },
-    finish:async()=>{if(options.finishFails)throw Error('marker unavailable');marker.push('done')}
+    authorized:()=>true,done:()=>false,catalog:()=>({productos:[{id:'synthetic-1',stockActual:7}]}),
+    adjust:async()=>{writes++;throw Error('automatic inventory write attempted');},
+    audit:async()=>{writes++;throw Error('audit side effect attempted');},
+    finish:async()=>{writes++;throw Error('completion side effect attempted');}
   };
-  return {state,op,audit,marker,deps};
-}
-test('P0 exact six supplied stock counts become six 7s via four normal adjustments, then stay idempotent',async()=>{
- const f=fake();
- assert.deepEqual(plan(f.state).map(p=>p.delta),[4,3,0,0,1,-9]);
- const r=await run(f.deps);
- assert.deepEqual(r,{changed:4,complete:true});
- assert.deepEqual(f.state.productos.map(p=>p.stockActual),[7,7,7,7,7,7]);
- assert.deepEqual(f.op.map(x=>x.delta),[4,3,1,-9]);
- assert.equal(f.audit.length,1);
- assert.deepEqual(f.audit[0].rows.map(p=>p.before),orig);
- assert.deepEqual(await run(f.deps),{changed:0,skipped:'unauthorized-or-complete'});
- assert.equal(f.op.length,4,'no second stock exit');
+  assert.deepEqual(await run(deps),{changed:0,skipped:'automatic-reconciliation-disabled'});
+  assert.equal(writes,0);
 });
-test('P0 unrecognized goods, duplicate names and later sales never get altered',async()=>{
- for(const changed of [[3,4,7,7,6,15],[2,4,7,7,6,16],[3,4,7,7,6,16]]){
-  const f=fake({numbers:changed});
-  if(changed.join(',')!==orig.join(','))assert.equal(plan(f.state),null);
- }
- const f=fake(); f.state.productos.push({...f.state.productos[0],id:'synthetic-duplicate'});
- assert.equal(plan(f.state),null);
- const missing=fake();missing.state.productos.pop();assert.equal(plan(missing.state),null);
- const later=fake();
- later.state.productos[5].stockTs=Date.parse('2026-11-01T00:00:00Z');
- assert.equal(plan(later.state),null,'newer real movements cannot be overwritten');
- const unauthorized=fake({authorized:false});
- assert.equal((await run(unauthorized.deps)).changed,0);assert.equal(unauthorized.op.length,0);
+
+test('P0 script installs no browser listeners or timer-driven writes',()=>{
+  const src=read('owner-approved-inventory-repair.js');
+  let listeners=0,writes=0;
+  const window={
+    addEventListener(){listeners++;},
+    fetch(){writes++;throw Error('forbidden network write');},
+    setTimeout(){writes++;throw Error('forbidden timer');},
+    OCTienda:{licenciaActual:()=>{throw Error('identity must not be consulted');}}
+  };
+  vm.runInNewContext(src,{window,document:{readyState:'complete',addEventListener(){listeners++;}}});
+  assert.equal(listeners,0);
+  assert.equal(writes,0);
+  assert.doesNotMatch(src,/\bTARGET\s*=|\btarget\s*:\s*7\b|\bdelta\s*:\s*7\s*-/);
+  assert.doesNotMatch(src,/\/api\/productos\/|\.adjust\(|fetch\(/);
 });
-test('P0 failed audit cannot create even one movement',async()=>{
- const f=fake({auditFails:true});await assert.rejects(run(f.deps),/audit unavailable/);
- assert.equal(f.op.length,0);assert.deepEqual(f.state.productos.map(x=>x.stockActual),orig);
-});
-test('P0 recovery after partial durable adjustment only publishes still-missing movements',async()=>{
- const f=fake({adjustFails:true});
- await assert.rejects(run(f.deps),/storage unavailable/);
- assert.deepEqual(f.state.productos.map(x=>x.stockActual),[7,7,7,7,6,16]);
- assert.equal(f.marker.length,0);
- f.deps.adjust=async(id,delta)=>{const p=f.state.productos.find(x=>x.id===id);p.stockActual+=delta;f.op.push({id,delta});return {stockActual:p.stockActual}};
- const r=await run(f.deps);
- assert.equal(r.changed,2);
- assert.deepEqual(f.state.productos.map(x=>x.stockActual),[7,7,7,7,7,7]);
- assert.equal(f.op.length,4,'resume does not double earlier moves');
-});
-test('P0 exact deployment references are bundled without exposing license/PIN',()=>{
- const read=p=>fs.readFileSync(path.join(__dirname,'../docs',p),'utf8');
- const script=read('owner-approved-inventory-repair.js'),html=read('index.html'),sw=read('sw.js');
- assert.match(html,/defer src="\.\/owner-approved-inventory-repair\.js"/);
- assert.equal(html.split('owner-approved-inventory-repair.js').length,2);
- assert.match(sw,/"\.\/owner-approved-inventory-repair\.js"/);
- assert.match(script,/6583453063440131/);
- assert.match(script,/OCAuth\.rolActual\(\) === "dueno"/);
- assert.ok(fingerprint('F123-SYNTHETIC-LICENSE')!==6583453063440131);
- assert.ok(!script.includes('F123-A6YK-'));
- assert.ok(!script.includes('333'));
- assert.ok(!script.includes('555'));
+
+test('P0 deployed safety no-op has matching manifest and cache guard',()=>{
+  const script=read('owner-approved-inventory-repair.js');
+  const manifest=JSON.parse(read('version-manifest.json'));
+  const sha='sha256-'+crypto.createHash('sha256').update(script,'utf8').digest('hex');
+  assert.equal(manifest.files['./owner-approved-inventory-repair.js'],sha);
+  assert.match(script,/automatic-reconciliation-disabled/);
+  const sw=read('sw.js'),html=read('index.html');
+  assert.match(sw,/url\.pathname\.endsWith\("\/owner-approved-inventory-repair\.js"\)/);
+  assert.match(sw,/automatic stock repair retired/);
+  assert.match(html,/defer src="\.\/owner-approved-inventory-repair\.js"/);
+  const version=JSON.parse(read('version.json'));
+  assert.equal(manifest.version,version.version);
+  assert.match(sw,new RegExp('const CACHE = "'+version.shell+'"'));
 });
