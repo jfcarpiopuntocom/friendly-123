@@ -25,6 +25,20 @@ const compareIds = (a, b) => {
   for (const id of b.keys()) if (!a.has(id)) onlyB++;
   return {leftTotal:a.size,rightTotal:b.size,onlyLeft:onlyA,onlyRight:onlyB};
 };
+
+// Compare same-ID facts as well: a missing-ID count of zero is not proof that
+// a sale or audit entry was not modified. Canonical key order avoids false
+// positives from JSON object property ordering differences.
+function canonical(v) {
+  if (v===null || typeof v!=='object') return JSON.stringify(v);
+  if (Array.isArray(v)) return '['+v.map(canonical).join(',')+']';
+  return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+canonical(v[k])).join(',')+'}';
+}
+function conflictingFacts(a,b) {
+  let n=0;
+  for (const [id,v] of a) if (b.has(id) && canonical(v)!==canonical(b.get(id))) n++;
+  return n;
+}
 const normCode = raw => typeof raw === 'string' ? raw.trim().toUpperCase().replace(/\s+/g, '') : '';
 function compare(left, right) {
   assertExport(left, 'left'); assertExport(right, 'right');
@@ -48,6 +62,8 @@ function compare(left, right) {
   const products = compareIds(productsA,productsB);
   const sales = compareIds(salesA,salesB);
   const movements = compareIds(movesA,movesB);
+  const salePayloadConflicts=conflictingFacts(salesA,salesB);
+  const movementPayloadConflicts=conflictingFacts(movesA,movesB);
   let shared=0,physicalEpochForks=0,unequalPhysicalStock=0,
     sameEpochStockDrift=0,legacyStockDrift=0,counterDrift=0,invalidPhysicalStock=0;
   for (const [id,p] of productsA) {
@@ -73,11 +89,13 @@ function compare(left, right) {
   }
   const mismatch=products.onlyLeft+products.onlyRight+sales.onlyLeft+sales.onlyRight+
     movements.onlyLeft+movements.onlyRight+unequalPhysicalStock+physicalEpochForks+
-    counterDrift+invalidPhysicalStock;
+    counterDrift+invalidPhysicalStock+salePayloadConflicts+movementPayloadConflicts;
   return {
     contract:'f123-replica-forensics-v1',identity,dataCompared:true,
-    canAutoReconcile:false,result:mismatch?'RECONCILIATION_REQUIRED':'NO_DIFFERENCE_DETECTED',
+    canAutoReconcile:false,result:identity==='UNKNOWN_LICENSE'?'UNVERIFIED_IDENTITY':
+      (mismatch?'RECONCILIATION_REQUIRED':'NO_DIFFERENCE_DETECTED'),
     productIds:products,saleIds:sales,movementIds:movements,
+    salePayloadConflicts,movementPayloadConflicts,
     productEvidence:{shared,physicalEpochForks,unequalPhysicalStock,
       sameEpochStockDrift,legacyStockDrift,counterDrift,invalidPhysicalStock},
     // No product names, IDs, PINs, licenses, customer names, transaction detail
