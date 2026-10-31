@@ -2,7 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import { chromium, webkit } from 'playwright';
-import { validSignal } from '../cloudflare-sync-relay/worker.js';
+import fs from 'node:fs';
+const workerSource=fs.readFileSync(new URL('../cloudflare-sync-relay/worker.js',import.meta.url),'utf8');
+const { validSignal }=await import('data:text/javascript;base64,'+Buffer.from(workerSource).toString('base64'));
 
 test('P0 actual Chromium and Safari/WebKit SDP passes production signaling filter', async () => {
   const server=http.createServer((q,r)=>{r.writeHead(200,{'content-type':'text/html'});r.end('<!doctype html><meta charset="utf-8"><title>WebRTC production filter QA</title>');});
