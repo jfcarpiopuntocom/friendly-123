@@ -46,6 +46,40 @@ test('direct adapter bounds its JS queue and binds legacy retries to the new cip
   }finally{factory.closeAll();win.F123Relay.closeAll();}
 });
 
+test('P0 three receivers: one durable ACK must not retire source operation while second has not committed',async()=>{
+  const win=new EventTarget(),document=new EventTarget();document.hidden=false;
+  class WS{constructor(){this.readyState=0;}close(){this.readyState=3;}}
+  Object.assign(win,{WebSocket:WS,RTCPeerConnection:function(){},crypto:require('node:crypto').webcrypto});
+  const ctx={window:win,document,EventTarget,MessageEvent,Event,DOMException,Blob,ArrayBuffer,Uint8Array,Map,Set,Promise,queueMicrotask,TextEncoder,crypto:win.crypto,
+    setTimeout,clearTimeout,btoa:value=>Buffer.from(value,'binary').toString('base64'),atob:value=>Buffer.from(value,'base64').toString('binary')};
+  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/peer-sync.js'),'utf8'),ctx);
+  const factory=win.F123Peer.create(),socket=factory.connect('wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/'+'a'.repeat(40));
+  const commitments=[];
+  socket.addEventListener('message',event=>{if(typeof event.data==='string'&&JSON.parse(event.data).k==='persist-result')commitments.push(JSON.parse(event.data));});
+  const peers=['b'.repeat(32),'c'.repeat(32)].map(id=>({id,dc:{readyState:'open',bufferedAmount:0,send(){}},pc:{close(){}}}));
+  peers.forEach(peer=>socket.hub.peers.set(peer.id,peer));
+  socket.hub.deliver=async()=>true;socket.open();
+  try{
+    const id='synthetic-three-device-op';
+    socket.send(JSON.stringify({k:'op',ack:1,id,c:Buffer.from('encrypted-synthetic-only').toString('base64')}));
+    await socket.serial;
+    const record=socket.sent.get('op:'+id);
+    assert.equal(record.peers.size,2,'both distinct browser instances receive ciphertext');
+    const ack=idPeer=>({id,kind:'op',hash:record.hash,peer:idPeer});
+    const first=ack(peers[0].id);
+    socket.ackCandidates.add(first);
+    assert.equal(socket.acceptPeerAck(first),true);
+    assert.equal(commitments.length,0,'one ACK may not retire a movement while peer B has not persisted');
+    assert.ok(socket.sent.has('op:'+id),'durable source outbox must still be awaiting peer B');
+    const second=ack(peers[1].id);
+    socket.ackCandidates.add(second);
+    assert.equal(socket.acceptPeerAck(second),true);
+    assert.equal(commitments.length,1,'all known active peers acknowledged exactly once');
+    assert.equal(commitments[0].id,id);
+    assert.equal(socket.sent.has('op:'+id),false);
+  }finally{factory.closeAll();win.F123Relay.closeAll();}
+});
+
 test('signaling retries keep backing off to ten minutes and resume immediately on foreground or online',()=>{
   const win=new EventTarget(),document=new EventTarget();document.hidden=false;
   const timers=new Map(),waits=[];let next=0,starts=0;

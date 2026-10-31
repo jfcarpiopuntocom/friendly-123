@@ -7,7 +7,8 @@
 // Pruebas 1-2 rojas en v413. La 3 cuida que "Deactivate sync" siga mandando.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
+const engine = process.env.F123_BROWSER === 'webkit' ? webkit : chromium;
 const { pathToFileURL } = require('node:url');
 const path = require('node:path');
 const URL = pathToFileURL(path.resolve(__dirname, '../docs/index.html')).href;
@@ -17,7 +18,7 @@ const LIC = ['F123', 'PRUEBA', 'SAPA', 'NUEVA'].join('-');
 const VIEJO = ['F123', 'PRUEBA', 'SAPA', 'ANTES'].join('-');
 
 async function salaTrasCargar(inicial) {
-  const web = await chromium.launch({ headless: true });
+  const web = await engine.launch({ headless: true });
   try {
     const ctx = await web.newContext();
     await ctx.addInitScript((ini) => {
@@ -44,7 +45,7 @@ test('2. room left on an old code: it moves to the license room', async () => {
 });
 
 test('3. owner turned sync off on purpose: it stays off', async () => {
-  const web = await chromium.launch({ headless: true });
+  const web = await engine.launch({ headless: true });
   try {
     const page = await web.newPage();
     await page.goto(URL, { waitUntil: 'domcontentloaded' });
@@ -66,4 +67,40 @@ test('3. owner turned sync off on purpose: it stays off', async () => {
     const back = await page.evaluate(() => JSON.parse(localStorage.getItem('f123_sync_room') || 'null'));
     assert.equal(back && back.codigo, LIC, 'turning it back on works');
   } finally { await web.close(); }
+});
+
+
+test('4. joined active shop wins over an obsolete owned license and legacy room',async()=>{
+  const selected = await salaTrasCargar({
+    f123_owned: owned(VIEJO),
+    f123_tienda_activa: '::'+LIC,
+    f123_notebook_unificado_v2:'1',
+    f123_sync_room:JSON.stringify({codigo:VIEJO})
+  });
+  assert.equal(selected && selected.codigo,LIC,'legacy transport follows active joined notebook');
+});
+
+test('5. unknown active identity cannot emit stock into an obsolete room',async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+    const ctx=await web.newContext();
+    await ctx.addInitScript((ini)=>{
+      localStorage.setItem('f123_owned',ini.owned);
+      localStorage.setItem('f123_sync_room',JSON.stringify({codigo:ini.legacy}));
+    },{owned:owned(VIEJO),legacy:VIEJO});
+    const page=await ctx.newPage();
+    await page.goto(URL,{waitUntil:'domcontentloaded'});
+    await page.waitForFunction(()=>!!window.OCSyncControl,{timeout:10000});
+    const result=await page.evaluate(()=>{
+      if(!window.OCTienda)return {error:'notebook API missing'};
+      window.OCTienda.licenciaActual=()=>{throw Error('synthetic active notebook unavailable')};
+      const before=localStorage.getItem('f123_sync_cola');
+      const emitted=window.OCSyncEmit('synthetic_adjustment',{delta:1});
+      const after=localStorage.getItem('f123_sync_cola');
+      return {emitted,before,after};
+    });
+    assert.equal(result.error,undefined);
+    assert.equal(result.emitted,false,'must not emit into old store');
+    assert.equal(result.after,result.before,'failed gate must not create a remote op');
+  }finally{await web.close()}
 });

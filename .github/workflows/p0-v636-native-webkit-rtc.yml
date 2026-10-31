@@ -1,0 +1,31 @@
+name: P0 v636 native WebKit three-browser RTC
+on:
+  push:
+    branches: [fix/p0-active-notebook-v636-20261031]
+    paths: [.github/workflows/p0-v636-native-webkit-rtc.yml]
+  pull_request:
+    paths:
+      - docs/peer-sync.js
+      - docs/sync-realtime.js
+      - test/peer-sync-browser.test.js
+      - .github/workflows/p0-v636-native-webkit-rtc.yml
+permissions:
+  contents: read
+jobs:
+  webkit:
+    runs-on: macos-15
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npx playwright install webkit
+      - name: No skip allowed, actual native WebRTC among three independent stores
+        env:
+          F123_REQUIRE_WEBKIT: '1'
+        run: node --test --test-name-pattern="direct webkit" --test-timeout=90000 test/peer-sync-browser.test.js
