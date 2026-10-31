@@ -5299,7 +5299,8 @@
       // (guardado estricto, venta, pago, retencion): ese estado provisional puede revertirse.
       // catalogoPropio() sigue devolviendo null si la lectura esta bloqueada o el ultimo guardado fallo.
       while (_guardadoCatalogoPendiente && (_guardadoEstrictoPendiente || _ventaConfirmando ||
-             _payoutConfirmando || _retencionConfirmando)) await _guardadoCatalogoPendiente;
+             _payoutConfirmando || _retencionConfirmando || !_ultimoGuardadoPublicable))
+        await _guardadoCatalogoPendiente;
       return this.catalogoPropio();
     },
     unirActividad: _actividadUnir,
