@@ -21,7 +21,7 @@ const lic="F123-SYNTHETIC-AUTH",id="synthetic-device";
 const observed={configured:false,phase:"collecting",revision:0,pendingRevision:null,observedDevices:2,conflictingReports:true};
 test("JFC panel displays existing device inventory and keeps activation disabled",async()=>{
  const p=panel({reply:()=>observed});
- await p.window.licAbrirPinCentral(lic,id);
+ await p.window.licAbrirPinCentral(lic,id,2);
  assert.equal(p.requests.length,1);
  assert.match(p.requests[0].url,/\/pin\/admin\/status\?/);
  assert.match(p.values.get("lic-pin-summary").textContent,/2 aparatos registrados/);
@@ -35,7 +35,7 @@ test("JFC stage does not activate and requires a second deliberate action",async
   if(u.includes("/admin/set"))return {...observed,ok:true,staged:true,pendingRevision:1};
   if(u.includes("/admin/activate"))return {...observed,ok:true,configured:true,revision:1,pendingRevision:null};
  }});
- await p.window.licAbrirPinCentral(lic,id);
+ await p.window.licAbrirPinCentral(lic,id,2);
  p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="149";
  await p.window.licFijarPinAutoridad();
  assert.equal(p.requests.length,2,"only stage request");
@@ -55,7 +55,7 @@ test("JFC stage does not activate and requires a second deliberate action",async
 });
 test("Bad confirmation or unenrolled license never submits a PIN",async()=>{
  const p=panel({reply:()=>({...observed,observedDevices:0})});
- await p.window.licAbrirPinCentral(lic,id);
+ await p.window.licAbrirPinCentral(lic,id,2);
  assert.equal(p.values.get("lic-pin-stage").disabled,true);
  p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="148";
  await p.window.licFijarPinAutoridad();
@@ -69,4 +69,14 @@ test("Responsive PIN panel and pencil are present outside the More menu",()=>{
  assert.match(html,/id="lic-pin-activate"/);
  assert.match(rows,/lic-pin-pencil/);
  assert.match(rows,/data-owner-pin-license/);
+});
+
+test("Incomplete client PIN census blocks staging even when called directly",async()=>{
+ const p=panel({reply:()=>({...observed,observedDevices:1})});
+ await p.window.licAbrirPinCentral(lic,id,2);
+ assert.equal(p.values.get("lic-pin-stage").disabled,true);
+ assert.match(p.values.get("lic-pin-summary").textContent,/Faltan aparatos/);
+ p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="149";
+ await p.window.licFijarPinAutoridad();
+ assert.equal(p.requests.length,1,"no admin mutation before complete census");
 });
