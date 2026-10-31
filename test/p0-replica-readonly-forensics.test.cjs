@@ -54,10 +54,26 @@ test('P0 forensic preserves uncertainty when source identity is not recorded',as
   const [a,b]=await backups();delete b._recuperacion;
   const r=compare(a,b);assert.equal(r.identity,'UNKNOWN_LICENSE');
   assert.equal(r.canAutoReconcile,false);
+  assert.equal(r.result,'UNVERIFIED_IDENTITY');
 });
 test('P0 forensic rejects partial and duplicate-ID backups, never writes',async()=>{
   const [a,b]=await backups();
   assert.throws(()=>compare({...a,parcial:true},b),/full notebook/);
   a.productos.push(clone(a.productos[0]));
   assert.throws(()=>compare(a,b),/duplicate/);
+});
+
+test('P0 forensic detects conflicting money and movement records with SAME IDs',async()=>{
+  const [a,b]=await backups();
+  a.ventas=[{id:'same-sale',total:10,cliente:'confidential'}];
+  b.ventas=[{cliente:'confidential',total:12,id:'same-sale'}];
+  a.movimientos=[{id:'same-movement',tipo:'ajuste',detalle:{delta:-1,nota:'confidential'}}];
+  b.movimientos=[{tipo:'ajuste',id:'same-movement',detalle:{nota:'confidential',delta:-2}}];
+  const r=compare(a,b);
+  assert.equal(r.saleIds.onlyLeft,0);
+  assert.equal(r.movementIds.onlyRight,0);
+  assert.equal(r.salePayloadConflicts,1);
+  assert.equal(r.movementPayloadConflicts,1);
+  assert.equal(r.result,'RECONCILIATION_REQUIRED');
+  assert.ok(!JSON.stringify(r).includes('confidential'));
 });
