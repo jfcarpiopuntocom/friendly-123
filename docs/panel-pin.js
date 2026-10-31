@@ -28,6 +28,7 @@ function render(s){
  // registered device before coordinating a forced revision. Missing devices
  // keep their existing access; no silent forced migration in production.
  const censusComplete=selected.knownDevices>0 && s.observedDevices>=selected.knownDevices;
+ selected.censusComplete=censusComplete;
  if(stage)stage.disabled=!censusComplete;
  if(activate)activate.disabled=!censusComplete || s.pendingRevision===null;
  if(!censusComplete && summary)summary.textContent+=" · Faltan aparatos: primero registrar PIN existentes";
@@ -66,6 +67,7 @@ function getPin(){
 }
 async function stage(){
  if(!selected||selected.revision===null)return say("Consulta la revisión central.",true);
+ if(!selected.censusComplete)return say("Registra los PIN de todos los aparatos de esta licencia antes de preparar el cambio.",true);
  let pin;try{pin=getPin()}catch(e){clear();return say(e.message,true)}
  if(!confirm("PASO 1/2: preparar cambio JFC sin sustituir el PIN de ningún cliente. ¿Continuar?")){clear();return}
  const snap={...selected};
@@ -76,7 +78,7 @@ async function stage(){
  }catch(e){clear();say(e.message,true)}
 }
 async function activate(){
- if(!selected||selected.revision===null||selected.pendingRevision===null)return say("Primero registra un PIN existente y prepara la propuesta.",true);
+ if(!selected||selected.revision===null||selected.pendingRevision===null||!selected.censusComplete)return say("Primero registra todos los PIN existentes de la licencia y prepara la propuesta.",true);
  let pin;try{pin=getPin()}catch(e){clear();return say(e.message,true)}
  if(!confirm("PASO 2/2: JFC IMPONDRÁ esta revisión como PIN Owner central. Comprobaste los aparatos y sus PIN previos; cualquier aparato aún sin censo requerirá recuperación. ¿Confirmar?")){clear();return}
  const snap={...selected};
