@@ -1,10 +1,10 @@
 {
-  "version": "shell v634",
+  "version": "shell v635",
   "fecha": "2026-10-31",
-  "changelog": "JFC license/PIN authority: preserve existing clients, census registered devices before central activation, responsive PIN editor. Stock and sales unchanged.",
+  "changelog": "JFC PIN authority: correct dashboard visible version and preserve license recovery; verified browser and storage contracts. Business data and stock untouched.",
   "requerida": false,
-  "shell": "f123-shell-v634",
+  "shell": "f123-shell-v635",
   "apagar": [],
-  "releaseName": "shell v634",
-  "cacheGeneration": "golden181"
+  "releaseName": "shell v635",
+  "cacheGeneration": "golden182"
 }
