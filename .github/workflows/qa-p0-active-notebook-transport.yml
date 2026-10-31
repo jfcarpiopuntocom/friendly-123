@@ -39,6 +39,9 @@ jobs:
       - name: Browser room identity regressions
         run: |
           node --test --test-timeout=90000 test/sala-sigue-licencia.test.js
+      - name: Durable opId and cross-notebook provenance
+        run: |
+          node --test --test-timeout=90000 test/p0-opid-before-yjs.test.cjs
       - name: Existing active notebook Yjs regressions
         run: |
           node --test --test-timeout=90000 test/yjs-active-notebook-identity.test.cjs
