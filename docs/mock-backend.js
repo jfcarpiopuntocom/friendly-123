@@ -4181,14 +4181,15 @@
           try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto",
             {detail:{productoId:mio.id, epochConflict:true}})); } catch (_) {}
         }
-        // Competing authenticated physical epochs have different movement
-        // histories. Keep each source count unchanged until the owner issues
-        // an explicit reconciled stock movement; do not resolve by wall clock.
+        // Two independently recorded epochs must project the SAME effective
+        // stock on every replica. Choose one display epoch by (stockTs, epochId)
+        // regardless of message direction; retain both sets of movement witnesses.
+        // This is a stable projection choice, NOT a physical recount or deletion.
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict);
-        const protectedStock = _epochDoble
-          ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
-             actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
-          : null;
+        const _epochRemoteGana = _epochDoble &&
+          (_tsR > _tsL || (_tsR === _tsL && epochRemote > epochLocal));
+        // Do not undo the chosen epoch after its evidence is merged.
+        // A previous local protection restore made later movement replay diverge.
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
         if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
@@ -4201,7 +4202,20 @@
             try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if (epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) {
+        if (_epochRemoteGana && _baseR !== null) {
+          const pn = JSON.parse(JSON.stringify(_pnR || {}));
+          const net = _baseR + Object.keys(pn).reduce((sum,id) =>
+            sum + (Number(pn[id].add)||0) - (Number(pn[id].sub)||0), 0);
+          if (Number.isSafeInteger(net)) {
+            mio.stockEpochId = epochRemote;
+            mio.stockBase = _baseR;
+            mio.stockPN = pn;
+            mio.stockActual = Math.max(0, net);
+            mio.stockDeficit = Math.max(0, -net);
+            mio.stockTs = _tsR;
+            actualizados++;
+          }
+        } else if (epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) {
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
@@ -4263,16 +4277,6 @@
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
         } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "local" } })); } catch (_) {}
-        }
-        // A conflicting explicit physical epoch is not proof of a recount.
-        // Preserve this device's active physical inventory, even if a legacy
-        // branch inadvertently tried to adopt a remote numeric base.
-        if (protectedStock) {
-          mio.stockBase = protectedStock.base;
-          mio.stockPN = protectedStock.pn;
-          mio.stockActual = protectedStock.actual;
-          mio.stockDeficit = protectedStock.deficit;
-          mio.stockTs = protectedStock.ts;
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
