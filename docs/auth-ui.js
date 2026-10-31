@@ -1183,8 +1183,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     let own;try{own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{}}catch(_){return {ok:false,reason:"identity-unavailable"}}
     const lic=String(own.licenseCode||"").trim().toUpperCase();
     const instanceId=own.instanceId;
-    if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!instanceId)return {ok:false,reason:"identity-unavailable"};
     if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return {ok:true,unconfigured:true};
+    if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!instanceId)return {ok:false,reason:"identity-unavailable"};
     const raw=(localStorage.getItem("f123_cf_worker_url")||"").trim()||OC_WORKER_URL;
     let endpoint;try{endpoint=new URL(raw)}catch(_){return {ok:false,reason:"network-unavailable"}}
     if(endpoint.protocol!=="https:")return {ok:false,reason:"network-unavailable"};
