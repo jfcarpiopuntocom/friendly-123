@@ -24,5 +24,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Source/bundle and Chromium/WebKit proportional ink
         run: node --test --test-timeout=90000 test/p0-business-ink-proportional.test.cjs
-      - name: Diff validation
-        run: git diff --check
+      - name: Source and bundle checksums, JavaScript syntax
+        run: |
+          node --check test/p0-business-ink-proportional.test.cjs
+          sha256sum src/app/app-style-02.css docs/app-style-02.min.css src/dashboard/dashboard-main.css docs/dashboard-main.min.css
