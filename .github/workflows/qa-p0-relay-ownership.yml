@@ -18,6 +18,8 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$CF_TOKEN" || -z "$CF_ACCOUNT" ]]; then
+            [[ -n "$CF_TOKEN" ]] && echo "TOKEN_PRESENT=yes" || echo "TOKEN_PRESENT=no"
+            [[ -n "$CF_ACCOUNT" ]] && echo "ACCOUNT_PRESENT=yes" || echo "ACCOUNT_PRESENT=no"
             echo "RESULT=NO_RELAY_CREDENTIALS"; exit 0
           fi
           status=$(curl -sS --max-time 20 -o "$RUNNER_TEMP/relay-workers.json" -w '%{http_code}' \
