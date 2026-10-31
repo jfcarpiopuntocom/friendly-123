@@ -452,7 +452,8 @@
     // siempre. A los 10s, si sigue CONNECTING, se fuerza el cierre y se
     // deja que el backoff normal reintente.
     timeoutConexion = setTimeout(() => {
-      if (ws && ws.readyState === WebSocket.CONNECTING) { try { ws.close(); } catch (_) {} }
+      if (ws && ws.readyState === WebSocket.CONNECTING &&
+          !(ws.peerOnly && ws.signalingReady)) { try { ws.close(); } catch (_) {} }
     }, 10000);
     const _socketDeEstaConexion = ws;
     ws.onopen = () => {
