@@ -1,0 +1,57 @@
+name: qa-p0-unified-v633
+on:
+  push:
+    branches: [fix/p0-unified-owner-stock-peer-v633]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  integrated:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Exact shell identity and deterministic hashes
+        run: |
+          set -euo pipefail
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js
+          bash check-sw.sh
+          node scripts/release-control.cjs validate d69d4023663f47fc6d1f28498300475fee6f4d2e
+      - name: Owners, stock, finance, device-to-device peer and native browser tests
+        run: |
+          set -euo pipefail
+          node --check docs/mock-backend.js
+          node --check docs/sync-yjs.js
+          node --check docs/peer-sync.js
+          node --test --test-timeout=120000 \
+            test/p0-epoch-deterministic-convergence.test.cjs \
+            test/p0-v633-owner-pin-durable-intent.test.cjs \
+            test/p0-v633-owner-pin-journal-real-yjs.test.cjs \
+            test/p0-v633-three-entrances-transport.test.cjs \
+            test/p0-v632-owner-pin-intent-lifecycle.test.cjs \
+            test/stock-base-conflicto-v515.test.js \
+            test/incident-stale-stock-metadata-v558.test.js \
+            test/incident-v602-relay-null-stock-epoch.test.cjs \
+            test/peer-initial-recovery.test.cjs \
+            test/peer-buffered-nudge.test.cjs \
+            test/peer-frame-boundary.test.cjs \
+            test/peer-sync-browser.test.js
+      - name: Line counts and checksums of frozen candidate
+        if: always()
+        run: |
+          git diff --check d69d4023663f47fc6d1f28498300475fee6f4d2e HEAD
+          wc -l docs/mock-backend.js docs/peer-sync.js docs/sync-yjs.js docs/crypto-store.js docs/sw.js
+          sha256sum docs/mock-backend.js docs/peer-sync.js docs/sync-yjs.js docs/crypto-store.js docs/sw.js docs/version-manifest.json
