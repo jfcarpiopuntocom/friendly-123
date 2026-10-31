@@ -253,6 +253,20 @@
   function leerSala() {
     try { return JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (_) { return null; }
   }
+  // Share the exact active-notebook selection rule with sync-yjs.js.
+  // f123_owned may describe a different shop after joining/switching; it
+  // cannot decide the transport room while OCTienda provides an active book.
+  function codigoCuadernoActivo() {
+    try {
+      if (window.OCTienda && typeof window.OCTienda.licenciaActual === "function")
+        return normalizarCodigo(window.OCTienda.licenciaActual() || "");
+      // Before OCTienda is ready, joined/switching namespaces cannot safely
+      // inherit the owner's fallback license. Preserve their local queue.
+      if (localStorage.getItem("f123_tienda_activa")) return "";
+      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      return normalizarCodigo(own.licenseCode || "");
+    } catch (_) { return ""; }
+  }
 
   // --- Cripto: PBKDF2(codigo) -> AES-GCM. El codigo nunca sale de este dispositivo. ---
   async function derivarClave(codigo) {
@@ -418,8 +432,12 @@
   async function conectar() {
     const miGeneracion = ++_conexionGeneracion;
     if (!puedeConectarLegado()) return;
-    const sala = leerSala();
-    if (!sala || !sala.codigo) { notificarEstado("apagado"); return; }
+    const sala = leerSala(), actual = codigoCuadernoActivo();
+    if (!actual || !sala || !sala.codigo || normalizarCodigo(sala.codigo) !== actual) {
+      // The legacy socket must never join a different room from the active
+      // encrypted Yjs notebook; an unproven identity is a local-only state.
+      cerrarWsExistente(); notificarEstado("apagado"); return;
+    }
     cerrarWsExistente();
     notificarEstado(estadoActual === "apagado" ? "conectando" : "reconectando");
     // Refuerzo: el codigo se normaliza (mayusculas + sin espacios) SIEMPRE
@@ -457,7 +475,8 @@
     }, 10000);
     const _socketDeEstaConexion = ws;
     ws.onopen = () => {
-      if (!puedeConectarLegado() || miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion) {
+      if (!puedeConectarLegado() || miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+          codigoCuadernoActivo() !== codigoNorm) {
         try { _socketDeEstaConexion.close(); } catch (_) {} return;
       }
       if (timeoutConexion) { clearTimeout(timeoutConexion); timeoutConexion = null; }
@@ -1300,6 +1319,11 @@
   window.OCSyncEmit = function (tipo, payload) {
     const sala = leerSala();
     if (!sala) return true; // sync apagado: no-op total, cero overhead
+    if (!sala.codigo || normalizarCodigo(sala.codigo) !== codigoCuadernoActivo()) {
+      // A real local movement was already saved upstream. Refuse to emit it
+      // into another shop's room while the active identity is inconsistent.
+      return false;
+    }
     const op = {
       opId: uuidCorto(), deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
       lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
@@ -1663,8 +1687,7 @@
   function alinearSalaConLicencia() {
     try {
       if (localStorage.getItem(APAGADO_KEY) === "1") return;
-      const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      const lic = normalizarCodigo(ow.licenseCode || "");
+      const lic = codigoCuadernoActivo();
       if (lic.length < 6) return;
       const sala = leerSala();
       if (sala && normalizarCodigo(sala.codigo) === lic) return;
