@@ -116,3 +116,27 @@ test('another license cannot read any bytes from the original license DO',async(
   const wrong=await mailboxDoRoute(new Request('https://do.invalid/mailbox/internal',{method:'POST',body:JSON.stringify({action:'pull',licenseCode:license,after:0,limit:5})}),otherStorage);
   assert.equal(wrong.status,403);
 });
+test('independent A and B sessions transfer real AES-256-GCM bytes, decrypt only on B',async()=>{
+  const f=fixture();
+  const symmetric=await crypto.subtle.generateKey({name:'AES-GCM',length:256},false,['encrypt','decrypt']);
+  const nonce=crypto.getRandomValues(new Uint8Array(12));
+  const original={eventId:'sale-synthetic-000001',product:'product-synthetic',delta:-1,amountCents:1200};
+  const plain=new TextEncoder().encode(JSON.stringify(original));
+  const cipher=await crypto.subtle.encrypt({name:'AES-GCM',iv:nonce},symmetric,plain);
+  const envelope={eventId:'op-synthetic-aes-0001',nonce:Buffer.from(nonce).toString('base64'),
+    ciphertext:Buffer.from(cipher).toString('base64')};
+  const A=await f.session(device);
+  const upload=await f.call('POST','/mailbox/events',{token:A.token,body:envelope});
+  assert.equal(upload.status,200);
+  const B=await f.session(deviceB);
+  const download=await f.call('GET','/mailbox/events?after=0',{token:B.token});
+  assert.equal(download.events.length,1);
+  const received=download.events[0];
+  const bytes=await crypto.subtle.decrypt({name:'AES-GCM',iv:Buffer.from(received.nonce,'base64')},
+    symmetric,Buffer.from(received.ciphertext,'base64'));
+  assert.deepEqual(JSON.parse(new TextDecoder().decode(bytes)),original);
+  assert.equal(JSON.stringify(received).includes('product-synthetic'),false,
+    'DO never stores visible product/amount plaintext');
+  const tampered=Buffer.from(received.ciphertext,'base64');tampered[tampered.length-1]^=1;
+  await assert.rejects(()=>crypto.subtle.decrypt({name:'AES-GCM',iv:nonce},symmetric,tampered));
+});
