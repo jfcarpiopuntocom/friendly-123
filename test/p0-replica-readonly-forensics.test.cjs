@@ -77,3 +77,25 @@ test('P0 forensic detects conflicting money and movement records with SAME IDs',
   assert.equal(r.result,'RECONCILIATION_REQUIRED');
   assert.ok(!JSON.stringify(r).includes('confidential'));
 });
+
+
+test('P0 local PRIVATE mode identifies exact missing opIds and epochs without mutation',async()=>{
+  const {privateDetails}=require('../scripts/p0-compare-replicas.cjs');
+  const [pc,phone]=await backups();
+  pc.movimientos=[{id:'op-pc-only',tipo:'ajuste'}];
+  phone.movimientos=[{id:'op-phone-last',tipo:'ajuste'}];
+  pc.ventas=[{id:'sale-pc-last',total:20}];phone.ventas=[];
+  pc.productos[0].stockActual=3;pc.productos[0].stockEpochId='epoch-pc';
+  phone.productos[0].stockActual=7;phone.productos[0].stockEpochId='epoch-phone';
+  const before=JSON.stringify({pc,phone});
+  const normal=compare(pc,phone),report=privateDetails(pc,phone);
+  assert.equal(JSON.stringify({pc,phone}),before,'original exports are immutable');
+  assert.equal(normal.canAutoReconcile,false);
+  assert.equal(report.PRIVATE_LOCAL_ONLY,true);
+  assert.deepEqual(report.movements.onlyInPC,['op-pc-only']);
+  assert.deepEqual(report.movements.onlyInPhone,['op-phone-last']);
+  assert.deepEqual(report.sales.onlyInPC,['sale-pc-last']);
+  assert.equal(report.physical[0].pc.stockEpochId,'epoch-pc');
+  assert.equal(report.physical[0].phone.stockEpochId,'epoch-phone');
+  assert.ok(!JSON.stringify(normal).includes('op-phone-last'),'public summary stays sanitized');
+});
