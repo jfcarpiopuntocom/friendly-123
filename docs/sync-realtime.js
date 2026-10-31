@@ -548,6 +548,10 @@
       }
       try {
         const op = await descifrar(claveActual, ev.data);
+        // Decryption yields: do not import a late frame into a newly selected
+        // shop if the active notebook changed during the await.
+        if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+            codigoCuadernoActivo() !== codigoNorm) return;
         if (ev.peerAck) {
           const ack = ev.peerAck, proof = op && op.tipo === "__peer_receipt__" && op.payload;
           if (proof && proof.id === ack.id && proof.kind === ack.kind && proof.hash === ack.hash) ws.acceptPeerAck(ack);
@@ -1227,7 +1231,15 @@
     const cola = leerCola();
     if (!cola.length) return;
     for (const op of cola) {
-      try { const buf = await cifrar(claveActual, op); ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { return; } // corta si algo falla, reintenta despues
+      if (codigoCuadernoActivo() !== normalizarCodigo((leerSala() || {}).codigo || "")) return;
+      try {
+        const buf = await cifrar(claveActual, op);
+        // Encryption can complete after a notebook switch. Keep the queued op
+        // instead of emitting it to whatever socket is current then.
+        if (codigoCuadernoActivo() !== normalizarCodigo((leerSala() || {}).codigo || "") ||
+            !ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(buf); _persistirOpBuf(op, buf);
+      } catch (_) { return; }
     }
     // Retain every local operation until the relay confirms durable storage.
     reintentarDurable();
@@ -1358,8 +1370,15 @@
          encolaba: se perdia en silencio. Ahora, cualquier fallo de cifrado o
          de envio cae a la cola, que se vacia al reconectar. Una op nunca se
          pierde por un tropiezo del cifrado. */
+      const emisionSocket = ws, emisionSala = normalizarCodigo(sala.codigo);
       cifrar(claveActual, op)
-        .then((buf) => { try { ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { encolar(op); } })
+        .then((buf) => {
+          // Op was already durably queued above. Preserve it if a different
+          // notebook/socket became active while encryption was pending.
+          if (codigoCuadernoActivo() !== emisionSala || ws !== emisionSocket ||
+              !emisionSocket || emisionSocket.readyState !== WebSocket.OPEN) return;
+          try { emisionSocket.send(buf); _persistirOpBuf(op, buf); } catch (_) { encolar(op); }
+        })
         .catch(() => encolar(op));
     }
     return true;
