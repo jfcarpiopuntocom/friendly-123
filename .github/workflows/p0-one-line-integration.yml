@@ -66,6 +66,7 @@ jobs:
             const built=esbuild.transformSync(source,{loader:'css',target:'es2020',minifySyntax:true,minifyWhitespace:true,minifyIdentifiers:false,legalComments:'none'}).code;
             const file='docs/'+name+'.min.css';
             if(fs.readFileSync(file,'utf8')===built){console.log('F123-CSS-PARITY-OK '+file);continue}
+            fs.writeFileSync(file,built); // only the disposable CI checkout; no repo or client writes
             console.log('F123-CSS-COMPILED-START '+file);
             const b64=Buffer.from(built).toString('base64');
             for(let i=0;i<b64.length;i+=800)console.log(b64.slice(i,i+800));
