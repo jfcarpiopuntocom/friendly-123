@@ -1,0 +1,35 @@
+name: qa-p0-crossbrowser-real
+on:
+  push:
+    branches: [fix/p0-unificar-transporte-inventario-pin-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  real-browsers:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Real Chromium + Safari engine, P2P payload and persistent outbox
+        run: |
+          set -euo pipefail
+          timeout 180s node --test --test-timeout=85000 \
+            test/peer-sync-browser.test.js \
+            test/peer-initial-recovery.test.cjs \
+            test/peer-frame-boundary.test.cjs
+      - name: Exact hashes and lint
+        if: always()
+        run: |
+          git diff --check HEAD~3 HEAD
+          sha256sum docs/peer-sync.js docs/adaptive-relay.js docs/sync-yjs.js
