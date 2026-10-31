@@ -13,12 +13,12 @@ class FakeSocket extends EventTarget {
   confirmPeerReceipt(){this.confirmed++;return true}
   acceptPeerAck(){return true}
 }
-function fixture(){
+function fixture(options={}){
  const natives=[],peers=[],listeners=[];
  const window={addEventListener(name,cb){listeners.push({name,cb})},
    F123Relay:{connect(url){const x=new FakeSocket(url);natives.push(x);return x}},
    F123Peer:{create(){return {connect(url){const x=new FakeSocket(url);peers.push(x);return x},closeAll(){}}}}};
- const context={window,document:{addEventListener(){}},EventTarget,Event,MessageEvent:Message,DOMException,Promise,queueMicrotask,console};
+ const context={window,document:{addEventListener(){}},EventTarget,Event,MessageEvent:Message,DOMException,Promise,queueMicrotask,console,setTimeout:options.setTimeout||setTimeout,clearTimeout:options.clearTimeout||clearTimeout};
  vm.runInNewContext(source,context,{filename:'adaptive-relay.js'});
  return {window,natives,peers};
 }
@@ -59,4 +59,24 @@ test('P0 bad notebook locators are rejected and cannot create backend sockets',(
  const f=fixture();
  assert.throws(()=>f.window.F123Relay.connect('wss://not-friendly.example/sala/a'),/Unsupported notebook/);
  assert.equal(f.natives.length,0);assert.equal(f.peers.length,0);
+});
+
+test('P0 silent native connection times out, closes and opens peer for every lane',async()=>{
+ let timeout;
+ const f=fixture({setTimeout(fn,ms){assert.equal(ms,4000);timeout=fn;return 1},clearTimeout(){}});
+ const a=f.window.F123Relay.connect(URL+'-y');
+ const b=f.window.F123Relay.connect(URL+'-ops');
+ assert.equal(f.natives.length,1);
+ assert.equal(f.peers.length,0);
+ timeout();
+ await tick();
+ assert.equal(f.natives[0].readyState,3);
+ assert.equal(f.peers.length,2);
+ assert.equal(a.peerOnly,true);
+ assert.equal(b.peerOnly,true);
+ f.peers[0].open();
+ f.peers[1].open();
+ assert.equal(a.readyState,1);
+ assert.equal(b.readyState,1);
+ a.close();b.close();
 });
