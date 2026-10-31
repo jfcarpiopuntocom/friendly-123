@@ -2084,12 +2084,24 @@
       var conflictProof = Object.keys(porBase).some(function (key) { return b === null || key !== activeKey; });
       // Keep historical fork evidence, but avoid copying every ordinary
       // same-baseline movement into a second ever-growing backup field.
-      var legacyProof = Object.create(null);
-      Object.keys(porBase).forEach(function (key) {
+      // Restore BOTH explicit epochs from the add-only witness index when
+      // the whole-product Y.Map picked one competing read model. Otherwise
+      // one replica can export the old epoch's movements and the other cannot.
+      // Keep ordinary single-epoch products compact: no duplicate proof blob.
+      var witnessProof = Object.create(null);
+      if (conflictProof || prevProof) Object.keys(porBase).forEach(function (key) {
         var fact = porBase[key];
-        if (fact.epoch === "" && String(fact.base) !== String(b)) legacyProof[String(fact.base)] = fact;
+        if (!fact) return;
+        if (fact.epoch) {
+          witnessProof[JSON.stringify([fact.base, fact.epoch])] = {
+            base: fact.base, epoch: fact.epoch, pn: fact.pn, ts: fact.ts
+          };
+        } else if (String(fact.base) !== String(b)) {
+          witnessProof[String(fact.base)] = fact;
+        }
       });
-      var e = (prevProof || Object.keys(legacyProof).length) ? unirEvidenciasStockYjs(p, { stockEvidencias: legacyProof }) : null;
+      var e = (prevProof || Object.keys(witnessProof).length)
+        ? unirEvidenciasStockYjs(p, { stockEvidencias: witnessProof }) : null;
       // Distinct explicit epochs are retained in the encrypted witness map;
       // legacy stockEvidencias cannot represent two equal-number epochs safely.
       if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
