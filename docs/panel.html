@@ -243,7 +243,36 @@
 .lic-pin-actions button{min-height:42px;flex:1 1 180px;max-width:100%;white-space:normal;}
 .lic-pin-actions button:disabled{opacity:.45;cursor:not-allowed;}
 .lic-pin-state{min-height:1em;font-size:13px;line-height:1.4;}
-.lic-pin-pencil{font-size:14px;min-height:32px;min-width:34px;padding:4px 8px;}
+.lic-pin-pencil{font-size:14px;min-height:36px;min-width:40px;padding:5px 9px;}
+/* JFC: visible license/PIN pencils; mobile presents complete cards instead
+   of placing 11 table columns outside the viewport. No fields are hidden. */
+@media(max-width:640px){
+  .tabla-wrap:has(#lic-tabla){max-width:100%;overflow-x:hidden;overflow-y:visible;}
+  #lic-tabla:not([style*="display: none"]){display:block!important;width:100%!important;min-width:0!important;}
+  #lic-tabla thead{display:none;}
+  #lic-tabla tbody{display:block;width:100%;min-width:0;}
+  #lic-tabla tbody tr{display:block;max-width:100%;min-width:0;box-sizing:border-box;
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;margin:0 0 12px;padding:6px 10px;}
+  #lic-tabla tbody tr.lic-disp{border-left:3px solid var(--gold);}
+  #lic-tabla tbody td{display:grid;grid-template-columns:minmax(72px,90px) minmax(0,1fr);
+    gap:8px;padding:8px 0!important;width:100%!important;max-width:100%;min-width:0;box-sizing:border-box;
+    border-bottom:1px solid var(--border);font-size:13px;overflow-wrap:anywhere;white-space:normal;}
+  #lic-tabla tbody td:last-child{border-bottom:0;}
+  #lic-tabla tbody td::before{font-weight:700;color:var(--ink);font-size:12px;line-height:1.6;align-self:start;}
+  #lic-tabla tbody td:nth-child(1)::before{content:"Elegir";}
+  #lic-tabla tbody td:nth-child(2)::before{content:"Estado";}
+  #lic-tabla tbody td:nth-child(3)::before{content:"Licencia / PIN";}
+  #lic-tabla tbody td:nth-child(4)::before{content:"Negocio";}
+  #lic-tabla tbody td:nth-child(5)::before{content:"Aparato";}
+  #lic-tabla tbody td:nth-child(6)::before{content:"Correo";}
+  #lic-tabla tbody td:nth-child(7)::before{content:"WhatsApp";}
+  #lic-tabla tbody td:nth-child(8)::before{content:"Pago";}
+  #lic-tabla tbody td:nth-child(9)::before{content:"Activado";}
+  #lic-tabla tbody td:nth-child(10)::before{content:"Último uso";}
+  #lic-tabla tbody td:nth-child(11)::before{content:"Acciones";}
+  #lic-tabla tbody td button,#lic-tabla tbody td select{max-width:100%;white-space:normal;overflow-wrap:anywhere;}
+  #lic-tabla tbody td .lic-pin-pencil{display:inline-flex;align-items:center;justify-content:center;}
+}
 @media(max-width:520px){.lic-pin-fields{grid-template-columns:1fr;}.lic-pin-card{max-width:100%;}.lic-pin-actions button{flex-basis:100%;}}
 .lic-lapiz{background:none;border:1px solid var(--border);color:var(--ink);border-radius:6px;font-size:13px;padding:0 5px;cursor:pointer;}
 tr.lic-sel td{background:rgba(255,200,0,.10);}
