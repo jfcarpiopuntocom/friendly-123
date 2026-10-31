@@ -2084,14 +2084,18 @@
       var conflictProof = Object.keys(porBase).some(function (key) { return b === null || key !== activeKey; });
       // Keep historical fork evidence, but avoid copying every ordinary
       // same-baseline movement into a second ever-growing backup field.
-      var legacyProof = Object.create(null);
+      var alternateProof = Object.create(null);
       Object.keys(porBase).forEach(function (key) {
+        if (key === activeKey) return;
         var fact = porBase[key];
-        if (fact.epoch === "" && String(fact.base) !== String(b)) legacyProof[String(fact.base)] = fact;
+        // Epoch-specific proof retains independent ledgers even when two
+        // physical histories started with the same stockBase (e.g. 7).
+        var proofKey = fact.epoch ? JSON.stringify([fact.base, fact.epoch]) : String(fact.base);
+        alternateProof[proofKey] = fact;
       });
-      var e = (prevProof || Object.keys(legacyProof).length) ? unirEvidenciasStockYjs(p, { stockEvidencias: legacyProof }) : null;
-      // Distinct explicit epochs are retained in the encrypted witness map;
-      // legacy stockEvidencias cannot represent two equal-number epochs safely.
+      var e = (prevProof || Object.keys(alternateProof).length)
+        ? unirEvidenciasStockYjs(p, { stockEvidencias: alternateProof }) : null;
+      // Witness proofs are read-model evidence; movement history is not deleted.
       if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
         // An old bridge may win Y.Map.productos with E2 metadata but E1 PN.
         // When historical witnesses exist and none are scoped to explicit E2,
