@@ -175,12 +175,19 @@
           const actual = req.result;
           const rev = Number((actual && actual._rev) || 0);
           if (rev > revisionAplicada || rev >= Number(copia._rev)) return;
-          tx.objectStore(STORE).put(copia, CLAVE);
-          accepted = true;
+          try {
+            tx.objectStore(STORE).put(copia, CLAVE);
+            accepted = true;
+          } catch (err) {
+            // Preserve original QuotaExceededError instead of masking it
+            // with the transaction's later generic AbortError.
+            _ultimoError = err || null;
+            try { tx.abort(); } catch (_) { resolve(false); }
+          }
         };
         tx.oncomplete = function () { resolve(accepted); };
         tx.onabort = function () { resolve(false); };
-        tx.onerror = function () { _ultimoError = tx.error || null; };
+        tx.onerror = function () { if (!_ultimoError) _ultimoError = tx.error || null; };
       });
     }).catch(function (e) { _ultimoError = e || null; return false; });
     _cola = op.then(function () {}, function () {});
