@@ -23,7 +23,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Run actual Chromium and Safari/WebKit WebRTC offer and ICE filter
         run: |
-          node --test test/p0-rtc-crossbrowser-sdp.test.mjs test/p0-real-crossbrowser-peer-data.test.mjs
+          timeout 80s node --test --test-timeout=55000 test/p0-rtc-crossbrowser-sdp.test.mjs test/p0-real-crossbrowser-peer-data.test.mjs
       - name: Check exact changed file and SHA
         run: |
           wc -l test/p0-rtc-crossbrowser-sdp.test.mjs test/p0-real-crossbrowser-peer-data.test.mjs cloudflare-sync-relay/worker.js
