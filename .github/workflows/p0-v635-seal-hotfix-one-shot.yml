@@ -30,6 +30,7 @@ jobs:
       - name: Seal v635 golden182, hash ALL 121 shell assets
         run: |
           set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           node <<'NODE'
           const fs=require('fs');
           const path='docs/version.json',v=JSON.parse(fs.readFileSync(path,'utf8'));
