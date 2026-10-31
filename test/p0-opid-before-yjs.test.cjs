@@ -58,7 +58,7 @@ function isFromActive(op,active,joined,owned) {
     'const localStorage={getItem:k=>k==="f123_tienda_activa"?joined:k==="f123_owned"?JSON.stringify({licenseCode:owned}):null};',
     proof,
     'return opDeEsteCuaderno(op);'
-  ].join('\\n');
+  ].join('\n');
   return new Function('op','active','joined','owned',code)(op,active,joined,owned);
 }
 test('legacy catchup and queue never select a different licensed notebook',()=>{
