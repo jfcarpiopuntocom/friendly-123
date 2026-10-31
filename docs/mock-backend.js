@@ -1436,7 +1436,7 @@
     // try: _payoutConfirmando se declara mas abajo (let); si algo llamara esto durante el arranque
     // sincrono, la duda cae al lado seguro (esperar al guardado, como antes de v599).
     try {
-      if (_guardadoCatalogoPendiente && !_guardadoEstrictoPendiente && !_ventaConfirmando &&
+      if (_guardadoCatalogoPendiente && _ultimoGuardadoPublicable && !_guardadoEstrictoPendiente && !_ventaConfirmando &&
           !_payoutConfirmando && !_retencionConfirmando) return true;
     } catch (_) {}
     return _estadoPuedePublicarse();
