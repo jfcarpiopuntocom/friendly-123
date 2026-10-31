@@ -83,3 +83,18 @@ jobs:
           sha256sum docs/auth-ui.js docs/mock-backend.js cloudflare-worker/pin-worker-api.mjs docs/app-style-02.min.css docs/dashboard-main.min.css
       - name: Preview exactly one new shell, manifest and SW (read-only CI — no push)
         run: node scripts/p0-one-release-preview.cjs
+
+  latency:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Independent large-notebook A to B p95 measured without full-suite CPU contention
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=180000 test/sync-latencia-dos-aparatos-v599.test.cjs
