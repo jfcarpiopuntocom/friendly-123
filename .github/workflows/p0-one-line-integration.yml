@@ -55,6 +55,8 @@ jobs:
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-failed-save-publication-gate.test.cjs test/incident-v608-publication-after-recovery.test.cjs
       - name: Chromium + WebKit real rendered responsive brand
         run: node --test --test-timeout=120000 test/p0-business-ink-proportional.test.cjs
+      - name: Causal physical ledger and read-only two-replica forensic contracts
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/stock-journal-*.test.cjs test/p0-replica-readonly-forensics.test.cjs
       - name: P0 monthly commission integrity — financial gate
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-commission-period-integrity.test.cjs
       - name: Durable IDB, A/B conflict, and accepted wordmark smoke
