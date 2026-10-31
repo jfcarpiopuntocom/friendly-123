@@ -37,7 +37,8 @@ jobs:
           node --check docs/auth-ui.js
           node --check docs/avanzado-extra.js
           node --check docs/panel-pin.js
-          git diff --check HEAD~1 HEAD
+          git fetch -q --no-tags --depth=1 origin master
+          git diff --check FETCH_HEAD HEAD
       - name: PIN authority, identity, recovery and WebKit regressions
         run: |
           node --test --test-concurrency=2 --test-timeout=120000             test/p0-central-pin-authority.test.mjs             test/p0-central-pin-panel-browser.test.cjs             test/worker-master-recovery.test.js             test/worker-checkin.test.js             test/panel-durable-object.test.js             test/p0-v633-owner-pin-durable-intent.test.cjs             test/p0-v633-owner-pin-journal-real-yjs.test.cjs             test/p0-owner-pin-current-ui-browser.test.cjs
