@@ -25,8 +25,10 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git fetch origin master --depth=100
+          # Before final seal: no release artifacts may come from feature PRs.
+          # After one single v639 seal: enforce the complete strict release identity.
           if git diff --name-only origin/master HEAD -- docs/version.json docs/sw.js docs/version-manifest.json | grep .; then
-            echo "P0 integration must not import competing shell seals"; exit 1
+            node scripts/release-control.cjs validate "$(git merge-base origin/master HEAD)"
           fi
           git diff --check origin/master HEAD
       - name: Source and browser syntax
@@ -57,3 +59,5 @@ jobs:
         run: |
           wc -l docs/auth-ui.js docs/mock-backend.js cloudflare-worker/pin-worker-api.mjs
           sha256sum docs/auth-ui.js docs/mock-backend.js cloudflare-worker/pin-worker-api.mjs docs/app-style-02.min.css docs/dashboard-main.min.css
+      - name: Preview exactly one new shell, manifest and SW (read-only CI — no push)
+        run: node scripts/p0-one-release-preview.cjs
