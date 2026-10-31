@@ -90,7 +90,7 @@ async function converge(a,b,reverse=false){
   }
 }
 test('P0 encrypted Yjs documents eventually agree under opposite epoch replay order',async()=>{
-  for(const reverse of [false,true]){
+  for(const reverse of [false,true,false,true,false,true]){
     const a=await ypeer(),b=await ypeer();
     await seed(a,'E-OLDER',7,{actorA:{add:2,sub:0}},1000);
     await seed(b,'E-NEWER',7,{actorB:{add:0,sub:1}},2000);
