@@ -258,14 +258,14 @@
         hub.start();
       }
     };
-    window.addEventListener('online', resume); document.addEventListener('visibilitychange', resume);
+    window.addEventListener('online', resume); window.addEventListener('oc-login', resume); document.addEventListener('visibilitychange', resume);
     return { connect(url) {
       if (typeof RTC !== 'function') throw new Error('Direct peer connections are unavailable in this browser');
       const match = String(url).match(/^wss:\/\/friendly123-sync-relay\.jfcarpio\.workers\.dev\/sala\/([a-f0-9]{40})(-y|-ops|-fotos)?$/);
       if (!match) throw new TypeError('Unsupported notebook locator');
       let hub = hubs.get(match[1]); if (!hub) { if (hubs.size >= 32) throw Error('Too many notebook connections'); hub = new Hub(match[1]); hubs.set(match[1], hub); }
       return new Socket(hub, match[2] || '', String(url));
-    }, closeAll() { window.removeEventListener('online', resume); document.removeEventListener('visibilitychange', resume); for (const hub of hubs.values()) for (const socket of [...hub.sockets]) socket.close(); } };
+    }, closeAll() { window.removeEventListener('online', resume); window.removeEventListener('oc-login', resume); document.removeEventListener('visibilitychange', resume); for (const hub of hubs.values()) for (const socket of [...hub.sockets]) socket.close(); } };
   }
   window.F123Peer = { create };
   window.F123Relay = create();
