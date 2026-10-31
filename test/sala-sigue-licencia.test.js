@@ -67,3 +67,39 @@ test('3. owner turned sync off on purpose: it stays off', async () => {
     assert.equal(back && back.codigo, LIC, 'turning it back on works');
   } finally { await web.close(); }
 });
+
+
+test('4. joined active shop wins over an obsolete owned license and legacy room',async()=>{
+  const selected = await salaTrasCargar({
+    f123_owned: owned(VIEJO),
+    f123_tienda_activa: '::'+LIC,
+    f123_notebook_unificado_v2:'1',
+    f123_sync_room:JSON.stringify({codigo:VIEJO})
+  });
+  assert.equal(selected && selected.codigo,LIC,'legacy transport follows active joined notebook');
+});
+
+test('5. unknown active identity cannot emit stock into an obsolete room',async()=>{
+  const web=await chromium.launch({headless:true});
+  try{
+    const ctx=await web.newContext();
+    await ctx.addInitScript((ini)=>{
+      localStorage.setItem('f123_owned',ini.owned);
+      localStorage.setItem('f123_sync_room',JSON.stringify({codigo:ini.legacy}));
+    },{owned:owned(VIEJO),legacy:VIEJO});
+    const page=await ctx.newPage();
+    await page.goto(URL,{waitUntil:'domcontentloaded'});
+    await page.waitForFunction(()=>!!window.OCSyncControl,{timeout:10000});
+    const result=await page.evaluate(()=>{
+      if(!window.OCTienda)return {error:'notebook API missing'};
+      window.OCTienda.licenciaActual=()=>{throw Error('synthetic active notebook unavailable')};
+      const before=localStorage.getItem('f123_sync_cola');
+      const emitted=window.OCSyncEmit('synthetic_adjustment',{delta:1});
+      const after=localStorage.getItem('f123_sync_cola');
+      return {emitted,before,after};
+    });
+    assert.equal(result.error,undefined);
+    assert.equal(result.emitted,false,'must not emit into old store');
+    assert.equal(result.after,result.before,'failed gate must not create a remote op');
+  }finally{await web.close()}
+});
