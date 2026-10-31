@@ -1,10 +1,10 @@
 {
-  "version": "shell v636",
+  "version": "shell v639",
   "fecha": "2026-10-31",
-  "changelog": "P0: keep peer operations pending until connected receivers confirm, and bind sync to the active licensed notebook. Preserve all stock and PIN records.",
+  "changelog": "P0 integrated: durable stock ACK recovery; verified canonical Owner PIN route; proportional friendly logo ink. Customer data unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v636",
+  "shell": "f123-shell-v639",
   "apagar": [],
-  "releaseName": "shell v636",
-  "cacheGeneration": "golden183"
+  "releaseName": "shell v639",
+  "cacheGeneration": "golden186"
 }
