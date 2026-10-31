@@ -5,7 +5,7 @@ import worker,{RegistroLicencias} from "../cloudflare-worker/worker.js";
 globalThis.crypto ||= webcrypto;
 const lic="F123-SYNTHETIC-BUSINESS",device="synthetic-abc123";
 function memory(){
- let data=new Map([["inst:"+device,{instanceId:device,licenseCode:lic,estado:"full"}]]);
+ let data=new Map([device,"synthetic-mobile"].map(instanceId=>["inst:"+instanceId,{instanceId,licenseCode:lic,estado:"full"}]));
  return {get:async key=>structuredClone(data.get(key)),
  put:async(key,v)=>{data.set(key,structuredClone(v))},
  delete:async key=>{data.delete(key)},
@@ -36,6 +36,17 @@ test("full Worker route and real Durable Object enforce JFC PIN override and dev
  assert.equal(override.data.revision,2);
  assert.equal((await req("/pin/verify",{pin:"318"})).status,401);
  assert.equal((await req("/pin/verify",{pin:"521"})).status,200);
+ // Authority belongs to the license, not permanently to the mobile device.
+ // Whichever authenticated device rotates later moves the shared revision.
+ const mobile=await req("/pin/rotate",{instanceId:"synthetic-mobile",pin:"521",newPin:"704",expectedRevision:2});
+ assert.equal(mobile.status,200);
+ assert.equal(mobile.data.revision,3);
+ assert.equal((await req("/pin/verify",{pin:"521"})).status,401);
+ const desktop=await req("/pin/rotate",{pin:"704",newPin:"819",expectedRevision:3});
+ assert.equal(desktop.status,200);
+ assert.equal(desktop.data.revision,4);
+ assert.equal((await req("/pin/verify",{instanceId:"synthetic-mobile",pin:"819"})).status,200);
+ assert.equal((await req("/pin/verify",{pin:"819"})).status,200);
  assert.equal((await req("/pin/verify",{instanceId:"unregistered-device",pin:"521"})).status,404);
  assert.equal(storage.serialize().includes('"318"'),false);
  assert.equal(storage.serialize().includes('"521"'),false);
