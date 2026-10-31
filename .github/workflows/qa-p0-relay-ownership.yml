@@ -2,7 +2,6 @@ name: qa-p0-relay-ownership
 on:
   push:
     branches: [fix/p0-unified-owner-stock-peer-v633]
-    paths: [.github/workflows/qa-p0-relay-ownership.yml]
   workflow_dispatch: {}
 permissions:
   contents: read
