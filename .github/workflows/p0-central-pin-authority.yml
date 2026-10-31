@@ -6,13 +6,20 @@ on:
     paths:
       - cloudflare-worker/**
       - docs/panel*
+      - docs/auth-ui.js
+      - docs/avanzado-extra.js
       - test/p0-central-pin-authority.test.mjs
 permissions:
   contents: read
 jobs:
   central-pin:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -e {0}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,15 +27,23 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Syntax
+          cache: npm
+      - run: npm ci
+      - name: Syntax and exact changes
         run: |
           node --check cloudflare-worker/pin-authority.mjs
           node --check cloudflare-worker/pin-worker-api.mjs
           node --check cloudflare-worker/worker.js
+          node --check docs/auth-ui.js
+          node --check docs/avanzado-extra.js
           node --check docs/panel-pin.js
-      - name: PIN authority regressions
-        run: |
-          node --test test/p0-central-pin-authority.test.mjs test/worker-master-recovery.test.js
-      - name: No unintended production data edits
-        run: |
           git diff --check HEAD~1 HEAD
+      - name: PIN authority, identity, recovery and WebKit regressions
+        run: |
+          node --test --test-concurrency=2 --test-timeout=120000             test/p0-central-pin-authority.test.mjs             test/worker-master-recovery.test.js             test/worker-checkin.test.js             test/panel-durable-object.test.js             test/p0-v633-owner-pin-durable-intent.test.cjs             test/p0-v633-owner-pin-journal-real-yjs.test.cjs             test/p0-owner-pin-current-ui-browser.test.cjs
+      - name: Worker build dry-run, never deploy
+        working-directory: cloudflare-worker
+        run: |
+          ../node_modules/.bin/wrangler deploy --config ./wrangler.toml --dry-run > "$RUNNER_TEMP/f123-license-worker-dry-run.txt"
+          grep -q 'env.LICENCIAS' "$RUNNER_TEMP/f123-license-worker-dry-run.txt"
+          grep -q 'env.REGISTROS' "$RUNNER_TEMP/f123-license-worker-dry-run.txt"
