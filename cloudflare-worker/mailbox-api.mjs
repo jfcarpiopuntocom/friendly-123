@@ -174,12 +174,14 @@ export async function mailboxDoRoute(req,storage,now=Date.now()){
       const result=await storage.transaction(async tx=>{
         const meta=await tx.get('meta');
         if(!meta||meta.licenseCode!==lic||cmd.cursor>meta.seq)return {ok:false,reason:'invalid-ack',code:409};
-        const id='ack:'+cmd.deviceId,old=await tx.get(id)||0;
-        const next=Math.max(old,cmd.cursor);
-        // ACKs are informational, never destructive; bound the device index.
+        const id='ack:'+cmd.deviceId,existing=await tx.get(id);
+        const alreadyRegistered=existing!==undefined&&existing!==null;
+        const next=Math.max(alreadyRegistered?existing:0,cmd.cursor);
+        // ACK cursor zero is a valid registration, never another new device.
+        // Counting !old would let a single client exhaust the 60-device quota.
         const count=await tx.get('ack-count')||0;
-        if(!old&&count>=60)return {ok:false,reason:'device-capacity',code:507};
-        if(!old)await tx.put('ack-count',count+1);
+        if(!alreadyRegistered&&count>=60)return {ok:false,reason:'device-capacity',code:507};
+        if(!alreadyRegistered)await tx.put('ack-count',count+1);
         await tx.put(id,next);
         return {ok:true,cursor:next};
       });
