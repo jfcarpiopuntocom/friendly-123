@@ -1,0 +1,60 @@
+name: seal-v637-proportional-wordmark-once
+on:
+  push:
+    branches: [fix/p0-legacy-worker-pin-route-404-20261031]
+    paths: [".github/workflows/seal-v637-proportional-wordmark-once.yml"]
+permissions:
+  contents: write
+concurrency:
+  group: seal-v637-proportional-wordmark-once
+  cancel-in-progress: false
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Apply one identical 8 percent relative black outline to both UIs and both served bundles
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('node:fs');
+          const version=JSON.parse(fs.readFileSync('docs/version.json','utf8'));
+          if(version.shell!=='f123-shell-v637'||version.cacheGeneration!=='golden184')throw Error('Wrong release candidate');
+          for(const file of ['src/app/app-style-02.css','docs/app-style-02.min.css','src/dashboard/dashboard-main.css','docs/dashboard-main.min.css']){
+           const src=fs.readFileSync(file,'utf8'),old='-webkit-text-stroke:.06em #000',next='-webkit-text-stroke:.08em #000';
+           if(src.split(old).length!==2)throw Error('Expected one old ratio in '+file);
+           fs.writeFileSync(file,src.replace(old,next));
+          }
+          NODE
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+      - name: Check actual stroke scaling on Chromium and WebKit at both viewport sizes
+        run: |
+          node --test --test-timeout=120000 test/p0-pre-pin-budget-and-header-parity.test.cjs test/p0-proportional-business-name-browser.test.cjs
+          node --test --test-timeout=120000 test/p0-legacy-worker-pin-route-404.test.cjs
+      - name: Record line counts and checksums, commit only exact changed assets
+        run: |
+          set -euo pipefail
+          wc -l src/app/app-style-02.css src/dashboard/dashboard-main.css docs/app-style-02.min.css docs/dashboard-main.min.css docs/version-manifest.json
+          sha256sum docs/app-style-02.min.css docs/dashboard-main.min.css docs/version-manifest.json
+          git add src/app/app-style-02.css docs/app-style-02.min.css src/dashboard/dashboard-main.css docs/dashboard-main.min.css docs/version-manifest.json
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'fix(brand candidate v637): uniform 8 percent font-relative black name outline, rehash assets'
+          git push origin HEAD:fix/p0-legacy-worker-pin-route-404-20261031
