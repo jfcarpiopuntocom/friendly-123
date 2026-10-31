@@ -13,8 +13,8 @@ export function pinDoRoute(req,storage,env){
    const p=pinAuthority(storage,env.PIN_PEPPER);
    let r;
    if(body.action==="status")r=await p.status(body.licenseCode);
-   else if(body.action==="master-set")r=await p.masterSet(body.licenseCode,body.pin,body.expectedRevision);
-   else if(body.action==="master-activate")r=await p.masterActivate(body.licenseCode,body.pin,body.expectedRevision);
+   else if(body.action==="master-set")r=await p.masterSet(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
+   else if(body.action==="master-activate")r=await p.masterActivate(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
    else if(body.action==="report")r=await p.reportExisting(body.licenseCode,body.instanceId,body.pin);
    else if(body.action==="verify")r=await p.verify(body.licenseCode,body.pin);
    else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
@@ -28,7 +28,7 @@ export function pinDoRoute(req,storage,env){
   }catch{return reply({ok:false,reason:"invalid-input"},400)}
  })();
 }
-export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authorizeMaster}){
+export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authorizeMaster,listRegisteredDeviceIds}){
  const url=new URL(req.url);
  const action={"/pin/admin/status":"status","/pin/admin/set":"master-set","/pin/admin/activate":"master-activate","/pin/report":"report","/pin/verify":"verify","/pin/rotate":"owner-rotate"}[url.pathname];
  if(!action)return null;
@@ -44,6 +44,17 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
  let saved;try{saved=await readLicenseInstance(env,instanceId)}catch{return reply({ok:false,reason:"instance-lookup-failed"},503)}
  if(!saved||saved.instanceId!==instanceId||String(saved.licenseCode||"").trim().toUpperCase()!==licenseCode)
   return reply({ok:false,reason:"license-instance-mismatch"},404);
+ // Admin writes use the authoritative registry cohort, not client-supplied
+ // counts or IDs. On incomplete/unavailable registry, preserve old PINs.
+ if(action==="master-set"||action==="master-activate"){
+  if(typeof listRegisteredDeviceIds!=="function")return reply({ok:false,reason:"census-registry-unavailable"},503);
+  let ids;try{ids=await listRegisteredDeviceIds(env,licenseCode)}
+  catch{return reply({ok:false,reason:"census-registry-unavailable"},503)}
+  if(!Array.isArray(ids)||ids.length===0||ids.length>60||
+     ids.some(x=>typeof x!=="string"||!INSTANCE.test(x))||
+     new Set(ids).size!==ids.length)return reply({ok:false,reason:"census-registry-unavailable"},503);
+  data.registeredIds=ids;
+ }
  let response;try{
   const stub=getDo(env);if(!stub)return reply({ok:false,reason:"authority-unavailable"},503);
   response=await stub.fetch("https://do.invalid/pin-authority/internal",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...data,licenseCode,action})});
