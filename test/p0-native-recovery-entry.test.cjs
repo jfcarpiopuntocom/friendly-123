@@ -33,5 +33,5 @@ test('P0 no destructive or replay bypass and no release version bump on unverifi
  assert.ok(!app.includes('localStorage.clear()'));
  assert.ok(!dash.includes('localStorage.clear()'));
  const version=JSON.parse(read('docs/version.json'));
- assert.equal(version.shell,'f123-shell-v632');
+ assert.equal(version.shell,'f123-shell-v634');
 });
