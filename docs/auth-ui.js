@@ -1214,6 +1214,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!/^[a-zA-Z0-9_-]{6,120}$/.test(id))return;
       const marker="f123_pin_census:"+lic+":"+id;
       if(Date.now()-Number(localStorage.getItem(marker)||0)<86400000)return;
+      // Throttle ATTEMPTS too; an unavailable Worker must not produce a storm
+      // of repeated PIN requests on every login during a quota outage.
+      try{localStorage.setItem(marker,String(Date.now()))}catch(_){}
       const dest=new URL(OC_WORKER_URL);
       if(dest.protocol!=="https:"||dest.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return;
       // POST is not coupled to the login path; a 402/timeout never blocks work.
