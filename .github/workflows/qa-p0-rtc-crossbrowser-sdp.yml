@@ -1,0 +1,30 @@
+name: qa-p0-rtc-real-crossbrowser-sdp
+on:
+  push:
+    branches: [fix/p0-rtc-crossbrowser-signaling-20261030]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  real-sdp:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Run actual Chromium and Safari/WebKit WebRTC offer and ICE filter
+        run: |
+          node --test test/p0-rtc-crossbrowser-sdp.test.mjs
+      - name: Check exact changed file and SHA
+        run: |
+          wc -l test/p0-rtc-crossbrowser-sdp.test.mjs cloudflare-sync-relay/worker.js
+          sha256sum test/p0-rtc-crossbrowser-sdp.test.mjs cloudflare-sync-relay/worker.js
