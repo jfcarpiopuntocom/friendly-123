@@ -102,3 +102,8 @@ test('(d) a queue of 512 or fewer envelopes is not absorbed',async()=>{
  assert.equal(a.absOps().length,0);assert.equal(a.queue().filter(x=>x.abs).length,0);
  assert.equal(a.queue().length,500);
 });
+test('photos channel never absorbs by full state (owner priority: inventory, money, movements)',()=>{
+ const src=require('node:fs').readFileSync(require('node:path').join(__dirname,'../docs/sync-yjs.js'),'utf8');
+ const i=src.indexOf('function absorberHeredado() {');
+ require('node:assert/strict').match(src.slice(i,i+400),/if \(nombre === "fotos"\) return;/);
+});

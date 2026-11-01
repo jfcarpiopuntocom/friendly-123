@@ -640,6 +640,9 @@
        only: after a restart the old group just drains and a new absorption starts. */
     var _absorcion = null, _absorcionKey = "f123_relay_absorcion" + suffix;
     function absorberHeredado() {
+      // JFC 2026-11-01: inventory, money and movements first. Photos never absorb by full state
+      // (hundreds of MB, relay quota); their legacy queue keeps draining untouched.
+      if (nombre === "fotos") return;
       if (_absorcion || canal.recuperando || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
       if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return;
       if (_outbox.pending.concat(_unsaved).some(function (entry) { return entry.abs; })) return;
