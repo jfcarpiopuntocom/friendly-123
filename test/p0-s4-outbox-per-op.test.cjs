@@ -3,8 +3,8 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
-test('S4: JFC-only migration atomically moves old blob and preserves all envelopes',()=>{
- assert.match(source,/API\.esLicenciaPruebaJfc = _salaId !== codigo/);
+test('S4: staged migration atomically moves old blob and preserves all envelopes',()=>{
+ assert.match(source,/API\.rollout && API\.rollout\.outboxV2/);
  const first=source.indexOf('var tx = db.transaction(["custom"], "readwrite")');
  const end=source.indexOf('      });\n          _v2Cache = old;',first);
  assert.ok(first>=0&&end>first,'one transaction owns migration');
@@ -25,8 +25,8 @@ test('S4: one new movement never rewrites all historic operations',()=>{
  assert.match(saved,/store\.delete\(_v2Prefix \+ id\)/);
  assert.match(saved,/confirmed:_outbox\.confirmed/);
 });
-test('S4: old clientes keep their same storage algorithm',()=>{
- assert.match(source,/if \(!API\.esLicenciaPruebaJfc \|\| !persistencia/);
+test('S4: non-enabled clients retain the previous storage algorithm',()=>{
+ assert.match(source,/if \(!\(API\.rollout && API\.rollout\.outboxV2\) && \(!meta \|\| meta\.v !== 2\)\) return null/);
  assert.match(source,/if \(persistencia && typeof persistencia\.set === "function"\) return persistencia\.set\(_outboxKey, _outbox\)/);
 });
 
@@ -64,7 +64,7 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  function harness(testRoom){
    const persistencia={db,_db:Promise.resolve(db),get:rawGet,set:rawPut};
    const ctx=vm.createContext({
-     API:{esLicenciaPruebaJfc:testRoom,roomId:'synthetic-room'},suffix:'-y',
+     API:{rollout:{outboxV2:testRoom},roomId:'synthetic-room'},suffix:'-y',
      persistencia,IDBKeyRange,localStorage:{},_outboxKey:legacyKey,
      _outbox:{pending:[],confirmed:[],checkpoint:''}
    });
