@@ -29,3 +29,26 @@ test('new reader and staged writer protect any old shell in shared room',()=>{
  const cfg=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/sync-rollout.json'),'utf8'));
  assert.equal(Object.values(cfg.licenses).every(x=>x.gzipWrite===false),true);
 });
+
+test('mixed-shell: a compacted tag0 Yjs update keeps old v636 reader semantics',async()=>{
+ const vendor=fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8');
+ const ctx=vm.createContext({window:{},Uint8Array,TextEncoder,TextDecoder,crypto:require('crypto').webcrypto});
+ vm.runInContext(vendor,ctx);
+ const start=modern.indexOf('  function _compactarYjsSinCambiarCausalidad(Y, full) {');
+ const end=modern.indexOf('\n  function crearCanal(',start);
+ assert.ok(start>0&&end>start);
+ vm.runInContext(modern.slice(start,end),ctx);
+ vm.runInContext("var a=new Y.Doc(); a.getMap('productos').set('one',{stockActual:2}); a.getMap('productos').set('two',{stockActual:3}); var full=Y.encodeStateAsUpdate(a);",ctx);
+ const compact=vm.runInContext('_compactarYjsSinCambiarCausalidad(Y,full)',ctx);
+ const payload=compact||ctx.full;
+ const oldStart=old.indexOf('      function manejar(buf, source, peerReceipt) {');
+ const oldEnd=old.indexOf('      ws.onmessage = function (ev) {',oldStart);
+ const oldDoc=vm.runInContext('new Y.Doc()',ctx);
+ const decrypt=async()=>{const frame=new Uint8Array(payload.length+1);frame[0]=0;frame.set(payload,1);return frame;};
+ Object.assign(ctx,{API:{clave:{},_catalogoRevision:0},_pausado:false,permitido:()=>true,
+  descifrarBin:decrypt,doc:oldDoc,pullEstado:{},nombre:'catalogo',appliedUpdate(){},clavePendientes(){}});
+ vm.runInContext(old.slice(oldStart,oldEnd),ctx);
+ assert.equal(await vm.runInContext('manejar(new Uint8Array([0]),"pull",null)',ctx),true);
+ assert.equal(vm.runInContext('JSON.stringify(a.toJSON())===JSON.stringify(doc.toJSON())',ctx),true);
+ assert.equal(vm.runInContext('Y.equalSnapshots(Y.snapshot(a),Y.snapshot(doc))',ctx),true);
+});
