@@ -156,7 +156,7 @@
     function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
     var MAX_OP_BYTES = 250 * 1024; // guard de operaciones; no relajar
     var MAX_CKPT_RPC_BYTES = 256 * 1024; // fallback para adaptadores sin capacidad anunciada
-    var MAX_CKPT_CIPHER_BYTES = 256 * 1024; // limite de ciphertext decodificado en save_checkpoint
+    var MAX_CKPT_CIPHER_BYTES = 768 * 1024; // requiere migracion SQL 768KiB antes de habilitar adaptador
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
     /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
        mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
@@ -559,9 +559,17 @@
         _durableQueue.then(function () { drenarDurable(); drenarVivo(); }).catch(function () {});
       }, 100);
     }
-    function enviarConLimite(ws, value) {
+    function enviarConLimite(ws, value, ckptRPC) {
       if (!ws || ws.readyState !== 1) return "offline";
-      if ((Number(ws.bufferedAmount) || 0) + bytesPendientes(value) > MAX_BUFFERED_BYTES) return "blocked";
+      var buffered = Number(ws.bufferedAmount) || 0;
+      var bytes = bytesPendientes(value);
+      // Only an advertised native RPC checkpoint may exceed the 512KiB local
+      // queue guard, and only with an empty transport buffer. Peer/OP frames
+      // retain the old bound. Never allow an unbounded persisted envelope.
+      var largeCheckpoint = ckptRPC && !ws.peerOnly &&
+        window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES &&
+        bytes <= 1088 * 1024 && buffered === 0;
+      if (!largeCheckpoint && buffered + bytes > MAX_BUFFERED_BYTES) return "blocked";
       try { ws.send(value); _lastRelayProgressAt = Date.now(); return "sent"; }
       catch (error) { if (ws.peerOnly && error && error.name === "QuotaExceededError") return "blocked"; try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
     }
@@ -592,7 +600,7 @@
     }
     function enviarDurable(entry) {
       var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano;
-      var result = enviarConLimite(canal.ws, JSON.stringify(msg));
+      var result = enviarConLimite(canal.ws, JSON.stringify(msg), entry.k === "ckpt");
       if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
       if (result === "blocked") programarBufferPump();
       return false;
@@ -1615,7 +1623,7 @@
     });
     var encrypted = update.byteLength + 29;
     var wire = Math.ceil(encrypted * 4 / 3) + 128;
-    var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === 256 * 1024 ? 256 * 1024 : 0;
+    var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === 768 * 1024 ? 768 * 1024 : 0;
     return { canal: nombre, bytesPlano: update.byteLength, bytesCifrados: encrypted,
       entradas: entries, dataImageInline: inline,
       hidratado: !!(idb && idb.synced === true && canal && canal.recuperando === false &&
