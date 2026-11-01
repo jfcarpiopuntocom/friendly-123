@@ -80,7 +80,7 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
      !docs||!Object.keys(docs).every(c=>CHANNELS.has(c))||Object.keys(docs).length!==3||
      !key||base!==ENDPOINT)
     throw Error('mailbox identity, crypto or channel mismatch');
-  let token=null,expires=0,closed=false,queue=Promise.resolve(),busy=false;
+  let token=null,expires=0,canWrite=false,closed=false,queue=Promise.resolve(),busy=false;
   let processed=0,remoteComplete=false,replayed=false;
   const staged=new Map();
   const apiHeaders=()=>({'Authorization':'Bearer '+token});
@@ -105,8 +105,8 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
        !Number.isSafeInteger(data.revision)||data.revision<1||
        !Number.isSafeInteger(data.expiresAt)||data.expiresAt<=Date.now())
       throw Error('Owner session not confirmed');
-    token=data.token;expires=data.expiresAt;
-    return {role:'owner',revision:data.revision};
+    token=data.token;expires=data.expiresAt;canWrite=data.canWrite===true;
+    return {role:'owner',revision:data.revision,canWrite};
   }
   function acceptFrame(frame){
     if(!frame||!CHANNELS.has(frame.channel)||frame.roomId!==roomId||
@@ -181,7 +181,7 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
     return {complete:false,cursor,reason:'pagination-budget-exhausted'};
   }
   async function queueUpdate(channel,bytes,seed=false){
-    if(closed)return;
+    if(closed||!canWrite)return;
     if(!CHANNELS.has(channel))throw Error('unknown channel');
     const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
     const name=textEncoder.encode(channel);
@@ -210,7 +210,7 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
     await store.enqueueBatch(entries,seed?{channel,digest:group}:null);
   }
   function record(channel,update,origin){
-    if(origin==='red'||origin==='bc'||closed)return;
+    if(origin==='red'||origin==='bc'||closed||!canWrite)return;
     queue=queue.then(()=>queueUpdate(channel,update));
     // Propagate durable write failure; never claim an ACK for RAM-only updates.
     queue=queue.catch(err=>{lastError=String(err.message||err);throw err});
@@ -227,6 +227,7 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
   async function flush(){
     if(busy)return {ok:false,reason:'busy'};
     if(!authenticated())throw Error('Owner session required');
+    if(!canWrite)return {ok:false,reason:'canary-read-only'};
     busy=true;
     try{
       await queue; // all local Yjs writes must have a durable outgoing copy
@@ -241,6 +242,7 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
     }finally{busy=false}
   }
   async function seed(){
+    if(!canWrite)return {ok:false,reason:'canary-read-only'};
     // Explicit bootstrap after all three local IndexedDB docs finished
     // hydration. Never submit a guessed stock count or an uncommitted sale.
     for(const [channel,doc] of Object.entries(docs)){
@@ -250,12 +252,12 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
     }
   }
   function stop(){
-    closed=true;token=null;expires=0;
+    closed=true;token=null;expires=0;canWrite=false;
     for(const [doc,fn] of subscriptions)doc.off('update',fn);
   }
   subscribe();
   return {login,pull,flush,seed,stop,replay,state:()=>({
-    authenticated:!!authenticated(),remoteComplete,processed,
+    authenticated:!!authenticated(),canWrite,remoteComplete,processed,
     pendingGroups:staged.size,lastError
   })};
 }
