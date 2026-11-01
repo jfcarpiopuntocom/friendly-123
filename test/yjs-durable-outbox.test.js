@@ -177,8 +177,17 @@ test('an update prepared during an in-flight outbox write cannot be cleared from
   return save(key,snapshot);
  };
  a.channel.enviarUpdate(new Uint8Array([1]));await writing;
- a.channel.enviarUpdate(new Uint8Array([2]));await esperar(()=>a.socket.sent.filter(x=>x instanceof ArrayBuffer).length===initialLive+2,'both live updates finish preparation');
- release();await esperar(()=>controls(a.socket,'op').length===2,'both durable sends complete');
+ a.channel.enviarUpdate(new Uint8Array([2]));
+ // Under the strengthened P0 contract, a live frame cannot outrun its
+ // durable outbox transaction, including an update prepared during that write.
+ await tick();await tick();
+ assert.equal(a.socket.sent.filter(x=>x instanceof ArrayBuffer).length,initialLive,
+   'no live frame may escape while either update is uncommitted');
+ assert.equal(controls(a.socket,'op').length,0,'nothing is ACK-eligible before local commit');
+ release();
+ await esperar(()=>controls(a.socket,'op').length===2,'both durable sends complete');
+ await esperar(()=>a.socket.sent.filter(x=>x instanceof ArrayBuffer).length===initialLive+2,
+   'both live updates are emitted only after their outbox writes complete');
  assert.equal(a.data.get('f123_relay_outbox_v1-y').pending.length,2,'a later prepared update remains durably retryable');
 });
 test('failed fragment encryption never publishes a partial durable group',async()=>{
