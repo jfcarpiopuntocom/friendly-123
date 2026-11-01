@@ -154,7 +154,8 @@
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
     var _pausado = false, _tReconnect = null;
     function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
-    var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
+    var MAX_OP_BYTES = 250 * 1024; // guard de operaciones; no relajar
+    var MAX_CKPT_RPC_BYTES = 256 * 1024; // tamaño REAL del frame JSON aceptado por el relay
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
     /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
        mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
@@ -1111,22 +1112,25 @@
           // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
           var useful = packed && packed.length + 1 < full.length;
           var payload = useful ? packed : full;
-          if (!useful && full.length + 29 > (MAX_OP_BYTES - 128) * 3 / 4) {
+          if (!useful && full.length + 29 > (MAX_CKPT_RPC_BYTES - 128) * 3 / 4) {
             var compact = _compactarYjsSinCambiarCausalidad(Y, full);
             if (compact) payload = compact;
           }
           return cifrarBin(API.clave, _frame(useful ? 7 : 0, payload));
         }).then(function (buf) {
-          // Current server checkpoint RPC accepts one authenticated ciphertext.
-          // Never pretend fragmented OP frames are an atomic snapshot.
-          if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) {
+          // The relay limits the actual UTF-8 JSON frame to 256 KiB.
+          // A checkpoint has a different envelope from an OP. Measure the exact
+          // on-wire frame, excluding local-only state, instead of reusing the
+          // 250 KiB OP guard or estimating base64 with a fixed margin.
+          var ckpt = { k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+            v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf) };
+          if (JSON.stringify(ckpt).length > MAX_CKPT_RPC_BYTES) {
             diagnosticarCkpt("snapshot-over-limit", buf.byteLength);
             try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
             return;
           }
           try {
-            guardarSobre({ k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
-              v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
+            guardarSobre(Object.assign({ state: state }, ckpt));
           } catch (_) { diagnosticarCkpt("checkpoint-outbox-save-failed", buf.byteLength); }
         });
       }).catch(function (e) {
