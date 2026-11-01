@@ -2382,6 +2382,14 @@
                   Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
                   Number(r.stockBase) !== Number(prev.stockBase);
                 if (fork || (!_samePhysicalEpoch && _stockEpochMine && _stockEpochDoc) ||
+                    r.stockConciliacionPendiente === true ||
+                    prev.stockConciliacionPendiente === true) {
+                  // Both competing bases remain independently witnessed.
+                  // An older shell might still choose by stockTs; never
+                  // present that provisional choice as confirmed inventory.
+                  r = Object.assign({}, r, { stockConciliacionPendiente: true });
+                }
+                if (fork || (!_samePhysicalEpoch && _stockEpochMine && _stockEpochDoc) ||
                     (r.stockEvidencias && Object.keys(r.stockEvidencias).length) ||
                     (prev.stockEvidencias && Object.keys(prev.stockEvidencias).length)) {
                   r = Object.assign({}, r, { stockEvidencias: unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar) });
