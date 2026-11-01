@@ -11,8 +11,10 @@ test('P0: imported prior-month sale and current sale remain separate unpaid obli
  const backup=await app.request('/api/respaldo/exportar');
  const first=backup.ventas.find(v=>v.productoId===prod.id);
  assert.ok(first,'initial sale must exist');
- const now=new Date(); const d=new Date(Date.UTC(now.getUTCFullYear(),now.getUTCMonth()-1,15,12));
- const previous=d.toISOString().slice(0,7);
+ // Match the business-local calendar used by mock-backend/ZONA, not UTC.
+ // UTC enters the next month five hours early in Ecuador on the last day.
+ const now=new Date(); const d=new Date(now.getFullYear(),now.getMonth()-1,15,12);
+ const previous=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
  first.fecha=previous+'-15T12:00:00.000Z';
  const imported=await app.request('/api/respaldo/importar','POST',backup);
  const afterImport=await app.request('/api/respaldo/exportar');
