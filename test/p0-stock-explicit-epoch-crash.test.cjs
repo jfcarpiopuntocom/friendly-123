@@ -110,3 +110,50 @@ test('backend preserves physical-epoch warning through backup, remote merge and 
   assert.equal(view.stockConciliacionPendiente,true);
   assert.match(view.mensaje,/pendientes de conciliación/i);
 });
+
+test('a legacy base fork with the SAME epoch remains UNCONFIRMED after clock arbitration',async()=>{
+  const w=browser(),snap=await w.request('/api/respaldo/exportar');
+  const p=snap.productos.find(x=>Number(x.stockActual)>=1);
+  assert.ok(p);p.id='p0-same-epoch-fork';p.nombre='Legacy fork fixture';
+  p.stockActual=7;p.stockBase=10;p.stockPN={desktop:{add:0,sub:3}};
+  p.stockTs=1000;p.stockEpochId='unchanged-legacy-epoch';
+  snap.productos=[p];snap.ventas=[];snap.movimientos=[];
+  await w.request('/api/respaldo/importar','POST',snap);
+  const remote=w.OCSync.catalogoPropio();
+  const other=remote.productos.find(x=>x.id===p.id);
+  other.stockActual=6;other.stockBase=9;
+  other.stockPN={phone:{add:0,sub:3}};other.stockTs=9999;
+  w.OCSync.aplicarCatalogo(remote,null);
+  const r=(await w.request('/api/respaldo/exportar')).productos.find(x=>x.id===p.id);
+  assert.equal(r.stockConciliacionPendiente,true,
+    'different physical baselines cannot be certified just because a phone timestamp is newer');
+  const keys=Object.values(r.stockEvidencias||{});
+  assert.ok(keys.some(x=>x.base===10 && x.pn.desktop?.sub===3),'PC physical event must survive');
+  assert.ok(keys.some(x=>x.base===9 && x.pn.phone?.sub===3),'phone physical event must survive');
+  const api=await w.request('/api/productos');
+  const cards=Array.isArray(api)?api:api.productos||api.data;
+  const card=cards.find(x=>x.id===p.id);
+  assert.equal(card.stockConciliacionPendiente,true);
+  assert.match(card.mensaje,/pendientes de conciliaci[oó]n/);
+  assert.deepEqual(require('../docs/core/business-read-model.js').stock(r),
+    {known:false,units:null},'financial totals must not treat arbitrated stock as proven');
+});
+test('Yjs cannot silently certify same-epoch baseline fork even if only metadata changed',async()=>{
+  const w=await peer(),a=w.OCYjs;
+  const prev={id:'p0-yjs-legacy-fork',nombre:'Legacy physical fork',stockBase:10,
+    stockActual:7,stockPN:{desktop:{add:0,sub:3}},stockEpochId:'shared-epoch',
+    stockTs:1000,rev:{c:2,d:'desktop'}};
+  const next={...prev,stockBase:9,stockActual:6,
+    stockPN:{phone:{add:0,sub:3}},stockTs:9999,rev:{c:1,d:'phone'}};
+  a.mapas.productos.set(prev.id,
+    vm.runInContext('JSON.parse('+JSON.stringify(JSON.stringify(prev))+')',w));
+  const original=w.OCSync.catalogoPropio;
+  w.OCSync.catalogoPropio=()=>({...original.call(w.OCSync),productos:[next]});
+  try{
+    a._store.sembrar();
+    const published=a.mapas.productos.get(prev.id);
+    assert.equal(published.stockConciliacionPendiente,true);
+    assert.ok(Object.values(published.stockEvidencias||{}).some(x=>x.base===10));
+    assert.ok(Object.values(published.stockEvidencias||{}).some(x=>x.base===9));
+  }finally{w.OCSync.catalogoPropio=original}
+});
