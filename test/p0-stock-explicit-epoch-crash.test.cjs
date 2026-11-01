@@ -97,7 +97,11 @@ test('backend preserves physical-epoch warning through backup, remote merge and 
   const merged=w.OCSync.aplicarCatalogo(remote,null);
   assert.ok(merged&&merged.ok!==false,'catalog merge accepted synthetic fork: '+JSON.stringify(merged));
   const after=(await w.request('/api/respaldo/exportar')).productos.find(x=>x.id===id);
-  assert.equal(after.stockConciliacionPendiente,true);
+  const visible=w.OCSync.catalogoPropio().productos.find(x=>x.id===id);
+  assert.equal(after.stockConciliacionPendiente,true,
+    'stale flag path: '+JSON.stringify({merge:merged,localBefore:before.stockEpochId,
+      remote:item.stockEpochId,afterEpoch:after.stockEpochId,
+      viewFlag:visible?.stockConciliacionPendiente,afterFlag:after.stockConciliacionPendiente}));
   assert.equal(after.stockActual,7,'do not impose either count on a disputed shelf');
   const cards=await w.request('/api/productos');
   const array=Array.isArray(cards)?cards:cards.productos||cards.data;
