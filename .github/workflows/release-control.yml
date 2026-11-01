@@ -46,11 +46,16 @@ jobs:
           git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > /tmp/f123_v606_sync_yjs.js
           test -s /tmp/f123_v607_sync_yjs.js
           test -s /tmp/f123_v606_sync_yjs.js
+      - name: Install pinned synthetic IndexedDB test emulator
+        run: npm install --no-save --prefix "$RUNNER_TEMP/p0-s4-idb" fake-indexeddb@6.2.5 --ignore-scripts --no-audit --no-fund
       - name: Full regression suite including browser and financial contracts
         env:
+          NODE_PATH: ${{ runner.temp }}/p0-s4-idb/node_modules
           F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
           F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
-        run: npm test
+        # The browser latency and WebRTC suites need CPU while 2,400+ other
+        # tests run. Two file workers keep all assertions and peer concurrency.
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "test/**/*.test.js" "test/**/*.test.cjs"
       - name: Artifact integrity
         run: |
           cp docs/version-manifest.json /tmp/manifest-before.json

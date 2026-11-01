@@ -1,7 +1,9 @@
 // Infrastructure adapter for the existing encrypted relay protocol.
 // Inject one Supabase client per device. Each room uses a private channel on
 // that client's shared connection; this module never opens or edits business data.
-const MAX_FRAME = 256 * 1024;
+const MAX_FRAME = 256 * 1024; // unchanged for live, OP, pull and other frames
+const MAX_CKPT_FRAME = 1088 * 1024; // 768KiB ciphertext as base64 JSON, RPC only; never broadcast
+export const CKPT_CIPHER_BYTES = 768 * 1024; // server save_checkpoint decoded ciphertext limit (migration required)
 const MAX_BUFFER = 4 * 1024 * 1024;
 const encoder = new TextEncoder();
 
@@ -15,7 +17,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
     CONNECTING = 0; OPEN = 1; CLOSING = 2; CLOSED = 3;
     readyState = 0; binaryType = 'arraybuffer'; bufferedAmount = 0;
     onopen = null; onmessage = null; onclose = null; onerror = null;
-    #channel; #serial = Promise.resolve(); #liveSerial = Promise.resolve(); #remove = Promise.resolve();
+    #channel; #serial = Promise.resolve(); #readSerial = Promise.resolve(); #liveSerial = Promise.resolve(); #remove = Promise.resolve();
     #key = crypto.randomUUID();
 
     constructor(room) {
@@ -100,20 +102,26 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
       const copied = typeof data === 'string' || data instanceof Blob ? data : asBytes(data)?.slice();
       if (copied === undefined) throw new TypeError('Unsupported relay frame');
       const size = typeof copied === 'string' ? encoder.encode(copied).byteLength : copied.size ?? copied.byteLength;
-      if (size > MAX_FRAME) { this.close(1009, 'frame too big'); return; }
+      let control;
+      if (typeof copied === 'string') {
+        try { control = JSON.parse(copied); } catch (_) { /* legacy text is forwarded */ }
+      }
+      // Only a parsed, durable checkpoint may exceed the regular 256 KiB
+      // transport frame. #command sends it through HTTP RPC, not broadcast.
+      const ckpt = control && typeof control === 'object' && control.k === 'ckpt' && typeof control.c === 'string';
+      if (size > (ckpt ? MAX_CKPT_FRAME : MAX_FRAME)) { this.close(1009, 'frame too big'); return; }
       if (this.bufferedAmount + size > MAX_BUFFER) {
         this.close(1013, 'relay buffer full');
         throw new DOMException('Relay buffer full', 'QuotaExceededError');
       }
       this.bufferedAmount += size;
-      let control;
-      if (typeof copied === 'string') {
-        try { control = JSON.parse(copied); } catch (_) { /* legacy text is forwarded */ }
-      }
       // Keep RPC writes/checkpoints/replay ordered, but never hold immediate
       // encrypted frames behind a slow HTTP response. Both lanes share backpressure.
-      const durableLane = control && ['op', 'ckpt', 'pull', 'ts', 'head'].includes(control.k);
-      const queued = (durableLane ? this.#serial : this.#liveSerial).then(async () => {
+      const durableLane = control && ['op', 'ckpt'].includes(control.k);
+      // A slow historical op ACK must not block pull of a newer peer's movement.
+      // Reads keep their own order; durable writes still remain serialized.
+      const readLane = control && ['pull', 'ts', 'head'].includes(control.k);
+      const queued = (readLane ? this.#readSerial : durableLane ? this.#serial : this.#liveSerial).then(async () => {
         if (this.readyState !== 1) return;
         const frame = copied instanceof Blob ? new Uint8Array(await copied.arrayBuffer()) : copied;
         if (this.readyState !== 1) return;
@@ -124,7 +132,9 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
         const sent = await this.#channel.send({ type: 'broadcast', event: 'opaque-frame', payload });
         if (sent !== 'ok') this.#fail();
       }).catch(() => this.#fail()).finally(() => { this.bufferedAmount = Math.max(0, this.bufferedAmount - size); });
-      if (durableLane) this.#serial = queued; else this.#liveSerial = queued;
+      if (readLane) this.#readSerial = queued;
+      else if (durableLane) this.#serial = queued;
+      else this.#liveSerial = queued;
     }
 
     async #command(command) {
@@ -171,7 +181,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
       this.readyState = 3;
       this.#emit('close', { code, reason, wasClean: code === 1000 });
     }
-    async settled() { await Promise.all([this.#serial, this.#liveSerial, this.#remove]); }
+    async settled() { await Promise.all([this.#serial, this.#readSerial, this.#liveSerial, this.#remove]); }
   }
 
   return {

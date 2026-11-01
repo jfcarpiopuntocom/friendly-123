@@ -89,11 +89,74 @@
   // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
+  // Gzip before encryption. Tag7 writes require a confirmed per-license device census.
+  async function _gzipYjs(bytes, decompress) {
+    var Stream = decompress ? window.DecompressionStream : window.CompressionStream;
+    if (typeof Stream !== "function" || typeof Response !== "function") return null;
+    try {
+      var stream = new Stream("gzip"), writer = stream.writable.getWriter();
+      // Drain concurrently: waiting for write/close before reading can deadlock on large updates.
+      var read = new Response(stream.readable).arrayBuffer();
+      await writer.write(bytes); await writer.close();
+      return new Uint8Array(await read);
+    } catch (_) { return null; }
+  }
+  // Progressive per-license transport rollout; fail closed if policy cannot be loaded.
+  async function _politicaRollout(codigo) {
+    var off = {outboxV2:false,gzipWrite:false,stage:"disabled"};
+    try {
+      var bytes = new TextEncoder().encode("friendly123-rollout-v1:" + codigo);
+      var hash = await crypto.subtle.digest("SHA-256",bytes);
+      var key = Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+      // Keep cold boot responsive even when the policy asset is unreachable.
+      var res = await Promise.race([
+        fetch("./sync-rollout.json",{cache:"no-store",credentials:"same-origin"}),
+        new Promise(function(resolve){setTimeout(function(){resolve(null);},900);})
+      ]);
+      if (!res || !res.ok) return off;
+      var cfg = await res.json();
+      if (!cfg || cfg.schema !== 1 || !["owner-canary","consenting-client","all"].includes(cfg.stage)) return off;
+      var entry = cfg.licenses && cfg.licenses[key];
+      // Later, after separate customer acceptance, an explicit owner-approved
+      // all-stage gate may enable only S4 globally. Gzip stays per-license.
+      if ((!entry || entry.stage !== "all") && cfg.stage === "all" && cfg.allOutboxV2 === true && cfg.allApproved === true)
+        entry = {stage:"all",approved:true,outboxV2:true,gzipWrite:false};
+      if (!entry || entry.stage !== cfg.stage || entry.approved !== true) return off;
+      var fullCensus = entry.allDevicesOnNewShell === true &&
+        Number.isSafeInteger(entry.minimumShell) && entry.minimumShell >= 637 &&
+        /^[a-f0-9]{64}$/.test(entry.deviceCensusSha256 || "") &&
+        /^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(entry.censusDate || "") &&
+        entry.gzipApproved === true;
+      return {outboxV2:entry.outboxV2 === true,
+        gzipWrite:entry.gzipWrite === true && fullCensus,stage:cfg.stage};
+    } catch (_) {return off;}
+  }
+  function _compactarYjsSinCambiarCausalidad(Y, full) {
+    if (!full || full.length > 2097152) return null;
+    var base = null, check = null;
+    try {
+      base = new Y.Doc({gc:true});
+      Y.applyUpdate(base, full);
+      var compact = Y.encodeStateAsUpdate(base);
+      if (!compact || compact.length >= full.length) return null;
+      check = new Y.Doc({gc:true});
+      Y.applyUpdate(check, compact);
+      if (!Y.equalSnapshots(Y.snapshot(base), Y.snapshot(check))) return null;
+      if (JSON.stringify(base.toJSON()) !== JSON.stringify(check.toJSON())) return null;
+      return compact;
+    } catch (_) { return null; }
+    finally {
+      try { if (base) base.destroy(); } catch (_) {}
+      try { if (check) check.destroy(); } catch (_) {}
+    }
+  }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
     var _pausado = false, _tReconnect = null;
     function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
-    var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
+    var MAX_OP_BYTES = 250 * 1024; // guard de operaciones; no relajar
+    var MAX_CKPT_RPC_BYTES = 256 * 1024; // fallback para adaptadores sin capacidad anunciada
+    var MAX_CKPT_CIPHER_BYTES = 768 * 1024; // requiere migracion SQL 768KiB antes de habilitar adaptador
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
     /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
        mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
@@ -328,15 +391,99 @@
         });
       }).catch(function () {}).then(function () { _heredadosListo = true; }); // one attempt per lifetime: failure = old behaviour
     }
-    function leerOutbox() {
-      if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
-      try { return Promise.resolve(JSON.parse(localStorage.getItem(_outboxKey + API.roomId) || "null")); }
-      catch (e) { return Promise.reject(e); }
+    // JFC test room: upgrade a 107MB single-value outbox into one durable IDB row per op.
+    // The old value is removed only in the SAME atomic transaction that writes every row.
+    var _v2DB = null, _v2Ready = null, _v2Cache = null, _v2Revision = -1;
+    var _v2Signatures = new Map(), _v2Prefix = "f123_relay_outbox_v2" + suffix + ":op:";
+    var _v2MetaKey = "f123_relay_outbox_v2" + suffix + ":meta";
+    function v2Signature(entry) {
+      return String(entry.group || "") + "|" + JSON.stringify(entry.huerfano || null);
+    }
+    function v2Db() {
+      if (_v2Ready) return _v2Ready;
+      _v2Ready = Promise.resolve().then(async function () {
+        if (!persistencia || (!persistencia.db && !persistencia._db)) return null;
+        var db = persistencia.db || await persistencia._db;
+        if (!db || !db.objectStoreNames.contains("custom")) return null;
+        var meta = await persistencia.get(_v2MetaKey);
+        // Existing v2 must stay v2 even if rollout config is offline or the phase changes.
+        if (meta && meta.v === 2 && API.rollout) API.rollout.outboxV2 = true;
+        if (!(API.rollout && API.rollout.outboxV2) && (!meta || meta.v !== 2)) return null;
+        if (!meta || meta.v !== 2) {
+          var old = await persistencia.get(_outboxKey);
+          if (!old || !Array.isArray(old.pending)) old = {pending:[],confirmed:[],checkpoint:""};
+          // A large legacy outbox cannot be copied atomically without doubling
+          // browser quota and freezing the device. Keep it in v1 until a separate,
+          // bounded migration is available; never discard even one real operation.
+          var legacyBytes = 0;
+          for (var q = 0; q < old.pending.length && legacyBytes <= 8 * 1024 * 1024; q++)
+            legacyBytes += String(old.pending[q].c || "").length;
+          if (old.pending.length > 512 || legacyBytes > 8 * 1024 * 1024) {
+            try { log("S4: large legacy outbox deferred; original envelopes untouched", old.pending.length); } catch (_) {}
+            return null;
+          }
+          await new Promise(function (resolve, reject) {
+            var tx = db.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
+            tx.oncomplete = resolve; tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox migration failed")); };
+            old.pending.forEach(function (entry) { store.put(entry, _v2Prefix + entry.id); });
+            store.put({v:2,rev:1,checkpoint:old.checkpoint || "",confirmed:old.confirmed || []}, _v2MetaKey);
+            store.delete(_outboxKey); // atomic with all writes: crash cannot lose old queue
+          });
+          _v2Cache = old; _v2Revision = 1;
+          _v2Signatures = new Map(old.pending.map(function (entry) { return [entry.id, v2Signature(entry)]; }));
+        }
+        _v2DB = db;
+        return db;
+      }).catch(function () { return null; }); // remain on proven v1 path if quota/migration fails
+      return _v2Ready;
+    }
+    async function leerOutbox() {
+      if (!await v2Db()) {
+        if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
+        try { return JSON.parse(localStorage.getItem(_outboxKey + API.roomId) || "null"); }
+        catch (e) { throw e; }
+      }
+      var meta = await persistencia.get(_v2MetaKey);
+      if (!meta || meta.v !== 2) throw Error("outbox v2 metadata absent");
+      if (_v2Cache && _v2Revision === meta.rev) return _v2Cache;
+      var pending = await new Promise(function (resolve, reject) {
+        var list = [], tx = _v2DB.transaction(["custom"], "readonly");
+        var req = tx.objectStore("custom").openCursor(IDBKeyRange.bound(_v2Prefix, _v2Prefix + "\uffff"));
+        req.onsuccess = function () {
+          var cur = req.result;
+          if (!cur) { resolve(list); return; }
+          list.push(cur.value); cur.continue();
+        };
+        req.onerror = tx.onabort = function () { reject(req.error || tx.error || Error("outbox read failed")); };
+      });
+      _v2Cache = {pending:pending,confirmed:meta.confirmed || [],checkpoint:meta.checkpoint || ""};
+      _v2Revision = meta.rev;
+      _v2Signatures = new Map(pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
+      return _v2Cache;
     }
     function guardarOutbox() {
-      if (persistencia && typeof persistencia.set === "function") return persistencia.set(_outboxKey, _outbox);
-      try { localStorage.setItem(_outboxKey + API.roomId, JSON.stringify(_outbox)); return Promise.resolve(); }
-      catch (e) { return Promise.reject(e); }
+      if (!_v2DB) {
+        if (persistencia && typeof persistencia.set === "function") return persistencia.set(_outboxKey, _outbox);
+        try { localStorage.setItem(_outboxKey + API.roomId, JSON.stringify(_outbox)); return Promise.resolve(); }
+        catch (e) { return Promise.reject(e); }
+      }
+      var next = new Map(_outbox.pending.map(function (entry) { return [entry.id,entry]; }));
+      return new Promise(function (resolve, reject) {
+        var tx = _v2DB.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
+        tx.oncomplete = function () {
+          _v2Revision += 1; _v2Cache = _outbox;
+          _v2Signatures = new Map(_outbox.pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
+          resolve();
+        };
+        tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox commit failed")); };
+        _v2Signatures.forEach(function (_, id) { if (!next.has(id)) store.delete(_v2Prefix + id); });
+        next.forEach(function (entry, id) {
+          if (!_v2Signatures.has(id) || _v2Signatures.get(id) !== v2Signature(entry))
+            store.put(entry, _v2Prefix + id);
+        });
+        store.put({v:2,rev:_v2Revision + 1,checkpoint:_outbox.checkpoint,
+          confirmed:_outbox.confirmed}, _v2MetaKey);
+      });
     }
     function mutarOutbox(change) {
       var run = function () {
@@ -412,9 +559,17 @@
         _durableQueue.then(function () { drenarDurable(); drenarVivo(); }).catch(function () {});
       }, 100);
     }
-    function enviarConLimite(ws, value) {
+    function enviarConLimite(ws, value, ckptRPC) {
       if (!ws || ws.readyState !== 1) return "offline";
-      if ((Number(ws.bufferedAmount) || 0) + bytesPendientes(value) > MAX_BUFFERED_BYTES) return "blocked";
+      var buffered = Number(ws.bufferedAmount) || 0;
+      var bytes = bytesPendientes(value);
+      // Only an advertised native RPC checkpoint may exceed the 512KiB local
+      // queue guard, and only with an empty transport buffer. Peer/OP frames
+      // retain the old bound. Never allow an unbounded persisted envelope.
+      var largeCheckpoint = ckptRPC && !ws.peerOnly &&
+        window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES &&
+        bytes <= 1088 * 1024 && buffered === 0;
+      if (!largeCheckpoint && buffered + bytes > MAX_BUFFERED_BYTES) return "blocked";
       try { ws.send(value); _lastRelayProgressAt = Date.now(); return "sent"; }
       catch (error) { if (ws.peerOnly && error && error.name === "QuotaExceededError") return "blocked"; try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
     }
@@ -444,8 +599,8 @@
       if (canal.pend.length && ws.readyState === 1) programarBufferPump();
     }
     function enviarDurable(entry) {
-      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano;
-      var result = enviarConLimite(canal.ws, JSON.stringify(msg));
+      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano; delete msg.abs;
+      var result = enviarConLimite(canal.ws, JSON.stringify(msg), entry.k === "ckpt");
       if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
       if (result === "blocked") programarBufferPump();
       return false;
@@ -459,17 +614,52 @@
         _durableQueue = _durableQueue.then(clasificarHeredados).then(drenarDurable).catch(function () { programarDurable(); });
         return;
       }
+      absorberHeredado();
       // A peer ACKs a complete fragment group; a four-fragment window can deadlock it.
       var capacity = ws.peerOnly ? _vivos().length : Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
       if (!capacity) { programarDurable(); return; }
       var available = _vivos().filter(function (entry) { return !_groupAcks.has(entry.id) && !_durableInFlight[entry.id]; });
-      if (available.length > capacity) {
+      // The absorbing full-state group (bounded, it carries every change) drains before the backlog it replaces.
+      var absorbe = available.filter(function (entry) { return entry.abs; });
+      if (absorbe.length) available = absorbe.concat(available.filter(function (entry) { return !entry.abs; })).slice(0, capacity);
+      else if (available.length > capacity) {
         // Reserve one in-flight slot for the newest business change behind a history backlog.
         available = available.slice(0, Math.max(0, capacity - 1)).concat(available[available.length - 1]);
       }
       for (var i = 0; i < available.length; i++) if (!enviarDurable(available[i])) break;
       if (_vivos().some(function (entry) { return !_durableInFlight[entry.id]; }) && ws.readyState === 1) programarDurable();
       if (Object.keys(_durableInFlight).length) programarDurable();
+    }
+    /* Oversized legacy outbox (S4 defers > 512 envelopes / > 8 MB): replaying it one by one never
+       ends. Every persisted tag-0 envelope comes from enviarUpdate(), called only from
+       doc.on("update"), i.e. AFTER Yjs applied that change to this doc. So one full-state update
+       encoded now contains every envelope already queued; receivers ignore what they already have.
+       Those older envelopes are retired only after ALL fragments of that update are durably ACKed
+       (confirmarDurable); envelopes created after the encode are never retired. Fail-closed: any
+       failure leaves the legacy queue intact and the normal backoff retries. The id set is in memory
+       only: after a restart the old group just drains and a new absorption starts. */
+    var _absorcion = null, _absorcionKey = "f123_relay_absorcion" + suffix;
+    function absorberHeredado() {
+      // JFC 2026-11-01: inventory, money and movements first. Photos never absorb by full state
+      // (hundreds of MB, relay quota); their legacy queue keeps draining untouched.
+      if (nombre === "fotos") return;
+      if (_absorcion || canal.recuperando || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
+      if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return;
+      if (_outbox.pending.concat(_unsaved).some(function (entry) { return entry.abs; })) return;
+      var ids = new Set(), bytes = 0;
+      _outbox.pending.forEach(function (entry) {
+        if (entry.k === "op" && !entry.huerfano) { ids.add(entry.id); bytes += String(entry.c || "").length; }
+      });
+      if (ids.size <= 512 && bytes <= 8 * 1024 * 1024) return;
+      var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
+      var marca = { hasta: Date.now(), n: ids.size };
+      _absorcion = { hasta: marca.hasta, ids: ids };
+      // A publish that never reaches the outbox (encrypt/size failure) may retry after a minute.
+      setTimeout(function () {
+        if (_absorcion && _absorcion.hasta === marca.hasta && !_outbox.pending.concat(_unsaved).some(function (entry) { return entry.abs; })) _absorcion = null;
+      }, 60000);
+      try { log("absorbiendo " + ids.size + " sobre(s) heredado(s) en " + nombre + " con un estado completo"); } catch (_) {}
+      publicar(0, full, true, marca);
     }
     function guardarSobre(entry) { guardarSobres([entry]); }
     function guardarSobres(entries) {
@@ -495,8 +685,11 @@
           delete _durableInFlight[result.id];
           if (!Object.keys(_durableInFlight).length) { clearTimeout(_durableWatchdog); _durableWatchdog = null; }
         }
+        if (result.kind === "ckpt" && result.ok === true) diagnosticarCkpt(null, 0);
+        if (result.kind === "ckpt" && result.ok !== true && result.conflict !== true)
+          diagnosticarCkpt("checkpoint-rpc-ack-failed", 0);
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
-        var beforeRetirement = null;
+        var beforeRetirement = null, retirados = [], absCerrada = null;
         return mutarOutbox(function () {
           beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
           var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
@@ -508,12 +701,33 @@
             if (!completed.every(function (x) { return _groupAcks.has(x.id); })) return;
           }
           _outbox.pending = _outbox.pending.filter(function (x) { return !completed.includes(x); });
+          if (entry.abs && result.ok === true && _absorcion && _absorcion.hasta === entry.abs.hasta) {
+            absCerrada = _absorcion;
+            retirados = _outbox.pending.filter(function (x) { return x.k === "op" && !x.huerfano && !x.abs && _absorcion.ids.has(x.id); });
+            var fuera = new Set(retirados);
+            _outbox.pending = _outbox.pending.filter(function (x) { return !fuera.has(x); });
+          }
           if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
           if (entry.k === "ckpt" && result.ok === true) {
             _outbox.checkpoint = entry.state;
             // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
+          if (absCerrada && _absorcion === absCerrada) _absorcion = null;
+          if (retirados.length) {
+            var marca = absCerrada;
+            retirados.forEach(function (x) { delete _durableInFlight[x.id]; _groupAcks.delete(x.id); });
+            // Small evidence only (never the ciphertexts): count, first/last id, date, sha-256 of ids.
+            var ids = retirados.map(function (x) { return x.id; });
+            Promise.resolve().then(function () {
+              return crypto.subtle.digest("SHA-256", new TextEncoder().encode(ids.join(",")));
+            }).then(function (hash) {
+              var ev = { n: ids.length, primero: ids[0], ultimo: ids[ids.length - 1], absorbidoHasta: marca.hasta,
+                at: Date.now(), sha256: Array.from(new Uint8Array(hash)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("") };
+              try { log("absorbidos " + ev.n + " sobre(s) heredado(s) en " + nombre); } catch (_) {}
+              if (persistencia && typeof persistencia.set === "function") return persistencia.set(_absorcionKey, ev);
+            }).catch(function () {});
+          }
           avisarDurable();
           if (result.conflict && canal.ws && _currentPullState) {
             pedirPagina(canal.ws, _currentPullState);
@@ -824,7 +1038,7 @@
     // Old k:"lat" probes remain receive-only diagnostics and cannot approve the SLA.
     // Un update grande no cabe en el relay. Los trozos son frames cifrados
     // independientes; se reconstruyen antes de aplicar Yjs, nunca parcialmente.
-    function publicar(tag, payload, persistir) {
+    function publicar(tag, payload, persistir, marca) {
       if (tag === 0 && persistir) {
         try { measureUpdate(payload); } catch (_) {} // diagnostics cannot block business delivery
         try {
@@ -867,6 +1081,7 @@
             // Content fingerprint stays local; the relay still sees a random id and ciphertext.
             op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
             if (piezas > 1) op.group = id;
+            if (marca) op.abs = marca;
             if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
           }
           var directo = false;
@@ -914,6 +1129,26 @@
          - Solo en canales con permiteCkpt (catálogo y ops; NO fotos: su estado
            completo supera el frame de 256KB). */
     var _tCkpt = null;
+    // JFC test room diagnostic, shown in the existing Sync status line (no overlay).
+    function diagnosticarCkpt(motivo, bytes) {
+      try {
+        window.__ocCheckpointError = motivo ? { canal: nombre, motivo: motivo, bytes: bytes || 0 } : null;
+        window.dispatchEvent(new CustomEvent("oc-checkpoint-status", {detail: window.__ocCheckpointError}));
+      } catch (_) {}
+      // The event alone has no guaranteed UI consumer; always show a visible status.
+      try {
+        var id = "f123-checkpoint-alert-" + nombre, el = document.getElementById(id);
+        if (!motivo) { if (el && el.parentElement) el.parentElement.removeChild(el); return; }
+        if (!el) {
+          el = document.createElement("span"); el.id = id; el.setAttribute("role", "status");
+          el.style.cssText = "display:inline-block;margin:4px 8px;padding:3px 7px;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px";
+          el.style.display = "inline-block";
+          var badge = document.getElementById("oc-offline-badge");
+          (badge && badge.parentElement || document.body).appendChild(el);
+        }
+        el.textContent = "Sync pending — checkpoint " + String(motivo) + (bytes ? " (" + bytes + " B)" : "");
+      } catch (_) {}
+    }
     function hacerCkpt() {
       if (_soloMemoria) return;
       if (canal.ws && canal.ws.peerOnly) return; // Direct catch-up uses hydrated state vectors.
@@ -931,17 +1166,46 @@
       var checkpointCursor = { rev: _appliedPullCursor.rev, seq: _appliedPullCursor.seq };
       var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
-      var state = _b64(full);
-      if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
-      cifrarBin(API.clave, _frame(0, full)).then(function (buf) {
-        if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
-        try {
-          /* rev+seq prueban exactamente hasta que fila persistida contiene este
-             estado. El relay nunca poda una operacion concurrente posterior. */
-          guardarSobre({ k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
-            v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
-        } catch (_) {}
-      }).catch(function () {});
+      // A full-state base64 copy can exceed 100MB and re-inflate the IDB outbox.
+      // Enabled v2 rooms store a small fingerprint; v1 rooms retain legacy metadata.
+      Promise.resolve().then(function () {
+        return API.rollout && API.rollout.outboxV2 ? updateHash(full).then(function (hash) { return "sha256:" + hash; }) : _b64(full);
+      }).then(function (state) {
+        if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
+        return Promise.resolve().then(function () {
+          return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
+        }).then(function (packed) {
+          // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
+          var useful = packed && packed.length + 1 < full.length;
+          var payload = useful ? packed : full;
+          // A new native adapter can persist larger ciphertext via RPC, never broadcast.
+          var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
+            ? MAX_CKPT_CIPHER_BYTES : 0;
+          if (!useful && full.length + 29 > (ckptCipherLimit || (MAX_CKPT_RPC_BYTES - 128) * 3 / 4)) {
+            var compact = _compactarYjsSinCambiarCausalidad(Y, full);
+            if (compact) payload = compact;
+          }
+          return cifrarBin(API.clave, _frame(useful ? 7 : 0, payload));
+        }).then(function (buf) {
+          // Only a capability-advertising adapter may send full-size checkpoints.
+          // Legacy adapters retain the exact 256 KiB JSON frame guard; OPs are unchanged.
+          var ckpt = { k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+            v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf) };
+          var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
+            ? MAX_CKPT_CIPHER_BYTES : 0;
+          if (ckptCipherLimit ? buf.byteLength > ckptCipherLimit : JSON.stringify(ckpt).length > MAX_CKPT_RPC_BYTES) {
+            diagnosticarCkpt("snapshot-over-limit", buf.byteLength);
+            try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
+            return;
+          }
+          try {
+            guardarSobre(Object.assign({ state: state }, ckpt));
+          } catch (_) { diagnosticarCkpt("checkpoint-outbox-save-failed", buf.byteLength); }
+        });
+      }).catch(function (e) {
+        diagnosticarCkpt("checkpoint-encrypt-or-gzip-failed", 0);
+        try { log("ckpt error " + nombre, e && e.message); } catch (_) {}
+      });
     }
     function conectar() {
       if (_pausado || !permitido()) return;
@@ -1126,6 +1390,16 @@
             grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
             tag = original; payload = unido; receipts = grupo.receipts;
           }
+          if (tag === 7) {
+            // A checkpoint is one authenticated frame. Never accept compressed peer/live ops.
+            if (source !== "pull") return false; // reader understands tag7; writer is separately gated
+            return _gzipYjs(payload, true).then(function (update) {
+              if (!update || !update.length) return false;
+              Y.applyUpdate(doc, update, "red");
+              if (pullEstado.rebaseCursor) pullEstado.rebaseFrames = (pullEstado.rebaseFrames || 0) + 1;
+              return true;
+            });
+          }
           if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
           if (tag === 0 || (source === "peer" && tag === 6)) {
             var beforeRevision = API._catalogoRevision;
@@ -1148,6 +1422,9 @@
               unirRecibosPeer(pendientesPeer, receipts);
               return confirmarRecepcionPeer();
             }
+            // A successfully applied pull/live update is valid. Durability of the
+            // pull cursor is separately fenced by guardarPruebaCausal + IDB readback.
+            return true;
           }
           else if (tag === 1) { // peer hello: no diff from an unhydrated partial Y.Doc
             return _pullCursorReady.then(function () {
@@ -1161,7 +1438,8 @@
               return true;
             });
           }
-          return true;
+          // Unknown authenticated frame formats cannot certify a durable pull cursor.
+          return false;
         }).catch(function () { return false; }); // basura o clave distinta -> no se confirma el cursor
       }
       ws.onmessage = function (ev) {
@@ -1387,6 +1665,51 @@
      aplicarCatalogo alimenta la lista de micelio (OCMicelio.recibir) para que el
      dueño vea sus aparatos en Advanced. Va en el batch: es diminuto. */
   var COLECCIONES_BATCH = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "dispositivos", "categorias", "ajustes"]; // categorias (v344): propias vacias y ocultas, con rev y lapida
+  // Manual, read-only audit. Never logs or returns any business payload, license or PIN.
+  // AES-GCM envelope length is exact: 12-byte IV + 16-byte tag + 1-byte frame.
+  function _medirDocumentoYjs(Y, doc, nombre, canal, idb, permiteCkpt) {
+    if (!doc || !Y || !Y.encodeStateAsUpdate) return null;
+    var update = Y.encodeStateAsUpdate(doc);
+    var entries = 0, inline = 0;
+    doc.share.forEach(function (type) {
+      if (!type || typeof type.forEach !== "function") return;
+      type.forEach(function (value) {
+        entries++;
+        try {
+          var serialized = JSON.stringify(value);
+          if (serialized) { var found = serialized.match(/data:image\//gi); inline += found ? found.length : 0; }
+        } catch (_) { /* report only safely enumerable values */ }
+      });
+    });
+    var encrypted = update.byteLength + 29;
+    var wire = Math.ceil(encrypted * 4 / 3) + 128;
+    var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === 768 * 1024 ? 768 * 1024 : 0;
+    return { canal: nombre, bytesPlano: update.byteLength, bytesCifrados: encrypted,
+      entradas: entries, dataImageInline: inline,
+      hidratado: !!(idb && idb.synced === true && canal && canal.recuperando === false &&
+        !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))),
+      checkpoint: !!permiteCkpt, bytesSobre: wire,
+      limiteCifradoBytes: permiteCkpt ? ckptCipherLimit || null : null,
+      margenBytes: permiteCkpt ? (ckptCipherLimit ? ckptCipherLimit - encrypted : 256 * 1024 - wire) : null };
+  }
+  // Manual numeric-only approximation of CURRENT visible data by collection.
+  // Not a sum of Yjs checkpoint bytes: deleted structs and causal metadata are excluded.
+  function _medirColeccionesCatalogo(doc) {
+    if (!doc || !doc.share) return [];
+    var encoder = new TextEncoder();
+    var names = COLECCIONES.concat(["hechos_financieros", "_stock_pn_testigos_v1", "_meta"]);
+    return names.map(function (name) {
+      var map = doc.share.get(name), entries = 0, bytes = 0;
+      if (map && typeof map.forEach === "function") map.forEach(function (value, key) {
+        entries++;
+        try {
+          var json = JSON.stringify(value);
+          bytes += encoder.encode(String(key)).byteLength + encoder.encode(json || "").byteLength;
+        } catch (_) { /* numeric estimate can undercount unencodable values */ }
+      });
+      return { coleccion: name, entradas: entries, bytesJSONVisibles: bytes };
+    }).sort(function (a, b) { return b.bytesJSONVisibles - a.bytesJSONVisibles; });
+  }
   var API = {
     estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
     // API genérica por colección (probar convergencia a mano o desde código).
@@ -1407,6 +1730,27 @@
     }
   };
   window.OCYjs = API;
+  // Call manually on an authorized device after all three channels have hydrated:
+  // console.table(OCYjs.medirTamanoCanales())
+  API.medirTamanoCanales = function () {
+    if (!window.Y || !API.doc || !API.opsDoc || !API.fotosDoc) return [];
+    return [
+      _medirDocumentoYjs(window.Y, API.doc, "catalogo", API.canal, API.idb, true),
+      _medirDocumentoYjs(window.Y, API.opsDoc, "operaciones", API.opsCanal, API.opsIdb, true),
+      _medirDocumentoYjs(window.Y, API.fotosDoc, "fotos", API.fotosCanal, API.fotosIdb, false)
+    ];
+  };
+  // console.table(OCYjs.medirTamanoColecciones()) — figures only; never business values.
+  API.medirTamanoColecciones = function () {
+    if (!API.doc) return [];
+    var hydrated = !!(API.idb && API.idb.synced === true && API.canal &&
+      API.canal.recuperando === false && !(API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)));
+    return _medirColeccionesCatalogo(API.doc).map(function (row) {
+      return { coleccion: row.coleccion, entradas: row.entradas,
+        bytesJSONVisibles: row.bytesJSONVisibles, hidratado: hydrated };
+    });
+  };
+
 
   /* PRIME DIRECTIVE 1AAA / G05 — HISTORIAL LOCAL DE PUNTEROS DE FOTO.
      y-indexeddb persiste updates del catalogo en objectStore "updates". Este
@@ -1526,6 +1870,14 @@
     } catch (_) { log("identidad del cuaderno no disponible — sin sync"); return; }
     if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
     var codigo = normalizarCodigo(_licProp);
+    var rolloutPromise = _politicaRollout(codigo);
+    // A first-time license may be entered after mock-backend boot, on the PIN screen.
+    if (typeof window.__f123PrepareJfcReset === "function") window.__f123PrepareJfcReset();
+    // S2: do not open the NEW test room while old local business/IDB is pending reset.
+    if (window.__f123JfcResetReady && await window.__f123JfcResetReady !== true) {
+      log("JFC test reset did not complete; sync remains disabled");
+      return;
+    }
     try { await cargarBundle(); } catch (e) { log("bundle:", e && e.message); return; }
 
     var Y = window.Y;
@@ -1544,8 +1896,10 @@
        (idiomARTE incluida) cambia de sala. La CLAVE sigue derivada de la licencia,
        asi los aparatos de JFC se entienden en la sala nueva. Ver la purga local
        gated en mock-backend.js. */
-    var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo;
+    var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo; // JFC 2026-11-01: SAME room as v636 (no reset); devices absorb their own data
+    API.esLicenciaPruebaJfc = _salaId !== codigo; // existing JFC test-license fingerprint gate only
     API.roomId = await idDeSala(_salaId);
+    API.rollout = await rolloutPromise;
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
     // Guardamos la referencia: al terminar de cargar de IndexedDB ("synced")
@@ -1563,7 +1917,8 @@
     // (b) otros dispositivos por el relay cifrado. origin !== "bc"/"red" evita eco.
     API.canal = crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
     API.doc.on("update", function (update, origin) {
-      if (origin === "bc" || origin === "red") return;
+      // IndexedDB hydration replays existing history; it is not a new change to publish.
+      if (origin === "bc" || origin === "red" || (API.idb && origin === API.idb)) return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.canal.enviarUpdate(update);
     });
@@ -1583,7 +1938,7 @@
     } catch (_) {}
     API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false, sembrarFotosAlRelay, API.fotosIdb); // sin ckpt (fotos exceden 256KB); siembra c/foto como op individual
     API.fotosDoc.on("update", function (update, origin) {
-      if (origin === "bc" || origin === "red") { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
+      if (origin === "bc" || origin === "red" || (API.fotosIdb && origin === API.fotosIdb)) { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.fotosCanal.enviarUpdate(update);
     });
@@ -1605,12 +1960,15 @@
     } catch (_) {}
     API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb); // ckpt: ops es pequeño
     API.opsDoc.on("update", function (update, origin) {
-      if (origin === "bc" || origin === "red") { pedirProcesarEventos(); return; }
+      if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.opsCanal.enviarUpdate(update);
     });
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
+    // An op that arrived before its product must run once the catalog catches up.
+    API.doc.on("update", function () { if (API.esLicenciaPruebaJfc && API.opsMap && API.opsMap.size) pedirProcesarEventos(); });
+    window.addEventListener("oc-catalogo-cambiado", pedirProcesarEventos);
 
     function sincronizarVisibilidad() {
       var activo = !document.hidden && (!window.OCTabSession || OCTabSession.canSync());
@@ -1724,35 +2082,35 @@
     if (!op || !op.opId || !API.opsMap) return;
     try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
   }
-  var _tOps = null, _opsProcesadas = null;
+  var _tOps = null, _opsProcesadas = null, _opsAsyncBusy = false;
   function pedirProcesarEventos() { clearTimeout(_tOps); _tOps = setTimeout(procesarEventos, 200); }
   function procesarEventos() {
-    if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" || !API.opsMap) return;
-    if (!_opsProcesadas) _opsProcesadas = {}; // cache liviano por sesión (aplicarOpRemota ya es idempotente igual)
-    var mio = miDeviceId(), aplico = false;
+    if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" ||
+        !API.opsMap || _opsAsyncBusy) return;
+    if (!_opsProcesadas) _opsProcesadas = {};
+    var mio = miDeviceId();
     API.opsMap.forEach(function (op, opId) {
-      if (!op || _opsProcesadas[opId]) return;
-      // ECO: un op PROPIO ya se aplicó al hacer la acción; re-aplicarlo doblaría
-      // la plata (el handler NO lo tiene en su set de "vistos", porque nunca pasó
-      // por aplicarOpRemota). Se salta explícitamente por deviceId, y se marca
-      // procesado (no hay nada que reintentar).
+      if (!op || _opsProcesadas[opId] || _opsAsyncBusy) return;
+      // A local movement was already committed by its originating device.
       if (mio && String(op.deviceId) === mio) { _opsProcesadas[opId] = 1; return; }
-      try {
-        var r = window.OCSync.aplicarOpRemota(op);
-        // #4 (fix 2026-09-10): marcar procesado SOLO si el handler respondió ok
-        // (aplicado o repetido). Si lanzó, se deja sin marcar para reintentar en
-        // el próximo pase. aplicarOpRemota ya es idempotente por opId, así que
-        // reintentar es seguro.
-        if (r && r.ok) {
-          _opsProcesadas[opId] = 1;
-          if (!r.repetida) {
-            aplico = true;
-            try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op })); } catch (_) {}
-          }
+      function accepted(r) {
+        if (!r || !r.ok) return false; // no product yet / failed disk commit: retry later
+        _opsProcesadas[opId] = 1;
+        if (!r.repetida) {
+          try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", {detail:op})); } catch (_) {}
         }
-      } catch (_) { /* sin marcar: se reintenta */ }
+        return true;
+      }
+      try {
+        var result = window.OCSync.aplicarOpRemota(op);
+        if (result && typeof result.then === "function") {
+          // Serialize immutable movement commits so an old snapshot cannot race the save.
+          _opsAsyncBusy = true;
+          Promise.resolve(result).then(accepted, function () { return false; })
+            .then(function (ok) { _opsAsyncBusy = false; if (ok) pedirProcesarEventos(); });
+        } else accepted(result);
+      } catch (_) { /* retain the opId for a later retry */ }
     });
-    void aplico;
   }
 
   // ===================================================================
@@ -2071,8 +2429,10 @@
       // not merely a whole-product PN object (old bridges can relabel it).
       // Sanitizing the incoming read-model never deletes the local ledger.
       function sinPruebaEpoca(proof) {
+        // Always return the PRODUCT (never the bare evidence map): a fresh physical count has empty PN and
+        // returning `proof` here replaced the product with its evidence, which the store then dropped (no id).
         if (!epoch || !Number.isSafeInteger(b) || !p.stockPN ||
-            !Object.keys(p.stockPN).length) return proof || p;
+            !Object.keys(p.stockPN).length) return proof ? Object.assign({}, p, { stockEvidencias: proof }) : p;
         return Object.assign({}, p, {
           stockPN: {}, stockActual: Math.max(0, b), stockDeficit: 0,
           ...(proof ? { stockEvidencias: proof } : {})
@@ -2285,9 +2645,14 @@
                 // A single explicit epoch may supersede untagged legacy
                 // metadata. Two competing explicit epochs remain independent:
                 // the owner must reconcile their physical movement histories.
+                // JFC 2026-11-01: between two explicit epochs the latest physical count wins (stockTs, then epoch id),
+                // the same rule as aplicarCatalogo in mock-backend; the loser stays in stockEvidencias below.
+                var _tsMine = Number(r.stockTs) || 0, _tsDoc = Number(prev.stockTs) || 0;
+                var _ganaMio = _tsMine > _tsDoc || (_tsMine === _tsDoc && _stockEpochMine > _stockEpochDoc);
                 var _epochPreferred = _samePhysicalEpoch ? null :
                   (_stockEpochMine && !_stockEpochDoc ? r :
-                    (!_stockEpochMine && _stockEpochDoc ? prev : null));
+                    (!_stockEpochMine && _stockEpochDoc ? prev :
+                      (_stockEpochMine && _stockEpochDoc ? (_ganaMio ? r : prev) : null)));
                 if (_epochPreferred) {
                   r = Object.assign({}, r, {
                     stockBase: _epochPreferred.stockBase,
@@ -2564,7 +2929,9 @@
       _aplicando = true;
       var _fallo = false;
       try {
-        var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only real Yjs bridge grants canonical name
+        var r = soloProductos
+          ? window.OCSync.aplicarCatalogo(remoto, rolRemoto, true, true)
+          : window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only incremental product-only merges defer A/B
         ultimaAplicacionAceptada = !!(r && r.ok && r.actividadCompleta !== false);
         if (ultimaAplicacionAceptada && !soloProductos) _primerMergeAceptado = true;
         ultimaAplicacionPins = Promise.resolve(r && r.pinsConfirmados).then(function (ok) { return ok === true; }, function () { return false; });
@@ -2608,7 +2975,15 @@
        100 la del que recibe; la red ~30 ms. Ahora 30 ms: junta los eventos de una misma venta
        (salen en el mismo instante) sin frenar el cambio. Una espera que NO se reinicia con cada
        evento, para que una rafaga no lo posponga. Prueba: test/sync-instantaneo-v516.test.js */
-    function pedirSeed() { if (_tSeed) return; _tSeed = setTimeout(function () { _tSeed = null; sembrar(); }, 0); } // v517: 0 ms (JFC: "40 ms o menos"); junta lo del mismo instante
+    function pedirSeed() { if (_tSeed) return; _tSeed = setTimeout(function () {
+      _tSeed = null;
+      sembrar();
+      // Live publication already reconciled the local catalog. Reuse its
+      // post-publication signature; the periodic safety sweep still runs
+      // at least every 10 seconds (max four skipped 2s intervals).
+      _barridoFirma = firmaBarrido();
+      _barridoSaltos = 0;
+    }, 0); } // v517: 0 ms (JFC: "40 ms o menos"); junta lo del mismo instante
     window.addEventListener("oc-catalogo-cambiado", pedirSeed);
     window.addEventListener("oc-equipo-cambiado", pedirSeed);
 

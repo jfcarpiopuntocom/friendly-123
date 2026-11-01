@@ -94,11 +94,22 @@ test('local dashboard agrees with held obligations and the local day, including 
 });
 test('API consumes earlier void on the next monthly payment and exports backwards-readable facts',async()=>{
  const app=browser();app.OCAuth={rolActual:()=> 'dueno'};
+ // October payout and seven-day hold use one fixed business clock.
+ const fixtureNow=Date.parse('2026-10-15T12:00:00-05:00');
+ app.Date=class SettlementDate extends Date {
+   constructor(...args){super(...(args.length?args:[fixtureNow]));}
+   static now(){return fixtureNow;}
+ };
  const a=await app.request('/api/promotoras','POST',{nombre:'Synthetic',comisionBase:40});
  const r=await app.request('/api/ubicaciones','POST',{nombre:'Synthetic rack',tipo:'socio'});
  await app.request('/api/ubicaciones/'+r.id,'PUT',{promotoraId:a.id});
  const p=await app.request('/api/productos','POST',{nombre:'Synthetic',sku:'RCV',barcode:'RCV',precio:100,costo:20,stockInicial:10,ubicacionId:r.id});
  await app.request('/api/productos/'+p.id+'/venta','POST',{cantidad:1});
+ // Fix the fixture to the October accounting period BEFORE paying. Otherwise
+ // this test depends on today's wall clock and starts failing in November.
+ const firstPeriod=await app.request('/api/respaldo/exportar');
+ firstPeriod.ventas.filter(v=>v.ubicacionId===r.id).forEach(v=>v.fecha='2026-10-02T12:00:00Z');
+ await app.request('/api/respaldo/importar','POST',firstPeriod);
  await app.request('/api/liquidaciones/'+r.id+'/marcar-pagado','POST',{payeeId:a.id,mes:'2026-10',opId:'first'});
  const b=await app.request('/api/respaldo/exportar');
  b.ventas.filter(v=>v.ubicacionId===r.id).forEach(v=>Object.assign(v,{fecha:'2026-09-10T12:00:00Z',anulada:true,canceladaExPostEn:'2026-09-20T12:00:00Z'}));

@@ -1,3 +1,5 @@
+// CONTRACT CHANGE (JFC, owner, 1 Nov 2026): "the latest physical count wins" on every device, with a
+// deterministic tie-break by epoch id; the losing count is never discarded (it stays in stockEvidencias).
 'use strict';
 // P0 deterministic convergence of competing physical epoch read models.
 // Isolated synthetic profiles. No customer data, real relay, PIN or license.
@@ -29,7 +31,7 @@ test('P0 rival explicit epochs preserve each physical count and both witness his
   const ar=a.catalog(),br=b.catalog();
   a.OCSync.aplicarCatalogo(br,null);
   b.OCSync.aplicarCatalogo(ar,null);
-  for(const [w,expected,epoch] of [[a,9,'E-OLDER'],[b,6,'E-NEWER']]){
+  for(const [w,expected,epoch] of [[a,6,'E-NEWER'],[b,6,'E-NEWER']]){
     const p=await item(w);
     assert.equal(p.stockActual,expected);
     assert.equal(p.stockEpochId,epoch);
@@ -42,7 +44,7 @@ test('P0 rival explicit epochs preserve each physical count and both witness his
     const aa=a.catalog(),bb=b.catalog();
     a.OCSync.aplicarCatalogo(bb,null);b.OCSync.aplicarCatalogo(aa,null);
   }
-  assert.equal((await item(a)).stockActual,9);
+  assert.equal((await item(a)).stockActual,6);
   assert.equal((await item(b)).stockActual,6);
 });
 
@@ -52,7 +54,7 @@ test('P0 equal timestamps retain independent explicit epochs and their evidence'
   await seed(b,'E-Z',9,{actorB:{add:0,sub:2}},5000);
   const ar=a.catalog(),br=b.catalog();
   b.OCSync.aplicarCatalogo(ar,null);a.OCSync.aplicarCatalogo(br,null);
-  for(const [w,expected,epoch] of [[a,8,'E-A'],[b,7,'E-Z']]){
+  for(const [w,expected,epoch] of [[a,7,'E-Z'],[b,7,'E-Z']]){
     const p=await item(w);
     assert.equal(p.stockActual,expected);
     assert.equal(p.stockEpochId,epoch);
@@ -96,9 +98,9 @@ test('P0 Yjs cross-replay retains both movement witnesses without forging physic
     await seed(b,'E-NEWER',7,{actorB:{add:0,sub:1}},2000);
     await converge(a,b,reverse);
     const pa=await item(a),pb=await item(b);
-    assert.equal(pa.stockActual,9,'first device retains its physical count');
-    assert.equal(pb.stockActual,6,'second device retains its physical count');
-    assert.equal(pa.stockEpochId,'E-OLDER');
+    assert.equal(pa.stockActual,6,'first device adopts the latest physical count');
+    assert.equal(pb.stockActual,6,'second device keeps the latest physical count');
+    assert.equal(pa.stockEpochId,'E-NEWER');
     assert.equal(pb.stockEpochId,'E-NEWER');
     assert.ok(a.OCYjs.stockPNTestigos.size>=2,'both source movement witnesses retained');
     assert.ok(b.OCYjs.stockPNTestigos.size>=2,'receiver retained both movement witnesses');
@@ -114,11 +116,11 @@ test('P0 Yjs cross-replay retains both movement witnesses without forging physic
         'export retains new epoch as active or historic evidence');
     }
     await converge(b,a,!reverse);
-    assert.equal((await item(a)).stockActual,9,'stable old epoch');
-    assert.equal((await item(b)).stockActual,6,'stable new epoch');
+    assert.equal((await item(a)).stockActual,6,'stable latest epoch');
+    assert.equal((await item(b)).stockActual,6,'stable latest epoch');
   }
 });
-test('P0 six discrepant physical counts remain intact until owner-authorized reconciliation',async()=>{
+test('P0 six discrepant physical counts converge to the latest count (owner decision) without losing the older one',async()=>{
   const a=browser(),b=browser();
   const fa=await a.request('/api/respaldo/exportar');
   const fb=await b.request('/api/respaldo/exportar');
@@ -144,8 +146,9 @@ test('P0 six discrepant physical counts remain intact until owner-authorized rec
   for(let i=0;i<6;i++){
     const x=aa.find(p=>p.id==='synthetic-item-'+i);
     const y=bb.find(p=>p.id==='synthetic-item-'+i);
-    assert.equal(x.stockActual,pca[i],'PC physical ledger untouched for product '+i);
-    assert.equal(y.stockActual,7,'phone physical ledger untouched for product '+i);
-    assert.notEqual(x.stockEpochId,y.stockEpochId,'unreconciled physical epochs remain distinct');
+    assert.equal(x.stockActual,7,'PC adopts the latest physical count for product '+i);
+    assert.equal(y.stockActual,7,'phone keeps the latest physical count for product '+i);
+    assert.equal(x.stockEpochId,y.stockEpochId,'both devices converge to the same physical epoch');
+    assert.ok(JSON.stringify(x.stockEvidencias||{}).includes('PC-'+i),'the older PC count is preserved as evidence for product '+i);
   }
 });

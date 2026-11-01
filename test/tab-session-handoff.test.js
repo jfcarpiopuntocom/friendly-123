@@ -14,7 +14,24 @@ async function seed(ctx){
  const ids=await page.evaluate(async()=>{const original=OCAuth;window.OCAuth=Object.assign({},original,{rolActual:()=> 'dueno'});try{await OCSecure.guardarSecreto('789',['260'],'357','');const req=async(u,b)=>{const r=await fetch(u,{method:'POST',body:JSON.stringify(b)});if(!r.ok)throw Error(await r.text());return r.json();};const rack=await req('/api/ubicaciones',{nombre:'Synthetic immediate rack',tipo:'propio'});const p=await req('/api/productos',{nombre:'Synthetic immediate product',barcode:'TAB-TIMING',precio:17,stockInicial:4,ubicacionId:rack.id});await req('/api/productos/'+p.id+'/venta',{cantidad:2,info:{formaPago:'cash'}});return {product:p.id,rack:rack.id};}finally{window.OCAuth=original;}});
  return {page,ids};
 }
-async function ownerLogin(page){await page.waitForFunction(()=>!!window.OCAuth);for(const digit of ['7','8','9'])await page.locator('#oc-pad').getByRole('button',{name:digit,exact:true}).click();await page.waitForFunction(()=>window.OCAuth?.rolActual()==='dueno',{},{timeout:5000});}
+async function ownerLogin(page){
+ await page.waitForFunction(()=>!!window.OCAuth);
+ for(const digit of ['7','8','9'])await page.locator('#oc-pad').getByRole('button',{name:digit,exact:true}).click();
+ try { await page.waitForFunction(()=>window.OCAuth?.rolActual()==='dueno',{},{timeout:5000}); }
+ catch(error){
+   // Diagnostics only: retain exactly the original timeout and assertions.
+   const facts=await page.evaluate(()=>({
+     role:OCAuth?.rolActual(),gate:document.getElementById('oc-gate')?.style.display,
+     handoff:!!document.getElementById('oc-tab-handoff'),
+     authMessage:document.getElementById('oc-msg')?.textContent?.slice(0,160),
+     pending:OCTabSession?.pending,current:OCTabSession?.isCurrent(),
+     slots:[...document.querySelectorAll('#oc-slots .slot')].map(s=>!!s.textContent),
+     sessionExists:!!sessionStorage.getItem('f123_sesion')
+   })).catch(e=>({probeError:String(e)}));
+   console.error('TAB_HANDOFF_AUTH_FORENSIC',JSON.stringify(facts));
+   throw error;
+ }
+}
 async function sessionSnapshot(page){return page.evaluate(()=>({pending:OCTabSession.pending,current:OCTabSession.isCurrent(),epoch:window.OC_AUTH_SESSION_EPOCH,role:OCAuth.rolActual(),notebook:localStorage.getItem('f123_tienda_activa'),owned:localStorage.getItem('f123_owned'),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(key=>({key,value:localStorage.getItem(key)})),requests:window.__lockCalls,fences:window.__fenceReads}));}
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  test(`native tab session handoff (${name}): old session closes, queued writes fail, sharing is public and honest`,async()=>{

@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "stage": "owner-canary",
+  "allOutboxV2": false,
+  "allApproved": false,
+  "description": "First owner pilot; next consenting customer, then all only after acceptance. Gzip remains disabled until a complete per-license device census.",
+  "licenses": {
+    "e048094f34e8095f516fc10edd43d13b1625825f97d5e983d65477d0569fb718": {
+      "stage": "owner-canary",
+      "approved": true,
+      "approvedDate": "2026-11-01",
+      "outboxV2": true,
+      "gzipWrite": false,
+      "allDevicesOnNewShell": false,
+      "minimumShell": 0,
+      "deviceCensusSha256": "",
+      "censusDate": "",
+      "gzipApproved": false
+    }
+  }
+}

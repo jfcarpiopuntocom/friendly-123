@@ -81,6 +81,36 @@ function helper(storage,extra={}) {
 const raw=(name,rev)=>JSON.stringify({...snapshot(name,rev),_abCommit:'synthetic-token-'+name});
 const committedName=reader=>JSON.parse(reader.leer().buffers[reader.leer().activo]).nombreNegocio;
 
+test('persistent A/B parse cache reuses identical bytes across calls, rechecks disk, and never mutates commit bodies',()=>{
+  const f=fixture();
+  let parses=0;
+  const countingJSON={
+    parse(value){parses++;return JSON.parse(value);},
+    stringify(value){return JSON.stringify(value);}
+  };
+  const reader=helper(f.storage,{JSON:countingJSON});
+  const first=reader.leer();
+  assert.equal(first.activo,'A');
+  assert.ok(parses>=2,'initial physical A and B bytes parsed');
+  parses=0;
+  const second=reader.leer();
+  assert.equal(second.buffers.A,f.oldA);
+  assert.equal(parses,0,'second call reused persistent cache, not just per-call memo');
+  f.storage.map.set(B,raw('NEW-B',12));
+  f.storage.map.set(PTR,'B');
+  parses=0;
+  const changed=reader.leer();
+  assert.equal(changed.activo,'B');
+  assert.equal(JSON.parse(changed.buffers.B).nombreNegocio,'Synthetic NEW-B');
+  assert.ok(parses>=1,'changed exact bytes are always reparsed');
+  const fresh=JSON.stringify(snapshot('FRESH',13));
+  assert.equal(reader.guardarAhora(fresh),true,'commit uses a separate mutable parse');
+  const journal=JSON.parse(f.storage.getItem(JOURNAL));
+  assert.equal(journal.phase,'COMMITTED');
+  assert.ok(JSON.parse(journal.candidateRaw)._abCommit,'new commit nonce was added');
+  assert.equal(committedName(helper(f.storage)),'Synthetic FRESH');
+});
+
 for (const priorTarget of [true,false]) {
   test('failed commit marker exposes only preimage; prior target '+priorTarget,async()=>{
     const f=fixture({priorTarget}),reader=helper(f.storage);

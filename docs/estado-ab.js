@@ -13,15 +13,28 @@
     };
     const clave = (letra) => base + "_" + letra;
     function cuerpo(raw) { try { return JSON.parse(raw); } catch (_) { return null; } }
-    /* v609 perf: dentro de una misma lectura/guardado, el MISMO texto se parseaba hasta 8 veces
-       (candidateRaw x3, copias A y B, buffers). memo = cache de parseo SOLO durante la llamada en curso
-       (se descarta al salir; nunca persiste entre llamadas). Solo para lecturas de solo lectura:
-       el cuerpo que guardarAhora MUTA (_abCommit) se sigue parseando con cuerpo() sin cache. */
+    /* v637 perf: cache de lectura por texto EXACTO, conservado entre llamadas.
+       No afecta a la autoridad A/B: cada leer() vuelve a consultar journal,
+       puntero y buffers físicos; solo evita repetir JSON.parse de bytes idénticos.
+       Los cuerpos de lectura se congelan para no mutar el valor cacheado.
+       guardarAhora usa cuerpo() NUEVO y mutable para asignar _abCommit. */
+    const lecturas = new Map(), MAX_LECTURAS = 4;
     let memo = null;
     function cuerpoL(raw) {
-      if (!memo || typeof raw !== "string") return cuerpo(raw);
-      if (memo.has(raw)) return memo.get(raw);
-      const v = cuerpo(raw); memo.set(raw, v); return v;
+      if (typeof raw !== "string") return cuerpo(raw);
+      if (memo && memo.has(raw)) return memo.get(raw);
+      let v;
+      if (lecturas.has(raw)) {
+        v = lecturas.get(raw);
+        lecturas.delete(raw); // LRU, sin reparsear
+      } else {
+        v = cuerpo(raw);
+        if (v && typeof v === "object") Object.freeze(v);
+      }
+      lecturas.set(raw, v);
+      if (lecturas.size > MAX_LECTURAS) lecturas.delete(lecturas.keys().next().value);
+      if (memo) memo.set(raw, v);
+      return v;
     }
     function conMemo(fn) {
       const propio = !memo;
@@ -126,6 +139,8 @@
         if (leerClave(clave(destino)) !== raw || leerClave(base + "_ptr") !== vista.puntero ||
             leerClave(claveJournal) !== preparado) { espejoPermitido = false; return false; }
         registro.phase = "COMMITTED";
+        // La preimagen solo se necesita en PREPARED; v636 acepta anterior:null en COMMITTED.
+        registro.anterior = null;
         const confirmado = JSON.stringify(registro);
         storage.setItem(claveJournal, confirmado);
         // A successful native atomic set is durable even if a later read fails.

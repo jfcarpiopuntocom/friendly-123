@@ -1,0 +1,18 @@
+name: P0 S1 Yjs IDB replay (synthetic)
+on:
+  pull_request:
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-s1-yjs-idb-replay.test.cjs
+      - .github/workflows/p0-s1-idb-replay.yml
+  workflow_dispatch:
+jobs:
+  double-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: First independent run — IDB replay must not publish
+        run: node --test test/p0-s1-yjs-idb-replay.test.cjs
+      - name: Second independent run — same SHA, same real listeners
+        run: node --test test/p0-s1-yjs-idb-replay.test.cjs

@@ -1,0 +1,15 @@
+name: P0 S0 pull during durable backlog
+on:
+  pull_request:
+    paths:
+      - supabase-relay/transport.mjs
+      - test/p0-s0-pull-priority.test.mjs
+      - .github/workflows/p0-s0-fast-pull.yml
+jobs:
+  double-green:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --test test/p0-s0-pull-priority.test.mjs
+      - run: node --test test/p0-s0-pull-priority.test.mjs

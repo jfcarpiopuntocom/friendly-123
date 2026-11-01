@@ -48,25 +48,31 @@ test('native A/B lock keeps contact response and reads pending until durable com
       return customer.id;
     });
     await page.evaluate(()=>{
-      window.__contactLockName='f123-estado-ab:f123_estado_v4';
-      window.__contactLockHeld=false;
-      window.__contactLockPromise=navigator.locks.request(window.__contactLockName,()=>new Promise(resolve=>{
-        window.__contactLockHeld=true;window.__releaseContactLock=resolve;
-      }));
+      // The actual money/customer ACK fence is the strict IndexedDB CAS.
+      // Hold that exact persistence boundary, not the removed legacy Web Lock.
+      const idb=window.OCEstadoIDB;
+      if(!idb||typeof idb.guardarConRevision!=='function')
+        throw Error('Strict IDB revision fence missing');
+      const commit=idb.guardarConRevision.bind(idb);
+      window.__contactCommitHeld=false;
+      const release=new Promise(resolve=>window.__releaseContactCommit=resolve);
+      idb.guardarConRevision=(...args)=>{
+        window.__contactCommitHeld=true;
+        return release.then(()=>commit(...args));
+      };
     });
-    await page.waitForFunction(()=>window.__contactLockHeld);
     await page.evaluate(id=>{
       window.__contactPatchDone=false;window.__contactReadDone=false;
       window.__contactPatch=fetch('/api/clientes/'+id+'/contacto',{method:'PATCH',body:JSON.stringify({resideCuenca:false,genero:'male'})}).then(async r=>{
         window.__contactPatchStatus=r.status;window.__contactPatchDone=true;return r.json();
       });
     },id);
-    await page.waitForFunction(async()=> (await navigator.locks.query()).pending.some(l=>l.name===window.__contactLockName));
+    await page.waitForFunction(()=>window.__contactCommitHeld);
     await page.evaluate(()=>{window.__contactRead=fetch('/api/clientes').then(async r=>{window.__contactReadDone=true;return r.json();});});
     await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,30)));
     assert.deepEqual(await page.evaluate(()=>[window.__contactPatchDone,window.__contactReadDone]),[false,false],
       'neither success nor a changed contact may escape while durable lock is held');
-    await page.evaluate(async()=>{window.__releaseContactLock();await window.__contactLockPromise;await window.__contactPatch;await window.__contactRead;});
+    await page.evaluate(async()=>{window.__releaseContactCommit();await window.__contactPatch;await window.__contactRead;});
     assert.equal(await page.evaluate(()=>window.__contactPatchStatus),200);
     await page.reload({waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>window.cargarClientes&&window.OCAuth);

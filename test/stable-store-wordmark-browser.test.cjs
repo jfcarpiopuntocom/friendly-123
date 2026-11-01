@@ -29,7 +29,7 @@ test('real PWA: dynamic store wordmark uses bundled display, accessible dark gol
     assert.ok(result.font.includes('Space Grotesk'),'reuse already bundled friendly display font');
     assert.equal(result.weight,'700');assert.equal(result.color,GOLD);assert.equal(result.fill,GOLD);
     assert.ok(Math.abs(parseFloat(result.strokeW)/result.fontSize-0.06)<0.001,'outline scales with the business name');
-    assert.equal(result.strokeC,'rgb(0, 0, 0)');
+    assert.equal(result.strokeC,'rgb(29, 46, 67)');
     assert.equal(result.whiteSpace,'normal','show the whole business name');
     assert.ok(result.spanRight<=result.headerRight+2,`header branding overflow width=${width} nameLength=${name.length}: ${JSON.stringify(result)}`);
     assert.ok(result.scrollWidth<=result.clientWidth+1,'name wraps instead of clipping to the right');

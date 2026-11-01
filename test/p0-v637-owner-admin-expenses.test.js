@@ -1,5 +1,5 @@
 'use strict';
-// idiomARTE owner/admin regression. Isolated in-memory profiles and synthetic records only.
+// Synthetic owner/admin regression. Isolated in-memory profiles and synthetic records only.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
@@ -22,7 +22,7 @@ async function device(role, ls) {
   w.OCAuth={rolActual:()=>role};
   vm.runInContext(fs.readFileSync(path.join(DOCS,'vendor/yjs-bundle.min.js'),'utf8'),w);
   w.IndexeddbPersistence=class{once(){}};
-  w.localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'F123-SYNTHETIC-IDIOMARTE-ONLY'}));
+  w.localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'F123-SYNTHETIC-EXPENSES-ONLY'}));
   vm.runInContext(fs.readFileSync(path.join(DOCS,'sync-yjs.js'),'utf8'),w);
   for(let n=0;n<100&&w.OCYjs.estado!=='activo';n++)await delay(10);
   assert.equal(w.OCYjs.estado,'activo');

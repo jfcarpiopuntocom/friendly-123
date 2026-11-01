@@ -1,0 +1,25 @@
+name: P0 pre-ACK peer renderer crash and reconnect
+on:
+  pull_request:
+    paths:
+      - docs/sync-yjs.js
+      - docs/peer-sync.js
+      - docs/estado-idb.js
+      - test/p0-peer-preack-crash.test.js
+      - .github/workflows/p0-peer-preack-crash.yml
+permissions:
+  contents: read
+jobs:
+  preack-crash:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Pre-ACK recipient renderer crash retains ciphertext and retries it
+        run: node --test test/p0-peer-preack-crash.test.js

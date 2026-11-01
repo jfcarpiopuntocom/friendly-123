@@ -1471,6 +1471,63 @@
       return true;
     } finally { _drenandoCatalogos = false; }
   }
+  let _mergeSucio = false, _mergeGuardado = null;
+  function _programarGuardadoMerge() {
+    _mergeSucio = true;
+    if (_mergeGuardado) return _mergeGuardado;
+    _mergeGuardado = new Promise(function (res) {
+      const run = function () {
+        _mergeGuardado = null;
+        if (!_mergeSucio) return res(true); // un guardado estricto previo ya cubrió el merge
+        _mergeSucio = false;
+        try {
+          Promise.resolve(guardarEstadoLocal()).then(function (ok) {
+            if (ok !== true) _mergeSucio = true; // los fallos booleanos también dejan trabajo pendiente
+            res(ok === true);
+          }, function () { _mergeSucio = true; res(false); });
+        } catch (_) { _mergeSucio = true; res(false); }
+      };
+      // Dejar que el render de inventario se actualice antes del guardado voluminoso.
+      try {
+        if (typeof requestIdleCallback === "function" && document.visibilityState === "visible") requestIdleCallback(run, { timeout: 300 });
+        else setTimeout(run, 0);
+      } catch (_) { setTimeout(run, 0); }
+    });
+    return _mergeGuardado;
+  }
+  function _guardarMergePendienteYa() {
+    if (!_mergeSucio) return;
+    _mergeSucio = false;
+    try {
+      const r = guardarEstadoLocal();
+      if (r && typeof r.then === "function") r.then(function (ok) { if (ok !== true) _mergeSucio = true; },
+        function () { _mergeSucio = true; });
+      else if (r !== true) _mergeSucio = true;
+    } catch (_) { _mergeSucio = true; }
+  }
+  try {
+    window.addEventListener("pagehide", _guardarMergePendienteYa);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") _guardarMergePendienteYa(); });
+  } catch (_) {}
+  // Synchronous quota/storage exceptions cannot unwind a received merge.
+  function _guardarMergeInmediatoSeguro() {
+    let resultado;
+    try { resultado = guardarEstadoLocal(); }
+    catch (error) {
+      _mergeSucio = true;
+      try { _falloGuardadoLocal(error); } catch (_) {}
+      return false;
+    }
+    if (resultado && typeof resultado.then === "function") {
+      Promise.resolve(resultado).then(function (ok) {
+        if (ok !== true) _mergeSucio = true;
+      }, function (error) {
+        _mergeSucio = true;
+        try { _falloGuardadoLocal(error); } catch (_) {}
+      });
+    } else if (resultado !== true) _mergeSucio = true;
+    return resultado;
+  }
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
     // Retention rollback must finish before any background photo captures RAM.
     if (!exigirCompleto && _retencionPendiente)
@@ -3230,6 +3287,7 @@
     const confiable = antes.length > 0 && _salidasActividad.has(antes);
     if (confiable) for (const e of antes) entradas.set(e.id, e);
     const idsNuevos = [];
+    let cambioIncremental = false;
     for (const e of (confiable ? entrantes : antes.concat(entrantes))) {
       if (!e || typeof e.origen !== "string" || !e.origen || e.origen.length > 160 ||
           !["evento", "inicio", "cola"].includes(e.clase) || !Array.isArray(e.versiones) || !e.versiones.length)
@@ -3251,6 +3309,7 @@
       const tenia = versiones.size;
       for (const v of e.versiones) versiones.set(JSON.stringify(v), v);
       if (anterior && versiones.size === tenia) continue; // nada nuevo: la entrada previa queda tal cual
+      cambioIncremental = true;
       if (!anterior) idsNuevos.push(e.id);
       entradas.set(e.id, { id: e.id, origen: e.origen, clase: e.clase,
         versiones: [...versiones.keys()].sort().map(k => {
@@ -3259,6 +3318,10 @@
           const c = clonar(v); _claveVersion.set(c, k); return c;
         }) });
     }
+    // A validated immutable prior result with no new versions is exactly
+    // identical. Keep its identity so the hot merge avoids serializing the
+    // entire activity history merely to prove that nothing changed.
+    if (confiable && !cambioIncremental) return antes;
     let salida = [...entradas.values()];
     if (idsNuevos.length) {
       const nuevos = salida.splice(salida.length - idsNuevos.length).sort((a, b) => _cmpActividad(a.id, b.id));
@@ -3449,6 +3512,32 @@
     if (s.size > 2000) { const arr = [...s]; s.clear(); arr.slice(-2000).forEach((x) => s.add(x)); }
     try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s])); } catch (_) {}
   }
+  // The immutable opId is the receipt; counters are causal per actor, never wall-clock LWW.
+  // This projects a movement into the existing PN read model without replaying a sale.
+  function _fundirHechoStock(p, w) {
+    if (!p || !w || typeof w !== "object") return false;
+    const base = Number(w.base), actor = String(w.actor || ""), epoch = String(w.epoch || "");
+    const add = Number(w.add), sub = Number(w.sub);
+    if (!Number.isSafeInteger(base) || !actor || actor.length > 160 || epoch.length > 160 ||
+        !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return false;
+    const previo = p.stockBase == null ? null : Number(p.stockBase);
+    const epPrev = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
+    if (previo !== null && (previo !== base || epPrev !== epoch)) return false;
+    if (previo === null && p.stockPN && Object.keys(p.stockPN).length) return false;
+    const pn = Object.assign({}, p.stockPN || {});
+    const old = pn[actor] || {add:0,sub:0};
+    pn[actor] = {add: Math.max(Number(old.add)||0, add), sub: Math.max(Number(old.sub)||0, sub)};
+    let physical = base;
+    for (const v of Object.values(pn)) {
+      if (!v || !Number.isSafeInteger(Number(v.add)) || !Number.isSafeInteger(Number(v.sub)) ||
+          Number(v.add) < 0 || Number(v.sub) < 0) return false;
+      physical += Number(v.add) - Number(v.sub);
+      if (!Number.isSafeInteger(physical)) return false;
+    }
+    p.stockBase = base; p.stockEpochId = epoch; p.stockPN = pn;
+    p.stockActual = Math.max(0, physical); p.stockDeficit = Math.max(0, -physical);
+    return true;
+  }
   /* v515: quien gana cuando dos aparatos tienen distinta base de stock para un producto.
      Gana el cambio de stock mas reciente (stockTs). Un sello >5 min en el futuro del reloj
      comun no gana (mismo criterio que v447). Empate: compara una clave determinista, asi
@@ -3536,6 +3625,12 @@
             const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
             if (delta > 0) contador.add += delta; else contador.sub += -delta;
             _sp.stockPN[idStock] = contador;
+            // An event carries its author's cumulative counters, so an older op arriving
+            // after a newer one cannot roll back stock and duplicate delivery is harmless.
+            if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+              payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
+                actor: idStock, add: contador.add, sub: contador.sub };
+            }
             /* Una reposicion paga primero el FALTANTE (JFC 2026-09-29): es la
                misma cuenta que hara el contador compartido al fusionar, asi la
                pantalla no salta de 3 a 2 en el siguiente sync. */
@@ -3999,7 +4094,23 @@
       return _serializarMergeCanonico(catalogo);
     } catch (_) { return null; }
   }
+  const URGENCIA_MERGE = Object.freeze({ productos: "diferible", actividad: "diferible", resto: "inmediato" });
+  function _urgenciaPersistenciaMerge(remoto, esProyeccionIncremental, promesasPins, adoptaNombre) {
+    // Only a verified product-only Yjs projection can defer its backup.
+    // Unknown collections fail closed to the immediate durability class.
+    const colecciones = [];
+    if (esProyeccionIncremental !== true) colecciones.push("resto");
+    if (promesasPins.length) colecciones.push("pinsRol");
+    if (adoptaNombre) colecciones.push("nombreNegocio");
+    Object.keys(remoto || {}).forEach(function (nombre) {
+      if (Array.isArray(remoto[nombre]) && remoto[nombre].length) colecciones.push(nombre);
+    });
+    return colecciones.some(function (nombre) {
+      return (URGENCIA_MERGE[nombre] || URGENCIA_MERGE.resto) === URGENCIA_MERGE.resto;
+    }) ? URGENCIA_MERGE.resto : URGENCIA_MERGE.productos;
+  }
   function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
+    const soloProductosSync = arguments.length > 3 && arguments[3] === true;
     if (_conflictoEstadoAB) return {ok:false,error:"Conflicting saved copies; incoming state is retained for retry."};
     if (_ventaConfirmando) {
       _ventaCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
@@ -4023,7 +4134,8 @@
     const mandaElOtro = dif.ganaElOtro;
     let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
     const promesasPins = [];
-    const actividadCambio = _serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida);
+    const actividadCambio = actividadNueva !== actividadCompartida &&
+      _serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida);
     if (actividadCambio) {
       actividadCompartida = actividadNueva; actualizados++;
     }
@@ -4184,7 +4296,11 @@
         // Competing authenticated physical epochs have different movement
         // histories. Keep each source count unchanged until the owner issues
         // an explicit reconciled stock movement; do not resolve by wall clock.
-        const _epochDoble = !!(epochLocal && epochRemote && epochConflict);
+        // JFC 2026-11-01: the latest physical count wins (stockTs, deterministic tie-break by epoch id).
+        // The losing epoch stays in stockEvidencias below; nothing is discarded.
+        const _gana = epochLocal && epochRemote && epochConflict && _baseR !== null &&
+          (_tsR > _tsL || (_tsR === _tsL && epochRemote > epochLocal));
+        const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
         const protectedStock = _epochDoble
           ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
              actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
@@ -4192,7 +4308,7 @@
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
         if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
-            _epochDoble ||
+            _epochDoble || _gana || // the losing count is recorded as evidence before adopting the winner
             (mio.stockEvidencias && Object.keys(mio.stockEvidencias).length) ||
             (p.stockEvidencias && Object.keys(p.stockEvidencias).length)) {
           const evidence = _pruebasStockUnir(mio, p);
@@ -4201,7 +4317,7 @@
             try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if (epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) {
+        if ((epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) || _gana) {
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
@@ -4753,7 +4869,11 @@
     const cambioPersistible = actividadCambio || cambioNegocio;
     if (cambioPersistible) {
       if (negocioAntes !== negocioDespues) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
-      guardarEstadoLocal();
+      // Solo una proyección incremental de productos puede esperar al tiempo ocioso.
+      // Los gastos, pagos, ventas, PIN y catálogos completos conservan el guardado inmediato.
+      const urgencia = _urgenciaPersistenciaMerge(remoto, soloProductosSync, promesasPins, _adoptaNombre);
+      if (urgencia === URGENCIA_MERGE.productos) _programarGuardadoMerge();
+      else _guardarMergeInmediatoSeguro();
     }
     if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
       if (_retencionPendiente) await _retencionPendiente; // A prior PIN merge must not append audit inside retention rollback.
@@ -4800,7 +4920,8 @@
       if (!cambioPersistible) mov("merge-catalogo", { perchasAgregadas: 0, productosAgregados: 0, actualizados: 0, miembrosAgregados: 0, miembrosQuitados: 0, clientesAgregados: 0, desde: remoto.deviceNombre || "another device" }, false);
       // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27). El aviso sale ya (se auto-filtra con
       // _estadoPuedeEnviarse); si quedo bloqueado por un guardado estricto, se repite al terminar de guardar.
-      const _persistiendo = Promise.resolve(guardarEstadoLocal());
+      // El relay peer-only no es almacenamiento: el ACK del par exige un guardado estricto independiente.
+      const _persistiendo = Promise.resolve(_guardarMergeInmediatoSeguro()); // credential attempt before announcement
       const _avisadoYa = _estadoPuedeEnviarse();
       avisarCatalogoCambiado();
       return _persistiendo.then(function (guardado) {
@@ -5289,7 +5410,7 @@
       if (_payoutPendiente) await _payoutPendiente;
       if (_retencionPendiente) await _retencionPendiente;
       if (_ventaConfirmando || _payoutConfirmando || _retencionConfirmando) return false;
-      try { return (await guardarEstadoLocal(true, true)) === true; } catch (_) { return false; }
+      try { const ok = (await guardarEstadoLocal(true, true)) === true; if (ok) _mergeSucio = false; return ok; } catch (_) { return false; }
     },
     async catalogoConfirmado() {
       while (_ventaPendiente) await _ventaPendiente;
@@ -5431,6 +5552,20 @@
       if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
       const vistos = _cargarOpsAplicadas();
       if (vistos.has(op.opId)) return { ok: true, repetida: true };
+      // New operations carry immutable PN proof; derive the view from movement facts.
+      // Old events remain on their historical Yjs path, avoiding double subtraction.
+      const witness = op.payload && op.payload.stockPNHecho;
+      if (witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+        const p = productos.find((x) => x.id === op.payload.productoId);
+        if (!p) return {ok:false, error:"waiting-for-product"};
+        if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};
+        return Promise.resolve(guardarEstadoLocal(true)).then((saved) => {
+          if (saved !== true) return {ok:false, error:"stock-not-durable"};
+          _marcarOpAplicada(op.opId);
+          avisarCatalogoCambiado();
+          return {ok:true};
+        }).catch(() => ({ok:false, error:"stock-commit-failed"}));
+      }
       /* NEUTRALIZADO (JFC 2026-09-16, v293) — EVITA DOBLE CONTEO DE PLATA/STOCK.
          El stock y las ventas ahora los aplica el SYNC NUEVO (catálogo Yjs):
          stock por LWW ABSOLUTO (stockTs, v289) y ventas ADD-ONLY por id (v292).
@@ -5512,9 +5647,38 @@
   /* Foto de la semilla ANTES de cargar nada guardado: la usa refrescarDemoSiViejo(). */
   let _semillaDemo = null;
   try { _semillaDemo = JSON.parse(JSON.stringify(estadoActualExportable())); } catch (_) { _semillaDemo = null; }
+  // JFC 2026-11-01: S2 destructive cutover permanently retired.
+  // Some older login code may still call this historical hook. Keep it inert
+  // for mixed-shell compatibility; never clear a notebook, IndexedDB or PIN.
+  window.__f123PrepareJfcReset = function () { return false; };
   let _demoRefrescado = false;
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
   if (!_estadoLecturaBloqueada) _estadoPublicableConfirmado = _huellaPublicable();
+  /* Caja negra de DATOS (JFC 2026-11-01): nada se pierde. Antes de sincronizar, cada arranque guarda una
+     copia interna completa del estado local en una base IndexedDB aparte (últimas 10), sin UI. Solo para
+     recuperación interna; nunca se borra nada del negocio, solo copias viejas de esta misma caja. */
+  (function cajaNegraDatos() {
+    try {
+      if (_estadoLecturaBloqueada || !window.indexedDB) return;
+      const crudo = JSON.stringify(estadoActualExportable({ vivo: true }));
+      if (!crudo || crudo.length < 50) return;
+      const req = indexedDB.open("f123-caja-negra-datos" + (OC_STATE_SUFIJO || ""), 1);
+      req.onupgradeneeded = function () { try { req.result.createObjectStore("snaps"); } catch (_) {} };
+      req.onsuccess = function () {
+        const db = req.result;
+        try {
+          const tx = db.transaction("snaps", "readwrite"), st = tx.objectStore("snaps");
+          st.put({ en: new Date().toISOString(), bytes: crudo.length, crudo: crudo }, Date.now());
+          const k = st.getAllKeys();
+          k.onsuccess = function () {
+            const ks = k.result.slice().sort(function (a, b) { return a - b; });
+            ks.slice(0, Math.max(0, ks.length - 10)).forEach(function (x) { st.delete(x); });
+          };
+          tx.oncomplete = tx.onabort = tx.onerror = function () { try { db.close(); } catch (_) {} };
+        } catch (_) { try { db.close(); } catch (__) {} }
+      };
+    } catch (_) {}
+  })();
   /* INVARIANTES AL ARRANCAR (JFC 2026-09-30, plan PLAN-INVARIANTES-AL-ARRANCAR-2026-09-30.md).
      Regla: reparar SOLO lo derivable (percha vacia de una venta), avisar SIEMPRE en dinero.
      Solo con datos reales (no semilla demo). El informe se lee por GET /api/invariantes y
@@ -7191,17 +7355,22 @@
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
-        const d = Number.isInteger(body.delta) ? body.delta : 0;
+        // JFC 2026-11-01: owner/admin may set an absolute physical count ("fijar en N"). It opens a NEW stock
+        // epoch (base N, counters reset) that travels with the catalog; the latest count wins on every device.
+        const fisico = Number.isInteger(body.stockFisico) && body.stockFisico >= 0 ? body.stockFisico : null;
+        if (fisico !== null && !["dueno", "admin"].includes(window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()))
+          return J({ error: "Only the owner or an admin can set a physical count." }, 403);
+        const d = fisico !== null ? fisico - Math.max(0, Number(p.stockActual) || 0) : (Number.isInteger(body.delta) ? body.delta : 0);
         // BUG FIX (2026-07-03): delta=0 es un entero valido, pasa la guarda de
         // arriba, no cambia el stock pero registra un movimiento en el log. Silencioso
-        // y contaminante. Se rechaza explicitamente.
-        if (d === 0) return J({ error: "The adjustment cannot be zero." }, 400);
+        // y contaminante. Se rechaza explicitamente. (A physical count that confirms the same number is valid.)
+        if (d === 0 && fisico === null) return J({ error: "The adjustment cannot be zero." }, 400);
         if (p.stockActual + d < 0) return J({ error: `That adjustment would push stock negative (currently: ${p.stockActual}).` }, 400);
         // Same durable boundary as a sale: never publish a correction that may
         // disappear on reload when both local storage backends reject the write.
         debePersistir = false;
         const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
-          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit"].map(k => ({
+          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit", "stockEpochId", "rev"].map(k => ({
             k, existe: Object.prototype.hasOwnProperty.call(p, k),
             valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]
           })) };
@@ -7215,16 +7384,22 @@
         _ventaConfirmando = true; // Hold Yjs seed, incoming merges and reads until ACK/rollback.
         _ventaPendiente = new Promise(resolve => { terminar = resolve; });
         try {
-          p.stockActual += d;
-          mov("ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || "Ajuste manual", stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
+          if (fisico !== null) {
+            // Physical count: new epoch. No delta op is emitted (other devices would add it again);
+            // the epoch fields reach them through the catalog merge, where the latest count wins.
+            p.stockEpochId = uuid("stock-epoch-"); p.stockBase = fisico; p.stockPN = {};
+            p.stockDeficit = 0; p.stockTs = Date.now(); p.stockActual = fisico;
+            p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
+          } else p.stockActual += d;
+          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
           const op = { productoId: p.id, delta: d };
-          _prepararOpStock(op);
+          if (fisico === null) _prepararOpStock(op);
           try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
           if (!guardado) {
             revertir();
             return J({ error: tSeguro("product.notSaved", "The stock adjustment was NOT saved. Check available storage and try again.") }, 507);
           }
-          emitirOpStock("ajuste", op, true);
+          if (fisico === null) emitirOpStock("ajuste", op, true);
           return J(ficha(p));
         } catch (e) {
           if (!guardado) revertir();

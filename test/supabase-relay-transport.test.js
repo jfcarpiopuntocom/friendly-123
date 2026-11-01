@@ -84,6 +84,36 @@ test('oversized UTF-8 and queued frames close without durable calls', async () =
   await relay.dispose();
 });
 
+test('RPC checkpoint accepts exactly 786432 ciphertext bytes despite its larger base64 JSON frame',async()=>{
+ const db=fixture(()=>({ok:true,conflict:false}));
+ const relay=createRelayTransport({client:db.client}),socket=relay.connect('synthetic-room');
+ await opened(socket);
+ const received=[];socket.onmessage=e=>received.push(e.data);
+ const msg=JSON.stringify({k:'ckpt',ack:1,id:'ck-exact-server-limit',v:2,rev:0,seq:1,lam:1,
+  c:Buffer.alloc(786432).toString('base64')});
+ assert.ok(Buffer.byteLength(msg)>256*1024);
+ assert.ok(Buffer.byteLength(msg)<1088*1024);
+ socket.send(msg);await socket.settled();
+ assert.equal(db.commands.length,1);
+ assert.equal(db.commands[0].p_action,'ckpt');
+ assert.equal(Buffer.from(db.commands[0].p_message.c,'base64').byteLength,786432);
+ assert.equal(db.channels[0].sent.length,0,'checkpoint must never go over Realtime broadcast');
+ assert.equal(JSON.parse(received[0]).ok,true);
+ await relay.dispose();
+});
+test('checkpoint frames over 1088 KiB and large non-checkpoint commands still fail closed',async()=>{
+ for(const [kind,body] of [['ckpt','A'.repeat(1088*1024)],['op','A'.repeat(262145)]]){
+  const db=fixture(()=>({ok:true}));
+  const relay=createRelayTransport({client:db.client}),socket=relay.connect('synthetic-room');
+  await opened(socket);
+  const onclose=closed(socket);
+  socket.send(JSON.stringify({k:kind,c:body,ack:1,id:'oversized'}));
+  assert.equal((await onclose).code,1009);
+  assert.equal(db.commands.length,0);
+  await relay.dispose();
+ }
+});
+
 test('a channel failure reaches existing reconnect handlers and removes only that channel', async () => {
   const db = fixture(() => ({}));
   const relay = createRelayTransport({ client: db.client });
@@ -140,17 +170,19 @@ test('slow replay cannot delay live bytes while durable commands retain order', 
   socket.send(new Blob([new Uint8Array([9, 10])]));
   await tick();
   try {
-    assert.deepEqual(db.commands.map(x => x.p_action), ['pull'], 'durable write still waits for replay');
+    assert.deepEqual(db.commands.map(x => x.p_action), ['pull','op'], 'independent durable lane must not wait for a slow read; durable writes remain ordered');
     assert.deepEqual(db.channels[0].sent.map(x => [...new Uint8Array(x.payload)]), [[7, 8], [9, 10]], 'live frames leave in order with copied bytes');
-    assert.deepEqual(received, [], 'broadcast is never a durable acknowledgement');
+    assert.deepEqual(received.filter(x=>typeof x==='string').map(x=>JSON.parse(x).k),['persist-result'],
+      'only the completed RPC write is ACKed while historical pull is still pending');
   } finally {
     finishPull({ frames: ['AQI='], rev: 0, seq: 1, n: 1, more: false });
     await socket.settled();
     await relay.dispose();
   }
   assert.deepEqual(db.commands.map(x => x.p_action), ['pull', 'op']);
-  assert.equal(JSON.parse(received[1]).k, 'pull-page');
-  assert.equal(JSON.parse(received[2]).k, 'persist-result');
+  assert.equal(JSON.parse(received[0]).k, 'persist-result');
+  assert.deepEqual([...new Uint8Array(received[1])],[1,2]);
+  assert.equal(JSON.parse(received[2]).k, 'pull-page');
   assert.equal(socket.bufferedAmount, 0);
 });
 
