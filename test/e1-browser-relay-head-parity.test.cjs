@@ -13,4 +13,8 @@ test('E1: shipped browser relay includes source HEAD probe',()=>{
   assert.ok(shipped.includes('["op","ckpt"].includes'), 'op/ckpt retain their ordered durable lane');
   assert.ok(shipped.includes('["pull","ts","head"].includes'), 'pull/head/ts get an independent read lane');
   assert.ok(shipped.includes('k:"head-result"'));
+  assert.match(source,/MAX_CKPT_FRAME = 384 \* 1024/);
+  assert.match(source,/export const CKPT_CIPHER_BYTES = 256 \* 1024/);
+  assert.ok(shipped.includes('ckptFrameBytes=262144'), 'shipped adapter advertises exact ciphertext capability');
+  assert.ok(shipped.includes('393216'), 'shipped transport has the larger RPC-only checkpoint frame cap');
 });
