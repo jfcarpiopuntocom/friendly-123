@@ -3180,6 +3180,64 @@ async function duplicarComoVariante(id) {
 // y la lista de productos/eventos archivados (para restaurarlos).
 var _verArchivados = false;
 function toggleVerArchivados(){ _verArchivados = !_verArchivados; cargarInventario(); }
+/* v637: keep unchanged inventory cards mounted on remote sync.
+   The original full rebuild detached 300+ cards and their lazy images on
+   EVERY single-product update. Compare the exact rendered HTML instead:
+   edits, role/language changes, inherited photos and sort order stay correct.
+   No business data, storage or sync semantics are changed. */
+var _inventarioHtmlPorNodo = new WeakMap();
+function reconciliarGridInventario(grid, toggle, tarjetas) {
+  var vistos = new Set(), anteriores = new Map();
+  for (var item of tarjetas) {
+    if (!item || !item.id || vistos.has(item.id)) {
+      grid.innerHTML = toggle + tarjetas.map(function (t) { return t.html; }).join("");
+      return;
+    }
+    vistos.add(item.id);
+  }
+  for (var viejo of grid.children) {
+    var id = viejo.getAttribute("data-inv-id");
+    if (id) anteriores.set(id, viejo);
+  }
+  // First paint remains a single HTML parse, as before.
+  if (!anteriores.size) {
+    grid.innerHTML = toggle + tarjetas.map(function (t) { return t.html; }).join("");
+    if (grid.firstElementChild) _inventarioHtmlPorNodo.set(grid.firstElementChild, toggle);
+    for (var j = 0; j < tarjetas.length; j++)
+      if (grid.children[j + 1]) _inventarioHtmlPorNodo.set(grid.children[j + 1], tarjetas[j].html);
+    return;
+  }
+  function crear(html) {
+    var t = document.createElement("template");
+    t.innerHTML = html;
+    return t.content.firstElementChild;
+  }
+  var encabezado = grid.firstElementChild;
+  if (!encabezado || _inventarioHtmlPorNodo.get(encabezado) !== toggle) {
+    encabezado = crear(toggle);
+    if (!encabezado) { grid.innerHTML = toggle + tarjetas.map(function (t) { return t.html; }).join(""); return; }
+    _inventarioHtmlPorNodo.set(encabezado, toggle);
+  }
+  var siguientes = [encabezado];
+  for (var tarjeta of tarjetas) {
+    var existente = anteriores.get(tarjeta.id);
+    if (existente && _inventarioHtmlPorNodo.get(existente) === tarjeta.html) {
+      siguientes.push(existente);
+    } else {
+      var nuevo = crear(tarjeta.html);
+      if (!nuevo || nuevo.getAttribute("data-inv-id") !== tarjeta.id) {
+        grid.innerHTML = toggle + tarjetas.map(function (t) { return t.html; }).join("");
+        return;
+      }
+      _inventarioHtmlPorNodo.set(nuevo, tarjeta.html);
+      siguientes.push(nuevo);
+    }
+  }
+  for (var i = 0; i < siguientes.length; i++)
+    if (grid.children[i] !== siguientes[i]) grid.insertBefore(siguientes[i], grid.children[i] || null);
+  while (grid.children.length > siguientes.length) grid.lastElementChild.remove();
+}
+
 async function cargarInventario(){
   // El "+" de alta libre es del dueno; el encargado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
@@ -3213,8 +3271,8 @@ async function cargarInventario(){
   const esDuenoInv = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar());
   productos = ordenarInventario(productos);
   pintarBotonesOrdenInventario();
-  grid.innerHTML = _toggleArch + productos.map(p => `
-    <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}" data-buscar="${escHtml(`${p.nombre} ${p.sku} ${p.categoria}`.toLowerCase())}">
+  const tarjetasInv = productos.map(p => ({ id: String(p.id), html: `
+    <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}" data-inv-id="${escHtml(p.id)}" data-buscar="${escHtml(`${p.nombre} ${p.sku} ${p.categoria}`.toLowerCase())}">
       ${p.estrella ? '<span class="estrella-badge">⭐</span>' : ''}
       <div onclick="abrirFichaDesdeInventario('${p.id}')" style="cursor:pointer;">
         ${bloqueFoto(p, productos)}
@@ -3234,7 +3292,8 @@ async function cargarInventario(){
         ${esDuenoInv ? `<button data-editar-directo="${p.id}" title="${t('inv.editTooltip')}" aria-label="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
       </div>
     </div>
-  `).join("");
+  ` }));
+  reconciliarGridInventario(grid, _toggleArch, tarjetasInv);
   /* M6: el interruptor solo aparece si de verdad HAY familias que agrupar.
      Un negocio sin variantes no ve nada nuevo, que es la prueba M9. */
   try {
@@ -3251,6 +3310,8 @@ async function cargarInventario(){
   } catch (_) { /* el resumen es decoracion: nunca puede tumbar el grid */ }
   filtrarBusquedaInventario();
   grid.querySelectorAll("[data-editar-directo]").forEach(btn => {
+    if (btn.__ocInvListener) return;
+    btn.__ocInvListener = true;
     btn.addEventListener("click", (ev) => { ev.stopPropagation(); abrirEdicionDesdeInventario(btn.dataset.editarDirecto); });
   });
 
@@ -3266,6 +3327,8 @@ async function cargarInventario(){
   }
   // Ajuste rápido +/- stock sin escanear. Pide motivo, deja log para el dueño.
   grid.querySelectorAll("[data-ajuste-menos],[data-ajuste-mas]").forEach(btn => {
+    if (btn.__ocInvListener) return;
+    btn.__ocInvListener = true;
     btn.addEventListener("click", async () => {
       const esMenos = btn.hasAttribute("data-ajuste-menos");
       const id = esMenos ? btn.dataset.ajusteMenos : btn.dataset.ajusteMas;
@@ -3291,6 +3354,8 @@ async function cargarInventario(){
 
   // Estrella: dueño marca/desmarca productos para que el encargado los promueva
   grid.querySelectorAll("[data-estrella-toggle]").forEach(btn => {
+    if (btn.__ocInvListener) return;
+    btn.__ocInvListener = true;
     btn.addEventListener("click", async () => {
       const id = btn.dataset.estrellaToggle;
       const res = await fetch(`${API}/productos/${id}/estrella`, {
