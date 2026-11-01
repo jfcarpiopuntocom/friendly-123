@@ -108,11 +108,19 @@
       var bytes = new TextEncoder().encode("friendly123-rollout-v1:" + codigo);
       var hash = await crypto.subtle.digest("SHA-256",bytes);
       var key = Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
-      var res = await fetch("./sync-rollout.json",{cache:"no-store",credentials:"same-origin"});
+      // Keep cold boot responsive even when the policy asset is unreachable.
+      var res = await Promise.race([
+        fetch("./sync-rollout.json",{cache:"no-store",credentials:"same-origin"}),
+        new Promise(function(resolve){setTimeout(function(){resolve(null);},900);})
+      ]);
       if (!res || !res.ok) return off;
       var cfg = await res.json();
       if (!cfg || cfg.schema !== 1 || !["owner-canary","consenting-client","all"].includes(cfg.stage)) return off;
       var entry = cfg.licenses && cfg.licenses[key];
+      // Later, after separate customer acceptance, an explicit owner-approved
+      // all-stage gate may enable only S4 globally. Gzip stays per-license.
+      if (!entry && cfg.stage === "all" && cfg.allOutboxV2 === true && cfg.allApproved === true)
+        entry = {stage:"all",approved:true,outboxV2:true,gzipWrite:false};
       if (!entry || entry.stage !== cfg.stage || entry.approved !== true) return off;
       var fullCensus = entry.allDevicesOnNewShell === true &&
         Number.isSafeInteger(entry.minimumShell) && entry.minimumShell >= 637 &&
