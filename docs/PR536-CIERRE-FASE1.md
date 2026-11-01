@@ -2,6 +2,12 @@
 
 **Candidato, NO publicado.** JFC aprueba; Claude revisa. No tocar clientes ni sus PIN. Producción v636.
 
+## Corrección de límite v637 (1 nov 2026)
+
+El cambio anterior `ed12129` solo ampliaba el ciphertext práctico de **191.904 a ~196.500 B (+2,4 %)**: el transporte cerraba cualquier JSON de más de 256 KiB, pese a que el servidor `save_checkpoint` acepta **262.144 B cifrados decodificados**. La candidata ahora separa el límite del checkpoint RPC del límite normal de operaciones: **262.144 B cifrados**, solo cuando el adaptador `F123Relay` anuncia `ckptFrameBytes`; los adaptadores antiguos conservan el límite JSON y los mensajes no-checkpoint siguen con 256 KiB de transporte. El checkpoint no se emite por broadcast.
+
+La causa estructural no cambia: `API.doc` incluye historiales crecientes. Se añade `OCYjs.medirTamanoColecciones()` para cifras por mapa (bytes de JSON visible, **estimación**, no bytes exactos de Yjs) y se deja la separación de historiales para el [plan v638](./V638-PLAN-SEPARAR-HISTORIALES-CATALOGO.md). **No se ha medido todavía ninguna colección real.**
+
 ## Evidencia de tamaños (solo lectura)
 
 El relay guarda ciphertext y no conoce licencias ni contenido de las salas. La consulta de solo lectura devolvió los diez checkpoints cifrados más grandes: **191866, 170566, 155239, 130144, 39765, 26600, 20468, 11944, 2381 y 626 bytes**. El mayor está a 38 bytes del máximo práctico del cliente (191904 bytes). Esas diez cifras **no identifican diez tiendas** ni prueban el tamaño actual de los documentos de los aparatos. No se midió ningún aparato real desde esta sesión.
@@ -10,9 +16,10 @@ En cada aparato autorizado, una vez que los tres canales estén completamente si
 
 ```js
 console.table(window.OCYjs.medirTamanoCanales())
+console.table(window.OCYjs.medirTamanoColecciones())
 ```
 
-Copiar **solo los números**: `canal`, `bytesPlano`, `bytesCifrados`, `entradas`, `dataImageInline`, `hidratado`, `checkpoint`, `bytesSobre`, `margenBytes`. Si `hidratado=false`, la medida no es concluyente. Nunca copiar registros, licencia, PIN ni contenido. `dataImageInline` debe ser **0** para catálogo y operaciones; en fotos es normal que sea positivo porque ese canal almacena los blobs y no hace checkpoint. Los bytes cifrados son **cálculo exacto de longitud AES-GCM** (plaintext + IV 12 + tag 16 + frame 1), sin transmitir nada.
+Copiar **solo los números**: `canal`, `bytesPlano`, `bytesCifrados`, `entradas`, `dataImageInline`, `hidratado`, `checkpoint`, `bytesSobre`, `margenBytes`. La segunda tabla contiene `coleccion`, `entradas`, `bytesJSONVisibles`, `hidratado`; `bytesJSONVisibles` **no equivale** a los bytes reales Yjs y no incluye historial borrado. Si `hidratado=false`, la medida no es concluyente. Nunca copiar registros, licencia, PIN ni contenido. `dataImageInline` debe ser **0** para catálogo y operaciones; en fotos es normal que sea positivo porque ese canal almacena los blobs y no hace checkpoint. Los bytes cifrados son **cálculo exacto de longitud AES-GCM** (plaintext + IV 12 + tag 16 + frame 1), sin transmitir nada.
 
 ### Por qué S3 es todavía un bloqueo
 
