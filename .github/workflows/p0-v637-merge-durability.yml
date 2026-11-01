@@ -1,16 +1,16 @@
-name: P0 v637 remote merge idle save + v636 journal compatibility
+name: P0 v637 merge durability and A/B v636 compatibility
 on:
   pull_request:
     paths:
       - docs/estado-ab.js
       - docs/mock-backend.js
       - docs/sync-yjs.js
-      - test/idiomarte-owner-admin-expenses.test.js
+      - test/p0-v637-owner-admin-expenses.test.js
       - docs/version-manifest.json
       - test/p0-v637-ab-commit-sin-preimagen.test.cjs
       - test/p0-v637-merge-idle-guards.test.cjs
       - test/fixtures/estado-ab-v636.js
-      - .github/workflows/p0-v637-merge-idle-journal.yml
+      - .github/workflows/p0-v637-merge-durability.yml
 permissions:
   contents: read
 jobs:
@@ -27,6 +27,6 @@ jobs:
       - run: node --check docs/estado-ab.js
       - run: node --check docs/mock-backend.js
       - name: New regressions + A/B failure recovery — first run
-        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs test/idiomarte-owner-admin-expenses.test.js
+        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs test/p0-v637-owner-admin-expenses.test.js
       - name: New regressions + A/B failure recovery — second run
-        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs test/idiomarte-owner-admin-expenses.test.js
+        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs test/p0-v637-owner-admin-expenses.test.js
