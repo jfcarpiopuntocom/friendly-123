@@ -3,9 +3,11 @@ on:
   pull_request:
     paths:
       - docs/sync-yjs.js
+      - docs/sync-rollout.json
+      - test/p0-rollout-policy.test.cjs
       - test/p0-s3-compressed-checkpoint.test.cjs
       - test/p0-s3-unknown-frame.test.cjs
-      - test/p0-s3-checkpoint-alert.test.cjs
+      - test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs
       - .github/workflows/p0-s3-compressed-checkpoint.yml
 jobs:
   twice:
@@ -13,5 +15,5 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs
-      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs
+      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs
+      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs
