@@ -2,8 +2,8 @@
 // Inject one Supabase client per device. Each room uses a private channel on
 // that client's shared connection; this module never opens or edits business data.
 const MAX_FRAME = 256 * 1024; // unchanged for live, OP, pull and other frames
-const MAX_CKPT_FRAME = 384 * 1024; // checkpoint goes by RPC, never broadcast
-export const CKPT_CIPHER_BYTES = 256 * 1024; // server save_checkpoint decoded ciphertext limit
+const MAX_CKPT_FRAME = 1088 * 1024; // 768KiB ciphertext as base64 JSON, RPC only; never broadcast
+export const CKPT_CIPHER_BYTES = 768 * 1024; // server save_checkpoint decoded ciphertext limit (migration required)
 const MAX_BUFFER = 4 * 1024 * 1024;
 const encoder = new TextEncoder();
 
