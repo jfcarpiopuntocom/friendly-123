@@ -1,0 +1,12 @@
+name: P0 S3 encrypted checkpoint compression — JFC test room
+on:
+  pull_request:
+    paths: [docs/sync-yjs.js, test/p0-s3-compressed-checkpoint.test.cjs, .github/workflows/p0-s3-compressed-checkpoint.yml]
+jobs:
+  twice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs
+      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs

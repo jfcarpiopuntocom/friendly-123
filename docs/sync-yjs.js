@@ -89,6 +89,18 @@
   // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
+  // Gzip before encryption; ciphertext cannot be compressed. Only JFC's test room emits tag 7.
+  async function _gzipYjs(bytes, decompress) {
+    var Stream = decompress ? window.DecompressionStream : window.CompressionStream;
+    if (typeof Stream !== "function" || typeof Response !== "function") return null;
+    try {
+      var stream = new Stream("gzip"), writer = stream.writable.getWriter();
+      // Drain concurrently: waiting for write/close before reading can deadlock on large updates.
+      var read = new Response(stream.readable).arrayBuffer();
+      await writer.write(bytes); await writer.close();
+      return new Uint8Array(await read);
+    } catch (_) { return null; }
+  }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
     var _pausado = false, _tReconnect = null;
@@ -328,15 +340,86 @@
         });
       }).catch(function () {}).then(function () { _heredadosListo = true; }); // one attempt per lifetime: failure = old behaviour
     }
-    function leerOutbox() {
-      if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
-      try { return Promise.resolve(JSON.parse(localStorage.getItem(_outboxKey + API.roomId) || "null")); }
-      catch (e) { return Promise.reject(e); }
+    // JFC test room: upgrade a 107MB single-value outbox into one durable IDB row per op.
+    // The old value is removed only in the SAME atomic transaction that writes every row.
+    var _v2DB = null, _v2Ready = null, _v2Cache = null, _v2Revision = -1;
+    var _v2Signatures = new Map(), _v2Prefix = "f123_relay_outbox_v2" + suffix + ":op:";
+    var _v2MetaKey = "f123_relay_outbox_v2" + suffix + ":meta";
+    function v2Signature(entry) {
+      return String(entry.group || "") + "|" + JSON.stringify(entry.huerfano || null);
+    }
+    function v2Db() {
+      if (_v2Ready) return _v2Ready;
+      _v2Ready = Promise.resolve().then(async function () {
+        if (!API.esLicenciaPruebaJfc || !persistencia || (!persistencia.db && !persistencia._db)) return null;
+        var db = persistencia.db || await persistencia._db;
+        if (!db || !db.objectStoreNames.contains("custom")) return null;
+        var meta = await persistencia.get(_v2MetaKey);
+        if (!meta || meta.v !== 2) {
+          var old = await persistencia.get(_outboxKey);
+          if (!old || !Array.isArray(old.pending)) old = {pending:[],confirmed:[],checkpoint:""};
+          await new Promise(function (resolve, reject) {
+            var tx = db.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
+            tx.oncomplete = resolve; tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox migration failed")); };
+            old.pending.forEach(function (entry) { store.put(entry, _v2Prefix + entry.id); });
+            store.put({v:2,rev:1,checkpoint:old.checkpoint || "",confirmed:old.confirmed || []}, _v2MetaKey);
+            store.delete(_outboxKey); // atomic with all writes: crash cannot lose old queue
+          });
+          _v2Cache = old; _v2Revision = 1;
+          _v2Signatures = new Map(old.pending.map(function (entry) { return [entry.id, v2Signature(entry)]; }));
+        }
+        _v2DB = db;
+        return db;
+      }).catch(function () { return null; }); // remain on proven v1 path if quota/migration fails
+      return _v2Ready;
+    }
+    async function leerOutbox() {
+      if (!await v2Db()) {
+        if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
+        try { return JSON.parse(localStorage.getItem(_outboxKey + API.roomId) || "null"); }
+        catch (e) { throw e; }
+      }
+      var meta = await persistencia.get(_v2MetaKey);
+      if (!meta || meta.v !== 2) throw Error("outbox v2 metadata absent");
+      if (_v2Cache && _v2Revision === meta.rev) return _v2Cache;
+      var pending = await new Promise(function (resolve, reject) {
+        var list = [], tx = _v2DB.transaction(["custom"], "readonly");
+        var req = tx.objectStore("custom").openCursor(IDBKeyRange.bound(_v2Prefix, _v2Prefix + "\uffff"));
+        req.onsuccess = function () {
+          var cur = req.result;
+          if (!cur) { resolve(list); return; }
+          list.push(cur.value); cur.continue();
+        };
+        req.onerror = tx.onabort = function () { reject(req.error || tx.error || Error("outbox read failed")); };
+      });
+      _v2Cache = {pending:pending,confirmed:meta.confirmed || [],checkpoint:meta.checkpoint || ""};
+      _v2Revision = meta.rev;
+      _v2Signatures = new Map(pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
+      return _v2Cache;
     }
     function guardarOutbox() {
-      if (persistencia && typeof persistencia.set === "function") return persistencia.set(_outboxKey, _outbox);
-      try { localStorage.setItem(_outboxKey + API.roomId, JSON.stringify(_outbox)); return Promise.resolve(); }
-      catch (e) { return Promise.reject(e); }
+      if (!_v2DB) {
+        if (persistencia && typeof persistencia.set === "function") return persistencia.set(_outboxKey, _outbox);
+        try { localStorage.setItem(_outboxKey + API.roomId, JSON.stringify(_outbox)); return Promise.resolve(); }
+        catch (e) { return Promise.reject(e); }
+      }
+      var next = new Map(_outbox.pending.map(function (entry) { return [entry.id,entry]; }));
+      return new Promise(function (resolve, reject) {
+        var tx = _v2DB.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
+        tx.oncomplete = function () {
+          _v2Revision += 1; _v2Cache = _outbox;
+          _v2Signatures = new Map(_outbox.pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
+          resolve();
+        };
+        tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox commit failed")); };
+        _v2Signatures.forEach(function (_, id) { if (!next.has(id)) store.delete(_v2Prefix + id); });
+        next.forEach(function (entry, id) {
+          if (!_v2Signatures.has(id) || _v2Signatures.get(id) !== v2Signature(entry))
+            store.put(entry, _v2Prefix + id);
+        });
+        store.put({v:2,rev:_v2Revision + 1,checkpoint:_outbox.checkpoint,
+          confirmed:_outbox.confirmed}, _v2MetaKey);
+      });
     }
     function mutarOutbox(change) {
       var run = function () {
@@ -933,7 +1016,13 @@
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
       var state = _b64(full);
       if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
-      cifrarBin(API.clave, _frame(0, full)).then(function (buf) {
+      Promise.resolve().then(function () {
+        return API.esLicenciaPruebaJfc ? _gzipYjs(full, false) : null;
+      }).then(function (packed) {
+        // Old rooms retain the original Yjs wire protocol; test room can use compressed v2.
+        var useful = packed && packed.length + 1 < full.length;
+        return cifrarBin(API.clave, _frame(useful ? 7 : 0, useful ? packed : full));
+      }).then(function (buf) {
         if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
         try {
           /* rev+seq prueban exactamente hasta que fila persistida contiene este
@@ -1125,6 +1214,16 @@
             var unido = new Uint8Array(largo), cursor = 0;
             grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
             tag = original; payload = unido; receipts = grupo.receipts;
+          }
+          if (tag === 7) {
+            // A checkpoint is one authenticated frame. Never accept compressed peer/live ops.
+            if (!API.esLicenciaPruebaJfc || source !== "pull") return false;
+            return _gzipYjs(payload, true).then(function (update) {
+              if (!update || !update.length) return false;
+              Y.applyUpdate(doc, update, "red");
+              if (pullEstado.rebaseCursor) pullEstado.rebaseFrames = (pullEstado.rebaseFrames || 0) + 1;
+              return true;
+            });
           }
           if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
           if (tag === 0 || (source === "peer" && tag === 6)) {
@@ -1545,6 +1644,7 @@
        asi los aparatos de JFC se entienden en la sala nueva. Ver la purga local
        gated en mock-backend.js. */
     var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo;
+    API.esLicenciaPruebaJfc = _salaId !== codigo; // existing JFC test-license fingerprint gate only
     API.roomId = await idDeSala(_salaId);
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
@@ -1563,7 +1663,8 @@
     // (b) otros dispositivos por el relay cifrado. origin !== "bc"/"red" evita eco.
     API.canal = crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
     API.doc.on("update", function (update, origin) {
-      if (origin === "bc" || origin === "red") return;
+      // IndexedDB hydration replays existing history; it is not a new change to publish.
+      if (origin === "bc" || origin === "red" || origin === API.idb) return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.canal.enviarUpdate(update);
     });
@@ -1583,7 +1684,7 @@
     } catch (_) {}
     API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false, sembrarFotosAlRelay, API.fotosIdb); // sin ckpt (fotos exceden 256KB); siembra c/foto como op individual
     API.fotosDoc.on("update", function (update, origin) {
-      if (origin === "bc" || origin === "red") { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
+      if (origin === "bc" || origin === "red" || origin === API.fotosIdb) { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.fotosCanal.enviarUpdate(update);
     });
@@ -1605,12 +1706,15 @@
     } catch (_) {}
     API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb); // ckpt: ops es pequeño
     API.opsDoc.on("update", function (update, origin) {
-      if (origin === "bc" || origin === "red") { pedirProcesarEventos(); return; }
+      if (origin === "bc" || origin === "red" || origin === API.opsIdb) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.opsCanal.enviarUpdate(update);
     });
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
+    // An op that arrived before its product must run once the catalog catches up.
+    API.doc.on("update", function () { if (API.opsMap && API.opsMap.size) pedirProcesarEventos(); });
+    window.addEventListener("oc-catalogo-cambiado", pedirProcesarEventos);
 
     function sincronizarVisibilidad() {
       var activo = !document.hidden && (!window.OCTabSession || OCTabSession.canSync());
@@ -1724,35 +1828,35 @@
     if (!op || !op.opId || !API.opsMap) return;
     try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
   }
-  var _tOps = null, _opsProcesadas = null;
+  var _tOps = null, _opsProcesadas = null, _opsAsyncBusy = false;
   function pedirProcesarEventos() { clearTimeout(_tOps); _tOps = setTimeout(procesarEventos, 200); }
   function procesarEventos() {
-    if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" || !API.opsMap) return;
-    if (!_opsProcesadas) _opsProcesadas = {}; // cache liviano por sesión (aplicarOpRemota ya es idempotente igual)
-    var mio = miDeviceId(), aplico = false;
+    if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" ||
+        !API.opsMap || _opsAsyncBusy) return;
+    if (!_opsProcesadas) _opsProcesadas = {};
+    var mio = miDeviceId();
     API.opsMap.forEach(function (op, opId) {
-      if (!op || _opsProcesadas[opId]) return;
-      // ECO: un op PROPIO ya se aplicó al hacer la acción; re-aplicarlo doblaría
-      // la plata (el handler NO lo tiene en su set de "vistos", porque nunca pasó
-      // por aplicarOpRemota). Se salta explícitamente por deviceId, y se marca
-      // procesado (no hay nada que reintentar).
+      if (!op || _opsProcesadas[opId] || _opsAsyncBusy) return;
+      // A local movement was already committed by its originating device.
       if (mio && String(op.deviceId) === mio) { _opsProcesadas[opId] = 1; return; }
-      try {
-        var r = window.OCSync.aplicarOpRemota(op);
-        // #4 (fix 2026-09-10): marcar procesado SOLO si el handler respondió ok
-        // (aplicado o repetido). Si lanzó, se deja sin marcar para reintentar en
-        // el próximo pase. aplicarOpRemota ya es idempotente por opId, así que
-        // reintentar es seguro.
-        if (r && r.ok) {
-          _opsProcesadas[opId] = 1;
-          if (!r.repetida) {
-            aplico = true;
-            try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op })); } catch (_) {}
-          }
+      function accepted(r) {
+        if (!r || !r.ok) return false; // no product yet / failed disk commit: retry later
+        _opsProcesadas[opId] = 1;
+        if (!r.repetida) {
+          try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", {detail:op})); } catch (_) {}
         }
-      } catch (_) { /* sin marcar: se reintenta */ }
+        return true;
+      }
+      try {
+        var result = window.OCSync.aplicarOpRemota(op);
+        if (result && typeof result.then === "function") {
+          // Serialize immutable movement commits so an old snapshot cannot race the save.
+          _opsAsyncBusy = true;
+          Promise.resolve(result).then(accepted, function () { return false; })
+            .then(function (ok) { _opsAsyncBusy = false; if (ok) pedirProcesarEventos(); });
+        } else accepted(result);
+      } catch (_) { /* retain the opId for a later retry */ }
     });
-    void aplico;
   }
 
   // ===================================================================

@@ -1,0 +1,24 @@
+name: P0 JFC integrated sync causal end-to-end synthetic gate
+on:
+  pull_request:
+    paths:
+      - docs/sync-yjs.js
+      - docs/mock-backend.js
+      - test/p0-*.test.cjs
+      - .github/workflows/p0-jfc-integrated-sync.yml
+jobs:
+  integrated:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install synthetic IndexedDB outside repository
+        run: npm install --no-save --prefix "$RUNNER_TEMP/p0-idb" fake-indexeddb --ignore-scripts --no-audit --no-fund
+      - name: Integrated verification pass A
+        run: |
+          export NODE_PATH="$RUNNER_TEMP/p0-idb/node_modules"
+          node --test test/p0-s1-yjs-idb-replay.test.cjs test/p0-s3-compressed-checkpoint.test.cjs test/p0-movement-witness-opid.test.cjs test/p0-s4-outbox-per-op.test.cjs
+      - name: Integrated verification pass B, same SHA
+        run: |
+          export NODE_PATH="$RUNNER_TEMP/p0-idb/node_modules"
+          node --test test/p0-s1-yjs-idb-replay.test.cjs test/p0-s3-compressed-checkpoint.test.cjs test/p0-movement-witness-opid.test.cjs test/p0-s4-outbox-per-op.test.cjs
