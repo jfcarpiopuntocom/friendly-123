@@ -103,6 +103,52 @@ test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes 
 });
 }
 
+test('P0: alternating confirmed sales across two tabs survive a cold restart (Chromium)',{timeout:120000},async()=>{
+ const srv=servidor();await new Promise(r=>srv.listen(0,'127.0.0.1',r));
+ const web=await chromium.launch({headless:true});
+ try{
+  const ctx=await web.newContext();
+  const base=`http://127.0.0.1:${srv.address().port}/`;
+  const a=await ctx.newPage();await a.goto(base,{waitUntil:'networkidle'});
+  const pid=await a.evaluate(async()=>{
+    const post=async(url,data)=>{
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+      assertResponse(r.status);return r.json();
+    };
+    function assertResponse(status){if(status!==200)throw Error('setup HTTP '+status)}
+    const location=await post('/api/ubicaciones',{nombre:'Audit rack',tipo:'propio'});
+    const p=await post('/api/productos',{nombre:'Audit product',barcode:'AUDIT-P0-1',precio:12,stockInicial:30,ubicacionId:location.id});
+    return p.id;
+  });
+  const b=await ctx.newPage();await b.goto(base,{waitUntil:'networkidle'});
+  await a.waitForTimeout(1000);await b.waitForTimeout(1000);
+  const failures=[];
+  for(let n=0;n<12;n++){
+    const tab=n%2?a:b;
+    const result=await tab.evaluate(async x=>{
+      const response=await fetch('/api/productos/'+x+'/venta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cantidad:1})});
+      return {status:response.status,reason:response.ok?'':(await response.json()).error};
+    },pid);
+    if(result.status!==200){failures.push({sale:n+1,...result});break;}
+  }
+  console.log('TWO-TAB-ALTERNATION',JSON.stringify({failures}));
+  assert.deepEqual(failures,[],'no acknowledged or sequential sale may disappear; expose durable CAS failures');
+  await a.reload({waitUntil:'networkidle'});await b.reload({waitUntil:'networkidle'});
+  for(const tab of [a,b]){
+    await tab.waitForFunction(async x=>{
+      const sales=await(await fetch('/api/ventas/todas')).json();
+      return sales.filter(v=>v.productoId===x).length===12;
+    },pid,{timeout:10000});
+    const out=await tab.evaluate(async x=>{
+      const p=(await(await fetch('/api/productos')).json()).find(y=>y.id===x);
+      const sales=(await(await fetch('/api/ventas/todas')).json()).filter(y=>y.productoId===x);
+      return {stock:p.stockActual,sales:sales.length,unique:new Set(sales.map(v=>v.id)).size};
+    },pid);
+    assert.deepEqual(out,{stock:18,sales:12,unique:12});
+  }
+ }finally{await web.close();srv.close();}
+});
+
 test('without Web Locks the compatibility tab guard remains available',async()=>{
  const srv=servidor();await new Promise(r=>srv.listen(0,'127.0.0.1',r));
  const web=await chromium.launch({headless:true});
