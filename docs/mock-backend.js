@@ -4094,6 +4094,21 @@
       return _serializarMergeCanonico(catalogo);
     } catch (_) { return null; }
   }
+  const URGENCIA_MERGE = Object.freeze({ productos: "diferible", actividad: "diferible", resto: "inmediato" });
+  function _urgenciaPersistenciaMerge(remoto, esProyeccionIncremental, promesasPins, adoptaNombre) {
+    // Only a verified product-only Yjs projection can defer its backup.
+    // Unknown collections fail closed to the immediate durability class.
+    const colecciones = [];
+    if (esProyeccionIncremental !== true) colecciones.push("resto");
+    if (promesasPins.length) colecciones.push("pinsRol");
+    if (adoptaNombre) colecciones.push("nombreNegocio");
+    Object.keys(remoto || {}).forEach(function (nombre) {
+      if (Array.isArray(remoto[nombre]) && remoto[nombre].length) colecciones.push(nombre);
+    });
+    return colecciones.some(function (nombre) {
+      return (URGENCIA_MERGE[nombre] || URGENCIA_MERGE.resto) === URGENCIA_MERGE.resto;
+    }) ? URGENCIA_MERGE.resto : URGENCIA_MERGE.productos;
+  }
   function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
     const soloProductosSync = arguments.length > 3 && arguments[3] === true;
     if (_conflictoEstadoAB) return {ok:false,error:"Conflicting saved copies; incoming state is retained for retry."};
@@ -4852,7 +4867,8 @@
       if (negocioAntes !== negocioDespues) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
       // Solo una proyección incremental de productos puede esperar al tiempo ocioso.
       // Los gastos, pagos, ventas, PIN y catálogos completos conservan el guardado inmediato.
-      if (soloProductosSync === true && promesasPins.length === 0 && !_adoptaNombre) _programarGuardadoMerge();
+      const urgencia = _urgenciaPersistenciaMerge(remoto, soloProductosSync, promesasPins, _adoptaNombre);
+      if (urgencia === URGENCIA_MERGE.productos) _programarGuardadoMerge();
       else _guardarMergeInmediatoSeguro();
     }
     if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
