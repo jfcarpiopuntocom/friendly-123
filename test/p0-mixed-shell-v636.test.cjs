@@ -54,3 +54,24 @@ test('mixed-shell: a compacted tag0 Yjs update keeps old v636 reader semantics',
  assert.equal(vm.runInContext('JSON.stringify(a.toJSON())===JSON.stringify(doc.toJSON())',ctx),true);
  assert.equal(vm.runInContext('Y.equalSnapshots(Y.snapshot(a),Y.snapshot(doc))',ctx),true);
 });
+
+test('published v636 reader applies a 786432-byte ciphertext-budget tag0 Yjs checkpoint',async()=>{
+ const vendor=fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8');
+ const ctx=vm.createContext({window:{},Uint8Array,TextEncoder,TextDecoder,crypto:require('crypto').webcrypto});
+ vm.runInContext(vendor,ctx);
+ const make=n=>vm.runInContext("var large=new Y.Doc(); large.getMap('productos').set('synthetic-1',{nota:'x'.repeat("+n+")}); Y.encodeStateAsUpdate(large)",ctx);
+ const target=786432-30; // 1 byte frame + 29 bytes AES-GCM envelope
+ let n=786300,payload=make(n);
+ n+=target-payload.byteLength;payload=make(n);
+ assert.equal(payload.byteLength,target,'synthetic update must exercise exact 768KiB ciphertext budget');
+ const oldDoc=vm.runInContext("var oldDocLarge=new Y.Doc();oldDocLarge.getMap('productos');oldDocLarge",ctx);
+ const frame=new Uint8Array(payload.byteLength+1);frame[0]=0;frame.set(payload,1);
+ const start=old.indexOf('      function manejar(buf, source, peerReceipt) {');
+ const end=old.indexOf('      ws.onmessage = function (ev) {',start);
+ Object.assign(ctx,{API:{clave:{},_catalogoRevision:0},_pausado:false,permitido:()=>true,
+  descifrarBin:async()=>frame,doc:oldDoc,pullEstado:{},nombre:'catalogo',
+  appliedUpdate(){},clavePendientes(){}});
+ vm.runInContext(old.slice(start,end),ctx);
+ assert.equal(await vm.runInContext('manejar(new Uint8Array([0]),"pull",null)',ctx),true);
+ assert.equal(vm.runInContext("oldDocLarge.getMap('productos').get('synthetic-1').nota.length",ctx),n);
+});
