@@ -34,7 +34,7 @@ async function fixture(){
      function tick(){reads++;req.onsuccess({target:{result:i<arr.length?
       {value:arr[i++],continue:()=>queueMicrotask(tick)}:null}})}
      queueMicrotask(tick);return req;
-    }}};
+    }};
    }}
   }
  };
