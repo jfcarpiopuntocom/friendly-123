@@ -170,7 +170,7 @@ test('slow replay cannot delay live bytes while durable commands retain order', 
   socket.send(new Blob([new Uint8Array([9, 10])]));
   await tick();
   try {
-    assert.deepEqual(db.commands.map(x => x.p_action), ['pull'], 'durable write still waits for replay');
+    assert.deepEqual(db.commands.map(x => x.p_action), ['pull','op'], 'independent durable lane must not wait for a slow read; durable writes remain ordered');
     assert.deepEqual(db.channels[0].sent.map(x => [...new Uint8Array(x.payload)]), [[7, 8], [9, 10]], 'live frames leave in order with copied bytes');
     assert.deepEqual(received, [], 'broadcast is never a durable acknowledgement');
   } finally {
