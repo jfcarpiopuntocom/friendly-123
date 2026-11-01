@@ -2645,9 +2645,14 @@
                 // A single explicit epoch may supersede untagged legacy
                 // metadata. Two competing explicit epochs remain independent:
                 // the owner must reconcile their physical movement histories.
+                // JFC 2026-11-01: between two explicit epochs the latest physical count wins (stockTs, then epoch id),
+                // the same rule as aplicarCatalogo in mock-backend; the loser stays in stockEvidencias below.
+                var _tsMine = Number(r.stockTs) || 0, _tsDoc = Number(prev.stockTs) || 0;
+                var _ganaMio = _tsMine > _tsDoc || (_tsMine === _tsDoc && _stockEpochMine > _stockEpochDoc);
                 var _epochPreferred = _samePhysicalEpoch ? null :
                   (_stockEpochMine && !_stockEpochDoc ? r :
-                    (!_stockEpochMine && _stockEpochDoc ? prev : null));
+                    (!_stockEpochMine && _stockEpochDoc ? prev :
+                      (_stockEpochMine && _stockEpochDoc ? (_ganaMio ? r : prev) : null)));
                 if (_epochPreferred) {
                   r = Object.assign({}, r, {
                     stockBase: _epochPreferred.stockBase,

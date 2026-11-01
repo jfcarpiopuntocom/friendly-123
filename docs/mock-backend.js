@@ -4308,7 +4308,7 @@
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
         if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
-            _epochDoble ||
+            _epochDoble || _gana || // the losing count is recorded as evidence before adopting the winner
             (mio.stockEvidencias && Object.keys(mio.stockEvidencias).length) ||
             (p.stockEvidencias && Object.keys(p.stockEvidencias).length)) {
           const evidence = _pruebasStockUnir(mio, p);
