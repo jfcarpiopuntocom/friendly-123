@@ -7,6 +7,7 @@ on:
       - supabase-relay/gateway.mjs
       - supabase-relay/browser-entry.mjs
       - .github/workflows/p0-build-live-relay-asset.yml
+      - test/e1-browser-relay-head-parity.test.cjs
 permissions:
   contents: write
 jobs:
