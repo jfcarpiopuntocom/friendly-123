@@ -8,14 +8,16 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { chromium, webkit } = require('playwright');
 
-const engines = { chromium, webkit };
+// Windows browser tests default to Chromium; WebKit remains a required CI/Linux gate.
+// Opt-in F123_REQUIRE_WEBKIT=1 only on machines that actually run both engines.
+const engines = process.env.F123_REQUIRE_WEBKIT === '1' ? { chromium, webkit } : { chromium };
 const missing = Object.entries(engines).filter(([, engine]) => {
   const executable = engine.executablePath();
   return !executable || !fs.existsSync(executable);
 }).map(([name]) => name);
 
 if (!missing.length) {
-  console.log('Playwright: Chromium and WebKit binaries already installed; no download.');
+  console.log('Playwright: required test browser binaries already installed; no download.');
   process.exit(0);
 }
 const cli = path.join(path.dirname(require.resolve('playwright/package.json')), 'cli.js');
