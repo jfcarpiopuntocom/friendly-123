@@ -94,6 +94,12 @@ test('local dashboard agrees with held obligations and the local day, including 
 });
 test('API consumes earlier void on the next monthly payment and exports backwards-readable facts',async()=>{
  const app=browser();app.OCAuth={rolActual:()=> 'dueno'};
+ // October payout and seven-day hold use one fixed business clock.
+ const fixtureNow=Date.parse('2026-10-15T12:00:00-05:00');
+ app.Date=class SettlementDate extends Date {
+   constructor(...args){super(...(args.length?args:[fixtureNow]));}
+   static now(){return fixtureNow;}
+ };
  const a=await app.request('/api/promotoras','POST',{nombre:'Synthetic',comisionBase:40});
  const r=await app.request('/api/ubicaciones','POST',{nombre:'Synthetic rack',tipo:'socio'});
  await app.request('/api/ubicaciones/'+r.id,'PUT',{promotoraId:a.id});

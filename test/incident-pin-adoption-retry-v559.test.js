@@ -3,6 +3,9 @@ const {test}=require("node:test");
 const assert=require("node:assert/strict");
 const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm");
 const code=fs.readFileSync(path.join(__dirname,"../docs/mock-backend.js"),"utf8");
+const safeStart=code.indexOf("  function _guardarMergeInmediatoSeguro() {");
+const safeEnd=code.indexOf("  function guardarEstadoLocal(",safeStart);
+assert.ok(safeStart>0&&safeEnd>safeStart,"production save boundary exists");
 const start=code.indexOf("    if (promesasPins.length) Promise.all(promesasPins).then(");
 const stop=code.indexOf("    // Ambos caminos de sync",start);
 assert.ok(start>0&&stop>start,"real asynchronous PIN adoption continuation found");
@@ -21,8 +24,9 @@ function fixture(results,settings={}) {
     agregadasU:0,agregadosP:0,actualizados:0,miembrosAgregados:0,
     miembrosActualizados:0,miembrosQuitados:0,clientesAgregados:0,
     mov:()=>{},guardarEstadoLocal:async()=>{persisted++;return true;},
-    avisarCatalogoCambiado:()=>{},Promise,Math,Number,JSON,Object};
-  vm.createContext(ctx);vm.runInContext(code.slice(start,stop),ctx);
+    avisarCatalogoCambiado:()=>{},_estadoPuedeEnviarse:()=>false,_falloGuardadoLocal:()=>false,_mergeSucio:false,Promise,Math,Number,JSON,Object};
+  vm.createContext(ctx);
+  vm.runInContext(code.slice(safeStart,safeEnd)+"\n"+code.slice(start,stop),ctx);
   return {win,y,timers,events,counts:()=>({applications,persisted}),
     settle:async()=>{await Promise.resolve();await Promise.resolve();await Promise.resolve();await Promise.resolve();}};
 }

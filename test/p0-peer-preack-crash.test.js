@@ -149,7 +149,9 @@ for(const [name,engine] of [['chromium',chromium]])test('native Chromium: pre-AC
     assert.ok(await a.evaluate(()=>channel.pendientesRelay>0),'sender outbox survives rejected durable ACK');
     const crashed=b.waitForEvent('crash',{timeout:12000});
     const session=await second.newCDPSession(b);
-    await session.send('Page.crash').catch(()=>{});
+    // A crashed renderer cannot answer CDP. Observe the independent crash
+    // event instead of awaiting the command's impossible success reply.
+    void session.send('Page.crash').catch(()=>{});
     await crashed; // genuine renderer kill, no pagehide handler
     await b.close().catch(()=>{});
     assert.ok(await a.evaluate(()=>channel.pendientesRelay>0),'recipient crash does not forge an ACK');

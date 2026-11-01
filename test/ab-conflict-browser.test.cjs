@@ -8,8 +8,16 @@ test('native storage conflict preserves both raw copies in export and blocks wri
     browser=await chromium.launch({headless:true});
     const {ctx,page}=await openDevice(browser,base);page.setDefaultTimeout(5000);
     await enterAs(page);
+    assert.equal(await page.evaluate(async()=>await OCSync.confirmarCatalogoDurable()),true,
+      'IDB CAS must durably commit before asynchronous A/B mirror');
+    await page.waitForFunction(()=>{
+      try {
+        const j=JSON.parse(localStorage.getItem('f123_estado_v4_journal'));
+        return j && j.phase==='COMMITTED' && !!j.candidateRaw &&
+          localStorage.getItem('f123_estado_v4_'+j.destino)===j.candidateRaw;
+      }catch(_){return false;}
+    },null,{timeout:8000});
     const originals=await page.evaluate(async()=>{
-      if(!await OCSync.confirmarCatalogoDurable())throw Error('synthetic setup must commit');
       const journal=JSON.parse(localStorage.getItem('f123_estado_v4_journal'));
       const body=JSON.parse(journal.candidateRaw);body.nombreNegocio='Synthetic conflicting copy';body._rev+=50;
       const foreign=JSON.stringify(body);

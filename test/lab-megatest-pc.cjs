@@ -94,11 +94,11 @@ async function medir(grande) {
 }
 
 
-// Megatest (Claude, 1 nov 2026): metas de JFC p50 <= 200 ms y p95 <= 1000 ms; solo mide y registra.
+// Umbral JFC para 300 productos: p50 <= 300 ms, p95 <= 500 ms. Otros tamanos son referencia.
 for (const [etiqueta, grande] of [['cuaderno chico', 0], ['cuaderno 300', 300], ['cuaderno 1000', 1000]].filter(x => (process.env.MEGA_SIZES || '0,300,1000,frio').split(',').includes(String(x[1])))) {
   test('MEGA ' + (process.env.MEGA_ENGINE || 'chromium') + ' ' + etiqueta, { timeout: 1800000 }, async () => {
     const r = await medir(grande);
-    console.log('MEGA ' + (process.env.MEGA_ENGINE || 'chromium') + ' ' + etiqueta + ' n=' + r.dom.length + ' p50=' + r.p50 + ' p95=' + r.p95 + ' meta=' + (r.p50 <= 200 && r.p95 <= 1000 ? 'PASS' : 'FAIL') + ' DESG ' + r.desg.slice(-5).join(' | '));
+    console.log('MEGA ' + (process.env.MEGA_ENGINE || 'chromium') + ' ' + etiqueta + ' n=' + r.dom.length + ' p50=' + r.p50 + ' p95=' + r.p95 + ' meta=' + (grande === 300 ? (r.p50 <= 300 && r.p95 <= 500 ? 'PASS' : 'FAIL') : 'REFERENCIA') + ' DESG ' + r.desg.slice(-5).join(' | '));
   });
 }
 if ((process.env.MEGA_SIZES || '0,300,1000,frio').split(',').includes('frio')) test('MEGA apertura en frio x10', { timeout: 600000 }, async () => {
