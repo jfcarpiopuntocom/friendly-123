@@ -9,7 +9,7 @@ async function evaluate(entry,stage='consenting-client'){
  const code='F123-EXAMPLE-NOT-A-REAL-LICENSE';
  const key=crypto.createHash('sha256').update('friendly123-rollout-v1:'+code).digest('hex');
  const cfg={schema:1,stage,licenses:{[key]:entry}};
- const ctx=vm.createContext({crypto:crypto.webcrypto,TextEncoder,Uint8Array,Array,Number,Promise,
+ const ctx=vm.createContext({crypto:crypto.webcrypto,TextEncoder,Uint8Array,Array,Number,Promise,setTimeout,
    fetch:async()=>({ok:true,json:async()=>cfg})});
  vm.runInContext(source.slice(start,end),ctx);
  return vm.runInContext('_politicaRollout(__code)',Object.assign(ctx,{__code:code}));
@@ -34,4 +34,14 @@ test('checked-in pilot policy disables gzip and contains no plain license',()=>{
  assert.equal(config.stage,'owner-canary');
  assert.ok(Object.values(config.licenses).every(x=>x.gzipWrite===false));
  assert.doesNotMatch(JSON.stringify(config),/F123-[A-Z0-9]+-/);
+});
+
+test('global phase can enable S4 only after explicit approval, never gzip',async()=>{
+ const code='F123-SYNTHETIC-NOT-REAL';
+ const cfg={schema:1,stage:'all',allOutboxV2:true,allApproved:true,licenses:{}};
+ const ctx=vm.createContext({crypto:crypto.webcrypto,TextEncoder,Uint8Array,Array,Number,Promise,setTimeout,
+ fetch:async()=>({ok:true,json:async()=>cfg})});
+ vm.runInContext(source.slice(start,end),ctx);
+ const p=await vm.runInContext('_politicaRollout(__code)',Object.assign(ctx,{__code:code}));
+ assert.equal(p.outboxV2,true);assert.equal(p.gzipWrite,false);
 });
