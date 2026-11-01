@@ -52,6 +52,15 @@ export function browserMailboxStore(roomId){
   };
   return {
     enqueue:async frame=>transaction(await db(),'readwrite',['outbox'],tx=>{tx.objectStore('outbox').put(frame)}),
+    // All chunks of a Yjs group and its seed marker either survive together
+    // or none survive. A crash cannot leave an incomplete local photo group.
+    enqueueBatch:async(frames,seed)=>transaction(await db(),'readwrite',['outbox','meta'],tx=>{
+      if(!Array.isArray(frames)||!frames.length)throw Error('empty mailbox batch');
+      for(const frame of frames)tx.objectStore('outbox').put(frame);
+      if(seed)tx.objectStore('meta').put(seed.digest,'seed:'+seed.channel);
+    }),
+    seedDigest:async channel=>request((await db()).transaction('meta','readonly')
+      .objectStore('meta').get('seed:'+channel)),
     pending:async()=>request((await db()).transaction('outbox','readonly').objectStore('outbox').getAll()),
     sent:async id=>transaction(await db(),'readwrite',['outbox'],tx=>{tx.objectStore('outbox').delete(id)}),
     inbox:async()=>request((await db()).transaction('inbox','readonly').objectStore('inbox').getAll()),
@@ -171,28 +180,34 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
     }
     return {complete:false,cursor,reason:'pagination-budget-exhausted'};
   }
-  async function queueUpdate(channel,bytes){
+  async function queueUpdate(channel,bytes,seed=false){
     if(closed)return;
     if(!CHANNELS.has(channel))throw Error('unknown channel');
     const data=bytes instanceof Uint8Array?bytes:new Uint8Array(bytes);
-    const hashInput=new Uint8Array(textEncoder.encode(channel).length+1+data.length);
-    hashInput.set(textEncoder.encode(channel));hashInput[textEncoder.encode(channel).length]=0;
-    hashInput.set(data,textEncoder.encode(channel).length+1);
+    const name=textEncoder.encode(channel);
+    const hashInput=new Uint8Array(name.length+1+data.length);
+    hashInput.set(name);hashInput[name.length]=0;
+    hashInput.set(data,name.length+1);
     const hash=new Uint8Array(await cryptoApi.subtle.digest('SHA-256',hashInput));
     const group=Array.from(hash,x=>x.toString(16).padStart(2,'0')).join('');
+    // Never reseed unchanged full snapshots after a restart. This saves
+    // millions of repeated encrypted photo bytes and DO write operations.
+    if(seed&&await store.seedDigest(channel)===group)return;
     const total=Math.max(1,Math.ceil(data.byteLength/MAX_CHUNK));
     if(total>2048)throw Error('Yjs update too large');
+    const entries=[];
     for(let i=0;i<total;i++){
       const frame={roomId,channel,group,part:i,total,
         payload:b64(data.subarray(i*MAX_CHUNK,(i+1)*MAX_CHUNK))};
       const iv=cryptoApi.getRandomValues(new Uint8Array(12));
       const cipher=await cryptoApi.subtle.encrypt({name:'AES-GCM',iv},key,
         textEncoder.encode(JSON.stringify(frame)));
-      const entry={eventId:'mail-'+cryptoApi.randomUUID(),
-        nonce:b64(iv),ciphertext:b64(new Uint8Array(cipher))};
-      // Append to the local disk BEFORE any network operation.
-      await store.enqueue(entry);
+      entries.push({eventId:'mail-'+cryptoApi.randomUUID(),
+        nonce:b64(iv),ciphertext:b64(new Uint8Array(cipher))});
     }
+    // The sender's unsent ciphertext is durable BEFORE network transport.
+    // No part of the group is persisted on its own.
+    await store.enqueueBatch(entries,seed?{channel,digest:group}:null);
   }
   function record(channel,update,origin){
     if(origin==='red'||origin==='bc'||closed)return;
