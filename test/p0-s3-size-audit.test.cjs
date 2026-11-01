@@ -62,21 +62,22 @@ test('S3: oversized tag0 uses only causal-preserving Yjs replay, never a new map
 });
 
 
-// Regression: the old client estimated base64 against a 250 KiB OP guard.
-// The relay actually accepts a 256 KiB JSON checkpoint frame.
-async function checkpointProbe(cipherBytes) {
+// Checkpoint payload cap is decoded ciphertext (server: 262144 B), not base64 JSON.
+// Older adapters still enforce the 256 KiB serialized frame limit.
+async function checkpointProbe(cipherBytes, advertised = true) {
  const at=sync.indexOf('    function hacerCkpt() {');
  const end=sync.indexOf('    function conectar() {',at);
  assert.ok(at>0&&end>at);
  const saved=[],diagnostics=[];
  const full=new Uint8Array(cipherBytes-30);
  const ctx=vm.createContext({
+  window:{F123Relay:advertised?{ckptFrameBytes:262144}:{}},
   _soloMemoria:false,canal:{ws:{readyState:1,peerOnly:false},recuperando:false},
   permiteCkpt:true,API:{clave:'synthetic',rollout:{outboxV2:false,gzipWrite:false}},
   _currentPullState:null,_appliedPullCursor:{rev:0,seq:1},
   partesEntrantes:{},doc:{store:{}},
   Y:{encodeStateAsUpdate:()=>full},_outbox:{pending:[],checkpoint:''},
-  MAX_OP_BYTES:250*1024,MAX_CKPT_RPC_BYTES:256*1024,
+  MAX_OP_BYTES:250*1024,MAX_CKPT_RPC_BYTES:256*1024,MAX_CKPT_CIPHER_BYTES:256*1024,
   _b64:bytes=>Buffer.from(bytes).toString('base64'),
   _frame:()=>new Uint8Array(1),
   cifrarBin:async()=>new Uint8Array(cipherBytes).buffer,
@@ -91,21 +92,49 @@ async function checkpointProbe(cipherBytes) {
  await new Promise(resolve=>setImmediate(resolve));
  return {saved,diagnostics};
 }
-test('S3: 196000-byte ciphertext passes the real 256 KiB checkpoint frame cap',async()=>{
+test('S3: exactly 262144 ciphertext bytes pass the advertised checkpoint cap',async()=>{
  assert.match(sync,/var MAX_OP_BYTES = 250 \* 1024/,'OP guard must remain unchanged');
- assert.match(sync,/var MAX_CKPT_RPC_BYTES = 256 \* 1024/);
- const {saved,diagnostics}=await checkpointProbe(196000);
- assert.equal(saved.length,1,'a valid full-size checkpoint must be enqueued');
+ assert.match(sync,/var MAX_CKPT_CIPHER_BYTES = 256 \* 1024/);
+ const {saved,diagnostics}=await checkpointProbe(262144);
+ assert.equal(saved.length,1,'the full server-cap checkpoint must be enqueued');
  const wire={...saved[0]};delete wire.state;
  const bytes=Buffer.byteLength(JSON.stringify(wire));
- assert.ok(bytes>250*1024,'regression must exceed the old client guard');
- assert.ok(bytes<=256*1024,'actual serialized relay frame must fit');
+ assert.ok(bytes>256*1024,'must exercise the larger RPC-only transport allowance');
+ assert.ok(bytes<384*1024,'actual serialized frame must fit the checkpoint transport cap');
  assert.equal(diagnostics.length,0);
 });
-test('S3: checkpoint exceeding 256 KiB is rejected before durable enqueue',async()=>{
- const {saved,diagnostics}=await checkpointProbe(197000);
- assert.equal(saved.length,0,'an oversized checkpoint must never reach the relay');
- assert.equal(diagnostics.length,1);
- assert.equal(diagnostics[0].reason,'snapshot-over-limit');
- assert.equal(diagnostics[0].bytes,197000);
+test('S3: 262145 ciphertext bytes are rejected before durable enqueue',async()=>{
+ const {saved,diagnostics}=await checkpointProbe(262145);
+ assert.equal(saved.length,0,'server-oversized ciphertext must never be queued');
+ assert.deepEqual(diagnostics,[{reason:'snapshot-over-limit',bytes:262145}]);
+});
+test('S3: old adapters without the advertised capability retain the smaller frame cap',async()=>{
+ const fits=await checkpointProbe(196000,false),tooLarge=await checkpointProbe(197000,false);
+ assert.equal(fits.saved.length,1);
+ assert.equal(tooLarge.saved.length,0);
+ assert.equal(tooLarge.diagnostics[0].reason,'snapshot-over-limit');
+});
+test('S3: read-only catalog collection audit returns only names, counts and estimated visible JSON bytes',()=>{
+ const at=sync.indexOf('  function _medirDocumentoYjs(Y, doc, nombre, canal, idb, permiteCkpt) {');
+ const end=sync.indexOf('\n  var API = {',at);
+ assert.ok(at>0&&end>at);
+ const ctx=vm.createContext({
+  window:{},Uint8Array,JSON,Math,TextEncoder,
+  COLECCIONES:['productos','ventas','gastos','actividad','ajustes','transferencias']
+ });
+ vm.runInContext(vendor,ctx);
+ vm.runInContext(sync.slice(at,end),ctx);
+ vm.runInContext("var cat=new Y.Doc();"+
+   "cat.getMap('productos').set('private-product-id',{nombre:'private-product-value'});"+
+   "cat.getMap('ventas').set('private-sale-id',{descripcion:'private-sale-value'.repeat(10)});"+
+   "cat.getMap('_stock_pn_testigos_v1').set('private-device',{cantidad:42});",ctx);
+ const rows=vm.runInContext('_medirColeccionesCatalogo(cat)',ctx);
+ const sale=rows.find(x=>x.coleccion==='ventas');
+ assert.equal(sale.entradas,1);
+ assert.ok(sale.bytesJSONVisibles>100);
+ assert.equal(rows[0].coleccion,'ventas','rank largest visible collection first');
+ assert.equal(rows.find(x=>x.coleccion==='hechos_financieros').entradas,0);
+ assert.equal(rows.find(x=>x.coleccion==='_stock_pn_testigos_v1').entradas,1);
+ assert.ok(rows.every(x=>Object.keys(x).sort().join(',')==='bytesJSONVisibles,coleccion,entradas'));
+ assert.doesNotMatch(JSON.stringify(rows),/private-|product-value|sale-value|42/);
 });
