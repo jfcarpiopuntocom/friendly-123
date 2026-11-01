@@ -5575,7 +5575,7 @@
     } catch (_) { return false; }
   }
   function _prepararCorteJfcS2() {
-    if (!_esLicenciaJfcParaS2()) return false;
+    if (!_esLicenciaJfcParaS2() || window.__f123JfcResetReady) return false;
     var marker = "f123_jfc_s2_epoch_20261101" + OC_STATE_SUFIJO;
     try { if (localStorage.getItem(marker) === "ok") return false; }
     catch (_) { return false; } // Cannot safely persist a cutover marker.
@@ -5605,6 +5605,7 @@
     })();
     return true;
   }
+  window.__f123PrepareJfcReset = _prepararCorteJfcS2; // PIN/license entered after initial page boot
   let _demoRefrescado = false;
   var _corteJfcS2 = _prepararCorteJfcS2();
   if (!_corteJfcS2) {

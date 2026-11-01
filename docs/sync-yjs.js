@@ -1663,6 +1663,8 @@
     } catch (_) { log("identidad del cuaderno no disponible — sin sync"); return; }
     if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
     var codigo = normalizarCodigo(_licProp);
+    // A first-time license may be entered after mock-backend boot, on the PIN screen.
+    if (typeof window.__f123PrepareJfcReset === "function") window.__f123PrepareJfcReset();
     // S2: do not open the NEW test room while old local business/IDB is pending reset.
     if (window.__f123JfcResetReady && await window.__f123JfcResetReady !== true) {
       log("JFC test reset did not complete; sync remains disabled");

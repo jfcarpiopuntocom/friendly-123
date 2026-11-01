@@ -61,3 +61,9 @@ test('S2 every updated device derives same fresh room and waits for local cutove
   assert.match(mock,/if \(_corteJfcS2\) return; \/\/ old test mirror must never restore/);
   assert.match(sync,/API\.esLicenciaPruebaJfc = _salaId !== codigo/);
 });
+
+test('S2 a license entered after the PIN screen boot also gates the fresh room',()=>{
+  assert.ok(mock.includes('window.__f123PrepareJfcReset = _prepararCorteJfcS2'));
+  assert.ok(sync.includes('if (typeof window.__f123PrepareJfcReset === "function") window.__f123PrepareJfcReset();'));
+  assert.ok(sync.indexOf('window.__f123PrepareJfcReset()') < sync.indexOf('await window.__f123JfcResetReady'));
+});
