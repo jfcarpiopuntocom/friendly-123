@@ -1185,7 +1185,15 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if(response.status===401)return "wrong";
         if(response.status===429)return "locked";
         if(response.status===404)return "unavailable-identity";
-        if(response.status===409)return "unconfigured";
+        if(response.status===409){
+          // A previously adopted central revision must never fall back to a
+          // stale, locally cached Owner verifier when authority is temporarily
+          // unconfigured after a deployment/replica inconsistency.
+          let seen=null;
+          try{seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+lic)||"null")}catch(_){}
+          return seen&&Number.isSafeInteger(seen.revision)&&seen.revision>0
+            ? "unavailable" : "unconfigured";
+        }
         return "unavailable";
       }finally{clearTimeout(timer)}
     }catch(_){return "unavailable"}
