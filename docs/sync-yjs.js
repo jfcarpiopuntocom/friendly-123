@@ -1612,7 +1612,7 @@
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
     // An op that arrived before its product must run once the catalog catches up.
-    API.doc.on("update", function () { if (API.opsMap && API.opsMap.size) pedirProcesarEventos(); });
+    API.doc.on("update", function () { if (API.esLicenciaPruebaJfc && API.opsMap && API.opsMap.size) pedirProcesarEventos(); });
     window.addEventListener("oc-catalogo-cambiado", pedirProcesarEventos);
 
     function sincronizarVisibilidad() {
