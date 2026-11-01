@@ -1110,7 +1110,12 @@
         }).then(function (packed) {
           // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
           var useful = packed && packed.length + 1 < full.length;
-          return cifrarBin(API.clave, _frame(useful ? 7 : 0, useful ? packed : full));
+          var payload = useful ? packed : full;
+          if (!useful && full.length + 29 > (MAX_OP_BYTES - 128) * 3 / 4) {
+            var compact = _compactarYjsSinCambiarCausalidad(Y, full);
+            if (compact) payload = compact;
+          }
+          return cifrarBin(API.clave, _frame(useful ? 7 : 0, payload));
         }).then(function (buf) {
           // Current server checkpoint RPC accepts one authenticated ciphertext.
           // Never pretend fragmented OP frames are an atomic snapshot.
