@@ -1,0 +1,29 @@
+name: P0 stock epoch conflict no catalog abort
+on:
+  push:
+    branches:
+      - fix/p0-stock-epoch-conflict-no-throw-20261031
+    paths:
+      - docs/sync-yjs.js
+      - docs/mock-backend.js
+      - test/p0-stock-explicit-epoch-crash.test.cjs
+      - .github/workflows/p0-stock-epoch-no-throw.yml
+  pull_request:
+    paths:
+      - docs/sync-yjs.js
+      - docs/mock-backend.js
+      - test/p0-stock-explicit-epoch-crash.test.cjs
+      - .github/workflows/p0-stock-epoch-no-throw.yml
+jobs:
+  stock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real Yjs explicit physical epoch collision
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/p0-stock-explicit-epoch-crash.test.cjs
