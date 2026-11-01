@@ -15,7 +15,7 @@ const gzip=(bytes,unpack)=>vm.runInContext('_gzipYjs(__bytes,__unpack)',Object.a
 test('S3: 600KB valid Yjs state compresses to a checkpoint frame below Supabase cap',async()=>{
  const Y=ctx.Y,a=new Y.Doc();
  const p=a.getMap('productos');
- p.set('large-synthetic-product',{name:'synthetic',description:'x'.repeat(600000)});
+ p.set('large-synthetic-product','x'.repeat(600000));
  const update=Y.encodeStateAsUpdate(a);
  assert.ok(update.length>262144,'old raw checkpoint did not fit');
  const compressed=await gzip(update,false);
@@ -23,7 +23,7 @@ test('S3: 600KB valid Yjs state compresses to a checkpoint frame below Supabase 
  const restored=await gzip(compressed,true);
  assert.deepEqual(Array.from(restored),Array.from(update),'gzip roundtrip is exact');
  const b=new Y.Doc();Y.applyUpdate(b,restored);
- assert.equal(b.getMap('productos').get('large-synthetic-product').description.length,600000);
+ assert.equal(b.getMap('productos').get('large-synthetic-product').length,600000);
  assert.deepEqual(Array.from(Y.encodeStateVector(a)),Array.from(Y.encodeStateVector(b)));
 });
 test('S3: only JFC test license emits compressed checkpoint, no other client protocol changed',()=>{
