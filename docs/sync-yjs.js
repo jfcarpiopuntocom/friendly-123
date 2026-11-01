@@ -89,6 +89,18 @@
   // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
+  // Gzip before encryption; ciphertext cannot be compressed. Only JFC's test room emits tag 7.
+  async function _gzipYjs(bytes, decompress) {
+    var Stream = decompress ? window.DecompressionStream : window.CompressionStream;
+    if (typeof Stream !== "function" || typeof Response !== "function") return null;
+    try {
+      var stream = new Stream("gzip"), writer = stream.writable.getWriter();
+      // Drain concurrently: waiting for write/close before reading can deadlock on large updates.
+      var read = new Response(stream.readable).arrayBuffer();
+      await writer.write(bytes); await writer.close();
+      return new Uint8Array(await read);
+    } catch (_) { return null; }
+  }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
     var _pausado = false, _tReconnect = null;
@@ -495,7 +507,7 @@
           delete _durableInFlight[result.id];
           if (!Object.keys(_durableInFlight).length) { clearTimeout(_durableWatchdog); _durableWatchdog = null; }
         }
-        if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
+        if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { if (result.kind === "ckpt") avisoCheckpoint("rechazado por relay"); programarDurable(); return; }
         var beforeRetirement = null;
         return mutarOutbox(function () {
           beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
@@ -914,6 +926,22 @@
          - Solo en canales con permiteCkpt (catálogo y ops; NO fotos: su estado
            completo supera el frame de 256KB). */
     var _tCkpt = null;
+    function avisoCheckpoint(motivo) {
+      try {
+        var id = "f123-checkpoint-alert-" + nombre;
+        var element = document.getElementById(id);
+        if (!element) {
+          element = document.createElement("span");
+          element.id = id;
+          element.setAttribute("role", "status");
+          element.style.cssText = "display:inline-block;margin:4px 8px;padding:3px 7px;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px";
+          element.style.display = "inline-block";
+          var badge = document.getElementById("oc-offline-badge");
+          (badge && badge.parentElement || document.body).appendChild(element);
+        }
+        element.textContent = "Sync pending — checkpoint " + String(motivo || "sin confirmar");
+      } catch (_) {}
+    }
     function hacerCkpt() {
       if (_soloMemoria) return;
       if (canal.ws && canal.ws.peerOnly) return; // Direct catch-up uses hydrated state vectors.
@@ -933,15 +961,21 @@
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
       var state = _b64(full);
       if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
-      cifrarBin(API.clave, _frame(0, full)).then(function (buf) {
-        if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
+      Promise.resolve().then(function () {
+        return API.esLicenciaPruebaJfc ? _gzipYjs(full, false) : null;
+      }).then(function (packed) {
+        // Old rooms retain the original Yjs wire protocol; test room can use compressed v2.
+        var useful = packed && packed.length + 1 < full.length;
+        return cifrarBin(API.clave, _frame(useful ? 7 : 0, useful ? packed : full));
+      }).then(function (buf) {
+        if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { avisoCheckpoint("demasiado grande (" + buf.byteLength + " B)"); return; }
         try {
           /* rev+seq prueban exactamente hasta que fila persistida contiene este
              estado. El relay nunca poda una operacion concurrente posterior. */
           guardarSobre({ k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
             v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
         } catch (_) {}
-      }).catch(function () {});
+      }).catch(function () { avisoCheckpoint("cifrado fallido"); });
     }
     function conectar() {
       if (_pausado || !permitido()) return;
@@ -1126,6 +1160,16 @@
             grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
             tag = original; payload = unido; receipts = grupo.receipts;
           }
+          if (tag === 7) {
+            // A checkpoint is one authenticated frame. Never accept compressed peer/live ops.
+            if (!API.esLicenciaPruebaJfc || source !== "pull") return false;
+            return _gzipYjs(payload, true).then(function (update) {
+              if (!update || !update.length) return false;
+              Y.applyUpdate(doc, update, "red");
+              if (pullEstado.rebaseCursor) pullEstado.rebaseFrames = (pullEstado.rebaseFrames || 0) + 1;
+              return true;
+            });
+          }
           if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
           if (tag === 0 || (source === "peer" && tag === 6)) {
             var beforeRevision = API._catalogoRevision;
@@ -1161,8 +1205,9 @@
               return true;
             });
           }
-          return true;
-        }).catch(function () { return false; }); // basura o clave distinta -> no se confirma el cursor
+          // Unknown authenticated frames MUST NOT advance a durable pull cursor.
+          return false;
+        }).catch(function () { return false; }); // basura, formato futuro o clave distinta
       }
       ws.onmessage = function (ev) {
         if (!API.clave || canal.ws !== ws) return;
@@ -1545,6 +1590,7 @@
        asi los aparatos de JFC se entienden en la sala nueva. Ver la purga local
        gated en mock-backend.js. */
     var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo;
+    API.esLicenciaPruebaJfc = _salaId !== codigo; // existing JFC test-license fingerprint gate only
     API.roomId = await idDeSala(_salaId);
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
