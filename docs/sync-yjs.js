@@ -155,7 +155,8 @@
     var _pausado = false, _tReconnect = null;
     function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
     var MAX_OP_BYTES = 250 * 1024; // guard de operaciones; no relajar
-    var MAX_CKPT_RPC_BYTES = 256 * 1024; // tamaño REAL del frame JSON aceptado por el relay
+    var MAX_CKPT_RPC_BYTES = 256 * 1024; // fallback para adaptadores sin capacidad anunciada
+    var MAX_CKPT_CIPHER_BYTES = 256 * 1024; // limite de ciphertext decodificado en save_checkpoint
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
     /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
        mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
@@ -1112,19 +1113,22 @@
           // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
           var useful = packed && packed.length + 1 < full.length;
           var payload = useful ? packed : full;
-          if (!useful && full.length + 29 > (MAX_CKPT_RPC_BYTES - 128) * 3 / 4) {
+          // A new native adapter can persist larger ciphertext via RPC, never broadcast.
+          var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
+            ? MAX_CKPT_CIPHER_BYTES : 0;
+          if (!useful && full.length + 29 > (ckptCipherLimit || (MAX_CKPT_RPC_BYTES - 128) * 3 / 4)) {
             var compact = _compactarYjsSinCambiarCausalidad(Y, full);
             if (compact) payload = compact;
           }
           return cifrarBin(API.clave, _frame(useful ? 7 : 0, payload));
         }).then(function (buf) {
-          // The relay limits the actual UTF-8 JSON frame to 256 KiB.
-          // A checkpoint has a different envelope from an OP. Measure the exact
-          // on-wire frame, excluding local-only state, instead of reusing the
-          // 250 KiB OP guard or estimating base64 with a fixed margin.
+          // Only a capability-advertising adapter may send full-size checkpoints.
+          // Legacy adapters retain the exact 256 KiB JSON frame guard; OPs are unchanged.
           var ckpt = { k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
             v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf) };
-          if (JSON.stringify(ckpt).length > MAX_CKPT_RPC_BYTES) {
+          var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
+            ? MAX_CKPT_CIPHER_BYTES : 0;
+          if (ckptCipherLimit ? buf.byteLength > ckptCipherLimit : JSON.stringify(ckpt).length > MAX_CKPT_RPC_BYTES) {
             diagnosticarCkpt("snapshot-over-limit", buf.byteLength);
             try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
             return;
@@ -1611,12 +1615,32 @@
     });
     var encrypted = update.byteLength + 29;
     var wire = Math.ceil(encrypted * 4 / 3) + 128;
+    var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === 256 * 1024 ? 256 * 1024 : 0;
     return { canal: nombre, bytesPlano: update.byteLength, bytesCifrados: encrypted,
       entradas: entries, dataImageInline: inline,
       hidratado: !!(idb && idb.synced === true && canal && canal.recuperando === false &&
         !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))),
       checkpoint: !!permiteCkpt, bytesSobre: wire,
-      margenBytes: permiteCkpt ? 250 * 1024 - wire : null };
+      limiteCifradoBytes: permiteCkpt ? ckptCipherLimit || null : null,
+      margenBytes: permiteCkpt ? (ckptCipherLimit ? ckptCipherLimit - encrypted : 256 * 1024 - wire) : null };
+  }
+  // Manual numeric-only approximation of CURRENT visible data by collection.
+  // Not a sum of Yjs checkpoint bytes: deleted structs and causal metadata are excluded.
+  function _medirColeccionesCatalogo(doc) {
+    if (!doc || !doc.share) return [];
+    var encoder = new TextEncoder();
+    var names = COLECCIONES.concat(["hechos_financieros", "_stock_pn_testigos_v1", "_meta"]);
+    return names.map(function (name) {
+      var map = doc.share.get(name), entries = 0, bytes = 0;
+      if (map && typeof map.forEach === "function") map.forEach(function (value, key) {
+        entries++;
+        try {
+          var json = JSON.stringify(value);
+          bytes += encoder.encode(String(key)).byteLength + encoder.encode(json || "").byteLength;
+        } catch (_) { /* numeric estimate can undercount unencodable values */ }
+      });
+      return { coleccion: name, entradas: entries, bytesJSONVisibles: bytes };
+    }).sort(function (a, b) { return b.bytesJSONVisibles - a.bytesJSONVisibles; });
   }
   var API = {
     estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
@@ -1647,6 +1671,16 @@
       _medirDocumentoYjs(window.Y, API.opsDoc, "operaciones", API.opsCanal, API.opsIdb, true),
       _medirDocumentoYjs(window.Y, API.fotosDoc, "fotos", API.fotosCanal, API.fotosIdb, false)
     ];
+  };
+  // console.table(OCYjs.medirTamanoColecciones()) — figures only; never business values.
+  API.medirTamanoColecciones = function () {
+    if (!API.doc) return [];
+    var hydrated = !!(API.idb && API.idb.synced === true && API.canal &&
+      API.canal.recuperando === false && !(API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)));
+    return _medirColeccionesCatalogo(API.doc).map(function (row) {
+      return { coleccion: row.coleccion, entradas: row.entradas,
+        bytesJSONVisibles: row.bytesJSONVisibles, hidratado: hydrated };
+    });
   };
 
 
