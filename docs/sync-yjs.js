@@ -2394,15 +2394,42 @@
                       _rt >= _pt - 2000 && _notFuture;
                     var _stockValido = _samePhysicalEpoch &&
                       (_sameLedger || _epochNewer || _legacyNewer || _firstLedger);
-                    var _safeStock = !_samePhysicalEpoch ? _epochPreferred : (_stockValido ? r : prev);
+                    // P0: when TWO explicit physical epochs conflict,
+                    // _epochPreferred is intentionally null: neither clock is
+                    // proof of a physical recount. Keep the already-published
+                    // stock view pending reconciliation, preserve BOTH evidence
+                    // sets, and continue publishing unrelated catalog entries.
+                    // Previously dereferencing null aborted the WHOLE Yjs
+                    // transaction, leaving products/clients silently unsent.
+                    var _explicitEpochConflict = !_samePhysicalEpoch &&
+                      typeof r.stockEpochId === "string" && !!r.stockEpochId &&
+                      typeof prev.stockEpochId === "string" && !!prev.stockEpochId;
+                    // Defensive || r for brand-new products. The current
+                    // branch requires prev, but a future caller must not
+                    // convert an absent historic product into a TypeError.
+                    var _safeStock = !_samePhysicalEpoch ? (_epochPreferred || prev || r) : (_stockValido ? r : prev || r);
+                    // Merge BOTH sets, never choose the first truthy evidence map.
+                    // Also include each source's present base/PN snapshot.
+                    // The earlier fork branch has already merged both
+                    // evidence maps in the real runtime. Avoid repeated ledger
+                    // traversal for ordinary stale-metadata updates. Isolated
+                    // legacy regression harnesses intentionally evaluate only
+                    // this branch, without the full Yjs helper closure.
+                    var _forkEvidence = r.stockEvidencias || prev.stockEvidencias;
+                    if (_explicitEpochConflict && typeof unirEvidenciasStockYjs === "function")
+                      _forkEvidence = unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar);
                     r = Object.assign({}, prev, {
                       stockBase: _safeStock.stockBase,
                       stockPN: _safeStock.stockPN,
                       stockActual: _safeStock.stockActual,
                       stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
                       stockDeficit: _safeStock.stockDeficit,
-                      stockEpochId: _safeStock.stockEpochId
+                      stockEpochId: _safeStock.stockEpochId,
+                      stockConciliacionPendiente: _explicitEpochConflict ||
+                        prev.stockConciliacionPendiente === true ||
+                        r.stockConciliacionPendiente === true
                     });
+                    if (_forkEvidence && Object.keys(_forkEvidence).length) r.stockEvidencias = _forkEvidence;
                   }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
                   else return;
