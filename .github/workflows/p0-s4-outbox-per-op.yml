@@ -1,0 +1,12 @@
+name: P0 S4 per-operation IndexedDB outbox, JFC test shop
+on:
+  pull_request:
+    paths: [docs/sync-yjs.js, test/p0-s4-outbox-per-op.test.cjs, .github/workflows/p0-s4-outbox-per-op.yml]
+jobs:
+  outbox:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --test test/p0-s4-outbox-per-op.test.cjs
+      - run: node --test test/p0-s4-outbox-per-op.test.cjs
