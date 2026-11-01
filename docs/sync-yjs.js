@@ -328,15 +328,86 @@
         });
       }).catch(function () {}).then(function () { _heredadosListo = true; }); // one attempt per lifetime: failure = old behaviour
     }
-    function leerOutbox() {
-      if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
-      try { return Promise.resolve(JSON.parse(localStorage.getItem(_outboxKey + API.roomId) || "null")); }
-      catch (e) { return Promise.reject(e); }
+    // JFC test room: upgrade a 107MB single-value outbox into one durable IDB row per op.
+    // The old value is removed only in the SAME atomic transaction that writes every row.
+    var _v2DB = null, _v2Ready = null, _v2Cache = null, _v2Revision = -1;
+    var _v2Signatures = new Map(), _v2Prefix = "f123_relay_outbox_v2" + suffix + ":op:";
+    var _v2MetaKey = "f123_relay_outbox_v2" + suffix + ":meta";
+    function v2Signature(entry) {
+      return String(entry.group || "") + "|" + JSON.stringify(entry.huerfano || null);
+    }
+    function v2Db() {
+      if (_v2Ready) return _v2Ready;
+      _v2Ready = Promise.resolve().then(async function () {
+        if (!API.esLicenciaPruebaJfc || !persistencia || (!persistencia.db && !persistencia._db)) return null;
+        var db = persistencia.db || await persistencia._db;
+        if (!db || !db.objectStoreNames.contains("custom")) return null;
+        var meta = await persistencia.get(_v2MetaKey);
+        if (!meta || meta.v !== 2) {
+          var old = await persistencia.get(_outboxKey);
+          if (!old || !Array.isArray(old.pending)) old = {pending:[],confirmed:[],checkpoint:""};
+          await new Promise(function (resolve, reject) {
+            var tx = db.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
+            tx.oncomplete = resolve; tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox migration failed")); };
+            old.pending.forEach(function (entry) { store.put(entry, _v2Prefix + entry.id); });
+            store.put({v:2,rev:1,checkpoint:old.checkpoint || "",confirmed:old.confirmed || []}, _v2MetaKey);
+            store.delete(_outboxKey); // atomic with all writes: crash cannot lose old queue
+          });
+          _v2Cache = old; _v2Revision = 1;
+          _v2Signatures = new Map(old.pending.map(function (entry) { return [entry.id, v2Signature(entry)]; }));
+        }
+        _v2DB = db;
+        return db;
+      }).catch(function () { return null; }); // remain on proven v1 path if quota/migration fails
+      return _v2Ready;
+    }
+    async function leerOutbox() {
+      if (!await v2Db()) {
+        if (persistencia && typeof persistencia.get === "function") return persistencia.get(_outboxKey);
+        try { return JSON.parse(localStorage.getItem(_outboxKey + API.roomId) || "null"); }
+        catch (e) { throw e; }
+      }
+      var meta = await persistencia.get(_v2MetaKey);
+      if (!meta || meta.v !== 2) throw Error("outbox v2 metadata absent");
+      if (_v2Cache && _v2Revision === meta.rev) return _v2Cache;
+      var pending = await new Promise(function (resolve, reject) {
+        var list = [], tx = _v2DB.transaction(["custom"], "readonly");
+        var req = tx.objectStore("custom").openCursor(IDBKeyRange.bound(_v2Prefix, _v2Prefix + "\uffff"));
+        req.onsuccess = function () {
+          var cur = req.result;
+          if (!cur) { resolve(list); return; }
+          list.push(cur.value); cur.continue();
+        };
+        req.onerror = tx.onabort = function () { reject(req.error || tx.error || Error("outbox read failed")); };
+      });
+      _v2Cache = {pending:pending,confirmed:meta.confirmed || [],checkpoint:meta.checkpoint || ""};
+      _v2Revision = meta.rev;
+      _v2Signatures = new Map(pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
+      return _v2Cache;
     }
     function guardarOutbox() {
-      if (persistencia && typeof persistencia.set === "function") return persistencia.set(_outboxKey, _outbox);
-      try { localStorage.setItem(_outboxKey + API.roomId, JSON.stringify(_outbox)); return Promise.resolve(); }
-      catch (e) { return Promise.reject(e); }
+      if (!_v2DB) {
+        if (persistencia && typeof persistencia.set === "function") return persistencia.set(_outboxKey, _outbox);
+        try { localStorage.setItem(_outboxKey + API.roomId, JSON.stringify(_outbox)); return Promise.resolve(); }
+        catch (e) { return Promise.reject(e); }
+      }
+      var next = new Map(_outbox.pending.map(function (entry) { return [entry.id,entry]; }));
+      return new Promise(function (resolve, reject) {
+        var tx = _v2DB.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
+        tx.oncomplete = function () {
+          _v2Revision += 1; _v2Cache = _outbox;
+          _v2Signatures = new Map(_outbox.pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
+          resolve();
+        };
+        tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox commit failed")); };
+        _v2Signatures.forEach(function (_, id) { if (!next.has(id)) store.delete(_v2Prefix + id); });
+        next.forEach(function (entry, id) {
+          if (!_v2Signatures.has(id) || _v2Signatures.get(id) !== v2Signature(entry))
+            store.put(entry, _v2Prefix + id);
+        });
+        store.put({v:2,rev:_v2Revision + 1,checkpoint:_outbox.checkpoint,
+          confirmed:_outbox.confirmed}, _v2MetaKey);
+      });
     }
     function mutarOutbox(change) {
       var run = function () {
@@ -1545,6 +1616,7 @@
        asi los aparatos de JFC se entienden en la sala nueva. Ver la purga local
        gated en mock-backend.js. */
     var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo;
+    API.esLicenciaPruebaJfc = _salaId !== codigo; // exact existing JFC test-room exception
     API.roomId = await idDeSala(_salaId);
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
