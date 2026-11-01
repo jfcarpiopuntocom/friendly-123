@@ -26,4 +26,4 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Real Yjs explicit physical epoch collision
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test test/p0-stock-explicit-epoch-crash.test.cjs
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-stock-explicit-epoch-crash.test.cjs test/stock-base-conflicto-v515.test.js
