@@ -1,0 +1,61 @@
+name: P0 generate actual Supabase browser relay asset (integration branch only)
+on:
+  push:
+    branches: [p0/jfc-sync-convergence-integrated]
+    paths:
+      - supabase-relay/transport.mjs
+      - supabase-relay/gateway.mjs
+      - supabase-relay/browser-entry.mjs
+      - .github/workflows/p0-build-live-relay-asset.yml
+permissions:
+  contents: write
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Supabase bundler
+        run: npm ci --prefix supabase-relay --no-audit --no-fund
+      - name: Recover existing PUBLIC runtime configuration without logging
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs'),path=require('node:path');
+          const s=fs.readFileSync('docs/vendor/supabase-relay.min.js','utf8');
+          const urls=[...new Set(s.match(/https:\/\/[a-z0-9]{20}\.supabase\.co/g)||[])];
+          const keys=[...new Set(s.match(/sb_publishable_[A-Za-z0-9_-]+/g)||[])];
+          if(urls.length!==1||keys.length!==1)throw Error('Cannot recover unique existing PUBLIC runtime config');
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'relay-public-config.json'),JSON.stringify({url:urls[0],publishableKey:keys[0]}),{mode:0o600});
+          console.log('Existing public runtime configuration found; no secret values printed');
+          NODE
+      - name: Rebuild actual GitHub Pages browser relay
+        run: node scripts/build-supabase-relay.cjs "$RUNNER_TEMP/relay-public-config.json"
+      - name: Verify minified bundle syntax and updated independent pull lane
+        shell: bash
+        run: |
+          node --check docs/vendor/supabase-relay.min.js
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const shipped=fs.readFileSync('docs/vendor/supabase-relay.min.js','utf8');
+          if(!shipped.includes('["op","ckpt"].includes') || !shipped.includes('["pull","ts","head"].includes')) throw Error('Bundled transport missing independent read queue');
+          console.log('Verified independent read/write lanes in browser asset');
+          NODE
+          node --test test/e1-browser-relay-head-parity.test.cjs test/p0-s0-pull-priority.test.mjs
+      - name: Commit generated asset to this isolated candidate branch only
+        shell: bash
+        run: |
+          if git diff --quiet -- docs/vendor/supabase-relay.min.js; then
+            echo 'Browser asset already in sync with the transport source'
+          else
+            git config user.name 'friendly123-build[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git add docs/vendor/supabase-relay.min.js
+            git commit -m 'build(p0): synchronize deployed Supabase browser adapter with S0 fast pull'
+            git push origin HEAD:p0/jfc-sync-convergence-integrated
+          fi
