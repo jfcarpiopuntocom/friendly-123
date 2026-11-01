@@ -4191,7 +4191,12 @@
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict);
         // Never display a conflicting epoch as a proven count. The warning
         // survives future merges until a verified physical reconciliation.
-        if ((_epochDoble || p.stockConciliacionPendiente === true) &&
+        // Legacy same-epoch baselines can be independent physical counts:
+        // timestamp ordering is NOT evidence that either history is complete.
+        // Preserve the old numeric compatibility path provisionally, but
+        // never certify its stock/valuation until an opId reconciliation.
+        const _baseFork = _baseL !== null && _baseR !== null && _baseL !== _baseR;
+        if ((_baseFork || _epochDoble || p.stockConciliacionPendiente === true) &&
             mio.stockConciliacionPendiente !== true) {
           mio.stockConciliacionPendiente = true;
           actualizados++;
