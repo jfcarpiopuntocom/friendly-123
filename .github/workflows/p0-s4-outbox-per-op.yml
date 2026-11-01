@@ -8,5 +8,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - run: node --test test/p0-s4-outbox-per-op.test.cjs
-      - run: node --test test/p0-s4-outbox-per-op.test.cjs
+      - name: Install synthetic IndexedDB emulator outside repository
+        run: npm install --no-save --prefix "$RUNNER_TEMP/p0-s4-idb" fake-indexeddb --ignore-scripts --no-audit --no-fund
+      - run: NODE_PATH="$RUNNER_TEMP/p0-s4-idb/node_modules" node --test test/p0-s4-outbox-per-op.test.cjs
+      - run: NODE_PATH="$RUNNER_TEMP/p0-s4-idb/node_modules" node --test test/p0-s4-outbox-per-op.test.cjs
