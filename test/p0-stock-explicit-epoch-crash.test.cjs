@@ -32,7 +32,9 @@ test('two competing explicit epochs with stale local metadata preserve all indep
     stockTs:9000,rev:{c:2,d:'deviceB'}};
   const independent={id:'independent-product',nombre:'Must still publish',
     stockActual:4,rev:{c:3,d:'deviceA'}};
-  a.mapas.productos.set(local.id,remote);
+  // Yjs rejects plain objects from a different VM realm. Materialize in
+  // the browser realm exactly as its own JSON restore pipeline does.
+  a.mapas.productos.set(local.id,vm.runInContext('JSON.parse('+JSON.stringify(JSON.stringify(remote))+')',w));
   const original=w.OCSync.catalogoPropio;
   w.OCSync.catalogoPropio=()=>({...original.call(w.OCSync),
     productos:[local,independent]});
