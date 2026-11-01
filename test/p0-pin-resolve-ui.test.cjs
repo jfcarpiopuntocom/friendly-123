@@ -68,12 +68,12 @@ test('P0 brand-new replica without an instance ID can validate a centrally activ
  assert.deepEqual(f.calls.map(c=>c.method),['GET','POST']);
 });
 test('P0 joined PWA resolves active license but NEVER adopts the unrelated owned-device credentials',async()=>{
- const f=fixture({active:'F123-ANOTHER',identity:'F123-ANOTHER'});
+ const f=fixture({active:'F123-ANOTHER-SHOP',identity:'F123-ANOTHER-SHOP'});
  assert.equal(await f.verify('909'),'needs-recovery','must recover this shop before Owner access');
  assert.equal(f.adoptions.length,1);
- assert.equal(f.adoptions[0][2],'F123-ANOTHER');
+ assert.equal(f.adoptions[0][2],'F123-ANOTHER-SHOP');
  assert.deepEqual(f.calls.map(c=>c.pathname),['/pin/verify','/pin/resolve']);
- assert.equal(JSON.parse(f.calls[1].body).licenseCode,'F123-ANOTHER');
+ assert.equal(JSON.parse(f.calls[1].body).licenseCode,'F123-ANOTHER-SHOP');
 });
 test('P0 incorrect central PIN and rate-limited PIN remain denied to new browser',async()=>{
  assert.equal(await fixture({resolved:401}).verify('909'),'wrong');
