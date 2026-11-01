@@ -10,6 +10,14 @@ El cambio anterior `ed12129` solo ampliaba el ciphertext práctico de **191.904 
 
 La causa estructural no cambia: `API.doc` incluye historiales crecientes. Se añade `OCYjs.medirTamanoColecciones()` para cifras por mapa (bytes de JSON visible, **estimación**, no bytes exactos de Yjs) y se deja la separación de historiales para el [plan v638](./V638-PLAN-SEPARAR-HISTORIALES-CATALOGO.md). **No se ha medido todavía ninguna colección real.**
 
+## v637 — autorización JFC 1 nov 2026: 768 KiB (NO aplicado en producción)
+
+JFC autorizó el punto 2 con la condición original: **medir primero si 262 KiB son insuficientes**. Claude/Opus precisó que **768 KiB (786.432 bytes cifrados)** es el máximo compatible con el presupuesto de recuperación de 1 MiB; 1 MiB de checkpoint + 1 MiB de operaciones desbordaría la respuesta. La migración SQL `supabase-relay/migrations/20261101090000_checkpoint_768k.sql` está **preparada en el PR, no aplicada**: modifica únicamente `save_checkpoint` y `pull_page`, resta el checkpoint al presupuesto de operaciones y mantiene el avance obligatorio de la primera operación. No toca el CHECK de 262.144 bytes de `operations.cipher`.
+
+La candidata anuncia 786.432 B en el adaptador Supabase, admite hasta 1.088 KiB de JSON **solo en RPC de checkpoint**, y exime de la cola local de 512 KiB **solo al checkpoint anunciado con búfer vacío**. El cliente antiguo y WebRTC conservan su límite y comportamiento anteriores. **Bloqueo vigente:** el shell `index.html` carga `peer-sync.js`, no el adaptador Supabase; por ello el límite mayor no está habilitado para los usuarios de ese shell. El orden futuro es **SQL probado → verificación de autoridad/cutover → cliente**, siempre con aprobación de publicación aparte.
+
+Rendimiento 300 productos: línea base **548 ms p50**, después de la medición de Claude **468 ms p50** (Chrome PC de JFC); objetivo **≤200 ms**. Cambios candidatos independientes: cache LRU de 4 parseos A/B (`estado-ab.js`), unión de actividad con retorno de identidad en no-op (`mock-backend.js`), y firma de barrido actualizada tras siembra en vivo (`sync-yjs.js`). **No hay nueva medición p50 en la PC tras estos commits**. Se preservó el orden de publicación/durabilidad: no se ha adelantado Yjs a A/B sin prueba de cierre abrupto. No se tocó el redibujado de inventario ni el merge canónico global sin pruebas de paridad.
+
 ## Evidencia de tamaños (solo lectura)
 
 El relay guarda ciphertext y no conoce licencias ni contenido de las salas. La consulta de solo lectura devolvió los diez checkpoints cifrados más grandes: **191866, 170566, 155239, 130144, 39765, 26600, 20468, 11944, 2381 y 626 bytes**. El mayor está a 38 bytes del máximo práctico del cliente (191904 bytes). Esas diez cifras **no identifican diez tiendas** ni prueban el tamaño actual de los documentos de los aparatos. No se midió ningún aparato real desde esta sesión.
