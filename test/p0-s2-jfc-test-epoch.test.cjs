@@ -17,6 +17,8 @@ test('S2 reset implementation is absent; compatibility hook is inert and local s
   assert.match(backend, /window\.__f123PrepareJfcReset = function \(\) \{ return false; \};/);
   assert.match(backend, /let _demoRefrescado = false;\s*try \{ cargarEstadoLocal\(\); \} catch/);
   assert.doesNotMatch(backend, /OCEstadoIDB\.borrar\(\)/);
+  assert.doesNotMatch(backend, /_corteJfcS2|__f123JfcResetReady/);
+  assert.match(backend, /const espejo = await window\.OCEstadoIDB\.leer\(\);/); // preserve recovery after crash
 });
 test('causal movement witnesses stay enabled for the JFC canary licence',()=>{
   assert.match(sync,/API\.esLicenciaPruebaJfc = _salaId !== codigo;/);
