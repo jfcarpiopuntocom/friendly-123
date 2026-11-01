@@ -89,7 +89,7 @@
   // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
-  // Gzip before encryption; ciphertext cannot be compressed. Only JFC's test room emits tag 7.
+  // Gzip before encryption. Tag7 writes require a confirmed per-license device census.
   async function _gzipYjs(bytes, decompress) {
     var Stream = decompress ? window.DecompressionStream : window.CompressionStream;
     if (typeof Stream !== "function" || typeof Response !== "function") return null;
@@ -100,6 +100,28 @@
       await writer.write(bytes); await writer.close();
       return new Uint8Array(await read);
     } catch (_) { return null; }
+  }
+  // Progressive per-license transport rollout; fail closed if policy cannot be loaded.
+  async function _politicaRollout(codigo) {
+    var off = {outboxV2:false,gzipWrite:false,stage:"disabled"};
+    try {
+      var bytes = new TextEncoder().encode("friendly123-rollout-v1:" + codigo);
+      var hash = await crypto.subtle.digest("SHA-256",bytes);
+      var key = Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+      var res = await fetch("./sync-rollout.json",{cache:"no-store",credentials:"same-origin"});
+      if (!res || !res.ok) return off;
+      var cfg = await res.json();
+      if (!cfg || cfg.schema !== 1 || !["owner-canary","consenting-client","all"].includes(cfg.stage)) return off;
+      var entry = cfg.licenses && cfg.licenses[key];
+      if (!entry || entry.stage !== cfg.stage || entry.approved !== true) return off;
+      var fullCensus = entry.allDevicesOnNewShell === true &&
+        Number.isSafeInteger(entry.minimumShell) && entry.minimumShell >= 637 &&
+        /^[a-f0-9]{64}$/.test(entry.deviceCensusSha256 || "") &&
+        /^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(entry.censusDate || "") &&
+        entry.gzipApproved === true;
+      return {outboxV2:entry.outboxV2 === true,
+        gzipWrite:entry.gzipWrite === true && fullCensus,stage:cfg.stage};
+    } catch (_) {return off;}
   }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
@@ -351,10 +373,12 @@
     function v2Db() {
       if (_v2Ready) return _v2Ready;
       _v2Ready = Promise.resolve().then(async function () {
-        if (!API.esLicenciaPruebaJfc || !persistencia || (!persistencia.db && !persistencia._db)) return null;
+        if (!persistencia || (!persistencia.db && !persistencia._db)) return null;
         var db = persistencia.db || await persistencia._db;
         if (!db || !db.objectStoreNames.contains("custom")) return null;
         var meta = await persistencia.get(_v2MetaKey);
+        // Once migrated, retain v2 storage even if the policy is temporarily unavailable.
+        if (!(API.rollout && API.rollout.outboxV2) && (!meta || meta.v !== 2)) return null;
         if (!meta || meta.v !== 2) {
           var old = await persistencia.get(_outboxKey);
           if (!old || !Array.isArray(old.pending)) old = {pending:[],confirmed:[],checkpoint:""};
@@ -1002,7 +1026,6 @@
     var _tCkpt = null;
     // JFC test room diagnostic, shown in the existing Sync status line (no overlay).
     function diagnosticarCkpt(motivo, bytes) {
-      if (!API.esLicenciaPruebaJfc) return;
       try {
         window.__ocCheckpointError = motivo ? { canal: nombre, motivo: motivo, bytes: bytes || 0 } : null;
         window.dispatchEvent(new CustomEvent("oc-checkpoint-status", {detail: window.__ocCheckpointError}));
@@ -1039,14 +1062,13 @@
       var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
       // A full-state base64 copy can exceed 100MB and re-inflate the IDB outbox.
-      // On the JFC test room persist a 71-byte fingerprint instead; other rooms
-      // retain exactly the historical checkpoint metadata format.
+      // Enabled v2 rooms store a small fingerprint; v1 rooms retain legacy metadata.
       Promise.resolve().then(function () {
-        return API.esLicenciaPruebaJfc ? updateHash(full).then(function (hash) { return "sha256:" + hash; }) : _b64(full);
+        return API.rollout && API.rollout.outboxV2 ? updateHash(full).then(function (hash) { return "sha256:" + hash; }) : _b64(full);
       }).then(function (state) {
         if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
         return Promise.resolve().then(function () {
-          return API.esLicenciaPruebaJfc ? _gzipYjs(full, false) : null;
+          return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
         }).then(function (packed) {
           // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
           var useful = packed && packed.length + 1 < full.length;
@@ -1254,7 +1276,7 @@
           }
           if (tag === 7) {
             // A checkpoint is one authenticated frame. Never accept compressed peer/live ops.
-            if (!API.esLicenciaPruebaJfc || source !== "pull") return false;
+            if (source !== "pull") return false; // reader understands tag7; writer is separately gated
             return _gzipYjs(payload, true).then(function (update) {
               if (!update || !update.length) return false;
               Y.applyUpdate(doc, update, "red");
@@ -1663,6 +1685,7 @@
     } catch (_) { log("identidad del cuaderno no disponible — sin sync"); return; }
     if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
     var codigo = normalizarCodigo(_licProp);
+    var rolloutPromise = _politicaRollout(codigo);
     // A first-time license may be entered after mock-backend boot, on the PIN screen.
     if (typeof window.__f123PrepareJfcReset === "function") window.__f123PrepareJfcReset();
     // S2: do not open the NEW test room while old local business/IDB is pending reset.
@@ -1691,6 +1714,7 @@
     var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::jfc-test-epoch-2026-11-01") : codigo;
     API.esLicenciaPruebaJfc = _salaId !== codigo; // existing JFC test-license fingerprint gate only
     API.roomId = await idDeSala(_salaId);
+    API.rollout = await rolloutPromise;
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
     // Guardamos la referencia: al terminar de cargar de IndexedDB ("synced")
