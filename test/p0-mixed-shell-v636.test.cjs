@@ -43,7 +43,9 @@ test('mixed-shell: a compacted tag0 Yjs update keeps old v636 reader semantics',
  const payload=compact||ctx.full;
  const oldStart=old.indexOf('      function manejar(buf, source, peerReceipt) {');
  const oldEnd=old.indexOf('      ws.onmessage = function (ev) {',oldStart);
- const oldDoc=vm.runInContext('new Y.Doc()',ctx);
+ // Yjs root types must be declared on the receiver before applying remote updates.
+ // Otherwise toJSON() omits a valid, but as-yet-uninitialized, remote map.
+ const oldDoc=vm.runInContext("var oldDoc=new Y.Doc(); oldDoc.getMap('productos'); oldDoc",ctx);
  const decrypt=async()=>{const frame=new Uint8Array(payload.length+1);frame[0]=0;frame.set(payload,1);return frame;};
  Object.assign(ctx,{API:{clave:{},_catalogoRevision:0},_pausado:false,permitido:()=>true,
   descifrarBin:decrypt,doc:oldDoc,pullEstado:{},nombre:'catalogo',appliedUpdate(){},clavePendientes(){}});
