@@ -7,7 +7,7 @@ async function esperar(condicion,mensaje){
  while(!condicion()&&Date.now()<limite)await new Promise(r=>setTimeout(r,1));
  assert.ok(condicion(),mensaje);
 }
-async function fixture(data=new Map(),locks,adapterMissing=false,realY=false){
+async function fixture(data=new Map(),locks,adapterMissing=false,realY=false,modernHead=false,channelName='fixture'){
  const sockets=[],timers=[];let rawCalls=0;
  class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){this.sent.push(x)}close(){this.readyState=3;this.onclose?.()}}
  // Synthetic IDB hydration proof + transaction barrier; no customer storage.
@@ -28,16 +28,27 @@ async function fixture(data=new Map(),locks,adapterMissing=false,realY=false){
  if(realY)vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
  const Y=realY?ctx.Y:{encodeStateAsUpdate:()=>Uint8Array.from({length:20},(_,i)=>i),encodeStateVector:()=>new Uint8Array([1]),applyUpdate(){}};
  const doc=realY?new Y.Doc():{};
- const channel=ctx.make(Y,doc,'-y','fixture',true,null,p);channel.conectar();
+ const channel=ctx.make(Y,doc,'-y',channelName,true,null,p);channel.conectar();
  if(sockets[0]){
   sockets[0].onopen();await tick();await tick();
   // This fixture simulates an older relay without HEAD support; real catch-up
   // must explicitly fall back to the durable pull-page protocol.
-  sockets[0].onmessage({data:JSON.stringify({k:"head-result",unsupported:true})});await tick();await tick();
+  sockets[0].onmessage({data:JSON.stringify(modernHead?{k:'head-result',rev:0,seq:0}:{k:'head-result',unsupported:true})});await tick();await tick();
   sockets[0].onmessage({data:JSON.stringify({k:"pull-page",rev:0,seq:0,more:false})});await tick();await tick();
  }
  return {Y,doc,data,timers,channel,socket:sockets[0],sockets,p,ctx,get rawCalls(){return rawCalls},restoreAdapter(){ctx.window.F123Relay={connect:()=>new Socket()}}};
 }
+test('P0 bounded modern pull: 128 catalog/ops, conservative legacy 64 and photos 4',async()=>{
+ const modern=await fixture(new Map(),undefined,false,false,true,'catalogo');
+ const first=controls(modern.socket,'pull').at(0);
+ assert.equal(first.limit,128,'native v2 HEAD permits 128 ciphertext rows under its 1 MiB server cap');
+ assert.equal(first.seq,0);
+ const ancient=await fixture(new Map(),undefined,false,false,false,'catalogo');
+ assert.equal(controls(ancient.socket,'pull').at(0).limit,64,'legacy no-HEAD relay retains the safe old limit');
+ const photos=await fixture(new Map(),undefined,false,false,true,'fotos');
+ assert.equal(controls(photos.socket,'pull').at(0).limit,4,'photo burst cap is unchanged');
+});
+
 test('unacknowledged encrypted update survives reload and is removed only after durable ack',async()=>{
  const a=await fixture();a.channel.enviarUpdate(new Uint8Array([4,5,6]));await esperar(()=>controls(a.socket,"op").length===1,"encrypted operation reaches the durable relay");
  const sent=a.socket.sent.filter(x=>typeof x==='string').map(JSON.parse).find(x=>x.k==='op');
