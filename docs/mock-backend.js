@@ -4075,7 +4075,8 @@
       return _serializarMergeCanonico(catalogo);
     } catch (_) { return null; }
   }
-  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs, soloProductosSync = false) {
+  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
+    const soloProductosSync = arguments.length > 3 && arguments[3] === true;
     if (_conflictoEstadoAB) return {ok:false,error:"Conflicting saved copies; incoming state is retained for retry."};
     if (_ventaConfirmando) {
       _ventaCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
@@ -4881,9 +4882,9 @@
       // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27). El aviso sale ya (se auto-filtra con
       // _estadoPuedeEnviarse); si quedo bloqueado por un guardado estricto, se repite al terminar de guardar.
       // El relay peer-only no es almacenamiento: el ACK del par exige un guardado estricto independiente.
+      const _persistiendo = Promise.resolve(guardarEstadoLocal()); // credenciales: guardar ANTES del evento
       const _avisadoYa = _estadoPuedeEnviarse();
       avisarCatalogoCambiado();
-      const _persistiendo = Promise.resolve(guardarEstadoLocal()); // credenciales: guardado inmediato
       return _persistiendo.then(function (guardado) {
         if (guardado && !_avisadoYa) avisarCatalogoCambiado();
       });

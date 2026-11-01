@@ -2862,7 +2862,9 @@
       _aplicando = true;
       var _fallo = false;
       try {
-        var r = window.OCSync.aplicarCatalogo(remoto, rolRemoto, true, soloProductos); // Only incremental product-only merges defer A/B; full catalogues remain durable immediately
+        var r = soloProductos
+          ? window.OCSync.aplicarCatalogo(remoto, rolRemoto, true, true)
+          : window.OCSync.aplicarCatalogo(remoto, rolRemoto, true); // Only incremental product-only merges defer A/B
         ultimaAplicacionAceptada = !!(r && r.ok && r.actividadCompleta !== false);
         if (ultimaAplicacionAceptada && !soloProductos) _primerMergeAceptado = true;
         ultimaAplicacionPins = Promise.resolve(r && r.pinsConfirmados).then(function (ok) { return ok === true; }, function () { return false; });
