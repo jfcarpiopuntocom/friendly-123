@@ -17,6 +17,11 @@ const FALLA=()=>{
   window.setTimeout=function(fn,ms,...a){ if([3000,6000,12000,24000,48000].includes(ms)){window.__delays.push(ms);return st(fn,10,...a);} return st(fn,ms,...a); };
   window.__lock=true;
   Object.defineProperty(navigator,'locks',{configurable:true,value:{request:(n,o,cb)=>window.__lock?Promise.reject(new DOMException('lock timeout','AbortError')):Promise.resolve(cb())}});
+  // Saves commit through the A/B localStorage buffer and the IndexedDB state store (estado-idb), not only the lock: fail both channels with non-quota errors.
+  const set=localStorage.setItem.bind(localStorage);
+  localStorage.setItem=function(k,v){ if(window.__lock&&String(k).indexOf('f123_estado_v4')===0) throw new DOMException('lock timeout','AbortError'); return set(k,v); };
+  const put=IDBObjectStore.prototype.put;
+  IDBObjectStore.prototype.put=function(...a){ if(window.__lock&&this.name==='estado') throw new DOMException('lock timeout','AbortError'); return put.apply(this,a); };
 };
 
 test('retry backoff is 3,6,12,24,48 s and stops at 5 attempts; no red banner and no notice',async()=>{
@@ -57,7 +62,9 @@ test('real quota error writes plain text in the Avanzado status line (no overlay
     await page.evaluate(()=>{
       const orig=localStorage.setItem.bind(localStorage);
       localStorage.setItem=function(k,v){ if(String(k).indexOf('f123_estado_v4')===0) throw new DOMException('full','QuotaExceededError'); return orig(k,v); };
-      if(window.OCEstadoIDB) window.OCEstadoIDB.guardar=()=>Promise.resolve(false);
+      // Device full: the IndexedDB state store (the strict save channel) also hits quota.
+      const put=IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put=function(...a){ if(this.name==='estado') throw new DOMException('full','QuotaExceededError'); return put.apply(this,a); };
     });
     await POST(page,NUEVO('Q1'));
     await page.waitForTimeout(400);
