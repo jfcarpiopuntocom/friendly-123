@@ -2394,7 +2394,15 @@
                       _rt >= _pt - 2000 && _notFuture;
                     var _stockValido = _samePhysicalEpoch &&
                       (_sameLedger || _epochNewer || _legacyNewer || _firstLedger);
-                    var _safeStock = !_samePhysicalEpoch ? _epochPreferred : (_stockValido ? r : prev);
+                    // P0: when TWO explicit physical epochs conflict,
+                    // _epochPreferred is intentionally null: neither clock is
+                    // proof of a physical recount. Keep the already-published
+                    // stock view pending reconciliation, preserve BOTH evidence
+                    // sets, and continue publishing unrelated catalog entries.
+                    // Previously dereferencing null aborted the WHOLE Yjs
+                    // transaction, leaving products/clients silently unsent.
+                    var _safeStock = !_samePhysicalEpoch ? (_epochPreferred || prev) : (_stockValido ? r : prev);
+                    var _forkEvidence = r.stockEvidencias || prev.stockEvidencias;
                     r = Object.assign({}, prev, {
                       stockBase: _safeStock.stockBase,
                       stockPN: _safeStock.stockPN,
@@ -2403,6 +2411,7 @@
                       stockDeficit: _safeStock.stockDeficit,
                       stockEpochId: _safeStock.stockEpochId
                     });
+                    if (_forkEvidence) r.stockEvidencias = _forkEvidence;
                   }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
                   else return;
