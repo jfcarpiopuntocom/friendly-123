@@ -21,6 +21,18 @@ test('incremental == reconstruccion completa, con versiones en conflicto y ids n
   }
   assert.deepStrictEqual(unir(acc, copia(acc)), unir([], copia(acc)), 'unirse consigo mismo no cambia nada');
 });
+test('300 validated activity records: identical delta retains identity; new version still merges',()=>{
+ const batch=Array.from({length:300},(_,i)=>env('inst-a',i,false));
+ const base=unir([],copia(batch));
+ const duplicate=unir(base,copia(base));
+ assert.strictEqual(duplicate,base,'no-op delta does not rebuild or serialize full history');
+ const changed=copia(base[0]);
+ changed.versiones[0].fecha='2026-10-28T11:22:33Z';
+ const updated=unir(base,[changed]);
+ assert.notStrictEqual(updated,base,'new evidence must still create a new merged result');
+ assert.deepStrictEqual(updated,unir([],copia(base).concat([changed])));
+ assert.equal(base[0].versiones.length,1,'previous evidence remains untouched');
+});
 test('entrada invalida sigue lanzando', () => {
   assert.throws(() => unir([], [{ id: 'x', origen: '', clase: 'evento', versiones: [{}] }]), /Invalid shared activity envelope/);
 });
