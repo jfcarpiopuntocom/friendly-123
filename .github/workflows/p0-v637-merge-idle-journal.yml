@@ -1,0 +1,30 @@
+name: P0 v637 remote merge idle save + v636 journal compatibility
+on:
+  pull_request:
+    paths:
+      - docs/estado-ab.js
+      - docs/mock-backend.js
+      - docs/version-manifest.json
+      - test/p0-v637-ab-commit-sin-preimagen.test.cjs
+      - test/p0-v637-merge-idle-guards.test.cjs
+      - test/fixtures/estado-ab-v636.js
+      - .github/workflows/p0-v637-merge-idle-journal.yml
+permissions:
+  contents: read
+jobs:
+  durability-and-idle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node --check docs/estado-ab.js
+      - run: node --check docs/mock-backend.js
+      - name: New regressions + A/B failure recovery — first run
+        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs
+      - name: New regressions + A/B failure recovery — second run
+        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs
