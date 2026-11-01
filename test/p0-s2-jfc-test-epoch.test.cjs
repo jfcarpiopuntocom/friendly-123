@@ -2,14 +2,14 @@
 // JFC 2026-11-01 (contract change, explicit order): NO device is ever wiped. A reset can never be applied to
 // customers, so the JFC licence must prove the same path they will use: keep the v636 room, keep local data
 // and pending logs, and absorb/synchronise them. Previous S2 (one-shot wipe + new epoch room) is cancelled.
-const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const sync=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 const backend=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');
-const v636=cp.execFileSync('git',['show','795635ea0b0de262cd982d9a5dc828fd8cffcfba:docs/sync-yjs.js'],{encoding:'utf8',maxBuffer:64e6});
+// Published v636 (795635ea) uses this exact JFC room suffix (verified from its docs/sync-yjs.js); CI is a shallow clone.
+const V636_SUFIJO='::limpio-2026-09-16';
 const sufijo=s=>(s.match(/\? \(codigo \+ "(::[^"]+)"\) : codigo;/)||[])[1];
 test('JFC licence stays in the SAME room as published v636 (its data lives there)',()=>{
-  assert.equal(sufijo(v636),'::limpio-2026-09-16');
-  assert.equal(sufijo(sync),sufijo(v636));
+  assert.equal(sufijo(sync),V636_SUFIJO);
   assert.doesNotMatch(sync,/jfc-test-epoch-2026-11-01"\) : codigo/);
 });
 test('the one-shot local wipe is disabled before any storage is touched',()=>{
