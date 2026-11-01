@@ -2401,17 +2401,26 @@
                     // sets, and continue publishing unrelated catalog entries.
                     // Previously dereferencing null aborted the WHOLE Yjs
                     // transaction, leaving products/clients silently unsent.
-                    var _safeStock = !_samePhysicalEpoch ? (_epochPreferred || prev) : (_stockValido ? r : prev);
-                    var _forkEvidence = r.stockEvidencias || prev.stockEvidencias;
+                    var _explicitEpochConflict = !_samePhysicalEpoch && !!_stockEpochMine && !!_stockEpochDoc;
+                    // Defensive || r for brand-new products. The current
+                    // branch requires prev, but a future caller must not
+                    // convert an absent historic product into a TypeError.
+                    var _safeStock = !_samePhysicalEpoch ? (_epochPreferred || prev || r) : (_stockValido ? r : prev || r);
+                    // Merge BOTH sets, never choose the first truthy evidence map.
+                    // Also include each source's present base/PN snapshot.
+                    var _forkEvidence = unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar);
                     r = Object.assign({}, prev, {
                       stockBase: _safeStock.stockBase,
                       stockPN: _safeStock.stockPN,
                       stockActual: _safeStock.stockActual,
                       stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
                       stockDeficit: _safeStock.stockDeficit,
-                      stockEpochId: _safeStock.stockEpochId
+                      stockEpochId: _safeStock.stockEpochId,
+                      stockConciliacionPendiente: _explicitEpochConflict ||
+                        prev.stockConciliacionPendiente === true ||
+                        _stockAntesDeArbitrar.stockConciliacionPendiente === true
                     });
-                    if (_forkEvidence) r.stockEvidencias = _forkEvidence;
+                    if (Object.keys(_forkEvidence).length) r.stockEvidencias = _forkEvidence;
                   }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
                   else return;
