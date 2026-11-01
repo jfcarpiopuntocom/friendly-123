@@ -2427,7 +2427,7 @@
                       stockEpochId: _safeStock.stockEpochId,
                       stockConciliacionPendiente: _explicitEpochConflict ||
                         prev.stockConciliacionPendiente === true ||
-                        _stockAntesDeArbitrar.stockConciliacionPendiente === true
+                        r.stockConciliacionPendiente === true
                     });
                     if (Object.keys(_forkEvidence).length) r.stockEvidencias = _forkEvidence;
                   }
