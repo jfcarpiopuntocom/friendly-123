@@ -1161,9 +1161,22 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             // Central verification is authoritative. Adopt its PIN locally
             // through the existing durable Owner rotation intent; replay into
             // Yjs is handled separately when the encrypted channel is ready.
-            if(window.OCSecure && window.OCSecure.adoptarPinOwnerCentralVerificado){
-              try{await window.OCSecure.adoptarPinOwnerCentralVerificado(String(code),data.revision,lic)}catch(_){}
-            }
+            // A central PIN check proves identity only. Never admit Owner
+            // to an empty/wrong notebook when local durable adoption failed.
+            if(!window.OCSecure || typeof window.OCSecure.adoptarPinOwnerCentralVerificado!=="function")
+              return "needs-recovery";
+            let adopted=false;
+            try{
+              adopted=(await window.OCSecure.adoptarPinOwnerCentralVerificado(String(code),data.revision,lic))===true;
+            }catch(_){adopted=false}
+            if(!adopted)return "needs-recovery";
+            // Identity may have changed while WebCrypto/storage was awaited.
+            const stillOwn=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+            const stillActive=window.OCTienda&&window.OCTienda.licenciaActual&&
+              String(window.OCTienda.licenciaActual()||"").trim().toUpperCase();
+            if(String(stillOwn.licenseCode||"").trim().toUpperCase()!==lic||
+               String(stillOwn.instanceId||"")!==String(owned.instanceId)||
+               (stillActive&&stillActive!==lic))return "unavailable-identity";
             try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:data.revision,at:Date.now()}))}catch(_){}
             return "owner";
           }
@@ -1172,7 +1185,15 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if(response.status===401)return "wrong";
         if(response.status===429)return "locked";
         if(response.status===404)return "unavailable-identity";
-        if(response.status===409)return "unconfigured";
+        if(response.status===409){
+          // A previously adopted central revision must never fall back to a
+          // stale, locally cached Owner verifier when authority is temporarily
+          // unconfigured after a deployment/replica inconsistency.
+          let seen=null;
+          try{seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+lic)||"null")}catch(_){}
+          return seen&&Number.isSafeInteger(seen.revision)&&seen.revision>0
+            ? "unavailable" : "unconfigured";
+        }
         return "unavailable";
       }finally{clearTimeout(timer)}
     }catch(_){return "unavailable"}
@@ -1262,7 +1283,25 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // Never allow central rejection to become a staff/artist PIN bypass.
     const central=(rolHash==="dueno"||!rolHash) && dispositivoApropiado()
       ? await verificarPinOwnerCentral(code) : "unconfigured";
-    if(central==="owner"){registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}return alinearYEntrar(code,"dueno")}
+    if(central==="owner"){
+      registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}
+      const entered=await alinearYEntrar(code,"dueno");
+      // P0 lab only: a central-verified Owner may enable the new encrypted
+      // durable Yjs backfill. No localStorage PIN or existing customer changes.
+      // Current production without this explicit flag behaves as before.
+      try{
+        if(localStorage.getItem("f123_mailbox_lab_20261031")==="1"){
+          import("./mailbox-startup.mjs").then(m=>m.ownerMailboxLogin(code))
+            .catch(()=>{try{window.dispatchEvent(new CustomEvent("oc-mailbox-state",
+              {detail:{status:"pending",code:"client-unavailable"}}))}catch(_){}});
+        }
+      }catch(_){}
+      return entered;
+    }
+    if(central==="needs-recovery"){
+      error("PIN Owner central válido, pero este aparato no ha guardado la credencial del cuaderno. Usa recuperación; no se modificaron PIN ni inventario.");
+      return;
+    }
     if(central==="wrong"&&rolHash==="dueno"){
       error("Este PIN Owner fue reemplazado en el panel JFC. Usa el PIN central vigente.");
       return;

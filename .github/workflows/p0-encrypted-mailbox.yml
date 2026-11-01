@@ -1,0 +1,57 @@
+name: p0 encrypted mailbox (isolated)
+on:
+  push:
+    branches:
+      - feature/p0-encrypted-durable-mailbox-20261031
+  pull_request:
+    paths:
+      - 'docs/auth-ui.js'
+      - 'docs/mailbox-startup.mjs'
+      - 'docs/mailbox-bridge.mjs'
+      - 'test/p0-owner-adoption-guard.test.cjs'
+      - 'test/p0-mailbox-client.test.mjs'
+      - 'test/p0-mailbox-playwright.test.cjs'
+      - 'cloudflare-worker/mailbox-api.mjs'
+      - 'cloudflare-worker/worker.js'
+      - 'cloudflare-worker/wrangler.toml'
+      - 'test/p0-mailbox-worker.test.mjs'
+      - '.github/workflows/p0-encrypted-mailbox.yml'
+permissions:
+  contents: read
+jobs:
+  mailbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Syntax, signature and ephemeral Owner sessions
+        run: |
+          node --check docs/auth-ui.js
+          node --check docs/mailbox-startup.mjs
+          node --check docs/mailbox-bridge.mjs
+          node --check cloudflare-worker/mailbox-api.mjs
+          node --check cloudflare-worker/worker.js
+          node --test test/p0-mailbox-worker.test.mjs test/p0-mailbox-client.test.mjs test/p0-owner-adoption-guard.test.cjs test/p0-central-pin-legacy-offline-guard.test.cjs
+      - name: Verify Cloudflare Worker and binding without deploying
+        run: |
+          npx wrangler deploy --dry-run --config cloudflare-worker/wrangler.toml --outdir /tmp/f123-mailbox
+
+  browser-p0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install exact browsers for offline cross-engine acceptance
+        run: npx playwright install --with-deps chromium webkit
+      - name: Same encrypted room A Chromium off -> B WebKit -> A Chromium reopens
+        run: node --test --test-timeout=180000 test/p0-mailbox-playwright.test.cjs

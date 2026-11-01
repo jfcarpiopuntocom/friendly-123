@@ -51,6 +51,17 @@ class_name = "RegistroLicencias"
 tag = "v1"
 new_sqlite_classes = ["RegistroLicencias"]
 
+# Separate SQLite Durable Object per licensed shop for ciphertext envelopes.
+# The existing global REGISTROS remains the PIN/registry authority.
+# This binding does nothing until an encrypted Yjs client is separately approved.
+[[durable_objects.bindings]]
+name = "MAILBOXES"
+class_name = "BuzonCifrado"
+
+[[migrations]]
+tag = "v2-mailbox-per-license"
+new_sqlite_classes = ["BuzonCifrado"]
+
 [observability]
 enabled = true
 
