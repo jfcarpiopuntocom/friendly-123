@@ -5562,7 +5562,7 @@
   // other clients, and other browser namespaces untouched. Never log the license.
   function _esLicenciaJfcParaS2() {
     try {
-      var codigo = String(_licenciaActual() || "").trim().toUpperCase().replace(/\\s+/g, "");
+      var codigo = String(_licenciaActual() || "").trim().toUpperCase().replace(/\s+/g, "");
       var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
       for (var i = 0, ch; i < codigo.length; i++) {
         ch = codigo.charCodeAt(i);
