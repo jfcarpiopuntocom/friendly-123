@@ -84,7 +84,7 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  assert.equal((await rawGet(metaKey)).rev,2);
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:C')).c,'synthetic-cipher-C');
  const b=harness(true),reopened=await b.getQueue();
- assert.deepEqual(reopened.pending.map(x=>x.id),['A','B','C']);
+ assert.deepEqual(Array.from(reopened.pending,x=>String(x.id)),['A','B','C']);
  reopened.pending=reopened.pending.filter(x=>x.id!=='B');
  await b.putQueue(reopened);
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:B')),undefined,'ACK removes only retired envelope');
