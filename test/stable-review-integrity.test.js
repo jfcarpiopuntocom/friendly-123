@@ -95,7 +95,7 @@ test('E1: legacy v1 checkpoint HEAD behind stored cursor replays checkpoint ONCE
   const ctx={
     canal:{ws,recuperando:true},_pullCursorReady:Promise.resolve(),
     _pullCursor:{rev:3,seq:10},_appliedPullCursor:{rev:3,seq:10},
-    _soloMemoria:false,_replayKey:'missing',_replayUsed:4,PULL_PAGE_SIZE:64,
+    _soloMemoria:false,_replayKey:'missing',_replayUsed:4,PULL_PAGE_SIZE:64,MODERN_PULL_PAGE_SIZE:128,
     _legacyProbeKey:'',_legacyProbeAttempts:0,
     clearTimeout(){},setTimeout(){return 1;},programarRelectura(){},
     partesEntrantes:{},doc:{store:{}},API:{},nombre:'catalogo',console
@@ -123,7 +123,7 @@ test('E1 v1 checkpoint repair has a fixed per-channel quota across reconnects',a
   const ctx={canal:{ws,recuperando:true},_pullCursorReady:Promise.resolve(),
     _pullCursor:{rev:3,seq:10},_appliedPullCursor:{rev:3,seq:10},
     _legacyProbeKey:'',_legacyProbeAttempts:0,
-    _soloMemoria:false,_replayKey:null,_replayUsed:0,PULL_PAGE_SIZE:64,
+    _soloMemoria:false,_replayKey:null,_replayUsed:0,PULL_PAGE_SIZE:64,MODERN_PULL_PAGE_SIZE:128,
     clearTimeout(){},setTimeout(){return 1;},programarRelectura(){},
     partesEntrantes:{},doc:{store:{}},API:{},nombre:'catalogo',log(){}};
   vm.createContext(ctx);
