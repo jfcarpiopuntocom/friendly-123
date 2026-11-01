@@ -67,3 +67,8 @@ test('S2 a license entered after the PIN screen boot also gates the fresh room',
   assert.ok(sync.includes('if (typeof window.__f123PrepareJfcReset === "function") window.__f123PrepareJfcReset();'));
   assert.ok(sync.indexOf('window.__f123PrepareJfcReset()') < sync.indexOf('await window.__f123JfcResetReady'));
 });
+
+test('S2 blocks an IDB recovery started before a late PIN-screen reset',()=>{
+  assert.match(mock,/if \(_corteJfcS2 \|\| window\.__f123JfcResetReady\) return; \/\/ asynchronous read may predate S2/);
+  assert.match(mock,/if \(_corteJfcS2 \|\| window\.__f123JfcResetReady\) return; \/\/ includes PIN entered after boot/);
+});
