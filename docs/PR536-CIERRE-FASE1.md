@@ -2,6 +2,13 @@
 
 **Candidato, NO publicado.** JFC aprueba; Claude revisa. No tocar clientes ni sus PIN. Producción v636.
 
+## Rectificación vinculante posterior al relevo del 1 de noviembre (S2 retirado)
+
+**SIN REINICIOS NI BORRADOS, ni siquiera de la sala de JFC.** La instrucción posterior de JFC sustituye el plan de canario que solicitaba S2. En esta candidata se retiró la implementación de `_prepararCorteJfcS2` y su secuencia de borrado IDB/localStorage; el hook histórico `window.__f123PrepareJfcReset` devuelve `false` sin efecto. El inicio carga el estado local existente por el camino normal. El test `test/p0-s2-jfc-test-epoch.test.cjs` exige ausencia del reinicio. No emplear la copia de Opera conectada a la sala real: el incidente documentó propagación de estados divergentes. **Pruebas exclusivamente en copias aisladas sin red, sin escribir en la sala real ni en datos de clientes.**
+
+**Pendientes que bloquean publicación:** la cola histórica del aparato contiene, según el relevo, 50.541 sobres de catálogo (~410,6 MB) que S4 no migra por su límite de 512; la absorción y el conteo físico causal de ramas locales aún no están integrados en el PR; la caja negra tampoco. El shell sigue usando P2P como transporte activo, así que no garantiza recuperación entre aparatos que nunca están conectados a la vez. Los checks sintéticos no certifican paridad real PC–Safari–PWA. No prometer convergencia ni editar automáticamente números a partir de una foto.
+
+
 ## Corrección de límite v637 (1 nov 2026)
 
 El cambio anterior `ed12129` solo ampliaba el ciphertext práctico de **191.904 a ~196.500 B (+2,4 %)**: el transporte cerraba cualquier JSON de más de 256 KiB, pese a que el servidor `save_checkpoint` acepta **262.144 B cifrados decodificados**. La candidata ahora separa el límite del checkpoint RPC del límite normal de operaciones: **262.144 B cifrados**, solo cuando el adaptador `F123Relay` anuncia `ckptFrameBytes`; los adaptadores antiguos conservan el límite JSON y los mensajes no-checkpoint siguen con 256 KiB de transporte. El checkpoint no se emite por broadcast.
@@ -58,7 +65,7 @@ Después comparar el resultado con el primer error del log del panel; no modific
 
 1. Trabaja **solo con tu tienda de prueba**. Guarda primero una copia de seguridad y confirma que el PIN sigue funcionando.
 2. Comprueba que PC Chrome, iPhone Safari y PWA instalada muestran la **misma licencia de prueba**; no compartas el código ni el PIN en capturas.
-3. Prepara el reinicio único S2 en cada aparato de prueba con acompañamiento; **no lo hagas en ninguna tienda real**. Anota qué aparatos lo completaron. No está ejecutado todavía.
+3. **No realices ningún S2, reseteo, borrado de IndexedDB/localStorage ni cambio de época.** Conserva los estados independientes y trabaja solamente con clones aislados de red. No está ejecutado todavía.
 4. Abre la candidata en PC, cierra y vuelve a abrir: cronometra desde el toque hasta que puedas usarla. Debe tardar **menos de 3 segundos**.
 5. Repite la apertura en Safari y en la PWA instalada; captura los tres tiempos y la versión mostrada.
 6. Cuando la sincronización termine, ejecuta en PC la medición numérica anterior. Guarda solo la tabla de cifras y el estado `hidratado`.
@@ -67,6 +74,6 @@ Después comparar el resultado con el primer error del log del panel; no modific
 9. Recarga tres veces sin hacer nada: deben aparecer **cero operaciones nuevas**. Después realiza dos recorridos PC→iPhone→PC y compara `huellaInventario()`: debe ser idéntica en todos.
 10. Comprueba que un aparato con v636 no se queda desconectado y que **gzip sigue apagado**. Sube a la PR solo capturas sin datos personales, tiempos, conteos y resultado de los dos recorridos; solicita aprobación expresa antes de publicar.
 
-**Aún no ejecutado:** reinicio S2 en aparatos reales, pruebas físicas, log autenticado Cloudflare y confirmación de checkpoint suficiente para todos los negocios. El código de reinicio JFC debe retirarse del cliente general tras ejecutar el canario y antes de la fase 3.
+**Aún no ejecutado:** pruebas físicas de convergencia, absorción completa de la cola de 50.541 sobres, conteo físico causal, caja negra, comprobación del relay duradero y confirmación de checkpoints para todos los negocios. **S2 queda cancelado y retirado del runtime.** El código de reinicio JFC debe retirarse del cliente general tras ejecutar el canario y antes de la fase 3.
 
 **Decisión pendiente de JFC:** ¿apruebas publicar **únicamente** el shell 637 a tu tienda de prueba, después de cerrar las comprobaciones anteriores?
