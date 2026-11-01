@@ -175,12 +175,25 @@
           const actual = req.result;
           const rev = Number((actual && actual._rev) || 0);
           if (rev > revisionAplicada || rev >= Number(copia._rev)) return;
-          tx.objectStore(STORE).put(copia, CLAVE);
-          accepted = true;
+          try {
+            tx.objectStore(STORE).put(copia, CLAVE);
+            accepted = true;
+          } catch (error) {
+            // An exception inside an IDB callback does not reject the outer
+            // Promise. Keep the actual quota cause for the in-UI warning.
+            _ultimoError = error || null;
+            try { tx.abort(); } catch (_) { resolve(false); }
+          }
         };
-        tx.oncomplete = function () { resolve(accepted); };
-        tx.onabort = function () { resolve(false); };
-        tx.onerror = function () { _ultimoError = tx.error || null; };
+        tx.oncomplete = function () {
+          if (accepted) _ultimoError = null;
+          resolve(accepted);
+        };
+        tx.onabort = function () {
+          if (!_ultimoError) _ultimoError = tx.error || new Error("IDB transaction aborted");
+          resolve(false);
+        };
+        tx.onerror = function () { _ultimoError = _ultimoError || tx.error || null; };
       });
     }).catch(function (e) { _ultimoError = e || null; return false; });
     _cola = op.then(function () {}, function () {});
