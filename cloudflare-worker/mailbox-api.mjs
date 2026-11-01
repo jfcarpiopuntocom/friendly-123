@@ -75,12 +75,12 @@ export async function mailboxPublicRoute(req,env,{getPinDo,getMailboxDo},now=Dat
   if((isSession&&req.method!=='POST')||(isEvents&&!['GET','POST'].includes(req.method))||
      (isAck&&req.method!=='POST'))return response({ok:false},405);
   try {
-    const pinDo=getPinDo(env);if(!pinDo)return response({ok:false,reason:'pin-authority-unavailable'},503);
     if(isSession){
       const body=await safeJSON(req,700);
       if(!validLicense(body?.licenseCode)||typeof body.pin!=='string'||!/^[0-9]{3}$/.test(body.pin)||
          !DEVICE.test(body.deviceId))return response({ok:false},400);
       if(body.licenseCode!==pilot)return response({ok:false,reason:'outside-pilot'},403);
+      const pinDo=getPinDo(env);if(!pinDo)return response({ok:false,reason:'pin-authority-unavailable'},503);
       const verified=await authority(pinDo,{action:'verify',licenseCode:body.licenseCode,pin:body.pin});
       if(!verified.data?.ok){
         if(verified.status===429)return response({ok:false,reason:'rate-limited'},429);
@@ -94,6 +94,7 @@ export async function mailboxPublicRoute(req,env,{getPinDo,getMailboxDo},now=Dat
     const claim=await readTicket(env,req.headers.get('Authorization'),now);
     if(!claim)return response({ok:false,reason:'unauthorized'},401);
     if(claim.lic!==pilot)return response({ok:false,reason:'outside-pilot'},403);
+    const pinDo=getPinDo(env);if(!pinDo)return response({ok:false,reason:'pin-authority-unavailable'},503);
     const latest=await authority(pinDo,{action:'status',licenseCode:claim.lic,registeredIds:[]});
     if(!latest.data?.configured||latest.data.revision!==claim.rev)
       return response({ok:false,reason:'revision-changed'},401);
