@@ -1132,6 +1132,52 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     } catch (_) {}
     return entrar(rolEntrada);
   }
+  // A central Owner PIN belongs to the business license, not a browser ID.
+  // No inventory, sales or client PIN changes happen in this identity check.
+  function pinCentralYaActivado(lic){
+    try{
+      const seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+lic)||"null");
+      return !!(seen&&Number.isSafeInteger(seen.revision)&&seen.revision>0);
+    }catch(_){return false}
+  }
+  async function detectarRutaPinWorker(endpoint,signal){
+    try{
+      const r=await fetch(endpoint.origin+"/pin/verify",{
+        method:"GET",mode:"cors",cache:"no-store",credentials:"omit",
+        redirect:"error",signal
+      });
+      return r.status===404?"legacy":r.status===405?"current":"unknown";
+    }catch(_){return "unknown"}
+  }
+  async function resolverPinNuevoAparato(endpoint,lic,code,signal){
+    try{
+      const response=await fetch(endpoint.origin+"/pin/resolve",{
+        method:"POST",mode:"cors",cache:"no-store",credentials:"omit",signal,
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({licenseCode:lic,pin:String(code)})
+      });
+      if(response.status===401)return "wrong";
+      if(response.status===429)return "locked";
+      if(response.status===409)return pinCentralYaActivado(lic)?"unavailable":"unconfigured";
+      if(!response.ok)return "unavailable";
+      const data=await response.json();
+      if(data.ok!==true||data.role!=="owner"||data.businessId!==lic||
+          !Number.isSafeInteger(data.revision)||data.revision<1)return "unavailable";
+      let adopted=false;
+      if(window.OCSecure&&window.OCSecure.adoptarPinOwnerCentralVerificado){
+        try{adopted=(await window.OCSecure.adoptarPinOwnerCentralVerificado(
+          String(code),data.revision,lic))===true}catch(_){}
+      }
+      // Record verified central revision even when the local secret is not
+      // ready, so an old Worker cannot revive a stale local Owner PIN.
+      try{localStorage.setItem("f123_pin_central_seen:"+lic,
+        JSON.stringify({revision:data.revision,at:Date.now()}))}catch(_){}
+      // A valid central PIN alone is not proof that this PWA has recovered its
+      // durable encrypted notebook and local verifier. Do not open an empty
+      // owner store or claim persistence until adoption really committed.
+      return adopted?"owner":"needs-recovery";
+    }catch(_){return "unavailable"}
+  }
   // A configured license has a single Owner PIN revision on the license Worker.
   // No central result may change notebook quantities or local credentials.
   async function verificarPinOwnerCentral(code) {
@@ -1144,12 +1190,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       // Synthetic/offline fixture hosts have no registered Worker identity.
       // They must keep testing the existing local credential path.
       if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
-      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!owned.instanceId||
+      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||
          (active && active!==lic)) return "unavailable-identity";
       const url=OC_WORKER_URL; // PINs must never be sent to a localStorage-controlled origin.
       const endpoint=new URL(url);if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return "unavailable";
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
       try {
+        if(!owned.instanceId){
+          const route=await detectarRutaPinWorker(endpoint,controller.signal);
+          if(route==="current")return await resolverPinNuevoAparato(endpoint,lic,code,controller.signal);
+          return route==="legacy"&&!pinCentralYaActivado(lic)?"unconfigured":"unavailable";
+        }
         const response=await fetch(endpoint.origin+"/pin/verify",{
           method:"POST",mode:"cors",cache:"no-store",signal:controller.signal,
           headers:{"Content-Type":"application/json"},
@@ -1161,18 +1212,23 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             // Central verification is authoritative. Adopt its PIN locally
             // through the existing durable Owner rotation intent; replay into
             // Yjs is handled separately when the encrypted channel is ready.
+            let adopted=false;
             if(window.OCSecure && window.OCSecure.adoptarPinOwnerCentralVerificado){
-              try{await window.OCSecure.adoptarPinOwnerCentralVerificado(String(code),data.revision,lic)}catch(_){}
+              try{adopted=(await window.OCSecure.adoptarPinOwnerCentralVerificado(String(code),data.revision,lic))===true}catch(_){}
             }
             try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:data.revision,at:Date.now()}))}catch(_){}
-            return "owner";
+            return adopted?"owner":"needs-recovery";
           }
           return "unavailable";
         }
         if(response.status===401)return "wrong";
         if(response.status===429)return "locked";
-        if(response.status===404)return "unavailable-identity";
-        if(response.status===409)return "unconfigured";
+        if(response.status===404){
+          const route=await detectarRutaPinWorker(endpoint,controller.signal);
+          if(route==="current")return await resolverPinNuevoAparato(endpoint,lic,code,controller.signal);
+          return route==="legacy"&&!pinCentralYaActivado(lic)?"unconfigured":"unavailable";
+        }
+        if(response.status===409)return pinCentralYaActivado(lic)?"unavailable":"unconfigured";
         return "unavailable";
       }finally{clearTimeout(timer)}
     }catch(_){return "unavailable"}
@@ -1203,6 +1259,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const params={licenseCode:lic,instanceId,pin:String(oldPin)};
     try{
       const check=await fetch(endpoint.origin+"/pin/verify",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(params)});
+      if(check.status===404){
+        const route=await detectarRutaPinWorker(endpoint);
+        return route==="legacy"?legacyWhenUnprovisioned():
+          {ok:false,reason:"current-pin-rejected"};
+      }
       if(check.status===409||check.status===503)return legacyWhenUnprovisioned();
       if(!check.ok)return {ok:false,reason:"current-pin-rejected"};
       const current=await check.json();
@@ -1263,6 +1324,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const central=(rolHash==="dueno"||!rolHash) && dispositivoApropiado()
       ? await verificarPinOwnerCentral(code) : "unconfigured";
     if(central==="owner"){registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}return alinearYEntrar(code,"dueno")}
+    if(central==="needs-recovery"){
+      error("El PIN central es válido, pero este aparato todavía no recuperó sus credenciales. Reconecta la tienda y vuelve a intentarlo.");
+      return;
+    }
     if(central==="wrong"&&rolHash==="dueno"){
       error("Este PIN Owner fue reemplazado en el panel JFC. Usa el PIN central vigente.");
       return;
