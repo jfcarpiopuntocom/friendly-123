@@ -69,7 +69,14 @@ test('dos pestanas venden productos DISTINTOS: las dos ventas sobreviven (antes 
     await t1.waitForTimeout(1200);
     const t2 = await ctx.newPage(); await t2.goto(base, { waitUntil: 'networkidle' }); await t2.waitForTimeout(1200);
     assert.equal(await t2.locator('#oc-doble-tab').count(),0,'Web Locks coordinates each write; a second app tab must remain usable');
-    const vender = (pg, pid) => pg.evaluate(async (x) => (await fetch(`/api/productos/${x}/venta`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad: 1 }) })).status, pid);
+    const vender = async (pg, pid) => {
+      const result=await pg.evaluate(async (x) => {
+        const response=await fetch(`/api/productos/${x}/venta`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cantidad: 1 }) });
+        return {status:response.status, failure:response.ok?null:await response.text()};
+      }, pid);
+      if (result.status!==200) console.log('TWO-TAB-FAILED-SALE',JSON.stringify({engineName,status:result.status,failure:result.failure}));
+      return result.status;
+    };
     const firstStatuses = await Promise.all([vender(t1, ids[0]), vender(t2, ids[1])]);
     const thirdStatus = await vender(t1, ids[0]); // no silent rejection or duplicate
     await t2.reload({ waitUntil: 'networkidle' });
