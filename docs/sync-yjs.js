@@ -471,23 +471,39 @@
       if (_vivos().some(function (entry) { return !_durableInFlight[entry.id]; }) && ws.readyState === 1) programarDurable();
       if (Object.keys(_durableInFlight).length) programarDurable();
     }
-    function guardarSobre(entry) { guardarSobres([entry]); }
+    function guardarSobre(entry) { return guardarSobres([entry]); }
     function guardarSobres(entries) {
+      var same = function (a,b) {
+        return a.id === b.id || (a.fingerprint && a.fingerprint === b.fingerprint);
+      };
       var added = entries.filter(function (entry) {
         if (_outbox.confirmed && _outbox.confirmed.includes(entry.fingerprint || entry.id)) return false;
-        return !_outbox.pending.concat(_unsaved).some(function (x) {
-          return x.id === entry.id || (entry.fingerprint && x.fingerprint === entry.fingerprint);
-        });
+        return !_outbox.pending.concat(_unsaved).some(function (x) { return same(entry,x); });
       });
-      if (!added.length) return;
-      // All siblings enter one atomic local outbox write before any durable
-      // fragment is sent. A restart can then retry the complete group.
+      // A duplicate of an UNCOMMITTED outbox entry is not durable merely
+      // because its fingerprint was seen while a transaction was in progress.
+      if (!added.length) return _durableQueue.then(function () {
+        return entries.every(function (entry) {
+          return (_outbox.confirmed || []).includes(entry.fingerprint || entry.id) ||
+            _outbox.pending.some(function (saved) { return same(saved,entry); });
+        }) && !entries.some(function (entry) {
+          return _unsaved.some(function (pending) { return same(pending,entry); });
+        });
+      }).catch(function () { return false; });
+      // Persist ALL siblings atomically, then allow fast live delivery.
+      // Never report a locally unrecorded frame as recoverable after a crash.
       _unsaved.push.apply(_unsaved, added);
       avisarDurable();
       var next = _durableQueue.then(function () {
-        return mutarOutbox(function () {}).then(function () { drenarDurable(); programarDurable(); });
+        return mutarOutbox(function () {}).then(function () {
+          drenarDurable(); programarDurable(); return true;
+        });
       });
-      _durableQueue = next.catch(function () { log("guardado del envio pendiente en " + nombre); avisarDurable(); programarDurable(); });
+      _durableQueue = next.catch(function () {
+        log("guardado del envio pendiente en " + nombre);
+        avisarDurable(); programarDurable(); return false;
+      });
+      return next.then(function () { return true; }, function () { return false; });
     }
     function confirmarDurable(result) {
       _durableQueue = _durableQueue.then(function () {
@@ -869,17 +885,31 @@
             if (piezas > 1) op.group = id;
             if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
           }
+          if (persistir) return { op: op, bytes: buf };
           var directo = false;
           try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
-          if (!directo) {
-            encolarVivo(buf, tag === 0 && persistir && piezas === 1);
-          }
-          return op;
+          if (!directo) encolarVivo(buf, false);
+          return { bytes: buf };
         }).catch(function () {}));
       }
-      if (persistir) Promise.all(prepared).then(function (entries) {
-        if (entries.every(function (entry) { return !!entry; })) guardarSobres(entries);
-        else log("grupo Yjs incompleto; no se envia historial parcial");
+      if (persistir) Promise.all(prepared).then(function (fragments) {
+        if (!fragments.every(function (fragment) { return fragment && fragment.op; })) {
+          log("grupo Yjs incompleto; no se envia historial parcial");
+          return;
+        }
+        return guardarSobres(fragments.map(function (fragment) { return fragment.op; }))
+          .then(function (durable) {
+            if (durable !== true) {
+              log("grupo Yjs sin respaldo local; reenvio vivo retenido en " + nombre);
+              return;
+            }
+            fragments.forEach(function (fragment) {
+              var directo = false;
+              try { directo = tag === 0 && enviarDirecto(fragment.bytes); }
+              catch (_) { directo = false; }
+              if (!directo) encolarVivo(fragment.bytes, piezas === 1);
+            });
+          });
       }).catch(function () {});
     }
     /* PERSISTENCIA DEL SYNC NUEVO (JFC 2026-09-15, v285). EL BUG DE 3 SEMANAS: el
