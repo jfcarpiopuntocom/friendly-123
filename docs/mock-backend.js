@@ -5650,6 +5650,31 @@
   let _demoRefrescado = false;
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
   if (!_estadoLecturaBloqueada) _estadoPublicableConfirmado = _huellaPublicable();
+  /* Caja negra de DATOS (JFC 2026-11-01): nada se pierde. Antes de sincronizar, cada arranque guarda una
+     copia interna completa del estado local en una base IndexedDB aparte (últimas 10), sin UI. Solo para
+     recuperación interna; nunca se borra nada del negocio, solo copias viejas de esta misma caja. */
+  (function cajaNegraDatos() {
+    try {
+      if (_estadoLecturaBloqueada || !window.indexedDB) return;
+      const crudo = JSON.stringify(estadoActualExportable({ vivo: true }));
+      if (!crudo || crudo.length < 50) return;
+      const req = indexedDB.open("f123-caja-negra-datos" + (OC_STATE_SUFIJO || ""), 1);
+      req.onupgradeneeded = function () { try { req.result.createObjectStore("snaps"); } catch (_) {} };
+      req.onsuccess = function () {
+        const db = req.result;
+        try {
+          const tx = db.transaction("snaps", "readwrite"), st = tx.objectStore("snaps");
+          st.put({ en: new Date().toISOString(), bytes: crudo.length, crudo: crudo }, Date.now());
+          const k = st.getAllKeys();
+          k.onsuccess = function () {
+            const ks = k.result.slice().sort(function (a, b) { return a - b; });
+            ks.slice(0, Math.max(0, ks.length - 10)).forEach(function (x) { st.delete(x); });
+          };
+          tx.oncomplete = tx.onabort = tx.onerror = function () { try { db.close(); } catch (_) {} };
+        } catch (_) { try { db.close(); } catch (__) {} }
+      };
+    } catch (_) {}
+  })();
   /* INVARIANTES AL ARRANCAR (JFC 2026-09-30, plan PLAN-INVARIANTES-AL-ARRANCAR-2026-09-30.md).
      Regla: reparar SOLO lo derivable (percha vacia de una venta), avisar SIEMPRE en dinero.
      Solo con datos reales (no semilla demo). El informe se lee por GET /api/invariantes y
