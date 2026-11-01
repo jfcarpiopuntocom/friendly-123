@@ -91,7 +91,11 @@ test('backend preserves physical-epoch warning through backup, remote merge and 
   await w.request('/api/respaldo/importar','POST',snap);
   const remote=w.OCSync.catalogoPropio(),item=remote.productos.find(x=>x.id===id);
   item.stockActual=6;item.stockBase=6;item.stockEpochId='physical-B';item.stockPN={};
-  w.OCSync.aplicarCatalogo(remote,null);
+  const before=(await w.request('/api/respaldo/exportar')).productos.find(x=>x.id===id);
+  assert.equal(before.stockEpochId,'physical-A','local physical epoch persisted');
+  assert.equal(item.stockEpochId,'physical-B','remote physical epoch sent');
+  const merged=w.OCSync.aplicarCatalogo(remote,null);
+  assert.ok(merged&&merged.ok!==false,'catalog merge accepted synthetic fork: '+JSON.stringify(merged));
   const after=(await w.request('/api/respaldo/exportar')).productos.find(x=>x.id===id);
   assert.equal(after.stockConciliacionPendiente,true);
   assert.equal(after.stockActual,7,'do not impose either count on a disputed shelf');
