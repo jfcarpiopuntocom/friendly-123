@@ -31,7 +31,7 @@ async function fixture(opts={}){
  }};
  const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,WebSocket:class{constructor(){throw Error('Raw relay fallback forbidden')}},
   window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},
-  document:{hidden:false,addEventListener(){}},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,
+  document:{hidden:false,addEventListener(){}},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,
   setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(){},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),
   cifrarBin:async(_,b)=>b.slice().buffer,descifrarBin:async(_,b)=>new Uint8Array(b),...(opts.ctx||{})};
