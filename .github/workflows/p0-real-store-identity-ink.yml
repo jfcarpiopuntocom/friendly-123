@@ -58,7 +58,8 @@ jobs:
         run: |
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
             test/p0-replica-readonly-forensics.test.cjs \
-            test/p0-journal-aba-physical-convergence.test.cjs
+            test/p0-journal-aba-physical-convergence.test.cjs \
+            test/p0-yjs-ops-readonly-export.test.cjs
       - name: Actual Chromium and WebKit responsive business name
         run: node --test --test-timeout=120000 test/p0-business-ink-12-percent-browser.test.cjs
       - name: Changes and SHA without any production writes
