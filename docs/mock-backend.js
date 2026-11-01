@@ -5643,63 +5643,12 @@
   /* Foto de la semilla ANTES de cargar nada guardado: la usa refrescarDemoSiViejo(). */
   let _semillaDemo = null;
   try { _semillaDemo = JSON.parse(JSON.stringify(estadoActualExportable())); } catch (_) { _semillaDemo = null; }
-  // S2 v2: one-time disposable JFC TEST room cutover. Keep license, owner PIN,
-  // other clients, and other browser namespaces untouched. Never log the license.
-  function _esLicenciaJfcParaS2() {
-    try {
-      var codigo = String(_licenciaActual() || "").trim().toUpperCase().replace(/\s+/g, "");
-      var h1 = 0xdeadbeef, h2 = 0x41c6ce57;
-      for (var i = 0, ch; i < codigo.length; i++) {
-        ch = codigo.charCodeAt(i);
-        h1 = Math.imul(h1 ^ ch, 2654435761);
-        h2 = Math.imul(h2 ^ ch, 1597334677);
-      }
-      h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
-      h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
-      return 4294967296 * (2097151 & h2) + (h1 >>> 0) === 6583453063440131;
-    } catch (_) { return false; }
-  }
-  // JFC 2026-11-01: S2 cancelled. No device is ever wiped (a reset can never be applied to customers);
-  // existing local data and pending logs are absorbed and synchronised instead.
-  const S2_REINICIO_ACTIVO = false;
-  function _prepararCorteJfcS2() {
-    if (!S2_REINICIO_ACTIVO) return false;
-    if (!_esLicenciaJfcParaS2() || window.__f123JfcResetReady) return false;
-    var marker = "f123_jfc_s2_epoch_20261101" + OC_STATE_SUFIJO;
-    try { if (localStorage.getItem(marker) === "ok") return false; }
-    catch (_) { return false; } // Cannot safely persist a cutover marker.
-    _vaciarTiendaFresca(); // RAM before any catalog seed; local PIN is separate.
-    _cargoBufferReal = false;
-    _demoRefrescado = true; // never run recovery from an old JFC IDB mirror this boot
-    _estadoLecturaBloqueada = true; // no sale/save before durable cutover has finished
-    window.__f123JfcResetReady = (async function () {
-      try {
-        if (window.OCEstadoIDB && window.OCEstadoIDB.soportado &&
-            await window.OCEstadoIDB.borrar() !== true) throw Error("old test mirror not cleared");
-        [claveBuffer("A"), claveBuffer("B"), OC_STATE_PTR,
-         OC_STATE_KEY + OC_STATE_SUFIJO + "_journal", OC_STATE_SELLO].forEach(function (key) {
-          localStorage.removeItem(key);
-        });
-        // Empty sentinel prevents the legacy importer from reviving the old test catalog.
-        localStorage.setItem(OC_STATE_KEY + OC_STATE_SUFIJO, "");
-        localStorage.setItem(marker, "ok");
-        _estadoLecturaBloqueada = false;
-        _estadoPublicableConfirmado = _huellaPublicable();
-        return true;
-      } catch (e) {
-        _estadoLecturaBloqueada = true;
-        try { console.error("[JFC S2] test cutover failed, business writes blocked", e && e.message); } catch (_) {}
-        return false;
-      }
-    })();
-    return true;
-  }
-  window.__f123PrepareJfcReset = _prepararCorteJfcS2; // PIN/license entered after initial page boot
+  // JFC 2026-11-01: S2 destructive cutover permanently retired.
+  // Some older login code may still call this historical hook. Keep it inert
+  // for mixed-shell compatibility; never clear a notebook, IndexedDB or PIN.
+  window.__f123PrepareJfcReset = function () { return false; };
   let _demoRefrescado = false;
-  var _corteJfcS2 = _prepararCorteJfcS2();
-  if (!_corteJfcS2) {
-    try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
-  }
+  try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
   if (!_estadoLecturaBloqueada) _estadoPublicableConfirmado = _huellaPublicable();
   /* INVARIANTES AL ARRANCAR (JFC 2026-09-30, plan PLAN-INVARIANTES-AL-ARRANCAR-2026-09-30.md).
      Regla: reparar SOLO lo derivable (percha vacia de una venta), avisar SIEMPRE en dinero.
