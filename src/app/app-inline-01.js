@@ -3288,6 +3288,7 @@ async function cargarInventario(){
       <div class="ajuste-rapido" onclick="event.stopPropagation()" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button data-ajuste-menos="${p.id}" title="${t('inv.removeOne')}" aria-label="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
         <button data-ajuste-mas="${p.id}" title="${t('inv.addOne')}" aria-label="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+        ${esDuenoInv ? `<button data-ajuste-cantidad="${p.id}" title="${t('inv.qtyBtn')}" aria-label="${t('inv.qtyBtn')}" style="height:36px;padding:0 12px;border-radius:18px;border:2px solid currentColor;background:transparent;color:inherit;font-size:14px;font-weight:700;cursor:pointer;">${t('inv.qtyBtn')}</button>` : ''}
         ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" aria-label="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
         ${esDuenoInv ? `<button data-editar-directo="${p.id}" title="${t('inv.editTooltip')}" aria-label="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
       </div>
@@ -3352,6 +3353,32 @@ async function cargarInventario(){
     });
   });
 
+  // JFC 2026-11-01: owner/admin quantity box. "Add/remove N" is a normal movement (asks the reason);
+  // "Set to N" is a physical count (new stock epoch; the latest count wins on every device).
+  grid.querySelectorAll("[data-ajuste-cantidad]").forEach(btn => {
+    if (btn.__ocInvListener) return;
+    btn.__ocInvListener = true;
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.ajusteCantidad;
+      const elegido = await pedirCantidadStock();
+      if (!elegido) return;
+      let body;
+      if (elegido.modo === "fijar") body = { stockFisico: elegido.n, motivo: t("inv.qtySetReason") };
+      else {
+        const motivo = await pedirMotivoAjuste(elegido.n);
+        if (!motivo) return;
+        body = { delta: elegido.n, motivo };
+      }
+      let res, r;
+      try {
+        res = await fetch(`${API}/productos/${id}/ajustar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+        r = await res.json();
+      } catch (_) { await ocAlert(t("inv.qtyNetwork")); return; }
+      if (!res.ok) { await ocAlert(r.error); return; }
+      await Promise.all([cargarInventario(), cargarHoy()]);
+    });
+  });
+
   // Estrella: dueño marca/desmarca productos para que el encargado los promueva
   grid.querySelectorAll("[data-estrella-toggle]").forEach(btn => {
     if (btn.__ocInvListener) return;
@@ -3399,6 +3426,43 @@ const MOTIVOS_AJUSTE = {
   get menos() { return [t("motivo.damage"), t("motivo.consumed"), t("motivo.correction")]; },
 };
 // Devuelve Promise<string|null> con el motivo elegido (o null si se cancela).
+function pedirCantidadStock(){
+  return new Promise((resolve) => {
+    let modal = document.getElementById("oc-cantidad-modal");
+    if (!modal){
+      modal = document.createElement("div");
+      modal.id = "oc-cantidad-modal";
+      modal.style.cssText = "position:fixed;inset:0;z-index:9998;background:rgba(21,40,64,.85);display:none;align-items:flex-end;justify-content:center;";
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = `
+      <div role="dialog" aria-modal="true" aria-labelledby="oc-cant-tit" style="background:#FFFFFF;color:#152840;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
+        <strong id="oc-cant-tit" style="display:block;font-size:18px;margin-bottom:12px;">${t("inv.qtyTitle")}</strong>
+        <label style="display:block;font-size:15px;font-weight:700;margin-bottom:6px;" for="oc-cant-n">${t("inv.qtyLabel")}</label>
+        <input id="oc-cant-n" type="number" inputmode="numeric" step="1" style="display:block;width:100%;padding:12px;border:2px solid #152840;border-radius:8px;font-size:18px;box-sizing:border-box;color:#152840;background:#FFFFFF;">
+        <div data-cant-err role="alert" style="display:none;margin-top:8px;color:#7C1024;font-weight:700;font-size:14px;"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;">
+          <button data-cant-sumar style="flex:1;min-height:44px;padding:10px 14px;border:2px solid #152840;border-radius:8px;background:#FFFFFF;color:#152840;font-size:15px;font-weight:700;cursor:pointer;">${t("inv.qtyAdd")}</button>
+          <button data-cant-fijar style="flex:1;min-height:44px;padding:10px 14px;border:2px solid #152840;border-radius:8px;background:#152840;color:#FFFFFF;font-size:15px;font-weight:700;cursor:pointer;">${t("inv.qtySet")}</button>
+        </div>
+        <button data-cant-cancel style="margin-top:10px;min-height:44px;width:100%;border:none;background:transparent;color:#152840;font-size:15px;font-weight:700;text-decoration:underline;cursor:pointer;">${t("inv.qtyCancel")}</button>
+      </div>`;
+    modal.style.display = "flex";
+    const input = modal.querySelector("#oc-cant-n"), err = modal.querySelector("[data-cant-err]");
+    setTimeout(() => { try { input.focus(); } catch (_) {} }, 0);
+    const cerrar = (val) => { modal.style.display = "none"; resolve(val); };
+    const leer = (modo) => {
+      const n = Number(input.value);
+      const valido = Number.isInteger(n) && (modo === "fijar" ? n >= 0 : n !== 0);
+      if (!valido) { err.textContent = modo === "fijar" ? t("inv.qtyInvalidSet") : t("inv.qtyInvalidAdd"); err.style.display = "block"; return; }
+      cerrar({ modo, n });
+    };
+    modal.querySelector("[data-cant-sumar]").onclick = () => leer("sumar");
+    modal.querySelector("[data-cant-fijar]").onclick = () => leer("fijar");
+    modal.querySelector("[data-cant-cancel]").onclick = () => cerrar(null);
+    modal.onclick = (e) => { if (e.target === modal) cerrar(null); };
+  });
+}
 function pedirMotivoAjuste(delta){
   return new Promise((resolve) => {
     const esMas = delta > 0;
