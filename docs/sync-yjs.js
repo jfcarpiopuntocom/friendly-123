@@ -89,6 +89,18 @@
   // Un solo canal por Y.Doc (catálogo, fotos y ops usan cada uno el suyo).
   // ===================================================================
   function _frame(tag, payload) { var out = new Uint8Array(1 + payload.length); out[0] = tag; out.set(payload, 1); return out; }
+  // Gzip before encryption; ciphertext cannot be compressed. Only JFC's test room emits tag 7.
+  async function _gzipYjs(bytes, decompress) {
+    var Stream = decompress ? window.DecompressionStream : window.CompressionStream;
+    if (typeof Stream !== "function" || typeof Response !== "function") return null;
+    try {
+      var stream = new Stream("gzip"), writer = stream.writable.getWriter();
+      // Drain concurrently: waiting for write/close before reading can deadlock on large updates.
+      var read = new Response(stream.readable).arrayBuffer();
+      await writer.write(bytes); await writer.close();
+      return new Uint8Array(await read);
+    } catch (_) { return null; }
+  }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
     var _pausado = false, _tReconnect = null;
@@ -933,7 +945,13 @@
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
       var state = _b64(full);
       if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
-      cifrarBin(API.clave, _frame(0, full)).then(function (buf) {
+      Promise.resolve().then(function () {
+        return API.esLicenciaPruebaJfc ? _gzipYjs(full, false) : null;
+      }).then(function (packed) {
+        // Old rooms retain the original Yjs wire protocol; test room can use compressed v2.
+        var useful = packed && packed.length + 1 < full.length;
+        return cifrarBin(API.clave, _frame(useful ? 7 : 0, useful ? packed : full));
+      }).then(function (buf) {
         if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
         try {
           /* rev+seq prueban exactamente hasta que fila persistida contiene este
@@ -1125,6 +1143,16 @@
             var unido = new Uint8Array(largo), cursor = 0;
             grupo.piezas.forEach(function (p) { unido.set(p, cursor); cursor += p.length; });
             tag = original; payload = unido; receipts = grupo.receipts;
+          }
+          if (tag === 7) {
+            // A checkpoint is one authenticated frame. Never accept compressed peer/live ops.
+            if (!API.esLicenciaPruebaJfc || source !== "pull") return false;
+            return _gzipYjs(payload, true).then(function (update) {
+              if (!update || !update.length) return false;
+              Y.applyUpdate(doc, update, "red");
+              if (pullEstado.rebaseCursor) pullEstado.rebaseFrames = (pullEstado.rebaseFrames || 0) + 1;
+              return true;
+            });
           }
           if (tag === 4) { try { receiveSignal(JSON.parse(new TextDecoder().decode(payload))); } catch (_) {} return true; }
           if (tag === 0 || (source === "peer" && tag === 6)) {
@@ -1545,6 +1573,7 @@
        asi los aparatos de JFC se entienden en la sala nueva. Ver la purga local
        gated en mock-backend.js. */
     var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo;
+    API.esLicenciaPruebaJfc = _salaId !== codigo; // existing JFC test-license fingerprint gate only
     API.roomId = await idDeSala(_salaId);
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
