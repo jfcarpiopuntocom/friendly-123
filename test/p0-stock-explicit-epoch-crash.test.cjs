@@ -82,6 +82,9 @@ test('backend preserves physical-epoch warning through backup, remote merge and 
   const snap=await w.request('/api/respaldo/exportar');
   const p=snap.productos.find(x=>Number(x.stockActual)>=1);
   assert.ok(p);
+  // A byte-for-byte demo fixture is intentionally filtered from the shared
+  // business catalog. Give this synthetic test an independently named product.
+  p.id='p0-physical-epoch-fixture';p.nombre='Synthetic unique epoch product';
   p.stockActual=7;p.stockBase=7;p.stockEpochId='physical-A';p.stockPN={};
   const id=p.id;
   snap.productos=[p];
