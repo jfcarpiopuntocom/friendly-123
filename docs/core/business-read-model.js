@@ -3,7 +3,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;if(root)root.OCBusinessReadModel=api;})(globalThis,function(){
  'use strict';
  function finite(v){return (typeof v==='number'||typeof v==='string'&&v.trim()!=='')&&Number.isFinite(Number(v))&&Number(v)>=0&&Number(v)<=Number.MAX_SAFE_INTEGER?Number(v):null;}
- function stock(p){const units=finite(p&&p.stockActual);return {known:units!==null,units};}
+ function stock(p){if(p&&p.stockConciliacionPendiente===true)return {known:false,units:null};const units=finite(p&&p.stockActual);return {known:units!==null,units};}
  function inventory(products){let units=0,valueCents=0,unknownStock=0,unknownCost=0;
   for(const p of products||[]){const s=stock(p),cost=finite(p&&p.costo);if(!s.known){unknownStock++;continue;}units+=s.units;
    if(cost===null){unknownCost++;continue;}const c=Math.round(cost*s.units*100);if(!Number.isSafeInteger(c)){unknownCost++;continue;}valueCents+=c;

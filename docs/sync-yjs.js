@@ -95,9 +95,13 @@
     function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
     var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
-    /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
-       mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
+    /* Photos can approach 180 KiB per operation; keep four per page.
+       Legacy relays also stay at 64. A positively confirmed modern HEAD
+       enables 128 for catalog/ops only: the native SQL pull-page function
+       caps each reply at 1 MiB and 128 rows, with the same total ciphertext
+       but fewer serial requests during a large first-time recovery. */
     var PULL_PAGE_SIZE = nombre === "fotos" ? 4 : 64;
+    var MODERN_PULL_PAGE_SIZE = nombre === "fotos" ? 4 : 128;
     var T_CONEXION_ESTABLE_MS = 30000;
     var partesEntrantes = Object.create(null), partesEnVivo = Object.create(null);
     var MAX_GRUPOS_EN_VIVO = 64, MAX_BYTES_EN_VIVO = 16 * 1024 * 1024;
@@ -471,23 +475,39 @@
       if (_vivos().some(function (entry) { return !_durableInFlight[entry.id]; }) && ws.readyState === 1) programarDurable();
       if (Object.keys(_durableInFlight).length) programarDurable();
     }
-    function guardarSobre(entry) { guardarSobres([entry]); }
+    function guardarSobre(entry) { return guardarSobres([entry]); }
     function guardarSobres(entries) {
+      var same = function (a,b) {
+        return a.id === b.id || (a.fingerprint && a.fingerprint === b.fingerprint);
+      };
       var added = entries.filter(function (entry) {
         if (_outbox.confirmed && _outbox.confirmed.includes(entry.fingerprint || entry.id)) return false;
-        return !_outbox.pending.concat(_unsaved).some(function (x) {
-          return x.id === entry.id || (entry.fingerprint && x.fingerprint === entry.fingerprint);
-        });
+        return !_outbox.pending.concat(_unsaved).some(function (x) { return same(entry,x); });
       });
-      if (!added.length) return;
-      // All siblings enter one atomic local outbox write before any durable
-      // fragment is sent. A restart can then retry the complete group.
+      // A duplicate of an UNCOMMITTED outbox entry is not durable merely
+      // because its fingerprint was seen while a transaction was in progress.
+      if (!added.length) return _durableQueue.then(function () {
+        return entries.every(function (entry) {
+          return (_outbox.confirmed || []).includes(entry.fingerprint || entry.id) ||
+            _outbox.pending.some(function (saved) { return same(saved,entry); });
+        }) && !entries.some(function (entry) {
+          return _unsaved.some(function (pending) { return same(pending,entry); });
+        });
+      }).catch(function () { return false; });
+      // Persist ALL siblings atomically, then allow fast live delivery.
+      // Never report a locally unrecorded frame as recoverable after a crash.
       _unsaved.push.apply(_unsaved, added);
       avisarDurable();
       var next = _durableQueue.then(function () {
-        return mutarOutbox(function () {}).then(function () { drenarDurable(); programarDurable(); });
+        return mutarOutbox(function () {}).then(function () {
+          drenarDurable(); programarDurable(); return true;
+        });
       });
-      _durableQueue = next.catch(function () { log("guardado del envio pendiente en " + nombre); avisarDurable(); programarDurable(); });
+      _durableQueue = next.catch(function () {
+        log("guardado del envio pendiente en " + nombre);
+        avisarDurable(); programarDurable(); return false;
+      });
+      return next.then(function () { return true; }, function () { return false; });
     }
     function confirmarDurable(result) {
       _durableQueue = _durableQueue.then(function () {
@@ -767,7 +787,12 @@
         // v1 legacy checkpoint can compact operations without bumping revision.
         // Probe the actual ciphertext checkpoint, never a stale high-water seq.
         var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : _pullCursor;
-        sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
+        // This is a request, never a demand to trim a page: an older relay
+        // keeps its conservative limit and cursor. The SQL byte cap, server
+        // ordering and durable cursor proof remain authoritative.
+        var pageLimit = estado.headLegacy === false
+          ? MODERN_PULL_PAGE_SIZE : PULL_PAGE_SIZE;
+        sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: pageLimit }));
       }).catch(function () {});
     }
     function procesarHead(sock, estado, r) {
@@ -869,17 +894,31 @@
             if (piezas > 1) op.group = id;
             if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
           }
+          if (persistir) return { op: op, bytes: buf };
           var directo = false;
           try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
-          if (!directo) {
-            encolarVivo(buf, tag === 0 && persistir && piezas === 1);
-          }
-          return op;
+          if (!directo) encolarVivo(buf, false);
+          return { bytes: buf };
         }).catch(function () {}));
       }
-      if (persistir) Promise.all(prepared).then(function (entries) {
-        if (entries.every(function (entry) { return !!entry; })) guardarSobres(entries);
-        else log("grupo Yjs incompleto; no se envia historial parcial");
+      if (persistir) Promise.all(prepared).then(function (fragments) {
+        if (!fragments.every(function (fragment) { return fragment && fragment.op; })) {
+          log("grupo Yjs incompleto; no se envia historial parcial");
+          return;
+        }
+        return guardarSobres(fragments.map(function (fragment) { return fragment.op; }))
+          .then(function (durable) {
+            if (durable !== true) {
+              log("grupo Yjs sin respaldo local; reenvio vivo retenido en " + nombre);
+              return;
+            }
+            fragments.forEach(function (fragment) {
+              var directo = false;
+              try { directo = tag === 0 && enviarDirecto(fragment.bytes); }
+              catch (_) { directo = false; }
+              if (!directo) encolarVivo(fragment.bytes, piezas === 1);
+            });
+          });
       }).catch(function () {});
     }
     /* PERSISTENCIA DEL SYNC NUEVO (JFC 2026-09-15, v285). EL BUG DE 3 SEMANAS: el
@@ -1408,6 +1447,85 @@
   };
   window.OCYjs = API;
 
+  /* P0 forensic export: reconstruct the operations document strictly from
+     already-persisted IndexedDB updates. Read-only by construction.
+     The full result is PRIVATE LOCAL data; callers must never upload it to
+     public logs, source control or analytics. No network, writes or reseeding. */
+  API.exportarOpsForenses = async function () {
+    if (!window.OCAuth || typeof window.OCAuth.rolActual !== "function" ||
+        window.OCAuth.rolActual() !== "dueno")
+      return {ok:false,reason:"owner-required"};
+    var book = API.roomId, current = window.OCTienda &&
+      typeof window.OCTienda.licenciaActual === "function"
+        ? normalizarCodigo(window.OCTienda.licenciaActual() || "") : "";
+    // roomId is the DERIVED encrypted room locator, NEVER the license text.
+    // Check the original normalized license captured when the Y.Doc started.
+    if (!book || !current || !API.licenciaCodigo || API.licenciaCodigo !== current ||
+        !API.opsDoc || !API.opsMap || !API.opsIdb ||
+        !window.Y || !window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined")
+      return {ok:false,reason:"notebook-or-local-crypto-unavailable"};
+    var idb = API.opsIdb, originDoc = API.opsDoc;
+    try {
+      if (!idb.whenSynced || typeof idb.whenSynced.then !== "function")
+        return {ok:false,reason:"indexeddb-hydration-unverified"};
+      await idb.whenSynced;
+      var db = idb.db;
+      if (!db && idb._db && typeof idb._db.then === "function") db = await idb._db;
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates"))
+        return {ok:false,reason:"indexeddb-updates-unavailable"};
+      var updates = await new Promise(function(resolve,reject){
+        try {
+          var tx=db.transaction("updates","readonly"), store=tx.objectStore("updates");
+          var cursor=store.openCursor(), list=[], total=0;
+          cursor.onsuccess=function(ev){
+            var c=ev.target.result;
+            if (!c) return resolve(list);
+            var v=c.value, bytes=v instanceof Uint8Array ? v : new Uint8Array(v);
+            total+=bytes.byteLength;
+            if (total>64*1024*1024 || list.length>=100000)
+              return reject(Error("forensic-size-limit"));
+            list.push(bytes.slice());c.continue();
+          };
+          cursor.onerror=function(){reject(cursor.error || Error("indexeddb-read-failed"));};
+          tx.onerror=function(){reject(tx.error || Error("indexeddb-transaction-failed"));};
+          tx.onabort=function(){reject(tx.error || Error("indexeddb-transaction-aborted"));};
+        }catch(e){reject(e)}
+      });
+      if (API.roomId !== book || API.opsDoc !== originDoc ||
+          (window.OCTienda && window.OCTienda.licenciaActual &&
+           normalizarCodigo(window.OCTienda.licenciaActual()||"")!==API.licenciaCodigo))
+        return {ok:false,reason:"notebook-changed-during-export"};
+      var reconstructed=new window.Y.Doc(), rows=[], mismatch=0;
+      try {
+        for(var n=0;n<updates.length;n++)
+          window.Y.applyUpdate(reconstructed,updates[n],"forensic-readonly");
+        var persisted=reconstructed.getMap("eventos");
+        persisted.forEach(function(op,id){
+          if (!op || String(op.opId||"")!==String(id)||!id)
+            throw Error("invalid-event-id");
+          rows.push({opId:String(id),event:JSON.parse(JSON.stringify(op))});
+        });
+        rows.sort(function(a,b){return a.opId.localeCompare(b.opId)});
+        // Cross-check RAM vs durable IDB, but do not merge either direction.
+        var ramCount=0;
+        if (API.opsMap) API.opsMap.forEach(function(op,id){
+          ramCount++;
+          var stored=persisted.get(id);
+          if (!stored || JSON.stringify(stored)!==JSON.stringify(op)) mismatch++;
+        });
+        if(ramCount!==rows.length)mismatch+=Math.abs(ramCount-rows.length);
+        var json=JSON.stringify(rows);
+        var digest=await window.crypto.subtle.digest("SHA-256",new TextEncoder().encode(json));
+        var sha=Array.from(new Uint8Array(digest),function(x){return x.toString(16).padStart(2,"0")}).join("");
+        return {ok:true,PRIVATE_LOCAL_ONLY:true,complete:updates.length>0,
+          roomId:book,source:"indexeddb-yjs-ops-updates",indexeddbUpdates:updates.length,
+          eventsCount:rows.length,ramVsDurableMismatch:mismatch,
+          durableMatchesMemory:mismatch===0,sha256:sha,eventos:rows,
+          warning:"Local Yjs persisted history only; remote delivery/ACK and extinct compacted history are not proven"};
+      }finally{try{reconstructed.destroy()}catch(_){}}
+    }catch(e){return {ok:false,reason:"forensic-read-failed",detail:String(e&&e.message||e).slice(0,120)}}
+  };
+
   /* PRIME DIRECTIVE 1AAA / G05 — HISTORIAL LOCAL DE PUNTEROS DE FOTO.
      y-indexeddb persiste updates del catalogo en objectStore "updates". Este
      lector abre ESA MISMA base ya abierta por IndexeddbPersistence, en modo
@@ -1526,6 +1644,7 @@
     } catch (_) { log("identidad del cuaderno no disponible — sin sync"); return; }
     if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
     var codigo = normalizarCodigo(_licProp);
+    API.licenciaCodigo = codigo;
     try { await cargarBundle(); } catch (e) { log("bundle:", e && e.message); return; }
 
     var Y = window.Y;
@@ -2302,6 +2421,14 @@
                   Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
                   Number(r.stockBase) !== Number(prev.stockBase);
                 if (fork || (!_samePhysicalEpoch && _stockEpochMine && _stockEpochDoc) ||
+                    r.stockConciliacionPendiente === true ||
+                    prev.stockConciliacionPendiente === true) {
+                  // Both competing bases remain independently witnessed.
+                  // An older shell might still choose by stockTs; never
+                  // present that provisional choice as confirmed inventory.
+                  r = Object.assign({}, r, { stockConciliacionPendiente: true });
+                }
+                if (fork || (!_samePhysicalEpoch && _stockEpochMine && _stockEpochDoc) ||
                     (r.stockEvidencias && Object.keys(r.stockEvidencias).length) ||
                     (prev.stockEvidencias && Object.keys(prev.stockEvidencias).length)) {
                   r = Object.assign({}, r, { stockEvidencias: unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar) });
@@ -2394,15 +2521,42 @@
                       _rt >= _pt - 2000 && _notFuture;
                     var _stockValido = _samePhysicalEpoch &&
                       (_sameLedger || _epochNewer || _legacyNewer || _firstLedger);
-                    var _safeStock = !_samePhysicalEpoch ? _epochPreferred : (_stockValido ? r : prev);
+                    // P0: when TWO explicit physical epochs conflict,
+                    // _epochPreferred is intentionally null: neither clock is
+                    // proof of a physical recount. Keep the already-published
+                    // stock view pending reconciliation, preserve BOTH evidence
+                    // sets, and continue publishing unrelated catalog entries.
+                    // Previously dereferencing null aborted the WHOLE Yjs
+                    // transaction, leaving products/clients silently unsent.
+                    var _explicitEpochConflict = !_samePhysicalEpoch &&
+                      typeof r.stockEpochId === "string" && !!r.stockEpochId &&
+                      typeof prev.stockEpochId === "string" && !!prev.stockEpochId;
+                    // Defensive || r for brand-new products. The current
+                    // branch requires prev, but a future caller must not
+                    // convert an absent historic product into a TypeError.
+                    var _safeStock = !_samePhysicalEpoch ? (_epochPreferred || prev || r) : (_stockValido ? r : prev || r);
+                    // Merge BOTH sets, never choose the first truthy evidence map.
+                    // Also include each source's present base/PN snapshot.
+                    // The earlier fork branch has already merged both
+                    // evidence maps in the real runtime. Avoid repeated ledger
+                    // traversal for ordinary stale-metadata updates. Isolated
+                    // legacy regression harnesses intentionally evaluate only
+                    // this branch, without the full Yjs helper closure.
+                    var _forkEvidence = r.stockEvidencias || prev.stockEvidencias;
+                    if (_explicitEpochConflict && typeof unirEvidenciasStockYjs === "function")
+                      _forkEvidence = unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar);
                     r = Object.assign({}, prev, {
                       stockBase: _safeStock.stockBase,
                       stockPN: _safeStock.stockPN,
                       stockActual: _safeStock.stockActual,
                       stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
                       stockDeficit: _safeStock.stockDeficit,
-                      stockEpochId: _safeStock.stockEpochId
+                      stockEpochId: _safeStock.stockEpochId,
+                      stockConciliacionPendiente: _explicitEpochConflict ||
+                        prev.stockConciliacionPendiente === true ||
+                        r.stockConciliacionPendiente === true
                     });
+                    if (_forkEvidence && Object.keys(_forkEvidence).length) r.stockEvidencias = _forkEvidence;
                   }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
                   else return;

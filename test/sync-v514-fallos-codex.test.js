@@ -18,10 +18,20 @@ async function fixture(opts={}){
  class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){if(opts.sendThrows&&typeof x!=='string')throw Error('socket closing');this.sent.push(x)}}
  const db={objectStoreNames:{contains:k=>k==='updates'},
   transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}};
- const p={whenSynced:Promise.resolve(),db,get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
+ const p={whenSynced:Promise.resolve(),db,get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{
+   if(opts.persistGate && k==='f123_relay_outbox_v1-y'){
+     opts.persistGate.started=true;
+     await opts.persistGate.promise;
+   }
+   if(opts.persistReject && k==='f123_relay_outbox_v1-y'){
+     opts.persistReject.calls++;
+     throw Error('synthetic durable disk failure');
+   }
+   data.set(k,structuredClone(v));
+ }};
  const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,WebSocket:class{constructor(){throw Error('Raw relay fallback forbidden')}},
   window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},
-  document:{hidden:false,addEventListener(){}},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,
+  document:{hidden:false,addEventListener(){}},CustomEvent:class{},log(){},Date,Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,
   setTimeout(fn,ms){timers.push({fn,ms});return timers.length},clearTimeout(){},
   btoa:s=>Buffer.from(s,'binary').toString('base64'),
   cifrarBin:async(_,b)=>b.slice().buffer,descifrarBin:async(_,b)=>new Uint8Array(b),...(opts.ctx||{})};
@@ -43,6 +53,31 @@ test('3) si el envio por la red falla en ese instante, el cambio igual queda pen
  f.channel.enviarUpdate(new Uint8Array([8,8,8]));await esperar(()=>pendientes(f).length===1);
  assert.equal(pendientes(f).length,1);
 });
+test('P0: local encrypted outbox is durable BEFORE any live business frame is sent',async()=>{
+ let allowWrite;
+ const persistGate={started:false,promise:new Promise(resolve=>{allowWrite=resolve})};
+ const f=await fixture({persistGate});
+ const initial=f.socket.sent.length;
+ f.channel.enviarUpdate(new Uint8Array([42,43,44]));
+ await esperar(()=>persistGate.started);
+ assert.equal(f.socket.sent.length,initial,'no live or relay op while IndexedDB transaction is pending');
+ allowWrite();
+ await esperar(()=>pendientes(f).length===1);
+ await esperar(()=>f.socket.sent.length>initial);
+ assert.equal(pendientes(f).length,1,'same frame is stored before sending to a peer');
+});
+
+test('P0: failed local outbox write withholds unrecorded live business frames',async()=>{
+ const persistReject={calls:0};
+ const f=await fixture({persistReject});
+ const initial=f.socket.sent.length;
+ f.channel.enviarUpdate(new Uint8Array([45,46,47]));
+ await esperar(()=>persistReject.calls>0);
+ await new Promise(r=>setTimeout(r,30));
+ assert.equal(pendientes(f).length,0);
+ assert.equal(f.socket.sent.length,initial,'no network business frame when disk cannot guarantee recovery');
+});
+
 test('1) caer el relay no cierra las conexiones directas que siguen vivas',()=>{
  const onclose=src.slice(src.indexOf('      ws.onclose = function () {'),src.indexOf('      ws.onerror'));
  assert.ok(onclose.length>50);
