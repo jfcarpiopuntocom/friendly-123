@@ -61,7 +61,7 @@ export async function ownerMailboxLogin(pin){
     client=createMailboxYjs({...owner,roomId:y.roomId,key:y.clave,Y:window.Y,
       docs:{catalogo:y.doc,ops:y.opsDoc,fotos:y.fotosDoc},
       store:browserMailboxStore(y.roomId)});
-    await client.login(pin);
+    const session=await client.login(pin);
     const remote=await client.pull();
     if(!remote.complete)throw Error('causal-history-incomplete');
     // Decryption alone is not an application receipt. A received catalogue
@@ -74,6 +74,15 @@ export async function ownerMailboxLogin(pin){
       y._store.aplicar();
       if(await y.confirmarCatalogoDurable()!==true)
         throw Error('business-durability-unconfirmed');
+    }
+    // Until the forensic comparison of PC and iPhone proves business history,
+    // this canary must never push a stale stock epoch back to the mailbox.
+    // Server must explicitly allow writes; even a modified browser flag cannot
+    // bypass its Owner-scoped write gate.
+    if(session.canWrite!==true){
+      client.stop();
+      signal('read-only','forensic-reconciliation-required');
+      return {enabled:true,status:'read-only'};
     }
     // Pull first, then publish the fully hydrated local Yjs state. This
     // NEVER writes an inventory adjustment or selects stock by timestamp.
