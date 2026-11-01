@@ -3168,8 +3168,12 @@
   }
   function ficha(p) {
     const e = estadoDe(p);
+    if (p.stockConciliacionPendiente === true)
+      e.mensaje += (e.mensaje ? " · " : "") +
+        ((typeof document !== "undefined" && document.documentElement && document.documentElement.lang === "en")
+          ? "⚠ Stock pending reconciliation" : "⚠ Existencias pendientes de conciliación");
     const _rb = rebajaDe(p);
-    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, avisosPlegados: avisoPlegable(p), fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
+    return { id: p.id, nombre: p.nombre, precio: p.precio, rebajaPct: _rb.pct, precioRebajado: _rb.pct ? _rb.precio : null, rebajaProxima: _rb.proxima, diasEnPercha: _rb.dias, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo || 0, sku: p.sku, barcode: p.barcode, proveedor: p.proveedor, stockActual: p.stockActual, stockDeficit: Number(p.stockDeficit) || 0, stockConciliacionPendiente: p.stockConciliacionPendiente === true, estado: e.estado, nivelBloom: e.nivel, mensaje: e.mensaje, dormidoDesde: p.dormidoDesde || null, categoria: p.categoria, ubicacionId: p.ubicacionId, ubicacionNombre: nombreUbic(p.ubicacionId), perecible: !!p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, avisosPlegados: avisoPlegable(p), fechaCaducidad: p.fechaCaducidad || null, diasParaVencer: e.dias, metodoCosteo: p.metodoCosteo || "FIFO", umbralRojo: p.umbralRojo || 0, umbralAmarillo: p.umbralAmarillo || 0, tipoProveedor: p.tipoProveedor || "compra", tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, comisionProveedorPct: p.comisionProveedorPct || 0, comisionistaId: p.comisionistaId || null, pctAsociado: normPctAsociado(p.pctAsociado), direccionComision: p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", fechaEvento: p.fechaEvento || "", chip: p.chip || "", familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", otrasPerchas: getHermanosPercha(p.id), stockComprometido: transferencias.filter((t) => t.productoOrigenId === p.id && t.estado === "solicitada").reduce((a, t) => a + t.cantidad, 0), foto: p.foto || null, archivado: !!p.archivado };
   }
   /* filtrar() devuelve TODOS los productos de la ubicación, incluidos los
      archivados: dashboards, resumen histórico, BCG y reportes financieros deben
@@ -4185,6 +4189,13 @@
         // histories. Keep each source count unchanged until the owner issues
         // an explicit reconciled stock movement; do not resolve by wall clock.
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict);
+        // Never display a conflicting epoch as a proven count. The warning
+        // survives future merges until a verified physical reconciliation.
+        if ((_epochDoble || p.stockConciliacionPendiente === true) &&
+            mio.stockConciliacionPendiente !== true) {
+          mio.stockConciliacionPendiente = true;
+          actualizados++;
+        }
         const protectedStock = _epochDoble
           ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
              actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
@@ -5134,6 +5145,7 @@
           stockEpochId: typeof p.stockEpochId === "string" ? p.stockEpochId : "",
           stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
           stockEvidencias: p.stockEvidencias && typeof p.stockEvidencias === "object" ? JSON.parse(JSON.stringify(p.stockEvidencias)) : null,
+          stockConciliacionPendiente: p.stockConciliacionPendiente === true,
           /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
              (un dataURL de ~180KB reventaria el frame del catalogo al agrupar
              varios). Viaja solo el puntero fotoHash; los bytes van por el canal de
