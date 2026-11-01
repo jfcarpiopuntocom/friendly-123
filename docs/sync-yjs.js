@@ -2906,7 +2906,15 @@
        100 la del que recibe; la red ~30 ms. Ahora 30 ms: junta los eventos de una misma venta
        (salen en el mismo instante) sin frenar el cambio. Una espera que NO se reinicia con cada
        evento, para que una rafaga no lo posponga. Prueba: test/sync-instantaneo-v516.test.js */
-    function pedirSeed() { if (_tSeed) return; _tSeed = setTimeout(function () { _tSeed = null; sembrar(); }, 0); } // v517: 0 ms (JFC: "40 ms o menos"); junta lo del mismo instante
+    function pedirSeed() { if (_tSeed) return; _tSeed = setTimeout(function () {
+      _tSeed = null;
+      sembrar();
+      // Live publication already reconciled the local catalog. Reuse its
+      // post-publication signature; the periodic safety sweep still runs
+      // at least every 10 seconds (max four skipped 2s intervals).
+      _barridoFirma = firmaBarrido();
+      _barridoSaltos = 0;
+    }, 0); } // v517: 0 ms (JFC: "40 ms o menos"); junta lo del mismo instante
     window.addEventListener("oc-catalogo-cambiado", pedirSeed);
     window.addEventListener("oc-equipo-cambiado", pedirSeed);
 
