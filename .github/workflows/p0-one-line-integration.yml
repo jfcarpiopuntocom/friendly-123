@@ -84,6 +84,37 @@ jobs:
       - name: Preview exactly one new shell, manifest and SW (read-only CI — no push)
         run: node scripts/p0-one-release-preview.cjs
 
+  finance-parity:
+    # Independent host runner. Compare with the Playwright container integrated job,
+    # which already verifies p0-commission-period-integrity on this exact SHA.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Host fingerprint (no secret/production data)
+        run: |
+          node -p "'NODE '+process.version+' TZ '+Intl.DateTimeFormat().resolvedOptions().timeZone"
+          date -u '+UTC %Y-%m-%dT%H:%M:%SZ'
+          node --check test/commissions-hugo-paco-luis.test.js
+          node --check test/p0-commission-period-integrity.test.cjs
+      - name: Financial contracts in UTC, isolated Node processes
+        env:
+          TZ: UTC
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/commissions-hugo-paco-luis.test.js
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-commission-period-integrity.test.cjs
+      - name: Financial contracts in Ecuador time, isolated Node processes
+        env:
+          TZ: America/Guayaquil
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/commissions-hugo-paco-luis.test.js
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-commission-period-integrity.test.cjs
+
   latency:
     runs-on: ubuntu-24.04
     container:
