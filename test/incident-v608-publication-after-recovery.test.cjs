@@ -489,7 +489,9 @@ test('P0 epoch-tagged backup retains identity after local restore and Yjs public
   }
 });
 
-test('P0 explicit competing physical epochs must not auto-overwrite by timestamp',async()=>{
+// Contract change (JFC, 2026-11-01): "the latest physical count wins". Rival explicit epochs
+// converge on the newest stockTs on every device; nobody keeps a private number.
+test('P0 explicit competing physical epochs converge on the latest count on every device',async()=>{
   const a=await peer(), b=await peer();
   const original=await a.w.request('/api/respaldo/exportar');
   original.productos=[{...original.productos[0],id:'p0-competing-epochs',
@@ -514,24 +516,24 @@ test('P0 explicit competing physical epochs must not auto-overwrite by timestamp
     const currentA=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
     const currentB=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
     console.error('P0_EPOCH_ROUND',JSON.stringify({round,a:{e:currentA.stockEpochId,s:currentA.stockActual,b:currentA.stockBase,pn:currentA.stockPN,ts:currentA.stockTs},b:{e:currentB.stockEpochId,s:currentB.stockActual,b:currentB.stockBase,pn:currentB.stockPN,ts:currentB.stockTs}}));
-    assert.equal(currentA.stockEpochId,'E2-local','A physical epoch round '+round);
-    assert.equal(currentA.stockActual,5,'A physical count round '+round);
+    if(round>0){assert.equal(currentA.stockEpochId,'E3-remote','A adopts the latest count round '+round);
+      assert.equal(currentA.stockActual,9,'A physical count round '+round);}
     assert.equal(currentB.stockEpochId,'E3-remote','B physical epoch round '+round);
     assert.equal(currentB.stockActual,9,'B physical count round '+round);
   }
   const local=(await a.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
   console.error('P0_COMPETING_EPOCH_AFTER',JSON.stringify({a:{epoch:local.stockEpochId,stock:local.stockActual,base:local.stockBase,ts:local.stockTs},remote:a.w.OCYjs.getProductos()['p0-competing-epochs']?.stockEpochId}));
-  assert.equal(local.stockEpochId,'E2-local','unrelated explicit physical epochs cannot be chosen by timestamp alone');
-  assert.equal(local.stockActual,5,'preserve local physical stock pending manual reconciliation');
+  assert.equal(local.stockEpochId,'E3-remote','the latest physical count wins');
+  assert.equal(local.stockActual,9,'A converges on the latest count');
   const other=(await b.w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p0-competing-epochs');
-  assert.equal(other.stockEpochId,'E3-remote','other peer retains independent epoch');
-  assert.equal(other.stockActual,9,'other physical count is not silently replaced');
+  assert.equal(other.stockEpochId,'E3-remote','B keeps the latest epoch');
+  assert.equal(other.stockActual,9,'B is never rolled back to the older count');
   await exchange(b,a,3);
-  assert.equal((await a.w.request('/api/productos/p0-competing-epochs')).stockActual,5);
+  assert.equal((await a.w.request('/api/productos/p0-competing-epochs')).stockActual,9);
   assert.equal((await b.w.request('/api/productos/p0-competing-epochs')).stockActual,9);
 });
 
-test('P0 same numeric base with two explicit epochs cannot merge counter witnesses',async()=>{
+test('P0 same numeric base with two explicit epochs converges on the latest without merging counter witnesses',async()=>{
   const a=await peer(),b=await peer();
   const base=await a.w.request('/api/respaldo/exportar');
   base.productos=[{...base.productos[0],id:'p0-epoch-equal',
@@ -558,9 +560,9 @@ test('P0 same numeric base with two explicit epochs cannot merge counter witness
     yA:a.w.OCYjs.getProductos()['p0-epoch-equal'],
     yB:b.w.OCYjs.getProductos()['p0-epoch-equal']
   }));
-  assert.equal(pa.stockActual,7,'do not add E3 movement to E2');
+  assert.equal(pa.stockActual,9,'A adopts the latest epoch; E2 movement is not added to E3 (never 11)');
   assert.equal(pb.stockActual,9,'do not add E2 movement to E3');
-  assert.equal(pa.stockEpochId,'E2-A');
+  assert.equal(pa.stockEpochId,'E3-B');
   assert.equal(pb.stockEpochId,'E3-B');
 });
 
@@ -798,7 +800,7 @@ test('P0 late third peer converges explicit-epoch stock after independent offlin
   }
 });
 
-test('P0 third late peer cannot resolve rival physical epochs by guessing stock totals',async()=>{
+test('P0 third late peer converges on the latest count and never sums rival counts',async()=>{
   const a=await peer(),b=await peer(),c=await peer();
   const one=await a.w.request('/api/respaldo/exportar');
   one.productos=[{...one.productos[0],id:'p0-rival-third',
@@ -818,16 +820,14 @@ test('P0 third late peer cannot resolve rival physical epochs by guessing stock 
   await exchange(c,a,3);await exchange(c,b,3);
   const get=async p=>(await p.w.request('/api/respaldo/exportar')).productos.find(x=>x.id==='p0-rival-third');
   const pa=await get(a),pb=await get(b),pc=await get(c);
-  assert.equal(pa.stockActual,5,'A retains its distinct physical count');
-  assert.equal(pa.stockEpochId,'SYN-RECOUNT-A');
-  assert.equal(pb.stockActual,9,'B retains its distinct physical count');
-  assert.equal(pb.stockEpochId,'SYN-RECOUNT-B');
-  assert.ok([5,9].includes(pc.stockActual),'third peer cannot invent 14 from rival counts');
-  assert.ok(['SYN-RECOUNT-A','SYN-RECOUNT-B'].includes(pc.stockEpochId),
-    'third device must not invent an epoch for unresolved history');
+  for(const [n,p] of [['A',pa],['B',pb],['C',pc]]){
+    assert.equal(p.stockActual,9,n+' converges on the latest count (never 14)');
+    assert.equal(p.stockEpochId,'SYN-RECOUNT-B',n+' adopts the latest epoch, none invented');
+  }
   await exchange(c,b,2);await exchange(b,a,2);await exchange(a,c,2);
-  assert.equal((await get(a)).stockActual,5);
+  assert.equal((await get(a)).stockActual,9);
   assert.equal((await get(b)).stockActual,9);
+  assert.equal((await get(c)).stockActual,9);
 });
 
 test('P0 same catalog fingerprint cannot masquerade as equal physical stock',async()=>{
