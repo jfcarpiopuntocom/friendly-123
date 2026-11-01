@@ -26,10 +26,10 @@ test('S3: 600KB valid Yjs state compresses to a checkpoint frame below Supabase 
  assert.equal(b.getMap('productos').get('large-synthetic-product').length,600000);
  assert.deepEqual(Array.from(Y.encodeStateVector(a)),Array.from(Y.encodeStateVector(b)));
 });
-test('S3: only JFC test license emits compressed checkpoint, no other client protocol changed',()=>{
- assert.match(source,/return API\.esLicenciaPruebaJfc \? _gzipYjs\(full, false\) : null/);
- assert.match(source,/API\.esLicenciaPruebaJfc = _salaId !== codigo/);
- assert.match(source,/if \(!API\.esLicenciaPruebaJfc \|\| source !== "pull"\) return false/);
+test('S3: gzip writer requires an explicit per-license version-census gate',()=>{
+ assert.match(source,/API\.rollout && API\.rollout\.gzipWrite \? _gzipYjs\(full, false\) : null/);
+ assert.match(source,/entry\.allDevicesOnNewShell === true/);
+ assert.match(source,/if \(source !== "pull"\) return false/);
  assert.match(source,/if \(canal\.recuperando \|\| \(_currentPullState && _currentPullState\.enCurso\)\) return/);
  assert.match(source,/doc\.store\.pendingStructs \|\| doc\.store\.pendingDs/);
 });
@@ -39,7 +39,7 @@ test('S3: JFC checkpoint never holds the full-state base64 payload in its outbox
  const end=source.indexOf('function conectar()',at);
  assert.ok(at>0&&end>at);
  const b=source.slice(at,end);
- assert.match(b,/API\.esLicenciaPruebaJfc \? updateHash\(full\)/);
+ assert.match(b,/API\.rollout && API\.rollout\.outboxV2 \? updateHash\(full\)/);
  assert.match(b,/"sha256:" \+ hash/);
  assert.match(b,/diagnosticarCkpt\("snapshot-over-limit", buf\.byteLength\)/);
  assert.match(b,/diagnosticarCkpt\("checkpoint-encrypt-or-gzip-failed", 0\)/);
