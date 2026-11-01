@@ -21,8 +21,11 @@ function storage(){
  return {...tx,transaction:async fn=>fn(tx)};
 }
 function localStore(){
- const pending=new Map(),inbox=new Map();let cursor=0;
+ const pending=new Map(),inbox=new Map(),stamps=new Map();let cursor=0;
  return {enqueue:async x=>{pending.set(x.eventId,structuredClone(x))},
+   enqueueBatch:async(frames,seed)=>{for(const x of frames)pending.set(x.eventId,structuredClone(x));
+     if(seed)stamps.set(seed.channel,seed.digest)},
+   seedDigest:async channel=>stamps.get(channel),
    pending:async()=>[...pending.values()].map(x=>structuredClone(x)),
    sent:async id=>{pending.delete(id)},
    inbox:async()=>[...inbox.values()].map(x=>structuredClone(x)),
@@ -132,4 +135,33 @@ test('crash after inbox cursor commit replays ciphertext without double Yjs move
  const second=await restarted.client.pull();assert.equal(second.complete,true);
  assert.equal(restarted.docs.ops.getMap('eventos').size,1);
  restarted.close();
+});
+
+
+test('photo fragments are one durable batch and unchanged seeds never cause quota amplification',async()=>{
+ const relay=setup(),shared=await key(),saved=localStore(),a=replica(A,shared,relay.fetchFn,saved);
+ await a.client.login(pin);
+ a.docs.fotos.getMap('blobs').set('big-photo','data:image/jpeg;base64,'+'A'.repeat(87000));
+ await a.client.flush();
+ const first=await a.client.seed();
+ const afterFirst=saved.check().pending;
+ assert.ok(afterFirst>=6,'all three docs seed and split photo saved');
+ await a.client.seed();
+ assert.equal(saved.check().pending,afterFirst,'identical seed is idempotent');
+ await a.client.flush();
+ assert.equal(saved.check().pending,0);
+ await a.client.seed();
+ assert.equal(saved.check().pending,0,'a reload or repeat seed does not requeue photos');
+ a.close();
+});
+test('atomic local batch failure propagates and never flushes a partial photo to Worker',async()=>{
+ const relay=setup(),shared=await key(),saved=localStore();
+ saved.enqueueBatch=async()=>{throw Error('synthetic IndexedDB quota abort')};
+ const a=replica(A,shared,relay.fetchFn,saved);
+ await a.client.login(pin);
+ a.docs.fotos.getMap('blobs').set('photo','X'.repeat(90000));
+ await assert.rejects(()=>a.client.flush(),/quota abort/);
+ assert.equal(saved.check().pending,0,'no partial encrypted frame survived');
+ assert.equal(relay.dbs.size,0,'no network delivery attempted');
+ a.close();
 });
