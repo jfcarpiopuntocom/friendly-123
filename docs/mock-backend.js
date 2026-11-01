@@ -4075,7 +4075,7 @@
       return _serializarMergeCanonico(catalogo);
     } catch (_) { return null; }
   }
-  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
+  function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs, soloProductosSync = false) {
     if (_conflictoEstadoAB) return {ok:false,error:"Conflicting saved copies; incoming state is retained for retry."};
     if (_ventaConfirmando) {
       _ventaCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
@@ -4830,7 +4830,10 @@
     const cambioPersistible = actividadCambio || cambioNegocio;
     if (cambioPersistible) {
       if (negocioAntes !== negocioDespues) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
-      _programarGuardadoMerge(); // pintar antes de guardar el A/B
+      // Solo una proyección incremental de productos puede esperar al tiempo ocioso.
+      // Los gastos, pagos, ventas, PIN y catálogos completos conservan el guardado inmediato.
+      if (soloProductosSync === true && promesasPins.length === 0 && !_adoptaNombre) _programarGuardadoMerge();
+      else guardarEstadoLocal();
     }
     if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
       if (_retencionPendiente) await _retencionPendiente; // A prior PIN merge must not append audit inside retention rollback.
@@ -4880,7 +4883,7 @@
       // El relay peer-only no es almacenamiento: el ACK del par exige un guardado estricto independiente.
       const _avisadoYa = _estadoPuedeEnviarse();
       avisarCatalogoCambiado();
-      const _persistiendo = _programarGuardadoMerge();
+      const _persistiendo = Promise.resolve(guardarEstadoLocal()); // credenciales: guardado inmediato
       return _persistiendo.then(function (guardado) {
         if (guardado && !_avisadoYa) avisarCatalogoCambiado();
       });

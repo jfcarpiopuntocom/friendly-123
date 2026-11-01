@@ -4,6 +4,8 @@ on:
     paths:
       - docs/estado-ab.js
       - docs/mock-backend.js
+      - docs/sync-yjs.js
+      - test/idiomarte-owner-admin-expenses.test.js
       - docs/version-manifest.json
       - test/p0-v637-ab-commit-sin-preimagen.test.cjs
       - test/p0-v637-merge-idle-guards.test.cjs
@@ -25,6 +27,6 @@ jobs:
       - run: node --check docs/estado-ab.js
       - run: node --check docs/mock-backend.js
       - name: New regressions + A/B failure recovery — first run
-        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs
+        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs test/idiomarte-owner-admin-expenses.test.js
       - name: New regressions + A/B failure recovery — second run
-        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs
+        run: node --test test/p0-v637-ab-commit-sin-preimagen.test.cjs test/p0-v637-merge-idle-guards.test.cjs test/ab-transaction-recovery.test.cjs test/idiomarte-owner-admin-expenses.test.js
