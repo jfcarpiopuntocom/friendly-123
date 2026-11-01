@@ -4296,7 +4296,11 @@
         // Competing authenticated physical epochs have different movement
         // histories. Keep each source count unchanged until the owner issues
         // an explicit reconciled stock movement; do not resolve by wall clock.
-        const _epochDoble = !!(epochLocal && epochRemote && epochConflict);
+        // JFC 2026-11-01: the latest physical count wins (stockTs, deterministic tie-break by epoch id).
+        // The losing epoch stays in stockEvidencias below; nothing is discarded.
+        const _gana = epochLocal && epochRemote && epochConflict && _baseR !== null &&
+          (_tsR > _tsL || (_tsR === _tsL && epochRemote > epochLocal));
+        const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
         const protectedStock = _epochDoble
           ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
              actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
@@ -4313,7 +4317,7 @@
             try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if (epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) {
+        if ((epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) || _gana) {
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
@@ -7351,17 +7355,22 @@
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
-        const d = Number.isInteger(body.delta) ? body.delta : 0;
+        // JFC 2026-11-01: owner/admin may set an absolute physical count ("fijar en N"). It opens a NEW stock
+        // epoch (base N, counters reset) that travels with the catalog; the latest count wins on every device.
+        const fisico = Number.isInteger(body.stockFisico) && body.stockFisico >= 0 ? body.stockFisico : null;
+        if (fisico !== null && !["dueno", "admin"].includes(window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()))
+          return J({ error: "Only the owner or an admin can set a physical count." }, 403);
+        const d = fisico !== null ? fisico - Math.max(0, Number(p.stockActual) || 0) : (Number.isInteger(body.delta) ? body.delta : 0);
         // BUG FIX (2026-07-03): delta=0 es un entero valido, pasa la guarda de
         // arriba, no cambia el stock pero registra un movimiento en el log. Silencioso
-        // y contaminante. Se rechaza explicitamente.
-        if (d === 0) return J({ error: "The adjustment cannot be zero." }, 400);
+        // y contaminante. Se rechaza explicitamente. (A physical count that confirms the same number is valid.)
+        if (d === 0 && fisico === null) return J({ error: "The adjustment cannot be zero." }, 400);
         if (p.stockActual + d < 0) return J({ error: `That adjustment would push stock negative (currently: ${p.stockActual}).` }, 400);
         // Same durable boundary as a sale: never publish a correction that may
         // disappear on reload when both local storage backends reject the write.
         debePersistir = false;
         const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
-          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit"].map(k => ({
+          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit", "stockEpochId", "rev"].map(k => ({
             k, existe: Object.prototype.hasOwnProperty.call(p, k),
             valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]
           })) };
@@ -7375,16 +7384,22 @@
         _ventaConfirmando = true; // Hold Yjs seed, incoming merges and reads until ACK/rollback.
         _ventaPendiente = new Promise(resolve => { terminar = resolve; });
         try {
-          p.stockActual += d;
-          mov("ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || "Ajuste manual", stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
+          if (fisico !== null) {
+            // Physical count: new epoch. No delta op is emitted (other devices would add it again);
+            // the epoch fields reach them through the catalog merge, where the latest count wins.
+            p.stockEpochId = uuid("stock-epoch-"); p.stockBase = fisico; p.stockPN = {};
+            p.stockDeficit = 0; p.stockTs = Date.now(); p.stockActual = fisico;
+            p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
+          } else p.stockActual += d;
+          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
           const op = { productoId: p.id, delta: d };
-          _prepararOpStock(op);
+          if (fisico === null) _prepararOpStock(op);
           try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
           if (!guardado) {
             revertir();
             return J({ error: tSeguro("product.notSaved", "The stock adjustment was NOT saved. Check available storage and try again.") }, 507);
           }
-          emitirOpStock("ajuste", op, true);
+          if (fisico === null) emitirOpStock("ajuste", op, true);
           return J(ficha(p));
         } catch (e) {
           if (!guardado) revertir();
