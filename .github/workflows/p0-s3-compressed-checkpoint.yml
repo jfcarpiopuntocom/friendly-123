@@ -10,6 +10,10 @@ on:
       - test/p0-mixed-shell-v636.test.cjs
       - test/p0-s3-checkpoint-alert.test.cjs
       - test/p0-s3-size-audit.test.cjs
+      - test/p0-s3-checkpoint-768k-sql.test.cjs
+      - test/ab-transaction-recovery.test.cjs
+      - docs/estado-ab.js
+      - supabase-relay/migrations/20261101090000_checkpoint_768k.sql
       - test/supabase-relay-transport.test.js
       - test/e1-browser-relay-head-parity.test.cjs
       - supabase-relay/transport.mjs
@@ -22,8 +26,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs test/p0-s3-size-audit.test.cjs test/supabase-relay-transport.test.js test/e1-browser-relay-head-parity.test.cjs
-      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs test/p0-s3-size-audit.test.cjs test/supabase-relay-transport.test.js test/e1-browser-relay-head-parity.test.cjs
+      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs test/p0-s3-size-audit.test.cjs test/p0-s3-checkpoint-768k-sql.test.cjs test/ab-transaction-recovery.test.cjs test/supabase-relay-transport.test.js test/e1-browser-relay-head-parity.test.cjs
+      - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs test/p0-s3-size-audit.test.cjs test/p0-s3-checkpoint-768k-sql.test.cjs test/ab-transaction-recovery.test.cjs test/supabase-relay-transport.test.js test/e1-browser-relay-head-parity.test.cjs
   mixed-shell:
     runs-on: ubuntu-latest
     timeout-minutes: 5
