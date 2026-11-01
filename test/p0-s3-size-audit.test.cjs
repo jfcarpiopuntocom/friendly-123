@@ -10,7 +10,7 @@ test('S3: read-only audit reports numeric sizes without source records',()=>{
  assert.ok(at>0&&end>at,'size audit must exist');
  const ctx=vm.createContext({window:{},Uint8Array,JSON,Math,TextEncoder,TextDecoder,crypto:require('crypto').webcrypto});
  vm.runInContext(vendor,ctx);vm.runInContext(sync.slice(at,end),ctx);
- vm.runInContext("var cat=new Y.Doc(),ops=new Y.Doc(),fotos=new Y.Doc();"+ 
+ vm.runInContext("var cat=new Y.Doc(),ops=new Y.Doc(),fotos=new Y.Doc();"+
    "cat.getMap('productos').set('synthetic-product',{id:'synthetic-product',fotoHash:'synthetic-hash'});"+
    "ops.getMap('eventos').set('synthetic-sale',{opId:'synthetic-sale',cantidad:2});"+
    "fotos.getMap('blobs').set('synthetic-hash','data:image/png;base64,AAA');",ctx);
