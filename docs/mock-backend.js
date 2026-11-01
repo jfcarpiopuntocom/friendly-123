@@ -1562,8 +1562,24 @@
           if (ok !== true) return terminar(false);
           const ack = terminar(true);
           if (ab && tokenOk) setTimeout(() => {
-            try { _guardandoAB = true; ab.guardarAhora(crudo); }
-            catch (_) {} finally { _guardandoAB = false; }
+            // A/B is a best-effort AFTER-ACK mirror. Another tab can commit a
+            // newer IndexedDB revision before this callback runs. Never write
+            // the older mirror and trigger a false A/B conflict/HTTP 507.
+            // Serialize only the mirror; money/stock CAS remains atomic in IDB.
+            const espejarSiSigueVigente = async () => {
+              let actual = null;
+              try { actual = await idb.leer(); } catch (_) { return; }
+              if (!actual || actual._rev !== _revIntento ||
+                  actual._abCommit !== completo._abCommit) return;
+              try { _guardandoAB = true; ab.guardarAhora(crudo); }
+              catch (_) {} finally { _guardandoAB = false; }
+            };
+            try {
+              if (navigator.locks && typeof navigator.locks.request === "function")
+                navigator.locks.request("f123-ab-mirror-" + OC_STATE_KEY + OC_STATE_SUFIJO,
+                  espejarSiSigueVigente).catch(() => {});
+              else espejarSiSigueVigente(); // no Web Locks: old dual-tab guard still applies
+            } catch (_) {}
           }, 0);
           return ack;
         }, () => terminar(false));
