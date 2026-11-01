@@ -2429,7 +2429,7 @@
                         prev.stockConciliacionPendiente === true ||
                         r.stockConciliacionPendiente === true
                     });
-                    if (Object.keys(_forkEvidence).length) r.stockEvidencias = _forkEvidence;
+                    if (_forkEvidence && Object.keys(_forkEvidence).length) r.stockEvidencias = _forkEvidence;
                   }
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
                   else return;
