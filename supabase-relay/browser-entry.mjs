@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { createRelayTransport } from './transport.mjs';
+import { createRelayTransport, CKPT_CIPHER_BYTES } from './transport.mjs';
 import { createRelayGateway } from './gateway.mjs';
 
 // Build-time values are a public project URL and publishable key, never an
@@ -21,4 +21,6 @@ const gateway = createRelayGateway({
   },
   native: room => native.connect(room)
 });
+// Feature handshake: old adapters do not advertise full-size checkpoint RPC support.
+gateway.ckptFrameBytes = CKPT_CIPHER_BYTES;
 window.F123Relay = gateway;
