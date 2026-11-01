@@ -1,7 +1,9 @@
 // Infrastructure adapter for the existing encrypted relay protocol.
 // Inject one Supabase client per device. Each room uses a private channel on
 // that client's shared connection; this module never opens or edits business data.
-const MAX_FRAME = 256 * 1024;
+const MAX_FRAME = 256 * 1024; // unchanged for live, OP, pull and other frames
+const MAX_CKPT_FRAME = 384 * 1024; // checkpoint goes by RPC, never broadcast
+export const CKPT_CIPHER_BYTES = 256 * 1024; // server save_checkpoint decoded ciphertext limit
 const MAX_BUFFER = 4 * 1024 * 1024;
 const encoder = new TextEncoder();
 
@@ -100,16 +102,19 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
       const copied = typeof data === 'string' || data instanceof Blob ? data : asBytes(data)?.slice();
       if (copied === undefined) throw new TypeError('Unsupported relay frame');
       const size = typeof copied === 'string' ? encoder.encode(copied).byteLength : copied.size ?? copied.byteLength;
-      if (size > MAX_FRAME) { this.close(1009, 'frame too big'); return; }
+      let control;
+      if (typeof copied === 'string') {
+        try { control = JSON.parse(copied); } catch (_) { /* legacy text is forwarded */ }
+      }
+      // Only a parsed, durable checkpoint may exceed the regular 256 KiB
+      // transport frame. #command sends it through HTTP RPC, not broadcast.
+      const ckpt = control && typeof control === 'object' && control.k === 'ckpt' && typeof control.c === 'string';
+      if (size > (ckpt ? MAX_CKPT_FRAME : MAX_FRAME)) { this.close(1009, 'frame too big'); return; }
       if (this.bufferedAmount + size > MAX_BUFFER) {
         this.close(1013, 'relay buffer full');
         throw new DOMException('Relay buffer full', 'QuotaExceededError');
       }
       this.bufferedAmount += size;
-      let control;
-      if (typeof copied === 'string') {
-        try { control = JSON.parse(copied); } catch (_) { /* legacy text is forwarded */ }
-      }
       // Keep RPC writes/checkpoints/replay ordered, but never hold immediate
       // encrypted frames behind a slow HTTP response. Both lanes share backpressure.
       const durableLane = control && ['op', 'ckpt'].includes(control.k);
