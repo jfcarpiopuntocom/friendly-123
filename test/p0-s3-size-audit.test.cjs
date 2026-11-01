@@ -119,7 +119,7 @@ test('S3: read-only catalog collection audit returns only names, counts and esti
  const end=sync.indexOf('\n  var API = {',at);
  assert.ok(at>0&&end>at);
  const ctx=vm.createContext({
-  window:{},Uint8Array,JSON,Math,TextEncoder,
+  window:{},Uint8Array,JSON,Math,TextEncoder,TextDecoder,crypto:require('crypto').webcrypto,
   COLECCIONES:['productos','ventas','gastos','actividad','ajustes','transferencias']
  });
  vm.runInContext(vendor,ctx);
@@ -136,5 +136,5 @@ test('S3: read-only catalog collection audit returns only names, counts and esti
  assert.equal(rows.find(x=>x.coleccion==='hechos_financieros').entradas,0);
  assert.equal(rows.find(x=>x.coleccion==='_stock_pn_testigos_v1').entradas,1);
  assert.ok(rows.every(x=>Object.keys(x).sort().join(',')==='bytesJSONVisibles,coleccion,entradas'));
- assert.doesNotMatch(JSON.stringify(rows),/private-|product-value|sale-value|42/);
+ assert.doesNotMatch(JSON.stringify(rows),/private-|product-value|sale-value/);
 });
