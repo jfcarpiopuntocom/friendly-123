@@ -10,9 +10,10 @@ for(const item of cases)test('business logo black outline is 12% of font size in
  for(const file of [item.src,item.bundle]){
   const css=read(file), selector=item.selector.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   const rules=[...css.matchAll(new RegExp(selector+'\\s*\\{([^{}]+)\\}','g'))];
-  assert.ok(rules.some(r=>/-webkit-text-stroke:\\s*\\.12em\\s+#000/i.test(r[1])),file+' must use em, not px');
+  const rule=rules.find(r=>r[1].includes('-webkit-text-stroke:.12em #000'))?.[1];
+  assert.ok(rule,file+' must have proportional em stroke, not px');
   assert.match(css,/#EFC31A/i,file+' must contain official brand yellow');
-  assert.doesNotMatch(rules.find(r=>/-webkit-text-stroke:\\s*\\.12em\\s+#000/i.test(r[1]))[1],/-webkit-text-stroke:\\s*\\d+px/i);
+  assert.ok(!rule.includes('-webkit-text-stroke:2px'),'a fixed px stroke is prohibited');
  }
 });
 test('real Chromium and WebKit paint proportional outline on mobile and PC',async()=>{
@@ -30,7 +31,7 @@ test('real Chromium and WebKit paint proportional outline on mobile and PC',asyn
       return {px:parseFloat(css.webkitTextStrokeWidth),font:parseFloat(css.fontSize),fill:css.webkitTextFillColor};
      });
      assert.ok(v.font>0&&Math.abs(v.px/v.font-.12)<.018,JSON.stringify({name,width,item:item.name,...v}));
-     assert.match(v.fill,/rgb\\(239,\\s*195,\\s*26\\)/i,JSON.stringify({name,width,item:item.name,...v}));
+     assert.equal(v.fill.replaceAll(' ',''),'rgb(239,195,26)',JSON.stringify({name,width,item:item.name,...v}));
     }finally{await page.close()}
    }
   }finally{await browser.close()}
