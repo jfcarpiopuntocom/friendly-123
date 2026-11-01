@@ -26,7 +26,7 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
    doc:{store:pending?{pendingStructs:{missingParent:true}}:{}},
    partesEntrantes:fragments?{"chunk":{received:1,total:2}}:{},
    _tReplay:null,_replayKey:null,_replayUsed:0,
-   canal:{ws:null},PULL_PAGE_SIZE:64,
+   canal:{ws:null},PULL_PAGE_SIZE:64,MODERN_PULL_PAGE_SIZE:128,
    _pullCursorKey:"cursor",_pullCursor:{rev:-1,seq:0},_appliedPullCursor:{rev:-1,seq:0},_pullCursorReady:Promise.resolve(),
    persistencia:{
      db:{objectStoreNames:{contains:name=>name==="updates"},transaction(){
