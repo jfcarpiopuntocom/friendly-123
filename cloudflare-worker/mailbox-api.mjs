@@ -72,6 +72,10 @@ export async function mailboxPublicRoute(req,env,{getPinDo,getMailboxDo},now=Dat
   // cannot enroll customers simply by flipping a client-side local flag.
   const pilot=String(env.MAILBOX_CANARY_LICENSE_CODE||'').trim().toUpperCase();
   if(!validLicense(pilot))return response({ok:false,reason:'canary-not-configured'},503);
+  // Even the pilot defaults to read-only while actual PC/iPhone facts and PIN
+  // histories are being reconciled. A separate deployment secret is required
+  // to allow ANY remote encrypted write (no client flag can bypass this).
+  const canWrite=env.MAILBOX_CANARY_WRITES==='1';
   if((isSession&&req.method!=='POST')||(isEvents&&!['GET','POST'].includes(req.method))||
      (isAck&&req.method!=='POST'))return response({ok:false},405);
   try {
@@ -87,7 +91,7 @@ export async function mailboxPublicRoute(req,env,{getPinDo,getMailboxDo},now=Dat
         return response({ok:false,reason:'unauthorized'},verified.status===503?503:401);
       }
       if(!validInt(verified.data.revision)||verified.data.revision<1)return response({ok:false},503);
-      return response({ok:true,role:'owner',revision:verified.data.revision,expiresAt:now+TTL,
+      return response({ok:true,role:'owner',canWrite,revision:verified.data.revision,expiresAt:now+TTL,
         token:await ticket(env,{aud:'f123-mailbox-v1',lic:body.licenseCode,
           role:'owner',device:body.deviceId,rev:verified.data.revision,iat:now,exp:now+TTL})});
     }
@@ -106,6 +110,7 @@ export async function mailboxPublicRoute(req,env,{getPinDo,getMailboxDo},now=Dat
       if(!validInt(after)||!Number.isSafeInteger(limit)||limit<1||limit>50)return response({ok:false},400);
       command={action:'pull',licenseCode:claim.lic,after,limit};
     }else if(isEvents){
+      if(!canWrite)return response({ok:false,reason:'canary-read-only'},403);
       const body=await safeJSON(req,100000);
       command={action:'append',licenseCode:claim.lic,envelope:body};
     }else{
