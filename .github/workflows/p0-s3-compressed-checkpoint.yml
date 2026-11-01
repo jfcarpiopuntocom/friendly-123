@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - run: npm ci --no-audit --no-fund --ignore-scripts
       - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs test/p0-s3-size-audit.test.cjs test/p0-s3-checkpoint-768k-sql.test.cjs test/ab-transaction-recovery.test.cjs test/v609-actividad-incremental.test.cjs test/p0-v637-perf-300.test.cjs test/supabase-relay-transport.test.js test/e1-browser-relay-head-parity.test.cjs
       - run: node --test test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-rollout-policy.test.cjs test/p0-s3-size-audit.test.cjs test/p0-s3-checkpoint-768k-sql.test.cjs test/ab-transaction-recovery.test.cjs test/v609-actividad-incremental.test.cjs test/p0-v637-perf-300.test.cjs test/supabase-relay-transport.test.js test/e1-browser-relay-head-parity.test.cjs
   mixed-shell:
