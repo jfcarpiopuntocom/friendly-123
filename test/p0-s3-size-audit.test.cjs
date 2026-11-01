@@ -60,3 +60,52 @@ test('S3: oversized tag0 uses only causal-preserving Yjs replay, never a new map
  assert.match(sync,/if \(!useful && full\.length \+ 29/);
  assert.match(sync,/diagnosticarCkpt\("snapshot-over-limit"/);
 });
+
+
+// Regression: the old client estimated base64 against a 250 KiB OP guard.
+// The relay actually accepts a 256 KiB JSON checkpoint frame.
+async function checkpointProbe(cipherBytes) {
+ const at=sync.indexOf('    function hacerCkpt() {');
+ const end=sync.indexOf('    function conectar() {',at);
+ assert.ok(at>0&&end>at);
+ const saved=[],diagnostics=[];
+ const full=new Uint8Array(cipherBytes-30);
+ const ctx=vm.createContext({
+  _soloMemoria:false,canal:{ws:{readyState:1,peerOnly:false},recuperando:false},
+  permiteCkpt:true,API:{clave:'synthetic',rollout:{outboxV2:false,gzipWrite:false}},
+  _currentPullState:null,_appliedPullCursor:{rev:0,seq:1},
+  partesEntrantes:{},doc:{store:{}},
+  Y:{encodeStateAsUpdate:()=>full},_outbox:{pending:[],checkpoint:''},
+  MAX_OP_BYTES:250*1024,MAX_CKPT_RPC_BYTES:256*1024,
+  _b64:bytes=>Buffer.from(bytes).toString('base64'),
+  _frame:()=>new Uint8Array(1),
+  cifrarBin:async()=>new Uint8Array(cipherBytes).buffer,
+  _compactarYjsSinCambiarCausalidad:()=>null,
+  guardarSobre:entry=>saved.push(entry),
+  diagnosticarCkpt:(reason,bytes)=>diagnostics.push({reason,bytes}),
+  nombre:'catalogo',log(){}
+ });
+ vm.runInContext(sync.slice(at,end),ctx);
+ vm.runInContext('hacerCkpt()',ctx);
+ await new Promise(resolve=>setImmediate(resolve));
+ await new Promise(resolve=>setImmediate(resolve));
+ return {saved,diagnostics};
+}
+test('S3: 196000-byte ciphertext passes the real 256 KiB checkpoint frame cap',async()=>{
+ assert.match(sync,/var MAX_OP_BYTES = 250 \* 1024/,'OP guard must remain unchanged');
+ assert.match(sync,/var MAX_CKPT_RPC_BYTES = 256 \* 1024/);
+ const {saved,diagnostics}=await checkpointProbe(196000);
+ assert.equal(saved.length,1,'a valid full-size checkpoint must be enqueued');
+ const wire={...saved[0]};delete wire.state;
+ const bytes=Buffer.byteLength(JSON.stringify(wire));
+ assert.ok(bytes>250*1024,'regression must exceed the old client guard');
+ assert.ok(bytes<=256*1024,'actual serialized relay frame must fit');
+ assert.equal(diagnostics.length,0);
+});
+test('S3: checkpoint exceeding 256 KiB is rejected before durable enqueue',async()=>{
+ const {saved,diagnostics}=await checkpointProbe(197000);
+ assert.equal(saved.length,0,'an oversized checkpoint must never reach the relay');
+ assert.equal(diagnostics.length,1);
+ assert.equal(diagnostics[0].reason,'snapshot-over-limit');
+ assert.equal(diagnostics[0].bytes,197000);
+});
