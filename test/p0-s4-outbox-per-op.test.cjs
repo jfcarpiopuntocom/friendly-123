@@ -92,3 +92,34 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:C')).c,'synthetic-cipher-C');
  db.close();
 });
+
+test('S4 never duplicates a large customer backlog or deletes the v1 source',async()=>{
+ const {indexedDB,IDBKeyRange}=require('fake-indexeddb'),vm=require('node:vm');
+ const req=indexedDB.open('s4-oversize-'+Date.now(),1);
+ const db=await new Promise((resolve,reject)=>{
+   req.onupgradeneeded=()=>req.result.createObjectStore('custom');
+   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+ });
+ const key='f123_relay_outbox_v1-y';
+ const old={pending:Array.from({length:513},(_,i)=>({id:String(i),k:'op',c:'cipher'})),confirmed:[],checkpoint:''};
+ const put=(k,v)=>new Promise((resolve,reject)=>{
+   const tx=db.transaction('custom','readwrite');tx.objectStore('custom').put(v,k);
+   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+ });
+ const get=k=>new Promise(resolve=>{
+   const req=db.transaction('custom','readonly').objectStore('custom').get(k);
+   req.onsuccess=()=>resolve(req.result);
+ });
+ await put(key,old);
+ const begin=source.indexOf('    var _v2DB = null, _v2Ready = null, _v2Cache = null');
+ const end=source.indexOf('    function mutarOutbox(change) {',begin);
+ const ctx=vm.createContext({API:{rollout:{outboxV2:true},roomId:'synthetic'},suffix:'-y',
+   persistencia:{db,_db:Promise.resolve(db),get,set:put},_outboxKey:key,
+   _outbox:{pending:[],confirmed:[],checkpoint:''},IDBKeyRange,localStorage:{},log(){}});
+ vm.runInContext(source.slice(begin,end),ctx);
+ const read=await vm.runInContext('leerOutbox()',ctx);
+ assert.equal(read.pending.length,513);
+ assert.equal((await get(key)).pending.length,513);
+ assert.equal(await get('f123_relay_outbox_v2-y:meta'),undefined);
+ db.close();
+});
