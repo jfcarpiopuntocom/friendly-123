@@ -12,12 +12,11 @@ test('JFC licence stays in the SAME room as published v636 (its data lives there
   assert.equal(sufijo(sync),V636_SUFIJO);
   assert.doesNotMatch(sync,/jfc-test-epoch-2026-11-01"\) : codigo/);
 });
-test('the one-shot local wipe is disabled before any storage is touched',()=>{
-  assert.match(backend,/const S2_REINICIO_ACTIVO = false;/);
-  const i=backend.indexOf('function _prepararCorteJfcS2() {');
-  assert.ok(i>0);
-  assert.match(backend.slice(i,i+120),/if \(!S2_REINICIO_ACTIVO\) return false;/);
-  assert.ok(backend.slice(i).indexOf('if (!S2_REINICIO_ACTIVO) return false;')<backend.slice(i).indexOf('_vaciarTiendaFresca()'));
+test('S2 reset implementation is absent; compatibility hook is inert and local state still loads',()=>{
+  assert.doesNotMatch(backend, /_prepararCorteJfcS2|S2_REINICIO_ACTIVO|_esLicenciaJfcParaS2|f123_jfc_s2_epoch_20261101|__f123JfcResetReady/);
+  assert.match(backend, /window\\.__f123PrepareJfcReset = function \\(\\) \\{ return false; \\};/);
+  assert.match(backend, /let _demoRefrescado = false;\\s*try \\{ cargarEstadoLocal\\(\\); \\} catch/);
+  assert.doesNotMatch(backend, /OCEstadoIDB\\.borrar\\(\\)/);
 });
 test('causal movement witnesses stay enabled for the JFC canary licence',()=>{
   assert.match(sync,/API\.esLicenciaPruebaJfc = _salaId !== codigo;/);
