@@ -59,7 +59,8 @@ test('published v636 reader applies a 786432-byte ciphertext-budget tag0 Yjs che
  const vendor=fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8');
  const ctx=vm.createContext({window:{},Uint8Array,TextEncoder,TextDecoder,crypto:require('crypto').webcrypto});
  vm.runInContext(vendor,ctx);
- const make=n=>vm.runInContext("var large=new Y.Doc(); large.getMap('productos').set('synthetic-1',{nota:'x'.repeat("+n+")}); Y.encodeStateAsUpdate(large)",ctx);
+ // Fixed Yjs clientID: varint width must not change between the two size probes.
+ const make=n=>vm.runInContext("var large=new Y.Doc(); large.clientID=12345; large.getMap('productos').set('synthetic-1',{nota:'x'.repeat("+n+")}); Y.encodeStateAsUpdate(large)",ctx);
  const target=786432-30; // 1 byte frame + 29 bytes AES-GCM envelope
  let n=786300,payload=make(n);
  n+=target-payload.byteLength;payload=make(n);
