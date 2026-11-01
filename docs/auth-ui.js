@@ -1184,19 +1184,23 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     let owned,lic;
     try {
       owned=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
-      lic=String(owned.licenseCode||"").trim().toUpperCase();
+      const ownLicense=String(owned.licenseCode||"").trim().toUpperCase();
       const active=window.OCTienda&&window.OCTienda.licenciaActual&&
         String(window.OCTienda.licenciaActual()||"").trim().toUpperCase();
+      // The active notebook selects the business. Own-device identity can
+      // refer to a DIFFERENT local notebook on joined Safari/PWA instances.
+      // Never pass that unrelated registered instance to the Owner verifier.
+      lic=/^F123-[A-Z0-9*~$=-]{8,34}$/.test(active)?active:ownLicense;
+      const sameOwnedBusiness=ownLicense===lic;
       // Synthetic/offline fixture hosts have no registered Worker identity.
       // They must keep testing the existing local credential path.
       if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
-      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||
-         (active && active!==lic)) return "unavailable-identity";
+      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)) return "unavailable-identity";
       const url=OC_WORKER_URL; // PINs must never be sent to a localStorage-controlled origin.
       const endpoint=new URL(url);if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return "unavailable";
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
       try {
-        if(!owned.instanceId){
+        if(!owned.instanceId||!sameOwnedBusiness){
           const route=await detectarRutaPinWorker(endpoint,controller.signal);
           if(route==="current")return await resolverPinNuevoAparato(endpoint,lic,code,controller.signal);
           return route==="legacy"&&!pinCentralYaActivado(lic)?"unconfigured":"unavailable";
