@@ -64,6 +64,7 @@ jobs:
         run: node --test --test-timeout=120000 test/p0-business-ink-12-percent-browser.test.cjs
       - name: Changes and SHA without any production writes
         run: |
-          git diff --check HEAD^ HEAD
+          test -n "$(git merge-base HEAD origin/master)"
+          git diff --check "$(git merge-base HEAD origin/master)" HEAD
           wc -l docs/auth-ui.js docs/sync-yjs.js docs/mock-backend.js cloudflare-worker/pin-worker-api.mjs
           sha256sum docs/auth-ui.js docs/sync-yjs.js docs/mock-backend.js cloudflare-worker/pin-worker-api.mjs
