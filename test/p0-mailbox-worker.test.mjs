@@ -4,7 +4,7 @@ import {webcrypto} from 'node:crypto';
 import {mailboxPublicRoute,mailboxDoRoute} from '../cloudflare-worker/mailbox-api.mjs';
 globalThis.crypto ||= webcrypto;
 const license='F123-SYNTHETIC-TEST', device='synthetic_device_A1', deviceB='synthetic_device_B2';
-const env={PIN_PEPPER:'synthetic-only-secret-more-than-32-bytes', REGISTROS:{},MAILBOXES:{}};
+const env={PIN_PEPPER:'synthetic-only-secret-more-than-32-bytes', REGISTROS:{},MAILBOXES:{}, MAILBOX_CANARY_LICENSE_CODE:license};
 function db(){
   const rows=new Map();
   const clone=x=>x===undefined?undefined:structuredClone(x);
@@ -221,4 +221,22 @@ test('zero-cursor ACK from same device is idempotent and does not consume capaci
       deviceId:deviceB,cursor:0})}),store);
   assert.equal(other.status,200);
   assert.equal(await store.get('ack-count'),2);
+});
+
+test('mailbox unavailable without explicit canary and denies other shops before DO work',async()=>{
+ const f=fixture();
+ const request=new Request('https://worker.example/mailbox/session',{method:'POST',
+   headers:{'content-type':'application/json'},body:JSON.stringify({
+     licenseCode:license,pin:'123',deviceId:device})});
+ const disabled=await mailboxPublicRoute(request,{...env,MAILBOX_CANARY_LICENSE_CODE:''},{
+   getPinDo:()=>null,getMailboxDo:()=>null});
+ assert.equal(disabled.status,503);
+ const outside=new Request('https://worker.example/mailbox/session',{method:'POST',
+   headers:{'content-type':'application/json'},body:JSON.stringify({
+     licenseCode:'F123-OTHER-SYNTHETIC',pin:'123',deviceId:device})});
+ const blocked=await mailboxPublicRoute(outside,env,{
+   getPinDo:()=>{throw Error('should not query central PIN for other shops')},
+   getMailboxDo:()=>{throw Error('should not create DO for other shops')}});
+ assert.equal(blocked.status,403);
+ assert.equal((await f.session()).status,200,'explicit synthetic pilot works');
 });
