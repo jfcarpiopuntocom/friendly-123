@@ -1365,6 +1365,9 @@
               unirRecibosPeer(pendientesPeer, receipts);
               return confirmarRecepcionPeer();
             }
+            // A successfully applied pull/live update is valid. Durability of the
+            // pull cursor is separately fenced by guardarPruebaCausal + IDB readback.
+            return true;
           }
           else if (tag === 1) { // peer hello: no diff from an unhydrated partial Y.Doc
             return _pullCursorReady.then(function () {
