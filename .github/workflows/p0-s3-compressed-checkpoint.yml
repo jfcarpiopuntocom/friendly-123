@@ -1,7 +1,12 @@
 name: P0 S3 encrypted checkpoint compression — JFC test room
 on:
   pull_request:
-    paths: [docs/sync-yjs.js, test/p0-s3-compressed-checkpoint.test.cjs, test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs, test/p0-s3-checkpoint-alert.test.cjs, .github/workflows/p0-s3-compressed-checkpoint.yml]
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-s3-compressed-checkpoint.test.cjs
+      - test/p0-s3-unknown-frame.test.cjs
+      - test/p0-s3-checkpoint-alert.test.cjs
+      - .github/workflows/p0-s3-compressed-checkpoint.yml
 jobs:
   twice:
     runs-on: ubuntu-latest
