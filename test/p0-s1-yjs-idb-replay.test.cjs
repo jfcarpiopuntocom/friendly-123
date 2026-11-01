@@ -8,7 +8,7 @@ const vm=require('node:vm');
 const src=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 const vendor=fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8');
 
-function listenerFor(docName) {
+function listenerFor(docName, unavailable=false) {
   const anchor=docName+'.on("update", function (update, origin) {';
   const start=src.indexOf(anchor);
   assert.ok(start>=0,'actual production listener '+docName);
@@ -17,7 +17,7 @@ function listenerFor(docName) {
   let captured;
   const sends=[], broadcasts=[], hydrations=[];
   const doc={on(type,fn){assert.equal(type,'update');captured=fn;}};
-  const idb={name:docName+'-real-IDB-origin'};
+  const idb=unavailable?null:{name:docName+'-real-IDB-origin'};
   const API={
     doc:docName==='API.doc'?doc:null,
     fotosDoc:docName==='API.fotosDoc'?doc:null,
@@ -58,5 +58,13 @@ for (const docName of ['API.doc','API.fotosDoc','API.opsDoc']) {
     assert.equal(f.sends.length,1,'a fresh local Yjs event must remain durable');
     f.captured(update,null);
     assert.equal(f.sends.length,2,'locally initiated edits with no explicit origin still propagate');
+  });
+}
+
+for (const docName of ['API.doc','API.fotosDoc','API.opsDoc']) {
+  test('S1 '+docName+': without IndexedDB a null-origin local edit still publishes',()=>{
+    const f=listenerFor(docName,true);
+    f.captured(new Uint8Array([4,5]),null);
+    assert.equal(f.sends.length,1,'no persistence instance must not suppress legitimate local updates');
   });
 }

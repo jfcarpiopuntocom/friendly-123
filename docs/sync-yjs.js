@@ -1664,7 +1664,7 @@
     API.canal = crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
     API.doc.on("update", function (update, origin) {
       // IndexedDB hydration replays existing history; it is not a new change to publish.
-      if (origin === "bc" || origin === "red" || origin === API.idb) return;
+      if (origin === "bc" || origin === "red" || (API.idb && origin === API.idb)) return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.canal.enviarUpdate(update);
     });
@@ -1684,7 +1684,7 @@
     } catch (_) {}
     API.fotosCanal = crearCanal(Y, API.fotosDoc, "-fotos", "fotos", false, sembrarFotosAlRelay, API.fotosIdb); // sin ckpt (fotos exceden 256KB); siembra c/foto como op individual
     API.fotosDoc.on("update", function (update, origin) {
-      if (origin === "bc" || origin === "red" || origin === API.fotosIdb) { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
+      if (origin === "bc" || origin === "red" || (API.fotosIdb && origin === API.fotosIdb)) { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.fotosCanal.enviarUpdate(update);
     });
@@ -1706,7 +1706,7 @@
     } catch (_) {}
     API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb); // ckpt: ops es pequeño
     API.opsDoc.on("update", function (update, origin) {
-      if (origin === "bc" || origin === "red" || origin === API.opsIdb) { pedirProcesarEventos(); return; }
+      if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.opsCanal.enviarUpdate(update);
     });
