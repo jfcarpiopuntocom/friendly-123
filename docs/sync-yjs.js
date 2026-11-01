@@ -1007,6 +1007,18 @@
         window.__ocCheckpointError = motivo ? { canal: nombre, motivo: motivo, bytes: bytes || 0 } : null;
         window.dispatchEvent(new CustomEvent("oc-checkpoint-status", {detail: window.__ocCheckpointError}));
       } catch (_) {}
+      // The event alone has no guaranteed UI consumer; always show a visible status.
+      try {
+        var id = "f123-checkpoint-alert-" + nombre, el = document.getElementById(id);
+        if (!motivo) { if (el && el.parentElement) el.parentElement.removeChild(el); return; }
+        if (!el) {
+          el = document.createElement("span"); el.id = id; el.setAttribute("role", "status");
+          el.style.cssText = "display:inline-block;margin:4px 8px;padding:3px 7px;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px";
+          var badge = document.getElementById("oc-offline-badge");
+          (badge && badge.parentElement || document.body).appendChild(el);
+        }
+        el.textContent = "Sync pending — checkpoint " + String(motivo) + (bytes ? " (" + bytes + " B)" : "");
+      } catch (_) {}
     }
     function hacerCkpt() {
       if (_soloMemoria) return;
@@ -1284,7 +1296,8 @@
               return true;
             });
           }
-          return true;
+          // Unknown authenticated frame formats cannot certify a durable pull cursor.
+          return false;
         }).catch(function () { return false; }); // basura o clave distinta -> no se confirma el cursor
       }
       ws.onmessage = function (ev) {
