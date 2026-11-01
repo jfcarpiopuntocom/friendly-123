@@ -82,6 +82,7 @@ for (const next of [{rev:0,seq:2},{rev:1,seq:0}]) {
   let encrypted,finish;
   a.ctx.cifrarBin=(_key,bytes)=>new Promise(resolve=>{encrypted=bytes.slice();finish=()=>resolve(encrypted.buffer)});
   a.timers.find(t=>t.ms===2500).fn();
+  await esperar(()=>typeof finish==='function','checkpoint encryption must start after cursor durable proof');
   assert.ok(finish,'encryption is in flight');
   a.socket.onmessage({data:JSON.stringify({k:'pull-page',...next,more:false})});await tick();await tick();
   finish();await tick();await tick();
@@ -115,6 +116,7 @@ test('incomplete chunk pages replay after reload, then advance durable cursor on
  const last=chunk.slice();last[19]=1;
  a.socket.onmessage({data:last.buffer,relaySource:"pull"});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
+ await esperar(()=>a.data.get('f123_yjs_pull_cursor_v2-y')?.seq===2,'reassembled cursor must durably commit');
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2);
 });
 
@@ -221,6 +223,7 @@ test('same-channel reconnection retains unfinished durable fragments and resumes
  next.onmessage({data:fragment(1).buffer,relaySource:'pull'});
  next.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
  assert.equal(applied,1,'the only post-reconnect sibling completes the retained first fragment');
+ await esperar(()=>a.data.get('f123_yjs_pull_cursor_v2-y')?.seq===2,'reconnected cursor must durably commit');
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2,'durable progress advances only after the complete update is applied');
 });
 
@@ -266,6 +269,7 @@ test('real Yjs accepts fresh expenses while an older fragmented expense awaits i
  a.socket.onmessage({data:pieces[1].buffer,relaySource:'pull'});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:2,more:false})});await tick();await tick();
  assert.equal(a.doc.getMap('gastos').get('older').monto,18.5);assert.equal(a.doc.getMap('gastos').get('fresh').monto,7.25);
+ await esperar(()=>a.data.get('f123_yjs_pull_cursor_v2-y')?.seq===2,'both expenses precede persisted cursor');
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,2);
  a.doc.destroy();older.destroy();fresh.destroy();
 });
@@ -287,6 +291,7 @@ test('old durable fragments never expire into falsely confirmed progress, even a
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,0);
  for(let id=1;id<=65;id++)a.socket.onmessage({data:fragment(1,id).buffer,relaySource:'pull'});
  a.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:131,more:false})});await tick();await tick();
+ await esperar(()=>a.data.get('f123_yjs_pull_cursor_v2-y')?.seq===131,'all old siblings must durably confirm');
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,131,'every old sibling remains available to complete its update');
 });
 test('live-only expired orphans release assembly capacity without obstructing durable progress',async()=>{
@@ -317,6 +322,7 @@ test('real Yjs replay after interruption retains the first payload fragment and 
  next.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:3,more:false})});await tick();await tick();
  assert.equal(a.doc.getMap('sales').size,1);assert.equal(a.doc.getMap('sales').get('synthetic-sale'),'x'.repeat(350000));
  assert.equal(applied,1,'duplicate retained-group sibling is ignored before the remaining sibling completes the update');
+ await esperar(()=>a.data.get('f123_yjs_pull_cursor_v2-y')?.seq===3,'idempotent replay must durably commit');
  assert.equal(a.data.get('f123_yjs_pull_cursor_v2-y').seq,3);
  a.doc.destroy();source.destroy();
 });
