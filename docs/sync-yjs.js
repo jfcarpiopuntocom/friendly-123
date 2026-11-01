@@ -507,7 +507,7 @@
           delete _durableInFlight[result.id];
           if (!Object.keys(_durableInFlight).length) { clearTimeout(_durableWatchdog); _durableWatchdog = null; }
         }
-        if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
+        if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { if (result.kind === "ckpt") avisoCheckpoint("rechazado por relay"); programarDurable(); return; }
         var beforeRetirement = null;
         return mutarOutbox(function () {
           beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
@@ -926,6 +926,22 @@
          - Solo en canales con permiteCkpt (catálogo y ops; NO fotos: su estado
            completo supera el frame de 256KB). */
     var _tCkpt = null;
+    function avisoCheckpoint(motivo) {
+      try {
+        var id = "f123-checkpoint-alert-" + nombre;
+        var element = document.getElementById(id);
+        if (!element) {
+          element = document.createElement("span");
+          element.id = id;
+          element.setAttribute("role", "status");
+          element.style.cssText = "display:inline-block;margin:4px 8px;padding:3px 7px;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px";
+          element.style.display = "inline-block";
+          var badge = document.getElementById("oc-offline-badge");
+          (badge && badge.parentElement || document.body).appendChild(element);
+        }
+        element.textContent = "Sync pending — checkpoint " + String(motivo || "sin confirmar");
+      } catch (_) {}
+    }
     function hacerCkpt() {
       if (_soloMemoria) return;
       if (canal.ws && canal.ws.peerOnly) return; // Direct catch-up uses hydrated state vectors.
@@ -952,14 +968,14 @@
         var useful = packed && packed.length + 1 < full.length;
         return cifrarBin(API.clave, _frame(useful ? 7 : 0, useful ? packed : full));
       }).then(function (buf) {
-        if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
+        if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { avisoCheckpoint("demasiado grande (" + buf.byteLength + " B)"); return; }
         try {
           /* rev+seq prueban exactamente hasta que fila persistida contiene este
              estado. El relay nunca poda una operacion concurrente posterior. */
           guardarSobre({ k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
             v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
         } catch (_) {}
-      }).catch(function () {});
+      }).catch(function () { avisoCheckpoint("cifrado fallido"); });
     }
     function conectar() {
       if (_pausado || !permitido()) return;
