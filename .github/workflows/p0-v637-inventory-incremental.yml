@@ -1,0 +1,26 @@
+name: P0 v637 incremental inventory DOM parity (Chromium + WebKit)
+on:
+  pull_request:
+    paths:
+      - src/app/app-inline-01.js
+      - docs/app-inline-01.min.js
+      - docs/version-manifest.json
+      - test/p0-v637-inventory-incremental.test.js
+      - .github/workflows/p0-v637-inventory-incremental.yml
+permissions:
+  contents: read
+jobs:
+  browser-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node --check docs/app-inline-01.min.js
+      - run: node --test test/p0-v637-inventory-incremental.test.js
+      - run: node --test test/p0-v637-inventory-incremental.test.js
