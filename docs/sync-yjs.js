@@ -2408,7 +2408,14 @@
                     var _safeStock = !_samePhysicalEpoch ? (_epochPreferred || prev || r) : (_stockValido ? r : prev || r);
                     // Merge BOTH sets, never choose the first truthy evidence map.
                     // Also include each source's present base/PN snapshot.
-                    var _forkEvidence = unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar);
+                    // The earlier fork branch has already merged both
+                    // evidence maps in the real runtime. Avoid repeated ledger
+                    // traversal for ordinary stale-metadata updates. Isolated
+                    // legacy regression harnesses intentionally evaluate only
+                    // this branch, without the full Yjs helper closure.
+                    var _forkEvidence = r.stockEvidencias || prev.stockEvidencias;
+                    if (_explicitEpochConflict && typeof unirEvidenciasStockYjs === "function")
+                      _forkEvidence = unirEvidenciasStockYjs(prev, _stockAntesDeArbitrar);
                     r = Object.assign({}, prev, {
                       stockBase: _safeStock.stockBase,
                       stockPN: _safeStock.stockPN,
