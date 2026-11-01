@@ -114,6 +114,35 @@ test('S3: old adapters without the advertised capability retain the smaller fram
  assert.equal(tooLarge.saved.length,0);
  assert.equal(tooLarge.diagnostics[0].reason,'snapshot-over-limit');
 });
+test('S3: 1MiB checkpoint envelope bypasses only the idle advertised RPC buffer guard',()=>{
+ const at=sync.indexOf('    function enviarConLimite(ws, value, ckptRPC) {');
+ const end=sync.indexOf('    function encolarVivo(',at);
+ assert.ok(at>0&&end>at);
+ const sends=[];
+ const ctx=vm.createContext({
+  window:{F123Relay:{ckptFrameBytes:786432}},
+  MAX_BUFFERED_BYTES:512*1024,MAX_CKPT_CIPHER_BYTES:768*1024,
+  bytesPendientes:value=>Buffer.byteLength(value),
+  _lastRelayProgressAt:0,Date
+ });
+ vm.runInContext(sync.slice(at,end),ctx);
+ const frame='x'.repeat(1048576+200);
+ const ws={readyState:1,peerOnly:false,bufferedAmount:0,send:value=>sends.push(value)};
+ const call=ckpt=>vm.runInContext('enviarConLimite(ws, frame, '+String(ckpt)+')',Object.assign(ctx,{ws,frame}));
+ assert.equal(call(true),'sent');
+ assert.equal(sends.length,1);
+ ws.bufferedAmount=1;
+ assert.equal(call(true),'blocked','large checkpoint waits for an empty buffer');
+ ws.bufferedAmount=0;
+ assert.equal(call(false),'blocked','ordinary frame keeps 512KiB guard');
+ ws.peerOnly=true;
+ assert.equal(call(true),'blocked','peer frame is never exempt');
+ ws.peerOnly=false;
+ ctx.window.F123Relay={};
+ assert.equal(call(true),'blocked','legacy adapter is never exempt');
+ assert.equal(sends.length,1,'blocked calls never sent bytes');
+});
+
 test('S3: read-only catalog collection audit returns only names, counts and estimated visible JSON bytes',()=>{
  const at=sync.indexOf('  function _medirDocumentoYjs(Y, doc, nombre, canal, idb, permiteCkpt) {');
  const end=sync.indexOf('\n  var API = {',at);
