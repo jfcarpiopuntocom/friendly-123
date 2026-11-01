@@ -1189,8 +1189,9 @@
               return true;
             });
           }
-          return true;
-        }).catch(function () { return false; }); // basura o clave distinta -> no se confirma el cursor
+          // Unknown authenticated frames MUST NOT advance a durable pull cursor.
+          return false;
+        }).catch(function () { return false; }); // basura, formato futuro o clave distinta
       }
       ws.onmessage = function (ev) {
         if (!API.clave || canal.ws !== ws) return;
