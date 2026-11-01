@@ -246,7 +246,7 @@ export function createMailboxYjs({licenseCode,roomId,deviceId,key,Y,docs,store,f
     for(const [channel,doc] of Object.entries(docs)){
       if(doc.store&&(doc.store.pendingStructs||doc.store.pendingDs))
         throw Error('incomplete causal history');
-      await queueUpdate(channel,Y.encodeStateAsUpdate(doc));
+      await queueUpdate(channel,Y.encodeStateAsUpdate(doc),true);
     }
   }
   function stop(){
