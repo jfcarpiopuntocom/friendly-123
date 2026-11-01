@@ -84,25 +84,25 @@ test('oversized UTF-8 and queued frames close without durable calls', async () =
   await relay.dispose();
 });
 
-test('RPC checkpoint accepts exactly 262144 ciphertext bytes despite its larger base64 JSON frame',async()=>{
+test('RPC checkpoint accepts exactly 786432 ciphertext bytes despite its larger base64 JSON frame',async()=>{
  const db=fixture(()=>({ok:true,conflict:false}));
  const relay=createRelayTransport({client:db.client}),socket=relay.connect('synthetic-room');
  await opened(socket);
  const received=[];socket.onmessage=e=>received.push(e.data);
  const msg=JSON.stringify({k:'ckpt',ack:1,id:'ck-exact-server-limit',v:2,rev:0,seq:1,lam:1,
-  c:Buffer.alloc(262144).toString('base64')});
+  c:Buffer.alloc(786432).toString('base64')});
  assert.ok(Buffer.byteLength(msg)>256*1024);
- assert.ok(Buffer.byteLength(msg)<384*1024);
+ assert.ok(Buffer.byteLength(msg)<1088*1024);
  socket.send(msg);await socket.settled();
  assert.equal(db.commands.length,1);
  assert.equal(db.commands[0].p_action,'ckpt');
- assert.equal(Buffer.from(db.commands[0].p_message.c,'base64').byteLength,262144);
+ assert.equal(Buffer.from(db.commands[0].p_message.c,'base64').byteLength,786432);
  assert.equal(db.channels[0].sent.length,0,'checkpoint must never go over Realtime broadcast');
  assert.equal(JSON.parse(received[0]).ok,true);
  await relay.dispose();
 });
-test('checkpoint frames over 384 KiB and large non-checkpoint commands still fail closed',async()=>{
- for(const [kind,body] of [['ckpt','A'.repeat(384*1024)],['op','A'.repeat(262145)]]){
+test('checkpoint frames over 1088 KiB and large non-checkpoint commands still fail closed',async()=>{
+ for(const [kind,body] of [['ckpt','A'.repeat(1088*1024)],['op','A'.repeat(262145)]]){
   const db=fixture(()=>({ok:true}));
   const relay=createRelayTransport({client:db.client}),socket=relay.connect('synthetic-room');
   await opened(socket);
