@@ -8,7 +8,7 @@ test('S3: read-only audit reports numeric sizes without source records',()=>{
  const at=sync.indexOf('  function _medirDocumentoYjs(Y, doc, nombre, canal, idb, permiteCkpt) {');
  const end=sync.indexOf('\n  var API = {',at);
  assert.ok(at>0&&end>at,'size audit must exist');
- const ctx=vm.createContext({window:{},Uint8Array,JSON,Math});
+ const ctx=vm.createContext({window:{},Uint8Array,JSON,Math,TextEncoder,TextDecoder,crypto:require('crypto').webcrypto});
  vm.runInContext(vendor,ctx);vm.runInContext(sync.slice(at,end),ctx);
  const Y=ctx.Y,cat=new Y.Doc(),ops=new Y.Doc(),fotos=new Y.Doc();
  cat.getMap('productos').set('synthetic-product',{id:'synthetic-product',fotoHash:'synthetic-hash'});
