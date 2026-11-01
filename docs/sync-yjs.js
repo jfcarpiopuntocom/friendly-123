@@ -2401,7 +2401,9 @@
                     // sets, and continue publishing unrelated catalog entries.
                     // Previously dereferencing null aborted the WHOLE Yjs
                     // transaction, leaving products/clients silently unsent.
-                    var _explicitEpochConflict = !_samePhysicalEpoch && !!_stockEpochMine && !!_stockEpochDoc;
+                    var _explicitEpochConflict = !_samePhysicalEpoch &&
+                      typeof r.stockEpochId === "string" && !!r.stockEpochId &&
+                      typeof prev.stockEpochId === "string" && !!prev.stockEpochId;
                     // Defensive || r for brand-new products. The current
                     // branch requires prev, but a future caller must not
                     // convert an absent historic product into a TypeError.
