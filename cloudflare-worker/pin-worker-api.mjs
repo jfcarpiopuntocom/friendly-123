@@ -16,7 +16,7 @@ export function pinDoRoute(req,storage,env){
    else if(body.action==="master-set")r=await p.masterSet(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
    else if(body.action==="master-activate")r=await p.masterActivate(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
    else if(body.action==="report")r=await p.reportExisting(body.licenseCode,body.instanceId,body.pin);
-   else if(body.action==="verify")r=await p.verify(body.licenseCode,body.pin);
+   else if(body.action==="verify"||body.action==="resolve")r=await p.verify(body.licenseCode,body.pin);
    else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
    else return reply({ok:false},404);
    // All rejected operations MUST have non-2xx status. A 200 for an expired
@@ -30,7 +30,7 @@ export function pinDoRoute(req,storage,env){
 }
 export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authorizeMaster,listRegisteredDeviceIds}){
  const url=new URL(req.url);
- const action={"/pin/admin/status":"status","/pin/admin/set":"master-set","/pin/admin/activate":"master-activate","/pin/report":"report","/pin/verify":"verify","/pin/rotate":"owner-rotate"}[url.pathname];
+ const action={"/pin/admin/status":"status","/pin/admin/set":"master-set","/pin/admin/activate":"master-activate","/pin/report":"report","/pin/verify":"verify","/pin/resolve":"resolve","/pin/rotate":"owner-rotate"}[url.pathname];
  if(!action)return null;
  if(!env.PIN_PEPPER||!env.REGISTROS||!env.MASTER_KEY)return reply({ok:false,reason:"authority-unavailable"},503);
  const admin=action==="status"||action==="master-set"||action==="master-activate";
@@ -40,7 +40,29 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
  if(action==="status")data={licenseCode:url.searchParams.get("licenseCode"),instanceId:url.searchParams.get("instanceId")};
  else{const raw=await req.text();if(raw.length>1024)return reply({ok:false},413);try{data=JSON.parse(raw)}catch{return reply({ok:false},400)}}
  const licenseCode=String(data.licenseCode||"").trim().toUpperCase(),instanceId=String(data.instanceId||"");
- if(!LICENSE.test(licenseCode)||!INSTANCE.test(instanceId))return reply({ok:false},400);
+ if(!LICENSE.test(licenseCode)||(action!=="resolve"&&!INSTANCE.test(instanceId)))return reply({ok:false},400);
+ // A new browser of a licensed shop has its own device ID, which the
+ // existing registry cannot know yet. After JFC's two-stage activation,
+ // allow the CURRENT central Owner PIN to resolve the canonical business.
+ // Fail closed during census, outages and invalid PIN. Never use local
+ // device IDs to determine business identity, and NEVER return notebook data.
+ if(action==="resolve"){
+  if(typeof data.pin!=="string"||!/^[0-9]{3}$/.test(data.pin))return reply({ok:false},400);
+  let response;
+  try {
+   const stub=getDo(env);
+   if(!stub)return reply({ok:false,reason:"authority-unavailable"},503);
+   response=await stub.fetch("https://do.invalid/pin-authority/internal",{
+    method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({action:"resolve",licenseCode,pin:data.pin})
+   });
+  }catch{return reply({ok:false,reason:"authority-unavailable"},503)}
+  if(!response.ok)return new Response(response.body,{status:response.status,headers:H});
+  let verified;try{verified=await response.json()}catch{return reply({ok:false,reason:"authority-unavailable"},503)}
+  if(verified.ok!==true||!Number.isSafeInteger(verified.revision)||verified.revision<1)
+   return reply({ok:false,reason:"authority-unavailable"},503);
+  return reply({ok:true,role:"owner",businessId:licenseCode,revision:verified.revision});
+ }
  let saved;try{saved=await readLicenseInstance(env,instanceId)}catch{return reply({ok:false,reason:"instance-lookup-failed"},503)}
  if(!saved||saved.instanceId!==instanceId||String(saved.licenseCode||"").trim().toUpperCase()!==licenseCode)
   return reply({ok:false,reason:"license-instance-mismatch"},404);
