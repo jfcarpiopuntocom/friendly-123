@@ -35,7 +35,7 @@ function localStore(){
 }
 function setup(){
  const dbs=new Map(),env={PIN_PEPPER:'synthetic-owner-pepper-has-at-least-32-bytes',
-   REGISTROS:{},MAILBOXES:{},MAILBOX_CANARY_LICENSE_CODE:license};
+   REGISTROS:{},MAILBOXES:{},MAILBOX_CANARY_LICENSE_CODE:license,MAILBOX_CANARY_WRITES:'1'};
  const auth={fetch:async(_,options)=>{
    const cmd=JSON.parse(options.body);
    const v=cmd.action==='verify'?
