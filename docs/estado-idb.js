@@ -167,13 +167,14 @@
       const copia = JSON.parse(JSON.stringify(estado));
       const db = await abrirDB();
       return new Promise(function (resolve) {
-        let accepted = false;
+        let accepted = false, errorTx = null; // cada transacción reporta SOLO su propio error
         // Money/stock uses strict durability where the browser supports the hint.
         const tx = db.transaction(STORE, "readwrite", { durability: "strict" });
         const req = tx.objectStore(STORE).get(CLAVE);
         req.onsuccess = function () {
           const actual = req.result;
           const rev = Number((actual && actual._rev) || 0);
+          // Revision fence: another tab already advanced. Not a storage error; the caller retries on the new base.
           if (rev > revisionAplicada || rev >= Number(copia._rev)) return;
           try {
             tx.objectStore(STORE).put(copia, CLAVE);
@@ -181,19 +182,19 @@
           } catch (error) {
             // An exception inside an IDB callback does not reject the outer
             // Promise. Keep the actual quota cause for the in-UI warning.
-            _ultimoError = error || null;
-            try { tx.abort(); } catch (_) { resolve(false); }
+            errorTx = error || new Error("IDB put failed");
+            try { tx.abort(); } catch (_) { _ultimoError = errorTx; resolve(false); }
           }
         };
         tx.oncomplete = function () {
-          if (accepted) _ultimoError = null;
+          _ultimoError = accepted ? null : errorTx; // fence rejection => null, never a stale earlier error
           resolve(accepted);
         };
         tx.onabort = function () {
-          if (!_ultimoError) _ultimoError = tx.error || new Error("IDB transaction aborted");
+          _ultimoError = errorTx || tx.error || new Error("IDB transaction aborted");
           resolve(false);
         };
-        tx.onerror = function () { _ultimoError = _ultimoError || tx.error || null; };
+        tx.onerror = function () { errorTx = errorTx || tx.error || null; };
       });
     }).catch(function (e) { _ultimoError = e || null; return false; });
     _cola = op.then(function () {}, function () {});
