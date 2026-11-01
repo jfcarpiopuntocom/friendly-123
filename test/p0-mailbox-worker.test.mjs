@@ -4,7 +4,7 @@ import {webcrypto} from 'node:crypto';
 import {mailboxPublicRoute,mailboxDoRoute} from '../cloudflare-worker/mailbox-api.mjs';
 globalThis.crypto ||= webcrypto;
 const license='F123-SYNTHETIC-TEST', device='synthetic_device_A1', deviceB='synthetic_device_B2';
-const env={PIN_PEPPER:'synthetic-only-secret-more-than-32-bytes', REGISTROS:{},MAILBOXES:{}, MAILBOX_CANARY_LICENSE_CODE:license};
+const env={PIN_PEPPER:'synthetic-only-secret-more-than-32-bytes', REGISTROS:{},MAILBOXES:{}, MAILBOX_CANARY_LICENSE_CODE:license,MAILBOX_CANARY_WRITES:'1'};
 function db(){
   const rows=new Map();
   const clone=x=>x===undefined?undefined:structuredClone(x);
@@ -239,4 +239,23 @@ test('mailbox unavailable without explicit canary and denies other shops before 
    getMailboxDo:()=>{throw Error('should not create DO for other shops')}});
  assert.equal(blocked.status,403);
  assert.equal((await f.session()).status,200,'explicit synthetic pilot works');
+});
+
+test('pilot Owner is read-only by default; encrypted writes require separate Worker enablement',async()=>{
+ const pinDo={fetch:async(_,o)=>{
+   const cmd=JSON.parse(o.body);
+   return new Response(JSON.stringify(cmd.action==='verify'?{ok:true,revision:1}:{configured:true,revision:1}),{status:200});
+ }};
+ const storage=db(),getMailboxDo=()=>({fetch:(u,o)=>mailboxDoRoute(new Request(u,o),storage)});
+ const safe={...env,MAILBOX_CANARY_WRITES:undefined};
+ const access=await mailboxPublicRoute(new Request('https://worker.invalid/mailbox/session',{
+   method:'POST',headers:{'content-type':'application/json'},
+   body:JSON.stringify({licenseCode:license,pin:'123',deviceId:device})}),safe,{getPinDo:()=>pinDo,getMailboxDo});
+ assert.equal(access.status,200);
+ const session=await access.json();assert.equal(session.canWrite,false);
+ const blocked=await mailboxPublicRoute(new Request('https://worker.invalid/mailbox/events',{
+   method:'POST',headers:{Authorization:'Bearer '+session.token,'content-type':'application/json'},
+   body:JSON.stringify(frame('op-synthetic-readonly-01'))}),safe,{getPinDo:()=>pinDo,getMailboxDo});
+ assert.equal(blocked.status,403);
+ assert.equal(await storage.get('meta'),undefined,'forbidden upload never creates notebook events');
 });
