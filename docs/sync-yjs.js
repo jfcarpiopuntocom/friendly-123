@@ -131,6 +131,25 @@
         gzipWrite:entry.gzipWrite === true && fullCensus,stage:cfg.stage};
     } catch (_) {return off;}
   }
+  function _compactarYjsSinCambiarCausalidad(Y, full) {
+    if (!full || full.length > 2097152) return null;
+    var base = null, check = null;
+    try {
+      base = new Y.Doc({gc:true});
+      Y.applyUpdate(base, full);
+      var compact = Y.encodeStateAsUpdate(base);
+      if (!compact || compact.length >= full.length) return null;
+      check = new Y.Doc({gc:true});
+      Y.applyUpdate(check, compact);
+      if (!Y.equalSnapshots(Y.snapshot(base), Y.snapshot(check))) return null;
+      if (JSON.stringify(base.toJSON()) !== JSON.stringify(check.toJSON())) return null;
+      return compact;
+    } catch (_) { return null; }
+    finally {
+      try { if (base) base.destroy(); } catch (_) {}
+      try { if (check) check.destroy(); } catch (_) {}
+    }
+  }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
     var _pausado = false, _tReconnect = null;
