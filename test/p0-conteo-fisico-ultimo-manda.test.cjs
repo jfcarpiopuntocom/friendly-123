@@ -28,15 +28,6 @@ test('offline deltas on A + later physical count 7 on B => both 7; a later sale 
   assert.equal(await stock(B.page, id), 7);
   // reconnect
   for (let i = 0; i < 4; i++) { await pump(A, B); await A.page.waitForTimeout(500); }
-  const ver = async (pg) => pg.evaluate((pid) => { const y = window.OCYjs && OCYjs.mapas && OCYjs.mapas.productos && OCYjs.mapas.productos.get(pid);
-    const c = (window.OCSync && OCSync.catalogoPropio && OCSync.catalogoPropio().productos || []).find(x => x.id === pid) || {};
-    const f = o => o ? JSON.stringify({ ep: String(o.stockEpochId || '').slice(-6), base: o.stockBase, ts: o.stockTs, pn: o.stockPN, act: o.stockActual }) : 'null';
-    return 'yjs=' + f(y) + ' local=' + f(c); }, id);
-  console.log('DBG A', await ver(A.page)); console.log('DBG B', await ver(B.page));
-  A.page.on('console', m => { if (/stock|sync|epoch|evidencia/i.test(m.text())) console.log('CONS A', m.text().slice(0, 200)); });
-  await A.page.evaluate(() => { window.addEventListener('oc-stock-evidencia-conflicto', e => console.log('stock evidencia ' + JSON.stringify(e.detail))); try { OCYjs._store.aplicar(); } catch (e) { console.log('sync aplicar error ' + e.message); } });
-  await A.page.waitForTimeout(1500);
-  console.log('DBG A tras aplicar', await ver(A.page));
   assert.equal(await stock(A.page, id), 7, 'A adopts the latest physical count');
   assert.equal(await stock(B.page, id), 7, 'B keeps the latest physical count');
   // a movement after the count adds on top of it

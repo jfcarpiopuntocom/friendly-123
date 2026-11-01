@@ -2372,8 +2372,10 @@
       // not merely a whole-product PN object (old bridges can relabel it).
       // Sanitizing the incoming read-model never deletes the local ledger.
       function sinPruebaEpoca(proof) {
+        // Always return the PRODUCT (never the bare evidence map): a fresh physical count has empty PN and
+        // returning `proof` here replaced the product with its evidence, which the store then dropped (no id).
         if (!epoch || !Number.isSafeInteger(b) || !p.stockPN ||
-            !Object.keys(p.stockPN).length) return proof || p;
+            !Object.keys(p.stockPN).length) return proof ? Object.assign({}, p, { stockEvidencias: proof }) : p;
         return Object.assign({}, p, {
           stockPN: {}, stockActual: Math.max(0, b), stockDeficit: 0,
           ...(proof ? { stockEvidencias: proof } : {})
