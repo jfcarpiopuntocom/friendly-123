@@ -792,6 +792,16 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
               el.style.color = "var(--rojo-ink,#a3392a)";
               return;
             }
+            if (window.__ocCheckpointError) {
+              if (el.style.display === "none") { el.style.display = ""; el.dataset.e1AutoShow = "1"; }
+              var ck = window.__ocCheckpointError;
+              var esp = document.documentElement.lang === "es";
+              el.textContent = esp
+                ? "Sync: checkpoint de " + ck.canal + " pendiente (" + ck.motivo + "). La recuperación completa no está certificada."
+                : "Sync: " + ck.canal + " checkpoint pending (" + ck.motivo + "). Full recovery is not certified.";
+              el.style.color = "var(--rojo-ink,#a3392a)";
+              return;
+            }
             if (!window.OCYjs || !window.OCYjs._diag) { el.textContent = "Sync: off on this device"; return; }
             var d = window.OCYjs._diag();
             if (d && d.recuperacionLocalPendiente) {
@@ -912,6 +922,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         if (window._ocSyncMinTimer) clearInterval(window._ocSyncMinTimer);
         window._ocSyncMinTimer = setInterval(_pintarSyncMin, 3000);
         window.addEventListener("oc-memoria-llena", function () { try { _pintarSyncMin(); } catch (_) {} });
+        window.addEventListener("oc-checkpoint-status", function () { try { _pintarSyncMin(); } catch (_) {} });
       } catch (_) {}
 
 

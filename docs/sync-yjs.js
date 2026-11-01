@@ -578,6 +578,9 @@
           delete _durableInFlight[result.id];
           if (!Object.keys(_durableInFlight).length) { clearTimeout(_durableWatchdog); _durableWatchdog = null; }
         }
+        if (result.kind === "ckpt" && result.ok === true) diagnosticarCkpt(null, 0);
+        if (result.kind === "ckpt" && result.ok !== true && result.conflict !== true)
+          diagnosticarCkpt("checkpoint-rpc-ack-failed", 0);
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
         var beforeRetirement = null;
         return mutarOutbox(function () {
@@ -997,6 +1000,14 @@
          - Solo en canales con permiteCkpt (catálogo y ops; NO fotos: su estado
            completo supera el frame de 256KB). */
     var _tCkpt = null;
+    // JFC test room diagnostic, shown in the existing Sync status line (no overlay).
+    function diagnosticarCkpt(motivo, bytes) {
+      if (!API.esLicenciaPruebaJfc) return;
+      try {
+        window.__ocCheckpointError = motivo ? { canal: nombre, motivo: motivo, bytes: bytes || 0 } : null;
+        window.dispatchEvent(new CustomEvent("oc-checkpoint-status", {detail: window.__ocCheckpointError}));
+      } catch (_) {}
+    }
     function hacerCkpt() {
       if (_soloMemoria) return;
       if (canal.ws && canal.ws.peerOnly) return; // Direct catch-up uses hydrated state vectors.
@@ -1014,23 +1025,36 @@
       var checkpointCursor = { rev: _appliedPullCursor.rev, seq: _appliedPullCursor.seq };
       var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
-      var state = _b64(full);
-      if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
+      // A full-state base64 copy can exceed 100MB and re-inflate the IDB outbox.
+      // On the JFC test room persist a 71-byte fingerprint instead; other rooms
+      // retain exactly the historical checkpoint metadata format.
       Promise.resolve().then(function () {
-        return API.esLicenciaPruebaJfc ? _gzipYjs(full, false) : null;
-      }).then(function (packed) {
-        // Old rooms retain the original Yjs wire protocol; test room can use compressed v2.
-        var useful = packed && packed.length + 1 < full.length;
-        return cifrarBin(API.clave, _frame(useful ? 7 : 0, useful ? packed : full));
-      }).then(function (buf) {
-        if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) { try { log("ckpt grande (" + buf.byteLength + "B) omitido en " + nombre); } catch (_) {} return; }
-        try {
-          /* rev+seq prueban exactamente hasta que fila persistida contiene este
-             estado. El relay nunca poda una operacion concurrente posterior. */
-          guardarSobre({ k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
-            v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
-        } catch (_) {}
-      }).catch(function () {});
+        return API.esLicenciaPruebaJfc ? updateHash(full).then(function (hash) { return "sha256:" + hash; }) : _b64(full);
+      }).then(function (state) {
+        if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
+        return Promise.resolve().then(function () {
+          return API.esLicenciaPruebaJfc ? _gzipYjs(full, false) : null;
+        }).then(function (packed) {
+          // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
+          var useful = packed && packed.length + 1 < full.length;
+          return cifrarBin(API.clave, _frame(useful ? 7 : 0, useful ? packed : full));
+        }).then(function (buf) {
+          // Current server checkpoint RPC accepts one authenticated ciphertext.
+          // Never pretend fragmented OP frames are an atomic snapshot.
+          if (Math.ceil(buf.byteLength * 4 / 3) + 128 > MAX_OP_BYTES) {
+            diagnosticarCkpt("snapshot-over-limit", buf.byteLength);
+            try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
+            return;
+          }
+          try {
+            guardarSobre({ k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+              v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf), state: state });
+          } catch (_) { diagnosticarCkpt("checkpoint-outbox-save-failed", buf.byteLength); }
+        });
+      }).catch(function (e) {
+        diagnosticarCkpt("checkpoint-encrypt-or-gzip-failed", 0);
+        try { log("ckpt error " + nombre, e && e.message); } catch (_) {}
+      });
     }
     function conectar() {
       if (_pausado || !permitido()) return;
