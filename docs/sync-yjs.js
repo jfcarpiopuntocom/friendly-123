@@ -599,7 +599,7 @@
       if (canal.pend.length && ws.readyState === 1) programarBufferPump();
     }
     function enviarDurable(entry) {
-      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano;
+      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano; delete msg.abs;
       var result = enviarConLimite(canal.ws, JSON.stringify(msg), entry.k === "ckpt");
       if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
       if (result === "blocked") programarBufferPump();
@@ -614,17 +614,49 @@
         _durableQueue = _durableQueue.then(clasificarHeredados).then(drenarDurable).catch(function () { programarDurable(); });
         return;
       }
+      absorberHeredado();
       // A peer ACKs a complete fragment group; a four-fragment window can deadlock it.
       var capacity = ws.peerOnly ? _vivos().length : Math.max(0, MAX_DURABLE_INFLIGHT - Object.keys(_durableInFlight).length);
       if (!capacity) { programarDurable(); return; }
       var available = _vivos().filter(function (entry) { return !_groupAcks.has(entry.id) && !_durableInFlight[entry.id]; });
-      if (available.length > capacity) {
+      // The absorbing full-state group (bounded, it carries every change) drains before the backlog it replaces.
+      var absorbe = available.filter(function (entry) { return entry.abs; });
+      if (absorbe.length) available = absorbe.concat(available.filter(function (entry) { return !entry.abs; })).slice(0, capacity);
+      else if (available.length > capacity) {
         // Reserve one in-flight slot for the newest business change behind a history backlog.
         available = available.slice(0, Math.max(0, capacity - 1)).concat(available[available.length - 1]);
       }
       for (var i = 0; i < available.length; i++) if (!enviarDurable(available[i])) break;
       if (_vivos().some(function (entry) { return !_durableInFlight[entry.id]; }) && ws.readyState === 1) programarDurable();
       if (Object.keys(_durableInFlight).length) programarDurable();
+    }
+    /* Oversized legacy outbox (S4 defers > 512 envelopes / > 8 MB): replaying it one by one never
+       ends. Every persisted tag-0 envelope comes from enviarUpdate(), called only from
+       doc.on("update"), i.e. AFTER Yjs applied that change to this doc. So one full-state update
+       encoded now contains every envelope already queued; receivers ignore what they already have.
+       Those older envelopes are retired only after ALL fragments of that update are durably ACKed
+       (confirmarDurable); envelopes created after the encode are never retired. Fail-closed: any
+       failure leaves the legacy queue intact and the normal backoff retries. The id set is in memory
+       only: after a restart the old group just drains and a new absorption starts. */
+    var _absorcion = null, _absorcionKey = "f123_relay_absorcion" + suffix;
+    function absorberHeredado() {
+      if (_absorcion || canal.recuperando || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
+      if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return;
+      if (_outbox.pending.concat(_unsaved).some(function (entry) { return entry.abs; })) return;
+      var ids = new Set(), bytes = 0;
+      _outbox.pending.forEach(function (entry) {
+        if (entry.k === "op" && !entry.huerfano) { ids.add(entry.id); bytes += String(entry.c || "").length; }
+      });
+      if (ids.size <= 512 && bytes <= 8 * 1024 * 1024) return;
+      var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
+      var marca = { hasta: Date.now(), n: ids.size };
+      _absorcion = { hasta: marca.hasta, ids: ids };
+      // A publish that never reaches the outbox (encrypt/size failure) may retry after a minute.
+      setTimeout(function () {
+        if (_absorcion && _absorcion.hasta === marca.hasta && !_outbox.pending.concat(_unsaved).some(function (entry) { return entry.abs; })) _absorcion = null;
+      }, 60000);
+      try { log("absorbiendo " + ids.size + " sobre(s) heredado(s) en " + nombre + " con un estado completo"); } catch (_) {}
+      publicar(0, full, true, marca);
     }
     function guardarSobre(entry) { guardarSobres([entry]); }
     function guardarSobres(entries) {
@@ -654,7 +686,7 @@
         if (result.kind === "ckpt" && result.ok !== true && result.conflict !== true)
           diagnosticarCkpt("checkpoint-rpc-ack-failed", 0);
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
-        var beforeRetirement = null;
+        var beforeRetirement = null, retirados = [], absCerrada = null;
         return mutarOutbox(function () {
           beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
           var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
@@ -666,12 +698,33 @@
             if (!completed.every(function (x) { return _groupAcks.has(x.id); })) return;
           }
           _outbox.pending = _outbox.pending.filter(function (x) { return !completed.includes(x); });
+          if (entry.abs && result.ok === true && _absorcion && _absorcion.hasta === entry.abs.hasta) {
+            absCerrada = _absorcion;
+            retirados = _outbox.pending.filter(function (x) { return x.k === "op" && !x.huerfano && !x.abs && _absorcion.ids.has(x.id); });
+            var fuera = new Set(retirados);
+            _outbox.pending = _outbox.pending.filter(function (x) { return !fuera.has(x); });
+          }
           if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
           if (entry.k === "ckpt" && result.ok === true) {
             _outbox.checkpoint = entry.state;
             // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
+          if (absCerrada && _absorcion === absCerrada) _absorcion = null;
+          if (retirados.length) {
+            var marca = absCerrada;
+            retirados.forEach(function (x) { delete _durableInFlight[x.id]; _groupAcks.delete(x.id); });
+            // Small evidence only (never the ciphertexts): count, first/last id, date, sha-256 of ids.
+            var ids = retirados.map(function (x) { return x.id; });
+            Promise.resolve().then(function () {
+              return crypto.subtle.digest("SHA-256", new TextEncoder().encode(ids.join(",")));
+            }).then(function (hash) {
+              var ev = { n: ids.length, primero: ids[0], ultimo: ids[ids.length - 1], absorbidoHasta: marca.hasta,
+                at: Date.now(), sha256: Array.from(new Uint8Array(hash)).map(function (b) { return b.toString(16).padStart(2, "0"); }).join("") };
+              try { log("absorbidos " + ev.n + " sobre(s) heredado(s) en " + nombre); } catch (_) {}
+              if (persistencia && typeof persistencia.set === "function") return persistencia.set(_absorcionKey, ev);
+            }).catch(function () {});
+          }
           avisarDurable();
           if (result.conflict && canal.ws && _currentPullState) {
             pedirPagina(canal.ws, _currentPullState);
@@ -982,7 +1035,7 @@
     // Old k:"lat" probes remain receive-only diagnostics and cannot approve the SLA.
     // Un update grande no cabe en el relay. Los trozos son frames cifrados
     // independientes; se reconstruyen antes de aplicar Yjs, nunca parcialmente.
-    function publicar(tag, payload, persistir) {
+    function publicar(tag, payload, persistir, marca) {
       if (tag === 0 && persistir) {
         try { measureUpdate(payload); } catch (_) {} // diagnostics cannot block business delivery
         try {
@@ -1025,6 +1078,7 @@
             // Content fingerprint stays local; the relay still sees a random id and ciphertext.
             op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
             if (piezas > 1) op.group = id;
+            if (marca) op.abs = marca;
             if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
           }
           var directo = false;
