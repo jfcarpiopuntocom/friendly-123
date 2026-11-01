@@ -5738,10 +5738,8 @@
      esto solo la corrige si de verdad hace falta. */
   (async () => {
     try {
-      if (_corteJfcS2 || window.__f123JfcResetReady) return; // includes PIN entered after boot
       if (!window.OCEstadoIDB) return;
       const espejo = await window.OCEstadoIDB.leer();
-      if (_corteJfcS2 || window.__f123JfcResetReady) return; // asynchronous read may predate S2
       if (!espejo || typeof espejo._rev !== "number") return;
       if (espejo._rev <= _localRev) return;
       if (_demoRefrescado) return; // el demo acaba de volver a la semilla nueva: no resucitar la vieja
