@@ -15,7 +15,7 @@ async function fixture(){
  for(let i=0;i<120&&w.OCYjs.estado!=='activo';i++)await delay(10);
  assert.equal(w.OCYjs.estado,'activo');
  const api=w.OCYjs;
- w.OCTienda.licenciaActual=()=>api.roomId;
+ w.OCTienda.licenciaActual=()=>api.licenciaCodigo;
  w.OCAuth={rolActual:()=> 'dueno'};
  const first=vm.runInContext('JSON.parse('+JSON.stringify(JSON.stringify({
   opId:'phone-opaque-event-1',deviceId:'phone',tipo:'ajuste',
@@ -65,7 +65,7 @@ test('anonymous, mismatched store and missing IndexedDB cannot claim proof',asyn
  w.OCAuth.rolActual=()=> 'dueno';
  w.OCTienda.licenciaActual=()=> 'F123-ANOTHER-SHOP';
  assert.equal((await api.exportarOpsForenses()).reason,'notebook-or-local-crypto-unavailable');
- w.OCTienda.licenciaActual=()=>api.roomId;
+ w.OCTienda.licenciaActual=()=>api.licenciaCodigo;
  api.opsIdb={};
  assert.equal((await api.exportarOpsForenses()).reason,'indexeddb-hydration-unverified');
 });
