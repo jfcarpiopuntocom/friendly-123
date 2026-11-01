@@ -10,10 +10,11 @@ test('S3: read-only audit reports numeric sizes without source records',()=>{
  assert.ok(at>0&&end>at,'size audit must exist');
  const ctx=vm.createContext({window:{},Uint8Array,JSON,Math,TextEncoder,TextDecoder,crypto:require('crypto').webcrypto});
  vm.runInContext(vendor,ctx);vm.runInContext(sync.slice(at,end),ctx);
- const Y=ctx.Y,cat=new Y.Doc(),ops=new Y.Doc(),fotos=new Y.Doc();
- cat.getMap('productos').set('synthetic-product',{id:'synthetic-product',fotoHash:'synthetic-hash'});
- ops.getMap('eventos').set('synthetic-sale',{opId:'synthetic-sale',cantidad:2});
- fotos.getMap('blobs').set('synthetic-hash','data:image/png;base64,AAA');
+ vm.runInContext("var cat=new Y.Doc(),ops=new Y.Doc(),fotos=new Y.Doc();"+ 
+   "cat.getMap('productos').set('synthetic-product',{id:'synthetic-product',fotoHash:'synthetic-hash'});"+
+   "ops.getMap('eventos').set('synthetic-sale',{opId:'synthetic-sale',cantidad:2});"+
+   "fotos.getMap('blobs').set('synthetic-hash','data:image/png;base64,AAA');",ctx);
+ const Y=ctx.Y,cat=ctx.cat,ops=ctx.ops,fotos=ctx.fotos;
  const read=(doc,name,ckpt)=>vm.runInContext('_medirDocumentoYjs(Y,__doc,__name,{recuperando:false},{synced:true},__ckpt)',Object.assign(ctx,{__doc:doc,__name:name,__ckpt:ckpt}));
  const a=read(cat,'catalogo',true),b=read(ops,'operaciones',true),c=read(fotos,'fotos',false);
  for(const item of [a,b,c]){
