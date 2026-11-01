@@ -17,8 +17,8 @@ jobs:
       - name: Integrated verification pass A
         run: |
           export NODE_PATH="$RUNNER_TEMP/p0-idb/node_modules"
-          node --test test/p0-s0-pull-priority.test.mjs test/p0-s1-yjs-idb-replay.test.cjs test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-movement-witness-opid.test.cjs test/p0-s4-outbox-per-op.test.cjs
+          node --test test/p0-s0-pull-priority.test.mjs test/p0-s1-yjs-idb-replay.test.cjs test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-movement-witness-opid.test.cjs test/p0-s4-outbox-per-op.test.cjs test/p0-s2-jfc-test-epoch.test.cjs
       - name: Integrated verification pass B, same SHA
         run: |
           export NODE_PATH="$RUNNER_TEMP/p0-idb/node_modules"
-          node --test test/p0-s1-yjs-idb-replay.test.cjs test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-movement-witness-opid.test.cjs test/p0-s4-outbox-per-op.test.cjs
+          node --test test/p0-s1-yjs-idb-replay.test.cjs test/p0-s3-compressed-checkpoint.test.cjs test/p0-s3-unknown-frame.test.cjs test/p0-s3-checkpoint-alert.test.cjs test/p0-movement-witness-opid.test.cjs test/p0-s4-outbox-per-op.test.cjs test/p0-s2-jfc-test-epoch.test.cjs
