@@ -1014,6 +1014,7 @@
         if (!el) {
           el = document.createElement("span"); el.id = id; el.setAttribute("role", "status");
           el.style.cssText = "display:inline-block;margin:4px 8px;padding:3px 7px;font-size:12px;font-weight:600;border:1px solid currentColor;border-radius:4px";
+          el.style.display = "inline-block";
           var badge = document.getElementById("oc-offline-badge");
           (badge && badge.parentElement || document.body).appendChild(el);
         }
