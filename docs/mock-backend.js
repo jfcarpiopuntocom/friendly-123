@@ -3230,6 +3230,7 @@
     const confiable = antes.length > 0 && _salidasActividad.has(antes);
     if (confiable) for (const e of antes) entradas.set(e.id, e);
     const idsNuevos = [];
+    let cambioIncremental = false;
     for (const e of (confiable ? entrantes : antes.concat(entrantes))) {
       if (!e || typeof e.origen !== "string" || !e.origen || e.origen.length > 160 ||
           !["evento", "inicio", "cola"].includes(e.clase) || !Array.isArray(e.versiones) || !e.versiones.length)
@@ -3251,6 +3252,7 @@
       const tenia = versiones.size;
       for (const v of e.versiones) versiones.set(JSON.stringify(v), v);
       if (anterior && versiones.size === tenia) continue; // nada nuevo: la entrada previa queda tal cual
+      cambioIncremental = true;
       if (!anterior) idsNuevos.push(e.id);
       entradas.set(e.id, { id: e.id, origen: e.origen, clase: e.clase,
         versiones: [...versiones.keys()].sort().map(k => {
@@ -3259,6 +3261,10 @@
           const c = clonar(v); _claveVersion.set(c, k); return c;
         }) });
     }
+    // A validated immutable prior result with no new versions is exactly
+    // identical. Keep its identity so the hot merge avoids serializing the
+    // entire activity history merely to prove that nothing changed.
+    if (confiable && !cambioIncremental) return antes;
     let salida = [...entradas.values()];
     if (idsNuevos.length) {
       const nuevos = salida.splice(salida.length - idsNuevos.length).sort((a, b) => _cmpActividad(a.id, b.id));
@@ -4055,7 +4061,8 @@
     const mandaElOtro = dif.ganaElOtro;
     let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
     const promesasPins = [];
-    const actividadCambio = _serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida);
+    const actividadCambio = actividadNueva !== actividadCompartida &&
+      _serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida);
     if (actividadCambio) {
       actividadCompartida = actividadNueva; actualizados++;
     }
