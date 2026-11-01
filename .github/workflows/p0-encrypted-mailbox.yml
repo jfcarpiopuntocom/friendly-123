@@ -8,6 +8,7 @@ on:
       - 'docs/auth-ui.js'
       - 'docs/mailbox-startup.mjs'
       - 'docs/mailbox-bridge.mjs'
+      - 'test/p0-owner-adoption-guard.test.cjs'
       - 'test/p0-mailbox-client.test.mjs'
       - 'test/p0-mailbox-playwright.test.cjs'
       - 'cloudflare-worker/mailbox-api.mjs'
@@ -35,7 +36,7 @@ jobs:
           node --check docs/mailbox-bridge.mjs
           node --check cloudflare-worker/mailbox-api.mjs
           node --check cloudflare-worker/worker.js
-          node --test test/p0-mailbox-worker.test.mjs test/p0-mailbox-client.test.mjs test/p0-central-pin-legacy-offline-guard.test.cjs
+          node --test test/p0-mailbox-worker.test.mjs test/p0-mailbox-client.test.mjs test/p0-owner-adoption-guard.test.cjs test/p0-central-pin-legacy-offline-guard.test.cjs
       - name: Verify Cloudflare Worker and binding without deploying
         run: |
           npx wrangler deploy --dry-run --config cloudflare-worker/wrangler.toml --outdir /tmp/f123-mailbox
