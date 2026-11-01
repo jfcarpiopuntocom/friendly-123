@@ -1565,6 +1565,31 @@
      aplicarCatalogo alimenta la lista de micelio (OCMicelio.recibir) para que el
      dueño vea sus aparatos en Advanced. Va en el batch: es diminuto. */
   var COLECCIONES_BATCH = ["productos", "ubicaciones", "usuarios", "clientes", "promotoras", "sucursales", "dispositivos", "categorias", "ajustes"]; // categorias (v344): propias vacias y ocultas, con rev y lapida
+  // Manual, read-only audit. Never logs or returns any business payload, license or PIN.
+  // AES-GCM envelope length is exact: 12-byte IV + 16-byte tag + 1-byte frame.
+  function _medirDocumentoYjs(Y, doc, nombre, canal, idb, permiteCkpt) {
+    if (!doc || !Y || !Y.encodeStateAsUpdate) return null;
+    var update = Y.encodeStateAsUpdate(doc);
+    var entries = 0, inline = 0;
+    doc.share.forEach(function (type) {
+      if (!type || typeof type.forEach !== "function") return;
+      type.forEach(function (value) {
+        entries++;
+        try {
+          var serialized = JSON.stringify(value);
+          if (serialized) { var found = serialized.match(/data:image\//gi); inline += found ? found.length : 0; }
+        } catch (_) { /* report only safely enumerable values */ }
+      });
+    });
+    var encrypted = update.byteLength + 29;
+    var wire = Math.ceil(encrypted * 4 / 3) + 128;
+    return { canal: nombre, bytesPlano: update.byteLength, bytesCifrados: encrypted,
+      entradas: entries, dataImageInline: inline,
+      hidratado: !!(idb && idb.synced === true && canal && canal.recuperando === false &&
+        !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))),
+      checkpoint: !!permiteCkpt, bytesSobre: wire,
+      margenBytes: permiteCkpt ? 250 * 1024 - wire : null };
+  }
   var API = {
     estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
     // API genérica por colección (probar convergencia a mano o desde código).
@@ -1585,6 +1610,17 @@
     }
   };
   window.OCYjs = API;
+  // Call manually on an authorized device after all three channels have hydrated:
+  // console.table(OCYjs.medirTamanoCanales())
+  API.medirTamanoCanales = function () {
+    if (!window.Y || !API.doc || !API.opsDoc || !API.fotosDoc) return [];
+    return [
+      _medirDocumentoYjs(window.Y, API.doc, "catalogo", API.canal, API.idb, true),
+      _medirDocumentoYjs(window.Y, API.opsDoc, "operaciones", API.opsCanal, API.opsIdb, true),
+      _medirDocumentoYjs(window.Y, API.fotosDoc, "fotos", API.fotosCanal, API.fotosIdb, false)
+    ];
+  };
+
 
   /* PRIME DIRECTIVE 1AAA / G05 — HISTORIAL LOCAL DE PUNTEROS DE FOTO.
      y-indexeddb persiste updates del catalogo en objectStore "updates". Este
