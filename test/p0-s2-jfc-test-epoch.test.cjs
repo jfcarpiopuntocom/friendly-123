@@ -58,7 +58,7 @@ test('S2 does not turn on sync when mirror reset fails',async()=>{
 test('S2 every updated device derives same fresh room and waits for local cutover',()=>{
   assert.match(sync,/codigo \+ "::jfc-test-epoch-2026-11-01"/);
   assert.match(sync,/if \(window\.__f123JfcResetReady && await window\.__f123JfcResetReady !== true\)/);
-  assert.match(mock,/if \(_corteJfcS2\) return; \/\/ old test mirror must never restore/);
+  assert.match(mock,/if \(_corteJfcS2 \|\| window\.__f123JfcResetReady\) return; \/\/ includes PIN entered after boot/);
   assert.match(sync,/API\.esLicenciaPruebaJfc = _salaId !== codigo/);
 });
 
