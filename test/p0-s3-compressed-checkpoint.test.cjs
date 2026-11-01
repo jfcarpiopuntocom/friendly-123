@@ -9,7 +9,7 @@ assert.ok(at>=0,'checkpoint gzip helper exists');
 const end=source.indexOf('\n  function crearCanal(',at);
 assert.ok(end>at,'helper is at module scope');
 const helper=source.slice(at,end);
-const ctx=vm.createContext({window:{CompressionStream,DecompressionStream},CompressionStream,DecompressionStream,Response,Uint8Array});
+const ctx=vm.createContext({window:{CompressionStream,DecompressionStream},crypto:require('node:crypto').webcrypto,CompressionStream,DecompressionStream,Response,Uint8Array});
 vm.runInContext(vendor,ctx);vm.runInContext(helper,ctx);
 const gzip=(bytes,unpack)=>vm.runInContext('_gzipYjs(__bytes,__unpack)',Object.assign(ctx,{__bytes:bytes,__unpack:unpack}));
 test('S3: 600KB valid Yjs state compresses to a checkpoint frame below Supabase cap',async()=>{
