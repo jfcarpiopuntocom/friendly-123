@@ -41,3 +41,22 @@ test('S3: product export whitelist strips inline photo from remote product',()=>
  assert.equal(Object.hasOwn(result.productos[0],'foto'),false);
  assert.doesNotMatch(JSON.stringify(result),/data:image\//);
 });
+
+test('S3: oversized tag0 uses only causal-preserving Yjs replay, never a new map identity',()=>{
+ const start=sync.indexOf('  function _compactarYjsSinCambiarCausalidad(Y, full) {');
+ const end=sync.indexOf('\n  function crearCanal(',start);
+ assert.ok(start>0&&end>start,'safe, bounded tag0 checkpoint replay helper required');
+ const ctx=vm.createContext({window:{},Uint8Array,JSON,Math,TextEncoder,TextDecoder,crypto:require('crypto').webcrypto});
+ vm.runInContext(vendor,ctx);
+ vm.runInContext(sync.slice(start,end),ctx);
+ vm.runInContext("var d=new Y.Doc(); var m=d.getMap('productos'); m.set('test','old'); m.set('test','new'); var full=Y.encodeStateAsUpdate(d);",ctx);
+ const compact=vm.runInContext('_compactarYjsSinCambiarCausalidad(Y,full)',ctx);
+ if(compact){
+   assert.ok(compact.length<ctx.full.length,'only smaller snapshots can replace original');
+   vm.runInContext('var check=new Y.Doc(); Y.applyUpdate(check,__compact);',Object.assign(ctx,{__compact:compact}));
+   assert.equal(vm.runInContext('Y.equalSnapshots(Y.snapshot(d),Y.snapshot(check))',ctx),true);
+   assert.equal(vm.runInContext('JSON.stringify(d.toJSON())===JSON.stringify(check.toJSON())',ctx),true);
+ }
+ assert.match(sync,/if \(!useful && full\.length \+ 29/);
+ assert.match(sync,/diagnosticarCkpt\("snapshot-over-limit"/);
+});
