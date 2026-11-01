@@ -1,0 +1,28 @@
+name: P0 v637 exact shell manifest
+on:
+  pull_request:
+    paths:
+      - docs/version.json
+      - docs/sw.js
+      - docs/dashboard.html
+      - docs/version-manifest.json
+      - docs/sync-yjs.js
+      - docs/mock-backend.js
+      - docs/avanzado-extra.js
+      - test/p0-v637-manifest.test.cjs
+      - .github/workflows/p0-v637-manifest.yml
+permissions:
+  contents: read
+jobs:
+  verify-twice:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test/p0-v637-manifest.test.cjs
+      - run: node scripts/gen-manifest.js && git diff --exit-code -- docs/version-manifest.json docs/sw.js
+      - run: node --test test/p0-v637-manifest.test.cjs
+      - run: node scripts/gen-manifest.js && git diff --exit-code -- docs/version-manifest.json docs/sw.js
