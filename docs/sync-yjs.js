@@ -119,7 +119,7 @@
       var entry = cfg.licenses && cfg.licenses[key];
       // Later, after separate customer acceptance, an explicit owner-approved
       // all-stage gate may enable only S4 globally. Gzip stays per-license.
-      if (!entry && cfg.stage === "all" && cfg.allOutboxV2 === true && cfg.allApproved === true)
+      if ((!entry || entry.stage !== "all") && cfg.stage === "all" && cfg.allOutboxV2 === true && cfg.allApproved === true)
         entry = {stage:"all",approved:true,outboxV2:true,gzipWrite:false};
       if (!entry || entry.stage !== cfg.stage || entry.approved !== true) return off;
       var fullCensus = entry.allDevicesOnNewShell === true &&
@@ -385,7 +385,8 @@
         var db = persistencia.db || await persistencia._db;
         if (!db || !db.objectStoreNames.contains("custom")) return null;
         var meta = await persistencia.get(_v2MetaKey);
-        // Once migrated, retain v2 storage even if the policy is temporarily unavailable.
+        // Existing v2 must stay v2 even if rollout config is offline or the phase changes.
+        if (meta && meta.v === 2 && API.rollout) API.rollout.outboxV2 = true;
         if (!(API.rollout && API.rollout.outboxV2) && (!meta || meta.v !== 2)) return null;
         if (!meta || meta.v !== 2) {
           var old = await persistencia.get(_outboxKey);
