@@ -3449,6 +3449,32 @@
     if (s.size > 2000) { const arr = [...s]; s.clear(); arr.slice(-2000).forEach((x) => s.add(x)); }
     try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s])); } catch (_) {}
   }
+  // The immutable opId is the receipt; counters are causal per actor, never wall-clock LWW.
+  // This projects a movement into the existing PN read model without replaying a sale.
+  function _fundirHechoStock(p, w) {
+    if (!p || !w || typeof w !== "object") return false;
+    const base = Number(w.base), actor = String(w.actor || ""), epoch = String(w.epoch || "");
+    const add = Number(w.add), sub = Number(w.sub);
+    if (!Number.isSafeInteger(base) || !actor || actor.length > 160 || epoch.length > 160 ||
+        !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return false;
+    const previo = p.stockBase == null ? null : Number(p.stockBase);
+    const epPrev = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
+    if (previo !== null && (previo !== base || epPrev !== epoch)) return false;
+    if (previo === null && p.stockPN && Object.keys(p.stockPN).length) return false;
+    const pn = Object.assign({}, p.stockPN || {});
+    const old = pn[actor] || {add:0,sub:0};
+    pn[actor] = {add: Math.max(Number(old.add)||0, add), sub: Math.max(Number(old.sub)||0, sub)};
+    let physical = base;
+    for (const v of Object.values(pn)) {
+      if (!v || !Number.isSafeInteger(Number(v.add)) || !Number.isSafeInteger(Number(v.sub)) ||
+          Number(v.add) < 0 || Number(v.sub) < 0) return false;
+      physical += Number(v.add) - Number(v.sub);
+      if (!Number.isSafeInteger(physical)) return false;
+    }
+    p.stockBase = base; p.stockEpochId = epoch; p.stockPN = pn;
+    p.stockActual = Math.max(0, physical); p.stockDeficit = Math.max(0, -physical);
+    return true;
+  }
   /* v515: quien gana cuando dos aparatos tienen distinta base de stock para un producto.
      Gana el cambio de stock mas reciente (stockTs). Un sello >5 min en el futuro del reloj
      comun no gana (mismo criterio que v447). Empate: compara una clave determinista, asi
@@ -3536,6 +3562,12 @@
             const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
             if (delta > 0) contador.add += delta; else contador.sub += -delta;
             _sp.stockPN[idStock] = contador;
+            // An event carries its author's cumulative counters, so an older op arriving
+            // after a newer one cannot roll back stock and duplicate delivery is harmless.
+            if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+              payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
+                actor: idStock, add: contador.add, sub: contador.sub };
+            }
             /* Una reposicion paga primero el FALTANTE (JFC 2026-09-29): es la
                misma cuenta que hara el contador compartido al fusionar, asi la
                pantalla no salta de 3 a 2 en el siguiente sync. */
@@ -5431,6 +5463,20 @@
       if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
       const vistos = _cargarOpsAplicadas();
       if (vistos.has(op.opId)) return { ok: true, repetida: true };
+      // New operations carry immutable PN proof; derive the view from movement facts.
+      // Old events remain on their historical Yjs path, avoiding double subtraction.
+      const witness = op.payload && op.payload.stockPNHecho;
+      if (witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+        const p = productos.find((x) => x.id === op.payload.productoId);
+        if (!p) return {ok:false, error:"waiting-for-product"};
+        if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};
+        return Promise.resolve(guardarEstadoLocal(true)).then((saved) => {
+          if (saved !== true) return {ok:false, error:"stock-not-durable"};
+          _marcarOpAplicada(op.opId);
+          avisarCatalogoCambiado();
+          return {ok:true};
+        }).catch(() => ({ok:false, error:"stock-commit-failed"}));
+      }
       /* NEUTRALIZADO (JFC 2026-09-16, v293) — EVITA DOBLE CONTEO DE PLATA/STOCK.
          El stock y las ventas ahora los aplica el SYNC NUEVO (catálogo Yjs):
          stock por LWW ABSOLUTO (stockTs, v289) y ventas ADD-ONLY por id (v292).

@@ -1611,6 +1611,9 @@
     });
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
+    // An op that arrived before its product must run once the catalog catches up.
+    API.doc.on("update", function () { if (API.esLicenciaPruebaJfc && API.opsMap && API.opsMap.size) pedirProcesarEventos(); });
+    window.addEventListener("oc-catalogo-cambiado", pedirProcesarEventos);
 
     function sincronizarVisibilidad() {
       var activo = !document.hidden && (!window.OCTabSession || OCTabSession.canSync());
@@ -1724,35 +1727,35 @@
     if (!op || !op.opId || !API.opsMap) return;
     try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
   }
-  var _tOps = null, _opsProcesadas = null;
+  var _tOps = null, _opsProcesadas = null, _opsAsyncBusy = false;
   function pedirProcesarEventos() { clearTimeout(_tOps); _tOps = setTimeout(procesarEventos, 200); }
   function procesarEventos() {
-    if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" || !API.opsMap) return;
-    if (!_opsProcesadas) _opsProcesadas = {}; // cache liviano por sesión (aplicarOpRemota ya es idempotente igual)
-    var mio = miDeviceId(), aplico = false;
+    if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" ||
+        !API.opsMap || _opsAsyncBusy) return;
+    if (!_opsProcesadas) _opsProcesadas = {};
+    var mio = miDeviceId();
     API.opsMap.forEach(function (op, opId) {
-      if (!op || _opsProcesadas[opId]) return;
-      // ECO: un op PROPIO ya se aplicó al hacer la acción; re-aplicarlo doblaría
-      // la plata (el handler NO lo tiene en su set de "vistos", porque nunca pasó
-      // por aplicarOpRemota). Se salta explícitamente por deviceId, y se marca
-      // procesado (no hay nada que reintentar).
+      if (!op || _opsProcesadas[opId] || _opsAsyncBusy) return;
+      // A local movement was already committed by its originating device.
       if (mio && String(op.deviceId) === mio) { _opsProcesadas[opId] = 1; return; }
-      try {
-        var r = window.OCSync.aplicarOpRemota(op);
-        // #4 (fix 2026-09-10): marcar procesado SOLO si el handler respondió ok
-        // (aplicado o repetido). Si lanzó, se deja sin marcar para reintentar en
-        // el próximo pase. aplicarOpRemota ya es idempotente por opId, así que
-        // reintentar es seguro.
-        if (r && r.ok) {
-          _opsProcesadas[opId] = 1;
-          if (!r.repetida) {
-            aplico = true;
-            try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op })); } catch (_) {}
-          }
+      function accepted(r) {
+        if (!r || !r.ok) return false; // no product yet / failed disk commit: retry later
+        _opsProcesadas[opId] = 1;
+        if (!r.repetida) {
+          try { window.dispatchEvent(new CustomEvent("oc-sync-op-remota", {detail:op})); } catch (_) {}
         }
-      } catch (_) { /* sin marcar: se reintenta */ }
+        return true;
+      }
+      try {
+        var result = window.OCSync.aplicarOpRemota(op);
+        if (result && typeof result.then === "function") {
+          // Serialize immutable movement commits so an old snapshot cannot race the save.
+          _opsAsyncBusy = true;
+          Promise.resolve(result).then(accepted, function () { return false; })
+            .then(function (ok) { _opsAsyncBusy = false; if (ok) pedirProcesarEventos(); });
+        } else accepted(result);
+      } catch (_) { /* retain the opId for a later retry */ }
     });
-    void aplico;
   }
 
   // ===================================================================
