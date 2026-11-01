@@ -3564,8 +3564,10 @@
             _sp.stockPN[idStock] = contador;
             // An event carries its author's cumulative counters, so an older op arriving
             // after a newer one cannot roll back stock and duplicate delivery is harmless.
-            payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
-              actor: idStock, add: contador.add, sub: contador.sub };
+            if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+              payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
+                actor: idStock, add: contador.add, sub: contador.sub };
+            }
             /* Una reposicion paga primero el FALTANTE (JFC 2026-09-29): es la
                misma cuenta que hara el contador compartido al fusionar, asi la
                pantalla no salta de 3 a 2 en el siguiente sync. */
@@ -5464,7 +5466,7 @@
       // New operations carry immutable PN proof; derive the view from movement facts.
       // Old events remain on their historical Yjs path, avoiding double subtraction.
       const witness = op.payload && op.payload.stockPNHecho;
-      if (witness) {
+      if (witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
         const p = productos.find((x) => x.id === op.payload.productoId);
         if (!p) return {ok:false, error:"waiting-for-product"};
         if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};

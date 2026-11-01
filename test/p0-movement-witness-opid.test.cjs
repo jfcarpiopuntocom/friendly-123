@@ -36,7 +36,7 @@ test('an unrelated physical epoch and invalid counters cannot invent stock',()=>
 });
 test('sync path carries opId and commits read model before dedup; no legacy double sale',()=>{
  assert.match(source,/payload\.stockPNHecho = \{ base: _sp\.stockBase/);
- assert.match(source,/if \(witness\) \{/);
+ assert.match(source,/if \(witness && window\.OCYjs && window\.OCYjs\.esLicenciaPruebaJfc\) \{/);
  assert.match(source,/Promise\.resolve\(guardarEstadoLocal\(true\)\)/);
  assert.match(source,/if \(saved !== true\) return \{ok:false/);
  assert.match(source,/if \(localStorage\.getItem\("f123_ops_delta_activo"\) !== "1"\)/);
