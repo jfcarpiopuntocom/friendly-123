@@ -62,7 +62,7 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  const code=source.slice(begin,end);
  const vm=require('node:vm');
  function harness(testRoom){
-   const persistence={db,_db:Promise.resolve(db),get:rawGet,set:rawPut};
+   const persistencia={db,_db:Promise.resolve(db),get:rawGet,set:rawPut};
    const ctx=vm.createContext({
      API:{esLicenciaPruebaJfc:testRoom,roomId:'synthetic-room'},suffix:'-y',
      persistencia,IDBKeyRange,localStorage:{},_outboxKey:legacyKey,
