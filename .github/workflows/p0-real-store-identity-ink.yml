@@ -54,6 +54,8 @@ jobs:
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
             test/p0-stock-explicit-epoch-crash.test.cjs test/incident-stale-stock-metadata-v558.test.js \
             test/stock-base-conflicto-v515.test.js test/business-read-model.test.js
+      - name: Encrypted Yjs outbox must commit before any live peer delivery
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/sync-v514-fallos-codex.test.js
       - name: Backup forensics and explicit A-B-A stock ledger replay (shadow, immutable)
         run: |
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
