@@ -1,74 +1,24 @@
 'use strict';
-const {test}=require('node:test'),assert=require('node:assert/strict');
-const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const mock=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');
+// JFC 2026-11-01 (contract change, explicit order): NO device is ever wiped. A reset can never be applied to
+// customers, so the JFC licence must prove the same path they will use: keep the v636 room, keep local data
+// and pending logs, and absorb/synchronise them. Previous S2 (one-shot wipe + new epoch room) is cancelled.
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),cp=require('node:child_process');
 const sync=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
-const first=mock.indexOf('  function _esLicenciaJfcParaS2() {');
-const last=mock.indexOf('  let _demoRefrescado = false;',first);
-assert.ok(first>0&&last>first,'real test-only cutover functions exist');
-const code=mock.slice(first,last);
-function harness({testLicense=false,borrar=true}={}) {
-  const data=new Map([['f123_estado_v4_A','old-A'],['f123_estado_v4_B','old-B'],
-    ['f123_estado_v4_ptr','A'],['f123_estado_v4_journal','old-journal'],
-    ['f123_estado_v4_sello','old-sello'],['f123_estado_v4','old-legacy'],
-    ['f123_owned','PIN-and-license-untouched'],['client_licensed','real-client-data']]);
-  const storage={getItem:k=>data.has(k)?data.get(k):null,
-    setItem:(k,v)=>data.set(k,String(v)),removeItem:k=>data.delete(k)};
-  let emptied=0, mirrorDeletes=0;
-  const ctx=vm.createContext({
-    _licenciaActual(){return '';},_vaciarTiendaFresca(){emptied++;},
-    _cargoBufferReal:true,_demoRefrescado:false,_estadoLecturaBloqueada:false,
-    _estadoPublicableConfirmado:null,_huellaPublicable(){return 'empty';},
-    window:{OCEstadoIDB:{soportado:true,async borrar(){mirrorDeletes++;return borrar;}}},
-    localStorage:storage,Math,String,Error,console,
-    OC_STATE_SUFIJO:'',OC_STATE_KEY:'f123_estado_v4',OC_STATE_PTR:'f123_estado_v4_ptr',
-    OC_STATE_SELLO:'f123_estado_v4_sello',claveBuffer:c=>'f123_estado_v4_'+c
-  });
-  vm.runInContext(code,ctx);
-  if(testLicense)ctx._esLicenciaJfcParaS2=()=>true;
-  return {ctx,data,get emptied(){return emptied;},get mirrorDeletes(){return mirrorDeletes;}};
-}
-test('S2 never mutates data or auth for a client license',async()=>{
-  const h=harness();
-  assert.equal(h.ctx._prepararCorteJfcS2(),false);
-  assert.equal(h.emptied,0);assert.equal(h.mirrorDeletes,0);
-  assert.equal(h.data.get('client_licensed'),'real-client-data');
-  assert.equal(h.data.get('f123_owned'),'PIN-and-license-untouched');
+const backend=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');
+const v636=cp.execFileSync('git',['show','795635ea0b0de262cd982d9a5dc828fd8cffcfba:docs/sync-yjs.js'],{encoding:'utf8',maxBuffer:64e6});
+const sufijo=s=>(s.match(/\? \(codigo \+ "(::[^"]+)"\) : codigo;/)||[])[1];
+test('JFC licence stays in the SAME room as published v636 (its data lives there)',()=>{
+  assert.equal(sufijo(v636),'::limpio-2026-09-16');
+  assert.equal(sufijo(sync),sufijo(v636));
+  assert.doesNotMatch(sync,/jfc-test-epoch-2026-11-01"\) : codigo/);
 });
-test('S2 JFC test cutover clears only active business and old mirror before sync',async()=>{
-  const h=harness({testLicense:true});
-  assert.equal(h.ctx._prepararCorteJfcS2(),true);
-  assert.equal(await h.ctx.window.__f123JfcResetReady,true);
-  assert.equal(h.mirrorDeletes,1);assert.equal(h.emptied,1);
-  for(const k of ['f123_estado_v4_A','f123_estado_v4_B','f123_estado_v4_ptr','f123_estado_v4_journal','f123_estado_v4_sello'])
-    assert.equal(h.data.has(k),false,k);
-  assert.equal(h.data.get('f123_estado_v4'),'');
-  assert.equal(h.data.get('f123_jfc_s2_epoch_20261101'),'ok');
-  assert.equal(h.data.get('f123_owned'),'PIN-and-license-untouched');
-  assert.equal(h.data.get('client_licensed'),'real-client-data');
-  assert.equal(h.ctx._prepararCorteJfcS2(),false,'idempotent after reset');
+test('the one-shot local wipe is disabled before any storage is touched',()=>{
+  assert.match(backend,/const S2_REINICIO_ACTIVO = false;/);
+  const i=backend.indexOf('function _prepararCorteJfcS2() {');
+  assert.ok(i>0);
+  assert.match(backend.slice(i,i+120),/if \(!S2_REINICIO_ACTIVO\) return false;/);
+  assert.ok(backend.slice(i).indexOf('if (!S2_REINICIO_ACTIVO) return false;')<backend.slice(i).indexOf('_vaciarTiendaFresca()'));
 });
-test('S2 does not turn on sync when mirror reset fails',async()=>{
-  const h=harness({testLicense:true,borrar:false});
-  assert.equal(h.ctx._prepararCorteJfcS2(),true);
-  assert.equal(await h.ctx.window.__f123JfcResetReady,false);
-  assert.equal(h.ctx._estadoLecturaBloqueada,true);
-  assert.equal(h.data.has('f123_jfc_s2_epoch_20261101'),false);
-});
-test('S2 every updated device derives same fresh room and waits for local cutover',()=>{
-  assert.match(sync,/codigo \+ "::jfc-test-epoch-2026-11-01"/);
-  assert.match(sync,/if \(window\.__f123JfcResetReady && await window\.__f123JfcResetReady !== true\)/);
-  assert.match(mock,/if \(_corteJfcS2 \|\| window\.__f123JfcResetReady\) return; \/\/ includes PIN entered after boot/);
-  assert.match(sync,/API\.esLicenciaPruebaJfc = _salaId !== codigo/);
-});
-
-test('S2 a license entered after the PIN screen boot also gates the fresh room',()=>{
-  assert.ok(mock.includes('window.__f123PrepareJfcReset = _prepararCorteJfcS2'));
-  assert.ok(sync.includes('if (typeof window.__f123PrepareJfcReset === "function") window.__f123PrepareJfcReset();'));
-  assert.ok(sync.indexOf('window.__f123PrepareJfcReset()') < sync.indexOf('await window.__f123JfcResetReady'));
-});
-
-test('S2 blocks an IDB recovery started before a late PIN-screen reset',()=>{
-  assert.match(mock,/if \(_corteJfcS2 \|\| window\.__f123JfcResetReady\) return; \/\/ asynchronous read may predate S2/);
-  assert.match(mock,/if \(_corteJfcS2 \|\| window\.__f123JfcResetReady\) return; \/\/ includes PIN entered after boot/);
+test('causal movement witnesses stay enabled for the JFC canary licence',()=>{
+  assert.match(sync,/API\.esLicenciaPruebaJfc = _salaId !== codigo;/);
 });

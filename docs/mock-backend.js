@@ -5659,7 +5659,11 @@
       return 4294967296 * (2097151 & h2) + (h1 >>> 0) === 6583453063440131;
     } catch (_) { return false; }
   }
+  // JFC 2026-11-01: S2 cancelled. No device is ever wiped (a reset can never be applied to customers);
+  // existing local data and pending logs are absorbed and synchronised instead.
+  const S2_REINICIO_ACTIVO = false;
   function _prepararCorteJfcS2() {
+    if (!S2_REINICIO_ACTIVO) return false;
     if (!_esLicenciaJfcParaS2() || window.__f123JfcResetReady) return false;
     var marker = "f123_jfc_s2_epoch_20261101" + OC_STATE_SUFIJO;
     try { if (localStorage.getItem(marker) === "ok") return false; }
