@@ -13,7 +13,7 @@ function fixture(save) {
    window: { addEventListener: (k, fn) => { listeners[k] = fn; } },
    document: { visibilityState:'visible', addEventListener:(k,fn)=>{listeners[k]=fn;} } };
  vm.createContext(ctx);
- vm.runInContext(source.slice(start,end) + '\nthis.api={enqueue:_programarGuardadoMerge,flush:_guardarMergePendienteYa,dirty:()=>_mergeSucio};',ctx);
+ vm.runInContext(source.slice(start,end) + '\nthis.api={enqueue:_programarGuardadoMerge,flush:_guardarMergePendienteYa,safe:_guardarMergeInmediatoSeguro,dirty:()=>_mergeSucio};',ctx);
  return {ctx,jobs,listeners,api:ctx.api};
 }
 test('remote merges coalesce into one idle write while preserving visibility-first ordering', async () => {
@@ -27,4 +27,17 @@ test('false save result remains dirty and pagehide retries rather than discardin
  const p=f.api.enqueue();f.jobs.shift()();
  assert.equal(await p,false);assert.equal(f.api.dirty(),true);
  f.listeners.pagehide();assert.equal(saves,2);assert.equal(f.api.dirty(),false);
+});
+
+test('synchronous quota exception from an immediate remote merge remains pending', () => {
+ let attempts=0;
+ const f=fixture(()=>{attempts++;throw new DOMException('full','QuotaExceededError');});
+ assert.equal(f.api.safe(),false,'merge storage failure is contained');
+ assert.equal(attempts,1);
+ assert.equal(f.api.dirty(),true,'failed merge remains pending');
+});
+test('immediate merge returning false cannot claim durable success',()=>{
+ const f=fixture(()=>false);
+ assert.equal(f.api.safe(),false);
+ assert.equal(f.api.dirty(),true);
 });

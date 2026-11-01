@@ -1509,6 +1509,25 @@
     window.addEventListener("pagehide", _guardarMergePendienteYa);
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") _guardarMergePendienteYa(); });
   } catch (_) {}
+  // Synchronous quota/storage exceptions cannot unwind a received merge.
+  function _guardarMergeInmediatoSeguro() {
+    let resultado;
+    try { resultado = guardarEstadoLocal(); }
+    catch (error) {
+      _mergeSucio = true;
+      try { _falloGuardadoLocal(error); } catch (_) {}
+      return false;
+    }
+    if (resultado && typeof resultado.then === "function") {
+      Promise.resolve(resultado).then(function (ok) {
+        if (ok !== true) _mergeSucio = true;
+      }, function (error) {
+        _mergeSucio = true;
+        try { _falloGuardadoLocal(error); } catch (_) {}
+      });
+    } else if (resultado !== true) _mergeSucio = true;
+    return resultado;
+  }
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
     // Retention rollback must finish before any background photo captures RAM.
     if (!exigirCompleto && _retencionPendiente)
@@ -4834,7 +4853,7 @@
       // Solo una proyección incremental de productos puede esperar al tiempo ocioso.
       // Los gastos, pagos, ventas, PIN y catálogos completos conservan el guardado inmediato.
       if (soloProductosSync === true && promesasPins.length === 0 && !_adoptaNombre) _programarGuardadoMerge();
-      else guardarEstadoLocal();
+      else _guardarMergeInmediatoSeguro();
     }
     if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
       if (_retencionPendiente) await _retencionPendiente; // A prior PIN merge must not append audit inside retention rollback.
@@ -4882,7 +4901,7 @@
       // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27). El aviso sale ya (se auto-filtra con
       // _estadoPuedeEnviarse); si quedo bloqueado por un guardado estricto, se repite al terminar de guardar.
       // El relay peer-only no es almacenamiento: el ACK del par exige un guardado estricto independiente.
-      const _persistiendo = Promise.resolve(guardarEstadoLocal()); // credenciales: guardar ANTES del evento
+      const _persistiendo = Promise.resolve(_guardarMergeInmediatoSeguro()); // credential attempt before announcement
       const _avisadoYa = _estadoPuedeEnviarse();
       avisarCatalogoCambiado();
       return _persistiendo.then(function (guardado) {
