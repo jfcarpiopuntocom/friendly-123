@@ -1418,8 +1418,11 @@
       return {ok:false,reason:"owner-required"};
     var book = API.roomId, current = window.OCTienda &&
       typeof window.OCTienda.licenciaActual === "function"
-        ? String(window.OCTienda.licenciaActual() || "").trim().toUpperCase() : "";
-    if (!book || !current || book !== current || !API.opsDoc || !API.opsMap || !API.opsIdb ||
+        ? normalizarCodigo(window.OCTienda.licenciaActual() || "") : "";
+    // roomId is the DERIVED encrypted room locator, NEVER the license text.
+    // Check the original normalized license captured when the Y.Doc started.
+    if (!book || !current || !API.licenciaCodigo || API.licenciaCodigo !== current ||
+        !API.opsDoc || !API.opsMap || !API.opsIdb ||
         !window.Y || !window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined")
       return {ok:false,reason:"notebook-or-local-crypto-unavailable"};
     var idb = API.opsIdb, originDoc = API.opsDoc;
@@ -1451,7 +1454,7 @@
       });
       if (API.roomId !== book || API.opsDoc !== originDoc ||
           (window.OCTienda && window.OCTienda.licenciaActual &&
-           String(window.OCTienda.licenciaActual()||"").trim().toUpperCase()!==book))
+           normalizarCodigo(window.OCTienda.licenciaActual()||"")!==API.licenciaCodigo))
         return {ok:false,reason:"notebook-changed-during-export"};
       var reconstructed=new window.Y.Doc(), rows=[], mismatch=0;
       try {
@@ -1602,6 +1605,7 @@
     } catch (_) { log("identidad del cuaderno no disponible — sin sync"); return; }
     if (!_licProp) { log("sin licencia — sin sync (una licencia = una sala; f123_sync_room ya no decide)"); return; }
     var codigo = normalizarCodigo(_licProp);
+    API.licenciaCodigo = codigo;
     try { await cargarBundle(); } catch (e) { log("bundle:", e && e.message); return; }
 
     var Y = window.Y;
