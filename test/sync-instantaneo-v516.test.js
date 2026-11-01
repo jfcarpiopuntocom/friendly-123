@@ -4,10 +4,15 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const src=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 test('quien cambia publica en <= 50 ms y una rafaga no posterga el envio',()=>{
-  const m=/function pedirSeed\(\) \{([^\n]+)\}/.exec(src);assert.ok(m);
-  const ms=Number((/,\s*(\d+)\);\s*$/.exec(m[1].trim())||[])[1]);
+  const from=src.indexOf('function pedirSeed() {');
+  const to=src.indexOf('window.addEventListener("oc-catalogo-cambiado"',from);
+  assert.ok(from>0&&to>from,'production seed scheduler exists');
+  const body=src.slice(from,to);
+  const m=/_tSeed\s*=\s*setTimeout\(function\s*\(\)\s*\{[\s\S]*?\},\s*(\d+)\)/.exec(body);
+  assert.ok(m,'the actual seed timer must be measurable');
+  const ms=Number(m[1]);
   assert.ok(ms>=0&&ms<=50,'espera de publicacion '+ms+' ms');
-  assert.doesNotMatch(m[1],/clearTimeout/,'no se reinicia con cada evento');
+  assert.doesNotMatch(body,/clearTimeout/,'no se reinicia con cada evento');
 });
 test('quien recibe aplica en <= 50 ms',()=>{
   const a=src.indexOf('if (!_tAplica) _tAplica = setTimeout(');assert.ok(a>0);

@@ -32,9 +32,11 @@ function fixture(options = {}) {
   const storage = new Map();
   const db = {
     transaction() {
+      let wrote = false;
       const tx = {};
       tx.objectStore = () => ({
         put(snapshot) {
+          wrote = true;
           Promise.resolve().then(() => {
             if ((options.failCommits || []).includes(++disk.attempts)) {
               tx.error = Error('synthetic IDB transaction abort');
@@ -51,6 +53,9 @@ function fixture(options = {}) {
           Promise.resolve().then(() => {
             request.result = disk.current && JSON.parse(JSON.stringify(disk.current));
             request.onsuccess?.();
+            // A native readwrite transaction completes even when the
+            // revision fence skips put(). Model that microtask boundary.
+            Promise.resolve().then(() => { if (!wrote) tx.oncomplete?.(); });
           });
           return request;
         },

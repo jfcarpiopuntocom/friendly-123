@@ -51,9 +51,14 @@ test('accepted stock republishes after a previous background save failure withou
   };
   transfer();await a.flush();await b.flush();
   let fail=true;
-  a.w.navigator.locks={request:(name,options,fn)=>String(name).startsWith('f123-estado-ab')&&fail
-    ?Promise.reject(Object.assign(Error('Synthetic lock failure'),{name:'AbortError'}))
-    :Promise.resolve((fn||options)())};
+  // The v637 A/B writer is synchronous and intentionally does not use Web
+  // Locks. Fail its real storage writes, not an abandoned navigator.locks API.
+  const actualSet=a.w.localStorage.setItem.bind(a.w.localStorage);
+  a.w.localStorage.setItem=(name,value)=>{
+    if(fail&&String(name).startsWith('f123_estado_v4'))
+      throw Object.assign(Error('Synthetic storage failure'),{name:'AbortError'});
+    return actualSet(name,value);
+  };
   await a.w.request('/api/productos/synthetic-stock','PATCH',{nombre:'Synthetic pending background save'});
   await settle();await a.flush();
   assert.equal(a.w.OCSync.catalogoPropio(),null,'failed storage still blocks publication');

@@ -53,7 +53,9 @@ jobs:
           NODE_PATH: ${{ runner.temp }}/p0-s4-idb/node_modules
           F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
           F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
-        run: npm test
+        # The browser latency and WebRTC suites need CPU while 2,400+ other
+        # tests run. Two file workers keep all assertions and peer concurrency.
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "test/**/*.test.js" "test/**/*.test.cjs"
       - name: Artifact integrity
         run: |
           cp docs/version-manifest.json /tmp/manifest-before.json
