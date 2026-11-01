@@ -47,26 +47,31 @@ test('native A/B lock keeps contact response and reads pending until durable com
       if(!response.ok)throw Error(JSON.stringify(customer));
       return customer.id;
     });
+    // Hold the ACTUAL strict durable IDB transaction, instead of the old
+    // A/B Web Lock. Since v640 the secondary A/B mirror runs after a successful
+    // IDB ACK, so blocking that mirror must never hold up a confirmed edit.
     await page.evaluate(()=>{
-      window.__contactLockName='f123-estado-ab:f123_estado_v4';
-      window.__contactLockHeld=false;
-      window.__contactLockPromise=navigator.locks.request(window.__contactLockName,()=>new Promise(resolve=>{
-        window.__contactLockHeld=true;window.__releaseContactLock=resolve;
-      }));
+      const db=window.OCEstadoIDB;
+      if(!db||typeof db.guardarConRevision!=='function')throw Error('strict IDB CAS unavailable');
+      const original=db.guardarConRevision.bind(db);
+      window.__contactCommitEntered=false;
+      window.__contactReleaseCommit=null;
+      db.guardarConRevision=(...args)=>new Promise(resolve=>{
+        window.__contactCommitEntered=true;window.__contactReleaseCommit=resolve;
+      }).then(()=>original(...args));
     });
-    await page.waitForFunction(()=>window.__contactLockHeld);
     await page.evaluate(id=>{
       window.__contactPatchDone=false;window.__contactReadDone=false;
       window.__contactPatch=fetch('/api/clientes/'+id+'/contacto',{method:'PATCH',body:JSON.stringify({resideCuenca:false,genero:'male'})}).then(async r=>{
         window.__contactPatchStatus=r.status;window.__contactPatchDone=true;return r.json();
       });
     },id);
-    await page.waitForFunction(async()=> (await navigator.locks.query()).pending.some(l=>l.name===window.__contactLockName));
+    await page.waitForFunction(()=>window.__contactCommitEntered);
     await page.evaluate(()=>{window.__contactRead=fetch('/api/clientes').then(async r=>{window.__contactReadDone=true;return r.json();});});
     await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,30)));
     assert.deepEqual(await page.evaluate(()=>[window.__contactPatchDone,window.__contactReadDone]),[false,false],
-      'neither success nor a changed contact may escape while durable lock is held');
-    await page.evaluate(async()=>{window.__releaseContactLock();await window.__contactLockPromise;await window.__contactPatch;await window.__contactRead;});
+      'neither the durable ACK nor later reads may outrun the actual IDB CAS commit');
+    await page.evaluate(async()=>{window.__contactReleaseCommit();await window.__contactPatch;await window.__contactRead;});
     assert.equal(await page.evaluate(()=>window.__contactPatchStatus),200);
     await page.reload({waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>window.cargarClientes&&window.OCAuth);

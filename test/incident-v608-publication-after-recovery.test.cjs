@@ -50,13 +50,19 @@ test('accepted stock republishes after a previous background save failure withou
     a.w.OCYjs._store.aplicar();
   };
   transfer();await a.flush();await b.flush();
+  // The isolated Node fixture has no IndexedDB, so its durable fallback
+  // is the real A/B localStorage journal. Inject a write failure in THAT
+  // storage instead of an obsolete Web Lock that no longer protects commits.
   let fail=true;
-  a.w.navigator.locks={request:(name,options,fn)=>String(name).startsWith('f123-estado-ab')&&fail
-    ?Promise.reject(Object.assign(Error('Synthetic lock failure'),{name:'AbortError'}))
-    :Promise.resolve((fn||options)())};
+  const originalSet=a.w.localStorage.setItem;
+  a.w.localStorage.setItem=(key,value)=>{
+    if(fail&&String(key).startsWith('f123_estado_v4'))
+      throw Object.assign(Error('Synthetic A/B durable write failure'),{name:'QuotaExceededError'});
+    return originalSet(key,value);
+  };
   await a.w.request('/api/productos/synthetic-stock','PATCH',{nombre:'Synthetic pending background save'});
   await settle();await a.flush();
-  assert.equal(a.w.OCSync.catalogoPropio(),null,'failed storage still blocks publication');
+  assert.equal(a.w.OCSync.catalogoPropio(),null,'failed actual A/B fallback storage still blocks publication');
   fail=false;
   let events=0;a.w.addEventListener('oc-catalogo-cambiado',()=>events++);
   const accepted=await a.w.request('/api/productos/synthetic-stock/ajustar','POST',{delta:9,motivo:'Synthetic recovery'});

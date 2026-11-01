@@ -1,0 +1,75 @@
+name: P0 one-shop identity and inventory acceptance
+on:
+  push:
+    branches: [integrate/p0-real-store-convergence-20261031]
+  pull_request:
+    paths:
+      - docs/auth-ui.js
+      - cloudflare-worker/pin-worker-api.mjs
+      - docs/sync-yjs.js
+      - docs/mock-backend.js
+      - docs/core/business-read-model.js
+      - src/app/app-style-02.css
+      - src/dashboard/dashboard-main.css
+      - docs/app-style-02.min.css
+      - docs/dashboard-main.min.css
+      - test/p0-pin-owner-resolve.test.mjs
+      - test/p0-pin-resolve-ui.test.cjs
+      - test/p0-business-ink-12-percent-browser.test.cjs
+      - test/p0-replica-readonly-forensics.test.cjs
+      - test/p0-journal-aba-physical-convergence.test.cjs
+      - scripts/p0-compare-replicas.cjs
+      - .github/workflows/p0-real-store-identity-ink.yml
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    container: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Validate JS syntax and source asset parity
+        run: |
+          node --check docs/auth-ui.js
+          node --check docs/mock-backend.js
+          node --check docs/sync-yjs.js
+          node --check cloudflare-worker/pin-worker-api.mjs
+          node scripts/build-app-entry.cjs --check
+      - name: New browser license + central Owner PIN and previous device guarantees
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
+            test/p0-pin-owner-resolve.test.mjs test/p0-pin-resolve-ui.test.cjs \
+            test/p0-central-pin-authority.test.mjs test/p0-central-pin-worker-entry.test.mjs \
+            test/p0-central-pin-legacy-offline-guard.test.cjs
+      - name: Causal Yjs stock and previous-version regression
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
+            test/p0-stock-explicit-epoch-crash.test.cjs test/incident-stale-stock-metadata-v558.test.js \
+            test/stock-base-conflicto-v515.test.js test/business-read-model.test.js
+      - name: Full encrypted Yjs durable outbox and live-delivery ordering
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000             test/sync-v514-fallos-codex.test.js test/yjs-durable-outbox.test.js
+      - name: Backup forensics and explicit A-B-A stock ledger replay (shadow, immutable)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 \
+            test/p0-replica-readonly-forensics.test.cjs \
+            test/p0-journal-aba-physical-convergence.test.cjs \
+            test/p0-yjs-ops-readonly-export.test.cjs
+      - name: Actual Chromium and WebKit responsive business name
+        run: node --test --test-timeout=120000 test/p0-business-ink-12-percent-browser.test.cjs
+      - name: Changes and SHA without any production writes
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          baseline="$(git merge-base HEAD origin/master)"
+          test -n "$baseline"
+          git diff --check "$baseline" HEAD
+          wc -l docs/auth-ui.js docs/sync-yjs.js docs/mock-backend.js cloudflare-worker/pin-worker-api.mjs
+          sha256sum docs/auth-ui.js docs/sync-yjs.js docs/mock-backend.js cloudflare-worker/pin-worker-api.mjs
