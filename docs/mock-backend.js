@@ -1471,6 +1471,44 @@
       return true;
     } finally { _drenandoCatalogos = false; }
   }
+  let _mergeSucio = false, _mergeGuardado = null;
+  function _programarGuardadoMerge() {
+    _mergeSucio = true;
+    if (_mergeGuardado) return _mergeGuardado;
+    _mergeGuardado = new Promise(function (res) {
+      const run = function () {
+        _mergeGuardado = null;
+        if (!_mergeSucio) return res(true); // un guardado estricto previo ya cubrió el merge
+        _mergeSucio = false;
+        try {
+          Promise.resolve(guardarEstadoLocal()).then(function (ok) {
+            if (ok !== true) _mergeSucio = true; // los fallos booleanos también dejan trabajo pendiente
+            res(ok === true);
+          }, function () { _mergeSucio = true; res(false); });
+        } catch (_) { _mergeSucio = true; res(false); }
+      };
+      // Dejar que el render de inventario se actualice antes del guardado voluminoso.
+      try {
+        if (typeof requestIdleCallback === "function" && document.visibilityState === "visible") requestIdleCallback(run, { timeout: 300 });
+        else setTimeout(run, 0);
+      } catch (_) { setTimeout(run, 0); }
+    });
+    return _mergeGuardado;
+  }
+  function _guardarMergePendienteYa() {
+    if (!_mergeSucio) return;
+    _mergeSucio = false;
+    try {
+      const r = guardarEstadoLocal();
+      if (r && typeof r.then === "function") r.then(function (ok) { if (ok !== true) _mergeSucio = true; },
+        function () { _mergeSucio = true; });
+      else if (r !== true) _mergeSucio = true;
+    } catch (_) { _mergeSucio = true; }
+  }
+  try {
+    window.addEventListener("pagehide", _guardarMergePendienteYa);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") _guardarMergePendienteYa(); });
+  } catch (_) {}
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
     // Retention rollback must finish before any background photo captures RAM.
     if (!exigirCompleto && _retencionPendiente)
@@ -4792,7 +4830,7 @@
     const cambioPersistible = actividadCambio || cambioNegocio;
     if (cambioPersistible) {
       if (negocioAntes !== negocioDespues) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
-      guardarEstadoLocal();
+      _programarGuardadoMerge(); // pintar antes de guardar el A/B
     }
     if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
       if (_retencionPendiente) await _retencionPendiente; // A prior PIN merge must not append audit inside retention rollback.
@@ -4839,9 +4877,10 @@
       if (!cambioPersistible) mov("merge-catalogo", { perchasAgregadas: 0, productosAgregados: 0, actualizados: 0, miembrosAgregados: 0, miembrosQuitados: 0, clientesAgregados: 0, desde: remoto.deviceNombre || "another device" }, false);
       // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27). El aviso sale ya (se auto-filtra con
       // _estadoPuedeEnviarse); si quedo bloqueado por un guardado estricto, se repite al terminar de guardar.
-      const _persistiendo = Promise.resolve(guardarEstadoLocal());
+      // El relay peer-only no es almacenamiento: el ACK del par exige un guardado estricto independiente.
       const _avisadoYa = _estadoPuedeEnviarse();
       avisarCatalogoCambiado();
+      const _persistiendo = _programarGuardadoMerge();
       return _persistiendo.then(function (guardado) {
         if (guardado && !_avisadoYa) avisarCatalogoCambiado();
       });
@@ -5328,7 +5367,7 @@
       if (_payoutPendiente) await _payoutPendiente;
       if (_retencionPendiente) await _retencionPendiente;
       if (_ventaConfirmando || _payoutConfirmando || _retencionConfirmando) return false;
-      try { return (await guardarEstadoLocal(true, true)) === true; } catch (_) { return false; }
+      try { const ok = (await guardarEstadoLocal(true, true)) === true; if (ok) _mergeSucio = false; return ok; } catch (_) { return false; }
     },
     async catalogoConfirmado() {
       while (_ventaPendiente) await _ventaPendiente;

@@ -139,6 +139,8 @@
         if (leerClave(clave(destino)) !== raw || leerClave(base + "_ptr") !== vista.puntero ||
             leerClave(claveJournal) !== preparado) { espejoPermitido = false; return false; }
         registro.phase = "COMMITTED";
+        // La preimagen solo se necesita en PREPARED; v636 acepta anterior:null en COMMITTED.
+        registro.anterior = null;
         const confirmado = JSON.stringify(registro);
         storage.setItem(claveJournal, confirmado);
         // A successful native atomic set is durable even if a later read fails.
