@@ -1408,6 +1408,82 @@
   };
   window.OCYjs = API;
 
+  /* P0 forensic export: reconstruct the operations document strictly from
+     already-persisted IndexedDB updates. Read-only by construction.
+     The full result is PRIVATE LOCAL data; callers must never upload it to
+     public logs, source control or analytics. No network, writes or reseeding. */
+  API.exportarOpsForenses = async function () {
+    if (!window.OCAuth || typeof window.OCAuth.rolActual !== "function" ||
+        window.OCAuth.rolActual() !== "dueno")
+      return {ok:false,reason:"owner-required"};
+    var book = API.roomId, current = window.OCTienda &&
+      typeof window.OCTienda.licenciaActual === "function"
+        ? String(window.OCTienda.licenciaActual() || "").trim().toUpperCase() : "";
+    if (!book || !current || book !== current || !API.opsDoc || !API.opsMap || !API.opsIdb ||
+        !window.Y || !window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined")
+      return {ok:false,reason:"notebook-or-local-crypto-unavailable"};
+    var idb = API.opsIdb, originDoc = API.opsDoc;
+    try {
+      if (!idb.whenSynced || typeof idb.whenSynced.then !== "function")
+        return {ok:false,reason:"indexeddb-hydration-unverified"};
+      await idb.whenSynced;
+      var db = idb.db;
+      if (!db && idb._db && typeof idb._db.then === "function") db = await idb._db;
+      if (!db || !db.objectStoreNames || !db.objectStoreNames.contains("updates"))
+        return {ok:false,reason:"indexeddb-updates-unavailable"};
+      var updates = await new Promise(function(resolve,reject){
+        try {
+          var tx=db.transaction("updates","readonly"), store=tx.objectStore("updates");
+          var cursor=store.openCursor(), list=[], total=0;
+          cursor.onsuccess=function(ev){
+            var c=ev.target.result;
+            if (!c) return resolve(list);
+            var v=c.value, bytes=v instanceof Uint8Array ? v : new Uint8Array(v);
+            total+=bytes.byteLength;
+            if (total>64*1024*1024 || list.length>=100000)
+              return reject(Error("forensic-size-limit"));
+            list.push(bytes.slice());c.continue();
+          };
+          cursor.onerror=function(){reject(cursor.error || Error("indexeddb-read-failed"));};
+          tx.onerror=function(){reject(tx.error || Error("indexeddb-transaction-failed"));};
+          tx.onabort=function(){reject(tx.error || Error("indexeddb-transaction-aborted"));};
+        }catch(e){reject(e)}
+      });
+      if (API.roomId !== book || API.opsDoc !== originDoc ||
+          (window.OCTienda && window.OCTienda.licenciaActual &&
+           String(window.OCTienda.licenciaActual()||"").trim().toUpperCase()!==book))
+        return {ok:false,reason:"notebook-changed-during-export"};
+      var reconstructed=new window.Y.Doc(), rows=[], mismatch=0;
+      try {
+        for(var n=0;n<updates.length;n++)
+          window.Y.applyUpdate(reconstructed,updates[n],"forensic-readonly");
+        var persisted=reconstructed.getMap("eventos");
+        persisted.forEach(function(op,id){
+          if (!op || String(op.opId||"")!==String(id)||!id)
+            throw Error("invalid-event-id");
+          rows.push({opId:String(id),event:JSON.parse(JSON.stringify(op))});
+        });
+        rows.sort(function(a,b){return a.opId.localeCompare(b.opId)});
+        // Cross-check RAM vs durable IDB, but do not merge either direction.
+        var ramCount=0;
+        if (API.opsMap) API.opsMap.forEach(function(op,id){
+          ramCount++;
+          var stored=persisted.get(id);
+          if (!stored || JSON.stringify(stored)!==JSON.stringify(op)) mismatch++;
+        });
+        if(ramCount!==rows.length)mismatch+=Math.abs(ramCount-rows.length);
+        var json=JSON.stringify(rows);
+        var digest=await window.crypto.subtle.digest("SHA-256",new TextEncoder().encode(json));
+        var sha=Array.from(new Uint8Array(digest),function(x){return x.toString(16).padStart(2,"0")}).join("");
+        return {ok:true,PRIVATE_LOCAL_ONLY:true,complete:updates.length>0,
+          roomId:book,source:"indexeddb-yjs-ops-updates",indexeddbUpdates:updates.length,
+          eventsCount:rows.length,ramVsDurableMismatch:mismatch,
+          durableMatchesMemory:mismatch===0,sha256:sha,eventos:rows,
+          warning:"Local Yjs persisted history only; remote delivery/ACK and extinct compacted history are not proven"};
+      }finally{try{reconstructed.destroy()}catch(_){}}
+    }catch(e){return {ok:false,reason:"forensic-read-failed",detail:String(e&&e.message||e).slice(0,120)}}
+  };
+
   /* PRIME DIRECTIVE 1AAA / G05 — HISTORIAL LOCAL DE PUNTEROS DE FOTO.
      y-indexeddb persiste updates del catalogo en objectStore "updates". Este
      lector abre ESA MISMA base ya abierta por IndexeddbPersistence, en modo
