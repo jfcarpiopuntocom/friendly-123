@@ -17,7 +17,7 @@ function doStorage(){
 }
 test('Chromium PC closes -> WebKit Safari opens -> changes -> Chromium PC reopens',{timeout:180000},async()=>{
  const {mailboxPublicRoute,mailboxDoRoute}=await import('../cloudflare-worker/mailbox-api.mjs');
- const env={PIN_PEPPER:'synthetic-cross-browser-owner-pepper-for-test',REGISTROS:{},MAILBOXES:{},MAILBOX_CANARY_LICENSE_CODE:LICENSE};
+ const env={PIN_PEPPER:'synthetic-cross-browser-owner-pepper-for-test',REGISTROS:{},MAILBOXES:{},MAILBOX_CANARY_LICENSE_CODE:LICENSE,MAILBOX_CANARY_WRITES:'1'};
  const stores=new Map(),pinDo={fetch:async(_,options)=>{
    const d=JSON.parse(options.body);
    let data;
