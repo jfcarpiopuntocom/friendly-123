@@ -140,8 +140,10 @@ test('Paco paga el mes anterior desde este mes: el ciclo viejo se sella y el mes
   const { shelf, product } = await tienda(app);
   await app.request(`/api/productos/${product.id}/venta`, 'POST', { cantidad: 1 });
   const v = await ultima(app, product);
-  const d = new Date(); d.setUTCMonth(d.getUTCMonth() - 1);
-  const mesPrev = d.toISOString().slice(0, 7);
+  // The notebook groups dates in the BUSINESS local timezone. UTC may already
+  // be next month at 19:00 on the last day in Ecuador (a money-critical edge).
+  const now = new Date(); const d = new Date(now.getFullYear(), now.getMonth() - 1, 15, 12);
+  const mesPrev = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
   // Mover la venta al mes anterior por el camino de datos (como una venta real de hace 30 dias).
   const back = await app.request('/api/respaldo/exportar');
   back.ventas.find(x => x.id === v.id).fecha = mesPrev + '-15T12:00:00.000Z';

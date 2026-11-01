@@ -35,6 +35,7 @@ function fixture(options = {}) {
       const tx = {};
       tx.objectStore = () => ({
         put(snapshot) {
+          tx.__wrote = true;
           Promise.resolve().then(() => {
             if ((options.failCommits || []).includes(++disk.attempts)) {
               tx.error = Error('synthetic IDB transaction abort');
@@ -51,6 +52,12 @@ function fixture(options = {}) {
           Promise.resolve().then(() => {
             request.result = disk.current && JSON.parse(JSON.stringify(disk.current));
             request.onsuccess?.();
+            // In a real IndexedDB readonly/no-op readwrite transaction,
+            // oncomplete fires even when the CAS rejects the write.
+            // This synthetic IDB must model that path too.
+            if (!tx.__wrote) Promise.resolve().then(() => {
+              if (!tx.__wrote) tx.oncomplete?.();
+            });
           });
           return request;
         },

@@ -1436,7 +1436,7 @@
     // try: _payoutConfirmando se declara mas abajo (let); si algo llamara esto durante el arranque
     // sincrono, la duda cae al lado seguro (esperar al guardado, como antes de v599).
     try {
-      if (_guardadoCatalogoPendiente && !_guardadoEstrictoPendiente && !_ventaConfirmando &&
+      if (_guardadoCatalogoPendiente && _ultimoGuardadoPublicable && !_guardadoEstrictoPendiente && !_ventaConfirmando &&
           !_payoutConfirmando && !_retencionConfirmando) return true;
     } catch (_) {}
     return _estadoPuedePublicarse();
@@ -5299,7 +5299,8 @@
       // (guardado estricto, venta, pago, retencion): ese estado provisional puede revertirse.
       // catalogoPropio() sigue devolviendo null si la lectura esta bloqueada o el ultimo guardado fallo.
       while (_guardadoCatalogoPendiente && (_guardadoEstrictoPendiente || _ventaConfirmando ||
-             _payoutConfirmando || _retencionConfirmando)) await _guardadoCatalogoPendiente;
+             _payoutConfirmando || _retencionConfirmando || !_ultimoGuardadoPublicable))
+        await _guardadoCatalogoPendiente;
       return this.catalogoPropio();
     },
     unirActividad: _actividadUnir,
