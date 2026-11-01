@@ -391,6 +391,16 @@
         if (!meta || meta.v !== 2) {
           var old = await persistencia.get(_outboxKey);
           if (!old || !Array.isArray(old.pending)) old = {pending:[],confirmed:[],checkpoint:""};
+          // A large legacy outbox cannot be copied atomically without doubling
+          // browser quota and freezing the device. Keep it in v1 until a separate,
+          // bounded migration is available; never discard even one real operation.
+          var legacyBytes = 0;
+          for (var q = 0; q < old.pending.length && legacyBytes <= 8 * 1024 * 1024; q++)
+            legacyBytes += String(old.pending[q].c || "").length;
+          if (old.pending.length > 512 || legacyBytes > 8 * 1024 * 1024) {
+            try { log("S4: large legacy outbox deferred; original envelopes untouched", old.pending.length); } catch (_) {}
+            return null;
+          }
           await new Promise(function (resolve, reject) {
             var tx = db.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
             tx.oncomplete = resolve; tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox migration failed")); };
