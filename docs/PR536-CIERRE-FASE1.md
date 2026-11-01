@@ -6,6 +6,8 @@
 
 El cambio anterior `ed12129` solo ampliaba el ciphertext práctico de **191.904 a ~196.500 B (+2,4 %)**: el transporte cerraba cualquier JSON de más de 256 KiB, pese a que el servidor `save_checkpoint` acepta **262.144 B cifrados decodificados**. La candidata ahora separa el límite del checkpoint RPC del límite normal de operaciones: **262.144 B cifrados**, solo cuando el adaptador `F123Relay` anuncia `ckptFrameBytes`; los adaptadores antiguos conservan el límite JSON y los mensajes no-checkpoint siguen con 256 KiB de transporte. El checkpoint no se emite por broadcast.
 
+**Bloqueo de integración detectado:** el `docs/index.html` actual carga `peer-sync.js`, que instala `window.F123Relay = create()` (WebRTC), y **no** carga `docs/vendor/supabase-relay.min.js`. Por eso `ckptFrameBytes` no se anuncia en el camino activo de ese shell y el escritor conserva el fallback de ~196,5 KB. Los tests del transporte Supabase prueban el componente aislado, **no su activación en la app**. No cambiar de transporte ni activar salas sin revisión de cutover, censo, reconciliación y aprobación expresa. **No declarar S3 resuelto para el shell hasta verificar el adaptador realmente cargado.**
+
 La causa estructural no cambia: `API.doc` incluye historiales crecientes. Se añade `OCYjs.medirTamanoColecciones()` para cifras por mapa (bytes de JSON visible, **estimación**, no bytes exactos de Yjs) y se deja la separación de historiales para el [plan v638](./V638-PLAN-SEPARAR-HISTORIALES-CATALOGO.md). **No se ha medido todavía ninguna colección real.**
 
 ## Evidencia de tamaños (solo lectura)
