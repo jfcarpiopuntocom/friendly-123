@@ -172,15 +172,17 @@ test('slow replay cannot delay live bytes while durable commands retain order', 
   try {
     assert.deepEqual(db.commands.map(x => x.p_action), ['pull','op'], 'independent durable lane must not wait for a slow read; durable writes remain ordered');
     assert.deepEqual(db.channels[0].sent.map(x => [...new Uint8Array(x.payload)]), [[7, 8], [9, 10]], 'live frames leave in order with copied bytes');
-    assert.deepEqual(received, [], 'broadcast is never a durable acknowledgement');
+    assert.deepEqual(received.filter(x=>typeof x==='string').map(x=>JSON.parse(x).k),['persist-result'],
+      'only the completed RPC write is ACKed while historical pull is still pending');
   } finally {
     finishPull({ frames: ['AQI='], rev: 0, seq: 1, n: 1, more: false });
     await socket.settled();
     await relay.dispose();
   }
   assert.deepEqual(db.commands.map(x => x.p_action), ['pull', 'op']);
-  assert.equal(JSON.parse(received[1]).k, 'pull-page');
-  assert.equal(JSON.parse(received[2]).k, 'persist-result');
+  assert.equal(JSON.parse(received[0]).k, 'persist-result');
+  assert.deepEqual([...new Uint8Array(received[1])],[1,2]);
+  assert.equal(JSON.parse(received[2]).k, 'pull-page');
   assert.equal(socket.bufferedAmount, 0);
 });
 
