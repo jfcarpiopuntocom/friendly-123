@@ -15,7 +15,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
     CONNECTING = 0; OPEN = 1; CLOSING = 2; CLOSED = 3;
     readyState = 0; binaryType = 'arraybuffer'; bufferedAmount = 0;
     onopen = null; onmessage = null; onclose = null; onerror = null;
-    #channel; #serial = Promise.resolve(); #liveSerial = Promise.resolve(); #remove = Promise.resolve();
+    #channel; #serial = Promise.resolve(); #readSerial = Promise.resolve(); #liveSerial = Promise.resolve(); #remove = Promise.resolve();
     #key = crypto.randomUUID();
 
     constructor(room) {
@@ -112,8 +112,11 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
       }
       // Keep RPC writes/checkpoints/replay ordered, but never hold immediate
       // encrypted frames behind a slow HTTP response. Both lanes share backpressure.
-      const durableLane = control && ['op', 'ckpt', 'pull', 'ts', 'head'].includes(control.k);
-      const queued = (durableLane ? this.#serial : this.#liveSerial).then(async () => {
+      const durableLane = control && ['op', 'ckpt'].includes(control.k);
+      // A slow historical op ACK must not block pull of a newer peer's movement.
+      // Reads keep their own order; durable writes still remain serialized.
+      const readLane = control && ['pull', 'ts', 'head'].includes(control.k);
+      const queued = (readLane ? this.#readSerial : durableLane ? this.#serial : this.#liveSerial).then(async () => {
         if (this.readyState !== 1) return;
         const frame = copied instanceof Blob ? new Uint8Array(await copied.arrayBuffer()) : copied;
         if (this.readyState !== 1) return;
@@ -124,7 +127,9 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
         const sent = await this.#channel.send({ type: 'broadcast', event: 'opaque-frame', payload });
         if (sent !== 'ok') this.#fail();
       }).catch(() => this.#fail()).finally(() => { this.bufferedAmount = Math.max(0, this.bufferedAmount - size); });
-      if (durableLane) this.#serial = queued; else this.#liveSerial = queued;
+      if (readLane) this.#readSerial = queued;
+      else if (durableLane) this.#serial = queued;
+      else this.#liveSerial = queued;
     }
 
     async #command(command) {
@@ -171,7 +176,7 @@ export function createRelayTransport({ client, maxPeers = 12 }) {
       this.readyState = 3;
       this.#emit('close', { code, reason, wasClean: code === 1000 });
     }
-    async settled() { await Promise.all([this.#serial, this.#liveSerial, this.#remove]); }
+    async settled() { await Promise.all([this.#serial, this.#readSerial, this.#liveSerial, this.#remove]); }
   }
 
   return {
