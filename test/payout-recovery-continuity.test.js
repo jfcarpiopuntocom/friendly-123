@@ -99,6 +99,11 @@ test('API consumes earlier void on the next monthly payment and exports backward
  await app.request('/api/ubicaciones/'+r.id,'PUT',{promotoraId:a.id});
  const p=await app.request('/api/productos','POST',{nombre:'Synthetic',sku:'RCV',barcode:'RCV',precio:100,costo:20,stockInicial:10,ubicacionId:r.id});
  await app.request('/api/productos/'+p.id+'/venta','POST',{cantidad:1});
+ // Fix the fixture to the October accounting period BEFORE paying. Otherwise
+ // this test depends on today's wall clock and starts failing in November.
+ const firstPeriod=await app.request('/api/respaldo/exportar');
+ firstPeriod.ventas.filter(v=>v.ubicacionId===r.id).forEach(v=>v.fecha='2026-10-02T12:00:00Z');
+ await app.request('/api/respaldo/importar','POST',firstPeriod);
  await app.request('/api/liquidaciones/'+r.id+'/marcar-pagado','POST',{payeeId:a.id,mes:'2026-10',opId:'first'});
  const b=await app.request('/api/respaldo/exportar');
  b.ventas.filter(v=>v.ubicacionId===r.id).forEach(v=>Object.assign(v,{fecha:'2026-09-10T12:00:00Z',anulada:true,canceladaExPostEn:'2026-09-20T12:00:00Z'}));
