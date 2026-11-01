@@ -95,9 +95,13 @@
     function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
     var MAX_OP_BYTES = 250 * 1024; // guard final, despues de base64
     var CHUNK_BYTES = 160 * 1024; // base64 + sobre JSON permanecen bajo 256KB
-    /* Las ops de fotos pueden acercarse a 180 KB cada una. Cuatro por pagina
-       mantienen cada rafaga acotada; catalogo/ops, mucho mas chicos, usan 64. */
+    /* Photos can approach 180 KiB per operation; keep four per page.
+       Legacy relays also stay at 64. A positively confirmed modern HEAD
+       enables 128 for catalog/ops only: the native SQL pull-page function
+       caps each reply at 1 MiB and 128 rows, with the same total ciphertext
+       but fewer serial requests during a large first-time recovery. */
     var PULL_PAGE_SIZE = nombre === "fotos" ? 4 : 64;
+    var MODERN_PULL_PAGE_SIZE = nombre === "fotos" ? 4 : 128;
     var T_CONEXION_ESTABLE_MS = 30000;
     var partesEntrantes = Object.create(null), partesEnVivo = Object.create(null);
     var MAX_GRUPOS_EN_VIVO = 64, MAX_BYTES_EN_VIVO = 16 * 1024 * 1024;
@@ -783,7 +787,12 @@
         // v1 legacy checkpoint can compact operations without bumping revision.
         // Probe the actual ciphertext checkpoint, never a stale high-water seq.
         var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : _pullCursor;
-        sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
+        // This is a request, never a demand to trim a page: an older relay
+        // keeps its conservative limit and cursor. The SQL byte cap, server
+        // ordering and durable cursor proof remain authoritative.
+        var pageLimit = estado.headLegacy === false
+          ? MODERN_PULL_PAGE_SIZE : PULL_PAGE_SIZE;
+        sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: pageLimit }));
       }).catch(function () {});
     }
     function procesarHead(sock, estado, r) {
