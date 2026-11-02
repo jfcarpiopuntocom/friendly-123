@@ -1,29 +1,7 @@
 name: P0 S3 encrypted checkpoint compression — JFC test room
 on:
+  # Required by the master ruleset (no bypass actors): runs on every PR, never skipped by a path filter.
   pull_request:
-    paths:
-      - docs/sync-yjs.js
-      - docs/sync-rollout.json
-      - test/p0-rollout-policy.test.cjs
-      - test/p0-s3-compressed-checkpoint.test.cjs
-      - test/p0-s3-unknown-frame.test.cjs
-      - test/p0-mixed-shell-v636.test.cjs
-      - test/p0-s3-checkpoint-alert.test.cjs
-      - test/p0-s3-size-audit.test.cjs
-      - test/p0-s3-checkpoint-768k-sql.test.cjs
-      - test/ab-transaction-recovery.test.cjs
-      - docs/estado-ab.js
-      - docs/mock-backend.js
-      - test/v609-actividad-incremental.test.cjs
-      - test/p0-v637-perf-300.test.cjs
-      - docs/version-manifest.json
-      - supabase-relay/migrations/20261101090000_checkpoint_768k.sql
-      - test/supabase-relay-transport.test.js
-      - test/e1-browser-relay-head-parity.test.cjs
-      - supabase-relay/transport.mjs
-      - supabase-relay/browser-entry.mjs
-      - docs/vendor/supabase-relay.min.js
-      - .github/workflows/p0-s3-compressed-checkpoint.yml
 jobs:
   twice:
     runs-on: ubuntu-latest
