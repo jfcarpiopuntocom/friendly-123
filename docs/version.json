@@ -1,7 +1,7 @@
 {
   "version": "shell v649",
   "fecha": "2026-11-02",
-  "changelog": "A device whose sync history is incomplete reads the compact store photo again every few minutes, so changes keep arriving. Everything in v648 is kept.",
+  "changelog": "Fewer false NOT saved messages: a save waits for the same device's save in flight. Archived and deleted products stay that way on a joining device. A device with incomplete sync history rereads the store photo every few minutes. Sync trouble now reports to the team without business data. Everything in v648 is kept.",
   "requerida": false,
   "shell": "f123-shell-v649",
   "apagar": [],

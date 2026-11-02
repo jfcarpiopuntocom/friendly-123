@@ -68,6 +68,26 @@
       if (antes && antes !== ahora) _otraCapaEn = Date.now();
     }).catch(function () { try { sumarBajada(capaFb); } catch (_) {} });
   }
+  // v649: silent sync trouble reaches the team through Sentry: fixed codes only, no business data, once per device per day.
+  function avisarSync(codigo) {
+    try {
+      if (!window.OCCanarios) return;
+      var k = "f123_canario_sync_" + codigo;
+      if (localStorage.getItem(k) === hoy()) return;
+      localStorage.setItem(k, hoy());
+      window.OCCanarios.fallo("sync", codigo);
+    } catch (_) {}
+  }
+  function revisarAvisos(capa) {
+    var e = window.F123Relay.estadoSondas(), c = leer(capa.key), y = window.OCYjs;
+    if (e.otraCapa) avisarSync("otra-capa-escribiendo");
+    if (e.sinRecibir) avisarSync("relay-sin-entregar");
+    if (c.up >= CAP_UP) avisarSync("cupo-subida-lleno");
+    if (c.up >= CAP_UP_RESERVA) avisarSync("reserva-subida-llena");
+    if (c.down >= CAP_DOWN * 0.8) avisarSync("cupo-bajada-alto");
+    if (window.__ocMezcla) avisarSync("shell-no-actualizado");
+    if (y && y.canal && y.canal.recuperando === true) avisarSync("historia-incompleta");
+  }
   function arrancarSondas(ws, capa, url) {
     if (capa.relay === fb) delete _headFb[url]; // this device writes there now: its own writes must not count later
     else sondaOtraCapa(url);
@@ -76,6 +96,7 @@
       if (ws.readyState !== 1 || (typeof document !== "undefined" && document.hidden)) return;
       if (leer(capa.key).up + HEAD.length <= CAP_UP) ws.send(HEAD);
       if (capa.relay !== fb) sondaOtraCapa(url);
+      try { revisarAvisos(capa); } catch (_) {}
     }, SONDA_MS);
     if (t && t.unref) t.unref();
   }
@@ -154,6 +175,7 @@
         try { arrancarSondas(ws, capas[i], url); } catch (_) {}
         return ws;
       }
+      avisarSync("solo-peers");
       var directo = viaPeers(url);
       reprobar(directo, capas); // peers are the last fallback, never where a device stays once a durable layer is back
       return directo;

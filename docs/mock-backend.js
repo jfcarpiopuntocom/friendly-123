@@ -1380,10 +1380,15 @@
      distintas. El sacrificio decide QUE se cede cuando no cabe; el espejo hace
      que aunque no quepa NADA en localStorage, el estado completo quede a salvo
      igual en un almacen que si crece con el disco. */
+  let _espejoIDBPendiente = null, _esperaGuardadoVencida = false;
   function _espejarEnIDB(completo, exigirCompleto = false) {
     try {
       if (!window.OCEstadoIDB) return Promise.resolve(false);
-      return window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(e => { _ultimoErrorIDB = e; return false; });
+      const espejo = window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(e => { _ultimoErrorIDB = e; return false; });
+      _espejoIDBPendiente = espejo;
+      const fin = () => { if (_espejoIDBPendiente === espejo) _espejoIDBPendiente = null; };
+      espejo.then(fin, fin);
+      return espejo;
     } catch (e) { _ultimoErrorIDB = e; return Promise.resolve(false); }
   }
   /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
@@ -1531,6 +1536,21 @@
     return resultado;
   }
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
+    // v649: this device's own save still in flight is not another tab. A strict save compares against the disk, so it
+    // waits for it instead of reporting a false "NOT saved". The guard against a real other tab stays untouched.
+    // Fallback: a hung storage call never freezes a sale. After 4 s it goes ahead and gets a real answer.
+    if (exigirCompleto && !_esperaGuardadoVencida && (_espejoIDBPendiente || _guardadoCatalogoPendiente)) {
+      const otraVez = () => guardarEstadoLocal(exigirCompleto, preservarFotos);
+      const espera = new Promise((listo) => {
+        const tope = setTimeout(() => { _esperaGuardadoVencida = true; listo(); }, 4000);
+        Promise.all([_espejoIDBPendiente, _guardadoCatalogoPendiente]).then(() => { clearTimeout(tope); listo(); }, () => { clearTimeout(tope); listo(); });
+      }).then(() => { const r = otraVez(); _esperaGuardadoVencida = false; return r; });
+      // Background saves wait too: one running now would persist a provisional sale that this save may still reject.
+      _guardadoEstrictoPendiente = espera;
+      const soltar = () => { if (_guardadoEstrictoPendiente === espera) _guardadoEstrictoPendiente = null; };
+      espera.then(soltar, soltar);
+      return espera;
+    }
     // Retention rollback must finish before any background photo captures RAM.
     if (!exigirCompleto && _retencionPendiente)
       return _retencionPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
@@ -1572,7 +1592,7 @@
       try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (e) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = e; }
       if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
       // P0: reject a stale local snapshot instead of overwriting another tab.
-      if (exigirCompleto && revisionDisco > _localRev) return false;
+      if (exigirCompleto && revisionDisco > _localRev) { try { window.OCCanarios.fallo("guardado", "revision-disco-mayor"); } catch (_) {} return false; }
       const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
       _localRevReservado = _revIntento;
       /* v609 perf: antes = copia profunda de cada coleccion (stringify+parse) y luego OTRO stringify para el A/B.
@@ -1602,7 +1622,7 @@
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else _falloGuardadoLocal(_causaGuardado(ab));
+        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(_causaGuardado(ab)); }
         return ok;
       };
       // Strict money/stock commits use ONE atomic IDB readwrite transaction:
@@ -5453,7 +5473,7 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "" })),
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "", borrado: !!p.borrado, archivado: !!p.archivado, rev: p.rev || null })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
         huella: huellaCatalogo(),
@@ -5520,7 +5540,7 @@
           // v648: a store's real sales reach a device through Yjs, so `fresco` is false on any device of a used store. A product
           // this device did not know, or holds at 0 with no base of its own, has no local truth to protect: it takes the photo.
           if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); productos[productos.length - 1].stockActual = stk; agPr++; }
-          else if ((fresco || mio.stockBase == null) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; if (!mio.stockEpochId && p.stockEpochId) mio.stockEpochId = p.stockEpochId; }
+          else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; if (!mio.stockEpochId && p.stockEpochId) mio.stockEpochId = p.stockEpochId; }
         });
         /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
            aparato fresco. Por eso los clientes reales no llegaban al segundo aparato. */
@@ -5538,7 +5558,8 @@
           try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios }, null); } catch (_) {}
         }
         // v648: quantities on a product with its own ledger go through the same rule as Yjs (the latest physical count wins).
-        const _conLedger = snap.productos.filter((p) => p && p.id && (p.stockBase != null || p.stockTs));
+        // A deletion travels too: rev decides, as in Yjs, so a photo can neither resurrect a deleted product nor undo a newer edit.
+        const _conLedger = snap.productos.filter((p) => p && p.id && (p.stockBase != null || p.stockTs || p.rev));
         if (_conLedger.length) { try { aplicarCatalogo({ ubicaciones: [], productos: _conLedger }, null); } catch (_) {} }
         guardarEstadoLocal();
         mov("checkpoint-mergeado", { perchas: agP, productos: agPr, clientes: agC, fresco });
