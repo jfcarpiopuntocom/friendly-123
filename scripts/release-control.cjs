@@ -95,11 +95,22 @@ async function served(fallback='') {
   } catch(e) {console.error(`Previous canary proof unavailable: ${e.message}`);}
   return fallback;
 }
-// Technical Markdown under docs/ is documentation. Executable assets and
-// release manifests still require a new shell; never treat all docs/ equally.
-function hasRuntimeChange(paths) {
-  return paths.some(p => p.startsWith('docs/') && !/\.md$/i.test(p));
+// A new, *unreferenced* module is source code under review, not a shipped
+// shell asset. A modification to ANY existing executable asset still needs a
+// new shell. No version-number trick can make an active runtime change inert.
+function isInertNewModule(file, existedAtBase, referencedByShell) {
+  return /^docs\/[\w./-]+\.mjs$/.test(file) && !file.includes('..') &&
+    existedAtBase === false && referencedByShell === false;
 }
+function hasRuntimeChange(paths, inert = () => false) {
+  return paths.some(p => p.startsWith('docs/') && !/\.md$/i.test(p) && !inert(p));
+}
+function isFeaturePr(env = process.env) {
+  return env.GITHUB_EVENT_NAME === 'pull_request' && !/^release\//.test(env.GITHUB_HEAD_REF || '');
+}
+const RELEASE_ONLY = new Set([
+  'docs/version.json', 'docs/sw.js', 'docs/version-manifest.json', 'docs/dashboard.html'
+]);
 function validate(base) {
   const catalog=JSON.parse(fs.readFileSync('release/capabilities.json','utf8'));
   let previous=[];
@@ -112,7 +123,25 @@ function validate(base) {
   const errors=validateCapabilities(catalog.capabilities,previous,fs.existsSync);
   const version=JSON.parse(fs.readFileSync('docs/version.json','utf8'));
   const old=base?JSON.parse(git('show',`${base}:docs/version.json`)):null;
-  const runtimeChanged=base?hasRuntimeChange(git('diff','--name-only',base,'HEAD','--','docs/').split(/\r?\n/)):false;
+  const changed = base ? git('diff','--name-only',base,'HEAD','--').split(/\r?\n/).filter(Boolean) : [];
+  if (isFeaturePr()) {
+    for (const file of changed) if (RELEASE_ONLY.has(file))
+      errors.push('release-only file changed in feature PR: ' + file);
+  }
+  // A brand-new .mjs file not referenced by an existing shell module is not
+  // executable by users and cannot justify bumping a commercial shell.
+  // Its first actual import/script-tag/change to an active asset DOES.
+  const inactive = file => {
+    if (!base || !/^docs\/[\w./-]+\.mjs$/.test(file) || file.includes('..')) return false;
+    const existed = Boolean(git('ls-tree','--name-only',base,'--',file));
+    const needle = './' + file.slice(5);
+    let references = '';
+    try { references = git('grep','-l','-F',needle,'--','docs'); }
+    catch (_) { references = ''; }
+    const referenced = references.split(/\r?\n/).some(p => p && p !== file);
+    return isInertNewModule(file,existed,referenced);
+  };
+  const runtimeChanged=hasRuntimeChange(changed,inactive);
   errors.push(...validateIdentity(version,fs.readFileSync('docs/sw.js','utf8'),old,runtimeChanged));
   errors.push(...validateDashboardIdentity(version,fs.readFileSync('docs/dashboard.html','utf8')));
   if(runtimeChanged) {
@@ -130,7 +159,7 @@ function provenance(directory, sha) {
   for(const file of ['version.json','version-manifest.json','sw.js','index.html']) hashes[file]=crypto.createHash('sha256').update(fs.readFileSync(path.join(directory,file))).digest('hex');
   fs.writeFileSync(path.join(directory,'release-proof.json'),JSON.stringify({schema:1,commit:sha,shell:version.shell,cacheGeneration:version.cacheGeneration,hashes},null,2)+'\n');
 }
-module.exports={evaluateRuns,validateCapabilities,validateIdentity,validateDashboardIdentity,hasRuntimeChange,gate,published,provenance,served};
+module.exports={evaluateRuns,validateCapabilities,validateIdentity,validateDashboardIdentity,hasRuntimeChange,isInertNewModule,isFeaturePr,RELEASE_ONLY,gate,published,provenance,served};
 if(require.main===module) (async()=>{
   const [command,arg,extra]=process.argv.slice(2);
   if(command==='gate') await gate(arg,Number(extra)||0);
