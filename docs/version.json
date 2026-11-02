@@ -1,10 +1,10 @@
 {
-  "version": "shell v642",
+  "version": "shell v643",
   "fecha": "2026-11-02",
-  "changelog": "Owner and admin: tapping + opens a quantity box to type the number (add it, or set it as the physical count; the latest physical count wins). Staff keep +1/-1. The separate # button is gone.",
+  "changelog": "The store name has the same dark outline as the friendly-123 logo, in the same proportion. Today's date is computed with one shared formatter at startup. Everything in v642 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v642",
+  "shell": "f123-shell-v643",
   "apagar": [],
-  "releaseName": "shell v642",
-  "cacheGeneration": "golden189"
+  "releaseName": "shell v643",
+  "cacheGeneration": "golden190"
 }

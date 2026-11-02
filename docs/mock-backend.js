@@ -25,8 +25,10 @@
     try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; }
     catch (_) { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
   })();
+  // Perf (JFC 2026-11-02, approved plan item 3): build the formatter once; ZONA never changes after load.
+  const _fmtHoyISO = new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" });
   function hoyISO() {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    return _fmtHoyISO.format(new Date());
   }
   /* BUG DE DINERO (arreglado en amigable-123 el 2026-08-06, portado aqui el
      2026-08-18 en la caza Hugo/Paco/Luis).
