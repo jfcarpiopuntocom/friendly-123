@@ -1,10 +1,10 @@
 {
-  "version": "shell v641",
+  "version": "shell v642",
   "fecha": "2026-11-02",
-  "changelog": "Quantity controls remain reachable above the mobile keyboard. Firebase relay upload budgets no longer charge binary live copies that its REST adapter discards. The latest physical count rule, durable layers and daily limits are preserved.",
+  "changelog": "Owner and admin: tapping + opens a quantity box to type the number (add it, or set it as the physical count; the latest physical count wins). Staff keep +1/-1. The separate # button is gone.",
   "requerida": false,
-  "shell": "f123-shell-v641",
+  "shell": "f123-shell-v642",
   "apagar": [],
-  "releaseName": "shell v641",
-  "cacheGeneration": "golden188"
+  "releaseName": "shell v642",
+  "cacheGeneration": "golden189"
 }
