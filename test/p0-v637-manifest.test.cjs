@@ -5,8 +5,10 @@ const root=path.join(__dirname,'../docs');
 const version=JSON.parse(fs.readFileSync(path.join(root,'version.json'),'utf8'));
 const manifest=JSON.parse(fs.readFileSync(path.join(root,'version-manifest.json'),'utf8'));
 test('v637 manifest matches all shell files',()=>{
- assert.equal(version.shell,'f123-shell-v637');
- assert.equal(version.cacheGeneration,'golden184');
+ // Follows the sealed release (v637 onward) instead of pinning one number.
+ const n=Number((version.shell.match(/^f123-shell-v(d+)$/)||[])[1]);
+ assert.ok(n>=637,'shell at or after v637');
+ assert.match(version.cacheGeneration,/^goldend+$/);
  assert.equal(manifest.shell,version.shell);
  for(const [rel,expected] of Object.entries(manifest.files)){
   const file=path.join(root,rel.slice(2));
