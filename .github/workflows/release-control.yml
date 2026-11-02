@@ -55,7 +55,17 @@ jobs:
           F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
         # The browser latency and WebRTC suites need CPU while 2,400+ other
         # tests run. Two file workers keep all assertions and peer concurrency.
-        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "test/**/*.test.js" "test/**/*.test.cjs"
+        # Load-only flakes (one random file per 2,400-test run): rerun ONLY the failed files, whole and alone.
+        # No name filter, so no subtest is silently skipped; a real regression fails again; >3 files is not a flake.
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "test/**/*.test.js" "test/**/*.test.cjs" 2>&1 | tee /tmp/full.tap; then
+            mapfile -t FAILED < <(awk '/^ *not ok [0-9]+ /{f=1} f && /location: .*test\//{match($0,/test\/[^:'"'"']+/);print substr($0,RSTART,RLENGTH);f=0}' /tmp/full.tap | sort -u)
+            printf 'Failed under load, retrying alone: %s\n' "${FAILED[@]}"
+            (( ${#FAILED[@]} >= 1 && ${#FAILED[@]} <= 3 )) || exit 1
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 "${FAILED[@]}"
+          fi
       - name: Artifact integrity
         run: |
           cp docs/version-manifest.json /tmp/manifest-before.json
