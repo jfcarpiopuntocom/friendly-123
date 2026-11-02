@@ -302,6 +302,18 @@ test('v649: silent sync trouble reaches Sentry once per device per day, with fix
   assert.ok(avisos.every(a => /^sync:[a-z-]+$/.test(a)));
 });
 
+test('v650: a catalog past or near its checkpoint limit reports a fixed code, measured once a day', async () => {
+  for (const [margen, codigo] of [[-5, 'catalogo-excede-checkpoint'], [100, 'catalogo-cerca-del-limite'], [900, null]]) {
+    const c = firebaseLleno(0), avisos = []; let medidas = 0;
+    c.w.OCCanarios = { fallo: (s, k) => avisos.push(k) };
+    c.w.OCYjs = { medirTamanoCanales: () => { medidas++; return [{ margenBytes: margen, limiteCifradoBytes: 1000 }]; } };
+    await abre(c, URL1);
+    await c.tics(); await c.tics();
+    assert.equal(medidas, 1);
+    assert.deepEqual(avisos.filter(k => /^catalogo/.test(k)), codigo ? [codigo] : []);
+  }
+});
+
 test('v649: a broken Sentry changes nothing for the caller', async () => {
   const c = firebaseLleno(2 * 1024 * 1024);
   c.w.OCCanarios = { fallo: () => { throw new Error('rota'); } };

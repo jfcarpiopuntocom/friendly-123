@@ -1,10 +1,10 @@
 {
-  "version": "shell v649",
+  "version": "shell v650",
   "fecha": "2026-11-02",
-  "changelog": "Fewer false NOT saved messages: a save waits for the same device's save in flight. Archived and deleted products stay that way on a joining device. A device with incomplete sync history rereads the store photo every few minutes. Sync trouble now reports to the team without business data. Everything in v648 is kept.",
+  "changelog": "The team is told when a store nears the size where new devices need the compact photo, with no business data. Everything in v649 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v649",
+  "shell": "f123-shell-v650",
   "apagar": [],
-  "releaseName": "shell v649",
-  "cacheGeneration": "golden196"
+  "releaseName": "shell v650",
+  "cacheGeneration": "golden197"
 }

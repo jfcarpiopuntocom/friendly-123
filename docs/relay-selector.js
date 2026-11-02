@@ -87,6 +87,13 @@
     if (c.down >= CAP_DOWN * 0.8) avisarSync("cupo-bajada-alto");
     if (window.__ocMezcla) avisarSync("shell-no-actualizado");
     if (y && y.canal && y.canal.recuperando === true) avisarSync("historia-incompleta");
+    // Stores near the checkpoint limit must surface before they stop populating new devices. Measured at most once a day.
+    if (y && y.medirTamanoCanales && localStorage.getItem("f123_canario_tamano") !== hoy()) {
+      localStorage.setItem("f123_canario_tamano", hoy());
+      var med = y.medirTamanoCanales()[0], margen = med && Number(med.margenBytes), limite = med && Number(med.limiteCifradoBytes);
+      if (margen < 0) avisarSync("catalogo-excede-checkpoint");
+      else if (limite && margen < limite * 0.3) avisarSync("catalogo-cerca-del-limite");
+    }
   }
   function arrancarSondas(ws, capa, url) {
     if (capa.relay === fb) delete _headFb[url]; // this device writes there now: its own writes must not count later
