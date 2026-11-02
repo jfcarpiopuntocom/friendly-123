@@ -5466,9 +5466,17 @@
        AGREGA perchas y productos CON su stock, y mergea el equipo (add-only).
        Los productos que ya existan (p. ej. llegados con stock 0 por el catalogo
        en vivo) reciben su stock real del checkpoint. */
-    aplicarCheckpoint(snap) {
+    aplicarCheckpoint(snap, intento) {
       try {
         if (!snap || !Array.isArray(snap.productos) || !Array.isArray(snap.ubicaciones)) return { ok: false, motivo: "ilegible" };
+        /* v644: while Yjs is still recovering this notebook, the old checkpoint waits. Arriving first it created products
+           at stock 0, that 0 reached the Y.Doc, and Yjs then broke the tie by device id: each device ended up different.
+           Fallback: after 60 s it applies anyway, so a device whose Yjs cannot finish still gets the store. */
+        const _yjs = window.OCYjs, _n = Number(intento) || 0;
+        if (_yjs && (!_yjs.canal || _yjs.canal.recuperando) && _n < 30) {
+          setTimeout(() => { try { window.OCSync.aplicarCheckpoint(snap, _n + 1); } catch (_) {} }, 2000);
+          return { ok: false, motivo: "esperando-recuperacion" };
+        }
         const _demoSnap = _seleccionarSemillaDemoPura(snap);
         /* B3 (2026-08-28): el nombre de la tienda también llega por checkpoint.
            Se adopta si el local está vacío (un dispositivo nuevo no tiene nombre

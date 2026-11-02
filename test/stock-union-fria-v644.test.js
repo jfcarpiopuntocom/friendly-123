@@ -23,6 +23,28 @@ test('a product that came at 0 from the checkpoint takes the shared stock on a s
   assert.equal((await stock()).stockActual, 5);
 });
 
+test('the old checkpoint waits while Yjs recovers, and then adds nothing at 0 over what Yjs brought', async () => {
+  const { dest, stock, shelf, product } = await montar();
+  llega(dest, shelf, product);
+  const nuevo = { id: 'prod-espera', nombre: 'Espera', sku: 'ESP', barcode: 'ESP-1', ubicacionId: shelf.id, stockActual: 3 };
+  dest.OCYjs = { canal: { recuperando: true } };
+  const r = dest.OCSync.aplicarCheckpoint({ ubicaciones: [], productos: [nuevo], clientes: [] });
+  assert.deepEqual([r.ok, r.motivo], [false, 'esperando-recuperacion']);
+  assert.equal((await dest.request('/api/respaldo/exportar')).productos.some(p => p.id === nuevo.id), false, 'nothing enters while waiting');
+  dest.OCYjs.canal.recuperando = false;
+  assert.equal(dest.OCSync.aplicarCheckpoint({ ubicaciones: [], productos: [nuevo], clientes: [] }, 1).ok, true, 'recovered: it applies');
+  assert.equal((await dest.request('/api/respaldo/exportar')).productos.some(p => p.id === nuevo.id), true);
+  assert.equal((await stock()).stockActual, 5);
+});
+
+test('fallback: with Yjs stuck, the checkpoint still applies after its last wait', async () => {
+  const { dest, shelf } = await montar();
+  dest.OCYjs = { canal: { recuperando: true } };
+  const nuevo = { id: 'prod-tope', nombre: 'Tope', sku: 'TOPE', barcode: 'TOPE-1', ubicacionId: shelf.id, stockActual: 3 };
+  assert.equal(dest.OCSync.aplicarCheckpoint({ ubicaciones: [], productos: [nuevo], clientes: [] }, 30).ok, true);
+  assert.equal((await dest.request('/api/respaldo/exportar')).productos.some(p => p.id === nuevo.id), true);
+});
+
 test('a real count of 0 here is kept: it created a base, so it is a fact', async () => {
   const { dest, stock, shelf, product } = await montar();
   const p = await stock();
