@@ -102,3 +102,33 @@ test('without peer-sync the budgets still apply and photos never fall back to a 
   assert.equal(typeof w.F123Relay.estadoCupo, 'function', 'budget wrapper present');
   assert.throws(() => w.F123Relay.connect(URL1.replace(/-y$/, '-fotos')), /unavailable/, 'photos fail closed, caller retries');
 });
+
+test('Firebase ignored binary copies spend no upload budget; durable writes still count and closed sockets still reject', async () => {
+  const store = new Map(), writes = [];
+  const w = { window: null, Date, JSON, Number, String, TextEncoder, Uint8Array, ArrayBuffer,
+    Event, EventTarget, DOMException, Promise, setInterval: () => 0, clearInterval() {},
+    btoa: s => Buffer.from(s, 'binary').toString('base64'), atob: s => Buffer.from(s, 'base64').toString('binary'),
+    localStorage: { getItem: k => store.get(k) || null, setItem: (k, v) => store.set(k, String(v)) } };
+  w.window = w;
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../docs/firebase-relay.js'), 'utf8'), w);
+  w.F123FirebaseRelay = w.F123FirebaseRelay.create({ EventSource: null, fetch: async (_, options) => {
+    if (options.method === 'PUT') writes.push(JSON.parse(options.body));
+    return new Response('null', { status: 200 });
+  } });
+  vm.runInNewContext(SRC, w);
+  const s = w.F123Relay.connect(URL1);
+  await new Promise(resolve => s.addEventListener('open', resolve));
+  for (let i = 0; i < 14; i++) s.send(new Uint8Array(160 * 1024));
+  assert.equal(w.F123Relay.estadoCupo()[0].up, 0, 'Firebase discarded every binary copy without sending HTTP');
+  assert.equal(writes.length, 0);
+  const op = JSON.stringify({ k: 'op', id: 'synthetic-count', c: 'AQID', ack: 1 });
+  const ack = new Promise(resolve => s.addEventListener('message', e => {
+    const m = JSON.parse(e.data); if (m.k === 'persist-result') resolve(m);
+  }));
+  s.send(op);
+  assert.equal((await ack).ok, true);
+  assert.equal(writes.length, 1);
+  assert.equal(w.F123Relay.estadoCupo()[0].up, Buffer.byteLength(op));
+  s.close();
+  assert.throws(() => s.send(new Uint8Array(1)), e => e.name === 'InvalidStateError');
+});

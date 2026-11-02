@@ -41,6 +41,8 @@
     ws.addEventListener("close", function () { if (!abierto) { var c = leer(key); c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); } });
     var enviar = ws.send.bind(ws);
     ws.send = function (v) {
+      // Firebase discards binary live copies; only its HTTP-backed commands spend relay quota.
+      if (capa.relay === fb && typeof v !== "string") return enviar(v);
       var c = leer(key), n = bytes(v);
       if (c.up + n > CAP_UP) { c.up = CAP_UP; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} throw new DOMException("Daily relay budget reached", "QuotaExceededError"); }
       c.up += n; guardar(key, c); return enviar(v);

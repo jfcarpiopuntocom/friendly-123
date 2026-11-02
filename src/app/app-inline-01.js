@@ -3436,7 +3436,7 @@ function pedirCantidadStock(){
       document.body.appendChild(modal);
     }
     modal.innerHTML = `
-      <div role="dialog" aria-modal="true" aria-labelledby="oc-cant-tit" style="background:#FFFFFF;color:#152840;width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:20px 18px 28px;">
+      <div role="dialog" aria-modal="true" aria-labelledby="oc-cant-tit" style="background:#FFFFFF;color:#152840;width:100%;max-width:560px;max-height:100%;overflow-y:auto;box-sizing:border-box;border-radius:16px 16px 0 0;padding:20px 18px calc(28px + env(safe-area-inset-bottom));">
         <strong id="oc-cant-tit" style="display:block;font-size:18px;margin-bottom:12px;">${t("inv.qtyTitle")}</strong>
         <label style="display:block;font-size:15px;font-weight:700;margin-bottom:6px;" for="oc-cant-n">${t("inv.qtyLabel")}</label>
         <input id="oc-cant-n" type="number" inputmode="numeric" step="1" style="display:block;width:100%;padding:12px;border:2px solid #152840;border-radius:8px;font-size:18px;box-sizing:border-box;color:#152840;background:#FFFFFF;">
@@ -3449,8 +3449,19 @@ function pedirCantidadStock(){
       </div>`;
     modal.style.display = "flex";
     const input = modal.querySelector("#oc-cant-n"), err = modal.querySelector("[data-cant-err]");
+    // The keyboard can shrink/pan the visible area without resizing the layout viewport (iOS).
+    const viewport = window.visualViewport;
+    const ajustarViewport = () => {
+      modal.style.top = (viewport ? viewport.offsetTop : 0) + "px";
+      modal.style.bottom = (viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0) + "px";
+    };
+    ajustarViewport();
+    if (viewport) { viewport.addEventListener("resize", ajustarViewport); viewport.addEventListener("scroll", ajustarViewport); }
     setTimeout(() => { try { input.focus(); } catch (_) {} }, 0);
-    const cerrar = (val) => { modal.style.display = "none"; resolve(val); };
+    const cerrar = (val) => {
+      if (viewport) { viewport.removeEventListener("resize", ajustarViewport); viewport.removeEventListener("scroll", ajustarViewport); }
+      modal.style.display = "none"; resolve(val);
+    };
     const leer = (modo) => {
       const n = Number(input.value);
       const valido = Number.isInteger(n) && (modo === "fijar" ? n >= 0 : n !== 0);
