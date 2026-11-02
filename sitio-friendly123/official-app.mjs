@@ -22,6 +22,9 @@ function legacyDestination(u) {
  const target=new URL(relative === 'index.html' ? './' : relative,SOURCE);
  if(!target.href.startsWith(SOURCE)) return SOURCE; // never jump above the app directory
  if (u.searchParams.get('estable') === '1') target.searchParams.set('estable','1');
+ // Join links/QR must survive the hop. Only the app's own invitation format passes; nothing else is relayed.
+ const join=u.searchParams.get('join');
+ if (join && /^(TEAM|F123)-[A-Za-z0-9*~$=-]{4,80}$/.test(join)) target.searchParams.set('join',join);
  return target.href;
 }
 const SECURITY={"Strict-Transport-Security":"max-age=31536000; includeSubDomains","X-Content-Type-Options":"nosniff","Referrer-Policy":"strict-origin-when-cross-origin","Permissions-Policy":"camera=(self), microphone=(), geolocation=(self), payment=()","Content-Security-Policy-Report-Only":"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://unpkg.com https://cdn.sheetjs.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob: data:; connect-src 'self' https://friendly123-licencias.jfcarpio.workers.dev wss://friendly123-sync-relay.jfcarpio.workers.dev https://o4512176001908736.ingest.us.sentry.io https://us.i.posthog.com https://ipapi.co; frame-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self' https://wa.me"};

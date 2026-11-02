@@ -96,3 +96,13 @@ test('the existing PWA updates are already incremental and safe: no new library 
  assert.match(sw,/cache\.match\(evento\.request\)/);
  assert.match(dash,/if \(!await bridge\.prepare\(\) \|\| !bridge\.safe\(\)\)/);
 });
+
+test('a join invitation survives the redirect; anything else in the query is dropped', async()=>{
+ const ok=await serve('/app?join=F123-QA12-AB34&license=SECRET&x=1',{headers:{accept:'text/html'}});
+ assert.equal(ok.response.status,307);
+ assert.equal(ok.response.headers.get('location'),prefix+'?join=F123-QA12-AB34');
+ const bad=await serve('/app?join=%3Cscript%3E',{headers:{accept:'text/html'}});
+ assert.equal(bad.response.headers.get('location'),prefix,'malformed join is not relayed');
+ const stay=await serve('/app/?stay=1&join=F123-QA12-AB34',{headers:{accept:'text/html'}});
+ assert.notEqual(stay.response.status,307,'stay=1 keeps the existing friendly123.com notebook');
+});
