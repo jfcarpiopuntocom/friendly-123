@@ -1255,7 +1255,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
 
   async function validar(code) {
     await listo;
-    if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
+    if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} if (teclado) teclado.reset(); return iniciarActivacion(); } // keypad must be empty when the customer returns from the chooser
     /* identificarPin ANTES de verificarOwner/Empleado (esos suman fallos
        al candado). Un PIN bueno no puede quedar fuera por el XOR viejo. */
     const rolHash = (window.OCSecure.identificarPin) ? await window.OCSecure.identificarPin(code) : null;

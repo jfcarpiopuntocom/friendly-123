@@ -75,3 +75,28 @@ test('an explicit license-instance-mismatch from the PIN authority still blocks 
   assert.equal(r.msg, true, 'the mismatch message is shown');
   assert.notEqual(r.rol, 'dueno');
 });
+
+test('after 789 opens the store chooser, the keypad is empty and the next PIN is accepted', async () => {
+  const ctx = await browser.newContext({ serviceWorkers: 'block' });
+  await ctx.route('**/*', r => {
+    const x = new URL(r.request().url());
+    if (x.origin + '/' === HOST) {
+      let p = x.pathname.slice(1) || 'index.html'; if (p.endsWith('/')) p += 'index.html';
+      const f = path.join(DOCS, p);
+      if (f.startsWith(DOCS) && fs.existsSync(f) && fs.statSync(f).isFile())
+        return r.fulfill({ status: 200, contentType: TYPES[path.extname(f)] || 'application/octet-stream', body: fs.readFileSync(f) });
+      return r.fulfill({ status: 404, body: '' });
+    }
+    return r.abort();
+  });
+  const page = await ctx.newPage();
+  await page.goto(HOST, { waitUntil: 'domcontentloaded' });
+  const pad = page.locator('#oc-gate button[data-d]').first();
+  if (!(await pad.isVisible().catch(() => false))) { await page.getByRole('button', { name: /log out|cerrar sesi/i }).first().click(); await pad.waitFor({ state: 'visible' }); }
+  for (const c of '789') await page.locator(`#oc-gate button[data-d="${c}"]`).first().click();
+  await page.waitForSelector('#oc-act-nada', { state: 'visible' });
+  await page.click('#oc-act-nada'); // "not now": back to the PIN screen
+  const filled = await page.evaluate(() => document.getElementById('oc-pad')._ocTeclado.entrada().length);
+  await ctx.close();
+  assert.equal(filled, 0, 'no stale digits after the chooser');
+});
