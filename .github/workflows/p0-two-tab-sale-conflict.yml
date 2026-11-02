@@ -6,11 +6,8 @@ on:
       - 'docs/mock-backend.js'
       - 'test/linus-dos-pestanas.test.js'
       - '.github/workflows/p0-two-tab-sale-conflict.yml'
+  # Required by the master ruleset (which has no bypass actors): it must run on every PR, never be skipped by a path filter.
   pull_request:
-    paths:
-      - 'docs/mock-backend.js'
-      - 'test/linus-dos-pestanas.test.js'
-      - '.github/workflows/p0-two-tab-sale-conflict.yml'
 jobs:
   two-tab-sales:
     runs-on: ubuntu-24.04
