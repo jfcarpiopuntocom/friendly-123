@@ -21,12 +21,13 @@
     ckptFrameBytes: sb.ckptFrameBytes,
     estadoCupo: function () { var c = leer(); return { dia: c.dia, up: c.up, down: c.down, capUp: CAP_UP, capDown: CAP_DOWN, supabase: usarSupabase() }; },
     connect: function (url) {
-      if (!usarSupabase()) return peer.connect(url);
+      // Photos are each business's responsibility (JFC 2026-11-01): direct peers only, never the relay budget.
+      if (/-fotos$/.test(String(url)) || !usarSupabase()) return peer.connect(url);
       var ws = sb.connect(url), abierto = false;
       ws.addEventListener("open", function () { abierto = true; });
       ws.addEventListener("message", function (e) {
         var c = leer(); c.down += bytes(e.data); guardar(c);
-        if (c.down >= CAP_DOWN) { try { ws.close(1013, CIERRE); } catch (_) {} }
+        if (c.down >= CAP_DOWN) { c.pausaHasta = Date.now() + PAUSA_MS; guardar(c); try { ws.close(1013, CIERRE); } catch (_) {} }
       });
       // Refused before opening (inactive room, quota 402, route error): use peers for a while, then retry Supabase.
       ws.addEventListener("close", function () { if (!abierto) { var c = leer(); c.pausaHasta = Date.now() + PAUSA_MS; guardar(c); } });

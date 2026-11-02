@@ -65,3 +65,9 @@ test('the daily download budget also stops the relay; the next day Supabase is u
   clock.now += 24 * 60 * 60 * 1000;
   assert.equal(R.connect(URL1).kind, 'supabase', 'budget resets each day');
 });
+
+test('photos never use the relay budget: the -fotos channel always goes to direct peers', () => {
+  const { R } = app();
+  assert.equal(R.connect(URL1.replace(/-y$/, '-fotos')).kind, 'peer');
+  assert.equal(R.connect(URL1).kind, 'supabase', 'catalog still prefers the durable relay');
+});
