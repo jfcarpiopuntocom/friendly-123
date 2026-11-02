@@ -111,7 +111,8 @@
       if (c.down >= CAP_DOWN) { c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} }
     });
     // Refused before opening (inactive room, quota 402, route error): pause this layer, the next one takes over.
-    ws.addEventListener("close", function () { if (!abierto) { var c = leer(key); c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); } });
+    // v646: the last durable layer retries in 60 s: a device that opened with no signal must catch up as soon as it returns.
+    ws.addEventListener("close", function () { if (!abierto) { var c = leer(key); c.pausaHasta = Date.now() + (capa.relay === fb ? 60000 : PAUSA_MS); guardar(key, c); } });
     var enviar = ws.send.bind(ws);
     ws.send = function (v) {
       if (v !== HEAD) sonda.enviados++;

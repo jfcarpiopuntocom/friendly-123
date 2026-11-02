@@ -205,6 +205,18 @@ test('from peers only, the device goes back to a durable layer when its pause en
   assert.equal(cerrado, 1012);
 });
 
+test('v646: Firebase failing at open pauses 60 s, not 15 min, and Supabase keeps its longer pause', async () => {
+  const c = montar({ firebaseCaida: true });
+  const fb = c.w.F123FirebaseRelay.connect;
+  const original = c.w.F123Relay;
+  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date().toISOString().slice(0, 10), up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
+  c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {}, close() {} }) }) };
+  original.connect(URL1); await tick(50);
+  const pausa = JSON.parse(c.store.get('f123_relay_cupo_fb_v1')).pausaHasta - Date.now();
+  assert.ok(pausa > 0 && pausa <= 60000, 'Firebase pause was ' + pausa);
+  assert.equal(typeof fb, 'function');
+});
+
 test('photos never start a probe', async () => {
   const c = montar();
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {} }) }) };

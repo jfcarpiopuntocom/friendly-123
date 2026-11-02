@@ -1336,7 +1336,13 @@
         var _yc = window.OCYjs;
         if (_yc && _yc.doc && _yc.doc.store &&
             (_yc.doc.store.pendingStructs || _yc.doc.store.pendingDs ||
-             (_yc.canal && _yc.canal.recuperando))) return;
+             (_yc.canal && _yc.canal.recuperando))) {
+          /* v646: a catalog too big for its Yjs checkpoint never gets one, and if its history also stays incomplete this
+             compact photo never went up either: a new device had nothing to populate from. Only a device past that limit
+             holds the long history, so a small incomplete device can never publish its partial view over this one. */
+          var _med = _yc.medirTamanoCanales ? _yc.medirTamanoCanales()[0] : null;
+          if (!_med || !(_med.margenBytes < 0)) return;
+        }
       } catch (_) { return; }
       var hu = (snap && snap.huella && snap.huella.completa) ? snap.huella.completa : "";
       var confirmada = "";
