@@ -1380,7 +1380,7 @@
      distintas. El sacrificio decide QUE se cede cuando no cabe; el espejo hace
      que aunque no quepa NADA en localStorage, el estado completo quede a salvo
      igual en un almacen que si crece con el disco. */
-  let _espejoIDBPendiente = null, _esperaGuardadoVencida = false;
+  let _espejoIDBPendiente = null;
   function _espejarEnIDB(completo, exigirCompleto = false) {
     try {
       if (!window.OCEstadoIDB) return Promise.resolve(false);
@@ -1535,16 +1535,19 @@
     } else if (resultado !== true) _mergeSucio = true;
     return resultado;
   }
+  var _esperaVencida = false;
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
     // v649: this device's own save still in flight is not another tab. A strict save compares against the disk, so it
     // waits for it instead of reporting a false "NOT saved". The guard against a real other tab stays untouched.
     // Fallback: a hung storage call never freezes a sale. After 4 s it goes ahead and gets a real answer.
-    if (exigirCompleto && !_esperaGuardadoVencida && (_espejoIDBPendiente || _guardadoCatalogoPendiente)) {
+    const _espejoEnVuelo = typeof _espejoIDBPendiente !== "undefined" ? _espejoIDBPendiente : null;
+    const _catalogoEnVuelo = typeof _guardadoCatalogoPendiente !== "undefined" ? _guardadoCatalogoPendiente : null;
+    if (exigirCompleto && !_esperaVencida && (_espejoEnVuelo || _catalogoEnVuelo)) {
       const otraVez = () => guardarEstadoLocal(exigirCompleto, preservarFotos);
       const espera = new Promise((listo) => {
-        const tope = setTimeout(() => { _esperaGuardadoVencida = true; listo(); }, 4000);
-        Promise.all([_espejoIDBPendiente, _guardadoCatalogoPendiente]).then(() => { clearTimeout(tope); listo(); }, () => { clearTimeout(tope); listo(); });
-      }).then(() => { const r = otraVez(); _esperaGuardadoVencida = false; return r; });
+        const tope = setTimeout(() => { _esperaVencida = true; listo(); }, 4000);
+        Promise.all([_espejoEnVuelo, _catalogoEnVuelo]).then(() => { clearTimeout(tope); listo(); }, () => { clearTimeout(tope); listo(); });
+      }).then(() => { const r = otraVez(); _esperaVencida = false; return r; });
       // Background saves wait too: one running now would persist a provisional sale that this save may still reject.
       _guardadoEstrictoPendiente = espera;
       const soltar = () => { if (_guardadoEstrictoPendiente === espera) _guardadoEstrictoPendiente = null; };
@@ -5540,7 +5543,7 @@
           // v648: a store's real sales reach a device through Yjs, so `fresco` is false on any device of a used store. A product
           // this device did not know, or holds at 0 with no base of its own, has no local truth to protect: it takes the photo.
           if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); productos[productos.length - 1].stockActual = stk; agPr++; }
-          else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; if (!mio.stockEpochId && p.stockEpochId) mio.stockEpochId = p.stockEpochId; }
+          else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
         });
         /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
            aparato fresco. Por eso los clientes reales no llegaban al segundo aparato. */

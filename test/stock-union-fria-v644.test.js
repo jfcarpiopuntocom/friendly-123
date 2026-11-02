@@ -78,6 +78,15 @@ test('v649: a strict save waits for this device\'s own save in flight instead of
   assert.deepEqual(r.map(x => x.status), ['fulfilled', 'fulfilled'], JSON.stringify(r.filter(x => x.status !== 'fulfilled').map(x => String(x.reason))));
 });
 
+test('v649: by design, a photo with a newer rev updates the product as Yjs would; an older one changes nothing', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-11', nombre: 'Medio', precio: 10, stockActual: 3, rev: { c: 5, d: 'm' } }] }, null);
+  foto({ ...base, id: 'foto-11', nombre: 'Viejo', precio: 1, stockActual: 3, rev: { c: 2, d: 'a' } });
+  assert.equal((await leer('foto-11')).nombre, 'Medio');
+  foto({ ...base, id: 'foto-11', nombre: 'Nuevo', precio: 20, stockActual: 3, rev: { c: 9, d: 'a' } });
+  assert.equal((await leer('foto-11')).nombre, 'Nuevo');
+});
+
 test('v649: a 0 with its own stamp is a fact: an old photo cannot bring it back', async () => {
   const { base, leer, foto, dest } = await conVentaReal();
   dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-10', stockActual: 0, stockTs: 5000 }] }, null);
