@@ -50,7 +50,7 @@ async function activarYVolver(verify404Body) {
   await page.fill('#oc-act-email', 'owner@example.com');
   await page.fill('#oc-act-tel', '0999999999');
   await page.click('#oc-act-confirmar');
-  await page.waitForSelector('#oc-act-exito', { state: 'visible', timeout: 30000 });
+  await page.waitForSelector('#oc-act-exito', { state: 'visible', timeout: 90000 }); // PBKDF2 150k under a loaded CI box
   await page.click('#oc-act-entrar');
   await page.waitForTimeout(2000);
   await teclear('789'); // the Owner comes back after logging out
