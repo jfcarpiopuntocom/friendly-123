@@ -182,7 +182,7 @@
     var _groupAcks = new Set();
     // v594: legacy outbox classification runs once per channel lifetime (see clasificarHeredados).
     var _heredadosListo = false;
-    var _lastRelayProgressAt = 0;
+    var _lastRelayProgressAt = 0, _cupoRechazado = false;
     var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
     // Bounded v1 checkpoint repair across socket reconnects (never per socket).
     var _legacyProbeKey = "", _legacyProbeAttempts = 0;
@@ -552,12 +552,12 @@
       _bufferPumpTimer = setTimeout(function () {
         _bufferPumpTimer = null;
         if (!canal.ws || canal.ws.readyState !== 1) return;
-        if (Date.now() - _lastRelayProgressAt >= 10000) {
+        if (!_cupoRechazado && Date.now() - _lastRelayProgressAt >= 10000) {
           canal.ws.close(1013, "relay stalled; queued data retained");
           return;
         }
         _durableQueue.then(function () { drenarDurable(); drenarVivo(); }).catch(function () {});
-      }, 100);
+      }, _cupoRechazado ? 60000 : 100);
     }
     function enviarConLimite(ws, value, ckptRPC) {
       if (!ws || ws.readyState !== 1) return "offline";
@@ -570,9 +570,10 @@
         window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES &&
         bytes <= 1088 * 1024 && buffered === 0;
       if (!largeCheckpoint && buffered + bytes > MAX_BUFFERED_BYTES) return "blocked";
-      try { ws.send(value); _lastRelayProgressAt = Date.now(); return "sent"; }
-      // v647: a heavy frame over budget waits in the outbox and the socket stays up.
-      catch (error) { if ((ws.peerOnly || ws.readyState === 1) && error && error.name === "QuotaExceededError") return "blocked"; try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
+      try { ws.send(value); _lastRelayProgressAt = Date.now(); _cupoRechazado = false; return "sent"; }
+      // v647: a heavy frame over budget waits in the outbox and the socket stays up. A budget refusal is an answer from a
+      // live layer, not a stall: it must not trip the watchdog into a reconnect storm, and retrying it every 100 ms is pointless.
+      catch (error) { if ((ws.peerOnly || ws.readyState === 1) && error && error.name === "QuotaExceededError") { if (!ws.peerOnly) _cupoRechazado = true; return "blocked"; } try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
     }
     function encolarVivo(value, smallBusiness) {
       var ws = canal.ws;
@@ -1229,7 +1230,7 @@
         if (_pausado || !permitido() || canal.ws !== ws) {
           try { ws.close(1000, "inactive tab"); } catch (_) {} return;
         }
-        _lastRelayProgressAt = Date.now();
+        _lastRelayProgressAt = Date.now(); _cupoRechazado = false;
         /* Un upgrade que abre y cae enseguida NO es una conexion sana. Antes
            reseteaba el backoff aqui y el canal de fotos podia reconectar cada
            pocos segundos para repetir un pull enorme. Solo una conexion que

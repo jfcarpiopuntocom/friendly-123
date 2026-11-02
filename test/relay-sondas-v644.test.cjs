@@ -261,6 +261,29 @@ test('v647: the compact photo in the base room rides the reserve, a catalog chec
   assert.throws(() => cat.send(foto), e => e.name === 'QuotaExceededError');
 });
 
+test('v647: a compact photo of 768 KB rides the reserve by intent; an oversized control frame does not pass as a read', async () => {
+  const c = firebaseLleno(2 * 1024 * 1024);
+  const base = await abre(c, URL1.replace(/-y$/, ''));
+  base.send(JSON.stringify({ k: 'ckpt', id: 'f', c: 'x'.repeat(768 * 1024) }));
+  assert.ok(JSON.parse(c.store.get('f123_relay_cupo_fb_v1')).up > 2.7 * 1024 * 1024, 'it is charged to the reserve');
+  const d = firebaseLleno(10 * 1024 * 1024);
+  const ws = await abre(d, URL1);
+  assert.throws(() => ws.send('{"k":"head","x":"' + 'y'.repeat(5000) + '"}'), e => e.name === 'QuotaExceededError');
+});
+
+test('v647: the download budget still stops the layer, and a held heavy frame goes the next day', async () => {
+  const c = firebaseLleno(0);
+  const hoy = new Date().toISOString().slice(0, 10);
+  c.store.set('f123_relay_cupo_fb_v1', JSON.stringify({ dia: hoy, up: 0, down: 20 * 1024 * 1024, pausaHasta: 0 }));
+  assert.equal(c.w.F123Relay.estadoCupo().find(x => /fb/.test(x.capa)).usable, false, 'reads are bounded');
+  const d = firebaseLleno(2 * 1024 * 1024);
+  const ws = await abre(d, URL1);
+  const pesada = JSON.stringify({ k: 'op', id: 'pesada', c: 'x'.repeat(20000) });
+  assert.throws(() => ws.send(pesada), e => e.name === 'QuotaExceededError');
+  d.store.set('f123_relay_cupo_fb_v1', JSON.stringify({ dia: '2000-01-01', up: 2 * 1024 * 1024, down: 0, pausaHasta: 0 }));
+  ws.send(pesada);
+});
+
 test('v647: past the reserve even small writes wait, so a loop cannot burn the account', async () => {
   const c = firebaseLleno(10 * 1024 * 1024);
   const ws = await abre(c, URL1);

@@ -124,7 +124,7 @@
          (the room with no channel suffix) ride a reserved lane. Only heavy frames wait, in the caller's outbox, with the
          connection open. */
       if (capa.relay === fb) {
-        if (typeof v === "string" && /^\{"k":"(head|pull|ts)"/.test(v)) return enviar(v);
+        if (typeof v === "string" && n <= 4096 && /^\{"k":"(head|pull|ts)"/.test(v)) return enviar(v);
         var limite = n <= FRAME_RESERVADO || !/-(y|ops|fotos)$/.test(String(url)) ? CAP_UP_RESERVA : CAP_UP;
         if (c.up + n > limite) throw new DOMException("Daily relay budget reached", "QuotaExceededError");
         c.up += n; guardar(key, c); return enviar(v);
