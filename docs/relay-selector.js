@@ -78,13 +78,35 @@
     }, SONDA_MS);
     if (t && t.unref) t.unref();
   }
+  // Re-probe the earlier layers when their pause ends: the app reconnects, the earlier layer gets this device's
+  // full-state checkpoint, and devices split across layers converge again.
+  function reprobar(s, previas) {
+    var t = setInterval(function () {
+      if (s.readyState >= 2) return clearInterval(t);
+      if (previas.some(usable)) { clearInterval(t); try { s.close(1012, "earlier durable layer available again"); } catch (_) {} }
+    }, 60000);
+    if (t && t.unref) t.unref();
+  }
+  // A layer with nothing at all must not pass for "up to date" while the next one holds the store. Zero against
+  // non-zero only: rev/seq are never compared across layers. Yjs merges any repetition, so moving on cannot conflict.
+  function capaVaciaSigue(capa, ws, url, h) {
+    if (capa.relay === fb || !fb || typeof fb.leerHead !== "function" || h.unsupported || Number(h.rev) || Number(h.seq)) return;
+    var capaFb = capas.filter(function (x) { return x.relay === fb; })[0];
+    if (!capaFb || !usable(capaFb)) return;
+    fb.leerHead(url).then(function (n) {
+      sumarBajada(capaFb);
+      if (!n || !(n.rev || n.seq) || ws.readyState !== 1) return;
+      var c = leer(capa.key); c.pausaHasta = Date.now() + PAUSA_MS; guardar(capa.key, c);
+      try { ws.close(1013, "layer empty; next durable layer has data"); } catch (_) {}
+    }).catch(function () {});
+  }
   function envolver(capa, url) {
     var key = capa.key, ws = capa.relay.connect(url), abierto = false, sonda = { ws: ws, seq: null, frames: 0, enviados: 0, desde: 0 };
     _sondasWs[url] = sonda;
     ws.addEventListener("open", function () { abierto = true; });
     ws.addEventListener("message", function (e) {
       if (typeof e.data !== "string") sonda.frames++;
-      else if (e.data.indexOf('"head-result"') !== -1) try { sondaAtraso(sonda, JSON.parse(e.data)); } catch (_) {}
+      else if (e.data.indexOf('"head-result"') !== -1) try { var cabeza = JSON.parse(e.data); sondaAtraso(sonda, cabeza); capaVaciaSigue(capa, ws, url, cabeza); } catch (_) {}
       var c = sumarBajada(capa, e);
       if (c.down >= CAP_DOWN) { c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} }
     });
@@ -117,16 +139,13 @@
         var ws; try { ws = envolver(capas[i], url); } catch (_) { continue; }
         // On a fallback layer, re-probe the earlier layers when their pause ends: the app reconnects, the earlier
         // layer gets this device's full-state checkpoint, and devices split across layers converge again.
-        if (i > 0) (function (s, previas) {
-          var t = setInterval(function () {
-            if (s.readyState >= 2) return clearInterval(t);
-            if (previas.some(usable)) { clearInterval(t); try { s.close(1012, "earlier durable layer available again"); } catch (_) {} }
-          }, 60000);
-        })(ws, capas.slice(0, i));
+        if (i > 0) reprobar(ws, capas.slice(0, i));
         try { arrancarSondas(ws, capas[i], url); } catch (_) {}
         return ws;
       }
-      return viaPeers(url);
+      var directo = viaPeers(url);
+      reprobar(directo, capas); // peers are the last fallback, never where a device stays once a durable layer is back
+      return directo;
     }
   };
 })();

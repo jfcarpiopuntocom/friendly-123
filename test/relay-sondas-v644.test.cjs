@@ -171,6 +171,40 @@ test('an exhausted Firebase budget is not spent on a probe', async () => {
   assert.equal(c.n.gets, 0);
 });
 
+test('an empty first layer gives way when the next one holds the store', async () => {
+  const c = montar();
+  c.sb.seq = 0;
+  const ws = c.w.F123Relay.connect(URL1); await tick(30);
+  ws.send(JSON.stringify({ k: 'head', v: 2 })); await tick(30);
+  assert.equal(ws.readyState, 3, 'the empty layer closed');
+  assert.equal(c.w.F123Relay.estadoCupo().find(x => !/fb/.test(x.capa)).usable, false, 'it pauses, so the next connection uses Firebase');
+});
+
+test('a first layer with data stays, and an empty one stays when the next is empty too', async () => {
+  const c = montar();
+  const ws = c.w.F123Relay.connect(URL1); await tick(30);
+  ws.send(JSON.stringify({ k: 'head', v: 2 })); await tick(30);
+  assert.equal(ws.readyState, 1);
+  const d = montar();
+  d.sb.seq = 0; d.firebase.o = {};
+  const ws2 = d.w.F123Relay.connect(URL1); await tick(30);
+  ws2.send(JSON.stringify({ k: 'head', v: 2 })); await tick(30);
+  assert.equal(ws2.readyState, 1);
+});
+
+test('from peers only, the device goes back to a durable layer when its pause ends', async () => {
+  const c = montar();
+  const hoy = new Date().toISOString().slice(0, 10), hasta = Date.now() + 60000;
+  ['f123_relay_cupo_v1', 'f123_relay_cupo_fb_v1'].forEach(k => c.store.set(k, JSON.stringify({ dia: hoy, up: 0, down: 0, pausaHasta: hasta })));
+  let cerrado = null;
+  c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {}, close(code) { cerrado = code; this.readyState = 3; } }) }) };
+  c.w.F123Relay.connect(URL1); await tick(10);
+  await c.tics();
+  assert.equal(cerrado, null, 'both layers are still paused');
+  c.adelantar(61000); await c.tics();
+  assert.equal(cerrado, 1012);
+});
+
 test('photos never start a probe', async () => {
   const c = montar();
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {} }) }) };
