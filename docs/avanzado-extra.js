@@ -658,6 +658,16 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
          Las mediciones NO se apagan: los pintores de abajo siguen escribiendo en
          esos nodos ocultos y sync-latencia.js sigue midiendo. Para mostrarlo a
          todos otra vez: hacer que _verDiag devuelva true. */
+      // shortcut: refreshes every 30 s because it walks the whole catalog; a change shows up within that time.
+      window.OCHuellaStock = function () {
+        var c = window.__ocHuellaStock;
+        if (c && Date.now() - c.t < 30000) return c;
+        var filas = (window.OCSync.catalogoPropio().productos || []).filter(function (p) { return p && !p.borrado; })
+          .map(function (p) { return String(p.id) + ":" + Number(p.stockActual); }).sort();
+        var x = 0x811c9dc5, s = filas.join("|");
+        for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 0x01000193) >>> 0; }
+        return (window.__ocHuellaStock = { t: Date.now(), v: ("0000000" + x.toString(16)).slice(-8), n: filas.length });
+      };
       var _verDiag = (function () {
         try {
           var h53 = function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);};
@@ -850,6 +860,8 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
               if (_sn.sinRecibir) { lat += " · relay moved and nothing arrived here"; _alertaSonda = true; }
               if (window.__ocMezcla) { lat += " · this device did not update"; _alertaSonda = true; }
             } catch (_) {}
+            /* v645: huella del inventario que ESTE aparato muestra. Igual en dos aparatos = mismas cantidades. */
+            try { var _hu = window.OCHuellaStock(); lat += " · stock print " + _hu.v + " (" + _hu.n + " items, " + ((d && d.ops) || 0) + " moves)"; } catch (_) {}
             el.textContent = "Sync: " + (conectado ? "connected" : "NOT connected") +
               " · products " + prod + " · shelves " + perchas + " · photos " + fotos + lat;
             el.style.color = conectado && !_alertaSonda ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
