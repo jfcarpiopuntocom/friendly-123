@@ -1,17 +1,7 @@
 name: stable-focused-e1-e6
 on:
+  # Required by the master ruleset (no bypass actors): runs on every PR, never skipped by a path filter.
   pull_request:
-    paths:
-      - 'docs/sync-yjs.js'
-      - 'docs/vista-perchas.js'
-      - 'docs/version.json'
-      - 'test/fast-track-pipeline.test.js'
-      - 'test/incident-relay-quota-budget-v559.test.js'
-      - 'test/yjs-first-join-start.test.js'
-      - 'test/yjs-relay-backpressure.test.js'
-      - 'test/yjs-pin-seed.test.js'
-      - 'test/perchas-foto-no-bloquea-grid.test.js'
-      - '.github/workflows/stable-focused-e1-e6.yml'
   workflow_dispatch: {}
 permissions:
   contents: read
