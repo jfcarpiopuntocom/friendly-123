@@ -1,12 +1,7 @@
 name: P0 JFC integrated sync causal end-to-end synthetic gate
 on:
+  # Required by the master ruleset (no bypass actors): runs on every PR, never skipped by a path filter.
   pull_request:
-    paths:
-      - docs/sync-yjs.js
-      - docs/sync-rollout.json
-      - docs/mock-backend.js
-      - test/p0-*.test.cjs
-      - .github/workflows/p0-jfc-integrated-sync.yml
 jobs:
   integrated:
     runs-on: ubuntu-latest

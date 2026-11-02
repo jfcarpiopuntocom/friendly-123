@@ -16,19 +16,20 @@ class FakeSocket extends EventTarget {
   close(code, reason) { this.closed = { code, reason }; this.readyState = 3; this.dispatchEvent(new Event('close')); }
 }
 function app(now = Date.parse('2026-11-02T12:00:00Z')) {
-  const store = new Map();
+  const store = new Map(), timers = [];
   const fake = kind => ({ ckptFrameBytes: 786432, connect: () => new FakeSocket(kind) });
   const w = {
     localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)) },
     F123Relay: fake('supabase'), F123FirebaseRelay: fake('firebase'),
     F123Peer: { create: () => fake('peer') },
-    EventTarget, Event, DOMException, JSON, Number, String
+    EventTarget, Event, DOMException, JSON, Number, String,
+    setInterval: fn => { timers.push(fn); return timers.length; }, clearInterval: () => {}
   };
   const clock = { now };
   w.Date = class extends Date { constructor(...a) { super(...(a.length ? a : [clock.now])); } static now() { return clock.now; } };
   w.window = w;
   vm.runInNewContext(SRC, w);
-  return { R: w.F123Relay, clock };
+  return { R: w.F123Relay, clock, tick: () => timers.slice().forEach(fn => fn()) };
 }
 
 test('Supabase is the first choice and keeps its checkpoint capability', () => {
@@ -73,4 +74,31 @@ test('photos never use a relay budget: the -fotos channel always goes to direct 
   const { R } = app();
   assert.equal(R.connect(URL1.replace(/-y$/, '-fotos')).kind, 'peer');
   assert.equal(R.connect(URL1).kind, 'supabase', 'catalog still prefers the durable relay');
+});
+
+test('a device on the fallback layer goes back to the first layer when its pause ends (layers re-converge)', () => {
+  const { R, clock, tick } = app();
+  R.connect(URL1).close(1011, 'relay route unavailable'); // Supabase refused → paused
+  const f = R.connect(URL1); f.open();
+  assert.equal(f.kind, 'firebase');
+  tick();
+  assert.equal(f.closed, null, 'still paused: stays on Firebase');
+  clock.now += 16 * 60 * 1000; // pause over
+  tick();
+  assert.equal(f.closed && f.closed.code, 1012, 'fallback closed so the app reconnects');
+  assert.equal(R.connect(URL1).kind, 'supabase', 'reconnect lands on the first layer again');
+});
+
+test('without peer-sync the budgets still apply and photos never fall back to a relay', () => {
+  const store = new Map();
+  const w = {
+    localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)) },
+    F123Relay: { ckptFrameBytes: 786432, connect: () => new FakeSocket('supabase') },
+    EventTarget, Event, DOMException, JSON, Number, String, Date, setInterval: () => 0, clearInterval: () => {}
+  };
+  w.window = w;
+  vm.runInNewContext(SRC, w);
+  assert.equal(w.F123Relay.connect(URL1).kind, 'supabase', 'selector installed even without peer-sync');
+  assert.equal(typeof w.F123Relay.estadoCupo, 'function', 'budget wrapper present');
+  assert.throws(() => w.F123Relay.connect(URL1.replace(/-y$/, '-fotos')), /unavailable/, 'photos fail closed, caller retries');
 });

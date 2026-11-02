@@ -1,10 +1,10 @@
 {
-  "version": "shell v639",
+  "version": "shell v640",
   "fecha": "2026-11-02",
-  "changelog": "Owners are no longer locked out when the central PIN service is unavailable, and the PIN pad is cleared after choosing a notebook. A device that connects catches up even when no other device is open: two durable relays (Supabase, then Firebase), each with a daily data budget per device, and direct device-to-device sync as the last fallback. Photos stay device-to-device. Inventory, money and movements untouched.",
+  "changelog": "Sync layers re-converge: a device that fell back to the second durable relay returns to the first one as soon as it is available again and publishes its full state there, so devices on different layers never stay apart. Inventory, money and movements untouched.",
   "requerida": false,
-  "shell": "f123-shell-v639",
+  "shell": "f123-shell-v640",
   "apagar": [],
-  "releaseName": "shell v639",
-  "cacheGeneration": "golden186"
+  "releaseName": "shell v640",
+  "cacheGeneration": "golden187"
 }
