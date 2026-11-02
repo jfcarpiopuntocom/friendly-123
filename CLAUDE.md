@@ -1,5 +1,20 @@
 # CLAUDE.md — guía breve y vigente de friendly-123
 
+## ⛔ DIRECTIVA PRIMA — JFC, 2 nov 2026 (manda sobre todo lo demás)
+
+**El sync de inventario, dinero y movimientos es el núcleo de confianza de friendly-123.** Todo lo demás es secundario.
+
+1. **Todo aparato que se conecta se pone al día solo, siempre.** Nunca «solo si otro aparato está abierto a la vez».
+2. **Por capas, con respaldos que no chocan:**
+   - Supabase (durable) → Firebase (durable) → directo entre aparatos;
+   - siempre los mismos cambios cifrados: Yjs los une en cualquier orden y con repeticiones;
+   - cada capa durable lleva su cupo diario por aparato y su corte automático, para no quemar cuentas gratis;
+   - las fotos van solo directo entre aparatos.
+3. **Prohibido apagar, quitar o «simplificar» una capa** sin el «sí» expreso de JFC. El 25 oct se quitó el relay durable sin su aprobación y la app pasó 15 días sin sincronizar de verdad. Nunca más. Ni 48 horas.
+4. **Todo cambio de transporte** pasa la prueba «un aparato que abre solo se pone al día desde al menos una capa durable» antes de publicarse.
+5. **Aterrizar, no rediseñar sin fin:** el cambio mínimo que mantiene vivas las capas.
+
+
 ## Directiva vigente de sincronización — JFC, 16 oct 2026
 
 Cloudflare queda para **licencias**, no para transacciones ni sync entre
