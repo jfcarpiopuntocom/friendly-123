@@ -5,10 +5,11 @@
 // aborte cualquier pedido a *.workers.dev y a jfcarpio.com. Ninguna prueba necesita esos
 // hosts: el backend de la app es local (mock-backend.js). No quitar.
 const pw = require('playwright');
-const BLOQUEO = /^https?:\/\/([^/]*\.)?(workers\.dev|jfcarpio\.com)(\/|$)/i;
+// JFC 2026-11-02: the durable relays (Supabase, Firebase) are production too; tests never reach them.
+const BLOQUEO = /^https?:\/\/([^/]*\.)?(workers\.dev|jfcarpio\.com|supabase\.co|firebaseio\.com)(\/|$)/i;
 // HTTP routing does not intercept WebSockets. Close only production sockets;
 // localhost fixture relays keep working and no connection to the server is made.
-const SOCKETS_PRODUCCION = /^wss?:\/\/([^/]*\.)?(workers\.dev|jfcarpio\.com)(\/|$)/i;
+const SOCKETS_PRODUCCION = /^wss?:\/\/([^/]*\.)?(workers\.dev|jfcarpio\.com|supabase\.co|firebaseio\.com)(\/|$)/i;
 // Las fuentes externas no forman parte del fixture. Una descarga tardia cambia
 // la geometria entre lecturas y una conexion caida retrasa cada navegacion.
 // Usar siempre el fallback local durante esta suite; no modifica la app publicada.

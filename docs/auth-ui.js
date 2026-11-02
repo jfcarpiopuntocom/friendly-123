@@ -1171,7 +1171,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         }
         if(response.status===401)return "wrong";
         if(response.status===429)return "locked";
-        if(response.status===404)return "unavailable-identity";
+        // Only the PIN authority's explicit mismatch blocks the Owner; a generic 404 means the route is not deployed.
+        if(response.status===404){let d=null;try{d=await response.json()}catch(_){}return d&&d.reason==="license-instance-mismatch"?"unavailable-identity":"unconfigured";}
         if(response.status===409)return "unconfigured";
         return "unavailable";
       }finally{clearTimeout(timer)}
@@ -1254,7 +1255,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
 
   async function validar(code) {
     await listo;
-    if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
+    if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} if (teclado) teclado.reset(); return iniciarActivacion(); } // keypad must be empty when the customer returns from the chooser
     /* identificarPin ANTES de verificarOwner/Empleado (esos suman fallos
        al candado). Un PIN bueno no puede quedar fuera por el XOR viejo. */
     const rolHash = (window.OCSecure.identificarPin) ? await window.OCSecure.identificarPin(code) : null;

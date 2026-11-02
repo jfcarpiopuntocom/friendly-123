@@ -1,10 +1,10 @@
 {
-  "version": "shell v637",
-  "fecha": "2026-11-01",
-  "changelog": "P0: keep peer operations pending until connected receivers confirm, and bind sync to the active licensed notebook. Preserve all stock and PIN records.",
+  "version": "shell v639",
+  "fecha": "2026-11-02",
+  "changelog": "Owners are no longer locked out when the central PIN service is unavailable, and the PIN pad is cleared after choosing a notebook. A device that connects catches up even when no other device is open: two durable relays (Supabase, then Firebase), each with a daily data budget per device, and direct device-to-device sync as the last fallback. Photos stay device-to-device. Inventory, money and movements untouched.",
   "requerida": false,
-  "shell": "f123-shell-v637",
+  "shell": "f123-shell-v639",
   "apagar": [],
-  "releaseName": "shell v637",
-  "cacheGeneration": "golden184"
+  "releaseName": "shell v639",
+  "cacheGeneration": "golden186"
 }

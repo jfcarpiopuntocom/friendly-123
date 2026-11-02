@@ -33,7 +33,9 @@ test('estatico: ningun archivo de docs/ abre un socket o canal crudo (WebSocket/
 
 test('estatico: los localizadores legacy solo llegan al adaptador directo y su socket usa /signal/', () => {
   const esperados = ['dashboard-main.min.js', 'sync-realtime.js', 'sync-yjs.js'];
-  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'peer-sync.js'].sort());
+  // firebase-relay.js only parses the locator (regex) to derive its room; it never opens it.
+  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'firebase-relay.js', 'peer-sync.js'].sort());
+  assert.ok(!/new\s+(WebSocket|WS)\s*\(/.test(archivos.find(a => a.rel === 'firebase-relay.js').src), 'firebase relay opens no socket');
   for (const nombre of esperados) {
     const src = nombre === 'dashboard-main.min.js'
       ? fs.readFileSync(path.resolve(DOCS, '../src/dashboard/dashboard-main.js'), 'utf8')
@@ -56,12 +58,15 @@ test('estatico: los localizadores legacy solo llegan al adaptador directo y su s
   assert.doesNotMatch(peer, /supabase|resolveRoute|f123_relay_command/);
 });
 
-test('estatico: app y dashboard cargan el adaptador directo sin inicializar Supabase', () => {
-  for (const name of ['dashboard.html', 'index.html']) {
-    const src = archivos.find(a => a.rel === name).src;
-    assert.match(src, /<script\b[^>]*\bsrc="\.\/peer-sync\.js"[^>]*><\/script>/);
-    assert.doesNotMatch(src, /supabase-relay\.min\.js|supabase\.co|f123_relay_command/);
-  }
+// Contract change (JFC 2026-11-02): the app keeps direct peers AND loads the durable Supabase relay through
+// relay-selector.js (daily byte budget, peers as fallback). The dashboard stays peer-only.
+test('estatico: la app carga peers + relay Supabase con selector; el dashboard sigue solo con peers', () => {
+  const app = archivos.find(a => a.rel === 'index.html').src;
+  const orden = ['peer-sync.js', 'vendor/supabase-relay.min.js', 'firebase-relay.js', 'relay-selector.js'].map(n => app.indexOf('src="./' + n + '"'));
+  assert.ok(orden.every(i => i > 0) && orden[0] < orden[1] && orden[1] < orden[2] && orden[2] < orden[3], 'peer-sync → supabase → firebase → selector');
+  const dash = archivos.find(a => a.rel === 'dashboard.html').src;
+  assert.match(dash, /<script\b[^>]*\bsrc="\.\/peer-sync\.js"[^>]*><\/script>/);
+  assert.doesNotMatch(dash, /supabase-relay\.min\.js|supabase\.co|f123_relay_command/);
 });
 
 test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca negocio central', () => {
@@ -135,7 +140,7 @@ const api = (page, url, method = 'GET', body) => page.evaluate(async ([u, m, b])
   const r = await fetch(u, { method: m, body: b === undefined ? undefined : JSON.stringify(b) }); return r.json();
 }, [url, method, body]);
 
-test('navegador: acciones de negocio solo permiten WS /signal, nunca /sala ni Supabase', async () => {
+test('navegador: acciones de negocio solo permiten WS /signal y el proyecto Supabase propio, nunca /sala', async () => {
   const porAccion = {}; let accion = 'carga';
   const mirar = (tipo, url) => {
     if (!url || url.startsWith('data:') || url.startsWith('blob:') || url.startsWith(base)) return;
@@ -204,7 +209,17 @@ test('navegador: acciones de negocio solo permiten WS /signal, nunca /sala ni Su
   // Permit the exact metadata route, not every WebSocket on the sync hostname.
   for (const s of todo) {
     const split = s.indexOf(' '), tipo = s.slice(0, split), u = new URL(s.slice(split + 1));
-    assert.ok(!/(^|\.)supabase\.co$/i.test(u.hostname) && !/f123_relay_command/.test(u.pathname), 'negocio central Supabase contactado: ' + s);
+    if (/(^|\.)firebaseio\.com$/i.test(u.hostname)) { // second durable layer: only the app's own database
+      assert.equal(u.hostname, 'friendly-123-ab7b3-default-rtdb.firebaseio.com', 'foreign Firebase database: ' + s);
+      assert.match(u.pathname, /^\/f123\/[a-f0-9]{40}(-y|-ops)?\/(o|k)(\/[^/]+)?\.json$/);
+      continue;
+    }
+    if (/(^|\.)supabase\.co$/i.test(u.hostname)) { // durable relay (JFC 2026-11-02): only the app's own project
+      assert.equal(u.hostname, 'uhvzdrlhmznxxelniizi.supabase.co', 'foreign Supabase project: ' + s);
+      if (tipo === 'WS') assert.match(u.pathname, /^\/realtime\/v1\/websocket$/);
+      else assert.match(u.pathname, /^\/rest\/v1\/rpc\/f123_relay_[a-z_]+$/);
+      continue;
+    }
     if (u.hostname === 'friendly123-sync-relay.jfcarpio.workers.dev') {
       assert.equal(tipo, 'WS', 'sync coordinator must not accept HTTP business traffic');
       assert.equal(u.protocol, 'wss:');
