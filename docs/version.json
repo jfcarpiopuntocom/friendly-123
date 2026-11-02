@@ -1,10 +1,10 @@
 {
-  "version": "shell v647",
+  "version": "shell v648",
   "fecha": "2026-11-02",
-  "changelog": "A full daily upload budget no longer stops sync: reads keep working, small changes and the compact store photo use a reserved lane, and only heavy uploads wait. Everything in v646 is kept.",
+  "changelog": "A device that joins a used store takes the real quantities from the compact store photo, and the latest physical count wins. Everything in v647 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v647",
+  "shell": "f123-shell-v648",
   "apagar": [],
-  "releaseName": "shell v647",
-  "cacheGeneration": "golden194"
+  "releaseName": "shell v648",
+  "cacheGeneration": "golden195"
 }

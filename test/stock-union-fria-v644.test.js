@@ -54,13 +54,39 @@ test('v646: demo-seed sales do not make a joining device take the compact photo 
   assert.equal((await dest.request('/api/respaldo/exportar')).productos.find(p => p.id === 'foto-1').stockActual, 5);
 });
 
-test('v646: a device with its own real sale still does not adopt a photo stock', async () => {
+async function conVentaReal() {
   const dest = browser();
   const real = await dest.request('/api/respaldo/exportar');
   real.ventas = [{ ...real.ventas[0], id: 'venta-real', total: Number(real.ventas[0].total) + 1 }];
   await dest.request('/api/respaldo/importar', 'POST', real);
-  dest.OCSync.aplicarCheckpoint({ ubicaciones: [], productos: [{ id: 'foto-2', nombre: 'Otro', sku: 'O', barcode: 'O-1', ubicacionId: real.ubicaciones[0].id, stockActual: 5 }], clientes: [] });
-  assert.equal((await dest.request('/api/respaldo/exportar')).productos.find(p => p.id === 'foto-2').stockActual, 0);
+  const shelf = real.ubicaciones[0].id, base = { nombre: 'Otro', sku: 'O', barcode: 'O-1', ubicacionId: shelf };
+  const leer = async id => (await dest.request('/api/respaldo/exportar')).productos.find(p => p.id === id);
+  return { dest, base, leer, foto: (...productos) => dest.OCSync.aplicarCheckpoint({ ubicaciones: [], productos, clientes: [] }) };
+}
+
+test('v648: a device with real sales takes the photo stock for a product it did not know', async () => {
+  const { base, leer, foto } = await conVentaReal();
+  foto({ ...base, id: 'foto-2', stockActual: 5 });
+  assert.equal((await leer('foto-2')).stockActual, 5);
+});
+
+test('v648: a 0 with no base here takes the photo; a real count of 0 with a base is kept', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  foto({ ...base, id: 'foto-3', stockActual: 0 });
+  foto({ ...base, id: 'foto-3', stockActual: 7 });
+  assert.equal((await leer('foto-3')).stockActual, 7);
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-4', stockActual: 0, stockBase: 0, stockPN: {}, stockTs: 3000 }] }, null);
+  foto({ ...base, id: 'foto-4', stockActual: 7 });
+  assert.equal((await leer('foto-4')).stockActual, 0);
+});
+
+test('v648: a photo with a newer physical base wins over this device, an older one does not', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-5', stockActual: 11, stockBase: 6, stockPN: { a: { add: 5, sub: 0 } }, stockTs: 2000 }] }, null);
+  foto({ ...base, id: 'foto-5', stockActual: 7, stockBase: 7, stockPN: {}, stockTs: 3000 });
+  assert.equal((await leer('foto-5')).stockActual, 7);
+  foto({ ...base, id: 'foto-5', stockActual: 2, stockBase: 2, stockPN: {}, stockTs: 1000 });
+  assert.equal((await leer('foto-5')).stockActual, 7);
 });
 
 test('a real count of 0 here is kept: it created a base, so it is a fact', async () => {

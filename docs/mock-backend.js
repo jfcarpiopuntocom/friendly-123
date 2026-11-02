@@ -5453,7 +5453,7 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "" })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
         huella: huellaCatalogo(),
@@ -5517,10 +5517,10 @@
           if (_estaEnSemillaDemoSeleccionada(_demoSnap, "productos", p)) return;
           const stk = Math.max(0, Number(p.stockActual) || 0);
           const mio = productos.find((x) => String(x.id) === String(p.id));
-          // v646: the demo seed's sales are not this store's sales: they must not make a joining device reject the real quantities.
-          const _soloDemo = !fresco && ventas.every(_esVentaDemoExacta);
-          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); if (_soloDemo) productos[productos.length - 1].stockActual = stk; agPr++; } // producto del equipo; el stock solo si soy fresco
-          else if ((fresco || (_soloDemo && mio.stockBase == null)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
+          // v648: a store's real sales reach a device through Yjs, so `fresco` is false on any device of a used store. A product
+          // this device did not know, or holds at 0 with no base of its own, has no local truth to protect: it takes the photo.
+          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); productos[productos.length - 1].stockActual = stk; agPr++; }
+          else if ((fresco || mio.stockBase == null) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; if (!mio.stockEpochId && p.stockEpochId) mio.stockEpochId = p.stockEpochId; }
         });
         /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
            aparato fresco. Por eso los clientes reales no llegaban al segundo aparato. */
@@ -5537,6 +5537,9 @@
         if (Array.isArray(snap.usuarios)) {
           try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios }, null); } catch (_) {}
         }
+        // v648: quantities on a product with its own ledger go through the same rule as Yjs (the latest physical count wins).
+        const _conLedger = snap.productos.filter((p) => p && p.id && (p.stockBase != null || p.stockTs));
+        if (_conLedger.length) { try { aplicarCatalogo({ ubicaciones: [], productos: _conLedger }, null); } catch (_) {} }
         guardarEstadoLocal();
         mov("checkpoint-mergeado", { perchas: agP, productos: agPr, clientes: agC, fresco });
         return { ok: true, productos: agPr, perchas: agP, clientes: agC };
