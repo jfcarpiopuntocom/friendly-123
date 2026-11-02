@@ -45,6 +45,24 @@ test('fallback: with Yjs stuck, the checkpoint still applies after its last wait
   assert.equal((await dest.request('/api/respaldo/exportar')).productos.some(p => p.id === nuevo.id), true);
 });
 
+test('v646: demo-seed sales do not make a joining device take the compact photo at stock 0', async () => {
+  const dest = browser();
+  const snap = { ubicaciones: [{ id: 'real-shelf', nombre: 'Real shelf', activa: true }], productos: [{ id: 'foto-1', nombre: 'Spray', sku: 'S', barcode: 'S-1', ubicacionId: 'real-shelf', stockActual: 5 }], clientes: [] };
+  const ventasAntes = (await dest.request('/api/respaldo/exportar')).ventas.length;
+  assert.ok(ventasAntes > 0, 'precondition: the fresh visit holds the demo seed sales');
+  assert.equal(dest.OCSync.aplicarCheckpoint(snap).ok, true);
+  assert.equal((await dest.request('/api/respaldo/exportar')).productos.find(p => p.id === 'foto-1').stockActual, 5);
+});
+
+test('v646: a device with its own real sale still does not adopt a photo stock', async () => {
+  const dest = browser();
+  const real = await dest.request('/api/respaldo/exportar');
+  real.ventas = [{ ...real.ventas[0], id: 'venta-real', total: Number(real.ventas[0].total) + 1 }];
+  await dest.request('/api/respaldo/importar', 'POST', real);
+  dest.OCSync.aplicarCheckpoint({ ubicaciones: [], productos: [{ id: 'foto-2', nombre: 'Otro', sku: 'O', barcode: 'O-1', ubicacionId: real.ubicaciones[0].id, stockActual: 5 }], clientes: [] });
+  assert.equal((await dest.request('/api/respaldo/exportar')).productos.find(p => p.id === 'foto-2').stockActual, 0);
+});
+
 test('a real count of 0 here is kept: it created a base, so it is a fact', async () => {
   const { dest, stock, shelf, product } = await montar();
   const p = await stock();

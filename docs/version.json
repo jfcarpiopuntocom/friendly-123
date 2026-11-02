@@ -1,10 +1,10 @@
 {
-  "version": "shell v645",
+  "version": "shell v646",
   "fecha": "2026-11-02",
-  "changelog": "The Sync line in Advanced shows a stock print: the same print on two devices means the same quantities. Everything in v644 is kept.",
+  "changelog": "A new device populates from a compact photo of the store when the full catalog is too big for its checkpoint, with its real quantities. The store name outline is thicker, closer to the logo. Everything in v645 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v645",
+  "shell": "f123-shell-v646",
   "apagar": [],
-  "releaseName": "shell v645",
-  "cacheGeneration": "golden192"
+  "releaseName": "shell v646",
+  "cacheGeneration": "golden193"
 }

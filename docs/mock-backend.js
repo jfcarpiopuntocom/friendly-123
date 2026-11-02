@@ -5517,8 +5517,10 @@
           if (_estaEnSemillaDemoSeleccionada(_demoSnap, "productos", p)) return;
           const stk = Math.max(0, Number(p.stockActual) || 0);
           const mio = productos.find((x) => String(x.id) === String(p.id));
-          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); agPr++; } // producto del equipo; el stock solo si soy fresco
-          else if (fresco && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
+          // v646: the demo seed's sales are not this store's sales: they must not make a joining device reject the real quantities.
+          const _soloDemo = !fresco && ventas.every(_esVentaDemoExacta);
+          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); if (_soloDemo) productos[productos.length - 1].stockActual = stk; agPr++; } // producto del equipo; el stock solo si soy fresco
+          else if ((fresco || (_soloDemo && mio.stockBase == null)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
         });
         /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
            aparato fresco. Por eso los clientes reales no llegaban al segundo aparato. */
