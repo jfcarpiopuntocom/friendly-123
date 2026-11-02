@@ -504,7 +504,7 @@
       // Subir nuestro checkpoint poco despues de conectar, y luego cada tanto,
       // asi el relay siempre tiene una foto reciente para el que llegue nuevo.
       setTimeout(function () { try { subirCheckpoint(true); } catch (_) {} }, 1500 + Math.random() * 1500);
-      try { if (_ckptTimer) clearInterval(_ckptTimer); _ckptTimer = setInterval(function () { try { subirCheckpoint(false); } catch (_) {} }, 180000); } catch (_) {}
+      try { if (_ckptTimer) clearInterval(_ckptTimer); _ckptTimer = setInterval(function () { try { subirCheckpoint(false); } catch (_) {} try { releerFotoSiAtascado(); } catch (_) {} }, 180000); } catch (_) {}
       /* Al conectar se pide tambien el catalogo (JFC 2026-08-21). De lo que
          llegue, el EQUIPO se aplica solo y el resto espera a que una persona
          lo confirme en Avanzado. Asi el segundo dispositivo tiene los PINs y
@@ -1354,6 +1354,15 @@
       _ckptEnVuelo = { id: id, hu: hu };
       ws.send(JSON.stringify({ k: "ckpt", ack: 1, id: id, lam: sobre.lamport, c: ab2b64(buf) }));
     } catch (_) {}
+  }
+  /* v649: with an incomplete Yjs history, updates from a device whose past is missing stay held back, so they cannot arrive
+     live. While that lasts, this device reads the compact photo again every other tick (6 min) and the latest count wins.
+     shortcut: minutes, not instant; a new notebook epoch would restore live sync for a store in this state. */
+  var _ticsFoto = 0;
+  function releerFotoSiAtascado() {
+    if (++_ticsFoto % 2 || document.hidden) return;
+    var y = window.OCYjs;
+    if (y && y.canal && y.canal.recuperando === true) pullDelRelay();
   }
   function pullDelRelay() {
     try {

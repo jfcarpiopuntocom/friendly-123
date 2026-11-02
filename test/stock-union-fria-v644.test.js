@@ -64,6 +64,78 @@ async function conVentaReal() {
   return { dest, base, leer, foto: (...productos) => dest.OCSync.aplicarCheckpoint({ ubicaciones: [], productos, clientes: [] }) };
 }
 
+test('v649: a strict save waits for this device\'s own save in flight instead of a false NOT saved', async () => {
+  const dest = browser();
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-espera-idb', vaciar: true });
+  let rev = 0, escrituras = 0;
+  dest.OCEstadoIDB = { soportado: true,
+    guardar: async c => { await new Promise(r => setTimeout(r, 40)); rev = Number(c._rev) || rev; escrituras++; return true; },
+    guardarConRevision: async (c, esperada) => { if (esperada !== rev) return false; rev = Number(c._rev) || rev; escrituras++; return true; },
+    cargar: async () => null, leer: async () => null };
+  const c1 = dest.request('/api/clientes', 'POST', { nombre: 'En segundo plano', telefono: '1' });
+  const c2 = dest.request('/api/clientes', 'POST', { nombre: 'Enseguida', telefono: '2' });
+  const r = await Promise.allSettled([c1, c2]);
+  assert.deepEqual(r.map(x => x.status), ['fulfilled', 'fulfilled'], JSON.stringify(r.filter(x => x.status !== 'fulfilled').map(x => String(x.reason))));
+});
+
+test('v649: by design, a photo with a newer rev updates the product as Yjs would; an older one changes nothing', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-11', nombre: 'Medio', precio: 10, stockActual: 3, rev: { c: 5, d: 'm' } }] }, null);
+  foto({ ...base, id: 'foto-11', nombre: 'Viejo', precio: 1, stockActual: 3, rev: { c: 2, d: 'a' } });
+  assert.equal((await leer('foto-11')).nombre, 'Medio');
+  foto({ ...base, id: 'foto-11', nombre: 'Nuevo', precio: 20, stockActual: 3, rev: { c: 9, d: 'a' } });
+  assert.equal((await leer('foto-11')).nombre, 'Nuevo');
+});
+
+test('v649: a 0 with its own stamp is a fact: an old photo cannot bring it back', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-10', stockActual: 0, stockTs: 5000 }] }, null);
+  foto({ ...base, id: 'foto-10', stockActual: 7 });
+  assert.equal((await leer('foto-10')).stockActual, 0);
+});
+
+test('v649: with storage hung, a strict save still answers within 5 s instead of freezing the sale', async () => {
+  const dest = browser();
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-idb-colgado', vaciar: true });
+  dest.OCEstadoIDB = { soportado: true, guardar: () => new Promise(() => {}), guardarConRevision: async () => true, cargar: async () => null, leer: async () => null };
+  dest.request('/api/clientes', 'POST', { nombre: 'En vuelo', telefono: '1' }).catch(() => {});
+  await new Promise(r => setTimeout(r, 20));
+  const t0 = Date.now();
+  const fin = await Promise.race([dest.request('/api/clientes', 'POST', { nombre: 'Siguiente', telefono: '2' }).then(() => 'respondio', () => 'respondio'), new Promise(r => setTimeout(() => r('colgado'), 5000))]);
+  assert.equal(fin, 'respondio', 'deadlock: no answer in 5 s');
+  assert.ok(Date.now() - t0 < 5000);
+});
+
+test('v649: an old photo with borrado cannot delete a live product, and an archived one stays archived', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-7', stockActual: 3, rev: { c: 50, d: 'z' } }] }, null);
+  foto({ ...base, id: 'foto-7', stockActual: 3, borrado: true, rev: { c: 2, d: 'a' } });
+  assert.notEqual((await leer('foto-7')).borrado, true);
+  foto({ ...base, id: 'foto-8', stockActual: 49, archivado: true, rev: { c: 3, d: 'a' } });
+  assert.equal((await leer('foto-8')).archivado, true);
+  const lista = await dest.request('/api/productos');
+  assert.equal((Array.isArray(lista) ? lista : lista.productos).some(p => p.id === 'foto-8'), false, 'it does not show in the grid');
+});
+
+test('v649: rereading an old photo does not revert a newer physical count', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  const vieja = { ...base, id: 'foto-9', stockActual: 18, stockBase: 18, stockPN: {}, stockTs: 1000, stockEpochId: 'ep-vieja' };
+  foto(vieja);
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-9', stockActual: 7, stockBase: 7, stockPN: {}, stockTs: 5000, stockEpochId: 'ep-nueva' }] }, null);
+  assert.equal((await leer('foto-9')).stockActual, 7);
+  foto(vieja);
+  assert.equal((await leer('foto-9')).stockActual, 7);
+});
+
+test('v649: the photo carries deletions and rev decides', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-6', stockActual: 3, rev: { c: 1, d: 'a' } }] }, null);
+  foto({ ...base, id: 'foto-6', stockActual: 3, borrado: true, rev: { c: 9, d: 'b' } });
+  assert.equal((await leer('foto-6')).borrado, true);
+  foto({ ...base, id: 'foto-6', stockActual: 3, borrado: false, rev: { c: 2, d: 'b' } });
+  assert.equal((await leer('foto-6')).borrado, true, 'an older photo cannot resurrect it');
+});
+
 test('v648: a device with real sales takes the photo stock for a product it did not know', async () => {
   const { base, leer, foto } = await conVentaReal();
   foto({ ...base, id: 'foto-2', stockActual: 5 });

@@ -1,10 +1,10 @@
 {
-  "version": "shell v648",
+  "version": "shell v649",
   "fecha": "2026-11-02",
-  "changelog": "A device that joins a used store takes the real quantities from the compact store photo, and the latest physical count wins. Everything in v647 is kept.",
+  "changelog": "Fewer false NOT saved messages: a save waits for the same device's save in flight. Archived and deleted products stay that way on a joining device. A device with incomplete sync history rereads the store photo every few minutes. Sync trouble now reports to the team without business data. Everything in v648 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v648",
+  "shell": "f123-shell-v649",
   "apagar": [],
-  "releaseName": "shell v648",
-  "cacheGeneration": "golden195"
+  "releaseName": "shell v649",
+  "cacheGeneration": "golden196"
 }

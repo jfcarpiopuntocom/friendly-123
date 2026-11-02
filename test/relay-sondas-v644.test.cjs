@@ -291,6 +291,25 @@ test('v647: past the reserve even small writes wait, so a loop cannot burn the a
   assert.equal(ws.readyState, 1);
 });
 
+test('v649: silent sync trouble reaches Sentry once per device per day, with fixed codes', async () => {
+  const c = firebaseLleno(2 * 1024 * 1024), avisos = [];
+  c.w.OCCanarios = { fallo: (s, k) => avisos.push(s + ':' + k) };
+  c.w.__ocMezcla = true;
+  await abre(c, URL1);
+  await c.tics(); await c.tics();
+  assert.deepEqual(avisos.filter(a => a === 'sync:cupo-subida-lleno'), ['sync:cupo-subida-lleno']);
+  assert.deepEqual(avisos.filter(a => a === 'sync:shell-no-actualizado'), ['sync:shell-no-actualizado']);
+  assert.ok(avisos.every(a => /^sync:[a-z-]+$/.test(a)));
+});
+
+test('v649: a broken Sentry changes nothing for the caller', async () => {
+  const c = firebaseLleno(2 * 1024 * 1024);
+  c.w.OCCanarios = { fallo: () => { throw new Error('rota'); } };
+  const ws = await abre(c, URL1);
+  await c.tics();
+  assert.equal(ws.readyState, 1);
+});
+
 test('photos never start a probe', async () => {
   const c = montar();
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {} }) }) };
