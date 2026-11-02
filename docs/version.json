@@ -1,10 +1,10 @@
 {
-  "version": "shell v640",
+  "version": "shell v641",
   "fecha": "2026-11-02",
-  "changelog": "Sync layers re-converge: a device that fell back to the second durable relay returns to the first one as soon as it is available again and publishes its full state there, so devices on different layers never stay apart. Inventory, money and movements untouched.",
+  "changelog": "Mobile fix: the Quantity button is now a round button like the others and no longer covers them on narrow screens. Inventory, money and movements untouched.",
   "requerida": false,
-  "shell": "f123-shell-v640",
+  "shell": "f123-shell-v641",
   "apagar": [],
-  "releaseName": "shell v640",
-  "cacheGeneration": "golden187"
+  "releaseName": "shell v641",
+  "cacheGeneration": "golden188"
 }
