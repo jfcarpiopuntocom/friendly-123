@@ -115,7 +115,7 @@
     "./inspector.js": "sha256-2f5c01bf853b766344ab4c432ba51c842b5d34f852beb207dc159c5a0b7598f5",
     "./inspector-ui.js": "sha256-01927769c7f55d3e8e744bd9e1b87e040cb8c314f1a15b8d2eceb87bbd8dea94",
     "./manifest.json": "sha256-4ef826f2367b0776895546c17d3e96e47095bce4c0abc42f332a591ac500426e",
-    "./app-inline-01.min.js": "sha256-08695f0304487c9eaa81137501aa578bcc2eda8613a9bbdf6a6e7807d10b62e8",
+    "./app-inline-01.min.js": "sha256-7b4be99d99139bbde1552e7780bc0d5f11e4f3f3fe5351b9b52c292cd13853ed",
     "./app-inline-02.min.js": "sha256-56226bd780b11cf95096f3fe742d7a46b59f4f0acac7d63327bac3821b0c9a5f",
     "./app-inline-03.min.js": "sha256-168548683336d62d57a45135571e4f163dffd08dbfb6dc4308ce5ebe3f536c3f",
     "./app-inline-04.min.js": "sha256-15b70f37528e90ebceb72d200372f1a584dfc3d5e5f2eff8509975ad6b0dcfcf",

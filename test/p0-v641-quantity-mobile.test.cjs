@@ -41,7 +41,7 @@ test('quantity actions stay reachable above the mobile keyboard and setting 7 co
       };
     });
     await page.locator('button[data-vista="inventario"]').click();
-    const button = page.locator(`[data-ajuste-cantidad="${id}"]`);
+    const button = page.locator(`[data-ajuste-mas="${id}"]`);
     await button.click();
     await page.locator('#oc-cant-n').fill('7');
     await page.evaluate(() => __keyboard(300, 50));

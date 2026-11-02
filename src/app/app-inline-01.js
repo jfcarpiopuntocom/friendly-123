@@ -3288,7 +3288,6 @@ async function cargarInventario(){
       <div class="ajuste-rapido" onclick="event.stopPropagation()" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
         <button data-ajuste-menos="${p.id}" title="${t('inv.removeOne')}" aria-label="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
         <button data-ajuste-mas="${p.id}" title="${t('inv.addOne')}" aria-label="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
-        ${esDuenoInv ? `<button data-ajuste-cantidad="${p.id}" title="${t('inv.qtyBtn')}" aria-label="${t('inv.qtyBtn')}" style="width:36px;height:36px;flex:0 0 36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;">#</button>` : ''}
         ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" aria-label="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
         ${esDuenoInv ? `<button data-editar-directo="${p.id}" title="${t('inv.editTooltip')}" aria-label="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
       </div>
@@ -3334,6 +3333,8 @@ async function cargarInventario(){
       const esMenos = btn.hasAttribute("data-ajuste-menos");
       const id = esMenos ? btn.dataset.ajusteMenos : btn.dataset.ajusteMas;
       const delta = esMenos ? -1 : 1;
+      // JFC 2026-11-02: owner/admin + opens the quantity box (add N or set to this count); staff keep +1/-1.
+      if (!esMenos && esDuenoInv) return ajustarConCajita(id);
       // Dropdown de motivos estandarizados (idea Omar 2026-07-12) en vez de prompt() libre.
       const motivo = await pedirMotivoAjuste(delta);
       if (!motivo) return;
@@ -3355,11 +3356,7 @@ async function cargarInventario(){
 
   // JFC 2026-11-01: owner/admin quantity box. "Add/remove N" is a normal movement (asks the reason);
   // "Set to N" is a physical count (new stock epoch; the latest count wins on every device).
-  grid.querySelectorAll("[data-ajuste-cantidad]").forEach(btn => {
-    if (btn.__ocInvListener) return;
-    btn.__ocInvListener = true;
-    btn.addEventListener("click", async () => {
-      const id = btn.dataset.ajusteCantidad;
+  async function ajustarConCajita(id) {
       const elegido = await pedirCantidadStock();
       if (!elegido) return;
       let body;
@@ -3376,8 +3373,7 @@ async function cargarInventario(){
       } catch (_) { await ocAlert(t("inv.qtyNetwork")); return; }
       if (!res.ok) { await ocAlert(r.error); return; }
       await Promise.all([cargarInventario(), cargarHoy()]);
-    });
-  });
+  }
 
   // Estrella: dueño marca/desmarca productos para que el encargado los promueva
   grid.querySelectorAll("[data-estrella-toggle]").forEach(btn => {
