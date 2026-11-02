@@ -1,7 +1,7 @@
 {
   "version": "shell v642",
   "fecha": "2026-11-02",
-  "changelog": "A new device that joins an existing licence registers its join with the licence service before the Owner PIN check, so the central Owner PIN works on that device. Everything in v641 is kept.",
+  "changelog": "Owner and admin: tapping + opens a quantity box to type the number (add it, or set it as the physical count; the latest physical count wins). Staff keep +1/-1. The separate # button is gone.",
   "requerida": false,
   "shell": "f123-shell-v642",
   "apagar": [],

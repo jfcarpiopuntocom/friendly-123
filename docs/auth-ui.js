@@ -1134,7 +1134,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
   // A configured license has a single Owner PIN revision on the license Worker.
   // No central result may change notebook quantities or local credentials.
-  async function verificarPinOwnerCentral(code, joinRegistrado) {
+  async function verificarPinOwnerCentral(code) {
     let owned,lic;
     try {
       owned=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
@@ -1172,16 +1172,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if(response.status===401)return "wrong";
         if(response.status===429)return "locked";
         // Only the PIN authority's explicit mismatch blocks the Owner; a generic 404 means the route is not deployed.
-        if(response.status===404){let d=null;try{d=await response.json()}catch(_){}if(d&&d.reason==="license-instance-mismatch"){
-          // A new device that explicitly joined this licence is unknown to the Worker until its join is registered.
-          // Register that same join once, then verify again; no PIN or licence is changed by this.
-          let p=null;try{p=JSON.parse(localStorage.getItem("f123_join_pending_v1")||"null")}catch(_){}
-          if(!joinRegistrado&&p&&p.instanceId===owned.instanceId&&String(p.licenseCode||"").trim().toUpperCase()===lic){
-            try{await heartbeatLogin(owned)}catch(_){}
-            return verificarPinOwnerCentral(code,true);
-          }
-          return "unavailable-identity";
-        }return "unconfigured";}
+        if(response.status===404){let d=null;try{d=await response.json()}catch(_){}return d&&d.reason==="license-instance-mismatch"?"unavailable-identity":"unconfigured";}
         if(response.status===409)return "unconfigured";
         return "unavailable";
       }finally{clearTimeout(timer)}
