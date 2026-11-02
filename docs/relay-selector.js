@@ -46,7 +46,18 @@
     estadoCupo: function () { return capas.map(function (capa) { var c = leer(capa.key); return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa) }; }); },
     connect: function (url) {
       if (/-fotos$/.test(String(url))) return peer.connect(url); // photos never use a relay budget
-      for (var i = 0; i < capas.length; i++) if (usable(capas[i])) { try { return envolver(capas[i], url); } catch (_) {} }
+      for (var i = 0; i < capas.length; i++) if (usable(capas[i])) {
+        var ws; try { ws = envolver(capas[i], url); } catch (_) { continue; }
+        // On a fallback layer, re-probe the earlier layers when their pause ends: the app reconnects, the earlier
+        // layer gets this device's full-state checkpoint, and devices split across layers converge again.
+        if (i > 0) (function (s, previas) {
+          var t = setInterval(function () {
+            if (s.readyState >= 2) return clearInterval(t);
+            if (previas.some(usable)) { clearInterval(t); try { s.close(1012, "earlier durable layer available again"); } catch (_) {} }
+          }, 60000);
+        })(ws, capas.slice(0, i));
+        return ws;
+      }
       return peer.connect(url);
     }
   };
