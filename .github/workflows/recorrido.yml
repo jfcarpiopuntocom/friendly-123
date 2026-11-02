@@ -30,3 +30,22 @@ jobs:
       - name: Recorrer la app viva
         shell: bash
         run: node scripts/recorrido-vivo.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
+
+  # Solo avisa: no corre cuando hotfix.yml llama a este workflow, asi que nunca frena una publicacion.
+  union-fria:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Aparato nuevo se une a una tienda sintetica llena
+        shell: bash
+        env:
+          F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+        run: node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"

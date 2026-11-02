@@ -1,10 +1,10 @@
 {
-  "version": "shell v644",
+  "version": "shell v645",
   "fecha": "2026-11-02",
-  "changelog": "A device that joins a store receives its real quantities and PINs, whatever the order devices join in. The initial 789 no longer opens a store that is still arriving. Sync moves past an empty layer and returns from direct peers to a durable layer. Read-only sync probes in Advanced. The Firebase daily budget counts the bytes really read. Everything in v643 is kept.",
+  "changelog": "The Sync line in Advanced shows a stock print: the same print on two devices means the same quantities. Everything in v644 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v644",
+  "shell": "f123-shell-v645",
   "apagar": [],
-  "releaseName": "shell v644",
-  "cacheGeneration": "golden191"
+  "releaseName": "shell v645",
+  "cacheGeneration": "golden192"
 }
