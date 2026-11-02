@@ -104,6 +104,7 @@ const SHELL = [
   "./vendor/minisearch.min.js",
   "./peer-sync.js",
   "./vendor/supabase-relay.min.js",
+  "./firebase-relay.js",
   "./relay-selector.js",
   "./vendor/jspdf-4.2.1.umd.min.js",
   "./vendor/jspdf-autotable-5.0.9.min.js",

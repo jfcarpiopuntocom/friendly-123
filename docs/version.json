@@ -1,7 +1,7 @@
 {
   "version": "shell v639",
   "fecha": "2026-11-02",
-  "changelog": "Durable relay back: a device that connects catches up even when no other device is open. A daily data budget per device protects the free plan; direct device-to-device sync remains as fallback. Inventory, money and movements untouched.",
+  "changelog": "Owners are no longer locked out when the central PIN service is unavailable, and the PIN pad is cleared after choosing a notebook. A device that connects catches up even when no other device is open: two durable relays (Supabase, then Firebase), each with a daily data budget per device, and direct device-to-device sync as the last fallback. Photos stay device-to-device. Inventory, money and movements untouched.",
   "requerida": false,
   "shell": "f123-shell-v639",
   "apagar": [],

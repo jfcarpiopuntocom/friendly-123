@@ -3,7 +3,7 @@
   "shell": "f123-shell-v639",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-2feabaa3383c0b52cc39fdb18c12bf4c8509045186f0ee5fcc1ec34e87fa2d1e",
+    "./index.html": "sha256-47368f7525eb18df9c00803f145a6d00e359e24ba477b9f392376f6f09796ce8",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
@@ -42,7 +42,8 @@
     "./vendor/minisearch.min.js": "sha256-8a05b42785db448f2c19e24a6a2107204c825565fe4f95aa69b79652baf26e82",
     "./peer-sync.js": "sha256-ba9bbdbc8c688529cf38be4ddbe192cbe0b38572b5a7c1ef577f6690e36efb1d",
     "./vendor/supabase-relay.min.js": "sha256-6295504f7fa7e29bd749efae834067bb5b8d3773cd1d32c9a03bb6cba8e73ce5",
-    "./relay-selector.js": "sha256-e2f9d78ec13a096691dbfc53412268f65390f0cea8db4d5869702879fa43df4e",
+    "./firebase-relay.js": "sha256-e6a9b5c8871914076ded31a819ea5804ce1b68f8f344d4b020ab9efe770c4717",
+    "./relay-selector.js": "sha256-89e25037e4879b75062a8cd9627657bd582c2db22a44278b5216043cc6a7efeb",
     "./vendor/jspdf-4.2.1.umd.min.js": "sha256-5feb83f439480e06687f9e6f23a8a162b12157b9606aa6ffc70c7e961b7c6013",
     "./vendor/jspdf-autotable-5.0.9.min.js": "sha256-efe0106af8224d8480b94e83ceafe4a5f889b13e028f3bec6d33c0a64a3133f5",
     "./i18n.js": "sha256-4b2d6b8af3ba692bca2b4c237fa3edc9a74f74774da12ec137c0a72283fac381",
