@@ -1,10 +1,10 @@
 {
-  "version": "shell v643",
+  "version": "shell v644",
   "fecha": "2026-11-02",
-  "changelog": "The store name has the same dark outline as the friendly-123 logo, in the same proportion. Today's date is computed with one shared formatter at startup. Everything in v642 is kept.",
+  "changelog": "Read-only sync probes in Advanced: another device writing on the other layer, nothing arriving from the relay, a device that did not update. The Firebase daily budget counts the bytes really read. Everything in v643 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v643",
+  "shell": "f123-shell-v644",
   "apagar": [],
-  "releaseName": "shell v643",
-  "cacheGeneration": "golden190"
+  "releaseName": "shell v644",
+  "cacheGeneration": "golden191"
 }

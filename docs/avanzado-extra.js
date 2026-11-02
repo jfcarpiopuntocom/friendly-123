@@ -842,9 +842,17 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
                 lat += " · name ns=" + _tz.ns + (_tz.unida ? "(joined)" : "") + " rev=" + _tz.rev + " src=" + _tz.fuente + " ram=" + _tz.nombre + " hdr=" + _hh;
               }
             } catch (_) {}
+            /* v644: sondas de solo lectura; un fallo aqui no cambia la linea. */
+            var _alertaSonda = false;
+            try {
+              var _sn = window.F123Relay && window.F123Relay.estadoSondas ? window.F123Relay.estadoSondas() : {};
+              if (_sn.otraCapa) { lat += " · another device is writing on the other sync layer"; _alertaSonda = true; }
+              if (_sn.sinRecibir) { lat += " · relay moved and nothing arrived here"; _alertaSonda = true; }
+              if (window.__ocMezcla) { lat += " · this device did not update"; _alertaSonda = true; }
+            } catch (_) {}
             el.textContent = "Sync: " + (conectado ? "connected" : "NOT connected") +
               " · products " + prod + " · shelves " + perchas + " · photos " + fotos + lat;
-            el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
+            el.style.color = conectado && !_alertaSonda ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
           } catch (_) { el.textContent = "Sync: —"; }
         };
         /* Aviso de hora (JFC 2026-09-30): lee OCLatencia.desvioReloj cada 3 s.
