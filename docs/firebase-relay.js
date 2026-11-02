@@ -117,7 +117,13 @@
         if (c.ack === 1 && typeof c.id === "string") this._text({ k: "persist-result", kind: "ckpt", id: c.id, ok: res.ok, conflict: res.conflict });
         return;
       }
-      if (c.k === "ts") return this._text({ k: "tsr", t0: c.t0, t1: Date.now() }); // shortcut: device clock, no server skew check
+      if (c.k === "ts") {
+        // Clock witness must be the server's, never the device's: use the HTTP Date header (1 s precision).
+        var tr = await http("GET", this.root + "/k", undefined, { shallow: "true" });
+        var t1 = Date.parse(tr.headers && tr.headers.get ? tr.headers.get("date") || "" : "");
+        if (tr.ok && Number.isFinite(t1)) this._text({ k: "tsr", t0: c.t0, t1: t1 + 500 });
+        return;
+      }
       if (c.k === "head") {
         try {
           var hr = await this._rev(), last = sorted(await getJson(this.root + "/o", { orderBy: '"s"', limitToLast: 1 }));
