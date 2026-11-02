@@ -8,8 +8,14 @@
 (function () {
   "use strict";
   var sb = window.F123Relay, fb = window.F123FirebaseRelay;
-  var peer = window.F123Peer && typeof window.F123Peer.create === "function" ? window.F123Peer.create() : null;
-  if (!peer) return;
+  var peer = null;
+  // Fail closed for photos and fallback: if peer-sync did not load, throw (the caller retries) instead of
+  // leaving the relays without their daily budget or sending photos through a relay.
+  function viaPeers(url) {
+    if (!peer && window.F123Peer && typeof window.F123Peer.create === "function") peer = window.F123Peer.create();
+    if (!peer) throw new Error("Direct peer connections are unavailable");
+    return peer.connect(url);
+  }
   var CAP_UP = 2 * 1024 * 1024, CAP_DOWN = 20 * 1024 * 1024, PAUSA_MS = 15 * 60 * 1000;
   var CIERRE = "daily relay budget reached; local data retained";
   var capas = [];
@@ -45,7 +51,7 @@
     ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
     estadoCupo: function () { return capas.map(function (capa) { var c = leer(capa.key); return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa) }; }); },
     connect: function (url) {
-      if (/-fotos$/.test(String(url))) return peer.connect(url); // photos never use a relay budget
+      if (/-fotos$/.test(String(url))) return viaPeers(url); // photos never use a relay budget
       for (var i = 0; i < capas.length; i++) if (usable(capas[i])) {
         var ws; try { ws = envolver(capas[i], url); } catch (_) { continue; }
         // On a fallback layer, re-probe the earlier layers when their pause ends: the app reconnects, the earlier
@@ -58,7 +64,7 @@
         })(ws, capas.slice(0, i));
         return ws;
       }
-      return peer.connect(url);
+      return viaPeers(url);
     }
   };
 })();

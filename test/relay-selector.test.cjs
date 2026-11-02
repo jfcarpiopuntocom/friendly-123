@@ -88,3 +88,17 @@ test('a device on the fallback layer goes back to the first layer when its pause
   assert.equal(f.closed && f.closed.code, 1012, 'fallback closed so the app reconnects');
   assert.equal(R.connect(URL1).kind, 'supabase', 'reconnect lands on the first layer again');
 });
+
+test('without peer-sync the budgets still apply and photos never fall back to a relay', () => {
+  const store = new Map();
+  const w = {
+    localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)) },
+    F123Relay: { ckptFrameBytes: 786432, connect: () => new FakeSocket('supabase') },
+    EventTarget, Event, DOMException, JSON, Number, String, Date, setInterval: () => 0, clearInterval: () => {}
+  };
+  w.window = w;
+  vm.runInNewContext(SRC, w);
+  assert.equal(w.F123Relay.connect(URL1).kind, 'supabase', 'selector installed even without peer-sync');
+  assert.equal(typeof w.F123Relay.estadoCupo, 'function', 'budget wrapper present');
+  assert.throws(() => w.F123Relay.connect(URL1.replace(/-y$/, '-fotos')), /unavailable/, 'photos fail closed, caller retries');
+});
