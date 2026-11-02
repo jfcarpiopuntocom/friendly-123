@@ -23,7 +23,9 @@
         body: body === undefined ? undefined : JSON.stringify(body)
       });
     }
-    async function getJson(path, query) { var r = await http("GET", path, undefined, query); if (!r.ok) throw new Error("read " + r.status); return r.json(); }
+    // shortcut: counts response bodies and live events read; headers and the echo of a PUT are not visible here. Upgrade if billing data is ever exposed to the client.
+    var wireDown = 0;
+    async function getJson(path, query) { var r = await http("GET", path, undefined, query); var t = await r.text(); wireDown += t.length; if (!r.ok) throw new Error("read " + r.status); return JSON.parse(t); }
     function sorted(obj) { return Object.keys(obj || {}).map(function (k) { return obj[k]; }).filter(function (v) { return v && typeof v.s === "number" && typeof v.c === "string"; }).sort(function (a, b) { return a.s - b.s; }); }
 
     function Socket(url) {
@@ -66,6 +68,7 @@
         var es = new ES(base + this.root + "/o.json?" + q({ orderBy: '"s"', startAt: since }));
         this._es = es;
         var take = function (ev) {
+          wireDown += String(ev.data || "").length;
           var msg; try { msg = JSON.parse(ev.data); } catch (_) { return; }
           if (!msg || !msg.data) return;
           var items = msg.path === "/" ? sorted(msg.data) : (msg.data.c ? [msg.data] : []);
@@ -156,7 +159,19 @@
       this.readyState = 3; try { if (this._es) this._es.close(); } catch (_) {}
       this._emit("close", { code: code || 1000, reason: reason || "", wasClean: (code || 1000) === 1000 });
     };
-    return { ckptFrameBytes: CKPT_CIPHER_BYTES, connect: function (url) { return new Socket(url); } };
+    return {
+      ckptFrameBytes: CKPT_CIPHER_BYTES,
+      connect: function (url) { return new Socket(url); },
+      wireDown: function () { return wireDown; },
+      // Read-only head with no socket and no event stream, for diagnostics.
+      leerHead: async function (url) {
+        var m = String(url).match(LOC);
+        if (!m) return null;
+        var root = "/f123/" + m[1] + (m[2] || ""), last = sorted(await getJson(root + "/o", { orderBy: '"s"', limitToLast: 1 }));
+        var revs = Object.keys((await getJson(root + "/k", { shallow: "true" })) || {}).map(Number).filter(function (n) { return n > 0; });
+        return { rev: revs.length ? Math.max.apply(null, revs) : 0, seq: last.length ? last[0].s : 0 };
+      }
+    };
   }
   if (typeof window !== "undefined") { window.F123FirebaseRelay = create(); window.F123FirebaseRelay.create = create; }
 })();

@@ -1642,8 +1642,10 @@
              intento vuelve a jalar todo. */
           if (c && c.mismo) {
             try { reintentoMs = 1000; intentosSeguidos = 0; conectar(); } catch (_) {}
+            // conectar() above only reaches the old sync; a closed Yjs channel must reopen too. Open sockets ignore this.
+            try { [window.OCYjs.canal, window.OCYjs.opsCanal].forEach(function (c) { if (c && c.conectar) c.conectar(); }); } catch (_) {}
             try { window.dispatchEvent(new CustomEvent("oc-licencia-disponible", { detail: { origen: "unirse" } })); } catch (_) {}
-            return { ok: true, mismo: true, error: "You're already in this store — re-syncing with the team now. If a teammate's device is on, their shelves and customers will land in a moment." };
+            return { ok: true, mismo: true, error: "You're already in this store — recovering it now." };
           }
         }
       } catch (err) {

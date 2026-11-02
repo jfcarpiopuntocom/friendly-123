@@ -1276,6 +1276,18 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       let seen=null;try{seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+String((JSON.parse(localStorage.getItem("f123_owned")||"{}")||{}).licenseCode||"").trim().toUpperCase())||"null")}catch(_){}
       if(seen){error("Autoridad central del PIN no disponible. Reintenta con conexión antes de entrar como Owner.");return}
     }
+    /* v644: a device that just joined must not enter with the initial 789 while its store is still arriving: that login
+       clears the join marker and the store's real PIN could never be adopted. Fallback: after 90 s it stops waiting,
+       so a device whose sync cannot start is never locked out. */
+    if (rolHash === "dueno" && code === ACTIVATION_PIN && central !== "owner" && joinPendienteVivo()) {
+      const Y = window.OCYjs, equipo = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
+      const listo = !!(Y && Y.canal && Y.canal.recuperando === false);
+      window.__f123JoinEspera = window.__f123JoinEspera || Date.now();
+      if ((equipo && equipo.owner && equipo.owner !== ACTIVATION_PIN) || (!listo && Date.now() - window.__f123JoinEspera < 90000)) {
+        error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
+        return;
+      }
+    }
     if (rolHash === "dueno") { if (central === "unconfigured") registrarPinOwnerExistente(code); registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
     if (rolHash === "empleado") {
       registrarExito();
@@ -1314,7 +1326,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // is incomplete or the team's PIN metadata has not arrived.
     try {
       const T = window.OCTienda, Y = window.OCYjs;
-      if (T && T.esUnida && T.esUnida()) {
+      if (T && T.esUnida && (T.esUnida() || joinPendienteVivo())) {
         const team = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
         const owner = String((team && team.owner) || "");
         if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
@@ -1373,6 +1385,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const nFallos = leerIntentos().fallos;
     if (nFallos >= 2) { error(window.t("auth.gate.wrongPin") + " " + window.t("auth.gate.forgotHint")); return; }
     error(window.t("auth.gate.wrongPin"));
+  }
+  function joinPendienteVivo() {
+    try {
+      const j = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null"), o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      return !!(j && j.instanceId && j.instanceId === o.instanceId && j.licenseCode === o.licenseCode);
+    } catch (_) { return false; }
   }
   // Aviso post-caida-a-demo: nunca deja al usuario preguntandose por que ve
   // datos de muestra en vez de esperar una pantalla de error. Reutiliza el
