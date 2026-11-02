@@ -17,6 +17,7 @@
     return peer.connect(url);
   }
   var CAP_UP = 2 * 1024 * 1024, CAP_DOWN = 20 * 1024 * 1024, PAUSA_MS = 15 * 60 * 1000;
+  var CAP_UP_RESERVA = 10 * 1024 * 1024, FRAME_RESERVADO = 16 * 1024;
   var CIERRE = "daily relay budget reached; local data retained";
   var capas = [];
   if (sb && sb !== fb && typeof sb.connect === "function") capas.push({ relay: sb, key: "f123_relay_cupo_v1" });
@@ -29,7 +30,7 @@
   }
   function guardar(key, c) { try { localStorage.setItem(key, JSON.stringify(c)); } catch (_) {} }
   function bytes(v) { return v == null ? 0 : v.byteLength != null ? v.byteLength : v.size != null ? v.size : String(v).length; }
-  function usable(capa) { var c = leer(capa.key); return Date.now() >= c.pausaHasta && c.up < CAP_UP && c.down < CAP_DOWN; }
+  function usable(capa) { var c = leer(capa.key); return Date.now() >= c.pausaHasta && (capa.relay === fb || c.up < CAP_UP) && c.down < CAP_DOWN; }
   // A layer that reports its real read bytes (Firebase) is charged those, and only the new ones: its frames are inside them.
   function sumarBajada(capa, e) {
     var c = leer(capa.key);
@@ -119,6 +120,15 @@
       // Firebase discards binary live copies; only its HTTP-backed commands spend relay quota.
       if (capa.relay === fb && typeof v !== "string") return enviar(v);
       var c = leer(key), n = bytes(v);
+      /* v647: a full budget never stops the last durable layer. Reads cost no upload. Small changes and the compact photo
+         (the room with no channel suffix) ride a reserved lane. Only heavy frames wait, in the caller's outbox, with the
+         connection open. */
+      if (capa.relay === fb) {
+        if (typeof v === "string" && /^\{"k":"(head|pull|ts)"/.test(v)) return enviar(v);
+        var limite = n <= FRAME_RESERVADO || !/-(y|ops|fotos)$/.test(String(url)) ? CAP_UP_RESERVA : CAP_UP;
+        if (c.up + n > limite) throw new DOMException("Daily relay budget reached", "QuotaExceededError");
+        c.up += n; guardar(key, c); return enviar(v);
+      }
       if (c.up + n > CAP_UP) { c.up = CAP_UP; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} throw new DOMException("Daily relay budget reached", "QuotaExceededError"); }
       c.up += n; guardar(key, c); return enviar(v);
     };

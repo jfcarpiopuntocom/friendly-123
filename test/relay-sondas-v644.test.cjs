@@ -217,6 +217,57 @@ test('v646: Firebase failing at open pauses 60 s, not 15 min, and Supabase keeps
   assert.equal(typeof fb, 'function');
 });
 
+function firebaseLleno(n) {
+  const c = montar();
+  const hoy = new Date().toISOString().slice(0, 10);
+  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: hoy, up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
+  c.store.set('f123_relay_cupo_fb_v1', JSON.stringify({ dia: hoy, up: n, down: 0, pausaHasta: 0 }));
+  return c;
+}
+const abre = async (c, url) => { const ws = c.w.F123Relay.connect(url); await tick(40); return ws; };
+
+test('v647: with the upload budget full, Firebase stays connected instead of falling to peers', async () => {
+  const c = firebaseLleno(2 * 1024 * 1024);
+  c.w.F123Peer = { create: () => { throw new Error('must not reach peers'); } };
+  const ws = await abre(c, URL1);
+  assert.equal(ws.readyState, 1);
+  assert.equal(c.w.F123Relay.estadoCupo().find(x => /fb/.test(x.capa)).usable, true);
+});
+
+test('v647: reads cost no upload and pass with the budget full', async () => {
+  const c = firebaseLleno(10 * 1024 * 1024);
+  const ws = await abre(c, URL1);
+  ws.send(JSON.stringify({ k: 'head', v: 2 }));
+  ws.send(JSON.stringify({ k: 'pull', v: 2, rev: 0, seq: 0 }));
+  assert.equal(JSON.parse(c.store.get('f123_relay_cupo_fb_v1')).up, 10 * 1024 * 1024);
+  assert.equal(ws.readyState, 1);
+});
+
+test('v647: over the budget a small change rides the reserve and a heavy frame waits with the socket open', async () => {
+  const c = firebaseLleno(2 * 1024 * 1024);
+  const ws = await abre(c, URL1);
+  ws.send(JSON.stringify({ k: 'op', id: 'chica', c: 'AQID' }));
+  assert.throws(() => ws.send(JSON.stringify({ k: 'op', id: 'pesada', c: 'x'.repeat(20000) })), e => e.name === 'QuotaExceededError');
+  assert.equal(ws.readyState, 1, 'the heavy frame does not close the layer');
+});
+
+test('v647: the compact photo in the base room rides the reserve, a catalog checkpoint does not', async () => {
+  const foto = JSON.stringify({ k: 'ckpt', id: 'f', c: 'x'.repeat(60000) });
+  const c = firebaseLleno(2 * 1024 * 1024);
+  const base = await abre(c, URL1.replace(/-y$/, ''));
+  base.send(foto);
+  const d = firebaseLleno(2 * 1024 * 1024);
+  const cat = await abre(d, URL1);
+  assert.throws(() => cat.send(foto), e => e.name === 'QuotaExceededError');
+});
+
+test('v647: past the reserve even small writes wait, so a loop cannot burn the account', async () => {
+  const c = firebaseLleno(10 * 1024 * 1024);
+  const ws = await abre(c, URL1);
+  assert.throws(() => ws.send(JSON.stringify({ k: 'op', id: 'x', c: 'AQID' })), e => e.name === 'QuotaExceededError');
+  assert.equal(ws.readyState, 1);
+});
+
 test('photos never start a probe', async () => {
   const c = montar();
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {} }) }) };

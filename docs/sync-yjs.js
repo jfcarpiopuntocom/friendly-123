@@ -571,7 +571,8 @@
         bytes <= 1088 * 1024 && buffered === 0;
       if (!largeCheckpoint && buffered + bytes > MAX_BUFFERED_BYTES) return "blocked";
       try { ws.send(value); _lastRelayProgressAt = Date.now(); return "sent"; }
-      catch (error) { if (ws.peerOnly && error && error.name === "QuotaExceededError") return "blocked"; try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
+      // v647: a heavy frame over budget waits in the outbox and the socket stays up.
+      catch (error) { if ((ws.peerOnly || ws.readyState === 1) && error && error.name === "QuotaExceededError") return "blocked"; try { if (ws.readyState === 1) ws.close(1011, "relay send failed"); } catch (_) {} return "failed"; }
     }
     function encolarVivo(value, smallBusiness) {
       var ws = canal.ws;
