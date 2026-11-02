@@ -1,10 +1,10 @@
 {
-  "version": "shell v646",
+  "version": "shell v647",
   "fecha": "2026-11-02",
-  "changelog": "A new device populates from a compact photo of the store when the full catalog is too big for its checkpoint, with its real quantities. The store name outline is thicker, closer to the logo. Everything in v645 is kept.",
+  "changelog": "A full daily upload budget no longer stops sync: reads keep working, small changes and the compact store photo use a reserved lane, and only heavy uploads wait. Everything in v646 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v646",
+  "shell": "f123-shell-v647",
   "apagar": [],
-  "releaseName": "shell v646",
-  "cacheGeneration": "golden193"
+  "releaseName": "shell v647",
+  "cacheGeneration": "golden194"
 }

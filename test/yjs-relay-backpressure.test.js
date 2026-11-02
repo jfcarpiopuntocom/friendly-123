@@ -155,6 +155,20 @@ test('lost ACKs retry exact identities, wrong-kind and stale-socket ACKs cannot 
  assert(!a.data.get('f123_relay_outbox_v1-y').pending.some(e=>e.id===acknowledged.id));
 });
 
+test('v647: a budget refusal does not trip the stall watchdog: no reconnect loop, a slow retry, nothing lost',async()=>{
+ const a=await fixture(),socket=a.sockets[0];socket.readyState=1;socket.onopen();await tick();await tick();
+ socket.bufferedAmount=0;const pendingBefore=a.channel.pend.length;assert(pendingBefore>0);
+ socket.send=()=>{const e=new Error('Daily relay budget reached');e.name='QuotaExceededError';throw e;};
+ const correr=ms=>{const t=a.timers.filter(x=>!x.cancelled&&!x.ran&&x.ms===ms);t.forEach(x=>{x.ran=true;x.fn()});return t.length};
+ correr(100);await tick();await tick();
+ for(let vuelta=0;vuelta<40;vuelta++){a.advance(15000);socket.bufferedAmount=0;correr(100);correr(60000);await tick();await tick();}
+ assert.equal(socket.readyState,1,'ten minutes over budget never close the socket');
+ assert.equal(a.sockets.length,1,'no reconnection happened');
+ assert.equal(a.channel.pend.length,pendingBefore,'every held frame stays queued');
+ assert(a.timers.some(t=>t.ms===60000),'the refused queue retries slowly');
+ assert.equal(a.timers.filter(t=>!t.cancelled&&!t.ran&&t.ms===100).length,0,'no fast retry stays armed');
+});
+
 test('an open socket with a stalled buffer reconnects without discarding queued data',async()=>{
  const a=await fixture(),socket=a.sockets[0];socket.readyState=1;socket.onopen();await tick();await tick();
  const pendingBefore=a.channel.pend.length,storedBefore=JSON.stringify(a.data.get('f123_relay_outbox_v1-y'));
