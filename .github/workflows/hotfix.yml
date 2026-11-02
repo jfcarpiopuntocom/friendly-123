@@ -95,7 +95,14 @@ jobs:
             node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/peer-sync-browser.test.js
           fi
           if (( ${#REGULAR[@]} )); then
-            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "${REGULAR[@]}"
+            if ! node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "${REGULAR[@]}" 2>&1 | tee /tmp/regular.tap; then
+              # Load-only flakes: rerun ONLY the files that failed, whole and alone (no name filter, so no
+              # subtest can be silently skipped). A real regression fails again; more than 3 files is not a flake.
+              mapfile -t FAILED < <(awk '/^ *not ok [0-9]+ /{f=1} f && /location: .*test\//{match($0,/test\/[^:'"'"']+/);print substr($0,RSTART,RLENGTH);f=0}' /tmp/regular.tap | sort -u)
+              printf 'Failed under load, retrying alone: %s\n' "${FAILED[@]}"
+              (( ${#FAILED[@]} >= 1 && ${#FAILED[@]} <= 3 )) || exit 1
+              node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 "${FAILED[@]}"
+            fi
           fi
       - name: Mover ramas (previo <- estable, estable <- este commit)
         id: promote

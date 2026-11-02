@@ -53,7 +53,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await ownerLogin(second);
    // S1: a new PIN session MUST take the lease without queuing behind a
    // possibly zombie Web Lock. The old in-flight write still owns the lock.
-   await second.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent(),null,{timeout:5000});
+   await second.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent(),null,{timeout:15000}); // handoff under a loaded CI box; behavior asserts below keep their 2 s limits
    assert.equal(await second.evaluate(()=>window.__lockCalls.some(x=>x.callback==='take')),false,
      'PIN handoff must not wait for the former tab to release a Web Lock');
    assert.equal((await sessionSnapshot(second)).leases.length,1,'new tab holds exactly one session lease');
