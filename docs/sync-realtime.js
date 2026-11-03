@@ -1717,6 +1717,7 @@
             // El siguiente checkin puede mover la fila del panel SOLO porque
             // hubo un join deliberado. Un login pasivo jamás cambia licencia.
             if (_ow.instanceId) localStorage.setItem("f123_join_pending_v1", JSON.stringify({ instanceId: _ow.instanceId, licenseCode: _codNorm }));
+      try { localStorage.setItem("f123_aparato_unido", _codNorm); } catch (_) {} // survives the join marker; keyed to the license so another license never inherits it
           }
           localStorage.setItem("f123_owned", JSON.stringify(_ow));
         }

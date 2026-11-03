@@ -1278,19 +1278,40 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       let seen=null;try{seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+String((JSON.parse(localStorage.getItem("f123_owned")||"{}")||{}).licenseCode||"").trim().toUpperCase())||"null")}catch(_){}
       if(seen){error("Autoridad central del PIN no disponible. Reintenta con conexión antes de entrar como Owner.");return}
     }
-    /* v644: a device that just joined must not enter with the initial 789 while its store is still arriving: that login
-       clears the join marker and the store's real PIN could never be adopted. Fallback: after 90 s it stops waiting,
-       so a device whose sync cannot start is never locked out. */
-    if (rolHash === "dueno" && code === ACTIVATION_PIN && central !== "owner" && joinPendienteVivo()) {
-      const Y = window.OCYjs, equipo = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
-      const listo = !!(Y && Y.canal && Y.canal.recuperando === false);
-      window.__f123JoinEspera = window.__f123JoinEspera || Date.now();
-      if ((equipo && equipo.owner && equipo.owner !== ACTIVATION_PIN) || (!listo && Date.now() - window.__f123JoinEspera < 90000)) {
+    /* JFC 2026-11-03: "LA GENTE YA TIENE SUS PIN, NO LES PUEDES IMPONER COSAS". On a device joined to an existing store, the factory
+       789 never opens it as Owner: people keep their own PIN. It opens only if the store itself says its Owner PIN is 789.
+       Creating a new store with 789 is not affected. */
+    let _aparatoUnido = joinPendienteVivo();
+    try {
+      const _licU = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+      _aparatoUnido = _aparatoUnido || (!!_licU && localStorage.getItem("f123_aparato_unido") === _licU) || !!(window.OCTienda && window.OCTienda.esUnida && window.OCTienda.esUnida());
+    } catch (_) {}
+    /* v654 (OpenCode audit 2026-11-03): devices that joined BEFORE v654 carry no join flag, so on ANY device the store's own
+       Owner PIN, once known, beats the factory 789. Mock-backend adopts that PIN locally when it arrives (aplicar remoto). */
+    if (rolHash === "dueno" && code === ACTIVATION_PIN && central !== "owner") {
+      const Ya = window.OCYjs, equipoA = Ya && Ya.meta && typeof Ya.meta.get === "function" ? Ya.meta.get("pinsRol") : null;
+      if (equipoA && equipoA.owner && equipoA.owner !== ACTIVATION_PIN) {
         error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
         return;
       }
     }
-    if (rolHash === "dueno") { if (central === "unconfigured") registrarPinOwnerExistente(code); registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
+    if (rolHash === "dueno" && code === ACTIVATION_PIN && central !== "owner" && _aparatoUnido) {
+      const Y = window.OCYjs, equipo = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
+      /* v654 (audit 2026-11-03): recovery finishing is NOT proof of the store PIN. Only the store's own pinsRol.owner === 789,
+         or the photo flag, may open a joined device with 789. Without either, the device waits for its store's PIN. */
+      let tiendaDice789 = false;
+      try {
+        const lic = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+        tiendaDice789 = !!lic && localStorage.getItem("f123_pin_tienda_789") === lic; // a flag from another license never counts
+      } catch (_) {}
+      const tiendaEs789 = !!(equipo && equipo.owner === ACTIVATION_PIN);
+      if (!(tiendaEs789 || (tiendaDice789 && !(equipo && equipo.owner)))) {
+        error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
+        return;
+      }
+    }
+    // The factory 789 is never reported as a store's central Owner PIN (it would then open that store anywhere).
+    if (rolHash === "dueno") { if (central === "unconfigured" && code !== ACTIVATION_PIN) registrarPinOwnerExistente(code); registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
     if (rolHash === "empleado") {
       registrarExito();
       try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
