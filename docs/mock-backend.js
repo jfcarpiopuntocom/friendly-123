@@ -1642,12 +1642,13 @@
         }
         return idb.guardarConRevision(completo, _localRev).then(ok => {
           if (ok !== true) return terminar(false);
-          const ack = terminar(true);
-          if (ab && tokenOk) setTimeout(() => {
+          // v650: A/B first, the seal after. Another tab that sees the new seal reloads from A/B: an older copy there
+          // left its revision behind, IndexedDB refused its next save, and the customer got a false NOT saved.
+          if (ab && tokenOk) {
             try { _guardandoAB = true; ab.guardarAhora(crudo); }
             catch (_) {} finally { _guardandoAB = false; }
-          }, 0);
-          return ack;
+          }
+          return terminar(true);
         }, () => terminar(false));
       }
       // Non-financial background state still uses existing A/B recovery.
