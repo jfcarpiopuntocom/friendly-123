@@ -2190,6 +2190,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     </div>`;
     document.body.appendChild(cont);
     _ocMascaraCodigo(cont.querySelector("#oc-ue-codigo"));
+    _ocBotonEscanear(cont); // PAIR-QR v656
     /* CONFIRMACIÓN DE A QUÉ EQUIPO TE UNES (JFC 2026-08-26): uno debe SABER a
        dónde se une. Mientras teclea, se confirma la cola de la licencia; tras
        unirte, el candado ya muestra el nombre de la tienda. Best practice. */
@@ -2221,6 +2222,125 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       msgEl.style.color = "var(--verde-suave,#2f7a4f)";
       msgEl.textContent = window.t("auth.join.success");
       cont.luego(() => cont.cerrar(), 1800);
+    });
+  }
+
+  /* ===== PAIR-QR v656 (JFC 2026-11-03): "Vincular un aparato nuevo" =====
+     Aparato de confianza (dueno/admin) -> QR de 10 min, un solo uso. El aparato nuevo
+     lo abre con su camara normal (es un URL), se une con la licencia si hace falta y
+     recibe el estado de PIN de la tienda cifrado (AES-GCM; la llave va solo en el
+     #fragmento, jamas a un servidor). Asi no depende del PIN de fabrica 789 ni del sync.
+     PARA APAGAR: borrar la llamada vincularAparatoNuevo() de abajo y el boton en
+     avanzado-extra.js (#oc-pair-btn); las rutas /pair/* del Worker quedan inertes. */
+  /* PAIR-HELPERS-BEGIN (extraido tal cual por test/pair-qr-v656.test.mjs) */
+  (function () {
+    function b64u(bytes) { var s = ""; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+    function unb64u(str) { str = String(str).replace(/-/g, "+").replace(/_/g, "/"); while (str.length % 4) str += "="; var bin = atob(str), o = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) o[i] = bin.charCodeAt(i); return o; }
+    /* cifrar(payload) -> {tokenId, blob, keyB64}. blob = base64url(iv12 || ciphertext). */
+    async function cifrar(payload) {
+      var c = globalThis.crypto;
+      var key = await c.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+      var iv = c.getRandomValues(new Uint8Array(12));
+      var ct = new Uint8Array(await c.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, new TextEncoder().encode(JSON.stringify(payload))));
+      var out = new Uint8Array(12 + ct.length); out.set(iv, 0); out.set(ct, 12);
+      var raw = new Uint8Array(await c.subtle.exportKey("raw", key));
+      var id = c.getRandomValues(new Uint8Array(16)), hex = "";
+      for (var i = 0; i < id.length; i++) hex += ("0" + id[i].toString(16)).slice(-2);
+      return { tokenId: hex, blob: b64u(out), keyB64: b64u(raw) };
+    }
+    async function descifrar(blob, keyB64) {
+      var c = globalThis.crypto, all = unb64u(blob);
+      var key = await c.subtle.importKey("raw", unb64u(keyB64), { name: "AES-GCM" }, false, ["decrypt"]);
+      var pt = await c.subtle.decrypt({ name: "AES-GCM", iv: all.slice(0, 12) }, key, all.slice(12));
+      return JSON.parse(new TextDecoder().decode(pt));
+    }
+    window.OCPair = { cifrar: cifrar, descifrar: descifrar };
+  })();
+  /* PAIR-HELPERS-END */
+
+  function vincularAparatoNuevo() {
+    var K = "f123_vincular";
+    function owned() { try { return JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) { return {}; } }
+    function licUp() { return String(owned().licenseCode || "").trim().toUpperCase(); }
+    function msg(txt, ok) {
+      var el = document.getElementById("oc-msg"); if (!el) return; // sin compuerta visible no hay donde mostrarlo
+      el.style.color = ok ? "var(--verde-suave,#2f7a4f)" : "var(--rojo,#a3392a)";
+      el.textContent = txt;
+    }
+    /* 1) Leer el fragmento #vincular=<tokenId>.<llave> y guardarlo en sessionStorage. */
+    try {
+      var m = /^#vincular=([a-f0-9]{32})\.([A-Za-z0-9_-]{20,64})$/.exec(location.hash || "");
+      if (m) {
+        var lic = (new URLSearchParams(location.search).get("join") || sessionStorage.getItem("f123_join_pendiente") || "").trim().toUpperCase();
+        if (/^F123-/.test(lic)) sessionStorage.setItem(K, JSON.stringify({ lic: lic, tokenId: m[1], keyB64: m[2] }));
+        history.replaceState(null, "", location.pathname + location.search); // la llave no se queda en la barra
+      }
+    } catch (_) {}
+    var pend = null;
+    try { pend = JSON.parse(sessionStorage.getItem(K) || "null"); } catch (_) {}
+    if (!pend) return;
+    /* 2) Sin licencia aun: abrir el dialogo de unirse con el codigo ya escrito. */
+    function abrir() {
+      if (licUp()) return;
+      try {
+        abrirUnirseEquipo();
+        var inp = document.getElementById("oc-ue-codigo");
+        if (inp) { inp.value = pend.lic; inp.dispatchEvent(new Event("input", { bubbles: true })); }
+      } catch (_) {}
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", abrir); else setTimeout(abrir, 0);
+    /* 3) Cuando la licencia del aparato coincide, canjear el blob (se reintenta
+          cada 1.5 s hasta 3 min por si el usuario aun esta confirmando "Unirme"). */
+    var intentos = 0, hecho = false;
+    var iv = setInterval(async function () {
+      if (hecho || ++intentos > 120) { clearInterval(iv); return; }
+      if (licUp() !== pend.lic) return;
+      hecho = true; clearInterval(iv);
+      try { sessionStorage.removeItem(K); } catch (_) {} // un solo intento, pase lo que pase
+      try {
+        var r = await fetch(OC_WORKER_URL.replace(/\/+$/, "") + "/pair/take", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tokenId: pend.tokenId, licenseCode: pend.lic }) });
+        if (r.status === 404) { msg(window.t("pair.expired"), false); return; }
+        if (!r.ok) return;
+        var d = await r.json();
+        var p = await window.OCPair.descifrar(d.blob, pend.keyB64);
+        var raw = String(owned().licenseCode || "").trim();
+        if (String(p.owner) === "789") localStorage.setItem("f123_pin_tienda_789", raw);
+        else if (p.owner && Number(p.ownerPinTs) > 0 && window.OCSecure && window.OCSecure.adoptarPinOwnerDeFoto) await window.OCSecure.adoptarPinOwnerDeFoto(String(p.owner), Number(p.ownerPinTs));
+        localStorage.setItem("f123_aparato_unido", raw);
+        msg(window.t("pair.ok"), true);
+      } catch (e) { try { console.warn("pair: no se pudo canjear", e && e.name); } catch (_) {} } // nunca se registran PINs
+    }, 1500);
+  }
+  vincularAparatoNuevo();
+
+  /* Boton "Escanear codigo" del dialogo de unirse: solo si el navegador sabe leer QR. */
+  function _ocBotonEscanear(cont) {
+    if (!("BarcodeDetector" in window) || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    var cancel = cont.querySelector("#oc-ue-cancelar"); if (!cancel) return;
+    var b = document.createElement("button");
+    b.id = "oc-ue-escanear"; b.type = "button"; b.textContent = window.t("pair.scan");
+    b.style.cssText = "width:100%;min-height:44px;margin-top:10px;padding:11px;border-radius:9px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68);font-size:15px;font-weight:700;cursor:pointer;";
+    cancel.parentNode.insertBefore(b, cancel);
+    b.addEventListener("click", async function () {
+      var stream = null, timer = null, ov = document.createElement("div");
+      function cerrar() { if (timer) clearInterval(timer); if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); ov.remove(); }
+      ov.style.cssText = "position:fixed;inset:0;z-index:2147483000;background:#000000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;";
+      ov.innerHTML = '<video playsinline muted style="width:100%;max-width:420px;max-height:70vh;background:#000000;"></video>' +
+        '<button type="button" style="min-height:48px;padding:12px 28px;border-radius:9px;border:2px solid #FFFFFF;background:#FFFFFF;color:#0F1923;font-size:16px;font-weight:700;cursor:pointer;">' + window.t("auth.join.cancel") + '</button>';
+      document.body.appendChild(ov);
+      ov.querySelector("button").addEventListener("click", cerrar);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+        var v = ov.querySelector("video"); v.srcObject = stream; await v.play();
+        var det = new window.BarcodeDetector({ formats: ["qr_code"] });
+        timer = setInterval(async function () {
+          try {
+            var res = await det.detect(v);
+            var val = res && res[0] && res[0].rawValue || "";
+            if (val.indexOf("https://friendly123.com/app/") === 0 || val.indexOf("https://jfcarpiopuntocom.github.io/friendly-123/") === 0) { cerrar(); location.href = val; }
+          } catch (_) {}
+        }, 300);
+      } catch (_) { cerrar(); }
     });
   }
 
