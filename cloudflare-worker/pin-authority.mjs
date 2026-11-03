@@ -46,15 +46,15 @@ export function pinAuthority(storage,secret,clock=Date.now){
  async function status(license,registeredIds){const l=cleanLicense(license);return pub(await storage.get(key(l)),await storage.get(proposal(l)),await storage.get(report(l)),registeredIds)}
  /* TRANSITION (JFC 2026-11-03, literal): «el mas reciente admin u owner del negocio ... esto es para absorberles y luego
     sellar lo que YA TIENEN ... y centralizarlo GOING FORWARD en mi panel privado». A device-reported Owner PIN with the
-    time of its last explicit change by owner/admin (pinTs) is sealed if it is the most recent one. Absorption only applies
-    while the seal itself came from absorption; once JFC sets a PIN in his panel (or an owner rotates centrally) the panel
-    rules. 456/789 never reach here (cleanPin). Reports without pinTs (older shells) are only observed, never sealed. */
+    time of its last explicit change by owner/admin (pinTs) seals the license ONCE. v655 (Codex audit 2026-11-03): a sealed
+    PIN is never replaced by a report or a login claiming a newer time (no proof of the current PIN); later changes go
+    through the authenticated rotation (needs the current PIN) or JFC's panel. 456/789 never reach here (cleanPin).
+    Reports without pinTs (older shells) are only observed, never sealed. */
  async function absorb(tx,l,fingerprint,pinTs,now){
   const ts=Number(pinTs);
   if(!Number.isSafeInteger(ts)||ts<=0||ts>now+300000)return null;
-  const stored=await tx.get(key(l));
-  if(stored&&(stored.changedBy!=="absorbed"||ts<=Number(stored.pinTs||0)||equal(stored.fingerprint,fingerprint)))return null;
-  const sealed={v:1,revision:(stored?.revision??0)+1,fingerprint,changedAt:now,changedBy:"absorbed",pinTs:ts};
+  if(await tx.get(key(l)))return null;
+  const sealed={v:1,revision:1,fingerprint,changedAt:now,changedBy:"absorbed",pinTs:ts};
   await tx.put(key(l),sealed);await tx.delete(limit(l));await tx.delete(proposal(l));
   return sealed;
  }
@@ -64,7 +64,6 @@ export function pinAuthority(storage,secret,clock=Date.now){
   const fingerprint=await mac(secret,l,p);
   return storage.transaction(async tx=>{
    const now=clock(),obs=await tx.get(report(l))||{devices:{}};
-   await absorb(tx,l,fingerprint,pinTs,now);
    const prior=obs.devices[instanceId];
    // One daily refresh for unchanged credentials. A changed claim is allowed
    // only after a 15-minute cooldown to prevent quota storms and false census
@@ -72,8 +71,11 @@ export function pinAuthority(storage,secret,clock=Date.now){
    const elapsed=prior?now-Number(prior.at):Infinity;
    if(prior&&(!Number.isFinite(elapsed)||elapsed<0))
      return {ok:false,reason:"report-rate-limited"};
-   if(prior&&equal(prior.fingerprint,fingerprint)&&elapsed<REPORT_INTERVAL)
+   // v655: sealing happens only on accepted reports (never on a rate-limited one).
+   if(prior&&equal(prior.fingerprint,fingerprint)&&elapsed<REPORT_INTERVAL){
+     await absorb(tx,l,fingerprint,pinTs,now);
      return {ok:true,observed:true,unchanged:true};
+   }
    if(prior&&elapsed<REPORT_CHANGE_INTERVAL)
      return {ok:false,reason:"report-rate-limited"};
    if(!prior&&Object.keys(obs.devices).length>=60)return {ok:false,reason:"device-report-limit"};
@@ -82,6 +84,7 @@ export function pinAuthority(storage,secret,clock=Date.now){
    // that pending activation. No customer PINs or notebook bytes are stored.
    obs.generation=(Number.isSafeInteger(obs.generation)&&obs.generation>=0?obs.generation:0)+1;
    await tx.put(report(l),obs);
+   await absorb(tx,l,fingerprint,pinTs,now);
    return {ok:true,observed:true,unchanged:false};
   });
  }
@@ -94,6 +97,8 @@ export function pinAuthority(storage,secret,clock=Date.now){
    if(prior&&equal(prior.fingerprint,fingerprint)){
     // Explicitly returning to the current PIN cancels any stale proposal.
     await tx.delete(proposal(l));
+    // v655 (Codex audit): JFC confirming an absorbed PIN makes it his panel's PIN.
+    if(prior.changedBy==="absorbed"){const own={...prior,changedAt:clock(),changedBy:"JFC-panel"};await tx.put(key(l),own);return {ok:true,unchanged:true,...pub(own,null,observed,registeredIds)}}
     return {ok:true,unchanged:true,...pub(prior,null,observed,registeredIds)};
    }
    // A stage is NEVER an effective Owner PIN. It only creates an admin proposal.
@@ -127,11 +132,7 @@ export function pinAuthority(storage,secret,clock=Date.now){
   return storage.transaction(async tx=>{
    const stored=await tx.get(key(l));if(!stored)return {ok:false,reason:"unconfigured"};
    const now=clock();
-   // Transition: a login with a MORE RECENT owner/admin change than the absorbed seal re-seals it (see absorb).
-   if(!rotation&&!equal(candidate,stored.fingerprint)){
-    const sealed=await absorb(tx,l,candidate,pinTs,now);
-    if(sealed)return {ok:true,revision:sealed.revision};
-   }
+   // v655 (Codex audit 2026-11-03): a login never re-seals a PIN by claiming a newer change time.
    let guard=await tx.get(limit(l));
    if(!guard||!Number.isSafeInteger(guard.start)||now-guard.start>=WINDOW||now<guard.start)guard={start:now,attempts:0,lockedUntil:0};
    if(guard.lockedUntil>now)return {ok:false,reason:"rate-limited"};

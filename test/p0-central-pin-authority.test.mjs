@@ -119,22 +119,37 @@ test("a new device report does not cancel a JFC proposal; the panel activates it
   assert.equal((await a.call("/pin/verify",{pin:"908"})).status,200);
 });
 // Transition (JFC 2026-11-03): absorb the most recent owner/admin PIN, seal it, then the panel rules going forward.
-test("transition seals the most recent owner/admin PIN; older or untimed reports never override it",async()=>{
+test("transition seals the first timed owner/admin PIN once; nothing re-seals it without the current PIN",async()=>{
   const a=setup();a.registered.add(other);
   assert.equal((await a.call("/pin/report",{instanceId:dev,pin:"123"})).status,200);
   assert.equal((await a.authority.status(lic)).configured,false,"a report without change time is only observed");
   assert.equal((await a.call("/pin/report",{instanceId:other,pin:"384",pinTs:2000})).status,200);
-  assert.equal((await a.call("/pin/verify",{pin:"384"})).status,200,"most recent change is sealed");
-  assert.equal((await a.call("/pin/verify",{instanceId:other,pin:"123",pinTs:1000})).status,401,"an older change never overrides");
-  assert.equal((await a.call("/pin/verify",{pin:"123"})).status,401,"a login without change time never overrides");
-  assert.equal((await a.call("/pin/verify",{pin:"555",pinTs:3000})).status,200,"a newer owner/admin change re-seals");
-  assert.equal((await a.call("/pin/verify",{pin:"384"})).status,401);
+  assert.equal((await a.call("/pin/verify",{pin:"384"})).status,200,"timed owner/admin PIN is sealed");
+  // v655 (Codex audit): a newer claimed time never replaces the seal, neither by login nor by report.
+  assert.equal((await a.call("/pin/verify",{pin:"555",pinTs:Date.now()})).status,401,"login cannot re-seal");
+  assert.equal((await a.call("/pin/verify",{pin:"384"})).status,200);
+  // the authenticated rotation (knows the current PIN) is the way to change it
+  const r=await a.call("/pin/rotate",{pin:"384",newPin:"555",expectedRevision:1});
+  assert.equal(r.status,200);assert.equal((await a.call("/pin/verify",{pin:"555"})).status,200);
   const s=await a.authority.status(lic);
   assert.equal((await stage(a,"908",s.revision)).status,200);
   assert.equal((await activate(a,"908",s.revision)).status,200);
-  assert.equal((await a.call("/pin/verify",{pin:"777",pinTs:Date.now()})).status,401,"after JFC sets it, the panel rules");
-  assert.equal((await a.call("/pin/verify",{pin:"908"})).status,200);
+  assert.equal((await a.call("/pin/verify",{pin:"908"})).status,200,"the panel rules");
   assert.equal(a.store.values().includes('"555"'),false,"no raw PIN stored");
+});
+test("v655: a rate-limited report never seals or changes the PIN",async()=>{
+  const a=setup();
+  assert.equal((await a.call("/pin/report",{pin:"123"})).status,200,"untimed: observed only");
+  const limited=await a.call("/pin/report",{pin:"908",pinTs:5000});
+  assert.equal(limited.status,429);
+  assert.equal((await a.authority.status(lic)).configured,false,"rejected report sealed nothing");
+});
+test("v655: JFC confirming the absorbed PIN in the panel ends the transition for that license",async()=>{
+  const a=setup();
+  assert.equal((await a.call("/pin/report",{pin:"384",pinTs:2000})).status,200);
+  const same=await stage(a,"384",1);
+  assert.equal(same.status,200);assert.equal(same.body.unchanged,true);
+  assert.equal((await a.store.get("pin-owner:"+lic)).changedBy,"JFC-panel");
 });
 test("repeated conflicting census claims are bounded by HTTP 429",async()=>{
   const a=setup();await register(a,"123",dev);
