@@ -2299,6 +2299,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { sessionStorage.removeItem(K); } catch (_) {} // un solo intento, pase lo que pase
       try {
         var r = await fetch(OC_WORKER_URL.replace(/\/+$/, "") + "/pair/take", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tokenId: pend.tokenId, licenseCode: pend.lic }) });
+        // Cloudflare KV can take up to ~60 s to show a value written from another region: retry a 404 before giving up.
+        for (var k = 0; r.status === 404 && k < 6; k++) {
+          await new Promise(function (ok) { setTimeout(ok, 10000); });
+          r = await fetch(OC_WORKER_URL.replace(/\/+$/, "") + "/pair/take", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tokenId: pend.tokenId, licenseCode: pend.lic }) });
+        }
         if (r.status === 404) { msg(window.t("pair.expired"), false); return; }
         if (!r.ok) return;
         var d = await r.json();
