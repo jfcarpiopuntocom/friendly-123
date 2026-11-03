@@ -61,8 +61,14 @@ async function handlePairPut(req, env) {
   if (!PAIR_LIC_RE.test(lic) || !/^[A-Za-z0-9_-]{6,120}$/.test(instanceId) || !/^[a-f0-9]{32}$/.test(tokenId)
       || !/^[A-Za-z0-9_-]{1,4096}$/.test(blob)) return pairJson({ ok: false, reason: "bad-fields" }, 400);
   // El aparato debe pertenecer a esa licencia (mismo criterio que el resto de rutas de PIN).
+  // v656 fix (QA 2026-11-03): read the device the same way as the PIN routes: the strongly consistent Durable Object
+  // first (it can hold more recent records), then the license KV. Reading KV only refused real registered devices.
   let rec = null;
-  try { const rawRec = await env.LICENCIAS.get("inst:" + instanceId); rec = rawRec ? (typeof rawRec === "string" ? JSON.parse(rawRec) : rawRec) : null; } catch (_) {}
+  try {
+    const stub = doLicencias(env);
+    if (stub) { const resp = await stub.fetch("https://do.invalid/r/" + encodeURIComponent(instanceId)); if (resp.ok) rec = await resp.json(); }
+  } catch (_) { rec = null; }
+  if (!rec) { try { const rawRec = await env.LICENCIAS.get("inst:" + instanceId); rec = rawRec ? (typeof rawRec === "string" ? JSON.parse(rawRec) : rawRec) : null; } catch (_) {} }
   if (!rec || rec.instanceId !== instanceId || String(rec.licenseCode || "").trim().toUpperCase() !== lic) {
     return pairJson({ ok: false, reason: "license-instance-mismatch" }, 404);
   }
