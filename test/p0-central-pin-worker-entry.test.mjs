@@ -43,11 +43,7 @@ test("full Worker route and real Durable Object enforce JFC PIN override and dev
  assert.equal(early.status,409,"unmatched device is not locked out before activation");
  assert.equal(early.data.reason,"unconfigured");
  assert.equal((await req("/pin/report",{instanceId:"unregistered-device",pin:"521"})).status,404,"unmatched device never enters the census");
- assert.equal((await req("/pin/admin/set",{pin:"318",expectedRevision:0},true)).status,409,"no forced PIN before device enrollment");
  assert.equal((await req("/pin/report",{pin:"318"})).status,200);
- const incomplete=await req("/pin/admin/set",{pin:"318",expectedRevision:0},true);
- assert.equal(incomplete.status,409,"one of two registered devices may not be silently skipped");
- assert.equal(incomplete.data.reason,"census-incomplete");
  assert.equal((await req("/pin/report",{instanceId:"synthetic-mobile",pin:"318"})).status,200);
  const first=await req("/pin/admin/set",{pin:"318",expectedRevision:0},true);
  assert.equal(first.status,200);assert.equal(first.data.pendingRevision,1);

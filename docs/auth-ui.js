@@ -1134,7 +1134,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
   // A configured license has a single Owner PIN revision on the license Worker.
   // No central result may change notebook quantities or local credentials.
-  async function verificarPinOwnerCentral(code) {
+  async function verificarPinOwnerCentral(code, esPinLocalDueno) {
     let owned,lic;
     try {
       owned=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
@@ -1153,7 +1153,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const response=await fetch(endpoint.origin+"/pin/verify",{
           method:"POST",mode:"cors",cache:"no-store",signal:controller.signal,
           headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({licenseCode:lic,instanceId:owned.instanceId,pin:String(code)})
+          // pinTs only for this device's own Owner PIN: a typed foreign PIN can never claim to be the most recent change.
+          body:JSON.stringify({licenseCode:lic,instanceId:owned.instanceId,pin:String(code),
+            pinTs:esPinLocalDueno&&window.OCSecure&&window.OCSecure.ownerPinTs?(Number(window.OCSecure.ownerPinTs())||0):0})
         });
         if(response.status===200){
           const data=await response.json();
@@ -1233,20 +1235,24 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const now=Date.now();
       const lastSuccess=Number(localStorage.getItem(marker+":ok")||0);
       const lastAttempt=Number(localStorage.getItem(marker)||0);
-      if(lastSuccess>0&&now>=lastSuccess&&now-lastSuccess<86400000)return;
+      // v654 transition (JFC 2026-11-03): the report carries the time of this device's last explicit Owner PIN change by
+      // owner/admin, so the license authority can seal the most recent one. A newer change bypasses the throttles once.
+      let pinTs=0;try{pinTs=Number(window.OCSecure.ownerPinTs())||0}catch(_){}
+      const mismoTs=(localStorage.getItem(marker+":ts")||"0")===String(pinTs);
+      if(mismoTs&&lastSuccess>0&&now>=lastSuccess&&now-lastSuccess<86400000)return;
       // Max one failed attempt per six hours, even if login is repeated.
       // This avoids quota storms and still lets an outage recover without
       // leaving a customer's prior PIN unreported for a whole day.
-      if(lastAttempt>0&&now>=lastAttempt&&now-lastAttempt<21600000)return;
+      if(mismoTs&&lastAttempt>0&&now>=lastAttempt&&now-lastAttempt<21600000)return;
       const dest=new URL(OC_WORKER_URL);
       if(dest.protocol!=="https:"||dest.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return;
-      try{localStorage.setItem(marker,String(now))}catch(_){}
+      try{localStorage.setItem(marker,String(now));localStorage.setItem(marker+":ts",String(pinTs))}catch(_){}
       const controller=new AbortController(),t=setTimeout(()=>controller.abort(),2000);
       fetch(dest.origin+"/pin/report",{
         method:"POST",mode:"cors",cache:"no-store",credentials:"omit",
         redirect:"error",referrerPolicy:"no-referrer",signal:controller.signal,
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({licenseCode:lic,instanceId:id,pin:String(pin)})
+        body:JSON.stringify({licenseCode:lic,instanceId:id,pin:String(pin),pinTs})
       }).then(async r=>{
         if(!r.ok)return;
         const data=await r.json().catch(()=>null);
@@ -1264,7 +1270,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     // Central decision supersedes stale per-browser Owner PINs when reachable.
     // Never allow central rejection to become a staff/artist PIN bypass.
     const central=(rolHash==="dueno"||!rolHash) && dispositivoApropiado()
-      ? await verificarPinOwnerCentral(code) : "unconfigured";
+      ? await verificarPinOwnerCentral(code, rolHash==="dueno") : "unconfigured";
     if(central==="owner"){registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}return alinearYEntrar(code,"dueno")}
     if(central==="wrong"&&rolHash==="dueno"){
       error("Este PIN Owner fue reemplazado en el panel JFC. Usa el PIN central vigente.");
@@ -1317,6 +1323,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
       try {
         const uNom = await verificarUsuarioNombrado(code);
+        if (uNom && uNom.rol === "admin") {
+          // JFC 2026-11-03: stores may be used only through admins for weeks; an admin login also reports this
+          // device's own Owner PIN (never 456/789) so the license authority can absorb the most recent one.
+          try { const own = window.OCSecure && window.OCSecure.leerPinsVisibles && String((window.OCSecure.leerPinsVisibles() || {}).owner || "");
+            if (/^\d{3}$/.test(own) && own !== ACTIVATION_PIN && own !== DEMO_PIN && dispositivoApropiado()) registrarPinOwnerExistente(own); } catch (_) {}
+        }
         if (uNom) { window.OCCurrentUser = uNom; return alinearYEntrar(code, uNom.rol === "admin" ? "admin" : "empleado"); }
       } catch (_) {}
       return alinearYEntrar(code, "empleado");

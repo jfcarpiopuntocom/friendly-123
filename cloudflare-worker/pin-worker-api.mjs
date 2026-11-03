@@ -15,8 +15,8 @@ export function pinDoRoute(req,storage,env){
    if(body.action==="status")r=await p.status(body.licenseCode,body.registeredIds);
    else if(body.action==="master-set")r=await p.masterSet(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
    else if(body.action==="master-activate")r=await p.masterActivate(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
-   else if(body.action==="report")r=await p.reportExisting(body.licenseCode,body.instanceId,body.pin);
-   else if(body.action==="verify")r=await p.verify(body.licenseCode,body.pin);
+   else if(body.action==="report")r=await p.reportExisting(body.licenseCode,body.instanceId,body.pin,body.pinTs);
+   else if(body.action==="verify")r=await p.verify(body.licenseCode,body.pin,body.pinTs);
    // 2026-11-03 (JFC: the panel dictates PINs, never lock out a customer): a device whose license row does not match
    // is only refused once JFC has set a central PIN for that license. Before that it keeps its existing local access.
    else if(body.action==="verify-unmatched"){

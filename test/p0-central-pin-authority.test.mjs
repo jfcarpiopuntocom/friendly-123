@@ -43,7 +43,6 @@ test("existing clients remain locally governed until enrollment and TWO admin ac
  const a=setup();const before=await a.authority.status(lic);
  assert.equal(before.configured,false);assert.equal(before.phase,"collecting");
  assert.equal((await a.call("/pin/verify",{pin:"123"})).status,409);
- assert.equal((await stage(a)).status,409); // cannot skip collecting existing devices
  await register(a);
  const inventory=await a.authority.status(lic);
  assert.equal(inventory.observedDevices,1);
@@ -111,17 +110,31 @@ test("PIN authority never touches products, orders, money or customer notebook",
  assert.doesNotMatch(a.store.values(),/stock|inventario|movimiento|ventas|pago/i);
 });
 
-test("a new device census report invalidates a prior JFC activation",async()=>{
+// JFC 2026-11-03: «MI PANEL ES EL DICTADOR DE LOS PINS»; a device report never cancels what JFC prepared.
+test("a new device report does not cancel a JFC proposal; the panel activates it",async()=>{
   const a=setup();await register(a,"123",dev);
   assert.equal((await stage(a,"908",0)).status,200);
   await register(a,"384",other);
-  const rejected=await activate(a,"908",0);
-  assert.equal(rejected.status,409);assert.equal(rejected.body.reason,"census-changed");
-  const current=await a.authority.status(lic);
-  assert.equal(current.configured,false);assert.equal(current.pendingRevision,null);
-  assert.equal(current.observedDevices,2);
-  assert.equal((await stage(a,"908",0)).status,200);
   assert.equal((await activate(a,"908",0)).status,200);
+  assert.equal((await a.call("/pin/verify",{pin:"908"})).status,200);
+});
+// Transition (JFC 2026-11-03): absorb the most recent owner/admin PIN, seal it, then the panel rules going forward.
+test("transition seals the most recent owner/admin PIN; older or untimed reports never override it",async()=>{
+  const a=setup();a.registered.add(other);
+  assert.equal((await a.call("/pin/report",{instanceId:dev,pin:"123"})).status,200);
+  assert.equal((await a.authority.status(lic)).configured,false,"a report without change time is only observed");
+  assert.equal((await a.call("/pin/report",{instanceId:other,pin:"384",pinTs:2000})).status,200);
+  assert.equal((await a.call("/pin/verify",{pin:"384"})).status,200,"most recent change is sealed");
+  assert.equal((await a.call("/pin/verify",{instanceId:other,pin:"123",pinTs:1000})).status,401,"an older change never overrides");
+  assert.equal((await a.call("/pin/verify",{pin:"123"})).status,401,"a login without change time never overrides");
+  assert.equal((await a.call("/pin/verify",{pin:"555",pinTs:3000})).status,200,"a newer owner/admin change re-seals");
+  assert.equal((await a.call("/pin/verify",{pin:"384"})).status,401);
+  const s=await a.authority.status(lic);
+  assert.equal((await stage(a,"908",s.revision)).status,200);
+  assert.equal((await activate(a,"908",s.revision)).status,200);
+  assert.equal((await a.call("/pin/verify",{pin:"777",pinTs:Date.now()})).status,401,"after JFC sets it, the panel rules");
+  assert.equal((await a.call("/pin/verify",{pin:"908"})).status,200);
+  assert.equal(a.store.values().includes('"555"'),false,"no raw PIN stored");
 });
 test("repeated conflicting census claims are bounded by HTTP 429",async()=>{
   const a=setup();await register(a,"123",dev);
@@ -148,23 +161,12 @@ test("Expired staged change is HTTP 409, never a false success or active PIN",as
  assert.equal(state.pendingRevision,null);
 });
 
-test("P0: cannot stage until every registered device has reported, regardless of UI count",async()=>{
+// JFC 2026-11-03: devices are abandoned for weeks or only admins log in; the panel never waits for every device.
+test("the panel stages and activates even if registered devices never reported",async()=>{
  const a=setup();a.registered.add(other);
- await register(a,"123",dev);
- let r=await stage(a,"908",0);
- assert.equal(r.status,409);assert.equal(r.body.reason,"census-incomplete");
- assert.equal((await a.authority.status(lic)).configured,false);
- r=await a.call("/pin/admin/set",{pin:"908",expectedRevision:0,registeredIds:[dev]},true);
- assert.equal(r.status,409,"browser must not spoof registry cohort");
- await register(a,"384",other);
- assert.equal((await stage(a,"908",0)).status,200);
- a.registered.delete(other);
- r=await activate(a,"908",0);
- assert.equal(r.status,409);assert.equal(r.body.reason,"census-changed");
- assert.equal((await a.authority.status(lic)).configured,false);
- a.registered.add(other);
  assert.equal((await stage(a,"908",0)).status,200);
  assert.equal((await activate(a,"908",0)).status,200);
+ assert.equal((await a.call("/pin/verify",{pin:"908"})).status,200);
 });
 test("P0: license registry outage blocks JFC activation without changing clients",async()=>{
  const a=setup();await register(a);
