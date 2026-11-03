@@ -38,6 +38,11 @@ test("full Worker route and real Durable Object enforce JFC PIN override and dev
  };
  assert.equal((await req("/pin/admin/set",{pin:"318",expectedRevision:0})).status,401);
  assert.equal((await req("/pin/verify",{pin:"318"})).status,409,"legacy login must remain unaffected before staging");
+ // 2026-11-03: a device whose license row does not match keeps its access until JFC sets the central PIN.
+ const early=await req("/pin/verify",{instanceId:"unregistered-device",pin:"521"});
+ assert.equal(early.status,409,"unmatched device is not locked out before activation");
+ assert.equal(early.data.reason,"unconfigured");
+ assert.equal((await req("/pin/report",{instanceId:"unregistered-device",pin:"521"})).status,404,"unmatched device never enters the census");
  assert.equal((await req("/pin/admin/set",{pin:"318",expectedRevision:0},true)).status,409,"no forced PIN before device enrollment");
  assert.equal((await req("/pin/report",{pin:"318"})).status,200);
  const incomplete=await req("/pin/admin/set",{pin:"318",expectedRevision:0},true);
