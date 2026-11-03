@@ -161,8 +161,13 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
       const old=doc.getMap('business').get('record');
       doc.getMap('business').set('record',{...old,total:46.25,stock:9,history:old.history.concat('pending-peer')});
     });
-    for(const page of [reopened,c])await page.waitForFunction(
-      ()=>doc.getMap('business').get('record')?.total===46.25,{},{timeout:12000});
+    try { for(const page of [reopened,c])await page.waitForFunction(
+      ()=>doc.getMap('business').get('record')?.total===46.25,{},{timeout:12000}); }
+    catch(error){
+      const d=p=>p.evaluate(()=>({yo:channel.ws?.hub?.id?.slice(0,6),total:doc.getMap('business').get('record')?.total,rec:channel.recuperando,ws:channel.ws?.readyState,signal:channel.ws?.hub?.signal?.readyState,pend:channel.pendientesRelay,errs:rtcErrors.length,peers:[...(channel.ws?.hub?.peers?.values()||[])].map(p=>({id:p.id.slice(0,6),st:p.nativeStage,c:p.pc.connectionState,sig:p.pc.signalingState,dc:p.dc?.readyState})),store:fixtureStorage,sv:Array.from(Y.encodeStateVector(doc)).length,pendS:!!doc.store.pendingStructs}));
+      console.log('DIAGPEER',JSON.stringify({a:await d(a),r:await d(reopened),c:await d(c)}));
+      throw error;
+    }
     await a.waitForFunction(()=>channel.pendientesRelay>0,{},{timeout:4000});
     await c.evaluate(()=>{allowed=true;});
     try { await a.waitForFunction(()=>channel.pendientesRelay===0,{},{timeout:16000}); }

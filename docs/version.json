@@ -1,10 +1,10 @@
 {
-  "version": "shell v652",
+  "version": "shell v653",
   "fecha": "2026-11-03",
-  "changelog": "All your devices now catch up on their own, even after a long time away: stock, products, team and PINs. Changing the owner PIN works again. New product images reach your other open devices.",
+  "changelog": "Devices on different browsers now connect directly to each other, so new product images reach them. Everything in v652 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v652",
+  "shell": "f123-shell-v653",
   "apagar": [],
-  "releaseName": "shell v652",
-  "cacheGeneration": "golden199"
+  "releaseName": "shell v653",
+  "cacheGeneration": "golden200"
 }
