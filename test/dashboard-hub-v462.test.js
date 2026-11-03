@@ -19,6 +19,7 @@ const foto = (page, nombre) => page.screenshot({ path: path.join(SHOTS, nombre +
 
 async function contexto(web, opts = {}) {
   const ctx = await web.newContext(Object.assign({ viewport: { width: 1280, height: 900 } }, opts));
+  await ctx.route(/firebaseio\.com|supabase\.co/, r => r.abort());
   await ctx.route((u) => !/^(file|data|blob|about):/i.test(String(u)), (r) => r.abort());
   await ctx.addInitScript(() => {
     /* WebSocket de mentira: el tablero jamas toca el relay real. */

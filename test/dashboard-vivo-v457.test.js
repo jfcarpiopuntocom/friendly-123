@@ -48,6 +48,7 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
 
 async function contexto(web) {
   const ctx = await web.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx.route(/firebaseio\.com|supabase\.co/, r => r.abort());
   await ctx.route((u) => !/^(file|data|blob|about):/i.test(String(u)), (r) => r.abort());
   await ctx.addInitScript(() => {
     /* WebSocket de mentira: el tablero jamas toca el relay real. */

@@ -20,6 +20,7 @@ async function startServer() {
 // Opens one "device": its own browser context (own localStorage/IndexedDB).
 async function openDevice(browser, base, { width = 390, height = 844, errors, license = 'F123-SYNTHETIC-AUDIT-ONLY' } = {}) {
   const ctx = await browser.newContext({ viewport: { width, height }, serviceWorkers: 'block' });
+  await ctx.route(/firebaseio\.com|supabase\.co/, r => r.abort()); // a fixed synthetic license must not reach the real relays
   // Synthetic owned notebook (no demo seeds) and no live relay/WebSocket: sync is moved by hand between devices.
   await ctx.addInitScript(lic => {
     try { if (!localStorage.getItem('f123_owned')) localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: lic })); } catch (_) {}

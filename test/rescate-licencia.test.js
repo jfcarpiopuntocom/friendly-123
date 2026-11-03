@@ -11,6 +11,7 @@ const path = require('node:path');
 async function latidoCon(licLocal) {
   const b = await chromium.launch();
   const ctx = await b.newContext();
+  await ctx.route(/firebaseio\.com|supabase\.co/, r => r.abort());
   const p = await ctx.newPage();
   try {
     await p.route('https://licencias.prueba.invalid/**', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: '{"ok":true,"estado":"full","licenseCode":"F123-TEST-RESC-ATEX-00000"}' }));

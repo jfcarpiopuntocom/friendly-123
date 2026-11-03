@@ -16,6 +16,7 @@ const usd = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
 
 async function contexto(web) {
   const ctx = await web.newContext({ viewport: { width: 1280, height: 900 } });
+  await ctx.route(/firebaseio\.com|supabase\.co/, r => r.abort());
   await ctx.route((u) => !/^(file|data|blob|about):/i.test(String(u)), (r) => r.abort());
   await ctx.addInitScript(() => { window.WebSocket = class { constructor() { this.readyState = 3; } send() {} close() {} addEventListener() {} removeEventListener() {} }; });
   return ctx;
