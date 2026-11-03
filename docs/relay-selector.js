@@ -141,7 +141,11 @@
     });
     // Refused before opening (inactive room, quota 402, route error): pause this layer, the next one takes over.
     // v646: the last durable layer retries in 60 s: a device that opened with no signal must catch up as soon as it returns.
-    ws.addEventListener("close", function () { if (!abierto) { var c = leer(key); c.pausaHasta = Date.now() + (capa.relay === fb ? 60000 : PAUSA_MS); guardar(key, c); } });
+    // v651: the app closing its own socket mid-open is no refusal (refusals carry a code). It paused Firebase 60 s at startup and dropped the base room to peers.
+    var cerrar = ws.close.bind(ws), soltado = false, fallo = false;
+    ws.addEventListener("error", function () { fallo = true; }); // the app answers an error by closing with no code: that is still a refusal
+    ws.close = function (code, motivo) { if (code === undefined) soltado = true; return cerrar(code, motivo); };
+    ws.addEventListener("close", function (e) { if (!abierto && (fallo || !soltado || (e && e.code && e.code !== 1000))) { var c = leer(key); c.pausaHasta = Date.now() + (capa.relay === fb ? 60000 : PAUSA_MS); guardar(key, c); } });
     var enviar = ws.send.bind(ws);
     ws.send = function (v) {
       if (v !== HEAD) sonda.enviados++;

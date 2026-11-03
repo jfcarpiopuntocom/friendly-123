@@ -34,6 +34,11 @@ test('once a central revision is adopted an outage must NOT silently downgrade a
   assert.equal(r.ok,false);assert.equal(r.reason,'central-authority-unavailable');
  }
 });
+test('v651: a route not deployed (generic 404) is unconfigured, not a rejected PIN',async()=>{
+ const f=fixture({reply:404});
+ const r=await f.rotate('123','384');
+ assert.equal(r.ok,true);assert.equal(r.unconfigured,true);
+});
 test('the configured server rejecting a current PIN cannot be treated as unconfigured',async()=>{
  const f=fixture({reply:401});
  const r=await f.rotate('123','384');

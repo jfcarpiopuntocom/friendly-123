@@ -1535,19 +1535,19 @@
     } else if (resultado !== true) _mergeSucio = true;
     return resultado;
   }
-  var _esperaVencida = false;
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
+    const esperaVencida = arguments[2] === true;
     // v649: this device's own save still in flight is not another tab. A strict save compares against the disk, so it
     // waits for it instead of reporting a false "NOT saved". The guard against a real other tab stays untouched.
-    // Fallback: a hung storage call never freezes a sale. After 4 s it goes ahead and gets a real answer.
+    // The 4 s limit covers only this wait for the PREVIOUS save. shortcut: this save's own IndexedDB call has no limit,
+    // because answering "not saved" while it can still commit would be worse; upgrade with an abortable transaction.
     const _espejoEnVuelo = typeof _espejoIDBPendiente !== "undefined" ? _espejoIDBPendiente : null;
     const _catalogoEnVuelo = typeof _guardadoCatalogoPendiente !== "undefined" ? _guardadoCatalogoPendiente : null;
-    if (exigirCompleto && !_esperaVencida && (_espejoEnVuelo || _catalogoEnVuelo)) {
-      const otraVez = () => guardarEstadoLocal(exigirCompleto, preservarFotos);
+    if (exigirCompleto && !esperaVencida && (_espejoEnVuelo || _catalogoEnVuelo)) {
       const espera = new Promise((listo) => {
-        const tope = setTimeout(() => { _esperaVencida = true; listo(); }, 4000);
-        Promise.all([_espejoEnVuelo, _catalogoEnVuelo]).then(() => { clearTimeout(tope); listo(); }, () => { clearTimeout(tope); listo(); });
-      }).then(() => { const r = otraVez(); _esperaVencida = false; return r; });
+        const tope = setTimeout(() => listo(true), 4000);
+        Promise.all([_espejoEnVuelo, _catalogoEnVuelo]).then(() => { clearTimeout(tope); listo(false); }, () => { clearTimeout(tope); listo(false); });
+      }).then((vencida) => guardarEstadoLocal(exigirCompleto, preservarFotos, vencida));
       // Background saves wait too: one running now would persist a provisional sale that this save may still reject.
       _guardadoEstrictoPendiente = espera;
       const soltar = () => { if (_guardadoEstrictoPendiente === espera) _guardadoEstrictoPendiente = null; };
@@ -4324,8 +4324,9 @@
         // an explicit reconciled stock movement; do not resolve by wall clock.
         // JFC 2026-11-01: the latest physical count wins (stockTs, deterministic tie-break by epoch id).
         // The losing epoch stays in stockEvidencias below; nothing is discarded.
-        const _gana = epochLocal && epochRemote && epochConflict && _baseR !== null &&
-          (_tsR > _tsL || (_tsR === _tsL && epochRemote > epochLocal));
+        // v651: a newer count with no epoch also wins over a local epoch; before, that device kept its old number forever.
+        const _gana = epochLocal && epochConflict && _baseR !== null &&
+          (_tsR > _tsL || (epochRemote && _tsR === _tsL && epochRemote > epochLocal));
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
         const protectedStock = _epochDoble
           ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
@@ -5373,6 +5374,18 @@
         huella: huellaCatalogo(),
       };
   }
+  // v651: a stuck device gets the store's PINs here too; without them it stayed on the factory PIN.
+  function _pinsParaFoto() {
+    try {
+      const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
+      const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
+      return { pinsRol: { owner: vis.owner || abre.owner || "", emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""), acct: abre.acct || vis.acct || "" },
+        ownerPinTs: (window.OCSecure && window.OCSecure.ownerPinTs) ? window.OCSecure.ownerPinTs() : 0 };
+    } catch (_) { return {}; }
+  }
+  function _adoptarPinDeFoto(f) {
+    try { if (f && f.pinsRol && f.ownerPinTs && window.OCSecure && window.OCSecure.adoptarPinOwnerDeFoto) Promise.resolve(window.OCSecure.adoptarPinOwnerDeFoto(f.pinsRol.owner, f.ownerPinTs)).catch(() => {}); } catch (_) {}
+  }
   window.OCSync = {
     conflictosEquipo: () => conflictosEquipo.map((x) => ({ id: x.id, nombre: x.nombre, fecha: x.fecha })),
     /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
@@ -5477,11 +5490,20 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "", borrado: !!p.borrado, archivado: !!p.archivado, rev: p.rev || null })),
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "", borrado: !!p.borrado, archivado: !!p.archivado, rev: p.rev || null, fotoHash: p.fotoHash || null })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
         huella: huellaCatalogo(),
+        ..._pinsParaFoto(),
       };
+    },
+    /* v651: changes that arrive by the durable op lane while Yjs is stuck. Same merge rule as the catalog: nothing is wiped. */
+    aplicarFichas(f) {
+      if (!f || typeof f !== "object") return false;
+      const r = aplicarCatalogo({ ubicaciones: Array.isArray(f.ubicaciones) ? f.ubicaciones : [], productos: Array.isArray(f.productos) ? f.productos : [], usuarios: Array.isArray(f.usuarios) ? f.usuarios : undefined, pinsRol: f.pinsRol || null }, null);
+      _adoptarPinDeFoto(f);
+      guardarEstadoLocal();
+      return r;
     },
     /* Restaura un checkpoint — SOLO en un dispositivo FRESCO, definido como uno
        que NUNCA registro una venta propia (ventas.length === 0). Asi es
@@ -5543,7 +5565,7 @@
           const mio = productos.find((x) => String(x.id) === String(p.id));
           // v648: a store's real sales reach a device through Yjs, so `fresco` is false on any device of a used store. A product
           // this device did not know, or holds at 0 with no base of its own, has no local truth to protect: it takes the photo.
-          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); productos[productos.length - 1].stockActual = stk; agPr++; }
+          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); productos[productos.length - 1].stockActual = stk; if (p.stockBase == null || !Number.isFinite(Number(p.stockBase))) delete productos[productos.length - 1].stockEpochId; agPr++; }
           else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
         });
         /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
@@ -5559,8 +5581,9 @@
           });
         }
         if (Array.isArray(snap.usuarios)) {
-          try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios }, null); } catch (_) {}
+          try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios, pinsRol: snap.pinsRol || null }, null); } catch (_) {}
         }
+        _adoptarPinDeFoto(snap);
         // v648: quantities on a product with its own ledger go through the same rule as Yjs (the latest physical count wins).
         // A deletion travels too: rev decides, as in Yjs, so a photo can neither resurrect a deleted product nor undo a newer edit.
         const _conLedger = snap.productos.filter((p) => p && p.id && (p.stockBase != null || p.stockTs || p.rev));

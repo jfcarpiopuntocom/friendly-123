@@ -88,7 +88,13 @@ test('v649: by design, a photo with a newer rev updates the product as Yjs would
 });
 
 test('Codex: a device adopts a photo with an epoch, a later sale of that epoch lands, and it survives a reload', async () => {
-  const { base, leer, foto, dest } = await conVentaReal();
+  const dest = browser();
+  dest.localStorage.setItem('f123_owned', JSON.stringify({ instanceId: 'fixture-recarga-foto', licenseCode: 'F123-REAL-FIXTURE' }));
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-recarga-foto', vaciar: true });
+  const u = await dest.request('/api/ubicaciones', 'POST', { nombre: 'Shelf', tipo: 'propio' });
+  const base = { nombre: 'Otro', sku: 'O', barcode: 'O-1', ubicacionId: u.id, precio: 10, costo: 5 };
+  const leer = async id => (await dest.request('/api/respaldo/exportar')).productos.find(p => p.id === id);
+  const foto = (...productos) => dest.OCSync.aplicarCheckpoint({ ubicaciones: [], productos, clientes: [] });
   foto({ ...base, id: 'foto-12', stockActual: 0 });
   const ep = { stockBase: 7, stockPN: {}, stockTs: 5000, stockEpochId: 'ep-foto' };
   foto({ ...base, id: 'foto-12', stockActual: 7, ...ep });
@@ -96,11 +102,35 @@ test('Codex: a device adopts a photo with an epoch, a later sale of that epoch l
   assert.deepEqual([p.stockActual, p.stockEpochId, p.stockBase], [7, 'ep-foto', 7], 'adopts stock with its epoch and base together');
   dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-12', stockActual: 6, stockBase: 7, stockPN: { otro: { add: 0, sub: 1 } }, stockTs: 6000, stockEpochId: 'ep-foto' }] }, null);
   assert.equal((await leer('foto-12')).stockActual, 6, 'the sale of that epoch lands');
-  await dest.flushState?.();
+  const ajuste = await dest.request('/api/productos/foto-12/ajustar', 'POST', { delta: -1, motivo: 'fuerza guardado estricto' });
+  assert.ok(ajuste, 'the strict save answered');
   const tras = browser(dest.localStorage);
   await new Promise(r => setTimeout(r, 50));
   const r = (await tras.request('/api/respaldo/exportar')).productos.find(x => x.id === 'foto-12');
-  if (r) assert.equal(r.stockActual, 6, 'after reload');
+  assert.ok(r, 'the product must exist after reload');
+  assert.deepEqual([r.stockActual, r.stockBase, r.stockEpochId], [5, 7, 'ep-foto'], 'stock, base and epoch persist');
+});
+
+test('Codex: a strict save behind a slow own save persists both, in order, and the last state is on disk', async () => {
+  const dest = browser();
+  dest.setTimeout = setTimeout; dest.clearTimeout = clearTimeout;
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-tardio', vaciar: true });
+  let rev = 0, disco = null, soltar;
+  const lento = new Promise(r => { soltar = r; });
+  dest.OCEstadoIDB = { soportado: true,
+    guardar: async c => { await lento; rev = Number(c._rev) || rev; disco = JSON.parse(JSON.stringify(c)); return true; },
+    guardarConRevision: async (c, esperada) => { if (esperada !== rev) return false; rev = Number(c._rev) || rev; disco = JSON.parse(JSON.stringify(c)); return true; },
+    cargar: async () => null, leer: async () => null };
+  const f = await dest.request('/api/respaldo/exportar'), uid = f.ubicaciones[0] ? f.ubicaciones[0].id : 'u1';
+  dest.OCSync.aplicarCatalogo({ ubicaciones: f.ubicaciones[0] ? [] : [{ id: 'u1', nombre: 'U', activa: true }], productos: [{ id: 'tard-1', nombre: 'Tardio', sku: 'T', barcode: 'T-1', ubicacionId: uid, stockActual: 5, precio: 1 }] }, null);
+  await dest.request('/api/clientes', 'POST', { nombre: 'Fondo', telefono: '1' });
+  const ajuste = dest.request('/api/productos/tard-1/ajustar', 'POST', { delta: 1, motivo: 'prueba' }).then(() => 'ok', e => String(e.message || e));
+  await new Promise(r => setTimeout(r, 200));
+  soltar();
+  const r = await ajuste;
+  await new Promise(r2 => setTimeout(r2, 50));
+  assert.equal(r, 'ok', 'a slow own save that finishes must not cost a false NOT saved: ' + r);
+  assert.equal(disco.productos.find(x => x.id === 'tard-1').stockActual, 6, 'the confirmed adjustment is what is on disk');
 });
 
 test('Codex: two strict saves against hung storage both answer, and none confirms what was not persisted', async () => {
@@ -119,6 +149,14 @@ test('Codex: two strict saves against hung storage both answer, and none confirm
   assert.notEqual(r, 'colgado', 'both must answer');
   const confirmadas = r.filter(x => x === 'ok').length;
   assert.ok(confirmadas <= persistidas, `confirmed ${confirmadas}, persisted ${persistidas}: ${JSON.stringify(r)}`);
+});
+
+test('v651: a product new to this device keeps an epoch only together with its base', async () => {
+  const { base, leer, foto } = await conVentaReal();
+  foto({ ...base, id: 'foto-13', stockActual: 5, stockEpochId: 'sin-base' });
+  assert.ok(!(await leer('foto-13')).stockEpochId);
+  foto({ ...base, id: 'foto-14', stockActual: 5, stockBase: 5, stockPN: {}, stockTs: 10, stockEpochId: 'con-base' });
+  assert.equal((await leer('foto-14')).stockEpochId, 'con-base');
 });
 
 test('v649: a 0 with its own stamp is a fact: an old photo cannot bring it back', async () => {
@@ -216,4 +254,41 @@ test('a positive local stock is not touched by this path', async () => {
   llega(dest, shelf, product);
   llega(dest, shelf, product, { stockActual: 9 });
   assert.equal((await stock()).stockActual, 5);
+});
+
+test('v651: a device with its own epoch adopts a newer count that has none, and keeps its number against an older one', async () => {
+  const { dest, stock, shelf, product } = await montar();
+  llega(dest, shelf, product, { stockActual: 7, stockBase: 7, stockPN: {}, stockTs: 5000, stockEpochId: 'ep-local' });
+  assert.equal((await stock()).stockActual, 7);
+  llega(dest, shelf, product, { stockActual: 3, stockBase: 3, stockPN: {}, stockTs: 4000, stockEpochId: '' });
+  assert.equal((await stock()).stockActual, 7, 'an older count changes nothing');
+  llega(dest, shelf, product, { stockActual: 33, stockBase: 33, stockPN: {}, stockTs: 6000, stockEpochId: '' });
+  assert.equal((await stock()).stockActual, 33, 'the latest count wins');
+});
+
+test('v651: fichas merge with the catalog rule and create what this device lacks; the photo carries the product image', async () => {
+  const { dest, stock, shelf, product } = await montar();
+  dest.OCSync.aplicarFichas({ productos: [{ ...product, stockActual: 33, stockBase: 33, stockPN: {}, stockTs: 7000, stockEpochId: 'ep-x', fotoHash: 'a'.repeat(64) }] });
+  assert.equal((await stock()).stockActual, 33);
+  dest.OCSync.aplicarFichas({ productos: [{ ...product, id: 'prod-nuevo-ficha', barcode: 'N-1', sku: 'N', stockActual: 4, stockBase: 4, stockPN: {}, stockTs: 7000 }] });
+  const todos = (await dest.request('/api/respaldo/exportar')).productos;
+  assert.equal(todos.find(p => p.id === 'prod-nuevo-ficha').stockActual, 4);
+  const foto = dest.OCSync.estadoParaCheckpoint().productos.find(p => p.id === product.id);
+  assert.equal(foto.fotoHash, 'a'.repeat(64));
+});
+
+test('v651: the latest explicit owner PIN change is adopted from the photo; the factory PIN or an older change never replaces it', async () => {
+  const b = browser();
+  await b.OCSecure.asegurarSecretoInicial?.();
+  if (!b.OCSecure.leerPinsVisibles?.()) await b.OCSecure.fijarOwnerPin?.('789');
+  const s = JSON.parse(b.localStorage.getItem('f123_secure') || 'null');
+  if (!s) return; // this harness has no credential store
+  s.ownerPinTs = 1000; b.localStorage.setItem('f123_secure', JSON.stringify(s));
+  const antes = b.OCSecure.leerPinsVisibles().owner;
+  assert.equal(await b.OCSecure.adoptarPinOwnerDeFoto('789', 9000), false);
+  assert.equal(await b.OCSecure.adoptarPinOwnerDeFoto('641', 500), false);
+  assert.equal(b.OCSecure.leerPinsVisibles().owner, antes);
+  assert.equal(await b.OCSecure.adoptarPinOwnerDeFoto('641', 9000), true);
+  assert.equal(b.OCSecure.leerPinsVisibles().owner, '641');
+  assert.equal(b.OCSecure.ownerPinTs(), 9000);
 });

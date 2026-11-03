@@ -74,6 +74,7 @@
      por el mismo relay, que solo rebota bytes que no puede leer. */
   const TIPO_LATIDO = "__latido__";
   const TIPO_CHECKPOINT = "__checkpoint__"; // foto cifrada del catalogo (bitacora)
+  const TIPO_FICHAS = "__fichas__"; // v651: registros que cambiaron, mientras Yjs esta atascado
   const TIPO_PIN = "__pin__";
   const TIPO_ORDEN = "__orden__";
   const TIPO_RESPUESTA = "__respuesta__";
@@ -504,7 +505,9 @@
       // Subir nuestro checkpoint poco despues de conectar, y luego cada tanto,
       // asi el relay siempre tiene una foto reciente para el que llegue nuevo.
       setTimeout(function () { try { subirCheckpoint(true); } catch (_) {} }, 1500 + Math.random() * 1500);
-      try { if (_ckptTimer) clearInterval(_ckptTimer); _ckptTimer = setInterval(function () { try { subirCheckpoint(false); } catch (_) {} try { releerFotoSiAtascado(); } catch (_) {} }, 180000); } catch (_) {}
+      setTimeout(publicarFichas, 20000); // after the pull, so this device merges what others said first
+      setTimeout(publicarFichas, 60000); // a stuck history can show only after the first attempt
+      try { if (_ckptTimer) clearInterval(_ckptTimer); _ckptTimer = setInterval(function () { try { subirCheckpoint(false); } catch (_) {} try { releerFotoSiAtascado(); } catch (_) {} try { publicarFichas(); } catch (_) {} }, 180000); } catch (_) {}
       /* Al conectar se pide tambien el catalogo (JFC 2026-08-21). De lo que
          llegue, el EQUIPO se aplica solo y el resto espera a que una persona
          lo confirme en Avanzado. Asi el segundo dispositivo tiene los PINs y
@@ -550,6 +553,11 @@
               guardarCola(leerCola().filter(op => op.opId !== msg.id));
               notificarEstado(estadoActual);
             }
+            if (msg.kind === "op" && msg.ok === true && _fichasEnVuelo[msg.id]) {
+              var _fm = leerFirmasFichas(); Object.assign(_fm, _fichasEnVuelo[msg.id]); delete _fichasEnVuelo[msg.id];
+              try { localStorage.setItem("f123_fichas_" + salaIdActual, JSON.stringify(_fm)); } catch (_) {}
+              return;
+            }
             if (msg.kind === "ckpt" && msg.ok === true && _ckptEnVuelo && msg.id === _ckptEnVuelo.id) {
               _ultimaHuellaCkpt = _ckptEnVuelo.hu;
               try { localStorage.setItem("f123_relay_ckpt_huella_" + salaIdActual, _ultimaHuellaCkpt); } catch (_) {}
@@ -557,6 +565,7 @@
             }
             return;
           }
+          if (msg && msg.k === "pull-page" && msg.v === 2) { recibirPaginaPull(msg); return; }
           if (msg && msg.__presencia__) { presenciaN = msg.n; notificarEstado(estadoActual); }
         } catch (_) {}
         return;
@@ -634,9 +643,21 @@
             if (op.payload && window.OCSync && window.OCSync.aplicarCheckpoint) {
               var _rc = window.OCSync.aplicarCheckpoint(op.payload);
               if (_rc && _rc.ok) {
+                try { localStorage.setItem("f123_foto_adoptada_" + salaIdActual, "1"); } catch (_) {}
                 try { if (typeof window.cargarInventario === "function") window.cargarInventario(); } catch (_) {}
                 try { window.dispatchEvent(new CustomEvent("oc-checkpoint-restaurado", { detail: _rc })); } catch (_) {}
               }
+            }
+          } catch (_) {}
+          return;
+        }
+        if (op && op.tipo === TIPO_FICHAS) {
+          try {
+            if (op.deviceId !== deviceId() && window.OCSync && window.OCSync.aplicarFichas) {
+              var _antes = firmasActuales();
+              window.OCSync.aplicarFichas(op.payload);
+              marcarFichasRecibidas(_antes, op.payload);
+              if (typeof window.cargarInventario === "function") window.cargarInventario();
             }
           } catch (_) {}
           return;
@@ -1352,7 +1373,7 @@
       var buf = await cifrar(claveActual, sobre);
       var id = "ck-" + uuidCorto();
       _ckptEnVuelo = { id: id, hu: hu };
-      ws.send(JSON.stringify({ k: "ckpt", ack: 1, id: id, lam: sobre.lamport, c: ab2b64(buf) }));
+      ws.send(JSON.stringify({ k: "ckpt", ack: 1, id: id, lam: sobre.lamport, seq: leerPull().seq, c: ab2b64(buf) }));
     } catch (_) {}
   }
   /* v649: with an incomplete Yjs history, updates from a device whose past is missing stay held back, so they cannot arrive
@@ -1364,10 +1385,83 @@
     var y = window.OCYjs;
     if (y && y.canal && y.canal.recuperando === true) pullDelRelay();
   }
+  /* v651, the method for everyone: a stuck Yjs history holds back other devices' updates, so each device also sends the records
+     it holds differently, through the durable op lane (live on the relay, read back by whoever was away). The first time that is
+     every record, which absorbs the past. Receivers merge with the catalog rule, the latest count wins, and nothing is wiped.
+     With a healthy Yjs this sends nothing. */
+  var _fichasEnVuelo = {}, _fichasTimer = null, _paginasPull = 0;
+  function yjsAtascado() {
+    var y = window.OCYjs, st = y && y.doc && y.doc.store;
+    return !!(st && (st.pendingStructs || st.pendingDs || (y.canal && y.canal.recuperando)));
+  }
+  function firmaFicha(x) { var s = JSON.stringify(x), h = 5381; for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0; return h.toString(36); }
+  function leerFirmasFichas() { try { return JSON.parse(localStorage.getItem("f123_fichas_" + salaIdActual) || "{}") || {}; } catch (_) { return {}; } }
+  function registrosFichas() {
+    var s = window.OCSync && window.OCSync.estadoParaCheckpoint ? window.OCSync.estadoParaCheckpoint() : null, out = {};
+    if (!s) return out;
+    (s.productos || []).forEach(function (p) { out["p:" + p.id] = { lista: "productos", dato: p }; });
+    (s.ubicaciones || []).forEach(function (u) { out["u:" + u.id] = { lista: "ubicaciones", dato: u }; });
+    (s.usuarios || []).forEach(function (u) { out["e:" + u.id] = { lista: "usuarios", dato: u }; });
+    out.pins = { pins: { pinsRol: s.pinsRol, ownerPinTs: s.ownerPinTs } };
+    return out;
+  }
+  function firmasActuales() { var r = registrosFichas(), f = {}; Object.keys(r).forEach(function (k) { f[k] = firmaFicha(r[k]); }); return f; }
+  // What just arrived is not news to repeat, unless this device held an unsent change of its own to that record.
+  function marcarFichasRecibidas(antes, payload) {
+    var ahora = firmasActuales(), guardadas = leerFirmasFichas();
+    [["productos", "p:"], ["ubicaciones", "u:"], ["usuarios", "e:"]].forEach(function (par) {
+      ((payload && payload[par[0]]) || []).forEach(function (x) {
+        var k = par[1] + (x && x.id);
+        if (x && x.id && antes[k] === guardadas[k] && ahora[k]) guardadas[k] = ahora[k];
+      });
+    });
+    if (antes.pins === guardadas.pins && ahora.pins) guardadas.pins = ahora.pins;
+    try { localStorage.setItem("f123_fichas_" + salaIdActual, JSON.stringify(guardadas)); } catch (_) {}
+  }
+  async function publicarFichas() {
+    try {
+      if (!ws || ws.peerOnly || ws.readyState !== WebSocket.OPEN || !claveActual || !yjsAtascado()) return;
+      var regs = registrosFichas(), firmas = leerFirmasFichas(), trozos = [], act = null, tam = 0;
+      Object.keys(regs).forEach(function (k) {
+        var f = firmaFicha(regs[k]); if (f === firmas[k]) return;
+        var n = JSON.stringify(regs[k]).length;
+        if (!act || tam + n > 8000) { act = { datos: {}, firmas: {} }; trozos.push(act); tam = 0; }
+        tam += n; act.firmas[k] = f;
+        if (regs[k].pins) Object.assign(act.datos, regs[k].pins);
+        else (act.datos[regs[k].lista] = act.datos[regs[k].lista] || []).push(regs[k].dato);
+      });
+      for (var i = 0; i < trozos.length; i++) {
+        var id = "fi-" + uuidCorto(), lam = lamportActual();
+        var buf = await cifrar(claveActual, { tipo: TIPO_FICHAS, deviceId: deviceId(), lamport: lam, payload: trozos[i].datos });
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        _fichasEnVuelo[id] = trozos[i].firmas;
+        ws.send(JSON.stringify({ k: "op", ack: 1, id: id, lam: lam, c: ab2b64(buf) }));
+      }
+    } catch (_) {} // a quota or network refusal leaves the signatures unchanged: the next tick retries
+  }
+  function programarFichas() { clearTimeout(_fichasTimer); _fichasTimer = setTimeout(publicarFichas, 2000); }
+  try {
+    window.addEventListener("oc-catalogo-cambiado", programarFichas);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && yjsAtascado()) { pullDelRelay(); programarFichas(); } });
+  } catch (_) {}
+  function leerPull() {
+    var p = null;
+    try { p = JSON.parse(localStorage.getItem("f123_relay_pull_" + salaIdActual) || "null"); } catch (_) {}
+    if (!p) return { rev: 0, seq: 0 };
+    // rev 0 asks for the photo again: this device has not finished adopting one (the tab can close during its wait).
+    var adoptada = false; try { adoptada = !!localStorage.getItem("f123_foto_adoptada_" + salaIdActual); } catch (_) {}
+    return { rev: adoptada ? Number(p.rev) || 0 : 0, seq: Number(p.seq) || 0 };
+  }
+  function recibirPaginaPull(m) {
+    try { localStorage.setItem("f123_relay_pull_" + salaIdActual, JSON.stringify({ rev: m.rev, seq: m.seq })); } catch (_) {}
+    if (m.more && ++_paginasPull < 16) pullDelRelay(); else _paginasPull = 0; // shortcut: 16 pages per pull, the next pull continues from the saved seq
+  }
   function pullDelRelay() {
     try {
-      if (ws && ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ k: "pull", lam: lamportActual() }));
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        var p = leerPull();
+        ws.send(JSON.stringify({ k: "pull", v: 2, limit: 64, rev: p.rev, seq: p.seq, lam: lamportActual() }));
+      }
     } catch (_) {}
   }
 
