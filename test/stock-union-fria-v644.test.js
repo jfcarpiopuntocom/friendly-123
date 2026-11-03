@@ -87,6 +87,40 @@ test('v649: by design, a photo with a newer rev updates the product as Yjs would
   assert.equal((await leer('foto-11')).nombre, 'Nuevo');
 });
 
+test('Codex: a device adopts a photo with an epoch, a later sale of that epoch lands, and it survives a reload', async () => {
+  const { base, leer, foto, dest } = await conVentaReal();
+  foto({ ...base, id: 'foto-12', stockActual: 0 });
+  const ep = { stockBase: 7, stockPN: {}, stockTs: 5000, stockEpochId: 'ep-foto' };
+  foto({ ...base, id: 'foto-12', stockActual: 7, ...ep });
+  let p = await leer('foto-12');
+  assert.deepEqual([p.stockActual, p.stockEpochId, p.stockBase], [7, 'ep-foto', 7], 'adopts stock with its epoch and base together');
+  dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-12', stockActual: 6, stockBase: 7, stockPN: { otro: { add: 0, sub: 1 } }, stockTs: 6000, stockEpochId: 'ep-foto' }] }, null);
+  assert.equal((await leer('foto-12')).stockActual, 6, 'the sale of that epoch lands');
+  await dest.flushState?.();
+  const tras = browser(dest.localStorage);
+  await new Promise(r => setTimeout(r, 50));
+  const r = (await tras.request('/api/respaldo/exportar')).productos.find(x => x.id === 'foto-12');
+  if (r) assert.equal(r.stockActual, 6, 'after reload');
+});
+
+test('Codex: two strict saves against hung storage both answer, and none confirms what was not persisted', async () => {
+  const dest = browser();
+  dest.setTimeout = setTimeout; dest.clearTimeout = clearTimeout; // the helper mutes timers; the 4 s fallback needs a real one
+  await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-dos-estrictos', vaciar: true });
+  let rev = 0, persistidas = 0;
+  dest.OCEstadoIDB = { soportado: true, guardar: () => new Promise(() => {}),
+    guardarConRevision: async (c, esperada) => { if (esperada !== rev) return false; rev = Number(c._rev) || rev; persistidas++; return true; },
+    cargar: async () => null, leer: async () => null };
+  const fixture = await dest.request('/api/respaldo/exportar');
+  const uid = fixture.ubicaciones[0] && fixture.ubicaciones[0].id;
+  dest.OCSync.aplicarCatalogo({ ubicaciones: uid ? [] : [{ id: 'u1', nombre: 'U', activa: true }], productos: [{ id: 'dos-1', nombre: 'Dos', sku: 'D', barcode: 'D-1', ubicacionId: uid || 'u1', stockActual: 5, precio: 1 }] }, null);
+  const ajuste = () => dest.request('/api/productos/dos-1/ajustar', 'POST', { delta: 1, motivo: 'prueba' }).then(() => 'ok', e => String(e.message || e));
+  const r = await Promise.race([Promise.all([ajuste(), ajuste()]), new Promise(s => setTimeout(() => s('colgado'), 11000))]);
+  assert.notEqual(r, 'colgado', 'both must answer');
+  const confirmadas = r.filter(x => x === 'ok').length;
+  assert.ok(confirmadas <= persistidas, `confirmed ${confirmadas}, persisted ${persistidas}: ${JSON.stringify(r)}`);
+});
+
 test('v649: a 0 with its own stamp is a fact: an old photo cannot bring it back', async () => {
   const { base, leer, foto, dest } = await conVentaReal();
   dest.OCSync.aplicarCatalogo({ ubicaciones: [], productos: [{ ...base, id: 'foto-10', stockActual: 0, stockTs: 5000 }] }, null);
