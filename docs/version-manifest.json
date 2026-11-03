@@ -49,7 +49,7 @@
     "./i18n.js": "sha256-4b2d6b8af3ba692bca2b4c237fa3edc9a74f74774da12ec137c0a72283fac381",
     "./crypto-store.js": "sha256-707a1991613328b3414b1157ad4072e3a1529d3ff8d5c91ae83417538b5d415f",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
-    "./auth-ui.js": "sha256-e8296408bb5703bd7ec6e77dbb9d294d0e5061558bcd151f8c67186c855d97f5",
+    "./auth-ui.js": "sha256-348e16fb16587ea87fb5e98ebd71e64ac3a0f4b4c8a3ccddf4b3a7e99cc701ac",
     "./tab-session.js": "sha256-86a5e96d1e3b271c8899481274ae2d77fa4a52ec4e207b421eef27f13061b863",
     "./backup-scheduler.js": "sha256-8ee6cc656bbf7998727d1c3e8ac2c34372bf205c374ac3ede49901f0b8cf669a",
     "./avanzado-extra.js": "sha256-8641d4ed8d7885d6f77920bda5dc0d93c59908bb95ddb196e83053f3d30a7529",

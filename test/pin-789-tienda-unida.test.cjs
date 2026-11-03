@@ -6,7 +6,7 @@ const start = src.indexOf('if (rolHash === "dueno" && code === ACTIVATION_PIN &&
 const end = src.indexOf('if (rolHash === "dueno") {', start);
 assert.ok(start > 0 && end > start, "guard block not found");
 const block = src.slice(start, end);
-const run = (pinsRol, flag, recuperando = false) => {
+const run = (pinsRol, flag, recuperando = false, central = "unavailable") => {
   let msg = null;
   const window = { OCYjs: { meta: { get: () => pinsRol }, canal: { recuperando } } };
   // flag: true = photo flag for THIS license, or a license string to simulate a flag left by another license
@@ -14,10 +14,14 @@ const run = (pinsRol, flag, recuperando = false) => {
     : k === "f123_pin_tienda_789" ? (flag === true ? "F123-AAAA" : flag || null) : null };
   const fn = new Function("rolHash", "code", "ACTIVATION_PIN", "central", "_aparatoUnido", "window", "localStorage", "error",
     block + "\nreturn 'entra';");
-  const r = fn("dueno", "789", "789", "unconfigured", true, window, localStorage, (m) => { msg = m; });
+  const r = fn("dueno", "789", "789", central, true, window, localStorage, (m) => { msg = m; });
   return r === "entra" && !msg ? "entra" : "rechaza";
 };
-test("789 rejected when recovery finished but store PIN never arrived", () => assert.equal(run(null, false, false), "rechaza"));
+test("789 rejected when recovery finished but the license authority cannot be asked", () => assert.equal(run(null, false, false), "rechaza"));
+// JFC 2026-11-03: 789 may stay a universal fallback, never a breach. Authority "unconfigured" = no own PIN sealed or reported.
+test("789 fallback opens when no own PIN exists anywhere and recovery finished", () => assert.equal(run(null, false, false, "unconfigured"), "entra"));
+test("789 fallback waits while the store is still recovering", () => assert.equal(run(null, false, true, "unconfigured"), "rechaza"));
+test("789 fallback never beats a known store PIN", () => assert.equal(run({ owner: "555" }, false, false, "unconfigured"), "rechaza"));
 test("789 rejected while still recovering", () => assert.equal(run(null, false, true), "rechaza"));
 test("789 opens when the store itself says 789", () => assert.equal(run({ owner: "789" }, false), "entra"));
 test("789 rejected when store has another PIN", () => assert.equal(run({ owner: "555" }, false), "rechaza"));

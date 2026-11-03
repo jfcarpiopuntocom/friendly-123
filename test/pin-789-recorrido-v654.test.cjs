@@ -12,7 +12,7 @@ assert.ok(start > 0 && end > start, 'login region not found');
 const region = src.slice(start, end);
 
 const LIC = 'F123-SYNTHETIC-TEST';
-function run({ marker = false, flags = {}, pinsRol = null, recuperando = false, unida = false }) {
+function run({ marker = false, flags = {}, pinsRol = null, recuperando = false, unida = false, central = 'unavailable' }) {
   let msg = null;
   const store = Object.assign({ f123_owned: JSON.stringify({ licenseCode: LIC, instanceId: 'synthetic-device' }) }, flags);
   const localStorage = { getItem: (k) => (k in store ? store[k] : null) };
@@ -23,16 +23,18 @@ function run({ marker = false, flags = {}, pinsRol = null, recuperando = false, 
   };
   const fn = new Function('rolHash', 'code', 'ACTIVATION_PIN', 'central', 'joinPendienteVivo', 'window', 'localStorage', 'error',
     region + '\nreturn "entra";');
-  const r = fn('dueno', '789', '789', 'unconfigured', () => marker, window, localStorage, (m) => { msg = m; });
+  const r = fn('dueno', '789', '789', central, () => marker, window, localStorage, (m) => { msg = m; });
   return r === 'entra' && !msg ? 'entra' : 'rechaza';
 }
 
-test('joining now, store PIN not arrived, recovery finished: 789 does not open', () =>
+test('joining now, store PIN not arrived, authority unreachable: 789 does not open', () =>
   assert.equal(run({ marker: true }), 'rechaza'));
 test('device joined before v654 (no marker, no flag), store PIN is another: 789 does not open', () =>
   assert.equal(run({ pinsRol: { owner: '555' } }), 'rechaza'));
 test('creator device, store PIN is 789: opens', () =>
   assert.equal(run({ pinsRol: { owner: '789' } }), 'entra'));
+test('joined device of a store that never set its own PIN (authority unconfigured): 789 fallback opens', () =>
+  assert.equal(run({ marker: true, central: 'unconfigured' }), 'entra'));
 test('brand-new store, nothing synced yet: opens', () =>
   assert.equal(run({}), 'entra'));
 test('joined device, store itself says 789: opens', () =>
