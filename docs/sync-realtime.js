@@ -1421,6 +1421,9 @@
   async function publicarFichas() {
     try {
       if (!ws || ws.peerOnly || ws.readyState !== WebSocket.OPEN || !claveActual || !yjsAtascado()) return;
+      // v652: with a stuck history nothing announced a new image: no hash, so no device could ask for it.
+      try { if (window.OCSync.hashearFotosProductos) await window.OCSync.hashearFotosProductos(); if (window.OCYjs.sembrarFotos) window.OCYjs.sembrarFotos(); } catch (_) {}
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
       var regs = registrosFichas(), firmas = leerFirmasFichas(), trozos = [], act = null, tam = 0;
       Object.keys(regs).forEach(function (k) {
         var f = firmaFicha(regs[k]); if (f === firmas[k]) return;

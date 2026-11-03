@@ -5,7 +5,7 @@ test('real durable ledgers recover four IDB aborts without a new Yjs update and 
  const profiles=[0,1].map(()=>fs.mkdtempSync(path.join(os.tmpdir(),'friendly-yjs-recovery-'))),contexts=[];
  const launch={headless:true,...(process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH}:{})};
  async function open(i){
-  const c=await chromium.launchPersistentContext(profiles[i],launch);contexts[i]=c;const p=await c.newPage();
+  const c=await chromium.launchPersistentContext(profiles[i],launch);contexts[i]=c;await c.route(/firebaseio\.com|supabase\.co/, r => r.abort());const p=await c.newPage();
   await p.goto('http://127.0.0.1:'+server.address().port);
   await p.evaluate(i=>{
    if(!localStorage.getItem('f123_owned'))localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'F123-SYNTHETIC-RECOVERY-ONLY',instanceId:'synthetic-device-'+i}));

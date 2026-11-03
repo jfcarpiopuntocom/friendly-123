@@ -2158,6 +2158,7 @@
      como op + va en vivo. Guard de sesión para no re-mandar la misma foto en cada
      reconexión. */
   var _fotosSembradas = {};
+  API.sembrarFotos = sembrarFotosAlRelay; // v652: the stuck-history path reaches this too; bytes still travel by peers only
   function sembrarFotosAlRelay() {
     if (!window.OCFotos || !window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
     // Primero: dar hash a las fotos de PRODUCTO que solo estaban inline (v290 fix:

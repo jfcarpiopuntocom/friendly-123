@@ -11,6 +11,7 @@ test('native persistent browser keeps an imported notebook after a postcommit no
   let context;
   async function open(){
     context=await chromium.launchPersistentContext(profile,{headless:true,serviceWorkers:'block',...(process.env.PLAYWRIGHT_EXECUTABLE_PATH?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE_PATH}:{})});
+    await context.route(/firebaseio\.com|supabase\.co/, r => r.abort());
     await context.addInitScript(()=>{
       if(!localStorage.getItem('f123_owned'))localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'F123-SYNTHETIC-POSTCOMMIT-ONLY'}));
       window.WebSocket=class{constructor(){throw Error('No production network in import fixture');}};
