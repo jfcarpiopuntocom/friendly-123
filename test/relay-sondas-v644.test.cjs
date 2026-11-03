@@ -217,6 +217,26 @@ test('v646: Firebase failing at open pauses 60 s, not 15 min, and Supabase keeps
   assert.equal(typeof fb, 'function');
 });
 
+test('v651: the app closing its own socket while it opens does not pause Firebase', async () => {
+  const c = montar();
+  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date().toISOString().slice(0, 10), up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
+  const ws = c.w.F123Relay.connect(URL1);
+  ws.close();
+  await tick(50);
+  const fb = c.store.get('f123_relay_cupo_fb_v1');
+  assert.ok(!fb || !(JSON.parse(fb).pausaHasta > Date.now()), 'Firebase stays usable');
+});
+
+test('v651: a refusal the app answers by closing with no code still pauses the layer', async () => {
+  const c = montar({ firebaseCaida: true });
+  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date().toISOString().slice(0, 10), up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
+  c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {}, close() {} }) }) };
+  const ws = c.w.F123Relay.connect(URL1);
+  ws.addEventListener('error', () => { try { ws.close(); } catch (_) {} });
+  await tick(50);
+  assert.ok(JSON.parse(c.store.get('f123_relay_cupo_fb_v1')).pausaHasta > Date.now());
+});
+
 function firebaseLleno(n) {
   const c = montar();
   const hoy = new Date().toISOString().slice(0, 10);

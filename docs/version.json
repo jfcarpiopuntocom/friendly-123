@@ -1,10 +1,10 @@
 {
-  "version": "shell v650",
-  "fecha": "2026-11-02",
+  "version": "shell v651",
+  "fecha": "2026-11-03",
   "changelog": "Fixes a false NOT saved with two tabs open: the backup copy is written before other tabs are told to reload. The team is told when a store nears the size where new devices need the compact photo, with no business data. Everything in v649 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v650",
+  "shell": "f123-shell-v651",
   "apagar": [],
-  "releaseName": "shell v650",
-  "cacheGeneration": "golden197"
+  "releaseName": "shell v651",
+  "cacheGeneration": "golden198"
 }

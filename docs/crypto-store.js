@@ -545,11 +545,22 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     s.retiredOwnerHashes = [...new Set(retirados)].filter(h => h !== hashNuevo).slice(-20);
     s.ownerHash = hashNuevo;
     s.ownerPinR = xorPin(nuevoPin);
+    if (desdeSesion === true) s.ownerPinTs = Date.now();
     // A second PBKDF2 above can yield. Never commit a stale local secret
     // after another authorized edit saved a newer verifier in that interval.
     if (localStorage.getItem("f123_secure") !== secureSnapshot) return false;
     return guardarSecureResiliente(s);
   }
+
+  // v651: the latest explicit owner change travels with the store's encrypted photo. The factory and demo PINs never replace anything.
+  async function adoptarPinOwnerDeFoto(pin, ts) {
+    const p = String(pin || ""), t = Number(ts) || 0, s = leerSecreto();
+    if (!s || !/^\d{3}$/.test(p) || p === "456" || p === "789" || t <= (Number(s.ownerPinTs) || 0) || t > Date.now() + 300000) return false;
+    if (!await fijarOwnerPin(p)) return false;
+    const n = leerSecreto(); n.ownerPinTs = t;
+    return guardarSecureResiliente(n);
+  }
+  function ownerPinTs() { const s = leerSecreto(); return s && Number(s.ownerPinTs) || 0; }
 
   // Adopt only a PIN already verified by the license authority on this exact
   // licensed device. This creates a durable local rotation intent for Yjs,
@@ -1162,6 +1173,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
     adoptarPinOwnerCentralVerificado,
+    adoptarPinOwnerDeFoto,
+    ownerPinTs,
     fijarOwnerPinDesdeSesion, // P0: owner already verified by recovered room, local verifier missing
     pinOwnerPendienteLocal, reconciliarCambioPinOwnerPendiente,
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia

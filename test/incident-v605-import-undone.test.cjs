@@ -9,14 +9,19 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
 const { startServer, chromium } = require('./helpers/e2e-app.cjs');
 
+const _abiertos = new Set();
+test.afterEach(async () => { for (const c of _abiertos) await c.close().catch(() => {}); _abiertos.clear(); });
 async function abrir(base, dir) {
   const ctx = await chromium.launchPersistentContext(dir, { headless: true, serviceWorkers: 'block' });
   await ctx.addInitScript(() => {
     try { localStorage.getItem('f123_owned') || localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: 'F123-SYNTHETIC-AUDIT-ONLY' })); } catch (_) {}
     window.WebSocket = class { constructor() { throw new Error('no network in e2e'); } };
   });
+  // A fixed synthetic license on the real Firebase brought earlier runs' data to a new profile: the 409 was right, the test was not isolated.
+  await ctx.route(/firebaseio\.com|supabase\.co/, r => r.abort());
   const page = ctx.pages()[0] || await ctx.newPage();
   await page.goto(base + '/index.html');
+  _abiertos.add(ctx);
   await page.waitForFunction(() => window.OCSync && window.cargarHoy);
   await page.evaluate(() => { OCAuth.rolActual = () => 'dueno'; });
   await page.waitForTimeout(800);
@@ -86,7 +91,8 @@ test('cuaderno vacio / aparato nuevo: importar funciona y sobrevive a cerrar y r
     const respaldo = await J(page, '/api/respaldo/exportar');
     respaldo.ubicaciones = [{ id: 'u-i', nombre: 'Shelf I', tipo: 'propio' }];
     respaldo.productos = [{ id: 'p-i', nombre: 'Imported', barcode: 'IMP1', precio: 10, costo: 4, stockActual: 10, ubicacionId: 'u-i' }];
-    assert.equal((await importar(page, respaldo)).st, 200);
+    const imp = await importar(page, respaldo);
+    assert.equal(imp.st, 200, JSON.stringify(imp.j).slice(0, 200));
     await ctx.close();
     ({ ctx, page } = await abrir(base, dir));
     const despues = (await J(page, '/api/productos')).find(x => x.id === 'p-i');

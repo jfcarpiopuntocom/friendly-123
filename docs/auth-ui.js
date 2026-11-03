@@ -1205,6 +1205,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     try{
       const check=await fetch(endpoint.origin+"/pin/verify",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(params)});
       if(check.status===409||check.status===503)return legacyWhenUnprovisioned();
+      // v651: same reading as login. A 404 without this reason means the central route is not deployed, not a wrong PIN.
+      if(check.status===404){let d=null;try{d=await check.json()}catch(_){}return d&&d.reason==="license-instance-mismatch"?{ok:false,reason:"identity-unavailable"}:legacyWhenUnprovisioned();}
       if(!check.ok)return {ok:false,reason:"current-pin-rejected"};
       const current=await check.json();
       if(!current.ok||!Number.isSafeInteger(current.revision))return {ok:false,reason:"revision-unavailable"};

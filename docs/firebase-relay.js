@@ -137,11 +137,12 @@
         var curRev = await this._rev(), seq = Math.max(0, Number(c.seq) || 0), frames = [], budget = PAGE_BUDGET;
         var size = Math.min(128, Math.max(1, Number(c.limit) || 64));
         if (Number(c.v) !== 2 || Number(c.rev) !== curRev) {
-          seq = 0;
+          var yaLeido = seq; seq = 0;
           if (curRev > 0) {
             var k = await getJson(this.root + "/k/" + curRev);
             if (k && typeof k.c === "string") { frames.push(k.c); budget = Math.max(0, budget - k.c.length * 3 / 4); seq = Number(k.s) || 0; }
           }
+          seq = Math.max(seq, yaLeido); // v651: a new photo must not replay ops this reader already has
         }
         var page = sorted(await getJson(this.root + "/o", { orderBy: '"s"', startAt: seq + 1, limitToFirst: size }));
         // Never split a run of equal server times across pages: the next page starts strictly after the last kept time.
