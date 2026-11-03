@@ -1028,6 +1028,21 @@
       return Object.keys(y.get("dispositivos") || {}).some((k) => k !== miId);
     } catch (_) { return true; } // ante la duda, NO sobrescribir
   }
+  // v651: while Yjs is still starting, a new device's own entry looked like another device's data and importing got a false 409.
+  // Waits at most 5 s for that to settle, then decides as always: in doubt, nothing is overwritten.
+  async function _cuadernoConDatosTrasArranque() {
+    const arrancando = () => {
+      try {
+        const y = window.OCYjs;
+        if (!y || !y.roomId) return false;
+        if (y.estado !== "activo" || typeof y._diag !== "function" || y._diag().recuperacionLocalPendiente) return true;
+        return !!window.OCMicelio && !(window.OCMicelio.yo && window.OCMicelio.yo() && window.OCMicelio.yo().id);
+      } catch (_) { return false; }
+    };
+    const t0 = Date.now();
+    while (arrancando() && Date.now() - t0 < 5000) await new Promise((listo) => setTimeout(listo, 200));
+    return _cuadernoConDatosEnDoc();
+  }
   function aplicarRespaldo(body) {
     productos.length = 0; productos.push(...body.productos);
     ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
@@ -4324,8 +4339,8 @@
         // an explicit reconciled stock movement; do not resolve by wall clock.
         // JFC 2026-11-01: the latest physical count wins (stockTs, deterministic tie-break by epoch id).
         // The losing epoch stays in stockEvidencias below; nothing is discarded.
-        // v651: a newer count with no epoch also wins over a local epoch; before, that device kept its old number forever.
-        const _gana = epochLocal && epochConflict && _baseR !== null &&
+        // v651: a newer DIFFERENT count with no epoch also wins over a local epoch (it kept its old number forever). The same base with no epoch is an old bridge's movement, never a recount.
+        const _gana = epochLocal && epochConflict && _baseR !== null && (epochRemote || _baseR !== _baseL) &&
           (_tsR > _tsL || (epochRemote && _tsR === _tsL && epochRemote > epochLocal));
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
         const protectedStock = _epochDoble
@@ -7685,7 +7700,7 @@
           /* (JFC 2026-10-28) Restaurar NO se permite si el Y.Doc local ya tiene datos: gana al reabrir
              (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
           /* (JFC 2026-10-28) `error` en ingles (default de la app); `errorEs` para la UI en espanol. */
-          if (_cuadernoConDatosEnDoc()) return J({ error: "A backup can only be restored on a new device with no data. In a notebook that already has data, the restore would be undone when the app reopens.", errorEs: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
+          if (await _cuadernoConDatosTrasArranque()) return J({ error: "A backup can only be restored on a new device with no data. In a notebook that already has data, the restore would be undone when the app reopens.", errorEs: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
           const anterior = estadoActualExportable(), actividadAnterior = actividadCompartida, pagosAnteriores = payouts.slice();
           const listas = [_CAT_BASE_CUSTOM, _CAT_BASE_OCULTAS].map(base => { const clave = _catKey(base); return { clave, raw: localStorage.getItem(clave) }; });
           try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(anterior)); } catch (_) {}
