@@ -12,6 +12,8 @@
     const encode = bytes => { let value = ''; for (let i = 0; i < bytes.length; i += 8192) value += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(value); };
     const decode = text => { if (typeof text !== 'string' || text.length > MAX_PACKET * 2 || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) throw Error('Invalid peer frame'); return Uint8Array.from(atob(text), c => c.charCodeAt(0)); };
     const hash = async bytes => Array.from(new Uint8Array(await secure.subtle.digest('SHA-256', bytes)), n => n.toString(16).padStart(2, '0')).join('');
+    // v653: the relay filter refused Firefox's session lines, so the direct channel never opened with it. Neither line matters to the peer.
+    const sdpParaRelay = d => ({ type: d.type, sdp: d.sdp.replace(/^o=\S+ /m, 'o=- ').replace(/^a=sendrecv\r?\n/gm, '') });
     class Socket extends EventTarget {
       constructor(hub, topic, url) {
         super(); this.hub = hub; this.topic = topic; this.url = url; this.peerOnly = true;
@@ -201,7 +203,8 @@
         if (this.peers.size >= 11) return null;
         const pc = new RTC({ iceServers }), peer = { id, pc, dc: null, ice: [], groups: new Map(), serial: Promise.resolve() };
         this.peers.set(id, peer);
-        pc.onicecandidate = event => { if (event.candidate && event.candidate.type !== 'relay') this.signalTo('ice', id, event.candidate.toJSON()); };
+        // v653: Firefox ends with an empty candidate; the relay closes the signaling socket on it. ICE does not need it.
+        pc.onicecandidate = event => { if (event.candidate && event.candidate.candidate && event.candidate.type !== 'relay') this.signalTo('ice', id, event.candidate.toJSON()); };
         pc.ondatachannel = event => this.attach(peer, event.channel);
         pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) this.remove(peer, pc.connectionState === 'failed'); };
         return peer;
@@ -244,14 +247,14 @@
             const peer = this.peer(id); if (!peer || this.id > id || peer.dc || peer.pc.signalingState !== 'stable') continue;
             this.attach(peer, peer.pc.createDataChannel('friendly-direct-v1'));
             await peer.pc.setLocalDescription(await peer.pc.createOffer());
-            this.signalTo('offer', id, peer.pc.localDescription.toJSON());
+            this.signalTo('offer', id, sdpParaRelay(peer.pc.localDescription.toJSON()));
           }
           return;
         }
         const peer = this.peer(message.from); if (!peer || message.to !== this.id) return;
         if (message.k === 'offer' && message.from < this.id) {
           await peer.pc.setRemoteDescription(message.data); for (const ice of peer.ice.splice(0)) await peer.pc.addIceCandidate(ice);
-          await peer.pc.setLocalDescription(await peer.pc.createAnswer()); this.signalTo('answer', peer.id, peer.pc.localDescription.toJSON());
+          await peer.pc.setLocalDescription(await peer.pc.createAnswer()); this.signalTo('answer', peer.id, sdpParaRelay(peer.pc.localDescription.toJSON()));
         } else if (message.k === 'answer' && peer.pc.signalingState === 'have-local-offer') {
           await peer.pc.setRemoteDescription(message.data); for (const ice of peer.ice.splice(0)) await peer.pc.addIceCandidate(ice);
         } else if (message.k === 'ice') {
