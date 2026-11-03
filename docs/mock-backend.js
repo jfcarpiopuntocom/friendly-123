@@ -5394,11 +5394,25 @@
     try {
       const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
       const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
-      return { pinsRol: { owner: vis.owner || abre.owner || "", emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""), acct: abre.acct || vis.acct || "" },
+      // A joined device's factory 789 is not the store's PIN: it reports 789 only when the store itself said so (flag keyed to this license).
+      let unido = false, tienda789 = false;
+      try {
+        const lic = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+        unido = (!!lic && localStorage.getItem("f123_aparato_unido") === lic) || !!OC_STATE_SUFIJO;
+        tienda789 = !!lic && localStorage.getItem("f123_pin_tienda_789") === lic;
+      } catch (_) {}
+      const dueno = vis.owner || abre.owner || "";
+      return { pinsRol: { owner: unido && dueno === "789" && !tienda789 ? "" : dueno, emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""), acct: abre.acct || vis.acct || "" },
         ownerPinTs: (window.OCSecure && window.OCSecure.ownerPinTs) ? window.OCSecure.ownerPinTs() : 0 };
     } catch (_) { return {}; }
   }
   function _adoptarPinDeFoto(f) {
+    // Remembers, per license, whether the store's own Owner PIN is the factory 789 (read by the login guard in auth-ui.js).
+    try {
+      const o = f && f.pinsRol && String(f.pinsRol.owner || "");
+      const lic = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+      if (o === "789" && lic) localStorage.setItem("f123_pin_tienda_789", lic); else if (o) localStorage.removeItem("f123_pin_tienda_789");
+    } catch (_) {}
     try { if (f && f.pinsRol && f.ownerPinTs && window.OCSecure && window.OCSecure.adoptarPinOwnerDeFoto) Promise.resolve(window.OCSecure.adoptarPinOwnerDeFoto(f.pinsRol.owner, f.ownerPinTs)).catch(() => {}); } catch (_) {}
   }
   window.OCSync = {

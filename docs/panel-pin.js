@@ -24,14 +24,10 @@ function render(s){
   }
  }
  const stage=el("lic-pin-stage"),activate=el("lic-pin-activate");
- // Phase 1: JFC must be able to see an existing-PIN report from EVERY
- // registered device before coordinating a forced revision. Missing devices
- // keep their existing access; no silent forced migration in production.
- const censusComplete=s.censusComplete===true; // exact authoritative ID coverage, never count guessed in UI
- selected.censusComplete=censusComplete;
- if(stage)stage.disabled=!censusComplete;
- if(activate)activate.disabled=!censusComplete || s.pendingRevision===null;
- if(!censusComplete && summary)summary.textContent+=" · Faltan aparatos: primero registrar PIN existentes";
+ // JFC 2026-11-03: «MI PANEL ES EL DICTADOR DE LOS PINS». No device census gate: devices are abandoned for weeks or
+ // only admins log in. The panel can always prepare and activate. (The old census gate had no JFC order behind it.)
+ if(stage)stage.disabled=false;
+ if(activate)activate.disabled=s.pendingRevision===null;
 }
 async function request(route,options={}){
  const cfg=typeof licWorkerUrl==="function"?licWorkerUrl():"";
@@ -69,7 +65,6 @@ function getPin(){
 }
 async function stage(){
  if(!selected||selected.revision===null)return say("Consulta la revisión central.",true);
- if(!selected.censusComplete)return say("Registra los PIN de todos los aparatos de esta licencia antes de preparar el cambio.",true);
  let pin;try{pin=getPin()}catch(e){clear();return say(e.message,true)}
  if(!confirm("PASO 1/2: preparar cambio JFC sin sustituir el PIN de ningún cliente. ¿Continuar?")){clear();return}
  const snap={...selected};
@@ -80,7 +75,7 @@ async function stage(){
  }catch(e){clear();say(e.message,true)}
 }
 async function activate(){
- if(!selected||selected.revision===null||selected.pendingRevision===null||!selected.censusComplete)return say("Primero registra todos los PIN existentes de la licencia y prepara la propuesta.",true);
+ if(!selected||selected.revision===null||selected.pendingRevision===null)return say("Primero registra todos los PIN existentes de la licencia y prepara la propuesta.",true);
  let pin;try{pin=getPin()}catch(e){clear();return say(e.message,true)}
  if(!confirm("PASO 2/2: JFC IMPONDRÁ esta revisión como PIN Owner central. Comprobaste los aparatos y sus PIN previos; cualquier aparato aún sin censo requerirá recuperación. ¿Confirmar?")){clear();return}
  const snap={...selected};

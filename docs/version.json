@@ -1,10 +1,10 @@
 {
-  "version": "shell v653",
+  "version": "shell v654",
   "fecha": "2026-11-03",
-  "changelog": "Devices on different browsers now connect directly to each other, so new product images reach them. Everything in v652 is kept.",
+  "changelog": "Your PIN stays yours: a device joined to your store no longer opens with the factory PIN. Everything in v653 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v653",
+  "shell": "f123-shell-v654",
   "apagar": [],
-  "releaseName": "shell v653",
-  "cacheGeneration": "golden200"
+  "releaseName": "shell v654",
+  "cacheGeneration": "golden201"
 }

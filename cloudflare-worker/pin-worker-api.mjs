@@ -15,14 +15,29 @@ export function pinDoRoute(req,storage,env){
    if(body.action==="status")r=await p.status(body.licenseCode,body.registeredIds);
    else if(body.action==="master-set")r=await p.masterSet(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
    else if(body.action==="master-activate")r=await p.masterActivate(body.licenseCode,body.pin,body.expectedRevision,body.registeredIds);
-   else if(body.action==="report")r=await p.reportExisting(body.licenseCode,body.instanceId,body.pin);
-   else if(body.action==="verify")r=await p.verify(body.licenseCode,body.pin);
+   else if(body.action==="report")r=await p.reportExisting(body.licenseCode,body.instanceId,body.pin,body.pinTs);
+   // JFC 2026-11-03: «789 ... NO me molesta que sirva como universal o fallback, pero NO puede ser un breach ... lo que pusieron
+   // eso se queda». The factory PIN is retired for a license as soon as any own Owner PIN is sealed or was reported by a device.
+   else if(body.action==="verify"&&(body.pin==="789"||body.pin==="456")){
+    const l=String(body.licenseCode||"").trim().toUpperCase();
+    const sealed=await storage.get("pin-owner:"+l),obs=await storage.get("pin-owner-observed:"+l);
+    r=(sealed||(obs&&obs.devices&&Object.keys(obs.devices).length))?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};
+   }
+   else if(body.action==="verify")r=await p.verify(body.licenseCode,body.pin,body.pinTs);
+   // 2026-11-03 (JFC: the panel dictates PINs, never lock out a customer): a device whose license row does not match
+   // is only refused once JFC has set a central PIN for that license. Before that it keeps its existing local access.
+   else if(body.action==="verify-unmatched"){
+    const l=String(body.licenseCode||"").trim().toUpperCase(),stored=await storage.get("pin-owner:"+l);
+    const obs=(body.pin==="789"||body.pin==="456")?await storage.get("pin-owner-observed:"+l):null;
+    r=stored?{ok:false,reason:"license-instance-mismatch"}
+     :(obs&&obs.devices&&Object.keys(obs.devices).length)?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};
+   }
    else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
    else return reply({ok:false},404);
    // All rejected operations MUST have non-2xx status. A 200 for an expired
    // proposal previously made the JFC panel falsely claim PIN activation.
    const code=r.ok===false
-    ? ((r.reason==="rate-limited"||r.reason==="report-rate-limited")?429:r.reason==="invalid-pin"?401:409)
+    ? ((r.reason==="rate-limited"||r.reason==="report-rate-limited")?429:(r.reason==="invalid-pin"||r.reason==="factory-pin-retired")?401:r.reason==="license-instance-mismatch"?404:409)
     : 200;
    return reply(r,code);
   }catch{return reply({ok:false,reason:"invalid-input"},400)}
@@ -42,8 +57,10 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
  const licenseCode=String(data.licenseCode||"").trim().toUpperCase(),instanceId=String(data.instanceId||"");
  if(!LICENSE.test(licenseCode)||!INSTANCE.test(instanceId))return reply({ok:false},400);
  let saved;try{saved=await readLicenseInstance(env,instanceId)}catch{return reply({ok:false,reason:"instance-lookup-failed"},503)}
- if(!saved||saved.instanceId!==instanceId||String(saved.licenseCode||"").trim().toUpperCase()!==licenseCode)
-  return reply({ok:false,reason:"license-instance-mismatch"},404);
+ const unmatched=!saved||saved.instanceId!==instanceId||String(saved.licenseCode||"").trim().toUpperCase()!==licenseCode;
+ // Login of an unmatched device asks the authority whether this license is centrally set (see verify-unmatched).
+ if(unmatched&&action!=="verify")return reply({ok:false,reason:"license-instance-mismatch"},404);
+ if(unmatched)data={licenseCode,pin:String(data.pin||"")};
  // Admin writes use the authoritative registry cohort, not client-supplied
  // counts or IDs. On incomplete/unavailable registry, preserve old PINs.
  if(action==="status"||action==="master-set"||action==="master-activate"){
@@ -57,7 +74,7 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
  }
  let response;try{
   const stub=getDo(env);if(!stub)return reply({ok:false,reason:"authority-unavailable"},503);
-  response=await stub.fetch("https://do.invalid/pin-authority/internal",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...data,licenseCode,action})});
+  response=await stub.fetch("https://do.invalid/pin-authority/internal",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({...data,licenseCode,action:unmatched?"verify-unmatched":action})});
  }catch{return reply({ok:false,reason:"authority-unavailable"},503)}
  return new Response(response.body,{status:response.status,headers:H});
 }

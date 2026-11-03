@@ -53,10 +53,10 @@ test("JFC stage does not activate and requires a second deliberate action",async
  assert.equal(p.values.get("lic-pin-activate").disabled,true);
  assert.equal(source.includes("localStorage.setItem"),false);
 });
-test("Bad confirmation or unenrolled license never submits a PIN",async()=>{
+test("Bad confirmation never submits a PIN",async()=>{
  const p=panel({reply:()=>({...observed,observedDevices:0,censusComplete:false})});
  await p.window.licAbrirPinCentral(lic,id,2);
- assert.equal(p.values.get("lic-pin-stage").disabled,true);
+ assert.equal(p.values.get("lic-pin-stage").disabled,false,"JFC 2026-11-03: the panel never waits for devices");
  p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="148";
  await p.window.licFijarPinAutoridad();
  assert.equal(p.requests.length,1);
@@ -71,14 +71,15 @@ test("Responsive PIN panel and pencil are present outside the More menu",()=>{
  assert.match(rows,/data-owner-pin-license/);
 });
 
-test("Incomplete client PIN census blocks staging even when called directly",async()=>{
- const p=panel({reply:()=>({...observed,observedDevices:1,censusComplete:false})});
+// JFC 2026-11-03: «MI PANEL ES EL DICTADOR DE LOS PINS»; devices are abandoned for weeks or only admins log in.
+test("Panel prepares a PIN even when no device has reported",async()=>{
+ const p=panel({reply:u=>u.includes("/admin/set")?{...observed,ok:true,staged:true,pendingRevision:1}:({...observed,observedDevices:0,censusComplete:false})});
  await p.window.licAbrirPinCentral(lic,id,2);
- assert.equal(p.values.get("lic-pin-stage").disabled,true);
- assert.match(p.values.get("lic-pin-summary").textContent,/Faltan aparatos/);
+ assert.doesNotMatch(p.values.get("lic-pin-summary").textContent,/Faltan aparatos/);
  p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="149";
  await p.window.licFijarPinAutoridad();
- assert.equal(p.requests.length,1,"no admin mutation before complete census");
+ assert.equal(p.requests.length,2,"stage request sent without a device census");
+ assert.equal(p.values.get("lic-pin-activate").disabled,false);
 });
 
 test("Admin master key and PIN never go to an overridden or malicious Worker URL",async()=>{
@@ -96,15 +97,4 @@ test("Even a malformed HTTP 200 with ok:false never activates a customer's PIN",
  assert.equal(p.requests.length,2);
  assert.match(p.values.get("lic-pin-state").textContent,/expired-proposal/);
  assert.equal(p.values.get("lic-pin-activate").disabled,true);
-});
-
-test("P0 exact server census vetoes PIN even if the two displayed counts agree",async()=>{
- const p=panel({reply:()=>({...observed,observedDevices:2,registeredDevices:2,censusComplete:false})});
- await p.window.licAbrirPinCentral(lic,id,2);
- assert.equal(p.values.get("lic-pin-stage").disabled,true);
- assert.equal(p.values.get("lic-pin-activate").disabled,true);
- assert.match(p.values.get("lic-pin-summary").textContent,/Faltan aparatos/);
- p.values.get("lic-pin-new").value="149";p.values.get("lic-pin-confirm").value="149";
- await p.window.licFijarPinAutoridad();
- assert.equal(p.requests.length,1,"do not submit PIN changes with mismatched registered IDs");
 });
