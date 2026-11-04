@@ -1280,10 +1280,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     if(central==="unavailable-identity"&&rolHash==="dueno"){
       error("La identidad de la licencia no coincide con el registro central. Recupera la licencia desde el panel.");return;
     }
-    if(central==="unavailable"&&rolHash==="dueno"){
-      let seen=null;try{seen=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+String((JSON.parse(localStorage.getItem("f123_owned")||"{}")||{}).licenseCode||"").trim().toUpperCase())||"null")}catch(_){}
-      if(seen){error("Autoridad central del PIN no disponible. Reintenta con conexión antes de entrar como Owner.");return}
-    }
+    /* v660 (critic A #3, 2026-11-04; JFC: no customer loses access, local-first): with no network the Owner enters with
+       the PIN this device holds. Once a central revision was seen, that local Owner PIN is the one the central authority
+       last confirmed and adopted here (adoptarPinOwnerCentralVerificado), so an outage never locks the owner out.
+       Rotation still needs the central authority (rotarPinOwnerCentral keeps "central-authority-unavailable"). */
     /* JFC 2026-11-03: "LA GENTE YA TIENE SUS PIN, NO LES PUEDES IMPONER COSAS". On a device joined to an existing store, the factory
        789 never opens it as Owner: people keep their own PIN. It opens only if the store itself says its Owner PIN is 789.
        Creating a new store with 789 is not affected. */
