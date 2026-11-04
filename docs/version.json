@@ -1,10 +1,10 @@
 {
-  "version": "shell v656",
+  "version": "shell v657",
   "fecha": "2026-11-03",
-  "changelog": "Link a new device with a one-time code from Advanced, and devices on different networks can now reach each other directly. Everything in v654 is kept.",
+  "changelog": "When one sync server is down, devices switch to the other in seconds, and a device that opens alone also catches up with changes kept on the backup server. Everything in v656 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v656",
+  "shell": "f123-shell-v657",
   "apagar": [],
-  "releaseName": "shell v656",
-  "cacheGeneration": "golden202"
+  "releaseName": "shell v657",
+  "cacheGeneration": "golden203"
 }

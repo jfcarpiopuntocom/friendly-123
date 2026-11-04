@@ -15,22 +15,72 @@ class FakeSocket extends EventTarget {
   send(v) { this.sent.push(v); }
   close(code, reason) { this.closed = { code, reason }; this.readyState = 3; this.dispatchEvent(new Event('close')); }
 }
-function app(now = Date.parse('2026-11-02T12:00:00Z')) {
-  const store = new Map(), timers = [];
+function app(now = Date.parse('2026-11-02T12:00:00Z'), store = new Map(), fbHead = null) {
+  const timers = [], timeouts = [];
   const fake = kind => ({ ckptFrameBytes: 786432, connect: () => new FakeSocket(kind) });
+  const fbFake = fake('firebase');
+  if (fbHead) fbFake.leerHead = async () => fbHead.value; // v657 tests: the Firebase head another device moves
   const w = {
     localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)) },
-    F123Relay: fake('supabase'), F123FirebaseRelay: fake('firebase'),
+    F123Relay: fake('supabase'), F123FirebaseRelay: fbFake,
     F123Peer: { create: () => fake('peer') },
     EventTarget, Event, DOMException, JSON, Number, String,
-    setInterval: fn => { timers.push(fn); return timers.length; }, clearInterval: () => {}
+    setInterval: fn => { timers.push(fn); return timers.length; }, clearInterval: () => {},
+    setTimeout: fn => { timeouts.push(fn); return timeouts.length; }
   };
   const clock = { now };
   w.Date = class extends Date { constructor(...a) { super(...(a.length ? a : [clock.now])); } static now() { return clock.now; } };
   w.window = w;
   vm.runInNewContext(SRC, w);
-  return { R: w.F123Relay, clock, tick: () => timers.slice().forEach(fn => fn()) };
+  return { R: w.F123Relay, clock, tick: () => timers.slice().forEach(fn => fn()), vencer: () => timeouts.splice(0).forEach(fn => fn()) };
 }
+
+// v657 (sync3 QA 2026-11-03, Directiva Prima 1): a device reading only Supabase must catch up with writes another
+// device made on Firebase while it was closed.
+const espera = () => new Promise(r => setImmediate(r));
+test('v657: Firebase moved while this device was closed -> it reads Firebase, then returns to Supabase', async () => {
+  const store = new Map(), head = { value: { rev: 1, seq: 10 } };
+  const s1 = app(undefined, store, head).R.connect(URL1); s1.open(); await espera(); await espera();
+  assert.equal(s1.closed, null, 'first session: only remembers the head');
+  head.value = { rev: 1, seq: 11 }; // another device, parked on Firebase, wrote while this one was closed
+  const A2 = app(undefined, store, head), s2 = A2.R.connect(URL1);
+  assert.equal(s2.kind, 'supabase'); s2.open(); await espera(); await espera();
+  assert.equal(s2.closed && s2.closed.code, 1012, 'leaves Supabase to read Firebase');
+  assert.equal(A2.R.connect(URL1).kind, 'firebase', 'the reconnect reads Firebase');
+  A2.clock.now += 3 * 60 * 1000 + 1000;
+  assert.equal(A2.R.connect(URL1).kind, 'supabase', 'after 3 min it is back on Supabase (and uploads its checkpoint)');
+});
+test('v657: Firebase did not move -> the device stays on Supabase', async () => {
+  const store = new Map(), head = { value: { rev: 1, seq: 10 } };
+  const s1 = app(undefined, store, head).R.connect(URL1); s1.open(); await espera(); await espera();
+  const s2 = app(undefined, store, head).R.connect(URL1); s2.open(); await espera(); await espera();
+  assert.equal(s2.closed, null);
+});
+
+// v656 (sync3 QA 2026-11-03): an unreachable layer is an outage, not a refusal: short pause, fast hand-over.
+test('v656: a network failure before opening pauses the layer only 5 s, then it is used again', () => {
+  const { R, clock } = app();
+  const s = R.connect(URL1);
+  s.dispatchEvent(new Event('error')); s.close();
+  assert.equal(R.connect(URL1).kind, 'firebase', 'Supabase unreachable → Firebase right away');
+  clock.now += 21 * 1000;
+  assert.equal(R.connect(URL1).kind, 'supabase', 'back to Supabase after 5 s, not 15 min');
+});
+test('v656: a layer that does not open within 8 s hands over (no 54 s wait)', () => {
+  const { R, vencer, clock } = app();
+  const s = R.connect(URL1);
+  vencer();
+  assert.equal(s.readyState, 3, 'the silent socket was closed');
+  assert.equal(R.connect(URL1).kind, 'firebase');
+  clock.now += 21 * 1000;
+  assert.equal(R.connect(URL1).kind, 'supabase', 'a timeout is an outage: short pause');
+});
+test('v656: a server refusal still keeps the long pause that protects the free plans', () => {
+  const { R, clock } = app();
+  R.connect(URL1).close(1011, 'relay route unavailable');
+  clock.now += 21 * 1000;
+  assert.equal(R.connect(URL1).kind, 'firebase', 'refusal: still paused after 20 s');
+});
 
 test('Supabase is the first choice and keeps its checkpoint capability', () => {
   const { R } = app();
