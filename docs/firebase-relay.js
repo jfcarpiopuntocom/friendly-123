@@ -18,9 +18,15 @@
   function create(opts) {
     var base = (opts && opts.db) || DB, fetchFn = (opts && opts.fetch) || function () { return fetch.apply(null, arguments); };
     var ES = (opts && "EventSource" in opts) ? opts.EventSource : (typeof EventSource === "function" ? EventSource : null);
+    /* v663 (sync3 speed 2026-11-04): a cross-origin PUT with a JSON content type needs a CORS preflight, and Firebase
+       sends no Access-Control-Max-Age, so browsers re-ask every ~5 s: one extra round trip (~140 ms from Ecuador) on
+       almost every sale. Firebase REST accepts POST + ?x-http-method-override=PUT with a text/plain body (same PUT
+       semantics, verified 2026-11-04), which is a "simple" request with no preflight. To undo: send method PUT again. */
     function http(method, path, body, query) {
-      return fetchFn(base + path + ".json" + (query ? "?" + q(query) : ""), {
-        method: method, headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      var simple = method === "PUT" && body !== undefined;
+      var qs = (query ? q(query) : "") + (simple ? (query ? "&" : "") + "x-http-method-override=PUT" : "");
+      return fetchFn(base + path + ".json" + (qs ? "?" + qs : ""), {
+        method: simple ? "POST" : method, headers: {},
         body: body === undefined ? undefined : JSON.stringify(body)
       });
     }
