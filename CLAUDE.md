@@ -5,11 +5,12 @@
 **El sync de inventario, dinero y movimientos es el núcleo de confianza de friendly-123.** Todo lo demás es secundario.
 
 1. **Todo aparato que se conecta se pone al día solo, siempre.** Nunca «solo si otro aparato está abierto a la vez».
-2. **Por capas, con respaldos que no chocan:**
-   - Supabase (durable) → Firebase (durable) → directo entre aparatos;
+2. **Por capas, con respaldos que no chocan** (JFC: «CASCADA DE FALLBACKS»; «TODO DEBE TENER CASCADA DE FALLBACKS»):
+   - hoy: Supabase (durable) → Firebase (durable) → directo entre aparatos. **Los proveedores y su orden son diseño de Claude, no orden de JFC** (JFC 2026-11-04: «yo no tengo NADA especialmente a favor de supabase o firebase o lo que sea. ARMA TU EL SISTEMA»);
    - siempre los mismos cambios cifrados: Yjs los une en cualquier orden y con repeticiones;
-   - cada capa durable lleva su cupo diario por aparato y su corte automático, para no quemar cuentas gratis;
-   - las fotos van solo directo entre aparatos.
+   - cada capa durable lleva su cupo diario por aparato y su corte automático, para no quemar cuentas gratis (JFC 14 oct: «que no nos sature las cuentas el uso de los clientes en ninguna de mis apps»);
+   - **las fotos también van por la cascada, en última prioridad** (JFC 2026-11-04: «No dije que no pasen por ninguna capa. Jamas dije eso ... Dije que son prioridad ultima»). La línea anterior «las fotos van solo directo entre aparatos» NO era orden de JFC: fue un error de Claude atribuírsela.
+   - **Norte** (JFC 2026-11-04): sync3 debe ser tan rápido como el sync de hace 21 días, «la app y la data».
 3. **Prohibido apagar, quitar o «simplificar» una capa** sin el «sí» expreso de JFC. El 25 oct se quitó el relay durable sin su aprobación y la app pasó 15 días sin sincronizar de verdad. Nunca más. Ni 48 horas.
 4. **Todo cambio de transporte** pasa la prueba «un aparato que abre solo se pone al día desde al menos una capa durable» antes de publicarse.
 5. **Aterrizar, no rediseñar sin fin:** el cambio mínimo que mantiene vivas las capas.

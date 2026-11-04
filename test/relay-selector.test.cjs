@@ -198,10 +198,17 @@ test('the daily download budget also pauses the layer; the next day Supabase is 
   assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'budget resets each day');
 });
 
-test('photos never use a relay budget: the -fotos channel always goes to direct peers', () => {
+// v661 (JFC 2026-11-04: photos at LAST priority, but with the cascade like everything else).
+test('photos ride the durable cascade at last priority: only under half of the daily cap, then direct', () => {
   const { R } = app();
-  assert.equal(R.connect(URL1.replace(/-y$/, '-fotos')).kind, 'peer');
+  const FOTOS = URL1.replace(/-y$/, '-fotos');
+  assert.equal(sub(R.connect(FOTOS)).kind, 'supabase', 'photos reach the durable layer');
   assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'catalog still prefers the durable relay');
+  const h = sub(R.connect(FOTOS)); h.open();
+  assert.throws(() => h.send('x'.repeat(1024 * 1024 + 1)), e => e.name === 'QuotaExceededError', 'a photo never takes more than half');
+  assert.ok(!h.closed, 'the layer stays open for inventory and money');
+  const c = sub(R.connect(URL1)); c.open(); c.send('x'.repeat(900 * 1024)); c.send('x'.repeat(200 * 1024));
+  assert.equal(sub(R.connect(FOTOS)).kind === 'supabase', false, 'over half used: photos leave Supabase');
 });
 
 test('a device on the fallback layer goes back to the first layer when its pause ends (layers re-converge)', () => {
@@ -228,7 +235,7 @@ test('without peer-sync the budgets still apply and photos never fall back to a 
   vm.runInNewContext(SRC, w);
   assert.equal(w.F123Relay.connect(URL1).kind, 'supabase', 'selector installed even without peer-sync');
   assert.equal(typeof w.F123Relay.estadoCupo, 'function', 'budget wrapper present');
-  assert.throws(() => w.F123Relay.connect(URL1.replace(/-y$/, '-fotos')), /unavailable/, 'photos fail closed, caller retries');
+  assert.equal(w.F123Relay.connect(URL1.replace(/-y$/, '-fotos')).kind, 'supabase', 'photos use the durable layer even without peer-sync');
 });
 
 test('Firebase ignored binary copies spend no upload budget; durable writes still count and closed sockets still reject', async () => {
@@ -270,4 +277,14 @@ test('v659 (d2): after the first layer refuses and its pause ends, the cascade r
   tick(); assert.equal(code, null, 'still paused: stays on Firebase');
   clock.now += 16 * 60 * 1000; tick();
   assert.equal(code, 1012); assert.deepEqual(made[1].closed, { code: 1000, reason: 'earlier durable layer available again' });
+});
+// v661 band quarantine (OpenCode review 2026-11-04): a layer refusing the photo room must not stop inventory there.
+test('v661: photo room refused -> only the photo band pauses; inventory keeps the same layer', () => {
+  const { R, made } = app();
+  const FOTOS = URL1.replace(/-y$/, '-fotos');
+  const f = sub(R.connect(FOTOS)); assert.equal(f.kind, 'supabase');
+  f.close(1011, 'room not allowed');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'inventory still on Supabase');
+  assert.notEqual(sub(R.connect(FOTOS)).kind, 'supabase', 'photos skip the refusing layer');
+  assert.ok(made.length >= 3);
 });

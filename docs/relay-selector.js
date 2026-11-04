@@ -31,6 +31,17 @@
   function guardar(key, c) { try { localStorage.setItem(key, JSON.stringify(c)); } catch (_) {} }
   function bytes(v) { return v == null ? 0 : v.byteLength != null ? v.byteLength : v.size != null ? v.size : String(v).length; }
   function usable(capa) { var c = leer(capa.key); return Date.now() >= c.pausaHasta && (capa.relay === fb || c.up < CAP_UP) && c.down < CAP_DOWN; }
+  /* v661 (JFC 2026-11-04, literal: «No dije que no pasen por ninguna capa ... Dije que son prioridad ultima. TODO DEBE TENER
+     CASCADA DE FALLBACKS»): photos ride the same cascade (Supabase -> Firebase -> direct) at LAST priority: they only use
+     a layer while this device's daily use there is under half the cap, so inventory and money always keep the other
+     half. Over that, photos stay direct between devices. To return to peers-only photos: make esFoto() return false. */
+  var FOTO_PARTE = 0.5;
+  function esFoto(url) { return /-fotos$/.test(String(url)); }
+  /* v661 band quarantine (OpenCode review 2026-11-04): a refusal on the photo room pauses ONLY the photo band of that
+     layer (its own key); inventory and money keep using the layer. The business band pausing still stops photos there. */
+  function pausaFotos(capa) { try { return Number((JSON.parse(localStorage.getItem(capa.key + "_fotos") || "null") || {}).pausaHasta) || 0; } catch (_) { return 0; } }
+  function pausarFotos(capa, ms) { try { localStorage.setItem(capa.key + "_fotos", JSON.stringify({ pausaHasta: Date.now() + ms })); } catch (_) {} }
+  function usableFotos(capa) { var c = leer(capa.key); return usable(capa) && Date.now() >= pausaFotos(capa) && (capa.relay === fb || c.up < CAP_UP * FOTO_PARTE) && c.down < CAP_DOWN * FOTO_PARTE; }
   // A layer that reports its real read bytes (Firebase) is charged those, and only the new ones: its frames are inside them.
   function sumarBajada(capa, e) {
     var c = leer(capa.key);
@@ -113,6 +124,7 @@
     }
   }
   function arrancarSondas(ws, capa, url) {
+    if (esFoto(url)) return; // v661: photos ride the cascade but never spend head/probe reads
     if (capa.relay === fb) {
       delete _headFb[url]; // this device writes there now: its own writes must not count later
       // v657: when this Firebase session ends, remember the head it left so its own writes are not taken for another device's.
@@ -140,7 +152,7 @@
   // A layer with nothing at all must not pass for "up to date" while the next one holds the store. Zero against
   // non-zero only: rev/seq are never compared across layers. Yjs merges any repetition, so moving on cannot conflict.
   function capaVaciaSigue(capa, ws, url, h) {
-    if (capa.relay === fb || !fb || typeof fb.leerHead !== "function" || h.unsupported || Number(h.rev) || Number(h.seq)) return;
+    if (esFoto(url) || capa.relay === fb || !fb || typeof fb.leerHead !== "function" || h.unsupported || Number(h.rev) || Number(h.seq)) return;
     var capaFb = capas.filter(function (x) { return x.relay === fb; })[0];
     if (!capaFb || !usable(capaFb)) return;
     fb.leerHead(url).then(function (n) {
@@ -158,6 +170,7 @@
       if (typeof e.data !== "string") sonda.frames++;
       else if (e.data.indexOf('"head-result"') !== -1) try { var cabeza = JSON.parse(e.data); sondaAtraso(sonda, cabeza); capaVaciaSigue(capa, ws, url, cabeza); } catch (_) {}
       var c = sumarBajada(capa, e);
+      if (esFoto(url) && c.down >= CAP_DOWN * FOTO_PARTE) { pausarFotos(capa, PAUSA_MS); try { ws.close(1013, CIERRE); } catch (_) {} return; }
       if (c.down >= CAP_DOWN) { c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} }
     });
     // Refused before opening (inactive room, quota 402, route error): pause this layer, the next one takes over.
@@ -176,6 +189,7 @@
     ws.addEventListener("close", function (e) {
       if (abierto || !(fallo || !soltado || (e && e.code && e.code !== 1000))) return;
       var red = fallo && !(e && e.code && e.code !== 1006); // an error with no server code
+      if (esFoto(url)) { pausarFotos(capa, red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); return; } // band quarantine
       var c = leer(key); c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); guardar(key, c);
     });
     var enviar = ws.send.bind(ws);
@@ -189,10 +203,13 @@
          connection open. */
       if (capa.relay === fb) {
         if (typeof v === "string" && n <= 4096 && /^\{"k":"(head|pull|ts)"/.test(v)) return enviar(v);
-        var limite = n <= FRAME_RESERVADO || !/-(y|ops|fotos)$/.test(String(url)) ? CAP_UP_RESERVA : CAP_UP;
+        // v661: first photo upload of a store (~150 KB each) must finish in a day or two: 5 MB/day/device on Firebase.
+        var limite = esFoto(url) ? CAP_UP_RESERVA * FOTO_PARTE : n <= FRAME_RESERVADO || !/-(y|ops)$/.test(String(url)) ? CAP_UP_RESERVA : CAP_UP;
         if (c.up + n > limite) throw new DOMException("Daily relay budget reached", "QuotaExceededError");
         c.up += n; guardar(key, c); return enviar(v);
       }
+      // v661: a photo over its share waits in the caller's outbox; the layer stays open for inventory and money.
+      if (esFoto(url) && c.up + n > CAP_UP * FOTO_PARTE) throw new DOMException("Daily relay budget reached", "QuotaExceededError");
       if (c.up + n > CAP_UP) { c.up = CAP_UP; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} throw new DOMException("Daily relay budget reached", "QuotaExceededError"); }
       c.up += n; guardar(key, c); return enviar(v);
     };
@@ -337,8 +354,8 @@
       };
     },
     connect: function (url) {
-      if (/-fotos$/.test(String(url))) return viaPeers(url); // photos never use a relay budget
-      for (var i = 0; i < capas.length; i++) if (usable(capas[i])) {
+      var apta = esFoto(url) ? usableFotos : usable;
+      for (var i = 0; i < capas.length; i++) if (apta(capas[i])) {
         var ws; try { ws = envolver(capas[i], url); } catch (_) { continue; }
         // On a fallback layer, re-probe the earlier layers when their pause ends: the app reconnects, the earlier
         // layer gets this device's full-state checkpoint, and devices split across layers converge again.
