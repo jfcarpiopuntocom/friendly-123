@@ -49,7 +49,7 @@ test('a deep HTML entry preserves its relative view, never arbitrary query data 
  assert.equal(called.length,0);
 });
 test('JS, SW, version and immutable release proof are still served from the one stable branch',async()=>{
- for(const route of ['/app/sw.js','/app/auth-ui.js','/app/version.json','/app/_release.json']){
+ for(const route of ['/app/auth-ui.js','/app/version.json','/app/_release.json']){ // 2026-11-04: /app/sw.js now retires the old worker (official-app-source test)
    const {response,called}=await serve(route,{headers:{accept:'application/json'}});
    assert.equal(response.status,200,route);
    assert.equal(called.length,1,route);
