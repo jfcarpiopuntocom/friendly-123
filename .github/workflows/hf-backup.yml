@@ -1,0 +1,33 @@
+# Daily second copy of the Hugging Face relay store (owner order 2026-11-04).
+# Copies dataset jfcarpio/f123-relay-store into the private repo jfcarpiopuntocom/f123-relay-backup.
+# Needs two repository secrets: HF_TOKEN (read access to the dataset) and BACKUP_REPO_TOKEN (push access to the backup repo).
+# The dataset holds only end-to-end encrypted envelopes. To disable: delete this file or turn the workflow off in the Actions tab.
+name: hf-backup
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download dataset
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          pip install -q huggingface_hub
+          python -c "from huggingface_hub import snapshot_download; snapshot_download(repo_id='jfcarpio/f123-relay-store', repo_type='dataset', local_dir='store', token=__import__('os').environ['HF_TOKEN'])"
+          rm -r -f store/.cache store/.git
+      - name: Push to private backup repo
+        env:
+          BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+        run: |
+          git clone --quiet "https://x-access-token:${BACKUP_REPO_TOKEN}@github.com/jfcarpiopuntocom/f123-relay-backup.git" backup
+          rsync -a --delete --exclude .git store/ backup/
+          cd backup
+          git add -A
+          git diff --cached --quiet && exit 0
+          git -c user.name=relay-backup -c user.email=relay-backup@users.noreply.github.com commit -q -m "backup $(date -u +%F)"
+          git push -q

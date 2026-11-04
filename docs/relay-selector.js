@@ -1,13 +1,14 @@
 /* relay-selector.js (JFC 2026-11-02): a device that connects catches up alone. Durable layers in order:
-   Supabase relay, then Firebase relay (firebase-relay.js); direct peers are the last fallback, never the only path.
+   Supabase relay, then Firebase relay (firebase-relay.js), then the Hugging Face relay (hf-relay.js, owner order
+   2026-11-04; to drop it remove its script tag); direct peers are the last fallback, never the only path.
    Every layer keeps the same encrypted frames, so they never conflict (Yjs merges any order, any repetition).
    Each durable layer has its own per-device daily byte budget so a free plan cannot burn again: past it, or when
    the layer refuses the room before opening (inactive room, 402, network), that layer pauses and the next one is
    used; pending writes stay in the caller's outbox. Photos are each business's responsibility: peers only.
-   Load after peer-sync.js, supabase-relay.min.js and firebase-relay.js. */
+   Load after peer-sync.js, supabase-relay.min.js, firebase-relay.js and hf-relay.js. */
 (function () {
   "use strict";
-  var sb = window.F123Relay, fb = window.F123FirebaseRelay;
+  var sb = window.F123Relay, fb = window.F123FirebaseRelay, hf = window.F123RelayHF;
   var peer = null;
   // Fail closed for photos and fallback: if peer-sync did not load, throw (the caller retries) instead of
   // leaving the relays without their daily budget or sending photos through a relay.
@@ -22,6 +23,8 @@
   var capas = [];
   if (sb && sb !== fb && typeof sb.connect === "function") capas.push({ relay: sb, key: "f123_relay_cupo_v1" });
   if (fb && typeof fb.connect === "function") capas.push({ relay: fb, key: "f123_relay_cupo_fb_v1" });
+  // Third layer: same caps as Supabase (it is not exempt from the upload budget like the Firebase reserved lane).
+  if (hf && typeof hf.connect === "function") capas.push({ relay: hf, key: "f123_relay_cupo_hf_v1" });
   function hoy() { return new Date().toISOString().slice(0, 10); }
   function leer(key) {
     var c = null; try { c = JSON.parse(localStorage.getItem(key) || "null"); } catch (_) {}
@@ -118,12 +121,12 @@
       // v657: when this Firebase session ends, remember the head it left so its own writes are not taken for another device's.
       ws.addEventListener("close", function () { try { Promise.resolve(fb.leerHead(url)).then(function (h) { if (h) anotarHead(url, h.rev + ":" + h.seq); }).catch(function () {}); } catch (_) {} });
     }
-    else sondaOtraCapa(url, ws);
+    else if (capa.relay !== hf) sondaOtraCapa(url, ws);
     var t = setInterval(function () {
       if (ws.readyState >= 2) return clearInterval(t);
       if (ws.readyState !== 1 || (typeof document !== "undefined" && document.hidden)) return;
       if (leer(capa.key).up + HEAD.length <= CAP_UP) ws.send(HEAD);
-      if (capa.relay !== fb) sondaOtraCapa(url, ws);
+      if (capa.relay !== fb && capa.relay !== hf) sondaOtraCapa(url, ws);
       try { revisarAvisos(capa); } catch (_) {}
     }, SONDA_MS);
     if (t && t.unref) t.unref();
@@ -140,7 +143,7 @@
   // A layer with nothing at all must not pass for "up to date" while the next one holds the store. Zero against
   // non-zero only: rev/seq are never compared across layers. Yjs merges any repetition, so moving on cannot conflict.
   function capaVaciaSigue(capa, ws, url, h) {
-    if (capa.relay === fb || !fb || typeof fb.leerHead !== "function" || h.unsupported || Number(h.rev) || Number(h.seq)) return;
+    if (capa.relay === fb || capa.relay === hf || !fb || typeof fb.leerHead !== "function" || h.unsupported || Number(h.rev) || Number(h.seq)) return;
     var capaFb = capas.filter(function (x) { return x.relay === fb; })[0];
     if (!capaFb || !usable(capaFb)) return;
     fb.leerHead(url).then(function (n) {
@@ -175,7 +178,7 @@
     ws.addEventListener("close", function (e) {
       if (abierto || !(fallo || !soltado || (e && e.code && e.code !== 1000))) return;
       var red = sinRespuesta || (fallo && !(e && e.code && e.code !== 1006)); // no answer, or an error with no server code
-      var c = leer(key); c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); guardar(key, c);
+      var c = leer(key); c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb || capa.relay === hf ? 60000 : PAUSA_MS)); guardar(key, c);
     });
     var enviar = ws.send.bind(ws);
     ws.send = function (v) {

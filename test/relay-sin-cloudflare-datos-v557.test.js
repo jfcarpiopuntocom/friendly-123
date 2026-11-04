@@ -25,7 +25,10 @@ const donde = re => archivos.filter(a => re.test(a.src)).map(a => a.rel).sort();
 
 // ---------- Parte 1: estatica ----------
 test('estatico: ningun archivo de docs/ abre un socket o canal crudo (WebSocket/EventSource/sendBeacon/XHR)', () => {
-  for (const re of [/new\s+WebSocket\s*\(/, /new\s+EventSource\s*\(/, /sendBeacon\s*\(/, /new\s+XMLHttpRequest\s*\(/]) {
+  // Owner order 2026-11-04: hf-relay.js is the one adapter allowed to open a WebSocket, and only to its own Hugging Face Space.
+  assert.deepEqual(donde(/new\s+WebSocket\s*\(/), ['hf-relay.js'], 'only the Hugging Face relay adapter may open a WebSocket');
+  assert.match(archivos.find(a => a.rel === 'hf-relay.js').src, /var HOST = "wss:\/\/jfcarpio-f123-relay\.hf\.space";/);
+  for (const re of [/new\s+EventSource\s*\(/, /sendBeacon\s*\(/, /new\s+XMLHttpRequest\s*\(/]) {
     assert.deepEqual(donde(re), [], 'destino de red crudo: ' + re);
   }
   assert.deepEqual(donde(/new\s+WS\s*\(/), ['peer-sync.js'], 'only the peer adapter may open the metadata socket');
@@ -34,7 +37,7 @@ test('estatico: ningun archivo de docs/ abre un socket o canal crudo (WebSocket/
 test('estatico: los localizadores legacy solo llegan al adaptador directo y su socket usa /signal/', () => {
   const esperados = ['dashboard-main.min.js', 'sync-realtime.js', 'sync-yjs.js'];
   // firebase-relay.js only parses the locator (regex) to derive its room; it never opens it.
-  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'firebase-relay.js', 'peer-sync.js'].sort());
+  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'firebase-relay.js', 'hf-relay.js', 'peer-sync.js'].sort());
   assert.ok(!/new\s+(WebSocket|WS)\s*\(/.test(archivos.find(a => a.rel === 'firebase-relay.js').src), 'firebase relay opens no socket');
   for (const nombre of esperados) {
     const src = nombre === 'dashboard-main.min.js'
@@ -62,8 +65,8 @@ test('estatico: los localizadores legacy solo llegan al adaptador directo y su s
 // relay-selector.js (daily byte budget, peers as fallback). The dashboard stays peer-only.
 test('estatico: la app carga peers + relay Supabase con selector; el dashboard sigue solo con peers', () => {
   const app = archivos.find(a => a.rel === 'index.html').src;
-  const orden = ['peer-sync.js', 'vendor/supabase-relay.min.js', 'firebase-relay.js', 'relay-selector.js'].map(n => app.indexOf('src="./' + n + '"'));
-  assert.ok(orden.every(i => i > 0) && orden[0] < orden[1] && orden[1] < orden[2] && orden[2] < orden[3], 'peer-sync → supabase → firebase → selector');
+  const orden = ['peer-sync.js', 'vendor/supabase-relay.min.js', 'firebase-relay.js', 'hf-relay.js', 'relay-selector.js'].map(n => app.indexOf('src="./' + n + '"'));
+  assert.ok(orden.every(i => i > 0) && orden[0] < orden[1] && orden[1] < orden[2] && orden[2] < orden[3] && orden[3] < orden[4], 'peer-sync → supabase → firebase → hf → selector');
   const dash = archivos.find(a => a.rel === 'dashboard.html').src;
   assert.match(dash, /<script\b[^>]*\bsrc="\.\/peer-sync\.js"[^>]*><\/script>/);
   assert.doesNotMatch(dash, /supabase-relay\.min\.js|supabase\.co|f123_relay_command/);
@@ -213,6 +216,11 @@ test('navegador: acciones de negocio solo permiten WS /signal y el proyecto Supa
     if (/(^|\.)firebaseio\.com$/i.test(u.hostname)) { // second durable layer: only the app's own database
       assert.equal(u.hostname, 'friendly-123-ab7b3-default-rtdb.firebaseio.com', 'foreign Firebase database: ' + s);
       assert.match(u.pathname, /^\/f123\/[a-f0-9]{40}(-y|-ops)?\/(o|k)(\/[^/]+)?\.json$/);
+      continue;
+    }
+    if (/(^|\.)hf\.space$/i.test(u.hostname)) { // third durable layer (2026-11-04): only the app's own Space
+      assert.equal(u.hostname, 'jfcarpio-f123-relay.hf.space', 'foreign Hugging Face Space: ' + s);
+      assert.match(u.pathname, /^\/sala\/[a-f0-9]{40}(-y|-ops)?$/);
       continue;
     }
     if (/(^|\.)supabase\.co$/i.test(u.hostname)) { // durable relay (JFC 2026-11-02): only the app's own project

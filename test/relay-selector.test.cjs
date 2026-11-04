@@ -1,5 +1,5 @@
 'use strict';
-// JFC 2026-11-02: a device that connects catches up alone. Durable layers in order (Supabase, then Firebase), direct
+// JFC 2026-11-02: a device that connects catches up alone. Durable layers in order (Supabase, Firebase, then Hugging Face, owner order 2026-11-04), direct
 // peers only as the last fallback; each durable layer has its own per-device daily byte budget so a free plan
 // cannot burn again; photos never use a relay. No network: fake transports.
 const { test } = require('node:test');
@@ -22,7 +22,7 @@ function app(now = Date.parse('2026-11-02T12:00:00Z'), store = new Map(), fbHead
   if (fbHead) fbFake.leerHead = async () => fbHead.value; // v657 tests: the Firebase head another device moves
   const w = {
     localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)) },
-    F123Relay: fake('supabase'), F123FirebaseRelay: fbFake,
+    F123Relay: fake('supabase'), F123FirebaseRelay: fbFake, F123RelayHF: fake('hf'),
     F123Peer: { create: () => fake('peer') },
     EventTarget, Event, DOMException, JSON, Number, String,
     setInterval: fn => { timers.push(fn); return timers.length; }, clearInterval: () => {},
@@ -94,7 +94,10 @@ test('a refused durable layer hands over to the next one; peers only when every 
   const f = R.connect(URL1);
   assert.equal(f.kind, 'firebase', 'Supabase refused → second durable layer, not peers');
   f.close(1011, 'firebase unavailable');
-  assert.equal(R.connect(URL1).kind, 'peer', 'both refused → peers, never nothing');
+  const h = R.connect(URL1);
+  assert.equal(h.kind, 'hf', 'Firebase refused → third durable layer, not peers');
+  h.close(1011, 'hugging face unavailable');
+  assert.equal(R.connect(URL1).kind, 'peer', 'all three refused → peers, never nothing');
   clock.now += 16 * 60 * 1000;
   assert.equal(R.connect(URL1).kind, 'supabase', 'Supabase retried after the pause');
 });
@@ -118,6 +121,31 @@ test('the daily download budget also pauses the layer; the next day Supabase is 
   assert.equal(R.connect(URL1).kind, 'firebase');
   clock.now += 24 * 60 * 60 * 1000;
   assert.equal(R.connect(URL1).kind, 'supabase', 'budget resets each day');
+});
+
+test('Hugging Face is the third layer: same upload cap as Supabase, its own budget key, peers after it', () => {
+  const store = new Map(), { R, clock } = app(undefined, store);
+  R.connect(URL1).close(1011, 'refused'); R.connect(URL1).close(1011, 'refused');
+  const h = R.connect(URL1); h.open();
+  assert.equal(h.kind, 'hf');
+  h.send(new Uint8Array(1024 * 1024)); h.send(new Uint8Array(1024 * 1024 - 10));
+  assert.throws(() => h.send(new Uint8Array(100)), e => e.name === 'QuotaExceededError');
+  assert.equal(h.closed.code, 1013, 'same 2 MB cap as Supabase closes the layer');
+  assert.equal(R.connect(URL1).kind, 'peer', 'every durable layer spent or paused → peers');
+  assert.equal(JSON.stringify(R.estadoCupo().map(c => c.capa)), JSON.stringify(['f123_relay_cupo_v1', 'f123_relay_cupo_fb_v1', 'f123_relay_cupo_hf_v1']));
+  assert.ok(store.has('f123_relay_cupo_hf_v1'));
+  clock.now += 61 * 1000;
+  assert.equal(R.connect(URL1).kind, 'firebase', 'Firebase refusal pause is 60 s: it is back before Supabase (15 min)');
+});
+
+test('a Hugging Face refusal pauses it only 60 s (last durable layer), and photos never reach it', () => {
+  const { R, clock } = app();
+  R.connect(URL1).close(1011, 'refused'); R.connect(URL1).close(1011, 'refused');
+  R.connect(URL1).close(1011, 'refused');
+  assert.equal(R.connect(URL1).kind, 'peer');
+  clock.now += 61 * 1000;
+  assert.equal(R.connect(URL1).kind, 'firebase');
+  assert.equal(R.connect(URL1.replace(/-y$/, '-fotos')).kind, 'peer');
 });
 
 test('photos never use a relay budget: the -fotos channel always goes to direct peers', () => {
