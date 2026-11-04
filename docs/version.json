@@ -1,10 +1,10 @@
 {
-  "version": "shell v658",
+  "version": "shell v659",
   "fecha": "2026-11-03",
-  "changelog": "If a sync server does not answer within 3 seconds, the next one takes over. Everything in v657 is kept.",
+  "changelog": "If a sync server does not answer within 3 seconds, the next one also starts feeding your devices while the first keeps trying. Everything in v658 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v658",
+  "shell": "f123-shell-v659",
   "apagar": [],
-  "releaseName": "shell v658",
-  "cacheGeneration": "golden204"
+  "releaseName": "shell v659",
+  "cacheGeneration": "golden205"
 }
