@@ -137,6 +137,18 @@ async function provisionRelayLicenses(env, codes) {
   finally { clearTimeout(timer); }
 }
 
+/* v658: one Supabase room per licence, created once. The RPC is idempotent (supabase-relay/provision.sql: active group ->
+   "ready", new -> empty group created, partial/inactive -> untouched "migrationRequired"). Success is remembered forever
+   with one KV write per licence; a refusal is remembered 7 days so the RPC is not called on every check-in.
+   To disable: remove the asegurarSalaRelay call in the /checkin route. */
+async function asegurarSalaRelay(env, lic) {
+  const k = "relay-sala:" + lic;
+  if (await env.LICENCIAS.get(k)) return;
+  const r = await provisionRelayLicenses(env, [lic]);
+  if (r && r.ok) await env.LICENCIAS.put(k, "ok");
+  else if (r && r.reason !== "provisioning-unavailable") await env.LICENCIAS.put(k, "no:" + (r.reason || "?"), { expirationTtl: 7 * 86400 });
+}
+
 async function handleRelayProvision(req, env) {
   if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
   let body;
@@ -1095,7 +1107,7 @@ async function idsRegistradosEnLicenciaParaPin(env,licenseCode) {
 }
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
     const pin = await pinPublicRoute(req,env,{
@@ -1134,7 +1146,18 @@ export default {
     if (url.pathname === "/canario/orden" && (req.method === "GET" || req.method === "POST")) return handleCanarioOrden(req, env);
     if (url.pathname === "/relay/provision" && req.method === "POST") return handleRelayProvision(req, env);
     if ((url.pathname === "/checkin" || url.pathname === "/register") && req.method === "POST") {
-      return handleCheckin(req, env);
+      const resp = await handleCheckin(req, env);
+      // v658 (Directiva Prima 2, JFC 2026-11-02: Supabase -> Firebase -> direct): licences issued before the batch
+      // provisioning (16 Oct) never got their Supabase room, so their first durable layer was off. Provision it once,
+      // in the background, the first time a registered device of that licence checks in. Never blocks the check-in.
+      try {
+        if (resp.ok && ctx && typeof ctx.waitUntil === "function") {
+          const d = await resp.clone().json();
+          const lic = String((d && d.licenseCode) || "").trim().toUpperCase();
+          if (/^F123-[0-9A-Z*~$=-]{8,34}$/.test(lic)) ctx.waitUntil(asegurarSalaRelay(env, lic).catch(() => {}));
+        }
+      } catch (_) {}
+      return resp;
     }
 
     // Full instance list for panel
