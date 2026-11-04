@@ -1,13 +1,14 @@
 /* firebase-relay.js (JFC 2026-11-02): second durable layer. Speaks the same opaque relay protocol as the Supabase
    transport (op/ckpt → persist-result, pull v2 pages, head, ts) on a free Firebase Realtime Database through REST,
    so a device that connects alone still catches up when Supabase is unavailable. Frames stay end-to-end encrypted;
-   Firebase only stores ciphertext. Photos never come here (relay-selector routes -fotos to peers). Exposes
+   Firebase only stores ciphertext. Photos come here at last priority (v661: relay-selector gives them only half of the daily cap). Exposes
    window.F123FirebaseRelay = { ckptFrameBytes, connect(url) } with a WebSocket-shaped socket. */
 (function () {
   "use strict";
   var DB = "https://friendly-123-ab7b3-default-rtdb.firebaseio.com";
   var CKPT_CIPHER_BYTES = 768 * 1024, MAX_FRAME = 256 * 1024, PAGE_BUDGET = 1048576;
-  var LOC = /^wss:\/\/friendly123-sync-relay\.jfcarpio\.workers\.dev\/sala\/([a-f0-9]{40})(-y|-ops)?$/;
+  // v661 (JFC 2026-11-04: photos at last priority but with the cascade): the photo room is accepted too.
+  var LOC = /^wss:\/\/friendly123-sync-relay\.jfcarpio\.workers\.dev\/sala\/([a-f0-9]{40})(-y|-ops|-fotos)?$/;
   var enc = new TextEncoder();
   function b64(bytes) { var s = ""; for (var i = 0; i < bytes.length; i += 32768) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768)); return btoa(s); }
   function unb64(s) { var bin = atob(s), out = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i); return out; }

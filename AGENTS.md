@@ -9,7 +9,7 @@
    - Supabase (durable) → Firebase (durable) → directo entre aparatos;
    - siempre los mismos cambios cifrados: Yjs los une en cualquier orden y con repeticiones;
    - cada capa durable lleva su cupo diario por aparato y su corte automático, para no quemar cuentas gratis;
-   - las fotos van solo directo entre aparatos.
+   - las fotos también van por la cascada, en última prioridad (JFC 2026-11-04: «Dije que son prioridad ultima»; la regla «solo directo» fue un error de Claude). Proveedores y orden de capas: diseño de Claude (JFC: «ARMA TU EL SISTEMA»).
 3. **Prohibido apagar, quitar o «simplificar» una capa** sin el «sí» expreso de JFC. El 25 oct se quitó el relay durable sin su aprobación y la app pasó 15 días sin sincronizar de verdad. Nunca más. Ni 48 horas.
 4. **Todo cambio de transporte** pasa la prueba «un aparato que abre solo se pone al día desde al menos una capa durable» antes de publicarse.
 5. **Aterrizar, no rediseñar sin fin:** el cambio mínimo que mantiene vivas las capas.
