@@ -25,7 +25,7 @@ function app(now = Date.parse('2026-11-02T12:00:00Z'), store = new Map(), fbHead
   const w = {
     localStorage: { getItem: k => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, String(v)) },
     F123Relay: fake('supabase'), F123FirebaseRelay: fbFake,
-    F123Peer: { create: () => fake('peer') },
+    F123Peer: { create: () => fake('peer') }, F123_VIVO: false, // v662 live lane dormant by default; its own tests turn it on
     EventTarget, Event, DOMException, JSON, Number, String,
     setInterval: fn => { timers.push(fn); return timers.length; }, clearInterval: () => {},
     setTimeout: fn => { timeouts.push(fn); return timeouts.length; }
@@ -34,7 +34,7 @@ function app(now = Date.parse('2026-11-02T12:00:00Z'), store = new Map(), fbHead
   w.Date = class extends Date { constructor(...a) { super(...(a.length ? a : [clock.now])); } static now() { return clock.now; } };
   w.window = w;
   vm.runInNewContext(SRC, w);
-  return { R: w.F123Relay, clock, made, tick: () => timers.slice().forEach(fn => fn()), vencer: () => timeouts.splice(0).forEach(fn => fn()) };
+  return { w, R: w.F123Relay, clock, made, tick: () => timers.slice().forEach(fn => fn()), vencer: () => timeouts.splice(0).forEach(fn => fn()) };
 }
 
 // v657 (sync3 QA 2026-11-03, Directiva Prima 1): a device reading only Supabase must catch up with writes another
@@ -122,7 +122,7 @@ test('v659 (d): send goes to the open layer; none open throws InvalidStateError;
   made[1].send = () => { throw new DOMException('q2', 'QuotaExceededError'); };
   assert.throws(() => h.send('dos'), e => e.name === 'QuotaExceededError');
 });
-test('v659 (e): a message from a peer layer without peerAccepted is not forwarded', () => {
+test('v659 (e) / v662: peer frames reach the app (the app filters); only a peer persist-result needs peerAccepted', () => {
   const { R, vencer, made, clock } = app();
   sub(R.connect(URL1)).close(1011, 'x'); // Supabase paused 15 min
   const h = R.connect(URL1); // Firebase first, silent
@@ -133,7 +133,8 @@ test('v659 (e): a message from a peer layer without peerAccepted is not forwarde
   const got = []; h.onmessage = e => got.push(e.data);
   peerSub.recv('sin aceptar');
   const ev = new Event('message'); ev.data = 'aceptado'; ev.peerAccepted = true; peerSub.dispatchEvent(ev);
-  assert.deepEqual(got, ['aceptado']);
+  peerSub.recv(JSON.stringify({ k: 'persist-result', id: 'z', ok: true }));
+  assert.deepEqual(got, ['sin aceptar', 'aceptado'], 'business frames pass; an unaccepted peer ack does not');
   assert.equal(h.peerOnly, true);
   assert.ok(clock);
 });
@@ -287,4 +288,38 @@ test('v661: photo room refused -> only the photo band pauses; inventory keeps th
   assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'inventory still on Supabase');
   assert.notEqual(sub(R.connect(FOTOS)).kind, 'supabase', 'photos skip the refusing layer');
   assert.ok(made.length >= 3);
+});
+
+// v662 (2026-11-04): peer frames must reach the app (v659 dropped them), and a live direct lane runs beside the
+// durable layer so two open devices see each other's changes at peer speed.
+test('v662: a room on the peers fallback forwards business frames; a peer persist-result never confirms while a durable layer lives', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1); const got = []; h.onmessage = e => got.push(e.data);
+  vencer(); made[1].close(1013, 'x'); // Firebase refuses; Supabase still connecting
+  vencer(); // Firebase's own 3 s timer: nothing open -> peers too
+  const peer = made.find(x => x.kind === 'peer'); assert.ok(peer, 'peers fallback started');
+  peer.peerOnly = true; peer.open();
+  const bin = new Uint8Array([1, 2, 3]).buffer; peer.recv(bin);
+  assert.ok(got.includes(bin), 'binary business frame reaches the app');
+  const pr = JSON.stringify({ k: 'persist-result', kind: 'op', id: 'x', ok: true });
+  const ev = new Event('message'); ev.data = pr; ev.peerAccepted = true; peer.dispatchEvent(ev);
+  assert.ok(!got.includes(pr), 'Supabase still connecting: a peer ack is not a durable confirmation');
+});
+test('v662: live lane beside the durable layer: binary both ways, never control text, closes with the cascade', () => {
+  const { w, R, made } = app(); w.F123_VIVO = true;
+  const h = R.connect(URL1); const got = []; h.onmessage = e => got.push(e.data);
+  const vivo = made.find(x => x.kind === 'peer'); assert.ok(vivo, 'live lane opened at once');
+  made[0].open(); vivo.open();
+  const bin = new Uint8Array([9]).buffer;
+  h.send(bin); h.send('{"k":"op","id":"1"}');
+  assert.deepEqual(made[0].sent.length, 2, 'durable layer gets everything');
+  assert.deepEqual(vivo.sent, [bin], 'live lane gets only the binary live copy');
+  const b2 = new Uint8Array([7]).buffer; vivo.recv(b2); vivo.recv('{"k":"peers","n":2}');
+  assert.ok(got.includes(b2)); assert.ok(!got.includes('{"k":"peers","n":2}'));
+  h.close(1000, 'bye'); assert.equal(vivo.readyState, 3, 'live lane closes with the cascade');
+});
+test('v662: photos never open a live lane', () => {
+  const { w, R, made } = app(); w.F123_VIVO = true;
+  R.connect(URL1.replace(/-y$/, '-fotos'));
+  assert.equal(made.filter(x => x.kind === 'peer').length, 0);
 });

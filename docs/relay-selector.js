@@ -235,12 +235,32 @@
     function vivas() { return subs.filter(function (x) { return x.ws.readyState < 2; }); }
     function terminar(code, reason, limpio) {
       if (emitidoClose) return; emitidoClose = true; cerradoH = true;
+      cerrarVivo("closed");
       if (hubError && !emitidoOpen) emitir("error", {});
       emitir("close", { code: code, reason: reason, wasClean: !!limpio, peerAccepted: false });
     }
     /* v659 review (critic B #1/#3, debug d2, 2026-11-04): H restarts from layer 1 instead of staying on a lower layer:
        the app's reconnect runs its full catch-up (state vector, checkpoint) on the preferred layer. Never-opened subs
        close with no code so envolver() does not count a refusal. */
+    /* v662 LIVE LANE (JFC 2026-11-04 norte: «sync3 debe ser igual de rapido» que el sync1 de hace 21 dias): durable
+       layers store; a direct-peer lane runs IN PARALLEL for live updates. Firebase keeps only durable ops (~1 s across
+       devices) and drops the live frames the app's own direct lane needs for its signaling, so two open devices on
+       Firebase never got a direct link. This lane uses peer-sync's own signaling: only BINARY live updates go through
+       it (both ways), never control text, never photos; durability still comes only from the durable layers.
+       Turned on only with window.F123_VIVO = true (dormant by default until it is measured faster). */
+    var vivo = null;
+    function cerrarVivo(motivo) { var v = vivo; vivo = null; if (v) try { v.close(1000, motivo); } catch (_) {} }
+    function abrirVivo() {
+      // DORMANT until measured faster (2026-11-04: lane connected but A->B stayed ~0.4-2.6 s; the delay is inside the app).
+      if (cerradoH || vivo || esFoto(url) || !(typeof window !== "undefined" && window.F123_VIVO === true)) return;
+      var w; try { w = viaPeers(url); } catch (_) { return; }
+      vivo = w; try { w.binaryType = bin; } catch (_) {}
+      w.addEventListener("message", function (e) {
+        if (cerradoH || vivo !== w || typeof e.data === "string") return;
+        emitir("message", { data: e.data, peerAccepted: false, relaySource: "peer-live" });
+      });
+      w.addEventListener("close", function () { if (vivo === w) vivo = null; });
+    }
     function reiniciar(motivo) {
       if (cerradoH) return;
       cerradoH = true;
@@ -276,9 +296,14 @@
       });
       ws.addEventListener("message", function (e) {
         // peer-sync.js emits "peer-ready" (a peer connected; no business data) without peerAccepted; sync-yjs needs it.
-        var listo = typeof e.data === "string" && e.data.indexOf('"k":"peer-ready"') !== -1;
-        if (cerradoH || (ws.peerOnly === true && e.peerAccepted !== true && !listo)) return;
-        emitir("message", { data: e.data, peerAccepted: e.peerAccepted === true });
+        /* v662 (sync3 speed review 2026-11-04): v659 dropped every peer frame without peerAccepted, so a room left on
+           direct peers received NO business data. The app itself filters what needs filtering; H forwards everything
+           (with the peer receipt/ack handles) and only holds back a peer "persist-result" while a durable layer is
+           alive: another device's disk is not a durable layer. */
+        if (cerradoH) return;
+        if (ws.peerOnly === true && typeof e.data === "string" && e.data.indexOf('"persist-result"') !== -1 &&
+            (e.peerAccepted !== true || subs.some(function (o) { return o.ws.peerOnly !== true && o.ws.readyState < 2; }))) return;
+        emitir("message", { data: e.data, peerAccepted: e.peerAccepted === true, relaySource: e.relaySource, peerReceipt: e.peerReceipt, peerAck: e.peerAck });
       });
       ws.addEventListener("error", function () { hubError = true; });
       ws.addEventListener("close", function (e) {
@@ -301,6 +326,7 @@
         agregar(ws, j); reprobarH(subs[subs.length - 1], j); armar(); return true;
       }
       ultimo = capas.length;
+      cerrarVivo("promoted"); // the peers fallback takes over the live lane's room
       try {
         var p = viaPeers(url);
         agregar(p, capas.length); reprobarH(subs[subs.length - 1], capas.length); armar(); return true;
@@ -312,20 +338,22 @@
       var t = setTimeout(function () { if (!cerradoH && abiertas().length === 0) siguiente(); }, CASCADA_MS);
       if (t && t.unref) t.unref();
     }
-    tried[i0] = true; agregar(ws0, i0); armar();
+    tried[i0] = true; agregar(ws0, i0); armar(); abrirVivo();
     Object.defineProperties(H, {
       capaPrincipal: { get: function () { return ws0; } },
+      carrilVivo: { get: function () { return vivo ? vivo.readyState : null; } }, // v662 diagnostics: live lane state
       readyState: { get: function () { return cerradoH ? 3 : abiertas().length ? 1 : 0; } },
       peerOnly: { get: function () { var l = abiertas(); if (!l.length) l = subs; return l.length > 0 && l.every(function (x) { return x.ws.peerOnly === true; }); } },
       signalingReady: { get: function () { return subs.some(function (x) { return x.ws.signalingReady === true; }); } },
       bufferedAmount: { get: function () { return subs.reduce(function (n, x) { return n + (Number(x.ws.bufferedAmount) || 0); }, 0); } },
-      binaryType: { get: function () { return bin; }, set: function (v) { bin = v; subs.forEach(function (x) { try { x.ws.binaryType = v; } catch (_) {} }); } }
+      binaryType: { get: function () { return bin; }, set: function (v) { bin = v; subs.forEach(function (x) { try { x.ws.binaryType = v; } catch (_) {} }); if (vivo) try { vivo.binaryType = v; } catch (_) {} } }
     });
     ["onopen", "onmessage", "onclose", "onerror"].forEach(function (n) { H[n] = null; });
     H.send = function (v) {
       var l = abiertas(), ok = false, err = null;
       if (cerradoH || !l.length) throw new DOMException("Socket is not open", "InvalidStateError");
       l.forEach(function (x) { try { x.ws.send(v); ok = true; } catch (e) { err = e; } });
+      if (vivo && vivo.readyState === 1 && typeof v !== "string") try { vivo.send(v); } catch (_) {} // live copy, best effort
       if (!ok) throw err; // e.g. QuotaExceededError must reach the caller
     };
     H.close = function (code, reason) {

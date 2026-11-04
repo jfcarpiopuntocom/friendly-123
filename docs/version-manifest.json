@@ -1,6 +1,6 @@
 {
-  "version": "shell v661",
-  "shell": "f123-shell-v661",
+  "version": "shell v662",
+  "shell": "f123-shell-v662",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-47368f7525eb18df9c00803f145a6d00e359e24ba477b9f392376f6f09796ce8",
@@ -43,7 +43,7 @@
     "./peer-sync.js": "sha256-5226351b3909fb7a73d198bec56f9378668bdd98462ae6dfeb53cfe63e12eef6",
     "./vendor/supabase-relay.min.js": "sha256-6295504f7fa7e29bd749efae834067bb5b8d3773cd1d32c9a03bb6cba8e73ce5",
     "./firebase-relay.js": "sha256-fce7fba8b5fa984b9d0cee12aea9615ea959c2ce92b3aefbc2794cea152780f1",
-    "./relay-selector.js": "sha256-bc038706ddb9030868ae87f118a5d127404e91cd4d0446d663623a9ad3087aa1",
+    "./relay-selector.js": "sha256-dc7c0e5bb3483b515fcfa4658d0f6efcf9432f1c4d040c6c2e1e95036e1ec91d",
     "./vendor/jspdf-4.2.1.umd.min.js": "sha256-5feb83f439480e06687f9e6f23a8a162b12157b9606aa6ffc70c7e961b7c6013",
     "./vendor/jspdf-autotable-5.0.9.min.js": "sha256-efe0106af8224d8480b94e83ceafe4a5f889b13e028f3bec6d33c0a64a3133f5",
     "./i18n.js": "sha256-5b2b900ddf32535e1c567f5d7e23dc441d2688321f522b6158c306d0ebb49bd6",
@@ -80,7 +80,7 @@
     "./micelio-vivo.js": "sha256-4e9201311c932092e1b4bf4755e95410dd9b822bfc046a39f1534e6b3a7d8cda",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-7bd4459a17d139c76ffef8e480ed6e9ea8ee125bf5ca82661c34d7bf1a240826",
+    "./dashboard.html": "sha256-f619034dbce9949769b086dfd37f7c30e9102ea00ce930124dbe6d5ce4f8a318",
     "./dashboard-updates.js": "sha256-3591152be96f22060daae69763ba6e80325b75b302772551544b4d31d48bb4cf",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
