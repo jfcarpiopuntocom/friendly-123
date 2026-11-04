@@ -163,18 +163,19 @@
     // Refused before opening (inactive room, quota 402, route error): pause this layer, the next one takes over.
     // v646: the last durable layer retries in 60 s: a device that opened with no signal must catch up as soon as it returns.
     // v651: the app closing its own socket mid-open is no refusal (refusals carry a code). It paused Firebase 60 s at startup and dropped the base room to peers.
-    var cerrar = ws.close.bind(ws), soltado = false, fallo = false, sinRespuesta = false;
+    var cerrar = ws.close.bind(ws), soltado = false, fallo = false;
     ws.addEventListener("error", function () { fallo = true; }); // the app answers an error by closing with no code: that is still a refusal
     ws.close = function (code, motivo) { if (code === undefined) soltado = true; return cerrar(code, motivo); };
-    /* v656 (sync3 QA 2026-11-03): a layer whose server cannot be reached (network cut, no answer within 8 s) is an outage,
-       not a refusal. Measured before: Supabase unreachable took 54 s to hand over, and a short internet cut parked
-       Supabase 15 min / Firebase 60 s, so a sale made in that window and the app closed reached no durable layer.
-       Now: no open within 3 s -> hand over (JFC 2026-11-04: «3 segundos y punto», sequential 1 Supabase -> 2 Firebase -> 3 direct); network-type failures pause the layer only 5 s. Server refusals (codes
-       such as 1011/1013/4xxx: inactive room, 402 quota) keep the 15 min / 60 s pause that protects the free plans. */
-    if (typeof setTimeout === "function") setTimeout(function () { if (!abierto && ws.readyState < 2) { sinRespuesta = true; fallo = true; try { cerrar(); } catch (_) {} } }, 3000);
+    /* v656 (sync3 QA 2026-11-03): a layer whose server cannot be reached is an outage, not a refusal: network-type
+       failures pause the layer only 5 s. Server refusals (codes such as 1011/1013/4xxx: inactive room, 402 quota)
+       keep the 15 min / 60 s pause that protects the free plans.
+       v659 (JFC 2026-11-04, literal): «no dije que abandones NADA a los 3 segundos ... Dije que desde los 3 segundos
+       ya nutras desde el siguiente fallback». The v656/v658 timer that CLOSED a layer silent for 3 s is gone: a layer
+       keeps trying on its own. The 3 s hand-over now lives in cascada() (connect), which ADDS the next layer without
+       closing this one. */
     ws.addEventListener("close", function (e) {
       if (abierto || !(fallo || !soltado || (e && e.code && e.code !== 1000))) return;
-      var red = sinRespuesta || (fallo && !(e && e.code && e.code !== 1006)); // no answer, or an error with no server code
+      var red = fallo && !(e && e.code && e.code !== 1006); // an error with no server code
       var c = leer(key); c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); guardar(key, c);
     });
     var enviar = ws.send.bind(ws);
@@ -197,6 +198,134 @@
     };
     return ws;
   }
+  /* v659 cascade (JFC 2026-11-04: «3 segundos y punto. recuerda que debe ser secuencial»: 1 Supabase -> 2 Firebase -> 3 direct peers).
+     cascada() gives the app ONE WebSocket-shaped object (H) over the layers started so far. The first layer is never
+     closed by the timer: if it has not opened after 3 s (or closed before opening) the NEXT layer is started too and
+     the app is fed from whichever delivers. When a more preferred layer opens, the less preferred ones stop
+     (close 1000 "first layer answered") so free daily quotas are not spent twice. A preferred layer that closes after
+     opening leaves H open while a fallback is open. Frames from a peer-only layer reach the app only when
+     peerAccepted === true. Writes go to every open layer (Yjs merges repeats).
+     To disable: set CASCADA_MS = 0 (connect() then returns the first layer alone, as in v657). */
+  var CASCADA_MS = 3000;
+  function cascada(url, ws0, i0) {
+    var H = new EventTarget(), subs = [], emitidoOpen = false, emitidoClose = false, cerradoH = false, hubError = false, bin = "blob", tried = {}, ultimo = i0;
+    function emitir(tipo, props) {
+      var ev = new Event(tipo), k; for (k in props) ev[k] = props[k];
+      try { H.dispatchEvent(ev); } catch (_) {}
+      var h = H["on" + tipo]; if (typeof h === "function") try { h.call(H, ev); } catch (_) {}
+    }
+    function abiertas() { return subs.filter(function (x) { return x.ws.readyState === 1; }); }
+    function vivas() { return subs.filter(function (x) { return x.ws.readyState < 2; }); }
+    function terminar(code, reason, limpio) {
+      if (emitidoClose) return; emitidoClose = true; cerradoH = true;
+      if (hubError && !emitidoOpen) emitir("error", {});
+      emitir("close", { code: code, reason: reason, wasClean: !!limpio, peerAccepted: false });
+    }
+    /* v659 review (critic B #1/#3, debug d2, 2026-11-04): H restarts from layer 1 instead of staying on a lower layer:
+       the app's reconnect runs its full catch-up (state vector, checkpoint) on the preferred layer. Never-opened subs
+       close with no code so envolver() does not count a refusal. */
+    function reiniciar(motivo) {
+      if (cerradoH) return;
+      cerradoH = true;
+      subs.forEach(function (x) { try { if (x.ws.readyState === 1) x.ws.close(1000, motivo); else if (x.ws.readyState === 0) x.ws.close(); } catch (_) {} });
+      cerradoH = false; terminar(1012, motivo, true);
+    }
+    // Every 5 s (local check, no traffic): an earlier durable layer usable again and not already trying in H -> restart.
+    function reprobarH(x, j) {
+      var t = setInterval(function () {
+        if (cerradoH || x.ws.readyState >= 2) return clearInterval(t);
+        for (var n = 0; n < j && n < capas.length; n++) {
+          var viva = subs.some(function (o) { return o.orden === n && o.ws.readyState < 2; });
+          if (!viva && usable(capas[n])) { clearInterval(t); reiniciar("earlier durable layer available again"); return; }
+        }
+      }, 5000);
+      if (t && t.unref) t.unref();
+    }
+    function agregar(ws, orden) {
+      var x = { ws: ws, orden: orden, abrio: false };
+      subs.push(x);
+      try { ws.binaryType = bin; } catch (_) {}
+      ws.addEventListener("open", function () {
+        x.abrio = true;
+        // A more preferred layer answered: the less preferred ones stop. A never-opened one is closed with no code
+        // so envolver() does not count it as a refusal and pause that layer.
+        subs.forEach(function (o) {
+          if (o.orden <= orden || o.ws.readyState > 1) return;
+          try { if (o.ws.readyState === 1) o.ws.close(1000, "first layer answered"); else o.ws.close(); } catch (_) {}
+        });
+        // The app already opened on a lower layer: restart so its catch-up and checkpoint reach this preferred layer.
+        if (emitidoOpen && !cerradoH) { reiniciar("first layer answered"); return; }
+        if (!emitidoOpen && !cerradoH) { emitidoOpen = true; emitir("open", {}); }
+      });
+      ws.addEventListener("message", function (e) {
+        // peer-sync.js emits "peer-ready" (a peer connected; no business data) without peerAccepted; sync-yjs needs it.
+        var listo = typeof e.data === "string" && e.data.indexOf('"k":"peer-ready"') !== -1;
+        if (cerradoH || (ws.peerOnly === true && e.peerAccepted !== true && !listo)) return;
+        emitir("message", { data: e.data, peerAccepted: e.peerAccepted === true });
+      });
+      ws.addEventListener("error", function () { hubError = true; });
+      ws.addEventListener("close", function (e) {
+        if (cerradoH) return;
+        if (!x.abrio && vivas().length === 0) siguiente(); // every layer started closed before opening: do not wait the 3 s
+        // The layer feeding the app dropped while another is still only connecting: restart instead of a silent H.
+        if (emitidoOpen && !abiertas().length && vivas().length) { reiniciar("layer lost"); return; }
+        if (vivas().length) return;
+        terminar(e && e.code, e && e.reason, e && e.wasClean);
+      });
+    }
+    // Start the next usable layer after the last one started (peers when none is left).
+    function siguiente() {
+      if (cerradoH || ultimo >= capas.length) return false;
+      for (var j = ultimo + 1; j < capas.length; j++) if (usable(capas[j])) {
+        var ws; try { ws = envolver(capas[j], url); } catch (_) { continue; }
+        ultimo = j; tried[j] = true;
+        // Re-probe only layers H is not already running (the primary is still trying: it must not close the fallback).
+        try { arrancarSondas(ws, capas[j], url); } catch (_) {}
+        agregar(ws, j); reprobarH(subs[subs.length - 1], j); armar(); return true;
+      }
+      ultimo = capas.length;
+      try {
+        var p = viaPeers(url);
+        agregar(p, capas.length); reprobarH(subs[subs.length - 1], capas.length); armar(); return true;
+      } catch (_) { return false; }
+    }
+    // One 3 s timer per started layer: still nothing open -> start the next one (never closes the earlier ones).
+    function armar() {
+      if (typeof setTimeout !== "function" || !CASCADA_MS) return;
+      var t = setTimeout(function () { if (!cerradoH && abiertas().length === 0) siguiente(); }, CASCADA_MS);
+      if (t && t.unref) t.unref();
+    }
+    tried[i0] = true; agregar(ws0, i0); armar();
+    Object.defineProperties(H, {
+      capaPrincipal: { get: function () { return ws0; } },
+      readyState: { get: function () { return cerradoH ? 3 : abiertas().length ? 1 : 0; } },
+      peerOnly: { get: function () { var l = abiertas(); if (!l.length) l = subs; return l.length > 0 && l.every(function (x) { return x.ws.peerOnly === true; }); } },
+      signalingReady: { get: function () { return subs.some(function (x) { return x.ws.signalingReady === true; }); } },
+      bufferedAmount: { get: function () { return subs.reduce(function (n, x) { return n + (Number(x.ws.bufferedAmount) || 0); }, 0); } },
+      binaryType: { get: function () { return bin; }, set: function (v) { bin = v; subs.forEach(function (x) { try { x.ws.binaryType = v; } catch (_) {} }); } }
+    });
+    ["onopen", "onmessage", "onclose", "onerror"].forEach(function (n) { H[n] = null; });
+    H.send = function (v) {
+      var l = abiertas(), ok = false, err = null;
+      if (cerradoH || !l.length) throw new DOMException("Socket is not open", "InvalidStateError");
+      l.forEach(function (x) { try { x.ws.send(v); ok = true; } catch (e) { err = e; } });
+      if (!ok) throw err; // e.g. QuotaExceededError must reach the caller
+    };
+    H.close = function (code, reason) {
+      if (cerradoH) return;
+      cerradoH = true; // before the subs close, so their close events do not start a fallback
+      subs.forEach(function (x) { try { if (x.ws.readyState < 2) x.ws.close(code, reason); } catch (_) {} });
+      cerradoH = false; terminar(code === undefined ? 1005 : code, reason || "", true);
+    };
+    ["confirmPeerReceipt", "acceptPeerAck"].forEach(function (n) {
+      H[n] = function () {
+        var args = arguments, r;
+        subs.forEach(function (x) { if (typeof x.ws[n] === "function") { var v = x.ws[n].apply(x.ws, args); if (r === undefined) r = v; } });
+        return r;
+      };
+    });
+    return H;
+  }
   window.F123Relay = {
     ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
     estadoCupo: function () { return capas.map(function (capa) { var c = leer(capa.key); return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa) }; }); },
@@ -215,7 +344,8 @@
         // layer gets this device's full-state checkpoint, and devices split across layers converge again.
         if (i > 0) reprobar(ws, capas.slice(0, i));
         try { arrancarSondas(ws, capas[i], url); } catch (_) {}
-        return ws;
+        // v659: with no timers the first layer stands alone (nothing could ever start the fallback).
+        return typeof setTimeout === "function" && CASCADA_MS ? cascada(url, ws, i) : ws;
       }
       avisarSync("solo-peers");
       var directo = viaPeers(url);
