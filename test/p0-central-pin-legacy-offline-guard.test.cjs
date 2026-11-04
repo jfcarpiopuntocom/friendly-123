@@ -44,3 +44,11 @@ test('the configured server rejecting a current PIN cannot be treated as unconfi
  const r=await f.rotate('123','384');
  assert.equal(r.ok,false);assert.equal(r.reason,'current-pin-rejected');
 });
+// v660 (critic A #3, 2026-11-04): an owner whose device already saw the central PIN must still enter offline with the
+// PIN adopted locally; only rotation keeps requiring the central authority.
+test('v660: login never refuses the local Owner PIN just because the central authority is unreachable',()=>{
+ const login=src.slice(src.indexOf('  async function validar(code) {'));
+ assert.ok(login.length>0);
+ assert.doesNotMatch(login.slice(0,4000),/Reintenta con conexi[oó]n antes de entrar como Owner/);
+ assert.match(src,/central-authority-unavailable/,'rotation still guarded');
+});
