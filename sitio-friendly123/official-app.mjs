@@ -34,6 +34,16 @@ export async function serveApp(request,env,readSource=fetch){
  if(!['GET','HEAD'].includes(request.method))return new Response('Method not allowed',{status:405,headers:{Allow:'GET, HEAD'}});
  // An edge redirect avoids a second app/origin and lets existing clients keep
  // their correct notebooks. 307 + no-store is reversible, unlike a cached 301.
+ /* 2026-11-04 (JFC chose «Siempre a GitHub Pages»): a browser that once installed the app on this domain kept an old
+    service worker here. It could not update (its page redirects) and showed a stale app (emojis, no store, demo),
+    then "This site can't be reached". This tiny worker replaces it: clears ONLY this domain's caches, unregisters
+    itself and reloads open tabs, so the 307 below takes them to the official app. localStorage/IndexedDB on this
+    domain are never touched (still reachable with ?stay=1). To undo: delete this block. */
+ if (u.pathname === '/app/sw.js') return new Response(
+   "self.addEventListener('install',()=>self.skipWaiting());\n" +
+   "self.addEventListener('activate',e=>e.waitUntil((async()=>{for(const k of await caches.keys())await caches.delete(k);" +
+   "await self.registration.unregister();for(const c of await self.clients.matchAll({type:'window'}))if(!/[?&]stay=1/.test(c.url))c.navigate(c.url);})()));\n",
+   {status:200,headers:{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, max-age=0','Service-Worker-Allowed':'/app/'}});
  if (legacyNavigation(request,u)) return new Response(null,{status:307,headers:{
    'Location':legacyDestination(u),'Cache-Control':'no-store, max-age=0',
    'Referrer-Policy':'no-referrer','Vary':'Accept, Sec-Fetch-Mode',
