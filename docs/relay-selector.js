@@ -169,9 +169,9 @@
     /* v656 (sync3 QA 2026-11-03): a layer whose server cannot be reached (network cut, no answer within 8 s) is an outage,
        not a refusal. Measured before: Supabase unreachable took 54 s to hand over, and a short internet cut parked
        Supabase 15 min / Firebase 60 s, so a sale made in that window and the app closed reached no durable layer.
-       Now: no open within 8 s -> hand over; network-type failures pause the layer only 5 s. Server refusals (codes
+       Now: no open within 3 s -> hand over (JFC 2026-11-04: «3 segundos y punto», sequential 1 Supabase -> 2 Firebase -> 3 direct); network-type failures pause the layer only 5 s. Server refusals (codes
        such as 1011/1013/4xxx: inactive room, 402 quota) keep the 15 min / 60 s pause that protects the free plans. */
-    if (typeof setTimeout === "function") setTimeout(function () { if (!abierto && ws.readyState < 2) { sinRespuesta = true; fallo = true; try { cerrar(); } catch (_) {} } }, 8000);
+    if (typeof setTimeout === "function") setTimeout(function () { if (!abierto && ws.readyState < 2) { sinRespuesta = true; fallo = true; try { cerrar(); } catch (_) {} } }, 3000);
     ws.addEventListener("close", function (e) {
       if (abierto || !(fallo || !soltado || (e && e.code && e.code !== 1000))) return;
       var red = sinRespuesta || (fallo && !(e && e.code && e.code !== 1006)); // no answer, or an error with no server code
