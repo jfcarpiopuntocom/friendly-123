@@ -95,26 +95,30 @@ test('v659 (b): first layer opens before 3 s -> no second layer', () => {
   assert.equal(made.length, 1);
   assert.equal(h.readyState, 1);
 });
-test('v659 (c): first layer opens later while the fallback is open -> fallback closed with 1000, H stays open', () => {
+test('v659 (c): first layer opens later while the fallback fed the app -> restart (1012) so the catch-up reaches the first layer', () => {
   const { R, vencer, made } = app();
-  const h = R.connect(URL1); let cierres = 0; h.onclose = () => cierres++;
+  const h = R.connect(URL1); let cierres = 0, code = null; h.onclose = e => { cierres++; code = e.code; };
   vencer(); made[1].open();
+  assert.equal(h.readyState, 1);
   made[0].open();
   assert.deepEqual(made[1].closed, { code: 1000, reason: 'first layer answered' });
-  assert.equal(h.readyState, 1);
-  assert.equal(cierres, 0);
-  h.close(1000, 'bye');
-  assert.equal(h.readyState, 3); assert.equal(cierres, 1, 'close emitted once');
+  assert.equal(made[0].closed && made[0].closed.code, 1000, 'the preferred socket is reopened by the app reconnect');
+  assert.equal(cierres, 1); assert.equal(code, 1012); assert.equal(h.readyState, 3);
 });
-test('v659 (d): send goes to every open layer; none open throws InvalidStateError; all failing rethrows', () => {
+test('v659 (c2): the layer feeding the app drops while the first is still connecting -> restart, never a silent H', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1); let code = null; h.onclose = e => { code = e.code; };
+  vencer(); made[1].open(); made[1].close(1000, 'gone');
+  assert.equal(code, 1012); assert.equal(h.readyState, 3);
+  assert.equal(made[0].closed && made[0].closed.code, undefined, 'the never-opened first layer is closed with no code (no refusal pause)');
+});
+test('v659 (d): send goes to the open layer; none open throws InvalidStateError; a failing send rethrows', () => {
   const { R, vencer, made } = app();
   const h = R.connect(URL1);
   assert.throws(() => h.send('x'), e => e.name === 'InvalidStateError');
-  vencer(); made[1].open(); made[0].open();
-  made[1].readyState = 1; // two open layers (the first opening had closed the fallback)
+  vencer(); made[1].open();
   h.send('uno');
-  assert.deepEqual(made[0].sent, ['uno']); assert.deepEqual(made[1].sent, ['uno']);
-  made[0].send = () => { throw new DOMException('q', 'QuotaExceededError'); };
+  assert.deepEqual(made[1].sent, ['uno']); assert.deepEqual(made[0].sent || [], []);
   made[1].send = () => { throw new DOMException('q2', 'QuotaExceededError'); };
   assert.throws(() => h.send('dos'), e => e.name === 'QuotaExceededError');
 });
@@ -255,4 +259,15 @@ test('Firebase ignored binary copies spend no upload budget; durable writes stil
   assert.equal(w.F123Relay.estadoCupo()[0].up, Buffer.byteLength(op));
   s.close();
   assert.throws(() => s.send(new Uint8Array(1)), e => e.name === 'InvalidStateError');
+});
+// v659 review (debug d2, 2026-11-04): Supabase refused, Firebase took over inside the cascade; when Supabase's pause ends
+// the device must go back to it (restart 1012), never stay split on Firebase until something else reconnects.
+test('v659 (d2): after the first layer refuses and its pause ends, the cascade restarts toward it', () => {
+  const { R, made, clock, tick } = app();
+  const h = R.connect(URL1); let code = null; h.onclose = e => { code = e.code; };
+  made[0].close(1013, 'try later');
+  assert.equal(made.length, 2, 'Firebase started at once'); made[1].open();
+  tick(); assert.equal(code, null, 'still paused: stays on Firebase');
+  clock.now += 16 * 60 * 1000; tick();
+  assert.equal(code, 1012); assert.deepEqual(made[1].closed, { code: 1000, reason: 'earlier durable layer available again' });
 });

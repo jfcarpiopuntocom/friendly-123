@@ -221,6 +221,26 @@
       if (hubError && !emitidoOpen) emitir("error", {});
       emitir("close", { code: code, reason: reason, wasClean: !!limpio, peerAccepted: false });
     }
+    /* v659 review (critic B #1/#3, debug d2, 2026-11-04): H restarts from layer 1 instead of staying on a lower layer:
+       the app's reconnect runs its full catch-up (state vector, checkpoint) on the preferred layer. Never-opened subs
+       close with no code so envolver() does not count a refusal. */
+    function reiniciar(motivo) {
+      if (cerradoH) return;
+      cerradoH = true;
+      subs.forEach(function (x) { try { if (x.ws.readyState === 1) x.ws.close(1000, motivo); else if (x.ws.readyState === 0) x.ws.close(); } catch (_) {} });
+      cerradoH = false; terminar(1012, motivo, true);
+    }
+    // Every 5 s (local check, no traffic): an earlier durable layer usable again and not already trying in H -> restart.
+    function reprobarH(x, j) {
+      var t = setInterval(function () {
+        if (cerradoH || x.ws.readyState >= 2) return clearInterval(t);
+        for (var n = 0; n < j && n < capas.length; n++) {
+          var viva = subs.some(function (o) { return o.orden === n && o.ws.readyState < 2; });
+          if (!viva && usable(capas[n])) { clearInterval(t); reiniciar("earlier durable layer available again"); return; }
+        }
+      }, 5000);
+      if (t && t.unref) t.unref();
+    }
     function agregar(ws, orden) {
       var x = { ws: ws, orden: orden, abrio: false };
       subs.push(x);
@@ -233,6 +253,8 @@
           if (o.orden <= orden || o.ws.readyState > 1) return;
           try { if (o.ws.readyState === 1) o.ws.close(1000, "first layer answered"); else o.ws.close(); } catch (_) {}
         });
+        // The app already opened on a lower layer: restart so its catch-up and checkpoint reach this preferred layer.
+        if (emitidoOpen && !cerradoH) { reiniciar("first layer answered"); return; }
         if (!emitidoOpen && !cerradoH) { emitidoOpen = true; emitir("open", {}); }
       });
       ws.addEventListener("message", function (e) {
@@ -245,6 +267,8 @@
       ws.addEventListener("close", function (e) {
         if (cerradoH) return;
         if (!x.abrio && vivas().length === 0) siguiente(); // every layer started closed before opening: do not wait the 3 s
+        // The layer feeding the app dropped while another is still only connecting: restart instead of a silent H.
+        if (emitidoOpen && !abiertas().length && vivas().length) { reiniciar("layer lost"); return; }
         if (vivas().length) return;
         terminar(e && e.code, e && e.reason, e && e.wasClean);
       });
@@ -256,15 +280,13 @@
         var ws; try { ws = envolver(capas[j], url); } catch (_) { continue; }
         ultimo = j; tried[j] = true;
         // Re-probe only layers H is not already running (the primary is still trying: it must not close the fallback).
-        reprobar(ws, capas.slice(0, j).filter(function (_, n) { return !tried[n]; }));
         try { arrancarSondas(ws, capas[j], url); } catch (_) {}
-        agregar(ws, j); armar(); return true;
+        agregar(ws, j); reprobarH(subs[subs.length - 1], j); armar(); return true;
       }
       ultimo = capas.length;
       try {
         var p = viaPeers(url);
-        reprobar(p, capas.filter(function (_, n) { return !tried[n]; }));
-        agregar(p, capas.length); armar(); return true;
+        agregar(p, capas.length); reprobarH(subs[subs.length - 1], capas.length); armar(); return true;
       } catch (_) { return false; }
     }
     // One 3 s timer per started layer: still nothing open -> start the next one (never closes the earlier ones).
