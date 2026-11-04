@@ -248,7 +248,7 @@ test('Firebase ignored binary copies spend no upload budget; durable writes stil
   w.window = w;
   vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../docs/firebase-relay.js'), 'utf8'), w);
   w.F123FirebaseRelay = w.F123FirebaseRelay.create({ EventSource: null, fetch: async (_, options) => {
-    if (options.method === 'PUT') writes.push(JSON.parse(options.body));
+    if (options.method === 'PUT' || /x-http-method-override=PUT/.test(String(_))) writes.push(JSON.parse(options.body)); // v663: writes are POST + override
     return new Response('null', { status: 200 });
   } });
   vm.runInNewContext(SRC, w);
