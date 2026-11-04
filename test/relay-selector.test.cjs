@@ -66,7 +66,7 @@ test('v656: a network failure before opening pauses the layer only 5 s, then it 
   clock.now += 21 * 1000;
   assert.equal(R.connect(URL1).kind, 'supabase', 'back to Supabase after 5 s, not 15 min');
 });
-test('v656: a layer that does not open within 8 s hands over (no 54 s wait)', () => {
+test('v656: a layer that does not open within 8 s hands over within 3 s (no 54 s wait)', () => {
   const { R, vencer, clock } = app();
   const s = R.connect(URL1);
   vencer();

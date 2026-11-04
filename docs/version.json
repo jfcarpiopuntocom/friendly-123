@@ -1,10 +1,10 @@
 {
-  "version": "shell v657",
+  "version": "shell v658",
   "fecha": "2026-11-03",
-  "changelog": "When one sync server is down, devices switch to the other in seconds, and a device that opens alone also catches up with changes kept on the backup server. Everything in v656 is kept.",
+  "changelog": "If a sync server does not answer within 3 seconds, the next one takes over. Everything in v657 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v657",
+  "shell": "f123-shell-v658",
   "apagar": [],
-  "releaseName": "shell v657",
-  "cacheGeneration": "golden203"
+  "releaseName": "shell v658",
+  "cacheGeneration": "golden204"
 }
