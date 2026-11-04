@@ -1,10 +1,10 @@
 {
-  "version": "shell v660",
+  "version": "shell v661",
   "fecha": "2026-11-03",
-  "changelog": "The owner can enter without internet with the PIN this device already holds. Everything in v659 is kept.",
+  "changelog": "Photos now reach every device through the same backup layers as inventory, at the lowest priority, even when no other device is open. Everything in v660 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v660",
+  "shell": "f123-shell-v661",
   "apagar": [],
-  "releaseName": "shell v660",
-  "cacheGeneration": "golden206"
+  "releaseName": "shell v661",
+  "cacheGeneration": "golden207"
 }

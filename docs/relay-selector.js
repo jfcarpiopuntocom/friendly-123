@@ -124,6 +124,7 @@
     }
   }
   function arrancarSondas(ws, capa, url) {
+    if (esFoto(url)) return; // v661: photos ride the cascade but never spend head/probe reads
     if (capa.relay === fb) {
       delete _headFb[url]; // this device writes there now: its own writes must not count later
       // v657: when this Firebase session ends, remember the head it left so its own writes are not taken for another device's.
@@ -202,7 +203,8 @@
          connection open. */
       if (capa.relay === fb) {
         if (typeof v === "string" && n <= 4096 && /^\{"k":"(head|pull|ts)"/.test(v)) return enviar(v);
-        var limite = esFoto(url) ? CAP_UP * FOTO_PARTE : n <= FRAME_RESERVADO || !/-(y|ops)$/.test(String(url)) ? CAP_UP_RESERVA : CAP_UP;
+        // v661: first photo upload of a store (~150 KB each) must finish in a day or two: 5 MB/day/device on Firebase.
+        var limite = esFoto(url) ? CAP_UP_RESERVA * FOTO_PARTE : n <= FRAME_RESERVADO || !/-(y|ops)$/.test(String(url)) ? CAP_UP_RESERVA : CAP_UP;
         if (c.up + n > limite) throw new DOMException("Daily relay budget reached", "QuotaExceededError");
         c.up += n; guardar(key, c); return enviar(v);
       }

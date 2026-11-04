@@ -347,5 +347,6 @@ test('photos never start a probe', async () => {
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {} }) }) };
   c.w.F123Relay.connect(URL1.replace(/-y$/, '-fotos')); await tick(30);
   assert.equal(c.n.gets, 0);
-  assert.equal(c.n.sb.length, 0);
+  // v661 (JFC 2026-11-04): photos now ride the durable cascade (last priority) but still never send a probe.
+  assert.ok(c.n.sb.every(s => !(s.sent || []).some(v => typeof v === 'string' && v.indexOf('"head"') !== -1)));
 });
