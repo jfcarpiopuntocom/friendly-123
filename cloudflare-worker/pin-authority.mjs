@@ -53,8 +53,13 @@ export function pinAuthority(storage,secret,clock=Date.now){
  async function absorb(tx,l,fingerprint,pinTs,now){
   const ts=Number(pinTs);
   if(!Number.isSafeInteger(ts)||ts<=0||ts>now+300000)return null;
-  if(await tx.get(key(l)))return null;
-  const sealed={v:1,revision:1,fingerprint,changedAt:now,changedBy:"absorbed",pinTs:ts};
+  const prior=await tx.get(key(l));
+  /* 2026-11-04 (debug S1a/S4/S7a; JFC literal «el mas reciente admin u owner del negocio»): while the PIN still comes from
+     absorption, a report of a MORE RECENT change (newer pinTs) replaces it, so arrival order no longer decides. A PIN set
+     by JFC's panel or by the authenticated rotation is never replaced by a report. Known risk (Codex v655): a registered
+     device can claim a newer change without proving the old PIN; JFC's panel always overrides. */
+  if(prior&&(prior.changedBy!=="absorbed"||!(ts>Number(prior.pinTs))||equal(prior.fingerprint,fingerprint)))return null;
+  const sealed={v:1,revision:(prior?.revision||0)+1,fingerprint,changedAt:now,changedBy:"absorbed",pinTs:ts};
   await tx.put(key(l),sealed);await tx.delete(limit(l));await tx.delete(proposal(l));
   return sealed;
  }

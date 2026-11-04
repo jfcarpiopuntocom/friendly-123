@@ -24,7 +24,7 @@ function setup(){
  const hook={getDo:()=>({fetch:(url,opt)=>pinDoRoute(new Request(url,opt),store,env)}),
   authorizeMaster:r=>r.headers.get("X-Master-Key")===env.MASTER_KEY,
   listRegisteredDeviceIds:async()=>[...registered],
-  readLicenseInstance:async(_,id)=>[dev,other].includes(id)?{instanceId:id,licenseCode:lic}:null};
+  readLicenseInstance:async(_,id)=>[dev,other,"third-device"].includes(id)?{instanceId:id,licenseCode:lic}:null};
  const call=async(route,body={},admin=false,method="POST")=>{
   const h={"content-type":"application/json"};if(admin)h["X-Master-Key"]=env.MASTER_KEY;
   const r=await pinPublicRoute(new Request("https://worker.invalid"+route,{method,headers:h,...(method==="POST"?{body:JSON.stringify({licenseCode:lic,instanceId:dev,...body})}:{})}),env,hook);
@@ -128,6 +128,11 @@ test("transition seals the first timed owner/admin PIN once; nothing re-seals it
   // v655 (Codex audit): a newer claimed time never replaces the seal, neither by login nor by report.
   assert.equal((await a.call("/pin/verify",{pin:"555",pinTs:Date.now()})).status,401,"login cannot re-seal");
   assert.equal((await a.call("/pin/verify",{pin:"384"})).status,200);
+  // 2026-11-04 (JFC «el mas reciente»): an OLDER change reported later never replaces the absorbed PIN.
+  const third="third-device";a.registered.add(third);
+  assert.equal((await a.call("/pin/report",{instanceId:third,pin:"666",pinTs:1000})).status,200);
+  assert.equal((await a.call("/pin/verify",{pin:"384"})).status,200,"older change does not replace");
+  assert.equal((await a.call("/pin/verify",{pin:"666"})).status,401);
   // the authenticated rotation (knows the current PIN) is the way to change it
   const r=await a.call("/pin/rotate",{pin:"384",newPin:"555",expectedRevision:1});
   assert.equal(r.status,200);assert.equal((await a.call("/pin/verify",{pin:"555"})).status,200);
@@ -192,4 +197,21 @@ test("P0: license registry outage blocks JFC activation without changing clients
  a.hook.listRegisteredDeviceIds=undefined;
  assert.equal((await stage(a,"908",0)).status,503);
  assert.equal(a.store.values().includes('"908"'),false);
+});
+
+// 2026-11-04 (debug S1a/S7a): arrival order no longer decides; the most recent owner/admin change wins while absorbed.
+test("transition: a more recent owner/admin change reported later replaces the absorbed PIN; the panel PIN never",async()=>{
+  const a=setup();a.registered.add(other);
+  assert.equal((await a.call("/pin/report",{instanceId:dev,pin:"111",pinTs:1000})).status,200);
+  assert.equal((await a.call("/pin/verify",{pin:"111"})).status,200);
+  assert.equal((await a.call("/pin/report",{instanceId:other,pin:"222",pinTs:5000})).status,200);
+  assert.equal((await a.call("/pin/verify",{pin:"222"})).status,200,"most recent wins");
+  assert.equal((await a.call("/pin/verify",{pin:"111"})).status,401);
+  const s=await a.authority.status(lic);
+  assert.equal((await stage(a,"908",s.revision)).status,200);
+  assert.equal((await activate(a,"908",s.revision)).status,200);
+  const third="third-device";a.registered.add(third);
+  assert.equal((await a.call("/pin/report",{instanceId:third,pin:"333",pinTs:Date.now()})).status,200);
+  assert.equal((await a.call("/pin/verify",{pin:"908"})).status,200,"a report never replaces the panel PIN");
+  assert.equal((await a.call("/pin/verify",{pin:"333"})).status,401);
 });
