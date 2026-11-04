@@ -16,7 +16,7 @@
     if (!peer) throw new Error("Direct peer connections are unavailable");
     return peer.connect(url);
   }
-  var CAP_UP = 2 * 1024 * 1024, CAP_DOWN = 20 * 1024 * 1024, PAUSA_MS = 15 * 60 * 1000;
+  var CAP_UP = 2 * 1024 * 1024, CAP_DOWN = 20 * 1024 * 1024, PAUSA_MS = 15 * 60 * 1000, PAUSA_RED_MS = 5 * 1000;
   var CAP_UP_RESERVA = 10 * 1024 * 1024, FRAME_RESERVADO = 16 * 1024;
   var CIERRE = "daily relay budget reached; local data retained";
   var capas = [];
@@ -113,7 +113,7 @@
     var t = setInterval(function () {
       if (s.readyState >= 2) return clearInterval(t);
       if (previas.some(usable)) { clearInterval(t); try { s.close(1012, "earlier durable layer available again"); } catch (_) {} }
-    }, 60000);
+    }, 5000); // v656: local check only (no traffic); 5 s so a short outage does not keep a device off its first layer
     if (t && t.unref) t.unref();
   }
   // A layer with nothing at all must not pass for "up to date" while the next one holds the store. Zero against
@@ -142,10 +142,20 @@
     // Refused before opening (inactive room, quota 402, route error): pause this layer, the next one takes over.
     // v646: the last durable layer retries in 60 s: a device that opened with no signal must catch up as soon as it returns.
     // v651: the app closing its own socket mid-open is no refusal (refusals carry a code). It paused Firebase 60 s at startup and dropped the base room to peers.
-    var cerrar = ws.close.bind(ws), soltado = false, fallo = false;
+    var cerrar = ws.close.bind(ws), soltado = false, fallo = false, sinRespuesta = false;
     ws.addEventListener("error", function () { fallo = true; }); // the app answers an error by closing with no code: that is still a refusal
     ws.close = function (code, motivo) { if (code === undefined) soltado = true; return cerrar(code, motivo); };
-    ws.addEventListener("close", function (e) { if (!abierto && (fallo || !soltado || (e && e.code && e.code !== 1000))) { var c = leer(key); c.pausaHasta = Date.now() + (capa.relay === fb ? 60000 : PAUSA_MS); guardar(key, c); } });
+    /* v656 (sync3 QA 2026-11-03): a layer whose server cannot be reached (network cut, no answer within 8 s) is an outage,
+       not a refusal. Measured before: Supabase unreachable took 54 s to hand over, and a short internet cut parked
+       Supabase 15 min / Firebase 60 s, so a sale made in that window and the app closed reached no durable layer.
+       Now: no open within 8 s -> hand over; network-type failures pause the layer only 5 s. Server refusals (codes
+       such as 1011/1013/4xxx: inactive room, 402 quota) keep the 15 min / 60 s pause that protects the free plans. */
+    if (typeof setTimeout === "function") setTimeout(function () { if (!abierto && ws.readyState < 2) { sinRespuesta = true; fallo = true; try { cerrar(); } catch (_) {} } }, 8000);
+    ws.addEventListener("close", function (e) {
+      if (abierto || !(fallo || !soltado || (e && e.code && e.code !== 1000))) return;
+      var red = sinRespuesta || (fallo && !(e && e.code && e.code !== 1006)); // no answer, or an error with no server code
+      var c = leer(key); c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); guardar(key, c);
+    });
     var enviar = ws.send.bind(ws);
     ws.send = function (v) {
       if (v !== HEAD) sonda.enviados++;
