@@ -585,6 +585,15 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
           </div>
           <p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:10px 0 0;">Every device that activates with this license is the same shared notebook. They keep each other up to date on their own: there is no separate team code to hand out.</p>
           <p style="font-size:13px;line-height:1.5;color:#7a4a00;background:#FFF4D6;border-left:4px solid #E8A33D;padding:10px 12px;border-radius:0 8px 8px 0;margin:10px 0 0;">Your license is the key to your business. Anyone who has it can open your notebook, so guard it like a password: only share it one-to-one with people on your team, and never post it publicly.</p>
+          <!-- PAIR-QR v656 (JFC 2026-11-03): boton + QR de un solo uso. Solo dueno/admin (se muestra desde el script de abajo).
+               PARA APAGAR: borrar este div y el bloque "PAIR-QR v656" del script. -->
+          <div id="oc-pair-wrap" style="display:none;margin-top:12px;">
+            <button id="oc-pair-btn" class="ir" style="min-height:44px;">${window.t("pair.button")}</button>
+            <div id="oc-pair-out" style="display:none;margin-top:10px;">
+              <img id="oc-pair-img" alt="QR" width="200" height="200" style="background:#FFFFFF;padding:6px;border-radius:6px;">
+              <p style="font-size:14px;line-height:1.5;color:#0F1923;margin:8px 0 0;">${window.t("pair.caption")}</p>
+            </div>
+          </div>
           <div style="display:none;gap:8px;flex-wrap:wrap;margin-top:12px;" aria-hidden="true">
             <!-- WHATSAPP EXPORT/IMPORT en VERDE, aquí donde antes iba "Share with my
                  team" (JFC 2026-09-15). Son el par para mover el cuaderno por
@@ -1181,6 +1190,35 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
       pintarHuella();
       try { window.addEventListener("oc-micelio-cambio", pintarHuella); } catch (_) {}
       if (salaActiva) pintarQR(salaActiva);
+      /* PAIR-QR v656 (JFC 2026-11-03): ver el div #oc-pair-wrap arriba. El QR lleva la licencia en ?join= y,
+         tras el "#", tokenId.llave. La llave nunca se envia a ningun servidor. */
+      (function () {
+        var wrap = document.getElementById("oc-pair-wrap"), btn = document.getElementById("oc-pair-btn");
+        if (!wrap || !btn) return;
+        try { var rol = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual(); if (rol === "dueno" || rol === "admin") wrap.style.display = "block"; } catch (_) {}
+        var timer = null;
+        btn.addEventListener("click", async function () {
+          if (btn.disabled) return; btn.disabled = true;
+          try {
+            var pins = window.OCSecure.leerPinsVisibles() || {};
+            var ts = window.OCSecure.ownerPinTs ? window.OCSecure.ownerPinTs() : 0;
+            var ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+            var lic = String(ow.licenseCode || "").trim().toUpperCase();
+            var payload = { v: 1, owner: pins.owner || "", emp: (pins.empleados || [])[0] || "", acct: pins.acct || "", ownerPinTs: ts };
+            var c = await window.OCPair.cifrar(payload);
+            var r = await fetch(window.OCAuth.workerUrl() + "/pair/put", { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ licenseCode: lic, instanceId: ow.instanceId, tokenId: c.tokenId, blob: c.blob }) });
+            if (!r.ok) throw new Error("pair/put " + r.status);
+            var q = window.qrcode(0, "M");
+            q.addData("https://friendly123.com/app/?join=" + encodeURIComponent(lic) + "#vincular=" + c.tokenId + "." + c.keyB64);
+            q.make();
+            document.getElementById("oc-pair-img").src = q.createDataURL(4, 4);
+            var out = document.getElementById("oc-pair-out"); out.style.display = "block";
+            clearTimeout(timer); timer = setTimeout(function () { out.style.display = "none"; document.getElementById("oc-pair-img").removeAttribute("src"); }, 600000);
+          } catch (e) { try { console.warn("pair: no se pudo crear el codigo", e && e.message); } catch (_) {} }
+          finally { btn.disabled = false; }
+        });
+      })();
 
       /* ENTER activa (JFC 2026-08-25): en un campo unico, Enter dispara la
          accion principal — es lo estandar y da el "sense of completion". */

@@ -85,7 +85,8 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
   // Rutas que el cliente pide al Worker de licencias: solo licencia, latido, canario y maestro. Nada de datos.
   const rutas = new Set();
   for (const a of archivos) for (const m of a.src.matchAll(/workerUrl\(\)[^;]{0,200}?["'`](\/[a-z\-]+)/gi)) rutas.add(m[1]);
-  for (const r of rutas) assert.match(r, /^\/(checkin|canario|licencias|maestro|rescate|recover|pin|panel|api)/, 'ruta de worker inesperada: ' + r);
+  // v656 (JFC 2026-11-03 aprobó el QR): /pair lleva solo el estado de PIN ya cifrado en el aparato (la llave nunca sale del QR).
+  for (const r of rutas) assert.match(r, /^\/(checkin|canario|licencias|maestro|rescate|recover|pin|pair|panel|api)/, 'ruta de worker inesperada: ' + r);
 });
 
 test('estatico: nada en docs/ nombra KV de Cloudflare ni su API', () => {

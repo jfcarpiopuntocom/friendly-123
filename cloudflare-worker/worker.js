@@ -35,6 +35,57 @@ function cors(resp) {
 function json(obj, status = 200) {
   return cors(new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json" } }));
 }
+// PAIR-QR (JFC 2026-11-03, v656): "Vincular un aparato nuevo". Un aparato de confianza
+// (dueno/admin) deja aqui, 10 minutos y UNA sola vez, un blob YA CIFRADO en el aparato
+// (AES-GCM); la llave viaja solo en el #fragmento del QR y nunca llega a este Worker.
+// Aqui no se puede leer el contenido. Para APAGAR: quitar las 2 lineas /pair/* del router.
+function pairJson(obj, status) {
+  const r = json(obj, status || 200);
+  r.headers.set("Cache-Control", "no-store");
+  return r;
+}
+async function pairBody(req) {
+  let raw = "";
+  try { raw = await req.text(); } catch (_) {}
+  if (raw.length > 6000) return null;
+  try { const b = JSON.parse(raw); return b && typeof b === "object" ? b : null; } catch (_) { return null; }
+}
+const PAIR_LIC_RE = /^F123-[A-Z0-9*~$=-]{8,34}$/;
+async function handlePairPut(req, env) {
+  const b = await pairBody(req);
+  if (!b) return pairJson({ ok: false, reason: "bad-body" }, 400);
+  const lic = String(b.licenseCode || "").trim().toUpperCase();
+  const instanceId = String(b.instanceId || "");
+  const tokenId = String(b.tokenId || "");
+  const blob = typeof b.blob === "string" ? b.blob : "";
+  if (!PAIR_LIC_RE.test(lic) || !/^[A-Za-z0-9_-]{6,120}$/.test(instanceId) || !/^[a-f0-9]{32}$/.test(tokenId)
+      || !/^[A-Za-z0-9_-]{1,4096}$/.test(blob)) return pairJson({ ok: false, reason: "bad-fields" }, 400);
+  // El aparato debe pertenecer a esa licencia (mismo criterio que el resto de rutas de PIN).
+  // v656 fix (QA 2026-11-03): read the device the same way as the PIN routes: the strongly consistent Durable Object
+  // first (it can hold more recent records), then the license KV. Reading KV only refused real registered devices.
+  let rec = null;
+  try {
+    const stub = doLicencias(env);
+    if (stub) { const resp = await stub.fetch("https://do.invalid/r/" + encodeURIComponent(instanceId)); if (resp.ok) rec = await resp.json(); }
+  } catch (_) { rec = null; }
+  if (!rec) { try { const rawRec = await env.LICENCIAS.get("inst:" + instanceId); rec = rawRec ? (typeof rawRec === "string" ? JSON.parse(rawRec) : rawRec) : null; } catch (_) {} }
+  if (!rec || rec.instanceId !== instanceId || String(rec.licenseCode || "").trim().toUpperCase() !== lic) {
+    return pairJson({ ok: false, reason: "license-instance-mismatch" }, 404);
+  }
+  await env.LICENCIAS.put("pair:" + tokenId, JSON.stringify({ lic, blob, at: Date.now() }), { expirationTtl: 600 });
+  return pairJson({ ok: true });
+}
+async function handlePairTake(req, env) {
+  const b = await pairBody(req);
+  const tokenId = b ? String(b.tokenId || "") : "";
+  const lic = b ? String(b.licenseCode || "").trim().toUpperCase() : "";
+  if (!/^[a-f0-9]{32}$/.test(tokenId) || !PAIR_LIC_RE.test(lic)) return pairJson({ ok: false, reason: "expired" }, 404);
+  let rec = null;
+  try { const raw = await env.LICENCIAS.get("pair:" + tokenId); rec = raw ? (typeof raw === "string" ? JSON.parse(raw) : raw) : null; } catch (_) {}
+  if (!rec || rec.lic !== lic) return pairJson({ ok: false, reason: "expired" }, 404);
+  await env.LICENCIAS.delete("pair:" + tokenId); // un solo uso
+  return pairJson({ ok: true, blob: rec.blob });
+}
 function requireMasterKey(req, env) {
   const k = req.headers.get("X-Master-Key") || "";
   return env.MASTER_KEY && k === env.MASTER_KEY;
@@ -1327,6 +1378,10 @@ export default {
       if (!requireMasterKey(req, env)) return json({ error: "Master Key incorrecta" }, 401);
       return handleRestaurar(req, env, decodeURIComponent(mRestaurar[1]));
     }
+
+    // PAIR-QR v656 (ver handlePairPut arriba). Quitar estas 2 lineas lo apaga.
+    if (url.pathname === "/pair/put" && req.method === "POST") return handlePairPut(req, env);
+    if (url.pathname === "/pair/take" && req.method === "POST") return handlePairTake(req, env);
 
     return json({ error: "Not found" }, 404);
   },

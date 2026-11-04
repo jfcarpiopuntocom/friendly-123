@@ -3,11 +3,55 @@
   'use strict';
   const ID = /^[a-f0-9]{32}$/, HASH = /^[a-f0-9]{64}$/;
   const MAX_PACKET = 384 * 1024, CHUNK = 12000, MAX_BUFFER = 512 * 1024, NUDGE_AFTER = 1000;
+  // ---- v656 ICE cascade (decided by JFC 2026-11-03: "apruebo Open Relay") ----------------------------
+  // Order the browser tries on its own: same Wi-Fi (host/mDNS candidates) -> STUN -> TURN. The durable
+  // relays stay as the last resort and are not touched here.
+  // STUN is NOT Cloudflare on purpose (JFC order 16-Oct: Cloudflare only for licences, never for sync).
+  // TURN = Metered Open Relay. Its shared key is public (https://www.metered.ca/tools/openrelay/), so it may
+  // live in the source. Login is the TURN REST kind:
+  //   username = "<expiryUnixSeconds>:f123", password = base64(HMAC-SHA1(shared key, username)).
+  // KILL SWITCH: set F123_TURN_ON = false to ship STUN only (no TURN entry is built).
+  const F123_TURN_ON = true;
+  const ICE_HOST = 'staticauth.openrelay.metered.ca', ICE_KEY = 'openrelayprojectsecret', ICE_TTL_MS = 3600000;
+  const ICE_STUN = () => [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:' + ICE_HOST + ':80' }];
+  let iceCache = null, icePending = null;
+  async function iceTurn() {
+    // shortcut: crypto.subtle only exists on https/localhost; elsewhere this throws and build() keeps STUN only.
+    const subtle = window.crypto.subtle;
+    const username = String(Math.floor(Date.now() / 1000) + 86400) + ':f123', enc = new TextEncoder();
+    const key = await subtle.importKey('raw', enc.encode(ICE_KEY), { name: 'HMAC', hash: 'SHA-1' }, false, ['sign']);
+    const mac = new Uint8Array(await subtle.sign('HMAC', key, enc.encode(username)));
+    let bin = ''; for (let i = 0; i < mac.length; i++) bin += String.fromCharCode(mac[i]);
+    return { urls: ['turn:' + ICE_HOST + ':80', 'turn:' + ICE_HOST + ':80?transport=tcp', 'turn:' + ICE_HOST + ':443', 'turns:' + ICE_HOST + ':443?transport=tcp'], username, credential: btoa(bin) };
+  }
+  const F123Ice = {
+    // STUN-only list, for synchronous callers that run before the first build finishes.
+    stun: ICE_STUN,
+    // Synchronous read of the last built list (null if never built or older than 1 h).
+    cached() { return iceCache && Date.now() - iceCache.at < ICE_TTL_MS ? iceCache.list : null; },
+    // Never throws. Concurrent calls share one computation.
+    build() {
+      const hit = F123Ice.cached(); if (hit) return Promise.resolve(hit);
+      if (icePending) return icePending;
+      icePending = (async () => {
+        const list = ICE_STUN();
+        try { if (F123_TURN_ON) list.push(await iceTurn()); } catch (_) { /* no crypto.subtle: STUN only */ }
+        iceCache = { at: Date.now(), list };
+        return list;
+      })().finally(() => { icePending = null; });
+      return icePending;
+    }
+  };
+  window.F123Ice = F123Ice;
+  F123Ice.build(); // warm the cache at load so the synchronous peer constructors already have TURN login
+
   function create(options = {}) {
     const WS = options.WebSocket || window.WebSocket, RTC = options.RTCPeerConnection || window.RTCPeerConnection;
     const secure = options.crypto || window.crypto, hubs = new Map();
     const signalURL = options.signalURL || 'wss://friendly123-sync-relay.jfcarpio.workers.dev/signal/';
-    const iceServers = options.iceServers || [{ urls: 'stun:stun.cloudflare.com:3478' }];
+    // v656: caller list wins (tests); otherwise the cascade from F123Ice. peer() is synchronous, so it reads the
+    // warm cache at call time (built at load, refreshed hourly); before the first build it gets STUN only.
+    const iceList = () => options.iceServers || F123Ice.cached() || F123Ice.stun();
     const random = () => Array.from(secure.getRandomValues(new Uint8Array(16)), n => n.toString(16).padStart(2, '0')).join('');
     const encode = bytes => { let value = ''; for (let i = 0; i < bytes.length; i += 8192) value += String.fromCharCode(...bytes.subarray(i, i + 8192)); return btoa(value); };
     const decode = text => { if (typeof text !== 'string' || text.length > MAX_PACKET * 2 || !/^[A-Za-z0-9+/]*={0,2}$/.test(text)) throw Error('Invalid peer frame'); return Uint8Array.from(atob(text), c => c.charCodeAt(0)); };
@@ -201,7 +245,7 @@
         if (!ID.test(id) || id === this.id) return null;
         if (this.peers.has(id)) return this.peers.get(id);
         if (this.peers.size >= 11) return null;
-        const pc = new RTC({ iceServers }), peer = { id, pc, dc: null, ice: [], groups: new Map(), serial: Promise.resolve() };
+        const pc = new RTC({ iceServers: (F123Ice.build(), iceList()) }), peer = { id, pc, dc: null, ice: [], groups: new Map(), serial: Promise.resolve() };
         this.peers.set(id, peer);
         // v653: Firefox ends with an empty candidate; the relay closes the signaling socket on it. ICE does not need it.
         pc.onicecandidate = event => { if (event.candidate && event.candidate.candidate && event.candidate.type !== 'relay') this.signalTo('ice', id, event.candidate.toJSON()); };

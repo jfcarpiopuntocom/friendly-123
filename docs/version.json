@@ -1,10 +1,10 @@
 {
-  "version": "shell v654",
+  "version": "shell v656",
   "fecha": "2026-11-03",
-  "changelog": "Your PIN stays yours: a device joined to your store no longer opens with the factory PIN. Everything in v653 is kept.",
+  "changelog": "Link a new device with a one-time code from Advanced, and devices on different networks can now reach each other directly. Everything in v654 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v654",
+  "shell": "f123-shell-v656",
   "apagar": [],
-  "releaseName": "shell v654",
-  "cacheGeneration": "golden201"
+  "releaseName": "shell v656",
+  "cacheGeneration": "golden202"
 }

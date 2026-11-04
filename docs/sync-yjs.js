@@ -271,7 +271,12 @@
       });
       if (_direct[id]) return _direct[id];
       if (Object.keys(_direct).length >= 11) return null;
-      var pc = new RTCPeerConnection({ iceServers: [] });
+      // v656 (JFC 2026-11-03): cascade same Wi-Fi -> STUN -> TURN (Open Relay, never Cloudflare). directPeer must stay
+      // synchronous, so it takes the list F123Ice (peer-sync.js, loaded first) already built, else its STUN-only list.
+      // To disable: set F123_TURN_ON=false in peer-sync.js (STUN only) or put [] back here (same Wi-Fi only).
+      var F = typeof window !== "undefined" && window.F123Ice, ice = (F && ((F.cached && F.cached()) || (F.stun && F.stun()))) || [];
+      if (F && F.build) F.build(); // refresh the hourly cache for the next peer
+      var pc = new RTCPeerConnection({ iceServers: ice });
       var peer = _direct[id] = { pc: pc, dc: null, ice: [] };
       pc.onicecandidate = function (ev) { if (ev.candidate) signal("ice", id, ev.candidate.toJSON()); };
       pc.ondatachannel = function (ev) { attachDirect(peer, ev.channel); };
