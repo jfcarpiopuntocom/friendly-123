@@ -1,3 +1,8 @@
 name = "stock-semaphore"
 main = "worker.js"
-compatibility_date = "2026-09-01"
+compatibility_date = "2026-09-30"
+workers_dev = true
+
+[[routes]]
+pattern = "stock-semaphore.jfcarpio.com"
+custom_domain = true

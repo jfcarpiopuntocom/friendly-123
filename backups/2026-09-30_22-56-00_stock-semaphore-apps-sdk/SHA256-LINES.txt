@@ -1,0 +1,4 @@
+# SHA256-LINES.txt — pre-change backup
+b02a47c0829158e664bbc076814259e08f3eb312fc34623b964d22085a397201  89 lines  chatgpt-app/stock-semaphore/worker.js
+65215add54775e0c2a4c94df2c24b0bda10a07838e3f999fc857df3efc32c70b  19 lines  chatgpt-app/stock-semaphore/test.mjs
+045f291f623dbbe2454eac6061e839b0cfc43e514e4bf0279cdd077181616bff  3 lines  chatgpt-app/stock-semaphore/wrangler.toml
