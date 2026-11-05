@@ -12,6 +12,13 @@ function montar(op) {
   op = op || {};
   const firebase = { k: {}, o: { ab: { s: 1793640000000, c: 'QUJD', lam: 1 } } };
   const sb = { rev: 0, seq: 1 }, n = { es: 0, sb: [], gets: 0 }, intervalos = [], store = new Map();
+  // v669: v644's tests exercise ongoing probes on an ALREADY RECOVERED
+  // store. The first-join migration has separate real-Firebase tests below.
+  // Without this cursor proof the new client correctly moves to Firebase at
+  // startup and invalidates assertions written for a stable Supabase socket.
+  if (!op.sinRecuperacionPrevia) {
+    store.set('f123_fb_aplicado_v669_' + URL1.slice(-48), '0:1793640000000');
+  }
   let adelanto = 0;
   class ES extends EventTarget { constructor() { super(); n.es++; } close() {} }
   class FakeDate extends Date { static now() { return Date.now() + adelanto; } }
@@ -342,11 +349,14 @@ test('v649: a broken Sentry changes nothing for the caller', async () => {
   assert.equal(ws.readyState, 1);
 });
 
-test('photos never start a probe', async () => {
-  const c = montar();
+test('v669: photos read Firebase head on first join but never run periodic probes', async () => {
+  const c = montar({ sinRecuperacionPrevia: true });
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {} }) }) };
   c.w.F123Relay.connect(URL1.replace(/-y$/, '-fotos')); await tick(30);
-  assert.equal(c.n.gets, 0);
-  // v661 (JFC 2026-11-04): photos now ride the durable cascade (last priority) but still never send a probe.
-  assert.ok(c.n.sb.every(s => !(s.sent || []).some(v => typeof v === 'string' && v.indexOf('"head"') !== -1)));
+  assert.ok(c.n.gets >= 2, 'first join checks the other layer for older photo blobs');
+  const leidos = c.n.gets;
+  c.adelantar(61000); await c.tics(); await c.tics();
+  assert.equal(c.n.gets, leidos, 'photo bootstrap reads once; no periodic Firebase poll');
+  // Photo rooms do not send periodic head-control frames on Supabase either.
+  assert.ok(c.n.sb.every(s => !(s.enviados || []).some(v => typeof v === 'string' && v.indexOf('"head"') !== -1)));
 });

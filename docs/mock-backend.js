@@ -5544,7 +5544,16 @@
         try {
           if (p && p.fotoHash && !p.foto) {
             const hash = p.fotoHash;
-            const d = await window.OCFotos.leerPorHash(hash);
+            let d = await window.OCFotos.leerPorHash(hash);
+            // A standalone iPhone PWA may have the authenticated photo in its
+            // hydrated Yjs document while IndexedDB temporarily rejects saves.
+            // Show those exact bytes in memory instead of an empty product card.
+            if (!d) {
+              try {
+                const fotos = window.OCYjs && window.OCYjs.fotosMap;
+                if (fotos && typeof fotos.get === "function") d = fotos.get(hash) || null;
+              } catch (_) {}
+            }
             // Do not restore a removed image, overwrite a newer edit, or write
             // into a record belonging to the store before an import/shop change.
             if (d && productos.includes(p) && p.fotoHash === hash && !p.foto) { p.foto = d; n++; }

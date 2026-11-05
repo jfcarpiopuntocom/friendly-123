@@ -59,3 +59,17 @@ test('a delayed hydration cannot overwrite a photo edited while it was loading',
   await hydration;
   assert.equal((await w.product()).foto, 'data:image/png;base64,new');
 });
+
+test('v669: product photo renders from authenticated Yjs bytes when PWA IndexedDB read fails', async () => {
+  const w = await fixture();
+  const state = await w.request('/api/respaldo/exportar');
+  state.productos[0].foto = null;
+  await w.request('/api/respaldo/importar', 'POST', state);
+  const bytes = 'data:image/png;base64,old';
+  w.OCFotos.leerPorHash = async () => null;
+  w.OCYjs = { fotosMap: new Map([['old-hash', bytes]]) };
+  await w.OCSync.hidratarFotosProductos();
+  const p = await w.product();
+  assert.equal(p.fotoHash, 'old-hash', 'pointer unchanged');
+  assert.equal(p.foto, bytes, 'photo bytes come from Yjs memory without an IDB write');
+});

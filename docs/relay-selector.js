@@ -74,12 +74,21 @@
      Costs one small head read per connection (already made by this probe). To disable: set OTRA_CAPA_LEER_MS = 0. */
   var OTRA_CAPA_LEER_MS = 3 * 60 * 1000;
   function claveHead(url) { return "f123_fb_head_" + String(url).slice(-48); }
+  // v669: the v668 head was merely OBSERVED, not a durable proof of receiving
+  // the ciphertext and committing the Yjs pull cursor. Never treat it as caught up.
+  function claveRecuperada(url) { return "f123_fb_aplicado_v669_" + String(url).slice(-48); }
+  function headAplicado(url) { try { return localStorage.getItem(claveRecuperada(url)); } catch (_) { return null; } }
+  function guardarAplicado(url) {
+    try { var h = headVisto(url); if (h) localStorage.setItem(claveRecuperada(url), h); } catch (_) {}
+  }
   function headVisto(url) { try { return _headFb[url] || localStorage.getItem(claveHead(url)) || null; } catch (_) { return _headFb[url] || null; } }
   function anotarHead(url, v) { _headFb[url] = v; try { localStorage.setItem(claveHead(url), v); } catch (_) {} }
-  function leerFirebase(ws) {
+  function leerFirebase(ws, url) {
     var cs = capas[0];
     if (!OTRA_CAPA_LEER_MS || !ws || !cs || cs.relay === fb) return;
-    var c = leer(cs.key); c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS); guardar(cs.key, c);
+    // A photo-only bootstrap must never pause inventory/money on the preferred relay.
+    if (esFoto(url)) pausarFotos(cs, OTRA_CAPA_LEER_MS);
+    else { var c = leer(cs.key); c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS); guardar(cs.key, c); }
     var ir = function () { try { ws.close(1012, "another device wrote on the next durable layer"); } catch (_) {} };
     if (ws.readyState === 1) ir(); else if (ws.readyState === 0) ws.addEventListener("open", ir);
   }
@@ -87,14 +96,20 @@
     var capaFb = capas.filter(function (x) { return x.relay === fb; })[0];
     if (!capaFb || typeof fb.leerHead !== "function" || Date.now() - (_sondaFbEn[url] || 0) < 60000) return;
     var c = leer(capaFb.key);
-    if (c.up >= CAP_UP || c.down >= CAP_DOWN) return; // an exhausted budget is never spent on a probe
+    if (c.up >= CAP_UP || c.down >= CAP_DOWN || (esFoto(url) && !usableFotos(capaFb))) return; // never bypass photo-band budgets
     _sondaFbEn[url] = Date.now();
     Promise.resolve().then(function () { return fb.leerHead(url); }).then(function (h) {
       sumarBajada(capaFb);
       if (!h) return;
       var antes = headVisto(url), ahora = h.rev + ":" + h.seq;
       anotarHead(url, ahora);
-      if (antes && antes !== ahora) { _otraCapaEn = Date.now(); leerFirebase(ws); }
+      // v669: the first visit has no stored baseline. A nonempty fallback is existing
+      // history to recover, even when its head never changes while this client is open.
+      // Replay is encrypted and idempotent; never compare numerical cursors across relays.
+      var fallbackTieneHistoria = Number(h.rev) > 0 || Number(h.seq) > 0;
+      if ((antes && antes !== ahora) || (fallbackTieneHistoria && headAplicado(url) !== ahora)) {
+        _otraCapaEn = Date.now(); leerFirebase(ws, url);
+      }
     }).catch(function () { try { sumarBajada(capaFb); } catch (_) {} });
   }
   // v649: silent sync trouble reaches the team through Sentry: fixed codes only, no business data, once per device per day.
@@ -125,7 +140,13 @@
     }
   }
   function arrancarSondas(ws, capa, url) {
-    if (esFoto(url)) return; // v661: photos ride the cascade but never spend head/probe reads
+    if (esFoto(url)) {
+      // v669: one low-cost cross-layer head on connection, not a periodic probe.
+      // Otherwise a photo room written only on Firebase is invisible forever
+      // to a PWA reading a silent but open Supabase photo room.
+      if (capa.relay !== fb) sondaOtraCapa(url, ws);
+      return;
+    }
     if (capa.relay === fb) {
       delete _headFb[url]; // this device writes there now: its own writes must not count later
       // v657: when this Firebase session ends, remember the head it left so its own writes are not taken for another device's.
@@ -143,10 +164,11 @@
   }
   // Re-probe the earlier layers when their pause ends: the app reconnects, the earlier layer gets this device's
   // full-state checkpoint, and devices split across layers converge again.
-  function reprobar(s, previas) {
+  function reprobar(s, previas, url) {
+    var apta = esFoto(url) ? usableFotos : usable;
     var t = setInterval(function () {
       if (s.readyState >= 2) return clearInterval(t);
-      if (previas.some(usable)) { clearInterval(t); try { s.close(1012, "earlier durable layer available again"); } catch (_) {} }
+      if (previas.some(apta)) { clearInterval(t); try { s.close(1012, "earlier durable layer available again"); } catch (_) {} }
     }, 5000); // v656: local check only (no traffic); 5 s so a short outage does not keep a device off its first layer
     if (t && t.unref) t.unref();
   }
@@ -166,6 +188,9 @@
   function envolver(capa, url) {
     var key = capa.key, ws = capa.relay.connect(url), abierto = false, sonda = { ws: ws, seq: null, frames: 0, enviados: 0, desde: 0 };
     _sondasWs[url] = sonda;
+    // Called ONLY after Yjs has completed its encrypted pull and its cursor
+    // readback barrier, not when Firebase merely reported an HTTP head.
+    if (capa.relay === fb) ws.markRecovered = function () { guardarAplicado(url); };
     ws.addEventListener("open", function () { abierto = true; });
     ws.addEventListener("message", function (e) {
       if (typeof e.data !== "string") sonda.frames++;
@@ -274,7 +299,7 @@
         if (cerradoH || x.ws.readyState >= 2) return clearInterval(t);
         for (var n = 0; n < j && n < capas.length; n++) {
           var viva = subs.some(function (o) { return o.orden === n && o.ws.readyState < 2; });
-          if (!viva && usable(capas[n])) { clearInterval(t); reiniciar("earlier durable layer available again"); return; }
+          if (!viva && (esFoto(url) ? usableFotos : usable)(capas[n])) { clearInterval(t); reiniciar("earlier durable layer available again"); return; }
         }
       }, 5000);
       if (t && t.unref) t.unref();
@@ -319,7 +344,7 @@
     // Start the next usable layer after the last one started (peers when none is left).
     function siguiente() {
       if (cerradoH || ultimo >= capas.length) return false;
-      for (var j = ultimo + 1; j < capas.length; j++) if (usable(capas[j])) {
+      for (var j = ultimo + 1; j < capas.length; j++) if ((esFoto(url) ? usableFotos : usable)(capas[j])) {
         var ws; try { ws = envolver(capas[j], url); } catch (_) { continue; }
         ultimo = j; tried[j] = true;
         // Re-probe only layers H is not already running (the primary is still trying: it must not close the fallback).
@@ -357,6 +382,13 @@
       if (vivo && vivo.readyState === 1 && typeof v !== "string") try { vivo.send(v); } catch (_) {} // live copy, best effort
       if (!ok) throw err; // e.g. QuotaExceededError must reach the caller
     };
+    H.markRecovered = function () {
+      // The recovered socket must be an open Firebase transport. Never certify
+      // a Supabase-only session as a successful Firebase catch-up.
+      subs.forEach(function (x) {
+        if (x.ws.readyState === 1 && typeof x.ws.markRecovered === "function") x.ws.markRecovered();
+      });
+    };
     H.close = function (code, reason) {
       if (cerradoH) return;
       cerradoH = true; // before the subs close, so their close events do not start a fallback
@@ -388,14 +420,14 @@
         var ws; try { ws = envolver(capas[i], url); } catch (_) { continue; }
         // On a fallback layer, re-probe the earlier layers when their pause ends: the app reconnects, the earlier
         // layer gets this device's full-state checkpoint, and devices split across layers converge again.
-        if (i > 0) reprobar(ws, capas.slice(0, i));
+        if (i > 0) reprobar(ws, capas.slice(0, i), url);
         try { arrancarSondas(ws, capas[i], url); } catch (_) {}
         // v659: with no timers the first layer stands alone (nothing could ever start the fallback).
         return typeof setTimeout === "function" && CASCADA_MS ? cascada(url, ws, i) : ws;
       }
       avisarSync("solo-peers");
       var directo = viaPeers(url);
-      reprobar(directo, capas); // peers are the last fallback, never where a device stays once a durable layer is back
+      reprobar(directo, capas, url); // peers are the last fallback, never where a device stays once a durable layer is back
       return directo;
     }
   };

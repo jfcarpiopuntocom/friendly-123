@@ -992,6 +992,11 @@
         sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
       }).catch(function () {});
     }
+    function marcarReplayCifradoAplicado(sock) {
+      // v669: only after the Yjs dependency check and the durable pull cursor
+      // barrier succeeded. A saved relay HEAD alone cannot certify any bytes.
+      try { if (sock && !sock.peerOnly && typeof sock.markRecovered === "function") sock.markRecovered(); } catch (_) {}
+    }
     function procesarHead(sock, estado, r) {
       if (!estado.esperandoHead || canal.ws !== sock) return Promise.resolve();
       estado.esperandoHead = false; clearTimeout(estado.tHead);
@@ -1023,8 +1028,10 @@
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
             !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
           canal.recuperando = false;
+          if (estado.pullAplicado) marcarReplayCifradoAplicado(sock);
           if (nombre === "catalogo" && API._store) API._store.aplicar();
         }
+        if (estado.pullAplicado && !deudaPendiente()) marcarReplayCifradoAplicado(sock);
         programarRelectura(sock, estado);
         return Promise.resolve();
       }
@@ -1566,6 +1573,7 @@
                 }
                 return guardarPullCursor(c).then(function () {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
+                  pullEstado.pullAplicado = true; // verified ciphertext + durable cursor write/readback
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
                   // PendingStructs empty alone does NOT prove full history.
@@ -1575,6 +1583,7 @@
                       // Old relay has no HEAD: its fully received final page
                       // remains the completion proof. Never unlock with debt.
                       canal.recuperando = false;
+                      if (pullEstado.pullAplicado && typeof ws.markRecovered === "function" && !_soloMemoria) { try { ws.markRecovered(); } catch (_) {} }
                       if (nombre === "catalogo" && API._store) API._store.aplicar();
                     } else if (!pullEstado.validacionFinal) {
                       pullEstado.validacionFinal = true;
@@ -2153,31 +2162,53 @@
   // ===================================================================
   // B3 — BYTES DE LAS FOTOS device-to-device (doc y relay separados).
   // ===================================================================
-  var _tVolcar = null;
+  var _tVolcar = null, _fotosGuardadoPendiente = false;
+  var _fotosBootstrapNotificado = false;
   function pedirVolcarFotos() { clearTimeout(_tVolcar); _tVolcar = setTimeout(volcarFotosAlStore, 250); }
+  // v669: Safari standalone PWA can reject an IndexedDB write temporarily.
+  // Keep the Yjs bytes intact, show them from memory, and retry on a real
+  // foreground/online transition (no background polling or destructive cleanup).
+  function reintentarGuardadoFoto() {
+    if (_fotosGuardadoPendiente && !document.hidden) pedirVolcarFotos();
+  }
+  window.addEventListener("online", reintentarGuardadoFoto);
+  document.addEventListener("visibilitychange", reintentarGuardadoFoto);
 
   // Yjs(fotos) -> OCFotos (IndexedDB local). Cada hash que llegó y no esté local
   // se guarda; luego se avisa a la UI para que la percha muestre su foto.
   function volcarFotosAlStore() {
     if (!window.OCFotos || !API.fotosMap) return;
-    var pend = [], hubo = false;
+    var pend = [], hubo = false, fallaron = false;
     API.fotosMap.forEach(function (dataUrl, hash) { pend.push([hash, dataUrl]); });
     var i = 0;
     (function next() {
       if (i >= pend.length) {
+        _fotosGuardadoPendiente = fallaron;
         // v667: hidratar SIEMPRE (no solo si llegaron bytes nuevos): tambien readopta punteros de foto
         // vacios desde el catalogo compartido (aparato dañado antes de v665). Idempotente.
         // v290: hidratar fotos de PRODUCTO (poner p.foto desde el hash recibido)
         // para que la UI, que pinta p.foto, muestre la foto que cruzo.
         try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
-        if (hubo) { try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+        // Even when IDB rejected a save, the authenticated Yjs bytes are present
+        // in fotosMap and the shelf recovery view can display them immediately.
+        // An existing hash may already be in IDB before a late catalog pointer arrives.
+        // Notify the shelf view ONCE after initial photo hydration, even when no
+        // byte was newly written, so a fast initial render is not left blank.
+        var primerMapa = !_fotosBootstrapNotificado && pend.length > 0;
+        if (primerMapa) _fotosBootstrapNotificado = true;
+        if (hubo || fallaron || primerMapa) { try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+        if (fallaron) { try { window.dispatchEvent(new CustomEvent("oc-fotos-persistencia-pendiente")); } catch (_) {} }
         return;
       }
       var hash = pend[i][0], dataUrl = pend[i][1]; i++;
       Promise.resolve(window.OCFotos.tieneHash(hash)).then(function (ya) {
         if (ya) return next();
-        return Promise.resolve(window.OCFotos.guardarPorHash(hash, dataUrl)).then(function () { hubo = true; next(); });
-      }).catch(next);
+        return Promise.resolve(window.OCFotos.guardarPorHash(hash, dataUrl)).then(function (ok) {
+          if (ok === true) hubo = true;
+          else fallaron = true; // false means nothing was saved: do not fabricate success
+          next();
+        });
+      }).catch(function () { fallaron = true; next(); });
     })();
   }
 

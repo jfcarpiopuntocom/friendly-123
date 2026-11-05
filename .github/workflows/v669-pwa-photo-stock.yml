@@ -1,0 +1,30 @@
+name: v669 PWA photo and stock bootstrap regression
+on:
+  pull_request:
+    paths:
+      - 'docs/relay-selector.js'
+      - 'docs/sync-yjs.js'
+      - 'docs/mock-backend.js'
+      - 'test/relay-selector.test.cjs'
+      - 'test/v669-photo-pwa-durable-retry.test.cjs'
+      - 'test/photo-integrity.test.js'
+      - 'test/relay-sondas-v644.test.cjs'
+      - 'test/stock-epoch-legacy-convergencia-v651.test.js'
+      - '.github/workflows/v669-pwa-photo-stock.yml'
+  workflow_dispatch:
+jobs:
+  isolated-pwa-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate runtime syntax
+        run: |
+          node --check docs/relay-selector.js
+          node --check docs/sync-yjs.js
+          node --check docs/mock-backend.js
+      - name: Run synthetic first-join and photo persistence regressions
+        run: node --test --test-concurrency=1 test/relay-selector.test.cjs test/relay-sondas-v644.test.cjs test/stock-epoch-legacy-convergencia-v651.test.js test/v669-photo-pwa-durable-retry.test.cjs test/photo-integrity.test.js
