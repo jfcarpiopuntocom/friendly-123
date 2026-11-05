@@ -43,7 +43,7 @@
     "./peer-sync.js": "sha256-8f18ea1cc3029b8e4fd26a4543810e4432c247e78f1137b465dfc405c8bac4b2",
     "./vendor/supabase-relay.min.js": "sha256-6295504f7fa7e29bd749efae834067bb5b8d3773cd1d32c9a03bb6cba8e73ce5",
     "./firebase-relay.js": "sha256-57bb145cc7d54250fcee97648985052477b4dc7db01bf6c7f0e2347c75621a84",
-    "./relay-selector.js": "sha256-9bd5eb589e932dac669bf308e813981a0624bef264772fc8e6921c985b4cc19e",
+    "./relay-selector.js": "sha256-f5a0a4509684a4c3671c803c82ce0e02dd60b10dafa683e85881c3c8730e8dde",
     "./vendor/jspdf-4.2.1.umd.min.js": "sha256-5feb83f439480e06687f9e6f23a8a162b12157b9606aa6ffc70c7e961b7c6013",
     "./vendor/jspdf-autotable-5.0.9.min.js": "sha256-efe0106af8224d8480b94e83ceafe4a5f889b13e028f3bec6d33c0a64a3133f5",
     "./i18n.js": "sha256-5b2b900ddf32535e1c567f5d7e23dc441d2688321f522b6158c306d0ebb49bd6",
