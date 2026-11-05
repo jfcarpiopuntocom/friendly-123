@@ -1047,6 +1047,7 @@
           if (!estado.rescateCausalDesde)
             estado.rescateCausalDesde = { rev: _ultimoCursorLimpio.rev, seq: _ultimoCursorLimpio.seq };
           estado.rescatePaginas = 0; // per retry window, NOT a permanent operation cap
+          estado.rescateVectorInicio = Y.encodeStateVector(doc); // track applied Yjs, not page count
           return pedirPagina(sock, estado, true);
         }
         if (!deudaPendiente()) estado.rescateCausalDesde = null;
@@ -1630,8 +1631,11 @@
                       // Per-window network budget: at most four 64-op pages.
                       // Genuine encrypted forward progress renews the BACKOFF
                       // budget; no progress retains the existing five-try cap.
-                      if (Number.isSafeInteger(c.n) && c.n > 0)
-                        _replayUsed = Math.max(0, _replayUsed - 1);
+                      var vectorNuevo = Y.encodeStateVector(doc), vectorAnterior = pullEstado.rescateVectorInicio;
+                      var avanceYjs = !!vectorAnterior && vectorAnterior.length !== vectorNuevo.length;
+                      for (var vi = 0; !avanceYjs && vectorAnterior && vi < vectorNuevo.length; vi++)
+                        if (vectorAnterior[vi] !== vectorNuevo[vi]) avanceYjs = true;
+                      if (avanceYjs) _replayUsed = Math.max(0, _replayUsed - 1);
                       pullEstado.enCurso = false;
                       programarRelectura(ws, pullEstado);
                       return;
