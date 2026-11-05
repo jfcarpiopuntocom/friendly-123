@@ -988,7 +988,7 @@
         }
         // v1 legacy checkpoint can compact operations without bumping revision.
         // Probe the actual ciphertext checkpoint, never a stale high-water seq.
-        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : _pullCursor;
+        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : (estado.rescateCausalDesde || _pullCursor);
         sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
       }).catch(function () {});
     }
@@ -1036,6 +1036,20 @@
       }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
+        // Sync3: a matching relay HEAD cannot prove missing Yjs causal parents.
+        // Re-read only after the LAST PROVEN CLEAN cut and only using an already
+        // granted bounded retry. Never rewind the durable cursor or invent stock.
+        if (typeof nombre === "string" && nombre === "catalogo" && _replayUsed > 0 &&
+            doc.store && (doc.store.pendingStructs || doc.store.pendingDs) &&
+            !Object.keys(partesEntrantes).length && _ultimoCursorLimpio.rev >= 0 &&
+            (_ultimoCursorLimpio.rev < _pullCursor.rev ||
+             (_ultimoCursorLimpio.rev === _pullCursor.rev && _ultimoCursorLimpio.seq < _pullCursor.seq))) {
+          if (!estado.rescateCausalDesde)
+            estado.rescateCausalDesde = { rev: _ultimoCursorLimpio.rev, seq: _ultimoCursorLimpio.seq };
+          estado.rescatePaginas = 0; // per retry window, NOT a permanent operation cap
+          return pedirPagina(sock, estado, true);
+        }
+        if (!deudaPendiente()) estado.rescateCausalDesde = null;
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
             !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
           canal.recuperando = false;
@@ -1594,6 +1608,30 @@
                 return guardarPullCursor(c).then(function () {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
                   pullEstado.pullAplicado = true; // verified ciphertext + durable cursor write/readback
+                  if (pullEstado.rescateCausalDesde) {
+                    // Replaying an older proven interval MUST paginate with an
+                    // EPHEMERAL cursor: never roll back the confirmed durable cut.
+                    var previo = pullEstado.rescateCausalDesde, revC = Number(c.rev), seqC = Number(c.seq);
+                    if (!Number.isSafeInteger(revC) || !Number.isSafeInteger(seqC) ||
+                        revC < previo.rev || (revC === previo.rev && seqC <= previo.seq)) {
+                      pullEstado.enCurso = false; // stalled/invalid server page: no tight retry loop
+                      programarRelectura(ws, pullEstado);
+                      return;
+                    }
+                    pullEstado.rescateCausalDesde = { rev: revC, seq: seqC };
+                    pullEstado.rescatePaginas = (pullEstado.rescatePaginas || 0) + 1;
+                    if (!c.more) pullEstado.rescateCausalDesde = null;
+                    else if (pullEstado.rescatePaginas >= 4) {
+                      // Per-window network budget: at most four 64-op pages.
+                      // Genuine encrypted forward progress renews the BACKOFF
+                      // budget; no progress retains the existing five-try cap.
+                      if (Number.isSafeInteger(c.n) && c.n > 0)
+                        _replayUsed = Math.max(0, _replayUsed - 1);
+                      pullEstado.enCurso = false;
+                      programarRelectura(ws, pullEstado);
+                      return;
+                    }
+                  }
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
                   // PendingStructs empty alone does NOT prove full history.
