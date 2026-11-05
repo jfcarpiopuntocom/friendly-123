@@ -33,7 +33,14 @@
     // shortcut: counts response bodies and live events read; headers and the echo of a PUT are not visible here. Upgrade if billing data is ever exposed to the client.
     var wireDown = 0;
     async function getJson(path, query) { var r = await http("GET", path, undefined, query); var t = await r.text(); wireDown += t.length; if (!r.ok) throw new Error("read " + r.status); return JSON.parse(t); }
-    function sorted(obj) { return Object.keys(obj || {}).map(function (k) { return obj[k]; }).filter(function (v) { return v && typeof v.s === "number" && typeof v.c === "string"; }).sort(function (a, b) { return a.s - b.s; }); }
+    // Firebase orders equal server timestamps by child key. Preserve that tie-breaker
+    // even though REST JSON itself is unordered; incomplete ties must never advance a durable cursor.
+    function sorted(obj) { return Object.keys(obj || {}).map(function (k) {
+      var v = obj[k]; return v && typeof v.s === "number" && typeof v.c === "string" ?
+        Object.assign({ _firebaseKey: k }, v) : null;
+    }).filter(Boolean).sort(function (a, b) {
+      return a.s - b.s || (a._firebaseKey < b._firebaseKey ? -1 : a._firebaseKey > b._firebaseKey ? 1 : 0);
+    }); }
 
     function Socket(url) {
       var m = String(url).match(LOC);
@@ -42,6 +49,7 @@
       this.readyState = 0; this.binaryType = "arraybuffer"; this.bufferedAmount = 0; this.peerOnly = false;
       this.onopen = this.onmessage = this.onclose = this.onerror = null;
       this._l = {}; this._durable = Promise.resolve(); this._reads = Promise.resolve(); this._seen = Object.create(null); this._es = null;
+      this._tie = null; // in-socket staging only: on reconnect, replay starts from last completely durable timestamp
       var self = this;
       Promise.resolve().then(function () { return self._open(); });
     }
@@ -151,16 +159,60 @@
           }
           seq = Math.max(seq, yaLeido); // v651: a new photo must not replay ops this reader already has
         }
-        var page = sorted(await getJson(this.root + "/o", { orderBy: '"s"', startAt: seq + 1, limitToFirst: size }));
-        var lleno = page.length === size; // v665: a full page may hide more ops even after the tie trim below shortens it
-        // Never split a run of equal server times across pages: the next page starts strictly after the last kept time.
-        if (page.length === size && page[0].s !== page[page.length - 1].s) { var lastS = page[page.length - 1].s; page = page.filter(function (it) { return it.s !== lastS; }); }
-        var used = 0, kept = [];
-        for (var i = 0; i < page.length; i++) { used += page[i].c.length * 3 / 4; if (used > budget && i > 0) break; kept.push(page[i]); }
+        // v668 safety: the protocol has a numeric timestamp cursor, not a per-key cursor.
+        // Advancing it after only SOME operations at one millisecond loses every omitted
+        // encrypted fragment forever. Consume complete timestamp groups only; when a
+        // single group exceeds the frame budget, stage it in socket RAM, keep the OLD
+        // cursor and acknowledge its timestamp only when EVERY member was sent.
+        // A disconnect discards the staging and replays the entire group (Yjs is idempotent).
+        var tie = this._tie;
+        if (tie && (tie.rev !== curRev || tie.seq !== seq)) { this._tie = null; tie = null; }
+        var page = tie ? [] : sorted(await getJson(this.root + "/o", { orderBy: '"s"', startAt: seq + 1, limitToFirst: size }));
+        var lleno = page.length === size, kept = [], used = 0, more = false, newSeq = seq;
+        if (!tie && lleno && page.length && page[0].s !== page[page.length - 1].s) {
+          // A truncated final group is unproven: retry it on the next page.
+          var lastS = page[page.length - 1].s;
+          page = page.filter(function (it) { return it.s !== lastS; });
+          more = true;
+        }
+        if (!tie) {
+          for (var i = 0; i < page.length;) {
+            var j = i + 1, groupBytes = page[i].c.length * 3 / 4;
+            while (j < page.length && page[j].s === page[i].s) { groupBytes += page[j].c.length * 3 / 4; j++; }
+            // A full page with one timestamp might hide arbitrarily many siblings;
+            // likewise an oversized group cannot be cut after its first fragment.
+            if ((lleno && page[0].s === page[page.length - 1].s) ||
+                (i === 0 && groupBytes > budget)) {
+              var entire = sorted(await getJson(this.root + "/o", { orderBy: '"s"', equalTo: page[i].s }));
+              if (!entire.length) throw new Error("Firebase timestamp group vanished");
+              tie = this._tie = { rev: curRev, seq: seq, time: page[i].s, items: entire, index: 0 };
+              break;
+            }
+            if (used + groupBytes > budget) { more = true; break; }
+            for (var n = i; n < j; n++) kept.push(page[n]);
+            used += groupBytes; newSeq = page[j - 1].s; i = j;
+          }
+          if (kept.length < page.length || lleno) more = true;
+        }
+        if (tie) {
+          // Bound each returned page to PAGE_BUDGET without persisting a partial
+          // timestamp. The group's in-memory offset is intentionally NOT durable.
+          while (tie.index < tie.items.length) {
+            var item = tie.items[tie.index], bytes = item.c.length * 3 / 4;
+            if (used + bytes > budget) break;
+            kept.push(item); used += bytes; tie.index++;
+          }
+          if (tie.index === tie.items.length) {
+            newSeq = tie.time;
+            this._tie = null;
+          } else {
+            newSeq = seq;
+          }
+          more = true; // verify later timestamps (and the HEAD) on the next pull
+        }
         var self = this;
         frames.concat(kept.map(function (it) { return it.c; })).forEach(function (f) { self._seen[f.length + ":" + f.slice(0, 64)] = 1; self._binary(unb64(f), "pull"); });
-        var newSeq = kept.length ? kept[kept.length - 1].s : seq;
-        if (Number(c.v) === 2) this._text({ k: "pull-page", v: 2, rev: curRev, seq: newSeq, n: kept.length, more: kept.length > 0 && (kept.length < page.length || lleno || page.length >= size - 1) });
+        if (Number(c.v) === 2) this._text({ k: "pull-page", v: 2, rev: curRev, seq: newSeq, n: kept.length, more: more });
       }
     };
     Socket.prototype.close = function (code, reason) {
