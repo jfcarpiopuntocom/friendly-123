@@ -41,9 +41,16 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       salaCorrecta: String(s.codigo || '').toUpperCase() === code,
       tieneDispositivo: !!o.instanceId,
       tieneRoomYjs: !!(y && y.roomId),
+      tieneCanalCatalogo: !!(y && y.canal),
       catalogoRecuperando: !!(y && y.canal && y.canal.recuperando),
       operacionesRecuperando: !!(y && y.opsCanal && y.opsCanal.recuperando),
       fotosRecuperando: !!(y && y.fotosCanal && y.fotosCanal.recuperando),
+      socketCatalogo: y && y.canal && y.canal.ws ? y.canal.ws.readyState : null,
+      socketFotos: y && y.fotosCanal && y.fotosCanal.ws ? y.fotosCanal.ws.readyState : null,
+      socketOperaciones: y && y.opsCanal && y.opsCanal.ws ? y.opsCanal.ws.readyState : null,
+      hidratacionLocalPendiente: !!(y && y._diag && y._diag().recuperacionLocalPendiente),
+      cantidadProductos: y && y.mapas && y.mapas.productos ? y.mapas.productos.size : 0,
+      cantidadFotos: y && y.fotosMap ? y.fotosMap.size : 0,
       tieneMetadatosPin: !!(y && y.meta && y.meta.get && (y.meta.get('pinsRol') || {}).owner),
       tienePinOwnerNoFactory: !!(y && y.meta && y.meta.get && (y.meta.get('pinsRol') || {}).owner && (y.meta.get('pinsRol') || {}).owner !== '789'),
       rol: window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual() || null
@@ -81,7 +88,20 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       console.log('CANARIO_ETAPA: licencia y sala correctas');
       await p.waitForTimeout(5000);
       ultima = await diagnostico(p, LICENCIA);
-      if (PIN === '789' && ultima.tienePinOwnerNoFactory) {
+      // Existing-store 789 must never be tested against a half-recovered
+      // catalog: the true Owner PIN belongs to the encrypted store metadata.
+      // Wait for *evidence*, not a blind 5-second timer; no PIN retries.
+      const recuperacionVerificada = d => !!(d && !d.lecturaDiagnosticoFallida &&
+        d.tieneRoomYjs === true && d.tieneCanalCatalogo === true &&
+        d.catalogoRecuperando === false);
+      const limiteRecuperacion = Date.now() + 20000;
+      while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
+        await p.waitForTimeout(2000);
+        ultima = await diagnostico(p, LICENCIA);
+      }
+      if (!recuperacionVerificada(ultima)) {
+        fallo = 'RECUPERACION: catalogo cifrado de la tienda no terminó';
+      } else if (PIN === '789' && ultima.tienePinOwnerNoFactory) {
         fallo = 'ACCESO: F123_CANARIO_PIN requiere PIN Owner sintético actualizado';
       } else if (await rol(p) !== 'dueno') {
         if (await p.locator('#oc-gate button[data-d]').first().isVisible().catch(() => false)) {
