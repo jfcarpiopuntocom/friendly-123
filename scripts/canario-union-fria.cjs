@@ -41,6 +41,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       salaCorrecta: String(s.codigo || '').toUpperCase() === code,
       tieneDispositivo: !!o.instanceId,
       tieneRoomYjs: !!(y && y.roomId),
+      tieneCanalCatalogo: !!(y && y.canal),
       catalogoRecuperando: !!(y && y.canal && y.canal.recuperando),
       operacionesRecuperando: !!(y && y.opsCanal && y.opsCanal.recuperando),
       fotosRecuperando: !!(y && y.fotosCanal && y.fotosCanal.recuperando),
@@ -90,12 +91,15 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       // Existing-store 789 must never be tested against a half-recovered
       // catalog: the true Owner PIN belongs to the encrypted store metadata.
       // Wait for *evidence*, not a blind 5-second timer; no PIN retries.
+      const recuperacionVerificada = d => !!(d && !d.lecturaDiagnosticoFallida &&
+        d.tieneRoomYjs === true && d.tieneCanalCatalogo === true &&
+        d.catalogoRecuperando === false);
       const limiteRecuperacion = Date.now() + 20000;
-      while (ultima && ultima.catalogoRecuperando && Date.now() < limiteRecuperacion) {
+      while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
         ultima = await diagnostico(p, LICENCIA);
       }
-      if (!ultima || ultima.catalogoRecuperando) {
+      if (!recuperacionVerificada(ultima)) {
         fallo = 'RECUPERACION: catalogo cifrado de la tienda no terminó';
       } else if (PIN === '789' && ultima.tienePinOwnerNoFactory) {
         fallo = 'ACCESO: F123_CANARIO_PIN requiere PIN Owner sintético actualizado';
