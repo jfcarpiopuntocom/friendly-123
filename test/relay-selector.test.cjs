@@ -41,9 +41,9 @@ function app(now = Date.parse('2026-11-02T12:00:00Z'), store = new Map(), fbHead
 // device made on Firebase while it was closed.
 const espera = () => new Promise(r => setImmediate(r));
 test('v657: Firebase moved while this device was closed -> it reads Firebase, then returns to Supabase', async () => {
-  const store = new Map(), head = { value: { rev: 1, seq: 10 } };
+  const store = new Map(), head = { value: { rev: 0, seq: 0 } };
   const s1 = sub(app(undefined, store, head).R.connect(URL1)); s1.open(); await espera(); await espera();
-  assert.equal(s1.closed, null, 'first session: only remembers the head');
+  assert.equal(s1.closed, null, 'empty fallback does not interrupt the first session');
   head.value = { rev: 1, seq: 11 }; // another device, parked on Firebase, wrote while this one was closed
   const A2 = app(undefined, store, head), s2 = sub(A2.R.connect(URL1));
   assert.equal(s2.kind, 'supabase'); s2.open(); await espera(); await espera();
@@ -52,8 +52,8 @@ test('v657: Firebase moved while this device was closed -> it reads Firebase, th
   A2.clock.now += 3 * 60 * 1000 + 1000;
   assert.equal(sub(A2.R.connect(URL1)).kind, 'supabase', 'after 3 min it is back on Supabase (and uploads its checkpoint)');
 });
-test('v657: Firebase did not move -> the device stays on Supabase', async () => {
-  const store = new Map(), head = { value: { rev: 1, seq: 10 } };
+test('v657: empty Firebase did not move -> the device stays on Supabase', async () => {
+  const store = new Map(), head = { value: { rev: 0, seq: 0 } };
   const s1 = sub(app(undefined, store, head).R.connect(URL1)); s1.open(); await espera(); await espera();
   const s2 = sub(app(undefined, store, head).R.connect(URL1)); s2.open(); await espera(); await espera();
   assert.equal(s2.closed, null);
@@ -322,4 +322,34 @@ test('v662: photos never open a live lane', () => {
   const { w, R, made } = app(); w.F123_VIVO = true;
   R.connect(URL1.replace(/-y$/, '-fotos'));
   assert.equal(made.filter(x => x.kind === 'peer').length, 0);
+});
+
+
+// v669: first-join with no previous head must not miss old operations on the fallback.
+test('v669: initial PWA boot reads existing Firebase inventory history, even with no prior head baseline', async () => {
+  const A = app(undefined, new Map(), { value: { rev: 1, seq: 37 } });
+  const first = sub(A.R.connect(URL1)); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed?.code, 1012, 'switches to the history-bearing fallback');
+  assert.equal(sub(A.R.connect(URL1)).kind, 'firebase', 'the next connection reads the other history');
+});
+
+test('v669: photo room also recovers pre-existing Firebase photo bytes on first PWA start', async () => {
+  const A = app(undefined, new Map(), { value: { rev: 0, seq: 14 } });
+  const fotos = URL1.replace(/-y$/, '-fotos');
+  const first = sub(A.R.connect(fotos)); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed?.code, 1012, 'photo bootstrap must not stay on an empty preferred room');
+  assert.equal(sub(A.R.connect(fotos)).kind, 'firebase');
+});
+
+test('v669: photos do not probe a Firebase photo band after its daily download quota is spent', async () => {
+  const now = Date.parse('2026-11-02T12:00:00Z');
+  const store = new Map([['f123_relay_cupo_fb_v1', JSON.stringify({
+    dia: '2026-11-02', up: 0, down: 11 * 1024 * 1024, pausaHasta: 0
+  })]]);
+  const A = app(now, store, { value: { rev: 0, seq: 14 } });
+  const first = sub(A.R.connect(URL1.replace(/-y$/, '-fotos'))); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed, null, 'no extra bandwidth after exhausting the photo share');
 });
