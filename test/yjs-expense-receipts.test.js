@@ -13,7 +13,14 @@ function fixture() {
   const seeds = [];
   const context = {
     crypto: require('node:crypto').webcrypto, TextEncoder,
-    API: { fotosCanal: {}, fotosDoc: {}, fotosMap: blobs },
+    // Production Y.Doc exposes on/off; the seed observes update events to
+    // detect whether Y.applyUpdate actually produced a new durable change.
+    API: { fotosCanal: {}, fotosDoc: {
+      _listeners: new Map(),
+      on(event, cb) { this._listeners.set(event, cb); },
+      off(event, cb) { if (this._listeners.get(event) === cb) this._listeners.delete(event); },
+      emit(event) { this._listeners.get(event)?.(); }
+    }, fotosMap: blobs },
     window: {
       OCSync: { catalogoPropio: () => catalog },
       // Exercise the legacy adapter without leerTodosPorHash, too.
