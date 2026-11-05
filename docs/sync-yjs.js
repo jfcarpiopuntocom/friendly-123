@@ -2391,12 +2391,19 @@
       var b = Number(base);
       if (base == null || !Number.isSafeInteger(b) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
       Object.keys(pn).forEach(function (actor) {
-        if (!actor || actor.length > 160) return;
+        // "~..." actors are DERIVED carry lines of the converged view (calcularVistaStock): never facts.
+        if (!actor || actor.length > 160 || actor.charAt(0) === "~") return;
         var z = pn[actor] || {}, add = Number(z.add), sub = Number(z.sub);
         if (!Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0 || !(add || sub)) return;
         var key = JSON.stringify([pid, b, ep, actor, add, sub]);
         if (!mapa.has(key)) mapa.set(key, { p: pid, b: b, e: ep, d: actor, a: add, s: sub, t: Number(ts) || 0 });
       });
+      /* v667 stock-converge: COUNT MARKER. A physical count (new epoch, empty counters) used to have no
+         witness at all, so the moment it happened lived only in the last-writer product record and could be
+         overwritten. The marker is an add-only fact with zero movement (a:0,s:0) whose t dates the start of the
+         group; the converged view ranks groups by it. Old shells index it as an actor with 0/0: net effect 0. */
+      var mk = JSON.stringify([pid, b, ep, "@conteo", 0, 0]);
+      if (!mapa.has(mk)) mapa.set(mk, { p: pid, b: b, e: ep, d: "@conteo", a: 0, s: 0, t: Number(ts) || 0 });
     }
     registrar(r.stockBase, r.stockPN, r.stockTs, r.stockEpochId);
     var evidencias = r.stockEvidencias;
@@ -2421,10 +2428,14 @@
         !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return;
     var byProduct = hechos[pid] || (hechos[pid] = Object.create(null));
     var groupKey = JSON.stringify([base, epoch]);
-    var byBase = byProduct[groupKey] || (byProduct[groupKey] = { base: base, epoch: epoch, pn: {}, ts: 0 });
+    var byBase = byProduct[groupKey] || (byProduct[groupKey] = { base: base, epoch: epoch, pn: {}, ts: 0, ets: Infinity, snaps: {} });
+    var t = Number(w.t) || 0;
+    if (t > 0) byBase.ets = Math.min(byBase.ets, t);
+    if (actor === "@conteo") return; // count marker: only dates the start of the group
     var old = byBase.pn[actor] || { add: 0, sub: 0 };
     byBase.pn[actor] = { add: Math.max(old.add, add), sub: Math.max(old.sub, sub) };
-    byBase.ts = Math.max(byBase.ts, Number(w.t) || 0);
+    byBase.ts = Math.max(byBase.ts, t);
+    (byBase.snaps[actor] || (byBase.snaps[actor] = [])).push([add, sub, t]);
   }
   function _indexPNTestigos(mapa) {
     var state = _indicesPNTestigos.get(mapa);
@@ -2455,81 +2466,111 @@
     }
     return state.hechos;
   }
+  /* v667 stock-converge (owner rule PRIME DIRECTIVE 1AAA: stock is sacred, additive, never counted twice).
+     CONVERGED VIEW. The displayed stock of a product is a PURE FUNCTION of add-only facts (witnesses
+     {p,b,e,d,a,s,t} + count markers + the record's own ledger), so every device holding the same facts shows the
+     same number, whatever order it received them in:
+       1. A GROUP is one physical ledger = (base, epoch). Its counters merge by max per actor (no double count).
+       2. The WINNER is the group that began last (ets = earliest instant any fact of the group carries, i.e. the
+          physical count). A movement made later on an OLDER group does NOT make that group win (before this, the
+          last movement stamp stockTs decided, so a late sale on a stale ledger overwrote a newer count).
+          A legacy group (no epoch) with the same base as an explicit group is that ledger's movements, never a count.
+          A group stamped >5 min after the common clock cannot win while another exists.
+       3. Nothing is dropped: movements of every other group made AFTER the winner began (per actor: cumulative
+          minus its last snapshot at or before that instant) are added as derived "~" lines. Movements made
+          before the count are superseded by the count (the owner's rule: the latest count wins).
+       4. Losing groups stay in stockEvidencias. Derived "~" lines are never published as facts.
+     Known limit: an actor that moved stock both before and after a count while offline, publishing one single
+     snapshot afterwards, is carried whole (its pre-count part cannot be told apart). Rare; never loses units. */
+  function _ahoraComunStock() {
+    var raw = (window.OCLatencia && window.OCLatencia.ahoraRelay) ? window.OCLatencia.ahoraRelay() : null;
+    return typeof raw === "number" && Number.isFinite(raw) && raw >= 1000000000000 ? raw : null;
+  }
+  function _pnValido(x) { return x && typeof x === "object" && !Array.isArray(x) ? x : null; }
+  function calcularVistaStock(p, porBase, ahora, local, otros) {
+    var g = Object.create(null);
+    function grupo(base, epoch) {
+      var k = JSON.stringify([base, epoch]);
+      return g[k] || (g[k] = { base: base, epoch: epoch, pn: {}, ets: Infinity, lts: 0, snaps: null });
+    }
+    function sumar(G, pn) {
+      var q = _pnValido(pn); if (!q) return;
+      Object.keys(q).forEach(function (actor) {
+        if (!actor || actor.length > 160 || actor.charAt(0) === "~" || actor === "@conteo") return;
+        var v = q[actor] || {}, a = Number(v.add), s = Number(v.sub);
+        if (!Number.isSafeInteger(a) || !Number.isSafeInteger(s) || a < 0 || s < 0) return;
+        var o = G.pn[actor] || { add: 0, sub: 0 };
+        G.pn[actor] = { add: Math.max(o.add, a), sub: Math.max(o.sub, s) };
+      });
+    }
+    function fecha(G, ts) { ts = Number(ts) || 0; if (ts > 0) { G.ets = Math.min(G.ets, ts); G.lts = Math.max(G.lts, ts); } }
+    Object.keys(porBase || {}).forEach(function (k) {
+      var f = porBase[k], G = grupo(f.base, f.epoch);
+      sumar(G, f.pn); G.snaps = f.snaps; if (f.ets < Infinity) G.ets = Math.min(G.ets, f.ets); G.lts = Math.max(G.lts, f.ts);
+    });
+    function registro(base, epoch, pn, ts, confiable) {
+      if (base == null || !Number.isSafeInteger(Number(base))) return;
+      var G = grupo(Number(base), typeof epoch === "string" && epoch.length <= 160 ? epoch : "");
+      // An explicit epoch trusts only authenticated witnesses for its counters (old bridges can relabel a
+      // record's PN). `local` = this device's own record, whose counters were just published as witnesses.
+      if (!G.epoch || confiable) sumar(G, pn);
+      fecha(G, ts);
+    }
+    function registros(r, confiable) {
+      if (!r) return;
+      registro(r.stockBase, r.stockEpochId, r.stockPN, r.stockTs, confiable);
+      var ev = _pnValido(r.stockEvidencias);
+      if (ev) Object.keys(ev).forEach(function (k) { var v = ev[k]; if (v) registro(v.base, v.epoch, v.pn, v.ts, confiable); });
+    }
+    registros(p, !!local);
+    (otros || []).forEach(function (r) { registros(r, false); });
+    var todos = Object.keys(g).map(function (k) { return g[k]; });
+    if (!todos.length) return null;
+    todos.forEach(function (G) { if (G.ets === Infinity) G.ets = 0; });
+    var basesExplicitas = {};
+    todos.forEach(function (G) { if (G.epoch) basesExplicitas[G.base] = true; });
+    var cand = todos.filter(function (G) { return G.epoch || !basesExplicitas[G.base]; });
+    var presente = cand.filter(function (G) { return ahora === null || G.ets <= ahora + 300000; });
+    if (presente.length) cand = presente;
+    var W = cand.reduce(function (m, G) {
+      if (!m) return G;
+      if (G.ets !== m.ets) return G.ets > m.ets ? G : m;
+      if (G.epoch !== m.epoch) return G.epoch > m.epoch ? G : m;
+      return G.base > m.base ? G : m;
+    }, null);
+    var pn = {}, evid = {}, ts = 0;
+    Object.keys(W.pn).forEach(function (a) { pn[a] = W.pn[a]; });
+    todos.forEach(function (G) {
+      if (!(ahora !== null && G.lts > ahora + 300000)) ts = Math.max(ts, G.lts);
+      if (G === W) return;
+      Object.keys(G.pn).forEach(function (actor) {
+        var fin = G.pn[actor], base0 = [0, 0, 0], snaps = G.snaps && G.snaps[actor];
+        if (snaps && snaps.length) {
+          snaps.forEach(function (x) { if (x[2] <= W.ets && x[0] + x[1] >= base0[0] + base0[1]) base0 = x; });
+        } else if (G.lts <= W.ets) base0 = [fin.add, fin.sub, 0];
+        var ca = Math.max(0, fin.add - base0[0]), cs = Math.max(0, fin.sub - base0[1]);
+        if (ca || cs) pn[("~" + (G.epoch || ("b" + G.base)) + "~" + actor).slice(0, 160)] = { add: ca, sub: cs };
+      });
+      evid[G.epoch ? JSON.stringify([G.base, G.epoch]) : String(G.base)] =
+        { base: G.base, pn: G.pn, ts: G.lts, ...(G.epoch ? { epoch: G.epoch } : {}) };
+    });
+    var neto = W.base + Object.keys(pn).reduce(function (n, a) { return n + pn[a].add - pn[a].sub; }, 0);
+    if (!Number.isSafeInteger(neto)) return null;
+    var out = Object.assign({}, p, {
+      stockBase: W.base, stockEpochId: W.epoch, stockPN: pn, stockActual: Math.max(0, neto),
+      stockDeficit: neto < 0 ? -neto : 0, stockTs: ts, stockVista: true
+    });
+    if (Object.keys(evid).length) out.stockEvidencias = evid; else delete out.stockEvidencias;
+    return out;
+  }
   function incorporarTestigosStock(productos, mapa) {
     if (!Array.isArray(productos) || !productos.length) return productos;
     var hechos = mapa && mapa.size ? _indexPNTestigos(mapa) : Object.create(null);
+    var ahora = _ahoraComunStock();
     return productos.map(function (p) {
       if (!p || p.id == null) return p;
-      var porBase = hechos[String(p.id)];
-      var b = p.stockBase == null ? null : Number(p.stockBase);
-      var epoch = typeof p.stockEpochId === "string" && p.stockEpochId.length <= 160 ? p.stockEpochId : "";
-      var activeKey = JSON.stringify([b, epoch]);
-      // An explicit epoch requires independently authenticated Y.Doc facts,
-      // not merely a whole-product PN object (old bridges can relabel it).
-      // Sanitizing the incoming read-model never deletes the local ledger.
-      function sinPruebaEpoca(proof) {
-        // Always return the PRODUCT (never the bare evidence map): a fresh physical count has empty PN and
-        // returning `proof` here replaced the product with its evidence, which the store then dropped (no id).
-        if (!epoch || !Number.isSafeInteger(b) || !p.stockPN ||
-            !Object.keys(p.stockPN).length) return proof ? Object.assign({}, p, { stockEvidencias: proof }) : p;
-        return Object.assign({}, p, {
-          stockPN: {}, stockActual: Math.max(0, b), stockDeficit: 0,
-          ...(proof ? { stockEvidencias: proof } : {})
-        });
-      }
-      if (!porBase) return sinPruebaEpoca(null);
-      var prevProof = p.stockEvidencias && typeof p.stockEvidencias === "object" &&
-        Object.keys(p.stockEvidencias).length > 0;
-      var conflictProof = Object.keys(porBase).some(function (key) { return b === null || key !== activeKey; });
-      // Keep historical fork evidence, but avoid copying every ordinary
-      // same-baseline movement into a second ever-growing backup field.
-      // Restore BOTH explicit epochs from the add-only witness index when
-      // the whole-product Y.Map picked one competing read model. Otherwise
-      // one replica can export the old epoch's movements and the other cannot.
-      // Keep ordinary single-epoch products compact: no duplicate proof blob.
-      var witnessProof = Object.create(null);
-      if (conflictProof || prevProof) Object.keys(porBase).forEach(function (key) {
-        var fact = porBase[key];
-        if (!fact) return;
-        if (fact.epoch) {
-          witnessProof[JSON.stringify([fact.base, fact.epoch])] = {
-            base: fact.base, epoch: fact.epoch, pn: fact.pn, ts: fact.ts
-          };
-        } else if (String(fact.base) !== String(b)) {
-          witnessProof[String(fact.base)] = fact;
-        }
-      });
-      var e = (prevProof || Object.keys(witnessProof).length)
-        ? unirEvidenciasStockYjs(p, { stockEvidencias: witnessProof }) : null;
-      // Distinct explicit epochs are retained in the encrypted witness map;
-      // legacy stockEvidencias cannot represent two equal-number epochs safely.
-      if (b === null || !Number.isSafeInteger(b) || !porBase[activeKey]) {
-        // An old bridge may win Y.Map.productos with E2 metadata but E1 PN.
-        // When historical witnesses exist and none are scoped to explicit E2,
-        // those unscoped PN counters are NOT evidence of a new E2 movement.
-        // Retain their original witnesses in the encrypted Y.Doc unchanged.
-        return sinPruebaEpoca(e);
-      }
-      var vistos = porBase[activeKey];
-      // A winning whole-product value is not proof that all its counters belong
-      // to this physical epoch. When independent epoch witnesses conflict,
-      // derive the active counters from the epoch-scoped witness index only.
-      var pn = Object.assign({}, epoch ? vistos.pn : (p.stockPN || {}));
-      Object.keys(vistos.pn).forEach(function (actor) {
-        var old = pn[actor] || {}, newValue = vistos.pn[actor];
-        pn[actor] = { add: Math.max(Number(old.add) || 0, newValue.add),
-                      sub: Math.max(Number(old.sub) || 0, newValue.sub) };
-      });
-      var neto = b + Object.keys(pn).reduce(function (total, actor) {
-        return total + (Number(pn[actor].add) || 0) - (Number(pn[actor].sub) || 0);
-      }, 0);
-      if (!Number.isSafeInteger(neto)) return e ? Object.assign({}, p, { stockEvidencias: e }) : p;
-      return Object.assign({}, p, {
-        stockBase: b, stockPN: pn, stockActual: Math.max(0, neto),
-        stockDeficit: neto < 0 ? -neto : 0,
-        stockTs: Math.max(Number(p.stockTs) || 0, vistos.ts),
-        ...(e ? { stockEvidencias: e } : {})
-      });
+      var vista = calcularVistaStock(p, hechos[String(p.id)], ahora);
+      return vista || p;
     });
   }
   function conectarStore(Y) {
@@ -2674,7 +2715,23 @@
                   r = Object.assign({}, r, { estadoRev: sr });
                 }
               }
+              /* v667 stock-converge: the stock fields of a product are the CONVERGED VIEW over every known fact
+                 (witnesses + this device's ledger + the shared record), see calcularVistaStock. It replaces the
+                 pairwise last-stamp arbitration below, which let a late movement on a stale ledger overwrite a
+                 newer physical count. If there is no ledger anywhere the legacy rules below still apply. */
+              var _vistaStock = null;
               if (prev && col === "productos") {
+                var _hv = API.stockPNTestigos && API.stockPNTestigos.size ? _indexPNTestigos(API.stockPNTestigos) : {};
+                _vistaStock = calcularVistaStock(r, _hv[String(r.id)], _ahoraComunStock(), true, [prev]);
+                if (_vistaStock) {
+                  r = Object.assign({}, r, {
+                    stockBase: _vistaStock.stockBase, stockEpochId: _vistaStock.stockEpochId, stockPN: _vistaStock.stockPN,
+                    stockActual: _vistaStock.stockActual, stockDeficit: _vistaStock.stockDeficit, stockTs: _vistaStock.stockTs
+                  });
+                  if (_vistaStock.stockEvidencias) r.stockEvidencias = _vistaStock.stockEvidencias; else delete r.stockEvidencias;
+                }
+              }
+              if (prev && col === "productos" && !_vistaStock) {
                 // Never conflate physical epochs solely because stockBase matches.
                 // Y.Map.productos is last-writer metadata, not an epoch-proof ledger.
                 var _stockEpochMine = typeof r.stockEpochId === "string" ? r.stockEpochId : "";
@@ -2800,14 +2857,15 @@
                       _rt >= _pt - 2000 && _notFuture;
                     var _stockValido = _samePhysicalEpoch &&
                       (_sameLedger || _epochNewer || _legacyNewer || _firstLedger);
-                    var _safeStock = !_samePhysicalEpoch ? _epochPreferred : (_stockValido ? r : prev);
+                    var _safeStock = _vistaStock || (!_samePhysicalEpoch ? _epochPreferred : (_stockValido ? r : prev));
                     r = Object.assign({}, prev, {
                       stockBase: _safeStock.stockBase,
                       stockPN: _safeStock.stockPN,
                       stockActual: _safeStock.stockActual,
-                      stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
+                      stockTs: !_vistaStock && _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
                       stockDeficit: _safeStock.stockDeficit,
                       stockEpochId: _safeStock.stockEpochId,
+                      stockEvidencias: _vistaStock ? _vistaStock.stockEvidencias : prev.stockEvidencias,
                       /* FOTOS (v664): este camino conserva la ficha del doc (prev). El puntero
                          de foto es ADD-ONLY: si prev no lo tiene y yo si, se publica; nunca se
                          reemplaza uno existente ni se vacia. Antes se perdia siempre aqui

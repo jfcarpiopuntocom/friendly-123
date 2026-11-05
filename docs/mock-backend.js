@@ -4304,6 +4304,7 @@
            cuaderno COMPARTIDO el stock es dato del negocio y cruza: el articulo
            entra CON el stock del otro aparato. */
         productos.push(Object.assign({}, p, { stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0, fotoHash: p.fotoHash || null }));
+        delete productos[productos.length - 1].stockVista; // transient marker of the shared-doc view, never stored
         _observarRev(p.rev);
         agregadosP++;
       } else {
@@ -4333,6 +4334,50 @@
         const _baseL = mio.stockBase != null && Number.isFinite(Number(mio.stockBase)) ? Number(mio.stockBase) : null;
         const epochRemote = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
         const epochLocal = typeof mio.stockEpochId === "string" ? mio.stockEpochId : "";
+        /* v667 stock-converge (owner rule PRIME DIRECTIVE 1AAA). A product that arrives from the shared Yjs doc carries
+           stockVista:true: its stock fields are the CONVERGED VIEW (sync-yjs.js calcularVistaStock), a pure function of
+           every add-only fact, so all devices that hold the same facts show the same number. This device adopts it
+           ONLY when the view already contains every ledger group and every per-actor counter held here (so no local
+           movement can be lost). Otherwise it keeps its own numbers, asks for a republish, and adopts at the next pull.
+           A device with no ledger of its own adopts it unless its legacy stamp is newer than the shared one. The
+           pairwise rules below still serve every source that is not the shared doc (backups, old bridges). */
+        if (p.stockVista === true && _baseR !== null) {
+          const gruposDe = (x) => {
+            const m = {};
+            const reg = (b, e, pn) => {
+              if (b == null || !Number.isSafeInteger(Number(b)) || !pn || typeof pn !== "object") return;
+              const k = JSON.stringify([Number(b), typeof e === "string" ? e : ""]);
+              m[k] = m[k] || {};
+              Object.keys(pn).forEach((a) => {
+                if (a.charAt(0) === "~" || a === "@conteo") return;
+                const v = pn[a] || {}, o = m[k][a] || { add: 0, sub: 0 };
+                m[k][a] = { add: Math.max(o.add, Number(v.add) || 0), sub: Math.max(o.sub, Number(v.sub) || 0) };
+              });
+            };
+            reg(x.stockBase, x.stockEpochId, x.stockPN);
+            const ev = x.stockEvidencias && typeof x.stockEvidencias === "object" ? x.stockEvidencias : {};
+            Object.keys(ev).forEach((k) => { const v = ev[k]; if (v) reg(v.base, v.epoch, v.pn); });
+            return m;
+          };
+          const gL = gruposDe(mio), gR = gruposDe(p);
+          const cubierto = Object.keys(gL).every((k) => !!gR[k] && Object.keys(gL[k]).every((a) => {
+            const l = gL[k][a], r = gR[k][a];
+            return (!l.add && !l.sub) || (!!r && r.add >= l.add && r.sub >= l.sub);
+          }));
+          const sinLibroPropio = !Object.keys(gL).length;
+          if (cubierto && (!sinLibroPropio || _tsR >= _tsL)) {
+            const antes = JSON.stringify([mio.stockBase, mio.stockEpochId, mio.stockPN, mio.stockActual, mio.stockDeficit, mio.stockEvidencias]);
+            mio.stockBase = _baseR; mio.stockEpochId = epochRemote;
+            mio.stockPN = JSON.parse(JSON.stringify(_pnR || {}));
+            mio.stockActual = Math.max(0, Number(p.stockActual) || 0); mio.stockDeficit = Number(p.stockDeficit) || 0;
+            mio.stockTs = Math.max(_tsL, _tsR);
+            if (p.stockEvidencias && Object.keys(p.stockEvidencias).length) mio.stockEvidencias = JSON.parse(JSON.stringify(p.stockEvidencias));
+            else delete mio.stockEvidencias;
+            if (antes !== JSON.stringify([mio.stockBase, mio.stockEpochId, mio.stockPN, mio.stockActual, mio.stockDeficit, mio.stockEvidencias])) actualizados++;
+          } else if (!cubierto) {
+            try { avisarCatalogoCambiado(); } catch (_) {}
+          }
+        } else {
         const epochConflict = (epochRemote || epochLocal) && epochRemote !== epochLocal;
         if (epochConflict && epochLocal && epochRemote) {
           // Two explicit recount identities conflict even when both numerical
@@ -4448,6 +4493,7 @@
           mio.stockActual = protectedStock.actual;
           mio.stockDeficit = protectedStock.deficit;
           mio.stockTs = protectedStock.ts;
+        }
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
@@ -7518,7 +7564,7 @@
             // Physical count: new epoch. No delta op is emitted (other devices would add it again);
             // the epoch fields reach them through the catalog merge, where the latest count wins.
             p.stockEpochId = uuid("stock-epoch-"); p.stockBase = fisico; p.stockPN = {};
-            p.stockDeficit = 0; p.stockTs = Date.now(); p.stockActual = fisico;
+            p.stockDeficit = 0; p.stockTs = (function () { const _r = ahoraRelayComun(); return _r !== null && _r >= 1000000000000 ? _r : Date.now(); })(); p.stockActual = fisico; /* v667: same common clock as movements, so count vs movement order does not depend on this phone's clock */
             p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
           } else p.stockActual += d;
           mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
