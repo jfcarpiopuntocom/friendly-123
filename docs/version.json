@@ -1,10 +1,10 @@
 {
-  "version": "shell v667",
-  "fecha": "2026-11-03",
-  "changelog": "A device that had lost the link to a product or shelf photo takes it back from the sync and shows the photo again. Nothing is replaced or deleted. Everything in v666 is kept.",
+  "version": "shell v668",
+  "fecha": "2026-11-05",
+  "changelog": "Additive fixes: preserve previous physical stock-epoch evidence and reconcile newer legacy counts; Firebase replay does not skip same-timestamp encrypted frames, including photo chunks. All v667 features and business data are kept.",
   "requerida": false,
-  "shell": "f123-shell-v667",
+  "shell": "f123-shell-v668",
   "apagar": [],
-  "releaseName": "shell v667",
-  "cacheGeneration": "golden213"
+  "releaseName": "shell v668",
+  "cacheGeneration": "golden214"
 }

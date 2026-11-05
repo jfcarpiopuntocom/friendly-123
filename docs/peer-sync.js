@@ -117,6 +117,29 @@
           }).catch(() => {}).finally(() => this.schedulePeerRetry());
         }, Math.max(250, Math.min(...due) - Date.now()));
       }
+      // A durable update can be queued in the gap between a peer disconnect
+      // and the next RTC channel opening. Its snapshot of receivers is empty,
+      // so schedulePeerRetry() cannot retry it. Do not strand the ciphertext:
+      // on every NEW channel, add that recipient to the outstanding ACK set
+      // before queuing a bounded resend. Never use signaling for business bytes.
+      replayPendingTo(peer) {
+        if (this.readyState !== 1 || !peer || !peer.dc || peer.dc.readyState !== 'open') return;
+        const todo = [];
+        for (const [key, record] of this.sent) {
+          if (!record.packet || record.acknowledged.get(peer.id) === peer.dc) continue;
+          const already = record.peers.get(peer.id) === peer.dc;
+          record.peers.set(peer.id, peer.dc);
+          if (!already) todo.push({ key, record });
+        }
+        if (!todo.length) return;
+        this.serial = this.serial.then(async () => {
+          for (const { key, record } of todo) {
+            if (this.readyState !== 1 || this.sent.get(key) !== record ||
+                record.peers.get(peer.id) !== peer.dc || peer.dc.readyState !== 'open') continue;
+            await this.hub.deliver(peer, record.packet);
+          }
+        }).catch(() => {}).finally(() => this.schedulePeerRetry());
+      }
       send(value) {
         if (this.readyState !== 1) throw new DOMException('No direct peer is connected', 'InvalidStateError');
         const size = typeof value === 'string' ? new TextEncoder().encode(value).byteLength : value instanceof Blob ? value.size : value.byteLength;
@@ -262,6 +285,7 @@
           for (const socket of this.sockets) {
             const wasOpen = socket.readyState === 1; socket.open(); socket.presence();
             if (wasOpen) socket.emit('message', { data: JSON.stringify({ k: 'peer-ready', peer: peer.id }) });
+            socket.replayPendingTo(peer);
           }
         };
         dc.onclose = () => this.remove(peer, true);
