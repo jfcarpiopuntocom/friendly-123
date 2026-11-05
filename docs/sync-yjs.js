@@ -2163,6 +2163,7 @@
   // B3 — BYTES DE LAS FOTOS device-to-device (doc y relay separados).
   // ===================================================================
   var _tVolcar = null, _fotosGuardadoPendiente = false;
+  var _fotosBootstrapNotificado = false;
   function pedirVolcarFotos() { clearTimeout(_tVolcar); _tVolcar = setTimeout(volcarFotosAlStore, 250); }
   // v669: Safari standalone PWA can reject an IndexedDB write temporarily.
   // Keep the Yjs bytes intact, show them from memory, and retry on a real
@@ -2190,7 +2191,12 @@
         try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
         // Even when IDB rejected a save, the authenticated Yjs bytes are present
         // in fotosMap and the shelf recovery view can display them immediately.
-        if (hubo || fallaron) { try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+        // An existing hash may already be in IDB before a late catalog pointer arrives.
+        // Notify the shelf view ONCE after initial photo hydration, even when no
+        // byte was newly written, so a fast initial render is not left blank.
+        var primerMapa = !_fotosBootstrapNotificado && pend.length > 0;
+        if (primerMapa) _fotosBootstrapNotificado = true;
+        if (hubo || fallaron || primerMapa) { try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
         if (fallaron) { try { window.dispatchEvent(new CustomEvent("oc-fotos-persistencia-pendiente")); } catch (_) {} }
         return;
       }
@@ -2202,7 +2208,7 @@
           else fallaron = true; // false means nothing was saved: do not fabricate success
           next();
         });
-      }).catch(next);
+      }).catch(function () { fallaron = true; next(); });
     })();
   }
 
