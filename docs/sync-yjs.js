@@ -2169,6 +2169,9 @@
     // Primero: dar hash a las fotos de PRODUCTO que solo estaban inline (v290 fix:
     // la foto de producto no cruzaba porque no tenia fotoHash ni iba por el canal).
     Promise.resolve(window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0).then(function () {
+      // v664: perchas con foto solo por id (formato viejo) reciben su puntero fotoHash.
+      return window.OCSync.hashearFotosPerchas ? window.OCSync.hashearFotosPerchas() : 0;
+    }).then(function () {
       var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
       var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
       var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean);
@@ -2713,6 +2716,8 @@
                   }, 0));
                 }
               }
+              // v664: un aparato SIN el puntero de foto nunca vacia el de otro (add-only).
+              if (col === "productos" && prev && prev.fotoHash && !r.fotoHash) r = Object.assign({}, r, { fotoHash: prev.fotoHash });
               // Una réplica rezagada no debe volver a publicar una ficha anterior
               // encima de una edición o baja que ya llegó al documento común.
               if (prev && (col === "clientes" || col === "promotoras" || col === "sucursales" || col === "ubicaciones" || col === "productos" || col === "gastos" || col === "transferencias" || col === "categorias" || col === "ajustes") &&
@@ -2774,9 +2779,15 @@
                       stockActual: _safeStock.stockActual,
                       stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
                       stockDeficit: _safeStock.stockDeficit,
-                      stockEpochId: _safeStock.stockEpochId
+                      stockEpochId: _safeStock.stockEpochId,
+                      /* FOTOS (v664): este camino conserva la ficha del doc (prev). El puntero
+                         de foto es ADD-ONLY: si prev no lo tiene y yo si, se publica; nunca se
+                         reemplaza uno existente ni se vacia. Antes se perdia siempre aqui
+                         (hashearFotosProductos no sube rev) y el catalogo compartido quedaba sin fotoHash. */
+                      fotoHash: prev.fotoHash || r.fotoHash || null
                     });
                   }
+                  else if (col === "ubicaciones" && !prev.fotoHash && r.fotoHash) r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev, fotoHash: r.fotoHash, fotoRev: r.fotoRev || null });
                   else if (col === "ubicaciones") r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev });
                   else return;
                 }
