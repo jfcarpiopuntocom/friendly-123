@@ -51,3 +51,58 @@ test('new physical count retains the previous PN ledger in exported backup', asy
   assert.equal(p.stockEvidencias[JSON.stringify([9,'old-epoch'])].pn.pc.sub, 2);
   assert.equal(p.stockEvidencias[JSON.stringify([9,'old-epoch'])].base, 9);
 });
+
+test('three real Yjs replicas converge on the newer different-base legacy count and retain old witnesses', async () => {
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const { webcrypto } = require('node:crypto');
+  const { setTimeout: delay } = require('node:timers/promises');
+  async function peer() {
+    const w = browser(); delete w.JSON;
+    Object.assign(w, {
+      crypto: webcrypto, TextEncoder, TextDecoder,
+      WebSocket: class { constructor() { throw new Error('No real relay allowed in fixture'); } },
+      BroadcastChannel: class { constructor() { throw new Error('No cross-test channels'); } }
+    });
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'), w);
+    w.IndexeddbPersistence = class { once() {} };
+    w.localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: 'SYNTHETIC-ISOLATED-FIXTURE' }));
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8'), w);
+    for (let i = 0; i < 100 && w.OCYjs.estado !== 'activo'; i++) await delay(10);
+    assert.equal(w.OCYjs.estado, 'activo', 'Yjs local fixture must initialize');
+    return w;
+  }
+  const peers = [await peer(), await peer(), await peer()];
+  async function setProduct(w, baseline, epoch, actor, count, actual, ts) {
+    const fx = await w.request('/api/respaldo/exportar');
+    const p = fx.productos.find(p => Number(p.stockActual) >= 1);
+    Object.assign(p, {
+      id: 'v668-fixture', nombre: 'Convergent count',
+      stockBase: baseline, stockEpochId: epoch,
+      stockPN: { [actor]: { add: 0, sub: count } },
+      stockActual: actual, stockTs: ts
+    });
+    fx.productos = [p]; fx.ventas = []; fx.movimientos = [];
+    await w.request('/api/respaldo/importar', 'POST', fx);
+  }
+  await setProduct(peers[0], 9, 'old-epoch', 'pc', 2, 7, 1000);
+  await setProduct(peers[1], 5, '', 'phone', 1, 4, 2000);
+  await setProduct(peers[2], 9, 'old-epoch', 'tablet', 2, 7, 1000);
+  for (let round = 0; round < 5; round++) {
+    peers.forEach(w => w.OCYjs._store.sembrar());
+    for (let i = 0; i < peers.length; i++) for (let j = 0; j < peers.length; j++) {
+      if (i === j) continue;
+      const from = peers[i], to = peers[j];
+      to.Y.applyUpdate(to.OCYjs.doc, from.Y.encodeStateAsUpdate(from.OCYjs.doc), 'red');
+    }
+    peers.forEach(w => w.OCYjs._store.aplicar());
+  }
+  for (const w of peers) {
+    const p = await read(w);
+    assert.equal(p.stockActual, 4, 'all three replicas must show latest confirmed legacy count');
+    assert.equal(p.stockBase, 5);
+    assert.equal(p.stockEvidencias[JSON.stringify([9, 'old-epoch'])].pn.pc.sub, 2,
+      'previous PC movement retained for recovery');
+    assert.equal(p.stockEvidencias['5'].pn.phone.sub, 1,
+      'newer count evidence retained');
+  }
+});
