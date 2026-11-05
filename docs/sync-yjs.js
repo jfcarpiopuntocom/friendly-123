@@ -1486,7 +1486,10 @@
       }
       ws.onmessage = function (ev) {
         if (!API.clave || canal.ws !== ws) return;
-        var d = ev.data, source = ev.relaySource;
+        // A direct P2P copy is a best-effort LIVE frame, even when a durable
+        // socket is simultaneously open. Never count its missing fragments or
+        // failed decrypt as a failure of the ongoing encrypted durable pull.
+        var d = ev.data, source = ev.relaySource === "peer-live" ? "live" : ev.relaySource;
         if (source === "peer-ack") {
           _colaRecepcion = _colaRecepcion.then(function () {
             return d instanceof ArrayBuffer ? aceptarPruebaPeer(d, ev.peerAck) : false;
@@ -1529,7 +1532,12 @@
           try {
             var c = JSON.parse(d);
             if (c && c.k === "peer-count") { _relayPeerCount = Math.max(0, Number(c.n) || 0); }
-            else if (c && c.k === "peer-ready" && ws.peerOnly) {
+            else if (c && c.k === "peer-ready" &&
+                     (ws.peerOnly || ev.relaySource === "peer-live")) {
+              // The durable socket may be open but stale or on another
+              // fallback layer. Exchange encrypted state vectors over the
+              // already-connected peer lane to repair catalog, ops AND photos.
+              // No fake persistence ACK or cursor advance is permitted.
               _colaRecepcion = _colaRecepcion.then(function () { return _pullCursorReady; }).then(function () {
                 if (canal.ws === ws && ws.readyState === 1 && !_pausado && permitido()) enviar(1, Y.encodeStateVector(doc));
               }).catch(function () {});
