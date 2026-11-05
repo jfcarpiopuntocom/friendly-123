@@ -1119,9 +1119,27 @@
        bytes cifrados, no entiende nada. */
     var _lamCtr = 0;
     function _b64(buf) { var u = new Uint8Array(buf), s = ""; for (var i = 0; i < u.length; i++) s += String.fromCharCode(u[i]); return btoa(s); }
+    /* v665 (history inflation): one stock change made 4 to 6 catalog ops because sembrar() writes the product, its
+       witness, the activity row and the queue seal in SEPARATE transactions, each becoming its own encrypted op on the
+       relay. Updates produced in the same synchronous burst are now merged (Y.mergeUpdates is lossless: same content,
+       same causal structs) and sent as ONE op. Zero added latency (flush on a microtask, not a timer). Only the catalog
+       channel; photos stay one op each. A burst over 96 KB flushes at once so a first sync of a large history never
+       becomes one giant all-or-nothing group. To undo: make LOTE_CATALOGO false and every update is sent alone again. */
+    var LOTE_CATALOGO = true, _lote = [], _loteBytes = 0, _loteProgramado = false;
+    function vaciarLote() {
+      _loteProgramado = false;
+      var l = _lote; _lote = []; _loteBytes = 0;
+      if (!l.length) return;
+      var u = l.length === 1 ? l[0] : null;
+      if (!u) { try { u = Y.mergeUpdates(l); } catch (_) { u = null; } }
+      if (u) publicar(0, u, true); else l.forEach(function (x) { publicar(0, x, true); }); // merge failed: send them one by one, never drop
+    }
     canal.enviarUpdate = function (update) {
       if (!API.clave) return;
-      publicar(0, update, true);
+      if (!LOTE_CATALOGO || nombre !== "catalogo" || typeof Y.mergeUpdates !== "function") { publicar(0, update, true); return; }
+      _lote.push(update); _loteBytes += update.length;
+      if (_loteBytes >= 98304) { vaciarLote(); return; }
+      if (!_loteProgramado) { _loteProgramado = true; Promise.resolve().then(vaciarLote); }
     };
     /* CHECKPOINT (v286, #1 + fix real "el catálogo viejo no cruza"). enviarUpdate
        solo persiste CAMBIOS nuevos. Pero el catálogo que ya vivía en el IndexedDB
@@ -1277,11 +1295,20 @@
         if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 2500); }
         // Canal sin ckpt (fotos): sembrado propio al conectar (cada foto va como
         // op individual, que sí cabe en el frame). Tras dar tiempo al pull.
+        /* v665: a fresh device used to seed 3.2 s after connecting even while the photo history was still downloading,
+           so it re-published blobs the room already held (new op ids every time). Each run grew the room (6 to 65 ops in
+           one QA day, 10 MB), every new device then downloaded all of it and tripped the daily photo download share.
+           Now the seed waits (5 s checks, 60 s at most) until the durable pull has finished; direct peers never finish a
+           durable pull, so they seed on the old schedule. */
         if (seedFn) setTimeout(function () {
-          _pullCursorReady.then(function () {
-            if (_soloMemoria || canal.ws !== ws || ws.readyState !== 1) return;
-            try { seedFn(); } catch (_) {}
-          }).catch(function () {}); // never seed into a half-hydrated document
+          var intentosSeed = 0;
+          (function intentarSeed() {
+            _pullCursorReady.then(function () {
+              if (_soloMemoria || canal.ws !== ws || ws.readyState !== 1) return;
+              if (canal.recuperando && !ws.peerOnly && intentosSeed++ < 12) { setTimeout(intentarSeed, 5000); return; }
+              try { seedFn(); } catch (_) {}
+            }).catch(function () {}); // never seed into a half-hydrated document
+          })();
         }, 3200);
       };
       function programarRelecturaPeer() {
@@ -2784,7 +2811,11 @@
                          de foto es ADD-ONLY: si prev no lo tiene y yo si, se publica; nunca se
                          reemplaza uno existente ni se vacia. Antes se perdia siempre aqui
                          (hashearFotosProductos no sube rev) y el catalogo compartido quedaba sin fotoHash. */
-                      fotoHash: prev.fotoHash || r.fotoHash || null
+                      /* v665: la MISMA revision (c y d iguales) con otro hash no vacio es la foto NUEVA que este aparato
+                         acaba de hashear tras editarla (PATCH sube rev y deja fotoHash null; el hash llega despues sin
+                         subir rev). Antes "prev.fotoHash ||" dejaba para siempre el puntero viejo y la foto nueva nunca
+                         cruzaba. Una revision MENOR nunca reemplaza (aparato rezagado). Los bytes viejos siguen en OCFotos. */
+                      fotoHash: (ac > 0 && ac === bc && String(a.d || "") === String(b.d || "") && r.fotoHash) ? r.fotoHash : (prev.fotoHash || r.fotoHash || null)
                     });
                   }
                   else if (col === "ubicaciones" && !prev.fotoHash && r.fotoHash) r = Object.assign({}, prev, { gastoMensual: r.gastoMensual, gastoMensualRev: r.gastoMensualRev, fotoHash: r.fotoHash, fotoRev: r.fotoRev || null });

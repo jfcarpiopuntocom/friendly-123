@@ -152,6 +152,7 @@
           seq = Math.max(seq, yaLeido); // v651: a new photo must not replay ops this reader already has
         }
         var page = sorted(await getJson(this.root + "/o", { orderBy: '"s"', startAt: seq + 1, limitToFirst: size }));
+        var lleno = page.length === size; // v665: a full page may hide more ops even after the tie trim below shortens it
         // Never split a run of equal server times across pages: the next page starts strictly after the last kept time.
         if (page.length === size && page[0].s !== page[page.length - 1].s) { var lastS = page[page.length - 1].s; page = page.filter(function (it) { return it.s !== lastS; }); }
         var used = 0, kept = [];
@@ -159,7 +160,7 @@
         var self = this;
         frames.concat(kept.map(function (it) { return it.c; })).forEach(function (f) { self._seen[f.length + ":" + f.slice(0, 64)] = 1; self._binary(unb64(f), "pull"); });
         var newSeq = kept.length ? kept[kept.length - 1].s : seq;
-        if (Number(c.v) === 2) this._text({ k: "pull-page", v: 2, rev: curRev, seq: newSeq, n: kept.length, more: kept.length > 0 && (kept.length < page.length || page.length >= size - 1) });
+        if (Number(c.v) === 2) this._text({ k: "pull-page", v: 2, rev: curRev, seq: newSeq, n: kept.length, more: kept.length > 0 && (kept.length < page.length || lleno || page.length >= size - 1) });
       }
     };
     Socket.prototype.close = function (code, reason) {

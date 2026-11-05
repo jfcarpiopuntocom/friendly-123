@@ -4315,6 +4315,13 @@
            gane quien gane el rev; asi dos aparatos calculan la misma antiguedad. */
         if (p.creadoEn && Number.isFinite(Date.parse(p.creadoEn)) && (!mio.creadoEn || Date.parse(p.creadoEn) < Date.parse(mio.creadoEn))) { mio.creadoEn = p.creadoEn; actualizados++; }
         if (p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; } // v664: add-only sin importar quien gana el rev
+        /* v665: misma revision (c y d iguales) con otro hash no vacio = el autor hasheo la foto NUEVA despues de editarla
+           (el hash no sube rev). Se adopta el puntero nuevo; los bytes viejos quedan en OCFotos y los nuevos se hidratan
+           al llegar por el canal -fotos. Una revision distinta nunca cambia el puntero aqui (rige ganaP mas abajo). */
+        else if (p.fotoHash && p.fotoHash !== mio.fotoHash && p.rev && mio.rev && Number(p.rev.c) > 0 &&
+                 Number(p.rev.c) === Number(mio.rev.c) && String(p.rev.d || "") === String(mio.rev.d || "")) {
+          mio.fotoHash = p.fotoHash; mio.foto = null; actualizados++;
+        }
         /* STOCK LWW por stockTs (JFC 2026-09-16). Simetrico: gana la ULTIMA
            edicion de stock por su sello de tiempo, venga de quien venga. Asi
            "subir a 3 en el celu" aparece en la PC en segundos. Trade-off aceptado:
