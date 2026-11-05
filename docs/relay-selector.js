@@ -187,6 +187,9 @@
   }
   function envolver(capa, url) {
     var key = capa.key, ws = capa.relay.connect(url), abierto = false, sonda = { ws: ws, seq: null, frames: 0, enviados: 0, desde: 0 };
+    // Channel-specific provenance: a photo blob seeded on Firebase must also
+    // be durably seeded when this notebook later returns to Supabase.
+    try { ws.relayLayer = key; } catch (_) {}
     _sondasWs[url] = sonda;
     // Called ONLY after Yjs has completed its encrypted pull and its cursor
     // readback barrier, not when Firebase merely reported an HTTP head.
@@ -384,6 +387,11 @@
     tried[i0] = true; agregar(ws0, i0); armar(); abrirVivo();
     Object.defineProperties(H, {
       capaPrincipal: { get: function () { return ws0; } },
+      relayLayer: { get: function () {
+        var active = abiertas().filter(function (x) { return x.orden < capas.length; })
+          .sort(function (a, b) { return a.orden - b.orden; })[0];
+        return active ? capas[active.orden].key : (abiertas().length ? "peer" : null);
+      } },
       carrilVivo: { get: function () { return vivo ? vivo.readyState : null; } }, // v662 diagnostics: live lane state
       readyState: { get: function () { return cerradoH ? 3 : abiertas().length ? 1 : 0; } },
       peerOnly: { get: function () { var l = abiertas(); if (!l.length) l = subs; return l.length > 0 && l.every(function (x) { return x.ws.peerOnly === true; }); } },
