@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false } = {}) {
+async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false, localHydrationPending = false, idbUnsynced = false, pendingStructs = false, pendingDs = false, missingOwnerMetadata = false } = {}) {
   const script = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
   let now = 0, keypadClicks = 0, exitCode = null, diagnosticCalls = 0;
   const messages = [];
@@ -24,7 +24,7 @@ async function fakeRun(license, { joined = false, customOwnerPin = false, recove
       if (joined && String(fn).includes('licenciaAdoptada:')) {
         diagnosticCalls++;
         if (diagFailsAfterJoin && diagnosticCalls >= 2) return { lecturaDiagnosticoFallida: true };
-        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tieneRoomYjs: !missingYjs, tieneCanalCatalogo: !missingYjs, tienePinOwnerNoFactory: customOwnerPin, catalogoRecuperando: recoveringCatalog };
+        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tieneRoomYjs: !missingYjs, tieneCanalCatalogo: !missingYjs, tienePinOwnerNoFactory: customOwnerPin, tieneMetadatosPin: !missingOwnerMetadata, catalogoRecuperando: recoveringCatalog, hidratacionLocalPendiente: localHydrationPending, catalogoIdbSincronizado: !idbUnsynced, catalogoSinPendientesCausales: !(pendingStructs || pendingDs) };
       }
       return null; // Owner never authenticates: exercise login budget
     },
@@ -96,4 +96,26 @@ test('P0: sala Yjs ausente no se confunde con recuperación completa', async () 
   assert.equal(r.keypadClicks, 3, 'PIN no se introduce sin canal cifrado');
   assert.equal(r.exitCode, 1);
   assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'debe clasificar RECUPERACION');
+});
+
+// Same local hydration criteria as sync-yjs.js; network readiness alone is insufficient.
+for (const [escenario, flags] of [
+  ['local IndexedDB hydration pending', { localHydrationPending: true }],
+  ['IndexedDB has not reported synced', { idbUnsynced: true }],
+  ['Yjs pendingStructs causal gap', { pendingStructs: true }],
+  ['Yjs pendingDs causal gap', { pendingDs: true }]
+]) {
+  test('P0: no probar Owner PIN con ' + escenario, async () => {
+    const r = await fakeRun('F123-TEST-COLD-JOIN-00002', { joined: true, ...flags });
+    assert.equal(r.keypadClicks, 3, 'solo el PIN de selección de unión, sin login');
+    assert.equal(r.exitCode, 1, 'la hidratación incompleta debe dar rojo');
+    assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'clasifica la falla como recuperación');
+  });
+}
+
+test('P0: no probar PIN factory si el catálogo está hidratado pero faltan metadatos Owner', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', { joined: true, missingOwnerMetadata: true });
+  assert.equal(r.keypadClicks, 3, 'solo selector de unión; no tantear PIN sin prueba de credencial');
+  assert.equal(r.exitCode, 1, 'un meta Owner ausente es recuperación incompleta');
+  assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'diagnosticar la causa sin exponer PIN');
 });
