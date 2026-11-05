@@ -7526,7 +7526,7 @@
         // disappear on reload when both local storage backends reject the write.
         debePersistir = false;
         const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
-          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit", "stockEpochId", "rev"].map(k => ({
+          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit", "stockEpochId", "stockEvidencias", "rev"].map(k => ({
             k, existe: Object.prototype.hasOwnProperty.call(p, k),
             valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]
           })) };
@@ -7543,6 +7543,10 @@
           if (fisico !== null) {
             // Physical count: new epoch. No delta op is emitted (other devices would add it again);
             // the epoch fields reach them through the catalog merge, where the latest count wins.
+            // Keep the PREVIOUS physical baseline and PN facts for audit/recovery.
+            // These are encrypted with the catalog; they never count toward the new epoch.
+            const historial = _pruebasStockUnir(p);
+            if (Object.keys(historial).length) p.stockEvidencias = historial;
             p.stockEpochId = uuid("stock-epoch-"); p.stockBase = fisico; p.stockPN = {};
             p.stockDeficit = 0; p.stockTs = Date.now(); p.stockActual = fisico;
             p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
