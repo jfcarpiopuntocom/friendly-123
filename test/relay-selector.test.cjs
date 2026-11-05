@@ -91,19 +91,25 @@ test('v659 (a): first layer silent -> after 3 s Firebase also starts, H opens wh
 test('v659 (b): first layer opens before 3 s -> no second layer', () => {
   const { R, vencer, made } = app();
   const h = R.connect(URL1); made[0].open();
+  made[0].recv(JSON.stringify({ k: 'head-result', rev: 0, seq: 0 }));
   vencer();
   assert.equal(made.length, 1);
   assert.equal(h.readyState, 1);
 });
-test('v659 (c): first layer opens later while the fallback fed the app -> restart (1012) so the catch-up reaches the first layer', () => {
+test('v670: late Supabase OPEN cannot drop healthy Firebase without a valid HEAD proof', () => {
   const { R, vencer, made } = app();
-  const h = R.connect(URL1); let cierres = 0, code = null; h.onclose = e => { cierres++; code = e.code; };
+  const h = R.connect(URL1); let cierres = 0, code = null;
+  h.onclose = e => { cierres++; code = e.code; };
   vencer(); made[1].open();
   assert.equal(h.readyState, 1);
   made[0].open();
-  assert.deepEqual(made[1].closed, { code: 1000, reason: 'first layer answered' });
-  assert.equal(made[0].closed && made[0].closed.code, 1000, 'the preferred socket is reopened by the app reconnect');
-  assert.equal(cierres, 1); assert.equal(code, 1012); assert.equal(h.readyState, 3);
+  assert.equal(made[1].closed, null, 'an OPEN socket is not a healthy relay');
+  assert.equal(cierres, 0);
+  made[0].recv(JSON.stringify({ k: 'head-result', unsupported: true }));
+  assert.equal(cierres, 0, 'unsupported HEAD is no proof');
+  made[0].recv(JSON.stringify({ k: 'head-result', rev: 2, seq: 10 }));
+  assert.equal(cierres, 1); assert.equal(code, 1012);
+  assert.equal(h.readyState, 3, 'the app now reopens with a verified preferred relay');
 });
 test('v659 (c2): the layer feeding the app drops while the first is still connecting -> restart, never a silent H', () => {
   const { R, vencer, made } = app();
@@ -270,14 +276,18 @@ test('Firebase ignored binary copies spend no upload budget; durable writes stil
 });
 // v659 review (debug d2, 2026-11-04): Supabase refused, Firebase took over inside the cascade; when Supabase's pause ends
 // the device must go back to it (restart 1012), never stay split on Firebase until something else reconnects.
-test('v659 (d2): after the first layer refuses and its pause ends, the cascade restarts toward it', () => {
+test('v670: budget expiry probes Supabase health before leaving a responsive Firebase layer', () => {
   const { R, made, clock, tick } = app();
   const h = R.connect(URL1); let code = null; h.onclose = e => { code = e.code; };
   made[0].close(1013, 'try later');
   assert.equal(made.length, 2, 'Firebase started at once'); made[1].open();
   tick(); assert.equal(code, null, 'still paused: stays on Firebase');
   clock.now += 16 * 60 * 1000; tick();
-  assert.equal(code, 1012); assert.deepEqual(made[1].closed, { code: 1000, reason: 'earlier durable layer available again' });
+  assert.equal(code, null, 'budget reset does not prove a healthy connection');
+  assert.equal(made.length, 3, 'one bounded preferred-layer health probe');
+  made[2].open(); assert.equal(code, null, 'even an open probe is not enough');
+  made[2].recv(JSON.stringify({ k: 'head-result', rev: 1, seq: 2 }));
+  assert.equal(code, 1012, 'verified HEAD allows handover');
 });
 // v661 band quarantine (OpenCode review 2026-11-04): a layer refusing the photo room must not stop inventory there.
 test('v661: photo room refused -> only the photo band pauses; inventory keeps the same layer', () => {
@@ -450,4 +460,25 @@ test('v670: photo recovery releases photo band, not unrelated business/quota pau
   secondB.markRecovered();
   assert.equal(JSON.parse(B.w.localStorage.getItem(key)).pausaHasta, refused.pausaHasta,
     'a new refusal may not be lifted by a stale recovery proof');
+});
+
+test('v670: silent OPEN Supabase cannot trap the phone while Firebase is responding', () => {
+  const { R, made, vencer } = app();
+  const h = R.connect(URL1); let code = null; h.onclose = e => { code = e.code; };
+  made[0].open();
+  vencer();
+  assert.equal(made.length, 2, 'unresponsive primary cannot block the 3-second fallback');
+  made[1].open(); assert.equal(code, null);
+  made[1].recv(JSON.stringify({ k: 'head-result', rev: 2, seq: 7 }));
+  assert.equal(code, 1012, 'healthy fallback must become the catch-up source');
+});
+
+test('v670: a late lower-priority layer does not restart an already healthy preferred room', () => {
+  const { R, made, vencer } = app();
+  const h = R.connect(URL1); let closes = 0; h.onclose = () => closes++;
+  vencer(); assert.equal(made.length, 2);
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'head-result', rev: 1, seq: 3 }));
+  made[1].open();
+  assert.equal(closes, 0, 'late inferior socket must never override verified Supabase');
 });
