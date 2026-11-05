@@ -74,6 +74,13 @@
      Costs one small head read per connection (already made by this probe). To disable: set OTRA_CAPA_LEER_MS = 0. */
   var OTRA_CAPA_LEER_MS = 3 * 60 * 1000;
   function claveHead(url) { return "f123_fb_head_" + String(url).slice(-48); }
+  // v669: the v668 head was merely OBSERVED, not a durable proof of receiving
+  // the ciphertext and committing the Yjs pull cursor. Never treat it as caught up.
+  function claveRecuperada(url) { return "f123_fb_aplicado_v669_" + String(url).slice(-48); }
+  function headAplicado(url) { try { return localStorage.getItem(claveRecuperada(url)); } catch (_) { return null; } }
+  function guardarAplicado(url) {
+    try { var h = headVisto(url); if (h) localStorage.setItem(claveRecuperada(url), h); } catch (_) {}
+  }
   function headVisto(url) { try { return _headFb[url] || localStorage.getItem(claveHead(url)) || null; } catch (_) { return _headFb[url] || null; } }
   function anotarHead(url, v) { _headFb[url] = v; try { localStorage.setItem(claveHead(url), v); } catch (_) {} }
   function leerFirebase(ws) {
@@ -98,7 +105,7 @@
       // history to recover, even when its head never changes while this client is open.
       // Replay is encrypted and idempotent; never compare numerical cursors across relays.
       var fallbackTieneHistoria = Number(h.rev) > 0 || Number(h.seq) > 0;
-      if ((antes && antes !== ahora) || (!antes && fallbackTieneHistoria)) {
+      if ((antes && antes !== ahora) || (fallbackTieneHistoria && headAplicado(url) !== ahora)) {
         _otraCapaEn = Date.now(); leerFirebase(ws);
       }
     }).catch(function () { try { sumarBajada(capaFb); } catch (_) {} });
@@ -179,6 +186,9 @@
   function envolver(capa, url) {
     var key = capa.key, ws = capa.relay.connect(url), abierto = false, sonda = { ws: ws, seq: null, frames: 0, enviados: 0, desde: 0 };
     _sondasWs[url] = sonda;
+    // Called ONLY after Yjs has completed its encrypted pull and its cursor
+    // readback barrier, not when Firebase merely reported an HTTP head.
+    if (capa.relay === fb) ws.markRecovered = function () { guardarAplicado(url); };
     ws.addEventListener("open", function () { abierto = true; });
     ws.addEventListener("message", function (e) {
       if (typeof e.data !== "string") sonda.frames++;
@@ -369,6 +379,13 @@
       l.forEach(function (x) { try { x.ws.send(v); ok = true; } catch (e) { err = e; } });
       if (vivo && vivo.readyState === 1 && typeof v !== "string") try { vivo.send(v); } catch (_) {} // live copy, best effort
       if (!ok) throw err; // e.g. QuotaExceededError must reach the caller
+    };
+    H.markRecovered = function () {
+      // The recovered socket must be an open Firebase transport. Never certify
+      // a Supabase-only session as a successful Firebase catch-up.
+      subs.forEach(function (x) {
+        if (x.ws.readyState === 1 && typeof x.ws.markRecovered === "function") x.ws.markRecovered();
+      });
     };
     H.close = function (code, reason) {
       if (cerradoH) return;
