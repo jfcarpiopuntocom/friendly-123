@@ -108,3 +108,22 @@ test("SYNC3 RED: duplicate encrypted pages cannot renew the causal replay quota"
  assert.equal(a.ctx._replayUsed,2,"duplicate pages must not refresh the existing budget");
  assert.equal(a.ctx._pullCursor.seq,120,"no durable rollback permitted");
 });
+
+test("SYNC3: useful Yjs vector progress may extend a paced causal recovery window",async()=>{
+ const a=harness();a.ctx._replayUsed=2;
+ a.ctx._replayKey=a.ctx.clavePendientes();
+ let vector=1;a.ctx.Y.encodeStateVector=()=>new Uint8Array([vector]);
+ const state=await head(a);
+ const start=src.indexOf("      ws.onmessage = function (ev) {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("      _directReceive = function (buf) {",start);
+ a.ctx.pullEstado=state;a.ctx._colaRecepcion=Promise.resolve();
+ a.ctx.API.clave={};a.ctx.guardarPullCursor=async()=>{};
+ vm.runInContext(src.slice(start,end),a.ctx);
+ for(const seq of [90,100,110,115]){
+   if(seq===110)vector=2; // applied state genuinely advances before final page
+   a.ws.onmessage({data:JSON.stringify({k:"pull-page",rev:3,seq,more:true,n:1})});
+   await a.ctx._colaRecepcion;
+ }
+ assert.equal(a.ctx._replayUsed,1,"actual Yjs vector progress may renew one paced retry");
+ assert.equal(a.ctx._pullCursor.seq,120,"still no durable cursor rollback");
+});
