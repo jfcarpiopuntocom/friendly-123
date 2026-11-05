@@ -49,6 +49,10 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       socketFotos: y && y.fotosCanal && y.fotosCanal.ws ? y.fotosCanal.ws.readyState : null,
       socketOperaciones: y && y.opsCanal && y.opsCanal.ws ? y.opsCanal.ws.readyState : null,
       hidratacionLocalPendiente: !!(y && y._diag && y._diag().recuperacionLocalPendiente),
+      // Mirror the existing catalog hydration contract without serializing a huge Y.Doc.
+      catalogoIdbSincronizado: !!(y && y.idb && y.idb.synced === true),
+      catalogoSinPendientesCausales: !!(y && y.doc && y.doc.store &&
+        !y.doc.store.pendingStructs && !y.doc.store.pendingDs),
       cantidadProductos: y && y.mapas && y.mapas.productos ? y.mapas.productos.size : 0,
       cantidadFotos: y && y.fotosMap ? y.fotosMap.size : 0,
       tieneMetadatosPin: !!(y && y.meta && y.meta.get && (y.meta.get('pinsRol') || {}).owner),
@@ -93,7 +97,8 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       // Wait for *evidence*, not a blind 5-second timer; no PIN retries.
       const recuperacionVerificada = d => !!(d && !d.lecturaDiagnosticoFallida &&
         d.tieneRoomYjs === true && d.tieneCanalCatalogo === true &&
-        d.catalogoRecuperando === false);
+        d.catalogoRecuperando === false && d.hidratacionLocalPendiente === false &&
+        d.catalogoIdbSincronizado === true && d.catalogoSinPendientesCausales === true);
       const limiteRecuperacion = Date.now() + 20000;
       while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
