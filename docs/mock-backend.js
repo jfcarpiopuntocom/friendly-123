@@ -5476,7 +5476,33 @@
       if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
       return n;
     },
+    /* v667 REHIDRATAR PUNTEROS DE FOTO (aditivo). Un aparato dañado antes de v665 quedo con fotoHash=null
+       local aunque el catalogo compartido (Yjs) conserva el puntero; como nada vuelve a mezclar un producto
+       que no cambia, nunca lo readoptaba. Aqui: si el puntero local esta VACIO y el registro compartido trae
+       uno, se adopta. Jamas reemplaza un puntero local presente ni borra nada. Una baja explicita de foto viaja
+       al doc compartido enseguida (queda vacio alli), asi que no se readopta. Idempotente y barato (solo recorre
+       los registros sin puntero). Se llama desde hidratarFotosProductos (arranque, catalogo aplicado, bytes). */
+    adoptarPunterosFotoCompartidos() {
+      const Y = window.OCYjs;
+      if (!Y || !Y.mapas) return 0;
+      const compartido = (col, id) => { try { const m = Y.mapas[col]; return m ? m.get(String(id)) : null; } catch (_) { return null; } };
+      let n = 0;
+      for (const p of productos) {
+        if (!p || p.borrado || p.fotoHash || p.foto) continue;
+        const s = compartido("productos", p.id);
+        if (s && typeof s.fotoHash === "string" && s.fotoHash) { p.fotoHash = s.fotoHash; n++; }
+      }
+      for (const u of ubicaciones) {
+        if (!u || u.borrado || u.fotoHash) continue;
+        const s = compartido("ubicaciones", u.id);
+        if (!s || typeof s.fotoHash !== "string" || !s.fotoHash) continue;
+        u.fotoHash = s.fotoHash; if (s.fotoRev) u.fotoRev = s.fotoRev; n++;
+      }
+      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+      return n;
+    },
     async hidratarFotosProductos() {
+      try { window.OCSync.adoptarPunterosFotoCompartidos(); } catch (_) {}
       if (!window.OCFotos || !window.OCFotos.leerPorHash) return 0;
       let n = 0;
       for (const p of productos) {
