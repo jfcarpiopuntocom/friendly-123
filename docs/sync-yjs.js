@@ -2701,6 +2701,35 @@
                     Number(legacy.stockBase) !== Number(explicit.stockBase) &&
                     Number(legacy.stockTs) > Number(explicit.stockTs);
                 };
+                // The physical-count causal frontier must come from the counting device.
+                // No clock or snapshot can prove that a concurrent offline sale was included.
+                var _conteoIncluyo = function (counted, old) {
+                  var w = counted && counted.stockCountWitness, pn = old && old.stockPN;
+                  if (!w || !old || old.stockBase == null || w.base !== Number(old.stockBase) ||
+                      String(w.epoch || "") !== String(old.stockEpochId || "")) return false;
+                  pn = pn && typeof pn === "object" ? pn : {};
+                  return Object.keys(pn).every(function (actor) {
+                    var v = pn[actor] || {}, witnessed = w.pn && w.pn[actor] || {};
+                    return Number.isSafeInteger(Number(v.add)) && Number.isSafeInteger(Number(v.sub)) &&
+                      (Number(witnessed.add) || 0) >= Number(v.add) &&
+                      (Number(witnessed.sub) || 0) >= Number(v.sub);
+                  });
+                };
+                var _conMovimientos = function (x) {
+                  return !!(x && x.stockPN && Object.keys(x.stockPN).some(function (actor) {
+                    var n = x.stockPN[actor] || {};
+                    return Number(n.add) > 0 || Number(n.sub) > 0;
+                  }));
+                };
+                var _basesDistintas = r.stockBase != null && prev.stockBase != null &&
+                  Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
+                  Number(r.stockBase) !== Number(prev.stockBase);
+                var _historiaIncierta = (_basesDistintas || (_stockEpochMine && _stockEpochDoc &&
+                  _stockEpochMine !== _stockEpochDoc)) &&
+                  (_conMovimientos(r) || _conMovimientos(prev)) &&
+                  !_conteoIncluyo(r, prev) && !_conteoIncluyo(prev, r);
+                var _pendienteCausal = r.stockReconciliacionPendiente === true ||
+                  prev.stockReconciliacionPendiente === true || _historiaIncierta;
                 var _epochPreferred = _samePhysicalEpoch ? null :
                   (_stockEpochMine && !_stockEpochDoc ? (_legacyAfterExplicit(prev, r) ? prev : r) :
                     (!_stockEpochMine && _stockEpochDoc ? (_legacyAfterExplicit(r, prev) ? r : prev) :
@@ -2712,9 +2741,11 @@
                     stockActual: _epochPreferred.stockActual,
                     stockDeficit: _epochPreferred.stockDeficit,
                     stockTs: _epochPreferred.stockTs,
-                    stockEpochId: _epochPreferred.stockEpochId
+                    stockEpochId: _epochPreferred.stockEpochId,
+                    stockCountWitness: _epochPreferred.stockCountWitness || null
                   });
                 }
+                if (_pendienteCausal) r = Object.assign({}, r, { stockReconciliacionPendiente: true });
                 var fork = r.stockBase != null && prev.stockBase != null &&
                   Number.isSafeInteger(Number(r.stockBase)) && Number.isSafeInteger(Number(prev.stockBase)) &&
                   Number(r.stockBase) !== Number(prev.stockBase);
@@ -2821,6 +2852,8 @@
                       stockTs: _samePhysicalEpoch && _stockValido ? Math.max(_pt, _rt) : _safeStock.stockTs,
                       stockDeficit: _safeStock.stockDeficit,
                       stockEpochId: _safeStock.stockEpochId,
+                      stockCountWitness: _safeStock.stockCountWitness || null,
+                      stockReconciliacionPendiente: _pendienteCausal,
                       /* FOTOS (v664): este camino conserva la ficha del doc (prev). El puntero
                          de foto es ADD-ONLY: si prev no lo tiene y yo si, se publica; nunca se
                          reemplaza uno existente ni se vacia. Antes se perdia siempre aqui
