@@ -42,3 +42,18 @@ test("SYNC3: no retry budget cannot flood histories",async()=>{
  const a=harness({budget:0});await head(a);
  assert.deepEqual(a.sent.map(x=>x.k),["head"]);
 });
+
+test("SYNC3 RED: causal replay advances an ephemeral page cursor without committing a rollback",async()=>{
+ const a=harness();const state=await head(a);
+ const start=src.indexOf("      ws.onmessage = function (ev) {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("      _directReceive = function (buf) {",start);
+ assert.ok(start>0&&end>start,"real pull-page handler exists");
+ a.ctx.pullEstado=state;a.ctx._colaRecepcion=Promise.resolve();
+ a.ctx.API.clave={};a.ctx.guardarPullCursor=async()=>{};
+ vm.runInContext(src.slice(start,end),a.ctx);
+ a.ws.onmessage({data:JSON.stringify({k:"pull-page",rev:3,seq:100,more:true})});
+ await a.ctx._colaRecepcion;
+ assert.deepEqual(a.sent.map(x=>x.k),["head","pull","pull"],"pagination follows the missing causal interval");
+ assert.deepEqual([a.sent[2].rev,a.sent[2].seq],[3,100],"second page starts where first ended, never from durable 120");
+ assert.equal(a.ctx._pullCursor.seq,120,"no durable cursor rollback during replay");
+});
