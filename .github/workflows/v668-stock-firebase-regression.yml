@@ -1,0 +1,27 @@
+name: v668 stock and Firebase replay regression
+on:
+  pull_request:
+    paths:
+      - 'docs/firebase-relay.js'
+      - 'docs/mock-backend.js'
+      - 'docs/sync-yjs.js'
+      - 'test/firebase-relay-timestamp-boundary.test.cjs'
+      - 'test/stock-epoch-legacy-convergence.test.cjs'
+      - '.github/workflows/v668-stock-firebase-regression.yml'
+  workflow_dispatch:
+jobs:
+  isolated-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript syntax
+        run: |
+          node --check docs/firebase-relay.js
+          node --check docs/mock-backend.js
+          node --check docs/sync-yjs.js
+      - name: Run offline synthetic regressions (no production I/O)
+        run: node --test --test-concurrency=1 test/firebase-relay-timestamp-boundary.test.cjs test/stock-epoch-legacy-convergence.test.cjs
