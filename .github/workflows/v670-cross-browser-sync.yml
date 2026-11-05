@@ -1,0 +1,36 @@
+name: v670 cross-browser durable and photo convergence
+on:
+  pull_request:
+    paths:
+      - 'docs/relay-selector.js'
+      - 'docs/sync-yjs.js'
+      - 'test/relay-selector.test.cjs'
+      - 'test/v670-cross-layer-photo-seed.test.cjs'
+      - '.github/workflows/v670-cross-browser-sync.yml'
+  workflow_dispatch:
+jobs:
+  fallback-antientropy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax and source contracts
+        run: |
+          node --check docs/relay-selector.js
+          node --check docs/sync-yjs.js
+          node --check test/relay-selector.test.cjs
+          node --check test/v670-cross-layer-photo-seed.test.cjs
+      - name: Reproduce missing cross-layer images and inventory antientropy
+        run: |
+          node --test --test-concurrency=1 \
+            test/relay-selector.test.cjs \
+            test/relay-sondas-v644.test.cjs \
+            test/yjs-photo-seed-stable.test.js \
+            test/v670-cross-layer-photo-seed.test.cjs \
+            test/v669-photo-pwa-durable-retry.test.cjs \
+            test/stock-epoch-legacy-convergencia-v651.test.js \
+            test/photo-integrity.test.js \
+            test/e1b3-one-active-tab.test.cjs
