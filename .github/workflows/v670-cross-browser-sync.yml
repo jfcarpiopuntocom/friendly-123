@@ -7,6 +7,7 @@ on:
       - 'test/relay-selector.test.cjs'
       - 'test/v670-cross-layer-photo-seed.test.cjs'
       - 'test/v670-post-pull-checkpoint.test.cjs'
+      - 'test/incident-v608-publication-after-recovery.test.cjs'
       - '.github/workflows/v670-cross-browser-sync.yml'
   workflow_dispatch:
 jobs:
@@ -35,5 +36,7 @@ jobs:
             test/v670-post-pull-checkpoint.test.cjs \
             test/v669-photo-pwa-durable-retry.test.cjs \
             test/stock-epoch-legacy-convergencia-v651.test.js \
+            test/stock-epoch-legacy-convergence.test.cjs \
+            test/incident-v608-publication-after-recovery.test.cjs \
             test/photo-integrity.test.js \
             test/e1b3-one-active-tab.test.cjs
