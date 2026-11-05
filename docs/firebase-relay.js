@@ -7,6 +7,9 @@
   "use strict";
   var DB = "https://friendly-123-ab7b3-default-rtdb.firebaseio.com";
   var CKPT_CIPHER_BYTES = 768 * 1024, MAX_FRAME = 256 * 1024, PAGE_BUDGET = 1048576;
+  // A single timestamp group must not trigger an unbounded Firebase REST download.
+  // The numeric wire cursor cannot skip a partial group: fail closed if it exceeds this cap.
+  var MAX_TIE_ITEMS = 256, MAX_TIE_JSON_BYTES = 4 * 1024 * 1024;
   // v661 (JFC 2026-11-04: photos at last priority but with the cascade): the photo room is accepted too.
   var LOC = /^wss:\/\/friendly123-sync-relay\.jfcarpio\.workers\.dev\/sala\/([a-f0-9]{40})(-y|-ops|-fotos)?$/;
   var enc = new TextEncoder();
@@ -32,7 +35,38 @@
     }
     // shortcut: counts response bodies and live events read; headers and the echo of a PUT are not visible here. Upgrade if billing data is ever exposed to the client.
     var wireDown = 0;
-    async function getJson(path, query) { var r = await http("GET", path, undefined, query); var t = await r.text(); wireDown += t.length; if (!r.ok) throw new Error("read " + r.status); return JSON.parse(t); }
+    async function getJson(path, query, maxBytes) {
+      var r = await http("GET", path, undefined, query), t = "";
+      if (!r.ok) throw new Error("read " + r.status);
+      if (maxBytes && r.body && typeof r.body.getReader === "function") {
+        // Abort oversized responses *during download*, rather than holding the whole body in memory.
+        var reader = r.body.getReader(), parts = [], total = 0;
+        try {
+          while (true) {
+            var next = await reader.read(); if (next.done) break;
+            total += next.value.byteLength;
+            if (total > maxBytes) throw new Error("Firebase timestamp group exceeds safe byte budget");
+            parts.push(next.value);
+          }
+          var bytes = new Uint8Array(total), offset = 0;
+          parts.forEach(function (part) { bytes.set(part, offset); offset += part.byteLength; });
+          t = new TextDecoder().decode(bytes);
+        } catch (err) { try { await reader.cancel(); } catch (_) {} throw err; }
+        finally { try { reader.releaseLock(); } catch (_) {} }
+      } else {
+        t = await r.text();
+        if (maxBytes && t.length > maxBytes) throw new Error("Firebase timestamp group exceeds safe byte budget");
+      }
+      wireDown += t.length;
+      return JSON.parse(t);
+    }
+    function decodeFrame(s) {
+      // Do not silently discard a corrupt record while advancing the timestamp cursor.
+      if (typeof s !== "string" || !s || s.length > 1450000 ||
+          s.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(s))
+        throw new Error("Invalid Firebase ciphertext encoding");
+      return unb64(s);
+    }
     // Firebase orders equal server timestamps by child key. Preserve that tie-breaker
     // even though REST JSON itself is unordered; incomplete ties must never advance a durable cursor.
     function sorted(obj) { return Object.keys(obj || {}).map(function (k) {
@@ -183,7 +217,10 @@
             // likewise an oversized group cannot be cut after its first fragment.
             if ((lleno && page[0].s === page[page.length - 1].s) ||
                 (i === 0 && groupBytes > budget)) {
-              var entire = sorted(await getJson(this.root + "/o", { orderBy: '"s"', equalTo: page[i].s }));
+              var entire = sorted(await getJson(this.root + "/o", {
+                orderBy: '"s"', equalTo: page[i].s, limitToFirst: MAX_TIE_ITEMS + 1
+              }, MAX_TIE_JSON_BYTES));
+              if (entire.length > MAX_TIE_ITEMS) throw new Error("Firebase timestamp group exceeds safe item budget");
               if (!entire.length) throw new Error("Firebase timestamp group vanished");
               tie = this._tie = { rev: curRev, seq: seq, time: page[i].s, items: entire, index: 0 };
               break;
@@ -211,7 +248,13 @@
           more = true; // verify later timestamps (and the HEAD) on the next pull
         }
         var self = this;
-        frames.concat(kept.map(function (it) { return it.c; })).forEach(function (f) { self._seen[f.length + ":" + f.slice(0, 64)] = 1; self._binary(unb64(f), "pull"); });
+        // Validate ALL ciphertext before delivering any frame or advancing the cursor.
+        var ready = frames.concat(kept.map(function (it) { return it.c; })).map(decodeFrame);
+        ready.forEach(function (bytes, i) {
+          var f = i < frames.length ? frames[i] : kept[i - frames.length].c;
+          self._seen[f.length + ":" + f.slice(0, 64)] = 1;
+          self._binary(bytes, "pull");
+        });
         if (Number(c.v) === 2) this._text({ k: "pull-page", v: 2, rev: curRev, seq: newSeq, n: kept.length, more: more });
       }
     };
