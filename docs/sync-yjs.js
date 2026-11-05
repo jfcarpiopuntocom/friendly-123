@@ -1583,7 +1583,7 @@
                       // Old relay has no HEAD: its fully received final page
                       // remains the completion proof. Never unlock with debt.
                       canal.recuperando = false;
-                      if (pullEstado.pullAplicado && !_soloMemoria && typeof ws.markRecovered === "function") { try { ws.markRecovered(); } catch (_) {} }
+                      if (pullEstado.pullAplicado && typeof ws.markRecovered === "function" && !_soloMemoria) { try { ws.markRecovered(); } catch (_) {} }
                       if (nombre === "catalogo" && API._store) API._store.aplicar();
                     } else if (!pullEstado.validacionFinal) {
                       pullEstado.validacionFinal = true;
