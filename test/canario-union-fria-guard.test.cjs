@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false } = {}) {
+async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false } = {}) {
   const script = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
-  let now = 0, keypadClicks = 0, exitCode = null;
+  let now = 0, keypadClicks = 0, exitCode = null, diagnosticCalls = 0;
   const messages = [];
   const pad = {
     waitFor: async () => {},
@@ -22,7 +22,9 @@ async function fakeRun(license, { joined = false, customOwnerPin = false, recove
     fill: async () => {},
     evaluate: async (fn) => {
       if (joined && String(fn).includes('licenciaAdoptada:')) {
-        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tienePinOwnerNoFactory: customOwnerPin, catalogoRecuperando: recoveringCatalog };
+        diagnosticCalls++;
+        if (diagFailsAfterJoin && diagnosticCalls >= 2) return { lecturaDiagnosticoFallida: true };
+        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tieneRoomYjs: !missingYjs, tieneCanalCatalogo: !missingYjs, tienePinOwnerNoFactory: customOwnerPin, catalogoRecuperando: recoveringCatalog };
       }
       return null; // Owner never authenticates: exercise login budget
     },
@@ -79,4 +81,19 @@ test('P0: no escribir PIN mientras catalogo de una tienda unida sigue recuperand
   assert.equal(r.keypadClicks, 3, 'unicamente 789 inicial para elegir Join; NO se intenta login durante recuperación');
   assert.equal(r.exitCode, 1, 'la recuperación no terminada da rojo explícito');
   assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'etapa real: recuperación');
+});
+
+
+test('P0: diagnóstico perdido tras adoptar licencia no permite intentar PIN', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', { joined: true, diagFailsAfterJoin: true });
+  assert.equal(r.keypadClicks, 3, 'PIN no se introduce si el diagnóstico es ilegible');
+  assert.equal(r.exitCode, 1);
+  assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'debe clasificar RECUPERACION');
+});
+
+test('P0: sala Yjs ausente no se confunde con recuperación completa', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', { joined: true, missingYjs: true });
+  assert.equal(r.keypadClicks, 3, 'PIN no se introduce sin canal cifrado');
+  assert.equal(r.exitCode, 1);
+  assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'debe clasificar RECUPERACION');
 });
