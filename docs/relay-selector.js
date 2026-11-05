@@ -278,11 +278,28 @@
     function cerrarVivo(motivo) { var v = vivo; vivo = null; if (v) try { v.close(1000, motivo); } catch (_) {} }
     function abrirVivo() {
       // v665 ON (JFC chose the free direct lane 2026-11-04): clean QA store, same code, A->B median ~140 ms with the lane vs ~290 ms without.
-      if (cerradoH || vivo || esFoto(url) || (typeof window !== "undefined" && window.F123_VIVO === false)) return;
+      // v670: photos need direct antientropy alongside durable layers too.
+      // Opening a durable socket is not proof that the other device's photo room
+      // has been replayed. The peer lane sends only encrypted Yjs binary frames.
+      if (cerradoH || vivo || (typeof window !== "undefined" && window.F123_VIVO === false)) return;
       var w; try { w = viaPeers(url); } catch (_) { return; }
       vivo = w; try { w.binaryType = bin; } catch (_) {}
+      function despertarAntientropia() {
+        // A P2P link can open AFTER a durable socket. Force a fresh state-vector
+        // exchange on every peer join, including catalog, operations and photos.
+        // This is NOT a durable ACK and never advances the relay pull cursor.
+        if (cerradoH || vivo !== w || w.readyState !== 1) return;
+        emitir("message", { data: JSON.stringify({ k: "peer-ready" }), peerAccepted: false, relaySource: "peer-live" });
+      }
+      w.addEventListener("open", despertarAntientropia);
       w.addEventListener("message", function (e) {
-        if (cerradoH || vivo !== w || typeof e.data === "string") return;
+        if (cerradoH || vivo !== w) return;
+        if (typeof e.data === "string") {
+          // peer-sync emits peer-ready whenever a new RTC data channel joins.
+          // All other control frames stay on the durable lane, especially ACKs.
+          if (e.data.indexOf('"peer-ready"') !== -1) despertarAntientropia();
+          return;
+        }
         emitir("message", { data: e.data, peerAccepted: false, relaySource: "peer-live" });
       });
       w.addEventListener("close", function () { if (vivo === w) vivo = null; });
