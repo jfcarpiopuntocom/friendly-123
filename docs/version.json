@@ -1,10 +1,10 @@
 {
-  "version": "shell v664",
+  "version": "shell v663",
   "fecha": "2026-11-03",
-  "changelog": "Photos reach every device with the product they belong to, even when no other device is open, and each change writes less history. Everything in v663 is kept.",
+  "changelog": "Each change saved to the backup layer reaches the server about 130 ms sooner. Everything in v662 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v664",
+  "shell": "f123-shell-v663",
   "apagar": [],
-  "releaseName": "shell v664",
-  "cacheGeneration": "golden210"
+  "releaseName": "shell v663",
+  "cacheGeneration": "golden209"
 }

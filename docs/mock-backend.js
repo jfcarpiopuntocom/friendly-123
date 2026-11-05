@@ -4314,14 +4314,7 @@
         /* Fecha de alta (2026-09-25, rebaja por antiguedad): converge a la MAS ANTIGUA,
            gane quien gane el rev; asi dos aparatos calculan la misma antiguedad. */
         if (p.creadoEn && Number.isFinite(Date.parse(p.creadoEn)) && (!mio.creadoEn || Date.parse(p.creadoEn) < Date.parse(mio.creadoEn))) { mio.creadoEn = p.creadoEn; actualizados++; }
-        if (p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; } // v664: add-only sin importar quien gana el rev
-        /* v665: misma revision (c y d iguales) con otro hash no vacio = el autor hasheo la foto NUEVA despues de editarla
-           (el hash no sube rev). Se adopta el puntero nuevo; los bytes viejos quedan en OCFotos y los nuevos se hidratan
-           al llegar por el canal -fotos. Una revision distinta nunca cambia el puntero aqui (rige ganaP mas abajo). */
-        else if (p.fotoHash && p.fotoHash !== mio.fotoHash && p.rev && mio.rev && Number(p.rev.c) > 0 &&
-                 Number(p.rev.c) === Number(mio.rev.c) && String(p.rev.d || "") === String(mio.rev.d || "")) {
-          mio.fotoHash = p.fotoHash; mio.foto = null; actualizados++;
-        }
+        if (ganaP === null && p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; }
         /* STOCK LWW por stockTs (JFC 2026-09-16). Simetrico: gana la ULTIMA
            edicion de stock por su sello de tiempo, venga de quien venga. Asi
            "subir a 3 en el celu" aparece en la PC en segundos. Trade-off aceptado:
@@ -5450,26 +5443,6 @@
               if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
             }
           }
-        } catch (_) {}
-      }
-      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
-      return n;
-    },
-    /* v664: perchas cuya foto vive solo por id (localStorage f123_foto_percha_* o IDB por id)
-       reciben su puntero fotoHash sin abrir la vista de perchas. Copy-only: no borra bytes.
-       Si la percha ya tiene fotoRev (alguien puso o quito la foto a proposito) no se toca. */
-    async hashearFotosPerchas() {
-      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl || !window.OCFotos.leerFoto) return 0;
-      let n = 0;
-      for (const u of ubicaciones) {
-        try {
-          if (!u || u.id == null || u.fotoHash || u.fotoRev || u.borrado) continue;
-          const bytes = await window.OCFotos.leerFoto(String(u.id));
-          if (!bytes || String(bytes).indexOf("data:") !== 0) continue;
-          const h = await window.OCFotos.hashDeDataUrl(bytes);
-          if (!h) continue;
-          await window.OCFotos.guardarPorHash(h, bytes);
-          if (ubicaciones.includes(u) && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
         } catch (_) {}
       }
       if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
