@@ -2853,7 +2853,7 @@
                       stockDeficit: _safeStock.stockDeficit,
                       stockEpochId: _safeStock.stockEpochId,
                       stockCountWitness: _safeStock.stockCountWitness || null,
-                      stockReconciliacionPendiente: _pendienteCausal,
+                      stockReconciliacionPendiente: r.stockReconciliacionPendiente === true || prev.stockReconciliacionPendiente === true,
                       /* FOTOS (v664): este camino conserva la ficha del doc (prev). El puntero
                          de foto es ADD-ONLY: si prev no lo tiene y yo si, se publica; nunca se
                          reemplaza uno existente ni se vacia. Antes se perdia siempre aqui
