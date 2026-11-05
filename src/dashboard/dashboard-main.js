@@ -150,7 +150,7 @@
     var seg = (Date.now() - ultimoDato) / 1000;
     var hora = new Date(ultimoDato).toLocaleTimeString("es-EC", { hour: "numeric", minute: "2-digit" });
     // v514: la foto de respaldo pasa de 20 s a 60 s; "en vivo" = un aparato respondio en < 75 s.
-    if (seg < 75) pulso("en vivo · al instante", "vivo");
+    if (seg < 75 && _fuenteDatosDashboard !== "durable") pulso("en vivo · al instante", "vivo");
     else if (ws && ws.readyState === 1) pulso("conectado · ningún aparato con la app abierta desde las " + hora, "viejo");
     else pulso("sin conexión · último dato a las " + hora, "viejo");
   }, 5000);
@@ -160,7 +160,7 @@
      verificarlo. Aqui no hay copia del PIN ni forma de saber si existe. */
   function verificarPin(pin) {
     return new Promise(function (resolve) {
-      if (!ws || ws.readyState !== 1) { resolve({ ok: false, datos: { error: "Sin conexión." } }); return; }
+      if ((!ws || ws.readyState !== 1) && !lector) { resolve({ ok: false, datos: { error: "Sin conexión." } }); return; }   /* con lector durable el PIN tambien se comprueba sin aparato vivo */
       var id = "p" + Math.random().toString(36).slice(2, 10);
       /* Se declara ANTES del timeout: leerlo por hoisting funciona, pero
          depender de eso es como se cuelan los bugs raros. */
@@ -182,6 +182,7 @@
         delete pedidos[id];
         resolve(r);
       };
+      postLector({ t: "pin", id: id, pin: pin });   /* el lector durable responde si el PIN esta confirmado en la sala; el primer SI gana */
       cifrar({ opId: id, deviceId: miId, tipo: TIPO_PIN, payload: { pedidoId: id, pin: pin } })
         .then(function (buf) { try { ws.send(buf); } catch (_) {} });
     });
@@ -2194,6 +2195,54 @@
     fn({ ok: !!p.ok, datos: p.datos });
   }
 
+  /* ===================== LECTOR DURABLE (JFC 2026-11-04, opcion A) =====================
+     Con ningun aparato abierto, el tablero se llena igual: un marco oculto (dashboard-lector.html) corre el motor de
+     la propia app como un aparato virtual que SOLO LEE las capas duraderas (Supabase, luego Firebase) y contesta lo
+     mismo que un aparato vivo: la foto y la comprobacion de PIN. No escribe nada, no manda ops ni checkpoints, no se
+     registra en el panel de licencias y guarda su cupo del relay en este mismo localStorage (el cupo del aparato).
+     La foto de un aparato vivo sigue siendo la fuente principal cuando existe (cascada: duradero primero, vivo encima).
+     Para apagarlo: no llamar abrirLector(). Detalle de las garantias de solo lectura: cabecera de dashboard-lector.html. */
+  var lector = null, lectorFoto = null;
+  function postLector(m) { try { if (lector && lector.contentWindow) lector.contentWindow.postMessage(m, location.origin); } catch (_) {} }
+  function cupoLector() {
+    var kv = {};
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (/^f123_relay_cupo|^f123_fb_head_/.test(k)) kv[k] = localStorage.getItem(k); } } catch (_) {}
+    return kv;
+  }
+  function abrirLector(codigo) {
+    if (lector || !codigo) return;
+    try {
+      var f = document.createElement("iframe");
+      f.src = "./dashboard-lector.html"; f.tabIndex = -1; f.setAttribute("aria-hidden", "true");
+      f.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
+      window.addEventListener("message", function (ev) {
+        if (ev.source !== f.contentWindow || ev.origin !== location.origin) return;
+        var m = ev.data || {};
+        if (m.t === "hola") postLector({ t: "abrir", code: codigo, base: new URL("./", location.href).href, cupo: cupoLector() });
+        else if (m.t === "cupo" && m.kv) { try { Object.keys(m.kv).forEach(function (k) { if (/^f123_relay_cupo|^f123_fb_head_/.test(k)) localStorage.setItem(k, String(m.kv[k])); }); } catch (_) {} }
+        else if (m.t === "pin") { var fn = pedidos[m.id]; if (fn) fn({ ok: !!m.ok, datos: { rol: m.rol, fotoToken: "" } }); }
+        else if (m.t === "foto") { lectorFoto = m; aplicarFotoDurable(m); }
+      });
+      document.body.appendChild(f); lector = f;
+    } catch (_) {}
+  }
+  /* Pinta la foto del lector. Reglas: nada antes de pasar el PIN; solo lecturas completas (nunca cifras a medias);
+     un aparato vivo que contesto en los ultimos 75 s manda; el cuaderno de ESTE dispositivo manda sobre ambos. */
+  function aplicarFotoDurable(m) {
+    if (!autorizado || !m || !m.foto || !m.completo) return;
+    if (_fuenteDatosDashboard === "local") return;
+    if (_fuenteDatosDashboard === "remota" && Date.now() - ultimoDato < 75000) return;
+    var f = m.foto;
+    f.productos = (f.productos || []).map(function (p) { return Object.assign({}, p, { stockActual: window.OCBusinessReadModel.stock(p).units, fechaCaducidad: window.OCBusinessReadModel.expiry(p) }); });
+    if (f.cobertura && f.cobertura.resumen === false) f.resumen = { resumenDia: { entra: null, gananciaHoy: null } };
+    datos = f;
+    if (f.negocio) $("neg-nombre").textContent = f.negocio;
+    ultimoDato = Date.now(); _fuenteDatosDashboard = "durable";
+    try { $("cierre").innerHTML = ""; } catch (_) {}   /* ya llegaron datos: el aviso de "ningun dispositivo" sobra */
+    $("puerta").style.display = "none"; $("cabecera").style.display = "block"; $("tablero").style.display = "block";
+    mostrar();
+  }
+
   /* El puente para tablero-avanzado.js. Se expone lo minimo: pedir, y las
      cuatro funciones de formato. Nada de ws ni de la clave. */
   window.__lienzo = { $: $, esc: esc, money: money, fecha: fecha, ordenar: ordenar };
@@ -3132,8 +3181,11 @@
     }
 
     $("msg").textContent = "Conectando con tus dispositivos…";
+    abrirLector(c);   /* lector durable en paralelo al camino vivo (ver LECTOR DURABLE) */
     try {
-      await conectar(c);
+      /* Sin ningun aparato abierto el relay vivo no abre (y antes eso terminaba aqui en "No se pudo conectar").
+         Con el lector durable se sigue: el PIN y los datos pueden venir de las capas duraderas. */
+      try { await conectar(c); } catch (errVivo) { if (!lector) throw errVivo; }
       $("msg").textContent = "Comprobando tu PIN con tu equipo…";
       var v = await verificarPin(pin);
       if (!v.ok) {
@@ -3141,6 +3193,7 @@
            escuchando la sala. */
         try { ws.close(); } catch (_) {}
         ws = null;
+        if (lector) { try { lector.remove(); } catch (_) {} lector = null; lectorFoto = null; }   /* igual que el relay vivo: sin PIN no se sigue leyendo la sala */
         $("entrar").disabled = false;
         $("msg").style.color = "#A8123A";
         $("msg").textContent = (v.datos && v.datos.error) || "No se pudo comprobar tu PIN.";
@@ -3163,6 +3216,7 @@
       }
       pulso("pidiendo tu negocio...");
       pedirFoto();
+      if (lectorFoto) aplicarFotoDurable(lectorFoto);   /* el lector ya pudo haber leido mientras se comprobaba el PIN */
       cargarAcceso();
       sinNadie();
     } catch (e) {

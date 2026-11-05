@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>lector</title>
+<script>
+/* DASHBOARD DURABLE READER (JFC 2026-11-04, option A).
+   WHAT: a hidden same-origin frame opened by dashboard.html. It runs the app's OWN engine (mock-backend.js + sync-yjs.js
+   + relay stack) as a virtual device that only READS the durable layers (Supabase -> Firebase relay), then answers the
+   dashboard with the same snapshot a live device would send (same shape as armarFoto() in sync-realtime.js) and
+   with PIN checks (same logic as responderPin()). Works on a device that never opened the app.
+   ISOLATION (the real app on the same device must never be touched): this frame has its OWN in-memory
+   localStorage/sessionStorage, and every IndexedDB, BroadcastChannel and Web Lock name is prefixed with a per-session
+   id, so the app's Yjs journal, outbox and tab locks are never opened. Stale "lector-" databases from older sessions
+   are deleted at start (the dashboard promises nothing stays on the device).
+   READ-ONLY GUARANTEES (do not weaken):
+     1. F123Relay.connect is wrapped: only {"k":"head"} and {"k":"pull"} text frames ever leave. Ops, checkpoints,
+        binary updates, hello frames, acks: dropped. The photos room is never opened.
+     2. fetch is gated: only supabase.co / firebaseio.com and this site's own static files; nothing reaches the licence
+        panel (workers.dev / jfcarpio.com), so no device is registered and no heartbeat is sent.
+     3. sync-realtime.js (old JSON sync + heartbeat), telemetry and canarios are NOT loaded.
+   The relay byte budget (relay-selector caps) is kept in the dashboard's REAL localStorage (same keys as the app, i.e.
+   the same per-device budget): the dashboard passes it in and this frame hands back every change.
+   To change the script list edit LISTA below; order matters. Nothing here is visible to the user. */
+(function () {
+  "use strict";
+  var P = parent, CODE = "";
+  function say(m) { try { P.postMessage(m, location.origin); } catch (_) {} }
+  /* ---- 1. in-memory storage (opaque origin has none) ---- */
+  function memStore() {
+    var d = Object.create(null);
+    var api = {
+      getItem: function (k) { return Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null; },
+      setItem: function (k, v) { d[k] = String(v); },
+      removeItem: function (k) { delete d[k]; },
+      clear: function () { d = Object.create(null); },
+      key: function (i) { return Object.keys(d)[i] || null; }
+    };
+    Object.defineProperty(api, "length", { get: function () { return Object.keys(d).length; }, configurable: true });   // configurable: lets ownKeys below omit it
+    return new Proxy(api, {
+      get: function (t, k) { return k in t ? t[k] : (typeof k === "string" ? t.getItem(k) : undefined); },
+      set: function (t, k, v) { t.setItem(k, v); return true; },
+      ownKeys: function () { return Object.keys(d); },
+      getOwnPropertyDescriptor: function (t, k) { return k in d ? { value: d[k], enumerable: true, configurable: true, writable: true } : undefined; }
+    });
+  }
+  ["localStorage", "sessionStorage"].forEach(function (n) {
+    try { Object.defineProperty(window, n, { value: memStore(), configurable: true }); } catch (_) {}
+  });
+  /* ---- 1b. per-session names for IndexedDB / BroadcastChannel / Web Locks ---- */
+  var SES = "lector-" + Math.random().toString(36).slice(2, 8) + "-";
+  try {
+    var F = window.IDBFactory.prototype, abrirIdb = F.open, borrarIdb = F.deleteDatabase, rawIdb = window.indexedDB;
+    F.open = function (n, v) { return abrirIdb.call(this, SES + n, v); };
+    F.deleteDatabase = function (n) { return borrarIdb.call(this, SES + n); };
+    if (rawIdb && rawIdb.databases) rawIdb.databases().then(function (l) {
+      l.forEach(function (x) { if (/^lector-/.test(x.name) && x.name.indexOf(SES) !== 0) borrarIdb.call(rawIdb, x.name); });
+    }).catch(function () {});
+    window.addEventListener("pagehide", function () {
+      rawIdb.databases && rawIdb.databases().then(function (l) { l.forEach(function (x) { if (x.name.indexOf(SES) === 0) borrarIdb.call(rawIdb, x.name); }); }).catch(function () {});
+    });
+  } catch (_) {}
+  try {
+    var BC = window.BroadcastChannel;
+    window.BroadcastChannel = function (n) { return new BC(SES + n); };
+    window.BroadcastChannel.prototype = BC.prototype;
+  } catch (_) {}
+  try {
+    var pedir = navigator.locks.request.bind(navigator.locks);
+    navigator.locks.request = function (n) { var a = Array.prototype.slice.call(arguments); a[0] = SES + n; return pedir.apply(null, a); };
+  } catch (_) {}
+  /* The engine applies remote movements one by one and waits 200 ms between them (pedirProcesarEventos in sync-yjs.js):
+     141 movements = about 30 s. This frame applies them back to back. Matched by the callback's name, nothing else changes. */
+  var st = window.setTimeout.bind(window);
+  window.setTimeout = function (f, d) { if (typeof f === "function" && f.name === "procesarEventos" && d === 200) d = 0; return st.apply(null, [f, d].concat(Array.prototype.slice.call(arguments, 2))); };
+  /* ---- 2. network gate ---- */
+  var realFetch = window.fetch.bind(window), BASE = "";
+  window.fetch = function (input, init) {
+    var u = ""; try { u = String((input && input.url) || input); } catch (_) {}
+    var m = String((init && init.method) || (input && input.method) || "GET").toUpperCase();
+    if (/^https:\/\/[^/]*(supabase\.co|firebaseio\.com)(\/|$)/i.test(u)) return realFetch(input, init);   // durable layers (their writes are cut at ws.send below)
+    if (m === "GET" && BASE && u.indexOf(BASE) === 0) return realFetch(input, init);                        // this site's static files
+    return Promise.reject(new TypeError("blocked in read-only reader"));                                    // licence panel, telemetry, anything else
+  };
+  try { navigator.sendBeacon = function () { return false; }; } catch (_) {}
+  /* ---- 3. load the engine ---- */
+  var LISTA = ["crypto-store.js", "estado-ab.js", "invariantes.js", "core/payout-ledger.js", "core/ledger.js", "core/sales-audit.js",
+    "core/business-read-model.js", "core/demo-huellas.js", "mock-backend.js", "peer-sync.js", "vendor/supabase-relay.min.js",
+    "firebase-relay.js", "relay-selector.js", "sync-latencia.js", "sync-yjs.js"];
+  function cargar(i, listo) {
+    if (i >= LISTA.length) return listo();
+    var s = document.createElement("script");
+    s.src = BASE + LISTA[i]; s.async = false;
+    s.onload = function () { if (LISTA[i] === "relay-selector.js") cerrarRelay(); cargar(i + 1, listo); };   // gate BEFORE sync-yjs.js starts and connects
+    s.onerror = function () { say({ t: "error", donde: "script", cual: LISTA[i] }); cargar(i + 1, listo); };
+    document.head.appendChild(s);
+  }
+  var ultimoOp = Date.now(), PULL = { cat: null, ops: null };   // null = no page seen yet
+  function cerrarRelay() {
+    var R = window.F123Relay; if (!R || R.__soloLectura) return;
+    var conectar = R.connect.bind(R);
+    R.connect = function (url) {
+      /* Photos (-fotos room) are never needed for numbers and are the heaviest room: a socket that never opens
+         (the engine keeps retrying with its own back-off, which costs nothing). */
+      if (/-fotos$/.test(String(url))) {
+        var inerte = new EventTarget();
+        inerte.readyState = 0; inerte.binaryType = "arraybuffer"; inerte.send = function () {}; inerte.close = function () {};
+        return inerte;
+      }
+      var ws = conectar(url), enviar = ws.send.bind(ws), sala = /-ops$/.test(url) ? "ops" : "cat";
+      ws.send = function (v) {
+        if (typeof v !== "string") return;                       // binary: updates, hello, acks
+        var k; try { k = JSON.parse(v).k; } catch (_) { return; }
+        if (k === "pull") PULL[sala] = false;                    // a page is on its way
+        if (k === "head" || k === "pull") return enviar(v);     // the only two frames this reader may send
+      };
+      // Pull progress: a room is "read" when its last page says there is no more.
+      ws.addEventListener("message", function (e) {
+        if (typeof e.data !== "string" || e.data.indexOf('"pull-page"') < 0) return;
+        try { var c = JSON.parse(e.data); PULL[sala] = c.more !== true; ultimoOp = Date.now(); } catch (_) {}
+      });
+      ws.confirmPeerReceipt = function () { return Promise.resolve(false); };
+      ws.acceptPeerAck = function () { return false; };
+      return ws;
+    };
+    R.__soloLectura = true;
+  }
+  /* ---- 4. snapshot (copy of armarFoto() in sync-realtime.js; keep both in step) ---- */
+  async function get(ruta) {
+    try { var r = await fetch("/api" + ruta); if (!r.ok) return null; var j = await r.json(); return Array.isArray(j) ? j : (j && typeof j === "object" ? j : null); }
+    catch (_) { return null; }
+  }
+  async function foto() {
+    var corte = await get("/reporting/corte");
+    var corteValido = !!(corte && corte.schema === 1 && Number.isSafeInteger(corte.revision) && Array.isArray(corte.ventas) && Array.isArray(corte.gastos) && Array.isArray(corte.ajustesComision));
+    var r = await Promise.all([get("/productos?ubicacionId=todas"), get("/clientes"),
+      corteValido ? Promise.resolve(corte.ventas) : get("/ventas/todas?ubicacionId=todas"), get("/dashboard?ubicacionId=todas"),
+      get("/liquidaciones"), get("/ubicaciones?todas=1"), get("/movimientos?limite=200"), get("/promotoras"),
+      corteValido ? Promise.resolve({ gastos: corte.gastos }) : get("/gastos"), get("/transferencias"), get("/configuracion/gastos")]);
+    var Y = window.OCYjs, hechos = null;
+    try { hechos = Y && Y.hechosMap ? Array.from(Y.hechosMap.values()) : null; } catch (_) {}
+    var A = function (x) { return Array.isArray(x) ? x : []; };
+    return {
+      productos: A(r[0]), clientes: A(r[1]), ventas: A(r[2]), resumen: r[3] || null, liquidaciones: A(r[4]), perchas: A(r[5]),
+      movimientos: A(r[6]), promotoras: A(r[7]), gastos: r[8] && Array.isArray(r[8].gastos) ? r[8].gastos : [], transferencias: A(r[9]),
+      gastosMensuales: r[10] || {},
+      hechosFinancieros: Array.isArray(hechos) ? hechos.filter(function (h) { return /^(cartera_|caja_chica_)/.test((h && h.tipo) || ""); }) : [],
+      ajustesComision: corteValido ? corte.ajustesComision : [],
+      cobertura: { ajustesComision: corteValido, finanzasCoherentes: corteValido, revisionFinanciera: corteValido ? corte.revision : null,
+        productos: Array.isArray(r[0]), clientes: Array.isArray(r[1]), ventas: Array.isArray(r[2]), liquidaciones: Array.isArray(r[4]),
+        perchas: Array.isArray(r[5]), movimientos: Array.isArray(r[6]), promotoras: Array.isArray(r[7]), transferencias: Array.isArray(r[9]),
+        gastos: !!(r[8] && Array.isArray(r[8].gastos)), hechosFinancieros: Array.isArray(hechos), resumen: !!(r[3] && r[3].resumenDia),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
+      negocio: (function () { try { return (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || ""; } catch (_) { return ""; } })(),
+      generadaEn: (new Date()).toISOString()
+    };
+  }
+  /* ---- 5. when to speak ---- */
+  var T = null, ultimo = "";
+  window.addEventListener("oc-sync-op-remota", function () { ultimoOp = Date.now(); });
+  function estado() {
+    var Y = window.OCYjs || {};
+    /* completo = both rooms (catalog, movements) answered their last pull page and nothing new arrived or was applied for
+       700 ms. The catalog channel can stay "recuperando" on rooms with compacted history (the live app does too); that is
+       reported in estado.cat, not hidden. */
+    return { cat: !!(Y.canal && Y.canal.recuperando === false), ops: !!(Y.opsCanal && Y.opsCanal.recuperando === false),
+      leido: PULL.cat === true && PULL.ops === true, quieto: Date.now() - ultimoOp > 700, evs: Y.opsMap ? Y.opsMap.size : 0 };
+  }
+  function programar() { clearTimeout(T); T = setTimeout(emitir, 300); }
+  async function emitir() {
+    try {
+      var e = estado(), f = await foto();
+      var firma = JSON.stringify([f.productos, f.ventas, f.gastos, f.clientes, f.liquidaciones, f.resumen, f.hechosFinancieros]);
+      var completo = e.leido && e.quieto;
+      if (firma === ultimo && completo === emitir.completo) return;
+      ultimo = firma; emitir.completo = completo;
+      say({ t: "foto", foto: f, completo: completo, estado: e });
+    } catch (_) {}
+  }
+  /* relay budget: hand every change of the relay-selector counters back to the dashboard (it owns the real storage) */
+  var cupoVisto = "";
+  setInterval(function () {
+    var kv = {};
+    try { for (var i = 0; i < localStorage.length; i++) { var k = localStorage.key(i); if (/^f123_relay_cupo|^f123_fb_head_/.test(k)) kv[k] = localStorage.getItem(k); } } catch (_) {}
+    var j = JSON.stringify(kv); if (j !== cupoVisto) { cupoVisto = j; say({ t: "cupo", kv: kv }); }
+  }, 3000);
+  /* ---- 6. PIN: same two checks as responderPin() in sync-realtime.js ---- */
+  async function pin(msg) {
+    var rol = "";
+    try {
+      if (window.OCSecure && window.OCSecure.migrarSiHaceFalta) { try { await window.OCSecure.migrarSiHaceFalta(); } catch (_) {} }
+      if (window.OCSecure && window.OCSecure.verificarOwnerOEmpleado) rol = (await window.OCSecure.verificarOwnerOEmpleado(msg.pin)) || "";
+      if (rol !== "dueno") {
+        var res = await fetch("/api/usuarios/verificar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pin: msg.pin }) });
+        if (res.ok) { var u = await res.json(); if (u && u.rol && u.activo !== false) rol = u.rol; }
+      }
+    } catch (_) {}
+    var e = estado();
+    say({ t: "pin", id: msg.id, ok: rol === "dueno" || rol === "admin", rol: rol, confirmado: e.cat });
+  }
+  /* ---- 7. start ---- */
+  var arrancado = false;
+  window.addEventListener("message", function (ev) {
+    if (ev.source !== P || ev.origin !== location.origin) return;
+    var m = ev.data || {};
+    if (m.t === "abrir" && !arrancado && typeof m.code === "string" && m.code) {
+      arrancado = true; CODE = m.code; BASE = String(m.base || "");
+      localStorage.setItem("f123_owned", JSON.stringify({ licenseCode: CODE }));
+      try { var kv = m.cupo || {}; Object.keys(kv).forEach(function (k) { if (/^f123_relay_cupo|^f123_fb_head_/.test(k)) localStorage.setItem(k, String(kv[k])); }); } catch (_) {}
+      window.OC_DEMO = false;
+      cargar(0, function () {
+        cerrarRelay();
+        var t0 = Date.now(), w = setInterval(function () {
+          var Y = window.OCYjs;
+          if (Y && Y.estado === "activo") { clearInterval(w); say({ t: "listo" }); }
+          else if (Date.now() - t0 > 20000) { clearInterval(w); say({ t: "error", donde: "arranque" }); }
+        }, 100);
+        var tick = setInterval(function () {
+          var Y = window.OCYjs; if (!Y || Y.estado !== "activo") return;
+          clearInterval(tick);
+          [Y.doc, Y.opsDoc].forEach(function (d) { if (d) d.on("update", programar); });
+          window.addEventListener("oc-catalogo-cambiado", programar);
+          window.addEventListener("oc-sync-op-remota", programar);
+          setInterval(programar, 1000);   // local recompute only, no network
+        }, 100);
+      });
+    } else if (m.t === "pin") pin(m);
+    else if (m.t === "foto") { ultimo = ""; programar(); }
+  });
+  say({ t: "hola" });
+})();
+</script></head><body></body></html>
