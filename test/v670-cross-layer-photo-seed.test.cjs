@@ -49,6 +49,34 @@ test('v670: an unchanged photo is durably republished once on each newly visited
   doc.destroy();
 });
 
+test('v670: Yjs-only photos survive a missing or broken IndexedDB store', async () => {
+  const ctx = { crypto: webcrypto, TextEncoder, Uint8Array, ArrayBuffer, console };
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname,
+    '../docs/vendor/yjs-bundle.min.js'), 'utf8'), ctx);
+  const Y = ctx.Y, doc = new Y.Doc(), hash = 'pwa-photo-only-in-yjs';
+  const bytes = 'data:image/png;base64,BAUG', relayWrites = [];
+  const photos = doc.getMap('blobs');
+  photos.set(hash, bytes);
+  ctx.API = { fotosDoc: doc, fotosMap: photos,
+    fotosCanal: { ws: { relayLayer: 'f123_relay_cupo_v1' },
+      enviarUpdate: update => relayWrites.push(Buffer.from(update)) } };
+  ctx.window = { Y, OCSync: {
+    catalogoPropio: () => ({ productos: [{ fotoHash: hash }] }),
+    hashearFotosProductos: () => { throw Error('IDB unavailable'); },
+    hashearFotosPerchas: async () => { throw Error('IDB unavailable'); }
+  } }; // OCFotos intentionally absent
+  doc.on('update', (update, origin) => {
+    if (origin === 'seed') relayWrites.push(Buffer.from(update));
+  });
+  vm.runInContext(block, ctx);
+  vm.runInContext('sembrarFotosAlRelay();', ctx);
+  await waitFor(() => !!ctx._fotosSembradas[hash]?.f123_relay_cupo_v1);
+  assert.equal(relayWrites.length, 1, 'the Yjs photo must be republished without IDB');
+  assert.equal(photos.get(hash), bytes, 'no evidence or pointer is overwritten');
+  doc.destroy();
+});
+
 test('v670: best-effort peer recovery cannot be mistaken for a durable relay ACK', () => {
   assert.ok(file.includes('source = ev.relaySource === "peer-live" ? "live"'),
     'RTC copies get live-only classification during a durable pull');
