@@ -4453,7 +4453,8 @@
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
           const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "chip", "archivado", "piezaUnica", "fotoHash", "borrado", "rev"];
           const fotoAnterior = mio.fotoHash;
-          campos.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
+          // render-fotos: a winning revision with an empty hash (peer that has not hashed yet / pre-v664 shell) must not clear the local pointer or photo.
+          campos.forEach((k) => { if (k === "fotoHash" && !p.fotoHash) return; if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
           if (fotoAnterior !== mio.fotoHash) mio.foto = null;
           _observarRev(p.rev); actualizados++;
         } else if (ganaP === null && mandaElOtro) {
