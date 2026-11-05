@@ -2690,9 +2690,20 @@
                 // the same rule as aplicarCatalogo in mock-backend; the loser stays in stockEvidencias below.
                 var _tsMine = Number(r.stockTs) || 0, _tsDoc = Number(prev.stockTs) || 0;
                 var _ganaMio = _tsMine > _tsDoc || (_tsMine === _tsDoc && _stockEpochMine > _stockEpochDoc);
+                // v668: a newer LEGACY count with a DIFFERENT physical base is
+                // still a count (v651 backend rule); the epoch ID alone must not
+                // resurrect an older explicit count. Same-base legacy movement
+                // is NOT a new count and cannot override an explicit epoch.
+                var _legacyAfterExplicit = function (legacy, explicit) {
+                  return legacy.stockBase != null && explicit.stockBase != null &&
+                    Number.isSafeInteger(Number(legacy.stockBase)) &&
+                    Number.isSafeInteger(Number(explicit.stockBase)) &&
+                    Number(legacy.stockBase) !== Number(explicit.stockBase) &&
+                    Number(legacy.stockTs) > Number(explicit.stockTs);
+                };
                 var _epochPreferred = _samePhysicalEpoch ? null :
-                  (_stockEpochMine && !_stockEpochDoc ? r :
-                    (!_stockEpochMine && _stockEpochDoc ? prev :
+                  (_stockEpochMine && !_stockEpochDoc ? (_legacyAfterExplicit(prev, r) ? prev : r) :
+                    (!_stockEpochMine && _stockEpochDoc ? (_legacyAfterExplicit(r, prev) ? r : prev) :
                       (_stockEpochMine && _stockEpochDoc ? (_ganaMio ? r : prev) : null)));
                 if (_epochPreferred) {
                   r = Object.assign({}, r, {
