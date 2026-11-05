@@ -407,3 +407,47 @@ test('v669: a photo history recovery does not pause inventory or payments on Sup
   assert.equal(sub(A.R.connect(fotos)).kind, 'firebase', 'only photos switch to Firebase');
   assert.equal(sub(A.R.connect(URL1)).kind, 'supabase', 'inventory and money keep the preferred relay');
 });
+
+test('v670: verified Firebase catch-up releases only the intentional Supabase pause', async () => {
+  const store = new Map(), head = { value: { rev: 2, seq: 177 } };
+  const A = app(undefined, store, head);
+  const first = sub(A.R.connect(URL1)); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed?.code, 1012, 'read the existing fallback history');
+  const h = A.R.connect(URL1), firebase = sub(h);
+  assert.equal(firebase.kind, 'firebase');
+  firebase.open();
+  A.clock.now += 2000; A.tick();
+  assert.equal(firebase.closed, null, 'without a verified cursor the fallback stays active');
+  h.markRecovered();
+  A.tick();
+  assert.equal(firebase.closed?.code, 1012, 'verified replay returns to preferred layer immediately');
+  assert.equal(sub(A.R.connect(URL1)).kind, 'supabase', 'not split for three minutes');
+});
+
+test('v670: photo recovery releases photo band, not unrelated business/quota pauses', async () => {
+  const store = new Map(), head = { value: { rev: 0, seq: 22 } };
+  const A = app(undefined, store, head), fotos = URL1.replace(/-y$/, '-fotos');
+  const first = sub(A.R.connect(fotos)); first.open();
+  await espera(); await espera();
+  assert.equal(first.closed?.code, 1012);
+  const h = A.R.connect(fotos), firebase = sub(h);
+  assert.equal(firebase.kind, 'firebase'); firebase.open();
+  assert.equal(sub(A.R.connect(URL1)).kind, 'supabase', 'the stock lane never paused');
+  h.markRecovered(); A.tick();
+  assert.equal(firebase.closed?.code, 1012);
+  assert.equal(sub(A.R.connect(fotos)).kind, 'supabase', 'photo band resumes after complete replay');
+
+  // The same proof must NEVER erase a later, independent server refusal.
+  const B = app(undefined, new Map(), head);
+  const firstB = sub(B.R.connect(fotos)); firstB.open();
+  await espera(); await espera();
+  const secondB = B.R.connect(fotos); sub(secondB).open();
+  const key = 'f123_relay_cupo_v1_fotos';
+  const refused = JSON.parse(B.w.localStorage.getItem(key));
+  refused.pausaHasta += 120000;
+  B.w.localStorage.setItem(key, JSON.stringify(refused));
+  secondB.markRecovered();
+  assert.equal(JSON.parse(B.w.localStorage.getItem(key)).pausaHasta, refused.pausaHasta,
+    'a new refusal may not be lifted by a stale recovery proof');
+});
