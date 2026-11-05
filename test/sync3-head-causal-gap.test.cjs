@@ -79,3 +79,14 @@ test("SYNC3 RED: a causal replay pauses after four pages and can resume at its n
  assert.deepEqual([a.sent.at(-1).rev,a.sent.at(-1).seq],[3,115],"next scheduled window resumes without re-downloading the same pages");
  assert.equal(a.ctx._pullCursor.seq,120,"durable cursor remains at original proof");
 });
+
+test("SYNC3 RED: a newer relay HEAD abandons any stale causal backfill cursor",async()=>{
+ const a=harness();const state=await head(a);
+ assert.deepEqual([state.rescateCausalDesde.rev,state.rescateCausalDesde.seq],[3,80]);
+ state.esperandoHead=true; // an independent new HEAD after the old causal window
+ await a.ctx.procesarHead(a.ws,state,{rev:4,seq:1});
+ const cmd=a.sent.at(-1);
+ assert.equal(cmd.k,"pull");
+ assert.deepEqual([cmd.rev,cmd.seq],[3,120],"new relay work must continue from confirmed durable cut");
+ assert.equal(state.rescateCausalDesde,null,"obsolete causal cursor cannot drag a changed revision back");
+});
