@@ -557,7 +557,10 @@ test("E1b-2 RED: unsupported or silent HEAD releases clean final replay, not pen
      _replayKey:"stable",_replayUsed:5,_tReplay:null,partesEntrantes:{},doc,
       nombre:"catalogo",API:{clave:{},_store:{aplicar:()=>events.push("aplicar")}},
      guardarPullCursor:async()=>{},deudaPendiente:()=>!!doc.store.pendingStructs,
-     programarRelectura:()=>{},log:()=>{},setTimeout:fn=>{timers.push(fn);return timers.length;},
+     programarRelectura:()=>{},log:()=>{},
+     // v670 HEAD fixture: a complete pull schedules a bounded checkpoint retry.
+     permiteCkpt:true,_tCkpt:null,hacerCkpt:()=>events.push("ckpt"),
+     setTimeout:fn=>{timers.push(fn);return timers.length;},
      clearTimeout:()=>{},c:{k:"pull-page",rev:3,seq:90,more:false}};
    vm.createContext(ctx);vm.runInContext(pager+handler,ctx);
    const receive=async()=>{ctx.ws.onmessage({data:JSON.stringify(ctx.c)});await ctx._colaRecepcion;};
