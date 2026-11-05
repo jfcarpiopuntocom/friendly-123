@@ -997,6 +997,17 @@
       // barrier succeeded. A saved relay HEAD alone cannot certify any bytes.
       try { if (sock && !sock.peerOnly && typeof sock.markRecovered === "function") sock.markRecovered(); } catch (_) {}
     }
+    function checkpointTrasPull(sock) {
+      // A slow iPhone pull can outlast the one-shot 2.5s checkpoint timer.
+      // Re-advertise an already-hydrated catalog/ops document ONLY after the
+      // relay cursor was committed, all Yjs dependencies resolved, and the
+      // active room has finished recovery. This repairs empty second layers
+      // without inventing inventory or compacting partial remote history.
+      if (!permiteCkpt || _soloMemoria || !sock || canal.ws !== sock ||
+          sock.readyState !== 1 || canal.recuperando || deudaPendiente()) return;
+      clearTimeout(_tCkpt);
+      _tCkpt = setTimeout(hacerCkpt, 250);
+    }
     function procesarHead(sock, estado, r) {
       if (!estado.esperandoHead || canal.ws !== sock) return Promise.resolve();
       estado.esperandoHead = false; clearTimeout(estado.tHead);
@@ -1032,6 +1043,7 @@
           if (nombre === "catalogo" && API._store) API._store.aplicar();
         }
         if (estado.pullAplicado && !deudaPendiente()) marcarReplayCifradoAplicado(sock);
+        if (estado.pullAplicado && !canal.recuperando) checkpointTrasPull(sock);
         programarRelectura(sock, estado);
         return Promise.resolve();
       }
@@ -1593,6 +1605,7 @@
                       canal.recuperando = false;
                       if (pullEstado.pullAplicado && typeof ws.markRecovered === "function" && !_soloMemoria) { try { ws.markRecovered(); } catch (_) {} }
                       if (nombre === "catalogo" && API._store) API._store.aplicar();
+                      checkpointTrasPull(ws);
                     } else if (!pullEstado.validacionFinal) {
                       pullEstado.validacionFinal = true;
                       return pedirPagina(ws, pullEstado);
