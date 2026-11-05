@@ -6,7 +6,7 @@ function harness({pending=true,clean=true,budget=1}={}){
  const end=src.indexOf("    function reprogramar() {",start);
  assert.ok(start>0&&end>start,"real HEAD and pull path present");
  const sent=[],ws={readyState:1,send:msg=>sent.push(JSON.parse(msg))};
- const ctx={Promise,Number,Math,JSON,Object,Map,Array,Uint8Array,
+ const ctx={ws,Promise,Number,Math,JSON,Object,Map,Array,Uint8Array,
   doc:{store:pending?{pendingStructs:{missing:new Map([[7,9]])}}:{}},partesEntrantes:{},
   canal:{ws,recuperando:true},_pullCursorReady:Promise.resolve(),
   _pullCursor:{rev:3,seq:120},_appliedPullCursor:{rev:3,seq:120},
