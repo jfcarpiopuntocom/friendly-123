@@ -41,7 +41,11 @@
   /* v661 band quarantine (OpenCode review 2026-11-04): a refusal on the photo room pauses ONLY the photo band of that
      layer (its own key); inventory and money keep using the layer. The business band pausing still stops photos there. */
   function pausaFotos(capa) { try { return Number((JSON.parse(localStorage.getItem(capa.key + "_fotos") || "null") || {}).pausaHasta) || 0; } catch (_) { return 0; } }
-  function pausarFotos(capa, ms) { try { localStorage.setItem(capa.key + "_fotos", JSON.stringify({ pausaHasta: Date.now() + ms })); } catch (_) {} }
+  function pausarFotos(capa, ms) {
+    var hasta = Date.now() + ms;
+    try { localStorage.setItem(capa.key + "_fotos", JSON.stringify({ pausaHasta: hasta })); } catch (_) {}
+    return hasta;
+  }
   function usableFotos(capa) { var c = leer(capa.key); return usable(capa) && Date.now() >= pausaFotos(capa) && (capa.relay === fb || c.up < CAP_UP * FOTO_PARTE) && c.down < CAP_DOWN * FOTO_PARTE; }
   // A layer that reports its real read bytes (Firebase) is charged those, and only the new ones: its frames are inside them.
   function sumarBajada(capa, e) {
@@ -56,6 +60,27 @@
      To retire them: delete this block, the sonda lines in envolver() and connect(), and estadoSondas. */
   var SONDA_MS = 300000, ATRASO_MS = 600000, OTRA_CAPA_MS = 1800000, HEAD = JSON.stringify({ k: "head", v: 2 });
   var _sondasWs = {}, _headFb = {}, _sondaFbEn = {}, _otraCapaEn = 0;
+  // A deliberate fallback read may return to its preferred durable layer as
+  // soon as a COMPLETE encrypted pull is committed. Server refusals and quota
+  // pauses must never be overridden by this recovery-only optimization.
+  var _fallbackRecovery = Object.create(null);
+  function resolverRecuperacion(url) {
+    var p = _fallbackRecovery[url]; if (!p) return;
+    delete _fallbackRecovery[url];
+    if (p.photo) {
+      var key = p.key + "_fotos", value = null;
+      try { value = JSON.parse(localStorage.getItem(key) || "null"); } catch (_) {}
+      if (value && Number(value.pausaHasta) === p.until) {
+        value.pausaHasta = Date.now();
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+      }
+    } else {
+      var c = leer(p.key);
+      if (Number(c.pausaHasta) === p.until) {
+        c.pausaHasta = Date.now(); guardar(p.key, c);
+      }
+    }
+  }
   // The durable head moved, this device sent nothing, and no frame reached it: live delivery is failing here.
   function sondaAtraso(s, h) {
     var seq = Number(h.seq);
@@ -87,8 +112,14 @@
     var cs = capas[0];
     if (!OTRA_CAPA_LEER_MS || !ws || !cs || cs.relay === fb) return;
     // A photo-only bootstrap must never pause inventory/money on the preferred relay.
-    if (esFoto(url)) pausarFotos(cs, OTRA_CAPA_LEER_MS);
-    else { var c = leer(cs.key); c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS); guardar(cs.key, c); }
+    var photo = esFoto(url), until = 0;
+    if (photo) until = pausarFotos(cs, OTRA_CAPA_LEER_MS);
+    else {
+      var c = leer(cs.key);
+      until = c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS);
+      guardar(cs.key, c);
+    }
+    _fallbackRecovery[url] = { key: cs.key, photo: photo, until: until };
     var ir = function () { try { ws.close(1012, "another device wrote on the next durable layer"); } catch (_) {} };
     if (ws.readyState === 1) ir(); else if (ws.readyState === 0) ws.addEventListener("open", ir);
   }
@@ -193,7 +224,10 @@
     _sondasWs[url] = sonda;
     // Called ONLY after Yjs has completed its encrypted pull and its cursor
     // readback barrier, not when Firebase merely reported an HTTP head.
-    if (capa.relay === fb) ws.markRecovered = function () { guardarAplicado(url); };
+    if (capa.relay === fb) ws.markRecovered = function () {
+      guardarAplicado(url);
+      resolverRecuperacion(url); // only the verified cursor may release our temporary pause
+    };
     ws.addEventListener("open", function () { abierto = true; });
     ws.addEventListener("message", function (e) {
       if (typeof e.data !== "string") sonda.frames++;
