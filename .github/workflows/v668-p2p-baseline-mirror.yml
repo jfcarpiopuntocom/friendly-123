@@ -1,0 +1,47 @@
+name: v668 P2P A/B exact-base mirror
+on:
+  pull_request:
+    paths:
+      - 'docs/firebase-relay.js'
+      - 'docs/mock-backend.js'
+      - 'docs/sync-yjs.js'
+      - 'test/stock-epoch-legacy-convergence.test.cjs'
+      - 'test/v668-count-causal-boundary.test.cjs'
+      - '.github/workflows/v668-p2p-baseline-mirror.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  browser-mirror:
+    name: "P2P mirror ${{ matrix.source }}"
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [baseline-v667, candidate-v668]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Deliberately run the exact v667 production source as one arm.
+          ref: ${{ matrix.source == 'baseline-v667' && '8e25d3784fc2b9715c72f97316f77396b3f09ac6' || github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Execute identical isolated Chromium/WebKit P2P fixture twice
+        shell: bash
+        run: |
+          set +e
+          FAILED=0
+          for TRIAL in 1 2; do
+            echo "SOURCE=${{ matrix.source }} TRIAL=$TRIAL SHA=$(git rev-parse HEAD)"
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/peer-sync-browser.test.js
+            EXIT=$?
+            echo "SOURCE=${{ matrix.source }} TRIAL=$TRIAL exit=$EXIT" | tee -a "$GITHUB_STEP_SUMMARY"
+            [ "$EXIT" = 0 ] || FAILED=1
+          done
+          exit "$FAILED"
