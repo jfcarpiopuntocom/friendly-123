@@ -5,6 +5,7 @@ on:
       - 'docs/firebase-relay.js'
       - 'docs/mock-backend.js'
       - 'docs/sync-yjs.js'
+      - 'docs/peer-sync.js'
       - 'test/stock-epoch-legacy-convergence.test.cjs'
       - 'test/v668-count-causal-boundary.test.cjs'
       - '.github/workflows/v668-p2p-baseline-mirror.yml'
