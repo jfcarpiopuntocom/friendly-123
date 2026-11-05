@@ -992,6 +992,11 @@
         sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
       }).catch(function () {});
     }
+    function marcarReplayCifradoAplicado(sock) {
+      // v669: only after the Yjs dependency check and the durable pull cursor
+      // barrier succeeded. A saved relay HEAD alone cannot certify any bytes.
+      try { if (sock && !sock.peerOnly && typeof sock.markRecovered === "function") sock.markRecovered(); } catch (_) {}
+    }
     function procesarHead(sock, estado, r) {
       if (!estado.esperandoHead || canal.ws !== sock) return Promise.resolve();
       estado.esperandoHead = false; clearTimeout(estado.tHead);
@@ -1023,6 +1028,7 @@
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
             !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
           canal.recuperando = false;
+          marcarReplayCifradoAplicado(sock);
           if (nombre === "catalogo" && API._store) API._store.aplicar();
         }
         programarRelectura(sock, estado);
@@ -1575,6 +1581,7 @@
                       // Old relay has no HEAD: its fully received final page
                       // remains the completion proof. Never unlock with debt.
                       canal.recuperando = false;
+                      marcarReplayCifradoAplicado(ws);
                       if (nombre === "catalogo" && API._store) API._store.aplicar();
                     } else if (!pullEstado.validacionFinal) {
                       pullEstado.validacionFinal = true;
