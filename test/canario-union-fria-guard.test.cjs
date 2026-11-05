@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-async function fakeRun(license, { joined = false } = {}) {
+async function fakeRun(license, { joined = false, customOwnerPin = false } = {}) {
   const script = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
   let now = 0, keypadClicks = 0, exitCode = null;
   const messages = [];
@@ -22,7 +22,7 @@ async function fakeRun(license, { joined = false } = {}) {
     fill: async () => {},
     evaluate: async (fn) => {
       if (joined && String(fn).includes('licenciaAdoptada:')) {
-        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true };
+        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tienePinOwnerNoFactory: customOwnerPin };
       }
       return null; // Owner never authenticates: exercise login budget
     },
@@ -65,4 +65,11 @@ test('P0: tras adoptar licencia, introduce un solo PIN de propietario', async ()
   assert.equal(r.keypadClicks, 6, 'selector de unión y un único login');
   assert.equal(r.exitCode, 1, 'un PIN que no entra termina rojo');
   assert.ok(r.messages.some(m => /ACCESO:/.test(m)), 'informa etapa de acceso');
+});
+
+test('P0: si el PIN Owner observado no es factory, no probar 789', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', { joined: true, customOwnerPin: true });
+  assert.equal(r.keypadClicks, 3, 'solo selector de unión, nunca tantear PIN incorrecto');
+  assert.equal(r.exitCode, 1);
+  assert.ok(r.messages.some(m => /F123_CANARIO_PIN/.test(m)), 'pide secreto sintético actualizado sin revelar PIN');
 });
