@@ -45,6 +45,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       operacionesRecuperando: !!(y && y.opsCanal && y.opsCanal.recuperando),
       fotosRecuperando: !!(y && y.fotosCanal && y.fotosCanal.recuperando),
       tieneMetadatosPin: !!(y && y.meta && y.meta.get && (y.meta.get('pinsRol') || {}).owner),
+      tienePinOwnerNoFactory: !!(y && y.meta && y.meta.get && (y.meta.get('pinsRol') || {}).owner && (y.meta.get('pinsRol') || {}).owner !== '789'),
       rol: window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual() || null
     };
   } catch (_) { return { lecturaDiagnosticoFallida: true }; }
@@ -79,7 +80,10 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
     } else {
       console.log('CANARIO_ETAPA: licencia y sala correctas');
       await p.waitForTimeout(5000);
-      if (await rol(p) !== 'dueno') {
+      ultima = await diagnostico(p, LICENCIA);
+      if (PIN === '789' && ultima.tienePinOwnerNoFactory) {
+        fallo = 'ACCESO: F123_CANARIO_PIN requiere PIN Owner sintético actualizado';
+      } else if (await rol(p) !== 'dueno') {
         if (await p.locator('#oc-gate button[data-d]').first().isVisible().catch(() => false)) {
           await teclear(p, PIN); // ONE attempt, never repeated while waiting for Yjs.
           console.log('CANARIO_ETAPA: un único PIN introducido');
@@ -87,10 +91,10 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
           console.log('CANARIO_ETAPA: compuerta de PIN no disponible');
         }
       }
-      const limiteLogin = Date.now() + 30000;
+      const limiteLogin = fallo ? Date.now() : Date.now() + 30000;
       while (Date.now() < limiteLogin && await rol(p) !== 'dueno') await p.waitForTimeout(2000);
-      if (await rol(p) !== 'dueno') {
-        fallo = 'ACCESO: la tienda sintética no aceptó el PIN configurado';
+      if (fallo || await rol(p) !== 'dueno') {
+        fallo = fallo || 'ACCESO: la tienda sintética no aceptó el PIN configurado';
       } else {
         console.log('CANARIO_ETAPA: Owner autenticado');
         let v = null;
