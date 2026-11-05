@@ -119,3 +119,36 @@ test('P0: no probar PIN factory si el catálogo está hidratado pero faltan meta
   assert.equal(r.exitCode, 1, 'un meta Owner ausente es recuperación incompleta');
   assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'diagnosticar la causa sin exponer PIN');
 });
+
+test('P0: diagnóstico causal sintético distingue pendientes sin publicar IDs de sala', async () => {
+  const full = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = full.indexOf('const diagnostico = ');
+  const end = full.indexOf('\n\n(async () => {', start);
+  assert.ok(start > 0 && end > start, 'se usa la función real de diagnóstico');
+  const licencia = 'SYNTHETIC-CANARY-ONLY';
+  const y = {
+    roomId: 'SENSITIVE-ROOM-NOT-FOR-LOGS',
+    canal: { recuperando: true, ws: { readyState: 1, relayLayer: 'f123_relay_cupo_v1' } },
+    doc: { store: { pendingStructs: { missing: new Map([[42, 1], [77, 3]]) }, pendingDs: {} } },
+    idb: { synced: true }, meta: { get: () => null, size: 0 },
+    mapas: { productos: { size: 15 } }, fotosMap: { size: 10 },
+    _diag: () => ({ recuperacionLocalPendiente: false })
+  };
+  const ctx = {
+    window: { OCYjs: y, OCAuth: { rolActual: () => null } },
+    localStorage: { getItem: key => key === 'f123_owned'
+      ? JSON.stringify({ licenseCode: licencia, syncCode: licencia, instanceId: 'synthetic' })
+      : key === 'f123_sync_room' ? JSON.stringify({ codigo: licencia }) : null },
+    JSON
+  };
+  vm.runInNewContext(full.slice(start, end) + ';this.probe = diagnostico;', ctx);
+  const r = await ctx.probe({ evaluate: async (fn, lic) => fn(lic) }, licencia);
+  assert.equal(r.catalogoPendientesStructs, true);
+  assert.equal(r.catalogoPendientesDs, true);
+  assert.equal(r.catalogoPadresFaltantes, 2);
+  assert.equal(r.catalogoTransporte, 'supabase');
+  assert.equal(r.catalogoIdbSincronizado, true);
+  const logged = JSON.stringify(r);
+  assert.ok(!logged.includes(licencia) && !logged.includes(y.roomId) && !logged.includes('42'),
+    'telemetría solo booleana, numérica o enum de capa; nunca licencia/room/IDs causales');
+});
