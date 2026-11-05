@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-async function fakeRun(license) {
+async function fakeRun(license, { joined = false } = {}) {
   const script = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
   let now = 0, keypadClicks = 0, exitCode = null;
   const messages = [];
@@ -20,7 +20,12 @@ async function fakeRun(license) {
     locator: () => ({ first: () => pad }),
     click: async () => {},
     fill: async () => {},
-    evaluate: async () => null, // Owner never authenticates: exercise login budget
+    evaluate: async (fn) => {
+      if (joined && String(fn).includes('licenciaAdoptada:')) {
+        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true };
+      }
+      return null; // Owner never authenticates: exercise login budget
+    },
     waitForTimeout: async (ms) => { now += ms; },
     waitForFunction: async () => {},
   };
@@ -53,4 +58,11 @@ test('P0: sin licencia sintética el canario no puede salir verde', async () => 
   const r = await fakeRun(null);
   assert.notEqual(r.exitCode, 0, 'ausencia de licencia NO cuenta como canario aprobado');
   assert.ok(r.messages.some(m => /F123_CANARIO_LICENCIA/.test(m)), 'diagnóstico de configuración claro');
+});
+
+test('P0: tras adoptar licencia, introduce un solo PIN de propietario', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', { joined: true });
+  assert.equal(r.keypadClicks, 6, 'selector de unión y un único login');
+  assert.equal(r.exitCode, 1, 'un PIN que no entra termina rojo');
+  assert.ok(r.messages.some(m => /ACCESO:/.test(m)), 'informa etapa de acceso');
 });
