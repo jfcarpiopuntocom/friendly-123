@@ -324,7 +324,8 @@
       // v514: sin relay, se entrega en vivo a los pares directos abiertos, pero se devuelve false
       // para que el mismo cambio quede tambien en la cola del relay (nadie se queda sin el).
       if (!canal.ws || canal.ws.readyState !== 1) {
-        peers.forEach(function (p) { try { if (p.dc.bufferedAmount <= 512 * 1024) p.dc.send(buf); } catch (_) {} });
+        // v666 (OpenCode N5): same size guard as the relay-open branch; Safari peers accept 64 KB per message.
+        peers.forEach(function (p) { try { if (p.dc.bufferedAmount <= 512 * 1024 && buf.byteLength <= (p.pc.sctp && p.pc.sctp.maxMessageSize || 65536)) p.dc.send(buf); } catch (_) {} });
         return false;
       }
       // Never omit a relay-only device. Presence comes from the relay, not a guess.

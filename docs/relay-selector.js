@@ -22,6 +22,7 @@
   var capas = [];
   if (sb && sb !== fb && typeof sb.connect === "function") capas.push({ relay: sb, key: "f123_relay_cupo_v1" });
   if (fb && typeof fb.connect === "function") capas.push({ relay: fb, key: "f123_relay_cupo_fb_v1" });
+  // TODO (OpenCode review 2026-11-04): this UTC date resets the budget at 7 pm in Ecuador; move to local midnight together with the tests that seed it.
   function hoy() { return new Date().toISOString().slice(0, 10); }
   function leer(key) {
     var c = null; try { c = JSON.parse(localStorage.getItem(key) || "null"); } catch (_) {}
@@ -247,12 +248,12 @@
        devices) and drops the live frames the app's own direct lane needs for its signaling, so two open devices on
        Firebase never got a direct link. This lane uses peer-sync's own signaling: only BINARY live updates go through
        it (both ways), never control text, never photos; durability still comes only from the durable layers.
-       Turned on only with window.F123_VIVO = true (dormant by default until it is measured faster). */
+       Kill switch: window.F123_VIVO = false. */
     var vivo = null;
     function cerrarVivo(motivo) { var v = vivo; vivo = null; if (v) try { v.close(1000, motivo); } catch (_) {} }
     function abrirVivo() {
-      // DORMANT until measured faster (2026-11-04: lane connected but A->B stayed ~0.4-2.6 s; the delay is inside the app).
-      if (cerradoH || vivo || esFoto(url) || !(typeof window !== "undefined" && window.F123_VIVO === true)) return;
+      // v665 ON (JFC chose the free direct lane 2026-11-04): clean QA store, same code, A->B median ~140 ms with the lane vs ~290 ms without.
+      if (cerradoH || vivo || esFoto(url) || (typeof window !== "undefined" && window.F123_VIVO === false)) return;
       var w; try { w = viaPeers(url); } catch (_) { return; }
       vivo = w; try { w.binaryType = bin; } catch (_) {}
       w.addEventListener("message", function (e) {
