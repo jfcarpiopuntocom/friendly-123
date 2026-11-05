@@ -3635,6 +3635,24 @@
     Object.keys(out).sort((a,b) => (Number(a)-Number(b)) || a.localeCompare(b)).forEach((key) => { sorted[key] = out[key]; });
     return sorted;
   }
+  // A physical recount only absorbs movement counters that the counting device
+  // had actually observed. Different numeric bases or wall clocks alone cannot
+  // distinguish a concurrent offline sale from a sale already counted physically.
+  function _conteoIncluyeHechos(recuento, anterior) {
+    const c = recuento && recuento.stockCountWitness;
+    if (!c || !anterior || c.base !== Number(anterior.stockBase) ||
+        String(c.epoch || "") !== String(anterior.stockEpochId || "")) return false;
+    const pn = anterior.stockPN && typeof anterior.stockPN === "object" ? anterior.stockPN : {};
+    return Object.keys(pn).every(actor => {
+      const v = pn[actor] || {}, seen = c.pn && c.pn[actor] || {};
+      return Number.isSafeInteger(Number(v.add)) && Number.isSafeInteger(Number(v.sub)) &&
+        (Number(seen.add) || 0) >= Number(v.add) && (Number(seen.sub) || 0) >= Number(v.sub);
+    });
+  }
+  function _stockHechosNoVacios(x) {
+    return !!(x && x.stockPN && Object.values(x.stockPN).some(v =>
+      v && (Number(v.add) > 0 || Number(v.sub) > 0)));
+  }
   function _prepararOpStock(payload, idOperacion) {
     /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
        Dos dispositivos del mismo negocio pueden tener el MISMO producto con ids
@@ -4366,12 +4384,27 @@
             try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
+        // An unobserved actor movement across different recounts remains
+        // unresolved. Preserve both facts and expose a monotonic diagnostic;
+        // never silently count it twice or declare it absorbed by the clock.
+        const _forkFisico = (_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
+          (epochLocal && epochRemote && epochLocal !== epochRemote);
+        if (p.stockReconciliacionPendiente === true || (_forkFisico &&
+            (_stockHechosNoVacios(p) || _stockHechosNoVacios(mio)) &&
+            !_conteoIncluyeHechos(p, mio) && !_conteoIncluyeHechos(mio, p))) {
+          if (mio.stockReconciliacionPendiente !== true) {
+            mio.stockReconciliacionPendiente = true; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-conciliacion-pendiente",
+              { detail: { productoId: mio.id } })); } catch (_) {}
+          }
+        }
         if ((epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) || _gana) {
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
           if (Number.isSafeInteger(net)) {
             mio.stockEpochId = epochRemote;
+            mio.stockCountWitness = p.stockCountWitness ? clonar(p.stockCountWitness) : null;
             mio.stockBase = _baseR;
             mio.stockPN = newCounters;
             mio.stockActual = Math.max(0,net);
@@ -5315,6 +5348,8 @@
           stockEpochId: typeof p.stockEpochId === "string" ? p.stockEpochId : "",
           stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
           stockEvidencias: p.stockEvidencias && typeof p.stockEvidencias === "object" ? JSON.parse(JSON.stringify(p.stockEvidencias)) : null,
+          stockCountWitness: p.stockCountWitness && typeof p.stockCountWitness === "object" ? JSON.parse(JSON.stringify(p.stockCountWitness)) : null,
+          stockReconciliacionPendiente: p.stockReconciliacionPendiente === true,
           /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
              (un dataURL de ~180KB reventaria el frame del catalogo al agrupar
              varios). Viaja solo el puntero fotoHash; los bytes van por el canal de
@@ -5573,7 +5608,9 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "", borrado: !!p.borrado, archivado: !!p.archivado, rev: p.rev || null, fotoHash: p.fotoHash || null })),
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "",
+          stockCountWitness: p.stockCountWitness || null,
+          stockReconciliacionPendiente: p.stockReconciliacionPendiente === true, borrado: !!p.borrado, archivado: !!p.archivado, rev: p.rev || null, fotoHash: p.fotoHash || null })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
         huella: huellaCatalogo(),
@@ -7526,7 +7563,7 @@
         // disappear on reload when both local storage backends reject the write.
         debePersistir = false;
         const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
-          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit", "stockEpochId", "stockEvidencias", "rev"].map(k => ({
+          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit", "stockEpochId", "stockEvidencias", "stockCountWitness", "stockReconciliacionPendiente", "rev"].map(k => ({
             k, existe: Object.prototype.hasOwnProperty.call(p, k),
             valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]
           })) };
@@ -7547,6 +7584,13 @@
             // These are encrypted with the catalog; they never count toward the new epoch.
             const historial = _pruebasStockUnir(p);
             if (Object.keys(historial).length) p.stockEvidencias = historial;
+            // Snapshot the CAUSAL front the owner had seen when physically counting.
+            // Never infer inclusion of a remote offline sale from a later wall-clock.
+            p.stockCountWitness = {
+              base: p.stockBase == null ? null : Number(p.stockBase),
+              epoch: String(p.stockEpochId || ""),
+              pn: clonar(p.stockPN || {})
+            };
             p.stockEpochId = uuid("stock-epoch-"); p.stockBase = fisico; p.stockPN = {};
             p.stockDeficit = 0; p.stockTs = Date.now(); p.stockActual = fisico;
             p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
