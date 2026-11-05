@@ -11,6 +11,9 @@ on:
     - cron: "0 12 * * *"
   workflow_dispatch: {}
   workflow_call: {}
+  push:
+    branches: [master]
+    paths: ["scripts/canario-union-fria.cjs", "test/canario-union-fria-guard.test.cjs", ".github/workflows/recorrido.yml"]
 
 permissions:
   contents: read
@@ -33,7 +36,7 @@ jobs:
 
   # Solo avisa: no corre cuando hotfix.yml llama a este workflow, asi que nunca frena una publicacion.
   union-fria:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,9 +46,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: node --test test/canario-union-fria-guard.test.cjs
       - run: npx playwright install --with-deps chromium
       - name: Aparato nuevo se une a una tienda sintetica llena
         shell: bash
         env:
           F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+          F123_CANARIO_PIN: ${{ secrets.F123_CANARIO_PIN }}
         run: node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
