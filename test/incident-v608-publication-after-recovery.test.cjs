@@ -205,6 +205,47 @@ test('P0 third peer adopting two disconnected sales retains both receipts exactl
   assert.equal(history.ventas.filter(v=>v.id===r2.ventaId).length,1);
 });
 
+// v670 acceptance target: THREE isolated devices sell offline, then converge both
+// physical PN stock and economic sales after crossing paths twice. The synthetic
+// baseline is 75, so three distinct physical sales MUST settle at exactly 72;
+// replaying updates must not subtract again or create an extra monetary receipt.
+test('v670 three disconnected devices converge on 72 stock and three unique paid sales A→B→C→A ×2',async()=>{
+  const [a,b,c]=[await peer(),await peer(),await peer()];
+  await physicalFixture(a,b,75,75);
+  const initial=await a.w.request('/api/respaldo/exportar');
+  await c.w.request('/api/respaldo/importar','POST',initial);
+  c.w.OCYjs._store.sembrar();
+  await c.flush();
+  const devices=[a,b,c];
+  const tickets=await Promise.all(devices.map(p=>
+    p.w.request('/api/productos/p0-two-actors/venta','POST',{cantidad:1})));
+  const ids=tickets.map(t=>t.ventaId);
+  assert.equal(new Set(ids).size,3,'three distinct economic facts, never one overwritten receipt');
+  for(const p of devices)await p.flush();
+  for(let pass=0;pass<2;pass++){
+    await exchange(a,b,2); await exchange(b,c,2); await exchange(c,a,2);
+  }
+  for(const [index,p] of devices.entries()){
+    const snap=await p.w.request('/api/respaldo/exportar');
+    const item=snap.productos.find(x=>x.id==='p0-two-actors');
+    assert.equal(item.stockActual,72,'device '+index+' must show all three physical decrements');
+    assert.equal(snap.ventas.length,3,'device '+index+' has exactly three receipts');
+    for(const id of ids)assert.equal(snap.ventas.filter(v=>v.id===id).length,1,
+      'device '+index+' must preserve receipt '+id+' exactly once');
+    const pn=item.stockPN||{};
+    assert.ok(Object.keys(pn).length>=3,'all three independent PN witnesses preserved');
+  }
+  for(let repeat=0;repeat<2;repeat++){
+    await exchange(c,b,2);await exchange(b,a,2);await exchange(a,c,2);
+  }
+  for(const p of devices){
+    const snap=await p.w.request('/api/respaldo/exportar');
+    assert.equal(snap.productos.find(x=>x.id==='p0-two-actors').stockActual,72,
+      'duplicate full-state Yjs replay cannot subtract a sale twice');
+    assert.equal(snap.ventas.length,3,'duplicate replay cannot create money twice');
+  }
+});
+
 test('P0 300-product notebook: remote PN update converges without full-item write loss',async()=>{
   const a=await peer(),b=await peer();
   const f=await a.w.request('/api/respaldo/exportar');

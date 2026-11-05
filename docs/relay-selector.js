@@ -41,7 +41,11 @@
   /* v661 band quarantine (OpenCode review 2026-11-04): a refusal on the photo room pauses ONLY the photo band of that
      layer (its own key); inventory and money keep using the layer. The business band pausing still stops photos there. */
   function pausaFotos(capa) { try { return Number((JSON.parse(localStorage.getItem(capa.key + "_fotos") || "null") || {}).pausaHasta) || 0; } catch (_) { return 0; } }
-  function pausarFotos(capa, ms) { try { localStorage.setItem(capa.key + "_fotos", JSON.stringify({ pausaHasta: Date.now() + ms })); } catch (_) {} }
+  function pausarFotos(capa, ms) {
+    var hasta = Date.now() + ms;
+    try { localStorage.setItem(capa.key + "_fotos", JSON.stringify({ pausaHasta: hasta })); } catch (_) {}
+    return hasta;
+  }
   function usableFotos(capa) { var c = leer(capa.key); return usable(capa) && Date.now() >= pausaFotos(capa) && (capa.relay === fb || c.up < CAP_UP * FOTO_PARTE) && c.down < CAP_DOWN * FOTO_PARTE; }
   // A layer that reports its real read bytes (Firebase) is charged those, and only the new ones: its frames are inside them.
   function sumarBajada(capa, e) {
@@ -56,6 +60,27 @@
      To retire them: delete this block, the sonda lines in envolver() and connect(), and estadoSondas. */
   var SONDA_MS = 300000, ATRASO_MS = 600000, OTRA_CAPA_MS = 1800000, HEAD = JSON.stringify({ k: "head", v: 2 });
   var _sondasWs = {}, _headFb = {}, _sondaFbEn = {}, _otraCapaEn = 0;
+  // A deliberate fallback read may return to its preferred durable layer as
+  // soon as a COMPLETE encrypted pull is committed. Server refusals and quota
+  // pauses must never be overridden by this recovery-only optimization.
+  var _fallbackRecovery = Object.create(null);
+  function resolverRecuperacion(url) {
+    var p = _fallbackRecovery[url]; if (!p) return;
+    delete _fallbackRecovery[url];
+    if (p.photo) {
+      var key = p.key + "_fotos", value = null;
+      try { value = JSON.parse(localStorage.getItem(key) || "null"); } catch (_) {}
+      if (value && Number(value.pausaHasta) === p.until) {
+        value.pausaHasta = Date.now();
+        try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+      }
+    } else {
+      var c = leer(p.key);
+      if (Number(c.pausaHasta) === p.until) {
+        c.pausaHasta = Date.now(); guardar(p.key, c);
+      }
+    }
+  }
   // The durable head moved, this device sent nothing, and no frame reached it: live delivery is failing here.
   function sondaAtraso(s, h) {
     var seq = Number(h.seq);
@@ -87,8 +112,14 @@
     var cs = capas[0];
     if (!OTRA_CAPA_LEER_MS || !ws || !cs || cs.relay === fb) return;
     // A photo-only bootstrap must never pause inventory/money on the preferred relay.
-    if (esFoto(url)) pausarFotos(cs, OTRA_CAPA_LEER_MS);
-    else { var c = leer(cs.key); c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS); guardar(cs.key, c); }
+    var photo = esFoto(url), until = 0;
+    if (photo) until = pausarFotos(cs, OTRA_CAPA_LEER_MS);
+    else {
+      var c = leer(cs.key);
+      until = c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS);
+      guardar(cs.key, c);
+    }
+    _fallbackRecovery[url] = { key: cs.key, photo: photo, until: until };
     var ir = function () { try { ws.close(1012, "another device wrote on the next durable layer"); } catch (_) {} };
     if (ws.readyState === 1) ir(); else if (ws.readyState === 0) ws.addEventListener("open", ir);
   }
@@ -187,10 +218,16 @@
   }
   function envolver(capa, url) {
     var key = capa.key, ws = capa.relay.connect(url), abierto = false, sonda = { ws: ws, seq: null, frames: 0, enviados: 0, desde: 0 };
+    // Channel-specific provenance: a photo blob seeded on Firebase must also
+    // be durably seeded when this notebook later returns to Supabase.
+    try { ws.relayLayer = key; } catch (_) {}
     _sondasWs[url] = sonda;
     // Called ONLY after Yjs has completed its encrypted pull and its cursor
     // readback barrier, not when Firebase merely reported an HTTP head.
-    if (capa.relay === fb) ws.markRecovered = function () { guardarAplicado(url); };
+    if (capa.relay === fb) ws.markRecovered = function () {
+      guardarAplicado(url);
+      resolverRecuperacion(url); // only the verified cursor may release our temporary pause
+    };
     ws.addEventListener("open", function () { abierto = true; });
     ws.addEventListener("message", function (e) {
       if (typeof e.data !== "string") sonda.frames++;
@@ -252,6 +289,16 @@
   var CASCADA_MS = 3000;
   function cascada(url, ws0, i0) {
     var H = new EventTarget(), subs = [], emitidoOpen = false, emitidoClose = false, cerradoH = false, hubError = false, bin = "blob", tried = {}, ultimo = i0;
+    var alimentador = -1, healthProbe = null, ultimoSondeo = 0;
+    function cabezaValida(data) {
+      if (typeof data !== "string" || data.indexOf('"head-result"') === -1) return false;
+      try {
+        var h = JSON.parse(data);
+        return h.k === "head-result" && !h.unsupported &&
+          Number.isSafeInteger(Number(h.rev)) && Number.isSafeInteger(Number(h.seq)) &&
+          Number(h.rev) >= 0 && Number(h.seq) >= 0;
+      } catch (_) { return false; }
+    }
     function emitir(tipo, props) {
       var ev = new Event(tipo), k; for (k in props) ev[k] = props[k];
       try { H.dispatchEvent(ev); } catch (_) {}
@@ -278,11 +325,28 @@
     function cerrarVivo(motivo) { var v = vivo; vivo = null; if (v) try { v.close(1000, motivo); } catch (_) {} }
     function abrirVivo() {
       // v665 ON (JFC chose the free direct lane 2026-11-04): clean QA store, same code, A->B median ~140 ms with the lane vs ~290 ms without.
-      if (cerradoH || vivo || esFoto(url) || (typeof window !== "undefined" && window.F123_VIVO === false)) return;
+      // v670: photos need direct antientropy alongside durable layers too.
+      // Opening a durable socket is not proof that the other device's photo room
+      // has been replayed. The peer lane sends only encrypted Yjs binary frames.
+      if (cerradoH || vivo || (typeof window !== "undefined" && window.F123_VIVO === false)) return;
       var w; try { w = viaPeers(url); } catch (_) { return; }
       vivo = w; try { w.binaryType = bin; } catch (_) {}
+      function despertarAntientropia() {
+        // A P2P link can open AFTER a durable socket. Force a fresh state-vector
+        // exchange on every peer join, including catalog, operations and photos.
+        // This is NOT a durable ACK and never advances the relay pull cursor.
+        if (cerradoH || vivo !== w || w.readyState !== 1) return;
+        emitir("message", { data: JSON.stringify({ k: "peer-ready" }), peerAccepted: false, relaySource: "peer-live" });
+      }
+      w.addEventListener("open", despertarAntientropia);
       w.addEventListener("message", function (e) {
-        if (cerradoH || vivo !== w || typeof e.data === "string") return;
+        if (cerradoH || vivo !== w) return;
+        if (typeof e.data === "string") {
+          // peer-sync emits peer-ready whenever a new RTC data channel joins.
+          // All other control frames stay on the durable lane, especially ACKs.
+          if (e.data.indexOf('"peer-ready"') !== -1) despertarAntientropia();
+          return;
+        }
         emitir("message", { data: e.data, peerAccepted: false, relaySource: "peer-live" });
       });
       w.addEventListener("close", function () { if (vivo === w) vivo = null; });
@@ -297,30 +361,88 @@
     function reprobarH(x, j) {
       var t = setInterval(function () {
         if (cerradoH || x.ws.readyState >= 2) return clearInterval(t);
+        if (healthProbe || Date.now() - ultimoSondeo < 30000) return; // hysteresis; no retry storm
         for (var n = 0; n < j && n < capas.length; n++) {
           var viva = subs.some(function (o) { return o.orden === n && o.ws.readyState < 2; });
-          if (!viva && (esFoto(url) ? usableFotos : usable)(capas[n])) { clearInterval(t); reiniciar("earlier durable layer available again"); return; }
+          if (viva || !(esFoto(url) ? usableFotos : usable)(capas[n])) continue;
+          // A cleared budget pause is not proof that Supabase is healthy.
+          // Keep Firebase feeding the app while a ONE-shot preferred socket
+          // answers a real HEAD. Probe never owns a business cursor or ACK.
+          ultimoSondeo = Date.now();
+          var probe;
+          try { probe = envolver(capas[n], url); } catch (_) { return; }
+          healthProbe = probe;
+          var ended = false, watchdog = null;
+          function terminarProbe() {
+            if (ended) return; ended = true;
+            clearTimeout(watchdog);
+            if (healthProbe === probe) healthProbe = null;
+            try { if (probe.readyState < 2) probe.close(1000, "health probe finished"); } catch (_) {}
+          }
+          probe.addEventListener("open", function () {
+            try { probe.send(HEAD); } catch (_) { terminarProbe(); }
+          });
+          probe.addEventListener("message", function (e) {
+            if (!cabezaValida(e.data) || cerradoH || ended) return;
+            terminarProbe();
+            reiniciar("earlier durable layer verified by HEAD");
+          });
+          probe.addEventListener("close", terminarProbe);
+          probe.addEventListener("error", terminarProbe);
+          watchdog = setTimeout(terminarProbe, 2500);
+          break;
         }
       }, 5000);
       if (t && t.unref) t.unref();
     }
     function agregar(ws, orden) {
-      var x = { ws: ws, orden: orden, abrio: false };
+      var x = { ws: ws, orden: orden, abrio: false, verificado: false };
       subs.push(x);
       try { ws.binaryType = bin; } catch (_) {}
       ws.addEventListener("open", function () {
         x.abrio = true;
-        // A more preferred layer answered: the less preferred ones stop. A never-opened one is closed with no code
-        // so envolver() does not count it as a refusal and pause that layer.
-        subs.forEach(function (o) {
-          if (o.orden <= orden || o.ws.readyState > 1) return;
-          try { if (o.ws.readyState === 1) o.ws.close(1000, "first layer answered"); else o.ws.close(); } catch (_) {}
-        });
-        // The app already opened on a lower layer: restart so its catch-up and checkpoint reach this preferred layer.
-        if (emitidoOpen && !cerradoH) { reiniciar("first layer answered"); return; }
-        if (!emitidoOpen && !cerradoH) { emitidoOpen = true; emitir("open", {}); }
+        if (!emitidoOpen && !cerradoH) {
+          alimentador = orden; emitidoOpen = true; emitir("open", {});
+          return;
+        }
+        if (cerradoH) return;
+        if (orden > alimentador && subs.some(function (a) {
+          return a.orden === alimentador && a.verificado && a.ws.readyState === 1;
+        })) {
+          // A late inferior socket may not displace a healthy preferred one.
+          try { ws.close(1000, "preferred layer verified"); } catch (_) {}
+          return;
+        }
+        // A late preferred layer is PROBED before we release a working
+        // fallback. A silent OPEN socket is never a promotion certificate.
+        try { ws.send(HEAD); } catch (_) {}
       });
       ws.addEventListener("message", function (e) {
+        if (cabezaValida(e.data)) {
+          x.verificado = true;
+          if (emitidoOpen && !cerradoH && x.orden !== alimentador) {
+            if (x.orden < alimentador) {
+              reiniciar("preferred layer verified by HEAD"); return;
+            }
+            var viejo = subs.filter(function (z) { return z.orden === alimentador; })[0];
+            if (viejo && !viejo.verificado) {
+              // An OPEN but silent layer trapped the PWA. Quarantine only this
+              // transport briefly so the restarted Yjs pull reads the working
+              // fallback. No business data, PIN, or cursor is rewritten.
+              var cap = capas[viejo.orden];
+              if (cap) {
+                if (esFoto(url)) pausarFotos(cap, 30000);
+                else { var state = leer(cap.key); state.pausaHasta = Math.max(state.pausaHasta || 0, Date.now() + 30000); guardar(cap.key, state); }
+              }
+              reiniciar("silent preferred layer; fallback verified"); return;
+            }
+          }
+        }
+        // Health proof for the serving layer can release a late lower-priority
+        // socket without generating a fresh pull on the already healthy room.
+        if (x.orden === alimentador && x.verificado) subs.forEach(function (o) {
+          if (o.orden > alimentador && o.ws.readyState < 2) try { o.ws.close(1000, "preferred layer verified"); } catch (_) {}
+        });
         // peer-sync.js emits "peer-ready" (a peer connected; no business data) without peerAccepted; sync-yjs needs it.
         /* v662 (sync3 speed review 2026-11-04): v659 dropped every peer frame without peerAccepted, so a room left on
            direct peers received NO business data. The app itself filters what needs filtering; H forwards everything
@@ -361,12 +483,25 @@
     // One 3 s timer per started layer: still nothing open -> start the next one (never closes the earlier ones).
     function armar() {
       if (typeof setTimeout !== "function" || !CASCADA_MS) return;
-      var t = setTimeout(function () { if (!cerradoH && abiertas().length === 0) siguiente(); }, CASCADA_MS);
+      var t = setTimeout(function () {
+        // OPEN without a validated HEAD can be a dead iPhone socket.
+        if (!cerradoH && !subs.some(function (x) { return x.ws.readyState === 1 && x.verificado; })) siguiente();
+      }, CASCADA_MS);
       if (t && t.unref) t.unref();
     }
-    tried[i0] = true; agregar(ws0, i0); armar(); abrirVivo();
+    tried[i0] = true; agregar(ws0, i0);
+    // Starting directly on Firebase (Supabase previously refused or exhausted
+    // its quota) MUST also monitor the higher layer. Previously only a fallback
+    // added inside H had a health re-probe; initial Firebase rooms stayed split.
+    if (i0 > 0) reprobarH(subs[0], i0);
+    armar(); abrirVivo();
     Object.defineProperties(H, {
       capaPrincipal: { get: function () { return ws0; } },
+      relayLayer: { get: function () {
+        var active = abiertas().filter(function (x) { return x.orden < capas.length; })
+          .sort(function (a, b) { return a.orden - b.orden; })[0];
+        return active ? capas[active.orden].key : (abiertas().length ? "peer" : null);
+      } },
       carrilVivo: { get: function () { return vivo ? vivo.readyState : null; } }, // v662 diagnostics: live lane state
       readyState: { get: function () { return cerradoH ? 3 : abiertas().length ? 1 : 0; } },
       peerOnly: { get: function () { var l = abiertas(); if (!l.length) l = subs; return l.length > 0 && l.every(function (x) { return x.ws.peerOnly === true; }); } },
@@ -420,7 +555,9 @@
         var ws; try { ws = envolver(capas[i], url); } catch (_) { continue; }
         // On a fallback layer, re-probe the earlier layers when their pause ends: the app reconnects, the earlier
         // layer gets this device's full-state checkpoint, and devices split across layers converge again.
-        if (i > 0) reprobar(ws, capas.slice(0, i), url);
+        // The wrapped cascade already probes higher layers for real HEAD.
+        // The old budget-only timer would otherwise race it and force a split.
+        if (i > 0 && !(typeof setTimeout === "function" && CASCADA_MS)) reprobar(ws, capas.slice(0, i), url);
         try { arrancarSondas(ws, capas[i], url); } catch (_) {}
         // v659: with no timers the first layer stands alone (nothing could ever start the fallback).
         return typeof setTimeout === "function" && CASCADA_MS ? cascada(url, ws, i) : ws;

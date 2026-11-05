@@ -13,15 +13,22 @@ function fixture() {
   const seeds = [];
   const context = {
     crypto: require('node:crypto').webcrypto, TextEncoder,
-    API: { fotosCanal: {}, fotosDoc: {}, fotosMap: blobs },
+    // Production Y.Doc exposes on/off; the seed observes update events to
+    // detect whether Y.applyUpdate actually produced a new durable change.
+    API: { fotosCanal: {}, fotosDoc: {
+      _listeners: new Map(),
+      on(event, cb) { this._listeners.set(event, cb); },
+      off(event, cb) { if (this._listeners.get(event) === cb) this._listeners.delete(event); },
+      emit(event) { this._listeners.get(event)?.(); }
+    }, fotosMap: blobs },
     window: {
       OCSync: { catalogoPropio: () => catalog },
       // Exercise the legacy adapter without leerTodosPorHash, too.
       OCFotos: { leerPorHash: async hash => hash === 'synthetic-receipt' ? photo : null },
       Y: {
-        Doc: class { constructor() { this.blobs = new Map(); } getMap() { return this.blobs; } destroy() {} },
+        Doc: class { constructor() { this.blobs = new Map(); this.listeners = new Map(); } getMap() { return this.blobs; } on(name, fn) { this.listeners.set(name, fn); } off(name, fn) { if (this.listeners.get(name) === fn) this.listeners.delete(name); } emit(name) { this.listeners.get(name)?.(); } destroy() {} },
         encodeStateAsUpdate: doc => Array.from(doc.blobs),
-        applyUpdate: (_doc, update) => seeds.push(update),
+        applyUpdate: (doc, update) => { seeds.push(update); doc.emit?.("update"); },
       },
     },
   };

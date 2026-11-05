@@ -148,12 +148,15 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     const saved=await b.evaluate(async()=>await OCEstadoIDB.leer());assert.equal(saved.productos[0].record.stock,6);
     await b.close();
     const reopened=await boot(second,null);
-    await reopened.waitForFunction(()=>doc.getMap('business').get('record')?.total===43.25,{},{timeout:5000});
+    await reopened.waitForFunction(()=>!channel.recuperando&&doc.getMap('business').get('record')?.total===43.25,{},{timeout:10000});
     assert.equal(await reopened.evaluate(()=>doc.getMap('business').get('record').photo),seed.photo);
     // Third isolated browser joins AFTER the first two have exchanged and
     // one was re-opened: it must receive exact history and pass new moves back.
     const c=await boot(third,null);
-    await c.waitForFunction(()=>doc.getMap('business').get('record')?.total===43.25,{},{timeout:12000});
+    // Finish the THIRD peer's initial journal recovery before deliberately
+    // turning off its disk: otherwise the test races a partially joined browser
+    // against a new sale and measures bootstrap rejection, not the sale ACK.
+    await c.waitForFunction(()=>!channel.recuperando&&doc.getMap('business').get('record')?.total===43.25,{},{timeout:12000});
     // One of two receiving browsers cannot commit. ACK from the other must
     // NOT retire the sender's outbox while an active peer remains uncommitted.
     await c.evaluate(()=>{allowed=false;});
