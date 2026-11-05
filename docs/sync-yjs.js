@@ -2234,13 +2234,17 @@
   var _fotosSembradas = {};
   API.sembrarFotos = sembrarFotosAlRelay; // v652: the stuck-history path reaches this too; bytes still travel by peers only
   function sembrarFotosAlRelay() {
-    if (!window.OCFotos || !window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
+    if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
+    // A restored encrypted Yjs photo remains recoverable when the iOS PWA's
+    // IndexedDB/OCFotos is unavailable. Do not gate Yjs-only reseeding on IDB.
     // Primero: dar hash a las fotos de PRODUCTO que solo estaban inline (v290 fix:
     // la foto de producto no cruzaba porque no tenia fotoHash ni iba por el canal).
-    Promise.resolve(window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0).then(function () {
+    Promise.resolve().then(function () {
+      return window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0;
+    }).catch(function () { return 0; }).then(function () {
       // v664: perchas con foto solo por id (formato viejo) reciben su puntero fotoHash.
       return window.OCSync.hashearFotosPerchas ? window.OCSync.hashearFotosPerchas() : 0;
-    }).then(function () {
+    }).catch(function () { return 0; }).then(function () {
       var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
       var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
       var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean);
@@ -2250,17 +2254,25 @@
          Esos blobs son EVIDENCIA del cliente y deben poder volver desde otro
          dispositivo. leerTodosPorHash() no inventa asociaciones: solo enumera
          hash->bytes. Se reenvian individualmente, igual que las fotos en uso. */
-      Promise.resolve(window.OCFotos.leerTodosPorHash ? window.OCFotos.leerTodosPorHash() : {}).then(function (todos) {
+      Promise.resolve(window.OCFotos && window.OCFotos.leerTodosPorHash ? window.OCFotos.leerTodosPorHash() : {})
+        .catch(function () { return {}; }).then(function (todos) {
         var hashes = {};
         hUbic.concat(hProd, hGastos).forEach(function (h) { if (h) hashes[String(h)] = 1; });
         Object.keys(todos || {}).forEach(function (h) { hashes[String(h)] = 1; });
+        // Yjs is a second content-addressed photo source, even if IDB failed.
+        // Preserve unreferenced evidence without creating arbitrary pointers.
+        try { if (API.fotosMap && API.fotosMap.forEach) API.fotosMap.forEach(function (bytes, h) {
+          if (bytes) hashes[String(h)] = 1;
+        }); } catch (_) {}
         // The rooms on Supabase and Firebase store DIFFERENT encrypted histories.
         // A photo seeded on one is not certified to exist on the other.
         var capaFoto = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
         Object.keys(hashes).forEach(function (hash) {
           if (_fotosSembradas[hash] && _fotosSembradas[hash][capaFoto]) return;
           var local = todos && todos[hash];
-          Promise.resolve(local || window.OCFotos.leerPorHash(hash)).then(async function (dataUrl) {
+          Promise.resolve(local || (window.OCFotos && window.OCFotos.leerPorHash ? window.OCFotos.leerPorHash(hash) : null))
+            .then(function (bytes) { return bytes || (API.fotosMap && API.fotosMap.get(hash)) || null; })
+            .then(async function (dataUrl) {
             if (!dataUrl) return;
             try {
                 // An immutable photo must not gain a new Yjs identity on every
