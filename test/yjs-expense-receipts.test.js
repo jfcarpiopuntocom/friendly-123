@@ -19,9 +19,9 @@ function fixture() {
       // Exercise the legacy adapter without leerTodosPorHash, too.
       OCFotos: { leerPorHash: async hash => hash === 'synthetic-receipt' ? photo : null },
       Y: {
-        Doc: class { constructor() { this.blobs = new Map(); } getMap() { return this.blobs; } destroy() {} },
+        Doc: class { constructor() { this.blobs = new Map(); this.listeners = new Map(); } getMap() { return this.blobs; } on(name, fn) { this.listeners.set(name, fn); } off(name, fn) { if (this.listeners.get(name) === fn) this.listeners.delete(name); } emit(name) { this.listeners.get(name)?.(); } destroy() {} },
         encodeStateAsUpdate: doc => Array.from(doc.blobs),
-        applyUpdate: (_doc, update) => seeds.push(update),
+        applyUpdate: (doc, update) => { seeds.push(update); doc.emit?.("update"); },
       },
     },
   };
