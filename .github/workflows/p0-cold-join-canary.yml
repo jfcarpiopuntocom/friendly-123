@@ -1,0 +1,26 @@
+name: P0 cold-join PIN budget and recovery gate
+on:
+  pull_request:
+    paths:
+      - "scripts/canario-union-fria.cjs"
+      - "test/canario-union-fria-guard.test.cjs"
+      - ".github/workflows/p0-cold-join-canary.yml"
+  push:
+    branches: [master]
+    paths:
+      - "scripts/canario-union-fria.cjs"
+      - "test/canario-union-fria-guard.test.cjs"
+      - ".github/workflows/p0-cold-join-canary.yml"
+permissions:
+  contents: read
+jobs:
+  pin-budget:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Guard PIN budget and catalog readiness
+        run: node --test test/canario-union-fria-guard.test.cjs
