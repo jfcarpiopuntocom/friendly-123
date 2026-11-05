@@ -6,6 +6,7 @@ on:
       - 'docs/sync-yjs.js'
       - 'test/relay-selector.test.cjs'
       - 'test/v670-cross-layer-photo-seed.test.cjs'
+      - 'test/v670-post-pull-checkpoint.test.cjs'
       - '.github/workflows/v670-cross-browser-sync.yml'
   workflow_dispatch:
 jobs:
@@ -23,6 +24,7 @@ jobs:
           node --check docs/sync-yjs.js
           node --check test/relay-selector.test.cjs
           node --check test/v670-cross-layer-photo-seed.test.cjs
+          node --check test/v670-post-pull-checkpoint.test.cjs
       - name: Reproduce missing cross-layer images and inventory antientropy
         run: |
           node --test --test-concurrency=1 \
@@ -30,6 +32,7 @@ jobs:
             test/relay-sondas-v644.test.cjs \
             test/yjs-photo-seed-stable.test.js \
             test/v670-cross-layer-photo-seed.test.cjs \
+            test/v670-post-pull-checkpoint.test.cjs \
             test/v669-photo-pwa-durable-retry.test.cjs \
             test/stock-epoch-legacy-convergencia-v651.test.js \
             test/photo-integrity.test.js \
