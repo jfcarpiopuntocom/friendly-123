@@ -4,8 +4,10 @@ on:
     paths:
       - 'docs/relay-selector.js'
       - 'docs/sync-yjs.js'
+      - 'docs/mock-backend.js'
       - 'test/relay-selector.test.cjs'
       - 'test/v669-photo-pwa-durable-retry.test.cjs'
+      - 'test/photo-integrity.test.js'
       - '.github/workflows/v669-pwa-photo-stock.yml'
   workflow_dispatch:
 jobs:
@@ -21,5 +23,6 @@ jobs:
         run: |
           node --check docs/relay-selector.js
           node --check docs/sync-yjs.js
+          node --check docs/mock-backend.js
       - name: Run synthetic first-join and photo persistence regressions
-        run: node --test --test-concurrency=1 test/relay-selector.test.cjs test/v669-photo-pwa-durable-retry.test.cjs
+        run: node --test --test-concurrency=1 test/relay-selector.test.cjs test/v669-photo-pwa-durable-retry.test.cjs test/photo-integrity.test.js
