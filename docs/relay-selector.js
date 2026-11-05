@@ -83,10 +83,12 @@
   }
   function headVisto(url) { try { return _headFb[url] || localStorage.getItem(claveHead(url)) || null; } catch (_) { return _headFb[url] || null; } }
   function anotarHead(url, v) { _headFb[url] = v; try { localStorage.setItem(claveHead(url), v); } catch (_) {} }
-  function leerFirebase(ws) {
+  function leerFirebase(ws, url) {
     var cs = capas[0];
     if (!OTRA_CAPA_LEER_MS || !ws || !cs || cs.relay === fb) return;
-    var c = leer(cs.key); c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS); guardar(cs.key, c);
+    // A photo-only bootstrap must never pause inventory/money on the preferred relay.
+    if (esFoto(url)) pausarFotos(cs, OTRA_CAPA_LEER_MS);
+    else { var c = leer(cs.key); c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS); guardar(cs.key, c); }
     var ir = function () { try { ws.close(1012, "another device wrote on the next durable layer"); } catch (_) {} };
     if (ws.readyState === 1) ir(); else if (ws.readyState === 0) ws.addEventListener("open", ir);
   }
@@ -106,7 +108,7 @@
       // Replay is encrypted and idempotent; never compare numerical cursors across relays.
       var fallbackTieneHistoria = Number(h.rev) > 0 || Number(h.seq) > 0;
       if ((antes && antes !== ahora) || (fallbackTieneHistoria && headAplicado(url) !== ahora)) {
-        _otraCapaEn = Date.now(); leerFirebase(ws);
+        _otraCapaEn = Date.now(); leerFirebase(ws, url);
       }
     }).catch(function () { try { sumarBajada(capaFb); } catch (_) {} });
   }
