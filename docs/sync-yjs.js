@@ -2254,8 +2254,11 @@
         var hashes = {};
         hUbic.concat(hProd, hGastos).forEach(function (h) { if (h) hashes[String(h)] = 1; });
         Object.keys(todos || {}).forEach(function (h) { hashes[String(h)] = 1; });
+        // The rooms on Supabase and Firebase store DIFFERENT encrypted histories.
+        // A photo seeded on one is not certified to exist on the other.
+        var capaFoto = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
         Object.keys(hashes).forEach(function (hash) {
-          if (_fotosSembradas[hash]) return;
+          if (_fotosSembradas[hash] && _fotosSembradas[hash][capaFoto]) return;
           var local = todos && todos[hash];
           Promise.resolve(local || window.OCFotos.leerPorHash(hash)).then(async function (dataUrl) {
             if (!dataUrl) return;
@@ -2273,9 +2276,25 @@
                 d.clientID = parseInt(seedHex.slice(0, 13), 16) + 4294967296;
               d.getMap("blobs").set(hash, dataUrl);
               var u = window.Y.encodeStateAsUpdate(d);
-              _fotosSembradas[hash] = 1;
-              try { window.Y.applyUpdate(API.fotosDoc, u, "seed"); } catch (_) {}
-                d.destroy();
+              var huboUpdate = false, docFotos = API.fotosDoc;
+              function observarUpdate() { huboUpdate = true; }
+              // If the same deterministic blob is already in this Y.Doc,
+              // Y.applyUpdate is a NO-OP. In v669 that meant the second relay
+              // never got a durable op, even though the seed flag said "done".
+              try {
+                docFotos.on("update", observarUpdate);
+                try { window.Y.applyUpdate(docFotos, u, "seed"); }
+                finally { docFotos.off("update", observarUpdate); }
+                // Otherwise the ordinary Yjs on(update) already queued it.
+                if (!huboUpdate && API.fotosCanal && typeof API.fotosCanal.enviarUpdate === "function") {
+                  API.fotosCanal.enviarUpdate(u);
+                }
+                if (!_fotosSembradas[hash]) _fotosSembradas[hash] = {};
+                _fotosSembradas[hash][capaFoto] = 1;
+              } catch (_) {
+                // No success flag: the next layer/session can retry.
+                try { docFotos.off("update", observarUpdate); } catch (__) {}
+              } finally { d.destroy(); }
             } catch (_) {}
           }).catch(function () {});
         });
