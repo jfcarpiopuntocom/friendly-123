@@ -9,7 +9,10 @@ const vm = require('node:vm');
 
 async function relayFixture(groups) {
   const rows = {};
-  groups.forEach(([key, s, bytes]) => { rows[key] = { s, c: Buffer.from(bytes).toString('base64') }; });
+  groups.forEach(([key, s, bytes]) => { rows[key] = {
+    s, c: typeof bytes === 'string' && bytes.startsWith('raw:') ?
+      bytes.slice(4) : Buffer.from(bytes).toString('base64')
+  }; });
   let equalityReads = 0, pageReads = 0;
   const fetchFn = async url => {
     const parsed = new URL(url);
@@ -104,4 +107,29 @@ test('budget boundary inside same timestamp must not cut off siblings', async ()
   assert.equal(await w.pullAll(20), 101);
   assert.equal(w.delivered.length, data.length);
   assert.equal(new Set(w.delivered).size, data.length);
+});
+
+test('bad base64 never acknowledges or marks timestamp as durably replayed',async()=>{
+  const w=await relayFixture([['valid',100,'hello'],['invalid',100,'raw:not-base64@@']]);
+  w.socket.send(JSON.stringify({k:'pull',v:2,rev:0,seq:0,limit:12}));
+  await w.socket._reads;
+  assert.equal(w.pages.length,0,'corrupt ciphertext must not advance pull cursor');
+  assert.equal(w.delivered.length,0,'validate all peers before emitting partial timestamp');
+  assert.equal(w.socket.readyState,3,'close to trigger another transport/recovery');
+});
+test('timestamp group above fixed item cap must fail closed without partial ACK',async()=>{
+  const rows=Array.from({length:257},(_,i)=>['x'+String(i).padStart(4,'0'),777,'item-'+i]);
+  const w=await relayFixture(rows);
+  w.socket.send(JSON.stringify({k:'pull',v:2,rev:0,seq:0,limit:12}));
+  await w.socket._reads;
+  assert.equal(w.pages.length,0);
+  assert.equal(w.socket.readyState,3);
+});
+test('group above bounded JSON byte limit must not download unbounded or claim recovery',async()=>{
+  const rows=Array.from({length:64},(_,i)=>['b'+String(i).padStart(3,'0'),888,'x'.repeat(65000)]);
+  const w=await relayFixture(rows);
+  w.socket.send(JSON.stringify({k:'pull',v:2,rev:0,seq:0,limit:12}));
+  await w.socket._reads;
+  assert.equal(w.pages.length,0);
+  assert.equal(w.socket.readyState,3);
 });
