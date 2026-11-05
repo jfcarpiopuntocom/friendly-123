@@ -2024,6 +2024,8 @@
     conectarHechos();    // cartera y caja chica: hechos inmutables por ID
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
     if (API.fotosIdb && API.fotosIdb.once) API.fotosIdb.once("synced", pedirVolcarFotos);
+    // v667: el catalogo cargado de IndexedDB tambien rehidrata punteros de foto vacios (tras la hidratacion local).
+    if (API.idb && API.idb.once) API.idb.once("synced", function () { setTimeout(pedirVolcarFotos, 1500); });
     // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
     if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
     API.estado = "activo";
@@ -2163,12 +2165,12 @@
     var i = 0;
     (function next() {
       if (i >= pend.length) {
-        if (hubo) {
-          // v290: hidratar fotos de PRODUCTO (poner p.foto desde el hash recibido)
-          // para que la UI, que pinta p.foto, muestre la foto que cruzo.
-          try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
-          try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
-        }
+        // v667: hidratar SIEMPRE (no solo si llegaron bytes nuevos): tambien readopta punteros de foto
+        // vacios desde el catalogo compartido (aparato dañado antes de v665). Idempotente.
+        // v290: hidratar fotos de PRODUCTO (poner p.foto desde el hash recibido)
+        // para que la UI, que pinta p.foto, muestre la foto que cruzo.
+        try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
+        if (hubo) { try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
         return;
       }
       var hash = pend[i][0], dataUrl = pend[i][1]; i++;

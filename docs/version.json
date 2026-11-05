@@ -1,10 +1,10 @@
 {
-  "version": "shell v666",
+  "version": "shell v667",
   "fecha": "2026-11-03",
-  "changelog": "When two devices are open, changes travel directly between them in about 165 ms; the backup layers still keep everything. Everything in v665 is kept.",
+  "changelog": "A device that had lost the link to a product or shelf photo takes it back from the sync and shows the photo again. Nothing is replaced or deleted. Everything in v666 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v666",
+  "shell": "f123-shell-v667",
   "apagar": [],
-  "releaseName": "shell v666",
-  "cacheGeneration": "golden212"
+  "releaseName": "shell v667",
+  "cacheGeneration": "golden213"
 }
