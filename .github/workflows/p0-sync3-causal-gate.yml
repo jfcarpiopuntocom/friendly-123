@@ -1,0 +1,27 @@
+name: P0 Sync3 causal HEAD regression
+on:
+  pull_request:
+    paths:
+      - "docs/sync-yjs.js"
+      - "test/sync3-head-causal-gap.test.cjs"
+      - "test/yjs-unresolved-checkpoint.test.js"
+      - ".github/workflows/p0-sync3-causal-gate.yml"
+  push:
+    branches: [master]
+    paths:
+      - "docs/sync-yjs.js"
+      - "test/sync3-head-causal-gap.test.cjs"
+      - ".github/workflows/p0-sync3-causal-gate.yml"
+permissions:
+  contents: read
+jobs:
+  sync3-causal-head:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Real Yjs causal HEAD and checkpoint contracts (synthetic; no relay I/O)
+        run: node --test test/sync3-head-causal-gap.test.cjs test/yjs-unresolved-checkpoint.test.js
