@@ -90,3 +90,21 @@ test("SYNC3 RED: a newer relay HEAD abandons any stale causal backfill cursor",a
  assert.deepEqual([cmd.rev,cmd.seq],[3,120],"new relay work must continue from confirmed durable cut");
  assert.equal(state.rescateCausalDesde,null,"obsolete causal cursor cannot drag a changed revision back");
 });
+
+test("SYNC3 RED: duplicate encrypted pages cannot renew the causal replay quota",async()=>{
+ const a=harness();a.ctx._replayUsed=2;
+ a.ctx._replayKey=a.ctx.clavePendientes();
+ const state=await head(a);
+ const start=src.indexOf("      ws.onmessage = function (ev) {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("      _directReceive = function (buf) {",start);
+ a.ctx.pullEstado=state;a.ctx._colaRecepcion=Promise.resolve();
+ a.ctx.API.clave={};a.ctx.guardarPullCursor=async()=>{};
+ vm.runInContext(src.slice(start,end),a.ctx);
+ for(const seq of [90,100,110,115]){
+   // Four apparently nonempty pages, none changes Yjs, so no causal progress.
+   a.ws.onmessage({data:JSON.stringify({k:"pull-page",rev:3,seq,more:true,n:1})});
+   await a.ctx._colaRecepcion;
+ }
+ assert.equal(a.ctx._replayUsed,2,"duplicate pages must not refresh the existing budget");
+ assert.equal(a.ctx._pullCursor.seq,120,"no durable rollback permitted");
+});
