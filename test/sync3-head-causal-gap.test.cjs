@@ -72,6 +72,7 @@ test("SYNC3 RED: a causal replay pauses after four pages and can resume at its n
  assert.equal(a.sent.filter(x=>x.k==="pull").length,4,"only four encrypted pages within one recovery window");
  assert.equal(state.enCurso,false,"pause without disconnecting or declaring recovery");
  assert.deepEqual([state.rescateCausalDesde.rev,state.rescateCausalDesde.seq],[3,115],"remember the uncommitted recovery position");
+ a.ctx._replayUsed=1; // the scheduler's next backoff tick authorizes a new bounded window
  await a.ctx.pedirPagina(a.ws,state);
  await a.ctx.procesarHead(a.ws,state,{rev:3,seq:120});
  assert.equal(a.sent.at(-1).k,"pull");
