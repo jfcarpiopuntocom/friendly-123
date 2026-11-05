@@ -53,6 +53,20 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       catalogoIdbSincronizado: !!(y && y.idb && y.idb.synced === true),
       catalogoSinPendientesCausales: !!(y && y.doc && y.doc.store &&
         !y.doc.store.pendingStructs && !y.doc.store.pendingDs),
+      // Bounded, read-only causal evidence. Never print Yjs client IDs or room identifiers.
+      catalogoPendientesStructs: !!(y && y.doc && y.doc.store && y.doc.store.pendingStructs),
+      catalogoPendientesDs: !!(y && y.doc && y.doc.store && y.doc.store.pendingDs),
+      catalogoPadresFaltantes: (() => {
+        const missing = y && y.doc && y.doc.store && y.doc.store.pendingStructs &&
+          y.doc.store.pendingStructs.missing;
+        return missing && typeof missing.size === 'number' ? Math.min(9999, missing.size) : 0;
+      })(),
+      catalogoTransporte: (() => {
+        const ws = y && y.canal && y.canal.ws, layer = ws && ws.relayLayer;
+        return layer === 'f123_relay_cupo_v1' ? 'supabase' :
+          layer === 'f123_relay_cupo_fb_v1' ? 'firebase' :
+          layer === 'peer' || (ws && ws.peerOnly === true) ? 'peer' : 'unknown';
+      })(),
       cantidadProductos: y && y.mapas && y.mapas.productos ? y.mapas.productos.size : 0,
       cantidadFotos: y && y.fotosMap ? y.fotosMap.size : 0,
       tieneMetadatosPin: !!(y && y.meta && y.meta.get && (y.meta.get('pinsRol') || {}).owner),
@@ -92,6 +106,14 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       console.log('CANARIO_ETAPA: licencia y sala correctas');
       await p.waitForTimeout(5000);
       ultima = await diagnostico(p, LICENCIA);
+      console.log('CANARIO_CAUSAL_INICIO:', JSON.stringify({
+        catalogoPendientesStructs: ultima && ultima.catalogoPendientesStructs,
+        catalogoPendientesDs: ultima && ultima.catalogoPendientesDs,
+        catalogoPadresFaltantes: ultima && ultima.catalogoPadresFaltantes,
+        catalogoTransporte: ultima && ultima.catalogoTransporte,
+        cantidadProductos: ultima && ultima.cantidadProductos,
+        catalogoRecuperando: ultima && ultima.catalogoRecuperando
+      }));
       // Existing-store 789 must never be tested against a half-recovered
       // catalog: the true Owner PIN belongs to the encrypted store metadata.
       // Wait for *evidence*, not a blind 5-second timer; no PIN retries.
