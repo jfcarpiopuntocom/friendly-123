@@ -28,6 +28,8 @@ test('a later legacy count with a different base supersedes an older epoch witho
     stockActual:4, stockTs:2000 });
   const p = await read(w);
   assert.equal(p.stockActual, 4); assert.equal(p.stockBase, 5);
+  assert.equal(p.stockReconciliacionPendiente,true,
+    '4 is provisional when the counter had not observed offline PC movement');
   assert.equal(p.stockEvidencias[JSON.stringify([9,'old-epoch'])].pn.pc.sub, 2);
   assert.equal(p.stockEvidencias['5'].pn.phone.sub, 1);
 });
@@ -50,6 +52,9 @@ test('new physical count retains the previous PN ledger in exported backup', asy
   assert.deepEqual(JSON.parse(JSON.stringify(p.stockPN)), {});
   assert.equal(p.stockEvidencias[JSON.stringify([9,'old-epoch'])].pn.pc.sub, 2);
   assert.equal(p.stockEvidencias[JSON.stringify([9,'old-epoch'])].base, 9);
+  assert.equal(p.stockCountWitness.base,9);
+  assert.equal(p.stockCountWitness.epoch,'old-epoch');
+  assert.equal(p.stockCountWitness.pn.pc.sub,2);
 });
 
 test('three real Yjs replicas converge on the newer different-base legacy count and retain old witnesses', async () => {
@@ -100,9 +105,37 @@ test('three real Yjs replicas converge on the newer different-base legacy count 
     const p = await read(w);
     assert.equal(p.stockActual, 4, 'all three replicas must show latest confirmed legacy count');
     assert.equal(p.stockBase, 5);
+    assert.equal(p.stockReconciliacionPendiente,true,
+      'all replicas must retain unresolved concurrent physical count evidence');
     assert.equal(p.stockEvidencias[JSON.stringify([9, 'old-epoch'])].pn.pc.sub, 2,
       'previous PC movement retained for recovery');
     assert.equal(p.stockEvidencias['5'].pn.phone.sub, 1,
       'newer count evidence retained');
   }
+});
+
+test('a count with authenticated causal PN frontier can absorb exactly those known movements',async()=>{
+  const w=await fixture({base:9,epoch:'old-epoch',pn:{pc:{add:0,sub:2}},actual:7,ts:1000});
+  incoming(w,{stockBase:5,stockEpochId:'new-count',stockPN:{phone:{add:0,sub:1}},
+    stockActual:4,stockTs:2000,stockCountWitness:{
+      base:9,epoch:'old-epoch',pn:{pc:{add:0,sub:2}}
+    }});
+  const p=await read(w);
+  assert.equal(p.stockActual,4);
+  assert.notEqual(p.stockReconciliacionPendiente,true,
+    'a verified count can absorb previously observed PC movement only');
+  assert.equal(p.stockCountWitness.pn.pc.sub,2);
+});
+test('a count without PC witness preserves unknown causal fork through export',async()=>{
+  const w=await fixture({base:9,epoch:'old-epoch',pn:{pc:{add:0,sub:2}},actual:7,ts:1000});
+  incoming(w,{stockBase:5,stockEpochId:'new-count',stockPN:{phone:{add:0,sub:1}},
+    stockActual:4,stockTs:2000,stockCountWitness:{
+      base:9,epoch:'old-epoch',pn:{}
+    }});
+  const p=await read(w);
+  assert.equal(p.stockReconciliacionPendiente,true);
+  assert.equal(p.stockActual,4,'provisional count display, NOT an audited final stock');
+  const backup=await w.request('/api/respaldo/exportar');
+  assert.equal(backup.productos.find(x=>x.id==='v668-fixture').stockReconciliacionPendiente,true);
+  assert.equal(p.stockEvidencias[JSON.stringify([9,'old-epoch'])].pn.pc.sub,2);
 });
