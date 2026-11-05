@@ -1,10 +1,10 @@
 {
-  "version": "shell v668",
+  "version": "shell v669",
   "fecha": "2026-11-05",
-  "changelog": "Additive fixes: preserve previous physical stock-epoch evidence and reconcile newer legacy counts; Firebase replay does not skip same-timestamp encrypted frames, including photo chunks. All v667 features and business data are kept.",
+  "changelog": "Recover existing inventory and photo history across durable relay layers on first join; retain photo bytes and retry iPhone IndexedDB writes without deleting evidence. All v668 data and behavior preserved.",
   "requerida": false,
-  "shell": "f123-shell-v668",
+  "shell": "f123-shell-v669",
   "apagar": [],
-  "releaseName": "shell v668",
-  "cacheGeneration": "golden214"
+  "releaseName": "shell v669",
+  "cacheGeneration": "golden215"
 }
