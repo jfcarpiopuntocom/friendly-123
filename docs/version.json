@@ -1,10 +1,10 @@
 {
-  "version": "shell v670",
+  "version": "shell v673",
   "fecha": "2026-11-05",
-  "changelog": "Restore catalog, financial operations and product/shelf photos across browser/PWA relays: direct encrypted antientropy, per-relay photo seeding, and proven Firebase-to-Supabase recovery without a three-minute split. Preserve v669 stock ledger, PIN and local evidence.",
+  "changelog": "Sync3 causal recovery candidate: bounded encrypted re-read after the last proven clean Yjs cut when relay HEAD is unchanged; preserve durable cursors, stock movements and Owner PIN; no inventory migration.",
   "requerida": false,
-  "shell": "f123-shell-v670",
+  "shell": "f123-shell-v673",
   "apagar": [],
-  "releaseName": "shell v670",
-  "cacheGeneration": "golden216"
+  "releaseName": "shell v673",
+  "cacheGeneration": "golden217"
 }
