@@ -1,7 +1,7 @@
 'use strict';
 // JFC 2026-11-02: a device that connects catches up alone. Durable layers in order (Supabase, then Firebase), direct
 // peers only as the last fallback; each durable layer has its own per-device daily byte budget so a free plan
-// cannot burn again; photos never use a relay. No network: fake transports.
+// cannot burn again; photos get last-priority durable fallback plus an encrypted RTC fast lane. No network.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
@@ -318,10 +318,34 @@ test('v662: live lane beside the durable layer: binary both ways, never control 
   assert.ok(got.includes(b2)); assert.ok(!got.includes('{"k":"peers","n":2}'));
   h.close(1000, 'bye'); assert.equal(vivo.readyState, 3, 'live lane closes with the cascade');
 });
-test('v662: photos never open a live lane', () => {
-  const { w, R, made } = app(); w.F123_VIVO = true;
-  R.connect(URL1.replace(/-y$/, '-fotos'));
-  assert.equal(made.filter(x => x.kind === 'peer').length, 0);
+test('v670: catalog, ops and photo rooms use a parallel encrypted peer lane', () => {
+  for (const suffix of ['-y', '-ops', '-fotos']) {
+    const { w, R, made } = app(); w.F123_VIVO = true;
+    const url = URL1.replace(/-y$/, suffix), h = R.connect(url), got = [];
+    h.addEventListener('message', ev => got.push({
+      data: ev.data, source: ev.relaySource, peerAccepted: ev.peerAccepted
+    }));
+    const durable = made.find(x => x.kind === 'supabase');
+    const peer = made.find(x => x.kind === 'peer');
+    assert.ok(peer, suffix + ': RTC lane exists even if the durable socket opened');
+    durable.open(); peer.open();
+    assert.ok(got.some(x => x.source === 'peer-live' && x.data === '{"k":"peer-ready"}'),
+      suffix + ': initial connection wakes a state-vector exchange');
+    const helloCount = got.length;
+    peer.recv('{"k":"peer-ready"}');
+    assert.equal(got.length, helloCount + 1, suffix + ': reconnect wake is relayed');
+    peer.recv('{"k":"persist-result","id":"fake","ok":true}');
+    assert.equal(got.length, helloCount + 1, suffix + ': peer cannot forge durability');
+    const binary = new Uint8Array([1, 2, 3]).buffer;
+    h.send(binary); h.send('{"k":"op","id":"durable-only"}');
+    assert.deepEqual(peer.sent, [binary], suffix + ': RTC sends only encrypted binary');
+    assert.equal(durable.sent.length, 2, suffix + ': durable transport remains authoritative');
+    peer.recv(binary);
+    assert.ok(got.some(x => x.data === binary && x.source === 'peer-live' && x.peerAccepted === false),
+      suffix + ': peer bytes reach the app without false ACK');
+    h.close(1000, 'done');
+    assert.equal(peer.readyState, 3, suffix + ': RTC lifecycle tracks the notebook socket');
+  }
 });
 
 
