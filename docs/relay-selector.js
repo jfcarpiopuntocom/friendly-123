@@ -489,7 +489,12 @@
       }, CASCADA_MS);
       if (t && t.unref) t.unref();
     }
-    tried[i0] = true; agregar(ws0, i0); armar(); abrirVivo();
+    tried[i0] = true; agregar(ws0, i0);
+    // Starting directly on Firebase (Supabase previously refused or exhausted
+    // its quota) MUST also monitor the higher layer. Previously only a fallback
+    // added inside H had a health re-probe; initial Firebase rooms stayed split.
+    if (i0 > 0) reprobarH(subs[0], i0);
+    armar(); abrirVivo();
     Object.defineProperties(H, {
       capaPrincipal: { get: function () { return ws0; } },
       relayLayer: { get: function () {
