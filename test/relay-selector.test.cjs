@@ -28,7 +28,7 @@ function app(now = Date.parse('2026-11-02T12:00:00Z'), store = new Map(), fbHead
     F123Peer: { create: () => fake('peer') }, F123_VIVO: false, // v662 live lane dormant by default; its own tests turn it on
     EventTarget, Event, DOMException, JSON, Number, String,
     setInterval: fn => { timers.push(fn); return timers.length; }, clearInterval: () => {},
-    setTimeout: fn => { timeouts.push(fn); return timeouts.length; }
+    setTimeout: fn => { timeouts.push(fn); return timeouts.length; }, clearTimeout: () => {}
   };
   const clock = { now };
   w.Date = class extends Date { constructor(...a) { super(...(a.length ? a : [clock.now])); } static now() { return clock.now; } };
@@ -219,16 +219,21 @@ test('photos ride the durable cascade at last priority: only under half of the d
 });
 
 test('a device on the fallback layer goes back to the first layer when its pause ends (layers re-converge)', () => {
-  const { R, clock, tick } = app();
+  const { R, clock, tick, made } = app();
   sub(R.connect(URL1)).close(1011, 'relay route unavailable'); // Supabase refused → paused
-  const f = sub(R.connect(URL1)); f.open();
+  const h = R.connect(URL1), f = sub(h); f.open();
+  let hubCode = null; h.onclose = e => { hubCode = e.code; };
   assert.equal(f.kind, 'firebase');
   tick();
   assert.equal(f.closed, null, 'still paused: stays on Firebase');
   clock.now += 16 * 60 * 1000; // pause over
   tick();
-  assert.equal(f.closed && f.closed.code, 1012, 'fallback closed so the app reconnects');
-  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'reconnect lands on the first layer again');
+  assert.equal(hubCode, null, 'budget reopening does not prove relay health');
+  const probe = made[made.length - 1];
+  assert.equal(probe.kind, 'supabase', 'probe earlier layer without disrupting Firebase');
+  probe.open(); probe.recv(JSON.stringify({ k: 'head-result', rev: 2, seq: 1 }));
+  assert.equal(hubCode, 1012, 'validated Supabase HEAD permits reconnect');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase');
 });
 
 test('without peer-sync the budgets still apply and photos never fall back to a relay', () => {
@@ -431,8 +436,12 @@ test('v670: verified Firebase catch-up releases only the intentional Supabase pa
   assert.equal(firebase.closed, null, 'without a verified cursor the fallback stays active');
   h.markRecovered();
   A.tick();
-  assert.equal(firebase.closed?.code, 1012, 'verified replay returns to preferred layer immediately');
-  assert.equal(sub(A.R.connect(URL1)).kind, 'supabase', 'not split for three minutes');
+  assert.equal(firebase.closed, null, 'Firebase remains until Supabase proves health');
+  const probe = A.made[A.made.length - 1];
+  assert.equal(probe.kind, 'supabase');
+  probe.open(); probe.recv(JSON.stringify({ k: 'head-result', rev: 1, seq: 1 }));
+  assert.equal(h.readyState, 3, 'verified HEAD triggers a full Yjs reconnect');
+  assert.equal(sub(A.R.connect(URL1)).kind, 'supabase');
 });
 
 test('v670: photo recovery releases photo band, not unrelated business/quota pauses', async () => {
@@ -445,8 +454,12 @@ test('v670: photo recovery releases photo band, not unrelated business/quota pau
   assert.equal(firebase.kind, 'firebase'); firebase.open();
   assert.equal(sub(A.R.connect(URL1)).kind, 'supabase', 'the stock lane never paused');
   h.markRecovered(); A.tick();
-  assert.equal(firebase.closed?.code, 1012);
-  assert.equal(sub(A.R.connect(fotos)).kind, 'supabase', 'photo band resumes after complete replay');
+  assert.equal(firebase.closed, null, 'Firebase retains photos until Supabase responds');
+  const probe = A.made[A.made.length - 1];
+  assert.equal(probe.kind, 'supabase');
+  probe.open(); probe.recv(JSON.stringify({ k: 'head-result', rev: 1, seq: 1 }));
+  assert.equal(h.readyState, 3, 'verified HEAD triggers a photo channel reconnect');
+  assert.equal(sub(A.R.connect(fotos)).kind, 'supabase');
 
   // The same proof must NEVER erase a later, independent server refusal.
   const B = app(undefined, new Map(), head);
