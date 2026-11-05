@@ -353,3 +353,33 @@ test('v669: photos do not probe a Firebase photo band after its daily download q
   await espera(); await espera();
   assert.equal(first.closed, null, 'no extra bandwidth after exhausting the photo share');
 });
+
+test('v669: v668 previously saved an unchanged Firebase HEAD without applying any data; v669 must still replay', async () => {
+  const head = { value: { rev: 2, seq: 99 } }, store = new Map([
+    ['f123_fb_head_' + URL1.slice(-48), '2:99']
+  ]);
+  const A = app(undefined, store, head);
+  const preferred = sub(A.R.connect(URL1)); preferred.open();
+  await espera(); await espera();
+  assert.equal(preferred.closed?.code, 1012, 'a preexisting head is not proof of a completed encrypted pull');
+  const fb = A.R.connect(URL1);
+  assert.equal(sub(fb).kind, 'firebase', 'migrating v668 PWA is directed to catch up');
+  sub(fb).open();
+  fb.markRecovered();
+  assert.equal(store.get('f123_fb_aplicado_v669_' + URL1.slice(-48)), '2:99', 'the Yjs completion callback records applied HEAD');
+  const B = app(undefined, store, head);
+  const current = sub(B.R.connect(URL1)); current.open();
+  await espera(); await espera();
+  assert.equal(current.closed, null, 'a proven unchanged history does not download redundantly on each app launch');
+});
+
+test('v669: a photo history recovery does not pause inventory or payments on Supabase', async () => {
+  const head = { value: { rev: 0, seq: 88 } };
+  const A = app(undefined, new Map(), head);
+  const fotos = URL1.replace(/-y$/, '-fotos');
+  const s = sub(A.R.connect(fotos)); s.open();
+  await espera(); await espera();
+  assert.equal(s.closed?.code, 1012, 'the photo room switches to its existing archive');
+  assert.equal(sub(A.R.connect(fotos)).kind, 'firebase', 'only photos switch to Firebase');
+  assert.equal(sub(A.R.connect(URL1)).kind, 'supabase', 'inventory and money keep the preferred relay');
+});
