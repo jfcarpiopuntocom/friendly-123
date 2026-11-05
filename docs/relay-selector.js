@@ -289,6 +289,16 @@
   var CASCADA_MS = 3000;
   function cascada(url, ws0, i0) {
     var H = new EventTarget(), subs = [], emitidoOpen = false, emitidoClose = false, cerradoH = false, hubError = false, bin = "blob", tried = {}, ultimo = i0;
+    var alimentador = -1, healthProbe = null, ultimoSondeo = 0;
+    function cabezaValida(data) {
+      if (typeof data !== "string" || data.indexOf('"head-result"') === -1) return false;
+      try {
+        var h = JSON.parse(data);
+        return h.k === "head-result" && !h.unsupported &&
+          Number.isSafeInteger(Number(h.rev)) && Number.isSafeInteger(Number(h.seq)) &&
+          Number(h.rev) >= 0 && Number(h.seq) >= 0;
+      } catch (_) { return false; }
+    }
     function emitir(tipo, props) {
       var ev = new Event(tipo), k; for (k in props) ev[k] = props[k];
       try { H.dispatchEvent(ev); } catch (_) {}
@@ -351,30 +361,88 @@
     function reprobarH(x, j) {
       var t = setInterval(function () {
         if (cerradoH || x.ws.readyState >= 2) return clearInterval(t);
+        if (healthProbe || Date.now() - ultimoSondeo < 30000) return; // hysteresis; no retry storm
         for (var n = 0; n < j && n < capas.length; n++) {
           var viva = subs.some(function (o) { return o.orden === n && o.ws.readyState < 2; });
-          if (!viva && (esFoto(url) ? usableFotos : usable)(capas[n])) { clearInterval(t); reiniciar("earlier durable layer available again"); return; }
+          if (viva || !(esFoto(url) ? usableFotos : usable)(capas[n])) continue;
+          // A cleared budget pause is not proof that Supabase is healthy.
+          // Keep Firebase feeding the app while a ONE-shot preferred socket
+          // answers a real HEAD. Probe never owns a business cursor or ACK.
+          ultimoSondeo = Date.now();
+          var probe;
+          try { probe = envolver(capas[n], url); } catch (_) { return; }
+          healthProbe = probe;
+          var ended = false, watchdog = null;
+          function terminarProbe() {
+            if (ended) return; ended = true;
+            clearTimeout(watchdog);
+            if (healthProbe === probe) healthProbe = null;
+            try { if (probe.readyState < 2) probe.close(1000, "health probe finished"); } catch (_) {}
+          }
+          probe.addEventListener("open", function () {
+            try { probe.send(HEAD); } catch (_) { terminarProbe(); }
+          });
+          probe.addEventListener("message", function (e) {
+            if (!cabezaValida(e.data) || cerradoH || ended) return;
+            terminarProbe();
+            reiniciar("earlier durable layer verified by HEAD");
+          });
+          probe.addEventListener("close", terminarProbe);
+          probe.addEventListener("error", terminarProbe);
+          watchdog = setTimeout(terminarProbe, 2500);
+          break;
         }
       }, 5000);
       if (t && t.unref) t.unref();
     }
     function agregar(ws, orden) {
-      var x = { ws: ws, orden: orden, abrio: false };
+      var x = { ws: ws, orden: orden, abrio: false, verificado: false };
       subs.push(x);
       try { ws.binaryType = bin; } catch (_) {}
       ws.addEventListener("open", function () {
         x.abrio = true;
-        // A more preferred layer answered: the less preferred ones stop. A never-opened one is closed with no code
-        // so envolver() does not count it as a refusal and pause that layer.
-        subs.forEach(function (o) {
-          if (o.orden <= orden || o.ws.readyState > 1) return;
-          try { if (o.ws.readyState === 1) o.ws.close(1000, "first layer answered"); else o.ws.close(); } catch (_) {}
-        });
-        // The app already opened on a lower layer: restart so its catch-up and checkpoint reach this preferred layer.
-        if (emitidoOpen && !cerradoH) { reiniciar("first layer answered"); return; }
-        if (!emitidoOpen && !cerradoH) { emitidoOpen = true; emitir("open", {}); }
+        if (!emitidoOpen && !cerradoH) {
+          alimentador = orden; emitidoOpen = true; emitir("open", {});
+          return;
+        }
+        if (cerradoH) return;
+        if (orden > alimentador && subs.some(function (a) {
+          return a.orden === alimentador && a.verificado && a.ws.readyState === 1;
+        })) {
+          // A late inferior socket may not displace a healthy preferred one.
+          try { ws.close(1000, "preferred layer verified"); } catch (_) {}
+          return;
+        }
+        // A late preferred layer is PROBED before we release a working
+        // fallback. A silent OPEN socket is never a promotion certificate.
+        try { ws.send(HEAD); } catch (_) {}
       });
       ws.addEventListener("message", function (e) {
+        if (cabezaValida(e.data)) {
+          x.verificado = true;
+          if (emitidoOpen && !cerradoH && x.orden !== alimentador) {
+            if (x.orden < alimentador) {
+              reiniciar("preferred layer verified by HEAD"); return;
+            }
+            var viejo = subs.filter(function (z) { return z.orden === alimentador; })[0];
+            if (viejo && !viejo.verificado) {
+              // An OPEN but silent layer trapped the PWA. Quarantine only this
+              // transport briefly so the restarted Yjs pull reads the working
+              // fallback. No business data, PIN, or cursor is rewritten.
+              var cap = capas[viejo.orden];
+              if (cap) {
+                if (esFoto(url)) pausarFotos(cap, 30000);
+                else { var state = leer(cap.key); state.pausaHasta = Math.max(state.pausaHasta || 0, Date.now() + 30000); guardar(cap.key, state); }
+              }
+              reiniciar("silent preferred layer; fallback verified"); return;
+            }
+          }
+        }
+        // Health proof for the serving layer can release a late lower-priority
+        // socket without generating a fresh pull on the already healthy room.
+        if (x.orden === alimentador && x.verificado) subs.forEach(function (o) {
+          if (o.orden > alimentador && o.ws.readyState < 2) try { o.ws.close(1000, "preferred layer verified"); } catch (_) {}
+        });
         // peer-sync.js emits "peer-ready" (a peer connected; no business data) without peerAccepted; sync-yjs needs it.
         /* v662 (sync3 speed review 2026-11-04): v659 dropped every peer frame without peerAccepted, so a room left on
            direct peers received NO business data. The app itself filters what needs filtering; H forwards everything
@@ -415,7 +483,10 @@
     // One 3 s timer per started layer: still nothing open -> start the next one (never closes the earlier ones).
     function armar() {
       if (typeof setTimeout !== "function" || !CASCADA_MS) return;
-      var t = setTimeout(function () { if (!cerradoH && abiertas().length === 0) siguiente(); }, CASCADA_MS);
+      var t = setTimeout(function () {
+        // OPEN without a validated HEAD can be a dead iPhone socket.
+        if (!cerradoH && !subs.some(function (x) { return x.ws.readyState === 1 && x.verificado; })) siguiente();
+      }, CASCADA_MS);
       if (t && t.unref) t.unref();
     }
     tried[i0] = true; agregar(ws0, i0); armar(); abrirVivo();
@@ -479,7 +550,9 @@
         var ws; try { ws = envolver(capas[i], url); } catch (_) { continue; }
         // On a fallback layer, re-probe the earlier layers when their pause ends: the app reconnects, the earlier
         // layer gets this device's full-state checkpoint, and devices split across layers converge again.
-        if (i > 0) reprobar(ws, capas.slice(0, i), url);
+        // The wrapped cascade already probes higher layers for real HEAD.
+        // The old budget-only timer would otherwise race it and force a split.
+        if (i > 0 && !(typeof setTimeout === "function" && CASCADA_MS)) reprobar(ws, capas.slice(0, i), url);
         try { arrancarSondas(ws, capas[i], url); } catch (_) {}
         // v659: with no timers the first layer stands alone (nothing could ever start the fallback).
         return typeof setTimeout === "function" && CASCADA_MS ? cascada(url, ws, i) : ws;
