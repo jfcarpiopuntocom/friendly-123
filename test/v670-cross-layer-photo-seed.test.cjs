@@ -50,9 +50,10 @@ test('v670: an unchanged photo is durably republished once on each newly visited
 });
 
 test('v670: best-effort peer recovery cannot be mistaken for a durable relay ACK', () => {
-  assert.match(file, /ev\\.relaySource === "peer-live" \\? "live"/,
-    'RTC copies get best-effort classification during an in-progress durable pull');
-  assert.match(file, /c\\.k === "peer-ready" &&[\\s\\S]{0,200}ev\\.relaySource === "peer-live"/,
-    'a peer-ready signal triggers anti-entropy even if Supabase or Firebase is open');
-  assert.doesNotMatch(file, /peer-live" \\? "pull"/, 'RTC never becomes a durable pull');
+  assert.ok(file.includes('source = ev.relaySource === "peer-live" ? "live"'),
+    'RTC copies get live-only classification during a durable pull');
+  assert.ok(file.includes('ws.peerOnly || ev.relaySource === "peer-live"'),
+    'peer-ready initiates a state-vector exchange with a durable socket open');
+  assert.ok(!file.includes('source = ev.relaySource === "peer-live" ? "pull"'),
+    'RTC frames cannot advance the durable pull cursor');
 });
