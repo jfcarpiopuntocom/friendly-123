@@ -1028,9 +1028,10 @@
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
             !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
           canal.recuperando = false;
-          marcarReplayCifradoAplicado(sock);
+          if (estado.pullAplicado) marcarReplayCifradoAplicado(sock);
           if (nombre === "catalogo" && API._store) API._store.aplicar();
         }
+        if (estado.pullAplicado && !deudaPendiente()) marcarReplayCifradoAplicado(sock);
         programarRelectura(sock, estado);
         return Promise.resolve();
       }
@@ -1572,6 +1573,7 @@
                 }
                 return guardarPullCursor(c).then(function () {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
+                  pullEstado.pullAplicado = true; // verified ciphertext + durable cursor write/readback
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
                   // PendingStructs empty alone does NOT prove full history.
@@ -1581,7 +1583,7 @@
                       // Old relay has no HEAD: its fully received final page
                       // remains the completion proof. Never unlock with debt.
                       canal.recuperando = false;
-                      marcarReplayCifradoAplicado(ws);
+                      if (pullEstado.pullAplicado && !_soloMemoria) marcarReplayCifradoAplicado(ws);
                       if (nombre === "catalogo" && API._store) API._store.aplicar();
                     } else if (!pullEstado.validacionFinal) {
                       pullEstado.validacionFinal = true;
