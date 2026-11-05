@@ -151,7 +151,7 @@
     }
   }
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
-    var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
+    var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo", pendientes: function () { return _recvPend; } };
     var _pausado = false, _tReconnect = null;
     function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
     var MAX_OP_BYTES = 250 * 1024; // guard de operaciones; no relajar
@@ -170,6 +170,9 @@
                         // exponencial con jitter y tope 30s, como el sync viejo.
     var _tEstable = null;
     var _colaRecepcion = Promise.resolve();
+    /* eco-fix: binary frames received but not yet applied. During a history replay (pull pages of 64) this is >1;
+       a lone live frame sees 1 (itself). Used so the catalog is re-applied once per burst, not once per frame. */
+    var _recvPend = 0;
     var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;
     var _pullCursor = { rev: -1, seq: 0 }, _appliedPullCursor = { rev: -1, seq: 0 };
     var _pullCursorReady = Promise.resolve();
@@ -1418,7 +1421,12 @@
             if (antesSV) despertarConCambio(antesSV, antesClave);
             try {
               var receipt = Promise.resolve(false);
-              if (nombre === "catalogo" && API._catalogoRevision !== beforeRevision && typeof API.confirmarCatalogoVisible === "function")
+              /* eco-fix: confirmarCatalogoVisible() flushes aplicar() NOW. During a history replay that meant one full
+                 catalog re-apply (20-125 ms) per frame, and a live frame waited behind all of them. While more frames
+                 are queued behind this one (_recvPend > 1) the receipt is not issued (it is only a latency measurement,
+                 never a data path); the last frame of the burst flushes and certifies as before. */
+              if (nombre === "catalogo" && API._catalogoRevision !== beforeRevision && typeof API.confirmarCatalogoVisible === "function" &&
+                  !(source === "pull" && _recvPend > 1))
                 receipt = API.confirmarCatalogoVisible();
               // Bind the receipt now, not when a delayed request happens to arrive.
               // A duplicate/no-op update cannot borrow an unrelated successful render.
@@ -1464,6 +1472,7 @@
         // frames se encadenan: el cursor de una pagina se confirma DESPUES de
         // aplicar todos sus binarios, nunca antes.
         if (d instanceof ArrayBuffer) {
+          _recvPend++;
           _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source, ev.peerReceipt); }).then(function (ok) {
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
@@ -1475,14 +1484,15 @@
             if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++;
             try { log("frame Yjs no aplicable en " + nombre, e && e.message); } catch (_) {}
             return false;
-          });
+          }).then(function () { _recvPend--; });
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
+          _recvPend++;
           _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source, ev.peerReceipt); }).then(function (ok) {
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
-          }).catch(function () { if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++; });
+          }).catch(function () { if (source !== "live" && pullEstado.enCurso) pullEstado.fallos++; }).then(function () { _recvPend--; });
         }
         /* MEDICION DE LATENCIA (JFC 2026-09-22). Los frames de TEXTO hasta hoy
            se ignoraban por completo, asi que engancharse aqui es 100% aditivo:
@@ -3008,10 +3018,18 @@
          300 ms con CADA update y una ráfaga podía posponer indefinidamente el
          nombre/stock visible. El primer update agenda una aplicación próxima;
          los siguientes quedan incluidos en el mismo documento Yjs. */
-      if (!_tAplica) _tAplica = setTimeout(function () {
-        _tAplica = null;
-        aplicar();
-      }, 0); // v517: 0 ms (v516: 20, antes 100). Junta las rafagas del mismo instante
+      if (!_tAplica) {
+        var _desde = Date.now();
+        /* eco-fix: while frames are still queued (history replay), wait up to 400 ms from the first update so the
+           burst is applied once. A lone live update (nothing else queued) still applies with 0 ms delay. */
+        var _turno = function () {
+          var cola = API.canal && typeof API.canal.pendientes === "function" ? API.canal.pendientes() : 0;
+          if (cola > 1 && Date.now() - _desde < 400) { _tAplica = setTimeout(_turno, 25); return; }
+          _tAplica = null;
+          aplicar();
+        };
+        _tAplica = setTimeout(_turno, 0);
+      } // v517: 0 ms (v516: 20, antes 100). Junta las rafagas del mismo instante
     });
 
     // Arranque: cuando IndexedDB termina de cargar, primero APLICAMOS lo que ya
