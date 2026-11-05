@@ -98,7 +98,8 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       const recuperacionVerificada = d => !!(d && !d.lecturaDiagnosticoFallida &&
         d.tieneRoomYjs === true && d.tieneCanalCatalogo === true &&
         d.catalogoRecuperando === false && d.hidratacionLocalPendiente === false &&
-        d.catalogoIdbSincronizado === true && d.catalogoSinPendientesCausales === true);
+        d.catalogoIdbSincronizado === true && d.catalogoSinPendientesCausales === true &&
+        d.tieneMetadatosPin === true);
       const limiteRecuperacion = Date.now() + 20000;
       while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
