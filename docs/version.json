@@ -1,10 +1,10 @@
 {
-  "version": "shell v663",
+  "version": "shell v666",
   "fecha": "2026-11-03",
-  "changelog": "Each change saved to the backup layer reaches the server about 130 ms sooner. Everything in v662 is kept.",
+  "changelog": "Returns to the v663 behaviour while a stock counting problem on devices that start from zero is fixed.",
   "requerida": false,
-  "shell": "f123-shell-v663",
+  "shell": "f123-shell-v666",
   "apagar": [],
-  "releaseName": "shell v663",
-  "cacheGeneration": "golden209"
+  "releaseName": "shell v666",
+  "cacheGeneration": "golden212"
 }
