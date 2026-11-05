@@ -1,10 +1,10 @@
 {
-  "version": "shell v665",
+  "version": "shell v666",
   "fecha": "2026-11-03",
-  "changelog": "A device that already had a product photo keeps it when another device sends a newer change without the photo link. Everything in v664 is kept.",
+  "changelog": "When two devices are open, changes travel directly between them in about 165 ms; the backup layers still keep everything. Everything in v665 is kept.",
   "requerida": false,
-  "shell": "f123-shell-v665",
+  "shell": "f123-shell-v666",
   "apagar": [],
-  "releaseName": "shell v665",
-  "cacheGeneration": "golden211"
+  "releaseName": "shell v666",
+  "cacheGeneration": "golden212"
 }
