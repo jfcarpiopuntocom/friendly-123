@@ -57,3 +57,24 @@ test("SYNC3 RED: causal replay advances an ephemeral page cursor without committ
  assert.deepEqual([a.sent[2].rev,a.sent[2].seq],[3,100],"second page starts where first ended, never from durable 120");
  assert.equal(a.ctx._pullCursor.seq,120,"no durable cursor rollback during replay");
 });
+
+test("SYNC3 RED: a causal replay pauses after four pages and can resume at its next page",async()=>{
+ const a=harness();const state=await head(a);
+ const start=src.indexOf("      ws.onmessage = function (ev) {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("      _directReceive = function (buf) {",start);
+ a.ctx.pullEstado=state;a.ctx._colaRecepcion=Promise.resolve();
+ a.ctx.API.clave={};a.ctx.guardarPullCursor=async()=>{};
+ vm.runInContext(src.slice(start,end),a.ctx);
+ for(const seq of [90,100,110,115]){
+   a.ws.onmessage({data:JSON.stringify({k:"pull-page",rev:3,seq,more:true,n:1})});
+   await a.ctx._colaRecepcion;
+ }
+ assert.equal(a.sent.filter(x=>x.k==="pull").length,4,"only four encrypted pages within one recovery window");
+ assert.equal(state.enCurso,false,"pause without disconnecting or declaring recovery");
+ assert.deepEqual([state.rescateCausalDesde.rev,state.rescateCausalDesde.seq],[3,115],"remember the uncommitted recovery position");
+ await a.ctx.pedirPagina(a.ws,state);
+ await a.ctx.procesarHead(a.ws,state,{rev:3,seq:120});
+ assert.equal(a.sent.at(-1).k,"pull");
+ assert.deepEqual([a.sent.at(-1).rev,a.sent.at(-1).seq],[3,115],"next scheduled window resumes without re-downloading the same pages");
+ assert.equal(a.ctx._pullCursor.seq,120,"durable cursor remains at original proof");
+});
