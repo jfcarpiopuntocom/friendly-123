@@ -13,10 +13,10 @@ const settle = () => new Promise(resolve => setImmediate(resolve));
 
 function harness() {
   const events = [], docListeners = {}, windowListeners = {}, timers = [];
-  let durable = false, attempts = 0;
+  let durable = false, alreadyStored = false, attempts = 0;
   const w = {
     OCFotos: {
-      tieneHash: async () => false,
+      tieneHash: async () => alreadyStored,
       guardarPorHash: async () => { attempts++; return durable; }
     },
     OCSync: { hidratarFotosProductos() {} },
@@ -36,6 +36,7 @@ function harness() {
   return {
     scope, events, docListeners, windowListeners, timers,
     setDurable(v) { durable = v; },
+    setAlreadyStored(v) { alreadyStored = v; },
     attempts: () => attempts,
     pending: () => vm.runInContext('_fotosGuardadoPendiente', scope),
     flushTimer() { while (timers.length) timers.shift()(); }
@@ -72,4 +73,17 @@ test('v669: an already saved photo does not issue a false photo-persistence alar
   await settle(); await settle();
   assert.equal(h.pending(), false);
   assert.equal(h.events.includes('oc-fotos-persistencia-pendiente'), false);
+});
+
+test('v669: already-saved Yjs photos notify the shelf renderer once after initial hydration', async () => {
+  const h = harness();
+  h.setAlreadyStored(true);
+  vm.runInContext('volcarFotosAlStore()', h.scope);
+  await settle(); await settle();
+  assert.equal(h.attempts(), 0, 'existing image is not re-uploaded or rewritten');
+  assert.equal(h.events.filter(x => x === 'oc-fotos-actualizadas').length, 1, 'late shelf pointers get a single repaint');
+  assert.equal(h.pending(), false);
+  vm.runInContext('volcarFotosAlStore()', h.scope);
+  await settle(); await settle();
+  assert.equal(h.events.filter(x => x === 'oc-fotos-actualizadas').length, 1, 'no repaint loop');
 });
