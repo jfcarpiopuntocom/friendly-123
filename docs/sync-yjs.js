@@ -1061,7 +1061,12 @@
         programarRelectura(sock, estado);
         return Promise.resolve();
       }
-      if (valido) { _replayKey = null; _replayUsed = 0; estado.validacionFinal = false; }
+      if (valido) {
+        // A changed relay HEAD invalidates an old causal re-read cursor; resume
+        // from the still-proven durable cursor instead of replaying stale pages.
+        estado.rescateCausalDesde = null;
+        _replayKey = null; _replayUsed = 0; estado.validacionFinal = false;
+      }
       return pedirPagina(sock, estado, true); // newer revision or legacy server
     }
     function reprogramar() {
