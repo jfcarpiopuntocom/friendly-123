@@ -5,6 +5,9 @@ on:
       - 'docs/firebase-relay.js'
       - 'docs/mock-backend.js'
       - 'docs/sync-yjs.js'
+      - 'docs/peer-sync.js'
+      - 'test/v668-peer-rejoin-durable.test.cjs'
+      - 'test/v668-count-causal-boundary.test.cjs'
       - 'test/firebase-relay-timestamp-boundary.test.cjs'
       - 'test/stock-epoch-legacy-convergence.test.cjs'
       - '.github/workflows/v668-stock-firebase-regression.yml'
@@ -23,5 +26,6 @@ jobs:
           node --check docs/firebase-relay.js
           node --check docs/mock-backend.js
           node --check docs/sync-yjs.js
+          node --check docs/peer-sync.js
       - name: Run offline synthetic regressions (no production I/O)
-        run: node --test --test-concurrency=1 test/firebase-relay-timestamp-boundary.test.cjs test/stock-epoch-legacy-convergence.test.cjs
+        run: node --test --test-concurrency=1 test/firebase-relay-timestamp-boundary.test.cjs test/stock-epoch-legacy-convergence.test.cjs test/v668-count-causal-boundary.test.cjs test/v668-peer-rejoin-durable.test.cjs
