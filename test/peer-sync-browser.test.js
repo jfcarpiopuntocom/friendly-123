@@ -167,7 +167,11 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
     try { for(const page of [reopened,c])await page.waitForFunction(
       ()=>doc.getMap('business').get('record')?.total===46.25,{},{timeout:12000}); }
     catch(error){
-      const d=p=>p.evaluate(()=>({yo:channel.ws?.hub?.id?.slice(0,6),total:doc.getMap('business').get('record')?.total,rec:channel.recuperando,ws:channel.ws?.readyState,signal:channel.ws?.hub?.signal?.readyState,pend:channel.pendientesRelay,errs:rtcErrors.length,peers:[...(channel.ws?.hub?.peers?.values()||[])].map(p=>({id:p.id.slice(0,6),st:p.nativeStage,c:p.pc.connectionState,sig:p.pc.signalingState,dc:p.dc?.readyState})),store:fixtureStorage,sv:Array.from(Y.encodeStateVector(doc)).length,pendS:!!doc.store.pendingStructs}));
+      const d=p=>p.evaluate(()=>({yo:channel.ws?.hub?.id?.slice(0,6),total:doc.getMap('business').get('record')?.total,rec:channel.recuperando,ws:channel.ws?.readyState,signal:channel.ws?.hub?.signal?.readyState,pend:channel.pendientesRelay,errs:rtcErrors.length,peers:[...(channel.ws?.hub?.peers?.values()||[])].map(p=>({id:p.id.slice(0,6),st:p.nativeStage,c:p.pc.connectionState,sig:p.pc.signalingState,dc:p.dc?.readyState})),store:fixtureStorage,sv:Array.from(Y.encodeStateVector(doc)).length,pendS:!!doc.store.pendingStructs,
+        peerOnly:!!channel.ws?.peerOnly,liveQueue:channel.pend?.length||0,
+        directPeers:channel.paresDirectos||0,bufferedBytes:channel.ws?.bufferedAmount||0,
+        pendingTx:channel.ws?.sent?.size||0,ackCandidates:channel.ws?.ackCandidates?.size||0,
+        channels:channel.fixtureState?.(),peerState:channel.fixturePeerState?.()}));
       console.log('DIAGPEER',JSON.stringify({a:await d(a),r:await d(reopened),c:await d(c)}));
       throw error;
     }
