@@ -61,4 +61,3 @@ test('P0: one-fragment business update keeps live priority and durable ACK path'
   assert.ok(opHashes.some(x=>liveHashes.has(x)),'small one-piece business sale must retain immediate live delivery');
   assert.equal(ops.length,1,'the sale still requires a durable outbox and receipt');
 });
-
