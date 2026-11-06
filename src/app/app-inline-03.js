@@ -43,6 +43,8 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
 // carga ya coincide y no vuelve a recargar. Primera visita: solo registra.
 (async function () {
   try {
+    // Capture BEFORE the async version fetch: a first-install SW may claim mid-request.
+    const controladorAlIniciar = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
     const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
     if (!r.ok) { try { const eb = JSON.parse(localStorage.getItem("f123_errores") || "[]"); eb.push({ ts: Date.now(), tipo: "version-check", msg: "version.json " + r.status }); if (eb.length > 50) eb.splice(0, eb.length - 50); localStorage.setItem("f123_errores", JSON.stringify(eb)); } catch (_) {} return; }
     const _vj = (await r.json()) || {};
@@ -56,6 +58,13 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
     const K = "f123_version_vista";
     const prev = localStorage.getItem(K);
     if (prev === v) return;
+    // First entry on this origin has no older controller to replace.
+    // Record its shell without forcing another full page load at PIN/demo entry.
+    // If a SW already controls the page, preserve the safe upgrade path.
+    if (prev === null && !controladorAlIniciar) {
+      localStorage.setItem(K, v);
+      return;
+    }
     /* ANTI-LOOP ROBUSTO (JFC 2026-08-28, sistema de integridad de versión):
        si el deploy está a medias o la red devuelve algo raro, no queremos un
        bucle infinito de recargas. Se guarda la versión ANTES de recargar (ya
