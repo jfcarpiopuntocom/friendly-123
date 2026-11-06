@@ -26,6 +26,7 @@ test('adjustment success refreshes Inventory only; Today remains fresh through e
   await execute({ok:false}, {error:'synthetic error'}, async()=>calls.push('alert'),
     async()=>calls.push('inventory'), async()=>calls.push('today'));
   assert.deepEqual(calls, ['alert'], 'failed stock adjustment must not refresh as a successful write');
+  calls.length = 0; // isolate the next navigation assertion from the preceding intentional failure
 
   // This is the same real loader used by the nav-click handler; check that
   // deferring Today does not make its dashboard stale on the next visit.
