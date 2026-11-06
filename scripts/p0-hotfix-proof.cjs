@@ -39,10 +39,26 @@ async function verifyPR(sha,repo,token,fetcher=fetch){
     r.path==='.github/workflows/p0-hotfix-gate.yml' &&
     r.event==='pull_request' &&
     r.status==='completed' &&
-    r.conclusion==='success' &&
-    Array.isArray(r.pull_requests) && r.pull_requests.some(pr=>pr.base&&pr.base.ref==='master'&&pr.head&&pr.head.sha===prHead)
+    r.conclusion==='success'
   );
   if(!matches.length)throw Error('No successful verified P0 gate for the exact merged PR SHA');
+  // GitHub may return pull_requests: [] for a fully green PR workflow even
+  // AFTER its merge (observed live on PR #602). Use the authoritative
+  // association between the tested HEAD commit and the actual merge instead.
+  // A SHA alone is not enough: require the exact base, final merge commit,
+  // and GitHub's merged timestamp, all fail-closed.
+  const prsURL='https://api.github.com/repos/'+repo+'/commits/'+prHead+'/pulls?per_page=100';
+  const linked=await fetcher(prsURL,{headers:{Accept:'application/vnd.github+json',Authorization:'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28'},signal:AbortSignal.timeout(15000)});
+  if(!linked.ok)throw Error('Cannot verify PR association: HTTP '+linked.status);
+  const prs=await linked.json();
+  const confirmed=Array.isArray(prs)&&prs.some(pr=>
+    pr.state==='closed' &&
+    !!pr.merged_at &&
+    pr.merge_commit_sha===sha &&
+    pr.head && pr.head.sha===prHead &&
+    pr.base && pr.base.ref==='master'
+  );
+  if(!confirmed)throw Error('No merged PR with exact head, base and merge SHA');
   return {prHead,runId:matches.sort((a,b)=>b.id-a.id)[0].id};
 }
 if(require.main===module)(async()=>{
