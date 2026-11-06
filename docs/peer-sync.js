@@ -219,8 +219,13 @@
           const bytes = binary ? new Uint8Array(copy instanceof Blob ? await copy.arrayBuffer() : copy) : null;
           packet = { v: 1, topic: this.topic, type: binary ? 'binary' : 'text', data: binary ? encode(bytes) : copy };
           const targets = this.hub.connected();
-          if (!targets.length || !targets.some(peer => this.hub.canEnqueue(peer, packet)))
+          if (!targets.length || !targets.some(peer => this.hub.canEnqueue(peer, packet))) {
+            // Live binary frames are best-effort. A full recipient queue must
+            // never close the socket and erase independent durable ACK debt.
+            // Durable op/ckpt frames are queued and retried above, not here.
+            if (binary) return;
             throw new DOMException('No direct peer has queue capacity', 'QuotaExceededError');
+          }
           for (const peer of targets) this.hub.enqueue(peer, packet);
         }).catch(() => { if (this.readyState === 1) this.close(1013, 'direct delivery pending; local changes retained'); }).finally(() => { this.queuedBytes -= size; });
       }
