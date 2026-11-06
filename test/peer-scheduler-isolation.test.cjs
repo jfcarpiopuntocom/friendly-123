@@ -111,3 +111,30 @@ test('P0: a failed native ACK send remains retryable and never counts as deliver
     assert.equal(target.frames.length,1,'ACK retried exactly once to healthy channel');
   }finally{target.dc.readyState='closed';cleanup();}
 });
+
+test('P0: newly due orphan-peer ACK debt preempts an older retry timer',async()=>{
+  const {socket,cleanup}=setup(),healthy=attach(socket,'b'),slow=attach(socket,'c');socket.open();
+  const confirmations=[];
+  socket.addEventListener('message',e=>{try{const m=JSON.parse(e.data);if(m.k==='persist-result')confirmations.push({id:m.id,accepted:e.peerAccepted});}catch(_){}});
+  try{
+    socket.sent.set('op:old',{
+      packet:{v:1,topic:'',type:'durable',id:'old',kind:'op',hash:'0'.repeat(64),data:'eA=='},
+      peers:new Map([[slow.peer.id,slow.dc]]),acknowledged:new Map(),
+      retries:0,nextRetryAt:Date.now()+5000
+    });
+    socket.schedulePeerRetry();
+    assert.ok(socket.peerRetryTimer,'old retry timer must be armed');
+    const ghostId='d'.repeat(32),ghostChannel={readyState:'open'};
+    socket.sent.set('op:new',{
+      packet:{v:1,topic:'',type:'durable',id:'new',kind:'op',hash:'1'.repeat(64),data:'eA=='},
+      peers:new Map([[ghostId,ghostChannel]]),
+      acknowledged:new Map([[healthy.peer.id,healthy.dc]]),retries:0,
+      nextRetryAt:Date.now()+5
+    });
+    socket.schedulePeerRetry();
+    await pause(460);
+    assert.equal(socket.sent.has('op:new'),false,'stale orphan debt must retire promptly, not wait for old 5-second timer');
+    assert.deepEqual(confirmations,[{id:'new',accepted:true}],'only previously ACKed live recipient may complete orphan debt');
+    assert.equal(socket.sent.has('op:old'),true,'future unacknowledged debt must not be retired');
+  }finally{healthy.dc.readyState=slow.dc.readyState='closed';cleanup();}
+});

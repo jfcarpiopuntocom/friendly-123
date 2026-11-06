@@ -40,7 +40,7 @@
     "./lista-dinamica.js": "sha256-8b23ae9fe259e29b37635585bf8f48146aa16871d6641bd97d77a543ec7fd3ff",
     "./vendor/ufuzzy.min.js": "sha256-3eef8ba0ad55444c31f0e86f8375f25916515402cf2d4d7b5a2c01b4b67f2e19",
     "./vendor/minisearch.min.js": "sha256-8a05b42785db448f2c19e24a6a2107204c825565fe4f95aa69b79652baf26e82",
-    "./peer-sync.js": "sha256-3bcc9a67391baa528280ec5e3ee580b7cd75934b2f4c8b31bbb173e100dc9243",
+    "./peer-sync.js": "sha256-16d6fc09b4c22f1bdb1346add9e20f9d9c89b5f748ae4ad8caf6f70084739beb",
     "./vendor/supabase-relay.min.js": "sha256-6295504f7fa7e29bd749efae834067bb5b8d3773cd1d32c9a03bb6cba8e73ce5",
     "./firebase-relay.js": "sha256-57bb145cc7d54250fcee97648985052477b4dc7db01bf6c7f0e2347c75621a84",
     "./relay-selector.js": "sha256-c3825c6782e067d44082eda74ddbaab34eb3f8a9def1f24900068f7dffac677d",

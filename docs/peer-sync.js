@@ -62,7 +62,7 @@
       constructor(hub, topic, url) {
         super(); this.hub = hub; this.topic = topic; this.url = url; this.peerOnly = true;
         this.readyState = 0; this.binaryType = 'arraybuffer'; this.onopen = this.onmessage = this.onerror = this.onclose = null;
-        this.sent = new Map(); this.receipts = new Set(); this.ackCandidates = new Set(); this.serial = Promise.resolve(); this.queuedBytes = 0; this.peerRetryTimer = null;
+        this.sent = new Map(); this.receipts = new Set(); this.ackCandidates = new Set(); this.serial = Promise.resolve(); this.queuedBytes = 0; this.peerRetryTimer = null; this.peerRetryDueAt = 0;
         hub.sockets.add(this); hub.start();
         if (hub.connected().length) queueMicrotask(() => this.open());
       }
@@ -93,12 +93,20 @@
       // first encrypted frame; waiting only for the 10s Yjs watchdog misses
       // that recovery. Never forward a business payload to the signaling relay.
       schedulePeerRetry() {
-        if (this.peerRetryTimer || this.readyState !== 1) return;
+        if (this.readyState !== 1) return;
         const due = [...this.sent.values()].filter(r => r.peers.size && r.packet)
           .map(r => r.nextRetryAt);
         if (!due.length) return;
+        // An existing long-backoff debt must not delay a newly arrived debt
+        // (or leave a departed peer's already-ACKed envelope stranded).
+        const fireAt = Math.max(Date.now() + 250, Math.min(...due));
+        if (this.peerRetryTimer) {
+          if (this.peerRetryDueAt <= fireAt) return;
+          clearTimeout(this.peerRetryTimer);
+        }
+        this.peerRetryDueAt = fireAt;
         this.peerRetryTimer = setTimeout(() => {
-          this.peerRetryTimer = null;
+          this.peerRetryTimer = null; this.peerRetryDueAt = 0;
           this.serial = this.serial.then(async () => {
             let budget = 8;
             for (const [key, record] of this.sent) {
@@ -129,7 +137,7 @@
               }
             }
           }).catch(() => {}).finally(() => this.schedulePeerRetry());
-        }, Math.max(250, Math.min(...due) - Date.now()));
+        }, Math.max(1, fireAt - Date.now()));
       }
       // A durable update can be queued in the gap between a peer disconnect
       // and the next RTC channel opening. Its snapshot of receivers is empty,
@@ -245,7 +253,7 @@
       }
       close(code = 1000, reason = '') {
         if (this.readyState === 3) return;
-        this.readyState = 3; clearTimeout(this.peerRetryTimer); this.peerRetryTimer = null; this.hub.sockets.delete(this); this.receipts.clear(); this.ackCandidates.clear(); this.sent.clear();
+        this.readyState = 3; clearTimeout(this.peerRetryTimer); this.peerRetryTimer = null; this.peerRetryDueAt = 0; this.hub.sockets.delete(this); this.receipts.clear(); this.ackCandidates.clear(); this.sent.clear();
         this.emit('close', { code, reason, wasClean: code === 1000 });
         if (!this.hub.sockets.size) this.hub.stop();
       }
