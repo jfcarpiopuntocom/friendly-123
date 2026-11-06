@@ -20,8 +20,13 @@ permissions:
 
 jobs:
   recorrer:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -29,7 +34,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium webkit
+      # Chromium and WebKit are preinstalled in the pinned Playwright image.
+      # No apt, no npx browser reinstall, no mutable browser download.
       - name: Recorrer la app viva
         shell: bash
         run: node scripts/recorrido-vivo.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"

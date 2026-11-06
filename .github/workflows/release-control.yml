@@ -13,6 +13,65 @@ jobs:
   verify:
     name: Release continuity gate
     runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Release identity, immutable manifest and generated assets
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+        run: |
+          set -euo pipefail
+          BASE="${BASE_SHA:-HEAD^}"
+          git cat-file -e "$BASE^{commit}"
+          node scripts/release-control.cjs validate "$BASE"
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node .claude/check-inline.cjs docs/index.html
+          cp docs/version-manifest.json /tmp/p0-manifest-before.json
+          node scripts/gen-manifest.js
+          diff -u /tmp/p0-manifest-before.json docs/version-manifest.json
+          bash check-sw.sh
+          git diff --check
+      - name: Synthetic-only pinned historical sync fixtures
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 82952a84958641010c48bfbee6aab80007ba12e9
+          git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
+          git fetch --no-tags --depth=1 origin 7e51ed51560d6138866dae98e4a01ff1772db51c
+          git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > /tmp/f123_v606_sync_yjs.js
+          test -s /tmp/f123_v607_sync_yjs.js
+          test -s /tmp/f123_v606_sync_yjs.js
+          npm install --no-save --prefix "$RUNNER_TEMP/p0-s4-idb" fake-indexeddb@6.2.5 --ignore-scripts --no-audit --no-fund
+      - name: Sale ACK, finance, stock, PIN, causal Sync3, actual browser CAS and touched-area regressions
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          NODE_PATH: ${{ runner.temp }}/p0-s4-idb/node_modules
+          F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
+          F123_V606_SYNC_FILE: /tmp/f123_v606_sync_yjs.js
+        run: |
+          set -euo pipefail
+          BASE="${BASE_SHA:-HEAD^}"
+          mapfile -t TESTS < <(node scripts/p0-hotfix-tests.cjs "$BASE" HEAD)
+          (( ${#TESTS[@]} > 0 )) || { echo "Empty test selection"; exit 1; }
+          printf 'P0: %s test files, no caps, no skips\n' "${#TESTS[@]}"
+          printf '%s\n' "${TESTS[@]}" >> "$GITHUB_STEP_SUMMARY"
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "${TESTS[@]}"
+  full:
+    name: Full regression advisory
+    runs-on: ubuntu-24.04
     # Official Playwright image: browsers + OS libraries match package-lock 1.62.1.
     # Avoids 40-minute apt mirror download stalls seen in run #39834743303.
     container:
