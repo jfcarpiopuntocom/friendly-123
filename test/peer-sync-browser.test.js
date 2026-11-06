@@ -182,11 +182,16 @@ for(const [name,engine] of [['chromium',chromium],['webkit',webkit]])test('direc
       const diagnostic=await Promise.all([a,reopened,c].map(page=>page.evaluate(()=>({
         pending:channel.pendientesRelay,storage:fixtureStorage,errors:rtcErrors,
         receipts:channel.ws?.ackCandidates?.size,
+        socketReceipts:channel.ws?.receipts?.size,
+        peerState:channel.fixturePeerState?.(),
+        channelState:channel.fixtureState?.(),
         sent:[...(channel.ws?.sent||[])].map(([id,r])=>({
           id,pending:[...r.peers.keys()],acknowledged:[...(r.acknowledged||new Map()).keys()],
           hash:r.hash?.slice(0,12)
         })),
-        peers:[...(channel.ws?.hub?.peers||[])].map(([id,p])=>({id,dc:p.dc?.readyState,pc:p.pc?.connectionState}))
+        peers:[...(channel.ws?.hub?.peers||[])].map(([id,p])=>({id,dc:p.dc?.readyState,pc:p.pc?.connectionState,
+          buffered:p.dc?.bufferedAmount,queued:p.pendingBytes||0,frames:p.pendingFrames||0,
+          ice:p.pc?.iceConnectionState}))
       }))));
       console.error('P0-THREE-PEER-DURABLE-ACK-FORENSIC',JSON.stringify(diagnostic));
       throw error;
