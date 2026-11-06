@@ -1,10 +1,10 @@
 {
-  "version": "shell v681",
+  "version": "shell v682",
   "fecha": "2026-11-06",
-  "changelog": "P0 commissions: automatically return from last month's view after a new-month sale, while respecting manual month selection; associate-collected house shares now show UNVERIFIED rather than false PAID. No historical payout, PIN, stock, sync or payment state rewritten.",
+  "changelog": "P0 Safari manual physical stock count: strict IndexedDB quota failure now recovers optional static CURRENT shell resources after online version verification when SW already purged obsolete caches. Retry CAS atomically; never delete sales, photo IDB, PIN, ledger, Yjs or essential offline boot, never emit unsuccessful stock changes.",
   "requerida": false,
-  "shell": "f123-shell-v681",
+  "shell": "f123-shell-v682",
   "apagar": [],
-  "releaseName": "shell v681",
-  "cacheGeneration": "golden225"
+  "releaseName": "shell v682",
+  "cacheGeneration": "golden226"
 }
