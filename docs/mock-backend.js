@@ -2704,8 +2704,14 @@
       const paymentQuarantine = payoutQuarantine.filter(q=>String(q.record.locationId)===String(u.id) && q.record.period===_mes);
       const overpaid = +payoutBalances.reduce((n,p)=>n+(p.overpaid || 0),0).toFixed(2);
       const needsReview = paymentConflicts.length>0 || overpaid>0;
+      // v681: The ledger's dueCents records cash owed TO the associate. When
+      // an associate took the customer's cash, dueCents is rightly zero, but
+      // that is NOT evidence that the house received its share. No incoming
+      // settlement receipt exists in this ledger: never label it PAID.
+      const houseShareUnverified = ventasMes.some((v) => v.direccionComision === "asociadoPaga" &&
+        Number(v.split && v.split.montoNetoDueno) > 0);
       const paymentStatus = needsReview ? 'review' : (ventasMes.length === 0 && ajustesMes.length === 0 && !_ledgerObs.some((o) => o.kind === "void")) ? "no-sales"
-        : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : "paid");
+        : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : houseShareUnverified ? "house-unverified" : "paid");
       const conflictingIds = new Set(paymentConflicts.flatMap(c=>c.records.map(p=>p.id)));
       const receiptEvidence = [...new Map(payouts.concat(paymentConflicts.flatMap(c=>c.records)).map(p=>[p.id+'|'+JSON.stringify([p.amountCents,p.items,p.reversalOf || null]),p])).values()];
       const payoutHistory = receiptEvidence.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
