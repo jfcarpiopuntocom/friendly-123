@@ -154,3 +154,21 @@ test("SYNC3 RED: finite forward causal scan cannot strand before its HEAD at fiv
  assert.equal(a.ctx._replayUsed,5,"do not falsely invent Yjs vector progress");
  assert.equal(a.ctx._tReplay,17,"a bounded paced continuation is due while encrypted cursor climbs toward HEAD");
 });
+
+test("SYNC3 RED: Firebase staged timestamp sibling pages with same cursor do not stall",async()=>{
+ const a=harness();a.ws.relayLayer="f123_relay_cupo_fb_v1";
+ const state=await head(a);
+ const start=src.indexOf("      ws.onmessage = function (ev) {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("      _directReceive = function (buf) {",start);
+ a.ctx.pullEstado=state;a.ctx._colaRecepcion=Promise.resolve();
+ a.ctx.API.clave={};a.ctx.guardarPullCursor=async()=>{};
+ vm.runInContext(src.slice(start,end),a.ctx);
+ // Firebase _tie holds up to 256 encrypted siblings; it MUST repeat seq 80
+ // while its in-memory staged index advances. This is not a stale reply.
+ a.ws.onmessage({data:JSON.stringify({k:"pull-page",rev:3,seq:80,more:true,n:12})});
+ await a.ctx._colaRecepcion;
+ assert.deepEqual(a.sent.map(x=>x.k),["head","pull","pull"],
+   "a bounded staged page must request the next group slice without rewinding the durable cursor");
+ assert.deepEqual([a.sent.at(-1).rev,a.sent.at(-1).seq],[3,80]);
+ assert.equal(a.ctx._pullCursor.seq,120);
+});
