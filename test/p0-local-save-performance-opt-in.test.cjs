@@ -65,3 +65,10 @@ test('real strict path measures queue, serialization, IDB and total outcome with
   assert.match(source, /idb\.guardarConRevision\(completo, _localRev\)/);
   assert.match(source, /if \(!guardado\)\s*\{\s*revertir\(\);/);
 });
+
+
+test('Node/VM without window: optional diagnostics cannot break backend module initialization', () => {
+  const context = { sessionStorage: { getItem: () => null }, performance: { now: () => 0 } };
+  assert.doesNotThrow(() => vm.runInNewContext(helper, context),
+    'headless financial and retention fixtures have no window global');
+});
