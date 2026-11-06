@@ -184,6 +184,46 @@
     } catch (_) { return false; }
   }
 
+  // v682 Safari P0: the SW activation normally purges the older shell
+  // caches BEFORE a quota failure. Release only OPTIONAL, regenerable files
+  // of the ONLINE-VERIFIED current shell; preserve every essential offline
+  // bootstrap script and all customer IndexedDB, photos, PIN and Yjs data.
+  // A failed cache operation never counts as a successful business write.
+  async function _soltarShellSecundarioVerificado() {
+    const c = window.caches, loc = window.location;
+    if (!c || typeof c.keys !== "function" || typeof c.open !== "function" ||
+        !loc || typeof loc.pathname !== "string" ||
+        typeof navigator === "undefined" || navigator.onLine !== true ||
+        typeof fetch !== "function") return false;
+    try {
+      const respuesta = await fetch("./version.json", { cache: "no-store" });
+      if (!respuesta || !respuesta.ok) return false;
+      const v = await respuesta.json();
+      if (!v || !/^f123-shell-v[1-9][0-9]*$/.test(String(v.shell || "")) ||
+          !/^golden[1-9][0-9]*$/.test(String(v.cacheGeneration || ""))) return false;
+      const canal = /\/(next|previo)\//.exec(loc.pathname);
+      const nombre = v.shell + "-" + v.cacheGeneration + (canal ? "-" + canal[1] : "");
+      // Do NOT create an absent cache and do NOT touch another channel.
+      if (!(await c.keys()).includes(nombre)) return false;
+      const cache = await c.open(nombre);
+      if (!cache || typeof cache.keys !== "function" || typeof cache.delete !== "function") return false;
+      const raiz = "/friendly-123/" + (canal ? canal[1] + "/" : "");
+      const recursos = await cache.keys();
+      let liberado = false;
+      for (const peticion of recursos) {
+        const url = String(peticion && peticion.url || "");
+        // The generated shell owns these exact static resources, not any
+        // user-photo, private backup, state, script or downloadable customer PDF.
+        const ruta = url.replace(/^https?:\/\/[^/]+/, "");
+        if (!ruta.startsWith(raiz)) continue;
+        const archivo = ruta.slice(raiz.length);
+        if (!/^(?:vendor\/jspdf-4\.2\.1\.umd\.min\.js|vendor\/jspdf-autotable-5\.0\.9\.min\.js|manual\.html|manual-logo\.png|fonts\/(?:space-grotesk-latin|source-sans-3-latin|jetbrains-mono-latin|inter-latin)\.woff2)$/.test(archivo)) continue;
+        try { if (await cache.delete(peticion)) liberado = true; } catch (_) {}
+      }
+      return liberado;
+    } catch (_) { return false; }
+  }
+
   // Atomic durable revision fence. Two tabs cannot acknowledge two different
   // sales from the same base revision. IndexedDB serializes overlapping
   // readwrite transactions; no 10-second Web Locks wait or cross-tab lease.
@@ -224,9 +264,15 @@
       });
       const primero = await intento();
       if (primero === true || !_esCuotaEstricto(_ultimoError)) return primero;
-      // A genuine quota abort permits at most one retry after deleting
-      // obsolete shell caches. CAS is rerun, so another writer can still win.
-      if (!await _soltarShellObsoleto()) return false;
+      // A genuine quota abort may recover after releasing obsolete caches.
+      // On Safari these were usually deleted by SW activation already:
+      // optionally release only verified ONLINE, secondary current-shell files.
+      // Both paths rerun the SAME strict CAS; no optimistic stock ACK.
+      if (await _soltarShellObsoleto()) {
+        const retryOld = await intento();
+        if (retryOld === true || !_esCuotaEstricto(_ultimoError)) return retryOld;
+      }
+      if (!await _soltarShellSecundarioVerificado()) return false;
       return intento();
     }).catch(function (e) { _ultimoError = e || null; return false; });
     _cola = op.then(function () {}, function () {});
