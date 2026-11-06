@@ -30,6 +30,14 @@ test('P0 required gate runs on every PR and master without paths or skipped scen
  assert.match(broad,/name: Release continuity gate/);
  assert.match(broad,/pull_request: \{\}/);
  assert.match(broad,/Full regression suite including browser and financial contracts/);
+ assert.match(broad,/^  verify:\n    name: Release continuity gate/m,'legacy required check must do strict P0 work');
+ assert.match(broad,/^  full:\n    name: Full regression advisory/m,'full suite must remain in parallel');
+ const quick=broad.slice(broad.indexOf('  verify:'),broad.indexOf('  full:'));
+ const deep=broad.slice(broad.indexOf('  full:'));
+ assert.match(quick,/p0-hotfix-tests\\.cjs/,'required check uses P0 + touched tests');
+ assert.match(quick,/build-app-entry\\.cjs --check/,'required gate checks generated assets');
+ assert.doesNotMatch(quick,/Full regression suite including browser and financial contracts/,'required gate is truly fast');
+ assert.match(deep,/Full regression suite including browser and financial contracts/,'full suite not deleted');
 });
 
 test('safety core always includes critical sale durable ACK, finance, stock, PIN, Sync3, integrity and real browser',()=>{
