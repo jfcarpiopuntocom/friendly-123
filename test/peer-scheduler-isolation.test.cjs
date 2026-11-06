@@ -94,3 +94,20 @@ test('P0: independent per-peer queues have strict frame and byte memory caps', a
     assert.equal(socket.readyState,1,'bounded peer refusal does not close the logical socket');
   }finally{slow.dc.readyState='closed';cleanup();}
 });
+
+test('P0: a failed native ACK send remains retryable and never counts as delivered',async()=>{
+  const {socket,cleanup}=setup(),target=attach(socket,'b');socket.open();
+  const receipt={id:'sale-ack-1',kind:'op',hash:'a'.repeat(64),peer:target.peer.id,channel:target.dc};
+  socket.receipts.add(receipt);
+  const original=target.dc.send.bind(target.dc);let attempts=0;
+  target.dc.send=raw=>{if(++attempts===1)throw Error('synthetic WebKit native send failure');return original(raw);};
+  try{
+    const first=await socket.confirmPeerReceipt(receipt,new Uint8Array([1,2,3]));
+    assert.equal(first,false,'failed RTCDataChannel.send must not claim receipt delivery');
+    assert.equal(socket.receipts.has(receipt),true,'receipts remain retryable after transport failure');
+    const second=await socket.confirmPeerReceipt(receipt,new Uint8Array([1,2,3]));
+    assert.equal(second,true,'same pending ACK can be sent after buffer recovers');
+    assert.equal(socket.receipts.has(receipt),false,'receipt may retire after actual native send success');
+    assert.equal(target.frames.length,1,'ACK retried exactly once to healthy channel');
+  }finally{target.dc.readyState='closed';cleanup();}
+});

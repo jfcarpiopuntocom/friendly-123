@@ -222,8 +222,12 @@
         if (!peer || peer.dc !== receipt.channel || peer.dc.readyState !== 'open') return false;
         const bytes = proof instanceof ArrayBuffer ? new Uint8Array(proof) : proof;
         if (!(bytes instanceof Uint8Array) || bytes.byteLength > 4096) return false;
-        this.receipts.delete(receipt);
-        return this.hub.deliver(peer, { v: 1, topic: this.topic, type: 'ack', id: receipt.id, kind: receipt.kind, hash: receipt.hash, data: encode(bytes) });
+        // A native SCTP send failure is not a durable acknowledgement.
+        // Keep the receipt so the sender's bounded durable replay can retry
+        // the same proof when the channel drains or reconnects.
+        return this.hub.deliver(peer, { v: 1, topic: this.topic, type: 'ack', id: receipt.id, kind: receipt.kind, hash: receipt.hash, data: encode(bytes) })
+          .then(sent => { if (sent === true) this.receipts.delete(receipt); return sent === true; })
+          .catch(() => false);
       }
       acceptPeerAck(meta) {
         if (!this.ackCandidates.has(meta)) return false;
