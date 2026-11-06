@@ -1,10 +1,10 @@
 {
-  "version": "shell v678",
+  "version": "shell v679",
   "fecha": "2026-11-06",
-  "changelog": "Opt-in local-only strict save timings (prior write wait, snapshot serialization, IndexedDB and commit outcome), bounded in RAM with no business data; preserve v677 Inventory fixes, Sync3 and durable stock semantics.",
+  "changelog": "Ponytail Inventory: discard late out-of-order product GETs and errors before DOM repaint; preserve v677 scroll and Sync3 durability, PIN, photos and financial semantics.",
   "requerida": false,
-  "shell": "f123-shell-v678",
+  "shell": "f123-shell-v679",
   "apagar": [],
-  "releaseName": "shell v678",
-  "cacheGeneration": "golden222"
+  "releaseName": "shell v679",
+  "cacheGeneration": "golden223"
 }
