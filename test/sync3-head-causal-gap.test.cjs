@@ -34,8 +34,14 @@ test("SYNC3: identical HEAD and no causal debt downloads zero frames",async()=>{
  const a=harness({pending:false});await head(a);
  assert.deepEqual(a.sent.map(x=>x.k),["head"]);
 });
-test("SYNC3: no verified clean cut cannot flood full history",async()=>{
- const a=harness({clean:false});await head(a);
+test("SYNC3 RED: cold join without a local clean cut probes remote checkpoint inside replay budget",async()=>{
+ const a=harness({clean:false,budget:1});await head(a);
+ assert.deepEqual(a.sent.map(x=>x.k),["head","pull"],"must not deadlock a cold join with Yjs causal gaps");
+ assert.deepEqual([a.sent[1].rev,a.sent[1].seq],[-1,0],"start bounded checkpoint-first replay, not a permanent cursor rollback");
+ assert.deepEqual([a.ctx._pullCursor.rev,a.ctx._pullCursor.seq],[3,120],"never rewrite proven durable cursor");
+});
+test("SYNC3: no clean cut and no granted budget cannot flood history",async()=>{
+ const a=harness({clean:false,budget:0});await head(a);
  assert.deepEqual(a.sent.map(x=>x.k),["head"]);
 });
 test("SYNC3: no retry budget cannot flood histories",async()=>{
