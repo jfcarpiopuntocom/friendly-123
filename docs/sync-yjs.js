@@ -1165,7 +1165,9 @@
           }
           var directo = false;
           try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
-          if (!directo) {
+          // Direct peer durable OP already delivers this ciphertext over the
+          // same RTC channel; never put its non-ACK binary twin ahead of it.
+          if (!directo && !(persistir && piezas > 1 && canal.ws && canal.ws.peerOnly)) {
             encolarVivo(buf, tag === 0 && persistir && piezas === 1);
           }
           return op;
