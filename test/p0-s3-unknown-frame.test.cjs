@@ -3,9 +3,11 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const file=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
-const start=file.indexOf('      function manejar(buf, source, peerReceipt) {');
+const start=file.indexOf('      function manejar(');
 const end=file.indexOf('      ws.onmessage = function (ev) {',start);
 assert.ok(start>0&&end>start,'use the actual production frame consumer');
+assert.match(file.slice(start,start+130),/function manejar\(buf, source, peerReceipt(?:, peerSenderId)?\) \{/,
+  'inspect the real frame consumer regardless of optional peer-origin metadata');
 function receive(tag,source='pull'){
   const ctx=vm.createContext({
     API:{clave:{}},_pausado:false,permitido:()=>true,
