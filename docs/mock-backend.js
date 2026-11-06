@@ -1532,6 +1532,32 @@
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") _guardarMergePendienteYa(); });
   } catch (_) {}
   // Synchronous quota/storage exceptions cannot unwind a received merge.
+  // P0 Ponytail: opt-in, local-only timing of durable stock/money commits.
+  // Stores NO product, count, license, PIN, message, error string or device ID.
+  // Disabled by default; no external analytics and no change to durable ACK.
+  var _f123PerfLocalRegistros = [];
+  function _perfLocalInicio() {
+    try {
+      return sessionStorage.getItem("f123_perf_local") === "1" &&
+        typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now() : null;
+    } catch (_) { return null; }
+  }
+  function _perfLocalFin(etapa, inicio, ok) {
+    if (inicio === null || !Number.isFinite(inicio)) return;
+    if (!["prior_save_wait", "snapshot_serialize", "strict_idb", "strict_commit"].includes(etapa)) return;
+    try {
+      var ms = Math.max(0, performance.now() - inicio);
+      if (!Number.isFinite(ms)) return;
+      _f123PerfLocalRegistros.push({ etapa: etapa, ms: Math.round(ms), ok: ok === true });
+      if (_f123PerfLocalRegistros.length > 120)
+        _f123PerfLocalRegistros.splice(0, _f123PerfLocalRegistros.length - 120);
+    } catch (_) { /* diagnostic must never alter the save outcome */ }
+  }
+  if (typeof window !== "undefined") window.OCPerfLocal = {
+    leer: function () { return _f123PerfLocalRegistros.map(function (x) { return { etapa:x.etapa, ms:x.ms, ok:x.ok }; }); },
+    limpiar: function () { _f123PerfLocalRegistros.length = 0; }
+  };
   function _guardarMergeInmediatoSeguro() {
     let resultado;
     try { resultado = guardarEstadoLocal(); }
@@ -1559,10 +1585,14 @@
     const _espejoEnVuelo = typeof _espejoIDBPendiente !== "undefined" ? _espejoIDBPendiente : null;
     const _catalogoEnVuelo = typeof _guardadoCatalogoPendiente !== "undefined" ? _guardadoCatalogoPendiente : null;
     if (exigirCompleto && !esperaVencida && (_espejoEnVuelo || _catalogoEnVuelo)) {
+      const _tEsperaGuardado = _perfLocalInicio();
       const espera = new Promise((listo) => {
         const tope = setTimeout(() => listo(true), 4000);
         Promise.all([_espejoEnVuelo, _catalogoEnVuelo]).then(() => { clearTimeout(tope); listo(false); }, () => { clearTimeout(tope); listo(false); });
-      }).then((vencida) => guardarEstadoLocal(exigirCompleto, preservarFotos, vencida));
+      }).then((vencida) => {
+        _perfLocalFin('prior_save_wait', _tEsperaGuardado, !vencida);
+        return guardarEstadoLocal(exigirCompleto, preservarFotos, vencida);
+      });
       // Background saves wait too: one running now would persist a provisional sale that this save may still reject.
       _guardadoEstrictoPendiente = espera;
       const soltar = () => { if (_guardadoEstrictoPendiente === espera) _guardadoEstrictoPendiente = null; };
@@ -1604,6 +1634,7 @@
   function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
     const ab = _estadoAB();
     const ejecutar = () => {
+      const _tEstricto = exigirCompleto ? _perfLocalInicio() : null;
       _ultimoErrorIDB = null;
       if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
       let revisionDisco = 0;
@@ -1621,8 +1652,10 @@
       let tokenOk = !!ab; // antes nuevoToken() corria dentro del try: si fallaba, no se intentaba el A/B pero el espejo seguia
       if (ab) { try { vivo._abCommit = ab.nuevoToken(); } catch (_) { tokenOk = false; } }
       const actividadVigente = vivo.actividadCompartida; // arreglo propio de _actividadExportable (identidad usada por _confirmarActividad)
+      const _tSerializar = exigirCompleto ? _perfLocalInicio() : null;
       const crudo = JSON.stringify(vivo);
       const completo = JSON.parse(crudo);
+      if (exigirCompleto) _perfLocalFin('snapshot_serialize', _tSerializar, true);
       let local = false;
       const idb = window.OCEstadoIDB;
       const casDisponible = exigirCompleto && idb && typeof idb.guardarConRevision === "function";
@@ -1632,6 +1665,7 @@
         } catch (_) {} finally { _guardandoAB = false; }
       }
       const terminar = ok => {
+        if (exigirCompleto) _perfLocalFin('strict_commit', _tEstricto, ok === true);
         if (ok) {
           if (actividadVigente) _confirmarActividad(actividadVigente);
           _localRev = Math.max(_localRev, _revIntento);
@@ -1655,7 +1689,9 @@
           catch (_) {} finally { _guardandoAB = false; }
           return terminar(local === true);
         }
+        const _tIdbEstricto = _perfLocalInicio();
         return idb.guardarConRevision(completo, _localRev).then(ok => {
+          _perfLocalFin('strict_idb', _tIdbEstricto, ok === true);
           if (ok !== true) return terminar(false);
           // v650: A/B first, the seal after. Another tab that sees the new seal reloads from A/B: an older copy there
           // left its revision behind, IndexedDB refused its next save, and the customer got a false NOT saved.
@@ -1664,7 +1700,10 @@
             catch (_) {} finally { _guardandoAB = false; }
           }
           return terminar(true);
-        }, () => terminar(false));
+        }, () => {
+          _perfLocalFin('strict_idb', _tIdbEstricto, false);
+          return terminar(false);
+        });
       }
       // Non-financial background state still uses existing A/B recovery.
       if (local) { _espejarEnIDB(completo, true); return terminar(true); }
