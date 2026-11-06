@@ -1403,6 +1403,13 @@
         }, Math.min(30000, 1000 * Math.pow(2, reintentosPeer++)));
       }
       function confirmarRecepcionPeer() {
+        // An incomplete durable group must NEVER inherit another update's ACK.
+        // After 120s with no new sibling, forget only its RAM fragments;
+        // the sender retains its durable debt and must replay the whole group.
+        if (ws.peerOnly) Object.keys(partesEntrantes).forEach(function (id) {
+          var g = partesEntrantes[id];
+          if (g && g.receipts.length && Date.now() - g.creado > 120000) delete partesEntrantes[id];
+        });
         if (!ws.peerOnly || (!pendientesPeer.length && !(snapshotPeerRecibido && canal.recuperando)) || canal.ws !== ws ||
             _pausado || !permitido() ||
             // During bootstrap all incomplete frames fence recovery. Once
@@ -1496,7 +1503,7 @@
               for (var r = 0; r < existente.length; r++) if (existente[r] !== bytes[r + 22]) return false;
             }
             if (peerReceipt) unirRecibosPeer(grupo.receipts, [peerReceipt]);
-            if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; grupo.bytes += bytes.length - 22; }
+            if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; grupo.bytes += bytes.length - 22; grupo.creado = Date.now(); }
             if (grupo.cuenta !== total) return true; // trozo valido; faltan sus hermanos
             delete groups[id];
             var largo = grupo.piezas.reduce(function (a, p) { return a + p.length; }, 0);

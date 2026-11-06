@@ -16,10 +16,17 @@ if ("serviceWorker" in navigator) {
      interrumpe el tecleo del PIN). Así el aparato converge a UNA sola versión
      limpia: o todo viejo o todo nuevo, nunca mezclado. NO se toca la activación
      del SW (skipWaiting) — cambio puramente aditivo y seguro para producción. */
+  // First-ever SW install is NOT an upgrade from an older running shell.
+  let origenSinShellAnterior = false;
+  try { origenSinShellAnterior = !navigator.serviceWorker.controller && !localStorage.getItem("f123_version_vista"); } catch (_) {}
   try {
     navigator.serviceWorker.addEventListener("message", function (ev) {
       try {
         if (ev && ev.data && ev.data.tipo === "shell-actualizado") {
+          // Only the initial install of the SAME shell may skip the deferred reload.
+          // Later upgrades, old controllers and previously viewed versions must reload safely.
+          const primerShell = window.__f123PrimerShellCargado;
+          if (origenSinShellAnterior && (!primerShell || ev.data.shell === primerShell)) return;
           if (typeof _recargarSeguroVersion === "function") _recargarSeguroVersion();
           else { try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {} }
         }
@@ -62,6 +69,7 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
     // Record its shell without forcing another full page load at PIN/demo entry.
     // If a SW already controls the page, preserve the safe upgrade path.
     if (prev === null && !controladorAlIniciar) {
+      window.__f123PrimerShellCargado = String(_vj.shell || "");
       localStorage.setItem(K, v);
       return;
     }

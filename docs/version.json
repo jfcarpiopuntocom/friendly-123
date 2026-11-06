@@ -1,10 +1,10 @@
 {
-  "version": "shell v674",
+  "version": "shell v675",
   "fecha": "2026-11-06",
-  "changelog": "Sync3 startup first-entry reload guard + causal recovery candidate: bounded encrypted re-read after the last proven clean Yjs cut when relay HEAD is unchanged; preserve durable cursors, stock movements and Owner PIN; no inventory migration.",
+  "changelog": "Sync3 orphan peer receipt recovery and first-install SW reload guard; preserve causal recovery: bounded encrypted re-read after the last proven clean Yjs cut when relay HEAD is unchanged; preserve durable cursors, stock movements and Owner PIN; no inventory migration.",
   "requerida": false,
-  "shell": "f123-shell-v674",
+  "shell": "f123-shell-v675",
   "apagar": [],
-  "releaseName": "shell v674",
-  "cacheGeneration": "golden218"
+  "releaseName": "shell v675",
+  "cacheGeneration": "golden219"
 }
