@@ -83,29 +83,31 @@ test('Inventory quick +/- handler avoids the same unnecessary hidden Today refre
 });
 
 for (const [label, engine] of [['Chromium', chromium], ['WebKit', webkit]]) {
-  test(label + ': 500-card edit above viewport keeps actual scroll anchor, search focus and document', async () => {
+  test(label + ': 500-card edit preserves document scroll, search focus and URL', async () => {
     const browser = await engine.launch({headless:true});
     try {
       const page = await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
-      await page.setContent('<style>#gridInventario{height:480px;overflow-y:auto;overflow-anchor:auto}.item{height:64px;box-sizing:border-box;border-bottom:1px solid #ccc}</style><input id="buscar" placeholder="search"><div id="gridInventario"></div>');
+      await page.setContent('<style>body{margin:0;overflow-anchor:auto}.item{height:64px;box-sizing:border-box;border-bottom:1px solid #ccc}</style><input id="buscar" placeholder="search"><div id="gridInventario"></div>');
       await page.evaluate(s => (0, eval)(s), reconciler);
-      const result = await page.evaluate(() => {
+      const result = await page.evaluate(async () => {
         const grid = document.getElementById('gridInventario');
         const search = document.getElementById('buscar');
         const cards = Array.from({length:500}, (_, i) => ({id:'p'+i,
           html:'<div class="item" data-inv-id="p'+i+'"><span>'+i+'</span></div>'}));
         const toggle = '<div class="item">Inventory</div>';
         reconciliarGridInventario(grid, toggle, cards);
-        grid.scrollTop = 64 * 240;
+        window.scrollTo(0, 64 * 240);
         search.focus({preventScroll:true});
-        const beforeScroll = grid.scrollTop;
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const beforeScroll = window.scrollY;
         const anchor = grid.children[245];
         const beforeTop = anchor.getBoundingClientRect().top;
         const beforeHref = location.href;
         cards[100] = {id:'p100',html:'<div class="item" data-inv-id="p100"><span>33</span></div>'};
         reconciliarGridInventario(grid, toggle, cards);
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         return {
-          scrollDelta: Math.abs(grid.scrollTop - beforeScroll),
+          scrollDelta: Math.abs(window.scrollY - beforeScroll),
           anchorDelta: Math.abs(anchor.getBoundingClientRect().top - beforeTop),
           sameAnchor: grid.children[245] === anchor,
           focusIntact: document.activeElement === search,
