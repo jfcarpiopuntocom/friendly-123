@@ -1,7 +1,7 @@
 {
   "version": "shell v681",
   "fecha": "2026-11-06",
-  "changelog": "P0 commissions: after the first new-month sale, automatically leave the former-month paid commission view when it was auto-selected; respect explicit historical month selection. Payments remain by exact sale ID; no historical payout, ledger, PIN, storage or Sync3 mutation.",
+  "changelog": "P0 commissions: automatically return from last month's view after a new-month sale, while respecting manual month selection; associate-collected house shares now show UNVERIFIED rather than false PAID. No historical payout, PIN, stock, sync or payment state rewritten.",
   "requerida": false,
   "shell": "f123-shell-v681",
   "apagar": [],
