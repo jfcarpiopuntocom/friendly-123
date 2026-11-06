@@ -453,6 +453,32 @@
            (with the peer receipt/ack handles) and only holds back a peer "persist-result" while a durable layer is
            alive: another device's disk is not a durable layer. */
         if (cerradoH) return;
+        // P0: a durable RPC may reject an op/checkpoint AFTER the socket opened.
+        // OPEN is not proof of persistence. Deliver the negative receipt to Yjs
+        // first (it must retain the outbox), quarantine only the failed layer,
+        // then start the next fallback. Never manufacture a positive ACK.
+        var durableRefusal = false;
+        if (ws.peerOnly !== true && typeof e.data === "string") {
+          try {
+            var failure = JSON.parse(e.data);
+            durableRefusal = failure && failure.k === "persist-result" &&
+              failure.ok === false && (failure.kind === "op" || failure.kind === "ckpt");
+          } catch (_) {}
+        }
+        if (durableRefusal) {
+          emitir("message", { data: e.data, relaySource: e.relaySource });
+          var failedLayer = capas[x.orden];
+          if (failedLayer) {
+            var failedState = leer(failedLayer.key);
+            failedState.pausaHasta = Math.max(failedState.pausaHasta || 0, Date.now() + 30000);
+            guardar(failedLayer.key, failedState);
+          }
+          try { ws.close(1011, "durable persistence refused"); } catch (_) {}
+          // Reconnect the Yjs transport so its retained outbox and causal pull
+          // are retried on the next layer, rather than silently staying OPEN.
+          reiniciar("durable persistence refused; retry fallback");
+          return;
+        }
         if (ws.peerOnly === true && typeof e.data === "string" && e.data.indexOf('"persist-result"') !== -1 &&
             (e.peerAccepted !== true || subs.some(function (o) { return o.ws.peerOnly !== true && o.ws.readyState < 2; }))) return;
         emitir("message", { data: e.data, peerAccepted: e.peerAccepted === true, relaySource: e.relaySource, peerReceipt: e.peerReceipt, peerAck: e.peerAck });
