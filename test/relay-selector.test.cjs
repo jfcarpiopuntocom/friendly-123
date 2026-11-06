@@ -537,3 +537,35 @@ test('P0 cascade preserves existing bounded checkpoint exception on an empty dur
   assert.throws(() => h.send(checkpoint), e => e.name === 'QuotaExceededError',
     'large native checkpoint cannot be queued atop a nonempty transport buffer');
 });
+
+
+test('P0: post-open durable refusal quarantines only failed layer and reopens on Firebase without false ACK', async () => {
+  const { R, made, clock } = app();
+  const h = R.connect(URL1), messages = [];
+  let closeCode = null;
+  h.onmessage = e => messages.push(e.data);
+  h.onclose = e => { closeCode = e.code; };
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'op', id: 'failed-write', ok: false }));
+  await espera();
+  assert.equal(made[0].closed?.code, 1013, 'rejected durable write must close the unhealthy transport');
+  assert.ok(messages.some(s => typeof s === 'string' && s.includes('"ok":false')),
+    'negative receipt is forwarded, never rewritten to ACK');
+  assert.equal(closeCode, 1013, 'app is notified and can reconnect its durable outbox');
+  const retry = R.connect(URL1);
+  assert.equal(sub(retry).kind, 'firebase', 'fresh connection must select durable fallback');
+  clock.now += 20 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'server refusal pause is respected');
+});
+
+test('P0: photo durable rejection quarantines only photo band, not stock', async () => {
+  const { R, made } = app();
+  const photos = URL1.replace(/-y$/, '-fotos');
+  const h = R.connect(photos);
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'ckpt', id: 'photo-fail', ok: false }));
+  await espera();
+  assert.equal(made[0].closed?.code, 1013);
+  assert.equal(sub(R.connect(photos)).kind, 'firebase', 'photos use second durable layer');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'business transport remains available');
+});
