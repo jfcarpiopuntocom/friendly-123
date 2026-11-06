@@ -1,0 +1,42 @@
+# Temporary one-shot CI repair for a source/minified bundle mismatch.
+# Triggered only by adding this file to the isolated commission hotfix branch.
+name: repair-v681-generated-assets
+on:
+  push:
+    branches: [hotfix/v681-commissions-autoperiod-return]
+    paths: [.github/workflows/repair-v681-generated-assets.yml]
+permissions:
+  contents: write
+concurrency:
+  group: repair-v681-bundle
+  cancel-in-progress: false
+jobs:
+  regenerate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/v681-commissions-autoperiod-return
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Rebuild with the exact approved esbuild version, no test bypass
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          git diff --check
+          git status --short
+          git add docs/app-inline-01.min.js docs/version-manifest.json
+          if git diff --cached --quiet; then
+            echo "Already reproducible" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git -c user.name='friendly123-ci' -c user.email='ci@users.noreply.github.com' commit -m 'fix v681: regenerate exact app bundle and manifest from source'
+          git push origin HEAD:hotfix/v681-commissions-autoperiod-return
