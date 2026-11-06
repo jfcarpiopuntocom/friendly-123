@@ -1,10 +1,10 @@
 {
-  "version": "shell v680",
+  "version": "shell v681",
   "fecha": "2026-11-06",
-  "changelog": "P0 durable sale recovery: on an actual IndexedDB quota abort, free only obsolete generated offline shell caches and retry one CAS commit; no customer data removed, no false ACK, no changes to Sync3 or PIN.",
+  "changelog": "P0 strict sale recovery when old offline caches were already removed by service worker: on a verified IndexedDB quota abort, reclaim ONLY the regenerable cache of the exact online-verified shell and retry atomic CAS; never touch business IndexedDB, PIN, photos, sync, or offline-only devices.",
   "requerida": false,
-  "shell": "f123-shell-v680",
+  "shell": "f123-shell-v681",
   "apagar": [],
-  "releaseName": "shell v680",
-  "cacheGeneration": "golden224"
+  "releaseName": "shell v681",
+  "cacheGeneration": "golden225"
 }
