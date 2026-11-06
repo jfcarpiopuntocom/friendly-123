@@ -89,6 +89,8 @@ test('(a)+(c) 600 legacy envelopes: one full-state group goes first; its durable
  const q=a.queue();
  assert.equal(q.filter(x=>a.legacyIds.has(x.id)).length,0,'legacy envelopes retired after the whole group ACK');
  assert.ok(q.some(x=>x.id===later[0].id),'envelope created after the encode is never retired');
+ await waitForPersisted(() => !!a.data.get('f123_relay_absorcion-y'),
+   () => 'absorption proof not yet saved after ACK');
  const ev=a.data.get('f123_relay_absorcion-y');
  assert.equal(ev.n,600-a.acked.size,'every legacy envelope is either ACKed itself or absorbed');assert.equal(ev.absorbidoHasta,marca.hasta);assert.match(ev.sha256,/^[0-9a-f]{64}$/);assert.ok(ev.primero&&ev.ultimo&&ev.at&&ev.absorbidoHasta);
  assert.ok(JSON.stringify(ev).length<1024,'evidence never copies ciphertexts');
