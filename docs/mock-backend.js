@@ -1554,7 +1554,7 @@
         _f123PerfLocalRegistros.splice(0, _f123PerfLocalRegistros.length - 120);
     } catch (_) { /* diagnostic must never alter the save outcome */ }
   }
-  window.OCPerfLocal = {
+  if (typeof window !== "undefined") window.OCPerfLocal = {
     leer: function () { return _f123PerfLocalRegistros.map(function (x) { return { etapa:x.etapa, ms:x.ms, ok:x.ok }; }); },
     limpiar: function () { _f123PerfLocalRegistros.length = 0; }
   };
