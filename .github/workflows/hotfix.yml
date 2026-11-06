@@ -50,6 +50,21 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # A standard PR merge can reuse its SUCCESSFUL, exact-SHA P0 gate only
+      # when master and PR head trees are identical and the gate itself did
+      # not change. Otherwise the existing focused tests still run (fail closed).
+      - name: Prove exact green P0 PR SHA (no repeated regression)
+        id: pr-proof
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if node scripts/p0-hotfix-proof.cjs "$GITHUB_SHA"; then
+            echo "proved=true" >> "$GITHUB_OUTPUT"
+            echo "Exact-tree P0 premerge proof accepted: no duplicated CI tests" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "proved=false" >> "$GITHUB_OUTPUT"
+            echo "Proof unavailable: rerun all focused tests before touching estable" >> "$GITHUB_STEP_SUMMARY"
+          fi
       # v594: browsers and OS deps come from the container image; no apt install, no browser cache.
       - name: Identidad de release y manifiesto
         env:
@@ -58,6 +73,7 @@ jobs:
           node scripts/release-control.cjs validate "${BASE_SHA:-HEAD^}"
           bash check-sw.sh
       - name: Pin historic v607/v606 sync bridge fixtures at immutable SHAs (synthetic tests only)
+        if: steps.pr-proof.outputs.proved != 'true'
         run: |
           git fetch --no-tags --depth=1 origin 82952a84958641010c48bfbee6aab80007ba12e9
           git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
@@ -66,8 +82,10 @@ jobs:
           test -s /tmp/f123_v607_sync_yjs.js
           test -s /tmp/f123_v606_sync_yjs.js
       - name: Install pinned synthetic IndexedDB test emulator
+        if: steps.pr-proof.outputs.proved != 'true'
         run: npm install --no-save --prefix "$RUNNER_TEMP/p0-s4-idb" fake-indexeddb@6.2.5 --ignore-scripts --no-audit --no-fund
       - name: Pruebas del area tocada
+        if: steps.pr-proof.outputs.proved != 'true'
         env:
           NODE_PATH: ${{ runner.temp }}/p0-s4-idb/node_modules
           F123_V607_SYNC_FILE: /tmp/f123_v607_sync_yjs.js
