@@ -11,15 +11,19 @@ permissions:
   contents: read
 jobs:
   preack-crash:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    # Same pinned official browser image already used by release-control.
+    # Do not install OS packages through apt during a required P0 check.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx playwright install --with-deps chromium
       - name: Pre-ACK recipient renderer crash retains ciphertext and retries it
         run: node --test test/p0-peer-preack-crash.test.js

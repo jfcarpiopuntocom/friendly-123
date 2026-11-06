@@ -1,10 +1,10 @@
 {
-  "version": "shell v679",
+  "version": "shell v680",
   "fecha": "2026-11-06",
-  "changelog": "Ponytail Inventory: discard late out-of-order product GETs and errors before DOM repaint; preserve v677 scroll and Sync3 durability, PIN, photos and financial semantics.",
+  "changelog": "P0 durable sale recovery: on an actual IndexedDB quota abort, free only obsolete generated offline shell caches and retry one CAS commit; no customer data removed, no false ACK, no changes to Sync3 or PIN.",
   "requerida": false,
-  "shell": "f123-shell-v679",
+  "shell": "f123-shell-v680",
   "apagar": [],
-  "releaseName": "shell v679",
-  "cacheGeneration": "golden223"
+  "releaseName": "shell v680",
+  "cacheGeneration": "golden224"
 }
