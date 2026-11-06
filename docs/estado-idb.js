@@ -184,6 +184,33 @@
     } catch (_) { return false; }
   }
 
+  // v681 P0: Old shell caches may ALREADY be gone: the active SW deletes them
+  // during activation. As a last resort after a VERIFIED IndexedDB quota abort,
+  // release the regenerable OFFLINE shell of THIS exact release, only when the
+  // online version endpoint responds successfully. This sacrifices only a local
+  // copy of static app files, never the business notebook, PIN, photos or sync.
+  // Offline devices, mismatched release IDs and other channels are untouched.
+  async function _soltarShellActualConRedVerificada() {
+    const c = window.caches;
+    if (!c || typeof c.keys !== "function" || typeof c.delete !== "function" ||
+        typeof fetch !== "function" || !navigator.onLine) return false;
+    try {
+      const response = await fetch("./version.json", { cache: "no-store" });
+      if (!response || !response.ok) return false;
+      const version = await response.json();
+      const shell = String(version && version.shell || "");
+      const gen = String(version && version.cacheGeneration || "");
+      if (!/^f123-shell-v[1-9][0-9]*$/.test(shell) || !/^golden[1-9][0-9]*$/.test(gen)) return false;
+      const path = String(window.location && window.location.pathname || "");
+      const match = /\/(next|previo)\//.exec(path);
+      const name = shell + "-" + gen + (match ? "-" + match[1] : "");
+      if (!(await c.keys()).includes(name)) return false;
+      // A failed transaction made no sale durable. The SW's static shell
+      // can always be fetched again, unlike the customers' business data.
+      return (await c.delete(name)) === true;
+    } catch (_) { return false; }
+  }
+
   // Atomic durable revision fence. Two tabs cannot acknowledge two different
   // sales from the same base revision. IndexedDB serializes overlapping
   // readwrite transactions; no 10-second Web Locks wait or cross-tab lease.
@@ -224,9 +251,14 @@
       });
       const primero = await intento();
       if (primero === true || !_esCuotaEstricto(_ultimoError)) return primero;
-      // A genuine quota abort permits at most one retry after deleting
-      // obsolete shell caches. CAS is rerun, so another writer can still win.
-      if (!await _soltarShellObsoleto()) return false;
+      // Real quota only: reclaim old shell copies first. A normal SW activation
+      // already deleted them, so a safely verified ONLINE current-shell fallback
+      // is necessary. Each retry reruns CAS. Never acknowledge without IDB ACK.
+      if (await _soltarShellObsoleto()) {
+        const segundo = await intento();
+        if (segundo === true || !_esCuotaEstricto(_ultimoError)) return segundo;
+      }
+      if (!await _soltarShellActualConRedVerificada()) return false;
       return intento();
     }).catch(function (e) { _ultimoError = e || null; return false; });
     _cola = op.then(function () {}, function () {});
