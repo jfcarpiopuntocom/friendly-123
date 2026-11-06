@@ -6739,7 +6739,7 @@ function resumenComisionPorProductoHtml(prods, cuadre){
     <div class="tag-card" data-comm-product-card role="button" tabindex="0" data-ui="commissions.product-card" data-product-id="${escHtml(d.productoId || "")}" aria-label="${escHtml(d.producto)}" data-search="${escHtml([d.producto,d.sku,...d.perchas,...d.asociados].join(" "))}" style="text-align:left;margin-bottom:10px;padding:14px 16px;cursor:pointer;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <strong style="font-size:16px;">${escHtml(d.producto)}${d.sku ? ` <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">${escHtml(d.sku)}</span>` : ""}</strong>
-        ${d.socio > 0 ? `<span class="badge-estado ${d.moneyReview && d.moneyReview.length ? 'rojo' : d.pendSocio > 0 ? "rojo" : "verde"}">${d.moneyReview && d.moneyReview.length ? (window.OCI18n && window.OCI18n.getLang()==='es' ? 'revisar pagos' : 'review payments') : d.pendSocio > 0 ? "pending" : "paid"}</span>` : ""}
+        ${d.socio > 0 || d.casaEnAsociado > 0 ? `<span class="badge-estado ${d.moneyReview && d.moneyReview.length ? "rojo" : d.pendSocio > 0 ? "rojo" : d.casaEnAsociado > 0 ? "amarillo" : "verde"}">${d.moneyReview && d.moneyReview.length ? (window.OCI18n && window.OCI18n.getLang()==='es' ? 'revisar pagos' : 'review payments') : d.casaEnAsociado > 0 ? (window.OCI18n && window.OCI18n.getLang()==='es' ? 'parte de la casa sin conciliar' : 'house share unverified') : d.pendSocio > 0 ? "pending" : "paid"}</span>` : ""}
       </div>
       <div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: ${escHtml([...d.perchas].join(", ") || "-")}${d.asociados.size ? ` · Associate: <strong>${escHtml([...d.asociados].join(", "))}</strong>` : ""}</div>
       <div class="stats">
@@ -7174,8 +7174,8 @@ async function cargarComisiones(){
   const tarjetaPercha = f => {
     const _payRows = f.needsReview ? [] : (f.payoutBalances || []).filter(p => Number(p.due) > 0.00001);
     const _paymentStatus = f.paymentStatus || (f.estado === "pagado" ? "paid" : f.estado === "sin ventas" ? "no-sales" : "due");
-    const _paymentClass = _paymentStatus === "paid" ? "verde" : _paymentStatus === "no-sales" ? "amarillo" : _paymentStatus === "partially-paid" ? "amarillo" : "rojo";
-    const _paymentText = _paymentStatus === 'review' ? (window.OCI18n && window.OCI18n.getLang()==='es' ? 'revisar pagos' : 'review payments') : _paymentStatus === "paid" ? "paid" : _paymentStatus === "no-sales" ? "no sales" : _paymentStatus === "partially-paid" ? "partially paid" : "pending";
+    const _paymentClass = _paymentStatus === "paid" ? "verde" : _paymentStatus === "no-sales" || _paymentStatus === "house-unverified" ? "amarillo" : _paymentStatus === "partially-paid" ? "amarillo" : "rojo";
+    const _paymentText = _paymentStatus === "house-unverified" ? (window.OCI18n && window.OCI18n.getLang()==="es" ? "parte de la casa sin conciliar" : "house share unverified") : _paymentStatus === 'review' ? (window.OCI18n && window.OCI18n.getLang()==='es' ? 'revisar pagos' : 'review payments') : _paymentStatus === "paid" ? "paid" : _paymentStatus === "no-sales" ? "no sales" : _paymentStatus === "partially-paid" ? "partially paid" : "pending";
     const dormida = (f.diasSinVenta != null && f.diasSinVenta >= 7)
       ? `<span class="badge-estado rojo" style="font-size:13px;">dormant ${f.diasSinVenta}d</span>` : "";
     return `
