@@ -94,4 +94,3 @@ test('P0: independent per-peer queues have strict frame and byte memory caps', a
     assert.equal(socket.readyState,1,'bounded peer refusal does not close the logical socket');
   }finally{slow.dc.readyState='closed';cleanup();}
 });
-
