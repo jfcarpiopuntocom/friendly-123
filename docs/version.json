@@ -1,10 +1,10 @@
 {
-  "version": "shell v676",
+  "version": "shell v677",
   "fecha": "2026-11-06",
-  "changelog": "Sync3: post-open Supabase/Firebase durable write rejection or read failure now hands over to the next relay without false ACK; CAS conflicts stay on the healthy layer; encrypted outbox and owner PIN preserved; no business or inventory migration.",
+  "changelog": "Ponytail Inventory: changed stock card is replaced in place without temporary duplicate or scroll jump; skip hidden Today repaint after manual adjustments. Preserve Sync3 v676 durability, photos, PIN and financial semantics.",
   "requerida": false,
-  "shell": "f123-shell-v676",
+  "shell": "f123-shell-v677",
   "apagar": [],
-  "releaseName": "shell v676",
-  "cacheGeneration": "golden220"
+  "releaseName": "shell v677",
+  "cacheGeneration": "golden221"
 }
