@@ -34,8 +34,8 @@ test('P0 required gate runs on every PR and master without paths or skipped scen
  assert.match(broad,/^  full:\n    name: Full regression advisory/m,'full suite must remain in parallel');
  const quick=broad.slice(broad.indexOf('  verify:'),broad.indexOf('  full:'));
  const deep=broad.slice(broad.indexOf('  full:'));
- assert.match(quick,/p0-hotfix-tests\\.cjs/,'required check uses P0 + touched tests');
- assert.match(quick,/build-app-entry\\.cjs --check/,'required gate checks generated assets');
+ assert.match(quick,/p0-hotfix-tests\.cjs/,'required check uses P0 + touched tests');
+ assert.match(quick,/build-app-entry\.cjs --check/,'required gate checks generated assets');
  assert.doesNotMatch(quick,/Full regression suite including browser and financial contracts/,'required gate is truly fast');
  assert.match(deep,/Full regression suite including browser and financial contracts/,'full suite not deleted');
 });
