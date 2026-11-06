@@ -1041,7 +1041,10 @@
         // granted bounded retry. Never rewind the durable cursor or invent stock.
         if (typeof nombre === "string" && nombre === "catalogo" && _replayUsed > 0 &&
             doc.store && (doc.store.pendingStructs || doc.store.pendingDs) &&
-            !Object.keys(partesEntrantes).length && _ultimoCursorLimpio.rev >= 0 &&
+            !Object.keys(partesEntrantes).length &&
+            // rev:-1 is the cold device's safe genesis/checkpoint PROBE, not a
+            // certificate of recovered history. Same four-page retry budget.
+            _ultimoCursorLimpio.rev >= -1 &&
             (_ultimoCursorLimpio.rev < _pullCursor.rev ||
              (_ultimoCursorLimpio.rev === _pullCursor.rev && _ultimoCursorLimpio.seq < _pullCursor.seq))) {
           if (!estado.rescateCausalDesde)
