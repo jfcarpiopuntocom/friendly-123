@@ -5,6 +5,7 @@ on:
       - "docs/sync-yjs.js"
       - "test/sync3-head-causal-gap.test.cjs"
       - "test/yjs-unresolved-checkpoint.test.js"
+      - "test/absorber-legacy-outbox.test.cjs"
       - ".github/workflows/p0-sync3-causal-gate.yml"
   push:
     branches: [master]
@@ -24,4 +25,4 @@ jobs:
         with:
           node-version: 22
       - name: Real Yjs causal HEAD and checkpoint contracts (synthetic; no relay I/O)
-        run: node --test test/sync3-head-causal-gap.test.cjs test/yjs-unresolved-checkpoint.test.js
+        run: node --test test/sync3-head-causal-gap.test.cjs test/yjs-unresolved-checkpoint.test.js test/absorber-legacy-outbox.test.cjs
