@@ -943,14 +943,26 @@
         _replayKey = key; _replayUsed = 0;
         clearTimeout(_tReplay); _tReplay = null;
       }
-      if (_replayUsed >= 5 || _tReplay) return;
-      var delay = Math.min(300000, 30000 * Math.pow(2, _replayUsed));
+      // Sync3: a finite replay bounded by a fixed relay HEAD may be longer
+      // than five windows before its missing Yjs parent is reached. Permit
+      // paced continuation ONLY after nonempty pages advanced the encrypted
+      // page cursor monotonically and the cursor is still BEFORE that HEAD.
+      // Stalled, duplicate or completed histories keep the five-try stop.
+      var desde = estado.rescateCausalDesde, hasta = estado.rescateCausalHasta;
+      var barridoAcotado = estado.rescateCausalAvanzo === true && desde && hasta &&
+        (desde.rev < hasta.rev || (desde.rev === hasta.rev && desde.seq < hasta.seq));
+      if ((_replayUsed >= 5 && !barridoAcotado) || _tReplay) return;
+      var delay = barridoAcotado ? 8000 :
+        Math.min(300000, 30000 * Math.pow(2, Math.min(_replayUsed, 5)));
       _tReplay = setTimeout(function () {
         _tReplay = null;
         if (canal.ws !== sock || sock.readyState !== 1 || estado.enCurso) return;
         if (clavePendientes() !== _replayKey || !deudaPendiente())
           return programarRelectura(sock, estado);
-        _replayUsed++;
+        // The bounded scan makes forward cursor progress but does NOT
+        // fabricate Yjs vector progress or refresh the retry counter.
+        if (barridoAcotado) estado.rescateCausalAvanzo = false;
+        else _replayUsed++;
         try { log("historia incompleta, relectura acotada " + nombre); } catch (_) {}
         pedirPagina(sock, estado);
       }, delay);
@@ -1050,10 +1062,16 @@
           if (!estado.rescateCausalDesde)
             estado.rescateCausalDesde = { rev: _ultimoCursorLimpio.rev, seq: _ultimoCursorLimpio.seq };
           estado.rescatePaginas = 0; // per retry window, NOT a permanent operation cap
+          estado.rescateCausalHasta = { rev: Number(r.rev), seq: Number(r.seq) };
+          estado.rescateCausalAvanzo = false;
           estado.rescateVectorInicio = Y.encodeStateVector(doc); // track applied Yjs, not page count
           return pedirPagina(sock, estado, true);
         }
-        if (!deudaPendiente()) estado.rescateCausalDesde = null;
+        if (!deudaPendiente()) {
+          estado.rescateCausalDesde = null;
+          estado.rescateCausalHasta = null;
+          estado.rescateCausalAvanzo = false;
+        }
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
             !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
           canal.recuperando = false;
@@ -1069,6 +1087,8 @@
         // A changed relay HEAD invalidates an old causal re-read cursor; resume
         // from the still-proven durable cursor instead of replaying stale pages.
         estado.rescateCausalDesde = null;
+        estado.rescateCausalHasta = null;
+        estado.rescateCausalAvanzo = false;
         _replayKey = null; _replayUsed = 0; estado.validacionFinal = false;
       }
       return pedirPagina(sock, estado, true); // newer revision or legacy server
@@ -1628,8 +1648,17 @@
                       return;
                     }
                     pullEstado.rescateCausalDesde = { rev: revC, seq: seqC };
+                    // c.n is a relay count, not evidence of Yjs application.
+                    // Use it only to pace a finite forward scan; the existing
+                    // state-vector test alone can renew _replayUsed.
+                    if (Number.isSafeInteger(c.n) && c.n > 0)
+                      pullEstado.rescateCausalAvanzo = true;
                     pullEstado.rescatePaginas = (pullEstado.rescatePaginas || 0) + 1;
-                    if (!c.more) pullEstado.rescateCausalDesde = null;
+                    if (!c.more) {
+                      pullEstado.rescateCausalDesde = null;
+                      pullEstado.rescateCausalHasta = null;
+                      pullEstado.rescateCausalAvanzo = false;
+                    }
                     else if (pullEstado.rescatePaginas >= 4) {
                       // Per-window network budget: at most four 64-op pages.
                       // Genuine encrypted forward progress renews the BACKOFF
