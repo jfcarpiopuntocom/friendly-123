@@ -172,3 +172,35 @@ test("SYNC3 RED: Firebase staged timestamp sibling pages with same cursor do not
  assert.deepEqual([a.sent.at(-1).rev,a.sent.at(-1).seq],[3,80]);
  assert.equal(a.ctx._pullCursor.seq,120);
 });
+
+test("SYNC3: non-Firebase repeated cursor is never accepted as causal progress",async()=>{
+ const a=harness(), state=await head(a);
+ const start=src.indexOf("      ws.onmessage = function (ev) {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("      _directReceive = function (buf) {",start);
+ a.ctx.pullEstado=state;a.ctx._colaRecepcion=Promise.resolve();
+ a.ctx.API.clave={};a.ctx.guardarPullCursor=async()=>{};
+ vm.runInContext(src.slice(start,end),a.ctx);
+ a.ws.onmessage({data:JSON.stringify({k:"pull-page",rev:3,seq:80,more:true,n:12})});
+ await a.ctx._colaRecepcion;
+ assert.deepEqual(a.sent.map(x=>x.k),["head","pull"]);
+ assert.equal(state.rescateCausalAvanzo,false);
+ assert.equal(a.ctx._pullCursor.seq,120);
+});
+test("SYNC3: Firebase staged timestamp progress stops after a finite tie budget",async()=>{
+ const a=harness();a.ws.relayLayer="f123_relay_cupo_fb_v1";
+ const state=await head(a);
+ const start=src.indexOf("      ws.onmessage = function (ev) {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("      _directReceive = function (buf) {",start);
+ a.ctx.pullEstado=state;a.ctx._colaRecepcion=Promise.resolve();
+ a.ctx.API.clave={};a.ctx.guardarPullCursor=async()=>{};
+ vm.runInContext(src.slice(start,end),a.ctx);
+ for(let i=0;i<25;i++){
+   if(i && i%4===0){state.rescatePaginas=0;state.enCurso=true;}
+   a.ws.onmessage({data:JSON.stringify({k:"pull-page",rev:3,seq:80,more:true,n:12})});
+   await a.ctx._colaRecepcion;
+ }
+ assert.equal(state.rescateTiePaginas,24,"never exceed existing Firebase 256-sibling safety envelope");
+ assert.equal(state.enCurso,false,"extra unchanged page must halt without fake recovery");
+ assert.equal(state.rescateCausalAvanzo,false,"no unlimited paced continuation");
+ assert.equal(a.ctx._pullCursor.seq,120);
+});

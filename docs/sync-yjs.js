@@ -931,6 +931,11 @@
       return !!(Object.keys(partesEntrantes).length ||
         (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)));
     }
+    // Firebase stages complete same-millisecond groups in memory: up to 256
+    // ciphertext items, at most 12 per regular page, with a 4 MiB group cap.
+    // Allow a bounded 24 pages at an unchanged numeric cursor. Never offer
+    // such a concession to Cloudflare rowid cursors or an empty page.
+    var MAX_FIREBASE_TIE_RESCATE_PAGES = 24;
     // E1b-2: one causal budget per channel, NOT per socket/reconnection.
     function programarRelectura(sock, estado) {
       if (!deudaPendiente()) {
@@ -943,10 +948,10 @@
         _replayKey = key; _replayUsed = 0;
         clearTimeout(_tReplay); _tReplay = null;
       }
-      // Sync3: a finite replay bounded by a fixed relay HEAD may be longer
-      // than five windows before its missing Yjs parent is reached. Permit
-      // paced continuation ONLY after nonempty pages advanced the encrypted
-      // page cursor monotonically and the cursor is still BEFORE that HEAD.
+      // Sync3: a fixed-HEAD replay may be longer than five windows before the
+      // missing Yjs parent arrives. Continue only after either monotonic
+      // encrypted-cursor progress or a bounded Firebase staged timestamp page;
+      // both remain strictly BEFORE the same frozen HEAD.
       // Stalled, duplicate or completed histories keep the five-try stop.
       var desde = estado.rescateCausalDesde, hasta = estado.rescateCausalHasta;
       var barridoAcotado = estado.rescateCausalAvanzo === true && desde && hasta &&
@@ -1059,8 +1064,10 @@
             _ultimoCursorLimpio.rev >= -1 &&
             (_ultimoCursorLimpio.rev < _pullCursor.rev ||
              (_ultimoCursorLimpio.rev === _pullCursor.rev && _ultimoCursorLimpio.seq < _pullCursor.seq))) {
-          if (!estado.rescateCausalDesde)
+          if (!estado.rescateCausalDesde) {
             estado.rescateCausalDesde = { rev: _ultimoCursorLimpio.rev, seq: _ultimoCursorLimpio.seq };
+            estado.rescateTiePaginas = 0;
+          }
           estado.rescatePaginas = 0; // per retry window, NOT a permanent operation cap
           estado.rescateCausalHasta = { rev: Number(r.rev), seq: Number(r.seq) };
           estado.rescateCausalAvanzo = false;
@@ -1071,6 +1078,7 @@
           estado.rescateCausalDesde = null;
           estado.rescateCausalHasta = null;
           estado.rescateCausalAvanzo = false;
+          estado.rescateTiePaginas = 0;
         }
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
             !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
@@ -1089,6 +1097,7 @@
         estado.rescateCausalDesde = null;
         estado.rescateCausalHasta = null;
         estado.rescateCausalAvanzo = false;
+        estado.rescateTiePaginas = 0;
         _replayKey = null; _replayUsed = 0; estado.validacionFinal = false;
       }
       return pedirPagina(sock, estado, true); // newer revision or legacy server
@@ -1641,12 +1650,32 @@
                     // Replaying an older proven interval MUST paginate with an
                     // EPHEMERAL cursor: never roll back the confirmed durable cut.
                     var previo = pullEstado.rescateCausalDesde, revC = Number(c.rev), seqC = Number(c.seq);
+                    // Firebase REST cannot advance its timestamp cursor until
+                    // EVERY same-millisecond sibling has been emitted. Its
+                    // staging offset lives only in this socket, not on the wire.
+                    // Bound by the adapter's 256-item/4-MiB tie cap. A repeat
+                    // on Cloudflare, or an empty/invalid staged page, is a stall.
+                    var cursorIgual = revC === previo.rev && seqC === previo.seq;
+                    var tieValido = cursorIgual && ws.relayLayer === "f123_relay_cupo_fb_v1" &&
+                      c.more === true && Number.isSafeInteger(c.n) && c.n > 0;
                     if (!Number.isSafeInteger(revC) || !Number.isSafeInteger(seqC) ||
-                        revC < previo.rev || (revC === previo.rev && seqC <= previo.seq)) {
-                      pullEstado.enCurso = false; // stalled/invalid server page: no tight retry loop
+                        revC < previo.rev || (revC === previo.rev && seqC < previo.seq) ||
+                        (cursorIgual && !tieValido)) {
+                      pullEstado.enCurso = false;
                       programarRelectura(ws, pullEstado);
                       return;
                     }
+                    if (tieValido) {
+                      if ((pullEstado.rescateTiePaginas || 0) >= MAX_FIREBASE_TIE_RESCATE_PAGES) {
+                        // Repeated apparent progress is not an unlimited quota.
+                        // Keep Yjs and its durable cursor; fail closed.
+                        pullEstado.enCurso = false;
+                        pullEstado.rescateCausalAvanzo = false;
+                        try { log("Firebase timestamp tie sin avance verificable en " + nombre); } catch (_) {}
+                        return;
+                      }
+                      pullEstado.rescateTiePaginas = (pullEstado.rescateTiePaginas || 0) + 1;
+                    } else pullEstado.rescateTiePaginas = 0;
                     pullEstado.rescateCausalDesde = { rev: revC, seq: seqC };
                     // c.n is a relay count, not evidence of Yjs application.
                     // Use it only to pace a finite forward scan; the existing
@@ -1658,6 +1687,7 @@
                       pullEstado.rescateCausalDesde = null;
                       pullEstado.rescateCausalHasta = null;
                       pullEstado.rescateCausalAvanzo = false;
+                      pullEstado.rescateTiePaginas = 0;
                     }
                     else if (pullEstado.rescatePaginas >= 4) {
                       // Per-window network budget: at most four 64-op pages.
