@@ -27,4 +27,3 @@ test('fresh origin first SW claim does not arm PIN-login reload',()=>assert.equa
 test('older controller replacement still arms safe reload',()=>assert.equal(scenario({hadController:true,hadVersion:true}),'1'));
 test('existing local version with no initial SW still honors real update',()=>assert.equal(scenario({hadVersion:true}),'1'));
 test('later different new SW version on same first tab still arms safe reload',()=>assert.equal(scenario({announced:'f123-shell-v675'}),'1'));
-
