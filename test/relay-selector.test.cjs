@@ -537,3 +537,55 @@ test('P0 cascade preserves existing bounded checkpoint exception on an empty dur
   assert.throws(() => h.send(checkpoint), e => e.name === 'QuotaExceededError',
     'large native checkpoint cannot be queued atop a nonempty transport buffer');
 });
+
+
+test('P0: post-open durable refusal quarantines only failed layer and reopens on Firebase without false ACK', async () => {
+  const { R, made, clock } = app();
+  const h = R.connect(URL1), messages = [];
+  let closeCount = 0;
+  h.onmessage = e => messages.push(e.data);
+  h.onclose = () => { closeCount++; };
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'op', id: 'failed-write', ok: false }));
+  await espera();
+  assert.equal(made[0].closed?.code, 1013, 'rejected durable write must close the unhealthy transport');
+  assert.ok(messages.some(s => typeof s === 'string' && s.includes('"ok":false')),
+    'negative receipt is forwarded, never rewritten to ACK');
+  assert.equal(closeCount, 1, 'app is notified and can reconnect its durable outbox');
+  const retry = R.connect(URL1);
+  assert.equal(sub(retry).kind, 'firebase', 'fresh connection must select durable fallback');
+  clock.now += 20 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'server refusal pause is respected');
+});
+
+test('P0: photo durable rejection quarantines only photo band, not stock', async () => {
+  const { R, made } = app();
+  const photos = URL1.replace(/-y$/, '-fotos');
+  const h = R.connect(photos);
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'ckpt', id: 'photo-fail', ok: false }));
+  await espera();
+  assert.equal(made[0].closed?.code, 1013);
+  assert.equal(sub(R.connect(photos)).kind, 'firebase', 'photos use second durable layer');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'business transport remains available');
+});
+
+test('P0: a read RPC transport failure after OPEN must fall back instead of looping the same layer', () => {
+  const { R, made } = app();
+  const h = R.connect(URL1);
+  made[0].open();
+  made[0].dispatchEvent(new Event('error'));
+  made[0].close(1011, 'pull RPC rejected');
+  assert.equal(h.readyState, 3, 'app receives a terminal close after read failure');
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'next connection opens a different durable backend');
+});
+
+test('P0: a checkpoint CAS conflict is NOT backend outage', async () => {
+  const { R, made } = app();
+  const h = R.connect(URL1);
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'ckpt', id: 'cas-conflict', ok: false, conflict: true }));
+  await espera();
+  assert.equal(made[0].closed, null, 'conflicts are resolved by durable retry, not switching data sources');
+  assert.equal(h.readyState, 1, 'existing healthy relay remains open');
+});
