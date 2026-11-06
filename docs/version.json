@@ -1,10 +1,10 @@
 {
-  "version": "shell v680",
+  "version": "shell v681",
   "fecha": "2026-11-06",
-  "changelog": "P0 durable sale recovery: on an actual IndexedDB quota abort, free only obsolete generated offline shell caches and retry one CAS commit; no customer data removed, no false ACK, no changes to Sync3 or PIN.",
+  "changelog": "P0 commissions: after the first new-month sale, automatically leave the former-month paid commission view when it was auto-selected; respect explicit historical month selection. Payments remain by exact sale ID; no historical payout, ledger, PIN, storage or Sync3 mutation.",
   "requerida": false,
-  "shell": "f123-shell-v680",
+  "shell": "f123-shell-v681",
   "apagar": [],
-  "releaseName": "shell v680",
-  "cacheGeneration": "golden224"
+  "releaseName": "shell v681",
+  "cacheGeneration": "golden225"
 }
