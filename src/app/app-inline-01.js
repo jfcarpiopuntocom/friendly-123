@@ -3230,6 +3230,9 @@ function reconciliarGridInventario(grid, toggle, tarjetas) {
         return;
       }
       _inventarioHtmlPorNodo.set(nuevo, tarjeta.html);
+      // Stock-only changes must not temporarily double the card or jump the iOS scroll anchor.
+      // Replace the SAME keyed card in place; the ordering pass below still handles real reorders.
+      if (existente) existente.replaceWith(nuevo);
       siguientes.push(nuevo);
     }
   }
@@ -3350,7 +3353,7 @@ async function cargarInventario(){
       if (!res8.ok){ await ocAlert(r8.error); return; }
       // Keep Today notices/starred stock in sync with the confirmed local adjustment.
       // These are read-only GETs: never replay a movement or financial event.
-      await Promise.all([cargarInventario(), cargarHoy()]);
+      await cargarInventario();
     });
   });
 
@@ -3372,7 +3375,7 @@ async function cargarInventario(){
         r = await res.json();
       } catch (_) { await ocAlert(t("inv.qtyNetwork")); return; }
       if (!res.ok) { await ocAlert(r.error); return; }
-      await Promise.all([cargarInventario(), cargarHoy()]);
+      await cargarInventario();
   }
 
   // Estrella: dueño marca/desmarca productos para que el encargado los promueva
