@@ -3241,7 +3241,9 @@ function reconciliarGridInventario(grid, toggle, tarjetas) {
   while (grid.children.length > siguientes.length) grid.lastElementChild.remove();
 }
 
+var _invCargaRevision = 0;
 async function cargarInventario(){
+  const _miCargaInventario = ++_invCargaRevision;
   // El "+" de alta libre es del dueno; el encargado ni lo ve (dos capas).
   const btnAlta = document.getElementById("btnAltaProducto");
   if (btnAlta) btnAlta.style.display = (window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? "" : "none";
@@ -3260,9 +3262,13 @@ async function cargarInventario(){
     const res = await fetch(url);
     productos = await res.json();
   } catch (_) {
+    // An older failed fetch must not wipe a newer successfully rendered Inventory.
+    if (_miCargaInventario !== _invCargaRevision) return;
     grid.innerHTML = _toggleArch + `<p>${t("inv.loadError")}</p>`;
     return;
   }
+  // Latest started request owns the DOM; never show a late stale inventory snapshot.
+  if (_miCargaInventario !== _invCargaRevision) return;
   if (!Array.isArray(productos)){
     grid.innerHTML = _toggleArch + `<p>${t("inv.readError")}</p>`;
     return;
