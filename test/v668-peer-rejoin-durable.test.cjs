@@ -100,3 +100,37 @@ test('P0: a congested direct peer must not head-of-line block an independent rec
     releaseSlow();await f.socket.serial;
   }finally{releaseSlow();f.close();}
 });
+
+test('P0 failed RTC sends retain durable ciphertext and keep a bounded retry timer after third refusal',async()=>{
+  const f=fixture();try{
+    const receiver=f.peer('d'.repeat(32));f.socket.hub.peers.set(receiver.id,receiver);
+    let refusals=0;
+    // Synthetic slow channel: deliver refuses before emitting any bytes to RTC.
+    f.socket.hub.deliver=async()=>{refusals++;return false;};
+    f.send('refused-three-times');await f.socket.serial;
+    const key='op:refused-three-times',rec=f.socket.sent.get(key);
+    assert.ok(rec&&rec.peers.size===1);
+    assert.equal(refusals,1);
+    assert.equal(f.confirmed.length,0);
+    // Position exactly at the previous terminal third attempt; no wall-clock wait.
+    clearTimeout(f.socket.peerRetryTimer);f.socket.peerRetryTimer=null;
+    rec.retries=2;rec.nextRetryAt=Date.now()-1;
+    f.socket.schedulePeerRetry();
+    await new Promise(resolve=>setTimeout(resolve,350));
+    await f.socket.serial;
+    assert.ok(refusals>=2,'third attempt was executed');
+    assert.equal(f.confirmed.length,0,'a transport refusal cannot become a durable ACK');
+    assert.ok(f.socket.sent.has(key),'ciphertext must remain durably pending');
+    assert.ok(f.socket.peerRetryTimer,'third failed delivery must not cause a terminal retry cap');
+    // Force one more window, without waiting for the natural exponential interval.
+    clearTimeout(f.socket.peerRetryTimer);f.socket.peerRetryTimer=null;
+    rec.nextRetryAt=Date.now()-1;
+    f.socket.schedulePeerRetry();
+    await new Promise(resolve=>setTimeout(resolve,350));
+    await f.socket.serial;
+    assert.ok(refusals>=3,'fourth transport attempt must still be possible');
+    assert.ok(f.socket.peerRetryTimer,'future retries remain paced and active');
+    assert.equal(f.confirmed.length,0);
+    assert.equal(rec.peers.get(receiver.id),receiver.dc);
+  }finally{f.close()}
+});

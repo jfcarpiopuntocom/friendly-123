@@ -85,7 +85,7 @@
       // that recovery. Never forward a business payload to the signaling relay.
       schedulePeerRetry() {
         if (this.peerRetryTimer || this.readyState !== 1) return;
-        const due = [...this.sent.values()].filter(r => r.peers.size && r.packet && r.retries < 3)
+        const due = [...this.sent.values()].filter(r => r.peers.size && r.packet)
           .map(r => r.nextRetryAt);
         if (!due.length) return;
         this.peerRetryTimer = setTimeout(() => {
@@ -94,10 +94,13 @@
             let budget = 8;
             for (const [key, record] of this.sent) {
               if (budget <= 0) break;
-              if (!record.peers.size || !record.packet || record.retries >= 3 ||
+              if (!record.peers.size || !record.packet ||
                   Date.now() < record.nextRetryAt) continue;
-              record.retries++;
-              record.nextRetryAt = Date.now() + 2000 * 2 ** record.retries;
+              // Cap the retry *interval*, not the number of attempts. A transport
+              // refusal is not proof of delivery, and is never an ACK.
+              // The per-window 8-frame budget and one timer/socket remain intact.
+              record.retries = Math.min(5, (record.retries || 0) + 1);
+              record.nextRetryAt = Date.now() + Math.min(60000, 2000 * 2 ** record.retries);
               for (const [id, channel] of record.peers) {
                 const peer = this.hub.peers.get(id);
                 if (!peer || peer.dc !== channel || channel.readyState !== 'open') {
