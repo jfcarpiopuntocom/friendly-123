@@ -931,6 +931,11 @@
       return !!(Object.keys(partesEntrantes).length ||
         (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)));
     }
+    // Firebase stages complete same-millisecond groups in memory: up to 256
+    // ciphertext items, at most 12 per regular page, with a 4 MiB group cap.
+    // Allow a bounded 24 pages at an unchanged numeric cursor. Never offer
+    // such a concession to Cloudflare rowid cursors or an empty page.
+    var MAX_FIREBASE_TIE_RESCATE_PAGES = 24;
     // E1b-2: one causal budget per channel, NOT per socket/reconnection.
     function programarRelectura(sock, estado) {
       if (!deudaPendiente()) {
@@ -943,14 +948,26 @@
         _replayKey = key; _replayUsed = 0;
         clearTimeout(_tReplay); _tReplay = null;
       }
-      if (_replayUsed >= 5 || _tReplay) return;
-      var delay = Math.min(300000, 30000 * Math.pow(2, _replayUsed));
+      // Sync3: a fixed-HEAD replay may be longer than five windows before the
+      // missing Yjs parent arrives. Continue only after either monotonic
+      // encrypted-cursor progress or a bounded Firebase staged timestamp page;
+      // both remain strictly BEFORE the same frozen HEAD.
+      // Stalled, duplicate or completed histories keep the five-try stop.
+      var desde = estado.rescateCausalDesde, hasta = estado.rescateCausalHasta;
+      var barridoAcotado = estado.rescateCausalAvanzo === true && desde && hasta &&
+        (desde.rev < hasta.rev || (desde.rev === hasta.rev && desde.seq < hasta.seq));
+      if ((_replayUsed >= 5 && !barridoAcotado) || _tReplay) return;
+      var delay = barridoAcotado ? 8000 :
+        Math.min(300000, 30000 * Math.pow(2, Math.min(_replayUsed, 5)));
       _tReplay = setTimeout(function () {
         _tReplay = null;
         if (canal.ws !== sock || sock.readyState !== 1 || estado.enCurso) return;
         if (clavePendientes() !== _replayKey || !deudaPendiente())
           return programarRelectura(sock, estado);
-        _replayUsed++;
+        // The bounded scan makes forward cursor progress but does NOT
+        // fabricate Yjs vector progress or refresh the retry counter.
+        if (barridoAcotado) estado.rescateCausalAvanzo = false;
+        else _replayUsed++;
         try { log("historia incompleta, relectura acotada " + nombre); } catch (_) {}
         pedirPagina(sock, estado);
       }, delay);
@@ -988,7 +1005,7 @@
         }
         // v1 legacy checkpoint can compact operations without bumping revision.
         // Probe the actual ciphertext checkpoint, never a stale high-water seq.
-        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : _pullCursor;
+        var desde = estado.rebaseCursor ? { rev: -1, seq: 0 } : (estado.rescateCausalDesde || _pullCursor);
         sock.send(JSON.stringify({ k: "pull", v: 2, rev: desde.rev, seq: desde.seq, limit: PULL_PAGE_SIZE }));
       }).catch(function () {});
     }
@@ -1036,6 +1053,33 @@
       }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
+        // Sync3: a matching relay HEAD cannot prove missing Yjs causal parents.
+        // Re-read only after the LAST PROVEN CLEAN cut and only using an already
+        // granted bounded retry. Never rewind the durable cursor or invent stock.
+        if (typeof nombre === "string" && nombre === "catalogo" && _replayUsed > 0 &&
+            doc.store && (doc.store.pendingStructs || doc.store.pendingDs) &&
+            !Object.keys(partesEntrantes).length &&
+            // rev:-1 is the cold device's safe genesis/checkpoint PROBE, not a
+            // certificate of recovered history. Same four-page retry budget.
+            _ultimoCursorLimpio.rev >= -1 &&
+            (_ultimoCursorLimpio.rev < _pullCursor.rev ||
+             (_ultimoCursorLimpio.rev === _pullCursor.rev && _ultimoCursorLimpio.seq < _pullCursor.seq))) {
+          if (!estado.rescateCausalDesde) {
+            estado.rescateCausalDesde = { rev: _ultimoCursorLimpio.rev, seq: _ultimoCursorLimpio.seq };
+            estado.rescateTiePaginas = 0;
+          }
+          estado.rescatePaginas = 0; // per retry window, NOT a permanent operation cap
+          estado.rescateCausalHasta = { rev: Number(r.rev), seq: Number(r.seq) };
+          estado.rescateCausalAvanzo = false;
+          estado.rescateVectorInicio = Y.encodeStateVector(doc); // track applied Yjs, not page count
+          return pedirPagina(sock, estado, true);
+        }
+        if (!deudaPendiente()) {
+          estado.rescateCausalDesde = null;
+          estado.rescateCausalHasta = null;
+          estado.rescateCausalAvanzo = false;
+          estado.rescateTiePaginas = 0;
+        }
         if (canal.recuperando && !Object.keys(partesEntrantes).length &&
             !(doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) {
           canal.recuperando = false;
@@ -1047,7 +1091,15 @@
         programarRelectura(sock, estado);
         return Promise.resolve();
       }
-      if (valido) { _replayKey = null; _replayUsed = 0; estado.validacionFinal = false; }
+      if (valido) {
+        // A changed relay HEAD invalidates an old causal re-read cursor; resume
+        // from the still-proven durable cursor instead of replaying stale pages.
+        estado.rescateCausalDesde = null;
+        estado.rescateCausalHasta = null;
+        estado.rescateCausalAvanzo = false;
+        estado.rescateTiePaginas = 0;
+        _replayKey = null; _replayUsed = 0; estado.validacionFinal = false;
+      }
       return pedirPagina(sock, estado, true); // newer revision or legacy server
     }
     function reprogramar() {
@@ -1113,7 +1165,9 @@
           }
           var directo = false;
           try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
-          if (!directo) {
+          // Direct peer durable OP already delivers this ciphertext over the
+          // same RTC channel; never put its non-ACK binary twin ahead of it.
+          if (!directo && !(persistir && piezas > 1 && canal.ws && canal.ws.peerOnly)) {
             encolarVivo(buf, tag === 0 && persistir && piezas === 1);
           }
           return op;
@@ -1349,8 +1403,21 @@
         }, Math.min(30000, 1000 * Math.pow(2, reintentosPeer++)));
       }
       function confirmarRecepcionPeer() {
+        // An incomplete durable group must NEVER inherit another update's ACK.
+        // After 120s with no new sibling, forget only its RAM fragments;
+        // the sender retains its durable debt and must replay the whole group.
+        if (ws.peerOnly) Object.keys(partesEntrantes).forEach(function (id) {
+          var g = partesEntrantes[id];
+          if (g && g.receipts.length && Date.now() - g.creado > 120000) delete partesEntrantes[id];
+        });
         if (!ws.peerOnly || (!pendientesPeer.length && !(snapshotPeerRecibido && canal.recuperando)) || canal.ws !== ws ||
-            _pausado || !permitido() || Object.keys(partesEntrantes).length ||
+            _pausado || !permitido() ||
+            // During bootstrap all incomplete frames fence recovery. Once
+            // recovered, an abandoned receipt-free live snapshot may not
+            // block the disk ACK of a separate, fully applied durable op.
+            Object.keys(partesEntrantes).some(function (id) {
+              return canal.recuperando || partesEntrantes[id].receipts.length;
+            }) ||
             (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) return Promise.resolve(true);
         var batch = pendientesPeer.slice();
         return barreraYjsConfirmada().then(function () {
@@ -1403,7 +1470,7 @@
           if (index < 0) target.push(receipt); else target[index] = receipt;
         });
       }
-      function manejar(buf, source, peerReceipt) {
+      function manejar(buf, source, peerReceipt, peerSenderId) {
         return Promise.resolve().then(function () { return descifrarBin(API.clave, buf); }).then(function (bytes) {
           if ((source === "live" || source === "peer") && (_pausado || !permitido())) return false;
           var tag = bytes[0], payload = bytes.subarray(1), receipts = peerReceipt ? [peerReceipt] : [];
@@ -1436,7 +1503,7 @@
               for (var r = 0; r < existente.length; r++) if (existente[r] !== bytes[r + 22]) return false;
             }
             if (peerReceipt) unirRecibosPeer(grupo.receipts, [peerReceipt]);
-            if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; grupo.bytes += bytes.length - 22; }
+            if (!grupo.piezas[indice]) { grupo.piezas[indice] = bytes.subarray(22); grupo.cuenta++; grupo.bytes += bytes.length - 22; grupo.creado = Date.now(); }
             if (grupo.cuenta !== total) return true; // trozo valido; faltan sus hermanos
             delete groups[id];
             var largo = grupo.piezas.reduce(function (a, p) { return a + p.length; }, 0);
@@ -1480,14 +1547,19 @@
             // pull cursor is separately fenced by guardarPruebaCausal + IDB readback.
             return true;
           }
-          else if (tag === 1) { // peer hello: no diff from an unhydrated partial Y.Doc
+          else if (tag === 1) { // peer hello: do not answer from an unhydrated Y.Doc
             return _pullCursorReady.then(function () {
               try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
               try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
               return true;
             });
-          } else if (tag === 2) { // reply with diff only after the local journal is loaded
+          } else if (tag === 2) { // reply after local hydration
             return _pullCursorReady.then(function () {
+              // The first LIVE response can be discarded by a saturated RTC
+              // peer queue even when ws.send() returned successfully. Without
+              // a persisted receiver ACK, a matching hash is NOT evidence of
+              // delivery. Retry the diff on tag-2, even if the shop is empty:
+              // an empty tag-6 also certifies a completed bootstrap snapshot.
               try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
               return true;
             });
@@ -1514,7 +1586,7 @@
         // frames se encadenan: el cursor de una pagina se confirma DESPUES de
         // aplicar todos sus binarios, nunca antes.
         if (d instanceof ArrayBuffer) {
-          _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source, ev.peerReceipt); }).then(function (ok) {
+          _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source, ev.peerReceipt, ev.peerSenderId); }).then(function (ok) {
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
@@ -1528,7 +1600,7 @@
           });
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
-          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source, ev.peerReceipt); }).then(function (ok) {
+          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source, ev.peerReceipt, ev.peerSenderId); }).then(function (ok) {
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
@@ -1594,6 +1666,63 @@
                 return guardarPullCursor(c).then(function () {
                   if (canal.ws !== ws || ws.readyState !== 1) return;
                   pullEstado.pullAplicado = true; // verified ciphertext + durable cursor write/readback
+                  if (pullEstado.rescateCausalDesde) {
+                    // Replaying an older proven interval MUST paginate with an
+                    // EPHEMERAL cursor: never roll back the confirmed durable cut.
+                    var previo = pullEstado.rescateCausalDesde, revC = Number(c.rev), seqC = Number(c.seq);
+                    // Firebase REST cannot advance its timestamp cursor until
+                    // EVERY same-millisecond sibling has been emitted. Its
+                    // staging offset lives only in this socket, not on the wire.
+                    // Bound by the adapter's 256-item/4-MiB tie cap. A repeat
+                    // on Cloudflare, or an empty/invalid staged page, is a stall.
+                    var cursorIgual = revC === previo.rev && seqC === previo.seq;
+                    var tieValido = cursorIgual && ws.relayLayer === "f123_relay_cupo_fb_v1" &&
+                      c.more === true && Number.isSafeInteger(c.n) && c.n > 0;
+                    if (!Number.isSafeInteger(revC) || !Number.isSafeInteger(seqC) ||
+                        revC < previo.rev || (revC === previo.rev && seqC < previo.seq) ||
+                        (cursorIgual && !tieValido)) {
+                      pullEstado.enCurso = false;
+                      programarRelectura(ws, pullEstado);
+                      return;
+                    }
+                    if (tieValido) {
+                      if ((pullEstado.rescateTiePaginas || 0) >= MAX_FIREBASE_TIE_RESCATE_PAGES) {
+                        // Repeated apparent progress is not an unlimited quota.
+                        // Keep Yjs and its durable cursor; fail closed.
+                        pullEstado.enCurso = false;
+                        pullEstado.rescateCausalAvanzo = false;
+                        try { log("Firebase timestamp tie sin avance verificable en " + nombre); } catch (_) {}
+                        return;
+                      }
+                      pullEstado.rescateTiePaginas = (pullEstado.rescateTiePaginas || 0) + 1;
+                    } else pullEstado.rescateTiePaginas = 0;
+                    pullEstado.rescateCausalDesde = { rev: revC, seq: seqC };
+                    // c.n is a relay count, not evidence of Yjs application.
+                    // Use it only to pace a finite forward scan; the existing
+                    // state-vector test alone can renew _replayUsed.
+                    if (Number.isSafeInteger(c.n) && c.n > 0)
+                      pullEstado.rescateCausalAvanzo = true;
+                    pullEstado.rescatePaginas = (pullEstado.rescatePaginas || 0) + 1;
+                    if (!c.more) {
+                      pullEstado.rescateCausalDesde = null;
+                      pullEstado.rescateCausalHasta = null;
+                      pullEstado.rescateCausalAvanzo = false;
+                      pullEstado.rescateTiePaginas = 0;
+                    }
+                    else if (pullEstado.rescatePaginas >= 4) {
+                      // Per-window network budget: at most four 64-op pages.
+                      // Genuine encrypted forward progress renews the BACKOFF
+                      // budget; no progress retains the existing five-try cap.
+                      var vectorNuevo = Y.encodeStateVector(doc), vectorAnterior = pullEstado.rescateVectorInicio;
+                      var avanceYjs = !!vectorAnterior && vectorAnterior.length !== vectorNuevo.length;
+                      for (var vi = 0; !avanceYjs && vectorAnterior && vi < vectorNuevo.length; vi++)
+                        if (vectorAnterior[vi] !== vectorNuevo[vi]) avanceYjs = true;
+                      if (avanceYjs) _replayUsed = Math.max(0, _replayUsed - 1);
+                      pullEstado.enCurso = false;
+                      programarRelectura(ws, pullEstado);
+                      return;
+                    }
+                  }
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
                   // PendingStructs empty alone does NOT prove full history.

@@ -1,0 +1,34 @@
+name: P0 Sync3 isolate full-gate failures
+on:
+  pull_request:
+    paths:
+      - "docs/dashboard.html"
+      - "docs/version.json"
+      - "docs/version-manifest.json"
+      - "test/comision-split-fijacion-2026-10-08.test.js"
+      - "test/peer-sync-browser.test.js"
+      - "test/dashboard-identidad-version.test.js"
+      - "test/pwa-icons-multicolor-v577.test.js"
+      - ".github/workflows/p0-sync3-isolate-release-failures.yml"
+permissions:
+  contents: read
+jobs:
+  isolated-original-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Re-run EXACT failed contract files alone, one worker (no production network)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
+            test/comision-split-fijacion-2026-10-08.test.js \
+            test/dashboard-identidad-version.test.js \
+            test/pwa-icons-multicolor-v577.test.js \
+            test/peer-sync-browser.test.js

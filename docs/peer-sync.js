@@ -62,13 +62,22 @@
       constructor(hub, topic, url) {
         super(); this.hub = hub; this.topic = topic; this.url = url; this.peerOnly = true;
         this.readyState = 0; this.binaryType = 'arraybuffer'; this.onopen = this.onmessage = this.onerror = this.onclose = null;
-        this.sent = new Map(); this.receipts = new Set(); this.ackCandidates = new Set(); this.serial = Promise.resolve(); this.queuedBytes = 0; this.peerRetryTimer = null;
+        this.sent = new Map(); this.receipts = new Set(); this.ackCandidates = new Set(); this.serial = Promise.resolve(); this.queuedBytes = 0; this.peerRetryTimer = null; this.peerRetryDueAt = 0;
         hub.sockets.add(this); hub.start();
         if (hub.connected().length) queueMicrotask(() => this.open());
       }
       // Signal metadata may be connected while no customer peer is present.
       get signalingReady() { return !!(this.hub.signal && this.hub.signal.readyState === 1); }
-      get bufferedAmount() { this.hub.nudge(); return this.queuedBytes + this.hub.connected().reduce((n, peer) => n + (peer.dc.bufferedAmount || 0), 0); }
+      get bufferedAmount() {
+        this.hub.nudge();
+        const live = this.hub.connected();
+        // Each RTC transport has its own SCTP buffer. A congested sibling
+        // must not reject a frame that a healthy sibling can still accept.
+        // Per-peer queue/native caps are enforced independently by enqueue().
+        return this.queuedBytes + (live.length
+          ? Math.min(...live.map(peer => (peer.dc.bufferedAmount || 0) + (peer.pendingBytes || 0)))
+          : 0);
+      }
       emit(type, properties = {}) {
         const event = type === 'message' ? new MessageEvent(type, { data: properties.data }) : new Event(type);
         for (const [key, value] of Object.entries(properties)) if (key !== 'data') Object.defineProperty(event, key, { value });
@@ -84,27 +93,40 @@
       // first encrypted frame; waiting only for the 10s Yjs watchdog misses
       // that recovery. Never forward a business payload to the signaling relay.
       schedulePeerRetry() {
-        if (this.peerRetryTimer || this.readyState !== 1) return;
-        const due = [...this.sent.values()].filter(r => r.peers.size && r.packet && r.retries < 3)
+        if (this.readyState !== 1) return;
+        const due = [...this.sent.values()].filter(r => r.peers.size && r.packet)
           .map(r => r.nextRetryAt);
         if (!due.length) return;
+        // An existing long-backoff debt must not delay a newly arrived debt
+        // (or leave a departed peer's already-ACKed envelope stranded).
+        const fireAt = Math.max(Date.now() + 250, Math.min(...due));
+        if (this.peerRetryTimer) {
+          if (this.peerRetryDueAt <= fireAt) return;
+          clearTimeout(this.peerRetryTimer);
+        }
+        this.peerRetryDueAt = fireAt;
         this.peerRetryTimer = setTimeout(() => {
-          this.peerRetryTimer = null;
+          this.peerRetryTimer = null; this.peerRetryDueAt = 0;
           this.serial = this.serial.then(async () => {
             let budget = 8;
             for (const [key, record] of this.sent) {
               if (budget <= 0) break;
-              if (!record.peers.size || !record.packet || record.retries >= 3 ||
+              if (!record.peers.size || !record.packet ||
                   Date.now() < record.nextRetryAt) continue;
-              record.retries++;
-              record.nextRetryAt = Date.now() + 2000 * 2 ** record.retries;
+              // Cap the retry *interval*, not the number of attempts. A transport
+              // refusal is not proof of delivery, and is never an ACK.
+              // The per-window 8-frame budget and one timer/socket remain intact.
+              record.retries = Math.min(5, (record.retries || 0) + 1);
+              record.nextRetryAt = Date.now() + Math.min(60000, 2000 * 2 ** record.retries);
               for (const [id, channel] of record.peers) {
                 const peer = this.hub.peers.get(id);
                 if (!peer || peer.dc !== channel || channel.readyState !== 'open') {
                   record.peers.delete(id);
                   continue;
                 }
-                await this.hub.deliver(peer, record.packet);
+                // Never wait for a slow peer in the socket-wide retry chain.
+                // A rejected peer stays in the ACK debt set for later retry.
+                this.hub.enqueue(peer, record.packet);
                 if (--budget <= 0) break;
               }
               if (!record.peers.size && record.acknowledged.size) {
@@ -115,7 +137,7 @@
               }
             }
           }).catch(() => {}).finally(() => this.schedulePeerRetry());
-        }, Math.max(250, Math.min(...due) - Date.now()));
+        }, Math.max(1, fireAt - Date.now()));
       }
       // A durable update can be queued in the gap between a peer disconnect
       // and the next RTC channel opening. Its snapshot of receivers is empty,
@@ -136,7 +158,7 @@
           for (const { key, record } of todo) {
             if (this.readyState !== 1 || this.sent.get(key) !== record ||
                 record.peers.get(peer.id) !== peer.dc || peer.dc.readyState !== 'open') continue;
-            await this.hub.deliver(peer, record.packet);
+            this.hub.enqueue(peer, record.packet);
           }
         }).catch(() => {}).finally(() => this.schedulePeerRetry());
       }
@@ -179,8 +201,11 @@
             record.retries = 0;
             record.nextRetryAt = Date.now() + 2000;
             this.sent.set(key, record);
-            for (const peer of targets)
-              if (record.peers.get(peer.id) === peer.dc) await this.hub.deliver(peer, packet);
+            // One slow RTC receiver must not block delivery to other peers.
+            // Socket.serial still orders packets per logical socket; channels
+            // have independent SCTP buffers. ACKs remain individual and durable.
+            for (const peer of targets.filter(peer => record.peers.get(peer.id) === peer.dc))
+              this.hub.enqueue(peer, packet);
             // A peer can disconnect after the others durably committed.
             // Its next join still requests the missing Yjs state vector.
             if (!record.peers.size && record.acknowledged.size) {
@@ -193,7 +218,15 @@
           const binary = typeof copy !== 'string';
           const bytes = binary ? new Uint8Array(copy instanceof Blob ? await copy.arrayBuffer() : copy) : null;
           packet = { v: 1, topic: this.topic, type: binary ? 'binary' : 'text', data: binary ? encode(bytes) : copy };
-          for (const peer of this.hub.connected()) await this.hub.deliver(peer, packet);
+          const targets = this.hub.connected();
+          if (!targets.length || !targets.some(peer => this.hub.canEnqueue(peer, packet))) {
+            // Live binary frames are best-effort. A full recipient queue must
+            // never close the socket and erase independent durable ACK debt.
+            // Durable op/ckpt frames are queued and retried above, not here.
+            if (binary) return;
+            throw new DOMException('No direct peer has queue capacity', 'QuotaExceededError');
+          }
+          for (const peer of targets) this.hub.enqueue(peer, packet);
         }).catch(() => { if (this.readyState === 1) this.close(1013, 'direct delivery pending; local changes retained'); }).finally(() => { this.queuedBytes -= size; });
       }
       confirmPeerReceipt(receipt, proof) {
@@ -202,8 +235,12 @@
         if (!peer || peer.dc !== receipt.channel || peer.dc.readyState !== 'open') return false;
         const bytes = proof instanceof ArrayBuffer ? new Uint8Array(proof) : proof;
         if (!(bytes instanceof Uint8Array) || bytes.byteLength > 4096) return false;
-        this.receipts.delete(receipt);
-        return this.hub.deliver(peer, { v: 1, topic: this.topic, type: 'ack', id: receipt.id, kind: receipt.kind, hash: receipt.hash, data: encode(bytes) });
+        // A native SCTP send failure is not a durable acknowledgement.
+        // Keep the receipt so the sender's bounded durable replay can retry
+        // the same proof when the channel drains or reconnects.
+        return this.hub.deliver(peer, { v: 1, topic: this.topic, type: 'ack', id: receipt.id, kind: receipt.kind, hash: receipt.hash, data: encode(bytes) })
+          .then(sent => { if (sent === true) this.receipts.delete(receipt); return sent === true; })
+          .catch(() => false);
       }
       acceptPeerAck(meta) {
         if (!this.ackCandidates.has(meta)) return false;
@@ -221,14 +258,40 @@
       }
       close(code = 1000, reason = '') {
         if (this.readyState === 3) return;
-        this.readyState = 3; clearTimeout(this.peerRetryTimer); this.peerRetryTimer = null; this.hub.sockets.delete(this); this.receipts.clear(); this.ackCandidates.clear(); this.sent.clear();
+        this.readyState = 3; clearTimeout(this.peerRetryTimer); this.peerRetryTimer = null; this.peerRetryDueAt = 0; this.hub.sockets.delete(this); this.receipts.clear(); this.ackCandidates.clear(); this.sent.clear();
         this.emit('close', { code, reason, wasClean: code === 1000 });
         if (!this.hub.sockets.size) this.hub.stop();
       }
     }
     class Hub {
       constructor(room) { this.room = room; this.id = random(); this.peers = new Map(); this.sockets = new Set(); this.signal = null; this.attempts = 0; this.timer = null; }
-      connected() { return [...this.peers.values()].filter(peer => peer.dc && peer.dc.readyState === 'open'); }
+      connected() {
+        return [...this.peers.values()].filter(peer => peer.dc && peer.dc.readyState === 'open' &&
+          !['disconnected', 'failed', 'closed'].includes(peer.pc && peer.pc.connectionState));
+      }
+      canEnqueue(peer, packet) {
+        if (!peer || this.peers.get(peer.id) !== peer || !this.connected().includes(peer)) return false;
+        const length = JSON.stringify(packet).length;
+        return length <= MAX_PACKET && (peer.pendingBytes || 0) + length <= MAX_BUFFER &&
+          (peer.pendingFrames || 0) < 256;
+      }
+      // Independent FIFO for each recipient, shared across topics and retries.
+      // Bound queued bytes and frames per channel: no endless memory growth,
+      // no conversion of an unsent durable packet into an ACK.
+      enqueue(peer, packet) {
+        if (!this.canEnqueue(peer, packet)) return false;
+        const bytes = JSON.stringify(packet).length, dc = peer.dc;
+        peer.pendingBytes = (peer.pendingBytes || 0) + bytes;
+        peer.pendingFrames = (peer.pendingFrames || 0) + 1;
+        peer.sendSerial = (peer.sendSerial || Promise.resolve()).then(() => {
+          if (this.peers.get(peer.id) !== peer || peer.dc !== dc || !this.connected().includes(peer)) return false;
+          return this.deliver(peer, packet);
+        }).catch(() => false).finally(() => {
+          peer.pendingBytes -= bytes;
+          peer.pendingFrames--;
+        });
+        return true;
+      }
       // v594: Chromium serves RTCDataChannel.bufferedAmount from a cached copy of the SCTP queue that it
       // refreshes only on send() and via a threshold callback. In real Chromium runs (CPU x6) the copy froze
       // at the total bytes sent (527889) while the receiver already held every byte, so both Socket.send and
@@ -273,7 +336,24 @@
         // v653: Firefox ends with an empty candidate; the relay closes the signaling socket on it. ICE does not need it.
         pc.onicecandidate = event => { if (event.candidate && event.candidate.candidate && event.candidate.type !== 'relay') this.signalTo('ice', id, event.candidate.toJSON()); };
         pc.ondatachannel = event => this.attach(peer, event.channel);
-        pc.onconnectionstatechange = () => { if (['failed', 'closed'].includes(pc.connectionState)) this.remove(peer, pc.connectionState === 'failed'); };
+        pc.onconnectionstatechange = () => {
+          const state = pc.connectionState;
+          if (state === 'disconnected') {
+            // A DC can remain 'open' while SCTP makes no progress. Quarantine
+            // immediately from live admission; preserve all unacknowledged debt.
+            for (const socket of this.sockets) socket.presence();
+            clearTimeout(peer.disconnectTimer);
+            peer.disconnectTimer = setTimeout(() => {
+              peer.disconnectTimer = null;
+              if (pc.connectionState === 'disconnected') this.remove(peer, true);
+            }, 3000);
+          } else if (state === 'connected') {
+            clearTimeout(peer.disconnectTimer); peer.disconnectTimer = null;
+            for (const socket of this.sockets) { socket.presence(); socket.schedulePeerRetry(); }
+          } else if (state === 'failed' || state === 'closed') {
+            this.remove(peer, state === 'failed');
+          }
+        };
         return peer;
       }
       attach(peer, dc) {
@@ -292,6 +372,7 @@
       }
       remove(peer, retryInitial = false) {
         if (this.peers.get(peer.id) !== peer) return;
+        clearTimeout(peer.disconnectTimer); peer.disconnectTimer = null;
         this.peers.delete(peer.id); try { peer.pc.close(); } catch (_) {}
         for (const socket of [...this.sockets]) { socket.presence(); if (!this.connected().length && socket.readyState === 1) socket.close(1013, 'direct peer disconnected; local changes retained'); }
         // Restart a failed first negotiation within the existing finite signaling budget.
@@ -360,7 +441,7 @@
         for (const socket of this.sockets) {
           if (socket.topic !== packet.topic || socket.readyState !== 1) continue;
           if (packet.type === 'text' && typeof packet.data === 'string') socket.emit('message', { data: packet.data, relaySource: 'peer' });
-          else if (packet.type === 'binary') socket.emit('message', { data: decode(packet.data).buffer, relaySource: 'peer' });
+          else if (packet.type === 'binary') socket.emit('message', { data: decode(packet.data).buffer, relaySource: 'peer', peerSenderId: peer.id });
           else if (['durable', 'ack'].includes(packet.type) && ['op', 'ckpt'].includes(packet.kind) && typeof packet.id === 'string' && packet.id.length <= 160 && HASH.test(packet.hash)) {
             const bytes = decode(packet.data);
             if (packet.type === 'durable') {
@@ -379,7 +460,7 @@
           }
         }
       }
-      stop() { clearTimeout(this.timer); this.timer = null; this.attempts = 0; const ws = this.signal; this.signal = null; if (ws) try { ws.close(); } catch (_) {} for (const peer of this.peers.values()) try { peer.pc.close(); } catch (_) {} this.peers.clear(); }
+      stop() { clearTimeout(this.timer); this.timer = null; this.attempts = 0; const ws = this.signal; this.signal = null; if (ws) try { ws.close(); } catch (_) {} for (const peer of this.peers.values()) { clearTimeout(peer.disconnectTimer); try { peer.pc.close(); } catch (_) {} } this.peers.clear(); }
     }
     // A metadata WebSocket can remain OPEN after ICE exhausted its attempts.
     // Merely calling start() leaves that socket untouched and the notebook

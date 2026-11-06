@@ -93,6 +93,9 @@ test('punto 3: con espacio justo suelta los nuevos mas antiguos, conserva ancla,
   // Cabe el estado actual menos ~2 puntos: el siguiente guardado tiene que soltar viejos para entrar.
   const limite = usado - 2 * antes[1].contenido.length;
   ls.setItem = ((orig) => (k, v) => { const prev = ls._m.get(k); ls._m.set(k, String(v)); if ([...ls._m].reduce((s, [a, b]) => s + a.length + b.length, 0) > limite) { if (prev === undefined) ls._m.delete(k); else ls._m.set(k, prev); throw new Error('QuotaExceededError'); } })();
+  // The new checkpoint must have a later ISO-ms timestamp than the previous one.
+  // Otherwise equal contents + same millisecond make notDeepEqual nondeterministic.
+  await new Promise(resolve => setTimeout(resolve, 25));
   await w.cajaGuardarPunto(true);
   const despues = JSON.parse(ls.getItem(clave));
   assert.ok(despues.length >= 2 && despues.length < 7, 'guardo menos puntos en vez de ninguno: ' + despues.length);

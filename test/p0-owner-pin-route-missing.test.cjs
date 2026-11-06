@@ -53,6 +53,12 @@ async function activarYVolver(verify404Body) {
   await page.waitForSelector('#oc-act-exito', { state: 'visible', timeout: 90000 }); // PBKDF2 150k under a loaded CI box
   await page.click('#oc-act-entrar');
   await page.waitForTimeout(2000);
+  // v674 no reloads on first entry: honor the Owner welcome before using Log out.
+  // This is an actual user action, not a forced click through a blocking dialog.
+  if (await page.locator('#am-welcome.abierto').isVisible()) {
+    await page.locator('#am-welcome-ok').click();
+    await page.locator('#am-welcome.abierto').waitFor({ state: 'hidden' });
+  }
   await teclear('789'); // the Owner comes back after logging out
   const r = await page.evaluate(() => ({
     rol: (() => { try { return OCAuth.rolActual(); } catch (_) { return null; } })(),

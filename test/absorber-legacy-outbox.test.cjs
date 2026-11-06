@@ -7,6 +7,13 @@ const yjs=fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'
 const tick=()=>new Promise(r=>setImmediate(r));
 const KEY='f123_relay_outbox_v1-y';
 async function settle(n=20){for(let i=0;i<n;i++)await tick();}
+// Crypto digest/encryption and serialized IDB outbox writes have an asynchronous
+// completion barrier. A fixed number of setImmediate turns is NOT that barrier.
+async function waitForPersisted(check,diagnostic){
+ const deadline=Date.now()+3000;
+ while(!check()&&Date.now()<deadline)await new Promise(r=>setTimeout(r,10));
+ assert.ok(check(),'encrypted new movement did not reach durable outbox: '+diagnostic());
+}
 function controls(socket,kind){return socket.sent.filter(x=>typeof x==='string').map(JSON.parse).filter(x=>x.k===kind);}
 
 // Synthetic only: a device whose Y.Doc already holds every change its legacy envelopes carry.
@@ -64,8 +71,14 @@ test('(a)+(c) 600 legacy envelopes: one full-state group goes first; its durable
  // A change made after the encode must survive retirement.
  const sv=a.Y.encodeStateVector(a.doc);a.doc.getMap('productos').set('posterior','nuevo');
  a.channel.enviarUpdate(a.Y.encodeStateAsUpdate(a.doc,sv));await settle();
+ await waitForPersisted(
+   ()=>a.queue().some(x=>!a.legacyIds.has(x.id)&&!x.abs),
+   ()=>JSON.stringify({legacy:a.queue().filter(x=>a.legacyIds.has(x.id)).length,
+     absorbing:a.queue().filter(x=>x.abs).length,pending:a.channel.pendientesRelay,
+     emitted:a.absOps().length})
+ );
  const later=a.queue().filter(x=>!a.legacyIds.has(x.id)&&!x.abs);
- assert.equal(later.length,1);
+ assert.equal(later.length,1,'post-absorption move must persist exactly once');
  const absIds=new Set(a.queue().filter(x=>x.abs).map(x=>x.id)),absTotal=absIds.size;
  for(let i=0;i<10&&new Set(a.absOps().map(x=>x.id)).size<absTotal;i++){
   for(const id of new Set(a.absOps().map(x=>x.id)))a.socket.onmessage({data:JSON.stringify({k:'persist-result',id,kind:'op',ok:true})});
@@ -76,6 +89,8 @@ test('(a)+(c) 600 legacy envelopes: one full-state group goes first; its durable
  const q=a.queue();
  assert.equal(q.filter(x=>a.legacyIds.has(x.id)).length,0,'legacy envelopes retired after the whole group ACK');
  assert.ok(q.some(x=>x.id===later[0].id),'envelope created after the encode is never retired');
+ await waitForPersisted(() => !!a.data.get('f123_relay_absorcion-y'),
+   () => 'absorption proof not yet saved after ACK');
  const ev=a.data.get('f123_relay_absorcion-y');
  assert.equal(ev.n,600-a.acked.size,'every legacy envelope is either ACKed itself or absorbed');assert.equal(ev.absorbidoHasta,marca.hasta);assert.match(ev.sha256,/^[0-9a-f]{64}$/);assert.ok(ev.primero&&ev.ultimo&&ev.at&&ev.absorbidoHasta);
  assert.ok(JSON.stringify(ev).length<1024,'evidence never copies ciphertexts');

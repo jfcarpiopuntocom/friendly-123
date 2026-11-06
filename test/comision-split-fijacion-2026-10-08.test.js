@@ -34,7 +34,18 @@ function newApp() {
     return (typeof p === 'string' && /mock-backend\.js$/.test(p)) ? inject(src, HANDLE) : src;
   };
   try {
-    const app = require('./helpers/browser.cjs').browser();
+    // CI runs in UTC, but commission fixtures assert America/Guayaquil months.
+    // Inject that business timezone BEFORE loading mock-backend's demo seed.
+    // Keep production date/commission code unchanged.
+    const entries = new Map([['f123_timezone', ZONA]]);
+    const ls = {
+      get length() { return entries.size; },
+      key: i => [...entries.keys()][i],
+      getItem: key => entries.get(key) ?? null,
+      setItem: (key, value) => entries.set(key, String(value)),
+      removeItem: key => entries.delete(key)
+    };
+    const app = require('./helpers/browser.cjs').browser(ls);
     app.OCAuth = { rolActual: () => 'dueno' };
     return app;
   } finally { fs.readFileSync = readReal; }

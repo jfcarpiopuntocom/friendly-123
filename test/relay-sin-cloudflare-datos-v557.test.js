@@ -11,6 +11,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { startServer, openDevice, enterAs, go, chromium } = require('./helpers/e2e-app.cjs');
 
+const FIREBASE_ALLOWED_PATH = /^\/f123\/[a-f0-9]{40}(-y|-ops|-fotos)?\/(o|k)(\/[^/]+)?\.json$/;
 const DOCS = path.resolve(__dirname, '..', 'docs');
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -24,6 +25,13 @@ const archivos = walk(DOCS).map(f => ({ rel: path.relative(DOCS, f).replace(/\\/
 const donde = re => archivos.filter(a => re.test(a.src)).map(a => a.rel).sort();
 
 // ---------- Parte 1: estatica ----------
+test('estatico: Firebase admite sala cifrada de fotos pero no salas ajenas', () => {
+  const id = 'a'.repeat(40);
+  for (const suffix of ['', '-y', '-ops', '-fotos'])
+    assert.match(`/f123/${id}${suffix}/o.json`, FIREBASE_ALLOWED_PATH);
+  assert.doesNotMatch(`/f123/${id}-desconocida/o.json`, FIREBASE_ALLOWED_PATH);
+});
+
 test('estatico: ningun archivo de docs/ abre un socket o canal crudo (WebSocket/EventSource/sendBeacon/XHR)', () => {
   for (const re of [/new\s+WebSocket\s*\(/, /new\s+EventSource\s*\(/, /sendBeacon\s*\(/, /new\s+XMLHttpRequest\s*\(/]) {
     assert.deepEqual(donde(re), [], 'destino de red crudo: ' + re);
@@ -212,7 +220,7 @@ test('navegador: acciones de negocio solo permiten WS /signal y el proyecto Supa
     const split = s.indexOf(' '), tipo = s.slice(0, split), u = new URL(s.slice(split + 1));
     if (/(^|\.)firebaseio\.com$/i.test(u.hostname)) { // second durable layer: only the app's own database
       assert.equal(u.hostname, 'friendly-123-ab7b3-default-rtdb.firebaseio.com', 'foreign Firebase database: ' + s);
-      assert.match(u.pathname, /^\/f123\/[a-f0-9]{40}(-y|-ops)?\/(o|k)(\/[^/]+)?\.json$/);
+      assert.match(u.pathname, FIREBASE_ALLOWED_PATH);
       continue;
     }
     if (/(^|\.)supabase\.co$/i.test(u.hostname)) { // durable relay (JFC 2026-11-02): only the app's own project

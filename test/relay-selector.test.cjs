@@ -495,3 +495,45 @@ test('v670: a late lower-priority layer does not restart an already healthy pref
   made[1].open();
   assert.equal(closes, 0, 'late inferior socket must never override verified Supabase');
 });
+
+// Ponytail: a saturated preferred layer is not a reason to stop a healthy
+// fallback. Verify each native transport's 512KiB budget is preserved.
+test('P0 cascade admission uses healthy open layer; congested sibling never exceeds its own 512KiB window', () => {
+  const { R, vencer, made } = app();
+  const h = R.connect(URL1); made[0].open();
+  vencer(); assert.equal(made[1].kind, 'firebase'); made[1].open();
+  const base0 = made[0].sent.length, base1 = made[1].sent.length;
+  made[0].bufferedAmount = 512 * 1024;
+  made[1].bufferedAmount = 0;
+  assert.equal(h.bufferedAmount, 0, 'one writable fallback must not inherit another layer congestion');
+  h.send('sale');
+  assert.deepEqual(made[0].sent.slice(base0), [], 'congested preferred layer cannot admit more native bytes');
+  assert.deepEqual(made[1].sent.slice(base1), ['sale'], 'fallback independently receives encrypted sale');
+  made[1].bufferedAmount = 512 * 1024;
+  assert.throws(() => h.send('money'), e => e.name === 'QuotaExceededError',
+    'once both layers are full, the local durable outbox must retain this write');
+});
+
+test('P0 cascade uses per-layer room under the cap, not an aggregate of two half-full sockets', () => {
+  const { R, made, vencer } = app();
+  const h = R.connect(URL1); made[0].open(); vencer(); made[1].open();
+  const start = made.map(x => x.sent.length);
+  made[0].bufferedAmount = 280 * 1024;
+  made[1].bufferedAmount = 280 * 1024;
+  assert.equal(h.bufferedAmount, 280 * 1024, 'sum would falsely block a legitimate 8KiB op');
+  h.send('x'.repeat(8 * 1024));
+  assert.equal(made[0].sent.length, start[0] + 1);
+  assert.equal(made[1].sent.length, start[1] + 1);
+});
+
+test('P0 cascade preserves existing bounded checkpoint exception on an empty durable layer', () => {
+  const { R, made } = app();
+  const h = R.connect(URL1); made[0].open();
+  const checkpoint = JSON.stringify({ k: 'ckpt', id: 'synthetic', c: 'A'.repeat(600 * 1024) });
+  assert.ok(checkpoint.length > 512 * 1024 && checkpoint.length <= 1088 * 1024);
+  h.send(checkpoint);
+  assert.equal(made[0].sent.at(-1), checkpoint, 'native checkpoint exception remains available');
+  made[0].bufferedAmount = 1;
+  assert.throws(() => h.send(checkpoint), e => e.name === 'QuotaExceededError',
+    'large native checkpoint cannot be queued atop a nonempty transport buffer');
+});

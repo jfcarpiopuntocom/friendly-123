@@ -111,7 +111,7 @@ test('signaling retries keep backing off to ten minutes and resume immediately o
 });
 
 async function fixture(name='catalogo',initialSaved=[],peerOnly=true,ckpt=false){
-  const receipts=[],sent=[],transactions=[],saved=new Map(initialSaved),timers=[];let storeResult=true,failNextSave=false,failReadAfterWrite=false,failNextRead=false;
+  const receipts=[],sent=[],transactions=[],saved=new Map(initialSaved),timers=[];let storeResult=true,failNextSave=false,failReadAfterWrite=false,failNextRead=false,clockShift=0;
   const socket={peerOnly,readyState:1,send:value=>sent.push(value),close(code){if(code!==undefined&&code!==1000&&(!Number.isInteger(code)||code<3000||code>4999))throw new DOMException('Invalid WebSocket close code','InvalidAccessError');this.readyState=3;},
     confirmPeerReceipt(receipt,proof){receipts.push({receipt,proof});},acceptPeerAck(meta){this.onmessage({data:JSON.stringify({k:'persist-result',kind:meta.kind,id:meta.id,ok:true}),peerAccepted:true});}};
   const persistence={whenSynced:Promise.resolve(),get:async key=>{if(failNextRead){failNextRead=false;throw Error('synthetic outbox read rejected');}return structuredClone(saved.get(key));},set:async(key,value)=>{if(failNextSave){failNextSave=false;failNextRead=failReadAfterWrite;throw Error('synthetic outbox write rejected');}saved.set(key,structuredClone(value));},
@@ -119,7 +119,7 @@ async function fixture(name='catalogo',initialSaved=[],peerOnly=true,ckpt=false)
   const ctx={API:{clave:'synthetic',roomId:'synthetic',_store:{aplicar(){}},confirmarCatalogoDurable:async()=>storeResult},
     RELAY_URL:'fixture:',window:{dispatchEvent(){},F123Relay:{connect:()=>socket},OCSync:{confirmarCatalogoDurable:async()=>storeResult}},
     document:{hidden:false,visibilityState:'visible',addEventListener(){}},CustomEvent:class{},log(){},crypto:require('node:crypto').webcrypto,
-    Date,Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,
+    Date:class extends Date { static now(){ return Date.now()+clockShift; } },Math,JSON,Uint8Array,ArrayBuffer,TextEncoder,TextDecoder,
     setTimeout(fn,ms){timers.push({fn,ms});return timers.length;},clearTimeout(id){if(timers[id-1])timers[id-1].cancelled=true;},setInterval(){return 1;},clearInterval(){},
     btoa:value=>Buffer.from(value,'binary').toString('base64'),atob:value=>Buffer.from(value,'base64').toString('binary'),
     cifrarBin:async(_key,bytes)=>bytes.slice().buffer,descifrarBin:async(_key,bytes)=>new Uint8Array(bytes)};
@@ -132,7 +132,7 @@ async function fixture(name='catalogo',initialSaved=[],peerOnly=true,ckpt=false)
     socket.onmessage({data:bytes.slice().buffer,relaySource:'peer',peerReceipt:receipt});return receipt;
   }
   function update(value='value'){remote.getMap('items').set('synthetic',value);const bytes=ctx.Y.encodeStateAsUpdate(remote),frame=new Uint8Array(bytes.length+1);frame[0]=0;frame.set(bytes,1);return frame;}
-  return {ctx,socket,receipts,sent,transactions,saved,timers,doc,remote,channel,send,update,setStoreResult(value){storeResult=value;},failNextSave(alsoFailRead=false){failNextSave=true;failReadAfterWrite=alsoFailRead;},close(){doc.destroy();remote.destroy();}};
+  return {ctx,socket,receipts,sent,transactions,saved,timers,doc,remote,channel,send,update,advanceClock(ms){clockShift+=ms;},setStoreResult(value){storeResult=value;},failNextSave(alsoFailRead=false){failNextSave=true;failReadAfterWrite=alsoFailRead;},close(){doc.destroy();remote.destroy();}};
 }
 
 function bootstrapPiece(full,index,id='old-snapshot-001') {
@@ -443,5 +443,74 @@ test('legacy orphan evidence survives checkpoint ACKs even when an older snapsho
     assert.equal(retained.length,1,'ACK retires its checkpoint, but wall clock does not prove orphan coverage');
     assert.equal(retained[0].id,'legacy-ck');assert.equal(retained[0].c,orphan.c,'original ciphertext is preserved');
     assert.equal(f.channel.huerfanosHeredados,1);assert.equal(f.channel.pendientesRelay,0);
+  }finally{f.close();}
+});
+
+test('P0: an incomplete receipt-free peer snapshot cannot indefinitely block an independent durable ACK',async()=>{
+  const f=await fixture('catalogo');
+  try{
+    // Complete the initial peer bootstrap and prove the durable journal barrier.
+    const initial=f.update('initial');initial[0]=6;
+    f.socket.onmessage({data:initial.buffer,relaySource:'peer'});
+    await settle();assert.ok(f.transactions.length,'initial snapshot requires local IDB barrier');
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.equal(f.channel.recuperando,false,'this is an already-recovered receiver');
+
+    // A third peer sends only fragment 1/2 of a best-effort full-state
+    // handshake (tag 6). It has no receipt and must never be ACKed.
+    const abandoned=f.update('interrupted-snapshot');abandoned[0]=6;
+    f.socket.onmessage({data:bootstrapPiece(abandoned,0,'partial-snap-001').buffer,relaySource:'peer'});
+    await settle();
+    const before=f.transactions.length;
+
+    // A separate complete business operation is independently applicable.
+    f.send(f.update('fresh-durable-sale'),'fresh-op');await settle();
+    assert.equal(f.doc.getMap('items').get('synthetic'),'fresh-durable-sale');
+    assert.equal(f.doc.store.pendingStructs,null);
+    assert.ok(f.transactions.length>before,'independent op must reach the real disk barrier even while a receipt-free bootstrap is incomplete');
+    assert.equal(f.receipts.length,0,'receipt cannot precede IndexedDB completion');
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.deepEqual(f.receipts.map(x=>x.receipt.id),['fresh-op']);
+  }finally{f.close();}
+});
+
+
+test('P0: incomplete ACK-bearing fragment still fences all dependent peer receipts',async()=>{
+  const f=await fixture('catalogo');
+  try{
+    const initial=f.update('initial');initial[0]=6;
+    f.socket.onmessage({data:initial.buffer,relaySource:'peer'});await settle();
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.equal(f.channel.recuperando,false);
+    const snap=f.update('partial-durable');snap[0]=6;
+    f.send(bootstrapPiece(snap,0,'durable-snap-001'),'frag-0');
+    await settle();
+    const before=f.transactions.length;
+    f.send(f.update('other-durable'),'independent-op');await settle();
+    assert.equal(f.transactions.length,before,'partial fragment WITH receipt must fence durability');
+    assert.equal(f.receipts.length,0,'no premature ACK');
+    f.send(bootstrapPiece(snap,1,'durable-snap-001'),'frag-1');await settle();
+    assert.ok(f.transactions.length>before,'complete group can enter disk barrier');
+    assert.equal(f.receipts.length,0,'journal has not completed');
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.deepEqual(f.receipts.map(x=>x.receipt.id).sort(),['frag-0','frag-1','independent-op']);
+  }finally{f.close();}
+});
+
+test('P0: stale incomplete ACK-bearing fragment cannot fence independent durable receipts indefinitely',async()=>{
+  const f=await fixture('fotos');try{
+    const orphan=f.update('orphan-start'),body=orphan.subarray(1),cut=Math.floor(body.length/2);
+    const piece=new Uint8Array(22+cut);piece[0]=3;piece[1]=0;piece.fill(90,2,18);piece[21]=2;
+    piece.set(body.subarray(0,cut),22);
+    f.send(piece,'orphan-part-0');await settle();
+    f.send(f.update('valid-1'),'valid-1');await settle();
+    assert.equal(f.receipts.length,0,'a fresh incomplete group must fence dependent receipt proof');
+    f.advanceClock(120001);
+    f.send(f.update('valid-2'),'valid-2');await settle();
+    assert.ok(f.transactions.length,'a stale orphan must no longer suppress a durable journal barrier');
+    for(const tx of f.transactions) tx.oncomplete?.();
+    await settle();
+    assert.deepEqual(f.receipts.map(v=>v.receipt.id),['valid-1','valid-2'],
+      'unrelated valid receipts proceed, but the orphan never receives a synthetic ACK');
   }finally{f.close();}
 });
