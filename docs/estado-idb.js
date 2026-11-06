@@ -158,6 +158,32 @@
     }
   }
 
+  // v680 P0: On a VERIFIED IndexedDB quota abort, recover only space occupied
+  // by obsolete, generated OFFLINE shell caches. Never touch IDB, photos, sales,
+  // PIN, Yjs, the current shell or the last three previous shell generations.
+  // The CAS transaction has already aborted; a new transaction must still
+  // confirm the exact snapshot before returning success.
+  function _esCuotaEstricto(e) {
+    return !!e && (e.name === "QuotaExceededError" ||
+      e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014);
+  }
+  async function _soltarShellObsoleto() {
+    const c = window.caches;
+    if (!c || typeof c.keys !== "function" || typeof c.delete !== "function") return false;
+    try {
+      const nombres = await c.keys();
+      const antiguos = nombres.filter(function (nombre) {
+        const m = /^f123-shell-v([0-9]+)(?:-|$)/.exec(nombre);
+        return !!m && Number(m[1]) > 0 && Number(m[1]) < 676;
+      });
+      let liberado = false;
+      for (const nombre of antiguos) {
+        try { if (await c.delete(nombre)) liberado = true; } catch (_) {}
+      }
+      return liberado;
+    } catch (_) { return false; }
+  }
+
   // Atomic durable revision fence. Two tabs cannot acknowledge two different
   // sales from the same base revision. IndexedDB serializes overlapping
   // readwrite transactions; no 10-second Web Locks wait or cross-tab lease.
@@ -166,7 +192,7 @@
     const op = _cola.then(async function () {
       const copia = JSON.parse(JSON.stringify(estado));
       const db = await abrirDB();
-      return new Promise(function (resolve) {
+      const intento = () => new Promise(function (resolve) {
         let accepted = false, errorTx = null; // cada transacción reporta SOLO su propio error
         // Money/stock uses strict durability where the browser supports the hint.
         const tx = db.transaction(STORE, "readwrite", { durability: "strict" });
@@ -196,6 +222,12 @@
         };
         tx.onerror = function () { errorTx = errorTx || tx.error || null; };
       });
+      const primero = await intento();
+      if (primero === true || !_esCuotaEstricto(_ultimoError)) return primero;
+      // A genuine quota abort permits at most one retry after deleting
+      // obsolete shell caches. CAS is rerun, so another writer can still win.
+      if (!await _soltarShellObsoleto()) return false;
+      return intento();
     }).catch(function (e) { _ultimoError = e || null; return false; });
     _cola = op.then(function () {}, function () {});
     return op;
