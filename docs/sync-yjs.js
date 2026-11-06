@@ -1316,9 +1316,6 @@
       } catch (_) { reprogramar(); return; }
       var pullEstado = { enCurso: false, fallos: 0, usarHead: true };
       var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0;
-      // One-shot per-origin guard for a repeated tag-2 reply to the same
-      // tag-1 vector. It never suppresses hello/recovery or a new receiver.
-      var helloAnswered = new Map();
       var snapshotsRetirados = new Set();
       Object.keys(partesEntrantes).forEach(function (id) {
         if (partesEntrantes[id].tag === 6 && !partesEntrantes[id].receipts.length) delete partesEntrantes[id];
@@ -1543,45 +1540,20 @@
             // pull cursor is separately fenced by guardarPruebaCausal + IDB readback.
             return true;
           }
-          else if (tag === 1) { // peer hello: no diff from an unhydrated partial Y.Doc
+          else if (tag === 1) { // peer hello: do not answer from an unhydrated Y.Doc
             return _pullCursorReady.then(function () {
-              // Bind this reply to its actual RTC sender; never deduplicate
-              // equal empty state vectors belonging to different new devices.
-              var sourceId = ws.peerOnly && /^[a-f0-9]{32}$/.test(peerSenderId || "") ? peerSenderId : null;
-              var diff = Y.encodeStateAsUpdate(doc, payload), queued = false;
-              try { enviar(ws.peerOnly ? 6 : 0, diff); queued = true; } catch (_) {}
+              try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
               try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
-              // Hash the actual Yjs diff, including DeleteSet (a deletion may
-              // leave encodeStateVector unchanged). This is only an optional
-              // optimisation; oversized diffs or hash failures always send.
-              if (sourceId && queued && diff.byteLength <= 2 * 1024 * 1024) {
-                return updateHash(diff).then(function (digest) {
-                  helloAnswered.set(sourceId, { remote: _b64(payload), digest: digest, at: Date.now() });
-                  if (helloAnswered.size > 64) helloAnswered.delete(helloAnswered.keys().next().value);
-                  return true;
-                }).catch(function () { return true; });
-              }
               return true;
             });
-          } else if (tag === 2) { // reply with diff only after the local journal is loaded
+          } else if (tag === 2) { // reply after local hydration
             return _pullCursorReady.then(function () {
-              var prior = ws.peerOnly && peerSenderId ? helloAnswered.get(peerSenderId) : null;
-              if (prior) helloAnswered.delete(peerSenderId);
-              var diff = Y.encodeStateAsUpdate(doc, payload);
-              if (prior && Date.now() - prior.at <= 3000 &&
-                  prior.remote === _b64(payload) && diff.byteLength <= 2 * 1024 * 1024) {
-                return updateHash(diff).then(function (digest) {
-                  if (digest !== prior.digest) {
-                    try { enviar(6, diff); } catch (_) {}
-                  }
-                  return true;
-                }).catch(function () {
-                  // Never suppress a valid state request because hashing failed.
-                  try { enviar(6, diff); } catch (_) {}
-                  return true;
-                });
-              }
-              try { enviar(ws.peerOnly ? 6 : 0, diff); } catch (_) {}
+              // The first LIVE response can be discarded by a saturated RTC
+              // peer queue even when ws.send() returned successfully. Without
+              // a persisted receiver ACK, a matching hash is NOT evidence of
+              // delivery. Retry the diff on tag-2, even if the shop is empty:
+              // an empty tag-6 also certifies a completed bootstrap snapshot.
+              try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
               return true;
             });
           }

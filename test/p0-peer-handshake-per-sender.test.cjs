@@ -49,7 +49,7 @@ test('RED A: en peerOnly el mismo ciphertext no sale por el carril vivo Y por el
   assert.ok(wireBytes<=payload.length*1.15,`bytes por la linea ${wireBytes} > 1.15x el payload ${payload.length}`);
 });
 
-test('RED B: el mismo vector de estado no recibe el estado completo mas de una vez en el handshake',async()=>{
+test('P0: caught-up peer does not need duplicate full state; lost empty-peer snapshot is recoverable',async()=>{
   // El objeto debe crearse DENTRO del contexto vm: Yjs rechaza objetos de otro realm ('Unexpected content type').
   const f=await fixture((Y,doc,ctx)=>{doc.getMap('business').set('record',vm.runInContext('('+JSON.stringify(SEED())+')',ctx))});
   const empty=f.Y.encodeStateVector(new f.Y.Doc()),full=f.Y.encodeStateVector(f.doc);
@@ -58,7 +58,7 @@ test('RED B: el mismo vector de estado no recibe el estado completo mas de una v
   // Secuencia observada al entrar el 3er navegador: 'c' (vacio) y 'reopened' (completo) saludan (tag 1)
   // y luego contestan con su vector (tag 2). 'c' todavia no aplico nada, asi que su SV sigue vacio.
   from(frame(1,empty),'c'.repeat(32));await settle();from(frame(1,full),'b'.repeat(32));await settle();
-  from(frame(2,empty),'c'.repeat(32));await settle();from(frame(2,full),'b'.repeat(32));await settle(30);
+  from(frame(2,full),'c'.repeat(32));await settle();from(frame(2,full),'b'.repeat(32));await settle(30);
   const frames=f.ws.sent.filter(x=>typeof x!=='string').map(x=>new Uint8Array(x));
   const groups=new Map(); // emision = grupo de piezas (tag 3) o frame unico con tag 6
   for(const b of frames){
@@ -143,4 +143,50 @@ test('P0: deletion between hello and tag2 must not disappear behind unchanged Yj
   f.ws.onmessage({data:make(2),relaySource:'peer',peerSenderId:origin});await settle(30);
   assert.ok(f.ws.sent.filter(x=>typeof x!=='string').length>n,
     'tag2 after deletion requires an updated delete-set diff even when both state vectors are unchanged');
+});
+
+test('P0: lost best-effort tag1 snapshot must be retransmitted for immediate tag2',async()=>{
+  const f=await fixture((Y,doc,ctx)=>{doc.getMap('business').set('record',vm.runInContext('('+JSON.stringify(SEED())+')',ctx))});
+  const empty=f.Y.encodeStateVector(new f.Y.Doc());
+  const frame=tag=>new Uint8Array([tag,...empty]).buffer;
+  const sender='c'.repeat(32);
+  const original=f.ws.send.bind(f.ws);
+  let drop=true,discarded=0;
+  f.ws.send=function(payload){
+    if (drop && typeof payload!=='string') {
+      const b=new Uint8Array(payload);
+      if (b[0]===6||(b[0]===3&&b[1]===6)) {discarded++;return;}
+    }
+    return original(payload);
+  };
+  f.ws.onmessage({data:frame(1),relaySource:'peer',peerSenderId:sender});
+  await settle(30);
+  assert.ok(discarded>=2,'simulate lost full state during a congested live P2P send');
+  drop=false;
+  const before=f.ws.sent.filter(x=>typeof x!=='string').length;
+  f.ws.onmessage({data:frame(2),relaySource:'peer',peerSenderId:sender});
+  await settle(30);
+  const after=f.ws.sent.filter(x=>typeof x!=='string').length;
+  assert.ok(after>before,'tag2 should recover lost tag1 state without requiring peer reconnect');
+});
+
+test('P0: lost empty-shop bootstrap still gets an empty Yjs state receipt on tag2',async()=>{
+  const f=await fixture(); // No records: an empty Yjs diff still proves bootstrap completeness.
+  const empty=f.Y.encodeStateVector(new f.Y.Doc()),frame=tag=>new Uint8Array([tag,...empty]).buffer;
+  const sender='d'.repeat(32),original=f.ws.send.bind(f.ws);
+  let lost=true,dropped=0;
+  f.ws.send=function(packet){
+    if(lost&&typeof packet!=='string'){
+      const b=new Uint8Array(packet);
+      if(b[0]===6||(b[0]===3&&b[1]===6)){dropped++;return;}
+    }
+    return original(packet);
+  };
+  f.ws.onmessage({data:frame(1),relaySource:'peer',peerSenderId:sender});
+  await settle(25);assert.ok(dropped>=1,'first empty snapshot was lost');
+  lost=false;const prior=f.ws.sent.filter(v=>typeof v!=='string').length;
+  f.ws.onmessage({data:frame(2),relaySource:'peer',peerSenderId:sender});
+  await settle(25);
+  assert.ok(f.ws.sent.filter(v=>typeof v!=='string').length>prior,
+    'empty shop still needs tag6 confirmation to clear recovery after lost hello');
 });
