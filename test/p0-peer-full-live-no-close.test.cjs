@@ -48,4 +48,3 @@ test('a single congested recipient cannot prevent a healthy recipient receiving 
     assert.equal(slow.frames.length,0,'no bypass around per-peer frame limit');
   }finally{slow.p.dc.readyState=fast.p.dc.readyState='closed';cleanup();}
 });
-
