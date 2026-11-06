@@ -133,3 +133,24 @@ test("SYNC3: useful Yjs vector progress may extend a paced causal recovery windo
  assert.equal(a.ctx._replayUsed,1,"actual Yjs vector progress may renew one paced retry");
  assert.equal(a.ctx._pullCursor.seq,120,"still no durable cursor rollback");
 });
+
+test("SYNC3 RED: finite forward causal scan cannot strand before its HEAD at five paced windows",async()=>{
+ const a=harness(), state=await head(a);
+ // Five backoffs were consumed with no Yjs vector change: the causal
+ // parent can still be later in a finite, encrypted server prefix.
+ a.ctx._replayUsed=5;
+ a.ctx._replayKey=a.ctx.clavePendientes();
+ const start=src.indexOf("      ws.onmessage = function (ev) {",src.indexOf("function crearCanal("));
+ const end=src.indexOf("      _directReceive = function (buf) {",start);
+ a.ctx.pullEstado=state;a.ctx._colaRecepcion=Promise.resolve();
+ a.ctx.API.clave={};a.ctx.guardarPullCursor=async()=>{};
+ vm.runInNewContext(src.slice(start,end),a.ctx);
+ for(const seq of [90,100,110,115]){
+   a.ws.onmessage({data:JSON.stringify({k:"pull-page",rev:3,seq,more:true,n:1})});
+   await a.ctx._colaRecepcion;
+ }
+ assert.equal(a.sent.filter(x=>x.k==="pull").length,4,"four pages remains the per-window cap");
+ assert.equal(a.ctx._pullCursor.seq,120,"never rewind durable cursor");
+ assert.equal(a.ctx._replayUsed,5,"do not falsely invent Yjs vector progress");
+ assert.equal(a.ctx._tReplay,17,"a bounded paced continuation is due while encrypted cursor climbs toward HEAD");
+});
