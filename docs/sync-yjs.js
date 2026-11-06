@@ -1316,6 +1316,9 @@
       } catch (_) { reprogramar(); return; }
       var pullEstado = { enCurso: false, fallos: 0, usarHead: true };
       var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0;
+      // One-shot per-origin guard for a repeated tag-2 reply to the same
+      // tag-1 vector. It never suppresses hello/recovery or a new receiver.
+      var helloAnswered = new Map();
       var snapshotsRetirados = new Set();
       Object.keys(partesEntrantes).forEach(function (id) {
         if (partesEntrantes[id].tag === 6 && !partesEntrantes[id].receipts.length) delete partesEntrantes[id];
@@ -1463,7 +1466,7 @@
           if (index < 0) target.push(receipt); else target[index] = receipt;
         });
       }
-      function manejar(buf, source, peerReceipt) {
+      function manejar(buf, source, peerReceipt, peerSenderId) {
         return Promise.resolve().then(function () { return descifrarBin(API.clave, buf); }).then(function (bytes) {
           if ((source === "live" || source === "peer") && (_pausado || !permitido())) return false;
           var tag = bytes[0], payload = bytes.subarray(1), receipts = peerReceipt ? [peerReceipt] : [];
@@ -1542,13 +1545,43 @@
           }
           else if (tag === 1) { // peer hello: no diff from an unhydrated partial Y.Doc
             return _pullCursorReady.then(function () {
-              try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+              // Bind this reply to its actual RTC sender; never deduplicate
+              // equal empty state vectors belonging to different new devices.
+              var sourceId = ws.peerOnly && /^[a-f0-9]{32}$/.test(peerSenderId || "") ? peerSenderId : null;
+              var diff = Y.encodeStateAsUpdate(doc, payload), queued = false;
+              try { enviar(ws.peerOnly ? 6 : 0, diff); queued = true; } catch (_) {}
               try { enviar(2, Y.encodeStateVector(doc)); } catch (_) {}
+              // Hash the actual Yjs diff, including DeleteSet (a deletion may
+              // leave encodeStateVector unchanged). This is only an optional
+              // optimisation; oversized diffs or hash failures always send.
+              if (sourceId && queued && diff.byteLength <= 2 * 1024 * 1024) {
+                return updateHash(diff).then(function (digest) {
+                  helloAnswered.set(sourceId, { remote: _b64(payload), digest: digest, at: Date.now() });
+                  if (helloAnswered.size > 64) helloAnswered.delete(helloAnswered.keys().next().value);
+                  return true;
+                }).catch(function () { return true; });
+              }
               return true;
             });
           } else if (tag === 2) { // reply with diff only after the local journal is loaded
             return _pullCursorReady.then(function () {
-              try { enviar(ws.peerOnly ? 6 : 0, Y.encodeStateAsUpdate(doc, payload)); } catch (_) {}
+              var prior = ws.peerOnly && peerSenderId ? helloAnswered.get(peerSenderId) : null;
+              if (prior) helloAnswered.delete(peerSenderId);
+              var diff = Y.encodeStateAsUpdate(doc, payload);
+              if (prior && Date.now() - prior.at <= 3000 &&
+                  prior.remote === _b64(payload) && diff.byteLength <= 2 * 1024 * 1024) {
+                return updateHash(diff).then(function (digest) {
+                  if (digest !== prior.digest) {
+                    try { enviar(6, diff); } catch (_) {}
+                  }
+                  return true;
+                }).catch(function () {
+                  // Never suppress a valid state request because hashing failed.
+                  try { enviar(6, diff); } catch (_) {}
+                  return true;
+                });
+              }
+              try { enviar(ws.peerOnly ? 6 : 0, diff); } catch (_) {}
               return true;
             });
           }
@@ -1574,7 +1607,7 @@
         // frames se encadenan: el cursor de una pagina se confirma DESPUES de
         // aplicar todos sus binarios, nunca antes.
         if (d instanceof ArrayBuffer) {
-          _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source, ev.peerReceipt); }).then(function (ok) {
+          _colaRecepcion = _colaRecepcion.then(function () { if (canal.ws !== ws) return true; return manejar(d, source, ev.peerReceipt, ev.peerSenderId); }).then(function (ok) {
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
@@ -1588,7 +1621,7 @@
           });
         }
         else if (typeof Blob !== "undefined" && d instanceof Blob) {
-          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source, ev.peerReceipt); }).then(function (ok) {
+          _colaRecepcion = _colaRecepcion.then(function () { return d.arrayBuffer(); }).then(function (buf) { if (canal.ws !== ws) return true; return manejar(buf, source, ev.peerReceipt, ev.peerSenderId); }).then(function (ok) {
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;

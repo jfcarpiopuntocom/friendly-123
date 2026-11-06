@@ -441,7 +441,7 @@
         for (const socket of this.sockets) {
           if (socket.topic !== packet.topic || socket.readyState !== 1) continue;
           if (packet.type === 'text' && typeof packet.data === 'string') socket.emit('message', { data: packet.data, relaySource: 'peer' });
-          else if (packet.type === 'binary') socket.emit('message', { data: decode(packet.data).buffer, relaySource: 'peer' });
+          else if (packet.type === 'binary') socket.emit('message', { data: decode(packet.data).buffer, relaySource: 'peer', peerSenderId: peer.id });
           else if (['durable', 'ack'].includes(packet.type) && ['op', 'ckpt'].includes(packet.kind) && typeof packet.id === 'string' && packet.id.length <= 160 && HASH.test(packet.hash)) {
             const bytes = decode(packet.data);
             if (packet.type === 'durable') {
