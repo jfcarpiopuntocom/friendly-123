@@ -287,6 +287,10 @@
      peerAccepted === true. Writes go to every open layer (Yjs merges repeats).
      To disable: set CASCADA_MS = 0 (connect() then returns the first layer alone, as in v657). */
   var CASCADA_MS = 3000;
+  // Per-layer native byte ceiling shared with sync-yjs's 512KiB guard.
+  // It applies separately to each open fallback, never as a sum of sibling SCTP/WS buffers.
+  var CAP_BUFFER_CAPA = 512 * 1024;
+  function bufferCapa(ws) { var n = Number(ws && ws.bufferedAmount); return Number.isFinite(n) && n > 0 ? n : 0; }
   function cascada(url, ws0, i0) {
     var H = new EventTarget(), subs = [], emitidoOpen = false, emitidoClose = false, cerradoH = false, hubError = false, bin = "blob", tried = {}, ultimo = i0;
     var alimentador = -1, healthProbe = null, ultimoSondeo = 0;
@@ -506,14 +510,30 @@
       readyState: { get: function () { return cerradoH ? 3 : abiertas().length ? 1 : 0; } },
       peerOnly: { get: function () { var l = abiertas(); if (!l.length) l = subs; return l.length > 0 && l.every(function (x) { return x.ws.peerOnly === true; }); } },
       signalingReady: { get: function () { return subs.some(function (x) { return x.ws.signalingReady === true; }); } },
-      bufferedAmount: { get: function () { return subs.reduce(function (n, x) { return n + (Number(x.ws.bufferedAmount) || 0); }, 0); } },
+      // Admission means ANY open layer can accept. An accumulated sum would
+      // starve healthy Firebase when a silent Supabase socket is saturated.
+      bufferedAmount: { get: function () {
+        var live = abiertas(); return live.length ? Math.min.apply(null, live.map(function (x) { return bufferCapa(x.ws); })) : 0;
+      } },
       binaryType: { get: function () { return bin; }, set: function (v) { bin = v; subs.forEach(function (x) { try { x.ws.binaryType = v; } catch (_) {} }); if (vivo) try { vivo.binaryType = v; } catch (_) {} } }
     });
     ["onopen", "onmessage", "onclose", "onerror"].forEach(function (n) { H[n] = null; });
     H.send = function (v) {
       var l = abiertas(), ok = false, err = null;
       if (cerradoH || !l.length) throw new DOMException("Socket is not open", "InvalidStateError");
-      l.forEach(function (x) { try { x.ws.send(v); ok = true; } catch (e) { err = e; } });
+      var n = bytes(v);
+      // Preserve the existing checkpoint-only empty-buffer exception. The
+      // transport still enforces its native RPC and daily quota separately.
+      var ckpt = n > CAP_BUFFER_CAPA && n <= 1088 * 1024 &&
+        window.F123Relay.ckptFrameBytes === 768 * 1024 &&
+        typeof v === "string" && /^\{"k":"ckpt"/.test(v);
+      l.forEach(function (x) {
+        var held = bufferCapa(x.ws);
+        if (held + n > CAP_BUFFER_CAPA && !(ckpt && held === 0 && x.ws.peerOnly !== true)) {
+          err = new DOMException("Native layer buffer full", "QuotaExceededError"); return;
+        }
+        try { x.ws.send(v); ok = true; } catch (e) { err = e; }
+      });
       if (vivo && vivo.readyState === 1 && typeof v !== "string") try { vivo.send(v); } catch (_) {} // live copy, best effort
       if (!ok) throw err; // e.g. QuotaExceededError must reach the caller
     };
