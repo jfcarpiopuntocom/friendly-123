@@ -72,3 +72,31 @@ test('opening same receiver twice does not emit duplicate retransmissions',async
     assert.equal(f.delivered.length,1);
   }finally{f.close()}
 });
+
+test('P0: a congested direct peer must not head-of-line block an independent receiver',async()=>{
+  const f=fixture();let releaseSlow=()=>{};
+  try {
+    const slowId='b'.repeat(32), fastId='c'.repeat(32);
+    f.socket.hub.peers.set(slowId,f.peer(slowId));
+    f.socket.hub.peers.set(fastId,f.peer(fastId));
+    const slow=new Promise(resolve=>{releaseSlow=()=>resolve(true);});
+    let firstSeen;
+    const first=new Promise(resolve=>{firstSeen=resolve;});
+    const reached=[];
+    f.socket.hub.deliver=async(peer)=>{
+      reached.push(peer.id);
+      if(peer.id===slowId){firstSeen();return slow;}
+      return true;
+    };
+    f.send('concurrent-delivery');
+    await Promise.race([first,new Promise((_,reject)=>setTimeout(()=>reject(Error('sender did not start')),1000))]);
+    // The slow peer is deliberately BLOCKED until after the assertion.
+    // Both peer channels must be serviced independently without false ACK.
+    await new Promise(resolve=>setTimeout(resolve,50));
+    assert.ok(reached.includes(fastId),'healthy peer was starved behind slow peer');
+    assert.equal(f.confirmed.length,0,'no durable ACK without receiver journal proof');
+    const pending=f.socket.sent.get('op:concurrent-delivery');
+    assert.equal(pending.peers.size,2,'both peers still owe their independent durable receipts');
+    releaseSlow();await f.socket.serial;
+  }finally{releaseSlow();f.close();}
+});

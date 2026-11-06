@@ -179,8 +179,11 @@
             record.retries = 0;
             record.nextRetryAt = Date.now() + 2000;
             this.sent.set(key, record);
-            for (const peer of targets)
-              if (record.peers.get(peer.id) === peer.dc) await this.hub.deliver(peer, packet);
+            // One slow RTC receiver must not block delivery to other peers.
+            // Socket.serial still orders packets per logical socket; channels
+            // have independent SCTP buffers. ACKs remain individual and durable.
+            await Promise.all(targets.filter(peer => record.peers.get(peer.id) === peer.dc)
+              .map(peer => this.hub.deliver(peer, packet)));
             // A peer can disconnect after the others durably committed.
             // Its next join still requests the missing Yjs state vector.
             if (!record.peers.size && record.acknowledged.size) {
@@ -193,7 +196,7 @@
           const binary = typeof copy !== 'string';
           const bytes = binary ? new Uint8Array(copy instanceof Blob ? await copy.arrayBuffer() : copy) : null;
           packet = { v: 1, topic: this.topic, type: binary ? 'binary' : 'text', data: binary ? encode(bytes) : copy };
-          for (const peer of this.hub.connected()) await this.hub.deliver(peer, packet);
+          await Promise.all(this.hub.connected().map(peer => this.hub.deliver(peer, packet)));
         }).catch(() => { if (this.readyState === 1) this.close(1013, 'direct delivery pending; local changes retained'); }).finally(() => { this.queuedBytes -= size; });
       }
       confirmPeerReceipt(receipt, proof) {
