@@ -537,3 +537,15 @@ test('P0 cascade preserves existing bounded checkpoint exception on an empty dur
   assert.throws(() => h.send(checkpoint), e => e.name === 'QuotaExceededError',
     'large native checkpoint cannot be queued atop a nonempty transport buffer');
 });
+
+test('P0: negative durable ACK after OPEN forces a fallback without acknowledging persistence', () => {
+  const { R, made } = app();
+  const h = R.connect(URL1), received = [];
+  h.onmessage = e => received.push(e.data);
+  made[0].open();
+  made[0].recv(JSON.stringify({ k: 'head-result', v: 2, rev: 0, seq: 0 }));
+  made[0].recv(JSON.stringify({ k: 'persist-result', kind: 'op', id: 'unpersisted-1', ok: false }));
+  assert.ok(received.some(v => typeof v === 'string' && v.includes('"ok":false')), 'negative ACK reaches caller');
+  assert.equal(h.readyState, 3, 'the app must reopen and replay its outbox');
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'the rejected layer is quarantined');
+});
