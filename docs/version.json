@@ -1,10 +1,10 @@
 {
-  "version": "shell v677",
+  "version": "shell v678",
   "fecha": "2026-11-06",
-  "changelog": "Ponytail Inventory: changed stock card is replaced in place without temporary duplicate or scroll jump; skip hidden Today repaint after manual adjustments. Preserve Sync3 v676 durability, photos, PIN and financial semantics.",
+  "changelog": "Opt-in local-only strict save timings (prior write wait, snapshot serialization, IndexedDB and commit outcome), bounded in RAM with no business data; preserve v677 Inventory fixes, Sync3 and durable stock semantics.",
   "requerida": false,
-  "shell": "f123-shell-v677",
+  "shell": "f123-shell-v678",
   "apagar": [],
-  "releaseName": "shell v677",
-  "cacheGeneration": "golden221"
+  "releaseName": "shell v678",
+  "cacheGeneration": "golden222"
 }
