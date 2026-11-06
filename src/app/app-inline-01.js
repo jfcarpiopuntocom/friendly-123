@@ -6537,6 +6537,9 @@ function _ocMesEtiqueta(mes){
   catch (_) { return String(mes); }
 }
 function cambiarMesComisiones(mes){
+  // A deliberate month choice must never be overridden by the auto-return.
+  window._ocMesAuto = null;
+  window._ocMesAutoHecho = true;
   _ocMesComisiones = /^\d{4}-\d{2}$/.test(String(mes || "")) ? String(mes) : null;
   cargarComisiones();
 }
@@ -6933,6 +6936,17 @@ async function cargarComisiones(){
   const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones, true);
   // Product summaries carry the same review guard as the rack that pays them.
   porProducto.forEach(d=>{d.moneyReview=filas.filter(f=>f.needsReview && d.ubicacionIds.has(f.ubicacionId));});
+  // v681: The automatic previous-month jump is only a temporary empty-current
+  // fallback. Once a newly recorded sale belongs to the current month, return
+  // to it; otherwise the October PAID card can masquerade as a November sale.
+  // An explicitly selected historical month remains under the operator's control.
+  const _mesVigenteConVentas = (Array.isArray(meses) ? meses : []).find(x => x.actual);
+  if (window._ocMesAuto && _ocMesComisiones === window._ocMesAuto &&
+      _mesVigenteConVentas && (Array.isArray(ventasTodas) ? ventasTodas : []).some(v => v.mes === _mesVigenteConVentas.mes)) {
+    window._ocMesAuto = null;
+    _ocMesComisiones = null;
+    return cargarComisiones();
+  }
   /* v442 (JFC 2026-10-02, "no queremos panicos asi, algo FRIENDLY"): el 1 de octubre la vista abrio
      en octubre vacio y parecio que se borraron las ventas. Si el mes en curso aun no tiene ventas y el
      mes anterior si, se abre en el mes anterior (el que se liquida ahora), UNA vez por sesion, con
