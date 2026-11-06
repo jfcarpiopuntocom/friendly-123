@@ -229,7 +229,24 @@
       resolverRecuperacion(url); // only the verified cursor may release our temporary pause
     };
     ws.addEventListener("open", function () { abierto = true; });
+    // A durable RPC can reject a write after the socket has opened. OPEN is not
+    // proof of persistence. Keep the caller's unacknowledged outbox and hand
+    // over to the next relay; never convert a negative receipt into success.
+    var rechazoDurable = false;
     ws.addEventListener("message", function (e) {
+      if (typeof e.data === "string" && e.data.indexOf('"persist-result"') !== -1) {
+        var resultado = null;
+        try { resultado = JSON.parse(e.data); } catch (_) {}
+        if (resultado && resultado.k === "persist-result" && resultado.ok === false &&
+            (resultado.kind === "op" || resultado.kind === "ckpt")) {
+          rechazoDurable = true;
+          // Allow the negative receipt to reach sync-yjs before the close event.
+          // Defer the handover to a microtask; never ACK an uncommitted write.
+          Promise.resolve().then(function () {
+            if (ws.readyState < 2) try { ws.close(1013, "durable write rejected"); } catch (_) {}
+          });
+        }
+      }
       if (typeof e.data !== "string") sonda.frames++;
       else if (e.data.indexOf('"head-result"') !== -1) try { var cabeza = JSON.parse(e.data); sondaAtraso(sonda, cabeza); capaVaciaSigue(capa, ws, url, cabeza); } catch (_) {}
       var c = sumarBajada(capa, e);
@@ -250,7 +267,7 @@
        keeps trying on its own. The 3 s hand-over now lives in cascada() (connect), which ADDS the next layer without
        closing this one. */
     ws.addEventListener("close", function (e) {
-      if (abierto || !(fallo || !soltado || (e && e.code && e.code !== 1000))) return;
+      if ((abierto && !rechazoDurable) || !(rechazoDurable || fallo || !soltado || (e && e.code && e.code !== 1000))) return;
       var red = fallo && !(e && e.code && e.code !== 1006); // an error with no server code
       if (esFoto(url)) { pausarFotos(capa, red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); return; } // band quarantine
       var c = leer(key); c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); guardar(key, c);
