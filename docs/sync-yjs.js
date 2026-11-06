@@ -1404,7 +1404,13 @@
       }
       function confirmarRecepcionPeer() {
         if (!ws.peerOnly || (!pendientesPeer.length && !(snapshotPeerRecibido && canal.recuperando)) || canal.ws !== ws ||
-            _pausado || !permitido() || Object.keys(partesEntrantes).length ||
+            _pausado || !permitido() ||
+            // During bootstrap all incomplete frames fence recovery. Once
+            // recovered, an abandoned receipt-free live snapshot may not
+            // block the disk ACK of a separate, fully applied durable op.
+            Object.keys(partesEntrantes).some(function (id) {
+              return canal.recuperando || partesEntrantes[id].receipts.length;
+            }) ||
             (doc.store && (doc.store.pendingStructs || doc.store.pendingDs))) return Promise.resolve(true);
         var batch = pendientesPeer.slice();
         return barreraYjsConfirmada().then(function () {

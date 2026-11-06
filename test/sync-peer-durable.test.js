@@ -445,3 +445,54 @@ test('legacy orphan evidence survives checkpoint ACKs even when an older snapsho
     assert.equal(f.channel.huerfanosHeredados,1);assert.equal(f.channel.pendientesRelay,0);
   }finally{f.close();}
 });
+
+test('P0: an incomplete receipt-free peer snapshot cannot indefinitely block an independent durable ACK',async()=>{
+  const f=await fixture('catalogo');
+  try{
+    // Complete the initial peer bootstrap and prove the durable journal barrier.
+    const initial=f.update('initial');initial[0]=6;
+    f.socket.onmessage({data:initial.buffer,relaySource:'peer'});
+    await settle();assert.ok(f.transactions.length,'initial snapshot requires local IDB barrier');
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.equal(f.channel.recuperando,false,'this is an already-recovered receiver');
+
+    // A third peer sends only fragment 1/2 of a best-effort full-state
+    // handshake (tag 6). It has no receipt and must never be ACKed.
+    const abandoned=f.update('interrupted-snapshot');abandoned[0]=6;
+    f.socket.onmessage({data:bootstrapPiece(abandoned,0,'partial-snap-001').buffer,relaySource:'peer'});
+    await settle();
+    const before=f.transactions.length;
+
+    // A separate complete business operation is independently applicable.
+    f.send(f.update('fresh-durable-sale'),'fresh-op');await settle();
+    assert.equal(f.doc.getMap('items').get('synthetic'),'fresh-durable-sale');
+    assert.equal(f.doc.store.pendingStructs,null);
+    assert.ok(f.transactions.length>before,'independent op must reach the real disk barrier even while a receipt-free bootstrap is incomplete');
+    assert.equal(f.receipts.length,0,'receipt cannot precede IndexedDB completion');
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.deepEqual(f.receipts.map(x=>x.receipt.id),['fresh-op']);
+  }finally{f.close();}
+});
+
+
+test('P0: incomplete ACK-bearing fragment still fences all dependent peer receipts',async()=>{
+  const f=await fixture('catalogo');
+  try{
+    const initial=f.update('initial');initial[0]=6;
+    f.socket.onmessage({data:initial.buffer,relaySource:'peer'});await settle();
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.equal(f.channel.recuperando,false);
+    const snap=f.update('partial-durable');snap[0]=6;
+    f.send(bootstrapPiece(snap,0,'durable-snap-001'),'frag-0');
+    await settle();
+    const before=f.transactions.length;
+    f.send(f.update('other-durable'),'independent-op');await settle();
+    assert.equal(f.transactions.length,before,'partial fragment WITH receipt must fence durability');
+    assert.equal(f.receipts.length,0,'no premature ACK');
+    f.send(bootstrapPiece(snap,1,'durable-snap-001'),'frag-1');await settle();
+    assert.ok(f.transactions.length>before,'complete group can enter disk barrier');
+    assert.equal(f.receipts.length,0,'journal has not completed');
+    f.transactions.at(-1).oncomplete();await settle();
+    assert.deepEqual(f.receipts.map(x=>x.receipt.id).sort(),['frag-0','frag-1','independent-op']);
+  }finally{f.close();}
+});
