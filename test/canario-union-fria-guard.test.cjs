@@ -219,10 +219,12 @@ test('P0: read-only checkpoint probe reports existence without exposing revision
   const end = full.indexOf('\n// Only safe booleans', start);
   assert.ok(start > 0 && end > start, 'checkpoint metadata probe must exist in synthetic canary');
   let reads = 0, rev = 0, seq = 123456789, fail = false;
-  const privateUrl = 'wss://relay.example/sala/SECRET-ROOM-CAPABILITY-y';
-  const ws = { relayLayer: 'f123_relay_cupo_fb_v1', url: privateUrl };
+  const syntheticRoom = 'a'.repeat(40);
+  const privateUrl = 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + syntheticRoom + '-y';
+  // The REAL relay-selector returns an EventTarget wrapper WITHOUT ws.url.
+  const ws = { relayLayer: 'f123_relay_cupo_fb_v1' };
   const ctx = {
-    window: { OCYjs: { canal: { ws } },
+    window: { OCYjs: { roomId: syntheticRoom, canal: { ws } },
       F123FirebaseRelay: { leerHead: async url => {
         assert.equal(url, privateUrl); reads++;
         if (fail) throw Error('SENSITIVE-ERROR-WITH-ROOM');
