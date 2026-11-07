@@ -117,16 +117,17 @@ test('P0 single apparatus: switching through many months never floods its own hi
  assert.ok(f.requests.length<=10,
    'A single device may run at most TWO read batches (10 requests), not '+f.requests.length+' simultaneous requests');
  let delivered=0;
- for(let round=0;round<60&&delivered<60;round++){
+ for(let round=0;round<80;round++){
    while(delivered+5<=f.requests.length){
-     const month='2025-'+String(Math.floor(delivered/5)+1).padStart(2,'0');
+     const month=(f.requests[delivered].url.match(/[?&]mes=(\\d{4}-\\d{2})/)||[])[1]||'2025-12';
      fulfillBatch(f.requests,delivered,month);
      delivered+=5;
    }
    for(let tick=0;tick<15;tick++) await Promise.resolve();
  }
- assert.equal(delivered,60,'all twelve month selections must settle without deadlock');
+ assert.equal(delivered,15,'only the first two and the FINAL month should fetch; ten stale months skipped');
  await Promise.all(calls);
  assert.equal(f.painted.length,1,'only the last selected month may paint the app');
  assert.equal(f.painted[0].month,'2025-12');
+ assert.equal(f.painted[0].rows[0].mes,'2025-12','latest visible data must match selected month');
 });
