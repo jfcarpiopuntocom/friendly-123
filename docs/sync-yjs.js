@@ -3161,6 +3161,29 @@
       try { sembrarActividad(cat); } catch (_) {}
     }
 
+    // P0 v692: iOS can suspend a 0-ms task as soon as the installed PWA
+    // goes to the background. After a STRICTLY COMMITTED physical count,
+    // place that exact new epoch in the EXISTING Y.Doc synchronously.
+    // This is a local seed, not a network ACK, new stock op or transport swap.
+    // The ordinary scheduled event + retry sweep remain unchanged.
+    API.sembrarConteoConfirmado = function (productoId, epoca) {
+      if (API.estado !== "activo" || !productoId || !epoca ||
+          !API.mapas || !API.mapas.productos ||
+          !window.OCSync || typeof window.OCSync.catalogoPropio !== "function") return false;
+      var cat;
+      try { cat = window.OCSync.catalogoPropio(); } catch (_) { return false; }
+      var p = cat && (cat.productos || []).find(function (x) {
+        return x && String(x.id) === String(productoId);
+      });
+      // Queued remote merges can supersede a local count during its commit:
+      // never republish the obsolete epoch as a supposedly fresh fact.
+      if (!p || String(p.stockEpochId || "") !== String(epoca)) return false;
+      sembrar(); // Y.Doc transaction/update happens in this very task
+      var shared = API.mapas.productos.get(String(productoId));
+      return !!(shared && String(shared.stockEpochId || "") === String(epoca) &&
+        Number(shared.stockActual) === Number(p.stockActual));
+    };
+
     // Yjs -> store. Reconstruye el catálogo desde los Y.Map y llama al merge
     // add-only probado. Síncrono: aplicarCatalogo no es async.
     var ultimaAplicacionVisible = Promise.resolve(false), ultimaAplicacionAceptada = false;

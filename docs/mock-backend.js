@@ -7675,7 +7675,7 @@
           movimientos.length = foto.movLen;
           selloUltimo = foto.sello;
         };
-        let guardado = false, terminar;
+        let guardado = false, terminar, _epocaFisicaConfirmada = "";
         _ventaConfirmando = true; // Hold Yjs seed, incoming merges and reads until ACK/rollback.
         _ventaPendiente = new Promise(resolve => { terminar = resolve; });
         try {
@@ -7715,6 +7715,7 @@
               code: cuotaReal ? "STOCK_STORAGE_QUOTA" : "STOCK_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
           }
           if (fisico === null) emitirOpStock("ajuste", op, true);
+          else _epocaFisicaConfirmada = String(p.stockEpochId || "");
           return J(ficha(p));
         } catch (e) {
           if (!guardado) revertir();
@@ -7723,7 +7724,18 @@
           _ventaConfirmando = false; _ventaPendiente = null;
           try {
             _drenarCatalogosPendientes();
-            if (guardado) _avisarCatalogoConfirmado();
+            if (guardado) {
+              // P0 v692: after the durable physical count, Yjs must already
+              // contain its exact epoch before iOS suspends this PWA on switch
+              // to Safari. No +delta is emitted and no provisional count leaks.
+              // If a trusted queued merge superseded it, the seed refuses it.
+              if (_epocaFisicaConfirmada && window.OCYjs &&
+                  typeof window.OCYjs.sembrarConteoConfirmado === "function") {
+                try { window.OCYjs.sembrarConteoConfirmado(p.id, _epocaFisicaConfirmada); }
+                catch (_) {}
+              }
+              _avisarCatalogoConfirmado(); // existing async/reconnect retry stays
+            }
           } finally { terminar(); }
         }
       }
