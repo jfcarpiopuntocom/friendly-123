@@ -71,6 +71,29 @@ const observarPull = p => p.evaluate(() => {
   } catch (_) { return false; }
 });
 
+// One bounded read-only metadata lookup for the *active synthetic Firebase room*.
+// Never expose URL, room capability, server revision, sequence or encrypted bytes.
+// A failed/unknown response is UNKNOWN, never falsely classified as no checkpoint.
+const consultarCheckpoint = p => p.evaluate(async () => {
+  const desconocido = { consultado: false, checkpointExiste: null, hayOperaciones: null };
+  let timer = null;
+  try {
+    const ws = window.OCYjs && window.OCYjs.canal && window.OCYjs.canal.ws;
+    const relay = window.F123FirebaseRelay;
+    if (!ws || ws.relayLayer !== 'f123_relay_cupo_fb_v1' ||
+        typeof ws.url !== 'string' || !relay || typeof relay.leerHead !== 'function')
+      return desconocido;
+    const head = await Promise.race([
+      relay.leerHead(ws.url),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), 3000); })
+    ]);
+    if (!head || !Number.isSafeInteger(head.rev) || head.rev < 0 ||
+        !Number.isSafeInteger(head.seq) || head.seq < 0) return desconocido;
+    return { consultado: true, checkpointExiste: head.rev > 0, hayOperaciones: head.seq > 0 };
+  } catch (_) { return desconocido; }
+  finally { if (timer !== null) clearTimeout(timer); }
+});
+
 // Only safe booleans and role are printed: never license, PIN, room ID or encrypted data.
 const diagnostico = (p, licencia) => p.evaluate((lic) => {
   try {
@@ -274,6 +297,9 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
     fallo = 'EXCEPCION: ' + ((e && e.name) || 'Error') + ' durante la unión';
   }
   ultima = await diagnostico(p, LICENCIA);
+  // Diagnostic-only GET after the recovery gate; cannot turn an incomplete
+  // Yjs history into GREEN or cause an extra Owner PIN attempt.
+  console.log('CANARIO_CHECKPOINT:', JSON.stringify(await consultarCheckpoint(p)));
   console.log('CANARIO_DIAGNOSTICO:', JSON.stringify(ultima));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
   await b.close();
