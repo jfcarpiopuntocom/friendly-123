@@ -26,6 +26,7 @@ function fixture(){
  const context={API:'/api',painted,console,Promise,
   document:{getElementById:()=>cont},
   renderGestionPromotoras:()=>{},
+  agruparVentasPorProducto:()=>[{ubicacionIds:new Set()}],
   window:{_ocMesAuto:null,_ocMesAutoHecho:true},
   fetch:url=>{const d=deferred();requests.push({url,...d});return d.promise;}};
  vm.createContext(context);
@@ -47,9 +48,9 @@ const fulfillBatch=(requests,offset,month)=>{
 };
 test('RED: late PAID October result cannot repaint current November after month selection',async()=>{
  const f=fixture();
- f.context._ocMesComisiones='2026-10';
+ vm.runInContext('_ocMesComisiones="2026-10"',f.context);
  const older=vm.runInContext('cargarComisiones()',f.context);
- f.context._ocMesComisiones='2026-11';
+ vm.runInContext('_ocMesComisiones="2026-11"',f.context);
  const newer=vm.runInContext('cargarComisiones()',f.context);
  assert.equal(f.requests.length,10);
  fulfillBatch(f.requests,5,'2026-11');
@@ -63,9 +64,9 @@ test('RED: late PAID October result cannot repaint current November after month 
 });
 test('RED: stale errors cannot replace a later successful month with a blank warning',async()=>{
  const f=fixture();
- f.context._ocMesComisiones='2026-10';
+ vm.runInContext('_ocMesComisiones="2026-10"',f.context);
  const older=vm.runInContext('cargarComisiones()',f.context);
- f.context._ocMesComisiones='2026-11';
+ vm.runInContext('_ocMesComisiones="2026-11"',f.context);
  const newer=vm.runInContext('cargarComisiones()',f.context);
  fulfillBatch(f.requests,5,'2026-11');
  await newer;
@@ -76,7 +77,7 @@ test('RED: stale errors cannot replace a later successful month with a blank war
 });
 test('a same-month newer sync repaint supersedes an older request',async()=>{
  const f=fixture();
- f.context._ocMesComisiones='2026-11';
+ vm.runInContext('_ocMesComisiones="2026-11"',f.context);
  const older=vm.runInContext('cargarComisiones()',f.context);
  const newer=vm.runInContext('cargarComisiones()',f.context);
  fulfillBatch(f.requests,5,'2026-11');
