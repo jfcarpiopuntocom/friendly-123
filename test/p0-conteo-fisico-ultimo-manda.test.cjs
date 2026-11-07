@@ -44,3 +44,66 @@ test('only owner/admin can set a physical count', { timeout: 120000 }, async () 
   assert.equal((await api(A.page, '/api/productos/' + id + '/ajustar', 'POST', { stockFisico: 9, motivo: 'x' })).status, 403);
   await A.ctx.close();
 });
+
+
+test('P0 PWA -> Safari: 1 to 33 publishes committed physical epoch before iOS suspends a scheduled seed', { timeout: 300000 }, async () => {
+  const PWA = await openDevice(web, base), Safari = await openDevice(web, base);
+  try {
+    await enterAs(PWA.page, 'dueno'); await enterAs(Safari.page, 'admin');
+    await PWA.page.waitForFunction(() => OCYjs.estado === 'activo');
+    await Safari.page.waitForFunction(() => OCYjs.estado === 'activo');
+    await installPump([PWA, Safari]);
+    const created = await api(PWA.page, '/api/productos', 'POST', {
+      nombre: 'Spray de la Verdad — synthetic', barcode: 'SYN-SPRAY-1', stockInicial: 1, precio: 10, costo: 4
+    });
+    const id = created.j.id || (created.j.producto && created.j.producto.id);
+    assert.ok(id);
+    await pump(PWA, Safari); await PWA.page.waitForTimeout(600); await pump(PWA, Safari);
+    assert.equal(await stock(Safari.page, id), 1, 'Safari initially has exactly 1');
+
+    // Model iOS suspending the 0-ms scheduled catalog seed when the owner
+    // switches immediately from the installed PWA to Safari after success.
+    // Only defer the seed callback; NEVER intercept strict IDB or Sync3 transport.
+    const result = await PWA.page.evaluate(async id => {
+      const realTimer = window.setTimeout, held = [];
+      let deferredSeed = 0;
+      window.setTimeout = function (fn, ms, ...args) {
+        if (ms === 0 && typeof fn === 'function' &&
+            String(fn).includes('_tSeed = null') && String(fn).includes('sembrar()')) {
+          deferredSeed++;
+          held.push(() => fn(...args));
+          return realTimer(() => {}, 0);
+        }
+        return realTimer(fn, ms, ...args);
+      };
+      try {
+        const response = await fetch('/api/productos/' + id + '/ajustar', {
+          method: 'POST', body: JSON.stringify({ stockFisico: 33, motivo: 'synthetic physical count' })
+        });
+        const payload = await response.json();
+        const local = (await (await fetch('/api/productos')).json()).find(p => p.id === id);
+        const shared = window.OCYjs && window.OCYjs.mapas &&
+          window.OCYjs.mapas.productos && window.OCYjs.mapas.productos.get(id);
+        return {
+          status: response.status, payload, deferredSeed, local: local && local.stockActual,
+          yStock: shared && shared.stockActual, epoch: shared && shared.stockEpochId,
+          localEpoch: local && local.stockEpochId
+        };
+      } finally {
+        window.setTimeout = realTimer;
+        held.forEach(fn => realTimer(fn, 0));
+      }
+    }, id);
+    assert.equal(result.status, 200, JSON.stringify(result.payload).slice(0, 240));
+    assert.equal(result.local, 33, 'durable local count must succeed independently of sync');
+    assert.ok(result.deferredSeed > 0, 'the normal scheduled path was deliberately frozen');
+    assert.equal(result.yStock, 33, 'same-turn Sync3 doc must already contain 33 BEFORE an iOS background suspension');
+    assert.ok(result.epoch && result.epoch === result.localEpoch, 'the exact physical epoch travels with the count');
+
+    for (let i = 0; i < 4; i++) { await pump(PWA, Safari); await PWA.page.waitForTimeout(250); }
+    assert.equal(await stock(Safari.page, id), 33, 'Safari must adopt precisely 33, not a +32 delta');
+    assert.equal(await stock(PWA.page, id), 33);
+  } finally {
+    await PWA.ctx.close(); await Safari.ctx.close();
+  }
+});
