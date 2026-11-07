@@ -186,7 +186,7 @@ test('P0: passive pull observer counts bounded replay pages and cursor motion wi
   const listeners = [];
   const socket = { addEventListener: (name, handler) => { assert.equal(name, 'message'); listeners.push(handler); } };
   const context = { window: { OCYjs: { canal: { ws: socket } } }, JSON };
-  vm.runInNewContext(full.slice(start, end) + ';this.observe = observarPull;', context);
+  vm.runInNewContext(full.slice(start, end) + '\n;this.observe = observarPull;', context);
   const page = { evaluate: async fn => fn() };
   assert.equal(await context.observe(page), true);
   assert.equal(await context.observe(page), true, 'repeat attach must not add duplicate listener');
