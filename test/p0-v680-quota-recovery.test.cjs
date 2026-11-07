@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const src = fs.readFileSync(path.join(__dirname,'../docs/estado-idb.js'),'utf8');
 
-function fixture({failure='quota', cacheNames=['f123-shell-v650-golden120','f123-shell-v679-golden223'], takeover=false}={}) {
+function fixture({failure='quota', cacheNames=['f123-shell-v650-golden120','f123-shell-v679-golden223'], takeover=false, failAttempts=1}={}) {
   const memory = {_rev:7, ventas:[]};
   let stored = memory, tries=0, deletes=[], beforeRetry=0;
   const old = new Set(cacheNames);
@@ -33,7 +33,7 @@ function fixture({failure='quota', cacheNames=['f123-shell-v650-golden120','f123
             queueMicrotask(()=>{
               req.onsuccess();
               queueMicrotask(()=>{
-                if(thisAttempt===1 && failure!=='none' && pending){
+                if(thisAttempt<=failAttempts && failure!=='none' && pending){
                   const error=new Error(failure);error.name=failure==='quota'?'QuotaExceededError':'AbortError';
                   tx.error=error;
                   tx.onabort();
@@ -72,11 +72,31 @@ test('QuotaExceededError on strict sale releases only obsolete shell cache then 
   assert.equal(f.state.ventas[0].id,'synthetic-sale');
 });
 
-test('non-quota failure does not delete caches or retry',async()=>{
+test('P0: one transient AbortError retries exact CAS once and commits the sale',async()=>{
   const f=fixture({failure:'abort'});
-  assert.equal(await f.idb.guardarConRevision({_rev:8},7),false);
-  assert.equal(f.tries,1);
+  const ok=await f.idb.guardarConRevision({_rev:8,ventas:[{id:'sale-once'}]},7);
+  assert.equal(ok,true,'ACK only after the second transaction really committed');
+  assert.equal(f.tries,2,'at most one retry');
+  assert.equal(f.state.ventas.length,1,'no duplicate sale');
+  assert.equal(f.state.ventas[0].id,'sale-once');
+  assert.equal(f.removed.length,0,'nonquota abort must not purge app shell');
+});
+
+test('P0: recurring nonquota AbortError remains failure after bounded retry',async()=>{
+  const f=fixture({failure:'abort',failAttempts:2});
+  assert.equal(await f.idb.guardarConRevision({_rev:8,ventas:[{id:'unsaved'}]},7),false);
+  assert.equal(f.tries,2,'no unbounded retries or false ACK');
+  assert.equal(f.state._rev,7,'disk remains intact');
+  assert.equal(f.state.ventas.length,0,'no ghost sale');
   assert.equal(f.removed.length,0);
+});
+
+test('P0: real revision fence never retries and never overwrites a sale',async()=>{
+  const f=fixture({failure:'none'});
+  const ok=await f.idb.guardarConRevision({_rev:8,ventas:[{id:'stale'}]},6);
+  assert.equal(ok,false);
+  assert.equal(f.tries,1,'a CAS fence is not a transient abort');
+  assert.equal(f.state.ventas.length,0);
 });
 
 test('quota with no obsolete shell cache remains failure, never optimistic ACK',async()=>{
