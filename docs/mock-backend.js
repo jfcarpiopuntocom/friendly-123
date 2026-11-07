@@ -7211,7 +7211,16 @@
         try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
           _revertirVenta();
-          return J({ error: tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.") }, 507);
+          // #607: a false strict commit is NOT proof of storage quota.
+          // Distinguish genuine quota from CAS fences and transient IDB failures.
+          // Keep the rollback and never emit stock or money without a durable ACK.
+          const causa = _causaGuardado(_estadoAB());
+          const cuotaReal = _esErrorDeCuota(causa);
+          const aviso = cuotaReal
+            ? tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.")
+            : tSeguro("sale.notSavedOther", "The sale was NOT saved: the secure save could not be confirmed. Check Sold before trying again.");
+          try { console.warn("[sale] strict save rejected", cuotaReal ? "quota" : (causa && causa.name || "revision-or-unavailable")); } catch (_) {}
+          return J({ error: aviso, code: cuotaReal ? "SALE_STORAGE_QUOTA" : "SALE_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
         }
         emitirOpStock("venta", _opVenta, true);
         return J({ producto: ficha(p), ventaId });
