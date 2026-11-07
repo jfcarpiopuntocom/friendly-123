@@ -28,6 +28,49 @@ const stock = p => p.evaluate(async n => {
   } catch (_) { return null; }
 }, PRODUCTO).catch(() => null);
 
+// Passive, QA-only observer: never sends relay frames or logs raw cursors,
+// client IDs, credentials, ciphertext or room. Browser memory only.
+const observarPull = p => p.evaluate(() => {
+  try {
+    const ws = window.OCYjs && window.OCYjs.canal && window.OCYjs.canal.ws;
+    if (!ws || typeof ws.addEventListener !== 'function') return false;
+    const old = window.__f123CanarioPull;
+    if (old && old.socket === ws) return true;
+    const data = old && old.data || {
+      paginas: 0, frames: 0, mas: 0, avances: 0, iguales: 0,
+      retrocesos: 0, heads: 0, ultimaMas: null, reconexiones: 0
+    };
+    if (old) data.reconexiones = Math.min(9999, data.reconexiones + 1);
+    // Keep the raw cursor only in a closure, never in state or logs.
+    let ultimoCursor = null;
+    const incrementar = (valor, delta = 1) => Math.min(9999, valor + delta);
+    ws.addEventListener('message', ev => {
+      if (window.__f123CanarioPull?.socket !== ws ||
+          typeof ev.data !== 'string' || ev.data.length > 1024) return;
+      let m;
+      try { m = JSON.parse(ev.data); } catch (_) { return; }
+      if (m.k === 'head-result') {
+        data.heads = incrementar(data.heads);
+        return;
+      }
+      if (m.k !== 'pull-page' || !Number.isSafeInteger(m.seq) || m.seq < 0 ||
+          !Number.isSafeInteger(m.n) || m.n < 0) return;
+      data.paginas = incrementar(data.paginas);
+      data.frames = incrementar(data.frames, m.n);
+      if (m.more === true) data.mas = incrementar(data.mas);
+      data.ultimaMas = m.more === true;
+      if (ultimoCursor !== null) {
+        if (m.seq > ultimoCursor) data.avances = incrementar(data.avances);
+        else if (m.seq === ultimoCursor) data.iguales = incrementar(data.iguales);
+        else data.retrocesos = incrementar(data.retrocesos);
+      }
+      ultimoCursor = m.seq;
+    });
+    window.__f123CanarioPull = { socket: ws, data };
+    return true;
+  } catch (_) { return false; }
+});
+
 // Only safe booleans and role are printed: never license, PIN, room ID or encrypted data.
 const diagnostico = (p, licencia) => p.evaluate((lic) => {
   try {
@@ -38,6 +81,9 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
     // Unknown must remain null: never misreport an uninitialized counter as zero.
     const count = v => Number.isSafeInteger(v) && v >= 0 ? Math.min(v, 9999) : null;
     const clients = y && y.doc && y.doc.store && y.doc.store.clients;
+    const observador = window.__f123CanarioPull;
+    const pull = observador && y && y.canal && observador.socket === y.canal.ws
+      ? observador.data : null;
     return {
       licenciaAdoptada: String(o.licenseCode || '').toUpperCase() === code,
       syncCodeIgual: String(o.syncCode || '').toUpperCase() === code,
@@ -73,6 +119,16 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       })(),
       catalogoPendientesOutbox: count(y && y.canal && y.canal.pendientesRelay),
       catalogoHuerfanos: count(y && y.canal && y.canal.huerfanosHeredados),
+      observadorPull: !!pull,
+      pullPaginas: count(pull && pull.paginas),
+      pullFrames: count(pull && pull.frames),
+      pullMas: count(pull && pull.mas),
+      pullAvances: count(pull && pull.avances),
+      pullIguales: count(pull && pull.iguales),
+      pullRetrocesos: count(pull && pull.retrocesos),
+      pullHeads: count(pull && pull.heads),
+      pullUltimaMas: pull ? pull.ultimaMas : null,
+      pullReconexiones: count(pull && pull.reconexiones),
       catalogoTransporte: (() => {
         const ws = y && y.canal && y.canal.ws, layer = ws && ws.relayLayer;
         return layer === 'f123_relay_cupo_v1' ? 'supabase' :
@@ -116,6 +172,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       fallo = 'UNION: licencia, sala o identidad de dispositivo no se adoptaron';
     } else {
       console.log('CANARIO_ETAPA: licencia y sala correctas');
+      await observarPull(p); // attach to the synthetic catalog socket only
       await p.waitForTimeout(5000);
       ultima = await diagnostico(p, LICENCIA);
       console.log('CANARIO_CAUSAL_INICIO:', JSON.stringify({
@@ -138,6 +195,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       let siguientePulsoCausal = Date.now() + 4000;
       while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
+        await observarPull(p); // a reconnect may replace the socket
         ultima = await diagnostico(p, LICENCIA);
         if (Date.now() >= siguientePulsoCausal) {
           siguientePulsoCausal = Date.now() + 4000;
@@ -156,6 +214,16 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
             estructurasYjsAplicadas: Number.isSafeInteger(d.catalogoEstructurasAplicadas) ? n(d.catalogoEstructurasAplicadas) : null,
             outboxCatalogo: Number.isSafeInteger(d.catalogoPendientesOutbox) ? n(d.catalogoPendientesOutbox) : null,
             huerfanosCatalogo: Number.isSafeInteger(d.catalogoHuerfanos) ? n(d.catalogoHuerfanos) : null,
+            observadorPull: d.observadorPull === true,
+            pullPaginas: Number.isSafeInteger(d.pullPaginas) ? n(d.pullPaginas) : null,
+            pullFrames: Number.isSafeInteger(d.pullFrames) ? n(d.pullFrames) : null,
+            pullMas: Number.isSafeInteger(d.pullMas) ? n(d.pullMas) : null,
+            pullAvances: Number.isSafeInteger(d.pullAvances) ? n(d.pullAvances) : null,
+            pullIguales: Number.isSafeInteger(d.pullIguales) ? n(d.pullIguales) : null,
+            pullRetrocesos: Number.isSafeInteger(d.pullRetrocesos) ? n(d.pullRetrocesos) : null,
+            pullHeads: Number.isSafeInteger(d.pullHeads) ? n(d.pullHeads) : null,
+            pullUltimaMas: d.pullUltimaMas === true ? true : d.pullUltimaMas === false ? false : null,
+            pullReconexiones: Number.isSafeInteger(d.pullReconexiones) ? n(d.pullReconexiones) : null,
             transporte: ['firebase', 'supabase', 'peer', 'unknown'].includes(d.catalogoTransporte)
               ? d.catalogoTransporte : 'unknown',
             socketCatalogo: socket(d.socketCatalogo),
