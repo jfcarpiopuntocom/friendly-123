@@ -17,9 +17,27 @@ test('P0 cold-join: reusable workflow declares both optional synthetic secrets',
 });
 
 test('P0 cold-join: hotfix forwards ONLY the two synthetic secrets by exact name', () => {
-  const block = hotfix.match(/^  recorrido:\s*\n([\s\S]*?)(?=^  [\w-]+:\s*\n|$)/m);
-  assert.ok(block, 'reusable recorrido job exists in hotfix');
-  const body = block[1];
+  const marker = '\n  recorrido:\n';
+  const index = hotfix.lastIndexOf(marker);
+  assert.ok(index >= 0, 'reusable recorrido job exists in hotfix');
+  // The job is last in hotfix.yml; avoid a multiline regex with '
+  assert.match(body, /uses:\s*\.\/\.github\/workflows\/recorrido\.yml/, 'still calls same live recorrido workflow');
+  assert.match(body, /secrets:\s*\n\s+F123_CANARIO_LICENCIA:\s*\$\{\{\s*secrets\.F123_CANARIO_LICENCIA\s*\}\}/,
+    'cold-join synthetic test license must cross the workflow-call boundary');
+  assert.match(body, /F123_CANARIO_PIN:\s*\$\{\{\s*secrets\.F123_CANARIO_PIN\s*\}\}/,
+    'synthetic owner PIN must cross the workflow-call boundary');
+  assert.doesNotMatch(body, /secrets:\s*inherit/, 'never pass all repository secrets');
+});
+
+test('P0 cold-join: never log synthetic credentials or treat missing license as PASS', () => {
+  const script = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  assert.match(script, /if \(!LICENCIA\) \{ console\.error\('CANARIO_CONFIG:[^']+'\); process\.exit\(2\); \}/);
+  assert.match(script, /const diagnostico =/);
+  assert.doesNotMatch(script, /console\.(?:log|error)\(\s*(?:LICENCIA|PIN)\s*\)/);
+});
+ that
+  // would stop after needs: publicar and never inspect secrets/uses.
+  const body = hotfix.slice(index + marker.length);
   assert.match(body, /uses:\s*\.\/\.github\/workflows\/recorrido\.yml/, 'still calls same live recorrido workflow');
   assert.match(body, /secrets:\s*\n\s+F123_CANARIO_LICENCIA:\s*\$\{\{\s*secrets\.F123_CANARIO_LICENCIA\s*\}\}/,
     'cold-join synthetic test license must cross the workflow-call boundary');
