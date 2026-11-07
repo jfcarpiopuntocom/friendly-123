@@ -99,3 +99,13 @@ test('stale revision without quota never deletes caches',async()=>{
   assert.equal(ok,false);
   assert.equal(f.removed.length,0);
 });
+
+test('Opera recent-shell quota: release v679 while retaining v680-v683 and commit sale',async()=>{
+  const names=['f123-shell-v679-golden223','f123-shell-v680-golden224','f123-shell-v681-golden225','f123-shell-v682-golden226','f123-shell-v683-golden227'];
+  const f=fixture({cacheNames:names});
+  const ok=await f.idb.guardarConRevision({_rev:8,ventas:[{id:'opera-sale'}]},7);
+  assert.equal(ok,true,'strict CAS sale must commit after safe recovery');
+  assert.deepEqual(f.removed,['f123-shell-v679-golden223']);
+  assert.deepEqual(f.remaining,names.slice(1));
+  assert.equal(f.state.ventas[0].id,'opera-sale');
+});
