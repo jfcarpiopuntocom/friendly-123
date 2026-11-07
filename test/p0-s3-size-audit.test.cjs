@@ -167,3 +167,53 @@ test('S3: read-only catalog collection audit returns only names, counts and esti
  assert.ok(rows.every(x=>Object.keys(x).sort().join(',')==='bytesJSONVisibles,coleccion,entradas'));
  assert.doesNotMatch(JSON.stringify(rows),/private-|product-value|sale-value/);
 });
+
+
+// P0 regression contract: a successful ACK on one durable provider is NOT proof
+// that the same ciphertext checkpoint exists on the other durable provider.
+// This is a synthetic-only VM fixture; no real stores, keys or network calls.
+async function probeCheckpointSource(previousProof, activeLayer) {
+ const at=sync.indexOf('    function hacerCkpt() {');
+ const end=sync.indexOf('    function conectar() {',at);
+ assert.ok(at>0&&end>at);
+ const full=new Uint8Array(128).fill(7);
+ const state=Buffer.from(full).toString('base64');
+ const saved=[];
+ const ctx=vm.createContext({
+  window:{F123Relay:{ckptFrameBytes:786432}},
+  _soloMemoria:false,
+  canal:{ws:{readyState:1,peerOnly:false,relayLayer:activeLayer},recuperando:false},
+  permiteCkpt:true,
+  API:{clave:'SYNTHETIC-ONLY',rollout:{outboxV2:false,gzipWrite:false}},
+  _currentPullState:null,_appliedPullCursor:{rev:1,seq:2},
+  partesEntrantes:{},doc:{store:{}},
+  Y:{encodeStateAsUpdate:()=>full},
+  _outbox:{pending:[],checkpoint:state,checkpointLayer:previousProof,confirmed:[]},
+  MAX_CKPT_RPC_BYTES:256*1024,MAX_CKPT_CIPHER_BYTES:768*1024,
+  _b64:bytes=>Buffer.from(bytes).toString('base64'),
+  _frame:()=>new Uint8Array(1),
+  cifrarBin:async()=>new Uint8Array(200).buffer,
+  _compactarYjsSinCambiarCausalidad:()=>null,
+  guardarSobre:entry=>saved.push(entry),
+  diagnosticarCkpt(){},nombre:'catalogo',log(){}
+ });
+ vm.runInContext(sync.slice(at,end),ctx);
+ vm.runInContext('hacerCkpt()',ctx);
+ await new Promise(resolve=>setImmediate(resolve));
+ await new Promise(resolve=>setImmediate(resolve));
+ return saved;
+}
+test('P0: confirmed Supabase snapshot must be offered to Firebase after a durable layer change',async()=>{
+ const sent=await probeCheckpointSource('f123_relay_cupo_v1','f123_relay_cupo_fb_v1');
+ assert.equal(sent.length,1,'a checkpoint ACK on Supabase cannot certify Firebase: do not suppress re-publish');
+ assert.equal(sent[0].k,'ckpt');
+ assert.equal(sent[0].state,Buffer.from(new Uint8Array(128).fill(7)).toString('base64'));
+});
+test('P0: confirmed same-layer checkpoint does not re-send identical snapshot',async()=>{
+ const sent=await probeCheckpointSource('f123_relay_cupo_fb_v1','f123_relay_cupo_fb_v1');
+ assert.equal(sent.length,0,'avoid inflating same-provider room and burning upload quota');
+});
+test('P0: legacy checkpoint with unknown provider must not certify a different durable provider',async()=>{
+ const sent=await probeCheckpointSource(null,'f123_relay_cupo_fb_v1');
+ assert.equal(sent.length,1,'legacy global hash is not proof of Firebase persistence');
+});
