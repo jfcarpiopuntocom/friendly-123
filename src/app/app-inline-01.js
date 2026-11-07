@@ -6945,14 +6945,19 @@ async function cargarComisiones(){
       else _limite.activos++;
       try {
         if (_mesSolicitud !== _ocMesComisiones) return [[], [], [], [], null];
-        return await Promise.all([
-      fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.json()),
+        const respuestas = await Promise.allSettled([
+      fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => { if (!r.ok) throw Error("liquidaciones-http"); return r.json(); }),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
       fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
       fetch(`${API}/liquidaciones/meses`).then(r => r.json()).catch(() => []),
       // Cuadre del mes (JFC 2026-09-24): una sola fuente para "nada fuera de vista". Si falla, la vista sigue sin el bloque.
       fetch(`${API}/comisiones/cuadre?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.ok ? r.json() : null).catch(() => null),
         ]);
+        // Keep the concurrency token until ALL five underlying requests settle.
+        // A fast liquidaciones failure must not admit a third batch while four
+        // slower requests are still active on this same physical device.
+        if (respuestas[0].status === "rejected") throw respuestas[0].reason;
+        return respuestas.map(r => r.status === "fulfilled" ? r.value : null);
       } finally {
         const siguiente = _limite.espera.shift();
         if (siguiente) siguiente();

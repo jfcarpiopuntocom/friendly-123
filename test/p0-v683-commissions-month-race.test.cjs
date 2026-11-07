@@ -71,6 +71,8 @@ test('RED: stale errors cannot replace a later successful month with a blank war
  fulfillBatch(f.requests,5,'2026-11');
  await newer;
  f.requests[0].reject(Error('stale old-month network failure'));
+ // The read token is intentionally held until all four sibling requests settle.
+ fulfillBatch(f.requests,0,'2026-10');
  await older;
  assert.equal(f.cont.innerHTML,'','old network error cannot erase November');
  assert.equal(f.painted.length,1);
@@ -132,4 +134,37 @@ test('P0 single apparatus: switching through many months never floods its own hi
  assert.equal(f.painted.length,1,'only the last selected month may paint the app');
  assert.equal(f.painted[0].month,'2025-12');
  assert.equal(f.painted[0].rows[0].mes,'2025-12','latest visible data must match selected month');
+});
+
+
+test('P0 active requests: a rejected liquidaciones read must not free its token while four requests are still alive',async()=>{
+ const f=fixture(),calls=[];
+ for(const mes of ['2025-01','2025-02','2025-03']){
+   vm.runInContext('_ocMesComisiones='+JSON.stringify(mes),f.context);
+   calls.push(vm.runInContext('cargarComisiones()',f.context));
+ }
+ assert.equal(f.requests.length,10,'two batches of five are initially active');
+ f.requests[0].reject(Error('liquidaciones failed before sibling requests settled'));
+ for(let tick=0;tick<25;tick++)await Promise.resolve();
+ assert.equal(f.requests.length,10,
+   'still-active sibling requests keep the first token; 14 live requests must never result');
+ fulfillBatch(f.requests,0,'2025-01');
+ for(let tick=0;tick<35 && f.requests.length<15;tick++)await Promise.resolve();
+ assert.equal(f.requests.length,15,'latest queued month starts only after entire first batch settles');
+ fulfillBatch(f.requests,5,'2025-02');
+ fulfillBatch(f.requests,10,'2025-03');
+ await Promise.all(calls);
+ assert.equal(f.painted.length,1);
+ assert.equal(f.painted[0].month,'2025-03');
+});
+
+test('P0 commissions: failed liquidaciones HTTP must show an error rather than success-shaped empty data',async()=>{
+ const f=fixture();
+ vm.runInContext('_ocMesComisiones="2026-11"',f.context);
+ const run=vm.runInContext('cargarComisiones()',f.context);
+ f.requests[0].resolve({ok:false,status:503,json:async()=>({error:'unavailable'})});
+ fulfillBatch(f.requests,0,'2026-11');
+ await run;
+ assert.match(f.cont.innerHTML,/Could not load commissions/);
+ assert.equal(f.painted.length,0,'a failed money read must never paint as valid');
 });
