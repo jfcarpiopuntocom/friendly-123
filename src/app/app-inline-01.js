@@ -6923,14 +6923,29 @@ async function cargarComisiones(){
     const _clave = String(_mesSolicitud || ""), _lecturas = window._ocComisionesLecturas || (window._ocComisionesLecturas = new Map());
     let _slot = _lecturas.get(_clave);
     if (!_slot) _lecturas.set(_clave, _slot = { activo: false, cola: [] });
-    const _leer = () => Promise.all([
+    // P0 #611: one physical device must not flood its own historical reads
+    // when the operator switches across many different months. Two live batches
+    // maximum; tokens transfer FIFO. Stale queued months do zero network work.
+    const _leer = async () => {
+      const _limite = window._ocComisionesLimite || (window._ocComisionesLimite = { activos: 0, espera: [] });
+      if (_limite.activos >= 2) await new Promise(resolve => _limite.espera.push(resolve));
+      else _limite.activos++;
+      try {
+        if (_mesSolicitud !== _ocMesComisiones) return [[], [], [], [], null];
+        return await Promise.all([
       fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.json()),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
       fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
       fetch(`${API}/liquidaciones/meses`).then(r => r.json()).catch(() => []),
       // Cuadre del mes (JFC 2026-09-24): una sola fuente para "nada fuera de vista". Si falla, la vista sigue sin el bloque.
       fetch(`${API}/comisiones/cuadre?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.ok ? r.json() : null).catch(() => null),
-    ]);
+        ]);
+      } finally {
+        const siguiente = _limite.espera.shift();
+        if (siguiente) siguiente();
+        else _limite.activos--;
+      }
+    };
     [filas, ranking, ventasTodas, meses, cuadreMes] = await new Promise((resolve, reject) => {
       _slot.cola.push({ resolve, reject });
       if (_slot.activo) return;
