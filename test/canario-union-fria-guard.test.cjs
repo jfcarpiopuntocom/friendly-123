@@ -24,7 +24,7 @@ async function fakeRun(license, { joined = false, customOwnerPin = false, recove
       if (joined && String(fn).includes('licenciaAdoptada:')) {
         diagnosticCalls++;
         if (diagFailsAfterJoin && diagnosticCalls >= 2) return { lecturaDiagnosticoFallida: true };
-        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tieneRoomYjs: !missingYjs, tieneCanalCatalogo: !missingYjs, tienePinOwnerNoFactory: customOwnerPin, tieneMetadatosPin: !missingOwnerMetadata, catalogoRecuperando: recoveringCatalog, hidratacionLocalPendiente: localHydrationPending, catalogoIdbSincronizado: !idbUnsynced, catalogoSinPendientesCausales: !(pendingStructs || pendingDs) };
+        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tieneRoomYjs: !missingYjs, tieneCanalCatalogo: !missingYjs, tienePinOwnerNoFactory: customOwnerPin, tieneMetadatosPin: !missingOwnerMetadata, catalogoRecuperando: recoveringCatalog, hidratacionLocalPendiente: localHydrationPending, catalogoIdbSincronizado: !idbUnsynced, catalogoClientesAplicados: 0, catalogoEstructurasAplicadas: 0, catalogoPendientesOutbox: 0, catalogoHuerfanos: 0, catalogoSinPendientesCausales: !(pendingStructs || pendingDs) };
       }
       return null; // Owner never authenticates: exercise login budget
     },
