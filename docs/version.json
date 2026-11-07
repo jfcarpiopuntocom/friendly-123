@@ -1,10 +1,10 @@
 {
-  "version": "shell v687",
+  "version": "shell v688",
   "fecha": "2026-11-07",
-  "changelog": "P0 local single-device: cap concurrent Commissions historical reads across months to two 5-request batches, skip stale queued months, preserve last displayed month. Sales, stock, money, PIN, photos and Sync3 unchanged.",
+  "changelog": "P0 one-device Add Customer: exact strict IndexedDB/local ACK before success, rollback on failed writes, no duplicate tap, preserve unsaved form during PWA auto-update; retain v687 commissions read cap, Sync3 and all existing business facts.",
   "requerida": false,
-  "shell": "f123-shell-v687",
+  "shell": "f123-shell-v688",
   "apagar": [],
-  "releaseName": "shell v687",
-  "cacheGeneration": "golden231"
+  "releaseName": "shell v688",
+  "cacheGeneration": "golden232"
 }
