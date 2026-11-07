@@ -152,3 +152,20 @@ test('P0: diagnóstico causal sintético distingue pendientes sin publicar IDs d
   assert.ok(!logged.includes(licencia) && !logged.includes(y.roomId) && !logged.includes('42'),
     'telemetría solo booleana, numérica o enum de capa; nunca licencia/room/IDs causales');
 });
+test('P0: cold-join emits bounded causal progress pulses before failing recovery (no credentials)', async () => {
+  const license = 'F123-SECRET-SYNTHETIC-CANARY-ONLY';
+  const r = await fakeRun(license, { joined: true, recoveringCatalog: true, pendingStructs: true });
+  const pulses = r.messages.filter(m => m.startsWith('CANARIO_CAUSAL_PULSO: '));
+  assert.ok(pulses.length >= 2 && pulses.length <= 6,
+    'expect 2–6 bounded progress samples during a 20s recovery, got ' + pulses.length);
+  const parsed = pulses.map(m => JSON.parse(m.slice('CANARIO_CAUSAL_PULSO: '.length)));
+  assert.ok(parsed.every(p => Number.isFinite(p.segundos) && p.segundos >= 0),
+    'elapsed seconds must be numeric, not a wall-clock identifier');
+  assert.ok(parsed.every(p => p.catalogoRecuperando === true),
+    'recovering status must remain explicit for each pulse');
+  assert.ok(r.messages.some(m => m.includes('FALLA RECUPERACION:')),
+    'a red cold-join cannot become green because progress was observed');
+  assert.equal(r.keypadClicks, 3, 'never retry Owner PIN during incomplete recovery');
+  assert.ok(r.messages.every(m => !m.includes(license) && !m.includes('SENSITIVE-ROOM')),
+    'pulses must never expose license, room or PIN');
+});
