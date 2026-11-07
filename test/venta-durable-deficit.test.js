@@ -211,3 +211,63 @@ test('P0 #607: background A/B quota still reports quota with a strict IDB CAS pr
   w.localStorage.setItem = originalSet;
   assert.ok(quotaSignals > 0, 'a real background A/B quota failure must remain visible');
 });
+
+
+// P0 v689: A single-apparatus PWA must not turn a newer durable local revision
+// into a false 'storage unavailable' when adjusting +1. No Sync3 mocks needed.
+test('P0 v689 RED: stock +1 rebases one newer strict CAS revision and persists exactly once', async () => {
+  const w = browser();
+  await conStock(w, 'p-local-plus', 0);
+  const prior = await w.request('/api/respaldo/exportar');
+  const disk = JSON.parse(JSON.stringify(prior));
+  disk._rev = Number(prior._rev || 0) + 1; // prior background save on THIS device
+  let strictCalls = 0, emitted = 0, reads = 0;
+  w.OCSyncEmit = (kind) => { if (kind === 'ajuste') emitted++; return true; };
+  w.OCEstadoIDB = {
+    soportado: true,
+    ultimoError: () => null,
+    leer: async () => { reads++; return JSON.parse(JSON.stringify(disk)); },
+    guardarConRevision: async (candidate, expectedRev) => {
+      strictCalls++;
+      if (expectedRev !== disk._rev) return false; // exact CAS fence, not quota
+      disk._rev = candidate._rev;
+      Object.assign(disk, JSON.parse(JSON.stringify(candidate)));
+      return true;
+    }
+  };
+  const response = await w.fetch('/api/productos/p-local-plus/ajustar', {
+    method: 'POST', body: JSON.stringify({ delta: 1, motivo: 'restock' })
+  });
+  assert.equal(response.status, 200, 'one new local revision must be retried once after rollback');
+  assert.equal(strictCalls, 2, 'one failed CAS + one durable successful retry');
+  assert.equal(reads, 1, 'rebase uses one exact durable snapshot');
+  assert.equal(emitted, 1, 'stock operation emitted once only after confirmed save');
+  assert.equal(disk.productos.find(p => p.id === 'p-local-plus').stockActual, 1);
+  assert.equal(disk.movimientos.length, prior.movimientos.length + 1, 'no duplicate stock log');
+  assert.equal((await w.request('/api/productos/p-local-plus')).stockActual, 1);
+});
+
+test('P0 v689: real quota or unchanged CAS does not claim +1 and never emits stock op', async () => {
+  for (const reason of ['QuotaExceededError', 'unchanged']) {
+    const w = browser();
+    await conStock(w, 'p-no-false-ack', 0);
+    const before = await w.request('/api/respaldo/exportar');
+    const err = reason === 'QuotaExceededError' ? Object.assign(new Error('quota'), { name: 'QuotaExceededError' }) : null;
+    let emitted = 0, reads = 0;
+    w.OCSyncEmit = (kind) => { if (kind === 'ajuste') emitted++; return true; };
+    w.OCEstadoIDB = {
+      soportado: true,
+      guardarConRevision: async () => false,
+      ultimoError: () => err,
+      leer: async () => { reads++; return JSON.parse(JSON.stringify(before)); }
+    };
+    const response = await w.fetch('/api/productos/p-no-false-ack/ajustar', {
+      method: 'POST', body: JSON.stringify({ delta: 1 })
+    });
+    assert.equal(response.status, reason === 'QuotaExceededError' ? 507 : 503);
+    assert.equal(emitted, 0, 'no ghost stock emission on rejected save');
+    assert.equal((await w.request('/api/productos/p-no-false-ack')).stockActual, 0);
+    assert.equal((await w.request('/api/respaldo/exportar')).movimientos.length, before.movimientos.length);
+    assert.ok(reads <= 1, 'failed CAS must not loop');
+  }
+});
