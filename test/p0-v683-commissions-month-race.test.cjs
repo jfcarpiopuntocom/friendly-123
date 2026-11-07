@@ -80,9 +80,28 @@ test('a same-month newer sync repaint supersedes an older request',async()=>{
  vm.runInContext('_ocMesComisiones="2026-11"',f.context);
  const older=vm.runInContext('cargarComisiones()',f.context);
  const newer=vm.runInContext('cargarComisiones()',f.context);
- fulfillBatch(f.requests,5,'2026-11');
- await newer;
+ assert.equal(f.requests.length,5,'same-period reads must be serialized');
  fulfillBatch(f.requests,0,'2026-11');
  await older;
- assert.equal(f.painted.length,1,'late same-month result must not repaint');
+ for(let i=0;i<12&&f.requests.length<10;i++)await Promise.resolve();
+ assert.equal(f.requests.length,10,'one final fresh pass follows the in-flight read');
+ fulfillBatch(f.requests,5,'2026-11');
+ await newer;
+ assert.equal(f.painted.length,1,'stale same-month result must not repaint');
+});
+
+
+test('P0 1AAA: bursts of same-month commission refreshes bound in-flight historical sales reads',async()=>{
+ const f=fixture();
+ vm.runInContext('_ocMesComisiones="2026-11"',f.context);
+ const calls=Array.from({length:20},()=>vm.runInContext('cargarComisiones()',f.context));
+ assert.equal(f.requests.length,5,'burst must start ONE group of five data reads, not twenty');
+ fulfillBatch(f.requests,0,'2026-11');
+ await calls[0];
+ for(let i=0;i<12&&f.requests.length<10;i++)await Promise.resolve();
+ assert.equal(f.requests.length,10,'after initial read, coalesce all later refreshes into one current-data read');
+ fulfillBatch(f.requests,5,'2026-11');
+ await Promise.all(calls);
+ assert.equal(f.painted.length,1,'only the latest requested month paints after the storm');
+ assert.equal(f.painted[0].month,'2026-11');
 });

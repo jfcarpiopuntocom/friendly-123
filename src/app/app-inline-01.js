@@ -6914,12 +6914,16 @@ async function revisarComisionVenta(ventaId, promotoraId){
 let _ocComisionesSolicitud = 0;
 async function cargarComisiones(){
   const _run = ++_ocComisionesSolicitud, _mesSolicitud = _ocMesComisiones;
-  try { renderGestionPromotoras(); } catch (_) {}
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
   let filas, ranking, ventasTodas, meses, cuadreMes;
   try {
-    [filas, ranking, ventasTodas, meses, cuadreMes] = await Promise.all([
+    // P0 1AAA: serialize historical reads by period, coalescing every burst
+    // into at most one trailing fresh pass. No cached money or lost final refresh.
+    const _clave = String(_mesSolicitud || ""), _lecturas = window._ocComisionesLecturas || (window._ocComisionesLecturas = new Map());
+    let _slot = _lecturas.get(_clave);
+    if (!_slot) _lecturas.set(_clave, _slot = { activo: false, cola: [] });
+    const _leer = () => Promise.all([
       fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.json()),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
       fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
@@ -6927,12 +6931,29 @@ async function cargarComisiones(){
       // Cuadre del mes (JFC 2026-09-24): una sola fuente para "nada fuera de vista". Si falla, la vista sigue sin el bloque.
       fetch(`${API}/comisiones/cuadre?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
+    [filas, ranking, ventasTodas, meses, cuadreMes] = await new Promise((resolve, reject) => {
+      _slot.cola.push({ resolve, reject });
+      if (_slot.activo) return;
+      const drenar = () => {
+        const lote = _slot.cola.splice(0);
+        _slot.activo = true;
+        let lectura;
+        try { lectura = _leer(); } catch (e) { lectura = Promise.reject(e); }
+        Promise.resolve(lectura).then(d => lote.forEach(p => p.resolve(d)), e => lote.forEach(p => p.reject(e))).finally(() => {
+          _slot.activo = false;
+          if (_slot.cola.length) drenar();
+          else if (_lecturas.get(_clave) === _slot) _lecturas.delete(_clave);
+        });
+      };
+      drenar();
+    });
   } catch (_) {
     if (_run !== _ocComisionesSolicitud || _mesSolicitud !== _ocMesComisiones) return;
     if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load commissions. Reload the view.</p>';
     return;
   }
   if (_run !== _ocComisionesSolicitud || _mesSolicitud !== _ocMesComisiones) return;
+  try { renderGestionPromotoras(); } catch (_) {}
   // Rec 03: botón que arma el resumen del día y lo abre en WhatsApp listo.
   const btnWA = `<button class="ir" style="font-size:14px;min-height:44px;padding:6px 12px;margin:0;background:#25D366;color:#0F1923;border-color:#1da851;" aria-label="${escHtml(t("comm.sendWhatsappDaily"))}" title="${escHtml(t("comm.sendWhatsappDaily"))}" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDailyShort")}</button>`; // JFC 2026-10-07: texto corto
   // Exportar comisiones a CSV (2026-08-27, portado de amigable-123): descarga
