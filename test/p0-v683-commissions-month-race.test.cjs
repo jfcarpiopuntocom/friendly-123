@@ -105,3 +105,28 @@ test('P0 1AAA: bursts of same-month commission refreshes bound in-flight histori
  assert.equal(f.painted.length,1,'only the latest requested month paints after the storm');
  assert.equal(f.painted[0].month,'2026-11');
 });
+
+
+test('P0 single apparatus: switching through many months never floods its own historical reads',async()=>{
+ const f=fixture();
+ const calls=[];
+ for(let i=1;i<=12;i++){
+   vm.runInContext('_ocMesComisiones="2025-'+String(i).padStart(2,'0')+'"',f.context);
+   calls.push(vm.runInContext('cargarComisiones()',f.context));
+ }
+ assert.ok(f.requests.length<=10,
+   'A single device may run at most TWO read batches (10 requests), not '+f.requests.length+' simultaneous requests');
+ let delivered=0;
+ for(let round=0;round<60&&delivered<60;round++){
+   while(delivered+5<=f.requests.length){
+     const month='2025-'+String(Math.floor(delivered/5)+1).padStart(2,'0');
+     fulfillBatch(f.requests,delivered,month);
+     delivered+=5;
+   }
+   for(let tick=0;tick<15;tick++) await Promise.resolve();
+ }
+ assert.equal(delivered,60,'all twelve month selections must settle without deadlock');
+ await Promise.all(calls);
+ assert.equal(f.painted.length,1,'only the last selected month may paint the app');
+ assert.equal(f.painted[0].month,'2025-12');
+});
