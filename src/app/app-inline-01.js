@@ -6931,7 +6931,7 @@ async function cargarComisiones(){
       if (_limite.activos >= 2) await new Promise(resolve => _limite.espera.push(resolve));
       else _limite.activos++;
       try {
-        if (_run !== _ocComisionesSolicitud || _mesSolicitud !== _ocMesComisiones) return [[], [], [], [], null];
+        if (_mesSolicitud !== _ocMesComisiones) return [[], [], [], [], null];
         return await Promise.all([
       fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.json()),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
