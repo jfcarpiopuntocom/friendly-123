@@ -75,7 +75,7 @@ const observarPull = p => p.evaluate(() => {
 // Never expose URL, room capability, server revision, sequence or encrypted bytes.
 // A failed/unknown response is UNKNOWN, never falsely classified as no checkpoint.
 const consultarCheckpoint = p => p.evaluate(async () => {
-  const desconocido = { consultado: false, checkpointExiste: null, hayOperaciones: null };
+  const desconocido = { consultado: false, checkpointExiste: null, hayOperaciones: null, corte: 'desconocido' };
   let timer = null;
   try {
     const y = window.OCYjs;
@@ -95,7 +95,32 @@ const consultarCheckpoint = p => p.evaluate(async () => {
     ]);
     if (!head || !Number.isSafeInteger(head.rev) || head.rev < 0 ||
         !Number.isSafeInteger(head.seq) || head.seq < 0) return desconocido;
-    return { consultado: true, checkpointExiste: head.rev > 0, hayOperaciones: head.seq > 0 };
+    const salida = { consultado: true, checkpointExiste: head.rev > 0,
+      hayOperaciones: head.seq > 0, corte: head.rev === 0 ? 'sin-checkpoint' : 'desconocido' };
+    if (head.rev === 0) return salida;
+    // Firebase k/<rev>/s is metadata only: never GET k/<rev> (ciphertext).
+    // The private room locator and exact server timestamps stay in browser memory.
+    let metaTimer = null;
+    try {
+      const url = 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/' +
+        room + '-y/k/' + head.rev + '/s.json';
+      const cpSeq = await Promise.race([
+        fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store' })
+          .then(r => r.ok ? r.json() : null).catch(() => null),
+        new Promise(resolve => { metaTimer = setTimeout(() => resolve(null), 3000); })
+      ]);
+      if (!Number.isSafeInteger(cpSeq) || cpSeq < 0) return salida;
+      if (cpSeq === 0) salida.corte = 'cursor-cero';
+      else if (head.seq <= cpSeq) salida.corte = 'head-no-supera-checkpoint';
+      else {
+        const diferencia = head.seq - cpSeq;
+        salida.corte = diferencia < 60000 ? 'menos-1min' :
+          diferencia < 3600000 ? '1min-1h' :
+          diferencia < 86400000 ? '1h-1d' : '1d-o-mas';
+      }
+    } catch (_) { /* Metadata errors remain unknown, never false-fresh. */ }
+    finally { if (metaTimer !== null) clearTimeout(metaTimer); }
+    return salida;
   } catch (_) { return desconocido; }
   finally { if (timer !== null) clearTimeout(timer); }
 });
