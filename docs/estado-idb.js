@@ -241,7 +241,14 @@
           const actual = req.result;
           const rev = Number((actual && actual._rev) || 0);
           // Revision fence: another tab already advanced. Not a storage error; the caller retries on the new base.
-          if (rev > revisionAplicada || rev >= Number(copia._rev)) return;
+          if (rev > revisionAplicada || rev >= Number(copia._rev)) {
+            // P0 #607: distinguish revision fences from quota failures; no customer data.
+            try { console.warn("[estado-idb] strict CAS revision fence", {
+              diskAhead: rev > revisionAplicada,
+              candidateNotNewer: rev >= Number(copia._rev)
+            }); } catch (_) {}
+            return;
+          }
           try {
             tx.objectStore(STORE).put(copia, CLAVE);
             accepted = true;
@@ -258,6 +265,7 @@
         };
         tx.onabort = function () {
           _ultimoError = errorTx || tx.error || new Error("IDB transaction aborted");
+          try { console.warn("[estado-idb] strict transaction aborted", _ultimoError && _ultimoError.name || "UnknownError"); } catch (_) {}
           resolve(false);
         };
         tx.onerror = function () { errorTx = errorTx || tx.error || null; };
