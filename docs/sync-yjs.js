@@ -1637,7 +1637,7 @@
             }
             else if (c && c.k === "persist-result") {
               if (ws.peerOnly && ev.peerAccepted !== true) return;
-              if (canal.ws === ws) confirmarDurable(c, ev.relaySource);
+              if (canal.ws === ws) confirmarDurable(c, ev.persistLayer);
             }
             else if (c && c.k === "head-result") { if (!ws.peerOnly) procesarHead(ws, pullEstado, c); }
             else if (c && c.k === "pull-page") {
