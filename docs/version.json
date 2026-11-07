@@ -1,10 +1,10 @@
 {
-  "version": "shell v691",
+  "version": "shell v692",
   "fecha": "2026-11-07",
-  "changelog": "P0 installed iOS PWA sales: retry exactly once after a transient aborted IndexedDB CAS transaction; retain revision fencing, fail closed on quota, keep Sync3 untouched.",
+  "changelog": "P0 iOS PWA→Safari physical count: after strict local ACK, synchronously seed the exact new physical epoch into the existing Sync3 catalog, keeping the delayed event retry; no delta emitted, no transport changes.",
   "requerida": false,
-  "shell": "f123-shell-v691",
+  "shell": "f123-shell-v692",
   "apagar": [],
-  "releaseName": "shell v691",
-  "cacheGeneration": "golden235"
+  "releaseName": "shell v692",
+  "cacheGeneration": "golden236"
 }
