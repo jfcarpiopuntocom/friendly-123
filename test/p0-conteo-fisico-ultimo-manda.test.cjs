@@ -81,7 +81,7 @@ test('P0 PWA -> Safari: 1 to 33 publishes committed physical epoch before iOS su
           method: 'POST', body: JSON.stringify({ stockFisico: 33, motivo: 'synthetic physical count' })
         });
         const payload = await response.json();
-        const local = (await (await fetch('/api/productos')).json()).find(p => p.id === id);
+        const local = (await (await fetch('/api/respaldo/exportar')).json()).productos.find(p => p.id === id);
         const shared = window.OCYjs && window.OCYjs.mapas &&
           window.OCYjs.mapas.productos && window.OCYjs.mapas.productos.get(id);
         return {
