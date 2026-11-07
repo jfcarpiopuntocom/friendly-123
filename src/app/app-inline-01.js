@@ -6908,24 +6908,31 @@ async function revisarComisionVenta(ventaId, promotoraId){
     await cargarComisiones();
   } catch (_) { await ocAlert(t("comm.reviewError")); }
 }
+// One accepted view per request generation: older October responses may not
+// repaint a newer November selection or erase it with a stale network error.
+// UI-only ordering guard: never changes any sale, payment or shared data.
+let _ocComisionesSolicitud = 0;
 async function cargarComisiones(){
+  const _run = ++_ocComisionesSolicitud, _mesSolicitud = _ocMesComisiones;
   try { renderGestionPromotoras(); } catch (_) {}
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
   let filas, ranking, ventasTodas, meses, cuadreMes;
   try {
     [filas, ranking, ventasTodas, meses, cuadreMes] = await Promise.all([
-      fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_ocMesComisiones || "")}`).then(r => r.json()),
+      fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.json()),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
       fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
       fetch(`${API}/liquidaciones/meses`).then(r => r.json()).catch(() => []),
       // Cuadre del mes (JFC 2026-09-24): una sola fuente para "nada fuera de vista". Si falla, la vista sigue sin el bloque.
-      fetch(`${API}/comisiones/cuadre?mes=${encodeURIComponent(_ocMesComisiones || "")}`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/comisiones/cuadre?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]);
   } catch (_) {
+    if (_run !== _ocComisionesSolicitud || _mesSolicitud !== _ocMesComisiones) return;
     if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load commissions. Reload the view.</p>';
     return;
   }
+  if (_run !== _ocComisionesSolicitud || _mesSolicitud !== _ocMesComisiones) return;
   // Rec 03: botón que arma el resumen del día y lo abre en WhatsApp listo.
   const btnWA = `<button class="ir" style="font-size:14px;min-height:44px;padding:6px 12px;margin:0;background:#25D366;color:#0F1923;border-color:#1da851;" aria-label="${escHtml(t("comm.sendWhatsappDaily"))}" title="${escHtml(t("comm.sendWhatsappDaily"))}" onclick="enviarResumenWhatsApp()">${t("comm.sendWhatsappDailyShort")}</button>`; // JFC 2026-10-07: texto corto
   // Exportar comisiones a CSV (2026-08-27, portado de amigable-123): descarga

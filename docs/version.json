@@ -1,10 +1,10 @@
 {
-  "version": "shell v682",
+  "version": "shell v683",
   "fecha": "2026-11-06",
-  "changelog": "P0 Safari manual physical stock count: strict IndexedDB quota failure now recovers optional static CURRENT shell resources after online version verification when SW already purged obsolete caches. Retry CAS atomically; never delete sales, photo IDB, PIN, ledger, Yjs or essential offline boot, never emit unsuccessful stock changes.",
+  "changelog": "P0 UI-only event commissions month race: reject older PAID month results and stale network errors after a newer period selection; exact sale-ID payout accounting unchanged. Safari strict stock/sale persistence, PIN, photos and Sync3 unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v682",
+  "shell": "f123-shell-v683",
   "apagar": [],
-  "releaseName": "shell v682",
-  "cacheGeneration": "golden226"
+  "releaseName": "shell v683",
+  "cacheGeneration": "golden227"
 }
