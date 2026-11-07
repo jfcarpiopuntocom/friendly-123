@@ -1,0 +1,157 @@
+name: External AI P0 source review ZIP
+on:
+  push:
+    branches:
+      - review/p0-pwa-sync3-bundle-20261107
+permissions:
+  contents: read
+jobs:
+  assemble:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch pinned open PR snapshots (read-only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin refs/pull/617/head:refs/remotes/origin/review-pr617
+          git fetch --no-tags origin refs/pull/618/head:refs/remotes/origin/review-pr618
+          git fetch --no-tags origin refs/pull/619/head:refs/remotes/origin/review-pr619
+      - name: Assemble complete source files, tests, patches, and exact SHA manifest
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import subprocess, pathlib, hashlib, json, datetime
+          out=pathlib.Path("bundle")
+          out.mkdir()
+          candidate="88a5b85b4a1841ead4c83a90a4792b2da84d4506"
+          published="ff5e19766447450fe85d6d33c756bdd488ddab38"
+          v689="ab5928b23ddb1dbeaf3be05d44fa04ea8f9cdfcf"
+          commissions="e6c6318a333a78a447e819f2482e4504d9b11a7d"
+          sources=[
+            "docs/mock-backend.js","docs/sync-yjs.js","docs/sync-realtime.js",
+            "docs/peer-sync.js","docs/estado-idb.js","docs/estado-ab.js",
+            "docs/storage-durabilidad.js","docs/relay-selector.js","docs/hechos.js",
+            "docs/i18n.js","docs/sw.js","docs/version.json",
+            "docs/version-manifest.json","docs/dashboard.html","docs/index.html",
+            "src/app/app-inline-01.js","src/app/app-inline-03.js",
+            "test/p0-conteo-fisico-ultimo-manda.test.cjs",
+            "test/venta-durable-deficit.test.js",
+            "test/p0-v680-quota-recovery.test.cjs",
+            "test/p0-v682-safari-stock-quota.test.cjs",
+            "test/p0-durable-stock-adjustment.test.cjs",
+            "test/p0-local-save-performance-integration.test.cjs",
+            "test/stable-review-integrity.test.js","test/stock-union-fria-v644.test.js",
+            "test/p0-inventory-no-jump-fast-adjust.test.js",
+            "test/incident-v608-publication-after-recovery.test.cjs",
+            "scripts/p0-hotfix-tests.cjs","scripts/release-control.cjs",
+            "docs/ADR-P0-ventas-rapidas.md",
+            "docs/superpowers/plans/2026-11-06-local-save-diagnostics.md"
+          ]
+          modified620=[
+            "docs/dashboard.html","docs/mock-backend.js","docs/sw.js",
+            "docs/sync-yjs.js","docs/version-manifest.json","docs/version.json",
+            "test/p0-conteo-fisico-ultimo-manda.test.cjs"
+          ]
+          modified619=[
+            "docs/dashboard.html","docs/estado-idb.js","docs/sw.js",
+            "docs/version-manifest.json","docs/version.json",
+            "test/p0-v680-quota-recovery.test.cjs",
+            "test/p0-v682-safari-stock-quota.test.cjs"
+          ]
+          modified617=[
+            "docs/dashboard.html","docs/i18n.js","docs/mock-backend.js",
+            "docs/sw.js","docs/version-manifest.json","docs/version.json",
+            "test/p0-durable-stock-adjustment.test.cjs",
+            "test/p0-local-save-performance-integration.test.cjs",
+            "test/stable-review-integrity.test.js",
+            "test/stock-union-fria-v644.test.js",
+            "test/venta-durable-deficit.test.js"
+          ]
+          modified618=[
+            "docs/app-inline-01.min.js","docs/dashboard.html","docs/sw.js",
+            "docs/version-manifest.json","docs/version.json",
+            "src/app/app-inline-01.js",
+            "test/p0-v683-commissions-month-race.test.cjs"
+          ]
+          snapshots={
+            "01_CANDIDATE_V692_PR620_NOT_MERGED":(candidate,sources),
+            "02_PUBLISHED_V691_MASTER":(published,modified620+["docs/estado-idb.js","docs/sync-realtime.js"]),
+            "03_HISTORICAL_V689_PR617":(v689,modified617),
+            "04_SEPARATE_COMMISSIONS_PR618_NOT_MERGED":(commissions,modified618)
+          }
+          receipt=[]
+          for group,(sha,paths) in snapshots.items():
+            for item in dict.fromkeys(paths):
+              data=subprocess.check_output(["git","show",sha+":"+item])
+              target=out/group/item
+              target.parent.mkdir(parents=True,exist_ok=True)
+              target.write_bytes(data)
+              receipt.append({"group":group,"path":item,"source_commit":sha,
+                              "bytes":len(data),"sha256":hashlib.sha256(data).hexdigest()})
+          diffs={
+            "PR617_v689_stock":("c46c4c10a91ee044637e1458621c09fad029684e",v689),
+            "PR618_commissions_UNMERGED":("c46c4c10a91ee044637e1458621c09fad029684e",commissions),
+            "PR619_v691_PWA_sales":("717b4785b4c6992e5fd114e5beda896a8cfb2a46","026741da5dab775134b8df96805eabd74394e7aa"),
+            "PR620_v692_PWA_to_Safari_STAGED":(published,candidate)
+          }
+          for name,(a,b) in diffs.items():
+            data=subprocess.check_output(["git","diff","--binary",a,b])
+            (out/"05_DIFFS"/(name+".patch")).parent.mkdir(parents=True,exist_ok=True)
+            (out/"05_DIFFS"/(name+".patch")).write_bytes(data)
+          (out/"MANIFEST_SHA256.json").write_text(
+            json.dumps({"repository":"jfcarpiopuntocom/friendly-123",
+                        "generated_on":"2026-11-07",
+                        "incident":"PWA physical stock 1 -> 33 not reflected on Safari; PWA sale durability error v689",
+                        "snapshots":{k:v[0] for k,v in snapshots.items()},
+                        "files":receipt},ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+          readme="""# friendly-123 — revisión externa P0 (7 nov 2026)
+
+## INCIDENTES OBSERVADOS (testimonio del usuario)
+- PWA v689: venta de Bourgeois no confirmada. Error visible SALE_DURABILITY_UNCONFIRMED.
+- PWA: Spray de la Verdad pasó de 1 a 33, pero Safari no reflejó 33.
+- Conservar Sync3: NO desconectar el transporte, NO sustituir conteos físicos por delta +32, NO reescribir las cantidades o el PIN.
+
+## QUÉ CONTIENE
+01_CANDIDATE_V692_PR620_NOT_MERGED: todos los módulos de negocio/sync pertinentes y pruebas, código completo del PR #620.
+02_PUBLISHED_V691_MASTER: los ficheros tocados en PR #620 antes del parche y el guardado local base, para comparación.
+03_HISTORICAL_V689_PR617: archivos completos editados en el hotfix anterior (+1 y save error).
+04_SEPARATE_COMMISSIONS_PR618_NOT_MERGED: cambios de Commissions en una rama separada. NO están integrados; evitar mezclar.
+05_DIFFS: parches reales de PR #617, #618, #619 y #620.
+MANIFEST_SHA256.json: integridad por archivo y SHA exacto de origen.
+
+## PUNTOS DE AUDITORÍA / PONYTAIL
+1) Verificar causalidad entre POST /productos/:id/ajustar (stockFisico: 33), CAS IndexedDB, catálogo OCSync y Yjs.
+2) Distinguir guardado en PWA, publicación local Y.Doc, llegada del relay a Safari y aplicación del catálogo por Safari.
+3) El PR #620 fuerza el sembrado síncrono tras ACK local, hipótesis sobre suspensión de temporizador en iOS; NO existe todavía evidencia de que el transporte real de ambos dispositivos converja.
+4) Revisar el guard de epoch, clock/rev y que un peer obsoleto no regenere una cantidad anterior.
+5) Probar PWA real y Safari real, pausa/reconexión, sin nuevos movimientos sintéticos sobre datos del usuario.
+6) La venta solo puede responder OK tras ACK estricto; jamás emitir inventario o dinero de operación fallida.
+7) Validar verificación con test RED→GREEN, gates y reproducción en dispositivo. Un test sintético verde no prueba producción.
+
+## ESTADO DE RAMAS
+- PR #617: integrado en histórico v689.
+- PR #619: integrado, publicado como v691.
+- PR #620: CANDIDATO DRAFT (no dar por publicado).
+- PR #618: CANDIDATO SEPARADO de Commissions (no dar por publicado).
+
+Repositorio: https://github.com/jfcarpiopuntocom/friendly-123
+PR #620: https://github.com/jfcarpiopuntocom/friendly-123/pull/620
+PR #619: https://github.com/jfcarpiopuntocom/friendly-123/pull/619
+PR #618: https://github.com/jfcarpiopuntocom/friendly-123/pull/618
+PR #617: https://github.com/jfcarpiopuntocom/friendly-123/pull/617
+"""
+          (out/"LEEME_AUDITORIA.md").write_text(readme,encoding="utf-8")
+          print("Prepared",len(receipt),"full source copies plus",len(diffs),"patches.")
+          PY
+      - name: Upload downloadable ZIP for external reviewers
+        uses: actions/upload-artifact@v4
+        with:
+          name: friendly-123-P0-review-2026-11-07
+          path: bundle/
+          compression-level: 9
+          if-no-files-found: error
+          retention-days: 30
