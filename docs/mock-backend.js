@@ -8398,20 +8398,50 @@
         return J(clientes.filter(c => !c.despedido && !c.borrado && !_demoOculto("clientes", c)).map((c) => fichaCliente(c, med)));
       }
       if (path === "/api/clientes" && opts && opts.method === "POST") {
+        // P0 #614: a successful customer Add must mean THIS device has a
+        // durable ACK, not that a best-effort background save was scheduled.
+        // The generic finally must NOT persist a rolled-back customer.
+        debePersistir = false;
         if (!body.nombre || !String(body.nombre).trim()) return J({ error: "The customer name is required." }, 400);
         const perfilError = errorPerfilCliente(body);
         if (perfilError) return J({ error: perfilError }, 400);
-        /* EMAIL DEL CLIENTE (JFC 2026-08-26): captura opcional. Validación ligera
-           "guard, no puerta": si trae algo que no parece email, se guarda vacío en
-           vez de rechazar el alta (no queremos frenar el registro por un typo). */
         const _emailCli = String(body.email || "").trim().slice(0, 160);
         const _emailOk = _emailCli && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(_emailCli) ? _emailCli : "";
-        const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim(), email: _emailOk,
-          rangoEdad: String(body.rangoEdad || "").trim().slice(0, 12), pais: String(body.pais || "").trim().slice(0, 60),
-          ...perfilCliente(body), rev: _revNueva() };
-        clientes.push(nuevoCli);
-        mov("cliente-alta", { cliente: nuevoCli.nombre, codigo: nuevoCli.codigo });
-        return J(fichaCliente(nuevoCli));
+        const antesClientes = clientes.length, antesMovimientos = movimientos.length, antesSello = selloUltimo;
+        let liberarAlta;
+        // Reuse the existing strict-commit rollback fence (also used for
+        // contact edits). No Sync3 transport, room, outbox or PIN change.
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberarAlta = resolve; });
+        let confirmado = false;
+        try {
+          const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim(), email: _emailOk,
+            rangoEdad: String(body.rangoEdad || "").trim().slice(0, 12), pais: String(body.pais || "").trim().slice(0, 60),
+            ...perfilCliente(body), rev: _revNueva() };
+          clientes.push(nuevoCli);
+          mov("cliente-alta", { cliente: nuevoCli.nombre, codigo: nuevoCli.codigo }, false);
+          try { confirmado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+          if (!confirmado) {
+            clientes.length = antesClientes;
+            movimientos.length = antesMovimientos;
+            selloUltimo = antesSello;
+            return J({ error: "Customer was NOT saved. Your form is intact; please check storage and retry.", code: "CUSTOMER_NOT_DURABLE" }, 507);
+          }
+          _avisarCatalogoConfirmado();
+          return J(fichaCliente(nuevoCli));
+        } catch (e) {
+          if (!confirmado) {
+            clientes.length = antesClientes;
+            movimientos.length = antesMovimientos;
+            selloUltimo = antesSello;
+          }
+          return J({ error: "Customer was NOT saved. Please retry.", code: "CUSTOMER_NOT_DURABLE" }, 507);
+        } finally {
+          _retencionConfirmando = false;
+          _retencionPendiente = null;
+          try { _drenarCatalogosPendientes(); }
+          finally { liberarAlta(); }
+        }
       }
       if (path === "/api/clientes/importar" && opts && opts.method === "POST") {
         const entrantes = Array.isArray(body.clientes) ? body.clientes : [];
