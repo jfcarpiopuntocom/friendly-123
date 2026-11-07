@@ -67,7 +67,10 @@ async function conVentaReal() {
 test('v649: a strict save waits for this device\'s own save in flight instead of a false NOT saved', async () => {
   const dest = browser();
   await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-espera-idb', vaciar: true });
-  let rev = 0, escrituras = 0;
+  // v688 Add Customer is strictly durable. Model the pre-existing committed
+  // local revision, rather than pretending a fresh IDB was at rev 0.
+  const beforeIDB = await dest.request('/api/respaldo/exportar');
+  let rev = Number(beforeIDB._rev) || 0, escrituras = 0;
   dest.OCEstadoIDB = { soportado: true,
     guardar: async c => { await new Promise(r => setTimeout(r, 40)); rev = Number(c._rev) || rev; escrituras++; return true; },
     guardarConRevision: async (c, esperada) => { if (esperada !== rev) return false; rev = Number(c._rev) || rev; escrituras++; return true; },
@@ -115,7 +118,10 @@ test('Codex: a strict save behind a slow own save persists both, in order, and t
   const dest = browser();
   dest.setTimeout = setTimeout; dest.clearTimeout = clearTimeout;
   await dest.request('/api/instancia/activar', 'POST', { instanceId: 'fixture-tardio', vaciar: true });
-  let rev = 0, disco = null, soltar;
+  const initialPersisted = await dest.request('/api/respaldo/exportar');
+  // Seed the synthetic CAS with this device's actual baseline; v688 makes
+  // customer creation a strict write, and a forged 0 wrongly rejects it.
+  let rev = Number(initialPersisted._rev) || 0, disco = null, soltar;
   const lento = new Promise(r => { soltar = r; });
   dest.OCEstadoIDB = { soportado: true,
     guardar: async c => { await lento; rev = Number(c._rev) || rev; disco = JSON.parse(JSON.stringify(c)); return true; },
