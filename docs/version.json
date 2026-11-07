@@ -1,10 +1,10 @@
 {
-  "version": "shell v688",
+  "version": "shell v689",
   "fecha": "2026-11-07",
-  "changelog": "P0 one-device Add Customer: exact strict IndexedDB/local ACK before success, rollback on failed writes, no duplicate tap, preserve unsaved form during PWA auto-update; retain v687 commissions read cap, Sync3 and all existing business facts.",
+  "changelog": "P0 PWA inventory +1: when a newer durable local revision rejects a manual delta, restore the exact committed snapshot and retry at most once; distinguish true quota from nonquota CAS failure. No change to Sync3, PIN, photos, sales or financial records.",
   "requerida": false,
-  "shell": "f123-shell-v688",
+  "shell": "f123-shell-v689",
   "apagar": [],
-  "releaseName": "shell v688",
-  "cacheGeneration": "golden232"
+  "releaseName": "shell v689",
+  "cacheGeneration": "golden233"
 }
