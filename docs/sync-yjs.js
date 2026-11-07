@@ -702,7 +702,7 @@
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
         var beforeRetirement = null, retirados = [], absCerrada = null;
         return mutarOutbox(function () {
-          beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
+          beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint, checkpointLayer: _outbox.checkpointLayer || "" };
           var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
           if (!entry) return;
           var completed = [entry];
