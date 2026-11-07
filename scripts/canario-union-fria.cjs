@@ -78,13 +78,19 @@ const consultarCheckpoint = p => p.evaluate(async () => {
   const desconocido = { consultado: false, checkpointExiste: null, hayOperaciones: null };
   let timer = null;
   try {
-    const ws = window.OCYjs && window.OCYjs.canal && window.OCYjs.canal.ws;
+    const y = window.OCYjs;
+    const ws = y && y.canal && y.canal.ws;
     const relay = window.F123FirebaseRelay;
+    // relay-selector wraps native sockets in an EventTarget WITHOUT a url.
+    // Rebuild exactly the canonical catalog locator IN THIS BROWSER ONLY.
+    // Never return or log roomId / locator; they are room capabilities.
+    const room = y && y.roomId;
     if (!ws || ws.relayLayer !== 'f123_relay_cupo_fb_v1' ||
-        typeof ws.url !== 'string' || !relay || typeof relay.leerHead !== 'function')
-      return desconocido;
+        typeof room !== 'string' || !/^[a-f0-9]{40}$/.test(room) ||
+        !relay || typeof relay.leerHead !== 'function') return desconocido;
+    const locator = 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + room + '-y';
     const head = await Promise.race([
-      relay.leerHead(ws.url),
+      relay.leerHead(locator),
       new Promise(resolve => { timer = setTimeout(() => resolve(null), 3000); })
     ]);
     if (!head || !Number.isSafeInteger(head.rev) || head.rev < 0 ||
