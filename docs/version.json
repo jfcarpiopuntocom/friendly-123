@@ -1,10 +1,10 @@
 {
-  "version": "shell v685",
+  "version": "shell v686",
   "fecha": "2026-11-07",
-  "changelog": "P0 PWA sale safety: classify the current IndexedDB strict-CAS failure independently of stale A/B quota; keep exact durable ACK, rollback and no stock broadcast on rejection. No Sync3, PIN, photos or customer-data changes.",
+  "changelog": "P0 1AAA: bound same-device Commissions historical reads during concurrent refreshes, preserving the latest month, local sale/payout calculations, and no change to Sync3, PIN, photos or durable business data.",
   "requerida": false,
-  "shell": "f123-shell-v685",
+  "shell": "f123-shell-v686",
   "apagar": [],
-  "releaseName": "shell v685",
-  "cacheGeneration": "golden229"
+  "releaseName": "shell v686",
+  "cacheGeneration": "golden230"
 }
