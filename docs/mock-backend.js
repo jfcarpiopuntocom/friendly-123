@@ -1674,7 +1674,7 @@
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(_causaGuardado(ab)); }
+        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab)); }
         return ok;
       };
       // Strict money/stock commits use ONE atomic IDB readwrite transaction:
@@ -1738,6 +1738,16 @@
     if (_esErrorDeCuota(a)) return a;
     if (_esErrorDeCuota(b)) return b;
     return a || b || null;
+  }
+  // #607: an atomic IDB CAS has its OWN failure cause. A historical quota in
+  // the best-effort A/B backup must never override a non-quota CAS rejection.
+  // Browsers that really use only A/B retain the existing cause classifier.
+  function _causaGuardadoEstricto(idb, ab) {
+    if (idb && typeof idb.guardarConRevision === "function") {
+      try { return typeof idb.ultimoError === "function" ? idb.ultimoError() : null; }
+      catch (e) { return e; }
+    }
+    return _causaGuardado(ab);
   }
   function _guardadoLocalExitoso() {
     _fallosGuardadoSeguidos = 0; _intentosReintentoGuardado = 0; _ultimoErrorGuardado = null;
@@ -6276,7 +6286,16 @@
       if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
       const revisionAntes = _localRev; // capture before a foreign storage event can advance our revision
       const primero = await _fetchInterno(url,opts);
-      if (!ventaConcurrente || primero.status !== 507 || _estadoLecturaBloqueada ||
+      // #607: 503 now identifies a NON-quota strict save rejection, but the
+      // existing fenced sale-rebase must still run. Only accept our explicit
+      // durability code; an arbitrary 503 is never replayed. The response is
+      // cloned so the original error remains readable by the caller.
+      let _rechazoReintentable = primero.status === 507;
+      if (ventaConcurrente && primero.status === 503) {
+        try { _rechazoReintentable = (await primero.clone().json()).code === "SALE_DURABILITY_UNCONFIRMED"; }
+        catch (_) { _rechazoReintentable = false; }
+      }
+      if (!ventaConcurrente || !_rechazoReintentable || _estadoLecturaBloqueada ||
           _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
       // A local mirror may still be settling after the first durable ACK.
       // Wait for it only on this failed path, before replacing any in-memory copy.
@@ -7211,7 +7230,16 @@
         try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
           _revertirVenta();
-          return J({ error: tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.") }, 507);
+          // #607: a false strict commit is NOT proof of storage quota.
+          // Distinguish genuine quota from CAS fences and transient IDB failures.
+          // Keep the rollback and never emit stock or money without a durable ACK.
+          const causa = _causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB());
+          const cuotaReal = _esErrorDeCuota(causa);
+          const aviso = cuotaReal
+            ? tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.")
+            : tSeguro("sale.notSavedOther", "The sale was NOT saved: the secure save could not be confirmed. Check Sold before trying again.");
+          try { console.warn("[sale] strict save rejected", cuotaReal ? "quota" : (causa && causa.name || "revision-or-unavailable")); } catch (_) {}
+          return J({ error: aviso, code: cuotaReal ? "SALE_STORAGE_QUOTA" : "SALE_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
         }
         emitirOpStock("venta", _opVenta, true);
         return J({ producto: ficha(p), ventaId });

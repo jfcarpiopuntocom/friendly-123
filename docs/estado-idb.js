@@ -172,9 +172,20 @@
     if (!c || typeof c.keys !== "function" || typeof c.delete !== "function") return false;
     try {
       const nombres = await c.keys();
+      // Preserve the active/newest shell and three preceding versions. The
+      // historical v676 cutoff alone cannot recover quota on Opera v683+.
+      // Never touch unrelated caches, IDB, photos or customer data.
+      const versiones = nombres.map(function (nombre) {
+        const m = /^f123-shell-v([0-9]+)(?:-|$)/.exec(nombre);
+        return m ? Number(m[1]) : 0;
+      });
+      const ultima = Math.max(0, ...versiones);
       const antiguos = nombres.filter(function (nombre) {
         const m = /^f123-shell-v([0-9]+)(?:-|$)/.exec(nombre);
-        return !!m && Number(m[1]) > 0 && Number(m[1]) < 676;
+        if (!m) return false;
+        const version = Number(m[1]);
+        return version > 0 && version < 676 ||
+          (ultima >= 680 && version > 0 && version < ultima - 3);
       });
       let liberado = false;
       for (const nombre of antiguos) {
@@ -241,7 +252,14 @@
           const actual = req.result;
           const rev = Number((actual && actual._rev) || 0);
           // Revision fence: another tab already advanced. Not a storage error; the caller retries on the new base.
-          if (rev > revisionAplicada || rev >= Number(copia._rev)) return;
+          if (rev > revisionAplicada || rev >= Number(copia._rev)) {
+            // P0 #607: distinguish revision fences from quota failures; no customer data.
+            try { console.warn("[estado-idb] strict CAS revision fence", {
+              diskAhead: rev > revisionAplicada,
+              candidateNotNewer: rev >= Number(copia._rev)
+            }); } catch (_) {}
+            return;
+          }
           try {
             tx.objectStore(STORE).put(copia, CLAVE);
             accepted = true;
@@ -258,6 +276,7 @@
         };
         tx.onabort = function () {
           _ultimoError = errorTx || tx.error || new Error("IDB transaction aborted");
+          try { console.warn("[estado-idb] strict transaction aborted", _ultimoError && _ultimoError.name || "UnknownError"); } catch (_) {}
           resolve(false);
         };
         tx.onerror = function () { errorTx = errorTx || tx.error || null; };

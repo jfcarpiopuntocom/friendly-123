@@ -149,3 +149,65 @@ test('4. pinning: localStorage full but IndexedDB accepts -> the sale is confirm
   assert.equal((await prod(w, 'p-idb')).stockActual, 3);
   assert.equal(emitidas, 1);
 });
+
+
+test('P0 #607: stale A/B quota does not mislabel a revision-fenced sale as out of storage', async () => {
+  const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
+  await conStock(w, 'p-cas-fence', 5);
+  let emitidas = 0;
+  w.OCSyncEmit = () => { emitidas++; };
+  const originalSet = w.localStorage.setItem.bind(w.localStorage);
+  // Leave an actual old A/B quota error, then restore the storage. The next
+  // strict CAS rejection is from IDB, not a new quota error.
+  w.localStorage.setItem = () => { throw new DOMException('synthetic previous quota', 'QuotaExceededError'); };
+  const previous = await w.fetch('/api/config/retencion', {
+    method: 'PUT', body: JSON.stringify({ dias: 14 })
+  });
+  w.localStorage.setItem = originalSet;
+  assert.equal(previous.status, 507, 'fixture established a prior quota failure');
+  w.OCEstadoIDB = {
+    soportado: true,
+    guardarConRevision: async () => false,
+    ultimoError: () => null
+  };
+  const response = await w.fetch('/api/productos/p-cas-fence/venta', {
+    method: 'POST', body: JSON.stringify({ cantidad: 1 })
+  });
+  const payload = await response.json();
+  assert.equal(response.status, 503, 'IDB revision fence is not device quota');
+  assert.equal(payload.code, 'SALE_DURABILITY_UNCONFIRMED');
+  assert.doesNotMatch(payload.error, /space left|sin espacio|quedó sin espacio/i);
+  const after = await w.request('/api/respaldo/exportar');
+  assert.equal(after.productos.find(p => p.id === 'p-cas-fence').stockActual, 5);
+  assert.equal(after.ventas.length, 0, 'unconfirmed sale must be rolled back');
+  assert.equal(emitidas, 0, 'no stock movement may leave without strict ACK');
+});
+
+
+test('P0 #607: background A/B quota still reports quota with a strict IDB CAS present', async () => {
+  const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
+  let quotaSignals = 0;
+  w.addEventListener('oc-memoria-llena', event => {
+    if (event.detail && event.detail.llena === true) quotaSignals++;
+  });
+  // On a non-financial background save the A/B backup, not strict CAS, is
+  // the failing writer. A null last strict-CAS error MUST NOT mask its quota.
+  w.OCEstadoIDB = {
+    soportado: true,
+    guardarConRevision: async () => true,
+    guardar: async () => false,
+    ultimoError: () => null
+  };
+  const originalSet = w.localStorage.setItem.bind(w.localStorage);
+  w.localStorage.setItem = () => {
+    throw new DOMException('synthetic background quota', 'QuotaExceededError');
+  };
+  await w.fetch('/api/ubicaciones', {
+    method: 'POST', body: JSON.stringify({ nombre: 'Synthetic background quota rack', tipo: 'propio' })
+  });
+  for (let i = 0; i < 30; i++) await Promise.resolve();
+  w.localStorage.setItem = originalSet;
+  assert.ok(quotaSignals > 0, 'a real background A/B quota failure must remain visible');
+});

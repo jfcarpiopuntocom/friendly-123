@@ -31,13 +31,14 @@ test('sale: rejected ACK restores exactly existing and absent PN metadata',()=>{
   const rollback=sale.slice(helperStart,helperEnd);
   const fail=sale.slice(sale.indexOf('        if (!_ventaGuardada) {'),sale.indexOf('        emitirOpStock("venta"'));
   assert.ok(fail.includes('return J(')&&fail.includes('_revertirVenta()'));
-  const run=new Function('p','prepare',`const cant=2,ventas=[],movimientos=[],clonar=x=>JSON.parse(JSON.stringify(x)),tSeguro=(_k,s)=>s,J=(body,status)=>({body,status});let selloUltimo='fixture';${capture};${rollback};p.stockActual-=cant;ventas.push({id:'v'});movimientos.push({id:'m'});prepare({productoId:p.id,delta:-cant});let _ventaGuardada=false;${fail}`);
+  const classifier=part('  function _causaGuardadoEstricto(idb, ab) {','  function _guardadoLocalExitoso() {');
+  const run=new Function('p','prepare',`const cant=2,ventas=[],movimientos=[],clonar=x=>JSON.parse(JSON.stringify(x)),tSeguro=(_k,s)=>s,J=(body,status)=>({body,status}),_estadoAB=()=>null,_causaGuardado=()=>null,_esErrorDeCuota=()=>false,window={OCEstadoIDB:{guardarConRevision:()=>false,ultimoError:()=>null}};let selloUltimo='fixture';${classifier};${capture};${rollback};p.stockActual-=cant;ventas.push({id:'v'});movimientos.push({id:'m'});prepare({productoId:p.id,delta:-cant});let _ventaGuardada=false;${fail}`);
   for(const p of [
     {id:'fixture-beer',stockActual:10},
     {id:'fixture-beer',stockActual:10,stockBase:12,stockPN:{peer:{add:3,sub:5}},stockTs:3000,stockDeficit:1}
   ]) {
     const before=JSON.stringify(p), out=run(p,prepare(p));
-    assert.equal(out.status,507);
+    assert.equal(out.status,503,'nonquota CAS failure must not claim device storage exhaustion');
     assert.equal(JSON.stringify(p),before,'restore existing values AND absent keys');
   }
 });
@@ -126,7 +127,8 @@ test('full backend: failed IndexedDB ACK restores sale before remote merge, no g
   const sale=await inFlight;
   w.localStorage.setItem=originalSetItem;delete w.OCEstadoIDB;
   const after=await state(w);
-  assert.equal(sale.status,507);
+  assert.equal(sale.status,503,'unconfirmed nonquota IDB write is 503');
+  assert.equal((await sale.json()).code,'SALE_DURABILITY_UNCONFIRMED');
   const oldP=before.productos.find(p=>p.id==='p24'),p=after.productos.find(p=>p.id==='p24');
   assert.equal(p.stockActual,oldP.stockActual);
   assert.equal(Object.hasOwn(p,'stockPN'),Object.hasOwn(oldP,'stockPN'));
@@ -137,7 +139,7 @@ test('full backend: failed IndexedDB ACK restores sale before remote merge, no g
   assert.ok(after.productos.some(p=>p.id==='remote-fixture'),'queued remote facts survive rejected local sale');
 });
 
-test('sale 507 without remote merge has no outgoing catalog notification',async()=>{
+test('sale nonquota CAS refusal without remote merge has no outgoing catalog notification',async()=>{
  const w=browser(),before=await state(w),events=[];
  const dispatch=w.dispatchEvent.bind(w);
  w.dispatchEvent=e=>{if(e.type==='oc-catalogo-cambiado')events.push(e.type);return dispatch(e)};
@@ -147,7 +149,8 @@ test('sale 507 without remote merge has no outgoing catalog notification',async(
  const response=await sold(w,2);
  w.localStorage.setItem=save;delete w.OCEstadoIDB;
  const after=await state(w);
- assert.equal(response.status,507);
+ assert.equal(response.status,503,'nonquota CAS refusal is not device quota');
+ assert.equal((await response.json()).code,'SALE_DURABILITY_UNCONFIRMED');
  assert.equal(after.productos.find(p=>p.id==='p24').stockActual,before.productos.find(p=>p.id==='p24').stockActual);
  assert.deepEqual(events,[],'rejected sale cannot announce phantom stock');
 });
