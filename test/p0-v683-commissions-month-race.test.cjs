@@ -119,13 +119,15 @@ test('P0 single apparatus: switching through many months never floods its own hi
  let delivered=0;
  for(let round=0;round<80;round++){
    while(delivered+5<=f.requests.length){
-     const month=(f.requests[delivered].url.match(/[?&]mes=(\\d{4}-\\d{2})/)||[])[1]||'2025-12';
+     const month=(f.requests[delivered].url.match(/[?&]mes=(\d{4}-\d{2})/)||[])[1]||'2025-12';
      fulfillBatch(f.requests,delivered,month);
      delivered+=5;
    }
    for(let tick=0;tick<15;tick++) await Promise.resolve();
  }
  assert.equal(delivered,15,'only the first two and the FINAL month should fetch; ten stale months skipped');
+ assert.deepEqual(f.requests.filter((_,i)=>i%5===0).map(x=>(x.url.match(/[?&]mes=(\d{4}-\d{2})/)||[])[1]),['2025-01','2025-02','2025-12'],
+   'the local UI must fetch only first two and last selected month');
  await Promise.all(calls);
  assert.equal(f.painted.length,1,'only the last selected month may paint the app');
  assert.equal(f.painted[0].month,'2025-12');
