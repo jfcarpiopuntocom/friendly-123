@@ -224,6 +224,12 @@ const _ocActSolaOn = true;
       if (visible(document.getElementById("oc-modal-overlay"))) return false;
       if (visible(document.getElementById("oc-comision-overlay"))) return false;
       if (document.getElementById("vi-cliente")) return false;            // panel de venta abierto
+      // P0 #614: pressing Add removes input focus, but neither an unfinished
+      // customer form nor a pending strict ACK may be destroyed by a SW reload.
+      if (window.__f123AltaClientePendiente ||
+          (document.getElementById("cliNombre") || {}).value ||
+          (document.getElementById("cliTelefono") || {}).value ||
+          (document.getElementById("cliEmail") || {}).value) return false;
       if ([...document.querySelectorAll(".oc-vs-editor")].some(function (e) { return e.style.display === "block"; })) return false;
       if ([...document.querySelectorAll('[role="dialog"]')].some(visible)) return false;
       const a = document.activeElement;
