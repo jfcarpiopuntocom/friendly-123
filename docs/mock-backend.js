@@ -6277,6 +6277,19 @@
         return /^\/api\/productos\/[^/]+\/venta$/.test(path) && ((opts && opts.method) || "GET").toUpperCase() === "POST";
       } catch (_) { return false; }
     })();
+    // P0 v689: +1/-1 manual stock deltas need the same bounded CAS rebase as
+    // a sale, on THIS DEVICE too. Never auto-replay absolute physical counts:
+    // they establish a new epoch and require explicit human intent.
+    const ajusteDeltaConcurrente = (() => {
+      try {
+        const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
+        if (!/^\/api\/productos\/[^/]+\/ajustar$/.test(path) ||
+            ((opts && opts.method) || "GET").toUpperCase() !== "POST") return false;
+        const body = JSON.parse((opts && opts.body) || "{}");
+        return Number.isInteger(body.delta) && body.delta !== 0 &&
+          !(Number.isInteger(body.stockFisico) && body.stockFisico >= 0);
+      } catch (_) { return false; }
+    })();
     const ejecutar=async()=>{
       const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
       const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
@@ -6291,11 +6304,18 @@
       // durability code; an arbitrary 503 is never replayed. The response is
       // cloned so the original error remains readable by the caller.
       let _rechazoReintentable = primero.status === 507;
-      if (ventaConcurrente && primero.status === 503) {
-        try { _rechazoReintentable = (await primero.clone().json()).code === "SALE_DURABILITY_UNCONFIRMED"; }
-        catch (_) { _rechazoReintentable = false; }
+      if ((ventaConcurrente || ajusteDeltaConcurrente) && primero.status === 503) {
+        try {
+          const codigo = (await primero.clone().json()).code;
+          _rechazoReintentable = ventaConcurrente
+            ? codigo === "SALE_DURABILITY_UNCONFIRMED"
+            : codigo === "STOCK_DURABILITY_UNCONFIRMED";
+        } catch (_) { _rechazoReintentable = false; }
       }
-      if (!ventaConcurrente || !_rechazoReintentable || _estadoLecturaBloqueada ||
+      // Only an explicit non-quota stock CAS refusal may be replayed. 507 from
+      // genuine storage quota is NEVER retried here. The handler has rolled back.
+      if (ajusteDeltaConcurrente && primero.status !== 503) _rechazoReintentable = false;
+      if (!(ventaConcurrente || ajusteDeltaConcurrente) || !_rechazoReintentable || _estadoLecturaBloqueada ||
           _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
       // A local mirror may still be settling after the first durable ACK.
       // Wait for it only on this failed path, before replacing any in-memory copy.
@@ -7683,7 +7703,16 @@
           try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
           if (!guardado) {
             revertir();
-            return J({ error: tSeguro("product.notSaved", "The stock adjustment was NOT saved. Check available storage and try again.") }, 507);
+            // A strict CAS conflict is NOT proof of device storage exhaustion.
+            // Only genuine quota keeps 507; other refusal gets a distinct code
+            // for a one-shot rebase against a newer durable IDB revision.
+            const causa = _causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB());
+            const cuotaReal = _esErrorDeCuota(causa);
+            const mensaje = cuotaReal
+              ? tSeguro("product.notSaved", "The stock adjustment was NOT saved: storage quota is unavailable.")
+              : tSeguro("product.notSavedOther", "The stock change was NOT saved: secure storage could not confirm it. Check inventory before trying again.");
+            return J({ error: mensaje,
+              code: cuotaReal ? "STOCK_STORAGE_QUOTA" : "STOCK_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
           }
           if (fisico === null) emitirOpStock("ajuste", op, true);
           return J(ficha(p));

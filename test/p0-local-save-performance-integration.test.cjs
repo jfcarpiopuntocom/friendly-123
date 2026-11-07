@@ -45,7 +45,8 @@ test('offline strict-ACK refusal keeps original stock/audit, sends zero ops, rec
   const before = await state(w);
   w.OCEstadoIDB = { guardarConRevision: () => Promise.resolve(false) };
   const response = await adjust(w,+2);
-  assert.equal(response.status,507,'never report success after strict refusal');
+  assert.equal(response.status,503,'nonquota CAS refusal is an unconfirmed durable save, not device quota');
+  assert.equal((await response.json()).code,'STOCK_DURABILITY_UNCONFIRMED');
   const after = await state(w);
   const old = before.productos.find(p => p.id === 'p24');
   assert.equal(after.productos.find(p => p.id === 'p24').stockActual,old.stockActual);

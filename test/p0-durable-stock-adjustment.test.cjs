@@ -59,7 +59,9 @@ test('rejected manual stock correction rolls back stock, PN and audit; no ghost 
   let response;
   try { response = await adjust(w, -2); }
   finally { w.localStorage.setItem = originalSetItem; delete w.OCEstadoIDB; }
-  assert.equal(response.status, 507, 'rejected storage must not confirm a stock correction');
+  assert.equal(response.status, 503, 'a nonquota strict CAS refusal must not claim device storage exhaustion');
+  const diagnostic = await response.json();
+  assert.equal(diagnostic.code, 'STOCK_DURABILITY_UNCONFIRMED');
   const after = await snapshot(w);
   const old = before.productos.find(p => p.id === 'p24');
   const now = after.productos.find(p => p.id === 'p24');
