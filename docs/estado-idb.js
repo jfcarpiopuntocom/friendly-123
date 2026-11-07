@@ -282,7 +282,18 @@
         tx.onerror = function () { errorTx = errorTx || tx.error || null; };
       });
       const primero = await intento();
-      if (primero === true || !_esCuotaEstricto(_ultimoError)) return primero;
+      if (primero === true) return true;
+      // P0 v690 (installed iOS PWA): an IDB transaction that ABORTED with a
+      // transient non-quota error has not committed. Retry this exact snapshot
+      // and the exact same CAS revision ONCE; a concurrent writer is still
+      // fenced by the second transaction. Never retry a revision refusal
+      // (lastError=null), a real quota error, or an unknown failure.
+      const errorPrimero = _ultimoError;
+      if (errorPrimero && (errorPrimero.name === "AbortError" ||
+          errorPrimero.name === "TransactionInactiveError")) {
+        return intento();
+      }
+      if (!_esCuotaEstricto(errorPrimero)) return false;
       // A genuine quota abort may recover after releasing obsolete caches.
       // On Safari these were usually deleted by SW activation already:
       // optionally release only verified ONLINE, secondary current-shell files.

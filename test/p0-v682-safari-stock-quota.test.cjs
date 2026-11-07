@@ -2,7 +2,7 @@
 const {test}=require('node:test'), assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const src=fs.readFileSync(path.join(__dirname,'../docs/estado-idb.js'),'utf8');
-function fixture({failure='quota',online=true,server=true,servedShell='f123-shell-v682',cacheName='f123-shell-v682-golden226',takeover=false,optional=true}={}){
+function fixture({failure='quota',online=true,server=true,servedShell='f123-shell-v682',cacheName='f123-shell-v682-golden226',takeover=false,optional=true,failAttempts=1}={}){
  let stored={_rev:7,productos:[{id:'p',stockActual:32}],movimientos:[]},attempts=0;
  const cacheEntries=new Set(['https://example.test/friendly-123/index.html','https://example.test/friendly-123/mock-backend.js',...(optional?['https://example.test/friendly-123/vendor/jspdf-4.2.1.umd.min.js','https://example.test/friendly-123/manual.html']:[])]);
  const deleted=[],names=new Set([cacheName,'f123-shell-v681-golden225-next','customer-photos']);
@@ -13,7 +13,7 @@ function fixture({failure='quota',online=true,server=true,servedShell='f123-shel
   const n=++attempts;let written;
   const tx={error:null,objectStore(){return {get(){
     const req={result:stored};queueMicrotask(()=>{req.onsuccess();queueMicrotask(()=>{
-      if(n===1&&failure!=='none'&&written){const err=new Error(failure);err.name=failure==='quota'?'QuotaExceededError':'AbortError';tx.error=err;tx.onabort();}
+      if(n<=failAttempts&&failure!=='none'&&written){const err=new Error(failure);err.name=failure==='quota'?'QuotaExceededError':'AbortError';tx.error=err;tx.onabort();}
       else{if(written)stored=written;tx.oncomplete();}
     });});return req;},
     put(x){written=structuredClone(x);}}}};
@@ -46,10 +46,19 @@ test('offline or mismatched release refuses reclaim and still rejects unsaved co
   assert.deepEqual(f.deleted,[]);
  }
 });
-test('nonquota and no optional assets never delete the running offline shell',async()=>{
- for(const o of [{failure:'abort'},{optional:false}]){
+test('P0: Safari transient nonquota abort retries the stock transaction once without cache deletion',async()=>{
+ const f=fixture({failure:'abort'});
+ assert.equal(await f.idb.guardarConRevision({_rev:8,productos:[{id:'p',stockActual:31}],movimientos:[{id:'one',delta:-1}]},7),true);
+ assert.equal(f.attempts,2);
+ assert.equal(f.state.productos[0].stockActual,31);
+ assert.equal(f.state.movimientos.length,1);
+ assert.deepEqual(f.deleted,[],'no cache deletion for nonquota errors');
+});
+test('persistent abort and quota without optional assets fail closed',async()=>{
+ for(const o of [{failure:'abort',failAttempts:2},{optional:false}]){
   const f=fixture(o);
   assert.equal(await f.idb.guardarConRevision({_rev:8},7),false);
+  assert.equal(f.state._rev,7);
   assert.deepEqual(f.deleted,[]);
  }
 });

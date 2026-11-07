@@ -1,10 +1,10 @@
 {
-  "version": "shell v689",
+  "version": "shell v691",
   "fecha": "2026-11-07",
-  "changelog": "P0 PWA inventory +1: when a newer durable local revision rejects a manual delta, restore the exact committed snapshot and retry at most once; distinguish true quota from nonquota CAS failure. No change to Sync3, PIN, photos, sales or financial records.",
+  "changelog": "P0 installed iOS PWA sales: retry exactly once after a transient aborted IndexedDB CAS transaction; retain revision fencing, fail closed on quota, keep Sync3 untouched.",
   "requerida": false,
-  "shell": "f123-shell-v689",
+  "shell": "f123-shell-v691",
   "apagar": [],
-  "releaseName": "shell v689",
-  "cacheGeneration": "golden233"
+  "releaseName": "shell v691",
+  "cacheGeneration": "golden235"
 }
