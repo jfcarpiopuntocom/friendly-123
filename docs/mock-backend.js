@@ -1674,7 +1674,7 @@
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(_causaGuardado(ab)); }
+        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(_causaGuardadoEstricto(idb, ab)); }
         return ok;
       };
       // Strict money/stock commits use ONE atomic IDB readwrite transaction:
@@ -1738,6 +1738,16 @@
     if (_esErrorDeCuota(a)) return a;
     if (_esErrorDeCuota(b)) return b;
     return a || b || null;
+  }
+  // #607: an atomic IDB CAS has its OWN failure cause. A historical quota in
+  // the best-effort A/B backup must never override a non-quota CAS rejection.
+  // Browsers that really use only A/B retain the existing cause classifier.
+  function _causaGuardadoEstricto(idb, ab) {
+    if (idb && typeof idb.guardarConRevision === "function") {
+      try { return typeof idb.ultimoError === "function" ? idb.ultimoError() : null; }
+      catch (e) { return e; }
+    }
+    return _causaGuardado(ab);
   }
   function _guardadoLocalExitoso() {
     _fallosGuardadoSeguidos = 0; _intentosReintentoGuardado = 0; _ultimoErrorGuardado = null;
@@ -7214,7 +7224,7 @@
           // #607: a false strict commit is NOT proof of storage quota.
           // Distinguish genuine quota from CAS fences and transient IDB failures.
           // Keep the rollback and never emit stock or money without a durable ACK.
-          const causa = _causaGuardado(_estadoAB());
+          const causa = _causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB());
           const cuotaReal = _esErrorDeCuota(causa);
           const aviso = cuotaReal
             ? tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.")
