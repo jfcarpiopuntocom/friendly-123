@@ -10,7 +10,12 @@ on:
   schedule:
     - cron: "0 12 * * *"
   workflow_dispatch: {}
-  workflow_call: {}
+  workflow_call:
+    secrets:
+      F123_CANARIO_LICENCIA:
+        required: false
+      F123_CANARIO_PIN:
+        required: false
   push:
     branches: [master]
     paths: ["scripts/canario-union-fria.cjs", "test/canario-union-fria-guard.test.cjs", ".github/workflows/recorrido.yml"]

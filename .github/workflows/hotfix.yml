@@ -144,3 +144,8 @@ jobs:
   recorrido:
     needs: publicar
     uses: ./.github/workflows/recorrido.yml
+    # Reusable workflows do not inherit caller secrets by default. Forward ONLY
+    # the two synthetic cold-join credentials; never pass customer credentials.
+    secrets:
+      F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+      F123_CANARIO_PIN: ${{ secrets.F123_CANARIO_PIN }}
