@@ -258,3 +258,56 @@ test('P0: read-only checkpoint probe reports existence without exposing revision
   assert.equal(skipped.consultado, false, 'probe must never cross relays');
   assert.equal(reads, 3);
 });
+
+test('P0: checkpoint cut age is a bounded category from metadata-only GET, never raw relay sequence', async () => {
+  const full = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = full.indexOf('const consultarCheckpoint = ');
+  const end = full.indexOf('\n// Only safe booleans', start);
+  assert.ok(start > 0 && end > start);
+  const room = 'b'.repeat(40);
+  const roomUrl = 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + room + '-y';
+  let rev = 0, headSeq = 123456789, checkpointSeq = 0, badMetadata = false, metaReads = 0;
+  const ctx = {
+    window: { OCYjs: { roomId: room, canal: { ws: { relayLayer: 'f123_relay_cupo_fb_v1' } } },
+      F123FirebaseRelay: { leerHead: async url => {
+        assert.equal(url, roomUrl);
+        return { rev, seq: headSeq };
+      } } },
+    fetch: async (url, opts) => {
+      assert.equal(url, 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/' + room + '-y/k/3/s.json');
+      assert.equal(opts.method, 'GET');
+      assert.equal(opts.credentials, 'omit');
+      metaReads++;
+      return badMetadata ? { ok: false } : { ok: true, json: async () => checkpointSeq };
+    },
+    Promise, Number, setTimeout, clearTimeout
+  };
+  vm.runInNewContext(full.slice(start, end) + '\n;this.query=consultarCheckpoint;', ctx);
+  const page = { evaluate: async fn => fn() };
+  const noCheckpoint = await ctx.query(page);
+  assert.equal(noCheckpoint.corte, 'sin-checkpoint');
+  assert.equal(metaReads, 0, 'no extra read when there is no checkpoint');
+  rev = 3;
+  const genesis = await ctx.query(page);
+  assert.equal(genesis.corte, 'cursor-cero', 'a nonzero revision can still have genesis cut');
+  checkpointSeq = 123456000;
+  const recent = await ctx.query(page);
+  assert.equal(recent.corte, 'menos-1min');
+  checkpointSeq = 123000000;
+  const old = await ctx.query(page);
+  assert.equal(old.corte, '1min-1h');
+  checkpointSeq = 123456789;
+  const covered = await ctx.query(page);
+  assert.equal(covered.corte, 'head-no-supera-checkpoint');
+  badMetadata = true;
+  const unknown = await ctx.query(page);
+  assert.equal(unknown.consultado, true, 'HEAD remains confirmed despite secondary metadata failure');
+  assert.equal(unknown.corte, 'desconocido', 'secondary failure never claims old checkpoint');
+  assert.equal(metaReads, 5);
+  for (const result of [noCheckpoint, genesis, recent, old, covered, unknown]) {
+    const output = JSON.stringify(result);
+    assert.ok(!output.includes(room) && !output.includes('123456789') &&
+      !output.includes('123456000') && !output.includes('123000000'),
+      'log only age class; no room capability or raw server cursor');
+  }
+});
