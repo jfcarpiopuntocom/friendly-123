@@ -212,3 +212,49 @@ test('P0: passive pull observer counts bounded replay pages and cursor motion wi
     assert.ok(!report.includes(secret), 'no raw relay record, timestamp, ciphertext or room in observer report');
   }
 });
+
+test('P0: read-only checkpoint probe reports existence without exposing revision, timestamp or room capability', async () => {
+  const full = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = full.indexOf('const consultarCheckpoint = ');
+  const end = full.indexOf('\n// Only safe booleans', start);
+  assert.ok(start > 0 && end > start, 'checkpoint metadata probe must exist in synthetic canary');
+  let reads = 0, rev = 0, seq = 123456789, fail = false;
+  const syntheticRoom = 'a'.repeat(40);
+  const privateUrl = 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + syntheticRoom + '-y';
+  // The REAL relay-selector returns an EventTarget wrapper WITHOUT ws.url.
+  const ws = { relayLayer: 'f123_relay_cupo_fb_v1' };
+  const ctx = {
+    window: { OCYjs: { roomId: syntheticRoom, canal: { ws } },
+      F123FirebaseRelay: { leerHead: async url => {
+        assert.equal(url, privateUrl); reads++;
+        if (fail) throw Error('SENSITIVE-ERROR-WITH-ROOM');
+        return { rev, seq };
+      } } },
+    Promise, Number, setTimeout, clearTimeout
+  };
+  vm.runInNewContext(full.slice(start, end) + '\n;this.query = consultarCheckpoint;', ctx);
+  const page = { evaluate: async fn => fn() };
+  const absent = await ctx.query(page);
+  assert.equal(absent.consultado, true);
+  assert.equal(absent.checkpointExiste, false);
+  assert.equal(absent.hayOperaciones, true);
+  rev = 3;
+  const present = await ctx.query(page);
+  assert.equal(present.consultado, true);
+  assert.equal(present.checkpointExiste, true);
+  fail = true;
+  const unknown = await ctx.query(page);
+  assert.equal(unknown.consultado, false, 'failed GET must be unknown, never claim no checkpoint');
+  assert.equal(unknown.checkpointExiste, null);
+  assert.equal(reads, 3, 'exactly one read-only metadata request per probe');
+  for (const result of [absent, present, unknown]) {
+    const report = JSON.stringify(result);
+    for (const secret of [privateUrl, 'SECRET-ROOM', 'SENSITIVE-ERROR', '123456789']) {
+      assert.ok(!report.includes(secret), 'no capability, server cursor, timestamp or error details in outputs');
+    }
+  }
+  ws.relayLayer = 'other-layer';
+  const skipped = await ctx.query(page);
+  assert.equal(skipped.consultado, false, 'probe must never cross relays');
+  assert.equal(reads, 3);
+});
