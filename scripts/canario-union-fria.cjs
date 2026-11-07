@@ -35,6 +35,9 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
     const s = JSON.parse(localStorage.getItem('f123_sync_room') || '{}');
     const y = window.OCYjs;
     const code = String(lic || '').trim().toUpperCase();
+    // Unknown must remain null: never misreport an uninitialized counter as zero.
+    const count = v => Number.isSafeInteger(v) && v >= 0 ? Math.min(v, 9999) : null;
+    const clients = y && y.doc && y.doc.store && y.doc.store.clients;
     return {
       licenciaAdoptada: String(o.licenseCode || '').toUpperCase() === code,
       syncCodeIgual: String(o.syncCode || '').toUpperCase() === code,
@@ -61,6 +64,15 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
           y.doc.store.pendingStructs.missing;
         return missing && typeof missing.size === 'number' ? Math.min(9999, missing.size) : 0;
       })(),
+      catalogoClientesAplicados: count(clients && clients.size),
+      catalogoEstructurasAplicadas: (() => {
+        if (!clients || typeof clients.forEach !== 'function') return null;
+        let total = 0;
+        clients.forEach(structs => { if (Array.isArray(structs)) total += structs.length; });
+        return count(total);
+      })(),
+      catalogoPendientesOutbox: count(y && y.canal && y.canal.pendientesRelay),
+      catalogoHuerfanos: count(y && y.canal && y.canal.huerfanosHeredados),
       catalogoTransporte: (() => {
         const ws = y && y.canal && y.canal.ws, layer = ws && ws.relayLayer;
         return layer === 'f123_relay_cupo_v1' ? 'supabase' :
@@ -140,6 +152,10 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
             pendientesStructs: d.catalogoPendientesStructs === true,
             pendientesDs: d.catalogoPendientesDs === true,
             padresFaltantes: n(d.catalogoPadresFaltantes),
+            clientesYjsAplicados: Number.isSafeInteger(d.catalogoClientesAplicados) ? n(d.catalogoClientesAplicados) : null,
+            estructurasYjsAplicadas: Number.isSafeInteger(d.catalogoEstructurasAplicadas) ? n(d.catalogoEstructurasAplicadas) : null,
+            outboxCatalogo: Number.isSafeInteger(d.catalogoPendientesOutbox) ? n(d.catalogoPendientesOutbox) : null,
+            huerfanosCatalogo: Number.isSafeInteger(d.catalogoHuerfanos) ? n(d.catalogoHuerfanos) : null,
             transporte: ['firebase', 'supabase', 'peer', 'unknown'].includes(d.catalogoTransporte)
               ? d.catalogoTransporte : 'unknown',
             socketCatalogo: socket(d.socketCatalogo),
