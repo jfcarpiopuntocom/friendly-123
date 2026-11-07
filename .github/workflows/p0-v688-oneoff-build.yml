@@ -1,0 +1,36 @@
+name: P0 v688 one-off generated assets
+on:
+  push:
+    branches:
+      - fix/p0-customer-add-v688-614
+    paths:
+      - .github/workflows/p0-v688-oneoff-build.yml
+permissions:
+  contents: write
+jobs:
+  generated:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-customer-add-v688-614
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Rebuild only from checked-in reviewed source; regenerate exact manifest
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          git diff --check
+          git status --short
+          git add docs/app-inline-01.min.js docs/app-inline-03.min.js docs/version-manifest.json
+          git diff --cached --quiet && exit 0
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build: compile exact v688 source and manifest for P0 customer Add (#614)"
+          git push origin HEAD:fix/p0-customer-add-v688-614
