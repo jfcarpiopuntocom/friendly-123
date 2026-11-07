@@ -1,10 +1,10 @@
 {
-  "version": "shell v686",
+  "version": "shell v687",
   "fecha": "2026-11-07",
-  "changelog": "P0 1AAA: bound same-device Commissions historical reads during concurrent refreshes, preserving the latest month, local sale/payout calculations, and no change to Sync3, PIN, photos or durable business data.",
+  "changelog": "P0 local single-device: cap concurrent Commissions historical reads across months to two 5-request batches, skip stale queued months, preserve last displayed month. Sales, stock, money, PIN, photos and Sync3 unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v686",
+  "shell": "f123-shell-v687",
   "apagar": [],
-  "releaseName": "shell v686",
-  "cacheGeneration": "golden230"
+  "releaseName": "shell v687",
+  "cacheGeneration": "golden231"
 }
