@@ -177,3 +177,38 @@ test('P0: cold-join emits bounded causal progress pulses before failing recovery
   assert.ok(r.messages.every(m => !m.includes(license) && !m.includes('SENSITIVE-ROOM')),
     'pulses must never expose license, room or PIN');
 });
+
+test('P0: passive pull observer counts bounded replay pages and cursor motion without exposing timestamps or room IDs', async () => {
+  const full = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = full.indexOf('const observarPull = ');
+  const end = full.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start > 0 && end > start, 'observer must be isolated and read-only before diagnostico');
+  const listeners = [];
+  const socket = { addEventListener: (name, handler) => { assert.equal(name, 'message'); listeners.push(handler); } };
+  const context = { window: { OCYjs: { canal: { ws: socket } } }, JSON };
+  vm.runInNewContext(full.slice(start, end) + ';this.observe = observarPull;', context);
+  const page = { evaluate: async fn => fn() };
+  assert.equal(await context.observe(page), true);
+  assert.equal(await context.observe(page), true, 'repeat attach must not add duplicate listener');
+  assert.equal(listeners.length, 1);
+  const emit = payload => listeners[0]({ data: JSON.stringify(payload) });
+  emit({ k: 'head-result', rev: 17, seq: 987654321, room: 'SECRET-ROOM' });
+  emit({ k: 'pull-page', rev: 17, seq: 100, n: 12, more: true, room: 'SECRET-ROOM' });
+  emit({ k: 'pull-page', rev: 17, seq: 100, n: 5, more: true });
+  emit({ k: 'pull-page', rev: 17, seq: 200, n: 2, more: false });
+  emit({ k: 'op', c: 'SECRET-CIPHERTEXT', id: 'SECRET-ID' });
+  emit({ k: 'pull-page', seq: 201, n: -1, more: true });
+  const { socket: attached, data } = context.window.__f123CanarioPull;
+  assert.equal(attached, socket);
+  assert.equal(data.paginas, 3);
+  assert.equal(data.frames, 19);
+  assert.equal(data.mas, 2);
+  assert.equal(data.avances, 1);
+  assert.equal(data.iguales, 1);
+  assert.equal(data.heads, 1);
+  assert.equal(data.ultimaMas, false);
+  const report = JSON.stringify(data);
+  for (const secret of ['SECRET-ROOM', 'SECRET-ID', 'SECRET-CIPHERTEXT', '987654321']) {
+    assert.ok(!report.includes(secret), 'no raw relay record, timestamp, ciphertext or room in observer report');
+  }
+});
