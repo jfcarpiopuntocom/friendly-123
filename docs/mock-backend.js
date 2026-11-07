@@ -1674,7 +1674,7 @@
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(_causaGuardadoEstricto(idb, ab)); }
+        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab)); }
         return ok;
       };
       // Strict money/stock commits use ONE atomic IDB readwrite transaction:
