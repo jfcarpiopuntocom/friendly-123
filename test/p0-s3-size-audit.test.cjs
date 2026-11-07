@@ -217,3 +217,57 @@ test('P0: legacy checkpoint with unknown provider must not certify a different d
  const sent=await probeCheckpointSource(null,'f123_relay_cupo_fb_v1');
  assert.equal(sent.length,1,'legacy global hash is not proof of Firebase persistence');
 });
+
+
+test('P0: checkpoint ACK provenance is source-tagged without altering Yjs pull/live classification',()=>{
+ const selector=fs.readFileSync(path.join(__dirname,'../docs/relay-selector.js'),'utf8');
+ assert.match(selector,/var persistLayer = typeof e\.data === "string"/);
+ assert.match(selector,/persistLayer: persistLayer/);
+ assert.match(selector,/relaySource: e\.relaySource, persistLayer:/,
+  'existing pull/live/peer source must remain unchanged');
+ assert.match(sync,/confirmarDurable\(c, ev\.persistLayer\)/);
+ assert.match(sync,/checkpointLayer:meta\.checkpointLayer \|\| ""/,'outbox v2 read preserves proof');
+ assert.match(sync,/checkpointLayer:_outbox\.checkpointLayer \|\| ""/,'outbox v2 write preserves proof');
+ assert.match(sync,/checkpointLayer: _outbox\.checkpointLayer \|\| ""/,'error rollback preserves proof');
+});
+
+async function checkpointAckProbe(layer, ok=true) {
+ const start=sync.indexOf('    function confirmarDurable(');
+ const end=sync.indexOf('    // P0 / 1AAA:',start);
+ assert.ok(start>=0&&end>start);
+ const ctx=vm.createContext({
+  _durableQueue:Promise.resolve(),_durableInFlight:{},_durableWatchdog:null,
+  _durableTimer:null,_durableDelay:2000,_groupAcks:new Set(),
+  _currentPullState:null,canal:{ws:{readyState:1}},
+  _outbox:{pending:[{id:'synthetic-ckpt',k:'ckpt',state:'SYNTHETIC-STATE'}],
+   confirmed:[],checkpoint:'',checkpointLayer:''},
+  _absorcion:null, _absorcionKey:'synthetic',
+  clearTimeout(){}, programarDurable(){},
+  diagnosticarCkpt(){},_vivos:()=>[], avisarDurable(){},
+  mutarOutbox:cb=>{cb();return Promise.resolve()}, drenarDurable(){}, log(){},
+  Object,Array,Set,Promise
+ });
+ vm.runInContext(sync.slice(start,end),ctx);
+ vm.runInContext('confirmarDurable({id:"synthetic-ckpt",kind:"ckpt",ok:'+ok+'},__source)',Object.assign(ctx,{__source:layer}));
+ await ctx._durableQueue;
+ return ctx._outbox;
+}
+test('P0: actual successful Firebase ACK proves Firebase, not generic relay',async()=>{
+ const d=await checkpointAckProbe('f123_relay_cupo_fb_v1');
+ assert.equal(d.checkpoint,'SYNTHETIC-STATE');
+ assert.equal(d.checkpointLayer,'f123_relay_cupo_fb_v1');
+ assert.equal(d.pending.length,0);
+});
+test('P0: unknown/peer ACK can retire but never certify a durable checkpoint provider',async()=>{
+ for(const layer of [null,'peer-live','SENSITIVE-ROOM']){
+  const d=await checkpointAckProbe(layer);
+  assert.equal(d.checkpointLayer,'');
+  assert.doesNotMatch(JSON.stringify(d),/SENSITIVE-ROOM/);
+ }
+});
+test('P0: negative Firebase ACK cannot create provider proof or discard checkpoint',async()=>{
+ const d=await checkpointAckProbe('f123_relay_cupo_fb_v1',false);
+ assert.equal(d.checkpointLayer,'');
+ assert.equal(d.checkpoint,'');
+ assert.equal(d.pending.length,1);
+});
