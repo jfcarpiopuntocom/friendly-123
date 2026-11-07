@@ -68,11 +68,18 @@ test('two tabs retain each others unacknowledged updates under the shared lock',
  assert.equal(data.get('f123_relay_outbox_v1-y').pending.length,1,'one ack cannot erase the other tab');
 });
 test('acknowledged unchanged checkpoint is not rewritten after reload',async()=>{
- const a=await fixture();await a.timers.find(t=>t.ms===2500).fn();await tick();await tick();
+ const a=await fixture();
+ // Prove SAME durable adapter: a generic ACK is not evidence for Firebase.
+ const layer='f123_relay_cupo_fb_v1';
+ a.socket.relayLayer=layer;
+ await a.timers.find(t=>t.ms===2500).fn();await tick();await tick();
  const ck=a.socket.sent.filter(x=>typeof x==='string').map(JSON.parse).find(x=>x.k==='ckpt');assert.ok(ck);
- a.socket.onmessage({data:JSON.stringify({k:'persist-result',id:ck.id,kind:'ckpt',ok:true})});await tick();await tick();
- const b=await fixture(a.data);await b.timers.find(t=>t.ms===2500).fn();await tick();await tick();
- assert.ok(!b.socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).k==='ckpt'));
+ a.socket.onmessage({data:JSON.stringify({k:'persist-result',id:ck.id,kind:'ckpt',ok:true}),persistLayer:layer});await tick();await tick();
+ assert.equal(a.data.get('f123_relay_outbox_v1-y').checkpointLayer,layer,'proof must be durable, scoped and persisted');
+ const b=await fixture(a.data);
+ b.socket.relayLayer=layer;await b.timers.find(t=>t.ms===2500).fn();await tick();await tick();
+ assert.ok(!b.socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).k==='ckpt'),
+  'same-layer ACK must still suppress identical snapshots after restart');
 });
 
 for (const next of [{rev:0,seq:2},{rev:1,seq:0}]) {
