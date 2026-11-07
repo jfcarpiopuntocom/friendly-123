@@ -123,9 +123,33 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
         d.catalogoIdbSincronizado === true && d.catalogoSinPendientesCausales === true &&
         d.tieneMetadatosPin === true);
       const limiteRecuperacion = Date.now() + 20000;
+      let siguientePulsoCausal = Date.now() + 4000;
       while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
         ultima = await diagnostico(p, LICENCIA);
+        if (Date.now() >= siguientePulsoCausal) {
+          siguientePulsoCausal = Date.now() + 4000;
+          // Read-only, bounded trajectory: counts and booleans only. Never
+          // print encrypted payloads, Yjs client IDs, room, license or PIN.
+          const d = ultima || {};
+          const n = v => Number.isSafeInteger(v) && v >= 0 ? Math.min(v, 9999) : 0;
+          const socket = v => [0, 1, 2, 3].includes(v) ? v : null;
+          console.log('CANARIO_CAUSAL_PULSO:', JSON.stringify({
+            segundos: Math.max(0, Math.floor((Date.now() - t0) / 1000)),
+            catalogoRecuperando: d.catalogoRecuperando === true,
+            pendientesStructs: d.catalogoPendientesStructs === true,
+            pendientesDs: d.catalogoPendientesDs === true,
+            padresFaltantes: n(d.catalogoPadresFaltantes),
+            transporte: ['firebase', 'supabase', 'peer', 'unknown'].includes(d.catalogoTransporte)
+              ? d.catalogoTransporte : 'unknown',
+            socketCatalogo: socket(d.socketCatalogo),
+            socketFotos: socket(d.socketFotos),
+            socketOperaciones: socket(d.socketOperaciones),
+            productos: n(d.cantidadProductos),
+            fotos: n(d.cantidadFotos),
+            metadatosOwner: d.tieneMetadatosPin === true
+          }));
+        }
       }
       if (!recuperacionVerificada(ultima)) {
         fallo = 'RECUPERACION: catalogo cifrado de la tienda no terminó';
