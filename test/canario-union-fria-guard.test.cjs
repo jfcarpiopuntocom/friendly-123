@@ -128,8 +128,8 @@ test('P0: diagnóstico causal sintético distingue pendientes sin publicar IDs d
   const licencia = 'SYNTHETIC-CANARY-ONLY';
   const y = {
     roomId: 'SENSITIVE-ROOM-NOT-FOR-LOGS',
-    canal: { recuperando: true, ws: { readyState: 1, relayLayer: 'f123_relay_cupo_v1' } },
-    doc: { store: { pendingStructs: { missing: new Map([[42, 1], [77, 3]]) }, pendingDs: {} } },
+    canal: { recuperando: true, pendientesRelay: 4, huerfanosHeredados: 2, ws: { readyState: 1, relayLayer: 'f123_relay_cupo_v1' } },
+    doc: { store: { pendingStructs: { missing: new Map([[42, 1], [77, 3]]) }, pendingDs: {}, clients: new Map([[42, [{}, {}]], [77, [{}]]]) } },
     idb: { synced: true }, meta: { get: () => null, size: 0 },
     mapas: { productos: { size: 15 } }, fotosMap: { size: 10 },
     _diag: () => ({ recuperacionLocalPendiente: false })
@@ -146,6 +146,10 @@ test('P0: diagnóstico causal sintético distingue pendientes sin publicar IDs d
   assert.equal(r.catalogoPendientesStructs, true);
   assert.equal(r.catalogoPendientesDs, true);
   assert.equal(r.catalogoPadresFaltantes, 2);
+  assert.equal(r.catalogoClientesAplicados, 2, 'count Yjs client groups, not their IDs');
+  assert.equal(r.catalogoEstructurasAplicadas, 3, 'count applied Yjs structs, never serialize content');
+  assert.equal(r.catalogoPendientesOutbox, 4, 'catalog relay outbox count only');
+  assert.equal(r.catalogoHuerfanos, 2, 'inherited orphan count only');
   assert.equal(r.catalogoTransporte, 'supabase');
   assert.equal(r.catalogoIdbSincronizado, true);
   const logged = JSON.stringify(r);
@@ -163,6 +167,10 @@ test('P0: cold-join emits bounded causal progress pulses before failing recovery
     'elapsed seconds must be numeric, not a wall-clock identifier');
   assert.ok(parsed.every(p => p.catalogoRecuperando === true),
     'recovering status must remain explicit for each pulse');
+  assert.ok(parsed.every(p => Number.isSafeInteger(p.estructurasYjsAplicadas) &&
+    Number.isSafeInteger(p.clientesYjsAplicados) &&
+    Number.isSafeInteger(p.outboxCatalogo) && Number.isSafeInteger(p.huerfanosCatalogo)),
+    'each causal pulse must capture numeric applied-vs-pending progress, without any IDs');
   assert.ok(r.messages.some(m => m.includes('FALLA RECUPERACION:')),
     'a red cold-join cannot become green because progress was observed');
   assert.equal(r.keypadClicks, 3, 'never retry Owner PIN during incomplete recovery');
