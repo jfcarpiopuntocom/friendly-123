@@ -153,6 +153,7 @@ test('4. pinning: localStorage full but IndexedDB accepts -> the sale is confirm
 
 test('P0 #607: stale A/B quota does not mislabel a revision-fenced sale as out of storage', async () => {
   const w = browser();
+  w.OCAuth = { rolActual: () => 'dueno' };
   await conStock(w, 'p-cas-fence', 5);
   let emitidas = 0;
   w.OCSyncEmit = () => { emitidas++; };
