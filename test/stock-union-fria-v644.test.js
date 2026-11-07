@@ -129,11 +129,15 @@ test('Codex: a strict save behind a slow own save persists both, in order, and t
     cargar: async () => null, leer: async () => null };
   const f = await dest.request('/api/respaldo/exportar'), uid = f.ubicaciones[0] ? f.ubicaciones[0].id : 'u1';
   dest.OCSync.aplicarCatalogo({ ubicaciones: f.ubicaciones[0] ? [] : [{ id: 'u1', nombre: 'U', activa: true }], productos: [{ id: 'tard-1', nombre: 'Tardio', sku: 'T', barcode: 'T-1', ubicacionId: uid, stockActual: 5, precio: 1 }] }, null);
-  await dest.request('/api/clientes', 'POST', { nombre: 'Fondo', telefono: '1' });
+  // v688: customer creation is strict too. Start both strict writes behind
+  // the slow background mirror, THEN release the mirror. Waiting for customer
+  // before releasing it would force the intentional 4s safe rejection.
+  const cliente = dest.request('/api/clientes', 'POST', { nombre: 'Fondo', telefono: '1' });
   const ajuste = dest.request('/api/productos/tard-1/ajustar', 'POST', { delta: 1, motivo: 'prueba' }).then(() => 'ok', e => String(e.message || e));
   await new Promise(r => setTimeout(r, 200));
   soltar();
-  const r = await ajuste;
+  const [clienteRes, r] = await Promise.all([cliente, ajuste]);
+  assert.ok(clienteRes && clienteRes.id, 'customer strict ACK is genuine, not skipped');
   await new Promise(r2 => setTimeout(r2, 50));
   assert.equal(r, 'ok', 'a slow own save that finishes must not cost a false NOT saved: ' + r);
   assert.equal(disco.productos.find(x => x.id === 'tard-1').stockActual, 6, 'the confirmed adjustment is what is on disk');
