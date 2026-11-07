@@ -110,40 +110,40 @@ jobs:
                         "files":receipt},ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
           readme="""# friendly-123 — revisión externa P0 (7 nov 2026)
 
-## INCIDENTES OBSERVADOS (testimonio del usuario)
-- PWA v689: venta de Bourgeois no confirmada. Error visible SALE_DURABILITY_UNCONFIRMED.
-- PWA: Spray de la Verdad pasó de 1 a 33, pero Safari no reflejó 33.
-- Conservar Sync3: NO desconectar el transporte, NO sustituir conteos físicos por delta +32, NO reescribir las cantidades o el PIN.
+          ## INCIDENTES OBSERVADOS (testimonio del usuario)
+          - PWA v689: venta de Bourgeois no confirmada. Error visible SALE_DURABILITY_UNCONFIRMED.
+          - PWA: Spray de la Verdad pasó de 1 a 33, pero Safari no reflejó 33.
+          - Conservar Sync3: NO desconectar el transporte, NO sustituir conteos físicos por delta +32, NO reescribir las cantidades o el PIN.
 
-## QUÉ CONTIENE
-01_CANDIDATE_V692_PR620_NOT_MERGED: todos los módulos de negocio/sync pertinentes y pruebas, código completo del PR #620.
-02_PUBLISHED_V691_MASTER: los ficheros tocados en PR #620 antes del parche y el guardado local base, para comparación.
-03_HISTORICAL_V689_PR617: archivos completos editados en el hotfix anterior (+1 y save error).
-04_SEPARATE_COMMISSIONS_PR618_NOT_MERGED: cambios de Commissions en una rama separada. NO están integrados; evitar mezclar.
-05_DIFFS: parches reales de PR #617, #618, #619 y #620.
-MANIFEST_SHA256.json: integridad por archivo y SHA exacto de origen.
+          ## QUÉ CONTIENE
+          01_CANDIDATE_V692_PR620_NOT_MERGED: todos los módulos de negocio/sync pertinentes y pruebas, código completo del PR #620.
+          02_PUBLISHED_V691_MASTER: los ficheros tocados en PR #620 antes del parche y el guardado local base, para comparación.
+          03_HISTORICAL_V689_PR617: archivos completos editados en el hotfix anterior (+1 y save error).
+          04_SEPARATE_COMMISSIONS_PR618_NOT_MERGED: cambios de Commissions en una rama separada. NO están integrados; evitar mezclar.
+          05_DIFFS: parches reales de PR #617, #618, #619 y #620.
+          MANIFEST_SHA256.json: integridad por archivo y SHA exacto de origen.
 
-## PUNTOS DE AUDITORÍA / PONYTAIL
-1) Verificar causalidad entre POST /productos/:id/ajustar (stockFisico: 33), CAS IndexedDB, catálogo OCSync y Yjs.
-2) Distinguir guardado en PWA, publicación local Y.Doc, llegada del relay a Safari y aplicación del catálogo por Safari.
-3) El PR #620 fuerza el sembrado síncrono tras ACK local, hipótesis sobre suspensión de temporizador en iOS; NO existe todavía evidencia de que el transporte real de ambos dispositivos converja.
-4) Revisar el guard de epoch, clock/rev y que un peer obsoleto no regenere una cantidad anterior.
-5) Probar PWA real y Safari real, pausa/reconexión, sin nuevos movimientos sintéticos sobre datos del usuario.
-6) La venta solo puede responder OK tras ACK estricto; jamás emitir inventario o dinero de operación fallida.
-7) Validar verificación con test RED→GREEN, gates y reproducción en dispositivo. Un test sintético verde no prueba producción.
+          ## PUNTOS DE AUDITORÍA / PONYTAIL
+          1) Verificar causalidad entre POST /productos/:id/ajustar (stockFisico: 33), CAS IndexedDB, catálogo OCSync y Yjs.
+          2) Distinguir guardado en PWA, publicación local Y.Doc, llegada del relay a Safari y aplicación del catálogo por Safari.
+          3) El PR #620 fuerza el sembrado síncrono tras ACK local, hipótesis sobre suspensión de temporizador en iOS; NO existe todavía evidencia de que el transporte real de ambos dispositivos converja.
+          4) Revisar el guard de epoch, clock/rev y que un peer obsoleto no regenere una cantidad anterior.
+          5) Probar PWA real y Safari real, pausa/reconexión, sin nuevos movimientos sintéticos sobre datos del usuario.
+          6) La venta solo puede responder OK tras ACK estricto; jamás emitir inventario o dinero de operación fallida.
+          7) Validar verificación con test RED→GREEN, gates y reproducción en dispositivo. Un test sintético verde no prueba producción.
 
-## ESTADO DE RAMAS
-- PR #617: integrado en histórico v689.
-- PR #619: integrado, publicado como v691.
-- PR #620: CANDIDATO DRAFT (no dar por publicado).
-- PR #618: CANDIDATO SEPARADO de Commissions (no dar por publicado).
+          ## ESTADO DE RAMAS
+          - PR #617: integrado en histórico v689.
+          - PR #619: integrado, publicado como v691.
+          - PR #620: CANDIDATO DRAFT (no dar por publicado).
+          - PR #618: CANDIDATO SEPARADO de Commissions (no dar por publicado).
 
-Repositorio: https://github.com/jfcarpiopuntocom/friendly-123
-PR #620: https://github.com/jfcarpiopuntocom/friendly-123/pull/620
-PR #619: https://github.com/jfcarpiopuntocom/friendly-123/pull/619
-PR #618: https://github.com/jfcarpiopuntocom/friendly-123/pull/618
-PR #617: https://github.com/jfcarpiopuntocom/friendly-123/pull/617
-"""
+          Repositorio: https://github.com/jfcarpiopuntocom/friendly-123
+          PR #620: https://github.com/jfcarpiopuntocom/friendly-123/pull/620
+          PR #619: https://github.com/jfcarpiopuntocom/friendly-123/pull/619
+          PR #618: https://github.com/jfcarpiopuntocom/friendly-123/pull/618
+          PR #617: https://github.com/jfcarpiopuntocom/friendly-123/pull/617
+          """
           (out/"LEEME_AUDITORIA.md").write_text(readme,encoding="utf-8")
           print("Prepared",len(receipt),"full source copies plus",len(diffs),"patches.")
           PY
