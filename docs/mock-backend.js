@@ -6286,7 +6286,16 @@
       if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
       const revisionAntes = _localRev; // capture before a foreign storage event can advance our revision
       const primero = await _fetchInterno(url,opts);
-      if (!ventaConcurrente || primero.status !== 507 || _estadoLecturaBloqueada ||
+      // #607: 503 now identifies a NON-quota strict save rejection, but the
+      // existing fenced sale-rebase must still run. Only accept our explicit
+      // durability code; an arbitrary 503 is never replayed. The response is
+      // cloned so the original error remains readable by the caller.
+      let _rechazoReintentable = primero.status === 507;
+      if (ventaConcurrente && primero.status === 503) {
+        try { _rechazoReintentable = (await primero.clone().json()).code === "SALE_DURABILITY_UNCONFIRMED"; }
+        catch (_) { _rechazoReintentable = false; }
+      }
+      if (!ventaConcurrente || !_rechazoReintentable || _estadoLecturaBloqueada ||
           _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
       // A local mirror may still be settling after the first durable ACK.
       // Wait for it only on this failed path, before replacing any in-memory copy.
