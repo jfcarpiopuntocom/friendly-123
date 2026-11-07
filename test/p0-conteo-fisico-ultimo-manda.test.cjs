@@ -103,6 +103,39 @@ test('P0 PWA -> Safari: 1 to 33 publishes committed physical epoch before iOS su
     for (let i = 0; i < 4; i++) { await pump(PWA, Safari); await PWA.page.waitForTimeout(250); }
     assert.equal(await stock(Safari.page, id), 33, 'Safari must adopt precisely 33, not a +32 delta');
     assert.equal(await stock(PWA.page, id), 33);
+    const confirmed = await api(PWA.page, '/api/respaldo/exportar');
+    assert.equal(confirmed.j.movimientos.filter(m => m.tipo === 'conteo-fisico' &&
+      m.detalle && m.detalle.stockResultante === 33).length, 1, 'one real physical-count record, not duplicate +32');
+
+    // A failing strict CAS must NOT expose a provisional 9 through the
+    // immediate seed, the existing seed timer or the remote Safari catalog.
+    const rejected = await PWA.page.evaluate(async id => {
+      const idb = window.OCEstadoIDB, oldCommit = idb.guardarConRevision;
+      const y = window.OCYjs, oldSeed = y.sembrarConteoConfirmado;
+      let newSeedCalls = 0;
+      idb.guardarConRevision = async () => false;
+      y.sembrarConteoConfirmado = function (...args) {
+        newSeedCalls++;
+        return oldSeed.apply(this, args);
+      };
+      try {
+        const r = await fetch('/api/productos/' + id + '/ajustar', {
+          method: 'POST', body: JSON.stringify({ stockFisico: 9, motivo: 'synthetic failed count' })
+        });
+        const product = (await (await fetch('/api/respaldo/exportar')).json()).productos.find(p => p.id === id);
+        const shared = y.mapas.productos.get(id);
+        return { status: r.status, newSeedCalls, localStock: product.stockActual,
+          sharedStock: shared.stockActual };
+      } finally {
+        idb.guardarConRevision = oldCommit;
+        y.sembrarConteoConfirmado = oldSeed;
+      }
+    }, id);
+    assert.equal(rejected.status, 503, 'unconfirmed physical count must fail closed');
+    assert.equal(rejected.newSeedCalls, 0, 'no Sync3 seeding before a strict commit');
+    assert.equal(rejected.localStock, 33);
+    assert.equal(rejected.sharedStock, 33);
+    assert.equal(await stock(Safari.page, id), 33);
   } finally {
     await PWA.ctx.close(); await Safari.ctx.close();
   }
