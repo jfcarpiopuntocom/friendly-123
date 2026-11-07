@@ -2018,6 +2018,11 @@ async function cargarClientes(){
   if (btn && !btn.dataset.listo) {
     btn.dataset.listo = "1";
     btn.addEventListener("click", async () => {
+      // P0 #614: prevent a second Add while the same local durable write waits.
+      if (btn.disabled) return;
+      btn.disabled = true;
+      window.__f123AltaClientePendiente = true;
+      try {
       const nombre = document.getElementById("cliNombre").value;
       const telefono = document.getElementById("cliTelefono").value;
       const email = (document.getElementById("cliEmail") || {}).value || "";
@@ -2032,6 +2037,14 @@ async function cargarClientes(){
       { const _e = document.getElementById("cliEmail"); if (_e) _e.value = ""; }
       try { window.OCReactivo && window.OCReactivo.emitir("clientes"); } catch (_) {}
       cargarClientes();
+      } catch (_) {
+        // A transient local storage error must keep all form fields intact.
+        const msgEl = document.getElementById("cliMsg");
+        if (msgEl) { msgEl.textContent = "The customer could not be saved. Your form is intact; try again."; msgEl.style.color = "var(--sim-rojo-dk)"; }
+      } finally {
+        window.__f123AltaClientePendiente = false;
+        btn.disabled = false;
+      }
     });
   }
 }
