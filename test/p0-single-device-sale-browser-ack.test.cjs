@@ -176,3 +176,72 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   }finally{await web.close();}
  });
 }
+
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test('P0 one browser '+name+': synthetic real-quota classifier returns 507 and no phantom money',
+ {timeout:60000},async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+   const context=await web.newContext();
+   await context.route(u=>!/^(file|data|blob|about):/.test(u.protocol),route=>route.abort());
+   const page=await context.newPage();
+   await page.addInitScript(WS_STUB);
+   page.setDefaultTimeout(10000);
+   await page.goto(INDEX,{waitUntil:'domcontentloaded'});
+   await page.waitForFunction(()=>!!window.OCAuth&&
+     typeof window.OCEstadoIDB?.guardarConRevision==='function');
+   const productId=await page.evaluate(async engineName=>{
+     OCAuth.rolActual=()=> 'dueno';
+     const r=await fetch('/api/productos',{method:'POST',body:JSON.stringify({
+       nombre:'Synthetic full IDB quota '+engineName,
+       barcode:'P0-QUOTA-SALE-'+engineName,precio:18,costo:7,stockInicial:4
+     })});
+     const p=await r.json();
+     if(!r.ok)throw Error('fixture creation failed: '+JSON.stringify(p));
+     return p.id;
+   },name);
+   const read=async()=>page.evaluate(async id=>{
+     const s=await(await fetch('/api/respaldo/exportar')).json();
+     return {
+       stock:s.productos.find(p=>p.id===id)?.stockActual,
+       sales:s.ventas.filter(v=>v.productoId===id).map(v=>v.id),
+       movements:s.movimientos.length
+     };
+   },productId);
+   const baseline=await read();
+   assert.equal(baseline.stock,4);
+   assert.equal(baseline.sales.length,0);
+   await page.evaluate(id=>{
+     const obj=window.OCEstadoIDB,orig=obj.guardarConRevision.bind(obj);
+     const prevError=obj.ultimoError.bind(obj);
+     const quota=new DOMException('Synthetic exact IDB quota failure','QuotaExceededError');
+     window.__p0QuotaAttempts=0;
+     obj.guardarConRevision=(state,rev)=>{
+       if((state.ventas||[]).some(v=>v.productoId===id)){
+         window.__p0QuotaAttempts++;
+         return Promise.resolve(false);
+       }
+       return orig(state,rev);
+     };
+     obj.ultimoError=()=>window.__p0QuotaAttempts>0?quota:prevError();
+   },productId);
+   const result=await page.evaluate(async id=>{
+     const r=await fetch('/api/productos/'+id+'/venta',{method:'POST',
+       body:JSON.stringify({cantidad:1,info:{formaPago:'efectivo'}})});
+     const body=await r.json();
+     return {status:r.status,code:body.code,error:body.error,attempts:window.__p0QuotaAttempts};
+   },productId);
+   assert.equal(result.status,507,'a genuine QuotaExceededError classifies as storage full');
+   assert.equal(result.code,'SALE_STORAGE_QUOTA');
+   assert.equal(result.attempts,1,'no blind retry after actual quota');
+   assert.match(result.error,/not saved|no se guard/i,'sale must explicitly report failure');
+   assert.deepEqual(await read(),baseline,
+     'synthetic full quota must not invent a sale, audit movement or stock delta');
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.waitForFunction(()=>!!window.OCAuth&&!!window.OCEstadoIDB);
+   await page.evaluate(()=>{OCAuth.rolActual=()=> 'dueno';});
+   assert.deepEqual(await read(),baseline,'reopen may not resurrect an uncommitted sale');
+  }finally{await web.close();}
+ });
+}
