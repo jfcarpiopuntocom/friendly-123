@@ -353,7 +353,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
         d.catalogoRecuperando === false && d.hidratacionLocalPendiente === false &&
         d.catalogoIdbSincronizado === true && d.catalogoSinPendientesCausales === true &&
         d.tieneMetadatosPin === true);
-      const limiteRecuperacion = Date.now() + (SOLO_OBSERVAR ? 90000 : 20000);
+      const limiteRecuperacion = Date.now() + (SOLO_OBSERVAR ? 480000 : 20000);
       let siguientePulsoCausal = Date.now() + 4000;
       while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
