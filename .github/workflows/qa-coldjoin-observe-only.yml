@@ -1,0 +1,35 @@
+name: QA P0 synthetic cold join observe 90s (NOT acceptance)
+on:
+  pull_request:
+    paths:
+      - 'scripts/canario-union-fria.cjs'
+      - 'test/canario-union-fria-guard.test.cjs'
+      - '.github/workflows/qa-coldjoin-observe-only.yml'
+permissions:
+  contents: read
+jobs:
+  observe-only:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Exact QA guard, including no Owner PIN
+        run: |
+          npm ci
+          node --test test/canario-union-fria-guard.test.cjs
+      - name: Install isolated Chromium for observation only
+        run: npx playwright install --with-deps chromium
+      - name: Passive remote read of pre-existing synthetic room
+        env:
+          F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+          F123_CANARIO_SOLO_OBSERVAR: '1'
+        run: |
+          echo 'SYNTHETIC OBSERVATION ONLY: 90-second recovery diagnostic, NOT a stable/Owner gate.'
+          node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/
