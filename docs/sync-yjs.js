@@ -498,11 +498,15 @@
           if (!Array.isArray(_outbox.confirmed)) _outbox.confirmed = [];
           var included = _unsaved.slice();
           included.forEach(function (entry) {
-            if (!_outbox.pending.some(function (x) { return x.id === entry.id ||
-                (entry.k === "ckpt" && x.k === "ckpt" && typeof entry.state === "string" && entry.state &&
-                 x.state === entry.state && x.rev === entry.rev && x.seq === entry.seq); })) _outbox.pending.push(entry);
+            if (!_outbox.pending.some(function (x) { return x.id === entry.id; })) _outbox.pending.push(entry);
           });
           change();
+          included.forEach(function (entry) {
+            var index = _outbox.pending.indexOf(entry);
+            if (index >= 0 && entry.k === "ckpt" && typeof entry.state === "string" && entry.state &&
+                _outbox.pending.some(function (x) { return x !== entry && x.k === "ckpt" &&
+                  x.state === entry.state && x.rev === entry.rev && x.seq === entry.seq; })) _outbox.pending.splice(index, 1);
+          });
           _groupAcks.forEach(function (id) { if (!_outbox.pending.some(function (entry) { return entry.id === id; })) _groupAcks.delete(id); });
           return guardarOutbox().then(function () {
             // Preparation continues while IndexedDB commits. Only remove the
