@@ -1,0 +1,35 @@
+name: P0 temporary generated-app diagnostic
+on:
+  pull_request:
+    paths:
+      - 'src/app/app-inline-01.js'
+      - 'docs/app-inline-01.min.js'
+      - '.github/workflows/p0-temp-generated-app-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  exact-minifier-diff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Show first generated-versus-current-byte divergence
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const esbuild=require('esbuild');
+          const input=fs.readFileSync('src/app/app-inline-01.js','utf8');
+          const expected=esbuild.transformSync(input,{loader:'js',target:'es2020',minifySyntax:true,minifyWhitespace:true,minifyIdentifiers:false,legalComments:'none'}).code;
+          const current=fs.readFileSync('docs/app-inline-01.min.js','utf8');
+          let i=0;while(i<expected.length&&i<current.length&&expected[i]===current[i])i++;
+          console.log('expected bytes',Buffer.byteLength(expected),'current bytes',Buffer.byteLength(current),'first different character',i);
+          console.log('EXPECTED',JSON.stringify(expected.slice(Math.max(0,i-160),i+520)));
+          console.log('CURRENT',JSON.stringify(current.slice(Math.max(0,i-160),i+520)));
+          if(expected===current)console.log('EXACT-BYTE MATCH');
+          else console.log('DIAGNOSTIC: generated asset differs, no claim of PASS');
+          NODE
