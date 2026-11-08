@@ -1,7 +1,7 @@
 {
   "version": "shell v694",
   "fecha": "2026-11-08",
-  "changelog": "DRAFT audit candidate v694: Commissions fail-closed for sales, months and settlements; localized recoverable errors (#618/#638). Includes #635 customer and #636 sale durability QA; Sync3, stock, PIN, money facts unchanged. Not published.",
+  "changelog": "v694: Comisiones limita consultas simultáneas y muestra error real si falla la lectura de ventas, liquidaciones o meses; conserva el mes elegido y permite Reintentar en ES/EN. Incluye pruebas reforzadas de alta de clientes y durabilidad de ventas. Sync3, PIN, inventario y saldos sin cambios en este hotfix.",
   "requerida": false,
   "shell": "f123-shell-v694",
   "apagar": [],
