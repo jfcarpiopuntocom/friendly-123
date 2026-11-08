@@ -1,10 +1,10 @@
 {
-  "version": "shell v694",
+  "version": "shell v695",
   "fecha": "2026-11-08",
-  "changelog": "v694: Comisiones limita consultas simultáneas y muestra error real si falla la lectura de ventas, liquidaciones o meses; conserva el mes elegido y permite Reintentar en ES/EN. Incluye pruebas reforzadas de alta de clientes y durabilidad de ventas. Sync3, PIN, inventario y saldos sin cambios en este hotfix.",
+  "changelog": "DRAFT audit candidate v695: CSV de Comisiones rechaza errores HTTP en ventas/liquidaciones y respuestas inválidas; diferencia error de mes vacío en ES/EN. Sin cambios de Sync3, inventario, PIN, pagos o datos. Not published.",
   "requerida": false,
-  "shell": "f123-shell-v694",
+  "shell": "f123-shell-v695",
   "apagar": [],
-  "releaseName": "shell v694",
-  "cacheGeneration": "golden238"
+  "releaseName": "shell v695",
+  "cacheGeneration": "golden239"
 }
