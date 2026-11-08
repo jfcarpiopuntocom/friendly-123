@@ -10,6 +10,13 @@ on:
   schedule:
     - cron: "0 12 * * *"
   workflow_dispatch: {}
+  pull_request:
+    paths:
+      - '.github/workflows/recorrido.yml'
+      - 'docs/sync-yjs.js'
+      - 'docs/relay-selector.js'
+      - 'docs/version.json'
+      - 'docs/version-manifest.json'
   workflow_call:
     secrets:
       F123_CANARIO_LICENCIA:
@@ -65,3 +72,49 @@ jobs:
           F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
           F123_CANARIO_PIN: ${{ secrets.F123_CANARIO_PIN }}
         run: node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
+
+  qa-preview-v696:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact candidate and QA diagnostic
+        uses: actions/checkout@v4
+        with:
+          path: candidate
+          persist-credentials: false
+      - name: Checkout immutable approved observation script
+        uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: 6b269a2991b04cfb7d50ee213380ed44f4094a62
+          path: observer
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install production dependencies
+        working-directory: candidate
+        run: npm ci
+      - name: 90s synthetic QA cold-join on LOCAL v696 shell to REAL remote Firebase
+        shell: bash
+        working-directory: candidate
+        env:
+          F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+          F123_CANARIO_SOLO_OBSERVAR: '1'
+        run: |
+          set -euo pipefail
+          test -n "${F123_CANARIO_LICENCIA:-}" || { echo 'No synthetic license secret; no test executed'; exit 2; }
+          cp ../observer/scripts/canario-union-fria.cjs scripts/qa-preview-union-fria.cjs
+          node -e 'const {startServer}=require("./test/helpers/e2e-app.cjs");startServer().then(({base})=>{require("fs").writeFileSync("/tmp/f123-preview-url",base);});' &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 50); do test -s /tmp/f123-preview-url && break; sleep 0.2; done
+          test -s /tmp/f123-preview-url
+          BASE=$(cat /tmp/f123-preview-url)
+          curl -fsS "$BASE/version.json" >/tmp/f123-preview-version.json
+          node -e 'const v=require("/tmp/f123-preview-version.json");if(v.shell!=="f123-shell-v696")throw Error("wrong preview shell")'
+          echo 'QA DIAGNOSTIC ONLY: synthetic license, no Owner PIN, never a GO for release.'
+          node scripts/qa-preview-union-fria.cjs "$BASE/" | tee -a "$GITHUB_STEP_SUMMARY"
