@@ -82,3 +82,42 @@ test('P0 ONE apparatus: automatic shell reload refuses a dirty or saving custome
  assert.equal(vm.runInContext('check(false)',context),true,
    'normal empty form must allow the updater to resume');
 });
+
+
+test('P0 RED: a failed concurrent Add must not erase a newer durable customer',async()=>{
+  // Two HTTP POSTs may overlap even in one apparatus (different tabs/routes).
+  // Inject controlled strict IndexedDB CAS results; do not touch real records.
+  const w=browser();w.OCAuth={rolActual:()=> 'dueno'};
+  const writes=[];
+  w.OCEstadoIDB={
+    soportado:true,
+    guardarConRevision:(snapshot,revision)=>new Promise(resolve=>{
+      writes.push({resolve,revision,snapshot:JSON.parse(JSON.stringify(snapshot))});
+    }),
+    ultimoError:()=>null
+  };
+  const names=['Synthetic rejected concurrent Add P0','Synthetic accepted concurrent Add P0'];
+  const add=nombre=>w.fetch('/api/clientes',{
+    method:'POST',body:JSON.stringify({nombre,telefono:'0000000000'})
+  });
+  const first=add(names[0]);
+  for(let i=0;i<200&&writes.length<1;i++)await Promise.resolve();
+  assert.equal(writes.length,1,'the first customer starts a real strict CAS');
+  const second=add(names[1]);
+  // Reject the older CAS while the second customer request exists in memory.
+  writes[0].resolve(false);
+  for(let i=0;i<300&&writes.length<2;i++)await Promise.resolve();
+  assert.equal(writes.length,2,'second Add must eventually reach a strict CAS');
+  // Allow the independent newer Add to commit, whichever snapshot it received.
+  writes[1].resolve(true);
+  const [a,b]=await Promise.all([first,second]);
+  assert.notEqual(a.status,200,'failed older Add must not claim success');
+  assert.equal(b.status,200,'independently committed newer Add must succeed');
+  const after=await w.request('/api/respaldo/exportar');
+  assert.equal(after.clientes.filter(c=>c.nombre===names[0]).length,0,
+    'rejected first customer must not appear');
+  assert.equal(after.clientes.filter(c=>c.nombre===names[1]).length,1,
+    'rollback of the older request must not delete the newer committed customer');
+  assert.equal(after.movimientos.filter(m=>m.tipo==='cliente-alta'&&m.detalle?.cliente===names[1]).length,1,
+    'newer accepted customer must retain exactly one audit movement');
+});
