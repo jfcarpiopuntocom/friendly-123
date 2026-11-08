@@ -1279,7 +1279,7 @@
         var activeLayer = canal.ws && canal.ws.relayLayer;
         var provenHere = activeLayer && _outbox.checkpointLayer === activeLayer;
         if ((state === _outbox.checkpoint && provenHere) ||
-            _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
+            _outbox.pending.concat(_unsaved).some(function (x) { return x.k === "ckpt"; })) return;
         return Promise.resolve().then(function () {
           return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
         }).then(function (packed) {
@@ -1306,6 +1306,7 @@
             try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
             return;
           }
+          if (_outbox.pending.concat(_unsaved).some(function (x) { return x.k === "ckpt"; })) return;
           try {
             guardarSobre(Object.assign({ state: state }, ckpt));
           } catch (_) { diagnosticarCkpt("checkpoint-outbox-save-failed", buf.byteLength); }
