@@ -1,6 +1,6 @@
 # friendly-123 · Stable readiness contract (Elephant–Goldfish)
 
-**Status:** DRAFT / NOT CERTIFIED / NO-GO. **Kind:** acceptance specification, not a runtime implementation authorization. **Baseline verified:** master \`8be4b783971b6b1d49ac67d2884cf031948efe89\`, shell \`v692\` / \`golden236\`, 2026-11-07. **Scope:** existing product and approved architecture only; zero new features or transport providers.
+**Status:** DRAFT / NOT CERTIFIED / NO-GO. **Kind:** acceptance specification, not a runtime implementation authorization. **Baseline verified:** master `8be4b783971b6b1d49ac67d2884cf031948efe89`, shell `v692` / `golden236`, 2026-11-07. **Scope:** existing product and approved architecture only; zero new features or transport providers.
 
 > This is the Elephant's independent-review input. It has **not** passed a fresh-context Goldfish review. A green unit test is not a green real device, a receipt is not a transaction commit, and this document is not permission to modify customer credentials or data.
 
@@ -9,7 +9,7 @@
 The controlling architectural decision is [MDD-2026-10-31](../architecture/MDD-2026-10-31-localfirst-pin-ledger-sync.md), [approved in Notion](https://app.notion.com/p/40a1642b67f381a0a02cf0bfa8b5feac). Its **binding implementation priority** is **#3 JFC identity/PIN authority URGENT + #1 event-ledger and #5 forensic comparison in parallel → #2 encrypted durable mailbox afterward → #4 authoritative business backend only for later discussion**. That decision is *approved architecture, not completed implementation*. Do not infer stable readiness from it.
 
 Other controlling evidence (must revalidate each HEAD before release):
-- [#584](https://github.com/jfcarpiopuntocom/friendly-123/issues/584): cold-join fails before Owner data is usable; Yjs continues replaying encrypted pages; earlier synthetic Firebase checkpoint cut classified \`1d-o-mas\`; no blind PIN retries.
+- [#584](https://github.com/jfcarpiopuntocom/friendly-123/issues/584): cold-join fails before Owner data is usable; Yjs continues replaying encrypted pages; earlier synthetic Firebase checkpoint cut classified `1d-o-mas`; no blind PIN retries.
 - [#621](https://github.com/jfcarpiopuntocom/friendly-123/issues/621): owner's **newer valid physical count is 15 in Opera**, PWA 33 is an older observation. No invented -18 movement; use lineage / event identity, not timestamps or UI count.
 - [#629](https://github.com/jfcarpiopuntocom/friendly-123/pull/629): draft candidate for per-provider checkpoint ACK provenance. Synthetic RED→GREEN does **not** certify recovery; its [candidate-preview real cold-join](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/42428465218) still failed after ~30s (2,188 Yjs structures applied, five parents missing, Owner metadata absent). Not merged; release/manifest gate red.
 - [#618](https://github.com/jfcarpiopuntocom/friendly-123/pull/618): separate DRAFT v693 Commissions candidate, not permission to reuse identity v693 for an unrelated runtime fix.
@@ -53,13 +53,13 @@ The standalone 4D dashboard can manage the evidence, but it is an **operator led
 
 | Gate | Protocol (all must be demonstrated) | Evidence to attach | Initial state |
 | --- | --- | --- | --- |
-| G0 Baseline/scope | Inventory production SHA and currently served version; record all open PRs; compare to approved MDD and no-change-scope. | GitHub SHA and \`docs/version.json\`, served \`version.json\`, changed files | OPEN |
+| G0 Baseline/scope | Inventory production SHA and currently served version; record all open PRs; compare to approved MDD and no-change-scope. | GitHub SHA and `docs/version.json`, served `version.json`, changed files | OPEN |
 | G1 Local device | With sync enabled, sell and adjust both directions; event/credit and photo; fail an IDB write and verify truthful UI; close/reopen; no surprise refresh. | Browser/video redacted, local transaction IDs + commit traces, persistence comparison | NOT CERTIFIED |
-| G2 Causal recovery | Cold-join from genuinely empty local store to same business; catalog, photos, Owner revision and money complete; pending parents=0; no auto PIN retries; outage/rejoin and old checkpoint. | \`recorrido\` canary exact SHA, bounded progress, checkpoint cut, causal hashes | **FAIL #584** |
+| G2 Causal recovery | Cold-join from genuinely empty local store to same business; catalog, photos, Owner revision and money complete; pending parents=0; no auto PIN retries; outage/rejoin and old checkpoint. | `recorrido` canary exact SHA, bounded progress, checkpoint cut, causal hashes | **FAIL #584** |
 | G3 Stock newest valid fact | Reproduce 33 older / 15 newer as **ordered causal facts**, preserve arbitrary-count variation, close/reopen and both orderings; no synthetic correction. | #621 op/epoch proofs and two physical devices, never fixed-amount substitution | **FAIL / physical unverified #621** |
 | G4 Cross-browser | Same license + authorized PIN PC→Safari/PWA→PC twice; reverse operation from B; verify full 7 domains after both rounds; each transition target <10s; offline replay and cold-join. | 42 signed case records, exact latency, before/after hashes and actual photos/transactions | NOT-RUN |
 | G5 Durability + permissions | Verified old→new provider checkpoint ACK, same-provider dedup, v1/v2 migration and fail-closed negative ACK; no data loss, no PIN reversion, role check. | S3/S4 exact-SHA tests, provider-side checkpoint cut before/after, separate G2 actual recovery | Partial synthetic ONLY |
-| G6 Full CI / binary identity | Run \`p0-hotfix-gate\`, \`release-control\`, \`qa-v448-g07-hex-photo\`, \`p0-s3-compressed-checkpoint\`, \`p0-s4-outbox-per-op\`, \`recorrido\`, money, stock, photos and PIN workflows on **one final candidate SHA**; no unexplained failing, skipped or cancelled blocking job. Seal a **new increasing version**, regenerate/check manifest and SW, verify served bytes. | CI permalinks, commit/manifest digest, release proof, exact deployed asset hashes | NOT-RUN for final candidate |
+| G6 Full CI / binary identity | Run `p0-hotfix-gate`, `release-control`, `qa-v448-g07-hex-photo`, `p0-s3-compressed-checkpoint`, `p0-s4-outbox-per-op`, `recorrido`, money, stock, photos and PIN workflows on **one final candidate SHA**; no unexplained failing, skipped or cancelled blocking job. Seal a **new increasing version**, regenerate/check manifest and SW, verify served bytes. | CI permalinks, commit/manifest digest, release proof, exact deployed asset hashes | NOT-RUN for final candidate |
 | G7 Safe rollout & rollback | Explicit canary/small scope, backup integrity, recovery of prior local journal, no schema downgrade or PIN loss; monitor and abort on causal divergence, unsaved state, quota exhaustion or lockout. | Rollout/rollback rehearsal (synthetic then authorized pilot), GO signer, live health | NOT-RUN |
 
 **G2/G3/G4 failure cannot be waived** by more unit tests or PR merges. An unmeasured threshold is not a pass. Before accepting a provider checkpoint fix, test a **fully hydrated synthetic writer A** creating a new checkpoint with actual durable ACK on the target layer, then **new B** cold-joining from that layer; a cold B cannot legally create a checkpoint from incomplete history. Re-run physical cases after the final release SHA—not a different preview SHA.
@@ -75,7 +75,7 @@ The standalone 4D dashboard can manage the evidence, but it is an **operator led
 
 ## 6. Exact responsibility boundaries / implementation safety
 
-This document and [Goldfish review packet](EGM-GOLDFISH-REVIEW.md) are **documentation-only**. They must never mutate \`docs/sync-yjs.js\`, \`docs/relay-selector.js\`, \`docs/firebase-relay.js\`, \`docs/mock-backend.js\`, PIN/authority backend, real outboxes, checkpoints, licensed accounts, data or production. PRs #618/#629 retain ownership of their own changes; do not seal or merge them in an acceptance-docs PR.
+This document and [Goldfish review packet](EGM-GOLDFISH-REVIEW.md) are **documentation-only**. They must never mutate `docs/sync-yjs.js`, `docs/relay-selector.js`, `docs/firebase-relay.js`, `docs/mock-backend.js`, PIN/authority backend, real outboxes, checkpoints, licensed accounts, data or production. PRs #618/#629 retain ownership of their own changes; do not seal or merge them in an acceptance-docs PR.
 
 Any future implementation ticket must specify *exact* allowed files, changed function contracts, test files, RED baseline, GREEN full suite, migration/backout and customer risk under EGM's **zero-decision implementation-readiness standard**; an engineer may not improvise a provider/schema/authority choice. No implementation authorization is conveyed here.
 
@@ -90,4 +90,4 @@ Any future implementation ticket must specify *exact* allowed files, changed fun
 
 The EGM Goldfish process must use **fresh, separate reviewer contexts** with only this document and its cited sources. This drafting session cannot self-certify independence; until actual independent reviewers return findings, the review status is **NOT-RUN**. Review protocol and structured findings: [EGM-GOLDFISH-REVIEW.md](EGM-GOLDFISH-REVIEW.md). No amount of written specification proves live device behavior.
 
-Owner decision fields (to fill after review, not beforehand): \`design-review=<NOT-RUN>\`, \`release-signer=<UNASSIGNED>\`, \`stable-candidate-sha=<NONE>\`, \`physical-evidence=<NONE>\`, \`go=no\`.
+Owner decision fields (to fill after review, not beforehand): `design-review=<NOT-RUN>`, `release-signer=<UNASSIGNED>`, `stable-candidate-sha=<NONE>`, `physical-evidence=<NONE>`, `go=no`.
