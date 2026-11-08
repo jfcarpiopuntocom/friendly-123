@@ -67,6 +67,19 @@ test('two tabs retain each others unacknowledged updates under the shared lock',
  a.socket.onmessage({data:JSON.stringify({k:'persist-result',id:op.id,kind:'op',ok:true})});await tick();await tick();
  assert.equal(data.get('f123_relay_outbox_v1-y').pending.length,1,'one ack cannot erase the other tab');
 });
+test('overlapping checkpoint encryption keeps one durable outbox entry',async()=>{
+ const a=await fixture();
+ const encrypted=[];
+ a.ctx.cifrarBin=(_key,bytes)=>new Promise(resolve=>encrypted.push(()=>resolve(bytes.slice().buffer)));
+ const checkpoint=a.timers.find(t=>t.ms===2500).fn;
+ checkpoint();checkpoint();
+ await esperar(()=>encrypted.length===2,'both checkpoint encryptions must overlap');
+ encrypted.forEach(finish=>finish());
+ await esperar(()=>controls(a.socket,'ckpt').length>0,'checkpoint reaches durable relay');
+ await tick();await tick();
+ assert.equal(controls(a.socket,'ckpt').length,1,'only one checkpoint is sent');
+ assert.equal(a.data.get('f123_relay_outbox_v1-y').pending.filter(entry=>entry.k==='ckpt').length,1,'one checkpoint remains durable until ACK');
+});
 test('acknowledged unchanged checkpoint is not rewritten after reload',async()=>{
  const a=await fixture();
  // Prove SAME durable adapter: a generic ACK is not evidence for Firebase.
