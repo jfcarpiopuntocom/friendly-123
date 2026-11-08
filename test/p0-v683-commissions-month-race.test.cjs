@@ -22,16 +22,35 @@ function deferred(){
  return {promise,resolve,reject};
 }
 function fixture(){
- const requests=[],painted=[],cont={innerHTML:''};
+ const requests=[],painted=[],cont={innerHTML:'',querySelector:()=>null};
+ // Count requests that are still awaiting a response/body, not historical
+ // batches launched. This catches the original 14-live-reads failure mode.
+ let liveReads=0, peakReads=0;
  const context={API:'/api',painted,console,Promise,
+  t:key=>({'comm.loadError':'Could not load commissions. Check the connection and try again.','comm.retryLoad':'Try again','comm.periodLabel':'Month'}[key]||key),
+  escHtml:value=>String(value),
   document:{getElementById:()=>cont},
   renderGestionPromotoras:()=>{},
   agruparVentasPorProducto:()=>[{ubicacionIds:new Set()}],
   window:{_ocMesAuto:null,_ocMesAutoHecho:true},
-  fetch:url=>{const d=deferred();requests.push({url,...d});return d.promise;}};
+  fetch:url=>{
+    const d=deferred();
+    liveReads++;
+    peakReads=Math.max(peakReads,liveReads);
+    let done=false;
+    const finish=()=>{if(!done){done=true;liveReads--;}};
+    // Preserve the actual asynchronous fetch/json semantics. A resolved
+    // response with JSON still pending counts as a live data read.
+    const tracked=d.promise.then(r=>{
+      if(!r || r.ok===false || typeof r.json!=='function'){finish();return r;}
+      return {...r,json:(...args)=>Promise.resolve().then(()=>r.json(...args)).finally(finish)};
+    },e=>{finish();throw e;});
+    requests.push({url,resolve:d.resolve,reject:d.reject});
+    return tracked;
+  }};
  vm.createContext(context);
  vm.runInContext(globalVar+declaration,context);
- return {context,requests,painted,cont};
+ return {context,requests,painted,cont,liveReads:()=>liveReads,peakReads:()=>peakReads};
 }
 const deliver=(req,payload)=>{
  req.resolve({ok:true,json:async()=>payload});
@@ -71,6 +90,8 @@ test('RED: stale errors cannot replace a later successful month with a blank war
  fulfillBatch(f.requests,5,'2026-11');
  await newer;
  f.requests[0].reject(Error('stale old-month network failure'));
+ // The read token is intentionally held until all four sibling requests settle.
+ fulfillBatch(f.requests,0,'2026-10');
  await older;
  assert.equal(f.cont.innerHTML,'','old network error cannot erase November');
  assert.equal(f.painted.length,1);
@@ -132,4 +153,86 @@ test('P0 single apparatus: switching through many months never floods its own hi
  assert.equal(f.painted.length,1,'only the last selected month may paint the app');
  assert.equal(f.painted[0].month,'2025-12');
  assert.equal(f.painted[0].rows[0].mes,'2025-12','latest visible data must match selected month');
+});
+
+
+test('P0 active requests: a rejected liquidaciones read must not free its token while four requests are still alive',async()=>{
+ const f=fixture(),calls=[];
+ for(const mes of ['2025-01','2025-02','2025-03']){
+   vm.runInContext('_ocMesComisiones='+JSON.stringify(mes),f.context);
+   calls.push(vm.runInContext('cargarComisiones()',f.context));
+ }
+ assert.equal(f.requests.length,10,'two batches of five are initially active');
+ assert.equal(f.liveReads(),10,'all ten fetches are actually unresolved');
+ f.requests[0].reject(Error('liquidaciones failed before sibling requests settled'));
+ for(let tick=0;tick<25;tick++)await Promise.resolve();
+ assert.equal(f.liveReads(),9,'the early failed read settles but nine other network bodies remain live');
+ assert.equal(f.requests.length,10,
+   'still-active sibling requests keep the first token; 14 live requests must never result');
+ assert.equal(f.peakReads(),10,'no more than ten reads may be live despite the early failure');
+ fulfillBatch(f.requests,0,'2025-01');
+ for(let tick=0;tick<60 && f.requests.length<15;tick++)await Promise.resolve();
+ assert.equal(f.requests.length,15,'latest queued month starts only after entire first batch settles');
+ assert.ok(f.peakReads()<=10,
+   'a queued third month may start only after all five sibling bodies settled');
+ fulfillBatch(f.requests,5,'2025-02');
+ fulfillBatch(f.requests,10,'2025-03');
+ await Promise.all(calls);
+ assert.equal(f.liveReads(),0,'all fetch and JSON body reads have settled');
+ assert.equal(f.painted.length,1);
+ assert.equal(f.painted[0].month,'2025-03');
+});
+
+test('P0 commissions: failed liquidaciones HTTP must show an error rather than success-shaped empty data',async()=>{
+ const f=fixture();
+ vm.runInContext('_ocMesComisiones="2026-11"',f.context);
+ const run=vm.runInContext('cargarComisiones()',f.context);
+ f.requests[0].resolve({ok:false,status:503,json:async()=>({error:'unavailable'})});
+ fulfillBatch(f.requests,0,'2026-11');
+ await run;
+ assert.match(f.cont.innerHTML,/Could not load commissions/);
+ assert.match(f.cont.innerHTML,/data-commissions-month/,'month selector must be recoverable in the isolated fixture');
+ assert.match(f.cont.innerHTML,/data-commissions-retry/,'error must permit retry in the isolated fixture');
+ assert.equal(f.painted.length,0,'a failed money read must never paint as valid');
+});
+
+
+test('P0 same month: a newly recorded payment must appear in the final same-month refresh',async()=>{
+ const f=fixture();
+ vm.runInContext('_ocMesComisiones="2026-11"',f.context);
+ const older=vm.runInContext('cargarComisiones()',f.context);
+ const later=vm.runInContext('cargarComisiones()',f.context);
+ const latest=vm.runInContext('cargarComisiones()',f.context);
+ assert.equal(f.requests.length,5,'multiple refreshes start only one live batch');
+ // In this synthetic read fixture the first batch sees the pre-payment view.
+ // The transaction itself is not executed here: its durability is covered
+ // separately by the financial write tests. This asserts fresh read ordering.
+ const before=[
+   [{ubicacionId:'event-rack',mes:'2026-11',paymentStatus:'due',payoutId:null}],
+   [],
+   [{id:'synthetic-sale',mes:'2026-11',productoId:'event',liquidada:false}],
+   [{mes:'2026-11',actual:true,pendiente:12.75}],
+   {mes:'2026-11',porPagar:12.75}
+ ];
+ before.forEach((payload,i)=>deliver(f.requests[i],payload));
+ await older;
+ assert.equal(f.painted.length,0,'stale pre-payment read must not paint');
+ for(let tick=0;tick<30&&f.requests.length<10;tick++)await Promise.resolve();
+ assert.equal(f.requests.length,10,'only one trailing refresh may read after payment');
+ // After the synthetic payment is durable, the trailing read sees the paid state.
+ const after=[
+   [{ubicacionId:'event-rack',mes:'2026-11',paymentStatus:'paid',payoutId:'synthetic-payout'}],
+   [],
+   [{id:'synthetic-sale',mes:'2026-11',productoId:'event',liquidada:true}],
+   [{mes:'2026-11',actual:true,pendiente:0}],
+   {mes:'2026-11',porPagar:0}
+ ];
+ after.forEach((payload,i)=>deliver(f.requests[5+i],payload));
+ await Promise.all([later,latest]);
+ assert.equal(f.painted.length,1,'coalesced later requests paint only once');
+ assert.equal(f.painted[0].month,'2026-11');
+ assert.equal(f.painted[0].rows[0].paymentStatus,'paid','last read must contain the newly recorded payment');
+ assert.equal(f.painted[0].rows[0].payoutId,'synthetic-payout');
+ assert.equal(f.painted[0].sales[0].liquidada,true,'final sale projection must reflect payment');
+ assert.equal(f.cont.innerHTML,'','a successful payment read must not show an error');
 });

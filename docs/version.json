@@ -1,10 +1,10 @@
 {
-  "version": "shell v692",
-  "fecha": "2026-11-07",
-  "changelog": "P0 iOS PWA→Safari physical count: after strict local ACK, synchronously seed the exact new physical epoch into the existing Sync3 catalog, keeping the delayed event retry; no delta emitted, no transport changes.",
+  "version": "shell v694",
+  "fecha": "2026-11-08",
+  "changelog": "v694: Comisiones limita consultas simultáneas y muestra error real si falla la lectura de ventas, liquidaciones o meses; conserva el mes elegido y permite Reintentar en ES/EN. Incluye pruebas reforzadas de alta de clientes y durabilidad de ventas. Sync3, PIN, inventario y saldos sin cambios en este hotfix.",
   "requerida": false,
-  "shell": "f123-shell-v692",
+  "shell": "f123-shell-v694",
   "apagar": [],
-  "releaseName": "shell v692",
-  "cacheGeneration": "golden236"
+  "releaseName": "shell v694",
+  "cacheGeneration": "golden238"
 }
