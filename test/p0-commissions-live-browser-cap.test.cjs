@@ -59,6 +59,10 @@ async function setup(engine){
        fail:()=>{
          finish();
          resolve({ok:false,status:503,json:async()=>({error:'synthetic unavailable'})});
+       },
+       failEmpty:()=>{
+         finish();
+         resolve({ok:false,status:503,json:async()=>[]});
        }
      };
      observed.requests.push(req);
@@ -136,8 +140,42 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
       }));
       assert.equal(result.live,0,'all network bodies accounted for');
       assert.match(result.msg,/Could not load commissions/);
-      assert.equal(result.falseEmpty,false,
-        'failed read must not paint a success-shaped commissions summary');
+      assert.equal(result.falseEmpty,true,
+        'failed read must preserve a usable month selector');
+      assert.equal(await page.locator('[data-commissions-retry]').count(),1,
+        'failed read must expose a visible retry control');
     }finally{await web.close();}
  });
+}
+
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ for(const target of ['/api/ventas/todas?', '/api/liquidaciones/meses']){
+  test('P0 Commissions '+name+': HTTP 503 on '+target+' fails closed, preserves month and offers retry',
+    {timeout:60000},async()=>{
+     const {web,page}=await setup(engine);
+     try{
+      await page.evaluate(()=>cambiarMesComisiones('2026-11'));
+      await page.waitForFunction(()=>__p0CommissionBrowser.requests.length===5);
+      await page.evaluate(target=>{
+        const requests=__p0CommissionBrowser.requests;
+        const broken=requests.find(r=>r.url.startsWith(target));
+        if(!broken)throw Error('fixture did not intercept '+target);
+        for(const req of requests){if(req===broken)req.failEmpty();else req.ok();}
+      },target);
+      await page.waitForFunction(()=>__p0CommissionBrowser.live===0);
+      await page.waitForTimeout(80);
+      const state=await page.evaluate(()=>({
+        error:document.getElementById('listaComisiones')?.textContent||'',
+        month:document.querySelector('[data-commissions-month]')?.value,
+        retry:!!document.querySelector('[data-commissions-retry]')
+      }));
+      assert.match(state.error,/Could not load commissions/,
+        'HTTP 503 '+target+' must not masquerade as a financially empty month');
+      assert.equal(state.month,'2026-11',
+        'the operator must retain the selected period after a request failure');
+      assert.equal(state.retry,true,'retry remains available without app reload');
+     }finally{await web.close();}
+  });
+ }
 }
