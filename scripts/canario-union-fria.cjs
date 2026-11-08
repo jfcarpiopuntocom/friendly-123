@@ -127,6 +127,41 @@ const consultarCheckpoint = p => p.evaluate(async () => {
 });
 
 // Only safe booleans and role are printed: never license, PIN, room ID or encrypted data.
+// Synthetic-room metadata ONLY. Firebase shallow=true returns operation keys,
+// not ciphertext. No keys, license, room capability or query URL leave this browser.
+const contarOperaciones = p => p.evaluate(async () => {
+  const desconocido = { consultado: false, operaciones: null };
+  let timer = null;
+  try {
+    const y = window.OCYjs, room = y && y.roomId;
+    const ws = y && y.canal && y.canal.ws;
+    if (!ws || ws.relayLayer !== 'f123_relay_cupo_fb_v1' ||
+        typeof room !== 'string' || !/^[a-f0-9]{40}$/.test(room)) return desconocido;
+    const url = 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/' +
+      room + '-y/o.json?shallow=true';
+    const request = fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store' })
+      .then(async r => {
+        if (!r || !r.ok) return desconocido;
+        // Avoid parsing massive metadata responses in the QA browser.
+        const size = Number(r.headers && r.headers.get && r.headers.get('content-length') || 0);
+        if (size > 3 * 1024 * 1024) return desconocido;
+        const raw = await r.text();
+        if (raw.length > 3 * 1024 * 1024) return desconocido;
+        const obj = JSON.parse(raw);
+        if (obj === null) return { consultado: true, operaciones: 0 };
+        if (!obj || Array.isArray(obj) || typeof obj !== 'object') return desconocido;
+        const ids = Object.keys(obj);
+        if (!ids.every(key => obj[key] === true)) return desconocido;
+        return { consultado: true, operaciones: ids.length };
+      }).catch(() => desconocido);
+    return await Promise.race([
+      request,
+      new Promise(resolve => { timer = setTimeout(() => resolve(desconocido), 8000); })
+    ]);
+  } catch (_) { return desconocido; }
+  finally { if (timer !== null) clearTimeout(timer); }
+}).catch(() => ({ consultado: false, operaciones: null }));
+
 const diagnostico = (p, licencia) => p.evaluate((lic) => {
   try {
     const o = JSON.parse(localStorage.getItem('f123_owned') || '{}');
@@ -349,6 +384,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
   ultima = await diagnostico(p, LICENCIA);
   // Diagnostic-only GET after the recovery gate; cannot turn an incomplete
   // Yjs history into GREEN or cause an extra Owner PIN attempt.
+  if (SOLO_OBSERVAR) console.log('CANARIO_OPERACIONES_SHALLOW:', JSON.stringify(await contarOperaciones(p)));
   console.log('CANARIO_CHECKPOINT:', JSON.stringify(await consultarCheckpoint(p)));
   console.log('CANARIO_DIAGNOSTICO:', JSON.stringify(ultima));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
