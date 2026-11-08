@@ -6948,8 +6948,8 @@ async function cargarComisiones(){
         const respuestas = await Promise.allSettled([
       fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => { if (!r.ok) throw Error("liquidaciones-http"); return r.json(); }),
       fetch(`${API}/promotores/desempeno`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/liquidaciones/meses`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => { if (!r.ok) throw Error("ventas-http"); return r.json(); }),
+      fetch(`${API}/liquidaciones/meses`).then(r => { if (!r.ok) throw Error("meses-http"); return r.json(); }),
       // Cuadre del mes (JFC 2026-09-24): una sola fuente para "nada fuera de vista". Si falla, la vista sigue sin el bloque.
       fetch(`${API}/comisiones/cuadre?mes=${encodeURIComponent(_mesSolicitud || "")}`).then(r => r.ok ? r.json() : null).catch(() => null),
         ]);
@@ -6957,6 +6957,8 @@ async function cargarComisiones(){
         // A fast liquidaciones failure must not admit a third batch while four
         // slower requests are still active on this same physical device.
         if (respuestas[0].status === "rejected") throw respuestas[0].reason;
+        if (respuestas[2].status === "rejected") throw respuestas[2].reason;
+        if (respuestas[3].status === "rejected") throw respuestas[3].reason;
         return respuestas.map(r => r.status === "fulfilled" ? r.value : null);
       } finally {
         const siguiente = _limite.espera.shift();
@@ -6982,7 +6984,13 @@ async function cargarComisiones(){
     });
   } catch (_) {
     if (_run !== _ocComisionesSolicitud || _mesSolicitud !== _ocMesComisiones) return;
-    if (cont) cont.innerHTML = '<p style="font-size:14px;color:var(--rojo-ink,#a3392a);">Could not load commissions. Reload the view.</p>';
+    if (cont) {
+      const previo = cont.querySelector("[data-commissions-month]");
+      const entrada = previo ? previo.outerHTML : `<input type="month" data-commissions-month onchange="cambiarMesComisiones(this.value)" value="${escHtml(_mesSolicitud || "")}" style="min-height:40px;max-width:180px;">`;
+      cont.innerHTML = `<div role="alert" style="padding:12px;border:1px solid var(--rojo-ink,#a3392a);"><p style="font-size:14px;color:var(--rojo-ink,#a3392a);">${t("comm.loadError")}</p><button type="button" data-commissions-retry onclick="cargarComisiones()">${t("comm.retryLoad")}</button></div><label style="display:flex;gap:8px;align-items:center;">${t("comm.periodLabel")} ${entrada}</label>`;
+      const control = cont.querySelector("[data-commissions-month]");
+      if (control) control.value = _mesSolicitud || "";
+    }
     return;
   }
   if (_run !== _ocComisionesSolicitud || _mesSolicitud !== _ocMesComisiones) return;
