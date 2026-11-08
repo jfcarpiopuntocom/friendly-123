@@ -84,7 +84,7 @@ test('P0 ONE apparatus: automatic shell reload refuses a dirty or saving custome
 });
 
 
-test('P0 RED: a failed concurrent Add must not erase a newer durable customer',async()=>{
+test('P0 same-tab FIFO: rejected first Add cannot erase a later durable customer',async()=>{
   // Two HTTP POSTs may overlap even in one apparatus (different tabs/routes).
   // Inject controlled strict IndexedDB CAS results; do not touch real records.
   const w=browser();w.OCAuth={rolActual:()=> 'dueno'};
@@ -104,7 +104,9 @@ test('P0 RED: a failed concurrent Add must not erase a newer durable customer',a
   for(let i=0;i<200&&writes.length<1;i++)await Promise.resolve();
   assert.equal(writes.length,1,'the first customer starts a real strict CAS');
   const second=add(names[1]);
-  // Reject the older CAS while the second customer request exists in memory.
+  for(let tick=0;tick<60;tick++)await Promise.resolve();
+  assert.equal(writes.length,1,'same-tab business writes must stay FIFO until the first ACK or rejection');
+  // Reject the older CAS while the second customer request is queued.
   writes[0].resolve(false);
   for(let i=0;i<300&&writes.length<2;i++)await Promise.resolve();
   assert.equal(writes.length,2,'second Add must eventually reach a strict CAS');
