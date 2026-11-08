@@ -1,10 +1,10 @@
 {
-  "version": "shell v693",
-  "fecha": "2026-11-07",
-  "changelog": "DRAFT candidate only: Commissions bounded active read batches and HTTP error handling (#618) on v692. Preserve Sync3, sales, inventory, PIN, photos, and business facts. Not published.",
+  "version": "shell v694",
+  "fecha": "2026-11-08",
+  "changelog": "DRAFT audit candidate v694: Commissions fail-closed for sales, months and settlements; localized recoverable errors (#618/#638). Includes #635 customer and #636 sale durability QA; Sync3, stock, PIN, money facts unchanged. Not published.",
   "requerida": false,
-  "shell": "f123-shell-v693",
+  "shell": "f123-shell-v694",
   "apagar": [],
-  "releaseName": "shell v693",
-  "cacheGeneration": "golden237"
+  "releaseName": "shell v694",
+  "cacheGeneration": "golden238"
 }
