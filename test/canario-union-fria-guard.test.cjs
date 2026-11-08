@@ -121,7 +121,7 @@ test('P0: no probar PIN factory si el catálogo está hidratado pero faltan meta
 });
 
 test('P0: diagnóstico causal sintético distingue pendientes sin publicar IDs de sala', async () => {
-  const full = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const full = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8').replace(/\r\n/g, '\n');
   const start = full.indexOf('const diagnostico = ');
   const end = full.indexOf('\n\n(async () => {', start);
   assert.ok(start > 0 && end > start, 'se usa la función real de diagnóstico');
