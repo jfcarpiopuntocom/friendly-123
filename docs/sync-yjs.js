@@ -176,7 +176,7 @@
     // Encrypted durable outbox lives alongside the local Y.Doc, scoped by room/channel.
     // WebSocket.send is delivery to the network, never acknowledgement of remote storage.
     var _outboxKey = "f123_relay_outbox_v1" + suffix;
-    var _outbox = { pending: [], checkpoint: "", confirmed: [] }, _durableTimer = null, _durableDelay = 2000;
+    var _outbox = { pending: [], checkpoint: "", checkpointLayer: "", confirmed: [] }, _durableTimer = null, _durableDelay = 2000;
     // Leave headroom under this socket's 4 MiB cap for new changes and control frames.
     var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
     var _groupAcks = new Set();
@@ -432,7 +432,7 @@
             var tx = db.transaction(["custom"], "readwrite"), store = tx.objectStore("custom");
             tx.oncomplete = resolve; tx.onabort = tx.onerror = function () { reject(tx.error || Error("outbox migration failed")); };
             old.pending.forEach(function (entry) { store.put(entry, _v2Prefix + entry.id); });
-            store.put({v:2,rev:1,checkpoint:old.checkpoint || "",confirmed:old.confirmed || []}, _v2MetaKey);
+            store.put({v:2,rev:1,checkpoint:old.checkpoint || "",checkpointLayer:old.checkpointLayer || "",confirmed:old.confirmed || []}, _v2MetaKey);
             store.delete(_outboxKey); // atomic with all writes: crash cannot lose old queue
           });
           _v2Cache = old; _v2Revision = 1;
@@ -462,7 +462,7 @@
         };
         req.onerror = tx.onabort = function () { reject(req.error || tx.error || Error("outbox read failed")); };
       });
-      _v2Cache = {pending:pending,confirmed:meta.confirmed || [],checkpoint:meta.checkpoint || ""};
+      _v2Cache = {pending:pending,confirmed:meta.confirmed || [],checkpoint:meta.checkpoint || "",checkpointLayer:meta.checkpointLayer || ""};
       _v2Revision = meta.rev;
       _v2Signatures = new Map(pending.map(function (entry) { return [entry.id,v2Signature(entry)]; }));
       return _v2Cache;
@@ -488,7 +488,7 @@
             store.put(entry, _v2Prefix + id);
         });
         store.put({v:2,rev:_v2Revision + 1,checkpoint:_outbox.checkpoint,
-          confirmed:_outbox.confirmed}, _v2MetaKey);
+          checkpointLayer:_outbox.checkpointLayer || "",confirmed:_outbox.confirmed}, _v2MetaKey);
       });
     }
     function mutarOutbox(change) {
@@ -501,6 +501,12 @@
             if (!_outbox.pending.some(function (x) { return x.id === entry.id; })) _outbox.pending.push(entry);
           });
           change();
+          included.forEach(function (entry) {
+            var index = _outbox.pending.indexOf(entry);
+            if (index >= 0 && entry.k === "ckpt" && typeof entry.state === "string" && entry.state &&
+                _outbox.pending.some(function (x) { return x !== entry && x.k === "ckpt" &&
+                  x.state === entry.state && x.rev === entry.rev && x.seq === entry.seq; })) _outbox.pending.splice(index, 1);
+          });
           _groupAcks.forEach(function (id) { if (!_outbox.pending.some(function (entry) { return entry.id === id; })) _groupAcks.delete(id); });
           return guardarOutbox().then(function () {
             // Preparation continues while IndexedDB commits. Only remove the
@@ -687,7 +693,10 @@
       });
       _durableQueue = next.catch(function () { log("guardado del envio pendiente en " + nombre); avisarDurable(); programarDurable(); });
     }
-    function confirmarDurable(result) {
+    function confirmarDurable(result, sourceLayer) {
+      // Only an ACK from the actual durable adapter proves its own checkpoint.
+      // Unknown/peer receipts can retire pending work but never certify a layer.
+      var provenLayer = sourceLayer === "f123_relay_cupo_v1" || sourceLayer === "f123_relay_cupo_fb_v1" ? sourceLayer : "";
       _durableQueue = _durableQueue.then(function () {
         if (result && typeof result.id === "string" && _durableInFlight[result.id] && _durableInFlight[result.id].kind === result.kind) {
           delete _durableInFlight[result.id];
@@ -699,7 +708,7 @@
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
         var beforeRetirement = null, retirados = [], absCerrada = null;
         return mutarOutbox(function () {
-          beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
+          beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint, checkpointLayer: _outbox.checkpointLayer || "" };
           var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
           if (!entry) return;
           var completed = [entry];
@@ -718,6 +727,7 @@
           if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
           if (entry.k === "ckpt" && result.ok === true) {
             _outbox.checkpoint = entry.state;
+            _outbox.checkpointLayer = provenLayer;
             // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
@@ -1270,7 +1280,12 @@
       Promise.resolve().then(function () {
         return API.rollout && API.rollout.outboxV2 ? updateHash(full).then(function (hash) { return "sha256:" + hash; }) : _b64(full);
       }).then(function (state) {
-        if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
+        // A confirmed snapshot on Supabase is NOT proof that Firebase has it;
+        // a legacy unscoped hash is never a remote durability certificate.
+        var activeLayer = canal.ws && canal.ws.relayLayer;
+        var provenHere = activeLayer && _outbox.checkpointLayer === activeLayer;
+        if ((state === _outbox.checkpoint && provenHere) ||
+            _outbox.pending.concat(_unsaved).some(function (x) { return x.k === "ckpt"; })) return;
         return Promise.resolve().then(function () {
           return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
         }).then(function (packed) {
@@ -1297,6 +1312,7 @@
             try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
             return;
           }
+          if (_outbox.pending.concat(_unsaved).some(function (x) { return x.k === "ckpt"; })) return;
           try {
             guardarSobre(Object.assign({ state: state }, ckpt));
           } catch (_) { diagnosticarCkpt("checkpoint-outbox-save-failed", buf.byteLength); }
@@ -1628,7 +1644,7 @@
             }
             else if (c && c.k === "persist-result") {
               if (ws.peerOnly && ev.peerAccepted !== true) return;
-              if (canal.ws === ws) confirmarDurable(c);
+              if (canal.ws === ws) confirmarDurable(c, ev.persistLayer);
             }
             else if (c && c.k === "head-result") { if (!ws.peerOnly) procesarHead(ws, pullEstado, c); }
             else if (c && c.k === "pull-page") {
