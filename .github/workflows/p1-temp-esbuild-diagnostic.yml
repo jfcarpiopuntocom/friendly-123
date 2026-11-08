@@ -1,0 +1,34 @@
+name: P1 temporary exact esbuild diagnostic
+on:
+  pull_request:
+    paths:
+      - 'src/app/app-inline-01.js'
+      - 'docs/app-inline-01.min.js'
+      - '.github/workflows/p1-temp-esbuild-diagnostic.yml'
+permissions:
+  contents: read
+jobs:
+  minifier-compare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: First differing character generated vs committed
+        run: |
+          node <<'NODE'
+          const fs=require('node:fs');
+          const esbuild=require('esbuild');
+          const source=fs.readFileSync('src/app/app-inline-01.js','utf8');
+          const expected=esbuild.transformSync(source,{loader:'js',target:'es2020',minifySyntax:true,minifyWhitespace:true,minifyIdentifiers:false,legalComments:'none'}).code;
+          const committed=fs.readFileSync('docs/app-inline-01.min.js','utf8');
+          let i=0;while(i<expected.length&&i<committed.length&&expected[i]===committed[i])i++;
+          console.log('expected length',expected.length,'committed length',committed.length,'first difference',i);
+          console.log('EXPECTED',JSON.stringify(expected.slice(Math.max(0,i-230),i+700)));
+          console.log('COMMITTED',JSON.stringify(committed.slice(Math.max(0,i-230),i+700)));
+          console.log(expected===committed?'EXACT-BYTE MATCH':'MISMATCH; do not merge');
+          NODE
