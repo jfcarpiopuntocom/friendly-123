@@ -1,10 +1,10 @@
 {
-  "version": "shell v694",
+  "version": "shell v696",
   "fecha": "2026-11-08",
-  "changelog": "v694: Comisiones limita consultas simultáneas y muestra error real si falla la lectura de ventas, liquidaciones o meses; conserva el mes elegido y permite Reintentar en ES/EN. Incluye pruebas reforzadas de alta de clientes y durabilidad de ventas. Sync3, PIN, inventario y saldos sin cambios en este hotfix.",
+  "changelog": "DRAFT v696 P0 Sync3: checkpoint durable identifica capa de ACK Supabase/Firebase, preserva procedencia en outbox y evita duplicados de snapshots durante persistencia. Sin ajustes automáticos de stock; ventas, PIN, comisiones y límites sin cambios. NO publicada.",
   "requerida": false,
-  "shell": "f123-shell-v694",
+  "shell": "f123-shell-v696",
   "apagar": [],
-  "releaseName": "shell v694",
-  "cacheGeneration": "golden238"
+  "releaseName": "shell v696",
+  "cacheGeneration": "golden240"
 }
