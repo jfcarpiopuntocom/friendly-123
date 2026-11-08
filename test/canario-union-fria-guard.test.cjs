@@ -328,3 +328,50 @@ test('P0 diagnostic-only: preserve RED after extended causal observation without
   assert.equal(r.exitCode, 1, 'incomplete Yjs recovery must remain RED');
   assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'retain honest recovery failure');
 });
+
+test('P0 diagnostic-only shallow count reads remote operation KEYS, never ciphertext or IDs in telemetry', async () => {
+  const full = fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start = full.indexOf('const contarOperaciones = ');
+  const end = full.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start >= 0 && end > start,'metadata-only remote count probe must exist');
+  const room = 'a'.repeat(40), calls = [];
+  const ctx = {
+    window: { OCYjs: { roomId: room, canal: { ws: { relayLayer: 'f123_relay_cupo_fb_v1' } } } },
+    fetch: async (url, opts) => {
+      calls.push({ url, opts });
+      assert.equal(opts.method, 'GET');
+      assert.equal(new URL(url).searchParams.get('shallow'), 'true');
+      assert.equal(new URL(url).pathname, '/f123/' + room + '-y/o.json');
+      return { ok:true, headers: {get: () => '120'}, text:async () => JSON.stringify({opA:true,opB:true,opC:true}) };
+    },
+    Promise, JSON, Object, Number, URL, setTimeout, clearTimeout
+  };
+  vm.runInNewContext(full.slice(start,end) + ';this.query = contarOperaciones;',ctx);
+  const result = await ctx.query({evaluate:async fn=>fn()});
+  assert.equal(result.consultado,true);
+  assert.equal(result.operaciones,3);
+  assert.equal(calls.length,1);
+  assert.ok(!JSON.stringify(result).includes(room) && !JSON.stringify(result).includes('opA'),
+    'never return room capability or individual operation IDs');
+});
+
+test('P0 shallow operation count rejects oversized or failed metadata responses rather than fake zero', async () => {
+  const full = fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start = full.indexOf('const contarOperaciones = ');
+  const end = full.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start >= 0 && end > start);
+  const room='b'.repeat(40);
+  let status=503;
+  const ctx={window:{OCYjs:{roomId:room,canal:{ws:{relayLayer:'f123_relay_cupo_fb_v1'}}}},
+    fetch:async()=>({ok:status===200,headers:{get:()=>status===200?'9000000':'0'},text:async()=>'{}'}),
+    Promise,JSON,Object,Number,URL,setTimeout,clearTimeout};
+  vm.runInNewContext(full.slice(start,end) + ';this.query=contarOperaciones;',ctx);
+  const page={evaluate:async fn=>fn()};
+  const failed=await ctx.query(page);
+  assert.equal(failed.consultado,false);
+  assert.equal(failed.operaciones,null,'HTTP 503 is UNKNOWN, never a valid empty room');
+  status=200;
+  const tooLarge=await ctx.query(page);
+  assert.equal(tooLarge.consultado,false);
+  assert.equal(tooLarge.operaciones,null,'oversized metadata is UNKNOWN, not a false zero');
+});
