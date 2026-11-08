@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false, localHydrationPending = false, idbUnsynced = false, pendingStructs = false, pendingDs = false, missingOwnerMetadata = false } = {}) {
+async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false, localHydrationPending = false, idbUnsynced = false, pendingStructs = false, pendingDs = false, missingOwnerMetadata = false, observationOnly = false } = {}) {
   const script = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
   let now = 0, keypadClicks = 0, exitCode = null, diagnosticCalls = 0;
   const messages = [];
@@ -34,7 +34,7 @@ async function fakeRun(license, { joined = false, customOwnerPin = false, recove
   const browser = { newPage: async () => page, close: async () => {} };
   const fakeProcess = {
     argv: ['node', 'scripts/canario-union-fria.cjs'],
-    env: license === null ? {} : { F123_CANARIO_LICENCIA: license },
+    env: license === null ? {} : { F123_CANARIO_LICENCIA: license, ...(observationOnly ? { F123_CANARIO_SOLO_OBSERVAR: '1' } : {}) },
     exit(n) { exitCode = n; throw Object.assign(new Error('CANARY_EXIT'), { canaryExit: true }); },
   };
   const ctx = {
@@ -310,4 +310,21 @@ test('P0: checkpoint cut age is a bounded category from metadata-only GET, never
       !output.includes('123456000') && !output.includes('123000000'),
       'log only age class; no room capability or raw server cursor');
   }
+});
+
+test('P0 diagnostic-only: hydrated synthetic room is observed without attempting Owner PIN', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', { joined: true, observationOnly: true });
+  assert.equal(r.keypadClicks, 3, 'only factory selector digits; NEVER try Owner PIN');
+  assert.ok(r.messages.some(m => m.includes('CANARIO_OBSERVACION_SOLO:')),
+    'diagnostic result must be explicitly classified as observation, not full Owner acceptance');
+});
+
+test('P0 diagnostic-only: preserve RED after extended causal observation without retrying Owner PIN', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', {
+    joined: true, observationOnly: true, recoveringCatalog: true, pendingStructs: true
+  });
+  assert.ok(r.now >= 90000, 'diagnostic-only observation must run for >=90s fake time');
+  assert.equal(r.keypadClicks, 3, 'no Owner PIN guesses throughout incomplete recovery');
+  assert.equal(r.exitCode, 1, 'incomplete Yjs recovery must remain RED');
+  assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'retain honest recovery failure');
 });
