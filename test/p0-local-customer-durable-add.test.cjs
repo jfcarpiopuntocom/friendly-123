@@ -123,3 +123,63 @@ test('P0 same-tab FIFO: rejected first Add cannot erase a later durable customer
   assert.equal(after.movimientos.filter(m=>m.tipo==='cliente-alta'&&m.detalle?.cliente===names[1]).length,1,
     'newer accepted customer must retain exactly one audit movement');
 });
+
+
+test('P0 cross-tab CAS: a losing customer Add cannot erase the other tab\'s committed customer',async()=>{
+  // Distinct VM/browser windows share durable storage but not the same-tab
+  // write FIFO. Synthetic IDB strictly mimics one atomic revision CAS.
+  const a=browser(),b=browser(a.localStorage);
+  a.OCAuth={rolActual:()=> 'dueno'};
+  b.OCAuth={rolActual:()=> 'dueno'};
+  let persisted=null,revision=0;
+  const writes=[];
+  for(const [device,w] of [['A',a],['B',b]]){
+    w.OCEstadoIDB={
+      soportado:true,
+      guardarConRevision:(snapshot,expected)=>new Promise(resolve=>{
+        writes.push({device,resolve,expected,snapshot:JSON.parse(JSON.stringify(snapshot))});
+      }),
+      leer:async()=>persisted ? JSON.parse(JSON.stringify(persisted)) : null,
+      ultimoError:()=>null
+    };
+  }
+  const nameA='Synthetic independent tab A losing CAS';
+  const nameB='Synthetic independent tab B durable customer';
+  const post=(w,nombre)=>w.fetch('/api/clientes',{
+    method:'POST',body:JSON.stringify({nombre,telefono:'0000000000'})
+  });
+  const pendingA=post(a,nameA);
+  for(let i=0;i<200&&writes.length<1;i++)await Promise.resolve();
+  assert.equal(writes.length,1);
+  assert.equal(writes[0].device,'A');
+  const pendingB=post(b,nameB);
+  for(let i=0;i<200&&writes.length<2;i++)await Promise.resolve();
+  assert.equal(writes.length,2,
+    'separate windows must reach CAS independently, without sharing a tab FIFO');
+  assert.equal(writes[1].device,'B');
+  assert.equal(writes[0].expected,writes[1].expected,
+    'both attempted to commit against the same previous durable revision');
+  // B wins the exact shared CAS. A must reject its stale snapshot.
+  assert.equal(writes[1].expected,revision);
+  persisted=writes[1].snapshot;
+  revision=persisted._rev;
+  writes[1].resolve(true);
+  const responseB=await pendingB;
+  assert.equal(responseB.status,200);
+  assert.notEqual(writes[0].expected,revision,'A is now objectively stale');
+  writes[0].resolve(false);
+  const responseA=await pendingA;
+  assert.notEqual(responseA.status,200,'stale losing customer must not be acknowledged');
+  assert.equal(persisted.clientes.filter(c=>c.nombre===nameA).length,0);
+  assert.equal(persisted.clientes.filter(c=>c.nombre===nameB).length,1,
+    'failed A must not delete B from the shared durable snapshot');
+  assert.equal(persisted.movimientos.filter(m=>m.tipo==='cliente-alta'&&m.detalle?.cliente===nameB).length,1,
+    'winning B keeps one durable audit movement');
+  const reopened=browser(a.localStorage);
+  reopened.OCAuth={rolActual:()=> 'dueno'};
+  const after=await reopened.request('/api/clientes');
+  assert.equal(after.filter(c=>c.nombre===nameB).length,1,
+    'the winning durable customer must survive a fresh same-apparatus reload');
+  assert.equal(after.filter(c=>c.nombre===nameA).length,0,
+    'the losing tab must not resurrect its uncommitted customer');
+});
