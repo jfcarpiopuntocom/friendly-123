@@ -76,7 +76,7 @@ async function checkpointProbe(cipherBytes, advertised = true) {
   permiteCkpt:true,API:{clave:'synthetic',rollout:{outboxV2:false,gzipWrite:false}},
   _currentPullState:null,_appliedPullCursor:{rev:0,seq:1},
   partesEntrantes:{},doc:{store:{}},
-  Y:{encodeStateAsUpdate:()=>full},_outbox:{pending:[],checkpoint:''},
+  Y:{encodeStateAsUpdate:()=>full},_outbox:{pending:[],checkpoint:''},_unsaved:[],
   MAX_OP_BYTES:250*1024,MAX_CKPT_RPC_BYTES:256*1024,MAX_CKPT_CIPHER_BYTES:768*1024,
   _b64:bytes=>Buffer.from(bytes).toString('base64'),
   _frame:()=>new Uint8Array(1),
@@ -172,7 +172,7 @@ test('S3: read-only catalog collection audit returns only names, counts and esti
 // P0 regression contract: a successful ACK on one durable provider is NOT proof
 // that the same ciphertext checkpoint exists on the other durable provider.
 // This is a synthetic-only VM fixture; no real stores, keys or network calls.
-async function probeCheckpointSource(previousProof, activeLayer) {
+async function probeCheckpointSource(previousProof, activeLayer, unsaved = [], calls = 1) {
  const at=sync.indexOf('    function hacerCkpt() {');
  const end=sync.indexOf('    function conectar() {',at);
  assert.ok(at>0&&end>at);
@@ -189,16 +189,17 @@ async function probeCheckpointSource(previousProof, activeLayer) {
   partesEntrantes:{},doc:{store:{}},
   Y:{encodeStateAsUpdate:()=>full},
   _outbox:{pending:[],checkpoint:state,checkpointLayer:previousProof,confirmed:[]},
+  _unsaved:unsaved,
   MAX_CKPT_RPC_BYTES:256*1024,MAX_CKPT_CIPHER_BYTES:768*1024,
   _b64:bytes=>Buffer.from(bytes).toString('base64'),
   _frame:()=>new Uint8Array(1),
   cifrarBin:async()=>new Uint8Array(200).buffer,
   _compactarYjsSinCambiarCausalidad:()=>null,
-  guardarSobre:entry=>saved.push(entry),
+  guardarSobre:entry=>{ saved.push(entry); unsaved.push(entry); },
   diagnosticarCkpt(){},nombre:'catalogo',log(){}
  });
  vm.runInContext(sync.slice(at,end),ctx);
- vm.runInContext('hacerCkpt()',ctx);
+ for (let i=0;i<calls;i++) vm.runInContext('hacerCkpt()',ctx);
  await new Promise(resolve=>setImmediate(resolve));
  await new Promise(resolve=>setImmediate(resolve));
  return saved;
@@ -216,6 +217,15 @@ test('P0: confirmed same-layer checkpoint does not re-send identical snapshot',a
 test('P0: legacy checkpoint with unknown provider must not certify a different durable provider',async()=>{
  const sent=await probeCheckpointSource(null,'f123_relay_cupo_fb_v1');
  assert.equal(sent.length,1,'legacy global hash is not proof of Firebase persistence');
+});
+
+test('P0: a checkpoint awaiting local durable save is not duplicated',async()=>{
+ const sent=await probeCheckpointSource(null,'f123_relay_cupo_fb_v1',[{k:'ckpt',id:'pending-local-save'}]);
+ assert.equal(sent.length,0,'an unsaved checkpoint is already queued for durable save');
+});
+test('P0: overlapping checkpoint encryption queues only one snapshot',async()=>{
+ const sent=await probeCheckpointSource(null,'f123_relay_cupo_fb_v1',[],2);
+ assert.equal(sent.length,1,'overlapping encryptions cannot enqueue duplicate checkpoints');
 });
 
 
