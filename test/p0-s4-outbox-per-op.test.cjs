@@ -54,7 +54,7 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  const old={pending:[
   {k:'op',id:'A',c:'synthetic-cipher-A',fingerprint:'f-A'},
   {k:'op',id:'B',c:'synthetic-cipher-B',fingerprint:'f-B',group:'grp'}
- ],checkpoint:'synthetic-only',confirmed:['already-acked']};
+ ],checkpoint:'synthetic-only',checkpointLayer:'f123_relay_cupo_v1',confirmed:['already-acked']};
  await rawPut(legacyKey,old);
  const begin=source.indexOf('    var _v2DB = null, _v2Ready = null, _v2Cache = null');
  const end=source.indexOf('    function mutarOutbox(change) {',begin);
@@ -77,6 +77,7 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  assert.equal(migrated.pending.length,2);
  assert.equal((await rawGet(legacyKey)),undefined,'monolith deleted on same transaction only after copies');
  assert.equal((await rawGet(metaKey)).v,2);
+ assert.equal((await rawGet(metaKey)).checkpointLayer,'f123_relay_cupo_v1','migration preserves source-specific proof');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:A')).c,'synthetic-cipher-A');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:B')).group,'grp');
  migrated.pending.push({k:'op',id:'C',c:'synthetic-cipher-C',fingerprint:'f-C'});
@@ -85,12 +86,62 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:C')).c,'synthetic-cipher-C');
  const b=harness(true),reopened=await b.getQueue();
  assert.deepEqual(Array.from(reopened.pending,x=>String(x.id)),['A','B','C']);
+ assert.equal(reopened.checkpointLayer,'f123_relay_cupo_v1','reload must retain ACK layer');
  reopened.pending=reopened.pending.filter(x=>x.id!=='B');
+ reopened.checkpointLayer='f123_relay_cupo_fb_v1';
  await b.putQueue(reopened);
+ assert.equal((await rawGet(metaKey)).checkpointLayer,'f123_relay_cupo_fb_v1','provider proof persists atomically with outbox metadata');
+ const c=harness(true),reloaded=await c.getQueue();
+ assert.equal(reloaded.checkpointLayer,'f123_relay_cupo_fb_v1','a later reload sees updated layer proof');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:B')),undefined,'ACK removes only retired envelope');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:A')).c,'synthetic-cipher-A');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:C')).c,'synthetic-cipher-C');
  db.close();
+});
+
+test('S4 shared IndexedDB deduplicates only identical checkpoint cuts across tabs',async()=>{
+ const {indexedDB,IDBKeyRange}=require('fake-indexeddb'),vm=require('node:vm');
+ const db=await new Promise((resolve,reject)=>{
+  const req=indexedDB.open('s4-checkpoint-tabs-'+Date.now(),1);
+  req.onupgradeneeded=()=>req.result.createObjectStore('custom');
+  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+ });
+ const get=key=>new Promise((resolve,reject)=>{
+  const req=db.transaction('custom','readonly').objectStore('custom').get(key);
+  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+ });
+ const put=(key,value)=>new Promise((resolve,reject)=>{
+  const tx=db.transaction('custom','readwrite');tx.objectStore('custom').put(value,key);
+  tx.oncomplete=resolve;tx.onerror=tx.onabort=()=>reject(tx.error);
+ });
+ let lock=Promise.resolve();
+ const locks={request(_name,fn){const next=lock.then(fn);lock=next.catch(()=>{});return next}};
+ const begin=source.indexOf('    var _v2DB = null, _v2Ready = null, _v2Cache = null');
+ const end=source.indexOf('    var _durableQueue = leerOutbox()',begin);
+ assert.ok(begin>0&&end>begin,'use production v2 outbox and mutation logic');
+ function tab(entry){
+  const ctx=vm.createContext({API:{rollout:{outboxV2:true},roomId:'synthetic'},suffix:'-y',
+   persistencia:{db,_db:Promise.resolve(db),get,set:put},IDBKeyRange,localStorage:{},
+   _outboxKey:'f123_relay_outbox_v1-y',_outbox:{pending:[],confirmed:[],checkpoint:''},
+   _unsaved:[entry],_groupAcks:new Set(),navigator:{locks},avisarDurable(){},log(){}});
+  vm.runInContext(source.slice(begin,end),ctx);
+  return ctx;
+ }
+ const ck=(id,state,seq)=>({k:'ckpt',id,state,rev:1,seq,c:'synthetic'});
+ try {
+  const a=tab(ck('A','same',2)),b=tab(ck('B','same',2));
+  await Promise.all([a.mutarOutbox(()=>{}),b.mutarOutbox(()=>{})]);
+  let read=await a.leerOutbox();
+  assert.deepEqual(Array.from(read.pending,x=>x.id),['A']);
+  const c=tab(ck('C','different',2)),d=tab(ck('D','same',3));
+  await Promise.all([c.mutarOutbox(()=>{}),d.mutarOutbox(()=>{})]);
+  read=await a.leerOutbox();
+  assert.deepEqual(Array.from(read.pending,x=>x.id).sort(),['A','C','D']);
+  const e=tab(ck('E','same',2));
+  await e.mutarOutbox(()=>{e._outbox.pending=e._outbox.pending.filter(x=>x.id!=='A')});
+  read=await a.leerOutbox();
+  assert.deepEqual(Array.from(read.pending,x=>x.id).sort(),['C','D','E'],'ACK of the older entry cannot erase its concurrently prepared replacement');
+ } finally {db.close();}
 });
 
 test('S4 never duplicates a large customer backlog or deletes the v1 source',async()=>{
