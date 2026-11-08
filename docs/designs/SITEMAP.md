@@ -11,4 +11,4 @@ Binding upstream architecture: [MDD-2026-10-31](../architecture/MDD-2026-10-31-l
 
 Known unresolved: [#584 cold-join](https://github.com/jfcarpiopuntocom/friendly-123/issues/584), [#621 newest physical 15 vs obsolete PWA 33](https://github.com/jfcarpiopuntocom/friendly-123/issues/621); [#629](https://github.com/jfcarpiopuntocom/friendly-123/pull/629) runtime candidate and [#618](https://github.com/jfcarpiopuntocom/friendly-123/pull/618) commissions remain DRAFT.
 
-Only this docs folder is changed in the present PR. Do not infer production rollout.
+This PR changes **only** the three design documents, one Node.js documentation-guard test (`test/p0-egm-stable-doc-contract.test.cjs`) and one read-only CI workflow (`.github/workflows/p0-egm-stable-contract.yml`). Neither the guard nor a green CI result constitutes fresh Goldfish review, release authorization, a physical acceptance, or a runtime change.
