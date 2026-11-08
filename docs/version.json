@@ -1,10 +1,10 @@
 {
-  "version": "shell v692",
+  "version": "shell v693",
   "fecha": "2026-11-07",
-  "changelog": "P0 iOS PWA→Safari physical count: after strict local ACK, synchronously seed the exact new physical epoch into the existing Sync3 catalog, keeping the delayed event retry; no delta emitted, no transport changes.",
+  "changelog": "DRAFT candidate only: Commissions bounded active read batches and HTTP error handling (#618) on v692. Preserve Sync3, sales, inventory, PIN, photos, and business facts. Not published.",
   "requerida": false,
-  "shell": "f123-shell-v692",
+  "shell": "f123-shell-v693",
   "apagar": [],
-  "releaseName": "shell v692",
-  "cacheGeneration": "golden236"
+  "releaseName": "shell v693",
+  "cacheGeneration": "golden237"
 }
