@@ -1,4 +1,4 @@
-name: QA P0 synthetic cold join observe 90s (NOT acceptance)
+name: QA P0 synthetic cold join observe 8m (NOT acceptance)
 on:
   pull_request:
     paths:
@@ -11,7 +11,7 @@ jobs:
   observe-only:
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,5 +31,5 @@ jobs:
           F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
           F123_CANARIO_SOLO_OBSERVAR: '1'
         run: |
-          echo 'SYNTHETIC OBSERVATION ONLY: 90-second recovery diagnostic, NOT a stable/Owner gate.'
+          echo 'SYNTHETIC OBSERVATION ONLY: bounded eight-minute recovery diagnostic, NOT a stable/Owner gate.'
           node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/
