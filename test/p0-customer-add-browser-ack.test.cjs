@@ -35,12 +35,20 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await page.goto(pageURL,{waitUntil:'domcontentloaded'});
    await page.waitForFunction(()=>typeof window.cargarClientes==='function'&&
      !!window.OCAuth&&typeof window.OCEstadoIDB?.guardarConRevision==='function');
-   await page.evaluate(async()=>{window.OCAuth.rolActual=()=> 'dueno';await cargarClientes();});
+   await page.evaluate(async()=>{
+     window.OCAuth.rolActual=()=> 'dueno';
+     document.getElementById('oc-gate')?.remove();
+     await cargarClientes();
+     document.querySelectorAll('.vista').forEach(v=>v.style.display='none');
+     document.getElementById('vista-clientes').style.display='block';
+     document.getElementById('cliAltaPlegable').open=true;
+   });
    assert.equal(await page.locator('#btnAltaCliente').getAttribute('data-listo'),'1',
      'the actual Add button must have the production click handler');
    const good='Synthetic browser durable customer '+engineName;
    const tel='0000000000',email='customer-browser@example.invalid';
    await fields(page,good,tel,email);
+   const displayedTel=await page.locator('#cliTelefono').inputValue();
    await page.evaluate(target=>{
      const idb=window.OCEstadoIDB,commit=idb.guardarConRevision.bind(idb);
      let release;
@@ -58,7 +66,7 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.equal(state.disabled,true,'button stays disabled while strict IDB ACK is held');
    assert.equal(state.pending,true,'updater guard tracks pending Add');
    assert.equal(state.nombre,good);
-   assert.equal(state.telefono,tel);
+   assert.equal(state.telefono,displayedTel,'pending form retains the formatted phone value');
    assert.equal(state.email,email);
    assert.doesNotMatch(state.msg,/registered|registrado/i,'no success before durable ACK');
    // Dispatch a second click even though browsers normally suppress disabled
@@ -81,13 +89,21 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await page.reload({waitUntil:'domcontentloaded'});
    await page.waitForFunction(()=>typeof window.cargarClientes==='function'&&
      !!window.OCAuth&&typeof window.OCEstadoIDB?.guardarConRevision==='function');
-   await page.evaluate(async()=>{window.OCAuth.rolActual=()=> 'dueno';await cargarClientes();});
+   await page.evaluate(async()=>{
+     window.OCAuth.rolActual=()=> 'dueno';
+     document.getElementById('oc-gate')?.remove();
+     await cargarClientes();
+     document.querySelectorAll('.vista').forEach(v=>v.style.display='none');
+     document.getElementById('vista-clientes').style.display='block';
+     document.getElementById('cliAltaPlegable').open=true;
+   });
    records=await page.evaluate(async()=>(await(await fetch('/api/clientes')).json()));
    assert.equal(records.filter(c=>c.nombre===good).length,1,'same-device reopening retains the exact client');
 
    const failed='Synthetic browser rejected customer '+engineName;
    const failTel='0990000000',failEmail='draft-browser@example.invalid';
    await fields(page,failed,failTel,failEmail);
+   const displayedFailTel=await page.locator('#cliTelefono').inputValue();
    await page.evaluate(target=>{
      const idb=window.OCEstadoIDB,commit=idb.guardarConRevision.bind(idb);
      idb.guardarConRevision=(snapshot,revision)=>{
@@ -101,7 +117,7 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    state=await formState(page);
    assert.equal(state.disabled,false);
    assert.equal(state.nombre,failed,'rejected Add must preserve draft name');
-   assert.equal(state.telefono,failTel,'rejected Add must preserve draft phone');
+   assert.equal(state.telefono,displayedFailTel,'rejected Add must preserve draft phone');
    assert.equal(state.email,failEmail,'rejected Add must preserve draft email');
    assert.match(state.msg,/not saved|could not be saved|no se/i,'rejected Add must display a visible error');
    records=await page.evaluate(async()=>(await(await fetch('/api/clientes')).json()));
