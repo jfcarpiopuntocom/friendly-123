@@ -162,6 +162,78 @@ const contarOperaciones = p => p.evaluate(async () => {
   finally { if (timer !== null) clearTimeout(timer); }
 }).catch(() => ({ consultado: false, operaciones: null }));
 
+
+// Bounded statistical SAMPLE of server timestamps from the existing synthetic
+// Firebase room. Uses ONLY shallow key listings + child /s.json numeric metadata.
+// Firebase explicitly forbids mixing shallow=true with orderBy/startAt.
+// Never GET /o/<id>.json or /k/<rev>.json (which contain ciphertext).
+// Only aggregate counts leave browser memory; unknown remains fail-closed.
+const sondearColaCheckpoint = p => p.evaluate(async () => {
+  const unknown = { consultado: false, total: null, muestra: null,
+    posteriores: null, anterioresOIguales: null };
+  let timer = null;
+  try {
+    const y = window.OCYjs, room = y && y.roomId;
+    const ws = y && y.canal && y.canal.ws;
+    if (!ws || ws.relayLayer !== 'f123_relay_cupo_fb_v1' ||
+        typeof room !== 'string' || !/^[a-f0-9]{40}$/.test(room)) return unknown;
+    const base = 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/' + room + '-y';
+    const options = { method: 'GET', credentials: 'omit', cache: 'no-store' };
+    async function getMetadata(path, maxChars) {
+      const r = await fetch(base + path, options);
+      if (!r || !r.ok) throw new Error('unavailable');
+      const size = Number(r.headers && r.headers.get && r.headers.get('content-length') || 0);
+      if (!Number.isFinite(size) || size > maxChars) throw new Error('oversized');
+      const data = await r.text();
+      if (data.length > maxChars) throw new Error('oversized');
+      return JSON.parse(data);
+    }
+    const compute = async () => {
+      const revTree = await getMetadata('/k.json?shallow=true', 131072);
+      if (!revTree || typeof revTree !== 'object' || Array.isArray(revTree)) return unknown;
+      const revisions = Object.keys(revTree).filter(k =>
+        /^[1-9]\d*$/.test(k) && Number.isSafeInteger(Number(k)) && revTree[k] === true);
+      if (revisions.length === 0) return unknown;
+      revisions.sort((a, b) => Number(a) - Number(b));
+      const revision = revisions[revisions.length - 1];
+      const cut = await getMetadata('/k/' + revision + '/s.json', 128);
+      if (!Number.isSafeInteger(cut) || cut < 0) return unknown;
+
+      const tree = await getMetadata('/o.json?shallow=true', 3 * 1024 * 1024);
+      if (tree === null) return { consultado: true, total: 0, muestra: 0,
+        posteriores: 0, anterioresOIguales: 0 };
+      if (!tree || typeof tree !== 'object' || Array.isArray(tree)) return unknown;
+      const ids = Object.keys(tree);
+      if (!ids.every(id => tree[id] === true)) return unknown;
+      const n = Math.min(ids.length, 32);
+      // Fisher-Yates partial shuffle: uniform sample without replacement.
+      for (let j = 0; j < n; j++) {
+        const k = j + Math.floor(Math.random() * (ids.length - j));
+        const previous = ids[j]; ids[j] = ids[k]; ids[k] = previous;
+      }
+      let pos = 0, newer = 0, older = 0;
+      const worker = async () => {
+        while (pos < n) {
+          const id = ids[pos++];
+          // Single primitive field; the operation's encrypted /c is NEVER requested.
+          const seq = await getMetadata('/o/' + encodeURIComponent(id) + '/s.json', 128);
+          if (!Number.isSafeInteger(seq) || seq < 0) throw new Error('invalid timestamp');
+          if (seq > cut) newer++; else older++;
+        }
+      };
+      await Promise.all(Array.from({length:Math.min(n,4)},worker));
+      return { consultado: true, total: ids.length, muestra: n,
+        posteriores: newer, anterioresOIguales: older };
+    };
+    return await Promise.race([
+      compute(),
+      new Promise(resolve => { timer = setTimeout(() => resolve(unknown), 12000); })
+    ]);
+  } catch (_) { return unknown; }
+  finally { if (timer !== null) clearTimeout(timer); }
+}).catch(() => ({ consultado: false, total: null, muestra: null,
+  posteriores: null, anterioresOIguales: null }));
+
 const diagnostico = (p, licencia) => p.evaluate((lic) => {
   try {
     const o = JSON.parse(localStorage.getItem('f123_owned') || '{}');
@@ -385,6 +457,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
   // Diagnostic-only GET after the recovery gate; cannot turn an incomplete
   // Yjs history into GREEN or cause an extra Owner PIN attempt.
   if (SOLO_OBSERVAR) console.log('CANARIO_OPERACIONES_SHALLOW:', JSON.stringify(await contarOperaciones(p)));
+  if (SOLO_OBSERVAR) console.log('CANARIO_MUESTRA_CORTE:', JSON.stringify(await sondearColaCheckpoint(p)));
   console.log('CANARIO_CHECKPOINT:', JSON.stringify(await consultarCheckpoint(p)));
   console.log('CANARIO_DIAGNOSTICO:', JSON.stringify(ultima));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
