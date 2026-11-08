@@ -67,12 +67,66 @@ test('two tabs retain each others unacknowledged updates under the shared lock',
  a.socket.onmessage({data:JSON.stringify({k:'persist-result',id:op.id,kind:'op',ok:true})});await tick();await tick();
  assert.equal(data.get('f123_relay_outbox_v1-y').pending.length,1,'one ack cannot erase the other tab');
 });
+test('overlapping checkpoint encryption keeps one durable outbox entry',async()=>{
+ const a=await fixture();
+ const encrypted=[];
+ a.ctx.cifrarBin=(_key,bytes)=>new Promise(resolve=>encrypted.push(()=>resolve(bytes.slice().buffer)));
+ const checkpoint=a.timers.find(t=>t.ms===2500).fn;
+ checkpoint();checkpoint();
+ await esperar(()=>encrypted.length===2,'both checkpoint encryptions must overlap');
+ encrypted.forEach(finish=>finish());
+ await esperar(()=>controls(a.socket,'ckpt').length>0,'checkpoint reaches durable relay');
+ await tick();await tick();
+ assert.equal(controls(a.socket,'ckpt').length,1,'only one checkpoint is sent');
+ assert.equal(a.data.get('f123_relay_outbox_v1-y').pending.filter(entry=>entry.k==='ckpt').length,1,'one checkpoint remains durable until ACK');
+});
+test('two tabs do not queue duplicate identical checkpoints',async()=>{
+ const data=new Map();let queue=Promise.resolve();
+ const locks={request(_name,fn){const next=queue.then(fn);queue=next.catch(()=>{});return next}};
+ const a=await fixture(data,locks),b=await fixture(data,locks);
+ const encrypted=[];
+ for(const tab of [a,b]) {
+  tab.ctx.cifrarBin=(_key,bytes)=>new Promise(resolve=>encrypted.push(()=>resolve(bytes.slice().buffer)));
+  tab.timers.find(t=>t.ms===2500).fn();
+ }
+ await esperar(()=>encrypted.length===2,'both tabs prepare their checkpoint');
+ encrypted.forEach(finish=>finish());
+ await esperar(()=>data.get('f123_relay_outbox_v1-y')?.pending.some(entry=>entry.k==='ckpt'),'checkpoint reaches durable storage');
+ await queue;await tick();await queue;await tick();
+ assert.equal(data.get('f123_relay_outbox_v1-y').pending.filter(entry=>entry.k==='ckpt').length,1,'shared outbox retains one identical snapshot');
+});
+test('two tabs retain different checkpoints',async()=>{
+ const data=new Map();let queue=Promise.resolve();
+ const locks={request(_name,fn){const next=queue.then(fn);queue=next.catch(()=>{});return next}};
+ const a=await fixture(data,locks),b=await fixture(data,locks);
+ b.Y.encodeStateAsUpdate=()=>new Uint8Array(20).fill(9);
+ a.timers.find(t=>t.ms===2500).fn();b.timers.find(t=>t.ms===2500).fn();
+ await esperar(()=>data.get('f123_relay_outbox_v1-y')?.pending.filter(entry=>entry.k==='ckpt').length===2,'different snapshots both persist');
+ assert.notEqual(data.get('f123_relay_outbox_v1-y').pending[0].state,data.get('f123_relay_outbox_v1-y').pending[1].state);
+});
+test('two tabs retain equal snapshots with different recovery cuts',async()=>{
+ const data=new Map();let queue=Promise.resolve();
+ const locks={request(_name,fn){const next=queue.then(fn);queue=next.catch(()=>{});return next}};
+ const a=await fixture(data,locks),b=await fixture(data,locks);
+ b.socket.onmessage({data:JSON.stringify({k:'pull-page',rev:0,seq:1,more:false})});
+ await esperar(()=>data.get('f123_yjs_pull_cursor_v2-y')?.seq===1,'newer recovery cut persists');
+ a.timers.find(t=>t.ms===2500).fn();b.timers.find(t=>t.ms===2500).fn();
+ await esperar(()=>data.get('f123_relay_outbox_v1-y')?.pending.filter(entry=>entry.k==='ckpt').length===2,'different cuts both persist');
+ assert.notEqual(data.get('f123_relay_outbox_v1-y').pending[0].seq,data.get('f123_relay_outbox_v1-y').pending[1].seq);
+});
 test('acknowledged unchanged checkpoint is not rewritten after reload',async()=>{
- const a=await fixture();await a.timers.find(t=>t.ms===2500).fn();await tick();await tick();
+ const a=await fixture();
+ // Prove SAME durable adapter: a generic ACK is not evidence for Firebase.
+ const layer='f123_relay_cupo_fb_v1';
+ a.socket.relayLayer=layer;
+ await a.timers.find(t=>t.ms===2500).fn();await tick();await tick();
  const ck=a.socket.sent.filter(x=>typeof x==='string').map(JSON.parse).find(x=>x.k==='ckpt');assert.ok(ck);
- a.socket.onmessage({data:JSON.stringify({k:'persist-result',id:ck.id,kind:'ckpt',ok:true})});await tick();await tick();
- const b=await fixture(a.data);await b.timers.find(t=>t.ms===2500).fn();await tick();await tick();
- assert.ok(!b.socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).k==='ckpt'));
+ a.socket.onmessage({data:JSON.stringify({k:'persist-result',id:ck.id,kind:'ckpt',ok:true}),persistLayer:layer});await tick();await tick();
+ assert.equal(a.data.get('f123_relay_outbox_v1-y').checkpointLayer,layer,'proof must be durable, scoped and persisted');
+ const b=await fixture(a.data);
+ b.socket.relayLayer=layer;await b.timers.find(t=>t.ms===2500).fn();await tick();await tick();
+ assert.ok(!b.socket.sent.some(x=>typeof x==='string'&&JSON.parse(x).k==='ckpt'),
+  'same-layer ACK must still suppress identical snapshots after restart');
 });
 
 for (const next of [{rev:0,seq:2},{rev:1,seq:0}]) {

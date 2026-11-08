@@ -76,7 +76,7 @@ async function checkpointProbe(cipherBytes, advertised = true) {
   permiteCkpt:true,API:{clave:'synthetic',rollout:{outboxV2:false,gzipWrite:false}},
   _currentPullState:null,_appliedPullCursor:{rev:0,seq:1},
   partesEntrantes:{},doc:{store:{}},
-  Y:{encodeStateAsUpdate:()=>full},_outbox:{pending:[],checkpoint:''},
+  Y:{encodeStateAsUpdate:()=>full},_outbox:{pending:[],checkpoint:''},_unsaved:[],
   MAX_OP_BYTES:250*1024,MAX_CKPT_RPC_BYTES:256*1024,MAX_CKPT_CIPHER_BYTES:768*1024,
   _b64:bytes=>Buffer.from(bytes).toString('base64'),
   _frame:()=>new Uint8Array(1),
@@ -166,4 +166,153 @@ test('S3: read-only catalog collection audit returns only names, counts and esti
  assert.equal(rows.find(x=>x.coleccion==='_stock_pn_testigos_v1').entradas,1);
  assert.ok(rows.every(x=>Object.keys(x).sort().join(',')==='bytesJSONVisibles,coleccion,entradas'));
  assert.doesNotMatch(JSON.stringify(rows),/private-|product-value|sale-value/);
+});
+
+
+// P0 regression contract: a successful ACK on one durable provider is NOT proof
+// that the same ciphertext checkpoint exists on the other durable provider.
+// This is a synthetic-only VM fixture; no real stores, keys or network calls.
+async function probeCheckpointSource(previousProof, activeLayer, unsaved = [], calls = 1) {
+ const at=sync.indexOf('    function hacerCkpt() {');
+ const end=sync.indexOf('    function conectar() {',at);
+ assert.ok(at>0&&end>at);
+ const full=new Uint8Array(128).fill(7);
+ const state=Buffer.from(full).toString('base64');
+ const saved=[];
+ const ctx=vm.createContext({
+  window:{F123Relay:{ckptFrameBytes:786432}},
+  _soloMemoria:false,
+  canal:{ws:{readyState:1,peerOnly:false,relayLayer:activeLayer},recuperando:false},
+  permiteCkpt:true,
+  API:{clave:'SYNTHETIC-ONLY',rollout:{outboxV2:false,gzipWrite:false}},
+  _currentPullState:null,_appliedPullCursor:{rev:1,seq:2},
+  partesEntrantes:{},doc:{store:{}},
+  Y:{encodeStateAsUpdate:()=>full},
+  _outbox:{pending:[],checkpoint:state,checkpointLayer:previousProof,confirmed:[]},
+  _unsaved:unsaved,
+  MAX_CKPT_RPC_BYTES:256*1024,MAX_CKPT_CIPHER_BYTES:768*1024,
+  _b64:bytes=>Buffer.from(bytes).toString('base64'),
+  _frame:()=>new Uint8Array(1),
+  cifrarBin:async()=>new Uint8Array(200).buffer,
+  _compactarYjsSinCambiarCausalidad:()=>null,
+  guardarSobre:entry=>{ saved.push(entry); unsaved.push(entry); },
+  diagnosticarCkpt(){},nombre:'catalogo',log(){}
+ });
+ vm.runInContext(sync.slice(at,end),ctx);
+ for (let i=0;i<calls;i++) vm.runInContext('hacerCkpt()',ctx);
+ await new Promise(resolve=>setImmediate(resolve));
+ await new Promise(resolve=>setImmediate(resolve));
+ return saved;
+}
+test('P0: confirmed Supabase snapshot must be offered to Firebase after a durable layer change',async()=>{
+ const sent=await probeCheckpointSource('f123_relay_cupo_v1','f123_relay_cupo_fb_v1');
+ assert.equal(sent.length,1,'a checkpoint ACK on Supabase cannot certify Firebase: do not suppress re-publish');
+ assert.equal(sent[0].k,'ckpt');
+ assert.equal(sent[0].state,Buffer.from(new Uint8Array(128).fill(7)).toString('base64'));
+});
+test('P0: confirmed same-layer checkpoint does not re-send identical snapshot',async()=>{
+ const sent=await probeCheckpointSource('f123_relay_cupo_fb_v1','f123_relay_cupo_fb_v1');
+ assert.equal(sent.length,0,'avoid inflating same-provider room and burning upload quota');
+});
+test('P0: legacy checkpoint with unknown provider must not certify a different durable provider',async()=>{
+ const sent=await probeCheckpointSource(null,'f123_relay_cupo_fb_v1');
+ assert.equal(sent.length,1,'legacy global hash is not proof of Firebase persistence');
+});
+
+test('P0: a checkpoint awaiting local durable save is not duplicated',async()=>{
+ const sent=await probeCheckpointSource(null,'f123_relay_cupo_fb_v1',[{k:'ckpt',id:'pending-local-save'}]);
+ assert.equal(sent.length,0,'an unsaved checkpoint is already queued for durable save');
+});
+test('P0: overlapping checkpoint encryption queues only one snapshot',async()=>{
+ const sent=await probeCheckpointSource(null,'f123_relay_cupo_fb_v1',[],2);
+ assert.equal(sent.length,1,'overlapping encryptions cannot enqueue duplicate checkpoints');
+});
+
+
+test('P0: checkpoint ACK provenance is source-tagged without altering Yjs pull/live classification',()=>{
+ const selector=fs.readFileSync(path.join(__dirname,'../docs/relay-selector.js'),'utf8');
+ assert.match(selector,/var persistLayer = typeof e\.data === "string"/);
+ assert.match(selector,/persistLayer: persistLayer/);
+ assert.match(selector,/relaySource: e\.relaySource, persistLayer:/,
+  'existing pull/live/peer source must remain unchanged');
+ assert.match(sync,/confirmarDurable\(c, ev\.persistLayer\)/);
+ assert.match(sync,/checkpointLayer:meta\.checkpointLayer \|\| ""/,'outbox v2 read preserves proof');
+ assert.match(sync,/checkpointLayer:_outbox\.checkpointLayer \|\| ""/,'outbox v2 write preserves proof');
+ assert.match(sync,/checkpointLayer: _outbox\.checkpointLayer \|\| ""/,'error rollback preserves proof');
+});
+
+async function checkpointAckProbe(layer, ok=true) {
+ const start=sync.indexOf('    function confirmarDurable(');
+ const end=sync.indexOf('    // P0 / 1AAA:',start);
+ assert.ok(start>=0&&end>start);
+ const ctx=vm.createContext({
+  _durableQueue:Promise.resolve(),_durableInFlight:{},_durableWatchdog:null,
+  _durableTimer:null,_durableDelay:2000,_groupAcks:new Set(),
+  _currentPullState:null,canal:{ws:{readyState:1}},
+  _outbox:{pending:[{id:'synthetic-ckpt',k:'ckpt',state:'SYNTHETIC-STATE'}],
+   confirmed:[],checkpoint:'',checkpointLayer:''},
+  _absorcion:null, _absorcionKey:'synthetic',
+  clearTimeout(){}, programarDurable(){},
+  diagnosticarCkpt(){},_vivos:()=>[], avisarDurable(){},
+  mutarOutbox:cb=>{cb();return Promise.resolve()}, drenarDurable(){}, log(){},
+  Object,Array,Set,Promise
+ });
+ vm.runInContext(sync.slice(start,end),ctx);
+ vm.runInContext('confirmarDurable({id:"synthetic-ckpt",kind:"ckpt",ok:'+ok+'},__source)',Object.assign(ctx,{__source:layer}));
+ await ctx._durableQueue;
+ return ctx._outbox;
+}
+test('P0: actual successful Firebase ACK proves Firebase, not generic relay',async()=>{
+ const d=await checkpointAckProbe('f123_relay_cupo_fb_v1');
+ assert.equal(d.checkpoint,'SYNTHETIC-STATE');
+ assert.equal(d.checkpointLayer,'f123_relay_cupo_fb_v1');
+ assert.equal(d.pending.length,0);
+});
+test('P0: unknown/peer ACK can retire but never certify a durable checkpoint provider',async()=>{
+ for(const layer of [null,'peer-live','SENSITIVE-ROOM']){
+  const d=await checkpointAckProbe(layer);
+  assert.equal(d.checkpointLayer,'');
+  assert.doesNotMatch(JSON.stringify(d),/SENSITIVE-ROOM/);
+ }
+});
+test('P0: negative Firebase ACK cannot create provider proof or discard checkpoint',async()=>{
+ const d=await checkpointAckProbe('f123_relay_cupo_fb_v1',false);
+ assert.equal(d.checkpointLayer,'');
+ assert.equal(d.checkpoint,'');
+ assert.equal(d.pending.length,1);
+});
+
+
+test('P0: actual relay-selector forwarded ACK preserves exact durable origin and binary relaySource',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../docs/relay-selector.js'),'utf8').replace(/\r\n/g,'\n');
+ const start=source.indexOf('        var persistLayer = typeof e.data === "string" &&');
+ const end=source.indexOf('\n      });\n      ws.addEventListener("error"',start);
+ assert.ok(start>0&&end>start,'exercise actual relay-selector dispatch expression');
+ const snippet=source.slice(start,end);
+ const layers=[
+  {key:'f123_relay_cupo_v1'},
+  {key:'f123_relay_cupo_fb_v1'}
+ ];
+ const dispatch=(orden,data,relaySource,peerAccepted=false)=>{
+  let event=null;
+  const context=vm.createContext({
+   x:{orden},capas:layers,e:{data,relaySource,peerAccepted,peerReceipt:null,peerAck:null},
+   emitir:(type,payload)=>{assert.equal(type,'message');event=payload}
+  });
+  vm.runInContext(snippet,context);
+  return event;
+ };
+ const ack=JSON.stringify({k:'persist-result',kind:'ckpt',id:'synthetic',ok:true});
+ const sb=dispatch(0,ack,undefined),fb=dispatch(1,ack,undefined);
+ assert.equal(sb.persistLayer,'f123_relay_cupo_v1');
+ assert.equal(fb.persistLayer,'f123_relay_cupo_fb_v1');
+ const peer=dispatch(2,ack,'peer-live',true);
+ assert.equal(peer.persistLayer,null,'peers never certify a durable relay');
+ assert.equal(peer.relaySource,'peer-live');
+ const binary=dispatch(1,new Uint8Array([2,3]).buffer,'pull');
+ assert.equal(binary.persistLayer,null,'binary Yjs pages cannot be mistaken for persistence ACKs');
+ assert.equal(binary.relaySource,'pull','Yjs durable cursor classification stays unchanged');
+ const live=dispatch(0,new Uint8Array([4]).buffer,'live');
+ assert.equal(live.relaySource,'live');
+ assert.equal(live.persistLayer,null);
 });
