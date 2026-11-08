@@ -93,3 +93,86 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   }finally{await web.close();}
  });
 }
+
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test('P0 one browser '+name+': rejected strict CAS does not create a phantom sale, stock or audit',
+ {timeout:60000},async()=>{
+  const web=await engine.launch({headless:true});
+  try{
+   const context=await web.newContext();
+   await context.route(u=>!/^(file|data|blob|about):/.test(u.protocol),route=>route.abort());
+   const page=await context.newPage();
+   await page.addInitScript(WS_STUB);
+   page.setDefaultTimeout(10000);
+   await page.goto(INDEX,{waitUntil:'domcontentloaded'});
+   await page.waitForFunction(()=>!!window.OCAuth&&
+     typeof window.OCEstadoIDB?.guardarConRevision==='function');
+   const id=await page.evaluate(async engineName=>{
+     OCAuth.rolActual=()=> 'dueno';
+     const res=await fetch('/api/productos',{
+       method:'POST',
+       body:JSON.stringify({nombre:'Synthetic rejected sale '+engineName,
+         barcode:'P0-REJECT-SALE-'+engineName,precio:18,costo:7,stockInicial:4})
+     });
+     const p=await res.json();
+     if(!res.ok)throw Error('setup product: '+JSON.stringify(p));
+     return p.id;
+   },name);
+   const baseline=await page.evaluate(async productId=>{
+     const s=await(await fetch('/api/respaldo/exportar')).json();
+     return {
+       stock:s.productos.find(p=>p.id===productId)?.stockActual,
+       saleIds:s.ventas.filter(v=>v.productoId===productId).map(v=>v.id),
+       movementCount:s.movimientos.length
+     };
+   },id);
+   assert.equal(baseline.stock,4);
+   assert.equal(baseline.saleIds.length,0);
+   await page.evaluate(productId=>{
+     const idb=window.OCEstadoIDB;
+     const original=idb.guardarConRevision.bind(idb);
+     window.__p0RejectedCAS=0;
+     idb.guardarConRevision=(state,revision)=>{
+       if((state.ventas||[]).some(v=>v.productoId===productId)){
+         window.__p0RejectedCAS++;
+         return Promise.resolve(false);
+       }
+       return original(state,revision);
+     };
+   },id);
+   const response=await page.evaluate(async productId=>{
+     const r=await fetch('/api/productos/'+productId+'/venta',{
+       method:'POST',body:JSON.stringify({cantidad:1,info:{formaPago:'efectivo'}})
+     });
+     const json=await r.json();
+     return {status:r.status,code:json.code,error:json.error,
+       attempted:window.__p0RejectedCAS};
+   },id);
+   assert.equal(response.status,503,'non-quota strict CAS refusal is not a fake space error');
+   assert.equal(response.code,'SALE_DURABILITY_UNCONFIRMED');
+   assert.equal(response.attempted,1,'refusal must not be replayed without a newer durable revision');
+   const after=await page.evaluate(async productId=>{
+     const s=await(await fetch('/api/respaldo/exportar')).json();
+     return {
+       stock:s.productos.find(p=>p.id===productId)?.stockActual,
+       saleIds:s.ventas.filter(v=>v.productoId===productId).map(v=>v.id),
+       movementCount:s.movimientos.length
+     };
+   },id);
+   assert.deepEqual(after,baseline,'no phantom sale, stock change or audit after refused commit');
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.waitForFunction(()=>!!window.OCAuth&&!!window.OCEstadoIDB);
+   const reopened=await page.evaluate(async productId=>{
+     OCAuth.rolActual=()=> 'dueno';
+     const s=await(await fetch('/api/respaldo/exportar')).json();
+     return {
+       stock:s.productos.find(p=>p.id===productId)?.stockActual,
+       saleIds:s.ventas.filter(v=>v.productoId===productId).map(v=>v.id),
+       movementCount:s.movimientos.length
+     };
+   },id);
+   assert.deepEqual(reopened,baseline,'reloading one apparatus must not resurrect a refused sale');
+  }finally{await web.close();}
+ });
+}
