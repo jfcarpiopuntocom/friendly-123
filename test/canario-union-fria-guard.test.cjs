@@ -375,3 +375,60 @@ test('P0 shallow operation count rejects oversized or failed metadata responses 
   assert.equal(tooLarge.consultado,false);
   assert.equal(tooLarge.operaciones,null,'oversized metadata is UNKNOWN, not a false zero');
 });
+
+
+test('P0 sampled Firebase operation s metadata estimates post-CKPT tail without ciphertext or IDs', async () => {
+  const source=fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start=source.indexOf('const sondearColaCheckpoint = ');
+  const end=source.indexOf('\nconst diagnostico = ',start);
+  assert.ok(start>=0&&end>start,'bounded metadata-only tail sampling probe exists');
+  const room='c'.repeat(40),calls=[];
+  const base='/f123/'+room+'-y';
+  const fetchFake=async(url,opts)=>{
+    const u=new URL(url);calls.push({path:u.pathname,search:u.search});
+    assert.equal(u.origin,'https://friendly-123-ab7b3-default-rtdb.firebaseio.com');
+    assert.equal(opts.method,'GET','sampling must be read-only');
+    assert.equal(opts.credentials,'omit');
+    assert.ok(!u.searchParams.has('orderBy')&&!u.searchParams.has('startAt'),
+      'shallow cannot coexist with Firebase ordering/range');
+    const response=x=>({ok:true,headers:{get:()=> '80'},text:async()=>JSON.stringify(x),
+      json:async()=>x});
+    if(u.pathname===base+'/k.json'){assert.equal(u.searchParams.get('shallow'),'true');return response({'1':true})}
+    if(u.pathname===base+'/k/1/s.json')return response(150);
+    if(u.pathname===base+'/o.json'){assert.equal(u.searchParams.get('shallow'),'true');return response({'opA':true,'opB':true,'opC':true,'opD':true})}
+    const op=u.pathname.match(/\/o\/(op[A-D])\/s\.json$/);
+    assert.ok(op,'no encrypted op payload endpoint may be accessed');
+    return response({opA:100,opB:200,opC:150,opD:300}[op[1]]);
+  };
+  const ctx={window:{OCYjs:{roomId:room,canal:{ws:{relayLayer:'f123_relay_cupo_fb_v1'}}}},
+    fetch:fetchFake,Promise,Number,Object,JSON,URL,Math:{random:()=>0,floor:Math.floor,min:Math.min},
+    setTimeout,clearTimeout,encodeURIComponent};
+  vm.runInNewContext(source.slice(start,end)+';this.probe=sondearColaCheckpoint;',ctx);
+  const result=await ctx.probe({evaluate:async fn=>fn()});
+  assert.deepEqual(JSON.parse(JSON.stringify(result)),{
+    consultado:true,total:4,muestra:4,posteriores:2,anterioresOIguales:2
+  });
+  assert.equal(calls.length,7,'only 2 checkpoint metadata GETs, shallow op keys and 4 numeric s GETs');
+  assert.ok(!JSON.stringify(result).includes(room)&&!JSON.stringify(result).includes('opA'),
+    'no room, op ID or timestamp can leave the browser');
+});
+test('P0 sampled checkpoint metadata fails closed on HTTP error and rejects wrong relay layer',async()=>{
+  const source=fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start=source.indexOf('const sondearColaCheckpoint = ');
+  const end=source.indexOf('\nconst diagnostico = ',start);
+  assert.ok(start>=0&&end>start);
+  const room='d'.repeat(40),calls=[];
+  const scope={window:{OCYjs:{roomId:room,canal:{ws:{relayLayer:'peer'}}}},
+    fetch:async(url)=>{calls.push(url);return {ok:false,status:503}},Promise,Number,Object,JSON,URL,Math,
+    setTimeout,clearTimeout,encodeURIComponent};
+  vm.runInNewContext(source.slice(start,end)+';this.probe=sondearColaCheckpoint;',scope);
+  const page={evaluate:async fn=>fn()};
+  const wrong=await scope.probe(page);
+  assert.equal(wrong.consultado,false);
+  assert.equal(calls.length,0,'never query Firebase for a non-Firebase transport');
+  scope.window.OCYjs.canal.ws.relayLayer='f123_relay_cupo_fb_v1';
+  const down=await scope.probe(page);
+  assert.equal(down.consultado,false);
+  assert.equal(down.total,null);
+  assert.equal(calls.length,1,'HTTP 503 must abort without further GETs');
+});
