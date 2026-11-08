@@ -274,7 +274,7 @@ test('P0: negative Firebase ACK cannot create provider proof or discard checkpoi
 
 
 test('P0: actual relay-selector forwarded ACK preserves exact durable origin and binary relaySource',()=>{
- const source=fs.readFileSync(path.join(__dirname,'../docs/relay-selector.js'),'utf8');
+ const source=fs.readFileSync(path.join(__dirname,'../docs/relay-selector.js'),'utf8').replace(/\r\n/g,'\n');
  const start=source.indexOf('        var persistLayer = typeof e.data === "string" &&');
  const end=source.indexOf('\n      });\n      ws.addEventListener("error"',start);
  assert.ok(start>0&&end>start,'exercise actual relay-selector dispatch expression');
