@@ -27,10 +27,10 @@ jobs:
         run: |
           set -euo pipefail
           BASE=https://qa-p0-ckpt-cross-layer-proof-v692-friendly-123.jfcarpio.workers.dev
-          curl --fail --silent --show-error --location --max-time 30 "$BASE/sync-yjs.js" |
-            grep -q 'checkpointLayer'
-          curl --fail --silent --show-error --location --max-time 30 "$BASE/relay-selector.js" |
-            grep -q 'persistLayer'
+          curl --fail --silent --show-error --location --max-time 30 "$BASE/sync-yjs.js" --output "$RUNNER_TEMP/f123-sync-yjs.js"
+          grep -q 'checkpointLayer' "$RUNNER_TEMP/f123-sync-yjs.js"
+          curl --fail --silent --show-error --location --max-time 30 "$BASE/relay-selector.js" --output "$RUNNER_TEMP/f123-relay-selector.js"
+          grep -q 'persistLayer' "$RUNNER_TEMP/f123-relay-selector.js"
           echo "PREVIEW_CANDIDATE_PROVEN: true"
       - name: Cold join existing SYNTHETIC shop only (strict fail-closed)
         shell: bash
