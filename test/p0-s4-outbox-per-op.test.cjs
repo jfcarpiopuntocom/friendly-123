@@ -137,6 +137,10 @@ test('S4 shared IndexedDB deduplicates only identical checkpoint cuts across tab
   await Promise.all([c.mutarOutbox(()=>{}),d.mutarOutbox(()=>{})]);
   read=await a.leerOutbox();
   assert.deepEqual(Array.from(read.pending,x=>x.id).sort(),['A','C','D']);
+  const e=tab(ck('E','same',2));
+  await e.mutarOutbox(()=>{e._outbox.pending=e._outbox.pending.filter(x=>x.id!=='A')});
+  read=await a.leerOutbox();
+  assert.deepEqual(Array.from(read.pending,x=>x.id).sort(),['C','D','E'],'ACK of the older entry cannot erase its concurrently prepared replacement');
  } finally {db.close();}
 });
 
