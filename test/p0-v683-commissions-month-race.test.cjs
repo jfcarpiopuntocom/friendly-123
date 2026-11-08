@@ -168,3 +168,44 @@ test('P0 commissions: failed liquidaciones HTTP must show an error rather than s
  assert.match(f.cont.innerHTML,/Could not load commissions/);
  assert.equal(f.painted.length,0,'a failed money read must never paint as valid');
 });
+
+
+test('P0 same month: a newly recorded payment must appear in the final same-month refresh',async()=>{
+ const f=fixture();
+ vm.runInContext('_ocMesComisiones="2026-11"',f.context);
+ const older=vm.runInContext('cargarComisiones()',f.context);
+ const later=vm.runInContext('cargarComisiones()',f.context);
+ const latest=vm.runInContext('cargarComisiones()',f.context);
+ assert.equal(f.requests.length,5,'multiple refreshes start only one live batch');
+ // In this synthetic read fixture the first batch sees the pre-payment view.
+ // The transaction itself is not executed here: its durability is covered
+ // separately by the financial write tests. This asserts fresh read ordering.
+ const before=[
+   [{ubicacionId:'event-rack',mes:'2026-11',paymentStatus:'due',payoutId:null}],
+   [],
+   [{id:'synthetic-sale',mes:'2026-11',productoId:'event',liquidada:false}],
+   [{mes:'2026-11',actual:true,pendiente:12.75}],
+   {mes:'2026-11',porPagar:12.75}
+ ];
+ before.forEach((payload,i)=>deliver(f.requests[i],payload));
+ await older;
+ assert.equal(f.painted.length,0,'stale pre-payment read must not paint');
+ for(let tick=0;tick<30&&f.requests.length<10;tick++)await Promise.resolve();
+ assert.equal(f.requests.length,10,'only one trailing refresh may read after payment');
+ // After the synthetic payment is durable, the trailing read sees the paid state.
+ const after=[
+   [{ubicacionId:'event-rack',mes:'2026-11',paymentStatus:'paid',payoutId:'synthetic-payout'}],
+   [],
+   [{id:'synthetic-sale',mes:'2026-11',productoId:'event',liquidada:true}],
+   [{mes:'2026-11',actual:true,pendiente:0}],
+   {mes:'2026-11',porPagar:0}
+ ];
+ after.forEach((payload,i)=>deliver(f.requests[5+i],payload));
+ await Promise.all([later,latest]);
+ assert.equal(f.painted.length,1,'coalesced later requests paint only once');
+ assert.equal(f.painted[0].month,'2026-11');
+ assert.equal(f.painted[0].rows[0].paymentStatus,'paid','last read must contain the newly recorded payment');
+ assert.equal(f.painted[0].rows[0].payoutId,'synthetic-payout');
+ assert.equal(f.painted[0].sales[0].liquidada,true,'final sale projection must reflect payment');
+ assert.equal(f.cont.innerHTML,'','a successful payment read must not show an error');
+});
