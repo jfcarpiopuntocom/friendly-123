@@ -23,15 +23,32 @@ function deferred(){
 }
 function fixture(){
  const requests=[],painted=[],cont={innerHTML:''};
+ // Count requests that are still awaiting a response/body, not historical
+ // batches launched. This catches the original 14-live-reads failure mode.
+ let liveReads=0, peakReads=0;
  const context={API:'/api',painted,console,Promise,
   document:{getElementById:()=>cont},
   renderGestionPromotoras:()=>{},
   agruparVentasPorProducto:()=>[{ubicacionIds:new Set()}],
   window:{_ocMesAuto:null,_ocMesAutoHecho:true},
-  fetch:url=>{const d=deferred();requests.push({url,...d});return d.promise;}};
+  fetch:url=>{
+    const d=deferred();
+    liveReads++;
+    peakReads=Math.max(peakReads,liveReads);
+    let done=false;
+    const finish=()=>{if(!done){done=true;liveReads--;}};
+    // Preserve the actual asynchronous fetch/json semantics. A resolved
+    // response with JSON still pending counts as a live data read.
+    const tracked=d.promise.then(r=>{
+      if(!r || r.ok===false || typeof r.json!=='function'){finish();return r;}
+      return {...r,json:(...args)=>Promise.resolve().then(()=>r.json(...args)).finally(finish)};
+    },e=>{finish();throw e;});
+    requests.push({url,resolve:d.resolve,reject:d.reject});
+    return tracked;
+  }};
  vm.createContext(context);
  vm.runInContext(globalVar+declaration,context);
- return {context,requests,painted,cont};
+ return {context,requests,painted,cont,liveReads:()=>liveReads,peakReads:()=>peakReads};
 }
 const deliver=(req,payload)=>{
  req.resolve({ok:true,json:async()=>payload});
@@ -144,16 +161,22 @@ test('P0 active requests: a rejected liquidaciones read must not free its token 
    calls.push(vm.runInContext('cargarComisiones()',f.context));
  }
  assert.equal(f.requests.length,10,'two batches of five are initially active');
+ assert.equal(f.liveReads(),10,'all ten fetches are actually unresolved');
  f.requests[0].reject(Error('liquidaciones failed before sibling requests settled'));
  for(let tick=0;tick<25;tick++)await Promise.resolve();
+ assert.equal(f.liveReads(),9,'the early failed read settles but nine other network bodies remain live');
  assert.equal(f.requests.length,10,
    'still-active sibling requests keep the first token; 14 live requests must never result');
+ assert.equal(f.peakReads(),10,'no more than ten reads may be live despite the early failure');
  fulfillBatch(f.requests,0,'2025-01');
- for(let tick=0;tick<35 && f.requests.length<15;tick++)await Promise.resolve();
+ for(let tick=0;tick<60 && f.requests.length<15;tick++)await Promise.resolve();
  assert.equal(f.requests.length,15,'latest queued month starts only after entire first batch settles');
+ assert.ok(f.peakReads()<=10,
+   'a queued third month may start only after all five sibling bodies settled');
  fulfillBatch(f.requests,5,'2025-02');
  fulfillBatch(f.requests,10,'2025-03');
  await Promise.all(calls);
+ assert.equal(f.liveReads(),0,'all fetch and JSON body reads have settled');
  assert.equal(f.painted.length,1);
  assert.equal(f.painted[0].month,'2025-03');
 });
