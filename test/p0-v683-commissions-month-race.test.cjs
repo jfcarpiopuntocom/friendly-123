@@ -22,11 +22,13 @@ function deferred(){
  return {promise,resolve,reject};
 }
 function fixture(){
- const requests=[],painted=[],cont={innerHTML:''};
+ const requests=[],painted=[],cont={innerHTML:'',querySelector:()=>null};
  // Count requests that are still awaiting a response/body, not historical
  // batches launched. This catches the original 14-live-reads failure mode.
  let liveReads=0, peakReads=0;
  const context={API:'/api',painted,console,Promise,
+  t:key=>({'comm.loadError':'Could not load commissions. Check the connection and try again.','comm.retryLoad':'Try again','comm.periodLabel':'Month'}[key]||key),
+  escHtml:value=>String(value),
   document:{getElementById:()=>cont},
   renderGestionPromotoras:()=>{},
   agruparVentasPorProducto:()=>[{ubicacionIds:new Set()}],
@@ -189,6 +191,8 @@ test('P0 commissions: failed liquidaciones HTTP must show an error rather than s
  fulfillBatch(f.requests,0,'2026-11');
  await run;
  assert.match(f.cont.innerHTML,/Could not load commissions/);
+ assert.match(f.cont.innerHTML,/data-commissions-month/,'month selector must be recoverable in the isolated fixture');
+ assert.match(f.cont.innerHTML,/data-commissions-retry/,'error must permit retry in the isolated fixture');
  assert.equal(f.painted.length,0,'a failed money read must never paint as valid');
 });
 
