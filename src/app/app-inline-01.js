@@ -7446,14 +7446,15 @@ async function exportarComisionesCSV(){
   let filas, ventasTodas;
   try {
     [filas, ventasTodas] = await Promise.all([
-      fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_ocMesComisiones || "")}`).then(r => r.json()),
-      fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => r.json()).catch(() => []),
+      fetch(`${API}/liquidaciones?mes=${encodeURIComponent(_ocMesComisiones || "")}`).then(r => { if (!r.ok) throw Error("export-liquidaciones-http"); return r.json(); }),
+      fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r => { if (!r.ok) throw Error("export-ventas-http"); return r.json(); }),
     ]);
+    if (!Array.isArray(filas) || !Array.isArray(ventasTodas)) throw Error("export-invalid-response");
   }
-  catch (_) { alert("Could not load commissions to export."); return; }
+  catch (_) { alert(t("comm.exportError")); return; }
   // Shell 371: el CSV exporta el MISMO mes que se esta viendo.
   const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones, true);
-  if ((!Array.isArray(filas) || !filas.length) && !porProducto.length) { alert("No commissions to export yet."); return; }
+  if (!filas.length && !porProducto.length) { alert(t("comm.exportEmpty")); return; }
   const esc = (s) => { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const cab = ["Rack","Commissionist/Artist/Promoter","Monthly sales","Associate %","Associate takes","House %","House keeps","Status"];
   const filasCSV = filas.map(f => [
