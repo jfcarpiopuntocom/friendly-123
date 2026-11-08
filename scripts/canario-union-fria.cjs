@@ -5,6 +5,7 @@ const { chromium } = require('playwright');
 const BASE = (process.argv[2] || 'https://jfcarpiopuntocom.github.io/friendly-123/').replace(/\/?$/, '/');
 const LICENCIA = process.env.F123_CANARIO_LICENCIA;
 const PIN = process.env.F123_CANARIO_PIN || '789';
+const SOLO_OBSERVAR = process.env.F123_CANARIO_SOLO_OBSERVAR === '1'; // QA-only: no Owner PIN, never changes normal acceptance
 const PRODUCTO = 'Taza QA', ESPERADO = 9;
 if (!LICENCIA) { console.error('CANARIO_CONFIG: falta F123_CANARIO_LICENCIA; prueba NO ejecutada.'); process.exit(2); }
 if (!/^\d{3}$/.test(PIN)) { console.error('CANARIO_CONFIG: F123_CANARIO_PIN debe tener tres dígitos.'); process.exit(2); }
@@ -245,7 +246,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
         d.catalogoRecuperando === false && d.hidratacionLocalPendiente === false &&
         d.catalogoIdbSincronizado === true && d.catalogoSinPendientesCausales === true &&
         d.tieneMetadatosPin === true);
-      const limiteRecuperacion = Date.now() + 20000;
+      const limiteRecuperacion = Date.now() + (SOLO_OBSERVAR ? 90000 : 20000);
       let siguientePulsoCausal = Date.now() + 4000;
       while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
@@ -289,6 +290,23 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
           }));
         }
       }
+      if (SOLO_OBSERVAR) {
+        // This is NOT an Owner-authentication or physical Sync3 acceptance gate.
+        // Observe the existing synthetic room, with NO post-join Owner PIN attempts.
+        console.log('CANARIO_OBSERVACION_SOLO:', JSON.stringify({
+          segundos: Math.max(0, Math.floor((Date.now() - t0) / 1000)),
+          recuperado: recuperacionVerificada(ultima),
+          catalogoRecuperando: ultima && ultima.catalogoRecuperando === true,
+          padresFaltantes: Number.isSafeInteger(ultima && ultima.catalogoPadresFaltantes)
+            ? Math.min(9999, ultima.catalogoPadresFaltantes) : null,
+          paginas: Number.isSafeInteger(ultima && ultima.pullPaginas)
+            ? Math.min(9999, ultima.pullPaginas) : null,
+          metadatosOwner: ultima && ultima.tieneMetadatosPin === true
+        }));
+        if (!recuperacionVerificada(ultima)) {
+          fallo = 'RECUPERACION: catalogo cifrado de la tienda no terminó';
+        }
+      } else {
       if (!recuperacionVerificada(ultima)) {
         fallo = 'RECUPERACION: catalogo cifrado de la tienda no terminó';
       } else if (PIN === '789' && ultima.tienePinOwnerNoFactory) {
@@ -321,6 +339,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
           console.log('OK unión fría: ' + PRODUCTO + '=' + ESPERADO + ' en ' +
             Math.round((Date.now() - t0) / 1000) + ' s');
         }
+      }
       }
     }
   } catch (e) {
