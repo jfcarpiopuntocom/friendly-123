@@ -271,3 +271,38 @@ test('P0: negative Firebase ACK cannot create provider proof or discard checkpoi
  assert.equal(d.checkpoint,'');
  assert.equal(d.pending.length,1);
 });
+
+
+test('P0: actual relay-selector forwarded ACK preserves exact durable origin and binary relaySource',()=>{
+ const source=fs.readFileSync(path.join(__dirname,'../docs/relay-selector.js'),'utf8');
+ const start=source.indexOf('        var persistLayer = typeof e.data === "string" &&');
+ const end=source.indexOf('\n      });\n      ws.addEventListener("error"',start);
+ assert.ok(start>0&&end>start,'exercise actual relay-selector dispatch expression');
+ const snippet=source.slice(start,end);
+ const layers=[
+  {key:'f123_relay_cupo_v1'},
+  {key:'f123_relay_cupo_fb_v1'}
+ ];
+ const dispatch=(orden,data,relaySource,peerAccepted=false)=>{
+  let event=null;
+  const context=vm.createContext({
+   x:{orden},capas:layers,e:{data,relaySource,peerAccepted,peerReceipt:null,peerAck:null},
+   emitir:(type,payload)=>{assert.equal(type,'message');event=payload}
+  });
+  vm.runInContext(snippet,context);
+  return event;
+ };
+ const ack=JSON.stringify({k:'persist-result',kind:'ckpt',id:'synthetic',ok:true});
+ const sb=dispatch(0,ack,undefined),fb=dispatch(1,ack,undefined);
+ assert.equal(sb.persistLayer,'f123_relay_cupo_v1');
+ assert.equal(fb.persistLayer,'f123_relay_cupo_fb_v1');
+ const peer=dispatch(2,ack,'peer-live',true);
+ assert.equal(peer.persistLayer,null,'peers never certify a durable relay');
+ assert.equal(peer.relaySource,'peer-live');
+ const binary=dispatch(1,new Uint8Array([2,3]).buffer,'pull');
+ assert.equal(binary.persistLayer,null,'binary Yjs pages cannot be mistaken for persistence ACKs');
+ assert.equal(binary.relaySource,'pull','Yjs durable cursor classification stays unchanged');
+ const live=dispatch(0,new Uint8Array([4]).buffer,'live');
+ assert.equal(live.relaySource,'live');
+ assert.equal(live.persistLayer,null);
+});
