@@ -432,3 +432,11 @@ test('P0 sampled checkpoint metadata fails closed on HTTP error and rejects wron
   assert.equal(down.total,null);
   assert.equal(calls.length,1,'HTTP 503 must abort without further GETs');
 });
+
+test('P0 forensic-only: a bounded eight-minute synthetic history observation never attempts Owner PIN or passes incomplete Yjs',async()=>{
+ const r=await fakeRun('F123-TEST-COLD-JOIN-00002',{joined:true,observationOnly:true,recoveringCatalog:true,pendingStructs:true});
+ assert.ok(r.now>=480000,'long forensic needs 480s of FAKE time; normal 20s acceptance is unchanged');
+ assert.equal(r.keypadClicks,3,'only factory selector digits, never Owner credential guesses');
+ assert.equal(r.exitCode,1,'extended observation cannot silently convert incomplete recovery to GO');
+ assert.ok(r.messages.some(m=>m.includes('CANARIO_OBSERVACION_SOLO:')),'mark evidence as observation not acceptance');
+});
