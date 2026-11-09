@@ -184,6 +184,9 @@
     var _heredadosListo = false;
     var _lastRelayProgressAt = 0, _cupoRechazado = false;
     var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
+    // One Firebase-only pre-checkpoint ancestor scan per channel lifetime. A
+    // second socket or HEAD never renews the scan quota or grants Owner access.
+    var _antecedentesBuscados = false;
     // Bounded v1 checkpoint repair across socket reconnects (never per socket).
     var _legacyProbeKey = "", _legacyProbeAttempts = 0;
     var _relayPeerCount = 0, _directReceive = null;
@@ -1063,6 +1066,25 @@
       }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
+        // Verified final HEAD, causal parent missing, and an older CKPT exists:
+        // replay still-stored Firebase OPs from timestamp zero without asking
+        // the adapter to re-inject that suspect checkpoint. Cursor is EPHEMERAL;
+        // never rewind the durable cut, IDB journal or inventory movements.
+        if (nombre === "catalogo" && sock.relayLayer === "f123_relay_cupo_fb_v1" &&
+            estado.validacionFinal === true && !_antecedentesBuscados &&
+            canal.recuperando && _pullCursor.rev > 0 && Number(r.seq) > 0 &&
+            doc.store && doc.store.pendingStructs && doc.store.pendingStructs.missing &&
+            doc.store.pendingStructs.missing.size > 0 &&
+            !Object.keys(partesEntrantes).length) {
+          _antecedentesBuscados = true; // once even when socket reconnects
+          estado.rescateCausalDesde = { rev: Number(r.rev), seq: 0 };
+          estado.rescateCausalHasta = { rev: Number(r.rev), seq: Number(r.seq) };
+          estado.rescatePaginas = 0;
+          estado.rescateTiePaginas = 0;
+          estado.rescateCausalAvanzo = false;
+          estado.rescateVectorInicio = Y.encodeStateVector(doc);
+          return pedirPagina(sock, estado, true);
+        }
         // Sync3: a matching relay HEAD cannot prove missing Yjs causal parents.
         // Re-read only after the LAST PROVEN CLEAN cut and only using an already
         // granted bounded retry. Never rewind the durable cursor or invent stock.
@@ -1741,6 +1763,25 @@
                   }
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
+                  // Once a bounded ancestor scan has resolved all Yjs debt,
+                  // recheck the CURRENT HEAD rather than treating the old
+                  // validation from before the rescue as sufficient.
+                  if (!c.more && !deudaPendiente() && _antecedentesBuscados &&
+                      pullEstado.validacionFinal === true && canal.recuperando)
+                    pullEstado.validacionFinal = false;
+                  // A full end-of-tail with unresolved ancestors requires a
+                  // matching FINAL HEAD before one older-history scan. Never
+                  // do this when no CKPT exists, for non-Firebase/peer layers,
+                  // or while a fragment remains incomplete.
+                  if (!c.more && canal.recuperando && deudaPendiente() &&
+                      !pullEstado.validacionFinal && !_antecedentesBuscados &&
+                      nombre === "catalogo" && ws.relayLayer === "f123_relay_cupo_fb_v1" &&
+                      _pullCursor.rev > 0 && !Object.keys(partesEntrantes).length &&
+                      doc.store && doc.store.pendingStructs &&
+                      doc.store.pendingStructs.missing && doc.store.pendingStructs.missing.size > 0) {
+                    pullEstado.validacionFinal = true;
+                    return pedirPagina(ws, pullEstado);
+                  }
                   // PendingStructs empty alone does NOT prove full history.
                   // Confirm the final cursor against relay HEAD before unlocking data/PIN.
                   if (!c.more && canal.recuperando && !deudaPendiente()) {
