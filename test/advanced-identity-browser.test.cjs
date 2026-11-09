@@ -35,6 +35,8 @@ test('Advanced identity keeps header names, session roles and keyboard access at
     await page.waitForFunction(()=>document.querySelector('#oc-negocio-nombre').textContent==='Synthetic shop',null,{timeout:5000});
     assert.equal(await page.locator('header #oc-negocio-editar,header #oc-header-apodo-btn').count(),0);
     assert.equal(await page.locator('#oc-header-apodo-txt').textContent(),'Synthetic tablet');
+    assert.equal(await page.locator('#oc-advanced-device-name').textContent(),'Synthetic tablet');
+    assert.match(await page.locator('#oc-advanced-device-env').textContent(),/ · /,'display device and browser beside nickname');
     assert.equal(await page.locator('#oc-identity-settings').evaluate(e=>e.open),true,'device editor starts expanded');
     const summary=page.locator('#oc-identity-settings summary');
     await summary.focus();await page.keyboard.press('Enter');
