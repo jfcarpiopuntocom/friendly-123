@@ -35,10 +35,12 @@ test('Advanced identity keeps header names, session roles and keyboard access at
     await page.waitForFunction(()=>document.querySelector('#oc-negocio-nombre').textContent==='Synthetic shop',null,{timeout:5000});
     assert.equal(await page.locator('header #oc-negocio-editar,header #oc-header-apodo-btn').count(),0);
     assert.equal(await page.locator('#oc-header-apodo-txt').textContent(),'Synthetic tablet');
-    assert.equal(await page.locator('#oc-identity-settings').evaluate(e=>e.open),false);
+    assert.equal(await page.locator('#oc-identity-settings').evaluate(e=>e.open),true,'device editor starts expanded');
     const summary=page.locator('#oc-identity-settings summary');
     await summary.focus();await page.keyboard.press('Enter');
-    assert.equal(await page.locator('#oc-identity-settings').evaluate(e=>e.open),true);
+    assert.equal(await page.locator('#oc-identity-settings').evaluate(e=>e.open),false,'keyboard can collapse settings');
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#oc-identity-settings').evaluate(e=>e.open),true,'keyboard can expand settings');
     assert.equal(await page.locator('#oc-negocio-editar').isVisible(),true);
     assert.equal(await page.locator('#oc-header-apodo-btn').isVisible(),true);
     for(const width of [1000,390]){
