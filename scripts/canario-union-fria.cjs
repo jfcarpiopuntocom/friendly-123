@@ -198,7 +198,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
   } catch (_) { return { lecturaDiagnosticoFallida: true }; }
 }, licencia).catch(() => ({ lecturaDiagnosticoFallida: true }));
 
- 
+
 // Segment the observation by verified progress, not a fixed 20-second cutoff.
 // Never mark recovery complete without the separate Yjs/IDB/Owner barriers.
 const RECUPERACION_SONDEO_MS = 2000;
