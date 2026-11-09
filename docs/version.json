@@ -1,10 +1,10 @@
 {
-  "version": "shell v694",
-  "fecha": "2026-11-08",
-  "changelog": "v694: Comisiones limita consultas simultáneas y muestra error real si falla la lectura de ventas, liquidaciones o meses; conserva el mes elegido y permite Reintentar en ES/EN. Incluye pruebas reforzadas de alta de clientes y durabilidad de ventas. Sync3, PIN, inventario y saldos sin cambios en este hotfix.",
+  "version": "shell v700",
+  "fecha": "2026-11-09",
+  "changelog": "DRAFT P0 v700 sobre v694 estable: reintento acotado de movimientos Sync3 recibidos pero no guardados localmente tras error transitorio, con identidad de cuaderno. Misma regla de stock, ventas, dinero, PIN, transporte y cuotas. Sin modificaciones de v698 ni publicación.",
   "requerida": false,
-  "shell": "f123-shell-v694",
+  "shell": "f123-shell-v700",
   "apagar": [],
-  "releaseName": "shell v694",
-  "cacheGeneration": "golden238"
+  "releaseName": "shell v700",
+  "cacheGeneration": "golden244"
 }
