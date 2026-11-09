@@ -18,6 +18,8 @@ async function fixture(){
 test('P0 RED: rejected strict sale never mirrors rolled-back state as newer durable snapshot',async()=>{
   const {app,product,baseline}=await fixture();
   let mirrors=0,strict=0;
+  const delayedRetries=[];
+  app.setTimeout=(fn,ms)=>{if(ms===3000)delayedRetries.push(fn);return 19;};
   app.OCEstadoIDB={
     soportado:true,
     guardarConRevision:async()=>{strict++;return false;},
@@ -31,6 +33,7 @@ test('P0 RED: rejected strict sale never mirrors rolled-back state as newer dura
   await Promise.resolve();await Promise.resolve();
   assert.equal(strict,1);
   assert.equal(mirrors,0,'never mirror unconfirmed/rolled-back sale as a newer revision');
+  assert.equal(delayedRetries.length,0,'rejected strict CAS must not schedule an unguarded stale background retry');
   const after=await app.request('/api/respaldo/exportar');
   assert.equal(after.productos.find(x=>x.id===product.id).stockActual,4);
   assert.equal(after.ventas.length,baseline.ventas.length,'rollback leaves no ghost receipt');
