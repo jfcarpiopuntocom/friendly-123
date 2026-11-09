@@ -26,7 +26,9 @@ test('same store/device edit controls stay visible in Advanced on entry',()=>{
   }
   assert.match(identity,/<details[^>]*\sopen(?:\s|=|>)/, 'naming must be visible without expanding a hidden subsection');
   assert.match(identity,/data-i18n="adv.identityStore"/);
-  assert.match(identity,/data-i18n="device.name"/);
+  assert.match(identity,/data-i18n="adv.identityDevice"/);
+  assert.match(identity,/id="oc-advanced-device-name"/);
+  assert.match(identity,/id="oc-advanced-device-env"/);
 });
 
 test('existing handlers and owner-only business rename guard remain intact',()=>{
@@ -38,7 +40,7 @@ test('existing handlers and owner-only business rename guard remain intact',()=>
 });
 
 test('Advanced identity labels exist in both English and Spanish',()=>{
-  for(const id of ['adv.identityHeading','adv.identityStore','device.name']){
+  for(const id of ['adv.identityHeading','adv.identityStore','adv.identityDevice','device.name']){
     assert.equal((i18n.match(new RegExp('"'+id+'"','g'))||[]).length,2,id+' must have EN and ES translations');
   }
 });
