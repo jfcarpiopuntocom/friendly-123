@@ -198,11 +198,42 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
   } catch (_) { return { lecturaDiagnosticoFallida: true }; }
 }, licencia).catch(() => ({ lecturaDiagnosticoFallida: true }));
 
+
+// Segment the observation by verified progress, not a fixed 20-second cutoff.
+// Never mark recovery complete without the separate Yjs/IDB/Owner barriers.
+const RECUPERACION_SONDEO_MS = 2000;
+const RECUPERACION_PULSO_MS = 8000;
+const RECUPERACION_SIN_AVANCE_MS = 45000;
+const RECUPERACION_PRESUPUESTO_MS = 300000; // CI safety only; not an app/Sync3 deadline.
+function etapaRecuperacion(d) {
+  if (!d || d.lecturaDiagnosticoFallida || !d.tieneRoomYjs || !d.tieneCanalCatalogo) return 'conexion';
+  if (d.hidratacionLocalPendiente || !d.catalogoIdbSincronizado) return 'almacenamiento';
+  if (d.catalogoRecuperando) return 'historial-cifrado';
+  if (!d.catalogoSinPendientesCausales) return 'dependencias-yjs';
+  if (!d.tieneMetadatosPin) return 'metadatos-owner';
+  return 'barreras-verificadas';
+}
+function progresoRecuperacion(anterior, actual) {
+  if (!anterior || !actual || actual.lecturaDiagnosticoFallida) return false;
+  // Counts of repeated encrypted pages or reconnects do NOT renew the budget.
+  const aumento = key => Number.isSafeInteger(actual[key]) &&
+    Number.isSafeInteger(anterior[key]) && actual[key] > anterior[key];
+  return aumento('pullAvances') || aumento('catalogoEstructurasAplicadas') ||
+    aumento('catalogoClientesAplicados') ||
+    (Number.isSafeInteger(anterior.catalogoPadresFaltantes) &&
+      Number.isSafeInteger(actual.catalogoPadresFaltantes) &&
+      actual.catalogoPadresFaltantes < anterior.catalogoPadresFaltantes) ||
+    (anterior.hidratacionLocalPendiente === true && actual.hidratacionLocalPendiente === false) ||
+    (anterior.catalogoIdbSincronizado === false && actual.catalogoIdbSincronizado === true) ||
+    (anterior.catalogoRecuperando === true && actual.catalogoRecuperando === false) ||
+    (anterior.tieneMetadatosPin === false && actual.tieneMetadatosPin === true);
+}
+
 (async () => {
   const b = await chromium.launch(), p = await b.newPage(), errores = [];
   p.on('pageerror', e => errores.push((e.name || 'Error').slice(0, 32)));
   p.setDefaultTimeout(30000);
-  let fallo = '', ultima = null;
+  let fallo = '', ultima = null, checkpointInicial = null;
   const t0 = Date.now();
   try {
     await p.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -226,6 +257,8 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
       fallo = 'UNION: licencia, sala o identidad de dispositivo no se adoptaron';
     } else {
       console.log('CANARIO_ETAPA: licencia y sala correctas');
+      checkpointInicial = await consultarCheckpoint(p); // one metadata-only checkpoint probe
+      console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: 'checkpoint', disponible: checkpointInicial && checkpointInicial.checkpointExiste === true ? true : checkpointInicial && checkpointInicial.checkpointExiste === false ? false : null }));
       await observarPull(p); // attach to the synthetic catalog socket only
       await p.waitForTimeout(5000);
       ultima = await diagnostico(p, LICENCIA);
@@ -245,14 +278,24 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
         d.catalogoRecuperando === false && d.hidratacionLocalPendiente === false &&
         d.catalogoIdbSincronizado === true && d.catalogoSinPendientesCausales === true &&
         d.tieneMetadatosPin === true);
-      const limiteRecuperacion = Date.now() + 20000;
-      let siguientePulsoCausal = Date.now() + 4000;
-      while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
-        await p.waitForTimeout(2000);
+      const inicioRecuperacion = Date.now();
+      let ultimoAvance = inicioRecuperacion, anterior = ultima;
+      let fase = etapaRecuperacion(ultima), razonPendiente = '';
+      console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: fase, estado: 'en-curso' }));
+      let siguientePulsoCausal = Date.now() + RECUPERACION_PULSO_MS;
+      while (!recuperacionVerificada(ultima)) {
+        await p.waitForTimeout(RECUPERACION_SONDEO_MS);
         await observarPull(p); // a reconnect may replace the socket
         ultima = await diagnostico(p, LICENCIA);
-        if (Date.now() >= siguientePulsoCausal) {
-          siguientePulsoCausal = Date.now() + 4000;
+        const ahora = Date.now(), nuevaFase = etapaRecuperacion(ultima);
+        if (progresoRecuperacion(anterior, ultima)) ultimoAvance = ahora;
+        if (nuevaFase !== fase) {
+          fase = nuevaFase;
+          console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: fase, estado: 'en-curso' }));
+        }
+        anterior = ultima;
+        if (ahora >= siguientePulsoCausal) {
+          siguientePulsoCausal = ahora + RECUPERACION_PULSO_MS;
           // Read-only, bounded trajectory: counts and booleans only. Never
           // print encrypted payloads, Yjs client IDs, room, license or PIN.
           const d = ultima || {};
@@ -288,12 +331,23 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
             metadatosOwner: d.tieneMetadatosPin === true
           }));
         }
+        if (recuperacionVerificada(ultima)) break;
+        if (ahora - ultimoAvance >= RECUPERACION_SIN_AVANCE_MS) {
+          razonPendiente = 'sin avance comprobado durante 45 s'; break;
+        }
+        if (ahora - inicioRecuperacion >= RECUPERACION_PRESUPUESTO_MS) {
+          razonPendiente = 'progreso incompleto al agotar presupuesto de observación'; break;
+        }
       }
       if (!recuperacionVerificada(ultima)) {
-        fallo = 'RECUPERACION: catalogo cifrado de la tienda no terminó';
-      } else if (PIN === '789' && ultima.tienePinOwnerNoFactory) {
+        console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: fase, estado: 'incompleto', motivo: razonPendiente }));
+        fallo = 'RECUPERACION: ' + razonPendiente + ' (sin certificar Sync3)';
+      } else {
+        console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: 'barreras-verificadas', estado: 'completo' }));
+      }
+      if (!fallo && PIN === '789' && ultima.tienePinOwnerNoFactory) {
         fallo = 'ACCESO: F123_CANARIO_PIN requiere PIN Owner sintético actualizado';
-      } else if (await rol(p) !== 'dueno') {
+      } else if (!fallo && await rol(p) !== 'dueno') {
         if (await p.locator('#oc-gate button[data-d]').first().isVisible().catch(() => false)) {
           await teclear(p, PIN); // ONE attempt, never repeated while waiting for Yjs.
           console.log('CANARIO_ETAPA: un único PIN introducido');
@@ -330,7 +384,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
   ultima = await diagnostico(p, LICENCIA);
   // Diagnostic-only GET after the recovery gate; cannot turn an incomplete
   // Yjs history into GREEN or cause an extra Owner PIN attempt.
-  console.log('CANARIO_CHECKPOINT:', JSON.stringify(await consultarCheckpoint(p)));
+  console.log('CANARIO_CHECKPOINT:', JSON.stringify(checkpointInicial || await consultarCheckpoint(p)));
   console.log('CANARIO_DIAGNOSTICO:', JSON.stringify(ultima));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
   await b.close();
