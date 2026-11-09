@@ -801,10 +801,51 @@
       <summary data-i18n="adv.identityHeading" style="cursor:pointer;font-weight:700;">Store &amp; device names</summary>
       <div style="display:flex;flex-wrap:wrap;gap:14px 24px;margin-top:12px;align-items:center;">
         <div id="oc-identity-store-edit"><span data-i18n="adv.identityStore">Store name</span> <button id="oc-negocio-editar" type="button" data-i18n-attr="title:header.editBizName,aria-label:header.editBizName" title="Edit your business name" aria-label="Edit your business name" style="display:none;margin-left:6px;font-size:18px;line-height:1;min-width:32px;min-height:32px;background:transparent;border:none;color:var(--rust-ink,#E86040);cursor:pointer;vertical-align:middle;padding:4px 6px;">✎</button></div>
-        <div id="oc-advanced-device-edit" style="display:none;"><span data-i18n="device.name" style="font-weight:700;">Name this device</span> <button type="button" id="oc-header-apodo-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" aria-label="Name this device" style="background:transparent;border:1px solid currentColor;border-radius:6px;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:21px;line-height:1;min-width:40px;min-height:40px;padding:6px 9px;margin-left:7px;vertical-align:middle;">✎</button></div>
+        <div id="oc-advanced-device-edit" style="display:none;"><span data-i18n="adv.identityDevice" style="font-weight:700;">Device name</span> <strong id="oc-advanced-device-name" style="margin-left:5px;overflow-wrap:anywhere;"></strong> <span id="oc-advanced-device-env" style="display:inline-block;margin-left:7px;padding:2px 7px;border:1px solid var(--azul-suave,#dde5ec);border-radius:6px;font-size:12px;color:var(--ink-soft,#5d5340);vertical-align:middle;" title="Automatically detected on this device"></span> <button type="button" id="oc-header-apodo-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" aria-label="Name this device" style="background:transparent;border:1px solid currentColor;border-radius:6px;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:21px;line-height:1;min-width:40px;min-height:40px;padding:6px 9px;margin-left:7px;vertical-align:middle;">✎</button></div>
       </div>
       <p id="oc-negocio-estado" data-i18n="header.bizNameSaveError" role="alert" style="display:none;color:var(--rojo-ink,#a3392a);font-size:13px;font-weight:700;margin:4px 0;">Could not save the business name. The previous name is kept; try again.</p>
     </details>
+    <!-- Display-only local hint: never replaces device identity, PIN, nickname or sync data. -->
+    <script id="oc-device-label-script">
+    (function () {
+      "use strict";
+      function detectarEntorno() {
+        var n = window.navigator || {}, ua = String(n.userAgent || ""), platform = String(n.platform || "");
+        var ipad = /iPad/i.test(ua) || (/Mac/i.test(platform) && n.maxTouchPoints > 1);
+        var device = ipad ? "iPad" : /iPhone|iPod/i.test(ua) ? "iPhone"
+          : /Android/i.test(ua) ? (/Mobile/i.test(ua) ? "Android phone" : "Android tablet")
+          : /Windows/i.test(ua) ? "Windows PC"
+          : /Mac/i.test(ua) || /Mac/i.test(platform) ? "Mac"
+          : /Linux/i.test(ua) ? "Linux PC" : "Device";
+        var pwa = false;
+        try { pwa = n.standalone === true || Boolean(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches); } catch (_) {}
+        // In an installed iOS PWA, the origin browser is not reliably exposed.
+        if (pwa) return device + " · PWA";
+        var browser = /OPiOS|OPT\/|OPR\/|Opera/i.test(ua) ? "Opera"
+          : /EdgiOS|EdgA\/|Edg\//i.test(ua) ? "Edge"
+          : /FxiOS|Firefox\//i.test(ua) ? "Firefox"
+          : /CriOS|Chrome\//i.test(ua) ? "Chrome"
+          : /SamsungBrowser\//i.test(ua) ? "Samsung Internet"
+          : /DuckDuckGo/i.test(ua) ? "DuckDuckGo"
+          : /Safari\//i.test(ua) ? "Safari" : "Browser";
+        return device + " · " + browser;
+      }
+      function pintarEntorno() {
+        var kind = document.getElementById("oc-advanced-device-env");
+        var name = document.getElementById("oc-advanced-device-name");
+        if (kind) kind.textContent = detectarEntorno();
+        if (name) {
+          var apodo = "";
+          try { apodo = window.OCMicelio && window.OCMicelio.miApodo ? (window.OCMicelio.miApodo() || "") : ""; } catch (_) {}
+          name.textContent = apodo || (typeof window.t === "function" ? window.t("device.name") : "Name this device");
+        }
+      }
+      pintarEntorno();
+      window.addEventListener("oc-login", pintarEntorno);
+      window.addEventListener("oc-micelio-cambio", pintarEntorno);
+      window.addEventListener("oc-lang-change", pintarEntorno);
+    })();
+    </script>
 
     <!-- Actividad ya no tiene botón propio en el nav (JFC, 2026-07-01: "eso
          NO necesita un botón en el main") — vive aquí, es historial operativo,
