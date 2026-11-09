@@ -39,7 +39,7 @@ test('P0 RED: rejected stale CAS rebases from newer IDB receipt and retries exac
   const {app,product,baseline}=await fixture();
   const latest=JSON.parse(JSON.stringify(baseline));
   latest._rev+=1;
-  let saves=0,mirrors=0,committed=null;
+  let saves=0,committed=null;const mirrors=[];
   app.OCEstadoIDB={
     soportado:true,
     guardarConRevision:async(snapshot,expected)=>{
@@ -48,7 +48,7 @@ test('P0 RED: rejected stale CAS rebases from newer IDB receipt and retries exac
       assert.equal(expected,latest._rev,'retry must use newest durable revision');
       committed=JSON.parse(JSON.stringify(snapshot));return true;
     },
-    guardar:async()=>{mirrors++;return true;},
+    guardar:async(snapshot)=>{mirrors.push(JSON.parse(JSON.stringify(snapshot)));return true;},
     leer:async()=>JSON.parse(JSON.stringify(latest)),
     ultimoError:()=>null
   };
@@ -62,5 +62,6 @@ test('P0 RED: rejected stale CAS rebases from newer IDB receipt and retries exac
   assert.ok(committed,'receipt exists only on a successful strict CAS');
   assert.equal(committed.ventas.filter(v=>v.id===response.ventaId).length,1);
   assert.equal(committed.productos.find(x=>x.id===product.id).stockActual,3);
-  assert.equal(mirrors,0,'background snapshot never races the strict retry');
+  assert.ok(mirrors.every(x=>x.ventas.some(v=>v.id===response.ventaId)),
+    'a post-success backup may run, but never publish rolled-back state before rebase');
 });
