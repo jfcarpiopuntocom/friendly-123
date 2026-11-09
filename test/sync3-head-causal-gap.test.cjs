@@ -5,7 +5,7 @@ function harness({pending=true,clean=true,budget=1}={}){
  const start=src.indexOf("    function clavePendientes() {",src.indexOf("function crearCanal("));
  const end=src.indexOf("    function reprogramar() {",start);
  assert.ok(start>0&&end>start,"real HEAD and pull path present");
- const sent=[],ws={readyState:1,send:msg=>sent.push(JSON.parse(msg))};
+ const sent=[],timers=[],ws={readyState:1,send:msg=>sent.push(JSON.parse(msg))};
  const ctx={ws,Promise,Number,Math,JSON,Object,Map,Array,Uint8Array,
   doc:{store:pending?{pendingStructs:{missing:new Map([[7,9]])}}:{}},partesEntrantes:{},
   canal:{ws,recuperando:true},_pullCursorReady:Promise.resolve(),
@@ -13,10 +13,10 @@ function harness({pending=true,clean=true,budget=1}={}){
   _ultimoCursorLimpio:clean?{rev:3,seq:80}:{rev:-1,seq:0},
   _replayUsed:budget,_replayKey:null,_tReplay:null,
   _soloMemoria:false,PULL_PAGE_SIZE:64,nombre:"catalogo",API:{_store:{aplicar(){}}},
-  setTimeout:()=>17,clearTimeout:()=>{},log(){},Y:{encodeStateVector:()=>new Uint8Array([1])}
+  setTimeout:(fn,ms)=>{timers.push({fn,ms});return 17;},clearTimeout:()=>{},log(){},Y:{encodeStateVector:()=>new Uint8Array([1])}
  };
  vm.createContext(ctx);vm.runInContext(src.slice(start,end),ctx);
- return {ctx,sent,ws};
+ return {ctx,sent,ws,timers};
 }
 async function head(a){
  const state={enCurso:false,fallos:0,usarHead:true};
@@ -203,4 +203,32 @@ test("SYNC3: Firebase staged timestamp progress stops after a finite tie budget"
  assert.equal(state.enCurso,false,"extra unchanged page must halt without fake recovery");
  assert.equal(state.rescateCausalAvanzo,false,"no unlimited paced continuation");
  assert.equal(a.ctx._pullCursor.seq,120);
+});
+
+// P0 independent writers: a resolved Yjs parent does NOT certify the rest of
+// the already-authorized frozen pre-checkpoint historical interval.
+test("SYNC3 RED: finish frozen causal interval when parents resolve before independent writes",async()=>{
+ const a=harness({pending:false,budget:5});
+ const state={enCurso:false,fallos:0,usarHead:true,
+  rescateCausalDesde:{rev:3,seq:100},rescateCausalHasta:{rev:3,seq:120},
+  rescateCausalAvanzo:true,rescatePaginas:4};
+ a.ctx._replayKey=a.ctx.clavePendientes();
+ a.ctx.programarRelectura(a.ws,state);
+ assert.equal(a.timers.length,1,"unread independent operations must survive the empty Yjs-debt check");
+ assert.equal(a.timers[0].ms,8000,"continue within the existing paced four-page budget");
+ a.timers[0].fn();
+ await Promise.resolve();await Promise.resolve();
+ assert.deepEqual(a.sent.map(x=>x.k),["pull"],
+  "frozen interval resumes directly: an already-matching post-cut HEAD cannot prove old independent ops");
+ assert.deepEqual([a.sent[0].rev,a.sent[0].seq],[3,100],
+  "the ephemeral historical cursor is used; never rewind durable IDB cursor");
+ assert.equal(a.ctx._pullCursor.seq,120,"proven durable high-water mark is unchanged");
+});
+test("SYNC3: fully finished interval with no Yjs debt does not schedule another replay",async()=>{
+ const a=harness({pending:false,budget:5});
+ const state={enCurso:false,fallos:0,usarHead:true,
+  rescateCausalDesde:null,rescateCausalHasta:null,rescateCausalAvanzo:false};
+ a.ctx.programarRelectura(a.ws,state);
+ assert.equal(a.timers.length,0,"no phantom loop after complete historical interval");
+ assert.equal(a.sent.length,0,"no extra HEAD, pull or replay");
 });
