@@ -993,7 +993,10 @@
         if (barridoAcotado) estado.rescateCausalAvanzo = false;
         else _replayUsed++;
         try { log("historia incompleta, relectura acotada " + nombre); } catch (_) {}
-        pedirPagina(sock, estado);
+        // A HEAD that matches the post-cut durable cursor does NOT certify
+        // independent writes hidden by an older malformed checkpoint. Finish
+        // the frozen pre-cut interval first; only its final page may seek HEAD.
+        pedirPagina(sock, estado, barridoPendiente());
       }, delay);
     }
     // Only useful, applied bytes (never peer count or duplicate) wake exhausted replay.
