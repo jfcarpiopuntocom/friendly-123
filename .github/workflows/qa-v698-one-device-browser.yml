@@ -1,0 +1,32 @@
+name: QA P0 v698 · single-device event/sale/stock/payment real Chromium & WebKit (NO deploy)
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/qa-v698-one-device-browser.yml'
+      - 'test/p0-one-device-browser-ticket-event-v698.test.cjs'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  one-device-real-browser:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci
+      - name: Isolated real browser, event-ticket UI, stock and cash receipt after reload
+        run: |
+          set -euo pipefail
+          echo 'QA ONLY: local docs served on loopback, synthetic notebook, relay/network blocked, no PIN entered'
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/p0-one-device-browser-ticket-event-v698.test.cjs

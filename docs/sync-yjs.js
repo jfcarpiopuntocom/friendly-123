@@ -951,7 +951,17 @@
     var MAX_FIREBASE_TIE_RESCATE_PAGES = 24;
     // E1b-2: one causal budget per channel, NOT per socket/reconnection.
     function programarRelectura(sock, estado) {
-      if (!deudaPendiente()) {
+      // A missing Yjs parent may be restored BEFORE older, independent
+      // writers' ops have been replayed. An active finite pre-cut interval
+      // must finish to its frozen HEAD even when Yjs debt becomes empty.
+      // Retain the existing four-page pacing, retry limit and same-ms cap.
+      function barridoPendiente() {
+        var d = estado && estado.rescateCausalDesde;
+        var h = estado && estado.rescateCausalHasta;
+        return !!(d && h && (d.rev < h.rev ||
+          (d.rev === h.rev && d.seq <= h.seq)));
+      }
+      if (!deudaPendiente() && !barridoPendiente()) {
         clearTimeout(_tReplay); _tReplay = null;
         _replayKey = null; _replayUsed = 0;
         return;
@@ -975,14 +985,18 @@
       _tReplay = setTimeout(function () {
         _tReplay = null;
         if (canal.ws !== sock || sock.readyState !== 1 || estado.enCurso) return;
-        if (clavePendientes() !== _replayKey || !deudaPendiente())
+        if (clavePendientes() !== _replayKey ||
+            (!deudaPendiente() && !barridoPendiente()))
           return programarRelectura(sock, estado);
         // The bounded scan makes forward cursor progress but does NOT
         // fabricate Yjs vector progress or refresh the retry counter.
         if (barridoAcotado) estado.rescateCausalAvanzo = false;
         else _replayUsed++;
         try { log("historia incompleta, relectura acotada " + nombre); } catch (_) {}
-        pedirPagina(sock, estado);
+        // A HEAD that matches the post-cut durable cursor does NOT certify
+        // independent writes hidden by an older malformed checkpoint. Finish
+        // the frozen pre-cut interval first; only its final page may seek HEAD.
+        pedirPagina(sock, estado, barridoPendiente());
       }, delay);
     }
     // Only useful, applied bytes (never peer count or duplicate) wake exhausted replay.
@@ -2336,6 +2350,18 @@
     try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
   }
   var _tOps = null, _opsProcesadas = null, _opsAsyncBusy = false;
+  // A rejected durable local commit must not wait forever for ANOTHER remote
+  // packet. Reuse the existing bounded exponential retry, scoped to the active
+  // Y.Doc and licence so an old notebook can never replay into a new one.
+  var _opsRetry = null, _opsRetryDoc = null;
+  function reintentarImportacionOp() {
+    if (!API.doc || API.doc.isDestroyed) return;
+    if (_opsRetryDoc !== API.doc) {
+      _opsRetryDoc = API.doc;
+      _opsRetry = reintentoLocalAplicacion(procesarEventos);
+    }
+    _opsRetry.pedir(); // one timer, 2s→600s, visibility/destroy-aware
+  }
   function pedirProcesarEventos() { clearTimeout(_tOps); _tOps = setTimeout(procesarEventos, 200); }
   function procesarEventos() {
     if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" ||
@@ -2360,10 +2386,25 @@
           // Serialize immutable movement commits so an old snapshot cannot race the save.
           _opsAsyncBusy = true;
           Promise.resolve(result).then(accepted, function () { return false; })
-            .then(function (ok) { _opsAsyncBusy = false; if (ok) pedirProcesarEventos(); });
-        } else accepted(result);
-      } catch (_) { /* retain the opId for a later retry */ }
+            .then(function (ok) {
+              _opsAsyncBusy = false;
+              if (ok) pedirProcesarEventos();
+              else reintentarImportacionOp();
+            }, function () {
+              _opsAsyncBusy = false; reintentarImportacionOp();
+            });
+        } else if (!accepted(result)) reintentarImportacionOp();
+      } catch (_) { reintentarImportacionOp(); }
     });
+    // Only a fully drained journal may reset the retry backoff. Success of
+    // one op alone cannot cancel retries for another uncommitted operation.
+    if (!_opsAsyncBusy && _opsRetry && _opsRetryDoc === API.doc) {
+      var hayPendientes = false;
+      API.opsMap.forEach(function (op, id) {
+        if (op && !_opsProcesadas[id]) hayPendientes = true;
+      });
+      if (!hayPendientes) _opsRetry.cancelar();
+    }
   }
 
   // ===================================================================
