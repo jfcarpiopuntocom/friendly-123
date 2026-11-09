@@ -24,6 +24,8 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
      applyUpdate:(doc,bytes,origin)=>{events.push("restore:"+origin);if(failRestore)throw Error("synthetic Yjs update rejected");doc.store.pendingStructs={bytes:[...bytes]};}
    },
    doc:{store:pending?{pendingStructs:{missingParent:true}}:{}},
+   // Model crearCanal closure variables omitted by the extracted-function VM.
+   nombre:"catalogo",_antecedentesBuscados:false,
    partesEntrantes:fragments?{"chunk":{received:1,total:2}}:{},
    _tReplay:null,_replayKey:null,_replayUsed:0,
    canal:{ws:null},PULL_PAGE_SIZE:64,
