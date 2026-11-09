@@ -2350,6 +2350,18 @@
     try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
   }
   var _tOps = null, _opsProcesadas = null, _opsAsyncBusy = false;
+  // A rejected durable local commit must not wait forever for ANOTHER remote
+  // packet. Reuse the existing bounded exponential retry, scoped to the active
+  // Y.Doc and licence so an old notebook can never replay into a new one.
+  var _opsRetry = null, _opsRetryDoc = null;
+  function reintentarImportacionOp() {
+    if (!API.doc || API.doc.isDestroyed) return;
+    if (_opsRetryDoc !== API.doc) {
+      _opsRetryDoc = API.doc;
+      _opsRetry = reintentoLocalAplicacion(procesarEventos);
+    }
+    _opsRetry.pedir(); // one timer, 2s→600s, visibility/destroy-aware
+  }
   function pedirProcesarEventos() { clearTimeout(_tOps); _tOps = setTimeout(procesarEventos, 200); }
   function procesarEventos() {
     if (!window.OCSync || typeof window.OCSync.aplicarOpRemota !== "function" ||
@@ -2374,10 +2386,25 @@
           // Serialize immutable movement commits so an old snapshot cannot race the save.
           _opsAsyncBusy = true;
           Promise.resolve(result).then(accepted, function () { return false; })
-            .then(function (ok) { _opsAsyncBusy = false; if (ok) pedirProcesarEventos(); });
-        } else accepted(result);
-      } catch (_) { /* retain the opId for a later retry */ }
+            .then(function (ok) {
+              _opsAsyncBusy = false;
+              if (ok) pedirProcesarEventos();
+              else reintentarImportacionOp();
+            }, function () {
+              _opsAsyncBusy = false; reintentarImportacionOp();
+            });
+        } else if (!accepted(result)) reintentarImportacionOp();
+      } catch (_) { reintentarImportacionOp(); }
     });
+    // Only a fully drained journal may reset the retry backoff. Success of
+    // one op alone cannot cancel retries for another uncommitted operation.
+    if (!_opsAsyncBusy && _opsRetry && _opsRetryDoc === API.doc) {
+      var hayPendientes = false;
+      API.opsMap.forEach(function (op, id) {
+        if (op && !_opsProcesadas[id]) hayPendientes = true;
+      });
+      if (!hayPendientes) _opsRetry.cancelar();
+    }
   }
 
   // ===================================================================
