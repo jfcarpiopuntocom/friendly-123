@@ -9,7 +9,7 @@ permissions:
   contents: read
 jobs:
   candidate-real-firebase-diagnostic:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: false # QA RED→GREEN setup only; restore explicit same-repo guard before remote run
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
