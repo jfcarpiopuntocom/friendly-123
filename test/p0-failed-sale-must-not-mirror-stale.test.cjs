@@ -63,6 +63,7 @@ test('P0 RED: rejected stale CAS rebases from newer IDB receipt and retries exac
   assert.ok(response.ventaId);
   assert.equal(saves,2,'at most one retry after newer state verified');
   assert.ok(committed,'receipt exists only on a successful strict CAS');
+  assert.ok(committed._rev > latest._rev,'retry advances revision beyond observed durable state');
   assert.equal(committed.ventas.filter(v=>v.id===response.ventaId).length,1);
   assert.equal(committed.productos.find(x=>x.id===product.id).stockActual,3);
   assert.ok(mirrors.every(x=>x.ventas.some(v=>v.id===response.ventaId)),
