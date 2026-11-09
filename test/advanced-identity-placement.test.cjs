@@ -18,15 +18,15 @@ test('normal header shows both names without the edit controls',()=>{
   assert.doesNotMatch(header,/id="oc-header-apodo-btn"/);
 });
 
-test('same store/device edit controls move once into a collapsed Advanced subsection',()=>{
+test('same store/device edit controls stay visible in Advanced on entry',()=>{
   assert.match(identity,/<summary[^>]*data-i18n="adv.identityHeading"/);
   for(const id of ['oc-negocio-editar','oc-header-apodo-btn','oc-negocio-estado']){
     assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1,id+' duplicated');
     assert.ok(identity.includes('id="'+id+'"'),id+' must live in Advanced');
   }
-  assert.doesNotMatch(identity,/<details[^>]*\sopen(?:\s|=|>)/);
+  assert.match(identity,/<details[^>]*\sopen(?:\s|=|>)/, 'naming must be visible without expanding a hidden subsection');
   assert.match(identity,/data-i18n="adv.identityStore"/);
-  assert.match(identity,/data-i18n="adv.identityDevice"/);
+  assert.match(identity,/data-i18n="device.name"/);
 });
 
 test('existing handlers and owner-only business rename guard remain intact',()=>{
@@ -38,12 +38,12 @@ test('existing handlers and owner-only business rename guard remain intact',()=>
 });
 
 test('Advanced identity labels exist in both English and Spanish',()=>{
-  for(const id of ['adv.identityHeading','adv.identityStore','adv.identityDevice']){
+  for(const id of ['adv.identityHeading','adv.identityStore','device.name']){
     assert.equal((i18n.match(new RegExp('"'+id+'"','g'))||[]).length,2,id+' must have EN and ES translations');
   }
 });
 
-test('device pencil stays hidden until login and hides after logout',()=>{
+test('device pencil is accessible in open Advanced only after login and hides after logout',()=>{
   assert.match(identity,/<div id="oc-advanced-device-edit" style="display:none;">/,
     'the device pencil must not become visible before a session');
   const start=html.indexOf('  function pintarApodoHeader() {');
