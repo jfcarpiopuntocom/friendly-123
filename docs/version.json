@@ -1,10 +1,10 @@
 {
-  "version": "shell v697",
+  "version": "shell v698",
   "fecha": "2026-11-08",
-  "changelog": "DRAFT QA v697: recuperación causal de padres anteriores al checkpoint, un solo barrido Firebase condicionado a HEAD y deuda Yjs. No debilita PIN, stock, ventas ni límites; no publicada.",
+  "changelog": "DRAFT QA v698 P0 Sync3: completar el barrido histórico hasta HEAD aun cuando el padre Yjs se recupere antes; conservar movimientos independientes de otros aparatos. Sin cambios de límites, PIN, ventas o inventario. NO publicada.",
   "requerida": false,
-  "shell": "f123-shell-v697",
+  "shell": "f123-shell-v698",
   "apagar": [],
-  "releaseName": "shell v697",
-  "cacheGeneration": "golden241"
+  "releaseName": "shell v698",
+  "cacheGeneration": "golden242"
 }
