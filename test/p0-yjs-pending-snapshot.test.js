@@ -557,7 +557,7 @@ test("E1b-2 RED: unsupported or silent HEAD releases clean final replay, not pen
      pullEstado:state,_colaRecepcion:Promise.resolve(),_pullCursorReady:Promise.resolve(),
      _pullCursor:{rev:3,seq:90},PULL_PAGE_SIZE:64,_soloMemoria:false,
      _replayKey:"stable",_replayUsed:5,_tReplay:null,partesEntrantes:{},doc,
-      nombre:"catalogo",API:{clave:{},_store:{aplicar:()=>events.push("aplicar")}},
+      nombre:"catalogo",_antecedentesBuscados:false,API:{clave:{},_store:{aplicar:()=>events.push("aplicar")}},
      guardarPullCursor:async()=>{},deudaPendiente:()=>!!doc.store.pendingStructs,
      programarRelectura:()=>{},log:()=>{},
      // v670 HEAD fixture: a complete pull schedules a bounded checkpoint retry.
