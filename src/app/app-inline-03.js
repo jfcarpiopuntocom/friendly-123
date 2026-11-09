@@ -235,6 +235,8 @@ const _ocActSolaOn = true;
       const a = document.activeElement;
       if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
       if (typeof _ventasEnCurso !== "undefined" && _ventasEnCurso.size) return false;
+      if (typeof _carritoVenta !== "undefined" && _carritoVenta.length) return false;
+      if (typeof _sellando !== "undefined" && _sellando) return false;
       return true;
     } catch (_) { return false; }
   }
