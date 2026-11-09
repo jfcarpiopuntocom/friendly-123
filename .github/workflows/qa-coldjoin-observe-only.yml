@@ -39,7 +39,7 @@ jobs:
         run: npm ci
       - name: Observe exactly this candidate against SYNTHETIC remote Firebase only
         working-directory: candidate
-        shell: bash
+        shell: bash -e {0}
         env:
           F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
           F123_CANARIO_SOLO_OBSERVAR: '1'
