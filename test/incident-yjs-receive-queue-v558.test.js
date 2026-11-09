@@ -20,7 +20,7 @@ function fixture(badFrames=0,failCursor=false) {
   pedirPagina:async()=>{},confirmarDurable:()=>{},_relayPeerCount:0,
   deudaPendiente:()=>false,programarRelectura:()=>{},checkpointTrasPull:()=>{postPullCkpt++;},_soloMemoria:false,
   partesEntrantes:{},doc:{store:{}},_tReplay:null,_replayDelay:30000,_tAplica:null,
-  _currentPullState:pullEstado,window:{},log:()=>logged++,nombre:"catalogo",
+  _currentPullState:pullEstado,window:{},log:()=>logged++,nombre:"catalogo",_antecedentesBuscados:false,
   Blob:class{},ArrayBuffer,Promise,JSON,Date,Math,Object,Number,clearTimeout:()=>{},setTimeout:()=>0,
   _durableQueue:Promise.resolve()
  };

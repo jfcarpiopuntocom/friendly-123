@@ -86,7 +86,7 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
   doc:{store:{pendingStructs:{missingParent:true}}},manejar:async()=>{ctx.partesEntrantes.fragment={received:1,total:2};return true;},confirmarDurable(){},
   guardarPullCursor:async c=>{ctx._pullCursor={rev:c.rev,seq:c.seq};if(!ctx.doc.store.pendingStructs&&!Object.keys(ctx.partesEntrantes).length)ctx._appliedPullCursor={rev:c.rev,seq:c.seq};},
   pedirPagina:(sock,state)=>{state.enCurso=true;sock.send(JSON.stringify({k:"pull",v:2,rev:ctx._pullCursor.rev,seq:ctx._pullCursor.seq,limit:250}));},
-  nombre:"catalogo",window:{},log(){},clearTimeout:id=>clock.clearTimeout(id),_tEstable:null,
+  nombre:"catalogo",_antecedentesBuscados:false,window:{},log(){},clearTimeout:id=>clock.clearTimeout(id),_tEstable:null,
   _bufferPumpTimer:null,_durableWatchdog:null,_durableInFlight:Object.create(null),_groupAcks:new Set(),_currentPullState:null,
   _pausado:false,permitido:()=>true,
   deudaPendiente:()=>!!ctx.doc.store.pendingStructs || Object.keys(ctx.partesEntrantes).length>0,
