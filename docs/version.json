@@ -1,10 +1,10 @@
 {
-  "version": "shell v698",
-  "fecha": "2026-11-08",
-  "changelog": "DRAFT QA v698 P0 Sync3: completar el barrido histórico hasta HEAD aun cuando el padre Yjs se recupere antes; conservar movimientos independientes de otros aparatos. Sin cambios de límites, PIN, ventas o inventario. NO publicada.",
+  "version": "shell v699",
+  "fecha": "2026-11-09",
+  "changelog": "DRAFT P0 Sync3: reintento acotado del mismo opId remoto tras rechazo transitorio de persistencia local, sin depender de otro paquete de red; respeta cambio de cuaderno. Sin alterar stock, dinero, PIN, relay ni límites. NO publicada.",
   "requerida": false,
-  "shell": "f123-shell-v698",
+  "shell": "f123-shell-v699",
   "apagar": [],
-  "releaseName": "shell v698",
-  "cacheGeneration": "golden242"
+  "releaseName": "shell v699",
+  "cacheGeneration": "golden243"
 }
