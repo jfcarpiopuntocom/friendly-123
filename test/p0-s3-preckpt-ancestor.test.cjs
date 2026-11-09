@@ -525,3 +525,81 @@ test('P0 AUTOMATIC Firebase-only pre-CKPT ancestor rescue: bad cut but parent OP
  console.log('AUTO_GENESIS_BACKFILL',JSON.stringify({recovered:true,causalDebt:0,initialCKPTUnchanged:true,totalGets:gets}));
  C.channel.pausar();
 });
+
+test('P0 RED: rescue of early causal parent cannot skip 95 independent pre-CKPT writes from another writer', {timeout:65000},async()=>{
+  const backend=rest();
+  const A=device(backend,d=>d.getMap('identity').set('baseline',33));
+  await until(()=>A.channel.recuperando===false,'A establishes complete initial state');
+  await until(()=>A.timers.some(t=>!t.cancelled&&(t.ms===250||t.ms===2500)),'initial checkpoint timer');
+  A.timers.filter(t=>!t.cancelled&&(t.ms===250||t.ms===2500)).at(-1).fn();
+  await until(()=>backend.ckpts.has('1'),'original rev1 CKPT exists');
+  await until(()=>!!A.storage.get('f123_relay_outbox_v1-y')?.checkpoint,'original CKPT durable ACK');
+  A.channel.pausar();
+
+  // Deliberately use DIFFERENT Y.Doc client IDs for the missing causal pair
+  // and the old independent history. A same-writer tail can hide this defect
+  // because its pending Yjs dependencies only clear at the last page.
+  const parentWriter=device(backend);
+  await until(()=>parentWriter.channel.recuperando===false,'parent writer joins rev1');
+  parentWriter.doc.getMap('causalChain').set('parent','PARENT-OLDER-THAN-CUT');
+  await until(()=>backend.ops.size===1,'early parent op persisted');
+  const parentTimestamp=[...backend.ops.values()].at(-1).s;
+
+  const independentWriter=device(backend);
+  await until(()=>independentWriter.channel.recuperando===false,'independent writer joins rev1 + parent');
+  assert.notEqual(independentWriter.doc.clientID,parentWriter.doc.clientID,
+    'two independent Yjs writer client IDs are essential for this scenario');
+  const n=95, history=independentWriter.doc.getMap('independentHistory');
+  for(let i=0;i<n;i++){
+    history.set('separate-writer-'+i,i);
+    await until(()=>backend.ops.size===i+2,'independent writer durable op '+i);
+  }
+  const cutTimestamp=[...backend.ops.values()].at(-1).s;
+  assert.ok(cutTimestamp>parentTimestamp,'bad cutoff is later than both historical writers');
+  independentWriter.channel.pausar();
+
+  // Child is only causally dependent on the EARLY parent of the same client,
+  // not on the 95 unrelated operations from the independent writer.
+  parentWriter.doc.getMap('causalChain').set('child','CHILD-NEWER-THAN-CUT');
+  await until(()=>backend.ops.size===n+2,'child after malformed cutoff persisted');
+  parentWriter.channel.pausar();
+
+  // This bad snapshot falsely claims it covers the early parent and unrelated
+  // writer ops, but contains only legitimate old rev1 baseline ciphertext.
+  backend.ckpts.set('2',{...structuredClone(backend.ckpts.get('1')),s:cutTimestamp});
+  assert.equal(backend.ops.size,97,'never delete or rewrite the 97 encrypted historical operations');
+
+  const preGet=backend.calls.filter(c=>c.type==='o'&&c.method==='GET').length;
+  const C=device(backend);
+  let fakeBackoffMs=0,backoffResumptions=0;
+  for(let i=0;i<1800&&C.channel.recuperando!==false;i++){
+    const timer=C.timers.find(t=>!t.cancelled&&!t.fired&&
+      (t.ms===8000||t.ms===30000||t.ms===60000||t.ms===120000||t.ms===240000||t.ms===300000));
+    if(timer){
+      timer.fired=true;timer.cancelled=true;fakeBackoffMs+=timer.ms;
+      backoffResumptions++;timer.fn();
+    }
+    await new Promise(resolve=>setTimeout(resolve,2));
+  }
+  const observed=C.doc.getMap('independentHistory'),missing=C.doc.store.pendingStructs?.missing?.size||0;
+  const pages=backend.calls.filter(c=>c.type==='o'&&c.method==='GET').length-preGet;
+  console.log('CROSS_WRITER_PRECUT',JSON.stringify({
+    storedOps:backend.ops.size,independentWriterOps:n,
+    independentOpsRecovered:observed.size,missingParents:missing,
+    pagesRead:pages,backoffResumptions,fakeBackoffMs,
+    recoveryComplete:C.channel.recuperando===false
+  }));
+  assert.equal(backend.ckpts.size,2,'no unsafe checkpoint may be written');
+  assert.equal(C.doc.getMap('causalChain').get('parent'),'PARENT-OLDER-THAN-CUT',
+    'the missing parent must be recovered from old ops');
+  assert.equal(C.doc.getMap('causalChain').get('child'),'CHILD-NEWER-THAN-CUT');
+  assert.equal(missing,0,'early child parent is indeed repaired');
+  assert.equal(observed.size,n,
+    'clearing one missing parent cannot certify remaining independent pre-cut history');
+  for(let i=0;i<n;i++)assert.equal(observed.get('separate-writer-'+i),i,
+    'historical writes must not be silently omitted');
+  assert.equal(C.channel.recuperando,false,'full historical reconciliation must finish');
+  assert.equal(C.storage.get('f123_yjs_pull_cursor_v2-y')?.rev,2,
+    'durable ACK revision never rolls back');
+  C.channel.pausar();
+});
