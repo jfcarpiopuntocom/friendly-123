@@ -242,11 +242,22 @@
     if (!SOPORTADO || !estado || !Number.isSafeInteger(revisionAplicada)) return Promise.resolve(false);
     const op = _cola.then(async function () {
       const copia = JSON.parse(JSON.stringify(estado));
-      const db = await abrirDB();
+      let conexion = abrirDB();
+      let db = await conexion;
+      let conexionCerrada = false;
       const intento = () => new Promise(function (resolve) {
         let accepted = false, errorTx = null; // cada transacción reporta SOLO su propio error
         // Money/stock uses strict durability where the browser supports the hint.
-        const tx = db.transaction(STORE, "readwrite", { durability: "strict" });
+        let tx;
+        try { tx = db.transaction(STORE, "readwrite", { durability: "strict" }); }
+        catch (error) {
+          // A PWA resumed after suspension may keep a closed cached IDB handle.
+          // No transaction was created, so no sale could have committed here.
+          _ultimoError = error || null;
+          conexionCerrada = !!error && error.name === "InvalidStateError";
+          resolve(false);
+          return;
+        }
         const req = tx.objectStore(STORE).get(CLAVE);
         req.onsuccess = function () {
           const actual = req.result;
@@ -283,6 +294,16 @@
       });
       const primero = await intento();
       if (primero === true) return true;
+      if (conexionCerrada) {
+        // Reopen ONCE, then rerun the same CAS in a new atomic transaction.
+        // Never downgrade to A/B or trust RAM: the disk revision is read again.
+        try { db.close(); } catch (_) {}
+        if (dbPromise === conexion) dbPromise = null;
+        conexionCerrada = false;
+        try { conexion = abrirDB(); db = await conexion; }
+        catch (error) { _ultimoError = error || null; return false; }
+        return intento();
+      }
       // P0 v690 (installed iOS PWA): an IDB transaction that ABORTED with a
       // transient non-quota error has not committed. Retry this exact snapshot
       // and the exact same CAS revision ONCE; a concurrent writer is still
