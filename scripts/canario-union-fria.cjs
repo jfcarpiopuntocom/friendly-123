@@ -234,6 +234,38 @@ const sondearColaCheckpoint = p => p.evaluate(async () => {
 }).catch(() => ({ consultado: false, total: null, muestra: null,
   posteriores: null, anterioresOIguales: null }));
 
+// QA-only, passive 20MiB Firebase download-budget observer. A historical
+// ciphertext replay can legitimately use its daily allowance and fall back
+// to peers. Read only the synthetic browser's local counter after fallback.
+// Return bounded, rounded numbers and booleans; never expose room, license,
+// PIN, raw counter JSON, UTC date, exact pause timestamp or byte totals.
+const observarPresupuesto = p => p.evaluate(() => {
+  const y = window.OCYjs;
+  const ws = y && y.canal && y.canal.ws;
+  const layer = ws && ws.relayLayer;
+  const transporte = layer === 'f123_relay_cupo_fb_v1' ? 'firebase' :
+    layer === 'f123_relay_cupo_v1' ? 'supabase' :
+    layer === 'peer' || (ws && ws.peerOnly === true) ? 'peer' : 'unknown';
+  const desconocido = { conocido: false, bajadaMiB: null,
+    limiteAlcanzado: null, enPausa: null, transporte };
+  try {
+    const raw = localStorage.getItem('f123_relay_cupo_fb_v1');
+    if (typeof raw !== 'string' || !raw || raw.length > 512) return desconocido;
+    const o = JSON.parse(raw);
+    if (!o || o.dia !== new Date().toISOString().slice(0, 10) ||
+        !Number.isSafeInteger(o.down) || o.down < 0 ||
+        !Number.isSafeInteger(o.pausaHasta) || o.pausaHasta < 0) return desconocido;
+    const MIB = 1024 * 1024, CAP = 20 * MIB;
+    return {
+      conocido: true,
+      bajadaMiB: Math.round(Math.min(o.down, 100 * MIB) / MIB * 10) / 10,
+      limiteAlcanzado: o.down >= CAP,
+      enPausa: o.pausaHasta > Date.now(),
+      transporte
+    };
+  } catch (_) { return desconocido; }
+});
+
 const diagnostico = (p, licencia) => p.evaluate((lic) => {
   try {
     const o = JSON.parse(localStorage.getItem('f123_owned') || '{}');
@@ -355,10 +387,15 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
         d.tieneMetadatosPin === true);
       const limiteRecuperacion = Date.now() + (SOLO_OBSERVAR ? 480000 : 20000);
       let siguientePulsoCausal = Date.now() + 4000;
+      let siguientePulsoPresupuesto = Date.now() + 10000;
       while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
         await observarPull(p); // a reconnect may replace the socket
         ultima = await diagnostico(p, LICENCIA);
+        if (SOLO_OBSERVAR && Date.now() >= siguientePulsoPresupuesto) {
+          siguientePulsoPresupuesto = Date.now() + 20000;
+          console.log('CANARIO_PRESUPUESTO_PULSO:', JSON.stringify(await observarPresupuesto(p)));
+        }
         if (Date.now() >= siguientePulsoCausal) {
           siguientePulsoCausal = Date.now() + 4000;
           // Read-only, bounded trajectory: counts and booleans only. Never
@@ -456,6 +493,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
   ultima = await diagnostico(p, LICENCIA);
   // Diagnostic-only GET after the recovery gate; cannot turn an incomplete
   // Yjs history into GREEN or cause an extra Owner PIN attempt.
+  if (SOLO_OBSERVAR) console.log('CANARIO_PRESUPUESTO_FINAL:', JSON.stringify(await observarPresupuesto(p)));
   if (SOLO_OBSERVAR) console.log('CANARIO_OPERACIONES_SHALLOW:', JSON.stringify(await contarOperaciones(p)));
   if (SOLO_OBSERVAR) console.log('CANARIO_MUESTRA_CORTE:', JSON.stringify(await sondearColaCheckpoint(p)));
   console.log('CANARIO_CHECKPOINT:', JSON.stringify(await consultarCheckpoint(p)));
