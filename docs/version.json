@@ -1,10 +1,10 @@
 {
-  "version": "shell v703",
+  "version": "shell v704",
   "fecha": "2026-11-09",
-  "changelog": "v703: venta local protegida contra recargas automáticas: carrito con productos y sellado en curso bloquean adopción de Service Worker, incluso durante confirmación durable. Sin cambios de ventas, existencias, PIN, datos ni transporte Sync3.",
+  "changelog": "v704: venta local — un CAS estricto rechazado revierte la venta sin grabar un espejo obsoleto ni programar un reintento silencioso; permite rebase seguro contra la revisión durable más reciente. Mantiene Sync3, PIN, dinero, stock, fotos y permisos.",
   "requerida": false,
-  "shell": "f123-shell-v703",
+  "shell": "f123-shell-v704",
   "apagar": [],
-  "releaseName": "shell v703",
-  "cacheGeneration": "golden242"
+  "releaseName": "shell v704",
+  "cacheGeneration": "golden243"
 }
