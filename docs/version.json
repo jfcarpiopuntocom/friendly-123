@@ -1,10 +1,10 @@
 {
-  "version": "shell v696",
+  "version": "shell v697",
   "fecha": "2026-11-08",
-  "changelog": "DRAFT v696 P0 Sync3: checkpoint durable identifica capa de ACK Supabase/Firebase, preserva procedencia en outbox y evita duplicados de snapshots durante persistencia. Sin ajustes automáticos de stock; ventas, PIN, comisiones y límites sin cambios. NO publicada.",
+  "changelog": "DRAFT QA v697: recuperación causal de padres anteriores al checkpoint, un solo barrido Firebase condicionado a HEAD y deuda Yjs. No debilita PIN, stock, ventas ni límites; no publicada.",
   "requerida": false,
-  "shell": "f123-shell-v696",
+  "shell": "f123-shell-v697",
   "apagar": [],
-  "releaseName": "shell v696",
-  "cacheGeneration": "golden240"
+  "releaseName": "shell v697",
+  "cacheGeneration": "golden241"
 }
