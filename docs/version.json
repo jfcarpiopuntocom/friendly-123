@@ -1,10 +1,10 @@
 {
-  "version": "shell v700",
+  "version": "shell v701",
   "fecha": "2026-11-09",
-  "changelog": "P0 v700 HOTFIX: corrige la falta de reintento de movimientos remotos cuando un guardado IndexedDB falla transitoriamente; el mismo opId se vuelve a intentar con espera acotada y sin afectar otras licencias. No cambia valores, PIN, ventas, límites ni proveedores de Sync3.",
+  "changelog": "v701: Advanced identifica en este aparato el tipo de dispositivo, navegador y modo PWA junto al nombre editable; el lapicito queda visible sin desplegables. Sin cambios de identidad, datos, ventas, existencias, PIN ni transporte Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v700",
+  "shell": "f123-shell-v701",
   "apagar": [],
-  "releaseName": "shell v700",
-  "cacheGeneration": "golden239"
+  "releaseName": "shell v701",
+  "cacheGeneration": "golden240"
 }
