@@ -951,7 +951,17 @@
     var MAX_FIREBASE_TIE_RESCATE_PAGES = 24;
     // E1b-2: one causal budget per channel, NOT per socket/reconnection.
     function programarRelectura(sock, estado) {
-      if (!deudaPendiente()) {
+      // A missing Yjs parent may be restored BEFORE older, independent
+      // writers' ops have been replayed. An active finite pre-cut interval
+      // must finish to its frozen HEAD even when Yjs debt becomes empty.
+      // Retain the existing four-page pacing, retry limit and same-ms cap.
+      function barridoPendiente() {
+        var d = estado && estado.rescateCausalDesde;
+        var h = estado && estado.rescateCausalHasta;
+        return !!(d && h && (d.rev < h.rev ||
+          (d.rev === h.rev && d.seq <= h.seq)));
+      }
+      if (!deudaPendiente() && !barridoPendiente()) {
         clearTimeout(_tReplay); _tReplay = null;
         _replayKey = null; _replayUsed = 0;
         return;
@@ -975,7 +985,8 @@
       _tReplay = setTimeout(function () {
         _tReplay = null;
         if (canal.ws !== sock || sock.readyState !== 1 || estado.enCurso) return;
-        if (clavePendientes() !== _replayKey || !deudaPendiente())
+        if (clavePendientes() !== _replayKey ||
+            (!deudaPendiente() && !barridoPendiente()))
           return programarRelectura(sock, estado);
         // The bounded scan makes forward cursor progress but does NOT
         // fabricate Yjs vector progress or refresh the retry counter.
