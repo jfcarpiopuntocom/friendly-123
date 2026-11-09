@@ -86,6 +86,13 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
       const adjusted=await page.evaluate(async fx=>{
         const read=async()=>await (await fetch('/api/respaldo/exportar')).json();
         const prior=await read();
+        const correction=await fetch('/api/productos/'+fx.pid+'/ajustar',{
+          method:'POST',
+          body:JSON.stringify({delta:1,motivo:'synthetic owner +1 count after event sale'})
+        });
+        if(correction.status!==200)
+          throw Error('physical count correction was not durably ACKed: HTTP '+correction.status);
+        await correction.json();
         const after=await read();
         return {
           beforeStock:prior.productos.find(p=>p.id===fx.pid)?.stockActual,
