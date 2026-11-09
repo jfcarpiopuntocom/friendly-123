@@ -797,11 +797,11 @@
     <div class="avanzado-aviso" data-i18n-html="adv.notice">This is where the technical detail of the business lives: activity, expenses, and the accounting layer (T-accounts, P&amp;L, balance sheet, and valued inventory). It's not for day-to-day — it's for the accountant, the manager, or anyone who wants to see the numbers in depth. That's why the accounting part asks for a separate passcode.</div>
 
     <!-- Identity editing lives in Advanced; header names remain read-only. Existing handlers and roles are unchanged. -->
-    <details id="oc-identity-settings" class="tag-card" style="text-align:left;margin:12px 0;padding:12px 14px;">
+    <details id="oc-identity-settings" class="tag-card" open style="text-align:left;margin:12px 0;padding:12px 14px;">
       <summary data-i18n="adv.identityHeading" style="cursor:pointer;font-weight:700;">Store &amp; device names</summary>
       <div style="display:flex;flex-wrap:wrap;gap:14px 24px;margin-top:12px;align-items:center;">
         <div id="oc-identity-store-edit"><span data-i18n="adv.identityStore">Store name</span> <button id="oc-negocio-editar" type="button" data-i18n-attr="title:header.editBizName,aria-label:header.editBizName" title="Edit your business name" aria-label="Edit your business name" style="display:none;margin-left:6px;font-size:18px;line-height:1;min-width:32px;min-height:32px;background:transparent;border:none;color:var(--rust-ink,#E86040);cursor:pointer;vertical-align:middle;padding:4px 6px;">✎</button></div>
-        <div id="oc-advanced-device-edit" style="display:none;"><span data-i18n="adv.identityDevice">Device name</span> <button type="button" id="oc-header-apodo-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" aria-label="Name this device" style="background:none;border:none;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:13px;padding:0 2px;vertical-align:middle;">✎</button></div>
+        <div id="oc-advanced-device-edit" style="display:none;"><span data-i18n="adv.identityDevice" style="font-weight:700;">Device name</span> <strong id="oc-advanced-device-name" style="margin-left:5px;overflow-wrap:anywhere;"></strong> <span id="oc-advanced-device-env" style="display:inline-block;margin-left:7px;padding:2px 7px;border:1px solid var(--azul-suave,#dde5ec);border-radius:6px;font-size:12px;color:var(--ink-soft,#5d5340);vertical-align:middle;" title="Automatically detected on this device"></span> <button type="button" id="oc-header-apodo-btn" data-i18n-attr="title:device.name,aria-label:device.name" title="Name this device" aria-label="Name this device" style="background:transparent;border:1px solid currentColor;border-radius:6px;color:var(--azul-medio,#2c4a68);cursor:pointer;font-size:21px;line-height:1;min-width:40px;min-height:40px;padding:6px 9px;margin-left:7px;vertical-align:middle;">✎</button></div>
       </div>
       <p id="oc-negocio-estado" data-i18n="header.bizNameSaveError" role="alert" style="display:none;color:var(--rojo-ink,#a3392a);font-size:13px;font-weight:700;margin:4px 0;">Could not save the business name. The previous name is kept; try again.</p>
     </details>
@@ -916,6 +916,7 @@
 <script defer src="./simon-config.js"></script>
 <script defer src="./percha-reposicion.js"></script>
 <script defer src="./micelio-vivo.js"></script>
+<script defer src="./device-environment.js"></script>
 <script defer src="./micelio-ui.js"></script>
 <script defer src="./borradores.js"></script>
 <script defer src="./vista-perchas.js"></script>
