@@ -80,6 +80,26 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
       assert.equal(before.stillDue,80,'amount owed must match the event sale');
       assert.ok(before.receiptId,'a $15 cash commission payout must have durable receipt');
 
+      // RED contract first: an owner physical +1 correction AFTER this
+      // ticket sale/payment must be an independent durable movement, without
+      // emitting a second sale or changing a commission receipt.
+      const adjusted=await page.evaluate(async fx=>{
+        const read=async()=>await (await fetch('/api/respaldo/exportar')).json();
+        const prior=await read();
+        const after=await read();
+        return {
+          beforeStock:prior.productos.find(p=>p.id===fx.pid)?.stockActual,
+          afterStock:after.productos.find(p=>p.id===fx.pid)?.stockActual,
+          additionalMovements:after.movimientos.length-prior.movimientos.length,
+          saleCount:after.ventas.filter(v=>v.productoId===fx.pid).length,
+          payoutCount:after.payouts.filter(p=>p.opId==='p0-browser-v698-synthetic-receipt').length
+        };
+      },fx);
+      assert.deepEqual(adjusted,{
+        beforeStock:3,afterStock:4,additionalMovements:1,
+        saleCount:1,payoutCount:1
+      },'physical +1 must produce exactly one local stock movement without touching sales/money');
+
       // Same browser context, real reload (fresh JS runtime and persistent IDB).
       await page.reload({waitUntil:'domcontentloaded'});
       await page.waitForFunction(()=>window.OCAuth&&typeof fetch==='function');
@@ -106,7 +126,7 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]){
         };
       },{pid:fx.pid,uid:fx.uid,saleId:before.saleId});
       assert.deepEqual(after,{
-        stock:3,quantity:2,saleCount:1,commission:80,stillDue:65,payoutCount:1
+        stock:4,quantity:2,saleCount:1,commission:80,stillDue:65,payoutCount:1
       },'stock, event ticket sale, payment and commission must persist after reload');
       console.log('P0_ONE_DEVICE_EVENT_BROWSER',JSON.stringify({
         engine:engineName,uiSaleReturnMs:ui.elapsedMs,
