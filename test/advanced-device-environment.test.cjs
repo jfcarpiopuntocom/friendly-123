@@ -6,9 +6,8 @@ const vm=require('node:vm');
 const fs=require('node:fs');
 const path=require('node:path');
 const html=fs.readFileSync(path.resolve(__dirname,'../docs/index.html'),'utf8');
-const match=html.match(/<script id="oc-device-label-script">([\s\S]*?)<\/script>/);
-assert.ok(match,'Advanced must ship a self-contained environment label');
-const script=match[1];
+assert.match(html,/<script defer src="\.\/device-environment\.js"><\/script>/,'label must be a deferred shell asset');
+const script=fs.readFileSync(path.resolve(__dirname,'../docs/device-environment.js'),'utf8');
 
 function render({ua='',platform='',touch=0,pwa=false,standalone=false,nickname=''}={}) {
   const el={'oc-advanced-device-env':{textContent:''},'oc-advanced-device-name':{textContent:''}};

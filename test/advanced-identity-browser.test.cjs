@@ -30,6 +30,7 @@ test('Advanced identity keeps header names, session roles and keyboard access at
       window.fetch=async()=>({ok:true,json:async()=>({nombreNegocio:'Synthetic shop',ok:true})});
       window.prompt=()=>null;
     });
+    await page.addScriptTag({path:path.join(__dirname,'../docs/device-environment.js')});
     await page.addScriptTag({content:script});
     await page.evaluate(()=>{role='dueno';dispatchEvent(new Event('oc-login'));document.querySelector('#vista-avanzado').classList.add('activa');});
     await page.waitForFunction(()=>document.querySelector('#oc-negocio-nombre').textContent==='Synthetic shop',null,{timeout:5000});

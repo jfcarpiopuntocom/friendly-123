@@ -139,7 +139,7 @@ const SHELL = [
      quedaba en blanco: el destino no estaba en cache. Se cachean los dos —
      tablero.html pesa unos cientos de bytes ahora y hay enlaces viejos
      (WhatsApp, redes) que todavia apuntan ahi. */
-  "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./micelio-ui.js", "./tablero.html", "./dashboard.html", "./dashboard-updates.js", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
+  "./simon-config.js", "./percha-reposicion.js", "./micelio-vivo.js", "./device-environment.js", "./micelio-ui.js", "./tablero.html", "./dashboard.html", "./dashboard-updates.js", "./tablero-avanzado.js", "./borradores.js", "./vista-perchas.js",
   "./welcome-ui.js",
   "./ganchos-demo.js",
   "./tutorial-ui.js",
