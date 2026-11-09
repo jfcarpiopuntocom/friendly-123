@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false, localHydrationPending = false, idbUnsynced = false, pendingStructs = false, pendingDs = false, missingOwnerMetadata = false } = {}) {
+async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false, localHydrationPending = false, idbUnsynced = false, pendingStructs = false, pendingDs = false, missingOwnerMetadata = false, recoverAfterMs = null, progressEveryMs = null, repeatedPagesOnly = false } = {}) {
   const script = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
   let now = 0, keypadClicks = 0, exitCode = null, diagnosticCalls = 0;
   const messages = [];
@@ -24,7 +24,14 @@ async function fakeRun(license, { joined = false, customOwnerPin = false, recove
       if (joined && String(fn).includes('licenciaAdoptada:')) {
         diagnosticCalls++;
         if (diagFailsAfterJoin && diagnosticCalls >= 2) return { lecturaDiagnosticoFallida: true };
-        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tieneRoomYjs: !missingYjs, tieneCanalCatalogo: !missingYjs, tienePinOwnerNoFactory: customOwnerPin, tieneMetadatosPin: !missingOwnerMetadata, catalogoRecuperando: recoveringCatalog, hidratacionLocalPendiente: localHydrationPending, catalogoIdbSincronizado: !idbUnsynced, catalogoClientesAplicados: 0, catalogoEstructurasAplicadas: 0, catalogoPendientesOutbox: 0, catalogoHuerfanos: 0, catalogoSinPendientesCausales: !(pendingStructs || pendingDs) };
+        const finished = recoverAfterMs !== null && now >= recoverAfterMs;
+        const steps = progressEveryMs ? Math.floor(now / progressEveryMs) : 0;
+        return { licenciaAdoptada: true, syncCodeIgual: true, salaCorrecta: true, tieneDispositivo: true, tieneRoomYjs: !missingYjs, tieneCanalCatalogo: !missingYjs, tienePinOwnerNoFactory: customOwnerPin,
+          tieneMetadatosPin: !missingOwnerMetadata, catalogoRecuperando: recoveringCatalog && !finished, hidratacionLocalPendiente: localHydrationPending && !finished,
+          catalogoIdbSincronizado: !idbUnsynced || finished, catalogoClientesAplicados: repeatedPagesOnly ? 0 : steps, catalogoEstructurasAplicadas: repeatedPagesOnly ? 0 : steps,
+          pullAvances: repeatedPagesOnly ? 0 : steps, pullFrames: steps * 12, pullPaginas: steps, catalogoPadresFaltantes: pendingStructs && !finished ? 5 : 0,
+          catalogoPendientesOutbox: 0, catalogoHuerfanos: 0,
+          catalogoSinPendientesCausales: !(pendingStructs || pendingDs) || finished };
       }
       return null; // Owner never authenticates: exercise login budget
     },
@@ -160,8 +167,8 @@ test('P0: cold-join emits bounded causal progress pulses before failing recovery
   const license = 'F123-SECRET-SYNTHETIC-CANARY-ONLY';
   const r = await fakeRun(license, { joined: true, recoveringCatalog: true, pendingStructs: true });
   const pulses = r.messages.filter(m => m.startsWith('CANARIO_CAUSAL_PULSO: '));
-  assert.ok(pulses.length >= 2 && pulses.length <= 6,
-    'expect 2–6 bounded progress samples during a 20s recovery, got ' + pulses.length);
+  assert.ok(pulses.length >= 4 && pulses.length <= 8,
+    'expect 4–8 bounded progress samples during a stalled recovery, got ' + pulses.length);
   const parsed = pulses.map(m => JSON.parse(m.slice('CANARIO_CAUSAL_PULSO: '.length)));
   assert.ok(parsed.every(p => Number.isFinite(p.segundos) && p.segundos >= 0),
     'elapsed seconds must be numeric, not a wall-clock identifier');
@@ -176,6 +183,47 @@ test('P0: cold-join emits bounded causal progress pulses before failing recovery
   assert.equal(r.keypadClicks, 3, 'never retry Owner PIN during incomplete recovery');
   assert.ok(r.messages.every(m => !m.includes(license) && !m.includes('SENSITIVE-ROOM')),
     'pulses must never expose license, room or PIN');
+});
+
+test('P0: recovery progressing past 30 seconds reaches the access gate, not a false timeout', async () => {
+  const r = await fakeRun('SYNTHETIC-ONLY', {
+    joined: true, recoveringCatalog: true, pendingStructs: true,
+    recoverAfterMs: 52000, progressEveryMs: 2000
+  });
+  assert.ok(r.now >= 52000, 'readiness cannot be fabricated before causal recovery');
+  assert.ok(r.messages.some(m => /"fase":"barreras-verificadas","estado":"completo"/.test(m)));
+  assert.ok(!r.messages.some(m => /FALLA RECUPERACION:/.test(m)),
+    'progressing recovery should not fail at an arbitrary 20/30 seconds');
+  assert.ok(r.messages.some(m => /FALLA ACCESO:/.test(m)),
+    'synthetic login still fails without a real authenticated Owner');
+  assert.equal(r.keypadClicks, 6, 'single Owner PIN attempt only after all barriers');
+});
+
+test('P0: a nonprogressing catch-up stops after an inactivity segment, never enters PIN', async () => {
+  const r = await fakeRun('SYNTHETIC-ONLY', { joined: true, recoveringCatalog: true, pendingStructs: true });
+  assert.ok(r.now >= 45000 && r.now < 70000, 'idle failure must be based on no useful progress');
+  assert.ok(r.messages.some(m => /sin avance comprobado/.test(m)));
+  assert.equal(r.keypadClicks, 3);
+});
+
+test('P0: repeated pages alone are not evidence of progress or recovery', async () => {
+  const r = await fakeRun('SYNTHETIC-ONLY', {
+    joined: true, recoveringCatalog: true, pendingStructs: true,
+    progressEveryMs: 2000, repeatedPagesOnly: true
+  });
+  assert.ok(r.now < 70000, 'duplicate encrypted frames cannot perpetually renew observation');
+  assert.ok(r.messages.some(m => /sin avance comprobado/.test(m)));
+  assert.equal(r.keypadClicks, 3);
+});
+
+test('P0: genuine continued progress cannot certify incomplete data, even at the CI budget', async () => {
+  const r = await fakeRun('SYNTHETIC-ONLY', {
+    joined: true, recoveringCatalog: true, pendingStructs: true, progressEveryMs: 2000
+  });
+  assert.ok(r.now >= 300000 && r.now < 320000);
+  assert.ok(r.messages.some(m => /progreso incompleto al agotar presupuesto/.test(m)));
+  assert.ok(!r.messages.some(m => /"estado":"completo"/.test(m)));
+  assert.equal(r.keypadClicks, 3);
 });
 
 test('P0: passive pull observer counts bounded replay pages and cursor motion without exposing timestamps or room IDs', async () => {
