@@ -440,3 +440,94 @@ test('P0 forensic-only: a bounded eight-minute synthetic history observation nev
  assert.equal(r.exitCode,1,'extended observation cannot silently convert incomplete recovery to GO');
  assert.ok(r.messages.some(m=>m.includes('CANARIO_OBSERVACION_SOLO:')),'mark evidence as observation not acceptance');
 });
+
+
+test('P0 RED: synthetic-only Firebase budget probe uses rounded bytes and detects post-fallback cap', async () => {
+  const source = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = source.indexOf('const observarPresupuesto = ');
+  const end = source.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start >= 0 && end > start, 'must have QA-only budget probe separate from production runtime');
+  const room = 'SENSITIVE-SYNTHETIC-ROOM', license = 'SENSITIVE-SYNTHETIC-LICENSE';
+  const cap = 20 * 1024 * 1024;
+  const data = { dia: new Date().toISOString().slice(0, 10), up: 101, down: cap - 8192, pausaHasta: 0,
+    secret: room + license };
+  const ctx = {
+    window: { OCYjs: { roomId: room, canal: { ws: { relayLayer: 'f123_relay_cupo_fb_v1' } } } },
+    localStorage: { getItem: key => { assert.equal(key, 'f123_relay_cupo_fb_v1'); return JSON.stringify(data); } },
+    Date, JSON, Number, Math
+  };
+  vm.runInNewContext(source.slice(start, end) + '\n;this.probe = observarPresupuesto;', ctx);
+  const p = { evaluate: async fn => fn() };
+  const justUnder = await ctx.probe(p);
+  assert.equal(justUnder.conocido, true);
+  assert.equal(justUnder.limiteAlcanzado, false);
+  assert.equal(justUnder.enPausa, false);
+  assert.ok(justUnder.bajadaMiB >= 19.9 && justUnder.bajadaMiB <= 20);
+  data.down = cap + 600;
+  data.pausaHasta = Date.now() + 60000;
+  ctx.window.OCYjs.canal.ws = { relayLayer: 'peer', peerOnly: true };
+  const afterFallback = await ctx.probe(p);
+  assert.equal(afterFallback.conocido, true, 'budget remains observable after Firebase socket is no longer active');
+  assert.equal(afterFallback.transporte, 'peer');
+  assert.equal(afterFallback.limiteAlcanzado, true);
+  assert.equal(afterFallback.enPausa, true);
+  assert.ok(afterFallback.bajadaMiB <= 100, 'bounded numeric display');
+  for (const x of [justUnder, afterFallback]) {
+    const logged = JSON.stringify(x);
+    assert.ok(!logged.includes(room) && !logged.includes(license) && !logged.includes('101') &&
+      !logged.includes(String(data.pausaHasta)), 'never log raw budgets, timestamps or room capability');
+  }
+});
+
+test('P0 RED: stale, malformed, oversized or inaccessible Firebase daily budget must report UNKNOWN, never zero', async () => {
+  const source = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = source.indexOf('const observarPresupuesto = ');
+  const end = source.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start >= 0 && end > start);
+  const today = new Date().toISOString().slice(0, 10);
+  let value = null, failRead = false;
+  const ctx = {
+    window: { OCYjs: { canal: { ws: { relayLayer: 'peer' } } } },
+    localStorage: { getItem: key => {
+      assert.equal(key, 'f123_relay_cupo_fb_v1');
+      if (failRead) throw new Error('PRIVATE LICENSE AND ROOM');
+      return value;
+    } },
+    Date, JSON, Number, Math
+  };
+  vm.runInNewContext(source.slice(start, end) + '\n;this.probe = observarPresupuesto;', ctx);
+  const p = { evaluate: async fn => fn() };
+  const samples = [
+    null,
+    '{BROKEN',
+    'x'.repeat(1024),
+    JSON.stringify({ dia: '2022-01-01', down: 0, pausaHasta: 0 }),
+    JSON.stringify({ dia: today, down: -1, pausaHasta: 0 }),
+    JSON.stringify({ dia: today, down: '20 MB', pausaHasta: 0 }),
+    JSON.stringify({ dia: today, down: 300, pausaHasta: 'PRIVATE' })
+  ];
+  for (value of samples) {
+    const result = await ctx.probe(p);
+    assert.equal(result.conocido, false);
+    assert.equal(result.bajadaMiB, null);
+    assert.equal(result.limiteAlcanzado, null, 'unknown must not be reported as under cap');
+    assert.ok(!JSON.stringify(result).includes('PRIVATE'));
+  }
+  failRead = true;
+  const unreadable = await ctx.probe(p);
+  assert.equal(unreadable.conocido, false);
+  assert.equal(unreadable.limiteAlcanzado, null);
+  assert.ok(!JSON.stringify(unreadable).includes('LICENSE'));
+});
+
+test('P0 RED: 480s observer logs only bounded budget metadata without affecting Owner PIN gate', async () => {
+  const license = 'SECRET-LICENSE-FROM-TEST';
+  const r = await fakeRun(license, {
+    joined: true, observationOnly: true, recoveringCatalog: true, pendingStructs: true
+  });
+  const budget = r.messages.filter(m => m.startsWith('CANARIO_PRESUPUESTO_'));
+  assert.ok(budget.length >= 1 && budget.length <= 32, 'bounded budget samples while observing synthetic room');
+  assert.equal(r.keypadClicks, 3, 'new telemetry must never try Owner PIN');
+  assert.equal(r.exitCode, 1, 'no quota probe can turn an incomplete catalog into GO');
+  assert.ok(budget.every(x => !x.includes(license) && !x.includes('SENSITIVE-ROOM')));
+});
