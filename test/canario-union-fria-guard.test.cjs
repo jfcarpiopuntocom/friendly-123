@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false, localHydrationPending = false, idbUnsynced = false, pendingStructs = false, pendingDs = false, missingOwnerMetadata = false } = {}) {
+async function fakeRun(license, { joined = false, customOwnerPin = false, recoveringCatalog = false, diagFailsAfterJoin = false, missingYjs = false, localHydrationPending = false, idbUnsynced = false, pendingStructs = false, pendingDs = false, missingOwnerMetadata = false, observationOnly = false } = {}) {
   const script = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
   let now = 0, keypadClicks = 0, exitCode = null, diagnosticCalls = 0;
   const messages = [];
@@ -34,7 +34,7 @@ async function fakeRun(license, { joined = false, customOwnerPin = false, recove
   const browser = { newPage: async () => page, close: async () => {} };
   const fakeProcess = {
     argv: ['node', 'scripts/canario-union-fria.cjs'],
-    env: license === null ? {} : { F123_CANARIO_LICENCIA: license },
+    env: license === null ? {} : { F123_CANARIO_LICENCIA: license, ...(observationOnly ? { F123_CANARIO_SOLO_OBSERVAR: '1' } : {}) },
     exit(n) { exitCode = n; throw Object.assign(new Error('CANARY_EXIT'), { canaryExit: true }); },
   };
   const ctx = {
@@ -310,4 +310,133 @@ test('P0: checkpoint cut age is a bounded category from metadata-only GET, never
       !output.includes('123456000') && !output.includes('123000000'),
       'log only age class; no room capability or raw server cursor');
   }
+});
+
+test('P0 diagnostic-only: hydrated synthetic room is observed without attempting Owner PIN', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', { joined: true, observationOnly: true });
+  assert.equal(r.keypadClicks, 3, 'only factory selector digits; NEVER try Owner PIN');
+  assert.ok(r.messages.some(m => m.includes('CANARIO_OBSERVACION_SOLO:')),
+    'diagnostic result must be explicitly classified as observation, not full Owner acceptance');
+});
+
+test('P0 diagnostic-only: preserve RED after extended causal observation without retrying Owner PIN', async () => {
+  const r = await fakeRun('F123-TEST-COLD-JOIN-00002', {
+    joined: true, observationOnly: true, recoveringCatalog: true, pendingStructs: true
+  });
+  assert.ok(r.now >= 90000, 'diagnostic-only observation must run for >=90s fake time');
+  assert.equal(r.keypadClicks, 3, 'no Owner PIN guesses throughout incomplete recovery');
+  assert.equal(r.exitCode, 1, 'incomplete Yjs recovery must remain RED');
+  assert.ok(r.messages.some(m => /RECUPERACION:/.test(m)), 'retain honest recovery failure');
+});
+
+test('P0 diagnostic-only shallow count reads remote operation KEYS, never ciphertext or IDs in telemetry', async () => {
+  const full = fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start = full.indexOf('const contarOperaciones = ');
+  const end = full.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start >= 0 && end > start,'metadata-only remote count probe must exist');
+  const room = 'a'.repeat(40), calls = [];
+  const ctx = {
+    window: { OCYjs: { roomId: room, canal: { ws: { relayLayer: 'f123_relay_cupo_fb_v1' } } } },
+    fetch: async (url, opts) => {
+      calls.push({ url, opts });
+      assert.equal(opts.method, 'GET');
+      assert.equal(new URL(url).searchParams.get('shallow'), 'true');
+      assert.equal(new URL(url).pathname, '/f123/' + room + '-y/o.json');
+      return { ok:true, headers: {get: () => '120'}, text:async () => JSON.stringify({opA:true,opB:true,opC:true}) };
+    },
+    Promise, JSON, Object, Number, URL, setTimeout, clearTimeout
+  };
+  vm.runInNewContext(full.slice(start,end) + ';this.query = contarOperaciones;',ctx);
+  const result = await ctx.query({evaluate:async fn=>fn()});
+  assert.equal(result.consultado,true);
+  assert.equal(result.operaciones,3);
+  assert.equal(calls.length,1);
+  assert.ok(!JSON.stringify(result).includes(room) && !JSON.stringify(result).includes('opA'),
+    'never return room capability or individual operation IDs');
+});
+
+test('P0 shallow operation count rejects oversized or failed metadata responses rather than fake zero', async () => {
+  const full = fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start = full.indexOf('const contarOperaciones = ');
+  const end = full.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start >= 0 && end > start);
+  const room='b'.repeat(40);
+  let status=503;
+  const ctx={window:{OCYjs:{roomId:room,canal:{ws:{relayLayer:'f123_relay_cupo_fb_v1'}}}},
+    fetch:async()=>({ok:status===200,headers:{get:()=>status===200?'9000000':'0'},text:async()=>'{}'}),
+    Promise,JSON,Object,Number,URL,setTimeout,clearTimeout};
+  vm.runInNewContext(full.slice(start,end) + ';this.query=contarOperaciones;',ctx);
+  const page={evaluate:async fn=>fn()};
+  const failed=await ctx.query(page);
+  assert.equal(failed.consultado,false);
+  assert.equal(failed.operaciones,null,'HTTP 503 is UNKNOWN, never a valid empty room');
+  status=200;
+  const tooLarge=await ctx.query(page);
+  assert.equal(tooLarge.consultado,false);
+  assert.equal(tooLarge.operaciones,null,'oversized metadata is UNKNOWN, not a false zero');
+});
+
+
+test('P0 sampled Firebase operation s metadata estimates post-CKPT tail without ciphertext or IDs', async () => {
+  const source=fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start=source.indexOf('const sondearColaCheckpoint = ');
+  const end=source.indexOf('\nconst diagnostico = ',start);
+  assert.ok(start>=0&&end>start,'bounded metadata-only tail sampling probe exists');
+  const room='c'.repeat(40),calls=[];
+  const base='/f123/'+room+'-y';
+  const fetchFake=async(url,opts)=>{
+    const u=new URL(url);calls.push({path:u.pathname,search:u.search});
+    assert.equal(u.origin,'https://friendly-123-ab7b3-default-rtdb.firebaseio.com');
+    assert.equal(opts.method,'GET','sampling must be read-only');
+    assert.equal(opts.credentials,'omit');
+    assert.ok(!u.searchParams.has('orderBy')&&!u.searchParams.has('startAt'),
+      'shallow cannot coexist with Firebase ordering/range');
+    const response=x=>({ok:true,headers:{get:()=> '80'},text:async()=>JSON.stringify(x),
+      json:async()=>x});
+    if(u.pathname===base+'/k.json'){assert.equal(u.searchParams.get('shallow'),'true');return response({'1':true})}
+    if(u.pathname===base+'/k/1/s.json')return response(150);
+    if(u.pathname===base+'/o.json'){assert.equal(u.searchParams.get('shallow'),'true');return response({'opA':true,'opB':true,'opC':true,'opD':true})}
+    const op=u.pathname.match(/\/o\/(op[A-D])\/s\.json$/);
+    assert.ok(op,'no encrypted op payload endpoint may be accessed');
+    return response({opA:100,opB:200,opC:150,opD:300}[op[1]]);
+  };
+  const ctx={window:{OCYjs:{roomId:room,canal:{ws:{relayLayer:'f123_relay_cupo_fb_v1'}}}},
+    fetch:fetchFake,Promise,Number,Object,JSON,URL,Math:{random:()=>0,floor:Math.floor,min:Math.min},
+    setTimeout,clearTimeout,encodeURIComponent};
+  vm.runInNewContext(source.slice(start,end)+';this.probe=sondearColaCheckpoint;',ctx);
+  const result=await ctx.probe({evaluate:async fn=>fn()});
+  assert.deepEqual(JSON.parse(JSON.stringify(result)),{
+    consultado:true,total:4,muestra:4,posteriores:2,anterioresOIguales:2
+  });
+  assert.equal(calls.length,7,'only 2 checkpoint metadata GETs, shallow op keys and 4 numeric s GETs');
+  assert.ok(!JSON.stringify(result).includes(room)&&!JSON.stringify(result).includes('opA'),
+    'no room, op ID or timestamp can leave the browser');
+});
+test('P0 sampled checkpoint metadata fails closed on HTTP error and rejects wrong relay layer',async()=>{
+  const source=fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start=source.indexOf('const sondearColaCheckpoint = ');
+  const end=source.indexOf('\nconst diagnostico = ',start);
+  assert.ok(start>=0&&end>start);
+  const room='d'.repeat(40),calls=[];
+  const scope={window:{OCYjs:{roomId:room,canal:{ws:{relayLayer:'peer'}}}},
+    fetch:async(url)=>{calls.push(url);return {ok:false,status:503}},Promise,Number,Object,JSON,URL,Math,
+    setTimeout,clearTimeout,encodeURIComponent};
+  vm.runInNewContext(source.slice(start,end)+';this.probe=sondearColaCheckpoint;',scope);
+  const page={evaluate:async fn=>fn()};
+  const wrong=await scope.probe(page);
+  assert.equal(wrong.consultado,false);
+  assert.equal(calls.length,0,'never query Firebase for a non-Firebase transport');
+  scope.window.OCYjs.canal.ws.relayLayer='f123_relay_cupo_fb_v1';
+  const down=await scope.probe(page);
+  assert.equal(down.consultado,false);
+  assert.equal(down.total,null);
+  assert.equal(calls.length,1,'HTTP 503 must abort without further GETs');
+});
+
+test('P0 forensic-only: a bounded eight-minute synthetic history observation never attempts Owner PIN or passes incomplete Yjs',async()=>{
+ const r=await fakeRun('F123-TEST-COLD-JOIN-00002',{joined:true,observationOnly:true,recoveringCatalog:true,pendingStructs:true});
+ assert.ok(r.now>=480000,'long forensic needs 480s of FAKE time; normal 20s acceptance is unchanged');
+ assert.equal(r.keypadClicks,3,'only factory selector digits, never Owner credential guesses');
+ assert.equal(r.exitCode,1,'extended observation cannot silently convert incomplete recovery to GO');
+ assert.ok(r.messages.some(m=>m.includes('CANARIO_OBSERVACION_SOLO:')),'mark evidence as observation not acceptance');
 });

@@ -1,0 +1,63 @@
+name: QA P0 v697 local-preview vs real synthetic Firebase (8min observe, NO-GO)
+on:
+  pull_request:
+    paths:
+      - 'scripts/canario-union-fria.cjs'
+      - 'test/canario-union-fria-guard.test.cjs'
+      - '.github/workflows/qa-coldjoin-observe-only.yml'
+permissions:
+  contents: read
+jobs:
+  candidate-real-firebase-diagnostic:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: observer
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly-123
+          ref: b9183569162fc727fa6186d9c764ebc055f2094c
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify observer retains the no-Owner-PIN contract
+        working-directory: observer
+        run: |
+          set -euo pipefail
+          npm ci
+          node --test test/canario-union-fria-guard.test.cjs
+      - name: Install preview dependencies
+        working-directory: candidate
+        run: npm ci
+      - name: Observe exactly this candidate against SYNTHETIC remote Firebase only
+        working-directory: candidate
+        shell: bash -e {0}
+        env:
+          F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+          F123_CANARIO_SOLO_OBSERVAR: '1'
+        run: |
+          set -euo pipefail
+          test -n "${F123_CANARIO_LICENCIA:-}" || { echo 'SYNTHETIC QA LICENSE NOT CONFIGURED, NO NETWORK ACTION'; exit 2; }
+          test "$(git rev-parse HEAD)" = "b9183569162fc727fa6186d9c764ebc055f2094c" || { echo 'UNEXPECTED CANDIDATE SHA'; exit 3; }
+          cp ../observer/scripts/canario-union-fria.cjs scripts/qa-preview-union-fria.cjs
+          node -e 'const {startServer}=require("./test/helpers/e2e-app.cjs");startServer().then(({base})=>{require("fs").writeFileSync("/tmp/f123-v697-preview-url",base);});' &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 50); do test -s /tmp/f123-v697-preview-url && break; sleep 0.2; done
+          test -s /tmp/f123-v697-preview-url
+          BASE=$(cat /tmp/f123-v697-preview-url)
+          curl -fsS "$BASE/version.json" >/tmp/f123-v697-version.json
+          node -e 'const v=require("/tmp/f123-v697-version.json");if(v.shell!=="f123-shell-v697")process.exit(4)'
+          echo 'QA-only: exact v697 local preview, real existing synthetic room, 480s observe, NO Owner PIN and NO publication.'
+          node scripts/qa-preview-union-fria.cjs "$BASE/" | tee -a "$GITHUB_STEP_SUMMARY"

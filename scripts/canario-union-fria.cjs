@@ -5,6 +5,7 @@ const { chromium } = require('playwright');
 const BASE = (process.argv[2] || 'https://jfcarpiopuntocom.github.io/friendly-123/').replace(/\/?$/, '/');
 const LICENCIA = process.env.F123_CANARIO_LICENCIA;
 const PIN = process.env.F123_CANARIO_PIN || '789';
+const SOLO_OBSERVAR = process.env.F123_CANARIO_SOLO_OBSERVAR === '1'; // QA-only: no Owner PIN, never changes normal acceptance
 const PRODUCTO = 'Taza QA', ESPERADO = 9;
 if (!LICENCIA) { console.error('CANARIO_CONFIG: falta F123_CANARIO_LICENCIA; prueba NO ejecutada.'); process.exit(2); }
 if (!/^\d{3}$/.test(PIN)) { console.error('CANARIO_CONFIG: F123_CANARIO_PIN debe tener tres dígitos.'); process.exit(2); }
@@ -126,6 +127,113 @@ const consultarCheckpoint = p => p.evaluate(async () => {
 });
 
 // Only safe booleans and role are printed: never license, PIN, room ID or encrypted data.
+// Synthetic-room metadata ONLY. Firebase shallow=true returns operation keys,
+// not ciphertext. No keys, license, room capability or query URL leave this browser.
+const contarOperaciones = p => p.evaluate(async () => {
+  const desconocido = { consultado: false, operaciones: null };
+  let timer = null;
+  try {
+    const y = window.OCYjs, room = y && y.roomId;
+    const ws = y && y.canal && y.canal.ws;
+    if (!ws || ws.relayLayer !== 'f123_relay_cupo_fb_v1' ||
+        typeof room !== 'string' || !/^[a-f0-9]{40}$/.test(room)) return desconocido;
+    const url = 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/' +
+      room + '-y/o.json?shallow=true';
+    const request = fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store' })
+      .then(async r => {
+        if (!r || !r.ok) return desconocido;
+        // Avoid parsing massive metadata responses in the QA browser.
+        const size = Number(r.headers && r.headers.get && r.headers.get('content-length') || 0);
+        if (size > 3 * 1024 * 1024) return desconocido;
+        const raw = await r.text();
+        if (raw.length > 3 * 1024 * 1024) return desconocido;
+        const obj = JSON.parse(raw);
+        if (obj === null) return { consultado: true, operaciones: 0 };
+        if (!obj || Array.isArray(obj) || typeof obj !== 'object') return desconocido;
+        const ids = Object.keys(obj);
+        if (!ids.every(key => obj[key] === true)) return desconocido;
+        return { consultado: true, operaciones: ids.length };
+      }).catch(() => desconocido);
+    return await Promise.race([
+      request,
+      new Promise(resolve => { timer = setTimeout(() => resolve(desconocido), 8000); })
+    ]);
+  } catch (_) { return desconocido; }
+  finally { if (timer !== null) clearTimeout(timer); }
+}).catch(() => ({ consultado: false, operaciones: null }));
+
+
+// Bounded statistical SAMPLE of server timestamps from the existing synthetic
+// Firebase room. Uses ONLY shallow key listings + child /s.json numeric metadata.
+// Firebase explicitly forbids mixing shallow=true with orderBy/startAt.
+// Never GET /o/<id>.json or /k/<rev>.json (which contain ciphertext).
+// Only aggregate counts leave browser memory; unknown remains fail-closed.
+const sondearColaCheckpoint = p => p.evaluate(async () => {
+  const unknown = { consultado: false, total: null, muestra: null,
+    posteriores: null, anterioresOIguales: null };
+  let timer = null;
+  try {
+    const y = window.OCYjs, room = y && y.roomId;
+    const ws = y && y.canal && y.canal.ws;
+    if (!ws || ws.relayLayer !== 'f123_relay_cupo_fb_v1' ||
+        typeof room !== 'string' || !/^[a-f0-9]{40}$/.test(room)) return unknown;
+    const base = 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/' + room + '-y';
+    const options = { method: 'GET', credentials: 'omit', cache: 'no-store' };
+    async function getMetadata(path, maxChars) {
+      const r = await fetch(base + path, options);
+      if (!r || !r.ok) throw new Error('unavailable');
+      const size = Number(r.headers && r.headers.get && r.headers.get('content-length') || 0);
+      if (!Number.isFinite(size) || size > maxChars) throw new Error('oversized');
+      const data = await r.text();
+      if (data.length > maxChars) throw new Error('oversized');
+      return JSON.parse(data);
+    }
+    const compute = async () => {
+      const revTree = await getMetadata('/k.json?shallow=true', 131072);
+      if (!revTree || typeof revTree !== 'object' || Array.isArray(revTree)) return unknown;
+      const revisions = Object.keys(revTree).filter(k =>
+        /^[1-9]\d*$/.test(k) && Number.isSafeInteger(Number(k)) && revTree[k] === true);
+      if (revisions.length === 0) return unknown;
+      revisions.sort((a, b) => Number(a) - Number(b));
+      const revision = revisions[revisions.length - 1];
+      const cut = await getMetadata('/k/' + revision + '/s.json', 128);
+      if (!Number.isSafeInteger(cut) || cut < 0) return unknown;
+
+      const tree = await getMetadata('/o.json?shallow=true', 3 * 1024 * 1024);
+      if (tree === null) return { consultado: true, total: 0, muestra: 0,
+        posteriores: 0, anterioresOIguales: 0 };
+      if (!tree || typeof tree !== 'object' || Array.isArray(tree)) return unknown;
+      const ids = Object.keys(tree);
+      if (!ids.every(id => tree[id] === true)) return unknown;
+      const n = Math.min(ids.length, 32);
+      // Fisher-Yates partial shuffle: uniform sample without replacement.
+      for (let j = 0; j < n; j++) {
+        const k = j + Math.floor(Math.random() * (ids.length - j));
+        const previous = ids[j]; ids[j] = ids[k]; ids[k] = previous;
+      }
+      let pos = 0, newer = 0, older = 0;
+      const worker = async () => {
+        while (pos < n) {
+          const id = ids[pos++];
+          // Single primitive field; the operation's encrypted /c is NEVER requested.
+          const seq = await getMetadata('/o/' + encodeURIComponent(id) + '/s.json', 128);
+          if (!Number.isSafeInteger(seq) || seq < 0) throw new Error('invalid timestamp');
+          if (seq > cut) newer++; else older++;
+        }
+      };
+      await Promise.all(Array.from({length:Math.min(n,4)},worker));
+      return { consultado: true, total: ids.length, muestra: n,
+        posteriores: newer, anterioresOIguales: older };
+    };
+    return await Promise.race([
+      compute(),
+      new Promise(resolve => { timer = setTimeout(() => resolve(unknown), 12000); })
+    ]);
+  } catch (_) { return unknown; }
+  finally { if (timer !== null) clearTimeout(timer); }
+}).catch(() => ({ consultado: false, total: null, muestra: null,
+  posteriores: null, anterioresOIguales: null }));
+
 const diagnostico = (p, licencia) => p.evaluate((lic) => {
   try {
     const o = JSON.parse(localStorage.getItem('f123_owned') || '{}');
@@ -245,7 +353,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
         d.catalogoRecuperando === false && d.hidratacionLocalPendiente === false &&
         d.catalogoIdbSincronizado === true && d.catalogoSinPendientesCausales === true &&
         d.tieneMetadatosPin === true);
-      const limiteRecuperacion = Date.now() + 20000;
+      const limiteRecuperacion = Date.now() + (SOLO_OBSERVAR ? 480000 : 20000);
       let siguientePulsoCausal = Date.now() + 4000;
       while (!recuperacionVerificada(ultima) && Date.now() < limiteRecuperacion) {
         await p.waitForTimeout(2000);
@@ -289,6 +397,23 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
           }));
         }
       }
+      if (SOLO_OBSERVAR) {
+        // This is NOT an Owner-authentication or physical Sync3 acceptance gate.
+        // Observe the existing synthetic room, with NO post-join Owner PIN attempts.
+        console.log('CANARIO_OBSERVACION_SOLO:', JSON.stringify({
+          segundos: Math.max(0, Math.floor((Date.now() - t0) / 1000)),
+          recuperado: recuperacionVerificada(ultima),
+          catalogoRecuperando: ultima && ultima.catalogoRecuperando === true,
+          padresFaltantes: Number.isSafeInteger(ultima && ultima.catalogoPadresFaltantes)
+            ? Math.min(9999, ultima.catalogoPadresFaltantes) : null,
+          paginas: Number.isSafeInteger(ultima && ultima.pullPaginas)
+            ? Math.min(9999, ultima.pullPaginas) : null,
+          metadatosOwner: ultima && ultima.tieneMetadatosPin === true
+        }));
+        if (!recuperacionVerificada(ultima)) {
+          fallo = 'RECUPERACION: catalogo cifrado de la tienda no terminó';
+        }
+      } else {
       if (!recuperacionVerificada(ultima)) {
         fallo = 'RECUPERACION: catalogo cifrado de la tienda no terminó';
       } else if (PIN === '789' && ultima.tienePinOwnerNoFactory) {
@@ -322,6 +447,7 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
             Math.round((Date.now() - t0) / 1000) + ' s');
         }
       }
+      }
     }
   } catch (e) {
     // Exception messages sometimes contain URLs and tokens: do not print them.
@@ -330,6 +456,8 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
   ultima = await diagnostico(p, LICENCIA);
   // Diagnostic-only GET after the recovery gate; cannot turn an incomplete
   // Yjs history into GREEN or cause an extra Owner PIN attempt.
+  if (SOLO_OBSERVAR) console.log('CANARIO_OPERACIONES_SHALLOW:', JSON.stringify(await contarOperaciones(p)));
+  if (SOLO_OBSERVAR) console.log('CANARIO_MUESTRA_CORTE:', JSON.stringify(await sondearColaCheckpoint(p)));
   console.log('CANARIO_CHECKPOINT:', JSON.stringify(await consultarCheckpoint(p)));
   console.log('CANARIO_DIAGNOSTICO:', JSON.stringify(ultima));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
