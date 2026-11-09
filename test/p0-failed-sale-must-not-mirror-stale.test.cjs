@@ -68,3 +68,22 @@ test('P0 RED: rejected stale CAS rebases from newer IDB receipt and retries exac
   assert.ok(mirrors.every(x=>x.ventas.some(v=>v.id===response.ventaId)),
     'a post-success backup may run, but never publish rolled-back state before rebase');
 });
+
+test('P0: real quota failure stays 507 and never writes an unsafe rollback mirror',async()=>{
+  const {app,product,baseline}=await fixture();
+  let mirrors=0;
+  app.OCEstadoIDB={
+    soportado:true,
+    guardarConRevision:async()=>false,
+    guardar:async()=>{mirrors++;return true;},
+    ultimoError:()=>({name:'QuotaExceededError',code:22})
+  };
+  const response=await app.fetch('/api/productos/'+product.id+'/venta',{
+    method:'POST',body:JSON.stringify({cantidad:1})
+  });
+  assert.equal(response.status,507,'genuine quota must not be silently retried as CAS conflict');
+  assert.equal(mirrors,0,'no stale state mirror after quota abort');
+  const after=await app.request('/api/respaldo/exportar');
+  assert.equal(after.productos.find(x=>x.id===product.id).stockActual,4);
+  assert.equal(after.ventas.length,baseline.ventas.length);
+});
