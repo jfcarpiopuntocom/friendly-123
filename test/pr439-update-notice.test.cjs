@@ -81,3 +81,43 @@ for(const file of sources){
   }
  });
 }
+// P0 Belén: a pending shopping basket is an unsaved sale draft and must
+// remain intact across a service-worker update, even after 90 seconds idle.
+for(const file of sources){
+ test(file+' - live basket and checkout sealing defer auto reload until sale finishes',async()=>{
+  let saved=0;
+  const f=cargar(file,{recup:false,save:async()=>{saved++;return true;}});
+  f.clock.t+=100000;
+  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
+  f.ctx._carritoVenta=[{productoId:'synthetic-only',cantidad:1}];
+  f.ctx._sellando=false;
+  await f.sola.intentar();
+  assert.equal(saved,0,'basket draft must block even starting the persistence/reload path');
+  assert.equal(f.reloads.length,0,'must not destroy unsaved basket');
+  assert.equal(f.ctx.sessionStorage.getItem('f123_act_sola_pendiente'),'1');
+  f.ctx._carritoVenta=[];
+  f.ctx._sellando=true;
+  await f.sola.intentar();
+  assert.equal(saved,0,'checkout in flight must still block reload after basket empties');
+  assert.equal(f.reloads.length,0);
+  f.ctx._sellando=false;
+  await f.sola.intentar();
+  assert.equal(saved,1,'only after sale completion may auto-update persist');
+  assert.equal(f.reloads.length,1,'idle adoption remains available when safe');
+ });
+ test(file+' - basket opened during slow durable confirmation blocks final reload',async()=>{
+  let finish,saved=0;
+  const f=cargar(file,{recup:false,save:()=>{saved++;return new Promise(r=>finish=r);}});
+  f.clock.t+=100000;
+  f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
+  f.ctx._carritoVenta=[];
+  f.ctx._sellando=false;
+  const pending=f.sola.intentar();
+  assert.equal(saved,1);
+  f.ctx._carritoVenta=[{productoId:'synthetic-only',cantidad:1}];
+  finish(true);
+  await pending;
+  assert.equal(f.reloads.length,0,'post-save race must not destroy newly opened basket');
+  assert.equal(f.ctx.sessionStorage.getItem('f123_act_sola_pendiente'),'1');
+ });
+}

@@ -1,10 +1,10 @@
 {
-  "version": "shell v701",
+  "version": "shell v703",
   "fecha": "2026-11-09",
-  "changelog": "v701: Advanced identifica en este aparato el tipo de dispositivo, navegador y modo PWA junto al nombre editable; el lapicito queda visible sin desplegables. Sin cambios de identidad, datos, ventas, existencias, PIN ni transporte Sync3.",
+  "changelog": "v703: venta local protegida contra recargas automáticas: carrito con productos y sellado en curso bloquean adopción de Service Worker, incluso durante confirmación durable. Sin cambios de ventas, existencias, PIN, datos ni transporte Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v701",
+  "shell": "f123-shell-v703",
   "apagar": [],
-  "releaseName": "shell v701",
-  "cacheGeneration": "golden240"
+  "releaseName": "shell v703",
+  "cacheGeneration": "golden242"
 }
