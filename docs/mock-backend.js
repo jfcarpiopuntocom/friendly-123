@@ -1674,7 +1674,7 @@
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab)); }
+        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto); }
         return ok;
       };
       // Strict money/stock commits use ONE atomic IDB readwrite transaction:
@@ -1753,13 +1753,13 @@
     _fallosGuardadoSeguidos = 0; _intentosReintentoGuardado = 0; _ultimoErrorGuardado = null;
     if (_reintentoGuardadoSilencioso) { clearTimeout(_reintentoGuardadoSilencioso); _reintentoGuardadoSilencioso = null; }
   }
-  function _falloGuardadoLocal(e) {
+  function _falloGuardadoLocal(e, noReintentar) {
     _ultimoErrorGuardado = e || null;
     if (_esErrorDeCuota(e)) { avisoMemoriaLlena(); return false; }
     try { console.warn("[storage] guardado local no completado (no es falta de memoria)", e && e.name ? e.name : e); } catch (_) {}
     try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "guardado-fallido"); } catch (_) {}
     _fallosGuardadoSeguidos++;
-    if (!_reintentoGuardadoSilencioso && _intentosReintentoGuardado < _ESPERAS_REINTENTO_GUARDADO.length) {
+    if (!noReintentar && !_reintentoGuardadoSilencioso && _intentosReintentoGuardado < _ESPERAS_REINTENTO_GUARDADO.length) {
       const espera = _ESPERAS_REINTENTO_GUARDADO[_intentosReintentoGuardado++];
       _reintentoGuardadoSilencioso = setTimeout(() => {
         _reintentoGuardadoSilencioso = null;
@@ -7250,6 +7250,7 @@
         try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
           _revertirVenta();
+          debePersistir = false; // Failed sale is not a state change to mirror or retry.
           // #607: a false strict commit is NOT proof of storage quota.
           // Distinguish genuine quota from CAS fences and transient IDB failures.
           // Keep the rollback and never emit stock or money without a durable ACK.
@@ -7264,7 +7265,7 @@
         emitirOpStock("venta", _opVenta, true);
         return J({ producto: ficha(p), ventaId });
         } catch (e) {
-          if (!_ventaGuardada) _revertirVenta();
+          if (!_ventaGuardada) { _revertirVenta(); debePersistir = false; }
           throw e;
         } finally {
           _ventaConfirmando = false; _ventaPendiente = null;
