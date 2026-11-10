@@ -18,7 +18,7 @@ async function fixture(){
  });
  assert.ok(product.id);
  const read=async()=> (await app.request('/api/productos')).find(p=>p.id===product.id);
- return {app,product,read};
+ return {app,product,rack,read};
 }
 test('P0 RED: rejected content-addressed blob never publishes missing photoHash to other devices',async()=>{
  const {app,read,product}=await fixture();
@@ -59,4 +59,43 @@ test('P0: thrown quota error must not create a dangling photo pointer',async()=>
  assert.equal(await app.OCSync.hashearFotosProductos(),0);
  assert.ok(!(await read()).fotoHash);
  assert.equal((await read()).foto,PNG);
+});
+
+
+test('P0 RED: rejected shelf bytes NEVER publish fotoHash or fotoRev in cold-join checkpoint',async()=>{
+ const {app,rack}=await fixture();
+ let attempts=0;
+ app.OCFotos={leerFoto:async id=>{assert.equal(id,String(rack.id));return PNG;},
+   hashDeDataUrl:async data=>{assert.equal(data,PNG);return H;},
+   guardarPorHash:async(h,data)=>{assert.equal(h,H);assert.equal(data,PNG);attempts++;return false;}};
+ assert.equal(await app.OCSync.hashearFotosPerchas(),0,'failed IDB commit does not count as converted');
+ const remote=(app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(u=>u.id===rack.id);
+ assert.ok(remote,'the shelf must remain visible to cold join');
+ assert.ok(!remote.fotoHash,'no dangling shelf photo pointer');
+ assert.ok(!remote.fotoRev,'failed copy must not mark photo as already handled');
+ assert.equal(attempts,1,'the byte write must be attempted');
+});
+test('P0: shelf photo retries after rejected bytes and only publishes after true ACK',async()=>{
+ const {app,rack}=await fixture();
+ let attempts=0;
+ app.OCFotos={leerFoto:async()=>PNG,hashDeDataUrl:async()=>H,guardarPorHash:async()=>++attempts===2};
+ const check=()=> (app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(u=>u.id===rack.id);
+ assert.equal(await app.OCSync.hashearFotosPerchas(),0);
+ assert.ok(!check().fotoHash);
+ assert.ok(!check().fotoRev);
+ assert.equal(await app.OCSync.hashearFotosPerchas(),1);
+ assert.equal(check().fotoHash,H);
+ assert.ok(check().fotoRev,'confirmed bytes can create shelf revision');
+ assert.equal(await app.OCSync.hashearFotosPerchas(),0);
+ assert.equal(attempts,2,'after success, no redundant hash writes');
+});
+test('P0: thrown quota error keeps shelf photo unannounced and retryable',async()=>{
+ const {app,rack}=await fixture();
+ app.OCFotos={leerFoto:async()=>PNG,hashDeDataUrl:async()=>H,
+   guardarPorHash:async()=>{throw Error('synthetic IDB quota rejection');}};
+ assert.equal(await app.OCSync.hashearFotosPerchas(),0);
+ const u=(app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(x=>x.id===rack.id);
+ assert.ok(u);
+ assert.ok(!u.fotoHash);
+ assert.ok(!u.fotoRev);
 });
