@@ -195,3 +195,18 @@ test('Fable G2 positive: a real 64-hex SHA-256 photo still reaches the target re
  assert.equal(map.get(hash),photo);
  doc.destroy();
 });
+
+// Fable P1-2: a Safari IndexedDB transaction can remain unsettled after opening.
+// The photo relay must release its seed single-flight after a bounded wait.
+for (const blocked of ['hashearFotosProductos','hashearFotosPerchas']) {
+ test('Fable P1-2 RED: stalled '+blocked+' cannot freeze all photo relay seeding',async()=>{
+  const photo='data:image/png;base64,CgsM',hash=hashOfPhoto(photo);
+  const {ctx,doc,ws}=await photoFixture({photo,keys:{catalog:[hash]},slowTimers:true});
+  ctx.window.OCSync[blocked]=()=>new Promise(()=>{});
+  vm.runInContext('sembrarFotosAlRelay();',ctx);
+  try {
+   await until(()=>!!ctx._fotosSembradas[hash]?.[ws.relayLayer],650);
+   assert.equal(ctx._fotosSembrando,false,'one stalled pre-hash must not keep seed locked');
+  } finally { doc.destroy(); }
+ });
+}
