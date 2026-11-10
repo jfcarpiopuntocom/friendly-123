@@ -75,7 +75,22 @@
    // Claim is fenced by the shared lease + BroadcastChannel; never queue
    // a PIN login behind iOS Web Locks that can remain zombie after backgrounding.
    take();
-  }catch(_){/* A failed lease never pretends the prior session was closed. */}
+  }catch(error){
+   // If writing the actual lease failed after writing our intent, do not
+   // block the prior owner for two minutes. Never delete another tab's intent.
+   try {
+    if(scopeKey){
+     var key=scopeKey+'_claim', intent=JSON.parse(localStorage.getItem(key)||'null');
+     if(intent&&intent.owner===id)localStorage.removeItem(key);
+    }
+   }catch(_){}
+   // The legacy !claimed shortcut is intended for non-claimed/guest contexts,
+   // not for an authenticated tab that failed to acquire an exclusive lease.
+   claimed=true;
+   var held=lease();
+   suspendida=!(held&&held.owner===id);
+   try{console.warn('[tab-session] Lease claim failed: writes fenced',error&&error.name||'Error');}catch(_){}
+  }
   finally{if(claimEpoch===window.OC_AUTH_SESSION_EPOCH){pending=false;avisarSync();}}
  }
  try{channel=new BroadcastChannel('friendly-123-auth-session');channel.onmessage=function(ev){if(ev.data&&ev.data.key===scopeKey)check();};}catch(_){}
