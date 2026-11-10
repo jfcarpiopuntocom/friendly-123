@@ -2417,7 +2417,7 @@
       return window.OCSync.hashearFotosPerchas ? window.OCSync.hashearFotosPerchas() : 0;
     }).catch(function () { return 0; }).then(async function () {
       var cat;
-      try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+      try { cat = window.OCSync.catalogoPropio(); } catch (_) { cat = null; }
       var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
       var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean);
       var hGastos = (cat && cat.gastos || []).map(function (g) { return g.facturaFotoHash; }).filter(Boolean);
