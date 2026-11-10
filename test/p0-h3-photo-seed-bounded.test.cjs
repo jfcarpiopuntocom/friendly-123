@@ -250,3 +250,30 @@ test('Fable P1-7 RED: new room must not inherit old-room already-seeded flags',a
   assert.equal(secondMap.get(hash),photo,'the new business must independently receive its own referenced image');
  }finally{doc.destroy();secondDoc.destroy();}
 });
+
+
+test('Fable P1-3 RED: photo missing on first IDB read retries itself without reconnect',async()=>{
+ const photo='data:image/png;base64,FBYXGA==',hash=hashOfPhoto(photo);
+ let reads=0;
+ const {ctx,doc,ws,map}=await photoFixture({photo,keys:{catalog:[hash]},slowTimers:true,read:async()=>{
+  reads++;return reads===1?null:photo;
+ }});
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ try{
+  await until(()=>!!ctx._fotosSembradas[hash]?.[ws.relayLayer],850);
+  assert.equal(reads,2,'recovered by one autonomous retry, not any manual event');
+  assert.equal(map.get(hash),photo,'replicated bytes remain SHA-valid');
+ }finally{doc.destroy();}
+});
+
+test('Fable P1-3 RED: a persistently missing photo has bounded autonomous retries',async()=>{
+ const photo='data:image/png;base64,GRobHA==',hash=hashOfPhoto(photo);let reads=0;
+ const {ctx,doc,ws,map}=await photoFixture({photo,keys:{catalog:[hash]},slowTimers:true,read:async()=>{reads++;return null;}});
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ try{
+  await sleep(500);
+  assert.equal(reads,3,'one original read and two finite retries, no endless loop');
+  assert.equal(ctx._fotosSembradas[hash]?.[ws.relayLayer],undefined,'never publish or ACK missing bytes');
+  assert.equal(map.get(hash),undefined,'no placeholder hash->bytes introduced');
+ }finally{doc.destroy();}
+});
