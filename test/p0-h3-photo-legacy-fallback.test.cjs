@@ -98,3 +98,26 @@ test('H3 RED: a failed raw-legacy IDB copy stays pending and is retryable',async
  assert.equal(second.blobs,1,'subsequent attempt resumes copy');
  assert.equal(dbMap.get(hash),bytes);
 });
+
+test('CodeRabbit RED: aborted IDB getAllKeys transaction must settle and preserve legacy orphan hashes',async()=>{
+ const {ctx,ls}=fixture();
+ let aborted=0;
+ ctx.abrirDB=async()=>({transaction:()=>{
+   const tx={error:new Error('synthetic transaction abort'),objectStore:()=>({getAllKeys:()=>{
+     queueMicrotask(()=>{aborted++;tx.onabort?.();});
+     return {}; // Safari can abort without delivering request.onerror.
+   }})};
+   return tx;
+ }});
+ let timer;
+ const result=await Promise.race([
+   ctx.keys(),
+   new Promise(resolve=>{timer=setTimeout(()=>resolve('HUNG_IDB_TRANSACTION'),180);})
+ ]);
+ clearTimeout(timer);
+ assert.equal(aborted,1,'inject exactly one transaction abort without a request error');
+ assert.notEqual(result,'HUNG_IDB_TRANSACTION','aborted inventory must not wait for an 8-second relay timeout');
+ assert.deepEqual([...result].sort(),['db-only','legacy-only','same-in-both'].sort(),
+   'legacy orphan evidence remains enumerable and available for relay seeding');
+ assert.equal(ls.size,4,'abort recovery must not remove local photo evidence');
+});
