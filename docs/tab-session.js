@@ -87,7 +87,9 @@
    // The legacy !claimed shortcut is intended for non-claimed/guest contexts,
    // not for an authenticated tab that failed to acquire an exclusive lease.
    claimed=true;
-   var held=lease();
+   // Also work when a stripped-down session fixture lacks the helper.
+   var held=null;
+   try{held=scopeKey?JSON.parse(localStorage.getItem(scopeKey)||'null'):null;}catch(_){}
    suspendida=!(held&&held.owner===id);
    try{console.warn('[tab-session] Lease claim failed: writes fenced',error&&error.name||'Error');}catch(_){}
   }

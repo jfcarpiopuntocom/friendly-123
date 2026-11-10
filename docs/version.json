@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.19",
+  "version": "v0.7.20",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.19 candidata QA: ante falta de cuota al reclamar sesión entre pestañas, se conserva el dueño anterior, se limpia únicamente la intención propia y se bloquean escrituras sin concesión. Sin cambiar ventas, inventario, dinero, fotos ni transporte Sync3.",
+  "changelog": "v0.7.20 candidata QA: el control de sesión ante cuota insuficiente mantiene el lease válido, limpia la intención propia y protege la ruta de error incluso cuando se prueba aisladamente. Sin alterar reglas de negocio, ventas, stock o Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v719",
+  "shell": "f123-shell-v720",
   "apagar": [],
-  "releaseName": "v0.7.19",
-  "cacheGeneration": "golden259"
+  "releaseName": "v0.7.20",
+  "cacheGeneration": "golden260"
 }
