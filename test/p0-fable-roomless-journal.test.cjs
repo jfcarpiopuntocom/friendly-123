@@ -9,7 +9,7 @@ const ctx={window,localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>sto
 vm.createContext(ctx);vm.runInContext(block+'\nthis.drain=drenarPendientesYjs;this.read=leerPendientesYjs;this.save=guardarPendientesYjs;',ctx);
 const op={opId:'op1',_salaOrigen:'A',tipo:'ajuste',payload:{delta:-1}};
 assert.equal(ctx.save('A',[op]),true);ctx.drain();assert.equal(ctx.read('A').length,1);
-online=true;window.OCYjs.estado='activo';ctx.drain();assert.equal(ops.size,1);assert.equal(ctx.read('A').length,0);
+online=true;window.OCYjs.estado='activo';ctx.drain();assert.equal(ops.size,1);assert.equal(ctx.read('A').length,1,'Yjs RAM is not a durable ACK; journal retained');
 ctx.drain();assert.equal(ops.size,1);
 ctx.save('B',[{...op,opId:'opB',_salaOrigen:'B'}]);ctx.drain();assert.equal(ctx.read('B').length,1);
 console.log('P0 Fable roomless journal: PASS');
