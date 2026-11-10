@@ -1,0 +1,25 @@
+name: P0 H3 photo residency and legacy evidence
+on:
+  pull_request:
+    paths:
+      - docs/idb-fotos.js
+      - docs/sync-yjs.js
+      - test/p0-h3-photo-seed-bounded.test.cjs
+      - test/p0-h3-photo-legacy-fallback.test.cjs
+      - .github/workflows/p0-h3-photo-memory.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  h3-photo-memory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Photo evidence and sequential seed RED/GREEN contracts
+        run: node --test --test-concurrency=1 test/p0-h3-photo-seed-bounded.test.cjs test/p0-h3-photo-legacy-fallback.test.cjs
+      - name: Existing cross-layer durable Yjs contracts
+        run: node --test test/v670-cross-layer-photo-seed.test.cjs
