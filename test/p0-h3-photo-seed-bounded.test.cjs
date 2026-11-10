@@ -118,3 +118,21 @@ test('H3 RED: relay switches during awaited photo read cannot mark previous rela
  assert.equal(map.get(hash),photo);
  doc.destroy();
 });
+test('H3 RED: catalog read throws but orphan and Yjs-only photos must still seed',async()=>{
+ const ctx={crypto:webcrypto,TextEncoder,Uint8Array,ArrayBuffer,console};
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
+ const doc=new ctx.Y.Doc(),map=doc.getMap('blobs'),ws={relayLayer:'recovery-layer'},sends=[];
+ const legacy='legacy-rescue-hash',yOnly='yjs-rescue-hash',legacyPhoto='data:image/png;base64,AA==',yPhoto='data:image/png;base64,AQ==';
+ map.set(yOnly,yPhoto);
+ ctx.API={fotosDoc:doc,fotosMap:map,fotosCanal:{ws,enviarUpdate:u=>sends.push(Buffer.from(u))}};
+ ctx.window={Y:ctx.Y,OCSync:{catalogoPropio:()=>{throw Error('transient catalog unavailable');},
+   hashearFotosProductos:async()=>0,hashearFotosPerchas:async()=>0},
+  OCFotos:{hashesGuardados:async()=>[legacy],leerPorHash:async h=>h===legacy?legacyPhoto:null}};
+ doc.on('update',(u,origin)=>{if(origin==='seed')sends.push(Buffer.from(u))});
+ vm.runInContext(snippet,ctx);vm.runInContext('sembrarFotosAlRelay();',ctx);
+ await until(()=>[legacy,yOnly].every(h=>ctx._fotosSembradas[h]?.[ws.relayLayer]));
+ assert.equal(sends.length,2,'both recoverable photo sources seed without a catalog');
+ assert.equal(map.get(legacy),legacyPhoto);
+ assert.equal(map.get(yOnly),yPhoto);
+ doc.destroy();
+});
