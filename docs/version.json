@@ -1,10 +1,10 @@
 {
-  "version": "shell v706",
+  "version": "shell v708",
   "fecha": "2026-11-09",
-  "changelog": "v706: Commissions P0: los meses historicos con ventas de casa/COUNTER sin reparto vuelven a figurar en el selector y Summary by Product; sin recalcular dinero ni modificar Sync3.",
+  "changelog": "v708 candidata H3: fotos Sync3 por hash individual, recuperación íntegra de hashes heredados y protección contra reconexiones simultáneas; sin cambiar ventas, dinero ni PIN.",
   "requerida": false,
-  "shell": "f123-shell-v706",
+  "shell": "f123-shell-v708",
   "apagar": [],
-  "releaseName": "shell v706",
-  "cacheGeneration": "golden245"
+  "releaseName": "shell v708",
+  "cacheGeneration": "golden247"
 }
