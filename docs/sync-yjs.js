@@ -2401,9 +2401,14 @@
      como op + va en vivo. Guard de sesión para no re-mandar la misma foto en cada
      reconexión. */
   var _fotosSembradas = {};
+  // Coalesce overlapping catch-up/reconnect requests without skipping a
+  // later photo or a newly selected encrypted relay layer.
+  var _fotoSeedEnCurso = false, _fotoSeedRepetir = false;
   API.sembrarFotos = sembrarFotosAlRelay;
   function sembrarFotosAlRelay() {
     if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
+    if (_fotoSeedEnCurso) { _fotoSeedRepetir = true; return; }
+    _fotoSeedEnCurso = true;
     // Preserve product and shelf photo hashing. Yjs-only evidence must work
     // even when IndexedDB or OCFotos is unavailable.
     Promise.resolve().then(function () {
@@ -2418,7 +2423,7 @@
       // PRIME DIRECTIVE G04: ALL photo hashes matter, even orphans whose
       // catalog pointers were lost. Only enumerate keys, not their dataURLs.
       // hashesGuardados includes both modern IDB and pre-migration localStorage.
-      Promise.resolve(window.OCFotos && window.OCFotos.hashesGuardados
+      return Promise.resolve(window.OCFotos && window.OCFotos.hashesGuardados
         ? window.OCFotos.hashesGuardados() : [])
         .catch(function () { return []; }).then(async function (guardados) {
         var hashes = {};
@@ -2472,7 +2477,13 @@
           }
         }
       }).catch(function () {});
-    }).catch(function () {});
+    }).catch(function () {}).then(function () {
+      _fotoSeedEnCurso = false;
+      if (_fotoSeedRepetir) {
+        _fotoSeedRepetir = false;
+        sembrarFotosAlRelay();
+      }
+    });
   }
 
   /* SEMBRAR VENTAS (dinero) AL RELAY (v292, JFC 2026-09-16, aprobado). Cada venta
