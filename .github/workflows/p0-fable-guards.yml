@@ -1,0 +1,25 @@
+name: P0 Fable photo publication and tab claim guards
+on:
+  pull_request:
+    paths:
+      - docs/sync-yjs.js
+      - docs/tab-session.js
+      - test/fable-p0-photo-publication.test.cjs
+      - test/fable-p0-tab-claim.test.cjs
+      - .github/workflows/p0-fable-guards.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  fable-p0:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: RED-to-GREEN contracts — photo SHA and PIN handoff
+        run: node --test --test-concurrency=1 test/fable-p0-photo-publication.test.cjs test/fable-p0-tab-claim.test.cjs
