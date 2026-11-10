@@ -6329,6 +6329,16 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
+      // A PIN claim can be pending while this mutation waits in the FIFO.
+      // Give that same claim a short chance to finish, but NEVER re-anchor
+      // the auth epoch or ignore a lost lease / actual role transition.
+      if(window.OCTabSession && window.OCTabSession.pending &&
+         rolAlPedir===_rolLocal() && epocaAlPedir===(window.OC_AUTH_SESSION_EPOCH||0)){
+        for(let n=0;n<10 && window.OCTabSession.pending;n++){
+          await new Promise(resolve=>setTimeout(resolve,50));
+          if(rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0))break;
+        }
+      }
       const rolCambio=rolAlPedir!==_rolLocal();
       const epocaCambio=epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0);
       const tabActual=!(window.OCTabSession && !window.OCTabSession.isCurrent());
