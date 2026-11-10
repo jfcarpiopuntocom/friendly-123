@@ -2090,11 +2090,18 @@
     const actual = mesActualISO();
     const map = new Map([[actual, { mes: actual, actual: true, ventas: 0, comision: 0, pendiente: 0 }]]);
     ventasActivas().forEach((v) => {
-      if (!v.split || !v.fecha) return;
+      if (!v.fecha) return;
       const mes = fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7);
+      if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(mes)) return;
       const d = map.get(mes) || { mes, actual: mes === actual, ventas: 0, comision: 0, pendiente: 0 };
-      const c = Number(v.split.montoComisionSocio) || 0;
-      d.ventas += 1; d.comision += c; if (!v.liquidada) d.pendiente += c;
+      // Historic own-rack and counter sales have no split, but their month
+      // MUST remain selectable in Commissions > Summary by Product.
+      // Keep commission totals and the existing 'ventas' (split-sales) count
+      // unchanged: this is a read-only discovery fix, not a money migration.
+      if (v.split) {
+        const c = Number(v.split.montoComisionSocio) || 0;
+        d.ventas += 1; d.comision += c; if (!v.liquidada) d.pendiente += c;
+      }
       map.set(mes, d);
     });
     ajustesComision.forEach((a) => {
