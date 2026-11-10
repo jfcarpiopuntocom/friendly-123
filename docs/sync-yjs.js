@@ -2489,15 +2489,23 @@
       // Durable layers have independent encrypted histories. Never mark a hash
       // seeded on a new relay merely because an older relay already had it.
       var capaFoto = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
+      var lecturasIDBBloqueadas = 0; // circuit breaker scoped to this pass only
       for (var hash of Object.keys(hashes)) {
         if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
         if (_fotosSembradas[hash] && _fotosSembradas[hash][capaFoto]) continue;
         try {
           // Sequential await keeps at most one transient local photo read per
           // invocation. Retain neither an array nor a map of all image bytes.
-          var dataUrl = (_legacyPrecargadas && _legacyPrecargadas[hash]) ||
-            (fotos && typeof fotos.leerPorHash === "function" ? await _esperarFoto(fotos.leerPorHash(hash)).catch(function () { return null; }) : null) ||
-            (API.fotosMap && API.fotosMap.get(hash)) || null;
+          var dataUrl = (_legacyPrecargadas && _legacyPrecargadas[hash]) || null;
+          // After two consecutive stalled reads, use Yjs evidence without
+          // reopening IndexedDB for every remaining photo in this pass.
+          if (!dataUrl && lecturasIDBBloqueadas < 2 && fotos && typeof fotos.leerPorHash === "function") {
+            try {
+              dataUrl = await _esperarFoto(fotos.leerPorHash(hash));
+              lecturasIDBBloqueadas = 0;
+            } catch (_) { lecturasIDBBloqueadas++; }
+          }
+          if (!dataUrl) dataUrl = (API.fotosMap && API.fotosMap.get(hash)) || null;
           if (!dataUrl) { if (/^[a-f0-9]{64}$/.test(hash)) fotoSinLeer = true; continue; } // no false ACK
           // Legacy hash keys may be mislabeled. Never replicate a wrong
           // immutable Yjs hash->image pair, and never rewrite local evidence.
