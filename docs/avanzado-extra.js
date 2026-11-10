@@ -746,7 +746,10 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             if (!r.shell && _reintentosFr < 10) { _reintentosFr++; setTimeout(_pintarFr, 1500); }
             var linea = document.getElementById("oc-canario-linea"), rojos = document.getElementById("oc-canario-rojos");
             var nombreCanal = r.canal === "next" ? "CANARY (next)" : (r.canal === "previo" ? "PREVIOUS (rewind)" : "STABLE (clients)");
-            var base = "This device: " + nombreCanal + " · " + (r.shell || "?") + " · errors this session: " + r.errores + (r.cuadre ? " · money check: " + r.cuadre : "");
+            var numShell = /^f123-shell-v([1-9][0-9]*)$/.exec(String(r.shell || ""));
+            var n = numShell && Number(numShell[1]);
+            var visible = n >= 100 && n < 1000 ? "v0." + Math.floor(n / 100) + "." + String(n % 100).padStart(2, "0") : (r.shell || "?");
+            var base = "This device: " + nombreCanal + " · " + visible + " · errors this session: " + r.errores + (r.cuadre ? " · money check: " + r.cuadre : "");
             linea.textContent = base;
             var wu = window.OCAuth && window.OCAuth.workerUrl ? window.OCAuth.workerUrl() : "";
             if (!wu || !r.shell) return;

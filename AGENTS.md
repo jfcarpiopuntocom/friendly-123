@@ -92,3 +92,7 @@ Leer [Contrato operativo](agent-rules/OPERATING-CONTRACT.md); si hay despliegue 
 ## JFC · identidad pública real · 26 octubre 2026
 
 JFC retira expresamente la obligación de conservar versión comercial 1.0. La versión pública pasa a llamarse `shell vXYZ`, con el número real del shell publicado; version.json.version y releaseName deben reflejarlo. El identificador técnico `f123-shell-vXYZ` y la generación de caché siguen coherentes. El candado identifica el SW controlador y distingue actualización pendiente; un nombre visible no prueba adopción del aparato. Esta orden sustituye reglas anteriores incompatibles sobre 1.0.
+
+## JFC · versión pública pre-1.0 · 10 noviembre 2026 (SUSTITUYE la regla del 26/oct)
+
+Desde el shell técnico 708, la etiqueta **visible para el usuario** se calcula del identificador técnico sin inventar estado comercial: `f123-shell-v708` → `v0.7.08`; 709 → `v0.7.09`; 710 → `v0.7.10`; 800 → `v0.8.00`. `docs/version.json.version` y `releaseName`, el candado, Dashboard, avisos y textos comerciales siguen esa etiqueta. El número real de shell (`f123-shell-vNNN`), `CACHE`, generación `goldenN`, hashes SHA-256, transporte, diagnósticos y comparación de Service Worker **conservan sus identificadores técnicos**. Si se tocan archivos públicos, respetar el control de release y renovar la generación de caché para evitar PWA mixtas. El formato previo `shell vNNN` en la interfaz deja de ser normativo. **No declarar v1.0 ni STABLE automáticamente** al llegar al número 1000: requieren autorización y aceptación propias.

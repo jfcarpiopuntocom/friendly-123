@@ -1008,10 +1008,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if (licP) el.innerHTML += _lic4Linea(licP);
     } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
   }
-  /* Pinta la versión REAL del build en el candado (JFC 2026-08-26: "solo dice
-     v1.0, no sirve para controlar cambios"). Lee version.json (que el SW nunca
-     cachea) y muestra el shell real, ej. "build v100". Fail-safe: si falla,
-     deja el placeholder. */
+  /* La etiqueta pública refleja el shell técnico real (v708 -> v0.7.08).
+     Para detectar mezclas SW/HTML seguimos comparando IDs internos exactos. */
   function pintarBuildGate() {
     try {
       fetch("./version.json?ts=" + Date.now(), { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((vj) => {
@@ -1019,12 +1017,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const el = document.getElementById("oc-gate-build");
         if (!el) return;
         const shellServidor = String(vj.shell || "");
-        const shell = shellServidor.replace("f123-shell-", "");
-        const ver = String(vj.releaseName || (vj.version ? ("v" + vj.version) : ""));
+        const versionVisible = function (id) {
+          const m = /^f123-shell-v([1-9][0-9]*)$/.exec(String(id || ""));
+          if (!m) return "";
+          const n = Number(m[1]);
+          return n >= 100 && n < 1000
+            ? "v0." + Math.floor(n / 100) + "." + String(n % 100).padStart(2, "0")
+            : "v" + n;
+        };
+        const ver = String(vj.releaseName || versionVisible(shellServidor) || "");
         const normal = function () {
           el.style.color = "";
           try { el.style.removeProperty("-webkit-text-fill-color"); } catch (_) {}
-          el.textContent = ver || (shell ? ("shell-" + shell) : "");
+          el.textContent = ver || versionVisible(shellServidor);
         };
         /* The active Service Worker knows its shell. CacheStorage can contain
            both old and newly downloaded shells; its last key is not evidence
@@ -1039,11 +1044,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           sw.removeEventListener("message", onShell);
           const activa = String(event.data.shell || "");
           if (activa && shellServidor && activa !== shellServidor) {
-            const activaCorta = activa.replace("f123-shell-", "");
+            const activaPublica = versionVisible(activa) || "versión anterior";
             el.style.opacity = "1";
             el.style.color = "#E8365D";
             try { el.style.setProperty("-webkit-text-fill-color", "#E8365D", "important"); } catch (_) {}
-            el.textContent = "shell-" + activaCorta + " — actualización automática pendiente (última: shell-" + shell + ").";
+            el.textContent = activaPublica + " — actualización automática pendiente (última: " + (ver || versionVisible(shellServidor)) + ").";
           } else {
             normal();
           }
@@ -1053,7 +1058,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           if (responded) return;
           responded = true;
           sw.removeEventListener("message", onShell);
-          el.textContent = (ver ? (ver + " · ") : "") + "shell sin verificar · última shell-" + shell;
+          el.textContent = (ver ? (ver + " · ") : "") + "versión instalada sin verificar";
         }, 2000);
         try { sw.controller.postMessage({ tipo: "que-shell" }); }
         catch (_) { clearTimeout(timeout); sw.removeEventListener("message", onShell); normal(); }

@@ -1,12 +1,13 @@
 // JFC 2026-10-14: "acabo de entrar al dashboard y dice v498 arriba". La etiqueta era texto
 // fijo y la meta dashboard-shell se quedo en v502 mientras version.json iba en v507: el
 // actualizador del tablero nunca recargaba y bajaba dashboard.html cada 15 s para nada.
-// Regla JFC 24/oct: release publico, shell y Dashboard llevan el MISMO numero.
+// Regla JFC 10/nov: la etiqueta pública es derivada del shell técnico exacto.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {publicVersionFromShell} = require('../scripts/public-version.cjs');
 const docs = (f) => fs.readFileSync(path.join(__dirname, '../docs', f), 'utf8');
 
 test('meta dashboard-shell = shell de version.json', () => {
@@ -19,8 +20,8 @@ test('Dashboard visible, shell y releaseName conservan una sola version', () => 
   const version = JSON.parse(docs('version.json'));
   const publicMeta = (docs('dashboard.html').match(/<meta\s+name="dashboard-release"\s+content="([^"]+)"/) || [])[1];
   assert.equal(publicMeta, version.releaseName);
-  assert.equal(version.releaseName, 'shell v' + version.shell.match(/-v(\d+)$/)[1]);
-  assert.equal(version.version, version.releaseName, 'the public version is the real shell, not a frozen commercial number');
+  assert.equal(version.releaseName, publicVersionFromShell(version.shell));
+  assert.equal(version.version, version.releaseName, 'public version must be derived from technical shell');
   const staticLabel = (docs('dashboard.html').match(/<span\s+id="dashboard-version"[^>]*>([^<]+)<\/span>/) || [])[1];
   assert.equal(staticLabel, 'Dashboard ' + version.releaseName);
   const label = { textContent: 'Dashboard v498' };
