@@ -27,6 +27,12 @@ jobs:
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+      # Same as the verified release-control container workflow: checkout
+      # ownership must be trusted before invoking git within Playwright image.
+      - name: Trust container checkout and verify git worktree
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse --is-inside-work-tree | grep -qx true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
