@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.12",
+  "version": "v0.7.13",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.12 candidata QA: foto de percha cambiada o quitada durante guardado no publica puntero obsoleto; conserva evidencia anterior. Sin modificar ventas, dinero, PIN, stock o Sync3.",
+  "changelog": "v0.7.13 candidata QA: validación SHA-256 en el segundo publicador de fotos y protección del PIN durante reclamo de sesión entre pestañas; sin cambiar ventas, stock ni Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v712",
+  "shell": "f123-shell-v713",
   "apagar": [],
-  "releaseName": "v0.7.12",
-  "cacheGeneration": "golden252"
+  "releaseName": "v0.7.13",
+  "cacheGeneration": "golden253"
 }

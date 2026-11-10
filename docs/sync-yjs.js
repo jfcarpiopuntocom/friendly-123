@@ -2590,10 +2590,20 @@
     var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
     var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean); // v290: fotos de producto tambien
     var hGastos = (cat && cat.gastos || []).map(function (g) { return g.facturaFotoHash; }).filter(Boolean);
+    var initialPhotoMap = API.fotosMap;
     hUbic.concat(hProd, hGastos).forEach(function (hash) {
-      if (API.fotosMap.get(hash)) return; // ya publicado
-      Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
-        if (dataUrl && !API.fotosMap.get(hash)) { try { API.fotosMap.set(hash, dataUrl); } catch (_) {} }
+      if (initialPhotoMap.get(hash)) return; // ya publicado
+      Promise.resolve(window.OCFotos.leerPorHash(hash)).then(async function (dataUrl) {
+        // A fallback legacy key may contain bytes of a different image.
+        if (!/^[a-f0-9]{64}$/.test(hash) ||
+            !/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl || "") ||
+            !window.OCFotos || typeof window.OCFotos.hashDeDataUrl !== "function") return;
+        try {
+          if (await window.OCFotos.hashDeDataUrl(dataUrl) !== hash) return;
+          // Do not seed the new business's Yjs room after an async old-room read.
+          if (initialPhotoMap !== API.fotosMap || initialPhotoMap.get(hash)) return;
+          initialPhotoMap.set(hash, dataUrl);
+        } catch (_) { /* Keep original bytes, never fake a photo ACK. */ }
       }).catch(function () {});
     });
   }

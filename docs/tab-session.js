@@ -44,6 +44,9 @@
   q('#oc-tab-copy').onclick=async function(){try{if(!navigator.clipboard||!navigator.clipboard.writeText)return manual();await navigator.clipboard.writeText(PUBLIC_URL);status(copy().copied);}catch(_){manual();}};
  }
  function check(){
+  // Focus/storage events during our own PIN claim must never self-expel.
+  // current() still fences writes while pending; take() checks after claim.
+  if(pending)return;
   if(!claimed||!window.OCAuth||!OCAuth.rolActual()||current())return;
   // Uses the existing logout path: credentials, named user and role classes
   // are cleared. Marketing appears only in the session that actually closed.
