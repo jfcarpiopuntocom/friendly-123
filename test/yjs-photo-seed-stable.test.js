@@ -1,6 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
-const {webcrypto}=require('node:crypto');
+const {webcrypto,createHash}=require('node:crypto');
+const photoHash = d => createHash('sha256').update(Buffer.from(d.split(',')[1],'base64')).digest('hex');
 const src=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 const seed=src.slice(src.indexOf('  var _fotosSembradas ='),src.indexOf('  // OCFotos local -> Yjs(fotos).'));
 const tick=()=>new Promise(r=>setTimeout(r,5));
@@ -9,13 +10,17 @@ for(const digestDelay of [0,75])test('photo seed stays byte-identical across rel
   if(digestDelay)await new Promise(r=>setTimeout(r,digestDelay));
   return webcrypto.subtle.digest(...args);
  }}};
- const ctx={crypto,TextEncoder,Uint8Array,ArrayBuffer,console};vm.createContext(ctx);
+ const ctx={crypto,TextEncoder,Uint8Array,ArrayBuffer,console,atob,setTimeout,clearTimeout};vm.createContext(ctx);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
  const Y=ctx.Y, doc=new Y.Doc(), outgoing=[];
- const blobs={'synthetic-photo':'data:image/png;base64,AQID','synthetic-orphan':'data:image/png;base64,BAUG'};
+ const referenced='data:image/png;base64,AQID',orphan='data:image/png;base64,BAUG';
+ const referencedHash=photoHash(referenced),blobs={
+   [referencedHash]:referenced,[photoHash(orphan)]:orphan
+ };
  ctx.API={fotosDoc:doc,fotosCanal:{}};
- ctx.window={Y,OCFotos:{leerTodosPorHash:async()=>blobs,leerPorHash:async h=>blobs[h]},
-  OCSync:{catalogoPropio:()=>({productos:[{fotoHash:'synthetic-photo'}]})}};
+ ctx.window={Y,OCFotos:{leerTodosPorHash:async()=>blobs,leerPorHash:async h=>blobs[h],
+   hashDeDataUrl:async data=>photoHash(data)},
+  OCSync:{catalogoPropio:()=>({productos:[{fotoHash:referencedHash}]})}};
  doc.on('update',u=>outgoing.push(u));
  const run=async()=>{
   vm.runInContext(seed+'\nsembrarFotosAlRelay();',ctx);
