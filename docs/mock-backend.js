@@ -5834,13 +5834,32 @@
       if (witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
         const p = productos.find((x) => x.id === op.payload.productoId);
         if (!p) return {ok:false, error:"waiting-for-product"};
+        // A rejected durable write must not leave an optimistic PN delta in RAM.
+        // Otherwise the next local sale starts from a movement that never committed.
+        const previoStock = ["stockBase", "stockEpochId", "stockPN", "stockActual", "stockDeficit"]
+          .map(k => ({ k, existe: Object.prototype.hasOwnProperty.call(p, k),
+            valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k] }));
+        const restaurarStock = () => {
+          previoStock.forEach(({k, existe, valor}) => {
+            if (existe) p[k] = valor; else delete p[k];
+          });
+        };
         if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};
-        return Promise.resolve(guardarEstadoLocal(true)).then((saved) => {
-          if (saved !== true) return {ok:false, error:"stock-not-durable"};
+        let intentoGuardado;
+        try { intentoGuardado = guardarEstadoLocal(true); }
+        catch (_) { restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
+        return Promise.resolve(intentoGuardado).then((saved) => {
+          if (saved !== true) {
+            restaurarStock();
+            return {ok:false, error:"stock-not-durable"};
+          }
           _marcarOpAplicada(op.opId);
           avisarCatalogoCambiado();
           return {ok:true};
-        }).catch(() => ({ok:false, error:"stock-commit-failed"}));
+        }).catch(() => {
+          restaurarStock();
+          return {ok:false, error:"stock-commit-failed"};
+        });
       }
       /* NEUTRALIZADO (JFC 2026-09-16, v293) — EVITA DOBLE CONTEO DE PLATA/STOCK.
          El stock y las ventas ahora los aplica el SYNC NUEVO (catálogo Yjs):

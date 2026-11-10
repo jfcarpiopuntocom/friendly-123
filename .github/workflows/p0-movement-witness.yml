@@ -1,7 +1,7 @@
 name: P0 movement-ledger authority, zero double-count
 on:
   pull_request:
-    paths: [docs/mock-backend.js, docs/sync-yjs.js, test/p0-movement-witness-opid.test.cjs, .github/workflows/p0-movement-witness.yml]
+    paths: [docs/mock-backend.js, docs/sync-yjs.js, docs/sync-realtime.js, test/p0-movement-witness-opid.test.cjs, test/p0-roomless-yjs-stock-bridge.test.cjs, .github/workflows/p0-movement-witness.yml]
 jobs:
   movement:
     runs-on: ubuntu-latest
@@ -9,4 +9,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: node --test test/p0-movement-witness-opid.test.cjs
-      - run: node --test test/p0-movement-witness-opid.test.cjs
+      - run: node --test test/p0-roomless-yjs-stock-bridge.test.cjs
+      - run: node --test test/p0-stock-witness-durable-rollback.test.cjs
