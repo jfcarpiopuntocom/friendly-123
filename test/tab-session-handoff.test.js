@@ -186,9 +186,17 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
       return original.call(this,key,value);
      };
     },stage);
-    for(const digit of ['7','8','9'])
-     await second.locator('#oc-pad').getByRole('button',{name:digit,exact:true}).click();
-    await second.waitForFunction(()=>window.__quotaLeaseThrown>0&&!window.OCTabSession.pending,null,{timeout:10000});
+    await ownerLogin(second,`quota contender (${name}, ${stage})`,first);
+    try{
+     await second.waitForFunction(()=>window.__quotaLeaseThrown>0&&!window.OCTabSession.pending,null,{timeout:10000});
+    }catch(error){
+     console.error('QUOTA_LEASE_NATIVE_FORENSIC',JSON.stringify(await second.evaluate(()=>({
+      role:OCAuth?.rolActual?.(),pending:OCTabSession?.pending,current:OCTabSession?.isCurrent?.(),
+      quotaThrows:window.__quotaLeaseThrown,authMessage:document.getElementById('oc-msg')?.textContent,
+      trace:window.__tabTrace?.slice(-12),mutations:window.__leaseMutations?.slice(-12)
+     }))));
+     throw error;
+    }
     const secondState=await sessionSnapshot(second),firstState=await sessionSnapshot(first);
     assert.equal(firstState.current,true,'legitimate previous owner must remain active');
     assert.equal(firstState.role,'dueno','storage pressure must not expel the previous authenticated owner');
