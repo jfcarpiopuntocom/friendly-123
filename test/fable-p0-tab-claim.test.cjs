@@ -59,3 +59,47 @@ test('Fable P0 lease TOCTOU RED: logging out old tab must never remove a newly o
  assert.equal(ctx.claimed,false);
  assert.equal(ctx.suspendida,true,'logout must continue fencing the old tab');
 });
+
+
+function quotaClaimFixture(failWhich) {
+ const leaseKey='f123_auth_tab_lease_'+'07'.repeat(32),claimKey=leaseKey+'_claim';
+ const items=new Map([[leaseKey,JSON.stringify({owner:'first-tab'})],['f123_tienda_activa','SYNTHETIC-ONLY']]);
+ const mutations=[],events=[];
+ const localStorage={
+  getItem:key=>items.get(key)||null,
+  setItem:(key,value)=>{
+   mutations.push(['set',key]);
+   if((failWhich==='intent'&&key===claimKey) || (failWhich==='lease'&&key===leaseKey))
+     throw Object.assign(new Error('quota full'),{name:'QuotaExceededError'});
+   items.set(key,value);
+  },
+  removeItem:key=>{mutations.push(['remove',key]);items.delete(key);}
+ };
+ const ctx={id:'second-tab',scopeKey:'',claimed:false,pending:false,suspendida:false,
+   channel:{postMessage:msg=>events.push(['channel',msg])},
+   crypto:{subtle:{digest:async()=>new Uint8Array(32).fill(7).buffer}},
+   TextEncoder,Uint8Array,localStorage,console:{warn:(...args)=>events.push(['warn',args])},
+   window:{OC_AUTH_SESSION_EPOCH:0,OCAuth:{rolActual:()=> 'dueno'}},
+   OCAuth:{rolActual:()=> 'dueno'},
+   epoch:()=>{ctx.window.OC_AUTH_SESSION_EPOCH++;},
+   clearPanel:()=>{},avisarSync:()=>events.push(['sync']),
+   check:()=>events.push(['check']),
+ };
+ const start=src.indexOf(' function lease(){'),end=src.indexOf(' function puedeSincronizar(){',start);
+ const claimStart=src.indexOf(' async function claim(){'),claimEnd=src.indexOf(" try{channel=new BroadcastChannel(",claimStart);
+ assert.ok(start>0&&end>start&&claimStart>0&&claimEnd>claimStart);
+ vm.createContext(ctx);
+ vm.runInContext(src.slice(start,end)+'\n'+src.slice(claimStart,claimEnd)+'\nthis.runClaim=claim;',ctx);
+ return {ctx,items,leaseKey,claimKey,mutations,events};
+}
+for(const failWhich of ['intent','lease']){
+ test('Fable P1-4 RED: '+failWhich+' quota failure must preserve old tab and fence new tab',async()=>{
+  const {ctx,items,leaseKey,claimKey,events}=quotaClaimFixture(failWhich);
+  await ctx.runClaim(); // actual production claim(), with injected localStorage QuotaExceededError
+  assert.equal(JSON.parse(items.get(leaseKey)).owner,'first-tab','never replace existing owner on quota failure');
+  assert.equal(items.has(claimKey),false,'never leave a stale 2-minute takeover intent');
+  assert.equal(ctx.pending,false,'no permanently pending login');
+  assert.equal(ctx.current(),false,'failed new tab must never gain writing rights without a lease');
+  assert.ok(events.some(([kind])=>kind==='warn'),'quota failure must leave a diagnosable warning');
+ });
+}
