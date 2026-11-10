@@ -63,6 +63,35 @@ function topCpuModules(profile) {
   return [...totals].sort((a, b) => b[1] - a[1]).slice(0, 8)
     .map(([module, ms]) => ({ module, sampledMs: round(ms) }));
 }
+async function syntheticInventoryProfile(page, cdp) {
+  // Ephemeral, isolated loopback notebook: no real client or network writes.
+  const fixture = await page.evaluate(async () => {
+    window.OCAuth = Object.assign({}, window.OCAuth || {}, {
+      rolActual: () => 'dueno', puedeGestionar: () => true
+    });
+    const post = async (url, body) => {
+      const response = await fetch(url, { method: 'POST', body: JSON.stringify(body) });
+      if (!response.ok) throw Error('synthetic API ' + url + ' returned ' + response.status);
+      return response.json();
+    };
+    const rack = await post('/api/ubicaciones', { nombre: 'Synthetic perf rack', tipo: 'propio' });
+    for (let n = 0; n < 18; n++) await post('/api/productos', {
+      nombre: 'Synthetic perf item ' + n,
+      barcode: 'PERF-39-' + n, precio: 17, costo: 4,
+      stockInicial: 5, ubicacionId: rack.id
+    });
+    if (typeof window.cargarInventario !== 'function') throw Error('Inventory loader not defined');
+    await window.cargarInventario();
+    return { created: 18, cards: document.querySelectorAll('#gridInventario [data-inv-id]').length };
+  });
+  await page.waitForTimeout(300);
+  const before = await snapshot(page, cdp);
+  for (let n = 0; n < 12; n++) await page.evaluate(() => window.cargarInventario());
+  await page.waitForTimeout(300);
+  const after = await snapshot(page, cdp);
+  return { fixture, before, after, deltaHeapMb: round(after.jsHeapUsedMb - before.jsHeapUsedMb),
+    deltaScriptMs: round(after.scriptMs - before.scriptMs), deltaTasks: after.longTasks - before.longTasks };
+}
 async function profile(label, root) {
   const env = await readyEnvironment({ root });
   try {
@@ -92,8 +121,10 @@ async function profile(label, root) {
     const cpuTop = topCpuModules(cpuProfile);
     await page.waitForTimeout(3000);
     const idle = await snapshot(page, cdp);
+    const observedWallLoadMs = round(performance.now() - started - 3900);
+    const inventory = await syntheticInventoryProfile(page, cdp);
     await ctx.close();
-    return { label, observedWallLoadMs: round(performance.now() - started - 3900), cold, idle, cpuTop };
+    return { label, observedWallLoadMs, cold, idle, cpuTop, inventory };
   } finally { await env.close(); }
 }
 async function main() {
@@ -115,6 +146,9 @@ async function main() {
     ...rows.map(row => '| ' + row.join(' | ') + ' |'),
     '',
     note,
+    '',
+    'Synthetic Inventory workload: 18 local products and 12 UI reloads, no Sync3:',
+    ...table.map(x => '**' + x.label + '**: ' + JSON.stringify({cards:x.inventory.fixture.cards,beforeHeapMb:x.inventory.before.jsHeapUsedMb,afterHeapMb:x.inventory.after.jsHeapUsedMb,deltaHeapMb:x.inventory.deltaHeapMb,deltaScriptMs:x.inventory.deltaScriptMs,extraLongTasks:x.inventory.deltaTasks})),
     '',
     'Sampled CPU by source module (top 8, synthetic):',
     ...table.map(x => '**' + x.label + '**: ' + x.cpuTop.map(p => p.module + ' (' + p.sampledMs + ' ms)').join(', ')),
