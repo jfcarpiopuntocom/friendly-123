@@ -1,5 +1,5 @@
 {
-  "version": "shell v708",
+  "version": "v0.7.08",
   "shell": "f123-shell-v708",
   "algoritmo": "sha256",
   "files": {
@@ -49,7 +49,7 @@
     "./i18n.js": "sha256-15ee793daee6b19afea8ee3bbe65adc8bffec796208777c8d08544f013c58314",
     "./crypto-store.js": "sha256-707a1991613328b3414b1157ad4072e3a1529d3ff8d5c91ae83417538b5d415f",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
-    "./auth-ui.js": "sha256-29be2d73ad04504c0e32a7c9a63ff7361ec77504bc3d204d360eede1375bc9f8",
+    "./auth-ui.js": "sha256-79d7f86789a48f415686694f539392d684bf702027a2043d4afd0a9f40727352",
     "./tab-session.js": "sha256-86a5e96d1e3b271c8899481274ae2d77fa4a52ec4e207b421eef27f13061b863",
     "./backup-scheduler.js": "sha256-8ee6cc656bbf7998727d1c3e8ac2c34372bf205c374ac3ede49901f0b8cf669a",
     "./avanzado-extra.js": "sha256-d7696ea2c7e30ab177b5718d3629876c937418be3bf275cd832b76688e53db31",

@@ -1008,7 +1008,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if (licP) el.innerHTML += _lic4Linea(licP);
     } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
   }
-  /* La etiqueta pública refleja el shell técnico real (v708 -> v0.7.08).
+  /* Pinta la versión REAL del shell técnico como etiqueta pública v0.7.08.
      Para detectar mezclas SW/HTML seguimos comparando IDs internos exactos. */
   function pintarBuildGate() {
     try {
