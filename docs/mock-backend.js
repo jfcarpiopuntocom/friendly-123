@@ -5544,7 +5544,11 @@
             const foto = p.foto;
             const h = await window.OCFotos.hashDeDataUrl(foto);
             if (h) {
-              await window.OCFotos.guardarPorHash(h, foto);
+              // False is a rejected IDB commit, not an ACK. Never publish a
+              // hash pointer until the exact bytes are durable on this device.
+              // Keep the inline source photo so the next seed can retry safely.
+              const bytesDurables = await window.OCFotos.guardarPorHash(h, foto);
+              if (bytesDurables !== true) continue;
               if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
             }
           }
