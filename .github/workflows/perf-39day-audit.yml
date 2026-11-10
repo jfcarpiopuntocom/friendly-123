@@ -4,6 +4,7 @@ on:
     paths:
       - scripts/perf-39day-audit.cjs
       - scripts/perf-watchdog-storm.cjs
+      - scripts/perf-photo-memory.cjs
       - .github/workflows/perf-39day-audit.yml
   workflow_dispatch: {}
 permissions:
@@ -49,3 +50,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/perf-watchdog-storm.cjs
+      - name: H2 synthetic 24-photo heap residency
+        run: |
+          set -euo pipefail
+          node scripts/perf-photo-memory.cjs
