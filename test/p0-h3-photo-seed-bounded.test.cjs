@@ -5,7 +5,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
-const {webcrypto}=require('node:crypto');
+const {webcrypto,createHash}=require('node:crypto');
 const code=fs.readFileSync(path.join(__dirname,'../docs/sync-yjs.js'),'utf8');
 const from=code.indexOf('  var _fotosSembradas =');
 const end=code.indexOf('  /* SEMBRAR VENTAS',from);
@@ -134,5 +134,57 @@ test('H3 RED: catalog read throws but orphan and Yjs-only photos must still seed
  assert.equal(sends.length,2,'both recoverable photo sources seed without a catalog');
  assert.equal(map.get(legacy),legacyPhoto);
  assert.equal(map.get(yOnly),yPhoto);
+ doc.destroy();
+});
+
+
+const hashOfPhoto=photo=>createHash('sha256').update(Buffer.from(photo.split(',')[1],'base64')).digest('hex');
+async function photoFixture({photo,keys,read,enumerate,slowTimers=false}) {
+ const ctx={crypto:webcrypto,TextEncoder,Uint8Array,ArrayBuffer,console,
+   setTimeout:(fn,ms)=>setTimeout(fn,slowTimers?Math.min(ms,70):ms),clearTimeout};
+ vm.createContext(ctx);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
+ const doc=new ctx.Y.Doc(),map=doc.getMap('blobs'),ws={relayLayer:'fable-qa-relay'},sends=[];
+ ctx.API={fotosDoc:doc,fotosMap:map,fotosCanal:{ws,enviarUpdate:u=>sends.push(Buffer.from(u))}};
+ ctx.window={Y:ctx.Y,OCSync:{
+   catalogoPropio:()=>({productos:(keys.catalog||[]).map(fotoHash=>({fotoHash})),ubicaciones:[],gastos:[]}),
+   hashearFotosProductos:async()=>0,hashearFotosPerchas:async()=>0
+ },OCFotos:{
+   hashesGuardados:enumerate|| (async()=>keys.legacy||[]),
+   leerPorHash:read|| (async()=>photo),
+   hashDeDataUrl:async d=>hashOfPhoto(d)
+ }};
+ doc.on('update',(u,origin)=>{if(origin==='seed')sends.push(Buffer.from(u))});
+ vm.runInContext(snippet,ctx);
+ return {ctx,doc,map,ws,sends};
+}
+test('Fable G1 RED: a never-resolving IDB enumeration cannot hold photo seed lock forever',async()=>{
+ const photo='data:image/png;base64,AwQF',hash=hashOfPhoto(photo);
+ const {ctx,doc,ws}=await photoFixture({photo,keys:{catalog:[hash]},enumerate:()=>new Promise(()=>{}),slowTimers:true});
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ await sleep(15);
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ await until(()=>!!ctx._fotosSembradas[hash]?.[ws.relayLayer],750);
+ assert.equal(ctx._fotosSembrando,false,'hung enumeration releases the single-flight guard');
+ doc.destroy();
+});
+test('Fable G2 RED: wrongly labelled legacy hash NEVER reaches the Yjs blobs map',async()=>{
+ const correctPhoto='data:image/png;base64,AQIDBA==';
+ const wrongHash=hashOfPhoto('data:image/png;base64,CAkK'),rightHash=hashOfPhoto(correctPhoto);
+ assert.notEqual(wrongHash,rightHash);
+ const {ctx,doc,map,ws,sends}=await photoFixture({photo:correctPhoto,keys:{catalog:[],legacy:[wrongHash]}});
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ await sleep(160);
+ assert.equal(map.get(wrongHash),undefined,'do not replicate malformed hash->bytes under an immutable wrong key');
+ assert.equal(ctx._fotosSembradas[wrongHash]?.[ws.relayLayer],undefined,'no false seed/ACK');
+ assert.equal(sends.length,0,'bad bytes must not be sent');
+ doc.destroy();
+});
+test('Fable G2 positive: a real 64-hex SHA-256 photo still reaches the target relay',async()=>{
+ const photo='data:image/png;base64,BQYH',hash=hashOfPhoto(photo);
+ const {ctx,doc,map,ws}=await photoFixture({photo,keys:{catalog:[],legacy:[hash]}});
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ await until(()=>!!ctx._fotosSembradas[hash]?.[ws.relayLayer]);
+ assert.equal(map.get(hash),photo);
  doc.destroy();
 });
