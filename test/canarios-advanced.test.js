@@ -74,9 +74,9 @@ test('franja del canario en Advanced: la ve el aparato lord como dueno, no un cl
     const lord = await ver(LORD_PRUEBA);
     assert.equal(lord.vis, true);
     const version=JSON.parse(fs.readFileSync(path.join(DOCS,'version.json'),'utf8'));
-    assert.match(lord.txt,new RegExp('This device: CANARY \\(next\\) · '+publicVersionFromShell(version.shell).replace(/\\./g,'\\.')),
+    assert.match(lord.txt,new RegExp('This device: CANARY \\(next\\) · '+publicVersionFromShell(version.shell).replace(/\./g,'\\.')),
       'the visible diagnostic uses the public label of the actual technical shell');
-    assert.doesNotMatch(lord.txt,/f123-shell-v\\d+/,'do not expose internal shell on customer-facing diagnostics');
+    assert.doesNotMatch(lord.txt,/f123-shell-v\d+/,'do not expose internal shell on customer-facing diagnostics');
     const cliente = await ver('F123-CLIENTE-DE-PRUEBA');
     assert.equal(cliente.vis, false);
   });
