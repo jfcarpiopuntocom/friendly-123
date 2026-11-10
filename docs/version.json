@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.16",
+  "version": "v0.7.17",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.16 candidata QA: las dos etapas previas de fotos (producto y percha) tienen espera acotada; un bloqueo de IndexedDB ya no retiene indefinidamente la siembra. Sin cambios a ventas, dinero, PIN, inventario o Sync3.",
+  "changelog": "v0.7.17 candidata QA: la siembra de fotografías no mezcla salas cuando una lectura antigua termina tras cambiar de negocio, ni hereda falsos indicadores de envío entre salas. Sin cambios a ventas, inventario, PIN, dinero o Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v716",
+  "shell": "f123-shell-v717",
   "apagar": [],
-  "releaseName": "v0.7.16",
-  "cacheGeneration": "golden256"
+  "releaseName": "v0.7.17",
+  "cacheGeneration": "golden257"
 }

@@ -2417,7 +2417,7 @@
      Y.Doc con solo esa foto) y se pasa por enviarUpdate del canal fotos: persiste
      como op + va en vivo. Guard de sesión para no re-mandar la misma foto en cada
      reconexión. */
-  var _fotosSembradas = {};
+  var _fotosSembradas = {}, _fotosSembradasDoc = null;
   // One active pass per Yjs photo room. Reconnect and photo edits during an
   // ongoing pass request ONE more pass afterwards; none are discarded.
   var _fotosSembrando = false, _fotosSembrarDeNuevo = false, _fotosReintentoTimer = null;
@@ -2443,6 +2443,9 @@
   function sembrarFotosAlRelay() {
     if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
     if (_fotosSembrando || _fotosReintentoTimer) { _fotosSembrarDeNuevo = true; return; }
+    // A photo room has its own seeded flags; never reuse an old shop's ACKs.
+    var docFotoInicial = API.fotosDoc, mapaFotoInicial = API.fotosMap, canalFotoInicial = API.fotosCanal;
+    if (_fotosSembradasDoc !== docFotoInicial) { _fotosSembradas = {}; _fotosSembradasDoc = docFotoInicial; }
     _fotosSembrando = true;
     // Honor inline product photos and pre-hash perchas before enumerating photo
     // evidence. Every record is still sent as the same deterministic Yjs op.
@@ -2486,6 +2489,7 @@
       // seeded on a new relay merely because an older relay already had it.
       var capaFoto = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
       for (var hash of Object.keys(hashes)) {
+        if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
         if (_fotosSembradas[hash] && _fotosSembradas[hash][capaFoto]) continue;
         try {
           // Sequential await keeps at most one transient local photo read per
@@ -2509,13 +2513,15 @@
           // mark the previous layer as seeded if its photo went to the new
           // socket; queue another pass against the current layer instead.
           var capaAhora = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
+          // A delayed IndexedDB read belongs to its original authenticated photo room.
+          if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
           if (capaAhora !== capaFoto) { _fotosSembrarDeNuevo = true; break; }
           var d = new window.Y.Doc();
           try {
             d.clientID = parseInt(seedHex.slice(0, 13), 16) + 4294967296;
             d.getMap("blobs").set(hash, dataUrl);
             var u = window.Y.encodeStateAsUpdate(d);
-            var huboUpdate = false, docFotos = API.fotosDoc;
+            var huboUpdate = false, docFotos = docFotoInicial;
             function observarUpdate() { huboUpdate = true; }
             try {
               docFotos.on("update", observarUpdate);
