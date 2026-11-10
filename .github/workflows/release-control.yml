@@ -123,6 +123,12 @@ jobs:
             mapfile -t FAILED < <(awk '/^ *not ok [0-9]+ /{f=1} f && /location: .*test\//{match($0,/test\/[^:'"'"']+/);print substr($0,RSTART,RLENGTH);f=0}' /tmp/full.tap | sort -u)
             printf 'Failed under load, retrying alone: %s\n' "${FAILED[@]}"
             (( ${#FAILED[@]} >= 1 && ${#FAILED[@]} <= 3 )) || exit 1
+            # Financial integrity and auth failures are never downgraded to green by retry.
+            if printf '%s\n' "${FAILED[@]}" | grep -Eiq '^test/.*(tab-session|fable-p0-tab-claim|linus-dos-pestanas|pin|two-tab|pre-ack|realtime-sale-ack-barrier)'; then
+              echo "::error::First-attempt PIN/session/two-tab/pre-ACK failure: retry forbidden"
+              exit 1
+            fi
+            echo "::warning::First-attempt regression failed: ${FAILED[*]} (retrying isolated files, not a clean first pass)"
             node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 "${FAILED[@]}"
           fi
       - name: Artifact integrity

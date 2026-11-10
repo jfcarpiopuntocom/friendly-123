@@ -61,7 +61,7 @@ test("E2: gate recomputes SW version on controllerchange and broadcast, never in
   function emit(type,ev={}){for(const fn of [...(listeners.get(type)||[])])fn(ev);}
   vm.runInNewContext(auth.slice(start,end),{
     navigator:{serviceWorker:sw},document:{getElementById:id=>id==="oc-gate-build"?el:null},
-    fetch:async()=>{fetches++;return {ok:true,json:async()=>({version:"1.0",releaseName:"v569",shell:serverShell})};},
+    fetch:async()=>{fetches++;return {ok:true,json:async()=>({version:"1.0",releaseName:"v0.5.60",shell:serverShell})};},
     setTimeout:()=>1,clearTimeout(){},Date,console
   });
   await flush();
@@ -69,7 +69,7 @@ test("E2: gate recomputes SW version on controllerchange and broadcast, never in
   assert.doesNotMatch(el.textContent,/Purge|reload/i);
   activeShell=serverShell;
   emit("controllerchange");await flush();
-  assert.equal(el.textContent,"v569");
+  assert.equal(el.textContent,"v0.5.60");
   assert.doesNotMatch(el.textContent,/vieja|Purge|pendiente/);
   assert.equal(el.style.color,"");
   serverShell="f123-shell-v561";
@@ -109,8 +109,10 @@ test("E2: controllerchange and shell-actualizado arm safe deferred reload, never
 });
 
 test("E2: no user-facing stale-shell warning instructs cache purging",()=>{
- const line=auth.match(/el\.textContent = "shell-" \+ activaCorta[^\n]+/);
+ const line=auth.match(/el\.textContent = activaPublica \+[^\n]+/);
  assert.ok(line,"actual stale-shell text found");
+ assert.match(line[0],/actualización automática pendiente/);
+ assert.match(line[0],/ver \|\| versionVisible\(shellServidor\)/,'the label must reflect the server shell without changing SW selection');
  assert.doesNotMatch(line[0],/Purge|borrar cach[eé]|eliminar datos/i);
 });
 

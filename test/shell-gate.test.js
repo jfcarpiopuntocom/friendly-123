@@ -30,7 +30,8 @@ test('PIN gate reports the controlling service worker when a newer cache also ex
   vm.runInContext(render + '\npintarBuildGate();', context);
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(asked, true);
-  assert.match(label.textContent, /shell-v306/);
+  assert.match(label.textContent, /v0\.3\.06/,'PIN gate reports *controlling* SW in the public label');
+  assert.doesNotMatch(label.textContent,/v0\.3\.07 —/,'newer downloaded cache is NOT the active SW');
   assert.match(label.textContent, /actualización automática pendiente/);
   assert.doesNotMatch(label.textContent, /Purge|borra(r)? caché|recarga(r)? manual/i);
 });

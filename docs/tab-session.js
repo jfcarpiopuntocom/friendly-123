@@ -44,6 +44,9 @@
   q('#oc-tab-copy').onclick=async function(){try{if(!navigator.clipboard||!navigator.clipboard.writeText)return manual();await navigator.clipboard.writeText(PUBLIC_URL);status(copy().copied);}catch(_){manual();}};
  }
  function check(){
+  // Focus/storage events during our own PIN claim must never self-expel.
+  // current() still fences writes while pending; take() checks after claim.
+  if(pending)return;
   if(!claimed||!window.OCAuth||!OCAuth.rolActual()||current())return;
   // Uses the existing logout path: credentials, named user and role classes
   // are cleared. Marketing appears only in the session that actually closed.
@@ -72,7 +75,26 @@
    // Claim is fenced by the shared lease + BroadcastChannel; never queue
    // a PIN login behind iOS Web Locks that can remain zombie after backgrounding.
    take();
-  }catch(_){/* A failed lease never pretends the prior session was closed. */}
+  }catch(error){
+   // An outdated claim must never undo logout (or a newer login).
+   if(claimEpoch!==window.OC_AUTH_SESSION_EPOCH)return;
+   // If writing the actual lease failed after writing our intent, do not
+   // block the prior owner for two minutes. Never delete another tab's intent.
+   try {
+    if(scopeKey){
+     var key=scopeKey+'_claim', intent=JSON.parse(localStorage.getItem(key)||'null');
+     if(intent&&intent.owner===id)localStorage.removeItem(key);
+    }
+   }catch(_){}
+   // The legacy !claimed shortcut is intended for non-claimed/guest contexts,
+   // not for an authenticated tab that failed to acquire an exclusive lease.
+   claimed=true;
+   // Also work when a stripped-down session fixture lacks the helper.
+   var held=null;
+   try{held=scopeKey?JSON.parse(localStorage.getItem(scopeKey)||'null'):null;}catch(_){}
+   suspendida=!(held&&held.owner===id);
+   try{console.warn('[tab-session] Lease claim failed: writes fenced',error&&error.name||'Error');}catch(_){}
+  }
   finally{if(claimEpoch===window.OC_AUTH_SESSION_EPOCH){pending=false;avisarSync();}}
  }
  try{channel=new BroadcastChannel('friendly-123-auth-session');channel.onmessage=function(ev){if(ev.data&&ev.data.key===scopeKey)check();};}catch(_){}
@@ -80,7 +102,12 @@
  window.addEventListener('focus',check);window.addEventListener('pageshow',check);
  document.addEventListener('visibilitychange',function(){if(!document.hidden)check();avisarSync();});
  window.addEventListener('oc-login',claim);
- window.addEventListener('oc-logout',function(){epoch();if(claimed&&lease()?.owner===id){try{localStorage.removeItem(scopeKey);}catch(_){}}claimed=false;pending=false;suspendida=true;avisarSync();});
+ window.addEventListener('oc-logout',function(){
+  epoch();
+  // Never check-then-delete shared lease: a second tab may own it already.
+  // Fence this tab locally; next PIN login overwrites the shared lease.
+  claimed=false;pending=false;suspendida=true;avisarSync();
+ });
  window.addEventListener('oc-lang-change',function(){if(document.getElementById('oc-tab-handoff'))render();});
  window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);

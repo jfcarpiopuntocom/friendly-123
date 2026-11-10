@@ -1,0 +1,23 @@
+name: P0 Photo hash ACK — variant bytes before pointer
+on:
+  pull_request:
+    paths:
+      - docs/mock-backend.js
+      - test/p0-photo-hash-ack-variant.test.cjs
+      - .github/workflows/p0-photo-hash-ack-variant.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  variant-photo-ack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify rejected blob never produces a remote photo pointer
+        run: node --test test/p0-photo-hash-ack-variant.test.cjs

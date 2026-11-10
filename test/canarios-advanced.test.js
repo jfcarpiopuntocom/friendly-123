@@ -12,6 +12,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const {publicVersionFromShell}=require('../scripts/public-version.cjs');
 
 const DOCS = path.join(__dirname, '../docs');
 const TIPOS = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json' };
@@ -72,7 +73,10 @@ test('franja del canario en Advanced: la ve el aparato lord como dueno, no un cl
     };
     const lord = await ver(LORD_PRUEBA);
     assert.equal(lord.vis, true);
-    assert.match(lord.txt, /This device: CANARY \(next\) · f123-shell-v\d+/);
+    const version=JSON.parse(fs.readFileSync(path.join(DOCS,'version.json'),'utf8'));
+    assert.match(lord.txt,new RegExp('This device: CANARY \\(next\\) · '+publicVersionFromShell(version.shell).replace(/\./g,'\\.')),
+      'the visible diagnostic uses the public label of the actual technical shell');
+    assert.doesNotMatch(lord.txt,/f123-shell-v\d+/,'do not expose internal shell on customer-facing diagnostics');
     const cliente = await ver('F123-CLIENTE-DE-PRUEBA');
     assert.equal(cliente.vis, false);
   });

@@ -2378,13 +2378,30 @@
         return;
       }
       var hash = pend[i][0], dataUrl = pend[i][1]; i++;
-      Promise.resolve(window.OCFotos.tieneHash(hash)).then(function (ya) {
-        if (ya) return next();
-        return Promise.resolve(window.OCFotos.guardarPorHash(hash, dataUrl)).then(function (ok) {
-          if (ok === true) hubo = true;
-          else fallaron = true; // false means nothing was saved: do not fabricate success
-          next();
-        });
+      // Older peers can send a historical, mislabelled immutable hash pair.
+      // Keep Yjs evidence, but NEVER persist bad bytes under a valid hash key.
+      Promise.resolve().then(async function () {
+        var fotos = window.OCFotos;
+        var validShape = /^[a-f0-9]{64}$/.test(String(hash)) &&
+          /^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl || "");
+        if (!validShape) {
+          API.fotosHashRechazados = (API.fotosHashRechazados || 0) + 1;
+          return next();
+        }
+        var actual = await _esperarFoto(typeof fotos.hashDeDataUrl === "function"
+          ? fotos.hashDeDataUrl(dataUrl) : _hashFotoSinStore(dataUrl));
+        if (actual !== hash) {
+          API.fotosHashRechazados = (API.fotosHashRechazados || 0) + 1;
+          return next();
+        }
+        // Legacy localStorage bytes are readable, but are not an IDB ACK.
+        var yaIdb = typeof fotos.tieneHashSoloIdb === "function"
+          ? await _esperarFoto(fotos.tieneHashSoloIdb(hash)) : false;
+        if (yaIdb) return next();
+        var ok = await _esperarFoto(fotos.guardarPorHash(hash, dataUrl));
+        if (ok === true) hubo = true;
+        else fallaron = true;
+        next();
       }).catch(function () { fallaron = true; next(); });
     })();
   }
@@ -2400,87 +2417,153 @@
      Y.Doc con solo esa foto) y se pasa por enviarUpdate del canal fotos: persiste
      como op + va en vivo. Guard de sesión para no re-mandar la misma foto en cada
      reconexión. */
-  var _fotosSembradas = {};
-  API.sembrarFotos = sembrarFotosAlRelay; // v652: the stuck-history path reaches this too; bytes still travel by peers only
+  var _fotosSembradas = {}, _fotosSembradasDoc = null;
+  // One active pass per Yjs photo room. Reconnect and photo edits during an
+  // ongoing pass request ONE more pass afterwards; none are discarded.
+  var _fotosSembrando = false, _fotosSembrarDeNuevo = false, _fotosReintentoTimer = null, _fotosReintentosLectura = 0;
+  // A pending IDB enumeration/read must not hold single-flight photos forever.
+  // This deadline never drops bytes/ops: later reconnections may retry.
+  function _esperarFoto(p) {
+    var timer;
+    return Promise.race([Promise.resolve(p), new Promise(function (_, reject) {
+      timer = setTimeout(function () { reject(new Error("photo read timed out")); }, 8000);
+    })]).finally(function () { clearTimeout(timer); });
+  }
+  // Yjs may retain photos while OCFotos/IndexedDB is unavailable.
+  // Validate raw bytes without requiring the store to be open.
+  async function _hashFotoSinStore(dataUrl) {
+    var bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1)), bytes = new Uint8Array(bin.length);
+    for (var i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest)).map(function (b) {
+      return b.toString(16).padStart(2,"0");
+    }).join("");
+  }
+  API.sembrarFotos = sembrarFotosAlRelay; // also used by stuck-history reconnect
   function sembrarFotosAlRelay() {
     if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
-    // A restored encrypted Yjs photo remains recoverable when the iOS PWA's
-    // IndexedDB/OCFotos is unavailable. Do not gate Yjs-only reseeding on IDB.
-    // Primero: dar hash a las fotos de PRODUCTO que solo estaban inline (v290 fix:
-    // la foto de producto no cruzaba porque no tenia fotoHash ni iba por el canal).
+    if (_fotosSembrando || _fotosReintentoTimer) { _fotosSembrarDeNuevo = true; return; }
+    // A photo room has its own seeded flags; never reuse an old shop's ACKs.
+    var docFotoInicial = API.fotosDoc, mapaFotoInicial = API.fotosMap, canalFotoInicial = API.fotosCanal;
+    if (_fotosSembradasDoc !== docFotoInicial) { _fotosSembradas = {}; _fotosSembradasDoc = docFotoInicial; _fotosReintentosLectura = 0; }
+    var fotoSinLeer = false; // one retry budget per photo-room, never per orphan blob
+    _fotosSembrando = true;
+    // Honor inline product photos and pre-hash perchas before enumerating photo
+    // evidence. Every record is still sent as the same deterministic Yjs op.
     Promise.resolve().then(function () {
-      return window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0;
+      return _esperarFoto(window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0);
     }).catch(function () { return 0; }).then(function () {
-      // v664: perchas con foto solo por id (formato viejo) reciben su puntero fotoHash.
-      return window.OCSync.hashearFotosPerchas ? window.OCSync.hashearFotosPerchas() : 0;
-    }).catch(function () { return 0; }).then(function () {
-      var cat; try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
+      return _esperarFoto(window.OCSync.hashearFotosPerchas ? window.OCSync.hashearFotosPerchas() : 0);
+    }).catch(function () { return 0; }).then(async function () {
+      var cat;
+      try { cat = window.OCSync.catalogoPropio(); } catch (_) { cat = null; }
       var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
       var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean);
       var hGastos = (cat && cat.gastos || []).map(function (g) { return g.facturaFotoHash; }).filter(Boolean);
-      /* PRIME DIRECTIVE 1AAA / G04: no sembrar solo "lo actualmente usado".
-         Un hotfix anterior pudo perder el pointer y dejar los bytes huerfanos.
-         Esos blobs son EVIDENCIA del cliente y deben poder volver desde otro
-         dispositivo. leerTodosPorHash() no inventa asociaciones: solo enumera
-         hash->bytes. Se reenvian individualmente, igual que las fotos en uso. */
-      Promise.resolve(window.OCFotos && window.OCFotos.leerTodosPorHash ? window.OCFotos.leerTodosPorHash() : {})
-        .catch(function () { return {}; }).then(function (todos) {
-        var hashes = {};
-        hUbic.concat(hProd, hGastos).forEach(function (h) { if (h) hashes[String(h)] = 1; });
-        Object.keys(todos || {}).forEach(function (h) { hashes[String(h)] = 1; });
-        // Yjs is a second content-addressed photo source, even if IDB failed.
-        // Preserve unreferenced evidence without creating arbitrary pointers.
-        try { if (API.fotosMap && API.fotosMap.forEach) API.fotosMap.forEach(function (bytes, h) {
+      /* H3 / PRIME DIRECTIVE 1AAA:
+         Keep EVERY photo hash, including orphaned evidence and Yjs-only photos,
+         but never materialize the complete hash->dataURL library in RAM on a
+         normal modern device. OCFotos.hashesGuardados includes legacy keys;
+         OCFotos.leerPorHash falls back to their exact bytes when IDB misses.
+         Fallback to the old bulk API only for pre-H3 legacy adapters. */
+      var locales = [], _legacyPrecargadas = null, fotos = window.OCFotos;
+      try {
+        if (fotos && typeof fotos.hashesGuardados === "function") {
+          locales = await _esperarFoto(fotos.hashesGuardados());
+        } else if (fotos && typeof fotos.leerTodosPorHash === "function") {
+          _legacyPrecargadas = await _esperarFoto(fotos.leerTodosPorHash());
+          locales = Object.keys(_legacyPrecargadas || {});
+        }
+      } catch (_) {
+        // A failed local enumeration cannot discard known catalog or Yjs hashes.
+        locales = [];
+      }
+      var hashes = {};
+      hUbic.concat(hProd, hGastos).forEach(function (h) { if (h) hashes[String(h)] = 1; });
+      (Array.isArray(locales) ? locales : []).forEach(function (h) { if (h) hashes[String(h)] = 1; });
+      try {
+        if (API.fotosMap && API.fotosMap.forEach) API.fotosMap.forEach(function (bytes, h) {
           if (bytes) hashes[String(h)] = 1;
-        }); } catch (_) {}
-        // The rooms on Supabase and Firebase store DIFFERENT encrypted histories.
-        // A photo seeded on one is not certified to exist on the other.
-        var capaFoto = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
-        Object.keys(hashes).forEach(function (hash) {
-          if (_fotosSembradas[hash] && _fotosSembradas[hash][capaFoto]) return;
-          var local = todos && todos[hash];
-          Promise.resolve(local || (window.OCFotos && window.OCFotos.leerPorHash ? window.OCFotos.leerPorHash(hash) : null))
-            .then(function (bytes) { return bytes || (API.fotosMap && API.fotosMap.get(hash)) || null; })
-            .then(async function (dataUrl) {
-            if (!dataUrl) return;
-            try {
-                // An immutable photo must not gain a new Yjs identity on every
-                // page load. Include its bytes so a mismatched hash cannot hide
-                // different evidence. A 52-bit digest avoids ordinary random
-                // 32-bit client IDs; the encrypted wire format stays unchanged.
-                var seedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
-                  "friendly-photo-seed-v1:" + JSON.stringify([hash, dataUrl])));
-                var seedHex = Array.from(new Uint8Array(seedDigest)).map(function (b) {
-                  return b.toString(16).padStart(2, "0");
-                }).join("");
-              var d = new window.Y.Doc();
-                d.clientID = parseInt(seedHex.slice(0, 13), 16) + 4294967296;
-              d.getMap("blobs").set(hash, dataUrl);
-              var u = window.Y.encodeStateAsUpdate(d);
-              var huboUpdate = false, docFotos = API.fotosDoc;
-              function observarUpdate() { huboUpdate = true; }
-              // If the same deterministic blob is already in this Y.Doc,
-              // Y.applyUpdate is a NO-OP. In v669 that meant the second relay
-              // never got a durable op, even though the seed flag said "done".
-              try {
-                docFotos.on("update", observarUpdate);
-                try { window.Y.applyUpdate(docFotos, u, "seed"); }
-                finally { docFotos.off("update", observarUpdate); }
-                // Otherwise the ordinary Yjs on(update) already queued it.
-                if (!huboUpdate && API.fotosCanal && typeof API.fotosCanal.enviarUpdate === "function") {
-                  API.fotosCanal.enviarUpdate(u);
-                }
-                if (!_fotosSembradas[hash]) _fotosSembradas[hash] = {};
-                _fotosSembradas[hash][capaFoto] = 1;
-              } catch (_) {
-                // No success flag: the next layer/session can retry.
-                try { docFotos.off("update", observarUpdate); } catch (__) {}
-              } finally { d.destroy(); }
-            } catch (_) {}
-          }).catch(function () {});
         });
-      }).catch(function () {});
-    }).catch(function () {});
+      } catch (_) {}
+      // Durable layers have independent encrypted histories. Never mark a hash
+      // seeded on a new relay merely because an older relay already had it.
+      var capaFoto = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
+      var lecturasIDBBloqueadas = 0; // circuit breaker scoped to this pass only
+      for (var hash of Object.keys(hashes)) {
+        if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
+        if (_fotosSembradas[hash] && _fotosSembradas[hash][capaFoto]) continue;
+        try {
+          // Sequential await keeps at most one transient local photo read per
+          // invocation. Retain neither an array nor a map of all image bytes.
+          var dataUrl = (_legacyPrecargadas && _legacyPrecargadas[hash]) || null;
+          // After two consecutive stalled reads, use Yjs evidence without
+          // reopening IndexedDB for every remaining photo in this pass.
+          if (!dataUrl && lecturasIDBBloqueadas < 2 && fotos && typeof fotos.leerPorHash === "function") {
+            try {
+              dataUrl = await _esperarFoto(fotos.leerPorHash(hash));
+              lecturasIDBBloqueadas = 0;
+            } catch (_) { lecturasIDBBloqueadas++; }
+          }
+          if (!dataUrl) dataUrl = (API.fotosMap && API.fotosMap.get(hash)) || null;
+          if (!dataUrl) { if (/^[a-f0-9]{64}$/.test(hash)) fotoSinLeer = true; continue; } // no false ACK
+          // Legacy hash keys may be mislabeled. Never replicate a wrong
+          // immutable Yjs hash->image pair, and never rewrite local evidence.
+          if (!/^[a-f0-9]{64}$/.test(hash) ||
+              !/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl) ||
+              await _esperarFoto(fotos && typeof fotos.hashDeDataUrl === "function"
+                ? fotos.hashDeDataUrl(dataUrl) : _hashFotoSinStore(dataUrl)) !== hash) continue;
+          var seedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
+            "friendly-photo-seed-v1:" + JSON.stringify([hash, dataUrl])));
+          var seedHex = Array.from(new Uint8Array(seedDigest)).map(function (b) {
+            return b.toString(16).padStart(2, "0");
+          }).join("");
+          // The relay may switch while the IDB read/digest is awaited. Never
+          // mark the previous layer as seeded if its photo went to the new
+          // socket; queue another pass against the current layer instead.
+          var capaAhora = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
+          // A delayed IndexedDB read belongs to its original authenticated photo room.
+          if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
+          if (capaAhora !== capaFoto) { _fotosSembrarDeNuevo = true; break; }
+          var d = new window.Y.Doc();
+          try {
+            d.clientID = parseInt(seedHex.slice(0, 13), 16) + 4294967296;
+            d.getMap("blobs").set(hash, dataUrl);
+            var u = window.Y.encodeStateAsUpdate(d);
+            var huboUpdate = false, docFotos = docFotoInicial;
+            function observarUpdate() { huboUpdate = true; }
+            try {
+              docFotos.on("update", observarUpdate);
+              try { window.Y.applyUpdate(docFotos, u, "seed"); }
+              finally { docFotos.off("update", observarUpdate); }
+              if (!huboUpdate && API.fotosCanal && typeof API.fotosCanal.enviarUpdate === "function") {
+                API.fotosCanal.enviarUpdate(u);
+              }
+              if (!_fotosSembradas[hash]) _fotosSembradas[hash] = {};
+              _fotosSembradas[hash][capaFoto] = 1;
+            } catch (_) {
+              // No success flag: future sessions/layers can retry this photo.
+              try { docFotos.off("update", observarUpdate); } catch (__) {}
+            }
+          } finally { d.destroy(); }
+        } catch (_) { fotoSinLeer = true; }
+      }
+      // Retry only missing/transient local reads, never rejected immutable hashes.
+      if (docFotoInicial === API.fotosDoc && mapaFotoInicial === API.fotosMap) {
+        if (fotoSinLeer && _fotosReintentosLectura < 2) { _fotosReintentosLectura++; _fotosSembrarDeNuevo = true; }
+        else if (!fotoSinLeer) _fotosReintentosLectura = 0;
+      }
+    }).catch(function () {}).finally(function () {
+      _fotosSembrando = false;
+      if (_fotosSembrarDeNuevo) {
+        _fotosSembrarDeNuevo = false;
+        // Debounce relay-layer oscillations; no photo or pending op is discarded.
+        if (!_fotosReintentoTimer) _fotosReintentoTimer = setTimeout(function () {
+          _fotosReintentoTimer = null;
+          sembrarFotosAlRelay();
+        }, _fotosReintentosLectura ? Math.min(8000, 2000 * Math.pow(2, _fotosReintentosLectura - 1)) : 2000);
+      }
+    });
   }
 
   /* SEMBRAR VENTAS (dinero) AL RELAY (v292, JFC 2026-09-16, aprobado). Cada venta
@@ -2544,10 +2627,20 @@
     var hUbic = (cat && cat.ubicaciones || []).map(function (u) { return u.fotoHash; }).filter(Boolean);
     var hProd = (cat && cat.productos || []).map(function (p) { return p.fotoHash; }).filter(Boolean); // v290: fotos de producto tambien
     var hGastos = (cat && cat.gastos || []).map(function (g) { return g.facturaFotoHash; }).filter(Boolean);
+    var initialPhotoMap = API.fotosMap;
     hUbic.concat(hProd, hGastos).forEach(function (hash) {
-      if (API.fotosMap.get(hash)) return; // ya publicado
-      Promise.resolve(window.OCFotos.leerPorHash(hash)).then(function (dataUrl) {
-        if (dataUrl && !API.fotosMap.get(hash)) { try { API.fotosMap.set(hash, dataUrl); } catch (_) {} }
+      if (initialPhotoMap.get(hash)) return; // ya publicado
+      Promise.resolve(window.OCFotos.leerPorHash(hash)).then(async function (dataUrl) {
+        // A fallback legacy key may contain bytes of a different image.
+        if (!/^[a-f0-9]{64}$/.test(hash) ||
+            !/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl || "") ||
+            !window.OCFotos || typeof window.OCFotos.hashDeDataUrl !== "function") return;
+        try {
+          if (await window.OCFotos.hashDeDataUrl(dataUrl) !== hash) return;
+          // Do not seed the new business's Yjs room after an async old-room read.
+          if (initialPhotoMap !== API.fotosMap || initialPhotoMap.get(hash)) return;
+          initialPhotoMap.set(hash, dataUrl);
+        } catch (_) { /* Keep original bytes, never fake a photo ACK. */ }
       }).catch(function () {});
     });
   }

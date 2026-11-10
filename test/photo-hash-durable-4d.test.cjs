@@ -41,7 +41,9 @@ async function rescue(mode, perIdAlreadyPresent=false, hashOnly=false, hashOutco
     guardarFotoContenido: async () => { throw new Error('hash quota'); },
     leerFotoSoloIdb: async () => perIdAlreadyPresent ? 'data:image/png;base64,NEW=' : null,
     guardarFoto: async () => { copied++; return true; },
-    leerPorHash: async () => null, guardarPorHash: async () => {
+    // H3: the G10/G10b copy check must inspect strict IndexedDB bytes.
+    leerPorHash: async () => null, leerHashSoloIdb: async () => null,
+    guardarPorHash: async () => {
       if (hashOutcome === 'throw') throw new Error('hash quota');
       return hashOutcome === true;
     },
@@ -63,6 +65,11 @@ test('hash quota failure must not block per-ID recovery in either legacy source'
   }
 });
 
+test('rescue G10 and G10b use strict IDB checks, never legacy fallback as ACK', () => {
+  assert.match(src, /const actual = await leerHashSoloIdb\(hash\);/);
+  assert.match(src, /const actual = await leerHashSoloIdb\(objetivo\);/);
+});
+
 test('hash-only rescue counts rejected or thrown copies as pending', async () => {
   for (const mode of ['db','local']) {
     for (const failure of [false,'throw']) {
@@ -76,4 +83,26 @@ test('hash-only rescue counts rejected or thrown copies as pending', async () =>
     assert.equal(x.outcome.blobsPendientes,0);
     assert.equal(x.outcome.blobs,1);
   }
+});
+
+
+test('CodeRabbit RED: shelf confirmation reader rejects IDB errors, preserving only true legacy fallback',async()=>{
+ const begin=src.indexOf('  async function leerFotoConfirmada(id) {');
+ const end=src.indexOf('  // Lee TODAS las fotos',begin);
+ assert.ok(begin>0&&end>begin,'production must expose strict shelf pointer confirmation distinct from UI fallback');
+ const code=src.slice(begin,end)+'\nthis.read=leerFotoConfirmada;';
+ function ctx(supported,db){const x={SOPORTADO:supported,STORE:'perchas',abrirDB:async()=>db,
+    leerLegacyFoto:()=> 'data:image/png;base64,TEVHQUNZ',Promise};
+  vm.createContext(x);vm.runInContext(code,x);return x;}
+ const down=ctx(true,null);down.abrirDB=async()=>{throw Error('IDB unavailable')};
+ await assert.rejects(down.read('shelf-a'),/IDB unavailable/,'IDB errors are inconclusive');
+ const absent=ctx(false,null);
+ assert.equal(await absent.read('shelf-a'),'data:image/png;base64,TEVHQUNZ','unsupported IndexedDB may use legacy');
+ function db(result){return {transaction:()=>{
+  const tx={objectStore:()=>({get:()=>{
+   const request={result};Promise.resolve().then(()=>{request.onsuccess();Promise.resolve().then(()=>tx.oncomplete());});return request;
+  }})};return tx;
+ }};}
+ assert.equal(await ctx(true,db(null)).read('shelf-a'),'data:image/png;base64,TEVHQUNZ','successful IDB miss is a legitimate legacy-only fallback');
+ assert.equal(await ctx(true,db('data:image/png;base64,TkVX')).read('shelf-a'),'data:image/png;base64,TkVX','existing IDB photo wins over older legacy bytes');
 });

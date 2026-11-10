@@ -7,6 +7,39 @@ async function context(browser){
  await ctx.route('**/*',async route=>{const url=new URL(route.request().url());if(url.origin!==ORIGIN)return route.abort();const file=path.resolve(DOCS,decodeURIComponent(url.pathname).slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css','.woff2':'font/woff2'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}});
  await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3}send(){}close(){}addEventListener(){}removeEventListener(){}};localStorage.setItem('f123::f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-TAB-ONLY',instanceId:'synthetic-tab-device'}));});
  await ctx.addInitScript(()=>{const Original=BroadcastChannel;window.BroadcastChannel=class extends Original{set onmessage(handler){super.onmessage=this.name==='friendly-123-auth-session'&&typeof handler==='function'?event=>{if(!window.__suppressLeaseEvents)handler(event);}:handler;}};window.addEventListener('storage',event=>{if(window.__suppressLeaseEvents&&event.key?.includes('auth_tab_lease'))event.stopImmediatePropagation();},true);});
+ await ctx.addInitScript(()=>{
+  window.__tabTrace=[];
+  window.__leaseMutations=[];
+  for(const verb of ['setItem','removeItem']){
+    const orig=Storage.prototype[verb];
+    Storage.prototype[verb]=function(key,...args){
+      if(String(key).includes('auth_tab_lease')){
+        const stack=String(new Error().stack||'').split('\n').slice(1,5).join(' | ');
+        window.__leaseMutations.push({t:Math.round(performance.now()*10)/10,
+          action:verb,key:String(key),stack});
+        if(window.__leaseMutations.length>30)window.__leaseMutations.shift();
+      }
+      return orig.call(this,key,...args);
+    };
+  }
+  function trace(event){
+    try {
+      const keys=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i))
+        .filter(k=>k.includes('auth_tab_lease'));
+      window.__tabTrace.push({t:Math.round(performance.now()*10)/10,event,
+        role:window.OCAuth?.rolActual?.()??null,
+        pending:window.OCTabSession?.pending??null,
+        current:window.OCTabSession?.isCurrent?.()??null,
+        session:!!sessionStorage.getItem('f123_sesion'),
+        leases:keys.map(key=>({key,value:localStorage.getItem(key)}))});
+      if(window.__tabTrace.length>90)window.__tabTrace.shift();
+    }catch(_){}
+  }
+  for(const name of ['oc-login','oc-logout','oc-tab-session-changed','focus','pageshow','storage'])
+    window.addEventListener(name,()=>trace(name),true);
+  document.addEventListener('visibilitychange',()=>trace('visibilitychange'),true);
+  window.__traceTab=trace;
+ });
  return ctx;
 }
 async function seed(ctx){
@@ -14,21 +47,44 @@ async function seed(ctx){
  const ids=await page.evaluate(async()=>{const original=OCAuth;window.OCAuth=Object.assign({},original,{rolActual:()=> 'dueno'});try{await OCSecure.guardarSecreto('789',['260'],'357','');const req=async(u,b)=>{const r=await fetch(u,{method:'POST',body:JSON.stringify(b)});if(!r.ok)throw Error(await r.text());return r.json();};const rack=await req('/api/ubicaciones',{nombre:'Synthetic immediate rack',tipo:'propio'});const p=await req('/api/productos',{nombre:'Synthetic immediate product',barcode:'TAB-TIMING',precio:17,stockInicial:4,ubicacionId:rack.id});await req('/api/productos/'+p.id+'/venta',{cantidad:2,info:{formaPago:'cash'}});return {product:p.id,rack:rack.id};}finally{window.OCAuth=original;}});
  return {page,ids};
 }
-async function ownerLogin(page){
+async function ownerLogin(page,stage,otherPage=null){
+ await page.evaluate(()=>{
+   if(!window.__pinTraceWrapped && window.OCSecure?.identificarPin){
+     const original=window.OCSecure.identificarPin;
+     window.OCSecure.identificarPin=async function(...args){
+       window.__traceTab?.('identifyPin-start');
+       try {const value=await original.apply(this,args);
+         window.__traceTab?.('identifyPin-result-'+String(value));return value;}
+       catch(e){window.__traceTab?.('identifyPin-error-'+(e?.name||'unknown'));throw e;}
+     };
+     window.__pinTraceWrapped=true;
+   }
+ });
+ console.log('TAB_PIN_STAGE',stage);
  await page.waitForFunction(()=>!!window.OCAuth);
  for(const digit of ['7','8','9'])await page.locator('#oc-pad').getByRole('button',{name:digit,exact:true}).click();
  try { await page.waitForFunction(()=>window.OCAuth?.rolActual()==='dueno',{},{timeout:5000}); }
  catch(error){
    // Diagnostics only: retain exactly the original timeout and assertions.
-   const facts=await page.evaluate(()=>({
+   const facts=await page.evaluate(stage=>({
      role:OCAuth?.rolActual(),gate:document.getElementById('oc-gate')?.style.display,
      handoff:!!document.getElementById('oc-tab-handoff'),
      authMessage:document.getElementById('oc-msg')?.textContent?.slice(0,160),
      pending:OCTabSession?.pending,current:OCTabSession?.isCurrent(),
      slots:[...document.querySelectorAll('#oc-slots .slot')].map(s=>!!s.textContent),
-     sessionExists:!!sessionStorage.getItem('f123_sesion')
-   })).catch(e=>({probeError:String(e)}));
+     sessionExists:!!sessionStorage.getItem('f123_sesion'),
+     stage,
+     trace:window.__tabTrace?.slice(-60),
+     leaseMutations:window.__leaseMutations?.slice(-30)
+   }),stage).catch(e=>({probeError:String(e)}));
    console.error('TAB_HANDOFF_AUTH_FORENSIC',JSON.stringify(facts));
+   if(otherPage){
+     const peer=await otherPage.evaluate(()=>({
+       trace:window.__tabTrace?.slice(-30),
+       leaseMutations:window.__leaseMutations?.slice(-30)
+     })).catch(e=>({error:String(e)}));
+     console.error('OTHER_TAB_LEASE_FORENSIC',JSON.stringify(peer));
+   }
    throw error;
  }
 }
@@ -36,7 +92,7 @@ async function sessionSnapshot(page){return page.evaluate(()=>({pending:OCTabSes
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  test(`native tab session handoff (${name}): old session closes, queued writes fail, sharing is public and honest`,async()=>{
   const web=await engine.launch({headless:true});try{
-   const ctx=await context(web),{page:first,ids}=await seed(ctx);await ownerLogin(first);
+   const ctx=await context(web),{page:first,ids}=await seed(ctx);await ownerLogin(first,'first initial PIN');
    await first.waitForFunction(()=>!window.OCTabSession?.pending);
    const initialSession=await sessionSnapshot(first);
    assert.equal(initialSession.leases.length,1,'the original session must own its lease before testing handoff');
@@ -50,7 +106,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    // session claim instead of mistaking any pending write for that claim.
    await second.evaluate(()=>{const request=navigator.locks.request.bind(navigator.locks);window.__lockCalls=[];window.__observedLockRequest=function(name,...args){const result=request(name,...args);window.__lockCalls.push({lock:name,callback:args.at(-1).name});if(name==='f123-escrituras'&&args.at(-1).name==='take')window.__handoffClaimQueued=true;return result;};navigator.locks.request=window.__observedLockRequest;});
    assert.equal(await second.evaluate(()=>navigator.locks.request===window.__observedLockRequest),true,'the test must actually observe the browser lock requests');
-   await ownerLogin(second);
+   await ownerLogin(second,'second tab takes over',first);
    // S1: a new PIN session MUST take the lease without queuing behind a
    // possibly zombie Web Lock. The old in-flight write still owns the lock.
    await second.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent(),null,{timeout:15000}); // handoff under a loaded CI box; behavior asserts below keep their 2 s limits
@@ -86,7 +142,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await first.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__copied=text;}}});});
    await first.locator('#oc-tab-copy').click();assert.match(await first.locator('#oc-tab-share-status').innerText(),/copied|copiado/i);
    assert.equal(await first.evaluate(()=>__copied),'https://jfcarpiopuntocom.github.io/friendly-123/');
-   await first.locator('#oc-tab-resume').click();await ownerLogin(first);await second.waitForFunction(()=>OCAuth.rolActual()===null,{},{timeout:2000});
+   await first.locator('#oc-tab-resume').click();await ownerLogin(first,'first re-entry after handoff',second);await second.waitForFunction(()=>OCAuth.rolActual()===null,{},{timeout:2000});
   }finally{await web.close();}
  });
  test(`same-browser durable edit reaches inventory DOM directly (${name})`,async()=>{
@@ -105,4 +161,55 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.equal((await api(second,'/api/productos')).find(p=>p.id===ids.product).stockActual,2);
   }finally{await web.close();}
  });
+}
+
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ for(const stage of ['intent','lease']){
+  test(`Fable P1-4 native quota-failed second claim (${name}, ${stage}): original owner persists, contender cannot write`,async()=>{
+   const web=await engine.launch({headless:true});
+   try{
+    const ctx=await context(web),{page:first}=await seed(ctx);
+    await ownerLogin(first,`quota first owner (${name}, ${stage})`);
+    await first.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent());
+    const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+    await second.evaluate(stage=>{
+     window.__quotaLeaseThrown=0;
+     const original=Storage.prototype.setItem;
+     Storage.prototype.setItem=function(key,value){
+      const k=String(key);
+      if(k.includes('auth_tab_lease_') &&
+         (stage==='intent'?k.endsWith('_claim'):!k.endsWith('_claim'))){
+       window.__quotaLeaseThrown++;
+       throw new DOMException('Synthetic storage pressure','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+     };
+    },stage);
+    await ownerLogin(second,`quota contender (${name}, ${stage})`,first);
+    try{
+     await second.waitForFunction(()=>window.__quotaLeaseThrown>0&&!window.OCTabSession.pending,null,{timeout:10000});
+    }catch(error){
+     console.error('QUOTA_LEASE_NATIVE_FORENSIC',JSON.stringify(await second.evaluate(()=>({
+      role:OCAuth?.rolActual?.(),pending:OCTabSession?.pending,current:OCTabSession?.isCurrent?.(),
+      quotaThrows:window.__quotaLeaseThrown,authMessage:document.getElementById('oc-msg')?.textContent,
+      trace:window.__tabTrace?.slice(-12),mutations:window.__leaseMutations?.slice(-12)
+     }))));
+     throw error;
+    }
+    const secondState=await sessionSnapshot(second),firstState=await sessionSnapshot(first);
+    assert.equal(firstState.current,true,'legitimate previous owner must remain active');
+    assert.equal(firstState.role,'dueno','storage pressure must not expel the previous authenticated owner');
+    assert.equal(secondState.current,false,'failed new session cannot mutate without a committed lease');
+    assert.equal(await second.evaluate(()=>OCTabSession.canSync()),false,'failed contender must not sync');
+    const leases=firstState.leases.filter(x=>x.key.includes('auth_tab_lease'));
+    assert.equal(leases.length,1,'only original durable lease remains, never an intent');
+    assert.ok(!leases[0].key.endsWith('_claim'),'never strand the two-minute takeover intent');
+    const denied=await second.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Quota contender forbidden',tipo:'propio'})});return r.status;});
+    assert.ok(denied>=400,`contender write must fail, not status ${denied}`);
+    const accepted=await first.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Quota legitimate owner',tipo:'propio'})});return r.status;});
+    assert.ok(accepted>=200&&accepted<300,`existing owner must still be able to work; status ${accepted}`);
+   }finally{await web.close();}
+  });
+ }
 }

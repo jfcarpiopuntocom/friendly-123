@@ -5544,7 +5544,11 @@
             const foto = p.foto;
             const h = await window.OCFotos.hashDeDataUrl(foto);
             if (h) {
-              await window.OCFotos.guardarPorHash(h, foto);
+              // False is a rejected IDB commit, not an ACK. Never publish a
+              // hash pointer until the exact bytes are durable on this device.
+              // Keep the inline source photo so the next seed can retry safely.
+              const bytesDurables = await window.OCFotos.guardarPorHash(h, foto);
+              if (bytesDurables !== true) continue;
               if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
             }
           }
@@ -5559,15 +5563,23 @@
     async hashearFotosPerchas() {
       if (!window.OCFotos || !window.OCFotos.hashDeDataUrl || !window.OCFotos.leerFoto) return 0;
       let n = 0;
+      // Do not treat a fallback from a failed IDB read as proof of the current photo.
+      const leerFotoVigente = typeof window.OCFotos.leerFotoConfirmada === 'function'
+        ? window.OCFotos.leerFotoConfirmada : window.OCFotos.leerFoto;
       for (const u of ubicaciones) {
         try {
           if (!u || u.id == null || u.fotoHash || u.fotoRev || u.borrado) continue;
-          const bytes = await window.OCFotos.leerFoto(String(u.id));
+          const bytes = await leerFotoVigente(String(u.id));
           if (!bytes || String(bytes).indexOf("data:") !== 0) continue;
           const h = await window.OCFotos.hashDeDataUrl(bytes);
           if (!h) continue;
-          await window.OCFotos.guardarPorHash(h, bytes);
-          if (ubicaciones.includes(u) && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
+          // A rejected/throwing IDB write is not a durable photo ACK.
+          // Preserve the by-ID source bytes and retry on a later seed.
+          if ((await window.OCFotos.guardarPorHash(h, bytes)) !== true) continue;
+          // Photo may be replaced or removed while the hash write is awaited.
+          // Keep old bytes for recovery; never publish a stale active pointer.
+          if (await leerFotoVigente(String(u.id)) !== bytes) continue;
+          if (ubicaciones.includes(u) && !u.borrado && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
         } catch (_) {}
       }
       if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }

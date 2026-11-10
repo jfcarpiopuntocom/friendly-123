@@ -1,10 +1,10 @@
 {
-  "version": "shell v706",
-  "fecha": "2026-11-09",
-  "changelog": "v706: Commissions P0: los meses historicos con ventas de casa/COUNTER sin reparto vuelven a figurar en el selector y Summary by Product; sin recalcular dinero ni modificar Sync3.",
+  "version": "v0.7.23",
+  "fecha": "2026-11-10",
+  "changelog": "v0.7.23 candidata QA: inventario de fotos recupera hashes legacy tras abortos de transacción IndexedDB, sin esperar el timeout del relé. Plan de aceptación y fixture usan referencias sintéticas; ventas, dinero, PIN, inventario y Sync3 sin cambios.",
   "requerida": false,
-  "shell": "f123-shell-v706",
+  "shell": "f123-shell-v723",
   "apagar": [],
-  "releaseName": "shell v706",
-  "cacheGeneration": "golden245"
+  "releaseName": "v0.7.23",
+  "cacheGeneration": "golden263"
 }

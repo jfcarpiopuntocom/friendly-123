@@ -1,0 +1,40 @@
+name: P0 tab-session 30x native browser handoff (no retries)
+on:
+  pull_request:
+    paths:
+      - docs/tab-session.js
+      - docs/version.json
+      - test/tab-session-handoff.test.js
+      - test/fable-p0-tab-claim.test.cjs
+      - .github/workflows/p0-tab-session-30x.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  handoff-30x:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Node dependencies without changing lockfile
+        run: npm ci --ignore-scripts
+      - name: 30 of 30 native handoffs in Chromium AND WebKit, no retry or skipped handoff
+        run: |
+          set -euo pipefail
+          for trial in $(seq 1 30); do
+            echo "::group::Native PIN/tab handoff, both browsers, repetition ${trial}/30"
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 --test-name-pattern='native tab session handoff' test/tab-session-handoff.test.js
+            echo "::endgroup::"
+          done
+          echo "30/30 Chromium and 30/30 WebKit handoffs passed, no retries"

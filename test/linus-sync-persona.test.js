@@ -78,10 +78,11 @@ test('Bloque 2: COUNTER SALE y persona elegida en la venta cruzan al otro aparat
 function fotosEnMemoria(w) {
   const m = new Map();
   w.OCFotos = {
-    hashDeDataUrl: async (d) => 'h' + require('node:crypto').createHash('sha256').update(String(d)).digest('hex').slice(0, 24),
-    guardarPorHash: async (h, d) => { m.set(h, d); },
+    hashDeDataUrl: async (d) => require('node:crypto').createHash('sha256').update(Buffer.from(String(d).split(',')[1], 'base64')).digest('hex'),
+    guardarPorHash: async (h, d) => { m.set(h, d); return true; }, // real OCFotos returns true after commit
     leerPorHash: async (h) => m.get(h) || null,
     tieneHash: async (h) => m.has(h),
+    tieneHashSoloIdb: async (h) => m.has(h),
   };
   return m;
 }
