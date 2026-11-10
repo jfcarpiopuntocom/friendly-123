@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - scripts/perf-39day-audit.cjs
+      - scripts/perf-watchdog-storm.cjs
       - .github/workflows/perf-39day-audit.yml
   workflow_dispatch: {}
 permissions:
@@ -42,3 +43,9 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/perf-39day-audit.cjs
+      - name: Read-only synthetic catalog burst vs watchdog snapshots
+        env:
+          F123_BASELINE_DOCS: ${{ runner.temp }}/f123-20261001/docs
+        run: |
+          set -euo pipefail
+          node scripts/perf-watchdog-storm.cjs
