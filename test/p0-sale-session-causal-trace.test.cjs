@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const s=fs.readFileSync(path.join(__dirname,'../docs/mock-backend.js'),'utf8');
+const begin=s.indexOf('      const rolCambio=rolAlPedir!==_rolLocal();');
+const end=s.indexOf('      const negado=cambio ?',begin);
+assert(begin>=0&&end>begin,'causal guard block exists');
+const guard=s.slice(begin,end);
+assert.match(guard,/rolCambio\|\|epocaCambio\|\|!tabActual/);
+assert.match(guard,/tabPending/);
+assert.match(guard,/\.slice\(-49\)/);
+assert.doesNotMatch(guard,/rolAlPedir\s*=|epocaAlPedir\s*=/,'never re-anchor a revoked session');
+assert.match(s.slice(end,end+450),/status:403/,'legitimate revocation still fenced');
+console.log('P0 session-fence causal trace: PASS');
