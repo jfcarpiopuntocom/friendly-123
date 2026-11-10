@@ -1,10 +1,10 @@
 {
-  "version": "shell v707",
+  "version": "shell v708",
   "fecha": "2026-11-09",
-  "changelog": "v707 P0 fotos: fotoHash se anuncia solo tras guardar por hash los bytes confirmados; foto inline conservada para reintento; sin tocar Sync3 ni dinero.",
+  "changelog": "v708 candidata H3: fotos Sync3 por hash individual, recuperación íntegra de hashes heredados y protección contra reconexiones simultáneas; sin cambiar ventas, dinero ni PIN.",
   "requerida": false,
-  "shell": "f123-shell-v707",
+  "shell": "f123-shell-v708",
   "apagar": [],
-  "releaseName": "shell v707",
-  "cacheGeneration": "golden246"
+  "releaseName": "shell v708",
+  "cacheGeneration": "golden247"
 }

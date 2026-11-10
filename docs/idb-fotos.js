@@ -94,37 +94,62 @@
       return true;
     } catch (err) { console.error("[idb-fotos] guardarPorHash:", err); return false; }
   }
+  // Legacy hashed bytes may still live only in localStorage even while IDB
+  // opens normally (pre-isolation / older PWA recovery). Read-only fallback.
+  function leerHashLegado(hash) {
+    try { return localStorage.getItem(claveBlob(hash)) || null; } catch (_) { return null; }
+  }
+  function hashesLegado() {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("f123_fotoblob_") === 0) out.push(k.slice("f123_fotoblob_".length));
+      }
+    } catch (_) {}
+    return out;
+  }
+  // Strict IDB-only read for copy-only rescue: unlike the public reader it
+  // never treats a legacy localStorage fallback as a committed IDB copy.
+  // Rejections are intentional: a failed read must NOT authorize overwriting
+  // potentially newer IDB data; the recovery loop will count it as pending.
+  async function leerHashSoloIdb(hash) {
+    if (!hash) return null;
+    if (!SOPORTADO) return leerHashLegado(hash);
+    const db = await abrirDB();
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_BLOBS, "readonly");
+      const req = tx.objectStore(STORE_BLOBS).get(hash);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+      tx.onabort = () => reject(tx.error || new Error("lectura IDB abortada"));
+    });
+  }
+  // App reads retain historical fallback; only rescue checks require strict IDB.
   async function leerPorHash(hash) {
     if (!hash) return null;
-    if (!SOPORTADO) { try { return localStorage.getItem(claveBlob(hash)); } catch (_) { return null; } }
+    if (!SOPORTADO) return leerHashLegado(hash);
     try {
-      const db = await abrirDB();
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_BLOBS, "readonly");
-        const req = tx.objectStore(STORE_BLOBS).get(hash);
-        req.onsuccess = () => resolve(req.result || null);
-        req.onerror = () => reject(req.error);
-      });
-    } catch (err) { console.error("[idb-fotos] leerPorHash:", err); return null; }
+      return (await leerHashSoloIdb(hash)) || leerHashLegado(hash);
+    } catch (err) {
+      console.error("[idb-fotos] leerPorHash:", err);
+      return leerHashLegado(hash);
+    }
   }
   async function tieneHash(hash) { return !!(await leerPorHash(hash)); }
-  // Lista de hashes que este aparato YA tiene — base del protocolo "tengo/quiero"
-  // que usara B3 para pedir a la nube solo lo que falta.
+  // Full hash inventory, not blob bytes. Include orphaned legacy evidence so
+  // memory-bounded replication never drops historic photos without pointers.
   async function hashesGuardados() {
-    if (!SOPORTADO) {
-      const out = [];
-      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_fotoblob_") === 0) out.push(k.slice("f123_fotoblob_".length)); } } catch (_) {}
-      return out;
-    }
+    if (!SOPORTADO) return hashesLegado();
     try {
       const db = await abrirDB();
       return await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readonly");
         const req = tx.objectStore(STORE_BLOBS).getAllKeys();
-        req.onsuccess = () => resolve(req.result || []);
+        req.onsuccess = () => resolve([...new Set((req.result || []).map(String).concat(hashesLegado()))]);
         req.onerror = () => reject(req.error);
       });
-    } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return []; }
+    } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return hashesLegado(); }
   }
 
   // v449: export forense read-only del almacen content-addressed completo.
@@ -380,7 +405,7 @@
         const bytes = porHash[hash];
         if (!hash || !bytes) continue;
         try {
-          const actual = await leerPorHash(hash);
+          const actual = await leerHashSoloIdb(hash);
           if (!actual && !await guardarPorHash(hash, bytes)) blobsPendientes++;
           else if (!actual) blobs++;
         } catch (_) { blobsPendientes++; }
@@ -441,7 +466,7 @@
           // Si la clave legacy estaba corrupta/mal rotulada, preserva bajo el
           // hash REAL y no perpetua una asociacion falsa.
           const objetivo = real || hash;
-          const actual = await leerPorHash(objetivo);
+          const actual = await leerHashSoloIdb(objetivo);
           if (!actual && !await guardarPorHash(objetivo, bytes)) blobsPendientes++;
           else if (!actual) blobs++;
         } catch (_) { blobsPendientes++; }
