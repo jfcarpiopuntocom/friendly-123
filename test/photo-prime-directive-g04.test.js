@@ -27,8 +27,8 @@ test('Prime Directive 1AAA: photo persistence is append-only/copy-only', () => {
   assert.match(vp, /window\.OCYjs\.get\('ubicaciones'\)/);
   assert.doesNotMatch(auth, /f123_foto_percha_[\s\S]{0,300}removeItem/,
     'start-empty must not destroy legacy photo evidence');
-  assert.match(sync, /leerTodosPorHash/,
-    'orphan hash evidence must be eligible for reseeding to the owner\'s photo channel');
+  assert.match(sync, /hashesGuardados/,
+    'orphan hash evidence must be eligible for reseeding by key without loading the whole library');
 });
 
 test('Photo Recovery Vault never overwrites a current shelf photo until explicit historical restore click', async () => {
