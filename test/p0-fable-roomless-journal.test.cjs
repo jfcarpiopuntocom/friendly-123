@@ -14,7 +14,7 @@ ctx.drain();assert.equal(ops.size,1);
 const reloadedOps=new Map(),reloadedWindow={OCYjs:{estado:'activo',codigoCuaderno:'A',opsMap:reloadedOps},addEventListener:()=>{},dispatchEvent:e=>reloadedOps.set(e.detail.opId,e.detail)};
 const reload={...ctx,window:reloadedWindow};
 vm.createContext(reload);
-vm.runInContext(block+'\\nthis.drain=drenarPendientesYjs;this.read=leerPendientesYjs;',reload);
+vm.runInContext(block+'\nthis.drain=drenarPendientesYjs;this.read=leerPendientesYjs;',reload);
 reload.drain();
 assert.equal(reloadedOps.size,1,'journal replays after fresh Yjs document/reload');
 ctx.save('B',[{...op,opId:'opB',_salaOrigen:'B'}]);ctx.drain();assert.equal(ctx.read('B').length,1);
