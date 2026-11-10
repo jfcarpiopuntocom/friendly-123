@@ -1,0 +1,38 @@
+name: H3 photo seed complete evidence, low-memory RED GREEN
+on:
+  pull_request:
+    paths:
+      - docs/idb-fotos.js
+      - docs/sync-yjs.js
+      - test/h3-photo-hash-legacy.test.cjs
+      - test/h3-photo-seed-serial.test.cjs
+      - test/yjs-photo-seed-stable.test.js
+      - test/v670-cross-layer-photo-seed.test.cjs
+      - .github/workflows/h3-photo-seed-contract.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  h3-photos:
+    name: H3 synthetic legacy + all-hash seed contract
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Node syntax and complete photo evidence
+        run: |
+          set -euo pipefail
+          node --check docs/idb-fotos.js
+          node --check docs/sync-yjs.js
+          node --test --test-concurrency=1 test/h3-photo-seed-serial.test.cjs test/h3-photo-hash-legacy.test.cjs test/v670-cross-layer-photo-seed.test.cjs test/yjs-photo-seed-stable.test.js

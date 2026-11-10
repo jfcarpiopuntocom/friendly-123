@@ -94,37 +94,60 @@
       return true;
     } catch (err) { console.error("[idb-fotos] guardarPorHash:", err); return false; }
   }
+  // Hash-only enumeration must include *both* modern IDB keys and older
+  // localStorage-only bytes. An orphan is evidence, not disposable garbage.
+  function hashesLegacyGuardados() {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("f123_fotoblob_") === 0)
+          out.push(k.slice("f123_fotoblob_".length));
+      }
+    } catch (_) {}
+    return out;
+  }
+  function leerHashLegacy(hash) {
+    try { return localStorage.getItem(claveBlob(hash)) || null; }
+    catch (_) { return null; }
+  }
   async function leerPorHash(hash) {
     if (!hash) return null;
-    if (!SOPORTADO) { try { return localStorage.getItem(claveBlob(hash)); } catch (_) { return null; } }
+    if (!SOPORTADO) return leerHashLegacy(hash);
     try {
       const db = await abrirDB();
-      return await new Promise((resolve, reject) => {
+      const desdeIdb = await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readonly");
         const req = tx.objectStore(STORE_BLOBS).get(hash);
         req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => reject(req.error);
       });
-    } catch (err) { console.error("[idb-fotos] leerPorHash:", err); return null; }
+      // Copy-only rescue: keep a valid modern value authoritative; never
+      // overwrite it with a localStorage shadow, but recover missing bytes.
+      return desdeIdb || leerHashLegacy(hash);
+    } catch (err) {
+      console.error("[idb-fotos] leerPorHash:", err);
+      return leerHashLegacy(hash);
+    }
   }
   async function tieneHash(hash) { return !!(await leerPorHash(hash)); }
-  // Lista de hashes que este aparato YA tiene — base del protocolo "tengo/quiero"
-  // que usara B3 para pedir a la nube solo lo que falta.
+  // List keys only; NEVER load all dataURLs into a JS object just to seed sync.
   async function hashesGuardados() {
-    if (!SOPORTADO) {
-      const out = [];
-      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_fotoblob_") === 0) out.push(k.slice("f123_fotoblob_".length)); } } catch (_) {}
-      return out;
-    }
+    const antiguos = hashesLegacyGuardados();
+    if (!SOPORTADO) return antiguos;
     try {
       const db = await abrirDB();
-      return await new Promise((resolve, reject) => {
+      const idbKeys = await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readonly");
         const req = tx.objectStore(STORE_BLOBS).getAllKeys();
         req.onsuccess = () => resolve(req.result || []);
         req.onerror = () => reject(req.error);
       });
-    } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return []; }
+      return Array.from(new Set(idbKeys.map(String).concat(antiguos)));
+    } catch (err) {
+      console.error("[idb-fotos] hashesGuardados:", err);
+      return antiguos;
+    }
   }
 
   // v449: export forense read-only del almacen content-addressed completo.
