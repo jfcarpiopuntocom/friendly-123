@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.13",
+  "version": "v0.7.14",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.13 candidata QA: validación SHA-256 en el segundo publicador de fotos y protección del PIN durante reclamo de sesión entre pestañas; sin cambiar ventas, stock ni Sync3.",
+  "changelog": "v0.7.14 candidata QA: valida huella de fotos recibidas y distingue copia legacy de escritura durable en IndexedDB. Retries seguros sin punteros falsos; ventas y Sync3 intactos.",
   "requerida": false,
-  "shell": "f123-shell-v713",
+  "shell": "f123-shell-v714",
   "apagar": [],
-  "releaseName": "v0.7.13",
-  "cacheGeneration": "golden253"
+  "releaseName": "v0.7.14",
+  "cacheGeneration": "golden254"
 }

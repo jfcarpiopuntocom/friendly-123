@@ -142,6 +142,12 @@
     }
   }
   async function tieneHash(hash) { return !!(await leerPorHash(hash)); }
+  // Never mistake a readable legacy fallback for a committed IndexedDB blob.
+  // On unsupported browsers, the caller will attempt the local fallback write.
+  async function tieneHashSoloIdb(hash) {
+    if (!SOPORTADO) return false;
+    return !!(await leerHashSoloIdb(hash));
+  }
   // Full hash inventory, not blob bytes. Include orphaned legacy evidence so
   // memory-bounded replication never drops historic photos without pointers.
   async function hashesGuardados() {
@@ -556,6 +562,6 @@
     blindarEvidencia, inventariarEvidencia, diagnosticoRecuperacion,
     soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
-    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, leerTodosPorHash, guardarFotoContenido
+    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, tieneHashSoloIdb, hashesGuardados, leerTodosPorHash, guardarFotoContenido
   };
 })();

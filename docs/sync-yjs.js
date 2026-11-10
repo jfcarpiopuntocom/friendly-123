@@ -2378,13 +2378,30 @@
         return;
       }
       var hash = pend[i][0], dataUrl = pend[i][1]; i++;
-      Promise.resolve(window.OCFotos.tieneHash(hash)).then(function (ya) {
-        if (ya) return next();
-        return Promise.resolve(window.OCFotos.guardarPorHash(hash, dataUrl)).then(function (ok) {
-          if (ok === true) hubo = true;
-          else fallaron = true; // false means nothing was saved: do not fabricate success
-          next();
-        });
+      // Older peers can send a historical, mislabelled immutable hash pair.
+      // Keep Yjs evidence, but NEVER persist bad bytes under a valid hash key.
+      Promise.resolve().then(async function () {
+        var fotos = window.OCFotos;
+        var validShape = /^[a-f0-9]{64}$/.test(String(hash)) &&
+          /^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl || "");
+        if (!validShape) {
+          API.fotosHashRechazados = (API.fotosHashRechazados || 0) + 1;
+          return next();
+        }
+        var actual = await _esperarFoto(typeof fotos.hashDeDataUrl === "function"
+          ? fotos.hashDeDataUrl(dataUrl) : _hashFotoSinStore(dataUrl));
+        if (actual !== hash) {
+          API.fotosHashRechazados = (API.fotosHashRechazados || 0) + 1;
+          return next();
+        }
+        // Legacy localStorage bytes are readable, but are not an IDB ACK.
+        var yaIdb = typeof fotos.tieneHashSoloIdb === "function"
+          ? await _esperarFoto(fotos.tieneHashSoloIdb(hash)) : false;
+        if (yaIdb) return next();
+        var ok = await _esperarFoto(fotos.guardarPorHash(hash, dataUrl));
+        if (ok === true) hubo = true;
+        else fallaron = true;
+        next();
       }).catch(function () { fallaron = true; next(); });
     })();
   }
