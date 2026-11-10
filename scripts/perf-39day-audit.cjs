@@ -55,7 +55,7 @@ function topCpuModules(profile) {
   for (let i = 0; i < (profile.samples || []).length; i++) {
     const n = nodes.get(profile.samples[i]);
     let key = n && n.callFrame && n.callFrame.url || '(browser/inline)';
-    try { key = new URL(key).pathname.replace(/^\\//, '') || '(inline)'; }
+    try { key = new URL(key).pathname; if (key.startsWith('/')) key = key.slice(1); if (!key) key = '(inline)'; }
     catch (_) { if (!key || key === '(browser/inline)') key = '(browser/inline)'; }
     const ms = ((profile.timeDeltas || [])[i] || 0) / 1000;
     totals.set(key, (totals.get(key) || 0) + ms);
