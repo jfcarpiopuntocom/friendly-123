@@ -22,9 +22,10 @@ test('H3 RED: all catalog, orphan, and Yjs-only photos seed without bulk-read an
  vm.createContext(ctx);
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
  const Y=ctx.Y,doc=new Y.Doc(),map=doc.getMap('blobs');
- const hCat='synthetic-photo-product',hOrphan='synthetic-photo-orphan',hOnly='synthetic-photo-yjs-only';
- const values=new Map([[hCat,'data:image/png;base64,AQID'],[hOrphan,'data:image/png;base64,BAUG']]);
- const yVal='data:image/png;base64,BwgJ';map.set(hOnly,yVal);
+ const catVal='data:image/png;base64,AQID',orphanVal='data:image/png;base64,BAUG',yVal='data:image/png;base64,BwgJ';
+ const hCat=hashOfPhoto(catVal),hOrphan=hashOfPhoto(orphanVal),hOnly=hashOfPhoto(yVal);
+ const values=new Map([[hCat,catVal],[hOrphan,orphanVal]]);
+ map.set(hOnly,yVal);
  const writes=[],ws={relayLayer:'synthetic-photos-relay'};
  let inFlight=0,maxInflight=0,bulkCalls=0;
  ctx.API={fotosDoc:doc,fotosMap:map,fotosCanal:{ws,
@@ -35,13 +36,14 @@ test('H3 RED: all catalog, orphan, and Yjs-only photos seed without bulk-read an
  },OCFotos:{
    hashesGuardados:async()=>[hOrphan,hCat],
    leerTodosPorHash:async()=>{bulkCalls++;throw Error('H3 PROHIBITS memory-hungry bulk photos');},
-   leerPorHash:async hash=>{
+   hashDeDataUrl:async d=>hashOfPhoto(d),leerPorHash:async hash=>{
      inFlight++;maxInflight=Math.max(maxInflight,inFlight);
      try{await sleep(12);return values.get(hash)||null}
      finally{inFlight--}
    }
  }};
  doc.on('update',(u,origin)=>{if(origin==='seed')writes.push(Buffer.from(u))});
+ ctx.setTimeout=setTimeout;ctx.clearTimeout=clearTimeout;
  vm.runInContext(snippet,ctx);
  vm.runInContext('sembrarFotosAlRelay();',ctx);
  await until(()=>[hCat,hOrphan,hOnly].every(h=>ctx._fotosSembradas[h]?.[ws.relayLayer]));
@@ -64,30 +66,32 @@ test('H3 RED: overlapping reconnects do not multiply in-flight photo reads or du
  const ctx={crypto:webcrypto,TextEncoder,Uint8Array,ArrayBuffer,console};
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
  const doc=new ctx.Y.Doc(),map=doc.getMap('blobs'),ws={relayLayer:'same-relay'},sends=[];
- const hashes=['h-one','h-two'],blob={'h-one':'data:image/png;base64,AA==','h-two':'data:image/png;base64,AQ=='};
+ const photos=['data:image/png;base64,AA==','data:image/png;base64,AQ=='];
+ const hashes=photos.map(hashOfPhoto),blob=Object.fromEntries(hashes.map((h,i)=>[h,photos[i]]));
  let active=0,maxActive=0;
  ctx.API={fotosDoc:doc,fotosMap:map,fotosCanal:{ws,enviarUpdate:u=>sends.push(Buffer.from(u))}};
  ctx.window={Y:ctx.Y,OCSync:{catalogoPropio:()=>({productos:hashes.map(fotoHash=>({fotoHash}))})},
-   OCFotos:{hashesGuardados:async()=>hashes,leerPorHash:async hash=>{
+   OCFotos:{hashesGuardados:async()=>hashes,hashDeDataUrl:async d=>hashOfPhoto(d),leerPorHash:async hash=>{
     active++;maxActive=Math.max(maxActive,active);
     try{await sleep(45);return blob[hash]}finally{active--}
    }}};
  doc.on('update',(u,origin)=>{if(origin==='seed')sends.push(Buffer.from(u))});
+ ctx.setTimeout=setTimeout;ctx.clearTimeout=clearTimeout;
  vm.runInContext(snippet,ctx);
  for(let i=0;i<4;i++)vm.runInContext('sembrarFotosAlRelay();',ctx);
  await until(()=>hashes.every(h=>ctx._fotosSembradas[h]?.[ws.relayLayer]));
  await sleep(200); // catch any duplicate sends still queued from older overlapping passes
  assert.equal(maxActive,1,'all reconnect callers must share one in-flight seed pass');
  assert.equal(sends.length,2,'each hash must publish once despite repeated reconnect triggers');
- assert.equal(map.get('h-one'),blob['h-one']);
- assert.equal(map.get('h-two'),blob['h-two']);
+ assert.equal(map.get(hashes[0]),blob[hashes[0]]);
+ assert.equal(map.get(hashes[1]),blob[hashes[1]]);
  doc.destroy();
 });
 
 test('H3 RED: relay switches during awaited photo read cannot mark previous relay as ACKed',async()=>{
  const ctx={crypto:webcrypto,TextEncoder,Uint8Array,ArrayBuffer,console};
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
- const doc=new ctx.Y.Doc(),map=doc.getMap('blobs'),hash='h-switch',photo='data:image/png;base64,Ag==';
+ const doc=new ctx.Y.Doc(),map=doc.getMap('blobs'),photo='data:image/png;base64,Ag==',hash=hashOfPhoto(photo);
  const ws={relayLayer:'relay-A'},sends=[];
  let release,started;
  const firstRead=new Promise(r=>{started=r});
@@ -95,18 +99,19 @@ test('H3 RED: relay switches during awaited photo read cannot mark previous rela
  let first=true;
  ctx.API={fotosDoc:doc,fotosMap:map,fotosCanal:{ws,enviarUpdate:u=>sends.push({layer:ws.relayLayer,bytes:Buffer.from(u)})}};
  ctx.window={Y:ctx.Y,OCSync:{catalogoPropio:()=>({productos:[{fotoHash:hash}]})},
-   OCFotos:{hashesGuardados:async()=>[hash],leerPorHash:async()=>{
+   OCFotos:{hashesGuardados:async()=>[hash],hashDeDataUrl:async d=>hashOfPhoto(d),leerPorHash:async()=>{
     if(first){first=false;started();await held;}
     return photo;
    }}};
  doc.on('update',(u,origin)=>{if(origin==='seed')sends.push({layer:ws.relayLayer,bytes:Buffer.from(u)})});
+ ctx.setTimeout=setTimeout;ctx.clearTimeout=clearTimeout;
  vm.runInContext(snippet,ctx);
  vm.runInContext('sembrarFotosAlRelay();',ctx);
  await firstRead; // old relay A is now awaiting its first photo read
  ws.relayLayer='relay-B';
  vm.runInContext('sembrarFotosAlRelay();',ctx); // must queue a fresh B pass
  release();
- await until(()=>!!ctx._fotosSembradas[hash]?.['relay-B']);
+ await until(()=>!!ctx._fotosSembradas[hash]?.['relay-B'],5000);
  assert.ok(!ctx._fotosSembradas[hash]?.['relay-A'],
    'no false ACK of relay A: its socket switched before photo was emitted');
  assert.deepEqual(sends.map(s=>s.layer),['relay-B'],'only current B relay received the first photo');
@@ -122,13 +127,15 @@ test('H3 RED: catalog read throws but orphan and Yjs-only photos must still seed
  const ctx={crypto:webcrypto,TextEncoder,Uint8Array,ArrayBuffer,console};
  vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
  const doc=new ctx.Y.Doc(),map=doc.getMap('blobs'),ws={relayLayer:'recovery-layer'},sends=[];
- const legacy='legacy-rescue-hash',yOnly='yjs-rescue-hash',legacyPhoto='data:image/png;base64,AA==',yPhoto='data:image/png;base64,AQ==';
+ const legacyPhoto='data:image/png;base64,AA==',yPhoto='data:image/png;base64,AQ==';
+ const legacy=hashOfPhoto(legacyPhoto),yOnly=hashOfPhoto(yPhoto);
  map.set(yOnly,yPhoto);
  ctx.API={fotosDoc:doc,fotosMap:map,fotosCanal:{ws,enviarUpdate:u=>sends.push(Buffer.from(u))}};
  ctx.window={Y:ctx.Y,OCSync:{catalogoPropio:()=>{throw Error('transient catalog unavailable');},
    hashearFotosProductos:async()=>0,hashearFotosPerchas:async()=>0},
-  OCFotos:{hashesGuardados:async()=>[legacy],leerPorHash:async h=>h===legacy?legacyPhoto:null}};
+  OCFotos:{hashesGuardados:async()=>[legacy],hashDeDataUrl:async d=>hashOfPhoto(d),leerPorHash:async h=>h===legacy?legacyPhoto:null}};
  doc.on('update',(u,origin)=>{if(origin==='seed')sends.push(Buffer.from(u))});
+ ctx.setTimeout=setTimeout;ctx.clearTimeout=clearTimeout;
  vm.runInContext(snippet,ctx);vm.runInContext('sembrarFotosAlRelay();',ctx);
  await until(()=>[legacy,yOnly].every(h=>ctx._fotosSembradas[h]?.[ws.relayLayer]));
  assert.equal(sends.length,2,'both recoverable photo sources seed without a catalog');
