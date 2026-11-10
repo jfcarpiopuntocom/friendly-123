@@ -31,7 +31,7 @@ test('P0 RED: rejected content-addressed blob never publishes missing photoHash 
  const local=await read();
  assert.equal(local.foto,PNG,'keep source inline photo on mobile; never discard evidence');
  assert.ok(!local.fotoHash,'a hash without durable photo bytes must not be assigned');
- const remote=(app.catalog().productos||[]).find(p=>p.id===product.id);
+ const remote=(app.OCSync.estadoParaCheckpoint().productos||[]).find(p=>p.id===product.id);
  assert.ok(!remote?.fotoHash,'the catalog shared to PC must not contain a dangling pointer');
 });
 test('P0: a later successful durable hash-store write retries and only then announces one pointer',async()=>{
@@ -45,7 +45,7 @@ test('P0: a later successful durable hash-store write retries and only then anno
  const p=await read();
  assert.equal(p.fotoHash,H);
  assert.equal(p.foto,PNG,'photo survives hashing without loss');
- const remote=(app.catalog().productos||[]).find(x=>x.id===product.id);
+ const remote=(app.OCSync.estadoParaCheckpoint().productos||[]).find(x=>x.id===product.id);
  assert.equal(remote?.fotoHash,H);
  assert.equal(attempts,2);
  assert.equal(await app.OCSync.hashearFotosProductos(),0,'no redundant rehash after confirmed pointer');
