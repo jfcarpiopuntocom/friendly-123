@@ -138,3 +138,31 @@ test('Fable G3 RED: removing shelf photo during async save leaves no stale point
  assert.ok(!shelf.fotoHash);
  assert.ok(!shelf.fotoRev);
 });
+
+
+test('CodeRabbit RED: IDB read failure cannot promote an older fallback shelf photo',async()=>{
+ const {app,rack}=await fixture(),OLD=PNG;
+ let strictReads=0;
+ app.OCFotos={
+  leerFoto:async()=>OLD, // legacy-only fallback, not evidence of successful IndexedDB read
+  leerFotoConfirmada:async()=>{strictReads++;throw Object.assign(new Error('synthetic IDB abort'),{name:'UnknownError'});},
+  hashDeDataUrl:async()=>H,guardarPorHash:async()=>true
+ };
+ const converted=await app.OCSync.hashearFotosPerchas();
+ const shelf=(app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(u=>u.id===rack.id);
+ assert.equal(converted,0,'inconclusive IDB read must defer publication');
+ assert.ok(strictReads>=1,'the app must demand authoritative read certainty before deciding current photo');
+ assert.ok(!shelf.fotoHash&&!shelf.fotoRev,'no wrong current photo pointer or revision');
+});
+
+test('CodeRabbit: confirmed legacy-only shelf source still publishes without IDB bytes',async()=>{
+ const {app,rack}=await fixture();
+ app.OCFotos={
+  leerFoto:async()=>PNG,leerFotoConfirmada:async()=>PNG,
+  hashDeDataUrl:async()=>H,guardarPorHash:async()=>true
+ };
+ assert.equal(await app.OCSync.hashearFotosPerchas(),1,'legitimate legacy-only source remains supported');
+ const shelf=(app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(u=>u.id===rack.id);
+ assert.equal(shelf.fotoHash,H);
+ assert.ok(shelf.fotoRev);
+});

@@ -103,3 +103,54 @@ for(const failWhich of ['intent','lease']){
   assert.ok(events.some(([kind])=>kind==='warn'),'quota failure must leave a diagnosable warning');
  });
 }
+
+
+test('CodeRabbit RED: late SHA rejection after logout cannot un-fence an abandoned PIN claim',async()=>{
+ const leaseKey='f123_auth_tab_lease_prior',items=new Map([
+  [leaseKey,JSON.stringify({owner:'original-tab'})],['f123_tienda_activa','SYNTHETIC-ONLY']
+ ]);
+ let rejectDigest;
+ const events={};
+ const ctx={id:'original-tab',scopeKey:leaseKey,claimed:true,pending:false,suspendida:false,
+  window:{OC_AUTH_SESSION_EPOCH:0,OCAuth:{rolActual:()=> 'dueno'},
+    addEventListener:(name,cb)=>{events[name]=cb;}},
+  OCAuth:{rolActual:()=> 'dueno'},
+  crypto:{subtle:{digest:()=>new Promise((_,reject)=>{rejectDigest=reject;})}},
+  TextEncoder,Uint8Array,localStorage:{
+    getItem:key=>items.get(key)||null,
+    setItem:(key,value)=>items.set(key,value),
+    removeItem:key=>items.delete(key)
+  },
+  epoch:()=>{ctx.window.OC_AUTH_SESSION_EPOCH++;},clearPanel:()=>{},avisarSync:()=>{},check:()=>{},
+  console:{warn:()=>{}}
+ };
+ const cStart=src.indexOf(' async function claim(){'),cEnd=src.indexOf(" try{channel=new BroadcastChannel(",cStart);
+ const lStart=src.indexOf(" window.addEventListener('oc-logout',function(){");
+ const lEnd=src.indexOf(" window.addEventListener('oc-lang-change'",lStart);
+ assert.ok(cStart>0&&cEnd>cStart&&lStart>0&&lEnd>lStart);
+ vm.createContext(ctx);vm.runInContext(src.slice(cStart,cEnd)+'\n'+src.slice(lStart,lEnd)+'\nthis.runClaim=claim;',ctx);
+ const joining=ctx.runClaim();
+ assert.equal(ctx.pending,true);
+ assert.equal(typeof events['oc-logout'],'function');
+ events['oc-logout']();
+ assert.equal(ctx.suspendida,true);
+ rejectDigest(new Error('synthetic late digest failure'));
+ await joining;
+ assert.equal(ctx.claimed,false,'a stale catch must not reclaim a logged-out tab');
+ assert.equal(ctx.suspendida,true,'a stale digest failure must not reactivate sync');
+ assert.equal(ctx.pending,false);
+ assert.equal(JSON.parse(items.get(leaseKey)).owner,'original-tab','the lease remains immutable on logout');
+});
+
+test('CodeRabbit RED: release-control no-retry guard includes real session and two-tab filenames',()=>{
+ const yaml=fs.readFileSync(path.join(__dirname,'../.github/workflows/release-control.yml'),'utf8');
+ const line=yaml.split('\n').find(x=>x.includes('grep -Eiq')&&x.includes('tab-session'));
+ assert.ok(line,'find production fail-first guard');
+ const expression=line.match(/grep -Eiq '([^']+)'/);
+ assert.ok(expression,'parse deployed grep -E expression');
+ const protectedFile=new RegExp(expression[1],'i');
+ for (const file of ['test/fable-p0-tab-claim.test.cjs','test/linus-dos-pestanas.test.js',
+    'test/tab-session-handoff.test.js','test/p0-pre-ack-recovery.test.cjs']) {
+   assert.equal(protectedFile.test(file),true,'first-attempt failure may never be retried: '+file);
+ }
+});
