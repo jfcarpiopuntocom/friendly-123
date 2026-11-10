@@ -6329,7 +6329,21 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
-      const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
+      const rolCambio=rolAlPedir!==_rolLocal();
+      const epocaCambio=epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0);
+      const tabActual=!(window.OCTabSession && !window.OCTabSession.isCurrent());
+      const cambio=rolCambio||epocaCambio||!tabActual;
+      // P0: preserve the strict security fence. Persist only causal booleans
+      // (no PIN, customer, license, URL, or sale payload) across iOS reloads.
+      if(cambio){
+        try{
+          const k="f123_p0_sale_session_fence_trace_v1";
+          const a=JSON.parse(localStorage.getItem(k)||"[]");
+          const row={at:Date.now(),roleChanged:rolCambio,epochChanged:epocaCambio,tabCurrent:tabActual,tabPending:!!(window.OCTabSession&&window.OCTabSession.pending),isSale:ventaConcurrente};
+          const next=(Array.isArray(a)?a:[]).slice(-49);next.push(row);
+          localStorage.setItem(k,JSON.stringify(next));
+        }catch(_){}
+      }
       const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
       if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
