@@ -277,3 +277,38 @@ test('Fable P1-3 RED: a persistently missing photo has bounded autonomous retrie
   assert.equal(map.get(hash),undefined,'no placeholder hash->bytes introduced');
  }finally{doc.destroy();}
 });
+
+
+test('Fable P1-2 circuit RED: two stalled IDB reads must not delay all remaining Yjs photos',async()=>{
+ const images=Array.from({length:9},(_,i)=>'data:image/png;base64,'+Buffer.from([70+i,90+i,110+i]).toString('base64'));
+ const hashes=images.map(hashOfPhoto);
+ let reads=0;
+ const {ctx,doc,map,ws,sends}=await photoFixture({
+  photo:images[0],keys:{catalog:hashes},slowTimers:true,
+  read:()=>{reads++;return new Promise(()=>{});}
+ });
+ images.forEach((dataUrl,i)=>map.set(hashes[i],dataUrl)); // immutable Yjs bytes already present
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ try{
+  await until(()=>hashes.every(h=>ctx._fotosSembradas[h]?.[ws.relayLayer]),480);
+  assert.equal(reads,2,'after two consecutive stalls avoid further IDB reads in this pass');
+  assert.equal(sends.length,images.length,'all existing verified Yjs bytes must reach the durable photo relay');
+  images.forEach((dataUrl,i)=>assert.equal(map.get(hashes[i]),dataUrl));
+ }finally{doc.destroy();}
+});
+
+test('Fable P1-2 circuit: a successful local read resets consecutive-stall count',async()=>{
+ const images=Array.from({length:4},(_,i)=>'data:image/png;base64,'+Buffer.from([100+i,120+i]).toString('base64'));
+ const hashes=images.map(hashOfPhoto),byHash=Object.fromEntries(images.map((x,i)=>[hashes[i],x]));
+ let calls=0;
+ const {ctx,doc,map,ws}=await photoFixture({
+  photo:images[0],keys:{catalog:hashes},slowTimers:true,
+  read:async hash=>{calls++;if(calls===1||calls===3)return new Promise(()=>{});return byHash[hash];}
+ });
+ images.forEach((img,i)=>map.set(hashes[i],img));
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ try{
+  await until(()=>hashes.every(h=>ctx._fotosSembradas[h]?.[ws.relayLayer]),480);
+  assert.equal(calls,4,'a recovered read keeps later local evidence available');
+ }finally{doc.destroy();}
+});
