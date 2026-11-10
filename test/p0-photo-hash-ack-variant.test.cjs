@@ -32,7 +32,8 @@ test('P0 RED: rejected content-addressed blob never publishes missing photoHash 
  assert.equal(local.foto,PNG,'keep source inline photo on mobile; never discard evidence');
  assert.ok(!local.fotoHash,'a hash without durable photo bytes must not be assigned');
  const remote=(app.OCSync.estadoParaCheckpoint().productos||[]).find(p=>p.id===product.id);
- assert.ok(!remote?.fotoHash,'the catalog shared to PC must not contain a dangling pointer');
+ assert.ok(remote,'the product must be in the real cold-join checkpoint');
+ assert.ok(!remote.fotoHash,'the checkpoint must not contain dangling photo pointer');
 });
 test('P0: a later successful durable hash-store write retries and only then announces one pointer',async()=>{
  const {app,read,product}=await fixture();
@@ -43,10 +44,11 @@ test('P0: a later successful durable hash-store write retries and only then anno
  assert.ok(!(await read()).fotoHash);
  assert.equal(await app.OCSync.hashearFotosProductos(),1,'second confirmed commit can safely announce');
  const p=await read();
- assert.equal(p.fotoHash,H);
+ // GET /api/productos strips internal fotoHash; inspect checkpoint below instead.
  assert.equal(p.foto,PNG,'photo survives hashing without loss');
  const remote=(app.OCSync.estadoParaCheckpoint().productos||[]).find(x=>x.id===product.id);
- assert.equal(remote?.fotoHash,H);
+ assert.ok(remote,'variant must appear in cold-join checkpoint');
+ assert.equal(remote.fotoHash,H);
  assert.equal(attempts,2);
  assert.equal(await app.OCSync.hashearFotosProductos(),0,'no redundant rehash after confirmed pointer');
  assert.equal(attempts,2);
