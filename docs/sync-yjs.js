@@ -2420,7 +2420,7 @@
   var _fotosSembradas = {}, _fotosSembradasDoc = null;
   // One active pass per Yjs photo room. Reconnect and photo edits during an
   // ongoing pass request ONE more pass afterwards; none are discarded.
-  var _fotosSembrando = false, _fotosSembrarDeNuevo = false, _fotosReintentoTimer = null;
+  var _fotosSembrando = false, _fotosSembrarDeNuevo = false, _fotosReintentoTimer = null, _fotosReintentosLectura = 0;
   // A pending IDB enumeration/read must not hold single-flight photos forever.
   // This deadline never drops bytes/ops: later reconnections may retry.
   function _esperarFoto(p) {
@@ -2445,7 +2445,8 @@
     if (_fotosSembrando || _fotosReintentoTimer) { _fotosSembrarDeNuevo = true; return; }
     // A photo room has its own seeded flags; never reuse an old shop's ACKs.
     var docFotoInicial = API.fotosDoc, mapaFotoInicial = API.fotosMap, canalFotoInicial = API.fotosCanal;
-    if (_fotosSembradasDoc !== docFotoInicial) { _fotosSembradas = {}; _fotosSembradasDoc = docFotoInicial; }
+    if (_fotosSembradasDoc !== docFotoInicial) { _fotosSembradas = {}; _fotosSembradasDoc = docFotoInicial; _fotosReintentosLectura = 0; }
+    var fotoSinLeer = false; // one retry budget per photo-room, never per orphan blob
     _fotosSembrando = true;
     // Honor inline product photos and pre-hash perchas before enumerating photo
     // evidence. Every record is still sent as the same deterministic Yjs op.
@@ -2497,7 +2498,7 @@
           var dataUrl = (_legacyPrecargadas && _legacyPrecargadas[hash]) ||
             (fotos && typeof fotos.leerPorHash === "function" ? await _esperarFoto(fotos.leerPorHash(hash)).catch(function () { return null; }) : null) ||
             (API.fotosMap && API.fotosMap.get(hash)) || null;
-          if (!dataUrl) continue; // no false ACK: the hash remains retryable
+          if (!dataUrl) { if (/^[a-f0-9]{64}$/.test(hash)) fotoSinLeer = true; continue; } // no false ACK
           // Legacy hash keys may be mislabeled. Never replicate a wrong
           // immutable Yjs hash->image pair, and never rewrite local evidence.
           if (!/^[a-f0-9]{64}$/.test(hash) ||
@@ -2537,7 +2538,12 @@
               try { docFotos.off("update", observarUpdate); } catch (__) {}
             }
           } finally { d.destroy(); }
-        } catch (_) {}
+        } catch (_) { fotoSinLeer = true; }
+      }
+      // Retry only missing/transient local reads, never rejected immutable hashes.
+      if (docFotoInicial === API.fotosDoc && mapaFotoInicial === API.fotosMap) {
+        if (fotoSinLeer && _fotosReintentosLectura < 2) { _fotosReintentosLectura++; _fotosSembrarDeNuevo = true; }
+        else if (!fotoSinLeer) _fotosReintentosLectura = 0;
       }
     }).catch(function () {}).finally(function () {
       _fotosSembrando = false;
@@ -2547,7 +2553,7 @@
         if (!_fotosReintentoTimer) _fotosReintentoTimer = setTimeout(function () {
           _fotosReintentoTimer = null;
           sembrarFotosAlRelay();
-        }, 2000);
+        }, _fotosReintentosLectura ? Math.min(8000, 2000 * Math.pow(2, _fotosReintentosLectura - 1)) : 2000);
       }
     });
   }

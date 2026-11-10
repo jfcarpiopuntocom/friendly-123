@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.17",
+  "version": "v0.7.18",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.17 candidata QA: la siembra de fotografías no mezcla salas cuando una lectura antigua termina tras cambiar de negocio, ni hereda falsos indicadores de envío entre salas. Sin cambios a ventas, inventario, PIN, dinero o Sync3.",
+  "changelog": "v0.7.18 candidata QA: si una fotografía falla al leerse, se reintenta automáticamente dos veces con espera progresiva y sin publicar bytes inexistentes o hashes erróneos. Sin modificar ventas, inventario, dinero, PIN o Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v717",
+  "shell": "f123-shell-v718",
   "apagar": [],
-  "releaseName": "v0.7.17",
-  "cacheGeneration": "golden257"
+  "releaseName": "v0.7.18",
+  "cacheGeneration": "golden258"
 }
