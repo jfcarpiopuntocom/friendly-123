@@ -9,7 +9,7 @@ async function fixture() {
   p.id = 'p-fixture-photo'; p.foto = 'data:image/png;base64,old'; p.fotoHash = 'old-hash';
   state.productos = [p];
   await w.request('/api/respaldo/importar', 'POST', state);
-  w.OCFotos = { hashDeDataUrl: async data => `hash:${data}`, guardarPorHash: async () => {}, leerPorHash: async () => null };
+  w.OCFotos = { hashDeDataUrl: async data => `hash:${data}`, guardarPorHash: async () => true, leerPorHash: async () => null };
   w.product = async () => (await w.request('/api/respaldo/exportar')).productos[0];
   return w;
 }
