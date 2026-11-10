@@ -210,3 +210,43 @@ for (const blocked of ['hashearFotosProductos','hashearFotosPerchas']) {
   } finally { doc.destroy(); }
  });
 }
+
+
+test('Fable P1-7 RED: a delayed old-shop photo read must never write into the new Yjs photo room',async()=>{
+ const ctx={crypto:webcrypto,TextEncoder,Uint8Array,ArrayBuffer,console,setTimeout,clearTimeout};
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync(path.join(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
+ const oldDoc=new ctx.Y.Doc(),newDoc=new ctx.Y.Doc(),oldMap=oldDoc.getMap('blobs'),newMap=newDoc.getMap('blobs');
+ const photo='data:image/png;base64,CgsMDQ==',hash=hashOfPhoto(photo),ws={relayLayer:'same-photo-layer'};
+ let unblock,signalRead;const waiting=new Promise(r=>{unblock=r}),entered=new Promise(r=>{signalRead=r});
+ let writesNew=0;
+ ctx.API={fotosDoc:oldDoc,fotosMap:oldMap,fotosCanal:{ws,enviarUpdate:()=>{}}};
+ ctx.window={Y:ctx.Y,OCSync:{catalogoPropio:()=>({productos:[{fotoHash:hash}]})},
+  OCFotos:{hashesGuardados:async()=>[hash],hashDeDataUrl:async d=>hashOfPhoto(d),
+   leerPorHash:async()=>{signalRead();await waiting;return photo;}}};
+ vm.runInContext(snippet,ctx);vm.runInContext('sembrarFotosAlRelay();',ctx);
+ await entered; // old business has started the asynchronous IndexedDB read
+ ctx.API.fotosDoc=newDoc;ctx.API.fotosMap=newMap;
+ ctx.API.fotosCanal={ws,enviarUpdate:()=>{writesNew++;}};
+ unblock();
+ try{
+  await until(()=>ctx._fotosSembrando===false,950);
+  assert.equal(newMap.get(hash),undefined,'old-room photo bytes must never enter the new-room map');
+  assert.equal(writesNew,0,'old-room photo update must never travel over the new-room transport');
+  assert.ok(!ctx._fotosSembradas[hash]?.[ws.relayLayer],'never mark a photo seeded when its destination room changed');
+ }finally{oldDoc.destroy();newDoc.destroy();}
+});
+
+test('Fable P1-7 RED: new room must not inherit old-room already-seeded flags',async()=>{
+ const photo='data:image/png;base64,EBES',hash=hashOfPhoto(photo);
+ const {ctx,doc,ws}=await photoFixture({photo,keys:{catalog:[hash]},slowTimers:true});
+ const secondDoc=new ctx.window.Y.Doc(),secondMap=secondDoc.getMap('blobs');
+ vm.runInContext('sembrarFotosAlRelay();',ctx);
+ try{
+  await until(()=>!!ctx._fotosSembradas[hash]?.[ws.relayLayer],750);
+  ctx.API.fotosDoc=secondDoc;ctx.API.fotosMap=secondMap;
+  ctx.API.fotosCanal={ws,enviarUpdate:()=>{}};
+  vm.runInContext('sembrarFotosAlRelay();',ctx);
+  await until(()=>secondMap.get(hash)===photo,750);
+  assert.equal(secondMap.get(hash),photo,'the new business must independently receive its own referenced image');
+ }finally{doc.destroy();secondDoc.destroy();}
+});
