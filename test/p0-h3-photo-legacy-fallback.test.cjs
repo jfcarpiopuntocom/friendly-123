@@ -4,7 +4,9 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const src=fs.readFileSync(path.join(__dirname,'../docs/idb-fotos.js'),'utf8');
-const from=src.indexOf('  async function leerPorHash(hash) {');
+const from=src.indexOf('  function leerHashLegado(hash) {') >= 0
+  ? src.indexOf('  function leerHashLegado(hash) {')
+  : src.indexOf('  async function leerPorHash(hash) {');
 const to=src.indexOf('  // v449:',from);
 assert.ok(from>=0&&to>from,'must test real read and hash enumeration functions');
 function fixture(opts={}){
