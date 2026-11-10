@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.10",
+  "version": "v0.7.11",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.10 candidata QA: fotos con lecturas IDB acotadas a 8s, verificación del SHA-256 y MIME antes de sembrar, reintento espaciado 2s sin borrar evidencia. Ventas, dinero, PIN y stock intactos.",
+  "changelog": "v0.7.11 candidata QA: foto SHA validada incluso con Yjs sin IndexedDB; tiempo de espera 8s y reintento diferido 2s, sin borrar evidencia ni tocar ventas, stock, PIN o dinero.",
   "requerida": false,
-  "shell": "f123-shell-v710",
+  "shell": "f123-shell-v711",
   "apagar": [],
-  "releaseName": "v0.7.10",
-  "cacheGeneration": "golden250"
+  "releaseName": "v0.7.11",
+  "cacheGeneration": "golden251"
 }

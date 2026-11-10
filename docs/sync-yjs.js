@@ -2412,6 +2412,16 @@
       timer = setTimeout(function () { reject(new Error("photo read timed out")); }, 8000);
     })]).finally(function () { clearTimeout(timer); });
   }
+  // Yjs may retain photos while OCFotos/IndexedDB is unavailable.
+  // Validate raw bytes without requiring the store to be open.
+  async function _hashFotoSinStore(dataUrl) {
+    var bin = atob(dataUrl.slice(dataUrl.indexOf(",") + 1)), bytes = new Uint8Array(bin.length);
+    for (var i=0; i<bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var digest = await crypto.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest)).map(function (b) {
+      return b.toString(16).padStart(2,"0");
+    }).join("");
+  }
   API.sembrarFotos = sembrarFotosAlRelay; // also used by stuck-history reconnect
   function sembrarFotosAlRelay() {
     if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
@@ -2471,8 +2481,8 @@
           // immutable Yjs hash->image pair, and never rewrite local evidence.
           if (!/^[a-f0-9]{64}$/.test(hash) ||
               !/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl) ||
-              !fotos || typeof fotos.hashDeDataUrl !== "function" ||
-              await _esperarFoto(fotos.hashDeDataUrl(dataUrl)) !== hash) continue;
+              await _esperarFoto(fotos && typeof fotos.hashDeDataUrl === "function"
+                ? fotos.hashDeDataUrl(dataUrl) : _hashFotoSinStore(dataUrl)) !== hash) continue;
           var seedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
             "friendly-photo-seed-v1:" + JSON.stringify([hash, dataUrl])));
           var seedHex = Array.from(new Uint8Array(seedDigest)).map(function (b) {

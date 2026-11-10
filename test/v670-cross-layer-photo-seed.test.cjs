@@ -5,7 +5,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
-const { webcrypto } = require('node:crypto');
+const { webcrypto, createHash } = require('node:crypto');
+const hashOfPhoto = d => createHash('sha256').update(Buffer.from(d.split(',')[1],'base64')).digest('hex');
 const file = fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8');
 const block = file.slice(file.indexOf('  var _fotosSembradas ='),
   file.indexOf('  // OCFotos local -> Yjs(fotos).'));
@@ -15,18 +16,19 @@ const waitFor = async predicate => {
   assert.ok(predicate(), 'seed should complete without waiting indefinitely');
 };
 test('v670: an unchanged photo is durably republished once on each newly visited layer', async () => {
-  const ctx = { crypto: webcrypto, TextEncoder, Uint8Array, ArrayBuffer, console };
+  const ctx = { crypto: webcrypto, TextEncoder, Uint8Array, ArrayBuffer, console, atob, setTimeout, clearTimeout };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(__dirname,
     '../docs/vendor/yjs-bundle.min.js'), 'utf8'), ctx);
   const Y = ctx.Y, doc = new Y.Doc();
-  const hash = 'photo-cross-layer', data = 'data:image/png;base64,AQID';
+  const data = 'data:image/png;base64,AQID', hash = hashOfPhoto(data);
   const sends = [];
   const ws = { relayLayer: 'f123_relay_cupo_fb_v1' };
   ctx.API = { fotosDoc: doc, fotosCanal: { ws,
     enviarUpdate: u => sends.push({ layer: ws.relayLayer, kind: 'reseed', bytes: Buffer.from(u) }) } };
   ctx.window = { Y,
-    OCFotos: { leerTodosPorHash: async () => ({ [hash]: data }), leerPorHash: async () => data },
+    OCFotos: { leerTodosPorHash: async () => ({ [hash]: data }), leerPorHash: async () => data,
+      hashDeDataUrl: async d => hashOfPhoto(d) },
     OCSync: { catalogoPropio: () => ({ productos: [{ fotoHash: hash }] }) } };
   doc.on('update', (u, origin) => {
     if (origin === 'seed') sends.push({ layer: ws.relayLayer, kind: 'normal', bytes: Buffer.from(u) });
@@ -50,12 +52,12 @@ test('v670: an unchanged photo is durably republished once on each newly visited
 });
 
 test('v670: Yjs-only photos survive a missing or broken IndexedDB store', async () => {
-  const ctx = { crypto: webcrypto, TextEncoder, Uint8Array, ArrayBuffer, console };
+  const ctx = { crypto: webcrypto, TextEncoder, Uint8Array, ArrayBuffer, console, atob, setTimeout, clearTimeout };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(__dirname,
     '../docs/vendor/yjs-bundle.min.js'), 'utf8'), ctx);
-  const Y = ctx.Y, doc = new Y.Doc(), hash = 'pwa-photo-only-in-yjs';
-  const bytes = 'data:image/png;base64,BAUG', relayWrites = [];
+  const Y = ctx.Y, doc = new Y.Doc(), bytes = 'data:image/png;base64,BAUG';
+  const hash = hashOfPhoto(bytes), relayWrites = [];
   const photos = doc.getMap('blobs');
   photos.set(hash, bytes);
   ctx.API = { fotosDoc: doc, fotosMap: photos,
