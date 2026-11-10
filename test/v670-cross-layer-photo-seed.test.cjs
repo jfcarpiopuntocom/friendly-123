@@ -26,7 +26,7 @@ test('v670: an unchanged photo is durably republished once on each newly visited
   ctx.API = { fotosDoc: doc, fotosCanal: { ws,
     enviarUpdate: u => sends.push({ layer: ws.relayLayer, kind: 'reseed', bytes: Buffer.from(u) }) } };
   ctx.window = { Y,
-    OCFotos: { leerTodosPorHash: async () => ({ [hash]: data }), leerPorHash: async () => data },
+    OCFotos: { hashesGuardados: async () => [hash], leerTodosPorHash: async () => { throw Error('bulk read not allowed'); }, leerPorHash: async () => data },
     OCSync: { catalogoPropio: () => ({ productos: [{ fotoHash: hash }] }) } };
   doc.on('update', (u, origin) => {
     if (origin === 'seed') sends.push({ layer: ws.relayLayer, kind: 'normal', bytes: Buffer.from(u) });
