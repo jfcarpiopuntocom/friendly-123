@@ -49,3 +49,36 @@ test('H3 RED: all referenced, orphan and legacy photo bytes seed sequentially wi
   assert.deepEqual(reads,Object.keys(bytes),'every referenced/orphan/legacy hash read exactly once');
   doc.destroy();
 });
+
+test('H3 concurrent seeding: one hash reader at a time without losing any file',async()=>{
+  const ctx={crypto:webcrypto,TextEncoder,Uint8Array,ArrayBuffer,console};
+  vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.resolve(__dirname,'../docs/vendor/yjs-bundle.min.js'),'utf8'),ctx);
+  const Y=ctx.Y,doc=new Y.Doc();
+  const files={'hash-a':'data:image/png;base64,AQID','hash-b':'data:image/png;base64,BAUG','hash-c':'data:image/png;base64,BwgJ'};
+  let inFlight=0,maxConcurrent=0,readCalls=0;
+  const sent=[];
+  ctx.API={fotosDoc:doc,fotosMap:doc.getMap('blobs'),
+    fotosCanal:{ws:{relayLayer:'f123_relay_cupo_v1'},enviarUpdate:u=>sent.push(Buffer.from(u))}};
+  ctx.window={Y,OCFotos:{
+    hashesGuardados:async()=>Object.keys(files),
+    leerTodosPorHash:async()=>{throw Error('never load photo library in bulk');},
+    leerPorHash:async h=>{
+      inFlight++;maxConcurrent=Math.max(maxConcurrent,inFlight);readCalls++;
+      await new Promise(r=>setTimeout(r,20));
+      inFlight--;return files[h];
+    }
+  },OCSync:{catalogoPropio:()=>({productos:[{fotoHash:'hash-a'}]})}};
+  vm.runInContext(seed,ctx);
+  // On real handshakes both catch-up and the stuck-history repair can seed
+  // in the same event-loop turn; their bodies must not overlap.
+  vm.runInContext('sembrarFotosAlRelay(); sembrarFotosAlRelay();',ctx);
+  const deadline=Date.now()+2500;
+  while(ctx.API.fotosMap.size<3&&Date.now()<deadline)await tick();
+  await new Promise(r=>setTimeout(r,110));
+  assert.equal(ctx.API.fotosMap.size,3,'every referenced/orphan image must survive');
+  assert.equal(maxConcurrent,1,'H3 must not run simultaneous full-byte photo reads across overlapping seeds');
+  assert.equal(readCalls,3,'same layer should not reload already seeded photos');
+  for(const [h,data] of Object.entries(files))assert.equal(ctx.API.fotosMap.get(h),data);
+  doc.destroy();
+});
