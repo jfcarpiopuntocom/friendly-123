@@ -49,6 +49,20 @@ async function snapshot(page, cdp) {
     nodeMetric: m.Nodes || 0
   };
 }
+function topCpuModules(profile) {
+  const nodes = new Map((profile.nodes || []).map(n => [n.id, n]));
+  const totals = new Map();
+  for (let i = 0; i < (profile.samples || []).length; i++) {
+    const n = nodes.get(profile.samples[i]);
+    let key = n && n.callFrame && n.callFrame.url || '(browser/inline)';
+    try { key = new URL(key).pathname.replace(/^\\//, '') || '(inline)'; }
+    catch (_) { if (!key || key === '(browser/inline)') key = '(browser/inline)'; }
+    const ms = ((profile.timeDeltas || [])[i] || 0) / 1000;
+    totals.set(key, (totals.get(key) || 0) + ms);
+  }
+  return [...totals].sort((a, b) => b[1] - a[1]).slice(0, 8)
+    .map(([module, ms]) => ({ module, sampledMs: round(ms) }));
+}
 async function profile(label, root) {
   const env = await readyEnvironment({ root });
   try {
@@ -67,15 +81,19 @@ async function profile(label, root) {
     const cdp = await ctx.newCDPSession(page);
     await cdp.send('Performance.enable');
     await cdp.send('HeapProfiler.enable');
+    await cdp.send('Profiler.enable');
+    await cdp.send('Profiler.start');
     const started = performance.now();
     const response = await page.goto(env.origin + '/index.html', { waitUntil: 'load', timeout: 90000 });
     assert.ok(response && response.ok(), label + ': synthetic index.html did not load');
     await page.waitForTimeout(900);
     const cold = await snapshot(page, cdp);
+    const cpuProfile = (await cdp.send('Profiler.stop')).profile;
+    const cpuTop = topCpuModules(cpuProfile);
     await page.waitForTimeout(3000);
     const idle = await snapshot(page, cdp);
     await ctx.close();
-    return { label, observedWallLoadMs: round(performance.now() - started - 3900), cold, idle };
+    return { label, observedWallLoadMs: round(performance.now() - started - 3900), cold, idle, cpuTop };
   } finally { await env.close(); }
 }
 async function main() {
@@ -88,7 +106,7 @@ async function main() {
     x.label, x.cold.jsHeapUsedMb, x.idle.jsHeapUsedMb, x.cold.scriptMs,
     x.idle.scriptMs, x.cold.longTasks, x.idle.longTasks, x.cold.domNodes, x.cold.scriptNodes
   ]);
-  const note = '*CDP JS heap after forced GC, not browser/phone process RSS. Synthetic cold pre-login only; not equivalent to RAM with real photos or active Sync3.';
+  const note = '*CDP JS heap after forced GC, not browser/phone process RSS. Synthetic cold pre-login only; not equivalent to RAM with real photos or active Sync3. CPU profiling samples execution only, not all parse/compile work.';
   const output = [
     '## P0 RAM/CPU forensic diagnostic — pinned 1 Oct vs candidate',
     '',
@@ -97,6 +115,9 @@ async function main() {
     ...rows.map(row => '| ' + row.join(' | ') + ' |'),
     '',
     note,
+    '',
+    'Sampled CPU by source module (top 8, synthetic):',
+    ...table.map(x => '**' + x.label + '**: ' + x.cpuTop.map(p => p.module + ' (' + p.sampledMs + ' ms)').join(', ')),
     '',
     'All fixture network traffic is restricted to local loopback. This is a diagnostic, not a performance-pass gate.',
     ''
