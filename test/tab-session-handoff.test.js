@@ -53,7 +53,7 @@ async function ownerLogin(page,stage){
  try { await page.waitForFunction(()=>window.OCAuth?.rolActual()==='dueno',{},{timeout:5000}); }
  catch(error){
    // Diagnostics only: retain exactly the original timeout and assertions.
-   const facts=await page.evaluate(()=>({
+   const facts=await page.evaluate(stage=>({
      role:OCAuth?.rolActual(),gate:document.getElementById('oc-gate')?.style.display,
      handoff:!!document.getElementById('oc-tab-handoff'),
      authMessage:document.getElementById('oc-msg')?.textContent?.slice(0,160),
@@ -62,7 +62,7 @@ async function ownerLogin(page,stage){
      sessionExists:!!sessionStorage.getItem('f123_sesion'),
      stage,
      trace:window.__tabTrace?.slice(-60)
-   })).catch(e=>({probeError:String(e)}));
+   }),stage).catch(e=>({probeError:String(e)}));
    console.error('TAB_HANDOFF_AUTH_FORENSIC',JSON.stringify(facts));
    throw error;
  }
