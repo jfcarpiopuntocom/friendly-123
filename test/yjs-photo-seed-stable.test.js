@@ -14,7 +14,7 @@ for(const digestDelay of [0,75])test('photo seed stays byte-identical across rel
  const Y=ctx.Y, doc=new Y.Doc(), outgoing=[];
  const blobs={'synthetic-photo':'data:image/png;base64,AQID','synthetic-orphan':'data:image/png;base64,BAUG'};
  ctx.API={fotosDoc:doc,fotosCanal:{}};
- ctx.window={Y,OCFotos:{leerTodosPorHash:async()=>blobs,leerPorHash:async h=>blobs[h]},
+ ctx.window={Y,OCFotos:{hashesGuardados:async()=>Object.keys(blobs),leerTodosPorHash:async()=>{throw Error('no bulk reads during seeding');},leerPorHash:async h=>blobs[h]},
   OCSync:{catalogoPropio:()=>({productos:[{fotoHash:'synthetic-photo'}]})}};
  doc.on('update',u=>outgoing.push(u));
  const run=async()=>{
