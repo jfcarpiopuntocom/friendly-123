@@ -178,7 +178,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      const original=Storage.prototype.setItem;
      Storage.prototype.setItem=function(key,value){
       const k=String(key);
-      if(k.startsWith('f123_auth_tab_lease_') &&
+      if(k.includes('auth_tab_lease_') &&
          (stage==='intent'?k.endsWith('_claim'):!k.endsWith('_claim'))){
        window.__quotaLeaseThrown++;
        throw new DOMException('Synthetic storage pressure','QuotaExceededError');
