@@ -41,7 +41,9 @@ async function rescue(mode, perIdAlreadyPresent=false, hashOnly=false, hashOutco
     guardarFotoContenido: async () => { throw new Error('hash quota'); },
     leerFotoSoloIdb: async () => perIdAlreadyPresent ? 'data:image/png;base64,NEW=' : null,
     guardarFoto: async () => { copied++; return true; },
-    leerPorHash: async () => null, guardarPorHash: async () => {
+    // H3: the G10/G10b copy check must inspect strict IndexedDB bytes.
+    leerPorHash: async () => null, leerHashSoloIdb: async () => null,
+    guardarPorHash: async () => {
       if (hashOutcome === 'throw') throw new Error('hash quota');
       return hashOutcome === true;
     },
@@ -61,6 +63,11 @@ test('hash quota failure must not block per-ID recovery in either legacy source'
     assert.equal(already.copied,0,'never overwrite an existing photo by ID');
     assert.equal(already.outcome.blobsPendientes,1);
   }
+});
+
+test('rescue G10 and G10b use strict IDB checks, never legacy fallback as ACK', () => {
+  assert.match(src, /const actual = await leerHashSoloIdb\(hash\);/);
+  assert.match(src, /const actual = await leerHashSoloIdb\(objetivo\);/);
 });
 
 test('hash-only rescue counts rejected or thrown copies as pending', async () => {
