@@ -1,0 +1,15 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const s=fs.readFileSync(path.join(__dirname,'../docs/sync-realtime.js'),'utf8');
+const a=s.indexOf('  const COLA_YJS_SIN_SALA = '),b=s.indexOf('  // --- Puente con mock-backend.js:',a);
+assert(a>0&&b>a);const block=s.slice(a,b);assert.match(block,/_salaOrigen/);assert.doesNotMatch(block,/slice\(-1000\)/);
+const store=new Map(),ops=new Map();let online=false;
+const window={OCYjs:{estado:'inactivo',codigoCuaderno:'A',opsMap:ops},addEventListener:()=>{},dispatchEvent:e=>{if(online)ops.set(e.detail.opId,e.detail)}};
+const ctx={window,localStorage:{getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v)},codigoCuadernoActivo:()=> 'A',normalizarCodigo:x=>String(x||''),setInterval:()=>{},CustomEvent:class{constructor(type,opts){this.type=type;this.detail=opts.detail}}};
+vm.createContext(ctx);vm.runInContext(block+'\nthis.drain=drenarPendientesYjs;this.read=leerPendientesYjs;this.save=guardarPendientesYjs;',ctx);
+const op={opId:'op1',_salaOrigen:'A',tipo:'ajuste',payload:{delta:-1}};
+assert.equal(ctx.save('A',[op]),true);ctx.drain();assert.equal(ctx.read('A').length,1);
+online=true;window.OCYjs.estado='activo';ctx.drain();assert.equal(ops.size,1);assert.equal(ctx.read('A').length,0);
+ctx.drain();assert.equal(ops.size,1);
+ctx.save('B',[{...op,opId:'opB',_salaOrigen:'B'}]);ctx.drain();assert.equal(ctx.read('B').length,1);
+console.log('P0 Fable roomless journal: PASS');
