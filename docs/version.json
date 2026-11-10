@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.24",
+  "version": "v0.7.25",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.24 hotfix candidato: publicar movimientos en Yjs cuando sala legacy no existe y licencia coincide; rollback PN al fallar persistencia. Sin tocar fotos, caja ni PIN.",
+  "changelog": "v0.7.25 P0: conservar movimientos por licencia durante arranque frio/offline hasta ACK durable; sin cambiar PIN, fotos ni datos de clientes.",
   "requerida": false,
-  "shell": "f123-shell-v724",
+  "shell": "f123-shell-v725",
   "apagar": [],
-  "releaseName": "v0.7.24",
-  "cacheGeneration": "golden264"
+  "releaseName": "v0.7.25",
+  "cacheGeneration": "golden265"
 }
