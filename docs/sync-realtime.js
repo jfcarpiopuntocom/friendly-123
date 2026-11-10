@@ -1468,6 +1468,50 @@
     } catch (_) {}
   }
 
+  // P0 Fable: roomless movements must survive an inactive Yjs and a page reload.
+  // Keep a distinct, per-license journal: the legacy queue truncates at 1000
+  // and is drained only when a legacy socket exists, so it cannot be reused.
+  const COLA_YJS_SIN_SALA = "f123_yjs_ops_pendientes_v1_";
+  function leerPendientesYjs(licencia) {
+    try {
+      const arr = JSON.parse(localStorage.getItem(COLA_YJS_SIN_SALA + licencia) || "[]");
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return null; } // corrupt/unreadable is NOT an empty journal
+  }
+  function guardarPendientesYjs(licencia, ops) {
+    try { localStorage.setItem(COLA_YJS_SIN_SALA + licencia, JSON.stringify(ops)); return true; }
+    catch (_) { return false; } // never silently trim or claim an ACK
+  }
+  function drenarPendientesYjs() {
+    const licencia = codigoCuadernoActivo();
+    const yjs = window.OCYjs;
+    if (!licencia || !yjs || yjs.estado !== "activo" ||
+        !yjs.opsMap || yjs.codigoCuaderno !== licencia) return;
+    const ops = leerPendientesYjs(licencia);
+    if (!ops || !ops.length) return;
+    // Preserve the journal if a new write fails or the notebook switches.
+    const restantes = [];
+    for (const op of ops) {
+      if (!op || normalizarCodigo(op._salaOrigen) !== licencia) {
+        restantes.push(op); continue;
+      }
+      try {
+        if (!yjs.opsMap.get(op.opId))
+          window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op }));
+        if (!yjs.opsMap.get(op.opId)) restantes.push(op);
+      } catch (_) { restantes.push(op); }
+    }
+    // This is an in-memory Yjs acceptance, NOT a remote/IDB durable ACK.
+    // A crash before Yjs IDB persistence remains a follow-up P0.
+    if (codigoCuadernoActivo() === licencia && restantes.length !== ops.length)
+      guardarPendientesYjs(licencia, restantes);
+  }
+  try {
+    window.addEventListener("oc-yjs-activo", drenarPendientesYjs);
+    window.addEventListener("visibilitychange", drenarPendientesYjs);
+    setInterval(drenarPendientesYjs, 2000);
+  } catch (_) {}
+
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
     const sala = leerSala();
@@ -1476,18 +1520,19 @@
     // the already-active Yjs ops channel. Never emit across an identity switch.
     if (!sala) {
       const licencia = codigoCuadernoActivo();
-      const yjs = window.OCYjs;
-      if (!licencia || !yjs || yjs.estado !== "activo" ||
-          !yjs.opsMap || yjs.codigoCuaderno !== licencia) return true;
+      if (!licencia) return false; // no safe business provenance yet
       const op = {
         opId: uuidCorto(), deviceId: deviceId(),
         deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
         lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
         _salaOrigen: licencia
       };
-      try { window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op })); }
-      catch (_) { return false; }
-      return true;
+      const pendientes = leerPendientesYjs(licencia);
+      if (!pendientes) return false;
+      pendientes.push(op);
+      if (!guardarPendientesYjs(licencia, pendientes)) return false;
+      drenarPendientesYjs();
+      return true; // locally journaled; NOT remote ACK
     }
     if (!sala.codigo || normalizarCodigo(sala.codigo) !== codigoCuadernoActivo()) {
       // A real local movement was already saved upstream. Refuse to emit it
