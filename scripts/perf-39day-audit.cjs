@@ -82,7 +82,8 @@ async function syntheticInventoryProfile(page, cdp) {
     });
     if (typeof window.cargarInventario !== 'function') throw Error('Inventory loader not defined');
     await window.cargarInventario();
-    return { created: 18, cards: document.querySelectorAll('#gridInventario [data-inv-id]').length };
+    const grid = document.getElementById('gridInventario');
+    return { created: 18, gridChildren: grid ? grid.children.length : -1, indexedCards: document.querySelectorAll('#gridInventario [data-inv-id]').length };
   });
   await page.waitForTimeout(300);
   const before = await snapshot(page, cdp);
@@ -148,7 +149,7 @@ async function main() {
     note,
     '',
     'Synthetic Inventory workload: 18 local products and 12 UI reloads, no Sync3:',
-    ...table.map(x => '**' + x.label + '**: ' + JSON.stringify({cards:x.inventory.fixture.cards,beforeHeapMb:x.inventory.before.jsHeapUsedMb,afterHeapMb:x.inventory.after.jsHeapUsedMb,deltaHeapMb:x.inventory.deltaHeapMb,deltaScriptMs:x.inventory.deltaScriptMs,extraLongTasks:x.inventory.deltaTasks})),
+    ...table.map(x => '**' + x.label + '**: ' + JSON.stringify({gridChildren:x.inventory.fixture.gridChildren,indexedCards:x.inventory.fixture.indexedCards,beforeHeapMb:x.inventory.before.jsHeapUsedMb,afterHeapMb:x.inventory.after.jsHeapUsedMb,deltaHeapMb:x.inventory.deltaHeapMb,deltaScriptMs:x.inventory.deltaScriptMs,extraLongTasks:x.inventory.deltaTasks})),
     '',
     'Sampled CPU by source module (top 8, synthetic):',
     ...table.map(x => '**' + x.label + '**: ' + x.cpuTop.map(p => p.module + ' (' + p.sampledMs + ' ms)').join(', ')),
