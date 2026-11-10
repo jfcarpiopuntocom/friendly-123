@@ -144,8 +144,14 @@ test('una venta sin conexion se encola y nunca se pierde', () => {
   const legacy = emitter.slice(emitter.indexOf('if (!sala.codigo'), emitter.length);
   assert.ok(queued >= 0 && legacy.indexOf('const encolada = encolar(op)') < legacy.indexOf('oc-op-local'),
     'legacy durable queue precedes Yjs event');
-  assert.match(emitter, /!yjs\.opsMap \|\| yjs\.codigoCuaderno !== licencia/,
-    'roomless Plan C only publishes into an active same-licence ops document');
+  // Roomless Plan C now journals locally BEFORE attempting Yjs publication;
+  // it must not depend on Yjs being active at the time of the sale.
+  assert.match(emitter, /const pendientes = leerPendientesYjs\(licencia\)/,
+    'roomless Plan C loads its per-license durable journal');
+  assert.match(emitter, /if \(!guardarPendientesYjs\(licencia, pendientes\)\) return false;/,
+    'roomless Plan C refuses ACK if its journal cannot persist');
+  assert.match(SYNC, /yjs\.codigoCuaderno !== licencia/,
+    'roomless replay cannot publish to a different business');
   assert.match(emitter, /if \(!encolada\) return false;/);
   // Y si cifrar() falla con el socket abierto, tambien cae a la cola (no se pierde).
   assert.match(SYNC, /\.catch\(\(\)\s*=>\s*encolar\(op\)\)/);

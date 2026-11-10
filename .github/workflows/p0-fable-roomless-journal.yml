@@ -1,0 +1,23 @@
+name: P0 Fable roomless journal
+on:
+  pull_request:
+    paths:
+      - 'docs/sync-realtime.js'
+      - 'test/p0-fable-roomless-journal.test.cjs'
+      - '.github/workflows/p0-fable-roomless-journal.yml'
+  workflow_dispatch:
+jobs:
+  journal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: node --check docs/sync-realtime.js
+      - name: Offline, replay, licence isolation, no RAM-only ACK
+        run: node --test test/p0-fable-roomless-journal.test.cjs
