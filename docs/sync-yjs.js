@@ -2401,9 +2401,14 @@
      como op + va en vivo. Guard de sesión para no re-mandar la misma foto en cada
      reconexión. */
   var _fotosSembradas = {};
+  // One active pass per Yjs photo room. Reconnect and photo edits during an
+  // ongoing pass request ONE more pass afterwards; none are discarded.
+  var _fotosSembrando = false, _fotosSembrarDeNuevo = false;
   API.sembrarFotos = sembrarFotosAlRelay; // also used by stuck-history reconnect
   function sembrarFotosAlRelay() {
     if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
+    if (_fotosSembrando) { _fotosSembrarDeNuevo = true; return; }
+    _fotosSembrando = true;
     // Honor inline product photos and pre-hash perchas before enumerating photo
     // evidence. Every record is still sent as the same deterministic Yjs op.
     Promise.resolve().then(function () {
@@ -2459,6 +2464,11 @@
           var seedHex = Array.from(new Uint8Array(seedDigest)).map(function (b) {
             return b.toString(16).padStart(2, "0");
           }).join("");
+          // The relay may switch while the IDB read/digest is awaited. Never
+          // mark the previous layer as seeded if its photo went to the new
+          // socket; queue another pass against the current layer instead.
+          var capaAhora = API.fotosCanal.ws && API.fotosCanal.ws.relayLayer || "local";
+          if (capaAhora !== capaFoto) { _fotosSembrarDeNuevo = true; break; }
           var d = new window.Y.Doc();
           try {
             d.clientID = parseInt(seedHex.slice(0, 13), 16) + 4294967296;
@@ -2482,7 +2492,13 @@
           } finally { d.destroy(); }
         } catch (_) {}
       }
-    }).catch(function () {});
+    }).catch(function () {}).finally(function () {
+      _fotosSembrando = false;
+      if (_fotosSembrarDeNuevo) {
+        _fotosSembrarDeNuevo = false;
+        sembrarFotosAlRelay();
+      }
+    });
   }
 
   /* SEMBRAR VENTAS (dinero) AL RELAY (v292, JFC 2026-09-16, aprobado). Cada venta
