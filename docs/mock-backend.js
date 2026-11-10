@@ -5573,7 +5573,10 @@
           // A rejected/throwing IDB write is not a durable photo ACK.
           // Preserve the by-ID source bytes and retry on a later seed.
           if ((await window.OCFotos.guardarPorHash(h, bytes)) !== true) continue;
-          if (ubicaciones.includes(u) && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
+          // Photo may be replaced or removed while the hash write is awaited.
+          // Keep old bytes for recovery; never publish a stale active pointer.
+          if (await window.OCFotos.leerFoto(String(u.id)) !== bytes) continue;
+          if (ubicaciones.includes(u) && !u.borrado && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
         } catch (_) {}
       }
       if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
