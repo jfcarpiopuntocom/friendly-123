@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.23",
+  "version": "v0.7.24",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.23 candidata QA: inventario de fotos recupera hashes legacy tras abortos de transacción IndexedDB, sin esperar el timeout del relé. Plan de aceptación y fixture usan referencias sintéticas; ventas, dinero, PIN, inventario y Sync3 sin cambios.",
+  "changelog": "v0.7.24 hotfix candidato: publicar movimientos en Yjs cuando sala legacy no existe y licencia coincide; rollback PN al fallar persistencia. Sin tocar fotos, caja ni PIN.",
   "requerida": false,
-  "shell": "f123-shell-v723",
+  "shell": "f123-shell-v724",
   "apagar": [],
-  "releaseName": "v0.7.23",
-  "cacheGeneration": "golden263"
+  "releaseName": "v0.7.24",
+  "cacheGeneration": "golden264"
 }
