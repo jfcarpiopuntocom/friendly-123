@@ -91,7 +91,7 @@ test('CodeRabbit RED: shelf confirmation reader rejects IDB errors, preserving o
  const end=src.indexOf('  // Lee TODAS las fotos',begin);
  assert.ok(begin>0&&end>begin,'production must expose strict shelf pointer confirmation distinct from UI fallback');
  const code=src.slice(begin,end)+'\nthis.read=leerFotoConfirmada;';
- function ctx(supported,db){const x={SOPORTADO:supported,abrirDB:async()=>db,
+ function ctx(supported,db){const x={SOPORTADO:supported,STORE:'perchas',abrirDB:async()=>db,
     leerLegacyFoto:()=> 'data:image/png;base64,TEVHQUNZ',Promise};
   vm.createContext(x);vm.runInContext(code,x);return x;}
  const down=ctx(true,null);down.abrirDB=async()=>{throw Error('IDB unavailable')};
