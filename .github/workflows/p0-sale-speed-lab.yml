@@ -17,20 +17,26 @@ jobs:
   synthetic-sale-timing:
     name: Sales A/B and serialization latency (synthetic only)
     runs-on: ubuntu-24.04
-    timeout-minutes: 4
+    # Same pinned image as release-control / two-tab sales: OS dependencies and
+    # Chromium/WebKit preinstalled, avoiding apt mirror stalls before app tests.
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
       - name: Verify timing tool syntax
         run: node --check scripts/lab-venta-latencia.js
       - name: Benchmark 1, 300, and 1000 products (no client data)
         run: node scripts/lab-venta-latencia.js
       - name: Install pinned browser test harness
         run: npm ci --ignore-scripts
-      - name: Install Chromium and WebKit
-        run: npx playwright install --with-deps chromium webkit
       - name: Chromium and Safari-WebKit two-tab atomic sales (synthetic)
         run: node --test test/p0-sales-atomic-idb-webkit-browser.test.cjs
       - name: Validate changed JavaScript syntax
