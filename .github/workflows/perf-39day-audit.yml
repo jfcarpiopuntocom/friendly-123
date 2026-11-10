@@ -1,0 +1,44 @@
+name: RAM and CPU 39-day forensic (synthetic)
+on:
+  pull_request:
+    paths:
+      - scripts/perf-39day-audit.cjs
+      - .github/workflows/perf-39day-audit.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  compare-cold-boot:
+    name: Synthetic Chromium baseline vs candidate
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Materialize immutable Oct 1 source in isolated temp folder
+        run: |
+          set -euo pipefail
+          BASE=ab64d71d1fd467653138759cefb7f5e84a950060
+          git cat-file -e "$BASE^{commit}"
+          mkdir -p "$RUNNER_TEMP/f123-20261001"
+          git archive "$BASE" docs | tar -x -C "$RUNNER_TEMP/f123-20261001"
+          test -f "$RUNNER_TEMP/f123-20261001/docs/index.html"
+          echo "Pinned historical SHA: $BASE" >> "$GITHUB_STEP_SUMMARY"
+      - name: Read-only Chromium memory and CPU profile
+        env:
+          F123_BASELINE_DOCS: ${{ runner.temp }}/f123-20261001/docs
+        run: |
+          set -euo pipefail
+          node scripts/perf-39day-audit.cjs
