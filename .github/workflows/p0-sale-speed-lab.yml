@@ -20,13 +20,15 @@ jobs:
     # Same pinned image as release-control / two-tab sales: OS dependencies and
     # Chromium/WebKit preinstalled, avoiding apt mirror stalls before app tests.
     container:
-      image: mcr.microsoft.com/playwright:v1.62.1-noble
+      image: mcr.microsoft.com/playwright@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e
     defaults:
       run:
         shell: bash -e {0}
     timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       # Same as the verified release-control container workflow: checkout
       # ownership must be trusted before invoking git within Playwright image.
       - name: Trust container checkout and verify git worktree
@@ -40,6 +42,7 @@ jobs:
       - name: Verify timing tool syntax
         run: node --check scripts/lab-venta-latencia.js
       - name: Benchmark 1, 300, and 1000 products (no client data)
+        timeout-minutes: 4
         run: node scripts/lab-venta-latencia.js
       - name: Install pinned browser test harness
         run: npm ci --ignore-scripts
