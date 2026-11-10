@@ -1,10 +1,10 @@
 {
-  "version": "shell v705",
+  "version": "shell v706",
   "fecha": "2026-11-09",
-  "changelog": "v705: venta local P0: Safari/PWA recupera una conexión IndexedDB cerrada al iniciar el guardado estricto; reabre una vez y revalida CAS de la revisión en disco antes de confirmar recibo y stock. No altera Sync3 ni admite fallback inseguro a A/B.",
+  "changelog": "v706: Commissions P0: los meses historicos con ventas de casa/COUNTER sin reparto vuelven a figurar en el selector y Summary by Product; sin recalcular dinero ni modificar Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v705",
+  "shell": "f123-shell-v706",
   "apagar": [],
-  "releaseName": "shell v705",
-  "cacheGeneration": "golden244"
+  "releaseName": "shell v706",
+  "cacheGeneration": "golden245"
 }
