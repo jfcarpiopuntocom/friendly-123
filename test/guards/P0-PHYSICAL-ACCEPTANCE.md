@@ -4,10 +4,10 @@ This checklist complements, but **cannot be replaced by**, GitHub Actions.
 Do not check boxes based on a simulated browser test. No sample transactions or
 personal/customer data should be put into a public PR or telemetry.
 
-**Candidate commit SHA:** `_______________________________`  
-**Shell and cache generation:** `_______________________________`  
-**Reviewer, local date/time (Ecuador):** `_______________________________`  
-**Exact device/browser:** `_______________________________`  
+**Candidate commit SHA:** `_______________________________`
+**Shell and cache generation:** `_______________________________`
+**Reviewer, local date/time (Ecuador):** `_______________________________`
+**Exact device/browser:** `_______________________________`
 
 ## Mandatory physical checks (all on the exact published candidate SHA)
 
