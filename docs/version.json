@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.21",
+  "version": "v0.7.22",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.21 candidata QA: dos lecturas IndexedDB consecutivas bloqueadas activan recuperación por las fotos ya verificadas en Yjs, sin descartar fotografías ni cambiar ventas, PIN o Sync3.",
+  "changelog": "v0.7.22 candidata QA: guardia de sesión ante fallo asíncrono tras logout; verificación estricta de foto vigente si falla IDB; proteger CI de reintentos de PIN y dos pestañas. No cambia ventas, inventario, dinero ni Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v721",
+  "shell": "f123-shell-v722",
   "apagar": [],
-  "releaseName": "v0.7.21",
-  "cacheGeneration": "golden261"
+  "releaseName": "v0.7.22",
+  "cacheGeneration": "golden262"
 }

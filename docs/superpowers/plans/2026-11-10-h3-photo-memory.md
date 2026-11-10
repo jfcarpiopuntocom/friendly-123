@@ -32,7 +32,7 @@ API.sembrarFotos(): arma hashes de catálogo, orphan, Yjs-only, envía mismos up
 - [ ] Perfilar escenarios con llamadas concurrentes, cambio de relay durante el barrido y fotos numerosas.
 
 ## Tarea 3: release y aceptación
-- [ ] Sellar shell v708 / golden247 con SHA256 de idb-fotos.js, sync-yjs.js y manifiesto exacto.
+- [ ] Verificar shell v722 / golden262 con SHA256 de idb-fotos.js, mock-backend.js, tab-session.js, sync-yjs.js y manifiesto exacto en el SHA final.
 - [ ] Pasar p0-hotfix-gate, shell manifest, v670, fotos G07, ventas, dinero, PIN, stock, Sync3 y regresión completa del SHA final.
 - [ ] Revisar externamente si hay revisor; no presentar autoverificación como independiente.
 - [ ] Conciliar la PR #661 v707 antes de integrar H3. Las dos parten de master v706; no publicar H3 sin incorporar antes el fix de fotoHash.

@@ -303,6 +303,24 @@
     }
   }
 
+  // Pointer publication needs a CERTAIN current photo, unlike the UI reader.
+  // Successful IDB miss may use legacy bytes; IDB errors MUST reject instead.
+  async function leerFotoConfirmada(id) {
+    if (!SOPORTADO) return leerLegacyFoto(id);
+    const db = await abrirDB();
+    const current = await new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE, "readonly");
+      const req = tx.objectStore(STORE).get(id);
+      let bytes = null;
+      req.onsuccess = () => { bytes = req.result || null; };
+      req.onerror = () => reject(req.error || new Error("Foto IDB: lectura fallida"));
+      tx.onerror = () => reject(tx.error || new Error("Foto IDB: transaccion fallida"));
+      tx.onabort = () => reject(tx.error || new Error("Foto IDB: transaccion abortada"));
+      tx.oncomplete = () => resolve(bytes);
+    });
+    return current || leerLegacyFoto(id);
+  }
+
   // Lee TODAS las fotos guardadas de una vez — usado por vista-perchas.js para
   // precargar el cache en memoria antes de pintar el grid (evita N lecturas
   // async individuales, una por tarjeta).
@@ -557,7 +575,7 @@
   }
 
   window.OCFotos = {
-    guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta,
+    guardarFoto, leerFoto, leerFotoConfirmada, leerTodas, borrarFoto, migrarSiHaceFalta,
     rescatarDbPreAislamiento, rescatarLocalStoragePreAislamiento,
     blindarEvidencia, inventariarEvidencia, diagnosticoRecuperacion,
     soportado: () => SOPORTADO,

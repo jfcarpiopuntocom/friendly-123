@@ -76,6 +76,8 @@
    // a PIN login behind iOS Web Locks that can remain zombie after backgrounding.
    take();
   }catch(error){
+   // An outdated claim must never undo logout (or a newer login).
+   if(claimEpoch!==window.OC_AUTH_SESSION_EPOCH)return;
    // If writing the actual lease failed after writing our intent, do not
    // block the prior owner for two minutes. Never delete another tab's intent.
    try {

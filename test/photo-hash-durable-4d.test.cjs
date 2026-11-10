@@ -98,9 +98,11 @@ test('CodeRabbit RED: shelf confirmation reader rejects IDB errors, preserving o
  await assert.rejects(down.read('shelf-a'),/IDB unavailable/,'IDB errors are inconclusive');
  const absent=ctx(false,null);
  assert.equal(await absent.read('shelf-a'),'data:image/png;base64,TEVHQUNZ','unsupported IndexedDB may use legacy');
- function db(result){return {transaction:()=>({objectStore:()=>({get:()=>{
-  const request={result};Promise.resolve().then(()=>request.onsuccess());return request;
- }})})};}
+ function db(result){return {transaction:()=>{
+  const tx={objectStore:()=>({get:()=>{
+   const request={result};Promise.resolve().then(()=>{request.onsuccess();Promise.resolve().then(()=>tx.oncomplete());});return request;
+  }})};return tx;
+ }};}
  assert.equal(await ctx(true,db(null)).read('shelf-a'),'data:image/png;base64,TEVHQUNZ','successful IDB miss is a legitimate legacy-only fallback');
  assert.equal(await ctx(true,db('data:image/png;base64,TkVX')).read('shelf-a'),'data:image/png;base64,TkVX','existing IDB photo wins over older legacy bytes');
 });

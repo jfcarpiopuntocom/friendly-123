@@ -5563,10 +5563,13 @@
     async hashearFotosPerchas() {
       if (!window.OCFotos || !window.OCFotos.hashDeDataUrl || !window.OCFotos.leerFoto) return 0;
       let n = 0;
+      // Do not treat a fallback from a failed IDB read as proof of the current photo.
+      const leerFotoVigente = typeof window.OCFotos.leerFotoConfirmada === 'function'
+        ? window.OCFotos.leerFotoConfirmada : window.OCFotos.leerFoto;
       for (const u of ubicaciones) {
         try {
           if (!u || u.id == null || u.fotoHash || u.fotoRev || u.borrado) continue;
-          const bytes = await window.OCFotos.leerFoto(String(u.id));
+          const bytes = await leerFotoVigente(String(u.id));
           if (!bytes || String(bytes).indexOf("data:") !== 0) continue;
           const h = await window.OCFotos.hashDeDataUrl(bytes);
           if (!h) continue;
@@ -5575,7 +5578,7 @@
           if ((await window.OCFotos.guardarPorHash(h, bytes)) !== true) continue;
           // Photo may be replaced or removed while the hash write is awaited.
           // Keep old bytes for recovery; never publish a stale active pointer.
-          if (await window.OCFotos.leerFoto(String(u.id)) !== bytes) continue;
+          if (await leerFotoVigente(String(u.id)) !== bytes) continue;
           if (ubicaciones.includes(u) && !u.borrado && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
         } catch (_) {}
       }
