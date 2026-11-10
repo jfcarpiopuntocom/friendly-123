@@ -109,8 +109,10 @@ test("E2: controllerchange and shell-actualizado arm safe deferred reload, never
 });
 
 test("E2: no user-facing stale-shell warning instructs cache purging",()=>{
- const line=auth.match(/el\.textContent = "shell-" \+ activaCorta[^\n]+/);
+ const line=auth.match(/el\.textContent = activaPublica \+[^\n]+/);
  assert.ok(line,"actual stale-shell text found");
+ assert.match(line[0],/actualización automática pendiente/);
+ assert.match(line[0],/ver \|\| versionVisible\(shellServidor\)/,'the label must reflect the server shell without changing SW selection');
  assert.doesNotMatch(line[0],/Purge|borrar cach[eé]|eliminar datos/i);
 });
 
