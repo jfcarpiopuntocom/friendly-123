@@ -9,6 +9,19 @@ async function context(browser){
  await ctx.addInitScript(()=>{const Original=BroadcastChannel;window.BroadcastChannel=class extends Original{set onmessage(handler){super.onmessage=this.name==='friendly-123-auth-session'&&typeof handler==='function'?event=>{if(!window.__suppressLeaseEvents)handler(event);}:handler;}};window.addEventListener('storage',event=>{if(window.__suppressLeaseEvents&&event.key?.includes('auth_tab_lease'))event.stopImmediatePropagation();},true);});
  await ctx.addInitScript(()=>{
   window.__tabTrace=[];
+  window.__leaseMutations=[];
+  for(const verb of ['setItem','removeItem']){
+    const orig=Storage.prototype[verb];
+    Storage.prototype[verb]=function(key,...args){
+      if(String(key).includes('auth_tab_lease')){
+        const stack=String(new Error().stack||'').split('\n').slice(1,5).join(' | ');
+        window.__leaseMutations.push({t:Math.round(performance.now()*10)/10,
+          action:verb,key:String(key),stack});
+        if(window.__leaseMutations.length>30)window.__leaseMutations.shift();
+      }
+      return orig.call(this,key,...args);
+    };
+  }
   function trace(event){
     try {
       const keys=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i))
@@ -34,7 +47,7 @@ async function seed(ctx){
  const ids=await page.evaluate(async()=>{const original=OCAuth;window.OCAuth=Object.assign({},original,{rolActual:()=> 'dueno'});try{await OCSecure.guardarSecreto('789',['260'],'357','');const req=async(u,b)=>{const r=await fetch(u,{method:'POST',body:JSON.stringify(b)});if(!r.ok)throw Error(await r.text());return r.json();};const rack=await req('/api/ubicaciones',{nombre:'Synthetic immediate rack',tipo:'propio'});const p=await req('/api/productos',{nombre:'Synthetic immediate product',barcode:'TAB-TIMING',precio:17,stockInicial:4,ubicacionId:rack.id});await req('/api/productos/'+p.id+'/venta',{cantidad:2,info:{formaPago:'cash'}});return {product:p.id,rack:rack.id};}finally{window.OCAuth=original;}});
  return {page,ids};
 }
-async function ownerLogin(page,stage){
+async function ownerLogin(page,stage,otherPage=null){
  await page.evaluate(()=>{
    if(!window.__pinTraceWrapped && window.OCSecure?.identificarPin){
      const original=window.OCSecure.identificarPin;
@@ -61,9 +74,17 @@ async function ownerLogin(page,stage){
      slots:[...document.querySelectorAll('#oc-slots .slot')].map(s=>!!s.textContent),
      sessionExists:!!sessionStorage.getItem('f123_sesion'),
      stage,
-     trace:window.__tabTrace?.slice(-60)
+     trace:window.__tabTrace?.slice(-60),
+     leaseMutations:window.__leaseMutations?.slice(-30)
    }),stage).catch(e=>({probeError:String(e)}));
    console.error('TAB_HANDOFF_AUTH_FORENSIC',JSON.stringify(facts));
+   if(otherPage){
+     const peer=await otherPage.evaluate(()=>({
+       trace:window.__tabTrace?.slice(-30),
+       leaseMutations:window.__leaseMutations?.slice(-30)
+     })).catch(e=>({error:String(e)}));
+     console.error('OTHER_TAB_LEASE_FORENSIC',JSON.stringify(peer));
+   }
    throw error;
  }
 }
@@ -85,7 +106,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    // session claim instead of mistaking any pending write for that claim.
    await second.evaluate(()=>{const request=navigator.locks.request.bind(navigator.locks);window.__lockCalls=[];window.__observedLockRequest=function(name,...args){const result=request(name,...args);window.__lockCalls.push({lock:name,callback:args.at(-1).name});if(name==='f123-escrituras'&&args.at(-1).name==='take')window.__handoffClaimQueued=true;return result;};navigator.locks.request=window.__observedLockRequest;});
    assert.equal(await second.evaluate(()=>navigator.locks.request===window.__observedLockRequest),true,'the test must actually observe the browser lock requests');
-   await ownerLogin(second,'second tab takes over');
+   await ownerLogin(second,'second tab takes over',first);
    // S1: a new PIN session MUST take the lease without queuing behind a
    // possibly zombie Web Lock. The old in-flight write still owns the lock.
    await second.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent(),null,{timeout:15000}); // handoff under a loaded CI box; behavior asserts below keep their 2 s limits
@@ -121,7 +142,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await first.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__copied=text;}}});});
    await first.locator('#oc-tab-copy').click();assert.match(await first.locator('#oc-tab-share-status').innerText(),/copied|copiado/i);
    assert.equal(await first.evaluate(()=>__copied),'https://jfcarpiopuntocom.github.io/friendly-123/');
-   await first.locator('#oc-tab-resume').click();await ownerLogin(first,'first re-entry after handoff');await second.waitForFunction(()=>OCAuth.rolActual()===null,{},{timeout:2000});
+   await first.locator('#oc-tab-resume').click();await ownerLogin(first,'first re-entry after handoff',second);await second.waitForFunction(()=>OCAuth.rolActual()===null,{},{timeout:2000});
   }finally{await web.close();}
  });
  test(`same-browser durable edit reaches inventory DOM directly (${name})`,async()=>{
