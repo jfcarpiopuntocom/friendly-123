@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.08",
-  "fecha": "2026-11-09",
-  "changelog": "v0.7.08 candidata H3: fotos Sync3 por hash individual, recuperación íntegra de hashes heredados y protección contra reconexiones simultáneas; sin cambiar ventas, dinero ni PIN.",
+  "version": "v0.7.09",
+  "fecha": "2026-11-10",
+  "changelog": "v0.7.09 candidata: fotos H3 y guardas de bytes durables también en perchas; reintento sin punteros huérfanos. Sin modificar ventas, dinero, PIN ni Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v708",
+  "shell": "f123-shell-v709",
   "apagar": [],
-  "releaseName": "v0.7.08",
-  "cacheGeneration": "golden248"
+  "releaseName": "v0.7.09",
+  "cacheGeneration": "golden249"
 }

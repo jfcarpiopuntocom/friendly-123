@@ -78,7 +78,7 @@ test('P0 RED: rejected shelf bytes NEVER publish fotoHash or fotoRev in cold-joi
 test('P0: shelf photo retries after rejected bytes and only publishes after true ACK',async()=>{
  const {app,rack}=await fixture();
  let attempts=0;
- app.OCFotos={leerFoto:async()=>PNG,hashDeDataUrl:async()=>H,guardarPorHash:async()=>++attempts===2};
+ app.OCFotos={leerFoto:async id=>id===String(rack.id)?PNG:null,hashDeDataUrl:async()=>H,guardarPorHash:async()=>++attempts===2};
  const check=()=> (app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(u=>u.id===rack.id);
  assert.equal(await app.OCSync.hashearFotosPerchas(),0);
  assert.ok(!check().fotoHash);
@@ -91,7 +91,7 @@ test('P0: shelf photo retries after rejected bytes and only publishes after true
 });
 test('P0: thrown quota error keeps shelf photo unannounced and retryable',async()=>{
  const {app,rack}=await fixture();
- app.OCFotos={leerFoto:async()=>PNG,hashDeDataUrl:async()=>H,
+ app.OCFotos={leerFoto:async id=>id===String(rack.id)?PNG:null,hashDeDataUrl:async()=>H,
    guardarPorHash:async()=>{throw Error('synthetic IDB quota rejection');}};
  assert.equal(await app.OCSync.hashearFotosPerchas(),0);
  const u=(app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(x=>x.id===rack.id);

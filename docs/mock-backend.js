@@ -5570,7 +5570,9 @@
           if (!bytes || String(bytes).indexOf("data:") !== 0) continue;
           const h = await window.OCFotos.hashDeDataUrl(bytes);
           if (!h) continue;
-          await window.OCFotos.guardarPorHash(h, bytes);
+          // A rejected/throwing IDB write is not a durable photo ACK.
+          // Preserve the by-ID source bytes and retry on a later seed.
+          if ((await window.OCFotos.guardarPorHash(h, bytes)) !== true) continue;
           if (ubicaciones.includes(u) && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
         } catch (_) {}
       }
