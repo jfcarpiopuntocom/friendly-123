@@ -1489,22 +1489,17 @@
         !yjs.opsMap || yjs.codigoCuaderno !== licencia) return;
     const ops = leerPendientesYjs(licencia);
     if (!ops || !ops.length) return;
-    // Preserve the journal if a new write fails or the notebook switches.
-    const restantes = [];
+    // Never remove a locally durable op merely because Yjs has it in RAM.
+    // IndexedDB persistence is asynchronous; opsMap.get is NOT a durable ACK.
+    // Keep the journal across reloads, and replay only entries missing from
+    // the active same-licence Y.Doc. Pruning requires a separate proven IDB ACK.
     for (const op of ops) {
-      if (!op || normalizarCodigo(op._salaOrigen) !== licencia) {
-        restantes.push(op); continue;
-      }
+      if (!op || normalizarCodigo(op._salaOrigen) !== licencia) continue;
       try {
         if (!yjs.opsMap.get(op.opId))
           window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op }));
-        if (!yjs.opsMap.get(op.opId)) restantes.push(op);
-      } catch (_) { restantes.push(op); }
+      } catch (_) {} // the durable journal is retained for another retry
     }
-    // This is an in-memory Yjs acceptance, NOT a remote/IDB durable ACK.
-    // A crash before Yjs IDB persistence remains a follow-up P0.
-    if (codigoCuadernoActivo() === licencia && restantes.length !== ops.length)
-      guardarPendientesYjs(licencia, restantes);
   }
   try {
     window.addEventListener("oc-yjs-activo", drenarPendientesYjs);
