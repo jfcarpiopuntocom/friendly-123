@@ -1471,7 +1471,24 @@
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
     const sala = leerSala();
-    if (!sala) return true; // sync apagado: no-op total, cero overhead
+    // Plan C derives its room from the active licence, not the legacy room key.
+    // When only the old room is absent, still publish a committed movement to
+    // the already-active Yjs ops channel. Never emit across an identity switch.
+    if (!sala) {
+      const licencia = codigoCuadernoActivo();
+      const yjs = window.OCYjs;
+      if (!licencia || !yjs || yjs.estado !== "activo" ||
+          !yjs.opsMap || yjs.codigoCuaderno !== licencia) return true;
+      const op = {
+        opId: uuidCorto(), deviceId: deviceId(),
+        deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
+        lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
+        _salaOrigen: licencia
+      };
+      try { window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op })); }
+      catch (_) { return false; }
+      return true;
+    }
     if (!sala.codigo || normalizarCodigo(sala.codigo) !== codigoCuadernoActivo()) {
       // A real local movement was already saved upstream. Refuse to emit it
       // into another shop's room while the active identity is inconsistent.
