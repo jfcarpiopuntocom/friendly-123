@@ -139,7 +139,13 @@ test('una venta sin conexion se encola y nunca se pierde', () => {
   // Sin WebSocket abierto, la op se encola.
   const emitter = SYNC.slice(SYNC.indexOf('window.OCSyncEmit = function'), SYNC.indexOf('function encolar(op)'));
   const queued = emitter.indexOf('const encolada = encolar(op)');
-  assert.ok(queued >= 0 && queued < emitter.indexOf('oc-op-local'), 'durable queue precedes Yjs event');
+  // Legacy-room path still queues before broadcasting. Plan C roomless path
+  // uses the already-persistent Yjs opsDoc, not the capped legacy queue.
+  const legacy = emitter.slice(emitter.indexOf('if (!sala.codigo'), emitter.length);
+  assert.ok(queued >= 0 && legacy.indexOf('const encolada = encolar(op)') < legacy.indexOf('oc-op-local'),
+    'legacy durable queue precedes Yjs event');
+  assert.match(emitter, /!yjs\.opsMap \|\| yjs\.codigoCuaderno !== licencia/,
+    'roomless Plan C only publishes into an active same-licence ops document');
   assert.match(emitter, /if \(!encolada\) return false;/);
   // Y si cifrar() falla con el socket abierto, tambien cae a la cola (no se pierde).
   assert.match(SYNC, /\.catch\(\(\)\s*=>\s*encolar\(op\)\)/);
