@@ -56,3 +56,45 @@ test('H3: fallback retains hashes when IDB opening fails',async()=>{
  assert.deepEqual([...(await ctx.keys())].sort(),['db-only','legacy-only','same-in-both'].sort());
  assert.equal(await ctx.read('legacy-only'),'data:image/png;base64,TEVHQUNZ');
 });
+test('H3 RED: raw legacy rescue must copy photo into IDB even when fallback can read it',async()=>{
+ const hash='a'.repeat(64),bytes='data:image/png;base64,QUJD',dbMap=new Map();
+ const from=src.indexOf('  async function rescatarLocalStoragePreAislamiento() {');
+ const to=src.indexOf('  async function diagnosticoRecuperacion()',from);
+ assert.ok(from>=0&&to>from,'exercise actual G10b rescue function');
+ let writes=0;
+ const ctx={console,SOPORTADO:true,
+  window:{AMG:{Aislamiento:{leerFotosLocalStoragePreAislamiento:()=>({perchas:{},blobs:{[hash]:bytes}})}}},
+  leerPorHash:async()=>bytes, // synthetic legacy fallback already sees the bytes
+  leerHashSoloIdb:async h=>dbMap.get(h)||null,
+  guardarPorHash:async(h,b)=>{writes++;dbMap.set(h,b);return true;},
+  hashDeDataUrl:async()=>hash
+ };
+ vm.createContext(ctx);
+ vm.runInContext(src.slice(from,to)+'\nthis.rescue=rescatarLocalStoragePreAislamiento;',ctx);
+ const result=await ctx.rescue();
+ assert.equal(result.blobs,1,'copy-only rescue counts one IDB copy');
+ assert.equal(result.blobsPendientes,0);
+ assert.equal(dbMap.get(hash),bytes,'bytes really persisted to IDB');
+ assert.equal(writes,1);
+});
+test('H3 RED: a failed raw-legacy IDB copy stays pending and is retryable',async()=>{
+ const hash='b'.repeat(64),bytes='data:image/png;base64,REVG',dbMap=new Map();
+ const from=src.indexOf('  async function rescatarLocalStoragePreAislamiento() {');
+ const to=src.indexOf('  async function diagnosticoRecuperacion()',from);
+ let attempts=0;
+ const ctx={console,SOPORTADO:true,
+  window:{AMG:{Aislamiento:{leerFotosLocalStoragePreAislamiento:()=>({perchas:{},blobs:{[hash]:bytes}})}}},
+  leerPorHash:async()=>bytes,
+  leerHashSoloIdb:async h=>dbMap.get(h)||null,
+  guardarPorHash:async(h,b)=>{attempts++;if(attempts===1)return false;dbMap.set(h,b);return true;},
+  hashDeDataUrl:async()=>hash
+ };
+ vm.createContext(ctx);
+ vm.runInContext(src.slice(from,to)+'\nthis.rescue=rescatarLocalStoragePreAislamiento;',ctx);
+ const first=await ctx.rescue();
+ assert.equal(first.blobsPendientes,1,'quota failures remain pending and are never silently ACKed');
+ assert.equal(dbMap.has(hash),false);
+ const second=await ctx.rescue();
+ assert.equal(second.blobs,1,'subsequent attempt resumes copy');
+ assert.equal(dbMap.get(hash),bytes);
+});
