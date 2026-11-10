@@ -7,6 +7,26 @@ async function context(browser){
  await ctx.route('**/*',async route=>{const url=new URL(route.request().url());if(url.origin!==ORIGIN)return route.abort();const file=path.resolve(DOCS,decodeURIComponent(url.pathname).slice(1));if(!file.startsWith(DOCS+path.sep))return route.abort();try{await route.fulfill({status:200,contentType:{'.html':'text/html','.js':'application/javascript','.json':'application/json','.css':'text/css','.woff2':'font/woff2'}[path.extname(file)]||'application/octet-stream',body:fs.readFileSync(file)});}catch(_){await route.fulfill({status:404,body:'Not found'});}});
  await ctx.addInitScript(()=>{window.WebSocket=class{constructor(){this.readyState=3}send(){}close(){}addEventListener(){}removeEventListener(){}};localStorage.setItem('f123::f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-TAB-ONLY',instanceId:'synthetic-tab-device'}));});
  await ctx.addInitScript(()=>{const Original=BroadcastChannel;window.BroadcastChannel=class extends Original{set onmessage(handler){super.onmessage=this.name==='friendly-123-auth-session'&&typeof handler==='function'?event=>{if(!window.__suppressLeaseEvents)handler(event);}:handler;}};window.addEventListener('storage',event=>{if(window.__suppressLeaseEvents&&event.key?.includes('auth_tab_lease'))event.stopImmediatePropagation();},true);});
+ await ctx.addInitScript(()=>{
+  window.__tabTrace=[];
+  function trace(event){
+    try {
+      const keys=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i))
+        .filter(k=>k.includes('auth_tab_lease'));
+      window.__tabTrace.push({t:Math.round(performance.now()*10)/10,event,
+        role:window.OCAuth?.rolActual?.()??null,
+        pending:window.OCTabSession?.pending??null,
+        current:window.OCTabSession?.isCurrent?.()??null,
+        session:!!sessionStorage.getItem('f123_sesion'),
+        leases:keys.map(key=>({key,value:localStorage.getItem(key)}))});
+      if(window.__tabTrace.length>90)window.__tabTrace.shift();
+    }catch(_){}
+  }
+  for(const name of ['oc-login','oc-logout','oc-tab-session-changed','focus','pageshow','storage'])
+    window.addEventListener(name,()=>trace(name),true);
+  document.addEventListener('visibilitychange',()=>trace('visibilitychange'),true);
+  window.__traceTab=trace;
+ });
  return ctx;
 }
 async function seed(ctx){
@@ -26,7 +46,8 @@ async function ownerLogin(page){
      authMessage:document.getElementById('oc-msg')?.textContent?.slice(0,160),
      pending:OCTabSession?.pending,current:OCTabSession?.isCurrent(),
      slots:[...document.querySelectorAll('#oc-slots .slot')].map(s=>!!s.textContent),
-     sessionExists:!!sessionStorage.getItem('f123_sesion')
+     sessionExists:!!sessionStorage.getItem('f123_sesion'),
+     trace:window.__tabTrace?.slice(-60)
    })).catch(e=>({probeError:String(e)}));
    console.error('TAB_HANDOFF_AUTH_FORENSIC',JSON.stringify(facts));
    throw error;
