@@ -162,3 +162,46 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   }finally{await web.close();}
  });
 }
+
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ for(const stage of ['intent','lease']){
+  test(`Fable P1-4 native quota-failed second claim (${name}, ${stage}): original owner persists, contender cannot write`,async()=>{
+   const web=await engine.launch({headless:true});
+   try{
+    const ctx=await context(web),{page:first}=await seed(ctx);
+    await ownerLogin(first,`quota first owner (${name}, ${stage})`);
+    await first.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent());
+    const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+    await second.evaluate(stage=>{
+     window.__quotaLeaseThrown=0;
+     const original=Storage.prototype.setItem;
+     Storage.prototype.setItem=function(key,value){
+      const k=String(key);
+      if(k.startsWith('f123_auth_tab_lease_') &&
+         (stage==='intent'?k.endsWith('_claim'):!k.endsWith('_claim'))){
+       window.__quotaLeaseThrown++;
+       throw new DOMException('Synthetic storage pressure','QuotaExceededError');
+      }
+      return original.call(this,key,value);
+     };
+    },stage);
+    for(const digit of ['7','8','9'])
+     await second.locator('#oc-pad').getByRole('button',{name:digit,exact:true}).click();
+    await second.waitForFunction(()=>window.__quotaLeaseThrown>0&&!window.OCTabSession.pending,null,{timeout:10000});
+    const secondState=await sessionSnapshot(second),firstState=await sessionSnapshot(first);
+    assert.equal(firstState.current,true,'legitimate previous owner must remain active');
+    assert.equal(firstState.role,'dueno','storage pressure must not expel the previous authenticated owner');
+    assert.equal(secondState.current,false,'failed new session cannot mutate without a committed lease');
+    assert.equal(await second.evaluate(()=>OCTabSession.canSync()),false,'failed contender must not sync');
+    const leases=firstState.leases.filter(x=>x.key.includes('auth_tab_lease'));
+    assert.equal(leases.length,1,'only original durable lease remains, never an intent');
+    assert.ok(!leases[0].key.endsWith('_claim'),'never strand the two-minute takeover intent');
+    const denied=await second.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Quota contender forbidden',tipo:'propio'})});return r.status;});
+    assert.ok(denied>=400,`contender write must fail, not status ${denied}`);
+    const accepted=await first.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Quota legitimate owner',tipo:'propio'})});return r.status;});
+    assert.ok(accepted>=200&&accepted<300,`existing owner must still be able to work; status ${accepted}`);
+   }finally{await web.close();}
+  });
+ }
+}
