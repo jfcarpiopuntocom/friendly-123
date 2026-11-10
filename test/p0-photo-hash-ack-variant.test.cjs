@@ -99,3 +99,42 @@ test('P0: thrown quota error keeps shelf photo unannounced and retryable',async(
  assert.ok(!u.fotoHash);
  assert.ok(!u.fotoRev);
 });
+
+
+// Fable G3: actual snapshot of shelf photo can change during an async IDB write.
+// The old bytes may remain in hash storage as evidence, but the shelf's *active*
+// pointer must never be rewritten to the previous image or overwrite explicit rev.
+test('Fable G3 RED: replacement of shelf photo during async save never publishes old hash',async()=>{
+ const {app,rack}=await fixture();
+ const NEW='data:image/png;base64,BAUG',OLD=PNG,HNEW='b'.repeat(64);
+ let current=OLD,reads=0,writes=0;
+ app.OCFotos={
+   leerFoto:async id=>{assert.equal(id,String(rack.id));reads++;return current;},
+   hashDeDataUrl:async bytes=>bytes===OLD?H:HNEW,
+   guardarPorHash:async(hash,bytes)=>{
+     writes++;
+     if(writes===1){assert.equal(hash,H);assert.equal(bytes,OLD);current=NEW;}
+     else {assert.equal(hash,HNEW);assert.equal(bytes,NEW);}
+     return true;
+   }
+ };
+ const snapshot=()=>(app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(u=>u.id===rack.id);
+ assert.equal(await app.OCSync.hashearFotosPerchas(),0,'stale bytes may be retained but never become active pointer');
+ assert.ok(!snapshot().fotoHash,'old photo hash must not travel to another device');
+ assert.ok(!snapshot().fotoRev,'old photo cannot commit a revision');
+ assert.equal(await app.OCSync.hashearFotosPerchas(),1,'next pass must publish the actually current photo');
+ assert.equal(snapshot().fotoHash,HNEW);
+ assert.equal(writes,2);
+ assert.ok(reads>=3,'post-write fresh read is required before setting pointer');
+});
+test('Fable G3 RED: removing shelf photo during async save leaves no stale pointer',async()=>{
+ const {app,rack}=await fixture();
+ let current=PNG;
+ app.OCFotos={leerFoto:async id=>id===String(rack.id)?current:null,
+   hashDeDataUrl:async()=>H,
+   guardarPorHash:async()=>{current=null;return true;}};
+ assert.equal(await app.OCSync.hashearFotosPerchas(),0);
+ const shelf=(app.OCSync.estadoParaCheckpoint().ubicaciones||[]).find(u=>u.id===rack.id);
+ assert.ok(!shelf.fotoHash);
+ assert.ok(!shelf.fotoRev);
+});
