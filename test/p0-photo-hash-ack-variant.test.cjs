@@ -12,8 +12,8 @@ async function fixture(){
  app.OCAuth={rolActual:()=> 'dueno',puedeGestionar:()=>true};
  const rack=await app.request('/api/ubicaciones','POST',{nombre:'Synthetic photo shelf',tipo:'propio'});
  const product=await app.request('/api/productos','POST',{
-   nombre:'Spray de la verdad — Bourgeois [SYNTHETIC]',
-   sku:'SYNTH-009-BOURGEOIS',barcode:'SYNTH-009-BOURGEOIS',
+   nombre:'Producto de foto sintética A [SYNTHETIC]',
+   sku:'SYNTH-PHOTO-A',barcode:'SYNTH-PHOTO-A',
    precio:12,stockInicial:7,ubicacionId:rack.id,foto:PNG
  });
  assert.ok(product.id);

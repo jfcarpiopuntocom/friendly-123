@@ -158,7 +158,9 @@
         const tx = db.transaction(STORE_BLOBS, "readonly");
         const req = tx.objectStore(STORE_BLOBS).getAllKeys();
         req.onsuccess = () => resolve([...new Set((req.result || []).map(String).concat(hashesLegado()))]);
-        req.onerror = () => reject(req.error);
+        req.onerror = () => reject(req.error || new Error("inventario IDB: solicitud fallida"));
+        tx.onerror = () => reject(tx.error || new Error("inventario IDB: transaccion fallida"));
+        tx.onabort = () => reject(tx.error || new Error("inventario IDB: transaccion abortada"));
       });
     } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return hashesLegado(); }
   }

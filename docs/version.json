@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.22",
+  "version": "v0.7.23",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.22 candidata QA: guardia de sesión ante fallo asíncrono tras logout; verificación estricta de foto vigente si falla IDB; proteger CI de reintentos de PIN y dos pestañas. No cambia ventas, inventario, dinero ni Sync3.",
+  "changelog": "v0.7.23 candidata QA: inventario de fotos recupera hashes legacy tras abortos de transacción IndexedDB, sin esperar el timeout del relé. Plan de aceptación y fixture usan referencias sintéticas; ventas, dinero, PIN, inventario y Sync3 sin cambios.",
   "requerida": false,
-  "shell": "f123-shell-v722",
+  "shell": "f123-shell-v723",
   "apagar": [],
-  "releaseName": "v0.7.22",
-  "cacheGeneration": "golden262"
+  "releaseName": "v0.7.23",
+  "cacheGeneration": "golden263"
 }

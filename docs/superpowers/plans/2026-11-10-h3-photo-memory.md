@@ -32,14 +32,14 @@ API.sembrarFotos(): arma hashes de catálogo, orphan, Yjs-only, envía mismos up
 - [ ] Perfilar escenarios con llamadas concurrentes, cambio de relay durante el barrido y fotos numerosas.
 
 ## Tarea 3: release y aceptación
-- [ ] Verificar shell v722 / golden262 con SHA256 de idb-fotos.js, mock-backend.js, tab-session.js, sync-yjs.js y manifiesto exacto en el SHA final.
+- [ ] Verificar shell v723 / golden263 con SHA256 de idb-fotos.js, mock-backend.js, tab-session.js, sync-yjs.js y manifiesto exacto en el SHA final.
 - [ ] Pasar p0-hotfix-gate, shell manifest, v670, fotos G07, ventas, dinero, PIN, stock, Sync3 y regresión completa del SHA final.
 - [ ] Revisar externamente si hay revisor; no presentar autoverificación como independiente.
 - [ ] Conciliar la PR #661 v707 antes de integrar H3. Las dos parten de master v706; no publicar H3 sin incorporar antes el fix de fotoHash.
-- [ ] Aceptación física en el mismo SHA: Safari/PWA -> PC -> Safari/PWA, foto Bourgeois 009-BOURGEOIS, stock James Bond, Sync pending, cierres y ventas, sin reescribir datos.
+- [ ] Aceptación física en el mismo SHA: Safari/PWA -> PC -> Safari/PWA, foto de producto sintético A, existencias de producto sintético B, Sync pending, cierres y ventas, sin reescribir datos.
 
 ## Prohibiciones y premortem
-No borrar IDB, no capar ops o fotos, no detener Sync3, no cambiar dinero/ventas/PIN, no crear punteros falsos ni atribuir recuperación de la foto de Belén sin prueba en dispositivos reales. El documento de Fable contiene propuestas no autorizadas de optimismo UI, backups automáticos y cupos de sync; no implementarlas aquí.
+No borrar IDB, no capar ops o fotos, no detener Sync3, no cambiar dinero/ventas/PIN, no crear punteros falsos ni atribuir recuperación de una foto del piloto sin prueba en dispositivos reales. El documento de Fable contiene propuestas no autorizadas de optimismo UI, backups automáticos y cupos de sync; no implementarlas aquí.
 Posibles fallos: objeto legacy omitido con IDB moderno; capa relé cambiada mientras await sigue pendiente; dos barridos concurrentes que duplican cargas; una foto PWA recuperable solo desde Yjs; materialización de fotos dentro del propio Y.Doc. Cada uno requiere diagnóstico y pruebas, no un límite destructivo.
 
 Fuentes: https://github.com/jfcarpiopuntocom/friendly-123/pull/659 ; https://github.com/jfcarpiopuntocom/friendly-123/pull/662 ; https://app.notion.com/p/4141642b67f3814d8dc4e0e96c78a0c2.
