@@ -1905,7 +1905,7 @@
     }).sort(function (a, b) { return b.bytesJSONVisibles - a.bytesJSONVisibles; });
   }
   var API = {
-    estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, colecciones: COLECCIONES,
+    estado: "apagado", doc: null, mapas: {}, clave: null, ws: null, bc: null, roomId: null, codigoCuaderno: "", colecciones: COLECCIONES,
     // API genérica por colección (probar convergencia a mano o desde código).
     set: function (col, id, obj) { var m = this.mapas[col]; if (!m) return false; m.set(String(id), obj); return true; },
     get: function (col) { var o = {}, m = this.mapas[col]; if (m) m.forEach(function (v, k) { o[k] = v; }); return o; },
@@ -2093,6 +2093,8 @@
     var _salaId = ((function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);})(String(codigo)) === 6583453063440131 /* huella de la licencia principal; repo PÚBLICO: nunca el texto */) ? (codigo + "::limpio-2026-09-16") : codigo; // JFC 2026-11-01: SAME room as v636 (no reset); devices absorb their own data
     API.esLicenciaPruebaJfc = _salaId !== codigo; // existing JFC test-license fingerprint gate only
     API.roomId = await idDeSala(_salaId);
+    // Bind the ops bridge to the exact licence that initialized this Y.Doc.
+    API.codigoCuaderno = codigo;
     API.rollout = await rolloutPromise;
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
