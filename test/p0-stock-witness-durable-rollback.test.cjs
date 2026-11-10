@@ -1,0 +1,32 @@
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const source = fs.readFileSync(path.join(__dirname, '..', 'docs', 'mock-backend.js'), 'utf8');
+const start = source.indexOf('  function _fundirHechoStock(p, w) {');
+const end = source.indexOf('  /* v515: quien gana', start);
+assert.ok(start >= 0 && end > start, 'real PN projector');
+const ctx = vm.createContext({});
+vm.runInContext(source.slice(start, end), ctx);
+const merge = (p, w) => { ctx.p=p; ctx.w=w; return vm.runInContext('_fundirHechoStock(p,w)',ctx); };
+test('Spray de la verdad 13→12 converges with duplicate and out-of-order witness', () => {
+  const a={stockBase:13,stockEpochId:'E',stockActual:13,stockPN:{}};
+  const b={stockBase:13,stockEpochId:'E',stockActual:13,stockPN:{}};
+  const fact={base:13,epoch:'E',actor:'phone',add:0,sub:1};
+  assert.equal(merge(a,fact),true);
+  assert.equal(merge(b,fact),true);
+  assert.equal(merge(b,fact),true);
+  assert.equal(a.stockActual,12);assert.equal(b.stockActual,12);
+});
+test('remote PN witness is reverted when durable save rejects or throws', () => {
+  const from=source.indexOf('      const witness = op.payload && op.payload.stockPNHecho;');
+  const to=source.indexOf('      /* NEUTRALIZADO',from);
+  assert.ok(from>0 && to>from,'witness branch');
+  const branch=source.slice(from,to);
+  assert.match(branch,/const previoStock =/,'must snapshot before mutation');
+  assert.match(branch,/restaurarStock\(\)/,'must restore on failed save');
+  assert.match(branch,/if \(saved !== true\)/,'failed persistence must not ACK');
+  assert.match(branch,/catch\(\(\) => \{/,'exception must restore');
+});
