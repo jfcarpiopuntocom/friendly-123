@@ -94,37 +94,50 @@
       return true;
     } catch (err) { console.error("[idb-fotos] guardarPorHash:", err); return false; }
   }
+  // Legacy hashed bytes may still live only in localStorage even while IDB
+  // opens normally (pre-isolation / older PWA recovery). Read-only fallback.
+  function leerHashLegado(hash) {
+    try { return localStorage.getItem(claveBlob(hash)) || null; } catch (_) { return null; }
+  }
+  function hashesLegado() {
+    const out = [];
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("f123_fotoblob_") === 0) out.push(k.slice("f123_fotoblob_".length));
+      }
+    } catch (_) {}
+    return out;
+  }
   async function leerPorHash(hash) {
     if (!hash) return null;
-    if (!SOPORTADO) { try { return localStorage.getItem(claveBlob(hash)); } catch (_) { return null; } }
+    if (!SOPORTADO) return leerHashLegado(hash);
     try {
       const db = await abrirDB();
       return await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readonly");
         const req = tx.objectStore(STORE_BLOBS).get(hash);
-        req.onsuccess = () => resolve(req.result || null);
+        // DB remains authoritative. Only a missing DB blob falls back to
+        // legacy evidence; never overwrite or delete either source.
+        req.onsuccess = () => resolve(req.result || leerHashLegado(hash));
         req.onerror = () => reject(req.error);
       });
-    } catch (err) { console.error("[idb-fotos] leerPorHash:", err); return null; }
+    } catch (err) { console.error("[idb-fotos] leerPorHash:", err); return leerHashLegado(hash); }
   }
   async function tieneHash(hash) { return !!(await leerPorHash(hash)); }
-  // Lista de hashes que este aparato YA tiene — base del protocolo "tengo/quiero"
-  // que usara B3 para pedir a la nube solo lo que falta.
+  // Full hash inventory, not blob bytes. Include orphaned legacy evidence so
+  // memory-bounded replication never drops historic photos without pointers.
   async function hashesGuardados() {
-    if (!SOPORTADO) {
-      const out = [];
-      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_fotoblob_") === 0) out.push(k.slice("f123_fotoblob_".length)); } } catch (_) {}
-      return out;
-    }
+    if (!SOPORTADO) return hashesLegado();
     try {
       const db = await abrirDB();
       return await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readonly");
         const req = tx.objectStore(STORE_BLOBS).getAllKeys();
-        req.onsuccess = () => resolve(req.result || []);
+        req.onsuccess = () => resolve([...new Set((req.result || []).map(String).concat(hashesLegado()))]);
         req.onerror = () => reject(req.error);
       });
-    } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return []; }
+    } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return hashesLegado(); }
   }
 
   // v449: export forense read-only del almacen content-addressed completo.
