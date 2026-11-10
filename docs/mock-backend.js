@@ -2092,7 +2092,7 @@
     ventasActivas().forEach((v) => {
       if (!v.fecha) return;
       const mes = fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7);
-      if (!/^\\d{4}-(0[1-9]|1[0-2])$/.test(mes)) return;
+      if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(mes)) return;
       const d = map.get(mes) || { mes, actual: mes === actual, ventas: 0, comision: 0, pendiente: 0 };
       // Historic own-rack and counter sales have no split, but their month
       // MUST remain selectable in Commissions > Summary by Product.
