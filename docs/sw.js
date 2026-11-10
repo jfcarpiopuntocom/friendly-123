@@ -36,7 +36,7 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v715";
+const CACHE = "f123-shell-v716";
 // const CACHE anterior = "f123-shell-v639"; // v640 (JFC 2026-11-02): un aparato en la capa de respaldo vuelve a la primera cuando termina su pausa (las capas reconvergen).
 // const CACHE anterior = "f123-shell-v638"; // v639 (JFC 2026-11-02): relay durable Supabase de vuelta con cupo diario por aparato; peers como respaldo.
 // const CACHE anterior = "f123-shell-v637"; // v638 (JFC 2026-11-02, QA real): Owner no queda fuera si la ruta central de PIN no existe; teclado limpio tras 789.

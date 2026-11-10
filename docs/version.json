@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.15",
+  "version": "v0.7.16",
   "fecha": "2026-11-10",
-  "changelog": "v0.7.15 candidata QA: la salida de una pestaña anterior no elimina la concesión de sesión de otra pestaña que tomó el relevo. Sin modificar ventas, inventario, dinero, PIN o Sync3.",
+  "changelog": "v0.7.16 candidata QA: las dos etapas previas de fotos (producto y percha) tienen espera acotada; un bloqueo de IndexedDB ya no retiene indefinidamente la siembra. Sin cambios a ventas, dinero, PIN, inventario o Sync3.",
   "requerida": false,
-  "shell": "f123-shell-v715",
+  "shell": "f123-shell-v716",
   "apagar": [],
-  "releaseName": "v0.7.15",
-  "cacheGeneration": "golden255"
+  "releaseName": "v0.7.16",
+  "cacheGeneration": "golden256"
 }

@@ -2447,9 +2447,9 @@
     // Honor inline product photos and pre-hash perchas before enumerating photo
     // evidence. Every record is still sent as the same deterministic Yjs op.
     Promise.resolve().then(function () {
-      return window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0;
+      return _esperarFoto(window.OCSync.hashearFotosProductos ? window.OCSync.hashearFotosProductos() : 0);
     }).catch(function () { return 0; }).then(function () {
-      return window.OCSync.hashearFotosPerchas ? window.OCSync.hashearFotosPerchas() : 0;
+      return _esperarFoto(window.OCSync.hashearFotosPerchas ? window.OCSync.hashearFotosPerchas() : 0);
     }).catch(function () { return 0; }).then(async function () {
       var cat;
       try { cat = window.OCSync.catalogoPropio(); } catch (_) { cat = null; }
