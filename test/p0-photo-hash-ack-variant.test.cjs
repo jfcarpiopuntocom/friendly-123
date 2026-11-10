@@ -144,8 +144,8 @@ test('CodeRabbit RED: IDB read failure cannot promote an older fallback shelf ph
  const {app,rack}=await fixture(),OLD=PNG;
  let strictReads=0;
  app.OCFotos={
-  leerFoto:async()=>OLD, // legacy-only fallback, not evidence of successful IndexedDB read
-  leerFotoConfirmada:async()=>{strictReads++;throw Object.assign(new Error('synthetic IDB abort'),{name:'UnknownError'});},
+  leerFoto:async id=>id===String(rack.id)?OLD:null, // only target rack has legacy bytes
+  leerFotoConfirmada:async id=>{if(id!==String(rack.id))return null;strictReads++;throw Object.assign(new Error('synthetic IDB abort'),{name:'UnknownError'});},
   hashDeDataUrl:async()=>H,guardarPorHash:async()=>true
  };
  const converted=await app.OCSync.hashearFotosPerchas();
@@ -158,7 +158,7 @@ test('CodeRabbit RED: IDB read failure cannot promote an older fallback shelf ph
 test('CodeRabbit: confirmed legacy-only shelf source still publishes without IDB bytes',async()=>{
  const {app,rack}=await fixture();
  app.OCFotos={
-  leerFoto:async()=>PNG,leerFotoConfirmada:async()=>PNG,
+  leerFoto:async id=>id===String(rack.id)?PNG:null,leerFotoConfirmada:async id=>id===String(rack.id)?PNG:null,
   hashDeDataUrl:async()=>H,guardarPorHash:async()=>true
  };
  assert.equal(await app.OCSync.hashearFotosPerchas(),1,'legitimate legacy-only source remains supported');
