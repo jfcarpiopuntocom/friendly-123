@@ -38,14 +38,18 @@
     if (dbPromise) return dbPromise;
     let req;
     try { req = indexedDB.open(DB_NAME, 2); } catch (err) { return Promise.reject(err); }
-    let promise, settled = false;
+    let promise, settled = false, watchdog = null;
     promise = new Promise((resolve, reject) => {
       const fail = err => {
         if (settled) return;
         settled = true;
+        clearTimeout(watchdog);
         if (dbPromise === promise) dbPromise = null;
         reject(err);
       };
+      // Safari may never fire success/error/blocked. Reject and release the
+      // cached promise; old evidence stays intact for a later retry.
+      watchdog = setTimeout(() => fail(new Error("IndexedDB photo open timed out")), 8000);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
@@ -55,6 +59,7 @@
         const db = req.result;
         if (settled) { db.close(); return; }
         settled = true;
+        clearTimeout(watchdog);
         db.onversionchange = () => { db.close(); if (dbPromise === promise) dbPromise = null; };
         resolve(db);
       };

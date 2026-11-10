@@ -2403,11 +2403,19 @@
   var _fotosSembradas = {};
   // One active pass per Yjs photo room. Reconnect and photo edits during an
   // ongoing pass request ONE more pass afterwards; none are discarded.
-  var _fotosSembrando = false, _fotosSembrarDeNuevo = false;
+  var _fotosSembrando = false, _fotosSembrarDeNuevo = false, _fotosReintentoTimer = null;
+  // A pending IDB enumeration/read must not hold single-flight photos forever.
+  // This deadline never drops bytes/ops: later reconnections may retry.
+  function _esperarFoto(p) {
+    var timer;
+    return Promise.race([Promise.resolve(p), new Promise(function (_, reject) {
+      timer = setTimeout(function () { reject(new Error("photo read timed out")); }, 8000);
+    })]).finally(function () { clearTimeout(timer); });
+  }
   API.sembrarFotos = sembrarFotosAlRelay; // also used by stuck-history reconnect
   function sembrarFotosAlRelay() {
     if (!window.OCSync || !API.fotosCanal || !window.Y || !API.fotosDoc) return;
-    if (_fotosSembrando) { _fotosSembrarDeNuevo = true; return; }
+    if (_fotosSembrando || _fotosReintentoTimer) { _fotosSembrarDeNuevo = true; return; }
     _fotosSembrando = true;
     // Honor inline product photos and pre-hash perchas before enumerating photo
     // evidence. Every record is still sent as the same deterministic Yjs op.
@@ -2430,9 +2438,9 @@
       var locales = [], _legacyPrecargadas = null, fotos = window.OCFotos;
       try {
         if (fotos && typeof fotos.hashesGuardados === "function") {
-          locales = await fotos.hashesGuardados();
+          locales = await _esperarFoto(fotos.hashesGuardados());
         } else if (fotos && typeof fotos.leerTodosPorHash === "function") {
-          _legacyPrecargadas = await fotos.leerTodosPorHash();
+          _legacyPrecargadas = await _esperarFoto(fotos.leerTodosPorHash());
           locales = Object.keys(_legacyPrecargadas || {});
         }
       } catch (_) {
@@ -2456,9 +2464,15 @@
           // Sequential await keeps at most one transient local photo read per
           // invocation. Retain neither an array nor a map of all image bytes.
           var dataUrl = (_legacyPrecargadas && _legacyPrecargadas[hash]) ||
-            (fotos && typeof fotos.leerPorHash === "function" ? await fotos.leerPorHash(hash) : null) ||
+            (fotos && typeof fotos.leerPorHash === "function" ? await _esperarFoto(fotos.leerPorHash(hash)).catch(function () { return null; }) : null) ||
             (API.fotosMap && API.fotosMap.get(hash)) || null;
           if (!dataUrl) continue; // no false ACK: the hash remains retryable
+          // Legacy hash keys may be mislabeled. Never replicate a wrong
+          // immutable Yjs hash->image pair, and never rewrite local evidence.
+          if (!/^[a-f0-9]{64}$/.test(hash) ||
+              !/^data:image\/[a-z0-9.+-]+(?:;[^,]*)?;base64,/i.test(dataUrl) ||
+              !fotos || typeof fotos.hashDeDataUrl !== "function" ||
+              await _esperarFoto(fotos.hashDeDataUrl(dataUrl)) !== hash) continue;
           var seedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(
             "friendly-photo-seed-v1:" + JSON.stringify([hash, dataUrl])));
           var seedHex = Array.from(new Uint8Array(seedDigest)).map(function (b) {
@@ -2496,7 +2510,11 @@
       _fotosSembrando = false;
       if (_fotosSembrarDeNuevo) {
         _fotosSembrarDeNuevo = false;
-        sembrarFotosAlRelay();
+        // Debounce relay-layer oscillations; no photo or pending op is discarded.
+        if (!_fotosReintentoTimer) _fotosReintentoTimer = setTimeout(function () {
+          _fotosReintentoTimer = null;
+          sembrarFotosAlRelay();
+        }, 2000);
       }
     });
   }
