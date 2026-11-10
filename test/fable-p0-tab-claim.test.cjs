@@ -34,3 +34,28 @@ test('Fable P0-2: already current owner does not close its session',()=>{
  ctx.runCheck();
  assert.deepEqual(calls,[]);
 });
+
+
+test('Fable P0 lease TOCTOU RED: logging out old tab must never remove a newly owned lease',()=>{
+ const start=src.indexOf(" window.addEventListener('oc-logout',function(){");
+ const end=src.indexOf(" window.addEventListener('oc-lang-change'",start);
+ assert.ok(start>=0&&end>start,'exercise real production logout lease handler');
+ const handlers={};let owner='new-tab',removed=0,epoch=0;
+ const ctx={
+   window:{addEventListener:(event,fn)=>{handlers[event]=fn;}},
+   claimed:true,pending:false,suspendida:false,id:'old-tab',scopeKey:'synthetic-lease',
+   // Previous owner saw its own lease immediately before a rival committed.
+   // Deleting by key alone is a non-atomic check-then-delete.
+   lease:()=>({owner:'old-tab'}),
+   localStorage:{removeItem:key=>{assert.equal(key,'synthetic-lease');removed++;owner=null;}},
+   avisarSync:()=>{},epoch:()=>{epoch++;},
+ };
+ vm.createContext(ctx);vm.runInContext(src.slice(start,end),ctx);
+ assert.equal(typeof handlers['oc-logout'],'function');
+ handlers['oc-logout']();
+ assert.equal(owner,'new-tab','old tab cannot delete the newer authenticated tab lease');
+ assert.equal(removed,0,'no compare-and-delete exists on localStorage: never remove a shared lease in logout');
+ assert.equal(epoch,1);
+ assert.equal(ctx.claimed,false);
+ assert.equal(ctx.suspendida,true,'logout must continue fencing the old tab');
+});
