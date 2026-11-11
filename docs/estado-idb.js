@@ -35,13 +35,16 @@
   var DB_NAME = "f123_estado";      // aislamiento.js le pone el namespace solo
   var STORE = "estado";
   var CLAVE = "actual";
+  // Staged P0 schema only. Existing business writes still use estado/actual.
+  // No second authoritative business copy is introduced.
+  var P0_STORES = ["outbox", "dedup", "trace_outcome", "trace_intent"];
   var SOPORTADO = ("indexedDB" in window);
 
   var dbPromise = null;
   function abrirDB() {
     if (dbPromise) return dbPromise;
     var req;
-    try { req = indexedDB.open(DB_NAME, 1); } catch (err) { return Promise.reject(err); }
+    try { req = indexedDB.open(DB_NAME, 2); } catch (err) { return Promise.reject(err); }
     var promise, settled = false;
     promise = new Promise(function (resolve, reject) {
       function fail(err) {
@@ -52,6 +55,13 @@
       }
       req.onupgradeneeded = function () {
         if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
+        // Every future sale-related store belongs to the SAME DB as estado.
+        // This upgrade does not migrate, drain or remove ANY old outbox data.
+        P0_STORES.forEach(function (name) {
+          if (!req.result.objectStoreNames.contains(name)) {
+            req.result.createObjectStore(name, { keyPath: "opId" });
+          }
+        });
       };
       req.onsuccess = function () {
         var db = req.result;
