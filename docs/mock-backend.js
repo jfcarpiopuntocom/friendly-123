@@ -6393,6 +6393,13 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
+      // P0 CONFIRM SALE: only the PIN claim already started in THIS tab may
+      // finish before the write guard. A rival's lease, logout, role or epoch
+      // change still gives the existing 403. Never write while claim is pending.
+      if (ventaConcurrente && window.OCTabSession && window.OCTabSession.pending &&
+          typeof window.OCTabSession.waitOwnClaim === "function") {
+        try { await window.OCTabSession.waitOwnClaim(3000); } catch (_) {}
+      }
       const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
       const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
