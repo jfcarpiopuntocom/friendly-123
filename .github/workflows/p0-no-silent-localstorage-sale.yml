@@ -23,6 +23,8 @@ jobs:
   forbidden-fallback:
     name: activated-sale-idb-only
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 14
     steps:
       - uses: actions/checkout@v4
@@ -31,6 +33,5 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx playwright install --with-deps chromium webkit
       - name: Strict sale with broken IDB must fail closed (real Chromium + WebKit)
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-no-silent-localstorage-strict-sale.test.cjs
