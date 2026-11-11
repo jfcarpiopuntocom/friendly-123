@@ -30,6 +30,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install pinned test dependencies
+        run: npm ci --ignore-scripts
+      - name: Official manifest generation (for review only)
+        run: |
+          node scripts/gen-manifest.js
+          echo 'F123_MANIFEST_BEGIN'
+          cat docs/version-manifest.json
+          echo 'F123_MANIFEST_END'
       - name: Witness regression + existing PN contracts (pass 1)
         run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-jfc-stock-proof-pending.test.cjs test/p0-stock-witness-durable-rollback.test.cjs test/p0-movement-witness-opid.test.cjs
       - name: Repeat independent tests (pass 2)
