@@ -120,8 +120,10 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
         body:JSON.stringify({nombre:'No native IDB '+label,
           barcode:'P0-NEVER-IDB-'+label,precio:15,costo:4,stockInicial:3})});
       const j=await r.json();if(!r.ok)throw Error('seed '+r.status);
-      localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-NO-IDB-'+label}));
-      localStorage.setItem('f123_tienda_activa','SYNTHETIC-NEVER-IDB-NOTEBOOK-'+label);
+      // This fixture deliberately stays on the canonical local notebook:
+      // switching tienda_activa after seeding would load a DIFFERENT book on
+      // reload and manufacture a data-loss signal unrelated to storage.
+      localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'F123-TEST-NO-IDB-'+label}));
       return j.id;
    },name);
    // Restart the SAME apparatus. This proves the previous non-financial A/B
