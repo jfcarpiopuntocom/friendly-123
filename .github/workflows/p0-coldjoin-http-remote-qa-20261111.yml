@@ -1,0 +1,31 @@
+name: P0 remote synthetic cold-join HTTP/WS observer (NO RELEASE)
+on:
+  push:
+    branches: [qa/p0-coldjoin-http-remote-20261111]
+permissions:
+  contents: read
+jobs:
+  synthetic-observer:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify redaction and PIN safety before remote session
+        run: node --test test/canario-union-fria-guard.test.cjs
+      - name: Synthetic join against existing published shell (never submit Owner PIN during incomplete recovery)
+        env:
+          F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+          F123_CANARIO_PIN: ${{ secrets.F123_CANARIO_PIN }}
+        run: node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
