@@ -247,7 +247,7 @@ test('P0 v689 RED: stock +1 rebases one newer strict CAS revision and persists e
   assert.equal((await w.request('/api/productos/p-local-plus')).stockActual, 1);
 });
 
-test('P0 v689: real quota or unchanged CAS does not claim +1 and never emits stock op', async () => {
+test('P0 JFC: IDB quota uses verified A/B for +1; unchanged CAS still rejects without stock op', async () => {
   for (const reason of ['QuotaExceededError', 'unchanged']) {
     const w = browser();
     await conStock(w, 'p-no-false-ack', 0);
@@ -264,10 +264,20 @@ test('P0 v689: real quota or unchanged CAS does not claim +1 and never emits sto
     const response = await w.fetch('/api/productos/p-no-false-ack/ajustar', {
       method: 'POST', body: JSON.stringify({ delta: 1 })
     });
-    assert.equal(response.status, reason === 'QuotaExceededError' ? 507 : 503);
-    assert.equal(emitted, 0, 'no ghost stock emission on rejected save');
-    assert.equal((await w.request('/api/productos/p-no-false-ack')).stockActual, 0);
-    assert.equal((await w.request('/api/respaldo/exportar')).movimientos.length, before.movimientos.length);
+    const backedUp=reason==='QuotaExceededError';
+    assert.equal(response.status, backedUp ? 200 : 503,
+      'IDB quota alone is not an error if the local A/B commit is verified');
+    assert.equal(emitted, backedUp ? 1 : 0,'exactly one stock op only after durable commit');
+    assert.equal((await w.request('/api/productos/p-no-false-ack')).stockActual, backedUp ? 1 : 0);
+    assert.equal((await w.request('/api/respaldo/exportar')).movimientos.length,
+      before.movimientos.length+(backedUp ? 1 : 0));
+    if (backedUp) {
+      const journal=JSON.parse(w.localStorage.getItem('f123_estado_v4_journal')||'null');
+      assert.ok(journal&&journal.phase==='COMMITTED',
+        'the stock adjustment needs a durable A/B commit, never a memory-only success');
+      const saved=JSON.parse(journal.candidateRaw);
+      assert.equal(saved.productos.find(p=>p.id==='p-no-false-ack').stockActual,1);
+    }
     assert.ok(reads <= 1, 'failed CAS must not loop');
   }
 });
