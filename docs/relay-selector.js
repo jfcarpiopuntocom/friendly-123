@@ -228,7 +228,11 @@
       guardarAplicado(url);
       resolverRecuperacion(url); // only the verified cursor may release our temporary pause
     };
-    ws.addEventListener("open", function () { abierto = true; });
+    ws.addEventListener("open", function () {
+      abierto = true;
+      // v733: una capa que abre bien reinicia su espera creciente (ver el cierre mas abajo).
+      try { var cc = leer(key); if (cc.rechazosFb) { cc.rechazosFb = 0; guardar(key, cc); } } catch (_) {}
+    });
     // A durable RPC can reject a write after the socket has opened. OPEN is not
     // proof of persistence. Keep the caller's unacknowledged outbox and hand
     // over to the next relay; never convert a negative receipt into success.
@@ -270,7 +274,14 @@
       if ((abierto && !rechazoDurable && !fallo) || !(rechazoDurable || fallo || !soltado || (e && e.code && e.code !== 1000))) return;
       var red = fallo && !(e && e.code && e.code !== 1006); // an error with no server code
       if (esFoto(url)) { pausarFotos(capa, red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); return; } // band quarantine
-      var c = leer(key); c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb ? 60000 : PAUSA_MS)); guardar(key, c);
+      var c = leer(key);
+      /* v733 (JFC 2026-11-11, orden de Fable 5.2): un Firebase rechazado descansa 5, 10, 20, 40 y 60 s (tope), no 60 s
+         fijos. Un aparato nuevo no podia ponerse al dia porque Supabase descansa 15 min y Firebase 60 s, y solo
+         quedaba el vecino directo, que no contesta. El contador se pone en 0 cuando la capa abre bien. Como mucho
+         4 intentos extra a Firebase en el primer minuto; nada nuevo hacia Cloudflare. PARA REVERTIR: volver a 60000. */
+      var pausaFb = Math.min(60000, 5000 * Math.pow(2, Math.min(c.rechazosFb || 0, 4)));
+      if (capa.relay === fb && !red) c.rechazosFb = (c.rechazosFb || 0) + 1;
+      c.pausaHasta = Date.now() + (red ? PAUSA_RED_MS : (capa.relay === fb ? pausaFb : PAUSA_MS)); guardar(key, c);
     });
     var enviar = ws.send.bind(ws);
     ws.send = function (v) {

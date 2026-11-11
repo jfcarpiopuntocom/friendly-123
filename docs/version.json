@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.32",
+  "version": "v0.7.33",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.32 P0: una actualizacion recarga como maximo una vez por version y por pestana, para que la app no se reinicie en bucle despues del PIN; guarda en el aparato el motivo de cada recarga y los ultimos errores. Sin cambios en ventas, inventario, PIN ni licencias.",
+  "changelog": "v0.7.33 P0 Sync3: un aparato nuevo que se une a la tienda ya no se queda esperando a un vecino que no contesta: el respaldo de Firebase vuelve a intentarse a los 5 s (hasta 60 s) y el vecino mudo se suelta a los 7 s para pedir el historial a una capa durable. Sin cambios en ventas, inventario, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v732",
+  "shell": "f123-shell-v733",
   "apagar": [],
-  "releaseName": "v0.7.32",
-  "cacheGeneration": "golden272"
+  "releaseName": "v0.7.33",
+  "cacheGeneration": "golden273"
 }
