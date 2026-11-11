@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.31",
+  "version": "v0.7.32",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.31 P0: la venta ya no se bloquea por la pantalla que tiene el turno ni por el cambio de sesión; una pantalla que pierde el turno sigue vendiendo y solo pausa su sincronización, sin cerrar sesión ni mostrar avisos. Sin cambios en inventario, dinero, PIN ni licencias.",
+  "changelog": "v0.7.32 P0: una actualizacion recarga como maximo una vez por version y por pestana, para que la app no se reinicie en bucle despues del PIN; guarda en el aparato el motivo de cada recarga y los ultimos errores. Sin cambios en ventas, inventario, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v731",
+  "shell": "f123-shell-v732",
   "apagar": [],
-  "releaseName": "v0.7.31",
-  "cacheGeneration": "golden271"
+  "releaseName": "v0.7.32",
+  "cacheGeneration": "golden272"
 }

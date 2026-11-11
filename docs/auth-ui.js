@@ -1768,7 +1768,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          la bandera queda puesta (se honra en el proximo login) y el login sigue normal. */
       var _recPend = false;
       try { _recPend = !!(window.__f123RecuperacionPendiente && window.__f123RecuperacionPendiente()); } catch (_) {}
-      if (sessionStorage.getItem("f123_reload_al_entrar") === "1" && !_recPend) {
+      /* (JFC 2026-11-11, v732) Tope anti-bucle: solo UNA recarga automatica por version y pestana
+         (ver puedeRecargarVersion en app-inline-03.js). Si ya se recargo en esta version, se retira la
+         bandera y el login sigue normal, sin segunda recarga. */
+      var _okRec = true;
+      try {
+        if (sessionStorage.getItem("f123_reload_al_entrar") === "1" && !_recPend && window.__f123PuedeRecargarVersion) {
+          _okRec = !!window.__f123PuedeRecargarVersion("login-diferida");
+          if (!_okRec) sessionStorage.removeItem("f123_reload_al_entrar");
+        }
+      } catch (_) {}
+      if (sessionStorage.getItem("f123_reload_al_entrar") === "1" && !_recPend && _okRec) {
         sessionStorage.removeItem("f123_reload_al_entrar");
         /* BUG (JFC 2026-09-02): aquí se mapeaba demo→"dueno" en la sesión diferida,
            así que tras el reload forzado de versión el auto-login entraba como

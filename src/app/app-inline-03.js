@@ -271,6 +271,40 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   try { window.__f123MarcarRecarga = marcarRecarga; } catch (_) {}
+  /* (JFC 2026-11-11, v732) TOPE ANTI-BUCLE de recargas automaticas: UNA sola por version del shell y por
+     pestana. Una PWA de iPhone recargaba justo despues del PIN y otra vez despues, y quedaba caida: la
+     bandera "f123_reload_al_entrar" se vuelve a armar en cada arranque mientras las caches no cuadren con
+     version.json, asi que cada PIN podia recargar de nuevo. Con este tope la segunda recarga de la misma
+     version se omite (se anota "omitida-tope:<motivo>" en f123_recargas_log) y la app sigue usable.
+     Sin UI, sin red, sin datos de clientes. Si sessionStorage falla, se permite (conducta anterior).
+     PARA REVERTIR: quitar esta funcion y sus tres llamadores (intentar, auth-ui.js entrar, dashboard-updates.js). */
+  function puedeRecargarVersion(motivo) {
+    try {
+      var vv = localStorage.getItem("f123_version_vista") || "";
+      var kk = "f123_recarga_auto_v:" + vv;
+      if (sessionStorage.getItem(kk) === "1") { marcarRecarga("omitida-tope:" + motivo); return false; }
+      sessionStorage.setItem(kk, "1");
+      return true;
+    } catch (_) { return true; }
+  }
+  try { window.__f123PuedeRecargarVersion = puedeRecargarVersion; } catch (_) {}
+  /* (JFC 2026-11-11, v732) Anillo de errores para diagnostico en campo: ultimos 20 en localStorage
+     "f123_errores_log" = [{k: tipo, m: mensaje(160), s: fuente(60), t: ms}]. Sin UI, sin red, nunca lanza.
+     Antes una caida no dejaba ningun rastro (Sentry vacio). PARA REVERTIR: borrar este bloque. */
+  (function () {
+    function reg(tipo, msg, fuente) {
+      try {
+        var a = JSON.parse(localStorage.getItem("f123_errores_log") || "[]");
+        if (!Array.isArray(a)) a = [];
+        a.push({ k: tipo, m: String(msg || "").slice(0, 160), s: String(fuente || "").slice(-60), t: Date.now() });
+        localStorage.setItem("f123_errores_log", JSON.stringify(a.slice(-20)));
+      } catch (_) {}
+    }
+    try {
+      window.addEventListener("error", function (e) { reg("error", e && e.message, e && e.filename); });
+      window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; reg("rechazo", r && (r.message || r), ""); });
+    } catch (_) {}
+  })();
   /* (JFC 2026-10-28) Recarga frenada por recuperacion Yjs/IDB: se anota desde cuando (sessionStorage
      "f123_update_frenada_desde", no se sobrescribe) y se registra UNA vez "frenada-recuperacion" en la
      bitacora. No recarga mientras la recuperacion siga pendiente. */
@@ -297,6 +331,8 @@ const _ocActSolaOn = true;
       if (!await guardarDuradero() || !seguro()) return;
       // Activity during the durable save must defer adoption too.
       if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
+      // v732: una recarga automatica por version y pestana (via window para no depender del alcance del fragmento)
+      if (typeof window !== "undefined" && window.__f123PuedeRecargarVersion && !window.__f123PuedeRecargarVersion("version-segura")) return;
       localStorage.setItem(KA, JSON.stringify({ v: v, t: Date.now() }));
       sessionStorage.removeItem(KP);
       sessionStorage.removeItem("f123_reload_al_entrar");
