@@ -53,8 +53,12 @@ test('P0 own claim and epoch-only reinit may continue; real authority losses fai
  // notebook, license, role and tab must never revive an earlier sale intent.
  role='Owner';
  events.get('oc-login')();
+ const pendingIntent=await api.authorityRequestIdentity();
+ assert(pendingIntent,'a pending OWN PIN login must have request identity, even after previous session is suspended');
  assert.equal(await api.waitOwnClaim(3000),true,'the new login may obtain its own authority');
  const afterRealLogout=await api.authoritySnapshot();
+ assert.equal(pendingIntent.marker,afterRealLogout.marker);
+ assert.equal(pendingIntent.logoutSerial,afterRealLogout.logoutSerial);
  assert(afterRealLogout,'fresh login may write fresh intents');
  assert.equal((await api.authorityContinuity(before)).continues,false,
    'real logout + re-login to the SAME role/notebook still fences old sale intent');
@@ -64,8 +68,9 @@ test('backend guard checks authority at execution and CAS retry; no generic epoc
  const end=guard.indexOf('const _fetchInterno =',start);
  assert(start>=0&&end>start);
  const g=guard.slice(start,end);
- assert.match(g,/authorityIdentity\(\)/);
+ assert.match(g,/authorityRequestIdentity\(\)/);
  assert.match(g,/waitOwnClaim\(3000\)/);
+ assert.match(g,/logoutSerial/);
  assert.match(g,/authoritySnapshot\(\)/);
  assert.match(g,/authorityContinuity\(_autoridadAlPedir\)/);
  assert.match(g,/c\.noPendingClaim&&c\.currentLease/);
