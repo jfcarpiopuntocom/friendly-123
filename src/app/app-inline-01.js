@@ -241,7 +241,7 @@ async function _sellarVentaInterno() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unknown error");
-      _ocVentaIntentoConfirmado(intento);
+      if (data.opId === intento.opId && data.ventaId) _ocVentaIntentoConfirmado(intento);
       hechas.push(l);
     } catch (err) {
       // Corte honesto: lo que ya se sello queda sellado (no se revierte),
@@ -4821,15 +4821,14 @@ async function venderUno(id){
   _ventasEnCurso.add(id);
   try {
     const sel = document.getElementById("ventaCliente");
-    let res;
+    let res, intento;
     try {
       const ventaDatos = {cantidad:1, clienteId: (sel && sel.value) || undefined, info: infoEventoActivo()};
-      const intento = _ocVentaOpPendiente("rapida", id, ventaDatos);
+      intento = _ocVentaOpPendiente("rapida", id, ventaDatos);
       res = await fetch(`${API}/productos/${id}/venta`, {
         method:"POST", headers:{"Content-Type":"application/json"},
         body: JSON.stringify({...ventaDatos, opId:intento.opId})
       });
-      if (res.ok) _ocVentaIntentoConfirmado(intento);
     } catch (err) {
       // Reforzado (JFC 2026-07-18): esta es LA accion de venta mas frecuente
       // de toda la app (tocar un producto). Sin este catch, un fallo de red
@@ -4842,6 +4841,7 @@ async function venderUno(id){
     }
     const data = await res.json();
     if (!res.ok){ await ocAlert(data.error); return; }
+    if (data.opId === intento.opId && data.ventaId) _ocVentaIntentoConfirmado(intento);
     pintarFicha(data.producto);
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
     // Túnel reactivo (JFC 2026-09-04): refresca en vivo ranking de comisionistas
@@ -5367,7 +5367,8 @@ async function confirmarVentaConInfo(id, esTicket){
         body: JSON.stringify({ ...ventaDatos, opId: intento.opId })
       });
       data = await res.json();
-      if (res.ok) _ocVentaIntentoConfirmado(intento);
+      if (res.ok && data.opId === intento.opId && data.ventaId)
+        _ocVentaIntentoConfirmado(intento);
     } catch (err) {
       console.error("[confirmarVentaConInfo]", err);
       msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = "Could not reach the server. The sale was NOT recorded.";
