@@ -19,12 +19,19 @@ const document={visibilityState:'visible',get hidden(){return this.visibilitySta
  createElement:()=>({textContent:''}),head:{appendChild:()=>{}}};
 const context=vm.createContext({window,document,localStorage,sessionStorage,OCAuth,crypto:webcrypto,TextEncoder,Event:class Event{constructor(type){this.type=type;}},BroadcastChannel:class BroadcastChannel{postMessage(){}},console,Date,setTimeout,clearTimeout});
 vm.runInContext(source,context,{filename:'tab-session.js'});
-const tick=()=>new Promise(r=>setImmediate(r));
+async function claimReady(api){
+ for(let attempt=0;attempt<100;attempt++){
+  const snapshot=await api.authoritySnapshot();
+  if(snapshot)return snapshot;
+  await new Promise(resolve=>setTimeout(resolve,10));
+ }
+ return null;
+}
 (async()=>{
- await tick();await tick();
  const api=window.OCTabSession;
- const before=await api.authoritySnapshot();
- assert(before&&typeof before.licenseHash==='string','initial authorized owner snapshot');
+ const before=await claimReady(api);
+ assert(before&&typeof before.licenseHash==='string',
+  'initial owner must claim lease; pending='+api.pending+', epoch='+window.OC_AUTH_SESSION_EPOCH);
  let c=await api.authorityContinuity(before);
  assert.equal(c.sameLicense,true);assert.equal(c.sameRole,true);
  assert.equal(c.sameTab,true);assert.equal(c.leaseCurrent,true);
