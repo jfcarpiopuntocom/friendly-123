@@ -147,7 +147,7 @@
  }
  async function waitOwnClaim(maxMs){
   var budget=Math.min(3000,Math.max(0,Number(maxMs)||0)),stop=Date.now()+budget;
-  if(!pending)return true;
+  if(!pending)return !suspendida&&claimed&&current();
   // Only our OWN in-progress login can be waited on. No wait or privilege
   // escalation for a foreign tab claim, logout, or suspended session.
   while(pending&&!suspendida&&Date.now()<stop){
