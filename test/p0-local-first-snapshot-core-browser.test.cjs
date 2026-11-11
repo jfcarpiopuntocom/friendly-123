@@ -60,7 +60,16 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
    const lostMetadata=await db.guardarConRevision(stale,afterSecond._rev);
    const lostMirrorMetadata=await db.guardarYa(stale);
    const afterStale=await db.leer();
+   // Opposite direction matters: a safe next revision preserving the entire
+   // pending outbox must still save, not make the notebook read-only forever.
+   const legitimate=JSON.parse(JSON.stringify(afterStale));
+   legitimate._rev=afterStale._rev+1;
+   legitimate.productos[0].nombre='safe post-sale catalog edit';
+   const legitimateMirror=await db.guardarYa(legitimate);
+   const afterLegitimate=await db.leer();
    return {a,b,conflict,duplicateAfterLogout,asyncAuth,lostRole,rejected,second,lostMetadata,lostMirrorMetadata,
+    legitimateMirror,afterLegitimate:{rev:afterLegitimate._rev,name:afterLegitimate.productos[0].nombre,
+      dedup:Object.keys(afterLegitimate._dedup||{}),outbox:Object.keys(afterLegitimate._outbox||{})},
     afterStale:{rev:afterStale._rev,stock:afterStale.productos[0].stockActual,
      dedup:Object.keys(afterStale._dedup||{}),outbox:Object.keys(afterStale._outbox||{})},
     first:{stock:first.productos[0].stockActual,ventas:first.ventas.length,movimientos:first.movimientos.length,rev:first._rev,outbox:Object.keys(first._outbox||{}),dedup:Object.keys(first._dedup||{})},
@@ -81,6 +90,9 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
   assert.equal(results.second.ok,true);
   assert.equal(results.lostMetadata,false,'legacy strict CAS may not erase committed opId/outbox');
   assert.equal(results.lostMirrorMetadata,false,'legacy grouped mirror may not erase committed opId/outbox');
+  assert.equal(results.legitimateMirror,true,'a newer snapshot preserving both registries must remain writable');
+  assert.deepEqual(results.afterLegitimate,{rev:4,name:'safe post-sale catalog edit',
+    dedup:['sale-op-001','sale-op-004'],outbox:['sale-op-001','sale-op-004']});
   assert.deepEqual(results.afterStale,{rev:3,stock:0,
    dedup:['sale-op-001','sale-op-004'],outbox:['sale-op-001','sale-op-004']});
   assert.deepEqual(results.afterSecond,{stock:0,ventas:2,movimientos:2,rev:3,
