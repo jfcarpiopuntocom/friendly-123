@@ -262,6 +262,22 @@
         req.onsuccess = function () {
           const actual = req.result;
           const rev = Number((actual && actual._rev) || 0);
+          // A legacy snapshot serializer may omit the new idempotency fields.
+          // Never ACK an overwrite that would silently erase applied opIds or
+          // undelivered outbox items. Older uncooperative shells still require
+          // a tested rollout/cutover policy before this helper is used live.
+          const mustKeep=(key)=>{
+            const former=actual&&actual[key];
+            const incoming=copia&&copia[key];
+            if(!former||typeof former!=="object")return true;
+            return Object.keys(former).every(id=>incoming&&
+              Object.prototype.hasOwnProperty.call(incoming,id)&&
+              JSON.stringify(incoming[id])===JSON.stringify(former[id]));
+          };
+          if(!mustKeep("_dedup")||!mustKeep("_outbox")){
+            try{console.warn("[estado-idb] opId/outbox metadata missing in candidate; snapshot save refused");}catch(_){}
+            return;
+          }
           // Revision fence: another tab already advanced. Not a storage error; the caller retries on the new base.
           if (rev > revisionAplicada || rev >= Number(copia._rev)) {
             // P0 #607: distinguish revision fences from quota failures; no customer data.
