@@ -43,7 +43,7 @@ test('Fable P0 lease TOCTOU RED: logging out old tab must never remove a newly o
  const handlers={};let owner='new-tab',removed=0,epoch=0;
  const ctx={
    window:{addEventListener:(event,fn)=>{handlers[event]=fn;}},
-   claimed:true,pending:false,suspendida:false,id:'old-tab',scopeKey:'synthetic-lease',
+   claimed:true,pending:false,suspendida:false,logoutSerial:0,id:'old-tab',scopeKey:'synthetic-lease',
    // Previous owner saw its own lease immediately before a rival committed.
    // Deleting by key alone is a non-atomic check-then-delete.
    lease:()=>({owner:'old-tab'}),
@@ -56,6 +56,7 @@ test('Fable P0 lease TOCTOU RED: logging out old tab must never remove a newly o
  assert.equal(owner,'new-tab','old tab cannot delete the newer authenticated tab lease');
  assert.equal(removed,0,'no compare-and-delete exists on localStorage: never remove a shared lease in logout');
  assert.equal(epoch,1);
+ assert.equal(ctx.logoutSerial,1,'logout generation increments and fences a stale sale');
  assert.equal(ctx.claimed,false);
  assert.equal(ctx.suspendida,true,'logout must continue fencing the old tab');
 });
@@ -111,7 +112,7 @@ test('CodeRabbit RED: late SHA rejection after logout cannot un-fence an abandon
  ]);
  let rejectDigest;
  const events={};
- const ctx={id:'original-tab',scopeKey:leaseKey,claimed:true,pending:false,suspendida:false,
+ const ctx={id:'original-tab',scopeKey:leaseKey,claimed:true,pending:false,suspendida:false,logoutSerial:0,
   window:{OC_AUTH_SESSION_EPOCH:0,OCAuth:{rolActual:()=> 'dueno'},
     addEventListener:(name,cb)=>{events[name]=cb;}},
   OCAuth:{rolActual:()=> 'dueno'},
