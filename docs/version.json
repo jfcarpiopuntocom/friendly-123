@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.26",
+  "version": "v0.7.27",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.26 P0: restaurar venta local A/B en aparatos sin IndexedDB; no confirmar falsos ACK con IDB averiada; salud técnica privada JFC sin datos comerciales.",
+  "changelog": "v0.7.27 P0 canario JFC: una operación de stock sin testigo PN permanece pendiente; nunca se confirma como aplicada sin efectuar el movimiento. Sin cambios en transporte ni clientes.",
   "requerida": false,
-  "shell": "f123-shell-v726",
+  "shell": "f123-shell-v727",
   "apagar": [],
-  "releaseName": "v0.7.26",
-  "cacheGeneration": "golden266"
+  "releaseName": "v0.7.27",
+  "cacheGeneration": "golden267"
 }

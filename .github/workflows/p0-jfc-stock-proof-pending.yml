@@ -1,0 +1,44 @@
+name: P0 JFC missing stock witness stays pending (NO RELEASE)
+
+on:
+  push:
+    branches:
+      - fix/p0-jfc-stock-proof-pending-20261111
+    paths:
+      - docs/mock-backend.js
+      - test/p0-jfc-stock-proof-pending.test.cjs
+      - .github/workflows/p0-jfc-stock-proof-pending.yml
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/mock-backend.js
+      - test/p0-jfc-stock-proof-pending.test.cjs
+      - .github/workflows/p0-jfc-stock-proof-pending.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stock-proof-no-silent-ack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned test dependencies
+        run: npm ci --ignore-scripts
+      - name: Official manifest is sealed (no diff)
+        run: |
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js
+      - name: Witness regression + existing PN contracts (pass 1)
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-jfc-stock-proof-pending.test.cjs test/p0-stock-witness-durable-rollback.test.cjs test/p0-movement-witness-opid.test.cjs
+      - name: Repeat independent tests (pass 2)
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-jfc-stock-proof-pending.test.cjs test/p0-stock-witness-durable-rollback.test.cjs test/p0-movement-witness-opid.test.cjs
+      - name: Repeat independent tests (pass 3)
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 test/p0-jfc-stock-proof-pending.test.cjs test/p0-stock-witness-durable-rollback.test.cjs test/p0-movement-witness-opid.test.cjs
