@@ -122,17 +122,23 @@
  function notebookSource(){
   try{return localStorage.getItem('f123_tienda_activa')||ownedLicense()||'';}catch(_){return '';}
  }
- async function authorityIdentity(){
+ async function authorityIdentity(allowOwnPending){
   var role=window.OCAuth&&OCAuth.rolActual();
-  var license=ownedLicense(),notebook=notebookSource();
-  if(!role||!license||!notebook||suspendida)return null;
+  var license=ownedLicense(),notebook=notebookSource(),logoutStart=logoutSerial;
+  // Only the new, explicitly initiated PIN claim from THIS tab may sample
+  // an identity while the *previous* session remains suspended.
+  if(!role||!license||!notebook||(suspendida&&!(allowOwnPending&&pending)))return null;
   var raw=license+'\\u0000'+notebook,roleStart=role;
   var bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(raw));
   // If identity changes during an async digest, do not authorize.
-  if(license!==ownedLicense()||notebook!==notebookSource()||roleStart!==OCAuth.rolActual()||suspendida)return null;
+  if(license!==ownedLicense()||notebook!==notebookSource()||roleStart!==OCAuth.rolActual()||
+     logoutStart!==logoutSerial||(suspendida&&!(allowOwnPending&&pending)))return null;
   var digest=Array.from(new Uint8Array(bytes)).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
-  return {marker:digest,role:roleStart,owner:id};
+  return {marker:digest,role:roleStart,owner:id,logoutSerial:logoutStart};
  }
+ // Request identity is NOT a grant. The actual lease/role is verified again
+ // in authoritySnapshot() after the own claim finishes, and on execution.
+ async function authorityRequestIdentity(){return authorityIdentity(true);}
  async function authoritySnapshot(){
   if(!claimed||pending||suspendida||!scopeKey||!current())return null;
   var held=lease();if(!held||held.owner!==id||pendingClaim())return null;
@@ -162,7 +168,7 @@
   }
   return logoutSerial===expectedLogout&&!pending&&!suspendida&&claimed&&current();
  }
- window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authorityIdentity:authorityIdentity,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,waitOwnClaim:waitOwnClaim,get pending(){return pending;}};
+ window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authorityIdentity:authorityIdentity,authorityRequestIdentity:authorityRequestIdentity,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,waitOwnClaim:waitOwnClaim,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
  if(window.OCAuth&&OCAuth.rolActual())claim();
 })();
