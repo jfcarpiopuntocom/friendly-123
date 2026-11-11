@@ -29,9 +29,7 @@ jobs:
             echo "FIREBASE P0 PASS $pass/3"
             node --test test/p0-firebase-network-recovery.test.cjs
           done
-      - name: Generate official v728 manifest for exact hashes
+      - name: Official v728 manifest is sealed (no diff)
         run: |
           node scripts/gen-manifest.js
-          echo 'F123_MANIFEST_BEGIN'
-          cat docs/version-manifest.json
-          echo 'F123_MANIFEST_END'
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js
