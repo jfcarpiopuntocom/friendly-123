@@ -121,16 +121,27 @@
  window.addEventListener('oc-lang-change',function(){if(document.getElementById('oc-tab-handoff'))render();});
  // A snapshot is deliberately opaque: never expose notebook or license values.
  // A new PIN claim must finish before any fresh snapshot is accepted.
- function authoritySnapshot(){
-  if(!claimed||pending||suspendida||!scopeKey||!current())return null;
-  var held=lease();
-  if(!held||held.owner!==id||pendingClaim())return null;
-  return {scope:scopeKey,role:window.OCAuth&&OCAuth.rolActual()||'',owner:id};
+ function activeLicense(){
+  try{
+   var owned=JSON.parse(localStorage.getItem('f123_owned')||'{}');
+   var code=String(owned.licenseCode||'').trim().toUpperCase();
+   return /^F123-/i.test(code)?code:null;
+  }catch(_){return null;}
  }
- function authorityContinuity(before){
-  var after=authoritySnapshot();
+ // License is never returned as plaintext. Digest is distinct from notebook scope.
+ async function authoritySnapshot(){
+  if(!claimed||pending||suspendida||!scopeKey||!current())return null;
+  var held=lease(),license=activeLicense();
+  if(!held||held.owner!==id||pendingClaim()||!license)return null;
+  var bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(license));
+  if(!claimed||pending||suspendida||!current()||pendingClaim()||activeLicense()!==license)return null;
+  return {scope:scopeKey,licenseHash:Array.from(new Uint8Array(bytes)).map(function(b){return b.toString(16).padStart(2,'0');}).join(''),role:window.OCAuth&&OCAuth.rolActual()||'',owner:id};
+ }
+ async function authorityContinuity(before){
+  var after=await authoritySnapshot();
   return {
    sameNotebook:!!(before&&after&&before.scope===after.scope),
+   sameLicense:!!(before&&after&&before.licenseHash===after.licenseHash),
    sameRole:!!(before&&after&&before.role===after.role),
    sameTab:!!(before&&after&&before.owner===after.owner),
    leaseCurrent:!!after,
