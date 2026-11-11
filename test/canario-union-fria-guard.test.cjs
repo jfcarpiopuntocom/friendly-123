@@ -359,3 +359,65 @@ test('P0: checkpoint cut age is a bounded category from metadata-only GET, never
       'log only age class; no room capability or raw server cursor');
   }
 });
+
+test('P0 RED: cold-join reports only bounded budget and pause metadata for each known durable layer', async () => {
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = src.indexOf('const diagnosticoPresupuesto = ');
+  const end = src.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start >= 0 && end > start, 'must have real read-only budget probe before catalog diagnostics');
+  const MiB = 1048576;
+  const code = src.slice(start, end) + '\nthis.probe = diagnosticoPresupuesto;';
+  let reads = 0;
+  const ctx = {
+    window: { F123Relay: { estadoCupo: () => [
+      { capa: 'f123_relay_cupo_v1', up: MiB, down: 2*MiB, usable: true },
+      { capa: 'f123_relay_cupo_fb_v1', up: MiB/2, down: 20*MiB, usable: false }
+    ] } },
+    localStorage: { getItem: key => {
+      reads++;
+      return key === 'f123_relay_cupo_v1'
+        ? JSON.stringify({ dia: '2026-11-11', up: MiB, down: 2*MiB, pausaHasta: 0, room: 'SECRET-ROOM' })
+        : JSON.stringify({ dia: '2026-11-11', up: MiB/2, down: 20*MiB, pausaHasta: 99999999, pin: 'SECRET-PIN' });
+    } },
+    Date: class FakeDate extends Date { static now() { return 50000; } },
+    JSON, Number
+  };
+  vm.runInNewContext(code, ctx);
+  const info = await ctx.probe({evaluate: fn => fn()});
+  assert.equal(reads, 2, 'only two fixed local budget keys, no room or credential scans');
+  assert.equal(info.conocido, true);
+  assert.equal(info.capas.length, 2);
+  assert.equal(info.capas[0].capa, 'supabase');
+  assert.equal(info.capas[0].bajadaMiB, 2);
+  assert.equal(info.capas[0].enPausa, false);
+  assert.equal(info.capas[1].capa, 'firebase');
+  assert.equal(info.capas[1].bajadaMiB, 20);
+  assert.equal(info.capas[1].limiteAlcanzado, true);
+  assert.equal(info.capas[1].enPausa, true);
+  assert.equal(info.capas[1].usable, false);
+  const text = JSON.stringify(info);
+  for (const secret of ['SECRET-ROOM','SECRET-PIN','2026-11-11','f123_relay_cupo']) {
+    assert.ok(!text.includes(secret), 'only rounded numbers, flags and neutral layer names');
+  }
+});
+
+test('P0 RED: missing or malformed budget cannot report false zero or a healthy relay', async () => {
+  const src = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = src.indexOf('const diagnosticoPresupuesto = ');
+  const end = src.indexOf('\nconst diagnostico = ', start);
+  assert.ok(start >= 0 && end > start, 'the real budget probe is required');
+  const ctx = {
+    window: { F123Relay: { estadoCupo: () => [
+      { capa: 'f123_relay_cupo_v1', up: -1, down: NaN, usable: true }
+    ] } },
+    localStorage: { getItem: () => '{BROKEN-PRIVATE-STATE' },
+    Date, JSON, Number
+  };
+  vm.runInNewContext(src.slice(start, end) + '\nthis.probe=diagnosticoPresupuesto;', ctx);
+  const result = await ctx.probe({ evaluate: fn => fn() });
+  assert.equal(result.conocido, false);
+  assert.ok(result.capas.every(x => x.bajadaMiB === null && x.enPausa === null));
+  const report = JSON.stringify(result);
+  assert.ok(!report.includes('BROKEN-PRIVATE-STATE'));
+  assert.match(src, /CANARIO_CAPAS:/, 'the remote canary must print a bounded budget report on exit');
+});
