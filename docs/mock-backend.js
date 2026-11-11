@@ -1658,7 +1658,11 @@
       if (exigirCompleto) _perfLocalFin('snapshot_serialize', _tSerializar, true);
       let local = false;
       const idb = window.OCEstadoIDB;
-      const casDisponible = exigirCompleto && idb && typeof idb.guardarConRevision === "function";
+      // A method can exist on an unsupported IDB adapter. It is NOT a viable
+      // CAS store. Without this check, a truly IDB-less device gets a false
+      // 503 and never reaches its independently durable A/B journal.
+      const casDisponible = exigirCompleto && idb && idb.soportado !== false &&
+        typeof idb.guardarConRevision === "function";
       if (!exigirCompleto) {
         try {
           if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
