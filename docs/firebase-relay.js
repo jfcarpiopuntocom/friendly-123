@@ -203,7 +203,11 @@
         var curRev = await this._rev(), seq = Math.max(0, Number(c.seq) || 0), frames = [], budget = PAGE_BUDGET;
         // Bound the initial page as well: 12 max-size frames fit below ~5 MiB.
         // The protocol's "more" bit preserves catch-up across smaller pages.
-        var size = Math.min(12, Math.max(1, Number(c.limit) || 64));
+        /* v734 (JFC 2026-11-11, diseno de Opus 5.5): la tanda sube de 12 a 48 operaciones (la app pide 64). Con 12, un
+           aparato nuevo bajaba ~6 estructuras/s y una union en frio gastaba 11 MiB del cupo diario de 20 MiB. Si una
+           respuesta supera el tope de bytes, esta conexion vuelve a 12 y reintenta UNA vez (ver mas abajo).
+           PARA REVERTIR: volver a Math.min(12, ...). */
+        var size = Math.min(this._pg || 48, Math.max(1, Number(c.limit) || 64));
         if (Number(c.v) !== 2 || Number(c.rev) !== curRev) {
           var yaLeido = seq; seq = 0;
           if (curRev > 0) {
@@ -220,9 +224,19 @@
         // A disconnect discards the staging and replays the entire group (Yjs is idempotent).
         var tie = this._tie;
         if (tie && (tie.rev !== curRev || tie.seq !== seq)) { this._tie = null; tie = null; }
-        var page = tie ? [] : sorted(await getJson(this.root + "/o", {
-          orderBy: '"s"', startAt: seq + 1, limitToFirst: size
-        }, MAX_TIE_JSON_BYTES));
+        var page;
+        if (tie) page = [];
+        else {
+          try {
+            page = sorted(await getJson(this.root + "/o", { orderBy: '"s"', startAt: seq + 1, limitToFirst: size }, MAX_TIE_JSON_BYTES));
+          } catch (errTanda) {
+            // v734: una tanda de 48 que pasa del tope de bytes vuelve a 12 (conducta anterior) y reintenta una sola vez.
+            if (size > 12 && /safe byte budget/.test(String(errTanda && errTanda.message))) {
+              this._pg = 12; size = 12;
+              page = sorted(await getJson(this.root + "/o", { orderBy: '"s"', startAt: seq + 1, limitToFirst: size }, MAX_TIE_JSON_BYTES));
+            } else throw errTanda;
+          }
+        }
         var lleno = page.length === size, kept = [], used = 0, more = false, newSeq = seq;
         if (!tie && lleno && page.length && page[0].s !== page[page.length - 1].s) {
           // A truncated final group is unproven: retry it on the next page.

@@ -364,8 +364,15 @@ function progresoRecuperacion(anterior, actual) {
       let fase = etapaRecuperacion(ultima), razonPendiente = '';
       console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: fase, estado: 'en-curso' }));
       let siguientePulsoCausal = Date.now() + RECUPERACION_PULSO_MS;
+      // v734 (diseno de Opus 5.5): medir EN EL SEGUNDO ~8, mientras Firebase aun esta activo, si la sala tiene checkpoint.
+      // Si head.rev es 0 en una tienda llena queda probado que el aparato completo nunca sembro Firebase (falta la siembra).
+      let checkpointTempranoHecho = false;
       while (!recuperacionVerificada(ultima)) {
         await p.waitForTimeout(RECUPERACION_SONDEO_MS);
+        if (!checkpointTempranoHecho && Date.now() - inicioRecuperacion >= 8000) {
+          checkpointTempranoHecho = true;
+          console.log('CANARIO_CHECKPOINT_TEMPRANO:', JSON.stringify(await consultarCheckpoint(p)));
+        }
         await observarPull(p); // a reconnect may replace the socket
         ultima = await diagnostico(p, LICENCIA);
         const ahora = Date.now(), nuevaFase = etapaRecuperacion(ultima);
