@@ -45,3 +45,26 @@ test('RED: distinguish Firebase request aborts from network failures without lea
  assert.equal(r.firebase.errorOtro,2);
  assert.ok(!JSON.stringify(r).includes('SENSITIVE-PRIVATE-URL'));
 });
+
+test('RED: Firebase failed-request phase is counted separately from returned status and never leaks room paths',()=>{
+ const o=observer();
+ const req=(suffix,method,kind,errorText='net::ERR_FAILED')=>({
+   url:()=> 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/SECRET-ROOM/'+suffix+'.json?token=SECRET-PIN',
+   method:()=>method, resourceType:()=>kind, failure:()=>({errorText})
+ });
+ o.fallida(req('k','GET','fetch'));
+ o.fallida(req('o','GET','eventsource','net::ERR_ABORTED'));
+ o.fallida(req('o','GET','fetch'));
+ o.fallida(req('o/SECRET-OP','POST','fetch'));
+ o.fallida(req('other','GET','fetch'));
+ const s=o.resumen();
+ assert.equal(s.firebase.falloCheckpoint,1);
+ assert.equal(s.firebase.falloStream,1);
+ assert.equal(s.firebase.falloPull,1);
+ assert.equal(s.firebase.falloEscritura,1);
+ assert.equal(s.firebase.falloOtroEndpoint,1);
+ assert.equal(s.firebase.errorRed,5);
+ assert.ok(!JSON.stringify(s).includes('SECRET-ROOM'));
+ assert.ok(!JSON.stringify(s).includes('SECRET-OP'));
+ assert.ok(!JSON.stringify(s).includes('SECRET-PIN'));
+});
