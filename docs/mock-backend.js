@@ -1658,7 +1658,11 @@
       if (exigirCompleto) _perfLocalFin('snapshot_serialize', _tSerializar, true);
       let local = false;
       const idb = window.OCEstadoIDB;
-      const casDisponible = exigirCompleto && idb && typeof idb.guardarConRevision === "function";
+      // A method can exist on an unsupported IDB adapter. It is NOT a viable
+      // CAS store. Without this check, a truly IDB-less device gets a false
+      // 503 and never reaches its independently durable A/B journal.
+      const casDisponible = exigirCompleto && idb && idb.soportado !== false &&
+        typeof idb.guardarConRevision === "function";
       if (!exigirCompleto) {
         try {
           if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
@@ -1674,19 +1678,42 @@
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto); }
+        } else {
+          // Technical observer: never change strict CAS/financial outcomes.
+          if (exigirCompleto) { try { window.OCSalud?.escritorEvento?.("strictFailure"); } catch (_) {} }
+          try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {}
+          _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto);
+        }
         return ok;
       };
       // Strict money/stock commits use ONE atomic IDB readwrite transaction:
       // check the prior revision and put the full exact snapshot together.
       // A/B becomes a best-effort post-ACK backup, never a second Web Lock.
       if (exigirCompleto) {
-        // Browsers without IndexedDB keep the historical durable A/B path.
-        // Never silently downgrade an IndexedDB-capable browser on a CAS error.
+        // P0: a REAL activated notebook must never acknowledge a sale, money,
+        // payout or stock from a localStorage-only fallback when IDB is absent.
+        // Otherwise a later IDB recovery may load the older pre-sale snapshot,
+        // even though this tab already reported 200. Keep the historical A/B
+        // behavior only for non-activated synthetic/legacy notebooks.
+        // The cascaded Sync3 transports remain untouched and non-blocking.
         if (!casDisponible) {
-          if (idb && idb.soportado !== false) return terminar(false);
+          let activated = true; // corrupt license marker => fail closed
+          try {
+            const owned=JSON.parse(localStorage.getItem("f123_owned")||"null");
+            activated=!!((owned&&(owned.licenseCode||owned.instanceId))||
+              localStorage.getItem("f123_tienda_activa"));
+          } catch (_) {}
+          // Stable capability evidence, not a transient 'indexedDB' check.
+          // A fresh, truly IDB-less device is explicitly labelled
+          // never_opened before its FIRST A/B write. Existing devices whose
+          // history is unknown cannot use a failed IDB as a false sale ACK.
+          const capability = idb && typeof idb.capacidad === "function"
+            ? idb.capacidad() : "unknown";
+          if ((activated && capability !== "never_opened") ||
+              (idb && idb.soportado !== false)) return terminar(false);
           try { if (tokenOk && ab) { _guardandoAB = true; local = ab.guardarAhora(crudo); } }
           catch (_) {} finally { _guardandoAB = false; }
+          if (local === true) { try { window.OCSalud?.escritorEvento?.("fallbackLocal"); } catch (_) {} }
           return terminar(local === true);
         }
         const _tIdbEstricto = _perfLocalInicio();
