@@ -14,7 +14,8 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
  const browser=await engine.launch({headless:true});
  try{
-  const page=await browser.newPage();
+  const context=await browser.newContext();
+  const page=await context.newPage();
   await page.goto('http://127.0.0.1:'+server.address().port+'/');
   await page.evaluate(async()=>{
    await new Promise((resolve,reject)=>{
@@ -112,7 +113,7 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
   // Both tabs use their OWN JavaScript _cola, but the SAME origin IDB.
   // A single-tab Promise.all only proves local queuing and cannot establish
   // cross-tab exactly-once effects.
-  const secondTab=await browser.newPage();
+  const secondTab=await context.newPage();
   await secondTab.goto('http://127.0.0.1:'+server.address().port+'/');
   await secondTab.addScriptTag({content:code});
   const concurrently=(tab)=>tab.evaluate(async()=>{
