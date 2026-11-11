@@ -1315,7 +1315,7 @@
         ws = window.F123Relay.connect(url);
       } catch (_) { reprogramar(); return; }
       var pullEstado = { enCurso: false, fallos: 0, usarHead: true };
-      var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0;
+      var pendientesPeer = [], snapshotPeerRecibido = false, reintentosPeer = 0, _svPeerPrev = null, sinProgresoPeer = 0;
       var snapshotsRetirados = new Set();
       Object.keys(partesEntrantes).forEach(function (id) {
         if (partesEntrantes[id].tag === 6 && !partesEntrantes[id].receipts.length) delete partesEntrantes[id];
@@ -1387,9 +1387,22 @@
       };
       function programarRelecturaPeer() {
         if (!ws.peerOnly || !canal.recuperando || _tReplay || canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return;
+        // v733: linea base del estado Yjs la primera vez que se pide al vecino (ver el corte abajo).
+        if (_svPeerPrev === null) { try { _svPeerPrev = Array.prototype.join.call(Y.encodeStateVector(doc), ","); } catch (_) { _svPeerPrev = ""; } }
         _tReplay = setTimeout(function () {
           _tReplay = null;
           if (canal.ws !== ws || ws.readyState !== 1 || _pausado || !permitido()) return;
+          /* v733 (JFC 2026-11-11, orden de Fable 5.2): un vecino que no entrega NADA durante 3 ciclos seguidos
+             (1+2+4 = 7 s, el estado Yjs no cambia) se suelta: se cierra el socket SIN codigo (no cuenta como
+             rechazo) para que la cascada vuelva a pedir el historial a una capa durable. Antes se quedaba pegado
+             al vecino mudo con reintentos de hasta 30 s para siempre, y el aparato nuevo no podia entrar.
+             "Progreso" = cambia el vector de estado Yjs. No toca datos ni escribe nada.
+             PARA REVERTIR: quitar este bloque. */
+          try {
+            var svAhora = Array.prototype.join.call(Y.encodeStateVector(doc), ",");
+            if (svAhora === _svPeerPrev) sinProgresoPeer++; else { sinProgresoPeer = 0; _svPeerPrev = svAhora; }
+            if (sinProgresoPeer >= 3 && !Object.keys(partesEntrantes).length) { try { ws.close(); } catch (_) {} return; }
+          } catch (_) {}
           // A fresh diff replaces an interrupted bootstrap, never a durable operation group.
           Object.keys(partesEntrantes).forEach(function (id) {
             if (partesEntrantes[id].tag !== 6 || partesEntrantes[id].receipts.length || ws.readyState !== 1) return;

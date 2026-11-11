@@ -589,3 +589,31 @@ test('P0: a checkpoint CAS conflict is NOT backend outage', async () => {
   assert.equal(made[0].closed, null, 'conflicts are resolved by durable retry, not switching data sources');
   assert.equal(h.readyState, 1, 'existing healthy relay remains open');
 });
+
+// v733 (JFC 2026-11-11, orden de Fable 5.2): un aparato nuevo no podia ponerse al dia con Supabase en descanso de
+// 15 min y Firebase en descanso fijo de 60 s: solo quedaba el vecino directo, que no contesta.
+test('v733: a refused Firebase rests 5, 10, 20... s (cap 60 s) instead of a fixed 60 s', () => {
+  const { R, clock } = app();
+  sub(R.connect(URL1)).close(1011, 'supabase refused');
+  let fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase');
+  fb.close(1011, 'refusal 1'); // rests 5 s
+  clock.now += 4000;
+  assert.equal(sub(R.connect(URL1)).kind, 'peer', 'still resting after 4 s');
+  clock.now += 2000;
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase', 'back after 6 s, not 60 s');
+  fb.close(1011, 'refusal 2'); // rests 10 s
+  clock.now += 9000;
+  assert.equal(sub(R.connect(URL1)).kind, 'peer', 'second refusal rests 10 s');
+  clock.now += 2000;
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase');
+  for (let i = 0; i < 5; i++) { fb.close(1011, 'again'); clock.now += 61000; fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase', 'the cap is 60 s, never longer'); }
+});
+test('v733: Firebase that opens correctly resets its growing rest', () => {
+  const { R, clock } = app();
+  sub(R.connect(URL1)).close(1011, 'supabase refused');
+  let fb = sub(R.connect(URL1)); fb.close(1011, 'refusal 1'); clock.now += 6000;
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase'); fb.open(); // opens correctly: counter back to 0
+  fb.close(1011, 'refusal after a good open'); // rests 5 s again, not 10 s
+  clock.now += 6000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase');
+});
