@@ -174,9 +174,9 @@ const crearObservadorRed = () => {
           const metodo = req.method && req.method();
           const tipo = req.resourceType && req.resourceType();
           contar(capa, metodo && metodo !== 'GET' ? 'falloEscritura' :
-            /\\/k(?:\\/[^/]+)?\\.json$/.test(ruta) ? 'falloCheckpoint' :
-            /\\/o\\.json$/.test(ruta) && tipo === 'eventsource' ? 'falloStream' :
-            /\\/o\\.json$/.test(ruta) ? 'falloPull' : 'falloOtroEndpoint');
+            (ruta.endsWith('/k.json') || (ruta.includes('/k/') && ruta.endsWith('.json'))) ? 'falloCheckpoint' :
+            ruta.endsWith('/o.json') && tipo === 'eventsource' ? 'falloStream' :
+            ruta.endsWith('/o.json') ? 'falloPull' : 'falloOtroEndpoint');
         }
       } catch (_) {}
     },
