@@ -22,5 +22,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Guard PIN budget and catalog readiness
-        run: node --test test/canario-union-fria-guard.test.cjs
+      - name: Guard PIN budget, catalog readiness and redacted relay metrics (triple pass)
+        run: |
+          set -euo pipefail
+          for pass in 1 2 3; do
+            echo "QA PASS $pass/3"
+            node --test test/canario-union-fria-guard.test.cjs
+          done
