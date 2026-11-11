@@ -1,0 +1,35 @@
+name: P0 Firebase bounded encrypted GET replay recovery
+on:
+  pull_request:
+    paths:
+      - "docs/firebase-relay.js"
+      - "test/p0-firebase-read-retry.test.cjs"
+      - ".github/workflows/p0-firebase-read-retry.yml"
+  push:
+    branches: [master]
+    paths:
+      - "docs/firebase-relay.js"
+      - "test/p0-firebase-read-retry.test.cjs"
+      - ".github/workflows/p0-firebase-read-retry.yml"
+permissions:
+  contents: read
+jobs:
+  firebase-get-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Triple pass actual Firebase adapter under lost GET and POST responses
+        run: |
+          set -euo pipefail
+          for pass in 1 2 3; do
+            echo "GET-REPLAY PASS $pass/3"
+            node --test test/p0-firebase-read-retry.test.cjs
+          done
+      - name: Official v729 manifest is sealed (no diff)
+        run: |
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js

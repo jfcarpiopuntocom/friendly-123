@@ -28,19 +28,27 @@
     function http(method, path, body, query) {
       var simple = method === "PUT" && body !== undefined;
       var qs = (query ? q(query) : "") + (simple ? (query ? "&" : "") + "x-http-method-override=PUT" : "");
-      // A rejected fetch is a transient network failure, not an HTTP refusal.
-      // Preserve that distinction for the relay selector's 5-second retry lane.
-      // Never retain the exception (it may contain a private room URL).
-      return Promise.resolve().then(function () {
-        return fetchFn(base + path + ".json" + (qs ? "?" + qs : ""), {
-          method: simple ? "POST" : method, headers: {},
-          body: body === undefined ? undefined : JSON.stringify(body)
+      // Only GET is idempotently retried: a single network hiccup must not
+      // discard the live Yjs pull cursor. No retry for POST/PUT or HTTP 4xx/5xx.
+      // At most 3 GET attempts, with 100/250 ms delays. No unbounded loops.
+      // Never retain the raw exception: it may contain a private room URL.
+      var tries = method === "GET" ? 3 : 1, delays = [100, 250];
+      function attempt(n) {
+        return Promise.resolve().then(function () {
+          return fetchFn(base + path + ".json" + (qs ? "?" + qs : ""), {
+            method: simple ? "POST" : method, headers: {},
+            body: body === undefined ? undefined : JSON.stringify(body)
+          });
+        }).catch(function () {
+          if (n + 1 < tries) return new Promise(function (resolve) {
+            setTimeout(resolve, delays[n]);
+          }).then(function () { return attempt(n + 1); });
+          var err = new Error("Firebase network unavailable");
+          err.f123Network = true;
+          throw err;
         });
-      }).catch(function () {
-        var err = new Error("Firebase network unavailable");
-        err.f123Network = true;
-        throw err;
-      });
+      }
+      return attempt(0);
     }
     // shortcut: counts response bodies and live events read; headers and the echo of a PUT are not visible here. Upgrade if billing data is ever exposed to the client.
     var wireDown = 0;
