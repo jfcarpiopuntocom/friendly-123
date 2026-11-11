@@ -6,6 +6,8 @@
  // Monotonic in this JS lifetime: a real logout cannot be laundered by
  // immediately signing into the same license/role/tab again.
  var logoutSerial=0;
+ // Private proof retained only in this JS realm, never logged or exported.
+ var lastValidated=null;
  var PUBLIC_URL='https://jfcarpiopuntocom.github.io/friendly-123/';
  var strings={
   es:{title:'Tu sesión continúa en otra pestaña',body:'Esta sesión se cerró. Puedes seguir en la otra pestaña o volver a entrar aquí con tu PIN.',resume:'Ingresar al dashboard con PIN',tips:'Herramientas amigas',tip1:'JFCarpio.com: más herramientas para negocios.',tip2:'BuscaClientes: encuentra oportunidades comerciales.',tip3:'La Escuela del Dinero: formación práctica.',recommend:'¿Conoces a alguien con negocio?',pitch:'Comparte Friendly con un amigo o familiar que venda productos o trabaje con comisiones.',share:'Recomendar Friendly',copy:'Copiar enlace',copied:'Enlace copiado.',manual:'Selecciona y copia el enlace.',opened:'El menú de compartir se abrió.',cancelled:'Puedes compartirlo cuando quieras.',shareText:'Friendly te ayuda a llevar inventario, ventas y comisiones. Prueba la demo.'},
@@ -56,7 +58,7 @@
   suspendida=true;avisarSync();OCAuth.salir();render();
  }
  async function claim(){
-  epoch();var claimEpoch=window.OC_AUTH_SESSION_EPOCH;clearPanel();pending=true;avisarSync();
+  epoch();var claimEpoch=window.OC_AUTH_SESSION_EPOCH;lastValidated=null;clearPanel();pending=true;avisarSync();
   try{
    var owned={};try{owned=JSON.parse(localStorage.getItem('f123_owned')||'{}');}catch(_){}
    var notebook=localStorage.getItem('f123_tienda_activa')||owned.licenseCode||'demo';
@@ -107,6 +109,7 @@
  window.addEventListener('oc-login',claim);
  window.addEventListener('oc-logout',function(){
   logoutSerial++;
+  lastValidated=null;
   epoch();
   // Never check-then-delete shared lease: a second tab may own it already.
   // Fence this tab locally; next PIN login overwrites the shared lease.
@@ -142,9 +145,29 @@
  async function authoritySnapshot(){
   if(!claimed||pending||suspendida||!scopeKey||!current())return null;
   var held=lease();if(!held||held.owner!==id||pendingClaim())return null;
+  var licenseAtStart=ownedLicense(),notebookAtStart=notebookSource(),roleAtStart=OCAuth.rolActual();
   var identity=await authorityIdentity();
-  if(!identity||!current())return null;
-  return {marker:identity.marker,role:identity.role,owner:id,scope:scopeKey,epoch:window.OC_AUTH_SESSION_EPOCH||0,logoutSerial:logoutSerial};
+  if(!identity||!current()||licenseAtStart!==ownedLicense()||
+     notebookAtStart!==notebookSource()||roleAtStart!==OCAuth.rolActual())return null;
+  var proof={marker:identity.marker,role:identity.role,owner:id,scope:scopeKey,epoch:window.OC_AUTH_SESSION_EPOCH||0,logoutSerial:logoutSerial};
+  lastValidated={marker:proof.marker,role:proof.role,owner:proof.owner,scope:proof.scope,
+    epoch:proof.epoch,logoutSerial:proof.logoutSerial,license:licenseAtStart,notebook:notebookAtStart};
+  return proof;
+ }
+ // Synchronous commit fence for an IndexedDB request callback. Never
+ // treat an async Promise, a cached PIN, or a bare isCurrent() as authority.
+ // The raw license and notebook remain private inside this closure.
+ function authoritySyncCurrent(before){
+  if(!before||!lastValidated||!claimed||pending||suspendida||!scopeKey||!current())return false;
+  var held=lease();
+  return !!(held&&held.owner===id&&!pendingClaim()&&
+    before.marker===lastValidated.marker&&before.role===lastValidated.role&&
+    before.owner===id&&before.scope===scopeKey&&before.epoch===lastValidated.epoch&&
+    before.logoutSerial===lastValidated.logoutSerial&&
+    lastValidated.epoch===(window.OC_AUTH_SESSION_EPOCH||0)&&
+    lastValidated.logoutSerial===logoutSerial&&
+    lastValidated.license===ownedLicense()&&lastValidated.notebook===notebookSource()&&
+    !!window.OCAuth&&lastValidated.role===OCAuth.rolActual());
  }
  async function authorityContinuity(before){
   var after=await authoritySnapshot();
@@ -186,7 +209,7 @@
    changed();
   });
  }
- window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authorityIdentity:authorityIdentity,authorityRequestIdentity:authorityRequestIdentity,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,waitOwnClaim:waitOwnClaim,get pending(){return pending;}};
+ window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authorityIdentity:authorityIdentity,authorityRequestIdentity:authorityRequestIdentity,authoritySnapshot:authoritySnapshot,authoritySyncCurrent:authoritySyncCurrent,authorityContinuity:authorityContinuity,waitOwnClaim:waitOwnClaim,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
  if(window.OCAuth&&OCAuth.rolActual())claim();
 })();
