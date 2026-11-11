@@ -39,7 +39,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    const initial=await page.evaluate(async browserName=>{
      OCAuth.rolActual=()=> 'dueno';
      const p=await fetch('/api/productos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-       nombre:'Activated P0 '+browserName,barcode:'P0-ACTIVATED-'+browserName,precio:15,stockInicial:3,costo:5})});
+       nombre:'Activated P0 '+browserName,barcode:'P0-ACTIVATED-'+browserName,precio:15,stockInicial:4,costo:5})});
      const json=await p.json();if(!p.ok)throw Error('fixture product '+p.status+' '+JSON.stringify(json));return json.id;
    },name);
    await page.evaluate((browserName)=>{
@@ -54,6 +54,19 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      return {status:r.status,json:await r.json()};
    },initial);
    const before=await sale();assert.equal(before.status,200,'activated, current lease must be able to sell');
+   // P0 missing transition: CONFIRM is initiated immediately after this tab
+   // begins its OWN asynchronous PIN re-claim. The request must capture its
+   // identity before waiting, then prove the live lease again at execution.
+   // No artificial sleep/timeout and no change to the production 403 fence.
+   const duringOwnPin=await page.evaluate(async id=>{
+     window.dispatchEvent(new Event('oc-login'));
+     const r=await fetch('/api/productos/'+id+'/venta',{
+       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cantidad:1})
+     });
+     return {status:r.status,json:await r.json()};
+   },initial);
+   assert.equal(duringOwnPin.status,200,
+     'sale initiated during same-tab PIN claim must work after owner lease is proved');
    const blocked=await page.evaluate(async id=>{
      const snapshot=await OCTabSession.authoritySnapshot();
      localStorage.setItem(snapshot.scope+'_claim',JSON.stringify({owner:'other-tab',at:Date.now()}));
@@ -81,8 +94,8 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      const p=s.productos.find(p=>p.id===id);
      return {stock:p.stockActual,sales:s.ventas.filter(v=>v.productoId===id).length};
    },initial);
-   assert.deepEqual(persisted,{stock:1,sales:2},
-     'only two authorized sales changed stock and sales; 403s never committed');
+   assert.deepEqual(persisted,{stock:1,sales:3},
+     'only three authorized sales changed stock and sales; 403s never committed');
    await page.reload({waitUntil:'domcontentloaded'});
    await page.waitForFunction(()=>!!window.OCEstadoIDB&&typeof OCEstadoIDB.leer==='function');
    const reopened=await page.evaluate(async id=>{
@@ -90,7 +103,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      const p=s.productos.find(p=>p.id===id);
      return {stock:p.stockActual,sales:s.ventas.filter(v=>v.productoId===id).length};
    },initial);
-   assert.deepEqual(reopened,{stock:1,sales:2},'single device survives reload');
+   assert.deepEqual(reopened,{stock:1,sales:3},'single device survives reload');
   } finally {await browser.close();await new Promise(r=>srv.close(r));}
  });
 }
