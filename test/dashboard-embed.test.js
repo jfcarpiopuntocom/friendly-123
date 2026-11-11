@@ -9,6 +9,12 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) test(`dash
   const seed=await ctx.newPage();await seed.goto(ORIGIN+'/index.html',{waitUntil:'load'});await seed.waitForFunction(()=>window.OCSecure&&window.OCAuth);
   const ids=await seed.evaluate(async()=>{
    OCAuth.rolActual=()=> 'dueno';localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'F123-TEST-0000-0000-00000',instanceId:'synthetic-embed-device',nombreNegocio:'Synthetic embed'}));await OCSecure.guardarSecreto('789',['260'],'357','');
+   // A synthetic activated license is NOT an authenticated tab lease. Claim
+   // the real tab-session guard before exercising native sale/payment flows;
+   // never bypass production 403 just to keep an old test green.
+   if(!window.OCTabSession||typeof OCTabSession.authoritySnapshot!=='function')throw Error('missing real tab-session');
+   window.dispatchEvent(new Event('oc-login'));
+   if(!await OCTabSession.waitOwnClaim(3000)||!await OCTabSession.authoritySnapshot())throw Error('synthetic seed failed to acquire own tab lease');
    const req=async(u,m='GET',b)=>{const r=await fetch(u,{method:m,body:b?JSON.stringify(b):undefined});if(!r.ok)throw Error(await r.text());return r.json();};
    await req('/api/usuarios','POST',{nombre:'Synthetic embed admin',pin:'555',rol:'admin'});
    const person=await req('/api/promotoras','POST',{nombre:'Synthetic payee',comisionBase:40});const rack=await req('/api/ubicaciones','POST',{nombre:'Synthetic embed rack',tipo:'socio'});await req('/api/ubicaciones/'+rack.id,'PUT',{promotoraId:person.id});
