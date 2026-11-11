@@ -1,0 +1,35 @@
+name: P0 Firebase transient network vs durable refusal
+on:
+  pull_request:
+    paths:
+      - "docs/firebase-relay.js"
+      - "test/p0-firebase-network-recovery.test.cjs"
+      - ".github/workflows/p0-firebase-network-recovery.yml"
+  push:
+    branches: [master]
+    paths:
+      - "docs/firebase-relay.js"
+      - "test/p0-firebase-network-recovery.test.cjs"
+      - ".github/workflows/p0-firebase-network-recovery.yml"
+permissions:
+  contents: read
+jobs:
+  firebase-network-failure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Triple pass exact Firebase adapter under synthetic network errors
+        run: |
+          set -euo pipefail
+          for pass in 1 2 3; do
+            echo "FIREBASE P0 PASS $pass/3"
+            node --test test/p0-firebase-network-recovery.test.cjs
+          done
+      - name: Official v728 manifest is sealed (no diff)
+        run: |
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js

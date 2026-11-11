@@ -28,9 +28,18 @@
     function http(method, path, body, query) {
       var simple = method === "PUT" && body !== undefined;
       var qs = (query ? q(query) : "") + (simple ? (query ? "&" : "") + "x-http-method-override=PUT" : "");
-      return fetchFn(base + path + ".json" + (qs ? "?" + qs : ""), {
-        method: simple ? "POST" : method, headers: {},
-        body: body === undefined ? undefined : JSON.stringify(body)
+      // A rejected fetch is a transient network failure, not an HTTP refusal.
+      // Preserve that distinction for the relay selector's 5-second retry lane.
+      // Never retain the exception (it may contain a private room URL).
+      return Promise.resolve().then(function () {
+        return fetchFn(base + path + ".json" + (qs ? "?" + qs : ""), {
+          method: simple ? "POST" : method, headers: {},
+          body: body === undefined ? undefined : JSON.stringify(body)
+        });
+      }).catch(function () {
+        var err = new Error("Firebase network unavailable");
+        err.f123Network = true;
+        throw err;
       });
     }
     // shortcut: counts response bodies and live events read; headers and the echo of a PUT are not visible here. Upgrade if billing data is ever exposed to the client.
@@ -109,7 +118,7 @@
         if (!r.ok) return this.close(r.status === 401 ? 1008 : 1011, "firebase relay unavailable");
         this.readyState = 1; this._emit("open"); this._text({ k: "peer-count", n: 1 });
         this._live();
-      } catch (_) { if (this.readyState === 0) { this._emit("error"); this.close(1011, "firebase relay unavailable"); } }
+      } catch (err) { if (this.readyState === 0) { this._emit("error"); this.close(err && err.f123Network === true ? 1006 : 1011, "firebase relay unavailable"); } }
     };
     // Other devices' durable writes arrive live through the REST event stream (new entries only).
     Socket.prototype._live = function () {
@@ -143,10 +152,10 @@
       if (size > (ckpt ? 1088 * 1024 : MAX_FRAME)) { this.close(1009, "frame too big"); return; }
       if (!control || !control.k) return; // live-only frames: durable ops already reach other devices
       var self = this, durable = control.k === "op" || control.k === "ckpt";
-      var lane = (durable ? this._durable : this._reads).then(function () { return self._command(control); }).catch(function () { self._fail(); });
+      var lane = (durable ? this._durable : this._reads).then(function () { return self._command(control); }).catch(function (err) { self._fail(err); });
       if (durable) this._durable = lane; else this._reads = lane;
     };
-    Socket.prototype._fail = function () { if (this.readyState < 2) { this._emit("error"); this.close(1011, "firebase relay unavailable"); } };
+    Socket.prototype._fail = function (err) { if (this.readyState < 2) { this._emit("error"); this.close(err && err.f123Network === true ? 1006 : 1011, "firebase relay unavailable"); } };
     Socket.prototype._rev = async function () {
       var ks = await getJson(this.root + "/k", { shallow: "true" });
       var revs = Object.keys(ks || {}).map(Number).filter(function (n) { return n > 0; });
