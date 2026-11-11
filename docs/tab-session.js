@@ -27,6 +27,31 @@
    localStorage.setItem(k,JSON.stringify(next));
   }catch(_){}
  }
+ // P0 observation only, NEVER consulted by the authorization fence.
+ // A pageshow(false) is not evidence of a WebKit process kill: normal loads
+ // also fire it. pageshow(true) is evidence of a bfcache restoration.
+ var p0LoadId=crypto.randomUUID(),p0HiddenAt=null;
+ try{var p0Stored=Number(sessionStorage.getItem('f123_p0_hidden_at_v1'));if(Number.isFinite(p0Stored)&&p0Stored>0)p0HiddenAt=p0Stored;}catch(_){}
+ function p0Lifecycle(kind,persisted){
+  try{
+   var now=Date.now(),visible=document.visibilityState==='visible';
+   if((kind==='pagehide'||kind==='visibilitychange')&&!visible&&p0HiddenAt===null){
+    p0HiddenAt=now;
+    try{sessionStorage.setItem('f123_p0_hidden_at_v1',String(now));}catch(_){}
+   }
+   var duration=visible&&p0HiddenAt!==null?Math.max(0,now-p0HiddenAt):null;
+   var row={at:now,kind:kind,loadId:p0LoadId,epoch:window.OC_AUTH_SESSION_EPOCH||0,
+    visibility:document.visibilityState||'unknown',
+    pageshowPersisted:kind==='pageshow'&&typeof persisted==='boolean'?persisted:null,
+    hiddenDurationMs:duration,wasDiscarded:document.wasDiscarded===true};
+   var k='f123_p0_page_lifecycle_v1';
+   var rows=JSON.parse(localStorage.getItem(k)||'[]');
+   var next=(Array.isArray(rows)?rows:[]).slice(-49);next.push(row);
+   localStorage.setItem(k,JSON.stringify(next));
+   if(visible&&p0HiddenAt!==null){p0HiddenAt=null;try{sessionStorage.removeItem('f123_p0_hidden_at_v1');}catch(_){}}
+  }catch(_){}
+ }
+ p0Lifecycle('init',null);
  function clearPanel(){var gate=document.getElementById('oc-gate');if(gate)delete gate.dataset.tabHandoff;document.getElementById('oc-tab-handoff')?.remove();}
  function render(){
   var gate=document.getElementById('oc-gate');if(!gate)return;
@@ -109,8 +134,12 @@
  }
  try{channel=new BroadcastChannel('friendly-123-auth-session');channel.onmessage=function(ev){if(ev.data&&ev.data.key===scopeKey)check();};}catch(_){}
  window.addEventListener('storage',function(ev){if(ev.key===scopeKey||ev.key?.endsWith('::'+scopeKey))check();});
- window.addEventListener('focus',check);window.addEventListener('pageshow',check);
- document.addEventListener('visibilitychange',function(){if(!document.hidden)check();avisarSync();});
+ window.addEventListener('focus',check);
+ window.addEventListener('pagehide',function(){p0Lifecycle('pagehide',null);});
+ window.addEventListener('pageshow',function(ev){p0Lifecycle('pageshow',!!(ev&&ev.persisted));check();});
+ window.addEventListener('freeze',function(){p0Lifecycle('freeze',null);});
+ window.addEventListener('resume',function(){p0Lifecycle('resume',null);});
+ document.addEventListener('visibilitychange',function(){p0Lifecycle('visibilitychange',null);if(!document.hidden)check();avisarSync();});
  window.addEventListener('oc-login',claim);
  window.addEventListener('oc-logout',function(){
   epoch('logout');
