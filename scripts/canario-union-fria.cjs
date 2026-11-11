@@ -125,6 +125,41 @@ const consultarCheckpoint = p => p.evaluate(async () => {
   finally { if (timer !== null) clearTimeout(timer); }
 });
 
+// Passive relay budget snapshot (QA only). Fixed local keys; no credential,
+// room capability, date, raw cursor, ciphertext or network requests are returned.
+// A missing/malformed budget is UNKNOWN, never a healthy zero.
+const diagnosticoPresupuesto = p => p.evaluate(() => {
+  const MiB = 1048576, LIMIT_DOWN = 20 * MiB;
+  const defs = [
+    ['supabase', 'f123_relay_cupo_v1'],
+    ['firebase', 'f123_relay_cupo_fb_v1']
+  ];
+  let actual = null;
+  try {
+    const relay = window.F123Relay;
+    if (relay && typeof relay.estadoCupo === 'function') actual = relay.estadoCupo();
+  } catch (_) {}
+  const redondear = n => Math.min(100, Math.floor(n / MiB * 10) / 10);
+  const capas = defs.map(([capa, key]) => {
+    const desconocido = { capa, subidaMiB: null, bajadaMiB: null,
+      limiteAlcanzado: null, enPausa: null, usable: null };
+    try {
+      const registro = JSON.parse(localStorage.getItem(key) || 'null');
+      const estado = Array.isArray(actual) ? actual.find(x => x && x.capa === key) : null;
+      if (!registro || !estado || !Number.isFinite(registro.up) || registro.up < 0 ||
+          !Number.isFinite(registro.down) || registro.down < 0 ||
+          !Number.isFinite(estado.up) || estado.up < 0 ||
+          !Number.isFinite(estado.down) || estado.down < 0 ||
+          !Number.isFinite(Number(registro.pausaHasta)) ||
+          typeof estado.usable !== 'boolean') return desconocido;
+      return { capa, subidaMiB: redondear(estado.up), bajadaMiB: redondear(estado.down),
+        limiteAlcanzado: estado.down >= LIMIT_DOWN,
+        enPausa: Number(registro.pausaHasta) > Date.now(), usable: estado.usable };
+    } catch (_) { return desconocido; }
+  });
+  return { conocido: capas.every(x => x.bajadaMiB !== null && x.enPausa !== null), capas };
+}).catch(() => ({ conocido: false, capas: [] }));
+
 // Only safe booleans and role are printed: never license, PIN, room ID or encrypted data.
 const diagnostico = (p, licencia) => p.evaluate((lic) => {
   try {
@@ -386,6 +421,7 @@ function progresoRecuperacion(anterior, actual) {
   // Yjs history into GREEN or cause an extra Owner PIN attempt.
   console.log('CANARIO_CHECKPOINT:', JSON.stringify(checkpointInicial || await consultarCheckpoint(p)));
   console.log('CANARIO_DIAGNOSTICO:', JSON.stringify(ultima));
+  console.log('CANARIO_CAPAS:', JSON.stringify(await diagnosticoPresupuesto(p)));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
   await b.close();
   if (fallo) { console.error('FALLA ' + fallo); process.exit(1); }
