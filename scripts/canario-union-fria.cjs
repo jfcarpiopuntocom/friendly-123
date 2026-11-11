@@ -125,6 +125,48 @@ const consultarCheckpoint = p => p.evaluate(async () => {
   finally { if (timer !== null) clearTimeout(timer); }
 });
 
+// Synthetic-only passive network observer. It never stores URLs, credentials,
+// paths, query strings, payloads, session IDs, timestamps or exception text.
+// Observe only known relay hosts; every counter is bounded.
+const crearObservadorRed = () => {
+  const cero = () => ({ ok2xx: 0, rechazo403: 0, error4xx: 0, error5xx: 0,
+    errorRed: 0, websocketCreado: 0, websocketCerrado: 0,
+    websocketError: 0, other: 0 });
+  const datos = { supabase: cero(), firebase: cero(), peer: cero() };
+  const nombre = raw => {
+    try {
+      const host = new URL(raw).hostname.toLowerCase();
+      if (host === 'friendly-123-ab7b3-default-rtdb.firebaseio.com') return 'firebase';
+      if (host.endsWith('.supabase.co') || host === 'friendly123-relay-supabase.jfcarpio.workers.dev') return 'supabase';
+      if (host === 'friendly123-sync-relay.jfcarpio.workers.dev') return 'peer';
+    } catch (_) {}
+    return null;
+  };
+  const contar = (capa, campo) => { if (capa && datos[capa]) datos[capa][campo] = Math.min(999, datos[capa][campo] + 1); };
+  return {
+    respuesta: res => {
+      try {
+        const capa = nombre(res.url());
+        if (!capa) return;
+        const st = res.status();
+        contar(capa, !Number.isSafeInteger(st) ? 'other' :
+          st >= 200 && st <= 299 ? 'ok2xx' : st === 403 ? 'rechazo403' :
+          st >= 400 && st <= 499 ? 'error4xx' : st >= 500 && st <= 599 ? 'error5xx' : 'other');
+      } catch (_) {}
+    },
+    fallida: req => { try { contar(nombre(req.url()), 'errorRed'); } catch (_) {} },
+    socket: ws => {
+      try {
+        const capa = nombre(ws.url()); if (!capa) return;
+        contar(capa, 'websocketCreado');
+        ws.on('close', () => contar(capa, 'websocketCerrado'));
+        ws.on('socketerror', () => contar(capa, 'websocketError'));
+      } catch (_) {}
+    },
+    resumen: () => JSON.parse(JSON.stringify(datos))
+  };
+};
+
 // Passive relay budget snapshot (QA only). Fixed local keys; no credential,
 // room capability, date, raw cursor, ciphertext or network requests are returned.
 // A missing/malformed budget is UNKNOWN, never a healthy zero.
@@ -267,6 +309,10 @@ function progresoRecuperacion(anterior, actual) {
 (async () => {
   const b = await chromium.launch(), p = await b.newPage(), errores = [];
   p.on('pageerror', e => errores.push((e.name || 'Error').slice(0, 32)));
+  const red = crearObservadorRed();
+  p.on('response', red.respuesta);
+  p.on('requestfailed', red.fallida);
+  p.on('websocket', red.socket);
   p.setDefaultTimeout(30000);
   let fallo = '', ultima = null, checkpointInicial = null;
   const t0 = Date.now();
@@ -422,6 +468,7 @@ function progresoRecuperacion(anterior, actual) {
   console.log('CANARIO_CHECKPOINT:', JSON.stringify(checkpointInicial || await consultarCheckpoint(p)));
   console.log('CANARIO_DIAGNOSTICO:', JSON.stringify(ultima));
   console.log('CANARIO_CAPAS:', JSON.stringify(await diagnosticoPresupuesto(p)));
+  console.log('CANARIO_RED:', JSON.stringify(red.resumen()));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
   await b.close();
   if (fallo) { console.error('FALLA ' + fallo); process.exit(1); }

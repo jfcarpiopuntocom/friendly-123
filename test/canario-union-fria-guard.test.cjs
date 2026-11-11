@@ -421,3 +421,53 @@ test('P0 RED: missing or malformed budget cannot report false zero or a healthy 
   assert.ok(!report.includes('BROKEN-PRIVATE-STATE'));
   assert.match(src, /CANARIO_CAPAS:/, 'the remote canary must print a bounded budget report on exit');
 });
+
+test('P0 RED: cold-join network probe classifies relay refusals without URLs or credentials', () => {
+  const source = fs.readFileSync(path.join(__dirname, '../scripts/canario-union-fria.cjs'), 'utf8');
+  const start = source.indexOf('const crearObservadorRed = ');
+  const end = source.indexOf('\n// Passive relay budget snapshot', start);
+  assert.ok(start >= 0 && end > start, 'read-only network observer should have a standalone implementation');
+  const ctx = { JSON, URL, Number };
+  vm.runInNewContext(source.slice(start,end)+'\nthis.create = crearObservadorRed;',ctx);
+  const obs = ctx.create();
+  const req = (url, status) => ({url:()=>url,status:()=>status});
+  obs.respuesta(req('https://uhvzdrlhmznxxelniizi.supabase.co/rest/v1/rpc/f123_relay_pull?room=SECRET-ROOM', 403));
+  obs.respuesta(req('https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/SECRET-ROOM/k.json', 200));
+  obs.respuesta(req('https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/SECRET-ROOM/k.json', 503));
+  obs.fallida({url:()=> 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/SECRET-ROOM/o.json'});
+  obs.respuesta(req('https://some-other-site.example/secret?code=SECRET-LICENSE', 429));
+  const handlers = {};
+  obs.socket({url:()=> 'wss://uhvzdrlhmznxxelniizi.supabase.co/realtime/v1/websocket?token=SECRET-TOKEN',
+    on: (event, fn) => {handlers[event] = fn;}});
+  handlers.close();
+  const report=obs.resumen();
+  assert.equal(report.supabase.rechazo403, 1);
+  assert.equal(report.supabase.websocketCreado, 1);
+  assert.equal(report.supabase.websocketCerrado, 1);
+  assert.equal(report.firebase.ok2xx, 1);
+  assert.equal(report.firebase.error5xx, 1);
+  assert.equal(report.firebase.errorRed, 1);
+  assert.equal(report.firebase.rechazo403, 0);
+  const serialized=JSON.stringify(report);
+  for (const secret of ['SECRET-ROOM','SECRET-LICENSE','SECRET-TOKEN','f123_relay_pull','firebaseio.com','supabase.co']) {
+    assert.ok(!serialized.includes(secret), 'never print raw request paths, URLs or tokens');
+  }
+  assert.match(source, /CANARIO_RED:/, 'must log bounded network status counters at the end of the synthetic run');
+});
+
+test('P0 RED: unknown networks and malformed statuses never count as successful transport', () => {
+  const source=fs.readFileSync(path.join(__dirname,'../scripts/canario-union-fria.cjs'),'utf8');
+  const start=source.indexOf('const crearObservadorRed = ');
+  const end=source.indexOf('\n// Passive relay budget snapshot',start);
+  assert.ok(start>=0&&end>start);
+  const ctx={JSON,URL,Number};vm.runInNewContext(source.slice(start,end)+'\nthis.create=crearObservadorRed;',ctx);
+  const obs=ctx.create();
+  obs.respuesta({url:()=> 'https://bad-domain.example/private',status:()=>200});
+  obs.respuesta({url:()=> 'https://friendly-123-ab7b3-default-rtdb.firebaseio.com/f123/a',status:()=>NaN});
+  obs.fallida({url:()=> 'broken-url'});
+  const r=obs.resumen();
+  assert.equal(r.firebase.ok2xx,0);
+  assert.equal(r.firebase.other,1);
+  assert.equal(r.supabase.ok2xx,0);
+  assert.ok(JSON.stringify(r).length < 2000, 'bounded counters only');
+});
