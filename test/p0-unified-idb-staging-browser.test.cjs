@@ -102,7 +102,29 @@ test('P0 '+name+' single-DB v2 staging: legacy snapshot retained, encrypted ops 
    const conflict=await OCOutbox.prepararMigracionAlEstado();
    const afterConflict=await OCOutbox.leer();
    const retained=await OCEstadoIDB.leerOutboxMigrado('original-op-A');
+   // A legacy writer adds op E while the staging loop is encrypting D.
+   // The first pass MUST detect a changed ciphertext and refuse cutover.
+   const opD={id:'original-op-D',method:'POST',url:'/api/synthetic',body:'{"synthetic":true}'};
+   const opE={id:'original-op-E',method:'POST',url:'/api/synthetic',body:'{"synthetic":true}'};
+   const withD=[...expanded,opD];
+   const cipher=OCSecure.cifrarSync;
+   await OCOutbox.guardar(await cipher(JSON.stringify(withD)));
+   let sourceBumped=false;
+   OCSecure.cifrarSync=async text=>{
+     if(!sourceBumped&&text.startsWith('{"id":"original-op-D"')){
+       sourceBumped=true;
+       await OCOutbox.guardar(await cipher(JSON.stringify([...withD,opE])));
+     }
+     return cipher(text);
+   };
+   const stale=await OCOutbox.prepararMigracionAlEstado();
+   OCSecure.cifrarSync=cipher;
+   const afterStale=await OCOutbox.leer();
+   const recovery=await OCOutbox.prepararMigracionAlEstado();
+   const finalSource=await OCOutbox.leer();
+   const recoveredE=await OCEstadoIDB.leerOutboxMigrado('original-op-E');
    return {saved,before,after,migrated,repeated,updatedSource,afterResume,resumed,
+    stale,afterStale,recovery,finalSource,recoveredE:recoveredE&&await OCSecure.descifrarSync(recoveredE.blob),
     conflictingSource,afterConflict,conflict,
     retained:retained&&await OCSecure.descifrarSync(retained.blob),
     a:rowA&&await OCSecure.descifrarSync(rowA.blob),
@@ -129,7 +151,13 @@ test('P0 '+name+' single-DB v2 staging: legacy snapshot retained, encrypted ops 
   assert.equal(bridge.conflict.reason,'identity-conflict');
   assert.equal(bridge.conflictingSource,bridge.afterConflict,'legacy source never deleted even on conflict');
   assert.equal(JSON.parse(bridge.retained).body,'{"synthetic":true}','previously copied operation must not be overwritten by conflict');
-  console.log('P0 staging: SHA-256 set/ciphertext, idempotent resume, incremental append, conflict fail-closed: PASS (no sale cutover)');
+  assert.equal(bridge.stale.status,'stale-source','legacy writer during staging invalidates the result');
+  assert.equal(bridge.stale.sourcePreserved,true);
+  assert.equal(bridge.recovery.status,'staged-only','recovery rechecks the fresh source');
+  assert.equal(bridge.recovery.copiedThisPass,1,'only operation E needs importing on retry');
+  assert.equal(bridge.afterStale,bridge.finalSource,'legacy writer update survives staging and recovery');
+  assert.equal(JSON.parse(bridge.recoveredE).id,'original-op-E','newest concurrent legacy operation eventually included');
+  console.log('P0 staging: SHA-256 source/set, reentrant retry, stale writer detection and recovery PASS; no live cutover/atomic sale.');
  } finally {
   await browser.close();await new Promise(r=>server.close(r));
  }
