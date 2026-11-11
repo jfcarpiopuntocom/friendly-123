@@ -4,14 +4,15 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const http=require('node:http');
-const {chromium}=require('playwright');
+const {chromium,webkit}=require('playwright');
 const runtime=fs.readFileSync(path.join(__dirname,'../docs/estado-idb.js'),'utf8');
 const outboxRuntime=fs.readFileSync(path.join(__dirname,'../docs/sync-outbox.js'),'utf8');
 
-test('P0 single-DB schema v2 staging: legacy snapshot retained, encrypted ops copied atomically and read back', {timeout:45000}, async()=>{
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
+test('P0 '+name+' single-DB v2 staging: legacy snapshot retained, encrypted ops copied and read back', {timeout:60000}, async()=>{
  const server=http.createServer((_req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('<!doctype html><title>synthetic P0</title>')});
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- const browser=await chromium.launch({headless:true});
+ const browser=await engine.launch({headless:true});
  try {
   const page=await browser.newPage();
   await page.goto('http://127.0.0.1:'+server.address().port+'/');
@@ -99,3 +100,4 @@ test('P0 single-DB schema v2 staging: legacy snapshot retained, encrypted ops co
   await browser.close();await new Promise(r=>server.close(r));
  }
 });
+}
