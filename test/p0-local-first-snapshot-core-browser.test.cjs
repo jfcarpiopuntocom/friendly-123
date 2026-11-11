@@ -58,8 +58,9 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
    const stale=JSON.parse(JSON.stringify(afterSecond));
    delete stale._dedup;delete stale._outbox;stale._rev=afterSecond._rev+1;
    const lostMetadata=await db.guardarConRevision(stale,afterSecond._rev);
+   const lostMirrorMetadata=await db.guardarYa(stale);
    const afterStale=await db.leer();
-   return {a,b,conflict,duplicateAfterLogout,asyncAuth,lostRole,rejected,second,lostMetadata,
+   return {a,b,conflict,duplicateAfterLogout,asyncAuth,lostRole,rejected,second,lostMetadata,lostMirrorMetadata,
     afterStale:{rev:afterStale._rev,stock:afterStale.productos[0].stockActual,
      dedup:Object.keys(afterStale._dedup||{}),outbox:Object.keys(afterStale._outbox||{})},
     first:{stock:first.productos[0].stockActual,ventas:first.ventas.length,movimientos:first.movimientos.length,rev:first._rev,outbox:Object.keys(first._outbox||{}),dedup:Object.keys(first._dedup||{})},
@@ -78,7 +79,8 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
   assert.equal(results.rejected.ok,false,'invalid business mutation aborts');
   assert.deepEqual(results.beforeSecond,{stock:1,ventas:1,rev:2});
   assert.equal(results.second.ok,true);
-  assert.equal(results.lostMetadata,false,'legacy serializer may not erase committed opId/outbox');
+  assert.equal(results.lostMetadata,false,'legacy strict CAS may not erase committed opId/outbox');
+  assert.equal(results.lostMirrorMetadata,false,'legacy grouped mirror may not erase committed opId/outbox');
   assert.deepEqual(results.afterStale,{rev:3,stock:0,
    dedup:['sale-op-001','sale-op-004'],outbox:['sale-op-001','sale-op-004']});
   assert.deepEqual(results.afterSecond,{stock:0,ventas:2,movimientos:2,rev:3,
