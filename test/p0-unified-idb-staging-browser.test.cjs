@@ -83,19 +83,53 @@ test('P0 '+name+' single-DB v2 staging: legacy snapshot retained, encrypted ops 
    const before=await OCOutbox.leer();
    const migrated=await OCOutbox.prepararMigracionAlEstado();
    const after=await OCOutbox.leer();
+   // The same staged pass must be idempotent and resumable, not a PK abort.
+   const repeated=await OCOutbox.prepararMigracionAlEstado();
+   const expanded=[...operations,{id:'original-op-C',method:'POST',url:'/api/synthetic',body:'{"synthetic":true}'}];
+   await OCOutbox.guardar(await OCSecure.cifrarSync(JSON.stringify(expanded)));
+   const updatedSource=await OCOutbox.leer();
+   const resumed=await OCOutbox.prepararMigracionAlEstado();
+   const afterResume=await OCOutbox.leer();
    const rowA=await OCEstadoIDB.leerOutboxMigrado('original-op-A');
    const rowB=await OCEstadoIDB.leerOutboxMigrado('original-op-B');
-   return {saved,before,after,migrated,
+   const rowC=await OCEstadoIDB.leerOutboxMigrado('original-op-C');
+   // Conflicting payload for an already imported identity is a hard block,
+   // never an overwrite. Legacy source is still intact for inspection.
+   const conflicting=expanded.map(x=>x.id==='original-op-A'
+     ? {...x,body:'{"synthetic":"different-payload"}'}:x);
+   await OCOutbox.guardar(await OCSecure.cifrarSync(JSON.stringify(conflicting)));
+   const conflictingSource=await OCOutbox.leer();
+   const conflict=await OCOutbox.prepararMigracionAlEstado();
+   const afterConflict=await OCOutbox.leer();
+   const retained=await OCEstadoIDB.leerOutboxMigrado('original-op-A');
+   return {saved,before,after,migrated,repeated,updatedSource,afterResume,resumed,
+    conflictingSource,afterConflict,conflict,
+    retained:retained&&await OCSecure.descifrarSync(retained.blob),
     a:rowA&&await OCSecure.descifrarSync(rowA.blob),
-    b:rowB&&await OCSecure.descifrarSync(rowB.blob)};
+    b:rowB&&await OCSecure.descifrarSync(rowB.blob),
+    c:rowC&&await OCSecure.descifrarSync(rowC.blob)};
   });
   assert.equal(bridge.saved,true);
   assert.equal(bridge.before,bridge.after,'legacy encrypted source never deleted or changed');
   assert.equal(bridge.migrated.status,'staged-only','no cutover claim');
   assert.equal(bridge.migrated.count,2);
+  assert.equal(bridge.migrated.copiedThisPass,2);
+  assert.equal(bridge.migrated.sourceCipherHashMatches,true,'ciphertext SHA-256 verified before and after staging');
+  assert.equal(bridge.migrated.opIdSetHashMatches,true,'sorted logical operation identity set hash checked');
+  assert.equal(bridge.repeated.status,'staged-only','staging can resume safely with same source');
+  assert.equal(bridge.repeated.copiedThisPass,0,'repeat pass must not duplicate operations');
+  assert.equal(bridge.resumed.status,'staged-only');
+  assert.equal(bridge.resumed.copiedThisPass,1,'only the new legacy op is staged');
+  assert.equal(bridge.resumed.opIdSetHashMatches,true);
+  assert.equal(bridge.updatedSource,bridge.afterResume,'source remains untouched on incremental migration');
   assert.equal(JSON.parse(bridge.a).id,'original-op-A','preserves original operation identity');
   assert.equal(JSON.parse(bridge.b).id,'original-op-B','preserves original operation identity');
-  console.log('P0 v2 staged migration fixture PASS. Legacy source preserved; no sale atomicity or cutover proven.');
+  assert.equal(JSON.parse(bridge.c).id,'original-op-C','reconciles new writer operation added after first pass');
+  assert.equal(bridge.conflict.status,'blocked','same opId with altered payload is fail-closed');
+  assert.equal(bridge.conflict.reason,'identity-conflict');
+  assert.equal(bridge.conflictingSource,bridge.afterConflict,'legacy source never deleted even on conflict');
+  assert.equal(JSON.parse(bridge.retained).body,'{"synthetic":true}','previously copied operation must not be overwritten by conflict');
+  console.log('P0 staging: SHA-256 set/ciphertext, idempotent resume, incremental append, conflict fail-closed: PASS (no sale cutover)');
  } finally {
   await browser.close();await new Promise(r=>server.close(r));
  }
