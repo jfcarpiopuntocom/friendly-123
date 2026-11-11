@@ -46,6 +46,8 @@
       var match = source.match(/<meta\s+name="dashboard-shell"\s+content="([^"]+)"/);
       if (!match || match[1] !== v.shell || !bridge.safe()) return;
       if (!await bridge.prepare() || !bridge.safe()) return;
+      /* (JFC 2026-11-11, v732) Tope anti-bucle: una recarga automatica por version del shell y por pestana. */
+      try { var ck = 'f123_dash_recarga:' + v.shell; if (sessionStorage.getItem(ck) === '1') return; sessionStorage.setItem(ck, '1'); } catch (_) {}
       reloading = true;
       location.reload();
     } catch (_) { /* Offline/update failure keeps the current report usable. */ }
