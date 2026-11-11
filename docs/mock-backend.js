@@ -6393,6 +6393,32 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
+      // P0: the same tab may still be acquiring its own PIN lease when a user
+      // taps CONFIRM SALE. Wait only for that already-started local claim,
+      // never for another tab, logout, changed role, or changed epoch.
+      // The existing strict session fence below runs again before the write.
+      if (ventaConcurrente && window.OCTabSession && window.OCTabSession.pending) {
+        const tab=window.OCTabSession;
+        const lista=await new Promise(function(resolve) {
+          let finished=false,timer=null;
+          function finish(ok){
+            if(finished)return;finished=true;
+            try{window.removeEventListener('oc-tab-session-changed',changed);}catch(_){}
+            if(timer!==null)clearTimeout(timer);
+            resolve(ok===true);
+          }
+          function changed(){
+            if(rolAlPedir!==_rolLocal() ||
+               epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0))return finish(false);
+            if(!tab.pending)return finish(tab.isCurrent()===true);
+          }
+          window.addEventListener('oc-tab-session-changed',changed);
+          timer=setTimeout(function(){finish(false);},3000);
+          changed();
+        });
+        if(!lista)return new Response(JSON.stringify({error:"Your session changed while this action was waiting. Sign in and try again."}),
+          {status:403,headers:{"Content-Type":"application/json"}});
+      }
       const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
       const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
