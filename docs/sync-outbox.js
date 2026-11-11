@@ -86,5 +86,63 @@
     try { return localStorage.getItem(LS_KEY); } catch (_) { return null; }
   }
 
-  window.OCOutbox = { guardar: guardar, leer: leer };
+  // Explicit staging operation only; NEVER invoked automatically on startup.
+  // Legacy "cola" is ONE encrypted blob containing an array of ops with .id,
+  // NOT per-op IDB records. Re-encrypt each validated operation without ever
+  // persisting the plaintext or destroying the original source.
+  async function prepararMigracionAlEstado() {
+    const state=window.OCEstadoIDB,secure=window.OCSecure;
+    if(!state||!state.importarOutboxPreparado||!state.leerOutboxMigrado||
+       !secure||!secure.descifrarSync||!secure.cifrarSync)
+      return {status:"blocked",reason:"capability-unavailable"};
+    try {
+      const source=await leer();
+      if(!source)return {status:"empty",count:0};
+      const plain=await secure.descifrarSync(source);
+      if(typeof plain!=="string")return {status:"blocked",reason:"decrypt-unavailable"};
+      const operations=JSON.parse(plain);
+      if(!Array.isArray(operations))return {status:"blocked",reason:"not-array"};
+      const unique=new Set(),newRows=[];
+      const originals=[];
+      for(const op of operations){
+        if(!op||typeof op!=="object"||Array.isArray(op)||
+           (op.opId&&op.id&&op.opId!==op.id))
+          return {status:"blocked",reason:"identity-ambiguous"};
+        const key=op.opId||op.id;
+        if(typeof key!=="string"||!key||key.length>160||unique.has(key))
+          return {status:"blocked",reason:"identity-invalid"};
+        unique.add(key);
+        const encoded=JSON.stringify(op);
+        originals.push({opId:key,plain:encoded});
+        const prior=await state.leerOutboxMigrado(key);
+        if(prior){
+          const recovered=await secure.descifrarSync(prior.blob);
+          if(recovered!==encoded)return {status:"blocked",reason:"identity-conflict"};
+          continue;
+        }
+        const encrypted=await secure.cifrarSync(encoded);
+        if(typeof encrypted!=="string"||!encrypted)
+          return {status:"blocked",reason:"encrypt-unavailable"};
+        newRows.push({opId:key,blob:encrypted});
+      }
+      if(newRows.length && !(await state.importarOutboxPreparado(newRows)))
+        return {status:"blocked",reason:"copy-not-confirmed"};
+      // Read-back must verify every original entry, not just a row count or
+      // IDB request success. A failed read/decrypt never claims migration.
+      for(const original of originals){
+        const row=await state.leerOutboxMigrado(original.opId);
+        if(!row||await secure.descifrarSync(row.blob)!==original.plain)
+          return {status:"blocked",reason:"read-back-mismatch"};
+      }
+      // The old encrypted blob remains the authoritative source. If an older
+      // tab wrote into it during staging, a future pass must include its ops.
+      if(await leer()!==source)
+        return {status:"stale-source",count:originals.length,sourcePreserved:true};
+      return {status:"staged-only",count:originals.length,sourcePreserved:true};
+    }catch(_){
+      return {status:"blocked",reason:"staging-error"};
+    }
+  }
+
+  window.OCOutbox = { guardar: guardar, leer: leer, prepararMigracionAlEstado: prepararMigracionAlEstado };
 })();
