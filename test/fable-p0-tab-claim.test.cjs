@@ -23,11 +23,14 @@ test('Fable P0-2 RED: focus during a pending same-tab lease claim must not log o
  assert.deepEqual(calls,[],'no self-expulsion while own claim is awaiting SHA-256');
  assert.equal(ctx.suspendida,false,'do not mark the active owner suspended during pending claim');
 });
-test('Fable P0-2: confirmed lost claim still fails closed after pending is cleared',()=>{
+test('Fable P0-2 (JFC order 2026-11-11): confirmed lost claim pauses sync but does NOT close the session',()=>{
  const {ctx,calls}=fixture({pending:false,hasLease:false});
  ctx.runCheck();
- assert.deepEqual(calls,['sync','logout','handoff'],'real displacement must close previous owner');
- assert.equal(ctx.suspendida,true);
+ // Before 2026-11-11 this asserted ['sync','logout','handoff'] (the old screen
+ // was signed out and the "continues in another tab" panel appeared). JFC ordered
+ // that removed: sync pauses, the user keeps working, no panel, no logout.
+ assert.deepEqual(calls,['sync'],'losing the lease only pauses sync');
+ assert.equal(ctx.suspendida,true,'sync stays paused on the screen that lost the lease');
 });
 test('Fable P0-2: already current owner does not close its session',()=>{
  const {ctx,calls}=fixture({pending:false,hasLease:true});

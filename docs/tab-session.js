@@ -1,5 +1,21 @@
 // Browser adapter: one authenticated UI session per notebook, with shared data
 // still handled by the existing backend. No PIN or business records in leases.
+//
+// P0 HOTFIX, ORDEN DE JFC (dueno) 2026-11-11: el turno (lease) compartido de
+// localStorage YA NO cierra la sesion de la pantalla anterior ni bloquea sus
+// escrituras. Una vendedora real no podia vender porque otra pantalla (pestana o
+// PWA instalada en el mismo perfil) tomaba el turno con PIN y la pantalla vieja
+// se cerraba sola y su venta recibia 403. Ahora:
+//   * el turno SOLO gobierna la sincronizacion (canSync): la pantalla que lo
+//     pierde pausa su sync y SIGUE trabajando, sin panel, banner ni modal;
+//   * al volver a la pantalla (focus / pageshow / visibilitychange visible)
+//     reclaim() retoma el turno en silencio y la sync se reanuda ahi;
+//   * las escrituras de negocio ya no consultan el turno (mock-backend.js
+//     _fetchConCandado: solo rol); la integridad la da el control de revision de
+//     IndexedDB (guardarConRevision) y _recargarSiOtraPestanaEscribio.
+// Para revertir TODO el hotfix: ver los comentarios "PARA REVERTIR" en check(),
+// reclaim() y en mock-backend.js, y la entrada changeApproval de
+// release/capabilities.json (same-browser-session-handoff).
 (function(){
  'use strict';
  var id=crypto.randomUUID(),scopeKey='',claimed=false,pending=false,suspendida=false,channel=null;
@@ -18,6 +34,16 @@
  function avisarSync(){try{window.dispatchEvent(new Event("oc-tab-session-changed"));}catch(_){}}
  function epoch(){window.OC_AUTH_SESSION_EPOCH=(window.OC_AUTH_SESSION_EPOCH||0)+1;}
  function clearPanel(){var gate=document.getElementById('oc-gate');if(gate)delete gate.dataset.tabHandoff;document.getElementById('oc-tab-handoff')?.remove();}
+ /* FEATURE - DORMANT (desactivada por orden de JFC, 2026-11-11). NO BORRAR.
+    render() pinta el panel "Tu sesion continua en otra pestana" (copy, consejos,
+    "Recomendar Friendly", compartir/copiar enlace). JFC ordeno que ese mensaje
+    NO vuelva a salir: nadie llama a render() desde check() y el panel nunca se
+    crea. El codigo, el copy (strings) y los estilos de abajo se conservan intactos.
+    PARA REACTIVAR (solo con orden expresa de JFC): en check() reemplazar la rama
+    activa por `suspendida=true;avisarSync();OCAuth.salir();render();` (ver el
+    bloque DORMANT dentro de check()) y revertir el guard de mock-backend.js.
+    El unico llamador restante es el listener oc-lang-change (solo repinta si el
+    panel ya existe, es decir nunca mientras este dormido). */
  function render(){
   var gate=document.getElementById('oc-gate');if(!gate)return;
   var c=copy(),panel=document.getElementById('oc-tab-handoff');
@@ -48,9 +74,46 @@
   // current() still fences writes while pending; take() checks after claim.
   if(pending)return;
   if(!claimed||!window.OCAuth||!OCAuth.rolActual()||current())return;
-  // Uses the existing logout path: credentials, named user and role classes
-  // are cleared. Marketing appears only in the session that actually closed.
-  suspendida=true;avisarSync();OCAuth.salir();render();
+  /* P0 HOTFIX (ORDEN DE JFC, dueno, 2026-11-11): perder el turno YA NO cierra la
+     sesion. Antes aqui se llamaba OCAuth.salir() y render(): la pantalla vieja se
+     cerraba sola, mostraba el panel "Tu sesion continua en otra pestana" y sus
+     ventas pendientes recibian 403, de modo que una vendedora real (Belen) no
+     podia vender. Ahora solo se PAUSA la sincronizacion desde esta pantalla
+     (suspendida=true -> canSync()=false -> avisarSync() hace que sync-yjs.js y
+     sync-realtime.js pausen sus salas); el usuario sigue trabajando, sin panel,
+     banner ni modal ni texto nuevo. La sync se reanuda cuando la pantalla vuelve
+     a primer plano y retoma el turno (reclaim(), abajo).
+     OJO: check() se llama desde los eventos storage y channel: NUNCA retomar el
+     turno desde aqui, o dos ventanas visibles se lo quitarian una a otra sin fin.
+     FEATURE - DORMANT (desactivada por orden de JFC, 2026-11-11). NO BORRAR.
+     Comportamiento anterior, conservado como referencia para reactivar:
+       // Uses the existing logout path: credentials, named user and role classes
+       // are cleared. Marketing appears only in the session that actually closed.
+       // suspendida=true;avisarSync();OCAuth.salir();render();
+     PARA REACTIVAR (solo con orden expresa de JFC): descomentar esa linea y
+     quitar la de abajo; revertir tambien el guard de mock-backend.js
+     (_fetchConCandado) y el contrato changeApproval de release/capabilities.json. */
+  suspendida=true;avisarSync();
+ }
+ /* P0 HOTFIX (JFC 2026-11-11): toma de turno silenciosa al volver a la pantalla.
+    Si esta pantalla esta autenticada y NO es la duena del turno, lo retoma sin
+    pedir nada: gana la ultima pantalla en uso y la sincronizacion no queda
+    pausada para siempre. Solo se registra para los eventos focus, pageshow y
+    visibilitychange (visible), ver abajo. NUNCA llamarlo desde storage ni channel:
+    con dos ventanas visibles cada una retomaria el turno al ver que la otra lo
+    tomo (ping-pong). No toca la sesion, el rol ni ningun dato de negocio.
+    Respeta una toma en curso de otra pantalla (pendingClaim) y no hace nada si
+    localStorage falla (cuota): entonces la sync sigue pausada, igual que antes.
+    PARA REVERTIR: quitar los tres listeners de reclaim() y esta funcion. */
+ function reclaim(){
+  if(!claimed||pending||!scopeKey||!window.OCAuth||!OCAuth.rolActual())return;
+  if(current()||pendingClaim())return;
+  try{
+   localStorage.setItem(scopeKey,JSON.stringify({owner:id}));
+   suspendida=false;
+   try{channel?.postMessage({key:scopeKey});}catch(_){}
+   avisarSync();
+  }catch(_){}
  }
  async function claim(){
   epoch();var claimEpoch=window.OC_AUTH_SESSION_EPOCH;clearPanel();pending=true;avisarSync();
@@ -99,6 +162,12 @@
  }
  try{channel=new BroadcastChannel('friendly-123-auth-session');channel.onmessage=function(ev){if(ev.data&&ev.data.key===scopeKey)check();};}catch(_){}
  window.addEventListener('storage',function(ev){if(ev.key===scopeKey||ev.key?.endsWith('::'+scopeKey))check();});
+ // reclaim() va registrado ANTES que check() para el mismo evento: si esta
+ // pantalla vuelve a primer plano, primero retoma el turno y check() ya no la
+ // suspende (evita pausar y reanudar la sync en cada vuelta). Solo estos tres
+ // eventos retoman el turno; storage y channel NUNCA (ver reclaim()).
+ window.addEventListener('focus',reclaim);window.addEventListener('pageshow',reclaim);
+ document.addEventListener('visibilitychange',function(){if(!document.hidden)reclaim();});
  window.addEventListener('focus',check);window.addEventListener('pageshow',check);
  document.addEventListener('visibilitychange',function(){if(!document.hidden)check();avisarSync();});
  window.addEventListener('oc-login',claim);
