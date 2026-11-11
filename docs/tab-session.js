@@ -119,7 +119,25 @@
   claimed=false;pending=false;suspendida=true;avisarSync();
  });
  window.addEventListener('oc-lang-change',function(){if(document.getElementById('oc-tab-handoff'))render();});
- window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,get pending(){return pending;}};
+ // A snapshot is deliberately opaque: never expose notebook or license values.
+ // A new PIN claim must finish before any fresh snapshot is accepted.
+ function authoritySnapshot(){
+  if(!claimed||pending||suspendida||!scopeKey||!current())return null;
+  var held=lease();
+  if(!held||held.owner!==id||pendingClaim())return null;
+  return {scope:scopeKey,role:window.OCAuth&&OCAuth.rolActual()||'',owner:id};
+ }
+ function authorityContinuity(before){
+  var after=authoritySnapshot();
+  return {
+   sameNotebook:!!(before&&after&&before.scope===after.scope),
+   sameRole:!!(before&&after&&before.role===after.role),
+   sameTab:!!(before&&after&&before.owner===after.owner),
+   leaseCurrent:!!after,
+   otherClaimPending:pendingClaim()
+  };
+ }
+ window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
  if(window.OCAuth&&OCAuth.rolActual())claim();
 })();
