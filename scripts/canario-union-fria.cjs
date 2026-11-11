@@ -129,9 +129,10 @@ const consultarCheckpoint = p => p.evaluate(async () => {
 // paths, query strings, payloads, session IDs, timestamps or exception text.
 // Observe only known relay hosts; every counter is bounded.
 const crearObservadorRed = () => {
-  const cero = () => ({ ok2xx: 0, rechazo403: 0, error4xx: 0, error5xx: 0,
-    errorRed: 0, websocketCreado: 0, websocketCerrado: 0,
-    websocketError: 0, other: 0 });
+  const cero = () => ({ ok2xx: 0, rechazo401: 0, rechazo402: 0, rechazo403: 0,
+    rechazo404: 0, rechazo409: 0, rechazo429: 0, error4xx: 0, error5xx: 0,
+    errorRed: 0, errorAbortado: 0, errorTimeout: 0, errorConexion: 0, errorOtro: 0,
+    websocketCreado: 0, websocketCerrado: 0, websocketError: 0, other: 0 });
   const datos = { supabase: cero(), firebase: cero(), peer: cero() };
   const nombre = raw => {
     try {
@@ -150,11 +151,24 @@ const crearObservadorRed = () => {
         if (!capa) return;
         const st = res.status();
         contar(capa, !Number.isSafeInteger(st) ? 'other' :
-          st >= 200 && st <= 299 ? 'ok2xx' : st === 403 ? 'rechazo403' :
-          st >= 400 && st <= 499 ? 'error4xx' : st >= 500 && st <= 599 ? 'error5xx' : 'other');
+          st >= 200 && st <= 299 ? 'ok2xx' :
+          [401,402,403,404,409,429].includes(st) ? 'rechazo' + st :
+          st >= 400 && st <= 499 ? 'error4xx' :
+          st >= 500 && st <= 599 ? 'error5xx' : 'other');
       } catch (_) {}
     },
-    fallida: req => { try { contar(nombre(req.url()), 'errorRed'); } catch (_) {} },
+    fallida: req => {
+      try {
+        const capa = nombre(req.url()); if (!capa) return;
+        contar(capa, 'errorRed');
+        // Map ONLY fixed browser reason tokens, never serialize raw error text.
+        let token = null;
+        try { token = req.failure() && req.failure().errorText; } catch (_) {}
+        contar(capa, token === 'net::ERR_ABORTED' ? 'errorAbortado' :
+          token === 'net::ERR_TIMED_OUT' ? 'errorTimeout' :
+          token === 'net::ERR_CONNECTION_RESET' ? 'errorConexion' : 'errorOtro');
+      } catch (_) {}
+    },
     socket: ws => {
       try {
         const capa = nombre(ws.url()); if (!capa) return;
