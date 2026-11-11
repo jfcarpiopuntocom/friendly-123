@@ -29,9 +29,7 @@ jobs:
             echo "GET-REPLAY PASS $pass/3"
             node --test test/p0-firebase-read-retry.test.cjs
           done
-      - name: Official v729 manifest generator evidence
+      - name: Official v729 manifest is sealed (no diff)
         run: |
           node scripts/gen-manifest.js
-          echo 'F123_MANIFEST_BEGIN'
-          cat docs/version-manifest.json
-          echo 'F123_MANIFEST_END'
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js
