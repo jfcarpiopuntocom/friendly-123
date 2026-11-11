@@ -1,0 +1,25 @@
+name: P0 sale entry opId continuity
+on:
+  pull_request:
+    paths:
+      - 'src/app/app-inline-01.js'
+      - 'docs/app-inline-01.min.js'
+      - 'test/p0-sale-entry-opid-contract.test.cjs'
+      - '.github/workflows/p0-sale-entry-opid-contract.yml'
+  push:
+    branches: [master]
+    paths:
+      - 'src/app/app-inline-01.js'
+      - 'docs/app-inline-01.min.js'
+      - 'test/p0-sale-entry-opid-contract.test.cjs'
+jobs:
+  opid-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test durable opId reuse for quick, CONFIRM and basket
+        run: node --test test/p0-sale-entry-opid-contract.test.cjs
