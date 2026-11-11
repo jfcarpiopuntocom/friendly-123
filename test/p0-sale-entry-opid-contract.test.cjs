@@ -12,6 +12,10 @@ const start=app.indexOf('const _ocVentaIntentosRAM = new Map();');
 const end=app.indexOf('let _sellando = false;',start);
 assert.ok(start>=0&&end>start,'sale intent helper must exist in production source');
 const helper=app.slice(start,end);
+test('P0: pending sale opId stays entirely on-device, never sent to JFC health panel',()=>{
+ assert.doesNotMatch(helper,/sendBeacon|fetch\s*\(|WebSocket|\/checkin|payload\.salud/,
+   'the crash-safe sale intent helper must not export its commercial fingerprint');
+});
 test('P0: quick, modal CONFIRM and basket send matching crash-safe opId, not just backend-generated IDs',()=>{
  assert.equal((app.match(/_ocVentaOpPendiente\(/g)||[]).length,4,
    'helper plus three distinct user sale entry points');
