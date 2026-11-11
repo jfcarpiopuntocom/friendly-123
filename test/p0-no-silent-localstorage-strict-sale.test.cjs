@@ -146,12 +146,21 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.deepEqual(recovered,{product:true,cap:'never_opened'},
      'a genuinely IDB-less notebook must reload its confirmed A/B state');
    const sale=await page.evaluate(async id=>{
+     window.__p0WriteReasons=[];
+     if(window.OCCanarios&&typeof OCCanarios.fallo==='function'){
+       const original=OCCanarios.fallo.bind(OCCanarios);
+       OCCanarios.fallo=function(...args){
+         window.__p0WriteReasons.push(args.map(v=>String(v).slice(0,48)));
+         return original(...args);
+       };
+     }
      const r=await fetch('/api/productos/'+id+'/venta',{method:'POST',
        body:JSON.stringify({cantidad:1})});
      return {status:r.status,body:await r.json()};
    },productId);
    const diagnostics=await page.evaluate(()=>({
      capability:OCEstadoIDB.capacidad(),idbSupported:OCEstadoIDB.soportado,
+     writeReasons:window.__p0WriteReasons||[],
      localKeys:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i))
        .filter(k=>k&&k.startsWith('f123_estado_v4'))
        .map(k=>({key:k,length:(localStorage.getItem(k)||'').length})),
