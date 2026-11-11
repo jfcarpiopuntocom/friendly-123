@@ -102,6 +102,31 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    // Remove native IndexedDB BEFORE any application script executes.
    // Not an adapter fake on an older device: initial capability is 'never'.
    await page.addInitScript(WS_STUB);
+   // Instrument the REAL A/B module only in this synthetic browser run; do
+   // not mutate its return value or inject an in-memory success.
+   await page.addInitScript(() => {
+     let api;
+     Object.defineProperty(window,'OCEstadoAB',{configurable:true,
+       get(){return api;},set(v){
+         api=v;
+         const original=v.crear.bind(v);
+         v.crear=(opts)=>{
+           const ab=original(opts),realSave=ab.guardarAhora.bind(ab);
+           ab.guardarAhora=raw=>{
+             const accepted=realSave(raw);
+             if(!accepted){
+               let requestedRev=null,physicalRev=null,cause=null;
+               try{requestedRev=JSON.parse(raw)._rev;}catch(_){}
+               try{physicalRev=ab.leer().revMax;}catch(_){}
+               try{cause=ab.ultimoError()?.name||null;}catch(_){}
+               window.__p0ABFail={requestedRev,physicalRev,cause};
+             }
+             return accepted;
+           };
+           return ab;
+         };
+       }});
+   });
    await page.addInitScript(() => {
      try{Object.defineProperty(window,'indexedDB',{configurable:true,value:undefined});}
      catch(_){try{window.indexedDB=undefined;}catch(__){}}
@@ -160,7 +185,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    },productId);
    const diagnostics=await page.evaluate(()=>({
      capability:OCEstadoIDB.capacidad(),idbSupported:OCEstadoIDB.soportado,
-     writeReasons:window.__p0WriteReasons||[],
+     writeReasons:window.__p0WriteReasons||[],abLastRefusal:window.__p0ABFail||null,
      localKeys:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i))
        .filter(k=>k&&k.startsWith('f123_estado_v4'))
        .map(k=>({key:k,length:(localStorage.getItem(k)||'').length})),
