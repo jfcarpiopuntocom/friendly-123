@@ -32,3 +32,9 @@ jobs:
             echo "F123 Firebase read P0 PASS $pass/3"
             node --test test/p0-firebase-get-retry-once.test.cjs test/p0-firebase-network-recovery.test.cjs test/firebase-relay-simple-v663.test.cjs test/firebase-relay-pagina-v665.test.cjs
           done
+      - name: Produce official deterministic v729 manifest (readable in Actions logs)
+        run: |
+          node scripts/gen-manifest.js
+          echo 'F123_MANIFEST_BEGIN'
+          cat docs/version-manifest.json
+          echo 'F123_MANIFEST_END'
