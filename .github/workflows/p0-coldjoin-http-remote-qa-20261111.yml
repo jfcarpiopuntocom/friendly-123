@@ -22,8 +22,8 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Verify redaction and PIN safety before remote session
-        run: node --test test/canario-union-fria-guard.test.cjs
+      - name: Verify redaction, refusal classes and PIN safety before remote session
+        run: node --test test/canario-union-fria-guard.test.cjs test/p0-coldjoin-http-status-qa-20261111.test.cjs
       - name: Synthetic join against existing published shell (never submit Owner PIN during incomplete recovery)
         env:
           F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
