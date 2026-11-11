@@ -28,4 +28,4 @@ jobs:
         env:
           F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
           F123_CANARIO_PIN: ${{ secrets.F123_CANARIO_PIN }}
-        run: node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
+        run: |\n          set -euo pipefail\n          node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
