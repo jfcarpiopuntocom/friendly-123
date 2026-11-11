@@ -6315,6 +6315,49 @@
         return /^\/api\/productos\/[^/]+\/venta$/.test(path) && ((opts && opts.method) || "GET").toUpperCase() === "POST";
       } catch (_) { return false; }
     })();
+    // P0 phase 0 (local first): capture identity at request time, NOT after a
+    // PIN claim has possibly changed the store. Wait only for this tab's own
+    // already-in-progress claim; a foreign claim or logout remains fail-closed.
+    // Preserve the existing no-license synthetic/demo contract in regression
+    // tests. A REAL activated/connected notebook must fail closed if its
+    // license identity or lease is missing; this is never a generic auth bypass.
+    const _negocioActivado = (() => {
+      try {
+        const owned = JSON.parse(localStorage.getItem("f123_owned") || "null");
+        return !!((owned && (owned.licenseCode || owned.instanceId)) ||
+          localStorage.getItem("f123_tienda_activa"));
+      } catch (_) { return true; } // corrupt license marker => never grant trust
+    })();
+    const _autoridadVenta = ventaConcurrente && _negocioActivado && window.OCTabSession &&
+      typeof window.OCTabSession.authorityIdentity === "function" &&
+      typeof window.OCTabSession.authorityRequestIdentity === "function" &&
+      typeof window.OCTabSession.authoritySnapshot === "function" &&
+      typeof window.OCTabSession.authorityContinuity === "function";
+    // Activated notebooks must never fall back to a weaker epoch-only path
+    // when the security adapter is missing or an old shell is half-loaded.
+    if (ventaConcurrente && _negocioActivado && !_autoridadVenta)
+      return new Response(JSON.stringify({error:"Your session changed while this action was waiting. Sign in and try again."}),
+        {status:403,headers:{"Content-Type":"application/json"}});
+    let _identidadAlPedir = null, _autoridadAlPedir = null;
+    if (_autoridadVenta) {
+      try {
+        // Capture BEFORE waiting, including the explicit logout generation.
+        // A pending own PIN claim may still be marked suspended from the last
+        // session, but that cannot grant authority: lease is checked below.
+        _identidadAlPedir = window.OCTabSession.pending
+          ? await window.OCTabSession.authorityRequestIdentity()
+          : await window.OCTabSession.authorityIdentity();
+        if (window.OCTabSession.pending && window.OCTabSession.waitOwnClaim)
+          await window.OCTabSession.waitOwnClaim(3000);
+        _autoridadAlPedir = await window.OCTabSession.authoritySnapshot();
+      } catch (_) {}
+      if (!_identidadAlPedir || !_autoridadAlPedir ||
+          _identidadAlPedir.marker !== _autoridadAlPedir.marker ||
+          _identidadAlPedir.role !== _autoridadAlPedir.role ||
+          _identidadAlPedir.logoutSerial !== _autoridadAlPedir.logoutSerial)
+        return new Response(JSON.stringify({error:"Your session changed while this action was waiting. Sign in and try again."}),{
+          status:403,headers:{"Content-Type":"application/json"}});
+    }
     // P0 v689: +1/-1 manual stock deltas need the same bounded CAS rebase as
     // a sale, on THIS DEVICE too. Never auto-replay absolute physical counts:
     // they establish a new epoch and require explicit human intent.
@@ -6329,7 +6372,23 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
-      const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
+      const rolCambio=rolAlPedir!==_rolLocal();
+      const epocaCambio=epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0);
+      const tabCambio=!!(window.OCTabSession && !window.OCTabSession.isCurrent());
+      let continuidadValida=false;
+      if(_autoridadVenta){
+        try {
+          const c=await window.OCTabSession.authorityContinuity(_autoridadAlPedir);
+          continuidadValida=!!(c&&c.continues&&c.noPendingClaim&&c.currentLease&&
+            _identidadAlPedir&&_identidadAlPedir.marker===_autoridadAlPedir.marker&&
+            _identidadAlPedir.logoutSerial===_autoridadAlPedir.logoutSerial);
+        } catch (_) {}
+      }
+      // Epoch-only changes are not automatically a logout when actual current
+      // notebook, role and owning tab all remain verified. NEVER allow a
+      // mismatched identity, lost lease or a competing pending claim.
+      const cambio=rolCambio||tabCambio||(_autoridadVenta
+        ? !continuidadValida : epocaCambio);
       const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
       if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
@@ -6372,7 +6431,9 @@
       try { nuevo = await idb.leer(); } catch (_) { return primero; }
       if (!nuevo || !Number.isSafeInteger(nuevo._rev) || nuevo._rev <= revisionAntes ||
           nuevo._rev < _localRev || validarRespaldo(nuevo)) return primero;
-      if (rolAlPedir !== _rolLocal() || epocaAlPedir !== (window.OC_AUTH_SESSION_EPOCH || 0))
+      if (rolAlPedir !== _rolLocal() || (_autoridadVenta
+        ? !(await window.OCTabSession.authorityContinuity(_autoridadAlPedir)).continues
+        : epocaAlPedir !== (window.OC_AUTH_SESSION_EPOCH || 0)))
         return primero;
       aplicarRespaldo(nuevo);
       _localRev = nuevo._rev;
