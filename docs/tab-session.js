@@ -140,8 +140,9 @@
  window.addEventListener('focus',check);
  window.addEventListener('pagehide',function(){p0Lifecycle('pagehide',null);});
  window.addEventListener('pageshow',function(ev){p0Lifecycle('pageshow',!!(ev&&ev.persisted));check();});
- window.addEventListener('freeze',function(){p0Lifecycle('freeze',null);});
- window.addEventListener('resume',function(){p0Lifecycle('resume',null);});
+ // Page Lifecycle freeze/resume are Document events in Chromium; Safari may omit both.
+ document.addEventListener('freeze',function(){p0Lifecycle('freeze',null);});
+ document.addEventListener('resume',function(){p0Lifecycle('resume',null);});
  document.addEventListener('visibilitychange',function(){p0Lifecycle('visibilitychange',null);if(!document.hidden)check();avisarSync();});
  window.addEventListener('oc-login',claim);
  window.addEventListener('oc-logout',function(){
