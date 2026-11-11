@@ -1,0 +1,27 @@
+name: P0 EGM stable contract (documentation only)
+on:
+  push:
+    branches:
+      - docs/egm-stable-acceptance-20261107
+    paths:
+      - docs/designs/**
+      - test/p0-egm-stable-doc-contract.test.cjs
+      - .github/workflows/p0-egm-stable-contract.yml
+  pull_request:
+    paths:
+      - docs/designs/**
+      - test/p0-egm-stable-doc-contract.test.cjs
+      - .github/workflows/p0-egm-stable-contract.yml
+permissions:
+  contents: read
+jobs:
+  egm-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify documentation contract (NEVER a physical GO)
+        run: node --test test/p0-egm-stable-doc-contract.test.cjs
