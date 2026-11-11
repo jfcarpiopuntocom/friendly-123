@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.30",
+  "version": "v0.7.31",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.30 P0: CONFIRM SALE espera solo la reclamación PIN de su propia pestaña hasta 3 s; valida nuevamente rol, sesión y lease antes de ejecutar. No cambia inventario, dinero, Sync3, PIN ni contratos de persistencia.",
+  "changelog": "v0.7.31 P0: la venta ya no se bloquea por la pantalla que tiene el turno ni por el cambio de sesión; una pantalla que pierde el turno sigue vendiendo y solo pausa su sincronización, sin cerrar sesión ni mostrar avisos. Sin cambios en inventario, dinero, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v730",
+  "shell": "f123-shell-v731",
   "apagar": [],
-  "releaseName": "v0.7.30",
-  "cacheGeneration": "golden270"
+  "releaseName": "v0.7.31",
+  "cacheGeneration": "golden271"
 }
