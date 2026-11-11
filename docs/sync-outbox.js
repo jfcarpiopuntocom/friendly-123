@@ -86,5 +86,96 @@
     try { return localStorage.getItem(LS_KEY); } catch (_) { return null; }
   }
 
-  window.OCOutbox = { guardar: guardar, leer: leer };
+  // Checksums are calculated in memory. Never log/export a real license,
+  // PIN, decrypted operation body, or identifying customer data.
+  async function sha256Hex(value) {
+    if (!crypto || !crypto.subtle || typeof TextEncoder !== "function")
+      throw new Error("P0 SHA-256 unavailable");
+    const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value)));
+    return Array.from(bytes, b => b.toString(16).padStart(2, "0")).join("");
+  }
+  function sortedOpIds(ops) {
+    return ops.map(x => x.opId).sort();
+  }
+
+  // Explicit staging operation only; NEVER invoked automatically on startup.
+  // Legacy "cola" is ONE encrypted blob containing an array of ops with .id,
+  // NOT per-op IDB records. Re-encrypt each validated operation without ever
+  // persisting the plaintext or destroying the original source.
+  async function prepararMigracionAlEstado() {
+    const state=window.OCEstadoIDB,secure=window.OCSecure;
+    if(!state||!state.importarOutboxPreparado||!state.leerOutboxMigrado||
+       !secure||!secure.descifrarSync||!secure.cifrarSync)
+      return {status:"blocked",reason:"capability-unavailable"};
+    try {
+      const source=await leer();
+      if(!source)return {status:"empty",count:0};
+      const sourceCipherHash=await sha256Hex(source);
+      const plain=await secure.descifrarSync(source);
+      if(typeof plain!=="string")return {status:"blocked",reason:"decrypt-unavailable"};
+      const operations=JSON.parse(plain);
+      if(!Array.isArray(operations))return {status:"blocked",reason:"not-array"};
+      const unique=new Set(),newRows=[];
+      const originals=[];
+      for(const op of operations){
+        if(!op||typeof op!=="object"||Array.isArray(op)||
+           (op.opId&&op.id&&op.opId!==op.id))
+          return {status:"blocked",reason:"identity-ambiguous"};
+        const key=op.opId||op.id;
+        if(typeof key!=="string"||!key||key.length>160||unique.has(key))
+          return {status:"blocked",reason:"identity-invalid"};
+        unique.add(key);
+        const encoded=JSON.stringify(op);
+        originals.push({opId:key,plain:encoded});
+        const prior=await state.leerOutboxMigrado(key);
+        if(prior){
+          const recovered=await secure.descifrarSync(prior.blob);
+          if(recovered!==encoded)return {status:"blocked",reason:"identity-conflict"};
+          continue;
+        }
+        const encrypted=await secure.cifrarSync(encoded);
+        if(typeof encrypted!=="string"||!encrypted)
+          return {status:"blocked",reason:"encrypt-unavailable"};
+        newRows.push({opId:key,blob:encrypted});
+      }
+      const originalOpIdHash=await sha256Hex(JSON.stringify(sortedOpIds(originals)));
+      if(newRows.length && !(await state.importarOutboxPreparado(newRows)))
+        return {status:"blocked",reason:"copy-not-confirmed"};
+      // Read back EVERY logical operation and compare bytes after decrypting.
+      // Do not rely on raw IDB row count or request.onsuccess as migration ACK.
+      const verifiedOps=[];
+      for(const original of originals){
+        const row=await state.leerOutboxMigrado(original.opId);
+        if(!row||typeof row.blob!=="string")
+          return {status:"blocked",reason:"read-back-missing"};
+        const decoded=await secure.descifrarSync(row.blob);
+        if(decoded!==original.plain)
+          return {status:"blocked",reason:"read-back-payload-mismatch"};
+        let parsed;
+        try{parsed=JSON.parse(decoded);}catch(_){
+          return {status:"blocked",reason:"read-back-parse"};
+        }
+        const recoveredId=parsed&&(parsed.opId||parsed.id);
+        if(recoveredId!==original.opId)
+          return {status:"blocked",reason:"read-back-opid-mismatch"};
+        verifiedOps.push({opId:recoveredId});
+      }
+      const verifiedOpIdHash=await sha256Hex(JSON.stringify(sortedOpIds(verifiedOps)));
+      if(verifiedOpIdHash!==originalOpIdHash||verifiedOps.length!==originals.length)
+        return {status:"blocked",reason:"opid-set-hash-mismatch"};
+      // An old writer could change the single legacy blob after we read it.
+      // Hash both ciphertext snapshots and require raw equality as well;
+      // idempotent staging is NOT a write cutover or global outbox equality.
+      const after=await leer();
+      if(!after||after!==source||await sha256Hex(after)!==sourceCipherHash)
+        return {status:"stale-source",count:originals.length,sourcePreserved:true};
+      return {status:"staged-only",count:originals.length,
+        copiedThisPass:newRows.length,sourceCipherHashMatches:true,
+        opIdSetHashMatches:true,sourcePreserved:true};
+    }catch(_){
+      return {status:"blocked",reason:"staging-error"};
+    }
+  }
+
+  window.OCOutbox = { guardar: guardar, leer: leer, prepararMigracionAlEstado: prepararMigracionAlEstado };
 })();

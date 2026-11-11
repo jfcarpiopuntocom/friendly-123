@@ -35,13 +35,16 @@
   var DB_NAME = "f123_estado";      // aislamiento.js le pone el namespace solo
   var STORE = "estado";
   var CLAVE = "actual";
+  // Staged P0 schema only. Existing business writes still use estado/actual.
+  // No second authoritative business copy is introduced.
+  var P0_STORES = ["outbox", "dedup", "trace_outcome", "trace_intent"];
   var SOPORTADO = ("indexedDB" in window);
 
   var dbPromise = null;
   function abrirDB() {
     if (dbPromise) return dbPromise;
     var req;
-    try { req = indexedDB.open(DB_NAME, 1); } catch (err) { return Promise.reject(err); }
+    try { req = indexedDB.open(DB_NAME); } catch (err) { return Promise.reject(err); }
     var promise, settled = false;
     promise = new Promise(function (resolve, reject) {
       function fail(err) {
@@ -50,6 +53,8 @@
         if (dbPromise === promise) dbPromise = null;
         reject(err);
       }
+      // Ordinary reads and writes NEVER trigger the P0 v2 migration. An old
+      // device must not become incompatible just by opening the dashboard.
       req.onupgradeneeded = function () {
         if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
       };
@@ -65,6 +70,37 @@
     });
     dbPromise = promise;
     return promise;
+  }
+
+  // Opt-in staging ONLY: version upgrade may block old-v1 tabs. Do not call
+  // until the operator deliberately runs migration under a test license.
+  async function abrirP0Staging() {
+    const old = await abrirDB();
+    if(old.version>=2) {
+      if(P0_STORES.every(function(name){return old.objectStoreNames.contains(name);}))return old;
+      throw new Error("P0 schema v2 incomplete");
+    }
+    try{old.close();}catch(_){}
+    dbPromise=null;
+    var req=indexedDB.open(DB_NAME,2);
+    var promise=new Promise(function(resolve,reject){
+      req.onupgradeneeded=function(){
+        if(!req.result.objectStoreNames.contains(STORE))req.result.createObjectStore(STORE);
+        P0_STORES.forEach(function(name){
+          if(!req.result.objectStoreNames.contains(name))
+            req.result.createObjectStore(name,{keyPath:"opId"});
+        });
+      };
+      req.onsuccess=function(){
+        const upgraded=req.result;
+        upgraded.onversionchange=function(){upgraded.close();if(dbPromise===promise)dbPromise=null;};
+        resolve(upgraded);
+      };
+      req.onerror=function(){reject(req.error);};
+      req.onblocked=function(){reject(new Error("P0 migration blocked by an open tab"));};
+    });
+    dbPromise=promise;
+    try{return await promise;}catch(error){if(dbPromise===promise)dbPromise=null;throw error;}
   }
 
   /* ESCRITURAS AGRUPADAS (caza de bugs 2026-08-18). El espejo se dispara en
@@ -330,6 +366,85 @@
     return op;
   }
 
+  // Staging copier for LEGACY encrypted per-operation records. Does not
+  // switch any writer or remove the old database. The caller must decrypt
+  // and validate legacy identities; nothing plaintext is persisted here.
+  // All prepared rows are inserted atomically into f123_estado/outbox.
+  function importarOutboxPreparado(rows) {
+    if (!SOPORTADO || !Array.isArray(rows) || !rows.length) return Promise.resolve(false);
+    const ids = new Set();
+    for (const row of rows) {
+      if (!row || typeof row.opId !== "string" || !row.opId.trim() ||
+          row.opId.length > 160 || typeof row.blob !== "string" || !row.blob ||
+          ids.has(row.opId)) return Promise.resolve(false);
+      ids.add(row.opId);
+    }
+    const job = _cola.then(async function () {
+      const db = await abrirP0Staging();
+      await new Promise(function (resolve, reject) {
+        let tx;
+        try { tx = db.transaction("outbox", "readwrite", { durability: "strict" }); }
+        catch (error) {
+          // Older WebKit may reject the optional durability setting. A closed
+          // connection is NOT an unsupported hint: fail, then reopen externally.
+          if (error && (error.name === "TypeError" || error.name === "NotSupportedError"))
+            tx = db.transaction("outbox", "readwrite");
+          else { reject(error); return; }
+        }
+        try {
+          const outbox = tx.objectStore("outbox");
+          rows.forEach(function (row) {
+            outbox.add({ opId: row.opId, blob: row.blob, source: "legacy-encrypted", importedAt: Date.now() });
+          });
+        } catch (error) { try { tx.abort(); } catch (_) {} reject(error); return; }
+        tx.oncomplete = resolve;
+        tx.onerror = function () { /* onabort reports the transaction outcome */ };
+        tx.onabort = function () { reject(tx.error || new Error("P0 outbox import aborted")); };
+      });
+      // A successful request is not an ACK. Reopen an IDB transaction and
+      // read back EACH exact encrypted row after the write transaction completes.
+      return await new Promise(function (resolve) {
+        let tx;
+        try { tx = db.transaction("outbox", "readonly"); }
+        catch (_) { resolve(false); return; }
+        let matched = 0;
+        const store = tx.objectStore("outbox");
+        rows.forEach(function (row) {
+          const req = store.get(row.opId);
+          req.onsuccess = function () {
+            if (req.result && req.result.blob === row.blob) matched++;
+          };
+        });
+        tx.oncomplete = function () { resolve(matched === rows.length); };
+        tx.onerror = function () { /* onabort is the decisive failure */ };
+        tx.onabort = function () { resolve(false); };
+      });
+    }).catch(function (error) {
+      try { console.warn("[estado-idb] staged encrypted outbox import rejected", error && error.name || "unknown"); } catch (_) {}
+      return false;
+    });
+    _cola = job.then(function () {}, function () {});
+    return job;
+  }
+
+  // Diagnostic read only. Never mark migration complete based on this alone:
+  // concurrent old-version tabs may still write to f123_outbox.
+  async function leerOutboxMigrado(opId) {
+    if (!SOPORTADO || typeof opId !== "string" || !opId) return null;
+    try {
+      const db = await abrirDB();
+      if(!db.objectStoreNames.contains("outbox"))return null;
+      return await new Promise(function (resolve) {
+        const tx = db.transaction("outbox", "readonly");
+        const req = tx.objectStore("outbox").get(opId);
+        let row = null;
+        req.onsuccess = function () { row = req.result || null; };
+        tx.oncomplete = function () { resolve(row); };
+        tx.onabort = function () { resolve(null); };
+      });
+    } catch (_) { return null; }
+  }
+
   async function leer() {
     if (!SOPORTADO) return null;
     try {
@@ -394,5 +509,5 @@
     } catch (_) { return null; }
   }
 
-  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, guardarConRevision: guardarConRevision, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, ultimoError: function () { return _ultimoError; } };
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, guardarConRevision: guardarConRevision, importarOutboxPreparado: importarOutboxPreparado, leerOutboxMigrado: leerOutboxMigrado, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, ultimoError: function () { return _ultimoError; } };
 })();

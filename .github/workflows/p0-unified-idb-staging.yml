@@ -1,0 +1,27 @@
+name: P0 unified IDB staging fixture (NO release)
+on:
+  pull_request:
+    paths:
+      - docs/estado-idb.js
+      - docs/sync-outbox.js
+      - test/p0-unified-idb-staging-browser.test.cjs
+      - .github/workflows/p0-unified-idb-staging.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  stage-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Chromium/WebKit fixtures - snapshot, staged encrypted opIds, rollback, read-back
+        run: node --test --test-concurrency=1 test/p0-unified-idb-staging-browser.test.cjs

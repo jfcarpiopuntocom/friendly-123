@@ -1,0 +1,51 @@
+name: P0 #673 review ZIP for MetaAI and DeepSeek
+on:
+  pull_request:
+    paths:
+      - .github/workflows/p0-673-review-bundle.yml
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  package-review-only:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 673
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Build curated full-source ZIP and checksum manifest
+        shell: bash
+        run: |
+          python3 - <<'PYBUILD'
+          import hashlib,json,os,pathlib,subprocess,zipfile
+          from zipfile import ZIP_DEFLATED
+          items=["docs/tab-session.js","docs/mock-backend.js","docs/estado-idb.js","docs/sync-outbox.js","docs/sync-yjs.js","docs/sync-realtime.js","docs/avanzado-extra.js","docs/index.html","docs/sw.js","docs/version.json","docs/version-manifest.json","docs/ADR-P0-673-unified-idb.md","docs/ADR-P0-ventas-rapidas.md","docs/app-inline-01.min.js","src/app/app-inline-01.js",".github/workflows/p0-sale-authority-evidence.yml",".github/workflows/p0-unified-idb-staging.yml",".github/workflows/release-control.yml","scripts/release-control.cjs","scripts/e1-head-bundle-verified.cjs","release/capabilities.json","package.json","test/helpers/page-source.cjs","test/p0-unified-idb-staging-browser.test.cjs","test/p0-authority-continuity-behavior.test.cjs","test/p0-authority-continuity-contract.test.cjs","test/p0-sale-opid-idempotency-red-browser.test.cjs","test/p0-sale-session-causal-trace.test.cjs","test/p0-sale-session-pending-claim.test.cjs","test/p0-sales-atomic-idb-webkit-browser.test.cjs","test/p0-single-device-sale-browser-ack.test.cjs","test/p0-s4-outbox-per-op.test.cjs","test/p0-idb-closed-handle-reopen-sale.test.cjs","test/p0-failed-sale-must-not-mirror-stale.test.cjs","test/p0-v630-sale-edit-first-ack-pn.test.cjs"]
+          root=pathlib.Path.cwd()
+          sha=subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip()
+          os.makedirs('dist',exist_ok=True)
+          manifest={'repository':'jfcarpiopuntocom/friendly-123','pr':673,'head_sha':sha,'files':{}}
+          present=[]
+          for item in items:
+              p=root/item
+              if not p.is_file(): raise RuntimeError('Missing critical source: '+item)
+              blob=p.read_bytes()
+              manifest['files'][item]={'sha256':hashlib.sha256(blob).hexdigest(),'bytes':len(blob)}
+              present.append((item,blob))
+          out=root/'dist'/('friendly123-P0-673-'+sha[:12]+'.zip')
+          readme='MetaAI vs DeepSeek | friendly-123 P0 #673\nSHA: '+sha+'\nSource archive for review only, 35 complete allowlisted files.\nNO-GO: no sale atomicity or physical iPhone proven.\nDo not deploy, merge or touch client data.\nManifest: MANIFEST-SHA256.json\n'
+          with zipfile.ZipFile(out,'w',compression=ZIP_DEFLATED,compresslevel=9) as z:
+              for name,blob in sorted(present): z.writestr(name,blob)
+              z.writestr('REVIEW-START-HERE.txt',readme)
+              z.writestr('MANIFEST-SHA256.json',json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
+          print('ZIP',out,'files',len(present),'SHA',sha,'sha256',hashlib.sha256(out.read_bytes()).hexdigest())
+          PYBUILD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: friendly123-P0-673-${{ github.event.pull_request.head.sha }}
+          path: dist/friendly123-P0-673-*.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

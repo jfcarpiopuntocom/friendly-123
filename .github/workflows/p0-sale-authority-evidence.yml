@@ -1,0 +1,46 @@
+name: P0 sale authority evidence (fixture only)
+on:
+  pull_request:
+    paths:
+      - docs/tab-session.js
+      - docs/mock-backend.js
+      - test/p0-authority-continuity-contract.test.cjs
+      - test/p0-authority-continuity-behavior.test.cjs
+      - .github/workflows/p0-sale-authority-evidence.yml
+      - test/p0-sale-opid-idempotency-red-browser.test.cjs
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  authority-fixture:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Fail-closed session authority VM and static contract
+        run: node --test --test-concurrency=1 test/p0-authority-continuity-behavior.test.cjs test/p0-authority-continuity-contract.test.cjs
+  sale-opid-red:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install deterministic dependencies
+        run: npm ci --ignore-scripts
+      - name: "RED acceptance: duplicate accounting opId must be no-op (Chromium and WebKit)"
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-sale-opid-idempotency-red-browser.test.cjs
