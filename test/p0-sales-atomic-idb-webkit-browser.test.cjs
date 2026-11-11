@@ -51,13 +51,22 @@ test('P0: browser transaction abort must not acknowledge a sale',async()=>{
  assert.equal(after.ventas[0].id,'ok');assert.equal(after._rev,1);
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 });
-test('P0: no 10-second Web Locks in either sales write gate, strict sale requires durable CAS',()=>{
+test('P0 JFC: strict CAS stays fenced; verified local A/B recovery is the only IDB-failure fallback',()=>{
  const write=backend.slice(backend.indexOf('  const _fetchConCandado = async function'),backend.indexOf('  const _fetchInterno = async function'));
  const save=backend.slice(backend.indexOf('  function _guardarEstadoLocalAhora('),backend.indexOf('  /* v608',backend.indexOf('  function _guardarEstadoLocalAhora(')));
  assert.doesNotMatch(write,/navigator\.locks\.request|10000|Promise\.race\(\[locked/);
  assert.doesNotMatch(ab,/f123-estado-ab:|navigator\.locks\.request/);
  assert.match(save,/idb\.guardarConRevision\(completo, _localRev\)/);
- assert.match(save,/if \(ok !== true\) return terminar\(false\)/,'reject non-boolean CAS acknowledgements');
+ // JFC 2026-11-11 explicitly superseded rejecting every failed IDB commit.
+ // A revision fence (no storage error) still fails; a real IDB error gets
+ // one complete A/B journal commit with exact read-back. This is additionally
+ // proven behaviorally by p0-no-silent-localstorage-strict-sale.test.cjs.
+ assert.match(save,/if \(ok !== true\)/,'never treat truthy non-boolean CAS as success');
+ assert.match(save,/return err \? guardarABConfirmado\(\) : terminar\(false\)/,
+  'a real storage failure may use verified A/B but CAS revision conflicts still reject');
+ assert.match(save,/registro\.phase === "COMMITTED"/,'A/B must verify a committed journal');
+ assert.match(save,/registro\.candidateRaw === crudo/,'A/B must read back exact snapshot');
+ assert.match(save,/if \(!casDisponible\) return guardarABConfirmado\(\)/);
  // v650: A/B is written before the seal so another tab never reloads an older copy; it stays best effort and takes no lock.
  assert.match(save,/if \(ab && tokenOk\) \{\s*try \{ _guardandoAB = true; ab\.guardarAhora\(crudo\); \}\s*catch \(_\) \{\} finally \{ _guardandoAB = false; \}\s*\}\s*return terminar\(true\)/);
  assert.doesNotMatch(save,/ab\.conCandado\(/);

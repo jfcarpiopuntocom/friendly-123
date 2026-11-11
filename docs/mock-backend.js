@@ -1658,7 +1658,11 @@
       if (exigirCompleto) _perfLocalFin('snapshot_serialize', _tSerializar, true);
       let local = false;
       const idb = window.OCEstadoIDB;
-      const casDisponible = exigirCompleto && idb && typeof idb.guardarConRevision === "function";
+      // A method can exist on an unsupported IDB adapter. It is NOT a viable
+      // CAS store. Without this check, a truly IDB-less device gets a false
+      // 503 and never reaches its independently durable A/B journal.
+      const casDisponible = exigirCompleto && idb && idb.soportado !== false &&
+        typeof idb.guardarConRevision === "function";
       if (!exigirCompleto) {
         try {
           if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
@@ -1677,24 +1681,51 @@
         } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto); }
         return ok;
       };
-      // Strict money/stock commits use ONE atomic IDB readwrite transaction:
-      // check the prior revision and put the full exact snapshot together.
-      // A/B becomes a best-effort post-ACK backup, never a second Web Lock.
-      if (exigirCompleto) {
-        // Browsers without IndexedDB keep the historical durable A/B path.
-        // Never silently downgrade an IndexedDB-capable browser on a CAS error.
-        if (!casDisponible) {
-          if (idb && idb.soportado !== false) return terminar(false);
-          try { if (tokenOk && ab) { _guardandoAB = true; local = ab.guardarAhora(crudo); } }
-          catch (_) {} finally { _guardandoAB = false; }
-          return terminar(local === true);
+      // Strict financial commit: IDB is preferred, never a remote dependency.
+      // JFC 2026-11-11: an actual IDB failure MUST fall back to the complete
+      // local A/B journal, including money and stock. A revision FENCE (false
+      // with no storage error) is different: it must NOT overwrite another tab.
+      // A/B is an alternative durable COMMIT, not a second business operation.
+      const guardarABConfirmado = () => {
+        if (!ab || !tokenOk || _estadoLecturaBloqueada || _conflictoEstadoAB)
+          return terminar(false);
+        try {
+          _guardandoAB = true;
+          local = ab.guardarAhora(crudo) === true;
+          if (local) {
+            const vista = ab.leer();
+            const registro = vista && vista.registro;
+            local = !!(vista && registro && registro.phase === "COMMITTED" &&
+              registro.revision === _revIntento &&
+              registro.token === completo._abCommit &&
+              registro.candidateRaw === crudo &&
+              vista.buffers[vista.activo] === crudo &&
+              !vista.conflictos.length && !vista.danados.length);
+          }
+        } catch (_) { local = false; }
+        finally { _guardandoAB = false; }
+        if (local) {
+          // This is LOCAL durable, NEVER peer/global ACK; Sync3 may copy later.
+          try { window.OCSalud?.escritorEvento?.("fallbackLocal"); } catch (_) {}
         }
+        return terminar(local === true);
+      };
+      if (exigirCompleto) {
+        // No native IDB, closed adapter or a previously working IDB currently
+        // unavailable: all use the same read-back-verified local journal.
+        if (!casDisponible) return guardarABConfirmado();
         const _tIdbEstricto = _perfLocalInicio();
         return idb.guardarConRevision(completo, _localRev).then(ok => {
           _perfLocalFin('strict_idb', _tIdbEstricto, ok === true);
-          if (ok !== true) return terminar(false);
-          // v650: A/B first, the seal after. Another tab that sees the new seal reloads from A/B: an older copy there
-          // left its revision behind, IndexedDB refused its next save, and the customer got a false NOT saved.
+          if (ok !== true) {
+            // No error means strict CAS rejected a stale snapshot. Keep 403/
+            // 409/rebase protections, do NOT quietly downgrade that conflict.
+            const err = idb && typeof idb.ultimoError === "function"
+              ? idb.ultimoError() : null;
+            return err ? guardarABConfirmado() : terminar(false);
+          }
+          // An IDB commit has ALREADY applied the effects once. A/B is only
+          // the backup; it must not modify the economic ledger again.
           if (ab && tokenOk) {
             try { _guardandoAB = true; ab.guardarAhora(crudo); }
             catch (_) {} finally { _guardandoAB = false; }
@@ -1702,7 +1733,7 @@
           return terminar(true);
         }, () => {
           _perfLocalFin('strict_idb', _tIdbEstricto, false);
-          return terminar(false);
+          return guardarABConfirmado();
         });
       }
       // Non-financial background state still uses existing A/B recovery.
@@ -6064,6 +6095,27 @@
     try {
       if (!window.OCEstadoIDB) return;
       const espejo = await window.OCEstadoIDB.leer();
+      // Failback is a SNAPSHOT COPY, not a replay of stock/money effects.
+      // Reconcile the same validated journal only when A/B is newer; never
+      // use a stale IDB mirror to erase a locally accepted sale.
+      if ((!espejo || typeof espejo._rev !== "number" || espejo._rev < _localRev) &&
+          _cargoBufferReal && !_estadoLecturaBloqueada && !_conflictoEstadoAB &&
+          typeof window.OCEstadoIDB.guardarConRevision === "function") {
+        try {
+          const vista = _estadoAB().leer();
+          const raw = vista && vista.buffers[vista.activo];
+          const state = raw ? JSON.parse(raw) : null;
+          if (state && vista.registro && vista.registro.phase === "COMMITTED" &&
+              vista.registro.candidateRaw === raw && !vista.conflictos.length &&
+              !vista.danados.length && state._rev === _localRev &&
+              !validarRespaldo(state)) {
+            const revisionIDB = espejo && Number.isSafeInteger(espejo._rev) ? espejo._rev : 0;
+            // Atomic CAS fences a second tab or a newer IDB revision. Keep the
+            // A/B source intact on failure, including any pending opIds.
+            await window.OCEstadoIDB.guardarConRevision(state, revisionIDB);
+          }
+        } catch (_) {} // Local A/B remains authoritative while IDB is offline.
+      }
       if (!espejo || typeof espejo._rev !== "number") return;
       if (espejo._rev <= _localRev) return;
       if (_demoRefrescado) return; // el demo acaba de volver a la semilla nueva: no resucitar la vieja
@@ -7083,6 +7135,20 @@
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/venta$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
+        // A caller-supplied CONFIRM operation id is stable across retries.
+        // Do not re-run any stock, money, movement or Sync3 effect on replay.
+        const _opIdVenta = typeof body.opId === "string" ? body.opId.trim() : "";
+        if (_opIdVenta && !/^[a-zA-Z0-9][a-zA-Z0-9:._-]{9,119}$/.test(_opIdVenta))
+          return J({ error:"Invalid sale operation identifier." },400);
+        if (_opIdVenta) {
+          const ya = ventas.find(v => v && v.opId === _opIdVenta);
+          if (ya) {
+            const cantidadSolicitada = body.cantidad == null || body.cantidad === "" ? 1 : Number(body.cantidad);
+            if (ya.productoId !== p.id || ya.cantidad !== cantidadSolicitada)
+              return J({ error:"Operation id belongs to a different sale.",code:"SALE_OPID_CONFLICT" },409);
+            return J({ producto:ficha(p), ventaId:ya.id, opId:_opIdVenta, duplicate:true });
+          }
+        }
         if (p.perecible && estadoDe(p).dias < 0) return J({ error: "This product has expired. Remove it from sale and adjust its stock." }, 400);
         const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
         if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
@@ -7237,6 +7303,7 @@
         try {
         p.stockActual -= cant;
         const ventaId = uuid("v");
+        const opIdVenta = _opIdVenta || ventaId; // legacy UI gets a unique stable receipt id
         /* DATOS DEL EVENTO (portado de amigable-123, JFC 2026-08-18). Sin
            guardarlos, las ventas de una funcion o una clase quedan
            desperdigadas en la lista general y no hay forma de saber como fue
@@ -7274,8 +7341,8 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
-        mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
+        ventas.push({ id: ventaId, opId: opIdVenta, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        mov("venta", { opId: opIdVenta, producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
         const _opVenta = { productoId: p.id, delta: -cant };
         _prepararOpStock(_opVenta);
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
@@ -7301,7 +7368,7 @@
           return J({ error: aviso, code: cuotaReal ? "SALE_STORAGE_QUOTA" : "SALE_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
         }
         emitirOpStock("venta", _opVenta, true);
-        return J({ producto: ficha(p), ventaId });
+        return J({ producto: ficha(p), ventaId, opId: opIdVenta });
         } catch (e) {
           if (!_ventaGuardada) { _revertirVenta(); debePersistir = false; }
           throw e;
