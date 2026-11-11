@@ -383,7 +383,7 @@ test('P0 RED: cold-join reports only bounded budget and pause metadata for each 
     JSON, Number
   };
   vm.runInNewContext(code, ctx);
-  const info = await ctx.probe({evaluate: fn => fn()});
+  const info = await ctx.probe({evaluate: async fn => fn()});
   assert.equal(reads, 2, 'only two fixed local budget keys, no room or credential scans');
   assert.equal(info.conocido, true);
   assert.equal(info.capas.length, 2);
@@ -414,7 +414,7 @@ test('P0 RED: missing or malformed budget cannot report false zero or a healthy 
     Date, JSON, Number
   };
   vm.runInNewContext(src.slice(start, end) + '\nthis.probe=diagnosticoPresupuesto;', ctx);
-  const result = await ctx.probe({ evaluate: fn => fn() });
+  const result = await ctx.probe({ evaluate: async fn => fn() });
   assert.equal(result.conocido, false);
   assert.ok(result.capas.every(x => x.bajadaMiB === null && x.enPausa === null));
   const report = JSON.stringify(result);
