@@ -132,6 +132,7 @@ const crearObservadorRed = () => {
   const cero = () => ({ ok2xx: 0, rechazo401: 0, rechazo402: 0, rechazo403: 0,
     rechazo404: 0, rechazo409: 0, rechazo429: 0, error4xx: 0, error5xx: 0,
     errorRed: 0, errorAbortado: 0, errorTimeout: 0, errorConexion: 0, errorOtro: 0,
+    falloCheckpoint: 0, falloStream: 0, falloPull: 0, falloEscritura: 0, falloOtroEndpoint: 0,
     websocketCreado: 0, websocketCerrado: 0, websocketError: 0, other: 0 });
   const datos = { supabase: cero(), firebase: cero(), peer: cero() };
   const nombre = raw => {
@@ -167,6 +168,16 @@ const crearObservadorRed = () => {
         contar(capa, token === 'net::ERR_ABORTED' ? 'errorAbortado' :
           token === 'net::ERR_TIMED_OUT' ? 'errorTimeout' :
           token === 'net::ERR_CONNECTION_RESET' ? 'errorConexion' : 'errorOtro');
+        if (capa === 'firebase') {
+          // Route is inspected only in this closure, never retained or logged.
+          const u = new URL(req.url()), ruta = u.pathname;
+          const metodo = req.method && req.method();
+          const tipo = req.resourceType && req.resourceType();
+          contar(capa, metodo && metodo !== 'GET' ? 'falloEscritura' :
+            /\\/k(?:\\/[^/]+)?\\.json$/.test(ruta) ? 'falloCheckpoint' :
+            /\\/o\\.json$/.test(ruta) && tipo === 'eventsource' ? 'falloStream' :
+            /\\/o\\.json$/.test(ruta) ? 'falloPull' : 'falloOtroEndpoint');
+        }
       } catch (_) {}
     },
     socket: ws => {
