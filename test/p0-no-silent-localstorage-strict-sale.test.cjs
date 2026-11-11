@@ -129,7 +129,16 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
        body:JSON.stringify({cantidad:1})});
      return {status:r.status,body:await r.json()};
    },productId);
-   assert.equal(sale.status,200,'offline A/B sale MUST work without native IDB or other devices');
+   const diagnostics=await page.evaluate(()=>({
+     capability:OCEstadoIDB.capacidad(),idbSupported:OCEstadoIDB.soportado,
+     localKeys:Object.keys(localStorage).filter(k=>k.startsWith('f123_estado_v4'))
+       .map(k=>({key:k,length:(localStorage.getItem(k)||'').length})),
+     lastError:window.OCEstadoAB&&window.OCEstadoAB.ultimoError&&
+       window.OCEstadoAB.ultimoError()?.name||null
+   }));
+   assert.equal(sale.status,200,
+     'offline A/B sale MUST work without native IDB or other devices: '+
+     JSON.stringify({sale,diagnostics}));
    const local=await page.evaluate(async id=>{
      const a=await(await fetch('/api/respaldo/exportar')).json();
      return {stock:a.productos.find(p=>p.id===id)?.stockActual,
