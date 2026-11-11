@@ -1,0 +1,38 @@
+name: P0 Firebase cold-join bounded GET retry
+on:
+  pull_request:
+    paths:
+      - docs/firebase-relay.js
+      - test/p0-firebase-get-retry-once.test.cjs
+      - .github/workflows/p0-firebase-get-retry-once.yml
+      - docs/version-manifest.json
+  push:
+    branches: [master]
+    paths:
+      - docs/firebase-relay.js
+      - test/p0-firebase-get-retry-once.test.cjs
+      - .github/workflows/p0-firebase-get-retry-once.yml
+permissions:
+  contents: read
+jobs:
+  bounded-read-no-duplicate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Three independent passes of real adapter and prior durable contracts
+        run: |
+          set -euo pipefail
+          for pass in 1 2 3; do
+            echo "F123 Firebase read P0 PASS $pass/3"
+            node --test test/p0-firebase-get-retry-once.test.cjs test/p0-firebase-network-recovery.test.cjs test/firebase-relay-simple-v663.test.cjs test/firebase-relay-pagina-v665.test.cjs
+          done
+      - name: Official deterministic v729 manifest must match committed SHA-256
+        run: |
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js
