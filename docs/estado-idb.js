@@ -388,11 +388,17 @@
                 !Number.isSafeInteger(Number(current._rev))) {
               reason="invalid-snapshot";stage="aborted";try{tx.abort();}catch(_){}return;
             }
-            const applied=current._dedup&&current._dedup[opId];
-            if(applied){stage="already-applied";result=applied.resultado||null;return;}
-            if(!autorizado()){
+            // Even a duplicate request must prove CURRENT authority before
+            // returning any completed-sale result. A stale cached intent,
+            // previous PIN or sessionStorage entry is not authorization.
+            // Require an explicit synchronous true, never a truthy Promise.
+            let authorized=false;
+            try { authorized=autorizado()===true; } catch (_) {}
+            if(!authorized){
               reason="authority-lost";stage="aborted";try{tx.abort();}catch(_){}return;
             }
+            const applied=current._dedup&&current._dedup[opId];
+            if(applied){stage="already-applied";result=applied.resultado||null;return;}
             try {
               const next=JSON.parse(JSON.stringify(current));
               const value=aplicar(next,{opId:opId,tipo:tipo,datos:datos});
