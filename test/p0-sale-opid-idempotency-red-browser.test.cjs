@@ -42,10 +42,19 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     return {opId,firstId:first.ventaId,secondId:second.ventaId,stock:product.stockActual,
      count:linked.length,accountingIds:linked.map(v=>v.opId||null)};
    },name);
-   assert.equal(result.firstId,result.secondId,'retry must return the same durable sale receipt');
-   assert.equal(result.stock,2,'stock decreases exactly once');
-   assert.equal(result.count,1,'only one sale in authoritative snapshot');
-   assert.deepEqual(result.accountingIds,[result.opId],'the business opId must be persisted on receipt');
+   // One aggregate assertion reports every independent failed invariant, rather
+   // than stopping at two different receipt IDs and hiding the stock/money result.
+   assert.deepEqual({
+    sameReceipt:result.firstId===result.secondId,
+    stockAfterSingleSale:result.stock,
+    saleCount:result.count,
+    opIdInEveryReceipt:result.accountingIds.length===1&&result.accountingIds[0]===result.opId
+   },{
+    sameReceipt:true,
+    stockAfterSingleSale:2,
+    saleCount:1,
+    opIdInEveryReceipt:true
+   },'one opId must represent a single durable receipt, stock movement and accounting fact');
   }finally{await browser.close();}
  });
 }
