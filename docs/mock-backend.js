@@ -5867,6 +5867,13 @@
       // New operations carry immutable PN proof; derive the view from movement facts.
       // Old events remain on their historical Yjs path, avoiding double subtraction.
       const witness = op.payload && op.payload.stockPNHecho;
+      // P0 JFC: without a causal witness the legacy neutralized bridge would
+      // permanently mark a stock movement applied while changing nothing.
+      // Keep it pending instead; never invent a base, replay a delta, or ACK.
+      // Non-pilot licences retain the historical neutralized Yjs catalog path.
+      if (!witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+        return { ok: false, error: "stock-proof-missing" };
+      }
       if (witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
         const p = productos.find((x) => x.id === op.payload.productoId);
         if (!p) return {ok:false, error:"waiting-for-product"};
