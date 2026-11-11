@@ -29,8 +29,12 @@ sustituto de una transacción. No crear tercera base.
   y fail-closed/reacreditación antes de cutover.
 
 ## Etapas (la etapa 1 NO es una migración completa)
-1. **STAGED (implementado en rama DRAFT):** upgrade v1→v2 crea stores
-   idempotentemente, preservando `estado/actual`. Helper
+1. **STAGED (implementado en rama DRAFT):** apertura normal de `estado`
+   sin version explícita (v1 existente no se eleva por leer/vender).
+   El upgrade v1→v2 se solicita **solo durante staging explícito**,
+   crea stores idempotentemente y preserva `estado/actual`. La petición
+   puede quedar bloqueada por pestañas antiguas; no ejecutar staging en
+   licencias reales ni llamar a la API automáticamente. Helper
    `OCEstadoIDB.importarOutboxPreparado` inserta en UNA transacción
    `outbox` filas `{opId,blob}` ya cifradas, con PK opId, ACK
    `tx.oncomplete` + lectura por opId y comparación de blob; una colisión
