@@ -1509,6 +1509,11 @@
 
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
+    // A sale's business opId is its transport opId too. Other legacy
+    // operations retain their own generated transport IDs.
+    const opIdVenta = payload && typeof payload.opId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(payload.opId)
+      ? payload.opId : uuidCorto();
     const sala = leerSala();
     // Plan C derives its room from the active licence, not the legacy room key.
     // When only the old room is absent, still publish a committed movement to
@@ -1517,7 +1522,7 @@
       const licencia = codigoCuadernoActivo();
       if (!licencia) return false; // no safe business provenance yet
       const op = {
-        opId: uuidCorto(), deviceId: deviceId(),
+        opId: opIdVenta, deviceId: deviceId(),
         deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
         lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
         _salaOrigen: licencia
@@ -1535,7 +1540,7 @@
       return false;
     }
     const op = {
-      opId: uuidCorto(), deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
+      opId: opIdVenta, deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
       lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
       _salaOrigen: codigoCuadernoActivo() // immutable business provenance for catch-up/outbox
     };
