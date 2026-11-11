@@ -432,6 +432,71 @@
 (function (global) {
   "use strict";
   var h53 = function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);};
+  // JFC writer health: ONLY technical counters. This stays separate from
+  // transactions, money, inventory, PIN and the licensed customer's business.
+  // Existing license heartbeat carries the allowlisted summary; no new beacon,
+  // ad tracker, endpoint or network dependency. NO counter asserts data loss.
+  var ESCRITOR_KEY = "f123_writer_health_v1";
+  var escritorRelay = Object.create(null), escritorRelayVisto = false;
+  function capEscritor(x) {
+    var n = Number(x);
+    return Number.isFinite(n) && n > 0 ? Math.min(100000, Math.floor(n)) : 0;
+  }
+  function leerEscritor() {
+    try {
+      var v = JSON.parse(global.localStorage.getItem(ESCRITOR_KEY) || "null") || {};
+      return { fallbackLocal: capEscritor(v.fallbackLocal),
+        strictFailure: capEscritor(v.strictFailure), initCount: capEscritor(v.initCount) };
+    } catch (_) { return { fallbackLocal: 0, strictFailure: 0, initCount: 0 }; }
+  }
+  var escritorEstado = leerEscritor();
+  function guardarEscritor() {
+    try { global.localStorage.setItem(ESCRITOR_KEY, JSON.stringify({
+      fallbackLocal: escritorEstado.fallbackLocal,
+      strictFailure: escritorEstado.strictFailure,
+      initCount: escritorEstado.initCount
+    })); } catch (_) { /* health monitoring must never block a sale */ }
+  }
+  escritorEstado.initCount = capEscritor(escritorEstado.initCount + 1);
+  guardarEscritor();
+  function escritorEvento(tipo) {
+    // Deliberately ignore arbitrary payloads; no PII, amounts or identifiers.
+    if (tipo !== "fallbackLocal" && tipo !== "strictFailure") return false;
+    escritorEstado[tipo] = capEscritor(escritorEstado[tipo] + 1);
+    guardarEscritor();
+    return true;
+  }
+  try {
+    global.addEventListener("oc-relay-durable", function (e) {
+      var d = e && e.detail || {}, n = d.pendientes;
+      // Channel keys are ONLY in volatile local memory; NEVER in telemetry.
+      if (!Number.isSafeInteger(n) || n < 0) return;
+      var channel = String(d.canal || "");
+      if (!/^[a-z0-9_-]{1,30}$/.test(channel)) return;
+      if (!Object.prototype.hasOwnProperty.call(escritorRelay, channel) &&
+          Object.keys(escritorRelay).length >= 5) return;
+      escritorRelay[channel] = Math.min(n, 100000);
+      escritorRelayVisto = true;
+    });
+  } catch (_) {}
+  function escritorResumen() {
+    var nav = "unknown";
+    try {
+      var entries = global.performance && global.performance.getEntriesByType &&
+        global.performance.getEntriesByType("navigation");
+      var first = entries && entries[0] && entries[0].type;
+      if (["navigate", "reload", "back_forward", "prerender"].indexOf(first) >= 0) nav = first;
+    } catch (_) {}
+    var pending = null;
+    if (escritorRelayVisto) {
+      pending = Object.keys(escritorRelay).reduce(function (n, k) {
+        return Math.min(100000, n + escritorRelay[k]);
+      }, 0);
+    }
+    return { fallbackLocal: escritorEstado.fallbackLocal,
+      strictFailure: escritorEstado.strictFailure, initCount: escritorEstado.initCount,
+      pendientesRelay: pending, navigation: nav };
+  }
   var erroresSesion = 0;
   /* NODOS DEL SONAR (JFC 2026-09-25: "el sonar muestra la app y sus nodos ... rojos si
      algo se rompio, para saber donde"). Cada error se anota en la SECCION donde estaba
@@ -487,7 +552,8 @@
     try { e = global.OCCargador && global.OCCargador.estado ? global.OCCargador.estado() : {}; } catch (_) {}
     return { shell: shell, canal: canal(), errores: erroresSesion, caidas: Number(e.caidas) || 0,
       retenido: !!e.retenido, mezcla: global.__ocMezcla === true, cuadre: cuadre,
-      nodos: NODOS.reduce(function (o, k) { if (porNodo[k]) o[k] = porNodo[k]; return o; }, {}) };
+      nodos: NODOS.reduce(function (o, k) { if (porNodo[k]) o[k] = porNodo[k]; return o; }, {}),
+      escritor: escritorResumen() };
   }
   /* CANARIOS DE FALLO SILENCIOSO (JFC 2026-10-01: "mas canarios ... desde /next/").
      Caso que lo origino: una foto de variante que no abria se borraba sola y nadie se
@@ -514,5 +580,5 @@
     if (demoVistoYa) return; demoVistoYa = true;
     fallo(origen === "tablero" ? "tablero" : "arranque", "demo-visto");
   }
-  global.OCSalud = { demoVisto: demoVisto, fallo: fallo, fallos: function () { return Object.assign({}, fallos); }, resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal };
+  global.OCSalud = { demoVisto: demoVisto, fallo: fallo, fallos: function () { return Object.assign({}, fallos); }, resumen: resumen, medirCuadre: medirCuadre, esLord: esLord, canal: canal, escritorEvento: escritorEvento };
 })(typeof window !== "undefined" ? window : this);
