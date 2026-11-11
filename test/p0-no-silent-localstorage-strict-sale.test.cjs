@@ -37,10 +37,15 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      return !!s?.productos?.find(p=>p.id===productId);
    },id,{timeout:10000});
 
+   const proof=await page.evaluate(()=>OCEstadoIDB.capacidad());
+   assert.equal(proof,'opened_once','first confirmed IDB commit leaves a sticky capability proof');
    const denied=await page.evaluate(async({productId,label})=>{
      localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-ACTIVATED-FALLBACK-'+label}));
      localStorage.setItem('f123_tienda_activa','SYNTHETIC-NOTEBOOK-'+label);
      window.__trueIDB=window.OCEstadoIDB;
+     // Simulate an older installed customer upgrading without capability flag.
+     // Missing historical metadata MUST NEVER be read as 'never_opened'.
+     localStorage.removeItem('f123_idb_capability_v1');
      // Simulate an unsupported/disabled IDB *after* the business has been seeded.
      // Never turn a strict sale into a successful A/B localStorage-only receipt.
      window.OCEstadoIDB={soportado:false,ultimoError:()=>null};
@@ -82,6 +87,66 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    },id);
    assert.deepEqual(reopened,{stock:2,sales:1},
      'one strict sale survives reload, no false A/B sale');
+  }finally{await browser.close();}
+ });
+}
+
+for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
+ test('P0 '+name+': a truly IDB-less NEW device sells autonomously using A/B and survives reload',
+ {timeout:90000},async()=>{
+  const browser=await engine.launch({headless:true});
+  try{
+   const ctx=await browser.newContext();
+   await ctx.route(url=>!/^(file|data|blob|about):/.test(url.protocol),route=>route.abort());
+   const page=await ctx.newPage();
+   // Remove native IndexedDB BEFORE any application script executes.
+   // Not an adapter fake on an older device: initial capability is 'never'.
+   await page.addInitScript(WS_STUB);
+   await page.addInitScript(() => {
+     try{Object.defineProperty(window,'indexedDB',{configurable:true,value:undefined});}
+     catch(_){try{window.indexedDB=undefined;}catch(__){}}
+   });
+   await page.goto(INDEX,{waitUntil:'domcontentloaded'});
+   await page.waitForFunction(()=>!!window.OCEstadoIDB&&!!window.OCAuth);
+   const afterBoot=await page.evaluate(()=>({
+      native:!!(window.indexedDB&&window.indexedDB.open),
+      cap:window.OCEstadoIDB.capacidad()
+   }));
+   assert.deepEqual(afterBoot,{native:false,cap:'never_opened'});
+   const productId=await page.evaluate(async(label)=>{
+      OCAuth.rolActual=()=> 'dueno';
+      document.getElementById('oc-gate')?.remove();
+      const r=await fetch('/api/productos',{method:'POST',
+        body:JSON.stringify({nombre:'No native IDB '+label,
+          barcode:'P0-NEVER-IDB-'+label,precio:15,costo:4,stockInicial:3})});
+      const j=await r.json();if(!r.ok)throw Error('seed '+r.status);
+      localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-NO-IDB-'+label}));
+      localStorage.setItem('f123_tienda_activa','SYNTHETIC-NEVER-IDB-NOTEBOOK-'+label);
+      return j.id;
+   },name);
+   const sale=await page.evaluate(async id=>{
+     const r=await fetch('/api/productos/'+id+'/venta',{method:'POST',
+       body:JSON.stringify({cantidad:1})});
+     return {status:r.status,body:await r.json()};
+   },productId);
+   assert.equal(sale.status,200,'offline A/B sale MUST work without native IDB or other devices');
+   const local=await page.evaluate(async id=>{
+     const a=await(await fetch('/api/respaldo/exportar')).json();
+     return {stock:a.productos.find(p=>p.id===id)?.stockActual,
+       sales:a.ventas.filter(v=>v.productoId===id).length,
+       cap:OCEstadoIDB.capacidad()};
+   },productId);
+   assert.deepEqual(local,{stock:2,sales:1,cap:'never_opened'});
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.waitForFunction(()=>!!window.OCEstadoIDB);
+   const persisted=await page.evaluate(async id=>{
+     const a=await(await fetch('/api/respaldo/exportar')).json();
+     return {stock:a.productos.find(p=>p.id===id)?.stockActual,
+       sales:a.ventas.filter(v=>v.productoId===id).length,
+       cap:OCEstadoIDB.capacidad()};
+   },productId);
+   assert.deepEqual(persisted,{stock:2,sales:1,cap:'never_opened'},
+     'same exact sale survives reopening without native IDB, internet or relay');
   }finally{await browser.close();}
  });
 }
