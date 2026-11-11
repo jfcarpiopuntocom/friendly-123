@@ -1,6 +1,6 @@
 'use strict';
-// P0 RED contract: the legacy A/B localStorage path must never masquerade as
-// a durable IDB sale on an activated business after IDB becomes unavailable.
+// P0 JFC 2026-11-11: accept-and-reconcile. IDB failure may use a verified
+// local A/B commit; never claim global/peer ACK or apply one opId twice.
 // Synthetic notebooks only; no real network, customer license or deployment.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
@@ -11,7 +11,8 @@ const INDEX=pathToFileURL(path.resolve(__dirname,'../docs/index.html')).href;
 const WS_STUB='window.WebSocket=class{constructor(){this.readyState=3;}send(){}close(){}addEventListener(){}removeEventListener(){}};window.WebSocket.CONNECTING=0;window.WebSocket.OPEN=1;window.WebSocket.CLOSING=2;window.WebSocket.CLOSED=3;';
 
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
- test('P0 activated '+name+': IDB absent means NO localStorage sale ACK, no phantom stock, recovery with IDB',
+ for(const fault of ['adapter-unavailable','IDB-abort']){
+ test('P0 JFC '+name+' '+fault+': A/B ACK local + same opId + failback without double sale',
  {timeout:90000},async()=>{
   const browser=await engine.launch({headless:true});
   try{
@@ -25,7 +26,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     OCAuth.rolActual=()=> 'dueno';
     document.getElementById('oc-gate')?.remove();
     const r=await fetch('/api/productos',{method:'POST',body:JSON.stringify({
-      nombre:'Synthetic fallback guard '+label,barcode:'P0-NO-FALLBACK-'+label,
+      nombre:'Synthetic local sale '+label,barcode:'P0-FALLBACK-'+label,
       precio:15,costo:4,stockInicial:3
     })});
     const p=await r.json();
@@ -36,59 +37,85 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      const s=await window.OCEstadoIDB.leer();
      return !!s?.productos?.find(p=>p.id===productId);
    },id,{timeout:10000});
-
    const proof=await page.evaluate(()=>OCEstadoIDB.capacidad());
-   assert.equal(proof,'opened_once','first confirmed IDB commit leaves a sticky capability proof');
-   const denied=await page.evaluate(async({productId,label})=>{
+   assert.equal(proof,'opened_once','the device had a real IDB commit BEFORE failure');
+   const opId='sale-p0-fallback-'+name.toLowerCase()+'-'+fault;
+   const accepted=await page.evaluate(async({productId,fault,opId,label})=>{
+     // Emulate a licensed notebook only for this single-page synthetic sale.
+     // Keep the canonical A/B notebook unchanged across the forthcoming reload.
      localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-ACTIVATED-FALLBACK-'+label}));
-     localStorage.setItem('f123_tienda_activa','SYNTHETIC-NOTEBOOK-'+label);
      window.__trueIDB=window.OCEstadoIDB;
-     // Simulate an older installed customer upgrading without capability flag.
-     // Missing historical metadata MUST NEVER be read as 'never_opened'.
-     localStorage.removeItem('f123_idb_capability_v1');
-     // Simulate an unsupported/disabled IDB *after* the business has been seeded.
-     // Never turn a strict sale into a successful A/B localStorage-only receipt.
-     window.OCEstadoIDB={soportado:false,ultimoError:()=>null};
+     if(fault==='adapter-unavailable'){
+       window.OCEstadoIDB={soportado:false,ultimoError:()=>null};
+     }else{
+       window.OCEstadoIDB={...window.__trueIDB,soportado:true,
+         guardarConRevision:async()=>false,
+         ultimoError:()=>({name:'AbortError'})};
+     }
      const r=await fetch('/api/productos/'+productId+'/venta',{
-       method:'POST',body:JSON.stringify({cantidad:1,info:{formaPago:'cash'}})
+       method:'POST',body:JSON.stringify({cantidad:1,opId,info:{formaPago:'cash'}})
      });
-     const payload=await r.json();
+     const body=await r.json();
      const state=await(await fetch('/api/respaldo/exportar')).json();
-     return {status:r.status,code:payload.code||null,
-       stock:state.productos.find(p=>p.id===productId)?.stockActual,
-       sales:state.ventas.filter(v=>v.productoId===productId).length};
-   },{productId:id,label:name});
-   assert.ok(denied.status===503||denied.status===507,
-     'activated business MUST fail closed without IDB; legacy A/B must not ACK sale: '+JSON.stringify(denied));
-   assert.equal(denied.sales,0,'refused sale writes no financial receipt');
-   assert.equal(denied.stock,3,'refused sale does not spend stock');
-   const stored=await page.evaluate(async productId=>{
-    window.OCEstadoIDB=window.__trueIDB;
-    const snapshot=await OCEstadoIDB.leer();
-    return {stock:snapshot?.productos?.find(p=>p.id===productId)?.stockActual,
-      sales:snapshot?.ventas?.filter(v=>v.productoId===productId).length};
+     const j=JSON.parse(localStorage.getItem('f123_estado_v4_journal')||'null');
+     const saved=j&&j.candidateRaw?JSON.parse(j.candidateRaw):null;
+     return {status:r.status,returnedOpId:body.opId,stock:state.productos.find(p=>p.id===productId)?.stockActual,
+       sales:state.ventas.filter(v=>v.productoId===productId).length,
+       journalPhase:j?.phase,journalRevision:j?.revision,
+       durableStock:saved?.productos?.find(p=>p.id===productId)?.stockActual,
+       durableSales:saved?.ventas?.filter(v=>v.productoId===productId).length,
+       durableOp:saved?.ventas?.find(v=>v.opId===opId)?.opId,
+       error:body.error};
+   },{productId:id,fault,opId,label:name});
+   assert.equal(accepted.status,200,'IDB failure MUST allow durable local A/B sale: '+JSON.stringify(accepted));
+   assert.equal(accepted.returnedOpId,opId);
+   assert.equal(accepted.stock,2);
+   assert.equal(accepted.sales,1);
+   assert.equal(accepted.journalPhase,'COMMITTED','local A/B commit complete, not RAM-only');
+   assert.equal(accepted.durableStock,2);
+   assert.equal(accepted.durableSales,1);
+   assert.equal(accepted.durableOp,opId);
+
+   const staleIDB=await page.evaluate(async productId=>{
+     window.OCEstadoIDB=window.__trueIDB;
+     const s=await OCEstadoIDB.leer();
+     // Test-only license marker removed because the initial synthetic product
+     // was seeded in the unlicensed *canonical* store. Real licensed apps
+     // scope their store at startup and do not switch scopes mid-session.
+     localStorage.removeItem('f123_owned');
+     return {stock:s?.productos?.find(p=>p.id===productId)?.stockActual,
+       sales:s?.ventas?.filter(v=>v.productoId===productId).length};
    },id);
-   assert.deepEqual(stored,{stock:3,sales:0},
-     'the original durable IDB snapshot remains unchanged after aborted sale');
-   // Clearing storage pressure (restoring IDB) should allow exactly one sale.
-   const response=await page.evaluate(async productId=>{
-    const r=await fetch('/api/productos/'+productId+'/venta',{
-      method:'POST',body:JSON.stringify({cantidad:1,info:{formaPago:'cash'}})
-    });
-    return {status:r.status,body:await r.json()};
-   },id);
-   assert.equal(response.status,200,'a working IDB must let local-first selling resume');
+   assert.deepEqual(staleIDB,{stock:3,sales:0},
+     'IDB remains stale while unavailable; the newer local journal must win');
    await page.reload({waitUntil:'domcontentloaded'});
    await page.waitForFunction(()=>!!window.OCEstadoIDB&&!!window.OCAuth);
-   const reopened=await page.evaluate(async productId=>{
-    const state=await(await fetch('/api/respaldo/exportar')).json();
-    return {stock:state.productos.find(p=>p.id===productId)?.stockActual,
-      sales:state.ventas.filter(v=>v.productoId===productId).length};
-   },id);
-   assert.deepEqual(reopened,{stock:2,sales:1},
-     'one strict sale survives reload, no false A/B sale');
+   await page.waitForFunction(async({productId,opId})=>{
+     const s=await OCEstadoIDB.leer();
+     return !!(s?.ventas?.find(v=>v.opId===opId)&&s.productos.find(p=>p.id===productId)?.stockActual===2);
+   },{productId:id,opId},{timeout:15000});
+   const after=await page.evaluate(async({productId,opId})=>{
+     OCAuth.rolActual=()=> 'dueno';
+     document.getElementById('oc-gate')?.remove();
+     const before=await(await fetch('/api/respaldo/exportar')).json();
+     const dup=await fetch('/api/productos/'+productId+'/venta',{
+       method:'POST',body:JSON.stringify({cantidad:1,opId,info:{formaPago:'cash'}})
+     });
+     const replay=await dup.json();
+     const final=await(await fetch('/api/respaldo/exportar')).json();
+     return {stockBefore:before.productos.find(p=>p.id===productId)?.stockActual,
+       salesBefore:before.ventas.filter(v=>v.productoId===productId).length,
+       duplicateStatus:dup.status,duplicate:replay.duplicate,duplicateId:replay.opId,
+       stockAfter:final.productos.find(p=>p.id===productId)?.stockActual,
+       salesAfter:final.ventas.filter(v=>v.productoId===productId).length,
+       movements:final.movimientos.filter(v=>v.detalle?.opId===opId).length};
+   },{productId:id,opId});
+   assert.deepEqual(after,{stockBefore:2,salesBefore:1,duplicateStatus:200,
+     duplicate:true,duplicateId:opId,stockAfter:2,salesAfter:1,movements:1},
+     'failback and same-opId retry must NOT apply stock, money or movement twice');
   }finally{await browser.close();}
  });
+ }
 }
 
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
