@@ -50,7 +50,7 @@ test('la salud pasa por lista blanca: un campo extra nunca se guarda', async () 
   await llamar(w, env, '/checkin', { metodo: 'POST', body: { instanceId: 'inst-lista-blanca', licenseCode: 'F123-CLIENTE-DE-PRUEBA',
     salud: { shell: 'f123-shell-v403', canal: 'estable', errores: 0, cliente: 'Maria', monto: 99 } } });
   const reg = JSON.parse(await env.LICENCIAS.get('inst:inst-lista-blanca'));
-  assert.deepEqual(Object.keys(reg.salud).sort(), ['at', 'caidas', 'canal', 'cuadre', 'errores', 'mezcla', 'nodos', 'retenido', 'shell']);
+  assert.deepEqual(Object.keys(reg.salud).sort(), ['at', 'caidas', 'canal', 'cuadre', 'errores', 'escritor', 'mezcla', 'nodos', 'retenido', 'shell']);
   assert.ok(!JSON.stringify(reg).includes('Maria'));
 });
 
@@ -82,4 +82,27 @@ test('ordenes del Sonar: sin Master Key no; push, detener y reanudar con ella', 
   await llamar(w, env, '/canario/orden', { metodo: 'POST', body: { accion: 'reanudar' }, clave: 'fixture-master-key-not-real' });
   assert.equal((await llamar(w, env, '/canario/orden')).json.detenido, false);
   assert.equal((await llamar(w, env, '/canario/orden', { metodo: 'POST', body: { accion: 'borrar-todo' }, clave: 'fixture-master-key-not-real' })).status, 400);
+});
+
+// P0 private writer health remains numeric even when caller tries to smuggle
+// prices, customers, license identifiers or arbitrary messages into telemetry.
+test('JFC writer health allowlist discards money, PII, PIN and forged extra fields', async () => {
+  const w=await cargar(),env=entorno();
+  const health={shell:'f123-shell-v726',canal:'estable',
+    escritor:{fallbackLocal:5,strictFailure:3,initCount:7,pendientesRelay:2,
+      navigation:'reload',monto:123456,cliente:'Secret customer',PIN:'999',
+      producto:'Product XYZ',licenseCode:'F123-DO-NOT-LEAK',message:'custom error with PII'}};
+  const r=await llamar(w,env,'/checkin',{metodo:'POST',body:{
+    instanceId:'inst-writer-health', licenseCode:'F123-FIXTURE-NOT-A-REAL-LICENSE',
+    salud:health
+  }});
+  assert.equal(r.status,200);
+  const row=JSON.parse(await env.LICENCIAS.get('inst:inst-writer-health'));
+  assert.deepEqual(row.salud.escritor,{
+    fallbackLocal:5,strictFailure:3,initCount:7,pendientesRelay:2,navigation:'reload'});
+  assert.ok(!JSON.stringify(row.salud).includes('Secret customer'));
+  assert.ok(!JSON.stringify(row.salud).includes('123456'));
+  assert.ok(!JSON.stringify(row.salud).includes('Product XYZ'));
+  assert.ok(!JSON.stringify(row.salud).includes('999'));
+  assert.ok(!JSON.stringify(row.salud).includes('DO-NOT-LEAK'));
 });

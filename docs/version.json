@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.25",
-  "fecha": "2026-11-10",
-  "changelog": "v0.7.25 P0: conservar movimientos por licencia durante arranque frio/offline hasta ACK durable; sin cambiar PIN, fotos ni datos de clientes.",
+  "version": "v0.7.26",
+  "fecha": "2026-11-11",
+  "changelog": "v0.7.26 P0: restaurar venta local A/B en aparatos sin IndexedDB; no confirmar falsos ACK con IDB averiada; salud técnica privada JFC sin datos comerciales.",
   "requerida": false,
-  "shell": "f123-shell-v725",
+  "shell": "f123-shell-v726",
   "apagar": [],
-  "releaseName": "v0.7.25",
-  "cacheGeneration": "golden265"
+  "releaseName": "v0.7.26",
+  "cacheGeneration": "golden266"
 }

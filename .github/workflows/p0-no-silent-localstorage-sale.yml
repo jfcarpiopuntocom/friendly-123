@@ -1,0 +1,37 @@
+name: P0 no silent localStorage sale fallback (NO RELEASE)
+
+on:
+  push:
+    branches:
+      - fix/p0-no-silent-localstorage-sale-20261111
+    paths:
+      - docs/mock-backend.js
+      - test/p0-no-silent-localstorage-strict-sale.test.cjs
+      - .github/workflows/p0-no-silent-localstorage-sale.yml
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/mock-backend.js
+      - test/p0-no-silent-localstorage-strict-sale.test.cjs
+      - .github/workflows/p0-no-silent-localstorage-sale.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  forbidden-fallback:
+    name: activated-sale-idb-only
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Strict sale with broken IDB must fail closed (real Chromium + WebKit)
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 test/p0-no-silent-localstorage-strict-sale.test.cjs

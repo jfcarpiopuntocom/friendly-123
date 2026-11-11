@@ -172,6 +172,45 @@ document.getElementById("btnVaciarCarrito") && document.getElementById("btnVacia
 /* (JFC 2026-10-28) Anti doble toque en "sellar": el boton antes se deshabilitaba DESPUES de ocConfirm, asi que dos toques
    abrian dos confirmaciones y vendian dos veces (la ruta de venta no es idempotente por opId). Bandera + boton deshabilitado
    durante todo el flujo, restaurado en finally. Los otros dos llamadores (venderUno, confirmar venta) ya usan _ventasEnCurso. */
+// P0 JFC: a single sale opId survives an ambiguous confirmation/reload.
+ // The content fingerprint stays ONLY in local storage; it is never sent to JFC.
+const _ocVentaIntentosRAM = new Map();
+function _ocVentaOpPendiente(origen, productoId, datos) {
+  const payload = JSON.stringify(datos);
+  let huella = 2166136261;
+  for (let i=0; i<payload.length; i++) {
+    huella = Math.imul(huella ^ payload.charCodeAt(i), 16777619) >>> 0;
+  }
+  let tienda = "standalone";
+  try { tienda = localStorage.getItem("f123_tienda_activa") ||
+    localStorage.getItem("f123_owned") || tienda; } catch (_) {}
+  let tiendaHash = 2166136261;
+  for (let i=0; i<tienda.length; i++) {
+    tiendaHash = Math.imul(tiendaHash ^ tienda.charCodeAt(i), 16777619) >>> 0;
+  }
+  const key = "f123_sale_intent_v1:" + tiendaHash.toString(36) + ":" + origen + ":" + productoId;
+  const signature = huella.toString(36) + ":" + payload.length;
+  let previous = null;
+  try { previous = JSON.parse(localStorage.getItem(key) || "null"); }
+  catch (_) { previous = _ocVentaIntentosRAM.get(key) || null; }
+  if (previous && previous.signature === signature && /^sale-[a-zA-Z0-9-]{20,}$/.test(previous.opId || ""))
+    return { opId:previous.opId, key };
+  const opId = "sale-" + (globalThis.crypto && crypto.randomUUID
+    ? crypto.randomUUID() : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2));
+  const intent = { opId, signature };
+  _ocVentaIntentosRAM.set(key, intent);
+  try { localStorage.setItem(key, JSON.stringify(intent)); }
+  catch (_) { /* A/B journal still decides whether the actual sale is saved. */ }
+  return { opId, key };
+}
+function _ocVentaIntentoConfirmado(intent) {
+  if (!intent) return;
+  _ocVentaIntentosRAM.delete(intent.key);
+  try {
+    const current = JSON.parse(localStorage.getItem(intent.key) || "null");
+    if (current && current.opId === intent.opId) localStorage.removeItem(intent.key);
+  } catch (_) {}
+}
 let _sellando = false;
 async function sellarVenta() {
   if (_sellando) return;
@@ -194,12 +233,15 @@ async function _sellarVentaInterno() {
   const hechas = [];
   for (const l of _carritoVenta) {
     try {
+      const ventaDatos = { cantidad: l.cantidad, clienteId: (sel && sel.value) || undefined, info: infoEventoActivo() };
+      const intento = _ocVentaOpPendiente("carrito", l.productoId, ventaDatos);
       const res = await fetch(`${API}/productos/${l.productoId}/venta`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cantidad: l.cantidad, clienteId: (sel && sel.value) || undefined, info: infoEventoActivo() })
+        body: JSON.stringify({ ...ventaDatos, opId: intento.opId })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Unknown error");
+      if (data.opId === intento.opId && data.ventaId) _ocVentaIntentoConfirmado(intento);
       hechas.push(l);
     } catch (err) {
       // Corte honesto: lo que ya se sello queda sellado (no se revierte),
@@ -4779,11 +4821,13 @@ async function venderUno(id){
   _ventasEnCurso.add(id);
   try {
     const sel = document.getElementById("ventaCliente");
-    let res;
+    let res, intento;
     try {
+      const ventaDatos = {cantidad:1, clienteId: (sel && sel.value) || undefined, info: infoEventoActivo()};
+      intento = _ocVentaOpPendiente("rapida", id, ventaDatos);
       res = await fetch(`${API}/productos/${id}/venta`, {
         method:"POST", headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({cantidad:1, clienteId: (sel && sel.value) || undefined, info: infoEventoActivo()})
+        body: JSON.stringify({...ventaDatos, opId:intento.opId})
       });
     } catch (err) {
       // Reforzado (JFC 2026-07-18): esta es LA accion de venta mas frecuente
@@ -4797,6 +4841,7 @@ async function venderUno(id){
     }
     const data = await res.json();
     if (!res.ok){ await ocAlert(data.error); return; }
+    if (data.opId === intento.opId && data.ventaId) _ocVentaIntentoConfirmado(intento);
     pintarFicha(data.producto);
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
     // Túnel reactivo (JFC 2026-09-04): refresca en vivo ranking de comisionistas
@@ -5311,16 +5356,19 @@ async function confirmarVentaConInfo(id, esTicket){
   try {
     let res, data;
     try {
+      const ventaDatos = { cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modalidadVenta: g("vi-modalidad") || undefined, modoComision: _modoComisionVenta,
+        promotoraId: (_modoComisionVenta === "associate" && document.getElementById("vi-comisionista")) ? (document.getElementById("vi-comisionista").value || null) : null,
+        asistenteId: (_modoComisionVenta === "associate" && document.getElementById("vi-asistente")) ? (document.getElementById("vi-asistente").value || null) : null,
+        asistentePct: (document.getElementById("vi-asistente-pct") || {}).value,
+        direccionComision: leerFlechaComision("vi-direccion") };
+      const intento = _ocVentaOpPendiente("confirm", id, ventaDatos);
       res = await fetch(`${API}/productos/${id}/venta`, {
         method: "POST", headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ cantidad: _esBar ? _servings : _cantMostrador, clienteId, info, modalidadVenta: g("vi-modalidad") || undefined, modoComision: _modoComisionVenta,
-          // 2026-09-25: la persona elegida viaja con la venta (en una percha propia es la unica fuente del trato).
-          promotoraId: (_modoComisionVenta === "associate" && document.getElementById("vi-comisionista")) ? (document.getElementById("vi-comisionista").value || null) : null,
-          asistenteId: (_modoComisionVenta === "associate" && document.getElementById("vi-asistente")) ? (document.getElementById("vi-asistente").value || null) : null,
-          asistentePct: (document.getElementById("vi-asistente-pct") || {}).value,
-          direccionComision: leerFlechaComision("vi-direccion") })
+        body: JSON.stringify({ ...ventaDatos, opId: intento.opId })
       });
       data = await res.json();
+      if (res.ok && data.opId === intento.opId && data.ventaId)
+        _ocVentaIntentoConfirmado(intento);
     } catch (err) {
       console.error("[confirmarVentaConInfo]", err);
       msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = "Could not reach the server. The sale was NOT recorded.";

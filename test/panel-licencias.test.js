@@ -210,3 +210,31 @@ test('el panel pinta el apodo del aparato en la fila principal y en la plegada',
   assert.match(tbody.innerHTML, /ApodoPrincipal/);
   assert.match(tbody.innerHTML, /ApodoPlegado/);
 });
+
+test('private JFC health: cohorts are devices, unknown reports are not healthy, no financial fields',()=>{
+ const P=cargar();
+ const idx=P.indexar([
+   {instanceId:'fixture-health-a',licenseCode:'F123-TEST-HEALTH-1',lastSeen:AHORA,
+     salud:{shell:'f123-shell-v726',escritor:{fallbackLocal:2,strictFailure:1,
+       pendientesRelay:3,initCount:4,monto:5000,customer:'Hidden'}}},
+   {instanceId:'fixture-health-b',licenseCode:'F123-TEST-HEALTH-1',lastSeen:AHORA,
+     salud:{shell:'f123-shell-v725',escritor:{fallbackLocal:0,strictFailure:0,
+       pendientesRelay:null,initCount:1}}},
+   {instanceId:'fixture-health-c',licenseCode:'F123-TEST-HEALTH-2',lastSeen:AHORA,
+     nombreNegocio:'No health reporting yet'},
+ ]);
+ const s=P.saludEscritor(idx.grupos);
+ assert.equal(s.reportadas,1,'one licensed business, two reporting devices');
+ assert.equal(s.sinReporte,1,'no heartbeat telemetry does not equal zero failures');
+ assert.equal(s.aparatosConReporte,2);
+ assert.equal(s.aparatosFallback,1);
+ assert.equal(s.aparatosPendientes,1);
+ assert.equal(s.pendientesConocidos,3);
+ assert.equal(s.cohortes.reduce((n,c)=>n+c.aparatos,0),2);
+ assert.equal(s.alertas.length,1);
+ assert.equal(s.alertas[0].codigo,'F123-TEST-HEALTH-1');
+ assert.equal(s.alertas[0].fallback,2);
+ assert.equal(s.alertas[0].pending,3);
+ assert.ok(!JSON.stringify(s).includes('Hidden'));
+ assert.ok(!JSON.stringify(s).includes('5000'));
+});

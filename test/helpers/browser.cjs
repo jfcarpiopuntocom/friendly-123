@@ -29,6 +29,10 @@ function browser(ls = storage()) {
   w.OCSecure = { estadoSecreto: () => 'ok', coincidePin: async () => false, leerPinsVisibles: () => null };
   vm.createContext(w);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/estado-ab.js'), 'utf8'), w);
+  // Match the actual index.html load order: genuine IDB capability adapter
+  // exists even on browsers with NO indexedDB. It proves never_opened on a
+  // fresh fixture; do not bypass the product's fail-closed activated guard.
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/estado-idb.js'), 'utf8'), w);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../../docs/core/payout-ledger.js'), 'utf8'), w);
   // v506 (auditoria 2026-10-14): la app carga core/business-read-model.js ANTES de
   // mock-backend (index.html). Sin esto /api/dashboard corria aqui un camino de

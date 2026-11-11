@@ -957,6 +957,18 @@ async function handleRegistrarPago(req, env, instanceId) {
    - canario:detenido "1" = JFC congelo la promocion automatica.
    Las lecturas son publicas porque solo devuelven numeros y codigos; escribir
    ordenes exige la Master Key del panel. */
+// Technical license-panel health allowlist. NEVER copy input objects or
+// generic strings from a customer device; no money, customer data or PIN.
+function sanearEscritor(x) {
+  if (!x || typeof x !== "object" || Array.isArray(x)) return null;
+  const n = (v) => Math.max(0, Math.min(100000, Math.floor(Number(v) || 0)));
+  const navigation = ["navigate", "reload", "back_forward", "prerender", "unknown"].includes(x.navigation)
+    ? x.navigation : "unknown";
+  return { fallbackLocal: n(x.fallbackLocal), strictFailure: n(x.strictFailure),
+    initCount: n(x.initCount),
+    pendientesRelay: x.pendientesRelay === null || x.pendientesRelay === undefined
+      ? null : n(x.pendientesRelay), navigation };
+}
 function sanearSalud(x) {
   if (!x || typeof x !== "object") return null;
   const n = (v) => Math.max(0, Math.min(100000, Math.floor(Number(v) || 0)));
@@ -968,6 +980,7 @@ function sanearSalud(x) {
     mezcla: x.mezcla === true, retenido: x.retenido === true,
     cuadre: x.cuadre === "ok" || x.cuadre === "fallo" ? x.cuadre : null,
     nodos: sanearNodos(x.nodos),
+    escritor: sanearEscritor(x.escritor),
     at: Date.now(),
   };
 }
