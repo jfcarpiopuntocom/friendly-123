@@ -1794,6 +1794,11 @@
       ws.onerror = function () { try { ws.close(); } catch (_) {} };
     }
     canal.pausar = function () {
+      /* JFC 2026-11-11 (orden de Fable 5.2): antes de pausar por pantalla oculta, vaciar UNA vez
+         el buffer en memoria hacia el relay si el socket sigue abierto. No cambia el permiso de
+         envio: lo duradero (outbox cifrado) sigue intacto y se reenvia al volver. Si falla, no
+         pasa nada: la garantia es al-menos-una-vez al volver al frente, no antes de dormirse. */
+      try { if (canal.ws && canal.ws.readyState === 1 && canal.pend && canal.pend.length) drenarVivo(); } catch (_) {}
       _pausado = true;
       [_tReconnect,_tEstable,_tCkpt,_tReplay,_bufferPumpTimer,_durableTimer,_durableWatchdog]
         .forEach(clearTimeout);

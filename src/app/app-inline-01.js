@@ -2651,7 +2651,17 @@ document.addEventListener("click", function (ev) {
      the per-tab promise queue alone does not coordinate separate tabs. */
   var _hayLocks = false;
   try { _hayLocks = !!(navigator.locks && navigator.locks.request); } catch (_) {}
-  if (_hayLocks) return;
+  /* FEATURE - DORMANT (desactivada por orden de JFC, dueno, 2026-11-11). NO BORRAR.
+     Este guardia pintaba una PANTALLA COMPLETA («Este navegador no puede coordinar
+     escrituras entre pestanas...») y ponia OC_TAB_READONLY=true, lo que rechazaba
+     con 409 cualquier venta de la segunda pantalla en navegadores sin
+     navigator.locks. JFC: nunca aprobo ese anuncio, ensucia su UI y su UX, y una
+     venta jamas debe bloquearse por esto. La integridad entre pantallas ya la da el
+     control de revision de IndexedDB (OCEstadoIDB.guardarConRevision: leer la
+     revision y escribir en UNA sola transaccion readwrite, compare-and-set atomico).
+     PARA REACTIVAR (solo con orden expresa de JFC): poner DOBLE_PESTANA_DORMANT = false. */
+  var DOBLE_PESTANA_DORMANT = true;
+  if (_hayLocks || DOBLE_PESTANA_DORMANT) return;
 
   if (typeof BroadcastChannel === "undefined") return;
   var canal = new BroadcastChannel("friendly-123-sesion-unica");

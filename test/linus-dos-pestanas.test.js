@@ -105,14 +105,14 @@ test('without Web Locks the compatibility tab guard remains available',async()=>
   const base=`http://127.0.0.1:${srv.address().port}/`;
   const first=await ctx.newPage();await first.goto(base,{waitUntil:'load'});
   const second=await ctx.newPage();await second.goto(base,{waitUntil:'load'});
-  await second.locator('#oc-doble-tab').waitFor({state:'visible'});
-  assert.match(await second.locator('#oc-doble-tab').innerText(),/cannot coordinate writes|no puede coordinar escrituras/);
-  assert.doesNotMatch(await second.locator('#oc-doble-tab').innerText(),/Use here anyway|de todos modos/);
-  const write=page=>page.evaluate(async()=>{window.OCAuth={rolActual:()=> 'dueno'};const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Synthetic guarded rack',tipo:'propio'})});return r.status;});
-  assert.equal(await write(second),409,'the guarded tab cannot write even when a request bypasses its UI');
-  assert.equal(await write(first),200,'the primary tab stays usable');
+  // JFC 2026-11-11: sin navigator.locks tampoco se pinta ningun anuncio ni se rechaza una venta.
+  await second.waitForTimeout(300);
+  assert.equal(await second.locator('#oc-doble-tab').count(),0,'no full-screen notice without Web Locks');
+  const write=page=>page.evaluate(async()=>{window.OCAuth={rolActual:()=> 'dueno'};const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Synthetic guarded rack '+Math.random(),tipo:'propio'})});return r.status;});
+  assert.equal(await write(second),200,'the second tab writes without Web Locks; IndexedDB revision arbitrates');
+  assert.equal(await write(first),200,'the first tab stays usable');
   await first.close();await second.reload({waitUntil:'load'});
   assert.equal(await second.locator('#oc-doble-tab').count(),0);
-  assert.equal(await write(second),200,'closing the primary tab releases legacy ownership after reload');
+  assert.equal(await write(second),200,'still usable after the other tab closes');
  }finally{await web.close();srv.close();}
 });
