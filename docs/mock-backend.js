@@ -6364,6 +6364,7 @@
     if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
     if (!escribe) { if (_ventaPendiente) await _ventaPendiente; if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
+    const _p0ColaInicio=Date.now();
     // A rejected CAS sale may only be retried against a newer durable revision.
     // The normal successful sale pays NO extra IndexedDB read or Web Lock wait.
     const ventaConcurrente = (() => {
@@ -6386,7 +6387,31 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
-      const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
+      // A PIN claim can be pending while this mutation waits in the FIFO.
+      // Give that same claim a short chance to finish, but NEVER re-anchor
+      // the auth epoch or ignore a lost lease / actual role transition.
+      if(window.OCTabSession && window.OCTabSession.pending &&
+         rolAlPedir===_rolLocal() && epocaAlPedir===(window.OC_AUTH_SESSION_EPOCH||0)){
+        for(let n=0;n<10 && window.OCTabSession.pending;n++){
+          await new Promise(resolve=>setTimeout(resolve,50));
+          if(rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0))break;
+        }
+      }
+      const rolCambio=rolAlPedir!==_rolLocal();
+      const epocaCambio=epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0);
+      const tabActual=!(window.OCTabSession && !window.OCTabSession.isCurrent());
+      const cambio=rolCambio||epocaCambio||!tabActual;
+      // P0: preserve the strict security fence. Persist only causal booleans
+      // (no PIN, customer, license, URL, or sale payload) across iOS reloads.
+      if(cambio){
+        try{
+          const k="f123_p0_sale_session_fence_trace_v1";
+          const a=JSON.parse(localStorage.getItem(k)||"[]");
+          const row={at:Date.now(),queueWaitMs:Math.max(0,Date.now()-_p0ColaInicio),roleChanged:rolCambio,epochChanged:epocaCambio,tabCurrent:tabActual,tabPending:!!(window.OCTabSession&&window.OCTabSession.pending),isSale:ventaConcurrente,visibilityHidden:document.visibilityState==='hidden'};
+          const next=(Array.isArray(a)?a:[]).slice(-49);next.push(row);
+          localStorage.setItem(k,JSON.stringify(next));
+        }catch(_){}
+      }
       const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
       if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});

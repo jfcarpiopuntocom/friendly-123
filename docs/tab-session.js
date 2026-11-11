@@ -16,7 +16,17 @@
  function current(){if(pending)return false;if(!claimed)return true;var l=lease();return !!l&&l.owner===id&&!pendingClaim();}
  function puedeSincronizar(){return !document.hidden&&!suspendida&&current();}
  function avisarSync(){try{window.dispatchEvent(new Event("oc-tab-session-changed"));}catch(_){}}
- function epoch(){window.OC_AUTH_SESSION_EPOCH=(window.OC_AUTH_SESSION_EPOCH||0)+1;}
+ function epoch(reason){
+  window.OC_AUTH_SESSION_EPOCH=(window.OC_AUTH_SESSION_EPOCH||0)+1;
+  // Diagnostic only: reason codes contain no credentials or notebook data.
+  try{
+   var k='f123_p0_auth_epoch_trace_v1';
+   var a=JSON.parse(localStorage.getItem(k)||'[]');
+   var next=(Array.isArray(a)?a:[]).slice(-49);
+   next.push({at:Date.now(),reason:reason||'unknown',hidden:document.hidden,pending:pending,claimed:claimed});
+   localStorage.setItem(k,JSON.stringify(next));
+  }catch(_){}
+ }
  function clearPanel(){var gate=document.getElementById('oc-gate');if(gate)delete gate.dataset.tabHandoff;document.getElementById('oc-tab-handoff')?.remove();}
  function render(){
   var gate=document.getElementById('oc-gate');if(!gate)return;
@@ -53,7 +63,7 @@
   suspendida=true;avisarSync();OCAuth.salir();render();
  }
  async function claim(){
-  epoch();var claimEpoch=window.OC_AUTH_SESSION_EPOCH;clearPanel();pending=true;avisarSync();
+  epoch('pin-claim');var claimEpoch=window.OC_AUTH_SESSION_EPOCH;clearPanel();pending=true;avisarSync();
   try{
    var owned={};try{owned=JSON.parse(localStorage.getItem('f123_owned')||'{}');}catch(_){}
    var notebook=localStorage.getItem('f123_tienda_activa')||owned.licenseCode||'demo';
@@ -103,7 +113,7 @@
  document.addEventListener('visibilitychange',function(){if(!document.hidden)check();avisarSync();});
  window.addEventListener('oc-login',claim);
  window.addEventListener('oc-logout',function(){
-  epoch();
+  epoch('logout');
   // Never check-then-delete shared lease: a second tab may own it already.
   // Fence this tab locally; next PIN login overwrites the shared lease.
   claimed=false;pending=false;suspendida=true;avisarSync();
