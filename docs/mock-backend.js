@@ -1709,6 +1709,9 @@
           return terminar(true);
         }, () => {
           _perfLocalFin('strict_idb', _tIdbEstricto, false);
+          // iOS can REJECT instead of resolving false (Abort/InvalidState).
+          // Monitor only a bounded technical counter, never transaction data.
+          try { if (window.OCSalud && window.OCSalud.escritorEvento) window.OCSalud.escritorEvento("strictFailure"); } catch (_) {}
           return terminar(false);
         });
       }
