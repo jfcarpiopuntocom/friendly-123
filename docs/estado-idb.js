@@ -377,7 +377,12 @@
       return await new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE, "readonly");
         var req = tx.objectStore(STORE).get(CLAVE);
-        req.onsuccess = function () { resolve(req.result || null); };
+        req.onsuccess = function () {
+          // Repair a missing marker from an existing durable IDB snapshot.
+          // No empty database can prove prior use; unknown stays unknown.
+          if (req.result) capConfirmada();
+          resolve(req.result || null);
+        };
         req.onerror = function () { reject(req.error); };
       });
     } catch (err) {
