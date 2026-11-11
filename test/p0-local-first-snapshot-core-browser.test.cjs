@@ -65,6 +65,7 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
    const legitimate=JSON.parse(JSON.stringify(afterStale));
    legitimate._rev=afterStale._rev+1;
    legitimate.productos[0].nombre='safe post-sale catalog edit';
+   legitimate.productos.push({id:'q',stockActual:3});
    const legitimateMirror=await db.guardarYa(legitimate);
    const afterLegitimate=await db.leer();
    return {a,b,conflict,duplicateAfterLogout,asyncAuth,lostRole,rejected,second,lostMetadata,lostMirrorMetadata,
@@ -108,7 +109,37 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
   });
   assert.equal(recovered.ok,true);
   assert.equal(recovered.duplicate,true);
-  console.log('P0 local-first '+label+': atomic synthetic snapshot/dedup/outbox, abort and same-id retry PASS; not integrated');
+  // Both tabs use their OWN JavaScript _cola, but the SAME origin IDB.
+  // A single-tab Promise.all only proves local queuing and cannot establish
+  // cross-tab exactly-once effects.
+  const secondTab=await browser.newPage();
+  await secondTab.goto('http://127.0.0.1:'+server.address().port+'/');
+  await secondTab.addScriptTag({content:code});
+  const concurrently=(tab)=>tab.evaluate(async()=>{
+    return OCEstadoIDB.registrarHechoLocal('sale-op-cross-007','venta',
+      {opCifrada:'ciphertext:synthetic-cross-tab-007'},
+      (next,{opId})=>{
+        const p=next.productos.find(x=>x.id==='q');
+        if(!p||p.stockActual<1)return null;
+        p.stockActual-=1;
+        next.ventas.push({opId,id:opId,productoId:'q',cantidad:1,precioUnit:21});
+        next.movimientos.push({opId,id:'m-'+opId,tipo:'venta',monto:21,cantidad:1});
+        return {resultado:{ventaId:opId,total:21}};
+      },()=>true);
+  });
+  const crossResults=await Promise.all([concurrently(page),concurrently(secondTab)]);
+  assert.equal(crossResults.filter(x=>x.ok&&!x.duplicate).length,1,'one cross-tab commit');
+  assert.equal(crossResults.filter(x=>x.ok&&x.duplicate).length,1,'other cross-tab attempt only reads committed op');
+  const crossState=await page.evaluate(async()=>{
+    const s=await OCEstadoIDB.leer();
+    return {stock:s.productos.find(p=>p.id==='q').stockActual,
+      sales:s.ventas.filter(v=>v.opId==='sale-op-cross-007').length,
+      movements:s.movimientos.filter(v=>v.opId==='sale-op-cross-007').length,
+      dedup:!!s._dedup['sale-op-cross-007'],outbox:!!s._outbox['sale-op-cross-007']};
+  });
+  assert.deepEqual(crossState,{stock:2,sales:1,movements:1,dedup:true,outbox:true},
+    'same opId on two independent tabs must have one durable effect');
+  console.log('P0 local-first '+label+': single & cross-tab opId exactly-once synthetic proof PASS; not integrated');
  }finally{await browser.close();await new Promise(r=>server.close(r));}
 });
 }
