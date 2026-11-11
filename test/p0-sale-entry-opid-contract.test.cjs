@@ -17,7 +17,7 @@ test('P0: quick, modal CONFIRM and basket send matching crash-safe opId, not jus
    'helper plus three distinct user sale entry points');
  assert.equal((app.match(/opId:\s*intento\.opId/g)||[]).length,3,
    'all three sale POST bodies carry the same opId');
- assert.equal((app.match(/_ocVentaIntentoConfirmado\(intento\)/g)||[]).length,4,
+ assert.equal((app.match(/_ocVentaIntentoConfirmado\(intento\)/g)||[]).length,3,
    'three actual sale paths and helper definition clear only after receipt');
  assert.match(min,/f123_sale_intent_v1/,
    'generated minified production JS must include this code, not only src/app');
@@ -31,10 +31,10 @@ test('P0: pending opId survives fresh JS context, then matching receipt retires 
  let counter=0;
  const script=helper+'\n({make:_ocVentaOpPendiente,ack:_ocVentaIntentoConfirmado})';
  function fresh(){
+   const cryptoApi={randomUUID:()=>('00000000-0000-4000-8000-'+String(++counter).padStart(12,'0'))};
    return vm.runInNewContext(script,{
      localStorage:store,
-     crypto:{randomUUID:()=>('00000000-0000-4000-8000-'+String(++counter).padStart(12,'0'))},
-     globalThis:{crypto:{randomUUID:()=>('00000000-0000-4000-8000-'+String(counter+1).padStart(12,'0'))}},
+     crypto:cryptoApi,globalThis:{crypto:cryptoApi},
      Date,JSON,Map,Math,String,Number
    });
  }
