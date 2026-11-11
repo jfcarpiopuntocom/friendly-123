@@ -6307,6 +6307,7 @@
     if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
     if (!escribe) { if (_ventaPendiente) await _ventaPendiente; if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
+    const _p0ColaInicio=Date.now();
     // A rejected CAS sale may only be retried against a newer durable revision.
     // The normal successful sale pays NO extra IndexedDB read or Web Lock wait.
     const ventaConcurrente = (() => {
@@ -6349,7 +6350,7 @@
         try{
           const k="f123_p0_sale_session_fence_trace_v1";
           const a=JSON.parse(localStorage.getItem(k)||"[]");
-          const row={at:Date.now(),roleChanged:rolCambio,epochChanged:epocaCambio,tabCurrent:tabActual,tabPending:!!(window.OCTabSession&&window.OCTabSession.pending),isSale:ventaConcurrente};
+          const row={at:Date.now(),queueWaitMs:Math.max(0,Date.now()-_p0ColaInicio),roleChanged:rolCambio,epochChanged:epocaCambio,tabCurrent:tabActual,tabPending:!!(window.OCTabSession&&window.OCTabSession.pending),isSale:ventaConcurrente,visibilityHidden:document.visibilityState==='hidden'};
           const next=(Array.isArray(a)?a:[]).slice(-49);next.push(row);
           localStorage.setItem(k,JSON.stringify(next));
         }catch(_){}
