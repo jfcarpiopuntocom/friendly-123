@@ -6,6 +6,7 @@ const path=require('node:path');
 const http=require('node:http');
 const {chromium}=require('playwright');
 const runtime=fs.readFileSync(path.join(__dirname,'../docs/estado-idb.js'),'utf8');
+const outboxRuntime=fs.readFileSync(path.join(__dirname,'../docs/sync-outbox.js'),'utf8');
 
 test('P0 single-DB schema v2 staging: legacy snapshot retained, encrypted ops copied atomically and read back', {timeout:45000}, async()=>{
  const server=http.createServer((_req,res)=>{res.writeHead(200,{'Content-Type':'text/html'});res.end('<!doctype html><title>synthetic P0</title>')});
@@ -28,6 +29,7 @@ test('P0 single-DB schema v2 staging: legacy snapshot retained, encrypted ops co
    });
   });
   await page.addScriptTag({content:runtime});
+  await page.addScriptTag({content:outboxRuntime});
   const result=await page.evaluate(async()=>{
    const state=window.OCEstadoIDB;
    const preserved=await state.leer();
@@ -56,7 +58,35 @@ test('P0 single-DB schema v2 staging: legacy snapshot retained, encrypted ops co
   assert.equal(result.survivor.blob,'encrypted-one','original migration copy never rewritten');
   assert.equal(result.aborted,null,'failed batch never partially copies the second row');
   for(const store of ['estado','outbox','dedup','trace_intent','trace_outcome'])assert(result.opened.includes(store),store+' exists in same database');
-  console.log('P0 v2 staging fixture PASS. This does NOT migrate the live legacy encrypted blob or prove atomic sale.');
+  // The actual legacy adapter stores one encrypted blob with each operation
+  // identified by .id; no per-operation rows exist in its old IndexedDB.
+  const bridge=await page.evaluate(async()=>{
+   window.OCSecure={
+    cifrarSync:async text=>'synthetic-enc:'+btoa(text),
+    descifrarSync:async blob=>blob.startsWith('synthetic-enc:')?atob(blob.slice(14)):null
+   };
+   const operations=[
+    {id:'original-op-A',method:'POST',url:'/api/synthetic',body:'{"synthetic":true}'},
+    {id:'original-op-B',method:'POST',url:'/api/synthetic',body:'{"synthetic":true}'}
+   ];
+   const blob=await OCSecure.cifrarSync(JSON.stringify(operations));
+   const saved=await OCOutbox.guardar(blob);
+   const before=await OCOutbox.leer();
+   const migrated=await OCOutbox.prepararMigracionAlEstado();
+   const after=await OCOutbox.leer();
+   const rowA=await OCEstadoIDB.leerOutboxMigrado('original-op-A');
+   const rowB=await OCEstadoIDB.leerOutboxMigrado('original-op-B');
+   return {saved,before,after,migrated,
+    a:rowA&&await OCSecure.descifrarSync(rowA.blob),
+    b:rowB&&await OCSecure.descifrarSync(rowB.blob)};
+  });
+  assert.equal(bridge.saved,true);
+  assert.equal(bridge.before,bridge.after,'legacy encrypted source never deleted or changed');
+  assert.equal(bridge.migrated.status,'staged-only','no cutover claim');
+  assert.equal(bridge.migrated.count,2);
+  assert.equal(JSON.parse(bridge.a).id,'original-op-A','preserves original operation identity');
+  assert.equal(JSON.parse(bridge.b).id,'original-op-B','preserves original operation identity');
+  console.log('P0 v2 staged migration fixture PASS. Legacy source preserved; no sale atomicity or cutover proven.');
  } finally {
   await browser.close();await new Promise(r=>server.close(r));
  }
