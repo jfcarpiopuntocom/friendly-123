@@ -9,6 +9,8 @@ on:
       - docs/mock-backend.js
       - docs/estado-idb.js
       - docs/salud-app.js
+      - docs/dashboard.html
+      - docs/version.json
   workflow_dispatch:
 
 permissions:
@@ -34,6 +36,8 @@ jobs:
           set -euo pipefail
           node scripts/build-app-entry.cjs
           node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-dashboard-entry.cjs --check
           node scripts/gen-manifest.js
           bash check-sw.sh
           node scripts/release-control.cjs validate origin/master
@@ -42,7 +46,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/app-inline-*.min.js docs/app-style-*.min.css docs/version-manifest.json docs/sw.js
+          git add docs/app-inline-*.min.js docs/app-style-*.min.css docs/dashboard-main.min.js docs/dashboard-main.min.css docs/version-manifest.json docs/sw.js
           if ! git diff --cached --quiet; then
             git commit -m "build(P0): seal v726 manifest with official gen-manifest.js"
             git push origin HEAD:refs/heads/release/p0-local-first-jfc-health-v726-20261111
