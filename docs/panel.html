@@ -469,6 +469,14 @@ tr.lic-sel td{background:rgba(255,200,0,.10);}
       <p id="lic-pin-state" role="status" aria-live="polite" class="lic-pin-state"></p>
     </section>
     <div class="stats-bar" id="lic-stats" style="margin-bottom:14px;"></div>
+    <section id="lic-salud-jfc" aria-label="Salud técnica de licencias" style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:17px;font-weight:800;color:var(--gold);margin-bottom:6px;">Salud técnica privada · JFC</div>
+      <p style="font-size:13px;color:var(--ink);margin-bottom:10px;">Solo versión, fallos del escritor y pendientes del relay. Sin importes, productos, datos comerciales ni PIN. La falta de reporte no demuestra buen estado.</p>
+      <div id="lic-salud-resumen" role="status" aria-live="polite" style="font-size:14px;font-weight:700;margin-bottom:10px;">Sin reporte de salud del escritor</div>
+      <details style="margin-bottom:8px;"><summary style="cursor:pointer;font-weight:700;">1 · Versiones y cohortes</summary><div id="lic-salud-cohortes" style="font-size:14px;padding:8px 0;"></div></details>
+      <details style="margin-bottom:8px;"><summary style="cursor:pointer;font-weight:700;">2 · Licencias con información técnica</summary><div id="lic-salud-licencias" style="font-size:14px;padding:8px 0;"></div></details>
+      <details><summary style="cursor:pointer;font-weight:700;">3 · Alertas de fallback y pendientes</summary><div id="lic-salud-alertas" style="font-size:14px;padding:8px 0;"></div></details>
+    </section>
     <!-- LISTA DINAMICA v2 (JFC 2026-09-24, escala 1.000-10.000). Filtros
          combinables, orden por columna (click en el encabezado), 100 por
          pagina, seleccion multiple con acciones masivas, pagos por licencia y
@@ -1798,6 +1806,7 @@ function licPintar() {
   const idx = licIndice();
   PanelLic.pintar(idx, licFiltrosActuales());
   licRenderStats(_licData);
+  licRenderSaludJfc();
   const cp = document.getElementById("lic-check-pagina"); if (cp) cp.checked = false;
 }
 function licPagina(n) { PanelLic.ui.pagina = n; licPintar(); }
@@ -1805,6 +1814,30 @@ function licOrdenar(campo) {
   if (PanelLic.ui.orden === campo) PanelLic.ui.dir = PanelLic.ui.dir === "asc" ? "desc" : "asc";
   else { PanelLic.ui.orden = campo; PanelLic.ui.dir = (campo === "negocio" || campo === "nombre" || campo === "codigo") ? "asc" : "desc"; }
   licPintar();
+}
+function licRenderSaludJfc() {
+  const ids = ["lic-salud-resumen", "lic-salud-cohortes", "lic-salud-licencias", "lic-salud-alertas"];
+  const el = ids.map(id => document.getElementById(id));
+  if (el.some(x => !x) || !PanelLic || typeof PanelLic.saludEscritor !== "function") return;
+  const salud = PanelLic.saludEscritor(licIndice().grupos);
+  const safe = value => licEsc(String(value));
+  el[0].textContent = salud.reportadas + " licencias con reporte · " +
+    salud.sinReporte + " sin dato · " + salud.aparatosFallback + " aparatos con fallback · " +
+    salud.aparatosPendientes + " aparatos con relay pendiente";
+  el[1].innerHTML = salud.cohortes.length
+    ? salud.cohortes.map(x => '<div style="padding:4px 0;">' + safe(x.shell) +
+        ' · <strong>' + x.aparatos + '</strong> aparato(s) con reporte</div>').join("")
+    : "Sin versiones reportadas todavía";
+  const filas = salud.alertas.slice(0, 30);
+  const row = a => '<div style="padding:5px 0;border-bottom:1px solid var(--border);">' +
+    '<strong>' + safe(a.codigo) + '</strong> · ' + a.dispositivos + ' aparato(s) · ' +
+    'fallback acumulado: ' + a.fallback + ' · commit rechazado: ' + a.strictFailure +
+    ' · relay sin ACK: ' + (a.pending === null ? 'no medido' : a.pending) + '</div>';
+  el[2].innerHTML = filas.length ? filas.map(row).join("") : "Sin incidencias registradas; pueden existir aparatos sin reporte";
+  el[3].innerHTML = filas.length
+    ? filas.filter(a => a.strictFailure || a.pending > 0).slice(0, 15).map(row).join("") ||
+      "Sin rechazos o pendientes reportados"
+    : "No hay alertas basadas en reportes disponibles";
 }
 function licRenderStats() {
   const s = PanelLic.stats(licIndice().grupos);

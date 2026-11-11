@@ -1,0 +1,34 @@
+name: P0 JFC private writer health (NO RELEASE)
+
+on:
+  push:
+    branches:
+      - feat/p0-jfc-writer-health-20261111
+    paths:
+      - docs/salud-app.js
+      - docs/mock-backend.js
+      - docs/panel-licencias.js
+      - docs/panel.html
+      - cloudflare-worker/worker.js
+      - test/p0-jfc-writer-health.test.cjs
+      - test/worker-sonar.test.js
+      - test/panel-licencias.test.js
+      - .github/workflows/p0-jfc-writer-health.yml
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  private-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JFC local/Worker/panel allowlist + 10k license UI
+        run: node --test test/p0-jfc-writer-health.test.cjs test/worker-sonar.test.js test/panel-licencias.test.js

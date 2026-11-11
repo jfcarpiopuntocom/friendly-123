@@ -1674,7 +1674,15 @@
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto); }
+        } else {
+          // Single negative outcome: includes false CAS, rejected promise,
+          // no-IDB and all other strict failures. Never block the sale on health.
+          if (exigirCompleto) {
+            try { if (window.OCSalud && window.OCSalud.escritorEvento) window.OCSalud.escritorEvento("strictFailure"); } catch (_) {}
+          }
+          try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {}
+          _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto);
+        }
         return ok;
       };
       // Strict money/stock commits use ONE atomic IDB readwrite transaction:
@@ -1687,6 +1695,10 @@
           if (idb && idb.soportado !== false) return terminar(false);
           try { if (tokenOk && ab) { _guardandoAB = true; local = ab.guardarAhora(crudo); } }
           catch (_) {} finally { _guardandoAB = false; }
+          // Observer only. Never emit the sale, money, stock, license or PIN.
+          if (local === true) {
+            try { if (window.OCSalud && window.OCSalud.escritorEvento) window.OCSalud.escritorEvento("fallbackLocal"); } catch (_) {}
+          }
           return terminar(local === true);
         }
         const _tIdbEstricto = _perfLocalInicio();
