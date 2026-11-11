@@ -81,7 +81,7 @@
     "./device-environment.js": "sha256-5517a20f30d38eed8097a82f1925e9d2c6f456de19aed6e443ed383705d4b5cd",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-32145776dd4fd74f7e371d52379e349b5f2dd6a46f0318bf1af742586a057b84",
+    "./dashboard.html": "sha256-4d09fe23957e0b2a9dcfe63c67e480b08e463d5a7115bdb5cafff461f2685e49",
     "./dashboard-updates.js": "sha256-ea6705df1a0214246e37945787177194ead5a41ccb5590edaab7d9d9da079d1c",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
