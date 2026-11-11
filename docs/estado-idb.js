@@ -124,6 +124,22 @@
     _cola = resultado.then(function () {}, function () {});
     return resultado;
   }
+  function _preservaMetadataOpId(actual, propuesto) {
+    // At-least-once local outbox and applied sale opIds are never disposable
+    // because a legacy serializer omitted fields it does not understand.
+    // Check inside the SAME readwrite transaction: never a stale preflight.
+    for (const key of ["_dedup", "_outbox"]) {
+      const old = actual && actual[key];
+      if (!old || typeof old !== "object" || Array.isArray(old)) continue;
+      const next = propuesto && propuesto[key];
+      if (!Object.keys(old).every(function (opId) {
+        return !!next && typeof next === "object" &&
+          !Array.isArray(next) && Object.prototype.hasOwnProperty.call(next, opId) &&
+          JSON.stringify(next[opId]) === JSON.stringify(old[opId]);
+      })) return false;
+    }
+    return true;
+  }
   // (JFC 2026-10-28) causa del ultimo fallo de escritura: el clasificador de mock-backend la lee (cuota real -> cartel rojo).
   var _ultimoError = null;
   async function escribir(estado) {
@@ -138,6 +154,10 @@
         const req = tx.objectStore(STORE).get(CLAVE);
         req.onsuccess = function () {
           const old = req.result;
+          if (!_preservaMetadataOpId(old, copia)) {
+            try { console.warn("[estado-idb] grouped mirror rejected: committed opId/outbox would be erased"); } catch (_) {}
+            return;
+          }
           if (old && Number(old._rev) >= Number(copia._rev)) {
             accepted = old._rev === copia._rev && old._abCommit === copia._abCommit;
             return;
@@ -266,15 +286,7 @@
           // Never ACK an overwrite that would silently erase applied opIds or
           // undelivered outbox items. Older uncooperative shells still require
           // a tested rollout/cutover policy before this helper is used live.
-          const mustKeep=(key)=>{
-            const former=actual&&actual[key];
-            const incoming=copia&&copia[key];
-            if(!former||typeof former!=="object")return true;
-            return Object.keys(former).every(id=>incoming&&
-              Object.prototype.hasOwnProperty.call(incoming,id)&&
-              JSON.stringify(incoming[id])===JSON.stringify(former[id]));
-          };
-          if(!mustKeep("_dedup")||!mustKeep("_outbox")){
+          if(!_preservaMetadataOpId(actual,copia)){
             try{console.warn("[estado-idb] opId/outbox metadata missing in candidate; snapshot save refused");}catch(_){}
             return;
           }
