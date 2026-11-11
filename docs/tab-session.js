@@ -32,6 +32,19 @@
  // A pageshow(false) is not evidence of a WebKit process kill: normal loads
  // also fire it. pageshow(true) is evidence of a bfcache restoration.
  var p0LoadId=crypto.randomUUID(),p0HiddenAt=null,p0LastEpochReason='unknown',p0LastPageshowPersisted=null,p0LastHiddenDurationMs=null;
+ // Session-local diagnostic counter, not an identity/authorization credential.
+ // A new loadId proves this script ran again; it does not identify why.
+ var p0InitCount=null,p0NavigationType='unknown';
+ try{
+  var n=Number(sessionStorage.getItem('f123_p0_init_count_v1'));
+  if(!Number.isSafeInteger(n)||n<0||n>=1000000)n=0;
+  p0InitCount=n+1;
+  sessionStorage.setItem('f123_p0_init_count_v1',String(p0InitCount));
+ }catch(_){}
+ try{
+  var nav=performance.getEntriesByType&&performance.getEntriesByType('navigation')[0];
+  if(nav&&typeof nav.type==='string')p0NavigationType=nav.type;
+ }catch(_){} 
  try{var p0Stored=Number(sessionStorage.getItem('f123_p0_hidden_at_v1'));if(Number.isFinite(p0Stored)&&p0Stored>0)p0HiddenAt=p0Stored;}catch(_){}
  function p0Lifecycle(kind,persisted){
   try{
@@ -43,7 +56,7 @@
    var duration=visible&&p0HiddenAt!==null?Math.max(0,now-p0HiddenAt):null;
    if(kind==='pageshow')p0LastPageshowPersisted=!!persisted;
    if(duration!==null)p0LastHiddenDurationMs=duration;
-   var row={at:now,kind:kind,loadId:p0LoadId,epoch:window.OC_AUTH_SESSION_EPOCH||0,
+   var row={at:now,kind:kind,loadId:p0LoadId,initCount:p0InitCount,navigationType:p0NavigationType,epoch:window.OC_AUTH_SESSION_EPOCH||0,
     visibility:document.visibilityState||'unknown',
     pageshowPersisted:kind==='pageshow'&&typeof persisted==='boolean'?persisted:null,
     hiddenDurationMs:duration,wasDiscarded:document.wasDiscarded===true};
@@ -182,7 +195,7 @@
   };
  }
  // Diagnostic metadata is not an authorization token or a business opId.
- function p0LifecycleEvidence(){return {loadId:p0LoadId,pageshowPersisted:p0LastPageshowPersisted,hiddenDurationMs:p0LastHiddenDurationMs,epochReasonSource:p0LastEpochReason,visibilityState:document.visibilityState||'unknown'};}
+ function p0LifecycleEvidence(){return {loadId:p0LoadId,initCount:p0InitCount,navigationType:p0NavigationType,pageshowPersisted:p0LastPageshowPersisted,hiddenDurationMs:p0LastHiddenDurationMs,epochReasonSource:p0LastEpochReason,visibilityState:document.visibilityState||'unknown'};}
  window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,diagnosticLifecycle:p0LifecycleEvidence,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
  if(window.OCAuth&&OCAuth.rolActual())claim();
