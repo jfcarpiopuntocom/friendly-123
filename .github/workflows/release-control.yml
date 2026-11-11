@@ -130,6 +130,8 @@ jobs:
             fi
             echo "::warning::First-attempt regression failed: ${FAILED[*]} (retrying isolated files, not a clean first pass)"
             node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 "${FAILED[@]}"
+            echo "::error::First-attempt regression was RED; isolated rerun is diagnostic only, never a release PASS"
+            exit 1
           fi
       - name: Artifact integrity
         run: |

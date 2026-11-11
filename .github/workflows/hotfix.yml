@@ -120,6 +120,8 @@ jobs:
               printf 'Failed under load, retrying alone: %s\n' "${FAILED[@]}"
               (( ${#FAILED[@]} >= 1 && ${#FAILED[@]} <= 3 )) || exit 1
               node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 "${FAILED[@]}"
+              echo "::error::First-attempt regression was RED; isolated rerun is diagnostic only, never a release PASS"
+              exit 1
             fi
           fi
       - name: Mover ramas (previo <- estable, estable <- este commit)
