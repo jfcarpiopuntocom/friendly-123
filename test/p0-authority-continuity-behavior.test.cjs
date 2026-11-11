@@ -19,6 +19,7 @@ const document={visibilityState:'visible',get hidden(){return this.visibilitySta
  createElement:()=>({textContent:''}),head:{appendChild:()=>{}}};
 const context=vm.createContext({window,document,localStorage,sessionStorage,OCAuth,crypto:webcrypto,TextEncoder,Event:class Event{constructor(type){this.type=type;}},BroadcastChannel:class BroadcastChannel{postMessage(){}},console,Date,setTimeout,clearTimeout});
 vm.runInContext(source,context,{filename:'tab-session.js'});
+assert.equal(JSON.parse(localStorage.getItem('f123_p0_page_lifecycle_v1'))[0].initCount,1,'init count starts at one without inventing a kill');
 async function claimReady(api){
  for(let attempt=0;attempt<100;attempt++){
   const snapshot=await api.authoritySnapshot();
@@ -43,6 +44,8 @@ async function claimReady(api){
  assert.equal(rows.at(-1).pageshowPersisted,true,'code records bfcache flag');
  assert.equal(api.diagnosticLifecycle().pageshowPersisted,true,'diagnostic API carries the actual flag');
  assert.equal(typeof api.diagnosticLifecycle().loadId,'string','load identity recorded');
+ assert.equal(api.diagnosticLifecycle().initCount,1,'diagnostic counters distinguish a fresh script execution');
+ assert.equal(api.diagnosticLifecycle().navigationType,'unknown','fixture reports unsupported navigation timing rather than inventing reload');
  winEvents.get('pageshow')({persisted:false});
  assert.equal(JSON.parse(localStorage.getItem('f123_p0_page_lifecycle_v1')).at(-1).pageshowPersisted,false,'false must be logged, not called a kill');
  document.visibilityState='hidden';docEvents.get('visibilitychange')();
