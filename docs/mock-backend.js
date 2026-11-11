@@ -6350,7 +6350,22 @@
         try{
           const k="f123_p0_sale_session_fence_trace_v1";
           const a=JSON.parse(localStorage.getItem(k)||"[]");
-          const row={at:Date.now(),queueWaitMs:Math.max(0,Date.now()-_p0ColaInicio),roleChanged:rolCambio,epochChanged:epocaCambio,tabCurrent:tabActual,tabPending:!!(window.OCTabSession&&window.OCTabSession.pending),isSale:ventaConcurrente,visibilityHidden:document.visibilityState==='hidden'};
+          // Correlation with lifecycle signals only. This is NOT the sale's
+          // business opId (the sale handler creates that later), and must not
+          // be interpreted as proof of an IDB commit.
+          const life=window.OCTabSession&&typeof window.OCTabSession.diagnosticLifecycle==='function'
+            ? window.OCTabSession.diagnosticLifecycle():null;
+          const row={at:Date.now(),decisionTraceId:crypto.randomUUID(),opId:null,
+            loadId:life&&life.loadId||null,
+            epochBefore:epocaAlPedir,epochAfter:window.OC_AUTH_SESSION_EPOCH||0,
+            epochReasonSource:life&&life.epochReasonSource||'unknown',
+            pageshowPersisted:life&&life.pageshowPersisted,
+            hiddenDurationMs:life&&life.hiddenDurationMs,
+            visibilityState:life&&life.visibilityState||document.visibilityState||'unknown',
+            queueWaitMs:Math.max(0,Date.now()-_p0ColaInicio),
+            roleChanged:rolCambio,epochChanged:epocaCambio,tabCurrent:tabActual,
+            tabPending:!!(window.OCTabSession&&window.OCTabSession.pending),
+            isSale:ventaConcurrente,visibilityHidden:document.visibilityState==='hidden'};
           const next=(Array.isArray(a)?a:[]).slice(-49);next.push(row);
           localStorage.setItem(k,JSON.stringify(next));
         }catch(_){}
