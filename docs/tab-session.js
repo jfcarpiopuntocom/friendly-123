@@ -17,6 +17,7 @@
  function puedeSincronizar(){return !document.hidden&&!suspendida&&current();}
  function avisarSync(){try{window.dispatchEvent(new Event("oc-tab-session-changed"));}catch(_){}}
  function epoch(reason){
+  p0LastEpochReason=reason||'unknown';
   window.OC_AUTH_SESSION_EPOCH=(window.OC_AUTH_SESSION_EPOCH||0)+1;
   // Diagnostic only: reason codes contain no credentials or notebook data.
   try{
@@ -30,16 +31,18 @@
  // P0 observation only, NEVER consulted by the authorization fence.
  // A pageshow(false) is not evidence of a WebKit process kill: normal loads
  // also fire it. pageshow(true) is evidence of a bfcache restoration.
- var p0LoadId=crypto.randomUUID(),p0HiddenAt=null;
+ var p0LoadId=crypto.randomUUID(),p0HiddenAt=null,p0LastEpochReason='unknown',p0LastPageshowPersisted=null,p0LastHiddenDurationMs=null;
  try{var p0Stored=Number(sessionStorage.getItem('f123_p0_hidden_at_v1'));if(Number.isFinite(p0Stored)&&p0Stored>0)p0HiddenAt=p0Stored;}catch(_){}
  function p0Lifecycle(kind,persisted){
   try{
    var now=Date.now(),visible=document.visibilityState==='visible';
-   if((kind==='pagehide'||kind==='visibilitychange')&&!visible&&p0HiddenAt===null){
+   if((kind==='pagehide'||!visible)&&p0HiddenAt===null){
     p0HiddenAt=now;
     try{sessionStorage.setItem('f123_p0_hidden_at_v1',String(now));}catch(_){}
    }
    var duration=visible&&p0HiddenAt!==null?Math.max(0,now-p0HiddenAt):null;
+   if(kind==='pageshow')p0LastPageshowPersisted=!!persisted;
+   if(duration!==null)p0LastHiddenDurationMs=duration;
    var row={at:now,kind:kind,loadId:p0LoadId,epoch:window.OC_AUTH_SESSION_EPOCH||0,
     visibility:document.visibilityState||'unknown',
     pageshowPersisted:kind==='pageshow'&&typeof persisted==='boolean'?persisted:null,
@@ -177,7 +180,9 @@
    otherClaimPending:pendingClaim()
   };
  }
- window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,get pending(){return pending;}};
+ // Diagnostic metadata is not an authorization token or a business opId.
+ function p0LifecycleEvidence(){return {loadId:p0LoadId,pageshowPersisted:p0LastPageshowPersisted,hiddenDurationMs:p0LastHiddenDurationMs,epochReasonSource:p0LastEpochReason,visibilityState:document.visibilityState||'unknown'};}
+ window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,diagnosticLifecycle:p0LifecycleEvidence,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
  if(window.OCAuth&&OCAuth.rolActual())claim();
 })();
