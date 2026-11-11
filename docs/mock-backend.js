@@ -1687,12 +1687,19 @@
           if (idb && idb.soportado !== false) return terminar(false);
           try { if (tokenOk && ab) { _guardandoAB = true; local = ab.guardarAhora(crudo); } }
           catch (_) {} finally { _guardandoAB = false; }
+          // Observer only. Never emit the sale, money, stock, license or PIN.
+          if (local === true) {
+            try { if (window.OCSalud && window.OCSalud.escritorEvento) window.OCSalud.escritorEvento("fallbackLocal"); } catch (_) {}
+          }
           return terminar(local === true);
         }
         const _tIdbEstricto = _perfLocalInicio();
         return idb.guardarConRevision(completo, _localRev).then(ok => {
           _perfLocalFin('strict_idb', _tIdbEstricto, ok === true);
-          if (ok !== true) return terminar(false);
+          if (ok !== true) {
+            try { if (window.OCSalud && window.OCSalud.escritorEvento) window.OCSalud.escritorEvento("strictFailure"); } catch (_) {}
+            return terminar(false);
+          }
           // v650: A/B first, the seal after. Another tab that sees the new seal reloads from A/B: an older copy there
           // left its revision behind, IndexedDB refused its next save, and the customer got a false NOT saved.
           if (ab && tokenOk) {
