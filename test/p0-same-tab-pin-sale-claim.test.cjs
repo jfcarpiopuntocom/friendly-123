@@ -39,31 +39,33 @@ function fixture(){
  };
 }
 const sale={method:'POST',body:'{}'};
-test('P0 RED: own PIN lease settling during CONFIRM waits for its actual lease and saves exactly once',async()=>{
+// JFC order 2026-11-11 (real shop could not sell): the sale guard compares ONLY
+// the role. A pending own PIN claim, a lost tab lease or a new login epoch never
+// reject a write any more; a real sign-out or role change still gives 403.
+// The v730 tests below asserted the lease-based behaviour and were rewritten
+// (not lowered): the role/sign-out rejections and "no write when rejected" stay.
+test('P0 (JFC 2026-11-11): CONFIRM during a pending own PIN claim is saved once, immediately',async()=>{
  const f=fixture(),request=f.fetch('/api/productos/p1/venta',sale);
- await tick();
- assert.equal(f.writes,0,'do not write until own lease is proven');
- f.settle(true);
- assert.equal((await request).status,200,'same tab with proven PIN lease may continue the original sale');
+ assert.equal((await request).status,200,'the lease is no longer a precondition for the sale');
  assert.equal(f.writes,1);
- assert.equal(f.listeners,0,'bounded listener cleanup');
+ assert.equal(f.listeners,0,'no listener is needed any more');
 });
-test('P0: a competing tab does not gain authority by completing our pending claim',async()=>{
+test('P0 (JFC 2026-11-11): a competing tab taking the lease does not reject the sale',async()=>{
  const f=fixture(),request=f.fetch('/api/productos/p1/venta',sale);
- await tick();f.lose();
- assert.equal((await request).status,403);
- assert.equal(f.writes,0);
+ f.lose();
+ assert.equal((await request).status,200);
+ assert.equal(f.writes,1);
  assert.equal(f.listeners,0);
 });
-test('P0: logout during pending own-claim cancels sale, even if lease later appears',async()=>{
+test('P0: logout while the sale waits cancels it (real sign-out still gives 403)',async()=>{
  const f=fixture(),request=f.fetch('/api/productos/p1/venta',sale);
- await tick();f.logout();
+ f.logout();
  assert.equal((await request).status,403);
  assert.equal(f.writes,0);
 });
-test('P0: role changes during pending PIN claim never authorize old sale',async()=>{
+test('P0: a real role change while the sale waits never authorizes the old sale',async()=>{
  const f=fixture(),request=f.fetch('/api/productos/p1/venta',sale);
- await tick();f.changeRole();
+ f.changeRole();
  assert.equal((await request).status,403);
  assert.equal(f.writes,0);
 });
@@ -73,8 +75,8 @@ test('P0: normal active owner sale stays immediate and needs no listener',async(
  assert.equal(f.writes,1);
  assert.equal(f.listeners,0);
 });
-test('P0: pending claim cannot open non-sale writes',async()=>{
+test('P0 (JFC 2026-11-11): a pending claim does not block other business writes either',async()=>{
  const f=fixture(),p=f.fetch('/api/ubicaciones',{method:'POST',body:'{}'});
- assert.equal((await p).status,403);
- assert.equal(f.writes,0);
+ assert.equal((await p).status,200);
+ assert.equal(f.writes,1);
 });
