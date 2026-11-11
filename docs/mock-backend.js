@@ -1694,7 +1694,14 @@
             activated=!!((owned&&(owned.licenseCode||owned.instanceId))||
               localStorage.getItem("f123_tienda_activa"));
           } catch (_) {}
-          if (activated || (idb && idb.soportado !== false)) return terminar(false);
+          // Native IDB missing altogether is the long-standing offline-only
+          // A/B mode. Keep it functional: a customer must not need a second
+          // device or a relay just to sell. A browser WITH native IDB whose
+          // adapter stops working is NOT an A/B-only device: do not silently
+          // downgrade a potentially divergent sale to a false 200.
+          const nativeIDB = typeof window.indexedDB !== "undefined" &&
+            window.indexedDB !== null && typeof window.indexedDB.open === "function";
+          if ((activated && nativeIDB) || (idb && idb.soportado !== false)) return terminar(false);
           try { if (tokenOk && ab) { _guardandoAB = true; local = ab.guardarAhora(crudo); } }
           catch (_) {} finally { _guardandoAB = false; }
           return terminar(local === true);
