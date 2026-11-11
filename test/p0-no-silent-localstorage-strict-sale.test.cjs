@@ -131,10 +131,17 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    },productId);
    const diagnostics=await page.evaluate(()=>({
      capability:OCEstadoIDB.capacidad(),idbSupported:OCEstadoIDB.soportado,
-     localKeys:Object.keys(localStorage).filter(k=>k.startsWith('f123_estado_v4'))
+     localKeys:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i))
+       .filter(k=>k&&k.startsWith('f123_estado_v4'))
        .map(k=>({key:k,length:(localStorage.getItem(k)||'').length})),
-     lastError:window.OCEstadoAB&&window.OCEstadoAB.ultimoError&&
-       window.OCEstadoAB.ultimoError()?.name||null
+     ab:(()=>{
+       try {const a=OCEstadoAB.crear({storage:localStorage,claveBase:'f123_estado_v4',
+         leer:k=>localStorage.getItem(k)}),v=a.leer();
+         return {revMax:v.revMax,phase:v.registro&&v.registro.phase,
+           conflictos:v.conflictos.length,danados:v.danados.length,
+           lastError:a.ultimoError()?.name||null};}
+       catch(e){return {error:e.name,message:e.message.slice(0,180)};}
+     })()
    }));
    assert.equal(sale.status,200,
      'offline A/B sale MUST work without native IDB or other devices: '+
