@@ -90,59 +90,128 @@ async function ownerLogin(page,stage,otherPage=null){
 }
 async function sessionSnapshot(page){return page.evaluate(()=>({pending:OCTabSession.pending,current:OCTabSession.isCurrent(),epoch:window.OC_AUTH_SESSION_EPOCH,role:OCAuth.rolActual(),notebook:localStorage.getItem('f123_tienda_activa'),owned:localStorage.getItem('f123_owned'),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(key=>({key,value:localStorage.getItem(key)})),requests:window.__lockCalls,fences:window.__fenceReads}));}
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
- test(`native tab session handoff (${name}): old session closes, queued writes fail, sharing is public and honest`,async()=>{
+ // ===== JFC order 2026-11-11 (P0, real shop could not sell) ==================
+ // New contract: the shared tab lease NEVER closes a session and NEVER rejects a
+ // business write. Only a real sign-out or a real role change rejects a queued
+ // write. Durable conflicts between screens are decided by the IndexedDB
+ // revision check (OCEstadoIDB.guardarConRevision), not by the lease.
+ // The previous test here (closed session, 403 for a queued sale, #oc-tab-handoff
+ // panel, share/copy buttons) asserted the OLD behaviour that JFC ordered removed.
+ // It is replaced, not lowered: the data-integrity assertions (one sale row,
+ // price 34, stock) are kept below. The panel code stays in tab-session.js, DORMANT.
+ const GATE_MSGS=/Your session continues in another tab|Tu sesión continúa en otra pestaña|Your session changed while this action was waiting/;
+ const sale=(page,id,qty=1,opId)=>page.evaluate(async({id,qty,opId})=>{const r=await fetch('/api/productos/'+id+'/venta',{method:'POST',body:JSON.stringify({cantidad:qty,opId,info:{formaPago:'cash'}})});return {status:r.status,body:await r.text()};},{id,qty,opId});
+ const visible=page=>page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,get:()=>false});});
+ const leaseRaw=page=>page.evaluate(()=>{const k=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).find(k=>k.includes('auth_tab_lease_')&&!k.endsWith('_claim'));return k?localStorage.getItem(k):null;});
+ const leaseWrites=page=>page.evaluate(()=>window.__leaseWrites||0);
+ const countLeaseWrites=page=>page.evaluate(()=>{window.__leaseWrites=0;const o=Storage.prototype.setItem;Storage.prototype.setItem=function(k,...a){if(String(k).includes('auth_tab_lease_')&&!String(k).endsWith('_claim'))window.__leaseWrites++;return o.call(this,k,...a);};});
+ async function secondScreen(ctx,first,stage){
+  const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+  const before=await leaseRaw(first);
+  await ownerLogin(second,stage,first);
+  await second.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent(),null,{timeout:15000});
+  // Wait until the FIRST screen has really seen the lease move, then give its
+  // storage/channel listeners time to run: the old code closed the session here.
+  await first.waitForFunction(b=>{const k=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).find(k=>k.includes('auth_tab_lease_')&&!k.endsWith('_claim'));return !!k&&localStorage.getItem(k)!==b;},before,{timeout:5000});
+  await first.waitForTimeout(600);
+  return second;
+ }
+ test(`P0 2026-11-11 (${name}): old screen stays signed in, shows no panel and its sale is saved once`,async()=>{
   const web=await engine.launch({headless:true});try{
    const ctx=await context(web),{page:first,ids}=await seed(ctx);await ownerLogin(first,'first initial PIN');
-   await first.waitForFunction(()=>!window.OCTabSession?.pending);
-   const initialSession=await sessionSnapshot(first);
-   assert.equal(initialSession.leases.length,1,'the original session must own its lease before testing handoff');
-   await first.evaluate(()=>{const original=OCTabSession.isCurrent;window.__fenceReads=[];OCTabSession.isCurrent=function(){const result=original();__fenceReads.push({result,time:performance.timeOrigin+performance.now(),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(key=>({key,value:localStorage.getItem(key)}))});return result;};});
-   await first.evaluate(()=>{navigator.locks.request('f123-escrituras',()=>new Promise(resolve=>{window.__releaseWriteLock=resolve;}));});
-   await first.waitForFunction(()=>typeof __releaseWriteLock==='function');
-   // The write fence must work even before notification delivery closes the UI.
-   await first.evaluate(()=>{window.__suppressLeaseEvents=true;});
-   const second=await ctx.newPage();await second.goto(ORIGIN+'/index.html',{waitUntil:'load'});
-   // A startup API write can also be pending on this lock. Observe the actual
-   // session claim instead of mistaking any pending write for that claim.
-   await second.evaluate(()=>{const request=navigator.locks.request.bind(navigator.locks);window.__lockCalls=[];window.__observedLockRequest=function(name,...args){const result=request(name,...args);window.__lockCalls.push({lock:name,callback:args.at(-1).name});if(name==='f123-escrituras'&&args.at(-1).name==='take')window.__handoffClaimQueued=true;return result;};navigator.locks.request=window.__observedLockRequest;});
-   assert.equal(await second.evaluate(()=>navigator.locks.request===window.__observedLockRequest),true,'the test must actually observe the browser lock requests');
-   await ownerLogin(second,'second tab takes over',first);
-   // S1: a new PIN session MUST take the lease without queuing behind a
-   // possibly zombie Web Lock. The old in-flight write still owns the lock.
-   await second.waitForFunction(()=>!!window.OCTabSession&&!OCTabSession.pending&&OCTabSession.isCurrent(),null,{timeout:15000}); // handoff under a loaded CI box; behavior asserts below keep their 2 s limits
-   assert.equal(await second.evaluate(()=>window.__lockCalls.some(x=>x.callback==='take')),false,
-     'PIN handoff must not wait for the former tab to release a Web Lock');
-   assert.equal((await sessionSnapshot(second)).leases.length,1,'new tab holds exactly one session lease');
-   // The old session must be fenced as soon as takeover is queued. This
-   // assertion accepts either an early intent marker or a completed takeover.
-   const preHandoff=await first.evaluate(()=>({current:OCTabSession.isCurrent(),leases:Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).filter(k=>k.includes('auth_tab_lease')).map(k=>({key:k,value:localStorage.getItem(k)}))}));
-   assert.equal(preHandoff.current,false,'old-tab mutation authorization must be revoked before its queued write: '+JSON.stringify(preHandoff));
-   // This request waits behind the new session claim. A write already running
-   // before that claim is allowed to finish; it must not be cancelled or lost.
-   await first.evaluate(()=>{fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Queued forbidden rack',tipo:'propio'})}).then(r=>window.__queuedWriteStatus=r.status);});
-   await first.evaluate(()=>__releaseWriteLock());
-   await first.waitForFunction(()=>typeof __queuedWriteStatus==='number');
-   console.log(name+' session fence '+JSON.stringify({initial:initialSession,first:await sessionSnapshot(first),second:await sessionSnapshot(second)}));
-   assert.equal(await first.evaluate(()=>__queuedWriteStatus),403,'permissions are checked again after waiting for the write lock: '+JSON.stringify({initial:initialSession,first:await sessionSnapshot(first),second:await sessionSnapshot(second)}));
-   await first.evaluate(()=>{window.__suppressLeaseEvents=false;window.dispatchEvent(new Event('focus'));});
-   await first.waitForFunction(()=>OCAuth.rolActual()===null,{},{timeout:2000});
-   assert.equal(await first.evaluate(()=>sessionStorage.getItem('f123_sesion')),null);
-   await first.locator('#oc-tab-handoff').waitFor({state:'visible'});
-   assert.equal((await api(second,'/api/ubicaciones')).some(x=>x.nombre==='Queued forbidden rack'),false);
-   const rows=await api(second,'/api/ventas/todas');assert.equal(rows.length,1);assert.equal(rows[0].cantidad*rows[0].precioUnit,34);
-   assert.equal((await api(second,'/api/productos')).find(p=>p.id===ids.product).stockActual,2);
-   await first.evaluate(()=>{Object.defineProperty(navigator,'share',{configurable:true,value:async data=>{window.__shared=data;throw new DOMException('Cancelled','AbortError');}});});
-   await first.locator('#oc-tab-share').click();
-   const sharing=await first.evaluate(()=>({data:__shared,status:document.getElementById('oc-tab-share-status').textContent,overflow:document.documentElement.scrollWidth>innerWidth+1}));
-   assert.equal(sharing.data.url,'https://jfcarpiopuntocom.github.io/friendly-123/');assert.doesNotMatch(JSON.stringify(sharing.data),/SYNTHETIC-TAB|789|instanceId|licenseCode/);
-   assert.doesNotMatch(sharing.status,/sent|shared|enviado|compartido/i);assert.equal(sharing.overflow,false);
-   await first.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Denied');}}});});
-   await first.locator('#oc-tab-copy').click();assert.equal(await first.locator('#oc-tab-share-url').isVisible(),true);
-   assert.doesNotMatch(await first.locator('#oc-tab-share-status').innerText(),/copied|copiado/i);
-   await first.evaluate(()=>{Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.__copied=text;}}});});
-   await first.locator('#oc-tab-copy').click();assert.match(await first.locator('#oc-tab-share-status').innerText(),/copied|copiado/i);
-   assert.equal(await first.evaluate(()=>__copied),'https://jfcarpiopuntocom.github.io/friendly-123/');
-   await first.locator('#oc-tab-resume').click();await ownerLogin(first,'first re-entry after handoff',second);await second.waitForFunction(()=>OCAuth.rolActual()===null,{},{timeout:2000});
+   await first.waitForFunction(()=>!window.OCTabSession?.pending);await visible(first);
+   await secondScreen(ctx,first,'second screen takes over');
+   const state=await first.evaluate(()=>({role:OCAuth.rolActual(),session:!!sessionStorage.getItem('f123_sesion'),panel:!!document.getElementById('oc-tab-handoff'),gate:document.getElementById('oc-gate')?.dataset.tabHandoff||null,current:OCTabSession.isCurrent(),canSync:OCTabSession.canSync(),text:document.body.innerText}));
+   assert.equal(state.role,'dueno','the previous screen must stay signed in');
+   assert.equal(state.session,true);assert.equal(state.panel,false,'no "continues in another tab" panel');assert.equal(state.gate,null);
+   assert.doesNotMatch(state.text,GATE_MSGS);
+   assert.equal(state.current,false,'lease really moved to the new screen');assert.equal(state.canSync,false,'sync pauses on the screen that lost the lease');
+   const r=await sale(first,ids.product,1,'p0-old-screen-sale-1');
+   assert.equal(r.status,200,'a sale from the screen that lost the lease must be accepted: '+r.body);
+   assert.doesNotMatch(r.body,GATE_MSGS);
+   // Durable check from a THIRD page (fresh load from IndexedDB): exactly one new sale.
+   const third=await ctx.newPage();await third.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   const rows=await api(third,'/api/ventas/todas');assert.equal(rows.length,2,'seed sale + the old-screen sale, once');
+   assert.equal(rows.some(x=>x.cantidad*x.precioUnit===34),true,'seed sale untouched');
+   assert.equal((await api(third,'/api/productos')).find(p=>p.id===ids.product).stockActual,1);
+  }finally{await web.close();}
+ });
+ test(`P0 2026-11-11 (${name}): a sale queued while the lease moves completes once (no 403)`,async()=>{
+  const web=await engine.launch({headless:true});try{
+   const ctx=await context(web),{page:first,ids}=await seed(ctx);await ownerLogin(first,'queued sale');
+   await first.waitForFunction(()=>!window.OCTabSession?.pending&&OCTabSession.isCurrent());
+   // The request is queued (role/epoch captured), then the lease moves to another
+   // screen BEFORE the queued write runs. This is the instant the real bug hit.
+   const r=await first.evaluate(async id=>{const k=Array.from({length:localStorage.length},(_,i)=>localStorage.key(i)).find(k=>k.includes('auth_tab_lease_')&&!k.endsWith('_claim'));
+    const p=fetch('/api/productos/'+id+'/venta',{method:'POST',body:JSON.stringify({cantidad:1,opId:'p0-queued-1',info:{formaPago:'cash'}})});
+    localStorage.setItem(k,JSON.stringify({owner:'another-screen'}));const res=await p;return {status:res.status,body:await res.text(),current:OCTabSession.isCurrent()};},ids.product);
+   assert.equal(r.current,false,'precondition: this screen no longer owns the lease');
+   assert.equal(r.status,200,'queued sale must complete: '+r.body);
+   const rows=await api(first,'/api/ventas/todas');assert.equal(rows.length,2);
+   assert.equal((await api(first,'/api/productos')).find(p=>p.id===ids.product).stockActual,1);
+  }finally{await web.close();}
+ });
+ test(`P0 2026-11-11 (${name}): Belen case, a new oc-login of the same role while the action waits does not reject the sale`,async()=>{
+  const web=await engine.launch({headless:true});try{
+   const ctx=await context(web),{page:first,ids}=await seed(ctx);await ownerLogin(first,'epoch change');
+   await first.waitForFunction(()=>!window.OCTabSession?.pending&&OCTabSession.isCurrent());
+   const r=await first.evaluate(async id=>{const e0=window.OC_AUTH_SESSION_EPOCH;
+    const p=fetch('/api/productos/'+id+'/venta',{method:'POST',body:JSON.stringify({cantidad:1,opId:'p0-epoch-1',info:{formaPago:'cash'}})});
+    window.dispatchEvent(new CustomEvent('oc-login',{detail:{rol:OCAuth.rolActual(),demo:false}}));
+    const res=await p;return {status:res.status,body:await res.text(),epochMoved:window.OC_AUTH_SESSION_EPOCH!==e0};},ids.product);
+   assert.equal(r.epochMoved,true,'precondition: the epoch changed while the action was waiting');
+   assert.equal(r.status,200,'same role, only the epoch moved: the sale must pass: '+r.body);
+   await first.waitForFunction(()=>!OCTabSession.pending);
+   assert.equal((await api(first,'/api/ventas/todas')).length,2);
+   assert.equal((await api(first,'/api/productos')).find(p=>p.id===ids.product).stockActual,1);
+   assert.equal(await first.evaluate(()=>OCAuth.rolActual()),'dueno');
+  }finally{await web.close();}
+ });
+ test(`P0 2026-11-11 (${name}): a REAL role change or sign-out still rejects the queued write with 403`,async()=>{
+  const web=await engine.launch({headless:true});try{
+   const ctx=await context(web),{page:first,ids}=await seed(ctx);await ownerLogin(first,'real changes');
+   await first.waitForFunction(()=>!window.OCTabSession?.pending&&OCTabSession.isCurrent());
+   const role=await first.evaluate(async id=>{const orig=OCAuth;
+    const p=fetch('/api/productos/'+id+'/venta',{method:'POST',body:JSON.stringify({cantidad:1,opId:'p0-role-1',info:{formaPago:'cash'}})});
+    window.OCAuth=Object.assign({},orig,{rolActual:()=> 'empleado'});
+    try{const r=await p;return {status:r.status,body:await r.text()};}finally{window.OCAuth=orig;}},ids.product);
+   assert.equal(role.status,403);assert.match(role.body,/Your session changed while this action was waiting/);
+   const out=await first.evaluate(async id=>{
+    const p=fetch('/api/productos/'+id+'/venta',{method:'POST',body:JSON.stringify({cantidad:1,opId:'p0-out-1',info:{formaPago:'cash'}})});
+    OCAuth.salir();const r=await p;return {status:r.status,body:await r.text()};},ids.product);
+   assert.equal(out.status,403);assert.match(out.body,/Your session changed while this action was waiting/);
+   const third=await ctx.newPage();await third.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+   assert.equal((await api(third,'/api/ventas/todas')).length,1,'rejected writes left no sale behind');
+   assert.equal((await api(third,'/api/productos')).find(p=>p.id===ids.product).stockActual,2);
+  }finally{await web.close();}
+ });
+ test(`P0 2026-11-11 (${name}): focus takes the lease back silently, sync resumes, two visible screens never ping-pong`,async()=>{
+  const web=await engine.launch({headless:true});try{
+   const ctx=await context(web),{page:first}=await seed(ctx);await ownerLogin(first,'first');
+   await first.waitForFunction(()=>!window.OCTabSession?.pending);await visible(first);
+   const second=await secondScreen(ctx,first,'second takes over');await visible(second);
+   await countLeaseWrites(first);await countLeaseWrites(second);
+   assert.equal(await first.evaluate(()=>OCTabSession.canSync()),false);
+   assert.equal(await second.evaluate(()=>OCTabSession.canSync()),true);
+   // Old screen comes back to the front: it wins the lease, sync resumes there.
+   await first.evaluate(()=>window.dispatchEvent(new Event('focus')));
+   await first.waitForFunction(()=>OCTabSession.isCurrent()&&OCTabSession.canSync(),null,{timeout:3000});
+   await second.waitForFunction(()=>!OCTabSession.isCurrent()&&!OCTabSession.canSync(),null,{timeout:3000});
+   await first.waitForTimeout(800);
+   // The loser must NOT react to the lease event by claiming again (no ping-pong).
+   assert.equal(await leaseWrites(first),1,'exactly one silent lease write on focus');
+   assert.equal(await leaseWrites(second),0,'the screen that lost the lease never writes it back from storage/channel events');
+   for(const page of [first,second])assert.equal(await page.evaluate(()=>OCAuth.rolActual()),'dueno');
+   for(const page of [first,second])assert.equal(await page.evaluate(()=>!!document.getElementById('oc-tab-handoff')),false);
+   // And back again with pageshow on the other screen.
+   await second.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
+   await second.waitForFunction(()=>OCTabSession.isCurrent()&&OCTabSession.canSync(),null,{timeout:3000});
+   await first.waitForFunction(()=>!OCTabSession.isCurrent()&&!OCTabSession.canSync(),null,{timeout:3000});
+   await second.waitForTimeout(800);
+   assert.equal(await leaseWrites(first),1);assert.equal(await leaseWrites(second),1);
+   // Focus on the screen that already owns the lease writes nothing.
+   await second.evaluate(()=>window.dispatchEvent(new Event('focus')));await second.waitForTimeout(300);
+   assert.equal(await leaseWrites(second),1);
   }finally{await web.close();}
  });
  test(`same-browser durable edit reaches inventory DOM directly (${name})`,async()=>{
@@ -166,7 +235,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
 
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  for(const stage of ['intent','lease']){
-  test(`Fable P1-4 native quota-failed second claim (${name}, ${stage}): original owner persists, contender cannot write`,async()=>{
+  test(`Fable P1-4 native quota-failed second claim (${name}, ${stage}): original owner persists, contender cannot sync (writes are not blocked by the lease)`,async()=>{
    const web=await engine.launch({headless:true});
    try{
     const ctx=await context(web),{page:first}=await seed(ctx);
@@ -205,8 +274,13 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     const leases=firstState.leases.filter(x=>x.key.includes('auth_tab_lease'));
     assert.equal(leases.length,1,'only original durable lease remains, never an intent');
     assert.ok(!leases[0].key.endsWith('_claim'),'never strand the two-minute takeover intent');
-    const denied=await second.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Quota contender forbidden',tipo:'propio'})});return r.status;});
-    assert.ok(denied>=400,`contender write must fail, not status ${denied}`);
+    // JFC order 2026-11-11: the lease no longer authorizes business writes. This
+    // used to assert that the contender write FAILED (>=400); now it is accepted
+    // (the IndexedDB revision check arbitrates durable conflicts). What stays
+    // fenced is SYNC (canSync false above) and the previous owner's lease/role.
+    const contender=await second.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Quota contender allowed',tipo:'propio'})});return r.status;});
+    assert.ok(contender>=200&&contender<300,`contender write is not blocked by the lease; status ${contender}`);
+    assert.equal(await second.evaluate(()=>OCTabSession.canSync()),false,'contender still must not sync');
     const accepted=await first.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Quota legitimate owner',tipo:'propio'})});return r.status;});
     assert.ok(accepted>=200&&accepted<300,`existing owner must still be able to work; status ${accepted}`);
    }finally{await web.close();}

@@ -43,20 +43,38 @@ test('tab-local writes are FIFO: second mutation waits for first confirmed resul
   release();assert.equal((await one).status,200);assert.equal((await two).status,200);
   assert.deepEqual(seen,[1,2]);assert.equal(f.lockAttempts,0);
 });
-test('a queued sale is rejected after owner session changes before execution',async()=>{
+// JFC order 2026-11-11 (real shop could not sell): the login EPOCH and the tab
+// LEASE no longer reject a queued write. Only the ROLE does (real sign-out or a
+// real role change). The two tests below replace the old ones that expected 403
+// for an epoch change and for losing the tab lease; payouts, stock adjustments and
+// expenses share this same guard, so one fixture covers them all.
+test('a queued write still completes when only the login epoch changes (same role)',async()=>{
   const f=fixture();let release;let started=0;
   f.ctx._fetchInterno=()=>{started++;return new Promise(resolve=>{release=()=>resolve(new Response('{}',{status:200}))})};
   const one=f.fetch('/api/payouts',post),two=f.fetch('/api/payouts',post);
   await tick();f.ctx.window.OC_AUTH_SESSION_EPOCH=1;release();
-  assert.equal((await one).status,200);assert.equal((await two).status,403);assert.equal(started,1);
+  assert.equal((await one).status,200);
+  await tick();release();
+  assert.equal((await two).status,200);assert.equal(started,2);
 });
-test('a queued mutation is refused when the tab loses the active session',async()=>{
+test('a queued write is rejected with 403 when the role really changes before execution',async()=>{
+  const f=fixture();let release;let started=0;
+  f.ctx._fetchInterno=()=>{started++;return new Promise(resolve=>{release=()=>resolve(new Response('{}',{status:200}))})};
+  const one=f.fetch('/api/payouts',post),two=f.fetch('/api/payouts',post);
+  await tick();f.ctx._rolLocal=()=> '';release();
+  const r2=await two;
+  assert.equal((await one).status,200);assert.equal(r2.status,403);assert.equal(started,1);
+  assert.match(await r2.text(),/Your session changed while this action was waiting/);
+});
+test('a queued mutation still completes when the tab loses the lease (sync-only concept)',async()=>{
   const f=fixture();let release,started=0,current=true;
   f.ctx.window.OCTabSession.isCurrent=()=>current;
   f.ctx._fetchInterno=()=>{started++;return new Promise(resolve=>{release=()=>resolve(new Response('{}',{status:200}))})};
   const one=f.fetch('/api/payouts',post),two=f.fetch('/api/payouts',post);
   await tick();current=false;release();
-  assert.equal((await one).status,200);assert.equal((await two).status,403);assert.equal(started,1);
+  assert.equal((await one).status,200);
+  await tick();release();
+  assert.equal((await two).status,200);assert.equal(started,2);
 });
 test('an unrecovered 507 is a 507, not a fabricated successful sale',async()=>{
   const f=fixture();

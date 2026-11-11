@@ -73,9 +73,22 @@ test("E1b-3: two authentic script instances transfer lease; hidden owner pauses"
  const old=tab("old");for(let i=0;i<24;i++)await Promise.resolve();
  assert.equal(old.win.OCTabSession.canSync(),true);
  const fresh=tab("new");for(let i=0;i<30;i++)await Promise.resolve();
- assert.equal(old.logouts,1,"former owner signs out through standard flow");
+ // JFC order 2026-11-11: losing the lease no longer signs the old screen out
+ // (it used to assert logouts===1). It keeps working; only its sync pauses.
+ assert.equal(old.logouts,0,"former owner is NOT signed out by losing the lease");
+ assert.equal(old.win.OCAuth.rolActual(),"dueno","former owner keeps its role");
  assert.equal(old.win.OCTabSession.canSync(),false,"former owner cannot restart sync");
  assert.equal(fresh.win.OCTabSession.canSync(),true,"PIN owner inherits active session");
+ // Returning to the old screen takes the lease back silently; the other screen
+ // pauses and does NOT take it back from the storage event (no ping-pong).
+ old.win.dispatchEvent({type:"focus"});
+ assert.equal(old.win.OCTabSession.canSync(),true,"focus on the old screen resumes its sync");
+ assert.equal(fresh.win.OCTabSession.canSync(),false,"the other screen pauses without signing out");
+ assert.equal(fresh.logouts,0);
+ assert.equal(old.logouts,0);
+ fresh.win.dispatchEvent({type:"focus"});
+ assert.equal(fresh.win.OCTabSession.canSync(),true);
+ assert.equal(old.win.OCTabSession.canSync(),false);
  fresh.doc.hidden=true;fresh.win.dispatchEvent({type:"visibilitychange"});
  assert.equal(fresh.win.OCTabSession.canSync(),false,"hidden owner sleeps");
  fresh.doc.hidden=false;fresh.win.dispatchEvent({type:"visibilitychange"});
