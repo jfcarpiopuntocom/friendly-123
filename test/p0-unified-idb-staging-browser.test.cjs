@@ -33,6 +33,12 @@ test('P0 single-DB schema v2 staging: legacy snapshot retained, encrypted ops co
   const result=await page.evaluate(async()=>{
    const state=window.OCEstadoIDB;
    const preserved=await state.leer();
+   // Ordinary dashboard reads must not perform a schema upgrade in production.
+   const beforeVersion=await new Promise((resolve,reject)=>{
+    const r=indexedDB.open('f123_estado');r.onsuccess=()=>{const v=r.result.version;r.result.close();resolve(v);};
+    r.onerror=()=>reject(r.error);
+   });
+   const stagedBefore=await state.leerOutboxMigrado('legacy-op-1');
    const invalid=await state.importarOutboxPreparado([{opId:'x',blob:'A'},{opId:'x',blob:'B'}]);
    const copied=await state.importarOutboxPreparado([{opId:'legacy-op-1',blob:'encrypted-one'},{opId:'legacy-op-2',blob:'encrypted-two'}]);
    const a=await state.leerOutboxMigrado('legacy-op-1');
@@ -46,10 +52,12 @@ test('P0 single-DB schema v2 staging: legacy snapshot retained, encrypted ops co
     r.onsuccess=()=>{const db=r.result;const names=Array.from(db.objectStoreNames);db.close();resolve(names);};
     r.onerror=()=>reject(r.error);
    });
-   return {preserved,invalid,copied,a,b,duplicate,survivor,aborted,opened};
+   return {preserved,beforeVersion,stagedBefore,invalid,copied,a,b,duplicate,survivor,aborted,opened};
   });
   assert.equal(result.preserved.nombreNegocio,'SYNTHETIC');
   assert.equal(result.preserved._rev,1);
+  assert.equal(result.beforeVersion,1,'plain dashboard read must not auto-upgrade to v2');
+  assert.equal(result.stagedBefore,null,'outbox absent before opt-in migration');
   assert.equal(result.invalid,false,'invalid duplicate input fails closed');
   assert.equal(result.copied,true,'complete + read-back required for staging ACK');
   assert.equal(result.a.blob,'encrypted-one');
