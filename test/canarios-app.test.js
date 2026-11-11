@@ -106,7 +106,10 @@ test('salud: solo campos de la lista blanca; cuadre "ok" con ventas mezcladas (s
       return { cuadre, resumen: window.OCSalud.resumen() };
     });
     assert.equal(r.cuadre, 'ok', 'Sold y Commissions cuadran: no hay rojo falso');
-    assert.deepEqual(Object.keys(r.resumen).sort(), ['caidas', 'canal', 'cuadre', 'errores', 'mezcla', 'nodos', 'retenido', 'shell']);
+    assert.deepEqual(Object.keys(r.resumen).sort(), ['caidas', 'canal', 'cuadre', 'errores', 'escritor', 'mezcla', 'nodos', 'retenido', 'shell']);
+    assert.deepEqual(Object.keys(r.resumen.escritor||{}).sort(),
+      ['fallbackLocal','initCount','navigation','pendientesRelay','strictFailure'],
+      'new health telemetry remains a CLOSED technical counter allowlist');
     assert.equal(r.resumen.canal, 'next');
     assert.match(r.resumen.shell, /^f123-shell-v\d+$/);
   });
