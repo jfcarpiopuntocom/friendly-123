@@ -1,0 +1,18 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const src=fs.readFileSync(path.join(__dirname,'../docs/tab-session.js'),'utf8');
+const a=src.indexOf(' function authoritySnapshot(){');
+const b=src.indexOf(' var style=document.createElement',a);
+assert(a>0&&b>a,'continuity helper present');
+const code=src.slice(a,b);
+assert.match(code,/!claimed\|\|pending\|\|suspendida\|\|!scopeKey\|\|!current\(\)/);
+assert.match(code,/held\.owner!==id\|\|pendingClaim\(\)/);
+assert.match(code,/before\.scope===after\.scope/);
+assert.match(code,/before\.role===after\.role/);
+assert.match(code,/before\.owner===after\.owner/);
+assert.match(code,/leaseCurrent:!!after/);
+assert.match(code,/otherClaimPending:pendingClaim\(\)/);
+assert.match(src,/authorityContinuity:authorityContinuity/);
+console.log('P0 fail-closed authority continuity helper: PASS (static contract; no sale authorization changed)');
