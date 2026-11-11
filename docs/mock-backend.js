@@ -6393,11 +6393,22 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
+      /* FEATURE - DORMANT (desactivada por orden de JFC, 2026-11-11). NO BORRAR.
+         Este bloque (v730) hacia que la venta esperase hasta 3 s a que la propia
+         pestana terminase de tomar su turno con PIN y, si el turno no era suyo, la
+         rechazaba con 403 "Your session changed...". JFC ordeno que ese mensaje NO
+         salga con el rol vigente y que la venta se acepte SIEMPRE: ya no hace
+         falta esperar el turno, porque el guard de abajo solo compara el ROL y la
+         integridad la da el control de revision de IndexedDB. Un cierre de sesion
+         o cambio de rol real se sigue rechazando en el guard.
+         PARA REACTIVAR (solo con orden expresa de JFC): poner
+         ESPERAR_RECLAMO_PROPIO_DORMANT = true. */
+      const ESPERAR_RECLAMO_PROPIO_DORMANT = false;
       // P0: the same tab may still be acquiring its own PIN lease when a user
       // taps CONFIRM SALE. Wait only for that already-started local claim,
       // never for another tab, logout, changed role, or changed epoch.
       // The existing strict session fence below runs again before the write.
-      if (ventaConcurrente && window.OCTabSession && window.OCTabSession.pending) {
+      if (ESPERAR_RECLAMO_PROPIO_DORMANT && ventaConcurrente && window.OCTabSession && window.OCTabSession.pending) {
         const tab=window.OCTabSession;
         const lista=await new Promise(function(resolve) {
           let finished=false,timer=null;
@@ -6419,7 +6430,30 @@
         if(!lista)return new Response(JSON.stringify({error:"Your session changed while this action was waiting. Sign in and try again."}),
           {status:403,headers:{"Content-Type":"application/json"}});
       }
-      const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
+      /* P0 HOTFIX (ORDEN DE JFC, dueno, 2026-11-11): "la venta se acepta SIEMPRE".
+         Una vendedora real no podia vender porque este guard rechazaba la escritura
+         con 403 "Your session changed while this action was waiting..." en dos casos
+         que NO son un cambio de sesion real:
+           (a) la epoca de login (OC_AUTH_SESSION_EPOCH) cambio mientras la accion
+               esperaba en la cola (un nuevo oc-login del MISMO rol, p. ej. al
+               volver a la app), y
+           (b) otra pantalla (pestana o PWA del mismo perfil) tomo el turno
+               compartido de localStorage (OCTabSession.isCurrent() === false).
+         AHORA solo se compara el ROL: un cierre de sesion real o un cambio de rol
+         real (rol distinto, o vacio) sigue dando 403 con este mismo texto.
+         Por que es seguro quitar epoca y turno: la integridad entre pantallas NO la
+         da el turno; la da el control de revision de IndexedDB
+         (OCEstadoIDB.guardarConRevision, compare-and-set) mas
+         _recargarSiOtraPestanaEscribio() justo abajo, que releen el estado
+         durable antes de escribir. Dos pantallas pueden vender a la vez y el CAS
+         decide (la venta rechazada se rebasa una vez, ver el reintento CAS mas abajo).
+         El turno SOLO gobierna la sincronizacion (OCTabSession.canSync en
+         sync-yjs.js / sync-realtime.js): eso NO se toca aqui.
+         NO mostrar modales/avisos ni texto nuevo (orden de JFC).
+         PARA REVERTIR (volver al guard viejo, NO recomendado): cambiar la linea por
+           const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
+         y revertir tab-session.js check() (ver su comentario DORMANT). */
+      const cambio=rolAlPedir!==_rolLocal();
       const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
       if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
@@ -6462,7 +6496,14 @@
       try { nuevo = await idb.leer(); } catch (_) { return primero; }
       if (!nuevo || !Number.isSafeInteger(nuevo._rev) || nuevo._rev <= revisionAntes ||
           nuevo._rev < _localRev || validarRespaldo(nuevo)) return primero;
-      if (rolAlPedir !== _rolLocal() || epocaAlPedir !== (window.OC_AUTH_SESSION_EPOCH || 0))
+      /* P0 HOTFIX (JFC 2026-11-11): igual que el guard de arriba, el reintento CAS
+         solo se aborta si el ROL cambio de verdad. La epoca de login ya no cancela
+         el reintento: antes una venta rechazada por CAS (otra pantalla escribio
+         primero) se devolvia como fallo si el usuario habia vuelto a entrar mientras
+         tanto. El reintento sigue siendo UNA sola vez y solo contra una revision
+         durable mas nueva (arriba), asi que no puede duplicar la venta.
+         Para revertir: restaurar `|| epocaAlPedir !== (window.OC_AUTH_SESSION_EPOCH || 0)`. */
+      if (rolAlPedir !== _rolLocal())
         return primero;
       aplicarRespaldo(nuevo);
       _localRev = nuevo._rev;
