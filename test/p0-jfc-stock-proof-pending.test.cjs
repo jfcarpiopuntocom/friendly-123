@@ -52,6 +52,14 @@ test('JFC different physical epoch is never ACKed or applied optimistically', ()
   assert.equal(x.product.stockActual,13);
 });
 
+test('JFC conflicting physical bases (33 vs 15) are not silently merged or ACKed', () => {
+  const x = run({jfc:true,base:15,epoch:'E1',
+    witness:{base:33,epoch:'E1',actor:'iphone',add:0,sub:1}});
+  assert.deepEqual(x.result,{ok:false,error:'stock-epoch-or-proof-conflict'});
+  assert.deepEqual(x.acknowledgements,[]);
+  assert.equal(x.product.stockActual,15, 'no invented 32 or double subtraction');
+});
+
 test('JFC witnessed movement retains its existing durable ACK behavior', async () => {
   const x = run({jfc:true,witness:{base:13,epoch:'E1',actor:'phone',add:0,sub:1}});
   assert.deepEqual(await x.result,{ok:true});
