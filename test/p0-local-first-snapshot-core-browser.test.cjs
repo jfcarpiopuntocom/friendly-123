@@ -46,6 +46,8 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
     db.registrarHechoLocal('sale-op-001','venta',data,apply,()=>true)]);
    const first=await db.leer();
    const conflict=await db.registrarHechoLocal('sale-op-001','venta',{opCifrada:'ciphertext:DIFFERENT'},apply,()=>true);
+   const duplicateAfterLogout=await db.registrarHechoLocal('sale-op-001','venta',data,apply,()=>false);
+   const asyncAuth=await db.registrarHechoLocal('sale-op-005','venta',data,apply,async()=>true);
    const lostRole=await db.registrarHechoLocal('sale-op-002','venta',data,apply,()=>false);
    const rejected=await db.registrarHechoLocal('sale-op-003','venta',data,()=>null,()=>true);
    const beforeSecond=await db.leer();
@@ -57,7 +59,7 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
    delete stale._dedup;delete stale._outbox;stale._rev=afterSecond._rev+1;
    const lostMetadata=await db.guardarConRevision(stale,afterSecond._rev);
    const afterStale=await db.leer();
-   return {a,b,conflict,lostRole,rejected,second,lostMetadata,
+   return {a,b,conflict,duplicateAfterLogout,asyncAuth,lostRole,rejected,second,lostMetadata,
     afterStale:{rev:afterStale._rev,stock:afterStale.productos[0].stockActual,
      dedup:Object.keys(afterStale._dedup||{}),outbox:Object.keys(afterStale._outbox||{})},
     first:{stock:first.productos[0].stockActual,ventas:first.ventas.length,movimientos:first.movimientos.length,rev:first._rev,outbox:Object.keys(first._outbox||{}),dedup:Object.keys(first._dedup||{})},
@@ -70,6 +72,8 @@ test('P0 local-first '+label+': one opId, atomic snapshot sale/outbox/dedup, abo
   assert.equal([results.a,results.b].filter(x=>x.duplicate).length,1,'second tap same id is no-op');
   assert.deepEqual(results.first,{stock:1,ventas:1,movimientos:1,rev:2,outbox:['sale-op-001'],dedup:['sale-op-001']});
   assert.equal(results.conflict.ok,false,'same opId different encrypted payload is not ACKed');
+  assert.equal(results.duplicateAfterLogout.ok,false,'even a committed opId cannot bypass logout');
+  assert.equal(results.asyncAuth.ok,false,'truthy asynchronous auth is not a valid commit fence');
   assert.equal(results.lostRole.ok,false,'revoked identity aborts before write');
   assert.equal(results.rejected.ok,false,'invalid business mutation aborts');
   assert.deepEqual(results.beforeSecond,{stock:1,ventas:1,rev:2});
