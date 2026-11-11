@@ -12,7 +12,7 @@ permissions:
 jobs:
   stage-fixture:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,6 +22,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - name: Browser fixture - original snapshot, staged opId copies, atomic abort, read-back
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Chromium/WebKit fixtures - snapshot, staged encrypted opIds, rollback, read-back
         run: node --test --test-concurrency=1 test/p0-unified-idb-staging-browser.test.cjs
