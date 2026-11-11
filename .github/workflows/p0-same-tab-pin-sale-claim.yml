@@ -1,0 +1,38 @@
+name: P0 same-tab PIN claim allows one durable sale
+on:
+  pull_request:
+    paths:
+      - docs/mock-backend.js
+      - test/p0-same-tab-pin-sale-claim.test.cjs
+      - .github/workflows/p0-same-tab-pin-sale-claim.yml
+      - docs/version-manifest.json
+  push:
+    branches: [master]
+    paths:
+      - docs/mock-backend.js
+      - test/p0-same-tab-pin-sale-claim.test.cjs
+      - .github/workflows/p0-same-tab-pin-sale-claim.yml
+permissions:
+  contents: read
+jobs:
+  exact-session-fence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Triple pass of real guarded sale, no authority bypass
+        run: |
+          set -euo pipefail
+          for pass in 1 2 3; do
+            echo "SESSION P0 PASS $pass/3"
+            node --test test/p0-same-tab-pin-sale-claim.test.cjs test/e1b3-zombie-web-lock.test.cjs
+          done
+      - name: Official shell manifest exact on this HEAD
+        run: |
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js
