@@ -1,0 +1,40 @@
+name: P0 sale awaits own PIN claim (no auth bypass)
+on:
+  pull_request:
+    paths:
+      - docs/mock-backend.js
+      - docs/tab-session.js
+      - test/p0-sale-own-pin-claim.test.cjs
+      - .github/workflows/p0-sale-own-pin-claim.yml
+  push:
+    branches: [master]
+    paths:
+      - docs/mock-backend.js
+      - docs/tab-session.js
+      - test/p0-sale-own-pin-claim.test.cjs
+permissions:
+  contents: read
+jobs:
+  sale-lease-race:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Triple pass of own-claim, rivals, logout, and FIFO guards
+        run: |
+          set -euo pipefail
+          for pass in 1 2 3; do
+            echo "P0 SALE PIN PASS $pass/3"
+            node --test test/p0-sale-own-pin-claim.test.cjs test/e1b3-zombie-web-lock.test.cjs
+          done
+      - name: Browser WebKit and Chromium real tab authority and sale durability
+        run: |
+          npx playwright install --with-deps chromium webkit
+          node --test --test-concurrency=1 test/tab-session-handoff.test.js test/p0-sales-atomic-idb-webkit-browser.test.cjs

@@ -109,7 +109,38 @@
   claimed=false;pending=false;suspendida=true;avisarSync();
  });
  window.addEventListener('oc-lang-change',function(){if(document.getElementById('oc-tab-handoff'))render();});
- window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,get pending(){return pending;}};
+ // P0: a sale submitted immediately after THIS TAB's successful PIN can
+ // arrive while claim() is still computing its license-bound lease hash.
+ // Wait for completion of that same claim (max 3 s), not for another tab.
+ // This is NOT an authorization grant: the caller must recheck isCurrent,
+ // role and epoch after waiting, just as it does for all other writes.
+ function waitOwnClaim(maxMs){
+  var budget=Math.min(3000,Math.max(0,Number(maxMs)||0));
+  var expectedEpoch=window.OC_AUTH_SESSION_EPOCH||0;
+  function ready(){return expectedEpoch===(window.OC_AUTH_SESSION_EPOCH||0)&&
+   !pending&&claimed&&!suspendida&&current();}
+  if(!pending||!budget)return Promise.resolve(ready());
+  return new Promise(function(resolve){
+   var completed=false,timer=null;
+   function done(ok){
+    if(completed)return;
+    completed=true;
+    window.removeEventListener('oc-tab-session-changed',changed);
+    if(timer!==null)clearTimeout(timer);
+    resolve(ok===true);
+   }
+   function changed(){
+    if(expectedEpoch!==(window.OC_AUTH_SESSION_EPOCH||0))return done(false);
+    if(!pending)done(ready());
+   }
+   window.addEventListener('oc-tab-session-changed',changed);
+   timer=setTimeout(function(){done(false);},budget);
+   // Do not lose a claim completion between the initial check and listener.
+   changed();
+  });
+ }
+ window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,
+  waitOwnClaim:waitOwnClaim,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
  if(window.OCAuth&&OCAuth.rolActual())claim();
 })();
