@@ -31,16 +31,25 @@
       // A rejected fetch is a transient network failure, not an HTTP refusal.
       // Preserve that distinction for the relay selector's 5-second retry lane.
       // Never retain the exception (it may contain a private room URL).
-      return Promise.resolve().then(function () {
-        return fetchFn(base + path + ".json" + (qs ? "?" + qs : ""), {
-          method: simple ? "POST" : method, headers: {},
-          body: body === undefined ? undefined : JSON.stringify(body)
+      function attempt() {
+        return Promise.resolve().then(function () {
+          return fetchFn(base + path + ".json" + (qs ? "?" + qs : ""), {
+            method: simple ? "POST" : method, headers: {},
+            body: body === undefined ? undefined : JSON.stringify(body)
+          });
+        }).catch(function () {
+          var err = new Error("Firebase network unavailable");
+          err.f123Network = true;
+          throw err;
         });
-      }).catch(function () {
-        var err = new Error("Firebase network unavailable");
-        err.f123Network = true;
-        throw err;
-      });
+      }
+      // Only a rejected GET may be repeated once: GET is idempotent and the
+      // retry neither emits a frame nor advances a cursor before validation.
+      // Never retry POST/PUT: a lost ACK cannot prove a durable write failed.
+      return method === "GET" ? attempt().catch(function (err) {
+        if (!err || err.f123Network !== true) throw err;
+        return attempt();
+      }) : attempt();
     }
     // shortcut: counts response bodies and live events read; headers and the echo of a PUT are not visible here. Upgrade if billing data is ever exposed to the client.
     var wireDown = 0;
