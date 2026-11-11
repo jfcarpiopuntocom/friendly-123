@@ -472,7 +472,14 @@
         if (cerradoH) return;
         if (ws.peerOnly === true && typeof e.data === "string" && e.data.indexOf('"persist-result"') !== -1 &&
             (e.peerAccepted !== true || subs.some(function (o) { return o.ws.peerOnly !== true && o.ws.readyState < 2; }))) return;
-        emitir("message", { data: e.data, peerAccepted: e.peerAccepted === true, relaySource: e.relaySource, peerReceipt: e.peerReceipt, peerAck: e.peerAck });
+        // Provenance for durable persist-result ONLY; preserve relaySource's
+        // pull/live/peer semantics for every binary frame and Yjs cursor.
+        var persistLayer = typeof e.data === "string" &&
+          e.data.indexOf('"persist-result"') !== -1 && x.orden < capas.length
+          ? capas[x.orden].key : null;
+        emitir("message", { data: e.data, peerAccepted: e.peerAccepted === true,
+          relaySource: e.relaySource, persistLayer: persistLayer,
+          peerReceipt: e.peerReceipt, peerAck: e.peerAck });
       });
       ws.addEventListener("error", function () { hubError = true; });
       ws.addEventListener("close", function (e) {

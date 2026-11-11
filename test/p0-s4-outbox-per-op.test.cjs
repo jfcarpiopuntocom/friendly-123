@@ -54,7 +54,7 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  const old={pending:[
   {k:'op',id:'A',c:'synthetic-cipher-A',fingerprint:'f-A'},
   {k:'op',id:'B',c:'synthetic-cipher-B',fingerprint:'f-B',group:'grp'}
- ],checkpoint:'synthetic-only',confirmed:['already-acked']};
+ ],checkpoint:'synthetic-only',checkpointLayer:'f123_relay_cupo_v1',confirmed:['already-acked']};
  await rawPut(legacyKey,old);
  const begin=source.indexOf('    var _v2DB = null, _v2Ready = null, _v2Cache = null');
  const end=source.indexOf('    function mutarOutbox(change) {',begin);
@@ -77,6 +77,7 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  assert.equal(migrated.pending.length,2);
  assert.equal((await rawGet(legacyKey)),undefined,'monolith deleted on same transaction only after copies');
  assert.equal((await rawGet(metaKey)).v,2);
+ assert.equal((await rawGet(metaKey)).checkpointLayer,'f123_relay_cupo_v1','migration preserves source-specific proof');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:A')).c,'synthetic-cipher-A');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:B')).group,'grp');
  migrated.pending.push({k:'op',id:'C',c:'synthetic-cipher-C',fingerprint:'f-C'});
@@ -85,8 +86,13 @@ test('S4: atomic v1->v2 migration, readback, incremental append, and reload in s
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:C')).c,'synthetic-cipher-C');
  const b=harness(true),reopened=await b.getQueue();
  assert.deepEqual(Array.from(reopened.pending,x=>String(x.id)),['A','B','C']);
+ assert.equal(reopened.checkpointLayer,'f123_relay_cupo_v1','reload must retain ACK layer');
  reopened.pending=reopened.pending.filter(x=>x.id!=='B');
+ reopened.checkpointLayer='f123_relay_cupo_fb_v1';
  await b.putQueue(reopened);
+ assert.equal((await rawGet(metaKey)).checkpointLayer,'f123_relay_cupo_fb_v1','provider proof persists atomically with outbox metadata');
+ const c=harness(true),reloaded=await c.getQueue();
+ assert.equal(reloaded.checkpointLayer,'f123_relay_cupo_fb_v1','a later reload sees updated layer proof');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:B')),undefined,'ACK removes only retired envelope');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:A')).c,'synthetic-cipher-A');
  assert.equal((await rawGet('f123_relay_outbox_v2-y:op:C')).c,'synthetic-cipher-C');
