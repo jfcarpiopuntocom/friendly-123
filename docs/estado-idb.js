@@ -35,7 +35,45 @@
   var DB_NAME = "f123_estado";      // aislamiento.js le pone el namespace solo
   var STORE = "estado";
   var CLAVE = "actual";
-  var SOPORTADO = ("indexedDB" in window);
+  var SOPORTADO = !!(window.indexedDB && typeof window.indexedDB.open === "function");
+  // Sticky per-browser capability proof OUTSIDE the potentially failing IDB.
+  // Unknown must never mean 'never opened'. A legacy seal/A-B state makes a
+  // fresh missing marker ambiguous, so it never authorizes downgrade.
+  var CAP_KEY = "f123_idb_capability_v1";
+  function capLeer() {
+    try {
+      var v = localStorage.getItem(CAP_KEY);
+      return ["never_opened","opened_once","opened_and_failed"].includes(v) ? v : "unknown";
+    } catch (_) { return "unknown"; }
+  }
+  function capGuardar(v) {
+    try {
+      var old = capLeer();
+      if (old === "opened_once" && v === "never_opened") return false;
+      if (old === "opened_and_failed" && v === "never_opened") return false;
+      localStorage.setItem(CAP_KEY, v);
+      return localStorage.getItem(CAP_KEY) === v;
+    } catch (_) { return false; }
+  }
+  function capTieneHistoria() {
+    try {
+      for (var i=0;i<localStorage.length;i++) {
+        var k=localStorage.key(i) || "";
+        if ((k.indexOf("f123_estado_v4") === 0 || k.indexOf("amigable_demo_state_v4") === 0) &&
+            localStorage.getItem(k) !== null) return true;
+      }
+    } catch (_) { return true; }
+    return false;
+  }
+  // The ONLY automatic 'never opened' registration: a genuinely fresh
+  // notebook whose native IDB API does not even exist. If legacy data exists
+  // but history is unknown, require explicit reconciliation, not fake ACK.
+  if (!SOPORTADO && capLeer() === "unknown" && !capTieneHistoria()) capGuardar("never_opened");
+  function capConfirmada() { capGuardar("opened_once"); }
+  function capFallida() {
+    var old = capLeer();
+    if (old === "opened_once" || old === "opened_and_failed") capGuardar("opened_and_failed");
+  }
 
   var dbPromise = null;
   function abrirDB() {
@@ -145,7 +183,7 @@
           tx.objectStore(STORE).put(copia, CLAVE);
           accepted = true;
         };
-        tx.oncomplete = function () { resolve(accepted); };
+        tx.oncomplete = function () { if (accepted) capConfirmada(); resolve(accepted); };
         tx.onerror = function () { reject(tx.error); };
         tx.onabort = function () { reject(tx.error || new Error("abortada")); };
       });
@@ -283,9 +321,11 @@
         };
         tx.oncomplete = function () {
           _ultimoError = accepted ? null : errorTx; // fence rejection => null, never a stale earlier error
+          if (accepted) capConfirmada();
           resolve(accepted);
         };
         tx.onabort = function () {
+          capFallida();
           _ultimoError = errorTx || tx.error || new Error("IDB transaction aborted");
           try { console.warn("[estado-idb] strict transaction aborted", _ultimoError && _ultimoError.name || "UnknownError"); } catch (_) {}
           resolve(false);
@@ -394,5 +434,5 @@
     } catch (_) { return null; }
   }
 
-  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, guardarConRevision: guardarConRevision, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, ultimoError: function () { return _ultimoError; } };
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, guardarConRevision: guardarConRevision, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, capacidad: capLeer, ultimoError: function () { return _ultimoError; } };
 })();
