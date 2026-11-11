@@ -5,6 +5,7 @@ on:
       - docs/tab-session.js
       - docs/mock-backend.js
       - test/p0-local-first-authority-phase0.test.cjs
+      - test/p0-local-first-activated-sale-browser.test.cjs
       - .github/workflows/p0-local-first-phase0.yml
   workflow_dispatch: {}
 permissions:
@@ -12,7 +13,7 @@ permissions:
 jobs:
   authority-local-first:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
         with:
@@ -22,3 +23,7 @@ jobs:
           node-version: 22
       - name: Fail-closed continuity checks (VM; physical Safari still pending)
         run: node --test test/p0-local-first-authority-phase0.test.cjs
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - name: Activated local sales with real backend and license-only synthetic fixture (Chromium/WebKit)
+        run: node --test --test-concurrency=1 test/p0-local-first-activated-sale-browser.test.cjs
