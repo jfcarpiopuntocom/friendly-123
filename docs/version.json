@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.28",
+  "version": "v0.7.30",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.28 P0 Sync3: la falla transitoria de red de Firebase se clasifica como red, con reintento corto; los rechazos HTTP conservan su bloqueo seguro. Sin cambios en ventas, stock, PIN ni licencias.",
+  "changelog": "v0.7.30 P0: CONFIRM SALE espera solo la reclamación PIN de su propia pestaña hasta 3 s; valida nuevamente rol, sesión y lease antes de ejecutar. No cambia inventario, dinero, Sync3, PIN ni contratos de persistencia.",
   "requerida": false,
-  "shell": "f123-shell-v728",
+  "shell": "f123-shell-v730",
   "apagar": [],
-  "releaseName": "v0.7.28",
-  "cacheGeneration": "golden268"
+  "releaseName": "v0.7.30",
+  "cacheGeneration": "golden270"
 }
