@@ -155,18 +155,36 @@
    sameTabAuthority:!!(before&&after&&before.owner===after.owner&&before.scope===after.scope),
    noPendingClaim:!!(after&&!pendingClaim()),currentLease:!!after};
  }
- async function waitOwnClaim(maxMs){
-  var budget=Math.min(3000,Math.max(0,Number(maxMs)||0)),stop=Date.now()+budget;
-  if(!pending)return !suspendida&&claimed&&current();
-  // Only our OWN in-progress login can be waited on. No wait or privilege
-  // escalation for a foreign tab claim, logout, or suspended session.
-  // A new explicit PIN login may start with suspendida=true after logout.
-  // Wait for that *own* claim, but not through another logout mid-wait.
-  var expectedLogout=logoutSerial;
-  while(pending&&logoutSerial===expectedLogout&&Date.now()<stop){
-   await new Promise(function(resolve){setTimeout(resolve,40);});
+ function waitOwnClaim(maxMs){
+  var budget=Math.min(3000,Math.max(0,Number(maxMs)||0));
+  var expectedLogout=logoutSerial,expectedEpoch=window.OC_AUTH_SESSION_EPOCH||0;
+  // A successful claim is an EVENT, not elapsed time. Reject if another
+  // login/logout starts while the first CONFIRM is waiting.
+  function stillSameIntent(){
+   return logoutSerial===expectedLogout&&(window.OC_AUTH_SESSION_EPOCH||0)===expectedEpoch;
   }
-  return logoutSerial===expectedLogout&&!pending&&!suspendida&&claimed&&current();
+  function ready(){return stillSameIntent()&&!pending&&!suspendida&&claimed&&current();}
+  if(!pending||!budget)return Promise.resolve(ready());
+  // The handler sees only this tab's claim completion; current() also
+  // checks the actual shared lease and fences a foreign pending claim.
+  return new Promise(function(resolve){
+   var finished=false,timer=null;
+   function done(ok){
+    if(finished)return;
+    finished=true;
+    try{window.removeEventListener('oc-tab-session-changed',changed);}catch(_){}
+    if(timer!==null)clearTimeout(timer);
+    resolve(ok===true);
+   }
+   function changed(){
+    if(!stillSameIntent())return done(false);
+    if(!pending)return done(ready());
+   }
+   window.addEventListener('oc-tab-session-changed',changed);
+   timer=setTimeout(function(){done(false);},budget);
+   // Claim may have finished between the first pending check and listener.
+   changed();
+  });
  }
  window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authorityIdentity:authorityIdentity,authorityRequestIdentity:authorityRequestIdentity,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,waitOwnClaim:waitOwnClaim,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
