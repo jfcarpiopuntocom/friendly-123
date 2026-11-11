@@ -85,6 +85,19 @@ async function peer() {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'), w);
   w.IndexeddbPersistence = class { once() {} };
   w.localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: 'SYNTHETIC-ISOLATED-FIXTURE' }));
+  // A licensed peer must run the REAL tab-session adapter and claim its lease:
+  // bypassing the new 403 fence in the backend would mask an auth regression.
+  w.OCAuth={rolActual:()=> 'dueno',salir:()=>{}};
+  w.document.head={appendChild(){}};
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/tab-session.js'), 'utf8'), w);
+  w.dispatchEvent({type:'oc-login'});
+  let authorized=false;
+  for(let i=0;i<100;i++){
+    authorized=!!(await w.OCTabSession.authoritySnapshot());
+    if(authorized)break;
+    await delay(10);
+  }
+  assert.equal(authorized,true,'licensed Sync3 fixture must hold a real tab-session lease before sale');
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8'), w);
   for (let i = 0; i < 100 && w.OCYjs.estado !== 'activo'; i++) await delay(10);
   return w;
