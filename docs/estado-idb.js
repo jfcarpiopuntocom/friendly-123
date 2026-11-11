@@ -330,6 +330,99 @@
     return op;
   }
 
+  // Local-first P0 phase 1 PROTOTYPE: unused by the production sale handler.
+  // This changes only f123_estado/estado/actual, with no schema upgrade.
+  // A future verified adapter must implement the app's existing commissions,
+  // tax and receipt rules before wiring this function to CONFIRM SALE.
+  function registrarHechoLocal(opId, tipo, datos, aplicar, autorizado) {
+    if (!SOPORTADO || typeof opId !== "string" || !/^[a-zA-Z0-9:_-]{8,160}$/.test(opId) ||
+        tipo !== "venta" || !datos || typeof datos.opCifrada !== "string" ||
+        !datos.opCifrada || datos.opCifrada.length > 131072 ||
+        typeof aplicar !== "function" || typeof autorizado !== "function")
+      return Promise.resolve({ok:false,reason:"invalid-intent"});
+    const job = _cola.then(async function () {
+      let db;
+      try { db = await abrirDB(); }
+      catch (_) { return {ok:false,reason:"idb-unavailable"}; }
+      let txResult=null;
+      try {
+        txResult=await new Promise(function (resolve) {
+          let tx;
+          try { tx = db.transaction(STORE,"readwrite",{durability:"strict"}); }
+          catch (e) {
+            // Do not hide a closed database handle, quota or security denial.
+            if (!(e && (e.name==="TypeError"||e.name==="NotSupportedError"))) {
+              resolve({ok:false,reason:"transaction-unavailable"});return;
+            }
+            try { tx=db.transaction(STORE,"readwrite"); }
+            catch (_) { resolve({ok:false,reason:"transaction-unavailable"});return; }
+          }
+          const store=tx.objectStore(STORE);
+          let stage="pending",reason="unknown",result=null;
+          tx.oncomplete=function(){
+            resolve({ok:stage!=="aborted",stage:stage,reason:reason,result:result});
+          };
+          tx.onabort=function(){resolve({ok:false,reason:reason==="unknown"?"transaction-aborted":reason});};
+          tx.onerror=function(){/* onabort decides the transaction outcome */};
+          const req=store.get(CLAVE);
+          req.onsuccess=function(){
+            const current=req.result;
+            if (!current || !Array.isArray(current.ventas) ||
+                !Array.isArray(current.movimientos) || !Array.isArray(current.productos) ||
+                !Number.isSafeInteger(Number(current._rev))) {
+              reason="invalid-snapshot";stage="aborted";try{tx.abort();}catch(_){}return;
+            }
+            const applied=current._dedup&&current._dedup[opId];
+            if(applied){stage="already-applied";result=applied.resultado||null;return;}
+            if(!autorizado()){
+              reason="authority-lost";stage="aborted";try{tx.abort();}catch(_){}return;
+            }
+            try {
+              const next=JSON.parse(JSON.stringify(current));
+              const value=aplicar(next,{opId:opId,tipo:tipo,datos:datos});
+              if(value&&typeof value.then==="function")throw new Error("async business mutation forbidden inside IDB transaction");
+              if(!value||typeof value!=="object"||!value.resultado)throw new Error("invalid effect");
+              // Exactly one sale and one movement for this business opId.
+              const sales=next.ventas.filter(v=>v&&v.opId===opId);
+              const movements=next.movimientos.filter(m=>m&&m.opId===opId);
+              if(sales.length!==1||movements.length!==1)throw new Error("missing or repeated business effect");
+              next._dedup=next._dedup&&typeof next._dedup==="object"?next._dedup:{};
+              next._outbox=next._outbox&&typeof next._outbox==="object"?next._outbox:{};
+              if(next._dedup[opId]||next._outbox[opId])throw new Error("identity conflict");
+              next._rev=Number(current._rev)+1;
+              next._dedup[opId]={tipo:tipo,at:Date.now(),resultado:value.resultado};
+              next._outbox[opId]={opId:opId,cifrado:datos.opCifrada,at:Date.now()};
+              store.put(next,CLAVE);
+              stage="applied";result=value.resultado;
+            }catch(_){reason="mutation-rejected";stage="aborted";try{tx.abort();}catch(_){}}
+          };
+          req.onerror=function(){reason="read-failed";stage="aborted";try{tx.abort();}catch(_){}};
+        });
+      } catch (_) { return {ok:false,reason:"transaction-error"}; }
+      if(!txResult||!txResult.ok)return txResult||{ok:false,reason:"transaction-error"};
+      // Commit oncomplete alone is not enough: reopen and verify by exact opId.
+      // This is logical read-back, NOT guaranteed fsync against power loss.
+      let after;
+      try { after=await new Promise(function (resolve,reject) {
+        const tx=db.transaction(STORE,"readonly");
+        const req=tx.objectStore(STORE).get(CLAVE);
+        let row=null;
+        req.onsuccess=function(){row=req.result;};
+        tx.oncomplete=function(){resolve(row);};
+        tx.onabort=function(){reject(tx.error||new Error("readback-aborted"));};
+      }); } catch (_) { return {ok:false,reason:"readback-unavailable"}; }
+      const d=after&&after._dedup&&after._dedup[opId];
+      const o=after&&after._outbox&&after._outbox[opId];
+      const sales=after&&Array.isArray(after.ventas)?after.ventas.filter(v=>v&&v.opId===opId):[];
+      const moves=after&&Array.isArray(after.movimientos)?after.movimientos.filter(m=>m&&m.opId===opId):[];
+      if(!d||!o||o.cifrado!==datos.opCifrada||sales.length!==1||moves.length!==1)
+        return {ok:false,reason:"readback-incomplete"};
+      return {ok:true,opId:opId,duplicate:txResult.stage==="already-applied",resultado:d.resultado};
+    }).catch(function () { return {ok:false,reason:"unexpected-error"}; });
+    _cola=job.then(function(){},function(){});
+    return job;
+  }
+
   async function leer() {
     if (!SOPORTADO) return null;
     try {
@@ -394,5 +487,5 @@
     } catch (_) { return null; }
   }
 
-  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, guardarConRevision: guardarConRevision, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, ultimoError: function () { return _ultimoError; } };
+  window.OCEstadoIDB = { guardar: guardarAgrupado, guardarYa: guardarYa, guardarConRevision: guardarConRevision, registrarHechoLocal: registrarHechoLocal, leer: leer, borrar: borrar, espacio: espacio, soportado: SOPORTADO, ultimoError: function () { return _ultimoError; } };
 })();
