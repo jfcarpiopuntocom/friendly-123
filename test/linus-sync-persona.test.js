@@ -29,13 +29,27 @@ async function peer(timersReales) {
   w.document.head = { appendChild() {} };
   w.Event = class Event { constructor(type) { this.type = type; } };
   w.OCAuth = { rolActual: () => 'dueno', salir: () => { throw new Error('unexpected tab takeover'); } };
+  // Observe the real session adapter's claim-completion event. Timeout is an
+  // upper safety bound, NOT a sleep used to make the race disappear.
+  const ownLeaseReady = new Promise((resolve, reject) => {
+    const deadline = setTimeout(() => reject(new Error('own synthetic PIN lease never resolved')), 2000);
+    w.addEventListener('oc-tab-session-changed', async () => {
+      try {
+        if (!w.OCTabSession || w.OCTabSession.pending) return;
+        const snapshot = await w.OCTabSession.authoritySnapshot();
+        if (!snapshot) return;
+        clearTimeout(deadline);
+        resolve(snapshot);
+      } catch (error) {
+        clearTimeout(deadline);
+        reject(error);
+      }
+    });
+  });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/tab-session.js'), 'utf8'), w);
-  let ownsLease = false;
-  for (let i = 0; i < 100 && !ownsLease; i++) {
-    ownsLease = !!(await w.OCTabSession.authoritySnapshot());
-    if (!ownsLease) await delay(5);
-  }
-  assert.equal(ownsLease, true, 'synthetic peer must prove its live tab lease before a licensed sale');
+  const lease = await ownLeaseReady;
+  assert.ok(lease && lease.owner && lease.scope,
+    'synthetic peer must receive a live authentic tab lease event before licensed sale');
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8'), w);
   for (let i = 0; i < 100 && w.OCYjs.estado !== 'activo'; i++) await delay(10);
   assert.equal(w.OCYjs.estado, 'activo');
