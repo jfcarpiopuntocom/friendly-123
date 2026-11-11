@@ -53,20 +53,23 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      const r=await fetch('/api/productos/'+id+'/venta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cantidad:1})});
      return {status:r.status,json:await r.json()};
    },initial);
-   const before=await sale();assert.equal(before.status,200,'activated, current lease must be able to sell');
-   // P0 missing transition: CONFIRM is initiated immediately after this tab
+   // P0 missing transition: FIRST CONFIRM is initiated immediately after this tab
    // begins its OWN asynchronous PIN re-claim. The request must capture its
    // identity before waiting, then prove the live lease again at execution.
    // No artificial sleep/timeout and no change to the production 403 fence.
    const duringOwnPin=await page.evaluate(async id=>{
      window.dispatchEvent(new Event('oc-login'));
+     const pendingWhenConfirmStarted=OCTabSession.pending;
      const r=await fetch('/api/productos/'+id+'/venta',{
        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cantidad:1})
      });
-     return {status:r.status,json:await r.json()};
+     return {status:r.status,json:await r.json(),pendingWhenConfirmStarted};
    },initial);
+   assert.equal(duringOwnPin.pendingWhenConfirmStarted,true,
+     'first CONFIRM must start while the same tab genuinely owns a pending claim');
    assert.equal(duringOwnPin.status,200,
      'sale initiated during same-tab PIN claim must work after owner lease is proved');
+   const before=await sale();assert.equal(before.status,200,'activated, current lease must be able to sell');
    const blocked=await page.evaluate(async id=>{
      const snapshot=await OCTabSession.authoritySnapshot();
      localStorage.setItem(snapshot.scope+'_claim',JSON.stringify({owner:'other-tab',at:Date.now()}));
