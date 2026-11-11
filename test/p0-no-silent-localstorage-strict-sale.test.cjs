@@ -124,6 +124,25 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
       localStorage.setItem('f123_tienda_activa','SYNTHETIC-NEVER-IDB-NOTEBOOK-'+label);
       return j.id;
    },name);
+   // Restart the SAME apparatus. This proves the previous non-financial A/B
+   // seed was recoverable and that the sale is based on a recovered disk
+   // revision, not on a fast ephemeral fixture's in-memory revision.
+   await page.waitForFunction(()=>{
+     try {
+       const j=JSON.parse(localStorage.getItem('f123_estado_v4_journal')||'null');
+       return j&&j.phase==='COMMITTED'&&j.revision>=1;
+     } catch(_){return false;}
+   });
+   await page.reload({waitUntil:'domcontentloaded'});
+   await page.waitForFunction(()=>!!window.OCEstadoIDB&&!!window.OCAuth);
+   const recovered=await page.evaluate(async id=>{
+     OCAuth.rolActual=()=> 'dueno';
+     document.getElementById('oc-gate')?.remove();
+     const s=await(await fetch('/api/respaldo/exportar')).json();
+     return {product:!!s.productos.find(p=>p.id===id),cap:OCEstadoIDB.capacidad()};
+   },productId);
+   assert.deepEqual(recovered,{product:true,cap:'never_opened'},
+     'a genuinely IDB-less notebook must reload its confirmed A/B state');
    const sale=await page.evaluate(async id=>{
      const r=await fetch('/api/productos/'+id+'/venta',{method:'POST',
        body:JSON.stringify({cantidad:1})});
