@@ -34,6 +34,14 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    const page=await ctx.newPage();
    await page.goto(origin+'/',{waitUntil:'domcontentloaded'});
    await page.waitForFunction(()=>!!window.OCAuth&&!!window.OCTabSession&&!!window.OCEstadoIDB);
+   // Prepare a synthetic product before session activation. This test is
+   // about the real SALE fence, not a product-creation request racing login.
+   const initial=await page.evaluate(async browserName=>{
+     OCAuth.rolActual=()=> 'dueno';
+     const p=await fetch('/api/productos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+       nombre:'Activated P0 '+browserName,barcode:'P0-ACTIVATED-'+browserName,precio:15,stockInicial:3,costo:5})});
+     const json=await p.json();if(!p.ok)throw Error('fixture product '+p.status+' '+JSON.stringify(json));return json.id;
+   },name);
    await page.evaluate((browserName)=>{
      localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-P0-LOCAL-'+browserName}));
      localStorage.setItem('f123_tienda_activa','P0-ACTIVATED-NOTEBOOK-'+browserName);
@@ -41,11 +49,6 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      window.dispatchEvent(new Event('oc-login'));
    },name);
    await page.waitForFunction(async()=>!!(await OCTabSession.authoritySnapshot()),null,{timeout:8000});
-   const initial=await page.evaluate(async browserName=>{
-     const p=await fetch('/api/productos',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-       nombre:'Activated P0 '+browserName,barcode:'P0-ACTIVATED-'+browserName,precio:15,stockInicial:3,costo:5})});
-     const json=await p.json();if(!p.ok)throw Error('fixture product '+p.status+' '+JSON.stringify(json));return json.id;
-   },name);
    const sale=()=>page.evaluate(async id=>{
      const r=await fetch('/api/productos/'+id+'/venta',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cantidad:1})});
      return {status:r.status,json:await r.json()};
