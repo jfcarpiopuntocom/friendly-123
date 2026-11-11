@@ -15,7 +15,10 @@ test('P0 own claim and epoch-only reinit may continue; real authority losses fai
  store.setItem('f123_owned',JSON.stringify({licenseCode:'TEST-LICENSE-A'}));
  let role='Owner';
  const OCAuth={rolActual:()=>role,salir:()=>{role=''}};
- const window={OCAuth,OC_AUTH_SESSION_EPOCH:0,addEventListener:(k,fn)=>events.set(k,fn),dispatchEvent(){}};
+ const window={OCAuth,OC_AUTH_SESSION_EPOCH:0,
+  addEventListener:(k,fn)=>events.set(k,fn),
+  removeEventListener:(k,fn)=>{if(events.get(k)===fn)events.delete(k);},
+  dispatchEvent:(ev)=>{const fn=events.get(ev.type);if(fn)fn(ev);}};
  const document={hidden:false,createElement:()=>({style:{}}),getElementById:()=>null,
    addEventListener:(k,fn)=>docEvents.set(k,fn),head:{appendChild(){}}};
  const context=vm.createContext({window,document,localStorage:store,OCAuth,crypto:webcrypto,
@@ -23,9 +26,10 @@ test('P0 own claim and epoch-only reinit may continue; real authority losses fai
    BroadcastChannel:class BroadcastChannel{postMessage(){}},navigator:{}});
  vm.runInContext(source,context,{filename:'tab-session.js'});
  const api=window.OCTabSession;
+ assert.doesNotMatch(source,/setTimeout\\(resolve,\\s*40\\)/,'production PIN claim must not poll at 40ms');
  assert.equal(await api.authoritySnapshot(),null,'no login cannot claim authority');
  events.get('oc-login')();
- assert.equal(await api.waitOwnClaim(3000),true,'bounded polling awaits own async digest');
+ assert.equal(await api.waitOwnClaim(3000),true,'session event resolves own async digest without polling');
  const before=await api.authoritySnapshot();
  assert(before,'real lease acquired');
  const epoch=window.OC_AUTH_SESSION_EPOCH;
