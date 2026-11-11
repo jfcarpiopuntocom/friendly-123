@@ -49,6 +49,15 @@ test('P0 own claim and epoch-only reinit may continue; real authority losses fai
  events.get('oc-logout')();
  assert.equal((await api.authorityContinuity(before)).continues,false,'true logout is 403');
  assert.equal(await api.waitOwnClaim(3000),true===false,'logged out is never authorized');
+ // Critical contrast: a REAL logout followed by a new PIN login of the SAME
+ // notebook, license, role and tab must never revive an earlier sale intent.
+ role='Owner';
+ events.get('oc-login')();
+ assert.equal(await api.waitOwnClaim(3000),true,'the new login may obtain its own authority');
+ const afterRealLogout=await api.authoritySnapshot();
+ assert(afterRealLogout,'fresh login may write fresh intents');
+ assert.equal((await api.authorityContinuity(before)).continues,false,
+   'real logout + re-login to the SAME role/notebook still fences old sale intent');
 });
 test('backend guard checks authority at execution and CAS retry; no generic epoch bypass',()=>{
  const start=guard.indexOf('const _fetchConCandado =');
