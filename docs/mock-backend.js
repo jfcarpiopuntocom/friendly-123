@@ -6330,19 +6330,31 @@
     })();
     const _autoridadVenta = ventaConcurrente && _negocioActivado && window.OCTabSession &&
       typeof window.OCTabSession.authorityIdentity === "function" &&
+      typeof window.OCTabSession.authorityRequestIdentity === "function" &&
       typeof window.OCTabSession.authoritySnapshot === "function" &&
       typeof window.OCTabSession.authorityContinuity === "function";
+    // Activated notebooks must never fall back to a weaker epoch-only path
+    // when the security adapter is missing or an old shell is half-loaded.
+    if (ventaConcurrente && _negocioActivado && !_autoridadVenta)
+      return new Response(JSON.stringify({error:"Your session changed while this action was waiting. Sign in and try again."}),
+        {status:403,headers:{"Content-Type":"application/json"}});
     let _identidadAlPedir = null, _autoridadAlPedir = null;
     if (_autoridadVenta) {
       try {
-        _identidadAlPedir = await window.OCTabSession.authorityIdentity();
+        // Capture BEFORE waiting, including the explicit logout generation.
+        // A pending own PIN claim may still be marked suspended from the last
+        // session, but that cannot grant authority: lease is checked below.
+        _identidadAlPedir = window.OCTabSession.pending
+          ? await window.OCTabSession.authorityRequestIdentity()
+          : await window.OCTabSession.authorityIdentity();
         if (window.OCTabSession.pending && window.OCTabSession.waitOwnClaim)
           await window.OCTabSession.waitOwnClaim(3000);
         _autoridadAlPedir = await window.OCTabSession.authoritySnapshot();
       } catch (_) {}
       if (!_identidadAlPedir || !_autoridadAlPedir ||
           _identidadAlPedir.marker !== _autoridadAlPedir.marker ||
-          _identidadAlPedir.role !== _autoridadAlPedir.role)
+          _identidadAlPedir.role !== _autoridadAlPedir.role ||
+          _identidadAlPedir.logoutSerial !== _autoridadAlPedir.logoutSerial)
         return new Response(JSON.stringify({error:"Your session changed while this action was waiting. Sign in and try again."}),{
           status:403,headers:{"Content-Type":"application/json"}});
     }
@@ -6368,7 +6380,8 @@
         try {
           const c=await window.OCTabSession.authorityContinuity(_autoridadAlPedir);
           continuidadValida=!!(c&&c.continues&&c.noPendingClaim&&c.currentLease&&
-            _identidadAlPedir&&_identidadAlPedir.marker===_autoridadAlPedir.marker);
+            _identidadAlPedir&&_identidadAlPedir.marker===_autoridadAlPedir.marker&&
+            _identidadAlPedir.logoutSerial===_autoridadAlPedir.logoutSerial);
         } catch (_) {}
       }
       // Epoch-only changes are not automatically a logout when actual current
