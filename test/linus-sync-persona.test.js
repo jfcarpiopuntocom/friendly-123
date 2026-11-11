@@ -23,6 +23,19 @@ async function peer(timersReales) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'), w);
   w.IndexeddbPersistence = class { once() {} };
   w.localStorage.setItem('f123_owned', JSON.stringify({ licenseCode: 'SYNTHETIC-LINUS-B2' }));
+  // A licensed sale must hold a real tab-session lease, even in a no-network
+  // VM fixture. Load the production session adapter instead of weakening its
+  // fail-closed 403 guard or fabricating authoritySnapshot() values.
+  w.document.head = { appendChild() {} };
+  w.Event = class Event { constructor(type) { this.type = type; } };
+  w.OCAuth = { rolActual: () => 'dueno', salir: () => { throw new Error('unexpected tab takeover'); } };
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/tab-session.js'), 'utf8'), w);
+  let ownsLease = false;
+  for (let i = 0; i < 100 && !ownsLease; i++) {
+    ownsLease = !!(await w.OCTabSession.authoritySnapshot());
+    if (!ownsLease) await delay(5);
+  }
+  assert.equal(ownsLease, true, 'synthetic peer must prove its live tab lease before a licensed sale');
   vm.runInContext(fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8'), w);
   for (let i = 0; i < 100 && w.OCYjs.estado !== 'activo'; i++) await delay(10);
   assert.equal(w.OCYjs.estado, 'activo');
