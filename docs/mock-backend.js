@@ -1674,7 +1674,15 @@
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
           if (!local) avisoEspacioJusto();
-        } else { try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {} _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto); }
+        } else {
+          // Single negative outcome: includes false CAS, rejected promise,
+          // no-IDB and all other strict failures. Never block the sale on health.
+          if (exigirCompleto) {
+            try { if (window.OCSalud && window.OCSalud.escritorEvento) window.OCSalud.escritorEvento("strictFailure"); } catch (_) {}
+          }
+          try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {}
+          _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto);
+        }
         return ok;
       };
       // Strict money/stock commits use ONE atomic IDB readwrite transaction:
@@ -1696,10 +1704,7 @@
         const _tIdbEstricto = _perfLocalInicio();
         return idb.guardarConRevision(completo, _localRev).then(ok => {
           _perfLocalFin('strict_idb', _tIdbEstricto, ok === true);
-          if (ok !== true) {
-            try { if (window.OCSalud && window.OCSalud.escritorEvento) window.OCSalud.escritorEvento("strictFailure"); } catch (_) {}
-            return terminar(false);
-          }
+          if (ok !== true) return terminar(false);
           // v650: A/B first, the seal after. Another tab that sees the new seal reloads from A/B: an older copy there
           // left its revision behind, IndexedDB refused its next save, and the customer got a false NOT saved.
           if (ab && tokenOk) {
@@ -1709,9 +1714,6 @@
           return terminar(true);
         }, () => {
           _perfLocalFin('strict_idb', _tIdbEstricto, false);
-          // iOS can REJECT instead of resolving false (Abort/InvalidState).
-          // Monitor only a bounded technical counter, never transaction data.
-          try { if (window.OCSalud && window.OCSalud.escritorEvento) window.OCSalud.escritorEvento("strictFailure"); } catch (_) {}
           return terminar(false);
         });
       }
