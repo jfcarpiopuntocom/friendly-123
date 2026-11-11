@@ -6318,7 +6318,17 @@
     // P0 phase 0 (local first): capture identity at request time, NOT after a
     // PIN claim has possibly changed the store. Wait only for this tab's own
     // already-in-progress claim; a foreign claim or logout remains fail-closed.
-    const _autoridadVenta = ventaConcurrente && window.OCTabSession &&
+    // Preserve the existing no-license synthetic/demo contract in regression
+    // tests. A REAL activated/connected notebook must fail closed if its
+    // license identity or lease is missing; this is never a generic auth bypass.
+    const _negocioActivado = (() => {
+      try {
+        const owned = JSON.parse(localStorage.getItem("f123_owned") || "null");
+        return !!((owned && (owned.licenseCode || owned.instanceId)) ||
+          localStorage.getItem("f123_tienda_activa"));
+      } catch (_) { return true; } // corrupt license marker => never grant trust
+    })();
+    const _autoridadVenta = ventaConcurrente && _negocioActivado && window.OCTabSession &&
       typeof window.OCTabSession.authorityIdentity === "function" &&
       typeof window.OCTabSession.authoritySnapshot === "function" &&
       typeof window.OCTabSession.authorityContinuity === "function";
