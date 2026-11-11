@@ -179,7 +179,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
 
 
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
- test('P0 one browser '+name+': synthetic real-quota classifier returns 507 and no phantom money',
+ test('P0 one browser '+name+': real IDB quota accepts verified A/B, reopens with one receipt',
  {timeout:60000},async()=>{
   const web=await engine.launch({headless:true});
   try{
@@ -230,18 +230,27 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      const r=await fetch('/api/productos/'+id+'/venta',{method:'POST',
        body:JSON.stringify({cantidad:1,info:{formaPago:'efectivo'}})});
      const body=await r.json();
-     return {status:r.status,code:body.code,error:body.error,attempts:window.__p0QuotaAttempts};
+     return {status:r.status,code:body.code,error:body.error,attempts:window.__p0QuotaAttempts,saleId:body.ventaId,opId:body.opId};
    },productId);
-   assert.equal(result.status,507,'a genuine QuotaExceededError classifies as storage full');
-   assert.equal(result.code,'SALE_STORAGE_QUOTA');
+   assert.equal(result.status,200,'JFC: IDB quota with a verified A/B commit must still sell');
+   assert.ok(result.saleId && result.opId,'sale returns an identifiable durable receipt');
    assert.equal(result.attempts,1,'no blind retry after actual quota');
-   assert.match(result.error,/not saved|no se guard/i,'sale must explicitly report failure');
-   assert.deepEqual(await read(),baseline,
-     'synthetic full quota must not invent a sale, audit movement or stock delta');
+   const local=await read();
+   assert.equal(local.stock,baseline.stock-1,'one stock decrease at local commit');
+   assert.equal(local.sales.length,baseline.sales.length+1,'exactly one durable sale');
+   assert.equal(local.movements,baseline.movements+1,'one movement, no duplicate');
+   const journal=await page.evaluate(()=>JSON.parse(localStorage.getItem('f123_estado_v4_journal')||'null'));
+   assert.ok(journal&&journal.phase==='COMMITTED','A/B journal must be physically confirmed');
+   const snapshot=JSON.parse(journal.candidateRaw);
+   assert.equal(snapshot.ventas.filter(v=>v.opId===result.opId).length,1,
+     'A/B bytes contain the unique sale opId before success is shown');
    await page.reload({waitUntil:'domcontentloaded'});
    await page.waitForFunction(()=>!!window.OCAuth&&!!window.OCEstadoIDB);
    await page.evaluate(()=>{OCAuth.rolActual=()=> 'dueno';});
-   assert.deepEqual(await read(),baseline,'reopen may not resurrect an uncommitted sale');
+   const reopened=await read();
+   assert.equal(reopened.stock,baseline.stock-1,'A/B stock survives reopening');
+   assert.equal(reopened.sales.length,baseline.sales.length+1,'A/B sale survives reopening once');
+   assert.equal(reopened.movements,baseline.movements+1,'movement not replayed twice');
   }finally{await web.close();}
  });
 }
