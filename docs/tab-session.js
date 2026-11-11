@@ -3,6 +3,9 @@
 (function(){
  'use strict';
  var id=crypto.randomUUID(),scopeKey='',claimed=false,pending=false,suspendida=false,channel=null;
+ // Monotonic in this JS lifetime: a real logout cannot be laundered by
+ // immediately signing into the same license/role/tab again.
+ var logoutSerial=0;
  var PUBLIC_URL='https://jfcarpiopuntocom.github.io/friendly-123/';
  var strings={
   es:{title:'Tu sesión continúa en otra pestaña',body:'Esta sesión se cerró. Puedes seguir en la otra pestaña o volver a entrar aquí con tu PIN.',resume:'Ingresar al dashboard con PIN',tips:'Herramientas amigas',tip1:'JFCarpio.com: más herramientas para negocios.',tip2:'BuscaClientes: encuentra oportunidades comerciales.',tip3:'La Escuela del Dinero: formación práctica.',recommend:'¿Conoces a alguien con negocio?',pitch:'Comparte Friendly con un amigo o familiar que venda productos o trabaje con comisiones.',share:'Recomendar Friendly',copy:'Copiar enlace',copied:'Enlace copiado.',manual:'Selecciona y copia el enlace.',opened:'El menú de compartir se abrió.',cancelled:'Puedes compartirlo cuando quieras.',shareText:'Friendly te ayuda a llevar inventario, ventas y comisiones. Prueba la demo.'},
@@ -103,6 +106,7 @@
  document.addEventListener('visibilitychange',function(){if(!document.hidden)check();avisarSync();});
  window.addEventListener('oc-login',claim);
  window.addEventListener('oc-logout',function(){
+  logoutSerial++;
   epoch();
   // Never check-then-delete shared lease: a second tab may own it already.
   // Fence this tab locally; next PIN login overwrites the shared lease.
@@ -134,12 +138,12 @@
   var held=lease();if(!held||held.owner!==id||pendingClaim())return null;
   var identity=await authorityIdentity();
   if(!identity||!current())return null;
-  return {marker:identity.marker,role:identity.role,owner:id,scope:scopeKey,epoch:window.OC_AUTH_SESSION_EPOCH||0};
+  return {marker:identity.marker,role:identity.role,owner:id,scope:scopeKey,epoch:window.OC_AUTH_SESSION_EPOCH||0,logoutSerial:logoutSerial};
  }
  async function authorityContinuity(before){
   var after=await authoritySnapshot();
   return {continues:!!(before&&after&&before.marker===after.marker&&before.role===after.role&&
-    before.owner===after.owner&&before.scope===after.scope),
+    before.owner===after.owner&&before.scope===after.scope&&before.logoutSerial===after.logoutSerial),
    sameIdentity:!!(before&&after&&before.marker===after.marker),
    sameRole:!!(before&&after&&before.role===after.role),
    sameTabAuthority:!!(before&&after&&before.owner===after.owner&&before.scope===after.scope),
@@ -150,10 +154,13 @@
   if(!pending)return !suspendida&&claimed&&current();
   // Only our OWN in-progress login can be waited on. No wait or privilege
   // escalation for a foreign tab claim, logout, or suspended session.
-  while(pending&&!suspendida&&Date.now()<stop){
+  // A new explicit PIN login may start with suspendida=true after logout.
+  // Wait for that *own* claim, but not through another logout mid-wait.
+  var expectedLogout=logoutSerial;
+  while(pending&&logoutSerial===expectedLogout&&Date.now()<stop){
    await new Promise(function(resolve){setTimeout(resolve,40);});
   }
-  return !pending&&!suspendida&&claimed&&current();
+  return logoutSerial===expectedLogout&&!pending&&!suspendida&&claimed&&current();
  }
  window.OCTabSession={isCurrent:current,canSync:puedeSincronizar,authorityIdentity:authorityIdentity,authoritySnapshot:authoritySnapshot,authorityContinuity:authorityContinuity,waitOwnClaim:waitOwnClaim,get pending(){return pending;}};
  var style=document.createElement('style');style.textContent='#oc-gate[data-tab-handoff="1"] > .caja:not(#oc-tab-handoff){display:none}#oc-tab-handoff{max-width:520px;color:#211C14!important;text-align:left!important}#oc-tab-handoff h2,#oc-tab-handoff h3{color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff h2{font-size:22px;line-height:1.25}#oc-tab-handoff p,#oc-tab-handoff li{font-size:16px;line-height:1.5;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff button,#oc-tab-handoff summary{min-height:44px;font:inherit;font-weight:700;cursor:pointer}#oc-tab-resume{width:100%;border:2px solid #1C3049;border-radius:6px;padding:12px;background:#1C3049;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}#oc-tab-tips{margin:18px 0;border-top:2px solid #5294AC;border-bottom:2px solid #5294AC}#oc-tab-tips summary{padding:12px 0;color:#211C14!important}#oc-tab-tips ul{padding-left:22px}#oc-tab-handoff h3{font-size:18px;margin:0}#oc-tab-handoff .oc-tab-share-actions{display:flex;flex-wrap:wrap;gap:8px}#oc-tab-share,#oc-tab-copy{flex:1;border:2px solid #5294AC;border-radius:6px;padding:10px;background:#FFF8E8;color:#211C14!important;-webkit-text-fill-color:#211C14!important}#oc-tab-handoff input{width:100%;box-sizing:border-box;padding:10px;font-size:16px;color:#211C14;background:#FFFFFF;border:2px solid #5294AC}#oc-tab-handoff :focus-visible{outline:3px solid #E86040;outline-offset:3px}#oc-tab-share-status:empty{display:none}';document.head.appendChild(style);
