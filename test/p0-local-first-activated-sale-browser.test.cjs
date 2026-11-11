@@ -42,6 +42,23 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
        nombre:'Activated P0 '+browserName,barcode:'P0-ACTIVATED-'+browserName,precio:15,stockInicial:4,costo:5})});
      const json=await p.json();if(!p.ok)throw Error('fixture product '+p.status+' '+JSON.stringify(json));return json.id;
    },name);
+   // RED contract: even an apparent Owner role with the activated license
+   // is NOT authority until this browser actually owns its tab lease.
+   // Intentionally do not dispatch oc-login or seed any lease before this sale.
+   const withoutLease=await page.evaluate(async ({id,browserName})=>{
+     localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-P0-LOCAL-'+browserName}));
+     localStorage.setItem('f123_tienda_activa','P0-ACTIVATED-NOTEBOOK-'+browserName);
+     const r=await fetch('/api/productos/'+id+'/venta',{
+       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cantidad:1})
+     });
+     const db=await OCEstadoIDB.leer();
+     const product=db&&db.productos.find(p=>p.id===id);
+     return {status:r.status,stock:product&&product.stockActual,
+       sales:db&&db.ventas.filter(v=>v.productoId===id).length,
+       leasePending:OCTabSession.pending,liveLease:!!(await OCTabSession.authoritySnapshot())};
+   },{id:initial,browserName:name});
+   assert.deepEqual(withoutLease,{status:403,stock:4,sales:0,leasePending:false,liveLease:false},
+     'activated Owner cannot sell without own lease: a 403 must have zero stock and money effects');
    await page.evaluate((browserName)=>{
      localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'SYNTHETIC-P0-LOCAL-'+browserName}));
      localStorage.setItem('f123_tienda_activa','P0-ACTIVATED-NOTEBOOK-'+browserName);
