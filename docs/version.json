@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.47",
+  "version": "v0.7.48",
   "fecha": "2026-11-12",
-  "changelog": "v0.7.47 P0: movimientos de stock sin base ficticia; prioriza el conteo físico autorizado del dueño o administrador y conserva hechos pendientes para conciliación.",
+  "changelog": "v0.7.48: identidades PWA estables para friendly-123 y Dashboard; rescate guiado, sin borrar almacenes ni cambiar negocios.",
   "requerida": false,
-  "shell": "f123-shell-v747",
+  "shell": "f123-shell-v748",
   "apagar": [],
-  "releaseName": "v0.7.47",
-  "cacheGeneration": "golden286"
+  "releaseName": "v0.7.48",
+  "cacheGeneration": "golden287"
 }
