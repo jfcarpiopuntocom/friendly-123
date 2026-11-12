@@ -3795,6 +3795,17 @@
             // derive a physical baseline from its own display (stockActual-delta).
             // Local sale is already durable; keep its immutable sale/movement
             // and flag reconciliation rather than forging a shared PN base.
+            /* v750 fix (regresion de v747): sin base + contadores el stock viaja como numero
+               absoluto y gana el ultimo reloj: la venta de la ultima unidad no llegaba al otro
+               aparato (su 0 se descartaba como "cero legado") y dos ventas sin red perdian una.
+               El primer movimiento fija la base desde el stock CONOCIDO de este aparato; dos
+               aparatos que veian el mismo numero derivan la misma base y sus ventas se suman.
+               Con stock desconocido no se deriva nada (queda la marca de conciliacion).
+               Prueba: test/fable-v750-stock-abc.test.cjs. NO volver a quitar sin esa prueba verde. */
+            if ((_sp.stockBase == null || !Number.isSafeInteger(Number(_sp.stockBase))) &&
+                _sp.stockActual != null && Number.isSafeInteger(Number(_sp.stockActual) - delta)) {
+              _sp.stockBase = Number(_sp.stockActual) - delta; _sp.stockPN = {};
+            }
             const baseProbada = _sp.stockBase != null &&
               Number.isSafeInteger(Number(_sp.stockBase));
             if (baseProbada) {
@@ -4499,9 +4510,18 @@
         const _legacyCountMigration = !!(epochLocal && !epochRemote &&
           _baseR !== null && _baseR !== _baseL &&
           !(Number(mio.stockCountTs) > 0) && _tsR > _tsL);
+        /* v750 fix: orden CAUSAL antes que reloj. El testigo de un recuento nombra la epoca
+           sobre la que se conto: esa epoca es su antecesora y nunca le gana, aunque una venta
+           hecha sin red en la epoca vieja traiga un stockTs posterior (antes esa venta deshacia
+           el recuento del dueno en todos los aparatos). Prueba: test/fable-v750-stock-abc.test.cjs. */
+        const _sucede = (nuevo, viejo, epViejo) => { const w = nuevo && nuevo.stockCountWitness;
+          return !!(w && w.pn && typeof w.pn === "object" && !Array.isArray(w.pn) && String(w.epoch || "") === epViejo &&
+            (w.base == null || viejo.stockBase == null || Number(w.base) === Number(viejo.stockBase))); };
+        const _sucedeR = !!(epochLocal && epochRemote && epochConflict) && _sucede(p, mio, epochLocal);
+        const _sucedeL = !!(epochLocal && epochRemote && epochConflict) && _sucede(mio, p, epochRemote);
         const _gana = _legacyCountMigration ||
-          !!(epochLocal && epochRemote && epochConflict && _baseR !== null &&
-          (_countR > _countL || (_countR === _countL && epochRemote > epochLocal)));
+          !!(!_sucedeL && epochLocal && epochRemote && epochConflict && _baseR !== null &&
+          (_sucedeR || _countR > _countL || (_countR === _countL && epochRemote > epochLocal)));
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
         const protectedStock = _epochDoble
           ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),

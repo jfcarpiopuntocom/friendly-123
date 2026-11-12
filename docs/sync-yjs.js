@@ -3102,7 +3102,17 @@
                   !_conteoIncluyo(r, prev) && !_conteoIncluyo(prev, r);
                 var _pendienteCausal = r.stockReconciliacionPendiente === true ||
                   prev.stockReconciliacionPendiente === true || _historiaIncierta;
-                var _epochPreferred = _samePhysicalEpoch ? null :
+                /* v750 fix: orden CAUSAL antes que reloj (misma regla _sucede de aplicarCatalogo en
+                   mock-backend.js; cambiar ambas). El testigo de un recuento nombra la epoca sobre la
+                   que se conto; esa epoca antecesora nunca le gana, aunque una venta sin red traiga
+                   un stockTs posterior. Prueba: test/fable-v750-stock-abc.test.cjs. */
+                var _sucede = function (nuevo, viejo) {
+                  var w = nuevo && nuevo.stockCountWitness;
+                  return !!(w && w.pn && typeof w.pn === "object" && !Array.isArray(w.pn) &&
+                    String(w.epoch || "") === String(viejo.stockEpochId || "") &&
+                    (w.base == null || viejo.stockBase == null || Number(w.base) === Number(viejo.stockBase)));
+                };
+                var _epochPreferred = _samePhysicalEpoch ? null : _sucede(r, prev) ? r : _sucede(prev, r) ? prev :
                   (_stockEpochMine && !_stockEpochDoc ? (_legacyAfterExplicit(prev, r) ? prev : r) :
                     (!_stockEpochMine && _stockEpochDoc ? (_legacyAfterExplicit(r, prev) ? r : prev) :
                       (_stockEpochMine && _stockEpochDoc ? (_ganaMio ? r : prev) : null)));
