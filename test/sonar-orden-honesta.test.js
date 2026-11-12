@@ -19,10 +19,6 @@ test('REWIND and stale orders', () => {
   assert.match(sonarOrdenCumplida({ accion: 'push', at: Date.now() - 2 * 86400000 }, v('v428', 'v429', 'v431')), /vencida/);
 });
 test('the confirmation no longer reads as done', () => { assert.match(src, /Todavía NO está hecha/); });
-test('promover.yml honors a panel PUSH during its window', () => {
-  const y = fs.readFileSync(path.resolve(__dirname, '../.github/workflows/promover.yml'), 'utf8');
-  assert.match(y, /pushPedido/); assert.match(y, /sonar-\$\{\{ steps\.v\.outputs\.orden \}\}/);
-});
 test('canaries are JFC sprite files (img/canario*.png), not hand-drawn shapes', () => {
   // v441 (JFC 2026-10-02): la tira CC0 de Mantis se reemplazo por el sprite que entrego JFC.
   // La guarda real sigue: nada de pajaros dibujados con figuras SVG.

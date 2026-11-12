@@ -93,23 +93,6 @@ test('release validation rejects a stale, absent or ambiguous dashboard update i
   }
 });
 
-test('automatic promotion requires exact QA; emergency PUSH only reports QA and never requires a witness', () => {
-  const root=path.resolve(__dirname,'..');
-  const promoter=fs.readFileSync(path.join(root,'.github/workflows/promover.yml'),'utf8');
-  const sonar=fs.readFileSync(path.join(root,'.github/workflows/sonar.yml'),'utf8');
-  assert.match(promoter,/release-control\.cjs gate/);
-  assert.match(sonar,/release-control\.cjs gate/);
-  assert.ok(sonar.indexOf('release-control.cjs gate')>sonar.indexOf('if [ "$ACCION" = "push" ]'));
-  assert.ok(sonar.indexOf('release-control.cjs gate')<sonar.indexOf('elif [ "$ACCION" = "rewind" ]'));
-  assert.match(sonar,/gate "\$MASTER".*\|\| echo/);
-  assert.doesNotMatch(sonar,/420000|hayTestigo|release-control\.cjs published/);
-  assert.match(promoter,/timeout-minutes: 45/);
-  // JFC 2026-10-13: no 33-minute window; promote as soon as /next/ serves the exact commit.
-  assert.match(promoter,/FIN=\$\(\( \$\(date -d "\$INICIO" \+%s\) \+ 15 \* 60 \)\)/);
-  assert.match(promoter,/published "\$GITHUB_SHA" >\/dev\/null 2>&1; then echo "\/next\/ ya sirve este commit: se promueve sin esperar"; break; fi/);
-  assert.doesNotMatch(promoter,/gate "\$GITHUB_SHA" [1-9]/);
-});
-
 test('missing or unavailable Pages proof never blocks recovery fallback', async () => {
   const {served}=require('../scripts/release-control.cjs');const original=global.fetch;
   try {

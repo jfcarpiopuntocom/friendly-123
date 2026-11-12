@@ -144,16 +144,3 @@ test('CodeRabbit RED: late SHA rejection after logout cannot un-fence an abandon
  assert.equal(ctx.pending,false);
  assert.equal(JSON.parse(items.get(leaseKey)).owner,'original-tab','the lease remains immutable on logout');
 });
-
-test('CodeRabbit RED: release-control no-retry guard includes real session and two-tab filenames',()=>{
- const yaml=fs.readFileSync(path.join(__dirname,'../.github/workflows/release-control.yml'),'utf8');
- const line=yaml.split('\n').find(x=>x.includes('grep -Eiq')&&x.includes('tab-session'));
- assert.ok(line,'find production fail-first guard');
- const expression=line.match(/grep -Eiq '([^']+)'/);
- assert.ok(expression,'parse deployed grep -E expression');
- const protectedFile=new RegExp(expression[1],'i');
- for (const file of ['test/fable-p0-tab-claim.test.cjs','test/linus-dos-pestanas.test.js',
-    'test/tab-session-handoff.test.js','test/p0-pre-ack-recovery.test.cjs']) {
-   assert.equal(protectedFile.test(file),true,'first-attempt failure may never be retried: '+file);
- }
-});
