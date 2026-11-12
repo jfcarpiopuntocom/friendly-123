@@ -14,6 +14,18 @@
   } catch (_) {}
   if (!('serviceWorker' in navigator)) return;
   var current = built && built.content, busy = false, reloading = false;
+  /* (JFC 2026-11-11, v738) Bitacora local de recargas, IGUAL que la de la app (src/app/app-inline-03.js, marcarRecarga):
+     ultimas 15 en localStorage "f123_recargas_log" = [{m: motivo, t: ms, v: shell}]. Mismo origen y misma clave que la app.
+     Sin UI, sin red, sin datos de clientes. Nunca lanza. PARA REVERTIR: borrar esta funcion y sus dos llamadas. */
+  function marcarRecarga(motivo) {
+    try {
+      var a = [];
+      try { a = JSON.parse(localStorage.getItem('f123_recargas_log') || '[]'); } catch (_) {}
+      if (!Array.isArray(a)) a = [];
+      a.push({ m: String(motivo || ''), t: Date.now(), v: String(current || '') });
+      localStorage.setItem('f123_recargas_log', JSON.stringify(a.slice(-15)));
+    } catch (_) {}
+  }
   function controllerShell() {
     return new Promise(function(resolve) {
       var controller = navigator.serviceWorker.controller;
@@ -47,7 +59,8 @@
       if (!match || match[1] !== v.shell || !bridge.safe()) return;
       if (!await bridge.prepare() || !bridge.safe()) return;
       /* (JFC 2026-11-11, v732) Tope anti-bucle: una recarga automatica por version del shell y por pestana. */
-      try { var ck = 'f123_dash_recarga:' + v.shell; if (sessionStorage.getItem(ck) === '1') return; sessionStorage.setItem(ck, '1'); } catch (_) {}
+      try { var ck = 'f123_dash_recarga:' + v.shell; if (sessionStorage.getItem(ck) === '1') { marcarRecarga('omitida-tope:dashboard-version'); return; } sessionStorage.setItem(ck, '1'); } catch (_) {}
+      marcarRecarga('dashboard-version');
       reloading = true;
       location.reload();
     } catch (_) { /* Offline/update failure keeps the current report usable. */ }
