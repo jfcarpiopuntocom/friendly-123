@@ -6402,13 +6402,13 @@
          integridad la da el control de revision de IndexedDB. Un cierre de sesion
          o cambio de rol real se sigue rechazando en el guard.
          PARA REACTIVAR (solo con orden expresa de JFC): poner
-         ESPERAR_RECLAMO_PROPIO_DORMANT = true. */
-      const ESPERAR_RECLAMO_PROPIO_DORMANT = false;
+         ESPERAR_RECLAMO_PROPIO_ACTIVO = true. */
+      const ESPERAR_RECLAMO_PROPIO_ACTIVO = false; // v739: renombrada (antes _DORMANT con polaridad opuesta a DOBLE_PESTANA_DORMANT): false = DORMIDO
       // P0: the same tab may still be acquiring its own PIN lease when a user
       // taps CONFIRM SALE. Wait only for that already-started local claim,
       // never for another tab, logout, changed role, or changed epoch.
       // The existing strict session fence below runs again before the write.
-      if (ESPERAR_RECLAMO_PROPIO_DORMANT && ventaConcurrente && window.OCTabSession && window.OCTabSession.pending) {
+      if (ESPERAR_RECLAMO_PROPIO_ACTIVO && ventaConcurrente && window.OCTabSession && window.OCTabSession.pending) {
         const tab=window.OCTabSession;
         const lista=await new Promise(function(resolve) {
           let finished=false,timer=null;

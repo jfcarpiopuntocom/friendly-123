@@ -94,6 +94,17 @@
      quitar la de abajo; revertir tambien el guard de mock-backend.js
      (_fetchConCandado) y el contrato changeApproval de release/capabilities.json. */
   suspendida=true;avisarSync();
+  /* v739 (revision de Fable 5.2, riesgo 1): si ESTA pantalla es la que esta en uso (visible y con foco) y perdio el turno
+     porque otra pantalla oculta lo tomo (p. ej. una pestana que se recargo por version nueva), ningun evento de foco
+     volveria a dispararse y su sincronizacion quedaria pausada en silencio. Solo la pantalla con foco lo retoma,
+     como mucho una vez cada 2 s, y SOLO cuando el turno lo tiene una pantalla oculta (el turno anota v:0/1 al tomarlo):
+     asi dos ventanas visibles no se lo quitan una a otra sin fin (lo prueba el test de dos pantallas visibles).
+     PARA REVERTIR: quitar estas lineas. */
+  try{
+   // Solo si el turno lo tiene una pantalla OCULTA (v:0): dos pantallas visibles nunca se lo quitan una a otra.
+   var dueno=lease();
+   if(!document.hidden&&typeof document.hasFocus==='function'&&document.hasFocus()&&dueno&&dueno.v===0)reclaim();
+  }catch(_){}
  }
  /* P0 HOTFIX (JFC 2026-11-11): toma de turno silenciosa al volver a la pantalla.
     Si esta pantalla esta autenticada y NO es la duena del turno, lo retoma sin
@@ -105,11 +116,13 @@
     Respeta una toma en curso de otra pantalla (pendingClaim) y no hace nada si
     localStorage falla (cuota): entonces la sync sigue pausada, igual que antes.
     PARA REVERTIR: quitar los tres listeners de reclaim() y esta funcion. */
+ var ultimoReclaim=0;
  function reclaim(){
   if(!claimed||pending||!scopeKey||!window.OCAuth||!OCAuth.rolActual())return;
   if(current()||pendingClaim())return;
+  if(Date.now()-ultimoReclaim<2000)return; ultimoReclaim=Date.now();
   try{
-   localStorage.setItem(scopeKey,JSON.stringify({owner:id}));
+   localStorage.setItem(scopeKey,JSON.stringify({owner:id,v:document.hidden?0:1}));
    suspendida=false;
    try{channel?.postMessage({key:scopeKey});}catch(_){}
    avisarSync();
@@ -131,7 +144,7 @@
     if(claimEpoch!==window.OC_AUTH_SESSION_EPOCH || !OCAuth.rolActual())return;
     var intent;try{intent=JSON.parse(localStorage.getItem(claimKey)||'null');}catch(_){}
     if(!intent||intent.owner!==id){claimed=true;pending=false;check();return;}
-    localStorage.setItem(scopeKey,JSON.stringify({owner:id}));
+    localStorage.setItem(scopeKey,JSON.stringify({owner:id,v:document.hidden?0:1}));
     if((JSON.parse(localStorage.getItem(claimKey)||'null')||{}).owner===id)localStorage.removeItem(claimKey);
     claimed=true;pending=false;suspendida=false;try{channel?.postMessage({key:scopeKey});}catch(_){}avisarSync();check();
    }

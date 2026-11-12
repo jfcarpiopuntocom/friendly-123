@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.35",
+  "version": "v0.7.39",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.35 P0 Sync3: el aparato que tiene toda la tienda deja una copia completa tambien en Firebase cuando esa pasa a ser la capa activa, para que un aparato nuevo pueda ponerse al dia aunque Supabase no responda. Sin cambios en ventas, inventario, PIN ni licencias.",
+  "changelog": "v0.7.39 P0 Sync3: corrige errores de las versiones 733 a 735 hallados en la revision de codigo: la espera creciente de Firebase ya no se reinicia al abrir (evita un bucle de 5 s que gastaba cupo), el checkpoint se anota por la capa que lo confirmo, el vecino mudo solo se suelta si queda otra capa durable, y la pantalla en uso recupera su sincronizacion si otra pantalla oculta tomo el turno. Sin cambios en ventas, inventario, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v735",
+  "shell": "f123-shell-v739",
   "apagar": [],
-  "releaseName": "v0.7.35",
-  "cacheGeneration": "golden275"
+  "releaseName": "v0.7.39",
+  "cacheGeneration": "golden279"
 }

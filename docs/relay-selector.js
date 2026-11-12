@@ -230,8 +230,13 @@
     };
     ws.addEventListener("open", function () {
       abierto = true;
-      // v733: una capa que abre bien reinicia su espera creciente (ver el cierre mas abajo).
-      try { var cc = leer(key); if (cc.rechazosFb) { cc.rechazosFb = 0; guardar(key, cc); } } catch (_) {}
+      /* v739 (revision de Fable 5.2, riesgo 6): la espera creciente de Firebase (5/10/20/40/60 s) se reinicia solo
+         cuando la conexion se sostiene 30 s. Antes se reiniciaba al ABRIR: si Firebase acepta la conexion y luego
+         rechaza la escritura, el contador volvia a 0 cada vez y el bucle quedaba fijo en 5 s gastando cupo. */
+      var tEstable = setTimeout(function () {
+        try { var cc = leer(key); if (cc.rechazosFb) { cc.rechazosFb = 0; guardar(key, cc); } } catch (_) {}
+      }, 30000);
+      ws.addEventListener("close", function () { clearTimeout(tEstable); });
     });
     // A durable RPC can reject a write after the socket has opened. OPEN is not
     // proof of persistence. Keep the caller's unacknowledged outbox and hand
@@ -590,6 +595,8 @@
   window.F123Relay = {
     ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
     estadoCupo: function () { return capas.map(function (capa) { var c = leer(capa.key); return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa) }; }); },
+    /* v739: ¿queda alguna capa durable fuera de pausa y con cupo? (el vecino mudo solo se suelta si la hay). */
+    hayCapaDurableUsable: function () { try { return capas.some(function (capa) { return usable(capa); }); } catch (_) { return true; } },
     estadoSondas: function () {
       var ahora = Date.now();
       return {
