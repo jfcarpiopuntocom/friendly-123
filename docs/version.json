@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.45",
+  "version": "v0.7.46",
   "fecha": "2026-11-12",
-  "changelog": "v0.7.45 P0: anular una venta espera el guardado confirmado y, si falla, deja stock y venta como estaban; una sola funcion interna para percha en 0 y faltante. Nada cambia en pantalla.",
+  "changelog": "v0.7.46 P0: checkpoint y fotos con presupuesto diario independiente por canal y capa, contabilidad sin competir con ventas e inventario. Sin cambios de pantalla.",
   "requerida": false,
-  "shell": "f123-shell-v745",
+  "shell": "f123-shell-v746",
   "apagar": [],
-  "releaseName": "v0.7.45",
-  "cacheGeneration": "golden284"
+  "releaseName": "v0.7.46",
+  "cacheGeneration": "golden285"
 }
