@@ -206,16 +206,18 @@ test('the daily download budget also pauses the layer; the next day Supabase is 
 });
 
 // v661 (JFC 2026-11-04: photos at LAST priority, but with the cascade like everything else).
-test('photos ride the durable cascade at last priority: only under half of the daily cap, then direct', () => {
+test('photos ride the durable cascade at last priority: an independent photo band cannot starve inventory', () => {
   const { R } = app();
   const FOTOS = URL1.replace(/-y$/, '-fotos');
   assert.equal(sub(R.connect(FOTOS)).kind, 'supabase', 'photos reach the durable layer');
   assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'catalog still prefers the durable relay');
   const h = sub(R.connect(FOTOS)); h.open();
-  assert.throws(() => h.send('x'.repeat(1024 * 1024 + 1)), e => e.name === 'QuotaExceededError', 'a photo never takes more than half');
-  assert.ok(!h.closed, 'the layer stays open for inventory and money');
+  assert.throws(() => h.send('x'.repeat(1024 * 1024 + 1)), e => e.name === 'QuotaExceededError', 'a photo cannot exceed its own 1 MiB Supabase limit');
+  assert.equal(h.closed?.code, 1013, 'only the photo socket hands off to its next fallback');
   const c = sub(R.connect(URL1)); c.open(); c.send('x'.repeat(900 * 1024)); c.send('x'.repeat(200 * 1024));
-  assert.equal(sub(R.connect(FOTOS)).kind === 'supabase', false, 'over half used: photos leave Supabase');
+  assert.equal(R.estadoCupo()[0].up, 1100 * 1024, 'business counter excludes the rejected photo payload');
+  assert.equal(sub(R.connect(FOTOS)).kind, 'firebase', 'only the exhausted photo band moves to fallback');
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'inventory remains on the preferred layer');
 });
 
 test('a device on the fallback layer goes back to the first layer when its pause ends (layers re-converge)', () => {
@@ -384,7 +386,7 @@ test('v669: photo room also recovers pre-existing Firebase photo bytes on first 
 
 test('v669: photos do not probe a Firebase photo band after its daily download quota is spent', async () => {
   const now = Date.parse('2026-11-02T12:00:00Z');
-  const store = new Map([['f123_relay_cupo_fb_v1', JSON.stringify({
+  const store = new Map([['f123_relay_cupo_fb_v1_fotos', JSON.stringify({
     dia: '2026-11-02', up: 0, down: 11 * 1024 * 1024, pausaHasta: 0
   })]]);
   const A = app(now, store, { value: { rev: 0, seq: 14 } });
