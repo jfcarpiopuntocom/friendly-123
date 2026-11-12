@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.44",
+  "version": "v0.7.45",
   "fecha": "2026-11-12",
-  "changelog": "v0.7.44 P0: todas las pantallas del mismo navegador venden y sincronizan a la vez (se quita el turno entre pestanas). Solo un cambio real de rol o un cierre de sesion rechaza una escritura. Sin cambios de pantalla ni textos nuevos.",
+  "changelog": "v0.7.45 P0: anular una venta espera el guardado confirmado y, si falla, deja stock y venta como estaban; una sola funcion interna para percha en 0 y faltante. Nada cambia en pantalla.",
   "requerida": false,
-  "shell": "f123-shell-v744",
+  "shell": "f123-shell-v745",
   "apagar": [],
-  "releaseName": "v0.7.44",
-  "cacheGeneration": "golden283"
+  "releaseName": "v0.7.45",
+  "cacheGeneration": "golden284"
 }
