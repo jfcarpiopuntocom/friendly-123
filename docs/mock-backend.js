@@ -3761,7 +3761,7 @@
      contadores y del registro ANTES de mutar; devuelve la funcion que lo deja todo como estaba. */
   function _marchaAtrasStock(p) {
     const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
-      meta: ["stockBase","stockPN","stockTs","stockDeficit"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
+      meta: ["stockBase","stockPN","stockTs","stockCountTs","stockDeficit","stockReconciliacionPendiente"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
     return () => {
       p.stockActual = foto.stock;
       foto.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
@@ -3790,21 +3790,28 @@
           if (Number.isFinite(delta) && delta !== 0) {
             // Base + hechos únicos: dos ventas sin red se SUMAN; un valor absoluto
             // con timestamp descartaba una. La mutación local ya ocurrió antes.
-            if (!_sp.stockPN || _sp.stockBase == null || !Number.isFinite(Number(_sp.stockBase))) {
-              _sp.stockBase = Number(_sp.stockActual) - delta;
-              _sp.stockPN = {};
-            }
-            let idStock = idOperacion || "";
-            if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
-            if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
-            const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
-            if (delta > 0) contador.add += delta; else contador.sub += -delta;
-            _sp.stockPN[idStock] = contador;
-            // An event carries its author's cumulative counters, so an older op arriving
-            // after a newer one cannot roll back stock and duplicate delivery is harmless.
-            if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
-              payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
-                actor: idStock, add: contador.add, sub: contador.sub };
+            // Fable 5.2 / JFC: an unwitnessed device has no authority to
+            // derive a physical baseline from its own display (stockActual-delta).
+            // Local sale is already durable; keep its immutable sale/movement
+            // and flag reconciliation rather than forging a shared PN base.
+            const baseProbada = _sp.stockBase != null &&
+              Number.isSafeInteger(Number(_sp.stockBase));
+            if (baseProbada) {
+              if (!_sp.stockPN || typeof _sp.stockPN !== "object" || Array.isArray(_sp.stockPN)) _sp.stockPN = {};
+              let idStock = idOperacion || "";
+              if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
+              if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
+              const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
+              if (delta > 0) contador.add += delta; else contador.sub += -delta;
+              _sp.stockPN[idStock] = contador;
+              // Do not mint stockPNHecho from an inferred baseline. Existing
+              // real physical epochs and historical explicit bases retain it.
+              if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+                payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
+                  actor: idStock, add: contador.add, sub: contador.sub };
+              }
+            } else {
+              _sp.stockReconciliacionPendiente = true;
             }
             /* Una reposicion paga primero el FALTANTE (JFC 2026-09-29): es la
                misma cuenta que hara el contador compartido al fusionar, asi la
@@ -4475,18 +4482,27 @@
           try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto",
             {detail:{productoId:mio.id, epochConflict:true}})); } catch (_) {}
         }
-        // Competing authenticated physical epochs have different movement
-        // histories. Keep each source count unchanged until the owner issues
-        // an explicit reconciled stock movement; do not resolve by wall clock.
-        // JFC 2026-11-01: the latest physical count wins (stockTs, deterministic tie-break by epoch id).
-        // The losing epoch stays in stockEvidencias below; nothing is discarded.
-        // v651: a newer DIFFERENT count with no epoch also wins over a local epoch (it kept its old number forever). The same base with no epoch is an old bridge's movement, never a recount.
-        const _gana = epochLocal && epochConflict && _baseR !== null && (epochRemote || _baseR !== _baseL) &&
-          (_tsR > _tsL || (epochRemote && _tsR === _tsL && epochRemote > epochLocal));
+        // Competing explicit owner/admin recounts must be ordered by the
+        // timestamp of the COUNT, never a later sale's stockTs. Preserve the
+        // losing epoch and its facts in stockEvidencias for reconciliation.
+        // Historic versions lack stockCountTs; retain their stockTs only as
+        // migration fallback, without creating an epoch from that number.
+        const _countR = Number(p.stockCountTs) > 0 ? Number(p.stockCountTs) : _tsR;
+        const _countL = Number(mio.stockCountTs) > 0 ? Number(mio.stockCountTs) : _tsL;
+        // Older releases recorded real physical counts without an epoch
+        // count timestamp. Preserve their one-time migration rule only until
+        // an authenticated count with stockCountTs has been established.
+        // A legacy stockTs can NEVER overrule a modern physical recount.
+        const _legacyCountMigration = !!(epochLocal && !epochRemote &&
+          _baseR !== null && _baseR !== _baseL &&
+          !(Number(mio.stockCountTs) > 0) && _tsR > _tsL);
+        const _gana = _legacyCountMigration ||
+          !!(epochLocal && epochRemote && epochConflict && _baseR !== null &&
+          (_countR > _countL || (_countR === _countL && epochRemote > epochLocal)));
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
         const protectedStock = _epochDoble
           ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
-             actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs}
+             actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs, countTs:mio.stockCountTs}
           : null;
         // Keep the losing baseline's independent operation IDs even after LWW.
         // The effective stock remains unchanged until a proven common epoch exists.
@@ -4514,13 +4530,17 @@
               { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if ((epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) || _gana) {
+        if ((epochConflict && !epochLocal && epochRemote && _baseR !== null) || _gana) {
+          // A locally guessed/legacy clock cannot defeat a physical epoch
+          // established by an authenticated owner/admin count. Its uncounted
+          // movements remain in immutable sales/activities for reconciliation.
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
           if (Number.isSafeInteger(net)) {
             mio.stockEpochId = epochRemote;
             mio.stockCountWitness = p.stockCountWitness ? clonar(p.stockCountWitness) : null;
+            mio.stockCountTs = Number(p.stockCountTs) || 0;
             mio.stockBase = _baseR;
             mio.stockPN = newCounters;
             mio.stockActual = Math.max(0,net);
@@ -4544,6 +4564,7 @@
           if (calculado !== Number(mio.stockActual) || JSON.stringify(pn) !== JSON.stringify(_pnL) || _baseL === null || _deficit !== (Number(mio.stockDeficit) || 0)) actualizados++;
           mio.stockBase = _baseR; mio.stockPN = pn; mio.stockActual = calculado; mio.stockDeficit = _deficit;
           mio.stockTs = Math.max(_tsL, _tsR);
+          mio.stockCountTs = Math.max(Number(mio.stockCountTs) || 0, Number(p.stockCountTs) || 0);
         } else if (!epochConflict && _baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
           /* Compatibilidad con aparatos anteriores al ledger de stock.
              v445 bloqueo el cero legado destructivo. v447 agrega la otra mitad:
@@ -4597,6 +4618,7 @@
           mio.stockActual = protectedStock.actual;
           mio.stockDeficit = protectedStock.deficit;
           mio.stockTs = protectedStock.ts;
+          mio.stockCountTs = protectedStock.countTs;
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
@@ -5460,6 +5482,7 @@
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
              edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
           stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0,
+          stockCountTs: Number(p.stockCountTs) || 0,
           stockBase: p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null,
           stockEpochId: typeof p.stockEpochId === "string" ? p.stockEpochId : "",
           stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
@@ -7889,7 +7912,7 @@
         // disappear on reload when both local storage backends reject the write.
         debePersistir = false;
         const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
-          meta: ["stockBase", "stockPN", "stockTs", "stockDeficit", "stockEpochId", "stockEvidencias", "stockCountWitness", "stockReconciliacionPendiente", "rev"].map(k => ({
+          meta: ["stockBase", "stockPN", "stockTs", "stockCountTs", "stockDeficit", "stockEpochId", "stockEvidencias", "stockCountWitness", "stockReconciliacionPendiente", "rev"].map(k => ({
             k, existe: Object.prototype.hasOwnProperty.call(p, k),
             valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]
           })) };
@@ -7918,7 +7941,8 @@
               pn: clonar(p.stockPN || {})
             };
             p.stockEpochId = uuid("stock-epoch-"); p.stockBase = fisico; p.stockPN = {};
-            p.stockDeficit = 0; p.stockTs = Date.now(); p.stockActual = fisico;
+            p.stockDeficit = 0; p.stockCountTs = Date.now();
+            p.stockTs = p.stockCountTs; p.stockActual = fisico;
             p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
           } else p.stockActual += d;
           const op = { productoId: p.id, delta: d };

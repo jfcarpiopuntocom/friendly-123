@@ -15,6 +15,10 @@ async function setup() {
   const w = browser();
   w.OCAuth = { rolActual: () => 'dueno' };
   w.localStorage.setItem('f123_device_id','edit-pn-fixture-device');
+  // Initial shared baseline is an authenticated physical count, not a guessed
+  // quantity derived from the first sale's UI state.
+  const initial=(await w.request('/api/respaldo/exportar')).productos.find(p=>p.id==='p24').stockActual;
+  await w.request('/api/productos/p24/ajustar','POST',{stockFisico:initial,motivo:'fixture authorized initial count'});
   const created = await w.request('/api/productos/p24/venta','POST',{cantidad:2});
   const before = await w.request('/api/respaldo/exportar');
   return {w,id:created.ventaId,before};

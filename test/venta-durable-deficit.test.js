@@ -35,7 +35,12 @@ function transfer(from, to) {
 async function conStock(w, id, n) {
   const fx = await w.request('/api/respaldo/exportar');
   const p = fx.productos.find((x) => x.stockActual >= 1);
-  p.id = id; p.stockActual = n; delete p.stockBase; delete p.stockPN;
+  // Both devices were provisioned from the SAME authenticated physical recount
+  // before disconnecting. A fixture may not silently invent two PN baselines.
+  p.id = id; p.stockActual = n; p.stockBase = n; p.stockPN = {};
+  p.stockEpochId = "stock-epoch-fixture-" + id;
+  p.stockCountTs = Date.parse("2026-11-12T00:00:00Z");
+  p.stockCountWitness = { base:null, epoch:"", pn:{} };
   fx.productos = [p]; fx.ventas = []; fx.movimientos = [];
   await w.request('/api/respaldo/importar', 'POST', fx);
 }
