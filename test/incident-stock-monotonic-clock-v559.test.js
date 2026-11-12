@@ -32,7 +32,7 @@ test("P0: two physical sales within one millisecond have distinct increasing sha
 });
 test("P0: clock from impossible future does not poison later valid owner correction",()=>{
   const now=1700000000000;
-  const {p,stamp}=fixture({stockActual:4,stockTs:now+900000},now);
+  const {p,stamp}=fixture({stockActual:4,stockTs:now+900000,stockBase:3,stockPN:{}},now);
   stamp({productoId:p.id,delta:1},"ownerCorrection");
   assert.equal(p.stockTs,now);
   assert.equal(p.stockPN.ownerCorrection.add,1);
