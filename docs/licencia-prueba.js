@@ -119,7 +119,12 @@
          VENTA. DORMANT, NO BORRAR: antes esta ruta tambien devolvia 402. Las demas escrituras
          siguen como estaban. Para reactivar el bloqueo de ventas: quitar esta linea. */
       if (RUTA_VENTA.test(String(path || ""))) return false;
-      return vencida;
+      /* LA APP FUNCIONA SIEMPRE (JFC 2026-11-11: «la app debe funcionar, anular, corregir, cobrar fiado y crear
+         cliente; no quiero anuncios ni textos de solo lectura»): la prueba vencida ya no bloquea NINGUNA escritura
+         de negocio. DORMANT, NO BORRAR: antes devolvia `vencida` (402 PRUEBA_VENCIDA). La licencia BLOQUEADA por el
+         administrador (licenseEstado === "bloqueada") se valida en otro sitio y no cambia. Para reactivar el bloqueo
+         de la prueba vencida: reemplazar esta linea por `return vencida;`. */
+      return false;
     } catch (_) { return false; }
   }
 

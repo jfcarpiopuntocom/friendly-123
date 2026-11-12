@@ -83,7 +83,7 @@ test('within the trial an unpaid activated device has full use', async () => {
   assert.equal(e.diasRestantes, w.OCPrueba.PRUEBA_DIAS - 10);
 });
 
-test('an expired unpaid trial no longer blocks sales (JFC 2026-11-11, "vender siempre"); other writes stay read-only', async () => {
+test('an expired unpaid trial blocks NOTHING: sales and every other write work (JFC 2026-11-11, "la app debe funcionar")', async () => {
   const w = aparato();
   const p = await productoConStock(w);
   await vencer(w);
@@ -93,10 +93,9 @@ test('an expired unpaid trial no longer blocks sales (JFC 2026-11-11, "vender si
   assert.ok(venta.ventaId, 'la venta se acepta con la prueba vencida');
   const estado = await w.request('/api/respaldo/exportar');
   assert.equal(estado.productos.find(x => x.id === p.id).stockActual, 4, 'el stock baja lo vendido');
-  assert.equal(avisos, 0, 'la venta ya no dispara el aviso del modal (dormido)');
-  // Lo demas que escribe negocio sigue bloqueado como antes.
-  await assert.rejects(() => w.request('/api/productos', 'POST', { nombre: 'Nuevo vencida', barcode: 'FIX-NUEVO-1', precio: 5, costo: 2, ubicacionId: estado.productos.find(x => x.id === p.id).ubicacionId }), /402.*PRUEBA_VENCIDA/);
-  assert.ok(avisos >= 1, 'un rechazo de otra escritura sigue emitiendo el evento (el modal esta dormido)');
+  const alta = await w.request('/api/productos', 'POST', { nombre: 'Nuevo vencida', barcode: 'FIX-NUEVO-1', precio: 5, costo: 2, ubicacionId: estado.productos.find(x => x.id === p.id).ubicacionId });
+  assert.ok(alta.id, 'las demas escrituras de negocio tambien funcionan con la prueba vencida');
+  assert.equal(avisos, 0, 'ninguna escritura dispara el aviso del modal (dormido)');
 });
 
 test('an expired trial still lets the owner view, export and scan', async () => {
@@ -123,40 +122,25 @@ test('devices activated before this change start their clock today, not at their
   assert.equal(e.diasRestantes, w.OCPrueba.PRUEBA_DIAS);
 });
 
-test('#5 a license paid while the app is open unlocks writes without a new login', async () => {
-  /* v347, auditoría Codex #5. El Worker se simula: revalidarLicencia hace lo
-     mismo que el heartbeat real (escribe licenseEstado en f123_owned). La
-     primera escritura con la prueba vencida se rechaza y dispara la
-     revalidación; la siguiente pasa sin volver a entrar. */
+test('#5 with an expired trial writes work even before the license is revalidated (no read-only text)', async () => {
   const w = aparato();
   const p = await productoConStock(w);
   await vencer(w);
-  let llamadas = 0;
   w.OCAuth.revalidarLicencia = async () => {
-    llamadas++;
     const o = JSON.parse(w.localStorage.getItem('f123_owned'));
     o.licenseEstado = 'full';
     w.localStorage.setItem('f123_owned', JSON.stringify(o));
   };
-  // La venta ya no se rechaza (v737), pero intentarla igual revalida la licencia.
-  // La escritura que SIGUE bloqueada (alta de producto) prueba el desbloqueo por pago.
-  const alta = { nombre: 'Alta tras pago', barcode: 'FIX-ALTA-PAGO', precio: 5, costo: 2, ubicacionId: (await w.request('/api/respaldo/exportar')).productos.find(x => x.id === p.id).ubicacionId };
-  const antes = await w.fetch('/api/productos', { method: 'POST', body: JSON.stringify(alta) });
-  assert.equal(antes.ok, false, 'con la prueba vencida y sin revalidar, esta escritura se rechaza');
-  await new Promise(res => setImmediate(res));
-  assert.equal(llamadas, 1, 'el rechazo disparó una revalidación');
-  const r = await w.request('/api/productos', 'POST', alta);
-  assert.ok(r.id, 'tras el pago, escribe sin nuevo login');
+  const ubic = (await w.request('/api/respaldo/exportar')).productos.find(x => x.id === p.id).ubicacionId;
+  const r = await w.request('/api/productos', 'POST', { nombre: 'Alta con prueba vencida', barcode: 'FIX-ALTA-PAGO', precio: 5, costo: 2, ubicacionId: ubic });
+  assert.ok(r.id, 'la escritura se acepta sin esperar al pago ni mostrar texto de solo lectura');
 });
 
-test('#4 an expired trial cannot create, rename or delete categories either', async () => {
-  // v351 (code review #4): borradores.js escribía categorías sin pasar por la
-  // compuerta del backend; con la prueba vencida también quedan en solo lectura.
+test('#4 an expired trial still lets the owner create, rename and delete categories', async () => {
+  // v742 (JFC 2026-11-11): la prueba vencida no deja ninguna escritura en solo lectura.
   const w = aparato();
   await vencer(w);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'docs', 'borradores.js'), 'utf8'), w);
-  assert.equal(w.OCCategorias.agregar('Nueva vencida'), false, 'no se crea');
-  assert.equal((w.localStorage.getItem('f123_categorias_custom') || '[]').includes('Nueva vencida'), false);
-  await assert.rejects(() => w.OCCategorias.renombrar('Toys', 'Juguetes'), 'renombrar se rechaza');
-  await assert.rejects(() => w.OCCategorias.borrar('Toys'), 'borrar se rechaza');
+  assert.equal(w.OCCategorias.agregar('Nueva vencida'), true, 'se crea');
+  assert.equal((w.localStorage.getItem('f123_categorias_custom') || '[]').includes('Nueva vencida'), true);
 });
