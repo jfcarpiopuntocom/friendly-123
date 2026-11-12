@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light only">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0F1923">
+<title>Rescate de instalaciones · friendly-123</title>
+<link rel="icon" href="./favicon-v577.ico">
+<style>
+:root{color-scheme:light only;--ink:#0F1923;--accent:#EFC31A;--paper:#F8F9FB;--rust:#A83D1F}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:680px;margin:0 auto;padding:20px 18px max(30px,env(safe-area-inset-bottom))}
+h1{font-size:1.45rem;margin:0 0 .5rem;line-height:1.2}
+h2{font-size:1.1rem;margin:0 0 8px}
+p{margin:8px 0 12px}
+.card{border:2px solid var(--ink);border-radius:12px;padding:16px;margin:14px 0;background:white}
+.warn{border-left:5px solid var(--rust);padding-left:12px;font-weight:650}
+.tag{font:700 1rem ui-monospace,SFMono-Regular,Menlo,monospace;background:#eef0f5;padding:7px 10px;border-radius:7px}
+a,button{color:var(--ink);font:inherit}
+a.action,button.action{display:inline-block;background:var(--accent);border:2px solid var(--ink);border-radius:8px;min-height:44px;padding:10px 14px;font-weight:750;text-decoration:none;cursor:pointer;margin:6px 5px 6px 0}
+button[disabled]{opacity:.45;cursor:not-allowed}
+li{margin:8px 0}
+label{display:block;min-height:44px;padding:7px 0;cursor:pointer}
+input[type=checkbox]{width:19px;height:19px;vertical-align:middle;margin-right:7px}
+textarea{width:100%;min-height:130px;border:1.5px solid var(--ink);border-radius:7px;padding:10px;font:13px/1.35 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;resize:vertical}
+small{display:block;color:#425466}
+</style>
+</head>
+<body>
+<main>
+<p><a href="./">← Volver al PIN de friendly-123</a></p>
+<h1>Rescate de una instalación antigua</h1>
+<p>Este diagnóstico se ejecuta <strong>dentro de la copia que tienes abierta</strong>, sin leer otras PWAs y sin enviar datos a nadie. No es una nueva app; no lo añadas a la pantalla de inicio.</p>
+<p class="warn">No elimines ninguna copia si aún contiene ventas, movimientos, fotos o fondos no confirmados en otra. Una PWA antigua puede tener un almacén aislado y datos únicos.</p>
+<section class="card" aria-labelledby="localtitle">
+<h2 id="localtitle">Identidad de esta copia</h2>
+<p>Entorno: <strong id="env">Comprobando…</strong></p>
+<p>Etiqueta local: <span class="tag" id="tag">…</span></p>
+<p>Licencia local reconocida: <strong id="licensed">Comprobando…</strong></p>
+<p>Última exportación preparada aquí: <strong id="exported">Sin comprobar</strong></p>
+<small>La etiqueta no identifica físicamente el teléfono ni detecta otras copias. La fecha de exportación no prueba que el archivo esté guardado en Archivos ni que Sync3 haya terminado.</small>
+<label for="diagnostic">Informe técnico sin PIN ni licencia completa:</label>
+<textarea id="diagnostic" readonly aria-label="Informe técnico sin secretos"></textarea>
+<button type="button" class="action" id="copy">Copiar diagnóstico</button><span id="copied" role="status"></span>
+</section>
+<section class="card" aria-labelledby="stepstitle">
+<h2 id="stepstitle">Rescatar ANTES de eliminar</h2>
+<ol>
+<li><strong>Abre cada icono por separado.</strong> Usa este diagnóstico para distinguir la PWA A, la PWA B y Safari/Opera. No confundas dos tarjetas de iOS con dos perfiles del mismo almacén.</li>
+<li><strong>En la copia antigua:</strong> entra con el PIN legítimo; ve a Advanced → Backup → <strong>Export backup</strong> (puede exigir la subclave contable). Es el respaldo completo, incluidas fotos y claves. Ponle contraseña y consérvalo de forma segura en Archivos o Drive.</li>
+<li><strong>En la copia que conservarás:</strong> usa la misma licencia y el PIN vigente. Compara ventas, ajustes de stock, dinero, fotos y pendientes. Solo da por buena la reconciliación cuando haya evidencia durable; no infieras éxito por ver cantidades iguales.</li>
+<li><strong>Guarda el respaldo y confirma que puedes abrirlo</strong> antes de considerar borrar una copia antigua. Si una copia no deja entrar al PIN, no la borres: usa el flujo de recuperación de la app o solicita ayuda.</li>
+</ol>
+<a href="./" class="action">Abrir friendly-123 (PIN)</a>
+</section>
+<section class="card" aria-labelledby="removetitle">
+<h2 id="removetitle">Retirar una copia antigua, de forma segura</h2>
+<p>iOS es quien instala y desinstala. Esta página no puede desinstalar otras PWAs ni fusionar sus bases locales.</p>
+<label><input type="checkbox" id="okfile"> Tengo un respaldo completo de la copia antigua guardado fuera de ella.</label>
+<label><input type="checkbox" id="okother"> He comprobado ventas, inventario, dinero, fotos y pendientes en la copia elegida.</label>
+<label><input type="checkbox" id="okidentity"> Sé exactamente qué icono antiguo voy a eliminar.</label>
+<button type="button" class="action" id="showremove" disabled>Mostrar instrucciones de eliminación</button>
+<div id="removeguide" hidden role="status">
+<p><strong>En el iPhone:</strong> mantén pulsado solamente el icono antiguo → Eliminar app → Eliminar app y confirma. Si no lo encuentras, desliza hasta Biblioteca de apps, busca friendly-123 o Dashboard y mantén pulsado allí. «Quitar de la pantalla de inicio» no equivale a borrar la aplicación.</p>
+<p><a href="https://support.apple.com/en-us/101550" target="_blank" rel="noopener noreferrer">Instrucciones oficiales de Apple</a></p>
+</div>
+</section>
+<details class="card">
+<summary><strong>English: recover an older installed copy</strong></summary>
+<p>Each iPhone Home Screen app may own isolated storage. Sign in to the old copy with the legitimate PIN, export and verify a full backup (including photos and keys), confirm sales, money, movements and media in the copy you keep, and only then delete the old icon through iOS. This page cannot remotely uninstall or inspect other copies.</p>
+</details>
+</main>
+<script>
+(function(){
+"use strict";
+var $=function(id){return document.getElementById(id);};
+var safe=function(f){try{return f();}catch(_){return null;}};
+var stand=safe(function(){return navigator.standalone===true||(window.matchMedia&&matchMedia("(display-mode: standalone)").matches);});
+var env=stand?"PWA independiente":"Navegador (Safari, Opera u otro)";
+$("env").textContent=env;
+var tag=safe(function(){
+var key="f123_pwa_install_tag_v1",stored=localStorage.getItem(key);
+if(stored&&/^[A-F0-9]{12}$/.test(stored))return stored;
+var raw=new Uint8Array(6);crypto.getRandomValues(raw);
+var v=Array.from(raw,function(n){return n.toString(16).padStart(2,"0");}).join("").toUpperCase();
+localStorage.setItem(key,v);return v;})||"NO DISPONIBLE";
+$("tag").textContent=tag;
+var meta=safe(function(){return JSON.parse(localStorage.getItem("f123_owned")||"null");});
+var license=meta&&typeof meta.licenseCode==="string"?meta.licenseCode:"";
+var suffix=license.length>=4?("••••"+license.slice(-4)):"No identificada en esta copia";
+$("licensed").textContent=suffix;
+var exported=safe(function(){return Number(localStorage.getItem("f123_ultimo_export_verificado"));});
+var date=exported&&Number.isFinite(exported)&&exported>0?new Date(exported).toLocaleString():"Sin registro local";
+$("exported").textContent=date;
+var localBook=safe(function(){return Boolean(localStorage.getItem("f123_tienda_activa"));});
+var localState=safe(function(){return ["f123_estado_v4_A","f123_estado_v4_B","f123_estado_v4"].some(function(k){return localStorage.getItem(k)!==null;});});
+var report=["friendly-123 · diagnóstico de instalación (sin secretos)",
+"Entorno: "+env,"Etiqueta: "+tag,"Licencia local: "+suffix,
+"Cuaderno activo local: "+(localBook?"sí":"no/no disponible"),
+"Estado local legado: "+(localState?"presente":"no encontrado/no disponible"),
+"Exportación preparada: "+date,
+"Pendientes y ACK Sync3: NO VERIFICABLES desde este diagnóstico",
+"Otras PWAs: NO DETECTABLES desde esta copia"].join("\n");
+$("diagnostic").value=report;
+$("copy").addEventListener("click",async function(){
+try{if(navigator.clipboard&&navigator.clipboard.writeText){await navigator.clipboard.writeText(report);}
+else{$("diagnostic").focus();$("diagnostic").select();if(!document.execCommand("copy"))throw Error("copy");}
+$("copied").textContent=" Copiado.";}catch(_){$("copied").textContent=" Selecciona y copia el texto del recuadro."; $("diagnostic").focus();$("diagnostic").select();}
+});
+var checks=["okfile","okother","okidentity"];
+function sync(){ $("showremove").disabled=!checks.every(function(x){return $(x).checked;});if($("showremove").disabled)$("removeguide").hidden=true;}
+checks.forEach(function(id){$(id).addEventListener("change",sync);});
+$("showremove").addEventListener("click",function(){if(!$("showremove").disabled)$("removeguide").hidden=false;});
+})();
+</script>
+</body>
+</html>
