@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.33",
+  "version": "v0.7.34",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.33 P0 Sync3: un aparato nuevo que se une a la tienda ya no se queda esperando a un vecino que no contesta: el respaldo de Firebase vuelve a intentarse a los 5 s (hasta 60 s) y el vecino mudo se suelta a los 7 s para pedir el historial a una capa durable. Sin cambios en ventas, inventario, PIN ni licencias.",
+  "changelog": "v0.7.34 P0 Sync3: un aparato nuevo baja el historial de la tienda por Firebase en tandas 4 veces mas grandes (con vuelta automatica a las chicas si una respuesta pesa demasiado), para ponerse al dia mas rapido y gastar menos cupo diario. Sin cambios en ventas, inventario, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v733",
+  "shell": "f123-shell-v734",
   "apagar": [],
-  "releaseName": "v0.7.33",
-  "cacheGeneration": "golden273"
+  "releaseName": "v0.7.34",
+  "cacheGeneration": "golden274"
 }
