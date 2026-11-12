@@ -5,7 +5,7 @@ const { browser } = require('./helpers/browser.cjs');
 // Synthetic regression for the customer-reported wrong quantities after v749.
 // A structurally plausible witness for ANOTHER epoch is not proof of a
 // physical recount for this epoch. Never mutate a real customer's data.
-test('P0: mismatched count witness cannot turn a known positive balance into zero', async () => {
+test('P0: unrelated prior-ledger witness cannot turn a known positive balance into zero', async () => {
   const w = browser();
   const fx = await w.request('/api/respaldo/exportar');
   const p = fx.productos.find(x => Number(x.stockActual) >= 10);
@@ -27,7 +27,7 @@ test('P0: mismatched count witness cannot turn a known positive balance into zer
   Object.assign(rp, {
     stockActual: 0, stockTs: 3000, stockBase: 0, stockPN: {},
     stockEpochId: 'remote-epoch', stockCountTs: 3000,
-    stockCountWitness: { epoch: 'DIFFERENT-epoch', pn: {} }
+    stockCountWitness: { epoch: 'unrelated-prior-epoch', base: 9, pn: {} }
   });
   w.OCSync.aplicarCatalogo(remote, null);
   const state = await w.request('/api/respaldo/exportar');
