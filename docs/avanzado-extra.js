@@ -393,7 +393,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
           <input id="oc-importar-file" type="file" accept=".json" style="display:none;">
         </label>
       </div>
-      <p style="font-size:14px;margin:10px 0;"><a href="./pwa-rescue.html" style="font-weight:700;color:var(--azul-medio,#2c4a68);">Rescatar / desinstalar de forma segura PWAs duplicadas del iPhone</a> (sin borrar datos desde la web).</p>
+      <p style="font-size:14px;margin:10px 0;"><a href="./pwa-rescue.html?stay=1" style="font-weight:700;color:var(--azul-medio,#2c4a68);">Rescatar / desinstalar de forma segura PWAs duplicadas del iPhone</a> (sin borrar datos desde la web).</p>
       <p id="oc-respaldo-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></p>
       <p id="oc-respaldo-free" style="font-size:13px;margin-top:6px;display:none;"></p>
       <hr style="border:none;border-top:1px solid var(--azul-suave,#dde5ec);margin:16px 0;">

@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.48",
+  "version": "v0.7.49",
   "fecha": "2026-11-12",
-  "changelog": "v0.7.48: identidades PWA estables para friendly-123 y Dashboard; rescate guiado, sin borrar almacenes ni cambiar negocios.",
+  "changelog": "v0.7.49 P0: rescate de PWAs heredadas conserva origen friendly123.com/app con ?stay=1 en PIN, Avanzado, Dashboard y vuelta, sin tocar datos.",
   "requerida": false,
-  "shell": "f123-shell-v748",
+  "shell": "f123-shell-v749",
   "apagar": [],
-  "releaseName": "v0.7.48",
-  "cacheGeneration": "golden287"
+  "releaseName": "v0.7.49",
+  "cacheGeneration": "golden288"
 }
