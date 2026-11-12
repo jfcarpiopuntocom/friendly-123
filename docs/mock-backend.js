@@ -3761,7 +3761,7 @@
      contadores y del registro ANTES de mutar; devuelve la funcion que lo deja todo como estaba. */
   function _marchaAtrasStock(p) {
     const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
-      meta: ["stockBase","stockPN","stockTs","stockDeficit"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
+      meta: ["stockBase","stockPN","stockTs","stockDeficit","stockReconciliacionPendiente"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
     return () => {
       p.stockActual = foto.stock;
       foto.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
@@ -3790,21 +3790,28 @@
           if (Number.isFinite(delta) && delta !== 0) {
             // Base + hechos únicos: dos ventas sin red se SUMAN; un valor absoluto
             // con timestamp descartaba una. La mutación local ya ocurrió antes.
-            if (!_sp.stockPN || _sp.stockBase == null || !Number.isFinite(Number(_sp.stockBase))) {
-              _sp.stockBase = Number(_sp.stockActual) - delta;
-              _sp.stockPN = {};
-            }
-            let idStock = idOperacion || "";
-            if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
-            if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
-            const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
-            if (delta > 0) contador.add += delta; else contador.sub += -delta;
-            _sp.stockPN[idStock] = contador;
-            // An event carries its author's cumulative counters, so an older op arriving
-            // after a newer one cannot roll back stock and duplicate delivery is harmless.
-            if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
-              payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
-                actor: idStock, add: contador.add, sub: contador.sub };
+            // Fable 5.2 / JFC: an unwitnessed device has no authority to
+            // derive a physical baseline from its own display (stockActual-delta).
+            // Local sale is already durable; keep its immutable sale/movement
+            // and flag reconciliation rather than forging a shared PN base.
+            const baseProbada = _sp.stockBase != null &&
+              Number.isSafeInteger(Number(_sp.stockBase));
+            if (baseProbada) {
+              if (!_sp.stockPN || typeof _sp.stockPN !== "object" || Array.isArray(_sp.stockPN)) _sp.stockPN = {};
+              let idStock = idOperacion || "";
+              if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
+              if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
+              const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
+              if (delta > 0) contador.add += delta; else contador.sub += -delta;
+              _sp.stockPN[idStock] = contador;
+              // Do not mint stockPNHecho from an inferred baseline. Existing
+              // real physical epochs and historical explicit bases retain it.
+              if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+                payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
+                  actor: idStock, add: contador.add, sub: contador.sub };
+              }
+            } else {
+              _sp.stockReconciliacionPendiente = true;
             }
             /* Una reposicion paga primero el FALTANTE (JFC 2026-09-29): es la
                misma cuenta que hara el contador compartido al fusionar, asi la
@@ -4514,7 +4521,10 @@
               { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if ((epochConflict && !epochLocal && epochRemote && _tsR > _tsL && _baseR !== null) || _gana) {
+        if ((epochConflict && !epochLocal && epochRemote && _baseR !== null) || _gana) {
+          // A locally guessed/legacy clock cannot defeat a physical epoch
+          // established by an authenticated owner/admin count. Its uncounted
+          // movements remain in immutable sales/activities for reconciliation.
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
