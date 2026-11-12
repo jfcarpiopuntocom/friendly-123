@@ -241,6 +241,19 @@ const diagnostico = (p, licencia) => p.evaluate((lic) => {
           y.doc.store.pendingStructs.missing;
         return missing && typeof missing.size === 'number' ? Math.min(9999, missing.size) : 0;
       })(),
+      // v751 diagnosis only (counts, never client IDs): missing parents whose Yjs client has NO applied struct
+      // (nothing of that writer arrived from the durable layer) versus clients present with a clock gap.
+      ...(() => {
+        const missing = y && y.doc && y.doc.store && y.doc.store.pendingStructs &&
+          y.doc.store.pendingStructs.missing;
+        let ausentes = 0, conHueco = 0;
+        if (missing && typeof missing.forEach === 'function' && clients && typeof clients.get === 'function')
+          missing.forEach((_, client) => {
+            const s = clients.get(client);
+            if (Array.isArray(s) && s.length) conHueco++; else ausentes++;
+          });
+        return { catalogoFaltantesClienteAusente: count(ausentes), catalogoFaltantesClienteConHueco: count(conHueco) };
+      })(),
       catalogoClientesAplicados: count(clients && clients.size),
       catalogoEstructurasAplicadas: (() => {
         if (!clients || typeof clients.forEach !== 'function') return null;
@@ -395,6 +408,12 @@ function progresoRecuperacion(anterior, actual) {
             pendientesStructs: d.catalogoPendientesStructs === true,
             pendientesDs: d.catalogoPendientesDs === true,
             padresFaltantes: n(d.catalogoPadresFaltantes),
+            // v751 diagnosis only; no pass criterion reads these three lines.
+            faltantesClienteAusente: Number.isSafeInteger(d.catalogoFaltantesClienteAusente) ? n(d.catalogoFaltantesClienteAusente) : null,
+            faltantesClienteConHueco: Number.isSafeInteger(d.catalogoFaltantesClienteConHueco) ? n(d.catalogoFaltantesClienteConHueco) : null,
+            faltantesContraFirebase: n(d.catalogoPadresFaltantes) === 0 ? 'sin-faltantes' :
+              (d.catalogoTransporte === 'firebase' && d.pullUltimaMas === false
+                ? 'faltan-con-pull-en-head' : 'faltan-pull-sin-terminar'),
             clientesYjsAplicados: Number.isSafeInteger(d.catalogoClientesAplicados) ? n(d.catalogoClientesAplicados) : null,
             estructurasYjsAplicadas: Number.isSafeInteger(d.catalogoEstructurasAplicadas) ? n(d.catalogoEstructurasAplicadas) : null,
             outboxCatalogo: Number.isSafeInteger(d.catalogoPendientesOutbox) ? n(d.catalogoPendientesOutbox) : null,

@@ -51,7 +51,7 @@ test('v734: la primera tanda pide 48 operaciones aunque la app pida 64', async (
   await new Promise(r => setTimeout(r, 30));
   ws.send(JSON.stringify({ k: 'pull', v: 2, rev: 0, seq: 0, limit: 64 }));
   await new Promise(r => setTimeout(r, 60));
-  assert.equal(limites[0], 48);
+  assert.equal(limites[0], 192); // v751: catalogo y operaciones piden 192 (antes 48)
 });
 test('v734: una tanda que pasa del tope de bytes vuelve a 12 y no cierra la conexion', async () => {
   const limites = []; let cerrado = false;
@@ -71,7 +71,7 @@ test('v734: una tanda que pasa del tope de bytes vuelve a 12 y no cierra la cone
   await new Promise(r => setTimeout(r, 30));
   ws.send(JSON.stringify({ k: 'pull', v: 2, rev: 0, seq: 0, limit: 64 }));
   await new Promise(r => setTimeout(r, 120));
-  assert.deepEqual(limites.slice(0, 2), [48, 12], 'primero 48, luego 12 tras pasar del tope');
+  assert.deepEqual(limites.slice(0, 2), [192, 12], 'primero 192 (v751; antes 48), luego 12 tras pasar del tope');
   assert.equal(paginas.length, 1, 'la pagina llega con la tanda de 12');
   assert.equal(cerrado, false, 'no se cierra la conexion');
 });

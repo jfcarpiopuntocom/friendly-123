@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.50",
+  "version": "v0.7.51",
   "fecha": "2026-11-12",
-  "changelog": "v0.7.50: Protege el stock conocido y recupera fotos locales verificadas. Hoy vuelve a cargar después de un fallo y el Dashboard abierto conserva la pantalla.",
+  "changelog": "v0.7.51: Mantenimiento de la sincronización entre aparatos.",
   "requerida": false,
-  "shell": "f123-shell-v750",
+  "shell": "f123-shell-v751",
   "apagar": [],
-  "releaseName": "v0.7.50",
-  "cacheGeneration": "golden289"
+  "releaseName": "v0.7.51",
+  "cacheGeneration": "golden290"
 }

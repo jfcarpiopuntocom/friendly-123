@@ -206,14 +206,25 @@
         } catch (_) { return this._text({ k: "head-result", v: 2, unsupported: true }); }
       }
       if (c.k === "pull") {
-        var curRev = await this._rev(), seq = Math.max(0, Number(c.seq) || 0), frames = [], budget = PAGE_BUDGET;
+        var seq = Math.max(0, Number(c.seq) || 0), frames = [], budget = PAGE_BUDGET;
+        /* v751 (JFC 2026-11-12, union en frio): la revision se consultaba en CADA pagina (un GET extra por pagina). La
+           pagina que continua exactamente donde quedo la anterior (more=true, misma rev y seq) reusa la revision ya
+           leida; la primera pagina de cada pull la lee de nuevo, asi que un checkpoint nuevo se ve en el siguiente
+           pull. Las operaciones son append-only: seguir la cola con la revision anterior no pierde nada.
+           PARA REVERTIR: var curRev = await this._rev(). */
+        var cont = this._cont; this._cont = null;
+        var curRev = cont && Number(c.v) === 2 && Number(c.rev) === cont.rev && seq === cont.seq ? cont.rev : await this._rev();
         // Bound the initial page as well: 12 max-size frames fit below ~5 MiB.
         // The protocol's "more" bit preserves catch-up across smaller pages.
         /* v734 (JFC 2026-11-11, diseno de Opus 5.5): la tanda sube de 12 a 48 operaciones (la app pide 64). Con 12, un
            aparato nuevo bajaba ~6 estructuras/s y una union en frio gastaba 11 MiB del cupo diario de 20 MiB. Si una
            respuesta supera el tope de bytes, esta conexion vuelve a 12 y reintenta UNA vez (ver mas abajo).
            PARA REVERTIR: volver a Math.min(12, ...). */
-        var size = Math.min(this._pg || 48, Math.max(1, Number(c.limit) || 64));
+        /* v751: el pedido normal de la app (64: catalogo y operaciones) baja 192 por pagina; el corte real sigue siendo
+           PAGE_BUDGET 1 MiB por pagina y 4 MiB por GET, y si se pasa vuelve a 12 como antes. Un pedido menor (fotos
+           piden 4) se respeta igual que antes. PARA REVERTIR: Math.min(this._pg || 48, pedido). */
+        var pedido = Math.max(1, Number(c.limit) || 64);
+        var size = this._pg ? Math.min(this._pg, pedido) : (pedido >= 64 ? 192 : Math.min(48, pedido));
         if (Number(c.v) !== 2 || Number(c.rev) !== curRev) {
           var yaLeido = seq; seq = 0;
           if (curRev > 0) {
@@ -296,6 +307,7 @@
           self._seen[f.length + ":" + f.slice(0, 64)] = 1;
           self._binary(bytes, "pull");
         });
+        if (more) this._cont = { rev: curRev, seq: newSeq };
         if (Number(c.v) === 2) this._text({ k: "pull-page", v: 2, rev: curRev, seq: newSeq, n: kept.length, more: more });
       }
     };
