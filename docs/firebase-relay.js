@@ -43,7 +43,13 @@
       });
     }
     // shortcut: counts response bodies and live events read; headers and the echo of a PUT are not visible here. Upgrade if billing data is ever exposed to the client.
-    var wireDown = 0;
+    var wireDown = 0, wireDownRoom = Object.create(null);
+    function contabilizarLectura(path, count) {
+      count = Math.max(0, Number(count) || 0);
+      wireDown += count;
+      var m = String(path).match(/^\/f123\/([a-f0-9]{40}(?:-y|-ops|-fotos)?)(?:\/|$)/);
+      if (m) wireDownRoom[m[1]] = (wireDownRoom[m[1]] || 0) + count;
+    }
     async function getJson(path, query, maxBytes) {
       var r = await http("GET", path, undefined, query), t = "";
       if (!r.ok) throw new Error("read " + r.status);
@@ -66,7 +72,7 @@
         t = await r.text();
         if (maxBytes && t.length > maxBytes) throw new Error("Firebase timestamp group exceeds safe byte budget");
       }
-      wireDown += t.length;
+      contabilizarLectura(path, enc.encode(t).byteLength);
       return JSON.parse(t);
     }
     function decodeFrame(s) {
@@ -128,7 +134,7 @@
         var es = new ES(base + this.root + "/o.json?" + q({ orderBy: '"s"', startAt: since }));
         this._es = es;
         var take = function (ev) {
-          wireDown += String(ev.data || "").length;
+          contabilizarLectura(self.root, enc.encode(String(ev.data || "")).byteLength);
           var msg; try { msg = JSON.parse(ev.data); } catch (_) { return; }
           if (!msg || !msg.data) return;
           var items = msg.path === "/" ? sorted(msg.data) : (msg.data.c ? [msg.data] : []);
@@ -301,7 +307,11 @@
     return {
       ckptFrameBytes: CKPT_CIPHER_BYTES,
       connect: function (url) { return new Socket(url); },
-      wireDown: function () { return wireDown; },
+      wireDown: function (url) {
+        if (!url) return wireDown; // keep the original numeric-only diagnostic
+        var m = String(url).match(LOC);
+        return m ? (wireDownRoom[m[1] + (m[2] || "")] || 0) : 0;
+      },
       // Read-only head with no socket and no event stream, for diagnostics.
       leerHead: async function (url) {
         var m = String(url).match(LOC);
