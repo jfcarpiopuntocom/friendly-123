@@ -1,6 +1,5 @@
 'use strict';
-// (JFC 2026-10-27) La recarga diferida del login (f123_reload_al_entrar) respeta la guarda de
-// recuperacion Yjs/IDB, y la bitacora de recargas (f123_recargas_log) es acotada y nunca lanza.
+// A pending update cannot navigate at login, even if local recovery has finished.
 // Se carga el fuente Y el bundle minificado (docs/app-inline-03.min.js) en un VM.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
@@ -11,7 +10,7 @@ function store(){const m=new Map();return {getItem:k=>m.has(k)?m.get(k):null,set
 // Carga solo el tramo recuperacionPendiente..marcarRecarga (hasta function intentar) con un window sintetico.
 function cargar(file,{yjs,ls}={}){
  const s=read(file);
- const a=s.indexOf('function recuperacionPendiente()'),b=s.indexOf('async function intentar()',a);
+ const a=s.indexOf('function recuperacionPendiente()'),b=s.indexOf('function intentar()',a);
  assert(a>0&&b>a,'helpers reales presentes en '+file);
  const window={OCYjs:yjs};
  const ctx={window,localStorage:ls||store(),sessionStorage:store(),Date,JSON,Array,String};
@@ -21,7 +20,8 @@ function cargar(file,{yjs,ls}={}){
 // Ejecuta el bloque real de entrar() de auth-ui.js; devuelve 'recargo' | 'siguio'.
 function entrar(ctx,rol){
  const s=read('docs/auth-ui.js');
- const a=s.indexOf('var _recPend = false;'),b=s.indexOf('    } catch (_) {}\n    const esDemo',a)>0?s.indexOf('    } catch (_) {}\n    const esDemo',a):s.indexOf('    } catch (_) {}\r\n    const esDemo',a);
+ const inicio='function entrar(nuevoRol) {';
+ const a=s.indexOf(inicio)+inicio.length,b=s.indexOf('const esDemo',a);
  assert(a>0&&b>a,'bloque real de entrar() presente');
  let recargo=false;
  const c=Object.assign({},ctx,{nuevoRol:rol,location:{reload(){recargo=true;}}});
@@ -31,12 +31,12 @@ function entrar(ctx,rol){
 }
 const ok={recuperando:false,recuperacionLocal:'listo'};
 for(const file of sources){
- test(file+' - recuperacion pendiente: el login NO recarga y la bandera sigue en 1',()=>{
+ test(file+' - login during recovery keeps the document and clears the old flag',()=>{
   const ctx=cargar(file,{yjs:{estado:'activo',canal:{recuperando:true,recuperacionLocal:'listo'}}});
   assert.equal(ctx.window.__f123RecuperacionPendiente(),true);
   ctx.sessionStorage.setItem('f123_reload_al_entrar','1');
   assert.equal(entrar(ctx,'dueno'),'siguio');
-  assert.equal(ctx.sessionStorage.getItem('f123_reload_al_entrar'),'1');
+  assert.equal(ctx.sessionStorage.getItem('f123_reload_al_entrar'),null);
   assert.equal(ctx.sessionStorage.getItem('f123_sesion'),null,'no toca la sesion diferida si no recarga');
  });
  test(file+' - recuperacion local IDB pendiente tambien bloquea; _diag pendiente bloquea',()=>{
@@ -45,15 +45,14 @@ for(const file of sources){
   ctx=cargar(file,{yjs:{estado:'activo',canal:ok,_diag:()=>({recuperacionLocalPendiente:true})}});
   assert.equal(ctx.window.__f123RecuperacionPendiente(),true);
  });
- test(file+' - recuperacion terminada o sin OCYjs: recarga y limpia la bandera',()=>{
+ test(file+' - completed recovery still never navigates at login',()=>{
   for(const yjs of [{estado:'activo',canal:ok,opsCanal:ok,fotosCanal:ok,_diag:()=>({recuperacionLocalPendiente:false})},undefined]){
    const ctx=cargar(file,{yjs});
    assert.equal(ctx.window.__f123RecuperacionPendiente(),false);
    ctx.sessionStorage.setItem('f123_reload_al_entrar','1');
-   assert.equal(entrar(ctx,'demo'),'recargo');
+   assert.equal(entrar(ctx,'demo'),'siguio');
    assert.equal(ctx.sessionStorage.getItem('f123_reload_al_entrar'),null);
-   assert.deepEqual(JSON.parse(ctx.sessionStorage.getItem('f123_sesion')),{rol:'demo',demo:true},'rol demo preservado');
-   assert.equal(JSON.parse(ctx.localStorage.getItem('f123_recargas_log')).at(-1).m,'login-diferida');
+   assert.equal(ctx.sessionStorage.getItem('f123_sesion'),null,'the normal login establishes the session');
   }
  });
  test(file+' - sin bandera no recarga',()=>{

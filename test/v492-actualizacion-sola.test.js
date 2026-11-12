@@ -23,7 +23,7 @@ async function assertNoMainFrameNavigation(page,label,action){
  if(actionError)throw actionError;
 }
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
- test('pending version adopts at safe idle after durable confirmation ('+name+')',async()=>{
+ test('pending version leaves an open session in place even after idle ('+name+')',async()=>{
   const {web,page}=await abrir(engine);try{
   // The real published version is used, so the pre-existing load-time version check stays quiet.
   const prep=()=>page.evaluate(async()=>{const vj=await (await fetch('./version.json',{cache:'no-store'})).json();
@@ -52,14 +52,11 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     window._ocActSola.vigilar();
     if(document.activeElement)document.activeElement.blur();
   });
-  const loaded=page.waitForEvent('load',{timeout:5000});
   assert.equal(await page.locator('#f123-aviso-version').count(),0,'no update banner');
-  await page.evaluate(()=>window._ocActSola.intentar());
-  await loaded;
-  await page.waitForFunction(()=>window._ocActSola);
-  assert.equal(await page.evaluate(()=>window.__marca),undefined,'safe idle durable adoption reloads');
+  await assertNoMainFrameNavigation(page,'idle with durable ACK',()=>page.evaluate(()=>window._ocActSola.intentar()));
+  assert.equal(await page.evaluate(()=>window.__marca),m,'keep the current document after durable confirmation');
   assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_sesion')!==null),true,'session kept');
-  assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_act_sola_pendiente')),null,'pending cleared');
+  assert.equal(await page.evaluate(()=>sessionStorage.getItem('f123_act_sola_pendiente')),'1','pending until next opening');
   // Anti-loop: once the page is idle again, the same shell still cannot reload twice within 10 min.
   m=await prep();
   await assertNoMainFrameNavigation(page,'same-version anti-loop after idle',()=>page.clock.fastForward(92000));

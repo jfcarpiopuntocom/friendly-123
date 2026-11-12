@@ -21,6 +21,14 @@ async function product(w,id){
   return f.productos.find(p=>p.id===id);
 }
 
+test('a stale epoch identifier without a count witness cannot replace known stock by zero',async()=>{
+  const id='unwitnessed-zero',current=await device(id,9,2000),older=await device(id,0,1000);
+  const incoming=older.catalog();
+  Object.assign(incoming.productos.find(p=>p.id===id),{stockBase:0,stockEpochId:'old-epoch',stockPN:{},stockCountWitness:null});
+  current.OCSync.aplicarCatalogo(incoming,null);
+  assert.equal((await product(current,id)).stockActual,9);
+});
+
 test('sale from a legacy uncounted device does not invent a PN base',async()=>{
   const id='no-guessed-base',w=await device(id,7);
   const sold=await w.request('/api/productos/'+id+'/venta','POST',{cantidad:1});

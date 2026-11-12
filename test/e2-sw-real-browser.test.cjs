@@ -118,15 +118,17 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
   assert.equal(beforeClick,initial,"pending save must preserve the running page");
   assert.equal(await p.locator("#f123-aviso-version").count(),0,"no update banner");
   await p.evaluate(()=>{window.OCSync={confirmarCatalogoDurable:async()=>true};});
-  mark("safe idle adoption after synthetic durable confirmation");
+  mark("pending update preserves the current session");
   await p.evaluate(()=>window._ocActSola.intentar());
+  assert.equal(await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads"))),initial,"ready update still does not navigate");
+  await p.reload();
   await p.waitForFunction(n=>Number(sessionStorage.getItem("e2-loads"))===n+1,initial,{timeout:15000});
   mark("assert adoption state");
   const result=await p.evaluate(()=>({loads:Number(sessionStorage.getItem("e2-loads")),
     session:sessionStorage.getItem("f123_sesion"),
     version:localStorage.getItem("f123_version_vista"),
     text:document.body.innerText}));
-  assert.equal(result.loads,initial+1,"one durable-confirmed safe reload for this shell");
+  assert.equal(result.loads,initial+1,"the next document loads the new shell");
   assert.equal(result.session,"synthetic-e2","preserve session on worker replacement");
   assert.equal(result.version,"1.0|"+shellNext,"record precise version and current SW shell");
   assert.doesNotMatch(result.text,/Purge|reload/i);

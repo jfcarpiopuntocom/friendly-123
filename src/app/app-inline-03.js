@@ -271,22 +271,8 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   try { window.__f123MarcarRecarga = marcarRecarga; } catch (_) {}
-  /* (JFC 2026-11-11, v732) TOPE ANTI-BUCLE de recargas automaticas: UNA sola por version del shell y por
-     pestana. Una PWA de iPhone recargaba justo despues del PIN y otra vez despues, y quedaba caida: la
-     bandera "f123_reload_al_entrar" se vuelve a armar en cada arranque mientras las caches no cuadren con
-     version.json, asi que cada PIN podia recargar de nuevo. Con este tope la segunda recarga de la misma
-     version se omite (se anota "omitida-tope:<motivo>" en f123_recargas_log) y la app sigue usable.
-     Sin UI, sin red, sin datos de clientes. Si sessionStorage falla, se permite (conducta anterior).
-     PARA REVERTIR: quitar esta funcion y sus tres llamadores (intentar, auth-ui.js entrar, dashboard-updates.js). */
-  function puedeRecargarVersion(motivo) {
-    try {
-      var vv = localStorage.getItem("f123_version_vista") || "";
-      var kk = "f123_recarga_auto_v:" + vv;
-      if (sessionStorage.getItem(kk) === "1") { marcarRecarga("omitida-tope:" + motivo); return false; }
-      sessionStorage.setItem(kk, "1");
-      return true;
-    } catch (_) { return true; }
-  }
+  // Cached login code can still consult this guard during a shell transition.
+  function puedeRecargarVersion() { return false; }
   try { window.__f123PuedeRecargarVersion = puedeRecargarVersion; } catch (_) {}
   /* (JFC 2026-11-11, v732) Anillo de errores para diagnostico en campo: ultimos 20 en localStorage
      "f123_errores_log" = [{k: tipo, m: mensaje(160), s: fuente(60), t: ms}]. Sin UI, sin red, nunca lanza.
@@ -318,29 +304,8 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
-  let recargando = false;
-  async function intentar() {
-    try { vigilar(); } catch (_) {}
-    if (recargando || !pendiente() || !seguro()) return;
-    if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
-    recargando = true;
-    try {
-      const v = localStorage.getItem("f123_version_vista") || "";
-      const anterior = JSON.parse(localStorage.getItem(KA) || "null");
-      if (anterior && anterior.v === v && Date.now() - anterior.t < 600000) return;
-      if (!await guardarDuradero() || !seguro()) return;
-      // Activity during the durable save must defer adoption too.
-      if (document.visibilityState !== "hidden" && Date.now() - ultimoToque <= 90000) return;
-      // v732: una recarga automatica por version y pestana (via window para no depender del alcance del fragmento)
-      if (typeof window !== "undefined" && window.__f123PuedeRecargarVersion && !window.__f123PuedeRecargarVersion("version-segura")) return;
-      localStorage.setItem(KA, JSON.stringify({ v: v, t: Date.now() }));
-      sessionStorage.removeItem(KP);
-      sessionStorage.removeItem("f123_reload_al_entrar");
-      limpiarFrenada();
-      marcarRecarga("version-segura");
-      location.reload();
-    } catch (_) {} finally { recargando = false; }
-  }
+  // Update discovery continues. The next normal opening loads the new shell.
+  function intentar() { vigilar(); }
   function shellDelSW() {
     return new Promise(function (resolve) {
       const c = navigator.serviceWorker.controller;
@@ -372,21 +337,7 @@ const _ocActSolaOn = true;
       intentar();
     } catch (_) {}
   }
-  // Guardado duradero REAL: OCSync.confirmarCatalogoDurable (mock-backend.js) espera ventas/pagos en
-  // curso y hace guardarEstadoLocal(true,true) (snapshot completo exigido en localStorage/IDB);
-  // devuelve true SOLO si quedo escrito. Aqui: tope de 5 s y solo === true cuenta como exito.
-  function guardarDuradero() {
-    return new Promise(function (resolve) {
-      let fin = false;
-      const t = setTimeout(function () { if (!fin) { fin = true; resolve(false); } }, 5000);
-      function listo(ok) { if (fin) return; fin = true; clearTimeout(t); resolve(ok === true); }
-      try {
-        const s = window.OCSync;
-        if (!s || typeof s.confirmarCatalogoDurable !== "function") return listo(false);
-        Promise.resolve(s.confirmarCatalogoDurable()).then(listo, function () { listo(false); });
-      } catch (_) { listo(false); }
-    });
-  }
+
   function vigilar() {
     try {
       if (!pendiente()) { limpiarFrenada(); return; }

@@ -1,10 +1,10 @@
 'use strict';
-// v732 (JFC 2026-11-11): una sola recarga automatica por version del shell y por pestana.
+// v749: cached login code must also decline automatic reloads.
 // Sintetico: sin red, sin datos de clientes.
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.join(__dirname,'..');
 const src=fs.readFileSync(path.join(root,'src/app/app-inline-03.js'),'utf8');
-const a=src.indexOf('function puedeRecargarVersion(motivo)'),b=src.indexOf('try { window.__f123PuedeRecargarVersion',a);
+const a=src.indexOf('function puedeRecargarVersion()'),b=src.indexOf('try { window.__f123PuedeRecargarVersion',a);
 assert.ok(a>0&&b>a,'el tope anti-bucle debe existir');
 function ctx(version){
   const ls=new Map([['f123_version_vista',version]]),ss=new Map(),marks=[];
@@ -14,29 +14,27 @@ function ctx(version){
   vm.createContext(c);vm.runInContext(src.slice(a,b)+'\nthis.cap=puedeRecargarVersion;',c);
   return {c,ls,ss,marks};
 }
-test('la primera recarga automatica de una version se permite y la segunda se omite y se anota',()=>{
+test('cached version reload requests are denied on every attempt',()=>{
   const x=ctx('0.7.32|f123-shell-v732');
-  assert.equal(x.c.cap('login-diferida'),true);
+  assert.equal(x.c.cap('login-diferida'),false);
   assert.equal(x.c.cap('login-diferida'),false,'segunda recarga de la misma version: bucle');
   assert.equal(x.c.cap('version-segura'),false,'ningun otro camino puede recargar de nuevo en esa version');
-  assert.deepEqual(x.marks,['omitida-tope:login-diferida','omitida-tope:version-segura']);
+  assert.equal(x.ss.size,0);
 });
-test('una version nueva vuelve a tener su unica recarga',()=>{
+test('a new version does not reopen the document',()=>{
   const x=ctx('0.7.32|f123-shell-v732');
-  assert.equal(x.c.cap('a'),true);
+  assert.equal(x.c.cap('a'),false);
   x.ls.set('f123_version_vista','0.7.33|f123-shell-v733');
-  assert.equal(x.c.cap('a'),true);
+  assert.equal(x.c.cap('a'),false);
 });
-test('si sessionStorage falla se conserva la conducta anterior (permitir)',()=>{
+test('unavailable session storage still denies reload',()=>{
   const x=ctx('v');x.c.sessionStorage.setItem=()=>{throw new Error('quota');};
-  assert.equal(x.c.cap('a'),true);
+  assert.equal(x.c.cap('a'),false);
 });
-test('los tres caminos automaticos consultan el tope',()=>{
+test('the login and updater no longer navigate automatically',()=>{
   const auth=fs.readFileSync(path.join(root,'docs/auth-ui.js'),'utf8');
-  const dash=fs.readFileSync(path.join(root,'docs/dashboard-updates.js'),'utf8');
-  assert.match(auth,/__f123PuedeRecargarVersion\("login-diferida"\)/);
-  assert.match(src,/__f123PuedeRecargarVersion\("version-segura"\)/);
-  assert.match(dash,/f123_dash_recarga:/);
+  assert.doesNotMatch(auth.slice(auth.indexOf('function entrar(nuevoRol)'),auth.indexOf('const esDemo = nuevoRol')),/location\.reload/);
+  assert.doesNotMatch(src.slice(src.indexOf('function intentar()'),src.indexOf('function shellDelSW()')),/location\.reload/);
 });
 test('el anillo de errores existe, es local y no muestra nada',()=>{
   assert.match(src,/f123_errores_log/);
