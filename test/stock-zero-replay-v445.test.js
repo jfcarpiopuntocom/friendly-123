@@ -88,3 +88,17 @@ test('an absent quantity remains unknown and yields to the first known balance',
   target.receive(source);
   assert.equal(target.catalog().productos.find(x => x.id === p.id).stockActual, 7);
 });
+
+
+test('P0: an unwitnessed newer epoch with positive stock cannot overwrite a known balance', async () => {
+  const w = browser();
+  const p = await fixtureWithStock(w, 'synthetic-unwitnessed-positive', 9);
+  const remote = w.catalog();
+  Object.assign(remote.productos.find(x => x.id === p.id), {
+    stockActual: 1, stockTs: Date.now() + 1000, stockBase: 1,
+    stockPN: {}, stockEpochId: 'unwitnessed-positive', stockCountWitness: null
+  });
+  w.OCSync.aplicarCatalogo(remote, null);
+  const saved = await w.request('/api/respaldo/exportar');
+  assert.equal(saved.productos.find(x => x.id === p.id).stockActual, 9);
+});
