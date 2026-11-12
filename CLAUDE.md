@@ -1,5 +1,7 @@
 # CLAUDE.md — guía breve y vigente de friendly-123
 
+**HARD RULE de JFC (12 nov 2026): la ventana/suite de 33 minutos queda ELIMINADA para siempre** («nunca me ha servido de nada… BORRA ESA MIERDA»). Se borró `promover.yml`. No reinstalar ninguna espera, canario obligatorio ni puerta de 33 minutos, ni como recomendación; solo prueba focalizada del área (FAST-TRACK) y el «va» de JFC.
+
 ## ⛔ DIRECTIVA PRIMA — JFC, 2 nov 2026 (manda sobre todo lo demás)
 
 **El sync de inventario, dinero y movimientos es el núcleo de confianza de friendly-123.** Todo lo demás es secundario.
