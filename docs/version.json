@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.40",
+  "version": "v0.7.41",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.40 P0: el tablero (dashboard) recibe los arreglos de hoy: registro local de errores y recargas, y el unico aviso nativo de error pasa a mostrarse dentro de la pagina. Sin cambios en ventas, inventario, PIN ni licencias.",
+  "changelog": "v0.7.41 P0: las alertas de error de fiado, porciones por botella y plan de pagos ya no son cuadros bloqueantes: el mismo texto aparece dentro de la pagina. Sin cambios en ventas, inventario, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v740",
+  "shell": "f123-shell-v741",
   "apagar": [],
-  "releaseName": "v0.7.40",
-  "cacheGeneration": "golden280"
+  "releaseName": "v0.7.41",
+  "cacheGeneration": "golden281"
 }
