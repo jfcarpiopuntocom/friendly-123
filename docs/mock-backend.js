@@ -3751,6 +3751,24 @@
     return !!(x && x.stockPN && Object.values(x.stockPN).some(v =>
       v && (Number(v.add) > 0 || Number(v.sub) > 0)));
   }
+  /* JFC 2026-11-12: UNA sola funcion para "percha en 0 y faltante" (antes copiada en venta,
+     recuperar cancelacion, corregir venta y cierre del dia). El contador compartido (stockPN)
+     ya lleva la salida completa; aqui solo se muestra la percha en 0 y el faltante aparte. */
+  function _perchaEnCeroYFaltante(p) {
+    if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+  }
+  /* Marcha atras de stock que comparten la venta y la anulacion: foto de la percha, de sus
+     contadores y del registro ANTES de mutar; devuelve la funcion que lo deja todo como estaba. */
+  function _marchaAtrasStock(p) {
+    const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
+      meta: ["stockBase","stockPN","stockTs","stockDeficit"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
+    return () => {
+      p.stockActual = foto.stock;
+      foto.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
+      movimientos.length = foto.movLen;
+      selloUltimo = foto.sello;
+    };
+  }
   function _prepararOpStock(payload, idOperacion) {
     /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
        Dos dispositivos del mismo negocio pueden tener el MISMO producto con ids
@@ -7374,15 +7392,8 @@
            se guardaba: mercaderia perdida sin venta. Toda validacion va antes;
            esta es la primera linea que muta. test/cuadre-hugo-paco-luis.test.js */
         debePersistir = false; // La venta requiere ACK estricto; nunca auto-guardar un 507/500 en el finally exterior.
-        const _fotoVenta = { stock: p.stockActual, ventasLen: ventas.length, movLen: movimientos.length, sello: selloUltimo,
-          meta: ["stockBase","stockPN","stockTs","stockDeficit"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
-        const _revertirVenta = () => {
-          p.stockActual = _fotoVenta.stock;
-          _fotoVenta.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
-          ventas.length = _fotoVenta.ventasLen;
-          movimientos.length = _fotoVenta.movLen;
-          selloUltimo = _fotoVenta.sello;
-        };
+        const _ventasAntes = ventas.length, _deshacerStockVenta = _marchaAtrasStock(p);
+        const _revertirVenta = () => { _deshacerStockVenta(); ventas.length = _ventasAntes; };
         let _ventaGuardada = false, terminarVenta;
         _ventaConfirmando = true;
         _ventaPendiente = new Promise(resolve => { terminarVenta = resolve; });
@@ -7434,7 +7445,7 @@
         /* VENDER SIEMPRE (v737): si se vendio mas de lo que habia, el contador compartido (stockPN)
            ya lleva la salida completa; aqui solo se muestra igual que el merge: percha en 0 y el
            faltante aparte (suma al faltante previo). Reponer paga primero el faltante. */
-        if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+        _perchaEnCeroYFaltante(p);
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
            lleno e IndexedDB caido la app decia "vendido", la op ya habia salido a
@@ -7494,15 +7505,30 @@
         }
         const p = productos.find((x) => x.id === venta.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
+        /* JFC 2026-11-12: anular con guardado confirmado y marcha atras, igual que la venta y la
+           correccion. Antes sumaba el stock y mandaba la operacion sin esperar el guardado: si el
+           guardado fallaba a medias, quedaba stock devuelto en otros aparatos y la venta viva aqui. */
+        const _deshacerStockAnulacion = _marchaAtrasStock(p), _ventaAntesDeAnular = { ...venta };
         p.stockActual += venta.cantidad;
         venta.anulada = true; venta.rev = _revNueva();
-        mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) });
+        mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) }, false);
         /* v597: id determinista por venta (el mismo que usa la devolucion): dos aparatos que
            anulan/cancelan/devuelven la misma venta suman la reposicion UNA sola vez en el
            contador PN (maximo por id), no una por aparato. */
         const _opAnular = { productoId: p.id, delta: venta.cantidad };
         _prepararOpStock(_opAnular, "aj-dev-" + venta.id);
-        emitirOpStock("anulacion", _opAnular, true);
+        let _anulacionGuardada = false;
+        try { _anulacionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+        if (!_anulacionGuardada) {
+          _deshacerStockAnulacion();
+          Object.keys(venta).forEach(k => delete venta[k]);
+          Object.assign(venta, _ventaAntesDeAnular);
+          debePersistir = false;
+          return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
+        }
+        emitirOpStock("anulacion", _opAnular, true); // sale del aparato solo despues del guardado
+        avisarCatalogoCambiado();
+        debePersistir = false; // el guardado estricto ya contiene venta, stock, contadores y registro
         return J({ producto: ficha(p) });
       }
       /* CANCELAR EX-POST (JFC 2026-09-02): "sobre todo en Sales/Sold debe haber
@@ -7627,7 +7653,7 @@
         /* VENDER SIEMPRE (v737): recuperar la venta no se rechaza por stock; lo que falte queda como faltante. */
         const _opRest = { productoId: p.id, delta: -original.cantidad };
         _prepararOpStock(_opRest);
-        if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+        _perchaEnCeroYFaltante(p);
         emitirOpStock("restauracion-cancelacion", _opRest, true);
         return J({ ok: true, ventaId: idRestaurado, producto: ficha(p) });
       }
@@ -7802,7 +7828,7 @@
         const _opEdicionStock = _deltaEdicion ? { productoId: p.id, delta: _deltaEdicion } : null;
         if (_opEdicionStock) _prepararOpStock(_opEdicionStock);
         /* VENDER SIEMPRE (v737): subir la cantidad sin stock deja el faltante, igual que la venta. */
-        if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+        _perchaEnCeroYFaltante(p);
         let _edicionGuardada = false;
         try { _edicionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_edicionGuardada) {
@@ -8625,7 +8651,7 @@
           /* VENDER SIEMPRE (v737): sin stock suficiente la venta igual se registra; el faltante queda aparte. */
           const _opCierre = { productoId: p.id, delta: -cant };
           _prepararOpStock(_opCierre);
-          if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+          _perchaEnCeroYFaltante(p);
           emitirOpStock("cierre-dia", _opCierre, true);
           aplicadas += cant;
           mov("cierre-dia", { producto: p.nombre, cantidad: cant, ubicacion: nombreUbic(p.ubicacionId) });
