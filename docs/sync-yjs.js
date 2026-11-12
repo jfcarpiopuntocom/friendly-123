@@ -2545,6 +2545,7 @@
             } catch (_) { lecturasIDBBloqueadas++; }
           }
           if (!dataUrl) dataUrl = (API.fotosMap && API.fotosMap.get(hash)) || null;
+          if (!dataUrl && window.OCSync.fotoInlineProductoPorHash) dataUrl = window.OCSync.fotoInlineProductoPorHash(hash);
           if (!dataUrl) { if (/^[a-f0-9]{64}$/.test(hash)) fotoSinLeer = true; continue; } // no false ACK
           // Legacy hash keys may be mislabeled. Never replicate a wrong
           // immutable Yjs hash->image pair, and never rewrite local evidence.

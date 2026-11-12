@@ -281,7 +281,7 @@ async function cargarGridVender(){
     const visual = p.foto
       ? `<img src="${p.foto}" alt="" style="width:100%;height:64px;object-fit:cover;border-radius:6px;">`
       : `<div style="width:100%;height:64px;border-radius:6px;background:var(--sim-${p.estado}-bg,#E8ECF2);display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-size:26px;font-weight:700;color:var(--sim-${p.estado}-dk,#2C3E50);">${escHtml(p.nombre.charAt(0).toUpperCase())}</div>`;
-    return `<button data-vender-tile="${p.id}" ${sinStock ? "disabled" : ""} style="text-align:left;padding:8px;border:2px solid var(--sim-${p.estado},#C4CDD8);border-radius:10px;background:#FFFFFF;cursor:${sinStock ? "not-allowed" : "pointer"};touch-action:manipulation;">
+    return `<button data-vender-tile="${escHtml(p.id)}" ${sinStock ? "disabled" : ""} style="text-align:left;padding:8px;border:2px solid var(--sim-${p.estado},#C4CDD8);border-radius:10px;background:#FFFFFF;cursor:${sinStock ? "not-allowed" : "pointer"};touch-action:manipulation;">
       ${visual}
       <div style="font-size:15px;font-weight:700;color:#0F1923;margin-top:6px;line-height:1.25;">${p.estrella ? "⭐ " : ""}${escHtml(p.nombre)}</div>
       <div style="display:flex;flex-direction:column;gap:2px;margin-top:4px;">
@@ -575,7 +575,7 @@ async function cargarCierreLista(){
   cont.innerHTML = `<p style="font-size:15px;font-weight:700;color:var(--sim-verde-dk);margin:8px 0 4px;">${tf("sold.alreadyToday", {n: totalHoy})}</p>` + conStock.map(p => `
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--linea,#D7E0E8);">
       <span style="font-size:15px;color:#0F1923;flex:1;">${escHtml(p.nombre)} <span style="color:#2C3E50;">(${tf("sold.inStock", {n: p.stockActual})})</span>${hoyMap[p.id] ? ` <span style="font-size:14px;font-weight:700;color:var(--sim-verde-dk);">· ${tf("sold.todayCount", {n: hoyMap[p.id]})}</span>` : ""}</span>
-      <input type="number" min="0" max="${p.stockActual}" value="${previos[p.id] || 0}" data-cierre-prod="${p.id}" inputmode="numeric" style="width:76px;padding:8px;border:2px solid var(--azul-medio);border-radius:6px;text-align:center;">
+      <input type="number" min="0" max="${p.stockActual}" value="${previos[p.id] || 0}" data-cierre-prod="${escHtml(p.id)}" inputmode="numeric" style="width:76px;padding:8px;border:2px solid var(--azul-medio);border-radius:6px;text-align:center;">
     </div>`).join("");
   // Anti-dummy: si teclean mas que el stock, se recorta al maximo al salir
   // del campo (el endpoint valida igual, pero mejor avisar aqui mismo).
@@ -1301,7 +1301,7 @@ function tarjetaCliente(c, esDueno){
   // Borrar cliente (JFC 2026-08-27): solo dueño/admin. Borrado REAL, pero
   // siempre queda constancia en el registro de auditoría (mov "cliente-borrado").
   const btnBorrar = esDueno
-    ? `<button onclick="borrarCliente('${c.id}','${escHtml(c.nombre)}')" title="Delete this customer permanently (kept in the audit log)"
+    ? `<button onclick="borrarCliente(${argHtml(c.id)},${argHtml(c.nombre)})" title="Delete this customer permanently (kept in the audit log)"
         style="margin-top:8px;font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">🗑 Delete</button>`
     : "";
   const panelEditar = `<div id="oc-${editKey}" style="display:${panelEditAbierto ? "flex" : "none"};gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px 10px;background:var(--blanco-calido,#fbf5e8);border-radius:6px;">
@@ -1313,7 +1313,7 @@ function tarjetaCliente(c, esDueno){
       <select id="oc-edit-pais-${c.id}" title="Country" style="flex:1;min-width:120px;padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesPais(c.pais)}</select>
       <label style="font-size:14px;"><input id="oc-edit-cuenca-${c.id}" type="checkbox" ${c.resideCuenca===true?"checked":""} data-known="${typeof c.resideCuenca==='boolean'}" onchange="this.dataset.touched='true';this.parentElement.querySelector('small').textContent=''"> ${escHtml(t("cust.cuenca"))}<small style="display:block;">${typeof c.resideCuenca==='boolean'?"":escHtml(t("cust.residencyUnknown"))}</small></label>
       <label style="font-size:14px;">${escHtml(t("cust.gender"))} <select id="oc-edit-genero-${c.id}" data-original="${window.OCCustomerProfile.gender(c.genero)}" style="padding:7px;border:2px solid var(--azul-medio);border-radius:4px;font-size:15px;">${opcionesGenero(c.genero)}</select></label>` : ""}
-      <button onclick="guardarContactoCliente('${c.id}')" class="ir" style="font-size:13px;padding:6px 12px;">Save</button>
+      <button onclick="guardarContactoCliente(${argHtml(c.id)})" class="ir" style="font-size:13px;padding:6px 12px;">Save</button>
     </div>`;
   // Controles de evaluación: visibles a dueño y encargados (no en demo si no hay sesión).
   const puedeEvaluar = window.OCAuth && window.OCAuth.rolActual && (window.OCAuth.rolActual() === "dueno" || window.OCAuth.rolActual() === "empleado");
@@ -1325,7 +1325,7 @@ function tarjetaCliente(c, esDueno){
     let btns = "";
     for (let n = 1; n <= 5; n++) {
       btns += `<button class="oc-rate-btn" title="${titulo} ${n} of 5"
-        onclick="evaluarCliente('${c.id}','${campo}',${n},this)">${iconoFn(n <= valor, 20)}</button>`;
+        onclick="evaluarCliente(${argHtml(c.id)},'${campo}',${n},this)">${iconoFn(n <= valor, 20)}</button>`;
     }
     return `<span class="oc-rate-row" data-valor="${valor}">${btns}</span>`;
   };
@@ -1380,9 +1380,9 @@ function tarjetaCliente(c, esDueno){
     <div id="cartera-${c.id}" style="margin-top:8px;"></div>
     <div style="display:flex;gap:8px;margin-top:6px;">
       <button style="font-size:13px;padding:4px 12px;background:#FDECEA;border:1.5px solid #E8365D;border-radius:6px;color:#B8123C !important;-webkit-text-fill-color:#B8123C !important;cursor:pointer;"
-        onclick="fiarCliente('${c.id}','${escHtml(c.nombre)}')">Record debt (fiado)</button>
+        onclick="fiarCliente(${argHtml(c.id)},${argHtml(c.nombre)})">Record debt (fiado)</button>
       <button style="font-size:13px;padding:4px 12px;background:#EDFAF4;border:1.5px solid #00C87A;border-radius:6px;color:#00704A !important;-webkit-text-fill-color:#00704A !important;cursor:pointer;"
-        onclick="ocRegistrarCredito('${c.id}','${escHtml(c.nombre)}')">${t("cust.recordCredit")}</button>
+        onclick="ocRegistrarCredito(${argHtml(c.id)},${argHtml(c.nombre)})">${t("cust.recordCredit")}</button>
     </div>${toggleAlerta}`;
   /* #8 (JFC 2026-09-10, claridad de Belén): "fiaron una copa y la app dice 2
      purchases; no hay forma clara de ver qué es qué". El número suelto no basta:
@@ -1564,7 +1564,7 @@ async function pintarSaldoCartera(clienteId) {
           // #12: lapicito NARANJA de precaución para dueño/admin — cambia la expiración.
           const _rolC = (window.OCAuth && window.OCAuth.rolActual) ? window.OCAuth.rolActual() : "";
           if (_rolC === "dueno" || _rolC === "admin") {
-            restringido += ` <button type="button" class="oc-edit-btn oc-edit-btn--warn" title="Change expiration" onclick="editarExpiracionCredito('${clienteId}')" style="padding:2px 7px;font-size:12px;">✎</button>`;
+            restringido += ` <button type="button" class="oc-edit-btn oc-edit-btn--warn" title="Change expiration" onclick="editarExpiracionCredito(${argHtml(clienteId)})" style="padding:2px 7px;font-size:12px;">✎</button>`;
           }
         }
       }
@@ -1577,7 +1577,7 @@ async function pintarSaldoCartera(clienteId) {
     // de plan-pagos, que abona a la deuda). Así ese flujo sigue vivo aunque el botón
     // "Record credit (abono)" ahora abra el modal de crédito a favor (item+expiración).
     const btnPagar = debe
-      ? ` <button type="button" onclick="ocPagarDeuda('${clienteId}')" class="oc-edit-btn" style="padding:2px 9px;">${t("cust.recordPayment")}</button>`
+      ? ` <button type="button" onclick="ocPagarDeuda(${argHtml(clienteId)})" class="oc-edit-btn" style="padding:2px 9px;">${t("cust.recordPayment")}</button>`
       : "";
     // #9: crédito totalmente expirado → monto tachado (el dato NO se borra).
     const deco = expiradoTodo ? "text-decoration:line-through;opacity:.7;" : "";
@@ -1623,10 +1623,10 @@ function _accionesVinculoCartera(m, clienteId) {
     const cambio = Number(m.montoOriginal) !== Number(m.monto);
     out += ` <span style="font-size:12px;font-weight:700;color:#19354B;">${escHtml(t("cust.linkFollows"))}${cambio ? ` <s>${fmtMoney(m.montoOriginal)}</s>` : ""}</span>`;
     if (dueno && m.vinculoManual) {
-      out += ` <button type="button" class="oc-edit-btn" data-ui="cartera.unlink" onclick="ocDesvincularCargo('${clienteId}','${escHtml(String(m.id))}')" style="padding:2px 9px;font-size:12px;">${escHtml(t("cust.unlinkSale"))}</button>`;
+      out += ` <button type="button" class="oc-edit-btn" data-ui="cartera.unlink" onclick="ocDesvincularCargo(${argHtml(clienteId)},${argHtml(String(m.id))})" style="padding:2px 9px;font-size:12px;">${escHtml(t("cust.unlinkSale"))}</button>`;
     }
   } else if (dueno && Number(m.vinculables) > 0) {
-    out += ` <button type="button" class="oc-edit-btn" data-ui="cartera.link" onclick="ocVincularCargo('${clienteId}','${escHtml(String(m.id))}')" style="padding:2px 9px;font-size:12px;">${escHtml(t("cust.linkSale"))}</button>`;
+    out += ` <button type="button" class="oc-edit-btn" data-ui="cartera.link" onclick="ocVincularCargo(${argHtml(clienteId)},${argHtml(String(m.id))})" style="padding:2px 9px;font-size:12px;">${escHtml(t("cust.linkSale"))}</button>`;
   }
   return out;
 }
@@ -2670,13 +2670,8 @@ async function cargarHoy(){
     if (!res.ok) throw new Error('Dashboard: ' + res.status);
     data = await res.json();
   } catch (err) {
-    const hero = document.getElementById('heroSemaforo');
-    if (hero) hero.innerHTML = `<p style="font-size:15px;color:var(--rojo-ink,#a3392a);margin:0;">${t("hoy.err")}</p>`;
-    // FIX (JFC 2026-09-17): si /dashboard falla, NO dejar el hero atascado en
-    // "Loading your business..." para siempre (bug que rompe la UI). Se pone el
-    // titulo por defecto para que la pantalla se vea usable aunque el calculo del
-    // dia haya fallado (ej. plan de pagos con datos incompletos).
-    try { const ht = document.getElementById("heroTitulo"); if (ht) { ht.setAttribute("data-i18n", "hoy.titulo.default"); ht.textContent = t("hoy.titulo.default"); } } catch (_) {}
+    const sub = document.getElementById("heroSubtitulo");
+    if (sub) sub.textContent = t("hoy.err");
     try { console.error("[cargarHoy] /dashboard fallo:", err && err.message); } catch (_) {}
     return;
   }
@@ -2700,7 +2695,7 @@ async function cargarHoy(){
   document.getElementById("resEntra").textContent = fmtMoneyPend(data.resumenDia.entra);
   document.getElementById("resSale").textContent = fmtMoneyPend(data.resumenDia.sale);
   document.getElementById("resGanancia").textContent = fmtMoneyPend(data.resumenDia.gananciaHoy);
-  document.getElementById("resInventario").textContent = fmtMoney(data.resumenDia.inventarioValorizado);
+  document.getElementById("resInventario").textContent = fmtMoneyPend(data.resumenDia.inventarioValorizado);
   document.getElementById("resVentasCount").textContent = data.resumenDia.ventasCount;
   // v506: con "entra" desconocido (null) el promedio tambien es desconocido; antes null/n = 0 -> "$0.00".
   const ticketProm = data.resumenDia.entra === null || data.resumenDia.entra === undefined ? null : (data.resumenDia.ventasCount > 0 ? data.resumenDia.entra / data.resumenDia.ventasCount : 0);
@@ -3029,7 +3024,7 @@ function bloqueFoto(p, todos) {
     var onerr = respaldo
       ? "if(this.dataset.r){this.remove();}else{try{OCSalud.fallo('inventario','foto-no-abre')}catch(e){}this.dataset.r=1;this.src=this.dataset.fam;var m=document.createElement('span');m.className='heredada';m.textContent='foto de la familia';this.parentNode.appendChild(m);}"
       : "try{OCSalud.fallo('inventario','foto-no-abre')}catch(e){}this.remove()";
-    html += '<img src="' + src + '"' + (respaldo ? ' data-fam="' + escHtml(respaldo) + '"' : '') + ' alt="" loading="lazy" decoding="async" onerror="' + onerr + '">';
+    html += '<img src="' + escHtml(src) + '"' + (respaldo ? ' data-fam="' + escHtml(respaldo) + '"' : '') + ' alt="" loading="lazy" decoding="async" onerror="' + onerr + '">';
     if (heredada) html += '<span class="heredada">foto de la familia</span>';
   }
   return html + "</div>";
@@ -3293,7 +3288,7 @@ async function cargarInventario(){
   const tarjetasInv = productos.map(p => ({ id: String(p.id), html: `
     <div class="caja tag-card ${p.estado} n${calcularNivelBloom(p)}" data-inv-id="${escHtml(p.id)}" data-buscar="${escHtml(`${p.nombre} ${p.sku} ${p.categoria}`.toLowerCase())}">
       ${p.estrella ? '<span class="estrella-badge">⭐</span>' : ''}
-      <div onclick="abrirFichaDesdeInventario('${p.id}')" style="cursor:pointer;">
+      <div onclick="abrirFichaDesdeInventario(${argHtml(p.id)})" style="cursor:pointer;">
         ${bloqueFoto(p, productos)}
         <div class="nombre">${escHtml(p.nombre)}${p.perecible ? ' 🕓' : ''}</div>
         <div class="detalle">${escHtml(p.categoria)} · ${escHtml(p.sku)}</div>
@@ -3305,10 +3300,10 @@ async function cargarInventario(){
       </div>
       <!-- Ajuste rápido de stock sin escanear -->
       <div class="ajuste-rapido" onclick="event.stopPropagation()" style="margin-top:8px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-        <button data-ajuste-menos="${p.id}" title="${t('inv.removeOne')}" aria-label="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
-        <button data-ajuste-mas="${p.id}" title="${t('inv.addOne')}" aria-label="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
-        ${esDuenoInv ? `<button data-estrella-toggle="${p.id}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" aria-label="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
-        ${esDuenoInv ? `<button data-editar-directo="${p.id}" title="${t('inv.editTooltip')}" aria-label="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
+        <button data-ajuste-menos="${escHtml(p.id)}" title="${t('inv.removeOne')}" aria-label="${t('inv.removeOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">−</button>
+        <button data-ajuste-mas="${escHtml(p.id)}" title="${t('inv.addOne')}" aria-label="${t('inv.addOne')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:18px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;">+</button>
+        ${esDuenoInv ? `<button data-estrella-toggle="${escHtml(p.id)}" title="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" aria-label="${p.estrella ? t('inv.starRemove') : t('inv.starAdd')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:16px;cursor:pointer;">${p.estrella ? '★' : '☆'}</button>` : ''}
+        ${esDuenoInv ? `<button data-editar-directo="${escHtml(p.id)}" title="${t('inv.editTooltip')}" aria-label="${t('inv.editTooltip')}" style="width:36px;height:36px;border-radius:50%;border:2px solid currentColor;background:transparent;color:inherit;font-size:15px;cursor:pointer;">✏️</button>` : ''}
       </div>
     </div>
   ` }));
@@ -3427,6 +3422,10 @@ async function cargarInventario(){
 // nunca debe insertarse crudo en innerHTML (riesgo de XSS almacenado).
 function escHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function argHtml(s) {
+  return escHtml(JSON.stringify(String(s)));
 }
 
 // ============================================================================
@@ -4423,8 +4422,8 @@ async function mostrarFormEditarProducto(id){
         <input id="ed-barcode" type="text" value="${q(p.barcode)}" ${inp}></label>
       <div id="ed-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;">
-        <button class="ir" onclick="guardarEdicionProducto('${p.id}')">${t("form.saveChanges")}</button>
-        <button onclick="abrirFichaDesdeInventario('${p.id}')">${t("motivo.cancel")}</button>
+        <button class="ir" onclick="guardarEdicionProducto(${argHtml(p.id)})">${t("form.saveChanges")}</button>
+        <button onclick="abrirFichaDesdeInventario(${argHtml(p.id)})">${t("motivo.cancel")}</button>
       </div>
     </div>`;
   const _edTipo = document.getElementById("ed-tipo-producto");
@@ -4698,26 +4697,26 @@ function pintarFicha(p){
       <div class="linea"><strong>${t("ficha.supplier")}</strong> ${escHtml(p.proveedor)}</div>
       <div class="linea"><strong>${t("ficha.currentStock")}</strong> ${window.OCBusinessReadModel.stock(p).known ? window.OCBusinessReadModel.stock(p).units + ' ' + t("ficha.units") : escHtml(t('inv.stockPending'))}</div>
       ${p.stockDeficit > 0 ? `<div class="oc-deficit" role="alert" style="margin:6px 0;padding:8px 10px;background:#FFFFFF;color:#7C1024;border:2px solid #C41E3A;border-radius:8px;font-size:15px;font-weight:700;line-height:1.35;">${escHtml(tf("inv.deficit", {n: p.stockDeficit}))}</div>` : ""}
-      ${p.tipoProducto === "bar" ? `<div class="linea" id="bar-servings-line"><strong>Servings per bottle:</strong> ≈ ${Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50)))} (${escHtml(p.servingMl)} ml each)${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<button onclick="editarServings('${p.id}')" title="Adjust servings per bottle" style="font-size:12px;padding:2px 8px;margin-left:6px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}</div>` : ""}
+      ${p.tipoProducto === "bar" ? `<div class="linea" id="bar-servings-line"><strong>Servings per bottle:</strong> ≈ ${Math.max(1, Math.round((Number(p.botellaMl) || 750) / (Number(p.servingMl) || 50)))} (${escHtml(p.servingMl)} ml each)${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<button onclick="editarServings(${argHtml(p.id)})" title="Adjust servings per bottle" style="font-size:12px;padding:2px 8px;margin-left:6px;background:#FFF6E5;border:1.5px solid #B8860B;border-radius:6px;color:#7a5510 !important;-webkit-text-fill-color:#7a5510 !important;cursor:pointer;">✏️</button>` : ""}</div>` : ""}
       ${p.perecible ? `<div class="linea"><strong>${t("ficha.expires")}</strong> ${escHtml(p.fechaCaducidad || t("ficha.noDate"))}${p.metodoCosteo ? ` · ${escHtml(p.metodoCosteo)}` : ""}</div>` : ""}
       <span class="badge-estado ${escHtml(p.estado)}">${escHtml(p.mensaje)}</span>
       <div class="acciones-rapidas">
-        <button class="vender" onclick="abrirPanelVentaInfo('${p.id}', ${p.tipoProducto === "ticket" ? "true" : "false"})" ${p.stockActual === 0 ? "disabled" : ""}>${p.tipoProducto === "ticket" ? "Sell ticket/event" : t("ficha.sellOne")}</button>
-        <button onclick="ajustar('${p.id}', 1)">+1 stock</button>
-        <button onclick="ajustar('${p.id}', -1)">-1 stock</button>
-        <button class="etiqueta" onclick="abrirEtiqueta('${p.id}')">${t("ficha.viewLabel")}</button>
+        <button class="vender" onclick="abrirPanelVentaInfo(${argHtml(p.id)}, ${p.tipoProducto === "ticket" ? "true" : "false"})" ${p.stockActual === 0 ? "disabled" : ""}>${p.tipoProducto === "ticket" ? "Sell ticket/event" : t("ficha.sellOne")}</button>
+        <button onclick="ajustar(${argHtml(p.id)}, 1)">+1 stock</button>
+        <button onclick="ajustar(${argHtml(p.id)}, -1)">-1 stock</button>
+        <button class="etiqueta" onclick="abrirEtiqueta(${argHtml(p.id)})">${t("ficha.viewLabel")}</button>
       </div>
       <!-- "Compradores": visible para cualquier rol autenticado (encargado o dueño).
            Abre la lista de compradores de este producto (reemplaza a la antigua
            vista de mostrador fullscreen, JFC 2026-08-27). -->
       <div class="acciones-rapidas" style="margin-top:8px;">
-        <button onclick="abrirCompradores({productoId:'${p.id}',productoNombre:${escHtml(JSON.stringify(p.nombre))}})" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
+        <button onclick="abrirCompradores({productoId:${argHtml(p.id)},productoNombre:${escHtml(JSON.stringify(p.nombre))}})" style="background:var(--azul-oscuro,#1c3049);color:#fff;border-color:var(--azul-oscuro,#1c3049);">${t("customer.showBtn")}</button>
       </div>
       ${(window.OCAuth && window.OCAuth.puedeGestionar && window.OCAuth.puedeGestionar()) ? `<div class="acciones-rapidas" style="margin-top:8px;">
-        <button onclick="duplicarComoVariante('${p.id}')">${document.documentElement.lang === "es" ? "Crear variante" : "Create variant"}</button>
-        <button onclick="mostrarFormEditarProducto('${p.id}')">${t("ficha.editBtn")}</button>
-        <button style="border-color:var(--rust,#E86040);color:var(--rust-ink,#E86040);" onclick="archivarProductoUI('${p.id}', ${p.archivado ? "false" : "true"}, this)">${p.archivado ? "Unarchive" : "Archive"}</button>
-        <button style="border-color:var(--rojo);color:var(--rojo-ink);" onclick="eliminarProductoUI('${p.id}', this)">${t("ficha.deleteBtn")}</button>
+        <button onclick="duplicarComoVariante(${argHtml(p.id)})">${document.documentElement.lang === "es" ? "Crear variante" : "Create variant"}</button>
+        <button onclick="mostrarFormEditarProducto(${argHtml(p.id)})">${t("ficha.editBtn")}</button>
+        <button style="border-color:var(--rust,#E86040);color:var(--rust-ink,#E86040);" onclick="archivarProductoUI(${argHtml(p.id)}, ${p.archivado ? "false" : "true"}, this)">${p.archivado ? "Unarchive" : "Archive"}</button>
+        <button style="border-color:var(--rojo);color:var(--rojo-ink);" onclick="eliminarProductoUI(${argHtml(p.id)}, this)">${t("ficha.deleteBtn")}</button>
       </div>` : ""}
     </div>
     <div id="oc-transfer-banner"></div>
@@ -4993,7 +4992,7 @@ async function abrirPanelVentaInfo(id, esTicket){
       <p id="vi-impuesto" style="display:none;font-size:15px;font-weight:700;margin:10px 0 0;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;"></p>
       <div id="vi-msg" role="status" aria-live="polite" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
-        <button class="vender" onclick="confirmarVentaConInfo('${p.id}', ${esTicket ? "true" : "false"})" data-i18n="sale.btnConfirm" ${vencido ? "disabled" : ""}>${escHtml(t("sale.btnConfirm"))}</button>
+        <button class="vender" onclick="confirmarVentaConInfo(${argHtml(p.id)}, ${esTicket ? "true" : "false"})" data-i18n="sale.btnConfirm" ${vencido ? "disabled" : ""}>${escHtml(t("sale.btnConfirm"))}</button>
         <button onclick="cancelarPanelVentaInfo()" data-i18n="sale.btnCancel">${escHtml(t("sale.btnCancel"))}</button>
       </div>
     </div>`;
@@ -5769,7 +5768,7 @@ async function cargarEtiquetas(){
   // el escáner, la grilla de inventario) — esta era la última vista que
   // insertaba nombre/SKU crudos en innerHTML. XSS almacenado cerrado aquí.
   grid.innerHTML = productos.map(p => `
-    <div class="etiqueta-card tag-card" onclick="abrirEtiqueta('${p.id}')">
+    <div class="etiqueta-card tag-card" onclick="abrirEtiqueta(${argHtml(p.id)})">
       <div class="nombre-prod">${escHtml(p.nombre)}</div>
       <div class="precio-prod">${fmtMoney(p.precio)}</div>
       <div class="sku-prod">${escHtml(p.sku)}</div>
@@ -6376,8 +6375,8 @@ async function cargarGastos(){
         <div style="font-size:13px;color:var(--ink-soft);"><span style="display:inline-block;padding:1px 8px;border-radius:999px;background:var(--blanco-calido,#fbf5e8);border:1px solid var(--linea,#D7E0E8);font-size:12px;">${escHtml(gastoCatLabel(g.categoria))}</span> · ${fechaGastoVisible(g.fecha)}${g.factura ? " · Invoice " + escHtml(g.factura) : ""}${g.metodoPago ? " · " + escHtml(window.t ? window.t("exp." + g.metodoPago) : g.metodoPago) : ""}${/^[a-f0-9]{64}$/.test(g.facturaFotoHash || "") ? ` · <button type="button" onclick="OCExpenseReceipt.open('${escHtml(g.facturaFotoHash)}')">${window.t ? window.t("exp.viewReceipt") : "Receipt photo"}</button>` : ""}${g.usuarioNombre ? " · " + escHtml(g.usuarioNombre) : ""}</div>
       </div>
       <strong style="color:var(--rojo-ink);font-size:16px;">-${fmtMoney(g.monto)}</strong>
-      ${_puedeEditarGasto ? `<button onclick="editarGasto('${g.id}')" title="Edit this expense" class="oc-edit-btn oc-edit-btn--warn">✎</button>` : ""}
-      ${_puedeEditarGasto ? `<button onclick="anularGasto('${g.id}')" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>` : ""}
+      ${_puedeEditarGasto ? `<button onclick="editarGasto(${argHtml(g.id)})" title="Edit this expense" class="oc-edit-btn oc-edit-btn--warn">✎</button>` : ""}
+      ${_puedeEditarGasto ? `<button onclick="anularGasto(${argHtml(g.id)})" title="Delete this expense" style="font-size:13px;padding:3px 8px;background:#FDECEA;border:1.5px solid #C0392B;border-radius:6px;color:#C0392B !important;-webkit-text-fill-color:#C0392B !important;cursor:pointer;">✕</button>` : ""}
     </div>`).join("");
 }
 async function registrarGasto(){

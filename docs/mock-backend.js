@@ -3336,7 +3336,8 @@
     const margen = p.precio > 0 ? (p.precio - p.costo) / p.precio : 0;
     const dias = p.perecible ? diasParaVencer(p.fechaCaducidad) : null;
     let porStock;
-    if (p.stockActual <= 0) porStock = { estado: "rojo", nivel: 3, mensaje: _t("alert.noStock") };
+    if (!window.OCBusinessReadModel.stock(p).known) porStock = { estado: "naranja", nivel: 1, mensaje: _t("inv.stockPending") };
+    else if (p.stockActual <= 0) porStock = { estado: "rojo", nivel: 3, mensaje: _t("alert.noStock") };
     else if (p.stockActual <= p.umbralRojo) {
       porStock = { estado: "rojo", nivel: p.stockActual <= Math.ceil(p.umbralRojo / 2) ? 2 : 1, mensaje: _t("alert.lowRed", { n: p.stockActual }) };
     } else if (p.stockActual <= p.umbralAmarillo) {
@@ -4444,7 +4445,7 @@
            con stock 0 (filosofia "el stock es fisico de cada percha"). En un
            cuaderno COMPARTIDO el stock es dato del negocio y cruza: el articulo
            entra CON el stock del otro aparato. */
-        productos.push(Object.assign({}, p, { stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0, fotoHash: p.fotoHash || null }));
+        productos.push(Object.assign({}, p, { stockActual: window.OCBusinessReadModel.stock(p).units, stockTs: Number(p.stockTs) || 0, fotoHash: p.fotoHash || null }));
         _observarRev(p.rev);
         agregadosP++;
       } else {
@@ -4470,6 +4471,8 @@
         const _tsR = Number(p.stockTs) || 0, _tsL = Number(mio.stockTs) || 0;
         const _pnR = p.stockPN && typeof p.stockPN === "object" ? p.stockPN : null;
         const _pnL = mio.stockPN && typeof mio.stockPN === "object" ? mio.stockPN : null;
+        const _stockRConocido = window.OCBusinessReadModel.stock(p).units;
+        const _stockLConocido = window.OCBusinessReadModel.stock(mio).units;
         const _baseR = p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null;
         const _baseL = mio.stockBase != null && Number.isFinite(Number(mio.stockBase)) ? Number(mio.stockBase) : null;
         const epochRemote = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
@@ -4539,7 +4542,8 @@
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
-          if (Number.isSafeInteger(net)) {
+          // A later clock cannot replace known units with a zero from an unproven baseline.
+          if (Number.isSafeInteger(net) && (net > 0 || !(_stockLConocido > 0) || _conteoR)) {
             mio.stockEpochId = epochRemote;
             mio.stockCountWitness = p.stockCountWitness ? clonar(p.stockCountWitness) : null;
             mio.stockCountTs = Number(p.stockCountTs) || 0;
@@ -4551,7 +4555,7 @@
             actualizados++;
           }
         } else if (!epochConflict && _baseR !== null && (_baseL === _baseR || (_baseL === null &&
-            (Number(mio.stockActual) === _baseR || Number(mio.stockActual) === Number(p.stockActual))))) {
+            (_stockLConocido === null || _stockLConocido === _baseR || _stockLConocido === _stockRConocido)))) {
           const pn = Object.assign({}, _pnL || {});
           Object.keys(_pnR || {}).forEach((id) => {
             const antes = pn[id] || {}, nuevo = _pnR[id] || {};
@@ -4567,13 +4571,13 @@
           mio.stockBase = _baseR; mio.stockPN = pn; mio.stockActual = calculado; mio.stockDeficit = _deficit;
           mio.stockTs = Math.max(_tsL, _tsR);
           mio.stockCountTs = Math.max(Number(mio.stockCountTs) || 0, Number(p.stockCountTs) || 0);
-        } else if (!epochConflict && _baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
+        } else if (!epochConflict && _baseL === null && _baseR === null && (_tsR > _tsL || (_stockLConocido === null && _tsR === _tsL)) && _stockRConocido !== null) {
           /* Compatibilidad con aparatos anteriores al ledger de stock.
              v445 bloqueo el cero legado destructivo. v447 agrega la otra mitad:
              si YA existe un reloj comun, un stockTs legado que esta >5 min en el
              futuro no demuestra recencia y no puede ganar, sea cero o positivo.
              Se preserva el estado local y se emite diagnostico; no se inventa stock. */
-          const _stockR = Math.max(0, Number(p.stockActual));
+          const _stockR = _stockRConocido;
           const _ahoraComun = ahoraRelayComun();
           const _tsFuturoImposible = _ahoraComun !== null && _tsR > _ahoraComun + 5 * 60 * 1000;
           const _ceroLegadoSospechoso = _stockR === 0 && Number(mio.stockActual) > 0;
@@ -4605,9 +4609,11 @@
           const pnG = {};
           Object.keys(_pnR || {}).forEach((id) => { pnG[id] = { add: Number(_pnR[id].add) || 0, sub: Number(_pnR[id].sub) || 0 }; });
           const _crudoG = _baseR + Object.keys(pnG).reduce((n, id) => n + pnG[id].add - pnG[id].sub, 0);
-          mio.stockBase = _baseR; mio.stockPN = pnG; mio.stockActual = Math.max(0, _crudoG);
-          mio.stockDeficit = _crudoG < 0 ? -_crudoG : 0; mio.stockTs = _tsR; actualizados++;
-          try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
+          if (_crudoG > 0 || !(_stockLConocido > 0) || _conteoR || (_baseR > 0 && _stockHechosNoVacios(p))) {
+            mio.stockBase = _baseR; mio.stockPN = pnG; mio.stockActual = Math.max(0, _crudoG);
+            mio.stockDeficit = _crudoG < 0 ? -_crudoG : 0; mio.stockTs = _tsR; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
+          }
         } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "local" } })); } catch (_) {}
         }
@@ -5483,7 +5489,7 @@
              viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
              edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
-          stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0,
+          stockActual: window.OCBusinessReadModel.stock(p).units, stockTs: Number(p.stockTs) || 0,
           stockCountTs: Number(p.stockCountTs) || 0,
           stockBase: p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null,
           stockEpochId: typeof p.stockEpochId === "string" ? p.stockEpochId : "",
@@ -5612,6 +5618,10 @@
        - hidratarFotosProductos(): en el receptor, cuando ya bajaron los bytes,
          pone p.foto = OCFotos[fotoHash] para los productos que tienen puntero pero
          no bytes inline, para que la UI (que pinta p.foto) los muestre. */
+    fotoInlineProductoPorHash(hash) {
+      const p = productos.find(p => p && !p.borrado && p.fotoHash === hash && p.foto);
+      return p ? p.foto : null;
+    },
     async hashearFotosProductos() {
       if (!window.OCFotos || !window.OCFotos.hashDeDataUrl) return 0;
       let n = 0;
@@ -5770,7 +5780,7 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "",
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: window.OCBusinessReadModel.stock(p).units, familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "",
           stockCountWitness: p.stockCountWitness || null,
           stockReconciliacionPendiente: p.stockReconciliacionPendiente === true, borrado: !!p.borrado, archivado: !!p.archivado, rev: p.rev || null, fotoHash: p.fotoHash || null })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
@@ -5843,11 +5853,11 @@
         snap.productos.forEach((p) => {
           if (!p || !p.id) return;
           if (_estaEnSemillaDemoSeleccionada(_demoSnap, "productos", p)) return;
-          const stk = Math.max(0, Number(p.stockActual) || 0);
+          const stk = window.OCBusinessReadModel.stock(p).units;
           const mio = productos.find((x) => String(x.id) === String(p.id));
           // v648: a store's real sales reach a device through Yjs, so `fresco` is false on any device of a used store. A product
           // this device did not know, or holds at 0 with no base of its own, has no local truth to protect: it takes the photo.
-          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); productos[productos.length - 1].stockActual = stk; if (p.stockBase == null || !Number.isFinite(Number(p.stockBase))) delete productos[productos.length - 1].stockEpochId; agPr++; }
+          if (!mio) { productos.push(Object.assign({}, p, { stockActual: stk })); if (p.stockBase == null || !Number.isFinite(Number(p.stockBase))) delete productos[productos.length - 1].stockEpochId; agPr++; }
           else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
         });
         /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
@@ -7108,7 +7118,7 @@
         const dailyProjection = dailyReader ? dailyReader.daily(ventasActivas().filter(v => !uid || uid === "todas" || v.ubicacionId === uid).map(v => ({...v,fechaLocal:fechaLocalDe(v.fecha,v.relojDesfaseMs),fechaDevolucion:v.fechaDevolucion || (ajustesComision.find(a => a && (a.id === v.devolucionId || (a.tipo === "devolucion" && a.ventaId === v.id))) || {}).fecha})),hoyISO(),ZONA) : null;
         const entra = dailyProjection ? dailyProjection.entra : vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
         const sale = dailyProjection ? dailyProjection.sale : vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
-        const inv = ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
+        const inv = ps.some(p => !window.OCBusinessReadModel.stock(p).known) ? null : ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
         const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}`, reposicionPlegable: avisoPlegable(e.p) }));
         // El hero de HOY es tri-estado (verde/amarillo/rojo, como el manual):
         // las alertas naranjas ("revisar pronto") encienden el nivel medio.
@@ -7131,7 +7141,7 @@
         const avisosRebaja = ps.filter((p) => (Number(p.stockActual) || 0) > 0).map((p) => ({ p, r: rebajaDe(p) }))
           .filter((x) => x.r.proxima && x.r.proxima.enDias <= 3)
           .map((x) => ({ productoId: x.p.id, nombre: x.p.nombre, enDias: x.r.proxima.enDias, pct: x.r.proxima.pct, precioLista: x.p.precio, precioNuevo: +(x.p.precio * (1 - x.r.proxima.pct / 100)).toFixed(2) }));
-        return J({ semaforoGeneral: sem, resumenDia: { entra: entra===null?null:+entra.toFixed(2), sale: sale===null?null:+sale.toFixed(2), gananciaHoy: entra===null||sale===null?null:+(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas, avisosRebaja });
+        return J({ semaforoGeneral: sem, resumenDia: { entra: entra===null?null:+entra.toFixed(2), sale: sale===null?null:+sale.toFixed(2), gananciaHoy: entra===null||sale===null?null:+(entra - sale).toFixed(2), inventarioValorizado: inv === null ? null : +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas, avisosRebaja });
        } catch (e) {
         // FIX v301: el dashboard NUNCA debe lanzar (un producto con datos
         // incompletos hacia 500 -> el hero se quedaba en "Loading"). Se responde

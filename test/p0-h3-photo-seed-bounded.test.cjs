@@ -24,7 +24,7 @@ test('H3 RED: all catalog, orphan, and Yjs-only photos seed without bulk-read an
  const Y=ctx.Y,doc=new Y.Doc(),map=doc.getMap('blobs');
  const catVal='data:image/png;base64,AQID',orphanVal='data:image/png;base64,BAUG',yVal='data:image/png;base64,BwgJ';
  const hCat=hashOfPhoto(catVal),hOrphan=hashOfPhoto(orphanVal),hOnly=hashOfPhoto(yVal);
- const values=new Map([[hCat,catVal],[hOrphan,orphanVal]]);
+ const values=new Map([[hOrphan,orphanVal]]);
  map.set(hOnly,yVal);
  const writes=[],ws={relayLayer:'synthetic-photos-relay'};
  let inFlight=0,maxInflight=0,bulkCalls=0;
@@ -32,6 +32,7 @@ test('H3 RED: all catalog, orphan, and Yjs-only photos seed without bulk-read an
   enviarUpdate:update=>writes.push(Buffer.from(update))}};
  ctx.window={Y,OCSync:{
    catalogoPropio:()=>({productos:[{fotoHash:hCat}],ubicaciones:[],gastos:[]}),
+   fotoInlineProductoPorHash:hash=>hash===hCat?catVal:null,
    hashearFotosProductos:async()=>0,hashearFotosPerchas:async()=>0
  },OCFotos:{
    hashesGuardados:async()=>[hOrphan,hCat],
@@ -47,7 +48,7 @@ test('H3 RED: all catalog, orphan, and Yjs-only photos seed without bulk-read an
  vm.runInContext(snippet,ctx);
  vm.runInContext('sembrarFotosAlRelay();',ctx);
  await until(()=>[hCat,hOrphan,hOnly].every(h=>ctx._fotosSembradas[h]?.[ws.relayLayer]));
- for(const [key,content] of [...values,[hOnly,yVal]]) assert.equal(map.get(key),content,'same bytes in Yjs for '+key);
+ for(const [key,content] of [[hCat,catVal],...values,[hOnly,yVal]]) assert.equal(map.get(key),content,'same bytes in Yjs for '+key);
  assert.equal(writes.length,3,'exactly one initial durable update per blob');
  assert.equal(bulkCalls,0,'normal seed must not materialize whole photo library');
  assert.equal(maxInflight,1,'sequential per-hash seed keeps transient photo reads bounded');
