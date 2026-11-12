@@ -19,6 +19,27 @@
 (function () {
   "use strict";
 
+  /* (JFC 2026-11-11, v738) Anillo local de errores del tablero, IGUAL que el de la app (src/app/app-inline-03.js):
+     ultimos 20 en localStorage "f123_errores_log" = [{k: tipo, m: mensaje(160), s: fuente(60), t: ms}].
+     Mismo origen que la app, mismas claves: un solo registro para diagnostico en campo.
+     Sin UI, sin red, sin datos de clientes, nunca lanza y nunca muestra nada.
+     (Excepcion deliberada a "no guarda nunca" de arriba: es solo este rastro tecnico, no datos del negocio.)
+     PARA REVERTIR: borrar este bloque. */
+  (function () {
+    function reg(tipo, msg, fuente) {
+      try {
+        var a = JSON.parse(localStorage.getItem("f123_errores_log") || "[]");
+        if (!Array.isArray(a)) a = [];
+        a.push({ k: tipo, m: String(msg || "").slice(0, 160), s: String(fuente || "").slice(-60), t: Date.now() });
+        localStorage.setItem("f123_errores_log", JSON.stringify(a.slice(-20)));
+      } catch (_) {}
+    }
+    try {
+      window.addEventListener("error", function (e) { reg("error", e && e.message, e && e.filename); });
+      window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; reg("rechazo", r && (r.message || r), ""); });
+    } catch (_) {}
+  })();
+
   /* --- ESPEJO EXACTO de sync-realtime.js. No tocar sin tocar alla. --- */
   var RELAY_URL = "wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/";
   var SALT_FIJO = "amigable-sync-v1";
@@ -2055,7 +2076,11 @@
         if (v === null) return;
         ordenar("POST", "/micelio/apodo", { apodo: v }, id).then(function (r) {
           if (r && r.ok) { latidos[id] = latidos[id] || {}; latidos[id].apodo = v; pintarMicelio(); }
-          else alert("No se pudo renombrar: " + ((r && r.datos && r.datos.error) || "sin respuesta"));
+          /* FEATURE — DORMANT (desactivada por orden de JFC, 2026-11-11: modales de error y aviso que no son de venta ni de uso de la UI). NO BORRAR.
+             Antes: alert("No se pudo renombrar: ...") abria un modal nativo de error. Ahora el mismo texto va en la linea
+             de estado existente (#micelio-nota). Para reactivar el modal: restaurar la llamada alert con el mismo texto.
+          else alert("No se pudo renombrar: " + ((r && r.datos && r.datos.error) || "sin respuesta")); */
+          else { var nota = $("micelio-nota"); if (nota) nota.textContent = "No se pudo renombrar: " + ((r && r.datos && r.datos.error) || "sin respuesta"); }
         });
       });
     }
