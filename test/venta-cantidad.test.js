@@ -50,9 +50,11 @@ test('venta: cantidades invalidas se rechazan, no se adivinan', async () => {
  r=await J(`/api/productos/${p.id}/venta`,{method:'POST',body:JSON.stringify({cantidad:0})});
  chk('venta cantidad 0 RECHAZADA',r.s===400,r);
 
- // sobreventa
  r=await J(`/api/productos/${p.id}/venta`,{method:'POST',body:JSON.stringify({cantidad:99999})});
- chk('sobreventa RECHAZADA',r.s===400,r);
+ // sobreventa: desde v737 ("vender siempre") se acepta; la percha queda en 0 y lo que falta se anota aparte
+ chk('sobreventa ACEPTADA con faltante',r.s===200,r);
+ after=(await J('/api/productos')).b.find(x=>x.id===p.id);
+ chk('percha en 0 y faltante exacto',after.stockActual===0 && after.stockDeficit===99999-(st0-2),{now:after.stockActual,def:after.stockDeficit});
 
  // cantidad no numerica
  r=await J(`/api/productos/${p.id}/venta`,{method:'POST',body:JSON.stringify({cantidad:"dos"})});
