@@ -242,8 +242,31 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
       }catch(_){return false;}
     },expectedRacks,{timeout:5000,polling:100});
     const third=await ctx.newPage();await third.goto(ORIGIN+'/index.html',{waitUntil:'load'});
+    // Cold-start IndexedDB rescue runs asynchronously after the HTML load.
+    // Wait for the actual API on the THIRD page to expose the committed state,
+    // not just for the second page's IDB mirror to contain the data. Still
+    // assert that neither rack disappears, duplicates, or stays invisible.
+    try{
+      await third.waitForFunction(async names=>{
+        const r=await fetch('/api/ubicaciones');
+        if(!r.ok)return false;
+        const racks=await r.json();
+        return names.every(n=>racks.filter(x=>x.nombre===n).length===1);
+      },expectedRacks,{timeout:5000,polling:100});
+    }catch(error){
+      const facts=await third.evaluate(async()=>{
+        const racks=await (await fetch('/api/ubicaciones')).json();
+        const idb=await window.OCEstadoIDB?.leer?.().catch(()=>null);
+        const ab=window.OCEstadoAB?.leer?.();
+        return {racks:racks.map(x=>x.nombre),idbRev:idb?._rev,
+          idbRacks:idb?.ubicaciones?.map(x=>x.nombre),
+          abRev:ab?.revMax,abActive:ab?.activo,abConflicts:ab?.conflictos?.length};
+      }).catch(e=>({probeError:String(e)}));
+      console.error('TAB_COLD_LOAD_FORENSIC',JSON.stringify(facts));
+      throw error;
+    }
     const racks=(await third.evaluate(async()=>(await fetch('/api/ubicaciones')).json())).map(x=>x.nombre);
-    for(const n of ['Quota contender allowed','Quota legitimate owner'])assert.equal(racks.filter(x=>x===n).length,1,n+' saved once');
+    for(const n of expectedRacks)assert.equal(racks.filter(x=>x===n).length,1,n+' saved once');
    }finally{await web.close();}
   });
  }
