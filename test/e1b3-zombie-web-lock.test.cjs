@@ -64,7 +64,9 @@ test('a queued write is rejected with 403 when the role really changes before ex
   await tick();f.ctx._rolLocal=()=> '';release();
   const r2=await two;
   assert.equal((await one).status,200);assert.equal(r2.status,403);assert.equal(started,1);
-  assert.match(await r2.text(),/Your session changed while this action was waiting/);
+  const cuerpo=await r2.text();
+  assert.doesNotMatch(cuerpo,/Your session changed while this action was waiting/,'JFC 2026-11-12: forbidden message');
+  assert.match(cuerpo,/Ask the owner or a manager/);
 });
 test('a queued mutation still completes when the tab loses the lease (sync-only concept)',async()=>{
   const f=fixture();let release,started=0,current=true;

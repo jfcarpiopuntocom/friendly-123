@@ -153,7 +153,7 @@
   function crearCanal(Y, doc, suffix, nombre, permiteCkpt, seedFn, persistencia) {
     var canal = { ws: null, pend: [], recuperando: true, recuperacionLocal: "listo" };
     var _pausado = false, _tReconnect = null;
-    function permitido() { return !document.hidden && (!window.OCTabSession || OCTabSession.canSync()); }
+    function permitido() { return !document.hidden; } // JFC 2026-11-12: sin turno entre pestanas
     var MAX_OP_BYTES = 250 * 1024; // guard de operaciones; no relajar
     var MAX_CKPT_RPC_BYTES = 256 * 1024; // fallback para adaptadores sin capacidad anunciada
     var MAX_CKPT_CIPHER_BYTES = 768 * 1024; // requiere migracion SQL 768KiB antes de habilitar adaptador
@@ -2204,7 +2204,7 @@
     window.addEventListener("oc-catalogo-cambiado", pedirProcesarEventos);
 
     function sincronizarVisibilidad() {
-      var activo = !document.hidden && (!window.OCTabSession || OCTabSession.canSync());
+      var activo = !document.hidden;
       [API.canal, API.fotosCanal, API.opsCanal].forEach(function (c) {
         if (c) { if (activo) c.reanudar(); else c.pausar(); }
       });
@@ -2217,7 +2217,7 @@
     // The channels were just connected. Re-invoking reanudar() on a visible
     // tab repeats all three connection attempts when relay is offline.
     // A hidden/inactive tab must still be paused immediately (no data sends).
-    if (document.hidden || (window.OCTabSession && !OCTabSession.canSync())) sincronizarVisibilidad();
+    if (document.hidden) sincronizarVisibilidad();
     conectarStore(Y);   // FASE 2: leer/escribir el store REAL de la app (add-only)
     conectarHechos();    // cartera y caja chica: hechos inmutables por ID
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.

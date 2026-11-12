@@ -10,8 +10,10 @@ test("E1b-3 RED: visibility and tab ownership pause and resume all Yjs rooms",()
  assert.match(sync,/function sincronizarVisibilidad\(/,"one visibility/lease gate controls Yjs");
  assert.match(sync,/window\.addEventListener\("oc-tab-session-changed",\s*sincronizarVisibilidad\)/);
  assert.match(sync,/document\.addEventListener\("visibilitychange",\s*sincronizarVisibilidad\)/);
- assert.match(sync,/var activo = !document\.hidden && \(!window\.OCTabSession \|\| OCTabSession\.canSync\(\)\);/,
-  "a visible current tab alone may keep active sync");
+ assert.match(sync,/var activo = !document\.hidden;/,
+  "JFC 2026-11-12: visibility alone gates sync; the tab lease no longer pauses it");
+ assert.doesNotMatch(sync.replace(/\/\/[^
+]*|\/\*[\s\S]*?\*\//g,""),/OCTabSession/,"sync-yjs must not consult the tab lease");
  assert.match(sync,/\[API\.canal,\s*API\.fotosCanal,\s*API\.opsCanal\]\.forEach/,
   "all three rooms must share visibility gate");
  assert.match(sync,/if\s*\(c\)\s*\{\s*if\s*\(activo\)\s*c\.reanudar\(\);\s*else\s*c\.pausar\(\);\s*\}/,
@@ -130,8 +132,9 @@ test("E1b-3: three Yjs rooms follow visibility and lease",()=>{
  vm.createContext(ctx);vm.runInContext(sync.slice(start,end),ctx);
  ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":resume")).length,3);
  hidden=true;ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":pause")).length,3);
- hidden=false;allowed=false;ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":pause")).length,6);
- allowed=true;ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":resume")).length,6);
+ // JFC 2026-11-12: a visible screen syncs even when another screen holds the old lease.
+ hidden=false;allowed=false;ctx.sincronizarVisibilidad();assert.equal(actions.filter(x=>x.endsWith(":pause")).length,3);
+ assert.equal(actions.filter(x=>x.endsWith(":resume")).length,6);
 });
 
 
