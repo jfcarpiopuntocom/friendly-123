@@ -4536,6 +4536,7 @@
         // An epoch ID alone cannot make an older snapshot a physical recount.
         const _testigoR = p.stockCountWitness;
         const _conteoR = _testigoR && typeof _testigoR.epoch === "string" &&
+          _testigoR.epoch.length > 0 && _testigoR.epoch === epochRemote &&
           _testigoR.pn && typeof _testigoR.pn === "object" && !Array.isArray(_testigoR.pn);
         if ((epochConflict && !epochLocal && epochRemote && _baseR !== null &&
             (_tsR > _tsL || _conteoR)) || _gana) {
