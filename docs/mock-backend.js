@@ -7619,12 +7619,16 @@
         }
         const p = productos.find((x) => x.id === original.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
-        if (!Number.isInteger(original.cantidad) || original.cantidad <= 0 || p.stockActual < original.cantidad) return J({ error: "Not enough stock to undo this cancellation." }, 400);
+        if (!Number.isInteger(original.cantidad) || original.cantidad <= 0) return J({ error: "Invalid quantity in the cancelled sale." }, 400);
         const restaurada = { ...original, id: idRestaurado, anulada: false, canceladaExPostEn: null, restauracionDe: original.id, rev: _revNueva() };
         p.stockActual -= original.cantidad;
         ventas.push(restaurada);
         mov("restauracion-cancelacion", { ventaId: original.id, ventaRestauradaId: idRestaurado, producto: p.nombre, cantidad: original.cantidad, total: +(original.precioUnit * original.cantidad).toFixed(2) });
-        emitirOpStock("restauracion-cancelacion", { productoId: p.id, delta: -original.cantidad });
+        /* VENDER SIEMPRE (v737): recuperar la venta no se rechaza por stock; lo que falte queda como faltante. */
+        const _opRest = { productoId: p.id, delta: -original.cantidad };
+        _prepararOpStock(_opRest);
+        if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+        emitirOpStock("restauracion-cancelacion", _opRest, true);
         return J({ ok: true, ventaId: idRestaurado, producto: ficha(p) });
       }
       /* EDITAR UNA VENTA (JFC 2026-09-02): la lista de Sold es editable con
@@ -7719,9 +7723,6 @@
           // correction must never leave an orphan financial receipt.
           const _cantFinal = _hayCant ? Number(body.cantidad) : venta.cantidad;
           const _precioFinal = _hayPrecio ? +Number(body.precioUnit).toFixed(2) : venta.precioUnit;
-          if (_cantFinal > venta.cantidad && p.stockActual < _cantFinal - venta.cantidad) {
-            return J({ error: "Not enough stock for this correction." }, 400);
-          }
           const _montoFiadoFinal = +(_cantFinal * _precioFinal).toFixed(2);
           if (!(_montoFiadoFinal > 0)) return J({ error: "On-account amount must be greater than zero." }, 400);
           if (_pagoAnterior !== "fiado") {
@@ -7751,7 +7752,6 @@
         if (body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "") {
           const nueva = Number(body.cantidad); // validada arriba (B2): entero >= 1
           const delta = nueva - venta.cantidad; // >0 = vender más (baja stock)
-          if (delta > 0 && p.stockActual < delta) return J({ error: `Not enough stock to raise the quantity (only ${p.stockActual} left).` }, 400);
           if (delta !== 0) {
             p.stockActual -= delta;
             _deltaEdicion = -delta;
@@ -7801,6 +7801,8 @@
         // Prepare without publishing, then emit exactly once after strict ACK.
         const _opEdicionStock = _deltaEdicion ? { productoId: p.id, delta: _deltaEdicion } : null;
         if (_opEdicionStock) _prepararOpStock(_opEdicionStock);
+        /* VENDER SIEMPRE (v737): subir la cantidad sin stock deja el faltante, igual que la venta. */
+        if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
         let _edicionGuardada = false;
         try { _edicionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_edicionGuardada) {
@@ -7893,9 +7895,9 @@
             p.stockDeficit = 0; p.stockTs = Date.now(); p.stockActual = fisico;
             p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
           } else p.stockActual += d;
-          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
           const op = { productoId: p.id, delta: d };
           if (fisico === null) _prepararOpStock(op);
+          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
           try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
           if (!guardado) {
             revertir();
@@ -8615,13 +8617,16 @@
           const cant = Number(it.cantidad);
           if (!p || !Number.isInteger(cant) || cant <= 0) { errores.push("There is an invalid item in the day close."); continue; }
           if (p.precioReserva != null || p.precioWalkIn != null) { errores.push(`${p.nombre}: record each reservation or walk-in through Sell so its price is explicit.`); continue; }
-          if (p.stockActual < cant) { errores.push(`${p.nombre}: solo hay ${p.stockActual} en stock.`); continue; }
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
           const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
           const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
           p.stockActual -= cant;
           ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
-          emitirOpStock("cierre-dia", { productoId: p.id, delta: -cant });
+          /* VENDER SIEMPRE (v737): sin stock suficiente la venta igual se registra; el faltante queda aparte. */
+          const _opCierre = { productoId: p.id, delta: -cant };
+          _prepararOpStock(_opCierre);
+          if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+          emitirOpStock("cierre-dia", _opCierre, true);
           aplicadas += cant;
           mov("cierre-dia", { producto: p.nombre, cantidad: cant, ubicacion: nombreUbic(p.ubicacionId) });
         }
