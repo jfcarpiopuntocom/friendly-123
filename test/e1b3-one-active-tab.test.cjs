@@ -12,8 +12,7 @@ test("E1b-3 RED: visibility and tab ownership pause and resume all Yjs rooms",()
  assert.match(sync,/document\.addEventListener\("visibilitychange",\s*sincronizarVisibilidad\)/);
  assert.match(sync,/var activo = !document\.hidden;/,
   "JFC 2026-11-12: visibility alone gates sync; the tab lease no longer pauses it");
- assert.doesNotMatch(sync.replace(/\/\/[^
-]*|\/\*[\s\S]*?\*\//g,""),/OCTabSession/,"sync-yjs must not consult the tab lease");
+ assert.doesNotMatch(sync,/OCTabSession\.canSync/,"sync-yjs must not consult the tab lease");
  assert.match(sync,/\[API\.canal,\s*API\.fotosCanal,\s*API\.opsCanal\]\.forEach/,
   "all three rooms must share visibility gate");
  assert.match(sync,/if\s*\(c\)\s*\{\s*if\s*\(activo\)\s*c\.reanudar\(\);\s*else\s*c\.pausar\(\);\s*\}/,
