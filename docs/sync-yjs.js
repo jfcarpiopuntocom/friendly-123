@@ -637,6 +637,12 @@
       // The absorbing full-state group (bounded, it carries every change) drains before the backlog it replaces.
       var absorbe = available.filter(function (entry) { return entry.abs; });
       if (absorbe.length) available = absorbe.concat(available.filter(function (entry) { return !entry.abs; })).slice(0, capacity);
+      /* v752 (JFC 2026-11-12, clientes con hueco): el salto de abajo sube la operacion mas nueva ANTES que las
+         anteriores del mismo aparato. Si el aparato se cierra en ese momento y no vuelve, la capa durable queda con un
+         hueco en su secuencia y ningun aparato nuevo termina de unirse. Un aparato que aun se esta uniendo
+         (recuperando) no tiene un cambio del usuario que apurar: sube en orden, y cerrarlo solo deja fuera el final.
+         El aparato completo conserva el salto. PARA REVERTIR: borrar la linea "else if (canal.recuperando)". */
+      else if (canal.recuperando) available = available.slice(0, capacity);
       else if (available.length > capacity) {
         // Reserve one in-flight slot for the newest business change behind a history backlog.
         available = available.slice(0, Math.max(0, capacity - 1)).concat(available[available.length - 1]);
