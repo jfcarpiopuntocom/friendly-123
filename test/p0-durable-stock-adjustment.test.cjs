@@ -16,6 +16,10 @@ const awaitPending = async fn => {
 test('manual stock adjustment is not visible or emitted until strict durable ACK', async () => {
   const w = browser();
   w.localStorage.setItem('f123_device_id', 'fixture-adjust-device');
+  // An authenticated physical count establishes the one legitimate PN base.
+  w.OCAuth = { rolActual: () => 'dueno' };
+  const physical = (await snapshot(w)).productos.find(p => p.id === 'p24').stockActual;
+  await w.request('/api/productos/p24/ajustar','POST',{stockFisico:physical,motivo:'synthetic authorized count'});
   const before = await snapshot(w);
   const old = before.productos.find(p => p.id === 'p24');
   let pending, emitted = 0;
