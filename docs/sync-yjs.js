@@ -725,6 +725,7 @@
           if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
           if (entry.k === "ckpt" && result.ok === true) {
             _outbox.checkpoint = ckptMarcar(_outbox.checkpoint, entry.state, canal.ws && canal.ws.relayLayer); // v739: capa que confirmo
+            _colaFrames = 0; _colaBytes = 0; // v751: a confirmed checkpoint starts a new tail
             // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
@@ -1169,6 +1170,7 @@
             if (piezas > 1) op.group = id;
             if (marca) op.abs = marca;
             if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
+            if (tag === 0) contarColaCkpt(buf.byteLength); // v751
           }
           var directo = false;
           try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
@@ -1234,6 +1236,30 @@
            (C1 guard), así que un aparato que ya hizo pull manda un ckpt superset.
          - Solo en canales con permiteCkpt (catálogo y ops; NO fotos: su estado
            completo supera el frame de 256KB). */
+    /* v751 (JFC 2026-11-12, union en frio): el checkpoint solo se escribia al conectar o al terminar un pull. Un aparato
+       completo que pasa horas conectado dejaba crecer la cola posterior al corte, y el aparato nuevo la reproducia
+       entera. Al pasar CKPT_RENUEVA_FRAMES frames, el aparato completo relee SOLO su cola (desde su cursor aplicado, por
+       el camino normal con HEAD) y al terminarla checkpointTrasPull/hacerCkpt publican el corte nuevo con todas sus
+       guardas. Topes: una vez cada 6 h y 4 MiB de cola releida por dia (el cupo diario de bajada es 20 MiB).
+       shortcut: los topes viven en RAM y vuelven a cero al recargar (al conectar ya hay checkpoint desde v286);
+       persistirlos si un aparato que recarga mucho gasta cupo. PARA REVERTIR: que contarColaCkpt no haga nada. */
+    var CKPT_RENUEVA_FRAMES = 1024, CKPT_RENUEVA_MIN_MS = 6 * 3600000, CKPT_RENUEVA_BYTES_DIA = 4 * 1048576;
+    var _colaFrames = 0, _colaBytes = 0, _renovUltima = 0, _renovDia = 0, _renovBytesDia = 0;
+    function contarColaCkpt(bytes) {
+      if (!permiteCkpt) return;
+      _colaFrames++; _colaBytes += Number(bytes) || 0;
+      if (_colaFrames < CKPT_RENUEVA_FRAMES) return;
+      var ahora = Date.now(), sock = canal.ws, estado = _currentPullState;
+      if (_renovUltima && ahora - _renovUltima < CKPT_RENUEVA_MIN_MS) return;
+      if (ahora - _renovDia >= 86400000) { _renovDia = ahora; _renovBytesDia = 0; }
+      if (_renovBytesDia + _colaBytes > CKPT_RENUEVA_BYTES_DIA) return;
+      // Same gate as hacerCkpt: only a complete device (no debt, not recovering, proven cursor) may renew.
+      if (_soloMemoria || !API.clave || !sock || sock.peerOnly || sock.readyState !== 1 || canal.recuperando ||
+          !estado || estado.enCurso || _appliedPullCursor.rev < 0 || deudaPendiente()) return;
+      _renovUltima = ahora; _renovBytesDia += _colaBytes; _colaFrames = 0; _colaBytes = 0;
+      estado.renovarCkpt = true;
+      pedirPagina(sock, estado);
+    }
     var _tCkpt = null;
     // JFC test room diagnostic, shown in the existing Sync status line (no overlay).
     function diagnosticarCkpt(motivo, bytes) {
@@ -1622,6 +1648,7 @@
             if (source === "pull" && pullEstado.rebaseCursor && ok)
               pullEstado.rebaseCipherFrames = (pullEstado.rebaseCipherFrames || 0) + 1;
             if (source !== "live" && pullEstado.enCurso && !ok) pullEstado.fallos++;
+            if (ok && source === "live") contarColaCkpt(d.byteLength); // v751
           }).catch(function (e) {
             // One corrupted or undecipherable frame must NOT poison the entire
             // serial receive queue. The failed durable page is retried from the
@@ -1757,6 +1784,8 @@
                   }
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
+                  // v751: the tail re-read asked by contarColaCkpt ended; checkpointTrasPull keeps every guard.
+                  if (!c.more && pullEstado.renovarCkpt) { pullEstado.renovarCkpt = false; checkpointTrasPull(ws); }
                   // PendingStructs empty alone does NOT prove full history.
                   // Confirm the final cursor against relay HEAD before unlocking data/PIN.
                   if (!c.more && canal.recuperando && !deudaPendiente()) {
