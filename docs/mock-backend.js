@@ -4489,7 +4489,15 @@
         // migration fallback, without creating an epoch from that number.
         const _countR = Number(p.stockCountTs) > 0 ? Number(p.stockCountTs) : _tsR;
         const _countL = Number(mio.stockCountTs) > 0 ? Number(mio.stockCountTs) : _tsL;
-        const _gana = !!(epochLocal && epochRemote && epochConflict && _baseR !== null &&
+        // Older releases recorded real physical counts without an epoch
+        // count timestamp. Preserve their one-time migration rule only until
+        // an authenticated count with stockCountTs has been established.
+        // A legacy stockTs can NEVER overrule a modern physical recount.
+        const _legacyCountMigration = !!(epochLocal && !epochRemote &&
+          _baseR !== null && _baseR !== _baseL &&
+          !(Number(mio.stockCountTs) > 0) && _tsR > _tsL);
+        const _gana = _legacyCountMigration ||
+          !!(epochLocal && epochRemote && epochConflict && _baseR !== null &&
           (_countR > _countL || (_countR === _countL && epochRemote > epochLocal)));
         const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
         const protectedStock = _epochDoble
