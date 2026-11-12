@@ -37,22 +37,34 @@
      a layer while this device's daily use there is under half the cap, so inventory and money always keep the other
      half. Over that, photos stay direct between devices. To return to peers-only photos: make esFoto() return false. */
   var FOTO_PARTE = 0.5;
+  var CAP_FOTO_DOWN = CAP_DOWN * FOTO_PARTE;
   function esFoto(url) { return /-fotos$/.test(String(url)); }
+  function claveCupo(capa, url) { return capa.key + (esFoto(url) ? "_fotos" : ""); }
+  function limiteFotoUp(capa) { return (capa.relay === fb ? CAP_UP_RESERVA : CAP_UP) * FOTO_PARTE; }
   /* v661 band quarantine (OpenCode review 2026-11-04): a refusal on the photo room pauses ONLY the photo band of that
      layer (its own key); inventory and money keep using the layer. The business band pausing still stops photos there. */
-  function pausaFotos(capa) { try { return Number((JSON.parse(localStorage.getItem(capa.key + "_fotos") || "null") || {}).pausaHasta) || 0; } catch (_) { return 0; } }
+  function pausaFotos(capa) { return Number(leer(capa.key + "_fotos").pausaHasta) || 0; }
   function pausarFotos(capa, ms) {
-    var hasta = Date.now() + ms;
-    try { localStorage.setItem(capa.key + "_fotos", JSON.stringify({ pausaHasta: hasta })); } catch (_) {}
-    return hasta;
+    // Preserve the photo band's counters across a temporary refusal.
+    var key = capa.key + "_fotos", c = leer(key);
+    c.pausaHasta = Date.now() + ms; guardar(key, c);
+    return c.pausaHasta;
   }
-  function usableFotos(capa) { var c = leer(capa.key); return usable(capa) && Date.now() >= pausaFotos(capa) && (capa.relay === fb || c.up < CAP_UP * FOTO_PARTE) && c.down < CAP_DOWN * FOTO_PARTE; }
-  // A layer that reports its real read bytes (Firebase) is charged those, and only the new ones: its frames are inside them.
-  function sumarBajada(capa, e) {
-    var c = leer(capa.key);
-    if (typeof capa.relay.wireDown === "function") { var w = capa.relay.wireDown(); c.down += w - (capa.wireVisto || 0); capa.wireVisto = w; }
-    else if (e) c.down += bytes(e.data);
-    guardar(capa.key, c);
+  function usableFotos(capa) {
+    var c = leer(capa.key + "_fotos");
+    return Date.now() >= (Number(c.pausaHasta) || 0) &&
+      c.up < limiteFotoUp(capa) && c.down < CAP_FOTO_DOWN;
+  }
+  // A page/HEAD/SSE belonging to the photo room charges ONLY its own band.
+  // Firebase provides per-room wire counters; older adapters report event bytes.
+  function sumarBajada(capa, e, url) {
+    var key = claveCupo(capa, url), c = leer(key), delta = 0;
+    if (typeof capa.relay.wireDown === "function") {
+      var w = Math.max(0, Number(capa.relay.wireDown(url)) || 0);
+      var visto = capa.wireVisto || (capa.wireVisto = Object.create(null));
+      delta = Math.max(0, w - (visto[url] || 0)); visto[url] = w;
+    } else if (e) delta = bytes(e.data);
+    c.down += delta; guardar(key, c);
     return c;
   }
   /* v644 probes. They only read and report: no retry, no layer change, no business data, never block the caller.
@@ -68,11 +80,9 @@
     var p = _fallbackRecovery[url]; if (!p) return;
     delete _fallbackRecovery[url];
     if (p.photo) {
-      var key = p.key + "_fotos", value = null;
-      try { value = JSON.parse(localStorage.getItem(key) || "null"); } catch (_) {}
-      if (value && Number(value.pausaHasta) === p.until) {
-        value.pausaHasta = Date.now();
-        try { localStorage.setItem(key, JSON.stringify(value)); } catch (_) {}
+      var key = p.key + "_fotos", value = leer(key);
+      if (Number(value.pausaHasta) === p.until) {
+        value.pausaHasta = Date.now(); guardar(key, value);
       }
     } else {
       var c = leer(p.key);
@@ -126,11 +136,10 @@
   function sondaOtraCapa(url, ws) {
     var capaFb = capas.filter(function (x) { return x.relay === fb; })[0];
     if (!capaFb || typeof fb.leerHead !== "function" || Date.now() - (_sondaFbEn[url] || 0) < 60000) return;
-    var c = leer(capaFb.key);
-    if (c.up >= CAP_UP || c.down >= CAP_DOWN || (esFoto(url) && !usableFotos(capaFb))) return; // never bypass photo-band budgets
+    if (esFoto(url) ? !usableFotos(capaFb) : !usable(capaFb)) return; // never bypass photo-band budgets
     _sondaFbEn[url] = Date.now();
     Promise.resolve().then(function () { return fb.leerHead(url); }).then(function (h) {
-      sumarBajada(capaFb);
+      sumarBajada(capaFb, null, url);
       if (!h) return;
       var antes = headVisto(url), ahora = h.rev + ":" + h.seq;
       anotarHead(url, ahora);
@@ -141,7 +150,7 @@
       if ((antes && antes !== ahora) || (fallbackTieneHistoria && headAplicado(url) !== ahora)) {
         _otraCapaEn = Date.now(); leerFirebase(ws, url);
       }
-    }).catch(function () { try { sumarBajada(capaFb); } catch (_) {} });
+    }).catch(function () { try { sumarBajada(capaFb, null, url); } catch (_) {} });
   }
   // v649: silent sync trouble reaches the team through Sentry: fixed codes only, no business data, once per device per day.
   function avisarSync(codigo) {
@@ -210,7 +219,7 @@
     var capaFb = capas.filter(function (x) { return x.relay === fb; })[0];
     if (!capaFb || !usable(capaFb)) return;
     fb.leerHead(url).then(function (n) {
-      sumarBajada(capaFb);
+      sumarBajada(capaFb, null, url);
       if (!n || !(n.rev || n.seq) || ws.readyState !== 1) return;
       var c = leer(capa.key); c.pausaHasta = Date.now() + PAUSA_MS; guardar(capa.key, c);
       try { ws.close(1013, "layer empty; next durable layer has data"); } catch (_) {}
@@ -258,9 +267,9 @@
       }
       if (typeof e.data !== "string") sonda.frames++;
       else if (e.data.indexOf('"head-result"') !== -1) try { var cabeza = JSON.parse(e.data); sondaAtraso(sonda, cabeza); capaVaciaSigue(capa, ws, url, cabeza); } catch (_) {}
-      var c = sumarBajada(capa, e);
-      if (esFoto(url) && c.down >= CAP_DOWN * FOTO_PARTE) { pausarFotos(capa, PAUSA_MS); try { ws.close(1013, CIERRE); } catch (_) {} return; }
-      if (c.down >= CAP_DOWN) { c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} }
+      var c = sumarBajada(capa, e, url);
+      if (esFoto(url) && c.down >= CAP_FOTO_DOWN) { pausarFotos(capa, PAUSA_MS); try { ws.close(1013, CIERRE); } catch (_) {} return; }
+      if (!esFoto(url) && c.down >= CAP_DOWN) { c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} }
     });
     // Refused before opening (inactive room, quota 402, route error): pause this layer, the next one takes over.
     // v646: the last durable layer retries in 60 s: a device that opened with no signal must catch up as soon as it returns.
@@ -293,21 +302,21 @@
       if (v !== HEAD) sonda.enviados++;
       // Firebase discards binary live copies; only its HTTP-backed commands spend relay quota.
       if (capa.relay === fb && typeof v !== "string") return enviar(v);
-      var c = leer(key), n = bytes(v);
-      /* v647: a full budget never stops the last durable layer. Reads cost no upload. Small changes and the compact photo
-         (the room with no channel suffix) ride a reserved lane. Only heavy frames wait, in the caller's outbox, with the
-         connection open. */
-      if (capa.relay === fb) {
-        if (typeof v === "string" && n <= 4096 && /^\{"k":"(head|pull|ts)"/.test(v)) return enviar(v);
-        // v661: first photo upload of a store (~150 KB each) must finish in a day or two: 5 MB/day/device on Firebase.
-        var limite = esFoto(url) ? CAP_UP_RESERVA * FOTO_PARTE : n <= FRAME_RESERVADO || !/-(y|ops)$/.test(String(url)) ? CAP_UP_RESERVA : CAP_UP;
-        if (c.up + n > limite) throw new DOMException("Daily relay budget reached", "QuotaExceededError");
-        c.up += n; guardar(key, c); return enviar(v);
+      var photo = esFoto(url), quotaKey = claveCupo(capa, url),
+          c = leer(quotaKey), n = bytes(v);
+      // Non-photo Firebase control frames preserve their existing fast path.
+      if (!photo && capa.relay === fb && typeof v === "string" && n <= 4096 &&
+          /^\{"k":"(head|pull|ts)"/.test(v)) return enviar(v);
+      var limite = photo ? limiteFotoUp(capa) :
+        capa.relay === fb && (n <= FRAME_RESERVADO || !/-(y|ops)$/.test(String(url)))
+          ? CAP_UP_RESERVA : CAP_UP;
+      if (c.up + n > limite) {
+        if (photo) pausarFotos(capa, PAUSA_MS);
+        else if (capa.relay !== fb) { c.up = limite; guardar(quotaKey, c); }
+        if (capa.relay !== fb || photo) try { ws.close(1013, CIERRE); } catch (_) {}
+        throw new DOMException("Daily relay budget reached", "QuotaExceededError");
       }
-      // v661: a photo over its share waits in the caller's outbox; the layer stays open for inventory and money.
-      if (esFoto(url) && c.up + n > CAP_UP * FOTO_PARTE) throw new DOMException("Daily relay budget reached", "QuotaExceededError");
-      if (c.up + n > CAP_UP) { c.up = CAP_UP; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} throw new DOMException("Daily relay budget reached", "QuotaExceededError"); }
-      c.up += n; guardar(key, c); return enviar(v);
+      c.up += n; guardar(quotaKey, c); return enviar(v);
     };
     return ws;
   }
@@ -594,7 +603,12 @@
   }
   window.F123Relay = {
     ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
-    estadoCupo: function () { return capas.map(function (capa) { var c = leer(capa.key); return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa) }; }); },
+    estadoCupo: function () { return capas.map(function (capa) {
+      var c = leer(capa.key), f = leer(capa.key + "_fotos");
+      return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa),
+        fotos: { up: f.up, down: f.down, limiteUp: limiteFotoUp(capa),
+          limiteDown: CAP_FOTO_DOWN, usable: usableFotos(capa) } };
+    }); },
     /* v739: ¿queda alguna capa durable fuera de pausa y con cupo? (el vecino mudo solo se suelta si la hay). */
     hayCapaDurableUsable: function () { try { return capas.some(function (capa) { return usable(capa); }); } catch (_) { return true; } },
     estadoSondas: function () {
