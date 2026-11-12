@@ -177,6 +177,13 @@
     // WebSocket.send is delivery to the network, never acknowledgement of remote storage.
     var _outboxKey = "f123_relay_outbox_v1" + suffix;
     var _outbox = { pending: [], checkpoint: "", confirmed: [] }, _durableTimer = null, _durableDelay = 2000;
+    /* v739 (revision de Fable 5.2): el checkpoint se recuerda por (hash del estado, capas que LO CONFIRMARON):
+       _outbox.checkpoint = "<hash>#capaA,capaB". Asi cada capa durable recibe una vez la copia completa, la capa que
+       confirma es la del socket que dio el acuse (no la que estaba activa al codificar), y alternar capas ya no
+       reescribe 768 KiB en cada cambio. Un valor viejo sin '#' (o con el sufijo de v735) se reescribe una vez. */
+    function ckptCapas(guardado, hash) { var p = String(guardado || "").split("#"); return p[0] === hash && p[1] ? p[1].split(",") : []; }
+    function ckptYaEnCapa(guardado, hash, capa) { return ckptCapas(guardado, hash).indexOf(String(capa || "local")) !== -1; }
+    function ckptMarcar(guardado, hash, capa) { var l = ckptCapas(guardado, hash); capa = String(capa || "local"); if (l.indexOf(capa) === -1) l.push(capa); return hash + "#" + l.join(","); }
     // Leave headroom under this socket's 4 MiB cap for new changes and control frames.
     var MAX_BUFFERED_BYTES = 512 * 1024, MAX_DURABLE_INFLIGHT = 4, _bufferPumpTimer = null, _durableWatchdog = null, _durableInFlight = Object.create(null);
     var _groupAcks = new Set();
@@ -717,7 +724,7 @@
           }
           if (entry.k === "op" && result.ok === true) _outbox.confirmed = _outbox.confirmed.concat(completed.map(function (x) { return x.fingerprint || x.id; })).slice(-2048);
           if (entry.k === "ckpt" && result.ok === true) {
-            _outbox.checkpoint = entry.state;
+            _outbox.checkpoint = ckptMarcar(_outbox.checkpoint, entry.state, canal.ws && canal.ws.relayLayer); // v739: capa que confirmo
             // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
@@ -1270,15 +1277,16 @@
       Promise.resolve().then(function () {
         return API.rollout && API.rollout.outboxV2 ? updateHash(full).then(function (hash) { return "sha256:" + hash; }) : _b64(full);
       }).then(function (state) {
-        /* v735 (JFC 2026-11-11, decision: "que Firebase tenga todo"): la identidad del checkpoint incluye la CAPA
-           durable activa. Antes bastaba el hash del estado: si Supabase ya habia confirmado ese estado y luego la
-           capa activa pasaba a Firebase (Supabase caido, 4xx), NUNCA se escribia un checkpoint en Firebase mientras el
-           estado no cambiara, y un aparato nuevo solo encontraba un checkpoint viejo y padres faltantes. Ahora cada
-           capa recibe UNA vez el checkpoint completo del aparato que tiene todo (como mucho 768 KiB por cambio de
-           capa). Un checkpoint guardado por una version anterior (sin sufijo) se reescribe una vez en la capa activa.
-           PARA REVERTIR: quitar el sufijo de capa de esta linea. */
-        state = state + "|" + String((canal.ws && canal.ws.relayLayer) || "");
-        if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
+        /* v735 + v739 (JFC 2026-11-11, decision: "que Firebase tenga todo"): cada capa durable activa recibe UNA vez el
+           checkpoint completo del aparato que tiene todo (max 768 KiB por capa). Antes bastaba el hash del estado: si
+           Supabase ya lo habia confirmado y luego la capa activa pasaba a Firebase (Supabase caido, 4xx), Firebase nunca
+           recibia la copia completa y un aparato nuevo veia un checkpoint viejo y padres faltantes.
+           PARA REVERTIR: comparar solo state === _outbox.checkpoint. */
+        /* Logica EN LINEA (identica a ckptYaEnCapa): las pruebas p0-s3-* cortan esta funcion y la ejecutan aislada,
+           sin los ayudantes de arriba. Si cambias una, cambia la otra. */
+        var capaCk = String((canal.ws && canal.ws.relayLayer) || "local"), partesCk = String(_outbox.checkpoint || "").split("#");
+        if ((partesCk[0] === state && partesCk[1] && partesCk[1].split(",").indexOf(capaCk) !== -1) ||
+            _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
         return Promise.resolve().then(function () {
           return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
         }).then(function (packed) {
@@ -1409,7 +1417,10 @@
           try {
             var svAhora = Array.prototype.join.call(Y.encodeStateVector(doc), ",");
             if (svAhora === _svPeerPrev) sinProgresoPeer++; else { sinProgresoPeer = 0; _svPeerPrev = svAhora; }
-            if (sinProgresoPeer >= 3 && !Object.keys(partesEntrantes).length) { try { ws.close(); } catch (_) {} return; }
+            // v739 (revision de Fable 5.2, riesgo 5): el vecino solo se suelta si queda otra capa durable a la que volver;
+            // si todas estan en pausa, cerrar el unico socket dejaria al aparato nuevo reconectando sin recibir nada.
+            var hayOtraCapa = !window.F123Relay || typeof window.F123Relay.hayCapaDurableUsable !== "function" || window.F123Relay.hayCapaDurableUsable();
+            if (sinProgresoPeer >= 3 && hayOtraCapa && !Object.keys(partesEntrantes).length) { try { ws.close(); } catch (_) {} return; }
           } catch (_) {}
           // A fresh diff replaces an interrupted bootstrap, never a durable operation group.
           Object.keys(partesEntrantes).forEach(function (id) {

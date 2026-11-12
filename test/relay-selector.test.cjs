@@ -608,12 +608,36 @@ test('v733: a refused Firebase rests 5, 10, 20... s (cap 60 s) instead of a fixe
   fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase');
   for (let i = 0; i < 5; i++) { fb.close(1011, 'again'); clock.now += 61000; fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase', 'the cap is 60 s, never longer'); }
 });
-test('v733: Firebase that opens correctly resets its growing rest', () => {
-  const { R, clock } = app();
+
+test('v739: a Firebase that opens and stays open 30 s resets its growing rest', () => {
+  const { R, clock, vencer } = app();
   sub(R.connect(URL1)).close(1011, 'supabase refused');
-  let fb = sub(R.connect(URL1)); fb.close(1011, 'refusal 1'); clock.now += 6000;
-  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase'); fb.open(); // opens correctly: counter back to 0
-  fb.close(1011, 'refusal after a good open'); // rests 5 s again, not 10 s
+  let fb = sub(R.connect(URL1)); fb.close(1011, 'refusal 1'); clock.now += 6000; // rest 5 s -> counter 1
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase'); fb.open();
+  vencer(); // the stable-30-s timer fires: counter back to 0
+  fb.close(1011, 'refusal after a good, stable open'); // rests 5 s again, not 10 s
   clock.now += 6000;
   assert.equal(sub(R.connect(URL1)).kind, 'firebase');
+});
+test('v739: a Firebase that opens and is refused at once keeps growing (no 5 s loop)', () => {
+  const { R, clock } = app();
+  sub(R.connect(URL1)).close(1011, 'supabase refused');
+  let fb = sub(R.connect(URL1)); fb.close(1011, 'refusal 1'); clock.now += 6000; // counter 1
+  fb = sub(R.connect(URL1)); assert.equal(fb.kind, 'firebase'); fb.open(); // opens, but is refused before 30 s
+  fb.recv(JSON.stringify({ k: 'persist-result', ok: false, kind: 'op' })); // the durable write is refused after OPEN
+  fb.close(1013, 'durable write rejected'); // must rest 10 s now
+  clock.now += 6000;
+  assert.notEqual(sub(R.connect(URL1)).kind, 'firebase', 'still resting after 6 s: the counter was NOT reset by open');
+  clock.now += 5000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase');
+});
+test('v739: hayCapaDurableUsable tells whether a durable layer is out of its pause', () => {
+  const { R, clock } = app();
+  assert.equal(R.hayCapaDurableUsable(), true);
+  sub(R.connect(URL1)).close(1011, 'a'); // Supabase paused 15 min
+  assert.equal(R.hayCapaDurableUsable(), true, 'Firebase still usable');
+  const fb = sub(R.connect(URL1)); fb.close(1011, 'b'); // Firebase rests 5 s
+  assert.equal(R.hayCapaDurableUsable(), false, 'both resting');
+  clock.now += 6000;
+  assert.equal(R.hayCapaDurableUsable(), true, 'Firebase is back');
 });
