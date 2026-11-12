@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.46",
+  "version": "v0.7.47",
   "fecha": "2026-11-12",
-  "changelog": "v0.7.46 P0: checkpoint y fotos con presupuesto diario independiente por canal y capa, contabilidad sin competir con ventas e inventario. Sin cambios de pantalla.",
+  "changelog": "v0.7.47 P0: movimientos de stock sin base ficticia; prioriza el conteo físico autorizado del dueño o administrador y conserva hechos pendientes para conciliación.",
   "requerida": false,
-  "shell": "f123-shell-v746",
+  "shell": "f123-shell-v747",
   "apagar": [],
-  "releaseName": "v0.7.46",
-  "cacheGeneration": "golden285"
+  "releaseName": "v0.7.47",
+  "cacheGeneration": "golden286"
 }
