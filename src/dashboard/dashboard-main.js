@@ -16,6 +16,24 @@
    Si alguna vez cambian SALT_FIJO, el nombre de la sala o el formato de las
    ops en sync-realtime.js, hay que cambiarlos aqui tambien. Estan marcados.
    ============================================================================ */
+/* (JFC 2026-11-11, v738) Anillo local de errores, igual que la app: ultimos 20 en localStorage
+   "f123_errores_log" = [{k: tipo, m: mensaje(160), s: fuente(60), t: ms}]. Sin UI, sin red, nunca lanza.
+   Solo guarda el texto del error, jamas datos del negocio (no cuenta como "dejar rastro" del negocio).
+   PARA REVERTIR: borrar este bloque. */
+(function () {
+  function reg(tipo, msg, fuente) {
+    try {
+      var a = JSON.parse(localStorage.getItem("f123_errores_log") || "[]");
+      if (!Array.isArray(a)) a = [];
+      a.push({ k: tipo, m: String(msg || "").slice(0, 160), s: String(fuente || "").slice(-60), t: Date.now() });
+      localStorage.setItem("f123_errores_log", JSON.stringify(a.slice(-20)));
+    } catch (_) {}
+  }
+  try {
+    window.addEventListener("error", function (e) { reg("error", e && e.message, e && e.filename); });
+    window.addEventListener("unhandledrejection", function (e) { var r = e && e.reason; reg("rechazo", r && (r.message || r), ""); });
+  } catch (_) {}
+})();
 (function () {
   "use strict";
 
@@ -2055,7 +2073,13 @@
         if (v === null) return;
         ordenar("POST", "/micelio/apodo", { apodo: v }, id).then(function (r) {
           if (r && r.ok) { latidos[id] = latidos[id] || {}; latidos[id].apodo = v; pintarMicelio(); }
-          else alert("No se pudo renombrar: " + ((r && r.datos && r.datos.error) || "sin respuesta"));
+          else {
+            /* FEATURE — DORMANT (desactivada por orden de JFC, 2026-11-11: modales de error y aviso que no son de venta ni de uso de la UI). NO BORRAR.
+               Antes: alert("No se pudo renombrar: ..."). Ahora el mismo texto va a la linea de estado existente #micelio-nota.
+               Para reactivar: volver a llamar alert(...) con este mismo texto. */
+            var _nota = $("micelio-nota");
+            if (_nota) _nota.textContent = "No se pudo renombrar: " + ((r && r.datos && r.datos.error) || "sin respuesta");
+          }
         });
       });
     }
