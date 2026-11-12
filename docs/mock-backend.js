@@ -4543,7 +4543,7 @@
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
           // A later clock cannot replace known units with a zero from an unproven baseline.
-          if (Number.isSafeInteger(net) && (net > 0 || !(_stockLConocido > 0) || _conteoR)) {
+          if (Number.isSafeInteger(net) && (_conteoR || _stockLConocido === null || (epochLocal && epochLocal === epochRemote))) {
             mio.stockEpochId = epochRemote;
             mio.stockCountWitness = p.stockCountWitness ? clonar(p.stockCountWitness) : null;
             mio.stockCountTs = Number(p.stockCountTs) || 0;
