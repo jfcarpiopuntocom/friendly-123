@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.34",
+  "version": "v0.7.35",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.34 P0 Sync3: un aparato nuevo baja el historial de la tienda por Firebase en tandas 4 veces mas grandes (con vuelta automatica a las chicas si una respuesta pesa demasiado), para ponerse al dia mas rapido y gastar menos cupo diario. Sin cambios en ventas, inventario, PIN ni licencias.",
+  "changelog": "v0.7.35 P0 Sync3: el aparato que tiene toda la tienda deja una copia completa tambien en Firebase cuando esa pasa a ser la capa activa, para que un aparato nuevo pueda ponerse al dia aunque Supabase no responda. Sin cambios en ventas, inventario, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v734",
+  "shell": "f123-shell-v735",
   "apagar": [],
-  "releaseName": "v0.7.34",
-  "cacheGeneration": "golden274"
+  "releaseName": "v0.7.35",
+  "cacheGeneration": "golden275"
 }

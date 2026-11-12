@@ -1270,6 +1270,14 @@
       Promise.resolve().then(function () {
         return API.rollout && API.rollout.outboxV2 ? updateHash(full).then(function (hash) { return "sha256:" + hash; }) : _b64(full);
       }).then(function (state) {
+        /* v735 (JFC 2026-11-11, decision: "que Firebase tenga todo"): la identidad del checkpoint incluye la CAPA
+           durable activa. Antes bastaba el hash del estado: si Supabase ya habia confirmado ese estado y luego la
+           capa activa pasaba a Firebase (Supabase caido, 4xx), NUNCA se escribia un checkpoint en Firebase mientras el
+           estado no cambiara, y un aparato nuevo solo encontraba un checkpoint viejo y padres faltantes. Ahora cada
+           capa recibe UNA vez el checkpoint completo del aparato que tiene todo (como mucho 768 KiB por cambio de
+           capa). Un checkpoint guardado por una version anterior (sin sufijo) se reescribe una vez en la capa activa.
+           PARA REVERTIR: quitar el sufijo de capa de esta linea. */
+        state = state + "|" + String((canal.ws && canal.ws.relayLayer) || "");
         if (state === _outbox.checkpoint || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
         return Promise.resolve().then(function () {
           return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
