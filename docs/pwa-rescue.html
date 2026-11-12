@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="light only">
+<meta name="theme-color" content="#EFC31A">
+<title>Rescate PWA · friendly-123</title>
+<style>
+:root{color-scheme:light only;font-family:system-ui,-apple-system,sans-serif;color:#0F1923;background:#F8F9FB}
+*{box-sizing:border-box}body{margin:0 auto;padding:20px 16px 60px;max-width:680px;line-height:1.55}
+header{border:2px solid #0F1923;background:#EFC31A;border-radius:12px;padding:18px}
+h1{font-size:clamp(23px,5vw,31px);line-height:1.15;margin:0 0 6px}h2{font-size:18px;margin:0 0 8px}
+header p{margin:0}.card{border:1.5px solid #0F1923;border-radius:12px;background:#FFF;padding:16px;margin:14px 0}
+.warn{border-left:5px solid #B14420}.note{font-size:14px;color:#324459}.value{font-family:ui-monospace,Menlo,monospace;overflow-wrap:anywhere}
+a.action{display:inline-block;min-height:44px;padding:10px 15px;border:2px solid #0F1923;border-radius:9px;background:#0F1923;color:#FFF;text-decoration:none;font-weight:700;margin:6px 7px 6px 0}
+ol{padding-left:24px}li{margin:9px 0}strong{font-weight:750}
+footer{font-size:13px;color:#324459;margin-top:22px}
+</style>
+</head>
+<body>
+<header><h1>Rescate de apps duplicadas</h1><p>friendly-123 · asistencia sin borrar tus datos</p></header>
+<section class="card warn">
+  <h2>Antes de desinstalar</h2>
+  <p><strong>No elimines ninguna PWA hasta haber comprobado el respaldo y las ventas, el dinero, el stock y las fotos de esa copia.</strong> «Quitar de pantalla de inicio» no es lo mismo que «Eliminar app».</p>
+  <p>iOS permite múltiples instalaciones de la misma PWA. <strong>Cada instalación tiene su propio localStorage, IndexedDB (IDB), caché y sesión</strong>. Este rescate solo puede inspeccionar la copia desde la que se abre. No puede leer o desinstalar otra copia remotamente.</p>
+</section>
+<section class="card" aria-labelledby="diag-title">
+  <h2 id="diag-title">Ficha de esta instalación</h2>
+  <p>Tipo: <strong id="pwa-tipo">Comprobando…</strong></p>
+  <p>Etiqueta local: <strong id="pwa-etiqueta" class="value">Comprobando…</strong></p>
+  <p>Origen: <span id="pwa-origen" class="value"></span></p>
+  <p>Datos disponibles estimados: <span id="pwa-uso">Comprobando…</span></p>
+  <p>Motor offline: <span id="pwa-sw">Comprobando…</span></p>
+  <p class="note">Esta etiqueta aleatoria se guarda solo aquí para diferenciar copias. No es una licencia, un PIN, una prueba de respaldo ni un identificador remoto. El espacio utilizado incluye cachés y no confirma que la sincronización esté completa.</p>
+</section>
+<section class="card">
+  <h2>Rescate seguro — repetir en CADA copia</h2>
+  <ol>
+    <li>Abre cada icono de friendly-123 por separado y anota su <strong>etiqueta local</strong> de arriba. Revisa a cuál negocio/licencia corresponde <strong>después de entrar con el PIN legítimo</strong>.</li>
+    <li>En esa misma copia, entra a <strong>Advanced → Backup → Export backup</strong> (Avanzado → Respaldo → Exportar respaldo). Guarda el archivo fuera del iPhone y comprueba que se descargó y contiene los datos esperados, incluidas las fotos.</li>
+    <li>Repite en las otras copias y en el Dashboard, aunque parezcan idénticas. <strong>No importes un respaldo antiguo encima de otro:</strong> podría sobrescribir movimientos y ventas más recientes. La conciliación debe respetar los IDs de operaciones y la licencia.</li>
+    <li>Elige la instalación que conservarás solo después de comprobar <strong>misma licencia, PIN válido, últimas ventas y fotos, dinero, stock y sincronización</strong> en el destino. Si una copia no abre o no se puede autenticar, <strong>no la borres</strong>.</li>
+    <li>Cuando la recuperación esté verificada, en la pantalla de inicio o la Biblioteca de apps de iOS mantén pulsado el icono sobrante, pulsa <strong>Eliminar app → Eliminar app → Eliminar</strong>. No hay permiso web para realizar ese paso automáticamente.</li>
+  </ol>
+  <a class="action" href="./">Abrir friendly-123 y entrar con PIN</a>
+  <a class="action" href="./dashboard.html">Abrir Dashboard</a>
+  <p class="note">Si el icono viejo abre friendly123.com/app o una URL distinta, pertenecía a otro origen. Abrir la web oficial no permite leer el almacenamiento de ese origen antiguo. Primero intenta recuperar la copia original; nunca borres su almacenamiento para «arreglarla».</p>
+</section>
+<section class="card">
+  <h2>¿Por qué no hay botón «Uninstall»?</h2>
+  <p>Safari y el sistema operativo no ofrecen una API web para enumerar, fusionar ni eliminar todas las PWAs del iPhone. Un botón que afirmara desinstalarlas sería falso. Aquí tampoco se desregistran service workers, ni se eliminan cachés, IndexedDB o datos del negocio.</p>
+</section>
+<footer>El rescate no consulta ni envía PIN, licencia, inventario ni datos comerciales. Solo usa información técnica visible en esta copia y una etiqueta aleatoria local.</footer>
+<script>
+(function(){
+  'use strict';
+  function put(id,text){var node=document.getElementById(id);if(node)node.textContent=String(text);}
+  var installed=false;
+  try { installed=navigator.standalone===true || !!(window.matchMedia && matchMedia('(display-mode: standalone)').matches); }catch(_){}
+  put('pwa-tipo',installed?'App web independiente (PWA)':'Pestaña de navegador');
+  put('pwa-origen',location.origin+location.pathname);
+  try {
+    var key='f123_pwa_rescue_install_id';
+    var label=localStorage.getItem(key);
+    if(!/^R-[a-f0-9]{12}$/.test(label||'')){
+      var b=new Uint8Array(6);crypto.getRandomValues(b);
+      label='R-'+Array.from(b,function(x){return x.toString(16).padStart(2,'0');}).join('');
+      localStorage.setItem(key,label);
+    }
+    put('pwa-etiqueta',label);
+  }catch(_){put('pwa-etiqueta','No disponible (almacenamiento restringido)');}
+  if(navigator.storage && navigator.storage.estimate){
+    navigator.storage.estimate().then(function(s){
+      put('pwa-uso',Number.isFinite(s.usage)?(s.usage/1048576).toFixed(1)+' MB ocupados (aprox.)':'No disponible');
+    }).catch(function(){put('pwa-uso','No disponible');});
+  }else put('pwa-uso','No disponible');
+  put('pwa-sw',navigator.serviceWorker?(navigator.serviceWorker.controller?'Activo en esta copia':'Sin controlador activo en esta copia'):'No disponible');
+})();
+</script>
+</body>
+</html>
