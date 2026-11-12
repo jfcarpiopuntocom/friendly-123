@@ -1771,34 +1771,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
 
   function entrar(nuevoRol) {
-    try {
-      /* (JFC 2026-10-27) Si la recuperacion Yjs/IDB sigue pendiente NO se recarga:
-         la bandera queda puesta (se honra en el proximo login) y el login sigue normal. */
-      var _recPend = false;
-      try { _recPend = !!(window.__f123RecuperacionPendiente && window.__f123RecuperacionPendiente()); } catch (_) {}
-      /* (JFC 2026-11-11, v732) Tope anti-bucle: solo UNA recarga automatica por version y pestana
-         (ver puedeRecargarVersion en app-inline-03.js). Si ya se recargo en esta version, se retira la
-         bandera y el login sigue normal, sin segunda recarga. */
-      var _okRec = true;
-      try {
-        if (sessionStorage.getItem("f123_reload_al_entrar") === "1" && !_recPend && window.__f123PuedeRecargarVersion) {
-          _okRec = !!window.__f123PuedeRecargarVersion("login-diferida");
-          if (!_okRec) sessionStorage.removeItem("f123_reload_al_entrar");
-        }
-      } catch (_) {}
-      if (sessionStorage.getItem("f123_reload_al_entrar") === "1" && !_recPend && _okRec) {
-        sessionStorage.removeItem("f123_reload_al_entrar");
-        /* BUG (JFC 2026-09-02): aquí se mapeaba demo→"dueno" en la sesión diferida,
-           así que tras el reload forzado de versión el auto-login entraba como
-           dueño real y NUNCA llegaba al demo (456 "no lleva al demo"). Se preserva
-           el rol tal cual: tras el reload, entrar("demo") corre con el flag ya
-           limpio y hace la entrada demo correcta. */
-        try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol, demo: nuevoRol === "demo" })); } catch (_) {}
-        window.__f123MarcarRecarga && window.__f123MarcarRecarga("login-diferida");
-        location.reload();
-        return;
-      }
-    } catch (_) {}
+    try { sessionStorage.removeItem("f123_reload_al_entrar"); } catch (_) {}
     const esDemo = nuevoRol === "demo";
     if (!esDemo) {
       try {

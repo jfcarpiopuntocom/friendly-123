@@ -4530,10 +4530,12 @@
               { detail: { productoId: mio.id } })); } catch (_) {}
           }
         }
-        if ((epochConflict && !epochLocal && epochRemote && _baseR !== null) || _gana) {
-          // A locally guessed/legacy clock cannot defeat a physical epoch
-          // established by an authenticated owner/admin count. Its uncounted
-          // movements remain in immutable sales/activities for reconciliation.
+        // An epoch ID alone cannot make an older snapshot a physical recount.
+        const _testigoR = p.stockCountWitness;
+        const _conteoR = _testigoR && typeof _testigoR.epoch === "string" &&
+          _testigoR.pn && typeof _testigoR.pn === "object" && !Array.isArray(_testigoR.pn);
+        if ((epochConflict && !epochLocal && epochRemote && _baseR !== null &&
+            (_tsR > _tsL || _conteoR)) || _gana) {
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);

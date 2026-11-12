@@ -57,12 +57,12 @@ for(const file of sources){
   f.yjs.canal.recuperando=false;f.sola.vigilar();
   assert.equal(f.ctx.sessionStorage.getItem('f123_update_frenada_desde'),null);assert.equal(f.body.length,0);
  });
- test(file+' - safe idle durable adoption coalesces and keeps the session',async()=>{
+ test(file+' - idle update leaves the session and notebook untouched',async()=>{
   let saved=0;const f=cargar(file,{recup:false,save:async()=>{saved++;return true;}});
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');f.clock.t+=100000;
   await Promise.all([f.sola.intentar(),f.sola.intentar()]);await f.sola.intentar();
-  assert.equal(saved,1);assert.equal(f.reloads.length,1);assert.equal(f.body.length,0);
-  assert.equal(f.log().at(-1),'version-segura');assert.equal(f.ctx.sessionStorage.getItem('f123_act_sola_pendiente'),null);
+  assert.equal(saved,0);assert.equal(f.reloads.length,0);assert.equal(f.body.length,0);
+  assert.equal(f.ctx.sessionStorage.getItem('f123_act_sola_pendiente'),'1');
   assert.ok(f.ctx.sessionStorage.getItem('f123_sesion'));
  });
  test(file+' - failed, missing, non-true or timed-out durable ACK never reloads',async()=>{
@@ -84,7 +84,7 @@ for(const file of sources){
 // P0 Belén: a pending shopping basket is an unsaved sale draft and must
 // remain intact across a service-worker update, even after 90 seconds idle.
 for(const file of sources){
- test(file+' - live basket and checkout sealing defer auto reload until sale finishes',async()=>{
+ test(file+' - pending update preserves basket and checkout before and after sale',async()=>{
   let saved=0;
   const f=cargar(file,{recup:false,save:async()=>{saved++;return true;}});
   f.clock.t+=100000;
@@ -102,22 +102,22 @@ for(const file of sources){
   assert.equal(f.reloads.length,0);
   f.ctx._sellando=false;
   await f.sola.intentar();
-  assert.equal(saved,1,'only after sale completion may auto-update persist');
-  assert.equal(f.reloads.length,1,'idle adoption remains available when safe');
+  assert.equal(saved,0,'update discovery must not write the notebook');
+  assert.equal(f.reloads.length,0,'checkout completion must not navigate');
  });
- test(file+' - basket opened during slow durable confirmation blocks final reload',async()=>{
-  let finish,saved=0;
-  const f=cargar(file,{recup:false,save:()=>{saved++;return new Promise(r=>finish=r);}});
+ test(file+' - opening a basket during a pending update preserves it',async()=>{
+  let saved=0;
+  const f=cargar(file,{recup:false,save:async()=>{saved++;return true;}});
   f.clock.t+=100000;
   f.ctx.sessionStorage.setItem('f123_act_sola_pendiente','1');
   f.ctx._carritoVenta=[];
   f.ctx._sellando=false;
   const pending=f.sola.intentar();
-  assert.equal(saved,1);
+  assert.equal(saved,0);
   f.ctx._carritoVenta=[{productoId:'synthetic-only',cantidad:1}];
-  finish(true);
   await pending;
-  assert.equal(f.reloads.length,0,'post-save race must not destroy newly opened basket');
+  assert.equal(f.reloads.length,0,'update must not destroy newly opened basket');
+  assert.equal(f.ctx._carritoVenta.length,1);
   assert.equal(f.ctx.sessionStorage.getItem('f123_act_sola_pendiente'),'1');
  });
 }

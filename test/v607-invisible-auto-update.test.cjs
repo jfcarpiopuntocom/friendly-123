@@ -21,13 +21,13 @@ function setup({durable=true,recovering=false,input=false,sale=false,dialog=fals
  return {window,document,session,local,sw,listeners,advance:()=>{now+=100000;},finish:()=>resolveSave(true),
   result:()=>({saves,reloads,appended})};
 }
-test('pending update inserts no banner and adopts only after safe idle durable save',async()=>{
+test('pending update leaves the current document and durable notebook alone even when idle',async()=>{
  const app=setup();app.window._ocActSola.vigilar();
  assert.equal(app.result().appended,0,'pending update must not insert an update banner');
  await app.window._ocActSola.intentar();assert.equal(app.result().reloads,0,'active work must not reload');
  app.advance();await app.window._ocActSola.intentar();await app.window._ocActSola.intentar();
- assert.equal(app.result().saves,1);assert.equal(app.result().reloads,1);
- assert.equal(app.session.has('f123_act_sola_pendiente'),false);
+ assert.equal(app.result().saves,0);assert.equal(app.result().reloads,0);
+ assert.equal(app.session.get('f123_act_sola_pendiente'),'1');
 });
 test('recovery, focused input and failed durable save preserve pending update',async()=>{
  for(const options of [{recovering:true},{input:true},{sale:true},{dialog:true},{transaction:true},{durable:false}]){
@@ -36,17 +36,17 @@ test('recovery, focused input and failed durable save preserve pending update',a
   assert.equal(app.session.get('f123_act_sola_pendiente'),'1');
  }
 });
-test('new controller schedules invisible adoption without interrupting current work',async()=>{
+test('new controller leaves the running session intact even after idle',async()=>{
  const app=setup();app.session.delete('f123_act_sola_pendiente');
  app.sw.controller={};app.listeners.get('controllerchange')();
  assert.equal(app.session.get('f123_act_sola_pendiente'),'1');
  assert.equal(app.result().appended,0);assert.equal(app.result().reloads,0);
  app.advance();await app.window._ocActSola.intentar();
- assert.equal(app.result().reloads,1);assert.equal(app.session.get('f123_sesion'),'1');
+ assert.equal(app.result().reloads,0);assert.equal(app.session.get('f123_sesion'),'1');
 });
-test('input opened during durable save defers reload and simultaneous attempts share one save',async()=>{
- const app=setup({durable:'deferred'});app.advance();
- const saving=app.window._ocActSola.intentar();await app.window._ocActSola.intentar();
- assert.equal(app.result().saves,1);app.document.activeElement={tagName:'TEXTAREA'};app.finish();await saving;
+test('backgrounding with a pending update does not save or navigate',async()=>{
+ const app=setup();app.document.visibilityState='hidden';
+ await app.window._ocActSola.intentar();
+ assert.equal(app.result().saves,0);
  assert.equal(app.result().reloads,0);assert.equal(app.session.get('f123_act_sola_pendiente'),'1');
 });
