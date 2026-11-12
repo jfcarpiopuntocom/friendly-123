@@ -735,7 +735,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         <summary id="oc-recovery-summary" style="font-size:15px;font-weight:700;color:var(--ink,#211c14);cursor:pointer;padding:8px;">Emergency recovery</summary>
         <button type="button" id="oc-purge-btn" style="display:inline-block;background:var(--sim-naranja,#F97316);color:#0A0A0F !important;-webkit-text-fill-color:#0A0A0F !important;opacity:1;border:2px solid #0A0A0F;border-radius:8px;padding:12px 22px;font-size:15px;font-weight:700;letter-spacing:.02em;cursor:pointer;box-shadow:0 3px 0 #0A0A0F;">Repair app loading</button>
         <p id="oc-purge-help" style="margin:10px 0 0;font-size:13px;line-height:1.5;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;">Updates arrive automatically. Use this only if the app fails to open, with an internet connection. It repairs cached app files without deleting your notebook data.</p>
-        <div id="oc-purge-log" style="display:none;margin:10px auto 0;max-width:320px;font-size:13px;line-height:1.5;text-align:left;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;background:#FFFFFF;border:1.5px solid #0A0A0F;border-radius:6px;padding:10px;"></div>
+        <p style="margin:14px 0 6px;"><a id="oc-pwa-rescue-link" href="./pwa-rescue.html" style="display:inline-block;min-height:44px;line-height:44px;font-size:14px;font-weight:700;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;">Recover an old installed copy</a></p>
+         <div id="oc-purge-log" style="display:none;margin:10px auto 0;max-width:320px;font-size:13px;line-height:1.5;text-align:left;color:var(--ink,#211c14) !important;-webkit-text-fill-color:var(--ink,#211c14) !important;background:#FFFFFF;border:1.5px solid #0A0A0F;border-radius:6px;padding:10px;"></div>
       </details>
     </div>`;
   document.body.appendChild(gate);
@@ -879,6 +880,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if(repair && !repair.disabled)repair.textContent=tt('auth.gate.repair','Repair app loading');
       const help=document.getElementById('oc-purge-help');
       if(help)help.textContent=tt('auth.gate.repairHelp','Updates arrive automatically. Use this only if the app fails to open, with an internet connection. It repairs cached app files without deleting your notebook data.');
+      const pwaRescue = document.getElementById("oc-pwa-rescue-link");
+      if (pwaRescue) pwaRescue.textContent = (window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es") ? "Rescatar una PWA antigua" : "Recover an old installed copy";
       const rec = document.getElementById("oc-recuperar");
       if (rec) rec.textContent = tt("auth.gate.forgot", "Forgot?");
       const join = document.getElementById("oc-unirse-equipo");
