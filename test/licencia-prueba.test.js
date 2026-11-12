@@ -83,16 +83,20 @@ test('within the trial an unpaid activated device has full use', async () => {
   assert.equal(e.diasRestantes, w.OCPrueba.PRUEBA_DIAS - 10);
 });
 
-test('an expired unpaid trial blocks new sales and leaves stock untouched', async () => {
+test('an expired unpaid trial no longer blocks sales (JFC 2026-11-11, "vender siempre"); other writes stay read-only', async () => {
   const w = aparato();
   const p = await productoConStock(w);
   await vencer(w);
   let avisos = 0;
   w.addEventListener('oc-prueba-vencida', () => { avisos++; });
-  await assert.rejects(() => w.request(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 1 }), /402.*PRUEBA_VENCIDA/);
+  const venta = await w.request(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 1 });
+  assert.ok(venta.ventaId, 'la venta se acepta con la prueba vencida');
   const estado = await w.request('/api/respaldo/exportar');
-  assert.equal(estado.productos.find(x => x.id === p.id).stockActual, 5, 'el stock no se tocó');
-  assert.ok(avisos >= 1, 'el rechazo dispara el aviso que abre el modal de compra');
+  assert.equal(estado.productos.find(x => x.id === p.id).stockActual, 4, 'el stock baja lo vendido');
+  assert.equal(avisos, 0, 'la venta ya no dispara el aviso del modal (dormido)');
+  // Lo demas que escribe negocio sigue bloqueado como antes.
+  await assert.rejects(() => w.request('/api/productos', 'POST', { nombre: 'Nuevo vencida', barcode: 'FIX-NUEVO-1', precio: 5, costo: 2, ubicacionId: estado.productos.find(x => x.id === p.id).ubicacionId }), /402.*PRUEBA_VENCIDA/);
+  assert.ok(avisos >= 1, 'un rechazo de otra escritura sigue emitiendo el evento (el modal esta dormido)');
 });
 
 test('an expired trial still lets the owner view, export and scan', async () => {
@@ -134,12 +138,15 @@ test('#5 a license paid while the app is open unlocks writes without a new login
     o.licenseEstado = 'full';
     w.localStorage.setItem('f123_owned', JSON.stringify(o));
   };
-  const antes = await w.fetch(`/api/productos/${p.id}/venta`, { method: 'POST', body: JSON.stringify({ cantidad: 1 }) });
-  assert.equal(antes.ok, false, 'con la prueba vencida y sin revalidar, se rechaza');
+  // La venta ya no se rechaza (v737), pero intentarla igual revalida la licencia.
+  // La escritura que SIGUE bloqueada (alta de producto) prueba el desbloqueo por pago.
+  const alta = { nombre: 'Alta tras pago', barcode: 'FIX-ALTA-PAGO', precio: 5, costo: 2, ubicacionId: (await w.request('/api/respaldo/exportar')).productos.find(x => x.id === p.id).ubicacionId };
+  const antes = await w.fetch('/api/productos', { method: 'POST', body: JSON.stringify(alta) });
+  assert.equal(antes.ok, false, 'con la prueba vencida y sin revalidar, esta escritura se rechaza');
   await new Promise(res => setImmediate(res));
   assert.equal(llamadas, 1, 'el rechazo disparó una revalidación');
-  const r = await w.request(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 1 });
-  assert.ok(r.ventaId, 'tras el pago, vende sin nuevo login');
+  const r = await w.request('/api/productos', 'POST', alta);
+  assert.ok(r.id, 'tras el pago, escribe sin nuevo login');
 });
 
 test('#4 an expired trial cannot create, rename or delete categories either', async () => {

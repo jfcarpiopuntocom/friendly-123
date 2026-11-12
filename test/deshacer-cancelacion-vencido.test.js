@@ -12,7 +12,7 @@ test('deshacer una cancelación reciente restaura el asiento original aunque el 
   const original = (await app.request('/api/respaldo/exportar')).ventas.find(v => v.id === sold.ventaId);
   await app.request(`/api/productos/${p.id}`, 'PATCH', { fechaCaducidad: ayer });
   await app.request(`/api/ventas/${original.id}/cancelar`, 'POST', { motivo: 'toque accidental' });
-  await assert.rejects(app.request(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 2 }), /expired/i);
+  // v737 (JFC 2026-11-11, "vender siempre"): vender un perecible vencido ya no se rechaza; aqui solo importa el deshacer.
 
   const restaurada = await app.request(`/api/ventas/${original.id}/deshacer-cancelacion`, 'POST', {});
   assert.equal(restaurada.ok, true);

@@ -106,7 +106,7 @@ function transfer(from, to) {
   to.OCYjs._store.aplicar();
 }
 
-test('SYNC: la venta sin stock y su faltante llegan al otro aparato una sola vez', async () => {
+test('SYNC: dos aparatos venden mas de lo que hay; ambos terminan con el mismo faltante y las dos ventas', async () => {
   const a = await peer(), b = await peer();
   for (const w of [a, b]) {
     const fx = await exportar(w);
@@ -115,8 +115,9 @@ test('SYNC: la venta sin stock y su faltante llegan al otro aparato una sola vez
     fx.productos = [p]; fx.ventas = []; fx.movimientos = [];
     await w.request('/api/respaldo/importar', 'POST', fx);
   }
-  const v = await a.request('/api/productos/p-v737/venta', 'POST', { cantidad: 5 });
-  assert.ok(v.ventaId);
+  const va = await a.request('/api/productos/p-v737/venta', 'POST', { cantidad: 5 }); // 3 mas de lo que habia
+  const vb = await b.request('/api/productos/p-v737/venta', 'POST', { cantidad: 2 });
+  assert.ok(va.ventaId && vb.ventaId);
   for (let i = 0; i < 2; i++) {
     a.OCYjs._store.sembrar(); b.OCYjs._store.sembrar();
     transfer(a, b); transfer(b, a);
@@ -124,9 +125,10 @@ test('SYNC: la venta sin stock y su faltante llegan al otro aparato una sola vez
   for (const w of [a, b]) {
     const pr = await prodDe(w, 'p-v737');
     assert.equal(pr.stockActual, 0);
-    assert.equal(pr.stockDeficit, 3);
-    const ventas = (await w.request('/api/ventas/todas')).filter((x) => x.id === v.ventaId);
-    assert.equal(ventas.length, 1, 'la venta existe una sola vez en cada aparato');
+    assert.equal(pr.stockDeficit, 5, '2 de base - 5 - 2 = faltan 5');
+    const ids = (await w.request('/api/ventas/todas')).map((x) => x.id);
+    assert.equal(ids.filter((x) => x === va.ventaId).length, 1, 'la venta sin stock existe una sola vez');
+    assert.equal(ids.filter((x) => x === vb.ventaId).length, 1);
   }
 });
 

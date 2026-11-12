@@ -7228,7 +7228,10 @@
             return J({ producto:ficha(p), ventaId:ya.id, opId:_opIdVenta, duplicate:true });
           }
         }
-        if (p.perecible && estadoDe(p).dias < 0) return J({ error: "This product has expired. Remove it from sale and adjust its stock." }, 400);
+        /* VENDER SIEMPRE (JFC 2026-11-11, diseno Fable 5.2): un perecible vencido YA NO rechaza la venta.
+           DORMANT, NO BORRAR: antes respondia 400 "This product has expired...". El vencimiento sigue
+           marcado en la linea de estado existente del producto (estadoDe), sin modal. Para reactivar el
+           rechazo: devolver aqui J({ error: ... }, 400) cuando p.perecible && estadoDe(p).dias < 0. */
         const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
         if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
         /* B19 (JFC 2026-08-19, medido con un harness contra este endpoint).
@@ -7260,7 +7263,11 @@
             return J({ error: "The quantity must be a whole number greater than zero." }, 400);
           }
         }
-        if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
+        /* VENDER SIEMPRE (JFC 2026-11-11, diseno Fable 5.2): ya NO se rechaza por stock insuficiente.
+           DORMANT, NO BORRAR: antes respondia 400 "No hay suficiente stock disponible (quedan N)".
+           La venta procede; lo que falta queda como stockDeficit (la percha nunca muestra negativos),
+           ver el ajuste justo despues de _prepararOpStock. Para reactivar el rechazo: devolver aqui
+           J({ error: ... }, 400) cuando p.stockActual < cant. */
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
         /* Tope del viejo plan gratis QUITADO (JFC 2026-09-25): el modelo vigente es 30 dias de uso completo sin topes (licencia-prueba.js). */
         /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
@@ -7424,6 +7431,10 @@
         mov("venta", { opId: opIdVenta, producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
         const _opVenta = { productoId: p.id, delta: -cant };
         _prepararOpStock(_opVenta);
+        /* VENDER SIEMPRE (v737): si se vendio mas de lo que habia, el contador compartido (stockPN)
+           ya lleva la salida completa; aqui solo se muestra igual que el merge: percha en 0 y el
+           faltante aparte (suma al faltante previo). Reponer paga primero el faltante. */
+        if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
            lleno e IndexedDB caido la app decia "vendido", la op ya habia salido a

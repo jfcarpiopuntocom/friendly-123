@@ -96,13 +96,14 @@ test('transferencia: no se puede transferir a la misma percha ni al mismo produc
   }
 });
 
-test('un perecible vencido no registra una venta ni reduce su stock', async () => {
+test('un perecible vencido SI se vende (JFC 2026-11-11, "vender siempre"); el vencimiento sigue marcado', async () => {
   const prods = (await J('/api/productos')).b;
   const vencido = prods.find(p => p.perecible && p.diasParaVencer < 0 && p.stockActual > 0);
   assert.ok(vencido, 'la demo incluye un perecible vencido con stock');
   const r = await J(`/api/productos/${vencido.id}/venta`, P({ cantidad: 1 }));
-  assert.equal(r.s, 400);
-  assert.match(r.b.error, /expired/i);
+  assert.equal(r.s, 200);
+  assert.ok(r.b.ventaId, 'la venta queda registrada');
   const despues = (await J('/api/productos')).b.find(p => p.id === vencido.id);
-  assert.equal(despues.stockActual, vencido.stockActual);
+  assert.equal(despues.stockActual, vencido.stockActual - 1, 'el stock baja lo vendido');
+  assert.ok(despues.diasParaVencer < 0, 'sigue marcado como vencido');
 });
