@@ -1,0 +1,32 @@
+{
+  "id": "/friendly-123/dashboard.html",
+  "name": "friendly-123 · Dashboard",
+  "short_name": "Dashboard 123",
+  "description": "Panel de informes de friendly-123, con acceso por licencia y PIN.",
+  "start_url": "./dashboard.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F8F9FB",
+  "theme_color": "#0F1923",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "./icons/f123-color-v577-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/f123-color-v577-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/f123-color-v577-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
