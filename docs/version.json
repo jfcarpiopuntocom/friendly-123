@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.41",
+  "version": "v0.7.43",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.41 P0: las alertas de error de fiado, porciones por botella y plan de pagos ya no son cuadros bloqueantes: el mismo texto aparece dentro de la pagina. Sin cambios en ventas, inventario, PIN ni licencias.",
+  "changelog": "v0.7.43 se deja la app exactamente como la v0.7.41: las reglas de venta, de producto vencido, de prueba vencida y de PIN vuelven a ser las de antes. Sin cambios en ventas, inventario, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v741",
+  "shell": "f123-shell-v743",
   "apagar": [],
-  "releaseName": "v0.7.41",
-  "cacheGeneration": "golden281"
+  "releaseName": "v0.7.43",
+  "cacheGeneration": "golden283"
 }
