@@ -11,4 +11,3 @@ test('Sonar cannot replay an earlier PUSH against a newer master commit', () => 
   assert.match(yml, /\[ "\$AT" -lt "\$MASTER_COMMIT_MS" \]/);
   assert.match(yml, /if \[ "\$ACCION" = "push" \]/);
 });
-
