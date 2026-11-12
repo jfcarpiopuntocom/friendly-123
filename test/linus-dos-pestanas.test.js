@@ -1,7 +1,6 @@
 // Revision nivel Linus, Bloque 1.9 (JFC 2026-09-25): dos pestanas del MISMO aparato
-// (mismo localStorage) venden la ULTIMA unidad casi a la vez.
-// JFC 2026-11-11 ("vender siempre", diseno Fable 5.2): las DOS ventas se aceptan; la unidad
-// que faltaba queda como faltante (stockDeficit 1), nunca stock negativo y ninguna venta se pierde.
+// (mismo localStorage) venden la ULTIMA unidad casi a la vez. Nunca puede quedar stock
+// negativo ni dos ventas de una pieza unica.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { chromium, webkit } = require('playwright');
@@ -21,7 +20,7 @@ function servidor() {
 }
 
 for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
-test('dos pestanas venden la ultima unidad a la vez: las dos ventas se aceptan, stock 0 y faltante 1'+(engineName==='Chromium'?'':' (WebKit)'), async () => {
+test('dos pestanas venden la ultima unidad a la vez: una sola venta, stock 0'+(engineName==='Chromium'?'':' (WebKit)'), async () => {
   const srv = servidor(); await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   const base = `http://127.0.0.1:${srv.address().port}/`;
   const web = await engine.launch({ headless: true });
@@ -42,14 +41,14 @@ test('dos pestanas venden la ultima unidad a la vez: las dos ventas se aceptan, 
     const leer = (pg) => pg.evaluate(async (pid) => {
       const p = (await (await fetch('/api/productos')).json()).find((x) => x.id === pid);
       const v = (await (await fetch('/api/ventas/todas')).json()).filter((x) => x.productoId === pid);
-      return { stock: p && p.stockActual, faltante: p && p.stockDeficit, ventas: v.length };
+      return { stock: p && p.stockActual, ventas: v.length };
     }, id);
     const [e1, e2] = [await leer(t1), await leer(t2)];
     await t1.reload({ waitUntil: 'networkidle' }); await t1.waitForTimeout(1500);
     const e3 = await leer(t1);
-    // Las dos dicen "vendido"; ninguna se rechaza ni se pierde en silencio.
+    // Una sola dice "vendido"; la otra se RECHAZA (4xx, sin stock) en vez de perderse en silencio.
     const oks = [s1, s2].filter((x) => x === 200).length, rechazos = [s1, s2].filter((x) => x >= 400 && x < 500).length;
-    return assert.deepEqual({ oks, rechazos, e1, e2, recargada: e3 }, { oks: 2, rechazos: 0, e1: { stock: 0, faltante: 1, ventas: 2 }, e2: { stock: 0, faltante: 1, ventas: 2 }, recargada: { stock: 0, faltante: 1, ventas: 2 } });
+    return assert.deepEqual({ oks, rechazos, e1, e2, recargada: e3 }, { oks: 1, rechazos: 1, e1: { stock: 0, ventas: 1 }, e2: { stock: 0, ventas: 1 }, recargada: { stock: 0, ventas: 1 } });
   } finally { await web.close(); srv.close(); }
 });
 

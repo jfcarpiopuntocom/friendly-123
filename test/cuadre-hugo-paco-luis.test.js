@@ -74,22 +74,14 @@ test('B1 Luis: una venta rechazada (cliente inexistente o despedido) NO baja el 
   await t.sinDescuadre('Luis cliente malo');
 });
 
-test('B1b Luis: cantidades absurdas no tocan nada; vender mas de lo que hay SI se acepta y cuadra con faltante (v737)', async () => {
+test('B1b Luis: cantidades absurdas y sin stock no tocan nada', async () => {
   const t = await tienda();
-  for (const cantidad of [0, -1, 2.5, 'abc']) {
+  for (const cantidad of [0, -1, 2.5, 'abc', 99]) {
     assert.equal(await t.intentar(() => t.w.request(`/api/productos/${t.taza.id}/venta`, 'POST', { cantidad })), false, String(cantidad));
   }
-  await t.sinDescuadre('Luis cantidades invalidas');
-  // JFC 2026-11-11 ("vender siempre"): sin stock la venta procede; la percha queda en 0 y el resto es faltante.
-  await t.vender(t.taza, { cantidad: 99 });
-  t.stock[t.taza.id] = 0;
   await t.vender(t.unico);
-  await t.vender(t.unico); // segunda "pieza unica": no existia, queda como faltante
-  t.stock[t.unico.id] = 0;
-  const ficha = async (id) => (await t.w.request('/api/productos')).find((p) => p.id === id);
-  assert.equal((await ficha(t.taza.id)).stockDeficit, 93, '6 habia - 99 = faltan 93');
-  assert.equal((await ficha(t.unico.id)).stockDeficit, 1);
-  await t.sinDescuadre('Luis sin stock');
+  assert.equal(await t.intentar(() => t.w.request(`/api/productos/${t.unico.id}/venta`, 'POST', { cantidad: 1 })), false, 'no hay segunda pieza unica');
+  await t.sinDescuadre('Luis cantidades');
 });
 
 test('B2 Luis: una edicion de venta rechazada no deja cambios a medias', async () => {

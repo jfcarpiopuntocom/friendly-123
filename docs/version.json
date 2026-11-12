@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.42",
+  "version": "v0.7.41",
   "fecha": "2026-11-11",
-  "changelog": "v0.7.42 P0: vender siempre (stock insuficiente, producto vencido y prueba vencida ya no bloquean ventas, cierre del dia, deshacer cancelacion, edicion de venta, anular, corregir, cobrar fiado ni crear cliente) y candado de PIN de maximo 60 s con reinicio a las 24 h. Sin cambios en licencia bloqueada por el administrador.",
+  "changelog": "v0.7.41 P0: las alertas de error de fiado, porciones por botella y plan de pagos ya no son cuadros bloqueantes: el mismo texto aparece dentro de la pagina. Sin cambios en ventas, inventario, PIN ni licencias.",
   "requerida": false,
-  "shell": "f123-shell-v742",
+  "shell": "f123-shell-v741",
   "apagar": [],
-  "releaseName": "v0.7.42",
-  "cacheGeneration": "golden282"
+  "releaseName": "v0.7.41",
+  "cacheGeneration": "golden281"
 }

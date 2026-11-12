@@ -457,21 +457,14 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // hay botón de "reintentar" que lo salte.
   const BLOQUEO_TRAS_INTENTOS = 10;
   const BLOQUEO_DURACION_MS = 60 * 1000;
-  // JFC 2026-11-11 ("Maximo 60 s y se reinicia a las 24 h"): el candado dura 60 s como
-  // maximo y los fallos vuelven a cero solos 24 h despues del ultimo fallo.
-  const REINICIO_FALLOS_MS = 24 * 60 * 60 * 1000;
   function leerIntentos() {
-    let st;
-    try { st = JSON.parse(sessionStorage.getItem("oc_intentos")) || { fallos: 0, bloqueadoHasta: 0 }; }
-    catch { st = { fallos: 0, bloqueadoHasta: 0 }; }
-    if (st.fallos > 0 && Date.now() - (st.ultimoFallo || st.bloqueadoHasta || 0) >= REINICIO_FALLOS_MS) return { fallos: 0, bloqueadoHasta: 0 };
-    return st;
+    try { return JSON.parse(sessionStorage.getItem("oc_intentos")) || { fallos: 0, bloqueadoHasta: 0 }; }
+    catch { return { fallos: 0, bloqueadoHasta: 0 }; }
   }
   function guardarIntentos(x) { sessionStorage.setItem("oc_intentos", JSON.stringify(x)); }
   function registrarFallo() {
     const st = leerIntentos();
     st.fallos += 1;
-    st.ultimoFallo = Date.now();
     if (st.fallos >= BLOQUEO_TRAS_INTENTOS) { st.bloqueadoHasta = Date.now() + BLOQUEO_DURACION_MS; st.fallos = 0; }
     guardarIntentos(st);
   }

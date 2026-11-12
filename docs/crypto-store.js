@@ -692,28 +692,15 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // iOS espera ~10 fallos antes del primer delay. Tope 15 min.
   const INTENTOS_MAX = 10;
   const BLOQUEO_BASE_MS = 30 * 1000;
-  /* JFC 2026-11-11 ("Maximo 60 s y se reinicia a las 24 h"): el candado ya no pasa de
-     60 s (antes escalaba hasta 15 min) y el contador de fallos vuelve a cero solo
-     REINICIO_FALLOS_MS despues del ultimo fallo, ademas del reinicio por acierto.
-     El PIN es de 3 digitos: el freno de INTENTOS_MAX fallos se conserva. */
-  const BLOQUEO_TOPE_MS = 60 * 1000;
-  const REINICIO_FALLOS_MS = 24 * 60 * 60 * 1000;
+  const BLOQUEO_TOPE_MS = 15 * 60 * 1000;
   // f123_ prefijo (2026-07-17): sin esto, los contadores de bloqueo por
   // intentos fallidos se compartian con AMIGABLE (mismo origen en GitHub
   // Pages). Solo son contadores de lockout, sin datos sensibles — renombrar
   // directo es seguro, en el peor caso un lockout activo se reinicia.
   function intentosKey(ambito) { return "f123_intentos_" + ambito; }
-  // Han pasado 24 h desde el ultimo fallo (sin marca de fecha se considera vencido: contadores viejos).
-  function _fallosCaducados(x) {
-    if (!x || !(x.n > 0)) return false;
-    const ultimo = x.ultimoFallo || x.bloqueadoHasta || 0;
-    return Date.now() - ultimo >= REINICIO_FALLOS_MS;
-  }
   function leerIntentos(ambito) {
-    let i;
-    try { i = JSON.parse(localStorage.getItem(intentosKey(ambito)) || "null") || { n: 0, bloqueadoHasta: 0 }; }
-    catch { i = { n: 0, bloqueadoHasta: 0 }; }
-    return _fallosCaducados(i) ? { n: 0, bloqueadoHasta: 0 } : i;
+    try { return JSON.parse(localStorage.getItem(intentosKey(ambito)) || "null") || { n: 0, bloqueadoHasta: 0 }; }
+    catch { return { n: 0, bloqueadoHasta: 0 }; }
   }
   function segundosBloqueo(ambito) {
     const i = leerIntentos(ambito);
@@ -728,10 +715,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   function registrarFallo(ambito) {
     const i = leerIntentos(ambito);
     i.n = (i.n || 0) + 1;
-    if (_fallosCaducados(_memInt[ambito])) delete _memInt[ambito];
     const m = _memInt[ambito] = _memInt[ambito] || { n: 0, bloqueadoHasta: 0 };
     m.n++;
-    m.ultimoFallo = i.ultimoFallo = Date.now();
     if (m.n > i.n) i.n = m.n;
     if (i.n >= INTENTOS_MAX && i.n % INTENTOS_MAX === 0) {
       const ronda = Math.floor(i.n / INTENTOS_MAX);
@@ -927,7 +912,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   function intentosRestantes(ambito) {
     if (segundosBloqueo(ambito) > 0) return 0;
     const i = leerIntentos(ambito);
-    const m = _fallosCaducados(_memInt[ambito]) ? {} : (_memInt[ambito] || {});
+    const m = _memInt[ambito] || {};
     const n = Math.max(i.n || 0, m.n || 0);
     const enRonda = n % INTENTOS_MAX;
     return INTENTOS_MAX - enRonda;
