@@ -1282,7 +1282,11 @@
            Supabase ya lo habia confirmado y luego la capa activa pasaba a Firebase (Supabase caido, 4xx), Firebase nunca
            recibia la copia completa y un aparato nuevo veia un checkpoint viejo y padres faltantes.
            PARA REVERTIR: comparar solo state === _outbox.checkpoint. */
-        if (ckptYaEnCapa(_outbox.checkpoint, state, canal.ws && canal.ws.relayLayer) || _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
+        /* Logica EN LINEA (identica a ckptYaEnCapa): las pruebas p0-s3-* cortan esta funcion y la ejecutan aislada,
+           sin los ayudantes de arriba. Si cambias una, cambia la otra. */
+        var capaCk = String((canal.ws && canal.ws.relayLayer) || "local"), partesCk = String(_outbox.checkpoint || "").split("#");
+        if ((partesCk[0] === state && partesCk[1] && partesCk[1].split(",").indexOf(capaCk) !== -1) ||
+            _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
         return Promise.resolve().then(function () {
           return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
         }).then(function (packed) {

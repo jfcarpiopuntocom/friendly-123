@@ -31,6 +31,10 @@ test('el acuse usa la capa del socket que confirmo y las condiciones de segurida
   assert.match(src,/if \(canal\.recuperando \|\| \(_currentPullState && _currentPullState\.enCurso\)\) return;/);
   assert.match(src,/if \(doc\.store && \(doc\.store\.pendingStructs \|\| doc\.store\.pendingDs\)\) return;/);
 });
+test('hacerCkpt compara EN LINEA (sin depender de los ayudantes) hash y capa confirmada',()=>{
+  assert.match(src,/partesCk\[0\] === state && partesCk\[1\] && partesCk\[1\]\.split\(","\)\.indexOf\(capaCk\) !== -1/);
+  assert.doesNotMatch(src.slice(src.indexOf('var capaCk'),src.indexOf('var capaCk')+400),/ckptYaEnCapa\(/,'hacerCkpt no debe llamar a ayudantes externos: las pruebas p0-s3 lo ejecutan aislado');
+});
 test('el vecino mudo solo se suelta si queda otra capa durable usable',()=>{
   assert.match(src,/hayCapaDurableUsable\(\)/);
   assert.match(src,/sinProgresoPeer >= 3 && hayOtraCapa/);
