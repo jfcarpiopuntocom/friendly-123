@@ -142,6 +142,7 @@ test('failed sale return replays deferred Yjs owner name without losing stock or
  const productEvidence=items=>items.map(product=>{
    const p={...product};
    if(p.stockDeficit===0)delete p.stockDeficit;
+   if(p.stockCountTs===0)delete p.stockCountTs;
    return p;
  });
  assert.deepEqual(productEvidence(after.productos),productEvidence(before.productos),

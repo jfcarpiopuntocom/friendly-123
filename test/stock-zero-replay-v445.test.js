@@ -62,3 +62,29 @@ test('v445: new stock changes use relay time when a common clock exists', async 
   assert.equal(actual.stockActual, 6);
   assert.equal(actual.stockTs, 1234567890123);
 });
+
+test('a recent epoch without a count witness preserves positive stock', async () => {
+  const w = browser();
+  const p = await fixtureWithStock(w, 'synthetic-unwitnessed', 9);
+  const remote = w.catalog();
+  Object.assign(remote.productos.find(x => x.id === p.id), {
+    stockActual: 0, stockTs: 3000, stockBase: 0, stockPN: {},
+    stockEpochId: 'unwitnessed', stockCountWitness: null
+  });
+  w.OCSync.aplicarCatalogo(remote, null);
+  assert.equal((await w.request('/api/respaldo/exportar')).productos.find(x => x.id === p.id).stockActual, 9);
+});
+
+test('an absent quantity remains unknown and yields to the first known balance', async () => {
+  const source = browser();
+  const target = browser();
+  const p = await fixtureWithStock(source, 'synthetic-unknown-stock', 7);
+  const remote = source.catalog();
+  const item = remote.productos.find(x => x.id === p.id);
+  delete item.stockActual;
+  target.OCSync.aplicarCatalogo(remote, null);
+  assert.equal(target.catalog().productos.find(x => x.id === p.id).stockActual, null);
+  assert.equal((await target.request('/api/respaldo/exportar')).productos.find(x => x.id === p.id).stockActual, null);
+  target.receive(source);
+  assert.equal(target.catalog().productos.find(x => x.id === p.id).stockActual, 7);
+});

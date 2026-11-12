@@ -326,7 +326,7 @@ test('el checkpoint solo se restaura en un dispositivo FRESCO (sin ventas propia
   // cuando el aparato no tiene ventas propias.
   assert.match(MOCK, /aplicarCheckpoint/);
   assert.match(MOCK, /const fresco = ventas\.length === 0/);
-  assert.match(MOCK, /stockActual: fresco \? stk : 0/);
+  assert.match(MOCK, /Object\.assign\(\{\}, p, \{ stockActual: stk \}\)/);
 });
 
 // --- Licencia: el checksum es GUARD, no PUERTA (JFC 2026-08-25) ---

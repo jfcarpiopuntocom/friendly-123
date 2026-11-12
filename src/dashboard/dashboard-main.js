@@ -2638,6 +2638,7 @@
     return true;
   }
   window.__dashboardUpdate = {
+    sessionActive: function() { return autorizado; },
     safe: actualizacionSeguraDashboard,
     prepare: async function() {
       if (!actualizacionSeguraDashboard()) return false;

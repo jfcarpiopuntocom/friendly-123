@@ -34,6 +34,7 @@ test('S3: product export whitelist strips inline photo from remote product',()=>
  const expression=mock.slice(start,end).trim();
  const ctx=vm.createContext({productos:[{id:'synthetic',foto:'data:image/png;base64,ABC',fotoHash:'hash-only'}],
   _demoLocal:null,_estaEnSemillaDemoSeleccionada:()=>false,
+  window:{OCBusinessReadModel:require('../docs/core/business-read-model.js')},
   precioOpcional:x=>x,normPctAsociado:x=>x,Number,JSON,Math});
  const result=vm.runInContext('({'+expression+'})',ctx);
  assert.equal(result.productos.length,1);

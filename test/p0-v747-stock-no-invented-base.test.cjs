@@ -29,14 +29,17 @@ test('a stale epoch identifier without a count witness cannot replace known stoc
   assert.equal((await product(current,id)).stockActual,9);
 });
 
-test('sale from a legacy uncounted device does not invent a PN base',async()=>{
+// v750: v747 left this product with no ledger at all, so its stock travelled as an absolute
+// number: the last unit sold never reached the other device and offline sales lost one.
+// See test/fable-v750-stock-abc.test.cjs (ultimaUnidad, ventasOffline, viejoLlegaTarde).
+test('first sale of an uncounted product opens the shared ledger from the known stock',async()=>{
   const id='no-guessed-base',w=await device(id,7);
   const sold=await w.request('/api/productos/'+id+'/venta','POST',{cantidad:1});
   assert.ok(sold.ventaId,'sale must still commit locally');
   const p=await product(w,id);
   assert.equal(p.stockActual,6,'no disruption to local sale');
-  assert.equal(p.stockBase==null,true,'7 inferred from current screen is NOT a witnessed count');
-  assert.equal(p.stockPN==null||!Object.keys(p.stockPN).length,true,'no PN ledger tied to a guessed baseline');
+  assert.equal(p.stockBase,7,'base is the known stock before the sale');
+  assert.deepEqual(Object.values(p.stockPN),[{add:0,sub:1}],'the sale is one counted fact');
   const backup=await w.request('/api/respaldo/exportar');
   assert.equal(backup.ventas.filter(v=>v.id===sold.ventaId).length,1,'money/sale preserved exactly once');
 });

@@ -94,7 +94,7 @@ test('the existing PWA updates are already incremental and safe: no new library 
  assert.match(sw,/const CACHE_GENERACION/);
  assert.match(sw,/CACHE_LOCAL/);
  assert.match(sw,/cache\.match\(evento\.request\)/);
- assert.match(dash,/if \(!await bridge\.prepare\(\) \|\| !bridge\.safe\(\)\)/);
+ assert.match(dash,/if \(!await bridge\.prepare\(\) \|\| bridge\.sessionActive\(\) \|\| !bridge\.safe\(\)\)/);
 });
 
 test('a join invitation survives the redirect; anything else in the query is dropped', async()=>{

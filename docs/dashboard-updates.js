@@ -49,13 +49,13 @@
       if (reg.waiting) reg.waiting.postMessage({tipo:'skip-waiting'});
       if (await controllerShell() !== v.shell) return;
       var bridge = window.__dashboardUpdate;
-      if (!bridge || !bridge.safe()) return;
+      if (!bridge || typeof bridge.sessionActive !== "function" || bridge.sessionActive() || !bridge.safe()) return;
       var html = await fetch('./dashboard.html?dash=' + Date.now(),{cache:'no-store'});
       if (!html.ok) return;
       var source = await html.text();
       var match = source.match(/<meta\s+name="dashboard-shell"\s+content="([^"]+)"/);
-      if (!match || match[1] !== v.shell || !bridge.safe()) return;
-      if (!await bridge.prepare() || !bridge.safe()) return;
+      if (!match || match[1] !== v.shell || bridge.sessionActive() || !bridge.safe()) return;
+      if (!await bridge.prepare() || bridge.sessionActive() || !bridge.safe()) return;
       /* (JFC 2026-11-11, v732) Tope anti-bucle: una recarga automatica por version del shell y por pestana. */
       try { var ck = 'f123_dash_recarga:' + v.shell; if (sessionStorage.getItem(ck) === '1') { marcarRecarga('omitida-tope:version-segura', v.shell); return; } sessionStorage.setItem(ck, '1'); } catch (_) {}
       marcarRecarga('version-segura', v.shell);

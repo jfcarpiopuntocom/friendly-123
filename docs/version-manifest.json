@@ -1,6 +1,6 @@
 {
-  "version": "v0.7.49",
-  "shell": "f123-shell-v749",
+  "version": "v0.7.50",
+  "shell": "f123-shell-v750",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-b2882b570e5258d98d7d072c38113f99f40f6442793b65bd971c5ad941b8cdcc",
@@ -25,13 +25,13 @@
     "./pocketbase-client.js": "sha256-1b038581ecb22a491f388bddf5de6729209db5d7c67a404d1def8f8edb236469",
     "./estado-ab.js": "sha256-f5519590c2b8b835d014e7362bcc7007cfddf8e0e17f1617eb038a0996180f36",
     "./estado-idb.js": "sha256-23a466efba597dbca2d34d24ebf769016d46f95c4416fdd4e7e73cd1e8858236",
-    "./mock-backend.js": "sha256-b1a3462e3c95b263d2d4b244fdc7116094d974272f2c71766d3d49e8dd69f783",
+    "./mock-backend.js": "sha256-cbca337b7aa222d5f6817225f495d790a0ce253fa20da03e7e1ac18fa4c9e7b7",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
     "./sync-realtime.js": "sha256-283149b1ad3ecfef17c46c566b29942450461e507b9f190a447e7ad88f51c68a",
     "./sync-watchdog.js": "sha256-c132f08b1801e765f6e83eeefaccff1d5186642dbac990f9666a7fcf3ef05127",
-    "./sync-yjs.js": "sha256-d8db44e34342bbe357eec13008e21c99169ed0218ce7cc0bdb67af2bbf9a0546",
+    "./sync-yjs.js": "sha256-15f79509479408c80ebbd915807405a089bfc5762ad4b02bec8e6034df7ef11e",
     "./owner-approved-inventory-repair.js": "sha256-02a1fd60b355ecf58900eec1defffd0bd0397088eaa8c2e5a74d5901af7b7095",
     "./sync-latencia.js": "sha256-faf49a6fd8b60e3bd4cb78247b4fee986db94b5a3fa92c86f7ac2e50287d3524",
     "./invariantes.js": "sha256-4df7170b0f6f1227ce3b6ffadf9feaac7843d63cb274699a3b6ab230ff8ecdbc",
@@ -80,8 +80,8 @@
     "./device-environment.js": "sha256-5517a20f30d38eed8097a82f1925e9d2c6f456de19aed6e443ed383705d4b5cd",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-91233b8021cc9ad1754c6f9afae68b461525d259183940a6489decc3f5e0ea1c",
-    "./dashboard-updates.js": "sha256-26aad7cbd03878ae2afff0d4884e03e15386a4a85190207f427730553164f91d",
+    "./dashboard.html": "sha256-c32c2ab9ec08bd5f3a7a7bb88433cb906f912f287e53d1a8a60077de58c9aab5",
+    "./dashboard-updates.js": "sha256-e91bf81e3fd1262a24c3b40a008927cd9c0371791ba5d4821bbefb7879cf10c4",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
     "./vista-perchas.js": "sha256-888d926ddfebab656a6be4e2b7c2efe6270d3302416552c64bd274e1b2bbb05b",
@@ -117,7 +117,7 @@
     "./manifest.json": "sha256-743a5bb38267f5bfc683b81232d64227e5d6c6bec0dd3dd35856029da1db8923",
     "./dashboard-manifest.json": "sha256-c1847d560f60b8639d590ae6bf7dad29c6b1e88604cb3d4949d54e556a83f870",
     "./pwa-rescue.html": "sha256-51917debbf27e6c529869a2fa88764f1d04405b55823b265d547890c714a1967",
-    "./app-inline-01.min.js": "sha256-535c0f69c4f6717434da51cac74b827f876505f554d175025472afa65d9fb151",
+    "./app-inline-01.min.js": "sha256-36c9d84883339a788d9f512a9f946d93de67fff51d94fd75ff9352e3e8cdb73a",
     "./app-inline-02.min.js": "sha256-56226bd780b11cf95096f3fe742d7a46b59f4f0acac7d63327bac3821b0c9a5f",
     "./app-inline-03.min.js": "sha256-88ffb9d4a4b97ab846996554f74d4509ec16286a9af332cc69deba482b9ac505",
     "./app-inline-04.min.js": "sha256-15b70f37528e90ebceb72d200372f1a584dfc3d5e5f2eff8509975ad6b0dcfcf",
@@ -128,6 +128,6 @@
     "./app-style-02.min.css": "sha256-15d97398c75087b244017e4a728ca7e37fa0edab4d0e9d33668a937beeca6432",
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
-    "./dashboard-main.min.js": "sha256-0108edfd323303e87986eb692e1a157ca57527e21879d784d16195949f160777"
+    "./dashboard-main.min.js": "sha256-7cf11a19b06c0bc9d33c8323843cdc9c6b4c344e7d5e77ccafe6ab82d9cb3ae8"
   }
 }
