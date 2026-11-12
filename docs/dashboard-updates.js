@@ -14,6 +14,16 @@
   } catch (_) {}
   if (!('serviceWorker' in navigator)) return;
   var current = built && built.content, busy = false, reloading = false;
+  /* (JFC 2026-11-11, v738) Bitacora local de recargas, igual que la app: ultimas 15 en localStorage
+     "f123_recargas_log" = [{m: motivo, t: ms, v: shell}]. Sin UI, sin red, sin datos de clientes. Nunca lanza. */
+  function marcarRecarga(motivo, shell) {
+    try {
+      var a = JSON.parse(localStorage.getItem('f123_recargas_log') || '[]');
+      if (!Array.isArray(a)) a = [];
+      a.push({ m: String(motivo || ''), t: Date.now(), v: String(shell || '') });
+      localStorage.setItem('f123_recargas_log', JSON.stringify(a.slice(-15)));
+    } catch (_) {}
+  }
   function controllerShell() {
     return new Promise(function(resolve) {
       var controller = navigator.serviceWorker.controller;
@@ -47,7 +57,8 @@
       if (!match || match[1] !== v.shell || !bridge.safe()) return;
       if (!await bridge.prepare() || !bridge.safe()) return;
       /* (JFC 2026-11-11, v732) Tope anti-bucle: una recarga automatica por version del shell y por pestana. */
-      try { var ck = 'f123_dash_recarga:' + v.shell; if (sessionStorage.getItem(ck) === '1') return; sessionStorage.setItem(ck, '1'); } catch (_) {}
+      try { var ck = 'f123_dash_recarga:' + v.shell; if (sessionStorage.getItem(ck) === '1') { marcarRecarga('omitida-tope:version-segura', v.shell); return; } sessionStorage.setItem(ck, '1'); } catch (_) {}
+      marcarRecarga('version-segura', v.shell);
       reloading = true;
       location.reload();
     } catch (_) { /* Offline/update failure keeps the current report usable. */ }
