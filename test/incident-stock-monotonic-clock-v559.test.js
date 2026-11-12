@@ -19,7 +19,7 @@ function fixture(initial, now) {
 }
 test("P0: two physical sales within one millisecond have distinct increasing shared stock timestamps",()=>{
   const now=1700000000000;
-  const {p,stamp}=fixture({stockActual:9,stockTs:now},now);
+  const {p,stamp}=fixture({stockActual:9,stockTs:now,stockBase:10,stockPN:{}},now);
   stamp({productoId:p.id,delta:-1},"sale1");
   const first=p.stockTs;
   assert.equal(first,now+1);
