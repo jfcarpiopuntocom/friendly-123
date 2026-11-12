@@ -33,10 +33,13 @@ test("E1b-3 RED: legacy listener lifecycle responds without touching business ou
   leerSala:()=>({codigo:"TEAM-TEST"}),cerrarWsExistente:()=>{closed++;socket=null},
   conectar:()=>{connected++;socket={readyState:0}},reintentoMs:1000,
   WebSocket:{OPEN:1},_conexionGeneracion:0};
- vm.createContext(ctx);vm.runInContext("function puedeConectarLegado(){return !document.hidden && (!window.OCTabSession || window.OCTabSession.canSync());}\n"+script,ctx);
+ // JFC 2026-11-12: run the REAL gate from the source; it depends on visibility only (no tab turn).
+ const gate=/function puedeConectarLegado\(\) \{[\s\S]*?\n  \}/.exec(src)[0];
+ assert.doesNotMatch(gate.replace(/\/\/[^\n]*/g,""),/OCTabSession/);
+ vm.createContext(ctx);vm.runInContext(gate+"\n"+script,ctx);
  hidden=true;listeners.visibilitychange();assert.equal(closed,1);assert.equal(connected,0);
- hidden=false;lease=false;listeners["oc-tab-session-changed"]();assert.equal(closed,2);assert.equal(connected,0);
- lease=true;listeners["oc-tab-session-changed"]();assert.equal(connected,1);
+ hidden=false;lease=false;listeners["oc-tab-session-changed"]();
+ assert.equal(closed,1,"a visible screen is never paused by the old lease");assert.equal(connected,1);
 });
 
 

@@ -6368,7 +6368,6 @@
     // A legacy browser without cross-tab locks must not bypass the visible
     // compatibility guard by invoking a write directly. Reads stay available.
     if (escribe && _conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
-    if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
     if (!escribe) { if (_ventaPendiente) await _ventaPendiente; if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
     // A rejected CAS sale may only be retried against a newer durable revision.
@@ -6454,9 +6453,10 @@
            const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
          y revertir tab-session.js check() (ver su comentario DORMANT). */
       const cambio=rolAlPedir!==_rolLocal();
-      const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
+      // JFC 2026-11-12: el turno entre pestanas ya no existe. Cambio real de rol o cierre de
+      // sesion sigue dando 403, con el texto de permiso que ya existia (ningun texto nuevo).
+      const negado=_negadoPorRol(url,opts) || (cambio ? "Ask the owner or a manager: an employee cannot do this." : null);
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
-      if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
       _recargarSiOtraPestanaEscribio();
       if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
       const revisionAntes = _localRev; // capture before a foreign storage event can advance our revision

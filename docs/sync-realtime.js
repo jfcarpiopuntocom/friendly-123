@@ -433,7 +433,7 @@
   // conectar() SIEMPRE cierra lo que hubiera antes de abrir uno nuevo.
   let _conexionGeneracion = 0;
   function puedeConectarLegado() {
-    return !document.hidden && (!window.OCTabSession || window.OCTabSession.canSync());
+    return !document.hidden; // JFC 2026-11-12: sin turno entre pestanas
   }
   function cerrarWsExistente() {
     if (timeoutConexion) { clearTimeout(timeoutConexion); timeoutConexion = null; }

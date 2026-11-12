@@ -2634,63 +2634,8 @@ document.addEventListener("click", function (ev) {
   window.addEventListener("oc-login", function () { setTimeout(ajustar, 60); setTimeout(ajustar, 300); });
 })();
 
-// GUARDIA DE DOBLE PESTAÑA (portado de AMIGABLE, JFC 2026-08-05) — VITAL.
-// Dos pestañas de la MISMA app se pisan el estado (last-writer-wins). El
-// listener "storage" que debia recargar quedo neutralizado por el prefijo que
-// aislamiento.js pone a cada clave, asi que la unica defensa segura es NO
-// permitir dos pestañas activas a la vez. Detecta la 2ª por BroadcastChannel y
-// la tapa (con escape para la pestaña zombie legitima). NO borrar sin reemplazo.
-(function guardiaDoblePestana() {
-  var esES = true;
-  try { esES = !window.OCI18n || window.OCI18n.getLang() !== "en"; } catch (_) {}
-
-  /* JFC 2026-10-09: the lifetime tab lock is vestigial from the old sync.
-     mock-backend serializes writes with f123-escrituras and reloads durable
-     state inside that lock. Keep both tabs usable where Web Locks exists.
-     BroadcastChannel remains a compatibility guard without cross-tab locks;
-     the per-tab promise queue alone does not coordinate separate tabs. */
-  var _hayLocks = false;
-  try { _hayLocks = !!(navigator.locks && navigator.locks.request); } catch (_) {}
-  /* FEATURE - DORMANT (desactivada por orden de JFC, dueno, 2026-11-11). NO BORRAR.
-     Este guardia pintaba una PANTALLA COMPLETA («Este navegador no puede coordinar
-     escrituras entre pestanas...») y ponia OC_TAB_READONLY=true, lo que rechazaba
-     con 409 cualquier venta de la segunda pantalla en navegadores sin
-     navigator.locks. JFC: nunca aprobo ese anuncio, ensucia su UI y su UX, y una
-     venta jamas debe bloquearse por esto. La integridad entre pantallas ya la da el
-     control de revision de IndexedDB (OCEstadoIDB.guardarConRevision: leer la
-     revision y escribir en UNA sola transaccion readwrite, compare-and-set atomico).
-     PARA REACTIVAR (solo con orden expresa de JFC): poner DOBLE_PESTANA_DORMANT = false. */
-  var DOBLE_PESTANA_DORMANT = true;
-  if (_hayLocks || DOBLE_PESTANA_DORMANT) return;
-
-  if (typeof BroadcastChannel === "undefined") return;
-  var canal = new BroadcastChannel("friendly-123-sesion-unica");
-  var soyPrincipal = true;
-  canal.onmessage = function (e) {
-    if (e.data === "hola" && soyPrincipal) canal.postMessage("ocupado");
-    if (e.data === "ocupado" && !document.getElementById("oc-doble-tab")) {
-      soyPrincipal = false;
-      window.OC_TAB_READONLY = true;
-      _pintarAvisoDoble();
-    }
-  };
-  canal.postMessage("hola");
-
-  function _pintarAvisoDoble() {
-    if (document.getElementById("oc-doble-tab")) return;
-    var d = document.createElement("div");
-    d.id = "oc-doble-tab";
-    d.style.cssText = "position:fixed;inset:0;z-index:10003;background:#0F1923;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;text-align:center;";
-    d.innerHTML = '<p style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:18px;font-weight:700;max-width:440px;">'
-      + (esES ? 'Este navegador no puede coordinar escrituras entre pestañas. Sigue en la otra pestaña, o ciérrala y comprueba de nuevo aquí.' : 'This browser cannot coordinate writes across tabs. Continue in the other tab, or close it and check again here.')
-      + '</p><button id="oc-doble-usar" style="min-height:48px;padding:12px 22px;border-radius:8px;border:2px solid #5294AC;background:transparent;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;">'
-      + (esES ? 'Comprobar de nuevo' : 'Check again') + '</button>';
-    document.body.appendChild(d);
-    document.getElementById("oc-doble-usar").addEventListener("click", function () {
-      location.reload();
-    });
-  }
-})();
+// JFC 2026-11-12: el guardia de doble pestaña (pantalla completa y OC_TAB_READONLY) se quitó por orden de JFC.
+// La integridad entre pantallas la da el control de revisión de IndexedDB (guardarConRevision).
 
 // Mood/flavor del día para el dueño (12, voz JFC). Estable por día.
 const MOODS = [
