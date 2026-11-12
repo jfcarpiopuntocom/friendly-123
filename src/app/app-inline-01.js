@@ -5409,9 +5409,19 @@ async function confirmarVentaConInfo(id, esTicket){
         } catch (e) {
           console.error("[fiado] no se pudo confirmar la deuda:", e);
           const es = window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es";
-          alert(es
+          // v736 (JFC 2026-11-11): este aviso ya NO es un alert nativo bloqueante; el MISMO texto
+          // se muestra como línea dentro de la ficha del producto (o en el contenedor del toast de venta).
+          // Para volver al cuadro bloqueante: reemplazar este bloque por un alert nativo con _txtFiado. Texto sin cambios.
+          const _txtFiado = es
             ? "La venta quedó registrada, pero no se pudo confirmar el fiado. Revisa primero el saldo del cliente; no repitas la venta."
-            : "The sale was recorded, but the debt could not be confirmed. Check the customer's balance first; do not repeat the sale.");
+            : "The sale was recorded, but the debt could not be confirmed. Check the customer's balance first; do not repeat the sale.";
+          const _hostFiado = document.getElementById(fichaTargetActual) || document.getElementById("oc-toast-venta");
+          if (_hostFiado) {
+            let _lin = document.getElementById("oc-fiado-aviso");
+            if (!_lin) { _lin = document.createElement("div"); _lin.id = "oc-fiado-aviso"; _lin.className = "linea"; _lin.setAttribute("role", "alert"); _hostFiado.appendChild(_lin); }
+            _lin.style.cssText = "font-size:14px;font-weight:700;margin-top:10px;color:var(--rojo-ink,#a3392a);";
+            _lin.textContent = _txtFiado;
+          }
         }
       }
     }
@@ -6502,6 +6512,7 @@ async function editarServings(id){
       <span style="font-size:12px;color:var(--ink-soft);">ml bottle</span>
       <button id="bs-guardar" style="font-size:12px;font-weight:700;padding:4px 10px;background:#006B3C;border:1.5px solid #006B3C;border-radius:6px;color:#fff !important;-webkit-text-fill-color:#fff !important;cursor:pointer;">Save</button>
       <button id="bs-cancelar" style="font-size:12px;padding:4px 10px;background:#fff;border:1.5px solid var(--linea,#D7E0E8);border-radius:6px;color:var(--ink) !important;-webkit-text-fill-color:var(--ink) !important;cursor:pointer;">Cancel</button>
+    <span id="bs-msg" role="status" style="width:100%;font-size:13px;font-weight:700;color:var(--rojo-ink,#a3392a);"></span>
     </span>`;
   document.getElementById("bs-cancelar").addEventListener("click", () => pintarFicha(p));
   document.getElementById("bs-guardar").addEventListener("click", async () => {
@@ -6510,9 +6521,11 @@ async function editarServings(id){
     try {
       const res = await fetch(`${API}/productos/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ servingMl, botellaMl }) });
       const data = await res.json();
-      if (!res.ok) { alert(data.error || "Could not save."); return; }
+      // v736 (JFC 2026-11-11): errores dentro de la fila (#bs-msg), sin alert nativo bloqueante; mismos textos.
+      const bsMsg = document.getElementById("bs-msg");
+      if (!res.ok) { if (bsMsg) bsMsg.textContent = data.error || "Could not save."; return; }
       pintarFicha(data);
-    } catch (_) { alert("Could not reach the server. Check your connection and try again."); }
+    } catch (_) { const bsMsg = document.getElementById("bs-msg"); if (bsMsg) bsMsg.textContent = "Could not reach the server. Check your connection and try again."; }
   });
 }
 /* Edición inline de un gasto (JFC 2026-08-27): el lapicito convierte la fila en
