@@ -3,6 +3,8 @@
   "short_name": "friendly",
   "description": "Manage your business, in color. Inventory, clients, commissions and racks for small business - no servers, your data stays yours.",
   "start_url": "./",
+  "id": "/friendly-123/",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#F8F9FB",
