@@ -227,7 +227,20 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
     assert.ok(contender>=200&&contender<300,`contender write is accepted; status ${contender}`);
     const accepted=await first.evaluate(async()=>{const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Quota legitimate owner',tipo:'propio'})});return r.status;});
     assert.ok(accepted>=200&&accepted<300,`existing owner must still be able to work; status ${accepted}`);
-    // Both racks survive in durable state, each once (IndexedDB revision check arbitrates).
+    // The generic catalog save is asynchronous: HTTP 2xx alone is NOT a
+    // durable ACK. Verify the actual IndexedDB notebook contains both
+    // committed racks before a cold third page reads its initial snapshot.
+    // A lost cross-tab write still fails this test (bounded 5 s, no skips).
+    const expectedRacks=['Quota contender allowed','Quota legitimate owner'];
+    await second.waitForFunction(async names=>{
+      try{
+        const idb=window.OCEstadoIDB;
+        if(!idb||idb.soportado===false||typeof idb.leer!=='function')return false;
+        const saved=await idb.leer();
+        return Array.isArray(saved?.ubicaciones)&&names.every(n=>
+          saved.ubicaciones.filter(u=>u.nombre===n&&!u.borrado).length===1);
+      }catch(_){return false;}
+    },expectedRacks,{timeout:5000,polling:100});
     const third=await ctx.newPage();await third.goto(ORIGIN+'/index.html',{waitUntil:'load'});
     const racks=(await third.evaluate(async()=>(await fetch('/api/ubicaciones')).json())).map(x=>x.nombre);
     for(const n of ['Quota contender allowed','Quota legitimate owner'])assert.equal(racks.filter(x=>x===n).length,1,n+' saved once');
