@@ -522,6 +522,20 @@ export class SalaSync {
           }
           return;
         }
+        /* capa1 (13 nov 2026): head v2, same shape as the Supabase and Firebase adapters, so the client can tell an
+           empty layer from a caught-up one (relay-selector capaVaciaSigue). Two indexed reads, nothing written. */
+        if (msg.k === "head") {
+          if (this._cupoLleno === diaUTC()) { try { servidor.close(1013, CIERRE_CUPO); } catch (_) {} return; }
+          cupo(this.env, { r: 2 }).then(c => { if (c && c.lleno) this._cupoLleno = diaUTC(); }).catch(() => {});
+          let res = { k: "head-result", v: 2, unsupported: true };
+          try {
+            const ck = this.sql ? this.sql.exec("SELECT rev FROM ckpt WHERE k = 'latest'").toArray() : [];
+            const mx = this.sql ? this.sql.exec("SELECT MAX(rowid) AS s FROM ops").toArray() : [];
+            if (this.sql) res = { k: "head-result", v: 2, rev: ck.length ? (Number(ck[0].rev) || 0) : 0, seq: mx.length ? (Number(mx[0].s) || 0) : 0 };
+          } catch (_) {}
+          try { servidor.send(JSON.stringify(res)); } catch (_) {}
+          return;
+        }
         if (msg.k === "pull") {
           if (Number(msg.v) === 2) this._responderPullV2(servidor, msg);
           else this._responderPull(servidor, msg.lam); // compatibilidad con shells viejos

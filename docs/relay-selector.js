@@ -20,6 +20,12 @@
   var CAP_UP_RESERVA = 10 * 1024 * 1024, FRAME_RESERVADO = 16 * 1024;
   var CIERRE = "daily relay budget reached; local data retained";
   var capas = [];
+  /* capa1 (13 nov 2026, JFC: «conecta con mucho cuidado»): the Cloudflare layer goes FIRST, but ONLY on a device
+     flagged for QA (localStorage f123_capa1_qa = "1"). Without the flag this list is exactly the v0.7.72 one.
+     Its budget key is its own, so it never spends the Supabase/Firebase daily budget. */
+  var cf = window.F123CloudflareRelay, capa1QA = false;
+  try { capa1QA = localStorage.getItem("f123_capa1_qa") === "1"; } catch (_) {}
+  if (capa1QA && cf && cf !== sb && cf !== fb && typeof cf.connect === "function") capas.push({ relay: cf, key: "f123_relay_cupo_cf_v1" });
   if (sb && sb !== fb && typeof sb.connect === "function") capas.push({ relay: sb, key: "f123_relay_cupo_v1" });
   if (fb && typeof fb.connect === "function") capas.push({ relay: fb, key: "f123_relay_cupo_fb_v1" });
   // v767 (revision 13 nov 2026; was the TODO of 2026-11-04): the daily budget day is the device's LOCAL date, so it

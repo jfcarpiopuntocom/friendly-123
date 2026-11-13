@@ -33,16 +33,23 @@ test('estatico: Firebase admite sala cifrada de fotos pero no salas ajenas', () 
 });
 
 test('estatico: ningun archivo de docs/ abre un socket o canal crudo (WebSocket/EventSource/sendBeacon/XHR)', () => {
-  for (const re of [/new\s+WebSocket\s*\(/, /new\s+EventSource\s*\(/, /sendBeacon\s*\(/, /new\s+XMLHttpRequest\s*\(/]) {
+  for (const re of [/new\s+EventSource\s*\(/, /sendBeacon\s*\(/, /new\s+XMLHttpRequest\s*\(/]) {
     assert.deepEqual(donde(re), [], 'destino de red crudo: ' + re);
   }
+  // Contract change (JFC 13 nov 2026, textual: «si quieres ya lanza esa otra cosa de cloudflare», «conecta con mucho
+  // cuidado»): ONLY the capa1 adapter may open a WebSocket, and only to the capa1 Worker (ciphertext, as on Supabase/Firebase).
+  assert.deepEqual(donde(/new\s+WebSocket\s*\(/), ['cloudflare-relay.js'], 'only the capa1 adapter opens a WebSocket');
+  const cf = archivos.find(a => a.rel === 'cloudflare-relay.js').src;
+  assert.match(cf, /new WebSocket\("wss:\/\/" \+ CAPA1 \+/);
+  assert.match(cf, /CAPA1 = "friendly123-relay-capa1\.jfcarpio\.workers\.dev"/);
   assert.deepEqual(donde(/new\s+WS\s*\(/), ['peer-sync.js'], 'only the peer adapter may open the metadata socket');
 });
 
 test('estatico: los localizadores legacy solo llegan al adaptador directo y su socket usa /signal/', () => {
   const esperados = ['dashboard-main.min.js', 'sync-realtime.js', 'sync-yjs.js'];
   // firebase-relay.js only parses the locator (regex) to derive its room; it never opens it.
-  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'firebase-relay.js', 'peer-sync.js'].sort());
+  // cloudflare-relay.js only swaps the host of the locator for the capa1 Worker (see the raw-socket test).
+  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'cloudflare-relay.js', 'firebase-relay.js', 'peer-sync.js'].sort());
   assert.ok(!/new\s+(WebSocket|WS)\s*\(/.test(archivos.find(a => a.rel === 'firebase-relay.js').src), 'firebase relay opens no socket');
   for (const nombre of esperados) {
     const src = nombre === 'dashboard-main.min.js'
@@ -83,13 +90,15 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
     if (!hosts.has(m[1])) hosts.set(m[1], new Set()); hosts.get(m[1]).add(a.rel);
   }
   // 'amigable-licencias' solo aparece en un comentario historico de auth-ui.js (el nombre viejo del Worker).
-  assert.deepEqual([...hosts.keys()].sort(), ['amigable-licencias', 'friendly123-licencias', 'friendly123-sync-relay']);
+  // capa1 (JFC 13 nov 2026): its own Worker host, referenced only by its adapter.
+  assert.deepEqual([...hosts.keys()].sort(), ['amigable-licencias', 'friendly123-licencias', 'friendly123-relay-capa1', 'friendly123-sync-relay']);
+  assert.deepEqual([...hosts.get('friendly123-relay-capa1')], ['cloudflare-relay.js']);
   assert.deepEqual([...hosts.get('amigable-licencias')], ['auth-ui.js']);
   assert.match(archivos.find(a => a.rel === 'auth-ui.js').src, /\/\*[^]*?amigable-licencias\.jfcarpio\.workers\.dev[^]*?\*\//);
   // Licencias: referencias permitidas (panel de JFC, verificacion maestra, comentarios de auth-ui).
   const lic = [...hosts.get('friendly123-licencias')].sort();
   assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel-pin.js', 'panel.html']);
-  assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
+  assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['cloudflare-relay.js', 'dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
   // Rutas que el cliente pide al Worker de licencias: solo licencia, latido, canario y maestro. Nada de datos.
   const rutas = new Set();
   for (const a of archivos) for (const m of a.src.matchAll(/workerUrl\(\)[^;]{0,200}?["'`](\/[a-z\-]+)/gi)) rutas.add(m[1]);
