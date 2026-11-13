@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.72",
+  "version": "v0.7.73",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.72: el PIN tecleado temprano se valida solo cuando el aparato está listo; enlace de rescate traducido.",
+  "changelog": "v0.7.73: el aviso de versión nueva ya no tapa el botón de vender.",
   "requerida": false,
-  "shell": "f123-shell-v772",
+  "shell": "f123-shell-v773",
   "apagar": [],
-  "releaseName": "v0.7.72",
-  "cacheGeneration": "golden308"
+  "releaseName": "v0.7.73",
+  "cacheGeneration": "golden309"
 }

@@ -228,14 +228,18 @@
         var d = document.createElement("div");
         d.id = "oc-version-vieja";
         d.setAttribute("role", "status");
-        d.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:10002;background:#0F1923;border-top:3px solid #E8A020;padding:12px 16px;text-align:center;";
+        /* v773 (JFC 13 nov 2026: «se reinicia la pantalla cuando aplasto en vender»): this notice was fixed at the BOTTOM,
+           over the sale buttons, ~15 s after a new version; tapping «Vender» hit «Recargar». Now it sits in the page flow
+           at the top: it pushes content down and covers no button. Reload still needs a deliberate tap. */
+        d.style.cssText = "position:relative;display:block;width:100%;box-sizing:border-box;background:#0F1923;border-bottom:3px solid #E8A020;padding:12px 16px;text-align:center;";
         d.innerHTML =
           '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:15px;font-weight:700;">' +
           (esES ? "Hay una version mas nueva de la app. Recarga para tenerla completa."
                 : "A newer version of the app is available. Reload to get all of it.") +
           '</span> <button type="button" id="oc-version-recargar" style="margin-left:10px;min-height:44px;padding:9px 18px;border-radius:8px;border:2px solid #E8A020;background:#E8A020;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-size:15px;font-weight:700;cursor:pointer;">' +
           (esES ? "Recargar" : "Reload") + "</button>";
-        (document.body || document.documentElement).appendChild(d);
+        var raiz = document.body || document.documentElement;
+        raiz.insertBefore(d, raiz.firstChild);
         document.getElementById("oc-version-recargar").addEventListener("click", function () {
           /* Se limpian las caches del shell ANTES de recargar: si no, el mismo
              service worker vuelve a servir lo viejo y el boton no hace nada. */
