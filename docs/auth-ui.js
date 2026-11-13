@@ -703,7 +703,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       </div>
       <p id="oc-gate-landing" style="margin:12px 0 0;font-size:14px;line-height:1.5;text-align:center;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.landing">${(window.t && window.t("auth.gate.landing")) || ""}</p>
       <p id="oc-gate-links" style="margin:10px 0 0;text-align:center;"><a href="./save.html" data-i18n="gancho.cta.precio" style="display:inline-block;min-height:44px;line-height:44px;padding:0 8px;font-size:14px;font-weight:700;text-decoration:underline;color:#A83D1F !important;-webkit-text-fill-color:#A83D1F !important;">See the one-time price</a></p>
-      <p id="oc-gate-pwa-rescue" style="margin:8px 0;text-align:center;"><a href="./pwa-rescue.html" style="display:inline-block;min-height:44px;padding:10px 8px;font-size:14px;color:var(--azul-medio,#2c4a68);text-decoration:underline;font-weight:700;">¿Dos apps instaladas? Rescate de PWA / Rescue</a></p>
+      <p id="oc-gate-pwa-rescue" style="margin:8px 0;text-align:center;"><a href="./pwa-rescue.html" style="display:inline-block;min-height:44px;padding:10px 8px;font-size:14px;color:var(--azul-medio,#2c4a68);text-decoration:underline;font-weight:700;" data-i18n="auth.gate.pwaRescue">${(window.t && window.t("auth.gate.pwaRescue")) || "Two apps installed? PWA rescue"}</a></p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
       <p id="oc-gate-build" style="margin:8px 0 0;font-size:12px;letter-spacing:.06em;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">&nbsp;</p>
       <!-- Acceso al "campo de pruebas" (workshop) RETIRADO (JFC 2026-09-10):
@@ -1096,6 +1096,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // A store reload or cross-tab merge may hydrate the canonical shop name without
   // emitting oc-negocio-actualizado; repaint the PIN label from the active notebook.
   try { window.addEventListener("oc-sync-merge", function () { try { pintarNegocioGate(); } catch (_) {} }); } catch (_) {}
+  // v769: the same merge event also checks a PIN typed before the device was ready (see pinEnEspera below validar).
+  try { window.addEventListener("oc-sync-merge", function () { try { revisarPinEnEspera(); } catch (_) {} }); } catch (_) {}
 
   let teclado = null;
   let intervaloCountdown = null;
@@ -1278,7 +1280,52 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     }catch(_){}
   }
 
-  async function validar(code) {
+  /* ===== v769 · PIN TECLEADO ANTES DE QUE EL APARATO ESTE LISTO (JFC 13 nov 2026) =====
+     Medido en la tienda real (app publicada, aparato nuevo): el PIN tecleado mientras la sala cifrada aun no habia
+     traido los PINs del equipo caia en la rama "Your store's name and team PINs have not finished synchronizing" y se
+     DESCARTABA: no se encolaba ni se reintentaba, y el usuario tenia que volver a teclearlo sin saber cuando.
+     Ahora ese codigo queda en pinEnEspera (SOLO en memoria de esta pagina: nunca localStorage/IDB/sessionStorage)
+     y se valida UNA vez, solo, cuando Y.canal.accesoListo() es true (la misma prueba de v753/v764).
+     Reglas (no cambiar sin JFC):
+       - El reintento pasa por validar() entera: central, 789 en tienda unida, PIN obsoleto con cambio pendiente,
+         aparato sin credencial y bloqueo por intentos siguen igual. Un PIN incorrecto se cuenta igual que si se tecleara.
+       - Una sola llamada: si el reintento vuelve a caer en "no listo", NO se reencola (sin bucles ni llamadas extra
+         al Worker de licencias).
+       - Un PIN nuevo tecleado reemplaza al que esperaba. Tope 10 min; se suelta al entrar, al ocultarse el candado
+         o al vencer.
+       - Solo se reintenta con el teclado vacio y visible (no borra digitos que alguien esta tecleando, no corre
+         durante la cuenta regresiva de bloqueo) y tras 1 s seguido de "listo", para que las credenciales de la sala
+         (crypto-store instalarCredencialesDesdeSala, asincrono tras el merge) alcancen a guardarse.
+       - Sin texto nuevo: solo los mensajes existentes.
+     PARA REVERTIR: quitar este bloque, el escucha oc-sync-merge de revisarPinEnEspera y el parametro esReintento. */
+  const PIN_ESPERA_MAX_MS = 600000, PIN_ESPERA_ASENTADO_MS = 1000;
+  let pinEnEspera = null, pinEsperaHasta = 0, pinEsperaListoDesde = 0, pinEsperaTimer = null;
+  // Same readiness proof as the 789 branch (v764) and crypto-store instalarCredencialesDesdeSala (v753).
+  function canalAccesoListo(Y) {
+    return !!(Y && Y.canal && (typeof Y.canal.accesoListo === "function" ? Y.canal.accesoListo() : Y.canal.recuperando === false));
+  }
+  function soltarPinEnEspera() {
+    pinEnEspera = null; pinEsperaListoDesde = 0;
+    if (pinEsperaTimer) { clearInterval(pinEsperaTimer); pinEsperaTimer = null; }
+  }
+  function guardarPinEnEspera(code) {
+    pinEnEspera = String(code); pinEsperaHasta = Date.now() + PIN_ESPERA_MAX_MS; pinEsperaListoDesde = 0;
+    if (!pinEsperaTimer) pinEsperaTimer = setInterval(revisarPinEnEspera, 1000); // local check only: no network
+  }
+  function revisarPinEnEspera() {
+    if (!pinEnEspera || rol || Date.now() > pinEsperaHasta || !gate.isConnected || gate.style.display === "none") return soltarPinEnEspera();
+    const pad = $("oc-pad"), st = pad && pad._ocTeclado;
+    if (!canalAccesoListo(window.OCYjs) || !pad || pad.style.display === "none" || (st && st.entrada().length)) { pinEsperaListoDesde = 0; return; }
+    const ahora = Date.now();
+    if (!pinEsperaListoDesde) { pinEsperaListoDesde = ahora; return; }
+    if (ahora - pinEsperaListoDesde < PIN_ESPERA_ASENTADO_MS) return;
+    const code = pinEnEspera;
+    soltarPinEnEspera();
+    Promise.resolve().then(function () { return validar(code, true); }).catch(function () {});
+  }
+
+  async function validar(code, esReintento) {
+    if (!esReintento) soltarPinEnEspera(); // v769: a newly typed PIN replaces the waiting one
     await listo;
     if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} if (teclado) teclado.reset(); return iniciarActivacion(); } // keypad must be empty when the customer returns from the chooser
     /* identificarPin ANTES de verificarOwner/Empleado (esos suman fallos
@@ -1388,8 +1435,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if (T && T.esUnida && (T.esUnida() || joinPendienteVivo())) {
         const team = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
         const owner = String((team && team.owner) || "");
-        if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
+        /* v769: readiness uses canalAccesoListo (v753/v764: HEAD read + no pending struct writing PIN/role metadata),
+           like the 789 branch above. Before, recuperando!==false kept a store whose history has a parent no device holds
+           (v762) here forever: its wrong PINs were never counted and a waiting PIN could never be retried. */
+        if (!Y || !Y.roomId || !Y.canal || !canalAccesoListo(Y) ||
             !/^\d{3}$/.test(owner) || owner === "456" || owner === "789") {
+          // v769: keep the typed code in memory and validate it once when the device is ready (never re-queued by the retry).
+          if (!esReintento) guardarPinEnEspera(code);
           error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
           return;
         }

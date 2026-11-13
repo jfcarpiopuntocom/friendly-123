@@ -3473,6 +3473,8 @@
     ["The app must be open on another device for this to show anything.", "La app tiene que estar abierta en otro dispositivo para que esto muestre algo."],
     ["Your business code", "El código de tu negocio"],
     ["Your PIN", "Tu PIN"],
+    // v769 (JFC 13 nov: "Dejarlo y traducirlo"): the PWA rescue link was fixed Spanish in an English-first board.
+    ["Duplicate dashboard or app on iPhone? PWA rescue", "¿Dashboard o app duplicada en iPhone? Rescate de PWA"],
     ["Your owner or admin PIN", "Tu PIN de dueño o de admin"],
     ["See my business", "Ver mi negocio"],
     ["This board is a canvas: it stores nothing. What you see arrives encrypted from your team's devices and disappears when you close this tab.", "Este tablero es un lienzo: no guarda nada. Lo que ves llega cifrado desde los dispositivos de tu equipo y desaparece al cerrar esta pestaña."],
