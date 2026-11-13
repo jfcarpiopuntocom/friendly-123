@@ -241,7 +241,7 @@
 .lic-pin-fields .lic-input{width:100%;min-width:0;box-sizing:border-box;min-height:42px;}
 .lic-pin-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0;}
 .lic-pin-actions button{min-height:42px;flex:1 1 180px;max-width:100%;white-space:normal;}
-.lic-pin-actions button:disabled{opacity:.45;cursor:not-allowed;}
+.lic-pin-actions button:disabled{opacity:1;background:#2e3448;border-color:#4a5170;color:#b8b3bf;-webkit-text-fill-color:#b8b3bf;cursor:not-allowed;} /* v767: deshabilitado = colores solidos, sin opacidad sobre el texto (regla de legibilidad de JFC) */
 .lic-pin-state{min-height:1em;font-size:13px;line-height:1.4;}
 .lic-pin-pencil{font-size:14px;min-height:36px;min-width:40px;padding:5px 9px;}
 /* JFC: visible license/PIN pencils; mobile presents complete cards instead
