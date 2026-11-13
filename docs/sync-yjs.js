@@ -725,7 +725,7 @@
       if (canal.pend.length && ws.readyState === 1) programarBufferPump();
     }
     function enviarDurable(entry) {
-      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano; delete msg.abs;
+      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano; delete msg.abs; delete msg.soloFb;
       var result = enviarConLimite(canal.ws, JSON.stringify(msg), entry.k === "ckpt");
       if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
       if (result === "blocked") programarBufferPump();
@@ -738,6 +738,22 @@
       // v594: classify persisted legacy entries once, before anything is sent (serialized on the outbox queue).
       if (!_heredadosListo && API.clave) {
         _durableQueue = _durableQueue.then(clasificarHeredados).then(drenarDurable).catch(function () { programarDurable(); });
+        return;
+      }
+      /* v765: a compressed checkpoint written for Firebase (soloFb) never goes to another layer or a peer: the published
+         v636 reads Supabase and would silently skip tag 7. It is derived data (operations are never touched), so it is
+         dropped here and the next checkpoint is built for the layer that is active then. */
+      var capaFb = ws.relayLayer === "f123_relay_cupo_fb_v1";
+      if (!capaFb && _outbox.pending.some(function (x) { return x.soloFb; })) {
+        _durableQueue = _durableQueue.then(function () {
+          return mutarOutbox(function () {
+            _outbox.pending = _outbox.pending.filter(function (x) {
+              if (x.soloFb) delete _durableInFlight[x.id];
+              return !x.soloFb;
+            });
+          });
+        }).then(function () { try { log("ckpt comprimido retirado: capa sin marco 7 en " + nombre); } catch (_) {} })
+          .then(drenarDurable).catch(function () { programarDurable(); });
         return;
       }
       absorberHeredado();
@@ -1499,20 +1515,26 @@
           try { log("ckpt omitido: sobre pendiente con el mismo corte en " + nombre); } catch (_) {} return;
         }
         /* v763: limpia1 medida (13 nov): catalogo 1.069.757 B en claro (actividad 75 %, 0 B de fotos; compactar gana 0 B),
-           gzip 123.524 B. Sin comprimir NUNCA cabia y el corte envejecia. Si no cabe crudo y la capa activa mas baja es
-           Firebase, se comprime: Firebase llego en shell v639 y todo lector desde v636 entiende el marco 7 (solo por pull).
-           En Supabase sigue mandando el censo (gzipWrite): un shell <636 ignora el marco 7 en silencio.
+           gzip 123.524 B. Sin comprimir NUNCA cabia y el corte envejecia. El escritor por censo (gzipWrite) no cambia.
+           Aparte, SOLO si no cabe crudo y la capa activa es Firebase, se comprime: el adaptador Firebase llego (shell
+           v639) en codigo que ya lee el marco 7 por pull; el v636 publicado no lo lee, pero no tiene Firebase y solo lee
+           el checkpoint de Supabase, que sigue sin comprimir salvo censo (p0-mixed-shell-v636).
            v765: un navegador sin DecompressionStream lo lee con _gunzipJs (mismo resultado, verificado por CRC32).
            Es el mismo estado Yjs completo, solo comprimido: no se descarta ningun dato.
-           PARA REVERTIR: var gzCkpt = API.rollout && API.rollout.gzipWrite; (vuelve a omitirse si no cabe). */
+           PARA REVERTIR: borrar el segundo .then (vuelve a omitirse si no cabe). */
         var cabeCrudo = full.length + 29 <= (window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
           ? MAX_CKPT_CIPHER_BYTES : (MAX_CKPT_RPC_BYTES - 128) * 3 / 4);
-        var gzCkpt = (API.rollout && API.rollout.gzipWrite) ||
-          (!cabeCrudo && canal.ws && canal.ws.relayLayer === "f123_relay_cupo_fb_v1");
+        var soloFb = false;
         return Promise.resolve().then(function () {
-          return gzCkpt ? _gzipYjs(full, false) : null;
+          return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
         }).then(function (packed) {
-          if (packed && !cabeCrudo) try { log("ckpt comprimido " + full.length + "B -> " + packed.length + "B en " + nombre); } catch (_) {}
+          if (packed || cabeCrudo || !canal.ws || canal.ws.relayLayer !== "f123_relay_cupo_fb_v1") return packed;
+          return _gzipYjs(full, false).then(function (gz) {
+            if (gz) try { log("ckpt comprimido " + full.length + "B -> " + gz.length + "B en " + nombre); } catch (_) {}
+            soloFb = !!gz;
+            return gz;
+          });
+        }).then(function (packed) {
           // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
           var useful = packed && packed.length + 1 < full.length;
           var payload = useful ? packed : full;
@@ -1529,6 +1551,7 @@
           // Legacy adapters retain the exact 256 KiB JSON frame guard; OPs are unchanged.
           var ckpt = { k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
             v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf) };
+          if (soloFb) ckpt.soloFb = 1; // v765: local outbox mark only (enviarDurable strips it); see drenarDurable
           var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
             ? MAX_CKPT_CIPHER_BYTES : 0;
           if (ckptCipherLimit ? buf.byteLength > ckptCipherLimit : JSON.stringify(ckpt).length > MAX_CKPT_RPC_BYTES) {

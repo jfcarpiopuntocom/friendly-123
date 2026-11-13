@@ -66,11 +66,42 @@ for(const [nombre,nProd,nAct] of [['limpia1 (41 productos, 2100 actividades)',41
     assert.ok(cif<=768*1024,'cabe en el limite del RPC: '+cif);
     const {nuevo,tag}=await reconstruir(r.sobres[0],r.clave);
     if(plano+29<=768*1024) assert.equal(tag,0,'lo que ya cabia sigue en el formato viejo (aparatos <636)');
+    assert.equal(r.sobres[0].soloFb,tag===7?1:undefined,'solo el comprimido queda marcado para Firebase');
     assert.deepEqual(J(nuevo.getMap('productos').toJSON()),J(doc.getMap('productos').toJSON()),'productos completos iguales');
     for(const m of ['productos','actividad']) assert.deepEqual(J(nuevo.getMap(m).toJSON()),J(doc.getMap(m).toJSON()),'mapa '+m+' completo igual');
     assert.deepEqual(Array.from(Y.encodeStateVector(nuevo)),Array.from(Y.encodeStateVector(doc)),'mismo vector de estado');
   });
 }
+// v765: a compressed checkpoint made for Firebase never leaves through Supabase or a peer (old shells skip tag 7).
+async function drenar(capa,peerOnly){
+  const c=vm.createContext({Promise,Object,Math,Date,Set,setTimeout,JSON,String});
+  vm.runInContext(cut('    function enviarDurable(entry) {','    /* Oversized legacy outbox'),c);
+  const enviados=[];
+  Object.assign(c,{_pausado:false,permitido:()=>true,_heredadosListo:true,API:{clave:{}},nombre:'catalogo',
+    canal:{ws:{readyState:1,peerOnly:!!peerOnly,relayLayer:capa}},MAX_DURABLE_INFLIGHT:8,_groupAcks:new Set(),_durableInFlight:{},
+    _outbox:{pending:[{k:'ckpt',id:'ck-gz',soloFb:1,c:'x'},{k:'op',id:'op-1',c:'y'}]},_durableQueue:Promise.resolve(),
+    mutarOutbox:fn=>{fn();return Promise.resolve();},log(){},absorberHeredado(){},programarDurable(){},programarBufferPump(){},
+    _vivos:()=>c._outbox.pending,enviarConLimite:(ws,v)=>{enviados.push(JSON.parse(v));return 'sent';}});
+  vm.runInContext('drenarDurable()',c);
+  await c._durableQueue;await new Promise(r=>setTimeout(r,10));
+  return {enviados,pend:c._outbox.pending.map(x=>x.id)};
+}
+test('v765: el checkpoint comprimido solo sale por Firebase; en Supabase o peer se retira y la operacion sigue',async()=>{
+  const fb=await drenar(FB);
+  assert.deepEqual(fb.enviados.map(x=>x.id),['ck-gz','op-1']);
+  assert.ok(fb.enviados.every(x=>!('soloFb' in x)),'la marca es local, no viaja');
+  for(const [capa,peer] of [[SB,false],[undefined,true]]){
+    const r=await drenar(capa,peer);
+    assert.deepEqual(r.enviados.map(x=>x.id),['op-1'],'nunca sale el comprimido');
+    assert.deepEqual(r.pend,['op-1'],'solo se retira el checkpoint derivado; la operacion queda');
+  }
+});
+test('v765: todo shell con el adaptador Firebase ya lee el marco 7 (commit 962ebb3a, shell v639)',()=>{
+  const cp=require('node:child_process'),git=a=>cp.execFileSync('git',a,{encoding:'utf8',cwd:path.join(__dirname,'..')});
+  assert.match(git(['show','962ebb3a:docs/sw.js']),/const CACHE = "f123-shell-v639"/);
+  assert.match(git(['show','962ebb3a:docs/firebase-relay.js']),/ckptFrameBytes/);
+  assert.match(git(['show','962ebb3a:docs/sync-yjs.js']),/if \(tag === 7\) \{[\s\S]{0,200}if \(source !== "pull"\) return false/);
+});
 // v765: a browser without DecompressionStream (Safari <16.4) must read the same compressed checkpoint.
 test('v765: sin DecompressionStream el lector JS reconstruye el mismo estado y rechaza un CRC alterado',async()=>{
   const zlib=require('node:zlib'),gunzipJs=vm.runInContext('_gunzipJs',ctx);
