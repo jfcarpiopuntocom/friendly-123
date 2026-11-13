@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.73",
+  "version": "v0.7.74",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.73: el aviso de versión nueva ya no tapa el botón de vender.",
+  "changelog": "v0.7.74: una versión nueva ya no muestra franja ni recarga la pantalla; entra al volver a abrir la app.",
   "requerida": false,
-  "shell": "f123-shell-v773",
+  "shell": "f123-shell-v774",
   "apagar": [],
-  "releaseName": "v0.7.73",
-  "cacheGeneration": "golden309"
+  "releaseName": "v0.7.74",
+  "cacheGeneration": "golden310"
 }

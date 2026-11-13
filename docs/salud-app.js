@@ -220,8 +220,46 @@
   try {
     if (!("serviceWorker" in navigator)) return;
 
+    /* Clears ONLY this channel's shell caches, then reloads (same rule as before: /next/ and /previo/ are the offline
+       copies of the other channels on this device). */
+    function recargarLimpio() {
+      var fin = function () { try { window.__f123MarcarRecarga && window.__f123MarcarRecarga("boton-version"); location.reload(); } catch (_) {} };
+      try {
+        caches.keys().then(function (ns) {
+          var suf = (/\/(next|previo)\//.exec(location.pathname) || [])[1];
+          return Promise.all(ns.filter(function (n) { var m = /-(next|previo)$/.exec(n); return n.indexOf("f123-shell-") === 0 && (suf ? (m && m[1] === suf) : !m); })
+                               .map(function (n) { return caches.delete(n); }));
+        }).then(fin, fin);
+      } catch (_) { fin(); }
+    }
+    /* v773 (JFC 13 nov 2026: «se reinicia la pantalla cuando aplasto en vender… hace 28 dias era seamless la UX»; and his
+       rule of 28 oct 2026: no modal, popup, banner or strip; notices go inside the existing UI). The old notice was a strip
+       fixed at the bottom, over the sale buttons, ~15 s after each new version: tapping «Vender» hit «Recargar».
+       Now there is NO visible notice and NO reload: same design as the app's «actualizacion sola» (app-inline-03.js:
+       the page never reloads by itself; the next normal opening loads the new shell). Here the waiting service worker is
+       only told to take over, so that next opening already gets the new version. The mismatch is still recorded in the
+       health channel (Sonar / canaries). DORMANT, NO BORRAR: the old strip stays below behind AVISO_VERSION_VISIBLE
+       (only with JFC's express order). */
+    var AVISO_VERSION_VISIBLE = false, _actualizacionEnCurso = false;
+    function actualizarEnSilencio() {
+      if (_actualizacionEnCurso) return;
+      _actualizacionEnCurso = true;
+      try {
+        navigator.serviceWorker.getRegistration().then(function (reg) {
+          if (!reg) return;
+          try { if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" }); } catch (_) {}
+          try { reg.update(); } catch (_) {}
+        }).catch(function () {});
+      } catch (_) {}
+    }
     function ofrecerRecarga(esperado, sirviendo) {
       try {
+        try {
+          if (window.AMG && window.AMG.Salud && window.AMG.Salud.registrar) {
+            window.AMG.Salud.registrar("shell desincronizado: sirviendo " + sirviendo + ", esperado " + esperado, "sw.js", 0);
+          }
+        } catch (_) {}
+        if (!AVISO_VERSION_VISIBLE) return actualizarEnSilencio();
         if (document.getElementById("oc-version-vieja")) return;
         var esES = false;
         try { esES = !!(window.OCI18n && window.OCI18n.getLang() === "es"); } catch (_) {}
@@ -240,25 +278,8 @@
           (esES ? "Recargar" : "Reload") + "</button>";
         var raiz = document.body || document.documentElement;
         raiz.insertBefore(d, raiz.firstChild);
-        document.getElementById("oc-version-recargar").addEventListener("click", function () {
-          /* Se limpian las caches del shell ANTES de recargar: si no, el mismo
-             service worker vuelve a servir lo viejo y el boton no hace nada. */
-          var fin = function () { try { location.reload(); } catch (_) {} };
-          try {
-            caches.keys().then(function (ns) {
-              /* 2026-09-25 (canarios): solo las caches de ESTE canal; las de /next/ o
-                 /previo/ son la copia offline de las otras versiones del aparato. */
-              var suf = (/\/(next|previo)\//.exec(location.pathname) || [])[1];
-              return Promise.all(ns.filter(function (n) { var m = /-(next|previo)$/.exec(n); return n.indexOf("f123-shell-") === 0 && (suf ? (m && m[1] === suf) : !m); })
-                                   .map(function (n) { return caches.delete(n); }));
-            }).then(fin, fin);
-          } catch (_) { fin(); }
-        });
-        try {
-          if (window.AMG && window.AMG.Salud && window.AMG.Salud.registrar) {
-            window.AMG.Salud.registrar("shell desincronizado: sirviendo " + sirviendo + ", esperado " + esperado, "sw.js", 0);
-          }
-        } catch (_) {}
+        // Shell caches are cleared BEFORE reloading; otherwise the same service worker serves the old files again.
+        document.getElementById("oc-version-recargar").addEventListener("click", recargarLimpio);
       } catch (_) {}
     }
 
