@@ -222,12 +222,11 @@
       if (this.checked) resumir();
     });
 
-    var planYaRegistrado = false; /* true cuando el cargo ya se asento pero el plan fallo */
     $("pp-ok").addEventListener("click", function (ev) {
       var btn = ev.currentTarget;
-      if (btn.disabled || planYaRegistrado) return;
+      if (btn.disabled) return;
       btn.disabled = true;
-      setTimeout(function () { btn.disabled = planYaRegistrado; }, 1000);
+      setTimeout(function () { btn.disabled = false; }, 1000);
       var msg = $("pp-msg");
       var monto = Number($("pp-monto").value);
       if (!(monto > 0)) { msg.style.color = "#B0183E"; msg.textContent = "The amount must be greater than zero."; return; }
@@ -277,15 +276,11 @@
       }).catch(function (e) {
         /* If we got here after the charge already went through, retrying would
            record the credit twice. Close the modal and tell the whole truth. */
-        /* v736 (JFC 2026-11-11): ya NO es un alert nativo bloqueante. El MISMO texto va en la
-           linea #pp-msg del propio modal. El modal queda abierto y "Record" bloqueado
-           (planYaRegistrado) para que nadie fie dos veces; "Cancel" lo cierra. */
-        planYaRegistrado = true;
+        cerrar();
         if (global.pintarSaldoCartera) global.pintarSaldoCartera(clienteId);
         refrescarHoy();
-        msg.style.color = "#B0183E";
-        msg.textContent = "The credit was recorded, but the payment plan could not be saved. " +
-          "You can set it up later. (" + ((e && e.message) || "error") + ")";
+        global.alert("The credit was recorded, but the payment plan could not be saved. " +
+          "You can set it up later. (" + ((e && e.message) || "error") + ")");
       });
     });
 

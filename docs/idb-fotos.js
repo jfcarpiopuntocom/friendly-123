@@ -36,38 +36,19 @@
 
   function abrirDB() {
     if (dbPromise) return dbPromise;
-    let req;
-    try { req = indexedDB.open(DB_NAME, 2); } catch (err) { return Promise.reject(err); }
-    let promise, settled = false, watchdog = null;
-    promise = new Promise((resolve, reject) => {
-      const fail = err => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(watchdog);
-        if (dbPromise === promise) dbPromise = null;
-        reject(err);
-      };
-      // Safari may never fire success/error/blocked. Reject and release the
-      // cached promise; old evidence stays intact for a later retry.
-      watchdog = setTimeout(() => fail(new Error("IndexedDB photo open timed out")), 8000);
+    dbPromise = new Promise((resolve, reject) => {
+      // v2: agrega el store "blobs" sin tocar "perchas" (nada se pierde).
+      const req = indexedDB.open(DB_NAME, 2);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
         if (!db.objectStoreNames.contains(STORE_BLOBS)) db.createObjectStore(STORE_BLOBS);
       };
-      req.onsuccess = () => {
-        const db = req.result;
-        if (settled) { db.close(); return; }
-        settled = true;
-        clearTimeout(watchdog);
-        db.onversionchange = () => { db.close(); if (dbPromise === promise) dbPromise = null; };
-        resolve(db);
-      };
-      req.onerror = () => fail(req.error);
-      req.onblocked = () => fail(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)"));
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)"));
     });
-    dbPromise = promise;
-    return promise;
+    return dbPromise;
   }
 
   // --- Direccionamiento por contenido (SHA-256) ---
@@ -94,75 +75,42 @@
       await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readwrite");
         tx.objectStore(STORE_BLOBS).put(dataUrl, hash); // put idempotente = dedup
-        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error("abortada"));
+        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
       });
       return true;
     } catch (err) { console.error("[idb-fotos] guardarPorHash:", err); return false; }
   }
-  // Legacy hashed bytes may still live only in localStorage even while IDB
-  // opens normally (pre-isolation / older PWA recovery). Read-only fallback.
-  function leerHashLegado(hash) {
-    try { return localStorage.getItem(claveBlob(hash)) || null; } catch (_) { return null; }
-  }
-  function hashesLegado() {
-    const out = [];
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && k.indexOf("f123_fotoblob_") === 0) out.push(k.slice("f123_fotoblob_".length));
-      }
-    } catch (_) {}
-    return out;
-  }
-  // Strict IDB-only read for copy-only rescue: unlike the public reader it
-  // never treats a legacy localStorage fallback as a committed IDB copy.
-  // Rejections are intentional: a failed read must NOT authorize overwriting
-  // potentially newer IDB data; the recovery loop will count it as pending.
-  async function leerHashSoloIdb(hash) {
-    if (!hash) return null;
-    if (!SOPORTADO) return leerHashLegado(hash);
-    const db = await abrirDB();
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_BLOBS, "readonly");
-      const req = tx.objectStore(STORE_BLOBS).get(hash);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-      tx.onabort = () => reject(tx.error || new Error("lectura IDB abortada"));
-    });
-  }
-  // App reads retain historical fallback; only rescue checks require strict IDB.
   async function leerPorHash(hash) {
     if (!hash) return null;
-    if (!SOPORTADO) return leerHashLegado(hash);
+    if (!SOPORTADO) { try { return localStorage.getItem(claveBlob(hash)); } catch (_) { return null; } }
     try {
-      return (await leerHashSoloIdb(hash)) || leerHashLegado(hash);
-    } catch (err) {
-      console.error("[idb-fotos] leerPorHash:", err);
-      return leerHashLegado(hash);
-    }
+      const db = await abrirDB();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_BLOBS, "readonly");
+        const req = tx.objectStore(STORE_BLOBS).get(hash);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (err) { console.error("[idb-fotos] leerPorHash:", err); return null; }
   }
   async function tieneHash(hash) { return !!(await leerPorHash(hash)); }
-  // Never mistake a readable legacy fallback for a committed IndexedDB blob.
-  // On unsupported browsers, the caller will attempt the local fallback write.
-  async function tieneHashSoloIdb(hash) {
-    if (!SOPORTADO) return false;
-    return !!(await leerHashSoloIdb(hash));
-  }
-  // Full hash inventory, not blob bytes. Include orphaned legacy evidence so
-  // memory-bounded replication never drops historic photos without pointers.
+  // Lista de hashes que este aparato YA tiene — base del protocolo "tengo/quiero"
+  // que usara B3 para pedir a la nube solo lo que falta.
   async function hashesGuardados() {
-    if (!SOPORTADO) return hashesLegado();
+    if (!SOPORTADO) {
+      const out = [];
+      try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.indexOf("f123_fotoblob_") === 0) out.push(k.slice("f123_fotoblob_".length)); } } catch (_) {}
+      return out;
+    }
     try {
       const db = await abrirDB();
       return await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readonly");
         const req = tx.objectStore(STORE_BLOBS).getAllKeys();
-        req.onsuccess = () => resolve([...new Set((req.result || []).map(String).concat(hashesLegado()))]);
-        req.onerror = () => reject(req.error || new Error("inventario IDB: solicitud fallida"));
-        tx.onerror = () => reject(tx.error || new Error("inventario IDB: transaccion fallida"));
-        tx.onabort = () => reject(tx.error || new Error("inventario IDB: transaccion abortada"));
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
       });
-    } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return hashesLegado(); }
+    } catch (err) { console.error("[idb-fotos] hashesGuardados:", err); return []; }
   }
 
   // v449: export forense read-only del almacen content-addressed completo.
@@ -266,7 +214,6 @@
         tx.objectStore(STORE).put(dataUrl, id);
         tx.oncomplete = resolve;
         tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error || new Error("abortada"));
       });
       return true;
     } catch (err) {
@@ -303,24 +250,6 @@
       console.error("[idb-fotos] leerFoto:", err);
       return leerLegacyFoto(id);
     }
-  }
-
-  // Pointer publication needs a CERTAIN current photo, unlike the UI reader.
-  // Successful IDB miss may use legacy bytes; IDB errors MUST reject instead.
-  async function leerFotoConfirmada(id) {
-    if (!SOPORTADO) return leerLegacyFoto(id);
-    const db = await abrirDB();
-    const current = await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readonly");
-      const req = tx.objectStore(STORE).get(id);
-      let bytes = null;
-      req.onsuccess = () => { bytes = req.result || null; };
-      req.onerror = () => reject(req.error || new Error("Foto IDB: lectura fallida"));
-      tx.onerror = () => reject(tx.error || new Error("Foto IDB: transaccion fallida"));
-      tx.onabort = () => reject(tx.error || new Error("Foto IDB: transaccion abortada"));
-      tx.oncomplete = () => resolve(bytes);
-    });
-    return current || leerLegacyFoto(id);
   }
 
   // Lee TODAS las fotos guardadas de una vez — usado por vista-perchas.js para
@@ -436,7 +365,7 @@
         const bytes = porHash[hash];
         if (!hash || !bytes) continue;
         try {
-          const actual = await leerHashSoloIdb(hash);
+          const actual = await leerPorHash(hash);
           if (!actual && !await guardarPorHash(hash, bytes)) blobsPendientes++;
           else if (!actual) blobs++;
         } catch (_) { blobsPendientes++; }
@@ -497,7 +426,7 @@
           // Si la clave legacy estaba corrupta/mal rotulada, preserva bajo el
           // hash REAL y no perpetua una asociacion falsa.
           const objetivo = real || hash;
-          const actual = await leerHashSoloIdb(objetivo);
+          const actual = await leerPorHash(objetivo);
           if (!actual && !await guardarPorHash(objetivo, bytes)) blobsPendientes++;
           else if (!actual) blobs++;
         } catch (_) { blobsPendientes++; }
@@ -577,11 +506,11 @@
   }
 
   window.OCFotos = {
-    guardarFoto, leerFoto, leerFotoConfirmada, leerTodas, borrarFoto, migrarSiHaceFalta,
+    guardarFoto, leerFoto, leerTodas, borrarFoto, migrarSiHaceFalta,
     rescatarDbPreAislamiento, rescatarLocalStoragePreAislamiento,
     blindarEvidencia, inventariarEvidencia, diagnosticoRecuperacion,
     soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
-    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, tieneHashSoloIdb, hashesGuardados, leerTodosPorHash, guardarFotoContenido
+    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, hashesGuardados, leerTodosPorHash, guardarFotoContenido
   };
 })();

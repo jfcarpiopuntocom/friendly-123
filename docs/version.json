@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.63",
-  "fecha": "2026-11-13",
-  "changelog": "v0.7.63: Mantenimiento de la sincronización entre aparatos.",
+  "version": "1.0",
+  "fecha": "2026-10-25",
+  "changelog": "v586: direct device synchronization; business data stays on customer devices with durable peer receipts.",
   "requerida": false,
-  "shell": "f123-shell-v763",
+  "shell": "f123-shell-v586",
   "apagar": [],
-  "releaseName": "v0.7.63",
-  "cacheGeneration": "golden302"
+  "releaseName": "v586",
+  "cacheGeneration": "golden132"
 }

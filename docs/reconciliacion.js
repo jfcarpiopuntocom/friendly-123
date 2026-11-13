@@ -210,8 +210,6 @@
     });
     if (!res.ok) {
       var e = await res.json().catch(function () { return {}; });
-      /* (JFC 2026-10-28) 409 de restaurar: texto en espanol si la UI esta en espanol. */
-      if (e.errorEs && (function(){try{return !!(window.OCI18n&&window.OCI18n.getLang&&window.OCI18n.getLang()==="es");}catch(_){return false;}})()) e.error = e.errorEs;
       throw new Error(e.error || ("No se pudo restaurar (HTTP " + res.status + ")"));
     }
     return true;
@@ -561,19 +559,10 @@
     } catch (_) {}
   }
 
-  /* v599 (perf, JFC 2026-10-27): las copias diarias esperan >= 15 s y corren en un hueco ocioso
-     (antes 6 s y 9 s tras cargar), para no competir con el primer uso en moviles lentos.
-     Sin requestIdleCallback cae a setTimeout. */
-  function diferir(fn, ms) {
-    setTimeout(function () {
-      try { if (global.requestIdleCallback) global.requestIdleCallback(function () { fn(); }, { timeout: 10000 }); else fn(); }
-      catch (_) { try { fn(); } catch (__) {} }
-    }, ms);
-  }
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function () { diferir(archivoDiario, 15000); diferir(sombraDiaria, 18000); }, { once: true });
+    document.addEventListener("DOMContentLoaded", function () { setTimeout(archivoDiario, 6000); setTimeout(sombraDiaria, 9000); }, { once: true });
   } else {
-    diferir(archivoDiario, 15000);
-    diferir(sombraDiaria, 18000);
+    setTimeout(archivoDiario, 6000);
+    setTimeout(sombraDiaria, 9000);
   }
 })(typeof window !== "undefined" ? window : this);
