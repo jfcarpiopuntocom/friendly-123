@@ -131,7 +131,11 @@
         const registro = { v: 1, phase: "PREPARED", activo: vista.activo, destino,
           anterior: vista.buffers[destino], candidateRaw: raw, token: body._abCommit,
           revision: body._rev, punteroAnterior: vista.puntero };
-        const preparado = JSON.stringify(registro);
+        // v755: escape the full candidate text once and reuse it in both journal phases.
+        const crudoJSON = JSON.stringify(raw);
+        const diario = r => JSON.stringify(Object.assign({}, r, { candidateRaw: 0 }))
+          .replace('"candidateRaw":0', () => '"candidateRaw":' + crudoJSON);
+        const preparado = diario(registro);
         espejoPermitido = true;
         storage.setItem(claveJournal, preparado);
         if (leerClave(claveJournal) !== preparado) { espejoPermitido = false; return false; }
@@ -141,8 +145,11 @@
         registro.phase = "COMMITTED";
         // La preimagen solo se necesita en PREPARED; v636 acepta anterior:null en COMMITTED.
         registro.anterior = null;
-        const confirmado = JSON.stringify(registro);
+        const confirmado = diario(registro);
         storage.setItem(claveJournal, confirmado);
+        // v755: the next leer() finds this exact committed text already parsed (no full re-parse per sale).
+        lecturas.delete(raw); lecturas.set(raw, Object.freeze(body));
+        if (lecturas.size > MAX_LECTURAS) lecturas.delete(lecturas.keys().next().value);
         // A successful native atomic set is durable even if a later read fails.
         // The pointer is a legacy hint; the confirmed journal is the commit boundary.
         try { storage.setItem(base + "_ptr", destino); } catch (_) {}

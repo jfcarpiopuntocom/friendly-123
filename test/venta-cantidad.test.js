@@ -24,6 +24,7 @@ function mkWin(ls){const w={localStorage:ls,sessionStorage:mkStore(),location:{o
 const src=fs.readFileSync(require('path').join(__dirname,'..','docs','mock-backend.js'),'utf8');
 const w=mkWin(mkStore());vm.createContext(w);
 vm.runInContext(fs.readFileSync(require('path').join(__dirname,'..','docs','estado-ab.js'),'utf8'),w);
+vm.runInContext(fs.readFileSync(require('path').join(__dirname,'..','docs','core','business-read-model.js'),'utf8'),w);
 vm.runInContext(src,w);
 const J=async(p,o)=>{const r=await w.fetch(p,o);return{s:r.status,b:await r.json()};};
 const P=(o)=>({method:'POST',body:JSON.stringify(o)});

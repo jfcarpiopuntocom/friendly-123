@@ -1434,7 +1434,11 @@
     if (_estadoLecturaBloqueada) return false;
     if (!_guardadoCatalogoPendiente && _ultimoGuardadoPublicable) return true;
     // A repeated save may be pending while RAM still equals its exact accepted snapshot.
-    try { return _estadoPublicableConfirmado !== null && _huellaPublicable() === _estadoPublicableConfirmado; }
+    try {
+      if (_estadoPublicableConfirmado !== null && typeof _estadoPublicableConfirmado === "object")
+        _estadoPublicableConfirmado = _huellaPublicable(_estadoPublicableConfirmado); // v755: lazy, only when a save is pending
+      return _estadoPublicableConfirmado !== null && _huellaPublicable() === _estadoPublicableConfirmado;
+    }
     catch (_) { return false; }
   }
   /* v599 SYNC "ENVIAR Y GUARDAR A LA VEZ" (JFC 2026-10-27, decision explicita por pregunta de opciones).
@@ -1673,7 +1677,7 @@
         if (ok) {
           if (actividadVigente) _confirmarActividad(actividadVigente);
           _localRev = Math.max(_localRev, _revIntento);
-          _estadoPublicableConfirmado = _huellaPublicable(completo);
+          _estadoPublicableConfirmado = completo; // v755: fingerprint computed lazily (completo is never mutated)
           _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
           try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
           ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
@@ -1691,9 +1695,9 @@
       // local A/B journal, including money and stock. A revision FENCE (false
       // with no storage error) is different: it must NOT overwrite another tab.
       // A/B is an alternative durable COMMIT, not a second business operation.
-      const guardarABConfirmado = () => {
+      const intentarABConfirmado = () => {
         if (!ab || !tokenOk || _estadoLecturaBloqueada || _conflictoEstadoAB)
-          return terminar(false);
+          return false;
         try {
           _guardandoAB = true;
           local = ab.guardarAhora(crudo) === true;
@@ -1713,14 +1717,16 @@
           // This is LOCAL durable, NEVER peer/global ACK; Sync3 may copy later.
           try { window.OCSalud?.escritorEvento?.("fallbackLocal"); } catch (_) {}
         }
-        return terminar(local === true);
+        return local === true;
       };
+      const guardarABConfirmado = () => terminar(intentarABConfirmado());
       if (exigirCompleto) {
         // No native IDB, closed adapter or a previously working IDB currently
         // unavailable: all use the same read-back-verified local journal.
         if (!casDisponible) return guardarABConfirmado();
         const _tIdbEstricto = _perfLocalInicio();
-        return idb.guardarConRevision(completo, _localRev).then(ok => {
+        const cas = idb.guardarConRevision(completo, _localRev);
+        const trasIDB = ok => {
           _perfLocalFin('strict_idb', _tIdbEstricto, ok === true);
           if (ok !== true) {
             // No error means strict CAS rejected a stale snapshot. Keep 403/
@@ -1736,10 +1742,21 @@
             catch (_) {} finally { _guardandoAB = false; }
           }
           return terminar(true);
-        }, () => {
+        };
+        const falloIDB = () => {
           _perfLocalFin('strict_idb', _tIdbEstricto, false);
           return guardarABConfirmado();
-        });
+        };
+        // v755 (WebKit bug 315804): a hung IndexedDB never settles. After 8 s the SAME snapshot and
+        // revision go to the read-back-verified A/B journal. If A/B cannot confirm, keep waiting for
+        // IDB as before: never answer "not saved" while IDB may still commit this sale.
+        let tope = null;
+        const limite = new Promise(listo => { tope = setTimeout(() => listo("tope"), 8000); });
+        return Promise.race([cas, limite]).then(ok => {
+          if (ok !== "tope") { clearTimeout(tope); return trasIDB(ok); }
+          if (intentarABConfirmado()) { _perfLocalFin('strict_idb', _tIdbEstricto, false); return terminar(true); }
+          return cas.then(trasIDB, falloIDB);
+        }, () => { clearTimeout(tope); return falloIDB(); });
       }
       // Non-financial background state still uses existing A/B recovery.
       if (local) { _espejarEnIDB(completo, true); return terminar(true); }
@@ -5860,7 +5877,7 @@
            su stock lo manda su propia caja. Add-only es seguro: nunca borra ni
            sobrescribe un ítem que ya existe aquí. */
         const fresco = ventas.length === 0;
-        let agP = 0, agPr = 0, agC = 0;
+        let agP = 0, agPr = 0, agC = 0, agStock = 0;
         snap.ubicaciones.forEach((u) => {
           if (!u || !u.id) return;
           if (_estaEnSemillaDemoSeleccionada(_demoSnap, "ubicaciones", u)) return;
@@ -5878,7 +5895,7 @@
           // v648: a store's real sales reach a device through Yjs, so `fresco` is false on any device of a used store. A product
           // this device did not know, or holds at 0 with no base of its own, has no local truth to protect: it takes the photo.
           if (!mio) { productos.push(Object.assign({}, p, { stockActual: stk })); if (p.stockBase == null || !Number.isFinite(Number(p.stockBase))) delete productos[productos.length - 1].stockEpochId; agPr++; }
-          else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
+          else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; agStock++; }
         });
         /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
            aparato fresco. Por eso los clientes reales no llegaban al segundo aparato. */
@@ -5900,7 +5917,9 @@
         // A deletion travels too: rev decides, as in Yjs, so a photo can neither resurrect a deleted product nor undo a newer edit.
         const _conLedger = snap.productos.filter((p) => p && p.id && (p.stockBase != null || p.stockTs || p.rev));
         if (_conLedger.length) { try { aplicarCatalogo({ ubicaciones: [], productos: _conLedger }, null); } catch (_) {} }
-        guardarEstadoLocal();
+        // v755: the two aplicarCatalogo calls above persist their own changes (PIN/users immediately).
+        // Only this photo's direct additions remain; with none, skip the full save; else join the merge timer.
+        if (agP || agPr || agC || agStock) _programarGuardadoMerge();
         mov("checkpoint-mergeado", { perchas: agP, productos: agPr, clientes: agC, fresco });
         return { ok: true, productos: agPr, perchas: agP, clientes: agC };
       } catch (_) { return { ok: false, motivo: "error" }; }
@@ -6532,8 +6551,11 @@
       if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
       _recargarSiOtraPestanaEscribio();
       if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
-      const revisionAntes = _localRev; // capture before a foreign storage event can advance our revision
-      const primero = await _fetchInterno(url,opts);
+      let revisionAntes = _localRev; // capture before a foreign storage event can advance our revision
+      let primero = await _fetchInterno(url,opts);
+      // v755: up to 3 local rebases (was 1). Each one only against a NEWER durable revision
+      // than the previous attempt, so it can never apply the same sale twice.
+      for (let _reintento = 0; _reintento < 3; _reintento++) {
       // #607: 503 now identifies a NON-quota strict save rejection, but the
       // existing fenced sale-rebase must still run. Only accept our explicit
       // durability code; an arbitrary 503 is never replayed. The response is
@@ -6582,7 +6604,10 @@
       _localRev = nuevo._rev;
       _localRevReservado = Math.max(_localRevReservado, _localRev);
       _estadoPublicableConfirmado = _huellaPublicable();
-      return _fetchInterno(url,opts);
+      revisionAntes = _localRev;
+      primero = await _fetchInterno(url,opts);
+      }
+      return primero;
     };
     // P0: a tab-local FIFO + session fencing replaces the 10-second Web Lock
     // queue. Durable cross-tab conflict detection is delegated to IndexedDB's

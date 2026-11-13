@@ -276,10 +276,12 @@
   // Atomic durable revision fence. Two tabs cannot acknowledge two different
   // sales from the same base revision. IndexedDB serializes overlapping
   // readwrite transactions; no 10-second Web Locks wait or cross-tab lease.
+  // v755: both callers (mock-backend) pass a fresh JSON-parsed snapshot they never mutate, and put()
+  // structured-clones it; the former JSON.parse(JSON.stringify()) was a redundant full copy per sale.
   function guardarConRevision(estado, revisionAplicada) {
     if (!SOPORTADO || !estado || !Number.isSafeInteger(revisionAplicada)) return Promise.resolve(false);
     const op = _cola.then(async function () {
-      const copia = JSON.parse(JSON.stringify(estado));
+      const copia = estado;
       let conexion = abrirDB();
       let db = await conexion;
       let conexionCerrada = false;
