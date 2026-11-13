@@ -1,6 +1,6 @@
 {
-  "version": "v0.7.64",
-  "shell": "f123-shell-v764",
+  "version": "v0.7.65",
+  "shell": "f123-shell-v765",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-b2882b570e5258d98d7d072c38113f99f40f6442793b65bd971c5ad941b8cdcc",
@@ -24,8 +24,8 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-1b038581ecb22a491f388bddf5de6729209db5d7c67a404d1def8f8edb236469",
     "./estado-ab.js": "sha256-839400652a4fcc0ab07b118fe1e36c2da65bc917fa67ef0d8c4d5f80a3e4a808",
-    "./estado-idb.js": "sha256-4c7f013739addb16466dc1d283501848f8a9e266575c38f3e19b83092fedecba",
-    "./mock-backend.js": "sha256-4b5c18c55ba97a193c02765dcdd9bff472f178fcc797fb3b339d36e44d2b8d89",
+    "./estado-idb.js": "sha256-1d35e9e918510576c66e73b1876d131d95d3f9383b75451a3f65fa7f81bb8eb4",
+    "./mock-backend.js": "sha256-df089fe0912763f17e077f73d3863be9af527d45e3540db2638e5fcb13a27b2d",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
@@ -80,7 +80,7 @@
     "./device-environment.js": "sha256-5517a20f30d38eed8097a82f1925e9d2c6f456de19aed6e443ed383705d4b5cd",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-42a3876aa739ee5cd594709574d0a5e234c4644cfee50a308b34fc1f7ce85767",
+    "./dashboard.html": "sha256-a1d8aa97875e946ece6fc38f2f1cdc108f517618de95d47de9452ee2fae3692d",
     "./dashboard-updates.js": "sha256-e91bf81e3fd1262a24c3b40a008927cd9c0371791ba5d4821bbefb7879cf10c4",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
