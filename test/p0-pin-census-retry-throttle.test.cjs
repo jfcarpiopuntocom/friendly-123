@@ -4,7 +4,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict');
 const fs=require('node:fs'),vm=require('node:vm'),path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../docs/auth-ui.js'),'utf8');
 const begin=source.indexOf('  function registrarPinOwnerExistente(pin){');
-const end=source.indexOf('\n  async function validar(code) {',begin);
+const end=source.indexOf('\n  async function validar(code',begin);
 assert.ok(begin>=0&&end>begin,'census function exists once');
 assert.equal(source.indexOf('  function registrarPinOwnerExistente(pin){',begin+1),-1);
 const fn=source.slice(begin,end);
