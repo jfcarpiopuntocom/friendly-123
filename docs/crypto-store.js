@@ -144,20 +144,6 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     if (!localStorage.getItem("f123_secure")) {
       let viejo = null;
       try { viejo = JSON.parse(localStorage.getItem("f123_auth") || "null"); } catch {}
-      // Never invent a fresh factory PIN for a notebook that has already been
-      // activated on this browser. A different browser needs authenticated
-      // credential recovery, not a silently generated competing owner.
-      let activado = false;
-      try {
-        const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        activado = !!(owned.instanceId || /^F123-/i.test(String(owned.licenseCode || "").trim()));
-        if (!activado && localStorage.getItem("f123_tienda_activa")) activado = true;
-        if (!activado) {
-          const tiendas = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {};
-          activado = Object.keys(tiendas).length > 0;
-        }
-      } catch (_) { activado = true; /* malformed business identity: fail closed */ }
-      if (activado && !viejo) return false;
       const DEF = { owner: "789", encargados: ["260"], acct: "357", email: "" };
       const base = viejo || DEF;
       await guardarSecreto(base.owner, base.encargados || [], base.acct, base.email || "");
@@ -267,58 +253,6 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
     return guardarSecureResiliente({ v: 1, salt, ownerHash, employeeHashes, acctHash,
       email: email || "", ownerPinR, empPinR, acctPinR,
       ...(retiradosAnteriores ? { retiredOwnerCredentials: retiradosAnteriores } : {}) });
-  }
-
-  // P0 v616: first join on an activated browser may have NO local f123_secure.
-  // Existing fijarOwnerPin()/fijarEmpleadoPin() intentionally refuse that state,
-  // leaving a real owner locked out despite receiving the actual team PINs.
-  // Admit credentials ONLY from the current encrypted, recovered Yjs room.
-  // Never synthesize factory PINs, never overwrite existing local credentials.
-  async function instalarCredencialesDesdeSala(pins) {
-    if (!pins) return false;
-    const owner = String(pins.owner || "");
-    if (!/^\d{3}$/.test(owner) || owner === "456") return false;
-    try {
-      const Y = window.OCYjs, T = window.OCTienda;
-      const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
-      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      if (!/^F123-/.test(lic) || own.licenseCode !== lic) return false;
-      if (!Y || !Y.roomId || !Y.canal || (Y.canal.recuperando !== false && !(typeof Y.canal.accesoListo === "function" && Y.canal.accesoListo())) ||
-          !Y.meta || typeof Y.meta.get !== "function") return false;
-      const actual = Y.meta.get("pinsRol");
-      const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
-      if (!actual || (String(actual.owner || "") !== owner && confirmado !== owner)) return false;
-      // Fresh visits often created a DEMO 789 verifier BEFORE the user could
-      // paste a license. Treat that verifier as bootstrappable only when the
-      // SAME device explicitly joined this exact license and has no custom
-      // owner verifier. Never replace a real personalized PIN.
-      const estado = estadoSecreto();
-      if (estado !== "vacio") {
-        if (estado !== "ok" || owner === "789") return false;
-        const pendiente = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
-        if (!pendiente.instanceId || pendiente.instanceId !== own.instanceId ||
-            pendiente.licenseCode !== lic) return false;
-        if (!await coincidePin("789", "owner")) return false;
-      }
-      // No guessed values: missing employee/accounting credentials stay absent.
-      const emp = String(pins.emp || "");
-      const acct = String(pins.acct || "");
-      const employees = /^\d{3}$/.test(emp) && emp !== "456" ? [emp] : [];
-      const accounting = /^\d{3}$/.test(acct) && acct !== "456" ? acct : "";
-      if (estadoSecreto() !== estado) return false;
-      const saved = await guardarSecreto(owner, employees, accounting, "", null);
-      if (saved) {
-        // This marker authorized a ONE-TIME recovery from the original demo
-        // verifier; it must not survive and later override a real owner PIN.
-        try {
-          const pending = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
-          if (pending.licenseCode === lic && pending.instanceId === own.instanceId) {
-            localStorage.removeItem("f123_join_pending_v1");
-          }
-        } catch (_) {}
-      }
-      return saved === true;
-    } catch (_) { return false; }
   }
 
   // Lee los PINs visibles (copias XOR) para mostrarlos en Advanced/Team.
@@ -503,113 +437,20 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // por la activación 789. Devuelve boolean (Guard G1): el llamador debe
   // saber si el PIN nuevo de verdad quedó guardado antes de decirle al
   // usuario "ya puedes entrar con tu PIN nuevo".
-  function revisionCambioOwner(Y) {
-    try {
-      const n = Number(Y && Y.meta && Y.meta.get("ownerPinCambioRev"));
-      return Number.isSafeInteger(n) && n >= 0 ? n : 0;
-    } catch (_) { return 0; }
-  }
-
-  async function fijarOwnerPin(nuevoPin, desdeSesion) {
-    const anterior = leerSecreto(); if (!anterior) return false;
-    const hashNuevo = await hashPin(nuevoPin, anterior.salt, "owner");
-    // Hashing yields to the event loop. A later local edit must not be
-    // overwritten by an earlier editor whose PBKDF2 finishes last.
-    const s = leerSecreto();
-    if (!s || s.salt !== anterior.salt || s.ownerHash !== anterior.ownerHash) return false;
-    const secureSnapshot = localStorage.getItem("f123_secure");
+  async function fijarOwnerPin(nuevoPin) {
+    const s = leerSecreto(); if (!s) return false;
+    /* El directorio y el sidecar de sync pueden conservar el PIN anterior.
+       Retirarlo EN EL MISMO registro duradero que el nuevo hash impide que
+       identificarPin lo siga aceptando como dueño después de una rotación. */
+    const hashNuevo = await hashPin(nuevoPin, s.salt, "owner");
     const retirados = Array.isArray(s.retiredOwnerHashes) ? s.retiredOwnerHashes : [];
-    if (desdeSesion === true && s.ownerHash && s.ownerHash !== hashNuevo) {
-      try {
-        const T = window.OCTienda, lic = T && T.licenciaActual && String(T.licenciaActual() || "");
-        const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        if (!/^F123-/.test(lic) || own.licenseCode !== lic) return false;
-        const old = s.ownerRotationPending, Y = window.OCYjs;
-        let fromHash = s.ownerHash, fromRev = revisionCambioOwner(Y);
-        if (old && old.licenseCode === lic && old.toHash === s.ownerHash) {
-          const team = Y && Y.meta && Y.meta.get("pinsRol") || {};
-          const confirmed = String(Y && Y.meta && Y.meta.get("ownerPinConfirmado") || "");
-          const shared = /^\d{3}$/.test(confirmed) && confirmed !== "456" &&
-            confirmed !== "789" ? confirmed : String(team.owner || "");
-          const previousConfirmed = /^\d{3}$/.test(shared) &&
-            await hashPin(shared, s.salt, "owner") === s.ownerHash;
-          if (!previousConfirmed) {
-            fromHash = old.fromHash;
-            fromRev = Number.isSafeInteger(old.fromRev) && old.fromRev >= 0 ? old.fromRev : 0;
-          }
-        }
-        s.ownerRotationPending = { licenseCode: lic, fromHash, toHash: hashNuevo, fromRev };
-      } catch (_) { return false; }
-    }
     if (s.ownerHash && s.ownerHash !== hashNuevo) retirados.push(s.ownerHash);
-    s.retiredOwnerHashes = [...new Set(retirados)].filter(h => h !== hashNuevo).slice(-20);
+    // Solo hashes PBKDF2: nunca almacenar PINs retirados en claro.
+    // v356: tope de 20 (los más recientes); siguen siendo solo hashes PBKDF2.
+    s.retiredOwnerHashes = [...new Set(retirados)].filter((h) => h !== hashNuevo).slice(-20);
     s.ownerHash = hashNuevo;
     s.ownerPinR = xorPin(nuevoPin);
-    if (desdeSesion === true) s.ownerPinTs = Date.now();
-    // A second PBKDF2 above can yield. Never commit a stale local secret
-    // after another authorized edit saved a newer verifier in that interval.
-    if (localStorage.getItem("f123_secure") !== secureSnapshot) return false;
     return guardarSecureResiliente(s);
-  }
-
-  // v651: the latest explicit owner change travels with the store's encrypted photo. The factory and demo PINs never replace anything.
-  async function adoptarPinOwnerDeFoto(pin, ts) {
-    const p = String(pin || ""), t = Number(ts) || 0, s = leerSecreto();
-    if (!s || !/^\d{3}$/.test(p) || p === "456" || p === "789" || t <= (Number(s.ownerPinTs) || 0) || t > Date.now() + 300000) return false;
-    if (!await fijarOwnerPin(p)) return false;
-    const n = leerSecreto(); n.ownerPinTs = t;
-    return guardarSecureResiliente(n);
-  }
-  function ownerPinTs() { const s = leerSecreto(); return s && Number(s.ownerPinTs) || 0; }
-
-  // Adopt only a PIN already verified by the license authority on this exact
-  // licensed device. This creates a durable local rotation intent for Yjs,
-  // without inventing a movement or promoting a stale browser PIN.
-  async function adoptarPinOwnerCentralVerificado(pin, rev, licVerificada) {
-    const p = String(pin || ""), lic = String(licVerificada || "").trim().toUpperCase();
-    if (!/^\d{3}$/.test(p) || p === "456" || p === "789" ||
-        !Number.isSafeInteger(rev) || rev < 1 || !/^F123-/.test(lic)) return false;
-    try {
-      const T = window.OCTienda;
-      const actual = T && T.licenciaActual && String(T.licenciaActual() || "").trim().toUpperCase();
-      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      if (actual !== lic || own.licenseCode !== lic || !own.instanceId) return false;
-      const saved = JSON.parse(localStorage.getItem("f123_pin_central_seen:" + lic) || "null");
-      if (saved && Number.isSafeInteger(saved.revision) && saved.revision > rev) return false;
-      if (estadoSecreto() !== "ok") return false; // never replace missing/corrupt secrets by guesswork
-      if (await coincidePin(p, "owner")) return true;
-      return await fijarOwnerPin(p, true);
-    } catch (_) { return false; }
-  }
-
-  // P0 v621: owner may have logged in with the authenticated encrypted Yjs
-  // notebook while this iPhone has no local f123_secure verifier yet.
-  // Bootstrap ONLY from that fully recovered notebook and the PIN just used
-  // for the current owner session; never create defaults or replace a corrupt
-  // verifier. An existing local verifier follows the original rotation path.
-  async function fijarOwnerPinDesdeSesion(nuevoPin) {
-    if (estadoSecreto() === "ok") return fijarOwnerPin(nuevoPin, true);
-    if (estadoSecreto() !== "vacio") return false;
-    try {
-      if (!window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
-      const T = window.OCTienda, Y = window.OCYjs;
-      const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
-      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      if (!/^F123-/.test(lic) || own.licenseCode !== lic ||
-          !Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
-          !Y.meta || typeof Y.meta.get !== "function") return false;
-      const team = Y.meta.get("pinsRol");
-      const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
-      const previo = /^\d{3}$/.test(confirmado) && confirmado !== "456"
-        ? confirmado : String(team && team.owner || "");
-      if (!/^\d{3}$/.test(previo) || previo === "456" ||
-          ((leerPinQueAbre().owner || "") !== previo && !confirmado)) return false;
-      const credenciales = Object.assign({}, team || {}, { owner: previo });
-      if (!await instalarCredencialesDesdeSala(credenciales)) return false;
-      if (T.licenciaActual() !== lic || Y.canal.recuperando !== false ||
-          String(Y.meta.get("ownerPinConfirmado") || (Y.meta.get("pinsRol") || {}).owner || "") !== previo) return false;
-      return fijarOwnerPin(nuevoPin, true);
-    } catch (_) { return false; }
   }
 
   // Cambia SOLO el PIN de encargado (re-hash bajo el salt existente) sin rotar
@@ -692,28 +533,15 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   // iOS espera ~10 fallos antes del primer delay. Tope 15 min.
   const INTENTOS_MAX = 10;
   const BLOQUEO_BASE_MS = 30 * 1000;
-  /* JFC 2026-11-11 ("Maximo 60 s y se reinicia a las 24 h"): el candado ya no pasa de
-     60 s (antes escalaba hasta 15 min) y el contador de fallos vuelve a cero solo
-     REINICIO_FALLOS_MS despues del ultimo fallo, ademas del reinicio por acierto.
-     El PIN es de 3 digitos: el freno de INTENTOS_MAX fallos se conserva. */
-  const BLOQUEO_TOPE_MS = 60 * 1000;
-  const REINICIO_FALLOS_MS = 24 * 60 * 60 * 1000;
+  const BLOQUEO_TOPE_MS = 15 * 60 * 1000;
   // f123_ prefijo (2026-07-17): sin esto, los contadores de bloqueo por
   // intentos fallidos se compartian con AMIGABLE (mismo origen en GitHub
   // Pages). Solo son contadores de lockout, sin datos sensibles — renombrar
   // directo es seguro, en el peor caso un lockout activo se reinicia.
   function intentosKey(ambito) { return "f123_intentos_" + ambito; }
-  // Han pasado 24 h desde el ultimo fallo (sin marca de fecha se considera vencido: contadores viejos).
-  function _fallosCaducados(x) {
-    if (!x || !(x.n > 0)) return false;
-    const ultimo = x.ultimoFallo || x.bloqueadoHasta || 0;
-    return Date.now() - ultimo >= REINICIO_FALLOS_MS;
-  }
   function leerIntentos(ambito) {
-    let i;
-    try { i = JSON.parse(localStorage.getItem(intentosKey(ambito)) || "null") || { n: 0, bloqueadoHasta: 0 }; }
-    catch { i = { n: 0, bloqueadoHasta: 0 }; }
-    return _fallosCaducados(i) ? { n: 0, bloqueadoHasta: 0 } : i;
+    try { return JSON.parse(localStorage.getItem(intentosKey(ambito)) || "null") || { n: 0, bloqueadoHasta: 0 }; }
+    catch { return { n: 0, bloqueadoHasta: 0 }; }
   }
   function segundosBloqueo(ambito) {
     const i = leerIntentos(ambito);
@@ -728,10 +556,8 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   function registrarFallo(ambito) {
     const i = leerIntentos(ambito);
     i.n = (i.n || 0) + 1;
-    if (_fallosCaducados(_memInt[ambito])) delete _memInt[ambito];
     const m = _memInt[ambito] = _memInt[ambito] || { n: 0, bloqueadoHasta: 0 };
     m.n++;
-    m.ultimoFallo = i.ultimoFallo = Date.now();
     if (m.n > i.n) i.n = m.n;
     if (i.n >= INTENTOS_MAX && i.n % INTENTOS_MAX === 0) {
       const ronda = Math.floor(i.n / INTENTOS_MAX);
@@ -927,172 +753,21 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   function intentosRestantes(ambito) {
     if (segundosBloqueo(ambito) > 0) return 0;
     const i = leerIntentos(ambito);
-    const m = _fallosCaducados(_memInt[ambito]) ? {} : (_memInt[ambito] || {});
+    const m = _memInt[ambito] || {};
     const n = Math.max(i.n || 0, m.n || 0);
     const enRonda = n % INTENTOS_MAX;
     return INTENTOS_MAX - enRonda;
   }
 
-  // A recovered notebook must not resurrect a locally retired owner PIN.
-  async function duenoRetirado(pin, s, candidate) {
-    if (!s) return false;
-    try {
-      const h = candidate || await hashPin(pin, s.salt, "owner");
-      if (Array.isArray(s.retiredOwnerHashes) && s.retiredOwnerHashes.includes(h)) return true;
-      for (const old of (Array.isArray(s.retiredOwnerCredentials) ? s.retiredOwnerCredentials : [])) {
-        if (old && typeof old.salt === "string" && Array.isArray(old.hashes) &&
-            old.hashes.includes(await hashPin(pin, old.salt, "owner"))) return true;
-      }
-    } catch (_) { return true; }
-    return false;
-  }
-
-  function pinOwnerPendienteLocal() {
-    try {
-      const s = leerSecreto(), p = s && s.ownerRotationPending;
-      const T = window.OCTienda, lic = T && T.licenciaActual && String(T.licenciaActual() || "");
-      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      if (!p || !s.ownerHash || p.toHash !== s.ownerHash || p.licenseCode !== lic ||
-          own.licenseCode !== lic || !/^F123-/.test(lic)) return null;
-      const pin = unxorPin(s.ownerPinR);
-      return /^\d{3}$/.test(String(pin || "")) ? pin : null;
-    } catch (_) { return null; }
-  }
-
-  // Durable PIN intent: a completed or superseded edit must never come back
-  // to life merely because a newer authorized owner reused the same PIN.
-  function cerrarIntentoOwner(pend, ownerHash, fenceRev) {
-    const latest = leerSecreto(), current = latest && latest.ownerRotationPending;
-    if (!current || latest.ownerHash !== ownerHash ||
-        current.licenseCode !== pend.licenseCode || current.fromHash !== pend.fromHash ||
-        current.toHash !== pend.toHash ||
-        (current.fromRev || 0) !== (pend.fromRev || 0)) return false;
-    latest.ownerPinRevisionFloor = fenceRev;
-    latest.ownerPinRevisionHash = ownerHash;
-    delete latest.ownerRotationPending;
-    return guardarSecureResiliente(latest);
-  }
-  let reconciliandoOwner = false;
-  async function reconciliarCambioPinOwnerPendiente() {
-    if (reconciliandoOwner) return false;
-    const nuevo = pinOwnerPendienteLocal();
-    if (!nuevo) return false;
-    reconciliandoOwner = true;
-    try {
-      const s = leerSecreto(), pend = s && s.ownerRotationPending;
-      const Y = window.OCYjs;
-      if (!pend || !Y || !Y.roomId || !Y.meta || !Y.canal ||
-          Y.canal.recuperando !== false || !Y.canal.ws ||
-          Y.canal.ws.readyState !== 1 || typeof Y.publicarCambioPinOwner !== "function" ||
-          typeof Y.confirmarPinOwnerDurable !== "function" ||
-          !window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
-      const confirmed = String(Y.meta.get("ownerPinConfirmado") || "");
-      const team = Y.meta.get("pinsRol") || {};
-      const actual = /^\d{3}$/.test(confirmed) && confirmed !== "456" &&
-        confirmed !== "789" ? confirmed : String(team.owner || "");
-      if (!/^\d{3}$/.test(actual)) return false;
-      const fromRev = Number.isSafeInteger(pend.fromRev) && pend.fromRev >= 0 ? pend.fromRev : 0;
-      const sharedRev = revisionCambioOwner(Y);
-      if (actual === nuevo) {
-        // R3: do not retire a retry until the PIN and revision survived IDB.
-        if (await Y.confirmarPinOwnerDurable(nuevo, sharedRev) !== true ||
-            revisionCambioOwner(Y) !== sharedRev ||
-            String(Y.meta.get("ownerPinConfirmado") || "") !== nuevo) return false;
-        cerrarIntentoOwner(pend, s.ownerHash, sharedRev);
-        return false;
-      }
-      if (sharedRev !== fromRev) {
-        // An authoritative newer rotation must also survive IDB before fencing.
-        if (sharedRev > fromRev &&
-            await Y.confirmarPinOwnerDurable(actual, sharedRev) === true &&
-            revisionCambioOwner(Y) === sharedRev &&
-            String(Y.meta.get("ownerPinConfirmado") || "") === actual)
-          cerrarIntentoOwner(pend, s.ownerHash, fromRev);
-        return false;
-      }
-      if (await hashPin(actual, s.salt, "owner") !== pend.fromHash) return false;
-      if (await hashPin(nuevo, s.salt, "owner") !== s.ownerHash) return false;
-      // Both PBKDF2 calls yield. Re-read durable intent, credentials and room
-      // immediately before publication, rather than using an obsolete closure.
-      const fresh = leerSecreto(), nowPend = fresh && fresh.ownerRotationPending;
-      const current = String(Y.meta.get("ownerPinConfirmado") || "");
-      const other = Y.meta.get("pinsRol") || {};
-      const now = /^\d{3}$/.test(current) && current !== "456" &&
-        current !== "789" ? current : String(other.owner || "");
-      const T = window.OCTienda, lic = T && T.licenciaActual && String(T.licenciaActual() || "");
-      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      if (!fresh || !nowPend || fresh.salt !== s.salt ||
-          fresh.ownerHash !== s.ownerHash || nowPend.toHash !== pend.toHash ||
-          nowPend.fromHash !== pend.fromHash || nowPend.licenseCode !== pend.licenseCode ||
-          (nowPend.fromRev || 0) !== fromRev || unxorPin(fresh.ownerPinR) !== nuevo ||
-          lic !== pend.licenseCode || own.licenseCode !== lic ||
-          now !== actual || revisionCambioOwner(Y) !== fromRev ||
-          Y.canal.recuperando !== false || !Y.canal.ws ||
-          Y.canal.ws.readyState !== 1 ||
-          !window.OCAuth || window.OCAuth.rolActual() !== "dueno") return false;
-      if (Y.publicarCambioPinOwner(nuevo, fromRev) !== true) return false;
-      const nextRev = fromRev + 1;
-      if (await Y.confirmarPinOwnerDurable(nuevo, nextRev) !== true ||
-          revisionCambioOwner(Y) !== nextRev ||
-          String(Y.meta.get("ownerPinConfirmado") || "") !== nuevo) return false;
-      return cerrarIntentoOwner(pend, s.ownerHash, nextRev);
-    } catch (_) { return false; }
-    finally { reconciliandoOwner = false; }
-  }
-
   async function identificarPin(pin) {
     const p = String(pin || "");
     if (!/^\d{3}$/.test(p)) return null;
-    // P0 v622: explicit owner credential remains valid even when old shells
-    // rewrite pinsRol; do not let an old local verifier restore an old PIN.
-    let ownerCanonico = "";
     const s = leerSecreto();
-    try {
-      const T = window.OCTienda, Y = window.OCYjs;
-      const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
-      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      // The same license may be classified as 'owned' in an installed PWA
-      // and 'joined' in a browser. Neither local classification decides
-      // which encrypted Yjs notebook the current PIN belongs to.
-      if (/^F123-/.test(lic) && own.licenseCode === lic &&
-          Y && Y.roomId && Y.canal && Y.canal.recuperando === false &&
-          Y.meta && typeof Y.meta.get === "function") {
-        const team = Y.meta.get("pinsRol");
-        const valid = (v, factory) => /^\d{3}$/.test(String(v || "")) &&
-          String(v) !== "456" && String(v) !== factory;
-        const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
-        if (valid(confirmado, "789")) ownerCanonico = confirmado;
-        else if (team && valid(team.owner, "789")) ownerCanonico = String(team.owner);
-        if (team && ownerCanonico) {
-          // An authenticated newer room rotation can deliberately reuse an
-          // old PIN. Accept it only with a newer monotonic shared revision,
-          // never from an old sidecar or an unversioned stale replay.
-          const rev = revisionCambioOwner(Y);
-          const pending = s && s.ownerRotationPending;
-          const newerThanLocal = !!(s && s.ownerPinRevisionHash === s.ownerHash &&
-            Number.isSafeInteger(s.ownerPinRevisionFloor) && rev > s.ownerPinRevisionFloor);
-          const laterThanPending = !!(pending && pending.licenseCode === lic &&
-            pending.toHash === s.ownerHash && rev > ((pending.fromRev || 0) + 1));
-          if (p === ownerCanonico &&
-              (newerThanLocal || laterThanPending || !await duenoRetirado(p, s))) return "dueno";
-          if (valid(team.emp, "260") && p === String(team.emp)) return "empleado";
-          if (valid(team.acct, "357") && p === String(team.acct)) return "contador";
-        }
-      }
-    } catch (_) { /* no unverified access on malformed room metadata */ }
     if (!s) return null;
     let hashOwnerCandidato = null;
     try {
       hashOwnerCandidato = await hashPin(p, s.salt, "owner");
-      if (hashOwnerCandidato === s.ownerHash) {
-        if (!ownerCanonico || ownerCanonico === p) return "dueno";
-        const pending = s.ownerRotationPending;
-        const T = window.OCTienda, lic = T && T.licenciaActual && String(T.licenciaActual() || "");
-        const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        if (pending && pending.licenseCode === lic && own.licenseCode === lic &&
-            pending.toHash === s.ownerHash &&
-            await hashPin(ownerCanonico, s.salt, "owner") === pending.fromHash) return "dueno";
-      }
+      if (hashOwnerCandidato === s.ownerHash) return "dueno";
       const hEmp = await hashPin(p, s.salt, "emp");
       if ((s.employeeHashes || []).includes(hEmp)) return "empleado";
       if ((await hashPin(p, s.salt, "acct")) === s.acctHash) return "contador";
@@ -1184,14 +859,9 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
   }
 
   window.OCSecure = {
-    migrarSiHaceFalta, guardarSecreto, instalarCredencialesDesdeSala, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
+    migrarSiHaceFalta, guardarSecreto, verificarOwner, verificarEmpleado, verificarAcct, leerCorreo, actualizarCorreo,
     estadoSecreto, // Guard G2, JFC 2026-08-04: distingue "vacío"/"ok"/"corrupto" para dar mensajes honestos
     verificarMaestro, fijarCodigoMaestro, generarCodigoReset, resetearConCodigo, segundosBloqueo,
-    adoptarPinOwnerCentralVerificado,
-    adoptarPinOwnerDeFoto,
-    ownerPinTs,
-    fijarOwnerPinDesdeSesion, // P0: owner already verified by recovered room, local verifier missing
-    pinOwnerPendienteLocal, reconciliarCambioPinOwnerPendiente,
     fijarOwnerPin, // exportado 2026-07-08: la activación 789 fija el PIN de dueño de la instancia propia
     fijarEmpleadoPin, fijarAcctPin, // JFC 2026-08-28: edición individual de PINs (lapicito en Access & recovery)
     leerDirectorio, guardarDirectorio, directorioNormalizado, // JFC 2026-08-28: directorio de acceso (PINs atados a personas)
