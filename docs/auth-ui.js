@@ -188,7 +188,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
               if (!/^F123-/i.test(String(_ow.syncCode || ""))) _ow.syncCode = _licNueva;
               localStorage.setItem("f123_owned", JSON.stringify(_ow));
               try { localStorage.setItem("f123_licencia_rescatada_en", String(Date.now())); } catch (_) {}
-              setTimeout(function () { try { location.reload(); } catch (_) {} }, 1200);
+              setTimeout(function () { try { window.__f123MarcarRecarga && window.__f123MarcarRecarga("rescate-licencia"); location.reload(); } catch (_) {} }, 1200);
             }
           } catch (_) {}
           /* APARATO DE JFC (v349). Lo decide JFC en su panel ("Aparato JFC").
@@ -457,14 +457,21 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   // hay botón de "reintentar" que lo salte.
   const BLOQUEO_TRAS_INTENTOS = 10;
   const BLOQUEO_DURACION_MS = 60 * 1000;
+  // JFC 2026-11-11 ("Maximo 60 s y se reinicia a las 24 h"): el candado dura 60 s como
+  // maximo y los fallos vuelven a cero solos 24 h despues del ultimo fallo.
+  const REINICIO_FALLOS_MS = 24 * 60 * 60 * 1000;
   function leerIntentos() {
-    try { return JSON.parse(sessionStorage.getItem("oc_intentos")) || { fallos: 0, bloqueadoHasta: 0 }; }
-    catch { return { fallos: 0, bloqueadoHasta: 0 }; }
+    let st;
+    try { st = JSON.parse(sessionStorage.getItem("oc_intentos")) || { fallos: 0, bloqueadoHasta: 0 }; }
+    catch { st = { fallos: 0, bloqueadoHasta: 0 }; }
+    if (st.fallos > 0 && Date.now() - (st.ultimoFallo || st.bloqueadoHasta || 0) >= REINICIO_FALLOS_MS) return { fallos: 0, bloqueadoHasta: 0 };
+    return st;
   }
   function guardarIntentos(x) { sessionStorage.setItem("oc_intentos", JSON.stringify(x)); }
   function registrarFallo() {
     const st = leerIntentos();
     st.fallos += 1;
+    st.ultimoFallo = Date.now();
     if (st.fallos >= BLOQUEO_TRAS_INTENTOS) { st.bloqueadoHasta = Date.now() + BLOQUEO_DURACION_MS; st.fallos = 0; }
     guardarIntentos(st);
   }
@@ -512,7 +519,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     box-shadow:0 2px 0 rgba(15,25,35,.55);
     transition:transform .07s ease, box-shadow .07s ease;}
   .oc-pad button .dig{font-family:var(--font-display,sans-serif);font-weight:700;font-size:20px;color:var(--ink,#211c14);line-height:1;}
-  .oc-pad button .emo{font-size:15px;line-height:1;}
   #oc-gate .oc-pad button:nth-child(3n+1){border-color:var(--rust,#b2461f);}
   #oc-gate .oc-pad button:focus-visible{outline:3px solid var(--rust,#b2461f);outline-offset:2px;}
   .oc-pad button:active{transform:translateY(2px); box-shadow:0 0 0 rgba(15,25,35,0);}
@@ -537,13 +543,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      este selector seguía apuntando al data-vista viejo y el EMPLEADO veía el
      botón Comisiones (datos financieros del dueño). Mantener sincronizado con
      el data-vista del nav en index.html. */
-  body.rol-empleado nav button[data-vista="avanzado"],
   body.rol-empleado nav button[data-vista="comisiones"]{display:none!important;}
   /* Rol CONTADOR (JFC 2026-07-15): PIN 357 directo en el candado principal
      entra en modo solo-lectura contable — sin POS, inventario, clientes ni
      botones de exportar/importar/caja fuerte. Solo se ve el nav "contable"
      y el reporte CSV (informativo, no exporta el negocio completo). */
-  body.rol-contador nav button:not([data-vista="contable"]){display:none!important;}
+  body.rol-contador nav button:not([data-vista="contable"]):not([data-vista="avanzado"]){display:none!important;}
+  /* Staff keeps its local device-name control without loading owner/accounting panels. */
+  body.rol-empleado #vista-avanzado > :not(#oc-identity-settings),
+  body.rol-contador #vista-avanzado > :not(#oc-identity-settings),
+  body.rol-empleado #oc-identity-store-edit,
+  body.rol-contador #oc-identity-store-edit{display:none!important;}
   body.rol-contador #oc-exportar,
   body.rol-contador #oc-importar-file,
   body.rol-contador label[for="oc-importar-file"],
@@ -602,18 +612,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     let entrada = [];
     let ultimoVisible = -1;
     let ocultarTimer = null;
-    // Como en amigable-123: iconos alegres, barajados en cada apertura.
-    // El digito visible sigue siendo la unica entrada y no cambia el PIN.
-    const iconos = ["💼", "📊", "📋", "📁", "🗂️", "📌", "📎", "📝", "🖊️", "✏️", "🔑", "💰", "📦", "🏷️", "⚖️", "🔍", "🖨️", "📞", "📱", "🏢", "💡", "⏰", "📅", "🗓️", "💳"];
-    for (let i = iconos.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [iconos[i], iconos[j]] = [iconos[j], iconos[i]];
-    }
+    // Teclas solo con el digito (JFC 2026-10-27): se quitaron los emojis barajados.
     padEl.innerHTML = "";
     for (let d = 0; d <= 9; d++) {
       const b = document.createElement("button");
       b.dataset.d = String(d);
-      b.innerHTML = `<span class="dig">${d}</span><span class="emo" aria-hidden="true">${iconos[d]}</span>`;
+      b.innerHTML = `<span class="dig">${d}</span>`;
       padEl.appendChild(b);
     }
     const slots = () => slotsEl.querySelectorAll(".slot");
@@ -651,7 +655,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const b = e.target.closest("button[data-d]"); if (!b || st.entrada().length >= 3) return;
         st.push(Number(b.dataset.d));
         st.revelarUltimo();
-        if (st.entrada().length === 3) { const code = st.entrada().join(""); setTimeout(() => st.onComplete(code), 900); }
+        if (st.entrada().length === 3) { const code = st.entrada().join(""); setTimeout(() => st.onComplete(code), 0); }
       });
     }
     pintar();
@@ -693,11 +697,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       <!-- v360 (Hugo/Paco/Luis #26): textos traducibles EN/ES. El "30" de la prueba
            está escrito en auth.gate.tryCodes: si cambia PRUEBA_DIAS, cambiarlo allí. -->
       <div id="oc-gate-demo-pins" style="margin:14px 0 0;padding:12px;border:2px dashed var(--rust,#b2461f);border-radius:6px;text-align:center;">
-        <p style="margin:0 0 6px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;" data-i18n="auth.gate.tryTitle">First time? Try these codes</p>
-        <p style="margin:0;font-size:13px;line-height:1.6;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.tryCodes">${(window.t && window.t("auth.gate.tryCodes")) || ""}</p>
-        <p style="margin:8px 0 0;font-size:13px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n="auth.gate.tryNote">${(window.t && window.t("auth.gate.tryNote")) || "Each code shows the app the way that person sees it. The employee does not see the profits."}</p>
+        <p style="margin:0 0 6px;font-size:16px;font-weight:800;color:#A83D1F !important;-webkit-text-fill-color:#A83D1F !important;" data-i18n="auth.gate.tryTitle">First time? Try these codes</p>
+        <p style="margin:0;font-size:16px;line-height:1.6;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.tryCodes">${(window.t && window.t("auth.gate.tryCodes")) || ""}</p>
+        <p style="margin:8px 0 0;font-size:14px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n="auth.gate.tryNote">${(window.t && window.t("auth.gate.tryNote")) || "Each code shows the app the way that person sees it. The employee does not see the profits."}</p>
       </div>
-      <p id="oc-gate-landing" style="margin:12px 0 0;font-size:13px;line-height:1.5;text-align:center;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.landing">${(window.t && window.t("auth.gate.landing")) || ""}</p>
+      <p id="oc-gate-landing" style="margin:12px 0 0;font-size:14px;line-height:1.5;text-align:center;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;" data-i18n-html="auth.gate.landing">${(window.t && window.t("auth.gate.landing")) || ""}</p>
+      <p id="oc-gate-links" style="margin:10px 0 0;text-align:center;"><a href="./save.html" data-i18n="gancho.cta.precio" style="display:inline-block;min-height:44px;line-height:44px;padding:0 8px;font-size:14px;font-weight:700;text-decoration:underline;color:#A83D1F !important;-webkit-text-fill-color:#A83D1F !important;">See the one-time price</a></p>
+      <p id="oc-gate-pwa-rescue" style="margin:8px 0;text-align:center;"><a href="./pwa-rescue.html" style="display:inline-block;min-height:44px;padding:10px 8px;font-size:14px;color:var(--azul-medio,#2c4a68);text-decoration:underline;font-weight:700;">¿Dos apps instaladas? Rescate de PWA / Rescue</a></p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
       <p id="oc-gate-build" style="margin:8px 0 0;font-size:12px;letter-spacing:.06em;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">&nbsp;</p>
       <!-- Acceso al "campo de pruebas" (workshop) RETIRADO (JFC 2026-09-10):
@@ -848,6 +854,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           setTimeout(function () {
             try {
               var url = location.pathname + "?_purge=" + Date.now() + location.hash;
+              window.__f123MarcarRecarga && window.__f123MarcarRecarga("purga-failsafe");
               location.replace(url);
             } catch (eNav) {
               try { location.reload(true); } catch (_) { location.reload(); }
@@ -876,7 +883,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const rec = document.getElementById("oc-recuperar");
       if (rec) rec.textContent = tt("auth.gate.forgot", "Forgot?");
       const join = document.getElementById("oc-unirse-equipo");
-      if (join) join.textContent = tt("auth.gate.joinTeam", "Join a notebook");
+      if (join) join.textContent = tt("auth.gate.joinTeam", "Join a shared notebook");
+      /* Textos marcados con data-i18n / data-i18n-html dentro del candado (pistas, enlace de precio). */
+      try { if (window.OCI18n && window.OCI18n.applyStatic) window.OCI18n.applyStatic(gate); } catch (_) {}
     } catch (_) {}
   }
   try { window.addEventListener("oc-lang-change", pintarGateIdioma); } catch (_) {}
@@ -950,6 +959,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const T = window.OCTienda;
       if (T && T.esUnida && T.esUnida()) {
         let nom = (T.nombreActivo && T.nombreActivo().trim()) || "";
+        // The UI store can hydrate after encrypted Yjs metadata. Display ONLY
+        // the current fully recovered team's name; never use the own-sidecar name.
+        if (!nom) try {
+          const Y = window.OCYjs;
+          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          const lic = T.licenciaActual && T.licenciaActual();
+          if (lic && own.licenseCode === lic && Y && Y.roomId && Y.canal &&
+              Y.canal.recuperando === false && Y.meta && typeof Y.meta.get === "function") {
+            nom = String(Y.meta.get("nombreNegocio") || "").trim();
+          }
+        } catch (_) {}
         let sinSincronizar = false;
         if (!nom) {
           const lic = (T.licenciaActual && T.licenciaActual()) || "";
@@ -978,20 +998,26 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const owned = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       // The active notebook is authoritative. f123_owned can retain a previous
       // activation name while this notebook already has a newer synced name.
-      const activo = (T && typeof T.nombreActivo === "function") ? String(T.nombreActivo() || "").trim() : "";
-      // Solo en la tienda PROPIA: si el store aun no cargo, conservar el ultimo
-      // nombre conocido de esta licencia. Nunca mostrarlo en una tienda unida.
-      const nombre = activo || ((owned && typeof owned.nombreNegocio === "string") ? owned.nombreNegocio.trim() : "");
+      let activo = (T && typeof T.nombreActivo === "function") ? String(T.nombreActivo() || "").trim() : "";
+      // The installed PWA may have the same licensed notebook in its OWN slot
+      // while the browser has it in JOINED. The name is the encrypted room's,
+      // not the classification of this local device.
+      if (!activo) try {
+        const Y = window.OCYjs;
+        const lic = T && T.licenciaActual && T.licenciaActual();
+        if (lic && owned.licenseCode === lic && Y && Y.roomId && Y.canal &&
+            Y.canal.recuperando === false && Y.meta && typeof Y.meta.get === "function")
+          activo = String(Y.meta.get("nombreNegocio") || "").trim();
+      } catch (_) {}
+      const nombre = activo;
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
       _pintar(nombre);
       const licP = (owned && typeof owned.licenseCode === "string") ? owned.licenseCode : "";
       if (licP) el.innerHTML += _lic4Linea(licP);
     } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
   }
-  /* Pinta la versión REAL del build en el candado (JFC 2026-08-26: "solo dice
-     v1.0, no sirve para controlar cambios"). Lee version.json (que el SW nunca
-     cachea) y muestra el shell real, ej. "build v100". Fail-safe: si falla,
-     deja el placeholder. */
+  /* Pinta la versión REAL del shell técnico como etiqueta pública v0.7.08.
+     Para detectar mezclas SW/HTML seguimos comparando IDs internos exactos. */
   function pintarBuildGate() {
     try {
       fetch("./version.json?ts=" + Date.now(), { cache: "no-store" }).then((r) => r.ok ? r.json() : null).then((vj) => {
@@ -999,12 +1025,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         const el = document.getElementById("oc-gate-build");
         if (!el) return;
         const shellServidor = String(vj.shell || "");
-        const shell = shellServidor.replace("f123-shell-", "");
-        const ver = String(vj.releaseName || (vj.version ? ("v" + vj.version) : ""));
+        const versionVisible = function (id) {
+          const m = /^f123-shell-v([1-9][0-9]*)$/.exec(String(id || ""));
+          if (!m) return "";
+          const n = Number(m[1]);
+          return n >= 100 && n < 1000
+            ? "v0." + Math.floor(n / 100) + "." + String(n % 100).padStart(2, "0")
+            : "v" + n;
+        };
+        const ver = String(vj.releaseName || versionVisible(shellServidor) || "");
         const normal = function () {
           el.style.color = "";
           try { el.style.removeProperty("-webkit-text-fill-color"); } catch (_) {}
-          el.textContent = ver || (shell ? ("shell-" + shell) : "");
+          el.textContent = ver || versionVisible(shellServidor);
         };
         /* The active Service Worker knows its shell. CacheStorage can contain
            both old and newly downloaded shells; its last key is not evidence
@@ -1019,11 +1052,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           sw.removeEventListener("message", onShell);
           const activa = String(event.data.shell || "");
           if (activa && shellServidor && activa !== shellServidor) {
-            const activaCorta = activa.replace("f123-shell-", "");
+            const activaPublica = versionVisible(activa) || "versión anterior";
             el.style.opacity = "1";
             el.style.color = "#E8365D";
             try { el.style.setProperty("-webkit-text-fill-color", "#E8365D", "important"); } catch (_) {}
-            el.textContent = "shell-" + activaCorta + " — actualización automática pendiente (última: shell-" + shell + ").";
+            el.textContent = activaPublica + " — actualización automática pendiente (última: " + (ver || versionVisible(shellServidor)) + ").";
           } else {
             normal();
           }
@@ -1033,7 +1066,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           if (responded) return;
           responded = true;
           sw.removeEventListener("message", onShell);
-          el.textContent = (ver ? (ver + " · ") : "") + "shell sin verificar · última shell-" + shell;
+          el.textContent = (ver ? (ver + " · ") : "") + "versión instalada sin verificar";
         }, 2000);
         try { sw.controller.postMessage({ tipo: "que-shell" }); }
         catch (_) { clearTimeout(timeout); sw.removeEventListener("message", onShell); normal(); }
@@ -1060,6 +1093,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      mock-backend emite oc-negocio-actualizado y aquí el candado pasa de "Team ·
      …licencia" a mostrar el nombre real ("idiomARTE") sin recargar. */
   try { window.addEventListener("oc-negocio-actualizado", function () { try { pintarNegocioGate(); } catch (_) {} }); } catch (_) {}
+  // A store reload or cross-tab merge may hydrate the canonical shop name without
+  // emitting oc-negocio-actualizado; repaint the PIN label from the active notebook.
+  try { window.addEventListener("oc-sync-merge", function () { try { pintarNegocioGate(); } catch (_) {} }); } catch (_) {}
 
   let teclado = null;
   let intervaloCountdown = null;
@@ -1102,30 +1138,232 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           window.OCSecure.recordarPinQueAbre(code, rolEntrada);
         }
       }
-      if (rolEntrada === "dueno" && window.OCSecure && window.OCSecure.fijarOwnerPin) {
-        await window.OCSecure.fijarOwnerPin(code);
-      }
+      // Authentication is read-only: do not re-hash or mutate the owner's PIN
+      // on every login. PIN changes belong exclusively to Advanced/Team.
+      // In particular, a verified team PIN must never replace the PWA's
+      // existing local owner verifier.
     } catch (_) {}
     return entrar(rolEntrada);
   }
+  // A configured license has a single Owner PIN revision on the license Worker.
+  // No central result may change notebook quantities or local credentials.
+  async function verificarPinOwnerCentral(code, esPinLocalDueno) {
+    let owned,lic;
+    try {
+      owned=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+      lic=String(owned.licenseCode||"").trim().toUpperCase();
+      const active=window.OCTienda&&window.OCTienda.licenciaActual&&
+        String(window.OCTienda.licenciaActual()||"").trim().toUpperCase();
+      // Synthetic/offline fixture hosts have no registered Worker identity.
+      // They must keep testing the existing local credential path.
+      if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
+      // v754 (JFC 12 nov): an incomplete local identity cannot be checked centrally, so the device's own saved PIN
+      // decides ("unavailable", as with no network). Only the Worker's explicit mismatch (404 below) blocks the Owner.
+      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!owned.instanceId||
+         (active && active!==lic)) return "unavailable";
+      // v754: no network (or heartbeat breaker open) gives the same "unavailable" as a failed fetch, without the 2.4 s wait.
+      if((typeof navigator!=="undefined"&&navigator.onLine===false)||_cbBloqueado())return "unavailable";
+      const url=OC_WORKER_URL; // PINs must never be sent to a localStorage-controlled origin.
+      const endpoint=new URL(url);if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return "unavailable";
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
+      try {
+        const response=await fetch(endpoint.origin+"/pin/verify",{
+          method:"POST",mode:"cors",cache:"no-store",signal:controller.signal,
+          headers:{"Content-Type":"application/json"},
+          // pinTs only for this device's own Owner PIN: a typed foreign PIN can never claim to be the most recent change.
+          body:JSON.stringify({licenseCode:lic,instanceId:owned.instanceId,pin:String(code),
+            pinTs:esPinLocalDueno&&window.OCSecure&&window.OCSecure.ownerPinTs?(Number(window.OCSecure.ownerPinTs())||0):0})
+        });
+        if(response.status===200){
+          const data=await response.json();
+          if(data.ok===true&&Number.isSafeInteger(data.revision)&&data.revision>0){
+            // Central verification is authoritative. Adopt its PIN locally
+            // through the existing durable Owner rotation intent; replay into
+            // Yjs is handled separately when the encrypted channel is ready.
+            if(window.OCSecure && window.OCSecure.adoptarPinOwnerCentralVerificado){
+              try{await window.OCSecure.adoptarPinOwnerCentralVerificado(String(code),data.revision,lic)}catch(_){}
+            }
+            try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:data.revision,at:Date.now()}))}catch(_){}
+            return "owner";
+          }
+          return "unavailable";
+        }
+        if(response.status===401)return "wrong";
+        if(response.status===429)return "locked";
+        // Only the PIN authority's explicit mismatch blocks the Owner; a generic 404 means the route is not deployed.
+        if(response.status===404){let d=null;try{d=await response.json()}catch(_){}return d&&d.reason==="license-instance-mismatch"?"unavailable-identity":"unconfigured";}
+        if(response.status===409)return "unconfigured";
+        return "unavailable";
+      }finally{clearTimeout(timer)}
+    }catch(_){return "unavailable"}
+  }
+  // A deliberate Owner rotation first commits a CAS revision to the
+  // license authority. Login merely verifies; it can never rotate on its own.
+  async function rotarPinOwnerCentral(oldPin,newPin){
+    let own;try{own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{}}catch(_){return {ok:false,reason:"identity-unavailable"}}
+    const lic=String(own.licenseCode||"").trim().toUpperCase();
+    const instanceId=own.instanceId;
+    if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return {ok:true,unconfigured:true};
+    if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!instanceId)return {ok:false,reason:"identity-unavailable"};
+    const raw=OC_WORKER_URL; // pin secret cannot go to a user-overridden URL.
+    let endpoint;try{endpoint=new URL(raw)}catch(_){return {ok:false,reason:"network-unavailable"}}
+    if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return {ok:false,reason:"network-unavailable"};
+    // Clients already in production must retain their local Owner PIN editing
+    // until this exact license has actually adopted a central authority.
+    // Once a central revision was seen, outages never authorize a rollback.
+    const centralSeen=()=>{
+      try {
+        const v=JSON.parse(localStorage.getItem("f123_pin_central_seen:"+lic)||"null");
+        return !!(v&&Number.isSafeInteger(v.revision)&&v.revision>0);
+      }catch(_){return false}
+    };
+    const legacyWhenUnprovisioned=()=>centralSeen()
+      ? {ok:false,reason:"central-authority-unavailable"}
+      : {ok:true,unconfigured:true};
+    const params={licenseCode:lic,instanceId,pin:String(oldPin)};
+    try{
+      const check=await fetch(endpoint.origin+"/pin/verify",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify(params)});
+      if(check.status===409||check.status===503)return legacyWhenUnprovisioned();
+      // v651: same reading as login. A 404 without this reason means the central route is not deployed, not a wrong PIN.
+      if(check.status===404){let d=null;try{d=await check.json()}catch(_){}return d&&d.reason==="license-instance-mismatch"?{ok:false,reason:"identity-unavailable"}:legacyWhenUnprovisioned();}
+      if(!check.ok)return {ok:false,reason:"current-pin-rejected"};
+      const current=await check.json();
+      if(!current.ok||!Number.isSafeInteger(current.revision))return {ok:false,reason:"revision-unavailable"};
+      const response=await fetch(endpoint.origin+"/pin/rotate",{method:"POST",cache:"no-store",headers:{"Content-Type":"application/json"},body:JSON.stringify({...params,newPin:String(newPin),expectedRevision:current.revision})});
+      const result=await response.json().catch(()=>({}));
+      if(!response.ok||result.ok!==true)return {ok:false,reason:response.status===409?"revision-conflict":"central-update-failed"};
+      try{localStorage.setItem("f123_pin_central_seen:"+lic,JSON.stringify({revision:result.revision,at:Date.now()}))}catch(_){}
+      return {ok:true,revision:result.revision};
+    }catch(_){return legacyWhenUnprovisioned()}
+  }
+  window.F123CentralPin={verificar:verificarPinOwnerCentral,rotar:rotarPinOwnerCentral};
+  // PHASE 1: one reported local Owner credential per device per day.
+  // Reports do not modify or revoke any credential, and the server stores a
+  // peppered digest only. All devices remain on local PIN until JFC activates.
+  function registrarPinOwnerExistente(pin){
+    try{
+      if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return;
+      const own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+      const lic=String(own.licenseCode||"").trim().toUpperCase(),id=String(own.instanceId||"");
+      if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!/^[a-zA-Z0-9_-]{6,120}$/.test(id))return;
+      // Fase 1: a failed upload must NOT pretend this device has reported.
+      // Existing legacy marker records attempts, not confirmed reports.
+      const marker="f123_pin_census:"+lic+":"+id;
+      const now=Date.now();
+      const lastSuccess=Number(localStorage.getItem(marker+":ok")||0);
+      const lastAttempt=Number(localStorage.getItem(marker)||0);
+      // v654 transition (JFC 2026-11-03): the report carries the time of this device's last explicit Owner PIN change by
+      // owner/admin, so the license authority can seal the most recent one. A newer change bypasses the throttles once.
+      let pinTs=0;try{pinTs=Number(window.OCSecure.ownerPinTs())||0}catch(_){}
+      const mismoTs=(localStorage.getItem(marker+":ts")||"0")===String(pinTs);
+      if(mismoTs&&lastSuccess>0&&now>=lastSuccess&&now-lastSuccess<86400000)return;
+      // Max one failed attempt per six hours, even if login is repeated.
+      // This avoids quota storms and still lets an outage recover without
+      // leaving a customer's prior PIN unreported for a whole day.
+      if(mismoTs&&lastAttempt>0&&now>=lastAttempt&&now-lastAttempt<21600000)return;
+      const dest=new URL(OC_WORKER_URL);
+      if(dest.protocol!=="https:"||dest.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return;
+      try{localStorage.setItem(marker,String(now));localStorage.setItem(marker+":ts",String(pinTs))}catch(_){}
+      const controller=new AbortController(),t=setTimeout(()=>controller.abort(),2000);
+      fetch(dest.origin+"/pin/report",{
+        method:"POST",mode:"cors",cache:"no-store",credentials:"omit",
+        redirect:"error",referrerPolicy:"no-referrer",signal:controller.signal,
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({licenseCode:lic,instanceId:id,pin:String(pin),pinTs})
+      }).then(async r=>{
+        if(!r.ok)return;
+        const data=await r.json().catch(()=>null);
+        if(data&&data.ok===true)try{localStorage.setItem(marker+":ok",String(Date.now()))}catch(_){}
+      },()=>{}).finally(()=>clearTimeout(t));
+    }catch(_){}
+  }
+
   async function validar(code) {
     await listo;
-    if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return iniciarActivacion(); }
+    if (code === ACTIVATION_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} if (teclado) teclado.reset(); return iniciarActivacion(); } // keypad must be empty when the customer returns from the chooser
     /* identificarPin ANTES de verificarOwner/Empleado (esos suman fallos
        al candado). Un PIN bueno no puede quedar fuera por el XOR viejo. */
     const rolHash = (window.OCSecure.identificarPin) ? await window.OCSecure.identificarPin(code) : null;
-    if (rolHash === "dueno") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
+    // Central decision supersedes stale per-browser Owner PINs when reachable.
+    // Never allow central rejection to become a staff/artist PIN bypass.
+    const central=(rolHash==="dueno"||!rolHash) && dispositivoApropiado()
+      ? await verificarPinOwnerCentral(code, rolHash==="dueno") : "unconfigured";
+    if(central==="owner"){registrarExito();try{window.OCSecure.limpiarLockouts&&window.OCSecure.limpiarLockouts()}catch(_){}return alinearYEntrar(code,"dueno")}
+    if(central==="wrong"&&rolHash==="dueno"){
+      error("Este PIN Owner fue reemplazado en el panel JFC. Usa el PIN central vigente.");
+      return;
+    }
+    if(central==="locked"){error("Acceso Owner bloqueado temporalmente por seguridad.");return}
+    if(central==="unavailable-identity"&&rolHash==="dueno"){
+      error("La identidad de la licencia no coincide con el registro central. Recupera la licencia desde el panel.");return;
+    }
+    /* v660 (critic A #3, 2026-11-04; JFC: no customer loses access, local-first): with no network the Owner enters with
+       the PIN this device holds. Once a central revision was seen, that local Owner PIN is the one the central authority
+       last confirmed and adopted here (adoptarPinOwnerCentralVerificado), so an outage never locks the owner out.
+       Rotation still needs the central authority (rotarPinOwnerCentral keeps "central-authority-unavailable"). */
+    /* JFC 2026-11-03: "LA GENTE YA TIENE SUS PIN, NO LES PUEDES IMPONER COSAS". On a device joined to an existing store, the factory
+       789 never opens it as Owner: people keep their own PIN. It opens only if the store itself says its Owner PIN is 789.
+       Creating a new store with 789 is not affected. */
+    let _aparatoUnido = joinPendienteVivo();
+    try {
+      const _licU = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+      _aparatoUnido = _aparatoUnido || (!!_licU && localStorage.getItem("f123_aparato_unido") === _licU) || !!(window.OCTienda && window.OCTienda.esUnida && window.OCTienda.esUnida());
+    } catch (_) {}
+    /* v654 (OpenCode audit 2026-11-03): devices that joined BEFORE v654 carry no join flag, so on ANY device the store's own
+       Owner PIN, once known, beats the factory 789. Mock-backend adopts that PIN locally when it arrives (aplicar remoto). */
+    if (rolHash === "dueno" && code === ACTIVATION_PIN && central !== "owner") {
+      const Ya = window.OCYjs, equipoA = Ya && Ya.meta && typeof Ya.meta.get === "function" ? Ya.meta.get("pinsRol") : null;
+      if (equipoA && equipoA.owner && equipoA.owner !== ACTIVATION_PIN) {
+        error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
+        return;
+      }
+    }
+    if (rolHash === "dueno" && code === ACTIVATION_PIN && central !== "owner" && _aparatoUnido) {
+      const Y = window.OCYjs, equipo = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
+      /* v654 (audit 2026-11-03): recovery finishing is NOT proof of the store PIN. Only the store's own pinsRol.owner === 789,
+         or the photo flag, may open a joined device with 789. Without either, the device waits for its store's PIN. */
+      let tiendaDice789 = false;
+      try {
+        const lic = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+        tiendaDice789 = !!lic && localStorage.getItem("f123_pin_tienda_789") === lic; // a flag from another license never counts
+      } catch (_) {}
+      const tiendaEs789 = !!(equipo && equipo.owner === ACTIVATION_PIN);
+      /* JFC 2026-11-03: «789 ... sirva como universal o fallback, pero NO puede ser un breach ... lo que pusieron eso se queda».
+         Fallback: no own PIN anywhere (none in this store's data after recovery finished, and the license authority answered
+         "unconfigured": nothing sealed and no device ever reported one) -> 789 opens. Any own PIN -> central says "wrong" above. */
+      /* v764 (QA limpia2): a parent no device holds kept "recuperando" forever. Same proof as v753 credentials:
+         relay HEAD read and no pending struct writing PIN/role metadata (canal.accesoListo includes recuperando===false). */
+      const sinPinPropio = !(equipo && equipo.owner) && central === "unconfigured" && !!(Y && Y.canal &&
+        (typeof Y.canal.accesoListo === "function" ? Y.canal.accesoListo() : Y.canal.recuperando === false));
+      if (!(tiendaEs789 || (tiendaDice789 && !(equipo && equipo.owner)) || sinPinPropio)) {
+        error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
+        return;
+      }
+    }
+    // The factory 789 is never reported as a store's central Owner PIN (it would then open that store anywhere).
+    if (rolHash === "dueno") { if (central === "unconfigured" && code !== ACTIVATION_PIN) registrarPinOwnerExistente(code); registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "dueno"); }
     if (rolHash === "empleado") {
       registrarExito();
       try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
       try {
         const uNom = await verificarUsuarioNombrado(code);
+        if (uNom && uNom.rol === "admin") {
+          // JFC 2026-11-03: stores may be used only through admins for weeks; an admin login also reports this
+          // device's own Owner PIN (never 456/789) so the license authority can absorb the most recent one.
+          try { const own = window.OCSecure && window.OCSecure.leerPinsVisibles && String((window.OCSecure.leerPinsVisibles() || {}).owner || "");
+            if (/^\d{3}$/.test(own) && own !== ACTIVATION_PIN && own !== DEMO_PIN && dispositivoApropiado()) registrarPinOwnerExistente(own); } catch (_) {}
+        }
         if (uNom) { window.OCCurrentUser = uNom; return alinearYEntrar(code, uNom.rol === "admin" ? "admin" : "empleado"); }
       } catch (_) {}
       return alinearYEntrar(code, "empleado");
     }
     if (rolHash === "contador") { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, "contador"); }
     if (code === DEMO_PIN && !dispositivoApropiado()) { registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return entrar("demo"); }
+    if (code === DEMO_PIN && dispositivoApropiado()) {
+      // 456 must never unlock real customer data or consume a lockout attempt.
+      error("PIN 456 is for an unlicensed demo, not an existing store. This device is linked to a business; its team PINs are recovered from that business.");
+      return;
+    }
     const uNombrado = await verificarUsuarioNombrado(code);
     if (uNombrado) { window.OCCurrentUser = uNombrado; registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {} return alinearYEntrar(code, uNombrado.rol === "admin" ? "admin" : "empleado"); }
     /* ARTISTA (benchmark #6, JFC 2026-09-24). Va al final a proposito: un PIN
@@ -1141,6 +1379,33 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       try { sessionStorage.setItem("f123_sesion_artista", JSON.stringify(window.OCCurrentArtista)); } catch (_) {}
       registrarExito(); try { if (window.OCSecure.limpiarLockouts) window.OCSecure.limpiarLockouts(); } catch (_) {}
       return entrar("artista");
+    }
+    // A newly joined notebook with no verified owner credentials cannot
+    // classify an entered PIN as wrong. Avoid lockouts while encrypted replay
+    // is incomplete or the team's PIN metadata has not arrived.
+    try {
+      const T = window.OCTienda, Y = window.OCYjs;
+      if (T && T.esUnida && (T.esUnida() || joinPendienteVivo())) {
+        const team = Y && Y.meta && typeof Y.meta.get === "function" ? Y.meta.get("pinsRol") : null;
+        const owner = String((team && team.owner) || "");
+        if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
+            !/^\d{3}$/.test(owner) || owner === "456" || owner === "789") {
+          error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
+          return;
+        }
+      }
+    } catch (_) {
+      error("Team credential status is unavailable. No incorrect PIN attempt has been recorded.");
+      return;
+    }
+    // A licensed browser with no local verifier has not proven an incorrect PIN:
+    // it may not have completed authenticated notebook credential recovery.
+    // Do not consume lockout attempts for an unavailable credential store.
+    // Never grant access here; only the existing recovery flow may restore it.
+    if (dispositivoApropiado() && window.OCSecure.estadoSecreto &&
+        window.OCSecure.estadoSecreto() === "vacio") {
+      error("This browser has no saved PIN credentials for this business. Use the existing recovery or join flow; your PIN has not been rejected.");
+      return;
     }
     const sb = window.OCSecure.segundosBloqueo ? (window.OCSecure.segundosBloqueo("login") || 0) : 0;
     if (sb > 0) { error(window.tf("auth.gate.tooManyAttemptsRetry", {s: sb})); return; }
@@ -1179,6 +1444,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     const nFallos = leerIntentos().fallos;
     if (nFallos >= 2) { error(window.t("auth.gate.wrongPin") + " " + window.t("auth.gate.forgotHint")); return; }
     error(window.t("auth.gate.wrongPin"));
+  }
+  function joinPendienteVivo() {
+    try {
+      const j = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null"), o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      return !!(j && j.instanceId && j.instanceId === o.instanceId && j.licenseCode === o.licenseCode);
+    } catch (_) { return false; }
   }
   // Aviso post-caida-a-demo: nunca deja al usuario preguntandose por que ve
   // datos de muestra en vez de esperar una pantalla de error. Reutiliza el
@@ -1250,7 +1521,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   let modalActivacion = null;
   function construirModalActivacion() {
     if (modalActivacion) return modalActivacion;
-    var st = document.createElement("style");
+    var st = document.getElementById("oc-act-style") || document.createElement("style");
+    st.id = "oc-act-style";
     st.textContent = ""
       + "#oc-act{position:fixed;inset:0;z-index:10010;background:#0F1923;display:flex;align-items:center;justify-content:center;padding:18px;}"
       + "#oc-act-card{background:#F8F9FB;width:100%;max-width:460px;border-radius:14px;border:2px solid #C4CDD8;border-top:4px solid #E86040;padding:26px 22px 24px;box-shadow:0 12px 40px #060d14;max-height:92vh;overflow-y:auto;}"
@@ -1265,10 +1537,16 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       + "#oc-act input[type=email]{width:100%;box-sizing:border-box;padding:11px 12px;border:2px solid #5294AC;border-radius:8px;font-size:16px;font-family:var(--font-mono,monospace);color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;background:#FFFFFF;}"
       + "#oc-act .primario{width:100%;min-height:48px;margin-top:16px;padding:14px;border-radius:9px;border:2px solid #E86040;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;cursor:pointer;}"
       + "#oc-act .secundario{width:100%;min-height:44px;margin-top:10px;padding:11px;border-radius:9px;border:2px solid #5294AC;background:transparent;color:#2E6278 !important;-webkit-text-fill-color:#2E6278 !important;font-size:15px;font-weight:700;cursor:pointer;}"
+      /* Fila de acciones pegada al fondo de la tarjeta (JFC 2026-10-27): en un
+         celular 375x667 "Activar mi negocio" quedaba bajo el doblez. sticky dentro
+         de la tarjeta que hace scroll => siempre visible, objetivos >=44px. */
+      + "#oc-act .acciones{position:sticky;bottom:-24px;background:#F8F9FB;margin:0 -22px -24px;padding:8px 22px 14px;border-top:1px solid #C4CDD8;}"
+      + "#oc-act .acciones .primario{margin-top:0;}"
+      + "@media (max-height:700px){#oc-act-card{padding:16px 18px 24px;}#oc-act .acciones{margin:0 -18px -24px;padding:8px 18px 14px;}#oc-act h2{font-size:21px;margin-bottom:6px;}#oc-act p{margin-bottom:8px;}#oc-act .lbl{margin:8px 0 4px;}#oc-act label.op{padding:8px 12px;margin-bottom:6px;}}"
       + "#oc-act .msg{font-size:14px;font-weight:700;margin:10px 0 0;color:#B0183E !important;-webkit-text-fill-color:#B0183E !important;}"
       + "#oc-act .ok{color:#0F7A3D !important;-webkit-text-fill-color:#0F7A3D !important;}"
       + "@media (prefers-color-scheme: dark){#oc-act-card{background:#F8F9FB;}#oc-act h2,#oc-act p,#oc-act label.op strong,#oc-act .lbl,#oc-act input[type=email]{color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;}#oc-act label.op span{color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;}#oc-act .primario{color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;}}";
-    document.head.appendChild(st);
+    if (!st.parentNode) document.head.appendChild(st);
 
     var wrap = document.createElement("div");
     wrap.id = "oc-act";
@@ -1285,8 +1563,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          QUIÉN es el dueño de cada licencia en el panel — hasta ahora solo había
          correo y WhatsApp, y la columna Nombre salía vacía. Va primero porque es
          lo más natural de responder. */
-      +     '<label class="lbl" for="oc-act-nombre">Your full name</label>'
-      +     '<input id="oc-act-nombre" type="text" autocomplete="name" placeholder="First and last name">'
+      +     '<label class="lbl" for="oc-act-nombre">' + window.t("auth.act.nameLabel") + '</label>'
+      +     '<input id="oc-act-nombre" type="text" autocomplete="name" placeholder="' + window.t("auth.act.namePlaceholder") + '">'
       +     '<label class="lbl" for="oc-act-email">' + window.t("auth.act.emailLabel") + '</label>'
       +     '<input id="oc-act-email" type="email" inputmode="email" autocomplete="email" placeholder="' + window.t("auth.act.emailPlaceholder") + '">'
       /* TELEFONO OBLIGATORIO (JFC 2026-08-19, regla para TODAS sus apps).
@@ -1302,9 +1580,11 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       +     '<label class="lbl" for="oc-act-tel">' + window.t("auth.act.phoneLabel") + '</label>'
       +     '<input id="oc-act-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="' + window.t("auth.act.phonePlaceholder") + '">'
       +     '<p style="font-size:13px;line-height:1.45;margin:4px 0 0;color:var(--ink-soft,#5d5340);">' + window.t("auth.act.phoneHint") + '</p>'
-      +     '<button id="oc-act-confirmar" class="primario">' + window.t("auth.act.confirmBtn") + '</button>'
-      +     '<button id="oc-act-cancelar" class="secundario">' + window.t("auth.act.cancelBtn") + '</button>'
       +     '<p id="oc-act-msg" class="msg"></p>'
+      +     '<div class="acciones">'
+      +       '<button id="oc-act-confirmar" class="primario">' + window.t("auth.act.confirmBtn") + '</button>'
+      +       '<button id="oc-act-cancelar" class="secundario">' + window.t("auth.act.cancelBtn") + '</button>'
+      +     '</div>'
       +   '</div>'
       +   '<div id="oc-act-exito" style="display:none;">'
       +     '<p class="marca">' + window.t("auth.act.doneTagline") + '</p>'
@@ -1464,13 +1744,13 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     b.style.cssText = "position:fixed;inset:0;z-index:10005;background:#0F1923EE;display:flex;align-items:center;justify-content:center;padding:20px;";
     b.innerHTML =
       '<div style="background:#FFFFFF;border-radius:16px;padding:26px 22px;max-width:440px;width:100%;text-align:left;">' +
-      '<h2 style="font-size:21px;font-weight:800;margin:0 0 10px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">Before we set this up</h2>' +
-      '<p style="font-size:16px;line-height:1.5;margin:0 0 18px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Is this the first device for a brand new business, or another device for a business you already run?</p>' +
-      '<button type="button" id="oc-act-nuevo" style="width:100%;min-height:52px;padding:14px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">A brand new business</button>' +
-      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Creates a new business with its own license. Starts empty.</p>' +
-      '<button type="button" id="oc-act-unirme" style="width:100%;min-height:52px;padding:14px;border:2px solid #2C3E50;border-radius:12px;background:transparent;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-weight:800;font-size:16px;cursor:pointer;">Another device for my business</button>' +
-      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">Joins the business you already have, with all its products and sales. You will need its team code.</p>' +
-      '<button type="button" id="oc-act-nada" style="width:100%;min-height:44px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">Never mind</button>' +
+      '<h2 style="font-size:21px;font-weight:800;margin:0 0 10px;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;">' + window.t("auth.choice.title") + '</h2>' +
+      '<p style="font-size:16px;line-height:1.5;margin:0 0 18px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">' + window.t("auth.choice.body") + '</p>' +
+      '<button type="button" id="oc-act-nuevo" style="width:100%;min-height:52px;padding:14px;border:none;border-radius:12px;background:#E86040;color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-weight:800;font-size:16px;cursor:pointer;">' + window.t("auth.choice.newBtn") + '</button>' +
+      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">' + window.t("auth.choice.newDesc") + '</p>' +
+      '<button type="button" id="oc-act-unirme" style="width:100%;min-height:52px;padding:14px;border:2px solid #2C3E50;border-radius:12px;background:transparent;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;font-weight:800;font-size:16px;cursor:pointer;">' + window.t("auth.choice.otherBtn") + '</button>' +
+      '<p style="font-size:14px;line-height:1.45;margin:6px 0 16px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;">' + window.t("auth.choice.otherDesc") + '</p>' +
+      '<button type="button" id="oc-act-nada" style="width:100%;min-height:44px;background:none;border:none;font-size:15px;color:#2C3E50 !important;-webkit-text-fill-color:#2C3E50 !important;cursor:pointer;">' + window.t("auth.choice.never") + '</button>' +
       "</div>";
     document.body.appendChild(b);
     var cerrar = function () { try { b.remove(); } catch (_) {} };
@@ -1486,6 +1766,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
 
   function _activacionRealmente() {
+    /* Se reconstruye en cada apertura para tomar el idioma vigente (EN/ES). */
+    try { if (modalActivacion) { modalActivacion.remove(); modalActivacion = null; } } catch (_) {}
     var w = construirModalActivacion();
     w.querySelector("#oc-act-form").style.display = "block";
     w.querySelector("#oc-act-exito").style.display = "none";
@@ -1496,19 +1778,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   }
 
   function entrar(nuevoRol) {
-    try {
-      if (sessionStorage.getItem("f123_reload_al_entrar") === "1") {
-        sessionStorage.removeItem("f123_reload_al_entrar");
-        /* BUG (JFC 2026-09-02): aquí se mapeaba demo→"dueno" en la sesión diferida,
-           así que tras el reload forzado de versión el auto-login entraba como
-           dueño real y NUNCA llegaba al demo (456 "no lleva al demo"). Se preserva
-           el rol tal cual: tras el reload, entrar("demo") corre con el flag ya
-           limpio y hace la entrada demo correcta. */
-        try { sessionStorage.setItem("f123_sesion", JSON.stringify({ rol: nuevoRol, demo: nuevoRol === "demo" })); } catch (_) {}
-        location.reload();
-        return;
-      }
-    } catch (_) {}
+    try { sessionStorage.removeItem("f123_reload_al_entrar"); } catch (_) {}
     const esDemo = nuevoRol === "demo";
     if (!esDemo) {
       try {
@@ -1842,8 +2112,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
          define I/L→1 y O→0: convertirlas (no borrarlas) hace que el mismo código
          tecleado de dos formas caiga en la MISMA sala. Consistente con
          _ocNormalizar() y con normalizarCodigo() en sync-realtime.js. */
-      var v = String(raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0")
-        .replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=]/g, "");
+      var v = String(raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0").replace(/[^0-9A-Z*~$=]/g, "");
       /* Quita TODAS las repeticiones del prefijo al inicio, no solo una
          (JFC 2026-08-25). Al pegar "F123-..." en un campo que ya mostraba
          "F123-", quedaba "F123F123..." y con un solo strip sobrevivia un
@@ -1855,7 +2124,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         if (v.indexOf("TEAM") === 0) { v = v.slice(4); cambio = true; }
         else if (v.indexOf(PRE) === 0) { v = v.slice(PRE.length); cambio = true; }
       }
-      v = v.slice(0, 17);
+      // Preserve Crockford aliases and the issuer's checksum-only final symbols.
+      v = v.slice(0, 16).replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ]/g, "") +
+        v.slice(16, 17).replace(/[^0-9ABCDEFGHJKMNPQRSTVWXYZ*~$=U]/g, "");
       /* Sin cuerpo, no se pinta un "F123-" solo colgando (JFC 2026-08-26): un
          campo vacío o con basura que quedó en nada se muestra vacío, no como si
          ya hubiera media licencia. El focus vuelve a poner el prefijo guía. */
@@ -1901,9 +2172,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         try { inp.dispatchEvent(new Event("input", { bubbles: true })); } catch (_) {}
       } catch (_) { setTimeout(alEscribir, 0); }
     });
-    inp.addEventListener("focus", function () {
-      if (!inp.value) { inp.value = PRE + "-"; try { inp.setSelectionRange(PRE.length + 1, PRE.length + 1); } catch (_) {} }
-    });
+    // P0 v615 mobile: keep an empty input truly empty on focus. Injecting
+    // "F123-" programmatically interferes with native long-press Paste/selection.
+    // The existing input event still formats real text after typing or paste.
     inp.addEventListener("blur", function () {
       if (inp.value === PRE + "-" || inp.value === PRE) inp.value = "";
     });
@@ -1912,16 +2183,17 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   function abrirUnirseEquipo() {
     const cont = _ocSubgate("oc-ue-modal");
     if (!cont) return;
-    cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#fbf5e8);border:2px solid var(--brass,#9c7a35);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
+    cont.innerHTML = `<div class="caja" style="background:var(--blanco-calido,#F8F9FB);border:2px solid var(--sim-amarillo,#FFC700);border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;">
       <h2 style="font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;">${window.t("auth.join.title")}</h2>
       <p style="font-size:14px;color:var(--ink-soft,#5d5340);margin:0 0 14px;">${window.t("auth.join.body")}</p>
-      <input id="oc-ue-codigo" type="text" placeholder="${window.t("auth.join.placeholder")}" style="width:100%;box-sizing:border-box;padding:11px 12px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:16px;font-family:var(--font-mono,monospace);text-align:center;text-transform:uppercase;margin-bottom:10px;">
-      <button id="oc-ue-confirmar" style="width:100%;min-height:48px;padding:14px;border-radius:9px;border:2px solid var(--rust,#b2461f);background:var(--rust,#b2461f);color:#fff;font-size:16px;font-weight:700;cursor:pointer;">${window.t("auth.join.confirm")}</button>
+      <input id="oc-ue-codigo" type="text" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done" placeholder="${window.t("auth.join.placeholder")}" style="width:100%;box-sizing:border-box;padding:14px 12px;min-height:52px;border:2px solid var(--azul-medio,#2c4a68);border-radius:8px;font-size:16px;font-family:var(--font-mono,monospace);text-align:left;text-transform:uppercase;user-select:text;-webkit-user-select:text;touch-action:manipulation;margin-bottom:10px;">
+      <button id="oc-ue-confirmar" style="width:100%;min-height:48px;padding:14px;border-radius:9px;border:2px solid var(--azul-oscuro,#0F1923);background:var(--sim-amarillo,#FFC700);color:var(--azul-oscuro,#0F1923);font-size:16px;font-weight:700;cursor:pointer;">${window.t("auth.join.confirm")}</button>
       <button id="oc-ue-cancelar" style="width:100%;min-height:44px;margin-top:10px;padding:11px;border-radius:9px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68);font-size:15px;font-weight:700;cursor:pointer;">${window.t("auth.join.cancel")}</button>
       <p id="oc-ue-msg" style="min-height:20px;font-size:14px;font-weight:700;color:var(--rojo,#a3392a);margin-top:12px;"></p>
     </div>`;
     document.body.appendChild(cont);
     _ocMascaraCodigo(cont.querySelector("#oc-ue-codigo"));
+    _ocBotonEscanear(cont); // PAIR-QR v656
     /* CONFIRMACIÓN DE A QUÉ EQUIPO TE UNES (JFC 2026-08-26): uno debe SABER a
        dónde se une. Mientras teclea, se confirma la cola de la licencia; tras
        unirte, el candado ya muestra el nombre de la tienda. Best practice. */
@@ -1953,6 +2225,130 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       msgEl.style.color = "var(--verde-suave,#2f7a4f)";
       msgEl.textContent = window.t("auth.join.success");
       cont.luego(() => cont.cerrar(), 1800);
+    });
+  }
+
+  /* ===== PAIR-QR v656 (JFC 2026-11-03): "Vincular un aparato nuevo" =====
+     Aparato de confianza (dueno/admin) -> QR de 10 min, un solo uso. El aparato nuevo
+     lo abre con su camara normal (es un URL), se une con la licencia si hace falta y
+     recibe el estado de PIN de la tienda cifrado (AES-GCM; la llave va solo en el
+     #fragmento, jamas a un servidor). Asi no depende del PIN de fabrica 789 ni del sync.
+     PARA APAGAR: borrar la llamada vincularAparatoNuevo() de abajo y el boton en
+     avanzado-extra.js (#oc-pair-btn); las rutas /pair/* del Worker quedan inertes. */
+  /* PAIR-HELPERS-BEGIN (extraido tal cual por test/pair-qr-v656.test.mjs) */
+  (function () {
+    function b64u(bytes) { var s = ""; for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
+    function unb64u(str) { str = String(str).replace(/-/g, "+").replace(/_/g, "/"); while (str.length % 4) str += "="; var bin = atob(str), o = new Uint8Array(bin.length); for (var i = 0; i < bin.length; i++) o[i] = bin.charCodeAt(i); return o; }
+    /* cifrar(payload) -> {tokenId, blob, keyB64}. blob = base64url(iv12 || ciphertext). */
+    async function cifrar(payload) {
+      var c = globalThis.crypto;
+      var key = await c.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt"]);
+      var iv = c.getRandomValues(new Uint8Array(12));
+      var ct = new Uint8Array(await c.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, new TextEncoder().encode(JSON.stringify(payload))));
+      var out = new Uint8Array(12 + ct.length); out.set(iv, 0); out.set(ct, 12);
+      var raw = new Uint8Array(await c.subtle.exportKey("raw", key));
+      var id = c.getRandomValues(new Uint8Array(16)), hex = "";
+      for (var i = 0; i < id.length; i++) hex += ("0" + id[i].toString(16)).slice(-2);
+      return { tokenId: hex, blob: b64u(out), keyB64: b64u(raw) };
+    }
+    async function descifrar(blob, keyB64) {
+      var c = globalThis.crypto, all = unb64u(blob);
+      var key = await c.subtle.importKey("raw", unb64u(keyB64), { name: "AES-GCM" }, false, ["decrypt"]);
+      var pt = await c.subtle.decrypt({ name: "AES-GCM", iv: all.slice(0, 12) }, key, all.slice(12));
+      return JSON.parse(new TextDecoder().decode(pt));
+    }
+    window.OCPair = { cifrar: cifrar, descifrar: descifrar };
+  })();
+  /* PAIR-HELPERS-END */
+
+  function vincularAparatoNuevo() {
+    var K = "f123_vincular";
+    function owned() { try { return JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; } catch (_) { return {}; } }
+    function licUp() { return String(owned().licenseCode || "").trim().toUpperCase(); }
+    function msg(txt, ok) {
+      var el = document.getElementById("oc-msg"); if (!el) return; // sin compuerta visible no hay donde mostrarlo
+      el.style.color = ok ? "var(--verde-suave,#2f7a4f)" : "var(--rojo,#a3392a)";
+      el.textContent = txt;
+    }
+    /* 1) Leer el fragmento #vincular=<tokenId>.<llave> y guardarlo en sessionStorage. */
+    try {
+      var m = /^#vincular=([a-f0-9]{32})\.([A-Za-z0-9_-]{20,64})$/.exec(location.hash || "");
+      if (m) {
+        var lic = (new URLSearchParams(location.search).get("join") || sessionStorage.getItem("f123_join_pendiente") || "").trim().toUpperCase();
+        if (/^F123-/.test(lic)) sessionStorage.setItem(K, JSON.stringify({ lic: lic, tokenId: m[1], keyB64: m[2] }));
+        history.replaceState(null, "", location.pathname + location.search); // la llave no se queda en la barra
+      }
+    } catch (_) {}
+    var pend = null;
+    try { pend = JSON.parse(sessionStorage.getItem(K) || "null"); } catch (_) {}
+    if (!pend) return;
+    /* 2) Sin licencia aun: abrir el dialogo de unirse con el codigo ya escrito. */
+    function abrir() {
+      if (licUp()) return;
+      try {
+        abrirUnirseEquipo();
+        var inp = document.getElementById("oc-ue-codigo");
+        if (inp) { inp.value = pend.lic; inp.dispatchEvent(new Event("input", { bubbles: true })); }
+      } catch (_) {}
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", abrir); else setTimeout(abrir, 0);
+    /* 3) Cuando la licencia del aparato coincide, canjear el blob (se reintenta
+          cada 1.5 s hasta 3 min por si el usuario aun esta confirmando "Unirme"). */
+    var intentos = 0, hecho = false;
+    var iv = setInterval(async function () {
+      if (hecho || ++intentos > 120) { clearInterval(iv); return; }
+      if (licUp() !== pend.lic) return;
+      hecho = true; clearInterval(iv);
+      try { sessionStorage.removeItem(K); } catch (_) {} // un solo intento, pase lo que pase
+      try {
+        var r = await fetch(OC_WORKER_URL.replace(/\/+$/, "") + "/pair/take", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tokenId: pend.tokenId, licenseCode: pend.lic }) });
+        // Cloudflare KV can take up to ~60 s to show a value written from another region: retry a 404 before giving up.
+        for (var k = 0; r.status === 404 && k < 6; k++) {
+          await new Promise(function (ok) { setTimeout(ok, 10000); });
+          r = await fetch(OC_WORKER_URL.replace(/\/+$/, "") + "/pair/take", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ tokenId: pend.tokenId, licenseCode: pend.lic }) });
+        }
+        if (r.status === 404) { msg(window.t("pair.expired"), false); return; }
+        if (!r.ok) return;
+        var d = await r.json();
+        var p = await window.OCPair.descifrar(d.blob, pend.keyB64);
+        var raw = String(owned().licenseCode || "").trim();
+        if (String(p.owner) === "789") localStorage.setItem("f123_pin_tienda_789", raw);
+        else if (p.owner && Number(p.ownerPinTs) > 0 && window.OCSecure && window.OCSecure.adoptarPinOwnerDeFoto) await window.OCSecure.adoptarPinOwnerDeFoto(String(p.owner), Number(p.ownerPinTs));
+        localStorage.setItem("f123_aparato_unido", raw);
+        msg(window.t("pair.ok"), true);
+      } catch (e) { try { console.warn("pair: no se pudo canjear", e && e.name); } catch (_) {} } // nunca se registran PINs
+    }, 1500);
+  }
+  vincularAparatoNuevo();
+
+  /* Boton "Escanear codigo" del dialogo de unirse: solo si el navegador sabe leer QR. */
+  function _ocBotonEscanear(cont) {
+    if (!("BarcodeDetector" in window) || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    var cancel = cont.querySelector("#oc-ue-cancelar"); if (!cancel) return;
+    var b = document.createElement("button");
+    b.id = "oc-ue-escanear"; b.type = "button"; b.textContent = window.t("pair.scan");
+    b.style.cssText = "width:100%;min-height:44px;margin-top:10px;padding:11px;border-radius:9px;border:2px solid var(--azul-medio,#2c4a68);background:transparent;color:var(--azul-medio,#2c4a68);font-size:15px;font-weight:700;cursor:pointer;";
+    cancel.parentNode.insertBefore(b, cancel);
+    b.addEventListener("click", async function () {
+      var stream = null, timer = null, ov = document.createElement("div");
+      function cerrar() { if (timer) clearInterval(timer); if (stream) stream.getTracks().forEach(function (t) { t.stop(); }); ov.remove(); }
+      ov.style.cssText = "position:fixed;inset:0;z-index:2147483000;background:#000000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;";
+      ov.innerHTML = '<video playsinline muted style="width:100%;max-width:420px;max-height:70vh;background:#000000;"></video>' +
+        '<button type="button" style="min-height:48px;padding:12px 28px;border-radius:9px;border:2px solid #FFFFFF;background:#FFFFFF;color:#0F1923;font-size:16px;font-weight:700;cursor:pointer;">' + window.t("auth.join.cancel") + '</button>';
+      document.body.appendChild(ov);
+      ov.querySelector("button").addEventListener("click", cerrar);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+        var v = ov.querySelector("video"); v.srcObject = stream; await v.play();
+        var det = new window.BarcodeDetector({ formats: ["qr_code"] });
+        timer = setInterval(async function () {
+          try {
+            var res = await det.detect(v);
+            var val = res && res[0] && res[0].rawValue || "";
+            if (val.indexOf("https://friendly123.com/app/") === 0 || val.indexOf("https://jfcarpiopuntocom.github.io/friendly-123/") === 0) { cerrar(); location.href = val; }
+          } catch (_) {}
+        }, 300);
+      } catch (_) { cerrar(); }
     });
   }
 

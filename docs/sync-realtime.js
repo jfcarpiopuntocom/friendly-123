@@ -74,6 +74,7 @@
      por el mismo relay, que solo rebota bytes que no puede leer. */
   const TIPO_LATIDO = "__latido__";
   const TIPO_CHECKPOINT = "__checkpoint__"; // foto cifrada del catalogo (bitacora)
+  const TIPO_FICHAS = "__fichas__"; // v651: registros que cambiaron, mientras Yjs esta atascado
   const TIPO_PIN = "__pin__";
   const TIPO_ORDEN = "__orden__";
   const TIPO_RESPUESTA = "__respuesta__";
@@ -115,7 +116,7 @@
   function construirVectorConocido() {
     const v = {};
     leerLog().forEach((op) => {
-      if (!op.deviceId || typeof op.lamport !== "number") return;
+      if (!opDeEsteCuaderno(op) || !op.deviceId || typeof op.lamport !== "number") return;
       if (!(op.deviceId in v) || op.lamport > v[op.deviceId]) v[op.deviceId] = op.lamport;
     });
     return v;
@@ -127,7 +128,7 @@
   function buscarOpsFaltantes(vectorPedido, deviceIdPide) {
     const conocido = vectorPedido || {};
     return leerLog().filter((op) => {
-      if (op.deviceId === deviceIdPide) return false;
+      if (!opDeEsteCuaderno(op) || op.deviceId === deviceIdPide) return false;
       const max = typeof conocido[op.deviceId] === "number" ? conocido[op.deviceId] : 0;
       return op.lamport > max;
     }).slice(-200); // tope por respuesta: evitar un envio gigante de una sola vez
@@ -223,6 +224,17 @@
     try { const a = JSON.parse(localStorage.getItem(COLA_KEY) || "[]"); return Array.isArray(a) ? a : []; }
     catch (_) { return []; }
   }
+  /* v609 perf: la pregunta "hay algo en la cola?" se hace en cada tick/estado. Se cachea el LARGO por el texto
+     crudo de localStorage (si otro tab o guardarCola lo cambian, el texto cambia y se reparsea). */
+  let _colaCrudo = null, _colaLargo = 0;
+  function colaLargo() {
+    let crudo = null;
+    try { crudo = localStorage.getItem(COLA_KEY); } catch (_) { return leerCola().length; }
+    if (crudo !== null && crudo === _colaCrudo) return _colaLargo;
+    const n = leerCola().length;
+    _colaCrudo = crudo; _colaLargo = n;
+    return n;
+  }
   function guardarCola(cola) {
     try {
       /* FASE 2 (2026-08-27): antes se descartaba en silencio lo que pasara de
@@ -241,6 +253,34 @@
 
   function leerSala() {
     try { return JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (_) { return null; }
+  }
+  // Share the exact active-notebook selection rule with sync-yjs.js.
+  // f123_owned may describe a different shop after joining/switching; it
+  // cannot decide the transport room while OCTienda provides an active book.
+  function codigoCuadernoActivo() {
+    try {
+      if (window.OCTienda && typeof window.OCTienda.licenciaActual === "function")
+        return normalizarCodigo(window.OCTienda.licenciaActual() || "");
+      // Before OCTienda is ready, joined/switching namespaces cannot safely
+      // inherit the owner's fallback license. Preserve their local queue.
+      if (localStorage.getItem("f123_tienda_activa")) return "";
+      const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      return normalizarCodigo(own.licenseCode || "");
+    } catch (_) { return ""; }
+  }
+  // Old queues had no business provenance: they belong to the original local
+  // shop only when it is currently selected. Never guess their destination in
+  // a joined namespace, and never erase them as a side effect.
+  function opDeEsteCuaderno(op) {
+    if (!op || !op.opId) return false;
+    const lic = codigoCuadernoActivo();
+    if (!lic) return false;
+    if (op._salaOrigen) return normalizarCodigo(op._salaOrigen) === lic;
+    try {
+      if (localStorage.getItem("f123_tienda_activa")) return false;
+      const own=JSON.parse(localStorage.getItem("f123_owned")||"null")||{};
+      return normalizarCodigo(own.licenseCode||"")===lic;
+    } catch (_) { return false; }
   }
 
   // --- Cripto: PBKDF2(codigo) -> AES-GCM. El codigo nunca sale de este dispositivo. ---
@@ -359,7 +399,7 @@
   const pendientesCanales = Object.create(null);
   let _retryDurable = null;
   function tienePendientesDurables() {
-    return leerCola().length > 0 || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
+    return colaLargo() > 0 || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
   }
   function notificarEstado(nuevo) {
     estadoActual = nuevo;
@@ -377,7 +417,7 @@
      sin fin. Ahora la espera se duplica hasta 10 min y vuelve a 30 s cuando la cola se vacia. */
   let _retryDurableMs = 30000;
   function reintentarDurable() {
-    if (_retryDurable || !leerCola().length) { if (!leerCola().length) _retryDurableMs = 30000; return; }
+    if (_retryDurable || !colaLargo()) { if (!colaLargo()) _retryDurableMs = 30000; return; }
     _retryDurable = setTimeout(function () {
       _retryDurable = null; vaciarCola();
       _retryDurableMs = Math.min(600000, _retryDurableMs * 2);
@@ -393,7 +433,7 @@
   // conectar() SIEMPRE cierra lo que hubiera antes de abrir uno nuevo.
   let _conexionGeneracion = 0;
   function puedeConectarLegado() {
-    return !document.hidden && (!window.OCTabSession || window.OCTabSession.canSync());
+    return !document.hidden; // JFC 2026-11-12: sin turno entre pestanas
   }
   function cerrarWsExistente() {
     if (timeoutConexion) { clearTimeout(timeoutConexion); timeoutConexion = null; }
@@ -407,8 +447,12 @@
   async function conectar() {
     const miGeneracion = ++_conexionGeneracion;
     if (!puedeConectarLegado()) return;
-    const sala = leerSala();
-    if (!sala || !sala.codigo) { notificarEstado("apagado"); return; }
+    const sala = leerSala(), actual = codigoCuadernoActivo();
+    if (!actual || !sala || !sala.codigo || normalizarCodigo(sala.codigo) !== actual) {
+      // The legacy socket must never join a different room from the active
+      // encrypted Yjs notebook; an unproven identity is a local-only state.
+      cerrarWsExistente(); notificarEstado("apagado"); return;
+    }
     cerrarWsExistente();
     notificarEstado(estadoActual === "apagado" ? "conectando" : "reconectando");
     // Refuerzo: el codigo se normaliza (mayusculas + sin espacios) SIEMPRE
@@ -441,11 +485,13 @@
     // siempre. A los 10s, si sigue CONNECTING, se fuerza el cierre y se
     // deja que el backoff normal reintente.
     timeoutConexion = setTimeout(() => {
-      if (ws && ws.readyState === WebSocket.CONNECTING) { try { ws.close(); } catch (_) {} }
+      if (ws && ws.readyState === WebSocket.CONNECTING &&
+          !(ws.peerOnly && ws.signalingReady)) { try { ws.close(); } catch (_) {} }
     }, 10000);
     const _socketDeEstaConexion = ws;
     ws.onopen = () => {
-      if (!puedeConectarLegado() || miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion) {
+      if (!puedeConectarLegado() || miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+          codigoCuadernoActivo() !== codigoNorm) {
         try { _socketDeEstaConexion.close(); } catch (_) {} return;
       }
       if (timeoutConexion) { clearTimeout(timeoutConexion); timeoutConexion = null; }
@@ -459,7 +505,9 @@
       // Subir nuestro checkpoint poco despues de conectar, y luego cada tanto,
       // asi el relay siempre tiene una foto reciente para el que llegue nuevo.
       setTimeout(function () { try { subirCheckpoint(true); } catch (_) {} }, 1500 + Math.random() * 1500);
-      try { if (_ckptTimer) clearInterval(_ckptTimer); _ckptTimer = setInterval(function () { try { subirCheckpoint(false); } catch (_) {} }, 180000); } catch (_) {}
+      setTimeout(publicarFichas, 20000); // after the pull, so this device merges what others said first
+      setTimeout(publicarFichas, 60000); // a stuck history can show only after the first attempt
+      try { if (_ckptTimer) clearInterval(_ckptTimer); _ckptTimer = setInterval(function () { try { subirCheckpoint(false); } catch (_) {} try { releerFotoSiAtascado(); } catch (_) {} try { publicarFichas(); } catch (_) {} }, 180000); } catch (_) {}
       /* Al conectar se pide tambien el catalogo (JFC 2026-08-21). De lo que
          llegue, el EQUIPO se aplica solo y el resto espera a que una persona
          lo confirme en Avanzado. Asi el segundo dispositivo tiene los PINs y
@@ -482,6 +530,15 @@
       setTimeout(function () { try { pedirCatalogo(); } catch (_) {} }, 800 + Math.random() * 1200);
     };
     ws.onmessage = async (ev) => {
+      // If the active notebook changed before page reload, do not apply
+      // bytes from the old shop or acknowledge them in the new one.
+      if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+          codigoCuadernoActivo() !== codigoNorm) {
+        ++_conexionGeneracion;
+        cerrarWsExistente();
+        notificarEstado("apagado");
+        return;
+      }
       // Frame de presencia (2026-07-23): el relay los manda en TEXTO plano,
       // sin cifrar (solo es un numero de conexiones, no dato del negocio).
       // Las Ops reales siempre son binarias (ArrayBuffer, cifradas). Este
@@ -491,9 +548,15 @@
           const msg = JSON.parse(ev.data);
           if (msg && msg.k === "persist-result") {
             if (ws.peerOnly && ev.peerAccepted !== true) return;
-            if (msg.kind === "op" && msg.ok === true) {
+            if (msg.kind === "op" && msg.ok === true &&
+              leerCola().some(op => op.opId === msg.id && opDeEsteCuaderno(op))) {
               guardarCola(leerCola().filter(op => op.opId !== msg.id));
               notificarEstado(estadoActual);
+            }
+            if (msg.kind === "op" && msg.ok === true && _fichasEnVuelo[msg.id]) {
+              var _fm = leerFirmasFichas(); Object.assign(_fm, _fichasEnVuelo[msg.id]); delete _fichasEnVuelo[msg.id];
+              try { localStorage.setItem("f123_fichas_" + salaIdActual, JSON.stringify(_fm)); } catch (_) {}
+              return;
             }
             if (msg.kind === "ckpt" && msg.ok === true && _ckptEnVuelo && msg.id === _ckptEnVuelo.id) {
               _ultimaHuellaCkpt = _ckptEnVuelo.hu;
@@ -502,12 +565,17 @@
             }
             return;
           }
+          if (msg && msg.k === "pull-page" && msg.v === 2) { recibirPaginaPull(msg); return; }
           if (msg && msg.__presencia__) { presenciaN = msg.n; notificarEstado(estadoActual); }
         } catch (_) {}
         return;
       }
       try {
         const op = await descifrar(claveActual, ev.data);
+        // Decryption yields: do not import a late frame into a newly selected
+        // shop if the active notebook changed during the await.
+        if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+            codigoCuadernoActivo() !== codigoNorm) return;
         if (ev.peerAck) {
           const ack = ev.peerAck, proof = op && op.tipo === "__peer_receipt__" && op.payload;
           if (proof && proof.id === ack.id && proof.kind === ack.kind && proof.hash === ack.hash) ws.acceptPeerAck(ack);
@@ -575,9 +643,21 @@
             if (op.payload && window.OCSync && window.OCSync.aplicarCheckpoint) {
               var _rc = window.OCSync.aplicarCheckpoint(op.payload);
               if (_rc && _rc.ok) {
+                try { localStorage.setItem("f123_foto_adoptada_" + salaIdActual, "1"); } catch (_) {}
                 try { if (typeof window.cargarInventario === "function") window.cargarInventario(); } catch (_) {}
                 try { window.dispatchEvent(new CustomEvent("oc-checkpoint-restaurado", { detail: _rc })); } catch (_) {}
               }
+            }
+          } catch (_) {}
+          return;
+        }
+        if (op && op.tipo === TIPO_FICHAS) {
+          try {
+            if (op.deviceId !== deviceId() && window.OCSync && window.OCSync.aplicarFichas) {
+              var _antes = firmasActuales();
+              window.OCSync.aplicarFichas(op.payload);
+              marcarFichasRecibidas(_antes, op.payload);
+              if (typeof window.cargarInventario === "function") window.cargarInventario();
             }
           } catch (_) {}
           return;
@@ -589,6 +669,7 @@
            Se delega al watchdog; si no está cargado, se ignoran. */
         if (op && op.tipo === TIPO_SNAPSHOT_PEDIDO) { if (window.OCSyncWatchdog) window.OCSyncWatchdog.responderSnapshot(op); return; }
         if (op && op.tipo === TIPO_SNAPSHOT_TROZO)  { if (window.OCSyncWatchdog) window.OCSyncWatchdog.acumularSnapshot(op); return; }
+        if (op._salaOrigen && !opDeEsteCuaderno(op)) return;
         registrarEnLog(op);
         if (window.OCSync && window.OCSync.aplicarOpRemota) window.OCSync.aplicarOpRemota(op);
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
@@ -1180,11 +1261,23 @@
   }
 
   async function vaciarCola() {
+    // Existing legacy queues must not be delivered under a newly selected
+    // business just because a socket remains open during a notebook switch.
+    if (codigoCuadernoActivo() !== normalizarCodigo((leerSala() || {}).codigo || "")) return;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const cola = leerCola();
     if (!cola.length) return;
     for (const op of cola) {
-      try { const buf = await cifrar(claveActual, op); ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { return; } // corta si algo falla, reintenta despues
+      if (!opDeEsteCuaderno(op)) continue; // old/other-shop op stays in local queue
+      if (codigoCuadernoActivo() !== normalizarCodigo((leerSala() || {}).codigo || "")) return;
+      try {
+        const buf = await cifrar(claveActual, op);
+        // Encryption can complete after a notebook switch. Keep the queued op
+        // instead of emitting it to whatever socket is current then.
+        if (codigoCuadernoActivo() !== normalizarCodigo((leerSala() || {}).codigo || "") ||
+            !ws || ws.readyState !== WebSocket.OPEN) return;
+        ws.send(buf); _persistirOpBuf(op, buf);
+      } catch (_) { return; }
     }
     // Retain every local operation until the relay confirms durable storage.
     reintentarDurable();
@@ -1264,7 +1357,13 @@
         var _yc = window.OCYjs;
         if (_yc && _yc.doc && _yc.doc.store &&
             (_yc.doc.store.pendingStructs || _yc.doc.store.pendingDs ||
-             (_yc.canal && _yc.canal.recuperando))) return;
+             (_yc.canal && _yc.canal.recuperando))) {
+          /* v646: a catalog too big for its Yjs checkpoint never gets one, and if its history also stays incomplete this
+             compact photo never went up either: a new device had nothing to populate from. Only a device past that limit
+             holds the long history, so a small incomplete device can never publish its partial view over this one. */
+          var _med = _yc.medirTamanoCanales ? _yc.medirTamanoCanales()[0] : null;
+          if (!_med || !(_med.margenBytes < 0)) return;
+        }
       } catch (_) { return; }
       var hu = (snap && snap.huella && snap.huella.completa) ? snap.huella.completa : "";
       var confirmada = "";
@@ -1274,25 +1373,176 @@
       var buf = await cifrar(claveActual, sobre);
       var id = "ck-" + uuidCorto();
       _ckptEnVuelo = { id: id, hu: hu };
-      ws.send(JSON.stringify({ k: "ckpt", ack: 1, id: id, lam: sobre.lamport, c: ab2b64(buf) }));
+      ws.send(JSON.stringify({ k: "ckpt", ack: 1, id: id, lam: sobre.lamport, seq: leerPull().seq, c: ab2b64(buf) }));
     } catch (_) {}
+  }
+  /* v649: with an incomplete Yjs history, updates from a device whose past is missing stay held back, so they cannot arrive
+     live. While that lasts, this device reads the compact photo again every other tick (6 min) and the latest count wins.
+     shortcut: minutes, not instant; a new notebook epoch would restore live sync for a store in this state. */
+  var _ticsFoto = 0;
+  function releerFotoSiAtascado() {
+    if (++_ticsFoto % 2 || document.hidden) return;
+    var y = window.OCYjs;
+    if (y && y.canal && y.canal.recuperando === true) pullDelRelay();
+  }
+  /* v651, the method for everyone: a stuck Yjs history holds back other devices' updates, so each device also sends the records
+     it holds differently, through the durable op lane (live on the relay, read back by whoever was away). The first time that is
+     every record, which absorbs the past. Receivers merge with the catalog rule, the latest count wins, and nothing is wiped.
+     With a healthy Yjs this sends nothing. */
+  var _fichasEnVuelo = {}, _fichasTimer = null, _paginasPull = 0;
+  function yjsAtascado() {
+    var y = window.OCYjs, st = y && y.doc && y.doc.store;
+    return !!(st && (st.pendingStructs || st.pendingDs || (y.canal && y.canal.recuperando)));
+  }
+  function firmaFicha(x) { var s = JSON.stringify(x), h = 5381; for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) | 0; return h.toString(36); }
+  function leerFirmasFichas() { try { return JSON.parse(localStorage.getItem("f123_fichas_" + salaIdActual) || "{}") || {}; } catch (_) { return {}; } }
+  function registrosFichas() {
+    var s = window.OCSync && window.OCSync.estadoParaCheckpoint ? window.OCSync.estadoParaCheckpoint() : null, out = {};
+    if (!s) return out;
+    (s.productos || []).forEach(function (p) { out["p:" + p.id] = { lista: "productos", dato: p }; });
+    (s.ubicaciones || []).forEach(function (u) { out["u:" + u.id] = { lista: "ubicaciones", dato: u }; });
+    (s.usuarios || []).forEach(function (u) { out["e:" + u.id] = { lista: "usuarios", dato: u }; });
+    out.pins = { pins: { pinsRol: s.pinsRol, ownerPinTs: s.ownerPinTs } };
+    return out;
+  }
+  function firmasActuales() { var r = registrosFichas(), f = {}; Object.keys(r).forEach(function (k) { f[k] = firmaFicha(r[k]); }); return f; }
+  // What just arrived is not news to repeat, unless this device held an unsent change of its own to that record.
+  function marcarFichasRecibidas(antes, payload) {
+    var ahora = firmasActuales(), guardadas = leerFirmasFichas();
+    [["productos", "p:"], ["ubicaciones", "u:"], ["usuarios", "e:"]].forEach(function (par) {
+      ((payload && payload[par[0]]) || []).forEach(function (x) {
+        var k = par[1] + (x && x.id);
+        if (x && x.id && antes[k] === guardadas[k] && ahora[k]) guardadas[k] = ahora[k];
+      });
+    });
+    if (antes.pins === guardadas.pins && ahora.pins) guardadas.pins = ahora.pins;
+    try { localStorage.setItem("f123_fichas_" + salaIdActual, JSON.stringify(guardadas)); } catch (_) {}
+  }
+  async function publicarFichas() {
+    try {
+      if (!ws || ws.peerOnly || ws.readyState !== WebSocket.OPEN || !claveActual || !yjsAtascado()) return;
+      // v652: with a stuck history nothing announced a new image: no hash, so no device could ask for it.
+      try { if (window.OCSync.hashearFotosProductos) await window.OCSync.hashearFotosProductos(); if (window.OCYjs.sembrarFotos) window.OCYjs.sembrarFotos(); } catch (_) {}
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      var regs = registrosFichas(), firmas = leerFirmasFichas(), trozos = [], act = null, tam = 0;
+      Object.keys(regs).forEach(function (k) {
+        var f = firmaFicha(regs[k]); if (f === firmas[k]) return;
+        var n = JSON.stringify(regs[k]).length;
+        if (!act || tam + n > 8000) { act = { datos: {}, firmas: {} }; trozos.push(act); tam = 0; }
+        tam += n; act.firmas[k] = f;
+        if (regs[k].pins) Object.assign(act.datos, regs[k].pins);
+        else (act.datos[regs[k].lista] = act.datos[regs[k].lista] || []).push(regs[k].dato);
+      });
+      for (var i = 0; i < trozos.length; i++) {
+        var id = "fi-" + uuidCorto(), lam = lamportActual();
+        var buf = await cifrar(claveActual, { tipo: TIPO_FICHAS, deviceId: deviceId(), lamport: lam, payload: trozos[i].datos });
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+        _fichasEnVuelo[id] = trozos[i].firmas;
+        ws.send(JSON.stringify({ k: "op", ack: 1, id: id, lam: lam, c: ab2b64(buf) }));
+      }
+    } catch (_) {} // a quota or network refusal leaves the signatures unchanged: the next tick retries
+  }
+  function programarFichas() { clearTimeout(_fichasTimer); _fichasTimer = setTimeout(publicarFichas, 2000); }
+  try {
+    window.addEventListener("oc-catalogo-cambiado", programarFichas);
+    document.addEventListener("visibilitychange", function () { if (!document.hidden && yjsAtascado()) { pullDelRelay(); programarFichas(); } });
+  } catch (_) {}
+  function leerPull() {
+    var p = null;
+    try { p = JSON.parse(localStorage.getItem("f123_relay_pull_" + salaIdActual) || "null"); } catch (_) {}
+    if (!p) return { rev: 0, seq: 0 };
+    // rev 0 asks for the photo again: this device has not finished adopting one (the tab can close during its wait).
+    var adoptada = false; try { adoptada = !!localStorage.getItem("f123_foto_adoptada_" + salaIdActual); } catch (_) {}
+    return { rev: adoptada ? Number(p.rev) || 0 : 0, seq: Number(p.seq) || 0 };
+  }
+  function recibirPaginaPull(m) {
+    try { localStorage.setItem("f123_relay_pull_" + salaIdActual, JSON.stringify({ rev: m.rev, seq: m.seq })); } catch (_) {}
+    if (m.more && ++_paginasPull < 16) pullDelRelay(); else _paginasPull = 0; // shortcut: 16 pages per pull, the next pull continues from the saved seq
   }
   function pullDelRelay() {
     try {
-      if (ws && ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ k: "pull", lam: lamportActual() }));
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        var p = leerPull();
+        ws.send(JSON.stringify({ k: "pull", v: 2, limit: 64, rev: p.rev, seq: p.seq, lam: lamportActual() }));
+      }
     } catch (_) {}
   }
+
+  // P0 Fable: roomless movements must survive an inactive Yjs and a page reload.
+  // Keep a distinct, per-license journal: the legacy queue truncates at 1000
+  // and is drained only when a legacy socket exists, so it cannot be reused.
+  const COLA_YJS_SIN_SALA = "f123_yjs_ops_pendientes_v1_";
+  function leerPendientesYjs(licencia) {
+    try {
+      const arr = JSON.parse(localStorage.getItem(COLA_YJS_SIN_SALA + licencia) || "[]");
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) { return null; } // corrupt/unreadable is NOT an empty journal
+  }
+  function guardarPendientesYjs(licencia, ops) {
+    try { localStorage.setItem(COLA_YJS_SIN_SALA + licencia, JSON.stringify(ops)); return true; }
+    catch (_) { return false; } // never silently trim or claim an ACK
+  }
+  function drenarPendientesYjs() {
+    const licencia = codigoCuadernoActivo();
+    const yjs = window.OCYjs;
+    if (!licencia || !yjs || yjs.estado !== "activo" ||
+        !yjs.opsMap || yjs.codigoCuaderno !== licencia) return;
+    const ops = leerPendientesYjs(licencia);
+    if (!ops || !ops.length) return;
+    // Never remove a locally durable op merely because Yjs has it in RAM.
+    // IndexedDB persistence is asynchronous; opsMap.get is NOT a durable ACK.
+    // Keep the journal across reloads, and replay only entries missing from
+    // the active same-licence Y.Doc. Pruning requires a separate proven IDB ACK.
+    for (const op of ops) {
+      if (!op || normalizarCodigo(op._salaOrigen) !== licencia) continue;
+      try {
+        if (!yjs.opsMap.get(op.opId))
+          window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op }));
+      } catch (_) {} // the durable journal is retained for another retry
+    }
+  }
+  try {
+    window.addEventListener("oc-yjs-activo", drenarPendientesYjs);
+    window.addEventListener("visibilitychange", drenarPendientesYjs);
+    setInterval(drenarPendientesYjs, 2000);
+  } catch (_) {}
 
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
     const sala = leerSala();
-    if (!sala) return true; // sync apagado: no-op total, cero overhead
+    // Plan C derives its room from the active licence, not the legacy room key.
+    // When only the old room is absent, still publish a committed movement to
+    // the already-active Yjs ops channel. Never emit across an identity switch.
+    if (!sala) {
+      const licencia = codigoCuadernoActivo();
+      if (!licencia) return false; // no safe business provenance yet
+      const op = {
+        opId: uuidCorto(), deviceId: deviceId(),
+        deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
+        lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
+        _salaOrigen: licencia
+      };
+      const pendientes = leerPendientesYjs(licencia);
+      if (!pendientes) return false;
+      pendientes.push(op);
+      if (!guardarPendientesYjs(licencia, pendientes)) return false;
+      drenarPendientesYjs();
+      return true; // locally journaled; NOT remote ACK
+    }
+    if (!sala.codigo || normalizarCodigo(sala.codigo) !== codigoCuadernoActivo()) {
+      // A real local movement was already saved upstream. Refuse to emit it
+      // into another shop's room while the active identity is inconsistent.
+      return false;
+    }
     const op = {
       opId: uuidCorto(), deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
       lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
+      _salaOrigen: codigoCuadernoActivo() // immutable business provenance for catch-up/outbox
     };
-    registrarEnLog(op); // guardo mi propia op para poder reenviarsela a un par que la haya perdido
+    // Local queue first: the same opId must exist before either transport sees it.
+    // A failed legacy-queue write still leaves the existing Yjs fallback available.
+    const encolada = encolar(op);
+    registrarEnLog(op); // same opId for peer catch-up; never regenerate
     /* SYNC NUEVO (JFC 2026-09-10, "que sincronice TODO"): exponemos el op EXACTO
        (mismo opId, mismo deviceId) para que el puente CRDT (sync-yjs) lo publique
        como evento durable. Reusar el MISMO opId es lo que hace seguro tener dos
@@ -1300,18 +1550,23 @@
        llegue por el sync viejo Y por el nuevo se aplica UNA sola vez. Sin esto,
        generar un opId propio duplicaría la plata. */
     try { window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op })); } catch (_) {}
-    if (!encolar(op)) return false;
+    if (!encolada) return false;
     if (ws && ws.readyState === WebSocket.OPEN) {
       /* BLINDAJE (JFC 2026-08-25, "JAMAS quedemos mal"): si cifrar() rechaza
          (rarisimo, pero posible), sin el .catch la op no se mandaba NI se
          encolaba: se perdia en silencio. Ahora, cualquier fallo de cifrado o
          de envio cae a la cola, que se vacia al reconectar. Una op nunca se
          pierde por un tropiezo del cifrado. */
+      const emisionSocket = ws, emisionSala = normalizarCodigo(sala.codigo);
       cifrar(claveActual, op)
-        .then((buf) => { try { ws.send(buf); _persistirOpBuf(op, buf); } catch (_) { encolar(op); } })
+        .then((buf) => {
+          // Op was already durably queued above. Preserve it if a different
+          // notebook/socket became active while encryption was pending.
+          if (codigoCuadernoActivo() !== emisionSala || ws !== emisionSocket ||
+              !emisionSocket || emisionSocket.readyState !== WebSocket.OPEN) return;
+          try { emisionSocket.send(buf); _persistirOpBuf(op, buf); } catch (_) { encolar(op); }
+        })
         .catch(() => encolar(op));
-    } else {
-      if (!encolar(op)) return false; // Idempotent: it was retained before attempting any transport.
     }
     return true;
   };
@@ -1339,7 +1594,7 @@
     // 2026-07-23 (ajuste del plan sincro-equipos): una vez guardado el
     // codigo, sync queda encendido PARA SIEMPRE en este dispositivo — no es
     // un "modo evento" que se prende y apaga, es un estado permanente.
-    activar(codigo) {
+    activar(codigo, opciones) {
       // Prender a mano borra la marca de "apagado por el dueño" (ver alinearSalaConLicencia).
       try { localStorage.removeItem(APAGADO_KEY); } catch (_) {}
       // Refuerzo (2026-07-23): normalizar SIEMPRE antes de guardar — "amg-x"
@@ -1390,7 +1645,14 @@
           if (!_aviso) _aviso = "El código no pasa la verificación. Revisa que esté bien tecleado (I/L valen 1, O vale 0).";
         }
       }
-      try { localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm })); } catch (_) {}
+      // A join cannot be reported successful if the requested encrypted
+      // room was not stored. Never adopt a new license on failed persistence.
+      try {
+        localStorage.setItem(ROOM_KEY, JSON.stringify({ codigo: codigoNorm }));
+        if (!leerSala() || leerSala().codigo !== codigoNorm) throw new Error("room not committed");
+      } catch (_) {
+        return { ok: false, error: "Could not save the synchronization room. Your previous notebook was preserved." };
+      }
       /* ADOPTAR LA LICENCIA AL ACTIVAR (JFC 2026-08-27). Bug de entrada real:
          "Sync your team" llamaba a activar(), que guardaba la sala de sync pero
          NO actualizaba f123_owned.licenseCode. Así el aparato sincronizaba a la
@@ -1419,7 +1681,9 @@
       } catch (_) {}
       reintentoMs = 1000;
       intentosSeguidos = 0;
-      conectar();
+      // P0 v615: a JOIN must first select the destination notebook; connecting
+      // here would announce the old notebook data in the NEW license room.
+      if (!(opciones && opciones.esJoin)) conectar();
       return _aviso ? { ok: true, warning: _aviso } : { ok: true };
     },
     /* Fija la sala de sync a un código SIN conectar (JFC 2026-08-26, NB-1).
@@ -1446,7 +1710,24 @@
          sufDest caería a "" y el switch nunca ocurriría. `desde` se pasa a
          cambiar() para que el destino sea "::<lic>" (namespace aparte). */
       const _desde = (window.OCTienda && window.OCTienda.licenciaActual) ? window.OCTienda.licenciaActual() : "";
-      const r = this.activar(codigo);
+      // P0 v616: activar() adopts the requested license before cambiar().
+      // Keep the previous identity to restore if the active notebook marker
+      // could not be committed. Never make a failed join look successful.
+      var _previousJoin = {};
+      ["f123_owned", ROOM_KEY, "f123_join_pending_v1"].forEach(function (key) {
+        try { _previousJoin[key] = localStorage.getItem(key); } catch (_) { _previousJoin[key] = null; }
+      });
+      function revertirJoin() {
+        Object.keys(_previousJoin).forEach(function (key) {
+          try { if (_previousJoin[key] === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, _previousJoin[key]); } catch (_) {}
+        });
+      }
+      // Do not change any room/identity until the notebook switch is available.
+      if (!window.OCTienda || typeof window.OCTienda.cambiar !== "function") {
+        return { ok: false, error: "Notebook selection is not ready. Nothing was changed." };
+      }
+      const r = this.activar(codigo, { esJoin: true });
       /* APROPIAR EL DISPOSITIVO AL UNIRSE (JFC 2026-08-26). Un aparato que se une
          a un equipo con licencia válida deja de ser DEMO: es un dispositivo REAL
          de esa tienda. Sin esto se quedaba en modo demo y por eso Belén veía los
@@ -1493,6 +1774,7 @@
             // El siguiente checkin puede mover la fila del panel SOLO porque
             // hubo un join deliberado. Un login pasivo jamás cambia licencia.
             if (_ow.instanceId) localStorage.setItem("f123_join_pending_v1", JSON.stringify({ instanceId: _ow.instanceId, licenseCode: _codNorm }));
+      try { localStorage.setItem("f123_aparato_unido", _codNorm); } catch (_) {} // survives the join marker; keyed to the license so another license never inherits it
           }
           localStorage.setItem("f123_owned", JSON.stringify(_ow));
         }
@@ -1513,10 +1795,15 @@
         if (r && r.ok && window.OCTienda && window.OCTienda.cambiar) {
           const sala = leerSala();
           if (!sala || !sala.codigo) {
-            return { ok: false, error: "Failed to set sync room. Try again." };
+            revertirJoin();
+            return { ok: false, error: "Failed to set sync room. The old notebook remains intact." };
           }
           const cod = sala.codigo;
           const c = window.OCTienda.cambiar(cod, { desde: _desde }); // recarga la página si cambia de tienda
+          if (!c || c.ok !== true) {
+            revertirJoin();
+            return { ok: false, error: (c && c.error) || "Business selection was not saved; your previous notebook remains intact." };
+          }
           /* MISMA TIENDA (JFC 2026-08-26): si la licencia tecleada es la de la
              tienda en la que YA estás, cambiar() no recarga (mismo:true). NO es
              callejón sin salida: se FUERZA una re-sincronización (reconecta +
@@ -1525,13 +1812,16 @@
              intento vuelve a jalar todo. */
           if (c && c.mismo) {
             try { reintentoMs = 1000; intentosSeguidos = 0; conectar(); } catch (_) {}
+            // conectar() above only reaches the old sync; a closed Yjs channel must reopen too. Open sockets ignore this.
+            try { [window.OCYjs.canal, window.OCYjs.opsCanal].forEach(function (c) { if (c && c.conectar) c.conectar(); }); } catch (_) {}
             try { window.dispatchEvent(new CustomEvent("oc-licencia-disponible", { detail: { origen: "unirse" } })); } catch (_) {}
-            return { ok: true, mismo: true, error: "You're already in this store — re-syncing with the team now. If a teammate's device is on, their shelves and customers will land in a moment." };
+            return { ok: true, mismo: true, error: "You're already in this store — recovering it now." };
           }
         }
       } catch (err) {
-        try { console.error("[unirse] error:", err); } catch (_) {}
-        return { ok: false, error: "Unexpected error. Try again." };
+        revertirJoin();
+        try { console.error("[unirse] error:", err && err.name); } catch (_) {}
+        return { ok: false, error: "Could not safely switch notebook. Your existing business was preserved." };
       }
       return r;
     },
@@ -1618,8 +1908,7 @@
   function alinearSalaConLicencia() {
     try {
       if (localStorage.getItem(APAGADO_KEY) === "1") return;
-      const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-      const lic = normalizarCodigo(ow.licenseCode || "");
+      const lic = codigoCuadernoActivo();
       if (lic.length < 6) return;
       const sala = leerSala();
       if (sala && normalizarCodigo(sala.codigo) === lic) return;
