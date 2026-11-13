@@ -1,6 +1,6 @@
 'use strict';
-// v755: a strict sale serializes the full state once before answering; the A/B
-// backup goes after the answer; a hung IndexedDB falls back to the A/B journal.
+// v755: a strict sale serializes the full state once; the A/B backup is still
+// committed before answering; a hung IndexedDB falls back to the A/B journal.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { browser } = require('./helpers/browser.cjs');
@@ -21,21 +21,21 @@ const abConfirmado = w => {
   return j && j.phase === 'COMMITTED' ? j.revision : 0;
 };
 
-test('strict sale with IDB ACK: one full serialization before answering, A/B backup after', async () => {
-  const { w, timers } = app();
+test('strict sale with IDB ACK: state serialized once, A/B backup committed before answering', async () => {
+  const { w } = app();
   const product = await conStock(w);
-  const tam = JSON.stringify(await w.request('/api/respaldo/exportar')).length;
   w.OCEstadoIDB = { soportado: true, guardarConRevision: async () => true, guardar: async () => true, ultimoError: () => null };
-  const original = JSON.stringify;
-  let grandes = 0;
-  JSON.stringify = function (...a) { const s = original.apply(JSON, a); if (s && s.length > tam / 2) grandes++; return s; };
-  let response;
-  try { response = await vender(w, product.id); } finally { JSON.stringify = original; }
-  assert.equal(response.status, 200);
-  assert.equal(grandes, 1, 'full-state serializations before the sale answers: ' + grandes);
   const rev = abConfirmado(w);
-  for (const t of timers.splice(0)) if (t.ms === 0) t.fn();
-  assert.ok(abConfirmado(w) > rev, 'A/B backup is still written after the answer');
+  const original = JSON.stringify, parse = JSON.parse;
+  let estados = 0, journals = 0;
+  JSON.stringify = function (...a) { if (a[0] && typeof a[0] === 'object' && Array.isArray(a[0].productos)) estados++; return original.apply(JSON, a); };
+  JSON.parse = function (...a) { const v = parse.apply(JSON, a); if (v && v.candidateRaw) journals++; return v; };
+  let response;
+  try { response = await vender(w, product.id); } finally { JSON.stringify = original; JSON.parse = parse; }
+  assert.equal(response.status, 200);
+  assert.equal(estados, 1, 'full-state serializations per sale: ' + estados);
+  assert.ok(abConfirmado(w) > rev, 'A/B backup is committed before the sale answers');
+  assert.ok(journals <= 1, 'journal parsed at most once per sale (cached by exact text): ' + journals);
 });
 
 test('strict sale with hung IndexedDB: A/B journal confirms it after the time limit', async () => {

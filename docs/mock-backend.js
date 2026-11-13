@@ -1737,12 +1737,10 @@
           }
           // An IDB commit has ALREADY applied the effects once. A/B is only
           // the backup; it must not modify the economic ledger again.
-          // v755: written right AFTER answering (the sale is already durable in IDB);
-          // guardarAhora refuses it by itself if a newer revision reached A/B first.
-          if (ab && tokenOk) setTimeout(() => {
+          if (ab && tokenOk) {
             try { _guardandoAB = true; ab.guardarAhora(crudo); }
             catch (_) {} finally { _guardandoAB = false; }
-          }, 0);
+          }
           return terminar(true);
         };
         const falloIDB = () => {
