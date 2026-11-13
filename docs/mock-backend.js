@@ -4632,16 +4632,25 @@
           }
         }
         // An epoch ID alone cannot make an older snapshot a physical recount.
+        /* v759: the witness must name THIS device's history (epoch and base), as in _sucede;
+           a witness of another history (9->0) or no witness at all (9->1) cannot replace
+           known units. A recount without witness (older releases) still proves itself by its
+           stockCountTs or by a product revision that dominates this one (every recount bumps rev).
+           Prueba: test/p0-v759-stock-testigo.test.cjs, fable-v750-recuento-legitimo y incident-v608 (E2). */
         const _testigoR = p.stockCountWitness;
-        const _conteoR = _testigoR && typeof _testigoR.epoch === "string" &&
+        const _formaTestigoR = _testigoR && typeof _testigoR.epoch === "string" &&
           _testigoR.pn && typeof _testigoR.pn === "object" && !Array.isArray(_testigoR.pn);
+        const _conteoR = !!(epochConflict && !epochLocal) && (_sucede(p, mio, epochLocal) ||
+          (_testigoR == null && _tsR > _tsL && (Number(p.stockCountTs) > 0 || ganaP === true)));
         if ((epochConflict && !epochLocal && epochRemote && _baseR !== null &&
             (_tsR > _tsL || _conteoR)) || _gana) {
           const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
           const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
             sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
           // A later clock cannot replace known units with a zero from an unproven baseline.
-          if (Number.isSafeInteger(net) && (net > 0 || !(_stockLConocido > 0) || _conteoR)) {
+          // Without a counted epoch (v759) it may only attach its epoch to the SAME units.
+          if (Number.isSafeInteger(net) && (_gana ? (net > 0 || !(_stockLConocido > 0) || _formaTestigoR)
+              : (_conteoR || !(_stockLConocido > 0) || net === _stockLConocido))) {
             mio.stockEpochId = epochRemote;
             mio.stockCountWitness = p.stockCountWitness ? clonar(p.stockCountWitness) : null;
             mio.stockCountTs = Number(p.stockCountTs) || 0;
@@ -4696,7 +4705,7 @@
           mio.stockActual = Math.max(0, Number(p.stockActual)); mio.stockTs = _tsR;
           if (epochRemote) mio.stockEpochId = epochRemote;
           actualizados++;
-        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && !epochLocal && _ganaEpocaStockRemota(p, mio)) {
+        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && !epochLocal && !epochRemote && _ganaEpocaStockRemota(p, mio)) {
           /* v515 (Belen 2026-10-14: "Yo arregle manualmente... no afecto a lo de mi compu").
              Antes, con bases distintas solo se avisaba y NADIE convergia nunca: cada aparato
              quedaba con su numero y una correccion manual no cruzaba. Ahora gana el cambio de
@@ -4707,7 +4716,7 @@
           const pnG = {};
           Object.keys(_pnR || {}).forEach((id) => { pnG[id] = { add: Number(_pnR[id].add) || 0, sub: Number(_pnR[id].sub) || 0 }; });
           const _crudoG = _baseR + Object.keys(pnG).reduce((n, id) => n + pnG[id].add - pnG[id].sub, 0);
-          if (_crudoG > 0 || !(_stockLConocido > 0) || _conteoR || (_baseR > 0 && _stockHechosNoVacios(p))) {
+          if (_crudoG > 0 || !(_stockLConocido > 0) || _formaTestigoR ||(_baseR > 0 && _stockHechosNoVacios(p))) {
             mio.stockBase = _baseR; mio.stockPN = pnG; mio.stockActual = Math.max(0, _crudoG);
             mio.stockDeficit = _crudoG < 0 ? -_crudoG : 0; mio.stockTs = _tsR; actualizados++;
             try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
