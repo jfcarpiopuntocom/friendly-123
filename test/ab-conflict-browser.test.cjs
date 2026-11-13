@@ -2,7 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {chromium,startServer,openDevice,enterAs}=require('./helpers/e2e-app.cjs');
 
-test('native storage conflict with no valid copy preserves both raw copies in export and blocks writes with a visible alert',async()=>{
+test('native storage conflict with no valid copy preserves both raw copies in export, blocks writes and records it in the health line (no banner)',async()=>{
   const {srv,base}=await startServer();let browser;
   try{
     browser=await chromium.launch({headless:true});
@@ -32,7 +32,10 @@ test('native storage conflict with no valid copy preserves both raw copies in ex
     await page.reload({waitUntil:'domcontentloaded'});
     await page.waitForFunction(()=>window.OCAuth&&window.OCSync);
     await enterAs(page);
-    assert.equal(await page.locator('#oc-ab-conflicto').isVisible(),true);
+    // v767: JFC rule 28 oct 2026, no banners. The conflict is still surfaced, through the
+    // existing health channel (OCSalud, Sonar in Advanced), never a fixed red bar.
+    assert.equal(await page.locator('#oc-ab-conflicto').count(),0,'no fixed conflict banner');
+    assert.ok(await page.evaluate(()=>(window.OCSalud.fallos()['ab-conflicto']||0)>=1),'conflict recorded in the health line');
     const result=await page.evaluate(async()=>{
       const backup=await (await fetch('/api/respaldo/exportar')).json();
       const response=await fetch('/api/config/retencion',{method:'PUT',body:JSON.stringify({dias:30})});
