@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.73",
+  "version": "v0.7.74",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.73: capa de Cloudflare como primera capa, solo en aparatos de QA; el resto sin cambios.",
+  "changelog": "v0.7.74: capa de Cloudflare como primera capa, solo en aparatos de QA; el resto sin cambios.",
   "requerida": false,
-  "shell": "f123-shell-v773",
+  "shell": "f123-shell-v774",
   "apagar": [],
-  "releaseName": "v0.7.73",
-  "cacheGeneration": "golden309"
+  "releaseName": "v0.7.74",
+  "cacheGeneration": "golden310"
 }
