@@ -416,17 +416,16 @@ test('a third value appearing during preimage readback cannot authorize IDB fall
   assert.equal(calls,0,'no foreign preimage can authorize a CAS success');
 });
 
-test('a foreign readable snapshot is exported intact and blocks publication until resolved',async()=>{
-  const f=fixture(),reader=helper(f.storage),foreign=raw('FOREIGN-READABLE',12);
-  assert.equal(await reader.guardar(raw('ACCEPTED',11)),true);
+test('v761: a foreign readable snapshot with higher revision wins, the accepted copy is kept as evidence, sales continue',async()=>{
+  const f=fixture(),reader=helper(f.storage),foreign=raw('FOREIGN-READABLE',12),accepted=raw('ACCEPTED',11);
+  assert.equal(await reader.guardar(accepted),true);
   f.storage.map.set(B,foreign);
   const app=browser(f.storage);app.OCAuth={rolActual:()=> 'dueno'};
-  const state=await exportState(app);
-  assert.ok(state.recuperacionAB.copias.some(copy=>copy.raw===foreign),'foreign bytes remain readable in the ordinary full backup');
-  assert.equal(app.OCSync.catalogoPropio(),null,'do not publish a silently selected branch');
+  assert.equal((await exportState(app)).nombreNegocio,'Synthetic FOREIGN-READABLE','highest valid revision is current');
+  const evidencia=JSON.parse(f.storage.getItem(BASE+'_evidencia_ab'));
+  assert.ok(evidencia.some(e=>e.raw===accepted&&e.revision===11&&e.motivo),'lower copy preserved, never purged');
   let calls=0;app.OCEstadoIDB={soportado:true,guardarConRevision:async()=>{calls++;return true;}};
-  assert.equal((await hold(app,30)).status,507);assert.equal(calls,0);
-  assert.equal(f.storage.getItem(B),foreign);
+  assert.equal((await hold(app,30)).status,200);
 });
 
 test('corrupt physical bytes remain preserved while healthy IDB accepts the next save',async()=>{
@@ -441,17 +440,14 @@ test('corrupt physical bytes remain preserved while healthy IDB accepts the next
   assert.ok((await exportState(app)).recuperacionAB.copias.some(copy=>copy.raw==='{corrupt'),'ordinary full backup retains forensic bytes too');
 });
 
-test('PREPARED conflict never labels the rejected candidate confirmed and refuses incoming state',async()=>{
+test('v761: PREPARED conflict keeps the never-confirmed candidate as evidence and the highest valid revision becomes current',async()=>{
   const f=fixture();pointerAndRestoreFailure(f,{swallowDelete:true});
   assert.equal((await hold(f.app)).status,507);
   const rejected=JSON.parse(f.storage.getItem(JOURNAL)).candidateRaw;
   f.storage.map.set(B,raw('FOREIGN-PREPARED',30));f.storage.beforeSet=null;
   const app=browser(f.storage);app.OCAuth={rolActual:()=> 'dueno'};
-  const before=await exportState(app);
-  assert.equal(before.recuperacionAB.fase,'PREPARED');
-  assert.ok(before.recuperacionAB.copias.some(copy=>copy.clave==='candidata-no-confirmada'&&copy.raw===rejected));
-  assert.ok(!before.recuperacionAB.copias.some(copy=>copy.clave==='confirmada'&&copy.raw===rejected));
-  const peer=browser();const catalog=peer.catalog();catalog.nombreNegocio='Synthetic incoming conflict';
-  assert.equal(app.OCSync.aplicarCatalogo(catalog,null).ok,false);
-  assert.equal((await exportState(app)).nombreNegocio,before.nombreNegocio);
+  assert.equal((await exportState(app)).nombreNegocio,'Synthetic FOREIGN-PREPARED');
+  const evidencia=JSON.parse(f.storage.getItem(BASE+'_evidencia_ab'));
+  assert.ok(evidencia.some(e=>e.raw===rejected),'rejected candidate preserved as evidence');
+  assert.ok(!evidencia.some(e=>e.clave==='confirmada'&&e.raw===rejected),'never labelled confirmed');
 });
