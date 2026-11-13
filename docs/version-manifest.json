@@ -1,6 +1,6 @@
 {
-  "version": "v0.7.66",
-  "shell": "f123-shell-v766",
+  "version": "v0.7.69",
+  "shell": "f123-shell-v769",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-b2882b570e5258d98d7d072c38113f99f40f6442793b65bd971c5ad941b8cdcc",
@@ -46,10 +46,10 @@
     "./relay-selector.js": "sha256-39fe0ddcc4cee8cbd6c66eaffa6ba57eaf71231f7a4c5e4d14fed4e484fcee20",
     "./vendor/jspdf-4.2.1.umd.min.js": "sha256-5feb83f439480e06687f9e6f23a8a162b12157b9606aa6ffc70c7e961b7c6013",
     "./vendor/jspdf-autotable-5.0.9.min.js": "sha256-efe0106af8224d8480b94e83ceafe4a5f889b13e028f3bec6d33c0a64a3133f5",
-    "./i18n.js": "sha256-434e9baff61e5bc7c3f2c6fa370f739bba6a645ae06d2a36c302b06072e3cf50",
+    "./i18n.js": "sha256-ce6be99ede5e4a98199a5e0990c06790eb789b44a20e9969869d736176d148b8",
     "./crypto-store.js": "sha256-620af36c500c163afe06e43ac36bced11b9811eeecdf8c4ce45a96906392e6ff",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
-    "./auth-ui.js": "sha256-5d4b77dbb3c3e98cd7c84ea0989f018367e30779c8969f161cc3000e34ddacb9",
+    "./auth-ui.js": "sha256-7053642915eda42f491496b4b3f78b54b356eaf06f7b08b1056d48a53f03820d",
     "./backup-scheduler.js": "sha256-8ee6cc656bbf7998727d1c3e8ac2c34372bf205c374ac3ede49901f0b8cf669a",
     "./avanzado-extra.js": "sha256-6575da8364e56d7869ec2921b6126b78b01d29c9a633c9cb6a41a0251a705d15",
     "./artista.js": "sha256-749613af78308464dee590e0278af2641a8ac5cecc469ff7b08fc155e8038d95",
@@ -80,7 +80,7 @@
     "./device-environment.js": "sha256-5517a20f30d38eed8097a82f1925e9d2c6f456de19aed6e443ed383705d4b5cd",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-5b4cfe0fc2f40931e8094591e0d63b4b94dd29fe4ce8af8fe3374c4f9f82448f",
+    "./dashboard.html": "sha256-3d2d4d574bcdaba4b73fd5b70dd6840607e4b7fc6ef4e28b36414a0cd3e49028",
     "./dashboard-updates.js": "sha256-e91bf81e3fd1262a24c3b40a008927cd9c0371791ba5d4821bbefb7879cf10c4",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
@@ -128,6 +128,6 @@
     "./app-style-02.min.css": "sha256-15d97398c75087b244017e4a728ca7e37fa0edab4d0e9d33668a937beeca6432",
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
-    "./dashboard-main.min.js": "sha256-7cf11a19b06c0bc9d33c8323843cdc9c6b4c344e7d5e77ccafe6ab82d9cb3ae8"
+    "./dashboard-main.min.js": "sha256-c00ba8772ba5b87152a664ed6aabd9e561de015e021a3949dbc66aee95463c39"
   }
 }
