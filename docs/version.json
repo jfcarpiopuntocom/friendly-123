@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.69",
+  "version": "v0.7.67",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.69: Mejoras de acceso y de traducción.",
+  "changelog": "v0.7.67: Mejoras de acceso y de traducción.",
   "requerida": false,
-  "shell": "f123-shell-v769",
+  "shell": "f123-shell-v767",
   "apagar": [],
-  "releaseName": "v0.7.69",
-  "cacheGeneration": "golden308"
+  "releaseName": "v0.7.67",
+  "cacheGeneration": "golden306"
 }
