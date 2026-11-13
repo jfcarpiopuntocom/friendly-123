@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.54",
+  "version": "v0.7.57",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.54: Entrar con el PIN guardado en el aparato sin esperar a la sincronización.",
+  "changelog": "v0.7.57: Mantenimiento de la sincronización entre aparatos.",
   "requerida": false,
-  "shell": "f123-shell-v754",
+  "shell": "f123-shell-v757",
   "apagar": [],
-  "releaseName": "v0.7.54",
-  "cacheGeneration": "golden293"
+  "releaseName": "v0.7.57",
+  "cacheGeneration": "golden296"
 }

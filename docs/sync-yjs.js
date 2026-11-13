@@ -726,6 +726,7 @@
           if (entry.k === "ckpt" && result.ok === true) {
             _outbox.checkpoint = ckptMarcar(_outbox.checkpoint, entry.state, canal.ws && canal.ws.relayLayer); // v739: capa que confirmo
             _colaFrames = 0; _colaBytes = 0; // v751: a confirmed checkpoint starts a new tail
+            guardarCola(); // v756
             // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
@@ -1267,22 +1268,48 @@
        entera. Al pasar CKPT_RENUEVA_FRAMES frames, el aparato completo relee SOLO su cola (desde su cursor aplicado, por
        el camino normal con HEAD) y al terminarla checkpointTrasPull/hacerCkpt publican el corte nuevo con todas sus
        guardas. Topes: una vez cada 6 h y 4 MiB de cola releida por dia (el cupo diario de bajada es 20 MiB).
-       shortcut: los topes viven en RAM y vuelven a cero al recargar (al conectar ya hay checkpoint desde v286);
-       persistirlos si un aparato que recarga mucho gasta cupo. PARA REVERTIR: que contarColaCkpt no haga nada. */
+       v756: los contadores se guardan en el almacen local del canal (ver guardarCola). PARA REVERTIR: que
+       contarColaCkpt no haga nada. */
     var CKPT_RENUEVA_FRAMES = 1024, CKPT_RENUEVA_MIN_MS = 6 * 3600000, CKPT_RENUEVA_BYTES_DIA = 4 * 1048576;
-    var _colaFrames = 0, _colaBytes = 0, _renovUltima = 0, _renovDia = 0, _renovBytesDia = 0;
+    var _colaFrames = 0, _colaBytes = 0, _renovUltima = 0, _renovDia = 0, _renovBytesDia = 0, _colaMotivo = "";
+    /* v756 (JFC 2026-11-13): the tail counters live in this channel's LOCAL store (never on a server), so a phone that
+       sleeps or reloads still reaches the threshold and keeps the 6 h spacing. Saved every 64 frames and on renewal. */
+    function guardarCola() {
+      try {
+        if (persistencia && typeof persistencia.set === "function")
+          Promise.resolve(persistencia.set("f123_ckpt_cola_v756" + suffix,
+            { f: _colaFrames, b: _colaBytes, u: _renovUltima, d: _renovDia, bd: _renovBytesDia })).catch(function () {});
+      } catch (_) {}
+    }
+    try {
+      if (persistencia && typeof persistencia.get === "function")
+        Promise.resolve(persistencia.get("f123_ckpt_cola_v756" + suffix)).then(function (g) {
+          if (!g || typeof g.f !== "number") return;
+          _colaFrames += g.f; _colaBytes += Number(g.b) || 0; _renovUltima = Math.max(_renovUltima, Number(g.u) || 0);
+          if ((Number(g.d) || 0) > _renovDia) { _renovDia = Number(g.d); _renovBytesDia = Number(g.bd) || 0; }
+        }).catch(function () {});
+    } catch (_) {}
+    function motivoCola(m) { // internal log only, once per change of reason (never per frame)
+      if (m === _colaMotivo) return; _colaMotivo = m;
+      if (m) try { log("ckpt renovacion en espera: " + m + " en " + nombre); } catch (_) {}
+    }
     function contarColaCkpt(bytes) {
       if (!permiteCkpt) return;
       _colaFrames++; _colaBytes += Number(bytes) || 0;
+      if (_colaFrames % 64 === 0) guardarCola();
       if (_colaFrames < CKPT_RENUEVA_FRAMES) return;
       var ahora = Date.now(), sock = canal.ws, estado = _currentPullState;
-      if (_renovUltima && ahora - _renovUltima < CKPT_RENUEVA_MIN_MS) return;
+      if (_renovUltima && ahora - _renovUltima < CKPT_RENUEVA_MIN_MS) return motivoCola("menos de 6 h");
       if (ahora - _renovDia >= 86400000) { _renovDia = ahora; _renovBytesDia = 0; }
-      if (_renovBytesDia + _colaBytes > CKPT_RENUEVA_BYTES_DIA) return;
+      // v756: the first renewal of each 24 h window passes whatever the tail size (v751 left it dead forever once the
+      // tail passed 4 MiB); later ones that day keep the 4 MiB cap. relay-selector still enforces the real 20 MiB/day.
+      if (_renovBytesDia && _renovBytesDia + _colaBytes > CKPT_RENUEVA_BYTES_DIA) return motivoCola("tope diario");
       // Same gate as hacerCkpt: only a complete device (no debt, not recovering, proven cursor) may renew.
       if (_soloMemoria || !API.clave || !sock || sock.peerOnly || sock.readyState !== 1 || canal.recuperando ||
-          !estado || estado.enCurso || _appliedPullCursor.rev < 0 || deudaPendiente()) return;
+          !estado || estado.enCurso || _appliedPullCursor.rev < 0 || deudaPendiente()) return motivoCola("aparato incompleto");
+      motivoCola("");
       _renovUltima = ahora; _renovBytesDia += _colaBytes; _colaFrames = 0; _colaBytes = 0;
+      guardarCola();
       estado.renovarCkpt = true;
       pedirPagina(sock, estado);
     }
@@ -1308,6 +1335,15 @@
       } catch (_) {}
     }
     function hacerCkpt() {
+      // v756: internal log of WHY a checkpoint is skipped (read-only mirror of the guards below; behaviour unchanged).
+      try {
+        var omitido = _soloMemoria ? "solo-memoria" : canal.ws && canal.ws.peerOnly ? "peer" : !permiteCkpt ? "sin-ckpt" :
+          !API.clave ? "sin-clave" : !canal.ws || canal.ws.readyState !== 1 ? "socket-cerrado" : canal.recuperando ? "recuperando" :
+          _currentPullState && _currentPullState.enCurso ? "pull-en-curso" : _appliedPullCursor.rev < 0 ? "sin-cursor" :
+          Object.keys(partesEntrantes).length ? "partes-entrantes" :
+          doc.store && (doc.store.pendingStructs || doc.store.pendingDs) ? "padres-faltantes" : "";
+        if (omitido) log("ckpt omitido: " + omitido + " en " + nombre);
+      } catch (_) {}
       if (_soloMemoria) return;
       if (canal.ws && canal.ws.peerOnly) return; // Direct catch-up uses hydrated state vectors.
       if (!permiteCkpt || !API.clave || !canal.ws || canal.ws.readyState !== 1) return;
@@ -1323,6 +1359,7 @@
       // Encryption yields: a later page must never expand this snapshot's cut.
       var checkpointCursor = { rev: _appliedPullCursor.rev, seq: _appliedPullCursor.seq };
       var full; try { full = Y.encodeStateAsUpdate(doc); } catch (_) { return; }
+      if (!full || full.length < 16) try { log("ckpt omitido: doc-vacio en " + nombre); } catch (_) {}
       if (!full || full.length < 16) return; // doc prácticamente vacío: no pisar el ckpt bueno del relay
       // A full-state base64 copy can exceed 100MB and re-inflate the IDB outbox.
       // Enabled v2 rooms store a small fingerprint; v1 rooms retain legacy metadata.
@@ -1337,8 +1374,19 @@
         /* Logica EN LINEA (identica a ckptYaEnCapa): las pruebas p0-s3-* cortan esta funcion y la ejecutan aislada,
            sin los ayudantes de arriba. Si cambias una, cambia la otra. */
         var capaCk = String((canal.ws && canal.ws.relayLayer) || "local"), partesCk = String(_outbox.checkpoint || "").split("#");
-        if ((partesCk[0] === state && partesCk[1] && partesCk[1].split(",").indexOf(capaCk) !== -1) ||
-            _outbox.pending.some(function (x) { return x.k === "ckpt"; })) return;
+        if (partesCk[0] === state && partesCk[1] && partesCk[1].split(",").indexOf(capaCk) !== -1) {
+          try { log("ckpt omitido: estado ya confirmado en " + capaCk + " en " + nombre); } catch (_) {} return;
+        }
+        /* v756: a pending checkpoint whose cut (rev, seq) is older than the applied cursor no longer blocks a new one:
+           the new snapshot is a superset and replaces that derived envelope (operations are never touched). A pending
+           checkpoint with the same cut still waits for its ACK. */
+        var ckPend = _outbox.pending.filter(function (x) { return x.k === "ckpt"; });
+        var corteViejo = function (x) {
+          return Number(x.rev) < checkpointCursor.rev || (Number(x.rev) === checkpointCursor.rev && Number(x.seq) < checkpointCursor.seq);
+        };
+        if (ckPend.length && !ckPend.every(corteViejo)) {
+          try { log("ckpt omitido: sobre pendiente con el mismo corte en " + nombre); } catch (_) {} return;
+        }
         return Promise.resolve().then(function () {
           return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
         }).then(function (packed) {
@@ -1366,6 +1414,11 @@
             return;
           }
           try {
+            if (ckPend.length) _durableQueue = _durableQueue.then(function () { // v756: retire the stale envelope(s)
+              return mutarOutbox(function () {
+                _outbox.pending = _outbox.pending.filter(function (x) { return !(x.k === "ckpt" && corteViejo(x)); });
+              }).then(function () { ckPend.forEach(function (x) { delete _durableInFlight[x.id]; }); });
+            }).catch(function () { try { log("ckpt viejo sin retirar en " + nombre); } catch (_) {} });
             guardarSobre(Object.assign({ state: state }, ckpt));
           } catch (_) { diagnosticarCkpt("checkpoint-outbox-save-failed", buf.byteLength); }
         });
