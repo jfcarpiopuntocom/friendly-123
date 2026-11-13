@@ -46,9 +46,10 @@ test('v756: the first renewal of the day passes even with a tail over 4 MiB; lat
 test('v756: the tail counters survive a reload (a phone that sleeps reaches the threshold)', async () => {
   const p = almacen();
   const c1 = cola(p); await tick();
-  c1.frames(600, 1000); await tick();
+  // v771: 100-byte frames keep the tail under the 384 KiB size trigger, so only the frame count is under test here.
+  c1.frames(600, 100); await tick();
   const c2 = cola(p, c1.ahora + 60000); await tick();
-  c2.frames(600, 1000);
+  c2.frames(600, 100);
   assert.equal(c2.pulls.length, 1, '600 + 600 frames across two loads renew');
   await tick();
   const c3 = cola(p, c2.ahora + 60000); await tick();

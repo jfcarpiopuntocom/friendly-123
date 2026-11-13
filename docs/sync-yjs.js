@@ -1398,6 +1398,10 @@
        v756: los contadores se guardan en el almacen local del canal (ver guardarCola). PARA REVERTIR: que
        contarColaCkpt no haga nada. */
     var CKPT_RENUEVA_FRAMES = 1024, CKPT_RENUEVA_MIN_MS = 6 * 3600000, CKPT_RENUEVA_BYTES_DIA = 4 * 1048576;
+    /* v771 (JFC 13 nov 2026, bajar el consumo, aditivo): also renew when the tail since the last cut passes 384 KiB,
+       not only after 1024 frames, so a new device downloads the cut plus at most ~384 KiB of tail. Every other guard
+       (6 h spacing, daily cap, complete device only) is unchanged. PARA REVERTIR: CKPT_RENUEVA_BYTES_COLA = Infinity. */
+    var CKPT_RENUEVA_BYTES_COLA = 384 * 1024;
     var _colaFrames = 0, _colaBytes = 0, _renovUltima = 0, _renovDia = 0, _renovBytesDia = 0, _colaMotivo = "";
     /* v756 (JFC 2026-11-13): the tail counters live in this channel's LOCAL store (never on a server), so a phone that
        sleeps or reloads still reaches the threshold and keeps the 6 h spacing. Saved every 64 frames and on renewal. */
@@ -1424,7 +1428,7 @@
       if (!permiteCkpt) return;
       _colaFrames++; _colaBytes += Number(bytes) || 0;
       if (_colaFrames % 64 === 0) guardarCola();
-      if (_colaFrames < CKPT_RENUEVA_FRAMES) return;
+      if (_colaFrames < CKPT_RENUEVA_FRAMES && _colaBytes < CKPT_RENUEVA_BYTES_COLA) return;
       var ahora = Date.now(), sock = canal.ws, estado = _currentPullState;
       if (_renovUltima && ahora - _renovUltima < CKPT_RENUEVA_MIN_MS) return motivoCola("menos de 6 h");
       if (ahora - _renovDia >= 86400000) { _renovDia = ahora; _renovBytesDia = 0; }
