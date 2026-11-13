@@ -2026,6 +2026,16 @@
                       return pedirPagina(ws, pullEstado);
                     }
                   }
+                  /* v764 (QA limpia2, 13 nov 2026): with a causal parent no device holds, recovery never ends and HEAD
+                     was only re-read after the 30 s+ replay backoff; by then other devices had written, HEAD never equalled
+                     the cursor and canal.headAcceso (v753) was never proven, so a new device could not enter with its PIN.
+                     Ask HEAD right after the last page, once per new cursor (an unchanged cursor never asks again: no loop).
+                     procesarHead still decides with the same proof. PARA REVERTIR: quitar este bloque. */
+                  if (!c.more && canal.recuperando && deudaPendiente() && nombre === "catalogo" && !canal.headAcceso &&
+                      !pullEstado.headLegacy && !_soloMemoria && !Object.keys(partesEntrantes).length) {
+                    var corteAcceso = _pullCursor.rev + ":" + _pullCursor.seq;
+                    if (pullEstado.headAccesoPedido !== corteAcceso) { pullEstado.headAccesoPedido = corteAcceso; return pedirPagina(ws, pullEstado); }
+                  }
                   // The last page can have no transport fragments yet Yjs may
                   // still be missing a causal parent or pending deletion.
                   // Retain EVERY encrypted operation, retain the proven cursor,

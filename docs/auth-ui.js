@@ -1331,7 +1331,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       /* JFC 2026-11-03: «789 ... sirva como universal o fallback, pero NO puede ser un breach ... lo que pusieron eso se queda».
          Fallback: no own PIN anywhere (none in this store's data after recovery finished, and the license authority answered
          "unconfigured": nothing sealed and no device ever reported one) -> 789 opens. Any own PIN -> central says "wrong" above. */
-      const sinPinPropio = !(equipo && equipo.owner) && central === "unconfigured" && !!(Y && Y.canal && Y.canal.recuperando === false);
+      /* v764 (QA limpia2): a parent no device holds kept "recuperando" forever. Same proof as v753 credentials:
+         relay HEAD read and no pending struct writing PIN/role metadata (canal.accesoListo includes recuperando===false). */
+      const sinPinPropio = !(equipo && equipo.owner) && central === "unconfigured" && !!(Y && Y.canal &&
+        (typeof Y.canal.accesoListo === "function" ? Y.canal.accesoListo() : Y.canal.recuperando === false));
       if (!(tiendaEs789 || (tiendaDice789 && !(equipo && equipo.owner)) || sinPinPropio)) {
         error("Your store's name and team PINs have not finished synchronizing. No incorrect PIN attempt has been recorded.");
         return;
