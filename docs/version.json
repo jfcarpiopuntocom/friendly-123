@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.68",
+  "version": "v0.7.71",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.68: el checkpoint también se renueva por tamaño de la cola.",
+  "changelog": "v0.7.71: el checkpoint también se renueva por tamaño de la cola.",
   "requerida": false,
   "shell": "f123-shell-v771",
   "apagar": [],
-  "releaseName": "v0.7.68",
+  "releaseName": "v0.7.71",
   "cacheGeneration": "golden307"
 }
