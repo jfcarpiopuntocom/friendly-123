@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.67",
+  "version": "v0.7.68",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.67: Seis arreglos de la revisión de código.",
+  "changelog": "v0.7.68: el checkpoint también se renueva por tamaño de la cola.",
   "requerida": false,
-  "shell": "f123-shell-v767",
+  "shell": "f123-shell-v771",
   "apagar": [],
-  "releaseName": "v0.7.67",
-  "cacheGeneration": "golden306"
+  "releaseName": "v0.7.68",
+  "cacheGeneration": "golden307"
 }
