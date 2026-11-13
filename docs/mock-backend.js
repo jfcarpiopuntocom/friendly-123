@@ -6630,7 +6630,12 @@
       // existing fenced sale-rebase must still run. Only accept our explicit
       // durability code; an arbitrary 503 is never replayed. The response is
       // cloned so the original error remains readable by the caller.
-      let _rechazoReintentable = primero.status === 507;
+      // v767 (revision 13 nov 2026): antes arrancaba en `primero.status === 507`, y una
+      // venta con cuota REAL (507 SALE_STORAGE_QUOTA, aparato sin espacio) se rebasaba y
+      // repetia hasta 3 veces contra el mismo disco lleno. Ahora un 507 NUNCA se
+      // reintenta; solo el 503 con codigo de durabilidad no-cuota (abajo) se rebasa.
+      // Prueba: test/p0-v767-cuota-venta-sin-reintento.test.js
+      let _rechazoReintentable = false;
       if ((ventaConcurrente || ajusteDeltaConcurrente) && primero.status === 503) {
         try {
           const codigo = (await primero.clone().json()).code;
