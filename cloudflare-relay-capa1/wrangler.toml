@@ -1,0 +1,30 @@
+# friendly123-relay-capa1 — primera capa de la cascada de relays (13 nov 2026).
+# Worker NUEVO y SEPARADO: no es "friendly123-licencias" ni "friendly123-sync-relay" (archivo de solo lectura).
+# Misma cuenta de Cloudflare por permiso de JFC, con su orden textual: «NO PUEDE SATURARSE».
+# El tope diario vive en worker.js (CupoDiario): 30 % del plan gratis de la cuenta.
+name = "friendly123-relay-capa1"
+main = "worker.js"
+compatibility_date = "2026-07-10"
+preview_urls = false
+workers_dev = true
+
+[vars]
+RELAY_MIGRATION_PUBLIC_KEY = "cZrsa2pl5lrEQF03w_TI0RofZfRTEXBSmq6umA_Z3CI"
+RELAY_ARCHIVE_ONLY = "0"
+
+[[durable_objects.bindings]]
+name = "SALAS"
+class_name = "SalaSync"
+
+[[durable_objects.bindings]]
+name = "SIGNALS"
+class_name = "SignalRoom"
+
+[[durable_objects.bindings]]
+name = "CUPO"
+class_name = "CupoDiario"
+
+# SQLite backend: the only Durable Object backend on the free plan.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SalaSync", "SignalRoom", "CupoDiario"]
