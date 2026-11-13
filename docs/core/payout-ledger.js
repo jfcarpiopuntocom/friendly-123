@@ -275,18 +275,37 @@
     // Lo ya consumido por devoluciones de una venta, por persona. Sin filtro de mes: es un hecho
     // de por vida (como `applied`). El id determinista aj-dev-<venta> cubre devoluciones de otro
     // mes que no vienen en `adjustments`.
+    /* v767 (revision 13 nov 2026): antes esta funcion re-escaneaba TODOS los ajustes y
+       reconstruia sus obligaciones en cada llamada, dentro del bucle anuladas x persona:
+       O(anuladas x personas x ajustes). Ahora las devoluciones se agrupan por id de venta
+       UNA vez y el total por persona se calcula una sola vez por venta anulada (cache por
+       objeto venta, asi `v` sigue siendo exactamente la venta que se pasaba antes). Los
+       montos son identicos (centavos enteros, mismo orden de suma).
+       Prueba: test/p0-v767-payout-devoluciones-agrupadas.test.js */
+    const returnsBySale = new Map();
+    adjustments.forEach((a) => {
+      if (!a || a.tipo !== "devolucion") return;
+      const sid = String(a.ventaId || "");
+      if (!returnsBySale.has(sid)) returnsBySale.set(sid, []);
+      returnsBySale.get(sid).push(a);
+    });
+    const consumedBySale = new Map();
     const consumedReturnsFor = (v, payeeId) => {
-      let total = 0;
-      const seen = new Set();
-      adjustments.forEach((a) => {
-        if (!a || a.tipo !== "devolucion" || String(a.ventaId || "") !== String(v.id)) return;
-        seen.add(String(a.id));
-        obligationsForAdjustment(a, v, locMap.get(String(a.ubicacionId))).forEach((o) => {
-          if (String(o.payeeId || "") === String(payeeId || "")) total += consumedReturn(o);
+      let porVenta = consumedBySale.get(v);
+      if (!porVenta) {
+        porVenta = { totals: new Map(), seen: new Set() };
+        (returnsBySale.get(String(v.id)) || []).forEach((a) => {
+          porVenta.seen.add(String(a.id));
+          obligationsForAdjustment(a, v, locMap.get(String(a.ubicacionId))).forEach((o) => {
+            const p = String(o.payeeId || "");
+            porVenta.totals.set(p, (porVenta.totals.get(p) || 0) + consumedReturn(o));
+          });
         });
-      });
+        consumedBySale.set(v, porVenta);
+      }
+      let total = porVenta.totals.get(String(payeeId || "")) || 0;
       const det = "aj-dev-" + String(v.id);
-      if (!seen.has(det)) total += applied.get(key("adjustment", det, payeeId)) || 0;
+      if (!porVenta.seen.has(det)) total += applied.get(key("adjustment", det, payeeId)) || 0;
       return total;
     };
 

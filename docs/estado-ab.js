@@ -174,7 +174,32 @@
     return { leer, guardarAhora, adoptar, conCandado, nuevoToken, permiteEspejo: () => espejoPermitido, ultimoError: () => ultimoError,
       guardar: raw => conCandado(() => guardarAhora(raw)), claveJournal };
   }
+  /* v767 (revision 13 nov 2026): el conflicto A/B ya NO pinta la franja roja fija.
+     Lo que sigue funcionando igual: mock-backend bloquea los guardados nuevos (507),
+     conserva TODAS las copias y el respaldo las incluye; nada de eso depende de la franja.
+     El estado se registra en el canal de salud que ya existe (OCSalud.fallo, el mismo que
+     usa mock-backend con "guardado-fallido": pinta la seccion en rojo en el Sonar de
+     Avanzado y llega a los canarios), una vez por pagina, mas un log interno. Cero texto
+     nuevo visible. Si OCSalud aun no cargo, va a window.__ocFallos (salud-app.js lo
+     recoge al cargar). Prueba: test/ab-conflict-browser.test.cjs */
+  var _conflictoRegistrado = false;
   function avisarConflicto() {
+    if (_conflictoRegistrado) return;
+    _conflictoRegistrado = true;
+    try { console.warn("[estado-ab] saved copies conflict: all copies kept, new saves blocked"); } catch (_) {}
+    try {
+      if (window.OCSalud && typeof window.OCSalud.fallo === "function") window.OCSalud.fallo("", "ab-conflicto");
+      else (window.__ocFallos = window.__ocFallos || []).push(["", "ab-conflicto"]);
+    } catch (_) {}
+    if (FRANJA_CONFLICTO_ACTIVA) pintarFranjaConflicto();
+  }
+  /* FEATURE DORMANT por regla de JFC 28 oct 2026 (prohibido cualquier modal, popup,
+     banner o franja de aviso; los avisos van DENTRO de la UI existente). NO BORRAR.
+     Para reactivar: poner FRANJA_CONFLICTO_ACTIVA = true (solo con orden expresa de JFC).
+     Mock-backend sigue quitando #oc-ab-conflicto al resolverse el conflicto, asi que
+     reactivarla no requiere mas cambios. */
+  var FRANJA_CONFLICTO_ACTIVA = false;
+  function pintarFranjaConflicto() {
     try {
       if (document.getElementById("oc-ab-conflicto")) return;
       const aviso = document.createElement("div"); aviso.id = "oc-ab-conflicto"; aviso.setAttribute("role", "alert");

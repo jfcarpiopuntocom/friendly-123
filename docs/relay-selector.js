@@ -22,8 +22,13 @@
   var capas = [];
   if (sb && sb !== fb && typeof sb.connect === "function") capas.push({ relay: sb, key: "f123_relay_cupo_v1" });
   if (fb && typeof fb.connect === "function") capas.push({ relay: fb, key: "f123_relay_cupo_fb_v1" });
-  // TODO (OpenCode review 2026-11-04): this UTC date resets the budget at 7 pm in Ecuador; move to local midnight together with the tests that seed it.
-  function hoy() { return new Date().toISOString().slice(0, 10); }
+  // v767 (revision 13 nov 2026; was the TODO of 2026-11-04): the daily budget day is the device's LOCAL date, so it
+  // resets at local midnight (before: UTC date = 7 pm in Ecuador). Same YYYY-MM-DD format, so stored records stay
+  // readable; the first day after updating may reset once early, never later. Test: test/p0-v767-cupo-dia-local.test.cjs
+  function hoy() {
+    var d = new Date(), dos = function (n) { return (n < 10 ? "0" : "") + n; };
+    return d.getFullYear() + "-" + dos(d.getMonth() + 1) + "-" + dos(d.getDate());
+  }
   function leer(key) {
     var c = null; try { c = JSON.parse(localStorage.getItem(key) || "null"); } catch (_) {}
     var pausa = c && Number(c.pausaHasta) || 0;

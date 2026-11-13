@@ -209,7 +209,18 @@
     const c = window.caches;
     if (!c || typeof c.keys !== "function" || typeof c.delete !== "function") return false;
     try {
-      const nombres = await c.keys();
+      // v767 (revision 13 nov 2026): SOLO el canal activo. Antes se borraba cualquier
+      // f123-shell-vN vieja sin mirar el canal: desde la app estable caia la cache de
+      // rollback (/previo/) o de /next/, y un /next/ mas nuevo movia "ultima". Misma regla
+      // que _soltarShellSecundarioVerificado (abajo) y esDeMiCanal() en sw.js: el canal
+      // sale de la ruta de la pagina; sin sufijo = estable. Nunca tocar otro canal.
+      // Prueba: test/p0-v767-shell-obsoleto-por-canal.test.cjs
+      const ruta = window.location && typeof window.location.pathname === "string" ? window.location.pathname : "";
+      const canalActivo = (/\/(next|previo)\//.exec(ruta) || [])[1] || "";
+      const nombres = (await c.keys()).filter(function (nombre) {
+        const m = /-(next|previo)$/.exec(String(nombre));
+        return (m ? m[1] : "") === canalActivo;
+      });
       // Preserve the active/newest shell and three preceding versions. The
       // historical v676 cutoff alone cannot recover quota on Opera v683+.
       // Never touch unrelated caches, IDB, photos or customer data.
