@@ -1472,15 +1472,121 @@
   // Keep a distinct, per-license journal: the legacy queue truncates at 1000
   // and is drained only when a legacy socket exists, so it cannot be reused.
   const COLA_YJS_SIN_SALA = "f123_yjs_ops_pendientes_v1_";
+  /* v766 (v0.7.66) — PARSE CACHE. drenarPendientesYjs runs every 2 s; before
+     v766 it re-parsed the WHOLE journal each tick. Now the parsed array is kept
+     together with the exact raw string it came from and is reused only while
+     localStorage still holds that same string (same licence). Any change by
+     this tab, another tab or a reload produces a different string, so it is
+     parsed again: the cache can never hide a new or removed op. A corrupt value
+     throws before the cache is updated, so it is still reported as null
+     (corrupt is NOT empty). Callers get a COPY of the array: OCSyncEmit pushes
+     into it and must not mutate the cached one. To revert: delete
+     _diarioCache and the two lines that use it. */
+  let _diarioCache = { licencia: "", raw: null, ops: null };
   function leerPendientesYjs(licencia) {
     try {
-      const arr = JSON.parse(localStorage.getItem(COLA_YJS_SIN_SALA + licencia) || "[]");
-      return Array.isArray(arr) ? arr : [];
+      const raw = localStorage.getItem(COLA_YJS_SIN_SALA + licencia);
+      if (_diarioCache.ops && _diarioCache.licencia === licencia && _diarioCache.raw === raw) return _diarioCache.ops.slice();
+      const arr = JSON.parse(raw || "[]");
+      const ops = Array.isArray(arr) ? arr : [];
+      _diarioCache = { licencia: licencia, raw: raw, ops: ops };
+      return ops.slice();
     } catch (_) { return null; } // corrupt/unreadable is NOT an empty journal
   }
   function guardarPendientesYjs(licencia, ops) {
-    try { localStorage.setItem(COLA_YJS_SIN_SALA + licencia, JSON.stringify(ops)); return true; }
+    try {
+      const raw = JSON.stringify(ops);
+      localStorage.setItem(COLA_YJS_SIN_SALA + licencia, raw);
+      _diarioCache = { licencia: licencia, raw: raw, ops: ops.slice() };
+      return true;
+    }
     catch (_) { return false; } // never silently trim or claim an ACK
+  }
+
+  /* v766 (v0.7.66) — PRUNING WITH A DURABILITY PROOF. Before v766 nothing ever
+     removed an op from this journal, so weeks of roomless sales filled
+     localStorage until guardarPendientesYjs failed and OCSyncEmit started
+     returning false for NEW movements.
+     The proof: window.OCYjs.opsIdb is the y-indexeddb persistence of the ops
+     Y.Doc of THIS licence (docs/sync-yjs.js, `API.opsIdb = new
+     IndexeddbPersistence("f123-yjs-ops-" + roomId, opsDoc)`). y-indexeddb
+     writes every opsDoc update into its object store "updates" in a readwrite
+     transaction created synchronously inside the doc 'update' event. We open a
+     LATER readonly transaction on that same store, read every stored update
+     back with getAll(), and replay them into an isolated Y.Doc (the same
+     read-only technique as API.historialFotosPorPercha). An opId is proven
+     durable only if it appears in that replayed "eventos" map, i.e. it was
+     READ BACK FROM IndexedDB, not from RAM. IDB orders a readonly transaction
+     after earlier overlapping readwrite ones, and an aborted write (quota,
+     closed handle) leaves no record, so it is simply not proven.
+     Fail-closed everywhere: no Y, no open db, no "updates" store, no getAll,
+     any IDB error/abort, a licence or Y.Doc switch while reading, or a corrupt
+     journal => nothing is removed and the next drain retries. A HUNG IndexedDB
+     leaves _podaEnCurso set: pruning pauses (the journal grows as in v765) but
+     the replay loop in drenarPendientesYjs keeps running, so nothing is lost.
+     Cost: one readback per PODA_DIARIO_MIN_MS at most, and only while the
+     journal holds ops that the active Y.Doc already has. To change the
+     cadence edit PODA_DIARIO_MIN_MS; to disable pruning entirely (journal
+     grows again, as in v765) make podarPendientesYjs return immediately. */
+  const PODA_DIARIO_MIN_MS = 15000;
+  let _podaEnCurso = false, _ultimaPoda = 0;
+  function leerOpIdsDurablesYjs(yjs) {
+    return new Promise(function (resolve) {
+      try {
+        const Y = window.Y, idb = yjs && yjs.opsIdb, db = idb && idb.db;
+        if (!Y || typeof Y.Doc !== "function" || typeof Y.applyUpdate !== "function" ||
+            !db || !db.objectStoreNames || !db.objectStoreNames.contains("updates")) { resolve(null); return; }
+        const tx = db.transaction(["updates"], "readonly");
+        const store = tx.objectStore("updates");
+        if (typeof store.getAll !== "function") { resolve(null); return; }
+        const req = store.getAll();
+        let registros = null;
+        req.onsuccess = function () { registros = req.result; };
+        // Only a COMPLETED transaction counts; onsuccess alone is not enough.
+        tx.oncomplete = function () {
+          if (!Array.isArray(registros)) { resolve(null); return; }
+          const d = new Y.Doc();
+          try {
+            for (const r of registros) {
+              // A damaged record is skipped: that can only prove FEWER ops.
+              try { Y.applyUpdate(d, r instanceof Uint8Array ? r : new Uint8Array(r), "f123-poda-readback"); } catch (_) {}
+            }
+            const ids = new Set();
+            d.getMap("eventos").forEach(function (_v, k) { ids.add(k); });
+            resolve(ids);
+          } catch (_) { resolve(null); }
+          finally { try { d.destroy(); } catch (_) {} }
+        };
+        tx.onabort = function () { resolve(null); };
+        tx.onerror = function () { resolve(null); };
+      } catch (_) { resolve(null); }
+    });
+  }
+  function podarPendientesYjs(licencia, yjs) {
+    if (_podaEnCurso || Date.now() - _ultimaPoda < PODA_DIARIO_MIN_MS) return;
+    const idb = yjs.opsIdb;
+    if (!idb || !idb.db) return; // not open yet (or no IDB at all): no proof possible, keep everything
+    _podaEnCurso = true; _ultimaPoda = Date.now();
+    leerOpIdsDurablesYjs(yjs).then(function (durables) {
+      _podaEnCurso = false;
+      if (!durables || !durables.size) return;
+      // The readback is asynchronous: the active licence or Y.Doc may have
+      // switched meanwhile. The proof is valid only for the same licence AND
+      // the same persistence object it was read from.
+      const ahora = window.OCYjs;
+      if (codigoCuadernoActivo() !== licencia || !ahora || ahora.opsIdb !== idb ||
+          ahora.codigoCuaderno !== licencia) return;
+      // Re-read NOW: OCSyncEmit may have appended while IDB was reading. Only
+      // entries of this licence whose opId was read back from IDB are removed;
+      // anything else (new ops, foreign provenance, malformed) stays.
+      const actuales = leerPendientesYjs(licencia);
+      if (!actuales) return; // corrupt journal: never rewrite it
+      const quedan = actuales.filter(function (op) {
+        return !(op && op.opId && normalizarCodigo(op._salaOrigen) === licencia && durables.has(op.opId));
+      });
+      // A failed write leaves the old (larger) journal: replays are idempotent by opId.
+      if (quedan.length !== actuales.length) guardarPendientesYjs(licencia, quedan);
+    }, function () { _podaEnCurso = false; });
   }
   function drenarPendientesYjs() {
     const licencia = codigoCuadernoActivo();
@@ -1492,14 +1598,18 @@
     // Never remove a locally durable op merely because Yjs has it in RAM.
     // IndexedDB persistence is asynchronous; opsMap.get is NOT a durable ACK.
     // Keep the journal across reloads, and replay only entries missing from
-    // the active same-licence Y.Doc. Pruning requires a separate proven IDB ACK.
+    // the active same-licence Y.Doc. Removal happens ONLY in podarPendientesYjs,
+    // after the op was read back from the ops Y.Doc's IndexedDB (v766).
+    let enDoc = false;
     for (const op of ops) {
       if (!op || normalizarCodigo(op._salaOrigen) !== licencia) continue;
       try {
         if (!yjs.opsMap.get(op.opId))
           window.dispatchEvent(new CustomEvent("oc-op-local", { detail: op }));
+        if (yjs.opsMap.get(op.opId)) enDoc = true;
       } catch (_) {} // the durable journal is retained for another retry
     }
+    if (enDoc) podarPendientesYjs(licencia, yjs);
   }
   try {
     window.addEventListener("oc-yjs-activo", drenarPendientesYjs);
