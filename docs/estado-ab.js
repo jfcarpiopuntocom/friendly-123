@@ -94,7 +94,9 @@
     // (JFC 2026-10-28) causa real del ultimo fallo de guardarAhora (null = no hubo excepcion); la lee el clasificador de mock-backend.
     let ultimoError = null;
     function guardarAhora(raw) { return conMemo(() => guardarAhoraInterno(raw)); }
-    function guardarAhoraInterno(raw) {
+    // v761: the caller already kept every other copy as evidence; write the chosen copy over the conflict.
+    function adoptar(raw) { return conMemo(() => guardarAhoraInterno(raw, true)); }
+    function guardarAhoraInterno(raw, forzar) {
       espejoPermitido = false;
       ultimoError = null;
       try {
@@ -104,12 +106,12 @@
         let vista = leer();
         if (body._rev <= vista.revMax) return false;
         const anterior = vista.registro;
-        if (vista.conflictos.length) return false;
-        if (anterior && anterior.phase === "COMMITTED" && vista.fisicos[anterior.destino] !== anterior.candidateRaw) {
+        if (vista.conflictos.length && !forzar) return false;
+        if (!forzar && anterior && anterior.phase === "COMMITTED" && vista.fisicos[anterior.destino] !== anterior.candidateRaw) {
           espejoPermitido = true; // Corrupt physical bytes stay untouched; healthy IDB may still commit.
           return false;
         }
-        if (anterior && anterior.phase === "PREPARED") {
+        if (!forzar && anterior && anterior.phase === "PREPARED") {
           const pendiente = vista.fisicos[anterior.destino];
           if (vista.puntero !== anterior.punteroAnterior ||
               (pendiente !== anterior.anterior && pendiente !== anterior.candidateRaw)) return false;
@@ -169,7 +171,7 @@
       }
       return resultado;
     }
-    return { leer, guardarAhora, conCandado, nuevoToken, permiteEspejo: () => espejoPermitido, ultimoError: () => ultimoError,
+    return { leer, guardarAhora, adoptar, conCandado, nuevoToken, permiteEspejo: () => espejoPermitido, ultimoError: () => ultimoError,
       guardar: raw => conCandado(() => guardarAhora(raw)), claveJournal };
   }
   function avisarConflicto() {
