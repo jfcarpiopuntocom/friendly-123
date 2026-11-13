@@ -25,8 +25,10 @@
     try { Intl.DateTimeFormat(undefined, { timeZone: tz }); return tz; }
     catch (_) { return Intl.DateTimeFormat().resolvedOptions().timeZone; }
   })();
+  // Perf (JFC 2026-11-02, approved plan item 3): build the formatter once; ZONA never changes after load.
+  const _fmtHoyISO = new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" });
   function hoyISO() {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    return _fmtHoyISO.format(new Date());
   }
   /* BUG DE DINERO (arreglado en amigable-123 el 2026-08-06, portado aqui el
      2026-08-18 en la caza Hugo/Paco/Luis).
@@ -55,10 +57,19 @@
     const d = Number(relojDesfaseMs);
     return base + (Number.isFinite(d) ? d : 0);
   }
+  /* v609 perf: el Intl.DateTimeFormat se construye UNA vez por zona (antes se creaba en cada llamada,
+     y fechaLocalDe corre por cada venta en cada filtro). Mismo resultado; si ZONA cambia se reconstruye. */
+  let _fmtFechaZona = null, _fmtFechaObj = null;
+  function _fmtFechaLocal() {
+    if (_fmtFechaObj && _fmtFechaZona === ZONA) return _fmtFechaObj;
+    _fmtFechaObj = new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" });
+    _fmtFechaZona = ZONA;
+    return _fmtFechaObj;
+  }
   function fechaLocalDe(fechaISO, relojDesfaseMs) {
     try {
       const ms = instanteCorregidoMs(fechaISO, relojDesfaseMs);
-      return new Intl.DateTimeFormat("en-CA", { timeZone: ZONA, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Number.isFinite(ms) ? ms : fechaISO));
+      return _fmtFechaLocal().format(new Date(Number.isFinite(ms) ? ms : fechaISO));
     } catch (_) {
       /* Fecha ilegible: se devuelve el prefijo crudo. Peor que exacto, pero
          mucho mejor que romper el filtro entero por un dato malo. */
@@ -144,6 +155,7 @@
      una venta fiada sigue a la venta). Los endpoints de cartera ademas pasan `ventas` explicito. */
   try { window.AMG = window.AMG || {}; window.AMG.ventasActuales = function () { return ventas; }; } catch (_) {}
   const movimientos = [];
+  let actividadCompartida = []; // Original remote envelopes; never part of the local seal chain.
   const transferencias = [];
   // GASTOS (2026-08-27): gastos individuales registrados por el dueño. Cada
   // gasto es un movimiento tipo "gasto" con concepto, monto, fecha y ubicación.
@@ -879,6 +891,15 @@
   // ventas, clientes) se mezclaba entre ambas apps en el mismo navegador.
   const OC_STATE_KEY_VIEJA = "amigable_demo_state_v4";
   const OC_STATE_KEY = "f123_estado_v4";
+  let _estadoLecturaBloqueada = false, _conflictoEstadoAB = null, _evidenciaEstadoAB = null;
+  var _avisoCatalogoPendiente = false; // (JFC 2026-10-28) aviso de catalogo bloqueado, se reintenta al recuperar el guardado (mismo ambito que avisarCatalogoCambiado)
+  var _errorBloqueoLectura = null; // (JFC 2026-10-28) causa de la lectura bloqueada, para clasificar el fallo de guardado
+  function _leerEstadoEstricto(clave) {
+    try {
+      const aislamiento = window.AMG && window.AMG.Aislamiento;
+      return aislamiento && aislamiento.leerEstadoEstricto ? aislamiento.leerEstadoEstricto(clave) : localStorage.getItem(clave);
+    } catch (error) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = error; throw error; }
+  }
   // Migracion de un solo uso: si ya hay estado bajo la clave nueva, no tocar
   // nada. Si NO hay nada bajo la nueva pero SI bajo la vieja compartida,
   // copiarlo una vez para no perder datos de un cliente que ya venia usando
@@ -886,8 +907,8 @@
   // AMIGABLE si el cliente tambien uso esa app en el mismo navegador).
   (function migrarEstadoSiHaceFalta() {
     try {
-      if (localStorage.getItem(OC_STATE_KEY) != null) return;
-      const viejo = localStorage.getItem(OC_STATE_KEY_VIEJA);
+      if (_leerEstadoEstricto(OC_STATE_KEY) != null) return;
+      const viejo = _leerEstadoEstricto(OC_STATE_KEY_VIEJA);
       if (viejo != null) localStorage.setItem(OC_STATE_KEY, viejo);
     } catch (_) {}
   })();
@@ -908,16 +929,22 @@
     return (prefijo || "") + id;
   }
   function clonar(obj) { return JSON.parse(JSON.stringify(obj)); }
+  const clonarProfundo = clonar;
   // Foto completa del estado, con schemaVersion (item 18) para poder migrar
   // formatos futuros sin romper respaldos viejos.
-  function estadoActualExportable() {
+  /* v609 perf: estadoActualExportable({ vivo: true }) NO copia las colecciones: devuelve referencias a los
+     arreglos vivos. SOLO para quien lo serializa de inmediato y de forma sincrona (guardado A/B), porque
+     una mutacion posterior lo alteraria. Todos los demas llamadores siguen recibiendo copias profundas. */
+  function estadoActualExportable(opc) {
+    const clonar = opc && opc.vivo ? (x => x) : clonarProfundo;
     const payoutView = _payoutCore() && _payoutCore().compatiblePayouts;
     return {
       schemaVersion: 3,
       _rev: _localRev,
+      ...(_evidenciaEstadoAB ? { recuperacionAB: clonar(_evidenciaEstadoAB) } : {}),
       modo: "demo-estatico",
       ubicaciones: clonar(ubicaciones), productos: clonar(productos), ventas: clonar(ventas),
-      movimientos: clonar(movimientos), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payoutView ? payoutView(payouts) : payouts),
+      movimientos: clonar(movimientos), actividadCompartida: _actividadExportable(), transferencias: clonar(transferencias), gastos: clonar(gastos), ajustesComision: clonar(ajustesComision), payouts: clonar(payoutView ? payoutView(payouts) : payouts),
       payoutConflicts:clonar(payoutConflicts), payoutQuarantine:clonar(payoutQuarantine),
       sucursales: clonar(sucursales), promotoras: clonar(promotoras), clientes: clonar(clientes),
       configuracion: { gastosMensuales: clonar(gastosMensuales), categoriasMeta: clonar(categoriasMeta), impuesto: ajusteImpuesto ? clonar(ajusteImpuesto) : null, lealtad: ajusteLealtad ? clonar(ajusteLealtad) : null, retencion: ajusteRetencion ? clonar(ajusteRetencion) : null, moneda: ajusteMoneda ? clonar(ajusteMoneda) : null },
@@ -944,6 +971,8 @@
       idsProd.add(String(p.id));
       if (!esTextoCorto(String(p.nombre || ""), 240)) return "There is a product without a valid name.";
       if (!Number.isFinite(Number(p.precio)) || !Number.isFinite(Number(p.costo)) || !Number.isFinite(Number(p.stockActual))) return "There are invalid numeric values in products.";
+      if (p.stockEpochId != null && (typeof p.stockEpochId !== "string" || p.stockEpochId.length > 160))
+        return "There is an invalid physical inventory epoch in the backup.";
       if (Number(p.precio) < 0 || Number(p.costo) < 0 || Number(p.stockActual) < 0) return "There are negative prices, costs or stock in products.";
     }
     const idsUbic = new Set();
@@ -958,6 +987,8 @@
     }
     if (body.ventas && !Array.isArray(body.ventas)) return "The sales section is corrupt.";
     if (body.movimientos && !Array.isArray(body.movimientos)) return "The activity section is corrupt.";
+    try { if (body.actividadCompartida != null) _actividadUnir([], body.actividadCompartida); }
+    catch (_) { return "The shared activity evidence is corrupt."; }
     if (body.transferencias && !Array.isArray(body.transferencias)) return "The transfers section is corrupt.";
     if (body.gastos && !Array.isArray(body.gastos)) return "The expenses section is corrupt.";
     if (body.ajustesComision && !Array.isArray(body.ajustesComision)) return "The commission adjustments section is corrupt.";
@@ -978,11 +1009,46 @@
     if (body.clientes && !Array.isArray(body.clientes)) return "The customers section is corrupt.";
     return "";
   }
+  /* (JFC 2026-10-28) true si el Y.Doc LOCAL persistido ya tiene datos de negocio (cualquier coleccion salvo "dispositivos"),
+     o si "dispositivos" trae un id que no es el nuestro (sync-yjs.js:1383-1388, mock-backend.js ~4809-4818; add-only, vive en IndexedDB).
+     Ese doc gana al reabrir y desharia lo importado. Falla CERRADO: si hay sala/doc pero no se puede leer (inactivo, recuperacion
+     local pendiente o sin almacenamiento) se bloquea. Sin OCYjs (harness/VM) o sin sala nunca iniciada -> false. */
+  function _cuadernoConDatosEnDoc() {
+    try {
+      const y = window.OCYjs;
+      if (!y) return false;
+      if (y.estado !== "activo" || typeof y._diag !== "function") return !!y.roomId; // sala sin doc legible -> bloquear
+      const d = y._diag();
+      if (d.recuperacionLocalPendiente) return true;
+      const yo = (window.OCMicelio && window.OCMicelio.yo) ? window.OCMicelio.yo() : null;
+      const miId = yo && yo.id ? String(yo.id) : "";
+      const n = d.n || {};
+      if (Object.keys(n).some((k) => k !== "dispositivos" && Number(n[k]) > 0)) return true;
+      if (Number(d.ops) > 0) return true; // hechos/operaciones del doc de ops
+      return Object.keys(y.get("dispositivos") || {}).some((k) => k !== miId);
+    } catch (_) { return true; } // ante la duda, NO sobrescribir
+  }
+  // v651: while Yjs is still starting, a new device's own entry looked like another device's data and importing got a false 409.
+  // Waits at most 5 s for that to settle, then decides as always: in doubt, nothing is overwritten.
+  async function _cuadernoConDatosTrasArranque() {
+    const arrancando = () => {
+      try {
+        const y = window.OCYjs;
+        if (!y || !y.roomId) return false;
+        if (y.estado !== "activo" || typeof y._diag !== "function" || y._diag().recuperacionLocalPendiente) return true;
+        return !!window.OCMicelio && !(window.OCMicelio.yo && window.OCMicelio.yo() && window.OCMicelio.yo().id);
+      } catch (_) { return false; }
+    };
+    const t0 = Date.now();
+    while (arrancando() && Date.now() - t0 < 5000) await new Promise((listo) => setTimeout(listo, 200));
+    return _cuadernoConDatosEnDoc();
+  }
   function aplicarRespaldo(body) {
     productos.length = 0; productos.push(...body.productos);
     ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
     ventas.length = 0; ventas.push(...(Array.isArray(body.ventas) ? body.ventas : []));
     movimientos.length = 0; movimientos.push(...(Array.isArray(body.movimientos) ? body.movimientos : []));
+    actividadCompartida = _actividadUnir([], body.actividadCompartida || []);
     transferencias.length = 0; transferencias.push(...(Array.isArray(body.transferencias) ? body.transferencias : []));
     gastos.length = 0; gastos.push(...(Array.isArray(body.gastos) ? body.gastos : []));
     ajustesComision.length = 0; ajustesComision.push(...(Array.isArray(body.ajustesComision) ? body.ajustesComision : []));
@@ -1092,27 +1158,19 @@
       if (n) guardarEstadoLocal();
     } catch (_) {}
   }
-  // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba
-  // y un refresh le comia el dia. Ahora hay banda roja persistente.
+  // FIX 2026-07-07: si localStorage esta lleno, el dueno creia que guardaba y un refresh le comia el dia.
+  // v608 (JFC 2026-10-28, orden del dueno): NADA encima de la UI. Antes habia una banda roja fija
+  // (#oc-quota-aviso, position:fixed). Ahora solo se levanta la bandera window.__ocMemoriaLlena y la linea
+  // de estado de Avanzado (#oc-sync-estado-min, avanzado-extra.js _pintarSyncMin) escribe el texto plano.
+  // NO volver a crear elementos fijos/overlay/modal/toast aqui. Solo se activa con error de cuota REAL
+  // (_esErrorDeCuota); un fallo no-cuota no toca esta bandera.
   // Clear a prior full-storage warning ONLY after another write succeeded durably.
-  function despejarAvisoMemoriaLlena() { try { const d = document.getElementById("oc-quota-aviso"); if (d) d.remove(); } catch (_) {} }
+  function despejarAvisoMemoriaLlena() {
+    try { if (window.__ocMemoriaLlena) { window.__ocMemoriaLlena = false; window.dispatchEvent(new CustomEvent("oc-memoria-llena", { detail: { llena: false } })); } } catch (_) {}
+  }
   function avisoMemoriaLlena() {
     try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "memoria-llena"); else (window.__ocFallos = window.__ocFallos || []).push(["", "memoria-llena"]); } catch (_) {} // canario 2026-10-01
-    try {
-      if (document.getElementById("oc-quota-aviso")) return;
-      const d = document.createElement("div");
-      d.id = "oc-quota-aviso";
-      d.setAttribute("role", "alert");
-      d.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:10002;background:#B0183E;padding:12px 16px;text-align:center;";
-      // BUG FIJADO (JFC 2026-08-19, caza produccion): aviso hardcoded en
-      // espanol en app cuyo default es ingles.
-      var _es_q = (function(){try{return window.OCI18n&&window.OCI18n.getLang()==="es";}catch(_){return false;}})();
-      d.innerHTML = '<span style="color:#FFFFFF !important;-webkit-text-fill-color:#FFFFFF !important;font-size:16px;font-weight:700;">'
-        + (_es_q ? 'La memoria de este navegador está llena: los cambios nuevos NO se están guardando. Ve a AVANZADO y descarga un respaldo AHORA.'
-                 : 'This browser storage is full: new changes are NOT being saved. Go to ADVANCED and download a backup NOW.')
-        + '</span>';
-      (document.body || document.documentElement).appendChild(d);
-    } catch (_) {}
+    try { window.__ocMemoriaLlena = true; window.dispatchEvent(new CustomEvent("oc-memoria-llena", { detail: { llena: true } })); } catch (_) {}
   }
   // Fase 2 (2026-08-04): si no cabe el estado completo, antes de darse por
   // vencido se archivan los movimientos mas viejos en IndexedDB (idb-archivo.js
@@ -1152,7 +1210,7 @@
      tiendas pueda mapear licencia->sufijo sin ambigüedad, incluyendo el caso
      de la tienda propia cuyo sufijo es "". */
   function _sufijoTiendaActiva() {
-    try { return localStorage.getItem("f123_tienda_activa") || ""; } catch (_) { return ""; }
+    try { return _leerEstadoEstricto("f123_tienda_activa") || ""; } catch (_) { return ""; }
   }
   /* ═══ SHARED DIGITAL NOTEBOOK: UN SOLO CUADERNO POR LICENCIA (JFC 2026-09-15, v283) ═══
      La app ES un cuaderno digital compartido: una licencia = UN cuaderno; los
@@ -1183,20 +1241,23 @@
        v284 escanea TODOS los buffers del aparato (cualquier sufijo + legacy),
        elige el que tiene el negocio real (más productos) y lo consolida en "".
        El flag es NUEVO (v2) para que RE-CORRA en aparatos que ya sufrieron la v283. */
-    if (localStorage.getItem("f123_notebook_unificado_v2") !== "1") {
+    if (!_estadoLecturaBloqueada && _leerEstadoEstricto("f123_notebook_unificado_v2") !== "1" &&
+        _leerEstadoEstricto(OC_STATE_KEY + "_journal") === null) {
       // Mejor buffer A/B válido de un sufijo dado.
       var _leerBuf = function (suf) {
         try {
           var base = OC_STATE_KEY + suf;
-          var ptr = localStorage.getItem(base + "_ptr");
+          if (!window.OCEstadoAB) throw new Error("A/B recovery unavailable");
+          var vista = window.OCEstadoAB.crear({ storage: localStorage, leer: _leerEstadoEstricto, claveBase: base }).leer();
+          var ptr = vista.activo;
           var orden = ptr ? [ptr, ptr === "A" ? "B" : "A"] : ["A", "B"];
           for (var i = 0; i < orden.length; i++) {
-            var raw = localStorage.getItem(base + "_" + orden[i]);
+            var raw = vista.buffers[orden[i]];
             if (raw == null) continue;
             var b; try { b = JSON.parse(raw); } catch (_) { continue; }
             if (b && typeof b === "object") return { body: b, raw: raw, suf: suf };
           }
-        } catch (_) {}
+        } catch (_) { _estadoLecturaBloqueada = true; }
         return null;
       };
       // Recolectar TODOS los sufijos presentes en claves de buffer del aparato.
@@ -1212,7 +1273,7 @@
       Object.keys(_sufs).forEach(function (s) { var b = _leerBuf(s); if (b) _bufs.push(b); });
       // Candidato legacy: la clave de un solo buffer (aparatos muy viejos).
       try {
-        var _lg = localStorage.getItem(OC_STATE_KEY);
+        var _lg = _leerEstadoEstricto(OC_STATE_KEY);
         if (_lg) { var _lb; try { _lb = JSON.parse(_lg); } catch (_) {} if (_lb && typeof _lb === "object") _bufs.push({ body: _lb, raw: _lg, suf: "" }); }
       } catch (_) {}
       var _nProd = function (r) { return (r && r.body && Array.isArray(r.body.productos)) ? r.body.productos.length : -1; };
@@ -1227,7 +1288,7 @@
         if (_nFin(reta) !== _nFin(campeon)) return _nFin(reta) > _nFin(campeon);
         return (Number(reta.body._rev) || 0) > (Number(campeon.body._rev) || 0);
       };
-      if (_bufs.length) {
+      if (!_estadoLecturaBloqueada && _bufs.length) {
         // GANADOR = el cuaderno con el negocio real. Un aparato hospeda UN negocio,
         // así que el resto solo aporta catálogo add-only.
         var _win = _bufs[0];
@@ -1263,15 +1324,16 @@
           // sobrescriben los dos con el consolidado para que ninguno esté rancio.
           try {
             var _cs = JSON.stringify(_res);
-            localStorage.setItem(OC_STATE_KEY + "_A", _cs);
-            localStorage.setItem(OC_STATE_KEY + "_B", _cs);
-            localStorage.setItem(OC_STATE_KEY + "_ptr", "A");
-          } catch (_) {}
+            var _abMigracion = window.OCEstadoAB.crear({ storage: localStorage, leer: _leerEstadoEstricto, claveBase: OC_STATE_KEY });
+            if (!_abMigracion.guardarAhora(_cs)) throw new Error("Notebook consolidation was not durable");
+          } catch (_) { _estadoLecturaBloqueada = true; }
         }
       }
       // De aquí en adelante el aparato usa SIEMPRE el cuaderno único "".
-      try { localStorage.setItem("f123_tienda_activa", ""); } catch (_) {}
-      try { localStorage.setItem("f123_notebook_unificado_v2", "1"); } catch (_) {}
+      if (!_estadoLecturaBloqueada) {
+        try { localStorage.setItem("f123_tienda_activa", ""); } catch (_) {}
+        try { localStorage.setItem("f123_notebook_unificado_v2", "1"); } catch (_) {}
+      }
     }
   } catch (_) {}
   const OC_STATE_SUFIJO = _sufijoTiendaActiva();
@@ -1283,6 +1345,70 @@
   const OC_STATE_SELLO = OC_STATE_KEY + OC_STATE_SUFIJO + "_sello";
   let _miSello = (function () { try { return localStorage.getItem(OC_STATE_SELLO); } catch (_) { return null; } })();
   function claveBuffer(letra) { return OC_STATE_KEY + OC_STATE_SUFIJO + "_" + letra; }
+  let _estadoABLocal = null;
+  function _estadoAB() {
+    if (!_estadoABLocal && window.OCEstadoAB) _estadoABLocal = window.OCEstadoAB.crear({
+      storage: localStorage, leer: _leerEstadoEstricto, claveBase: OC_STATE_KEY + OC_STATE_SUFIJO });
+    return _estadoABLocal;
+  }
+  function _registrarConflictoAB(vista) {
+    if (!vista.conflictos.length && !vista.danados.length) return false;
+    const preparado = vista.registro && vista.registro.phase === "PREPARED";
+    _evidenciaEstadoAB = { base: OC_STATE_KEY + OC_STATE_SUFIJO, journal: vista.rawJournal, puntero: vista.puntero,
+      fase: vista.registro ? vista.registro.phase : "LEGACY", danados: vista.danados,
+      copias: [{ clave: "A", raw: vista.fisicos.A }, { clave: "B", raw: vista.fisicos.B }] };
+    if (vista.registro) _evidenciaEstadoAB.copias.push({ clave: preparado ? "candidata-no-confirmada" : "confirmada", raw: vista.registro.candidateRaw });
+    if (preparado) _evidenciaEstadoAB.copias.push({ clave: "preimagen", raw: vista.registro.anterior });
+    if (!vista.conflictos.length) return false;
+    _conflictoEstadoAB = _evidenciaEstadoAB;
+    _estadoLecturaBloqueada = true;
+    window.OCEstadoAB.avisarConflicto();
+    return true;
+  }
+  /* v761: conflicto A/B resoluble (práctica de journaling): entre las copias válidas gana la de
+     mayor revisión (empate: más ventas+movimientos, luego la confirmada por el journal); TODAS las
+     demás se conservan antes en _evidencia_ab. Sin copia válida, o sin poder guardar la evidencia,
+     no se toca nada y sigue el bloqueo (507). Nunca se fusionan contenidos. */
+  const OC_STATE_EVIDENCIA = OC_STATE_KEY + OC_STATE_SUFIJO + "_evidencia_ab";
+  function _resolverConflictoAB(ab, vista) {
+    if (!vista.conflictos.length || !ab.adoptar) return false;
+    try {
+      const vistos = new Set(), copias = [];
+      [["confirmada", vista.buffers[vista.activo]], ["A", vista.buffers.A], ["B", vista.buffers.B],
+       ["A-fisica", vista.fisicos.A], ["B-fisica", vista.fisicos.B],
+       // A never-confirmed PREPARED candidate only lives in the journal: kept as evidence, never eligible.
+       ["candidata-no-confirmada", vista.registro && vista.registro.phase === "PREPARED" ? vista.registro.candidateRaw : null]].forEach(([clave, raw]) => {
+        if (typeof raw !== "string" || vistos.has(raw)) return;
+        vistos.add(raw);
+        let body = null; try { body = JSON.parse(raw); } catch (_) {}
+        const rev = body && Number.isSafeInteger(body._rev) ? body._rev : 0;
+        const valida = clave !== "candidata-no-confirmada" && rev >= 1 && !validarRespaldo(body);
+        const ops = valida ? (Array.isArray(body.ventas) ? body.ventas.length : 0) + (Array.isArray(body.movimientos) ? body.movimientos.length : 0) : 0;
+        copias.push({ clave, raw, body, rev, valida, ops });
+      });
+      let ganadora = null;
+      copias.forEach((c) => { if (c.valida && (!ganadora || c.rev > ganadora.rev || (c.rev === ganadora.rev && c.ops > ganadora.ops))) ganadora = c; });
+      if (!ganadora) return false;
+      const ts = new Date().toISOString();
+      const evidencia = JSON.parse(_leerEstadoEstricto(OC_STATE_EVIDENCIA) || "[]");
+      if (!Array.isArray(evidencia)) return false;
+      copias.forEach((c) => {
+        if (c !== ganadora && !evidencia.some((e) => e && e.raw === c.raw))
+          evidencia.push({ ts, motivo: c.clave === "candidata-no-confirmada" ? "ab-conflict-unconfirmed-candidate" : c.valida ? "ab-conflict-lower-revision" : "ab-conflict-invalid-copy", clave: c.clave, revision: c.rev, ganadora: ganadora.rev, raw: c.raw });
+      });
+      const texto = JSON.stringify(evidencia);
+      localStorage.setItem(OC_STATE_EVIDENCIA, texto);
+      if (_leerEstadoEstricto(OC_STATE_EVIDENCIA) !== texto) return false;
+      const elegido = JSON.parse(ganadora.raw);
+      delete elegido._abCommit;
+      elegido._rev = Math.max(vista.revMax, ...copias.map((c) => c.rev)) + 1;
+      if (!ab.adoptar(JSON.stringify(elegido))) return false;
+      console.warn("[estado-ab] v761 conflicto resuelto: gana la revisión " + ganadora.rev + " (" + ganadora.clave + "); " + (copias.length - 1) + " copia(s) en " + OC_STATE_EVIDENCIA);
+      _conflictoEstadoAB = null;
+      try { const aviso = document.getElementById("oc-ab-conflicto"); if (aviso) aviso.remove(); } catch (_) {}
+      return true;
+    } catch (_) { return false; }
+  }
   // Solo metadatos del conflicto, jamás el PIN remoto. El registro es por
   // cuaderno y sobrevive a un refresh hasta que el miembro sí logra aplicarse.
   const CONFLICTOS_EQUIPO_KEY = "f123_team_conflicts_v1" + OC_STATE_SUFIJO;
@@ -1313,11 +1439,16 @@
      distintas. El sacrificio decide QUE se cede cuando no cabe; el espejo hace
      que aunque no quepa NADA en localStorage, el estado completo quede a salvo
      igual en un almacen que si crece con el disco. */
+  let _espejoIDBPendiente = null;
   function _espejarEnIDB(completo, exigirCompleto = false) {
     try {
       if (!window.OCEstadoIDB) return Promise.resolve(false);
-      return window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(() => false);
-    } catch (_) { return Promise.resolve(false); }
+      const espejo = window.OCEstadoIDB.guardar(completo, exigirCompleto).catch(e => { _ultimoErrorIDB = e; return false; });
+      _espejoIDBPendiente = espejo;
+      const fin = () => { if (_espejoIDBPendiente === espejo) _espejoIDBPendiente = null; };
+      espejo.then(fin, fin);
+      return espejo;
+    } catch (e) { _ultimoErrorIDB = e; return Promise.resolve(false); }
   }
   /* #3 (JFC 2026-09-10): "los PIN de admin TAMBIEN deben abrir el dashboard".
        Los admin cuentan como "empleado" a nivel cripto (mismo employeeHashes), así
@@ -1337,11 +1468,185 @@
     } catch (_) {}
   }
   let _guardadoEstrictoPendiente = null;
+  let _guardadoCatalogoPendiente = null, _ultimoGuardadoPublicable = true;
+  let _guardandoAB = false, _estadoPublicableConfirmado = null;
+  function _huellaPublicable(estado = estadoActualExportable()) {
+    const { _rev, _abCommit, ...datos } = estado;
+    return JSON.stringify(datos);
+  }
+  function _estadoPuedePublicarse() {
+    if (_estadoLecturaBloqueada) return false;
+    if (!_guardadoCatalogoPendiente && _ultimoGuardadoPublicable) return true;
+    // A repeated save may be pending while RAM still equals its exact accepted snapshot.
+    try {
+      if (_estadoPublicableConfirmado !== null && typeof _estadoPublicableConfirmado === "object")
+        _estadoPublicableConfirmado = _huellaPublicable(_estadoPublicableConfirmado); // v755: lazy, only when a save is pending
+      return _estadoPublicableConfirmado !== null && _huellaPublicable() === _estadoPublicableConfirmado;
+    }
+    catch (_) { return false; }
+  }
+  /* v599 SYNC "ENVIAR Y GUARDAR A LA VEZ" (JFC 2026-10-27, decision explicita por pregunta de opciones).
+     Antes (v~488..v598) cada cambio esperaba a que la libreta COMPLETA terminara de guardarse en IndexedDB
+     antes de salir al otro aparato: 20 ms con libreta chica, >300 ms con libreta grande, y hasta 2 s si
+     el aviso caia durante una venta (lo recogia la barrida de sync-yjs cada 2 s). Norte de JFC: < 500 ms
+     visible entre aparatos (ideal 150 ms, ver sync-latencia.js SLA_MS).
+     Ahora: mientras un guardado esta EN CURSO se permite enviar; el op igual queda en la bandeja durable
+     de sync-yjs (guardarSobres) en paralelo con el envio, asi que no se pierde.
+     QUE SIGUE BLOQUEADO (NO aflojar sin OK de JFC):
+       - _estadoLecturaBloqueada (estado no leido/bloqueado: jamas publicar).
+       - Si el ULTIMO guardado FALLO y RAM difiere de lo confirmado -> no se publica (igual que antes).
+       - _ventaConfirmando en catalogoPropio(): una venta provisional nunca sale antes de su ACK durable.
+     _estadoPuedePublicarse() queda INTACTA para los demas usos (409 "not saved yet", catalogoConfirmado). */
+  function _estadoPuedeEnviarse() {
+    if (_estadoLecturaBloqueada) return false;
+    // Solo guardados NORMALES salen sin esperar. Un guardado ESTRICTO (venta, pago, devolucion,
+    // retencion: dinero con rollback si falla) sigue esperando su ACK durable: un estado
+    // provisional que luego se revierte NUNCA debe llegar al otro aparato.
+    // Pruebas que lo protegen: commission-partial-balance.test.js (payout/devolucion fallidos).
+    // try: _payoutConfirmando se declara mas abajo (let); si algo llamara esto durante el arranque
+    // sincrono, la duda cae al lado seguro (esperar al guardado, como antes de v599).
+    try {
+      if (_guardadoCatalogoPendiente && !_guardadoEstrictoPendiente && !_ventaConfirmando &&
+          !_payoutConfirmando && !_retencionConfirmando) return true;
+    } catch (_) {}
+    return _estadoPuedePublicarse();
+  }
   let _ventaConfirmando = false, _ventaPendiente = null;
   const _ventaCatalogosPendientes = [];
   let _retencionConfirmando = false, _retencionPendiente = null;
   const _retencionCatalogosPendientes = [];
+  let _drenandoCatalogos = false;
+  function _registrarCatalogoPendiente(motivo) {
+    try { console.warn("[sync] catalog work remains pending: " + motivo); } catch (_) {}
+  }
+  function _avisarCatalogoConfirmado() {
+    try { avisarCatalogoCambiado(); }
+    catch (_) { _avisoCatalogoPendiente = true; _registrarCatalogoPendiente("postcommit-notice"); }
+  }
+  function _drenarCatalogosPendientes() {
+    if (_drenandoCatalogos) return true;
+    if (_ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return false;
+    _drenandoCatalogos = true;
+    try {
+      for (const cola of [_ventaCatalogosPendientes, _retencionCatalogosPendientes, _payoutCatalogosPendientes]) while (cola.length) {
+        const siguiente = cola[0];
+        let resultado;
+        try { resultado = aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs); }
+        catch (_) { _registrarCatalogoPendiente("apply-threw"); return false; }
+        if (!resultado || resultado.ok !== true || resultado.actividadCompleta === false) {
+          _registrarCatalogoPendiente("apply-not-accepted"); return false;
+        }
+        cola.shift();
+      }
+      return true;
+    } finally { _drenandoCatalogos = false; }
+  }
+  let _mergeSucio = false, _mergeGuardado = null;
+  function _programarGuardadoMerge() {
+    _mergeSucio = true;
+    if (_mergeGuardado) return _mergeGuardado;
+    _mergeGuardado = new Promise(function (res) {
+      const run = function () {
+        _mergeGuardado = null;
+        if (!_mergeSucio) return res(true); // un guardado estricto previo ya cubrió el merge
+        _mergeSucio = false;
+        try {
+          Promise.resolve(guardarEstadoLocal()).then(function (ok) {
+            if (ok !== true) _mergeSucio = true; // los fallos booleanos también dejan trabajo pendiente
+            res(ok === true);
+          }, function () { _mergeSucio = true; res(false); });
+        } catch (_) { _mergeSucio = true; res(false); }
+      };
+      // Dejar que el render de inventario se actualice antes del guardado voluminoso.
+      try {
+        if (typeof requestIdleCallback === "function" && document.visibilityState === "visible") requestIdleCallback(run, { timeout: 300 });
+        else setTimeout(run, 0);
+      } catch (_) { setTimeout(run, 0); }
+    });
+    return _mergeGuardado;
+  }
+  function _guardarMergePendienteYa() {
+    if (!_mergeSucio) return;
+    _mergeSucio = false;
+    try {
+      const r = guardarEstadoLocal();
+      if (r && typeof r.then === "function") r.then(function (ok) { if (ok !== true) _mergeSucio = true; },
+        function () { _mergeSucio = true; });
+      else if (r !== true) _mergeSucio = true;
+    } catch (_) { _mergeSucio = true; }
+  }
+  try {
+    window.addEventListener("pagehide", _guardarMergePendienteYa);
+    document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") _guardarMergePendienteYa(); });
+  } catch (_) {}
+  // Synchronous quota/storage exceptions cannot unwind a received merge.
+  // P0 Ponytail: opt-in, local-only timing of durable stock/money commits.
+  // Stores NO product, count, license, PIN, message, error string or device ID.
+  // Disabled by default; no external analytics and no change to durable ACK.
+  var _f123PerfLocalRegistros = [];
+  function _perfLocalInicio() {
+    try {
+      return sessionStorage.getItem("f123_perf_local") === "1" &&
+        typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now() : null;
+    } catch (_) { return null; }
+  }
+  function _perfLocalFin(etapa, inicio, ok) {
+    if (inicio === null || !Number.isFinite(inicio)) return;
+    if (!["prior_save_wait", "snapshot_serialize", "strict_idb", "strict_commit"].includes(etapa)) return;
+    try {
+      var ms = Math.max(0, performance.now() - inicio);
+      if (!Number.isFinite(ms)) return;
+      _f123PerfLocalRegistros.push({ etapa: etapa, ms: Math.round(ms), ok: ok === true });
+      if (_f123PerfLocalRegistros.length > 120)
+        _f123PerfLocalRegistros.splice(0, _f123PerfLocalRegistros.length - 120);
+    } catch (_) { /* diagnostic must never alter the save outcome */ }
+  }
+  if (typeof window !== "undefined") window.OCPerfLocal = {
+    leer: function () { return _f123PerfLocalRegistros.map(function (x) { return { etapa:x.etapa, ms:x.ms, ok:x.ok }; }); },
+    limpiar: function () { _f123PerfLocalRegistros.length = 0; }
+  };
+  function _guardarMergeInmediatoSeguro() {
+    let resultado;
+    try { resultado = guardarEstadoLocal(); }
+    catch (error) {
+      _mergeSucio = true;
+      try { _falloGuardadoLocal(error); } catch (_) {}
+      return false;
+    }
+    if (resultado && typeof resultado.then === "function") {
+      Promise.resolve(resultado).then(function (ok) {
+        if (ok !== true) _mergeSucio = true;
+      }, function (error) {
+        _mergeSucio = true;
+        try { _falloGuardadoLocal(error); } catch (_) {}
+      });
+    } else if (resultado !== true) _mergeSucio = true;
+    return resultado;
+  }
   function guardarEstadoLocal(exigirCompleto = false, preservarFotos = false) {
+    const esperaVencida = arguments[2] === true;
+    // v649: this device's own save still in flight is not another tab. A strict save compares against the disk, so it
+    // waits for it instead of reporting a false "NOT saved". The guard against a real other tab stays untouched.
+    // The 4 s limit covers only this wait for the PREVIOUS save. shortcut: this save's own IndexedDB call has no limit,
+    // because answering "not saved" while it can still commit would be worse; upgrade with an abortable transaction.
+    const _espejoEnVuelo = typeof _espejoIDBPendiente !== "undefined" ? _espejoIDBPendiente : null;
+    const _catalogoEnVuelo = typeof _guardadoCatalogoPendiente !== "undefined" ? _guardadoCatalogoPendiente : null;
+    if (exigirCompleto && !esperaVencida && (_espejoEnVuelo || _catalogoEnVuelo)) {
+      const _tEsperaGuardado = _perfLocalInicio();
+      const espera = new Promise((listo) => {
+        const tope = setTimeout(() => listo(true), 4000);
+        Promise.all([_espejoEnVuelo, _catalogoEnVuelo]).then(() => { clearTimeout(tope); listo(false); }, () => { clearTimeout(tope); listo(false); });
+      }).then((vencida) => {
+        _perfLocalFin('prior_save_wait', _tEsperaGuardado, !vencida);
+        return guardarEstadoLocal(exigirCompleto, preservarFotos, vencida);
+      });
+      // Background saves wait too: one running now would persist a provisional sale that this save may still reject.
+      _guardadoEstrictoPendiente = espera;
+      const soltar = () => { if (_guardadoEstrictoPendiente === espera) _guardadoEstrictoPendiente = null; };
+      espera.then(soltar, soltar);
+      return espera;
+    }
     // Retention rollback must finish before any background photo captures RAM.
     if (!exigirCompleto && _retencionPendiente)
       return _retencionPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
@@ -1350,6 +1655,17 @@
       return _guardadoEstrictoPendiente.then(() => guardarEstadoLocal(exigirCompleto, preservarFotos));
     }
     const resultado = _guardarEstadoLocalAhora(exigirCompleto, preservarFotos);
+    if (resultado && typeof resultado.then === "function") {
+      const publicable = Promise.resolve(resultado);
+      _guardadoCatalogoPendiente = publicable;
+      const publicar = ok => {
+        if (_guardadoCatalogoPendiente === publicable) {
+          _guardadoCatalogoPendiente = null; _ultimoGuardadoPublicable = ok === true;
+          if (ok === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) _avisarCatalogoConfirmado();
+        }
+      };
+      publicable.then(publicar, () => publicar(false));
+    }
     if (exigirCompleto && resultado && typeof resultado.then === "function") {
       const pendiente = Promise.resolve(resultado);
       _guardadoEstrictoPendiente = pendiente;
@@ -1357,54 +1673,199 @@
       pendiente.then(terminar, terminar);
       return pendiente;
     }
+    if (!resultado || typeof resultado.then !== "function") {
+      _ultimoGuardadoPublicable = resultado === true;
+      if (resultado === true && typeof _avisoCatalogoPendiente !== "undefined" && _avisoCatalogoPendiente) _avisarCatalogoConfirmado();
+    }
     return resultado;
   }
   function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
-    const _revIntento = Math.max(_localRev, _localRevReservado) + 1;
-    _localRevReservado = _revIntento;
-    const completo = estadoActualExportable();
-    completo._rev = _revIntento;
-    const activo = localStorage.getItem(OC_STATE_PTR) || "B"; // sin puntero previo: A es el primer destino
-    const destino = activo === "A" ? "B" : "A";
-    const _idb = _espejarEnIDB(completo, exigirCompleto);
-    let bufferAnterior, bufferPendiente = false;
-    try {
-      bufferAnterior = localStorage.getItem(claveBuffer(destino));
-      localStorage.setItem(claveBuffer(destino), JSON.stringify(completo));
-      bufferPendiente = true;
-      localStorage.setItem(OC_STATE_PTR, destino); // flip atomico, al final
-      bufferPendiente = false;
-      _localRev = Math.max(_localRev, _revIntento);
-      _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
-      ocultarAvisoRecorte();
-      despejarAvisoMemoriaLlena();
-      _publicarAdminPins();
-      return true;
-    } catch (_) {
-      // Un bloque sin flip confirmado no puede resucitar al recuperar el otro buffer.
-      if (bufferPendiente) {
+    const ab = _estadoAB();
+    const ejecutar = () => {
+      const _tEstricto = exigirCompleto ? _perfLocalInicio() : null;
+      _ultimoErrorIDB = null;
+      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
+      let revisionDisco = 0;
+      try { if (ab) { const vista = ab.leer(); _registrarConflictoAB(vista); revisionDisco = vista.revMax; } } catch (e) { _estadoLecturaBloqueada = true; _errorBloqueoLectura = e; }
+      if (_estadoLecturaBloqueada) { if (_conflictoEstadoAB) window.OCEstadoAB.avisarConflicto(); else _falloGuardadoLocal(_errorBloqueoLectura); return false; }
+      // P0: reject a stale local snapshot instead of overwriting another tab.
+      if (exigirCompleto && revisionDisco > _localRev) { try { window.OCCanarios.fallo("guardado", "revision-disco-mayor"); } catch (_) {} return false; }
+      const _revIntento = Math.max(_localRev, _localRevReservado, revisionDisco) + 1;
+      _localRevReservado = _revIntento;
+      /* v609 perf: antes = copia profunda de cada coleccion (stringify+parse) y luego OTRO stringify para el A/B.
+         Ahora se serializa UNA vez el estado vivo y `completo` es el parse de ese mismo texto (identico a la
+         copia anterior: clonar() era justo ese viaje JSON). El texto sale en el mismo punto del flujo. */
+      const vivo = estadoActualExportable({ vivo: true });
+      vivo._rev = _revIntento;
+      let tokenOk = !!ab; // antes nuevoToken() corria dentro del try: si fallaba, no se intentaba el A/B pero el espejo seguia
+      if (ab) { try { vivo._abCommit = ab.nuevoToken(); } catch (_) { tokenOk = false; } }
+      const actividadVigente = vivo.actividadCompartida; // arreglo propio de _actividadExportable (identidad usada por _confirmarActividad)
+      const _tSerializar = exigirCompleto ? _perfLocalInicio() : null;
+      const crudo = JSON.stringify(vivo);
+      const completo = JSON.parse(crudo);
+      if (exigirCompleto) _perfLocalFin('snapshot_serialize', _tSerializar, true);
+      let local = false;
+      const idb = window.OCEstadoIDB;
+      // A method can exist on an unsupported IDB adapter. It is NOT a viable
+      // CAS store. Without this check, a truly IDB-less device gets a false
+      // 503 and never reaches its independently durable A/B journal.
+      const casDisponible = exigirCompleto && idb && idb.soportado !== false &&
+        typeof idb.guardarConRevision === "function";
+      if (!exigirCompleto) {
         try {
-          if (bufferAnterior == null) localStorage.removeItem(claveBuffer(destino));
-          else localStorage.setItem(claveBuffer(destino), bufferAnterior);
-        } catch (_) { try { localStorage.removeItem(claveBuffer(destino)); } catch (_) {} }
+          if (tokenOk) { _guardandoAB = true; local = ab.guardarAhora(crudo); }
+        } catch (_) {} finally { _guardandoAB = false; }
       }
-    }
-    // 1AAA: never delete legacy photos or truncate activity history to free quota.
-    // When localStorage is full, only the full durable IndexedDB mirror may
-    // authorize success. Otherwise fail visibly, preserving every old byte.
-    /* NO MENTIR (JFC 2026-08-17). Que localStorage se llene no quiere decir
-       que el dispositivo este lleno: localStorage tiene un techo fijo de
-       ~5 MB por origen, aunque al disco le sobren 900 GB. Si el espejo de
-       IndexedDB —que si escala con el disco— acepto el estado, los cambios
-       SI se guardaron y el cartel rojo seria falso. Solo se avisa cuando de
-       verdad no entro en ningun lado. */
-    return _idb.then((ok) => {
-      if (ok) { _localRev = Math.max(_localRev, _revIntento); ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); avisoEspacioJusto(); _publicarAdminPins(); }
-      else avisoMemoriaLlena();
-      return !!ok;
-    }).catch(() => { avisoMemoriaLlena(); return false; });
+      const terminar = ok => {
+        if (exigirCompleto) _perfLocalFin('strict_commit', _tEstricto, ok === true);
+        if (ok) {
+          if (actividadVigente) _confirmarActividad(actividadVigente);
+          _localRev = Math.max(_localRev, _revIntento);
+          _estadoPublicableConfirmado = completo; // v755: fingerprint computed lazily (completo is never mutated)
+          _miSello = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+          try { localStorage.setItem(OC_STATE_SELLO, _miSello); } catch (_) {}
+          ocultarAvisoRecorte(); despejarAvisoMemoriaLlena(); _guardadoLocalExitoso(); _publicarAdminPins();
+          if (!local) avisoEspacioJusto();
+        } else {
+          // Private operational counters only; observer MUST NOT change sales.
+          if (exigirCompleto) { try { window.OCSalud?.escritorEvento?.("strictFailure"); } catch (_) {} }
+          try { window.OCCanarios.fallo("guardado", "guardado-fallo"); } catch (_) {}
+          _falloGuardadoLocal(exigirCompleto ? _causaGuardadoEstricto(idb, ab) : _causaGuardado(ab), exigirCompleto);
+        }
+        return ok;
+      };
+      // Strict financial commit: IDB is preferred, never a remote dependency.
+      // JFC 2026-11-11: an actual IDB failure MUST fall back to the complete
+      // local A/B journal, including money and stock. A revision FENCE (false
+      // with no storage error) is different: it must NOT overwrite another tab.
+      // A/B is an alternative durable COMMIT, not a second business operation.
+      const intentarABConfirmado = () => {
+        if (!ab || !tokenOk || _estadoLecturaBloqueada || _conflictoEstadoAB)
+          return false;
+        try {
+          _guardandoAB = true;
+          local = ab.guardarAhora(crudo) === true;
+          if (local) {
+            const vista = ab.leer();
+            const registro = vista && vista.registro;
+            local = !!(vista && registro && registro.phase === "COMMITTED" &&
+              registro.revision === _revIntento &&
+              registro.token === completo._abCommit &&
+              registro.candidateRaw === crudo &&
+              vista.buffers[vista.activo] === crudo &&
+              !vista.conflictos.length && !vista.danados.length);
+          }
+        } catch (_) { local = false; }
+        finally { _guardandoAB = false; }
+        if (local) {
+          // This is LOCAL durable, NEVER peer/global ACK; Sync3 may copy later.
+          try { window.OCSalud?.escritorEvento?.("fallbackLocal"); } catch (_) {}
+        }
+        return local === true;
+      };
+      const guardarABConfirmado = () => terminar(intentarABConfirmado());
+      if (exigirCompleto) {
+        // No native IDB, closed adapter or a previously working IDB currently
+        // unavailable: all use the same read-back-verified local journal.
+        if (!casDisponible) return guardarABConfirmado();
+        const _tIdbEstricto = _perfLocalInicio();
+        const cas = idb.guardarConRevision(completo, _localRev);
+        const trasIDB = ok => {
+          _perfLocalFin('strict_idb', _tIdbEstricto, ok === true);
+          if (ok !== true) {
+            // No error means strict CAS rejected a stale snapshot. Keep 403/
+            // 409/rebase protections, do NOT quietly downgrade that conflict.
+            const err = idb && typeof idb.ultimoError === "function"
+              ? idb.ultimoError() : null;
+            return err ? guardarABConfirmado() : terminar(false);
+          }
+          // An IDB commit has ALREADY applied the effects once. A/B is only
+          // the backup; it must not modify the economic ledger again.
+          if (ab && tokenOk) {
+            try { _guardandoAB = true; ab.guardarAhora(crudo); }
+            catch (_) {} finally { _guardandoAB = false; }
+          }
+          return terminar(true);
+        };
+        const falloIDB = () => {
+          _perfLocalFin('strict_idb', _tIdbEstricto, false);
+          return guardarABConfirmado();
+        };
+        // v755 (WebKit bug 315804): a hung IndexedDB never settles. After 8 s the SAME snapshot and
+        // revision go to the read-back-verified A/B journal. If A/B cannot confirm, keep waiting for
+        // IDB as before: never answer "not saved" while IDB may still commit this sale.
+        let tope = null;
+        const limite = new Promise(listo => { tope = setTimeout(() => listo("tope"), 8000); });
+        return Promise.race([cas, limite]).then(ok => {
+          if (ok !== "tope") { clearTimeout(tope); return trasIDB(ok); }
+          if (intentarABConfirmado()) { _perfLocalFin('strict_idb', _tIdbEstricto, false); return terminar(true); }
+          return cas.then(trasIDB, falloIDB);
+        }, () => { clearTimeout(tope); return falloIDB(); });
+      }
+      // Non-financial background state still uses existing A/B recovery.
+      if (local) { _espejarEnIDB(completo, true); return terminar(true); }
+      if (_estadoLecturaBloqueada || (ab && !ab.permiteEspejo())) return terminar(false);
+      return Promise.resolve(_espejarEnIDB(completo, true)).then(ok => terminar(ok === true), () => terminar(false));
+    };
+    try {
+      const resultado = ejecutar();
+      return resultado && typeof resultado.then === "function"
+        ? resultado.catch(_falloGuardadoLocal) : resultado;
+    } catch (e) { return _falloGuardadoLocal(e); }
   }
+  /* v608 (JFC 2026-10-28): UN solo clasificador de fallos de guardado (_falloGuardadoLocal).
+     - Cuota REAL (QuotaExceededError / code 22 / 1014 / NS_ERROR_DOM_QUOTA_REACHED) -> cartel rojo "memoria llena".
+     - Cualquier otro (AbortError, candado vencido, SecurityError, IDB false...) -> NUNCA el cartel rojo: consola,
+       reintento acotado 3-6-12-24-48 s (max 5, nunca apilado). SIN aviso visible (orden del dueno, JFC 2026-10-28): solo consola.
+     - Todo guardado exitoso (_guardadoLocalExitoso) reinicia el conteo.
+     No hay ningun await de guardado dentro del candado de escrituras: el reintento corre fuera. */
+  var _reintentoGuardadoSilencioso = null, _intentosReintentoGuardado = 0, _fallosGuardadoSeguidos = 0;
+  var _ultimoErrorGuardado = null, _ultimoErrorIDB = null;
+  var _ESPERAS_REINTENTO_GUARDADO = [3000, 6000, 12000, 24000, 48000];
+  function _esErrorDeCuota(e) {
+    try { return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014); }
+    catch (_) { return false; }
+  }
+  // Causa del fallo de un guardado que devolvio false: si alguna es de cuota gana (cartel rojo); si no, la primera conocida.
+  function _causaGuardado(ab) {
+    let a = null;
+    try { a = ab && ab.ultimoError ? ab.ultimoError() : null; } catch (_) {}
+    let b = _ultimoErrorIDB;
+    try { if (!b && window.OCEstadoIDB && window.OCEstadoIDB.ultimoError) b = window.OCEstadoIDB.ultimoError(); } catch (_) {}
+    if (_esErrorDeCuota(a)) return a;
+    if (_esErrorDeCuota(b)) return b;
+    return a || b || null;
+  }
+  // #607: an atomic IDB CAS has its OWN failure cause. A historical quota in
+  // the best-effort A/B backup must never override a non-quota CAS rejection.
+  // Browsers that really use only A/B retain the existing cause classifier.
+  function _causaGuardadoEstricto(idb, ab) {
+    if (idb && typeof idb.guardarConRevision === "function") {
+      try { return typeof idb.ultimoError === "function" ? idb.ultimoError() : null; }
+      catch (e) { return e; }
+    }
+    return _causaGuardado(ab);
+  }
+  function _guardadoLocalExitoso() {
+    _fallosGuardadoSeguidos = 0; _intentosReintentoGuardado = 0; _ultimoErrorGuardado = null;
+    if (_reintentoGuardadoSilencioso) { clearTimeout(_reintentoGuardadoSilencioso); _reintentoGuardadoSilencioso = null; }
+  }
+  function _falloGuardadoLocal(e, noReintentar) {
+    _ultimoErrorGuardado = e || null;
+    if (_esErrorDeCuota(e)) { avisoMemoriaLlena(); return false; }
+    try { console.warn("[storage] guardado local no completado (no es falta de memoria)", e && e.name ? e.name : e); } catch (_) {}
+    try { if (window.OCSalud && window.OCSalud.fallo) window.OCSalud.fallo("", "guardado-fallido"); } catch (_) {}
+    _fallosGuardadoSeguidos++;
+    if (!noReintentar && !_reintentoGuardadoSilencioso && _intentosReintentoGuardado < _ESPERAS_REINTENTO_GUARDADO.length) {
+      const espera = _ESPERAS_REINTENTO_GUARDADO[_intentosReintentoGuardado++];
+      _reintentoGuardadoSilencioso = setTimeout(() => {
+        _reintentoGuardadoSilencioso = null;
+        try { const r = guardarEstadoLocal(); if (r && typeof r.then === "function") r.catch(() => {}); } catch (_) {}
+      }, espera);
+    }
+    return false;
+  }
+
   /* SOLO CONSOLA (JFC 2026-08-26): este aviso ("todo se guardó, la memoria
      rápida se llenó, ahora se usa la grande — no se perdió nada") NO fue
      autorizado y rompe la UI sin necesidad — el guardado ya ocurrió igual. Se
@@ -1525,10 +1986,12 @@
      productos/perchas de ejemplo. Muta en sitio porque son const.
      NO toca instanceId (identidad de este aparato). (JFC 2026-08-26) */
   function _vaciarTiendaFresca() {
+    if (_estadoLecturaBloqueada) return;
     try {
       ubicaciones.length = 0; productos.length = 0; sucursales.length = 0;
       promotoras.length = 0; clientes.length = 0; usuarios.length = 0;
       ventas.length = 0; movimientos.length = 0; transferencias.length = 0;
+      actividadCompartida = [];
       Object.keys(gastosMensuales).forEach((k) => { delete gastosMensuales[k]; });
       nombreNegocio = "";
     } catch (_) {}
@@ -1541,10 +2004,15 @@
   let _cargoBufferReal = false;
   function cargarEstadoLocal() {
     try {
-      const activo = localStorage.getItem(OC_STATE_PTR);
+      const ab = _estadoAB();
+      if (!ab) throw new Error("A/B recovery unavailable");
+      let vista = ab.leer();
+      if (_resolverConflictoAB(ab, vista)) vista = ab.leer();
+      _registrarConflictoAB(vista);
+      const activo = vista.activo;
       const orden = activo ? [activo, activo === "A" ? "B" : "A"] : ["A", "B"];
       for (const letra of orden) {
-        const raw = localStorage.getItem(claveBuffer(letra));
+        const raw = vista.buffers[letra];
         if (raw == null) continue;
         let body;
         try { body = JSON.parse(raw); } catch (_) { continue; } // corrupto: probar el otro buffer
@@ -1557,10 +2025,11 @@
         // fresco que ya dejó otra pestaña, perdiendo silenciosamente sus cambios.
         if (typeof body._rev === "number" && body._rev > _localRev) _localRev = body._rev;
         aplicarRespaldo(body);
+        _estadoLecturaBloqueada = !!_conflictoEstadoAB;
         _cargoBufferReal = true; // buffer A/B real cargado: no es semilla demo
         if (letra !== activo) {
           console.warn("[cargarEstadoLocal] el buffer activo estaba dañado, recuperado desde el buffer anterior");
-          try { localStorage.setItem(OC_STATE_PTR, letra); } catch (_) {} // corrige el puntero
+          try { if (!vista.registro || vista.registro.phase !== 'PREPARED') localStorage.setItem(OC_STATE_PTR, letra); } catch (_) {} // PREPARED exposes a virtual preimage, not the physical destination.
           setTimeout(avisarBufferRecuperado, 800);
         }
         return;
@@ -1568,17 +2037,17 @@
       /* A2: ningun buffer valido. ANTES de darse por vencido y arrancar en
          blanco, se intenta reparar el mas fresco podando lo ilegible. */
       try {
-        const _act = localStorage.getItem(OC_STATE_PTR);
+        const _act = vista.activo;
         const _orden = _act ? [_act, _act === "A" ? "B" : "A"] : ["A", "B"];
         for (const _l of _orden) {
-          const _raw = localStorage.getItem(claveBuffer(_l));
+          const _raw = vista.buffers[_l];
           if (_raw == null) continue;
           let _b; try { _b = JSON.parse(_raw); } catch (_) { continue; }
           const _rep = repararRespaldo(_b);
           if (!_rep) continue;
           aplicarRespaldo(_rep.limpio);
           _cargoBufferReal = true; // buffer reparado real cargado: no es semilla demo
-          try { localStorage.setItem(OC_STATE_PTR, _l); } catch (_) {}
+          try { if (!vista.registro || vista.registro.phase !== 'PREPARED') localStorage.setItem(OC_STATE_PTR, _l); } catch (_) {}
           console.warn("[cargarEstadoLocal] estado reparado; registros podados:", _rep.podados);
           setTimeout(function () { avisarEstadoReparado(_rep.podados); }, 800);
           return;
@@ -1597,7 +2066,7 @@
       // ejemplo. Se vacia para que la tienda arranque limpia y solo se llene con
       // lo que llegue por sync. (bug hallado en la revision pre-live 2026-08-26)
       if (OC_STATE_SUFIJO) { _vaciarTiendaFresca(); return; }
-      const raw = localStorage.getItem(OC_STATE_KEY);
+      const raw = _leerEstadoEstricto(OC_STATE_KEY);
       if (!raw) return;
       let body;
       try { body = JSON.parse(raw); } catch (_) {
@@ -1656,22 +2125,42 @@
           } catch (_) {}
         }, 800);
       }
-    } catch (_) {}
+    } catch (_) { _estadoLecturaBloqueada = true; }
   }
   // Cuando otra pestaña guarda, recargar su estado si es más nuevo (evita last-writer-wins con estado viejo)
   /* 2026-09-25: la clave nativa lleva el prefijo de aislamiento.js ("f123::..."), asi que
      comparar con OC_STATE_PTR a secas NUNCA coincidia (hallazgo H1 del 2026-08-05): la otra
      pestana no se enteraba jamas. Se acepta la clave con o sin prefijo. */
+  let _refrescoDiferidoPorCommit = false;
   function _refrescarDesdeOtraPestana() {
+    if (_guardandoAB) return;
+    // Storage events from another tab must not replace RAM during a provisional
+    // sale/payout/retention: rollback would otherwise truncate fresh peer facts.
+    const barrera = _ventaPendiente || _payoutPendiente || _retencionPendiente;
+    if (barrera) {
+      if (!_refrescoDiferidoPorCommit) {
+        _refrescoDiferidoPorCommit = true;
+        Promise.resolve(barrera).then(() => {
+          _refrescoDiferidoPorCommit = false;
+          _refrescarDesdeOtraPestana();
+        }, () => {
+          _refrescoDiferidoPorCommit = false;
+          _refrescarDesdeOtraPestana();
+        });
+      }
+      return;
+    }
+    if (_guardadoCatalogoPendiente) { _guardadoCatalogoPendiente.then(() => _refrescarDesdeOtraPestana()); return; }
     const antes=_localRev;
     cargarEstadoLocal();try { _miSello=localStorage.getItem(OC_STATE_SELLO); } catch (_) {}
     if(_localRev>antes)window.dispatchEvent(new CustomEvent("oc-sync-merge",{detail:{localTab:true,actualizados:1}}));
   }
   window.addEventListener("storage", (e) => {
     const k = e && e.key ? String(e.key) : "";
-    if (k === OC_STATE_PTR || k.endsWith("::" + OC_STATE_PTR)) _refrescarDesdeOtraPestana();
+    const journal = OC_STATE_KEY + OC_STATE_SUFIJO + "_journal";
+    if (k === OC_STATE_PTR || k.endsWith("::" + OC_STATE_PTR) || k === journal || k.endsWith("::" + journal)) _refrescarDesdeOtraPestana();
   });
-  try { window.AMG?.Aislamiento?.onCambio(c=>{if(c && c.clave===OC_STATE_PTR)_refrescarDesdeOtraPestana();}); } catch (_) {}
+  try { window.AMG?.Aislamiento?.onCambio(c=>{if(c && (c.clave===OC_STATE_PTR || c.clave===OC_STATE_KEY+OC_STATE_SUFIJO+"_journal"))_refrescarDesdeOtraPestana();}); } catch (_) {}
   function _recargarSiOtraPestanaEscribio() {
     try {
       const guardado = localStorage.getItem(OC_STATE_SELLO);
@@ -1699,11 +2188,18 @@
     const actual = mesActualISO();
     const map = new Map([[actual, { mes: actual, actual: true, ventas: 0, comision: 0, pendiente: 0 }]]);
     ventasActivas().forEach((v) => {
-      if (!v.split || !v.fecha) return;
+      if (!v.fecha) return;
       const mes = fechaLocalDe(v.fecha, v.relojDesfaseMs).slice(0, 7);
+      if (!/^[0-9]{4}-(0[1-9]|1[0-2])$/.test(mes)) return;
       const d = map.get(mes) || { mes, actual: mes === actual, ventas: 0, comision: 0, pendiente: 0 };
-      const c = Number(v.split.montoComisionSocio) || 0;
-      d.ventas += 1; d.comision += c; if (!v.liquidada) d.pendiente += c;
+      // Historic own-rack and counter sales have no split, but their month
+      // MUST remain selectable in Commissions > Summary by Product.
+      // Keep commission totals and the existing 'ventas' (split-sales) count
+      // unchanged: this is a read-only discovery fix, not a money migration.
+      if (v.split) {
+        const c = Number(v.split.montoComisionSocio) || 0;
+        d.ventas += 1; d.comision += c; if (!v.liquidada) d.pendiente += c;
+      }
       map.set(mes, d);
     });
     ajustesComision.forEach((a) => {
@@ -2272,16 +2768,13 @@
         restaurar();
         return { error:falloGuardado || "This payment change was NOT saved. Free up storage and retry the same payment.", status:507 };
       }
-      avisarCatalogoCambiado();
+      _avisarCatalogoConfirmado();
       return resultado;
     } catch (error) { restaurar(); throw error; }
     finally {
       _payoutConfirmando = false; _payoutPendiente = null;
       try {
-        while (_payoutCatalogosPendientes.length) {
-          const siguiente = _payoutCatalogosPendientes.shift();
-          aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-        }
+        _drenarCatalogosPendientes();
       } finally { terminar(); }
     }
   }
@@ -2326,8 +2819,14 @@
       const paymentQuarantine = payoutQuarantine.filter(q=>String(q.record.locationId)===String(u.id) && q.record.period===_mes);
       const overpaid = +payoutBalances.reduce((n,p)=>n+(p.overpaid || 0),0).toFixed(2);
       const needsReview = paymentConflicts.length>0 || overpaid>0;
+      // v681: The ledger's dueCents records cash owed TO the associate. When
+      // an associate took the customer's cash, dueCents is rightly zero, but
+      // that is NOT evidence that the house received its share. No incoming
+      // settlement receipt exists in this ledger: never label it PAID.
+      const houseShareUnverified = ventasMes.some((v) => v.direccionComision === "asociadoPaga" &&
+        Number(v.split && v.split.montoNetoDueno) > 0);
       const paymentStatus = needsReview ? 'review' : (ventasMes.length === 0 && ajustesMes.length === 0 && !_ledgerObs.some((o) => o.kind === "void")) ? "no-sales"
-        : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : "paid");
+        : (_ledgerAbierto ? (_ledgerPagoPositivo ? "partially-paid" : "due") : houseShareUnverified ? "house-unverified" : "paid");
       const conflictingIds = new Set(paymentConflicts.flatMap(c=>c.records.map(p=>p.id)));
       const receiptEvidence = [...new Map(payouts.concat(paymentConflicts.flatMap(c=>c.records)).map(p=>[p.id+'|'+JSON.stringify([p.amountCents,p.items,p.reversalOf || null]),p])).values()];
       const payoutHistory = receiptEvidence.filter((p) => p && p.status === "paid" && p.period === _mes && String(p.locationId) === String(u.id))
@@ -2899,7 +3398,8 @@
     const margen = p.precio > 0 ? (p.precio - p.costo) / p.precio : 0;
     const dias = p.perecible ? diasParaVencer(p.fechaCaducidad) : null;
     let porStock;
-    if (p.stockActual <= 0) porStock = { estado: "rojo", nivel: 3, mensaje: _t("alert.noStock") };
+    if (!window.OCBusinessReadModel.stock(p).known) porStock = { estado: "naranja", nivel: 1, mensaje: _t("inv.stockPending") };
+    else if (p.stockActual <= 0) porStock = { estado: "rojo", nivel: 3, mensaje: _t("alert.noStock") };
     else if (p.stockActual <= p.umbralRojo) {
       porStock = { estado: "rojo", nivel: p.stockActual <= Math.ceil(p.umbralRojo / 2) ? 2 : 1, mensaje: _t("alert.lowRed", { n: p.stockActual }) };
     } else if (p.stockActual <= p.umbralAmarillo) {
@@ -2958,15 +3458,146 @@
   // tamper-EVIDENTE (un equipo local nunca es tamper-PROOF), suficiente contra
   // el falseo casual del encargado. Hash rápido y síncrono, sembrado con el
   // instanceId para que no se recalcule a ciegas.
-  function selloHash(str) {
+  function selloHash(str, origen = instanceId) {
     // FNV-1a 32-bit -> hex. NO criptográfico: solo eleva el costo de forjar.
     let h = 0x811c9dc5;
-    const semilla = String(str) + "|" + (instanceId || "amigable");
+    const semilla = String(str) + "|" + (origen || "amigable");
     for (let i = 0; i < semilla.length; i++) { h ^= semilla.charCodeAt(i); h = (h * 0x01000193) >>> 0; }
     return h.toString(16).padStart(8, "0");
   }
   function movHuella(m) {
     return (m.prevSello || "") + "|" + m.tipo + "|" + JSON.stringify(m.detalle) + "|" + m.fecha + "|" + (m.usuarioId || "sistema");
+  }
+  function _actividadClave(origen, clase, id) { return JSON.stringify([origen, clase, id]); }
+  /* v609 perf (indice incremental). Antes, CADA guardado re-validaba, re-serializaba (JSON.stringify de cada
+     version), re-clonaba y re-ordenaba (localeCompare) TODO el historial de actividad: ~100 ms por operacion
+     con historial de ventas. Ahora:
+       - _salidasActividad = arreglos que _actividadUnir devolvio. Si `antes` ES uno de ellos (misma
+         identidad; nadie lo muta, solo se reasigna) ya esta validado, deduplicado y ordenado: se parte de el sin revalidarlo,
+         y solo se revisan las entradas nuevas (indice Map por id). Cualquier otro `antes` (carga, merge
+         remoto, tests) hace la reconstruccion completa de siempre.
+       - Las versiones que ya son copias propias se registran en _claveVersion (WeakMap version -> su JSON)
+         y no se vuelven a serializar ni a clonar.
+       - Un id nuevo se inserta por mezcla de listas ordenadas; sin ids nuevos no se reordena nada.
+     Misma salida, mismo orden, misma semantica de dedup que la version v608 (ver test/v609-actividad-incremental). */
+  const _cmpActividad = new Intl.Collator().compare; // igual a String.prototype.localeCompare() sin argumentos
+  const _claveVersion = new WeakMap();
+  const _salidasActividad = new WeakSet(); // arreglos que _actividadUnir devolvio (confiables como `antes`)
+  function _actividadUnir(antes, entrantes) {
+    if (!Array.isArray(antes) || !Array.isArray(entrantes)) throw new Error("Invalid shared activity list");
+    const entradas = new Map();
+    const confiable = antes.length > 0 && _salidasActividad.has(antes);
+    if (confiable) for (const e of antes) entradas.set(e.id, e);
+    const idsNuevos = [];
+    let cambioIncremental = false;
+    for (const e of (confiable ? entrantes : antes.concat(entrantes))) {
+      if (!e || typeof e.origen !== "string" || !e.origen || e.origen.length > 160 ||
+          !["evento", "inicio", "cola"].includes(e.clase) || !Array.isArray(e.versiones) || !e.versiones.length)
+        throw new Error("Invalid shared activity envelope");
+      for (const v of e.versiones) {
+        if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("Invalid activity evidence");
+        if (e.clase === "evento" && (typeof v.id !== "string" || !v.id || v.id.length > 200 ||
+            typeof v.tipo !== "string" || typeof v.fecha !== "string" ||
+            (v.sello != null && !/^[a-f0-9]{8}$/.test(v.sello)) ||
+            (v.prevSello != null && v.prevSello !== "" && !/^[a-f0-9]{8}$/.test(v.prevSello))))
+          throw new Error("Invalid activity record");
+        if (e.clase !== "evento" && (typeof v.sello !== "string" || (v.sello !== "" && !/^[a-f0-9]{8}$/.test(v.sello))))
+          throw new Error("Invalid activity chain boundary");
+        const key = _actividadClave(e.origen, e.clase, e.clase === "evento" ? v.id : e.clase === "cola" ? v.sello : "");
+        if (e.id !== key) throw new Error("Activity identity mismatch");
+      }
+      const anterior = entradas.get(e.id), versiones = new Map();
+      if (anterior) for (const v of anterior.versiones) versiones.set(_claveVersion.get(v) || JSON.stringify(v), v);
+      const tenia = versiones.size;
+      for (const v of e.versiones) versiones.set(JSON.stringify(v), v);
+      if (anterior && versiones.size === tenia) continue; // nada nuevo: la entrada previa queda tal cual
+      cambioIncremental = true;
+      if (!anterior) idsNuevos.push(e.id);
+      entradas.set(e.id, { id: e.id, origen: e.origen, clase: e.clase,
+        versiones: [...versiones.keys()].sort().map(k => {
+          const v = versiones.get(k);
+          if (_claveVersion.has(v)) return v;
+          const c = clonar(v); _claveVersion.set(c, k); return c;
+        }) });
+    }
+    // A validated immutable prior result with no new versions is exactly
+    // identical. Keep its identity so the hot merge avoids serializing the
+    // entire activity history merely to prove that nothing changed.
+    if (confiable && !cambioIncremental) return antes;
+    let salida = [...entradas.values()];
+    if (idsNuevos.length) {
+      const nuevos = salida.splice(salida.length - idsNuevos.length).sort((a, b) => _cmpActividad(a.id, b.id));
+      const mezcla = []; let x = 0, y = 0;
+      while (x < salida.length && y < nuevos.length) mezcla.push(_cmpActividad(nuevos[y].id, salida[x].id) < 0 ? nuevos[y++] : salida[x++]);
+      while (x < salida.length) mezcla.push(salida[x++]);
+      while (y < nuevos.length) mezcla.push(nuevos[y++]);
+      salida = mezcla;
+    }
+    _salidasActividad.add(salida);
+    return salida;
+  }
+  function _actividadExportable() {
+    const origen = String(instanceId || "amigable"), propios = [];
+    const agregar = (clase, id, valor) => propios.push({ id: _actividadClave(origen, clase, id), origen, clase, versiones: [valor] });
+    const sellados = movimientos.filter(m => m && m.sello);
+    if (movimientos.length && !actividadCompartida.some(e => e.origen === origen && e.clase === "inicio"))
+      agregar("inicio", "", { sello: sellados.length ? sellados[0].prevSello || "" : "" });
+    for (const m of movimientos) if (m && m.id) agregar("evento", m.id, m);
+    if (selloUltimo) agregar("cola", selloUltimo, { sello: selloUltimo });
+    const desde = actividadCompartida, r = _actividadUnir(desde, propios);
+    _exportadaDesde = desde; _exportada = r;
+    return r;
+  }
+  /* v609 perf: _confirmarActividad(completo.actividadCompartida) volvia a unir el historial entero contra si
+     mismo. Si lo que se confirma ES la ultima exportacion y actividadCompartida no cambio desde entonces,
+     la union ya esta hecha (export = union(actividadCompartida, propios)): se adopta tal cual. */
+  let _exportadaDesde = null, _exportada = null;
+  function _confirmarActividad(entradas) {
+    if (entradas === _exportada && actividadCompartida === _exportadaDesde) { actividadCompartida = entradas; return; }
+    actividadCompartida = _actividadUnir(actividadCompartida, entradas);
+  }
+  function _actividadEstado(entradas) {
+    const grupos = new Map(), problemas = [], validos = new Set(); let historicos = 0;
+    const problema = (origen, tipo) => problemas.push({ origen, tipo });
+    for (const e of _actividadUnir([], entradas)) {
+      let g = grupos.get(e.origen);
+      if (!g) { g = { nodos: new Map(), filas: [], colas: new Set(), inicio: null }; grupos.set(e.origen, g); }
+      if (e.versiones.length !== 1) { problema(e.origen, "conflicto"); continue; }
+      const v = e.versiones[0];
+      if (e.clase === "inicio") g.inicio = v.sello;
+      else if (e.clase === "cola") g.colas.add(v.sello);
+      else if (!v.sello) { historicos++; validos.add(e.id); }
+      else if (selloHash(movHuella(v), e.origen) !== v.sello) problema(e.origen, "editado");
+      else {
+        if (g.nodos.has(v.sello) && movHuella(g.nodos.get(v.sello)) !== movHuella(v)) problema(e.origen, "sello-ambiguo");
+        g.nodos.set(v.sello, v); g.filas.push({ clave: e.id, sello: v.sello });
+      }
+    }
+    for (const [origen, g] of grupos) {
+      const resueltos = new Map();
+      const resolver = sello => {
+        const camino = [], vistos = new Set(); let actual = sello, estado = true;
+        while (actual !== g.inicio) {
+          if (resueltos.has(actual)) { estado = resueltos.get(actual); break; }
+          if (vistos.has(actual)) { problema(origen, "ciclo"); estado = false; break; }
+          const nodo = g.nodos.get(actual);
+          if (!nodo || g.inicio === null) { problema(origen, "padre-pendiente"); estado = false; break; }
+          vistos.add(actual); camino.push(actual); actual = nodo.prevSello || "";
+        }
+        camino.forEach(k => resueltos.set(k, estado)); return estado;
+      };
+      for (const fila of g.filas) if (resolver(fila.sello)) validos.add(fila.clave);
+      for (const cola of g.colas) if (!g.nodos.has(cola) || !resolver(cola)) problema(origen, "cola-pendiente");
+      if (g.filas.length && !g.colas.size) problema(origen, "cola-pendiente");
+    }
+    const completa = !problemas.some(p => /pendiente/.test(p.tipo));
+    return { ok: problemas.length === 0, completa, historicos, origenes: grupos.size, problemas, validos };
+  }
+  function _actividadVista() {
+    const entradas = _actividadExportable(), estado = _actividadEstado(entradas), filas = new Map();
+    for (const e of entradas) if (e.clase === "evento" && e.versiones.length === 1 && estado.validos.has(e.id))
+      filas.set(e.id, clonar(e.versiones[0]));
+    return [...filas.entries()].sort((a, b) => String(a[1].fecha).localeCompare(String(b[1].fecha)) || a[0].localeCompare(b[0])).map(e => e[1]);
   }
   /* Aviso de "el equipo cambio" (JFC 2026-08-25). Lo escucha sync-realtime.js
      para EMPUJAR la lista de usuarios (roles/PINs) al resto del negocio en el
@@ -2984,7 +3615,11 @@
      (alta/edicion/baja de perchas y productos); el STOCK sigue viajando por sus
      propias ops, no por aqui. */
   function avisarCatalogoCambiado() {
-    try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); } catch (_) {}
+    // v599: sale de inmediato aunque haya un guardado en curso (ver _estadoPuedeEnviarse).
+    // Retry a blocked notification after durable recovery, without waiting for the periodic sweep.
+    // typeof guard: test harnesses extract this function without the flag declared (JFC 2026-10-28)
+    if (!_estadoPuedeEnviarse()) { if (typeof _avisoCatalogoPendiente !== "undefined") _avisoCatalogoPendiente = true; return; }
+    try { window.dispatchEvent(new CustomEvent("oc-catalogo-cambiado")); if (typeof _avisoCatalogoPendiente !== "undefined") _avisoCatalogoPendiente = false; } catch (_) {}
   }
 
   function mov(tipo, detalle, avisar = true) {
@@ -3079,6 +3714,32 @@
     if (s.size > 2000) { const arr = [...s]; s.clear(); arr.slice(-2000).forEach((x) => s.add(x)); }
     try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s])); } catch (_) {}
   }
+  // The immutable opId is the receipt; counters are causal per actor, never wall-clock LWW.
+  // This projects a movement into the existing PN read model without replaying a sale.
+  function _fundirHechoStock(p, w) {
+    if (!p || !w || typeof w !== "object") return false;
+    const base = Number(w.base), actor = String(w.actor || ""), epoch = String(w.epoch || "");
+    const add = Number(w.add), sub = Number(w.sub);
+    if (!Number.isSafeInteger(base) || !actor || actor.length > 160 || epoch.length > 160 ||
+        !Number.isSafeInteger(add) || !Number.isSafeInteger(sub) || add < 0 || sub < 0) return false;
+    const previo = p.stockBase == null ? null : Number(p.stockBase);
+    const epPrev = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
+    if (previo !== null && (previo !== base || epPrev !== epoch)) return false;
+    if (previo === null && p.stockPN && Object.keys(p.stockPN).length) return false;
+    const pn = Object.assign({}, p.stockPN || {});
+    const old = pn[actor] || {add:0,sub:0};
+    pn[actor] = {add: Math.max(Number(old.add)||0, add), sub: Math.max(Number(old.sub)||0, sub)};
+    let physical = base;
+    for (const v of Object.values(pn)) {
+      if (!v || !Number.isSafeInteger(Number(v.add)) || !Number.isSafeInteger(Number(v.sub)) ||
+          Number(v.add) < 0 || Number(v.sub) < 0) return false;
+      physical += Number(v.add) - Number(v.sub);
+      if (!Number.isSafeInteger(physical)) return false;
+    }
+    p.stockBase = base; p.stockEpochId = epoch; p.stockPN = pn;
+    p.stockActual = Math.max(0, physical); p.stockDeficit = Math.max(0, -physical);
+    return true;
+  }
   /* v515: quien gana cuando dos aparatos tienen distinta base de stock para un producto.
      Gana el cambio de stock mas reciente (stockTs). Un sello >5 min en el futuro del reloj
      comun no gana (mismo criterio que v447). Empate: compara una clave determinista, asi
@@ -3090,9 +3751,86 @@
   function _ganaEpocaStockRemota(remoto, local) {
     const tR = Number(remoto && remoto.stockTs) || 0, tL = Number(local && local.stockTs) || 0;
     const ahora = typeof ahoraRelayComun === "function" ? ahoraRelayComun() : null;
-    if (ahora !== null && tR > ahora + 5 * 60 * 1000) return false;
+    const futuroRemoto = ahora !== null && tR > ahora + 5 * 60 * 1000;
+    const futuroLocal = ahora !== null && tL > ahora + 5 * 60 * 1000;
+    if (futuroRemoto !== futuroLocal) return !futuroRemoto;
     if (tR !== tL) return tR > tL;
     return _claveEpocaStock(remoto) > _claveEpocaStock(local);
+  }
+  /* P0 fork-preservation: two different physical baselines are NOT evidence
+     that all independent stock operations have been counted. Preserve both
+     existing per-device ledgers for later human/immutable-event reconciliation.
+     This NEVER changes the displayed stock or invents a common baseline. */
+  function _pruebasStockUnir(...fuentes) {
+    const out = {};
+    function guardar(base, pn, ts, epoch) {
+      if (base == null || !Number.isSafeInteger(Number(base)) || !pn || typeof pn !== "object" || Array.isArray(pn)) return;
+      const ep = typeof epoch === "string" && epoch.length <= 160 ? epoch : "";
+      // Distinct physical epochs may reuse the SAME numeric base.
+      // Keep legacy numeric keys for old backups; add epoch-scoped keys for new ones.
+      const key = ep ? JSON.stringify([Number(base),ep]) : String(Number(base));
+      const prev = out[key] || {};
+      const acc = Object.assign({}, prev.pn || {});
+      Object.keys(pn).sort().forEach((id) => {
+        if (!id || id.length > 120) return;
+        const v = pn[id] || {}, a = Number(v.add), b = Number(v.sub);
+        if (!Number.isSafeInteger(a) || !Number.isSafeInteger(b) || a < 0 || b < 0) return;
+        const old = acc[id] || {};
+        acc[id] = { add: Math.max(Number(old.add) || 0, a),
+                    sub: Math.max(Number(old.sub) || 0, b) };
+      });
+      out[key] = { base: Number(base), pn: acc, ts: Math.max(Number(prev.ts) || 0, Number(ts) || 0),
+        ...(ep ? {epoch:ep} : {}) };
+    }
+    fuentes.forEach((x) => {
+      if (!x) return;
+      const e = x.stockEvidencias;
+      if (e && typeof e === "object" && !Array.isArray(e)) {
+        Object.keys(e).sort().forEach((key) => {
+          const v = e[key]; if (v) guardar(v.base, v.pn, v.ts, v.epoch);
+        });
+      }
+    });
+    fuentes.forEach((x) => { if (x) guardar(x.stockBase, x.stockPN, x.stockTs, x.stockEpochId); });
+    const sorted = {};
+    Object.keys(out).sort((a,b) => (Number(a)-Number(b)) || a.localeCompare(b)).forEach((key) => { sorted[key] = out[key]; });
+    return sorted;
+  }
+  // A physical recount only absorbs movement counters that the counting device
+  // had actually observed. Different numeric bases or wall clocks alone cannot
+  // distinguish a concurrent offline sale from a sale already counted physically.
+  function _conteoIncluyeHechos(recuento, anterior) {
+    const c = recuento && recuento.stockCountWitness;
+    if (!c || !anterior || c.base !== Number(anterior.stockBase) ||
+        String(c.epoch || "") !== String(anterior.stockEpochId || "")) return false;
+    const pn = anterior.stockPN && typeof anterior.stockPN === "object" ? anterior.stockPN : {};
+    return Object.keys(pn).every(actor => {
+      const v = pn[actor] || {}, seen = c.pn && c.pn[actor] || {};
+      return Number.isSafeInteger(Number(v.add)) && Number.isSafeInteger(Number(v.sub)) &&
+        (Number(seen.add) || 0) >= Number(v.add) && (Number(seen.sub) || 0) >= Number(v.sub);
+    });
+  }
+  function _stockHechosNoVacios(x) {
+    return !!(x && x.stockPN && Object.values(x.stockPN).some(v =>
+      v && (Number(v.add) > 0 || Number(v.sub) > 0)));
+  }
+  /* JFC 2026-11-12: UNA sola funcion para "percha en 0 y faltante" (antes copiada en venta,
+     recuperar cancelacion, corregir venta y cierre del dia). El contador compartido (stockPN)
+     ya lleva la salida completa; aqui solo se muestra la percha en 0 y el faltante aparte. */
+  function _perchaEnCeroYFaltante(p) {
+    if (p.stockActual < 0) { p.stockDeficit = (Number(p.stockDeficit) || 0) - p.stockActual; p.stockActual = 0; }
+  }
+  /* Marcha atras de stock que comparten la venta y la anulacion: foto de la percha, de sus
+     contadores y del registro ANTES de mutar; devuelve la funcion que lo deja todo como estaba. */
+  function _marchaAtrasStock(p) {
+    const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
+      meta: ["stockBase","stockPN","stockTs","stockCountTs","stockDeficit","stockReconciliacionPendiente"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
+    return () => {
+      p.stockActual = foto.stock;
+      foto.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
+      movimientos.length = foto.movLen;
+      selloUltimo = foto.sello;
+    };
   }
   function _prepararOpStock(payload, idOperacion) {
     /* A3 (2026-08-28): el delta viaja con el NOMBRE del producto, no solo el id.
@@ -3115,16 +3853,40 @@
           if (Number.isFinite(delta) && delta !== 0) {
             // Base + hechos únicos: dos ventas sin red se SUMAN; un valor absoluto
             // con timestamp descartaba una. La mutación local ya ocurrió antes.
-            if (!_sp.stockPN || _sp.stockBase == null || !Number.isFinite(Number(_sp.stockBase))) {
-              _sp.stockBase = Number(_sp.stockActual) - delta;
-              _sp.stockPN = {};
+            // Fable 5.2 / JFC: an unwitnessed device has no authority to
+            // derive a physical baseline from its own display (stockActual-delta).
+            // Local sale is already durable; keep its immutable sale/movement
+            // and flag reconciliation rather than forging a shared PN base.
+            /* v750 fix (regresion de v747): sin base + contadores el stock viaja como numero
+               absoluto y gana el ultimo reloj: la venta de la ultima unidad no llegaba al otro
+               aparato (su 0 se descartaba como "cero legado") y dos ventas sin red perdian una.
+               El primer movimiento fija la base desde el stock CONOCIDO de este aparato; dos
+               aparatos que veian el mismo numero derivan la misma base y sus ventas se suman.
+               Con stock desconocido no se deriva nada (queda la marca de conciliacion).
+               Prueba: test/fable-v750-stock-abc.test.cjs. NO volver a quitar sin esa prueba verde. */
+            if ((_sp.stockBase == null || !Number.isSafeInteger(Number(_sp.stockBase))) &&
+                _sp.stockActual != null && Number.isSafeInteger(Number(_sp.stockActual) - delta)) {
+              _sp.stockBase = Number(_sp.stockActual) - delta; _sp.stockPN = {};
             }
-            let idStock = idOperacion || "";
-            if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
-            if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
-            const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
-            if (delta > 0) contador.add += delta; else contador.sub += -delta;
-            _sp.stockPN[idStock] = contador;
+            const baseProbada = _sp.stockBase != null &&
+              Number.isSafeInteger(Number(_sp.stockBase));
+            if (baseProbada) {
+              if (!_sp.stockPN || typeof _sp.stockPN !== "object" || Array.isArray(_sp.stockPN)) _sp.stockPN = {};
+              let idStock = idOperacion || "";
+              if (!idStock) try { idStock = (window.OCSyncControl && window.OCSyncControl.deviceIdActual && window.OCSyncControl.deviceIdActual()) || localStorage.getItem("f123_device_id") || ""; } catch (_) {}
+              if (!idStock) { idStock = uuid("stock-device-"); try { localStorage.setItem("f123_device_id", idStock); } catch (_) {} }
+              const contador = _sp.stockPN[idStock] || { add: 0, sub: 0 };
+              if (delta > 0) contador.add += delta; else contador.sub += -delta;
+              _sp.stockPN[idStock] = contador;
+              // Do not mint stockPNHecho from an inferred baseline. Existing
+              // real physical epochs and historical explicit bases retain it.
+              if (window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+                payload.stockPNHecho = { base: _sp.stockBase, epoch: _sp.stockEpochId || "",
+                  actor: idStock, add: contador.add, sub: contador.sub };
+              }
+            } else {
+              _sp.stockReconciliacionPendiente = true;
+            }
             /* Una reposicion paga primero el FALTANTE (JFC 2026-09-29): es la
                misma cuenta que hara el contador compartido al fusionar, asi la
                pantalla no salta de 3 a 2 en el siguiente sync. */
@@ -3248,6 +4010,74 @@
         perchas: ubicaciones.length,
       };
     } catch (_) { return null; }
+  }
+
+  /*
+   * P0 READ-ONLY stock checksum for a physical PC–phone verification gate.
+   * Existing huellaCatalogo intentionally ignores stock. Never relabel that
+   * metadata-only checksum as proof of inventory equality. This method does
+   * not publish to the relay, rewrite the local notebook, or trigger a sync.
+   */
+  async function huellaInventario() {
+    const rows = productos.map((p) => {
+      const rawPN = p && p.stockPN && typeof p.stockPN === "object" && !Array.isArray(p.stockPN) ? p.stockPN : {};
+      return {
+        id: String(p && p.id || ""),
+        stock: Number(p && p.stockActual),
+        deficit: Number(p && p.stockDeficit || 0),
+        base: p && p.stockBase != null ? Number(p.stockBase) : null,
+        epoch: typeof (p && p.stockEpochId) === "string" ? p.stockEpochId : "",
+        pn: Object.keys(rawPN).sort().map((actor) => [
+          actor, Number(rawPN[actor] && rawPN[actor].add || 0), Number(rawPN[actor] && rawPN[actor].sub || 0)
+        ]),
+        conflict: !!(p && p.stockEvidencias && Object.keys(p.stockEvidencias).length)
+      };
+    }).sort((a,b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+    const idDuplicado = new Set();
+    const idsVistos = new Set();
+    rows.forEach((r) => { if (idsVistos.has(r.id)) idDuplicado.add(r.id); idsVistos.add(r.id); });
+    const invalidos = rows.filter((r) => {
+      if (!r.id || idDuplicado.has(r.id) || !Number.isSafeInteger(r.stock) || r.stock < 0 ||
+          !Number.isSafeInteger(r.deficit) || r.deficit < 0 ||
+          (r.base !== null && !Number.isSafeInteger(r.base)) || r.epoch.length > 160 ||
+          r.pn.some((v) => !v[0] || !Number.isSafeInteger(v[1]) ||
+            !Number.isSafeInteger(v[2]) || v[1] < 0 || v[2] < 0)) return true;
+      if (r.pn.length) {
+        // The movement ledger must derive the displayed physical stock.
+        // A partial or corrupted PN read model must NOT get a clean proof.
+        if (r.base === null) return true;
+        const expected = r.base + r.pn.reduce((sum,v) => sum + v[1] - v[2],0);
+        if (!Number.isSafeInteger(expected) || r.stock !== Math.max(0,expected) ||
+            r.deficit !== Math.max(0,-expected)) return true;
+      }
+      return false;
+    }).length;
+    const sinEpoca = rows.filter((r) => !r.epoch).length;
+    const conflictos = rows.filter((r) => r.conflict).length;
+    // Never issue a clean checksum for structurally corrupt data or a browser
+    // without SubtleCrypto: absence of proof is not evidence of equality.
+    if (invalidos || !window.crypto || !window.crypto.subtle || typeof TextEncoder === "undefined")
+      return { ok:false, comparable:false, certificado:false, productos:rows.length,
+        sinEpoca, conflictos, invalidos, razon:"checksum-no-disponible-o-datos-invalidos" };
+    const digest = async (data) => {
+      const bytes = new TextEncoder().encode(JSON.stringify(data));
+      const hash = await window.crypto.subtle.digest("SHA-256", bytes);
+      return Array.from(new Uint8Array(hash), (n) => n.toString(16).padStart(2,"0")).join("");
+    };
+    try {
+      const [existencias, movimientos] = await Promise.all([
+        digest(rows.map((r) => [r.id,r.stock,r.deficit])),
+        digest(rows.map((r) => [r.id,r.stock,r.deficit,r.base,r.epoch,r.pn,r.conflict]))
+      ]);
+      return { ok:true, comparable:sinEpoca === 0 && conflictos === 0,
+        certificado:false, // Not a cross-device confirmation: requires independent durable peer evidence.
+        productos:rows.length, sinEpoca, conflictos, invalidos:0,
+        algoritmo:"SHA-256", existencias, movimientos,
+        advertencia:"Solo huellas locales: la igualdad NO demuestra recepción duradera ni conciliación física" };
+    } catch (_) {
+      return { ok:false, comparable:false, certificado:false, productos:rows.length,
+        sinEpoca, conflictos, invalidos, razon:"checksum-fallo" };
+    }
   }
 
   /* ==========================================================================
@@ -3513,14 +4343,31 @@
     try {
       // catalogoPropio incluye el PIN activo; el sidecar se guarda por OCsecure
       // inmediatamente y no debe convertir una preparación local en un merge de negocio.
-      const catalogo = window.OCSync.catalogoPropio();
+      const catalogo = _catalogoInterno(false);
       // stockDeficit is derived in applyCatalogo but intentionally omitted from wire catalog.
       const deficits = new Map(productos.map((p) => [String(p.id), Number(p.stockDeficit) || 0]));
       catalogo.productos.forEach((p) => { p.stockDeficit = deficits.get(String(p.id)) || 0; });
       return _serializarMergeCanonico(catalogo);
     } catch (_) { return null; }
   }
+  const URGENCIA_MERGE = Object.freeze({ productos: "diferible", actividad: "diferible", resto: "inmediato" });
+  function _urgenciaPersistenciaMerge(remoto, esProyeccionIncremental, promesasPins, adoptaNombre) {
+    // Only a verified product-only Yjs projection can defer its backup.
+    // Unknown collections fail closed to the immediate durability class.
+    const colecciones = [];
+    if (esProyeccionIncremental !== true) colecciones.push("resto");
+    if (promesasPins.length) colecciones.push("pinsRol");
+    if (adoptaNombre) colecciones.push("nombreNegocio");
+    Object.keys(remoto || {}).forEach(function (nombre) {
+      if (Array.isArray(remoto[nombre]) && remoto[nombre].length) colecciones.push(nombre);
+    });
+    return colecciones.some(function (nombre) {
+      return (URGENCIA_MERGE[nombre] || URGENCIA_MERGE.resto) === URGENCIA_MERGE.resto;
+    }) ? URGENCIA_MERGE.resto : URGENCIA_MERGE.productos;
+  }
   function aplicarCatalogo(remoto, rolRemoto, nombreCanonicoYjs) {
+    const soloProductosSync = arguments.length > 3 && arguments[3] === true;
+    if (_conflictoEstadoAB) return {ok:false,error:"Conflicting saved copies; incoming state is retained for retry."};
     if (_ventaConfirmando) {
       _ventaCatalogosPendientes.push({ remoto: clonar(remoto), rolRemoto, nombreCanonicoYjs: nombreCanonicoYjs === true });
       return false;
@@ -3536,10 +4383,18 @@
     const _demoRemoto = _seleccionarSemillaDemoPura(remoto);
     const dif = compararCatalogo(remoto, rolRemoto);
     if (!dif) return { ok: false, error: "The catalog received is not readable." };
-    const huellaAntes = _huellaEstadoMerge();
+    const negocioAntes = _huellaEstadoMerge();
+    let actividadNueva;
+    try { actividadNueva = _actividadUnir(actividadCompartida, remoto.actividad || []); }
+    catch (_) { return { ok: false, error: "The shared activity evidence is not readable." }; }
     const mandaElOtro = dif.ganaElOtro;
     let agregadasU = 0, agregadosP = 0, actualizados = 0, ventasAgregadas = 0;
     const promesasPins = [];
+    const actividadCambio = actividadNueva !== actividadCompartida &&
+      _serializarMergeCanonico(actividadNueva) !== _serializarMergeCanonico(actividadCompartida);
+    if (actividadCambio) {
+      actividadCompartida = actividadNueva; actualizados++;
+    }
 
     if (Array.isArray(remoto.gastos)) remoto.gastos.forEach((g) => {
       if (!g || !g.id || (!g.borrado && (!g.concepto || !(Number(g.monto) > 0)))) return;
@@ -3663,7 +4518,7 @@
            con stock 0 (filosofia "el stock es fisico de cada percha"). En un
            cuaderno COMPARTIDO el stock es dato del negocio y cruza: el articulo
            entra CON el stock del otro aparato. */
-        productos.push(Object.assign({}, p, { stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0, fotoHash: p.fotoHash || null }));
+        productos.push(Object.assign({}, p, { stockActual: window.OCBusinessReadModel.stock(p).units, stockTs: Number(p.stockTs) || 0, fotoHash: p.fotoHash || null }));
         _observarRev(p.rev);
         agregadosP++;
       } else {
@@ -3674,7 +4529,14 @@
         /* Fecha de alta (2026-09-25, rebaja por antiguedad): converge a la MAS ANTIGUA,
            gane quien gane el rev; asi dos aparatos calculan la misma antiguedad. */
         if (p.creadoEn && Number.isFinite(Date.parse(p.creadoEn)) && (!mio.creadoEn || Date.parse(p.creadoEn) < Date.parse(mio.creadoEn))) { mio.creadoEn = p.creadoEn; actualizados++; }
-        if (ganaP === null && p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; }
+        if (p.fotoHash && !mio.fotoHash) { mio.fotoHash = p.fotoHash; actualizados++; } // v664: add-only sin importar quien gana el rev
+        /* v665: misma revision (c y d iguales) con otro hash no vacio = el autor hasheo la foto NUEVA despues de editarla
+           (el hash no sube rev). Se adopta el puntero nuevo; los bytes viejos quedan en OCFotos y los nuevos se hidratan
+           al llegar por el canal -fotos. Una revision distinta nunca cambia el puntero aqui (rige ganaP mas abajo). */
+        else if (p.fotoHash && p.fotoHash !== mio.fotoHash && p.rev && mio.rev && Number(p.rev.c) > 0 &&
+                 Number(p.rev.c) === Number(mio.rev.c) && String(p.rev.d || "") === String(mio.rev.d || "")) {
+          mio.fotoHash = p.fotoHash; mio.foto = null; actualizados++;
+        }
         /* STOCK LWW por stockTs (JFC 2026-09-16). Simetrico: gana la ULTIMA
            edicion de stock por su sello de tiempo, venga de quien venga. Asi
            "subir a 3 en el celu" aparece en la PC en segundos. Trade-off aceptado:
@@ -3682,10 +4544,109 @@
         const _tsR = Number(p.stockTs) || 0, _tsL = Number(mio.stockTs) || 0;
         const _pnR = p.stockPN && typeof p.stockPN === "object" ? p.stockPN : null;
         const _pnL = mio.stockPN && typeof mio.stockPN === "object" ? mio.stockPN : null;
+        const _stockRConocido = window.OCBusinessReadModel.stock(p).units;
+        const _stockLConocido = window.OCBusinessReadModel.stock(mio).units;
         const _baseR = p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null;
         const _baseL = mio.stockBase != null && Number.isFinite(Number(mio.stockBase)) ? Number(mio.stockBase) : null;
-        if (_baseR !== null && (_baseL === _baseR || (_baseL === null &&
-            (Number(mio.stockActual) === _baseR || Number(mio.stockActual) === Number(p.stockActual))))) {
+        const epochRemote = typeof p.stockEpochId === "string" ? p.stockEpochId : "";
+        const epochLocal = typeof mio.stockEpochId === "string" ? mio.stockEpochId : "";
+        const epochConflict = (epochRemote || epochLocal) && epochRemote !== epochLocal;
+        if (epochConflict && epochLocal && epochRemote) {
+          // Two explicit recount identities conflict even when both numerical
+          // stock bases are identical. Report the conflict without fabricating
+          // an old-format, base-keyed stockEvidencias merge.
+          try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto",
+            {detail:{productoId:mio.id, epochConflict:true}})); } catch (_) {}
+        }
+        // Competing explicit owner/admin recounts must be ordered by the
+        // timestamp of the COUNT, never a later sale's stockTs. Preserve the
+        // losing epoch and its facts in stockEvidencias for reconciliation.
+        // Historic versions lack stockCountTs; retain their stockTs only as
+        // migration fallback, without creating an epoch from that number.
+        const _countR = Number(p.stockCountTs) > 0 ? Number(p.stockCountTs) : _tsR;
+        const _countL = Number(mio.stockCountTs) > 0 ? Number(mio.stockCountTs) : _tsL;
+        // Older releases recorded real physical counts without an epoch
+        // count timestamp. Preserve their one-time migration rule only until
+        // an authenticated count with stockCountTs has been established.
+        // A legacy stockTs can NEVER overrule a modern physical recount.
+        const _legacyCountMigration = !!(epochLocal && !epochRemote &&
+          _baseR !== null && _baseR !== _baseL &&
+          !(Number(mio.stockCountTs) > 0) && _tsR > _tsL);
+        /* v750 fix: orden CAUSAL antes que reloj. El testigo de un recuento nombra la epoca
+           sobre la que se conto: esa epoca es su antecesora y nunca le gana, aunque una venta
+           hecha sin red en la epoca vieja traiga un stockTs posterior (antes esa venta deshacia
+           el recuento del dueno en todos los aparatos). Prueba: test/fable-v750-stock-abc.test.cjs. */
+        const _sucede = (nuevo, viejo, epViejo) => { const w = nuevo && nuevo.stockCountWitness;
+          return !!(w && w.pn && typeof w.pn === "object" && !Array.isArray(w.pn) && String(w.epoch || "") === epViejo &&
+            (w.base == null || viejo.stockBase == null || Number(w.base) === Number(viejo.stockBase))); };
+        const _sucedeR = !!(epochLocal && epochRemote && epochConflict) && _sucede(p, mio, epochLocal);
+        const _sucedeL = !!(epochLocal && epochRemote && epochConflict) && _sucede(mio, p, epochRemote);
+        const _gana = _legacyCountMigration ||
+          !!(!_sucedeL && epochLocal && epochRemote && epochConflict && _baseR !== null &&
+          (_sucedeR || _countR > _countL || (_countR === _countL && epochRemote > epochLocal)));
+        const _epochDoble = !!(epochLocal && epochRemote && epochConflict) && !_gana;
+        const protectedStock = _epochDoble
+          ? {base:mio.stockBase, pn:JSON.parse(JSON.stringify(mio.stockPN || {})),
+             actual:mio.stockActual, deficit:mio.stockDeficit, ts:mio.stockTs, countTs:mio.stockCountTs}
+          : null;
+        // Keep the losing baseline's independent operation IDs even after LWW.
+        // The effective stock remains unchanged until a proven common epoch exists.
+        if ((_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
+            _epochDoble || _gana || // the losing count is recorded as evidence before adopting the winner
+            (mio.stockEvidencias && Object.keys(mio.stockEvidencias).length) ||
+            (p.stockEvidencias && Object.keys(p.stockEvidencias).length)) {
+          const evidence = _pruebasStockUnir(mio, p);
+          if (JSON.stringify(mio.stockEvidencias || {}) !== JSON.stringify(evidence)) {
+            mio.stockEvidencias = evidence; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-evidencia-conflicto", { detail: { productoId: mio.id } })); } catch (_) {}
+          }
+        }
+        // An unobserved actor movement across different recounts remains
+        // unresolved. Preserve both facts and expose a monotonic diagnostic;
+        // never silently count it twice or declare it absorbed by the clock.
+        const _forkFisico = (_baseL !== null && _baseR !== null && _baseL !== _baseR) ||
+          (epochLocal && epochRemote && epochLocal !== epochRemote);
+        if (p.stockReconciliacionPendiente === true || (_forkFisico &&
+            (_stockHechosNoVacios(p) || _stockHechosNoVacios(mio)) &&
+            !_conteoIncluyeHechos(p, mio) && !_conteoIncluyeHechos(mio, p))) {
+          if (mio.stockReconciliacionPendiente !== true) {
+            mio.stockReconciliacionPendiente = true; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-conciliacion-pendiente",
+              { detail: { productoId: mio.id } })); } catch (_) {}
+          }
+        }
+        // An epoch ID alone cannot make an older snapshot a physical recount.
+        /* v759: the witness must name THIS device's history (epoch and base), as in _sucede;
+           a witness of another history (9->0) or no witness at all (9->1) cannot replace
+           known units. A recount without witness (older releases) still proves itself by its
+           stockCountTs or by a product revision that dominates this one (every recount bumps rev).
+           Prueba: test/p0-v759-stock-testigo.test.cjs, fable-v750-recuento-legitimo y incident-v608 (E2). */
+        const _testigoR = p.stockCountWitness;
+        const _formaTestigoR = _testigoR && typeof _testigoR.epoch === "string" &&
+          _testigoR.pn && typeof _testigoR.pn === "object" && !Array.isArray(_testigoR.pn);
+        const _conteoR = !!(epochConflict && !epochLocal) && (_sucede(p, mio, epochLocal) ||
+          (_testigoR == null && _tsR > _tsL && (Number(p.stockCountTs) > 0 || ganaP === true)));
+        if ((epochConflict && !epochLocal && epochRemote && _baseR !== null &&
+            (_tsR > _tsL || _conteoR)) || _gana) {
+          const newCounters = JSON.parse(JSON.stringify(_pnR || {}));
+          const net = _baseR + Object.keys(newCounters).reduce((sum,id) =>
+            sum + (Number(newCounters[id].add)||0) - (Number(newCounters[id].sub)||0), 0);
+          // A later clock cannot replace known units with a zero from an unproven baseline.
+          // Without a counted epoch (v759) it may only attach its epoch to the SAME units.
+          if (Number.isSafeInteger(net) && (_gana ? (net > 0 || !(_stockLConocido > 0) || _formaTestigoR)
+              : (_conteoR || !(_stockLConocido > 0) || net === _stockLConocido))) {
+            mio.stockEpochId = epochRemote;
+            mio.stockCountWitness = p.stockCountWitness ? clonar(p.stockCountWitness) : null;
+            mio.stockCountTs = Number(p.stockCountTs) || 0;
+            mio.stockBase = _baseR;
+            mio.stockPN = newCounters;
+            mio.stockActual = Math.max(0,net);
+            mio.stockDeficit = Math.max(0,-net);
+            mio.stockTs = _tsR;
+            actualizados++;
+          }
+        } else if (!epochConflict && _baseR !== null && (_baseL === _baseR || (_baseL === null &&
+            (_stockLConocido === null || _stockLConocido === _baseR || _stockLConocido === _stockRConocido)))) {
           const pn = Object.assign({}, _pnL || {});
           Object.keys(_pnR || {}).forEach((id) => {
             const antes = pn[id] || {}, nuevo = _pnR[id] || {};
@@ -3700,13 +4661,14 @@
           if (calculado !== Number(mio.stockActual) || JSON.stringify(pn) !== JSON.stringify(_pnL) || _baseL === null || _deficit !== (Number(mio.stockDeficit) || 0)) actualizados++;
           mio.stockBase = _baseR; mio.stockPN = pn; mio.stockActual = calculado; mio.stockDeficit = _deficit;
           mio.stockTs = Math.max(_tsL, _tsR);
-        } else if (_baseL === null && _baseR === null && _tsR > _tsL && Number.isFinite(Number(p.stockActual)) && Number(p.stockActual) >= 0) {
+          mio.stockCountTs = Math.max(Number(mio.stockCountTs) || 0, Number(p.stockCountTs) || 0);
+        } else if (!epochConflict && _baseL === null && _baseR === null && (_tsR > _tsL || (_stockLConocido === null && _tsR === _tsL)) && _stockRConocido !== null) {
           /* Compatibilidad con aparatos anteriores al ledger de stock.
              v445 bloqueo el cero legado destructivo. v447 agrega la otra mitad:
              si YA existe un reloj comun, un stockTs legado que esta >5 min en el
              futuro no demuestra recencia y no puede ganar, sea cero o positivo.
              Se preserva el estado local y se emite diagnostico; no se inventa stock. */
-          const _stockR = Math.max(0, Number(p.stockActual));
+          const _stockR = _stockRConocido;
           const _ahoraComun = ahoraRelayComun();
           const _tsFuturoImposible = _ahoraComun !== null && _tsR > _ahoraComun + 5 * 60 * 1000;
           const _ceroLegadoSospechoso = _stockR === 0 && Number(mio.stockActual) > 0;
@@ -3717,7 +4679,17 @@
           } else {
             try { window.dispatchEvent(new CustomEvent("oc-stock-cero-legado-ignorado", { detail: { productoId: mio.id } })); } catch (_) {}
           }
-        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && _ganaEpocaStockRemota(p, mio)) {
+        } else if (_baseL === null && _baseR === null && !_pnL && !_pnR && _tsR >= _tsL &&
+            (!epochLocal || !epochRemote || epochLocal === epochRemote) &&
+            Number(mio.stockActual) === 0 && Number(p.stockActual) > 0 &&
+            !(ahoraRelayComun() !== null && _tsR > ahoraRelayComun() + 5 * 60 * 1000)) {
+          /* v644: a joining device can get a product first from the old relay checkpoint, at stock 0 with no stamp.
+             The tie then kept 0 forever. With no base and no counters this device never moved this product
+             (every movement or count creates a base), so its 0 is not a fact and the shared value is adopted. */
+          mio.stockActual = Math.max(0, Number(p.stockActual)); mio.stockTs = _tsR;
+          if (epochRemote) mio.stockEpochId = epochRemote;
+          actualizados++;
+        } else if (_baseR !== null && (_baseL === null || _baseL !== _baseR) && !epochLocal && !epochRemote && _ganaEpocaStockRemota(p, mio)) {
           /* v515 (Belen 2026-10-14: "Yo arregle manualmente... no afecto a lo de mi compu").
              Antes, con bases distintas solo se avisaba y NADIE convergia nunca: cada aparato
              quedaba con su numero y una correccion manual no cruzaba. Ahora gana el cambio de
@@ -3728,17 +4700,31 @@
           const pnG = {};
           Object.keys(_pnR || {}).forEach((id) => { pnG[id] = { add: Number(_pnR[id].add) || 0, sub: Number(_pnR[id].sub) || 0 }; });
           const _crudoG = _baseR + Object.keys(pnG).reduce((n, id) => n + pnG[id].add - pnG[id].sub, 0);
-          mio.stockBase = _baseR; mio.stockPN = pnG; mio.stockActual = Math.max(0, _crudoG);
-          mio.stockDeficit = _crudoG < 0 ? -_crudoG : 0; mio.stockTs = _tsR; actualizados++;
-          try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
+          if (_crudoG > 0 || !(_stockLConocido > 0) || _formaTestigoR ||(_baseR > 0 && _stockHechosNoVacios(p))) {
+            mio.stockBase = _baseR; mio.stockPN = pnG; mio.stockActual = Math.max(0, _crudoG);
+            mio.stockDeficit = _crudoG < 0 ? -_crudoG : 0; mio.stockTs = _tsR; actualizados++;
+            try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "remoto" } })); } catch (_) {}
+          }
         } else if (_baseR !== null && _baseL !== null && _baseR !== _baseL) {
           try { window.dispatchEvent(new CustomEvent("oc-stock-base-conflicto", { detail: { productoId: mio.id, resuelto: "local" } })); } catch (_) {}
+        }
+        // A conflicting explicit physical epoch is not proof of a recount.
+        // Preserve this device's active physical inventory, even if a legacy
+        // branch inadvertently tried to adopt a remote numeric base.
+        if (protectedStock) {
+          mio.stockBase = protectedStock.base;
+          mio.stockPN = protectedStock.pn;
+          mio.stockActual = protectedStock.actual;
+          mio.stockDeficit = protectedStock.deficit;
+          mio.stockTs = protectedStock.ts;
+          mio.stockCountTs = protectedStock.countTs;
         }
         if (ganaP === true) {
           if (!p.borrado && !esTextoCorto(String(p.nombre || ""), 240)) return;
           const campos = ["nombre", "sku", "barcode", "categoria", "precio", "precioCasa", "precioReserva", "precioWalkIn", "costo", "ubicacionId", "umbralRojo", "umbralAmarillo", "perecible", "exentoImpuesto", "fechaCaducidad", "proveedor", "metodoCosteo", "tipoProveedor", "tipoProducto", "servingMl", "botellaMl", "comisionProveedorPct", "comisionistaId", "pctAsociado", "direccionComision", "fechaEvento", "chip", "archivado", "piezaUnica", "fotoHash", "borrado", "rev"];
           const fotoAnterior = mio.fotoHash;
-          campos.forEach((k) => { if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
+          // render-fotos: a winning revision with an empty hash (peer that has not hashed yet / pre-v664 shell) must not clear the local pointer or photo.
+          campos.forEach((k) => { if (k === "fotoHash" && !p.fotoHash) return; if (Object.prototype.hasOwnProperty.call(p, k)) mio[k] = p[k]; });
           if (fotoAnterior !== mio.fotoHash) mio.foto = null;
           _observarRev(p.rev); actualizados++;
         } else if (ganaP === null && mandaElOtro) {
@@ -3813,9 +4799,17 @@
           local.fechaDevolucion = (retorno && retorno.fecha) || fechaRetornoLocal || v.fechaDevolucion || null;
           if (pagadaLocal && splitLocal) local.split = splitLocal;
           else if (pagadaRemota && splitRemoto) local.split = splitRemoto;
-          if (local.liquidada && local.split && (local.anulada || local.devuelta)) {
+          /* v597 (clawback doble): una venta ANULADA/cancelada que ya estaba pagada la descuenta
+             el libro de pagos (payout-ledger.js, fila "void" = lo realmente pagado, ver
+             test/payout-anulada-retencion-2026-10-07.test.js). Fabricar ademas un aj-dev hacia
+             que el mismo pago se descontara dos veces (-40 habiendo cobrado 20). El aj-dev
+             queda SOLO para la venta devuelta (no anulada). */
+          if (local.liquidada && local.split && local.devuelta && !local.anulada) {
             const idAj = "aj-dev-" + String(local.id);
-            const yaHay = ajustesComision.some((a) => a && (String(a.id) === idAj || String(a.ventaId) === String(local.id)));
+            /* v597: yaHay solo cuenta una DEVOLUCION de esta venta. Antes cualquier ajuste con su
+               ventaId (p.ej. el adj-retro del recalculo retroactivo) daba el clawback por hecho
+               y la venta pagada y devuelta en otro aparato no descontaba nada. */
+            const yaHay = ajustesComision.some((a) => a && (String(a.id) === idAj || (a.tipo === "devolucion" && String(a.ventaId) === String(local.id))));
             if (!yaHay) {
               const sp = local.split;
               ajustesComision.push({
@@ -4052,7 +5046,10 @@
       nombreNegocio = remoto.nombreNegocio.trim().slice(0, 80);
       if (_tsRemoto) nombreNegocioTs = _tsRemoto;
       if (_revRemoto > nombreNegocioRev) nombreNegocioRev = _revRemoto; // Lamport: sincroniza el contador
-      try {
+      // v594: f123_owned describe el negocio PROPIO. Dentro de una tienda unida el
+      // nombre del equipo vive solo en el namespace activo; copiarlo al sidecar
+      // hacia que el candado/header mostraran el nombre ajeno al volver a casa.
+      if (_cuadernoPropio()) try {
         const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
         _ow.nombreNegocio = nombreNegocio;
         if (_tsRemoto) _ow.nombreNegocioTs = _tsRemoto;
@@ -4067,7 +5064,8 @@
          solo nombre por licencia de inmediato. */
       try {
         var _oh = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        if (_oh.instanceId && window.OCAuth && window.OCAuth.heartbeat) {
+        // The panel row belongs to the own license, never to a joined notebook.
+        if (_cuadernoPropio() && _oh.instanceId && window.OCAuth && window.OCAuth.heartbeat) {
           window.OCAuth.heartbeat({ instanceId: _oh.instanceId, licenseCode: _oh.licenseCode || "", email: _oh.email || "", whatsapp: _oh.whatsapp || "", nombre: _oh.nombre || "", nombreNegocio: nombreNegocio, accion: "sync-nombre" });
         }
       } catch (_) {}
@@ -4119,10 +5117,36 @@
             return !!ok;
           }).catch(function () { return false; }));
         };
-        if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
-        const localEmp = (vis.empleados && vis.empleados[0]) || "";
-        if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
-        if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+        // v616: an already licensed phone with NO f123_secure cannot use
+        // fijarOwnerPin (it requires a previous salt). Install exactly the
+        // encrypted room's PINs once; never fabricate or replace an owner PIN.
+        const estadoPinLocal = window.OCSecure.estadoSecreto && window.OCSecure.estadoSecreto();
+        let ingresoExplicito = false;
+        try {
+          const join = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+          const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+          ingresoExplicito = !!(join.instanceId && join.instanceId === own.instanceId &&
+            join.licenseCode === own.licenseCode && pr.owner && pr.owner !== "789");
+        } catch (_) {}
+        const nuevoEquipoSinPIN = window.OCSecure.instalarCredencialesDesdeSala && pr.owner &&
+          (estadoPinLocal === "vacio" || (estadoPinLocal === "ok" && ingresoExplicito));
+        if (nuevoEquipoSinPIN) {
+          promesasPins.push(Promise.resolve().then(function () {
+            return window.OCSecure.instalarCredencialesDesdeSala(pr);
+          }).then(function (ok) {
+            if (ok === true) return true;
+            if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
+            const localEmp = (vis.empleados && vis.empleados[0]) || "";
+            if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
+            if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+            return false;
+          }, function () { return false; }));
+        } else {
+          if (pr.owner && window.OCSecure.fijarOwnerPin) take(pr.owner, vis.owner, window.OCSecure.fijarOwnerPin, "dueno");
+          const localEmp = (vis.empleados && vis.empleados[0]) || "";
+          if (pr.emp && window.OCSecure.fijarEmpleadoPin) take(pr.emp, localEmp, window.OCSecure.fijarEmpleadoPin, "empleado");
+          if (pr.acct && window.OCSecure.fijarAcctPin) take(pr.acct, vis.acct, window.OCSecure.fijarAcctPin, "contador");
+        }
       }
     } catch (_) {}
     /* Categorías (ver categoriasMeta). Gana la revisión mayor; una entrada
@@ -4169,11 +5193,17 @@
       });
       if (cambiosCat.length) { _reflejarCategoriasEnListas(cambiosCat); actualizados += cambiosCat.length; }
     }
-    const huellaDespues = _huellaEstadoMerge();
-    const cambioPersistible = huellaAntes === null || huellaDespues === null || huellaAntes !== huellaDespues;
+    const negocioDespues = _huellaEstadoMerge();
+    // History has its own additive comparison; do not rebuild it in every business fingerprint.
+    const cambioNegocio = negocioAntes === null || negocioDespues === null || negocioAntes !== negocioDespues;
+    const cambioPersistible = actividadCambio || cambioNegocio;
     if (cambioPersistible) {
-      mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
-      guardarEstadoLocal();
+      if (negocioAntes !== negocioDespues) mov("merge-catalogo", { perchasAgregadas: agregadasU, productosAgregados: agregadosP, actualizados: actualizados, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, desde: remoto.deviceNombre || "another device" });
+      // Solo una proyección incremental de productos puede esperar al tiempo ocioso.
+      // Los gastos, pagos, ventas, PIN y catálogos completos conservan el guardado inmediato.
+      const urgencia = _urgenciaPersistenciaMerge(remoto, soloProductosSync, promesasPins, _adoptaNombre);
+      if (urgencia === URGENCIA_MERGE.productos) _programarGuardadoMerge();
+      else _guardarMergeInmediatoSeguro();
     }
     if (promesasPins.length) Promise.all(promesasPins).then(async function (resultados) {
       if (_retencionPendiente) await _retencionPendiente; // A prior PIN merge must not append audit inside retention rollback.
@@ -4218,8 +5248,14 @@
       }
       if (!huboExito) return;
       if (!cambioPersistible) mov("merge-catalogo", { perchasAgregadas: 0, productosAgregados: 0, actualizados: 0, miembrosAgregados: 0, miembrosQuitados: 0, clientesAgregados: 0, desde: remoto.deviceNombre || "another device" }, false);
-      return Promise.resolve(guardarEstadoLocal()).then(function (guardado) {
-        if (guardado) avisarCatalogoCambiado();
+      // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27). El aviso sale ya (se auto-filtra con
+      // _estadoPuedeEnviarse); si quedo bloqueado por un guardado estricto, se repite al terminar de guardar.
+      // El relay peer-only no es almacenamiento: el ACK del par exige un guardado estricto independiente.
+      const _persistiendo = Promise.resolve(_guardarMergeInmediatoSeguro()); // credential attempt before announcement
+      const _avisadoYa = _estadoPuedeEnviarse();
+      avisarCatalogoCambiado();
+      return _persistiendo.then(function (guardado) {
+        if (guardado && !_avisadoYa) avisarCatalogoCambiado();
       });
     }).catch(function () {});
     // Ambos caminos de sync (Yjs y realtime) pasan por aquí. Una baja debe
@@ -4235,7 +5271,10 @@
        sincroniza (el producto ya tiene fotoHash), se intenta poner p.foto desde el
        blob ya guardado en OCFotos. */
     try { if (window.OCSync && window.OCSync.hidratarFotosProductos) window.OCSync.hidratarFotosProductos(); } catch (_) {}
-    return { ok: true, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo(), pinsConfirmados: Promise.all(promesasPins).then(resultados => resultados.every(ok => ok === true), () => false) };
+    const resultado = { ok: true, actividadCompleta: _actividadEstado(_actividadExportable()).ok, agregadasU, agregadosP, actualizados, ventasAgregadas, miembrosAgregados, miembrosActualizados, miembrosQuitados, clientesAgregados, promotorasAgregadas, sucursalesAgregadas, huella: huellaCatalogo(), pinsConfirmados: Promise.all(promesasPins).then(resultados => resultados.every(ok => ok === true), () => false) };
+    // A current Y.Doc projection may supply missing history required by a retained older batch.
+    if (!_drenandoCatalogos && !_drenarCatalogosPendientes()) return Object.assign(resultado, { ok:false, error:"An incoming catalog is still pending application." });
+    return resultado;
   }
 
   /* ===================================================================
@@ -4253,12 +5292,53 @@
     // "licencia canónica del lord" se retiró (ver RETIRO DEL LORD arriba).
     try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null"); return o && o.licenseCode ? _normLic(o.licenseCode) : ""; } catch (_) { return ""; }
   }
+  /* v594: ¿el cuaderno ACTIVO es el del negocio propio? Si (a) el sufijo es "" o
+     (b) apunta a la misma licencia que f123_owned.licenseCode (aparato reclamado a
+     su licencia canonica). Solo entonces f123_owned (sidecar propio) puede seguir
+     el nombre del cuaderno. En una tienda unida el nombre es del equipo, no del
+     sidecar: antes aplicarCatalogo/aplicarCheckpoint/renombrar lo copiaban igual. */
+  function _cuadernoPropio() {
+    try { return !OC_STATE_SUFIJO || _normLic(OC_STATE_SUFIJO.slice(2)) === _licenciaPropia(); } catch (_) { return true; }
+  }
+  /* v594: hash corto (4 hex, FNV-1a) para la traza de diagnostico: permite comparar
+     "la misma cosa" entre dos aparatos sin sacar nombres ni licencias de la pantalla. */
+  function _h4(x) {
+    var h = 0x811c9dc5, s = String(x || "");
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return ("0000" + (h & 0xffff).toString(16)).slice(-4);
+  }
   function _licenciaActual() {
     // La licencia de la tienda activa: si hay sufijo "::L", es L; si no, la propia.
     return OC_STATE_SUFIJO ? OC_STATE_SUFIJO.slice(2) : _licenciaPropia();
   }
+  /* v598 (ultrareview 2, punto 1): identidad de la caja de puntos de recuperacion. La usan
+     OCTienda.cuadernoId() (cliente: avanzado-extra.js cajaOrigen, vista-perchas.js G08) Y
+     /api/respaldo/exportar (_recuperacion.notebookId): tienen que ser la MISMA funcion.
+     1) instanceId en memoria; 2) si quedo null tras un reload, re-lee f123_owned EN VIVO
+     (mismo criterio que estaLicenciado, sin hidratar nada); 3) sin instanceId (demo, plan
+     gratis, aparato sin activar o que lo perdio): un id local estable de ESTE aparato
+     (f123_caja_cuaderno_local), creado una sola vez. En v597 el paso 3 no existia y esos
+     cuadernos se quedaban sin puntos automaticos, sin aviso. El namespace (f123_tienda_activa)
+     sigue separando cuaderno propio y cuadernos unidos. Si el id cambia (activar, importar),
+     los puntos viejos NO se borran: Advanced los lista como "identidad anterior". */
+  function _cuadernoIdCaja() {
+    if (instanceId) return String(instanceId);
+    try { const o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {}; if (o.instanceId) return String(o.instanceId); } catch (_) {}
+    try {
+      let local = localStorage.getItem("f123_caja_cuaderno_local");
+      if (!local) {
+        local = "local-" + ((typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+        localStorage.setItem("f123_caja_cuaderno_local", local);
+      }
+      return local;
+    } catch (_) { return ""; }
+  }
   window.OCTienda = {
     licenciaActual: _licenciaActual,
+    /* v597: identidad ESTABLE del cuaderno activo (instanceId). A diferencia de la licencia,
+       no cambia al rotar el codigo de sala; la usa la caja de puntos de recuperacion.
+       v598: sin instanceId cae a _cuadernoIdCaja() (ver arriba), nunca "" mientras haya localStorage. */
+    cuadernoId() { try { return _cuadernoIdCaja(); } catch (_) { return ""; } },
     /* ¿La tienda activa es una UNIDA (sufijo con licencia) o la propia (sufijo "")?
        Lo usa la pantalla de PIN para rotular a QUÉ tienda estás entrando sin
        tocar el camino de la tienda propia (cliente en vivo). (JFC 2026-08-26) */
@@ -4266,6 +5346,30 @@
     /* Nombre de la tienda ACTIVA (namespaceado, en memoria). "" si aún no tiene
        nombre (tienda unida recién creada que todavía no sincronizó). */
     nombreActivo() { try { return nombreNegocio || ""; } catch (_) { return ""; } },
+    /* v594: UNICA regla de "nombre que se puede mostrar" para quien no quiere
+       esperar al cuaderno: el nombre del cuaderno activo; si aun esta vacio, el
+       ultimo nombre conocido del negocio PROPIO (sidecar) y NUNCA en tienda unida
+       (alli un nombre ajeno del sidecar rotularia el cuaderno equivocado). */
+    nombreConocido() {
+      try {
+        if (nombreNegocio) return nombreNegocio;
+        if (!_cuadernoPropio()) return "";
+        const o = JSON.parse(localStorage.getItem("f123_owned") || "null");
+        return (o && typeof o.nombreNegocio === "string") ? o.nombreNegocio.trim() : "";
+      } catch (_) { return ""; }
+    },
+    /* v594: TRAZA DE DIAGNOSTICO, SOLO LECTURA. Sin nombres, licencias ni datos de
+       clientes: solo hashes de 4 hex, la revision y que fuente ganaria. La pinta la
+       linea "Sync:" de Advanced para que se pueda copiar y comparar entre aparatos. */
+    trazaNombre() {
+      try {
+        let o = null; try { o = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) {}
+        const car = (o && typeof o.nombreNegocio === "string") ? o.nombreNegocio.trim() : "";
+        const fuente = nombreNegocio ? "ram" : (_cuadernoPropio() && car ? "sidecar" : "vacio");
+        return { unida: !!OC_STATE_SUFIJO, ns: _h4(OC_STATE_SUFIJO), rev: Number(nombreNegocioRev) || 0,
+          nombre: _h4(nombreNegocio), sidecar: _h4(car), sidecarRev: Number(o && o.nombreNegocioRev) || 0, fuente: fuente };
+      } catch (_) { return { fuente: "error" }; }
+    },
     /* Cambia la app a la tienda de la licencia dada. Devuelve
        { ok, cambiado, mismo } sin recargar si ya estás en esa tienda. */
     cambiar(licencia, opts) {
@@ -4287,6 +5391,11 @@
       // Registro licencia -> sufijo.
       let reg = {};
       try { reg = JSON.parse(localStorage.getItem("f123_tiendas") || "{}") || {}; } catch (_) { reg = {}; }
+      // Capture v614 alias collisions BEFORE pruning stale registry entries:
+      // pruning removes precisely the old-license witness needed for recovery.
+      var aliasActivoAntes = Object.keys(reg).some(function (k) {
+        return _normLic(k) !== norm && reg[k] === OC_STATE_SUFIJO;
+      });
       /* Guest licenses must not map to the own-store suffix "". That was the
          f123_tiendas corruption (P3W1D/JENF → ""). Own license MAY be "". */
       try {
@@ -4334,18 +5443,52 @@
          licencia canónica _licenciaPropia() ya la devuelve y esta rama la ancla a
          "" (mismo:true, sin switch ni movimiento de data). */
       let sufDest;
-      if (norm === _licenciaPropia()) sufDest = OC_STATE_SUFIJO; // mi casa: quedarme en el cajón con data (elegido al arrancar), nunca forzar "" vacío
-      else if (norm === desde) sufDest = OC_STATE_SUFIJO;        // ya estoy en esa tienda
+      // P0 v615: compare against the PRE-JOIN active license. unirse() has already
+      // written the requested license into f123_owned, so _licenciaPropia() is NOT
+      // evidence that the current notebook is the requested notebook.
+      // P0 v615 recovery: v614 may already have registered TWO licenses to one
+      // active namespace after the premature owned-license mutation. On an
+      // explicit pending join, that alias is not proof that the requested
+      // license's actual notebook was selected. Keep every old buffer intact.
+      var joinPendiente = false;
+      try {
+        var pedido = JSON.parse(localStorage.getItem("f123_join_pending_v1") || "null") || {};
+        joinPendiente = _normLic(pedido.licenseCode || "") === norm;
+      } catch (_) {}
+      var destinoRegistrado = Object.prototype.hasOwnProperty.call(reg, norm);
+      var colisionAnterior = joinPendiente && destinoRegistrado &&
+        reg[norm] === OC_STATE_SUFIJO && aliasActivoAntes;
+      // P0 v616: two saved licenses pointing at the same physical notebook
+      // have NO reliable owner. Do not invent an empty destination and conceal
+      // real shop data; refuse the join without moving its storage pointer.
+      if (colisionAnterior) return { ok: false, error: "Two licenses reference the same saved notebook. The existing business has been preserved; automatic switching is blocked until its identity can be verified." };
+      if (norm === desde && destinoRegistrado && reg[norm] !== OC_STATE_SUFIJO) sufDest = reg[norm];
+      else if (norm === desde) sufDest = OC_STATE_SUFIJO;
       else if (norm in reg) sufDest = reg[norm];                 // tienda unida ya conocida
       else sufDest = "::" + norm;                                // tienda ajena nueva
       reg[norm] = sufDest;
-      try { localStorage.setItem("f123_tiendas", JSON.stringify(reg)); } catch (_) {}
+      var registroPrevio = null;
+      try {
+        registroPrevio = localStorage.getItem("f123_tiendas");
+        localStorage.setItem("f123_tiendas", JSON.stringify(reg));
+        if (localStorage.getItem("f123_tiendas") !== JSON.stringify(reg)) throw new Error("registry not committed");
+      } catch (_) { return { ok: false, error: "Could not save the business registry. Your previous notebook was left unchanged." }; }
       if (sufDest === OC_STATE_SUFIJO) {
         return { ok: true, cambiado: false, mismo: true };
       }
       // Flush de la tienda actual bajo SUS claves antes de cambiar el marcador.
       try { guardarEstadoLocal(); } catch (_) {}
-      try { localStorage.setItem("f123_tienda_activa", sufDest); } catch (_) {}
+      // Do not reload or change the network room unless the active namespace
+      // has actually persisted. Quota errors are NOT a successful join.
+      var marcadorAnterior = null;
+      try {
+        marcadorAnterior = localStorage.getItem("f123_tienda_activa");
+        localStorage.setItem("f123_tienda_activa", sufDest);
+        if (localStorage.getItem("f123_tienda_activa") !== sufDest) throw new Error("active namespace not committed");
+      } catch (_) {
+        try { if (registroPrevio === null) localStorage.removeItem("f123_tiendas"); else localStorage.setItem("f123_tiendas", registroPrevio); } catch (_) {}
+        return { ok: false, error: "Could not save the active business. Nothing was deleted; this device remains on its previous notebook." };
+      }
       /* FIJAR LA SALA DE LA TIENDA DESTINO (JFC 2026-08-26, NB-1). CRÍTICO:
          cada tienda sincroniza en SU PROPIA sala (= su licencia). ROOM_KEY es
          global; si no la re-apuntamos al cambiar, la tienda destino heredaría la
@@ -4356,10 +5499,23 @@
          siga siempre a la tienda activa. Fail-safe: si el módulo de sync no está,
          se deja ROOM_KEY como estaba (comportamiento previo). */
       try {
-        if (window.OCSyncControl && window.OCSyncControl.fijarSala) {
-          window.OCSyncControl.fijarSala(norm);
+        if (!window.OCSyncControl || typeof window.OCSyncControl.fijarSala !== "function") {
+          throw new Error("sync module missing");
         }
-      } catch (_) {}
+        const resultadoSala = window.OCSyncControl.fijarSala(norm);
+        if (!resultadoSala || resultadoSala.ok !== true) throw new Error("room was not saved");
+      } catch (_) {
+        // Persisted active notebook and room must agree before any reload.
+        try {
+          if (marcadorAnterior === null) localStorage.removeItem("f123_tienda_activa");
+          else localStorage.setItem("f123_tienda_activa", marcadorAnterior);
+        } catch (_) {}
+        try {
+          if (registroPrevio === null) localStorage.removeItem("f123_tiendas");
+          else localStorage.setItem("f123_tiendas", registroPrevio);
+        } catch (_) {}
+        return { ok: false, error: "Could not save the synchronization room. Your previous notebook remains selected." };
+      }
       // Recargar: en el boot el sufijo ya será el de la tienda destino.
       if (!sinRecargar) { try { location.reload(); } catch (_) {} }
       return { ok: true, cambiado: true };
@@ -4374,122 +5530,47 @@
     reconciliar(licencia) {
       const norm = _normLic(licencia);
       if (!norm) return { ok: false, error: "Empty license." };
-      /* JFC 2026-08-28 (bug de join): capturar la tienda de la que se sale ANTES
-         de escribir licenseCode, y pasarla a cambiar() para que el destino sea
-         correcto (mismo bug que unirse()). */
-      const _desde = _licenciaActual();
+      const desde = _licenciaActual();
+      if (norm !== desde) {
+        return { ok: false, error: "This is a different notebook. Claiming it without a verified data handoff is blocked; your current business remains unchanged." };
+      }
+      // A joined notebook is not the local device's own notebook.
+      // Reconcile its room only; never turn f123_owned into the joined license.
+      let oldOwned = null, touchedOwned = false;
       try {
-        const ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
-        ow.licenseCode = norm;
-        ow.syncCode = norm;              // la cajita de compartir deja de mostrar residuo
-        localStorage.setItem("f123_owned", JSON.stringify(ow));
-        if (ow.instanceId) localStorage.setItem("f123_join_pending_v1", JSON.stringify({ instanceId: ow.instanceId, licenseCode: norm }));
-      } catch (_) {}
-      try { if (window.OCSyncControl && window.OCSyncControl.fijarSala) window.OCSyncControl.fijarSala(norm); } catch (_) {}
-      /* A5 (2026-08-27, auditoría de integridad): alinear el NAMESPACE de tienda
-         con la licencia canónica. Antes solo se fijaba la sala de sync; el
-         f123_tienda_activa quedaba apuntando al namespace viejo → el aparato
-         quedaba "partido" (identidad canónica pero tienda activa vieja) y el
-         merge posterior aterrizaba en el namespace equivocado. cambiar() registra
-         la tienda actual, flushea sus datos bajo sus claves, apunta
-         f123_tienda_activa al namespace de la canónica y fija la sala. sinRecargar:
-         el merge add-only ocurre en memoria al reconectar; recargar aquí vaciaría
-         el estado local que el merge debe sumar. */
+        oldOwned = localStorage.getItem("f123_owned");
+        if (!OC_STATE_SUFIJO) {
+          const ow = JSON.parse(oldOwned || "null") || {};
+          ow.licenseCode = norm; ow.syncCode = norm;
+          const nextOwned = JSON.stringify(ow);
+          localStorage.setItem("f123_owned", nextOwned);
+          if (localStorage.getItem("f123_owned") !== nextOwned) throw new Error("identity not persisted");
+          touchedOwned = true;
+        }
+      } catch (_) {
+        try { if (oldOwned === null) localStorage.removeItem("f123_owned"); else localStorage.setItem("f123_owned", oldOwned); } catch (_) {}
+        return { ok: false, error: "Could not save this device identity. The notebook was not switched." };
+      }
       try {
-        if (window.OCTienda && window.OCTienda.cambiar) window.OCTienda.cambiar(norm, { sinRecargar: true, desde: _desde });
-      } catch (_) {}
-      // NO se llama a _vaciarTiendaFresca(): los datos locales se conservan para que
-      // el merge posterior los sume a la tienda canónica.
+        if (!window.OCSyncControl || typeof window.OCSyncControl.fijarSala !== "function") throw new Error("sync module missing");
+        const r = window.OCSyncControl.fijarSala(norm);
+        if (!r || r.ok !== true) throw new Error("sync room not persisted");
+      } catch (_) {
+        if (touchedOwned) {
+          try { if (oldOwned === null) localStorage.removeItem("f123_owned"); else localStorage.setItem("f123_owned", oldOwned); } catch (_) {}
+        }
+        return { ok: false, error: "Could not connect this notebook's synchronization room." };
+      }
       try { if (window.OCSyncControl && window.OCSyncControl.resincronizar) window.OCSyncControl.resincronizar(); } catch (_) {}
       try { window.dispatchEvent(new CustomEvent("oc-negocio-actualizado", { detail: {} })); } catch (_) {}
       return { ok: true, licencia: norm };
-    },
-  };
+    },  };
 
-  window.OCSync = {
-    conflictosEquipo: () => conflictosEquipo.map((x) => ({ id: x.id, nombre: x.nombre, fecha: x.fecha })),
-    /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
-       sincronizaban foto (por hash). Los productos guardaban la foto INLINE
-       (p.foto), que no viajaba -> la foto de "Test sync unificado" salia en el
-       celu pero no en la PC. Estas dos funciones cierran el hueco reusando OCFotos:
-       - hashearFotosProductos(): para cada producto con foto inline y sin fotoHash,
-         calcula el hash, guarda los bytes en OCFotos y pone p.fotoHash. Asi la foto
-         viaja por el canal de fotos (como las perchas) y el catalogo solo lleva el
-         puntero. Corre al arrancar y cuando cambia una foto.
-       - hidratarFotosProductos(): en el receptor, cuando ya bajaron los bytes,
-         pone p.foto = OCFotos[fotoHash] para los productos que tienen puntero pero
-         no bytes inline, para que la UI (que pinta p.foto) los muestre. */
-    async hashearFotosProductos() {
-      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl) return 0;
-      let n = 0;
-      for (const p of productos) {
-        try {
-          if (p && p.foto && String(p.foto).indexOf("data:") === 0 && !p.fotoHash) {
-            // Hash and bytes must describe the SAME snapshot. A user can replace
-            // or remove the photo while either asynchronous operation is pending.
-            const foto = p.foto;
-            const h = await window.OCFotos.hashDeDataUrl(foto);
-            if (h) {
-              await window.OCFotos.guardarPorHash(h, foto);
-              if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
-            }
-          }
-        } catch (_) {}
-      }
-      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
-      return n;
-    },
-    async hidratarFotosProductos() {
-      if (!window.OCFotos || !window.OCFotos.leerPorHash) return 0;
-      let n = 0;
-      for (const p of productos) {
-        try {
-          if (p && p.fotoHash && !p.foto) {
-            const hash = p.fotoHash;
-            const d = await window.OCFotos.leerPorHash(hash);
-            // Do not restore a removed image, overwrite a newer edit, or write
-            // into a record belonging to the store before an import/shop change.
-            if (d && productos.includes(p) && p.fotoHash === hash && !p.foto) { p.foto = d; n++; }
-          }
-        } catch (_) {}
-      }
-      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
-      return n;
-    },
-    /* borradores.js avisa cada cambio de categoría (alta, renombre, borrado,
-       ocultar, mostrar). Se sella con revisión y se publica al sync. */
-    /* Clave de localStorage de una lista de categorías para el cuaderno activo
-       (v347). borradores.js la usa para leer/guardar en el mismo lugar. */
-    claveCategorias(base) { return _catKey(base); },
-    marcarCategoria(nombre, estado) {
-      try {
-        const nom = String(nombre || "").trim();
-        if (!nom || _CAT_ESTADOS.indexOf(estado) === -1) return false;
-        const id = nom.toLowerCase();
-        categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: _revNueva() };
-        guardarEstadoLocal();
-        avisarCatalogoCambiado();
-        return true;
-      } catch (_) { return false; }
-    },
-    /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
-       DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
-    async confirmarCatalogoDurable() {
-      if (_ventaPendiente) await _ventaPendiente;
-      if (_payoutPendiente) await _payoutPendiente;
-      if (_retencionPendiente) await _retencionPendiente;
-      if (_ventaConfirmando || _payoutConfirmando || _retencionConfirmando) return false;
-      try { return (await guardarEstadoLocal(true, true)) === true; } catch (_) { return false; }
-    },
-    async catalogoConfirmado() {
-      while (_ventaPendiente) await _ventaPendiente;
-      return this.catalogoPropio();
-    },
-    catalogoPropio() {
-      if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK
+  function _catalogoInterno(incluirActividad = true) {
       _sembrarCategoriasLegado(); // categorías de antes de v344: revisión mínima
       const _demoLocal = _seleccionarSemillaDemoPura({ productos, clientes, ventas, ubicaciones, promotoras, sucursales });
       return {
+        actividad: incluirActividad ? _actividadExportable() : undefined,
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), sucursalId: u.sucursalId, promotoraId: u.promotoraId || null, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, escalasComision: u.escalasComision || [], esFeria: !!u.esFeria, esEvento: !!u.esEvento, lecturaPreferida: u.lecturaPreferida || "asociado", usarComisionPropia: !!u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null, fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, rev: u.rev || null, borrado: !!u.borrado, gastoMensual: Number(gastosMensuales[u.id]) || 0, gastoMensualRev: u.gastoMensualRev || null })),
         // v448 GOLDEN: bloquear la semilla por HUELLA EXACTA, no por forma del id.
         // Un negocio real puede tener un id corto como p23; nombre+SKU+barcode
@@ -4499,9 +5580,14 @@
              viajaba (era "hecho fisico de cada percha"). Ahora es un cuaderno
              COMPARTIDO: el stock cruza con LWW por stockTs (sello de la ultima
              edicion de stock). Ver aplicarCatalogo y emitirOpStock. */
-          stockActual: Math.max(0, Number(p.stockActual) || 0), stockTs: Number(p.stockTs) || 0,
+          stockActual: window.OCBusinessReadModel.stock(p).units, stockTs: Number(p.stockTs) || 0,
+          stockCountTs: Number(p.stockCountTs) || 0,
           stockBase: p.stockBase != null && Number.isFinite(Number(p.stockBase)) ? Number(p.stockBase) : null,
+          stockEpochId: typeof p.stockEpochId === "string" ? p.stockEpochId : "",
           stockPN: p.stockPN && typeof p.stockPN === "object" ? JSON.parse(JSON.stringify(p.stockPN)) : null,
+          stockEvidencias: p.stockEvidencias && typeof p.stockEvidencias === "object" ? JSON.parse(JSON.stringify(p.stockEvidencias)) : null,
+          stockCountWitness: p.stockCountWitness && typeof p.stockCountWitness === "object" ? JSON.parse(JSON.stringify(p.stockCountWitness)) : null,
+          stockReconciliacionPendiente: p.stockReconciliacionPendiente === true,
           /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). La foto NO viaja inline
              (un dataURL de ~180KB reventaria el frame del catalogo al agrupar
              varios). Viaja solo el puntero fotoHash; los bytes van por el canal de
@@ -4574,7 +5660,8 @@
             const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
             const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
             return {
-              owner: abre.owner || vis.owner || "",
+              // A stale login sidecar must never outrank the local credential.
+              owner: vis.owner || abre.owner || "",
               emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""),
               acct: abre.acct || vis.acct || ""
             };
@@ -4582,6 +5669,197 @@
         })(),
         huella: huellaCatalogo(),
       };
+  }
+  // v651: a stuck device gets the store's PINs here too; without them it stayed on the factory PIN.
+  function _pinsParaFoto() {
+    try {
+      const abre = (window.OCSecure && window.OCSecure.leerPinQueAbre) ? (window.OCSecure.leerPinQueAbre() || {}) : {};
+      const vis = (window.OCSecure && window.OCSecure.leerPinsVisibles) ? (window.OCSecure.leerPinsVisibles() || {}) : {};
+      // A joined device's factory 789 is not the store's PIN: it reports 789 only when the store itself said so (flag keyed to this license).
+      let unido = false, tienda789 = false;
+      try {
+        const lic = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+        unido = (!!lic && localStorage.getItem("f123_aparato_unido") === lic) || !!OC_STATE_SUFIJO;
+        tienda789 = !!lic && localStorage.getItem("f123_pin_tienda_789") === lic;
+      } catch (_) {}
+      const dueno = vis.owner || abre.owner || "";
+      return { pinsRol: { owner: unido && dueno === "789" && !tienda789 ? "" : dueno, emp: abre.emp || ((vis.empleados && vis.empleados[0]) || ""), acct: abre.acct || vis.acct || "" },
+        ownerPinTs: (window.OCSecure && window.OCSecure.ownerPinTs) ? window.OCSecure.ownerPinTs() : 0 };
+    } catch (_) { return {}; }
+  }
+  function _adoptarPinDeFoto(f) {
+    // Remembers, per license, whether the store's own Owner PIN is the factory 789 (read by the login guard in auth-ui.js).
+    try {
+      const o = f && f.pinsRol && String(f.pinsRol.owner || "");
+      const lic = String((JSON.parse(localStorage.getItem("f123_owned") || "{}") || {}).licenseCode || "").trim().toUpperCase();
+      if (o === "789" && lic) localStorage.setItem("f123_pin_tienda_789", lic); else if (o) localStorage.removeItem("f123_pin_tienda_789");
+    } catch (_) {}
+    try { if (f && f.pinsRol && f.ownerPinTs && window.OCSecure && window.OCSecure.adoptarPinOwnerDeFoto) Promise.resolve(window.OCSecure.adoptarPinOwnerDeFoto(f.pinsRol.owner, f.ownerPinTs)).catch(() => {}); } catch (_) {}
+  }
+  window.OCSync = {
+    conflictosEquipo: () => conflictosEquipo.map((x) => ({ id: x.id, nombre: x.nombre, fecha: x.fecha })),
+    /* FOTO DE PRODUCTO POR HASH (JFC 2026-09-16). Antes solo las PERCHAS
+       sincronizaban foto (por hash). Los productos guardaban la foto INLINE
+       (p.foto), que no viajaba -> la foto de "Test sync unificado" salia en el
+       celu pero no en la PC. Estas dos funciones cierran el hueco reusando OCFotos:
+       - hashearFotosProductos(): para cada producto con foto inline y sin fotoHash,
+         calcula el hash, guarda los bytes en OCFotos y pone p.fotoHash. Asi la foto
+         viaja por el canal de fotos (como las perchas) y el catalogo solo lleva el
+         puntero. Corre al arrancar y cuando cambia una foto.
+       - hidratarFotosProductos(): en el receptor, cuando ya bajaron los bytes,
+         pone p.foto = OCFotos[fotoHash] para los productos que tienen puntero pero
+         no bytes inline, para que la UI (que pinta p.foto) los muestre. */
+    fotoInlineProductoPorHash(hash) {
+      const p = productos.find(p => p && !p.borrado && p.fotoHash === hash && p.foto);
+      return p ? p.foto : null;
+    },
+    async hashearFotosProductos() {
+      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl) return 0;
+      let n = 0;
+      for (const p of productos) {
+        try {
+          if (p && p.foto && String(p.foto).indexOf("data:") === 0 && !p.fotoHash) {
+            // Hash and bytes must describe the SAME snapshot. A user can replace
+            // or remove the photo while either asynchronous operation is pending.
+            const foto = p.foto;
+            const h = await window.OCFotos.hashDeDataUrl(foto);
+            if (h) {
+              // False is a rejected IDB commit, not an ACK. Never publish a
+              // hash pointer until the exact bytes are durable on this device.
+              // Keep the inline source photo so the next seed can retry safely.
+              const bytesDurables = await window.OCFotos.guardarPorHash(h, foto);
+              if (bytesDurables !== true) continue;
+              if (productos.includes(p) && p.foto === foto && !p.fotoHash) { p.fotoHash = h; n++; }
+            }
+          }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
+      return n;
+    },
+    /* v664: perchas cuya foto vive solo por id (localStorage f123_foto_percha_* o IDB por id)
+       reciben su puntero fotoHash sin abrir la vista de perchas. Copy-only: no borra bytes.
+       Si la percha ya tiene fotoRev (alguien puso o quito la foto a proposito) no se toca. */
+    async hashearFotosPerchas() {
+      if (!window.OCFotos || !window.OCFotos.hashDeDataUrl || !window.OCFotos.leerFoto) return 0;
+      let n = 0;
+      // Do not treat a fallback from a failed IDB read as proof of the current photo.
+      const leerFotoVigente = typeof window.OCFotos.leerFotoConfirmada === 'function'
+        ? window.OCFotos.leerFotoConfirmada : window.OCFotos.leerFoto;
+      for (const u of ubicaciones) {
+        try {
+          if (!u || u.id == null || u.fotoHash || u.fotoRev || u.borrado) continue;
+          const bytes = await leerFotoVigente(String(u.id));
+          if (!bytes || String(bytes).indexOf("data:") !== 0) continue;
+          const h = await window.OCFotos.hashDeDataUrl(bytes);
+          if (!h) continue;
+          // A rejected/throwing IDB write is not a durable photo ACK.
+          // Preserve the by-ID source bytes and retry on a later seed.
+          if ((await window.OCFotos.guardarPorHash(h, bytes)) !== true) continue;
+          // Photo may be replaced or removed while the hash write is awaited.
+          // Keep old bytes for recovery; never publish a stale active pointer.
+          if (await leerFotoVigente(String(u.id)) !== bytes) continue;
+          if (ubicaciones.includes(u) && !u.borrado && !u.fotoHash && !u.fotoRev) { const rv = _revNueva(); u.fotoHash = h; u.fotoRev = rv; u.rev = rv; n++; }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); avisarCatalogoCambiado(); } catch (_) {} }
+      return n;
+    },
+    /* v667 REHIDRATAR PUNTEROS DE FOTO (aditivo). Un aparato dañado antes de v665 quedo con fotoHash=null
+       local aunque el catalogo compartido (Yjs) conserva el puntero; como nada vuelve a mezclar un producto
+       que no cambia, nunca lo readoptaba. Aqui: si el puntero local esta VACIO y el registro compartido trae
+       uno, se adopta. Jamas reemplaza un puntero local presente ni borra nada. Una baja explicita de foto viaja
+       al doc compartido enseguida (queda vacio alli), asi que no se readopta. Idempotente y barato (solo recorre
+       los registros sin puntero). Se llama desde hidratarFotosProductos (arranque, catalogo aplicado, bytes). */
+    adoptarPunterosFotoCompartidos() {
+      const Y = window.OCYjs;
+      if (!Y || !Y.mapas) return 0;
+      const compartido = (col, id) => { try { const m = Y.mapas[col]; return m ? m.get(String(id)) : null; } catch (_) { return null; } };
+      let n = 0;
+      for (const p of productos) {
+        if (!p || p.borrado || p.fotoHash || p.foto) continue;
+        const s = compartido("productos", p.id);
+        if (s && typeof s.fotoHash === "string" && s.fotoHash) { p.fotoHash = s.fotoHash; n++; }
+      }
+      for (const u of ubicaciones) {
+        if (!u || u.borrado || u.fotoHash) continue;
+        const s = compartido("ubicaciones", u.id);
+        if (!s || typeof s.fotoHash !== "string" || !s.fotoHash) continue;
+        u.fotoHash = s.fotoHash; if (s.fotoRev) u.fotoRev = s.fotoRev; n++;
+      }
+      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+      return n;
+    },
+    async hidratarFotosProductos() {
+      try { window.OCSync.adoptarPunterosFotoCompartidos(); } catch (_) {}
+      if (!window.OCFotos || !window.OCFotos.leerPorHash) return 0;
+      let n = 0;
+      for (const p of productos) {
+        try {
+          if (p && p.fotoHash && !p.foto) {
+            const hash = p.fotoHash;
+            let d = await window.OCFotos.leerPorHash(hash);
+            // A standalone iPhone PWA may have the authenticated photo in its
+            // hydrated Yjs document while IndexedDB temporarily rejects saves.
+            // Show those exact bytes in memory instead of an empty product card.
+            if (!d) {
+              try {
+                const fotos = window.OCYjs && window.OCYjs.fotosMap;
+                if (fotos && typeof fotos.get === "function") d = fotos.get(hash) || null;
+              } catch (_) {}
+            }
+            // Do not restore a removed image, overwrite a newer edit, or write
+            // into a record belonging to the store before an import/shop change.
+            if (d && productos.includes(p) && p.fotoHash === hash && !p.foto) { p.foto = d; n++; }
+          }
+        } catch (_) {}
+      }
+      if (n) { try { guardarEstadoLocal(); } catch (_) {} try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {} }
+      return n;
+    },
+    /* borradores.js avisa cada cambio de categoría (alta, renombre, borrado,
+       ocultar, mostrar). Se sella con revisión y se publica al sync. */
+    /* Clave de localStorage de una lista de categorías para el cuaderno activo
+       (v347). borradores.js la usa para leer/guardar en el mismo lugar. */
+    claveCategorias(base) { return _catKey(base); },
+    marcarCategoria(nombre, estado) {
+      try {
+        const nom = String(nombre || "").trim();
+        if (!nom || _CAT_ESTADOS.indexOf(estado) === -1) return false;
+        const id = nom.toLowerCase();
+        categoriasMeta[id] = { id, nombre: nom.slice(0, 120), estado, rev: _revNueva() };
+        guardarEstadoLocal();
+        avisarCatalogoCambiado();
+        return true;
+      } catch (_) { return false; }
+    },
+    /* Catalogo propio para mandarselo a un companero de equipo. Solo lo que
+       DEFINE el catalogo: ni ventas, ni clientes, ni stock. */
+    async confirmarCatalogoDurable() {
+      if (_ventaPendiente) await _ventaPendiente;
+      if (_payoutPendiente) await _payoutPendiente;
+      if (_retencionPendiente) await _retencionPendiente;
+      if (_ventaConfirmando || _payoutConfirmando || _retencionConfirmando) return false;
+      try { const ok = (await guardarEstadoLocal(true, true)) === true; if (ok) _mergeSucio = false; return ok; } catch (_) { return false; }
+    },
+    async catalogoConfirmado() {
+      while (_ventaPendiente) await _ventaPendiente;
+      // v601: enviar mientras se guarda (no-dinero, JFC 2026-10-27).
+      // Un guardado NORMAL ya no frena el difundido por el canal legacy (sync-realtime): sale de
+      // inmediato y la persistencia sigue en paralelo. Solo se espera si hay DINERO en curso
+      // (guardado estricto, venta, pago, retencion): ese estado provisional puede revertirse.
+      // catalogoPropio() sigue devolviendo null si la lectura esta bloqueada o el ultimo guardado fallo.
+      while (_guardadoCatalogoPendiente && (_guardadoEstrictoPendiente || _ventaConfirmando ||
+             _payoutConfirmando || _retencionConfirmando)) await _guardadoCatalogoPendiente;
+      return this.catalogoPropio();
+    },
+    unirActividad: _actividadUnir,
+    /* v609: revision durable local; la usa el barrido periodico de sync-yjs para saltarse ciclos sin cambios. */
+    revisionLocal() { return _localRev; },
+    catalogoPropio() {
+      if (!_estadoPuedeEnviarse()) return null; // v599: no espera al guardado en curso
+      if (_ventaConfirmando) return null; // do not seed provisional sale/PN during durable ACK
+      return _catalogoInterno();
     },
     /* CHECKPOINT PARA LA BITACORA CIFRADA (JFC 2026-08-25). A diferencia de
        catalogoPropio(), el checkpoint SI lleva el stock absoluto: es la foto que
@@ -4593,11 +5871,22 @@
       return {
         nombreNegocio: nombreNegocio || "", // B3 (2026-08-28): el nombre también viaja en el checkpoint
         ubicaciones: ubicaciones.filter((u) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "ubicaciones", u)).map((u) => ({ id: u.id, nombre: u.nombre, tipo: u.tipo, activa: u.activa, borrado: !!u.borrado, rev: u.rev || null, estadoRev: u.estadoRev || ((u.borrado || u.activa === false) ? (u.rev || null) : null), fotoHash: u.fotoHash || null, fotoRev: u.fotoRev || null, sucursalId: u.sucursalId, comisionSocio: u.comisionSocio, metaMensual: u.metaMensual, minimoGarantizado: u.minimoGarantizado, contribFija: u.contribFija, esEvento: u.esEvento, esFeria: u.esFeria, lecturaPreferida: u.lecturaPreferida, escalasComision: u.escalasComision, usarComisionPropia: u.usarComisionPropia, baseComision: _baseComisionValida(u.baseComision) || null, rebajaEdad: u.rebajaEdad || null })),
-        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: Math.max(0, Number(p.stockActual) || 0), familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "" })),
+        productos: productos.filter((p) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "productos", p)).map((p) => ({ id: p.id, nombre: p.nombre, sku: p.sku, barcode: p.barcode, categoria: p.categoria, creadoEn: p.creadoEn || null, precio: p.precio, precioCasa: (p.precioCasa == null ? null : p.precioCasa), precioReserva: precioOpcional(p.precioReserva), precioWalkIn: precioOpcional(p.precioWalkIn), costo: p.costo, ubicacionId: p.ubicacionId, umbralRojo: p.umbralRojo, umbralAmarillo: p.umbralAmarillo, perecible: p.perecible, exentoImpuesto: !!p.exentoImpuesto, piezaUnica: typeof p.piezaUnica === "boolean" ? p.piezaUnica : null, fechaCaducidad: p.fechaCaducidad, tipoProducto: p.tipoProducto || "normal", servingMl: p.servingMl || 50, botellaMl: p.botellaMl || 750, estrella: !!p.estrella, stockActual: window.OCBusinessReadModel.stock(p).units, familiaId: p.familiaId || "", productoBaseId: p.productoBaseId || null, varianteAtributo: p.varianteAtributo || "", varianteValor: p.varianteValor || "", stockBase: p.stockBase == null ? null : p.stockBase, stockPN: p.stockPN || null, stockDeficit: Number(p.stockDeficit) || 0, stockTs: Number(p.stockTs) || 0, stockEpochId: p.stockEpochId || "",
+          stockCountWitness: p.stockCountWitness || null,
+          stockReconciliacionPendiente: p.stockReconciliacionPendiente === true, borrado: !!p.borrado, archivado: !!p.archivado, rev: p.rev || null, fotoHash: p.fotoHash || null })),
         usuarios: usuarios.map((u) => ({ id: u.id, nombre: u.nombre, pin: u.pin, rol: u.rol, email: u.email || null, activo: u.activo !== false, creadoEn: u.creadoEn, actualizadoEn: u.actualizadoEn || u.creadoEn || null, rev: u.rev || null, borrado: !!u.borrado })),
         clientes: clientes.filter((c) => !_estaEnSemillaDemoSeleccionada(_demoLocal, "clientes", c)).map((c) => ({ id: c.id, codigo: c.codigo || "", nombre: c.nombre, telefono: c.telefono || "", email: c.email || "", ...perfilCliente(c), evaluacion: c.evaluacion || null })), // v448 GOLDEN: nunca checkpoint de clientes demo
         huella: huellaCatalogo(),
+        ..._pinsParaFoto(),
       };
+    },
+    /* v651: changes that arrive by the durable op lane while Yjs is stuck. Same merge rule as the catalog: nothing is wiped. */
+    aplicarFichas(f) {
+      if (!f || typeof f !== "object") return false;
+      const r = aplicarCatalogo({ ubicaciones: Array.isArray(f.ubicaciones) ? f.ubicaciones : [], productos: Array.isArray(f.productos) ? f.productos : [], usuarios: Array.isArray(f.usuarios) ? f.usuarios : undefined, pinsRol: f.pinsRol || null }, null);
+      _adoptarPinDeFoto(f);
+      guardarEstadoLocal();
+      return r;
     },
     /* Restaura un checkpoint — SOLO en un dispositivo FRESCO, definido como uno
        que NUNCA registro una venta propia (ventas.length === 0). Asi es
@@ -4606,9 +5895,17 @@
        AGREGA perchas y productos CON su stock, y mergea el equipo (add-only).
        Los productos que ya existan (p. ej. llegados con stock 0 por el catalogo
        en vivo) reciben su stock real del checkpoint. */
-    aplicarCheckpoint(snap) {
+    aplicarCheckpoint(snap, intento) {
       try {
         if (!snap || !Array.isArray(snap.productos) || !Array.isArray(snap.ubicaciones)) return { ok: false, motivo: "ilegible" };
+        /* v644: while Yjs is still recovering this notebook, the old checkpoint waits. Arriving first it created products
+           at stock 0, that 0 reached the Y.Doc, and Yjs then broke the tie by device id: each device ended up different.
+           Fallback: after 60 s it applies anyway, so a device whose Yjs cannot finish still gets the store. */
+        const _yjs = window.OCYjs, _n = Number(intento) || 0;
+        if (_yjs && (!_yjs.canal || _yjs.canal.recuperando) && _n < 30) {
+          setTimeout(() => { try { window.OCSync.aplicarCheckpoint(snap, _n + 1); } catch (_) {} }, 2000);
+          return { ok: false, motivo: "esperando-recuperacion" };
+        }
         const _demoSnap = _seleccionarSemillaDemoPura(snap);
         /* B3 (2026-08-28): el nombre de la tienda también llega por checkpoint.
            Se adopta si el local está vacío (un dispositivo nuevo no tiene nombre
@@ -4616,7 +5913,8 @@
            aplica la regla "el dueño gana" — esa corre por el catálogo en vivo. */
         if (snap && typeof snap.nombreNegocio === "string" && snap.nombreNegocio.trim() && !String(nombreNegocio || "").trim()) {
           nombreNegocio = snap.nombreNegocio.trim().slice(0, 80);
-          try {
+          // v594: igual que aplicarCatalogo, el sidecar solo sigue al cuaderno propio.
+          if (_cuadernoPropio()) try {
             const _ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
             _ow.nombreNegocio = nombreNegocio;
             localStorage.setItem("f123_owned", JSON.stringify(_ow));
@@ -4633,7 +5931,7 @@
            su stock lo manda su propia caja. Add-only es seguro: nunca borra ni
            sobrescribe un ítem que ya existe aquí. */
         const fresco = ventas.length === 0;
-        let agP = 0, agPr = 0, agC = 0;
+        let agP = 0, agPr = 0, agC = 0, agStock = 0;
         snap.ubicaciones.forEach((u) => {
           if (!u || !u.id) return;
           if (_estaEnSemillaDemoSeleccionada(_demoSnap, "ubicaciones", u)) return;
@@ -4646,10 +5944,12 @@
         snap.productos.forEach((p) => {
           if (!p || !p.id) return;
           if (_estaEnSemillaDemoSeleccionada(_demoSnap, "productos", p)) return;
-          const stk = Math.max(0, Number(p.stockActual) || 0);
+          const stk = window.OCBusinessReadModel.stock(p).units;
           const mio = productos.find((x) => String(x.id) === String(p.id));
-          if (!mio) { productos.push(Object.assign({}, p, { stockActual: fresco ? stk : 0 })); agPr++; } // producto del equipo; el stock solo si soy fresco
-          else if (fresco && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; }
+          // v648: a store's real sales reach a device through Yjs, so `fresco` is false on any device of a used store. A product
+          // this device did not know, or holds at 0 with no base of its own, has no local truth to protect: it takes the photo.
+          if (!mio) { productos.push(Object.assign({}, p, { stockActual: stk })); if (p.stockBase == null || !Number.isFinite(Number(p.stockBase))) delete productos[productos.length - 1].stockEpochId; agPr++; }
+          else if ((fresco || (mio.stockBase == null && !mio.stockTs && !mio.borrado)) && (Number(mio.stockActual) || 0) === 0 && stk > 0) { mio.stockActual = stk; agStock++; }
         });
         /* CLIENTES del checkpoint (add-only) — antes NO se aplicaban NUNCA, ni en
            aparato fresco. Por eso los clientes reales no llegaban al segundo aparato. */
@@ -4664,9 +5964,16 @@
           });
         }
         if (Array.isArray(snap.usuarios)) {
-          try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios }, null); } catch (_) {}
+          try { aplicarCatalogo({ ubicaciones: [], productos: [], usuarios: snap.usuarios, pinsRol: snap.pinsRol || null }, null); } catch (_) {}
         }
-        guardarEstadoLocal();
+        _adoptarPinDeFoto(snap);
+        // v648: quantities on a product with its own ledger go through the same rule as Yjs (the latest physical count wins).
+        // A deletion travels too: rev decides, as in Yjs, so a photo can neither resurrect a deleted product nor undo a newer edit.
+        const _conLedger = snap.productos.filter((p) => p && p.id && (p.stockBase != null || p.stockTs || p.rev));
+        if (_conLedger.length) { try { aplicarCatalogo({ ubicaciones: [], productos: _conLedger }, null); } catch (_) {} }
+        // v755: the two aplicarCatalogo calls above persist their own changes (PIN/users immediately).
+        // Only this photo's direct additions remain; with none, skip the full save; else join the merge timer.
+        if (agP || agPr || agC || agStock) _programarGuardadoMerge();
         mov("checkpoint-mergeado", { perchas: agP, productos: agPr, clientes: agC, fresco });
         return { ok: true, productos: agPr, perchas: agP, clientes: agC };
       } catch (_) { return { ok: false, motivo: "error" }; }
@@ -4691,6 +5998,7 @@
     /* La huella de ESTE dispositivo. La usan el latido del micelio, el panel
        del equipo y el codigo TEAM- al compartirse. */
     huella: huellaCatalogo,
+    huellaInventario: huellaInventario,
     // Llamado por sync-realtime.js al recibir un Op de otro dispositivo. Si
     // el resultado queda negativo, se deja ver (mov "alerta-descuadre") en
     // vez de esconderlo: eso es un sobrante real que ocurrio en el mundo
@@ -4698,9 +6006,50 @@
     // `ventas`; el delta legado no acredita el acuerdo de comisión, que queda
     // pendiente hasta contar con la venta completa del catálogo.
     aplicarOpRemota(op) {
+      if (_conflictoEstadoAB) return false;
       if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
       const vistos = _cargarOpsAplicadas();
       if (vistos.has(op.opId)) return { ok: true, repetida: true };
+      // New operations carry immutable PN proof; derive the view from movement facts.
+      // Old events remain on their historical Yjs path, avoiding double subtraction.
+      const witness = op.payload && op.payload.stockPNHecho;
+      // P0 JFC: without a causal witness the legacy neutralized bridge would
+      // permanently mark a stock movement applied while changing nothing.
+      // Keep it pending instead; never invent a base, replay a delta, or ACK.
+      // Non-pilot licences retain the historical neutralized Yjs catalog path.
+      if (!witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+        return { ok: false, error: "stock-proof-missing" };
+      }
+      if (witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+        const p = productos.find((x) => x.id === op.payload.productoId);
+        if (!p) return {ok:false, error:"waiting-for-product"};
+        // A rejected durable write must not leave an optimistic PN delta in RAM.
+        // Otherwise the next local sale starts from a movement that never committed.
+        const previoStock = ["stockBase", "stockEpochId", "stockPN", "stockActual", "stockDeficit"]
+          .map(k => ({ k, existe: Object.prototype.hasOwnProperty.call(p, k),
+            valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k] }));
+        const restaurarStock = () => {
+          previoStock.forEach(({k, existe, valor}) => {
+            if (existe) p[k] = valor; else delete p[k];
+          });
+        };
+        if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};
+        let intentoGuardado;
+        try { intentoGuardado = guardarEstadoLocal(true); }
+        catch (_) { restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
+        return Promise.resolve(intentoGuardado).then((saved) => {
+          if (saved !== true) {
+            restaurarStock();
+            return {ok:false, error:"stock-not-durable"};
+          }
+          _marcarOpAplicada(op.opId);
+          avisarCatalogoCambiado();
+          return {ok:true};
+        }).catch(() => {
+          restaurarStock();
+          return {ok:false, error:"stock-commit-failed"};
+        });
+      }
       /* NEUTRALIZADO (JFC 2026-09-16, v293) — EVITA DOBLE CONTEO DE PLATA/STOCK.
          El stock y las ventas ahora los aplica el SYNC NUEVO (catálogo Yjs):
          stock por LWW ABSOLUTO (stockTs, v289) y ventas ADD-ONLY por id (v292).
@@ -4782,8 +6131,38 @@
   /* Foto de la semilla ANTES de cargar nada guardado: la usa refrescarDemoSiViejo(). */
   let _semillaDemo = null;
   try { _semillaDemo = JSON.parse(JSON.stringify(estadoActualExportable())); } catch (_) { _semillaDemo = null; }
+  // JFC 2026-11-01: S2 destructive cutover permanently retired.
+  // Some older login code may still call this historical hook. Keep it inert
+  // for mixed-shell compatibility; never clear a notebook, IndexedDB or PIN.
+  window.__f123PrepareJfcReset = function () { return false; };
   let _demoRefrescado = false;
   try { cargarEstadoLocal(); } catch (e) { console.error("Estado local corrupto (la app arranca con datos semilla):", e); }
+  if (!_estadoLecturaBloqueada) _estadoPublicableConfirmado = _huellaPublicable();
+  /* Caja negra de DATOS (JFC 2026-11-01): nada se pierde. Antes de sincronizar, cada arranque guarda una
+     copia interna completa del estado local en una base IndexedDB aparte (últimas 10), sin UI. Solo para
+     recuperación interna; nunca se borra nada del negocio, solo copias viejas de esta misma caja. */
+  (function cajaNegraDatos() {
+    try {
+      if (_estadoLecturaBloqueada || !window.indexedDB) return;
+      const crudo = JSON.stringify(estadoActualExportable({ vivo: true }));
+      if (!crudo || crudo.length < 50) return;
+      const req = indexedDB.open("f123-caja-negra-datos" + (OC_STATE_SUFIJO || ""), 1);
+      req.onupgradeneeded = function () { try { req.result.createObjectStore("snaps"); } catch (_) {} };
+      req.onsuccess = function () {
+        const db = req.result;
+        try {
+          const tx = db.transaction("snaps", "readwrite"), st = tx.objectStore("snaps");
+          st.put({ en: new Date().toISOString(), bytes: crudo.length, crudo: crudo }, Date.now());
+          const k = st.getAllKeys();
+          k.onsuccess = function () {
+            const ks = k.result.slice().sort(function (a, b) { return a - b; });
+            ks.slice(0, Math.max(0, ks.length - 10)).forEach(function (x) { st.delete(x); });
+          };
+          tx.oncomplete = tx.onabort = tx.onerror = function () { try { db.close(); } catch (_) {} };
+        } catch (_) { try { db.close(); } catch (__) {} }
+      };
+    } catch (_) {}
+  })();
   /* INVARIANTES AL ARRANCAR (JFC 2026-09-30, plan PLAN-INVARIANTES-AL-ARRANCAR-2026-09-30.md).
      Regla: reparar SOLO lo derivable (percha vacia de una venta), avisar SIEMPRE en dinero.
      Solo con datos reales (no semilla demo). El informe se lee por GET /api/invariantes y
@@ -4874,6 +6253,27 @@
     try {
       if (!window.OCEstadoIDB) return;
       const espejo = await window.OCEstadoIDB.leer();
+      // Failback is a SNAPSHOT COPY, not a replay of stock/money effects.
+      // Reconcile the same validated journal only when A/B is newer; never
+      // use a stale IDB mirror to erase a locally accepted sale.
+      if ((!espejo || typeof espejo._rev !== "number" || espejo._rev < _localRev) &&
+          _cargoBufferReal && !_estadoLecturaBloqueada && !_conflictoEstadoAB &&
+          typeof window.OCEstadoIDB.guardarConRevision === "function") {
+        try {
+          const vista = _estadoAB().leer();
+          const raw = vista && vista.buffers[vista.activo];
+          const state = raw ? JSON.parse(raw) : null;
+          if (state && vista.registro && vista.registro.phase === "COMMITTED" &&
+              vista.registro.candidateRaw === raw && !vista.conflictos.length &&
+              !vista.danados.length && state._rev === _localRev &&
+              !validarRespaldo(state)) {
+            const revisionIDB = espejo && Number.isSafeInteger(espejo._rev) ? espejo._rev : 0;
+            // Atomic CAS fences a second tab or a newer IDB revision. Keep the
+            // A/B source intact on failure, including any pending opIds.
+            await window.OCEstadoIDB.guardarConRevision(state, revisionIDB);
+          }
+        } catch (_) {} // Local A/B remains authoritative while IDB is offline.
+      }
       if (!espejo || typeof espejo._rev !== "number") return;
       if (espejo._rev <= _localRev) return;
       if (_demoRefrescado) return; // el demo acaba de volver a la semilla nueva: no resucitar la vieja
@@ -4884,6 +6284,9 @@
       if (validarRespaldo(espejo)) return;
       _localRev = espejo._rev;
       aplicarRespaldo(espejo);
+      _estadoLecturaBloqueada = !!_conflictoEstadoAB;
+      _cargoBufferReal = true;
+      _estadoPublicableConfirmado = _huellaPublicable();
       try {
         /* DORMANT, ver LIMPIEZA_DEMO_ACTIVA arriba (JFC 2026-10-07, "Apagarla, solo filtrar"). */
         if (LIMPIEZA_DEMO_ACTIVA) {
@@ -5110,69 +6513,160 @@
     } catch (_) {}
     // A legacy browser without cross-tab locks must not bypass the visible
     // compatibility guard by invoking a write directly. Reads stay available.
-    if (escribe && window.OC_TAB_READONLY) return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs. Continue in the other tab."}),{status:409,headers:{"Content-Type":"application/json"}});
+    if (escribe && _conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
     if (!escribe) { if (_ventaPendiente) await _ventaPendiente; if (_payoutPendiente) await _payoutPendiente; if (_retencionPendiente) await _retencionPendiente; return _fetchInterno(url, opts); }
     const rolAlPedir=_rolLocal(),epocaAlPedir=window.OC_AUTH_SESSION_EPOCH||0;
-    const ejecutar=()=>{
-      const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
-      const negado=cambio ? "Your session changed while this action was waiting. Sign in and try again." : _negadoPorRol(url,opts);
-      if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
-      if(window.OC_TAB_READONLY)return new Response(JSON.stringify({error:"This browser cannot safely write from two tabs."}),{status:409,headers:{"Content-Type":"application/json"}});
-      _recargarSiOtraPestanaEscribio();return _fetchInterno(url,opts);
-    };
-    if (navigator.locks && navigator.locks.request) {
-      // iOS may keep a Web Lock zombie after PWA backgrounding. Time out ONLY
-      // before entry: once the business write starts, never claim it failed.
-      const safeAbort = typeof AbortController === "function";
-      const controller = safeAbort ? new AbortController() : null;
-      let entered = false, expired = false, timer, failure;
-      const timeoutError = () => {
-        if (failure) return failure;
-        let spanish = false;
-        try { spanish = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es"); } catch (_) {}
-        const error = spanish ? "No se guardó. Intenta de nuevo." : "Not saved. Please try again.";
-        try {
-          let notice = document.getElementById("oc-write-timeout");
-          if (!notice) {
-            notice = document.createElement("div");
-            notice.id = "oc-write-timeout";
-            notice.setAttribute("role", "alert");
-            notice.style.cssText = "position:fixed;z-index:10005;left:16px;right:16px;bottom:16px;padding:16px;border-radius:8px;background:#7C1722;color:#FFFFFF;font-size:16px;font-weight:700;line-height:1.4;";
-            notice.addEventListener("click", () => notice.remove());
-            document.body.appendChild(notice);
-          }
-          notice.textContent = error;
-          setTimeout(() => { try { notice.remove(); } catch (_) {} }, 15000);
-        } catch (_) {}
-        failure = new Response(JSON.stringify({ error }), { status: 503, headers: { "Content-Type": "application/json" } });
-        return failure;
-      };
-      // Never bypass cross-tab serialization when an unabortable lock is present.
-      if (!safeAbort) return timeoutError(); // read-only on unsafe old browsers
-      const timeout = new Promise(resolve => {
-        timer = setTimeout(() => {
-          if (entered) return;
-          expired = true;
-          controller.abort();
-          resolve(timeoutError());
-        }, 10000);
-      });
+    // A rejected CAS sale may only be retried against a newer durable revision.
+    // The normal successful sale pays NO extra IndexedDB read or Web Lock wait.
+    const ventaConcurrente = (() => {
       try {
-        const locked = Promise.resolve(navigator.locks.request("f123-escrituras",
-          { signal: controller.signal }, () => {
-            if (expired || controller.signal.aborted) return timeoutError();
-            entered = true;
-            clearTimeout(timer);
-            return ejecutar();
-          })).catch(error => {
-            if (expired || (error && error.name === "AbortError")) return timeoutError();
-            throw error;
-          });
-        return await Promise.race([locked, timeout]);
-      } finally { clearTimeout(timer); }
-    }
-    // Same-device serialization is also needed where Web Locks is absent.
-    // This is not a lock or reservation between disconnected devices.
+        const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
+        return /^\/api\/productos\/[^/]+\/venta$/.test(path) && ((opts && opts.method) || "GET").toUpperCase() === "POST";
+      } catch (_) { return false; }
+    })();
+    // P0 v689: +1/-1 manual stock deltas need the same bounded CAS rebase as
+    // a sale, on THIS DEVICE too. Never auto-replay absolute physical counts:
+    // they establish a new epoch and require explicit human intent.
+    const ajusteDeltaConcurrente = (() => {
+      try {
+        const path = new URL(typeof url === "string" ? url : url.url, window.location.origin).pathname;
+        if (!/^\/api\/productos\/[^/]+\/ajustar$/.test(path) ||
+            ((opts && opts.method) || "GET").toUpperCase() !== "POST") return false;
+        const body = JSON.parse((opts && opts.body) || "{}");
+        return Number.isInteger(body.delta) && body.delta !== 0 &&
+          !(Number.isInteger(body.stockFisico) && body.stockFisico >= 0);
+      } catch (_) { return false; }
+    })();
+    const ejecutar=async()=>{
+      /* FEATURE - DORMANT (desactivada por orden de JFC, 2026-11-11). NO BORRAR.
+         Este bloque (v730) hacia que la venta esperase hasta 3 s a que la propia
+         pestana terminase de tomar su turno con PIN y, si el turno no era suyo, la
+         rechazaba con 403 "Your session changed...". JFC ordeno que ese mensaje NO
+         salga con el rol vigente y que la venta se acepte SIEMPRE: ya no hace
+         falta esperar el turno, porque el guard de abajo solo compara el ROL y la
+         integridad la da el control de revision de IndexedDB. Un cierre de sesion
+         o cambio de rol real se sigue rechazando en el guard.
+         PARA REACTIVAR (solo con orden expresa de JFC): poner
+         ESPERAR_RECLAMO_PROPIO_ACTIVO = true. */
+      const ESPERAR_RECLAMO_PROPIO_ACTIVO = false; // v739: renombrada (antes _DORMANT con polaridad opuesta a DOBLE_PESTANA_DORMANT): false = DORMIDO
+      // P0: the same tab may still be acquiring its own PIN lease when a user
+      // taps CONFIRM SALE. Wait only for that already-started local claim,
+      // never for another tab, logout, changed role, or changed epoch.
+      // The existing strict session fence below runs again before the write.
+      if (ESPERAR_RECLAMO_PROPIO_ACTIVO && ventaConcurrente && window.OCTabSession && window.OCTabSession.pending) {
+        const tab=window.OCTabSession;
+        const lista=await new Promise(function(resolve) {
+          let finished=false,timer=null;
+          function finish(ok){
+            if(finished)return;finished=true;
+            try{window.removeEventListener('oc-tab-session-changed',changed);}catch(_){}
+            if(timer!==null)clearTimeout(timer);
+            resolve(ok===true);
+          }
+          function changed(){
+            if(rolAlPedir!==_rolLocal() ||
+               epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0))return finish(false);
+            if(!tab.pending)return finish(tab.isCurrent()===true);
+          }
+          window.addEventListener('oc-tab-session-changed',changed);
+          timer=setTimeout(function(){finish(false);},3000);
+          changed();
+        });
+        if(!lista)return new Response(JSON.stringify({error:"Your session changed while this action was waiting. Sign in and try again."}),
+          {status:403,headers:{"Content-Type":"application/json"}});
+      }
+      /* P0 HOTFIX (ORDEN DE JFC, dueno, 2026-11-11): "la venta se acepta SIEMPRE".
+         Una vendedora real no podia vender porque este guard rechazaba la escritura
+         con 403 "Your session changed while this action was waiting..." en dos casos
+         que NO son un cambio de sesion real:
+           (a) la epoca de login (OC_AUTH_SESSION_EPOCH) cambio mientras la accion
+               esperaba en la cola (un nuevo oc-login del MISMO rol, p. ej. al
+               volver a la app), y
+           (b) otra pantalla (pestana o PWA del mismo perfil) tomo el turno
+               compartido de localStorage (OCTabSession.isCurrent() === false).
+         AHORA solo se compara el ROL: un cierre de sesion real o un cambio de rol
+         real (rol distinto, o vacio) sigue dando 403 con este mismo texto.
+         Por que es seguro quitar epoca y turno: la integridad entre pantallas NO la
+         da el turno; la da el control de revision de IndexedDB
+         (OCEstadoIDB.guardarConRevision, compare-and-set) mas
+         _recargarSiOtraPestanaEscribio() justo abajo, que releen el estado
+         durable antes de escribir. Dos pantallas pueden vender a la vez y el CAS
+         decide (la venta rechazada se rebasa una vez, ver el reintento CAS mas abajo).
+         El turno SOLO gobierna la sincronizacion (OCTabSession.canSync en
+         sync-yjs.js / sync-realtime.js): eso NO se toca aqui.
+         NO mostrar modales/avisos ni texto nuevo (orden de JFC).
+         PARA REVERTIR (volver al guard viejo, NO recomendado): cambiar la linea por
+           const cambio=rolAlPedir!==_rolLocal() || epocaAlPedir!==(window.OC_AUTH_SESSION_EPOCH||0) || (window.OCTabSession && !window.OCTabSession.isCurrent());
+         y revertir tab-session.js check() (ver su comentario DORMANT). */
+      const cambio=rolAlPedir!==_rolLocal();
+      // JFC 2026-11-12: el turno entre pestanas ya no existe. Cambio real de rol o cierre de
+      // sesion sigue dando 403, con el texto de permiso que ya existia (ningun texto nuevo).
+      const negado=_negadoPorRol(url,opts) || (cambio ? "Ask the owner or a manager: an employee cannot do this." : null);
+      if(negado)return new Response(JSON.stringify({error:negado}),{status:403,headers:{"Content-Type":"application/json"}});
+      _recargarSiOtraPestanaEscribio();
+      if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
+      let revisionAntes = _localRev; // capture before a foreign storage event can advance our revision
+      let primero = await _fetchInterno(url,opts);
+      // v755: up to 3 local rebases (was 1). Each one only against a NEWER durable revision
+      // than the previous attempt, so it can never apply the same sale twice.
+      for (let _reintento = 0; _reintento < 3; _reintento++) {
+      // #607: 503 now identifies a NON-quota strict save rejection, but the
+      // existing fenced sale-rebase must still run. Only accept our explicit
+      // durability code; an arbitrary 503 is never replayed. The response is
+      // cloned so the original error remains readable by the caller.
+      let _rechazoReintentable = primero.status === 507;
+      if ((ventaConcurrente || ajusteDeltaConcurrente) && primero.status === 503) {
+        try {
+          const codigo = (await primero.clone().json()).code;
+          _rechazoReintentable = ventaConcurrente
+            ? codigo === "SALE_DURABILITY_UNCONFIRMED"
+            : codigo === "STOCK_DURABILITY_UNCONFIRMED";
+        } catch (_) { _rechazoReintentable = false; }
+      }
+      // Only an explicit non-quota stock CAS refusal may be replayed. 507 from
+      // genuine storage quota is NEVER retried here. The handler has rolled back.
+      if (ajusteDeltaConcurrente && primero.status !== 503) _rechazoReintentable = false;
+      if (!(ventaConcurrente || ajusteDeltaConcurrente) || !_rechazoReintentable || _estadoLecturaBloqueada ||
+          _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
+      // A local mirror may still be settling after the first durable ACK.
+      // Wait for it only on this failed path, before replacing any in-memory copy.
+      if (_guardadoCatalogoPendiente) {
+        try { await _guardadoCatalogoPendiente; } catch (_) { return primero; }
+        if (_guardadoCatalogoPendiente || _estadoLecturaBloqueada ||
+            _ventaConfirmando || _retencionConfirmando || _payoutConfirmando) return primero;
+      }
+      // A second tab may have committed after our copy of the notebook was read.
+      // On a CAS rejection, the sale handler already rolled back every provisional
+      // fact. Rebase from the exact durable snapshot; execute at most ONCE again.
+      // Quota errors, corrupt snapshots and unchanged revisions remain failures.
+      const idb = window.OCEstadoIDB;
+      if (!idb || idb.soportado === false || typeof idb.leer !== "function") return primero;
+      let nuevo = null;
+      try { nuevo = await idb.leer(); } catch (_) { return primero; }
+      if (!nuevo || !Number.isSafeInteger(nuevo._rev) || nuevo._rev <= revisionAntes ||
+          nuevo._rev < _localRev || validarRespaldo(nuevo)) return primero;
+      /* P0 HOTFIX (JFC 2026-11-11): igual que el guard de arriba, el reintento CAS
+         solo se aborta si el ROL cambio de verdad. La epoca de login ya no cancela
+         el reintento: antes una venta rechazada por CAS (otra pantalla escribio
+         primero) se devolvia como fallo si el usuario habia vuelto a entrar mientras
+         tanto. El reintento sigue siendo UNA sola vez y solo contra una revision
+         durable mas nueva (arriba), asi que no puede duplicar la venta.
+         Para revertir: restaurar `|| epocaAlPedir !== (window.OC_AUTH_SESSION_EPOCH || 0)`. */
+      if (rolAlPedir !== _rolLocal())
+        return primero;
+      aplicarRespaldo(nuevo);
+      _localRev = nuevo._rev;
+      _localRevReservado = Math.max(_localRevReservado, _localRev);
+      _estadoPublicableConfirmado = _huellaPublicable();
+      revisionAntes = _localRev;
+      primero = await _fetchInterno(url,opts);
+      }
+      return primero;
+    };
+    // P0: a tab-local FIFO + session fencing replaces the 10-second Web Lock
+    // queue. Durable cross-tab conflict detection is delegated to IndexedDB's
+    // atomic revision check (OCEstadoIDB.guardarConRevision), not to this lease.
+    // Never execute two business mutations at once in this tab.
     const operacion = _colaEscriturasLocal.then(ejecutar);
     _colaEscriturasLocal = operacion.catch(() => {});
     return operacion;
@@ -5385,11 +6879,8 @@
           if (_conversionBar) {
             _ventaConfirmando = false; _ventaPendiente = null;
             try {
-              while (_ventaCatalogosPendientes.length) {
-                const siguiente = _ventaCatalogosPendientes.shift();
-                aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-              }
-              if (_barGuardada) avisarCatalogoCambiado();
+              _drenarCatalogosPendientes();
+              if (_barGuardada) _avisarCatalogoConfirmado();
             } finally { terminarBar(); }
           }
         }
@@ -5726,7 +7217,7 @@
         const dailyProjection = dailyReader ? dailyReader.daily(ventasActivas().filter(v => !uid || uid === "todas" || v.ubicacionId === uid).map(v => ({...v,fechaLocal:fechaLocalDe(v.fecha,v.relojDesfaseMs),fechaDevolucion:v.fechaDevolucion || (ajustesComision.find(a => a && (a.id === v.devolucionId || (a.tipo === "devolucion" && a.ventaId === v.id))) || {}).fecha})),hoyISO(),ZONA) : null;
         const entra = dailyProjection ? dailyProjection.entra : vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
         const sale = dailyProjection ? dailyProjection.sale : vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
-        const inv = ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
+        const inv = ps.some(p => !window.OCBusinessReadModel.stock(p).known) ? null : ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
         const alertas = ps.map((p) => ({ p, ...estadoDe(p) })).filter((e) => e.estado === "rojo" || e.estado === "naranja").sort((a, b) => ORDEN[a.estado] - ORDEN[b.estado]).map((e) => ({ estado: e.estado, mensaje: `${e.p.nombre}: ${e.mensaje}`, reposicionPlegable: avisoPlegable(e.p) }));
         // El hero de HOY es tri-estado (verde/amarillo/rojo, como el manual):
         // las alertas naranjas ("revisar pronto") encienden el nivel medio.
@@ -5749,7 +7240,7 @@
         const avisosRebaja = ps.filter((p) => (Number(p.stockActual) || 0) > 0).map((p) => ({ p, r: rebajaDe(p) }))
           .filter((x) => x.r.proxima && x.r.proxima.enDias <= 3)
           .map((x) => ({ productoId: x.p.id, nombre: x.p.nombre, enDias: x.r.proxima.enDias, pct: x.r.proxima.pct, precioLista: x.p.precio, precioNuevo: +(x.p.precio * (1 - x.r.proxima.pct / 100)).toFixed(2) }));
-        return J({ semaforoGeneral: sem, resumenDia: { entra: entra===null?null:+entra.toFixed(2), sale: sale===null?null:+sale.toFixed(2), gananciaHoy: entra===null||sale===null?null:+(entra - sale).toFixed(2), inventarioValorizado: +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas, avisosRebaja });
+        return J({ semaforoGeneral: sem, resumenDia: { entra: entra===null?null:+entra.toFixed(2), sale: sale===null?null:+sale.toFixed(2), gananciaHoy: entra===null||sale===null?null:+(entra - sale).toFixed(2), inventarioValorizado: inv === null ? null : +inv.toFixed(2), ventasCount: vh.length }, resumenSemana: { entra: +entraSemana.toFixed(2), ventasCount: vSemana.length }, alertas, avisosRebaja });
        } catch (e) {
         // FIX v301: el dashboard NUNCA debe lanzar (un producto con datos
         // incompletos hacia 500 -> el hero se quedaba en "Loading"). Se responde
@@ -5816,6 +7307,12 @@
           if (body.umbralRojo == null) body.umbralRojo = baseVariante.umbralRojo;
           if (body.umbralAmarillo == null) body.umbralAmarillo = baseVariante.umbralAmarillo;
         }
+        /* (JFC 2026-10-28) Doble toque en "crear producto": mismo codigo ya existente (no borrado) -> 409, no un duplicado.
+           Seccion sincrona hasta productos.push: dos llamadas concurrentes no se cuelan. Las variantes ya se validaron arriba. */
+        if (!body.familiaId) {
+          const _bc = String(body.barcode || "").trim().toLocaleLowerCase();
+          if (_bc && productos.some((p) => !p.borrado && !_demoOculto("productos", p) && String(p.barcode || "").trim().toLocaleLowerCase() === _bc)) return J({ error: "That barcode or internal code is already used by another product." }, 409);
+        }
         const nuevo = {
           // M5 (2026-08-14): variante interna, hasta 12 caracteres. Vacio por
           // defecto: un producto sin variante se comporta igual que siempre.
@@ -5829,6 +7326,7 @@
           // BUG FIJADO 2026-07-03: sin piso en 0, un stockInicial negativo
           // corrompía la valorización de inventario desde la creación.
           precio: aCent(Math.max(0, Number(body.precio) || 0)), costo: aCent(Math.max(0, Number(body.costo) || 0)), stockActual: Math.max(0, Number(body.stockInicial) || 0),
+          stockEpochId: uuid("stock-epoch-"), // Unique physical epoch for new products; do not retrofit ambiguous historical products.
           stockTs: (function () { const _r = ahoraRelayComun(); return _r === null ? Date.now() : _r; })(), // v447: stock inicial no hereda un reloj civil adelantado
           /* PRECIO DE CASA / ARTISTA (JFC/Belén 2026-09-15): segundo precio
              OPCIONAL, más bajo, para la gente de la casa (ej. cerveza $5 al
@@ -5868,7 +7366,24 @@
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/venta$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
-        if (p.perecible && estadoDe(p).dias < 0) return J({ error: "This product has expired. Remove it from sale and adjust its stock." }, 400);
+        // A caller-supplied CONFIRM operation id is stable across retries.
+        // Do not re-run any stock, money, movement or Sync3 effect on replay.
+        const _opIdVenta = typeof body.opId === "string" ? body.opId.trim() : "";
+        if (_opIdVenta && !/^[a-zA-Z0-9][a-zA-Z0-9:._-]{9,119}$/.test(_opIdVenta))
+          return J({ error:"Invalid sale operation identifier." },400);
+        if (_opIdVenta) {
+          const ya = ventas.find(v => v && v.opId === _opIdVenta);
+          if (ya) {
+            const cantidadSolicitada = body.cantidad == null || body.cantidad === "" ? 1 : Number(body.cantidad);
+            if (ya.productoId !== p.id || ya.cantidad !== cantidadSolicitada)
+              return J({ error:"Operation id belongs to a different sale.",code:"SALE_OPID_CONFLICT" },409);
+            return J({ producto:ficha(p), ventaId:ya.id, opId:_opIdVenta, duplicate:true });
+          }
+        }
+        /* VENDER SIEMPRE (JFC 2026-11-11, diseno Fable 5.2): un perecible vencido YA NO rechaza la venta.
+           DORMANT, NO BORRAR: antes respondia 400 "This product has expired...". El vencimiento sigue
+           marcado en la linea de estado existente del producto (estadoDe), sin modal. Para reactivar el
+           rechazo: devolver aqui J({ error: ... }, 400) cuando p.perecible && estadoDe(p).dias < 0. */
         const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
         if (ubicP && ubicP.activa === false) return J({ error: `"${ubicP.nombre}" está desactivada — no admite ventas nuevas.` }, 400);
         /* B19 (JFC 2026-08-19, medido con un harness contra este endpoint).
@@ -5900,7 +7415,11 @@
             return J({ error: "The quantity must be a whole number greater than zero." }, 400);
           }
         }
-        if (p.stockActual < cant) return J({ error: `No hay suficiente stock disponible (quedan ${p.stockActual}).` }, 400);
+        /* VENDER SIEMPRE (JFC 2026-11-11, diseno Fable 5.2): ya NO se rechaza por stock insuficiente.
+           DORMANT, NO BORRAR: antes respondia 400 "No hay suficiente stock disponible (quedan N)".
+           La venta procede; lo que falta queda como stockDeficit (la percha nunca muestra negativos),
+           ver el ajuste justo despues de _prepararOpStock. Para reactivar el rechazo: devolver aqui
+           J({ error: ... }, 400) cuando p.stockActual < cant. */
         // Free-tier: sin dispositivo activado (PIN 789), tope de 100 ventas/mes (global).
         /* Tope del viejo plan gratis QUITADO (JFC 2026-09-25): el modelo vigente es 30 dias de uso completo sin topes (licencia-prueba.js). */
         /* BUG CRITICO reportado en vivo por una clienta (Idiomarte, 2026-07-29),
@@ -6007,21 +7526,15 @@
            se guardaba: mercaderia perdida sin venta. Toda validacion va antes;
            esta es la primera linea que muta. test/cuadre-hugo-paco-luis.test.js */
         debePersistir = false; // La venta requiere ACK estricto; nunca auto-guardar un 507/500 en el finally exterior.
-        const _fotoVenta = { stock: p.stockActual, ventasLen: ventas.length, movLen: movimientos.length, sello: selloUltimo,
-          meta: ["stockBase","stockPN","stockTs","stockDeficit"].map(k => ({k, existe: Object.prototype.hasOwnProperty.call(p,k), valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]})) };
-        const _revertirVenta = () => {
-          p.stockActual = _fotoVenta.stock;
-          _fotoVenta.meta.forEach(({k,existe,valor}) => { if (existe) p[k] = valor; else delete p[k]; });
-          ventas.length = _fotoVenta.ventasLen;
-          movimientos.length = _fotoVenta.movLen;
-          selloUltimo = _fotoVenta.sello;
-        };
+        const _ventasAntes = ventas.length, _deshacerStockVenta = _marchaAtrasStock(p);
+        const _revertirVenta = () => { _deshacerStockVenta(); ventas.length = _ventasAntes; };
         let _ventaGuardada = false, terminarVenta;
         _ventaConfirmando = true;
         _ventaPendiente = new Promise(resolve => { terminarVenta = resolve; });
         try {
         p.stockActual -= cant;
         const ventaId = uuid("v");
+        const opIdVenta = _opIdVenta || ventaId; // legacy UI gets a unique stable receipt id
         /* DATOS DEL EVENTO (portado de amigable-123, JFC 2026-08-18). Sin
            guardarlos, las ventas de una funcion o una clase quedan
            desperdigadas en la lista general y no hay forma de saber como fue
@@ -6059,10 +7572,14 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
-        mov("venta", { producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
+        ventas.push({ id: ventaId, opId: opIdVenta, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        mov("venta", { opId: opIdVenta, producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
         const _opVenta = { productoId: p.id, delta: -cant };
         _prepararOpStock(_opVenta);
+        /* VENDER SIEMPRE (v737): si se vendio mas de lo que habia, el contador compartido (stockPN)
+           ya lleva la salida completa; aqui solo se muestra igual que el merge: percha en 0 y el
+           faltante aparte (suma al faltante previo). Reponer paga primero el faltante. */
+        _perchaEnCeroYFaltante(p);
         /* VENTA DURABLE (JFC 2026-09-29). Antes se respondia "ok" y el guardado
            corria despues, en finally, sin esperar a IndexedDB: con localStorage
            lleno e IndexedDB caido la app decia "vendido", la op ya habia salido a
@@ -6073,21 +7590,28 @@
         try { _ventaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_ventaGuardada) {
           _revertirVenta();
-          return J({ error: tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.") }, 507);
+          debePersistir = false; // Failed sale is not a state change to mirror or retry.
+          // #607: a false strict commit is NOT proof of storage quota.
+          // Distinguish genuine quota from CAS fences and transient IDB failures.
+          // Keep the rollback and never emit stock or money without a durable ACK.
+          const causa = _causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB());
+          const cuotaReal = _esErrorDeCuota(causa);
+          const aviso = cuotaReal
+            ? tSeguro("sale.notSaved", "The sale was NOT saved: this device has no storage space left. Free up space and try again.")
+            : tSeguro("sale.notSavedOther", "The sale was NOT saved: the secure save could not be confirmed. Check Sold before trying again.");
+          try { console.warn("[sale] strict save rejected", cuotaReal ? "quota" : (causa && causa.name || "revision-or-unavailable")); } catch (_) {}
+          return J({ error: aviso, code: cuotaReal ? "SALE_STORAGE_QUOTA" : "SALE_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
         }
         emitirOpStock("venta", _opVenta, true);
-        return J({ producto: ficha(p), ventaId });
+        return J({ producto: ficha(p), ventaId, opId: opIdVenta });
         } catch (e) {
-          if (!_ventaGuardada) _revertirVenta();
+          if (!_ventaGuardada) { _revertirVenta(); debePersistir = false; }
           throw e;
         } finally {
           _ventaConfirmando = false; _ventaPendiente = null;
           try {
-            while (_ventaCatalogosPendientes.length) {
-              const siguiente = _ventaCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-            }
-            if (_ventaGuardada) avisarCatalogoCambiado();
+            _drenarCatalogosPendientes();
+            if (_ventaGuardada) _avisarCatalogoConfirmado();
           } finally { terminarVenta(); }
         }
       }
@@ -6115,10 +7639,30 @@
         }
         const p = productos.find((x) => x.id === venta.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
+        /* JFC 2026-11-12: anular con guardado confirmado y marcha atras, igual que la venta y la
+           correccion. Antes sumaba el stock y mandaba la operacion sin esperar el guardado: si el
+           guardado fallaba a medias, quedaba stock devuelto en otros aparatos y la venta viva aqui. */
+        const _deshacerStockAnulacion = _marchaAtrasStock(p), _ventaAntesDeAnular = { ...venta };
         p.stockActual += venta.cantidad;
         venta.anulada = true; venta.rev = _revNueva();
-        mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) });
-        emitirOpStock("anulacion", { productoId: p.id, delta: venta.cantidad });
+        mov("anulacion", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId) }, false);
+        /* v597: id determinista por venta (el mismo que usa la devolucion): dos aparatos que
+           anulan/cancelan/devuelven la misma venta suman la reposicion UNA sola vez en el
+           contador PN (maximo por id), no una por aparato. */
+        const _opAnular = { productoId: p.id, delta: venta.cantidad };
+        _prepararOpStock(_opAnular, "aj-dev-" + venta.id);
+        let _anulacionGuardada = false;
+        try { _anulacionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+        if (!_anulacionGuardada) {
+          _deshacerStockAnulacion();
+          Object.keys(venta).forEach(k => delete venta[k]);
+          Object.assign(venta, _ventaAntesDeAnular);
+          debePersistir = false;
+          return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
+        }
+        emitirOpStock("anulacion", _opAnular, true); // sale del aparato solo despues del guardado
+        avisarCatalogoCambiado();
+        debePersistir = false; // el guardado estricto ya contiene venta, stock, contadores y registro
         return J({ producto: ficha(p) });
       }
       /* CANCELAR EX-POST (JFC 2026-09-02): "sobre todo en Sales/Sold debe haber
@@ -6184,15 +7728,12 @@
             return J({ error: "The return could not be saved. No sale, stock or commission changes recorded." }, 507);
           }
           emitirOpStock("devolucion", opStock, true);
-          avisarCatalogoCambiado();
+          _avisarCatalogoConfirmado();
           return J({ ok: true, ajuste: aj, producto: ficha(p) });
         } finally {
           _payoutConfirmando = false; _payoutPendiente = null;
           try {
-            while (_payoutCatalogosPendientes.length) {
-              const siguiente = _payoutCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-            }
+            _drenarCatalogosPendientes();
           } finally { terminarRetorno(); }
         }
       }
@@ -6215,7 +7756,10 @@
         p.stockActual += venta.cantidad;
         venta.anulada = true; venta.canceladaExPostEn = new Date().toISOString(); venta.rev = _revNueva();
         mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "(sin motivo)", ventaId: venta.id, fechaVenta: venta.fecha });
-        emitirOpStock("cancelacion-ex-post", { productoId: p.id, delta: venta.cantidad });
+        /* v597: igual que /anular: id determinista por venta, la reposicion cuenta una sola vez entre aparatos. */
+        const _opCancelar = { productoId: p.id, delta: venta.cantidad };
+        _prepararOpStock(_opCancelar, "aj-dev-" + venta.id);
+        emitirOpStock("cancelacion-ex-post", _opCancelar, true);
         return J({ producto: ficha(p), ok: true });
       }
       /* v418: la anulacion es monotona en sync: desmarcarla reviviria o perderia
@@ -6235,12 +7779,16 @@
         }
         const p = productos.find((x) => x.id === original.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
-        if (!Number.isInteger(original.cantidad) || original.cantidad <= 0 || p.stockActual < original.cantidad) return J({ error: "Not enough stock to undo this cancellation." }, 400);
+        if (!Number.isInteger(original.cantidad) || original.cantidad <= 0) return J({ error: "Invalid quantity in the cancelled sale." }, 400);
         const restaurada = { ...original, id: idRestaurado, anulada: false, canceladaExPostEn: null, restauracionDe: original.id, rev: _revNueva() };
         p.stockActual -= original.cantidad;
         ventas.push(restaurada);
         mov("restauracion-cancelacion", { ventaId: original.id, ventaRestauradaId: idRestaurado, producto: p.nombre, cantidad: original.cantidad, total: +(original.precioUnit * original.cantidad).toFixed(2) });
-        emitirOpStock("restauracion-cancelacion", { productoId: p.id, delta: -original.cantidad });
+        /* VENDER SIEMPRE (v737): recuperar la venta no se rechaza por stock; lo que falte queda como faltante. */
+        const _opRest = { productoId: p.id, delta: -original.cantidad };
+        _prepararOpStock(_opRest);
+        _perchaEnCeroYFaltante(p);
+        emitirOpStock("restauracion-cancelacion", _opRest, true);
         return J({ ok: true, ventaId: idRestaurado, producto: ficha(p) });
       }
       /* EDITAR UNA VENTA (JFC 2026-09-02): la lista de Sold es editable con
@@ -6335,9 +7883,6 @@
           // correction must never leave an orphan financial receipt.
           const _cantFinal = _hayCant ? Number(body.cantidad) : venta.cantidad;
           const _precioFinal = _hayPrecio ? +Number(body.precioUnit).toFixed(2) : venta.precioUnit;
-          if (_cantFinal > venta.cantidad && p.stockActual < _cantFinal - venta.cantidad) {
-            return J({ error: "Not enough stock for this correction." }, 400);
-          }
           const _montoFiadoFinal = +(_cantFinal * _precioFinal).toFixed(2);
           if (!(_montoFiadoFinal > 0)) return J({ error: "On-account amount must be greater than zero." }, 400);
           if (_pagoAnterior !== "fiado") {
@@ -6367,7 +7912,6 @@
         if (body.cantidad !== undefined && body.cantidad !== null && body.cantidad !== "") {
           const nueva = Number(body.cantidad); // validada arriba (B2): entero >= 1
           const delta = nueva - venta.cantidad; // >0 = vender más (baja stock)
-          if (delta > 0 && p.stockActual < delta) return J({ error: `Not enough stock to raise the quantity (only ${p.stockActual} left).` }, 400);
           if (delta !== 0) {
             p.stockActual -= delta;
             _deltaEdicion = -delta;
@@ -6413,6 +7957,12 @@
         }
         mov("venta-editada", { producto: p.nombre, ventaId: venta.id, cambios }, false);
         venta.rev = _revNueva();
+        // PN, base, and monotonic stockTs belong to the FIRST durable snapshot.
+        // Prepare without publishing, then emit exactly once after strict ACK.
+        const _opEdicionStock = _deltaEdicion ? { productoId: p.id, delta: _deltaEdicion } : null;
+        if (_opEdicionStock) _prepararOpStock(_opEdicionStock);
+        /* VENDER SIEMPRE (v737): subir la cantidad sin stock deja el faltante, igual que la venta. */
+        _perchaEnCeroYFaltante(p);
         let _edicionGuardada = false;
         try { _edicionGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
         if (!_edicionGuardada) {
@@ -6425,8 +7975,9 @@
           debePersistir = false;
           return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
         }
-        if (_deltaEdicion) emitirOpStock("venta-editada", { productoId: p.id, delta: _deltaEdicion });
+        if (_opEdicionStock) emitirOpStock("venta-editada", _opEdicionStock, true);
         avisarCatalogoCambiado();
+        debePersistir = false; // strict snapshot already contains sale, stock, PN and audit
         return J({ producto: ficha(p), venta, ok: true });
       }
       /* EDITAR UN EVENTO (JFC 2026-09-02, micromejora #10): dueño/admin puede
@@ -6457,16 +8008,95 @@
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/ajustar$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
-        const d = Number.isInteger(body.delta) ? body.delta : 0;
+        // JFC 2026-11-01: owner/admin may set an absolute physical count ("fijar en N"). It opens a NEW stock
+        // epoch (base N, counters reset) that travels with the catalog; the latest count wins on every device.
+        const fisico = Number.isInteger(body.stockFisico) && body.stockFisico >= 0 ? body.stockFisico : null;
+        if (fisico !== null && !["dueno", "admin"].includes(window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()))
+          return J({ error: "Only the owner or an admin can set a physical count." }, 403);
+        const d = fisico !== null ? fisico - Math.max(0, Number(p.stockActual) || 0) : (Number.isInteger(body.delta) ? body.delta : 0);
         // BUG FIX (2026-07-03): delta=0 es un entero valido, pasa la guarda de
         // arriba, no cambia el stock pero registra un movimiento en el log. Silencioso
-        // y contaminante. Se rechaza explicitamente.
-        if (d === 0) return J({ error: "The adjustment cannot be zero." }, 400);
+        // y contaminante. Se rechaza explicitamente. (A physical count that confirms the same number is valid.)
+        if (d === 0 && fisico === null) return J({ error: "The adjustment cannot be zero." }, 400);
         if (p.stockActual + d < 0) return J({ error: `That adjustment would push stock negative (currently: ${p.stockActual}).` }, 400);
-        p.stockActual += d;
-        mov("ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || "Ajuste manual", stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) });
-        emitirOpStock("ajuste", { productoId: p.id, delta: d });
-        return J(ficha(p));
+        // Same durable boundary as a sale: never publish a correction that may
+        // disappear on reload when both local storage backends reject the write.
+        debePersistir = false;
+        const foto = { stock: p.stockActual, movLen: movimientos.length, sello: selloUltimo,
+          meta: ["stockBase", "stockPN", "stockTs", "stockCountTs", "stockDeficit", "stockEpochId", "stockEvidencias", "stockCountWitness", "stockReconciliacionPendiente", "rev"].map(k => ({
+            k, existe: Object.prototype.hasOwnProperty.call(p, k),
+            valor: p[k] && typeof p[k] === "object" ? clonar(p[k]) : p[k]
+          })) };
+        const revertir = () => {
+          p.stockActual = foto.stock;
+          foto.meta.forEach(({k, existe, valor}) => { if (existe) p[k] = valor; else delete p[k]; });
+          movimientos.length = foto.movLen;
+          selloUltimo = foto.sello;
+        };
+        let guardado = false, terminar, _epocaFisicaConfirmada = "";
+        _ventaConfirmando = true; // Hold Yjs seed, incoming merges and reads until ACK/rollback.
+        _ventaPendiente = new Promise(resolve => { terminar = resolve; });
+        try {
+          if (fisico !== null) {
+            // Physical count: new epoch. No delta op is emitted (other devices would add it again);
+            // the epoch fields reach them through the catalog merge, where the latest count wins.
+            // Keep the PREVIOUS physical baseline and PN facts for audit/recovery.
+            // These are encrypted with the catalog; they never count toward the new epoch.
+            const historial = _pruebasStockUnir(p);
+            if (Object.keys(historial).length) p.stockEvidencias = historial;
+            // Snapshot the CAUSAL front the owner had seen when physically counting.
+            // Never infer inclusion of a remote offline sale from a later wall-clock.
+            p.stockCountWitness = {
+              base: p.stockBase == null ? null : Number(p.stockBase),
+              epoch: String(p.stockEpochId || ""),
+              pn: clonar(p.stockPN || {})
+            };
+            p.stockEpochId = uuid("stock-epoch-"); p.stockBase = fisico; p.stockPN = {};
+            p.stockDeficit = 0; p.stockCountTs = Date.now();
+            p.stockTs = p.stockCountTs; p.stockActual = fisico;
+            p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
+          } else p.stockActual += d;
+          const op = { productoId: p.id, delta: d };
+          if (fisico === null) _prepararOpStock(op);
+          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
+          try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!guardado) {
+            revertir();
+            // A strict CAS conflict is NOT proof of device storage exhaustion.
+            // Only genuine quota keeps 507; other refusal gets a distinct code
+            // for a one-shot rebase against a newer durable IDB revision.
+            const causa = _causaGuardadoEstricto(window.OCEstadoIDB, _estadoAB());
+            const cuotaReal = _esErrorDeCuota(causa);
+            const mensaje = cuotaReal
+              ? tSeguro("product.notSaved", "The stock adjustment was NOT saved: storage quota is unavailable.")
+              : tSeguro("product.notSavedOther", "The stock change was NOT saved: secure storage could not confirm it. Check inventory before trying again.");
+            return J({ error: mensaje,
+              code: cuotaReal ? "STOCK_STORAGE_QUOTA" : "STOCK_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
+          }
+          if (fisico === null) emitirOpStock("ajuste", op, true);
+          else _epocaFisicaConfirmada = String(p.stockEpochId || "");
+          return J(ficha(p));
+        } catch (e) {
+          if (!guardado) revertir();
+          throw e;
+        } finally {
+          _ventaConfirmando = false; _ventaPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+            if (guardado) {
+              // P0 v692: after the durable physical count, Yjs must already
+              // contain its exact epoch before iOS suspends this PWA on switch
+              // to Safari. No +delta is emitted and no provisional count leaks.
+              // If a trusted queued merge superseded it, the seed refuses it.
+              if (_epocaFisicaConfirmada && window.OCYjs &&
+                  typeof window.OCYjs.sembrarConteoConfirmado === "function") {
+                try { window.OCYjs.sembrarConteoConfirmado(p.id, _epocaFisicaConfirmada); }
+                catch (_) {}
+              }
+              _avisarCatalogoConfirmado(); // existing async/reconnect retry stays
+            }
+          } finally { terminar(); }
+        }
       }
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/etiqueta$/))) {
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
@@ -6494,7 +8124,7 @@
         return J(ficha(p));
       }
 
-      if (path === "/api/actividad") return J(movimientos.slice().reverse().slice(0, 100));
+      if (path === "/api/actividad") return J(_actividadVista().reverse().slice(0, 100));
 
       /* DIRECTORIO DE ACCESO (JFC 2026-08-28). Quién tiene cada PIN (nombre,
          correo, notas). Solo el dueño. Lo lee el dashboard para el reporte
@@ -6608,7 +8238,7 @@
       // Lo usa el tablero (dashboard.html) para pintar el periscopio de datos.
       if (path === "/api/movimientos" && (!opts || opts.method === "GET")) {
         const n = Math.min(Number(q.get("limite")) || 200, 500);
-        return J(movimientos.slice(-n).reverse());
+        return J(_actividadVista().slice(-n).reverse());
       }
 
       // Estrella: dueño marca/desmarca productos para que el encargado promueva
@@ -6627,6 +8257,20 @@
          arma con esto y sigue funcionando. Importar (reemplaza TODO el cuaderno): solo dueno. */
       if (path === "/api/respaldo/exportar") {
         const _rolExp = _rolLocal();
+        /* v597: PUNTO DE RECUPERACION (caja local de Advanced, cajaGuardarPunto). Solo con
+           ?confirmado=1&completo=1: (a) solo el rol que ya recibe el respaldo completo
+           (dueno/contador/demo o sin sesion), si no 403 sin datos; (b) solo si el estado en
+           memoria es el confirmado en disco (_estadoPuedePublicarse), si no 409 sin datos;
+           (c) agrega _recuperacion con la identidad del cuaderno: namespace (el mismo que lee
+           el cliente) + notebookId (instanceId, estable al rotar la licencia). licenseCode es
+           solo informativo. SIN la query la ruta responde exactamente como antes. */
+        if (q.get("confirmado") === "1" && q.get("completo") === "1") {
+          if (_rolExp && _rolExp !== "dueno" && _rolExp !== "demo" && _rolExp !== "contador") return J({ error: "Only the owner can take a full recovery checkpoint." }, 403);
+          if (!_estadoPuedePublicarse()) return J({ error: "The notebook is not saved yet. Try again in a moment." }, 409);
+          let _ns = ""; try { _ns = localStorage.getItem("f123_tienda_activa") || ""; } catch (_) {}
+          // v598: notebookId = _cuadernoIdCaja(), la misma identidad que lee el cliente (OCTienda.cuadernoId).
+          return J(Object.assign(estadoActualExportable(), { _recuperacion: { confirmado: true, completo: true, namespace: _ns, notebookId: _cuadernoIdCaja(), licenseCode: _licenciaActual() } }));
+        }
         if (!_rolExp || _rolExp === "dueno" || _rolExp === "demo" || _rolExp === "contador") return J(estadoActualExportable()); // sin sesion = uso interno; demo = muestra; contador = rol de solo lectura que necesita costos (no importa)
         const _c = estadoActualExportable();
         const _toma = (o, ks) => ks.reduce((r, k) => { if (o && o[k] !== undefined) r[k] = o[k]; return r; }, {});
@@ -6636,10 +8280,11 @@
           ubicaciones: (_c.ubicaciones || []).map((x) => _toma(x, ["id", "nombre", "tipo"])),
           ventas: (_c.ventas || []).map((v) => Object.assign(_toma(v, ["id", "fecha", "productoId", "cantidad", "precioUnit", "ubicacionId", "vendedorId", "liquidada", "anulada"]),
             { split: v.split ? { montoComisionSocio: v.split.montoComisionSocio } : null })),
-          movimientos: (_c.movimientos || []).map((x) => _toma(x, ["id", "fecha", "tipo", "productoId", "cantidad", "ubicacionId", "vendedorId", "usuario"])),
+          movimientos: _actividadVista().map((x) => _toma(x, ["id", "fecha", "tipo", "productoId", "cantidad", "ubicacionId", "vendedorId", "usuario"])),
         });
       }
       if (path === "/api/respaldo/importar") {
+        debePersistir = false; // Import owns its durable boundary; a rejected restore must never be saved by finally.
         const _rolImp = _rolLocal();
         if (_rolImp && _rolImp !== "dueno" && _rolImp !== "demo") return J({ error: "Only the owner can import a backup: it replaces the whole notebook." }, 403);
         try {
@@ -6650,10 +8295,44 @@
           // dejar la app inservible.
           const error = validarRespaldo(body);
           if (error) return J({ error }, 400);
-          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(estadoActualExportable())); } catch (_) {} // red de seguridad 2026-07-17: snapshot pre-import para deshacer un archivo malo
-          aplicarRespaldo(body);
-          guardarEstadoLocal();
-          return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
+          /* (JFC 2026-10-28) Restaurar NO se permite si el Y.Doc local ya tiene datos: gana al reabrir
+             (stock 10 -> vuelve 7; colecciones de solo-agregar resucitan). 409 sin tocar nada. Un aparato solo importa como siempre. */
+          /* (JFC 2026-10-28) `error` en ingles (default de la app); `errorEs` para la UI en espanol. */
+          if (await _cuadernoConDatosTrasArranque()) return J({ error: "A backup can only be restored on a new device with no data. In a notebook that already has data, the restore would be undone when the app reopens.", errorEs: "Restaurar un respaldo solo se puede en un aparato nuevo, sin datos. En un cuaderno que ya tiene datos, lo restaurado se desharía al reabrir la app." }, 409);
+          const anterior = estadoActualExportable(), actividadAnterior = actividadCompartida, pagosAnteriores = payouts.slice();
+          const listas = [_CAT_BASE_CUSTOM, _CAT_BASE_OCULTAS].map(base => { const clave = _catKey(base); return { clave, raw: localStorage.getItem(clave) }; });
+          try { localStorage.setItem(OC_STATE_KEY + "_preimport", JSON.stringify(anterior)); } catch (_) {}
+          const restaurar = () => {
+            aplicarRespaldo(anterior);
+            actividadCompartida = actividadAnterior;
+            payouts.splice(0, payouts.length, ...pagosAnteriores);
+            instanceId = anterior.instanceId; nombreNegocioTs = anterior.nombreNegocioTs; nombreNegocioRev = anterior.nombreNegocioRev;
+            ajusteImpuesto = anterior.configuracion.impuesto; ajusteMoneda = anterior.configuracion.moneda;
+            ajusteLealtad = anterior.configuracion.lealtad; ajusteRetencion = anterior.configuracion.retencion;
+            for (const {clave,raw} of listas) try { if (raw === null) localStorage.removeItem(clave); else localStorage.setItem(clave, raw); } catch (_) {}
+          };
+          // Reuse the catalog rollback fence so background saves and incoming sync cannot capture a provisional restore.
+          let liberarImportacion;
+          _retencionConfirmando = true;
+          _retencionPendiente = new Promise(resolve => { liberarImportacion = resolve; });
+          let guardado = false;
+          try {
+            aplicarRespaldo(body);
+            // Once storage starts, wait for its real result: a timed-out Promise can still commit later.
+            try { guardado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+            if (!guardado) {
+              restaurar();
+              return J({ error: "Could not import: the backup was NOT saved on this device. Free up storage and try again.", errorEs: "No se pudo importar: el respaldo NO quedó guardado en este aparato. Libera espacio e inténtalo de nuevo." }, 507);
+            }
+            _avisarCatalogoConfirmado();
+            return J({ ok: true, schemaVersion: body.schemaVersion || 1 });
+          } catch (e) { if (!guardado) restaurar(); throw e; }
+          finally {
+            _retencionConfirmando = false; _retencionPendiente = null;
+            try {
+              _drenarCatalogosPendientes();
+            } finally { liberarImportacion(); }
+          }
         } catch (e) { return J({ error: "Could not import: " + String(e) }, 400); }
       }
 
@@ -6987,15 +8666,12 @@
             ajusteRetencion = anterior; movimientos.length = len; selloUltimo = sello;
             return J({ error: "Payment hold was NOT saved. Free up storage and retry." }, 507);
           }
-          avisarCatalogoCambiado();
+          _avisarCatalogoConfirmado();
           return J(Object.assign({ opciones: RETENCION_DIAS.slice() }, n));
         } finally {
           _retencionConfirmando = false; _retencionPendiente = null;
           try {
-            while (_retencionCatalogosPendientes.length) {
-              const siguiente = _retencionCatalogosPendientes.shift();
-              aplicarCatalogo(siguiente.remoto, siguiente.rolRemoto, siguiente.nombreCanonicoYjs);
-            }
+            _drenarCatalogosPendientes();
           } finally { liberar(); }
         }
       }
@@ -7102,13 +8778,16 @@
           const cant = Number(it.cantidad);
           if (!p || !Number.isInteger(cant) || cant <= 0) { errores.push("There is an invalid item in the day close."); continue; }
           if (p.precioReserva != null || p.precioWalkIn != null) { errores.push(`${p.nombre}: record each reservation or walk-in through Sell so its price is explicit.`); continue; }
-          if (p.stockActual < cant) { errores.push(`${p.nombre}: solo hay ${p.stockActual} en stock.`); continue; }
           const ubicP = ubicaciones.find((x) => x.id === p.ubicacionId);
           const acumulado = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
           const split = ubicP ? calcularSplitVenta(ubicP, p.precio * cant, acumulado, (Number(p.costo) || 0) * cant, p.pctAsociado) : null;
           p.stockActual -= cant;
           ventas.push({ id: uuid("v"), productoId: p.id, ubicacionId: p.ubicacionId, direccionComision: _direccionValida(p.direccionComision) || "casaPaga", cantidad: cant, precioUnit: p.precio, costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, liquidada: false, clienteId: null, impuesto: _impuestoDeVenta(p, p.precio, cant), rev: _revNueva() });
-          emitirOpStock("cierre-dia", { productoId: p.id, delta: -cant });
+          /* VENDER SIEMPRE (v737): sin stock suficiente la venta igual se registra; el faltante queda aparte. */
+          const _opCierre = { productoId: p.id, delta: -cant };
+          _prepararOpStock(_opCierre);
+          _perchaEnCeroYFaltante(p);
+          emitirOpStock("cierre-dia", _opCierre, true);
           aplicadas += cant;
           mov("cierre-dia", { producto: p.nombre, cantidad: cant, ubicacion: nombreUbic(p.ubicacionId) });
         }
@@ -7122,20 +8801,50 @@
         return J(clientes.filter(c => !c.despedido && !c.borrado && !_demoOculto("clientes", c)).map((c) => fichaCliente(c, med)));
       }
       if (path === "/api/clientes" && opts && opts.method === "POST") {
+        // P0 #614: a successful customer Add must mean THIS device has a
+        // durable ACK, not that a best-effort background save was scheduled.
+        // The generic finally must NOT persist a rolled-back customer.
+        debePersistir = false;
         if (!body.nombre || !String(body.nombre).trim()) return J({ error: "The customer name is required." }, 400);
         const perfilError = errorPerfilCliente(body);
         if (perfilError) return J({ error: perfilError }, 400);
-        /* EMAIL DEL CLIENTE (JFC 2026-08-26): captura opcional. Validación ligera
-           "guard, no puerta": si trae algo que no parece email, se guarda vacío en
-           vez de rechazar el alta (no queremos frenar el registro por un typo). */
         const _emailCli = String(body.email || "").trim().slice(0, 160);
         const _emailOk = _emailCli && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(_emailCli) ? _emailCli : "";
-        const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim(), email: _emailOk,
-          rangoEdad: String(body.rangoEdad || "").trim().slice(0, 12), pais: String(body.pais || "").trim().slice(0, 60),
-          ...perfilCliente(body), rev: _revNueva() };
-        clientes.push(nuevoCli);
-        mov("cliente-alta", { cliente: nuevoCli.nombre, codigo: nuevoCli.codigo });
-        return J(fichaCliente(nuevoCli));
+        const antesClientes = clientes.length, antesMovimientos = movimientos.length, antesSello = selloUltimo;
+        let liberarAlta;
+        // Reuse the existing strict-commit rollback fence (also used for
+        // contact edits). No Sync3 transport, room, outbox or PIN change.
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberarAlta = resolve; });
+        let confirmado = false;
+        try {
+          const nuevoCli = { id: uuid("c"), codigo: siguienteCodigoCliente(), nombre: String(body.nombre).trim(), telefono: String(body.telefono || "").trim(), email: _emailOk,
+            rangoEdad: String(body.rangoEdad || "").trim().slice(0, 12), pais: String(body.pais || "").trim().slice(0, 60),
+            ...perfilCliente(body), rev: _revNueva() };
+          clientes.push(nuevoCli);
+          mov("cliente-alta", { cliente: nuevoCli.nombre, codigo: nuevoCli.codigo }, false);
+          try { confirmado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+          if (!confirmado) {
+            clientes.length = antesClientes;
+            movimientos.length = antesMovimientos;
+            selloUltimo = antesSello;
+            return J({ error: "Customer was NOT saved. Your form is intact; please check storage and retry.", code: "CUSTOMER_NOT_DURABLE" }, 507);
+          }
+          _avisarCatalogoConfirmado();
+          return J(fichaCliente(nuevoCli));
+        } catch (e) {
+          if (!confirmado) {
+            clientes.length = antesClientes;
+            movimientos.length = antesMovimientos;
+            selloUltimo = antesSello;
+          }
+          return J({ error: "Customer was NOT saved. Please retry.", code: "CUSTOMER_NOT_DURABLE" }, 507);
+        } finally {
+          _retencionConfirmando = false;
+          _retencionPendiente = null;
+          try { _drenarCatalogosPendientes(); }
+          finally { liberarAlta(); }
+        }
       }
       if (path === "/api/clientes/importar" && opts && opts.method === "POST") {
         const entrantes = Array.isArray(body.clientes) ? body.clientes : [];
@@ -7263,6 +8972,13 @@
             return J({ error: "Customer changed on another device. Refresh before editing." }, 409);
           }
         }
+        const antesContacto = { ...c }, movimientosAntes = movimientos.length, selloAntes = selloUltimo;
+        debePersistir = false; // This endpoint confirms or rolls back before reporting success.
+        // Reuse the catalog rollback fence so remote history cannot be truncated.
+        let liberarContacto;
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberarContacto = resolve; });
+        try {
         if (body.nombre !== undefined) c.nombre = String(body.nombre).trim() || c.nombre;
         if (body.telefono !== undefined) c.telefono = String(body.telefono).trim();
         if (body.email !== undefined) c.email = String(body.email).trim();
@@ -7273,9 +8989,22 @@
         if (Object.prototype.hasOwnProperty.call(body, "resideCuenca")) c.resideCuenca = body.resideCuenca;
         if (Object.prototype.hasOwnProperty.call(body, "genero")) c.genero = body.genero;
         c.rev = _revNueva();
-        mov("cliente-contacto", { cliente: c.nombre });
-        guardarEstadoLocal();
+        mov("cliente-contacto", { cliente: c.nombre }, false);
+        let contactoGuardado = false;
+        try { contactoGuardado = (await guardarEstadoLocal(true, true)) === true; } catch (_) {}
+        if (!contactoGuardado) {
+          Object.keys(c).forEach(k => delete c[k]); Object.assign(c, antesContacto);
+          movimientos.length = movimientosAntes; selloUltimo = selloAntes;
+          return J({ error: "The contact could not be saved. No changes recorded." }, 507);
+        }
+        _avisarCatalogoConfirmado();
         return J(fichaCliente(c));
+        } finally {
+          _retencionConfirmando = false; _retencionPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+          } finally { liberarContacto(); }
+        }
       }
 
       // ---- CARTERA DE CLIENTES (fiado/abono) — Roadmap Agosto 2026, Fase 1 ----
@@ -7722,7 +9451,9 @@
         }
         if (!sigueSiendoIntento) return J({ error: "Business name changed while saving. Check the current name and retry." }, 409);
         // Cache and notify only AFTER the full notebook state is durable.
-        try {
+        // v594: renombrar dentro de una tienda unida no toca el sidecar del negocio propio.
+        // (typeof: las pruebas E4/1AAA ejecutan este manejador extraido sin el helper; ausente = comportamiento previo.)
+        if (typeof _cuadernoPropio !== "function" || _cuadernoPropio()) try {
           const _o = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
           _o.nombreNegocio = nombreNegocio; _o.nombreNegocioTs = nombreNegocioTs;
           _o.nombreNegocioRev = nombreNegocioRev;
@@ -7820,7 +9551,9 @@
           prev = m.sello; sellados++;
         }
         const colaOk = ruptura ? false : (sellados === 0 || prev === selloUltimo);
-        return J({ ok: !ruptura && colaOk, total: movimientos.length, sellados: sellados, historico: historico, ruptura: ruptura, colaOk: colaOk });
+        const compartido = _actividadEstado(_actividadExportable());
+        return J({ ok: !ruptura && colaOk && compartido.ok, total: movimientos.length, sellados: sellados, historico: historico, ruptura: ruptura, colaOk: colaOk,
+          actividadCompleta: compartido.completa, origenes: compartido.origenes, actividadProblemas: compartido.problemas, totalCompartido: _actividadVista().length });
       }
       // =========================================================================
 

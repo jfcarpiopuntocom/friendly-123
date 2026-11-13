@@ -255,6 +255,41 @@
        lo pagado por el libro vuelve como un descuento "void" (negativo) en el mes de la
        anulacion y queda disponible en los periodos siguientes hasta consumirse. Los pagos
        legacy cuentan solo cuando no existe un hecho del libro que los sustituya. */
+    /* v598 (ultrareview 2, punto 9): UNA venta anulada = UN solo descuento. Anulada, la venta ya
+       no gana nada; lo unico que se le descuenta a la persona es lo que de verdad se le pago (la
+       fila "void"). Una DEVOLUCION (aj-dev) de esa misma venta, creada en otro aparato, por una
+       version vieja (v596) o por la ruta /devolucion, ya no suma un segundo descuento. Solo
+       cuenta la parte de esa devolucion que un pago YA consumio (hecho real del libro, no se
+       esconde) y el void baja en esa misma cantidad. Resultado: pagada 20 + devuelta + anulada
+       => -20 (antes -40); sin pagar + devuelta + anulada => 0 (antes -20). Una venta solo
+       devuelta (no anulada) no cambia: su aj-dev sigue siendo su unico descuento. */
+    const returnOfVoided = (a) => {
+      const s = a && a.tipo === "devolucion" ? saleMap.get(String(a.ventaId || "")) : null;
+      return !!(s && s.anulada && s.split);
+    };
+    const consumedReturn = (o) => {
+      const abs = Math.abs(o.amountCents);
+      const legacy = o.legacyPaid && !hasLedgerFact(evidence, o) ? abs : 0;
+      return o.amountCents < 0 ? Math.min(abs, legacy + (applied.get(key(o.kind, o.sourceId, o.payeeId)) || 0)) : 0;
+    };
+    // Lo ya consumido por devoluciones de una venta, por persona. Sin filtro de mes: es un hecho
+    // de por vida (como `applied`). El id determinista aj-dev-<venta> cubre devoluciones de otro
+    // mes que no vienen en `adjustments`.
+    const consumedReturnsFor = (v, payeeId) => {
+      let total = 0;
+      const seen = new Set();
+      adjustments.forEach((a) => {
+        if (!a || a.tipo !== "devolucion" || String(a.ventaId || "") !== String(v.id)) return;
+        seen.add(String(a.id));
+        obligationsForAdjustment(a, v, locMap.get(String(a.ubicacionId))).forEach((o) => {
+          if (String(o.payeeId || "") === String(payeeId || "")) total += consumedReturn(o);
+        });
+      });
+      const det = "aj-dev-" + String(v.id);
+      if (!seen.has(det)) total += applied.get(key("adjustment", det, payeeId)) || 0;
+      return total;
+    };
+
     sales.forEach((v) => {
       if (!v || !v.split || !v.anulada) return;
       const fVoid = v.anuladaEn || v.canceladaExPostEn || v.fecha;
@@ -263,7 +298,9 @@
       obligationsForSale(Object.assign({}, v, { anulada: false }), locMap.get(String(v.ubicacionId))).forEach((s) => {
         if (s.amountCents <= 0) return;
         const legacy = s.legacyPaid && !hasLedgerFact(evidence, s) ? s.amountCents : 0;
-        const paidSale = legacy + (applied.get(key("sale", s.sourceId, s.payeeId)) || 0);
+        const paidGross = legacy + (applied.get(key("sale", s.sourceId, s.payeeId)) || 0);
+        // v598: lo que una devolucion ya recupero no se vuelve a descontar aqui.
+        const paidSale = Math.max(0, paidGross - consumedReturnsFor(v, s.payeeId));
         const recovered = applied.get(key("void", s.sourceId, s.payeeId)) || 0;
         if (paidSale <= 0 && recovered <= 0) return;
         out.push({ kind: "void", sourceId: s.sourceId, payeeId: s.payeeId, amountCents: -paidSale,
@@ -277,6 +314,15 @@
       if (month && monthOf(a.fecha) !== month) return;
       if (locationId && String(a.ubicacionId) !== locationId) return;
       const sale = saleMap.get(String(a.ventaId || ""));
+      if (returnOfVoided(a)) {
+        // v598: devolucion de una venta anulada: queda SOLO lo que un pago ya consumio, como
+        // hecho saldado (nada pendiente). El resto lo cubre la fila void de arriba.
+        obligationsForAdjustment(a, sale, locMap.get(String(a.ubicacionId))).forEach((o) => {
+          const c = consumedReturn(o);
+          if (c > 0) out.push({ ...o, amountCents: -c, paidCents: c, overpaidCents: 0, dueCents: 0, signedAmountCents: -c });
+        });
+        return;
+      }
       obligationsForAdjustment(a, sale, locMap.get(String(a.ubicacionId))).forEach((o) => {
         if (creditOnly.has(String(a.id)) && o.amountCents >= 0) return;
         /* Negative adjustments reduce the next amount due; they are not themselves

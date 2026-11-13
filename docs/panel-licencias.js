@@ -213,6 +213,44 @@
     return ["codigo,lote"].concat((codigos || []).map(function (c) { return csvCelda(c) + "," + csvCelda(etiqueta); })).join("\n");
   }
 
+  /* Salud privada JFC; aggregate by license and shell WITHOUT financial rows.
+     If no device report was received, that license's health is UNKNOWN, never 0. */
+  function saludEscritor(grupos) {
+    var cohortes=Object.create(null), alertas=[], reportadas=0, sinReporte=0, aparatosConReporte=0;
+    var pendientesConocidos=0, aparatosPendientes=0, aparatosFallback=0;
+    function n(v){return Number.isFinite(Number(v))?Math.max(0,Math.min(100000,Math.floor(Number(v)))):0;}
+    (grupos||[]).forEach(function(g){
+      if(!g || !g.cod)return; // demos are not paid/licensed cohorts
+      var muestras=[], fallback=0, strictFailure=0, pending=0, hayPending=false;
+      (g.filas||[]).forEach(function(r){
+        var h=r&&r.salud, w=h&&h.escritor;
+        if(!w || typeof w!=="object")return;
+        var shell=/^f123-shell-v\d{1,5}$/.test(String(h.shell||""))?h.shell:"sin-versión";
+        cohortes[shell]=(cohortes[shell]||0)+1; // devices, not businesses
+        aparatosConReporte++;
+        var f=n(w.fallbackLocal),x=n(w.strictFailure);
+        var p=w.pendientesRelay===null||w.pendientesRelay===undefined?null:n(w.pendientesRelay);
+        if(f)aparatosFallback++;
+        if(p!==null && p>0){aparatosPendientes++;pendientesConocidos+=p;}
+        fallback+=f;strictFailure+=x;
+        if(p!==null){pending+=p;hayPending=true;}
+        muestras.push({shell:shell, fallback:f,strictFailure:x,pending:p});
+      });
+      if(!muestras.length){sinReporte++;return;}
+      reportadas++;
+      if(fallback||strictFailure||(hayPending&&pending>0))alertas.push({
+        codigo:g.cod,dispositivos:muestras.length,fallback:fallback,strictFailure:strictFailure,
+        pending:hayPending?pending:null,ultima:g.lastSeen
+      });
+    });
+    alertas.sort(function(a,b){return (b.pending||0)-(a.pending||0)||b.strictFailure-a.strictFailure||b.fallback-a.fallback;});
+    return {reportadas:reportadas,sinReporte:sinReporte,
+      aparatosConReporte:aparatosConReporte,aparatosFallback:aparatosFallback,
+      aparatosPendientes:aparatosPendientes,pendientesConocidos:pendientesConocidos,
+      cohortes:Object.keys(cohortes).sort().map(function(shell){return {shell:shell,aparatos:cohortes[shell]};}),
+      alertas:alertas};
+  }
+
   /* ---------- pintar (unico punto que toca el DOM) ---------- */
   var estadoUI = { pagina: 1, orden: "lastSeen", dir: "desc", seleccion: {}, ultimaLista: [] };
   function pintar(indice, filtros, ids) {
@@ -246,6 +284,7 @@
            ella. Antes "Re-attach" estaba escondido en "More", en la ultima columna. Reusa
            licReenganchar (ruta /reapuntar del Worker, con historial: reversible). */
         '<td class="mono" style="color:var(--gold);">' + esc(g.cod || "—") + ' <button type="button" class="lic-lapiz" onclick="licReenganchar(\'' + id + '\')" title="Set or change the license of this device">✎</button>' + (g.lote ? '<br><span class="lic-chip">' + esc(g.lote) + '</span>' : "") +
+          '<button type="button" class="lic-lapiz lic-pin-pencil" data-owner-pin-license="' + esc(g.cod || "") + '" data-owner-pin-instance="' + id + '" data-owner-pin-count="' + String(n) + '" title="Gestionar PIN Owner de esta licencia en JFC" aria-label="Editar PIN central de ' + esc(g.cod || "") + '">✎ PIN</button> ' +
           (n > 1 ? '<br><button type="button" class="btn-ok lic-mini" onclick="licToggleDisp(\'' + id + '\')" title="See each device on this license">' + esc(etiquetaDisp) + '</button>' : "") + '</td>' +
         '<td>' + (r.nombreNegocio ? '<strong>' + esc(r.nombreNegocio) + '</strong>' : '—') + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'negocio\')" title="Edit business name">✎</button></td>' +
         '<td>' + esc(nombreCompleto(r) || "—") + ' <button type="button" class="lic-lapiz" onclick="licEditarCampo(\'' + id + '\',\'nombre\')" title="Edit this device name">✎</button>' +
@@ -317,7 +356,7 @@
   global.PanelLic = {
     TAM_PAGINA: TAM_PAGINA, MI_CORREO: MI_CORREO,
     indexar: indexar, filtrar: filtrar, ordenar: ordenar, paginar: paginar, stats: stats,
-    ejecutarEnLotes: ejecutarEnLotes, csv: csv, csvCodigos: csvCodigos,
+    ejecutarEnLotes: ejecutarEnLotes, csv: csv, csvCodigos: csvCodigos, saludEscritor: saludEscritor,
     pintar: pintar, ui: estadoUI, seleccionar: seleccionar, seleccionados: seleccionados, limpiarSeleccion: limpiarSeleccion,
     _norm: norm
   };

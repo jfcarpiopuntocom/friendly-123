@@ -481,6 +481,12 @@
     namespace: NS,
     instalado: instalado, // H2 review: false = el shim no tomo, apps hermanas sin aislar
     idbInstalado: !!(abrirAislado),
+    // The state journal must distinguish an unreadable key from an absent one.
+    leerEstadoEstricto: function (k) {
+      if (typeof k !== "string" || (!/^f123_estado_v4(?:$|_|::)/.test(k) &&
+          !["amigable_demo_state_v4", "f123_notebook_unificado_v2", "f123_tienda_activa"].includes(k))) throw new TypeError("Invalid state key");
+      return nativo.getItem(PREFIJO + k);
+    },
     leerFotosDbPreAislamiento: leerFotosDbPreAislamiento,
     leerFotosLocalStoragePreAislamiento: leerFotosLocalStoragePreAislamiento,
     onCambio: function (fn) { if (typeof fn === "function") oyentes.push(fn); },

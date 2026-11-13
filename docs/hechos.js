@@ -267,12 +267,15 @@
       return abrirDB().then(function (db) {
         return new Promise(function (resolve, reject) {
           var tx = db.transaction(STORE, "readwrite");
-          var st = tx.objectStore(STORE), existente = null, nuevo = false;
+          var st = tx.objectStore(STORE), existente = null, nuevo = false, fallo = null;
           var leer = st.get(hecho.id);
           leer.onsuccess = function () {
             existente = leer.result;
             if (existente) {
-              if (JSON.stringify(existente) !== JSON.stringify(hecho)) tx.abort();
+              if (JSON.stringify(existente) !== JSON.stringify(hecho)) {
+                fallo = new Error("colision de ID de hecho: " + hecho.id);
+                tx.abort();
+              }
               return;
             }
             st.add(hecho); nuevo = true;
@@ -284,8 +287,8 @@
             } catch (_) {}
             resolve(nuevo);
           };
-          tx.onabort = function () { reject(new Error("colision de ID de hecho: " + hecho.id)); };
-          tx.onerror = function () { reject(tx.error || new Error("no se pudo importar hecho")); };
+          tx.onabort = function () { reject(fallo || tx.error || new DOMException("importacion de hecho abortada", "AbortError")); };
+          tx.onerror = function (ev) { fallo = fallo || (ev.target && ev.target.error) || tx.error; };
         });
       });
     });

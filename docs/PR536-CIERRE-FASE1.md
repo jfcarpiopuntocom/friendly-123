@@ -1,0 +1,79 @@
+# PR #536 · aceptación del canario JFC · 1 noviembre 2026
+
+**Candidato, NO publicado.** JFC aprueba; Claude revisa. No tocar clientes ni sus PIN. Producción v636.
+
+## Rectificación vinculante posterior al relevo del 1 de noviembre (S2 retirado)
+
+**SIN REINICIOS NI BORRADOS, ni siquiera de la sala de JFC.** La instrucción posterior de JFC sustituye el plan de canario que solicitaba S2. En esta candidata se retiró la implementación de `_prepararCorteJfcS2` y su secuencia de borrado IDB/localStorage; el hook histórico `window.__f123PrepareJfcReset` devuelve `false` sin efecto. El inicio carga el estado local existente por el camino normal. El test `test/p0-s2-jfc-test-epoch.test.cjs` exige ausencia del reinicio. No emplear la copia de Opera conectada a la sala real: el incidente documentó propagación de estados divergentes. **Pruebas exclusivamente en copias aisladas sin red, sin escribir en la sala real ni en datos de clientes.**
+
+**Pendientes que bloquean publicación:** la cola histórica del aparato contiene, según el relevo, 50.541 sobres de catálogo (~410,6 MB) que S4 no migra por su límite de 512; la absorción y el conteo físico causal de ramas locales aún no están integrados en el PR; la caja negra tampoco. El shell sigue usando P2P como transporte activo, así que no garantiza recuperación entre aparatos que nunca están conectados a la vez. Los checks sintéticos no certifican paridad real PC–Safari–PWA. No prometer convergencia ni editar automáticamente números a partir de una foto.
+
+
+## Corrección de límite v637 (1 nov 2026)
+
+El cambio anterior `ed12129` solo ampliaba el ciphertext práctico de **191.904 a ~196.500 B (+2,4 %)**: el transporte cerraba cualquier JSON de más de 256 KiB, pese a que el servidor `save_checkpoint` acepta **262.144 B cifrados decodificados**. La candidata ahora separa el límite del checkpoint RPC del límite normal de operaciones: **262.144 B cifrados**, solo cuando el adaptador `F123Relay` anuncia `ckptFrameBytes`; los adaptadores antiguos conservan el límite JSON y los mensajes no-checkpoint siguen con 256 KiB de transporte. El checkpoint no se emite por broadcast.
+
+**Bloqueo de integración detectado:** el `docs/index.html` actual carga `peer-sync.js`, que instala `window.F123Relay = create()` (WebRTC), y **no** carga `docs/vendor/supabase-relay.min.js`. Por eso `ckptFrameBytes` no se anuncia en el camino activo de ese shell y el escritor conserva el fallback de ~196,5 KB. Los tests del transporte Supabase prueban el componente aislado, **no su activación en la app**. No cambiar de transporte ni activar salas sin revisión de cutover, censo, reconciliación y aprobación expresa. **No declarar S3 resuelto para el shell hasta verificar el adaptador realmente cargado.**
+
+La causa estructural no cambia: `API.doc` incluye historiales crecientes. Se añade `OCYjs.medirTamanoColecciones()` para cifras por mapa (bytes de JSON visible, **estimación**, no bytes exactos de Yjs) y se deja la separación de historiales para el [plan v638](./V638-PLAN-SEPARAR-HISTORIALES-CATALOGO.md). **No se ha medido todavía ninguna colección real.**
+
+## v637 — autorización JFC 1 nov 2026: 768 KiB (NO aplicado en producción)
+
+JFC autorizó el punto 2 con la condición original: **medir primero si 262 KiB son insuficientes**.
+
+**Medición real del relay (1 nov 2026, SQL SELECT agregados, sin leer ciphertext):** 53 salas, 11 checkpoints, máximo **191.866 B**, promedio **68.200 B**, **0** checkpoints mayores de 196.500 B y **0** mayores de 262.144 B; margen del mayor al límite servidor actual **70.278 B**. 27.538 operaciones en 20 salas, máximo individual 163.890 B, total ciphertext de operaciones 786.241.878 B. Se confirmó por definición SQL que el servidor sigue con el límite de 262.144 B y el pull de 1 MiB de operaciones sin descuento de checkpoint. **Esta medición NO demuestra que 262 KiB sean insuficientes** y no mide colecciones (cifrado extremo a extremo): no ejecutar aún la migración en producción. Para decidir, obtener las cifras por colección desde el navegador hidratado con `OCYjs.medirTamanoColecciones()` y una proyección de crecimiento; no extraer registros ni IDs.
+
+ Claude/Opus precisó que **768 KiB (786.432 bytes cifrados)** es el máximo compatible con el presupuesto de recuperación de 1 MiB; 1 MiB de checkpoint + 1 MiB de operaciones desbordaría la respuesta. La migración SQL `supabase-relay/migrations/20261101090000_checkpoint_768k.sql` está **preparada en el PR, no aplicada**: modifica únicamente `save_checkpoint` y `pull_page`, resta el checkpoint al presupuesto de operaciones y mantiene el avance obligatorio de la primera operación. No toca el CHECK de 262.144 bytes de `operations.cipher`.
+
+La candidata anuncia 786.432 B en el adaptador Supabase, admite hasta 1.088 KiB de JSON **solo en RPC de checkpoint**, y exime de la cola local de 512 KiB **solo al checkpoint anunciado con búfer vacío**. El cliente antiguo y WebRTC conservan su límite y comportamiento anteriores. **Bloqueo vigente:** el shell `index.html` carga `peer-sync.js`, no el adaptador Supabase; por ello el límite mayor no está habilitado para los usuarios de ese shell. El orden futuro es **SQL probado → verificación de autoridad/cutover → cliente**, siempre con aprobación de publicación aparte.
+
+Rendimiento 300 productos: línea base **548 ms p50**, después de la medición de Claude **468 ms p50** (Chrome PC de JFC); objetivo **≤200 ms**. Cambios candidatos independientes: cache LRU de 4 parseos A/B (`estado-ab.js`), unión de actividad con retorno de identidad en no-op (`mock-backend.js`), y firma de barrido actualizada tras siembra en vivo (`sync-yjs.js`). **No hay nueva medición p50 en la PC tras estos commits**. Se preservó el orden de publicación/durabilidad: no se ha adelantado Yjs a A/B sin prueba de cierre abrupto. No se tocó el redibujado de inventario ni el merge canónico global sin pruebas de paridad.
+
+## Evidencia de tamaños (solo lectura)
+
+El relay guarda ciphertext y no conoce licencias ni contenido de las salas. La consulta de solo lectura devolvió los diez checkpoints cifrados más grandes: **191866, 170566, 155239, 130144, 39765, 26600, 20468, 11944, 2381 y 626 bytes**. El mayor está a 38 bytes del máximo práctico del cliente (191904 bytes). Esas diez cifras **no identifican diez tiendas** ni prueban el tamaño actual de los documentos de los aparatos. No se midió ningún aparato real desde esta sesión.
+
+En cada aparato autorizado, una vez que los tres canales estén completamente sincronizados, abrir la consola del navegador y ejecutar exclusivamente:
+
+```js
+console.table(window.OCYjs.medirTamanoCanales())
+console.table(window.OCYjs.medirTamanoColecciones())
+```
+
+Copiar **solo los números**: `canal`, `bytesPlano`, `bytesCifrados`, `entradas`, `dataImageInline`, `hidratado`, `checkpoint`, `bytesSobre`, `margenBytes`. La segunda tabla contiene `coleccion`, `entradas`, `bytesJSONVisibles`, `hidratado`; `bytesJSONVisibles` **no equivale** a los bytes reales Yjs y no incluye historial borrado. Si `hidratado=false`, la medida no es concluyente. Nunca copiar registros, licencia, PIN ni contenido. `dataImageInline` debe ser **0** para catálogo y operaciones; en fotos es normal que sea positivo porque ese canal almacena los blobs y no hace checkpoint. Los bytes cifrados son **cálculo exacto de longitud AES-GCM** (plaintext + IV 12 + tag 16 + frame 1), sin transmitir nada.
+
+### Por qué S3 es todavía un bloqueo
+
+Se eligió la opción **(a), reconstrucción Yjs conservando la causalidad**, únicamente para intentar reducir un checkpoint tag0 que ya excede el límite. No se reescriben mapas con IDs nuevos ni se borra historial: se re-aplica el update completo a un Y.Doc temporal, se comprueban el estado visible y el snapshot causal, y se usa el resultado **solo si es más pequeño**. El intento está limitado a 2 MiB para no triplicar memoria con documentos gigantes. Si no reduce suficiente, se mantiene la alarma visible y NO se marca el checkpoint como guardado. El lector v636 sigue recibiendo tag0; gzip/tag7 continúa apagado mientras haya un aparato antiguo. Esta medida **no garantiza** reducir los 191866 B ni demuestra que todas las tiendas quepan; las mediciones reales deciden si se requiere un diseño por periodos, que necesitaría una migración de protocolo y compatibilidad propia.
+
+La prueba de whitelist del catálogo evalúa el exportador real con un producto que tiene una foto inline sintética y verifica que solo sale `fotoHash`. No se mueve ninguna foto ni se cambia la colección de operaciones.
+
+## Cloudflare Workers Builds
+
+Build fallido `ec0fa5a9-d9b1-495d-b9f5-eb3caf200a91`: [abrir el log en Cloudflare](https://dash.cloudflare.com/c4d8aa3b3e1db0d80b0beb4abc7c1364/workers/services/view/friendly-123/production/builds/ec0fa5a9-d9b1-495d-b9f5-eb3caf200a91). El token OAuth de Wrangler recibe HTTP 403, código 12004, al pedir logs; **causa aún no leída**. Hipótesis comprobable, no diagnóstico: el build de rama ejecuta `wrangler versions upload` sin resolver el `wrangler.jsonc` raíz o desde un directorio distinto (incidencia histórica documentada en ese archivo). La configuración existe y apunta a `./docs`; hay 204 archivos estáticos, ~7,1 MB en total y ninguno supera 616 KB, por lo que no hay evidencia de exceder el tamaño individual.
+
+Desde el checkout del **SHA exacto** en un terminal, sin credenciales de producción y sin desplegar:
+
+```sh
+npm ci
+npx wrangler deploy --dry-run --config wrangler.jsonc
+```
+
+Después comparar el resultado con el primer error del log del panel; no modificar configuración hasta conocer la causa.
+
+## Prueba física para JFC: diez pasos, sin tocar clientes
+
+1. Trabaja **solo con tu tienda de prueba**. Guarda primero una copia de seguridad y confirma que el PIN sigue funcionando.
+2. Comprueba que PC Chrome, iPhone Safari y PWA instalada muestran la **misma licencia de prueba**; no compartas el código ni el PIN en capturas.
+3. **No realices ningún S2, reseteo, borrado de IndexedDB/localStorage ni cambio de época.** Conserva los estados independientes y trabaja solamente con clones aislados de red. No está ejecutado todavía.
+4. Abre la candidata en PC, cierra y vuelve a abrir: cronometra desde el toque hasta que puedas usarla. Debe tardar **menos de 3 segundos**.
+5. Repite la apertura en Safari y en la PWA instalada; captura los tres tiempos y la versión mostrada.
+6. Cuando la sincronización termine, ejecuta en PC la medición numérica anterior. Guarda solo la tabla de cifras y el estado `hidratado`.
+7. Haz diez ventas **de prueba** en PC y mira cuándo aparecen en iPhone/PWA. Guarda los tiempos; la mitad deben verse en **200 ms o menos** y el 95 % en **1 segundo o menos**.
+8. Repite diez operaciones de prueba en sentido iPhone/PWA → PC. No cuentes como éxito una venta que aparece solo después de recargar.
+9. Recarga tres veces sin hacer nada: deben aparecer **cero operaciones nuevas**. Después realiza dos recorridos PC→iPhone→PC y compara `huellaInventario()`: debe ser idéntica en todos.
+10. Comprueba que un aparato con v636 no se queda desconectado y que **gzip sigue apagado**. Sube a la PR solo capturas sin datos personales, tiempos, conteos y resultado de los dos recorridos; solicita aprobación expresa antes de publicar.
+
+**Aún no ejecutado:** pruebas físicas de convergencia, absorción completa de la cola de 50.541 sobres, conteo físico causal, caja negra, comprobación del relay duradero y confirmación de checkpoints para todos los negocios. **S2 queda cancelado y retirado del runtime.** El código de reinicio JFC debe retirarse del cliente general tras ejecutar el canario y antes de la fase 3.
+
+**Decisión pendiente de JFC:** ¿apruebas publicar **únicamente** el shell 637 a tu tienda de prueba, después de cerrar las comprobaciones anteriores?

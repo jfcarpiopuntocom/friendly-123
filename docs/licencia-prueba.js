@@ -96,6 +96,9 @@
     }
   }
 
+  // Venta de un producto (la unica ruta exenta de la prueba vencida, ver bloquea()).
+  var RUTA_VENTA = /^\/api\/productos\/[^/]+\/venta$/;
+
   function rutaPermitida(path) {
     var p = String(path || "");
     if (p.indexOf("/api/sync") === 0) return true; // recibir cambios de otros aparatos
@@ -111,8 +114,17 @@
       if (rutaPermitida(path)) return false;
       var e = estado();
       var vencida = !!(e && e.aplica && e.vencida);
-      if (vencida) revalidar(); // en segundo plano; esta escritura igual se rechaza
-      return vencida;
+      if (vencida) revalidar(); // en segundo plano, por si la licencia ya se pago
+      /* VENDER SIEMPRE (JFC 2026-11-11, diseno Fable 5.2): la prueba vencida YA NO bloquea la
+         VENTA. DORMANT, NO BORRAR: antes esta ruta tambien devolvia 402. Las demas escrituras
+         siguen como estaban. Para reactivar el bloqueo de ventas: quitar esta linea. */
+      if (RUTA_VENTA.test(String(path || ""))) return false;
+      /* LA APP FUNCIONA SIEMPRE (JFC 2026-11-11: «la app debe funcionar, anular, corregir, cobrar fiado y crear
+         cliente; no quiero anuncios ni textos de solo lectura»): la prueba vencida ya no bloquea NINGUNA escritura
+         de negocio. DORMANT, NO BORRAR: antes devolvia `vencida` (402 PRUEBA_VENCIDA). La licencia BLOQUEADA por el
+         administrador (licenseEstado === "bloqueada") se valida en otro sitio y no cambia. Para reactivar el bloqueo
+         de la prueba vencida: reemplazar esta linea por `return vencida;`. */
+      return false;
     } catch (_) { return false; }
   }
 
@@ -167,8 +179,13 @@
   }
 
   var _ultimoModal = 0;
+  /* MODAL DE COMPRA — DORMIDO (JFC 2026-11-11, "vender siempre"; sin modales informativos).
+     NO BORRAR. El estado de la prueba se ve solo en la linea de estado de Ayuda (pintarAyuda).
+     Para reactivar el modal: cambiar MODAL_ACTIVO a true. */
+  var MODAL_ACTIVO = false;
   function mostrarModal() {
     try {
+      if (!MODAL_ACTIVO) return;
       // Una vez cada 10 minutos como mucho: si varias escrituras rebotan
       // seguidas, no se apilan modales encima del usuario.
       if (Date.now() - _ultimoModal < 10 * 60 * 1000) return;

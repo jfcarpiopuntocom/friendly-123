@@ -2,6 +2,13 @@
 //   1) Gestión (gastos, correo de recuperación, claves) — visible al dueño.
 //   2) Contable (cuentas T, P&G, balance, valorizado) — detrás de la SUBCLAVE.
 // Depende de window.OCAuth (auth-ui.js).
+// v594: capturar ANTES de todo, porque document.currentScript solo vale durante la ejecucion
+// sincronica del script. v590 puso `defer` en index.html: un script defer corre con readyState
+// "interactive" (no "loading"), asi que el chequeo de abajo llamaba init() sincronico a mitad del
+// archivo, antes de definirse window.OCPinOculto (fin del archivo) y antes de OCCargador/OCSalud.
+// Si es defer, init espera a DOMContentLoaded (los defer ya habran corrido todos). Si lo inyecta
+// el cargador despues de DCL, currentScript no es defer y corre ya, como antes.
+var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
 (function () {
   // FIX preventivo 2026-07-07: escHtml vive en index.html; si algun dia
   // cambia el orden de los <script>, todo Avanzado moriria con
@@ -386,6 +393,7 @@
           <input id="oc-importar-file" type="file" accept=".json" style="display:none;">
         </label>
       </div>
+      <p style="font-size:14px;margin:10px 0;"><a href="./pwa-rescue.html" style="font-weight:700;color:var(--azul-medio,#2c4a68);">Rescatar / desinstalar de forma segura PWAs duplicadas del iPhone</a> (sin borrar datos desde la web).</p>
       <p id="oc-respaldo-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></p>
       <p id="oc-respaldo-free" style="font-size:13px;margin-top:6px;display:none;"></p>
       <hr style="border:none;border-top:1px solid var(--azul-suave,#dde5ec);margin:16px 0;">
@@ -578,6 +586,15 @@
           </div>
           <p style="font-size:14px;line-height:1.5;color:#2C3E50;margin:10px 0 0;">Every device that activates with this license is the same shared notebook. They keep each other up to date on their own: there is no separate team code to hand out.</p>
           <p style="font-size:13px;line-height:1.5;color:#7a4a00;background:#FFF4D6;border-left:4px solid #E8A33D;padding:10px 12px;border-radius:0 8px 8px 0;margin:10px 0 0;">Your license is the key to your business. Anyone who has it can open your notebook, so guard it like a password: only share it one-to-one with people on your team, and never post it publicly.</p>
+          <!-- PAIR-QR v656 (JFC 2026-11-03): boton + QR de un solo uso. Solo dueno/admin (se muestra desde el script de abajo).
+               PARA APAGAR: borrar este div y el bloque "PAIR-QR v656" del script. -->
+          <div id="oc-pair-wrap" style="display:none;margin-top:12px;">
+            <button id="oc-pair-btn" class="ir" style="min-height:44px;">${window.t("pair.button")}</button>
+            <div id="oc-pair-out" style="display:none;margin-top:10px;">
+              <img id="oc-pair-img" alt="QR" width="200" height="200" style="background:#FFFFFF;padding:6px;border-radius:6px;">
+              <p style="font-size:14px;line-height:1.5;color:#0F1923;margin:8px 0 0;">${window.t("pair.caption")}</p>
+            </div>
+          </div>
           <div style="display:none;gap:8px;flex-wrap:wrap;margin-top:12px;" aria-hidden="true">
             <!-- WHATSAPP EXPORT/IMPORT en VERDE, aquí donde antes iba "Share with my
                  team" (JFC 2026-09-15). Son el par para mover el cuaderno por
@@ -651,6 +668,16 @@
          Las mediciones NO se apagan: los pintores de abajo siguen escribiendo en
          esos nodos ocultos y sync-latencia.js sigue midiendo. Para mostrarlo a
          todos otra vez: hacer que _verDiag devuelva true. */
+      // shortcut: refreshes every 30 s because it walks the whole catalog; a change shows up within that time.
+      window.OCHuellaStock = function () {
+        var c = window.__ocHuellaStock;
+        if (c && Date.now() - c.t < 30000) return c;
+        var filas = (window.OCSync.catalogoPropio().productos || []).filter(function (p) { return p && !p.borrado; })
+          .map(function (p) { return String(p.id) + ":" + Number(p.stockActual); }).sort();
+        var x = 0x811c9dc5, s = filas.join("|");
+        for (var i = 0; i < s.length; i++) { x ^= s.charCodeAt(i); x = Math.imul(x, 0x01000193) >>> 0; }
+        return (window.__ocHuellaStock = { t: Date.now(), v: ("0000000" + x.toString(16)).slice(-8), n: filas.length });
+      };
       var _verDiag = (function () {
         try {
           var h53 = function(str){var h1=0xdeadbeef,h2=0x41c6ce57;for(var i=0,ch;i<str.length;i++){ch=str.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677);}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0);};
@@ -720,7 +747,10 @@
             if (!r.shell && _reintentosFr < 10) { _reintentosFr++; setTimeout(_pintarFr, 1500); }
             var linea = document.getElementById("oc-canario-linea"), rojos = document.getElementById("oc-canario-rojos");
             var nombreCanal = r.canal === "next" ? "CANARY (next)" : (r.canal === "previo" ? "PREVIOUS (rewind)" : "STABLE (clients)");
-            var base = "This device: " + nombreCanal + " · " + (r.shell || "?") + " · errors this session: " + r.errores + (r.cuadre ? " · money check: " + r.cuadre : "");
+            var numShell = /^f123-shell-v([1-9][0-9]*)$/.exec(String(r.shell || ""));
+            var n = numShell && Number(numShell[1]);
+            var visible = n >= 100 && n < 1000 ? "v0." + Math.floor(n / 100) + "." + String(n % 100).padStart(2, "0") : (r.shell || "?");
+            var base = "This device: " + nombreCanal + " · " + visible + " · errors this session: " + r.errores + (r.cuadre ? " · money check: " + r.cuadre : "");
             linea.textContent = base;
             var wu = window.OCAuth && window.OCAuth.workerUrl ? window.OCAuth.workerUrl() : "";
             if (!wu || !r.shell) return;
@@ -776,6 +806,25 @@
         var _pintarSyncMin = function () {
           var el = document.getElementById("oc-sync-estado-min"); if (!el) return;
           try {
+            /* v608 (JFC 2026-10-28): aviso de memoria llena como TEXTO en esta linea (antes banda roja fija).
+               Solo con error de cuota real (mock-backend.js avisoMemoriaLlena levanta window.__ocMemoriaLlena). */
+            if (window.__ocMemoriaLlena) {
+              var _esQ = false; try { _esQ = (window.OCI18n && window.OCI18n.getLang ? window.OCI18n.getLang() : document.documentElement.lang) === "es"; } catch (_) {}
+              if (el.style.display === "none") { el.style.display = ""; el.dataset.e1AutoShow = "1"; }
+              el.textContent = _esQ ? "Memoria del aparato llena: no se pudo guardar el último cambio." : "Device storage full: the last change could not be saved.";
+              el.style.color = "var(--rojo-ink,#a3392a)";
+              return;
+            }
+            if (window.__ocCheckpointError) {
+              if (el.style.display === "none") { el.style.display = ""; el.dataset.e1AutoShow = "1"; }
+              var ck = window.__ocCheckpointError;
+              var esp = document.documentElement.lang === "es";
+              el.textContent = esp
+                ? "Sync: checkpoint de " + ck.canal + " pendiente (" + ck.motivo + "). La recuperación completa no está certificada."
+                : "Sync: " + ck.canal + " checkpoint pending (" + ck.motivo + "). Full recovery is not certified.";
+              el.style.color = "var(--rojo-ink,#a3392a)";
+              return;
+            }
             if (!window.OCYjs || !window.OCYjs._diag) { el.textContent = "Sync: off on this device"; return; }
             var d = window.OCYjs._diag();
             if (d && d.recuperacionLocalPendiente) {
@@ -797,9 +846,38 @@
             var lat = "";
             try { if (window.OCLatencia) lat = " · " + window.OCLatencia.texto(); } catch (_) {}
             lat += window._ocRelojNota || "";
+            /* v594: TRAZA DE NOMBRE, SOLO LECTURA, en la misma linea "Sync:" (visible solo
+               a JFC/canario, ver _verDiag). Formato: name ns=<hash> rev=<n> src=<ram|sidecar|vacio>
+               ram=<hash del nombre del cuaderno> hdr=<hash del texto del header, o "-" si aun es
+               el titulo por defecto>. Solo hashes de 4 hex: sin nombres ni licencias. ram y hdr
+               iguales = header y cuaderno coinciden; distintos = divergencia. No cambia la UI
+               ni escribe nada. */
+            try {
+              if (window.OCTienda && window.OCTienda.trazaNombre) {
+                var _tz = window.OCTienda.trazaNombre();
+                var _hn = document.getElementById("oc-negocio-nombre");
+                var _hh = "-";
+                if (_hn && !(_hn.hasAttribute && _hn.hasAttribute("data-i18n"))) {
+                  var _ht = String(_hn.textContent || "").trim(), _x = 0x811c9dc5;
+                  for (var _i = 0; _i < _ht.length; _i++) { _x ^= _ht.charCodeAt(_i); _x = Math.imul(_x, 0x01000193) >>> 0; }
+                  _hh = ("0000" + (_x & 0xffff).toString(16)).slice(-4);
+                }
+                lat += " · name ns=" + _tz.ns + (_tz.unida ? "(joined)" : "") + " rev=" + _tz.rev + " src=" + _tz.fuente + " ram=" + _tz.nombre + " hdr=" + _hh;
+              }
+            } catch (_) {}
+            /* v644: sondas de solo lectura; un fallo aqui no cambia la linea. */
+            var _alertaSonda = false;
+            try {
+              var _sn = window.F123Relay && window.F123Relay.estadoSondas ? window.F123Relay.estadoSondas() : {};
+              if (_sn.otraCapa) { lat += " · another device is writing on the other sync layer"; _alertaSonda = true; }
+              if (_sn.sinRecibir) { lat += " · relay moved and nothing arrived here"; _alertaSonda = true; }
+              if (window.__ocMezcla) { lat += " · this device did not update"; _alertaSonda = true; }
+            } catch (_) {}
+            /* v645: huella del inventario que ESTE aparato muestra. Igual en dos aparatos = mismas cantidades. */
+            try { var _hu = window.OCHuellaStock(); lat += " · stock print " + _hu.v + " (" + _hu.n + " items, " + ((d && d.ops) || 0) + " moves)"; } catch (_) {}
             el.textContent = "Sync: " + (conectado ? "connected" : "NOT connected") +
               " · products " + prod + " · shelves " + perchas + " · photos " + fotos + lat;
-            el.style.color = conectado ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
+            el.style.color = conectado && !_alertaSonda ? "var(--sim-verde-dk,#1a6e3c)" : "var(--rojo-ink,#a3392a)";
           } catch (_) { el.textContent = "Sync: —"; }
         };
         /* Aviso de hora (JFC 2026-09-30): lee OCLatencia.desvioReloj cada 3 s.
@@ -876,6 +954,8 @@
         _pintarSyncMin();
         if (window._ocSyncMinTimer) clearInterval(window._ocSyncMinTimer);
         window._ocSyncMinTimer = setInterval(_pintarSyncMin, 3000);
+        window.addEventListener("oc-memoria-llena", function () { try { _pintarSyncMin(); } catch (_) {} });
+        window.addEventListener("oc-checkpoint-status", function () { try { _pintarSyncMin(); } catch (_) {} });
       } catch (_) {}
 
 
@@ -968,7 +1048,7 @@
               if (!confirm("This REPLACES your current products, sales and inventory with the copy. Your PIN and keys stay as they are. Continue?")) return;
               var res = await fetch(API + "/respaldo/importar", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
               var rr = await res.json();
-              if (!res.ok) { _copiaMsg(rr.error || "Could not import the copy.", false); return; }
+              if (!res.ok) { _copiaMsg((rr.errorEs && (function(){try{return !!(window.OCI18n&&window.OCI18n.getLang&&window.OCI18n.getLang()==="es");}catch(_){return false;}})() ? rr.errorEs : rr.error) || "Could not import the copy.", false); return; }
               if (paquete.fotosPerchas) { try { Object.keys(paquete.fotosPerchas).forEach(function (k) { try { localStorage.setItem(k, paquete.fotosPerchas[k]); } catch (_) {} }); } catch (_) {} }
               /* Contraparte del fix de fotos (JFC 2026-09-22): restaurar tambien
                  el almacen REAL (IndexedDB por hash). Un respaldo viejo no trae
@@ -1114,6 +1194,35 @@
       pintarHuella();
       try { window.addEventListener("oc-micelio-cambio", pintarHuella); } catch (_) {}
       if (salaActiva) pintarQR(salaActiva);
+      /* PAIR-QR v656 (JFC 2026-11-03): ver el div #oc-pair-wrap arriba. El QR lleva la licencia en ?join= y,
+         tras el "#", tokenId.llave. La llave nunca se envia a ningun servidor. */
+      (function () {
+        var wrap = document.getElementById("oc-pair-wrap"), btn = document.getElementById("oc-pair-btn");
+        if (!wrap || !btn) return;
+        try { var rol = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual(); if (rol === "dueno" || rol === "admin") wrap.style.display = "block"; } catch (_) {}
+        var timer = null;
+        btn.addEventListener("click", async function () {
+          if (btn.disabled) return; btn.disabled = true;
+          try {
+            var pins = window.OCSecure.leerPinsVisibles() || {};
+            var ts = window.OCSecure.ownerPinTs ? window.OCSecure.ownerPinTs() : 0;
+            var ow = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+            var lic = String(ow.licenseCode || "").trim().toUpperCase();
+            var payload = { v: 1, owner: pins.owner || "", emp: (pins.empleados || [])[0] || "", acct: pins.acct || "", ownerPinTs: ts };
+            var c = await window.OCPair.cifrar(payload);
+            var r = await fetch(window.OCAuth.workerUrl() + "/pair/put", { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ licenseCode: lic, instanceId: ow.instanceId, tokenId: c.tokenId, blob: c.blob }) });
+            if (!r.ok) throw new Error("pair/put " + r.status);
+            var q = window.qrcode(0, "M");
+            q.addData("https://friendly123.com/app/?join=" + encodeURIComponent(lic) + "#vincular=" + c.tokenId + "." + c.keyB64);
+            q.make();
+            document.getElementById("oc-pair-img").src = q.createDataURL(4, 4);
+            var out = document.getElementById("oc-pair-out"); out.style.display = "block";
+            clearTimeout(timer); timer = setTimeout(function () { out.style.display = "none"; document.getElementById("oc-pair-img").removeAttribute("src"); }, 600000);
+          } catch (e) { try { console.warn("pair: no se pudo crear el codigo", e && e.message); } catch (_) {} }
+          finally { btn.disabled = false; }
+        });
+      })();
 
       /* ENTER activa (JFC 2026-08-25): en un campo unico, Enter dispara la
          accion principal — es lo estandar y da el "sense of completion". */
@@ -1613,8 +1722,11 @@
       const _soyDueno = isDueno();
       let _nombreNegocio = "";
       try {
-        _nombreNegocio = (window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo())
-          || (JSON.parse(localStorage.getItem("f123_owned") || "null") || {}).nombreNegocio || "";
+        /* v594: misma regla que el candado y el header (OCTienda.nombreConocido): el
+           sidecar del negocio propio solo vale en el cuaderno propio; en una tienda unida
+           rotulaba el cuaderno con el nombre del negocio propio. */
+        _nombreNegocio = (window.OCTienda && window.OCTienda.nombreConocido && window.OCTienda.nombreConocido())
+          || (window.OCTienda && window.OCTienda.nombreActivo && window.OCTienda.nombreActivo()) || "";
       } catch (_) {}
       let _correoDueno = "";
       try { _correoDueno = (window.OCSecure && window.OCSecure.leerCorreo && window.OCSecure.leerCorreo()) || ""; } catch (_) {}
@@ -2132,6 +2244,8 @@
       vista.appendChild(afPanel);
 
       async function renderAntiFraude() {
+        const rolAF = window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual();
+        if (rolAF === "empleado" || rolAF === "contador") return;
         // 1) Integridad del historial
         const cont = $("oc-af-integridad");
         if (cont) {
@@ -2421,7 +2535,7 @@
         const mover = [], secciones = []; let idx = 0;
         kids.forEach((n, i) => {
           if (i < 3) return; // titulo + intro + "how does it work" quedan fuera del riel
-          if (n.id === "oc-riel-fila" || n.id === "oc-firststeps") return;
+          if (n.id === "oc-riel-fila" || n.id === "oc-firststeps" || n.id === "oc-identity-settings") return;
           if (n.tagName === "DETAILS") { const sm = n.querySelector("summary"); if (sm && esComo(sm.textContent)) return; }
           /* Huérfanos "Back to top": el riel los trata como hijos sueltos y
              los apila al final (4 seguidos). Se redistribuyen después. */
@@ -2641,6 +2755,16 @@
       let owner = abre.owner || (pins && pins.owner) || "";
       if (owner === "888" && abre.owner !== "888") owner = abre.owner || "789";
       if (!owner) owner = "789";
+      // Match the explicit notebook credential used by the PIN gate.
+      try {
+        const T = window.OCTienda, Y = window.OCYjs;
+        const lic = T && T.licenciaActual && T.licenciaActual();
+        const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        if (lic && own.licenseCode === lic && Y && Y.roomId && Y.canal && !Y.canal.recuperando && Y.meta) {
+          const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");
+          if (/^\d{3}$/.test(confirmado) && confirmado !== "456" && confirmado !== "789") owner = confirmado;
+        }
+      } catch (_) {}
       /* LAPICITOS DE EDICIÓN INDIVIDUAL (JFC 2026-08-28). Cada PIN se edita
          por separado con su lapicito, en la cascada de jerarquía: el dueño
          edita los tres; el admin edita SOLO el de encargado (no el del dueño
@@ -2711,9 +2835,38 @@
               alert(window.t("team.pinCollision")); return;
             }
           } catch (_) { alert(window.t("team.pinCheckFailed")); return; }
+          // Central revision wins before mutating a local Owner verifier.
+          // If the Worker rejects the edit, never publish a conflicting room PIN.
+          if(rol==="owner"&&window.F123CentralPin){
+            const oldPin=window.OCSecure.leerPinQueAbre&&window.OCSecure.leerPinQueAbre().owner;
+            if(!/^\d{3}$/.test(String(oldPin||""))){
+              msg("oc-codes-msg","Owner PIN actual no verificado. Ingresa de nuevo antes de cambiarlo.", "var(--rojo)");
+              return;
+            }
+            const central=await window.F123CentralPin.rotar(String(oldPin),v);
+            if(!central.ok){
+              msg("oc-codes-msg","Cambio detenido por el registro central ("+central.reason+"). El PIN anterior sigue guardado localmente.", "var(--rojo)");
+              return;
+            }
+          }
           try {
-            const ok = await window.OCSecure[fn](v);
+            const ok = await (rol === "owner" && window.OCSecure.fijarOwnerPinDesdeSesion
+              ? window.OCSecure.fijarOwnerPinDesdeSesion(v) : window.OCSecure[fn](v));
             if (!ok) { msg("oc-codes-msg", window.tf("team.pinUpdateFailed", { role: etiqueta }), "var(--rojo)"); return; }
+            if (rol === "owner") {
+              const y = window.OCYjs;
+              if (!y || typeof y.publicarCambioPinOwner !== "function" ||
+                  !y.publicarCambioPinOwner(v)) {
+                msg("oc-codes-msg", "Owner PIN saved on this device. Shared recovery is pending; keep this session open.", "var(--rojo)");
+                return;
+              }
+              const revOwner = Number(y.meta && y.meta.get("ownerPinCambioRev"));
+              if (typeof y.confirmarPinOwnerDurable !== "function" ||
+                  await y.confirmarPinOwnerDurable(v, revOwner) !== true) {
+                msg("oc-codes-msg", "Owner PIN saved locally; durable recovery is still pending. Keep this session open.", "var(--rojo)");
+                return;
+              }
+            }
             try {
               if (window.OCSecure.recordarPinQueAbre) {
                 window.OCSecure.recordarPinQueAbre(v, rol === "owner" ? "dueno" : (rol === "emp" ? "empleado" : "contador"));
@@ -2771,6 +2924,17 @@
        se renderizaban con rol vacío y NO aparecían nunca. Se re-pinta al hacer
        login (evento oc-login) para que el dueño/admin vea sus lapicitos. */
     try { window.addEventListener("oc-login", pintarPinsVisibles); } catch (_) {}
+    // P0: auth-ui.js may restore f123_sesion BEFORE Advanced registers oc-login.
+    // Paint once after credential/session readiness and whenever Advanced opens.
+    // Use OCAuth.rolActual() afresh; never grant owner edit rights from a stored badge.
+    try { window.OCAuth.listo().then(pintarPinsVisibles).catch(() => {}); } catch (_) {}
+    try { window.addEventListener("oc-logout", pintarPinsVisibles); } catch (_) {}
+    try {
+      document.addEventListener("click", (ev) => {
+        if (ev.target && ev.target.closest &&
+            ev.target.closest('nav button[data-vista="avanzado"]')) pintarPinsVisibles();
+      }, true);
+    } catch (_) {}
     try { window.addEventListener("oc-lang-change", () => { pintarPinsVisibles(); renderEmpleados().catch(() => {}); }); } catch (_) {}
 
     $("oc-descargar-csv").addEventListener("click", async () => {
@@ -2943,7 +3107,7 @@
         if (!confirm("This REPLACES all current data (products, sales, keys) with the backup data. Continue?")) return;
         const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
         const r = await res.json();
-        if (!res.ok) { msg("oc-respaldo-msg", r.error, "var(--rojo)"); return; }
+        if (!res.ok) { msg("oc-respaldo-msg", (r.errorEs && (function(){try{return !!(window.OCI18n&&window.OCI18n.getLang&&window.OCI18n.getLang()==="es");}catch(_){return false;}})() ? r.errorEs : r.error), "var(--rojo)"); return; }
         let secretoOk = true;
         if (paquete.oc_secure) {
           secretoOk = false;
@@ -3008,38 +3172,96 @@
     const CAJA_INTERVALO_MS = 30 * 60 * 1000; // cada 30 min mientras la pestaña esté abierta
     const CAJA_ALERTA_DIAS = 7; // avisa si el ÚLTIMO RESPALDO MANUAL tiene más de esto
 
-    function cajaLeer() {
-      try { return JSON.parse(localStorage.getItem("f123_caja_snapshots") || "[]"); } catch { return []; }
+    // v597: la identidad de la caja es [namespace, notebookId(instanceId)], NO la licencia:
+    // rotar el codigo de sala (ocRotarCodigoSala, ocDarLicenciaBuena, micelio/rotar) cambiaba
+    // la clave y escondia los puntos. licenseCode viaja en _recuperacion solo como dato informativo.
+    // Mismo formato de clave en vista-perchas.js (historialFotosCheckpointsExacto): cambiar ambos juntos.
+    function cajaOrigen() {
+      const notebookId = window.OCTienda && window.OCTienda.cuadernoId && String(window.OCTienda.cuadernoId() || "").trim();
+      if (!notebookId) throw new Error("Notebook identity unavailable");
+      return { namespace: localStorage.getItem("f123_tienda_activa") || "", notebookId };
     }
-    function cajaGuardar(lista) {
-      try { localStorage.setItem("f123_caja_snapshots", JSON.stringify(lista.slice(-CAJA_MAX_SNAPSHOTS))); return true; }
-      catch { return false; } // localStorage lleno: no rompe la app, solo no guarda este punto
+    function cajaClave(origen) { return "f123_caja_snapshots::" + encodeURIComponent(JSON.stringify([origen.namespace, origen.notebookId])); }
+    function cajaMismoOrigen(datos, origen) {
+      const r = datos && datos._recuperacion;
+      return !!(r && r.confirmado === true && r.completo === true && r.namespace === origen.namespace && r.notebookId === origen.notebookId);
+    }
+    function cajaDatosCompletos(datos) {
+      return !!(datos && !datos.error && !datos.parcial && datos.schemaVersion === 3 &&
+        ["productos", "ubicaciones", "ventas", "movimientos", "clientes", "promotoras", "usuarios", "gastos"].every((k) => Array.isArray(datos[k])));
+    }
+    function cajaLeer(origen) {
+      try { const lista = JSON.parse(localStorage.getItem(cajaClave(origen || cajaOrigen())) || "[]"); return Array.isArray(lista) ? lista : []; } catch { return []; }
+    }
+    function cajaGuardar(lista, origen) {
+      // Pin the first accepted point; later rotations cannot erase that independent anchor.
+      // v598 (ultrareview 2, punto 3; decision de JFC 2026-10-27 "7 nuevos si caben"): se intentan
+      // CAJA_MAX_SNAPSHOTS puntos; si localStorage esta lleno se sueltan los MAS ANTIGUOS de esta
+      // caja (nunca el ancla lista[0] ni el punto recien tomado) hasta que el nuevo quepa. Los
+      // puntos legados (f123_caja_snapshots) y los de otras identidades NO se tocan: son datos
+      // del cliente. Si ni ancla + nuevo caben, devuelve false y cajaGuardarPunto lo avisa.
+      for (let n = Math.min(lista.length, CAJA_MAX_SNAPSHOTS); n >= Math.min(lista.length, 2); n--) {
+        const retenidos = lista.length > n ? [lista[0], ...lista.slice(-(n - 1))] : lista;
+        try { localStorage.setItem(cajaClave(origen), JSON.stringify(retenidos)); return true; } catch (_) {}
+      }
+      return false; // localStorage lleno: no rompe la app, solo no guarda este punto
     }
     async function cajaGuardarPunto(silencioso) {
       try {
-        const datos = await (await fetch(`${API}/respaldo/exportar`)).json();
+        if (!["dueno", "demo", "contador"].includes(window.OCAuth && window.OCAuth.rolActual())) return;
+        const origen = cajaOrigen();
+        const res = await fetch(`${API}/respaldo/exportar?confirmado=1&completo=1`);
+        if (!res.ok) throw new Error("Checkpoint export rejected");
+        const datos = await res.json();
+        if (!cajaDatosCompletos(datos) || !cajaMismoOrigen(datos, origen)) throw new Error("Incomplete checkpoint");
         const contenido = JSON.stringify({ fecha: new Date().toISOString(), datos });
         const checksum = await window.OCSecure.hashTexto(contenido);
-        const lista = cajaLeer();
+        if (cajaClave(cajaOrigen()) !== cajaClave(origen)) throw new Error("Notebook changed");
+        const lista = cajaLeer(origen);
         lista.push({ fecha: new Date().toISOString(), contenido, checksum });
-        const guardado = cajaGuardar(lista);
+        const guardado = cajaGuardar(lista, origen);
         if (!silencioso) {
           msg("oc-respaldo-msg", guardado ? "Checkpoint saved in this browser." : "Could not save checkpoint (localStorage full? Try exporting a manual backup to free space).", guardado ? "var(--verde)" : "var(--rojo)");
+        } else if (!guardado) {
+          // v598 (ultrareview 2, punto 3; JFC 2026-10-27: avisar en texto dentro de la UI, sin modales,
+          // como los demas mensajes de Advanced). Solo cuando el ESPACIO impide guardar; los demas
+          // fallos del punto automatico (export 409 pasajero, cambio de cuaderno) siguen callados.
+          msg("oc-respaldo-msg", "The automatic local checkpoint was not saved. Browser localStorage has its own small limit (separate from the storage quota shown below), or the write failed. Export a manual backup above to protect your data.", "var(--rojo)");
         }
       } catch (_) { if (!silencioso) msg("oc-respaldo-msg", "Could not take a checkpoint.", "var(--rojo)"); }
     }
     async function cajaRestaurar(idx) {
-      const lista = cajaLeer();
+      const origen = cajaOrigen();
+      const lista = cajaLeer(origen);
       const punto = lista[idx];
       if (!punto) return;
       const okChecksum = (await window.OCSecure.hashTexto(punto.contenido)) === punto.checksum;
       if (!okChecksum) { msg("oc-respaldo-msg", "This checkpoint failed the checksum check — may be corrupted. Nothing was restored.", "var(--rojo)"); return; }
-      if (!confirm(`This REPLACES current data with the checkpoint from ${new Date(punto.fecha).toLocaleString()}. Continue?`)) return;
       let paquete; try { paquete = JSON.parse(punto.contenido); } catch { msg("oc-respaldo-msg", "This checkpoint is corrupted.", "var(--rojo)"); return; }
+      if (!cajaDatosCompletos(paquete.datos) || !cajaMismoOrigen(paquete.datos, origen) || cajaClave(cajaOrigen()) !== cajaClave(origen)) {
+        msg("oc-respaldo-msg", "This checkpoint does not identify this notebook. It was preserved; nothing was restored.", "var(--rojo)"); return;
+      }
+      if (!confirm(`This REPLACES current data with the checkpoint from ${new Date(punto.fecha).toLocaleString()}. Continue?`)) return;
+      if (cajaClave(cajaOrigen()) !== cajaClave(origen)) return;
       const res = await fetch(`${API}/respaldo/importar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(paquete.datos) });
-      if (!res.ok) { const r = await res.json(); msg("oc-respaldo-msg", r.error || "Could not restore.", "var(--rojo)"); return; }
+      if (!res.ok) { const r = await res.json(); msg("oc-respaldo-msg", (r.errorEs && (function(){try{return !!(window.OCI18n&&window.OCI18n.getLang&&window.OCI18n.getLang()==="es");}catch(_){return false;}})() ? r.errorEs : r.error) || "Could not restore.", "var(--rojo)"); return; }
       window.dispatchEvent(new CustomEvent("oc-datos-importados"));
       msg("oc-respaldo-msg", "Restored. Screen now shows data from the chosen checkpoint.", "var(--verde)");
+    }
+    // v598: clave opcional para descargar tambien puntos de una identidad anterior (ver oc-caja-ver).
+    async function cajaDescargarLegado(idx, clave) {
+      try {
+        const lista = JSON.parse(localStorage.getItem(clave || "f123_caja_snapshots") || "[]");
+        const punto = lista[idx];
+        if (!punto || typeof punto.contenido !== "string" || (await window.OCSecure.hashTexto(punto.contenido)) !== punto.checksum) throw new Error("Invalid checkpoint");
+        const paquete = JSON.parse(punto.contenido);
+        if (!paquete || !paquete.datos) throw new Error("Invalid checkpoint");
+        const url = URL.createObjectURL(new Blob([punto.contenido], { type: "application/json" }));
+        const a = document.createElement("a"); a.href = url; a.download = "friendly-preserved-checkpoint-" + idx + ".json";
+        // v597: Safari/iOS ignora el click de un <a> fuera del DOM y falla si se revoca el URL de inmediato.
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 4000);
+      } catch (_) { msg("oc-respaldo-msg", "Could not download this checkpoint. Its stored copy was preserved.", "var(--rojo)"); }
     }
     function cajaPintarAlerta() {
       const ultimo = Number(localStorage.getItem("f123_ultimo_export_manual") || 0);
@@ -3106,9 +3328,33 @@
               <button data-caja-restaurar="${idxReal}" style="font-size:13px;padding:6px 10px;border:2px solid var(--azul-medio);border-radius:5px;background:transparent;color:var(--azul-medio);cursor:pointer;">Restore</button>
             </div>`;
           }).join("")
-        : `<p style="font-size:13px;color:var(--ink-soft);">No checkpoints saved yet.</p>`;
+        : `<p style="font-size:13px;color:var(--ink);">No checkpoints saved for this notebook yet.</p>`;
+      // Legacy points have no trustworthy notebook binding; keep every byte for recovery.
+      let legados = []; try { legados = JSON.parse(localStorage.getItem("f123_caja_snapshots") || "[]"); } catch (_) {}
+      if (Array.isArray(legados) && legados.length) {
+        cont.innerHTML += `<p style="font-size:13px;color:var(--ink);">Earlier checkpoints: notebook identity unknown. Download a point and verify its business before using Import copy.</p>` + legados.map((p, i) =>
+          `<div style="padding:6px 0;font-size:13px;color:var(--ink);"><span>${escHtml(new Date(p.fecha).toLocaleString())}</span> <button type="button" data-caja-descargar="${i}">Download preserved checkpoint</button></div>`).join("");
+      }
+      // v598 (ultrareview 2, punto 2): activar o "Import copy" cambian el instanceId y con el la
+      // clave de la caja. Los puntos guardados bajo otra identidad de ESTE aparato no se borran ni
+      // se restauran directo (podrian ser de otro negocio): se listan para descargar, igual que los legados.
+      let claveActual = ""; try { claveActual = cajaClave(cajaOrigen()); } catch (_) {}
+      const otras = [];
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf("f123_caja_snapshots::") === 0 && k !== claveActual) otras.push(k);
+        }
+      } catch (_) {}
+      otras.forEach((k) => {
+        let pts = []; try { pts = JSON.parse(localStorage.getItem(k) || "[]"); } catch (_) {}
+        if (!Array.isArray(pts) || !pts.length) return;
+        cont.innerHTML += `<p style="font-size:13px;color:var(--ink);">Checkpoints from an earlier notebook identity on this device (for example before Import copy or activation). Download a point and verify its business before using Import copy.</p>` + pts.map((p, i) =>
+          `<div style="padding:6px 0;font-size:13px;color:var(--ink);"><span>${escHtml(new Date(p && p.fecha).toLocaleString())}</span> <button type="button" data-caja-descargar="${i}" data-caja-clave="${escHtml(k)}">Download preserved checkpoint</button></div>`).join("");
+      });
       cont.style.display = "block";
       cont.querySelectorAll("[data-caja-restaurar]").forEach((b) => b.addEventListener("click", () => cajaRestaurar(Number(b.dataset.cajaRestaurar))));
+      cont.querySelectorAll("[data-caja-descargar]").forEach((b) => b.addEventListener("click", () => cajaDescargarLegado(Number(b.dataset.cajaDescargar), b.dataset.cajaClave)));
     });
   }
 
@@ -3322,7 +3568,8 @@
   // Wall defensiva (2026-07-08): si init() lanzara al construir Avanzado, el
   // error queda aislado aquí — no rompe el resto de la app ni el arranque.
   function initSeguro() { try { init(); } catch (e) { console.error("Avanzado init falló (aislado):", e); } }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initSeguro);
+  // v594: ver _avxEsDefer arriba (defer corre en readyState "interactive", antes de DOMContentLoaded).
+  if (document.readyState === "loading" || _avxEsDefer) document.addEventListener("DOMContentLoaded", initSeguro);
   else initSeguro();
 
   // ===========================================================================
