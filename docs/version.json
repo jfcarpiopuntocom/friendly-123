@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.53",
-  "fecha": "2026-11-12",
-  "changelog": "v0.7.53: Mantenimiento de la sincronización entre aparatos.",
+  "version": "v0.7.55",
+  "fecha": "2026-11-13",
+  "changelog": "v0.7.55: Mantenimiento del guardado en el aparato.",
   "requerida": false,
-  "shell": "f123-shell-v753",
+  "shell": "f123-shell-v755",
   "apagar": [],
-  "releaseName": "v0.7.53",
-  "cacheGeneration": "golden292"
+  "releaseName": "v0.7.55",
+  "cacheGeneration": "golden294"
 }
