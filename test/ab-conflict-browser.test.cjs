@@ -2,7 +2,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict');
 const {chromium,startServer,openDevice,enterAs}=require('./helpers/e2e-app.cjs');
 
-test('native storage conflict preserves both raw copies in export and blocks writes with a visible alert',async()=>{
+test('native storage conflict with no valid copy preserves both raw copies in export and blocks writes with a visible alert',async()=>{
   const {srv,base}=await startServer();let browser;
   try{
     browser=await chromium.launch({headless:true});
@@ -19,9 +19,14 @@ test('native storage conflict preserves both raw copies in export and blocks wri
     },null,{timeout:8000});
     const originals=await page.evaluate(async()=>{
       const journal=JSON.parse(localStorage.getItem('f123_estado_v4_journal'));
+      // v761: a valid copy now wins; only a conflict with NO valid copy still blocks.
+      const confirmada=JSON.parse(journal.candidateRaw);confirmada.productos='not-a-list';
+      journal.candidateRaw=JSON.stringify(confirmada);
+      localStorage.setItem('f123_estado_v4_journal',JSON.stringify(journal));
+      localStorage.setItem('f123_estado_v4_'+journal.destino,journal.candidateRaw);
       const body=JSON.parse(journal.candidateRaw);body.nombreNegocio='Synthetic conflicting copy';body._rev+=50;
       const foreign=JSON.stringify(body);
-      localStorage.setItem('f123_estado_v4_'+journal.destino,foreign);
+      localStorage.setItem('f123_estado_v4_'+(journal.destino==='A'?'B':'A'),foreign);
       return {foreign,confirmed:journal.candidateRaw};
     });
     await page.reload({waitUntil:'domcontentloaded'});

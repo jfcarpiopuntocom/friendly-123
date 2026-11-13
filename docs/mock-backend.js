@@ -1365,6 +1365,50 @@
     window.OCEstadoAB.avisarConflicto();
     return true;
   }
+  /* v761: conflicto A/B resoluble (práctica de journaling): entre las copias válidas gana la de
+     mayor revisión (empate: más ventas+movimientos, luego la confirmada por el journal); TODAS las
+     demás se conservan antes en _evidencia_ab. Sin copia válida, o sin poder guardar la evidencia,
+     no se toca nada y sigue el bloqueo (507). Nunca se fusionan contenidos. */
+  const OC_STATE_EVIDENCIA = OC_STATE_KEY + OC_STATE_SUFIJO + "_evidencia_ab";
+  function _resolverConflictoAB(ab, vista) {
+    if (!vista.conflictos.length || !ab.adoptar) return false;
+    try {
+      const vistos = new Set(), copias = [];
+      [["confirmada", vista.buffers[vista.activo]], ["A", vista.buffers.A], ["B", vista.buffers.B],
+       ["A-fisica", vista.fisicos.A], ["B-fisica", vista.fisicos.B],
+       // A never-confirmed PREPARED candidate only lives in the journal: kept as evidence, never eligible.
+       ["candidata-no-confirmada", vista.registro && vista.registro.phase === "PREPARED" ? vista.registro.candidateRaw : null]].forEach(([clave, raw]) => {
+        if (typeof raw !== "string" || vistos.has(raw)) return;
+        vistos.add(raw);
+        let body = null; try { body = JSON.parse(raw); } catch (_) {}
+        const rev = body && Number.isSafeInteger(body._rev) ? body._rev : 0;
+        const valida = clave !== "candidata-no-confirmada" && rev >= 1 && !validarRespaldo(body);
+        const ops = valida ? (Array.isArray(body.ventas) ? body.ventas.length : 0) + (Array.isArray(body.movimientos) ? body.movimientos.length : 0) : 0;
+        copias.push({ clave, raw, body, rev, valida, ops });
+      });
+      let ganadora = null;
+      copias.forEach((c) => { if (c.valida && (!ganadora || c.rev > ganadora.rev || (c.rev === ganadora.rev && c.ops > ganadora.ops))) ganadora = c; });
+      if (!ganadora) return false;
+      const ts = new Date().toISOString();
+      const evidencia = JSON.parse(_leerEstadoEstricto(OC_STATE_EVIDENCIA) || "[]");
+      if (!Array.isArray(evidencia)) return false;
+      copias.forEach((c) => {
+        if (c !== ganadora && !evidencia.some((e) => e && e.raw === c.raw))
+          evidencia.push({ ts, motivo: c.clave === "candidata-no-confirmada" ? "ab-conflict-unconfirmed-candidate" : c.valida ? "ab-conflict-lower-revision" : "ab-conflict-invalid-copy", clave: c.clave, revision: c.rev, ganadora: ganadora.rev, raw: c.raw });
+      });
+      const texto = JSON.stringify(evidencia);
+      localStorage.setItem(OC_STATE_EVIDENCIA, texto);
+      if (_leerEstadoEstricto(OC_STATE_EVIDENCIA) !== texto) return false;
+      const elegido = JSON.parse(ganadora.raw);
+      delete elegido._abCommit;
+      elegido._rev = Math.max(vista.revMax, ...copias.map((c) => c.rev)) + 1;
+      if (!ab.adoptar(JSON.stringify(elegido))) return false;
+      console.warn("[estado-ab] v761 conflicto resuelto: gana la revisión " + ganadora.rev + " (" + ganadora.clave + "); " + (copias.length - 1) + " copia(s) en " + OC_STATE_EVIDENCIA);
+      _conflictoEstadoAB = null;
+      try { const aviso = document.getElementById("oc-ab-conflicto"); if (aviso) aviso.remove(); } catch (_) {}
+      return true;
+    } catch (_) { return false; }
+  }
   // Solo metadatos del conflicto, jamás el PIN remoto. El registro es por
   // cuaderno y sobrevive a un refresh hasta que el miembro sí logra aplicarse.
   const CONFLICTOS_EQUIPO_KEY = "f123_team_conflicts_v1" + OC_STATE_SUFIJO;
@@ -1962,7 +2006,8 @@
     try {
       const ab = _estadoAB();
       if (!ab) throw new Error("A/B recovery unavailable");
-      const vista = ab.leer();
+      let vista = ab.leer();
+      if (_resolverConflictoAB(ab, vista)) vista = ab.leer();
       _registrarConflictoAB(vista);
       const activo = vista.activo;
       const orden = activo ? [activo, activo === "A" ? "B" : "A"] : ["A", "B"];
