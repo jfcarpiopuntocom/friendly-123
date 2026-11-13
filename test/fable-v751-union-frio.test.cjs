@@ -25,7 +25,7 @@ function canalDePrueba() {
 
 test('v751: below the threshold nothing new happens', () => {
   const c = canalDePrueba();
-  c.frames(1023, 1000);
+  c.frames(1023, 300); // v771: ~300 KiB stays under the 384 KiB size trigger
   assert.equal(c.pulls.length, 0);
   assert.equal(c._currentPullState.renovarCkpt, undefined);
 });
@@ -51,8 +51,10 @@ test('v751: frequency cap, at most one renewal every 6 hours', () => {
 
 test('v751: byte cap, at most 4 MiB of re-read tail per day', () => {
   const c = canalDePrueba();
-  c.frames(1024, 3000); c.terminarPull(); // ~2.9 MiB
-  c.ahora += 6 * 3600000; c.frames(1024, 3000);
+  // v771: big tails now only build up while the device is incomplete (the size trigger renews earlier otherwise).
+  c.deuda = true; c.frames(1024, 3000); c.deuda = false; c.frames(1, 100); c.terminarPull(); // ~2.9 MiB
+  assert.equal(c.pulls.length, 1);
+  c.ahora += 6 * 3600000; c.deuda = true; c.frames(1024, 3000); c.deuda = false; c.frames(1, 100);
   assert.equal(c.pulls.length, 1, 'a second 2.9 MiB tail would pass the daily budget');
   c.ahora += 18 * 3600000; c.frames(1, 100);
   assert.equal(c.pulls.length, 2, 'the budget returns the next day');

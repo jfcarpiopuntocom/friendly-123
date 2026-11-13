@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.67",
+  "version": "v0.7.72",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.67: Mejoras de acceso y de traducción.",
+  "changelog": "v0.7.72: el PIN tecleado temprano se valida solo cuando el aparato está listo; enlace de rescate traducido.",
   "requerida": false,
-  "shell": "f123-shell-v767",
+  "shell": "f123-shell-v772",
   "apagar": [],
-  "releaseName": "v0.7.67",
-  "cacheGeneration": "golden306"
+  "releaseName": "v0.7.72",
+  "cacheGeneration": "golden308"
 }
