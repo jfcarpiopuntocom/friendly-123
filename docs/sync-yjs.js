@@ -92,6 +92,9 @@
   // Gzip before encryption. Tag7 writes require a confirmed per-license device census.
   async function _gzipYjs(bytes, decompress) {
     var Stream = decompress ? window.DecompressionStream : window.CompressionStream;
+    // v765: a reader without DecompressionStream (Safari <16.4, Firefox <113, Chrome <80) must still apply a
+    // compressed checkpoint; otherwise its pull page fails and retries forever. Writers without it keep raw frames.
+    if (decompress && (typeof Stream !== "function" || typeof Response !== "function")) return _gunzipJs(bytes);
     if (typeof Stream !== "function" || typeof Response !== "function") return null;
     try {
       var stream = new Stream("gzip"), writer = stream.writable.getWriter();
@@ -99,6 +102,114 @@
       var read = new Response(stream.readable).arrayBuffer();
       await writer.write(bytes); await writer.close();
       return new Uint8Array(await read);
+    } catch (_) { return null; }
+  }
+  /* v765: gzip reader in plain JS (RFC 1952 + RFC 1951 inflate, same algorithm as zlib's puff.c by Mark Adler).
+     Used ONLY when the browser lacks DecompressionStream. Returns null on any malformed input, and also when the
+     gzip CRC32 or length trailer does not match, so a bad frame is rejected exactly like the native path. */
+  var _crcTabla = null;
+  var _LBASE = [3,4,5,6,7,8,9,10,11,13,15,17,19,23,27,31,35,43,51,59,67,83,99,115,131,163,195,227,258];
+  var _LEXT = [0,0,0,0,0,0,0,0,1,1,1,1,2,2,2,2,3,3,3,3,4,4,4,4,5,5,5,5,0];
+  var _DBASE = [1,2,3,4,5,7,9,13,17,25,33,49,65,97,129,193,257,385,513,769,1025,1537,2049,3073,4097,6145,8193,12289,16385,24577];
+  var _DEXT = [0,0,0,0,1,1,2,2,3,3,4,4,5,5,6,6,7,7,8,8,9,9,10,10,11,11,12,12,13,13];
+  var _ORDEN_CL = [16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15];
+  function _gunzipJs(src) {
+    try {
+      if (!src || src.length < 18 || src[0] !== 31 || src[1] !== 139 || src[2] !== 8) return null;
+      var flg = src[3], pos = 10, i;
+      if (flg & 4) pos += 2 + (src[pos] | src[pos + 1] << 8);
+      if (flg & 8) while (src[pos++]) {}
+      if (flg & 16) while (src[pos++]) {}
+      if (flg & 2) pos += 2;
+      var out = new Uint8Array(Math.max(1024, src.length * 4)), n = 0, bitBuf = 0, bitCnt = 0;
+      var bits = function (need) {
+        while (bitCnt < need) { if (pos >= src.length) throw new Error("eof"); bitBuf |= src[pos++] << bitCnt; bitCnt += 8; }
+        var v = bitBuf & ((1 << need) - 1); bitBuf >>>= need; bitCnt -= need; return v;
+      };
+      var put = function (b) {
+        if (n === out.length) { var mas = new Uint8Array(out.length * 2); mas.set(out); out = mas; }
+        out[n++] = b;
+      };
+      var huff = function (lens, off, cnt) {
+        var count = new Uint16Array(16), symbol = new Uint16Array(cnt), offs = new Uint16Array(16), s, len, left = 1;
+        for (s = 0; s < cnt; s++) count[lens[off + s]]++;
+        for (len = 1; len <= 15; len++) { left = (left << 1) - count[len]; if (left < 0) throw new Error("over-subscribed"); }
+        for (len = 1; len < 15; len++) offs[len + 1] = offs[len] + count[len];
+        for (s = 0; s < cnt; s++) if (lens[off + s]) symbol[offs[lens[off + s]]++] = s;
+        return { count: count, symbol: symbol };
+      };
+      var decode = function (h) {
+        for (var len = 1, code = 0, first = 0, index = 0; len <= 15; len++) {
+          code |= bits(1);
+          var c = h.count[len];
+          if (code - c < first) return h.symbol[index + (code - first)];
+          index += c; first = (first + c) << 1; code <<= 1;
+        }
+        throw new Error("bad code");
+      };
+      var codes = function (lc, dc) {
+        for (;;) {
+          var sym = decode(lc);
+          if (sym < 256) { put(sym); continue; }
+          if (sym === 256) return;
+          sym -= 257; if (sym >= 29) throw new Error("bad length");
+          var len = _LBASE[sym] + bits(_LEXT[sym]), ds = decode(dc);
+          if (ds >= 30) throw new Error("bad distance");
+          var dist = _DBASE[ds] + bits(_DEXT[ds]);
+          if (dist > n) throw new Error("distance too far");
+          while (len--) put(out[n - dist]);
+        }
+      };
+      var fijoL = null, fijoD = null, last;
+      do {
+        last = bits(1);
+        var tipo = bits(2);
+        if (tipo === 0) {
+          bitBuf = 0; bitCnt = 0; // stored block: drop the partial byte (always < 8 bits here)
+          if (pos + 4 > src.length) return null;
+          var largo = src[pos] | src[pos + 1] << 8;
+          if (largo !== (~(src[pos + 2] | src[pos + 3] << 8) & 0xffff)) return null;
+          pos += 4; if (pos + largo > src.length) return null;
+          while (largo--) put(src[pos++]);
+        } else if (tipo === 1) {
+          if (!fijoL) {
+            var fl = new Uint8Array(288);
+            for (i = 0; i < 288; i++) fl[i] = i < 144 ? 8 : i < 256 ? 9 : i < 280 ? 7 : 8;
+            fijoL = huff(fl, 0, 288); fijoD = huff(new Uint8Array(30).fill(5), 0, 30);
+          }
+          codes(fijoL, fijoD);
+        } else if (tipo === 2) {
+          var nlen = bits(5) + 257, ndist = bits(5) + 1, ncode = bits(4) + 4;
+          if (nlen > 286 || ndist > 30) return null;
+          var cl = new Uint8Array(19);
+          for (i = 0; i < ncode; i++) cl[_ORDEN_CL[i]] = bits(3);
+          var clh = huff(cl, 0, 19), ll = new Uint8Array(nlen + ndist), k = 0;
+          while (k < nlen + ndist) {
+            var sy = decode(clh);
+            if (sy < 16) { ll[k++] = sy; continue; }
+            var val = 0, rep;
+            if (sy === 16) { if (!k) return null; val = ll[k - 1]; rep = 3 + bits(2); }
+            else if (sy === 17) rep = 3 + bits(3);
+            else rep = 11 + bits(7);
+            if (k + rep > nlen + ndist) return null;
+            while (rep--) ll[k++] = val;
+          }
+          if (!ll[256]) return null;
+          codes(huff(ll, 0, nlen), huff(ll, nlen, ndist));
+        } else return null;
+      } while (!last);
+      if (pos + 8 > src.length) return null;
+      var crcIn = (src[pos] | src[pos + 1] << 8 | src[pos + 2] << 16 | src[pos + 3] << 24) >>> 0;
+      var isize = (src[pos + 4] | src[pos + 5] << 8 | src[pos + 6] << 16 | src[pos + 7] << 24) >>> 0;
+      if (isize !== (n >>> 0)) return null;
+      if (!_crcTabla) {
+        _crcTabla = new Int32Array(256);
+        for (i = 0; i < 256; i++) { var c0 = i; for (var b = 0; b < 8; b++) c0 = c0 & 1 ? 0xEDB88320 ^ (c0 >>> 1) : c0 >>> 1; _crcTabla[i] = c0; }
+      }
+      var crc = -1;
+      for (i = 0; i < n; i++) crc = _crcTabla[(crc ^ out[i]) & 255] ^ (crc >>> 8);
+      if (((crc ^ -1) >>> 0) !== crcIn) return null;
+      return out.slice(0, n);
     } catch (_) { return null; }
   }
   // Progressive per-license transport rollout; fail closed if policy cannot be loaded.
@@ -1387,9 +1498,21 @@
         if (ckPend.length && !ckPend.every(corteViejo)) {
           try { log("ckpt omitido: sobre pendiente con el mismo corte en " + nombre); } catch (_) {} return;
         }
+        /* v763: limpia1 medida (13 nov): catalogo 1.069.757 B en claro (actividad 75 %, 0 B de fotos; compactar gana 0 B),
+           gzip 123.524 B. Sin comprimir NUNCA cabia y el corte envejecia. Si no cabe crudo y la capa activa mas baja es
+           Firebase, se comprime: Firebase llego en shell v639 y todo lector desde v636 entiende el marco 7 (solo por pull).
+           En Supabase sigue mandando el censo (gzipWrite): un shell <636 ignora el marco 7 en silencio.
+           v765: un navegador sin DecompressionStream lo lee con _gunzipJs (mismo resultado, verificado por CRC32).
+           Es el mismo estado Yjs completo, solo comprimido: no se descarta ningun dato.
+           PARA REVERTIR: var gzCkpt = API.rollout && API.rollout.gzipWrite; (vuelve a omitirse si no cabe). */
+        var cabeCrudo = full.length + 29 <= (window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
+          ? MAX_CKPT_CIPHER_BYTES : (MAX_CKPT_RPC_BYTES - 128) * 3 / 4);
+        var gzCkpt = (API.rollout && API.rollout.gzipWrite) ||
+          (!cabeCrudo && canal.ws && canal.ws.relayLayer === "f123_relay_cupo_fb_v1");
         return Promise.resolve().then(function () {
-          return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
+          return gzCkpt ? _gzipYjs(full, false) : null;
         }).then(function (packed) {
+          if (packed && !cabeCrudo) try { log("ckpt comprimido " + full.length + "B -> " + packed.length + "B en " + nombre); } catch (_) {}
           // Compression precedes encryption. On other licenses the wire protocol stays unchanged.
           var useful = packed && packed.length + 1 < full.length;
           var payload = useful ? packed : full;

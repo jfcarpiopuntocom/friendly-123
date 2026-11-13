@@ -27,7 +27,9 @@ test('S3: 600KB valid Yjs state compresses to a checkpoint frame below Supabase 
  assert.deepEqual(Array.from(Y.encodeStateVector(a)),Array.from(Y.encodeStateVector(b)));
 });
 test('S3: gzip writer requires an explicit per-license version-census gate',()=>{
- assert.match(source,/API\.rollout && API\.rollout\.gzipWrite \? _gzipYjs\(full, false\) : null/);
+ // v763: without the census, gzip only for a checkpoint that does not fit raw AND whose lowest open layer is Firebase (shell >=639).
+ assert.match(source,/var gzCkpt = \(API\.rollout && API\.rollout\.gzipWrite\) \|\|\s+\(!cabeCrudo && canal\.ws && canal\.ws\.relayLayer === "f123_relay_cupo_fb_v1"\);/);
+ assert.match(source,/return gzCkpt \? _gzipYjs\(full, false\) : null;/);
  assert.match(source,/entry\.allDevicesOnNewShell === true/);
  assert.match(source,/if \(source !== "pull"\) return false/);
  assert.match(source,/if \(canal\.recuperando \|\| \(_currentPullState && _currentPullState\.enCurso\)\) return/);
