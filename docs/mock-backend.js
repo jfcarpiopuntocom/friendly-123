@@ -1724,6 +1724,16 @@
         // No native IDB, closed adapter or a previously working IDB currently
         // unavailable: all use the same read-back-verified local journal.
         if (!casDisponible) return guardarABConfirmado();
+        // v760: IDB already hung on an earlier sale. Confirm from the verified A/B journal now and
+        // retry IDB in the background with this full snapshot (it carries every A/B sale); the
+        // first answer from IDB that is not a timeout ends this mode.
+        if (_idbColgado && intentarABConfirmado()) {
+          Promise.resolve(idb.guardarConRevision(completo, _localRev)).then(ok => {
+            const e = typeof idb.ultimoError === "function" ? idb.ultimoError() : null;
+            if (ok === true || !(e && e.name === "TimeoutError")) _idbColgado = false;
+          }, () => {});
+          return terminar(true);
+        }
         const _tIdbEstricto = _perfLocalInicio();
         const cas = idb.guardarConRevision(completo, _localRev);
         const trasIDB = ok => {
@@ -1733,8 +1743,10 @@
             // 409/rebase protections, do NOT quietly downgrade that conflict.
             const err = idb && typeof idb.ultimoError === "function"
               ? idb.ultimoError() : null;
+            if (err && err.name === "TimeoutError") _idbColgado = true;
             return err ? guardarABConfirmado() : terminar(false);
           }
+          _idbColgado = false;
           // An IDB commit has ALREADY applied the effects once. A/B is only
           // the backup; it must not modify the economic ledger again.
           if (ab && tokenOk) {
@@ -1748,14 +1760,16 @@
           return guardarABConfirmado();
         };
         // v755 (WebKit bug 315804): a hung IndexedDB never settles. After 8 s the SAME snapshot and
-        // revision go to the read-back-verified A/B journal. If A/B cannot confirm, keep waiting for
-        // IDB as before: never answer "not saved" while IDB may still commit this sale.
+        // revision go to the read-back-verified A/B journal. v760: if A/B cannot confirm either, answer
+        // "not saved" after the limit instead of waiting forever; estado-idb abandons the hung CAS at
+        // the same limit so it does not commit this sale afterwards.
         let tope = null;
         const limite = new Promise(listo => { tope = setTimeout(() => listo("tope"), 8000); });
         return Promise.race([cas, limite]).then(ok => {
           if (ok !== "tope") { clearTimeout(tope); return trasIDB(ok); }
-          if (intentarABConfirmado()) { _perfLocalFin('strict_idb', _tIdbEstricto, false); return terminar(true); }
-          return cas.then(trasIDB, falloIDB);
+          _idbColgado = true;
+          _perfLocalFin('strict_idb', _tIdbEstricto, false);
+          return terminar(intentarABConfirmado());
         }, () => { clearTimeout(tope); return falloIDB(); });
       }
       // Non-financial background state still uses existing A/B recovery.
@@ -1777,6 +1791,7 @@
      No hay ningun await de guardado dentro del candado de escrituras: el reintento corre fuera. */
   var _reintentoGuardadoSilencioso = null, _intentosReintentoGuardado = 0, _fallosGuardadoSeguidos = 0;
   var _ultimoErrorGuardado = null, _ultimoErrorIDB = null;
+  var _idbColgado = false; // v760: IndexedDB hit the 8 s limit; strict saves confirm via A/B until IDB answers again
   var _ESPERAS_REINTENTO_GUARDADO = [3000, 6000, 12000, 24000, 48000];
   function _esErrorDeCuota(e) {
     try { return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014); }

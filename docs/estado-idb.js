@@ -280,13 +280,27 @@
   // structured-clones it; the former JSON.parse(JSON.stringify()) was a redundant full copy per sale.
   function guardarConRevision(estado, revisionAplicada) {
     if (!SOPORTADO || !estado || !Number.isSafeInteger(revisionAplicada)) return Promise.resolve(false);
-    const op = _cola.then(async function () {
+    // v760 (WebKit bug 315804): a hung IDB never settles. After 8 s this CAS is abandoned: it settles
+    // false (TimeoutError) so the caller uses the A/B journal, it releases the queue, the next CAS
+    // reopens IDB, and it never puts afterwards (an older snapshot cannot land after a newer one).
+    let abandonada = false, reloj = null;
+    const tope = new Promise(function (listo) {
+      reloj = setTimeout(function () {
+        abandonada = true;
+        dbPromise = null;
+        const e = new Error("IndexedDB no respondio"); e.name = "TimeoutError";
+        _ultimoError = e;
+        listo(false);
+      }, 8000);
+    });
+    const trabajo = _cola.then(async function () {
       const copia = estado;
       let conexion = abrirDB();
       let db = await conexion;
       let conexionCerrada = false;
       const intento = () => new Promise(function (resolve) {
         let accepted = false, errorTx = null; // cada transacción reporta SOLO su propio error
+        if (abandonada) { resolve(false); return; }
         // Money/stock uses strict durability where the browser supports the hint.
         let tx;
         try { tx = db.transaction(STORE, "readwrite", { durability: "strict" }); }
@@ -302,6 +316,7 @@
         req.onsuccess = function () {
           const actual = req.result;
           const rev = Number((actual && actual._rev) || 0);
+          if (abandonada) return; // abandoned after the limit: commit nothing
           // Revision fence: another tab already advanced. Not a storage error; the caller retries on the new base.
           if (rev > revisionAplicada || rev >= Number(copia._rev)) {
             // P0 #607: distinguish revision fences from quota failures; no customer data.
@@ -368,6 +383,8 @@
       if (!await _soltarShellSecundarioVerificado()) return false;
       return intento();
     }).catch(function (e) { _ultimoError = e || null; return false; });
+    trabajo.then(function () { clearTimeout(reloj); }, function () {});
+    const op = Promise.race([trabajo, tope]);
     _cola = op.then(function () {}, function () {});
     return op;
   }
