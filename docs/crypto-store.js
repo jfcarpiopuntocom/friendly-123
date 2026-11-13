@@ -283,7 +283,7 @@ const PIN_XOR_KEY = "oc-pin-r-v1";
       const lic = T && T.licenciaActual && String(T.licenciaActual() || "");
       const own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
       if (!/^F123-/.test(lic) || own.licenseCode !== lic) return false;
-      if (!Y || !Y.roomId || !Y.canal || Y.canal.recuperando !== false ||
+      if (!Y || !Y.roomId || !Y.canal || (Y.canal.recuperando !== false && !(typeof Y.canal.accesoListo === "function" && Y.canal.accesoListo())) ||
           !Y.meta || typeof Y.meta.get !== "function") return false;
       const actual = Y.meta.get("pinsRol");
       const confirmado = String(Y.meta.get("ownerPinConfirmado") || "");

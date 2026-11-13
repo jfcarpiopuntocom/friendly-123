@@ -935,6 +935,25 @@
       missing.sort(function (a, b) { return Number(a[0]) - Number(b[0]); });
       return JSON.stringify([missing, !!(doc.store && doc.store.pendingDs)]);
     }
+    /* v753: the store's PIN/role metadata are complete on this device when no struct still waiting for a causal
+       parent writes them. A pending rewrite (or an unreadable pending update) keeps the device waiting: fail closed.
+       Read-only; deletes nothing. PARA REVERTIR: quitar accesoSinPendientes, canal.accesoListo y canal.headAcceso. */
+    function accesoSinPendientes() {
+      try {
+        var p = doc.store && doc.store.pendingStructs;
+        if (!p) return true;
+        var claves = ["pinsRol", "ownerPinConfirmado", "ownerPinCambioRev"], meta = doc.getMap("_meta"), cadena = [];
+        claves.forEach(function (k) { for (var it = meta._map.get(k); it; it = it.left) cadena.push(it); });
+        return !Y.decodeUpdateV2(p.update).structs.some(function (s) {
+          if (s.parentSub != null && claves.indexOf(s.parentSub) !== -1) return true;
+          return [s.origin, s.rightOrigin].some(function (o) {
+            return !!o && cadena.some(function (it) { return it.id.client === o.client && o.clock >= it.id.clock && o.clock < it.id.clock + it.length; });
+          });
+        });
+      } catch (_) { return false; }
+    }
+    // Proof used by the PIN guards: full recovery, or relay HEAD read once plus complete access metadata.
+    canal.accesoListo = function () { return canal.recuperando === false || (canal.headAcceso === true && accesoSinPendientes()); };
     function deudaPendiente() {
       return !!(Object.keys(partesEntrantes).length ||
         (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)));
@@ -1061,6 +1080,13 @@
       }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
+        // v753: everything this durable layer holds was read. It does NOT end recovery; it only lets PIN/role
+        // metadata that are already causally complete reach the app (see canal.accesoListo).
+        if (typeof nombre === "string" && nombre === "catalogo" && typeof canal.accesoListo === "function" &&
+            !canal.headAcceso && !Object.keys(partesEntrantes).length) {
+          canal.headAcceso = true;
+          if (canal.recuperando && deudaPendiente() && API._store && canal.accesoListo()) API._store.aplicar(); // without debt the existing release below applies once
+        }
         // Sync3: a matching relay HEAD cannot prove missing Yjs causal parents.
         // Re-read only after the LAST PROVEN CLEAN cut and only using an already
         // granted bounded retry. Never rewind the durable cursor or invent stock.
@@ -3416,7 +3442,7 @@
       ultimaAplicacionVisible = Promise.resolve(false);
       // Genérico sobre COLECCIONES: agregar una colección nueva (promotoras,
       // sucursales…) es una sola línea allá arriba, aquí ya viaja sola.
-      var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando && !API.canal.peerSnapshot ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
+      var remoto = { _nombreDesdeYjs: true, nombreNegocio: API.meta.get("nombreNegocio") || "", nombreNegocioTs: Number(API.meta.get("nombreTs")) || 0, nombreNegocioRev: Number(API.meta.get("nombreRev")) || 0, pinsRol: API.canal && API.canal.recuperando && !API.canal.peerSnapshot && !(API.canal.accesoListo && API.canal.accesoListo()) ? null : API.meta.get("pinsRol") || null, deviceNombre: "sync" };
       var confirmado = String(API.meta.get("ownerPinConfirmado") || "");
       if (remoto.pinsRol && /^\d{3}$/.test(confirmado) && confirmado !== "456") {
         remoto.pinsRol = Object.assign({}, remoto.pinsRol, { owner: confirmado });
