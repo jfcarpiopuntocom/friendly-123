@@ -1157,8 +1157,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       // Synthetic/offline fixture hosts have no registered Worker identity.
       // They must keep testing the existing local credential path.
       if(/^localhost$|^127\.0\.0\.1$|^fixture\.invalid$/.test(location.hostname))return "unconfigured";
+      // v754 (JFC 12 nov): an incomplete local identity cannot be checked centrally, so the device's own saved PIN
+      // decides ("unavailable", as with no network). Only the Worker's explicit mismatch (404 below) blocks the Owner.
       if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!owned.instanceId||
-         (active && active!==lic)) return "unavailable-identity";
+         (active && active!==lic)) return "unavailable";
+      // v754: no network (or heartbeat breaker open) gives the same "unavailable" as a failed fetch, without the 2.4 s wait.
+      if((typeof navigator!=="undefined"&&navigator.onLine===false)||_cbBloqueado())return "unavailable";
       const url=OC_WORKER_URL; // PINs must never be sent to a localStorage-controlled origin.
       const endpoint=new URL(url);if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return "unavailable";
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
