@@ -13,7 +13,7 @@ const MiB=1024*1024;
 
 function fixture({business,photos,wireDown}={}) {
   const db=new Map();
-  const day=new Date().toISOString().slice(0,10);
+  const day=new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) /* v767: LOCAL day, like relay-selector hoy() */;
   const root='f123_relay_cupo_v1';
   if(business)db.set(root,JSON.stringify({dia:day,up:0,down:0,...business}));
   if(photos)db.set(root+'_fotos',JSON.stringify({dia:day,up:0,down:0,...photos}));

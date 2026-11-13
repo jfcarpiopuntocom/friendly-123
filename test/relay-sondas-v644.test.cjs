@@ -171,7 +171,7 @@ test('Firebase reads are charged to its daily budget, once, across restart and a
 
 test('an exhausted Firebase budget is not spent on a probe', async () => {
   const c = montar();
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) /* v767: LOCAL day, like relay-selector hoy() */;
   c.store.set('f123_relay_cupo_fb_v1', JSON.stringify({ dia: hoy, up: 0, down: 20 * 1024 * 1024, pausaHasta: 0 }));
   c.w.F123Relay.connect(URL1); await tick(30);
   c.adelantar(61000); await c.tics();
@@ -201,7 +201,7 @@ test('a first layer with data stays, and an empty one stays when the next is emp
 
 test('from peers only, the device goes back to a durable layer when its pause ends', async () => {
   const c = montar();
-  const hoy = new Date().toISOString().slice(0, 10), hasta = Date.now() + 60000;
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) /* v767: LOCAL day, like relay-selector hoy() */, hasta = Date.now() + 60000;
   ['f123_relay_cupo_v1', 'f123_relay_cupo_fb_v1'].forEach(k => c.store.set(k, JSON.stringify({ dia: hoy, up: 0, down: 0, pausaHasta: hasta })));
   let cerrado = null;
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {}, close(code) { cerrado = code; this.readyState = 3; } }) }) };
@@ -216,7 +216,7 @@ test('v646: Firebase failing at open pauses 60 s, not 15 min, and Supabase keeps
   const c = montar({ firebaseCaida: true });
   const fb = c.w.F123FirebaseRelay.connect;
   const original = c.w.F123Relay;
-  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date().toISOString().slice(0, 10), up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
+  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) /* v767: LOCAL day, like relay-selector hoy() */, up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {}, close() {} }) }) };
   original.connect(URL1); await tick(50);
   const pausa = JSON.parse(c.store.get('f123_relay_cupo_fb_v1')).pausaHasta - Date.now();
@@ -226,7 +226,7 @@ test('v646: Firebase failing at open pauses 60 s, not 15 min, and Supabase keeps
 
 test('v651: the app closing its own socket while it opens does not pause Firebase', async () => {
   const c = montar();
-  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date().toISOString().slice(0, 10), up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
+  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) /* v767: LOCAL day, like relay-selector hoy() */, up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
   const ws = c.w.F123Relay.connect(URL1);
   ws.close();
   await tick(50);
@@ -236,7 +236,7 @@ test('v651: the app closing its own socket while it opens does not pause Firebas
 
 test('v651: a refusal the app answers by closing with no code still pauses the layer', async () => {
   const c = montar({ firebaseCaida: true });
-  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date().toISOString().slice(0, 10), up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
+  c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) /* v767: LOCAL day, like relay-selector hoy() */, up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
   c.w.F123Peer = { create: () => ({ connect: () => ({ readyState: 1, addEventListener() {}, close() {} }) }) };
   const ws = c.w.F123Relay.connect(URL1);
   ws.addEventListener('error', () => { try { ws.close(); } catch (_) {} });
@@ -246,7 +246,7 @@ test('v651: a refusal the app answers by closing with no code still pauses the l
 
 function firebaseLleno(n) {
   const c = montar();
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) /* v767: LOCAL day, like relay-selector hoy() */;
   c.store.set('f123_relay_cupo_v1', JSON.stringify({ dia: hoy, up: 0, down: 0, pausaHasta: Date.now() + 900000 }));
   c.store.set('f123_relay_cupo_fb_v1', JSON.stringify({ dia: hoy, up: n, down: 0, pausaHasta: 0 }));
   return c;
@@ -300,7 +300,7 @@ test('v647: a compact photo of 768 KB rides the reserve by intent; an oversized 
 
 test('v647: the download budget still stops the layer, and a held heavy frame goes the next day', async () => {
   const c = firebaseLleno(0);
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) /* v767: LOCAL day, like relay-selector hoy() */;
   c.store.set('f123_relay_cupo_fb_v1', JSON.stringify({ dia: hoy, up: 0, down: 20 * 1024 * 1024, pausaHasta: 0 }));
   assert.equal(c.w.F123Relay.estadoCupo().find(x => /fb/.test(x.capa)).usable, false, 'reads are bounded');
   const d = firebaseLleno(2 * 1024 * 1024);
