@@ -18,7 +18,7 @@
 // release/capabilities.json (same-browser-session-handoff).
 (function(){
  'use strict';
- var id=crypto.randomUUID(),scopeKey='',claimed=false,pending=false,suspendida=false,channel=null;
+ var id=(globalThis.crypto&&globalThis.crypto.randomUUID)?globalThis.crypto.randomUUID():(Date.now().toString(36)+'-'+Math.random().toString(36).slice(2)),scopeKey='',claimed=false,pending=false,suspendida=false,channel=null;
  var PUBLIC_URL='https://jfcarpiopuntocom.github.io/friendly-123/';
  var strings={
   es:{title:'Tu sesión continúa en otra pestaña',body:'Esta sesión se cerró. Puedes seguir en la otra pestaña o volver a entrar aquí con tu PIN.',resume:'Ingresar al dashboard con PIN',tips:'Herramientas amigas',tip1:'JFCarpio.com: más herramientas para negocios.',tip2:'BuscaClientes: encuentra oportunidades comerciales.',tip3:'La Escuela del Dinero: formación práctica.',recommend:'¿Conoces a alguien con negocio?',pitch:'Comparte Friendly con un amigo o familiar que venda productos o trabaje con comisiones.',share:'Recomendar Friendly',copy:'Copiar enlace',copied:'Enlace copiado.',manual:'Selecciona y copia el enlace.',opened:'El menú de compartir se abrió.',cancelled:'Puedes compartirlo cuando quieras.',shareText:'Friendly te ayuda a llevar inventario, ventas y comisiones. Prueba la demo.'},
