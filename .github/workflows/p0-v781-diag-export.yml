@@ -1,0 +1,27 @@
+name: P0 v781 private reconciliation diagnostics
+on:
+  pull_request:
+    paths:
+      - 'docs/diagnostico-export.js'
+      - 'docs/avanzado-extra.js'
+      - 'docs/mock-backend.js'
+      - 'docs/sync-yjs.js'
+      - 'scripts/compare-reconciliacion.cjs'
+      - 'test/p0-v781-reconciliacion-export.test.cjs'
+      - '.github/workflows/p0-v781-diag-export.yml'
+  workflow_dispatch:
+jobs:
+  diagnostic-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check syntax of export and offline comparator
+        run: |
+          node --check docs/diagnostico-export.js
+          node --check scripts/compare-reconciliacion.cjs
+      - name: Owner gate, PII redaction, opId and ACK test
+        run: node --test test/p0-v781-reconciliacion-export.test.cjs
