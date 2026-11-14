@@ -2798,6 +2798,13 @@
   /* mes opcional "YYYY-MM" (shell 371). Sin mes = mes en curso, igual que antes. */
   function getLiquidaciones(mes) {
     const _mes = mesValido(mes);
+    /* v778 (JFC 13 nov 2026: Safari se cerraba al abrir Commissions en una tienda grande). Antes cada linea de
+       comision buscaba su venta/producto/ajuste recorriendo TODA la lista (.find): costo ventas x obligaciones,
+       medido 16 s en PC con 12.000 ventas. Indices armados UNA vez por lectura, con la misma regla que .find
+       (gana el primero que coincide). No cambia ninguna cifra; solo el tiempo. */
+    const _primero = (lista, clave) => { const m = new Map(); for (const x of lista) { if (!x) continue; const k = clave(x); if (!m.has(k)) m.set(k, x); } return m; };
+    const _ventaPorId = _primero(ventas, (v) => v.id), _ventaPorTexto = _primero(ventas, (v) => String(v.id));
+    const _ajustePorTexto = _primero(ajustesComision, (a) => String(a.id)), _productoPorId = _primero(productos, (q) => q.id);
     /* IdiomARTE 2026-09-28: una percha propia con ventas de la casa tambien necesita
        su tarjeta por percha. Las perchas borradas sin actividad del mes no deben
        reaparecer como "sin ventas"; conservar las que tengan historia en el mes
@@ -2861,7 +2868,7 @@
          Beto 20. Ahora cada venta va a su persona; una devolucion, a la persona de SU venta.
          Sin mezcla de personas el reparto sigue vacio, como antes. */
       const _personaVenta = (v) => (v && v.promotoraId) || u.promotoraId || null;
-      const _personaAjuste = (x) => _personaVenta(ventas.find((v) => v.id === x.ventaId));
+      const _personaAjuste = (x) => _personaVenta(_ventaPorId.get(x.ventaId));
       const _fija = u.promotoraId || null;
       const _hayReparto = ventasMes.some((v) => (v.split && v.split.reparto) || _personaVenta(v) !== _fija)
         || ajustesMes.some((x) => x.reparto || _personaAjuste(x) !== _fija);
@@ -2875,10 +2882,10 @@
       // un recibo itemizado (producto, unidades, bruto, comision). Sin esto el pago
       // es un numero suelto y genera desconfianza. Ver marcarComisionPagada() en index.html.
       const detallePendientes = _ledger ? _ledgerObs.filter((o) => Number(o.dueCents) !== 0).map((o) => {
-        const v = (o.kind === "sale" || o.kind === "void") ? ventas.find((x) => String(x.id) === String(o.sourceId)) : null;
-        const aj = o.kind === "adjustment" ? ajustesComision.find((x) => String(x.id) === String(o.sourceId)) : null;
-        const vv = v || (aj ? ventas.find((x) => String(x.id) === String(aj.ventaId)) : null);
-        const pp = vv ? productos.find((q) => q.id === vv.productoId) : null;
+        const v = (o.kind === "sale" || o.kind === "void") ? _ventaPorTexto.get(String(o.sourceId)) : null;
+        const aj = o.kind === "adjustment" ? _ajustePorTexto.get(String(o.sourceId)) : null;
+        const vv = v || (aj ? _ventaPorTexto.get(String(aj.ventaId)) : null);
+        const pp = vv ? _productoPorId.get(vv.productoId) : null;
         const _esDev = !!(aj && aj.tipo === "devolucion"); // v457 (b): el ajuste retroactivo no es una devolucion
         const _esVoid = o.kind === "void"; // 2026-10-07: venta anulada despues de pagarse
         return { producto:(_esDev ? "Return: " : (_esVoid ? "Voided after payment: " : "")) + (pp ? pp.nombre : "product"), sku:pp ? pp.sku : "",
@@ -2886,7 +2893,7 @@
           montoBruto:vv && vv.split ? +(Number(vv.split.montoBruto) || 0).toFixed(2) : 0,
           comisionSocio:+_ledger.money(o.dueCents).toFixed(2), ajusteId:aj ? aj.id : undefined,
           ventaId:vv ? vv.id : undefined, payeeId:o.payeeId, payeeNombre:_payeeName(o.payeeId,u) };
-      }) : agruparPendientesPorProducto(pendientes).concat(ajPend.map((x) => { const pp = productos.find((q) => q.id === x.productoId); return { producto: "Return: " + (pp ? pp.nombre : "product"), sku: pp ? pp.sku : "", cantidad: -(Number(x.cantidad) || 0), montoBruto: +(Number(x.montoBruto) || 0).toFixed(2), comisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), ajusteId: x.id }; }));
+      }) : agruparPendientesPorProducto(pendientes).concat(ajPend.map((x) => { const pp = _productoPorId.get(x.productoId); return { producto: "Return: " + (pp ? pp.nombre : "product"), sku: pp ? pp.sku : "", cantidad: -(Number(x.cantidad) || 0), montoBruto: +(Number(x.montoBruto) || 0).toFixed(2), comisionSocio: +(Number(x.montoComisionSocio) || 0).toFixed(2), ajusteId: x.id }; }));
       // Dias desde la ultima venta de esta percha (rec 05: asociado/a dormida).
       const ultima = ventasActivas().filter((v) => v.ubicacionId === u.id).reduce((mx, v) => (v.fecha > mx ? v.fecha : mx), "");
       const diasSinVenta = ultima ? Math.floor((Date.now() - new Date(ultima).getTime()) / 86400000) : null;
@@ -2915,9 +2922,10 @@
            Include each beneficiary, retroactive adjustment and reversal balance;
            the browser must not reconstruct these amounts from sale flags. */
         payoutStatementLines: _ledger ? _ledgerObs.map((o) => {
-          const aj = o.kind === "adjustment" ? ajustesComision.find((a) => String(a.id) === o.sourceId) : null;
-          const v = ventas.find((x) => String(x.id) === String(aj ? aj.ventaId : o.sourceId));
-          const p = v ? productos.find((x) => x.id === v.productoId) : null;
+          // Igual que antes: String(a.id) === o.sourceId solo coincide si sourceId ya es texto.
+          const aj = o.kind === "adjustment" && typeof o.sourceId === "string" ? _ajustePorTexto.get(o.sourceId) : null;
+          const v = _ventaPorTexto.get(String(aj ? aj.ventaId : o.sourceId));
+          const p = v ? _productoPorId.get(v.productoId) : null;
           return { kind:o.kind, sourceId:o.sourceId, payeeId:o.payeeId,
             fecha:aj ? aj.fecha : (v && v.fecha), producto:p ? p.nombre : "",
             cantidad:Number(v && v.cantidad) || 0,
@@ -6408,15 +6416,31 @@
           _retroPorVenta.set(k, r);
         });
       }
+      /* v778 (Safari se cerraba en Commissions con una tienda grande): indices armados UNA vez, con la regla de
+         .find (gana el primero que coincide). Antes cada venta recorria productos, clientes, perchas y personas. */
+      const _primero = (lista, clave) => { const m = new Map(); for (const x of lista) { if (!x) continue; const k = clave(x); if (!m.has(k)) m.set(k, x); } return m; };
+      const _prodPorId = _primero(productos, (x) => x.id), _cliPorId = _primero(clientes, (x) => x.id);
+      const _ubiPorId = _primero(ubicaciones, (x) => x.id), _perPorId = _primero(promotoras, (x) => x.id);
+      const _perVivaPorId = _primero(promotoras.filter((x) => x && !x.borrado), (x) => x.id);
+      // Devolucion de una venta: el PRIMER ajuste (en orden) que sea su devolucionId o una devolucion con su ventaId.
+      const _ajIdxPorId = new Map(), _ajIdxDevPorVenta = new Map();
+      ajustesComision.forEach((a, i) => { if (!a) return;
+        if (!_ajIdxPorId.has(a.id)) _ajIdxPorId.set(a.id, i);
+        if (a.tipo === "devolucion" && !_ajIdxDevPorVenta.has(a.ventaId)) _ajIdxDevPorVenta.set(a.ventaId, i); });
+      const _ajusteDevolucion = (v) => {
+        const i1 = _ajIdxPorId.has(v.devolucionId) ? _ajIdxPorId.get(v.devolucionId) : Infinity;
+        const i2 = _ajIdxDevPorVenta.has(v.id) ? _ajIdxDevPorVenta.get(v.id) : Infinity;
+        const i = Math.min(i1, i2); return i === Infinity ? undefined : ajustesComision[i];
+      };
       return ventasActivas().filter((v) => !uid || uid === "todas" || v.ubicacionId === uid).map((v) => {
-        const p = productos.find((x) => x.id === v.productoId);
-        const c = clientes.find((x) => x.id === v.clienteId);
-        const u = ubicaciones.find((x) => x.id === v.ubicacionId);
+        const p = _prodPorId.get(v.productoId);
+        const c = _cliPorId.get(v.clienteId);
+        const u = _ubiPorId.get(v.ubicacionId);
         // Persona de la venta primero (campo nuevo); ventas viejas caen a la percha.
         const _pid = v.promotoraId || (u && u.promotoraId) || null;
-        const pr = _pid ? promotoras.find((x) => x.id === _pid) : null;
+        const pr = _pid ? _perPorId.get(_pid) : null;
         const _rt = !v.split ? _retroPorVenta.get(String(v.id)) : null;
-        const _prRt = _rt && _rt.payeeId ? promotoras.find((x) => x.id === _rt.payeeId) : null;
+        const _prRt = _rt && _rt.payeeId ? _perPorId.get(_rt.payeeId) : null;
         return {
           id: v.id, fecha: v.fecha, impuesto: v.impuesto || null, noCommission: v.noCommission === true,
           productoId: v.productoId,
@@ -6426,7 +6450,7 @@
           /* v457: el % propio del producto (null si no tiene): Commissions lo usa para no contar como "casa" una venta guardada sin reparto de un producto que si comisiona. */
           pctAsociadoProducto: p ? normPctAsociado(p.pctAsociado) : null,
           direccionProducto: p && p.direccionComision === "asociadoPaga" ? "asociadoPaga" : "casaPaga", // v521 flecha: switch de Summary by Product
-          comisionistaNombreProducto: p && p.comisionistaId ? ((promotoras.find(x => x.id === p.comisionistaId && !x.borrado) || {}).nombre || "") : "",
+          comisionistaNombreProducto: p && p.comisionistaId ? ((_perVivaPorId.get(p.comisionistaId) || {}).nombre || "") : "",
           cantidad: v.cantidad, precioUnit: v.precioUnit, ...(v.modalidadVenta ? { modalidadVenta: v.modalidadVenta } : {}), costoUnit: v.costoUnit == null || v.costoUnit === "" ? null : v.costoUnit,
           clienteNombre: c ? c.nombre : "",
           ubicacionId: v.ubicacionId, ubicacionNombre: nombreUbic(v.ubicacionId),
@@ -6458,10 +6482,10 @@
           comisionPendiente: !v.split && !_rt && v.noCommission !== true ? null : _coreVentas ? +_coreVentas.money((_dueVenta.get(String(v.id)) || 0) + (_rt ? _rt.dueC : 0)).toFixed(2) : null,
           comisionRetenida: _coreVentas ? _coreVentas.money(_heldVenta.get(String(v.id)) || 0) : 0,
           devuelta: !!v.devuelta,
-          fechaDevolucion: v.fechaDevolucion || ((ajustesComision.find(a=>a && (a.id===v.devolucionId || (a.tipo==="devolucion" && a.ventaId===v.id))) || {}).fecha) || null,
+          fechaDevolucion: v.fechaDevolucion || ((_ajusteDevolucion(v) || {}).fecha) || null,
           medioPagoComision: v.medioPagoComision || null, // v393: para el estado de cuenta (solo lectura)
           reparto: (v.split && v.split.reparto) ? v.split.reparto : null,
-          asistenteNombre: (v.split && v.split.reparto && v.split.reparto[1]) ? ((promotoras.find((x) => x.id === v.split.reparto[1].promotoraId) || {}).nombre || "") : "",
+          asistenteNombre: (v.split && v.split.reparto && v.split.reparto[1]) ? ((_perPorId.get(v.split.reparto[1].promotoraId) || {}).nombre || "") : "",
           /* JFC 2026-09-23: el resumen por producto de Commissions usa el MISMO mes que
              /api/liquidaciones (hora local del negocio) y sabe si la percha comparte
              comision, sin que el front recalcule fechas ni cruce tablas. Aditivo. */
