@@ -1,6 +1,6 @@
 {
-  "version": "v0.7.80",
-  "shell": "f123-shell-v780",
+  "version": "v0.7.81",
+  "shell": "f123-shell-v781",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-b2882b570e5258d98d7d072c38113f99f40f6442793b65bd971c5ad941b8cdcc",
@@ -25,13 +25,13 @@
     "./pocketbase-client.js": "sha256-1b038581ecb22a491f388bddf5de6729209db5d7c67a404d1def8f8edb236469",
     "./estado-ab.js": "sha256-a3e92d9bbab4340483170e9f20877e219129e28216dde308d673ee929bfe8d04",
     "./estado-idb.js": "sha256-db5137f814fa8f614879952e672e40f819829b6576ab435e6ee7870a1dc796b1",
-    "./mock-backend.js": "sha256-fdc6fe51ed04be08f80fdc9298fdccd5efffa889ab5c55500f4d56f5e0937e73",
+    "./mock-backend.js": "sha256-8483b45525e10b5c25b5b7abaaa03c255372ca5cbc9d38899dd0c3697da484e4",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
     "./sync-realtime.js": "sha256-d9229ec3844226f083ede98366830923be9bd19f88d477f11d6bd12e4dfd838e",
     "./sync-watchdog.js": "sha256-c132f08b1801e765f6e83eeefaccff1d5186642dbac990f9666a7fcf3ef05127",
-    "./sync-yjs.js": "sha256-c164b6bcf46a50abb1d7b5ea0b896a711677c9758489aba939f9ef8e995540ff",
+    "./sync-yjs.js": "sha256-d6aeecf6e2e8200c1f3483c3a4c01601fe2196190ba14eec822d8e4891edb82c",
     "./owner-approved-inventory-repair.js": "sha256-02a1fd60b355ecf58900eec1defffd0bd0397088eaa8c2e5a74d5901af7b7095",
     "./sync-latencia.js": "sha256-faf49a6fd8b60e3bd4cb78247b4fee986db94b5a3fa92c86f7ac2e50287d3524",
     "./invariantes.js": "sha256-4df7170b0f6f1227ce3b6ffadf9feaac7843d63cb274699a3b6ab230ff8ecdbc",
@@ -51,7 +51,7 @@
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-7053642915eda42f491496b4b3f78b54b356eaf06f7b08b1056d48a53f03820d",
     "./backup-scheduler.js": "sha256-8ee6cc656bbf7998727d1c3e8ac2c34372bf205c374ac3ede49901f0b8cf669a",
-    "./avanzado-extra.js": "sha256-70f9ab844f5c6e6214b45dfebd0c40316d43edda8466ab28c42dd5ee8b9bd096",
+    "./avanzado-extra.js": "sha256-9e446c8adb5461aa9848d16fac6842432063afdf326a91a52237a3a770a69d5a",
     "./artista.js": "sha256-749613af78308464dee590e0278af2641a8ac5cecc469ff7b08fc155e8038d95",
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
     "./geo-ping.js": "sha256-0ead39d09c652caeb07991401e33b61b7ef9b13e1de5ae367d401c8870c6fd56",
@@ -80,7 +80,7 @@
     "./device-environment.js": "sha256-5517a20f30d38eed8097a82f1925e9d2c6f456de19aed6e443ed383705d4b5cd",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-993f35f6ec625900e7e26463caf4658a81412dfd39cdb103c3d38316c2c2a327",
+    "./dashboard.html": "sha256-497f0d54bfd921c9bca374c165737a81283caf054adbca4ae855b6f6e9eea683",
     "./dashboard-updates.js": "sha256-e91bf81e3fd1262a24c3b40a008927cd9c0371791ba5d4821bbefb7879cf10c4",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
@@ -128,6 +128,7 @@
     "./app-style-02.min.css": "sha256-15d97398c75087b244017e4a728ca7e37fa0edab4d0e9d33668a937beeca6432",
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
-    "./dashboard-main.min.js": "sha256-c00ba8772ba5b87152a664ed6aabd9e561de015e021a3949dbc66aee95463c39"
+    "./dashboard-main.min.js": "sha256-c00ba8772ba5b87152a664ed6aabd9e561de015e021a3949dbc66aee95463c39",
+    "./diagnostico-export.js": "sha256-4bdf6088bd8edebfc7b8338ad8a5d74ea6c1654a756e92d9a443ac3c70c888d6"
   }
 }
