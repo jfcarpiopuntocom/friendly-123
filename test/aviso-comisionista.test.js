@@ -21,7 +21,8 @@ test('nunca envia solo: es un enlace wa.me que la persona toca; sale en counter 
   const f = html.slice(html.indexOf('async function ofrecerAvisoComisionista'), html.indexOf('function mostrarToastAnular'));
   assert.ok(!/window\.open\(/.test(f), 'no abre WhatsApp por su cuenta');
   assert.match(f, /a\.href = url/);
-  assert.match(f, /v\.modoComision === "counter"\) return/);
-  assert.match(f, /!\(Number\(v\.comisionAsociado\) > 0\)/);
+  // v777: the notice uses this sale's own figures (avisoComisionista). The backend returns null for a counter sale
+  // or a sale without commission (test/p0-v777-comisionista-sin-historia.test.cjs), and the notice returns on it.
+  assert.match(f, /!aviso \|\| !\(Number\(aviso\.comision\) > 0\)/);
   assert.match(f, /setTimeout\(quitar, 20000\)/, 'se retira sola');
 });

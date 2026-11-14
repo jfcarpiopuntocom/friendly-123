@@ -5335,7 +5335,7 @@ async function confirmarVentaConInfo(id, esTicket){
     if (document.getElementById("cierreDia") && document.getElementById("cierreDia").open) cargarCierreLista();
     if (document.getElementById("ventasSold") && document.getElementById("ventasSold").open) cargarVentasSold();
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
-    if (data.ventaId) ofrecerAvisoComisionista(data.ventaId, data.producto && data.producto.ubicacionId);
+    if (data.ventaId) ofrecerAvisoComisionista(data.ventaId, data.producto && data.producto.ubicacionId, data.avisoComisionista);
     // FIADO → deuda en Clientes (JFC 2026-09-08). La venta ya quedó asentada
     // (es ingreso, aunque impago); aquí se cuelga la deuda al cliente con el
     // endpoint que ya existe. Si falla, la venta NO se pierde: se avisa a consola.
@@ -5651,20 +5651,17 @@ let toastVentaIntervalo = null;
    - Solo lectura: usa /api/ventas/todas y /api/promotoras; no escribe nada.
    - Sin telefono, sin comision o COUNTER SALE: no aparece nada.
    - La tarjeta se va sola a los 20 s o al tocarla. */
-async function ofrecerAvisoComisionista(ventaId, ubicacionId){
+async function ofrecerAvisoComisionista(ventaId, ubicacionId, aviso){
   try {
-    if (!ventaId) return;
-    const [ventas, proms, ubics] = await Promise.all([
-      fetch(`${API}/ventas/todas?ubicacionId=${encodeURIComponent(ubicacionId || "todas")}`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/promotoras`).then(r => r.ok ? r.json() : []),
-      fetch(`${API}/ubicaciones`).then(r => r.ok ? r.json() : [])
-    ]);
-    const v = (Array.isArray(ventas) ? ventas : []).find(x => x.id === ventaId);
-    if (!v || !(Number(v.comisionAsociado) > 0) || v.modoComision === "counter") return;
-    /* El comisionista se resuelve por la percha de la venta (la lista de ventas
-       solo trae su nombre; el id vive en la ubicacion). */
-    const u = (Array.isArray(ubics) ? ubics : []).find(x => x.id === v.ubicacionId);
-    const pr = u && u.promotoraId ? (Array.isArray(proms) ? proms : []).find(x => x.id === u.promotoraId) : null;
+    /* v777 (JFC 13 nov 2026: «me deja vender siempre y cuando no asigne comisionista»): this used to fetch
+       /api/ventas/todas (the commission ledger of the WHOLE history) after every sale with an associate; on a big store
+       Safari hung and crashed. It now uses only the figures of THIS sale, returned by the sale itself, plus the small
+       associates list. Without them (older backend) it shows nothing: never the heavy query again. */
+    if (!ventaId || !aviso || !(Number(aviso.comision) > 0) || !aviso.promotoraId) return;
+    const proms = await fetch(`${API}/promotoras`).then(r => r.ok ? r.json() : []);
+    const v = { cantidad: aviso.cantidad, precioUnit: aviso.precioUnit, comisionAsociado: aviso.comision,
+      productoNombre: aviso.productoNombre, ubicacionNombre: aviso.ubicacionNombre };
+    const pr = (Array.isArray(proms) ? proms : []).find(x => x.id === aviso.promotoraId) || null;
     const tel = String((pr && pr.telefono) || "").replace(/\D/g, "");
     if (!pr || tel.length < 7) return;
     const es = !!(window.OCI18n && window.OCI18n.locale && window.OCI18n.locale() === "es");

@@ -7629,7 +7629,14 @@
           return J({ error: aviso, code: cuotaReal ? "SALE_STORAGE_QUOTA" : "SALE_DURABILITY_UNCONFIRMED" }, cuotaReal ? 507 : 503);
         }
         emitirOpStock("venta", _opVenta, true);
-        return J({ producto: ficha(p), ventaId, opId: opIdVenta });
+        /* v777 (JFC 13 nov 2026: «me deja vender siempre y cuando no asigne comisionista»): the WhatsApp notice for the
+           associate used to fetch /api/ventas/todas, which rebuilds the commission ledger of the WHOLE history; on a big
+           store Safari hung and crashed. The notice now uses only THIS sale's figures, returned here. Additive field. */
+        const avisoComisionista = (split && _promotoraVenta && Number(split.montoComisionSocio) > 0)
+          ? { promotoraId: _promotoraVenta, comision: Number(split.montoComisionSocio), cantidad: cant, precioUnit: precioEfectivo,
+              productoNombre: p.nombre || "", ubicacionNombre: (ubicP && ubicP.nombre) || "" }
+          : null;
+        return J({ producto: ficha(p), ventaId, opId: opIdVenta, avisoComisionista });
         } catch (e) {
           if (!_ventaGuardada) { _revertirVenta(); debePersistir = false; }
           throw e;
