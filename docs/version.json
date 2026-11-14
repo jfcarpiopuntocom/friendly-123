@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.76",
+  "version": "v0.7.77",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.76: se revierte la renovación del checkpoint por tamaño (Safari en iPhone se cerraba al vender).",
+  "changelog": "v0.7.77: vender con comisionista ya no recorre toda la historia (Safari se cerraba).",
   "requerida": false,
-  "shell": "f123-shell-v776",
+  "shell": "f123-shell-v777",
   "apagar": [],
-  "releaseName": "v0.7.76",
-  "cacheGeneration": "golden312"
+  "releaseName": "v0.7.77",
+  "cacheGeneration": "golden313"
 }
