@@ -1405,6 +1405,21 @@
        size trigger made the full-state checkpoint rebuild run right after sales on a store with a long tail; on an iPhone
        that can kill the tab. Back to the v0.7.70 behaviour (1024 frames only). To re-enable: 384 * 1024. */
     var CKPT_RENUEVA_BYTES_COLA = Infinity;
+    /* v779 (JFC 13 nov 2026, «Resumen al día» aprobado: renovar el resumen solo en la PC, nunca en el iPhone ni durante
+       una venta). The 384 KiB size trigger comes back ONLY on a computer; phones and tablets keep the v0.7.76 behaviour
+       (1024 frames only). No device renews within 30 s of a sale (mock-backend marks window.__f123UltimaVentaMs).
+       The 6 h spacing, daily cap and complete-device gate are unchanged. Cause of the v776 revert was later found
+       elsewhere (v0.7.77/v0.7.78), but phones stay excluded on purpose. PARA REVERTIR: CKPT_RENUEVA_BYTES_PC = Infinity. */
+    var CKPT_RENUEVA_BYTES_PC = 384 * 1024, CKPT_PAUSA_VENTA_MS = 30000;
+    function _aparatoMovil() {
+      try {
+        var ua = String((navigator && navigator.userAgent) || "");
+        return /iPhone|iPad|iPod|Android|Mobile/i.test(ua) || (/Macintosh/.test(ua) && Number(navigator.maxTouchPoints) > 1);
+      } catch (_) { return true; } // unknown device: treat as phone (never the heavy path)
+    }
+    function _ventaReciente() {
+      try { var t = Number(window.__f123UltimaVentaMs) || 0; return t > 0 && Date.now() - t < CKPT_PAUSA_VENTA_MS; } catch (_) { return false; }
+    }
     var _colaFrames = 0, _colaBytes = 0, _renovUltima = 0, _renovDia = 0, _renovBytesDia = 0, _colaMotivo = "";
     /* v756 (JFC 2026-11-13): the tail counters live in this channel's LOCAL store (never on a server), so a phone that
        sleeps or reloads still reaches the threshold and keeps the 6 h spacing. Saved every 64 frames and on renewal. */
@@ -1431,7 +1446,9 @@
       if (!permiteCkpt) return;
       _colaFrames++; _colaBytes += Number(bytes) || 0;
       if (_colaFrames % 64 === 0) guardarCola();
-      if (_colaFrames < CKPT_RENUEVA_FRAMES && _colaBytes < CKPT_RENUEVA_BYTES_COLA) return;
+      if (_colaFrames < CKPT_RENUEVA_FRAMES && _colaBytes < CKPT_RENUEVA_BYTES_COLA &&
+          (_colaBytes < CKPT_RENUEVA_BYTES_PC || _aparatoMovil())) return;
+      if (_ventaReciente()) return motivoCola("venta reciente"); // v779: retried on the next frame
       var ahora = Date.now(), sock = canal.ws, estado = _currentPullState;
       if (_renovUltima && ahora - _renovUltima < CKPT_RENUEVA_MIN_MS) return motivoCola("menos de 6 h");
       if (ahora - _renovDia >= 86400000) { _renovDia = ahora; _renovBytesDia = 0; }

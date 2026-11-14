@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.78",
+  "version": "v0.7.79",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.78: Commissions abre rapido en tiendas grandes (Safari se cerraba al revisarlas).",
+  "changelog": "v0.7.79: la PC mantiene al dia el resumen de la tienda para que un aparato nuevo entre rapido (nunca en el iPhone ni durante una venta).",
   "requerida": false,
-  "shell": "f123-shell-v778",
+  "shell": "f123-shell-v779",
   "apagar": [],
-  "releaseName": "v0.7.78",
-  "cacheGeneration": "golden314"
+  "releaseName": "v0.7.79",
+  "cacheGeneration": "golden315"
 }

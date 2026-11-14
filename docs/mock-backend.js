@@ -7415,6 +7415,8 @@
       }
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/venta$/))) {
+        // v779: sync-yjs.js does not renew the store summary (checkpoint) within 30 s of a sale.
+        try { window.__f123UltimaVentaMs = Date.now(); } catch (_) {}
         const p = productos.find((x) => x.id === m[1]); if (!p) return J({ error: "Product not found." }, 404);
         // A caller-supplied CONFIRM operation id is stable across retries.
         // Do not re-run any stock, money, movement or Sync3 effect on replay.
