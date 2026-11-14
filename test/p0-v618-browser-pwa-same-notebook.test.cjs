@@ -41,7 +41,9 @@ test('both contexts deny incomplete recovery, wrong namespace, demo and wrong PI
 });
 test('successful login never rewrites f123_secure or repeats expensive PBKDF2',async()=>{
  const at=a.indexOf('  async function alinearYEntrar(code, rolEntrada) {');
- const end=a.indexOf('  async function validar(code)',at);
+ // v769 put the waiting-PIN block (and the esReintento parameter) right before validar(): end at whichever comes first.
+ const ends=['  /* ===== v769','  async function validar(code'].map(s=>a.indexOf(s,at)).filter(i=>i>at);
+ const end=ends.length?Math.min(...ends):-1;
  assert.ok(at>0 && end>at);
  const src=a.slice(at,end);
  const code=src+';return alinearYEntrar("432","dueno");';
