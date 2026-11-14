@@ -1,4 +1,4 @@
-﻿// avanzado-extra.js — Reestructura la vista "Avanzado" del dueño en dos capas:
+// avanzado-extra.js — Reestructura la vista "Avanzado" del dueño en dos capas:
 //   1) Gestión (gastos, correo de recuperación, claves) — visible al dueño.
 //   2) Contable (cuentas T, P&G, balance, valorizado) — detrás de la SUBCLAVE.
 // Depende de window.OCAuth (auth-ui.js).
@@ -653,8 +653,38 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             <button type="button" class="tecla" id="oc-canal-estable" style="font-size:14px;min-height:44px;">Use stable on this device</button>
           </div>
         </div>
-        <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>`;
+        <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>
+        <button type="button" class="tecla" id="oc-copiar-diag" data-i18n="adv.copyDiag" style="font-size:13px;min-height:44px;margin-top:6px;">Copy diagnostics</button>
+        <textarea id="oc-diag-texto" readonly style="display:none;width:100%;box-sizing:border-box;min-height:120px;margin-top:6px;font-family:monospace;font-size:12px;color:#1a1a1a;"></textarea>`;
       vista.appendChild(panel);
+
+      /* v775 (JFC 13 nov 2026, «dale greenlight» to: a «Copy diagnostics» button in Advanced, inside the existing status
+         area, no new strip or notice). Copies ONLY the device's own technical logs that already exist: the last 15 reloads
+         with their reason (f123_recargas_log) and the last 20 errors (f123_errores_log), plus version and browser. No
+         business data (no products, sales, customers, license, PIN or room). If the clipboard is not allowed, the same
+         text appears in a read-only box to select by hand. */
+      try {
+        var _bDiag = document.getElementById("oc-copiar-diag");
+        if (_bDiag) _bDiag.addEventListener("click", function () {
+          var leerLog = function (k) { try { var a = JSON.parse(localStorage.getItem(k) || "[]"); return Array.isArray(a) ? a : []; } catch (_) { return []; } };
+          var texto = JSON.stringify({
+            v: (function () { try { return localStorage.getItem("f123_version_vista") || ""; } catch (_) { return ""; } })(),
+            ua: String(navigator.userAgent || "").slice(0, 160),
+            ahora: new Date().toISOString(),
+            recargas: leerLog("f123_recargas_log"),
+            errores: leerLog("f123_errores_log")
+          });
+          var caja = document.getElementById("oc-diag-texto"), msg = document.getElementById("oc-sync-msg");
+          var mostrar = function (ok) {
+            if (caja) { caja.value = texto; caja.style.display = "block"; }
+            if (msg) { msg.style.color = "#00805A"; msg.textContent = ok ? ((window.t && window.t("adv.diagCopied")) || "Diagnostics copied.") : ((window.t && window.t("adv.diagSelect")) || "Select the text below and copy it."); }
+          };
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(texto).then(function () { mostrar(true); }, function () { mostrar(false); });
+            else mostrar(false);
+          } catch (_) { mostrar(false); }
+        });
+      } catch (_) {}
 
       /* DIAGNOSTICO SOLO PARA JFC (JFC 2026-09-25: "puede causar horribles problemas
          a los usuarios que no sean yo, a menos que solo me salga a mi"). La linea
