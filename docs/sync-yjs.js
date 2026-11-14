@@ -2142,6 +2142,23 @@
           canal.ws && canal.ws.readyState === 1 && _currentPullState &&
           !_currentPullState.enCurso) pedirPagina(canal.ws, _currentPullState);
     });
+    // Owner-requested forensic snapshot. Metadata only; never exposes ciphertext,
+    // room keys, plaintext ops, or mutates/deletes pending frames.
+    // IDs here are TRANSPORT envelopes, not application opIds.
+    canal.diagnosticoOutboxLectura = function () {
+      var max = 30000, all = _outbox.pending || [], part = all.slice(0, max);
+      return {
+        total: all.length, truncado: all.length > max,
+        sinGuardar: _unsaved.length,
+        confirmados: (_outbox.confirmed || []).length,
+        sobres: part.map(function (e) {
+          return { id: String(e.id || ""), clase: e.k === "ckpt" ? "checkpoint" :
+            e.k === "op" ? "operacion" : "otro",
+            grupo: e.group ? String(e.group) : null,
+            huerfano: !!e.huerfano, enVuelo: !!_durableInFlight[e.id] };
+        })
+      };
+    };
     canal.conectar = conectar;
     return canal;
   }
