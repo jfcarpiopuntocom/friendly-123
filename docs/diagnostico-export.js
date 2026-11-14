@@ -53,6 +53,7 @@
   function projMoney(x) {
     return { id: x.id, fields: { opId: opId(x.opId), tipo: tipo(x.tipo || x.type || x.status),
       monto: num(x.monto == null ? (x.amount == null ? x.importe : x.amount) : x.monto),
+      amountCents: num(x.amountCents), montoComisionSocio: num(x.montoComisionSocio),
       cantidad: num(x.cantidad), anulado: !!x.anulada, liquidada: !!x.liquidada,
       pagado: x.status === "paid" } };
   }
@@ -92,7 +93,7 @@
     // Photo hashes are themselves evidence; double hash so raw content fingerprints stay private.
     for (const x of fotos.filas) if (x.puntero) x.puntero = (await digest(x.puntero)).slice(0, 24);
     fotos.huella = await digest(JSON.stringify(fotos.filas));
-    return { revision: num(d.revision), inventario: inventories, ventas: sales,
+    return { revision: num(d.revision), persistenciaConfirmadaLocal: d.persistenciaConfirmadaLocal === true, inventario: inventories, ventas: sales,
       dinero, fotos, acceso, conteos: d.conteos || {} };
   }
   async function transportReport() {
@@ -147,7 +148,8 @@
         hechos = { disponible: true, ...limited(list, x => ({
           id: opId(x && x.id), opId: opId(x && x.datos && x.datos.opId),
           tipo: tipo(x && x.tipo), hash: x && typeof x.hash === "string" ? x.hash.slice(0, 80) : null
-        })), cadenaLocal: typeof h.verificarCadena === "function" ? await h.verificarCadena() : null };
+        })), cadenaLocal: typeof h.verificarCadena === "function" ?
+          (await h.verificarCadena()) === null ? { ok: true } : { ok: false, detalle: "verificar localmente" } : null };
       }
     } catch (_) { hechos = { disponible: false, error: "no-legible" }; }
     return {
@@ -180,7 +182,13 @@
     const version = ls("f123_version_vista") || (root.document.querySelector('meta[name="app-version"]') || {}).content || "";
     return {
       esquema: "friendly-123-reconciliacion-v1", versionEsquema: VERSION,
-      generadoEn: new Date().toISOString(), version, navegador: String(root.navigator.userAgent || "").slice(0, 180),
+      generadoEn: new Date().toISOString(), version, sha: null,
+      shaVerificado: false, nombreAparato: null,
+      ultimaActividadLocal: (() => {
+        const fechas = arrayKey("f123_sync_log").map(x => Date.parse(x && x.fecha || "")).filter(Number.isFinite);
+        return fechas.length ? new Date(Math.max(...fechas)).toISOString() : null;
+      })(),
+      navegador: String(root.navigator.userAgent || "").slice(0, 180),
       dispositivo: d ? (await digest(d)).slice(0, 24) : null,
       contexto: "Instancia local; no implica convergencia, validación cruzada ni ACK remoto",
       comercial: a, transporte: b,
@@ -190,7 +198,8 @@
         "Las huellas de datos del backend reflejan este aparato al momento de leerlos.",
         "Los sobres cifrados del relay NO tienen relación 1:1 garantizada con opId.",
         "Un mismo hash local NO certifica ACK de otros dispositivos.",
-        "El informe no incluye imágenes, payloads, PIN, licencias, datos personales ni cifrados."
+        "El informe no incluye imágenes, payloads, PIN, licencias, datos personales ni cifrados.",
+        "El SHA exacto de la build y el nombre del aparato no están disponibles con una API fiable: se muestran null en vez de inventarlos."
       ]
     };
   }
