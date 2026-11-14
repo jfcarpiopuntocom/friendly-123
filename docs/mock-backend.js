@@ -8314,6 +8314,42 @@
          BLANCA: productos sin costo, perchas, ventas con su comision y el rastro basico.
          Sin clientes, costos, gastos, PINs ni margenes. respaldo-empleado.js (punto 13) se
          arma con esto y sigue funcionando. Importar (reemplaza TODO el cuaderno): solo dueno. */
+      /* Auditoria read-only: projection whitelist, never a backup. Absolutely no
+         PIN/license/room, name, customer/contact, image bytes, free text or cost
+         fields. Deliberately does not call guardarEstadoLocal or modify the shop. */
+      if (path === "/api/diagnostico/reconciliacion" && method === "GET") {
+        if (_rolLocal() !== "dueno") return J({ error: "Owner authorization required." }, 403);
+        const take = (record, keys) => {
+          const out = {};
+          for (const k of keys) if (record && Object.prototype.hasOwnProperty.call(record, k))
+            out[k] = record[k];
+          return out;
+        };
+        const rows = (list, keys) => (Array.isArray(list) ? list : []).map(r => take(r, keys));
+        return J({
+          formato: 1, revision: _localRev,
+          persistenciaConfirmadaLocal: _estadoPuedePublicarse() === true,
+          productos: rows(productos, ["id", "stockActual", "stockBase", "stockPN", "stockEpochId",
+            "stockDeficit", "stockReconciliacionPendiente", "borrado"]),
+          ventas: rows(ventas, ["id", "opId", "fecha", "productoId", "cantidad",
+            "precioUnit", "anulada", "devuelta", "liquidada"]),
+          payouts: rows(payouts, ["id", "opId", "type", "status", "amount", "amountCents"]),
+          gastos: rows(gastos, ["id", "opId", "tipo", "monto", "importe"]),
+          transferencias: rows(transferencias, ["id", "opId", "tipo", "cantidad", "monto"]),
+          ajustesComision: rows(ajustesComision, ["id", "opId", "tipo", "cantidad", "monto",
+            "montoComisionSocio", "liquidada"]),
+          movimientos: rows(movimientos, ["id", "opId", "tipo", "cantidad", "monto"]),
+          usuarios: rows(usuarios, ["id", "rol", "activo", "borrado"]),
+          fotos: productos.map(p => ({ id: "producto:" + String(p.id), clase: "producto",
+            fotoHash: p.fotoHash || null })).concat(ubicaciones.map(u => ({
+            id: "percha:" + String(u.id), clase: "percha", fotoHash: u.fotoHash || null
+          }))),
+          conteos: { clientes: clientes.length, perchas: ubicaciones.length,
+            sucursales: sucursales.length, promotoras: promotoras.length,
+            payoutConflicts: payoutConflicts.length, payoutQuarantine: payoutQuarantine.length }
+        });
+      }
+
       if (path === "/api/respaldo/exportar") {
         const _rolExp = _rolLocal();
         /* v597: PUNTO DE RECUPERACION (caja local de Advanced, cajaGuardarPunto). Solo con
