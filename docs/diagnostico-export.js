@@ -93,8 +93,31 @@
     // Photo hashes are themselves evidence; double hash so raw content fingerprints stay private.
     for (const x of fotos.filas) if (x.puntero) x.puntero = (await digest(x.puntero)).slice(0, 24);
     fotos.huella = await digest(JSON.stringify(fotos.filas));
+    // Index of ACTUAL locally stored photo blobs, not just catalog pointers.
+    // Read only: hashesGuardados() never opens image bytes or rewrites IndexedDB.
+    let fotosLocales = { disponible: false, razon: "OCFotos no disponible" };
+    try {
+      const f = root.OCFotos;
+      if (f && typeof f.hashesGuardados === "function") {
+        const raw = await f.hashesGuardados();
+        const keys = Array.isArray(raw) ? raw : [];
+        const set = new Set(keys.map(String));
+        const pointers = (d.fotos || []).filter(x => x && x.fotoHash);
+        const absent = pointers.filter(x => !set.has(String(x.fotoHash)));
+        fotosLocales = {
+          disponible: true, blobs: keys.length, punteros: pointers.length,
+          punterosSinBytes: absent.length,
+          faltaEn: await Promise.all(absent.slice(0, MAX_ROWS).map(async x => ({
+            clave: (await digest(x.id)).slice(0, 24),
+            foto: (await digest(x.fotoHash)).slice(0, 24)
+          }))),
+          truncado: absent.length > MAX_ROWS,
+          hashesBlobs: await Promise.all(keys.slice(0, MAX_ROWS).map(async h => (await digest(h)).slice(0, 24)))
+        };
+      }
+    } catch (_) { fotosLocales = { disponible: false, razon: "No se pudo verificar IndexedDB" }; }
     return { revision: num(d.revision), persistenciaConfirmadaLocal: d.persistenciaConfirmadaLocal === true, inventario: inventories, ventas: sales,
-      dinero, fotos, acceso, conteos: d.conteos || {} };
+      dinero, fotos, fotosLocales, acceso, conteos: d.conteos || {} };
   }
   async function transportReport() {
     const legacyLog = arrayKey("f123_sync_log");
@@ -199,6 +222,14 @@
       navegador: String(root.navigator.userAgent || "").slice(0, 180),
       dispositivo: d ? (await digest(d)).slice(0, 24) : null,
       contexto: "Instancia local; no implica convergencia, validación cruzada ni ACK remoto",
+      almacenamiento: await (async () => {
+        try {
+          const s = root.navigator.storage;
+          if (!s || typeof s.estimate !== "function") return { disponible: false };
+          const e = await s.estimate();
+          return { disponible: true, usoBytes: num(e.usage), cuotaBytes: num(e.quota) };
+        } catch (_) { return { disponible: false }; }
+      })(),
       comercial: a, transporte: b,
       pruebas: { capturasFisicas: false, respaldosVerificados: false, canonicidad: "sin-determinar",
         convergencia: "no-verificada", veredicto: "NO-GO" },
@@ -207,6 +238,7 @@
         "Los sobres cifrados del relay NO tienen relación 1:1 garantizada con opId.",
         "Un mismo hash local NO certifica ACK de otros dispositivos.",
         "El informe no incluye imágenes, payloads, PIN, licencias, datos personales ni cifrados.",
+        "Los hashes de foto guardados prueban presencia local en el inventario de IDB, no recepción durable remota ni legibilidad de sus bytes.",
         "El SHA exacto de la build no tiene un testigo fiable y se muestra null. El apodo explícito del aparato aparece si existe y no parece un secreto."
       ]
     };
