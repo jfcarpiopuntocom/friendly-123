@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.79",
-  "fecha": "2026-11-13",
-  "changelog": "v0.7.79: la PC mantiene al dia el resumen de la tienda para que un aparato nuevo entre rapido (nunca en el iPhone ni durante una venta).",
+  "version": "v0.7.80",
+  "fecha": "2026-11-14",
+  "changelog": "v0.7.80: Commissions muestra la venta recien hecha y las cifras reales aunque lleguen cambios de otros aparatos.",
   "requerida": false,
-  "shell": "f123-shell-v779",
+  "shell": "f123-shell-v780",
   "apagar": [],
-  "releaseName": "v0.7.79",
-  "cacheGeneration": "golden315"
+  "releaseName": "v0.7.80",
+  "cacheGeneration": "golden316"
 }

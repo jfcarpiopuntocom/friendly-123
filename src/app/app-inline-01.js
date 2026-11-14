@@ -2148,6 +2148,28 @@ async function poblarSelectClientesVentaAbierta() {
    Falla abierto: cualquier refresco va en try/catch y nunca rompe el flujo. */
 window.OCReactivo = (function () {
   function bus() { try { return (window.AMG && window.AMG.EventBus) || null; } catch (_) { return null; } }
+  /* v780 (JFC 13 nov 2026: «no sale lo real o la venta que acabo de hacer» en Summary by product). Every sync burst
+     called cargarComisiones() again; each call bumps _ocComisionesSolicitud and the slow read already in flight was
+     thrown away (`_run !== _ocComisionesSolicitud` in cargarComisiones). While a device keeps receiving changes no
+     read was ever painted: the screen kept old numbers and heavy reads piled up (Safari memory).
+     Now AUTOMATIC refreshes (sync, new sale, commissionist edit) never start a second read while one is running:
+     they mark "pending" and ONE more pass runs when it ends, so each finished read is painted and the last one
+     includes the newest sale. Clicks (month selector, payments) still call cargarComisiones() directly and win.
+     Guard: after 90 s an automatic refresh may start again (a fetch that never settles still blocks that month,
+     as before v780). No money, data or text changes.
+     PARA REVERTIR: make refrescarComisionesAuto call cargarComisiones() directly when the view is active. */
+  var _comAuto = { n: 0, desde: 0, pendiente: false };
+  function refrescarComisionesAuto() {
+    var vc = document.getElementById("vista-comisiones");
+    if (!vc || !vc.classList.contains("activa") || typeof cargarComisiones !== "function") return;
+    if (_comAuto.desde && Date.now() - _comAuto.desde < 90000) { _comAuto.pendiente = true; return; }
+    var yo = ++_comAuto.n; _comAuto.desde = Date.now(); _comAuto.pendiente = false;
+    Promise.resolve().then(function () { return cargarComisiones(); }).catch(function () {}).then(function () {
+      if (yo !== _comAuto.n) return; // a newer pass (after a stuck one) owns the state now
+      _comAuto.desde = 0;
+      if (_comAuto.pendiente) { _comAuto.pendiente = false; refrescarComisionesAuto(); }
+    });
+  }
   function on(tipo, fn) {
     // Deferred app scripts can run while interactive, before the deferred bus.
     // DOMContentLoaded follows both scripts and keeps one subscription per topic.
@@ -2161,7 +2183,7 @@ window.OCReactivo = (function () {
     try { if (typeof renderGestionPromotoras === "function") renderGestionPromotoras(); } catch (_) {}
     // JFC 2026-09-06: si estás en Comisiones, refresca también ranking y tarjetas
     // por percha (un comisionista nuevo/editado debe reflejarse al instante ahí).
-    try { var vc = document.getElementById("vista-comisiones"); if (vc && vc.classList.contains("activa") && typeof cargarComisiones === "function") cargarComisiones(); } catch (_) {}
+    try { refrescarComisionesAuto(); } catch (_) {} // v780: one read at a time, every finished read is painted
   });
   on("clientes", function () {
     try { poblarSelectClientes(); } catch (_) {}
@@ -2186,7 +2208,7 @@ window.OCReactivo = (function () {
     // Refresh only when Today is active; never re-run a sale or alter business data.
     try { var vh = document.getElementById("vista-hoy"); if (vh && vh.classList.contains("activa") && typeof cargarHoy === "function") cargarHoy(); } catch (_) {}
     try { var vs = document.getElementById("ventasSold"); if (vs && vs.open && typeof cargarVentasSold === "function") cargarVentasSold(); } catch (_) {}
-    try { var vc = document.getElementById("vista-comisiones"); if (vc && vc.classList.contains("activa") && typeof cargarComisiones === "function") cargarComisiones(); } catch (_) {}
+    try { refrescarComisionesAuto(); } catch (_) {} // v780: one read at a time, every finished read is painted
     try { var vp = document.getElementById("vista-perchas"); if (vp && vp.classList.contains("activa") && window.VPerchas && window.VPerchas.cargar) window.VPerchas.cargar(); } catch (_) {}
   });
   return { emitir: function (tipo) { try { var b = bus(); if (b) b.emit("oc:datos:" + tipo, {}); } catch (_) {} } };
