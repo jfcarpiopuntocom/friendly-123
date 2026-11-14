@@ -655,6 +655,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         </div>
         <p id="oc-sync-msg" style="font-size:13px;margin-top:8px;font-weight:700;"></p>
         <button type="button" class="tecla" id="oc-copiar-diag" data-i18n="adv.copyDiag" style="font-size:13px;min-height:44px;margin-top:6px;">Copy diagnostics</button>
+        <button type="button" class="tecla" id="oc-exportar-reconciliacion" style="font-size:13px;min-height:44px;margin-top:6px;">Export reconciliation report (owner only)</button>
         <textarea id="oc-diag-texto" readonly style="display:none;width:100%;box-sizing:border-box;min-height:120px;margin-top:6px;font-family:monospace;font-size:12px;color:#1a1a1a;"></textarea>`;
       vista.appendChild(panel);
 
@@ -684,6 +685,48 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             else mostrar(false);
           } catch (_) { mostrar(false); }
         });
+      } catch (_) {}
+
+      /* v781 candidate: explicit per-instance evidence export. Existing Copy diagnostics
+         remains untouched. Lazy load only after deliberate owner gesture; no upload. */
+      try {
+        var _btnAudit = document.getElementById("oc-exportar-reconciliacion");
+        if (_btnAudit) {
+          var _puedeExportar = function () {
+            return !!(window.OCAuth && typeof window.OCAuth.rolActual === "function" &&
+              window.OCAuth.rolActual() === "dueno");
+          };
+          var _pintarAudit = function () { _btnAudit.style.display = _puedeExportar() ? "" : "none"; };
+          _pintarAudit();
+          window.addEventListener("oc-login", _pintarAudit);
+          window.addEventListener("oc-logout", _pintarAudit);
+          var _cargarAudit = function () {
+            if (window.F123DiagnosticoExport) return Promise.resolve();
+            return new Promise(function (resolve, reject) {
+              var script = document.createElement("script");
+              script.src = new URL("./diagnostico-export.js", document.baseURI).href;
+              script.onload = function () {
+                window.F123DiagnosticoExport ? resolve() : reject(new Error("Módulo incompleto."));
+              };
+              script.onerror = function () { reject(new Error("Módulo no disponible en este aparato o sin conexión.")); };
+              document.head.appendChild(script);
+            });
+          };
+          _btnAudit.addEventListener("click", async function () {
+            if (_btnAudit.disabled || !_puedeExportar()) return;
+            if (!window.confirm("Exportar un informe LOCAL con importes, stock, opId y estado de las colas? No incluye nombres, clientes, PIN ni licencia. Guarda el JSON en un lugar privado; no sincroniza ni repara datos.")) return;
+            _btnAudit.disabled = true;
+            var _msgAudit = document.getElementById("oc-sync-msg");
+            try {
+              await _cargarAudit();
+              if (!_puedeExportar()) throw new Error("Sesión cambiada. No se creó el archivo.");
+              await window.F123DiagnosticoExport.descargar();
+              if (_msgAudit) { _msgAudit.style.color = "#00805A"; _msgAudit.textContent = "Informe JSON descargado. Repite en PC, Safari/PWA y Opera; no es una certificación GO."; }
+            } catch (err) {
+              if (_msgAudit) { _msgAudit.style.color = "#B42318"; _msgAudit.textContent = "No se exportó: " + String(err && err.message || "error de lectura"); }
+            } finally { _btnAudit.disabled = false; }
+          });
+        }
       } catch (_) {}
 
       /* DIAGNOSTICO SOLO PARA JFC (JFC 2026-09-25: "puede causar horribles problemas
