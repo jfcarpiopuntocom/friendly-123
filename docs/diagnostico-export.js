@@ -183,7 +183,15 @@
     return {
       esquema: "friendly-123-reconciliacion-v1", versionEsquema: VERSION,
       generadoEn: new Date().toISOString(), version, sha: null,
-      shaVerificado: false, nombreAparato: null,
+      shaVerificado: false,
+      nombreAparato: (() => {
+        // Owner-chosen device nickname, never the client's name or a room/license.
+        try {
+          const name = root.OCMicelio && typeof root.OCMicelio.miApodo === "function" ?
+            String(root.OCMicelio.miApodo() || "").trim().slice(0, 80) : "";
+          return name && !/F123-|\b\d{3,6}\b/i.test(name) ? name : null;
+        } catch (_) { return null; }
+      })(),
       ultimaActividadLocal: (() => {
         const fechas = arrayKey("f123_sync_log").map(x => Date.parse(x && x.fecha || "")).filter(Number.isFinite);
         return fechas.length ? new Date(Math.max(...fechas)).toISOString() : null;
@@ -199,7 +207,7 @@
         "Los sobres cifrados del relay NO tienen relación 1:1 garantizada con opId.",
         "Un mismo hash local NO certifica ACK de otros dispositivos.",
         "El informe no incluye imágenes, payloads, PIN, licencias, datos personales ni cifrados.",
-        "El SHA exacto de la build y el nombre del aparato no están disponibles con una API fiable: se muestran null en vez de inventarlos."
+        "El SHA exacto de la build no tiene un testigo fiable y se muestra null. El apodo explícito del aparato aparece si existe y no parece un secreto."
       ]
     };
   }
