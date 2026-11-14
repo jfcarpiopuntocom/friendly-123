@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.75",
+  "version": "v0.7.76",
   "fecha": "2026-11-13",
-  "changelog": "v0.7.75: botón Copiar diagnóstico en Avanzado (recargas y errores del aparato, sin datos del negocio).",
+  "changelog": "v0.7.76: se revierte la renovación del checkpoint por tamaño (Safari en iPhone se cerraba al vender).",
   "requerida": false,
-  "shell": "f123-shell-v775",
+  "shell": "f123-shell-v776",
   "apagar": [],
-  "releaseName": "v0.7.75",
-  "cacheGeneration": "golden311"
+  "releaseName": "v0.7.76",
+  "cacheGeneration": "golden312"
 }

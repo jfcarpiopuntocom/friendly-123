@@ -1401,7 +1401,10 @@
     /* v771 (JFC 13 nov 2026, bajar el consumo, aditivo): also renew when the tail since the last cut passes 384 KiB,
        not only after 1024 frames, so a new device downloads the cut plus at most ~384 KiB of tail. Every other guard
        (6 h spacing, daily cap, complete device only) is unchanged. PARA REVERTIR: CKPT_RENUEVA_BYTES_COLA = Infinity. */
-    var CKPT_RENUEVA_BYTES_COLA = 384 * 1024;
+    /* v776 REVERTIDO (JFC 13 nov 2026: Safari en iPhone «a problem repeatedly occurred» al vender, desde v0.7.71). The
+       size trigger made the full-state checkpoint rebuild run right after sales on a store with a long tail; on an iPhone
+       that can kill the tab. Back to the v0.7.70 behaviour (1024 frames only). To re-enable: 384 * 1024. */
+    var CKPT_RENUEVA_BYTES_COLA = Infinity;
     var _colaFrames = 0, _colaBytes = 0, _renovUltima = 0, _renovDia = 0, _renovBytesDia = 0, _colaMotivo = "";
     /* v756 (JFC 2026-11-13): the tail counters live in this channel's LOCAL store (never on a server), so a phone that
        sleeps or reloads still reaches the threshold and keeps the 6 h spacing. Saved every 64 frames and on renewal. */
