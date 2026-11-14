@@ -7812,13 +7812,34 @@
         const p = productos.find((x) => x.id === venta.productoId);
         if (!p) return J({ error: "Product not found." }, 404);
         const motivo = String((body && body.motivo) || "").trim().slice(0, 200);
-        p.stockActual += venta.cantidad;
-        venta.anulada = true; venta.canceladaExPostEn = new Date().toISOString(); venta.rev = _revNueva();
-        mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "(sin motivo)", ventaId: venta.id, fechaVenta: venta.fecha });
-        /* v597: igual que /anular: id determinista por venta, la reposicion cuenta una sola vez entre aparatos. */
-        const _opCancelar = { productoId: p.id, delta: venta.cantidad };
-        _prepararOpStock(_opCancelar, "aj-dev-" + venta.id);
-        emitirOpStock("cancelacion-ex-post", _opCancelar, true);
+        const deshacerStock = _marchaAtrasStock(p), ventaAnterior = { ...venta };
+        const opCancelar = { productoId: p.id, delta: venta.cantidad };
+        debePersistir = false;
+        let liberarCancelacion, guardada = false;
+        _retencionConfirmando = true;
+        _retencionPendiente = new Promise(resolve => { liberarCancelacion = resolve; });
+        try {
+          p.stockActual += venta.cantidad;
+          venta.anulada = true; venta.canceladaExPostEn = new Date().toISOString(); venta.rev = _revNueva();
+          mov("cancelacion-ex-post", { producto: p.nombre, cantidad: venta.cantidad, ubicacion: nombreUbic(p.ubicacionId), montoRevertido: +((venta.precioUnit || 0) * venta.cantidad).toFixed(2), motivo: motivo || "(sin motivo)", ventaId: venta.id, fechaVenta: venta.fecha }, false);
+          // El ID determinista también deduplica una anulación o devolución de la misma venta.
+          _prepararOpStock(opCancelar, "aj-dev-" + venta.id);
+          guardada = (await guardarEstadoLocal(true, true)) === true;
+        } catch (_) {
+          guardada = false;
+        } finally {
+          if (!guardada) {
+            deshacerStock();
+            Object.keys(venta).forEach(k => delete venta[k]);
+            Object.assign(venta, ventaAnterior);
+          }
+          _retencionConfirmando = false;
+          _retencionPendiente = null;
+          try { _drenarCatalogosPendientes(); } finally { liberarCancelacion(); }
+        }
+        if (!guardada) return J({ error: "The correction could not be saved. No sale or stock changes recorded." }, 503);
+        emitirOpStock("cancelacion-ex-post", opCancelar, true);
+        _avisarCatalogoConfirmado();
         return J({ producto: ficha(p), ok: true });
       }
       /* v418: la anulacion es monotona en sync: desmarcarla reviviria o perderia

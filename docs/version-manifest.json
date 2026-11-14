@@ -1,6 +1,6 @@
 {
-  "version": "v0.7.80",
-  "shell": "f123-shell-v780",
+  "version": "v0.7.81",
+  "shell": "f123-shell-v781",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-b2882b570e5258d98d7d072c38113f99f40f6442793b65bd971c5ad941b8cdcc",
@@ -25,7 +25,7 @@
     "./pocketbase-client.js": "sha256-1b038581ecb22a491f388bddf5de6729209db5d7c67a404d1def8f8edb236469",
     "./estado-ab.js": "sha256-a3e92d9bbab4340483170e9f20877e219129e28216dde308d673ee929bfe8d04",
     "./estado-idb.js": "sha256-db5137f814fa8f614879952e672e40f819829b6576ab435e6ee7870a1dc796b1",
-    "./mock-backend.js": "sha256-fdc6fe51ed04be08f80fdc9298fdccd5efffa889ab5c55500f4d56f5e0937e73",
+    "./mock-backend.js": "sha256-0428b952e8f84baa1492be25c1a2d40e5866a16f8b0cc0bc0db236529f509e66",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",

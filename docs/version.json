@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.80",
+  "version": "v0.7.81",
   "fecha": "2026-11-14",
-  "changelog": "v0.7.80: Commissions muestra la venta recien hecha y las cifras reales aunque lleguen cambios de otros aparatos.",
+  "changelog": "v0.7.81: confirma el guardado de la cancelacion antes de sincronizar la venta y la reposicion de stock.",
   "requerida": false,
-  "shell": "f123-shell-v780",
+  "shell": "f123-shell-v781",
   "apagar": [],
-  "releaseName": "v0.7.80",
-  "cacheGeneration": "golden316"
+  "releaseName": "v0.7.81",
+  "cacheGeneration": "golden317"
 }
