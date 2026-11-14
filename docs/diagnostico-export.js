@@ -168,10 +168,14 @@
       if (h && typeof h.todos === "function") {
         const records = await h.todos();
         const list = Array.isArray(records) ? records : [];
-        hechos = { disponible: true, ...limited(list, x => ({
-          id: opId(x && x.id), opId: opId(x && x.datos && x.datos.opId),
+        const safeEvents = await Promise.all(list.slice(0, MAX_ROWS).map(async x => ({
+          // A fact ID is typically deviceId-sequence. Hash it; never export deviceId in clear.
+          id: x && x.id ? (await digest(x.id)).slice(0, 24) : null,
+          opId: opId(x && x.datos && x.datos.opId),
           tipo: tipo(x && x.tipo), hash: x && typeof x.hash === "string" ? x.hash.slice(0, 80) : null
-        })), cadenaLocal: typeof h.verificarCadena === "function" ?
+        })));
+        hechos = { disponible: true, total: list.length, truncado: list.length > MAX_ROWS,
+          filas: safeEvents, cadenaLocal: typeof h.verificarCadena === "function" ?
           (await h.verificarCadena()) === null ? { ok: true } : { ok: false, detalle: "verificar localmente" } : null };
       }
     } catch (_) { hechos = { disponible: false, error: "no-legible" }; }
