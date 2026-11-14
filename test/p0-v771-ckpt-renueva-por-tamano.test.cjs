@@ -17,17 +17,11 @@ function armar(over){
   vm.runInContext(bloque+'\nthis.contar=contarColaCkpt;',ctx);
   return ctx;
 }
-test('a large tail (few frames) renews once it passes 384 KiB',()=>{
+// v776: the size trigger is REVERTED (Safari on iPhone killed the tab after sales). A large tail with few frames no longer renews.
+test('v776: a large tail with few frames does NOT renew (size trigger off)',()=>{
   const c=armar();
-  for(let k=0;k<5;k++) c.contar(64*1024); // 320 KiB in 5 frames: not yet
+  for(let k=0;k<10;k++) c.contar(400*1024);
   assert.equal(c.pedidos,0);
-  c.contar(80*1024); // 400 KiB
-  assert.equal(c.pedidos,1);
-});
-test('the 6 h spacing still holds after a size renewal',()=>{
-  const c=armar();
-  c.contar(400*1024); assert.equal(c.pedidos,1);
-  c.contar(400*1024); assert.equal(c.pedidos,1);
 });
 test('small frames still renew at 1024 frames, not before',()=>{
   const c=armar();
