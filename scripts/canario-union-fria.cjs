@@ -6,6 +6,13 @@ const BASE = (process.argv[2] || 'https://jfcarpiopuntocom.github.io/friendly-12
 const LICENCIA = process.env.F123_CANARIO_LICENCIA;
 const PIN = process.env.F123_CANARIO_PIN || '789';
 const PRODUCTO = 'Taza QA', ESPERADO = 9;
+// Error.name is mutable in JS and may include URLs, tokens or license metadata.
+// Only fixed class names may ever reach canary logs.
+function nombreErrorSeguro(e) {
+  const nombre = e && e.name;
+  return ['Error', 'TimeoutError', 'TargetClosedError', 'TypeError',
+    'ReferenceError', 'RangeError'].includes(nombre) ? nombre : 'Error';
+}
 if (!LICENCIA) { console.error('CANARIO_CONFIG: falta F123_CANARIO_LICENCIA; prueba NO ejecutada.'); process.exit(2); }
 if (!/^\d{3}$/.test(PIN)) { console.error('CANARIO_CONFIG: F123_CANARIO_PIN debe tener tres dígitos.'); process.exit(2); }
 
@@ -321,24 +328,29 @@ function progresoRecuperacion(anterior, actual) {
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage(), errores = [];
-  p.on('pageerror', e => errores.push((e.name || 'Error').slice(0, 32)));
+  p.on('pageerror', e => errores.push(nombreErrorSeguro(e)));
   const red = crearObservadorRed();
   p.on('response', red.respuesta);
   p.on('requestfailed', red.fallida);
   p.on('websocket', red.socket);
   p.setDefaultTimeout(30000);
   let fallo = '', ultima = null, checkpointInicial = null;
+  // Always a literal stage; never include exceptions or any secrets in this field.
+  let etapaExcepcion = 'INICIO';
   const t0 = Date.now();
   try {
+    etapaExcepcion = 'NAVEGACION';
     await p.goto(BASE, { waitUntil: 'domcontentloaded' });
     await p.locator('#oc-gate button[data-d]').first().waitFor({ state: 'visible' });
     // Factory 789 is used here only to show "new business or join" on a blank device.
+    etapaExcepcion = 'UNION';
     await teclear(p, '789');
     await p.click('#oc-act-unirme');
     await p.fill('#oc-ue-codigo', LICENCIA);
     await p.click('#oc-ue-confirmar');
     console.log('CANARIO_ETAPA: unión solicitada');
     // A join switches notebook (and often reloads the document): prove identity, not just dialog closure.
+    etapaExcepcion = 'IDENTIDAD';
     const limiteJoin = Date.now() + 20000;
     while (Date.now() < limiteJoin) {
       await p.waitForTimeout(2000);
@@ -351,8 +363,10 @@ function progresoRecuperacion(anterior, actual) {
       fallo = 'UNION: licencia, sala o identidad de dispositivo no se adoptaron';
     } else {
       console.log('CANARIO_ETAPA: licencia y sala correctas');
+      etapaExcepcion = 'CHECKPOINT';
       checkpointInicial = await consultarCheckpoint(p); // one metadata-only checkpoint probe
       console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: 'checkpoint', disponible: checkpointInicial && checkpointInicial.checkpointExiste === true ? true : checkpointInicial && checkpointInicial.checkpointExiste === false ? false : null }));
+      etapaExcepcion = 'RECUPERACION';
       await observarPull(p); // attach to the synthetic catalog socket only
       await p.waitForTimeout(5000);
       ultima = await diagnostico(p, LICENCIA);
@@ -452,6 +466,7 @@ function progresoRecuperacion(anterior, actual) {
       } else {
         console.log('CANARIO_SEGMENTO:', JSON.stringify({ fase: 'barreras-verificadas', estado: 'completo' }));
       }
+      etapaExcepcion = 'ACCESO';
       if (!fallo && PIN === '789' && ultima.tienePinOwnerNoFactory) {
         fallo = 'ACCESO: F123_CANARIO_PIN requiere PIN Owner sintético actualizado';
       } else if (!fallo && await rol(p) !== 'dueno') {
@@ -468,6 +483,7 @@ function progresoRecuperacion(anterior, actual) {
         fallo = fallo || 'ACCESO: la tienda sintética no aceptó el PIN configurado';
       } else {
         console.log('CANARIO_ETAPA: Owner autenticado');
+        etapaExcepcion = 'DATOS';
         let v = null;
         const limiteDatos = Date.now() + 60000;
         while (Date.now() < limiteDatos) {
@@ -485,8 +501,9 @@ function progresoRecuperacion(anterior, actual) {
       }
     }
   } catch (e) {
-    // Exception messages sometimes contain URLs and tokens: do not print them.
-    fallo = 'EXCEPCION: ' + ((e && e.name) || 'Error') + ' durante la unión';
+    // Only literal stages and known classes: never echo URL/PIN/error text/stack.
+    console.log('CANARIO_ERROR_ETAPA:', etapaExcepcion);
+    fallo = 'EXCEPCION: ' + nombreErrorSeguro(e) + ' durante la unión';
   }
   ultima = await diagnostico(p, LICENCIA);
   // Diagnostic-only GET after the recovery gate; cannot turn an incomplete
@@ -498,4 +515,4 @@ function progresoRecuperacion(anterior, actual) {
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
   await b.close();
   if (fallo) { console.error('FALLA ' + fallo); process.exit(1); }
-})().catch(e => { console.error('FALLA CANARIO: ' + ((e && e.name) || 'Error')); process.exit(1); });
+})().catch(e => { console.error('FALLA CANARIO: ' + nombreErrorSeguro(e)); process.exit(1); });
