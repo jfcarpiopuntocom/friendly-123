@@ -92,7 +92,8 @@ test('coldjoin RED: pageerror with attacker-controlled name cannot reveal token'
   const got=await fakeCanary('PAGEERROR');
   assert.equal(got.exitCode,1);
   assert.ok(got.logs.some(s=>s.startsWith('CANARIO_JS_ERRORES:')),'pageerror is still reported');
-  assert.ok(!got.logs.join('\n').includes(SECRET),'unsafe error name never logged');
+  assert.ok(!got.logs.join('\\n').includes(SECRET.slice(0,12)),'never leak even a truncated token prefix');
+  assert.ok(!got.logs.join('\\n').includes(SECRET.slice(0,32)),'never expose the original 32-character error-name prefix');
   assert.equal(got.keypadClicks,0);
 });
 test('coldjoin RED: outer launch catch never prints untrusted Error.name',async()=>{
