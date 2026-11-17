@@ -4,12 +4,14 @@ on:
     paths:
       - "scripts/canario-union-fria.cjs"
       - "test/canario-union-fria-guard.test.cjs"
+      - "test/p0-coldjoin-safe-stage.test.cjs"
       - ".github/workflows/p0-cold-join-canary.yml"
   push:
     branches: [master]
     paths:
       - "scripts/canario-union-fria.cjs"
       - "test/canario-union-fria-guard.test.cjs"
+      - "test/p0-coldjoin-safe-stage.test.cjs"
       - ".github/workflows/p0-cold-join-canary.yml"
 permissions:
   contents: read
@@ -27,5 +29,5 @@ jobs:
           set -euo pipefail
           for pass in 1 2 3; do
             echo "QA PASS $pass/3"
-            node --test test/canario-union-fria-guard.test.cjs
+            node --test test/canario-union-fria-guard.test.cjs test/p0-coldjoin-safe-stage.test.cjs
           done
