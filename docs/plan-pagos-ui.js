@@ -523,9 +523,10 @@
     document.body.appendChild(m);
     var q = function (id) { return m.querySelector("#" + id); };
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
-    var anterior = null, pendienteAsignacion = null;
-    try { anterior = abonoPendiente(clienteId); } catch (_) {}
+    var anterior = null, pendienteAsignacion = null, referenciaLocalValida = true;
+    try { anterior = abonoPendiente(clienteId); } catch (_) { referenciaLocalValida = false; }
     try { pendienteAsignacion = leerAsignacion(clienteId); } catch (e) {
+      referenciaLocalValida = false;
       q("pp-ab-msg").textContent = (e && e.message) || "Saved allocation requires review.";
       q("pp-ab-ok").disabled = true;
     }
@@ -541,6 +542,32 @@
       q('pp-ab-msg').textContent = es ? 'Pago anterior por confirmar. Confirma el mismo importe; no se registrará dos veces.' : 'An earlier payment needs confirmation. Confirm the same amount; it will not be recorded twice.';
     }
 
+    // Async IDB hydration must finish before the user can attempt a payment.
+    // A stale/foreign legacy reference and an IDB reference are never merged by guess.
+    q("pp-ab-ok").disabled = true;
+    Promise.all([leerReferenciaDurable(clienteId, "payment"),
+      leerReferenciaDurable(clienteId, "allocation")]).then(function (refs) {
+      if (!referenciaLocalValida) throw new Error("La referencia anterior requiere revisión.");
+      anterior = refs[0]; pendienteAsignacion = refs[1];
+      if (pendienteAsignacion) {
+        q("pp-ab-monto").value = Number(pendienteAsignacion.monto).toFixed(2);
+        q("pp-ab-monto").disabled = true;
+        q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
+        q("pp-ab-msg").textContent = pendienteAsignacion.abonoId
+          ? (es ? "Pago confirmado; solo queda asignarlo." : "Payment confirmed; only allocation remains.")
+          : (es ? "Operación anterior pendiente: mismo cobro y referencia." :
+            "Pending operation: original payment reference will be reused.");
+      } else if (anterior) {
+        q("pp-ab-monto").value = Number(anterior.monto).toFixed(2);
+        q("pp-ab-msg").textContent = es ? "Pago anterior por confirmar; se usará su referencia." :
+          "An earlier payment will use its original reference.";
+      }
+      q("pp-ab-ok").disabled = false;
+    }).catch(function (error) {
+      q("pp-ab-msg").style.color = "#B0183E";
+      q("pp-ab-msg").textContent = (error && error.message) || "Storage reference unavailable.";
+      q("pp-ab-ok").disabled = true;
+    });
     function cerrar() { try { m.remove(); } catch (_) {} document.removeEventListener("keydown", onKey, true); }
     function onKey(ev) { if (ev.key === "Escape" || ev.key === "Esc") { ev.stopPropagation(); cerrar(); } }
     document.addEventListener("keydown", onKey, true);
@@ -655,15 +682,14 @@
           paymentOpId: pagoId, opId: "customer-allocation:" + pagoId.slice("customer-payment:".length),
           abonoId: null, partes: partes, monto: monto, motivo: motivo
         };
-        try {
-          guardarReferenciaPago(claveAsignacion(clienteId), pendienteAsignacion, false);
-          tarea = reanudarAsignacion(clienteId, pendienteAsignacion);
-        } catch (errorGuardar) {
-          // A failure BEFORE starting the payment is not a confirmed payment.
-          // Do not label it preserved; no financial request was issued.
-          pendienteAsignacion = null;
-          tarea = Promise.reject(errorGuardar);
-        }
+        tarea = guardarReferenciaPagoDurable(
+          claveAsignacion(clienteId), pendienteAsignacion, false, clienteId, "allocation")
+          .then(function () { return reanudarAsignacion(clienteId, pendienteAsignacion); })
+          .catch(function (errorGuardar) {
+            // Keep the exact pending reference if storage succeeded and the
+            // network failed. Never create a new opId on an uncertain payment.
+            throw errorGuardar;
+          });
       } else {
         tarea = global.ocEnviarAbono(clienteId, monto, motivo); // Legitimate unassigned payment.
       }
