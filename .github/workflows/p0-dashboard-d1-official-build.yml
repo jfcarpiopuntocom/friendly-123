@@ -4,6 +4,9 @@ on:
     branches: [feat/20261117-dashboard-d1-column-analysis]
     paths:
       - src/dashboard/dashboard-main.js
+      - docs/version.json
+      - docs/sw.js
+      - docs/dashboard.html
       - .github/workflows/p0-dashboard-d1-official-build.yml
 permissions:
   contents: write
@@ -29,8 +32,10 @@ jobs:
           node scripts/build-dashboard-entry.cjs
           node scripts/build-dashboard-entry.cjs --check
           node scripts/gen-manifest.js
-          # Do not silently add shell entries or change SW in a dashboard-only hotfix.
+          # Shell identity is an explicit reviewed edit. The generator must NOT mutate it.
           git diff --exit-code -- docs/sw.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
           node --test test/p0-dashboard-d1-column-totals.test.cjs
       - name: Commit generated assets to THIS PR branch only; never master
         env:
