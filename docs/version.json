@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.87",
+  "version": "v0.7.88",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.87: repara señalización TURN para la conexión directa del dashboard y la app cuando STUN/host no alcanzan; no cambia PIN, ventas, datos ni activa arquitectura 2.0.",
+  "changelog": "v0.7.88: dashboard remoto PIN Owner/Admin y reportes cifrados sobre Supabase Realtime efímero; fallback WebRTC intacto. Sin cambio a ventas, inventario ni PIN. ",
   "requerida": false,
-  "shell": "f123-shell-v787",
+  "shell": "f123-shell-v788",
   "apagar": [],
-  "releaseName": "v0.7.87",
-  "cacheGeneration": "golden323"
+  "releaseName": "v0.7.88",
+  "cacheGeneration": "golden324"
 }
