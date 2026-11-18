@@ -117,7 +117,8 @@ test('P0 Belén: legacy localStorage intent with different IDB opId must fail cl
  values.set('f123_owned',JSON.stringify(ownedA));
  values.set('f123_customer_payment_intent_v1:cli-A',JSON.stringify({opId:'customer-payment:old',monto:5,motivo:'Abono'}));
  const x=make({db,storage:values});
- await x.win.__creditRegression.guardarReferenciaPagoDurable(x.win.__creditRegression.claveAbono('cli-A'),{opId:'customer-payment:new',monto:5,motivo:'Abono'},false,'cli-A','payment').catch(()=>{});
- await assert.rejects(x.win.ocEnviarAbono('cli-A',5,'Abono'),/conflict|revisar|opId|anterior/i);
+ await assert.rejects(x.win.__creditRegression.guardarReferenciaPagoDurable(
+   x.win.__creditRegression.claveAbono('cli-A'),{opId:'customer-payment:new',monto:5,motivo:'Abono'},false,'cli-A','payment'),
+   /conflict|revisar|opId|anterior/i);
  assert.equal(x.outgoing.length,0);
 });
