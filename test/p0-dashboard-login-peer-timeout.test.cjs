@@ -17,7 +17,7 @@ async function attempt({
   local = null, localCode = '',
   pinResult = null, paintResult = true,
   remoteError = new Error('timeout'), online = true,
-  enteredCode = 'F123-1234-1234-1234-12345',
+  enteredCode = 'QA-LIC-A',
 } = {}) {
   let click, painted = 0, connected = 0, remembered = 0;
   const elements = {
@@ -71,7 +71,7 @@ test('only a verified offline state may use the existing internet warning', asyn
 
 test('a correctly validated local owner/admin PIN paints immediately without a P2P peer', async () => {
   const local = { _rev: 9 };
-  const result = await attempt({ local, localCode: 'F123-1234-1234-1234-12345', pinResult: true });
+  const result = await attempt({ local, localCode: 'QA-LIC-A', pinResult: true });
   assert.equal(result.sandbox.autorizado, true);
   assert.equal(result.sandbox._sesionLocal, true);
   assert.equal(result.painted, 1);
@@ -81,20 +81,20 @@ test('a correctly validated local owner/admin PIN paints immediately without a P
 });
 
 test('an invalid local PIN cannot disclose the notebook', async () => {
-  const result = await attempt({ local: { _rev: 9 }, localCode: 'F123-1234-1234-1234-12345', pinResult: false });
+  const result = await attempt({ local: { _rev: 9 }, localCode: 'QA-LIC-A', pinResult: false });
   assert.equal(result.sandbox.autorizado, false);
   assert.equal(result.painted, 0);
   assert.equal(result.connected, 0);
 });
 
 test('missing local PIN proof never grants local authorization', async () => {
-  const result = await attempt({ local: { _rev: 9 }, localCode: 'F123-1234-1234-1234-12345', pinResult: null });
+  const result = await attempt({ local: { _rev: 9 }, localCode: 'QA-LIC-A', pinResult: null });
   assert.equal(result.sandbox.autorizado, false);
   assert.equal(result.painted, 0);
 });
 
 test('a different license cannot reuse the PIN of a local notebook', async () => {
-  const result = await attempt({ local: { _rev: 9 }, localCode: 'F123-9999-9999-9999-99999', pinResult: true });
+  const result = await attempt({ local: { _rev: 9 }, localCode: 'QA-LIC-B', pinResult: true });
   assert.equal(result.sandbox.autorizado, false);
   assert.equal(result.painted, 0);
 });
