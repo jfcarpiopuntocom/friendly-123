@@ -1,0 +1,25 @@
+name: P0 coldjoin diagnostic only · synthetic current release, no deployment
+on:
+  push:
+    branches: [qa/p0-coldjoin-live-observer-20261118]
+    paths:
+      - .github/workflows/qa-p0-coldjoin-live-observer.yml
+permissions:
+  contents: read
+jobs:
+  read-only-synthetic-coldjoin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Check current source and conservative Owner gate
+        run: node --test test/p0-coldjoin-root-observer.test.cjs test/canario-union-fria-guard.test.cjs
+      - run: npx playwright install --with-deps chromium
+      - name: One synthetic cold join, classify HTTP status and browser failure only
+        env:
+          F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+          F123_CANARIO_PIN: ${{ secrets.F123_CANARIO_PIN }}
+        run: node scripts/canario-union-fria.cjs https://jfcarpiopuntocom.github.io/friendly-123/
