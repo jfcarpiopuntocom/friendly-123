@@ -40,3 +40,39 @@ jobs:
         run: node --test test/p0-belen-idb-live-browser.test.cjs
       - name: Existing business receipt and payment/reload regression
         run: node --test test/customer-payment-recovery.test.js test/customer-payment-browser.test.js
+  seal-roles-v794:
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/p0-hermes-cobros-role-gates-20261118'
+    permissions: {contents: write}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-hermes-cobros-role-gates-20261118
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Exact backend and fallback auth tests before shell seal
+        run: |
+          set -euo pipefail
+          node --check docs/mock-backend.js
+          node --check docs/plan-pagos-ui.js
+          node --test test/p0-hermes-roles-cobros-real-source.test.cjs
+          node --test test/p0-belen-idb-live-payment.test.cjs test/fiados-quota-cliente-4d.test.js
+      - name: Official manifest with golden330, release-control, PWA offline
+        run: |
+          set -euo pipefail
+          node scripts/gen-manifest.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+      - name: Commit sealed manifest only to isolated role QA branch
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "fix/p0-hermes-cobros-role-gates-20261118"
+          git add docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='friendly123-qa-build[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'release(v794): seal P0 financial-role auth and manifest'
+            git push origin HEAD:refs/heads/fix/p0-hermes-cobros-role-gates-20261118
+          fi
