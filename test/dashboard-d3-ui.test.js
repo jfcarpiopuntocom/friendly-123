@@ -17,7 +17,7 @@ test('D3 new read-only Today tab mounts six approved groups and uses only existi
   assert.match(src,/periodoRapido\(\)/);
   assert.match(src,/function montarAgruparPor\(/);
   assert.match(src,/function pedirD3\(/);
-  assert.match(src,/\["What did it earn me?",\s*"¿Cuánto me dejó\?"\]/);
+  assert.ok(src.includes('["What did it earn me?", "¿Cuánto me dejó?"]'),'exactly the JFC-approved bilingual view name');
   assert.match(src,/\["Group by",\s*"Agrupar por"\]/);
   assert.match(src,/\["Margin %",\s*"Margen %"\]/);
   assert.match(src,/\["Sales without cost",\s*"Ventas sin costo"\]/);
@@ -32,5 +32,5 @@ test('D3 stale worker response cannot overwrite newer group or new photo',()=>{
   assert.match(source,/d3\.datos\s*===\s*datos/);
   assert.match(source,/d3\.clave\s*===\s*clave/);
   assert.match(source,/rows\.slice\(1\)/,'first row is total, group rows are rendered');
-  assert.match(source,/aDolaresD3\(r\.profitCents\)/,'unknown profit must remain null');
+  assert.match(source,/aDolaresD3\(row\.profitCents\)/,'unknown profit must remain null');
 });
