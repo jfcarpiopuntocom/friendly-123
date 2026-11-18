@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.91",
+  "version": "v0.7.92",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.91: Safari Dashboard verifica Owner con la misma autoridad central que la app; Admin requiere registro vigente del cuaderno. Respeta bloqueo y licencia. Corrige diferencia de PIN Owner entre app y Dashboard sin modificar negocio, ventas o inventario. Worker limitado a /pin/verify para Owner.",
+  "changelog": "v0.7.92: fiados Safari con referencia durable de abono y asignación en IndexedDB, protegida por cuaderno activo y opId. Continúa cobrando con localStorage lleno si IndexedDB funciona; conserva comprobante tras interrupción. No cambia stock, ventas ni arquitectura 2.0.",
   "requerida": false,
-  "shell": "f123-shell-v791",
+  "shell": "f123-shell-v792",
   "apagar": [],
-  "releaseName": "v0.7.91",
-  "cacheGeneration": "golden327"
+  "releaseName": "v0.7.92",
+  "cacheGeneration": "golden328"
 }
