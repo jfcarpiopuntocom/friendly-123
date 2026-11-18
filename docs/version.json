@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.83",
+  "version": "v0.7.84",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.83: el dashboard avisa que friendly-123 tiene que estar abierta en otra pestaña o aparato, distingue cuando ningún aparato contestó y quita el texto en inglés de los filtros; no cambia ventas ni sincronización.",
+  "changelog": "v0.7.84: la cola de ventas pendientes se recupera si el almacenamiento del aparato falla o se bloquea; dos pestañas sin candado ya no se pisan las ventas; un error del servidor ya no se cuenta como guardado. No cambia pantallas.",
   "requerida": false,
-  "shell": "f123-shell-v783",
+  "shell": "f123-shell-v784",
   "apagar": [],
-  "releaseName": "v0.7.83",
-  "cacheGeneration": "golden319"
+  "releaseName": "v0.7.84",
+  "cacheGeneration": "golden320"
 }
