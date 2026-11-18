@@ -62,3 +62,17 @@ test('IDB unavailable/quota/invalid data fails closed before any business reques
   const sane=await setup();
   await assert.rejects(sane.putIfAbsent({kind:'payment',clientId:'cli-A',value:{opId:'',monto:5}}),/opId/i);
 });
+
+test('published offline IDB ESM is the reviewed source and matches the versioned SHA-256 shell manifest',()=>{
+  const fs=require('node:fs'),crypto=require('node:crypto');
+  const src=fs.readFileSync(path.join(__dirname,'../src/pago-intento-idb.mjs'));
+  const shipped=fs.readFileSync(path.join(__dirname,'../docs/pago-intento-idb.mjs'));
+  assert.ok(src.equals(shipped),'shipped business-money logic must be exactly the independently tested source');
+  const manifest=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/version-manifest.json'),'utf8'));
+  const ver=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/version.json'),'utf8'));
+  const sw=fs.readFileSync(path.join(__dirname,'../docs/sw.js'),'utf8');
+  assert.equal(manifest.version,ver.version);
+  assert.equal(manifest.shell,ver.shell);
+  assert.equal(manifest.files['./pago-intento-idb.mjs'],'sha256-'+crypto.createHash('sha256').update(shipped).digest('hex'));
+  assert.match(sw,/"\.\/pago-intento-idb\.mjs"/,'new module must be in the offline PWA precache list');
+});
