@@ -155,7 +155,7 @@ test('P0 root: license/role switch between read and commit may not reuse another
  const ref=x.win.__creditRegression;
  const pending={opId:'customer-payment:stale-guard',monto:5,motivo:'Abono'};
  await ref.guardarReferenciaPagoDurable(ref.claveAbono('cli-A'),pending,false,'cli-A','payment');
- x.state.role=''; 
+ x.state.role='';
  await assert.rejects(ref.leerReferenciaDurable('cli-A','payment'),/sesión|autoriza|cambi/i);
  assert.equal(x.outgoing.length,0);
 });
