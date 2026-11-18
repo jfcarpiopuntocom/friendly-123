@@ -1,0 +1,20 @@
+name: P0 Belén photo snapshot vs quota real source (Hermes STK-H1)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/mock-backend.js
+      - test/p0-belen-photo-snapshot-quota-real-source.test.cjs
+      - .github/workflows/p0-belen-photo-snapshot-qa.yml
+permissions:
+  contents: read
+jobs:
+  photo-durability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - name: RED/GREEN actual product snapshot and exact durable serialization
+        run: node --test test/p0-belen-photo-snapshot-quota-real-source.test.cjs
