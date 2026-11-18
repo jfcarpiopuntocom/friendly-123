@@ -90,3 +90,10 @@ test('STK-H1: changed UI photograph with stale photoHash must NOT be pruned',()=
  const crudo=c.serializeForStrictSave(c.exportable({vivo:true}));
  assert.ok(crudo.includes(image),'exact bytes must be proven, not just hash label');
 });
+
+test('STK-H1: broken photo confirmation bridge preserves inline photo and does not corrupt snapshot',()=>{
+ const {c,encoded}=harness({count:1,size:512,hash:true});
+ c.window.OCFotos.tieneFotoHashConfirmadoEnIdb=()=>{throw new Error('Synthetic IDB bridge not ready')};
+ const crudo=c.serializeForStrictSave(c.exportable({vivo:true}));
+ assert.ok(crudo.includes(encoded),'failed bridge may never discard the last image bytes');
+});
