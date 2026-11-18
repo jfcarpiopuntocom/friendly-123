@@ -96,4 +96,19 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    assert.equal(f.receipts.size,2,'separate real business action keeps separate reference');
   }finally{await web.close();await new Promise(r=>f.server.close(r));}
  });
+ test('P0 Belén '+name+': customer Pay modal works with localStorage quota and real HTTP ESM',async()=>{
+  const f=fixture(),url=await start(f),web=await engine.launch({headless:true});
+  try{
+   const page=await web.newPage();await page.goto(url);
+   await page.waitForFunction(()=>typeof window.abonarCliente==='function');
+   await quota(page);
+   await page.evaluate(()=>abonarCliente('syn-modal-client','Synthetic credit client'));
+   await page.locator('#pp-ab-monto').fill('5');
+   await page.locator('#pp-ab-ok').click({timeout:10000});
+   await page.waitForFunction(()=>!document.getElementById('pp-modal-abono'),{},{timeout:10000});
+   assert.equal(f.receipts.size,1,'modal confirms one payment under Safari quota');
+   assert.equal(f.requests.length,1);
+   assert.match(f.requests[0].opId,/^customer-payment:/);
+  }finally{await web.close();await new Promise(r=>f.server.close(r));}
+ });
 }
