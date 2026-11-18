@@ -12,7 +12,7 @@ const start=backend.indexOf('      const mCliFiar = path.match(');
 const end=backend.indexOf('      // POST /api/clientes/:id/despedir',start);
 assert.ok(start>0&&end>start,'must run actual customer movement endpoint');
 const routeBody=backend.slice(start,end);
-const first=ui.indexOf('  function _pagoIdentidad() {');
+const first=ui.indexOf('  function _pagoAutorizarCobro() {');
 const second=ui.indexOf('  function _pagoMismaSesion(ctx) {',first);
 assert.ok(first>0&&second>first,'must run actual IDB / fallback entry code');
 const paymentHelpers=ui.slice(first,second);
