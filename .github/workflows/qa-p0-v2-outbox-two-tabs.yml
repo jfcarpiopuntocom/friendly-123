@@ -1,0 +1,28 @@
+name: "P0 LIVE v2 outbox atomic IDB: two real VM tabs (no deployment)"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - "docs/sync-yjs.js"
+      - "test/p0-outbox-v2-two-tabs-web-lock.test.cjs"
+      - ".github/workflows/qa-p0-v2-outbox-two-tabs.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  multi-tab-idb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run actual LIVE sync-yjs.js two-tab behavioral tests
+        run: |
+          set -euo pipefail
+          node --test test/p0-outbox-v2-two-tabs-web-lock.test.cjs 2>&1 | tee /tmp/f123-live-two-tab.tap
