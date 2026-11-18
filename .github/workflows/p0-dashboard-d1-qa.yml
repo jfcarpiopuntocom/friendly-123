@@ -65,3 +65,39 @@ jobs:
           npm install --no-save --ignore-scripts --package-lock=false --no-audit --no-fund playwright@1.62.1
           node -e "if(require('playwright/package.json').version !== '1.62.1')throw Error('browser mismatch')"
           node --test --test-concurrency=1 test/p0-belen-dashboard-hechos-browser.test.cjs
+  seal-v794-branch:
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/p0-belen-hechos-verified-casa-v794-20261118'
+    permissions: {contents: write}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-belen-hechos-verified-casa-v794-20261118
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: RED-GREEN fact-chain before compiling
+        run: |
+          set -euo pipefail
+          node --test test/p0-belen-dashboard-hechos-chain.test.cjs test/p0-belen-hechos-chain-parity.test.cjs test/p0-belen-dashboard-hechos-readonly.test.cjs
+      - name: Official Dashboard build + exact v794 golden330 manifest, no deploy
+        run: |
+          set -euo pipefail
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          node --test test/p0-dashboard-d1-column-totals.test.cjs
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+      - name: Commit exact built assets to isolated QA branch
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "fix/p0-belen-hechos-verified-casa-v794-20261118"
+          git add docs/dashboard-main.min.js docs/dashboard-main.min.css docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='friendly123-qa-build[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build(v794): signed Casa fact-chain verifier and dashboard source'
+            git push origin HEAD:refs/heads/fix/p0-belen-hechos-verified-casa-v794-20261118
+          fi
