@@ -1,0 +1,68 @@
+name: PORT LIVE v0.7.85 shell seal · manifest, real bundle, fallback (no deploy)
+on:
+  pull_request:
+    paths:
+      - docs/sw.js
+      - docs/version.json
+      - docs/version-manifest.json
+      - docs/vendor/yparty-piloto.min.js
+      - docs/sync-yjs.js
+      - .github/workflows/qa-port2-v785-shell-seal.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Locked QA test dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compare published master, new shell, bundle digest and QA default OFF
+        run: |
+          node <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict'),crypto=require('node:crypto'),cp=require('node:child_process');
+          const m=JSON.parse(fs.readFileSync('docs/version-manifest.json','utf8'));
+          const v=JSON.parse(fs.readFileSync('docs/version.json','utf8'));
+          const old=JSON.parse(cp.execFileSync('git',['show','origin/master:docs/version.json'],{encoding:'utf8'}));
+          const num=s=>Number(String(s).match(/\d+$/)?.[0]);
+          assert.equal(v.version,'v0.7.85');
+          assert.equal(v.shell,'f123-shell-v785');
+          assert.equal(v.cacheGeneration,'golden321');
+          assert.ok(num(v.shell)>num(old.shell),'shell identity must increase beyond master');
+          assert.ok(num(v.cacheGeneration)>num(old.cacheGeneration),'cache generation must increase');
+          assert.equal(m.version,v.version);assert.equal(m.shell,v.shell);
+          const vendor=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
+          const sha=crypto.createHash('sha256').update(vendor).digest('hex');
+          assert.equal(sha,'ae285562efa80db95d09d0aa74296e0ec395df80a0654a8e1b4488dcf00993f3');
+          assert.equal(m.files['./vendor/yparty-piloto.min.js'],'sha256-'+sha);
+          const sw=fs.readFileSync('docs/sw.js','utf8');
+          assert.match(sw,/const CACHE = "f123-shell-v785";/);
+          assert.match(sw,/const CACHE_GENERACION = "-golden321";/);
+          const rollout=JSON.parse(fs.readFileSync('docs/sync-rollout.json','utf8'));
+          assert.ok(Object.values(rollout.licenses||{}).every(x=>x.yparty!==true),'cannot enable customer store in seal');
+          assert.equal(v.requerida,false);
+          assert.deepEqual(v.apagar,[]);
+          console.log('v785 + golden321 > master; verified real bundle sha256; all rollout gates OFF');
+          JS
+      - name: Rebuild official deterministic shell manifest, no differences
+        run: |
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js
+          bash check-sw.sh
+          git diff --check
+      - name: Built bundle, switch and fallback synthetic source tests
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-yparty-client-built-bundle.test.cjs \
+            test/p0-yparty-pilot-origin.test.cjs \
+            test/p0-bridge-store-switch.test.cjs \
+            test/p0-rollout-policy.test.cjs
