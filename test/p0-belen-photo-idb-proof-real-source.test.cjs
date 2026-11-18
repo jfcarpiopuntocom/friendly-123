@@ -49,3 +49,12 @@ test('STK-H1: an IDB failure with legacy fallback cannot authorize a compacted s
  assert.equal(await x.f.leerPorHash(hash),bytes);
  assert.equal(x.f.tieneFotoHashConfirmadoEnIdb(hash,bytes),false);
 });
+
+test('STK-H1: confirmation memory is bounded; cache eviction never deletes IDB photo bytes',async()=>{
+ const x=context();
+ for(let i=0;i<67;i++)assert.equal(await x.f.guardarPorHash('synthetic-many-'+i,bytes),true);
+ assert.equal(x.f.tieneFotoHashConfirmadoEnIdb('synthetic-many-0',bytes),false);
+ assert.equal(x.f.tieneFotoHashConfirmadoEnIdb('synthetic-many-66',bytes),true);
+ assert.equal(await x.f.leerPorHash('synthetic-many-0'),bytes);
+ assert.equal(x.f.tieneFotoHashConfirmadoEnIdb('synthetic-many-0',bytes),true);
+});
