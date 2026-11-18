@@ -1,0 +1,39 @@
+name: P0 Belen Safari v792 deterministic offline shell seal
+on:
+  push:
+    branches: [feat/belen-safari-idb-credit-intents-20261118]
+    paths:
+      - .github/workflows/qa-p0-belen-v792-seal.yml
+      - docs/version.json
+permissions:
+  contents: write
+jobs:
+  release-seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/belen-safari-idb-credit-intents-20261118
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Source, browser ESM and no plaintext drift
+        run: |
+          cmp src/pago-intento-idb.mjs docs/pago-intento-idb.mjs
+          node --check docs/plan-pagos-ui.js
+          node --check docs/pago-intento-idb.mjs
+      - name: Recalculate official GitHub Pages SHA256 manifest
+        run: node scripts/gen-manifest.js
+      - name: Commit sealed manifest to QA branch only and check offline shell
+        run: |
+          set -euo pipefail
+          if ! git diff --quiet -- docs/version-manifest.json docs/sw.js; then
+            git config user.name "friendly-123 release seal"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add docs/version-manifest.json docs/sw.js
+            git commit -m "release(v792): seal IndexedDB payment intent offline shell"
+            git push origin HEAD:feat/belen-safari-idb-credit-intents-20261118
+          fi
+          bash check-sw.sh
