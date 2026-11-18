@@ -19,4 +19,4 @@ jobs:
         with: {node-version: '22', cache: npm}
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Real IDB transactions, crash/reopen, two tabs, opId tenant isolation
-        run: node --test test/p0-belen-payment-intent-idb.test.cjs
+        run: node --test test/p0-belen-payment-intent-idb.test.cjs test/p0-belen-idb-live-payment.test.cjs
