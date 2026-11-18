@@ -1837,6 +1837,43 @@
   /* D1, JFC 17-nov: Tabulator remains the ONLY table. Per-column filters
      and filtered footers read existing view rows, never the full sales ledger.
      A missing monetary value means an unknown total, not a fabricated 0. */
+  /* D2, JFC 17 nov: dates are the business-local calendar, never UTC raw. */
+  function periodoRapido() {
+    var s=$("periodo-rapido");
+    if(!s||!s.value||!window.OCReportPeriod?.quick)return null;
+    var hoy=window.OCBusinessReadModel.day(new Date().toISOString(),zonaNegocioDashboard());
+    var from=$("periodo-desde"),to=$("periodo-hasta");
+    return window.OCReportPeriod.quick(s.value,hoy,from&&from.value,to&&to.value);
+  }
+  window.OCDashPeriodo=periodoRapido;
+  function enPeriodo(v,p) {
+    if(!p)return true;
+    var date=window.OCBusinessReadModel.day(v.fechaLocal||v.fecha,zonaNegocioDashboard());
+    return !!date&&date>=p.from&&date<=p.to;
+  }
+  function montarPeriodoRapido() {
+    var busqueda=$("buscar");
+    if(!busqueda||$("periodo-rapido"))return;
+    var selector=document.createElement("select");
+    selector.id="periodo-rapido";selector.setAttribute("aria-label","Pick dates");
+    [["","—"],["today","Today"],["yesterday","Yesterday"],["7d","7 days"],
+     ["thisMonth","This month"],["lastMonth","Last month"],["custom","Pick dates"]]
+      .forEach(function(entry){var option=document.createElement("option");option.value=entry[0];option.textContent=entry[1];selector.appendChild(option);});
+    var desde=document.createElement("input"),hasta=document.createElement("input");
+    desde.type=hasta.type="date";desde.id="periodo-desde";hasta.id="periodo-hasta";
+    desde.setAttribute("aria-label","Pick dates");
+    hasta.setAttribute("aria-label","Pick dates");
+    desde.hidden=hasta.hidden=true;
+    selector.addEventListener("change",function(){
+      desde.hidden=hasta.hidden=selector.value!=="custom";
+      pintarTabla();
+    });
+    desde.addEventListener("change",pintarTabla);hasta.addEventListener("change",pintarTabla);
+    busqueda.parentNode.insertBefore(hasta,busqueda.nextSibling);
+    busqueda.parentNode.insertBefore(desde,hasta);
+    busqueda.parentNode.insertBefore(selector,desde);
+  }
+
   function columnasParaTabulator(v) {
     var dineroAditivo = {total:1,monto:1,saldo:1,recaudado:1,ganancia:1,
       comision:1,casa:1,gastosDirectos:1,contribucion:1,pagado:1,ventasNetas:1};
@@ -1890,42 +1927,6 @@
     });
   }
 
-  /* D2, JFC 17 nov: dates are the business-local calendar, never UTC raw. */
-  function periodoRapido() {
-    var s=$("periodo-rapido");
-    if(!s||!s.value||!window.OCReportPeriod?.quick)return null;
-    var hoy=window.OCBusinessReadModel.day(new Date().toISOString(),zonaNegocioDashboard());
-    var from=$("periodo-desde"),to=$("periodo-hasta");
-    return window.OCReportPeriod.quick(s.value,hoy,from&&from.value,to&&to.value);
-  }
-  window.OCDashPeriodo=periodoRapido;
-  function enPeriodo(v,p) {
-    if(!p)return true;
-    var date=window.OCBusinessReadModel.day(v.fechaLocal||v.fecha,zonaNegocioDashboard());
-    return !!date&&date>=p.from&&date<=p.to;
-  }
-  function montarPeriodoRapido() {
-    var busqueda=$("buscar");
-    if(!busqueda||$("periodo-rapido"))return;
-    var selector=document.createElement("select");
-    selector.id="periodo-rapido";selector.setAttribute("aria-label","Pick dates");
-    [["","—"],["today","Today"],["yesterday","Yesterday"],["7d","7 days"],
-     ["thisMonth","This month"],["lastMonth","Last month"],["custom","Pick dates"]]
-      .forEach(function(entry){var option=document.createElement("option");option.value=entry[0];option.textContent=entry[1];selector.appendChild(option);});
-    var desde=document.createElement("input"),hasta=document.createElement("input");
-    desde.type=hasta.type="date";desde.id="periodo-desde";hasta.id="periodo-hasta";
-    desde.setAttribute("aria-label","Pick dates");
-    hasta.setAttribute("aria-label","Pick dates");
-    desde.hidden=hasta.hidden=true;
-    selector.addEventListener("change",function(){
-      desde.hidden=hasta.hidden=selector.value!=="custom";
-      pintarTabla();
-    });
-    desde.addEventListener("change",pintarTabla);hasta.addEventListener("change",pintarTabla);
-    busqueda.parentNode.insertBefore(hasta,busqueda.nextSibling);
-    busqueda.parentNode.insertBefore(desde,hasta);
-    busqueda.parentNode.insertBefore(selector,desde);
-  }
 
   function pintarTabla() {
     var v = VISTAS[vista];
