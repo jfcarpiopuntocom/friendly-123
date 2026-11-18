@@ -1,0 +1,51 @@
+name: D3 official dashboard build and SHA manifest (branch QA only, no deploy)
+on:
+  push:
+    branches: [feat/20261117-dashboard-d3-earnings]
+    paths:
+      - src/dashboard/dashboard-main.js
+      - docs/core/finance-report.js
+      - docs/finance-report-worker.js
+      - test/dashboard-d3-cuanto-me-dejo.test.js
+      - test/dashboard-d3-ui.test.js
+      - .github/workflows/p0-dashboard-d3-official-build.yml
+permissions:
+  contents: write
+jobs:
+  build-d3-only:
+    if: github.repository == 'jfcarpiopuntocom/friendly-123' && github.ref == 'refs/heads/feat/20261117-dashboard-d3-earnings'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/20261117-dashboard-d3-earnings
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing lockfile without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Official source build and exact manifest, no shell updates or deploy
+        run: |
+          set -euo pipefail
+          node --test test/dashboard-d3-cuanto-me-dejo.test.js test/dashboard-d3-ui.test.js
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/sw.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+          node --test test/p0-dashboard-d1-column-totals.test.cjs test/dashboard-d2-periodos-rapidos.test.js
+      - name: Commit ONLY compiled assets to isolated D3 QA branch
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "feat/20261117-dashboard-d3-earnings"
+          git add docs/dashboard-main.min.js docs/dashboard-main.min.css docs/version-manifest.json
+          if git diff --cached --quiet; then
+            echo "Official QA artifacts unchanged"
+          else
+            git -c user.name='friendly123-qa-build[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build(D3): official dashboard assets and manifest QA only'
+            git push origin HEAD:refs/heads/feat/20261117-dashboard-d3-earnings
+          fi
