@@ -1,0 +1,21 @@
+name: P0 Belén STK-H2 shelf photo pointer ACK (real source)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/vista-perchas.js
+      - test/p0-belen-photo-pointer-ack-real-source.test.cjs
+      - .github/workflows/p0-belen-photo-pointer-ack.yml
+permissions:
+  contents: read
+jobs:
+  shelf-photo-pointer-ack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real shelf camera callback: ACK, offline, quota, switch, recovery
+        run: node --test test/p0-belen-photo-pointer-ack-real-source.test.cjs
