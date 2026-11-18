@@ -1,0 +1,36 @@
+name: P0 LIVE legacy replay HTTP ACK source contract (QA only)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/avanzado-extra.js
+      - test/p0-legacy-manual-replay-http-ack.test.cjs
+      - .github/workflows/qa-live-legacy-replay-http-ack.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  no-false-ack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test exactly LIVE source replay without external network or real data
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/p0-legacy-replay
+          git rev-parse HEAD | tee evidence/p0-legacy-replay/head-sha.txt
+          node --test test/p0-legacy-manual-replay-http-ack.test.cjs 2>&1 | tee evidence/p0-legacy-replay/tap.log
+      - name: Save TAP even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-legacy-replay-${{ github.run_id }}
+          path: evidence/p0-legacy-replay/
+          if-no-files-found: warn
+          retention-days: 14
