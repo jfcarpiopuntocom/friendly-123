@@ -31,12 +31,14 @@ test('deployed issuer missing security config 503 is not missing route 404',asyn
   assert.equal(r.issuer.state,'DEPLOYED_AUTHORITY_OFF');
   assert.equal(r.status,'BLOCKED_BEFORE_QA');
 });
-test('configured issuer GET 405 permits signed QA tests, not commercial GO',async()=>{
+test('issuer 405 and QA Worker root 404 cannot certify a signed connection',async()=>{
   const r=await assessQaReadiness({fetcher:stub({ticket:405,worker:404}).fetcher});
   assert.equal(r.issuer.state,'ROUTE_CONFIGURED');
-  assert.equal(r.signedQaTestPossible,true);
+  assert.equal(r.signedQaTestPossible,false);
+  assert.equal(r.worker.state,'ROOT_UNVERIFIED');
+  assert.equal(r.ticketRouteReady,true);
   assert.equal(r.certified,false);
-  assert.equal(r.status,'READY_FOR_SIGNED_QA_TEST');
+  assert.equal(r.status,'NEEDS_SIGNED_QA_PROBE');
 });
 test('unexpected YParty ON for any rollout entry halts progression',async()=>{
   const r=await assessQaReadiness({fetcher:stub({ticket:405,worker:404,
@@ -62,4 +64,12 @@ test('HTTP issuer classification fails closed for all other statuses',()=>{
   assert.equal(classifyIssuer(503),'DEPLOYED_AUTHORITY_OFF');
   assert.equal(classifyIssuer(405),'ROUTE_CONFIGURED');
   for(const code of [200,204,301,400,401,403,500])assert.equal(classifyIssuer(code),'UNVERIFIED_STATUS');
+});
+
+test('unauthenticated Worker root never impersonates a signed WS handshake',async()=>{
+  for(const worker of [200,400,401,403,404,405,426,500]){
+    const r=await assessQaReadiness({fetcher:stub({ticket:405,worker}).fetcher});
+    assert.equal(r.signedQaTestPossible,false,'HTTP '+worker+' is not signed proof');
+    assert.equal(r.certified,false);
+  }
 });
