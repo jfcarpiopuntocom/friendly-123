@@ -1,0 +1,37 @@
+name: P0 LIVE Safari BFCache restore of Yjs channels (QA only)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-live-safari-bfcache-pageshow.test.cjs
+      - .github/workflows/qa-live-safari-bfcache-pageshow.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bfcache:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Real LIVE Yjs lifecycle source test, no iPhone or network data
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/p0-bfcache
+          git rev-parse HEAD | tee evidence/p0-bfcache/head.txt
+          node --check docs/sync-yjs.js
+          node --test test/p0-live-safari-bfcache-pageshow.test.cjs 2>&1 | tee evidence/p0-bfcache/tap.log
+      - name: Persist SHA/TAP including the RED result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-bfcache-${{ github.run_id }}
+          path: evidence/p0-bfcache/
+          if-no-files-found: warn
+          retention-days: 14
