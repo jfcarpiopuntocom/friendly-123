@@ -1,0 +1,39 @@
+name: P0 D3 realized earnings projection worker source QA (NO DEPLOY)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/core/finance-report.js
+      - docs/finance-report-worker.js
+      - src/dashboard/dashboard-main.js
+      - test/dashboard-d3-cuanto-me-dejo.test.js
+      - test/dashboard-d3-ui.test.js
+      - .github/workflows/qa-live-dashboard-d3.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d3-money-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual source projection, cents, missing evidence and legacy worker route
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/dashboard-d3
+          git rev-parse HEAD | tee evidence/dashboard-d3/head-sha.txt
+          node --test test/dashboard-d3-cuanto-me-dejo.test.js 2>&1 | tee evidence/dashboard-d3/tap.log
+      - name: Save RED GREEN TAP
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-d3-${{ github.run_id }}
+          path: evidence/dashboard-d3
+          if-no-files-found: warn
+          retention-days: 14
