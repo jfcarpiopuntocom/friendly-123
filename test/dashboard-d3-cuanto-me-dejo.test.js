@@ -12,13 +12,14 @@ function sale(id,name,price,cost,quantity=1,extras={}){
 }
 test('D3 emits a single source-derived earnings projection with all safe grouping keys',()=>{
   assert.equal(typeof P.earnings,'function');
-  const sales=[sale('taza','Taza',20,2.2),sale('camiseta','Camiseta',20,9.1)];
+  const sales=[sale('taza','Taza',20,2.2,1,{noCommission:false,comisionAsociado:3,netoCasa:17}),sale('camiseta','Camiseta',20,9.1)];
   for(const by of ['product','shelf','associate','customer','payment','channel','event','weekday','hour']){
     const rows=P.earnings({sales,period,zone},by);
     assert.equal(rows[0].key,null);
     assert.equal(rows[0].netCents,4000);
     assert.equal(rows[0].costCents,1130);
-    assert.equal(rows[0].profitCents,2870);
+    assert.equal(rows[0].profitCents,2570);
+    assert.equal(rows[0].commissionCents,300);
     assert.equal(rows.slice(1).reduce((a,x)=>a+x.netCents,0),4000,'each grouping balances '+by);
   }
 });
