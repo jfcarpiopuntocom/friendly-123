@@ -21,8 +21,12 @@ const make=({db=new IDBFactory(),storage=null,receive,role='dueno',owner=ownedA,
     removeItem:k=>values.delete(k),
   };
   const doc={createElement:()=>({style:{},textContent:''}),head:{appendChild(){}},getElementById:()=>null};
+  // Inject only the ESM loader into Node VM: the production HTML and all
+  // payment logic run unchanged; stock node --test does not enable vm-modules.
   const module=source.replace('  function modalAbonar(clienteId, nombre) {',
-    '  global.__creditRegression={leerReferenciaDurable,guardarReferenciaPagoDurable,reanudarAsignacion,claveAsignacion,claveAbono};\n  function modalAbonar(clienteId, nombre) {');
+    '  global.__creditRegression={leerReferenciaDurable,guardarReferenciaPagoDurable,reanudarAsignacion,claveAsignacion,claveAbono};\n  function modalAbonar(clienteId, nombre) {')
+    .replace('var modulo = await import("./pago-intento-idb.mjs");',
+      'var modulo = await global.__syntheticImportIDB();');
   const state={role,active:active||owner.licenseCode};
   const win={
     indexedDB:failIDB?{open(){throw new Error('QuotaExceededError')}}:db,
@@ -30,6 +34,7 @@ const make=({db=new IDBFactory(),storage=null,receive,role='dueno',owner=ownedA,
     OCAuth:{rolActual:()=>state.role},
     OCTienda:{licenciaActual:()=>state.active},OCI18n:{locale:()=> 'es'},
     AMG:{},addEventListener(){},setTimeout(){},
+    __syntheticImportIDB:()=>import(moduleURL),
   };
   const fetch=async(url,opts)=>{
     outgoing.push({url,body:JSON.parse(opts.body)});
@@ -37,11 +42,7 @@ const make=({db=new IDBFactory(),storage=null,receive,role='dueno',owner=ownedA,
     return {ok:true,json:async()=>({opId:JSON.parse(opts.body).opId,movimientoId:'receipt-synthetic'})};
   };
   vm.runInNewContext(module,{window:win,document:doc,localStorage:ls,fetch,TextEncoder,
-    importModuleDynamically:undefined,setTimeout:()=>{},console}, {filename:'plan-pagos-ui.js',
-    importModuleDynamically:specifier=>{
-      if(specifier!=='./pago-intento-idb.mjs')throw new Error('unexpected module '+specifier);
-      return import(moduleURL);
-    }});
+    setTimeout:()=>{},console},{filename:'plan-pagos-ui.js'});
   return {win,values,ls,outgoing,db,state};
 };
 
