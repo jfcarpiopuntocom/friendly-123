@@ -1679,6 +1679,29 @@
     }
     return resultado;
   }
+  // Belén STK-H1: photos rehydrated for UI must not be redundantly written
+  // into every A/B commercial snapshot AFTER exact alternate IDB bytes have
+  // been committed/read back. Unknown, changed and legacy-only photos retain
+  // their full bytes. Portable backup/export keeps the original complete foto.
+  function _estadoParaGuardarSinFotos(vivo) {
+    const fotos = window.OCFotos;
+    if (!fotos || typeof fotos.tieneFotoHashConfirmadoEnIdb !== "function") return vivo;
+    let podadas = 0;
+    function proyeccion(items) {
+      if (!Array.isArray(items)) return items;
+      return items.map(function (item) {
+        if (!item || !item.fotoHash || typeof item.foto !== "string" ||
+            !/^data:image\//.test(item.foto) ||
+            !fotos.tieneFotoHashConfirmadoEnIdb(item.fotoHash, item.foto)) return item;
+        const copia = Object.assign({}, item);
+        delete copia.foto; // only the redundant UI dataURL, never fotoHash/fotoRev
+        podadas++;
+        return copia;
+      });
+    }
+    const p = proyeccion(vivo.productos), u = proyeccion(vivo.ubicaciones);
+    return podadas ? Object.assign({}, vivo, {productos:p, ubicaciones:u}) : vivo;
+  }
   function _guardarEstadoLocalAhora(exigirCompleto, preservarFotos) {
     const ab = _estadoAB();
     const ejecutar = () => {
@@ -1701,7 +1724,7 @@
       if (ab) { try { vivo._abCommit = ab.nuevoToken(); } catch (_) { tokenOk = false; } }
       const actividadVigente = vivo.actividadCompartida; // arreglo propio de _actividadExportable (identidad usada por _confirmarActividad)
       const _tSerializar = exigirCompleto ? _perfLocalInicio() : null;
-      const crudo = JSON.stringify(vivo);
+      const crudo = JSON.stringify(_estadoParaGuardarSinFotos(vivo));
       const completo = JSON.parse(crudo);
       if (exigirCompleto) _perfLocalFin('snapshot_serialize', _tSerializar, true);
       let local = false;
