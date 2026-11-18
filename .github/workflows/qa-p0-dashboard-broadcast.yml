@@ -1,0 +1,25 @@
+name: P0 Dashboard encrypted broadcast gate
+on:
+  pull_request:
+    paths:
+      - docs/dashboard-broadcast.js
+      - docs/index.html
+      - docs/dashboard.html
+      - docs/sync-realtime.js
+      - docs/vendor/supabase-relay.min.js
+      - test/p0-dashboard-broadcast-contract.test.cjs
+      - .github/workflows/qa-p0-dashboard-broadcast.yml
+permissions:
+  contents: read
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Native source contract + websocket-like encrypted room isolation
+        run: node --test test/p0-dashboard-broadcast-contract.test.cjs
+      - name: Syntax of untouched legacy and new bridge
+        run: node --check docs/sync-realtime.js && node --check docs/dashboard-broadcast.js
