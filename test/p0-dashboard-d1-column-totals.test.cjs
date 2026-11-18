@@ -79,3 +79,19 @@ test('D1: sum of visible filtered rows, no stale off-screen values',()=>{
   assert.equal(col.bottomCalc(visible.map(r=>r.total)),16);
   assert.equal(col.bottomCalc(rows.map(r=>r.total)),1015);
 });
+
+test('D1 official compiled JS and version manifest match the distributable source (no manual hashes)',()=>{
+  const crypto=require('node:crypto');
+  const base=path.join(__dirname,'../docs');
+  const manifest=JSON.parse(fs.readFileSync(path.join(base,'version-manifest.json'),'utf8'));
+  for(const file of ['dashboard-main.min.js','dashboard-main.min.css']){
+    const bytes=fs.readFileSync(path.join(base,file),'utf8').replace(/\r\n/g,'\n');
+    const digest='sha256-'+crypto.createHash('sha256').update(bytes,'utf8').digest('hex');
+    assert.equal(manifest.files['./'+file],digest,'official manifest must seal '+file);
+  }
+  const bundled=fs.readFileSync(path.join(base,'dashboard-main.min.js'),'utf8');
+  assert.match(bundled,/columnasParaTabulator/,'compiled asset must include live D1 renderer');
+  assert.match(fs.readFileSync(path.join(base,'dashboard.html'),'utf8'),
+    /<script\s+src="\.\/dashboard-main\.min\.js"><\/script>/,
+    'the released page must load exactly the generated JS');
+});
