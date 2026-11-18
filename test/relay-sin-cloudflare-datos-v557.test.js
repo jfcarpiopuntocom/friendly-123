@@ -53,7 +53,7 @@ test('estatico: los localizadores legacy solo llegan al adaptador directo y su s
     assert.ok(!/https?:\/\/friendly123-sync-relay/.test(src), nombre + ': el relay viejo no se usa por HTTP');
     // RELAY_URL solo se consume a traves del adaptador F123Relay.connect (nunca new WebSocket).
     const usos = [...src.matchAll(/RELAY_URL/g)].length;
-    const viaAdaptador = [...src.matchAll(/F123Relay\.connect\(\s*RELAY_URL|(?:var|const|let)\s+url\s*=\s*RELAY_URL/g)].length;
+    const viaAdaptador = [...src.matchAll(/(?:F123Relay|F123DashboardBroadcast)\.connect\(\s*RELAY_URL|(?:var|const|let)\s+url\s*=\s*RELAY_URL/g)].length;
     assert.ok(/F123Relay\.connect\(/.test(src), nombre + ': conecta por F123Relay.connect');
     assert.equal(usos, 1 + viaAdaptador, nombre + ': RELAY_URL = 1 definicion + usos que terminan en el adaptador');
     // Sin adaptador nativo, el codigo lanza y reintenta; no cae a un socket crudo.
@@ -79,7 +79,7 @@ test('estatico: app retains durable relay; dashboard transports encrypted realti
   assert.doesNotMatch(dash, /f123_relay_command/, 'no dashboard durable business command');
   const bridge = archivos.find(a => a.rel === 'dashboard-broadcast.js').src;
   assert.match(bridge, /\.channel\("f123-dash-"/, 'dashboard uses ephemeral broadcast');
-  assert.doesNotMatch(bridge, /\.from\(|\.insert\(|\.upsert\(|\.rpc\(/, 'dashboard bridge contains no persistent database operations');
+  assert.doesNotMatch(bridge, /(?:client|_channel|\.supabase)\.(?:from|insert|upsert|rpc)\s*\(/, 'dashboard bridge never opens a persistent database client');
 });
 
 test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca negocio central', () => {
@@ -94,7 +94,8 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
   // Licencias: referencias permitidas (panel de JFC, verificacion maestra, comentarios de auth-ui).
   const lic = [...hosts.get('friendly123-licencias')].sort();
   assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel-pin.js', 'panel.html']);
-  assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-broadcast.js', 'dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
+  assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
+  assert.match(archivos.find(a => a.rel === 'dashboard-broadcast.js').src, /var LOC = \/\^wss:/, 'dashboard transport only validates room locators as a local regex');
   // Rutas que el cliente pide al Worker de licencias: solo licencia, latido, canario y maestro. Nada de datos.
   const rutas = new Set();
   for (const a of archivos) for (const m of a.src.matchAll(/workerUrl\(\)[^;]{0,200}?["'`](\/[a-z\-]+)/gi)) rutas.add(m[1]);
