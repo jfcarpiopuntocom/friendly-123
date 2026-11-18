@@ -119,7 +119,10 @@
       });
       _recordarFotoIdbConfirmada(hash, dataUrl); // tx.oncomplete ACK
       return true;
-    } catch (err) { console.error("[idb-fotos] guardarPorHash:", err); return false; }
+    } catch (err) {
+      _fotoBytesIdbConfirmados.delete(String(hash)); // a failed photo write cannot remain durable proof
+      console.error("[idb-fotos] guardarPorHash:", err); return false;
+    }
   }
   // Legacy hashed bytes may still live only in localStorage even while IDB
   // opens normally (pre-isolation / older PWA recovery). Read-only fallback.
@@ -165,6 +168,7 @@
     try {
       return (await leerHashSoloIdb(hash)) || leerHashLegado(hash);
     } catch (err) {
+      _fotoBytesIdbConfirmados.delete(String(hash)); // stale cached proof MUST NOT survive IDB read error
       console.error("[idb-fotos] leerPorHash:", err);
       return leerHashLegado(hash);
     }
