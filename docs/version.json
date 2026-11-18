@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.93",
+  "version": "v0.7.94",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.93: tablero Casa identifica lectura de hechos financieros sin migrar, bloqueada o no disponible; evita crear bases IndexedDB vacías, conserva cifras pendientes sin confundir cuadernos y no altera ventas, saldos ni PIN. Arquitectura 2.0 permanece apagada.",
+  "changelog": "v0.7.94: protección de cobros y fiados por rol directamente en el backend local, también cuando IndexedDB o WebCrypto no estén disponibles. Se preservan los abonos autorizados y su opId original. Sin cambios en stock ni en arquitectura 2.0.",
   "requerida": false,
-  "shell": "f123-shell-v793",
+  "shell": "f123-shell-v794",
   "apagar": [],
-  "releaseName": "v0.7.93",
-  "cacheGeneration": "golden329"
+  "releaseName": "v0.7.94",
+  "cacheGeneration": "golden330"
 }
