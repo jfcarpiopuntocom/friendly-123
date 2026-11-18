@@ -1832,6 +1832,62 @@
     });
   }
 
+  /* D1, JFC 17-nov: Tabulator remains the ONLY table. Per-column filters
+     and filtered footers read existing view rows, never the full sales ledger.
+     A missing monetary value means an unknown total, not a fabricated 0. */
+  function columnasParaTabulator(v) {
+    var dineroAditivo = {total:1,monto:1,saldo:1,recaudado:1,ganancia:1,
+      comision:1,casa:1,gastosDirectos:1,contribucion:1,pagado:1,ventasNetas:1};
+    var conteoAditivo = {cantidad:1,stockActual:1,ventas:1,unidades:1,
+      personas:1,compradores:1,frecuencia:1,devoluciones:1,corregidas:1};
+    var numericos = Object.assign({precio:1,costo:1,margen:1,precioUnit:1,
+      costoUnit:1,porcentaje:1},dineroAditivo,conteoAditivo);
+    return v.cols.map(function (original) {
+      if (!original || !original.field || original.download === false ||
+          original.headerSort === false) return original; // action icon, never filter
+      var c = Object.assign({},original);
+      // The product name's old explicit false predated the D1 approval.
+      if (c.headerFilter === undefined || (c.field === "nombre" && c.headerFilter === false))
+        c.headerFilter = "input";
+      if (numericos[c.field] && c.headerFilter === "input") {
+        c.headerFilterFunc = function (q, value) {
+          var typed = String(q == null ? "" : q).trim();
+          if (!typed) return true;
+          // Inclusive range, e.g. 2..5. Plain text still uses old substring semantics.
+          var range = /^(-?\d+(?:\.\d+)?)\s*\.\.\s*(-?\d+(?:\.\d+)?)$/.exec(typed);
+          if (range) {
+            if (typeof value !== "number" || !Number.isFinite(value)) return false;
+            var a = Number(range[1]), b = Number(range[2]);
+            return value >= Math.min(a,b) && value <= Math.max(a,b);
+          }
+          return normalizar(value).indexOf(normalizar(typed)) >= 0;
+        };
+      }
+      if (dineroAditivo[c.field] || conteoAditivo[c.field]) {
+        var currency = !!dineroAditivo[c.field];
+        c.bottomCalc = function (values) {
+          if (!values.length) return null;
+          var factor = currency ? 100 : 1, total = 0;
+          for (var i = 0; i < values.length; i++) {
+            var value = values[i];
+            if (typeof value !== "number" || !Number.isFinite(value)) return null;
+            var cents = Math.round(value * factor);
+            if (!Number.isSafeInteger(cents)) return null;
+            total += cents;
+            if (!Number.isSafeInteger(total)) return null;
+          }
+          return total / factor;
+        };
+        c.bottomCalcFormatter = function (cell) {
+          var value = cell.getValue();
+          return value === null || value === undefined ? "—" :
+            currency ? money(value) : String(value);
+        };
+      }
+      return c;
+    });
+  }
+
   function pintarTabla() {
     var v = VISTAS[vista];
     var filas = v.filas();
@@ -1852,7 +1908,7 @@
     tablaDe = vista;
     tabla = new Tabulator("#tabla", {
       data: filas,
-      columns: v.cols,
+      columns: columnasParaTabulator(v),
       layout: "fitColumns",   /* llena el ancho: es una pantalla grande, hay que usarla */
       height: "58vh",
       renderVertical: "virtual",     /* miles de filas sin matar un teléfono viejo */
