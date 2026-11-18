@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.89",
+  "version": "v0.7.90",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.89: dashboard cifrado responde PIN Owner/Admin y fotografias aun si WebRTC legacy sigue conectando. Validacion PIN y fotoToken se mantiene; sin cambios a movimientos, ventas ni Yjs.",
+  "changelog": "v0.7.90: Safari Dashboard consulta otro dispositivo autorizado cuando el PIN Owner local pertenece a un verificador anterior. Solo Owner/Admin validado por el equipo abre el tablero; bloqueo local, licencia y datos se conservan.",
   "requerida": false,
-  "shell": "f123-shell-v789",
+  "shell": "f123-shell-v790",
   "apagar": [],
-  "releaseName": "v0.7.89",
-  "cacheGeneration": "golden325"
+  "releaseName": "v0.7.90",
+  "cacheGeneration": "golden326"
 }
