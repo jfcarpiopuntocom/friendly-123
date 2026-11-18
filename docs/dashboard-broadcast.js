@@ -94,7 +94,7 @@
       if (this._closed) return;
       this._closed = true; this.readyState = 3; this._groups.clear();
       try { this._channel.unsubscribe(); } catch (_) {}
-      var e = new CloseEvent("close", { code: code === 1011 ? 1011 : 1000, reason: String(reason || "") });
+      var e = new Event("close"); Object.defineProperties(e, { code: { value: code === 1011 ? 1011 : 1000 }, reason: { value: String(reason || "") } });
       this.dispatchEvent(e);
       if (typeof this.onclose === "function") try { this.onclose(e); } catch (_) {}
     }
