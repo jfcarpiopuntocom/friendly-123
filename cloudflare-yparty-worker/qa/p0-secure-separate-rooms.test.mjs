@@ -503,7 +503,7 @@ test('P0 combined REAL photo bridge: browser-signed PUT -> Workerd SQL + Yjs sha
  // Only the browser network routing and origin are simulated (no real iPhone).
  const {createPhotoShaBridge}=await import('../../src/photo-sha-bridge.mjs');
  const browserOrigin='https://synthetic-photo.test';
- const expectedHost='friendly123-yparty-qa-20261114.jfcarpio.workers.dev';
+ const expectedHost='friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev';
  const network=[];
  const browserFetch=async(target,options)=>{
   const requestUrl=new URL(String(target));

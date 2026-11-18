@@ -2,7 +2,7 @@ import AuthorizedYProvider from './authorized-yprovider.mjs';
 import {createOwnerTicketParams} from './ws-owner-ticket-params.mjs';
 import {createPhotoShaBridge} from './photo-sha-bridge.mjs';
 
-const host = 'friendly123-yparty-qa-20261114.jfcarpio.workers.dev';
+const host = 'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
 const plazoReconectar = 7500;
 
