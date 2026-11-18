@@ -37,3 +37,4 @@ jobs:
           path: evidence/p0-outbox-class-a/
           if-no-files-found: warn
           retention-days: 14
+# v783 exact-head QA trigger after official bot-generated manifest; no deploy action.
