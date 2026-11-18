@@ -25,10 +25,21 @@ function fixture(opts={}){
    localStorage:{get length(){return ls.size;},key:i=>[...ls.keys()][i],
      getItem:key=>ls.get(key)||null,setItem:(key,v)=>ls.set(key,String(v)),removeItem:key=>ls.delete(key)},
    abrirDB:async()=>({
-     transaction:()=>({objectStore:()=>({
-       getAllKeys:()=>{const req={};queueMicrotask(()=>{req.result=[...dbMap.keys()];req.onsuccess();});return req;},
-       get:h=>{const req={};queueMicrotask(()=>{req.result=dbMap.get(h)||undefined;req.onsuccess();});return req;}
-     })})
+     transaction:()=>{
+       // A completed IDB request is NOT a committed transaction. Model both
+       // real browser events so strict photo readback waits for tx.oncomplete.
+       const tx={objectStore:()=>({
+         getAllKeys:()=>{const req={};queueMicrotask(()=>{
+           req.result=[...dbMap.keys()];req.onsuccess();
+           queueMicrotask(()=>tx.oncomplete?.());
+         });return req;},
+         get:h=>{const req={};queueMicrotask(()=>{
+           req.result=dbMap.get(h)||undefined;req.onsuccess();
+           queueMicrotask(()=>tx.oncomplete?.());
+         });return req;}
+       })};
+       return tx;
+     }
    })
  };
  vm.createContext(ctx);
