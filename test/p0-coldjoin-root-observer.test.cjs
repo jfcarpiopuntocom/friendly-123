@@ -13,7 +13,7 @@ test('P0 RED: distinguish Firebase 404 missing metadata from Firebase 429 thrott
  assert.equal(f.sinPermiso401,1);
  assert.equal(f.rechazo403,1);
  assert.equal(f.otros4xx,2);
- assert.equal(f.error4xx,7,'aggregate 4xx count remains compatible');
+ assert.equal(f.error4xx,6,'aggregate 4xx excludes separately-counted 403, preserving legacy semantics');
  assert.equal(f.error5xx,1);
  assert.equal(f.ok2xx,1);
  assert.equal(JSON.stringify(f).includes(privateUrl),false,'never export URLs or room capability');
