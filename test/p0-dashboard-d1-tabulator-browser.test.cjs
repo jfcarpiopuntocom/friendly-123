@@ -53,7 +53,8 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
         const snapshot=await page.evaluate(()=>({
           cols:[...document.querySelectorAll('.tabulator-col')].map(x=>({html:x.outerHTML.slice(0,380)})),
           foot:document.querySelector('.tabulator-calcs-bottom')?.outerHTML?.slice(0,1300)||null,
-          inputs:[...document.querySelectorAll('input')].map(x=>x.outerHTML.slice(0,240)),
+          inputs:[...document.querySelectorAll('input')].map(x=>({value:x.value,html:x.outerHTML.slice(0,240)})),
+          filters:window.table?.getHeaderFilters?.(),
           table:typeof Tabulator,active:window.table?.getDataCount?.('active'),
           calc:window.table?.getCalcResults?.(),body:document.body.innerHTML.slice(0,1200)
         })).catch(e=>({diagError:e.message}));
@@ -71,7 +72,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
       await page.waitForFunction(()=>!!document.querySelector('.tabulator-calcs-bottom'));
       assert.equal((await calc.innerText()).trim(),'—');
       stage='shelf filter Shelf 1';
-      await shelf.fill('Shelf 1');
+      await shelf.pressSequentially('Shelf 1',{delay:40});
       await page.waitForFunction(()=>window.table.getDataCount('active')===2);
       await page.waitForFunction(()=>window.table.getCalcResults().bottom?.total===16);
       assert.equal((await calc.innerText()).trim(),'$16.00');
@@ -81,7 +82,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
       assert.equal((await unit.innerText()).trim(),'','unit prices must never have an aggregate');
       stage='numeric range';
       const qty=page.locator('.tabulator-col[tabulator-field="cantidad"] .tabulator-header-filter input');
-      await qty.fill('2..5');
+      await qty.pressSequentially('2..5',{delay:40});
       await page.waitForFunction(()=>window.table.getDataCount('active')===1);
       await page.waitForFunction(()=>window.table.getCalcResults().bottom?.total===3.25);
       assert.equal((await calc.innerText()).trim(),'$3.25');
