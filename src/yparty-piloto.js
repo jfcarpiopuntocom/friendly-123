@@ -11,6 +11,9 @@ window.F123YPartyPilot = function (sala, licencia) {
     // HTTP-only transport for immutable SHA photo bytes. Do not give this
     // capability to an authorized Yjs WebSocket provider.
     fotoSha() {
+      // P0 #765: legacy photo bridge lacks end-to-end sealing; keep it disabled.
+      return null;
+      // Original bridge retained for a separately reviewed sealed-photo design.
       if (!/^[a-f0-9]{32}$/.test(sala || '')) return null;
       let owned;
       try { owned=JSON.parse(localStorage.getItem('f123_owned')||'null'); } catch (_) {}
@@ -33,7 +36,7 @@ window.F123YPartyPilot = function (sala, licencia) {
         return createPhotoShaBridge({host,licenseCode:licencia,instanceId:instancia,room:sala,getCredentials});
       } catch (_) { return null; }
     },
-    canal(doc, tipo, idb, aplicar, usarRelayHabitual) {
+    canal(doc, tipo, idb, aplicar, usarRelayHabitual, legadoListo) {
       let plazo = null;
       let revision = 0;
       let enRespaldo = false; // Visibility restores legacy, never creates a competing catalog writer.
@@ -43,7 +46,8 @@ window.F123YPartyPilot = function (sala, licencia) {
         get recuperacionLocal() { return !idb ? 'sin-almacenamiento' : idb.synced ? 'listo' : 'cargando'; },
         get ws() { return canal.proveedor?.ws; },
         accesoListo() {
-          return !canal.recuperando && !doc.store.pendingStructs && !doc.store.pendingDs;
+          return !canal.recuperando && typeof legadoListo === 'function' &&
+            legadoListo() === true && !doc.store.pendingStructs && !doc.store.pendingDs;
         },
         enviarUpdate() {}, // El proveedor escucha el mismo documento Yjs.
         certificar() {
@@ -116,9 +120,12 @@ window.F123YPartyPilot = function (sala, licencia) {
           // The private owner path deliberately handles only the channels for
           // which server-side one-use tickets exist. Never pipe photo bytes to
           // an unauthorized/private Yjs room; keep the encrypted old relay.
-          if (tipo !== 'cat') { // Money remains on the proven encrypted legacy relay until a real business ACK exists.
-            enRespaldo = true; usarRelayHabitual(); return;
-          }
+          // #765 fail-closed: even the catalog carries PIN metadata, finances
+          // and customer details. Never pass its raw Y.Doc into the Worker.
+          // The existing encrypted legacy relay is still the only transport.
+          enRespaldo = true;
+          usarRelayHabitual();
+          return;
           const getCredentials = () => {
             let owned;
             try { owned = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
@@ -184,7 +191,9 @@ window.F123YPartyPilot = function (sala, licencia) {
         }, plazoReconectar);
       }
       function completar() {
-        if (!canal.proveedor?.synced || !idb?.synced || doc.store.pendingStructs || doc.store.pendingDs) return;
+        if (!canal.proveedor?.synced || !idb?.synced ||
+            typeof legadoListo !== 'function' || legadoListo() !== true ||
+            doc.store.pendingStructs || doc.store.pendingDs) return;
         if (!canal.recuperando) return;
         canal.recuperando = false;
         aplicar();
