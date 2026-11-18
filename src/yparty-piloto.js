@@ -33,7 +33,7 @@ window.F123YPartyPilot = function (sala, licencia) {
         return createPhotoShaBridge({host,licenseCode:licencia,instanceId:instancia,room:sala,getCredentials});
       } catch (_) { return null; }
     },
-    canal(doc, tipo, idb, aplicar, usarRelayHabitual) {
+    canal(doc, tipo, idb, aplicar, usarRelayHabitual, legadoListo) {
       let plazo = null;
       let revision = 0;
       let enRespaldo = false; // Visibility restores legacy, never creates a competing catalog writer.
@@ -43,7 +43,10 @@ window.F123YPartyPilot = function (sala, licencia) {
         get recuperacionLocal() { return !idb ? 'sin-almacenamiento' : idb.synced ? 'listo' : 'cargando'; },
         get ws() { return canal.proveedor?.ws; },
         accesoListo() {
-          return !canal.recuperando && !doc.store.pendingStructs && !doc.store.pendingDs;
+          // A fresh/empty YParty server is NOT proof that the old encrypted
+          // history (including current Owner PIN and shop identity) was read.
+          return !canal.recuperando && typeof legadoListo === 'function' &&
+            legadoListo() === true && !doc.store.pendingStructs && !doc.store.pendingDs;
         },
         enviarUpdate() {}, // El proveedor escucha el mismo documento Yjs.
         certificar() {
@@ -116,9 +119,15 @@ window.F123YPartyPilot = function (sala, licencia) {
           // The private owner path deliberately handles only the channels for
           // which server-side one-use tickets exist. Never pipe photo bytes to
           // an unauthorized/private Yjs room; keep the encrypted old relay.
-          if (tipo !== 'cat') { // Money remains on the proven encrypted legacy relay until a real business ACK exists.
-            enRespaldo = true; usarRelayHabitual(); return;
-          }
+          // P0 UltraReview #756: Owner catalog carries _meta.pinsRol, financial
+          // events and customer details. AuthorizedYProvider synchronizes its
+          // Y.Doc AS PLAINTEXT to the Worker. Until an independently proven E2E
+          // opaque Y.Doc adapter exists, NEVER connect this provider to the raw
+          // application doc, even with a valid one-use admission ticket.
+          // Existing encrypted legacy relay stays the authority and backup.
+          enRespaldo = true;
+          usarRelayHabitual();
+          return;
           const getCredentials = () => {
             let owned;
             try { owned = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
@@ -184,7 +193,9 @@ window.F123YPartyPilot = function (sala, licencia) {
         }, plazoReconectar);
       }
       function completar() {
-        if (!canal.proveedor?.synced || !idb?.synced || doc.store.pendingStructs || doc.store.pendingDs) return;
+        if (!canal.proveedor?.synced || !idb?.synced ||
+            typeof legadoListo !== 'function' || legadoListo() !== true ||
+            doc.store.pendingStructs || doc.store.pendingDs) return;
         if (!canal.recuperando) return;
         canal.recuperando = false;
         aplicar();
