@@ -35,6 +35,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p evidence/dashboard-d1-native
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git rev-parse HEAD | tee evidence/dashboard-d1-native/head.txt
           node --test --test-concurrency=1 test/p0-dashboard-d1-tabulator-browser.test.cjs 2>&1 | tee evidence/dashboard-d1-native/tap.log
       - name: Keep TAP + SHA even if RED
