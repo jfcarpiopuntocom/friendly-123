@@ -1,0 +1,21 @@
+name: P0 Belen Dashboard facts read-only migration+errors
+on:
+  push:
+    branches: [fix/p0-belen-dashboard-facts-readonly-reasons-v793-20261118]
+    paths:
+      - src/dashboard/dashboard-main.js
+      - test/p0-belen-dashboard-hechos-readonly.test.cjs
+      - .github/workflows/qa-p0-belen-dashboard-facts.yml
+permissions:
+  contents: read
+jobs:
+  dashboard-facts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Synthetic actual Dashboard IDB reader and Casa failure visibility
+        run: node --test test/p0-belen-dashboard-hechos-readonly.test.cjs
