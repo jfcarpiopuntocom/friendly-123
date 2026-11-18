@@ -43,7 +43,7 @@ function harness({shadowRecovered=false}={}){
   const p=window.F123YPartyPilot('a'.repeat(32),'F123-SYNTHETIC');
   const canal=p.canal(doc,'cat',{synced:true,once(){}},()=>{calls.applied++},
     ()=>{calls.fallBack++},()=>shadowRecovered);
-  return {doc,canal,calls,events:providerEvents,update(){(listeners.update||[]).forEach(fn=>fn())},
+  return {pilot:p,doc,canal,calls,events:providerEvents,update(){(listeners.update||[]).forEach(fn=>fn())},
     setShadowRecovered(value){shadowRecovered=value}};
 }
 
@@ -83,4 +83,17 @@ test('Yjs causal debts keep access closed even with legacy and YParty ready',()=
   h.doc.store.pendingDs=null;
   h.update();
   assert.equal(h.calls.applied,1);
+});
+
+test('RED ULTRA #1b: photo SHA plaintext HTTP capability must remain disabled until E2E sealed',()=>{
+  const h=harness();
+  assert.equal(h.pilot.fotoSha(),null,'opaque catalog gate includes photo bytes, not just Y.Doc');
+});
+
+test('no second catalog writer on repeated visible/reconnect after opaque guard denied',()=>{
+  const h=harness();
+  h.canal.conectar();
+  h.canal.conectar();
+  assert.equal(h.calls.providers.length,0);
+  assert.equal(h.calls.fallBack,2,'each explicit connect keeps existing encrypted relay authority');
 });
