@@ -87,3 +87,13 @@ test('unrelated local license cannot be used as PIN proof or display another not
   assert.equal(r.scope.autorizado,false);
   assert.equal(r.counters.painted,0);
 });
+
+test('a remote Admin approval after a stale local verifier also requires authentic peer proof',async()=>{
+  const r=await attempt({remoteResult:{ok:true,datos:{rol:'admin',fotoToken:'synthetic-admin-token'}}});
+  assert.equal(r.counters.connected,1);
+  assert.equal(r.counters.verified,1);
+  assert.equal(r.scope.autorizado,true);
+  assert.equal(r.scope._sesionLocal,false);
+  assert.equal(r.counters.painted,0);
+  assert.equal(r.counters.snapshot,1);
+});
