@@ -1,0 +1,46 @@
+name: P0 Belén v793 official Dashboard build and sealed shell (QA branch only)
+on:
+  push:
+    branches: [fix/p0-belen-dashboard-facts-readonly-reasons-v793-20261118]
+    paths:
+      - src/dashboard/dashboard-main.js
+      - docs/version.json
+      - docs/dashboard.html
+      - .github/workflows/qa-p0-belen-v793-seal.yml
+permissions:
+  contents: write
+jobs:
+  seal:
+    if: github.repository == 'jfcarpiopuntocom/friendly-123'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-belen-dashboard-facts-readonly-reasons-v793-20261118
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Prove source contract then build official Dashboard assets
+        run: |
+          set -euo pipefail
+          node --check src/dashboard/dashboard-main.js
+          node --test test/p0-belen-dashboard-hechos-readonly.test.cjs test/p0-dashboard-d1-column-totals.test.cjs
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+      - name: Commit immutable built artifacts ONLY to isolated QA branch
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "fix/p0-belen-dashboard-facts-readonly-reasons-v793-20261118"
+          git add docs/dashboard-main.min.js docs/dashboard-main.min.css docs/version-manifest.json
+          if git diff --cached --quiet; then
+            echo "Built assets already exact"
+          else
+            git -c user.name='friendly123-qa-build[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build(v793): seal Belén Dashboard financial-journal diagnostic assets'
+            git push origin HEAD:refs/heads/fix/p0-belen-dashboard-facts-readonly-reasons-v793-20261118
+          fi
