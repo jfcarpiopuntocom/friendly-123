@@ -64,11 +64,11 @@
     "./core/ledger.js": "sha256-cf389389018d4fb3ea395e2edb5abe39cde40dff78859c5f7a21aba8aa0e9cf4",
     "./core/sales-audit.js": "sha256-450a2c18accad13ae0949aa14fa05b724ee0b77f84915980799a35933ff4f007",
     "./core/business-read-model.js": "sha256-a4ade53ddf410862b440c065d6c7c0b462f17a4fde8369e9173244b527c96ff8",
-    "./core/report-period.js": "sha256-00b637e52c63c46d7251305285ec056243d1dd84486f57c3777d5692f9f98cf3",
+    "./core/report-period.js": "sha256-68bf10f05af10d50e3ac7f9be00db69826a71e7a6f64ddcb4d048fe415769a2c",
     "./core/finance-report.js": "sha256-6e6b9bb08b05fe5a48599e45ac4b590c7d25e96d9321b2d9bf74e624f1517cd9",
     "./finance-report-worker.js": "sha256-09227600d276f7d9703ffb06cf06ec55a86ba8d4f126342531f4115e0abe0d14",
     "./customer-profile.js": "sha256-e83fbc73cb2966ff7ddbc3bf616e1c5afbfa5fa1808a1c2dc701d87ec86b4ab8",
-    "./dashboard-finance.js": "sha256-a4b9ff8139b0cd6730cdbff691478d173ac1bf9a4d9a4587b0460f80392b9956",
+    "./dashboard-finance.js": "sha256-657c67d316cbd5c1cd4b18bd479866bee48687da50d3fe0e21179efeb6b79577",
     "./pdf-report-layout.js": "sha256-4bd97ac735f1aef074f3ea20ae8e0844a45499c2fd2f23c833a7147c11055cb7",
     "./expense-receipt.js": "sha256-c80e248ac9a467253165d90995ebf5ccdb92d27565f4df4ee4a42da421bbc23c",
     "./sales-audit-ui.js": "sha256-fc538f10587093a0aa94e9922b6ce627c4a25ca76ed42491193fc955f504dd22",
@@ -128,6 +128,6 @@
     "./app-style-02.min.css": "sha256-15d97398c75087b244017e4a728ca7e37fa0edab4d0e9d33668a937beeca6432",
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
-    "./dashboard-main.min.js": "sha256-3dfc9849c0b87251b3500f7d20b6c99b52b1a2e065aa489cd7299b186d3898d7"
+    "./dashboard-main.min.js": "sha256-3378f01d570015c06a5dbac245fc66cb92d9d1feb330345cab58628a559d5659"
   }
 }
