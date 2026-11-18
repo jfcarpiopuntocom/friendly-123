@@ -26,7 +26,7 @@ function validCandidate(value) {
   if (t.length < 8 || !/^candidate:[A-Za-z0-9+/]{1,64}$/.test(t[0]) || !/^[12]$/.test(t[1]) ||
       !/^(udp|tcp)$/i.test(t[2]) || !/^\d{1,10}$/.test(t[3]) || Number(t[3]) > 4294967295 ||
       !address(t[4]) || !/^\d{1,5}$/.test(t[5]) || Number(t[5]) > 65535 ||
-      t[6] !== 'typ' || !['host', 'srflx', 'prflx'].includes(t[7]) || (t.length - 8) % 2) return false;
+      t[6] !== 'typ' || !['host', 'srflx', 'prflx', 'relay'].includes(t[7]) || (t.length - 8) % 2) return false;
   for (let i = 8; i < t.length; i += 2) {
     const key = t[i], val = t[i + 1];
     if (key === 'raddr' ? !address(val) : key === 'ufrag' ? !/^[A-Za-z0-9+/]{1,128}$/.test(val) :
