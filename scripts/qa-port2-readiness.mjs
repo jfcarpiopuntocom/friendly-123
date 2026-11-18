@@ -47,7 +47,9 @@ export async function assessQaReadiness({fetcher=globalThis.fetch,endpoints=ENDP
     }
   }catch(_){jsonError=true;}
   const issuerState=issuer.status===null?'NETWORK_UNAVAILABLE':classifyIssuer(issuer.status);
-  // An unauthenticated GET / returns 404 both with a configured Worker and\n  // when SALA_PILOTO is absent. Root status never proves a signed connection.\n  const workerState=worker.status===503?'FAIL_CLOSED':worker.status===null?'NETWORK_UNAVAILABLE':'ROOT_UNVERIFIED';
+  // An unauthenticated GET / returns 404 both with a configured Worker and
+  // when SALA_PILOTO is absent. Root status never proves a signed connection.
+  const workerState=worker.status===503?'FAIL_CLOSED':worker.status===null?'NETWORK_UNAVAILABLE':'ROOT_UNVERIFIED';
   const allStoresOff=enabledStores===0;
   const ticketRouteReady=issuerState==='ROUTE_CONFIGURED'&&allStoresOff&&!jsonError;
   const signedQaTestPossible=false; // A public GET can never prove a signed WS handshake.
