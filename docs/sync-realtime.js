@@ -961,8 +961,15 @@
     });
   } catch (_) {}
 
+  // A dashboard request may arrive on its encrypted ephemeral lane while the
+  // legacy peer socket is still connecting. Use only the request's own lane.
+  function dashboardRespuestaDisponible(op) {
+    const destination = op && op.__dashboardBroadcast ? _dashboardBroadcast : ws;
+    return !!(destination && destination.readyState === WebSocket.OPEN);
+  }
+
   async function responderFoto(pedido) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!dashboardRespuestaDisponible(pedido)) return;
     const permiso = pedido && fotoAutorizadaHasta[pedido.deviceId];
     if (!permiso || permiso.hasta < Date.now() || !pedido.payload || pedido.payload.fotoToken !== permiso.token) return;
     permiso.hasta = Date.now() + 30 * 60 * 1000;
@@ -971,7 +978,7 @@
     /* Jitter: si hay dos telefonos del mismo negocio conectados, no mandan la
        foto entera los dos a la vez. */
     await new Promise((r) => setTimeout(r, Math.random() * 500));
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!dashboardRespuestaDisponible(pedido)) return;
     let foto;
     try { foto = await armarFoto(); } catch (_) { return; }
     const fotoId = deviceId() + ":" + foto.generadaEn + ":" + uuidCorto();
@@ -996,7 +1003,7 @@
       .concat([{ tabla: "cobertura", i: 0, total: 1, filas: [foto.cobertura] }])
       .concat([{ tabla: "resumen", i: 0, total: 1, filas: [foto.resumen || {}] }]);
     for (let k = 0; k < trozos.length; k++) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (!dashboardRespuestaDisponible(pedido)) return;
       const op = {
         opId: uuidCorto(), deviceId: deviceId(), tipo: TIPO_FOTO_TROZO,
         para: pedido.deviceId || null,
@@ -1023,7 +1030,7 @@
      mas. Un PIN de encargado o de contador no abre el tablero: ese es el punto.
      El PIN viaja cifrado con la clave de sala, igual que todo lo demas. */
   async function responderPin(op) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!dashboardRespuestaDisponible(op)) return;
     const pin = String((op.payload && op.payload.pin) || "");
     if (!pin) return;
 
