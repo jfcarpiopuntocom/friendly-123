@@ -15,7 +15,7 @@
     const prefix = month.slice(0, 4) + '-';
     return { from: prefix + String(start).padStart(2, '0') + '-01', to: prefix + String(end).padStart(2, '0') + '-' + endDay };
   }
-  const DAY = /^\\d{4}-\\d{2}-\\d{2}$/;
+  const DAY = /^\d{4}-\d{2}-\d{2}$/;
   const iso = t => new Date(t).toISOString().slice(0, 10);
   const valid = day => {
     if (!DAY.test(day || '')) return false;
