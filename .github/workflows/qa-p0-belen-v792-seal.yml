@@ -5,6 +5,9 @@ on:
     paths:
       - .github/workflows/qa-p0-belen-v792-seal.yml
       - docs/version.json
+      - docs/dashboard.html
+      - docs/plan-pagos-ui.js
+      - docs/pago-intento-idb.mjs
 permissions:
   contents: write
 jobs:
