@@ -1,6 +1,6 @@
 {
-  "version": "v0.7.84",
-  "shell": "f123-shell-v784",
+  "version": "v0.7.85",
+  "shell": "f123-shell-v785",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-b2882b570e5258d98d7d072c38113f99f40f6442793b65bd971c5ad941b8cdcc",
@@ -37,7 +37,7 @@
     "./invariantes.js": "sha256-4df7170b0f6f1227ce3b6ffadf9feaac7843d63cb274699a3b6ab230ff8ecdbc",
     "./licencia-prueba.js": "sha256-5712a050226af4f7f900a4728502888e5543dd8236c8c3e6e2784c67a425f23b",
     "./vendor/yjs-bundle.min.js": "sha256-a723f1618428ef38937626e8b72165a31ac41894fe7ab07f83d9bbb6cdd0176a",
-    "./vendor/yparty-piloto.min.js": "sha256-3408ec9b02833c1cd6416c2b7e425412f6d4ca5fc15d9e8b52442995e04a7e15",
+    "./vendor/yparty-piloto.min.js": "sha256-ae285562efa80db95d09d0aa74296e0ec395df80a0654a8e1b4488dcf00993f3",
     "./lista-dinamica.js": "sha256-8b23ae9fe259e29b37635585bf8f48146aa16871d6641bd97d77a543ec7fd3ff",
     "./vendor/ufuzzy.min.js": "sha256-3eef8ba0ad55444c31f0e86f8375f25916515402cf2d4d7b5a2c01b4b67f2e19",
     "./vendor/minisearch.min.js": "sha256-8a05b42785db448f2c19e24a6a2107204c825565fe4f95aa69b79652baf26e82",
