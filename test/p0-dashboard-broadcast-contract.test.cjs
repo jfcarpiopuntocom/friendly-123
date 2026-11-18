@@ -83,6 +83,7 @@ function __p0BuildHandler(name, opts={}) {
   const env={
     window:{OCSecure:{migrarSiHaceFalta:async()=>{}, verificarOwnerOEmpleado:async p=>p==='123'?'dueno':''}, OCSync:{}},
     WebSocket:{OPEN:1,CONNECTING:0}, ws:{readyState:0}, _dashboardBroadcast:bridge,
+    TIPO_RESPUESTA:'__respuesta__',TIPO_FOTO_TROZO:'__foto_trozo__',
     fotoAutorizadaHasta:{panel:{token:'token-ok',hasta:Date.now()+60000}}, presenciaN:1,
     uuidCorto:()=> 'synthetic-op-id', deviceId:()=> 'app-device',
     claveActual:{},cifrar:async (_key,value)=>value,
