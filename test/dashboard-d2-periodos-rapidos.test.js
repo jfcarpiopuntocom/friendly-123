@@ -39,7 +39,8 @@ test('D2 dashboard sales, shared finance selector and only approved translations
 test('D2 business date extraction is zone-local, not UTC',()=>{
   const src=read('src/dashboard/dashboard-main.js');
   assert.match(src,/OCBusinessReadModel\.day\(new Date\(\)\.toISOString\(\),\s*zonaNegocioDashboard\(\)\)/);
-  const localeDay=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Guayaquil',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date('2026-11-01T01:30:00Z'));
-  assert.equal(localeDay,'10/31/2026');
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Guayaquil',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date('2026-11-01T01:30:00Z'));
+  const fields=Object.fromEntries(parts.filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));
+  assert.equal([fields.year,fields.month,fields.day].join('-'),'2026-10-31');
   assert.deepEqual(JSON.parse(JSON.stringify(period().quick('thisMonth','2026-10-31'))),{from:'2026-10-01',to:'2026-10-31'});
 });
