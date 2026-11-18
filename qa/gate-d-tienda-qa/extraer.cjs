@@ -25,9 +25,10 @@ const estado = p => p.evaluate(lic => {
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage();
-  let bloqueadas = 0;
-  await p.route(/firebaseio\.com/, r => ['GET', 'HEAD', 'OPTIONS'].includes(r.request().method())
-    ? r.continue() : (bloqueadas++, r.abort()));
+  const bloqueadas = {};
+  await p.route(/firebaseio\.com/, r => { const m = r.request().method();
+    if (['GET', 'HEAD', 'OPTIONS'].includes(m)) return r.continue();
+    bloqueadas[m] = (bloqueadas[m] || 0) + 1; return r.abort(); });
   p.setDefaultTimeout(30000);
   let fallo = '';
   try {
@@ -40,14 +41,14 @@ const estado = p => p.evaluate(lic => {
     let e = null; const t0 = Date.now();
     while (Date.now() - t0 < 20000) { await p.waitForTimeout(2000); e = await estado(p); if (e.unido) break; }
     if (!e || !e.unido) throw Object.assign(new Error('x'), { name: 'Error', etapa: 'UNION' });
-    // Same evidence rule as the canary: stop on verified recovery, 45 s without progress, or 300 s budget.
+    // Stop on verified recovery, 150 s without struct progress, or 300 s budget (canary's CI budget).
     let avance = Date.now(), prev = -1; const t1 = Date.now();
     for (;;) {
       await p.waitForTimeout(2000); e = await estado(p);
       const n = (e.cat ? e.cat.structs : 0) + (e.ops ? e.ops.structs : 0);
       if (n > prev) { prev = n; avance = Date.now(); }
       if (e.cat && e.ops && !e.recuperando && e.idb && !e.cat.pend && !e.ops.pend) break;
-      if (Date.now() - avance > 45000 || Date.now() - t1 > 300000) { fallo = 'recuperacion incompleta'; break; }
+      if (Date.now() - avance > 150000 || Date.now() - t1 > 300000) { fallo = 'recuperacion incompleta'; break; }
     }
     console.log('LECTOR_ESTADO:', JSON.stringify({ recuperando: e.recuperando, idb: e.idb, cat: e.cat, ops: e.ops, segundos: Math.round((Date.now() - t1) / 1000) }));
     const out = await p.evaluate(() => {
@@ -66,8 +67,8 @@ const estado = p => p.evaluate(lic => {
         clientesYjs: out[ch].clientes, padresPendientesClientes: out[ch].pendientesClientes, pendingDs: out[ch].pendingDs }));
     }
   } catch (err) { fallo = 'EXCEPCION ' + (err.etapa || seguro(err)); }
-  console.log('LECTOR_FIREBASE_ESCRITURAS_BLOQUEADAS:', bloqueadas);
+  console.log('LECTOR_FIREBASE_ESCRITURAS_BLOQUEADAS:', JSON.stringify(bloqueadas));
   await b.close();
-  if (fallo) console.log('LECTOR_AVISO: ' + fallo);
+  if (fallo) { console.log('LECTOR_AVISO: ' + fallo); if (fs.existsSync(OUT)) fs.writeFileSync(path.join(OUT, 'incompleto'), fallo); }
   if (!fs.existsSync(path.join(OUT, 'cat.bin'))) process.exit(1);
 })().catch(e => { console.error('FALLA LECTOR: ' + seguro(e)); process.exit(1); });

@@ -83,6 +83,9 @@ async function relay(source){
 async function waitFor(pred,label,ms=8000){const t=Date.now();while(!pred()){if(Date.now()-t>ms)throw Error('timeout '+label);await new Promise(r=>setTimeout(r,25));}}
 
 test('Gate D on the QA store real history: as-is, forward, cold restart, failback only-new',{timeout:240000},async()=>{
+ const incompleto=fs.existsSync(path.join(DIR,'incompleto'));
+ log('LECTURA_COMPLETA',!incompleto);
+ assert.equal(incompleto,false,'la lectura del historial real no terminó: la fuente no es el historial completo');
  const w=await relay({cat:src.cat.proof,ops:src.ops.proof});
  try{
   const s0=await(await w.gate('cat')).json(),o0=await(await w.gate('ops')).json();
