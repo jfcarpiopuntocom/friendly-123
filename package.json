@@ -27,6 +27,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.10",
+    "fake-indexeddb": "6.2.8",
     "playwright": "^1.62.1"
   }
 }
