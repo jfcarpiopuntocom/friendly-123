@@ -1,0 +1,66 @@
+name: P0 PORT 2.0 behind per-store switch (OFF) + shadow write (no deploy)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - docs/sync-yjs.js
+      - docs/sw.js
+      - docs/sync-rollout.json
+      - docs/vendor/yparty-piloto.min.js
+      - src/yparty-piloto.js
+      - src/authorized-yprovider.mjs
+      - src/photo-sha-bridge.mjs
+      - src/ws-owner-ticket-params.mjs
+      - cloudflare-worker/**
+      - cloudflare-yparty-worker/**
+      - test/p0-bridge-store-switch.test.cjs
+      - test/p0-yparty-*
+      - test/p0-ws-*
+      - .github/workflows/p0-port-2-0-switch.yml
+permissions:
+  contents: read
+jobs:
+  app:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Shell, manifest and licence guards
+        run: bash check-sw.sh
+      - name: Switch OFF/ON, shadow write, Worker-down fallback, BFCache, issuer (synthetic only)
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-bridge-store-switch.test.cjs test/p0-rollout-policy.test.cjs \
+            test/p0-yparty-pilot-origin.test.cjs test/p0-yparty-bfcache-pageshow.test.cjs \
+            test/p0-yparty-client-real-tickets.test.cjs test/p0-yparty-client-built-bundle.test.cjs \
+            test/p0-yparty-photo-sha-browser.test.cjs test/e1b3-one-active-tab.test.cjs test/e1b3-legacy-visible-tab.test.cjs \
+            test/p0-ws-authorized-subject.test.mjs test/p0-ws-capability-issuer.test.mjs test/p0-ws-worker-api.test.mjs
+  yparty-worker:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --no-audit --no-fund
+      - name: Worker 2.0 QA (YServer, issuer, SQL, gate A router; synthetic only)
+        working-directory: cloudflare-yparty-worker
+        run: |
+          npm ci --no-audit --no-fund
+          node --test --test-concurrency=1 --test-timeout=180000 qa/*.test.mjs

@@ -100,6 +100,7 @@ const SHELL = [
   "./invariantes.js",
   "./licencia-prueba.js",
   "./vendor/yjs-bundle.min.js",
+  "./vendor/yparty-piloto.min.js",
   "./lista-dinamica.js",
   "./vendor/ufuzzy.min.js",
   "./vendor/minisearch.min.js",

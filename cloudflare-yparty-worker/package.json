@@ -1,0 +1,17 @@
+{
+  "name": "friendly123-yparty-piloto",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "dependencies": {
+    "partyserver": "0.5.10",
+    "y-partyserver": "2.2.0",
+    "yjs": "^13.6.30"
+  },
+  "devDependencies": {
+    "wrangler": "~4.100.0",
+    "ws": "^8.20.0"
+  }
+}

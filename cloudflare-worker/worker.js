@@ -1,4 +1,6 @@
 import {pinDoRoute,pinPublicRoute} from './pin-worker-api.mjs';
+import {teamDoRoute,teamPublicRoute} from './team-worker-api.mjs';
+import {wsDoRoute,wsPublicRoute} from './ws-worker-api.mjs';
 // worker.js — license ping for friendly-123 / amigable-123.
 // Handles both products. Endpoints:
 //   POST /checkin  — public, called on activation & login (body.accion = "register"|"login")
@@ -1111,6 +1113,10 @@ export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return cors(new Response(null, { status: 204 }));
+    const ws = await wsPublicRoute(req,env,{getDo:doLicencias});
+    if(ws)return cors(ws);
+    const team = await teamPublicRoute(req,env,{getDo:doLicencias});
+    if(team)return cors(team);
     const pin = await pinPublicRoute(req,env,{
       getDo:doLicencias,authorizeMaster:requireMasterKey,
       listRegisteredDeviceIds:idsRegistradosEnLicenciaParaPin,
@@ -1430,6 +1436,10 @@ export class RegistroLicencias {
     const url = new URL(req.url);
     const pinResult=pinDoRoute(req,this.state.storage,this.env);
     if(pinResult)return pinResult;
+    const wsResult=wsDoRoute(req,this.state.storage,this.env);
+    if(wsResult)return wsResult;
+    const teamResult=teamDoRoute(req,this.state.storage,this.env);
+    if(teamResult)return teamResult;
     const esRegistro = url.pathname.startsWith("/r/");
     const id = esRegistro ? decodeURIComponent(url.pathname.slice(3)) : "";
 
