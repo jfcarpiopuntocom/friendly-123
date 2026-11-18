@@ -51,7 +51,8 @@
   }
   function buildReport() {
     const RM = window.OCBusinessReadModel;
-    const period = window.OCReportPeriod.range(document.getElementById('finance-month').value, document.getElementById('finance-cadence').value);
+    // D2 shared quick period wins over the previous Month/Quarter/Year only when selected.
+    const period = (window.OCDashPeriodo && window.OCDashPeriodo()) || window.OCReportPeriod.range(document.getElementById('finance-month').value, document.getElementById('finance-cadence').value);
     if (!period) throw new Error(text('Choose a valid report month.', 'Elige un mes válido.'));
     const c = data.cobertura || {};
     const input = { sales: data.ventas || [], expenses: data.gastos || [], adjustments: data.ajustesComision || [], period, zone,
