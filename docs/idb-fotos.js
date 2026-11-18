@@ -32,6 +32,15 @@
   // or reread from the strict IDB blobs store. Never trust hash-only pointers,
   // legacy fallback reads, or records from another browser session.
   const _fotoBytesIdbConfirmados = new Map();
+  // Bound extra retained UI dataURL references; no eviction of durable IDB data.
+  // Cache misses keep inline bytes in the business journal (fail safe).
+  function _recordarFotoIdbConfirmada(hash, dataUrl) {
+    const key = String(hash);
+    if (_fotoBytesIdbConfirmados.has(key)) _fotoBytesIdbConfirmados.delete(key);
+    _fotoBytesIdbConfirmados.set(key, dataUrl);
+    if (_fotoBytesIdbConfirmados.size > 64)
+      _fotoBytesIdbConfirmados.delete(_fotoBytesIdbConfirmados.keys().next().value);
+  }
   function tieneFotoHashConfirmadoEnIdb(hash, dataUrl) {
     return SOPORTADO && !!hash && typeof dataUrl === "string" &&
       _fotoBytesIdbConfirmados.get(String(hash)) === dataUrl;
@@ -108,7 +117,7 @@
         tx.objectStore(STORE_BLOBS).put(dataUrl, hash); // put idempotente = dedup
         tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error("abortada"));
       });
-      _fotoBytesIdbConfirmados.set(String(hash), dataUrl); // tx.oncomplete ACK
+      _recordarFotoIdbConfirmada(hash, dataUrl); // tx.oncomplete ACK
       return true;
     } catch (err) { console.error("[idb-fotos] guardarPorHash:", err); return false; }
   }
@@ -145,7 +154,7 @@
       tx.onabort = () => reject(tx.error || new Error("lectura IDB abortada"));
       tx.oncomplete = () => resolve(result);
     });
-    if (dataUrl) _fotoBytesIdbConfirmados.set(String(hash), dataUrl);
+    if (dataUrl) _recordarFotoIdbConfirmada(hash, dataUrl);
     else _fotoBytesIdbConfirmados.delete(String(hash));
     return dataUrl;
   }
