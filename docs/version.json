@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.92",
+  "version": "v0.7.93",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.92: fiados Safari con referencia durable de abono y asignación en IndexedDB, protegida por cuaderno activo y opId. Continúa cobrando con localStorage lleno si IndexedDB funciona; conserva comprobante tras interrupción. No cambia stock, ventas ni arquitectura 2.0.",
+  "changelog": "v0.7.93: tablero Casa identifica lectura de hechos financieros sin migrar, bloqueada o no disponible; evita crear bases IndexedDB vacías, conserva cifras pendientes sin confundir cuadernos y no altera ventas, saldos ni PIN. Arquitectura 2.0 permanece apagada.",
   "requerida": false,
-  "shell": "f123-shell-v792",
+  "shell": "f123-shell-v793",
   "apagar": [],
-  "releaseName": "v0.7.92",
-  "cacheGeneration": "golden328"
+  "releaseName": "v0.7.93",
+  "cacheGeneration": "golden329"
 }
