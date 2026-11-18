@@ -1,0 +1,61 @@
+name: P0 H2 one-shot official v796 seal
+on:
+  push:
+    branches: [fix/p0-belen-photo-pointer-ack-v796-20261118]
+    paths:
+      - .github/workflows/p0-h2-seal-branch-v796.yml
+permissions:
+  contents: write
+jobs:
+  official-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Bump three release identities, run official manifest and source parity
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs');
+          function read(p){return fs.readFileSync(p,'utf8')}
+          function write(p,s){fs.writeFileSync(p,s)}
+          let v=JSON.parse(read('docs/version.json'));
+          if(v.version!=='v0.7.95'||v.shell!=='f123-shell-v795'||v.cacheGeneration!=='golden331') throw Error('unexpected release base');
+          v.version='v0.7.96';
+          v.releaseName='v0.7.96';
+          v.shell='f123-shell-v796';
+          v.cacheGeneration='golden332';
+          v.fecha='2026-11-18';
+          v.changelog='v0.7.96: las fotos de perchas conservan sus bytes locales si el enlace fotoHash falla por cuota, desconexion o rechazo HTTP; avisa y reintenta mediante recuperacion segura por percha, sin publicar en otro cuaderno. Sin cambios en dinero, stock ni YParty 2.0.';
+          write('docs/version.json',JSON.stringify(v,null,2)+'\n');
+          let sw=read('docs/sw.js');
+          if(!sw.includes('const CACHE = "f123-shell-v795"')||!sw.includes('const CACHE_GENERACION = "-golden331"'))throw Error('unexpected sw base');
+          sw=sw.replace('const CACHE = "f123-shell-v795"','const CACHE = "f123-shell-v796"').replace('const CACHE_GENERACION = "-golden331"','const CACHE_GENERACION = "-golden332"');
+          write('docs/sw.js',sw);
+          let dash=read('docs/dashboard.html');
+          for(const [a,b] of [['name="dashboard-shell" content="f123-shell-v795"','name="dashboard-shell" content="f123-shell-v796"'],['name="dashboard-release" content="v0.7.95"','name="dashboard-release" content="v0.7.96"'],['Dashboard v0.7.95','Dashboard v0.7.96']]){
+            if(dash.split(a).length!==2)throw Error('dashboard identity mismatch '+a);
+            dash=dash.replace(a,b);
+          }
+          write('docs/dashboard.html',dash);
+          NODE
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node scripts/release-control.cjs validate 21a5beca87f2925957288cb73ccf382d3455bc3f
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/version-manifest.json
+          git diff --cached --quiet && { echo 'No release changes'; exit 1; }
+          git commit -m 'release(P0 Belen): official shell v796 and golden332 [H2-SEALED]'
+          git push origin HEAD:refs/heads/fix/p0-belen-photo-pointer-ack-v796-20261118
