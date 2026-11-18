@@ -1,0 +1,25 @@
+name: P0 Ultrareview YParty confidential catalog and shadow readiness
+on:
+  push:
+    branches: [fix/ultrareview-p0-plaintext-and-shadow-gates-20261118]
+  pull_request:
+    paths:
+      - src/yparty-piloto.js
+      - docs/sync-yjs.js
+      - test/p0-yparty-ultrareview-catalog-boundaries.test.cjs
+      - .github/workflows/qa-p0-ultrareview-pilot-gates.yml
+permissions:
+  contents: read
+jobs:
+  encrypted-catalog-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: No raw Y.Doc and no premature legacy PIN authority
+        run: node --test test/p0-yparty-ultrareview-catalog-boundaries.test.cjs
+      - name: No YParty rollout enabled
+        run: |
+          node -e "const s=require('./docs/sync-rollout.json');if(Object.values(s.licenses||{}).some(x=>x.yparty===true))process.exit(2)"
