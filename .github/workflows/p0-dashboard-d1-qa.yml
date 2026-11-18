@@ -51,17 +51,24 @@ jobs:
           retention-days: 14
   belen-finance-browser:
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 9
+    defaults:
+      run:
+        shell: bash -e {0}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22', cache: npm}
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Chromium and WebKit real IndexedDB open/migration/read-only contract
+      - name: Real Chromium/WebKit (preinstalled Playwright container)
         run: |
-          npx playwright install --with-deps chromium webkit
-          node --test test/p0-belen-dashboard-hechos-browser.test.cjs
+          set -euo pipefail
+          npm install --no-save --ignore-scripts --package-lock=false --no-audit --no-fund playwright@1.62.1
+          node -e "if(require('playwright/package.json').version !== '1.62.1')throw Error('browser mismatch')"
+          node --test --test-concurrency=1 test/p0-belen-dashboard-hechos-browser.test.cjs
   seal-v793-branch:
     if: github.event_name == 'pull_request' && github.head_ref == 'fix/p0-belen-dashboard-facts-readonly-reasons-v793-20261118'
     permissions: {contents: write}
