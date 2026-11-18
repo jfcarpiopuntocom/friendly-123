@@ -1661,7 +1661,9 @@
         "base-sin-store": es ? "La base financiera local no tiene la tabla requerida. Revisa la recuperación de datos antes de conciliar." : "The local financial database lacks the required store. Check recovery before reconciliation.",
         "bloqueado": es ? "Otra pestaña bloquea la lectura del libro financiero. Cierra las pestañas duplicadas de esta app y vuelve al tablero." : "Another tab is blocking financial journal access. Close duplicate app tabs and return.",
         "error-lectura": es ? "No se pudo leer el libro financiero local. Comprueba el almacenamiento del navegador sin borrar datos." : "The local financial journal could not be read. Check browser storage without clearing data.",
-        "no-disponible": es ? "Este navegador no permite leer los movimientos financieros; revisa sus permisos de almacenamiento." : "This browser cannot read financial facts; check storage permissions."
+        "no-disponible": es ? "Este navegador no permite leer los movimientos financieros; revisa sus permisos de almacenamiento." : "This browser cannot read financial facts; check storage permissions.",
+        "sin-verificador": es ? "Falta el verificador del libro financiero. Actualiza la app antes de conciliar; no borres datos." : "The financial journal verifier is missing. Refresh the app before reconciling; do not clear data.",
+        "cadena-invalida": es ? "El libro financiero tiene un eslabón, secuencia o hash sin verificar. Revisa la sincronización antes de usar estas cifras." : "The financial journal has an unverified link, sequence or hash. Check sync before using these figures."
       };
       el.innerHTML=houseHtml+'<p>'+(mensajeHechos[motivo] || (es ? "Los movimientos de caja y crédito siguen pendientes de completar." : "Cash and credit facts are still incomplete."))+'</p>';
       return;
@@ -2992,10 +2994,22 @@
             db.close();
             if (!_hechosSesionVigente()) return;
             if (!Array.isArray(rows)) { _hechosPendientes("error-lectura"); return; }
-            datos.hechosFinancieros = rows.filter(function (h) { return /^(cartera_|caja_chica_)/.test(h.tipo || ""); });
-            datos.cobertura.hechosFinancieros = true;
-            datos.cobertura.motivoHechos = null;
-            mostrar();
+            // H6: a successful IDB getAll is NOT proof of consistent money.
+            // No UI amounts or credits until the full, unfiltered fact chain
+            // has passed the exact same sequence/hash rules as docs/hechos.js.
+            var v = window.F123HechosChain;
+            if (!v || typeof v.verificarCadenas !== "function") {
+              _hechosPendientes("sin-verificador"); return;
+            }
+            Promise.resolve().then(function () { return v.verificarCadenas(rows); })
+              .then(function (proof) {
+                if (!_hechosSesionVigente()) return; // async hash may outlast notebook or role
+                if (!proof || proof.ok !== true) { _hechosPendientes("cadena-invalida"); return; }
+                datos.hechosFinancieros = rows.filter(function (h) { return /^(cartera_|caja_chica_)/.test(h.tipo || ""); });
+                datos.cobertura.hechosFinancieros = true;
+                datos.cobertura.motivoHechos = null;
+                mostrar();
+              }).catch(function () { _hechosPendientes("cadena-invalida"); });
           };
         };
       }
