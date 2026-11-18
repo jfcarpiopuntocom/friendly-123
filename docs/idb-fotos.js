@@ -28,6 +28,14 @@
   const STORE_BLOBS = "blobs";
   const SOPORTADO = "indexedDB" in window;
   let dbPromise = null;
+  // In-memory proof only: exact bytes successfully written with IDB tx.oncomplete
+  // or reread from the strict IDB blobs store. Never trust hash-only pointers,
+  // legacy fallback reads, or records from another browser session.
+  const _fotoBytesIdbConfirmados = new Map();
+  function tieneFotoHashConfirmadoEnIdb(hash, dataUrl) {
+    return SOPORTADO && !!hash && typeof dataUrl === "string" &&
+      _fotoBytesIdbConfirmados.get(String(hash)) === dataUrl;
+  }
   let _ultimoRescate = {
     at: 0,
     dbPreAislamiento: { encontrada:false, encontradasPerchas:0, encontradosBlobs:0, perchas:0, blobs:0 },
@@ -45,6 +53,7 @@
         settled = true;
         clearTimeout(watchdog);
         if (dbPromise === promise) dbPromise = null;
+        _fotoBytesIdbConfirmados.clear();
         reject(err);
       };
       // Safari may never fire success/error/blocked. Reject and release the
@@ -60,7 +69,10 @@
         if (settled) { db.close(); return; }
         settled = true;
         clearTimeout(watchdog);
-        db.onversionchange = () => { db.close(); if (dbPromise === promise) dbPromise = null; };
+        db.onversionchange = () => {
+          db.close(); _fotoBytesIdbConfirmados.clear();
+          if (dbPromise === promise) dbPromise = null;
+        };
         resolve(db);
       };
       req.onerror = () => fail(req.error);
@@ -96,6 +108,7 @@
         tx.objectStore(STORE_BLOBS).put(dataUrl, hash); // put idempotente = dedup
         tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error || new Error("abortada"));
       });
+      _fotoBytesIdbConfirmados.set(String(hash), dataUrl); // tx.oncomplete ACK
       return true;
     } catch (err) { console.error("[idb-fotos] guardarPorHash:", err); return false; }
   }
@@ -122,13 +135,19 @@
     if (!hash) return null;
     if (!SOPORTADO) return leerHashLegado(hash);
     const db = await abrirDB();
-    return await new Promise((resolve, reject) => {
+    const dataUrl = await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_BLOBS, "readonly");
       const req = tx.objectStore(STORE_BLOBS).get(hash);
-      req.onsuccess = () => resolve(req.result || null);
+      let result = null;
+      req.onsuccess = () => { result = req.result || null; };
       req.onerror = () => reject(req.error);
+      tx.onerror = () => reject(tx.error || new Error("lectura IDB fallida"));
       tx.onabort = () => reject(tx.error || new Error("lectura IDB abortada"));
+      tx.oncomplete = () => resolve(result);
     });
+    if (dataUrl) _fotoBytesIdbConfirmados.set(String(hash), dataUrl);
+    else _fotoBytesIdbConfirmados.delete(String(hash));
+    return dataUrl;
   }
   // App reads retain historical fallback; only rescue checks require strict IDB.
   async function leerPorHash(hash) {
@@ -582,6 +601,7 @@
     blindarEvidencia, inventariarEvidencia, diagnosticoRecuperacion,
     soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
-    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, tieneHashSoloIdb, hashesGuardados, leerTodosPorHash, guardarFotoContenido
+    hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, tieneHashSoloIdb, hashesGuardados, leerTodosPorHash, guardarFotoContenido,
+    tieneFotoHashConfirmadoEnIdb
   };
 })();
