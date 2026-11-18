@@ -1652,7 +1652,20 @@
       '<p style="margin:0 0 7px;color:var(--ink);">'+(es?'El reparto se descuenta una sola vez. No representa dinero disponible; un guion indica datos pendientes de conciliar.':'The split is deducted once. This is not available cash; a dash means data is pending reconciliation.')+'</p>';
     var tiene = ["gastos", "transferencias", "gastosMensuales", "hechosFinancieros"]
       .every(function (k) { return Object.prototype.hasOwnProperty.call(datos, k); });
-    if (datos.cobertura && (datos.cobertura.gastos === false || datos.cobertura.hechosFinancieros === false)) { el.innerHTML=houseHtml+'<p>'+(es?'Los movimientos de caja y crédito siguen pendientes de completar.':'Cash and credit facts are still incomplete.')+'</p>'; return; }
+    if (datos.cobertura && (datos.cobertura.gastos === false || datos.cobertura.hechosFinancieros === false)) {
+      var motivo = datos.cobertura.motivoHechos;
+      var mensajeHechos = {
+        "cargando": es ? "Comprobando movimientos de caja y crédito de este dispositivo." : "Checking this device's cash and credit facts.",
+        "sin-migrar": es ? "El libro financiero anterior aún debe migrarse desde la caja de este dispositivo. Abre la app con la licencia correcta y vuelve al tablero." : "The legacy financial journal still needs migration by this device's app. Open the app with the correct business, then return.",
+        "sin-almacen": es ? "Este navegador aún no tiene un libro de movimientos financieros. Abre la app de la tienda para recuperarlo." : "This browser has no financial journal yet. Open the shop app to recover it.",
+        "base-sin-store": es ? "La base financiera local no tiene la tabla requerida. Revisa la recuperación de datos antes de conciliar." : "The local financial database lacks the required store. Check recovery before reconciliation.",
+        "bloqueado": es ? "Otra pestaña bloquea la lectura del libro financiero. Cierra las pestañas duplicadas de esta app y vuelve al tablero." : "Another tab is blocking financial journal access. Close duplicate app tabs and return.",
+        "error-lectura": es ? "No se pudo leer el libro financiero local. Comprueba el almacenamiento del navegador sin borrar datos." : "The local financial journal could not be read. Check browser storage without clearing data.",
+        "no-disponible": es ? "Este navegador no permite leer los movimientos financieros; revisa sus permisos de almacenamiento." : "This browser cannot read financial facts; check storage permissions."
+      };
+      el.innerHTML=houseHtml+'<p>'+(mensajeHechos[motivo] || (es ? "Los movimientos de caja y crédito siguen pendientes de completar." : "Cash and credit facts are still incomplete."))+'</p>';
+      return;
+    }
     if (!tiene) { el.innerHTML=houseHtml+'<p>'+(es?'La cobertura financiera de este dispositivo está incompleta.':'Finance coverage from this device is incomplete.')+'</p>'; return; }
     var gastos = datos.gastos || [], tras = datos.transferencias || [], hechos = datos.hechosFinancieros || [];
     var gm = datos.gastosMensuales || {};
@@ -2930,28 +2943,77 @@
       datos.promotoras = e.promotoras || [];
       /* No previous shop / revision finance facts may survive until IDB replies. */
       datos.hechosFinancieros = [];
-      datos.cobertura = {ajustesComision:Array.isArray(e.ajustesComision),finanzasCoherentes:true,productos:Array.isArray(e.productos),ventas:Array.isArray(e.ventas),clientes:Array.isArray(e.clientes),gastos:Array.isArray(e.gastos),hechosFinancieros:false,resumen:!!d.resumen,timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone};
+      datos.cobertura = {ajustesComision:Array.isArray(e.ajustesComision),finanzasCoherentes:true,productos:Array.isArray(e.productos),ventas:Array.isArray(e.ventas),clientes:Array.isArray(e.clientes),gastos:Array.isArray(e.gastos),hechosFinancieros:false,motivoHechos:"cargando",resumen:!!d.resumen,timezone:localStorage.getItem('f123_timezone')||Intl.DateTimeFormat().resolvedOptions().timeZone};
       var fotoLocalRef = datos;
       var generacionFoto = ++_generacionPinturaLocal;
       var licenciaFoto = codigoSesionActual;
-      try {
-        var req = indexedDB.open("f123_hechos_db");
+      // Hermes H1 (Belén): a read-only Dashboard must never silently turn a
+      // missing, blocked, or unmigrated financial journal into a false zero.
+      // Do NOT open the old ledger: legacy records are not scoped by notebook.
+      function _hechosSesionVigente() {
+        return autorizado && datos === fotoLocalRef &&
+          _generacionPinturaLocal === generacionFoto &&
+          codigoSesionActual === licenciaFoto && codigoLocalActivo() === codeHere;
+      }
+      function _hechosPendientes(motivo) {
+        if (!_hechosSesionVigente() || datos.cobertura.hechosFinancieros === true) return;
+        datos.cobertura.motivoHechos = motivo;
+        mostrar();
+      }
+      function _abrirHechosActuales() {
+        var req, omitido = false;
+        try { req = indexedDB.open("f123_hechos_db"); }
+        catch (_) { _hechosPendientes("error-lectura"); return; }
+        req.onblocked = function () { _hechosPendientes("bloqueado"); };
+        req.onupgradeneeded = function (ev) {
+          // An uninitialized browser must not create an empty DB and accidentally
+          // mark historical financial data as zero or obstruct proper migration.
+          omitido = true;
+          try { ev.target.transaction.abort(); } catch (_) {}
+          _hechosPendientes("sin-almacen");
+        };
+        req.onerror = function () { if (!omitido) _hechosPendientes("error-lectura"); };
         req.onsuccess = function () {
           var db = req.result;
-          if (!db.objectStoreNames.contains("hechos")) { db.close(); return; }
-          var q = db.transaction("hechos", "readonly").objectStore("hechos").getAll();
-          q.onsuccess = function () {
-            if (!autorizado || datos !== fotoLocalRef ||
-                _generacionPinturaLocal !== generacionFoto ||
-                codigoSesionActual !== licenciaFoto || codigoLocalActivo() !== codeHere) {
-              db.close(); return;
-            }
+          if (!_hechosSesionVigente()) { db.close(); return; }
+          if (!db.objectStoreNames.contains("hechos")) {
+            db.close(); _hechosPendientes("base-sin-store"); return;
+          }
+          var tx, q, rows = null;
+          try {
+            tx = db.transaction("hechos", "readonly");
+            q = tx.objectStore("hechos").getAll();
+          } catch (_) { db.close(); _hechosPendientes("error-lectura"); return; }
+          q.onsuccess = function () { rows = q.result; };
+          q.onerror = function () { _hechosPendientes("error-lectura"); };
+          tx.onerror = function () { _hechosPendientes("error-lectura"); };
+          tx.onabort = function () { db.close(); _hechosPendientes("error-lectura"); };
+          tx.oncomplete = function () {
+            db.close();
+            if (!_hechosSesionVigente()) return;
+            if (!Array.isArray(rows)) { _hechosPendientes("error-lectura"); return; }
+            datos.hechosFinancieros = rows.filter(function (h) { return /^(cartera_|caja_chica_)/.test(h.tipo || ""); });
             datos.cobertura.hechosFinancieros = true;
-            datos.hechosFinancieros = (q.result || []).filter(function (h) { return /^(cartera_|caja_chica_)/.test(h.tipo || ""); });
-            db.close(); mostrar();
+            datos.cobertura.motivoHechos = null;
+            mostrar();
           };
         };
-      } catch (_) {}
+      }
+      try {
+        if (!indexedDB) _hechosPendientes("no-disponible");
+        else if (typeof indexedDB.databases === "function") {
+          // This read-only listing avoids creating phantom DBs. Older Safari
+          // falls back to open+abort-on-upgrade, still without mutating history.
+          Promise.resolve(indexedDB.databases()).then(function (bases) {
+            if (!_hechosSesionVigente()) return;
+            if (!Array.isArray(bases)) { _hechosPendientes("error-lectura"); return; }
+            var moderna = bases.some(function (b) { return b && b.name === "f123_hechos_db"; });
+            var vieja = bases.some(function (b) { return b && b.name === "amg_hechos_db"; });
+            if (!moderna) { _hechosPendientes(vieja ? "sin-migrar" : "sin-almacen"); return; }
+            _abrirHechosActuales();
+          }).catch(function () { _hechosPendientes("error-lectura"); });
+        } else _abrirHechosActuales();
+      } catch (_) { _hechosPendientes("error-lectura"); }
       try {
         var o = JSON.parse(localStorage.getItem("f123_owned") || "{}");
         if (o.nombreNegocio) $("neg-nombre").textContent = o.nombreNegocio;
