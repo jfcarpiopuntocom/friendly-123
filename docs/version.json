@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.84",
+  "version": "v0.7.86",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.84: la cola de ventas pendientes se recupera si el almacenamiento del aparato falla o se bloquea; dos pestañas sin candado ya no se pisan las ventas; un error del servidor ya no se cuenta como guardado. No cambia pantallas.",
+  "changelog": "v0.7.86: el piloto 2.0 apunta al servidor QA nuevo (friendly123-yparty-port2-canary-qa). Interruptor por tienda apagado; para los clientes no cambia nada.",
   "requerida": false,
-  "shell": "f123-shell-v784",
+  "shell": "f123-shell-v786",
   "apagar": [],
-  "releaseName": "v0.7.84",
-  "cacheGeneration": "golden320"
+  "releaseName": "v0.7.86",
+  "cacheGeneration": "golden322"
 }
