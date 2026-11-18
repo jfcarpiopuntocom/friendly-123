@@ -80,11 +80,11 @@ test('a correctly validated local owner/admin PIN paints immediately without a P
   assert.notEqual(result.message, 'No se pudo conectar. Revisa tu internet.');
 });
 
-test('an invalid local PIN cannot disclose the notebook', async () => {
+test('an invalid local PIN without a remote Owner response cannot disclose the notebook', async () => {
   const result = await attempt({ local: { _rev: 9 }, localCode: 'F123-TEST-1234-1234-12345', pinResult: false });
   assert.equal(result.sandbox.autorizado, false);
   assert.equal(result.painted, 0);
-  assert.equal(result.connected, 0);
+  assert.equal(result.connected, 1, 'stale verifier may ask an encrypted peer but never grants access');
 });
 
 test('missing local PIN proof never grants local authorization', async () => {
