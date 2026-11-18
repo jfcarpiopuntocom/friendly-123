@@ -191,7 +191,9 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
             try { JSON.parse(body); } catch (_) { break; } // body no-JSON corrupto: no reproducir
           }
           try {
-            await fetchOriginal(op.url, { method: op.method, headers: { "Content-Type": "application/json" }, body });
+            const respuesta = await fetchOriginal(op.url, { method: op.method, headers: { "Content-Type": "application/json" }, body });
+            // HTTP 403/500 resolves fetch(): only genuine HTTP success may consume this opId.
+            if (!respuesta || respuesta.ok !== true) break;
             aplicados.add(op.id);
             /* A1: registrar en el ledger del relay para que no re-aplique. */
             if (op.opId) relayAplicados.add(op.opId);
