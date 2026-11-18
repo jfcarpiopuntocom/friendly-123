@@ -1,0 +1,29 @@
+name: P0 Safari Owner local-to-remote authorization regression
+on:
+  push:
+    branches: [fix/p0-safari-dashboard-owner-local-verifier-v790]
+  pull_request:
+    paths:
+      - src/dashboard/dashboard-main.js
+      - docs/dashboard-main.min.js
+      - test/p0-dashboard-safari-owner-fallback.test.cjs
+      - test/p0-dashboard-login-peer-timeout.test.cjs
+      - .github/workflows/qa-p0-dashboard-safari-v790.yml
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Real login click handler tests
+        run: node --test test/p0-dashboard-safari-owner-fallback.test.cjs test/p0-dashboard-login-peer-timeout.test.cjs
+      - name: Official bundle parity and shell seal
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node scripts/build-dashboard-entry.cjs --check
+          bash check-sw.sh
