@@ -36,7 +36,8 @@
    2026-08-25 (comisionistas): el shell cambio (index/i18n/mock-backend) y el
    numero ya estaba en v88 por el hardening de arriba — se mantiene v88, cubre
    ambos cambios del mismo dia. */
-const CACHE = "f123-shell-v787";
+const CACHE = "f123-shell-v788";
+// const CACHE anterior = "f123-shell-v787"; // 18 nov: ruta TURN restaurada para los candidatos ICE
 // const CACHE anterior = "f123-shell-v786"; // 18 nov: TURN ICE metadata fallback for app/dashboard.
 // const CACHE anterior = "f123-shell-v785"; // 18 nov: el piloto 2.0 apunta al Worker QA nuevo; interruptor OFF.
 // const CACHE anterior = "f123-shell-v784"; // 18 nov: port 2.0 QA con interruptor OFF y escritura sombra, candidato sin deploy.
