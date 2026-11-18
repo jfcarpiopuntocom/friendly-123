@@ -35,8 +35,14 @@
         if (this._closed) return;
         if (status === "SUBSCRIBED") {
           if (this.readyState !== 1) { this.readyState = 1; this._emit("open"); }
-        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
-          this._emit("error"); this.close(1011, "dashboard transient channel unavailable");
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          // The existing Supabase SDK retries its own channel join. Keep the
+          // app-side listener alive; a later SUBSCRIBED reopens this lane.
+          // During a failed subscription, encrypted sends fail closed.
+          this.readyState = 0;
+          this._emit("error");
+        } else if (status === "CLOSED") {
+          this._emit("error"); this.close(1011, "dashboard transient channel closed");
         }
       });
     }
