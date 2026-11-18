@@ -1,0 +1,25 @@
+name: P0 live dashboard encrypted two-browser Owner PIN and snapshot
+on:
+  pull_request:
+    paths:
+      - test/p0-dashboard-broadcast-browser.test.cjs
+      - docs/dashboard-broadcast.js
+      - docs/vendor/supabase-relay.min.js
+      - .github/workflows/qa-p0-dashboard-broadcast-browser.yml
+permissions:
+  contents: read
+jobs:
+  browser-pin-snapshot:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node --test test/p0-dashboard-broadcast-browser.test.cjs
