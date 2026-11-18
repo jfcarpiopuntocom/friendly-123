@@ -11,7 +11,7 @@ const source=fs.readFileSync(path.join(__dirname,'../docs/plan-pagos-ui.js'),'ut
 const moduleURL=pathToFileURL(path.join(__dirname,'../src/pago-intento-idb.mjs')).href;
 const ownedA={licenseCode:'SYNTHETIC-STORE-A',instanceId:'a1b2c3d4'};
 const ownedB={licenseCode:'SYNTHETIC-STORE-B',instanceId:'b1b2c3d4'};
-const make=({db=new IDBFactory(),storage=null,receive,role='dueno',owner=ownedA,failIDB=false}={})=>{
+const make=({db=new IDBFactory(),storage=null,receive,role='dueno',owner=ownedA,active=null,failIDB=false}={})=>{
   const values=storage||new Map();
   if(!values.has('f123_owned'))values.set('f123_owned',JSON.stringify(owner));
   const outgoing=[];
@@ -23,10 +23,12 @@ const make=({db=new IDBFactory(),storage=null,receive,role='dueno',owner=ownedA,
   const doc={createElement:()=>({style:{},textContent:''}),head:{appendChild(){}},getElementById:()=>null};
   const module=source.replace('  function modalAbonar(clienteId, nombre) {',
     '  global.__creditRegression={leerReferenciaDurable,guardarReferenciaPagoDurable,reanudarAsignacion,claveAsignacion,claveAbono};\n  function modalAbonar(clienteId, nombre) {');
+  const state={role,active:active||owner.licenseCode};
   const win={
     indexedDB:failIDB?{open(){throw new Error('QuotaExceededError')}}:db,
     crypto:webcrypto,TextEncoder,
-    OCAuth:{rolActual:()=>role},OCI18n:{locale:()=> 'es'},
+    OCAuth:{rolActual:()=>state.role},
+    OCTienda:{licenciaActual:()=>state.active},OCI18n:{locale:()=> 'es'},
     AMG:{},addEventListener(){},setTimeout(){},
   };
   const fetch=async(url,opts)=>{
@@ -40,7 +42,7 @@ const make=({db=new IDBFactory(),storage=null,receive,role='dueno',owner=ownedA,
       if(specifier!=='./pago-intento-idb.mjs')throw new Error('unexpected module '+specifier);
       return import(moduleURL);
     }});
-  return {win,values,ls,outgoing,db};
+  return {win,values,ls,outgoing,db,state};
 };
 
 test('P0 Belén: Safari localStorage quota uses durable IDB and confirms first payment once',async()=>{
@@ -120,5 +122,39 @@ test('P0 Belén: legacy localStorage intent with different IDB opId must fail cl
  await assert.rejects(x.win.__creditRegression.guardarReferenciaPagoDurable(
    x.win.__creditRegression.claveAbono('cli-A'),{opId:'customer-payment:new',monto:5,motivo:'Abono'},false,'cli-A','payment'),
    /conflict|revisar|opId|anterior/i);
+ assert.equal(x.outgoing.length,0);
+});
+
+test('P0 root: joined business payment journal follows OCTienda, not old f123_owned',async()=>{
+  const db=new IDBFactory(),values=new Map();
+  const x=make({db,storage:values,active:ownedB.licenseCode});
+  // A payment attempt with uncertain network creates the durable pending proof.
+  x.win.__creditRegression.guardarReferenciaPagoDurable;
+  const ref=x.win.__creditRegression;
+  const original={opId:'customer-payment:joined-B',monto:7,motivo:'Abono'};
+  await ref.guardarReferenciaPagoDurable(ref.claveAbono('cli-joined'),original,false,'cli-joined','payment');
+  assert.deepEqual(await ref.leerReferenciaDurable('cli-joined','payment'),original);
+  x.state.active=ownedA.licenseCode;
+  assert.equal(await ref.leerReferenciaDurable('cli-joined','payment'),null,
+    'local owner shop must not read joined shop payment');
+  x.state.active=ownedB.licenseCode;
+  assert.deepEqual(await ref.leerReferenciaDurable('cli-joined','payment'),original);
+  assert.equal(x.outgoing.length,0,'switching namespaces performs no financial POST');
+});
+test('P0 root: unscoped legacy payment is ambiguous after joining another shop; never debit',async()=>{
+ const values=new Map();
+ values.set('f123_owned',JSON.stringify(ownedA));
+ values.set('f123_customer_payment_intent_v1:cli-A',JSON.stringify({opId:'customer-payment:other-shop',monto:5,motivo:'Abono'}));
+ const x=make({storage:values,active:ownedB.licenseCode});
+ await assert.rejects(x.win.ocEnviarAbono('cli-A',5,'Abono'),/conflict|referencia|unscoped/i);
+ assert.equal(x.outgoing.length,0);
+});
+test('P0 root: license/role switch between read and commit may not reuse another notebook receipt',async()=>{
+ const x=make();
+ const ref=x.win.__creditRegression;
+ const pending={opId:'customer-payment:stale-guard',monto:5,motivo:'Abono'};
+ await ref.guardarReferenciaPagoDurable(ref.claveAbono('cli-A'),pending,false,'cli-A','payment');
+ x.state.role=''; 
+ await assert.rejects(ref.leerReferenciaDurable('cli-A','payment'),/sesión|autoriza|cambi/i);
  assert.equal(x.outgoing.length,0);
 });
