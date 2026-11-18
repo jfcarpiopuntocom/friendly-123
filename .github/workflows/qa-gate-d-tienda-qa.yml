@@ -1,0 +1,58 @@
+# QA puerta D (JFC 2026-11-18): PR #116 del taller contra el historial REAL de la tienda de QA.
+# Solo lectura de la tienda (unión fría del canario, sin PIN, escrituras HTTP a Firebase abortadas);
+# el estado Yjs queda en $RUNNER_TEMP y la escritura nueva solo en el DO local de Miniflare. Sin artefactos.
+name: qa-gate-d-tienda-qa
+on:
+  push:
+    branches: [qa/gate-d-tienda-qa-20261118]
+permissions:
+  contents: read
+jobs:
+  gate-d-real:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Enmascarar secretos
+        env:
+          L: ${{ secrets.F123_CANARIO_LICENCIA }}
+          P: ${{ secrets.F123_CANARIO_PIN }}
+        run: |
+          [ -n "$L" ] && echo "::add-mask::$L"
+          [ -n "$P" ] && echo "::add-mask::$P"
+          true
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: jfcarpiopuntocom/friendly123workshop
+          ref: claude/gate-d-abrir-existente
+          path: ws
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Leer historial real de la tienda de QA (solo lectura)
+        env:
+          F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+          OUT_DIR: ${{ runner.temp }}/gate-d
+        run: node qa/gate-d-tienda-qa/extraer.cjs
+      - name: Instalar taller (Workerd/Yjs reales)
+        run: |
+          cd ws/projects/assembled-v783/app && npm ci --ignore-scripts --no-audit --no-fund
+          cd ../relay/injertos/yparty-worker && npm ci --ignore-scripts --no-audit --no-fund
+          git -C "$GITHUB_WORKSPACE/ws" rev-parse HEAD
+      - name: Puerta D sobre el historial real
+        working-directory: ws/projects/assembled-v783/relay/injertos/yparty-worker
+        env:
+          GATE_D_REAL_DIR: ${{ runner.temp }}/gate-d
+        run: |
+          set -o pipefail
+          cp "$GITHUB_WORKSPACE/qa/gate-d-tienda-qa/real.test.mjs" qa/p0-gate-d-tienda-qa-real.test.mjs
+          node --test --test-concurrency=1 qa/p0-gate-d-tienda-qa-real.test.mjs 2>&1 | grep -v -E '^\s+(actual|expected):' | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Borrar estado Yjs del runner
+        if: always()
+        run: rm -rf "${{ runner.temp }}/gate-d"
