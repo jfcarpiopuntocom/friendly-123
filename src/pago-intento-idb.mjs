@@ -105,6 +105,15 @@ export function createPaymentIntentStore({indexedDB,namespace}={}){
           if(req.result.value.opId!==params.expectedOpId){
             fail(new Error('Payment intent conflict: original opId differs'));return;
           }
+          // A receipt is monotonic: a stale tab must not erase or change a
+          // business-confirmed abonoId, nor silently mutate its allocation.
+          const previous=req.result.value;
+          const invariant=(x)=>JSON.stringify(Object.fromEntries(
+            Object.entries(x).filter(([k])=>k!=='abonoId')));
+          if(invariant(previous)!==invariant(value) ||
+             (previous.abonoId && previous.abonoId!==value.abonoId)){
+            fail(new Error('Payment intent conflict: receipt or allocation changed'));return;
+          }
           const put=store.put({key:k,value});
           put.onsuccess=()=>result({updated:true,value});
           put.onerror=()=>fail(put.error||new Error('Payment intent update failed'));
