@@ -1,0 +1,31 @@
+name: P0 dashboard TURN ICE metadata boundary (QA no deploy)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/peer-sync.js
+      - cloudflare-sync-relay/worker.js
+      - test/p0-dashboard-turn-ice-contract.test.mjs
+      - test/peer-signal-firefox-v653.test.mjs
+      - test/relay-sin-cloudflare-datos-v557.test.js
+      - .github/workflows/qa-p0-dashboard-turn-ice.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  turn-ice:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify actual client and Worker source (never live license or production)
+        run: |
+          set -euo pipefail
+          node --check docs/peer-sync.js
+          node --check cloudflare-sync-relay/worker.js
+          node --test test/p0-dashboard-turn-ice-contract.test.mjs test/peer-signal-firefox-v653.test.mjs
