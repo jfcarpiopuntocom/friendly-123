@@ -2620,7 +2620,13 @@
     }
     API.canal = piloto ? piloto.canal(API.doc, "cat", API.idb, function () {
       if (API._store) API._store.aplicar();
-    }, usarRelayHabitual) : crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
+    }, usarRelayHabitual, function () {
+      // Check the ACTUAL encrypted legacy pull, not just a zero-update YParty sync.
+      // Only final legacy recovery (not relay HEAD hint) certifies PIN/identity.
+      return !!(API.canalSombra && API.canalSombra.recuperando === false &&
+        typeof API.canalSombra.accesoListo === "function" &&
+        API.canalSombra.accesoListo());
+    }) : crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
     API.doc.on("update", function (update, origin) {
       if (API.canal.proveedor && origin === API.canal.proveedor) {
         try { if (API.bc) API.bc.postMessage(update); } catch (_) {}
