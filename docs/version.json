@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.82",
-  "fecha": "2026-11-17",
-  "changelog": "v0.7.82: filtros por columna, rangos y totales fiables en el dashboard; no cambia ventas ni sincronización.",
+  "version": "v0.7.83",
+  "fecha": "2026-11-18",
+  "changelog": "v0.7.83: el dashboard avisa que friendly-123 tiene que estar abierta en otra pestaña o aparato, distingue cuando ningún aparato contestó y quita el texto en inglés de los filtros; no cambia ventas ni sincronización.",
   "requerida": false,
-  "shell": "f123-shell-v782",
+  "shell": "f123-shell-v783",
   "apagar": [],
-  "releaseName": "v0.7.82",
-  "cacheGeneration": "golden318"
+  "releaseName": "v0.7.83",
+  "cacheGeneration": "golden319"
 }
