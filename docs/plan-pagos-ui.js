@@ -317,6 +317,17 @@
   // P0 Belén / Safari QuotaExceeded: payment intents live in transactional IDB.
   // Never infer a customer account from a stale key in another notebook.
   // The store contains a hash of the active business+device identity, not PINs.
+  function _pagoAutorizarCobro() {
+    // Hermes P0: this guard must run even on the pre-v792 localStorage fallback.
+    // Missing IndexedDB, WebCrypto or notebook metadata is NOT a role grant.
+    var r = global.OCAuth && global.OCAuth.rolActual && global.OCAuth.rolActual();
+    if (r !== "dueno" && r !== "admin" && r !== "empleado") {
+      var es = global.OCI18n && String(global.OCI18n.locale()).startsWith("es");
+      throw new Error(es
+        ? "Tu rol no está autorizado para registrar fiados o abonos. Pide al dueño o administrador que lo realice."
+        : "Your role is not authorized to record credit or payments. Ask the owner or an admin.");
+    }
+  }
   function _pagoIdentidad() {
     var owned;
     try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) { return null; }
@@ -340,6 +351,7 @@
       legacyAmbiguo: licencia !== licenciaPropia };
   }
   async function _pagoIDB() {
+    _pagoAutorizarCobro(); // authorize BEFORE falling back to localStorage
     if (!global.indexedDB || !global.crypto || !global.crypto.subtle) return null;
     var activo = _pagoIdentidad();
     if (!activo) return null; // historical/local-only installs retain their old path
@@ -444,6 +456,7 @@
   // key across reload; confirming it rereads the receipt rather than receiving
   // the same money twice. Payment and general/item credit share this boundary.
   global.ocEnviarAbono = async function (clienteId, monto, motivo, opciones) {
+    _pagoAutorizarCobro();
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
     var payload = { monto: Number(Number(monto).toFixed(2)), motivo: String(motivo || '').slice(0,300) };
     if (!Number.isSafeInteger(Math.round(payload.monto * 100)) || !(payload.monto > 0)) throw new Error(es ? 'Ingresa un importe válido de al menos un centavo.' : 'Enter a valid amount of at least one cent.');
@@ -465,6 +478,7 @@
     // The intent MUST be readable from durable storage before a financial POST.
     var contextoPago = await guardarReferenciaPagoDurable(key, payload, false, clienteId, "payment");
     _pagoMismaSesion(contextoPago);
+    _pagoAutorizarCobro(); // role may have changed while async IDB intent persisted
     var response = await fetch(API + '/clientes/' + clienteId + '/abonar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     var result = await response.json();
     if (!response.ok || result.error) throw new Error(result.error || 'Could not confirm the payment.');
@@ -517,6 +531,7 @@
     return confirmarAsignacion(clienteId, dato, contextoPago);
   }
   function modalAbonar(clienteId, nombre) {
+    _pagoAutorizarCobro(); // no modal for accounting-only / artist roles
     if (document.getElementById("pp-modal-abono")) return;
     var m = document.createElement("div");
     m.className = "pp-modal";
