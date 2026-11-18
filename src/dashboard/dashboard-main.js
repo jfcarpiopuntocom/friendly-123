@@ -3301,11 +3301,10 @@
         return;
       }
       if (vale === false) {
-        $("entrar").disabled = false;
-        $("msg").style.color = "#A8123A";
-        $("msg").textContent = "Ese PIN no abre el tablero. Tiene que ser el del dueño o el de un admin.";
-        $("pin").value = "";
-        return;
+        /* This browser may hold an older Owner verifier than the current team
+           notebook. A local NO is not authority to reject a remotely valid PIN:
+           keep the door locked until the encrypted Owner/Admin peer says YES. */
+        $("msg").textContent = "Confirmando el PIN con otro dispositivo autorizado…";
       }
       if (vale === true) {
         autorizado = true;
@@ -3362,7 +3361,7 @@
          pinta ya mismo en vez de esperar a que alguien de la sala conteste.
          Antes, si nadie contestaba, la duenia se quedaba mirando las pestanias
          vacias sentada delante del computador donde estan todos sus datos. */
-      if (!local || !localCode || c === localCode) {
+      if (vale !== false && (!local || !localCode || c === localCode)) {
         var ultimaLocal = await leerEstadoLocalActual();
         if (ultimaLocal && pintarDesdeLocal(ultimaLocal)) _ultimaRevRepintada = Number.isSafeInteger(ultimaLocal._rev) ? ultimaLocal._rev : -1;
       }
