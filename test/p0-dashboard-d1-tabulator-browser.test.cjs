@@ -47,26 +47,46 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
         window.table=new Tabulator('#tabla',{data,columns:window.syntheticColumns({cols:defs}),
           layout:'fitColumns',height:'350px'});
       });
+      // Diagnostic fail fast instead of hanging 30s with no evidence.
+      page.setDefaultTimeout(6000);
+      const diag=async(stage,error)=>{
+        const snapshot=await page.evaluate(()=>({
+          cols:[...document.querySelectorAll('.tabulator-col')].map(x=>({html:x.outerHTML.slice(0,380)})),
+          foot:document.querySelector('.tabulator-calcs-bottom')?.outerHTML?.slice(0,1300)||null,
+          inputs:[...document.querySelectorAll('input')].map(x=>x.outerHTML.slice(0,240)),
+          table:typeof Tabulator,active:window.table?.getDataCount?.('active'),
+          calc:window.table?.getCalcResults?.(),body:document.body.innerHTML.slice(0,1200)
+        })).catch(e=>({diagError:e.message}));
+        throw new Error(stage+': '+error.message+'; SNAPSHOT='+JSON.stringify(snapshot));
+      };
+      let stage='find shelf filter';
+      try{
       const shelf=page.locator('.tabulator-col[tabulator-field="ubicacionNombre"] .tabulator-header-filter input');
       await shelf.waitFor();
+      stage='validate input counts';
       assert.equal(await page.locator('.tabulator-header-filter input').count(),5);
       assert.equal(await page.evaluate(()=>window.table.getDataCount('active')),4);
+      stage='find footer';
       const calc=page.locator('.tabulator-calcs-bottom .tabulator-cell[tabulator-field="total"]');
       await page.waitForFunction(()=>!!document.querySelector('.tabulator-calcs-bottom'));
       assert.equal((await calc.innerText()).trim(),'—');
+      stage='shelf filter Shelf 1';
       await shelf.fill('Shelf 1');
       await page.waitForFunction(()=>window.table.getDataCount('active')===2);
       await page.waitForFunction(()=>window.table.getCalcResults().bottom?.total===16);
       assert.equal((await calc.innerText()).trim(),'$16.00');
+      stage='unit footer absent';
       const unit=page.locator('.tabulator-calcs-bottom .tabulator-cell[tabulator-field="precioUnit"]');
       assert.equal(await unit.count(),1);
       assert.equal((await unit.innerText()).trim(),'','unit prices must never have an aggregate');
+      stage='numeric range';
       const qty=page.locator('.tabulator-col[tabulator-field="cantidad"] .tabulator-header-filter input');
       await qty.fill('2..5');
       await page.waitForFunction(()=>window.table.getDataCount('active')===1);
       await page.waitForFunction(()=>window.table.getCalcResults().bottom?.total===3.25);
       assert.equal((await calc.innerText()).trim(),'$3.25');
       assert.deepEqual(errors,[]);
+      }catch(error){await diag(stage,error);}
       await page.close();
     }finally{await browser?.close();}
   });
