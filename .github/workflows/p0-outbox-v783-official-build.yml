@@ -1,0 +1,50 @@
+name: P0 outbox v783 official release seal · isolated branch QA NO DEPLOY
+on:
+  push:
+    branches: [hotfix/20261117-outbox-v783-on-dashboard-v782]
+    paths:
+      - docs/sync-outbox.js
+      - docs/version.json
+      - docs/dashboard.html
+      - docs/sw.js
+      - .github/workflows/p0-outbox-v783-official-build.yml
+permissions:
+  contents: write
+jobs:
+  official-seal-v783:
+    if: github.repository == 'jfcarpiopuntocom/friendly-123' && github.ref == 'refs/heads/hotfix/20261117-outbox-v783-on-dashboard-v782'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: hotfix/20261117-outbox-v783-on-dashboard-v782
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Pinned repo dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Existing D1+D2+D3 compiled assets unchanged; only official hash generator
+        run: |
+          set -euo pipefail
+          node --check docs/sync-outbox.js
+          node --test test/p0-sync-outbox-idb-abort-failback.test.cjs test/p0-sync-outbox-idb-open-retry.test.cjs test/p0-sync-outbox-blocked-late-close.test.cjs
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/build-app-entry.cjs --check
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/sw.js docs/dashboard-main.min.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+      - name: Save OFFICIAL generated manifest only to isolated v783 candidate
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "hotfix/20261117-outbox-v783-on-dashboard-v782"
+          git add docs/version-manifest.json
+          if git diff --cached --quiet; then
+            echo "Exact SHA manifest already sealed"
+          else
+            git -c user.name='friendly123-qa-build[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build(v783): official gen-manifest.js SHA seal, class-A outbox QA only'
+            git push origin HEAD:refs/heads/hotfix/20261117-outbox-v783-on-dashboard-v782
+          fi

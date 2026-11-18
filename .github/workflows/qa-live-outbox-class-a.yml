@@ -1,0 +1,40 @@
+name: P0 LIVE legacy outbox IDB class-A RED GREEN (QA only)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-outbox.js
+      - test/p0-sync-outbox-idb-abort-failback.test.cjs
+      - test/p0-sync-outbox-idb-open-retry.test.cjs
+      - test/p0-sync-outbox-blocked-late-close.test.cjs
+      - .github/workflows/qa-live-outbox-class-a.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  idb-class-a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Real LIVE source IDB abort, retry, late blocked upgrade (synthetic data, no deploy)
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/p0-outbox-class-a
+          git rev-parse HEAD | tee evidence/p0-outbox-class-a/head.txt
+          node --check docs/sync-outbox.js
+          node --test test/p0-sync-outbox-idb-abort-failback.test.cjs test/p0-sync-outbox-idb-open-retry.test.cjs test/p0-sync-outbox-blocked-late-close.test.cjs 2>&1 | tee evidence/p0-outbox-class-a/tap.log
+      - name: Preserve TAP and commit SHA, including RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-outbox-class-a-${{ github.run_id }}
+          path: evidence/p0-outbox-class-a/
+          if-no-files-found: warn
+          retention-days: 14
+# v783 exact-head QA trigger after official bot-generated manifest; no deploy action.

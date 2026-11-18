@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.82",
+  "version": "v0.7.83",
   "fecha": "2026-11-17",
-  "changelog": "v0.7.82: filtros por columna, rangos y totales fiables en el dashboard; no cambia ventas ni sincronización.",
+  "changelog": "v0.7.83: la cola cifrada se recupera tras aborto o bloqueo temporal de IndexedDB y cierra conexiones tardías; no cambia la lógica de ventas.",
   "requerida": false,
-  "shell": "f123-shell-v782",
+  "shell": "f123-shell-v783",
   "apagar": [],
-  "releaseName": "v0.7.82",
-  "cacheGeneration": "golden318"
+  "releaseName": "v0.7.83",
+  "cacheGeneration": "golden319"
 }
