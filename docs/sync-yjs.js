@@ -609,6 +609,85 @@
           confirmed:_outbox.confirmed}, _v2MetaKey);
       });
     }
+    function mutarOutboxAtomicoSinLocks(change, legacyRun) {
+      return v2Db().then(function (db) {
+        if (!db) {
+          // Preserve the existing v1 transport when the *new* v2 rollout is
+          // disabled or deferred (e.g. a 107MB legacy queue). This is an
+          // explicit compatibility mode, not a claim of v2 multi-tab safety.
+          // A persisted v2 meta forces rollout=true inside v2Db(), so no v2
+          // data can fall through to the unsafe legacy read-modify-write.
+          if (!(API.rollout && API.rollout.outboxV2)) {
+            try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('f123-outbox-integrity', {detail:{status:'legacy-v1-single-tab-required'}})); } catch (_) {}
+            return legacyRun();
+          }
+          // A localStorage read-modify-write is NOT a durable multipage outbox.
+          // Keep unsaved facts locally; do not send a false durability ACK.
+          try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('f123-outbox-integrity', { detail:{status:'blocked-no-atomic-idb'} })); } catch (_) {}
+          throw Error('outbox-atomic-indexeddb-required');
+        }
+        return new Promise(function (resolve, reject) {
+          var tx, store, metaActual=null, anteriores=new Map(), pending=[], included=_unsaved.slice();
+          var finished=false, failure=null, nextRevision=-1;
+          try {
+            tx=db.transaction(['custom'], 'readwrite');
+            store=tx.objectStore('custom');
+            var metaReq=store.get(_v2MetaKey);
+            metaReq.onsuccess=function () { metaActual=metaReq.result; };
+            var curReq=store.openCursor(IDBKeyRange.bound(_v2Prefix,_v2Prefix+'\uffff'));
+            curReq.onsuccess=function () {
+              var cur=curReq.result;
+              if (cur) {
+                var entry=cur.value;
+                pending.push(entry);
+                anteriores.set(entry.id,v2Signature(entry));
+                cur.continue();
+                return;
+              }
+              try {
+                if (!metaActual || metaActual.v !== 2 || !Number.isSafeInteger(metaActual.rev) ||
+                    metaActual.rev >= Number.MAX_SAFE_INTEGER) throw Error('outbox-v2-metadata-invalid');
+                _outbox={pending:pending,confirmed:Array.isArray(metaActual.confirmed)?metaActual.confirmed.slice():[],
+                  checkpoint:metaActual.checkpoint||''};
+                included.forEach(function (entry) {
+                  if (!_outbox.pending.some(function (x) {return x.id===entry.id;})) _outbox.pending.push(entry);
+                });
+                var changed=change();
+                if (changed && typeof changed.then==='function') throw Error('async-outbox-mutation-unsafe');
+                _groupAcks.forEach(function (id) {
+                  if (!_outbox.pending.some(function (entry) {return entry.id===id;})) _groupAcks.delete(id);
+                });
+                var next=new Map(_outbox.pending.map(function (entry) {return [entry.id,entry];}));
+                anteriores.forEach(function (_,id) {if (!next.has(id)) store.delete(_v2Prefix+id);});
+                next.forEach(function (entry,id) {
+                  if (!anteriores.has(id) || anteriores.get(id)!==v2Signature(entry))
+                    store.put(entry,_v2Prefix+id);
+                });
+                nextRevision=metaActual.rev+1;
+                store.put({v:2,rev:nextRevision,checkpoint:_outbox.checkpoint,
+                  confirmed:_outbox.confirmed},_v2MetaKey);
+              } catch (e) {
+                failure=e;
+                try {tx.abort();} catch (_) {}
+              }
+            };
+          } catch (e) { reject(e); return; }
+          tx.oncomplete=function () {
+            _v2Revision=nextRevision;_v2Cache=_outbox;
+            _v2Signatures=new Map(_outbox.pending.map(function (entry) {return [entry.id,v2Signature(entry)];}));
+            _unsaved=_unsaved.filter(function (entry) {return !included.includes(entry);});
+            // One observable completion signal, and only AFTER the IDB commit.
+            avisarDurable();
+            try {if (typeof window!=='undefined') window.dispatchEvent(new CustomEvent('f123-outbox-integrity',{detail:{status:'atomic-idb-fallback'}}));} catch (_) {}
+            resolve();
+          };
+          tx.onabort=tx.onerror=function () {
+            _v2Cache=null;_v2Revision=-1;_v2Signatures=new Map();
+            reject(failure||tx.error||Error('outbox-atomic-commit-failed'));
+          };
+        });
+      });
+    }
     function mutarOutbox(change) {
       var run = function () {
         return leerOutbox().then(function (saved) {
@@ -629,8 +708,9 @@
         });
       };
       // Tabs share this IndexedDB: serialize read/modify/write across contexts as well.
-      return typeof navigator !== "undefined" && navigator.locks
-        ? navigator.locks.request("f123-relay-outbox-" + API.roomId + suffix, run) : run();
+      if (typeof navigator !== "undefined" && navigator.locks)
+        return navigator.locks.request("f123-relay-outbox-" + API.roomId + suffix, run);
+      return mutarOutboxAtomicoSinLocks(change, run);
     }
     var _durableQueue = leerOutbox().then(function (saved) {
       if (saved && Array.isArray(saved.pending)) _outbox = saved;
