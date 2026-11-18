@@ -17,5 +17,5 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '22', cache: npm}
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Real shelf camera callback: ACK, offline, quota, switch, recovery
+      - name: 'Real shelf camera callback - ACK, offline, quota, switch, recovery'
         run: node --test test/p0-belen-photo-pointer-ack-real-source.test.cjs
