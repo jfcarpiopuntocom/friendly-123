@@ -1,7 +1,7 @@
 {
   "version": "v0.7.91",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.91: Safari Dashboard verifica Owner con la misma autoridad central que la app; Admin requiere registro vigente del cuaderno. Respeta bloqueo y licencia. Corrige diferencia de PIN Owner entre app y Dashboard sin modificar negocio, ventas o inventario.",
+  "changelog": "v0.7.91: Safari Dashboard verifica Owner con la misma autoridad central que la app; Admin requiere registro vigente del cuaderno. Respeta bloqueo y licencia. Corrige diferencia de PIN Owner entre app y Dashboard sin modificar negocio, ventas o inventario. Worker limitado a /pin/verify para Owner.",
   "requerida": false,
   "shell": "f123-shell-v791",
   "apagar": [],
