@@ -34,7 +34,7 @@ test('two tabs racing separate opIds cannot replace the pending receipt or doubl
   assert.equal((await b.putIfAbsent({kind:'payment',clientId:'same-client',value:saved})).created,false,
     'same opId may be retried; it is not a new debit');
 });
-test('one customer's unpaid reference cannot leak into another client or license',async()=>{
+test("one customer's unpaid reference cannot leak into another client or license",async()=>{
   const indexedDB=new IDBFactory();
   const a=await setup(indexedDB,NS_A),b=await setup(indexedDB,NS_B);
   await a.putIfAbsent({kind:'payment',clientId:'cli-A',value:info('A')});
