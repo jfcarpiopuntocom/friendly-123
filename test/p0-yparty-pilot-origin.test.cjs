@@ -109,4 +109,3 @@ test('a stalled pilot script releases startup and its late load cannot select th
   script.onload?.();
   assert.equal(factoryCalls, 0);
 });
-
