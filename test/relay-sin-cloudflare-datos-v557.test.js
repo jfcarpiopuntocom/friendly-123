@@ -1,5 +1,5 @@
 'use strict';
-// Business bytes stay off Cloudflare/Supabase; Cloudflare may coordinate SDP/ICE and clock metadata.
+// Business bytes stay encrypted end-to-end. Cloudflare carries SDP/ICE metadata only; Supabase Realtime carries ephemeral encrypted dashboard PIN/snapshot packets, without database writes.
 // Parte 1 (estatica): recorre docs/ (sin vendor ni demo) y clasifica cada destino de red.
 // Parte 2 (navegador real): abre la app en Chromium con licencia sintetica, registra CADA
 // pedido y CADA WebSocket (sin bloquear a ciegas) mientras se crea producto, venta, fiado,
@@ -42,7 +42,7 @@ test('estatico: ningun archivo de docs/ abre un socket o canal crudo (WebSocket/
 test('estatico: los localizadores legacy solo llegan al adaptador directo y su socket usa /signal/', () => {
   const esperados = ['dashboard-main.min.js', 'sync-realtime.js', 'sync-yjs.js'];
   // firebase-relay.js only parses the locator (regex) to derive its room; it never opens it.
-  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'firebase-relay.js', 'peer-sync.js'].sort());
+  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'dashboard-broadcast.js', 'firebase-relay.js', 'peer-sync.js'].sort());
   assert.ok(!/new\s+(WebSocket|WS)\s*\(/.test(archivos.find(a => a.rel === 'firebase-relay.js').src), 'firebase relay opens no socket');
   for (const nombre of esperados) {
     const src = nombre === 'dashboard-main.min.js'
@@ -67,14 +67,19 @@ test('estatico: los localizadores legacy solo llegan al adaptador directo y su s
 });
 
 // Contract change (JFC 2026-11-02): the app keeps direct peers AND loads the durable Supabase relay through
-// relay-selector.js (daily byte budget, peers as fallback). The dashboard stays peer-only.
-test('estatico: la app carga peers + relay Supabase con selector; el dashboard sigue solo con peers', () => {
+// relay-selector.js (daily byte budget, peers as fallback). The dashboard uses a separate ephemeral encrypted Supabase broadcast while retaining peer fallback.
+test('estatico: app retains durable relay; dashboard transports encrypted realtime without durable business writes', () => {
   const app = archivos.find(a => a.rel === 'index.html').src;
   const orden = ['peer-sync.js', 'vendor/supabase-relay.min.js', 'firebase-relay.js', 'relay-selector.js'].map(n => app.indexOf('src="./' + n + '"'));
   assert.ok(orden.every(i => i > 0) && orden[0] < orden[1] && orden[1] < orden[2] && orden[2] < orden[3], 'peer-sync → supabase → firebase → selector');
   const dash = archivos.find(a => a.rel === 'dashboard.html').src;
   assert.match(dash, /<script\b[^>]*\bsrc="\.\/peer-sync\.js"[^>]*><\/script>/);
-  assert.doesNotMatch(dash, /supabase-relay\.min\.js|supabase\.co|f123_relay_command/);
+  assert.match(dash, /vendor\/supabase-relay\.min\.js/);
+  assert.match(dash, /dashboard-broadcast\.js/);
+  assert.doesNotMatch(dash, /f123_relay_command/, 'no dashboard durable business command');
+  const bridge = archivos.find(a => a.rel === 'dashboard-broadcast.js').src;
+  assert.match(bridge, /\.channel\("f123-dash-"/, 'dashboard uses ephemeral broadcast');
+  assert.doesNotMatch(bridge, /\.from\(|\.insert\(|\.upsert\(|\.rpc\(/, 'dashboard bridge contains no persistent database operations');
 });
 
 test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca negocio central', () => {
@@ -89,7 +94,7 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
   // Licencias: referencias permitidas (panel de JFC, verificacion maestra, comentarios de auth-ui).
   const lic = [...hosts.get('friendly123-licencias')].sort();
   assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel-pin.js', 'panel.html']);
-  assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
+  assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-broadcast.js', 'dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
   // Rutas que el cliente pide al Worker de licencias: solo licencia, latido, canario y maestro. Nada de datos.
   const rutas = new Set();
   for (const a of archivos) for (const m of a.src.matchAll(/workerUrl\(\)[^;]{0,200}?["'`](\/[a-z\-]+)/gi)) rutas.add(m[1]);
