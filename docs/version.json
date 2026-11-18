@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.90",
+  "version": "v0.7.91",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.90: Safari Dashboard consulta otro dispositivo autorizado cuando el PIN Owner local pertenece a un verificador anterior. Solo Owner/Admin validado por el equipo abre el tablero; bloqueo local, licencia y datos se conservan.",
+  "changelog": "v0.7.91: Safari Dashboard verifica Owner con la misma autoridad central que la app; Admin requiere registro vigente del cuaderno. Respeta bloqueo y licencia. Corrige diferencia de PIN Owner entre app y Dashboard sin modificar negocio, ventas o inventario.",
   "requerida": false,
-  "shell": "f123-shell-v790",
+  "shell": "f123-shell-v791",
   "apagar": [],
-  "releaseName": "v0.7.90",
-  "cacheGeneration": "golden326"
+  "releaseName": "v0.7.91",
+  "cacheGeneration": "golden327"
 }
