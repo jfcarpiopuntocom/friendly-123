@@ -390,6 +390,7 @@
 
   // --- Estado de conexion ---
   let ws = null, claveActual = null, salaIdActual = null, reintentoMs = 1000;
+  let _dashboardBroadcast = null; // read-only dashboard ephemeral lane, independent of durable Sync3
   let _ckptTimer = null; // sube checkpoints periodicos mientras hay conexion
   let estadoActual = "apagado"; // apagado | conectando | conectado | reconectando
   let presenciaN = null; // cuantos dispositivos conectados ahora (null = desconocido)
@@ -436,6 +437,7 @@
     return !document.hidden; // JFC 2026-11-12: sin turno entre pestanas
   }
   function cerrarWsExistente() {
+    if (_dashboardBroadcast) { try { _dashboardBroadcast.close(); } catch (_) {} _dashboardBroadcast = null; }
     if (timeoutConexion) { clearTimeout(timeoutConexion); timeoutConexion = null; }
     if (_ckptTimer) { clearInterval(_ckptTimer); _ckptTimer = null; }
     if (ws) {
@@ -576,6 +578,12 @@
         // shop if the active notebook changed during the await.
         if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
             codigoCuadernoActivo() !== codigoNorm) return;
+        // Supabase public broadcast carries only ciphertext. Decrypt in this original
+        // session/room guard; only PIN verification and token-gated snapshots are admitted.
+        if (ev.relaySource === "dashboard-broadcast") {
+          if (!op || (op.tipo !== TIPO_PIN && op.tipo !== TIPO_FOTO_PEDIDA)) return;
+          op.__dashboardBroadcast = true;
+        }
         if (ev.peerAck) {
           const ack = ev.peerAck, proof = op && op.tipo === "__peer_receipt__" && op.payload;
           if (proof && proof.id === ack.id && proof.kind === ack.kind && proof.hash === ack.hash) ws.acceptPeerAck(ack);
@@ -682,6 +690,20 @@
         }
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
     };
+    // The current app notebook answers encrypted Owner/admin dashboard
+    // challenges without relying on TURN. This lane never handles Yjs or sales.
+    try {
+      if (window.F123DashboardBroadcast && window.F123_DASH_BROADCAST !== false) {
+        const bridge = window.F123DashboardBroadcast.connect(RELAY_URL + salaIdActual);
+        _dashboardBroadcast = bridge;
+        bridge.addEventListener("message", function (event) {
+          if (_dashboardBroadcast !== bridge || miGeneracion !== _conexionGeneracion ||
+              ws !== _socketDeEstaConexion || codigoCuadernoActivo() !== codigoNorm) return;
+          if (typeof ws.onmessage === "function")
+            ws.onmessage({ data: event.data, relaySource: "dashboard-broadcast" });
+        });
+      }
+    } catch (_) {}
     ws.onclose = () => { if (ws !== _socketDeEstaConexion || !puedeConectarLegado()) return; if (_ckptTimer) { clearInterval(_ckptTimer); _ckptTimer = null; } notificarEstado("reconectando"); programarReintento(); };
     ws.onerror = () => { try { ws.close(); } catch (_) {} };
   }
@@ -981,7 +1003,11 @@
         payload: Object.assign({ negocio: foto.negocio, generadaEn: foto.generadaEn, fotoId: fotoId, k: k, deTotal: trozos.length }, trozos[k]),
         fecha: (new Date()).toISOString(),
       };
-      try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
+      try {
+        const destination = pedido.__dashboardBroadcast ? _dashboardBroadcast : ws;
+        if (!destination || destination.readyState !== WebSocket.OPEN) return;
+        destination.send(await cifrar(claveActual, op));
+      } catch (_) { return; }
     }
   }
 
@@ -1051,7 +1077,11 @@
                  datos: ok ? { rol: rol, fotoToken: fotoToken } : { error: "Ese PIN no abre el tablero." } },
       fecha: (new Date()).toISOString(),
     };
-    try { ws.send(await cifrar(claveActual, r)); } catch (_) {}
+    try {
+      const destination = op.__dashboardBroadcast ? _dashboardBroadcast : ws;
+      if (destination && destination.readyState === WebSocket.OPEN)
+        destination.send(await cifrar(claveActual, r));
+    } catch (_) {}
   }
 
   /* LISTA BLANCA DE ÓRDENES REMOTAS (JFC 2026-08-27). Bug latente arreglado:
