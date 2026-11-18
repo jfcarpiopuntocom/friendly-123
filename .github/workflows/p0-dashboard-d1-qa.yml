@@ -8,6 +8,7 @@ on:
       - docs/version-manifest.json
       - test/p0-dashboard-d1-column-totals.test.cjs
       - test/p0-belen-dashboard-hechos-readonly.test.cjs
+      - test/p0-belen-dashboard-hechos-browser.test.cjs
       - .github/workflows/p0-dashboard-d1-qa.yml
   workflow_dispatch:
 permissions:
@@ -40,3 +41,15 @@ jobs:
           path: evidence/dashboard-d1/
           if-no-files-found: warn
           retention-days: 14
+  belen-finance-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Chromium and WebKit real IndexedDB open/migration/read-only contract
+        run: |
+          npx playwright install --with-deps chromium webkit
+          node --test test/p0-belen-dashboard-hechos-browser.test.cjs
