@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "scope": "friendly-123 existing dashboard D1-D6, no redesign",
+  "changeApproval": {
+    "approvedBy": "JFC",
+    "date": "2026-11-17",
+    "reason": "va con esos textos (Opus 5.5 17 nov, dashboard financial analysis)"
+  },
+  "existingStyle": "preserve existing Tabulator tabs, palettes, logo, ES/EN and role UI; owner and admin share analytics without business deletion",
+  "approvedLabels": [
+    {
+      "id": "today",
+      "es": "Hoy",
+      "en": "Today"
+    },
+    {
+      "id": "yesterday",
+      "es": "Ayer",
+      "en": "Yesterday"
+    },
+    {
+      "id": "last7",
+      "es": "7 días",
+      "en": "7 days"
+    },
+    {
+      "id": "thisMonth",
+      "es": "Este mes",
+      "en": "This month"
+    },
+    {
+      "id": "previousMonth",
+      "es": "Mes anterior",
+      "en": "Last month"
+    },
+    {
+      "id": "pickDates",
+      "es": "Elegir fechas",
+      "en": "Pick dates"
+    },
+    {
+      "id": "profitView",
+      "es": "¿Cuánto me dejó?",
+      "en": "What did it earn me?"
+    },
+    {
+      "id": "costView",
+      "es": "¿Cuánto me costó?",
+      "en": "What did it cost me?"
+    },
+    {
+      "id": "groupBy",
+      "es": "Agrupar por",
+      "en": "Group by"
+    },
+    {
+      "id": "profit",
+      "es": "Ganancia",
+      "en": "Profit"
+    },
+    {
+      "id": "marginPct",
+      "es": "Margen %",
+      "en": "Margin %"
+    },
+    {
+      "id": "vsPrevious",
+      "es": "vs. periodo anterior",
+      "en": "vs. previous period"
+    },
+    {
+      "id": "missingCost",
+      "es": "Ventas sin costo",
+      "en": "Sales without cost"
+    },
+    {
+      "id": "topEarners",
+      "es": "Más ganancia",
+      "en": "Top earners"
+    },
+    {
+      "id": "bottomEarners",
+      "es": "Menos ganancia",
+      "en": "Lowest earners"
+    },
+    {
+      "id": "expiringSoon",
+      "es": "Por vencer",
+      "en": "Expiring soon"
+    }
+  ],
+  "firstImplementation": {
+    "id": "d1-column-filters-totals",
+    "description": "Per-column filters, numeric inclusive ranges and visible filtered sums. No new screen headings or labels in D1; no production data writes.",
+    "tests": [
+      "test/p0-dashboard-d1-column-totals.test.cjs"
+    ],
+    "releaseCondition": "Live merge and deploy require all five JFC gates including iPhone physical check and express approval."
+  }
+}

@@ -1,0 +1,49 @@
+name: P0 LIVE dashboard D3 native earnings Chromium+WebKit (QA no deploy)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/dashboard/dashboard-main.js
+      - docs/core/finance-report.js
+      - docs/finance-report-worker.js
+      - test/p0-dashboard-d3-profit-native.browser.cjs
+      - .github/workflows/p0-dashboard-d3-browser.yml
+permissions:
+  contents: read
+jobs:
+  d3-native-worker-tabulator:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install exact existing Tabulator for QA, native browser engines
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --ignore-scripts --package-lock=false --no-audit --no-fund tabulator-tables@6.3.1 playwright@1.62.1
+          node -e "if(require('playwright/package.json').version !== '1.62.1')throw Error('browser mismatch')"
+      - name: Real Worker's source D3 plus real Tabulator 6.3.1 in Chromium and WebKit
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/dashboard-d3-native
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse HEAD | tee evidence/dashboard-d3-native/head.txt
+          node --test --test-concurrency=1 test/p0-dashboard-d3-profit-native.browser.cjs 2>&1 | tee evidence/dashboard-d3-native/tap.log
+      - name: Keep exact SHA+TAP even on RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-d3-native-${{ github.run_id }}
+          path: evidence/dashboard-d3-native/
+          if-no-files-found: warn
+          retention-days: 14

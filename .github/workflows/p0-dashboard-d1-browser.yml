@@ -1,0 +1,49 @@
+name: P0 LIVE dashboard D1 native Tabulator Chromium+WebKit (QA no deploy)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/dashboard/dashboard-main.js
+      - test/p0-dashboard-d1-tabulator-native.browser.cjs
+      - .github/workflows/p0-dashboard-d1-browser.yml
+permissions:
+  contents: read
+jobs:
+  native-tabulator:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install project lockfile and exact existing Tabulator CDN version for TEST ONLY
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --ignore-scripts --package-lock=false --no-audit --no-fund tabulator-tables@6.3.1 playwright@1.62.1
+          node -e "if(require('playwright/package.json').version !== '1.62.1')throw Error('browser mismatch')"
+          test -s node_modules/tabulator-tables/dist/js/tabulator.min.js
+          test -s node_modules/tabulator-tables/dist/css/tabulator_simple.min.css
+      - name: Actual Tabulator 6.3.1 filters and money in native Chromium/WebKit
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/dashboard-d1-native
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git rev-parse HEAD | tee evidence/dashboard-d1-native/head.txt
+          node --test --test-concurrency=1 test/p0-dashboard-d1-tabulator-native.browser.cjs 2>&1 | tee evidence/dashboard-d1-native/tap.log
+      - name: Keep TAP + SHA even if RED
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-d1-native-${{ github.run_id }}
+          path: evidence/dashboard-d1-native/
+          if-no-files-found: warn
+          retention-days: 14

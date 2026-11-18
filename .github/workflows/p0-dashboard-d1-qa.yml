@@ -1,0 +1,39 @@
+name: P0 LIVE dashboard D1 filters/totals · QA only, no deploy
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/dashboard/dashboard-main.js
+      - docs/dashboard-main.min.js
+      - docs/version-manifest.json
+      - test/p0-dashboard-d1-column-totals.test.cjs
+      - .github/workflows/p0-dashboard-d1-qa.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  d1-real-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: RED-GREEN actual source D1 analysis and filtered sums
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/dashboard-d1
+          git rev-parse HEAD | tee evidence/dashboard-d1/head.txt
+          node --check src/dashboard/dashboard-main.js
+          node --test test/p0-dashboard-d1-column-totals.test.cjs 2>&1 | tee evidence/dashboard-d1/tap.txt
+      - name: Keep exact TAP+SHA even when failing
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dashboard-d1-${{ github.run_id }}
+          path: evidence/dashboard-d1/
+          if-no-files-found: warn
+          retention-days: 14

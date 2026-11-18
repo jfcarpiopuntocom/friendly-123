@@ -1,0 +1,54 @@
+name: D1 official dashboard build+manifest · isolated LIVE PR branch (NO DEPLOY)
+on:
+  push:
+    branches: [feat/20261117-dashboard-d1-column-analysis]
+    paths:
+      - src/dashboard/dashboard-main.js
+      - docs/version.json
+      - docs/sw.js
+      - docs/dashboard.html
+      - .github/workflows/p0-dashboard-d1-official-build.yml
+permissions:
+  contents: write
+jobs:
+  official-build-only:
+    if: github.repository == 'jfcarpiopuntocom/friendly-123' && github.ref == 'refs/heads/feat/20261117-dashboard-d1-column-analysis'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/20261117-dashboard-d1-column-analysis
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install existing pinned dependencies without running package lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Generate reproducible dashboard assets with official builder
+        run: |
+          set -euo pipefail
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          # Shell identity is an explicit reviewed edit. The generator must NOT mutate it.
+          git diff --exit-code -- docs/sw.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+          node --test test/p0-dashboard-d1-column-totals.test.cjs
+      - name: Commit generated assets to THIS PR branch only; never master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "feat/20261117-dashboard-d1-column-analysis"
+          git add docs/dashboard-main.min.js docs/dashboard-main.min.css docs/version-manifest.json
+          if git diff --cached --quiet; then
+            echo "Exact official artifacts are already committed"
+          else
+            git -c user.name='friendly123-qa-build[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'build(D1): official dashboard assets and SHA manifest, branch QA only'
+            git push origin HEAD:refs/heads/feat/20261117-dashboard-d1-column-analysis
+          fi

@@ -602,7 +602,8 @@
         { title: "Shelf", field: "ubicacionNombre", width: 150 },
       ],
       filas: function () {
-        return (datos.ventas || []).map(function (v) {
+        var p = periodoRapido();
+        return (datos.ventas || []).filter(function(v){return enPeriodo(v,p);}).map(function (v) {
           var price=window.OCBusinessReadModel.number(v.precioUnit),qty=window.OCBusinessReadModel.quantity(v.cantidad);
           return Object.assign({}, v, { total: price===null||qty===null?null:price*qty });
         });
@@ -1321,6 +1322,85 @@
      tambien abre esa vista (sin pintar tablas) para que "Pay in the app" quede a la vista como antes. */
   window.OCDashComisiones = { pintarConDatos: function (d) { datos = d || datos; pintarComisiones(); try { aplicarRuta("comisiones", { sinTabla: true }); } catch (_) {} }, meses: cmMeses };
 
+  // D3 (JFC-approved 17 Nov): worker-only realized profit in the existing Hoy tab.
+  // Channel, weekday and hour are deliberately NOT shown: their labels need JFC approval.
+  var AGRUPAR_D3=[["product","Product"],["shelf","Shelf"],["associate","Associate"],
+    ["customer","Customer"],["payment","Payment method"],["event","Event"]];
+  var d3={filas:[],datos:null,clave:null,revision:0,worker:null};
+  function aDolaresD3(c){return c===null||!Number.isSafeInteger(c)?null:c/100;}
+  function claveD3(){
+    var p=periodoRapido(),selector=$("agrupar-por");
+    return (selector?selector.value:"product")+"|"+(p?p.from+"|"+p.to:"");
+  }
+  function pedirD3(){
+    var clave=claveD3();
+    if(d3.datos===datos&&d3.clave===clave)return;
+    d3.datos=datos;d3.clave=clave;d3.filas=[];
+    var revision=++d3.revision,p=periodoRapido();
+    if(d3.worker){d3.worker.terminate();d3.worker=null;}
+    try{
+      var worker=d3.worker=new Worker("./finance-report-worker.js");
+      worker.onmessage=function(event){
+        worker.terminate();
+        if(d3.worker===worker)d3.worker=null;
+        if(revision!==d3.revision)return;
+        if(!event.data||event.data.error||!Array.isArray(event.data.rows)){
+          d3.clave=null;return;
+        }
+        d3.filas=event.data.rows.slice(1).map(function(row){
+          return {nombre:row.name,unidades:row.units,recaudado:aDolaresD3(row.netCents),
+            costoD3:aDolaresD3(row.costCents),comision:aDolaresD3(row.commissionCents),
+            ganancia:aDolaresD3(row.profitCents),margenPct:row.marginPct,
+            sinCosto:row.salesWithoutCost};
+        });
+        if(vista==="ganancia")pintarTabla();
+      };
+      worker.onerror=function(){
+        worker.terminate();if(d3.worker===worker)d3.worker=null;
+        if(revision===d3.revision)d3.clave=null;
+      };
+      worker.postMessage({input:{sales:datos.ventas||[],period:p||{},
+        zone:zonaNegocioDashboard()},earningsBy:clave.split("|")[0]});
+    }catch(_){d3.worker=null;d3.clave=null;}
+  }
+  var VISTA_GANANCIA={
+    nombre:"What did it earn me?",
+    cols:[
+      {title:"Product",field:"nombre",minWidth:190,widthGrow:3},
+      {title:"Units",field:"unidades",width:100,hozAlign:"right"},
+      {title:"Net sales",field:"recaudado",width:130,hozAlign:"right",
+        formatter:function(c){return money(c.getValue());}},
+      {title:"Cost",field:"costoD3",width:120,hozAlign:"right",
+        formatter:function(c){return money(c.getValue());}},
+      {title:"Commission",field:"comision",width:130,hozAlign:"right",
+        formatter:function(c){return money(c.getValue());}},
+      {title:"Profit",field:"ganancia",width:130,hozAlign:"right",
+        formatter:function(c){return money(c.getValue());}},
+      {title:"Margin %",field:"margenPct",width:110,hozAlign:"right",
+        formatter:function(c){var n=c.getValue();return n===null||!Number.isFinite(n)?"—":n+" %";}},
+      {title:"Sales without cost",field:"sinCosto",width:140,hozAlign:"right"}
+    ],
+    filas:function(){pedirD3();return d3.filas;},
+    cierre:function(){return "";}
+  };
+  function montarAgruparPor(){
+    var selectorPeriodo=$("periodo-rapido");
+    if(!selectorPeriodo||$("agrupar-por"))return;
+    var select=document.createElement("select");
+    select.id="agrupar-por";select.setAttribute("aria-label","Group by");
+    AGRUPAR_D3.forEach(function(item){
+      var option=document.createElement("option");
+      option.value=item[0];option.textContent=item[1];select.appendChild(option);
+    });
+    select.hidden=vista!=="ganancia";
+    select.addEventListener("change",function(){
+      VISTA_GANANCIA.cols[0].title=AGRUPAR_D3.find(function(x){return x[0]===select.value;})?.[1]||"Product";
+      tablaDe="";pintarTabla();
+    });
+    selectorPeriodo.parentNode.insertBefore(select,selectorPeriodo.nextSibling);
+  }
+  VISTAS.ganancia=VISTA_GANANCIA;
+
   function mostrar() {
     if (!autorizado) return;
     revisionVistaExportacion++;
@@ -1355,7 +1435,7 @@
      y con las mismas funciones de siempre (cmPendienteVenta, VISTAS.reposicion): el hub no inventa dinero. */
   var RUTAS = {
     inicio:       { nom: "Home" },
-    hoy:          { nom: "Today",       tablas: ["ventas", "eventos", "gastos", "gastoMensual"] },
+    hoy:          { nom: "Today",       tablas: ["ventas", "ganancia", "eventos", "gastos", "gastoMensual"] },
     comisiones:   { nom: "Commissions", tablas: ["comisiones", "comisionistas"] },
     inventario:   { nom: "Inventory",   tablas: ["productos", "reposicion"] },
     clientes:     { nom: "Customers",   tablas: ["clientes", "transferencias", "hechosFinancieros"] },
@@ -1790,6 +1870,8 @@
       ejecutarExportacion(b, b.dataset.x, function () { exportar(b.dataset.x); });
     });
     $("buscar").addEventListener("input", function () { filtrar(this.value); });
+    montarPeriodoRapido();
+    montarAgruparPor();
     /* Agrupar Comisiones por trato o por persona. Vive en el pie porque es una
        lectura del dato que ya esta en pantalla, no un filtro nuevo: no pide
        nada al equipo y funciona igual sin internet. */
@@ -1832,10 +1914,106 @@
     });
   }
 
+  /* D1, JFC 17-nov: Tabulator remains the ONLY table. Per-column filters
+     and filtered footers read existing view rows, never the full sales ledger.
+     A missing monetary value means an unknown total, not a fabricated 0. */
+  /* D2, JFC 17 nov: dates are the business-local calendar, never UTC raw. */
+  function periodoRapido() {
+    var s=$("periodo-rapido");
+    if(!s||!s.value||!window.OCReportPeriod?.quick)return null;
+    var hoy=window.OCBusinessReadModel.day(new Date().toISOString(),zonaNegocioDashboard());
+    var from=$("periodo-desde"),to=$("periodo-hasta");
+    return window.OCReportPeriod.quick(s.value,hoy,from&&from.value,to&&to.value);
+  }
+  window.OCDashPeriodo=periodoRapido;
+  function enPeriodo(v,p) {
+    if(!p)return true;
+    var date=window.OCBusinessReadModel.day(v.fechaLocal||v.fecha,zonaNegocioDashboard());
+    return !!date&&date>=p.from&&date<=p.to;
+  }
+  function montarPeriodoRapido() {
+    var busqueda=$("buscar");
+    if(!busqueda||$("periodo-rapido"))return;
+    var selector=document.createElement("select");
+    selector.id="periodo-rapido";selector.setAttribute("aria-label","Pick dates");
+    [["","—"],["today","Today"],["yesterday","Yesterday"],["7d","7 days"],
+     ["thisMonth","This month"],["lastMonth","Last month"],["custom","Pick dates"]]
+      .forEach(function(entry){var option=document.createElement("option");option.value=entry[0];option.textContent=entry[1];selector.appendChild(option);});
+    var desde=document.createElement("input"),hasta=document.createElement("input");
+    desde.type=hasta.type="date";desde.id="periodo-desde";hasta.id="periodo-hasta";
+    desde.setAttribute("aria-label","Pick dates");
+    hasta.setAttribute("aria-label","Pick dates");
+    desde.hidden=hasta.hidden=true;
+    selector.addEventListener("change",function(){
+      desde.hidden=hasta.hidden=selector.value!=="custom";
+      pintarTabla();
+    });
+    desde.addEventListener("change",pintarTabla);hasta.addEventListener("change",pintarTabla);
+    busqueda.parentNode.insertBefore(hasta,busqueda.nextSibling);
+    busqueda.parentNode.insertBefore(desde,hasta);
+    busqueda.parentNode.insertBefore(selector,desde);
+  }
+
+  function columnasParaTabulator(v) {
+    var dineroAditivo = {total:1,monto:1,saldo:1,recaudado:1,ganancia:1,costoD3:1,
+      comision:1,casa:1,gastosDirectos:1,contribucion:1,pagado:1,ventasNetas:1};
+    var conteoAditivo = {cantidad:1,stockActual:1,ventas:1,unidades:1,sinCosto:1,
+      personas:1,compradores:1,frecuencia:1,devoluciones:1,corregidas:1};
+    var numericos = Object.assign({precio:1,costo:1,margen:1,precioUnit:1,
+      costoUnit:1,porcentaje:1},dineroAditivo,conteoAditivo);
+    return v.cols.map(function (original) {
+      if (!original || !original.field || original.download === false ||
+          original.headerSort === false) return original; // action icon, never filter
+      var c = Object.assign({},original);
+      // The product name's old explicit false predated the D1 approval.
+      if (c.headerFilter === undefined || (c.field === "nombre" && c.headerFilter === false))
+        c.headerFilter = "input";
+      if (numericos[c.field] && c.headerFilter === "input") {
+        c.headerFilterFunc = function (q, value) {
+          var typed = String(q == null ? "" : q).trim();
+          if (!typed) return true;
+          // Inclusive range, e.g. 2..5. Plain text still uses old substring semantics.
+          var range = /^(-?\d+(?:\.\d+)?)\s*\.\.\s*(-?\d+(?:\.\d+)?)$/.exec(typed);
+          if (range) {
+            if (typeof value !== "number" || !Number.isFinite(value)) return false;
+            var a = Number(range[1]), b = Number(range[2]);
+            return value >= Math.min(a,b) && value <= Math.max(a,b);
+          }
+          return normalizar(value).indexOf(normalizar(typed)) >= 0;
+        };
+      }
+      if (dineroAditivo[c.field] || conteoAditivo[c.field]) {
+        var currency = !!dineroAditivo[c.field];
+        c.bottomCalc = function (values) {
+          if (!values.length) return null;
+          var factor = currency ? 100 : 1, total = 0;
+          for (var i = 0; i < values.length; i++) {
+            var value = values[i];
+            if (typeof value !== "number" || !Number.isFinite(value)) return null;
+            var cents = Math.round(value * factor);
+            if (!Number.isSafeInteger(cents)) return null;
+            total += cents;
+            if (!Number.isSafeInteger(total)) return null;
+          }
+          return total / factor;
+        };
+        c.bottomCalcFormatter = function (cell) {
+          var value = cell.getValue();
+          return value === null || value === undefined ? "—" :
+            currency ? money(value) : String(value);
+        };
+      }
+      return c;
+    });
+  }
+
+
   function pintarTabla() {
     var v = VISTAS[vista];
+    var agrupador=$("agrupar-por");
+    if(agrupador)agrupador.hidden=vista!=="ganancia";
     var filas = v.filas();
-    var dependencias={productos:['productos'],clientes:['clientes'],ventas:['ventas'],reposicion:['productos'],eventos:['ventas'],liquidaciones:['liquidaciones'],perchas:['perchas'],movimientos:['movimientos'],promotoras:['promotoras'],gastos:['gastos'],transferencias:['transferencias'],hechosFinancieros:['hechosFinancieros']};
+    var dependencias={productos:['productos'],clientes:['clientes'],ventas:['ventas'],ganancia:['ventas'],reposicion:['productos'],eventos:['ventas'],liquidaciones:['liquidaciones'],perchas:['perchas'],movimientos:['movimientos'],promotoras:['promotoras'],gastos:['gastos'],transferencias:['transferencias'],hechosFinancieros:['hechosFinancieros']};
     var incompleta=(dependencias[vista]||[]).some(function(k){return datos.cobertura&&datos.cobertura[k]===false;});
     $("cierre").innerHTML = incompleta ? '<strong>Información pendiente de actualizar. Una lista incompleta no significa que no haya registros.</strong>' : v.cierre(filas);
     if (typeof Tabulator === "undefined") { degradarSinTabulator(v, filas); return; }
@@ -1852,7 +2030,7 @@
     tablaDe = vista;
     tabla = new Tabulator("#tabla", {
       data: filas,
-      columns: v.cols,
+      columns: columnasParaTabulator(v),
       layout: "fitColumns",   /* llena el ancho: es una pantalla grande, hay que usarla */
       height: "58vh",
       renderVertical: "virtual",     /* miles de filas sin matar un teléfono viejo */
@@ -3459,6 +3637,10 @@
 (function () {
   "use strict";
   var PARES = [
+    ["What did it earn me?", "¿Cuánto me dejó?"], ["Group by", "Agrupar por"],
+    ["Margin %", "Margen %"], ["Sales without cost", "Ventas sin costo"],
+    // D2 strings are precisely the ES/EN pairs approved by JFC on 17-Nov.
+    ["Today","Hoy"],["Yesterday","Ayer"],["7 days","7 días"],["This month","Este mes"],["Last month","Mes anterior"],["Pick dates","Elegir fechas"],
     // Puerta y politica de datos
     ["Dashboard", "Tablero de control"],
     ["Dashboard · friendly-123", "Tablero de control · friendly-123"],

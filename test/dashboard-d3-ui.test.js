@@ -1,0 +1,36 @@
+const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const src=fs.readFileSync(path.join(__dirname,'../src/dashboard/dashboard-main.js'),'utf8');
+const finance=fs.readFileSync(path.join(__dirname,'../docs/core/finance-report.js'),'utf8');
+test('D3 new read-only Today tab mounts six approved groups and uses only existing finance worker',()=>{
+  assert.match(src,/VISTAS\.ganancia\s*=\s*VISTA_GANANCIA/);
+  assert.match(src,/tablas:\s*\["ventas",\s*"ganancia"/);
+  assert.match(src,/var AGRUPAR_D3/);
+  assert.match(src,/\["product",\s*"Product"\]/);
+  assert.match(src,/\["shelf",\s*"Shelf"\]/);
+  assert.match(src,/\["associate",\s*"Associate"\]/);
+  assert.match(src,/\["customer",\s*"Customer"\]/);
+  assert.match(src,/\["payment",\s*"Payment method"\]/);
+  assert.match(src,/\["event",\s*"Event"\]/);
+  assert.doesNotMatch(src,/\["weekday",\s*"Weekday"\]|\["hour",\s*"Hour"\]|\["channel",\s*"Channel"\]/);
+  assert.match(src,/new Worker\(["']\.\/finance-report-worker\.js["']\)/);
+  assert.match(src,/earningsBy:/);
+  assert.match(src,/periodoRapido\(\)/);
+  assert.match(src,/function montarAgruparPor\(/);
+  assert.match(src,/function pedirD3\(/);
+  assert.ok(src.includes('["What did it earn me?", "¿Cuánto me dejó?"]'),'exactly the JFC-approved bilingual view name');
+  assert.match(src,/\["Group by",\s*"Agrupar por"\]/);
+  assert.match(src,/\["Margin %",\s*"Margen %"\]/);
+  assert.match(src,/\["Sales without cost",\s*"Ventas sin costo"\]/);
+  assert.match(src,/ganancia:\s*\['ventas'\]/);
+});
+test('D3 stale worker response cannot overwrite newer group or new photo',()=>{
+  const source=src.slice(src.indexOf('  var AGRUPAR_D3'),src.indexOf('  function mostrar()',src.indexOf('  var AGRUPAR_D3')));
+  assert.ok(source.length>250);
+  assert.match(source,/\+\+d3\.revision/);
+  assert.match(source,/if\s*\(revision\s*!==\s*d3\.revision\)\s*return/);
+  assert.match(source,/d3\.worker\.terminate\(\)/);
+  assert.match(source,/d3\.datos\s*===\s*datos/);
+  assert.match(source,/d3\.clave\s*===\s*clave/);
+  assert.match(source,/rows\.slice\(1\)/,'first row is total, group rows are rendered');
+  assert.match(source,/aDolaresD3\(row\.profitCents\)/,'unknown profit must remain null');
+});

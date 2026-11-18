@@ -1,0 +1,50 @@
+name: D2 official dashboard build and SHA manifest (branch QA only, no deploy)
+on:
+  push:
+    branches: [feat/20261117-dashboard-d2-quick-periods]
+    paths:
+      - src/dashboard/dashboard-main.js
+      - docs/core/report-period.js
+      - docs/dashboard-finance.js
+      - test/dashboard-d2-periodos-rapidos.test.js
+      - .github/workflows/p0-dashboard-d2-official-build.yml
+permissions:
+  contents: write
+jobs:
+  build-d2-only:
+    if: github.repository == 'jfcarpiopuntocom/friendly-123' && github.ref == 'refs/heads/feat/20261117-dashboard-d2-quick-periods'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/20261117-dashboard-d2-quick-periods
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned existing dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Tests and ONLY official source build and manifest generator
+        run: |
+          set -euo pipefail
+          node --test test/dashboard-d2-periodos-rapidos.test.js
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/sw.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+          node --test test/p0-dashboard-d1-column-totals.test.cjs
+      - name: Commit assets ONLY to isolated D2 branch, not LIVE master
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "feat/20261117-dashboard-d2-quick-periods"
+          git add docs/dashboard-main.min.js docs/dashboard-main.min.css docs/version-manifest.json
+          if git diff --cached --quiet; then
+            echo "Official D2 generated artifacts already current"
+          else
+            git -c user.name='friendly123-qa-build[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'build(D2): official dashboard assets and SHA manifest, QA branch only'
+            git push origin HEAD:refs/heads/feat/20261117-dashboard-d2-quick-periods
+          fi
