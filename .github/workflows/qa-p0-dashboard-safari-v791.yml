@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
       - name: Real dashboard login handler Owner/Admin checks
-        run: node --test test/p0-dashboard-safari-central-owner-parity.test.cjs test/p0-dashboard-safari-owner-fallback.test.cjs test/p0-dashboard-login-peer-timeout.test.cjs
+        run: node --test test/p0-dashboard-safari-central-worker-contract.test.cjs test/p0-dashboard-safari-central-owner-parity.test.cjs test/p0-dashboard-safari-owner-fallback.test.cjs test/p0-dashboard-login-peer-timeout.test.cjs
       - name: Official build/release seal parity
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
