@@ -2710,9 +2710,68 @@
     return "verde";
   }
 
+  /* Owner and Admin are different grants. A cached list of Admin PINs can be
+     stale; the current local notebook must still contain an active Admin. */
+  function verificarAdminVigente(pin, cuaderno) {
+    try {
+      return !!(cuaderno && Array.isArray(cuaderno.usuarios) && cuaderno.usuarios.some(function (u) {
+        return u && !u.borrado && u.activo !== false && u.rol === "admin" &&
+          String(u.pin || "") === String(pin);
+      }));
+    } catch (_) { return false; }
+  }
+
+  /* Parity with auth-ui.js: the commercial app validates Owner against the
+     canonical license Worker. Safari dashboard must never mistake an old local
+     Owner hash for current authority. This call is strictly read/verify:
+     pinTs 0 prevents authentication from proposing a new Owner revision. */
+  async function verificarOwnerCentralDashboard(pin, codigo) {
+    try {
+      var own = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+      var lic = normalizarCodigo(own.licenseCode || "");
+      var iid = String(own.instanceId || "");
+      if (!lic || lic !== codigo || codigoLocalActivo() !== lic ||
+          !/^[A-Za-z0-9_-]{6,120}$/.test(iid)) return "unavailable";
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return "unavailable";
+      var controller = new AbortController();
+      var timer = setTimeout(function () { controller.abort(); }, 2400);
+      try {
+        var res = await fetch("https://friendly123-licencias.jfcarpio.workers.dev/pin/verify", {
+          method: "POST", mode: "cors", cache: "no-store", credentials: "omit",
+          signal: controller.signal, headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ licenseCode: lic, instanceId: iid, pin: String(pin), pinTs: 0 })
+        });
+        if (res.status === 200) {
+          var data = await res.json();
+          if (data && data.ok === true && Number.isSafeInteger(data.revision) && data.revision > 0) {
+            /* Adopt the *centrally verified* Owner locally, exactly as auth-ui
+               does. No guessed PIN, no changes to the server's PIN revision. */
+            try {
+              if (window.OCSecure && window.OCSecure.adoptarPinOwnerCentralVerificado)
+                await window.OCSecure.adoptarPinOwnerCentralVerificado(String(pin), data.revision, lic);
+            } catch (_) {}
+            try { localStorage.setItem("f123_pin_central_seen:" + lic,
+              JSON.stringify({ revision: data.revision, at: Date.now() })); } catch (_) {}
+            return "owner";
+          }
+          return "unavailable";
+        }
+        if (res.status === 401) return "wrong";
+        if (res.status === 429) return "locked";
+        if (res.status === 404) {
+          var body = null; try { body = await res.json(); } catch (_) {}
+          return body && body.reason === "license-instance-mismatch"
+            ? "unavailable-identity" : "unconfigured";
+        }
+        if (res.status === 409) return "unconfigured";
+        return "unavailable";
+      } finally { clearTimeout(timer); }
+    } catch (_) { return "unavailable"; }
+  }
+
   /* El PIN en modo local se comprueba AQUI mismo, contra el secreto cifrado de
      este dispositivo. Sin relay y sin esperar a nadie. */
-  async function pinLocalOk(pin) {
+  async function pinLocalOk(pin, cuaderno) {
     try {
       /* GUARD: crypto-store se carga con la pagina, pero si por lo que sea
          todavia no esta, se espera un poco antes de rendirse. Devolver null a
@@ -2725,11 +2784,7 @@
          f123_admins_pins que publica la app), asi que antes el verificador cripto lo rechazaba. Ahora la lista de
          admins se mira ANTES e independiente del rol cripto. El bloqueo por intentos sigue mandando: un PIN
          equivocado cae mas abajo en el verificador y suma fallo; el PIN correcto de admin no suma nada. */
-      var _esAdminPin = false;
-      try {
-        var _adm = JSON.parse(localStorage.getItem("f123_admins_pins") || "[]");
-        _esAdminPin = Array.isArray(_adm) && _adm.indexOf(String(pin)) >= 0;
-      } catch (_) {}
+      var _esAdminPin = verificarAdminVigente(pin, cuaderno);
       if (_esAdminPin) {
         try {
           if (window.OCSecure && window.OCSecure.segundosBloqueo) {
@@ -2762,8 +2817,7 @@
          Un empleado normal NO entra. */
       if (rol === "empleado") {
         try {
-          var _admins = JSON.parse(localStorage.getItem("f123_admins_pins") || "[]");
-          if (Array.isArray(_admins) && _admins.indexOf(String(pin)) >= 0) return true;
+          if (verificarAdminVigente(pin, cuaderno)) return true;
         } catch (_) {}
       }
       return false;
@@ -3291,7 +3345,35 @@
        pedirle a nadie: ni relay, ni esperar, ni fallar porque otro no contesto. */
     if (local) {
       $("msg").textContent = "Comprobando tu PIN…";
-      var vale = await pinLocalOk(pin);
+      /* Never bypass an active local lockout, even with a central approval. */
+      var localLock = 0;
+      try {
+        if (window.OCSecure && window.OCSecure.segundosBloqueo)
+          localLock = Number(window.OCSecure.segundosBloqueo("login")) || 0;
+      } catch (_) {}
+      if (localLock > 0) {
+        $("entrar").disabled = false;
+        $("msg").style.color = "#A8123A";
+        $("msg").textContent = "Demasiados intentos fallidos. Espera " + localLock + " s y vuelve a escribir tu PIN.";
+        $("pin").value = "";
+        return;
+      }
+      /* An active Admin is authoritative from this exact notebook roster.
+         Owner must instead be checked against the central license revision. */
+      var adminVigente = verificarAdminVigente(pin, local);
+      var central = adminVigente ? "admin" : await verificarOwnerCentralDashboard(pin, c);
+      if (central === "wrong" || central === "locked" || central === "unavailable-identity") {
+        $("entrar").disabled = false;
+        $("msg").style.color = "#A8123A";
+        $("msg").textContent = central === "locked"
+          ? "Demasiados intentos Owner. Espera antes de volver a ingresar."
+          : central === "unavailable-identity"
+          ? "La licencia y el aparato no coinciden con el registro del Owner."
+          : "Ese PIN no corresponde al Owner vigente ni a un Admin activo.";
+        $("pin").value = "";
+        return;
+      }
+      var vale = (central === "owner" || central === "admin") ? true : await pinLocalOk(pin, local);
       if (vale && typeof vale === "object" && vale.bloqueado) {
         $("entrar").disabled = false;
         $("msg").style.color = "#A8123A";
