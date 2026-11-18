@@ -1,0 +1,25 @@
+name: PORT 2.0 QA issuer readiness · read-only public signal
+on:
+  pull_request:
+    paths:
+      - scripts/qa-port2-readiness.mjs
+      - test/qa-port2-readiness.test.mjs
+      - .github/workflows/qa-port2-readiness.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test all fail-closed states with synthetic responses only
+        run: node --test test/qa-port2-readiness.test.mjs
+      - name: Observe public ticket, Worker and Pages with GET only
+        run: node scripts/qa-port2-readiness.mjs
