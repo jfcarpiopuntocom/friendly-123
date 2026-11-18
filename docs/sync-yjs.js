@@ -214,7 +214,7 @@
   }
   // Progressive per-license transport rollout; fail closed if policy cannot be loaded.
   async function _politicaRollout(codigo) {
-    var off = {outboxV2:false,gzipWrite:false,stage:"disabled"};
+    var off = {outboxV2:false,gzipWrite:false,yparty:false,stage:"disabled"};
     try {
       var bytes = new TextEncoder().encode("friendly123-rollout-v1:" + codigo);
       var hash = await crypto.subtle.digest("SHA-256",bytes);
@@ -239,7 +239,9 @@
         /^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(entry.censusDate || "") &&
         entry.gzipApproved === true;
       return {outboxV2:entry.outboxV2 === true,
-        gzipWrite:entry.gzipWrite === true && fullCensus,stage:cfg.stage};
+        gzipWrite:entry.gzipWrite === true && fullCensus,
+        // Arquitectura 2.0: solo por entrada de licencia; la via sintetica stage:"all" no la trae.
+        yparty:entry.yparty === true,stage:cfg.stage};
     } catch (_) {return off;}
   }
   function _compactarYjsSinCambiarCausalidad(Y, full) {
@@ -2222,8 +2224,49 @@
           canal.ws && canal.ws.readyState === 1 && _currentPullState &&
           !_currentPullState.enCurso) pedirPagina(canal.ws, _currentPullState);
     });
+    // Metadata only (no ciphertext, keys or ops): the pilot returns only over an empty legacy queue.
+    canal.diagnosticoOutboxLectura = function () {
+      return { total: (_outbox.pending || []).length, sinGuardar: _unsaved.length };
+    };
     canal.conectar = conectar;
     return canal;
+  }
+
+  function origenCatalogoRemoto(origin) {
+    return origin === "red" || origin === "bc" || !!(API.canal && API.canal.proveedor && origin === API.canal.proveedor) ||
+      !!(API.canalPiloto && API.canalPiloto.proveedor && origin === API.canalPiloto.proveedor);
+  }
+
+  // Segunda llave (por aparato) del piloto 2.0; la primera es la politica por licencia.
+  async function cargarPiloto(codigo) {
+    var sala;
+    try {
+      if (localStorage.getItem("f123_yparty_qa") !== "1") return null;
+      sala = localStorage.getItem("f123_yparty_qa_sala");
+    } catch (_) { return null; }
+    if (!/^[a-f0-9]{32}$/.test(sala || "")) return null;
+    var hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("f123-yparty-v1:" + codigo));
+    if (sala !== Array.from(new Uint8Array(hash).slice(0, 16), function (b) {
+      return b.toString(16).padStart(2, "0");
+    }).join("")) return null;
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = "./vendor/yparty-piloto.min.js";
+      function terminar(error, proveedor) {
+        clearTimeout(plazo);
+        s.onload = s.onerror = null;
+        if (error) { s.remove(); reject(error); }
+        else resolve(proveedor);
+      }
+      var plazo = setTimeout(function () { terminar(new Error("Se agotó el plazo de carga del piloto")); }, 8000);
+      s.onload = function () {
+        try {
+          terminar(null, window.F123YPartyPilot(sala, codigo));
+        } catch (error) { terminar(error); }
+      };
+      s.onerror = function () { terminar(new Error("No se pudo cargar el proveedor del piloto")); };
+      document.head.appendChild(s);
+    });
   }
 
   // Carga perezosa del bundle vendorizado (solo si el flag está encendido, para no
@@ -2501,6 +2544,16 @@
     // Bind the ops bridge to the exact licence that initialized this Y.Doc.
     API.codigoCuaderno = codigo;
     API.rollout = await rolloutPromise;
+    var piloto = null;
+    if (API.rollout && API.rollout.yparty === true) {
+      try { piloto = await cargarPiloto(codigo); }
+      catch (e) { log("piloto indisponible, relay habitual", e && e.message); }
+    }
+    if (piloto) {
+      // Photo BYTES go to the authenticated SHA store; the catalog carries only {sha,bytes,tipo}.
+      API.fotosRefs = API.doc.getMap("fotos_refs");
+      API.fotoSha = typeof piloto.fotoSha === "function" ? piloto.fotoSha() : null;
+    }
 
     // Persistencia local: sobrevive recargas y sirve offline (piso del piso).
     // Guardamos la referencia: al terminar de cargar de IndexedDB ("synced")
@@ -2516,12 +2569,68 @@
 
     // Cada cambio local -> update binario -> (a) pestañas por BroadcastChannel,
     // (b) otros dispositivos por el relay cifrado. origin !== "bc"/"red" evita eco.
-    API.canal = crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
+    var canalesPiloto, canalesRespaldo, timerRetorno, retornoEnCurso = false, esperaRetorno = 60000;
+    // ESCRITURA SOMBRA (2.0): con el piloto, el canal legado del catalogo vive SIEMPRE
+    // y recibe cada update local, para que apagar el interruptor no pierda nada.
+    API.canalSombra = piloto ? crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb) : null;
+    function usarRelayHabitual() {
+      if (API.canal !== canalesPiloto[0]) return;
+      canalesPiloto.forEach(function (c) { c.pausar(); });
+      // Reuse the shadow channel: never two legacy catalog writers, never a second money writer.
+      if (!canalesRespaldo) canalesRespaldo = [API.canalSombra, API.opsCanal];
+      API.canal = canalesRespaldo[0];
+      API.opsCanal = canalesRespaldo[1];
+      if (!document.hidden) canalesRespaldo[0].reanudar();
+      esperaRetorno = 60000;
+      programarRetorno();
+    }
+    function programarRetorno() {
+      if (!canalesRespaldo || API.canal !== canalesRespaldo[0] || document.hidden || timerRetorno || retornoEnCurso) return;
+      timerRetorno = setTimeout(volverAlPiloto, esperaRetorno);
+    }
+    function respaldoListo() {
+      return canalesRespaldo.every(function (c) {
+        if (c.recuperando || !c.ws || c.ws.readyState !== 1 || c.ws.peerOnly) return false;
+        var cola = c.diagnosticoOutboxLectura();
+        return !cola.total && !cola.sinGuardar;
+      });
+    }
+    async function volverAlPiloto() {
+      timerRetorno = null;
+      if (document.hidden || API.canal !== canalesRespaldo[0]) return;
+      retornoEnCurso = true;
+      try {
+        if (!respaldoListo()) return;
+        var pruebas = await Promise.all(canalesPiloto.map(function (c) {
+          c.conectar();
+          return c.certificar();
+        }));
+        if (document.hidden || !respaldoListo() || !pruebas.every(function (prueba) { return prueba && prueba(); })) return;
+        API.canal = canalesPiloto[0]; // the shadow legacy channel stays connected
+        API.opsCanal = canalesRespaldo[1];
+      } catch (e) { log("retorno del piloto", e && e.message); }
+      finally {
+        retornoEnCurso = false;
+        if (API.canal === canalesRespaldo[0]) {
+          canalesPiloto.forEach(function (c) { c.pausar(); });
+          esperaRetorno = Math.min(esperaRetorno * 2, 900000);
+          programarRetorno();
+        }
+      }
+    }
+    API.canal = piloto ? piloto.canal(API.doc, "cat", API.idb, function () {
+      if (API._store) API._store.aplicar();
+    }, usarRelayHabitual) : crearCanal(Y, API.doc, "-y", "catalogo", true, null, API.idb); // ckpt: catálogo cabe
     API.doc.on("update", function (update, origin) {
+      if (API.canal.proveedor && origin === API.canal.proveedor) {
+        try { if (API.bc) API.bc.postMessage(update); } catch (_) {}
+        return;
+      }
       // IndexedDB hydration replays existing history; it is not a new change to publish.
       if (origin === "bc" || origin === "red" || (API.idb && origin === API.idb)) return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.canal.enviarUpdate(update);
+      if (API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);
     });
 
     // B3 (JFC 2026-09-10): documento SEPARADO para los BYTES de las fotos. NO van
@@ -2532,6 +2641,39 @@
     // sin nube; la nube durable del dueño (Google Drive) es una fase posterior.
     API.fotosDoc = new Y.Doc();
     API.fotosMap = API.fotosDoc.getMap("blobs");
+    // On-demand cold-device recovery: keep OCFotos' existing IDB lookup first.
+    // Only a verified signed catalog reference may trigger HTTP photo download.
+    if (API.fotoSha && window.OCFotos?.leerPorHash && !window.OCFotos.__f123PhotoReadOriginal) {
+      var fotosShaStore = window.OCFotos;
+      var leerFotoLocal = fotosShaStore.leerPorHash.bind(fotosShaStore);
+      fotosShaStore.__f123PhotoReadOriginal = leerFotoLocal;
+      var lecturasRemotas = 0;
+      fotosShaStore.leerPorHash = async function (hash) {
+        var local = await leerFotoLocal(hash);
+        if (local) return local;
+        var docOrigen = API.doc, refs = API.fotosRefs, bridge = API.fotoSha;
+        var metadata = refs?.get(hash);
+        if (!bridge || !metadata || metadata.sha !== hash ||
+            !/^[a-f0-9]{64}$/.test(hash || "") ||
+            !Number.isSafeInteger(metadata.bytes) || metadata.bytes < 1 ||
+            metadata.bytes > 6*1024*1024 ||
+            !["image/jpeg","image/png","image/webp","image/gif"].includes(metadata.tipo) ||
+            lecturasRemotas >= 16) return null;
+        lecturasRemotas++;
+        try {
+          var dataUrl = await bridge.get(hash);
+          if (API.doc !== docOrigen || API.fotosRefs !== refs ||
+              API.fotoSha !== bridge || refs.get(hash) !== metadata) return null;
+          if (await fotosShaStore.hashDeDataUrl(dataUrl) !== hash) return null;
+          if (!await fotosShaStore.guardarPorHash(hash, dataUrl)) return dataUrl;
+          try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
+          return dataUrl;
+        } catch (_) { return null; } // the legacy encrypted photo relay remains the fallback
+      };
+    }
+    if (API.fotosRefs?.observe) API.fotosRefs.observe(function () {
+      try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
+    });
     try { API.fotosIdb = new window.IndexeddbPersistence("f123-yjs-fotos-" + API.roomId, API.fotosDoc); } catch (_) {}
     try {
       API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
@@ -2560,6 +2702,11 @@
       API.opsBc.onmessage = function (ev) { try { Y.applyUpdate(API.opsDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
     } catch (_) {}
     API.opsCanal = crearCanal(Y, API.opsDoc, "-ops", "ops", true, null, API.opsIdb); // ckpt: ops es pequeño
+    // Money stays on the proven encrypted relay, with or without the 2.0 pilot.
+    if (piloto) {
+      canalesPiloto = [API.canal];
+      API.canalPiloto = API.canal;
+    }
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -2576,10 +2723,27 @@
       [API.canal, API.fotosCanal, API.opsCanal].forEach(function (c) {
         if (c) { if (activo) c.reanudar(); else c.pausar(); }
       });
+      if (!API.canalPiloto) return; // OFF: exactly the v0.7.83 visibility path
+      if (API.canalSombra && API.canalSombra !== API.canal) { if (activo) API.canalSombra.reanudar(); else API.canalSombra.pausar(); }
+      if (activo) programarRetorno();
+      else {
+        clearTimeout(timerRetorno);
+        timerRetorno = null;
+        if (retornoEnCurso) canalesPiloto.forEach(function (c) { c.pausar(); });
+      }
     }
     window.addEventListener("oc-tab-session-changed", sincronizarVisibilidad);
     document.addEventListener("visibilitychange", sincronizarVisibilidad);
+    // Safari BFCache (pilot only): a retained WebSocket is not proof of a live connection.
+    if (API.canalPiloto) window.addEventListener("pageshow", function (evento) {
+      if (!evento || !evento.persisted || document.hidden) return;
+      [API.canal, API.fotosCanal, API.opsCanal, API.canalSombra !== API.canal ? API.canalSombra : null].forEach(function (c) {
+        if (c) c.pausar();
+      });
+      sincronizarVisibilidad();
+    });
     API.canal.conectar();      // catálogo + _meta (nombre, pinsRol) — sala "-y"
+    if (API.canalSombra) API.canalSombra.conectar(); // escritura sombra al legado (solo con piloto)
     API.fotosCanal.conectar(); // bytes de las fotos — sala "-fotos"
     API.opsCanal.conectar();   // ventas/ops — sala "-ops"
     // The channels were just connected. Re-invoking reanudar() on a visible
@@ -2668,7 +2832,7 @@
       ledger.todos().then(function (lista) { lista.forEach(function (h) { conocidos[h.id] = true; publicar(h); }); importar(); })
         .catch(function (e) { log("hechos locales:", e && e.message); });
       API.doc.on("update", function (_update, origin) {
-        if (origin === "red" || origin === "bc" || origin === "idb") importar();
+        if (origenCatalogoRemoto(origin) || origin === "idb") importar();
       });
       if (API.idb && API.idb.once) API.idb.once("synced", importar);
     }
@@ -2852,6 +3016,7 @@
     if (_fotosSembrando || _fotosReintentoTimer) { _fotosSembrarDeNuevo = true; return; }
     // A photo room has its own seeded flags; never reuse an old shop's ACKs.
     var docFotoInicial = API.fotosDoc, mapaFotoInicial = API.fotosMap, canalFotoInicial = API.fotosCanal;
+    var docCatInicial = API.doc, bridgeFotoInicial = API.fotoSha;
     if (_fotosSembradasDoc !== docFotoInicial) { _fotosSembradas = {}; _fotosSembradasDoc = docFotoInicial; _fotosReintentosLectura = 0; }
     var fotoSinLeer = false; // one retry budget per photo-room, never per orphan blob
     _fotosSembrando = true;
@@ -2933,6 +3098,19 @@
           // A delayed IndexedDB read belongs to its original authenticated photo room.
           if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
           if (capaAhora !== capaFoto) { _fotosSembrarDeNuevo = true; break; }
+          if (bridgeFotoInicial && API.fotosRefs && docCatInicial === API.doc) {
+            var refPrevia = API.fotosRefs.get(hash);
+            if (!(refPrevia?.sha === hash && Number.isSafeInteger(refPrevia.bytes) && refPrevia.bytes > 0)) try {
+              // The DO ACK is durable: only then publish a tiny Yjs reference.
+              var refFoto = await _esperarFoto(bridgeFotoInicial.put(hash, dataUrl));
+              if (API.doc !== docCatInicial || API.fotoSha !== bridgeFotoInicial ||
+                  API.fotosDoc !== docFotoInicial || API.fotosCanal !== canalFotoInicial) break;
+              if (refFoto && refFoto.sha === hash && Number.isSafeInteger(refFoto.bytes) &&
+                  refFoto.bytes > 0 && typeof refFoto.tipo === "string")
+                API.fotosRefs.set(hash, {sha:refFoto.sha, bytes:refFoto.bytes, tipo:refFoto.tipo});
+            } catch (_) { /* signed HTTP unavailable */ }
+            // Shadow write: the bytes ALSO go to the legacy encrypted photo relay below.
+          }
           var d = new window.Y.Doc();
           try {
             d.clientID = parseInt(seedHex.slice(0, 13), 16) + 4294967296;
@@ -3301,8 +3479,8 @@
         /* Fail closed (JFC 2026-10-27): el unico origen de escritura LOCAL de esta
            pestana es "seed" (sembrar()); se ignora. Cualquier origen que no sea
            "seed"/"red"/"bc" (null, idb, otro) fuerza el merge completo. */
-        if (txn && txn.origin !== "seed" && txn.origin !== "red" && txn.origin !== "bc") { _otroRemoto = true; return; }
-        if (!txn || (txn.origin !== "red" && txn.origin !== "bc")) return;
+        if (txn && txn.origin !== "seed" && !origenCatalogoRemoto(txn.origin)) { _otroRemoto = true; return; }
+        if (!txn || !origenCatalogoRemoto(txn.origin)) return;
         if (col !== "productos" && col !== "actividad") { _otroRemoto = true; return; }
         event.keysChanged.forEach(function (id) {
           if (!API.mapas[col].has(String(id))) { _otroRemoto = true; return; }
@@ -3316,7 +3494,7 @@
         // A stock-only witness changes just one product's read model.
         // An unknown origin, deletion or missing product must instead run the
         // proven full merge; never silently ignore out-of-order history.
-        if (!txn || (txn.origin !== "seed" && txn.origin !== "red" && txn.origin !== "bc")) {
+        if (!txn || (txn.origin !== "seed" && !origenCatalogoRemoto(txn.origin))) {
           _otroRemoto = true; return;
         }
         if (txn.origin === "seed") return;
@@ -3860,7 +4038,7 @@
     // Convergencia remota (relay) o de otra pestaña (BroadcastChannel) -> aplicar.
     // Los updates propios de sembrar() llevan origin "seed" y se ignoran aquí.
     API.doc.on("update", function (update, origin) {
-      if (origin !== "red" && origin !== "bc") {
+      if (!origenCatalogoRemoto(origin)) {
         // (JFC 2026-10-27) origen propio = "seed"; cualquier otro desconocido fuerza merge completo.
         if (origin !== "seed") _otroRemoto = true;
         return;

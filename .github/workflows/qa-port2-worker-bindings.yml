@@ -1,0 +1,53 @@
+name: PORT 2.0 isolated QA Worker bindings (dry-run only)
+on:
+  pull_request:
+    branches:
+      - claude/port-2-0-interruptor
+      - master
+    paths:
+      - cloudflare-yparty-worker/wrangler.jsonc
+      - cloudflare-yparty-worker/src/**
+      - cloudflare-yparty-worker/package*.json
+      - .github/workflows/qa-port2-worker-bindings.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  dry-run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: cloudflare-yparty-worker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: cloudflare-yparty-worker/package-lock.json
+      - name: Verify QA isolation and OFF-by-default authority before building
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const p=JSON.parse(fs.readFileSync('wrangler.jsonc','utf8'));
+          assert.equal(p.name,'friendly123-yparty-port2-canary-qa');
+          assert.notEqual(p.name,'friendly-123');
+          assert.notEqual(p.name,'friendly123-yparty-qa-20261114');
+          assert.equal(p.main,'src/index.js');
+          assert.deepEqual(p.durable_objects.bindings,[{name:'Tienda',class_name:'Tienda'}]);
+          assert.ok(p.migrations.some(m=>m.new_sqlite_classes?.includes('Tienda')));
+          assert.equal(p.services.find(x=>x.binding==='WS_AUTHORITY')?.service,'friendly123-licencias');
+          assert.ok(p.kv_namespaces.some(x=>x.binding==='LICENCIAS'));
+          for(const k of ['WS_AUTHORITY_QA','WS_SEPARATE_ROOMS_QA','WS_TYPED_COMMANDS_QA','WS_BUSINESS_EXECUTOR_QA','WS_PHOTO_BLOBS_QA','WS_OPEN_EXISTING_QA'])assert.equal(p.vars?.[k],'0',k+' must be OFF');
+          for(const k of ['SALA_PILOTO','WS_SERVICE_KEY','PIN_PEPPER','MASTER_KEY','F123_CANARIO_LICENCIA','F123_CANARIO_PIN'])assert.equal(Object.hasOwn(p.vars||{},k),false,k+' cannot be in source');
+          console.log('QA independent namespace, SQLite, issuer binding and all feature gates OFF: PASS');
+          JS
+      - name: Install locked Worker dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Compile actual YParty Worker and bindings, no credentials, NO DEPLOY
+        run: npx wrangler deploy --dry-run --outdir "${RUNNER_TEMP}/port2-worker-dryrun"

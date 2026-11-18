@@ -1,0 +1,33 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "friendly123-yparty-port2-canary-qa",
+  "main": "src/index.js",
+  "compatibility_date": "2026-11-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "send_metrics": false,
+  "durable_objects": {
+    "bindings": [
+      { "name": "Tienda", "class_name": "Tienda" }
+    ]
+  },
+  "migrations": [
+    { "tag": "port2-canary-v1", "new_sqlite_classes": ["Tienda"] }
+  ],
+  "services": [
+    { "binding": "WS_AUTHORITY", "service": "friendly123-licencias" }
+  ],
+  "kv_namespaces": [
+    { "binding": "LICENCIAS", "id": "f1599c69c4174cc2b38dd125c18ee3df" }
+  ],
+  "vars": {
+    "WS_AUTHORITY_QA": "0",
+    "WS_SEPARATE_ROOMS_QA": "0",
+    "WS_TYPED_COMMANDS_QA": "0",
+    "WS_BUSINESS_EXECUTOR_QA": "0",
+    "WS_PHOTO_BLOBS_QA": "0",
+    "WS_OPEN_EXISTING_QA": "0"
+  },
+  "observability": { "enabled": false }
+}
