@@ -11,6 +11,11 @@ window.F123YPartyPilot = function (sala, licencia) {
     // HTTP-only transport for immutable SHA photo bytes. Do not give this
     // capability to an authorized Yjs WebSocket provider.
     fotoSha() {
+      // UltraReview P0: existing SQL photo bridge uses authenticated HTTP but
+      // the bytes are not E2E encrypted. Never enable under the dormant pilot
+      // until a separately verified sealed-photo protocol is implemented.
+      return null;
+      // Historical bridge retained below for future E2E redesign.
       if (!/^[a-f0-9]{32}$/.test(sala || '')) return null;
       let owned;
       try { owned=JSON.parse(localStorage.getItem('f123_owned')||'null'); } catch (_) {}
