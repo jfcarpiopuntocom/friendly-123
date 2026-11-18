@@ -45,7 +45,7 @@
     "./vendor/supabase-relay.min.js": "sha256-573e2953d4f7ac091e58adcc8432ea7dfe91d58bd64d8738777ead7521d9181d",
     "./firebase-relay.js": "sha256-902f672ae8dbe843a67c07800940d05b293472b25a70e2400d24e459b08c8815",
     "./relay-selector.js": "sha256-d3a822f0ed06e9aba7d58aeec23342cc7dba38ab64801276f09d60c056f0f011",
-    "./dashboard-broadcast.js": "sha256-ffc58f85c1d7175c03696bece98364fe6cbd42f8eebc4c58dbc120baff3acaa6",
+    "./dashboard-broadcast.js": "sha256-e535843d539192380041b5c537dd1a014e1f84f4ec9ec56c0eb797b1b31cbeb5",
     "./vendor/jspdf-4.2.1.umd.min.js": "sha256-5feb83f439480e06687f9e6f23a8a162b12157b9606aa6ffc70c7e961b7c6013",
     "./vendor/jspdf-autotable-5.0.9.min.js": "sha256-efe0106af8224d8480b94e83ceafe4a5f889b13e028f3bec6d33c0a64a3133f5",
     "./i18n.js": "sha256-5bde07db9862cad5dbc2d454e00509654fe5596f2578d1975b249d2c83a0001a",
