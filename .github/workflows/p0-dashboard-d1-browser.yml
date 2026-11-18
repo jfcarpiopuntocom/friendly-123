@@ -4,7 +4,7 @@ on:
     branches: [master]
     paths:
       - src/dashboard/dashboard-main.js
-      - test/p0-dashboard-d1-tabulator-browser.test.cjs
+      - test/p0-dashboard-d1-tabulator-native.browser.cjs
       - .github/workflows/p0-dashboard-d1-browser.yml
 permissions:
   contents: read
@@ -38,7 +38,7 @@ jobs:
           mkdir -p evidence/dashboard-d1-native
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git rev-parse HEAD | tee evidence/dashboard-d1-native/head.txt
-          node --test --test-concurrency=1 test/p0-dashboard-d1-tabulator-browser.test.cjs 2>&1 | tee evidence/dashboard-d1-native/tap.log
+          node --test --test-concurrency=1 test/p0-dashboard-d1-tabulator-native.browser.cjs 2>&1 | tee evidence/dashboard-d1-native/tap.log
       - name: Keep TAP + SHA even if RED
         if: always()
         uses: actions/upload-artifact@v4
