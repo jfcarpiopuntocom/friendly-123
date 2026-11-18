@@ -10,6 +10,7 @@ on:
       - test/p0-belen-dashboard-hechos-readonly.test.cjs
       - test/p0-belen-dashboard-hechos-browser.test.cjs
       - test/p0-belen-dashboard-hechos-chain.test.cjs
+      - test/p0-belen-hechos-chain-parity.test.cjs
       - docs/core/hechos-chain-readonly.js
       - .github/workflows/p0-dashboard-d1-qa.yml
   workflow_dispatch:
@@ -35,7 +36,7 @@ jobs:
           mkdir -p evidence/dashboard-d1
           git rev-parse HEAD | tee evidence/dashboard-d1/head.txt
           node --check src/dashboard/dashboard-main.js
-          node --test test/p0-dashboard-d1-column-totals.test.cjs test/p0-belen-dashboard-hechos-readonly.test.cjs test/p0-belen-dashboard-hechos-chain.test.cjs 2>&1 | tee evidence/dashboard-d1/tap.txt
+          node --test test/p0-dashboard-d1-column-totals.test.cjs test/p0-belen-dashboard-hechos-readonly.test.cjs test/p0-belen-dashboard-hechos-chain.test.cjs test/p0-belen-hechos-chain-parity.test.cjs 2>&1 | tee evidence/dashboard-d1/tap.txt
       - name: Keep exact TAP+SHA even when failing
         if: always()
         uses: actions/upload-artifact@v4
