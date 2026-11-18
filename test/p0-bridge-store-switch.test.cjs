@@ -128,21 +128,18 @@ function harness(){
 }
 const tick=()=>new Promise(r=>setImmediate(r));
 
-test('(d) Worker that never syncs => legacy relay at <=7500 ms, provider released, one fallback',async()=>{
+test('(d) fail-closed Owner catalog uses encrypted legacy immediately without contacting Worker',async()=>{
   const h=harness();h.canal.conectar();await tick();
-  const plazo=h.timers.filter(t=>!t.cancelled&&t.delay>0);
-  assert.equal(plazo.length,1);
-  assert.ok(plazo[0].delay<=7500,'deadline '+plazo[0].delay+' ms');
-  assert.deepEqual(h.fallbacks,[]);
-  plazo[0].fn();
-  assert.deepEqual(h.fallbacks,['relay']);
+  assert.deepEqual(h.fallbacks,['relay'],'existing encrypted relay remains usable');
+  assert.equal(h.providers.length,0,'never give sensitive Y.Doc to unsealed Worker');
   assert.equal(h.canal.proveedor,null);
-  assert.equal(h.providers[0].destroyed,true);
+  assert.equal(h.timers.some(t=>!t.cancelled&&t.delay>0),false,'no timeout waiting for an unsafe Worker');
 });
 
-test('(d) Worker rejecting authorization => legacy relay immediately, without waiting',async()=>{
+test('(d) repeated explicit reconnect is fail-closed; foreground cannot create competing catalog writer',async()=>{
   const h=harness();h.canal.conectar();await tick();
-  h.providers[0].emit('authorization-error');
-  assert.deepEqual(h.fallbacks,['relay']);
+  h.canal.conectar();await tick();
+  assert.equal(h.providers.length,0,'no unencrypted catalog connection after retry');
+  assert.deepEqual(h.fallbacks,['relay','relay'],'each explicit attempt is routed back to encrypted legacy');
   assert.equal(h.canal.proveedor,null);
 });
