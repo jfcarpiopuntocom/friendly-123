@@ -1,7 +1,7 @@
 name: P0 Belén Safari payment intent IndexedDB atomic QA only
 on:
   push:
-    branches: [feat/belen-safari-idb-credit-intents-20261118]
+    branches: [test/belen-safari-idb-red-20261118]
   pull_request:
     paths:
       - src/pago-intento-idb.mjs
