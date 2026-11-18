@@ -321,13 +321,23 @@
     var owned;
     try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) { return null; }
     if (!owned || !owned.licenseCode || !owned.instanceId) return null;
-    var licencia = String(owned.licenseCode).trim().toUpperCase();
+    // The active notebook, not f123_owned, owns the money. A joined device may
+    // retain a different commercial owner license in f123_owned.
+    var licenciaPropia = String(owned.licenseCode).trim().toUpperCase().replace(/\s+/g, "");
+    var tienda = global.OCTienda;
+    var licencia = tienda && typeof tienda.licenciaActual === "function"
+      ? String(tienda.licenciaActual() || "").trim().toUpperCase().replace(/\s+/g, "")
+      : (localStorage.getItem("f123_tienda_activa") ? "" : licenciaPropia);
     var instancia = String(owned.instanceId);
-    if (!licencia || !/^[A-Za-z0-9_-]{6,128}$/.test(instancia)) throw new Error("Identidad de tienda inválida; conserva el pago para revisar.");
+    if (!licencia || !/^[A-Za-z0-9_-]{6,128}$/.test(instancia))
+      throw new Error("Identidad del cuaderno activo no certificada; conserva el pago para revisar.");
     var rol = global.OCAuth && global.OCAuth.rolActual && global.OCAuth.rolActual();
     if (rol !== "dueno" && rol !== "admin" && rol !== "empleado")
       throw new Error("Sesión de tienda no autorizada; conserva el pago para revisar.");
-    return { identidad: licencia + "\u0000" + instancia, rol: rol };
+    return { identidad: licencia + "\u0000" + instancia, rol: rol,
+      // Legacy localStorage payment references were not scoped to a license;
+      // an old reference cannot prove which shop owns it after a join/switch.
+      legacyAmbiguo: licencia !== licenciaPropia };
   }
   async function _pagoIDB() {
     if (!global.indexedDB || !global.crypto || !global.crypto.subtle) return null;
@@ -338,6 +348,7 @@
     var namespace = Array.from(hash, function (b) { return b.toString(16).padStart(2, "0"); }).join("");
     var modulo = await import("./pago-intento-idb.mjs");
     return { tienda: activo.identidad, rol: activo.rol,
+      legacyAmbiguo: activo.legacyAmbiguo,
       store: modulo.createPaymentIntentStore({indexedDB: global.indexedDB, namespace: namespace}) };
   }
   function _pagoMismaSesion(ctx) {
@@ -362,6 +373,8 @@
     _pagoMismaSesion(ctx);
     var idb = await ctx.store.get({clientId: clienteId, kind: tipo});
     _pagoMismaSesion(ctx);
+    if (legacy && ctx.legacyAmbiguo)
+      throw new Error("Payment intent conflict: referencia histórica sin licencia verificable.");
     if (legacy && idb && !_pagoCompatibles(legacy, idb))
       throw new Error("Payment intent conflict: una referencia anterior necesita revisión antes de cobrar.");
     return idb && idb.abonoId ? idb : (legacy || idb);
@@ -373,6 +386,8 @@
       if (!ctx) { guardarReferenciaPago(clave, dato, cobroConfirmado); return null; }
       _pagoMismaSesion(ctx);
       var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
+      if (legacy && ctx.legacyAmbiguo)
+        throw new Error("Payment intent conflict: legacy reference belongs to an unknown notebook.");
       if (legacy && !_pagoCompatibles(legacy, dato))
         throw new Error("Payment intent conflict: referencia local diferente.");
       var existente = await ctx.store.get({clientId: clienteId, kind: tipo});
