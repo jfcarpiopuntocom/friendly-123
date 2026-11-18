@@ -39,7 +39,8 @@ test('RED: real index loads dashboard bus after vendor and before legacy sync; d
  const index=read('docs/index.html'),dash=read('docs/dashboard.html'),legacy=read('docs/sync-realtime.js'),vendor=read('docs/vendor/supabase-relay.min.js');
  assert.ok(index.includes('dashboard-broadcast.js')&&index.indexOf('dashboard-broadcast.js')<index.indexOf('sync-realtime.js'));
  assert.ok(dash.includes('dashboard-broadcast.js')&&dash.indexOf('dashboard-broadcast.js')<dash.indexOf('dashboard-main.min.js'));
- assert.ok(dash.includes('window.F123Relay = window.F123DashboardBroadcast'));
+ assert.ok(dash.includes('dashboard-broadcast.js\" data-f123-dashboard'),'dashboard-only transport selector is script attribute');
+ assert.ok(read('docs/dashboard-broadcast.js').includes('window.F123Relay = window.F123DashboardRealtime'),'client selector uses already-loaded ephemeral SDK');
  assert.ok(vendor.includes('window.F123DashboardRealtime=mn'),'SDK instance exported, no duplicate SDK');
  assert.ok(legacy.includes('dashboard-broadcast')&&legacy.includes('ev.relaySource === "dashboard-broadcast"'),'existing Owner PIN verification re-used by app');
 });
