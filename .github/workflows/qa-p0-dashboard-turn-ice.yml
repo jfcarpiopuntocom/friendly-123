@@ -29,3 +29,9 @@ jobs:
           node --check docs/peer-sync.js
           node --check cloudflare-sync-relay/worker.js
           node --test test/p0-dashboard-turn-ice-contract.test.mjs test/peer-signal-firefox-v653.test.mjs
+      - name: Generate expected manifest for candidate review (no commit, no deployment)
+        run: |
+          node scripts/gen-manifest.js
+          echo '=== MANIFEST DIFF START ==='
+          git diff -- docs/version-manifest.json
+          echo '=== MANIFEST DIFF END ==='
