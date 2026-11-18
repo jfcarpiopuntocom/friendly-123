@@ -23,7 +23,8 @@ jobs:
       - name: 'Build real YParty pilot, bump shell, and verify official manifest'
         run: |
           set -euo pipefail
-          node scripts/build-yparty-piloto.cjs
+          npm ci --prefix cloudflare-yparty-worker --ignore-scripts --no-audit --no-fund
+          NODE_PATH="$PWD/cloudflare-yparty-worker/node_modules" node scripts/build-yparty-piloto.cjs
           node - <<'NODE'
           const fs=require('node:fs');
           const read=p=>fs.readFileSync(p,'utf8');
