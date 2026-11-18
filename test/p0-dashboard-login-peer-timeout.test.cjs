@@ -33,6 +33,8 @@ async function attempt({
     leerEstadoLocalActual: async () => local,
     normalizarCodigo: c => c,
     codigoLocalActivo: () => localCode,
+    verificarAdminVigente:()=>false,
+    verificarOwnerCentralDashboard:async()=>"unavailable",
     pinLocalOk: async () => pinResult,
     pintarDesdeLocal: () => { painted++; return paintResult; },
     conectar: async () => { connected++; throw remoteError; },
