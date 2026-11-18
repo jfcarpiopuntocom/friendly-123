@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.94",
+  "version": "v0.7.95",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.94: protección de cobros y fiados por rol directamente en el backend local, también cuando IndexedDB o WebCrypto no estén disponibles. Se preservan los abonos autorizados y su opId original. Sin cambios en stock ni en arquitectura 2.0.",
+  "changelog": "v0.7.95: los snapshots locales de ventas y existencias ya no duplican fotografías cuyo contenido exacto fue confirmado por IndexedDB; conserva fotos antiguas/no confirmadas, hashes, memoria y exportaciones portables. Mejora el guardado ante cuotas llenas sin modificar el ledger, los recibos ni YParty 2.0.",
   "requerida": false,
-  "shell": "f123-shell-v794",
+  "shell": "f123-shell-v795",
   "apagar": [],
-  "releaseName": "v0.7.94",
-  "cacheGeneration": "golden330"
+  "releaseName": "v0.7.95",
+  "cacheGeneration": "golden331"
 }

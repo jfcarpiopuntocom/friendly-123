@@ -1,0 +1,42 @@
+name: P0 Belén photo snapshot vs quota real source (Hermes STK-H1)
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/mock-backend.js
+      - test/p0-belen-photo-snapshot-quota-real-source.test.cjs
+      - docs/idb-fotos.js
+      - test/p0-belen-photo-idb-proof-real-source.test.cjs
+      - test/p0-belen-photo-snapshot-webkit-browser.test.cjs
+      - .github/workflows/p0-belen-photo-snapshot-qa.yml
+permissions:
+  contents: read
+jobs:
+  photo-durability:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: RED/GREEN actual photo-store ACK and exact durable business snapshot
+        run: node --test test/p0-belen-photo-snapshot-quota-real-source.test.cjs test/p0-belen-photo-idb-proof-real-source.test.cjs
+  native-photo-quota:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm install --no-save --ignore-scripts --package-lock=false --no-audit --no-fund playwright@1.62.1
+      - name: Real WebKit + Chromium photo bytes, IDB ACK and A/B quota reopen
+        run: node --test --test-concurrency=1 test/p0-belen-photo-snapshot-webkit-browser.test.cjs

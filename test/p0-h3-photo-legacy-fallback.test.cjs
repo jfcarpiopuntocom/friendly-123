@@ -25,12 +25,27 @@ function fixture(opts={}){
    localStorage:{get length(){return ls.size;},key:i=>[...ls.keys()][i],
      getItem:key=>ls.get(key)||null,setItem:(key,v)=>ls.set(key,String(v)),removeItem:key=>ls.delete(key)},
    abrirDB:async()=>({
-     transaction:()=>({objectStore:()=>({
-       getAllKeys:()=>{const req={};queueMicrotask(()=>{req.result=[...dbMap.keys()];req.onsuccess();});return req;},
-       get:h=>{const req={};queueMicrotask(()=>{req.result=dbMap.get(h)||undefined;req.onsuccess();});return req;}
-     })})
+     transaction:()=>{
+       // A completed IDB request is NOT a committed transaction. Model both
+       // real browser events so strict photo readback waits for tx.oncomplete.
+       const tx={objectStore:()=>({
+         getAllKeys:()=>{const req={};queueMicrotask(()=>{
+           req.result=[...dbMap.keys()];req.onsuccess();
+           queueMicrotask(()=>tx.oncomplete?.());
+         });return req;},
+         get:h=>{const req={};queueMicrotask(()=>{
+           req.result=dbMap.get(h)||undefined;req.onsuccess();
+           queueMicrotask(()=>tx.oncomplete?.());
+         });return req;}
+       })};
+       return tx;
+     }
    })
  };
+ // The H3 test extracts the reader, not the whole photo module; provide
+ // its production proof-cache dependencies in this isolated VM fixture.
+ ctx._fotoBytesIdbConfirmados=new Map();
+ ctx._recordarFotoIdbConfirmada=(hash,bytes)=>ctx._fotoBytesIdbConfirmados.set(String(hash),bytes);
  vm.createContext(ctx);
  vm.runInContext(src.slice(from,to)+'\nthis.read=leerPorHash;this.keys=hashesGuardados;',ctx);
  return {ctx,ls,dbMap};
