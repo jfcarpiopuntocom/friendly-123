@@ -602,7 +602,8 @@
         { title: "Shelf", field: "ubicacionNombre", width: 150 },
       ],
       filas: function () {
-        return (datos.ventas || []).map(function (v) {
+        var p = periodoRapido();
+        return (datos.ventas || []).filter(function(v){return enPeriodo(v,p);}).map(function (v) {
           var price=window.OCBusinessReadModel.number(v.precioUnit),qty=window.OCBusinessReadModel.quantity(v.cantidad);
           return Object.assign({}, v, { total: price===null||qty===null?null:price*qty });
         });
@@ -1790,6 +1791,7 @@
       ejecutarExportacion(b, b.dataset.x, function () { exportar(b.dataset.x); });
     });
     $("buscar").addEventListener("input", function () { filtrar(this.value); });
+    montarPeriodoRapido();
     /* Agrupar Comisiones por trato o por persona. Vive en el pie porque es una
        lectura del dato que ya esta en pantalla, no un filtro nuevo: no pide
        nada al equipo y funciona igual sin internet. */
@@ -1886,6 +1888,43 @@
       }
       return c;
     });
+  }
+
+  /* D2, JFC 17 nov: dates are the business-local calendar, never UTC raw. */
+  function periodoRapido() {
+    var s=$("periodo-rapido");
+    if(!s||!s.value||!window.OCReportPeriod?.quick)return null;
+    var hoy=window.OCBusinessReadModel.day(new Date().toISOString(),zonaNegocioDashboard());
+    var from=$("periodo-desde"),to=$("periodo-hasta");
+    return window.OCReportPeriod.quick(s.value,hoy,from&&from.value,to&&to.value);
+  }
+  window.OCDashPeriodo=periodoRapido;
+  function enPeriodo(v,p) {
+    if(!p)return true;
+    var date=window.OCBusinessReadModel.day(v.fechaLocal||v.fecha,zonaNegocioDashboard());
+    return !!date&&date>=p.from&&date<=p.to;
+  }
+  function montarPeriodoRapido() {
+    var busqueda=$("buscar");
+    if(!busqueda||$("periodo-rapido"))return;
+    var selector=document.createElement("select");
+    selector.id="periodo-rapido";selector.setAttribute("aria-label","Pick dates");
+    [["","—"],["today","Today"],["yesterday","Yesterday"],["7d","7 days"],
+     ["thisMonth","This month"],["lastMonth","Last month"],["custom","Pick dates"]]
+      .forEach(function(entry){var option=document.createElement("option");option.value=entry[0];option.textContent=entry[1];selector.appendChild(option);});
+    var desde=document.createElement("input"),hasta=document.createElement("input");
+    desde.type=hasta.type="date";desde.id="periodo-desde";hasta.id="periodo-hasta";
+    desde.setAttribute("aria-label","Pick dates");
+    hasta.setAttribute("aria-label","Pick dates");
+    desde.hidden=hasta.hidden=true;
+    selector.addEventListener("change",function(){
+      desde.hidden=hasta.hidden=selector.value!=="custom";
+      pintarTabla();
+    });
+    desde.addEventListener("change",pintarTabla);hasta.addEventListener("change",pintarTabla);
+    busqueda.parentNode.insertBefore(hasta,busqueda.nextSibling);
+    busqueda.parentNode.insertBefore(desde,hasta);
+    busqueda.parentNode.insertBefore(selector,desde);
   }
 
   function pintarTabla() {
@@ -3515,6 +3554,8 @@
 (function () {
   "use strict";
   var PARES = [
+    // D2 strings are precisely the ES/EN pairs approved by JFC on 17-Nov.
+    ["Today","Hoy"],["Yesterday","Ayer"],["7 days","7 días"],["This month","Este mes"],["Last month","Mes anterior"],["Pick dates","Elegir fechas"],
     // Puerta y politica de datos
     ["Dashboard", "Tablero de control"],
     ["Dashboard · friendly-123", "Tablero de control · friendly-123"],
