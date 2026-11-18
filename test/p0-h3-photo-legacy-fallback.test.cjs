@@ -42,6 +42,10 @@ function fixture(opts={}){
      }
    })
  };
+ // The H3 test extracts the reader, not the whole photo module; provide
+ // its production proof-cache dependencies in this isolated VM fixture.
+ ctx._fotoBytesIdbConfirmados=new Map();
+ ctx._recordarFotoIdbConfirmada=(hash,bytes)=>ctx._fotoBytesIdbConfirmados.set(String(hash),bytes);
  vm.createContext(ctx);
  vm.runInContext(src.slice(from,to)+'\nthis.read=leerPorHash;this.keys=hashesGuardados;',ctx);
  return {ctx,ls,dbMap};
