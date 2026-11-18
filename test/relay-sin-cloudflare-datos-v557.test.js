@@ -93,7 +93,11 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
   assert.match(archivos.find(a => a.rel === 'auth-ui.js').src, /\/\*[^]*?amigable-licencias\.jfcarpio\.workers\.dev[^]*?\*\//);
   // Licencias: referencias permitidas (panel de JFC, verificacion maestra, comentarios de auth-ui).
   const lic = [...hosts.get('friendly123-licencias')].sort();
-  assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'panel-pin.js', 'panel.html']);
+  assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'dashboard-main.min.js', 'panel-pin.js', 'panel.html']);
+  // The dashboard may call ONLY the canonical PIN verification endpoint. This is not a business-data relay.
+  const dashboardSource = archivos.find(a => a.rel === 'dashboard-main.min.js').src;
+  const dashboardWorkerUrls = [...dashboardSource.matchAll(/https:\/\/friendly123-licencias\.jfcarpio\.workers\.dev\/[a-z/-]+/g)].map(m => m[0]);
+  assert.deepEqual(dashboardWorkerUrls, ['https://friendly123-licencias.jfcarpio.workers.dev/pin/verify']);
   assert.deepEqual([...hosts.get('friendly123-sync-relay')].sort(), ['dashboard-main.min.js', 'peer-sync.js', 'sync-realtime.js', 'sync-yjs.js']);
   assert.match(archivos.find(a => a.rel === 'dashboard-broadcast.js').src, /var LOC = \/\^wss:/, 'dashboard transport only validates room locators as a local regex');
   // Rutas que el cliente pide al Worker de licencias: solo licencia, latido, canario y maestro. Nada de datos.
@@ -116,7 +120,7 @@ test('estatico: toda llamada fetch/cliente a hosts externos esta clasificada', (
   // Ningun fetch() apunta a un host de datos de Cloudflare o Supabase escrito a mano.
   assert.deepEqual(donde(/fetch\(\s*["'`]https?:\/\/[^"'`]*(sync-relay[^"'`]*workers\.dev|supabase\.co)/), []);
   // crypto-store.js llama a /maestro/verificar del Worker de LICENCIAS (clave maestra), no es dato de negocio.
-  assert.deepEqual(donde(/fetch\(\s*["'`]https?:\/\/friendly123-licencias/), ['crypto-store.js']);
+  assert.deepEqual(donde(/fetch\(\s*["'`]https?:\/\/friendly123-licencias/), ['crypto-store.js', 'dashboard-main.min.js']);
 });
 
 test('frontera real del Worker: solo metadatos SDP/ICE/reloj; negocio y binarios no se reenvian', async () => {
