@@ -63,7 +63,7 @@ jobs:
           npx playwright install --with-deps chromium webkit
           node --test test/p0-belen-dashboard-hechos-browser.test.cjs
   seal-v793-branch:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/fix/p0-belen-dashboard-facts-readonly-reasons-v793-20261118'
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/p0-belen-dashboard-facts-readonly-reasons-v793-20261118'
     permissions: {contents: write}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
