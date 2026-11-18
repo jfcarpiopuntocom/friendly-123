@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.81",
-  "fecha": "2026-11-14",
-  "changelog": "v0.7.81: confirma el guardado de la cancelacion antes de sincronizar la venta y la reposicion de stock.",
+  "version": "v0.7.82",
+  "fecha": "2026-11-17",
+  "changelog": "v0.7.82: filtros por columna, rangos y totales fiables en el dashboard; no cambia ventas ni sincronización.",
   "requerida": false,
-  "shell": "f123-shell-v781",
+  "shell": "f123-shell-v782",
   "apagar": [],
-  "releaseName": "v0.7.81",
-  "cacheGeneration": "golden317"
+  "releaseName": "v0.7.82",
+  "cacheGeneration": "golden318"
 }
