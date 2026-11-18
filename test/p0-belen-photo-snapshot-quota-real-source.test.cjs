@@ -24,6 +24,8 @@ function harness({count=15, size=420*1024, hash=true}={}){
  const locs=[{id:'synthetic-shelf',foto:encoded, ...(hash?{fotoHash:'sha256-shelf'}:{})}];
  const empty=[];
  const c={
+   window:{OCFotos:{tieneFotoHashConfirmadoEnIdb:(h,bytes)=>hash &&
+     products.concat(locs).some(p=>p.fotoHash===h && p.foto===bytes)}},
    productos:products,ubicaciones:locs,ventas:empty,movimientos:empty,transferencias:empty,
    gastos:empty,ajustesComision:empty,payouts:empty,payoutConflicts:empty,payoutQuarantine:empty,
    sucursales:empty,promotoras:empty,clientes:empty,usuarios:empty,
@@ -72,4 +74,19 @@ test('STK-H1: source serializer only changes durable payload, not backup export 
  assert.match(src,/estadoActualExportable\(\{ vivo: true \}\)/);
  assert.match(src,/function estadoActualExportable\(opc\)/);
  assert.doesNotMatch(exportCode,/delete\s+\w+\.foto|\.foto\s*=\s*null/);
+});
+
+test('STK-H1: a hash label without matching confirmed IDB bytes must NOT cause data loss',()=>{
+ const {c,encoded}=harness({count:1,size:512,hash:true});
+ c.window.OCFotos.tieneFotoHashConfirmadoEnIdb=()=>false;
+ const crudo=c.serializeForStrictSave(c.exportable({vivo:true}));
+ assert.ok(crudo.includes(encoded),'unconfirmed hash is not durable proof');
+});
+test('STK-H1: changed UI photograph with stale photoHash must NOT be pruned',()=>{
+ const {c,products}=harness({count:1,size:512,hash:true});
+ const image='data:image/jpeg;base64,UNCONFIRMED-CHANGE';
+ products[0].foto=image;
+ c.window.OCFotos.tieneFotoHashConfirmadoEnIdb=(hash,data)=>data!==image && hash==='sha256-test-000';
+ const crudo=c.serializeForStrictSave(c.exportable({vivo:true}));
+ assert.ok(crudo.includes(image),'exact bytes must be proven, not just hash label');
 });
