@@ -9,6 +9,8 @@ on:
       - docs/plan-pagos-ui.js
       - test/p0-belen-payment-intent-idb.test.cjs
       - test/p0-belen-idb-live-payment.test.cjs
+      - docs/mock-backend.js
+      - test/p0-hermes-roles-cobros-real-source.test.cjs
       - test/p0-belen-idb-live-browser.test.cjs
       - .github/workflows/qa-p0-belen-payment-intents.yml
 permissions:
@@ -23,7 +25,7 @@ jobs:
         with: {node-version: '22', cache: npm}
       - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Real IDB transactions, crash/reopen, two tabs, opId tenant isolation
-        run: node --test test/p0-belen-payment-intent-idb.test.cjs test/p0-belen-idb-live-payment.test.cjs test/fiados-quota-cliente-4d.test.js test/fiados-pagado-por-consumo-v557.test.js
+        run: node --test test/p0-belen-payment-intent-idb.test.cjs test/p0-belen-idb-live-payment.test.cjs test/fiados-quota-cliente-4d.test.js test/fiados-pagado-por-consumo-v557.test.js test/p0-hermes-roles-cobros-real-source.test.cjs
   safari-browser-credit:
     runs-on: ubuntu-latest
     timeout-minutes: 10

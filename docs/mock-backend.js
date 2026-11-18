@@ -9189,6 +9189,13 @@
       }
       const mCliFiar = path.match(/^\/api\/clientes\/([^/]+)\/(fiar|abonar)$/);
       if (mCliFiar && opts && opts.method === "POST") {
+        // P0 Hermes/Belén: local customer-money routes must enforce the same
+        // role boundary as the UI, even when a caller skips the payment modal.
+        // A separate authenticated backend remains the ultimate authority.
+        const rolCobro = _rolLocal();
+        if (rolCobro !== "dueno" && rolCobro !== "admin" && rolCobro !== "empleado") {
+          return J({ error: "This role is not authorized to record customer credit or payments." }, 403);
+        }
         const c = clientes.find((x) => x.id === mCliFiar[1]);
         if (!c) return J({ error: "Customer not found." }, 404);
         const monto = Number(body.monto);
