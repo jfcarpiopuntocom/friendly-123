@@ -63,3 +63,12 @@ test('only current, active, non-deleted Admin of the notebook is an Admin',()=>{
  }
  assert.equal(s.verificarAdminVigente('222',{usuarios:[]}),false);
 });
+
+test('untrusted 200 response without a positive revision cannot grant Owner access',async()=>{
+ const e=env({status:200,payload:{ok:false,revision:7}});
+ assert.equal(await e.sandbox.verificarOwnerCentralDashboard('111',LICENSE),'unavailable');
+ assert.equal(e.adopt.length,0);
+ const f=env({status:200,payload:{ok:true,revision:0}});
+ assert.equal(await f.sandbox.verificarOwnerCentralDashboard('111',LICENSE),'unavailable');
+ assert.equal(f.adopt.length,0);
+});
