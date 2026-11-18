@@ -1968,6 +1968,8 @@
       // The product name's old explicit false predated the D1 approval.
       if (c.headerFilter === undefined || (c.field === "nombre" && c.headerFilter === false))
         c.headerFilter = "input";
+      if (c.headerFilter === "input" && c.headerFilterPlaceholder === undefined)
+        c.headerFilterPlaceholder = ""; // Tabulator default "filter column..." is not an approved screen text
       if (numericos[c.field] && c.headerFilter === "input") {
         c.headerFilterFunc = function (q, value) {
           var typed = String(q == null ? "" : q).trim();
@@ -3371,7 +3373,16 @@
     } catch (e) {
       $("entrar").disabled = false;
       $("msg").style.color = "#A8123A";
-      $("msg").textContent = "No se pudo conectar. Revisa tu internet.";
+      /* timeout means no peer answered the P2P handshake; it does NOT
+         demonstrate an internet outage. Do not disguise JS exceptions as
+         connectivity problems, and never grant access without a valid PIN. */
+      if (e && e.message === "timeout") {
+        $("msg").textContent = "Ningún dispositivo de tu equipo contestó. Abre friendly-123 y vuelve a intentar.";
+      } else if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        $("msg").textContent = "No se pudo conectar. Revisa tu internet.";
+      } else {
+        $("msg").textContent = "No se pudo comprobar tu PIN.";
+      }
     } finally {
       /* GUARD: el boton vuelve SIEMPRE. Sin esto, cualquier excepcion en un
          camino nuevo dejaba la puerta trabada y solo se salia recargando. */
@@ -3652,7 +3663,7 @@
     ["2. Keep that tab open (do not close it).", "2. Deja esa pestaña abierta (no la cierres)."],
     ["3. Then come back here and enter your code + PIN below.", "3. Luego vuelve aquí y escribe tu código + PIN abajo."],
     ["This board has no data of its own — it reads live from your device.", "Este tablero no tiene datos propios: lee en vivo desde tu dispositivo."],
-    ["The app must be open on another device for this to show anything.", "La app tiene que estar abierta en otro dispositivo para que esto muestre algo."],
+    ["To see your real business data here, friendly-123 must be open in another tab or on another device.", "Para ver aquí los datos reales de tu negocio, friendly-123 tiene que estar abierta en otra pestaña o en otro aparato."],
     ["Your business code", "El código de tu negocio"],
     ["Your PIN", "Tu PIN"],
     // v769 (JFC 13 nov: "Dejarlo y traducirlo"): the PWA rescue link was fixed Spanish in an English-first board.
