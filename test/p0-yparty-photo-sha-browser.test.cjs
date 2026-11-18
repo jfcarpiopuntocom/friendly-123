@@ -36,7 +36,7 @@ test('photo scopes are only allowed with explicit HTTP opt-in, fresh per call',a
 });
 test('actual bridge streams SHA-verifiable HTTP photo bytes with separate one-use tickets',async()=>{
  const {createPhotoShaBridge}=await import(root+'photo-sha-bridge.mjs');
- const f=harness(),bridge=createPhotoShaBridge({host:'friendly123-yparty-qa-20261114.jfcarpio.workers.dev',
+ const f=harness(),bridge=createPhotoShaBridge({host:'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev',
   licenseCode:license,instanceId:instance,room,getCredentials:f.getCredentials,fetch:f.send});
  const bytes=Buffer.alloc(2*1024*1024+31);bytes.fill(17);
  const hash=await sha(bytes),data='data:image/png;base64,'+bytes.toString('base64');
@@ -48,7 +48,7 @@ test('actual bridge streams SHA-verifiable HTTP photo bytes with separate one-us
 });
 test('reject corrupt and unsupported photo payload before asking issuer',async()=>{
  const {createPhotoShaBridge}=await import(root+'photo-sha-bridge.mjs');
- const f=harness(),bridge=createPhotoShaBridge({host:'friendly123-yparty-qa-20261114.jfcarpio.workers.dev',
+ const f=harness(),bridge=createPhotoShaBridge({host:'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev',
   licenseCode:license,instanceId:instance,room,getCredentials:f.getCredentials,fetch:f.send});
  await assert.rejects(bridge.put('e'.repeat(64),'data:image/png;base64,QUJD'));
  await assert.rejects(bridge.put('e'.repeat(64),'data:image/svg+xml;base64,QUJD'));

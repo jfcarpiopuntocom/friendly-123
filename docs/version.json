@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.85",
+  "version": "v0.7.86",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.85 candidata: port de arquitectura 2.0 integrado en la app real con interruptor por tienda apagado por defecto, escritura sombra al relay anterior y retorno seguro. El dinero sigue en el relay legado; no migra datos ni activa el servidor nuevo.",
+  "changelog": "v0.7.86: el piloto 2.0 apunta al servidor QA nuevo (friendly123-yparty-port2-canary-qa). Interruptor por tienda apagado; para los clientes no cambia nada.",
   "requerida": false,
-  "shell": "f123-shell-v785",
+  "shell": "f123-shell-v786",
   "apagar": [],
-  "releaseName": "v0.7.85",
-  "cacheGeneration": "golden321"
+  "releaseName": "v0.7.86",
+  "cacheGeneration": "golden322"
 }
