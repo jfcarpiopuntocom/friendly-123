@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.95",
+  "version": "v0.7.96",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.95: los snapshots locales de ventas y existencias ya no duplican fotografías cuyo contenido exacto fue confirmado por IndexedDB; conserva fotos antiguas/no confirmadas, hashes, memoria y exportaciones portables. Mejora el guardado ante cuotas llenas sin modificar el ledger, los recibos ni YParty 2.0.",
+  "changelog": "v0.7.96: las fotos de perchas conservan sus bytes locales si el enlace fotoHash falla por cuota, desconexion o rechazo HTTP; avisa y reintenta mediante recuperacion segura por percha, sin publicar en otro cuaderno. Sin cambios en dinero, stock ni YParty 2.0.",
   "requerida": false,
-  "shell": "f123-shell-v795",
+  "shell": "f123-shell-v796",
   "apagar": [],
-  "releaseName": "v0.7.95",
-  "cacheGeneration": "golden331"
+  "releaseName": "v0.7.96",
+  "cacheGeneration": "golden332"
 }
