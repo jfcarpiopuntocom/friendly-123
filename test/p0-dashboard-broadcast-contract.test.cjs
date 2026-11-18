@@ -66,3 +66,65 @@ test('P0: an app-side transient Supabase CHANNEL_ERROR recovers the subscription
   assert.deepEqual(seen,['open','open'],'the app sees a renewed ready channel');
   socket.close();assert.equal(unsubscribed,1);
 });
+
+
+function __p0ExtractRealHandler(source, name) {
+  const kind = name === 'dashboardRespuestaDisponible' ? 'function' : 'async function';
+  const start = source.indexOf('  ' + kind + ' ' + name + '(');
+  assert.ok(start >= 0, 'real runtime handler found: ' + name);
+  const end = source.indexOf('\n  }\n\n', start);
+  assert.ok(end > start, 'real runtime handler ends: ' + name);
+  return source.slice(start, end + '\n  }'.length);
+}
+function __p0BuildHandler(name, opts={}) {
+  const source=read('docs/sync-realtime.js');
+  const sent=[];
+  const bridge={readyState:opts.bridgeOpen===false?0:1,send:(p)=>sent.push(p)};
+  const env={
+    window:{OCSecure:{migrarSiHaceFalta:async()=>{}, verificarOwnerOEmpleado:async p=>p==='123'?'dueno':''}, OCSync:{}},
+    WebSocket:{OPEN:1,CONNECTING:0}, ws:{readyState:0}, _dashboardBroadcast:bridge,
+    TIPO_RESPUESTA:'__respuesta__',TIPO_FOTO_TROZO:'__foto_trozo__',
+    fotoAutorizadaHasta:{panel:{token:'token-ok',hasta:Date.now()+60000}}, presenciaN:1,
+    uuidCorto:()=> 'synthetic-op-id', deviceId:()=> 'app-device',
+    claveActual:{},cifrar:async (_key,value)=>value,
+    fetch:async()=>({ok:false}), Date,Math,Promise,JSON,String,Array,Object,
+    setTimeout:(fn)=>fn(),armarFoto:async()=>({
+      negocio:'Synthetic QA',generadaEn:'2026-11-18T00:00:00Z',
+      productos:[{nombre:'Sample',stockActual:9}],clientes:[],ventas:[],liquidaciones:[],
+      perchas:[],promotoras:[],movimientos:[],gastos:[],ajustesComision:[],
+      transferencias:[],hechosFinancieros:[],gastosMensuales:{},cobertura:{},resumen:{entra:27}
+    }),
+    trocear:(name,items)=>[{tabla:name,i:0,total:1,filas:Array.isArray(items)?items:[items]}]
+  };
+  const extra=source.includes('  function dashboardRespuestaDisponible(')
+    ? __p0ExtractRealHandler(source,'dashboardRespuestaDisponible')+'\n' : '';
+  vm.runInNewContext(extra+__p0ExtractRealHandler(source,name)+'\nthis.__handler='+name+';',env);
+  return {env,sent,run:env.__handler};
+}
+test('P0: real responderPin uses encrypted dashboard lane while legacy ws is CONNECTING',async()=>{
+  const h=__p0BuildHandler('responderPin');
+  await h.run({__dashboardBroadcast:true,deviceId:'panel',payload:{pin:'123',pedidoId:'real-pin'}});
+  assert.equal(h.sent.length,1,'Owner answers on transient bus without legacy socket');
+  assert.equal(h.sent[0].tipo,'__respuesta__');
+  assert.equal(h.sent[0].payload.ok,true);
+  assert.ok(h.sent[0].payload.datos.fotoToken);
+  const deny=__p0BuildHandler('responderPin');
+  await deny.run({__dashboardBroadcast:true,deviceId:'panel',payload:{pin:'999',pedidoId:'wrong-pin'}});
+  assert.equal(deny.sent.some(x=>x.payload.ok===true),false,'wrong PIN never gets authorization');
+  const closed=__p0BuildHandler('responderPin',{bridgeOpen:false});
+  await closed.run({__dashboardBroadcast:true,deviceId:'panel',payload:{pin:'123',pedidoId:'closed-bridge'}});
+  assert.equal(closed.sent.length,0,'closed bridge does not emit any response');
+});
+test('P0: real responderFoto emits verified snapshot parts despite legacy ws CONNECTING',async()=>{
+  const h=__p0BuildHandler('responderFoto');
+  await h.run({__dashboardBroadcast:true,deviceId:'panel',payload:{fotoToken:'token-ok'}});
+  assert.ok(h.sent.length>=3,'snapshot parts must reach ephemeral channel');
+  assert.ok(h.sent.some(x=>x.payload.tabla==='productos'&&x.payload.filas[0].stockActual===9));
+  assert.ok(h.sent.some(x=>x.payload.tabla==='resumen'&&x.payload.filas[0].entra===27));
+  const bad=__p0BuildHandler('responderFoto');
+  await bad.run({__dashboardBroadcast:true,deviceId:'panel',payload:{fotoToken:'invalid'}});
+  assert.equal(bad.sent.length,0,'invalid photo token rejected');
+  const closed=__p0BuildHandler('responderFoto',{bridgeOpen:false});
+  await closed.run({__dashboardBroadcast:true,deviceId:'panel',payload:{fotoToken:'token-ok'}});
+  assert.equal(closed.sent.length,0,'closed bridge rejects photo');
+});

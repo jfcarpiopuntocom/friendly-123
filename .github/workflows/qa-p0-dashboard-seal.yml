@@ -1,15 +1,9 @@
-name: P0 Dashboard v788 deterministic manifest seal (branch only)
+name: P0 Dashboard v789 deterministic manifest seal (branch only)
 on:
   push:
-    branches: [fix/p0-dashboard-supabase-ephemeral-20261118]
+    branches: [fix/p0-dashboard-broadcast-legacy-independent-20261118]
     paths:
       - docs/version.json
-      - docs/index.html
-      - docs/dashboard.html
-      - docs/sw.js
-      - docs/dashboard-broadcast.js
-      - docs/sync-realtime.js
-      - docs/vendor/supabase-relay.min.js
 permissions:
   contents: write
 jobs:
@@ -19,7 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: fix/p0-dashboard-supabase-ephemeral-20261118
+          ref: fix/p0-dashboard-broadcast-legacy-independent-20261118
           persist-credentials: true
       - uses: actions/setup-node@v4
         with:
@@ -35,7 +29,7 @@ jobs:
             git config user.name "friendly-123 release seal"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add docs/version-manifest.json docs/sw.js
-            git commit -m "release(v788): seal exact shell hashes and offline assets"
-            git push origin HEAD:fix/p0-dashboard-supabase-ephemeral-20261118
+            git commit -m "release(v789): seal exact shell hashes and offline assets"
+            git push origin HEAD:fix/p0-dashboard-broadcast-legacy-independent-20261118
           fi
           bash check-sw.sh
