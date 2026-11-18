@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.96",
+  "version": "v0.7.97",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.96: las fotos de perchas conservan sus bytes locales si el enlace fotoHash falla por cuota, desconexion o rechazo HTTP; avisa y reintenta mediante recuperacion segura por percha, sin publicar en otro cuaderno. Sin cambios en dinero, stock ni YParty 2.0.",
+  "changelog": "v0.7.97: previene la exposicion del catalogo sensible sin cifrar en YParty 2.0 y evita certificar PIN/cuaderno antes de completar la recuperacion cifrada heredada. El transporte anterior sigue activo y el piloto nuevo permanece apagado.",
   "requerida": false,
-  "shell": "f123-shell-v796",
+  "shell": "f123-shell-v797",
   "apagar": [],
-  "releaseName": "v0.7.96",
-  "cacheGeneration": "golden332"
+  "releaseName": "v0.7.97",
+  "cacheGeneration": "golden333"
 }
