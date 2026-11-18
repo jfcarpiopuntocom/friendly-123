@@ -92,16 +92,22 @@ const consultarCheckpoint = p => p.evaluate(async () => {
     // Rebuild exactly the canonical catalog locator IN THIS BROWSER ONLY.
     // Never return or log roomId / locator; they are room capabilities.
     const room = y && y.roomId;
-    if (!ws || ws.relayLayer !== 'f123_relay_cupo_fb_v1' ||
-        typeof room !== 'string' || !/^[a-f0-9]{40}$/.test(room) ||
-        !relay || typeof relay.leerHead !== 'function') return desconocido;
+    // Fixed enum only, never echo notebook locator, license or HTTP path.
+    if (!ws) return { ...desconocido, razon: 'sin-socket' };
+    if (ws.relayLayer !== 'f123_relay_cupo_fb_v1')
+      return { ...desconocido, razon: 'capa-no-firebase' };
+    if (typeof room !== 'string' || !/^[a-f0-9]{40}$/.test(room))
+      return { ...desconocido, razon: 'sala-no-certificada' };
+    if (!relay || typeof relay.leerHead !== 'function')
+      return { ...desconocido, razon: 'lector-no-disponible' };
     const locator = 'wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/' + room + '-y';
     const head = await Promise.race([
       relay.leerHead(locator),
       new Promise(resolve => { timer = setTimeout(() => resolve(null), 3000); })
     ]);
     if (!head || !Number.isSafeInteger(head.rev) || head.rev < 0 ||
-        !Number.isSafeInteger(head.seq) || head.seq < 0) return desconocido;
+        !Number.isSafeInteger(head.seq) || head.seq < 0)
+      return { ...desconocido, razon: 'head-invalido' };
     const salida = { consultado: true, checkpointExiste: head.rev > 0,
       hayOperaciones: head.seq > 0, corte: head.rev === 0 ? 'sin-checkpoint' : 'desconocido' };
     if (head.rev === 0) return salida;
@@ -128,7 +134,7 @@ const consultarCheckpoint = p => p.evaluate(async () => {
     } catch (_) { /* Metadata errors remain unknown, never false-fresh. */ }
     finally { if (metaTimer !== null) clearTimeout(metaTimer); }
     return salida;
-  } catch (_) { return desconocido; }
+  } catch (_) { return { ...desconocido, razon: 'error-lectura-head' }; }
   finally { if (timer !== null) clearTimeout(timer); }
 });
 
@@ -138,7 +144,8 @@ const consultarCheckpoint = p => p.evaluate(async () => {
 const crearObservadorRed = () => {
   const cero = () => ({ ok2xx: 0, rechazo403: 0, error4xx: 0, error5xx: 0,
     errorRed: 0, websocketCreado: 0, websocketCerrado: 0,
-    websocketError: 0, other: 0 });
+    websocketError: 0, other: 0,
+    sinPermiso401: 0, noEncontrado404: 0, cupo429: 0, otros4xx: 0 });
   const datos = { supabase: cero(), firebase: cero(), peer: cero() };
   const nombre = raw => {
     try {
@@ -156,9 +163,14 @@ const crearObservadorRed = () => {
         const capa = nombre(res.url());
         if (!capa) return;
         const st = res.status();
+        // Preserve the old broad counters; add a bounded disjoint 4xx reason.
+        // Response codes are not room or customer metadata.
         contar(capa, !Number.isSafeInteger(st) ? 'other' :
           st >= 200 && st <= 299 ? 'ok2xx' : st === 403 ? 'rechazo403' :
           st >= 400 && st <= 499 ? 'error4xx' : st >= 500 && st <= 599 ? 'error5xx' : 'other');
+        if (capa && Number.isSafeInteger(st) && st >= 400 && st <= 499 && st !== 403)
+          contar(capa, st === 401 ? 'sinPermiso401' : st === 404 ? 'noEncontrado404' :
+            st === 429 ? 'cupo429' : 'otros4xx');
       } catch (_) {}
     },
     fallida: req => { try { contar(nombre(req.url()), 'errorRed'); } catch (_) {} },
@@ -328,6 +340,10 @@ function progresoRecuperacion(anterior, actual) {
 
 (async () => {
   const b = await chromium.launch(), p = await b.newPage(), errores = [];
+  let paginaColapsada = false, navegadorDesconectado = false;
+  p.on('crash', () => { paginaColapsada = true; });
+  if (typeof b.on === 'function')
+    b.on('disconnected', () => { navegadorDesconectado = true; });
   p.on('pageerror', e => errores.push(nombreErrorSeguro(e)));
   const red = crearObservadorRed();
   p.on('response', red.respuesta);
@@ -512,6 +528,11 @@ function progresoRecuperacion(anterior, actual) {
   console.log('CANARIO_DIAGNOSTICO:', JSON.stringify(ultima));
   console.log('CANARIO_CAPAS:', JSON.stringify(await diagnosticoPresupuesto(p)));
   console.log('CANARIO_RED:', JSON.stringify(red.resumen()));
+  console.log('CANARIO_ESTADO_NAVEGADOR:', JSON.stringify({
+    paginaColapsada: paginaColapsada,
+    navegadorDesconectado: navegadorDesconectado,
+    paginaCerrada: typeof p.isClosed === 'function' ? !!p.isClosed() : null
+  }));
   if (errores.length) console.log('CANARIO_JS_ERRORES:', errores.slice(0, 3).join(', '));
   await b.close();
   if (fallo) { console.error('FALLA ' + fallo); process.exit(1); }

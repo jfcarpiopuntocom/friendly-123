@@ -1,0 +1,20 @@
+name: P0 cold join root · Firebase 404/429 + checkpoint + Chromium crash diagnostics (read-only)
+on:
+  push:
+    branches: [diagnostics/p0-coldjoin-firebase-checkpoint-20261118]
+    paths:
+      - scripts/canario-union-fria.cjs
+      - test/p0-coldjoin-root-observer.test.cjs
+      - .github/workflows/qa-p0-coldjoin-root-observer.yml
+permissions:
+  contents: read
+jobs:
+  local-causal-observer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Causal observer regression and existing PIN no-premature access
+        run: node --test test/p0-coldjoin-root-observer.test.cjs test/canario-union-fria-guard.test.cjs
