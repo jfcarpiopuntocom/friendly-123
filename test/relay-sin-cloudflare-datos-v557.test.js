@@ -127,7 +127,7 @@ test('frontera real del Worker: solo metadatos SDP/ICE/reloj; negocio y binarios
     { ...ice, business: { stock: 7 } },
     { ...ice, data: { ...ice.data, candidate: 'candidate: synthetic business amount 100' } },
     { v: 1, k: 'offer', to, data: { type: 'offer', sdp: 'v=0\na=msid-semantic: WMS {"business":"synthetic"}' } },
-    { ...ice, data: { ...ice.data, candidate: 'candidate:1 1 UDP 2122260223 192.0.2.1 50000 typ relay' } },
+    { ...ice, data: { ...ice.data, candidate: 'candidate:1 1 UDP 2122260223 192.0.2.1 50000 typ business' } },
   ];
   for (const frame of [...bad.map(value => JSON.stringify(value)), new Uint8Array([1, 2])]) {
     const forwarded = [], closed = [];

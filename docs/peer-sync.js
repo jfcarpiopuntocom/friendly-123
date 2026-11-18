@@ -334,7 +334,7 @@
         const pc = new RTC({ iceServers: (F123Ice.build(), iceList()) }), peer = { id, pc, dc: null, ice: [], groups: new Map(), serial: Promise.resolve() };
         this.peers.set(id, peer);
         // v653: Firefox ends with an empty candidate; the relay closes the signaling socket on it. ICE does not need it.
-        pc.onicecandidate = event => { if (event.candidate && event.candidate.candidate && event.candidate.type !== 'relay') this.signalTo('ice', id, event.candidate.toJSON()); };
+        pc.onicecandidate = event => { if (event.candidate && event.candidate.candidate) this.signalTo('ice', id, event.candidate.toJSON()); };
         pc.ondatachannel = event => this.attach(peer, event.channel);
         pc.onconnectionstatechange = () => {
           const state = pc.connectionState;

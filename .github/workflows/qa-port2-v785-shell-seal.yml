@@ -1,4 +1,4 @@
-name: PORT LIVE v0.7.85 shell seal · manifest, real bundle, fallback (no deploy)
+name: PORT LIVE shell seal · manifest, real bundle, fallback (no deploy)
 on:
   pull_request:
     paths:
@@ -34,24 +34,25 @@ jobs:
           const v=JSON.parse(fs.readFileSync('docs/version.json','utf8'));
           const old=JSON.parse(cp.execFileSync('git',['show','origin/master:docs/version.json'],{encoding:'utf8'}));
           const num=s=>Number(String(s).match(/\d+$/)?.[0]);
-          assert.equal(v.version,'v0.7.86');
-          assert.equal(v.shell,'f123-shell-v786');
-          assert.equal(v.cacheGeneration,'golden322');
-          assert.ok(num(v.shell)>num(old.shell),'shell identity must increase beyond master');
-          assert.ok(num(v.cacheGeneration)>num(old.cacheGeneration),'cache generation must increase');
+          assert.match(v.version,/^v0\.7\.\d+$/);
+          assert.match(v.shell,/^f123-shell-v\d+$/);
+          assert.match(v.cacheGeneration,/^golden\d+$/);
+          assert.equal(num(v.version),num(old.version)+1,'release version must advance exactly once');
+          assert.equal(num(v.shell),num(old.shell)+1,'shell identity must advance exactly once');
+          assert.equal(num(v.cacheGeneration),num(old.cacheGeneration)+1,'cache generation must advance exactly once');
           assert.equal(m.version,v.version);assert.equal(m.shell,v.shell);
           const vendor=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
           const sha=crypto.createHash('sha256').update(vendor).digest('hex');
           assert.equal(sha,'54654be7d43ed17105e516d8d04f8a794c699801b09733a31144d80d91004b67');
           assert.equal(m.files['./vendor/yparty-piloto.min.js'],'sha256-'+sha);
           const sw=fs.readFileSync('docs/sw.js','utf8');
-          assert.match(sw,/const CACHE = "f123-shell-v786";/);
-          assert.match(sw,/const CACHE_GENERACION = "-golden322";/);
+          assert.ok(sw.includes('const CACHE = "'+v.shell+'";'),'SW must match exact released shell');
+          assert.ok(sw.includes('const CACHE_GENERACION = "-'+v.cacheGeneration+'";'),'SW must match exact released generation');
           const rollout=JSON.parse(fs.readFileSync('docs/sync-rollout.json','utf8'));
           assert.ok(Object.values(rollout.licenses||{}).every(x=>x.yparty!==true),'cannot enable customer store in seal');
           assert.equal(v.requerida,false);
           assert.deepEqual(v.apagar,[]);
-          console.log('v785 + golden322 > master; verified real bundle sha256; all rollout gates OFF');
+          console.log(v.version+' '+v.shell+' '+v.cacheGeneration+' > master; verified real bundle SHA256; all rollout gates OFF');
           JS
       - name: Rebuild official deterministic shell manifest, no differences
         run: |
