@@ -37,7 +37,7 @@ test('RED: official central Owner unlocks local Safari notebook despite stale br
  assert.equal(x.calls.central,1);
  assert.equal(x.calls.paint,1,'Owner approved by canonical authority paints on this device');
  assert.equal(x.calls.local,0,'stale PIN verifier should not add false failed attempts');
- assert.equal(x.calls.remote,0,'another Safari background tab need not answer');
+ assert.equal(x.calls.remote,1,'background sync may be attempted AFTER the local dashboard is already authorized');
  assert.equal(x.sandbox.autorizado,true);
 });
 test('RED: central rejection defeats stale local Owner verifier and never paints',async()=>{
