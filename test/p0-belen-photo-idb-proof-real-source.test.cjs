@@ -58,3 +58,23 @@ test('STK-H1: confirmation memory is bounded; cache eviction never deletes IDB p
  assert.equal(await x.f.leerPorHash('synthetic-many-0'),bytes);
  assert.equal(x.f.tieneFotoHashConfirmadoEnIdb('synthetic-many-0',bytes),true);
 });
+
+test('STK-H1: missing/evicted strict IDB blob revokes old proof rather than stripping the last photo',async()=>{
+ const factory=new IDBFactory(),hash='synthetic-evicted';
+ const x=context({factory});
+ assert.equal(await x.f.guardarPorHash(hash,bytes),true);
+ assert.equal(x.f.tieneFotoHashConfirmadoEnIdb(hash,bytes),true);
+ await new Promise((resolve,reject)=>{
+  const o=factory.open('f123_fotos',2);
+  o.onerror=()=>reject(o.error);
+  o.onsuccess=()=>{
+   const db=o.result;
+   const tx=db.transaction('blobs','readwrite');
+   tx.objectStore('blobs').delete(hash);
+   tx.oncomplete=()=>{db.close();resolve()};
+   tx.onerror=()=>reject(tx.error);
+  };
+ });
+ assert.equal(await x.f.leerPorHash(hash),null);
+ assert.equal(x.f.tieneFotoHashConfirmadoEnIdb(hash,bytes),false);
+});
