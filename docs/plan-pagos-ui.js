@@ -314,6 +314,127 @@
       throw e;
     }
   }
+  // P0 Belén / Safari QuotaExceeded: payment intents live in transactional IDB.
+  // Never infer a customer account from a stale key in another notebook.
+  // The store contains a hash of the active business+device identity, not PINs.
+  function _pagoIdentidad() {
+    var owned;
+    try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) { return null; }
+    if (!owned || !owned.licenseCode || !owned.instanceId) return null;
+    // The active notebook, not f123_owned, owns the money. A joined device may
+    // retain a different commercial owner license in f123_owned.
+    var licenciaPropia = String(owned.licenseCode).trim().toUpperCase().replace(/\s+/g, "");
+    var tienda = global.OCTienda;
+    var licencia = tienda && typeof tienda.licenciaActual === "function"
+      ? String(tienda.licenciaActual() || "").trim().toUpperCase().replace(/\s+/g, "")
+      : (localStorage.getItem("f123_tienda_activa") ? "" : licenciaPropia);
+    var instancia = String(owned.instanceId);
+    if (!licencia || !/^[A-Za-z0-9_-]{6,128}$/.test(instancia))
+      throw new Error("Identidad del cuaderno activo no certificada; conserva el pago para revisar.");
+    var rol = global.OCAuth && global.OCAuth.rolActual && global.OCAuth.rolActual();
+    if (rol !== "dueno" && rol !== "admin" && rol !== "empleado")
+      throw new Error("Sesión de tienda no autorizada; conserva el pago para revisar.");
+    return { identidad: licencia + "\u0000" + instancia, rol: rol,
+      // Legacy localStorage payment references were not scoped to a license;
+      // an old reference cannot prove which shop owns it after a join/switch.
+      legacyAmbiguo: licencia !== licenciaPropia };
+  }
+  async function _pagoIDB() {
+    if (!global.indexedDB || !global.crypto || !global.crypto.subtle) return null;
+    var activo = _pagoIdentidad();
+    if (!activo) return null; // historical/local-only installs retain their old path
+    var bytes = new TextEncoder().encode("f123-credit-intent-v1:" + activo.identidad);
+    var hash = new Uint8Array(await global.crypto.subtle.digest("SHA-256", bytes));
+    var namespace = Array.from(hash, function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+    var modulo = await import("./pago-intento-idb.mjs");
+    return { tienda: activo.identidad, rol: activo.rol,
+      legacyAmbiguo: activo.legacyAmbiguo,
+      store: modulo.createPaymentIntentStore({indexedDB: global.indexedDB, namespace: namespace}) };
+  }
+  function _pagoMismaSesion(ctx) {
+    if (!ctx) return;
+    var ahora = _pagoIdentidad();
+    if (!ahora || ahora.identidad !== ctx.tienda || ahora.rol !== ctx.rol)
+      throw new Error("La sesión de esta tienda cambió; no reintentes el cobro con otra identidad.");
+  }
+  function _pagoSinRecibo(dato) {
+    var copia = Object.assign({}, dato);
+    delete copia.abonoId;
+    return JSON.stringify(copia);
+  }
+  function _pagoCompatibles(a, b) {
+    return a && b && a.opId === b.opId && _pagoSinRecibo(a) === _pagoSinRecibo(b) &&
+      (!a.abonoId || !b.abonoId || a.abonoId === b.abonoId);
+  }
+  async function leerReferenciaDurable(clienteId, tipo) {
+    var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
+    var ctx = await _pagoIDB();
+    if (!ctx) return legacy;
+    _pagoMismaSesion(ctx);
+    var idb = await ctx.store.get({clientId: clienteId, kind: tipo});
+    _pagoMismaSesion(ctx);
+    if (legacy && ctx.legacyAmbiguo)
+      throw new Error("Payment intent conflict: referencia histórica sin licencia verificable.");
+    if (legacy && idb && !_pagoCompatibles(legacy, idb))
+      throw new Error("Payment intent conflict: una referencia anterior necesita revisión antes de cobrar.");
+    return idb && idb.abonoId ? idb : (legacy || idb);
+  }
+  async function guardarReferenciaPagoDurable(clave, dato, cobroConfirmado, clienteId, tipo) {
+    var ctx;
+    try {
+      ctx = await _pagoIDB();
+      if (!ctx) { guardarReferenciaPago(clave, dato, cobroConfirmado); return null; }
+      _pagoMismaSesion(ctx);
+      var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
+      if (legacy && ctx.legacyAmbiguo)
+        throw new Error("Payment intent conflict: legacy reference belongs to an unknown notebook.");
+      if (legacy && !_pagoCompatibles(legacy, dato))
+        throw new Error("Payment intent conflict: referencia local diferente.");
+      var existente = await ctx.store.get({clientId: clienteId, kind: tipo});
+      if (!existente) await ctx.store.putIfAbsent({clientId: clienteId, kind: tipo, value: dato});
+      else if (existente.opId !== dato.opId || !_pagoCompatibles(existente, dato))
+        throw new Error("Payment intent conflict: original opId o recibo no coincide.");
+      else if (JSON.stringify(existente) !== JSON.stringify(dato)) {
+        if (existente.abonoId && !dato.abonoId) {
+          // Another tab already confirmed a receipt; never reverse that proof.
+          throw new Error("Payment intent conflict: recibo confirmado en otra pestaña.");
+        }
+        await ctx.store.replaceIfOp({clientId: clienteId, kind: tipo,
+          expectedOpId: dato.opId, value: dato});
+      }
+      var comprobado = await ctx.store.get({clientId: clienteId, kind: tipo});
+      if (!comprobado || JSON.stringify(comprobado) !== JSON.stringify(dato))
+        throw new Error("Payment intent conflict: no durable readback.");
+      _pagoMismaSesion(ctx);
+      return ctx;
+    } catch (error) {
+      if (error && error.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") throw error;
+      var es = global.OCI18n && String(global.OCI18n.locale()).startsWith("es");
+      var msg = cobroConfirmado
+        ? (es ? "Pago confirmado; su asignación sigue pendiente. No cobres de nuevo." :
+          "Payment confirmed; allocation remains pending. Do not charge again.")
+        : (es ? "No se envió el pago: su referencia no pudo guardarse. No borres datos." :
+          "Payment not sent: durable reference unavailable. Do not clear data.");
+      var e = new Error(msg + " (" + ((error && error.message) || "persistence") + ")");
+      e.codigo = "F123_REFERENCIA_PAGO_NO_GUARDADA";
+      e.cobroConfirmado = !!cobroConfirmado;
+      throw e;
+    }
+  }
+  async function _pagoLiberarReferencia(clave, clienteId, tipo, opId, ctx) {
+    try {
+      if (!ctx) ctx = await _pagoIDB();
+      if (ctx) {
+        _pagoMismaSesion(ctx);
+        await ctx.store.removeIfOp({kind: tipo, clientId: clienteId, expectedOpId: opId});
+      }
+    } catch (_) { /* a confirmed receipt is still confirmed; preserve pending IDB */ }
+    try {
+      var raw = localStorage.getItem(clave);
+      if (raw && JSON.parse(raw).opId === opId) localStorage.removeItem(clave);
+    } catch (_) { /* legacy cleanup best effort, never revoke receipt */ }
+  }
+
   function claveAbono(clienteId) { return 'f123_customer_payment_intent_v1:' + clienteId; }
   function abonoPendiente(clienteId) {
     var txt = localStorage.getItem(claveAbono(clienteId));
@@ -326,7 +447,12 @@
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
     var payload = { monto: Number(Number(monto).toFixed(2)), motivo: String(motivo || '').slice(0,300) };
     if (!Number.isSafeInteger(Math.round(payload.monto * 100)) || !(payload.monto > 0)) throw new Error(es ? 'Ingresa un importe válido de al menos un centavo.' : 'Enter a valid amount of at least one cent.');
-    var key = claveAbono(clienteId), previo = abonoPendiente(clienteId);
+    var key = claveAbono(clienteId), previo = await leerReferenciaDurable(clienteId, "payment");
+    // A different allocation is still awaiting confirmation for this customer.
+    // Direct/unassigned payments must not silently overtake that receipt.
+    if (!(opciones && opciones.opId) && await leerReferenciaDurable(clienteId, "allocation"))
+      throw new Error(es ? "Existe una asignación anterior pendiente. Reanúdala antes de otro pago." :
+        "A previous allocation is pending. Resume it before another payment.");
     var intencionId = opciones && opciones.opId ? String(opciones.opId) : "";
     if (intencionId && (intencionId.length > 160 || !intencionId.trim())) throw new Error("Invalid payment reference.");
     if (previo && (previo.monto !== payload.monto || previo.motivo !== payload.motivo ||
@@ -335,13 +461,16 @@
     }
     if (!previo) {
       payload.opId = intencionId || ('customer-payment:' + (global.crypto && global.crypto.randomUUID ? global.crypto.randomUUID() : Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)));
-      guardarReferenciaPago(key, payload, false);
     } else payload = previo;
+    // The intent MUST be readable from durable storage before a financial POST.
+    var contextoPago = await guardarReferenciaPagoDurable(key, payload, false, clienteId, "payment");
+    _pagoMismaSesion(contextoPago);
     var response = await fetch(API + '/clientes/' + clienteId + '/abonar', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
     var result = await response.json();
     if (!response.ok || result.error) throw new Error(result.error || 'Could not confirm the payment.');
     if (result.opId !== payload.opId || !result.movimientoId) throw new Error(es ? 'El pago no está confirmado. Conserva este importe para revisarlo.' : 'The payment is not confirmed. Keep this amount for review.');
-    if (!(opciones && opciones.conservarIntencion) && localStorage.getItem(key) === JSON.stringify(payload)) localStorage.removeItem(key);
+    if (!(opciones && opciones.conservarIntencion))
+      await _pagoLiberarReferencia(key, clienteId, "payment", payload.opId, contextoPago);
     return result;
   };
   /* A confirmed payment must never be repeated to retry its allocation. */
@@ -357,7 +486,8 @@
     }
     return dato;
   }
-  async function confirmarAsignacion(clienteId, dato) {
+  async function confirmarAsignacion(clienteId, dato, contextoPago) {
+    _pagoMismaSesion(contextoPago);
     var res = await fetch(API + "/clientes/" + clienteId + "/aplicar", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ abonoId: dato.abonoId, partes: dato.partes, opId: dato.opId })
@@ -366,24 +496,25 @@
     if (!res.ok || respuesta.error || !respuesta.aplicacionId || respuesta.opId !== dato.opId) {
       throw new Error(respuesta.error || "Payment saved; allocation pending confirmation.");
     }
-    var key = claveAsignacion(clienteId);
-    if (localStorage.getItem(key) === JSON.stringify(dato)) localStorage.removeItem(key);
-    var pagoKey = claveAbono(clienteId), pagoRaw = localStorage.getItem(pagoKey);
-    if (dato.paymentOpId && pagoRaw) {
-      try { if (JSON.parse(pagoRaw).opId === dato.paymentOpId) localStorage.removeItem(pagoKey); } catch (_) {}
-    }
+    // Only a verified business allocation receipt can retire the intent.
+    await _pagoLiberarReferencia(claveAsignacion(clienteId), clienteId, "allocation", dato.opId, contextoPago);
+    if (dato.paymentOpId)
+      await _pagoLiberarReferencia(claveAbono(clienteId), clienteId, "payment", dato.paymentOpId, contextoPago);
     return respuesta;
   }
   async function reanudarAsignacion(clienteId, dato) {
+    var contextoPago = await guardarReferenciaPagoDurable(
+      claveAsignacion(clienteId), dato, !!dato.abonoId, clienteId, "allocation");
     if (!dato.abonoId) {
       if (!dato.paymentOpId) throw new Error("Missing original payment reference. Review history; do not pay again.");
       var r = await global.ocEnviarAbono(clienteId, dato.monto, dato.motivo || "Abono",
         { opId: dato.paymentOpId, conservarIntencion: true });
       if (!r || !r.movimientoId) throw new Error("Payment receipt not confirmed. Retry with the same reference.");
       dato.abonoId = String(r.movimientoId);
-      guardarReferenciaPago(claveAsignacion(clienteId), dato, true);
+      contextoPago = await guardarReferenciaPagoDurable(
+        claveAsignacion(clienteId), dato, true, clienteId, "allocation");
     }
-    return confirmarAsignacion(clienteId, dato);
+    return confirmarAsignacion(clienteId, dato, contextoPago);
   }
   function modalAbonar(clienteId, nombre) {
     if (document.getElementById("pp-modal-abono")) return;
@@ -407,9 +538,10 @@
     document.body.appendChild(m);
     var q = function (id) { return m.querySelector("#" + id); };
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
-    var anterior = null, pendienteAsignacion = null;
-    try { anterior = abonoPendiente(clienteId); } catch (_) {}
+    var anterior = null, pendienteAsignacion = null, referenciaLocalValida = true;
+    try { anterior = abonoPendiente(clienteId); } catch (_) { referenciaLocalValida = false; }
     try { pendienteAsignacion = leerAsignacion(clienteId); } catch (e) {
+      referenciaLocalValida = false;
       q("pp-ab-msg").textContent = (e && e.message) || "Saved allocation requires review.";
       q("pp-ab-ok").disabled = true;
     }
@@ -425,6 +557,32 @@
       q('pp-ab-msg').textContent = es ? 'Pago anterior por confirmar. Confirma el mismo importe; no se registrará dos veces.' : 'An earlier payment needs confirmation. Confirm the same amount; it will not be recorded twice.';
     }
 
+    // Async IDB hydration must finish before the user can attempt a payment.
+    // A stale/foreign legacy reference and an IDB reference are never merged by guess.
+    q("pp-ab-ok").disabled = true;
+    Promise.all([leerReferenciaDurable(clienteId, "payment"),
+      leerReferenciaDurable(clienteId, "allocation")]).then(function (refs) {
+      if (!referenciaLocalValida) throw new Error("La referencia anterior requiere revisión.");
+      anterior = refs[0]; pendienteAsignacion = refs[1];
+      if (pendienteAsignacion) {
+        q("pp-ab-monto").value = Number(pendienteAsignacion.monto).toFixed(2);
+        q("pp-ab-monto").disabled = true;
+        q("pp-ab-ok").textContent = es ? "Reanudar operación" : "Resume operation";
+        q("pp-ab-msg").textContent = pendienteAsignacion.abonoId
+          ? (es ? "Pago confirmado; solo queda asignarlo." : "Payment confirmed; only allocation remains.")
+          : (es ? "Operación anterior pendiente: mismo cobro y referencia." :
+            "Pending operation: original payment reference will be reused.");
+      } else if (anterior) {
+        q("pp-ab-monto").value = Number(anterior.monto).toFixed(2);
+        q("pp-ab-msg").textContent = es ? "Pago anterior por confirmar; se usará su referencia." :
+          "An earlier payment will use its original reference.";
+      }
+      q("pp-ab-ok").disabled = false;
+    }).catch(function (error) {
+      q("pp-ab-msg").style.color = "#B0183E";
+      q("pp-ab-msg").textContent = (error && error.message) || "Storage reference unavailable.";
+      q("pp-ab-ok").disabled = true;
+    });
     function cerrar() { try { m.remove(); } catch (_) {} document.removeEventListener("keydown", onKey, true); }
     function onKey(ev) { if (ev.key === "Escape" || ev.key === "Esc") { ev.stopPropagation(); cerrar(); } }
     document.addEventListener("keydown", onKey, true);
@@ -539,15 +697,14 @@
           paymentOpId: pagoId, opId: "customer-allocation:" + pagoId.slice("customer-payment:".length),
           abonoId: null, partes: partes, monto: monto, motivo: motivo
         };
-        try {
-          guardarReferenciaPago(claveAsignacion(clienteId), pendienteAsignacion, false);
-          tarea = reanudarAsignacion(clienteId, pendienteAsignacion);
-        } catch (errorGuardar) {
-          // A failure BEFORE starting the payment is not a confirmed payment.
-          // Do not label it preserved; no financial request was issued.
-          pendienteAsignacion = null;
-          tarea = Promise.reject(errorGuardar);
-        }
+        tarea = guardarReferenciaPagoDurable(
+          claveAsignacion(clienteId), pendienteAsignacion, false, clienteId, "allocation")
+          .then(function () { return reanudarAsignacion(clienteId, pendienteAsignacion); })
+          .catch(function (errorGuardar) {
+            // Keep the exact pending reference if storage succeeded and the
+            // network failed. Never create a new opId on an uncertain payment.
+            throw errorGuardar;
+          });
       } else {
         tarea = global.ocEnviarAbono(clienteId, monto, motivo); // Legitimate unassigned payment.
       }

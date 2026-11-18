@@ -1,0 +1,40 @@
+name: P0 Belén Safari payment intent IndexedDB atomic QA only
+on:
+  push:
+    branches: [feat/belen-safari-idb-credit-intents-20261118]
+  pull_request:
+    paths:
+      - src/pago-intento-idb.mjs
+      - docs/pago-intento-idb.mjs
+      - docs/plan-pagos-ui.js
+      - test/p0-belen-payment-intent-idb.test.cjs
+      - test/p0-belen-idb-live-payment.test.cjs
+      - test/p0-belen-idb-live-browser.test.cjs
+      - .github/workflows/qa-p0-belen-payment-intents.yml
+permissions:
+  contents: read
+jobs:
+  durable-credit-intent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real IDB transactions, crash/reopen, two tabs, opId tenant isolation
+        run: node --test test/p0-belen-payment-intent-idb.test.cjs test/p0-belen-idb-live-payment.test.cjs test/fiados-quota-cliente-4d.test.js test/fiados-pagado-por-consumo-v557.test.js
+  safari-browser-credit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install Chromium and WebKit for real payment UI integration
+        run: npx playwright install --with-deps chromium webkit
+      - name: Synthetic HTTP ESM and persistent IDB, real Chromium and WebKit
+        run: node --test test/p0-belen-idb-live-browser.test.cjs
+      - name: Existing business receipt and payment/reload regression
+        run: node --test test/customer-payment-recovery.test.js test/customer-payment-browser.test.js
