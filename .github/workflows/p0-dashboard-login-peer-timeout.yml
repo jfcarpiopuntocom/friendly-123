@@ -1,0 +1,32 @@
+name: P0 dashboard Entrar peer-timeout QA (no deploy)
+on:
+  push:
+    branches: [hotfix/20261118-dashboard-peer-timeout-login-qa]
+  pull_request:
+    paths:
+      - src/dashboard/dashboard-main.js
+      - test/p0-dashboard-login-peer-timeout.test.cjs
+      - .github/workflows/p0-dashboard-login-peer-timeout.yml
+permissions:
+  contents: read
+jobs:
+  login-handler-and-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run behavior tests against the ACTUAL Entrar handler
+        run: node --test test/p0-dashboard-login-peer-timeout.test.cjs
+      - name: Install pinned build dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate official dashboard source-to-bundle build (temporary QA workspace only)
+        run: |
+          set -euo pipefail
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          git diff --exit-code -- docs/sw.js docs/dashboard.html
+          echo 'QA build passed. Deliberately NOT committing assets, changing release identity, or deploying.'
