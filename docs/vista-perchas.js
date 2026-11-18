@@ -997,28 +997,55 @@
     const id = perchaFotoPendiente;
     inputFoto.value = ''; perchaFotoPendiente = null;
     if (!file || !id) return;
+    // Bind the photo assignment to the notebook that began this async capture.
+    // A later login/shop switch must never publish its pointer into another shop.
+    const cuadernoFoto = (() => {
+      try { return window.OCTienda && window.OCTienda.licenciaActual
+        ? String(window.OCTienda.licenciaActual() || '') : ''; } catch (_) { return ''; }
+    })();
+    const mismoCuaderno = () => {
+      if (!cuadernoFoto) return true; // legacy single-notebook path
+      try { return window.OCTienda && window.OCTienda.licenciaActual &&
+        String(window.OCTienda.licenciaActual() || '') === cuadernoFoto; } catch (_) { return false; }
+    };
     redimensionar(file, async (dataUrl) => {
       const ok = window.OCFotos ? await window.OCFotos.guardarFoto(id, dataUrl) : false;
       if (!ok) {
         alert('No se pudo guardar la foto (espacio lleno). Borra alguna foto vieja.');
         return;
       }
-      fotoCache[id] = dataUrl; // optimista: se ve de inmediato, sin esperar otra lectura
-      /* B2 (JFC 2026-09-10): ademas de guardarla por id (para la vista de aca),
-         se guarda por su HASH y se registra el puntero fotoHash en la ubicacion.
-         Asi la asignacion viaja por el sync (solo el hash) y el otro aparato sabe
-         que foto le toca a esta percha; los bytes se traeran cuando haya nube (B3).
-         Falla en silencio: si algo de esto no anda, la foto local ya quedo guardada. */
+      if (mismoCuaderno()) fotoCache[id] = dataUrl; // display remains local during network failures
+      // Photo bytes alone are not an ACK that the active shelf's hash pointer
+      // was persisted. Reopen uses the existing exact-shelf recovery policy.
+      let pointerOk = false;
       try {
-        if (window.OCFotos && window.OCFotos.guardarFotoContenido) {
-          const hash = await window.OCFotos.guardarFotoContenido(dataUrl);
-          await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fotoHash: hash })
-          });
-        }
+        if (!window.OCFotos || !window.OCFotos.guardarFotoContenido)
+          throw new Error('Photo hash storage unavailable');
+        const hash = await window.OCFotos.guardarFotoContenido(dataUrl);
+        if (!hash || !mismoCuaderno()) throw new Error('Photo notebook changed');
+        const response = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fotoHash: hash })
+        });
+        if (!response || response.ok !== true || !mismoCuaderno())
+          throw new Error('Photo pointer was not acknowledged');
+        pointerOk = true;
       } catch (_) {}
-      cargar();
+      if (!pointerOk) {
+        try {
+          if (window.OCSalud && window.OCSalud.fallo)
+            window.OCSalud.fallo('perchas', 'foto-pointer-pendiente');
+        } catch (_) {}
+        alert('La foto sigue guardada en este dispositivo, pero su enlace con la percha no se confirmó. Abre Perchas de nuevo para reintentar.');
+        // Do not replay the stale PUT. The existing recoverShelfPhoto routine
+        // inspects current shelf/Yjs/history on the next online refresh.
+        try {
+          if (window.addEventListener) window.addEventListener('online', () => {
+            if (mismoCuaderno()) cargar();
+          }, { once: true });
+        } catch (_) {}
+      }
+      if (mismoCuaderno()) cargar();
     });
   });
 
