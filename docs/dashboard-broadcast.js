@@ -105,7 +105,7 @@
   } };
   // Dashboard chooses the transient channel; app only subscribes in legacy sync.
   // External-script marker preserves reproducible no-inline dashboard HTML.
-  if (document.currentScript && document.currentScript.hasAttribute("data-f123-dashboard")) {
+  if (typeof document !== "undefined" && document.currentScript && document.currentScript.hasAttribute("data-f123-dashboard")) {
     window.F123Relay = window.F123DashboardRealtime
       ? window.F123DashboardBroadcast
       : (window.F123Peer && window.F123Peer.create ? window.F123Peer.create() : window.F123Relay);
