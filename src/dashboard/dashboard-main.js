@@ -3371,7 +3371,16 @@
     } catch (e) {
       $("entrar").disabled = false;
       $("msg").style.color = "#A8123A";
-      $("msg").textContent = "No se pudo conectar. Revisa tu internet.";
+      /* timeout means no peer answered the P2P handshake; it does NOT
+         demonstrate an internet outage. Do not disguise JS exceptions as
+         connectivity problems, and never grant access without a valid PIN. */
+      if (e && e.message === "timeout") {
+        $("msg").textContent = "Ningún dispositivo de tu equipo contestó. Abre friendly-123 y vuelve a intentar.";
+      } else if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        $("msg").textContent = "No se pudo conectar. Revisa tu internet.";
+      } else {
+        $("msg").textContent = "No se pudo comprobar tu PIN.";
+      }
     } finally {
       /* GUARD: el boton vuelve SIEMPRE. Sin esto, cualquier excepcion en un
          camino nuevo dejaba la puerta trabada y solo se salia recargando. */
