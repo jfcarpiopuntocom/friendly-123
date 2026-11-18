@@ -40,3 +40,38 @@ jobs:
           npm install --no-save --ignore-scripts --package-lock=false --no-audit --no-fund playwright@1.62.1
       - name: Real WebKit + Chromium photo bytes, IDB ACK and A/B quota reopen
         run: node --test --test-concurrency=1 test/p0-belen-photo-snapshot-webkit-browser.test.cjs
+  seal-v795-branch:
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/p0-belen-photo-snapshot-safe-v795-20261118'
+    permissions: {contents: write}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-belen-photo-snapshot-safe-v795-20261118
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: RED to GREEN real photo blob and business snapshot serialization
+        run: |
+          set -euo pipefail
+          node --check docs/mock-backend.js
+          node --check docs/idb-fotos.js
+          node --test test/p0-belen-photo-snapshot-quota-real-source.test.cjs test/p0-belen-photo-idb-proof-real-source.test.cjs
+      - name: Recompute official photo snapshot golden331 manifest
+        run: |
+          set -euo pipefail
+          node scripts/gen-manifest.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+      - name: Commit exact offline manifest to QA branch (no publish)
+        run: |
+          set -euo pipefail
+          test "$(git symbolic-ref --short HEAD)" = "fix/p0-belen-photo-snapshot-safe-v795-20261118"
+          git add docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git -c user.name='friendly123-qa-build[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'release(v795): seal confirmed photo-blob snapshot module and PWA manifest'
+            git push origin HEAD:refs/heads/fix/p0-belen-photo-snapshot-safe-v795-20261118
+          fi
