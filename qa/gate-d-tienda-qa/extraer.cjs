@@ -19,6 +19,7 @@ const estado = p => p.evaluate(lic => {
     return { unido: String(o.licenseCode || '').toUpperCase() === code && !!(y && y.roomId),
       cat: st(y && y.doc), ops: st(y && y.opsDoc),
       recuperando: !!(y && ((y.canal && y.canal.recuperando) || (y.opsCanal && y.opsCanal.recuperando))),
+      catRecuperando: !!(y && y.canal && y.canal.recuperando), opsRecuperando: !!(y && y.opsCanal && y.opsCanal.recuperando),
       idb: !!(y && y.idb && y.idb.synced === true) };
   } catch (_) { return { error: true }; }
 }, LICENCIA).catch(() => ({ error: true }));
@@ -30,7 +31,7 @@ const estado = p => p.evaluate(lic => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(m)) return r.continue();
     bloqueadas[m] = (bloqueadas[m] || 0) + 1; return r.abort(); });
   p.setDefaultTimeout(30000);
-  let fallo = '';
+  let fallo = '', e = null, ultimo = null;
   try {
     await p.goto(BASE, { waitUntil: 'domcontentloaded' });
     await p.locator('#oc-gate button[data-d]').first().waitFor({ state: 'visible' });
@@ -38,7 +39,7 @@ const estado = p => p.evaluate(lic => {
     await p.click('#oc-act-unirme');
     await p.fill('#oc-ue-codigo', LICENCIA);
     await p.click('#oc-ue-confirmar');
-    let e = null; const t0 = Date.now();
+    e = null; const t0 = Date.now();
     while (Date.now() - t0 < 20000) { await p.waitForTimeout(2000); e = await estado(p); if (e.unido) break; }
     if (!e || !e.unido) throw Object.assign(new Error('x'), { name: 'Error', etapa: 'UNION' });
     // Stop on verified recovery, 150 s without struct progress, or 300 s budget (canary's CI budget).
@@ -50,7 +51,8 @@ const estado = p => p.evaluate(lic => {
       if (e.cat && e.ops && !e.recuperando && e.idb && !e.cat.pend && !e.ops.pend) break;
       if (Date.now() - avance > 150000 || Date.now() - t1 > 300000) { fallo = 'recuperacion incompleta'; break; }
     }
-    console.log('LECTOR_ESTADO:', JSON.stringify({ recuperando: e.recuperando, idb: e.idb, cat: e.cat, ops: e.ops, segundos: Math.round((Date.now() - t1) / 1000) }));
+    ultimo = e;
+    console.log('LECTOR_ESTADO:', JSON.stringify({ catRecuperando: e.catRecuperando, opsRecuperando: e.opsRecuperando, idb: e.idb, cat: e.cat, ops: e.ops, segundos: Math.round((Date.now() - t1) / 1000) }));
     const out = await p.evaluate(() => {
       const Y = window.Y, y = window.OCYjs, b64 = u => { let s = ''; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(s); };
       const one = d => {
@@ -69,6 +71,7 @@ const estado = p => p.evaluate(lic => {
   } catch (err) { fallo = 'EXCEPCION ' + (err.etapa || seguro(err)); }
   console.log('LECTOR_FIREBASE_ESCRITURAS_BLOQUEADAS:', JSON.stringify(bloqueadas));
   await b.close();
-  if (fallo) { console.log('LECTOR_AVISO: ' + fallo); if (fs.existsSync(OUT)) fs.writeFileSync(path.join(OUT, 'incompleto'), fallo); }
+  if (fallo) console.log('LECTOR_AVISO: ' + fallo);
+  if (fs.existsSync(OUT)) fs.writeFileSync(path.join(OUT, 'estado.json'), JSON.stringify({ cat: !!(ultimo && ultimo.idb && !ultimo.catRecuperando && ultimo.cat && !ultimo.cat.pend), ops: !!(ultimo && !ultimo.opsRecuperando && ultimo.ops && !ultimo.ops.pend) }));
   if (!fs.existsSync(path.join(OUT, 'cat.bin'))) process.exit(1);
 })().catch(e => { console.error('FALLA LECTOR: ' + seguro(e)); process.exit(1); });

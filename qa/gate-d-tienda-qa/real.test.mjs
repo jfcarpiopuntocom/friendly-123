@@ -23,6 +23,7 @@ const bundle=(await build({entryPoints:[path.join(import.meta.dirname,'fixtures/
 const room=await salaDeLicencia(license);
 const pending=d=>d.store.pendingStructs||d.store.pendingDs;
 
+const lectura=JSON.parse(fs.readFileSync(path.join(DIR,'estado.json'),'utf8'));
 const src={};
 for(const ch of ['cat','ops']){
  const bytes=new Uint8Array(fs.readFileSync(path.join(DIR,ch+'.bin')));
@@ -83,9 +84,8 @@ async function relay(source){
 async function waitFor(pred,label,ms=8000){const t=Date.now();while(!pred()){if(Date.now()-t>ms)throw Error('timeout '+label);await new Promise(r=>setTimeout(r,25));}}
 
 test('Gate D on the QA store real history: as-is, forward, cold restart, failback only-new',{timeout:240000},async()=>{
- const incompleto=fs.existsSync(path.join(DIR,'incompleto'));
- log('LECTURA_COMPLETA',!incompleto);
- assert.equal(incompleto,false,'la lectura del historial real no terminó: la fuente no es el historial completo');
+ log('LECTURA_COMPLETA',lectura);
+ assert.equal(lectura.cat,true,'la lectura del catálogo real no terminó: la fuente no es el historial completo');
  const w=await relay({cat:src.cat.proof,ops:src.ops.proof});
  try{
   const s0=await(await w.gate('cat')).json(),o0=await(await w.gate('ops')).json();
@@ -125,5 +125,32 @@ test('Gate D on the QA store real history: as-is, forward, cold restart, failbac
    shaIgualServidor:once===r.headers.get('x-state-sha256'),idempotente:once===twice});
   assert.deepEqual(historicos,[],'failback resends no history');
   assert.equal(once,r.headers.get('x-state-sha256'));assert.equal(twice,once);
+ }finally{await w.close();}
+});
+
+// Ops (ventas) channel alone, when its real read completed: as-is, cold restart without re-import, failback resends nothing.
+test('Gate D ops-only on the QA store real sales history',{timeout:120000},async()=>{
+ assert.equal(lectura.ops,true,'la lectura de ops real no terminó');
+ const w=await relay({ops:src.ops.proof});
+ try{
+  const o0=await(await w.gate('ops')).json();
+  assert.equal(o0.gateD.opened,true,String(o0.gateD.failback));assert.equal(o0.gateD.receipt.sha256,src.ops.proof.expectedStateSha256);
+  const ops=await w.connect('ops',['ops:read']);
+  assert.equal(pending(ops),null);
+  assert.equal(sha(Y.encodeStateVector(ops)),src.ops.proof.expectedVectorSha256);
+  assert.equal(ops.getMap('eventos').size,src.ops.proof.expectedOpIds);
+  await w.restart();
+  const cold=await w.connect('ops',['ops:read']);
+  const again=await(await w.gate('ops')).json();
+  assert.equal(sha(Y.encodeStateVector(cold)),src.ops.proof.expectedVectorSha256);
+  assert.deepEqual([again.gateD.opened,again.gateD.already],[true,true]);
+  const r=await w.gate('ops',Y.encodeStateVector(src.ops.doc));
+  assert.equal(r.status,200);
+  const update=new Uint8Array(await r.arrayBuffer()),structs=Y.decodeUpdate(update).structs.length;
+  const before=sha(Y.encodeStateAsUpdate(src.ops.doc));Y.applyUpdate(src.ops.doc,update);
+  log('OPS',{abierto:true,eventos:cold.getMap('eventos').size,vectorIgualFuente:true,reimportado:false,failbackStructs:structs,
+   failbackSinCambios:sha(Y.encodeStateAsUpdate(src.ops.doc))===before,shaIgualServidor:before===r.headers.get('x-state-sha256')});
+  assert.equal(structs,0,'failback must resend nothing when the current path already has everything');
+  assert.equal(before,r.headers.get('x-state-sha256'));
  }finally{await w.close();}
 });
