@@ -1691,8 +1691,12 @@
       if (!Array.isArray(items)) return items;
       return items.map(function (item) {
         if (!item || !item.fotoHash || typeof item.foto !== "string" ||
-            !/^data:image\//.test(item.foto) ||
-            !fotos.tieneFotoHashConfirmadoEnIdb(item.fotoHash, item.foto)) return item;
+            !/^data:image\//.test(item.foto)) return item;
+        // If the photo bridge fails, keep the original durable evidence.
+        let comprobada = false;
+        try { comprobada = fotos.tieneFotoHashConfirmadoEnIdb(item.fotoHash, item.foto) === true; }
+        catch (_) {}
+        if (!comprobada) return item;
         const copia = Object.assign({}, item);
         delete copia.foto; // only the redundant UI dataURL, never fotoHash/fotoRev
         podadas++;
