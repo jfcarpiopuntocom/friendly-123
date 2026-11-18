@@ -47,17 +47,17 @@ export async function assessQaReadiness({fetcher=globalThis.fetch,endpoints=ENDP
     }
   }catch(_){jsonError=true;}
   const issuerState=issuer.status===null?'NETWORK_UNAVAILABLE':classifyIssuer(issuer.status);
-  const workerState=worker.status===503?'FAIL_CLOSED':worker.status===null?'NETWORK_UNAVAILABLE':'NOT_YET_AUTHENTICATED';
+  // An unauthenticated GET / returns 404 both with a configured Worker and\n  // when SALA_PILOTO is absent. Root status never proves a signed connection.\n  const workerState=worker.status===503?'FAIL_CLOSED':worker.status===null?'NETWORK_UNAVAILABLE':'ROOT_UNVERIFIED';
   const allStoresOff=enabledStores===0;
-  const signedQaTestPossible=issuerState==='ROUTE_CONFIGURED'&&
-    workerState==='NOT_YET_AUTHENTICATED'&&allStoresOff&&!jsonError;
+  const ticketRouteReady=issuerState==='ROUTE_CONFIGURED'&&allStoresOff&&!jsonError;
+  const signedQaTestPossible=false; // A public GET can never prove a signed WS handshake.
   return {
     issuer:{http:issuer.status,state:issuerState},
     worker:{http:worker.status,state:workerState},
     published:{version:servedVersion,shell,versionHttp:version.status,rolloutHttp:rollout.status,enabledStores},
-    rolloutSafe:allStoresOff,signedQaTestPossible,certified:false,
+    rolloutSafe:allStoresOff,signedQaTestPossible,ticketRouteReady,certified:false,
     status:!allStoresOff||jsonError?'INVESTIGATE_SAFETY':
-      signedQaTestPossible?'READY_FOR_SIGNED_QA_TEST':'BLOCKED_BEFORE_QA'
+      ticketRouteReady?'NEEDS_SIGNED_QA_PROBE':'BLOCKED_BEFORE_QA'
   };
 }
 function safeSummary(r){
