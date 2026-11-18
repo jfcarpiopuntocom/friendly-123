@@ -28,7 +28,7 @@ jobs:
           set -euo pipefail
           mkdir -p evidence/dashboard-d3
           git rev-parse HEAD | tee evidence/dashboard-d3/head-sha.txt
-          node --test test/dashboard-d3-cuanto-me-dejo.test.js 2>&1 | tee evidence/dashboard-d3/tap.log
+          node --test test/dashboard-d3-cuanto-me-dejo.test.js test/dashboard-d3-ui.test.js 2>&1 | tee evidence/dashboard-d3/tap.log
       - name: Save RED GREEN TAP
         if: always()
         uses: actions/upload-artifact@v4
