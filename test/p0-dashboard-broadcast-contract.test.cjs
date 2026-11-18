@@ -44,3 +44,25 @@ test('RED: real index loads dashboard bus after vendor and before legacy sync; d
  assert.ok(vendor.includes('window.F123DashboardRealtime=mn'),'SDK instance exported, no duplicate SDK');
  assert.ok(legacy.includes('dashboard-broadcast')&&legacy.includes('ev.relaySource === "dashboard-broadcast"'),'existing Owner PIN verification re-used by app');
 });
+
+test('P0: an app-side transient Supabase CHANNEL_ERROR recovers the subscription without losing its dashboard listener', async()=>{
+  let signal=null,unsubscribed=0,deliver=null;
+  const adapter={
+    channel(){return {
+      on(t,filter,fn){if(t==='broadcast'&&filter.event==='frame')deliver=fn;return this;},
+      subscribe(fn){signal=fn;return this;},
+      unsubscribe(){unsubscribed++;}
+    }}
+  };
+  const context={window:{F123DashboardRealtime:adapter},EventTarget,Event,MessageEvent,TextEncoder,Uint8Array,ArrayBuffer,crypto:crypto.webcrypto,console,Promise,Map,Set,JSON,Date,Math,atob,btoa,setTimeout,clearTimeout,queueMicrotask,DOMException};
+  vm.runInNewContext(read('docs/dashboard-broadcast.js'),context);
+  const socket=context.window.F123DashboardBroadcast.connect('wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/'+'c'.repeat(40));
+  const seen=[]; socket.addEventListener('open',()=>seen.push('open'));
+  signal('SUBSCRIBED');assert.equal(socket.readyState,1);
+  signal('CHANNEL_ERROR');
+  assert.equal(socket.readyState,0,'a transient provider error stops sends but keeps the same listener');
+  assert.equal(unsubscribed,0,'do not kill the Supabase SDK automatic rejoin');
+  signal('SUBSCRIBED');assert.equal(socket.readyState,1);
+  assert.deepEqual(seen,['open','open'],'the app sees a renewed ready channel');
+  socket.close();assert.equal(unsubscribed,1);
+});
