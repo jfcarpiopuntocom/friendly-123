@@ -1,0 +1,22 @@
+name: P0 Belén Safari payment intent IndexedDB atomic QA only
+on:
+  push:
+    branches: [feat/belen-safari-idb-credit-intents-20261118]
+  pull_request:
+    paths:
+      - src/pago-intento-idb.mjs
+      - test/p0-belen-payment-intent-idb.test.cjs
+      - .github/workflows/qa-p0-belen-payment-intents.yml
+permissions:
+  contents: read
+jobs:
+  durable-credit-intent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real IDB transactions, crash/reopen, two tabs, opId tenant isolation
+        run: node --test test/p0-belen-payment-intent-idb.test.cjs
