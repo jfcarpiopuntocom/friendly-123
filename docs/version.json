@@ -1,7 +1,7 @@
 {
   "version": "v0.7.88",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.88: dashboard remoto PIN Owner/Admin y reportes cifrados sobre Supabase Realtime efímero; fallback WebRTC intacto. Sin cambio a ventas, inventario ni PIN. ",
+  "changelog": "v0.7.88: dashboard remoto PIN Owner/Admin y reportes cifrados sobre Supabase Realtime efímero; fallback WebRTC intacto. Sin cambio a ventas, inventario ni PIN. El dashboard conserva la validación de PIN por el dispositivo autorizado.",
   "requerida": false,
   "shell": "f123-shell-v788",
   "apagar": [],
