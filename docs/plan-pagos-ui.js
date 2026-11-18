@@ -314,6 +314,112 @@
       throw e;
     }
   }
+  // P0 Belén / Safari QuotaExceeded: payment intents live in transactional IDB.
+  // Never infer a customer account from a stale key in another notebook.
+  // The store contains a hash of the active business+device identity, not PINs.
+  function _pagoIdentidad() {
+    var owned;
+    try { owned = JSON.parse(localStorage.getItem("f123_owned") || "null"); } catch (_) { return null; }
+    if (!owned || !owned.licenseCode || !owned.instanceId) return null;
+    var licencia = String(owned.licenseCode).trim().toUpperCase();
+    var instancia = String(owned.instanceId);
+    if (!licencia || !/^[A-Za-z0-9_-]{6,128}$/.test(instancia)) throw new Error("Identidad de tienda inválida; conserva el pago para revisar.");
+    var rol = global.OCAuth && global.OCAuth.rolActual && global.OCAuth.rolActual();
+    if (rol !== "dueno" && rol !== "admin" && rol !== "empleado")
+      throw new Error("Sesión de tienda no autorizada; conserva el pago para revisar.");
+    return { identidad: licencia + "\u0000" + instancia, rol: rol };
+  }
+  async function _pagoIDB() {
+    if (!global.indexedDB || !global.crypto || !global.crypto.subtle) return null;
+    var activo = _pagoIdentidad();
+    if (!activo) return null; // historical/local-only installs retain their old path
+    var bytes = new TextEncoder().encode("f123-credit-intent-v1:" + activo.identidad);
+    var hash = new Uint8Array(await global.crypto.subtle.digest("SHA-256", bytes));
+    var namespace = Array.from(hash, function (b) { return b.toString(16).padStart(2, "0"); }).join("");
+    var modulo = await import("./pago-intento-idb.mjs");
+    return { tienda: activo.identidad, rol: activo.rol,
+      store: modulo.createPaymentIntentStore({indexedDB: global.indexedDB, namespace: namespace}) };
+  }
+  function _pagoMismaSesion(ctx) {
+    if (!ctx) return;
+    var ahora = _pagoIdentidad();
+    if (!ahora || ahora.identidad !== ctx.tienda || ahora.rol !== ctx.rol)
+      throw new Error("La sesión de esta tienda cambió; no reintentes el cobro con otra identidad.");
+  }
+  function _pagoSinRecibo(dato) {
+    var copia = Object.assign({}, dato);
+    delete copia.abonoId;
+    return JSON.stringify(copia);
+  }
+  function _pagoCompatibles(a, b) {
+    return a && b && a.opId === b.opId && _pagoSinRecibo(a) === _pagoSinRecibo(b) &&
+      (!a.abonoId || !b.abonoId || a.abonoId === b.abonoId);
+  }
+  async function leerReferenciaDurable(clienteId, tipo) {
+    var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
+    var ctx = await _pagoIDB();
+    if (!ctx) return legacy;
+    _pagoMismaSesion(ctx);
+    var idb = await ctx.store.get({clientId: clienteId, kind: tipo});
+    _pagoMismaSesion(ctx);
+    if (legacy && idb && !_pagoCompatibles(legacy, idb))
+      throw new Error("Payment intent conflict: una referencia anterior necesita revisión antes de cobrar.");
+    return idb && idb.abonoId ? idb : (legacy || idb);
+  }
+  async function guardarReferenciaPagoDurable(clave, dato, cobroConfirmado, clienteId, tipo) {
+    var ctx;
+    try {
+      ctx = await _pagoIDB();
+      if (!ctx) { guardarReferenciaPago(clave, dato, cobroConfirmado); return null; }
+      _pagoMismaSesion(ctx);
+      var legacy = tipo === "payment" ? abonoPendiente(clienteId) : leerAsignacion(clienteId);
+      if (legacy && !_pagoCompatibles(legacy, dato))
+        throw new Error("Payment intent conflict: referencia local diferente.");
+      var existente = await ctx.store.get({clientId: clienteId, kind: tipo});
+      if (!existente) await ctx.store.putIfAbsent({clientId: clienteId, kind: tipo, value: dato});
+      else if (existente.opId !== dato.opId || !_pagoCompatibles(existente, dato))
+        throw new Error("Payment intent conflict: original opId o recibo no coincide.");
+      else if (JSON.stringify(existente) !== JSON.stringify(dato)) {
+        if (existente.abonoId && !dato.abonoId) {
+          // Another tab already confirmed a receipt; never reverse that proof.
+          throw new Error("Payment intent conflict: recibo confirmado en otra pestaña.");
+        }
+        await ctx.store.replaceIfOp({clientId: clienteId, kind: tipo,
+          expectedOpId: dato.opId, value: dato});
+      }
+      var comprobado = await ctx.store.get({clientId: clienteId, kind: tipo});
+      if (!comprobado || JSON.stringify(comprobado) !== JSON.stringify(dato))
+        throw new Error("Payment intent conflict: no durable readback.");
+      _pagoMismaSesion(ctx);
+      return ctx;
+    } catch (error) {
+      if (error && error.codigo === "F123_REFERENCIA_PAGO_NO_GUARDADA") throw error;
+      var es = global.OCI18n && String(global.OCI18n.locale()).startsWith("es");
+      var msg = cobroConfirmado
+        ? (es ? "Pago confirmado; su asignación sigue pendiente. No cobres de nuevo." :
+          "Payment confirmed; allocation remains pending. Do not charge again.")
+        : (es ? "No se envió el pago: su referencia no pudo guardarse. No borres datos." :
+          "Payment not sent: durable reference unavailable. Do not clear data.");
+      var e = new Error(msg + " (" + ((error && error.message) || "persistence") + ")");
+      e.codigo = "F123_REFERENCIA_PAGO_NO_GUARDADA";
+      e.cobroConfirmado = !!cobroConfirmado;
+      throw e;
+    }
+  }
+  async function _pagoLiberarReferencia(clave, clienteId, tipo, opId, ctx) {
+    try {
+      if (!ctx) ctx = await _pagoIDB();
+      if (ctx) {
+        _pagoMismaSesion(ctx);
+        await ctx.store.removeIfOp({kind: tipo, clientId: clienteId, expectedOpId: opId});
+      }
+    } catch (_) { /* a confirmed receipt is still confirmed; preserve pending IDB */ }
+    try {
+      var raw = localStorage.getItem(clave);
+      if (raw && JSON.parse(raw).opId === opId) localStorage.removeItem(clave);
+    } catch (_) { /* legacy cleanup best effort, never revoke receipt */ }
+  }
+
   function claveAbono(clienteId) { return 'f123_customer_payment_intent_v1:' + clienteId; }
   function abonoPendiente(clienteId) {
     var txt = localStorage.getItem(claveAbono(clienteId));
