@@ -36,7 +36,8 @@ async function run({put='success',hash='success',byId=true,shopSwitch=false}={})
  assert.equal(typeof handler,'function','photo change listener registered');
  handler();
  await done;
- return {warnings,alerts,writes,saved,events,timeouts,reloads,ctx,
+ return {warnings,alerts,writes,saved,events,timeouts,ctx,
+  get reloads(){return reloads;},
   online:()=>events.online?.(),currentShop:()=>currentShop};
 }
 test('H2 RED: HTTP 500 after durable photo bytes does not claim shelf pointer success',async()=>{
