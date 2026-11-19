@@ -68,12 +68,17 @@ test('REAL Tienda.onStart preserves nonempty journal 10 + frozen 100 and cold re
   assert.equal(first.amountCents,15095);
   assert.equal(first.unionProof,true);
   assert.equal(first.cert,false,'nonempty shop never fakes an empty-store certificate');
+  assert.equal(typeof first.pitrAvailable,'boolean','Workerd must expose PITR certificate status');
+  assert.equal(first.pitrAvailable,typeof first.pitrBookmark==='string');
+  if(first.pitrAvailable)assert.ok(first.pitrBookmark.length>8,'opaque PITR bookmark persists');
   assert.equal(w.reads,1);
   w.disableSource();await w.restart();
   const cold=await w.load();
   assert.equal(cold.opened,true);assert.equal(cold.already,true);
   assert.equal(cold.count,110);assert.equal(cold.amountCents,15095);
   assert.equal(cold.journal,first.journal,'cold reopen never repeats journal operations');
+  assert.equal(cold.pitrBookmark,first.pitrBookmark,'PITR bookmark must survive cold Workerd restart');
+  assert.equal(cold.pitrAvailable,first.pitrAvailable);
   assert.equal(w.reads,1,'receipt verifies local SQL without fetching Firebase again');
  }finally{await w.close();}
 });
