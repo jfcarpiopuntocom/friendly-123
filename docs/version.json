@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.15",
+  "version": "v0.8.16",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.15: C36 un mismo opId estable de la venta tras ACK local hasta la cola antigua/Sync3 y el comando tipado C31, solo en pago efectivo completo de precio de lista; IDs incompatibles y otras ventas continúan por legado. QA 2.0 OFF, cero despliegue cloud, Sync3 intacto.",
+  "changelog": "v0.8.16: C38 corte comercial 2.0 QA solo si el relay 1.0 fue apagado deliberadamente y no hay cambios pendientes; aborta si se reactiva antes o después de activar C21a. Sin nuevo escritor, Sync3 intacto, switch QA OFF por defecto, cero escritura Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v815",
+  "shell": "f123-shell-v816",
   "apagar": [],
-  "releaseName": "v0.8.15",
-  "cacheGeneration": "golden351"
+  "releaseName": "v0.8.16",
+  "cacheGeneration": "golden352"
 }
