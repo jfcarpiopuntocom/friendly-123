@@ -1,5 +1,6 @@
 'use strict';
 // C37 score is a fixed-budget implementation audit, NOT physical GO.
+// RED checkpoint: the previous authoritative product score is still 85.0/76.0; never inflate without verified C36 code.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
