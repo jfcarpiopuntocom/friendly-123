@@ -20,6 +20,10 @@ test('C39: real product C38 local no-dual-writer interlock earns ONLY 0.5 fixed-
  assert.equal(port.maximum,100);
  assert.equal(quality.maximum,100);
  assert.equal(port.groups.reduce((a,g)=>a+g.weight,0),100,'original rubric fixed at 100');
+ const storage=port.groups.find(g=>g.id==='storage');
+ assert.equal(storage?.weight,17,'C38 must not change historical storage rubric weight');
+ assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17,
+   'C38 0.5 credit is split from existing operational-switch, never added to 100');
  assert.equal(ms.find(m=>m.id==='local-legacy-relay-quiescence-gate-c38')?.done,true);
  assert.equal(ms.find(m=>m.id==='local-legacy-relay-quiescence-gate-c38')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='operational-switch')?.points,1.0);
