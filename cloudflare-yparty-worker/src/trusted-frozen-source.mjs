@@ -7,9 +7,9 @@ import {projectPublicCatalog} from './catalog-safe-projection.mjs';
 const MAX_WIRE=16*1024*1024; // JSON bytes per page
 const MAX_FRAMES=4096;      // frames per page
 const MAX_FRAME=4*1024*1024;
-const MAX_PAGES=16;
+const MAX_PAGES=8; // Until SQL staging + bounded final Yjs proof is verified
 const MAX_TOTAL_FRAMES=16384;
-const MAX_TOTAL_BYTES=64*1024*1024;
+const MAX_TOTAL_BYTES=24*1024*1024; // Raw RAM-only aggregate hard ceiling
 const TIMEOUT_MS=5000; // aggregate QA budget, including all pages
 const ROOM=/^[a-f0-9]{32}-(?:cat|ops)$/;
 const HASH=/^[a-f0-9]{64}$/;
