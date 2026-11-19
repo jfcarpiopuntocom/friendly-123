@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 72.7,
-    "previousSource": "https://github.com/jfcarpiopuntocom/friendly-123/blob/83790575a369a5d6d1f044232c4e049e9b49433d/docs/engineering/architecture-2-quality-score.json",
+    "previousScore": 74.1,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ e2281fb48369e91caa49fe6576ed14610d9d61b3",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 74.1,
+  "score": 74.6,
   "maximum": 100,
   "dimensions": [
     {
@@ -16,15 +16,15 @@
       "score": 17.5,
       "previous": 17.5,
       "justification": "Typed sale/stock/credit SQL tested; full live commercial routing not yet wired",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2281fb48369e91caa49fe6576ed14610d9d61b3/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/cc9365aad373ded56f6118cdfd1f116e97d13068/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
     },
     {
       "id": "durability",
       "weight": 20,
-      "score": 17,
-      "previous": 16.5,
-      "justification": "Workerd snapshot and journal plus C16a exact opId durable pre-send before first HTTP POST; IndexedDB async rejection blocks network; 17/17 focused tests. Live business path remains legacy and Safari physical QA pending",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/798"
+      "score": 17.3,
+      "previous": 17,
+      "justification": "C16a atomic opId pre-send and C16b same store Safari IDB.open watchdog 100–10000 ms; late success connection closed, exact C15 command whitelist and cross-tab conflicting opId refused; confirmed PR #808 13/13 CI. No physical Safari A→B→A certification.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/808"
     },
     {
       "id": "sync",
@@ -32,23 +32,23 @@
       "score": 14.9,
       "previous": 14.9,
       "justification": "C13 wires certified read-only public catalog reader into docs/sync-yjs.js behind double QA switch (OFF), gated on legacy shadow recovery + IDB + zero causal debt, with hidden/BFCache teardown; active writes stay legacy",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2281fb48369e91caa49fe6576ed14610d9d61b3/docs/sync-yjs.js"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/cc9365aad373ded56f6118cdfd1f116e97d13068/docs/sync-yjs.js"
     },
     {
       "id": "security",
       "weight": 15,
       "score": 10.3,
-      "previous": 10,
+      "previous": 10.3,
       "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/797"
     },
     {
       "id": "photos",
       "weight": 10,
-      "score": 7.1,
-      "previous": 6.5,
-      "justification": "PR #796 closes three missing-CAS-preimage photo pointer PUT paths (no request without authentic preimage), preserves bytes on conflict, checks exact notebook and ACK; 27 CI green; no physical A→B→C mobile acceptance yet",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/796"
+      "score": 7.3,
+      "previous": 7.1,
+      "justification": "C18a host-pinned Owner PUT/GET and Team read-only SHA-256 with Workerd SQLite cold restart; end-to-end timeout now covers photo body/receipt after HTTP headers, P0 RED→GREEN 7/7 unit + 1/1 Workerd, 14/14 CI in PR #809. Photo UI/physical CAS remains uncutover.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/809"
     },
     {
       "id": "migration",
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "Expert engineering quality assessment, not measured uptime or success probability. Score changes require evidence-specific dimension notes. Commercial GO is separately tracked.",
-  "assessedProductSha": "e2281fb48369e91caa49fe6576ed14610d9d61b3",
+  "disclaimer": "Engineering quality review estimate with explicit scored evidence and separate GO; not observed uptime or customer deployment, not a hard 0-cost R2 guarantee.",
+  "assessedProductSha": "cc9365aad373ded56f6118cdfd1f116e97d13068",
   "history": [
     {
       "review": "2026-11-17",

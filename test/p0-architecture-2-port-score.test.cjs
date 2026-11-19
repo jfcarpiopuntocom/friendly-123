@@ -7,8 +7,8 @@ test('C16a metrics: real repository source paths, milestone budgets and pinned e
  assert.equal(s.port,81.5);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,13.0);
- assert.equal(s.quality,74.1);
- assert.equal(s.qualityBefore,72.7);
- assert.equal(s.qualityDelta,1.4);
+ assert.equal(s.quality,74.6);
+ assert.equal(s.qualityBefore,74.1);
+ assert.equal(s.qualityDelta,0.5);
  assert.equal(s.go,'0/6');
 });
