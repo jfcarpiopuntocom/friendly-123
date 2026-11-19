@@ -151,10 +151,28 @@ export function createTypedOpsIdbStore({ indexedDB, namespace } = {}) {
         const req = objectStore.getAll();
         req.onsuccess = () => {
           const all = Array.isArray(req.result) ? req.result : [];
-          const mine = all
-            .filter(r => r && r.namespace === namespace && r.value)
-            .map(r => r.value);
-          done(mine);
+          const mine = [];
+          // A damaged row belonging to THIS business is not "no pending
+          // sales". Silently dropping it would lose an opId after Safari
+          // reload, potentially allowing a second sale in the old ledger.
+          // The key prefix also catches a corrupted/missing namespace field.
+          const ownKeyPrefix = JSON.stringify([namespace, '']).slice(0, -2);
+          try {
+            for (const row of all) {
+              const ownKey = typeof row?.key === 'string' &&
+                row.key.startsWith(ownKeyPrefix);
+              if (!ownKey && row?.namespace !== namespace) continue;
+              if (!row?.value || row.namespace !== namespace) {
+                throw new Error('Corrupt own-business pending opId row');
+              }
+              const clean = validateEntry(row.value);
+              if (row.key !== storageKey(clean.opId)) {
+                throw new Error('Corrupt own-business pending opId key mismatch');
+              }
+              mine.push(clean);
+            }
+            done(mine);
+          } catch (error) { fail(error); }
         };
         req.onerror = () => fail(req.error || new Error('Typed-ops IndexedDB loadAll failed'));
       });
