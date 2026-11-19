@@ -116,7 +116,7 @@ function validateDocument(frames,channel,strictCatalog){
      for(const name of ['productos','ubicaciones']){
       const source=doc.share.get(name),safe=publicCopy.doc.getMap(name);
       if(source?.size!==undefined&&source.size!==safe.size)throw fail();
-      for(const [id,row] of safe){
+      for(const [id,row] of safe.entries()){
        if(JSON.stringify(source?.get(id))!==JSON.stringify(row))throw fail();
       }
      }
@@ -134,7 +134,7 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
  let stage='fetch';
  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),TIMEOUT_MS);
  try{
-  const chunks=[],hashes=[],all=[];
+  const hashes=[],all=[];
   let anchor=null,total=0;
   for(let index=1;index<=MAX_PAGES;index++){
    if(controller.signal.aborted)throw fail();
