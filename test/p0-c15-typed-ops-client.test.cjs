@@ -200,3 +200,71 @@ test('C15 timeout aborts cleanly and falls back to legacy without hanging checko
   assert.equal(res.fallbackLegacy, true);
   assert.equal(res.retryable, true);
 });
+
+test('C15 P0 RED: HTTP 202 queued receipt can commit LATER; never authorize a second legacy sale',async()=>{
+ const {dispatchTypedCommercialCommand}=await import(clientUrl);
+ const cmd={license:LICENSE,opId:'c15-queued-forever',kind:'sale.record',productId:'sku_1',quantity:1,amountCents:1500};
+ const {send}=makeFetch({status:202,body:{ok:true,receipt:{
+  opId:cmd.opId,license:LICENSE,kind:cmd.kind,receiptId:receiptIdFor(cmd),
+  acceptedAt:1700000000000,stage:'stored-for-application'
+ }}});
+ const result=await dispatchTypedCommercialCommand({room:ROOM,licenseCode:LICENSE,
+  instanceId:INSTANCE,command:cmd,getCredentials:creds,fetch:send,isVisible:()=>true});
+ assert.equal(result.committed,false);
+ assert.equal(result.stage,'queued-not-committed');
+ assert.equal(result.fallbackLegacy,false,'the same opId in a DIFFERENT ledger is NOT deduplicated');
+ assert.equal(result.reconcileRequired,true,'outbox must retain original opId and await SAME-DO receipt');
+ assert.equal(result.retryTarget,'same-do-only');
+});
+test('C15 P0 RED: HTTP 200 replay of queued receipt still is not a cash/stock ACK',async()=>{
+ const {dispatchTypedCommercialCommand}=await import(clientUrl);
+ const cmd={license:LICENSE,opId:'c15-replayed-queued',kind:'sale.record',productId:'sku_1',quantity:1,amountCents:1500};
+ const {send}=makeFetch({status:200,body:{ok:true,duplicate:true,receipt:{
+  opId:cmd.opId,license:LICENSE,kind:cmd.kind,receiptId:receiptIdFor(cmd),
+  acceptedAt:1700000000000,stage:'stored-for-application'
+ }}});
+ const result=await dispatchTypedCommercialCommand({room:ROOM,licenseCode:LICENSE,
+  instanceId:INSTANCE,command:cmd,getCredentials:creds,fetch:send,isVisible:()=>true});
+ assert.equal(result.stage,'queued-not-committed');
+ assert.equal(result.fallbackLegacy,false);
+ assert.equal(result.reconcileRequired,true);
+});
+test('C15 P0 RED: timeout or HTTP 503 AFTER sending command has UNKNOWN commit outcome, no cross-ledger failback',async()=>{
+ const {dispatchTypedCommercialCommand}=await import(clientUrl);
+ const cmd={license:LICENSE,opId:'c15-lost-ack-001',kind:'sale.record',productId:'sku_1',quantity:1,amountCents:1500};
+ for(const args of [{throwErr:new Error('ACK lost after server commit')},{status:503,body:{ok:false}}]){
+  const {send,calls}=makeFetch(args);
+  const result=await dispatchTypedCommercialCommand({room:ROOM,licenseCode:LICENSE,
+   instanceId:INSTANCE,command:cmd,getCredentials:creds,fetch:send,isVisible:()=>true});
+  assert.equal(calls.length,2,'issuer then the real command');
+  assert.equal(result.committed,false);
+  assert.equal(result.fallbackLegacy,false,'a server might already have applied the amount');
+  assert.equal(result.reconcileRequired,true);
+  assert.equal(result.retryTarget,'same-do-only');
+ }
+});
+test('C15 P0 RED: malformed HTTP 200 business receipt must be reconciled, never re-applied by legacy',async()=>{
+ const {dispatchTypedCommercialCommand}=await import(clientUrl);
+ const cmd={license:LICENSE,opId:'c15-mismatch-ack',kind:'sale.record',productId:'sku_1',quantity:1,amountCents:1500};
+ const {send}=makeFetch({status:200,body:{ok:true,receipt:{
+  opId:cmd.opId,license:LICENSE,kind:cmd.kind,receiptId:'0'.repeat(24),
+  acceptedAt:1700000000000,stage:'business-committed'
+ }}});
+ const result=await dispatchTypedCommercialCommand({room:ROOM,licenseCode:LICENSE,
+  instanceId:INSTANCE,command:cmd,getCredentials:creds,fetch:send,isVisible:()=>true});
+ assert.equal(result.committed,false);
+ assert.equal(result.fallbackLegacy,false);
+ assert.equal(result.reconcileRequired,true);
+});
+test('C15 preflight issuer denial happens before a command reaches DO; legacy may remain the source of truth',async()=>{
+ const {dispatchTypedCommercialCommand}=await import(clientUrl);
+ const cmd={license:LICENSE,opId:'c15-no-issuer-001',kind:'sale.record',productId:'sku_1',quantity:1,amountCents:1500};
+ let calls=0;
+ const send=async()=>{calls++;return{ok:false,status:403}};
+ const result=await dispatchTypedCommercialCommand({room:ROOM,licenseCode:LICENSE,
+  instanceId:INSTANCE,command:cmd,getCredentials:creds,fetch:send,isVisible:()=>true});
+ assert.equal(calls,1);
+ assert.equal(result.stage,'auth-denied');
+ assert.equal(result.fallbackLegacy,true);
+ assert.equal(result.reconcileRequired,false);
+});
