@@ -1,0 +1,37 @@
+name: P0 v800 final public changelog identity seal ONCE
+on:
+  push:
+    branches: [integrate/p0-belen-photo-pointer-strict-ack-v800-20261118]
+    paths: [.github/workflows/p0-v800-final-changelog-seal-once.yml]
+permissions: {contents: write}
+jobs:
+  exact:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0, persist-credentials: true}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: 'One label change and official asset seal'
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const fs=require('node:fs'),p='docs/version.json';
+          const x=JSON.parse(fs.readFileSync(p,'utf8'));
+          if(x.version!=='v0.8.00'||x.releaseName!=='v0.8.00'||x.shell!=='f123-shell-v800'||x.cacheGeneration!=='golden336'||!x.changelog.startsWith('v0.7.100:'))throw Error('Unrecognized v800 official version');
+          x.changelog=x.changelog.replace(/^v0\.7\.100:/,'v0.8.00:');
+          fs.writeFileSync(p,JSON.stringify(x,null,2)+'\n');
+          NODE
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node --test test/dashboard-identidad-version.test.js test/pwa-icons-multicolor-v577.test.js test/p0-belen-photo-recovery-pointer-strict-ack.test.cjs test/p0-belen-photo-pointer-ack-real-source.test.cjs
+          node scripts/release-control.cjs validate 1c9b476cb5ad371e7e84012a6b5a8bb5984377a4
+          git diff --check
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/version.json docs/version-manifest.json
+          git diff --cached --quiet && { echo 'Expected version wording update'; exit 1; }
+          git commit -m 'release(P0): correct v0.8.00 changelog label without source drift'
+          git push origin HEAD:refs/heads/integrate/p0-belen-photo-pointer-strict-ack-v800-20261118
