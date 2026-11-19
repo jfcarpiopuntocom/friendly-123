@@ -100,7 +100,7 @@ function inspect(){
  assert.equal(oneDecimal(qScore),quality.score);
  assert.equal(oneDecimal(qPrevious),quality.comparison.previousScore);
  return Object.freeze({sha:data.assessedProductSha,port:data.score,portBefore:data.baseline.score,
-  portDelta:oneDecimal(data.score-data.baseline.score),quality:quality.score,qualityBefore:qPrevious,
+  portDelta:oneDecimal(data.score-data.baseline.score),quality:quality.score,qualityBefore:oneDecimal(qPrevious),
   qualityDelta:oneDecimal(quality.score-qPrevious),go:data.commercialGo.certifiedGates+'/'+data.commercialGo.totalGates});
 }
 if(require.main===module){
