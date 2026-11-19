@@ -1,0 +1,51 @@
+name: P0 cold join candidate preview browser (synthetic license, no deploy)
+on:
+  push:
+    branches: [fix/p0-coldjoin-early-ancestor-v802-20261118]
+    paths:
+      - .github/workflows/p0-coldjoin-candidate-preview-v802.yml
+  workflow_dispatch: {}
+permissions: {contents: read}
+jobs:
+  candidate-canary:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22',cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate exact candidate source, no customer rollout
+        run: |
+          set -euo pipefail
+          node --check docs/sync-yjs.js
+          test "$(git rev-parse HEAD)" = "${GITHUB_SHA}"
+          node -e 'const p=require("./docs/sync-rollout.json"); if(Object.values(p.licenses||{}).some(x=>x.yparty===true))process.exit(1)'
+      - name: Cold-join canary on locally served exact candidate, REAL encrypted synthetic relay
+        env:
+          F123_CANARIO_LICENCIA: ${{ secrets.F123_CANARIO_LICENCIA }}
+          F123_CANARIO_PIN: ${{ secrets.F123_CANARIO_PIN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${F123_CANARIO_LICENCIA:-}" ]; then
+            echo "P0 CANDIDATE NOT RUN: synthetic canary license secret absent" >&2
+            exit 2
+          fi
+          mkdir -p /tmp/f123-candidate/friendly-123
+          cp -a docs/. /tmp/f123-candidate/friendly-123/
+          python3 -m http.server 8765 --bind 127.0.0.1 --directory /tmp/f123-candidate >/tmp/f123-candidate-http.log 2>&1 &
+          http_pid=$!
+          trap 'kill "$http_pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8765/friendly-123/version.json >/dev/null; then break; fi
+            sleep 0.2
+          done
+          curl -fsS http://127.0.0.1:8765/friendly-123/sync-yjs.js >/dev/null
+          echo "QA candidate $(git rev-parse HEAD) served only on loopback. No commercial deployment."
+          node scripts/canario-union-fria.cjs http://127.0.0.1:8765/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
