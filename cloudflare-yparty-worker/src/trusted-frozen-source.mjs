@@ -140,20 +140,15 @@ async function validateDocument(frames,channel,strictCatalog,scope={}){
   }
  }finally{doc.destroy();}
 }
-export async function readTrustedFrozenSource({env,room,channel}={}){
- if(env?.WS_OPEN_EXISTING_QA!=='1'||env.WS_AUTHORITY_QA!=='1'||
-  env.WS_SEPARATE_ROOMS_QA!=='1'||!ROOM.test(room||'')||
-  !['cat','ops'].includes(channel)||room!==env.SALA_PILOTO+'-'+channel||
-  typeof env.WS_FROZEN_HISTORY_SOURCE?.fetch!=='function'||
-  typeof env.WS_SERVICE_KEY!=='string'||env.WS_SERVICE_KEY.length<32)throw fail();
- let stage='fetch';
- const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),TIMEOUT_MS);
- try{
-  const hashes=[],all=[];
-  let anchor=null,total=0;
-  for(let index=1;index<=MAX_PAGES;index++){
-   if(controller.signal.aborted)throw fail();
-   stage='fetch-page';
+// Each page is a fresh scoped server-to-server request. 401/403 never retry;
+// only rate-limit/transient upstream failures get one additional attempt.
+async function fetchSignedPage(env,room,channel,index,deadline){
+ for(let attempt=0;attempt<2;attempt++){
+  const remaining=deadline-Date.now();
+  if(remaining<=0)throw fail();
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),Math.min(PAGE_TIMEOUT_MS,remaining));
+  try{
    const request=new Request('https://internal-history-source.invalid/v1/frozen',{
     method:'POST',cache:'no-store',credentials:'omit',redirect:'manual',
     referrerPolicy:'no-referrer',signal:controller.signal,
@@ -161,8 +156,34 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
     body:JSON.stringify(index===1?{room,channel}:{room,channel,chunk:index})
    });
    const response=await env.WS_FROZEN_HISTORY_SOURCE.fetch(request);
+   if((response.status===429||response.status>=500)&&attempt===0){
+    try{await response.body?.cancel()}catch(_){}
+    if(deadline-Date.now()<=0)throw fail();
+    await new Promise(resolve=>setTimeout(resolve,80));
+    continue;
+   }
+   return await readLimited(response,controller.signal);
+  }finally{clearTimeout(timer)}
+ }
+ throw fail();
+}
+
+export async function readTrustedFrozenSource({env,room,channel}={}){
+ if(env?.WS_OPEN_EXISTING_QA!=='1'||env.WS_AUTHORITY_QA!=='1'||
+  env.WS_SEPARATE_ROOMS_QA!=='1'||!ROOM.test(room||'')||
+  !['cat','ops'].includes(channel)||room!==env.SALA_PILOTO+'-'+channel||
+  typeof env.WS_FROZEN_HISTORY_SOURCE?.fetch!=='function'||
+  typeof env.WS_SERVICE_KEY!=='string'||env.WS_SERVICE_KEY.length<32)throw fail();
+ let stage='fetch';
+ const deadline=Date.now()+GLOBAL_TIMEOUT_MS;
+ try{
+  const hashes=[],all=[];
+  let anchor=null,total=0;
+  for(let index=1;index<=MAX_PAGES;index++){
+   if(Date.now()>=deadline)throw fail();
+   stage='fetch-page';
+   const body=await fetchSignedPage(env,room,channel,index,deadline);
    stage='bounded-source-read';
-   const body=await readLimited(response,controller.signal);
    stage='proof-shape';
    metadata(body,room,channel);
    if(index===1&&!body.manifest){
@@ -213,5 +234,5 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    error?.name==='AbortError'?'timeout':
    error?.name==='SyntaxError'?'json':'rejected';
   throw new Error('trusted frozen history unavailable: '+stage+' ('+kind+')');
- }finally{clearTimeout(timer)}
+ }
 }
