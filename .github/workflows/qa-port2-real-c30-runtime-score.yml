@@ -1,0 +1,30 @@
+name: PORT2 C30 · fixed 100 score verified C29 production source (no deploy)
+on:
+  push:
+    branches: [port2/20261119-c30-verified-preinit-fence-score]
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/engineering/architecture-2-port-score.json
+      - docs/engineering/architecture-2-quality-score.json
+      - scripts/architecture-2-port-score.cjs
+      - test/p0-architecture-2-port-score.test.cjs
+      - .github/workflows/qa-port2-real-c30-runtime-score.yml
+permissions: {contents: read}
+jobs:
+  scored-real-product:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Exact source and integrity manifest from real master, fixed 100 GO separate
+        run: |
+          set -euo pipefail
+          node scripts/architecture-2-port-score.cjs --json
+          node --test --test-timeout=60000 test/p0-architecture-2-port-score.test.cjs
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=60000 test/p0-c29-preinit-durable-opid-fence.test.cjs
+          git diff --check
