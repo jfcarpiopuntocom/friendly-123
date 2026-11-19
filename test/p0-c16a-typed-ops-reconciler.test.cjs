@@ -501,3 +501,120 @@ test('12. scheduled retry stays single-flight against concurrent reconcileNow/su
   assert.equal(joinedRes.committed, true);
   assert.equal(store.dump().length, 0);
 });
+
+test('13. asynchronous IndexedDB-style durable save MUST finish BEFORE the first -ops POST', async () => {
+  const { createTypedOpsReconciler } = await import(MODULE_URL);
+  const rows = new Map();
+  let releaseFirstSave, dispatches = 0, saves = 0;
+  const store = {
+    loadAll: async () => [],
+    save(entry) {
+      saves++;
+      if (saves === 1) return new Promise(resolve => { releaseFirstSave = () => {
+        rows.set(entry.opId, JSON.parse(JSON.stringify(entry))); resolve();
+      }; });
+      rows.set(entry.opId, JSON.parse(JSON.stringify(entry))); return Promise.resolve();
+    },
+    remove(id) { rows.delete(id); return Promise.resolve(); }
+  };
+  const rec = createTypedOpsReconciler({
+    store, isVisible: () => true,
+    dispatch: async () => { dispatches++; return {
+      committed: true, stage: 'business-committed',
+      receipt: {opId: 'sale_op_00000017', receiptId: 'a'.repeat(24), stage: 'business-committed'}
+    }; }
+  });
+  const p = rec.submit(sampleSale('sale_op_00000017'));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(dispatches, 0, 'DO POST forbidden while local durable save is not committed');
+  assert.equal(typeof releaseFirstSave, 'function');
+  releaseFirstSave();
+  const done = await p;
+  assert.equal(done.committed, true);
+  assert.equal(dispatches, 1);
+  assert.equal(rows.size, 0);
+});
+
+test('14. failed durable save results in zero HTTP commands, zero legacy fallback', async () => {
+  const { createTypedOpsReconciler } = await import(MODULE_URL);
+  let sends = 0;
+  const rec = createTypedOpsReconciler({
+    store: {
+      loadAll: async () => [],
+      save: async () => { throw new Error('IndexedDB transaction aborted'); },
+      remove: async () => { throw new Error('invalid remove'); }
+    },
+    isVisible: () => true,
+    dispatch: async () => { sends++; throw new Error('DO should never see this'); }
+  });
+  const outcome = await rec.submit(sampleSale('sale_op_00000018'));
+  assert.equal(sends, 0);
+  assert.equal(outcome.committed, false);
+  assert.equal(outcome.stage, 'durable-store-unavailable');
+  assert.equal(outcome.fallbackLegacy, false, 'unsafe storage state must never trigger second business ledger');
+});
+
+test('15. crash while first POST is in flight already has SAME-DO-ONLY persisted and reload uses original opId', async () => {
+  const { createTypedOpsReconciler } = await import(MODULE_URL);
+  const rows=new Map(),clock=makeClock();
+  const store={
+    loadAll: async()=>Array.from(rows.values()).map(v=>JSON.parse(JSON.stringify(v))),
+    save:async entry=>{rows.set(entry.opId,JSON.parse(JSON.stringify(entry)));},
+    remove:async id=>{rows.delete(id);}
+  };
+  let resolveFirst,originalSends=0,newSends=0;
+  const rec=createTypedOpsReconciler({
+    store,isVisible:()=>true,now:clock.now,schedule:clock.schedule,cancelSchedule:clock.cancelSchedule,
+    dispatch:()=>{originalSends++;return new Promise(resolve=>{resolveFirst=resolve;});}
+  });
+  const pendingPromise=rec.submit(sampleSale('sale_op_00000019'));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(originalSends,1);
+  const snapshot=rows.get('sale_op_00000019');
+  assert.ok(snapshot,'the opId must be durable while POST is waiting');
+  assert.equal(snapshot.sameDoLocked,true);
+  assert.equal(snapshot.command.opId,'sale_op_00000019');
+  // Simulate killed browser before ACK: a fresh process reads exactly this entry.
+  const reloaded=createTypedOpsReconciler({
+    store,isVisible:()=>true,now:clock.now,schedule:clock.schedule,cancelSchedule:clock.cancelSchedule,
+    dispatch:async cmd=>{newSends++;assert.equal(cmd.opId,'sale_op_00000019');return {
+      committed:true,duplicate:true,stage:'business-committed',
+      receipt:{opId:cmd.opId,receiptId:'b'.repeat(24),stage:'business-committed'}
+    };}
+  });
+  await reloaded.ready();
+  assert.equal(reloaded.pending().length,1);
+  await reloaded.reconcileNow();
+  assert.equal(newSends,1);
+  assert.equal(rows.size,0);
+  // End the original suspended request without another independent ledger.
+  resolveFirst({committed:true,stage:'business-committed',receipt:{opId:'sale_op_00000019',receiptId:'b'.repeat(24)}});
+  await pendingPromise;
+});
+
+test('16. preflight rejection removes prepared entry durably BEFORE allowing legacy fallback', async () => {
+  const { createTypedOpsReconciler } = await import(MODULE_URL);
+  const rows=new Map();let sendCount=0,deleteResolve;
+  const store={
+    loadAll:()=>[],
+    save:async e=>{rows.set(e.opId,JSON.parse(JSON.stringify(e)));},
+    remove:id=>new Promise(resolve=>{deleteResolve=()=>{rows.delete(id);resolve();};})
+  };
+  const rec=createTypedOpsReconciler({store,isVisible:()=>true,
+    dispatch:async()=>{sendCount++;return {committed:false,stage:'auth-denied',fallbackLegacy:true,reconcileRequired:false};}
+  });
+  const p=rec.submit(sampleSale('sale_op_00000020'));
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(sendCount,1);
+  assert.equal(rows.size,1);
+  assert.equal(typeof deleteResolve,'function');
+  deleteResolve();
+  const outcome=await p;
+  assert.equal(outcome.fallbackLegacy,true);
+  assert.equal(rows.size,0);
+});
+
+test('17. no implicit RAM fallback: issuing business commands requires caller-supplied durable store', async () => {
+  const { createTypedOpsReconciler } = await import(MODULE_URL);
+  assert.throws(()=>createTypedOpsReconciler({dispatch:async()=>({committed:true})}),/durable store/i);
+});
