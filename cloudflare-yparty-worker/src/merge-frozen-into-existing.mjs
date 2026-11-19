@@ -8,6 +8,63 @@ import {prepareFrozenImport} from './certified-frozen-import.mjs';
 import {snapshotInsideBarrier,framesFrom,exportCompleteYpartyYjs} from './durable-full-yjs-export.mjs';
 
 const BLOCK=512*1024,MAX_EVENTS=25000,MAX_PAYLOAD=256*1024,MAX_BASELINE=16*1024*1024;
+const MiB=1024*1024;
+// Hard upper bounds, never relaxed by a caller. Cloudflare isolate is 128 MiB;
+// these are conservative APPROXIMATIONS, not a substitute for real peak tests.
+export const FROZEN_UNION_BUDGETS=Object.freeze({
+ maxWireBytes:12*MiB,maxUnionBytes:12*MiB,maxEstimatedPeakBytes:128*MiB
+});
+const PEAK_FACTOR=3;
+function tightenedBudgets(overrides){
+ if(overrides===undefined)return FROZEN_UNION_BUDGETS;
+ if(!overrides||typeof overrides!=='object'||Array.isArray(overrides))
+  deny('invalid size budgets');
+ const result={...FROZEN_UNION_BUDGETS};
+ for(const [name,value] of Object.entries(overrides)){
+  if(!(name in FROZEN_UNION_BUDGETS)||
+   !Number.isSafeInteger(value)||value<=0||value>FROZEN_UNION_BUDGETS[name])
+   deny('unsafe or enlarged size budget');
+  result[name]=value;
+ }
+ return result;
+}
+function unallocatedWireBytes(frames,budgets){
+ if(!Array.isArray(frames)||frames.length===0)deny('missing frozen wire frames');
+ let n=0;
+ for(const frame of frames){
+  const valid=frame instanceof Uint8Array||frame instanceof ArrayBuffer||
+   ArrayBuffer.isView(frame);
+  if(!valid||!Number.isSafeInteger(frame.byteLength)||frame.byteLength<=0)
+   deny('invalid frozen wire frame');
+  n+=frame.byteLength;
+  if(!Number.isSafeInteger(n)||n>budgets.maxWireBytes)
+   deny('frozen wire size budget exceeded BEFORE Yjs');
+ }
+ return n;
+}
+function checkSize(value,cap,label){
+ if(!Number.isSafeInteger(value)||value<0||value>cap)
+  deny(label+' size budget exceeded');
+}
+function checkPeak(source,local,union,budgets){
+ const projected=(source+local+union)*PEAK_FACTOR;
+ if(!Number.isSafeInteger(projected)||projected>budgets.maxEstimatedPeakBytes)
+  deny('estimated peak memory budget exceeded');
+}
+function countSqlBytes(sql,budgets){
+ const tables=new Set(sql.exec("SELECT name FROM sqlite_master WHERE type='table'")
+  .toArray().map(r=>r.name));
+ let n=0;
+ for(const [table,col] of [['documento','contenido'],['documento_bloques','contenido'],
+  ['diario','cambio'],['diario_bloques','contenido']]){
+  if(!tables.has(table))continue;
+  const bytes=Number(sql.exec('SELECT COALESCE(SUM(LENGTH('+col+')),0) AS n FROM '+table).one()?.n||0);
+  n+=bytes;
+  checkSize(n,budgets.maxUnionBytes,'existing SQL journal');
+ }
+ return n;
+}
+
 const HEX=/^[a-f0-9]{64}$/;
 const deny=reason=>{throw new Error('frozen union refused: '+reason);};
 const sqlBlob=value=>{
@@ -69,12 +126,18 @@ function eventsDigest(rows){
  return h.hex();
 }
 function createCert(sql){
- sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_unions (id INTEGER PRIMARY KEY CHECK(id=1), channel TEXT NOT NULL, frozen_head TEXT NOT NULL, frozen_sha256 TEXT NOT NULL, vector_sha256 TEXT NOT NULL, frozen_events INTEGER NOT NULL, union_events INTEGER NOT NULL, union_sha256 TEXT NOT NULL, events_sha256 TEXT NOT NULL)');
+ sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_unions (id INTEGER PRIMARY KEY CHECK(id=1), channel TEXT NOT NULL, frozen_head TEXT NOT NULL, frozen_sha256 TEXT NOT NULL, vector_sha256 TEXT NOT NULL, frozen_events INTEGER NOT NULL, union_events INTEGER NOT NULL, union_sha256 TEXT NOT NULL, events_sha256 TEXT NOT NULL, pitr_bookmark TEXT)');
+ const columns=sql.exec('PRAGMA table_info(f123_frozen_unions)').toArray();
+ if(!columns.some(c=>c.name==='pitr_bookmark'))
+  sql.exec('ALTER TABLE f123_frozen_unions ADD COLUMN pitr_bookmark TEXT');
  sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_union_events (opid TEXT PRIMARY KEY, payload TEXT NOT NULL)');
 }
 function certRead(sql){
  if(!sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='f123_frozen_unions'").toArray().length)return null;
- return sql.exec('SELECT channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events,union_sha256,events_sha256 FROM f123_frozen_unions WHERE id=1').toArray()[0]||null;
+ const hasPitr=sql.exec('PRAGMA table_info(f123_frozen_unions)').toArray()
+  .some(c=>c.name==='pitr_bookmark');
+ const column=hasPitr?'pitr_bookmark':'NULL AS pitr_bookmark';
+ return sql.exec('SELECT channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events,union_sha256,events_sha256,'+column+' FROM f123_frozen_unions WHERE id=1').toArray()[0]||null;
 }
 function verifyDocumentAgainstCert(storage,expected){
  return storage.transactionSync(()=>{
@@ -102,7 +165,9 @@ function verifyDocumentAgainstCert(storage,expected){
    if(rows.size===Number(cert.union_events)&&
       sha256(Y.encodeStateAsUpdate(doc))!==cert.union_sha256)
     deny('union SHA mismatch after SQL readback');
-   return {opened:true,already:true,verifiedEvents:rows.size,unionSha256:cert.union_sha256};
+   return {opened:true,already:true,verifiedEvents:rows.size,
+    unionSha256:cert.union_sha256,pitrBookmark:cert.pitr_bookmark??null,
+    pitrAvailable:typeof cert.pitr_bookmark==='string'&&cert.pitr_bookmark.length>0};
   }finally{doc.destroy();}
  });
 }
@@ -131,21 +196,39 @@ function appendFrame(sql,frame){
   }
  }
 }
-export async function mergeFrozenIntoExisting({storage,source}={}){
+export async function mergeFrozenIntoExisting({storage,source,limits}={}){
  if(!storage?.transactionSync||!storage?.sql||source?.channel!=='ops')
   deny('trusted ops SQL and source required');
  if(hasFrozenUnion(storage))return verifyFrozenUnionReopen({storage,source});
- // Defensive copy before async certification, no client-controlled transient array.
- const frames=source.frames?.map(sqlBlob);
+ const budgets=tightenedBudgets(limits);
+ // FIRST guard: reject without even allocating a copy or applying ANY Yjs.
+ const sourceWireBytes=unallocatedWireBytes(source.frames,budgets);
+ checkPeak(sourceWireBytes,0,0,budgets);
+ // Defensive copy only after the raw byte budget has passed.
+ const frames=source.frames.map(sqlBlob);
  const trustedSource={...source,frames};
  const proof=await prepareFrozenImport(trustedSource);
  if(proof.channel!=='ops'||proof.eventCount!==source.expectedOpIds)deny('invalid ops proof');
+ checkSize(proof.bytes,budgets.maxUnionBytes,'certified frozen state');
+ checkPeak(sourceWireBytes,0,proof.bytes,budgets);
+ // A bookmark is evidence of the PRE-MUTATION point, not proof of recovery.
+ // Capture it BEFORE transactionSync; if unsupported explicitly store NULL.
+ let pitrBookmark=null;
+ if(typeof storage.getCurrentBookmark==='function'){
+  const b=await storage.getCurrentBookmark();
+  if(typeof b!=='string'||b.length<1||b.length>2048)
+   deny('invalid PITR bookmark');
+  pitrBookmark=b;
+ }
  const receipt=storage.transactionSync(()=>{
   const sql=storage.sql;
   if(certRead(sql))deny('concurrent union already exists');
   if(sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='f123_frozen_imports'").toArray().length&&
       sql.exec('SELECT id FROM f123_frozen_imports WHERE id=1').toArray().length)
     deny('cannot union atop frozen import certificate');
+  // Budget the old SQL journal before cloning/reconstructing a Y.Doc.
+  const localSqlBytes=countSqlBytes(sql,budgets);
+  checkPeak(sourceWireBytes,localSqlBytes,proof.bytes,budgets);
   const local=docFrom(framesFrom(snapshotInsideBarrier(storage)).frames);
   const frozen=docFrom(frames);
   try{
@@ -163,19 +246,23 @@ export async function mergeFrozenIntoExisting({storage,source}={}){
    if(merged.size!==expected.size)deny('union event count differs');
    for(const [id,payload] of expected)if(merged.get(id)!==payload)
     deny('union changed original business facts');
-   const unionSha256=sha256(Y.encodeStateAsUpdate(local));
+   const mergedBytes=Y.encodeStateAsUpdate(local);
+   checkSize(mergedBytes.byteLength,budgets.maxUnionBytes,'merged Yjs union');
+   checkSize(delta.byteLength,budgets.maxUnionBytes,'delta journal');
+   checkPeak(sourceWireBytes,localSqlBytes,mergedBytes.byteLength,budgets);
+   const unionSha256=sha256(mergedBytes);
    const eventsSha256=eventsDigest(merged);
    // No SQL mutations until EVERY causal/financial opId comparison passes.
    // This journal delta and both cert/digest rows are ONE SQLite transaction.
    createCert(sql);
    if(!noDelta)appendFrame(sql,delta);
-   sql.exec('INSERT INTO f123_frozen_unions (id,channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events,union_sha256,events_sha256) VALUES (1,?,?,?,?,?,?,?,?)',
-    proof.channel,proof.frozenHead,proof.sha256,proof.vectorSha256,proof.eventCount,merged.size,unionSha256,eventsSha256);
+   sql.exec('INSERT INTO f123_frozen_unions (id,channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events,union_sha256,events_sha256,pitr_bookmark) VALUES (1,?,?,?,?,?,?,?,?,?)',
+    proof.channel,proof.frozenHead,proof.sha256,proof.vectorSha256,proof.eventCount,merged.size,unionSha256,eventsSha256,pitrBookmark);
    for(const [opid,payload] of merged)
     sql.exec('INSERT INTO f123_frozen_union_events (opid,payload) VALUES (?,?)',opid,payload);
    return {frozenHead:proof.frozenHead,frozenSha256:proof.sha256,
     mergedEventCount:merged.size,frozenEventCount:fromSource.size,bytes:noDelta?0:delta.length,
-    unionSha256,eventsSha256};
+    unionSha256,eventsSha256,pitrBookmark,pitrAvailable:pitrBookmark!==null};
   }finally{local.destroy();frozen.destroy();}
  });
  // Verify complete durable Yjs SQL readback, not merely INSERT success.
