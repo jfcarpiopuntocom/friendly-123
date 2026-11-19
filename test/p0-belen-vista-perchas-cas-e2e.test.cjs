@@ -202,3 +202,76 @@ test('Belén CAS #3 (vault-restore): sends CAS preimage, rejects null/non-ok ACK
   assert.equal(current().fotoHash, C, 'stale vault restore must NOT overwrite newer photo C');
   assert.equal(rConflict.alerts.length, 1);
 });
+
+test('Belén CAS P0: missing observed photo preimage must never send an unguarded PUT in ANY of the 3 writers', async () => {
+  // (1) A synthetic recovery callback asks for a pointer outside the shelves
+  // whose preimages were captured. The safe answer is false, with zero HTTP.
+  const rs=source.indexOf('  async function recuperarFotosPerchas(perchasVisibles, estaCarga) {');
+  const re=source.indexOf('  async function cargar() {',rs);
+  const recoveryCalls=[];let recoveryAck;
+  const recoveryCtx={
+    window:{
+      OCTienda:{licenciaActual:()=> 'F123-SYNT-BELEN'},
+      OCYjs:{get:()=>({}),fotosMap:{get:()=>null}},
+      OCFotos:{leerPorHash:async()=>null,leerFoto:async()=>null,guardarPorHash:async()=>true,guardarFoto:async()=>true,hashDeDataUrl:async()=>B},
+      F123Application:{recoverShelfPhoto:async (s,ports)=>{
+        recoveryAck=await ports.setPointer('not-observed-shelf',B);
+        return{pointerChanged:recoveryAck};
+      }}
+    },
+    API:'/api',fetch:async (...args)=>{recoveryCalls.push(args);return{ok:true}},
+    historialFotosExacto:async()=>({}),historialFotosCheckpointsExacto:async()=>({}),
+    fotoCache:{},cargaEnCurso:1,console
+  };
+  vm.runInNewContext(source.slice(rs,re)+'\nglobalThis.__run = recuperarFotosPerchas;',vm.createContext(recoveryCtx));
+  await recoveryCtx.__run([{id:'observed-shelf',fotoHash:A,fotoRev:1}],1);
+  assert.equal(recoveryAck,false);
+  assert.equal(recoveryCalls.length,0,'recovery must not issue a naked PUT without expectedHash/revision');
+
+  // (2) Camera takes a photo before catalog has a shelf preimage.
+  // Keep bytes locally and warn, but never overwrite remote pointer blindly.
+  const cs=source.indexOf("  inputFoto.addEventListener('change', () => {");
+  const ce=source.indexOf('  // ── un solo listener delegado',cs);
+  let cameraHandler,cameraDone;
+  const cameraCalls=[],cameraAlerts=[];
+  const cameraCtx={
+    window:{
+      OCTienda:{licenciaActual:()=> 'F123-SYNT-BELEN'},
+      OCSync:{catalogoPropio:()=>({ubicaciones:[]})},
+      OCFotos:{guardarFoto:async()=>true,guardarFotoContenido:async()=>B},
+      OCSalud:{fallo:()=>{}},addEventListener:()=>{}
+    },
+    inputFoto:{files:[{name:'synthetic.png'}],value:'x',addEventListener:(e,fn)=>{if(e==='change')cameraHandler=fn}},
+    perchaFotoPendiente:'missing-shelf',fotoCache:{},
+    redimensionar:(_f,cb)=>{cameraDone=Promise.resolve().then(()=>cb(PHOTO));},
+    fetch:async (...args)=>{cameraCalls.push(args);return{ok:true}},
+    alert:s=>cameraAlerts.push(s),cargar:()=>{},API:'/api',console
+  };
+  vm.runInNewContext(source.slice(cs,ce),vm.createContext(cameraCtx));
+  cameraHandler();await cameraDone;
+  assert.equal(cameraCalls.length,0,'camera must not PUT photoHash without a verified preimage');
+  assert.equal(cameraAlerts.length,1,'bytes preserved locally; caller warned to retry');
+
+  // (3) Vault restore without any catalog/preimage must preserve the photo
+  // and refuse to publish the pointer, even if server would return 200.
+  const vs=source.indexOf("  document.addEventListener('click', async (e) => {");
+  const ve=source.indexOf('    // Cerrar carpeta',vs);
+  const vaultCalls=[],vaultAlerts=[];let clickHandler;
+  const vaultCtx={
+    document:{addEventListener:(name,fn)=>{if(name==='click')clickHandler=fn},
+      querySelector:()=>({value:'missing-shelf'})},
+    CSS:{escape:s=>s},
+    window:{
+      OCTienda:{licenciaActual:()=> 'F123-SYNT-BELEN'},
+      OCSync:{catalogoPropio:()=>({ubicaciones:[]})},
+      OCFotos:{leerPorHash:async()=>PHOTO,guardarFoto:async()=>true}
+    },
+    fotoCache:{},API:'/api',
+    fetch:async (...args)=>{vaultCalls.push(args);return{ok:true}},
+    alert:s=>vaultAlerts.push(s),cargar:()=>{},console
+  };
+  vm.runInNewContext(source.slice(vs,ve)+'\n  });',vm.createContext(vaultCtx));
+  await clickHandler({target:{closest:()=>({dataset:{vaultRestore:B}})},stopPropagation:()=>{}});
+  assert.equal(vaultCalls.length,0,'vault must not PUT photoHash without a verified preimage');
+  assert.equal(vaultAlerts.length,1);
+});
