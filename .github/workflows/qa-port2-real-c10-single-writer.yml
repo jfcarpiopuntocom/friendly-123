@@ -27,4 +27,8 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD
-          node --test --test-concurrency=1 --test-timeout=90000 qa/p0-secure-separate-rooms.test.mjs
+          # Run the added C10 test in a fresh synthetic authority; otherwise
+          # extra Owner tickets can exhaust the *shared test fixture* quota.
+          node --test --test-name-pattern='P0 C10' --test-concurrency=1 --test-timeout=90000 qa/p0-secure-separate-rooms.test.mjs
+          # Preserve the original 14 Workerd scenarios and their ticket budget.
+          node --test --test-name-pattern='^(?!.*P0 C10)' --test-concurrency=1 --test-timeout=90000 qa/p0-secure-separate-rooms.test.mjs
