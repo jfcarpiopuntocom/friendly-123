@@ -266,6 +266,58 @@ function inspect(){
     assert.equal(manifest.files['./'+name],hash,'C36 source SHA seal mismatch '+name);
   }
  }
+ // C39: only 0.5/100 for the QA LOCAL C38 single-writer activation interlock.
+ // It is not a physical A->B->A proof and never certifies full DO cutover.
+ const c38=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='local-legacy-relay-quiescence-gate-c38');
+ if(c38?.done){
+   assert.equal(c38.points,0.5,'C38 local relay quiescence only earns 0.5');
+   const switchRest=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='operational-switch');
+   assert.equal(switchRest?.points,1,'1.0 budget still missing for real operational switch');
+   assert.equal(switchRest?.done,false,'C38 must not certify actual migration switch');
+   assert.equal(data.commercialGo.certifiedGates,0,'no physical GO from local cutover gate');
+   const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
+   const manifest=load('docs/version-manifest.json');
+   const version=load('docs/version.json');
+   assert(Number((/^v0\.8\.(\d+)$/.exec(version.version||'')||[])[1]||0)>=16,
+     'C38 cutover cannot earn credit before sealed v816+ shell');
+   assert(Number((/^f123-shell-v(\d+)$/.exec(version.shell||'')||[])[1]||0)>=816,
+     'C38 cutover requires f123-shell-v816+');
+   const sourceSha='sha256-'+crypto.createHash('sha256').update(sync.replace(/\r\n/g,'\n')).digest('hex');
+   assert.equal(manifest.files['./sync-yjs.js'],sourceSha,
+     'C38 actual shipped activation source differs from official SHA manifest');
+   for(const token of [
+     'if (!relayAnterior) return false;',
+     'relayAnterior.estado() === "apagado"',
+     '!relayAnterior.salaActiva()',
+     'relayAnterior.durabilidadPendiente() === false',
+     'typeof relayAnterior.onEstado === "function"',
+     'if (cortarComercio20 && !relayAnteriorApagadoYVacio())',
+     'coord.failbackToLegacy("legacy-relay-restarted")',
+     'API.modoCorte20Activo = false;',
+     'typeof coord.activate20 !== "function"',
+     'API.modoCorte20Activo === true &&'
+   ])assert(sync.includes(token),'C38 actual source must preserve safety guard '+token);
+   assert(realtime.includes('async function vaciarCola()') &&
+     realtime.includes('window.OCSyncEmit = function (tipo, payload) {'),
+     'C38 credit requires proven second legacy writer risk');
+   const tests='test/p0-c38-legacy-transport-quiescence.test.cjs';
+   assert(fs.existsSync(path.join(root,tests)),'C38 exact-source unit test absent');
+   const testCode=fs.readFileSync(path.join(root,tests),'utf8');
+   for(const token of [
+      'assert.ok(realtime.includes',
+      'withFacade:false',
+      'missingActivator:true',
+      'roleStart=src.indexOf',
+      "off.activate({activarDespachoComercial:true",
+      'legacy reactivation AFTER cutover'
+   ])assert(testCode.includes(token),'C38 red-team regression absent '+token);
+   const c31=fs.readFileSync(path.join(root,'test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs'),'utf8');
+   const c33=fs.readFileSync(path.join(root,'cloudflare-yparty-worker/qa/p0-c33-sync-yjs-cutover-workerd.test.mjs'),'utf8');
+   assert(c31.includes("estado: () => 'apagado'") &&
+     c33.includes("estado: () => 'apagado'"),
+     'C31 and Workerd C33 tests must model old relay intentionally OFF before C21a activation');
+ }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
