@@ -111,7 +111,9 @@ test('C15 real client <-> real Workerd Tienda: 202 fallback, 200 business-commit
     let r = await sendCmd(sale1);
     assert.equal(r.committed, false);
     assert.equal(r.stage, 'queued-not-committed');
-    assert.equal(r.fallbackLegacy, true);
+    assert.equal(r.fallbackLegacy, false);
+    assert.equal(r.reconcileRequired, true);
+    assert.equal(r.retryTarget, 'same-do-only');
     assert.deepEqual(await stats(), {stock: 5, cash: 500, effects: 0, receipts: 1});
 
     // 2. Restart DO with executor ON: same opId upgrades to true 200 business-committed.
@@ -149,8 +151,9 @@ test('C15 real client <-> real Workerd Tienda: 202 fallback, 200 business-commit
     // 6. Business rule rejection (wrong price -> 503) is not a proven no-commit ACK; reconcile, state intact.
     r = await sendCmd({license: LICENSE, opId: 'c15-workerd-bad-price', kind: 'sale.record', productId: 'sku_1', quantity: 1, amountCents: 100});
     assert.equal(r.committed, false);
-    assert.equal(r.stage, 'unavailable-fallback');
-    assert.equal(r.fallbackLegacy, true);
+    assert.equal(r.stage, 'commit-unverified');
+    assert.equal(r.fallbackLegacy, false);
+    assert.equal(r.reconcileRequired, true);
     assert.deepEqual(await stats(), {stock: 9, cash: 2000, effects: 2, receipts: 2});
   } finally {
     await mf?.dispose();
