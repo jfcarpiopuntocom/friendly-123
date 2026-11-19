@@ -350,10 +350,12 @@ export class Tienda extends YServer {
     // loads or serves anything. OFF by default, never an HTTP import route.
     if (this.env.WS_OPEN_EXISTING_QA === '1') {
       const room=this.name,channel=room.endsWith('-cat')?'cat':room.endsWith('-ops')?'ops':null;
-      if (this.env.WS_AUTHORITY_QA!=='1' ||
-          this.env.WS_SEPARATE_ROOMS_QA!=='1' ||
-          !/^[a-f0-9]{32}$/.test(this.env.SALA_PILOTO||'') ||
-          !channel || room !== this.env.SALA_PILOTO+'-'+channel)
+      const validPilot = this.env.WS_AUTHORITY_QA==='1' &&
+          this.env.WS_SEPARATE_ROOMS_QA==='1' &&
+          /^[a-f0-9]{32}$/.test(this.env.SALA_PILOTO||'');
+      // The SHA-256 photo room is HTTP-only in SQLite and has no frozen Yjs import.
+      if (validPilot && this.env.WS_PHOTO_BLOBS_QA==='1' && room===this.env.SALA_PILOTO+'-fotos') return;
+      if (!validPilot || !channel || room !== this.env.SALA_PILOTO+'-'+channel)
         throw new Error('Gate D refuses room without QA authority');
       // Existing certified rooms recover from their own complete SQL journal,
       // so a temporarily unreachable history service cannot orphan the shop.
