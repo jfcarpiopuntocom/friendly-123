@@ -20,7 +20,7 @@ assert.ok(realtime.includes('async function vaciarCola()') &&
 const actualAssignment=src.slice(a,b);
 
 function fixture({estado='apagado',sala=null,pending=false,throws=false,withFacade=true,
-                   onActivate=()=>{}, missingWatcher=false}={}){
+                   onActivate=()=>{}, missingWatcher=false, missingActivator=false}={}){
   const trace=[];let listener=null;
   const legacy={
     estado(){ if(throws)throw new Error('legacy state unavailable');return estado; },
@@ -39,7 +39,7 @@ function fixture({estado='apagado',sala=null,pending=false,throws=false,withFaca
     async crearCoordinadorCorte20(){
       trace.push('create-coordinator');
       coordinator={
-        async activate20(){trace.push('activate20');await onActivate({setState,trace});return {ok:true};},
+        ...(missingActivator?{}:{async activate20(){trace.push('activate20');await onActivate({setState,trace});return {ok:true};}}),
         async failbackToLegacy(reason){trace.push('failback:'+reason);return {ok:true};},
         destroy(){trace.push('destroy');}
       };
@@ -109,4 +109,30 @@ test('C38: legacy reactivation AFTER cutover revokes QA business 2.0 and release
   assert.equal(f.API.modoCorte20Activo,false,'revocation happens synchronously before next sale');
   await Promise.resolve();
   assert.ok(f.trace.some(x=>x.startsWith('failback:')),'reuse C21a failback to release writer');
+});
+
+test('C38 RED: photo-only employee role option must never arm a new commercial writer',()=>{
+  const roleStart=src.indexOf('      API.cambiarRolComercial20 = function (rol, opc) {');
+  const roleEnd=src.indexOf('\n      };',roleStart)+'\n      };'.length;
+  assert.ok(roleStart>0&&roleEnd>roleStart,'exercise actual product role adapter');
+  const API={
+    modoCorte20Activo:false,
+    activarClienteFotosShaCertificado:()=>null,
+    rolComercial20Activo:null,
+    fotoSha:null
+  };
+  const actualRole=new Function('API',src.slice(roleStart,roleEnd)+'\nreturn API.cambiarRolComercial20;')(API);
+  const denied=actualRole('empleado',{permitirDespachoEquipo:true});
+  assert.equal(denied.modoCorte20Activo,false,'a photo/role switch cannot create a C21a writer');
+  assert.equal(API.modoCorte20Activo,false);
+  API.modoCorte20Activo=true;
+  assert.equal(actualRole('empleado',{permitirDespachoEquipo:true}).modoCorte20Activo,true,
+    'an ALREADY CERTIFIED team writer may remain on when authorized');
+});
+
+test('C38 RED: coordinator without activate20 cannot silently report business cutover success',async()=>{
+  const f=fixture({missingActivator:true});
+  await assert.rejects(f.activate({activarDespachoComercial:true,rol:'dueno'}),
+    /coordinator|activate|cutover|writer|available|certifi/i);
+  assert.equal(f.API.modoCorte20Activo,false);
 });
