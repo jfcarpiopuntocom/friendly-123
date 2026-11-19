@@ -31,6 +31,8 @@ export class Tienda extends RealTienda {
    const data=await exportCompleteYpartyYjs({storage:this.ctx.storage,channel:'ops'});
    const doc=new Y.Doc();Y.applyUpdate(doc,data.bytes);
    const events=doc.getMap('eventos');
+   const hasUnion=sql.exec("SELECT name FROM sqlite_master WHERE name='f123_frozen_unions'").toArray().length>0;
+   const certRow=hasUnion?sql.exec('SELECT pitr_bookmark FROM f123_frozen_unions WHERE id=1').toArray()[0]:null;
    const response={
     opened:this.gateD?.opened===true,already:this.gateD?.already===true,
     count:events.size,amountCents:[...events.values()].reduce((n,x)=>n+x.amountCents,0),
@@ -39,7 +41,10 @@ export class Tienda extends RealTienda {
     pending:!!(doc.store.pendingStructs||doc.store.pendingDs),
     journal:sql.exec('SELECT COUNT(*) AS n FROM diario').one().n,
     unionProof:sql.exec("SELECT name FROM sqlite_master WHERE name='f123_frozen_unions'").toArray().length>0,
-    cert:sql.exec("SELECT name FROM sqlite_master WHERE name='f123_frozen_imports'").toArray().length>0
+    cert:sql.exec("SELECT name FROM sqlite_master WHERE name='f123_frozen_imports'").toArray().length>0,
+    pitrBookmark:certRow?.pitr_bookmark??null,
+    pitrAvailable:typeof certRow?.pitr_bookmark==='string',
+    pitrApiSupported:typeof this.ctx.storage.getCurrentBookmark==='function'
    };
    doc.destroy();
    return Response.json(response);
