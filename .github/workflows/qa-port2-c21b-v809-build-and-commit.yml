@@ -1,0 +1,69 @@
+name: C21b v809 · deterministic browser seal on isolated QA branch
+on:
+  push:
+    branches: [port2/20261119-c21b-v809-atomic-opid-seal]
+permissions:
+  contents: write
+jobs:
+  assemble:
+    if: "!contains(github.event.head_commit.message, '[sealed C21b]')"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install locked builder dependencies only
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build REAL C21b IDB v2 browser bundle and shell v809 atomically
+        run: |
+          set -euo pipefail
+          NODE_PATH=cloudflare-yparty-worker/node_modules node scripts/build-yparty-piloto.cjs
+          node <<'JS'
+          const fs=require('node:fs'),crypto=require('node:crypto');
+          function exact(file,oldText,newText){
+            const original=fs.readFileSync(file,'utf8');
+            if(!original.includes(oldText))throw Error(file+' must contain '+oldText);
+            fs.writeFileSync(file,original.split(oldText).join(newText));
+          }
+          const v='docs/version.json';
+          const version=JSON.parse(fs.readFileSync(v,'utf8'));
+          if(version.version!=='v0.8.08'||version.shell!=='f123-shell-v808'||version.cacheGeneration!=='golden344')throw Error('wrong v808 base');
+          version.version='v0.8.09';version.shell='f123-shell-v809';
+          version.cacheGeneration='golden345';version.releaseName='v0.8.09';
+          version.requerida=false;version.apagar=[];
+          version.changelog='v0.8.09: integracion del coordinador C21a y hardening C21b; opIds ya confirmados quedan en IndexedDB v2 settled_ops atomico y permanecen bloqueados contra duplicados legacy tras reinicio Safari. Recompilado y sellado el bundle del piloto v808. Sync3 conservado, QA OFF y gastos Cloudflare/R2 0 USD.';
+          fs.writeFileSync(v,JSON.stringify(version,null,2)+'\n');
+          for(const file of ['docs/sw.js','docs/dashboard.html']){
+            exact(file,'f123-shell-v808','f123-shell-v809');
+            exact(file,'golden344','golden345');
+            exact(file,'v0.8.08','v0.8.09');
+          }
+          const bundle=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
+          const hash=crypto.createHash('sha256').update(bundle).digest('hex');
+          const gate='.github/workflows/qa-port2-v785-shell-seal.yml';
+          exact(gate,'9296d7f5142ba46e9e6c9ccd46bbe4a4b44db4e9bf5ae3112af22f90c4de12b9',hash);
+          if(!bundle.toString('utf8').includes('settled_ops'))throw Error('v809 bundle lacks terminal IDB tombstone');
+          console.log('v809 C21b bundle sha256='+hash);
+          JS
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+      - name: Commit only exact generated release assets to review branch
+        run: |
+          set -euo pipefail
+          git config user.name "friendly123 QA release compiler"
+          git config user.email "qa-release-compiler@users.noreply.github.com"
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/vendor/yparty-piloto.min.js docs/version-manifest.json .github/workflows/qa-port2-v785-shell-seal.yml
+          git diff --cached --quiet && { echo "No release changes; refuse to certify"; exit 1; }
+          git commit -m "build(port2): [sealed C21b] v809 browser IDB v2 opId tombstones and manifest"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git rev-parse HEAD
