@@ -11,7 +11,7 @@ const INSTANCE = /^[A-Za-z0-9_-]{6,128}$/;
 const ID = /^[A-Za-z0-9_-]{1,64}$/;
 const OP_ID = /^[A-Za-z0-9_-]{8,96}$/;
 const CUSTOMER_PAYMENT_OP_ID = /^customer-payment:[A-Za-z0-9_-]{8,79}$/;
-const SHA = /^[a-f0-9]{64}$/;
+const RECEIPT_ID = /^[a-f0-9]{24}$/;
 const MAX_AMOUNT = 10_000_000_000;
 const OPS_SCOPES = Object.freeze(['sale', 'adjust', 'payment']);
 
@@ -141,12 +141,20 @@ function outcome(fields) {
   });
 }
 
-function validReceipt(receipt, cmd, expectedStage) {
+async function expectedReceiptId(canonical) {
+  const bytes = new TextEncoder().encode(JSON.stringify(canonical));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+}
+
+function validReceipt(receipt, cmd, expectedStage, expectedId) {
   return !!receipt && typeof receipt === 'object' &&
     receipt.opId === cmd.opId &&
     receipt.license === cmd.license &&
     receipt.kind === cmd.kind &&
-    SHA.test(receipt.payloadHash || '') &&
+    RECEIPT_ID.test(receipt.receiptId || '') &&
+    receipt.receiptId === expectedId &&
+    Number.isSafeInteger(receipt.acceptedAt) && receipt.acceptedAt >= 0 &&
     receipt.stage === expectedStage;
 }
 
@@ -223,7 +231,8 @@ export async function dispatchTypedCommercialCommand({
   }
 
   const status = Number(response?.status || 0);
-  if (status === 200 && body?.ok === true && validReceipt(body.receipt, checked.canonical, 'business-committed')) {
+  const receiptId = await expectedReceiptId(checked.canonical);
+  if (status === 200 && body?.ok === true && validReceipt(body.receipt, checked.canonical, 'business-committed', receiptId)) {
     return outcome({
       committed: true,
       duplicate: body.duplicate === true,
@@ -232,7 +241,7 @@ export async function dispatchTypedCommercialCommand({
       receipt: Object.freeze({...body.receipt})
     });
   }
-  if (status === 202 && body?.ok === true && validReceipt(body.receipt, checked.canonical, 'stored-for-application')) {
+  if (status === 202 && body?.ok === true && validReceipt(body.receipt, checked.canonical, 'stored-for-application', receiptId)) {
     return outcome({
       committed: false,
       duplicate: body.duplicate === true,

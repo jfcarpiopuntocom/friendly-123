@@ -5,16 +5,16 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const {pathToFileURL} = require('node:url');
 
 const clientUrl = pathToFileURL(path.join(__dirname, '../src/port2-typed-ops-client.mjs')).href;
-const ticketUrl = pathToFileURL(path.join(__dirname, '../src/ws-owner-ticket-params.mjs')).href;
 
 const ROOM = 'a'.repeat(32) + '-ops';
 const LICENSE = 'F123-SYNT-C150-STORE';
 const INSTANCE = 'synthetic-c15-device';
-const SHA = 'b'.repeat(64);
 const creds = () => ({kind: 'owner', licenseCode: LICENSE, instanceId: INSTANCE, pin: '123'});
+const receiptIdFor = cmd => crypto.createHash('sha256').update(JSON.stringify(cmd)).digest('hex').slice(0, 24);
 
 function makeFetch({status = 200, body, delayMs = 0, throwErr = null} = {}) {
   const calls = [];
@@ -76,7 +76,8 @@ test('C15 HTTP 202 stored-for-application is NEVER treated as business-committed
   const {send, calls} = makeFetch({
     status: 202,
     body: {ok: true, status: 200, duplicate: false, receipt: {
-      opId: cmd.opId, license: LICENSE, kind: cmd.kind, payloadHash: SHA, stage: 'stored-for-application'
+      opId: cmd.opId, license: LICENSE, kind: cmd.kind,
+      receiptId: receiptIdFor(cmd), acceptedAt: 1700000000000, stage: 'stored-for-application'
     }}
   });
   const res = await dispatchTypedCommercialCommand({
@@ -99,7 +100,8 @@ test('C15 HTTP 200 business-committed with exact matching receipt confirms commi
   const {send, calls} = makeFetch({
     status: 200,
     body: {ok: true, status: 200, duplicate: false, receipt: {
-      opId: cmd.opId, license: LICENSE, kind: cmd.kind, payloadHash: SHA, stage: 'business-committed'
+      opId: cmd.opId, license: LICENSE, kind: cmd.kind,
+      receiptId: receiptIdFor(cmd), acceptedAt: 1700000000000, stage: 'business-committed'
     }}
   });
   const res = await dispatchTypedCommercialCommand({
@@ -116,11 +118,13 @@ test('C15 HTTP 200 business-committed with exact matching receipt confirms commi
 test('C15 tampered 200 receipt (mismatched opId/kind/license/hash) fails closed and preserves fallback', async () => {
   const {dispatchTypedCommercialCommand} = await import(clientUrl);
   const cmd = {license: LICENSE, opId: 'c15-pay-0001', kind: 'credit.payment.record', receivableId: 'rec_1', amountCents: 500};
+  const validId = receiptIdFor(cmd);
   for (const badReceipt of [
-    {opId: 'other-op-id-9', license: LICENSE, kind: cmd.kind, payloadHash: SHA, stage: 'business-committed'},
-    {opId: cmd.opId, license: LICENSE, kind: 'sale.record', payloadHash: SHA, stage: 'business-committed'},
-    {opId: cmd.opId, license: LICENSE, kind: cmd.kind, payloadHash: 'not-a-sha', stage: 'business-committed'},
-    {opId: cmd.opId, license: LICENSE, kind: cmd.kind, payloadHash: SHA, stage: 'unknown-stage'}
+    {opId: 'other-op-id-9', license: LICENSE, kind: cmd.kind, receiptId: validId, acceptedAt: 1700000000000, stage: 'business-committed'},
+    {opId: cmd.opId, license: LICENSE, kind: 'sale.record', receiptId: validId, acceptedAt: 1700000000000, stage: 'business-committed'},
+    {opId: cmd.opId, license: LICENSE, kind: cmd.kind, receiptId: '0'.repeat(24), acceptedAt: 1700000000000, stage: 'business-committed'},
+    {opId: cmd.opId, license: LICENSE, kind: cmd.kind, receiptId: validId, acceptedAt: -1, stage: 'business-committed'},
+    {opId: cmd.opId, license: LICENSE, kind: cmd.kind, receiptId: validId, acceptedAt: 1700000000000, stage: 'unknown-stage'}
   ]) {
     const {send} = makeFetch({status: 200, body: {ok: true, receipt: badReceipt}});
     const res = await dispatchTypedCommercialCommand({
