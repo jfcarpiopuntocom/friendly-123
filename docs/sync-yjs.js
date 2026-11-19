@@ -3079,7 +3079,10 @@
         API.rolComercial20Activo = rolNorm;
         API.corteFotosShaActivo = Boolean(opc && opc.cortarLegadoFotos === true && clienteFoto);
         if (rolNorm !== "dueno") {
-          API.modoCorte20Activo = Boolean(opc && opc.permitirDespachoEquipo === true);
+          // C38: role/photo changes may only RETAIN an already-certified
+          // active writer, never arm 2.0 commercial mode from an OFF state.
+          API.modoCorte20Activo = Boolean(API.modoCorte20Activo === true &&
+            opc && opc.permitirDespachoEquipo === true);
         }
         return {
           rol: API.rolComercial20Activo,
@@ -3130,7 +3133,11 @@
         var head = opts.headCongelado || (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
         var coord = await API.crearCoordinadorCorte20(API.doc, head, opts);
         var activacion = null;
-        if (cortarComercio20 && coord && typeof coord.activate20 === "function") {
+        if (cortarComercio20) {
+          if (!coord || typeof coord.activate20 !== "function") {
+            API.modoCorte20Activo = false;
+            throw new Error("certified 2.0 commercial coordinator activation unavailable");
+          }
           activacion = await coord.activate20();
           if (!activacion || activacion.ok !== true) {
             API.modoCorte20Activo = false;
