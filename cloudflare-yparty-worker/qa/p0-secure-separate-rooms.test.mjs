@@ -109,6 +109,25 @@ test('P0 actual Worker admits two separate centrally signed cat and ops rooms wi
  }finally{cat.close();ops.close();}
 });
 
+test('P0 C10 one signed catalog writer per room, read-only peers and succession after close',{timeout:25000},async()=>{
+ const writer=await connect('cat',['cat:read','cat:write']);
+ const reader=await connect('cat',['cat:read']);
+ try{
+  const second=await attempt('cat',await issue('cat',['cat:read','cat:write']));
+  assert.equal(second.status,1008,'a second Owner with a fresh cat:write ticket cannot enter while writer is live');
+  assert.equal(second.binary,0,'rejected writer must receive zero Yjs frames');
+  assert.equal(reader.provider.synced,true,'cat:read client must remain admitted');
+ }finally{reader.close();writer.close();}
+ await new Promise(resolve=>setTimeout(resolve,200));
+ const replacement=await connect('cat',['cat:read','cat:write']);
+ try{
+  replacement.doc.getMap('productos').set('c10-new-owner',{id:'c10-new-owner',nombre:'New owner',precio:2,stockActual:1});
+  const follower=await connect('cat',['cat:read']);
+  try{await waitFor(()=>follower.doc.getMap('productos').has('c10-new-owner'),'new authorized sole writer');}
+  finally{follower.close();}
+ }finally{replacement.close();}
+});
+
 test('P0 actual ops channel forbids Owner raw Yjs economic editing even with ops:sale scope',{timeout:22000},async()=>{
  const writer=await connect('ops',['ops:read','ops:sale']);
  try{
