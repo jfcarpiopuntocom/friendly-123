@@ -413,3 +413,43 @@ test('10. two tabs same opId with contradictory business payload cannot overwrit
  assert.equal(r1.command.amountCents,r2.command.amountCents);
  assert([1500,3900].includes(r1.command.amountCents));
 });
+
+test('C21b real IndexedDB: terminal opId marker survives reload, isolates businesses and cannot be deleted by pending cleanup',async()=>{
+  const {createTypedOpsIdbStore}=await import(STORE_URL);
+  const {IDBFactory}=require('fake-indexeddb');
+  const indexedDB=new IDBFactory();
+  const a1=createTypedOpsIdbStore({indexedDB,namespace:NS_A});
+  const b1=createTypedOpsIdbStore({indexedDB,namespace:NS_B});
+  const id='op_committed_terminal_1';
+  assert.deepEqual(await a1.loadCommittedOpIds(),[]);
+  await assert.rejects(a1.markCommitted(id),/missing pending opId/);
+  await a1.save(sampleEntry(id,1500));
+  await b1.save(sampleEntry(id,4400));
+  await a1.markCommitted(id);
+  assert.deepEqual(await a1.loadAll(),[],'pending row deleted atomically with durable marker');
+  assert.deepEqual(await a1.loadCommittedOpIds(),[id]);
+  assert.deepEqual(await b1.loadCommittedOpIds(),[],'other business namespace invisible');
+  assert.equal((await b1.loadAll())[0].command.amountCents,4400);
+  await a1.remove(id);
+  const cold=createTypedOpsIdbStore({indexedDB,namespace:NS_A});
+  assert.deepEqual(await cold.loadCommittedOpIds(),[id],'marker survives fresh store instance');
+  await cold.markCommitted(id); // Replayed settled receipt is idempotent.
+  assert.deepEqual(await cold.loadCommittedOpIds(),[id]);
+  // A committed marker contains only opaque business namespace and opId;
+  // no amount, contact, PIN, bearer or receipt bytes can be stored there.
+  const request=indexedDB.open('f123_port2_typed_ops_v1',2);
+  const db=await new Promise((resolve,reject)=>{
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error);
+  });
+  try{
+    const tx=db.transaction('settled_ops','readonly');
+    const req=tx.objectStore('settled_ops').getAll();
+    const rows=await new Promise((resolve,reject)=>{
+      req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);
+    });
+    assert.equal(rows.length,1);
+    assert.deepEqual(Object.keys(rows[0]).sort(),['key','namespace','opId']);
+    assert.doesNotMatch(JSON.stringify(rows),/1500|4400|pin|token|receiptId/);
+  }finally{db.close();}
+});
