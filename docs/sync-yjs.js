@@ -304,6 +304,9 @@
     var _heredadosListo = false;
     var _lastRelayProgressAt = 0, _cupoRechazado = false;
     var _currentPullState = null, _tReplay = null, _replayKey = null, _replayUsed = 0;
+    // Firebase-only frozen-HEAD ancestor rescue. Once per channel lifetime.
+    // A reconnect cannot reset this budget or authorize PIN by itself.
+    var _antecedentesBuscados = false;
     // Bounded v1 checkpoint repair across socket reconnects (never per socket).
     var _legacyProbeKey = "", _legacyProbeAttempts = 0;
     var _relayPeerCount = 0, _directReceive = null;
@@ -1175,7 +1178,15 @@
     var MAX_FIREBASE_TIE_RESCATE_PAGES = 24;
     // E1b-2: one causal budget per channel, NOT per socket/reconnection.
     function programarRelectura(sock, estado) {
-      if (!deudaPendiente()) {
+      // A recovered missing parent does not prove that 95 unrelated older
+      // writers in the same frozen pre-checkpoint interval were read.
+      function barridoPendiente() {
+        var d = estado && estado.rescateCausalDesde;
+        var h = estado && estado.rescateCausalHasta;
+        return !!(d && h && (d.rev < h.rev ||
+          (d.rev === h.rev && d.seq <= h.seq)));
+      }
+      if (!deudaPendiente() && !barridoPendiente()) {
         clearTimeout(_tReplay); _tReplay = null;
         _replayKey = null; _replayUsed = 0;
         return;
@@ -1199,14 +1210,16 @@
       _tReplay = setTimeout(function () {
         _tReplay = null;
         if (canal.ws !== sock || sock.readyState !== 1 || estado.enCurso) return;
-        if (clavePendientes() !== _replayKey || !deudaPendiente())
+        if (clavePendientes() !== _replayKey ||
+            (!deudaPendiente() && !barridoPendiente()))
           return programarRelectura(sock, estado);
         // The bounded scan makes forward cursor progress but does NOT
         // fabricate Yjs vector progress or refresh the retry counter.
         if (barridoAcotado) estado.rescateCausalAvanzo = false;
         else _replayUsed++;
         try { log("historia incompleta, relectura acotada " + nombre); } catch (_) {}
-        pedirPagina(sock, estado);
+        // Read frozen encrypted history before asking a newer HEAD.
+        pedirPagina(sock, estado, barridoPendiente());
       }, delay);
     }
     // Only useful, applied bytes (never peer count or duplicate) wake exhausted replay.
@@ -1290,6 +1303,24 @@
       }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
+        // One Firebase-only ancestor sweep after a verified HEAD when a
+        // suspicious CKPT has hidden the genuine historical Yjs parent.
+        // Never rewind the last IDB-proven durable cursor or certify a PIN.
+        if (nombre === "catalogo" && sock.relayLayer === "f123_relay_cupo_fb_v1" &&
+            estado.validacionFinal === true && !_antecedentesBuscados &&
+            canal.recuperando && _pullCursor.rev > 0 && Number(r.seq) > 0 &&
+            doc.store && doc.store.pendingStructs && doc.store.pendingStructs.missing &&
+            doc.store.pendingStructs.missing.size > 0 &&
+            !Object.keys(partesEntrantes).length) {
+          _antecedentesBuscados = true;
+          estado.rescateCausalDesde = { rev: Number(r.rev), seq: 0 };
+          estado.rescateCausalHasta = { rev: Number(r.rev), seq: Number(r.seq) };
+          estado.rescatePaginas = 0;
+          estado.rescateTiePaginas = 0;
+          estado.rescateCausalAvanzo = false;
+          estado.rescateVectorInicio = Y.encodeStateVector(doc);
+          return pedirPagina(sock, estado, true);
+        }
         // v753: everything this durable layer holds was read. It does NOT end recovery; it only lets PIN/role
         // metadata that are already causally complete reach the app (see canal.accesoListo).
         if (typeof nombre === "string" && nombre === "catalogo" && typeof canal.accesoListo === "function" &&
@@ -2115,6 +2146,22 @@
                   }
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
+                  // A complete historical scan requires a NEW final HEAD,
+                  // not an old proof from before missing ancestors arrived.
+                  if (!c.more && !deudaPendiente() && _antecedentesBuscados &&
+                      pullEstado.validacionFinal === true && canal.recuperando)
+                    pullEstado.validacionFinal = false;
+                  // With missing parents and a true Firebase checkpoint, run
+                  // one guarded ancestor probe. Other layers cannot trigger it.
+                  if (!c.more && canal.recuperando && deudaPendiente() &&
+                      !pullEstado.validacionFinal && !_antecedentesBuscados &&
+                      nombre === "catalogo" && ws.relayLayer === "f123_relay_cupo_fb_v1" &&
+                      _pullCursor.rev > 0 && !Object.keys(partesEntrantes).length &&
+                      doc.store && doc.store.pendingStructs &&
+                      doc.store.pendingStructs.missing && doc.store.pendingStructs.missing.size > 0) {
+                    pullEstado.validacionFinal = true;
+                    return pedirPagina(ws, pullEstado);
+                  }
                   // v751: the tail re-read asked by contarColaCkpt ended; checkpointTrasPull keeps every guard.
                   if (!c.more && pullEstado.renovarCkpt) { pullEstado.renovarCkpt = false; checkpointTrasPull(ws); }
                   // PendingStructs empty alone does NOT prove full history.
