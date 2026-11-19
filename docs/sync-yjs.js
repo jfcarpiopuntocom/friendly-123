@@ -2979,10 +2979,56 @@
         return Promise.reject(new Error("certified catalog writer unavailable"));
       };
     }
-    // C25+C27 explicit cutover coordinator factory & runtime fence, only exposed when the existing
+    // C25+C27+C31 explicit cutover coordinator facade & runtime cutover, only exposed when the existing
     // double QA pilot switch constructs a verified Owner `piloto`.
-    // Never called automatically by CONFIRM SALE or Sync3.
+    function _traducirOpLegadoAComando20(op, licenciaFallback) {
+      if (!op || typeof op !== "object") return null;
+      if (op.comando20 && typeof op.comando20 === "object") return op.comando20;
+      var licencia = String(op.license || op._salaOrigen || licenciaFallback || "").trim();
+      var opId = String(op.opId || "").trim();
+      var p = op.payload && typeof op.payload === "object" ? op.payload : {};
+      if (!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(licencia) || !opId) return null;
+      if (op.tipo === "venta") {
+        var pidVenta = String(p.productoId || p.productId || "").trim();
+        var qtyVenta = Number.isSafeInteger(p.cantidad) ? p.cantidad
+          : Number.isSafeInteger(p.quantity) ? p.quantity : NaN;
+        var centsVenta = Number.isSafeInteger(p.amountCents) ? p.amountCents
+          : (typeof p.total === "number" && Number.isFinite(p.total)) ? Math.round(p.total * 100)
+          : (typeof p.precioVenta === "number" && Number.isFinite(p.precioVenta) && Number.isSafeInteger(qtyVenta))
+            ? Math.round(p.precioVenta * qtyVenta * 100) : NaN;
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(pidVenta) || !/^[A-Za-z0-9_-]{8,96}$/.test(opId) ||
+            !Number.isSafeInteger(qtyVenta) || qtyVenta < 1 || qtyVenta > 10000 ||
+            !Number.isSafeInteger(centsVenta) || centsVenta < 0 || centsVenta > 10000000000) return null;
+        return { opId: opId, license: licencia, kind: "sale.record", productId: pidVenta, quantity: qtyVenta, amountCents: centsVenta };
+      }
+      if (op.tipo === "ajuste") {
+        var pidAdj = String(p.productoId || p.productId || "").trim();
+        var qtyAdj = Number.isSafeInteger(p.stockNuevo) ? p.stockNuevo
+          : Number.isSafeInteger(p.quantity) ? p.quantity : NaN;
+        if (!/^[A-Za-z0-9_-]{1,64}$/.test(pidAdj) || !/^[A-Za-z0-9_-]{8,96}$/.test(opId) ||
+            !Number.isSafeInteger(qtyAdj) || qtyAdj < 0 || qtyAdj > 1000000) return null;
+        return { opId: opId, license: licencia, kind: "stock.adjust", productId: pidAdj, quantity: qtyAdj, amountCents: 0 };
+      }
+      if (op.tipo === "abono" || op.tipo === "pago-credito") {
+        var centsPay = Number.isSafeInteger(p.amountCents) ? p.amountCents
+          : (typeof p.monto === "number" && Number.isFinite(p.monto)) ? Math.round(p.monto * 100) : NaN;
+        if (!Number.isSafeInteger(centsPay) || centsPay < 1 || centsPay > 10000000000) return null;
+        var cid = String(p.clienteId || "").trim();
+        if (cid && /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(opId) && /^[A-Za-z0-9_-]{1,64}$/.test(cid)) {
+          return { opId: opId, license: licencia, kind: "credit.customer.payment.record", clienteId: cid, amountCents: centsPay };
+        }
+        var rid = String(p.receivableId || p.cuentaId || "").trim();
+        if (rid && /^[A-Za-z0-9_-]{1,64}$/.test(rid) && /^[A-Za-z0-9_-]{8,96}$/.test(opId)) {
+          return { opId: opId, license: licencia, kind: "credit.payment.record", receivableId: rid, amountCents: centsPay };
+        }
+      }
+      return null;
+    }
+    API.traducirOpLegadoAComando20 = function (op) { return _traducirOpLegadoAComando20(op, codigo); };
     API.coordinadorCorte20 = null;
+    API.modoCorte20Activo = false;
+    API.corteFotosShaActivo = false;
+    API.rolComercial20Activo = null;
     if (piloto && typeof piloto.crearCoordinadorCorte20 === "function") {
       API.crearCoordinadorCorte20 = async function (docPrivado, headCongelado, opc) {
         if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.destroy === "function") {
@@ -3024,6 +3070,49 @@
           return false;
         });
       };
+      API.cambiarRolComercial20 = function (rol, opc) {
+        var rolNorm = String(rol || "").trim().toLowerCase();
+        if (rolNorm !== "dueno" && rolNorm !== "admin" && rolNorm !== "empleado") {
+          throw new Error("commercial role unavailable");
+        }
+        var clienteFoto = API.activarClienteFotosShaCertificado(Object.assign({}, opc || {}, { role: rolNorm }));
+        API.rolComercial20Activo = rolNorm;
+        API.corteFotosShaActivo = Boolean(opc && opc.cortarLegadoFotos === true && clienteFoto);
+        if (rolNorm !== "dueno") {
+          API.modoCorte20Activo = Boolean(opc && opc.permitirDespachoEquipo === true);
+        }
+        return {
+          rol: API.rolComercial20Activo,
+          fotoSha: API.fotoSha,
+          corteFotosShaActivo: API.corteFotosShaActivo,
+          modoCorte20Activo: API.modoCorte20Activo
+        };
+      };
+      API.activarCorte20Runtime = async function (opc) {
+        var opts = opc && typeof opc === "object" ? opc : {};
+        var head = opts.headCongelado || (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
+        var coord = await API.crearCoordinadorCorte20(API.doc, head, opts);
+        var activacion = null;
+        if (opts.activarDespachoComercial !== false && coord && typeof coord.activate20 === "function") {
+          activacion = await coord.activate20();
+          if (!activacion || activacion.ok !== true) {
+            API.modoCorte20Activo = false;
+            throw new Error("certified 2.0 cutover activation failed");
+          }
+        }
+        API.modoCorte20Activo = opts.activarDespachoComercial !== false;
+        var rolInicial = opts.rol || (window.OCAuth && typeof window.OCAuth.rolActual === "function"
+          ? window.OCAuth.rolActual() : "dueno");
+        var estadoRol = API.cambiarRolComercial20(rolInicial, opts);
+        return {
+          coordinador: coord,
+          activacion: activacion,
+          fotoSha: estadoRol.fotoSha,
+          modoCorte20Activo: API.modoCorte20Activo,
+          corteFotosShaActivo: estadoRol.corteFotosShaActivo,
+          rol: estadoRol.rol
+        };
+      };
     } else {
       API.crearCoordinadorCorte20 = function () {
         return Promise.reject(new Error("certified cutover coordinator unavailable"));
@@ -3033,6 +3122,12 @@
       };
       API.puedeDespacharOpEnLegado = function () {
         return Promise.resolve(true);
+      };
+      API.cambiarRolComercial20 = function () {
+        return { rol: null, fotoSha: null, corteFotosShaActivo: false, modoCorte20Activo: false };
+      };
+      API.activarCorte20Runtime = function () {
+        return Promise.reject(new Error("certified cutover coordinator unavailable"));
       };
     }
     API.opsDoc.on("update", function (update, origin) {
@@ -3186,6 +3281,27 @@
   }
   function publicarOpLocal(op) {
     if (!op || !op.opId || !API.opsMap) return;
+    // C31: When the QA-gated 2.0 commercial cutover is active, route supported
+    // typed commercial operations to the C25 coordinator instead of 1.0 opsMap.
+    if (API.modoCorte20Activo === true && API.coordinadorCorte20 &&
+        typeof API.coordinadorCorte20.submitCommercial === "function" &&
+        typeof API.traducirOpLegadoAComando20 === "function") {
+      var cmd20 = API.traducirOpLegadoAComando20(op);
+      if (cmd20) {
+        var mapaCorte = API.opsMap;
+        Promise.resolve().then(function () {
+          return API.despacharOpComercialCertificada(cmd20);
+        }).then(async function (res) {
+          if (!res || res.fallbackLegacy !== true || API.opsMap !== mapaCorte) return;
+          var okLegado = typeof API.puedeDespacharOpEnLegado === "function"
+            ? await API.puedeDespacharOpEnLegado(op.opId) : false;
+          if (okLegado === true && API.opsMap === mapaCorte) {
+            try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
+          }
+        }).catch(function () {});
+        return;
+      }
+    }
     // Only the explicitly QA-gated 2.0 pilot performs this extra IDB read.
     // The original 1.0 local-first path remains synchronous when QA is OFF.
     if ((API.coordinadorCorte20 &&
@@ -3454,17 +3570,27 @@
           // A delayed IndexedDB read belongs to its original authenticated photo room.
           if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
           if (capaAhora !== capaFoto) { _fotosSembrarDeNuevo = true; break; }
+          var _fotoSubidaShaOk = false;
           if (bridgeFotoInicial && typeof bridgeFotoInicial.put === "function" && API.fotosRefs && docCatInicial === API.doc) {
             var refPrevia = API.fotosRefs.get(hash);
-            if (!(refPrevia?.sha === hash && Number.isSafeInteger(refPrevia.bytes) && refPrevia.bytes > 0)) try {
+            if (refPrevia?.sha === hash && Number.isSafeInteger(refPrevia.bytes) && refPrevia.bytes > 0) {
+              _fotoSubidaShaOk = true;
+            } else try {
               // The DO ACK is durable: only then publish a tiny Yjs reference.
               var refFoto = await _esperarFoto(bridgeFotoInicial.put(hash, dataUrl));
               if (API.doc !== docCatInicial || API.fotoSha !== bridgeFotoInicial ||
                   API.fotosDoc !== docFotoInicial || API.fotosCanal !== canalFotoInicial) break;
               if (refFoto && refFoto.sha === hash && Number.isSafeInteger(refFoto.bytes) &&
-                  refFoto.bytes > 0 && typeof refFoto.tipo === "string")
+                  refFoto.bytes > 0 && typeof refFoto.tipo === "string") {
                 API.fotosRefs.set(hash, {sha:refFoto.sha, bytes:refFoto.bytes, tipo:refFoto.tipo});
+                _fotoSubidaShaOk = true;
+              }
             } catch (_) { /* signed HTTP unavailable */ }
+            if (_fotoSubidaShaOk && API.corteFotosShaActivo === true) {
+              if (!_fotosSembradas[hash]) _fotosSembradas[hash] = {};
+              _fotosSembradas[hash][capaFoto] = seedHex;
+              continue;
+            }
             // Shadow write: the bytes ALSO go to the legacy encrypted photo relay below.
           }
           var d = new window.Y.Doc();
