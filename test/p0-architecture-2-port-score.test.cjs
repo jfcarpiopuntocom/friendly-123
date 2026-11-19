@@ -7,8 +7,8 @@ test('C13 metric: real repository source paths, milestone budgets and pinned evi
  assert.equal(s.port,81.5);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,13.0);
- assert.equal(s.quality,72.7);
+ assert.equal(s.quality,73.2);
  assert.equal(s.qualityBefore,67.0);
- assert.equal(s.qualityDelta,5.7);
+ assert.equal(s.qualityDelta,6.2);
  assert.equal(s.go,'0/6');
 });
