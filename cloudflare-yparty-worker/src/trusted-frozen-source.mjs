@@ -111,6 +111,9 @@ function validateDocument(frames,channel,strictCatalog){
    if(strictCatalog){
     // The v2 manifest may transport ONLY the exact detached PUBLIC projection.
     for(const root of doc.share.keys())if(root!=='productos'&&root!=='ubicaciones')throw fail();
+    // Y.applyUpdate creates untyped root placeholders; materialize the Y.Map
+    // before the allowlist projector reads .forEach on the reconstructed root.
+    doc.getMap('productos');doc.getMap('ubicaciones');
     const publicCopy=projectPublicCatalog({sourceDoc:doc,Y});
     try{
      for(const name of ['productos','ubicaciones']){
