@@ -1,0 +1,27 @@
+name: "PORT2 C16b post-merge P0 · native IDB timeout and command allowlist"
+on:
+  push:
+    branches: [port2/20261119-c16b-idb-p0-audit]
+  pull_request:
+    branches: [master]
+    paths:
+      - src/port2-typed-ops-idb-store.mjs
+      - test/p0-c16b-typed-ops-idb-store.test.cjs
+      - .github/workflows/qa-port2-c16b-idb-p0-audit.yml
+permissions: {contents: read}
+jobs:
+  idb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: P0 durable IDB negative tests and C16a regression
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test --test-concurrency=1 --test-timeout=90000 test/p0-c16b-typed-ops-idb-store.test.cjs
+          node --test --test-concurrency=1 test/p0-c16a-typed-ops-reconciler.test.cjs
