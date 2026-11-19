@@ -105,31 +105,39 @@ function createRunner({ host, licenseCode, instanceId, room, isVisible, timeoutM
         ...(kind === 'write' ? { body: bytes } : {})
       });
       if (!response?.ok) throw deny();
-      return response;
+      // The fetch promise resolves after HEADERS, not after response.body.
+      // Keep AbortController alive until the SHA-256 verified body/receipt
+      // has been consumed; otherwise Safari can stall forever after HTTP 200.
+      return { response, finish: () => clearTimeout(timer) };
     } catch (_) {
-      throw deny();
-    } finally {
       clearTimeout(timer);
+      throw deny();
     }
   }
 
   async function get(sha) {
     if (!SHA.test(sha || '') || !isVisible()) throw deny();
     return singleFlight('GET:' + sha, async () => {
-      const response = await request('read', sha);
-      const tipo = response.headers.get('content-type');
-      const declared = response.headers.get('content-length');
-      if (!MIME.has(tipo) ||
-          (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > MAX_BYTES))) {
+      const { response, finish } = await request('read', sha);
+      try {
+        const tipo = response.headers.get('content-type');
+        const declared = response.headers.get('content-length');
+        if (!MIME.has(tipo) ||
+            (declared !== null && (!/^\d+$/.test(declared) || Number(declared) > MAX_BYTES))) {
+          throw deny();
+        }
+        const bytes = new Uint8Array(await response.arrayBuffer());
+        if (!bytes.length || bytes.length > MAX_BYTES ||
+            (declared !== null && Number(declared) !== bytes.length) ||
+            await hashBytes(bytes) !== sha) {
+          throw deny();
+        }
+        return toDataUrl(tipo, bytes);
+      } catch (_) {
         throw deny();
+      } finally {
+        finish();
       }
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (!bytes.length || bytes.length > MAX_BYTES ||
-          (declared !== null && Number(declared) !== bytes.length) ||
-          await hashBytes(bytes) !== sha) {
-        throw deny();
-      }
-      return toDataUrl(tipo, bytes);
     });
   }
 
@@ -138,13 +146,19 @@ function createRunner({ host, licenseCode, instanceId, room, isVisible, timeoutM
     const { bytes, tipo } = bytesFromDataUrl(dataUrl);
     if (await hashBytes(bytes) !== sha) throw deny();
     return singleFlight('PUT:' + sha, async () => {
-      const response = await request('write', sha, bytes, tipo);
-      if (![200, 201].includes(response.status)) throw deny();
-      const receipt = await response.json().catch(() => null);
-      if (receipt?.sha !== sha || receipt.bytes !== bytes.length || receipt.tipo !== tipo) {
+      const { response, finish } = await request('write', sha, bytes, tipo);
+      try {
+        if (![200, 201].includes(response.status)) throw deny();
+        const receipt = await response.json();
+        if (receipt?.sha !== sha || receipt.bytes !== bytes.length || receipt.tipo !== tipo) {
+          throw deny();
+        }
+        return Object.freeze({ sha, bytes: bytes.length, tipo });
+      } catch (_) {
         throw deny();
+      } finally {
+        finish();
       }
-      return Object.freeze({ sha, bytes: bytes.length, tipo });
     });
   }
 
