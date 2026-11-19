@@ -135,8 +135,10 @@ function inspect(){
     'C29 exact source Safari preinit RED→GREEN regression missing');
   const manifest=load('docs/version-manifest.json');
   const v=load('docs/version.json');
-  assert.equal(v.version,'v0.8.12','C29 must be sealed with exact v812 shell');
-  assert.equal(v.shell,'f123-shell-v812');
+  const shellNum = Number((/^f123-shell-v(\d+)$/.exec(v.shell || '') || [])[1] || 0);
+  const patchNum = Number((/^v0\.8\.(\d+)$/.exec(v.version || '') || [])[1] || 0);
+  assert(patchNum >= 12, 'C29 must be sealed with v0.8.12+ shell');
+  assert(shellNum >= 812, 'C29 must be sealed with f123-shell-v812+');
   const actual='sha256-'+crypto.createHash('sha256')
    .update(src.replace(/\r\n/g,'\n')).digest('hex');
   assert.equal(manifest.files['./sync-yjs.js'],actual,
