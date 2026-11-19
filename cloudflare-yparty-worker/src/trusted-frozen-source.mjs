@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import {projectPublicCatalog} from './catalog-safe-projection.mjs';
+import {projectPublicCatalog,F123_PUBLIC_PROJECTION_VERSION} from './catalog-safe-projection.mjs';
 
 // Gate D: server-only pre-cut history from an independently certified source.
 // Every page uses a private Service Binding with the same scoped grant.
@@ -10,7 +10,8 @@ const MAX_FRAME=4*1024*1024;
 const MAX_PAGES=8; // Until SQL staging + bounded final Yjs proof is verified
 const MAX_TOTAL_FRAMES=16384;
 const MAX_TOTAL_BYTES=24*1024*1024; // Raw RAM-only aggregate hard ceiling
-const TIMEOUT_MS=5000; // aggregate QA budget, including all pages
+const PAGE_TIMEOUT_MS=5000;
+const GLOBAL_TIMEOUT_MS=120000;
 const ROOM=/^[a-f0-9]{32}-(?:cat|ops)$/;
 const HASH=/^[a-f0-9]{64}$/;
 const HEAD=/^[A-Za-z0-9_.:-]{3,128}$/;
@@ -47,7 +48,11 @@ function metadata(body,room,channel){
   !HEAD.test(body.frozenHead||'')||!HASH.test(body.expectedStateSha256||'')||
   !HASH.test(body.expectedVectorSha256||'')||
   (channel==='ops'&&(!Number.isSafeInteger(body.expectedOpIds)||body.expectedOpIds<0))||
-  (channel==='cat'&&body.expectedOpIds!==undefined))throw fail();
+  (channel==='cat'&&body.expectedOpIds!==undefined)||
+  (body.expectedProjectedSha256!==undefined&&
+   (channel!=='cat'||!HASH.test(body.expectedProjectedSha256)||
+    body.projectionVersion!==F123_PUBLIC_PROJECTION_VERSION))||
+  (body.expectedProjectedSha256===undefined&&body.projectionVersion!==undefined))throw fail();
 }
 function legacyFrames(body){
  if(body.completeToHead!==true||body.manifest!==undefined||
@@ -60,13 +65,15 @@ function legacyFrames(body){
   return Uint8Array.from(f);
  });
 }
-function pagedFrames(body,index,anchor){
+function pagedFrames(body,index,anchor,nextFrameIndex){
  const m=body.manifest;
  if(!m||!Number.isSafeInteger(m.chunk)||m.chunk!==index||
   !Number.isSafeInteger(m.chunks)||m.chunks<1||m.chunks>MAX_PAGES||
   !Number.isSafeInteger(m.bytes)||m.bytes<1||m.bytes>MAX_WIRE||
   !Number.isSafeInteger(m.totalBytes)||m.totalBytes<1||m.totalBytes>MAX_TOTAL_BYTES||
   !HASH.test(m.sha256||'')||!HASH.test(m.rootSha256||'')||
+  !Number.isSafeInteger(m.firstFrameIndex)||m.firstFrameIndex!==nextFrameIndex||
+  !Number.isSafeInteger(m.frameCount)||m.frameCount!==body.frames?.length||
   body.completeToHead!==(index===m.chunks)||
   !Array.isArray(body.frames)||body.frames.length<1||body.frames.length>MAX_FRAMES)throw fail();
  if(anchor&&(m.chunks!==anchor.chunks||m.totalBytes!==anchor.totalBytes||
@@ -95,7 +102,7 @@ async function pageDigest(frames){
  }
  return sha(wire);
 }
-function validateDocument(frames,channel,strictCatalog){
+async function validateDocument(frames,channel,strictCatalog,scope={}){
  const doc=new Y.Doc();
  try{
   for(const frame of frames)Y.applyUpdate(doc,frame,'certified-service');
@@ -116,8 +123,11 @@ function validateDocument(frames,channel,strictCatalog){
     // Y.applyUpdate creates untyped root placeholders; materialize the Y.Map
     // before the allowlist projector reads .forEach on the reconstructed root.
     doc.getMap('productos');doc.getMap('ubicaciones');
-    const publicCopy=projectPublicCatalog({sourceDoc:doc,Y});
+    const publicCopy=projectPublicCatalog({sourceDoc:doc,Y,room:scope.room,
+      channel,frozenHead:scope.frozenHead});
     try{
+     if(scope.expectedProjectedSha256&&
+        await sha(publicCopy.bytes)!==scope.expectedProjectedSha256)throw fail();
      for(const name of ['productos','ubicaciones']){
       const source=doc.share.get(name),safe=publicCopy.doc.getMap(name);
       if(source?.size!==undefined&&source.size!==safe.size)throw fail();
@@ -158,7 +168,8 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    if(index===1&&!body.manifest){
     stage='byte-frames';
     const frames=legacyFrames(body);
-    validateDocument(frames,channel,false);
+    await validateDocument(frames,channel,false,{room,frozenHead:body.frozenHead,
+     expectedProjectedSha256:body.expectedProjectedSha256});
     return {channel,frozenHead:body.frozenHead,completeToHead:true,
      expectedStateSha256:body.expectedStateSha256,
      expectedVectorSha256:body.expectedVectorSha256,
@@ -169,12 +180,15 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
     chunks:body.manifest.chunks,totalBytes:body.manifest.totalBytes,
     rootSha256:body.manifest.rootSha256,head:body.frozenHead,
     sha:body.expectedStateSha256,vector:body.expectedVectorSha256,
-    opIds:body.expectedOpIds
+    opIds:body.expectedOpIds,projectedSha:body.expectedProjectedSha256,
+    projectionVersion:body.projectionVersion
    };
    if(body.frozenHead!==anchor.head||body.expectedStateSha256!==anchor.sha||
-    body.expectedVectorSha256!==anchor.vector||body.expectedOpIds!==anchor.opIds)throw fail();
+    body.expectedVectorSha256!==anchor.vector||body.expectedOpIds!==anchor.opIds||
+    body.expectedProjectedSha256!==anchor.projectedSha||
+    body.projectionVersion!==anchor.projectionVersion)throw fail();
    stage='byte-frames';
-   const frames=pagedFrames(body,index,anchor);
+   const frames=pagedFrames(body,index,anchor,all.length);
    total+=frames.reduce((n,b)=>n+b.byteLength,0);
    if(total>MAX_TOTAL_BYTES||all.length+frames.length>MAX_TOTAL_FRAMES)throw fail();
    stage='page-hash';
@@ -184,9 +198,10 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    if(index===anchor.chunks){
     stage='root-proof';
     if(total!==anchor.totalBytes||
-     await sha(utf8.encode(hashes.join('\n')))!==anchor.rootSha256)throw fail();
+     await sha(utf8.encode(hashes.map((h,i)=>(i+1)+':'+h+'\n').join('')))!==anchor.rootSha256)throw fail();
     stage='privacy-and-causality';
-    validateDocument(all,channel,true);
+    await validateDocument(all,channel,true,{room,frozenHead:anchor.head,
+     expectedProjectedSha256:anchor.projectedSha});
     return {channel,frozenHead:anchor.head,completeToHead:true,
      expectedStateSha256:anchor.sha,expectedVectorSha256:anchor.vector,
      ...(channel==='ops'?{expectedOpIds:anchor.opIds}:{}),frames:all};
