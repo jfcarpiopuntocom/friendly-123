@@ -2144,6 +2144,30 @@
                       return;
                     }
                   }
+                  // v802: a Firebase checkpoint may hide causal parents before
+                  // the cut. Do not consume thousands of later ciphertext pages
+                  // with unresolved Yjs structs while waiting for !c.more.
+                  // An early, one-shot PRE-cut sweep is read-only and bounded
+                  // by the existing four-page replay budget. It cannot authorize
+                  // PIN, advance a clean cursor, replace a snapshot or ACK ops.
+                  if (c.more && canal.ws === ws && ws.readyState === 1 &&
+                      nombre === "catalogo" && canal.recuperando &&
+                      !pullEstado.rescateCausalDesde && !pullEstado.rebaseCursor &&
+                      !_antecedentesBuscados &&
+                      ws.relayLayer === "f123_relay_cupo_fb_v1" &&
+                      _pullCursor.rev > 0 && !Object.keys(partesEntrantes).length &&
+                      doc.store && doc.store.pendingStructs &&
+                      doc.store.pendingStructs.missing &&
+                      doc.store.pendingStructs.missing.size > 0) {
+                    _antecedentesBuscados = true;
+                    pullEstado.rescateCausalHasta = { rev: _pullCursor.rev, seq: _pullCursor.seq };
+                    pullEstado.rescateCausalDesde = { rev: _pullCursor.rev, seq: 0 };
+                    pullEstado.rescatePaginas = 0;
+                    pullEstado.rescateTiePaginas = 0;
+                    pullEstado.rescateCausalAvanzo = false;
+                    pullEstado.rescateVectorInicio = Y.encodeStateVector(doc);
+                    return pedirPagina(ws, pullEstado, true);
+                  }
                   if (c.more && canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado, true);
                   pullEstado.enCurso = false;
                   // A complete historical scan requires a NEW final HEAD,
