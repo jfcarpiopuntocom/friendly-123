@@ -26,7 +26,7 @@ test('C37 RED: real C36 sale receipt opId→joined/roomless journal→typed C31 
  assert.equal(milestones.find(x=>x.id==='production-business-dispatch')?.done,false);
  assert.equal(milestones.find(x=>x.id==='typed-delta-and-legacy-retirement')?.points,1.5);
  assert.equal(milestones.find(x=>x.id==='typed-delta-and-legacy-retirement')?.done,false);
- assert.equal(port.assessedProductSha,'079542f810e4ce74204aa3173eae4a15085b4f87');
+ assert.equal(port.assessedProductSha,'3e367eadd6b87a8143471041875decc523af3e76');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
  assert.equal(quality.dimensions.find(x=>x.id==='physical')?.score,0);
 });
