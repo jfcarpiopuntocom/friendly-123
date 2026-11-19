@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.09",
+  "version": "v0.8.10",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.09: corrige la durabilidad del opId comercial confirmado (IndexedDB v2 settled_ops, lápida atómica con eliminación de pendiente, protección tras reiniciar Safari); recompila el bundle público C23 v808 con esta corrección y preserva SHA/manifest/shell. Incluye el componente C21a de failback en src, pendiente de conexión al checkout comercial. Sync3 intacto; ruta legacy activa, flags QA OFF, sin R2 ni gastos.",
+  "changelog": "v0.8.10: ensambla el coordinador C21a con C21b IndexedDB v2, C16a ops y C19a escritor catalogo en piloto y Sync3 API detrás de QA OFF. Pagehide libera escritor C10 y conserva opId confirmado irreversible. Sync3 y ventas antiguas intactos, cero gastos R2/Cloudflare.",
   "requerida": false,
-  "shell": "f123-shell-v809",
+  "shell": "f123-shell-v810",
   "apagar": [],
-  "releaseName": "v0.8.09",
-  "cacheGeneration": "golden345"
+  "releaseName": "v0.8.10",
+  "cacheGeneration": "golden346"
 }

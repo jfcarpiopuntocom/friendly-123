@@ -1,0 +1,31 @@
+name: PORT2 C25 · real bundled browser C21a coordinator, durable IDB and release
+on:
+  push:
+    branches: [port2/20261119-c25-browser-coordinator-v810]
+  pull_request:
+    branches: [master]
+    paths:
+      - src/yparty-piloto.js
+      - docs/sync-yjs.js
+      - docs/vendor/yparty-piloto.min.js
+      - test/p0-c25-browser-coordinator-factory.test.cjs
+      - .github/workflows/qa-port2-real-c25-browser-coordinator.yml
+permissions: {contents: read}
+jobs:
+  browser-coordinator:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-c25-browser-coordinator-factory.test.cjs \
+            test/p0-c21a-cross-device-failback.test.cjs \
+            test/p0-c16b-typed-ops-idb-store.test.cjs \
+            test/p0-c23-pilot-wire-photos-deltas-idb.test.cjs
+          node scripts/architecture-2-port-score.cjs --json

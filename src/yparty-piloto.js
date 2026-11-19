@@ -8,6 +8,7 @@ import {createTeamTicketParams} from './ws-team-ticket-params.mjs';
 import {createTypedOpsIdbStore} from './port2-typed-ops-idb-store.mjs';
 import {createOwnerPhotoShaClient,createTeamPhotoShaReader} from './port2-photo-sha-client.mjs';
 import {openCertifiedPublicCatalogWriter} from './port2-catalog-delta-writer.mjs';
+import {createVerifiedCrossDeviceFailbackCoordinator} from './port2-cross-device-failback.mjs';
 
 const host = 'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
@@ -135,6 +136,65 @@ window.F123YPartyPilot = function (sala, licencia) {
         isVisible: () => !document.hidden,
         timeoutMs,
         onWriterConflict
+      });
+    },
+    // PORT2 C25: one explicitly activated cutover coordinator, assembling
+    // existing C21a/C21b irreversible opId fence + C23 durable IDB and C19a
+    // independently certified -cat writer. No automatic network activity.
+    async crearCoordinadorCorte20(privateDoc, expectedFrozenHead, {
+      indexedDB = globalThis.indexedDB || window.indexedDB,
+      createProvider,
+      fetch: send = globalThis.fetch?.bind(globalThis),
+      timeoutMs = 5000,
+      onModeChange = null
+    } = {}) {
+      const unavailable = () => new Error('certified cutover coordinator unavailable');
+      const instanceId = readOwnedInstance();
+      if (!instanceId || document.hidden) throw unavailable();
+      try { ownerCredentials(instanceId); } catch (_) { throw unavailable(); }
+      if (!privateDoc || typeof expectedFrozenHead !== 'string' ||
+          !/^[A-Za-z0-9_.:-]{3,128}$/.test(expectedFrozenHead) ||
+          typeof createProvider !== 'function') throw unavailable();
+      const store = await this.crearAlmacenDurableOpsTipadas({indexedDB});
+      if (typeof store.loadCommittedOpIds !== 'function' ||
+          typeof store.markCommitted !== 'function') throw unavailable();
+      const reconciler = this.crearDespachadorComercialTipado({
+        store, fetch: send, timeoutMs
+      });
+      let coordinator;
+      try {
+        coordinator = createVerifiedCrossDeviceFailbackCoordinator({
+          store,
+          reconciler,
+          isVisible: () => !document.hidden,
+          onModeChange,
+          openCatalogSession: ({onWriterConflict}) =>
+            this.abrirEscritorDeltaCatalogoCertificado(privateDoc, expectedFrozenHead, {
+              createProvider,
+              fetch: send,
+              timeoutMs,
+              onWriterConflict
+            })
+        });
+      } catch (error) {
+        reconciler.destroy();
+        throw error;
+      }
+      const onHidden = () => {
+        if (document.hidden) void coordinator.failbackToLegacy('document-hidden');
+      };
+      const onPageHide = () => {
+        void coordinator.failbackToLegacy('pagehide');
+      };
+      document.addEventListener('visibilitychange', onHidden);
+      window.addEventListener('pagehide', onPageHide);
+      return Object.freeze({
+        ...coordinator,
+        destroy() {
+          document.removeEventListener('visibilitychange', onHidden);
+          window.removeEventListener('pagehide', onPageHide);
+          coordinator.destroy();
+        }
       });
     },
     // PORT2 C16b: explicit opt-in typed commercial command dispatcher backed by
