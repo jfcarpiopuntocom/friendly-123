@@ -1,10 +1,18 @@
 name: Deploy friendly123 license Worker
 
-# Manual by default; one approved, exact-SHA rollout after verified v634 via a guarded push.
+# Manual-only deployment via workflow_dispatch with exact target confirmation.
+# PRs touching cloudflare-worker/ or this workflow execute the secret-free verify gate only.
 on:
-  push:
+  pull_request:
     branches: [master]
-    paths: [".github/workflows/desplegar-licencias.yml"]
+    paths:
+      - "cloudflare-worker/**"
+      - ".github/workflows/desplegar-licencias.yml"
+      - "test/p0-license-deploy-gate.test.cjs"
+      - "test/p0-ws-*.test.mjs"
+      - "test/p0-central-pin-*.test.*"
+      - "test/panel-durable-object.test.js"
+      - "test/worker-*.test.js"
   workflow_dispatch:
     inputs:
       worker_name:
@@ -16,12 +24,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: friendly123-licencias-deploy
+  group: friendly123-licencias-deploy-${{ github.event_name == 'workflow_dispatch' && 'manual' || github.ref }}
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    if: (github.event_name == 'workflow_dispatch' && inputs.worker_name == 'friendly123-licencias') || (github.event_name == 'push' && contains(github.event.head_commit.message, 'APPROVED-SINGLE-PIN-DEPLOY-20261031'))
+  verify:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -31,19 +38,59 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: Enforce exactly the tested v634 PIN authority on automatic rollout
-        if: github.event_name == 'push'
+      - name: Syntax-check all license, PIN, team and /ws/ticket Worker modules
         run: |
           set -euo pipefail
-          test "$(node -p "require('./docs/version.json').shell")" = 'f123-shell-v635'
-          test "$(git rev-parse HEAD:cloudflare-worker/pin-authority.mjs)" = '758e2f95f2bc1b64b832c74383fd29d90dfd6c62'
           node --check cloudflare-worker/worker.js
+          node --check cloudflare-worker/pin-authority.mjs
           node --check cloudflare-worker/pin-worker-api.mjs
-          echo 'PIN authority version and blob pinned: deployment cannot affect another shell.'
-      - name: Check Worker, old license registry and new PIN authority (synthetic only)
+          node --check cloudflare-worker/team-authority.mjs
+          node --check cloudflare-worker/team-worker-api.mjs
+          node --check cloudflare-worker/ws-authorized-subject.mjs
+          node --check cloudflare-worker/ws-capability-issuer.mjs
+          node --check cloudflare-worker/ws-worker-api.mjs
+      - name: Check Worker, license registry, PIN authority and /ws/ticket issuer (synthetic only)
         run: |
-          node --test --test-timeout=120000 test/panel-durable-object.test.js test/worker-checkin.test.js test/p0-central-pin-authority.test.mjs test/p0-central-pin-worker-entry.test.mjs test/p0-central-pin-legacy-offline-guard.test.cjs
-      - name: Verify exact Worker and bindings
+          node --test --test-timeout=120000 \
+            test/p0-license-deploy-gate.test.cjs \
+            test/panel-durable-object.test.js \
+            test/worker-checkin.test.js \
+            test/worker-licencia-pagada.test.js \
+            test/worker-lotes-pagos.test.js \
+            test/worker-master-recovery.test.js \
+            test/worker-recover-pin.test.js \
+            test/worker-sonar.test.js \
+            test/worker-soporte-jfc.test.js \
+            test/p0-central-pin-authority.test.mjs \
+            test/p0-central-pin-worker-entry.test.mjs \
+            test/p0-central-pin-legacy-offline-guard.test.cjs \
+            test/p0-ws-authorized-subject.test.mjs \
+            test/p0-ws-capability-issuer.test.mjs \
+            test/p0-ws-worker-api.test.mjs
+      - name: Dry-run package and verify exact Worker name, KV ID and all 4 bindings
+        working-directory: cloudflare-worker
+        run: |
+          set -euo pipefail
+          test "$(sed -n 's/^name = "\(.*\)"/\1/p' wrangler.toml | head -1)" = 'friendly123-licencias'
+          ../node_modules/.bin/wrangler deploy --config ./wrangler.toml --dry-run > "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.LICENCIAS (f1599c69c4174cc2b38dd125c18ee3df)' "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.REGISTROS' "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.MAESTRO_IP' "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.MAESTRO_INST' "$RUNNER_TEMP/license-dry-run.txt"
+
+  deploy:
+    needs: verify
+    if: github.event_name == 'workflow_dispatch' && inputs.worker_name == 'friendly123-licencias'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify Cloudflare credentials and target bindings before live deploy
         working-directory: cloudflare-worker
         run: |
           set -euo pipefail
@@ -53,8 +100,10 @@ jobs:
           fi
           test "$(sed -n 's/^name = "\(.*\)"/\1/p' wrangler.toml | head -1)" = 'friendly123-licencias'
           ../node_modules/.bin/wrangler deploy --config ./wrangler.toml --dry-run > "$RUNNER_TEMP/license-dry-run.txt"
-          grep -q 'env.LICENCIAS' "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.LICENCIAS (f1599c69c4174cc2b38dd125c18ee3df)' "$RUNNER_TEMP/license-dry-run.txt"
           grep -q 'env.REGISTROS' "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.MAESTRO_IP' "$RUNNER_TEMP/license-dry-run.txt"
+          grep -q 'env.MAESTRO_INST' "$RUNNER_TEMP/license-dry-run.txt"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
