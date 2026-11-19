@@ -183,7 +183,7 @@ export async function dispatchTypedCommercialCommand({
       typeof send !== 'function' ||
       typeof isVisible !== 'function' ||
       !Number.isSafeInteger(timeoutMs) || timeoutMs < 200 || timeoutMs > 10_000 ||
-      !/^[a-z0-9.-]+$/i.test(host || '') ||
+      host !== HOST || // signed capabilities may be sent ONLY to our approved QA Worker
       !isVisible()) {
     return outcome({stage: 'precondition-denied', fallbackLegacy: true});
   }
