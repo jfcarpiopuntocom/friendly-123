@@ -331,3 +331,42 @@ test('6. end-to-end with REAL createTypedOpsReconciler: aborted IDB save blocks 
   assert.equal(httpCalls, 0, 'aborted durable pre-send save MUST prevent any HTTP call');
   assert.equal(out.committed, false);
 });
+
+test('7. corrupted own-namespace pending opId never disappears silently on IndexedDB load/reopen', async () => {
+  const { createTypedOpsIdbStore } = await import(STORE_URL);
+  const { indexedDB } = getRealOrHarnessIdb();
+  const storeA = createTypedOpsIdbStore({ indexedDB, namespace: NS_A });
+  const storeB = createTypedOpsIdbStore({ indexedDB, namespace: NS_B });
+  await storeA.save(sampleEntry('op_corrupt_00001', 1500));
+  await storeB.save(sampleEntry('op_other_shop_01', 1900));
+
+  async function overwriteRaw(record) {
+    const db = await new Promise((resolve, reject) => {
+      const req = indexedDB.open('f123_port2_typed_ops_v1', 1);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    try {
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('pending_ops', 'readwrite');
+        tx.objectStore('pending_ops').put(record);
+        tx.oncomplete = () => resolve();
+        tx.onabort = () => reject(tx.error || new Error('synthetic IDB write aborted'));
+        tx.onerror = () => {};
+      });
+    } finally { db.close(); }
+  }
+
+  const key = JSON.stringify([NS_A, 'op_corrupt_00001']);
+  // A browser crash / corrupt legacy entry with an intact own-business key:
+  // ignore-and-continue is dangerous: the economic opId appears lost on reload.
+  await overwriteRaw({key, namespace:NS_A, value:null});
+  await assert.rejects(storeA.loadAll(), /corrupt|invalid|missing/i,
+    'same-business malformed row MUST block reconciliation, not return []');
+  assert.equal((await storeB.loadAll()).length,1,'other business remains isolated');
+
+  // A forged payload cannot be reconciled under a different opId key.
+  await overwriteRaw({key, namespace:NS_A, value:sampleEntry('op_forged_00001', 1500)});
+  await assert.rejects(storeA.loadAll(), /corrupt|invalid|mismatch/i);
+  assert.equal((await storeB.loadAll()).length,1);
+});
