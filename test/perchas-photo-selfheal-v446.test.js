@@ -81,7 +81,7 @@ test('v446: a shelf photo still stored by id reattaches its hash automatically',
     assert.equal(result.hashedData, result.img, 'the exact local bytes are hashed; no photo is guessed or copied');
     assert.deepEqual(result.puts, [{
       url: '/api/ubicaciones/u-photo',
-      body: { fotoHash: 'hash-recovered' }
+      body: { fotoHash: 'hash-recovered', expectedFotoHash: null, expectedFotoRev: null }
     }]);
   } finally {
     await browser.close();
@@ -158,7 +158,7 @@ test('v448 GOLDEN G07: UI adapter falls through render cache to storage port for
     }));
     assert.equal(out.img, 'data:image/png;base64,U1RPUkFHRS1QT1JULUZBTExCQUNL');
     assert.ok(out.calls >= 1, 'adapter must consult the storage port when render cache is incomplete');
-    assert.deepEqual(out.puts, [{ url:'/api/ubicaciones/u-storage', body:{ fotoHash:'hash-storage' } }]);
+    assert.deepEqual(out.puts, [{ url:'/api/ubicaciones/u-storage', body:{ fotoHash:'hash-storage', expectedFotoHash:null, expectedFotoRev:null } }]);
   } finally {
     await browser.close();
   }
