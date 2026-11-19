@@ -230,7 +230,13 @@ export function createTypedOpsReconciler({
       // Cleanup must be durable too. If removal fails the stored opId stays
       // pinned for safe idempotent replay to the SAME DO after reload.
       try {
-        await store.remove(opId);
+        // C21b: an ACK is not durable if cleanup deletes the only same-do
+        // evidence. On real C16b IDB, markCommitted atomically stores a
+        // permanent terminal opId before removing the pending row.
+        if (typeof store.markCommitted === 'function')
+          await store.markCommitted(opId);
+        else
+          await store.remove(opId); // Legacy synthetic in-memory test stores.
         entries.delete(opId);
       } catch (_) {
         return makeOutcome({stage: 'durable-cleanup-pending', fallbackLegacy: false,
