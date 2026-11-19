@@ -3,7 +3,7 @@
 // Frozen service proof is independently validated before the SQL barrier.
 // A CRDT merge alone does NOT certify commercial postings or customer cutover.
 import * as Y from 'yjs';
-import {createHash} from 'node:crypto';
+import {Sha256Sync,sha256Sync} from './sha256-sync.mjs';
 import {prepareFrozenImport} from './certified-frozen-import.mjs';
 import {snapshotInsideBarrier,framesFrom,exportCompleteYpartyYjs} from './durable-full-yjs-export.mjs';
 
@@ -60,13 +60,13 @@ function eventRows(doc){
  }
  return rows;
 }
-function sha256(bytes){return createHash('sha256').update(bytes).digest('hex');}
+function sha256(bytes){return sha256Sync(bytes);}
 function eventsDigest(rows){
- const h=createHash('sha256');
+ const h=new Sha256Sync();
  for(const id of [...rows.keys()].sort()){
-  h.update(id,'utf8');h.update('\0');h.update(rows.get(id),'utf8');h.update('\n');
+  h.update(id);h.update('\0');h.update(rows.get(id));h.update('\n');
  }
- return h.digest('hex');
+ return h.hex();
 }
 function createCert(sql){
  sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_unions (id INTEGER PRIMARY KEY CHECK(id=1), channel TEXT NOT NULL, frozen_head TEXT NOT NULL, frozen_sha256 TEXT NOT NULL, vector_sha256 TEXT NOT NULL, frozen_events INTEGER NOT NULL, union_events INTEGER NOT NULL, union_sha256 TEXT NOT NULL, events_sha256 TEXT NOT NULL)');
