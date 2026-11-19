@@ -1,0 +1,39 @@
+name: "PORT2 real Gate D5 · PITR + bounded frozen union"
+on:
+  push:
+    branches: [port2/20261119-gated5-pitr-budget]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/merge-frozen-into-existing.mjs
+      - cloudflare-yparty-worker/qa/p0-gated5-merge-pitr-budget-sql.test.mjs
+      - .github/workflows/qa-port2-real-gated5-pitr.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pitr-and-budget:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: RED-GREEN native SQLite D5 and Workerd-compatible SHA
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test qa/p0-gated5-merge-pitr-budget-sql.test.mjs qa/p0-sha256-sync-transaction.test.mjs
+      - name: Real Tienda onStart / D4 history + prior regression
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-gated4-real-onstart-workerd.test.mjs qa/p0-gated4-merge-nonempty-sql.test.mjs qa/p0-gate-d-real-onstart-workerd.test.mjs qa/p0-gate-d-trusted-paged-source.test.mjs qa/p0-gated3-paving-deterministic-memory.test.mjs
