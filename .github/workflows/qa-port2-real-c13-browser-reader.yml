@@ -1,0 +1,55 @@
+name: "PORT2 C13 · browser certified reader wired behind QA switch"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - docs/sw.js
+      - docs/version.json
+      - docs/dashboard.html
+      - docs/version-manifest.json
+      - docs/sync-rollout.json
+      - docs/engineering/architecture-2-port-score.*
+      - docs/engineering/architecture-2-quality-score.json
+      - scripts/architecture-2-port-score.cjs
+      - test/p0-c13-browser-certified-reader-wire.test.cjs
+      - test/p0-architecture-2-port-score.test.cjs
+      - .github/workflows/qa-port2-real-c13-browser-reader.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  c13:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Shell, manifest determinism, C13 wiring and regression tests
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --check docs/sync-yjs.js
+          node scripts/gen-manifest.js
+          git diff --exit-code docs/version-manifest.json
+          bash check-sw.sh
+          node scripts/architecture-2-port-score.cjs
+          node --test \
+            test/p0-c13-browser-certified-reader-wire.test.cjs \
+            test/p0-architecture-2-port-score.test.cjs \
+            test/p0-c12-browser-pilot-readonly-seam.test.cjs \
+            test/p0-bridge-store-switch.test.cjs \
+            test/p0-rollout-policy.test.cjs \
+            test/p0-yparty-bfcache-pageshow.test.cjs \
+            test/p0-yparty-pilot-origin.test.cjs \
+            test/p0-yparty-client-built-bundle.test.cjs \
+            test/p0-yparty-client-real-tickets.test.cjs \
+            test/p0-yparty-photo-sha-browser.test.cjs \
+            test/p0-yparty-ultrareview-catalog-boundaries.test.cjs
+      - name: Real Yjs + C12 session contract in worker harness
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c12-readonly-catalog-client.test.mjs

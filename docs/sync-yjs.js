@@ -214,7 +214,7 @@
   }
   // Progressive per-license transport rollout; fail closed if policy cannot be loaded.
   async function _politicaRollout(codigo) {
-    var off = {outboxV2:false,gzipWrite:false,yparty:false,stage:"disabled"};
+    var off = {outboxV2:false,gzipWrite:false,yparty:false,frozenHead:null,stage:"disabled"};
     try {
       var bytes = new TextEncoder().encode("friendly123-rollout-v1:" + codigo);
       var hash = await crypto.subtle.digest("SHA-256",bytes);
@@ -238,10 +238,12 @@
         /^[a-f0-9]{64}$/.test(entry.deviceCensusSha256 || "") &&
         /^20[0-9]{2}-[0-9]{2}-[0-9]{2}$/.test(entry.censusDate || "") &&
         entry.gzipApproved === true;
+      var rawHead = entry.yparty === true && typeof entry.frozenHead === "string" ? entry.frozenHead.trim() : "";
+      var frozenHead = /^[A-Za-z0-9_.:-]{3,128}$/.test(rawHead) ? rawHead : null;
       return {outboxV2:entry.outboxV2 === true,
         gzipWrite:entry.gzipWrite === true && fullCensus,
         // Arquitectura 2.0: solo por entrada de licencia; la via sintetica stage:"all" no la trae.
-        yparty:entry.yparty === true,stage:cfg.stage};
+        yparty:entry.yparty === true,frozenHead:frozenHead,stage:cfg.stage};
     } catch (_) {return off;}
   }
   function _compactarYjsSinCambiarCausalidad(Y, full) {
@@ -2279,6 +2281,159 @@
     return canal;
   }
 
+  // C13: lifecycle controller for the C12 certified READ-ONLY public catalog reader.
+  // Never mutates privateDoc, never spawns a second writer, and stays fail-closed.
+  function _crearLectorCatalogoPublicoCertificado(opts) {
+    var piloto = opts && opts.piloto;
+    var doc = opts && opts.doc;
+    var idb = opts && opts.idb;
+    var legadoListo = opts && opts.legadoListo;
+    var obtenerHead = opts && opts.obtenerHead;
+    var HEAD_RE = /^[A-Za-z0-9_.:-]{3,128}$/;
+    var MAX_INTENTOS = 3;
+    var sesion = null, headActivo = null, estadoActual = "pendiente";
+    var seq = 0, destruido = false, enVuelo = null, headEnVuelo = null;
+    var ultimoHeadIntentado = null, intentosHead = 0, proximoIntentoMs = 0;
+
+    function cerrar() {
+      seq++;
+      enVuelo = null;
+      headEnVuelo = null;
+      var prev = sesion;
+      sesion = null;
+      headActivo = null;
+      estadoActual = destruido ? "destruido" : "cerrado";
+      if (prev && typeof prev.close === "function") {
+        try { prev.close(); } catch (_) {}
+      }
+    }
+
+    function destruir() {
+      destruido = true;
+      cerrar();
+    }
+
+    function leer() {
+      if (destruido || estadoActual !== "certificado" || !sesion ||
+          document.hidden || !doc || doc.isDestroyed) return null;
+      try {
+        var vista = sesion.display();
+        if (!vista || typeof vista !== "object" || !vista.productos || !vista.ubicaciones) {
+          cerrar();
+          return null;
+        }
+        return Object.freeze({
+          productos: vista.productos,
+          ubicaciones: vista.ubicaciones,
+          frozenHead: headActivo,
+          readOnly: true
+        });
+      } catch (_) {
+        cerrar();
+        return null;
+      }
+    }
+
+    function estado() {
+      return Object.freeze({
+        estado: estadoActual,
+        readOnly: true,
+        frozenHead: headActivo,
+        intentos: intentosHead,
+        certificado: estadoActual === "certificado"
+      });
+    }
+
+    function intentar() {
+      if (destruido || !piloto || typeof piloto.leerCatalogoPublicoCertificado !== "function") {
+        return Promise.resolve(false);
+      }
+      if (document.hidden || !doc || doc.isDestroyed) return Promise.resolve(false);
+      if (doc.store && (doc.store.pendingStructs || doc.store.pendingDs)) return Promise.resolve(false);
+      if (idb && idb.synced !== true) return Promise.resolve(false);
+      if (typeof legadoListo !== "function" || legadoListo() !== true) return Promise.resolve(false);
+
+      var head = typeof obtenerHead === "function" ? obtenerHead() : null;
+      if (typeof head !== "string" || !HEAD_RE.test(head)) {
+        estadoActual = "sin-head";
+        return Promise.resolve(false);
+      }
+      if (sesion && estadoActual === "certificado" && headActivo === head) {
+        return Promise.resolve(true);
+      }
+      if (enVuelo && headEnVuelo === head) return enVuelo;
+      if (head !== ultimoHeadIntentado) {
+        ultimoHeadIntentado = head;
+        intentosHead = 0;
+        proximoIntentoMs = 0;
+      }
+      var ahora = Date.now();
+      if (intentosHead >= MAX_INTENTOS || ahora < proximoIntentoMs) {
+        return Promise.resolve(false);
+      }
+      if (sesion) cerrar();
+
+      var miSeq = ++seq;
+      intentosHead++;
+      estadoActual = "verificando";
+      headEnVuelo = head;
+      var llamada;
+      try { llamada = Promise.resolve(piloto.leerCatalogoPublicoCertificado(doc, head)); }
+      catch (err) { llamada = Promise.reject(err); }
+      enVuelo = llamada
+        .then(function (s) {
+          if (destruido || miSeq !== seq || document.hidden || !doc || doc.isDestroyed ||
+              !s || s.readOnly !== true || s.frozenHead !== head ||
+              typeof s.display !== "function" || typeof s.close !== "function") {
+            if (s && typeof s.close === "function") { try { s.close(); } catch (_) {} }
+            if (miSeq === seq) {
+              enVuelo = null;
+              headEnVuelo = null;
+              if (!destruido && estadoActual === "verificando") estadoActual = "cerrado";
+            }
+            return false;
+          }
+          var vista = null;
+          try { vista = s.display(); } catch (_) { vista = null; }
+          if (!vista || !vista.productos || !vista.ubicaciones) {
+            try { s.close(); } catch (_) {}
+            enVuelo = null;
+            headEnVuelo = null;
+            estadoActual = "error";
+            proximoIntentoMs = Date.now() + Math.min(30000 * Math.pow(2, intentosHead - 1), 300000);
+            return false;
+          }
+          sesion = s;
+          headActivo = head;
+          estadoActual = "certificado";
+          enVuelo = null;
+          headEnVuelo = null;
+          proximoIntentoMs = 0;
+          return true;
+        }, function () {
+          if (miSeq === seq) {
+            enVuelo = null;
+            headEnVuelo = null;
+            estadoActual = destruido ? "destruido" : "error";
+            proximoIntentoMs = Date.now() + Math.min(30000 * Math.pow(2, intentosHead - 1), 300000);
+          }
+          return false;
+        });
+      return enVuelo;
+    }
+
+    return { intentar: intentar, cerrar: cerrar, destruir: destruir, leer: leer, estado: estado };
+  }
+
+  function _cabezaCongeladaQa(rollout) {
+    var head = "";
+    try { head = String(localStorage.getItem("f123_yparty_qa_frozen_head") || "").trim(); } catch (_) { head = ""; }
+    if (!head && rollout && rollout.yparty === true && typeof rollout.frozenHead === "string") {
+      head = rollout.frozenHead.trim();
+    }
+    return /^[A-Za-z0-9_.:-]{3,128}$/.test(head) ? head : null;
+  }
+
   function origenCatalogoRemoto(origin) {
     return origin === "red" || origin === "bc" || !!(API.canal && API.canal.proveedor && origin === API.canal.proveedor) ||
       !!(API.canalPiloto && API.canalPiloto.proveedor && origin === API.canalPiloto.proveedor);
@@ -2760,6 +2915,28 @@
       canalesPiloto = [API.canal];
       API.canalPiloto = API.canal;
     }
+    if (piloto && typeof piloto.leerCatalogoPublicoCertificado === "function") {
+      API.catalogoPublicoLector = _crearLectorCatalogoPublicoCertificado({
+        piloto: piloto,
+        doc: API.doc,
+        idb: API.idb,
+        legadoListo: function () {
+          return !!(API.canalSombra && API.canalSombra.recuperando === false &&
+            typeof API.canalSombra.accesoListo === "function" &&
+            API.canalSombra.accesoListo());
+        },
+        obtenerHead: function () { return _cabezaCongeladaQa(API.rollout); },
+        log: log
+      });
+      API.leerCatalogoPublicoCertificado = function () { return API.catalogoPublicoLector.leer(); };
+      API.estadoCatalogoPublicoCertificado = function () { return API.catalogoPublicoLector.estado(); };
+    } else {
+      API.catalogoPublicoLector = null;
+      API.leerCatalogoPublicoCertificado = function () { return null; };
+      API.estadoCatalogoPublicoCertificado = function () {
+        return Object.freeze({ estado: "desactivado", readOnly: true, frozenHead: null, intentos: 0, certificado: false });
+      };
+    }
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -2778,11 +2955,14 @@
       });
       if (!API.canalPiloto) return; // OFF: exactly the v0.7.83 visibility path
       if (API.canalSombra && API.canalSombra !== API.canal) { if (activo) API.canalSombra.reanudar(); else API.canalSombra.pausar(); }
-      if (activo) programarRetorno();
-      else {
+      if (activo) {
+        programarRetorno();
+        if (API.catalogoPublicoLector) API.catalogoPublicoLector.intentar();
+      } else {
         clearTimeout(timerRetorno);
         timerRetorno = null;
         if (retornoEnCurso) canalesPiloto.forEach(function (c) { c.pausar(); });
+        if (API.catalogoPublicoLector) API.catalogoPublicoLector.cerrar();
       }
     }
     window.addEventListener("oc-tab-session-changed", sincronizarVisibilidad);
@@ -2793,6 +2973,7 @@
       [API.canal, API.fotosCanal, API.opsCanal, API.canalSombra !== API.canal ? API.canalSombra : null].forEach(function (c) {
         if (c) c.pausar();
       });
+      if (API.catalogoPublicoLector) API.catalogoPublicoLector.cerrar();
       sincronizarVisibilidad();
     });
     API.canal.conectar();      // catálogo + _meta (nombre, pinsRol) — sala "-y"
@@ -2808,7 +2989,14 @@
     // Al cargar de IndexedDB los blobs ya guardados, volcarlos al store de fotos.
     if (API.fotosIdb && API.fotosIdb.once) API.fotosIdb.once("synced", pedirVolcarFotos);
     // v667: el catalogo cargado de IndexedDB tambien rehidrata punteros de foto vacios (tras la hidratacion local).
-    if (API.idb && API.idb.once) API.idb.once("synced", function () { setTimeout(pedirVolcarFotos, 1500); });
+    if (API.idb && API.idb.once) API.idb.once("synced", function () {
+      setTimeout(pedirVolcarFotos, 1500);
+      if (API.catalogoPublicoLector) API.catalogoPublicoLector.intentar();
+    });
+    if (API.catalogoPublicoLector) {
+      API.doc.on("update", function () { API.catalogoPublicoLector.intentar(); });
+      API.doc.once("destroy", function () { API.catalogoPublicoLector.destruir(); });
+    }
     // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
     if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
     API.estado = "activo";
