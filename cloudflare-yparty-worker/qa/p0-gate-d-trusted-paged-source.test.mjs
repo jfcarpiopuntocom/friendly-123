@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import * as Y from 'yjs';
 import {readTrustedFrozenSource} from '../src/trusted-frozen-source.mjs';
 import {prepareFrozenImport} from '../src/certified-frozen-import.mjs';
+import {projectPublicCatalog} from '../src/catalog-safe-projection.mjs';
 
 const licenseRoom='a'.repeat(32),room=licenseRoom+'-cat';
 const KEY='synthetic-internal-signing-key-32bytes';
@@ -108,4 +109,15 @@ test('QA disabled and absent internal source fail before any network request',as
   assert.equal(s.calls,0);
   s.env.WS_OPEN_EXISTING_QA='1';delete s.env.WS_FROZEN_HISTORY_SOURCE;
   await assert.rejects(readTrustedFrozenSource({env:s.env,room,channel:'cat'}),/trusted frozen history unavailable/);
+});
+
+// Isolate privacy projection's actual Yjs runtime behavior (no real personal data).
+test('synthetic public catalog validator handles a decoded Y.Doc without private fields',()=>{
+ const source=new Y.Doc();source.getMap('productos').set('sku1',{id:'sku1',nombre:'Book',precio:12.5,stockActual:3});
+ const binary=Y.encodeStateAsUpdate(source),reopened=new Y.Doc();Y.applyUpdate(reopened,binary);
+ assert.equal(reopened.share.get('productos')?.size,1);
+ const root=reopened.getMap('productos');assert.equal(root.get('sku1').nombre,'Book');
+ const {doc:pub}=projectPublicCatalog({sourceDoc:reopened,Y});
+ assert.deepEqual(root.toJSON(),pub.getMap('productos').toJSON());
+ pub.destroy();reopened.destroy();source.destroy();
 });
