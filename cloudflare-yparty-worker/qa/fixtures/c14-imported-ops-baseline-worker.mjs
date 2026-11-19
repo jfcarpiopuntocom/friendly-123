@@ -35,12 +35,17 @@ export class Tienda extends RealTienda{
      pending:!!(d.store.pendingStructs||d.store.pendingDs)};
     d.destroy();return Response.json(response);
    }
-   if(action==='append' || action==='tamper'){
+   if(action==='append' || action==='tamper' || action==='swap'){
     const full=await exportCompleteYpartyYjs({storage:this.ctx.storage,channel:'ops'});
     const d=new Y.Doc();Y.applyUpdate(d,full.bytes);
     const updates=[];d.on('update',bytes=>updates.push(bytes));
     if(action==='tamper')
       d.getMap('eventos').set('historical-001',{opId:'historical-001',kind:'sale.record',amountCents:777777});
+    else if(action==='swap')
+      d.transact(()=>{
+       d.getMap('eventos').delete('historical-001');
+       d.getMap('eventos').set('replacement-001',{opId:'replacement-001',kind:'sale.record',amountCents:100});
+      });
     else
       d.getMap('eventos').set('after-cut-001',{opId:'after-cut-001',kind:'sale.record',amountCents:1100});
     if(updates.length!==1)throw new Error('fixture produced unexpected updates');
