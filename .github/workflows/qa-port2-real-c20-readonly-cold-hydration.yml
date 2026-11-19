@@ -27,3 +27,4 @@ jobs:
         working-directory: cloudflare-yparty-worker
         run: |
           node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c12-readonly-catalog-client.test.mjs
+          node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c20-cold-catalog-readonly-workerd.test.mjs
