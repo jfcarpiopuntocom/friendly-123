@@ -118,12 +118,13 @@ test('C11 rejects foreign browser origin before consuming capability and handles
   assert.equal((await f.get({token:minted})).status,200,'wrong-origin request must not burn a valid token');
  }finally{await f.close();}
 });
-test('C11 refuses private-root catalog even with certified SQL row and signed Owner ticket',{timeout:30000},async()=>{
+test('C11 rejects uncertified private-root history before exposing any catalog HEAD',{timeout:30000},async()=>{
  const f=await fixture({privateRoot:true});
  try{
   const result=await f.get({token:await f.ticket()});
   assert.notEqual(result.status,200);
   assert.equal((await result.text()).includes('PRIVATE_NEVER_EXPOSE'),false);
+  assert.equal(f.readCount,1,'the independent frozen reader was consulted but could not certify private Yjs');
  }finally{await f.close();}
 });
 test('C11 QA flag OFF refuses proof even with a minted ticket',{timeout:30000},async()=>{
