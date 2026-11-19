@@ -21,9 +21,11 @@ jobs:
         with: {persist-credentials: false}
       - uses: actions/setup-node@v4
         with: {node-version: '22'}
-      - name: Setup exact esbuild/Workerd deps
-        working-directory: cloudflare-yparty-worker
-        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Setup exact root + Workerd deps
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
       - name: Verify deterministic browser bundle and manifest seal
         run: |
           set -euo pipefail
