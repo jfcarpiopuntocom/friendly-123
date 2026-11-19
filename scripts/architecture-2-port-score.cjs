@@ -186,7 +186,8 @@ function inspect(){
  if(cashMilestone?.done){
    assert.equal(cashMilestone.points,0.5,'C34 actual compatible cash envelope earns 0.5 only');
    const full=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='production-business-dispatch');
-   assert.equal(full?.points,2.5,'2.5 dispatch/cutover budget remains');
+   const c36Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='stable-real-sale-opid-c36' && m.done);
+   assert.equal(full?.points,c36Done?2:2.5,'fixed budget: C36 0.5 earned, full dispatch pending');
    assert.equal(full.done,false,'C34 must not certify production business dispatch');
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO for C34 QA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
@@ -225,6 +226,45 @@ function inspect(){
    const normalized='sha256-'+crypto.createHash('sha256').update(backend.replace(/\r\n/g,'\n')).digest('hex');
    assert.equal(manifest.files['./mock-backend.js'],normalized,
      'C34 credited source must match actually shipped manifest hash');
+ }
+ // C37 stable product opId credit, NOT business-committed/physical GO.
+ const c36=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='stable-real-sale-opid-c36');
+ if(c36?.done){
+  assert.equal(c36.points,0.5,'C36 code only 0.5');
+  const left=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='production-business-dispatch');
+  assert.equal(left?.points,2,'2.0 live dispatcher still not earned');
+  assert.equal(left.done,false,'C36 does not retire business 1.0 path');
+  assert.equal(data.commercialGo.certifiedGates,0,'no GO from QA');
+  const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
+  const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
+  for(const token of ['const opIdVenta = _opIdVenta || ventaId;',
+    '_opVenta.opId = opIdVenta;','/^[A-Za-z0-9_-]{8,96}$/.test(opIdVenta)',
+    'emitirOpStock("venta", _opVenta, true);']){
+    assert(backend.includes(token),'C36 real backend id missing '+token);
+  }
+  for(const token of ['const opIdVentaDurable = tipo === "venta"',
+    'Number.isSafeInteger(payload.cantidad)','Number.isSafeInteger(payload.amountCents)']){
+    assert(realtime.includes(token),'C36 transport guard missing '+token);
+  }
+  assert.equal(realtime.split('opId: opIdVentaDurable').length-1,2,
+    'exact original opId must appear in BOTH old-room and roomless journal paths');
+  const testFile='test/p0-c36-real-sale-opid-e2e.test.cjs';
+  assert(fs.existsSync(path.join(root,testFile)),'C36 real source test missing');
+  const sourceTest=fs.readFileSync(path.join(root,testFile),'utf8');
+  for(const token of ["require('./helpers/browser.cjs')",
+    'assert.equal(duplicate.duplicate,true','assert.equal(onDisk.opId,sale.opId',
+    'assert.equal(cmd?.opId,sale.opId']){
+    assert(sourceTest.includes(token),'actual durable sale identity regression missing '+token);
+  }
+  const manifest=load('docs/version-manifest.json'),version=load('docs/version.json');
+  assert(Number((/^v0\.8\.(\d+)$/.exec(version.version||'')||[])[1]||0)>=15,
+    'C36 must ship in v0.8.15+');
+  assert(Number((/^f123-shell-v(\d+)$/.exec(version.shell||'')||[])[1]||0)>=815,
+    'C36 must ship in f123-shell-v815+');
+  for(const [name,source] of [['mock-backend.js',backend],['sync-realtime.js',realtime]]){
+    const hash='sha256-'+crypto.createHash('sha256').update(source.replace(/\r\n/g,'\n')).digest('hex');
+    assert.equal(manifest.files['./'+name],hash,'C36 source SHA seal mismatch '+name);
+  }
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');

@@ -1,30 +1,33 @@
 'use strict';
+// C37 score is a fixed-budget implementation audit, NOT physical GO.
+// RED checkpoint: the previous authoritative product score is still 85.0/76.0; never inflate without verified C36 code.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C35: audited C33 real Workerd + C34 actual cash event, fixed 100 budget; NO commercial GO',()=>{
+test('C37: audited real C36 sale receipt opId→joined/roomless journal→typed C31 earns only 0.5 on fixed 100',()=>{
  const s=inspect();
- assert.equal(s.port,85.0);
+ assert.equal(s.port,85.5);
  assert.equal(s.portBefore,68.5);
- assert.equal(s.portDelta,16.5);
- assert.equal(s.quality,76.0);
- assert.equal(s.qualityBefore,75.8);
+ assert.equal(s.portDelta,17.0);
+ assert.equal(s.quality,76.2);
+ assert.equal(s.qualityBefore,76.0);
  assert.equal(s.qualityDelta,0.2);
  assert.equal(s.go,'0/6');
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
  const milestones=port.groups.flatMap(g=>g.milestones);
- assert.equal(milestones.find(x=>x.id==='qa-gated-typed-commercial-route-c31')?.points,0.5);
- assert.equal(milestones.find(x=>x.id==='qa-gated-typed-commercial-route-c31')?.done,true);
  assert.equal(milestones.find(x=>x.id==='real-cash-sale-envelope-c34')?.points,0.5);
  assert.equal(milestones.find(x=>x.id==='real-cash-sale-envelope-c34')?.done,true);
- assert.equal(milestones.find(x=>x.id==='production-business-dispatch')?.points,2.5);
+ assert.equal(milestones.find(x=>x.id==='stable-real-sale-opid-c36')?.points,0.5);
+ assert.equal(milestones.find(x=>x.id==='stable-real-sale-opid-c36')?.done,true);
+ assert.equal(milestones.find(x=>x.id==='production-business-dispatch')?.points,2.0);
  assert.equal(milestones.find(x=>x.id==='production-business-dispatch')?.done,false);
  assert.equal(milestones.find(x=>x.id==='typed-delta-and-legacy-retirement')?.points,1.5);
  assert.equal(milestones.find(x=>x.id==='typed-delta-and-legacy-retirement')?.done,false);
- assert.equal(port.assessedProductSha,'686f0fa162a1a9b82dd0dd8f6590b5ad6e0d23dd');
+ assert.equal(port.assessedProductSha,'3e367eadd6b87a8143471041875decc523af3e76');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
  assert.equal(quality.dimensions.find(x=>x.id==='physical')?.score,0);
+ assert.equal(milestones.filter(x=>!x.done).reduce((sum,x)=>sum+x.points,0),14.5,'remaining 14.5 points must stay unearned');
 });

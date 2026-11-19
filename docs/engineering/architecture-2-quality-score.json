@@ -3,20 +3,20 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 75.8,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 686f0fa162a1a9b82dd0dd8f6590b5ad6e0d23dd",
+    "previousScore": 76,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ d1878b13e14a83bc7cb1026cb0dede16abed7d18",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 76,
+  "score": 76.2,
   "maximum": 100,
   "dimensions": [
     {
       "id": "business",
       "weight": 20,
-      "score": 17.7,
-      "previous": 17.5,
-      "justification": "C33 PR #828 tests exact docs/sync-yjs.js + shipped browser bundle against real Workerd SQLite for 3 business-committed receipts, stock/cash/debt, role/photo SHA and cold IDB replay. C34 PR #829 confirms real mock-backend post-local-ACK compatible full-cash/list-price sale enriches unchanged stock fact with quantity/amountCents for C31 mapping, exact-source RED→GREEN 3/3, 39/39 CI and v814 manifest. Evidence is QA-only, NOT end-to-end real customer traffic, full economic commission/credit support or PC/iPhone physical acceptance.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/829"
+      "score": 17.9,
+      "previous": 17.7,
+      "justification": "C33 Workerd SQLite 3 committed receipts tested; C34 real browser backend cash qty/cents and C36 PR #831 original opId from actual saved sale + dedup replay (1 sale, 1 stock movement) through BOTH persistent transport topologies and actual C31 typed mapper, RED→GREEN 3/3 plus 11/11 regressions, release v815 real SHA. QA-only; no proof of live production DO committed confirmation, PC/Safari physical GO or all economic modes.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/831"
     },
     {
       "id": "durability",
@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "Engineering quality score with reviewed product-source contracts and Workerd SQLite QA, not a production uptime percentage or customer/physical GO; verified zero Cloudflare/R2 writes this release.",
-  "assessedProductSha": "686f0fa162a1a9b82dd0dd8f6590b5ad6e0d23dd",
+  "assessedProductSha": "3e367eadd6b87a8143471041875decc523af3e76",
   "history": [
     {
       "review": "2026-11-17",
@@ -104,6 +104,11 @@
       "review": "2026-11-19 before C33+C34 independent credit",
       "score": 75.8,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 686f0fa162a1a9b82dd0dd8f6590b5ad6e0d23dd"
+    },
+    {
+      "review": "2026-11-19 before C36 identity continuity scoring",
+      "score": 76,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ d1878b13e14a83bc7cb1026cb0dede16abed7d18"
     }
   ]
 }
