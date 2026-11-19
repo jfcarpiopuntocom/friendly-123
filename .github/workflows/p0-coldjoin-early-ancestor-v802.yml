@@ -1,0 +1,34 @@
+name: P0 cold join early ancestor real-source QA (no deploy)
+on:
+  push:
+    branches: [fix/p0-coldjoin-early-ancestor-v802-20261118]
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-coldjoin-early-ancestor-v802.test.cjs
+      - .github/workflows/p0-coldjoin-early-ancestor-v802.yml
+  pull_request:
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-coldjoin-early-ancestor-v802.test.cjs
+      - .github/workflows/p0-coldjoin-early-ancestor-v802.yml
+permissions: {contents: read}
+jobs:
+  precheckpoint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22',cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Source-executed nonfinal page / bounded precheckpoint probe
+        run: |
+          set -euo pipefail
+          node --check docs/sync-yjs.js
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-coldjoin-early-ancestor-v802.test.cjs \
+            test/p0-precut-independent-writers-v783.test.cjs \
+            test/incident-yjs-causal-replay-v559.test.js \
+            test/p0-yjs-pending-snapshot.test.js \
+            test/sync3-head-causal-gap.test.cjs \
+            test/pull-cursor-durable-ack.test.cjs
