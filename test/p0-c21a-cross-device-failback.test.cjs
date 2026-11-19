@@ -278,6 +278,27 @@ test('4. C21a drainLatchedSameDo reconciles pending 2.0 opIds against SAME DO ev
   // Even after commit & IDB cleanup, op_reload_drain_01 stays forbidden on legacy 1.0 in this coordinator
   assert.equal(await reloadedCoordinator.canDispatchOnLegacy('op_reload_drain_01'), false);
   reloadedCoordinator.destroy();
+
+  // C21b RED: the same committed opId must survive a SECOND browser restart.
+  // There is no longer a pending row. A volatile Set alone cannot remember it.
+  const finalStore = h.createTypedOpsIdbStore({indexedDB:h.indexedDB, namespace:NS});
+  const finalReconciler = h.makeReconciler(finalStore);
+  const finalCoord = h.createVerifiedCrossDeviceFailbackCoordinator({
+    store:finalStore,
+    reconciler:finalReconciler,
+    openCatalogSession:async()=>{ throw new Error('legacy active'); },
+    isVisible:()=>true
+  });
+  try {
+    assert.deepEqual(await finalStore.loadAll(),[], 'no pending sales after business commit');
+    assert.equal(await finalCoord.canDispatchOnLegacy('op_reload_drain_01'),false,
+      'P0: business-committed opId must remain irrevocably blocked after Safari/PWA reload');
+    await assert.rejects(finalCoord.assertLegacyAllowed('op_reload_drain_01'),
+      /latched-same-do-only/);
+    assert.equal(await finalCoord.canDispatchOnLegacy('op_new_after_commit_02'),true,
+      'unrelated new opId is still permitted on legacy');
+  } finally {finalCoord.destroy();}
+
 });
 
 test('5. C21a quarantined 409 opId stays permanently blocked from legacy 1.0', async () => {
