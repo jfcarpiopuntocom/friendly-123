@@ -7,7 +7,7 @@ import {createOwnerTicketParams} from '../../src/ws-owner-ticket-params.mjs';
 
 const room='a'.repeat(32)+'-cat',license='F123-SYNTH-READONLY',instance='synthetic-c12-browser';
 const head='certified-frozen-c12',sha='f'.repeat(64);
-function fixture({badProof=false,mutateRemote=false,privateRemote=false,hidden=false}={}){
+function fixture({badProof=false,mutateRemote=false,privateRemote=false,hidden=false,untypedRemote=false}={}){
  const local=new Y.Doc(),requests=[],providers=[],tokens=[];
  local.getMap('productos').set('book-1',{id:'book-1',nombre:'Book',precio:12,stockActual:2});
  local.getMap('ubicaciones').set('shelf-1',{id:'shelf-1',nombre:'Shelf',activa:true});
@@ -44,9 +44,22 @@ function fixture({badProof=false,mutateRemote=false,privateRemote=false,hidden=f
    off(name,fn){events.get(name)?.delete(fn)},
    async connect(){
     const next=await params();tokens.push(next.cap);
-    doc.getMap('productos').set('book-1',{id:'book-1',nombre:'Book',precio:mutateRemote?99:12,stockActual:2});
-    doc.getMap('ubicaciones').set('shelf-1',{id:'shelf-1',nombre:'Shelf',activa:true});
-    if(privateRemote)doc.getMap('_meta').set('pin','REMOTE_PRIVATE');
+    if(untypedRemote){
+      // Actual YParty receives structs through Y.applyUpdate. The target root
+      // stays AbstractType until first getMap() after network hydration.
+      const remote=new Y.Doc();
+      remote.getMap('productos').set('book-1',{id:'book-1',nombre:'Book',precio:mutateRemote?99:12,stockActual:2});
+      remote.getMap('ubicaciones').set('shelf-1',{id:'shelf-1',nombre:'Shelf',activa:true});
+      if(privateRemote)remote.getMap('_meta').set('pin','REMOTE_PRIVATE');
+      Y.applyUpdate(doc,Y.encodeStateAsUpdate(remote));
+      assert.equal(doc.share.get('productos') instanceof Y.Map,false,
+        'true remote Yjs history must start with an unbound root type');
+      remote.destroy();
+    }else{
+      doc.getMap('productos').set('book-1',{id:'book-1',nombre:'Book',precio:mutateRemote?99:12,stockActual:2});
+      doc.getMap('ubicaciones').set('shelf-1',{id:'shelf-1',nombre:'Shelf',activa:true});
+      if(privateRemote)doc.getMap('_meta').set('pin','REMOTE_PRIVATE');
+    }
     for(const fn of events.get('synced')||[])fn(true);
    },
    destroy(){this.closed=true}
@@ -118,4 +131,25 @@ test('C12 cat read-only issuer scope cannot be requested for -ops or -priv',()=>
    room:room.slice(0,32)+suffix,catalogReadOnly:true,
    getCredentials:()=>({kind:'owner',licenseCode:license,instanceId:instance,pin:'123'}),fetch:async()=>{}}));
  }
+});
+
+test('C20 RED: remote Y.applyUpdate unbound Yjs public roots allow REAL cold read without private material',{timeout:5000},async()=>{
+ const f=fixture({untypedRemote:true});
+ try{
+  const session=await openCertifiedReadOnlyPublicCatalog(f.input());
+  assert.equal(session.readOnly,true);
+  assert.equal(session.display().productos['book-1'].stockActual,2);
+  assert.equal(session.display().ubicaciones['shelf-1'].nombre,'Shelf');
+  assert.equal(f.providers[0].doc.share.has('_meta'),false);
+  session.close();
+ }finally{f.close();}
+});
+test('C20: hydrating ONLY two public roots still rejects untyped malicious private root',{timeout:5000},async()=>{
+ const f=fixture({untypedRemote:true,privateRemote:true});
+ try{
+  await assert.rejects(openCertifiedReadOnlyPublicCatalog(f.input()),
+   /certified read-only catalog unavailable/);
+  assert.equal(f.providers[0]?.closed,true);
+  assert.equal(f.local.getMap('_meta').get('pin'),'NEVER_TO_WORKER');
+ }finally{f.close();}
 });

@@ -103,6 +103,15 @@ export async function openCertifiedReadOnlyPublicCatalog({
   });
   if(!isVisible()||privateDoc.isDestroyed||
      publicDoc.store.pendingStructs||publicDoc.store.pendingDs)throw fail();
+  // YParty sends remote Yjs structs as AbstractType placeholders until
+  // getMap() binds them. The old C12 fake-provider tests wrote through
+  // getMap() directly and accidentally hid the real cold-join failure.
+  // Materialize ONLY these two publicly permitted roots; C9 still validates
+  // ALL root names and row fields, rejecting private/economic roots.
+  if(!publicDoc.share.has('productos')||!publicDoc.share.has('ubicaciones'))
+    throw fail();
+  publicDoc.getMap('productos');
+  publicDoc.getMap('ubicaciones');
   assertPublicCatalogTransportDoc({doc:publicDoc,room});
   // Compare DISPLAY state, never Yjs byte history/clientIDs, to avoid treating
   // re-authored local structs as a valid certified remote baseline.
