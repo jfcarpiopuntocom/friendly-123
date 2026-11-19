@@ -9,6 +9,8 @@ import {secureMode,ticketRequest,askAuthority,askAuthorityBatch,unexpired} from 
 import {photoShaStore,boundedPhotoBody} from "./photo-sha-storage.mjs";
 import {createTypedCommercialLedger} from "./typed-commercial-ledger.mjs";
 import {createBusinessSqlExecutor} from "./authoritative-business-sql.mjs";
+import {openExistingStore} from "./open-existing-store.mjs";
+import {readTrustedFrozenSource} from "./trusted-frozen-source.mjs";
 
 export { salaDeLicencia };
 
@@ -325,6 +327,32 @@ export class Tienda extends YServer {
     } catch (_) { /* Sin confirmación, la caja conserva el respaldo. */ }
   }
 
+  async abrirHistorialCongeladoSiAplica() {
+    // Gate D 2.0. This runs on the REAL Durable Object, before the YServer
+    // loads or serves anything. OFF by default, never an HTTP import route.
+    if (this.env.WS_OPEN_EXISTING_QA === '1') {
+      const room=this.name,channel=room.endsWith('-cat')?'cat':room.endsWith('-ops')?'ops':null;
+      if (this.env.WS_AUTHORITY_QA!=='1' ||
+          this.env.WS_SEPARATE_ROOMS_QA!=='1' ||
+          !/^[a-f0-9]{32}$/.test(this.env.SALA_PILOTO||'') ||
+          !channel || room !== this.env.SALA_PILOTO+'-'+channel)
+        throw new Error('Gate D refuses room without QA authority');
+      // Existing certified rooms recover from their own complete SQL journal,
+      // so a temporarily unreachable history service cannot orphan the shop.
+      const certified=this.ctx.storage.sql.exec(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='f123_frozen_imports'"
+      ).toArray().length>0 &&
+        this.ctx.storage.sql.exec('SELECT 1 FROM f123_frozen_imports WHERE id=1').toArray().length>0;
+      const source=certified ? undefined :
+        await readTrustedFrozenSource({env:this.env,room,channel});
+      const imported=await openExistingStore({env:this.env,storage:this.ctx.storage,source});
+      if(!imported.opened || (certified && imported.already !== true))
+        throw new Error('Gate D refuses uncertified or incomplete historical Yjs');
+      this.gateD=imported;
+      this.gateDVerified=true; // server-side only, never returned as commercial ACK
+    }
+  }
+
   async onStart() {
     this.ctx.storage.sql.exec(
       "CREATE TABLE IF NOT EXISTS documento (id INTEGER PRIMARY KEY, contenido BLOB)"
@@ -341,6 +369,7 @@ export class Tienda extends YServer {
     this.ctx.storage.sql.exec(
       "CREATE TABLE IF NOT EXISTS diario_bloques (n INTEGER NOT NULL, parte INTEGER NOT NULL, contenido BLOB NOT NULL, PRIMARY KEY (n, parte))"
     );
+    await this.abrirHistorialCongeladoSiAplica();
     // Hibernated attachments must be checked BEFORE YServer's onStart sync broadcasts.
     if (secureMode(this.env)) await this.comprobarConexiones();
     this.secureReady = true;
