@@ -28,10 +28,14 @@ export async function readSignedFrozenCatalogProof({request,env,storage,doc,room
  const signed=await askAuthority(env,'consume',access);
  if(!signed)return fail(403);
  try{
-  console.info('C11_SYNTH_DIAG',{verified,hasSql:!!storage?.sql,hasDoc:!!doc,destroyed:doc?.isDestroyed,roots:doc?.share?[...doc.share.keys()]:[]});
   if(verified!==true||!storage?.sql||!doc||doc.isDestroyed)throw Error('not verified');
-  // The imported room must be PUBLIC, not the old Sync3 Y.Doc which can
-  // contain cost, PIN, customer or money roots. Never assert based on HEAD alone.
+  // YServer hydrates remote root names as Yjs AbstractType placeholders.
+  // Materialize ONLY these two known-public map types after SQL certification,
+  // then reject every unexpected root/field with C9's exact allowlist.
+  if(!doc.share?.has('productos')||!doc.share.has('ubicaciones'))
+    throw Error('missing public roots');
+  doc.getMap('productos');
+  doc.getMap('ubicaciones');
   assertPublicCatalogTransportDoc({doc,room});
   const sql=storage.sql;
   const exists=sql.exec("SELECT 1 FROM sqlite_master WHERE type='table' AND name='f123_frozen_imports'").toArray().length;
@@ -44,5 +48,5 @@ export async function readSignedFrozenCatalogProof({request,env,storage,doc,room
   return Response.json({ok:true,room,channel:'cat',frozenHead:row.frozen_head,
    stateSha256:row.sha256,vectorSha256:row.vector_sha256},
    {status:200,headers:noStore});
- }catch(error){console.info('C11_SYNTH_FAIL',String(error?.message));return fail(503);}
+ }catch(_){return fail(503);}
 }
