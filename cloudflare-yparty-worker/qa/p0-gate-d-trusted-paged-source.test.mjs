@@ -29,13 +29,14 @@ async function fixture({count=4097,malicious=false,pageSize=Math.min(4096,count-
   const frames=Array.from({length:count},()=>new Uint8Array(frame));
   doc.destroy();
   const frameSets=[frames.slice(0,pageSize),frames.slice(pageSize)],totalBytes=frames.reduce((a,f)=>a+f.length,0);
-  const hashes=await Promise.all(frameSets.map(f=>sha(encodePage(f)))),rootSha=await sha(utf8.encode(hashes.join('\n')));
+  const hashes=await Promise.all(frameSets.map(f=>sha(encodePage(f)))),rootSha=await sha(utf8.encode(hashes.map((h,i)=>(i+1)+':'+h+'\n').join('')));
   const pages=frameSets.map((set,i)=>({
     room,channel:'cat',frozenHead:'firebase-head-20261119',completeToHead:i===1,
     expectedStateSha256:sourceSha,expectedVectorSha256:vectorSha,
     frames:set.map(b64),
     manifest:{chunk:i+1,chunks:2,bytes:set.reduce((a,f)=>a+f.length,0),
-      totalBytes,sha256:hashes[i],rootSha256:rootSha}
+      totalBytes,firstFrameIndex:i===0?0:pageSize,frameCount:set.length,
+      sha256:hashes[i],rootSha256:rootSha}
   }));
   return {pages,sourceSha,vectorSha,count};
 }
@@ -92,6 +93,8 @@ test('HEAD, page sha, root sha, total bytes and premature complete flag cannot b
     p=>{p[1].manifest.sha256='f'.repeat(64)},
     p=>{p[1].manifest.rootSha256='f'.repeat(64)},
     p=>{p[1].manifest.totalBytes+=1},
+    p=>{p[1].manifest.firstFrameIndex+=1},
+    p=>{p[1].manifest.frameCount+=1},
     p=>{p[0].completeToHead=true}
   ]){
     const pages=structuredClone(f.pages);mutate(pages);
@@ -137,7 +140,8 @@ test('a small shop uses one-page base64 manifest without inventing a second page
  const pageSha=await sha(encodePage(bytes));
  const body={...f.pages[0],frames,completeToHead:true,
   manifest:{chunk:1,chunks:1,bytes:rawBytes,totalBytes:rawBytes,
-   sha256:pageSha,rootSha256:await sha(utf8.encode(pageSha))}};
+   firstFrameIndex:0,frameCount:frames.length,
+   sha256:pageSha,rootSha256:await sha(utf8.encode('1:'+pageSha+'\n'))}};
  const s=setup([body]);
  const output=await readTrustedFrozenSource({env:s.env,room,channel:'cat'});
  assert.equal(s.calls,1);
