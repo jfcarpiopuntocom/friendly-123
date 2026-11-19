@@ -135,6 +135,8 @@ function outcome(fields) {
     fallbackLegacy: false,
     retryable: false,
     quarantine: false,
+    reconcileRequired: false,
+    retryTarget: null,
     status: 0,
     receipt: null,
     ...fields
@@ -225,7 +227,11 @@ export async function dispatchTypedCommercialCommand({
     });
     body = await response.json().catch(() => null);
   } catch (_) {
-    return outcome({stage: 'unavailable-fallback', fallbackLegacy: true, retryable: true});
+    // Request may have crossed the network and committed before its ACK was
+    // lost. Never authorize duplicate execution in the unrelated legacy ledger.
+    // Only a retry of THIS opId against the SAME authoritative DO is safe.
+    return outcome({stage: 'commit-unverified', fallbackLegacy: false,
+      reconcileRequired: true, retryable: true, retryTarget: 'same-do-only'});
   } finally {
     clearTimeout(timer);
   }
@@ -241,14 +247,20 @@ export async function dispatchTypedCommercialCommand({
       receipt: Object.freeze({...body.receipt})
     });
   }
-  if (status === 202 && body?.ok === true && validReceipt(body.receipt, checked.canonical, 'stored-for-application', receiptId)) {
+  // A duplicate GET/POST of a stored inbox receipt may return HTTP 200 even
+  // though its business side effects are STILL queued. Trust the stage, not
+  // response.ok, and never send another copy to the old ledger.
+  if ((status === 200 || status === 202) && body?.ok === true &&
+      validReceipt(body.receipt, checked.canonical, 'stored-for-application', receiptId)) {
     return outcome({
       committed: false,
       duplicate: body.duplicate === true,
       stage: 'queued-not-committed',
-      fallbackLegacy: true,
+      fallbackLegacy: false,
+      reconcileRequired: true,
       retryable: true,
-      status: 202,
+      retryTarget: 'same-do-only',
+      status,
       receipt: Object.freeze({...body.receipt})
     });
   }
@@ -280,11 +292,17 @@ export async function dispatchTypedCommercialCommand({
       status
     });
   }
+  // HTTP 200 with an invalid receipt, 202 without a valid stored-stage
+  // receipt, and transient 5xx/429 can all conceal a committed operation.
+  // The client keeps its durable opId pending reconciliation in this DO;
+  // issuing a second independent legacy sale would double cash/stock.
   return outcome({
     committed: false,
-    stage: 'unavailable-fallback',
-    fallbackLegacy: true,
+    stage: 'commit-unverified',
+    fallbackLegacy: false,
+    reconcileRequired: true,
     retryable: true,
+    retryTarget: 'same-do-only',
     status
   });
 }
