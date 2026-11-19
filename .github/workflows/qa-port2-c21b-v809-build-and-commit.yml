@@ -65,7 +65,7 @@ jobs:
           set -euo pipefail
           git config user.name "friendly123 QA release compiler"
           git config user.email "qa-release-compiler@users.noreply.github.com"
-          git add docs/version.json docs/sw.js docs/dashboard.html docs/vendor/yparty-piloto.min.js docs/version-manifest.json .github/workflows/qa-port2-v785-shell-seal.yml
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/vendor/yparty-piloto.min.js docs/version-manifest.json
           git diff --cached --quiet && { echo "No release changes; refuse to certify"; exit 1; }
           git commit -m "build(port2): [sealed C21b] v809 browser IDB v2 opId tombstones and manifest"
           git push origin "HEAD:${GITHUB_REF_NAME}"
