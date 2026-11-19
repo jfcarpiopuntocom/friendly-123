@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.11",
+  "version": "v0.8.12",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.11: conecta publicarOpLocal a la valla C21a/C21b del coordinador C25 en docs/sync-yjs.js y expone activarClienteFotosShaCertificado (Owner PUT/GET y Team GET read-only) detrás del doble switch QA OFF. Sync3 intacto, cero gastos R2/Cloudflare.",
+  "changelog": "v0.8.12: C29 protege operaciones 2.0 ya confirmadas frente a duplicación 1.0 al recargar Safari antes de crear el coordinador; consulta marca durable settled_ops C21b incluso con coordinador nulo y bloquea ante error IndexedDB. Conserva ruta local-first 1.0 cuando QA piloto está apagado. Sync3 intacto; cero gastos R2/Cloudflare.",
   "requerida": false,
-  "shell": "f123-shell-v811",
+  "shell": "f123-shell-v812",
   "apagar": [],
-  "releaseName": "v0.8.11",
-  "cacheGeneration": "golden347"
+  "releaseName": "v0.8.12",
+  "cacheGeneration": "golden348"
 }

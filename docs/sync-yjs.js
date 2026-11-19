@@ -2999,11 +2999,30 @@
         }
         return API.coordinadorCorte20.submitCommercial(comando);
       };
+      // C29: Safari reload may publish a legacy operation BEFORE the explicit
+      // C25 coordinator is recreated. Consult C21b durable terminal opIds in
+      // that gap, rather than treating an absent in-memory coordinator as proof
+      // that the same sale is fresh on the old 1.0 ledger.
+      API.__port2DurableFenceAvailable = true;
       API.puedeDespacharOpEnLegado = function (opId) {
-        if (!API.coordinadorCorte20 || typeof API.coordinadorCorte20.canDispatchOnLegacy !== "function") {
-          return Promise.resolve(true);
+        if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.canDispatchOnLegacy === "function") {
+          return API.coordinadorCorte20.canDispatchOnLegacy(opId);
         }
-        return API.coordinadorCorte20.canDispatchOnLegacy(opId);
+        return Promise.resolve().then(function () {
+          return API.crearAlmacenDurableOpsTipadas();
+        }).then(async function (store) {
+          if (!store || typeof store.loadAll !== "function" ||
+              typeof store.loadCommittedOpIds !== "function") return false;
+          var pendientes = await store.loadAll();
+          var confirmados = await store.loadCommittedOpIds();
+          if (!Array.isArray(pendientes) || !Array.isArray(confirmados)) return false;
+          return !pendientes.some(function (e) { return e && e.opId === opId; }) &&
+            !confirmados.includes(opId);
+        }).catch(function () {
+          // A damaged/blocked IDB is NOT proof that a committed sale can be
+          // replayed. Never authorize a cross-ledger double charge on error.
+          return false;
+        });
       };
     } else {
       API.crearCoordinadorCorte20 = function () {
@@ -3167,9 +3186,18 @@
   }
   function publicarOpLocal(op) {
     if (!op || !op.opId || !API.opsMap) return;
-    if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.canDispatchOnLegacy === "function") {
+    // Only the explicitly QA-gated 2.0 pilot performs this extra IDB read.
+    // The original 1.0 local-first path remains synchronous when QA is OFF.
+    if ((API.coordinadorCorte20 &&
+         typeof API.coordinadorCorte20.canDispatchOnLegacy === "function") ||
+        API.__port2DurableFenceAvailable === true) {
       var mapaActual = API.opsMap, coordActual = API.coordinadorCorte20;
-      Promise.resolve(coordActual.canDispatchOnLegacy(op.opId)).then(function (permitidoEnLegado) {
+      Promise.resolve().then(function () {
+        return coordActual && typeof coordActual.canDispatchOnLegacy === "function"
+          ? coordActual.canDispatchOnLegacy(op.opId)
+          : typeof API.puedeDespacharOpEnLegado === "function"
+            ? API.puedeDespacharOpEnLegado(op.opId) : false;
+      }).then(function (permitidoEnLegado) {
         if (permitidoEnLegado !== true || API.opsMap !== mapaActual) return;
         try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
       }).catch(function () {});
