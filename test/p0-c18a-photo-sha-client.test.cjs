@@ -242,3 +242,24 @@ test('6. hung photo transfer aborts via AbortController timeout', async () => {
   await assert.rejects(client.get(sample.sha), /Photo SHA client unavailable/);
   assert.equal(sawAbort, true, 'hung transfer must trigger AbortController signal');
 });
+
+// C18a P0 negative: HTTP response.headers can arrive promptly while the
+// Safari body stream (arrayBuffer/JSON) stalls. Timeout must cover BODY too.
+test('7. photo GET body stream stalls after HTTP 200: AbortController still fires',async()=>{
+ const {createOwnerPhotoShaClient}=await import(MODULE_URL);
+ const sample=await makePngDataUrl(new Uint8Array([137,80,78,71,1,2,3,4]));
+ let aborted=false;
+ const client=createOwnerPhotoShaClient({licenseCode:LICENSE,instanceId:INSTANCE,room:ROOM,
+  getCredentials:ownerCreds,isVisible:()=>true,timeoutMs:500,
+  fetch:async(url,options)=>{
+   if(String(url).endsWith('/ws/ticket'))return {
+    ok:true,status:200,json:async()=>({token:'body-hang.sig',expiresAt:Date.now()+20_000})
+   };
+   return {ok:true,status:200,headers:{get:key=>key==='content-type'?'image/png':null},
+    arrayBuffer:()=>new Promise((_,reject)=>{
+     options.signal.addEventListener('abort',()=>{aborted=true;reject(new Error('body stream aborted'));});
+    })};
+  }});
+ await assert.rejects(client.get(sample.sha),/Photo SHA client unavailable/);
+ assert.equal(aborted,true,'timer must outlive response headers until body is verified');
+});
