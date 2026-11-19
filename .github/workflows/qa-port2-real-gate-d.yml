@@ -37,4 +37,4 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD
-          node --test --test-concurrency=1 qa/p0-gate-d-real-onstart-workerd.test.mjs qa/p0-frozen-import-workerd.test.mjs qa/p0-full-export-workerd.test.mjs qa/p0-certified-frozen-import.test.mjs 2>&1 | tee /tmp/f123-port2-real-gate-d.tap
+          node --test --test-concurrency=1 qa/p0-gate-d-real-onstart-workerd.test.mjs qa/p0-gate-d-open-existing-workerd.test.mjs qa/p0-frozen-import-workerd.test.mjs qa/p0-full-export-workerd.test.mjs qa/p0-certified-frozen-import.test.mjs 2>&1 | tee /tmp/f123-port2-real-gate-d.tap
