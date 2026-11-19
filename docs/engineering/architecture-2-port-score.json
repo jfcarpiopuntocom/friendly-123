@@ -7,13 +7,13 @@
     "workshop does not contribute to product implementation",
     "commercial GO and physical acceptance are tracked separately"
   ],
-  "basis": "Fixed 100-point actual friendly-123 1.0→2.0 engineering ledger; C31 QA route 0.5 and C34 actual compatible post-local-ACK cash sale event 0.5, leaving 2.5 for production business dispatch and 1.5 browser legacy retirement. Full physical commercial GO0/6; Sync3 preexisting 2.0 and workshop excluded.",
+  "basis": "Fixed 100-point same friendly-123 app 1.0→2.0: C34 real cash envelope 0.5 plus C36 stable business receipt opId from local durable sale to joined+roomless sync/typed C31 0.5 QA-only, leaving 2.0 commercial dispatch and 1.5 browser legacy retirement. Sync3 already 2.0, workshop excluded, GO0/6 separate.",
   "baseline": {
     "label": "Immediately after Gate D7, before C8–C11",
     "score": 68.5,
     "comparison": "Same fixed 100.0-point checklist immediately after D7 before C8–C13; since then 9.0 points for C8–C11, 1.0 for C12 read-only pilot seam, and 3.0 for C13 certified reader wired into docs/sync-yjs.js behind QA switch (OFF). Does not depend on GO."
   },
-  "score": 85,
+  "score": 85.5,
   "maximum": 100,
   "groups": [
     {
@@ -110,7 +110,7 @@
       "id": "typed-economics",
       "weight": 17,
       "title": "Operaciones comerciales tipadas",
-      "scope": "SQL typed transactions and C34 real compatible cash event source now wired to QA-gated C31. 2.5 budget still unearned for production dispatch/legacy dual-writer retirement and physical/commercial acceptance.",
+      "scope": "C33 Workerd SQLite business receipts, C34 cash real event, C36 stable original opId in both product transport paths; full production commercial dispatch 2.0 remains unearned.",
       "milestones": [
         {
           "id": "sale-record",
@@ -150,8 +150,17 @@
           "assessment": "C34 ships actual post-local-ACK cash/list-price/no-deficit sale envelope quantity/amountCents to C31 typed runtime, independently tested against exact source with RED undefined then GREEN 3/3; v814 SHA and 39/39 CI. No credit for live DO rollout, commissions/fiados/partial, or physical A-B-A."
         },
         {
+          "id": "stable-real-sale-opid-c36",
+          "points": 0.5,
+          "done": true,
+          "source": "docs/sync-realtime.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/079542f810e4ce74204aa3173eae4a15085b4f87/docs/sync-realtime.js",
+          "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/831",
+          "assessment": "Actual post-local-ACK business sale receipt and duplicate replay match joined legacy queue, roomless Yjs journal and C31 typed business command opId under synthetic exact-source test. This is QA identity continuity only, no remotely confirmed live sale and no physical GO."
+        },
+        {
           "id": "production-business-dispatch",
-          "points": 2.5,
+          "points": 2,
           "done": false,
           "source": "src/yparty-piloto.js"
         }
@@ -388,11 +397,11 @@
     "separate": true
   },
   "reliabilityDisclaimer": "Engineering migration score, not live traffic fraction, production reliability or deployment permission. Weights are fixed for this snapshot; new milestones require explicit rubric change and rebasing history.",
-  "assessedProductSha": "686f0fa162a1a9b82dd0dd8f6590b5ad6e0d23dd",
+  "assessedProductSha": "079542f810e4ce74204aa3173eae4a15085b4f87",
   "rubricRevision": {
     "date": "2026-11-19",
-    "previousScore": 84.5,
-    "previousAssessedProductSha": "07fada25fd9c6b3ee92d13752fb8497881bce12c",
-    "reason": "No new weight: split 3.0 production business-dispatch into 0.5 tested REAL compatible cash source C34 and remaining 2.5 not earned. C33 Workerd E2E supports cautious quality confidence; not production or physical GO."
+    "previousScore": 85,
+    "previousAssessedProductSha": "686f0fa162a1a9b82dd0dd8f6590b5ad6e0d23dd",
+    "reason": "Split unearned 2.5 business dispatch into C36 code-level stable original sale opId 0.5 DONE and 2.0 live dispatch UNDONE. No added weight or physical GO."
   }
 }
