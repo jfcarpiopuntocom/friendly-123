@@ -9,7 +9,8 @@ const MAX_FRAMES=4096;      // frames per page
 const MAX_FRAME=4*1024*1024;
 const MAX_PAGES=8; // Until SQL staging + bounded final Yjs proof is verified
 const MAX_TOTAL_FRAMES=16384;
-const MAX_TOTAL_BYTES=24*1024*1024; // Raw RAM-only aggregate hard ceiling
+const MAX_TOTAL_BYTES=24*1024*1024; // -cat pending bounded SQL staging
+const MAX_OPS_WIRE=12*1024*1024; // -ops D5: reject BEFORE Yjs validator and merge
 const PAGE_TIMEOUT_MS=5000;
 const GLOBAL_TIMEOUT_MS=120000;
 const ROOM=/^[a-f0-9]{32}-(?:cat|ops)$/;
@@ -54,23 +55,25 @@ function metadata(body,room,channel){
     body.projectionVersion!==F123_PUBLIC_PROJECTION_VERSION))||
   (body.expectedProjectedSha256===undefined&&body.projectionVersion!==undefined))throw fail();
 }
-function legacyFrames(body){
+function legacyFrames(body,channel){
  if(body.completeToHead!==true||body.manifest!==undefined||
   !Array.isArray(body.frames)||body.frames.length<1||body.frames.length>MAX_FRAMES)throw fail();
  let total=0;
  return body.frames.map(f=>{
   if(!Array.isArray(f)||f.length<1||f.length>MAX_FRAME)throw fail();
-  total+=f.length;if(total>MAX_WIRE)throw fail();
+  total+=f.length;
+  if(total>(channel==='ops'?MAX_OPS_WIRE:MAX_WIRE))throw fail();
   for(const b of f)if(!Number.isInteger(b)||b<0||b>255)throw fail();
   return Uint8Array.from(f);
  });
 }
-function pagedFrames(body,index,anchor,nextFrameIndex){
+function pagedFrames(body,index,anchor,nextFrameIndex,channel){
  const m=body.manifest;
  if(!m||!Number.isSafeInteger(m.chunk)||m.chunk!==index||
   !Number.isSafeInteger(m.chunks)||m.chunks<1||m.chunks>MAX_PAGES||
   !Number.isSafeInteger(m.bytes)||m.bytes<1||m.bytes>MAX_WIRE||
-  !Number.isSafeInteger(m.totalBytes)||m.totalBytes<1||m.totalBytes>MAX_TOTAL_BYTES||
+  !Number.isSafeInteger(m.totalBytes)||m.totalBytes<1||
+  m.totalBytes>(channel==='ops'?MAX_OPS_WIRE:MAX_TOTAL_BYTES)||
   !HASH.test(m.sha256||'')||!HASH.test(m.rootSha256||'')||
   !Number.isSafeInteger(m.firstFrameIndex)||m.firstFrameIndex!==nextFrameIndex||
   !Number.isSafeInteger(m.frameCount)||m.frameCount!==body.frames?.length||
@@ -188,7 +191,7 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    metadata(body,room,channel);
    if(index===1&&!body.manifest){
     stage='byte-frames';
-    const frames=legacyFrames(body);
+    const frames=legacyFrames(body,channel);
     await validateDocument(frames,channel,false,{room,frozenHead:body.frozenHead,
      expectedProjectedSha256:body.expectedProjectedSha256});
     return {channel,frozenHead:body.frozenHead,completeToHead:true,
@@ -209,9 +212,10 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
     body.expectedProjectedSha256!==anchor.projectedSha||
     body.projectionVersion!==anchor.projectionVersion)throw fail();
    stage='byte-frames';
-   const frames=pagedFrames(body,index,anchor,all.length);
+   const frames=pagedFrames(body,index,anchor,all.length,channel);
    total+=frames.reduce((n,b)=>n+b.byteLength,0);
-   if(total>MAX_TOTAL_BYTES||all.length+frames.length>MAX_TOTAL_FRAMES)throw fail();
+   if(total>(channel==='ops'?MAX_OPS_WIRE:MAX_TOTAL_BYTES)||
+    all.length+frames.length>MAX_TOTAL_FRAMES)throw fail();
    stage='page-hash';
    if(await pageDigest(frames)!==body.manifest.sha256)throw fail();
    hashes.push(body.manifest.sha256);
