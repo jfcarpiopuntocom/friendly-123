@@ -34,10 +34,19 @@ jobs:
           const v=JSON.parse(fs.readFileSync('docs/version.json','utf8'));
           const old=JSON.parse(cp.execFileSync('git',['show','origin/master:docs/version.json'],{encoding:'utf8'}));
           const num=s=>Number(String(s).match(/\d+$/)?.[0]);
-          assert.match(v.version,/^v0\.7\.\d+$/);
+          // Version is a canonical rendering of the shell integer.
+          // Shell 799 = v0.7.99; shell 800 = v0.8.00, not v0.7.100.
+          const versionFromShell=(shell)=>{
+            const n=num(shell);
+            assert.ok(Number.isSafeInteger(n)&&n>=0,'shell must be a nonnegative integer');
+            return 'v0.'+Math.floor(n/100)+'.'+String(n%100).padStart(2,'0');
+          };
+          assert.match(v.version,/^v0\.\d+\.\d{2}$/);
+          assert.equal(v.version,versionFromShell(v.shell),'new display version must exactly encode its shell');
+          assert.equal(old.version,versionFromShell(old.shell),'base display version must exactly encode its shell');
           assert.match(v.shell,/^f123-shell-v\d+$/);
           assert.match(v.cacheGeneration,/^golden\d+$/);
-          assert.equal(num(v.version),num(old.version)+1,'release version must advance exactly once');
+          assert.equal(num(v.shell),num(old.shell)+1,'release shell/version must advance exactly once');
           assert.equal(num(v.shell),num(old.shell)+1,'shell identity must advance exactly once');
           assert.equal(num(v.cacheGeneration),num(old.cacheGeneration)+1,'cache generation must advance exactly once');
           assert.equal(m.version,v.version);assert.equal(m.shell,v.shell);
