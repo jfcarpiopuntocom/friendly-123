@@ -7669,6 +7669,28 @@
         ventas.push({ id: ventaId, opId: opIdVenta, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { opId: opIdVenta, producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
         const _opVenta = { productoId: p.id, delta: -cant };
+        // C34 PORT2: The old stock fact carries ONLY delta. C31's certified
+        // sale.record needs exact paid quantity/cents from the locally DURABLE
+        // sale, not a guessed monetary amount from stock. Only explicit full
+        // CASH, list-price, non-credit/non-courtesy, non-deficit sales qualify.
+        // All other sales retain their original legacy stock event and never
+        // invent business-committed cash on the typed DO.
+        const _metodo20 = String(infoVenta.formaPago || "").trim().toLowerCase();
+        const _unit20 = Math.round(precioEfectivo * 100);
+        const _total20 = Math.round(montoBruto * 100);
+        if ((_metodo20 === "cash" || _metodo20 === "efectivo") &&
+            !_esCortesia && infoVenta.fiadoAtomico !== true &&
+            (infoVenta.montoPagado === null ||
+              (Number.isFinite(infoVenta.montoPagado) && Math.round(infoVenta.montoPagado * 100) === _total20)) &&
+            Number.isSafeInteger(cant) && cant >= 1 && cant <= 10000 &&
+            Number.isSafeInteger(_unit20) && _unit20 > 0 &&
+            Number.isSafeInteger(_total20) && _total20 === _unit20 * cant &&
+            _total20 <= 10000000000 &&
+            Number.isFinite(p.precio) && Math.round(p.precio * 100) === _unit20 &&
+            Number.isFinite(p.stockActual) && p.stockActual >= 0) {
+          _opVenta.cantidad = cant;
+          _opVenta.amountCents = _total20;
+        }
         _prepararOpStock(_opVenta);
         /* VENDER SIEMPRE (v737): si se vendio mas de lo que habia, el contador compartido (stockPN)
            ya lleva la salida completa; aqui solo se muestra igual que el merge: percha en 0 y el
