@@ -110,34 +110,6 @@ test('P0 actual Worker admits two separate centrally signed cat and ops rooms wi
  }finally{cat.close();ops.close();}
 });
 
-test('P0 C10 one signed catalog writer per room, read-only peers and succession after close',{timeout:25000},async()=>{
- const writer=await connect('cat',['cat:read','cat:write']);
- const reader=await connect('cat',['cat:read']);
- try{
-  // A VALID Yjs update must be blocked at the data plane even when
-  // Miniflare delays the socket's 1008 close handshake.
-  const forged=new Y.Doc();
-  forged.getMap('productos').set('c10-forged',{id:'c10-forged',nombre:'Must never arrive',precio:3,stockActual:99});
-  const enc=encoding.createEncoder();
-  encoding.writeVarUint(enc,0);
-  syncProtocol.writeUpdate(enc,Y.encodeStateAsUpdate(forged));
-  const second=await attempt('cat',await issue('cat',['cat:read','cat:write']),1500,encoding.toUint8Array(enc));
-  forged.destroy();
-  assert.equal(second.binary,0,'rejected writer receives ZERO Yjs frames');
-  assert.equal(writer.doc.getMap('productos').has('c10-forged'),false,'second signed writer cannot publish Yjs');
-  assert.equal(reader.doc.getMap('productos').has('c10-forged'),false,'reader sees no rejected Owner write');
-  assert.equal(reader.provider.synced,true,'cat:read client must remain admitted');
- }finally{reader.close();writer.close();}
- await new Promise(resolve=>setTimeout(resolve,200));
- const replacement=await connect('cat',['cat:read','cat:write']);
- try{
-  replacement.doc.getMap('productos').set('c10-new-owner',{id:'c10-new-owner',nombre:'New owner',precio:2,stockActual:1});
-  const follower=await connect('cat',['cat:read']);
-  try{await waitFor(()=>follower.doc.getMap('productos').has('c10-new-owner'),'new authorized sole writer');}
-  finally{follower.close();}
- }finally{replacement.close();}
-});
-
 test('P0 actual ops channel forbids Owner raw Yjs economic editing even with ops:sale scope',{timeout:22000},async()=>{
  const writer=await connect('ops',['ops:read','ops:sale']);
  try{
@@ -628,4 +600,32 @@ test('P0 genuine cold join after full Workerd restart: fresh YProvider receives 
    'cold join reconstructed all movement fields, not only counts');
   assert.ok(elapsed<10000,'synthetic Workerd coldjoin has a bounded latency');
  }finally{cold.close();}
+});
+
+test('P0 C10 one signed catalog writer per room, read-only peers and succession after close',{timeout:25000},async()=>{
+ const writer=await connect('cat',['cat:read','cat:write']);
+ const reader=await connect('cat',['cat:read']);
+ try{
+  // A VALID Yjs update must be blocked at the data plane even when
+  // Miniflare delays the socket's 1008 close handshake.
+  const forged=new Y.Doc();
+  forged.getMap('productos').set('c10-forged',{id:'c10-forged',nombre:'Must never arrive',precio:3,stockActual:99});
+  const enc=encoding.createEncoder();
+  encoding.writeVarUint(enc,0);
+  syncProtocol.writeUpdate(enc,Y.encodeStateAsUpdate(forged));
+  const second=await attempt('cat',await issue('cat',['cat:read','cat:write']),1500,encoding.toUint8Array(enc));
+  forged.destroy();
+  assert.equal(second.binary,0,'rejected writer receives ZERO Yjs frames');
+  assert.equal(writer.doc.getMap('productos').has('c10-forged'),false,'second signed writer cannot publish Yjs');
+  assert.equal(reader.doc.getMap('productos').has('c10-forged'),false,'reader sees no rejected Owner write');
+  assert.equal(reader.provider.synced,true,'cat:read client must remain admitted');
+ }finally{reader.close();writer.close();}
+ await new Promise(resolve=>setTimeout(resolve,200));
+ const replacement=await connect('cat',['cat:read','cat:write']);
+ try{
+  replacement.doc.getMap('productos').set('c10-new-owner',{id:'c10-new-owner',nombre:'New owner',precio:2,stockActual:1});
+  const follower=await connect('cat',['cat:read']);
+  try{await waitFor(()=>follower.doc.getMap('productos').has('c10-new-owner'),'new authorized sole writer');}
+  finally{follower.close();}
+ }finally{replacement.close();}
 });
