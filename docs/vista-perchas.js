@@ -1073,15 +1073,29 @@
       const sel = document.querySelector('[data-vault-shelf="' + CSS.escape(hash) + '"]');
       const id = sel && sel.value;
       if (!id || !window.OCFotos) return;
+      // A vault restore belongs to the exact notebook present at the click.
+      // Never publish a pointer or accept a late reply after switching shops.
+      const cuadernoFotoRestore = (() => {
+        try { return window.OCTienda && window.OCTienda.licenciaActual
+          ? String(window.OCTienda.licenciaActual() || '') : ''; } catch (_) { return ''; }
+      })();
+      const mismoCuadernoRestore = () => {
+        if (!cuadernoFotoRestore) return true; // pre-license single-shop compatibility
+        try { return !!(window.OCTienda && window.OCTienda.licenciaActual &&
+          String(window.OCTienda.licenciaActual() || '') === cuadernoFotoRestore); }
+        catch (_) { return false; }
+      };
       try {
         const bytes = await window.OCFotos.leerPorHash(hash);
         if (!bytes) return;
-        await window.OCFotos.guardarFoto(id, bytes);
+        if (!mismoCuadernoRestore()) throw new Error('Photo notebook changed');
+        const saved = await window.OCFotos.guardarFoto(id, bytes);
+        if (saved === false || !mismoCuadernoRestore()) throw new Error('Photo bytes not saved');
         fotoCache[id] = bytes;
         const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
           method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ fotoHash: hash })
         });
-        if (rr && rr.ok === false) throw new Error('restore rejected');
+        if (!rr || rr.ok !== true || !mismoCuadernoRestore()) throw new Error('restore not acknowledged');
         cargar();
       } catch (_) { alert('Could not restore this photo yet. Nothing was deleted.'); }
       return;
