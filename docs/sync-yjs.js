@@ -2947,6 +2947,25 @@
     } else {
       API.solicitarTicketComercialEquipo = function () { return Promise.reject(new Error("WS authorization unavailable")); };
     }
+    if (piloto && typeof piloto.crearAlmacenDurableOpsTipadas === "function") {
+      API.crearAlmacenDurableOpsTipadas = function (opc) { return piloto.crearAlmacenDurableOpsTipadas(opc); };
+    } else {
+      API.crearAlmacenDurableOpsTipadas = function () { return Promise.reject(new Error("durable store unavailable")); };
+    }
+    if (piloto && typeof piloto.crearClienteFotosShaCertificado === "function") {
+      API.crearClienteFotosShaCertificado = function (opc) { return piloto.crearClienteFotosShaCertificado(opc); };
+    } else {
+      API.crearClienteFotosShaCertificado = function () { return null; };
+    }
+    if (piloto && typeof piloto.abrirEscritorDeltaCatalogoCertificado === "function") {
+      API.abrirEscritorDeltaCatalogoCertificado = function (docPrivado, headCongelado, opc) {
+        return piloto.abrirEscritorDeltaCatalogoCertificado(docPrivado, headCongelado, opc);
+      };
+    } else {
+      API.abrirEscritorDeltaCatalogoCertificado = function () {
+        return Promise.reject(new Error("certified catalog writer unavailable"));
+      };
+    }
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
