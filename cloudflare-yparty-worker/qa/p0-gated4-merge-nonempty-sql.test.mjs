@@ -249,3 +249,42 @@ test('snapshot compaction after union preserves original receipts without needin
   assert.equal(again.opened,true,JSON.stringify(again));assert.equal(again.already,true);
  }finally{store.destroy();}
 });
+
+test('a >512 KiB frozen delta is journal-blocked and replays after cold restart',async()=>{
+ const store=sqlStore(),doc=new Y.Doc();
+ try{
+  doc.clientID=202;
+  for(let i=0;i<9;i++){
+   const opid='large-historical-'+i;
+   doc.getMap('eventos').set(opid,{
+    kind:'sale.record',opId:opid,amountCents:100+i,
+    note:'S'.repeat(95_000)
+   });
+  }
+  const bytes=Y.encodeStateAsUpdate(doc);
+  assert.ok(bytes.byteLength>512*1024,'fixture must exceed real journal block limit');
+  const source={channel:'ops',frozenHead:'frozen-large-blob-1',completeToHead:true,
+    frames:[bytes],expectedStateSha256:sha(bytes),
+    expectedVectorSha256:sha(Y.encodeStateVector(doc)),expectedOpIds:9};
+  const result=await openExistingStore({env,storage:store.storage,source});
+  assert.equal(result.opened,true,JSON.stringify(result));
+  assert.ok(store.count('diario_bloques')>=2,'new delta persisted as multiple <=512 KiB chunks');
+  const witness=await exported(store);
+  assert.equal(witness.events.size,19);witness.doc.destroy();
+  const reopened=store.reopen();
+  const cold=await openExistingStore({env,storage:reopened,source:undefined});
+  assert.equal(cold.opened,true,JSON.stringify(cold));assert.equal(cold.already,true);
+ }finally{doc.destroy();store.destroy();}
+});
+test('post-certification replay rejects rival frozen HEAD without altering durable receipts',async()=>{
+ const store=sqlStore(),source=frozen();
+ try{
+  assert.equal((await openExistingStore({env,storage:store.storage,source})).opened,true);
+  const journalBefore=store.count('diario');
+  const rival={...source,frozenHead:'different-frozen-head-999'};
+  const rejected=await openExistingStore({env,storage:store.storage,source:rival});
+  assert.equal(rejected.opened,false,'same shop cannot accept a different frozen HEAD');
+  assert.match(rejected.failback,/conflict|mismatch/i);
+  assert.equal(store.count('diario'),journalBefore);
+ }finally{store.destroy();}
+});
