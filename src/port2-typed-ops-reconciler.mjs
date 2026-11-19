@@ -37,18 +37,9 @@ function makeOutcome(fields) {
   });
 }
 
-function defaultMemoryStore() {
-  const map = new Map();
-  return {
-    loadAll: () => Array.from(map.values()).map(v => JSON.parse(JSON.stringify(v))),
-    save: (entry) => { map.set(entry.opId, JSON.parse(JSON.stringify(entry))); },
-    remove: (opId) => { map.delete(opId); }
-  };
-}
-
 export function createTypedOpsReconciler({
   dispatch,
-  store = defaultMemoryStore(),
+  store,
   isVisible = () => typeof document === 'undefined' || !document.hidden,
   maxAttempts = 5,
   maxPending = 64,
@@ -61,7 +52,7 @@ export function createTypedOpsReconciler({
 } = {}) {
   if (typeof dispatch !== 'function') throw new TypeError('dispatch must be a function');
   if (!store || typeof store.loadAll !== 'function' || typeof store.save !== 'function' || typeof store.remove !== 'function') {
-    throw new TypeError('store must implement loadAll, save and remove');
+    throw new TypeError('durable store must implement loadAll, save and remove; no volatile-memory fallback for business operations');
   }
   if (typeof isVisible !== 'function') throw new TypeError('isVisible must be a function');
   if (!Number.isSafeInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 10) {
@@ -82,25 +73,42 @@ export function createTypedOpsReconciler({
   const timers = new Map();
   let paused = false;
 
-  // Hydrate persisted same-do-only / quarantined entries on startup or reload.
-  for (const raw of store.loadAll() || []) {
-    if (!raw || typeof raw !== 'object' || !OP_ID.test(raw.opId || '') || !raw.command) continue;
-    const payloadKey = canonicalKey(raw.command);
-    if (!payloadKey) continue;
-    entries.set(raw.opId, {
-      opId: raw.opId,
-      command: cloneCommand(raw.command),
-      payloadKey,
-      sameDoLocked: raw.sameDoLocked === true,
-      attempts: Number.isSafeInteger(raw.attempts) && raw.attempts >= 0 ? raw.attempts : 0,
-      state: typeof raw.state === 'string' ? raw.state : 'pending',
-      createdAt: Number.isSafeInteger(raw.createdAt) ? raw.createdAt : now(),
-      updatedAt: Number.isSafeInteger(raw.updatedAt) ? raw.updatedAt : now()
-    });
+  // IDB may load asynchronously; no command may be sent before hydration.
+  // An unreadable/corrupt durable queue blocks the entire dispatcher.
+  let initializationError = null;
+  const initialized = Promise.resolve().then(() => store.loadAll()).then(rows => {
+    if (!Array.isArray(rows)) throw new Error('durable store loadAll must return an array');
+    for (const raw of rows) {
+      if (!raw || typeof raw !== 'object' || !OP_ID.test(raw.opId || '') ||
+          !raw.command || raw.sameDoLocked !== true) {
+        throw new Error('unreadable persisted opId or unsafe same-do-only lock');
+      }
+      const payloadKey = canonicalKey(raw.command);
+      if (!payloadKey || raw.command.opId !== raw.opId || entries.has(raw.opId))
+        throw new Error('invalid or duplicate durable commercial command');
+      entries.set(raw.opId, {
+        opId: raw.opId,
+        command: cloneCommand(raw.command),
+        payloadKey,
+        sameDoLocked: true,
+        attempts: Number.isSafeInteger(raw.attempts) && raw.attempts >= 0 ? raw.attempts : 0,
+        state: typeof raw.state === 'string' ? raw.state : 'pending',
+        createdAt: Number.isSafeInteger(raw.createdAt) ? raw.createdAt : now(),
+        updatedAt: Number.isSafeInteger(raw.updatedAt) ? raw.updatedAt : now()
+      });
+    }
+  }).catch(error => { initializationError = error; });
+
+  async function ready() {
+    await initialized;
+    if (initializationError) throw new Error('durable store unavailable');
+    return true;
   }
 
-  function persist(entry) {
-    store.save({
+  async function persist(entry) {
+    // store.save must resolve only after its REAL transaction commits. A write
+    // rejection means no HTTP request is allowed (even if the write partly ran).
+    await store.save({
       opId: entry.opId,
       command: { ...entry.command },
       sameDoLocked: entry.sameDoLocked === true,
@@ -157,7 +165,9 @@ export function createTypedOpsReconciler({
     if (entry.attempts >= maxAttempts) {
       entry.state = 'paused-retry-exhausted';
       entry.updatedAt = now();
-      persist(entry);
+      // The record already exists with sameDoLocked:true; a failed update
+      // does not authorize legacy fallback or remove the original opId.
+      void persist(entry).catch(() => {});
       return;
     }
     const delay = computeDelay(entry.attempts);
@@ -175,6 +185,28 @@ export function createTypedOpsReconciler({
     const opId = command.opId;
     const payloadKey = canonicalKey(command);
     const lockedBefore = existingEntry?.sameDoLocked === true;
+
+    // P0: ALWAYS commit original opId to durable storage BEFORE POSTing to DO.
+    // Even a crash while the first HTTP request is in flight therefore leaves
+    // a same-do-only pending command for recovery, not a duplicate legacy sale.
+    const prepared = existingEntry || {
+      opId,
+      command: cloneCommand(command),
+      payloadKey,
+      sameDoLocked: true,
+      attempts: 0,
+      state: 'prepared',
+      createdAt: now(),
+      updatedAt: now()
+    };
+    try {
+      prepared.sameDoLocked = true;
+      await persist(prepared);
+      entries.set(opId, prepared);
+    } catch (_) {
+      return makeOutcome({stage: 'durable-store-unavailable', fallbackLegacy: false,
+        reconcileRequired: false, retryable: false, retryTarget: null});
+    }
 
     let rawOutcome;
     try {
@@ -195,8 +227,16 @@ export function createTypedOpsReconciler({
     // 1. Committed (first or idempotent duplicate=true) -> remove from queue & settle.
     if (res.committed === true) {
       clearTimer(opId);
-      entries.delete(opId);
-      store.remove(opId);
+      // Cleanup must be durable too. If removal fails the stored opId stays
+      // pinned for safe idempotent replay to the SAME DO after reload.
+      try {
+        await store.remove(opId);
+        entries.delete(opId);
+      } catch (_) {
+        return makeOutcome({stage: 'durable-cleanup-pending', fallbackLegacy: false,
+          reconcileRequired: true, retryTarget: 'same-do-only',
+          receipt: res.receipt ? Object.freeze({ ...res.receipt }) : null});
+      }
       const finalOut = makeOutcome({
         committed: true,
         duplicate: res.duplicate === true,
@@ -236,7 +276,9 @@ export function createTypedOpsReconciler({
       entry.state = 'quarantined';
       entry.updatedAt = now();
       entries.set(opId, entry);
-      persist(entry);
+      try { await persist(entry); }
+      catch (_) { return makeOutcome({stage:'durable-store-unavailable',
+        fallbackLegacy:false, retryTarget:'same-do-only',reconcileRequired:true}); }
       const finalOut = makeOutcome({
         committed: false,
         fallbackLegacy: false,
@@ -254,6 +296,15 @@ export function createTypedOpsReconciler({
     // 3. Pre-send failure BEFORE touching DO (never latched) -> clean legacy fallback, not queued.
     const needsSameDo = res.reconcileRequired === true || res.retryTarget === 'same-do-only';
     if (!lockedBefore && !needsSameDo && res.fallbackLegacy === true && isInitialSubmit) {
+      // A genuine pre-send denial may use legacy ONLY once the prepared record
+      // has been removed durably; otherwise later replays could duplicate it.
+      try {
+        await store.remove(opId);
+        entries.delete(opId);
+      } catch (_) {
+        return makeOutcome({stage:'durable-store-unavailable',fallbackLegacy:false,
+          reconcileRequired:true,retryTarget:'same-do-only'});
+      }
       return makeOutcome({
         committed: false,
         fallbackLegacy: true,
@@ -272,7 +323,9 @@ export function createTypedOpsReconciler({
       existingEntry.sameDoLocked = true;
       existingEntry.state = 'paused-auth-required';
       existingEntry.updatedAt = now();
-      persist(existingEntry);
+      try { await persist(existingEntry); }
+      catch (_) { return makeOutcome({stage:'durable-store-unavailable',
+        fallbackLegacy:false,reconcileRequired:true,retryTarget:'same-do-only'}); }
       return makeOutcome({
         committed: false,
         fallbackLegacy: false,
@@ -301,7 +354,9 @@ export function createTypedOpsReconciler({
     entry.state = entry.attempts >= maxAttempts ? 'paused-retry-exhausted' : 'pending';
     entry.updatedAt = now();
     entries.set(opId, entry);
-    persist(entry);
+    try { await persist(entry); }
+    catch (_) { return makeOutcome({stage:'durable-store-unavailable',
+      fallbackLegacy:false,reconcileRequired:true,retryTarget:'same-do-only'}); }
     scheduleRetry(entry);
 
     return makeOutcome({
@@ -319,6 +374,8 @@ export function createTypedOpsReconciler({
   }
 
   async function submit(command) {
+    try { await ready(); }
+    catch (_) { return makeOutcome({stage:'durable-store-unavailable',fallbackLegacy:false}); }
     if (!command || typeof command !== 'object' || Array.isArray(command) || !OP_ID.test(command.opId || '')) {
       return makeOutcome({ stage: 'invalid-command', fallbackLegacy: true });
     }
@@ -362,6 +419,8 @@ export function createTypedOpsReconciler({
   }
 
   async function reconcileNow() {
+    try { await ready(); }
+    catch (_) { return Object.freeze({attempted:0,results:Object.freeze([]),stage:'durable-store-unavailable'}); }
     if (paused || !isVisible()) {
       return Object.freeze({ attempted: 0, results: Object.freeze([]) });
     }
@@ -416,6 +475,7 @@ export function createTypedOpsReconciler({
   }
 
   return Object.freeze({
+    ready,
     submit,
     reconcileNow,
     pause,
