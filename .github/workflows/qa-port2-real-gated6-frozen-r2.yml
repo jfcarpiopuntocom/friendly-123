@@ -8,6 +8,7 @@ on:
       - cloudflare-yparty-worker/src/frozen-r2-source.mjs
       - cloudflare-yparty-worker/wrangler.frozen-source.jsonc
       - cloudflare-yparty-worker/qa/p0-gated6-frozen-r2-source-workerd.test.mjs
+      - cloudflare-yparty-worker/qa/p0-gated6-r2-to-real-tienda-workerd.test.mjs
       - .github/workflows/qa-port2-real-gated6-frozen-r2.yml
   workflow_dispatch:
 permissions: {contents: read}
@@ -29,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD
-          timeout -k 5 80s node --test --test-concurrency=1 qa/p0-gated6-frozen-r2-source-workerd.test.mjs
+          timeout -k 5 100s node --test --test-concurrency=1 qa/p0-gated6-frozen-r2-source-workerd.test.mjs qa/p0-gated6-r2-to-real-tienda-workerd.test.mjs
       - name: Previous real Tienda Gate D regressions
         working-directory: cloudflare-yparty-worker
         run: |
