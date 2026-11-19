@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.100",
+  "version": "v0.8.00",
   "fecha": "2026-11-18",
   "changelog": "v0.7.100: la recuperacion de fotos de perchas exige ACK HTTP explicito y el mismo cuaderno durante escrituras asincronas. Preserva bytes, historial de fotos y avisos; ningun enlace con respuesta ausente o fallida se confirma.",
   "requerida": false,
   "shell": "f123-shell-v800",
   "apagar": [],
-  "releaseName": "v0.7.100",
+  "releaseName": "v0.8.00",
   "cacheGeneration": "golden336"
 }
