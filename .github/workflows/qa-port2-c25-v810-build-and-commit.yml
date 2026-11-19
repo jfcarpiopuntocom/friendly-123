@@ -53,8 +53,9 @@ jobs:
             if(!str.includes(method))throw Error('missing real bundled method '+method);
           }
           const hash=crypto.createHash('sha256').update(bundle).digest('hex');
-          const gate='.github/workflows/qa-port2-v785-shell-seal.yml';
-          exact(gate,'b00b39ce4fe4dc3426206f1c5d4c3de6842b4a5f4a5a3dea6c3bddffbf0d50d3',hash);
+          // The GitHub App token intentionally cannot push workflow changes.
+          // Pin this exact SHA through the authorized GitHub connector after
+          // the compiled docs-only commit; the release CI verifies it.
           console.log('C25 v810 real bundle sha256='+hash);
           JS
           node scripts/gen-manifest.js
@@ -65,7 +66,7 @@ jobs:
           set -euo pipefail
           git config user.name "friendly123 QA release compiler"
           git config user.email "qa-release-compiler@users.noreply.github.com"
-          git add docs/version.json docs/sw.js docs/dashboard.html docs/vendor/yparty-piloto.min.js docs/version-manifest.json .github/workflows/qa-port2-v785-shell-seal.yml
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/vendor/yparty-piloto.min.js docs/version-manifest.json
           git diff --cached --quiet && { echo "No compiled assets changed; fail closed"; exit 1; }
           git commit -m "build(port2): [sealed C25] v810 real browser failback coordinator and integrity manifest"
           git push origin "HEAD:${GITHUB_REF_NAME}"
