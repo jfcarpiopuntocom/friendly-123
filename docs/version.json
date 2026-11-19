@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.09",
+  "version": "v0.8.10",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.09: corrige la durabilidad del opId comercial confirmado (IndexedDB v2 settled_ops, lápida atómica con eliminación de pendiente, protección tras reiniciar Safari); recompila el bundle público C23 v808 con esta corrección y preserva SHA/manifest/shell. Incluye el componente C21a de failback en src, pendiente de conexión al checkout comercial. Sync3 intacto; ruta legacy activa, flags QA OFF, sin R2 ni gastos.",
+  "changelog": "v0.8.10: cablea en src/yparty-piloto.js, docs/vendor/yparty-piloto.min.js y docs/sync-yjs.js (detrás del doble switch QA OFF) el coordinador C21a+C21b de corte certificado y failback reversible 2.0 <-> 1.0 entre dispositivos (crearCoordinadorCorteYFailback) y la valla anti-duplicación en publicarOpLocal respaldada por IndexedDB v2 pending_ops + settled_ops tombstones. Todos los módulos src/port2-*.mjs quedan ensamblados en el bundle real del navegador; ruta legacy 1.0, Sync3, datos, PIN y flags QA siguen intactos y OFF; cero operaciones R2 (USD 0,00).",
   "requerida": false,
-  "shell": "f123-shell-v809",
+  "shell": "f123-shell-v810",
   "apagar": [],
-  "releaseName": "v0.8.09",
-  "cacheGeneration": "golden345"
+  "releaseName": "v0.8.10",
+  "cacheGeneration": "golden346"
 }

@@ -7,6 +7,7 @@ on:
       - src/port2-typed-ops-idb-store.mjs
       - src/port2-photo-sha-client.mjs
       - src/port2-catalog-delta-writer.mjs
+      - src/port2-cross-device-failback.mjs
       - docs/vendor/yparty-piloto.min.js
       - docs/sync-yjs.js
       - test/p0-c23-pilot-wire-photos-deltas-idb.test.cjs
@@ -52,4 +53,5 @@ jobs:
           node --test --test-concurrency=1 --test-timeout=90000 \
             qa/p0-c18a-photo-sha-client-workerd.test.mjs \
             qa/p0-c19a-catalog-delta-writer-workerd.test.mjs \
+            qa/p0-c21a-cross-device-failback-workerd.test.mjs \
             qa/p0-c22-public-reader-writer-interoperability-workerd.test.mjs

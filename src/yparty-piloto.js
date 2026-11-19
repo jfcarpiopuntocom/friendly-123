@@ -8,6 +8,7 @@ import {createTeamTicketParams} from './ws-team-ticket-params.mjs';
 import {createTypedOpsIdbStore} from './port2-typed-ops-idb-store.mjs';
 import {createOwnerPhotoShaClient,createTeamPhotoShaReader} from './port2-photo-sha-client.mjs';
 import {openCertifiedPublicCatalogWriter} from './port2-catalog-delta-writer.mjs';
+import {createVerifiedCrossDeviceFailbackCoordinator} from './port2-cross-device-failback.mjs';
 
 const host = 'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
@@ -135,6 +136,82 @@ window.F123YPartyPilot = function (sala, licencia) {
         isVisible: () => !document.hidden,
         timeoutMs,
         onWriterConflict
+      });
+    },
+    // PORT2 C24/C21a+C21b: verified cross-device cutover & reversible 2.0 <-> 1.0
+    // failback coordinator backed by durable IndexedDB v2 pending_ops + settled_ops.
+    async crearCoordinadorCorteYFailback({
+      store = null,
+      indexedDB = globalThis.indexedDB || window.indexedDB,
+      openTimeoutMs = 2500,
+      privateDoc,
+      expectedFrozenHead,
+      modoCatalogo = 'escritor',
+      createProvider,
+      fetch: send = globalThis.fetch?.bind(globalThis),
+      timeoutMs = 6000,
+      maxAttempts = 5,
+      maxPending = 64,
+      baseDelayMs = 800,
+      maxDelayMs = 15000,
+      onSettled = null,
+      onModeChange = null
+    } = {}) {
+      const durableStore = store || await this.crearAlmacenDurableOpsTipadas({
+        indexedDB,
+        openTimeoutMs
+      });
+      const reconciler = this.crearDespachadorComercialTipado({
+        store: durableStore,
+        fetch: send,
+        timeoutMs,
+        maxAttempts,
+        maxPending,
+        baseDelayMs,
+        maxDelayMs,
+        onSettled
+      });
+      const openCatalogSession = ({ onWriterConflict } = {}) => {
+        if (modoCatalogo === 'lector') {
+          return this.leerCatalogoPublicoCertificado(privateDoc, expectedFrozenHead, createProvider);
+        }
+        return this.abrirEscritorDeltaCatalogoCertificado(privateDoc, expectedFrozenHead, {
+          createProvider,
+          fetch: send,
+          timeoutMs,
+          onWriterConflict
+        });
+      };
+      const coord = createVerifiedCrossDeviceFailbackCoordinator({
+        store: durableStore,
+        reconciler,
+        openCatalogSession,
+        isVisible: () => !document.hidden,
+        onModeChange
+      });
+      const onVisibility = () => {
+        if (document.hidden && coord.mode() === 'active-2.0') {
+          void coord.failbackToLegacy('tab-hidden');
+        }
+      };
+      const onPageShow = (ev) => {
+        if (ev?.persisted && coord.mode() === 'active-2.0') {
+          void coord.failbackToLegacy('bfcache-persisted');
+        }
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        window.addEventListener('pageshow', onPageShow);
+      }
+      return Object.freeze({
+        ...coord,
+        destroy() {
+          document.removeEventListener('visibilitychange', onVisibility);
+          if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+            window.removeEventListener('pageshow', onPageShow);
+          }
+          coord.destroy();
+        }
       });
     },
     // PORT2 C16b: explicit opt-in typed commercial command dispatcher backed by

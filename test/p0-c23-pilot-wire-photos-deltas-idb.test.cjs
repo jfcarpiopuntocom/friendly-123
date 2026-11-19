@@ -132,20 +132,26 @@ test('1. C23 source and compiled bundle wire C16b-store, C18a photo SHA client, 
   assert.match(src, /import \{createTypedOpsIdbStore\} from '\.\/port2-typed-ops-idb-store\.mjs';/);
   assert.match(src, /import \{createOwnerPhotoShaClient,createTeamPhotoShaReader\} from '\.\/port2-photo-sha-client\.mjs';/);
   assert.match(src, /import \{openCertifiedPublicCatalogWriter\} from '\.\/port2-catalog-delta-writer\.mjs';/);
+  assert.match(src, /import \{createVerifiedCrossDeviceFailbackCoordinator\} from '\.\/port2-cross-device-failback\.mjs';/);
 
   assert.match(src, /crearAlmacenDurableOpsTipadas\(/);
   assert.match(src, /crearClienteFotosShaCertificado\(/);
   assert.match(src, /abrirEscritorDeltaCatalogoCertificado\(/);
+  assert.match(src, /crearCoordinadorCorteYFailback\(/);
 
   assert.match(sync, /API\.crearAlmacenDurableOpsTipadas/);
   assert.match(sync, /API\.crearClienteFotosShaCertificado/);
   assert.match(sync, /API\.abrirEscritorDeltaCatalogoCertificado/);
+  assert.match(sync, /API\.crearCoordinadorCorteYFailback/);
+  assert.match(sync, /API\.despacharOpComercialCertificada/);
+  assert.match(sync, /API\.puedeDespacharOpEnLegado/);
 
   const env = makePilotEnv();
   assert.equal(env.pilot.fotoSha(), null, 'legacy unsealed fotoSha() must stay null for RED ULTRA #1b');
   assert.equal(typeof env.pilot.crearAlmacenDurableOpsTipadas, 'function');
   assert.equal(typeof env.pilot.crearClienteFotosShaCertificado, 'function');
   assert.equal(typeof env.pilot.abrirEscritorDeltaCatalogoCertificado, 'function');
+  assert.equal(typeof env.pilot.crearCoordinadorCorteYFailback, 'function');
 });
 
 test('2. C23 crearAlmacenDurableOpsTipadas in compiled bundle creates real IndexedDB store with SHA-256 namespace and integrates with crearDespachadorComercialTipado', async () => {
@@ -352,4 +358,117 @@ test('4. C23 abrirEscritorDeltaCatalogoCertificado in compiled bundle verifies C
     /certified catalog writer unavailable/
   );
   d2.destroy();
+});
+
+test('5. C24 crearCoordinadorCorteYFailback in compiled bundle coordinates certified cutover, C21b settled_ops tombstone across Safari reload, and legacy anti-duplication fence', async () => {
+  const head = 'certified-c24-head-20261119';
+  const sha = 'e'.repeat(64);
+  const saleCmd = {
+    license: LICENSE,
+    opId: 'op_c24_settled_reload_01',
+    kind: 'sale.record',
+    productId: 'sku_1',
+    quantity: 1,
+    amountCents: 1500
+  };
+  const canonicalBytes = new TextEncoder().encode(JSON.stringify(saleCmd));
+  const receiptId = Buffer.from(await crypto.webcrypto.subtle.digest('SHA-256', canonicalBytes)).toString('hex').slice(0, 24);
+
+  let tokSeq = 0;
+  const fetchImpl = async (url) => {
+    const s = String(url);
+    if (s.endsWith('/ws/ticket')) {
+      return new Response(
+        JSON.stringify({ ok: true, token: 'c24_tok_' + (++tokSeq) + '.sig', expiresAt: Date.now() + 30000 }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    if (s.includes('frozen-proof=1')) {
+      return new Response(
+        JSON.stringify({ ok: true, room: ROOM + '-cat', channel: 'cat', frozenHead: head, stateSha256: sha, vectorSha256: sha }),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      );
+    }
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        duplicate: false,
+        receipt: {
+          opId: saleCmd.opId,
+          license: LICENSE,
+          kind: saleCmd.kind,
+          stage: 'business-committed',
+          receiptId,
+          acceptedAt: Date.now()
+        }
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } }
+    );
+  };
+
+  const env = makePilotEnv({ role: 'dueno', fetchImpl });
+  const privateDoc = vm.runInContext(`(() => {
+    const d = new Y.Doc();
+    d.getMap('productos').set('sku_1', { id: 'sku_1', nombre: 'Prod C24', precio: 15, stockActual: 5 });
+    d.getMap('ubicaciones').set('s-1', { id: 's-1', nombre: 'Percha 1', activa: true });
+    return d;
+  })()`, env.ctx);
+
+  const createProvider = ({ doc, params, readOnly }) => {
+    assert.equal(readOnly, false);
+    const listeners = new Map();
+    return {
+      on(name, fn) {
+        if (!listeners.has(name)) listeners.set(name, new Set());
+        listeners.get(name).add(fn);
+      },
+      off(name, fn) { listeners.get(name)?.delete(fn); },
+      async connect() {
+        await params();
+        env.ctx.__c24RemoteDoc = doc;
+        vm.runInContext(`
+          __c24RemoteDoc.getMap('productos').set('sku_1', { id: 'sku_1', nombre: 'Prod C24', precio: 15, stockActual: 5 });
+          __c24RemoteDoc.getMap('ubicaciones').set('s-1', { id: 's-1', nombre: 'Percha 1', activa: true });
+        `, env.ctx);
+        for (const fn of listeners.get('synced') || []) fn(true);
+      },
+      destroy() {}
+    };
+  };
+
+  const coord = await env.pilot.crearCoordinadorCorteYFailback({
+    privateDoc,
+    expectedFrozenHead: head,
+    createProvider
+  });
+
+  const act = await coord.activate20();
+  assert.equal(act.ok, true);
+  assert.equal(coord.mode(), 'active-2.0');
+
+  const out = await coord.submitCommercial(saleCmd);
+  assert.equal(out.committed, true);
+  assert.equal(out.stage, 'business-committed');
+
+  await coord.failbackToLegacy('switch-to-1.0');
+  assert.equal(coord.mode(), 'failback-legacy-1.0');
+  assert.equal(await coord.canDispatchOnLegacy(saleCmd.opId), false);
+  coord.destroy();
+
+  // Simulate Safari reload on the SAME IndexedDB instance: C21b settled_ops tombstone must block legacy duplicate!
+  const reloadedPilot = env.window.F123YPartyPilot(ROOM, LICENSE);
+  const reloadedCoord = await reloadedPilot.crearCoordinadorCorteYFailback({
+    indexedDB: env.indexedDB,
+    privateDoc,
+    expectedFrozenHead: head,
+    createProvider
+  });
+  assert.equal(await reloadedCoord.canDispatchOnLegacy(saleCmd.opId), false, 'committed opId tombstone must survive Safari reload');
+  await assert.rejects(
+    reloadedCoord.assertLegacyAllowed(saleCmd.opId),
+    /latched-same-do-only/
+  );
+  assert.equal(await reloadedCoord.canDispatchOnLegacy('op_c24_fresh_post_reload'), true);
+  reloadedCoord.destroy();
+  privateDoc.destroy();
 });

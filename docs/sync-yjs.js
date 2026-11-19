@@ -2966,6 +2966,33 @@
         return Promise.reject(new Error("certified catalog writer unavailable"));
       };
     }
+    API.coordinadorCorteYFailback = null;
+    if (piloto && typeof piloto.crearCoordinadorCorteYFailback === "function") {
+      API.crearCoordinadorCorteYFailback = async function (opc) {
+        if (API.coordinadorCorteYFailback && typeof API.coordinadorCorteYFailback.destroy === "function") {
+          try { API.coordinadorCorteYFailback.destroy(); } catch (_) {}
+        }
+        var coord = await piloto.crearCoordinadorCorteYFailback(opc);
+        API.coordinadorCorteYFailback = coord;
+        return coord;
+      };
+      API.despacharOpComercialCertificada = function (comando) {
+        if (!API.coordinadorCorteYFailback) {
+          return Promise.resolve({ committed: false, fallbackLegacy: true, stage: "coordinator-uninitialized" });
+        }
+        return API.coordinadorCorteYFailback.submitCommercial(comando);
+      };
+      API.puedeDespacharOpEnLegado = function (opId) {
+        if (!API.coordinadorCorteYFailback) return Promise.resolve(true);
+        return API.coordinadorCorteYFailback.canDispatchOnLegacy(opId);
+      };
+    } else {
+      API.crearCoordinadorCorteYFailback = function () { return Promise.resolve(null); };
+      API.despacharOpComercialCertificada = function () {
+        return Promise.resolve({ committed: false, fallbackLegacy: true, stage: "pilot-disabled" });
+      };
+      API.puedeDespacharOpEnLegado = function () { return Promise.resolve(true); };
+    }
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
@@ -3117,6 +3144,14 @@
   }
   function publicarOpLocal(op) {
     if (!op || !op.opId || !API.opsMap) return;
+    if (API.coordinadorCorteYFailback && typeof API.coordinadorCorteYFailback.canDispatchOnLegacy === "function") {
+      var mapaActual = API.opsMap, coordActual = API.coordinadorCorteYFailback;
+      Promise.resolve(coordActual.canDispatchOnLegacy(op.opId)).then(function (permitidoEnLegado) {
+        if (permitidoEnLegado !== true || API.opsMap !== mapaActual) return;
+        try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
+      }).catch(function () {});
+      return;
+    }
     try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
   }
   var _tOps = null, _opsProcesadas = null, _opsAsyncBusy = false;
