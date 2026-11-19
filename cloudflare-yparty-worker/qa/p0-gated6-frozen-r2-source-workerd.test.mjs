@@ -79,26 +79,36 @@ async function runtime({channel='ops',fill=true,overrides={}}={}){
   ...overrides
  };
  for(const k of Object.keys(bindings))if(bindings[k]===undefined)delete bindings[k];
+ console.log('G6-QA build-start');
  const {outputFiles}=await build({
   entryPoints:[path.join(import.meta.dirname,'../src/frozen-r2-source.mjs')],
   bundle:true,format:'esm',platform:'neutral',
   mainFields:['module','main'],conditions:['workerd','worker','browser'],
   external:['cloudflare:*'],write:false});
+ console.log('G6-QA build-done');
  const mf=new Miniflare({modules:true,script:outputFiles[0].text,
   compatibilityDate:'2026-11-18',compatibilityFlags:['nodejs_compat'],
   r2Buckets:['F123_FROZEN_R2'],bindings});
+ console.log('G6-QA ready-start');
  await mf.ready;
+ console.log('G6-QA ready-done');
  const bucket=await mf.getR2Bucket('F123_FROZEN_R2');
+ console.log('G6-QA bucket-done');
  const pageKey=i=>objKey(frozen.room,channel,'page-'+String(i).padStart(4,'0')+'.json');
  const manifestKey=objKey(frozen.room,channel,'manifest.json');
  if(fill){
+  console.log('G6-QA r2-put-start');
   await bucket.put(manifestKey,frozen.manifestText);
   for(let i=0;i<frozen.contents.length;i++)await bucket.put(pageKey(i+1),frozen.contents[i]);
+  console.log('G6-QA r2-put-done');
  }
  async function request({room=frozen.room,part=1,key=serviceKey,method='POST',channelName=channel}={}){
   const init={method,headers:{'content-type':'application/json',...(key!==null?{authorization:'Bearer '+key}:{})}};
   if(method==='POST')init.body=JSON.stringify(part===1?{room,channel:channelName}:{room,channel:channelName,chunk:part});
-  return mf.dispatchFetch('https://internal-history-source.invalid/v1/frozen',init);
+  console.log('G6-QA fetch-start',part);
+  const r=await mf.dispatchFetch('https://internal-history-source.invalid/v1/frozen',init);
+  console.log('G6-QA fetch-done',part,r.status);
+  return r;
  }
  async function readThroughExistingConsumer(){
   const env={WS_OPEN_EXISTING_QA:'1',WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:'1',
