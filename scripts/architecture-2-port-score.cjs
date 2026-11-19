@@ -13,8 +13,8 @@ function inspect(){
  assert.equal(quality.schema,1);
  assert.equal(data.maximum,100);
  assert.equal(quality.maximum,100);
- assert.equal(data.assessedAppMasterSha,quality.assessedAppMasterSha);
- assert.match(data.assessedAppMasterSha,/^[a-f0-9]{40}$/);
+ assert.equal(data.assessedProductSha,quality.assessedProductSha);
+ assert.match(data.assessedProductSha,/^[a-f0-9]{40}$/);
  assert.equal(data.commercialGo.separate,true);
  const cats=new Set(),stages=new Set();
  let totalWeight=0,totalEarned=0;
@@ -30,7 +30,7 @@ function inspect(){
    if(item.done){
     assert(typeof item.source==='string'&&item.source.length>0,'missing code source '+item.id);
     assert(fs.existsSync(path.join(root,item.source)),'credited code missing: '+item.id+': '+item.source);
-    assert(item.evidence?.includes('/blob/'+data.assessedAppMasterSha+'/'),'evidence must be pinned to assessed product SHA '+item.id);
+    assert(item.evidence?.includes('/blob/'+data.assessedProductSha+'/'),'evidence must be pinned to assessed product SHA '+item.id);
     totalEarned+=item.points;
    }
   }
@@ -39,7 +39,7 @@ function inspect(){
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
- assert.equal(data.score-data.baseline.score,9,'C8-C11 baseline delta must be independently visible');
+ assert.equal(data.score-data.baseline.score,10,'C8-C12 baseline delta must be independently visible');
  const dims=new Set();let qWeight=0,qScore=0,qPrevious=0;
  for(const d of quality.dimensions){
   assert(!dims.has(d.id),'duplicate quality dimension '+d.id);dims.add(d.id);
@@ -52,7 +52,7 @@ function inspect(){
  assert.equal(oneDecimal(qWeight),100);
  assert.equal(oneDecimal(qScore),quality.score);
  assert.equal(oneDecimal(qPrevious),quality.comparison.previousScore);
- return Object.freeze({sha:data.assessedAppMasterSha,port:data.score,portBefore:data.baseline.score,
+ return Object.freeze({sha:data.assessedProductSha,port:data.score,portBefore:data.baseline.score,
   portDelta:oneDecimal(data.score-data.baseline.score),quality:quality.score,qualityBefore:qPrevious,
   qualityDelta:oneDecimal(quality.score-qPrevious),go:data.commercialGo.certifiedGates+'/'+data.commercialGo.totalGates});
 }
