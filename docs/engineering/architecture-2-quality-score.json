@@ -2,7 +2,7 @@
   "schema": 1,
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
-  "assessedAppMasterSha": "1b147ad99f4fdbf6cf60d8f6a57e7f79bbe3ad4a",
+  "assessedAppMasterSha": "e5bf0eedf2d78f75a30bad09f2b6f91f56283195",
   "comparison": {
     "previousScore": 67,
     "previousSource": "friendly123workshop/projects/assembled-v783/quality/score-v1.json",
@@ -17,7 +17,7 @@
       "score": 17.5,
       "previous": 17.5,
       "justification": "Typed sale/stock/credit SQL tested; full live commercial routing not yet wired",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/1b147ad99f4fdbf6cf60d8f6a57e7f79bbe3ad4a/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e5bf0eedf2d78f75a30bad09f2b6f91f56283195/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
     },
     {
       "id": "durability",
@@ -25,7 +25,7 @@
       "score": 16.5,
       "previous": 16.5,
       "justification": "Workerd snapshot+journal durable; no new real-device acceptance",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/1b147ad99f4fdbf6cf60d8f6a57e7f79bbe3ad4a/cloudflare-yparty-worker/src/open-existing-store.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e5bf0eedf2d78f75a30bad09f2b6f91f56283195/cloudflare-yparty-worker/src/open-existing-store.mjs"
     },
     {
       "id": "sync",
@@ -49,7 +49,7 @@
       "score": 6.5,
       "previous": 6.5,
       "justification": "Blob SHA and references present; devices still follow legacy photo route",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/1b147ad99f4fdbf6cf60d8f6a57e7f79bbe3ad4a/src/photo-sha-bridge.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e5bf0eedf2d78f75a30bad09f2b6f91f56283195/src/photo-sha-bridge.mjs"
     },
     {
       "id": "migration",
