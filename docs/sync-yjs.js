@@ -2937,6 +2937,16 @@
         return Object.freeze({ estado: "desactivado", readOnly: true, frozenHead: null, intentos: 0, certificado: false });
       };
     }
+    if (piloto && typeof piloto.crearDespachadorComercialTipado === "function") {
+      API.crearDespachadorComercialTipado = function (opc) { return piloto.crearDespachadorComercialTipado(opc); };
+    } else {
+      API.crearDespachadorComercialTipado = function () { return null; };
+    }
+    if (piloto && typeof piloto.solicitarTicketComercialEquipo === "function") {
+      API.solicitarTicketComercialEquipo = function (scope, opc) { return piloto.solicitarTicketComercialEquipo(scope, opc); };
+    } else {
+      API.solicitarTicketComercialEquipo = function () { return Promise.reject(new Error("WS authorization unavailable")); };
+    }
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}

@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.05",
+  "version": "v0.8.06",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.05: alinea _huellaPublicable() con _estadoParaGuardarSinFotos() en docs/mock-backend.js (Belén P0 #6) para evitar falsos bloqueos de publicación/409 durante guardados en vuelo cuando las fotos confirmadas en IDB siguen hidratadas en RAM, preservando fail-closed ante fotos modificadas no confirmadas o cambios de negocio. Sin cambios a datos, PIN ni rollout 2.0 (sigue OFF).",
+  "changelog": "v0.8.06: cablea en src/yparty-piloto.js, docs/vendor/yparty-piloto.min.js y docs/sync-yjs.js (detrás del doble switch QA OFF) el despachador económico tipado C16b (C15 + C16a durable same-do-only) y el emisor de tickets comerciales Team C17b (admin/empleado one-use). El tráfico comercial actual, datos, PIN y rollout 2.0 siguen intactos y OFF.",
   "requerida": false,
-  "shell": "f123-shell-v805",
+  "shell": "f123-shell-v806",
   "apagar": [],
-  "releaseName": "v0.8.05",
-  "cacheGeneration": "golden341"
+  "releaseName": "v0.8.06",
+  "cacheGeneration": "golden342"
 }

@@ -2,13 +2,152 @@ import AuthorizedYProvider from './authorized-yprovider.mjs';
 import {createOwnerTicketParams} from './ws-owner-ticket-params.mjs';
 import {createPhotoShaBridge} from './photo-sha-bridge.mjs';
 import {openCertifiedReadOnlyPublicCatalog} from './port2-readonly-catalog-session.mjs';
+import {dispatchTypedCommercialCommand} from './port2-typed-ops-client.mjs';
+import {createTypedOpsReconciler} from './port2-typed-ops-reconciler.mjs';
+import {createTeamTicketParams} from './ws-team-ticket-params.mjs';
 
 const host = 'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
 const plazoReconectar = 7500;
 
 window.F123YPartyPilot = function (sala, licencia) {
+  function readOwnedInstance() {
+    let owned;
+    try { owned = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
+    const instanceId = owned?.instanceId;
+    if (String(owned?.licenseCode || '').trim().toUpperCase() !== licencia ||
+        !/^[A-Za-z0-9_-]{6,120}$/.test(instanceId || '') ||
+        !/^[a-f0-9]{32}$/.test(sala || '')) {
+      return null;
+    }
+    return instanceId;
+  }
+  function ownerCredentials(instanceId) {
+    let current;
+    try { current = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
+    if (String(current?.licenseCode || '').trim().toUpperCase() !== licencia ||
+        current?.instanceId !== instanceId ||
+        window.OCAuth?.rolActual?.() !== 'dueno') throw new Error('owner-session-unavailable');
+    const pin = window.OCSecure?.leerPinQueAbre?.()?.owner;
+    if (typeof pin !== 'string' || !/^[0-9]{3}$/.test(pin) ||
+        pin === '456' || pin === '789') throw new Error('owner-session-unavailable');
+    return { kind: 'owner', licenseCode: licencia, instanceId, pin };
+  }
   return {
+    // PORT2 C16b: explicit opt-in typed commercial command dispatcher backed by
+    // C15 business-committed HTTP client + C16a durable same-do-only reconciler.
+    // Requires a real caller-supplied durable store (no volatile RAM fallback).
+    crearDespachadorComercialTipado({
+      store,
+      fetch: send = globalThis.fetch?.bind(globalThis),
+      timeoutMs = 5000,
+      maxAttempts = 5,
+      maxPending = 64,
+      baseDelayMs = 800,
+      maxDelayMs = 15000,
+      onSettled = null
+    } = {}) {
+      if (!store || typeof store.loadAll !== 'function' ||
+          typeof store.save !== 'function' || typeof store.remove !== 'function') {
+        throw new TypeError('durable store required for typed commercial dispatcher');
+      }
+      const instanceId = readOwnedInstance();
+      if (!instanceId) throw new Error('owner-session-unavailable');
+      const opsRoom = sala + '-ops';
+      const isVisible = () => !document.hidden;
+      const reconciler = createTypedOpsReconciler({
+        store,
+        isVisible,
+        maxAttempts,
+        maxPending,
+        baseDelayMs,
+        maxDelayMs,
+        onSettled,
+        dispatch: (command) => dispatchTypedCommercialCommand({
+          host,
+          room: opsRoom,
+          licenseCode: licencia,
+          instanceId,
+          command,
+          getCredentials: () => ownerCredentials(instanceId),
+          isVisible,
+          timeoutMs,
+          fetch: send
+        })
+      });
+      const onVisibility = () => {
+        if (document.hidden) reconciler.pause();
+        else void reconciler.resume();
+      };
+      const onPageShow = (ev) => {
+        if (ev?.persisted && !document.hidden) {
+          reconciler.pause();
+          void reconciler.resume();
+        }
+      };
+      document.addEventListener('visibilitychange', onVisibility);
+      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        window.addEventListener('pageshow', onPageShow);
+      }
+      return Object.freeze({
+        ready: reconciler.ready,
+        submit: reconciler.submit,
+        reconcileNow: reconciler.reconcileNow,
+        pause: reconciler.pause,
+        resume: reconciler.resume,
+        pending: reconciler.pending,
+        quarantined: reconciler.quarantined,
+        destroy() {
+          document.removeEventListener('visibilitychange', onVisibility);
+          if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+            window.removeEventListener('pageshow', onPageShow);
+          }
+          reconciler.destroy();
+        }
+      });
+    },
+    // PORT2 C17b: explicit one-use single-scope HTTP ticket seam for Team roles
+    // (admin / empleado). Never grants raw Yjs room access or persists PINs.
+    async solicitarTicketComercialEquipo(scope, { fetch: send = globalThis.fetch?.bind(globalThis) } = {}) {
+      const unavailable = () => new Error('WS authorization unavailable');
+      const instanceId = readOwnedInstance();
+      if (!instanceId || document.hidden) throw unavailable();
+      const targetRoom = scope === 'fotos:read'
+        ? sala + '-fotos'
+        : ['ops:sale', 'ops:adjust', 'ops:payment'].includes(scope)
+          ? sala + '-ops'
+          : null;
+      if (!targetRoom) throw unavailable();
+      const getCredentials = () => {
+        let current;
+        try { current = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
+        const role = window.OCAuth?.rolActual?.();
+        const team = window.OCSecure?.leerPinQueAbre?.()?.team;
+        if (String(current?.licenseCode || '').trim().toUpperCase() !== licencia ||
+            current?.instanceId !== instanceId ||
+            !['admin', 'empleado'].includes(role) ||
+            !team || typeof team !== 'object') {
+          throw unavailable();
+        }
+        return {
+          kind: 'team',
+          licenseCode: licencia,
+          instanceId,
+          subject: team.subject,
+          role,
+          pin: team.pin
+        };
+      };
+      const fresh = createTeamTicketParams({
+        licenseCode: licencia,
+        instanceId,
+        room: targetRoom,
+        scope,
+        getCredentials,
+        fetch: send
+      });
+      return fresh();
+    },
     // The first real browser seam for C8-C12. This is READ ONLY and requires
     // explicit caller-supplied verified historical HEAD. The default legacy
     // catalog and money paths below remain unchanged until the canary is ready.

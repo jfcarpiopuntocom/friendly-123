@@ -1,0 +1,49 @@
+name: "PORT2 C16b+C17b · yparty-piloto typed -ops + Team tickets browser wire"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/yparty-piloto.js
+      - src/port2-typed-ops-client.mjs
+      - src/port2-typed-ops-reconciler.mjs
+      - src/ws-team-ticket-params.mjs
+      - docs/vendor/yparty-piloto.min.js
+      - docs/sync-yjs.js
+      - test/p0-c16b-c17b-browser-pilot-wire.test.cjs
+      - .github/workflows/qa-port2-real-c16b-c17b-pilot-wire.yml
+permissions: {contents: read}
+jobs:
+  c16b-c17b:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Setup exact esbuild/Workerd deps
+        working-directory: cloudflare-yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify deterministic browser bundle and manifest seal
+        run: |
+          set -euo pipefail
+          NODE_PATH=cloudflare-yparty-worker/node_modules node scripts/build-yparty-piloto.cjs
+          node scripts/gen-manifest.js
+          git diff --exit-code docs/vendor/yparty-piloto.min.js docs/version-manifest.json
+          bash check-sw.sh
+      - name: Verify C16b+C17b browser pilot, compiled bundle and C12/C13 regressions
+        run: |
+          set -euo pipefail
+          node --test --test-timeout=60000 \
+            test/p0-c16b-c17b-browser-pilot-wire.test.cjs \
+            test/p0-c12-browser-pilot-readonly-seam.test.cjs \
+            test/p0-yparty-client-real-tickets.test.cjs \
+            test/p0-yparty-client-built-bundle.test.cjs \
+            test/p0-c13-browser-certified-reader-wire.test.cjs
+      - name: Verify Workerd C15 + C17a end-to-end suites
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-timeout=90000 \
+            qa/p0-c15-typed-ops-client-workerd.test.mjs \
+            qa/p0-c17a-team-commercial-workerd.test.mjs
