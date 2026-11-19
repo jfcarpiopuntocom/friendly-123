@@ -1,0 +1,41 @@
+name: "P0 Belén · shelf photo CAS A→B→C end-to-end and strict vault ACK"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/vista-perchas.js
+      - docs/mock-backend.js
+      - docs/sw.js
+      - docs/version.json
+      - docs/dashboard.html
+      - docs/version-manifest.json
+      - test/p0-belen-vista-perchas-cas-e2e.test.cjs
+      - test/p0-belen-shelf-photo-pointer-cas.test.cjs
+      - test/p0-belen-photo-pointer-ack-real-source.test.cjs
+      - test/p0-belen-photo-recovery-pointer-strict-ack.test.cjs
+      - .github/workflows/p0-belen-vista-perchas-cas.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  belen-shelf-cas:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Manifest determinism, shell guards and Belén photo CAS/ACK suites
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --check docs/vista-perchas.js
+          node scripts/gen-manifest.js
+          git diff --exit-code docs/version-manifest.json
+          bash check-sw.sh
+          node --test \
+            test/p0-belen-vista-perchas-cas-e2e.test.cjs \
+            test/p0-belen-shelf-photo-pointer-cas.test.cjs \
+            test/p0-belen-photo-pointer-ack-real-source.test.cjs \
+            test/p0-belen-photo-recovery-pointer-strict-ack.test.cjs \
+            test/p0-architecture-2-port-score.test.cjs

@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.03",
+  "version": "v0.8.04",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.03: cablea el lector público certificado C12 al ciclo de vida real de docs/sync-yjs.js detrás del doble switch QA (apagado por defecto), esperando recuperación del canal sombra legado e IDB sin deuda causal y cerrando en hidden/BFCache; el relay cifrado 1.0 y Sync3 permanecen intactos. QA Cloudflare apagado; sin cambios comerciales, PIN ni datos de clientes.",
+  "changelog": "v0.8.04: protege las fotos de percha (Belén P0) cableando CAS real expectedFotoHash/expectedFotoRev en los tres escritores de vista-perchas.js (recuperación, captura y bóveda) más ACK estricto y guardia de cuaderno en restauración; evita que un reintento lento sobrescriba una foto más reciente A→B→C. Sin cambios a datos, PIN ni rollout 2.0 (sigue OFF).",
   "requerida": false,
-  "shell": "f123-shell-v803",
+  "shell": "f123-shell-v804",
   "apagar": [],
-  "releaseName": "v0.8.03",
-  "cacheGeneration": "golden339"
+  "releaseName": "v0.8.04",
+  "cacheGeneration": "golden340"
 }
