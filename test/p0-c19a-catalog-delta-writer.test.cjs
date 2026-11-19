@@ -16,7 +16,7 @@ function loadYjs() {
   }
   const w = {};
   new Function('window', 'self', fs.readFileSync(path.resolve(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'))(w, w);
-  return w.Y;
+  return w.Y || globalThis.Y;
 }
 const Y = loadYjs();
 
