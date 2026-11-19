@@ -119,15 +119,25 @@ test('C17a Team ticket client <-> real Workerd Tienda: admin/empleado commercial
   const empCreds = {kind: 'team', licenseCode: LICENSE, instanceId: INSTANCE, subject: 'emp_luis_02', role: 'empleado', pin: '654'};
 
   try {
-    // 1. Empleado executes sale.record -> 200 business-committed
+    // 1. Empleado executes sale.record (authoritative sku_1 price 1500) -> 200 business-committed
     const saleRes = await postTypedOp(empCreds, 'ops:sale', {
       license: LICENSE, opId: 'c17a-emp-sale-01', kind: 'sale.record',
-      productId: 'sku_1', quantity: 1, amountCents: 1200
+      productId: 'sku_1', quantity: 1, amountCents: 1500
     });
     assert.equal(saleRes.status, 200);
     const saleBody = await saleRes.json();
     assert.equal(saleBody.ok, true);
     assert.equal(saleBody.receipt.stage, 'business-committed');
+
+    // 1b. Empleado executes credit.payment.record (ops:payment) on fiado_1 -> 200 business-committed
+    const payRes = await postTypedOp(empCreds, 'ops:payment', {
+      license: LICENSE, opId: 'c17a-emp-pay-01', kind: 'credit.payment.record',
+      receivableId: 'fiado_1', amountCents: 500
+    });
+    assert.equal(payRes.status, 200);
+    const payBody = await payRes.json();
+    assert.equal(payBody.ok, true);
+    assert.equal(payBody.receipt.stage, 'business-committed');
 
     // 2. Empleado cannot mint ops:adjust (denied locally before hitting network)
     await assert.rejects(
