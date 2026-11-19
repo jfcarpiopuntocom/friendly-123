@@ -1,0 +1,31 @@
+name: "PORT2 REAL C11 · signed certified public catalog HEAD"
+on:
+  push:
+    branches: [port2/20261119-c11-certified-cat-proof]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/index.js
+      - cloudflare-yparty-worker/src/catalog-frozen-proof.mjs
+      - cloudflare-yparty-worker/qa/p0-c11-certified-cat-proof-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c11-frozen-proof.yml
+permissions: {contents: read}
+jobs:
+  c11-workerd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real QA Workerd + synthetic issuer + certified SQL gate
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c11-certified-cat-proof-workerd.test.mjs
