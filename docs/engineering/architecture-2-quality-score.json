@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 74.9,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 10f6004cab97200c0f11359e21e9f7912d118945",
+    "previousScore": 75.4,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ df50e190027d29276461a89c2ca10be9a5cf24f3",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 75.4,
+  "score": 75.6,
   "maximum": 100,
   "dimensions": [
     {
@@ -22,17 +22,17 @@
       "id": "durability",
       "weight": 20,
       "score": 17.8,
-      "previous": 17.3,
+      "previous": 17.8,
       "justification": "P0 C21b RED 6/7 (second Safari-style reload permitted legacy duplicate after business-committed) then GREEN: settled_ops IndexedDB v2 adds a non-expiring same-business opId tombstone atomically with pending cleanup, reconciler uses it on commit, C21a reload hydrates both tables and fails closed. C23 browser v809 bundle and sealed SHA incorporate fix; PR #817 32 CI checks succeeded. Still no real Safari A→B→A acceptance.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/817"
     },
     {
       "id": "sync",
       "weight": 20,
-      "score": 15.2,
+      "score": 15.4,
       "previous": 15.2,
-      "justification": "C13 lifecycle of certified public catalog reader remains QA-gated. C20 fixed a real Workerd/YParty cold-join failure: remote roots delivered as untyped Yjs AbstractType, RED 7/8 real Y.applyUpdate → GREEN 8/8, independent Workerd central-Owner ticket + SQLite cold-restart/no-source test and 30/30 checks. Strict C9 private-root firewall maintained; no real Safari/customer GO.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/812"
+      "justification": "C25 #820 integrated certified C21a cross-device failback coordinator into real v810 browser bundle and guarded Sync3 facade on top of C16b durable IDB and C19a C11 writer. Synthetic VM exact-bundle test RED->GREEN: C19a certified activate, single typed business commit, second browser lifecycle denies same opId legacy, pagehide releases writer; 25/25 C25 tests, 47 GitHub checks expected when merged. Real PC/Safari A→B→A and customer GO remain unverified.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/820"
     },
     {
       "id": "security",
@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "Engineering quality review estimate with explicit scored evidence and separate GO; not observed uptime or customer deployment, not a hard 0-cost R2 guarantee.",
-  "assessedProductSha": "10f6004cab97200c0f11359e21e9f7912d118945",
+  "assessedProductSha": "6b59f6667105d0366507c6f7f2d77b692e28262f",
   "history": [
     {
       "review": "2026-11-17",
@@ -89,6 +89,11 @@
       "review": "2026-11-19 before C24 audited bundle scoring",
       "score": 74.9,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 10f6004cab97200c0f11359e21e9f7912d118945"
+    },
+    {
+      "review": "2026-11-19 before C25 product bundle",
+      "score": 75.4,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ df50e190027d29276461a89c2ca10be9a5cf24f3"
     }
   ]
 }

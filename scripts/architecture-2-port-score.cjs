@@ -83,6 +83,31 @@ function inspect(){
    assert.equal(manifest.files[rel],sha,'C23 credit requires real bundled shell integrity seal for '+rel);
   }
  }
+ // C26: browser-cutover credit requires the REAL V810 published C21a
+ // coordinator, not simply a source-only module or a synthetic Worker test.
+ const coordinatorStage=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='bundled-c21a-coordinator-c25');
+ if(coordinatorStage?.done){
+  assert.equal(coordinatorStage.points,0.5,'only 0.5 of offline budget for browser seam');
+  const pilot=fs.readFileSync(path.join(root,'src/yparty-piloto.js'),'utf8');
+  const facade=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+  const vendor=fs.readFileSync(path.join(root,'docs/vendor/yparty-piloto.min.js'),'utf8');
+  const manifest=load('docs/version-manifest.json');
+  assert(pilot.includes('createVerifiedCrossDeviceFailbackCoordinator')&&
+    pilot.includes('crearCoordinadorCorte20'),'C25 coordinator source missing');
+  assert(facade.includes('API.crearCoordinadorCorte20')&&
+    facade.includes('piloto && typeof piloto.crearCoordinadorCorte20'),
+    'C25 must be exposed ONLY via existing guarded browser pilot');
+  for(const key of ['crearCoordinadorCorte20','settled_ops','markCommitted',
+                    'abrirEscritorDeltaCatalogoCertificado']){
+   assert(vendor.includes(key),'C25 actual shipped browser bundle lacks '+key);
+  }
+  assert(fs.existsSync(path.join(root,'test/p0-c25-browser-coordinator-factory.test.cjs')),
+    'C25 real bundled browser VM regression must exist');
+  for(const [pathName,contents] of [['./vendor/yparty-piloto.min.js',vendor],['./sync-yjs.js',facade]]){
+   const hash='sha256-'+crypto.createHash('sha256').update(contents.replace(/\r\n/g,'\n')).digest('hex');
+   assert.equal(manifest.files[pathName],hash,'C25 real bundled SHA identity mismatch '+pathName);
+  }
+ }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
