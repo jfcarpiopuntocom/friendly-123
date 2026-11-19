@@ -1,0 +1,17 @@
+name: P0 Belen shelf photo vault restore strict ACK
+on:
+  pull_request:
+    paths:
+      - docs/vista-perchas.js
+      - test/p0-belen-photo-vault-strict-ack-real-source.test.cjs
+      - .github/workflows/p0-belen-photo-vault-strict-ack.yml
+  workflow_dispatch:
+jobs:
+  vault-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --test test/p0-belen-photo-vault-strict-ack-real-source.test.cjs
