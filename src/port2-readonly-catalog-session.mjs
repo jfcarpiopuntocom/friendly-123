@@ -1,7 +1,6 @@
 // C12: public, READ-ONLY cold-join to the already-certified YParty -cat room.
 // The private Sync3 Y.Doc never crosses this boundary; no public re-seeding,
 // no economic writes and no change to the active encrypted legacy relay.
-import AuthorizedYProvider from './authorized-yprovider.mjs';
 import {createOwnerTicketParams} from './ws-owner-ticket-params.mjs';
 import {projectPublicCatalog,assertPublicCatalogTransportDoc} from '../cloudflare-yparty-worker/src/catalog-safe-projection.mjs';
 
@@ -71,9 +70,15 @@ export async function openCertifiedReadOnlyPublicCatalog({
   if(typeof createProvider==='function')
    provider=createProvider({doc:publicDoc,room,channel:'cat',params,
     readOnly:true,purpose:'certified-readonly-cold-join'});
-  else provider=new AuthorizedYProvider(HOST,room,publicDoc,{
+  else {
+   // Lazy-load the shipped provider only when no injected provider exists.
+   // Browser-side C12 unit tests use the actual policy and a synthetic socket,
+   // without depending on Node's package resolution outside Worker QA.
+   const {default:AuthorizedYProvider}=await import('./authorized-yprovider.mjs');
+   provider=new AuthorizedYProvider(HOST,room,publicDoc,{
     party:'tienda',params,disableBc:true,connect:false,maxBackoffTime:7500
    });
+  }
   if(!provider||typeof provider.on!=='function'||
      typeof provider.connect!=='function'||typeof provider.destroy!=='function')throw fail();
   await new Promise((resolve,reject)=>{
