@@ -1,0 +1,29 @@
+name: PORT2 REAL C22 · catalog writer/reader parity in Workerd
+on:
+  push:
+    branches: [port2/20261119-c22-public-reader-writer-interoperability]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/qa/p0-c22-public-reader-writer-interoperability-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c22-reader-writer.yml
+permissions: {contents: read}
+jobs:
+  workerd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: C22 real Workerd, two browser documents, no R2
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test --test-concurrency=1 --test-timeout=100000 qa/p0-c22-public-reader-writer-interoperability-workerd.test.mjs
