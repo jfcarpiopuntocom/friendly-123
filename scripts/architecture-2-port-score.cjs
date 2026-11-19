@@ -63,6 +63,29 @@ function inspect(){
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
  assert(oneDecimal(data.score-data.baseline.score)>=10,'C8-C13 baseline delta must be independently visible');
+ // Quality points above the previous 6.5/10 photo baseline are earned
+ // only while the SHIPPED v804 source is CAS-safe and its integrity manifest
+ // matches the exact bytes served to customers. The commercial GO is separate.
+ const photoQuality=quality.dimensions.find(d=>d.id==='photos');
+ if(photoQuality?.score>=7){
+  const ui=fs.readFileSync(path.join(root,'docs/vista-perchas.js'),'utf8');
+  const manifest=load('docs/version-manifest.json');
+  const digest='sha256-'+crypto.createHash('sha256').update(ui.replace(/\\r\\n/g,'\\n')).digest('hex');
+  assert.equal(manifest.files['./vista-perchas.js'],digest,
+    'Belén CAS quality credit requires sealed real browser code');
+  assert(ui.includes('expectedFotoHash')&&ui.includes('expectedFotoRev'),
+    'Belén CAS quality credit requires both preimage fields');
+  assert(ui.includes('if (!Object.prototype.hasOwnProperty.call(preimagenPorId, String(id))) return false;')&&
+    ui.includes("if (!preimagenFoto) throw new Error('Photo CAS preimage unavailable');")&&
+    ui.includes("if (!preimagenRestore) throw new Error('Photo CAS preimage unavailable');"),
+    'Belén CAS quality credit requires fail-closed preimage in recovery, camera and vault');
+  assert(fs.existsSync(path.join(root,'test/p0-belen-vista-perchas-cas-e2e.test.cjs')),
+    'Belén CAS quality credit needs its real-source regression test');
+  assert(quality.latestQualityEvidence?.verifiedProductMergeSha==='49fe066024ab529b182327bd98ae76884b13ded2'&&
+    quality.latestQualityEvidence.qualityDelta===0.5 &&
+    quality.latestQualityEvidence.portDelta===0,
+    'Belén CAS source and metric must have immutable merge evidence and no fictitious PORT points');
+ }
  const dims=new Set();let qWeight=0,qScore=0,qPrevious=0;
  for(const d of quality.dimensions){
   assert(!dims.has(d.id),'duplicate quality dimension '+d.id);dims.add(d.id);
