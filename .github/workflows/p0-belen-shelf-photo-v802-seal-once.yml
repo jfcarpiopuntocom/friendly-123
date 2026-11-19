@@ -1,0 +1,61 @@
+name: P0 Belen v802 one-shot official shelf restore release seal
+on:
+  push:
+    branches: [fix/p0-belen-photo-vault-strict-ack-v802-20261118]
+    paths: [.github/workflows/p0-belen-shelf-photo-v802-seal-once.yml]
+permissions:
+  contents: write
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-belen-photo-vault-strict-ack-v802-20261118
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Encode next shell identity without modifying business data
+        run: |
+          node <<'JS'
+          const fs = require('node:fs'),assert=require('node:assert/strict');
+          const p='docs/version.json',v=JSON.parse(fs.readFileSync(p,'utf8'));
+          assert.equal(v.version,'v0.8.01');assert.equal(v.shell,'f123-shell-v801');assert.equal(v.cacheGeneration,'golden337');
+          v.version='v0.8.02';v.releaseName='v0.8.02';v.shell='f123-shell-v802';v.cacheGeneration='golden338';
+          v.changelog='v0.8.02: restauracion manual de foto de percha exige ACK HTTP explicito, bytes locales guardados y mismo cuaderno antes y despues de cada await. No convierte un fallo de guardado en confirmacion ni borra fotos historicas.';
+          fs.writeFileSync(p,JSON.stringify(v,null,2)+'\n');
+          const d='docs/dashboard.html';let html=fs.readFileSync(d,'utf8');
+          assert.equal((html.match(/f123-shell-v801/g)||[]).length,1);
+          assert.equal((html.match(/v0.8.01/g)||[]).length,2);
+          html=html.replace('f123-shell-v801','f123-shell-v802').replaceAll('v0.8.01','v0.8.02');
+          fs.writeFileSync(d,html);
+          const sw='docs/sw.js';let src=fs.readFileSync(sw,'utf8');
+          assert.match(src,/const CACHE = "f123-shell-v801";/);assert.match(src,/const CACHE_GENERACION = "-golden337";/);
+          src=src.replace('const CACHE = "f123-shell-v801";','const CACHE = "f123-shell-v802";')
+                 .replace('const CACHE_GENERACION = "-golden337";','const CACHE_GENERACION = "-golden338";');
+          fs.writeFileSync(sw,src);
+          JS
+      - name: Exact source tests and official deterministic manifest
+        run: |
+          set -euo pipefail
+          node --test test/p0-belen-shelf-photo-pointer-cas.test.cjs test/p0-belen-photo-vault-strict-ack-real-source.test.cjs
+          node --check docs/vista-perchas.js
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node scripts/release-control.cjs validate origin/master
+      - name: Commit generated identity to candidate branch only
+        run: |
+          set -euo pipefail
+          git config user.name "friendly-123 release seal"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/version.json docs/dashboard.html docs/sw.js docs/version-manifest.json
+          git diff --cached --quiet && { echo 'Missing release artifacts'; exit 1; }
+          git commit -m "release(P0 Belén): v0.8.02 shell802/golden338 official manifest"
+          git push origin HEAD:fix/p0-belen-photo-vault-strict-ack-v802-20261118
