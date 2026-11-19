@@ -1,33 +1,29 @@
-name: P0 Belén v801 shelf photo CAS and durable pointer intent
+name: P0 Belén durable photo pointer IDB journal (dependent on #777 CAS)
 on:
   push:
     branches: [integrate/p0-belen-shelf-photo-cas-intents-v801-20261118]
     paths:
-      - docs/mock-backend.js
-      - docs/vista-perchas.js
-      - docs/foto-pointer-intent-idb.mjs
       - src/foto-pointer-intent-idb.mjs
-      - test/p0-belen-photo-cas-backend-v801.test.cjs
-      - test/p0-belen-photo-intent-idb-v801.test.cjs
+      - docs/foto-pointer-intent-idb.mjs
+      - test/p0-belen-photo-intent-idb-v802.test.cjs
+      - docs/vista-perchas.js
       - .github/workflows/p0-v801-shelf-photo-cas.yml
   pull_request:
     paths:
-      - docs/mock-backend.js
-      - docs/vista-perchas.js
-      - docs/foto-pointer-intent-idb.mjs
       - src/foto-pointer-intent-idb.mjs
-      - test/p0-belen-photo-cas-backend-v801.test.cjs
-      - test/p0-belen-photo-intent-idb-v801.test.cjs
+      - docs/foto-pointer-intent-idb.mjs
+      - test/p0-belen-photo-intent-idb-v802.test.cjs
+      - docs/vista-perchas.js
       - .github/workflows/p0-v801-shelf-photo-cas.yml
 permissions: {contents: read}
 jobs:
-  cas-intent:
+  pending-photo-intents:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: {node-version: '22', cache: npm}
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: 'Actual backend photo CAS and existing H2 safety'
-        run: node --test test/p0-belen-photo-cas-backend-v801.test.cjs test/p0-belen-photo-pointer-ack-real-source.test.cjs test/p0-belen-photo-recovery-pointer-strict-ack.test.cjs
+      - name: 'Photo IDB exact opId, namespace, atomic ACK (RED first)'
+        run: node --test test/p0-belen-photo-intent-idb-v802.test.cjs
