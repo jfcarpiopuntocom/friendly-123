@@ -40,8 +40,10 @@ export async function openExistingStore({env,storage,source}={}) {
     if(hasFrozenUnion(storage))return verifyFrozenUnionReopen({storage,source});
     // Nonempty shops cannot be overwritten. Preserve local journal while
     // merging only independently certified -ops facts in one SQL transaction.
+    const tables=new Set(sql.exec("SELECT name FROM sqlite_master WHERE type='table'")
+      .toArray().map(row=>row.name));
     const occupied=['documento','documento_bloques','diario','diario_bloques']
-      .some(table=>sql.exec('SELECT COUNT(*) AS n FROM '+table).one()?.n>0);
+      .some(table=>tables.has(table)&&Number(sql.exec('SELECT COUNT(*) AS n FROM '+table).one()?.n)>0);
     if(occupied)return await mergeFrozenIntoExisting({storage,source});
     const {receipt}=await installFrozenImport({storage,proof:await prepareFrozenImport(source)});
     return {opened:true,already:false,receipt};
