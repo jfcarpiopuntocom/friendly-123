@@ -47,8 +47,9 @@
   };
   const ORDEN = { rojo: 0, amarillo: 1, verde: 2, azul: 3 };
 
-  // Nombre de cada percha, cacheado del último cargar() para títulos de carpeta.
+  // Nombre y preimagen CAS de foto de cada percha, cacheados del último cargar().
   let nombrePorId = {};
+  let fotoPreimagenPorId = {};
 
   // One coherent local read per refresh, indexed once for all shelves. Include
   // every copy of a conflicting sale ID in each affected shelf's quarantine.
@@ -526,6 +527,15 @@
          Render no tiene ninguna operación destructiva. */
       const recuperarFoto = window.F123Application && window.F123Application.recoverShelfPhoto;
       if (recuperarFoto && window.OCFotos && perchasVisibles.length) {
+        const preimagenPorId = {};
+        perchasVisibles.forEach((u) => {
+          if (u && u.id != null) {
+            preimagenPorId[String(u.id)] = {
+              expectedFotoHash: u.fotoHash || null,
+              expectedFotoRev: u.fotoRev || null
+            };
+          }
+        });
         let yUb = {}, hist = {}, histCheckpoints = {};
         try { yUb = window.OCYjs && window.OCYjs.get ? (window.OCYjs.get('ubicaciones') || {}) : {}; } catch (_) {}
         try { hist = await historialFotosExacto(); } catch (_) {}
@@ -587,12 +597,20 @@
           },
           setPointer: async (id, hash) => {
             if (estaCarga !== cargaEnCurso || !mismoCuadernoFotoRecuperacion()) return false;
+            // A shelf outside the observed snapshot has no CAS precondition.
+            // Do not silently publish a naked photo pointer that can overwrite C.
+            if (!Object.prototype.hasOwnProperty.call(preimagenPorId, String(id))) return false;
+            const pre = preimagenPorId[String(id)];
+            if (!pre) return false;
+            const payload = {
+              fotoHash: hash, expectedFotoHash: pre.expectedFotoHash, expectedFotoRev: pre.expectedFotoRev
+            };
             const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ fotoHash: hash })
+              body: JSON.stringify(payload)
             });
-            // No reply, missing .ok, or a late reply from another notebook
+            // No reply, missing .ok, 409 CAS conflict, or a late reply from another notebook
             // is NEVER an ACK. Bytes remain saved for exact-shelf recovery.
             return estaCarga === cargaEnCurso && mismoCuadernoFotoRecuperacion() &&
               !!rr && rr.ok === true;
@@ -656,6 +674,7 @@
       const liqPor = {}; (Array.isArray(liq) ? liq : []).forEach((f) => { liqPor[f.ubicacionId] = f; });
       const promPor = {}; (Array.isArray(promotoras) ? promotoras : []).forEach((pr) => { promPor[pr.id] = pr.nombre; });
       nombrePorId = {};
+      fotoPreimagenPorId = {};
       let zone=Intl.DateTimeFormat().resolvedOptions().timeZone;
       try { zone=localStorage.getItem('f123_timezone') || zone; } catch (_) {}
       const month=window.OCBusinessReadModel?window.OCBusinessReadModel.day(new Date().toISOString(),zone).slice(0,7):'';
@@ -668,6 +687,10 @@
         const meta=f?f.metaMensual:(u.metaMensual || 0);
         const cumplimiento=ventasMes===null || !meta?null:Math.round(ventasMes/meta*1000)/10;
         nombrePorId[u.id] = u.nombre;
+        fotoPreimagenPorId[String(u.id)] = {
+          expectedFotoHash: u.fotoHash || null,
+          expectedFotoRev: u.fotoRev || null
+        };
         return {
           id: u.id, nombre: u.nombre, activa: u.activa !== false,
           semaforo: semaforoMeta(cumplimiento),
@@ -1023,6 +1046,19 @@
       try { return window.OCTienda && window.OCTienda.licenciaActual &&
         String(window.OCTienda.licenciaActual() || '') === cuadernoFoto; } catch (_) { return false; }
     };
+    const preimagenFoto = (() => {
+      try {
+        const cat = window.OCSync && window.OCSync.catalogoPropio ? window.OCSync.catalogoPropio() : null;
+        const actual = cat && Array.isArray(cat.ubicaciones)
+          ? cat.ubicaciones.find((x) => x && String(x.id) === String(id)) : null;
+        if (actual) return { expectedFotoHash: actual.fotoHash || null, expectedFotoRev: actual.fotoRev || null };
+      } catch (_) {}
+      if (typeof fotoPreimagenPorId !== 'undefined' && fotoPreimagenPorId &&
+          Object.prototype.hasOwnProperty.call(fotoPreimagenPorId, String(id))) {
+        return fotoPreimagenPorId[String(id)];
+      }
+      return null;
+    })();
     redimensionar(file, async (dataUrl) => {
       const ok = window.OCFotos ? await window.OCFotos.guardarFoto(id, dataUrl) : false;
       if (!ok) {
@@ -1033,15 +1069,26 @@
       // Photo bytes alone are not an ACK that the active shelf's hash pointer
       // was persisted. Reopen uses the existing exact-shelf recovery policy.
       let pointerOk = false;
+      let pointerConflict = false;
       try {
         if (!window.OCFotos || !window.OCFotos.guardarFotoContenido)
           throw new Error('Photo hash storage unavailable');
         const hash = await window.OCFotos.guardarFotoContenido(dataUrl);
         if (!hash || !mismoCuaderno()) throw new Error('Photo notebook changed');
+        // The photo bytes are safe locally, but a missing shelf preimage is
+        // NOT permission to perform an unguarded remote pointer write.
+        if (!preimagenFoto) throw new Error('Photo CAS preimage unavailable');
+        const bodyCas = {
+          fotoHash: hash, expectedFotoHash: preimagenFoto.expectedFotoHash, expectedFotoRev: preimagenFoto.expectedFotoRev
+        };
         const response = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fotoHash: hash })
+          body: JSON.stringify(bodyCas)
         });
+        if (response && response.status === 409) {
+          pointerConflict = true;
+          throw new Error('Photo pointer conflict');
+        }
         if (!response || response.ok !== true || !mismoCuaderno())
           throw new Error('Photo pointer was not acknowledged');
         pointerOk = true;
@@ -1049,9 +1096,11 @@
       if (!pointerOk) {
         try {
           if (window.OCSalud && window.OCSalud.fallo)
-            window.OCSalud.fallo('perchas', 'foto-pointer-pendiente');
+            window.OCSalud.fallo('perchas', pointerConflict ? 'foto-pointer-conflicto' : 'foto-pointer-pendiente');
         } catch (_) {}
-        alert('La foto sigue guardada en este dispositivo, pero su enlace con la percha no se confirmó. Abre Perchas de nuevo para reintentar.');
+        alert(pointerConflict
+          ? 'La foto de esta percha cambió en otro dispositivo. Tu foto quedó guardada en este aparato sin sobrescribir la más reciente.'
+          : 'La foto sigue guardada en este dispositivo, pero su enlace con la percha no se confirmó. Abre Perchas de nuevo para reintentar.');
         // Do not replay the stale PUT. The existing recoverShelfPhoto routine
         // inspects current shelf/Yjs/history on the next online refresh.
         try {
@@ -1073,15 +1122,44 @@
       const sel = document.querySelector('[data-vault-shelf="' + CSS.escape(hash) + '"]');
       const id = sel && sel.value;
       if (!id || !window.OCFotos) return;
+      const cuadernoRestore = (() => {
+        try { return window.OCTienda && window.OCTienda.licenciaActual
+          ? String(window.OCTienda.licenciaActual() || '') : ''; } catch (_) { return ''; }
+      })();
+      const mismoCuadernoRestore = () => {
+        if (!cuadernoRestore) return true;
+        try { return !!(window.OCTienda && window.OCTienda.licenciaActual &&
+          String(window.OCTienda.licenciaActual() || '') === cuadernoRestore); } catch (_) { return false; }
+      };
+      const preimagenRestore = (() => {
+        try {
+          const cat = window.OCSync && window.OCSync.catalogoPropio ? window.OCSync.catalogoPropio() : null;
+          const actual = cat && Array.isArray(cat.ubicaciones)
+            ? cat.ubicaciones.find((x) => x && String(x.id) === String(id)) : null;
+          if (actual) return { expectedFotoHash: actual.fotoHash || null, expectedFotoRev: actual.fotoRev || null };
+        } catch (_) {}
+        if (typeof fotoPreimagenPorId !== 'undefined' && fotoPreimagenPorId &&
+            Object.prototype.hasOwnProperty.call(fotoPreimagenPorId, String(id))) {
+          return fotoPreimagenPorId[String(id)];
+        }
+        return null;
+      })();
       try {
         const bytes = await window.OCFotos.leerPorHash(hash);
-        if (!bytes) return;
+        if (!bytes || !mismoCuadernoRestore()) return;
         await window.OCFotos.guardarFoto(id, bytes);
+        if (!mismoCuadernoRestore()) return;
+        if (!preimagenRestore) throw new Error('Photo CAS preimage unavailable');
         fotoCache[id] = bytes;
+        const bodyCas = {
+          fotoHash: hash, expectedFotoHash: preimagenRestore.expectedFotoHash, expectedFotoRev: preimagenRestore.expectedFotoRev
+        };
         const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
-          method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ fotoHash: hash })
+          method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bodyCas)
         });
-        if (rr && rr.ok === false) throw new Error('restore rejected');
+        if (!rr || rr.ok !== true || !mismoCuadernoRestore()) {
+          throw new Error(rr && rr.status === 409 ? 'restore conflict' : 'restore rejected');
+        }
         cargar();
       } catch (_) { alert('Could not restore this photo yet. Nothing was deleted.'); }
       return;

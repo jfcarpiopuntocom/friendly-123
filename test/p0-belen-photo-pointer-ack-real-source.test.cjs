@@ -14,6 +14,9 @@ async function run({put='success',hash='success',byId=true,shopSwitch=false}={})
  let reloads=0,currentShop='shop-A',done=null,handler=null;
  const window={
   OCTienda:{licenciaActual:()=>currentShop},
+  // Synthetic H2 caller must supply the same observed shelf preimage that the
+  // real catalog does. Missing preimage is separately tested as fail-closed.
+  OCSync:{catalogoPropio:()=>({ubicaciones:[{id:'shelf-A',fotoHash:null,fotoRev:null}]})},
   OCSalud:{fallo:(scope,code)=>warnings.push([scope,code])},
   addEventListener:(type,fn)=>{events[type]=fn},
   OCFotos:{
@@ -58,6 +61,8 @@ test('H2: acknowledged PUT emits no false warning or duplicate upload',async()=>
  const x=await run();
  assert.equal(x.writes.length,1);
  assert.equal(x.writes[0].body.fotoHash,'sha-synthetic-photo');
+ assert.equal(x.writes[0].body.expectedFotoHash,null,'H2 camera sends null observed photo preimage explicitly');
+ assert.equal(x.writes[0].body.expectedFotoRev,null,'H2 camera sends the observed revision explicitly');
  assert.equal(x.warnings.length,0);
  assert.equal(x.alerts.length,0);
  assert.equal(x.reloads,1);
