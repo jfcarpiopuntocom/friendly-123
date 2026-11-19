@@ -6,12 +6,22 @@ on:
       - test/p0-precut-independent-writers-v783.test.cjs
       - docs/sync-yjs.js
       - test/p0-yjs-pending-snapshot.test.js
+      - test/incident-yjs-causal-replay-v559.test.js
+      - test/incident-yjs-receive-queue-v558.test.js
+      - test/sync3-head-causal-gap.test.cjs
+      - test/pull-cursor-durable-ack.test.cjs
+      - test/firebase-relay-timestamp-boundary.test.cjs
       - .github/workflows/p0-belen-precut-history-v799.yml
   pull_request:
     paths:
       - test/p0-precut-independent-writers-v783.test.cjs
       - docs/sync-yjs.js
       - test/p0-yjs-pending-snapshot.test.js
+      - test/incident-yjs-causal-replay-v559.test.js
+      - test/incident-yjs-receive-queue-v558.test.js
+      - test/sync3-head-causal-gap.test.cjs
+      - test/pull-cursor-durable-ack.test.cjs
+      - test/firebase-relay-timestamp-boundary.test.cjs
       - .github/workflows/p0-belen-precut-history-v799.yml
 permissions: {contents: read}
 jobs:
@@ -27,4 +37,11 @@ jobs:
         run: |
           set -euo pipefail
           node --check docs/sync-yjs.js
-          node --test --test-concurrency=1 --test-timeout=95000 test/p0-precut-independent-writers-v783.test.cjs
+          node --test --test-concurrency=1 --test-timeout=95000 \
+            test/p0-precut-independent-writers-v783.test.cjs \
+            test/incident-yjs-causal-replay-v559.test.js \
+            test/incident-yjs-receive-queue-v558.test.js \
+            test/p0-yjs-pending-snapshot.test.js \
+            test/sync3-head-causal-gap.test.cjs \
+            test/pull-cursor-durable-ack.test.cjs \
+            test/firebase-relay-timestamp-boundary.test.cjs
