@@ -1,14 +1,23 @@
 'use strict';
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C30 metrics: audited C29 cold Safari preinit legacy guard, fixed 100 budget and C28 pending',()=>{
+test('C32: fixed 100 budget credits only QA-gated C31 commercial route, not physical GO',()=>{
  const s=inspect();
- assert.equal(s.port,84.0);
+ assert.equal(s.port,84.5);
  assert.equal(s.portBefore,68.5);
- assert.equal(s.portDelta,15.5);
+ assert.equal(s.portDelta,16.0);
  assert.equal(s.quality,75.8);
  assert.equal(s.qualityBefore,75.6);
  assert.equal(s.qualityDelta,0.2);
  assert.equal(s.go,'0/6');
+ const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
+ const milestones=port.groups.flatMap(g=>g.milestones);
+ assert.equal(milestones.find(x=>x.id==='qa-gated-typed-commercial-route-c31')?.points,0.5);
+ assert.equal(milestones.find(x=>x.id==='qa-gated-typed-commercial-route-c31')?.done,true);
+ assert.equal(milestones.find(x=>x.id==='typed-delta-and-legacy-retirement')?.points,1.5);
+ assert.equal(milestones.find(x=>x.id==='typed-delta-and-legacy-retirement')?.done,false);
+ assert.equal(port.assessedProductSha,'07fada25fd9c6b3ee92d13752fb8497881bce12c');
 });
