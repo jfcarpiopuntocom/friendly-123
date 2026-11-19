@@ -6996,6 +6996,20 @@
       }
       if ((m = path.match(/^\/api\/ubicaciones\/([^/]+)$/)) && opts && opts.method === "PUT") {
         const u = ubicaciones.find((x) => x.id === m[1]); if (!u) return J({ error: "Location not found." }, 404);
+        // Photo pointer retries must prove the same original hash AND revision.
+        // Check before touching any shelf fields so a conflict is side-effect free.
+        if ("fotoHash" in body && ("expectedFotoHash" in body || "expectedFotoRev" in body)) {
+          const expectedRev = body.expectedFotoRev, actualRev = u.fotoRev || null;
+          const matchesHash = "expectedFotoHash" in body &&
+            (body.expectedFotoHash === null || typeof body.expectedFotoHash === "string") &&
+            body.expectedFotoHash === (u.fotoHash || null);
+          const matchesRev = "expectedFotoRev" in body && (expectedRev === null
+            ? actualRev === null
+            : !!(expectedRev && typeof expectedRev === "object" && actualRev &&
+                Number.isSafeInteger(expectedRev.c) && typeof expectedRev.d === "string" &&
+                expectedRev.c === actualRev.c && expectedRev.d === actualRev.d));
+          if (!matchesHash || !matchesRev) return J({ error: "Photo changed on another device. Refresh this shelf before retrying.", codigo: "PHOTO_POINTER_CONFLICT" }, 409);
+        }
         if (body.nombre && body.nombre.trim()) u.nombre = body.nombre.trim();
         if (body.tipo) u.tipo = body.tipo;
         if ("sucursalId" in body) u.sucursalId = body.sucursalId || null;

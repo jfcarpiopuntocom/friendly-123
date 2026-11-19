@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.00",
+  "version": "v0.8.01",
   "fecha": "2026-11-18",
-  "changelog": "v0.8.00: la recuperacion de fotos de perchas exige ACK HTTP explicito y el mismo cuaderno durante escrituras asincronas. Preserva bytes, historial de fotos y avisos; ningun enlace con respuesta ausente o fallida se confirma.",
+  "changelog": "v0.8.01: evita que un reintento antiguo sobreescriba la foto mas reciente de una percha. Verifica fotoHash y fotoRev antes de mutar; responde 409 ante conflicto. Sin cambios de dinero, stock, PIN ni activacion de YParty 2.0.",
   "requerida": false,
-  "shell": "f123-shell-v800",
+  "shell": "f123-shell-v801",
   "apagar": [],
-  "releaseName": "v0.8.00",
-  "cacheGeneration": "golden336"
+  "releaseName": "v0.8.01",
+  "cacheGeneration": "golden337"
 }
