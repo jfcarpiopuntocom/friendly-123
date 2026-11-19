@@ -1,0 +1,30 @@
+name: "PORT2 C17a · Team one-use commercial ticket client + Workerd"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/ws-team-ticket-params.mjs
+      - test/p0-c17a-team-ticket-params.test.cjs
+      - cloudflare-yparty-worker/qa/p0-c17a-team-commercial-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c17a-team-commercial.yml
+permissions: {contents: read}
+jobs:
+  c17a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify C17a syntax, unit & real central issuer tests
+        run: |
+          set -euo pipefail
+          node --check src/ws-team-ticket-params.mjs
+          node --test --test-timeout=60000 test/p0-c17a-team-ticket-params.test.cjs
+      - name: Setup exact Workerd deps
+        working-directory: cloudflare-yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify C17a against real Tienda DO in Workerd
+        working-directory: cloudflare-yparty-worker
+        run: node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c17a-team-commercial-workerd.test.mjs
