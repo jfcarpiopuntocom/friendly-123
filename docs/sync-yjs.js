@@ -3097,7 +3097,7 @@
         // already shipped OCSync facade; no new transport or data migration.
         var relayAnterior = window.OCSync;
         function relayAnteriorApagadoYVacio() {
-          if (!relayAnterior) return typeof window.OCSyncEmit !== "function";
+          if (!relayAnterior) return false; // no lazy-loading old writer may bypass observer
           if (window.OCSync !== relayAnterior) return false;
           try {
             return typeof relayAnterior.estado === "function" &&
