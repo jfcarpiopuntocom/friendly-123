@@ -119,7 +119,7 @@ function inspect(){
   assert.equal(guardStage.points,0.5,'C27+C29 guard cannot earn commercial dispatch credit');
   const leftover=data.groups.flatMap(g=>g.milestones)
    .find(m=>m.id==='typed-delta-and-legacy-retirement');
-  assert.equal(leftover?.points,2.0,'full legacy retirement must retain 2.0 unearned');
+  assert.equal(leftover?.points,1.5,'after C31 only 1.5 remains unearned; fixed browser budget unchanged');
   assert.equal(leftover.done,false,'C29 must not mark live legacy route retired');
   assert.equal(data.commercialGo.certifiedGates,0,'no physical/commercial GO from pilot');
   const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -143,6 +143,38 @@ function inspect(){
    .update(src.replace(/\r\n/g,'\n')).digest('hex');
   assert.equal(manifest.files['./sync-yjs.js'],actual,
     'C29 credit requires official shipped Sync3 source hash');
+ }
+ // C32: credit exactly 0.5/100 for the real C31 QA-gated commercial route,
+ // not the full live dispatch, physical customer rollout, or old-engine retirement.
+ const c31=data.groups.flatMap(group=>group.milestones)
+   .find(item=>item.id==='qa-gated-typed-commercial-route-c31');
+ if(c31?.done){
+   assert.equal(c31.points,0.5,'C31 QA seam must award at most 0.5');
+   const legacy=data.groups.flatMap(group=>group.milestones)
+     .find(item=>item.id==='typed-delta-and-legacy-retirement');
+   assert.equal(legacy?.points,1.5,'remaining legacy retirement budget 1.5');
+   assert.equal(legacy.done,false,'C31 does not retire 1.0 traffic');
+   assert.equal(data.commercialGo.certifiedGates,0,'C31 synthetic tests cannot certify commercial GO');
+   const syncSrc=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   for(const token of [
+     'function _traducirOpLegadoAComando20(op, licenciaFallback)',
+     'API.traducirOpLegadoAComando20 = function (op)',
+     'API.modoCorte20Activo === true',
+     'return API.despacharOpComercialCertificada(cmd20)',
+     'API.activarCorte20Runtime = async function (opc)'
+   ])assert(syncSrc.includes(token),'C31 true product dispatch source missing: '+token);
+   const c31Test='test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs';
+   assert(fs.existsSync(path.join(root,c31Test)),'C31 browser exact-source test missing');
+   const testText=fs.readFileSync(path.join(root,c31Test),'utf8');
+   assert(testText.includes('assert.equal(opsRequests.length, 3)'),
+     'C31 must exercise three typed commands via bundled browser coordinator');
+   const version=load('docs/version.json');
+   assert.equal(version.version,'v0.8.13','C31 browser shell version mismatch');
+   assert.equal(version.shell,'f123-shell-v813','C31 browser shell mismatch');
+   const manifest=load('docs/version-manifest.json');
+   const digest='sha256-'+crypto.createHash('sha256')
+     .update(syncSrc.replace(/\\r\\n/g,'\\n')).digest('hex');
+   assert.equal(manifest.files['./sync-yjs.js'],digest,'C31 shipped facade integrity mismatch');
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
