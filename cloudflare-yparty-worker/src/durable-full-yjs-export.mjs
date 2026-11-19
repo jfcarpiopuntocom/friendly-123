@@ -56,7 +56,7 @@ async function hexSha256(value){
   const hash=await crypto.subtle.digest('SHA-256',value);
   return Array.from(new Uint8Array(hash),b=>b.toString(16).padStart(2,'0')).join('');
 }
-function framesFrom(snapshot){
+export function framesFrom(snapshot){
   const {blocks,legacy,journal,parts}=snapshot;
   need(!(blocks.length&&legacy.length),'conflicting legacy and blocked snapshots');
   need(legacy.length<=1&&(!legacy.length||rowNumber(legacy[0].id,'legacy id')===1),'conflicting legacy snapshot rows');
