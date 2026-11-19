@@ -169,8 +169,10 @@ function inspect(){
    assert(testText.includes('assert.equal(opsRequests.length, 3)'),
      'C31 must exercise three typed commands via bundled browser coordinator');
    const version=load('docs/version.json');
-   assert.equal(version.version,'v0.8.13','C31 browser shell version mismatch');
-   assert.equal(version.shell,'f123-shell-v813','C31 browser shell mismatch');
+   const patchNumC31=Number((/^v0\.8\.(\d+)$/.exec(version.version || '') || [])[1] || 0);
+   const shellNumC31=Number((/^f123-shell-v(\d+)$/.exec(version.shell || '') || [])[1] || 0);
+   assert(patchNumC31 >= 13,'C31 verified runtime requires v0.8.13+ release');
+   assert(shellNumC31 >= 813,'C31 verified runtime requires f123-shell-v813+');
    const manifest=load('docs/version-manifest.json');
    const digest='sha256-'+crypto.createHash('sha256')
      .update(syncSrc.replace(/\r\n/g,'\n')).digest('hex');

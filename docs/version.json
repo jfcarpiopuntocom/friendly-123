@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.13",
+  "version": "v0.8.14",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.13: C31 enruta operaciones comerciales C15 (venta, ajuste, abono) a C25 cuando modoCorte20Activo=true, omite escritura sombra en fotosMap bajo corteFotosShaActivo=true y expone cambio de rol comercial Owner<->Team en sync-yjs.js detras del doble switch QA OFF. Sync3 intacto; cero gastos R2/Cloudflare.",
+  "changelog": "v0.8.14: C34 P0: venta REAL tras ACK local incorpora cantidad y centavos exactos solo para efectivo completo a precio de lista sin faltante, permitiendo C31 sale.record sin inferir dinero del delta. Fiado, cortesia, parcial, descuento o falta de stock conservan ruta 1.0. QA 2.0 OFF, Sync3 intacto; sin cambios Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v813",
+  "shell": "f123-shell-v814",
   "apagar": [],
-  "releaseName": "v0.8.13",
-  "cacheGeneration": "golden349"
+  "releaseName": "v0.8.14",
+  "cacheGeneration": "golden350"
 }
