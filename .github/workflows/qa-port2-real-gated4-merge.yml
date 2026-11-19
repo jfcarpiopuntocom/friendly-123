@@ -7,9 +7,11 @@ on:
     paths:
       - cloudflare-yparty-worker/src/open-existing-store.mjs
       - cloudflare-yparty-worker/src/merge-frozen-into-existing.mjs
+      - cloudflare-yparty-worker/src/sha256-sync.mjs
       - cloudflare-yparty-worker/src/durable-full-yjs-export.mjs
       - cloudflare-yparty-worker/src/index.js
       - cloudflare-yparty-worker/qa/p0-gated4-merge-nonempty-sql.test.mjs
+      - cloudflare-yparty-worker/qa/p0-sha256-sync-transaction.test.mjs
       - cloudflare-yparty-worker/qa/p0-gated4-real-onstart-workerd.test.mjs
       - cloudflare-yparty-worker/qa/fixtures/gated4-real-nonempty-worker.mjs
       - .github/workflows/qa-port2-real-gated4-merge.yml
@@ -35,7 +37,7 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD
-          node --test qa/p0-gated4-merge-nonempty-sql.test.mjs
+          node --test qa/p0-gated4-merge-nonempty-sql.test.mjs qa/p0-sha256-sync-transaction.test.mjs
       - name: Previous Gate D Workerd and privacy regressions
         working-directory: cloudflare-yparty-worker
         run: |
