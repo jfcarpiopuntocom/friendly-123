@@ -1,0 +1,33 @@
+name: "PORT2 C21a · verified cross-device failback coordinator (same-do-only fence + Workerd 2-device)"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/port2-cross-device-failback.mjs
+      - test/p0-c21a-cross-device-failback.test.cjs
+      - cloudflare-yparty-worker/qa/p0-c21a-cross-device-failback-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c21a-cross-device-failback.yml
+permissions: {contents: read}
+jobs:
+  c21a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install root and Workerd dependencies
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify C21a syntax and unit tests with real fake-indexeddb
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --check src/port2-cross-device-failback.mjs
+          node --test --test-timeout=60000 test/p0-c21a-cross-device-failback.test.cjs
+      - name: Real 2-device Workerd + fake-indexeddb failback, C10 handover and same-do-only drain
+        working-directory: cloudflare-yparty-worker
+        run: node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c21a-cross-device-failback-workerd.test.mjs

@@ -6,6 +6,9 @@ import {validateTypedCommercialCommand} from './port2-typed-ops-client.mjs';
 
 const DB_NAME = 'f123_port2_typed_ops_v1';
 const STORE = 'pending_ops';
+// C21b: non-expiring compact tombstones of business-committed opIds.
+// Pending cleanup and terminal marker MUST share one IndexedDB transaction.
+const SETTLED = 'settled_ops';
 const NAMESPACE = /^[a-f0-9]{64}$/;
 const OP_ID = /^(?:customer-payment:)?[A-Za-z0-9_-]{8,96}$/;
 const MAX_ENTRY_BYTES = 32 * 1024;
@@ -115,7 +118,7 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
         else resolve(db);
       };
       try {
-        req = indexedDB.open(DB_NAME, 1);
+        req = indexedDB.open(DB_NAME, 2);
       } catch (err) { finish(err); return; }
       timer = setTimeout(() =>
         finish(new Error('Typed-ops IndexedDB open timeout')), openTimeoutMs);
@@ -123,6 +126,9 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
         try {
           if (!req.result.objectStoreNames.contains(STORE)) {
             req.result.createObjectStore(STORE, { keyPath: 'key' });
+          }
+          if (!req.result.objectStoreNames.contains(SETTLED)) {
+            req.result.createObjectStore(SETTLED, { keyPath: 'key' });
           }
         } catch (err) {
           try { req.transaction?.abort(); } catch (_) {}
@@ -135,7 +141,7 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
     });
   }
 
-  async function transact(mode, run) {
+  async function transact(mode, run, stores = [STORE]) {
     const db = await openDb();
     try {
       return await new Promise((resolve, reject) => {
@@ -143,7 +149,7 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
         let output = null;
         let failure = null;
         try {
-          tx = db.transaction(STORE, mode);
+          tx = db.transaction(stores.length === 1 ? stores[0] : stores, mode);
         } catch (err) {
           reject(err);
           return;
@@ -153,14 +159,15 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
         tx.onabort = () => reject(failure || tx.error || new Error('Typed-ops IndexedDB transaction aborted'));
         tx.onerror = () => {};
         try {
-          const objectStore = tx.objectStore(STORE);
+          const objectStore = tx.objectStore(stores[0]);
           run(
             objectStore,
             (result) => { output = result; },
             (err) => {
               failure = err;
               try { tx.abort(); } catch (abortErr) { reject(abortErr); }
-            }
+            },
+            tx
           );
         } catch (err) {
           failure = err;
@@ -226,6 +233,81 @@ export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2
         };
         getReq.onerror = () => fail(getReq.error || new Error('Typed-ops IndexedDB read before save failed'));
       });
+    },
+
+    // Read separately from the queue: a committed operation no longer needs
+    // retrying, but MUST remain blocked from a second legacy sale after reload.
+    async loadCommittedOpIds() {
+      const result = await transact('readonly', (objectStore, done, fail) => {
+        const req = objectStore.getAll();
+        req.onsuccess = () => {
+          try {
+            const values = Array.isArray(req.result) ? req.result : [];
+            const mine = [];
+            const ownKeyPrefix = JSON.stringify([namespace, '']).slice(0, -2);
+            for (const row of values) {
+              const ownKey = typeof row?.key === 'string' &&
+                row.key.startsWith(ownKeyPrefix);
+              if (!ownKey && row?.namespace !== namespace) continue;
+              if (!row || typeof row !== 'object' ||
+                  Object.keys(row).sort().join(',') !== 'key,namespace,opId' ||
+                  row.namespace !== namespace || !OP_ID.test(row.opId || '') ||
+                  row.key !== storageKey(row.opId)) {
+                throw new Error('Corrupt own-business committed opId tombstone');
+              }
+              mine.push(row.opId);
+            }
+            done(mine);
+          } catch (error) { fail(error); }
+        };
+        req.onerror = () => fail(req.error || new Error('Committed opId read failed'));
+      }, [SETTLED]);
+      if (!Array.isArray(result)) throw new Error('Committed opId store unavailable');
+      return result;
+    },
+
+    // C21b: one real readwrite IDB transaction atomically puts a compact
+    // terminal tombstone and deletes the original pending operation.
+    // A failed transaction leaves the old pending record intact.
+    async markCommitted(opId) {
+      const key = storageKey(opId);
+      await transact('readwrite', (pendingStore, done, fail, tx) => {
+        const settledStore = tx.objectStore(SETTLED);
+        const getPending = pendingStore.get(key);
+        getPending.onsuccess = () => {
+          try {
+            const original = getPending.result;
+            if (!original || original.namespace !== namespace ||
+                !original.value || original.key !== key ||
+                validateEntry(original.value).opId !== opId) {
+              // Idempotent re-ack is permitted only if the prior committed
+              // tombstone is already trustworthy. Never mint a marker
+              // for a non-existent operation.
+              const existing = settledStore.get(key);
+              existing.onsuccess = () => {
+                const row = existing.result;
+                if (!row || row.namespace !== namespace ||
+                    row.opId !== opId || row.key !== key ||
+                    Object.keys(row).sort().join(',') !== 'key,namespace,opId') {
+                  fail(new Error('Cannot confirm missing pending opId'));
+                  return;
+                }
+                done(true);
+              };
+              existing.onerror = () => fail(existing.error || new Error('Committed opId lookup failed'));
+              return;
+            }
+            const put = settledStore.put({key, namespace, opId});
+            put.onsuccess = () => {
+              const del = pendingStore.delete(key);
+              del.onsuccess = () => done(true);
+              del.onerror = () => fail(del.error || new Error('Pending deletion failed'));
+            };
+            put.onerror = () => fail(put.error || new Error('Committed opId write failed'));
+          } catch (error) { fail(error); }
+        };
+        getPending.onerror = () => fail(getPending.error || new Error('Pending opId lookup failed'));
+      }, [STORE, SETTLED]);
     },
 
     async remove(opId) {
