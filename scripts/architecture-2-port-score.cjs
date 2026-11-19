@@ -70,7 +70,7 @@ function inspect(){
  if(photoQuality?.score>=7){
   const ui=fs.readFileSync(path.join(root,'docs/vista-perchas.js'),'utf8');
   const manifest=load('docs/version-manifest.json');
-  const digest='sha256-'+crypto.createHash('sha256').update(ui.replace(/\\r\\n/g,'\\n')).digest('hex');
+  const digest='sha256-'+crypto.createHash('sha256').update(ui.replace(/\r\n/g,'\n')).digest('hex');
   assert.equal(manifest.files['./vista-perchas.js'],digest,
     'Belén CAS quality credit requires sealed real browser code');
   assert(ui.includes('expectedFotoHash')&&ui.includes('expectedFotoRev'),
