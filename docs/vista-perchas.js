@@ -597,10 +597,14 @@
           },
           setPointer: async (id, hash) => {
             if (estaCarga !== cargaEnCurso || !mismoCuadernoFotoRecuperacion()) return false;
+            // A shelf outside the observed snapshot has no CAS precondition.
+            // Do not silently publish a naked photo pointer that can overwrite C.
+            if (!Object.prototype.hasOwnProperty.call(preimagenPorId, String(id))) return false;
             const pre = preimagenPorId[String(id)];
-            const payload = pre
-              ? { fotoHash: hash, expectedFotoHash: pre.expectedFotoHash, expectedFotoRev: pre.expectedFotoRev }
-              : { fotoHash: hash };
+            if (!pre) return false;
+            const payload = {
+              fotoHash: hash, expectedFotoHash: pre.expectedFotoHash, expectedFotoRev: pre.expectedFotoRev
+            };
             const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -1071,9 +1075,12 @@
           throw new Error('Photo hash storage unavailable');
         const hash = await window.OCFotos.guardarFotoContenido(dataUrl);
         if (!hash || !mismoCuaderno()) throw new Error('Photo notebook changed');
-        const bodyCas = preimagenFoto
-          ? { fotoHash: hash, expectedFotoHash: preimagenFoto.expectedFotoHash, expectedFotoRev: preimagenFoto.expectedFotoRev }
-          : { fotoHash: hash };
+        // The photo bytes are safe locally, but a missing shelf preimage is
+        // NOT permission to perform an unguarded remote pointer write.
+        if (!preimagenFoto) throw new Error('Photo CAS preimage unavailable');
+        const bodyCas = {
+          fotoHash: hash, expectedFotoHash: preimagenFoto.expectedFotoHash, expectedFotoRev: preimagenFoto.expectedFotoRev
+        };
         const response = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(bodyCas)
@@ -1142,10 +1149,11 @@
         if (!bytes || !mismoCuadernoRestore()) return;
         await window.OCFotos.guardarFoto(id, bytes);
         if (!mismoCuadernoRestore()) return;
+        if (!preimagenRestore) throw new Error('Photo CAS preimage unavailable');
         fotoCache[id] = bytes;
-        const bodyCas = preimagenRestore
-          ? { fotoHash: hash, expectedFotoHash: preimagenRestore.expectedFotoHash, expectedFotoRev: preimagenRestore.expectedFotoRev }
-          : { fotoHash: hash };
+        const bodyCas = {
+          fotoHash: hash, expectedFotoHash: preimagenRestore.expectedFotoHash, expectedFotoRev: preimagenRestore.expectedFotoRev
+        };
         const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
           method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(bodyCas)
         });
