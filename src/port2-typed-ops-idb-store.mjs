@@ -2,12 +2,14 @@
 // Resolves ONLY after real IndexedDB tx.oncomplete, isolates businesses by SHA-256
 // namespace (never plaintext license keys), enforces immutable command payloads per opId,
 // and refuses to persist PINs, bearer tokens or secrets.
+import {validateTypedCommercialCommand} from './port2-typed-ops-client.mjs';
 
 const DB_NAME = 'f123_port2_typed_ops_v1';
 const STORE = 'pending_ops';
 const NAMESPACE = /^[a-f0-9]{64}$/;
 const OP_ID = /^(?:customer-payment:)?[A-Za-z0-9_-]{8,96}$/;
 const MAX_ENTRY_BYTES = 32 * 1024;
+const STATES = new Set(['prepared','pending','paused-auth-required','paused-retry-exhausted','quarantined']);
 const FORBIDDEN_SECRET_KEYS = new Set([
   'pin',
   'ownerpin',
@@ -58,15 +60,24 @@ function validateEntry(entry) {
   if (hasForbiddenSecretKey(entry)) {
     throw new TypeError('Secret credentials cannot be persisted in typed-ops store');
   }
+  // A blacklist alone cannot exclude arbitrary private business fields.
+  // C15 is the already-audited exact command allowlist used by the real DO.
+  const checked = validateTypedCommercialCommand(entry.command);
+  if (!checked.ok) throw new TypeError('Invalid typed-ops commercial command schema');
+  if (Object.keys(entry).sort().join(',') !==
+      'attempts,command,createdAt,opId,sameDoLocked,state,updatedAt' ||
+      !Number.isSafeInteger(entry.attempts) || entry.attempts < 0 || entry.attempts > 10 ||
+      !STATES.has(entry.state) ||
+      !Number.isSafeInteger(entry.createdAt) || !Number.isSafeInteger(entry.updatedAt))
+    throw new TypeError('Invalid typed-ops durable entry schema');
   const clean = {
     opId: entry.opId,
-    command: cloneJson(entry.command),
+    command: cloneJson(checked.canonical),
     sameDoLocked: true,
-    attempts: Number.isSafeInteger(entry.attempts) && entry.attempts >= 0 ? entry.attempts : 0,
-    state: typeof entry.state === 'string' && entry.state.length > 0 && entry.state.length <= 64
-      ? entry.state : 'pending',
-    createdAt: Number.isSafeInteger(entry.createdAt) ? entry.createdAt : Date.now(),
-    updatedAt: Number.isSafeInteger(entry.updatedAt) ? entry.updatedAt : Date.now()
+    attempts: entry.attempts,
+    state: entry.state,
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt
   };
   const encoded = JSON.stringify(entry);
   if (!encoded || new TextEncoder().encode(encoded).byteLength > MAX_ENTRY_BYTES) {
@@ -75,12 +86,15 @@ function validateEntry(entry) {
   return clean;
 }
 
-export function createTypedOpsIdbStore({ indexedDB, namespace } = {}) {
+export function createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs = 2500 } = {}) {
   if (!indexedDB || typeof indexedDB.open !== 'function') {
     throw new TypeError('IndexedDB is required for durable typed-ops reconciliation');
   }
   if (!NAMESPACE.test(namespace || '')) {
     throw new TypeError('SHA-256 64-hex business namespace required');
+  }
+  if (!Number.isSafeInteger(openTimeoutMs) || openTimeoutMs < 100 || openTimeoutMs > 10000) {
+    throw new TypeError('IndexedDB open timeout must be 100..10000 ms');
   }
 
   function storageKey(opId) {
@@ -90,21 +104,34 @@ export function createTypedOpsIdbStore({ indexedDB, namespace } = {}) {
 
   function openDb() {
     return new Promise((resolve, reject) => {
-      let req;
+      let req, finished = false, timer;
+      const finish = (error, db) => {
+        // Safari can resolve an abandoned IDB.open long after timeout/blocked.
+        // Never leave that late connection alive or promote it to an ACK.
+        if (finished) { try { db?.close(); } catch (_) {} return; }
+        finished = true;
+        clearTimeout(timer);
+        if (error) reject(error);
+        else resolve(db);
+      };
       try {
         req = indexedDB.open(DB_NAME, 1);
-      } catch (err) {
-        reject(err);
-        return;
-      }
+      } catch (err) { finish(err); return; }
+      timer = setTimeout(() =>
+        finish(new Error('Typed-ops IndexedDB open timeout')), openTimeoutMs);
       req.onupgradeneeded = () => {
-        if (!req.result.objectStoreNames.contains(STORE)) {
-          req.result.createObjectStore(STORE, { keyPath: 'key' });
+        try {
+          if (!req.result.objectStoreNames.contains(STORE)) {
+            req.result.createObjectStore(STORE, { keyPath: 'key' });
+          }
+        } catch (err) {
+          try { req.transaction?.abort(); } catch (_) {}
+          finish(err);
         }
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error || new Error('Typed-ops IndexedDB unavailable'));
-      req.onblocked = () => reject(new Error('Typed-ops IndexedDB blocked'));
+      req.onsuccess = () => finish(null, req.result);
+      req.onerror = () => finish(req.error || new Error('Typed-ops IndexedDB unavailable'));
+      req.onblocked = () => finish(new Error('Typed-ops IndexedDB blocked'));
     });
   }
 
