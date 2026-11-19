@@ -1,0 +1,72 @@
+name: C25 v810 · deterministic browser seal on isolated QA branch
+on:
+  push:
+    branches: [port2/20261119-c25-browser-coordinator-v810]
+permissions:
+  contents: write
+jobs:
+  assemble:
+    if: "!contains(github.event.head_commit.message, '[sealed C25]')"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true, fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Install locked builder dependencies only
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Rebuild actual C25 C21a+C21b+C23 pilot into release v810
+        run: |
+          set -euo pipefail
+          NODE_PATH=cloudflare-yparty-worker/node_modules node scripts/build-yparty-piloto.cjs
+          node <<'JS'
+          const fs=require('node:fs'),crypto=require('node:crypto');
+          const exact=(file,oldText,newText)=>{
+            const original=fs.readFileSync(file,'utf8');
+            if(!original.includes(oldText))throw Error(file+' expected '+oldText);
+            fs.writeFileSync(file,original.split(oldText).join(newText));
+          };
+          const file='docs/version.json',version=JSON.parse(fs.readFileSync(file,'utf8'));
+          if(version.version!=='v0.8.09'||version.shell!=='f123-shell-v809'||version.cacheGeneration!=='golden345')
+            throw Error('not based on exact audited master v809');
+          Object.assign(version,{
+            version:'v0.8.10',shell:'f123-shell-v810',cacheGeneration:'golden346',
+            releaseName:'v0.8.10',requerida:false,apagar:[],
+            changelog:'v0.8.10: ensambla el coordinador C21a con C21b IndexedDB v2, C16a ops y C19a escritor catalogo en piloto y Sync3 API detrás de QA OFF. Pagehide libera escritor C10 y conserva opId confirmado irreversible. Sync3 y ventas antiguas intactos, cero gastos R2/Cloudflare.'
+          });
+          fs.writeFileSync(file,JSON.stringify(version,null,2)+'\n');
+          for(const f of ['docs/sw.js','docs/dashboard.html']){
+            exact(f,'f123-shell-v809','f123-shell-v810');
+            const contents=fs.readFileSync(f,'utf8');
+            if(contents.includes('golden345'))exact(f,'golden345','golden346');
+            if(fs.readFileSync(f,'utf8').includes('v0.8.09'))exact(f,'v0.8.09','v0.8.10');
+          }
+          const bundle=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
+          const str=bundle.toString('utf8');
+          for(const method of ['crearCoordinadorCorte20','settled_ops','markCommitted',
+            'crearAlmacenDurableOpsTipadas','abrirEscritorDeltaCatalogoCertificado']){
+            if(!str.includes(method))throw Error('missing real bundled method '+method);
+          }
+          const hash=crypto.createHash('sha256').update(bundle).digest('hex');
+          const gate='.github/workflows/qa-port2-v785-shell-seal.yml';
+          exact(gate,'b00b39ce4fe4dc3426206f1c5d4c3de6842b4a5f4a5a3dea6c3bddffbf0d50d3',hash);
+          console.log('C25 v810 real bundle sha256='+hash);
+          JS
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+      - name: Commit only deterministic generated runtime release assets into C25 branch
+        run: |
+          set -euo pipefail
+          git config user.name "friendly123 QA release compiler"
+          git config user.email "qa-release-compiler@users.noreply.github.com"
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/vendor/yparty-piloto.min.js docs/version-manifest.json .github/workflows/qa-port2-v785-shell-seal.yml
+          git diff --cached --quiet && { echo "No compiled assets changed; fail closed"; exit 1; }
+          git commit -m "build(port2): [sealed C25] v810 real browser failback coordinator and integrity manifest"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git rev-parse HEAD
