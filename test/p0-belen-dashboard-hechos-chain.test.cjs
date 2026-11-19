@@ -77,6 +77,22 @@ test('H6 RED: no WebCrypto cannot certify unweak SHA256 hash receipts',async()=>
  assert.equal(ctx.datos.cobertura.hechosFinancieros,false);
  assert.equal(ctx.datos.cobertura.motivoHechos,'cadena-invalida');
 });
+test('H6 async hash rejection after a notebook switch never repaints old Casa facts',async()=>{
+ const a=make('writer-A',1,'');let invoked=0;
+ const ctx=await run([a],{afterStart(ctx){
+   ctx.F123HechosChain={verificarCadenas(){
+     invoked++;
+     return new Promise((_resolve,reject)=>setTimeout(()=>{
+       ctx.codigoSesionActual='OTHER-SYNTHETIC-STORE';
+       reject(new Error('synthetic delayed crypto failure'));
+     },0));
+   }};
+ }});
+ assert.equal(invoked,1,'test must actually reach async verifier after IDB transaction');
+ assert.equal(ctx.rendered.length,0,'late rejection cannot repaint another business');
+ assert.equal(ctx.datos.cobertura.hechosFinancieros,false,'old financial journal remains uncertified');
+ assert.equal(ctx.datos.hechosFinancieros.length,0);
+});
 test('H6 source does not mutate underlying journal in any validator path',()=>{
  assert.ok(!local.includes('transaction("hechos", "readwrite"'));
  assert.ok(!local.includes('objectStore("hechos").put'));
