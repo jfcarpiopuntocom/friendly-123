@@ -80,6 +80,7 @@ test('C38: old relay intentionally OFF but unacknowledged old local outbox block
 });
 test('C38: old relay state unreadable or missing change observer blocks unsafe cutover',async()=>{
   await rejectWithoutWriter(fixture({throws:true}));
+  await rejectWithoutWriter(fixture({withFacade:false}));
   await rejectWithoutWriter(fixture({estado:'apagado',missingWatcher:true}));
 });
 test('C38: fully quiesced legacy OFF + empty queue permits certified cutover, photo-only still works',async()=>{
