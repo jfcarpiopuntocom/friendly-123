@@ -2,7 +2,7 @@
 'use strict';
 // PORT = code assembled into friendly-123, not a separately shipped app.
 // Reproducible weighted capabilities, with physical/customer GO kept separate.
-const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
 const load=p=>JSON.parse(fs.readFileSync(path.join(root,p),'utf8'));
 function oneDecimal(n){return Math.round((n+Number.EPSILON)*10)/10;}
@@ -35,6 +35,17 @@ function inspect(){
    }
   }
   assert.equal(oneDecimal(capacity),oneDecimal(group.weight),'incorrect category budget '+group.id);
+ }
+ const compiledStage=data.groups.flatMap(group=>group.milestones).find(item=>item.id==='read-only-browser-join');
+ if(compiledStage?.done){
+  const vendor=fs.readFileSync(path.join(root,'docs/vendor/yparty-piloto.min.js'),'utf8');
+  assert(vendor.includes('leerCatalogoPublicoCertificado'),
+    'C12 credits are invalid unless the real shipped browser bundle has the method');
+  const manifest=load('docs/version-manifest.json');
+  const digest='sha256-'+crypto.createHash('sha256')
+    .update(vendor.replace(/\r\n/g,'\n')).digest('hex');
+  assert.equal(manifest.files['./vendor/yparty-piloto.min.js'],digest,
+    'C12 credits require the exact real browser vendor integrity seal');
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
