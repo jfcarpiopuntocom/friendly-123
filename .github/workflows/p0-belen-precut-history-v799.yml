@@ -8,6 +8,7 @@ on:
       - test/p0-yjs-pending-snapshot.test.js
       - test/incident-yjs-causal-replay-v559.test.js
       - test/incident-yjs-receive-queue-v558.test.js
+      - test/incident-relay-quota-budget-v559.test.js
       - test/sync3-head-causal-gap.test.cjs
       - test/pull-cursor-durable-ack.test.cjs
       - test/firebase-relay-timestamp-boundary.test.cjs
@@ -19,6 +20,7 @@ on:
       - test/p0-yjs-pending-snapshot.test.js
       - test/incident-yjs-causal-replay-v559.test.js
       - test/incident-yjs-receive-queue-v558.test.js
+      - test/incident-relay-quota-budget-v559.test.js
       - test/sync3-head-causal-gap.test.cjs
       - test/pull-cursor-durable-ack.test.cjs
       - test/firebase-relay-timestamp-boundary.test.cjs
@@ -41,6 +43,7 @@ jobs:
             test/p0-precut-independent-writers-v783.test.cjs \
             test/incident-yjs-causal-replay-v559.test.js \
             test/incident-yjs-receive-queue-v558.test.js \
+            test/incident-relay-quota-budget-v559.test.js \
             test/p0-yjs-pending-snapshot.test.js \
             test/sync3-head-causal-gap.test.cjs \
             test/pull-cursor-durable-ack.test.cjs \
