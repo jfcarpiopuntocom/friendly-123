@@ -29,7 +29,7 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD
-          node --test --test-concurrency=1 qa/p0-gated6-frozen-r2-source-workerd.test.mjs
+          timeout -k 5 80s node --test --test-concurrency=1 qa/p0-gated6-frozen-r2-source-workerd.test.mjs
       - name: Previous real Tienda Gate D regressions
         working-directory: cloudflare-yparty-worker
         run: |
