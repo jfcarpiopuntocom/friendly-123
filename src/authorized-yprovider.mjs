@@ -1,4 +1,5 @@
 import YProvider,{WebsocketProvider} from 'y-partyserver/provider';
+import {assertPublicCatalogTransportDoc} from './port2-public-catalog-bridge.mjs';
 
 // The imported automatic reconnect deliberately reuses stale params on failure.
 // Single-use capabilities require a fresh authorization before every socket instead.
@@ -6,6 +7,11 @@ export default class AuthorizedYProvider extends YProvider {
   #session;
 
   constructor(host,room,doc,options={}) {
+    // Check the actual transmitted document BEFORE the base provider can
+    // register a listener, assemble a sync frame or open any socket. The
+    // private Sync3 Y.Doc is NEVER a valid -cat transport document.
+    if(typeof room==='string'&&room.endsWith('-cat'))
+      assertPublicCatalogTransportDoc({doc,room});
     const {params,connect=false,...rest}=options;
     if(typeof params!=='function')throw new TypeError('WS authorization requires a fresh params callback');
     super(host,room,doc,{...rest,params:undefined,connect:false,disableBc:true});
