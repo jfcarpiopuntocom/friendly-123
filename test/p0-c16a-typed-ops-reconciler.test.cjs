@@ -149,11 +149,13 @@ test('3. 202 queued / timeout latches same-do-only and reconciles to duplicate=t
   assert.deepEqual(clock.pendingDelays(), [500]);
 
   await clock.fireNext();
+  await new Promise(resolve => setImmediate(resolve)); // async durable save before retry dispatch
   assert.equal(calls.length, 2);
   assert.equal(store.dump().length, 1);
   assert.deepEqual(clock.pendingDelays(), [1000]);
 
   await clock.fireNext();
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls.length, 3);
   assert.equal(store.dump().length, 0);
   assert.equal(clock.activeCount(), 0);
@@ -261,7 +263,8 @@ test('6. single-flight per opId prevents duplicate concurrent POSTs and rejects 
   const bad = await rec.submit({ ...sampleSale('sale_op_00000006'), amountCents: 9999 });
   assert.equal(bad.stage, 'opid-payload-mismatch');
   assert.equal(bad.fallbackLegacy, false);
-
+  await new Promise(resolve => setImmediate(resolve)); // real IDB can hydrate/save async
+  assert.equal(typeof release, 'function');
   release();
   const [r1, r2] = await Promise.all([p1, p2]);
   assert.equal(calls, 1, 'same opId must remain strictly single-flight');
@@ -294,10 +297,12 @@ test('7. maxAttempts bounds retries strictly (zero runaway request storms) and p
   assert.deepEqual(clock.pendingDelays(), [400]);
 
   await clock.fireNext();
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls, 2);
   assert.deepEqual(clock.pendingDelays(), [800]);
 
   await clock.fireNext();
+  await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls, 3);
   assert.equal(clock.activeCount(), 0, 'must stop scheduling after maxAttempts');
   assert.equal(store.dump()[0].state, 'paused-retry-exhausted');
@@ -379,6 +384,7 @@ test('9. persisted same-do-only entries survive page reload and never store PIN/
       return { committed: true, duplicate: true, stage: 'business-committed', fallbackLegacy: false, receipt: { opId: cmd.opId, receiptId: 'e'.repeat(24), stage: 'business-committed' } };
     }
   });
+  await rec2.ready(); // hydrate queued opIds before showing pending state
   assert.equal(rec2.pending().length, 1);
   await rec2.reconcileNow();
   assert.equal(reloadedCalls, 1);
@@ -444,6 +450,7 @@ test('11. concurrent initial burst respects maxPending even before responses ret
   const p2 = rec.submit(sampleSale('sale_op_00000014'));
   const overflow = await rec.submit(sampleSale('sale_op_00000015'));
   assert.equal(overflow.stage, 'reconciler-queue-full');
+  await new Promise(resolve => setImmediate(resolve)); // wait for durable pre-send commit
   assert.equal(calls, 2);
   resolvers.forEach(fn => fn());
   const [r1, r2] = await Promise.all([p1, p2]);
