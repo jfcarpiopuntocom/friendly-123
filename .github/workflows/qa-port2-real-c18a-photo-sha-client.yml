@@ -1,0 +1,30 @@
+name: "PORT2 C18a · hardened SHA photo client (Owner PUT/GET + Team read-only, Workerd SQLite)"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/port2-photo-sha-client.mjs
+      - test/p0-c18a-photo-sha-client.test.cjs
+      - cloudflare-yparty-worker/qa/p0-c18a-photo-sha-client-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c18a-photo-sha-client.yml
+permissions: {contents: read}
+jobs:
+  c18a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify C18a syntax and unit tests
+        run: |
+          set -euo pipefail
+          node --check src/port2-photo-sha-client.mjs
+          node --test --test-timeout=60000 test/p0-c18a-photo-sha-client.test.cjs
+      - name: Setup exact Workerd deps
+        working-directory: cloudflare-yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify C18a multi-chunk SQLite photo persistence + Team read-only in real Workerd
+        working-directory: cloudflare-yparty-worker
+        run: node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c18a-photo-sha-client-workerd.test.mjs
