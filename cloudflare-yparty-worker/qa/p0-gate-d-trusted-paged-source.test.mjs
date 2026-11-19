@@ -120,3 +120,11 @@ test('synthetic public catalog validator handles a decoded Y.Doc without private
  assert.deepEqual(root.toJSON(),pub.getMap('productos').toJSON());
  pub.destroy();reopened.destroy();source.destroy();
 });
+
+test('legacy numeric-frame catalog with real productos root cannot sneak private cost fields through v1',async()=>{
+ const doc=new Y.Doc();doc.getMap('productos').set('sku1',{id:'sku1',nombre:'Book',precio:12.5,stockActual:3,costo:777,ownerPin:'SECRET_PIN'});
+ const state=Y.encodeStateAsUpdate(doc),vector=Y.encodeStateVector(doc);doc.destroy();
+ const body={room,channel:'cat',frozenHead:'legacy-private-catalog',completeToHead:true,
+  expectedStateSha256:await sha(state),expectedVectorSha256:await sha(vector),frames:[Array.from(state)]};
+ await assert.rejects(readTrustedFrozenSource({env:setup([body]).env,room,channel:'cat'}),/trusted frozen history unavailable/);
+});
