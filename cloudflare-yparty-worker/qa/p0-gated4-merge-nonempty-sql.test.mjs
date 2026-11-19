@@ -85,7 +85,7 @@ test('RED real SQL: 10 locally committed sales + 100 frozen sales => 110 immutab
    for(const [id,payload] of store.local.baseline)assert.deepEqual(events.get(id),payload,id);
    assert.equal(doc.store.pendingStructs,null);assert.equal(doc.store.pendingDs,null);
   }finally{doc.destroy();}
-  assert.equal(store.count('f123_frozen_imports'),0,'nonempty union does not forge an empty-store import');
+  assert.equal(store.storage.sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='f123_frozen_imports'").toArray().length,0,'nonempty union does not forge an empty-store import');
  }finally{store.destroy();}
 });
 test('cold reopen with source unavailable proves the same 110 financial facts without rewriting them',async()=>{
@@ -154,5 +154,36 @@ test('flag OFF leaves nonempty SQL and revenue unchanged',async()=>{
   const journal=store.count('diario');
   const r=await openExistingStore({env:{WS_OPEN_EXISTING_QA:'0'},storage:store.storage,source});
   assert.equal(r.opened,false);assert.equal(store.count('diario'),journal);
+ }finally{store.destroy();}
+});
+
+test('cold reopen must reject a replaced same-opId payment even when event count stays 110',async()=>{
+ const store=sqlStore(),source=frozen();
+ try{
+  assert.equal((await openExistingStore({env,storage:store.storage,source})).opened,true);
+  const {doc,events}=await exported(store);
+  doc.clientID=0xfffffffe;
+  events.set('historical-003',mkEvent('historical-003',900000));
+  const poisoned=Y.encodeStateAsUpdate(doc);
+  doc.destroy();
+  store.storage.sql.exec('INSERT INTO diario (cambio) VALUES (?)',poisoned);
+  const r=await openExistingStore({env,storage:store.storage,source:undefined});
+  assert.equal(r.opened,false,'reopen must never ACK replaced revenue under identical opId');
+  assert.match(r.failback,/changed|removed|mismatch/i);
+ }finally{store.destroy();}
+});
+test('cold reopen accepts a legitimate new postcut sale without reimporting the frozen set',async()=>{
+ const store=sqlStore(),source=frozen();
+ try{
+  assert.equal((await openExistingStore({env,storage:store.storage,source})).opened,true);
+  const {doc,events}=await exported(store);
+  doc.clientID=0xfffffffe;
+  events.set('postcut-new-001',mkEvent('postcut-new-001',675));
+  const extra=Y.encodeStateAsUpdate(doc);
+  doc.destroy();
+  store.storage.sql.exec('INSERT INTO diario (cambio) VALUES (?)',extra);
+  const r=await openExistingStore({env,storage:store.storage,source:undefined});
+  assert.equal(r.opened,true,JSON.stringify(r));assert.equal(r.already,true);
+  const after=await exported(store);assert.equal(after.events.size,111);after.doc.destroy();
  }finally{store.destroy();}
 });
