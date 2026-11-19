@@ -175,8 +175,14 @@ test('C25 real bundle: certified 2.0 commercial op commits once, survives browse
       off(event,fn){listeners.get(event)?.delete(fn);},
       async connect(){
         await params();
-        doc.getMap('productos').set('p-1',{id:'p-1',nombre:'Synthetic',precio:10,stockActual:2});
-        doc.getMap('ubicaciones').set('s-1',{id:'s-1',nombre:'Shelf',activa:true});
+        // Yjs contract C9 checks plain objects in the BROWSER realm. Never
+        // synthesize a Node-realm object and mistake a cross-realm rejection
+        // for a failed certified Workerd/catalog product route.
+        env.ctx.__c25RemoteDoc=doc;
+        vm.runInContext(`
+          __c25RemoteDoc.getMap('productos').set('p-1',{id:'p-1',nombre:'Synthetic',precio:10,stockActual:2});
+          __c25RemoteDoc.getMap('ubicaciones').set('s-1',{id:'s-1',nombre:'Shelf',activa:true});
+        `,env.ctx);
         for(const fn of listeners.get('synced')||[])fn(true);
       },
       destroy(){++closes;}
