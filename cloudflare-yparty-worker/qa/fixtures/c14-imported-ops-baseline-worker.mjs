@@ -4,20 +4,31 @@ import {getServerByName} from 'partyserver';
 import {exportCompleteYpartyYjs} from '../../src/durable-full-yjs-export.mjs';
 import * as Y from 'yjs';
 export class Tienda extends RealTienda{
+ async onStart(){
+  // Observe a real base-class fail-closed rejection without letting the
+  // synthetic QA diagnostics disappear behind the DO's failed startup.
+  try{return await super.onStart()}
+  catch(error){this.c14StartupError=String(error?.message||error);}
+ }
  async onRequest(request){
-  if(request.headers.get('x-f123-c14-fixture')!=='synthetic-only')
+  if(request.headers.get('x-f123-c14-fixture')!=='synthetic-only'){
+   if(this.c14StartupError)return new Response('Gate D refused uncertified history',{status:503});
    return super.onRequest(request);
+  }
   if(!this.name.endsWith('-ops'))return new Response('wrong room',{status:403});
   const sql=this.ctx.storage.sql,action=request.headers.get('x-f123-c14-action')||'inspect';
   try{
    const certTable=sql.exec("SELECT name FROM sqlite_master WHERE name='f123_frozen_imports'").toArray().length>0;
    const baselineTable=sql.exec("SELECT name FROM sqlite_master WHERE name='f123_frozen_import_event_baseline'").toArray().length>0;
    if(action==='inspect'){
+    if(!certTable)return Response.json({opened:false,already:false,
+     failback:this.c14StartupError||'flag-off',count:0,values:{},
+     cert:false,baseline:baselineTable,baselineCount:null,journal:0,pending:false});
     const full=await exportCompleteYpartyYjs({storage:this.ctx.storage,channel:'ops'});
     const d=new Y.Doc();Y.applyUpdate(d,full.bytes);
     const events=d.getMap('eventos');
     const response={opened:this.gateD?.opened===true,already:this.gateD?.already===true,
-     failback:this.gateD?.failback??null,count:events.size,values:events.toJSON(),
+     failback:this.c14StartupError??this.gateD?.failback??null,count:events.size,values:events.toJSON(),
      cert:certTable,baseline:baselineTable,
      baselineCount:baselineTable?Number(sql.exec('SELECT COUNT(*) AS n FROM f123_frozen_import_event_baseline').one().n):null,
      journal:sql.exec('SELECT COUNT(*) AS n FROM diario').one().n,
