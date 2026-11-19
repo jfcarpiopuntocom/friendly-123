@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.14",
+  "version": "v0.8.15",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.14: C34 P0: venta REAL tras ACK local incorpora cantidad y centavos exactos solo para efectivo completo a precio de lista sin faltante, permitiendo C31 sale.record sin inferir dinero del delta. Fiado, cortesia, parcial, descuento o falta de stock conservan ruta 1.0. QA 2.0 OFF, Sync3 intacto; sin cambios Cloudflare/R2.",
+  "changelog": "v0.8.15: C36 un mismo opId estable de la venta tras ACK local hasta la cola antigua/Sync3 y el comando tipado C31, solo en pago efectivo completo de precio de lista; IDs incompatibles y otras ventas continúan por legado. QA 2.0 OFF, cero despliegue cloud, Sync3 intacto.",
   "requerida": false,
-  "shell": "f123-shell-v814",
+  "shell": "f123-shell-v815",
   "apagar": [],
-  "releaseName": "v0.8.14",
-  "cacheGeneration": "golden350"
+  "releaseName": "v0.8.15",
+  "cacheGeneration": "golden351"
 }
