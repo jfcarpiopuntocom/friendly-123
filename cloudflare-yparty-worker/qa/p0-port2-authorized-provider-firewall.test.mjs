@@ -24,7 +24,7 @@ async function realProvider(){
   entryPoints:[path.join(import.meta.dirname,'../../src/authorized-yprovider.mjs')],
   bundle:true,write:false,format:'esm',platform:'browser',
   plugins:[{name:'YPartyQA',setup(b){
-   b.onResolve({filter:new RegExp('^y-partyserver/provider},()=>({path:'yparty-stub',namespace:'qa'}));
+   b.onResolve({filter:/^y-partyserver[/]provider$/},()=>({path:'yparty-stub',namespace:'qa'}));
    b.onLoad({filter:/.*/,namespace:'qa'},()=>({contents:shim,loader:'js'}));
   }}]
  })).outputFiles[0].text;
