@@ -161,7 +161,14 @@ export class Tienda extends YServer {
            sockets:Array.from(super.getConnections()).map(peer=>({same:peer.id===conexion.id,ready:peer.readyState,
             hasGrant:!!peer.state?.accesoFirmado,scopes:peer.state?.accesoFirmado?.principal?.scopes,notExpired:unexpired(peer.state?.accesoFirmado),
             expDelta:peer.state?.accesoFirmado?.principal?.exp-Date.now()}))}));
-          if (otherWriter) { conexion.close(1008,'Catalog writer already active'); return; }
+          if (otherWriter) {
+            try {
+              console.info('C10_CLOSE_BEFORE',conexion.readyState);
+              conexion.close(1008,'Catalog writer already active');
+              console.info('C10_CLOSE_AFTER',conexion.readyState);
+            } catch (error) { console.info('C10_CLOSE_ERROR',String(error?.message)); throw error; }
+            return;
+          }
         }
         conexion.setState(previous => ({...previous,accesoFirmado:access}));
         super.onConnect(this.salidaSegura(conexion),contexto);
