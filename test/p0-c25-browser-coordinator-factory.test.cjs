@@ -187,7 +187,7 @@ test('C25 real bundle: certified 2.0 commercial op commits once, survives browse
     a=await env.pilot.crearCoordinadorCorte20(privateDoc,head,{indexedDB:env.indexedDB,createProvider});
     assert.equal(a.mode(),'failback-legacy-1.0','must not auto activate new transport');
     const activated=await a.activate20();
-    assert.equal(activated.ok,true,'real C19a C11-certified writer must be active');
+    assert.equal(activated.ok,true,'real C19a C11-certified writer must be active; state='+activated.reason+', ticketCalls='+requests);
     assert.equal(activated.frozenHead,head);
     const result=await a.submitCommercial(sale);
     assert.equal(result.committed,true);
