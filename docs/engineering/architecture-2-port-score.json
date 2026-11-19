@@ -7,13 +7,13 @@
     "workshop does not contribute to product implementation",
     "commercial GO and physical acceptance are tracked separately"
   ],
-  "basis": "Fixed 100.0-point, code-assembled engineering milestone checklist, with only source+CI-verified capabilities. C16b/C18a strengthen integrations but do not credit uncutover checkout/photo paths. Sync3 excluded; commercial GO separate.",
+  "basis": "Same original fixed 100.0 engineering points; C23 bundle + C21b v809 earn only 1.5 of the mixed 4.0 browser typed-delta/retirement milestone, with the remaining 2.5 held until legacy routes are actually retired. Sync3 already counts as 2.0 and is excluded; commercial GO separate.",
   "baseline": {
     "label": "Immediately after Gate D7, before C8–C11",
     "score": 68.5,
     "comparison": "Same fixed 100.0-point checklist immediately after D7 before C8–C13; since then 9.0 points for C8–C11, 1.0 for C12 read-only pilot seam, and 3.0 for C13 certified reader wired into docs/sync-yjs.js behind QA switch (OFF). Does not depend on GO."
   },
-  "score": 81.5,
+  "score": 83,
   "maximum": 100,
   "groups": [
     {
@@ -27,28 +27,28 @@
           "points": 5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/index.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/index.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/index.js"
         },
         {
           "id": "journal-reopen",
           "points": 5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/open-existing-store.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/open-existing-store.mjs"
         },
         {
           "id": "occupied-merge",
           "points": 4,
           "done": true,
           "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/open-existing-store.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/open-existing-store.mjs"
         },
         {
           "id": "pitr-budgets",
           "points": 1.5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/open-existing-store.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/open-existing-store.mjs"
         },
         {
           "id": "operational-switch",
@@ -69,28 +69,28 @@
           "points": 4,
           "done": true,
           "source": "cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/trusted-frozen-source.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/trusted-frozen-source.mjs"
         },
         {
           "id": "r2-packager",
           "points": 4,
           "done": true,
           "source": "cloudflare-yparty-worker/tools/frozen-r2-packager.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/tools/frozen-r2-packager.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/tools/frozen-r2-packager.mjs"
         },
         {
           "id": "one-time-import",
           "points": 3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/open-existing-store.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/open-existing-store.mjs"
         },
         {
           "id": "certified-readback",
           "points": 2.5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs"
         },
         {
           "id": "real-firebase-head-complete",
@@ -117,28 +117,28 @@
           "points": 5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
         },
         {
           "id": "stock-adjust",
           "points": 4,
           "done": true,
           "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
         },
         {
           "id": "credit-payment",
           "points": 3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
         },
         {
           "id": "idempotent-receipt",
           "points": 2,
           "done": true,
           "source": "cloudflare-yparty-worker/src/typed-commercial-ledger.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/typed-commercial-ledger.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/typed-commercial-ledger.mjs"
         },
         {
           "id": "production-business-dispatch",
@@ -159,28 +159,28 @@
           "points": 5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/ws-authority-client.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/ws-authority-client.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/ws-authority-client.js"
         },
         {
           "id": "separate-rooms",
           "points": 3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/index.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/index.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/index.js"
         },
         {
           "id": "team-guard",
           "points": 2,
           "done": true,
           "source": "cloudflare-yparty-worker/src/index.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/index.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/index.js"
         },
         {
           "id": "fresh-owner-ticket-source",
           "points": 2.5,
           "done": true,
           "source": "src/ws-owner-ticket-params.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/src/ws-owner-ticket-params.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/src/ws-owner-ticket-params.mjs"
         },
         {
           "id": "commercial-role-switch",
@@ -201,21 +201,21 @@
           "points": 3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/photo-sha-storage.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/photo-sha-storage.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/photo-sha-storage.mjs"
         },
         {
           "id": "signed-photo-http",
           "points": 2.5,
           "done": true,
           "source": "src/photo-sha-bridge.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/src/photo-sha-bridge.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/src/photo-sha-bridge.mjs"
         },
         {
           "id": "hash-only-refs",
           "points": 1.5,
           "done": true,
           "source": "src/photo-sha-bridge.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/src/photo-sha-bridge.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/src/photo-sha-bridge.mjs"
         },
         {
           "id": "browser-photo-cutover",
@@ -236,7 +236,7 @@
           "points": 3,
           "done": true,
           "source": "src/port2-public-catalog-bridge.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/src/port2-public-catalog-bridge.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/src/port2-public-catalog-bridge.mjs",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/788"
         },
         {
@@ -244,7 +244,7 @@
           "points": 2.5,
           "done": true,
           "source": "src/authorized-yprovider.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/src/authorized-yprovider.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/src/authorized-yprovider.mjs",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/789"
         },
         {
@@ -252,7 +252,7 @@
           "points": 1.5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/index.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/index.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/index.js",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/790"
         },
         {
@@ -260,7 +260,7 @@
           "points": 2,
           "done": true,
           "source": "cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/791"
         },
         {
@@ -268,7 +268,7 @@
           "points": 1,
           "done": true,
           "source": "src/yparty-piloto.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/docs/vendor/yparty-piloto.min.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/docs/vendor/yparty-piloto.min.js",
           "sourceEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/83790575a369a5d6d1f044232c4e049e9b49433d/src/yparty-piloto.js"
         }
       ]
@@ -277,32 +277,41 @@
       "id": "browser-cutover",
       "weight": 10,
       "title": "Cableado cliente y retorno 1.0",
-      "scope": "Lector público certificado C12 cableado en docs/sync-yjs.js tras doble switch QA (OFF); escrituras y tráfico comercial siguen en relay 1.0",
+      "scope": "C23 client seams are exported in the real v809 browser bundle and docs/sync-yjs.js with QA switches OFF. Actual typed delta dispatch and legacy route retirement remain pending.",
       "milestones": [
         {
           "id": "owner-ticket-module",
           "points": 2,
           "done": true,
           "source": "src/ws-owner-ticket-params.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/src/ws-owner-ticket-params.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/src/ws-owner-ticket-params.mjs"
         },
         {
           "id": "source-legacy-fallback",
           "points": 1,
           "done": true,
           "source": "src/yparty-piloto.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/src/yparty-piloto.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/src/yparty-piloto.js"
         },
         {
           "id": "real-public-reader-on-client",
           "points": 3,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/docs/sync-yjs.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/docs/sync-yjs.js"
+        },
+        {
+          "id": "compiled-client-bridges-c23",
+          "points": 1.5,
+          "done": true,
+          "source": "docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/docs/sync-yjs.js",
+          "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/816",
+          "assessment": "C23 exposes durable IDB, SHA photo and certified single-writer catalog delta methods in both real browser bundle and sync-yjs facade, QA OFF. C21b v809 seals atomic committed-opId tombstones in same compiled bundle; none dispatches sales or cuts off 1.0 legacy traffic yet."
         },
         {
           "id": "typed-delta-and-legacy-retirement",
-          "points": 4,
+          "points": 2.5,
           "done": false,
           "source": null
         }
@@ -319,14 +328,14 @@
           "points": 2,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/docs/sync-yjs.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/docs/sync-yjs.js"
         },
         {
           "id": "bfcache-handling",
           "points": 1,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/docs/sync-yjs.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/10f6004cab97200c0f11359e21e9f7912d118945/docs/sync-yjs.js"
         },
         {
           "id": "verified-cross-device-downpath",
@@ -343,5 +352,5 @@
     "separate": true
   },
   "reliabilityDisclaimer": "Engineering migration score, not live traffic fraction, production reliability or deployment permission. Weights are fixed for this snapshot; new milestones require explicit rubric change and rebasing history.",
-  "assessedProductSha": "312201073975e3237014254fe9d87b87763c14ea"
+  "assessedProductSha": "10f6004cab97200c0f11359e21e9f7912d118945"
 }

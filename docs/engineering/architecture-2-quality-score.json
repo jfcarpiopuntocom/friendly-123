@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 74.6,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 8bdbf32b37effee0649ced353ad9db50fed323bc",
+    "previousScore": 74.9,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 10f6004cab97200c0f11359e21e9f7912d118945",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 74.9,
+  "score": 75.4,
   "maximum": 100,
   "dimensions": [
     {
@@ -21,16 +21,16 @@
     {
       "id": "durability",
       "weight": 20,
-      "score": 17.3,
+      "score": 17.8,
       "previous": 17.3,
-      "justification": "C16a atomic opId pre-send and C16b same store Safari IDB.open watchdog 100–10000 ms; late success connection closed, exact C15 command whitelist and cross-tab conflicting opId refused; confirmed PR #808 13/13 CI. No physical Safari A→B→A certification.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/808"
+      "justification": "P0 C21b RED 6/7 (second Safari-style reload permitted legacy duplicate after business-committed) then GREEN: settled_ops IndexedDB v2 adds a non-expiring same-business opId tombstone atomically with pending cleanup, reconciler uses it on commit, C21a reload hydrates both tables and fails closed. C23 browser v809 bundle and sealed SHA incorporate fix; PR #817 32 CI checks succeeded. Still no real Safari A→B→A acceptance.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/817"
     },
     {
       "id": "sync",
       "weight": 20,
       "score": 15.2,
-      "previous": 14.9,
+      "previous": 15.2,
       "justification": "C13 lifecycle of certified public catalog reader remains QA-gated. C20 fixed a real Workerd/YParty cold-join failure: remote roots delivered as untyped Yjs AbstractType, RED 7/8 real Y.applyUpdate → GREEN 8/8, independent Workerd central-Owner ticket + SQLite cold-restart/no-source test and 30/30 checks. Strict C9 private-root firewall maintained; no real Safari/customer GO.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/812"
     },
@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "Engineering quality review estimate with explicit scored evidence and separate GO; not observed uptime or customer deployment, not a hard 0-cost R2 guarantee.",
-  "assessedProductSha": "312201073975e3237014254fe9d87b87763c14ea",
+  "assessedProductSha": "10f6004cab97200c0f11359e21e9f7912d118945",
   "history": [
     {
       "review": "2026-11-17",
@@ -84,6 +84,11 @@
       "review": "2026-11-19 before C19a/C20",
       "score": 74.6,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 8bdbf32b37effee0649ced353ad9db50fed323bc"
+    },
+    {
+      "review": "2026-11-19 before C24 audited bundle scoring",
+      "score": 74.9,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 10f6004cab97200c0f11359e21e9f7912d118945"
     }
   ]
 }

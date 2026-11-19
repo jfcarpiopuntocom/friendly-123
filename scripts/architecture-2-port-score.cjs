@@ -59,6 +59,30 @@ function inspect(){
   assert.equal(manifest.files['./sync-yjs.js'],digest,
     'C13 credits require the exact docs/sync-yjs.js integrity seal in version-manifest.json');
  }
+
+ // C24: DO NOT give browser-port credit merely because the JSON says DONE.
+ // C23 must be in the REAL product browser entry, the compiled distributable
+ // and the guarded sync facade, all sealed by the official shell manifest.
+ const browserBridge=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='compiled-client-bridges-c23');
+ if(browserBridge?.done){
+  assert.equal(browserBridge.points,1.5,'C23 bridge must not consume legacy-retirement budget');
+  const src=fs.readFileSync(path.join(root,'src/yparty-piloto.js'),'utf8');
+  const syncSrc=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+  const vendor=fs.readFileSync(path.join(root,'docs/vendor/yparty-piloto.min.js'),'utf8');
+  const manifest=load('docs/version-manifest.json');
+  for(const api of ['crearAlmacenDurableOpsTipadas','crearClienteFotosShaCertificado',
+                    'abrirEscritorDeltaCatalogoCertificado']){
+   assert(src.includes(api),'missing C23 actual browser source method '+api);
+   assert(syncSrc.includes('API.'+api),'missing C23 real Sync3 facade method '+api);
+   assert(vendor.includes(api),'missing C23 compiled bundle method '+api);
+  }
+  assert(vendor.includes('settled_ops')&&vendor.includes('markCommitted'),
+    'C21b permanent post-ACK same-do fence must exist in the actual v809 browser bundle');
+  for(const [rel,bytes] of [['./vendor/yparty-piloto.min.js',vendor],['./sync-yjs.js',syncSrc]]){
+   const sha='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
+   assert.equal(manifest.files[rel],sha,'C23 credit requires real bundled shell integrity seal for '+rel);
+  }
+ }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
@@ -76,7 +100,7 @@ function inspect(){
  assert.equal(oneDecimal(qScore),quality.score);
  assert.equal(oneDecimal(qPrevious),quality.comparison.previousScore);
  return Object.freeze({sha:data.assessedProductSha,port:data.score,portBefore:data.baseline.score,
-  portDelta:oneDecimal(data.score-data.baseline.score),quality:quality.score,qualityBefore:qPrevious,
+  portDelta:oneDecimal(data.score-data.baseline.score),quality:quality.score,qualityBefore:oneDecimal(qPrevious),
   qualityDelta:oneDecimal(quality.score-qPrevious),go:data.commercialGo.certifiedGates+'/'+data.commercialGo.totalGates});
 }
 if(require.main===module){
