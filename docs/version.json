@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.01",
+  "version": "v0.8.02",
   "fecha": "2026-11-18",
-  "changelog": "v0.8.01: evita que un reintento antiguo sobreescriba la foto mas reciente de una percha. Verifica fotoHash y fotoRev antes de mutar; responde 409 ante conflicto. Sin cambios de dinero, stock, PIN ni activacion de YParty 2.0.",
+  "changelog": "v0.8.02: restauracion manual de foto de percha exige ACK HTTP explicito, bytes locales guardados y mismo cuaderno antes y despues de cada await. No convierte un fallo de guardado en confirmacion ni borra fotos historicas.",
   "requerida": false,
-  "shell": "f123-shell-v801",
+  "shell": "f123-shell-v802",
   "apagar": [],
-  "releaseName": "v0.8.01",
-  "cacheGeneration": "golden337"
+  "releaseName": "v0.8.02",
+  "cacheGeneration": "golden338"
 }
