@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.01",
-  "fecha": "2026-11-18",
-  "changelog": "v0.8.01: evita que un reintento antiguo sobreescriba la foto mas reciente de una percha. Verifica fotoHash y fotoRev antes de mutar; responde 409 ante conflicto. Sin cambios de dinero, stock, PIN ni activacion de YParty 2.0.",
+  "version": "v0.8.02",
+  "fecha": "2026-11-19",
+  "changelog": "v0.8.02: incorpora lector público 2.0 certificado C12 al bundle del navegador, solo mediante llamada explícita Owner; el relay 1.0 y Sync3 permanecen intactos. QA Cloudflare apagado; sin cambios comerciales, PIN ni datos de clientes.",
   "requerida": false,
-  "shell": "f123-shell-v801",
+  "shell": "f123-shell-v802",
   "apagar": [],
-  "releaseName": "v0.8.01",
-  "cacheGeneration": "golden337"
+  "releaseName": "v0.8.02",
+  "cacheGeneration": "golden338"
 }
