@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.04",
+  "version": "v0.8.05",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.04: protege las fotos de percha (Belén P0) cableando CAS real expectedFotoHash/expectedFotoRev en los tres escritores de vista-perchas.js (recuperación, captura y bóveda) más ACK estricto y guardia de cuaderno en restauración; evita que un reintento lento sobrescriba una foto más reciente A→B→C. Sin cambios a datos, PIN ni rollout 2.0 (sigue OFF).",
+  "changelog": "v0.8.05: alinea _huellaPublicable() con _estadoParaGuardarSinFotos() en docs/mock-backend.js (Belén P0 #6) para evitar falsos bloqueos de publicación/409 durante guardados en vuelo cuando las fotos confirmadas en IDB siguen hidratadas en RAM, preservando fail-closed ante fotos modificadas no confirmadas o cambios de negocio. Sin cambios a datos, PIN ni rollout 2.0 (sigue OFF).",
   "requerida": false,
-  "shell": "f123-shell-v804",
+  "shell": "f123-shell-v805",
   "apagar": [],
-  "releaseName": "v0.8.04",
-  "cacheGeneration": "golden340"
+  "releaseName": "v0.8.05",
+  "cacheGeneration": "golden341"
 }

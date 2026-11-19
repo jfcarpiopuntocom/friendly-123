@@ -1471,7 +1471,8 @@
   let _guardadoCatalogoPendiente = null, _ultimoGuardadoPublicable = true;
   let _guardandoAB = false, _estadoPublicableConfirmado = null;
   function _huellaPublicable(estado = estadoActualExportable()) {
-    const { _rev, _abCommit, ...datos } = estado;
+    const normalizado = typeof _estadoParaGuardarSinFotos === "function" ? _estadoParaGuardarSinFotos(estado) : estado;
+    const { _rev, _abCommit, ...datos } = normalizado;
     return JSON.stringify(datos);
   }
   function _estadoPuedePublicarse() {
