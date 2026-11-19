@@ -1,0 +1,27 @@
+name: "PORT2 C16b · durable IndexedDB typed ops storage"
+on:
+  push:
+    branches: [port2/20261119-c16b-durable-idb-ops-store]
+  pull_request:
+    branches: [master]
+    paths:
+      - src/port2-idb-ops-store.mjs
+      - test/p0-c16b-idb-ops-store.test.mjs
+      - .github/workflows/qa-port2-c16b-idb-ops-store.yml
+permissions: {contents: read}
+jobs:
+  idb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Synthetic native IndexedDB crash/rollback/duplicate checks, ZERO external writes
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test --test-concurrency=1 --test-timeout=90000 test/p0-c16b-idb-ops-store.test.mjs
+          node --test --test-concurrency=1 test/p0-c16a-typed-ops-reconciler.test.cjs
