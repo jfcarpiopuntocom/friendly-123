@@ -7,7 +7,7 @@
     "previousSource": "friendly123workshop/projects/assembled-v783/quality/score-v1.json",
     "previousReviewedDate": "2026-11-17"
   },
-  "score": 72.7,
+  "score": 73.2,
   "maximum": 100,
   "dimensions": [
     {
@@ -45,10 +45,10 @@
     {
       "id": "photos",
       "weight": 10,
-      "score": 6.5,
+      "score": 7,
       "previous": 6.5,
-      "justification": "Blob SHA and references present; devices still follow legacy photo route",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/83790575a369a5d6d1f044232c4e049e9b49433d/src/photo-sha-bridge.mjs"
+      "justification": "El CAS A→B→C está conectado y probado en los tres escritores reales de fotos de percha (recuperación, cámara y restauración), incluido el rechazo de todo PUT sin preimagen observada, prueba RED→GREEN contra backend y SHA v0.8.04 sellado; falta verificar fotos en dos dispositivos físicos y corte total 2.0.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/796"
     },
     {
       "id": "migration",
@@ -68,5 +68,15 @@
     }
   ],
   "disclaimer": "Expert engineering quality assessment, not measured uptime or success probability. Score changes require evidence-specific dimension notes. Commercial GO is separately tracked.",
-  "assessedProductSha": "83790575a369a5d6d1f044232c4e049e9b49433d"
+  "assessedProductSha": "83790575a369a5d6d1f044232c4e049e9b49433d",
+  "latestQualityEvidence": {
+    "source": "docs/vista-perchas.js",
+    "verifiedProductMergeSha": "49fe066024ab529b182327bd98ae76884b13ded2",
+    "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/796",
+    "redRun": "https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44584824946",
+    "greenRun": "https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44585595331",
+    "qualityDelta": 0.5,
+    "portDelta": 0,
+    "commercialGoChange": false
+  }
 }
