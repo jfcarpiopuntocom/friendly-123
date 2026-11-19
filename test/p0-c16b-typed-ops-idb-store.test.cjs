@@ -370,3 +370,46 @@ test('7. corrupted own-namespace pending opId never disappears silently on Index
   await assert.rejects(storeA.loadAll(), /corrupt|invalid|mismatch/i);
   assert.equal((await storeB.loadAll()).length,1);
 });
+
+test('8. C15 allowlist: extra commercial fields and unsupported kind never enter durable IDB',async()=>{
+ const {createTypedOpsIdbStore}=await import(STORE_URL);
+ const {indexedDB}=getRealOrHarnessIdb();
+ const store=createTypedOpsIdbStore({indexedDB,namespace:NS_A});
+ const invalid=sampleEntry('op_c15_allowlist01',1500);
+ invalid.command.customerPrivateNotes='Should not be persisted';
+ await assert.rejects(store.save(invalid),/invalid|schema|allowlist|command/i);
+ const unrecognized=sampleEntry('op_c15_allowlist02',1500);
+ unrecognized.command.kind='expense.record';
+ await assert.rejects(store.save(unrecognized),/invalid|schema|allowlist|command/i);
+ assert.deepEqual(await store.loadAll(),[]);
+});
+test('9. stalled Safari IndexedDB.open must reject within a bounded timeout; late success closes orphan DB',async()=>{
+ const {createTypedOpsIdbStore}=await import(STORE_URL);
+ let req,closes=0;
+ const blocked={open:()=>{req={};return req;}};
+ const store=createTypedOpsIdbStore({indexedDB:blocked,namespace:NS_A,openTimeoutMs:100});
+ const started=Date.now();
+ const verdict=await Promise.race([store.loadAll().then(()=>({ok:true}),error=>({error})),
+  new Promise(resolve=>setTimeout(()=>resolve({timedOut:true}),500))]);
+ assert.equal(verdict.timedOut,undefined,'IndexedDB must not remain pending indefinitely');
+ assert.ok(verdict.error,'timed out open must fail CLOSED, without in-memory fallback');
+ assert.ok(Date.now()-started<500);
+ req.result={close:()=>{closes++;}};
+ req.onsuccess?.({target:req});
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(closes,1,'late open success must close its orphan database handle');
+});
+test('10. two tabs same opId with contradictory business payload cannot overwrite each other',async()=>{
+ const {createTypedOpsIdbStore}=await import(STORE_URL);
+ const {indexedDB}=getRealOrHarnessIdb();
+ const one=createTypedOpsIdbStore({indexedDB,namespace:NS_A});
+ const two=createTypedOpsIdbStore({indexedDB,namespace:NS_A});
+ const result=await Promise.allSettled([
+  one.save(sampleEntry('op_twotabs_same_01',1500)),
+  two.save(sampleEntry('op_twotabs_same_01',3900))
+ ]);
+ assert.deepEqual(result.map(x=>x.status).sort(),['fulfilled','rejected']);
+ const r1=(await one.loadAll())[0],r2=(await two.loadAll())[0];
+ assert.equal(r1.command.amountCents,r2.command.amountCents);
+ assert([1500,3900].includes(r1.command.amountCents));
+});
