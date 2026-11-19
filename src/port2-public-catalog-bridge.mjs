@@ -13,42 +13,8 @@ const ROOM=/^[a-f0-9]{32}-cat$/;
 const HEAD=/^[A-Za-z0-9_.:-]{3,128}$/;
 const refuse=()=>new Error('public catalog QA scope unavailable');
 
-// Defence in depth: the provider MUST validate before super() can create a
-// socket. Merely projecting for display is not enough: a raw private Y.Doc
-// may carry sensitive roots or extra fields hidden inside allowed roots.
-export function assertPublicCatalogTransportDoc({doc,room}={}){
- if(!ROOM.test(room||'')||!doc||doc.isDestroyed||!doc.store||
-    typeof doc.getMap!=='function'||!doc.share?.keys)
-  throw new Error('public catalog transport scope invalid');
- if(doc.store.pendingStructs||doc.store.pendingDs)
-  throw new Error('public catalog transport pending Yjs ancestry');
- for(const root of doc.share.keys()){
-  if(root!=='productos'&&root!=='ubicaciones')
-   throw new Error('private Yjs root cannot enter public catalog transport');
- }
- const verified=projectPublicCatalog({
-  sourceDoc:doc,Y:{Doc:doc.constructor}
- });
- try{
-  for(const root of ['productos','ubicaciones']){
-   const original=doc.share.get(root);
-   if(!original)continue;
-   const allowed=verified.doc.getMap(root);
-   if(original.size!==allowed.size)
-    throw new Error('private catalog row mismatch');
-   original.forEach((row,id)=>{
-    const safe=allowed.get(id);
-    if(!row||typeof row!=='object'||Array.isArray(row)||!safe)
-     throw new Error('private catalog row rejected');
-    const keys=Object.keys(row),normal=Object.keys(safe);
-    if(keys.length!==normal.length||
-       keys.some(k=>!Object.prototype.hasOwnProperty.call(safe,k)||row[k]!==safe[k]))
-     throw new Error('private catalog field rejected before websocket');
-   });
-  }
-  return true;
- }finally{verified.doc.destroy();}
-}
+// One canonical validation contract shared with server projection.
+export {assertPublicCatalogTransportDoc} from '../cloudflare-yparty-worker/src/catalog-safe-projection.mjs';
 
 export function createPublicCatalogBridge({
  privateDoc,Y,room,frozenHead,qaEnabled=false,localReady=false,
