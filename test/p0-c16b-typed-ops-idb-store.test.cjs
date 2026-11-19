@@ -342,7 +342,7 @@ test('7. corrupted own-namespace pending opId never disappears silently on Index
 
   async function overwriteRaw(record) {
     const db = await new Promise((resolve, reject) => {
-      const req = indexedDB.open('f123_port2_typed_ops_v1', 1);
+      const req = indexedDB.open('f123_port2_typed_ops_v1', 2);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
