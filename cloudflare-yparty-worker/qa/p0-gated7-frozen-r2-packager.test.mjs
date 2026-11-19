@@ -132,7 +132,14 @@ test('private collections in an ops-room Yjs source fail closed before R2 page c
  const f=[Y.encodeStateAsUpdate(d)],state=sha(Y.encodeStateAsUpdate(d)),vector=sha(Y.encodeStateVector(d));d.destroy();
  await assert.rejects(packFrozenR2Archive({room,channel:'ops',frozenHead:head,frames:f,
   externalProof:{sourceHead:head,completeToHead:true,sourceFramesSha256:framesSha(f),
-   expectedStateSha256:state,expectedVectorSha256:vector,expectedOpIds:1}}),/private|root|ops|catalog/i);
+   expectedStateSha256:state,expectedVectorSha256:vector,expectedOpIds:1}}),error=>{
+    // The packager deliberately redacts Worker/internal privacy failures.
+    // C14 now rejects this mixed Y.Doc before packaging; a generic SHA/source
+    // refusal is correct, and no private test PIN may escape into the error.
+    assert.match(String(error?.message),/private|root|ops|catalog|source causal or state SHA proof mismatch/i);
+    assert.doesNotMatch(String(error?.message),/PIN_SHOULD_NOT_LEAK/);
+    return true;
+  });
 });
 test('oversized untrusted wire refuses before Yjs apply, with no artifacts',async()=>{
  const raw=new Uint8Array(12*1024*1024+1);
