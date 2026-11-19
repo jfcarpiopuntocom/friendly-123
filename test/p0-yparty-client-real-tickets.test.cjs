@@ -53,40 +53,30 @@ test('pilot imports the established AuthorizedYProvider; never constructs bare Y
  assert.match(src,/import \{\s*createOwnerTicketParams\s*\} from ['"]\.\/ws-owner-ticket-params\.mjs['"]/);
  assert.doesNotMatch(src,/new YProvider\(/);
 });
-test('bridge A: only Owner catalog opens secure YParty; ALL ops sales stay on proven encrypted relay',{timeout:5000},async()=>{
+test('bridge A SECURE: Owner catalog and all economic ops remain on encrypted legacy, no raw Worker connection',async()=>{
  const f=pilotHarness();
  const cat=f.create('cat'),ops=f.create('ops');
  cat.conectar();ops.conectar();await tick();
- assert.equal(f.providers.length,1,'ops must NOT open a read-only economic WebSocket');
- assert.deepEqual(f.providers.map(p=>p.room),[room+'-cat']);
- assert.equal(f.requests.length,1);
- assert.equal(f.requests[0].room,room+'-cat');
- assert.equal(f.requests[0].getCredentials().pin,'123');
- f.PIN='149';
- assert.equal(f.requests[0].getCredentials().pin,'149','PIN read live on next catalog ticket');
- assert.equal(f.providers[0].options.connect,false);
- assert.equal(f.providers[0].options.disableBc,true);
- assert.deepEqual(f.fallbacks,['ops'],'every Owner sale must remain publishable by the old encrypted path');
- assert.equal(ops.proveedor,null);
+ assert.equal(f.providers.length,0,'no sensitive Owner Y.Doc on unsealed YParty provider');
+ assert.equal(f.requests.length,0,'no owner ticket should be consumed for an unsafe catalog');
+ assert.deepEqual(f.fallbacks,['cat','ops'],'both flows retain encrypted legacy channel');
+ assert.equal(cat.proveedor,null);assert.equal(ops.proveedor,null);
 });
-test('bridge A: signed catalog rejection immediately releases socket and returns to old relay',{timeout:5000},async()=>{
- const f=pilotHarness(),cat=f.create('cat');cat.conectar();await tick();
- assert.equal(f.providers.length,1);
- assert.ok(f.timers.some(t=>t.delay>0&&t.delay<8000),
-   'new catalog sync must have a strict <8s failback deadline');
- assert.equal(typeof f.providers[0].events['authorization-error']?.[0],'function');
- f.providers[0].events['authorization-error'][0]([{reason:'connection-not-confirmed'}]);
- assert.deepEqual(f.fallbacks,['cat']);
- assert.equal(f.providers[0].destroyed,true);
+test('bridge A SECURE: unsafe catalog returns directly to existing encrypted relay',async()=>{
+ const f=pilotHarness(),cat=f.create('cat');
+ cat.conectar();await tick();
+ assert.equal(f.providers.length,0,'never send unsealed catalog to a socket');
+ assert.equal(f.requests.length,0,'no credential request to an unavailable transport');
+ assert.deepEqual(f.fallbacks,['cat'],'fallback is immediate, not delayed until auth rejection');
  assert.equal(cat.proveedor,null);
 });
-test('bridge A: stalled catalog sync switches to old relay before eight seconds',{timeout:5000},async()=>{
- const f=pilotHarness(),cat=f.create('cat');cat.conectar();await tick();
- const timeout=f.timers.find(t=>t.delay>0&&t.delay<8000);
- assert.ok(timeout,'catalog fallback deadline <8s is configured');
- timeout.fn();
- assert.deepEqual(f.fallbacks,['cat']);
- assert.equal(cat.proveedor,null,'no abandoned provider beside legacy relay');
+test('bridge A SECURE: no Worker deadline or pending socket blocks encrypted fallback',async()=>{
+ const f=pilotHarness(),cat=f.create('cat');
+ cat.conectar();await tick();
+ assert.deepEqual(f.fallbacks,['cat'],'fallback happens synchronously');
+ assert.equal(f.providers.length,0);
+ assert.equal(f.timers.some(t=>!t.cancelled&&t.delay>0),false,'no outstanding Worker timer');
+ assert.equal(cat.proveedor,null);
 });
 test('pilot never opens YParty without a live Owner PIN; photos stay on encrypted legacy relay',{timeout:5000},async()=>{
  const f=pilotHarness({pin:null});
@@ -138,36 +128,24 @@ test('ticket helper refuses fotos, unknown channel, expired issuance and changed
  await assert.rejects(changedParams(),/WS authorization unavailable/);
 });
 
-test('bridge A Safari/Android background -> foreground creates fresh signed catalog transport once, not a dead socket',{timeout:5000},async()=>{
+test('bridge A SECURE: Safari background and foreground keep legacy without creating second writer',async()=>{
  const f=pilotHarness(),cat=f.create('cat');
  cat.conectar();await tick();
- const first=f.providers[0];
- assert.equal(f.providers.length,1);
- f.setHidden(true);
- assert.equal(first.destroyed,true,'background must close stale auth socket');
+ assert.deepEqual(f.fallbacks,['cat']);
+ f.setHidden(true);f.setHidden(false);await tick();
+ f.setHidden(false);await tick();
+ assert.equal(f.providers.length,0,'no unsealed provider on foreground');
+ assert.equal(f.requests.length,0);
+ assert.deepEqual(f.fallbacks,['cat'],'no duplicated startup against legacy');
  assert.equal(cat.proveedor,null);
- f.setHidden(false);await tick();
- assert.equal(f.providers.length,2,'foreground must try a NEW socket and fresh ticket');
- assert.notEqual(cat.proveedor,first);
- assert.equal(f.requests.length,2,'fresh credentials for every actual connection attempt');
- f.setHidden(false);await tick();
- assert.equal(f.providers.length,2,'duplicate foreground events must not spawn another socket');
- assert.equal(f.fallbacks.length,0,'temporary background alone must not erase 2.0 option');
 });
-test('bridge A repeated hidden authorization failures -> foreground fresh socket or old relay within 7.5s',{timeout:5000},async()=>{
- const f=pilotHarness(),cat=f.create('cat');cat.conectar();await tick();
- f.setHidden(true);
- const previous=f.providers[0];
- previous.events['authorization-error']?.[0]?.([{reason:'invalid-in-suspended-tab'}]);
- assert.deepEqual(f.fallbacks,[],'late revoked callback from destroyed socket has no effect');
- f.setHidden(false);await tick();
- const fresh=f.providers[1];
- assert.ok(fresh&&fresh!==previous&&cat.proveedor===fresh);
- fresh.events['authorization-error']?.[0]?.([{reason:'permission-still-expired'}]);
- assert.deepEqual(f.fallbacks,['cat'],'on actual auth denial, old encrypted relay is re-enabled');
+test('bridge A SECURE: repeated visibility and reconnect cannot open plaintext catalog or duplicate fallback',async()=>{
+ const f=pilotHarness(),cat=f.create('cat');
+ cat.conectar();await tick();
+ f.setHidden(true);f.setHidden(false);await tick();
+ cat.conectar();await tick();
+ assert.equal(f.providers.length,0,'explicit reconnect also fails closed to encrypted relay');
+ assert.equal(f.requests.length,0,'no owner capability leaked');
+ assert.deepEqual(f.fallbacks,['cat','cat'],'one fallback per explicit connect, none from visibility');
  assert.equal(cat.proveedor,null);
- const before=f.providers.length;
- f.setHidden(false);await tick();
- assert.equal(f.providers.length,before,'once in failback, visibility cannot spawn a second competing catalog writer');
- assert.ok(f.timers.some(t=>t.delay>0&&t.delay<8000));
 });
