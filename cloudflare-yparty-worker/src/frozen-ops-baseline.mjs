@@ -71,16 +71,24 @@ export function verifyImportedOpsBaseline({storage,bytes,expectedCount}={}){
   refuse('invalid baseline certificate');
  const rows=sql.exec('SELECT opid,payload FROM f123_frozen_import_event_baseline ORDER BY opid').toArray();
  if(rows.length!==expectedCount)refuse('missing historical opId');
- const stored=rows.map(r=>[r.opid,r.payload]);
+ // SQL BINARY UTF-8 order need not match JS UTF-16 order for exotic opIds;
+ // use the same canonical comparison as the original frozen Yjs capture.
+ const stored=rows.map(r=>[r.opid,r.payload]).sort(([a],[b])=>a<b?-1:a>b?1:0);
  if(digest(stored)!==cert.events_sha256)refuse('historical event baseline digest mismatch');
  const doc=new Y.Doc();
  try {
   Y.applyUpdate(doc,bytes);
   if(doc.store.pendingStructs||doc.store.pendingDs)refuse('pending historical parents');
-  const live=capture(doc),events=new Map(live.rows);
+  if([...doc.share.keys()].some(root=>root!=='eventos'))refuse('unexpected economic root');
+  const events=doc.getMap('eventos');
   if(events.size<expectedCount)refuse('historical event loss');
-  for(const [opid,payload] of stored)
-   if(events.get(opid)!==payload)refuse('historical opId/payload mismatch');
+  // Only the original frozen facts belong to this certificate. New, valid
+  // post-cut opIds must not trip the initial 25k-entry capture budget months
+  // later; the typed ledger performs their own business validation.
+  for(const [opid,payload] of stored){
+   if(!events.has(opid)||canonical(events.get(opid))!==payload)
+    refuse('historical opId/payload mismatch');
+  }
   return Object.freeze({verified:true,originalEvents:expectedCount,currentEvents:events.size,
    baselineDigest:cert.events_sha256});
  }finally{doc.destroy();}
