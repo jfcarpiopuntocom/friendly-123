@@ -75,6 +75,31 @@ function entries(doc,mapName) {
  rows.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
  return rows;
 }
+// Same allowlist validator at the BROWSER transport boundary, before the
+// YParty superclass installs a listener/sends frames. Pure structural check:
+// unlike a projection, it cannot silently DROP extra private input fields.
+export function assertPublicCatalogTransportDoc({doc,room}={}){
+ if(!PROJECTION_ROOM.test(room||'')||!doc||doc.isDestroyed||
+    !doc.store||!doc.share?.keys||typeof doc.getMap!=='function')
+   invalid('public catalog transport scope');
+ if(doc.store.pendingStructs||doc.store.pendingDs)
+   invalid('public catalog pending causal ancestry');
+ for(const root of doc.share.keys())
+   if(root!=='productos'&&root!=='ubicaciones')
+     invalid('private root in public catalog transport');
+ for(const root of ['productos','ubicaciones']){
+   for(const [id,row] of entries(doc,root)){
+     const allowed=root==='productos'?product(row,id):shelf(row,id);
+     const sourceFields=Object.keys(row),publicFields=Object.keys(allowed);
+     if(sourceFields.length!==publicFields.length||
+        sourceFields.some(field=>!Object.prototype.hasOwnProperty.call(allowed,field)||
+        row[field]!==allowed[field]))
+       invalid('private field in public catalog transport');
+   }
+ }
+ return true;
+}
+
 export function projectPublicCatalog({sourceDoc,Y,room,channel,frozenHead}={}){
  if(!Y||typeof Y.Doc!=='function'||!(sourceDoc instanceof Y.Doc))
    invalid('source Y.Doc');
