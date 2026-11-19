@@ -115,8 +115,7 @@ test('QA disabled and absent internal source fail before any network request',as
 test('synthetic public catalog validator handles a decoded Y.Doc without private fields',()=>{
  const source=new Y.Doc();source.getMap('productos').set('sku1',{id:'sku1',nombre:'Book',precio:12.5,stockActual:3});
  const binary=Y.encodeStateAsUpdate(source),reopened=new Y.Doc();Y.applyUpdate(reopened,binary);
- assert.equal(reopened.share.get('productos')?.size,1);
- const root=reopened.getMap('productos');assert.equal(root.get('sku1').nombre,'Book');
+ const root=reopened.getMap('productos');assert.equal(root.size,1);assert.equal(root.get('sku1').nombre,'Book');
  const {doc:pub}=projectPublicCatalog({sourceDoc:reopened,Y});
  assert.deepEqual(root.toJSON(),pub.getMap('productos').toJSON());
  pub.destroy();reopened.destroy();source.destroy();
