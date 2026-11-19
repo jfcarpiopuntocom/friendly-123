@@ -45,6 +45,14 @@ function makePilotVm({
   const window = {
     indexedDB,
     OCAuth: { rolActual: () => currentRole },
+    // C38: production cutover requires the legacy writer is deliberately OFF,
+    // with no old room and no pending relay work, never an absent facade.
+    OCSync: {
+      estado: () => 'apagado',
+      salaActiva: () => null,
+      durabilidadPendiente: () => false,
+      onEstado: () => {}
+    },
     OCSecure: {
       leerPinQueAbre: () => ({
         owner: ownerPin,
