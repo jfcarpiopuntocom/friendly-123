@@ -19,6 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install pinned test dependencies (fake-indexeddb for C31)
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Execute REAL C31 activation source, legacy OFF and reactivation safety
         run: node --test test/p0-c38-legacy-transport-quiescence.test.cjs
       - name: Protect C31 commercial routing and C36 original sale opId
