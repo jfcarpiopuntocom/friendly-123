@@ -1,0 +1,33 @@
+name: P0 Belén H6 Casa exact-source finance chain
+on:
+  push:
+    branches: [integrate/p0-belen-h6-casa-chain-v798-20261118]
+    paths:
+      - test/p0-belen-dashboard-hechos-chain.test.cjs
+      - test/p0-belen-hechos-chain-parity.test.cjs
+      - test/p0-belen-dashboard-hechos-readonly.test.cjs
+      - src/dashboard/dashboard-main.js
+      - docs/core/hechos-chain-readonly.js
+      - docs/dashboard.html
+      - .github/workflows/p0-belen-h6-casa-chain-v798.yml
+  pull_request:
+    paths:
+      - test/p0-belen-dashboard-hechos-chain.test.cjs
+      - test/p0-belen-hechos-chain-parity.test.cjs
+      - test/p0-belen-dashboard-hechos-readonly.test.cjs
+      - src/dashboard/dashboard-main.js
+      - docs/core/hechos-chain-readonly.js
+      - docs/dashboard.html
+      - .github/workflows/p0-belen-h6-casa-chain-v798.yml
+permissions: {contents: read}
+jobs:
+  finance-chain:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: 'H6 real-source Belén journal chain RED to GREEN'
+        run: node --test test/p0-belen-dashboard-hechos-chain.test.cjs
