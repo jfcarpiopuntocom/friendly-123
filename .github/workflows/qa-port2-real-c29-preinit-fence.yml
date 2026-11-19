@@ -1,0 +1,22 @@
+name: PORT2 C29 · preinit legacy opId tombstone fence (no deploy)
+on:
+  push:
+    branches: [port2/20261119-c29-preinit-durable-opid-fence-v812]
+  pull_request:
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-c29-preinit-durable-opid-fence.test.cjs
+      - .github/workflows/qa-port2-real-c29-preinit-fence.yml
+permissions: {contents: read}
+jobs:
+  preinit-opid:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real exact source function, fake-indexeddb durable C21b, QA OFF control
+        run: node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=45000 test/p0-c29-preinit-durable-opid-fence.test.cjs
