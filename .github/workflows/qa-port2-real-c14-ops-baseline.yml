@@ -1,0 +1,33 @@
+name: "PORT2 REAL C14 · immutable imported ops baseline"
+on:
+  push:
+    branches: [port2/20261119-c14-frozen-ops-baseline]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/certified-frozen-import.mjs
+      - cloudflare-yparty-worker/src/open-existing-store.mjs
+      - cloudflare-yparty-worker/src/frozen-ops-baseline.mjs
+      - cloudflare-yparty-worker/qa/fixtures/c14-imported-ops-baseline-worker.mjs
+      - cloudflare-yparty-worker/qa/p0-c14-ops-baseline-reopen-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c14-ops-baseline.yml
+permissions: {contents: read}
+jobs:
+  real-workerd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: C14 Gate D imported history is immutable after startup
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c14-ops-baseline-reopen-workerd.test.mjs
