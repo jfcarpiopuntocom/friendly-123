@@ -1,7 +1,7 @@
 {
   "version": "v0.8.09",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.09: integracion del coordinador C21a y hardening C21b; opIds ya confirmados quedan en IndexedDB v2 settled_ops atomico y permanecen bloqueados contra duplicados legacy tras reinicio Safari. Recompilado y sellado el bundle del piloto v808. Sync3 conservado, QA OFF y gastos Cloudflare/R2 0 USD.",
+  "changelog": "v0.8.09: corrige la durabilidad del opId comercial confirmado (IndexedDB v2 settled_ops, lápida atómica con eliminación de pendiente, protección tras reiniciar Safari); recompila el bundle público C23 v808 con esta corrección y preserva SHA/manifest/shell. Incluye el componente C21a de failback en src, pendiente de conexión al checkout comercial. Sync3 intacto; ruta legacy activa, flags QA OFF, sin R2 ni gastos.",
   "requerida": false,
   "shell": "f123-shell-v809",
   "apagar": [],
