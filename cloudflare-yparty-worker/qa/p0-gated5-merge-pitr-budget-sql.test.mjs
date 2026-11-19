@@ -38,7 +38,7 @@ function shop(){
  const storage={
   sql:{exec(q,...args){
    const p=db.prepare(q),values=args.map(v=>v instanceof Uint8Array?Buffer.from(v):v);
-   const rows=/^\\s*(SELECT|PRAGMA)/i.test(q)||/RETURNING/i.test(q)?
+   const rows=/^\s*(SELECT|PRAGMA)/i.test(q)||/RETURNING/i.test(q)?
     p.all(...values):(p.run(...values),[]);
    return {toArray:()=>rows,one:()=>rows[0],[Symbol.iterator]:function*(){yield* rows}};
   }},
