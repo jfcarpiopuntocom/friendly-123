@@ -30,11 +30,20 @@ jobs:
           git rev-parse HEAD
           node scripts/architecture-2-port-score.cjs
           node --test test/p0-architecture-2-port-score.test.cjs
+          node --test test/p0-c12-browser-pilot-readonly-seam.test.cjs
+          node --test test/p0-yparty-client-real-tickets.test.cjs
+          node --test test/p0-yparty-client-built-bundle.test.cjs
       - name: Setup exact Workerd Yjs deps
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           cd cloudflare-yparty-worker
           npm ci --ignore-scripts --no-audit --no-fund
+      - name: Deterministic delivered browser vendor/manifest
+        run: |
+          set -euo pipefail
+          NODE_PATH=cloudflare-yparty-worker/node_modules node scripts/build-yparty-piloto.cjs
+          node scripts/gen-manifest.js
+          git diff --exit-code docs/vendor/yparty-piloto.min.js docs/version-manifest.json
       - name: Browser protocol source and C11 public cold proof
         working-directory: cloudflare-yparty-worker
         run: |
