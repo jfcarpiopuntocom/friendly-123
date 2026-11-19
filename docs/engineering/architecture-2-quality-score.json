@@ -2,7 +2,6 @@
   "schema": 1,
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
-  "assessedAppMasterSha": "e5bf0eedf2d78f75a30bad09f2b6f91f56283195",
   "comparison": {
     "previousScore": 67,
     "previousSource": "friendly123workshop/projects/assembled-v783/quality/score-v1.json",
@@ -68,5 +67,6 @@
       "evidence": null
     }
   ],
-  "disclaimer": "Expert engineering quality assessment, not measured uptime or success probability. Score changes require evidence-specific dimension notes. Commercial GO is separately tracked."
+  "disclaimer": "Expert engineering quality assessment, not measured uptime or success probability. Score changes require evidence-specific dimension notes. Commercial GO is separately tracked.",
+  "assessedProductSha": "e5bf0eedf2d78f75a30bad09f2b6f91f56283195"
 }
