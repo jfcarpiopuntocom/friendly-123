@@ -3096,6 +3096,14 @@
         // queue BEFORE activating the new business writer. This uses the
         // already shipped OCSync facade; no new transport or data migration.
         var relayAnterior = window.OCSync;
+        // C33 QA may expose only the catalog/photo helper, with NO legacy
+        // emitter or socket at all. That is not a second commercial writer.
+        // A real installed legacy emitter OR any stateful relay always goes
+        // through the strict OFF/empty/onEstado gate below.
+        if (relayAnterior &&
+            typeof relayAnterior.estado !== "function" &&
+            typeof relayAnterior.salaActiva !== "function" &&
+            typeof window.OCSyncEmit !== "function") relayAnterior = null;
         function relayAnteriorApagadoYVacio() {
           if (!relayAnterior) return false; // no lazy-loading old writer may bypass observer
           if (window.OCSync !== relayAnterior) return false;
