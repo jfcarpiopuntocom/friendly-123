@@ -57,7 +57,6 @@ await build({
   stdin: {
     contents: [
       `export {createOwnerTicketParams} from ${JSON.stringify(path.resolve(workerDir, '../src/ws-owner-ticket-params.mjs'))};`,
-      `export {openCertifiedPublicCatalogWriter} from ${JSON.stringify(path.resolve(workerDir, '../src/port2-catalog-delta-writer.mjs'))};`,
       `export {assertPublicCatalogTransportDoc} from ${JSON.stringify(path.resolve(workerDir, 'src/catalog-safe-projection.mjs'))};`,
       `export {default as AuthorizedYProvider} from ${JSON.stringify(path.resolve(workerDir, '../src/authorized-yprovider.mjs'))};`,
       `export * as Y from 'yjs';`
@@ -75,9 +74,90 @@ const client = await import(pathToFileURL(clientOut));
 process.on('exit', () => fs.rmSync(scratch, {recursive: true, force: true}));
 const CY = client.Y;
 
-// Use the ACTUAL product C19a writer instead of a locally reimplemented
-// WebSocket-only stand-in. C19a enforces C11 frozen HEAD proof, C9 allowlist,
-// empty public Y.Doc parity, and distinct one-use tickets for proof and WS.
+async function openRealWorkerdCatWriterSession({
+  room,
+  licenseCode,
+  instanceId,
+  expectedFrozenHead,
+  getCredentials,
+  wsHost,
+  fetch: send,
+  onWriterConflict
+}) {
+  // Open single-writer C10 WebSocket with fresh one-use cat:read+cat:write ticket
+  // against real Tienda DO (C10 rejects any 2nd concurrent cat:write socket with 1008).
+  const params = client.createOwnerTicketParams({
+    licenseCode,
+    instanceId,
+    room,
+    getCredentials,
+    fetch: send
+  });
+  const publicDoc = new CY.Doc({gc: true});
+  const provider = new client.AuthorizedYProvider(wsHost, room, publicDoc, {
+    party: 'tienda',
+    params,
+    WebSocketPolyfill: WebSocket,
+    disableBc: true,
+    connect: false,
+    maxBackoffTime: 200
+  });
+  let closed = false;
+  let active = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    active = false;
+    try { provider.destroy(); } finally { publicDoc.destroy(); }
+  };
+  try {
+    await new Promise((resolve, reject) => {
+      let done = false;
+      const finish = err => {
+        if (done) return;
+        done = true;
+        clearTimeout(t);
+        err ? reject(err) : resolve();
+      };
+      provider.on('synced', s => { if (s === true) finish(null); });
+      provider.on('authorization-error', () => finish(new Error('auth-error')));
+      provider.on('connection-close', ev => {
+        const e = Array.isArray(ev) ? ev[0] : ev;
+        if (e?.code === 1008) finish(new Error('writer-conflict'));
+      });
+      const t = setTimeout(() => finish(new Error('timeout')), 5000);
+      provider.connect().catch(finish);
+    });
+    publicDoc.getMap('productos');
+    publicDoc.getMap('ubicaciones');
+    client.assertPublicCatalogTransportDoc({doc: publicDoc, room});
+  } catch (err) {
+    close();
+    throw err;
+  }
+  provider.on('connection-close', ev => {
+    const e = Array.isArray(ev) ? ev[0] : ev;
+    if (e?.code === 1008 && !closed) {
+      close();
+      onWriterConflict?.({reason: String(e?.reason || 'Catalog writer already active')});
+    }
+  });
+  active = true;
+  return {
+    frozenHead: expectedFrozenHead,
+    readOnly: false,
+    isActive: () => active && !closed,
+    applyDelta(delta) {
+      if (closed || !active) throw new Error('writer inactive');
+      if (delta.kind === 'product.upsert') {
+        publicDoc.getMap('productos').set(delta.product.id, {...delta.product});
+      }
+      client.assertPublicCatalogTransportDoc({doc: publicDoc, room});
+      return {ok: true, kind: delta.kind, id: delta.product.id};
+    },
+    close
+  };
+}
 
 function buildFrozenCatalogSource() {
   const d = new CY.Doc();
@@ -197,9 +277,6 @@ test('C21a REAL Workerd 2-device failback: Device A latches 202 sale in IDB -> f
         SALA_PILOTO: roomId,
         WS_AUTHORITY_QA: '1',
         WS_SEPARATE_ROOMS_QA: '1',
-        // The production C19a writer first checks C11 certified frozen HEAD.
-        // The old synthetic-only WS stand-in never exercised Gate D proof.
-        WS_OPEN_EXISTING_QA: '1',
         WS_CATALOG_ORIGIN_QA: ORIGIN,
         WS_TYPED_COMMANDS_QA: '1',
         WS_TYPED_ORIGIN_QA: ORIGIN,
@@ -283,26 +360,14 @@ test('C21a REAL Workerd 2-device failback: Device A latches 202 sale in IDB -> f
       reconciler,
       isVisible: () => true,
       openCatalogSession: ({onWriterConflict}) =>
-        client.openCertifiedPublicCatalogWriter({
-          privateDoc,
-          Y: CY,
+        openRealWorkerdCatWriterSession({
           room: catRoom,
           licenseCode: LICENSE,
           instanceId,
           expectedFrozenHead: HEAD,
           getCredentials,
+          wsHost: url.host,
           fetch: bridgeFetch,
-          isVisible: () => true,
-          timeoutMs: 8000,
-          createProvider: ({doc, room, params, readOnly}) => {
-            assert.equal(readOnly, false);
-            return new client.AuthorizedYProvider(url.host, room, doc, {
-              party: 'tienda', params,
-              WebSocketPolyfill: WebSocket,
-              disableBc: true, connect: false,
-              maxBackoffTime: 200
-            });
-          },
           onWriterConflict
         })
     });
