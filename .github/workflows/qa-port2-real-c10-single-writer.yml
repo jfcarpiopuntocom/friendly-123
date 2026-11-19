@@ -1,0 +1,30 @@
+name: "PORT2 REAL C10 · single public catalog writer"
+on:
+  push:
+    branches: [port2/20261119-c10-single-cat-writer]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/index.js
+      - cloudflare-yparty-worker/qa/p0-secure-separate-rooms.test.mjs
+      - .github/workflows/qa-port2-real-c10-single-writer.yml
+permissions: {contents: read}
+jobs:
+  workerd-single-writer:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Actual Workerd + central issuer + two independent cat Owners
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test --test-concurrency=1 --test-timeout=90000 qa/p0-secure-separate-rooms.test.mjs

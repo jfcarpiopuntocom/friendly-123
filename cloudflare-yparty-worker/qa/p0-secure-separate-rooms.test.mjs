@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
 import {build} from 'esbuild';import {Miniflare} from 'miniflare';
 import WebSocket from 'ws';import * as Y from 'yjs';import YProvider from 'y-partyserver/provider';
+import * as encoding from 'lib0/encoding';import * as syncProtocol from 'y-protocols/sync';
 import authorityWorker,{RegistroLicencias} from '../../cloudflare-worker/worker.js';
 import {pinAuthority} from '../../cloudflare-worker/pin-authority.mjs';
 import {salaDeLicencia} from '../src/sala.js';
@@ -63,14 +64,14 @@ async function connect(channel,scopes){
   close(){provider.destroy();doc.destroy();}};}
  catch(error){provider.destroy();doc.destroy();throw error;}
 }
-async function attempt(channel,token){
+async function attempt(channel,token,timeoutMs=900,payload=null){
  const target=new URL('/parties/tienda/'+room+'-'+channel,url);target.protocol='ws:';
  target.search=new URLSearchParams({licencia:license,instancia:instance,...(token?{cap:token}:{})});
  return new Promise(resolve=>{
   const ws=new WebSocket(target);let outcome='unknown',binary=0,done=false;
   const finish=result=>{if(done)return;done=true;clearTimeout(timer);ws.terminate();resolve({status:result,binary});};
-  const timer=setTimeout(()=>finish(outcome==='connected'?'open':'timeout'),900);
-  ws.on('open',()=>{outcome='connected';});
+  const timer=setTimeout(()=>finish(outcome==='connected'?'open':'timeout'),timeoutMs);
+  ws.on('open',()=>{outcome='connected';if(payload)ws.send(payload);});
   ws.on('message',(_data,isBinary)=>{if(isBinary)binary++;});
   ws.on('unexpected-response',(_req,res)=>finish(res.statusCode));
   ws.on('close',code=>finish(code));ws.on('error',()=>{});
@@ -599,4 +600,32 @@ test('P0 genuine cold join after full Workerd restart: fresh YProvider receives 
    'cold join reconstructed all movement fields, not only counts');
   assert.ok(elapsed<10000,'synthetic Workerd coldjoin has a bounded latency');
  }finally{cold.close();}
+});
+
+test('P0 C10 one signed catalog writer per room, read-only peers and succession after close',{timeout:25000},async()=>{
+ const writer=await connect('cat',['cat:read','cat:write']);
+ const reader=await connect('cat',['cat:read']);
+ try{
+  // A VALID Yjs update must be blocked at the data plane even when
+  // Miniflare delays the socket's 1008 close handshake.
+  const forged=new Y.Doc();
+  forged.getMap('productos').set('c10-forged',{id:'c10-forged',nombre:'Must never arrive',precio:3,stockActual:99});
+  const enc=encoding.createEncoder();
+  encoding.writeVarUint(enc,0);
+  syncProtocol.writeUpdate(enc,Y.encodeStateAsUpdate(forged));
+  const second=await attempt('cat',await issue('cat',['cat:read','cat:write']),1500,encoding.toUint8Array(enc));
+  forged.destroy();
+  assert.equal(second.binary,0,'rejected writer receives ZERO Yjs frames');
+  assert.equal(writer.doc.getMap('productos').has('c10-forged'),false,'second signed writer cannot publish Yjs');
+  assert.equal(reader.doc.getMap('productos').has('c10-forged'),false,'reader sees no rejected Owner write');
+  assert.equal(reader.provider.synced,true,'cat:read client must remain admitted');
+ }finally{reader.close();writer.close();}
+ await new Promise(resolve=>setTimeout(resolve,200));
+ const replacement=await connect('cat',['cat:read','cat:write']);
+ try{
+  replacement.doc.getMap('productos').set('c10-new-owner',{id:'c10-new-owner',nombre:'New owner',precio:2,stockActual:1});
+  const follower=await connect('cat',['cat:read']);
+  try{await waitFor(()=>follower.doc.getMap('productos').has('c10-new-owner'),'new authorized sole writer');}
+  finally{follower.close();}
+ }finally{replacement.close();}
 });
