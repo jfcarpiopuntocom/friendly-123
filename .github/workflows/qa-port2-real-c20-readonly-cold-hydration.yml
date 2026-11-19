@@ -1,0 +1,29 @@
+name: "PORT2 REAL C20 · certified C12 cold reader Yjs hydration"
+on:
+  push:
+    branches: [port2/20261119-c20-c12-cold-reader-real-hydration]
+  pull_request:
+    branches: [master]
+    paths:
+      - src/port2-readonly-catalog-session.mjs
+      - cloudflare-yparty-worker/qa/p0-c12-readonly-catalog-client.test.mjs
+      - cloudflare-yparty-worker/qa/p0-c20-cold-catalog-readonly-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c20-readonly-cold-hydration.yml
+permissions: {contents: read}
+jobs:
+  c20-workerd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real Yjs remote update RED→GREEN and privacy boundaries
+        working-directory: cloudflare-yparty-worker
+        run: |
+          node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c12-readonly-catalog-client.test.mjs
