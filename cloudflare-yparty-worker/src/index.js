@@ -148,6 +148,16 @@ export class Tienda extends YServer {
       const pending = Promise.resolve().then(async () => {
         const access = await askAuthority(this.env,'check',ticketRequest(contexto.request,this.name));
         if (!access || conexion.readyState !== 1) { conexion.close(1008,'Acceso no autorizado'); return; }
+        // C10: only one authenticated public catalog writer per Durable Object.
+        // Inspect the live socket states rather than a process-local lease: a
+        // hibernated Worker must not forget a still-connected Owner writer.
+        if (this.name.endsWith('-cat') && access.principal?.scopes?.includes('cat:write')) {
+          const otherWriter = Array.from(super.getConnections()).some(peer =>
+            peer.id !== conexion.id && peer.readyState === 1 &&
+            unexpired(peer.state?.accesoFirmado) &&
+            peer.state.accesoFirmado.principal?.scopes?.includes('cat:write'));
+          if (otherWriter) { conexion.close(1008,'Catalog writer already active'); return; }
+        }
         conexion.setState(previous => ({...previous,accesoFirmado:access}));
         super.onConnect(this.salidaSegura(conexion),contexto);
       });
