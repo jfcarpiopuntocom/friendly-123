@@ -87,6 +87,18 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
       }
       latchedOrCommittedOpIds.add(row.opId);
     }
+    // C21b: once DO confirms a commercial opId, C16a retires its *pending*
+    // row. Its independent, durable terminal tombstone MUST survive the next
+    // Safari/PWA reload. A missing/unreadable marker store blocks legacy.
+    if (typeof store.loadCommittedOpIds !== 'function')
+      throw new Error('committed opId durable store unavailable');
+    const settled = await store.loadCommittedOpIds();
+    if (!Array.isArray(settled))
+      throw new Error('committed opId durable store unreadable');
+    for (const opId of settled) {
+      if (!OP_ID.test(opId || '')) throw new Error('corrupted committed opId');
+      latchedOrCommittedOpIds.add(opId);
+    }
   }
 
   async function failbackToLegacy(reason = 'manual-failback') {
