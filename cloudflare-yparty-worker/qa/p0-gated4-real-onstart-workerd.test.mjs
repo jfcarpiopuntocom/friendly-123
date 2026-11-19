@@ -70,6 +70,8 @@ test('REAL Tienda.onStart preserves nonempty journal 10 + frozen 100 and cold re
   assert.equal(first.cert,false,'nonempty shop never fakes an empty-store certificate');
   assert.equal(typeof first.pitrAvailable,'boolean','Workerd must expose PITR certificate status');
   assert.equal(first.pitrAvailable,typeof first.pitrBookmark==='string');
+  assert.equal(first.pitrAvailable,first.pitrApiSupported,
+    'PITR only credited when real Workerd storage has the bookmark API');
   if(first.pitrAvailable)assert.ok(first.pitrBookmark.length>8,'opaque PITR bookmark persists');
   assert.equal(w.reads,1);
   w.disableSource();await w.restart();
