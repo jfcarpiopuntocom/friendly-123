@@ -6,6 +6,7 @@
 import * as Y from 'yjs';
 import {prepareFrozenImport,installFrozenImport} from './certified-frozen-import.mjs';
 import {exportCompleteYpartyYjs} from './durable-full-yjs-export.mjs';
+import {hasFrozenUnion,mergeFrozenIntoExisting,verifyFrozenUnionReopen} from './merge-frozen-into-existing.mjs';
 
 export async function openExistingStore({env,storage,source}={}) {
   if(env?.WS_OPEN_EXISTING_QA!=='1')return {opened:false,failback:'flag-off'};
@@ -34,6 +35,16 @@ export async function openExistingStore({env,storage,source}={}) {
         throw new Error('frozen ops have disappeared after reopen');
       return {opened:true,already:true,verifiedSha256:now.sha256};
     }
+    // A union certificate belongs to a previously occupied SQL room, not an
+    // empty-store import. Reopen from durable SQL without contacting Firebase.
+    if(hasFrozenUnion(storage))return verifyFrozenUnionReopen({storage,source});
+    // Nonempty shops cannot be overwritten. Preserve local journal while
+    // merging only independently certified -ops facts in one SQL transaction.
+    const tables=new Set(sql.exec("SELECT name FROM sqlite_master WHERE type='table'")
+      .toArray().map(row=>row.name));
+    const occupied=['documento','documento_bloques','diario','diario_bloques']
+      .some(table=>tables.has(table)&&Number(sql.exec('SELECT COUNT(*) AS n FROM '+table).one()?.n)>0);
+    if(occupied)return await mergeFrozenIntoExisting({storage,source});
     const {receipt}=await installFrozenImport({storage,proof:await prepareFrozenImport(source)});
     return {opened:true,already:false,receipt};
   } catch(e) {return {opened:false,failback:String(e?.message||e)};}

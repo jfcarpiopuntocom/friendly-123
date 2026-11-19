@@ -343,10 +343,18 @@ export class Tienda extends YServer {
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='f123_frozen_imports'"
       ).toArray().length>0 &&
         this.ctx.storage.sql.exec('SELECT 1 FROM f123_frozen_imports WHERE id=1').toArray().length>0;
-      const source=certified ? undefined :
+      // An already merged -ops room has its own separate durable certificate.
+      // Never treat a union as an empty-store frozen import or re-fetch the
+      // old source at every cold start.
+      const unionCertified=channel==='ops' &&
+        this.ctx.storage.sql.exec(
+          "SELECT 1 FROM sqlite_master WHERE type='table' AND name='f123_frozen_unions'"
+        ).toArray().length>0 &&
+        this.ctx.storage.sql.exec('SELECT 1 FROM f123_frozen_unions WHERE id=1').toArray().length>0;
+      const source=(certified||unionCertified) ? undefined :
         await readTrustedFrozenSource({env:this.env,room,channel});
       const imported=await openExistingStore({env:this.env,storage:this.ctx.storage,source});
-      if(!imported.opened || (certified && imported.already !== true))
+      if(!imported.opened || ((certified||unionCertified) && imported.already !== true))
         throw new Error('Gate D refuses uncertified or incomplete historical Yjs');
       this.gateD=imported;
       this.gateDVerified=true; // server-side only, never returned as commercial ACK

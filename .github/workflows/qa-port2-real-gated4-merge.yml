@@ -1,0 +1,45 @@
+name: PORT2 real Gate D4 merge frozen into occupied SQLite shop
+on:
+  push:
+    branches: [port2/20261119-gated4-merge-nonempty]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/open-existing-store.mjs
+      - cloudflare-yparty-worker/src/merge-frozen-into-existing.mjs
+      - cloudflare-yparty-worker/src/sha256-sync.mjs
+      - cloudflare-yparty-worker/src/durable-full-yjs-export.mjs
+      - cloudflare-yparty-worker/src/index.js
+      - cloudflare-yparty-worker/qa/p0-gated4-merge-nonempty-sql.test.mjs
+      - cloudflare-yparty-worker/qa/p0-sha256-sync-transaction.test.mjs
+      - cloudflare-yparty-worker/qa/p0-gated4-real-onstart-workerd.test.mjs
+      - cloudflare-yparty-worker/qa/fixtures/gated4-real-nonempty-worker.mjs
+      - .github/workflows/qa-port2-real-gated4-merge.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  merge-ops:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: RED-GREEN real SQLite native data proof
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test qa/p0-gated4-merge-nonempty-sql.test.mjs qa/p0-sha256-sync-transaction.test.mjs
+      - name: Previous Gate D Workerd and privacy regressions
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-gated4-real-onstart-workerd.test.mjs qa/p0-gate-d-real-onstart-workerd.test.mjs qa/p0-gate-d-open-existing-workerd.test.mjs qa/p0-gate-d-trusted-paged-source.test.mjs qa/p0-gated3-paving-deterministic-memory.test.mjs
