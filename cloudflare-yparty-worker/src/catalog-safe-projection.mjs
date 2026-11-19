@@ -6,6 +6,20 @@ const ID=/^(?!__proto__$)(?!constructor$)(?!prototype$)[A-Za-z0-9_-]{1,120}$/;
 const FIELDS_PRODUCT=['id','nombre','sku','barcode','categoria','ubicacionId','precio','stockActual'];
 const FIELDS_SHELF=['id','nombre','tipo','activa'];
 const MAX_ITEMS=10000;
+export const F123_PUBLIC_PROJECTION_VERSION='v1';
+// Fixed client identity ONLY for a frozen, detached READ-ONLY snapshot.
+// Never use this for two live writers or as authentication.
+const PROJECTION_ROOM=/^[a-f0-9]{32}-cat$/;
+function projectionClientId(room,channel,frozenHead){
+ if(room===undefined&&channel===undefined&&frozenHead===undefined)return null;
+ if(typeof room!=='string'||!PROJECTION_ROOM.test(room)||channel!=='cat'||
+    typeof frozenHead!=='string'||!/^[A-Za-z0-9_.:-]{3,128}$/.test(frozenHead))
+   invalid('projection scope');
+ let hash=2166136261;
+ const seed=F123_PUBLIC_PROJECTION_VERSION+'|'+room+'|'+channel+'|'+frozenHead;
+ for(let i=0;i<seed.length;i++)hash=Math.imul(hash^seed.charCodeAt(i),16777619);
+ return (hash>>>0)||1;
+}
 function invalid(type){throw new TypeError('invalid '+type);}
 function id(value){
  if(typeof value!=='string'||!ID.test(value))invalid('id');
@@ -61,13 +75,15 @@ function entries(doc,mapName) {
  rows.sort((a,b)=>a[0]<b[0]?-1:a[0]>b[0]?1:0);
  return rows;
 }
-export function projectPublicCatalog({sourceDoc,Y}={}){
+export function projectPublicCatalog({sourceDoc,Y,room,channel,frozenHead}={}){
  if(!Y||typeof Y.Doc!=='function'||!(sourceDoc instanceof Y.Doc))
    invalid('source Y.Doc');
  // Never use Y.encodeStateAsUpdate(sourceDoc): it includes PINs/customers/cost.
  const products=entries(sourceDoc,'productos').map(([key,row])=>[key,product(row,key)]);
  const shelves=entries(sourceDoc,'ubicaciones').map(([key,row])=>[key,shelf(row,key)]);
+ const fixedId=projectionClientId(room,channel,frozenHead);
  const publicDoc=new Y.Doc({gc:true});
+ if(fixedId!==null)publicDoc.clientID=fixedId;
  try{
   publicDoc.transact(()=>{
    const p=publicDoc.getMap('productos'),s=publicDoc.getMap('ubicaciones');
