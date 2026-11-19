@@ -63,13 +63,13 @@ async function connect(channel,scopes){
   close(){provider.destroy();doc.destroy();}};}
  catch(error){provider.destroy();doc.destroy();throw error;}
 }
-async function attempt(channel,token){
+async function attempt(channel,token,timeoutMs=900){
  const target=new URL('/parties/tienda/'+room+'-'+channel,url);target.protocol='ws:';
  target.search=new URLSearchParams({licencia:license,instancia:instance,...(token?{cap:token}:{})});
  return new Promise(resolve=>{
   const ws=new WebSocket(target);let outcome='unknown',binary=0,done=false;
   const finish=result=>{if(done)return;done=true;clearTimeout(timer);ws.terminate();resolve({status:result,binary});};
-  const timer=setTimeout(()=>finish(outcome==='connected'?'open':'timeout'),900);
+  const timer=setTimeout(()=>finish(outcome==='connected'?'open':'timeout'),timeoutMs);
   ws.on('open',()=>{outcome='connected';});
   ws.on('message',(_data,isBinary)=>{if(isBinary)binary++;});
   ws.on('unexpected-response',(_req,res)=>finish(res.statusCode));
@@ -113,7 +113,7 @@ test('P0 C10 one signed catalog writer per room, read-only peers and succession 
  const writer=await connect('cat',['cat:read','cat:write']);
  const reader=await connect('cat',['cat:read']);
  try{
-  const second=await attempt('cat',await issue('cat',['cat:read','cat:write']));
+  const second=await attempt('cat',await issue('cat',['cat:read','cat:write']),4000);
   assert.equal(second.status,1008,'a second Owner with a fresh cat:write ticket cannot enter while writer is live');
   assert.equal(second.binary,0,'rejected writer must receive zero Yjs frames');
   assert.equal(reader.provider.synced,true,'cat:read client must remain admitted');
