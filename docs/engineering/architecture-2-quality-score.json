@@ -16,7 +16,7 @@
       "score": 17.5,
       "previous": 17.5,
       "justification": "Typed sale/stock/credit SQL tested; full live commercial routing not yet wired",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e5bf0eedf2d78f75a30bad09f2b6f91f56283195/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
     },
     {
       "id": "durability",
@@ -24,7 +24,7 @@
       "score": 16.5,
       "previous": 16.5,
       "justification": "Workerd snapshot+journal durable; no new real-device acceptance",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e5bf0eedf2d78f75a30bad09f2b6f91f56283195/cloudflare-yparty-worker/src/open-existing-store.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/open-existing-store.mjs"
     },
     {
       "id": "sync",
@@ -48,7 +48,7 @@
       "score": 6.5,
       "previous": 6.5,
       "justification": "Blob SHA and references present; devices still follow legacy photo route",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e5bf0eedf2d78f75a30bad09f2b6f91f56283195/src/photo-sha-bridge.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/photo-sha-bridge.mjs"
     },
     {
       "id": "migration",
@@ -68,5 +68,5 @@
     }
   ],
   "disclaimer": "Expert engineering quality assessment, not measured uptime or success probability. Score changes require evidence-specific dimension notes. Commercial GO is separately tracked.",
-  "assessedProductSha": "e5bf0eedf2d78f75a30bad09f2b6f91f56283195"
+  "assessedProductSha": "e2279fb2a8a39ad71b5a1d7421447d2c6f247591"
 }
