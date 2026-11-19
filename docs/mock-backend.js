@@ -7687,9 +7687,14 @@
             Number.isSafeInteger(_total20) && _total20 === _unit20 * cant &&
             _total20 <= 10000000000 &&
             Number.isFinite(p.precio) && Math.round(p.precio * 100) === _unit20 &&
-            Number.isFinite(p.stockActual) && p.stockActual >= 0) {
+            Number.isFinite(p.stockActual) && p.stockActual >= 0 &&
+            // C36: a typed business command must use the SAME stable opId as
+            // the locally committed sale. Existing legacy IDs with ':' or '.'
+            // remain valid for local receipts but must not be sent as C15 SQL.
+            /^[A-Za-z0-9_-]{8,96}$/.test(opIdVenta)) {
           _opVenta.cantidad = cant;
           _opVenta.amountCents = _total20;
+          _opVenta.opId = opIdVenta;
         }
         _prepararOpStock(_opVenta);
         /* VENDER SIEMPRE (v737): si se vendio mas de lo que habia, el contador compartido (stockPN)
