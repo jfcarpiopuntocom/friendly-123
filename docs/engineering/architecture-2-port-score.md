@@ -1,11 +1,11 @@
 # friendly-123 · PORTANDO arquitectura 1.0 → 2.0 · indicadores decimales verificables
 
-**Último corte auditado:** 2026-11-19, producto real `jfcarpiopuntocom/friendly-123`, SHA base inspeccionado `cc9365aad373ded56f6118cdfd1f116e97d13068`. **Sync3 ya pertenece a 2.0 y se conserva**. `friendly123workshop` solo es laboratorio, PRECODE y auditorías; jamás producto destino.
+**Último corte auditado:** 2026-11-19, producto real `jfcarpiopuntocom/friendly-123`, SHA base inspeccionado `312201073975e3237014254fe9d87b87763c14ea`. **Sync3 ya pertenece a 2.0 y se conserva**. `friendly123workshop` solo es laboratorio, PRECODE y auditorías; jamás producto destino.
 
 | Indicador | Antes comparable | Revisión actual | Delta |
 | --- | ---: | ---: | ---: |
 | Capacidades de ingeniería 1.0→2.0 ensambladas | 68,5/100 (pos-D7, pre-C8) | **81,5/100** | **+13,0** (C8–C13) |
-| Calidad arquitectónica de ingeniería | 74,1/100 (revisión previa del 19-nov) | **74,6/100** | **+0,5** (#808 +0,3; #809 +0,2) |
+| Calidad arquitectónica de ingeniería | 74,6/100 (revisión previa del 19-nov) | **74,9/100** | **+0,3** (C20 cold-join real YParty/Workerd) |
 | Autorización de salida comercial | 0/6 gates | **0/6** | **0** |
 
 **Definición crítica:** el primer indicador mide contratos/componentes integrados y acreditados en `friendly-123`, no porcentaje de tráfico, teléfonos migrados ni autorización para vender. El segundo es una **valoración de calidad auditada**, no un SLO de disponibilidad ni certeza estadística. **La métrica de GO comercial es independiente.** La vieja cifra del workshop 61/100 mezclaba pruebas físicas y no es comparable.
@@ -47,3 +47,10 @@ C8 +3,0; C9 +2,5; C10 +1,5; C11 +2,0; C12 +1,0; C13 +3,0. Los hitos pendientes N
 Cuenta R2 activada, pero última lectura confirmó **0 buckets**, flags QA en `0` y sin binding de historia. **NUEVO GASTO AUTORIZADO: USD 0,00; ni USD 0,01.** R2 Standard gratuito NO cuenta con hard cap específico: sin creación de buckets, importaciones automáticas, PUTs, cambio de plan, ni despliegues que puedan facturar hasta un control técnico que impida sobrepasar cuota. Continuar pruebas Node/Miniflare locales, sin gastos ni datos de clientes.
 
 [Orden JFC vinculante en Notion](https://app.notion.com/p/41d1642b67f38156a1beeabf03acf607).
+
+## Revisión de calidad C19a/C20 tras integración en producto (19 nov, SHA 312201073975e3237014254fe9d87b87763c14ea)
+
+- [#811 C19a](https://github.com/jfcarpiopuntocom/friendly-123/pull/811) MERGED: único writer de delta público `-cat`, C11/C10/C9, pruebas Workerd reales y 14 checks green (CodeRabbit skipped). Es un módulo nuevo NO conectado al camino comercial activo: por ello **81,5/100 PORT sin puntos extra**.
+- [#812 C20](https://github.com/jfcarpiopuntocom/friendly-123/pull/812) MERGED: corrige un fallo real de cold-read C12, demostrado por C19a Workerd: `Y.applyUpdate` deja raíces `AbstractType` hasta `getMap`. C20 materializa solo `productos` y `ubicaciones` antes de validar la lista pública C9; `_meta`, PIN, ventas y dinero siguen prohibidos. RED 7/8→GREEN 8/8 con actual Yjs + prueba independiente de Workerd, Owner ticket real y SQL frío sin fuente. [30/30 checks completos en candidato SHA 499cf349](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44600298131), release v0.8.07 `f123-shell-v807`, caché `golden343`, bundle SHA256 `a4730abd63a194a28a3c20a40ee78cbac4f171e9a4cee69be3962685e1b3867d`. Mejora acreditada calidad dimensión **sync 14,9→15,2 (+0,3)**, total **74,6→74,9/100**.
+- Fuente de verdad en `friendly-123`, workshop solo audita: [reporte detallado C19a/C20](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/reports/2026-11-19-real-c19a-c20-catalog-writer-cold-reader-merged.md). Ninguna bandera QA activada, ninguna escritura/bucket Cloudflare/R2, **gasto USD 0,00**. GO comercial **0/6**; prueba física iPhone/Opera/PC NO ejecutada.
+- Pendiente real para ganar puntos PORT: integrar writer delta C19a con productor efectivo sin resiembra ni dos writers; luego componer dispatch comercial tipado contra ACK definitivo, fotos SHA y origen histórico; no sumar PRs abstractos.
