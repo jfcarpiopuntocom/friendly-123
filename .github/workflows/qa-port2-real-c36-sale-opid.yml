@@ -21,5 +21,9 @@ jobs:
         run: node --test test/p0-c36-real-sale-opid-e2e.test.cjs
       - name: Existing C34 envelope and old transport durability contracts
         run: node --test test/p0-c34-real-sale-envelope-contract.test.cjs test/p0-opid-before-yjs.test.cjs test/p0-roomless-yjs-stock-bridge.test.cjs
+      - name: Official SHA manifest generation for changed v815 shell files (read-only runner)
+        run: |
+          node scripts/gen-manifest.js
+          node -e 'const x=require("./docs/version-manifest.json");console.log("C36_MANIFEST_HASHES "+JSON.stringify({version:x.version,shell:x.shell,mock:x.files["./mock-backend.js"],realtime:x.files["./sync-realtime.js"],dashboard:x.files["./dashboard.html"]}))'
       - name: Fixed 100 tracking audit remains exact
         run: node scripts/architecture-2-port-score.cjs --json
