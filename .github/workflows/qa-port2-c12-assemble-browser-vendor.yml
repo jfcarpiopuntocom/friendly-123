@@ -6,6 +6,9 @@ on:
       - src/yparty-piloto.js
       - src/port2-readonly-catalog-session.mjs
       - src/ws-owner-ticket-params.mjs
+      - docs/version.json
+      - docs/sw.js
+      - docs/dashboard.html
       - .github/workflows/qa-port2-c12-assemble-browser-vendor.yml
   workflow_dispatch:
 permissions: {contents: read}
