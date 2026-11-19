@@ -44,7 +44,8 @@ jobs:
           fs.writeFileSync(v,JSON.stringify(version,null,2)+'\n');
           for(const file of ['docs/sw.js','docs/dashboard.html']){
             exact(file,'f123-shell-v808','f123-shell-v809');
-            exact(file,'golden344','golden345');
+            if (fs.readFileSync(file,'utf8').includes('golden344'))
+              exact(file,'golden344','golden345');
             // sw.js intentionally contains no release display text on some shells.
             if (fs.readFileSync(file,'utf8').includes('v0.8.08'))
               exact(file,'v0.8.08','v0.8.09');
