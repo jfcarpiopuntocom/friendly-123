@@ -1,0 +1,36 @@
+name: "PORT 2.0 REAL Gate D7 · immutable R2 certified archive packer"
+on:
+  push:
+    branches: [port2/20261119-gated7-certified-r2-packager]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/tools/frozen-r2-packager.mjs
+      - cloudflare-yparty-worker/qa/p0-gated7-frozen-r2-packager.test.mjs
+      - .github/workflows/qa-port2-real-gated7-r2-archive.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  certified-archive:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: G7 source-executed RED/GREEN with R2 Workerd
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          timeout -k 5 90s node --test qa/p0-gated7-frozen-r2-packager.test.mjs
+      - name: G6 independent R2 and real Tienda regressions
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-gated6-frozen-r2-source-workerd.test.mjs qa/p0-gated6-r2-to-real-tienda-workerd.test.mjs
