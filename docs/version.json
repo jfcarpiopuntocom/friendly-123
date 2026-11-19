@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.98",
+  "version": "v0.7.99",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.98: Dashboard Casa verifica la secuencia y los hashes del historial financiero local antes de presentar sus importes como completos. Los registros faltantes, modificados o no verificables quedan pendientes de conciliacion. Sin alterar ventas, cobros, comisiones ni el transporte.",
+  "changelog": "v0.7.99: la unión en frío recupera el historial cifrado anterior a un checkpoint de escritores independientes antes de dar el cuaderno por actualizado. Conserva todos los movimientos, cursores durables, PIN y los límites de reintentos. Sin ajustar existencias ni borrar datos.",
   "requerida": false,
-  "shell": "f123-shell-v798",
+  "shell": "f123-shell-v799",
   "apagar": [],
-  "releaseName": "v0.7.98",
-  "cacheGeneration": "golden334"
+  "releaseName": "v0.7.99",
+  "cacheGeneration": "golden335"
 }

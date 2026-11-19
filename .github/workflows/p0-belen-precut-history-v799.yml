@@ -1,0 +1,50 @@
+name: P0 Belén pre-checkpoint independent writer cold join
+on:
+  push:
+    branches: [integrate/p0-belen-precut-history-v799-20261118]
+    paths:
+      - test/p0-precut-independent-writers-v783.test.cjs
+      - docs/sync-yjs.js
+      - test/p0-yjs-pending-snapshot.test.js
+      - test/incident-yjs-causal-replay-v559.test.js
+      - test/incident-yjs-receive-queue-v558.test.js
+      - test/incident-relay-quota-budget-v559.test.js
+      - test/sync3-head-causal-gap.test.cjs
+      - test/pull-cursor-durable-ack.test.cjs
+      - test/firebase-relay-timestamp-boundary.test.cjs
+      - .github/workflows/p0-belen-precut-history-v799.yml
+  pull_request:
+    paths:
+      - test/p0-precut-independent-writers-v783.test.cjs
+      - docs/sync-yjs.js
+      - test/p0-yjs-pending-snapshot.test.js
+      - test/incident-yjs-causal-replay-v559.test.js
+      - test/incident-yjs-receive-queue-v558.test.js
+      - test/incident-relay-quota-budget-v559.test.js
+      - test/sync3-head-causal-gap.test.cjs
+      - test/pull-cursor-durable-ack.test.cjs
+      - test/firebase-relay-timestamp-boundary.test.cjs
+      - .github/workflows/p0-belen-precut-history-v799.yml
+permissions: {contents: read}
+jobs:
+  frozen-tail:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: 'Exact source RED / GREEN: two independent writers, all 95 pre-cut movements, no network'
+        run: |
+          set -euo pipefail
+          node --check docs/sync-yjs.js
+          node --test --test-concurrency=1 --test-timeout=95000 \
+            test/p0-precut-independent-writers-v783.test.cjs \
+            test/incident-yjs-causal-replay-v559.test.js \
+            test/incident-yjs-receive-queue-v558.test.js \
+            test/incident-relay-quota-budget-v559.test.js \
+            test/p0-yjs-pending-snapshot.test.js \
+            test/sync3-head-causal-gap.test.cjs \
+            test/pull-cursor-durable-ack.test.cjs \
+            test/firebase-relay-timestamp-boundary.test.cjs

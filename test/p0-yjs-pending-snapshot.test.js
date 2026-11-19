@@ -25,6 +25,8 @@ function fixture({pending=true,fragments=false,failBarrier=false,failWrite=false
    },
    doc:{store:pending?{pendingStructs:{missingParent:true}}:{}},
    partesEntrantes:fragments?{"chunk":{received:1,total:2}}:{},
+   // Extracted VM must model lexical declarations inside real crearCanal.
+   nombre:"catalogo",_antecedentesBuscados:false,
    _tReplay:null,_replayKey:null,_replayUsed:0,
    canal:{ws:null},PULL_PAGE_SIZE:64,
    _pullCursorKey:"cursor",_pullCursor:{rev:-1,seq:0},_appliedPullCursor:{rev:-1,seq:0},_pullCursorReady:Promise.resolve(),
@@ -555,7 +557,8 @@ test("E1b-2 RED: unsupported or silent HEAD releases clean final replay, not pen
      pullEstado:state,_colaRecepcion:Promise.resolve(),_pullCursorReady:Promise.resolve(),
      _pullCursor:{rev:3,seq:90},PULL_PAGE_SIZE:64,_soloMemoria:false,
      _replayKey:"stable",_replayUsed:5,_tReplay:null,partesEntrantes:{},doc,
-      nombre:"catalogo",API:{clave:{},_store:{aplicar:()=>events.push("aplicar")}},
+      nombre:"catalogo",_antecedentesBuscados:false,
+      API:{clave:{},_store:{aplicar:()=>events.push("aplicar")}},
      guardarPullCursor:async()=>{},deudaPendiente:()=>!!doc.store.pendingStructs,
      programarRelectura:()=>{},log:()=>{},
      // v670 HEAD fixture: a complete pull schedules a bounded checkpoint retry.
