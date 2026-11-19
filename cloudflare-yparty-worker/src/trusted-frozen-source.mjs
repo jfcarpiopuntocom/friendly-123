@@ -108,7 +108,9 @@ function validateDocument(frames,channel,strictCatalog){
     'hechos_financieros','usuarios','clientes','promotoras','dispositivos',
     '_stock_pn_testigos_v1']);
    for(const root of doc.share.keys())if(forbidden.has(root))throw fail();
-   if(strictCatalog){
+   if(strictCatalog||[...doc.share.keys()].some(x=>x==='productos'||x==='ubicaciones')){
+    // Actual catalog root names must be independently projected in V1 and V2;
+    // the v2 manifest also forbids obsolete synthetic non-public root aliases.
     // The v2 manifest may transport ONLY the exact detached PUBLIC projection.
     for(const root of doc.share.keys())if(root!=='productos'&&root!=='ubicaciones')throw fail();
     // Y.applyUpdate creates untyped root placeholders; materialize the Y.Map
