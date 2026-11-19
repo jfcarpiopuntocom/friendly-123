@@ -18,5 +18,9 @@ jobs:
           node-version: '22'
       - name: Run actual source contract with C31
         run: node --test test/p0-c34-real-sale-envelope-contract.test.cjs
+      - name: Official manifest generation and sealed SHA proof (read-only CI workspace)
+        run: |
+          node scripts/gen-manifest.js
+          node -e 'const x=require("./docs/version-manifest.json");console.log("C34_MANIFEST_HASHES "+JSON.stringify({version:x.version,shell:x.shell,mock:x.files["./mock-backend.js"],dashboard:x.files["./dashboard.html"]}))'
       - name: Revalidate fixed architectural tracking
         run: node scripts/architecture-2-port-score.cjs --json
