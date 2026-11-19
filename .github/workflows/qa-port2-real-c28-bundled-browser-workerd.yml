@@ -1,0 +1,27 @@
+name: PORT2 C28 · real Workerd SQLite test of compiled browser bundle coordinator
+on:
+  push:
+    branches: [port2/20261119-c28-bundled-browser-coordinator-workerd]
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/vendor/yparty-piloto.min.js
+      - cloudflare-yparty-worker/qa/p0-c28-bundled-browser-coordinator-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c28-bundled-browser-workerd.yml
+permissions: {contents: read}
+jobs:
+  c28-bundled-workerd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            qa/p0-c28-bundled-browser-coordinator-workerd.test.mjs
