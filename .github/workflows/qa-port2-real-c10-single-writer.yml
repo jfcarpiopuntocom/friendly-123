@@ -30,5 +30,8 @@ jobs:
           # Run the added C10 test in a fresh synthetic authority; otherwise
           # extra Owner tickets can exhaust the *shared test fixture* quota.
           node --test --test-name-pattern='P0 C10' --test-concurrency=1 --test-timeout=90000 qa/p0-secure-separate-rooms.test.mjs
-          # Preserve the original 14 Workerd scenarios and their ticket budget.
-          node --test --test-name-pattern='^(?!.*P0 C10)' --test-concurrency=1 --test-timeout=90000 qa/p0-secure-separate-rooms.test.mjs
+          # The fixture enforces an intentionally strict per-instance issuer
+          # rate quota. Partition existing regression tests across independent
+          # fresh authority instances, preserving every original assertion.
+          node --test --test-name-pattern='P0 (actual|independent|backwards-compatible|real Workerd photo|photo upload|real Workerd photo CORS)' --test-concurrency=1 --test-timeout=90000 qa/p0-secure-separate-rooms.test.mjs
+          node --test --test-name-pattern='P0 (Team|real Worker typed|browser HTTPS|cold join burst|combined REAL photo|genuine cold join)' --test-concurrency=1 --test-timeout=90000 qa/p0-secure-separate-rooms.test.mjs
