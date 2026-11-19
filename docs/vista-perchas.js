@@ -506,6 +506,18 @@
 
   let cargaEnCurso = 0;
   async function recuperarFotosPerchas(perchasVisibles, estaCarga) {
+    // The source notebook is part of the photo pointer write authority.
+    // Capture it before any async photo history or Yjs read.
+    const cuadernoFotoRecuperacion = (() => {
+      try { return window.OCTienda && window.OCTienda.licenciaActual
+        ? String(window.OCTienda.licenciaActual() || '') : ''; } catch (_) { return ''; }
+    })();
+    const mismoCuadernoFotoRecuperacion = () => {
+      if (!cuadernoFotoRecuperacion) return true; // pre-license legacy path
+      try { return !!(window.OCTienda && window.OCTienda.licenciaActual &&
+        String(window.OCTienda.licenciaActual() || '') === cuadernoFotoRecuperacion); }
+      catch (_) { return false; }
+    };
       /* v448 GOLDEN G07 — ADAPTADOR HEXAGONAL.
          La política de recuperación ya NO vive en esta vista. El caso de uso
          recoverShelfPhoto() recibe puertos y decide con el core puro:
@@ -574,13 +586,16 @@
             if (window.OCFotos.guardarFoto) await window.OCFotos.guardarFoto(id, bytes);
           },
           setPointer: async (id, hash) => {
-            if (estaCarga !== cargaEnCurso) return false;
+            if (estaCarga !== cargaEnCurso || !mismoCuadernoFotoRecuperacion()) return false;
             const rr = await fetch(`${API}/ubicaciones/${encodeURIComponent(id)}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ fotoHash: hash })
             });
-            return estaCarga === cargaEnCurso && (!rr || rr.ok !== false);
+            // No reply, missing .ok, or a late reply from another notebook
+            // is NEVER an ACK. Bytes remain saved for exact-shelf recovery.
+            return estaCarga === cargaEnCurso && mismoCuadernoFotoRecuperacion() &&
+              !!rr && rr.ok === true;
           },
           warn: (codigo) => {
             try {
