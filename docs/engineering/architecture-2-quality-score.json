@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "Engineering quality score with reviewed product-source contracts and Workerd SQLite QA, not a production uptime percentage or customer/physical GO; verified zero Cloudflare/R2 writes this release.",
-  "assessedProductSha": "51dfc8080a9d96549ec98146d4db67ba200c007c",
+  "assessedProductSha": "8cd8afb69a3c91df643d72053993cdf1d6745695",
   "history": [
     {
       "review": "2026-11-17",
