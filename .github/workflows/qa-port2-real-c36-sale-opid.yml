@@ -1,0 +1,25 @@
+name: PORT2 C36 real sale durable opId end-to-end
+on:
+  pull_request:
+    paths:
+      - 'docs/mock-backend.js'
+      - 'docs/sync-realtime.js'
+      - 'test/p0-c36-real-sale-opid-e2e.test.cjs'
+      - 'test/p0-c34-real-sale-envelope-contract.test.cjs'
+      - '.github/workflows/qa-port2-real-c36-sale-opid.yml'
+  workflow_dispatch:
+jobs:
+  real-receipt-identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: C36 actual backend post-ACK sale + real joined/roomless source + C31 mapper
+        run: node --test test/p0-c36-real-sale-opid-e2e.test.cjs
+      - name: Existing C34 envelope and old transport durability contracts
+        run: node --test test/p0-c34-real-sale-envelope-contract.test.cjs test/p0-opid-before-yjs.test.cjs test/p0-roomless-yjs-stock-bridge.test.cjs
+      - name: Fixed 100 tracking audit remains exact
+        run: node scripts/architecture-2-port-score.cjs --json
