@@ -10,6 +10,8 @@ on:
       - cloudflare-yparty-worker/src/durable-full-yjs-export.mjs
       - cloudflare-yparty-worker/src/index.js
       - cloudflare-yparty-worker/qa/p0-gated4-merge-nonempty-sql.test.mjs
+      - cloudflare-yparty-worker/qa/p0-gated4-real-onstart-workerd.test.mjs
+      - cloudflare-yparty-worker/qa/fixtures/gated4-real-nonempty-worker.mjs
       - .github/workflows/qa-port2-real-gated4-merge.yml
   workflow_dispatch:
 permissions: {contents: read}
@@ -38,4 +40,4 @@ jobs:
         working-directory: cloudflare-yparty-worker
         run: |
           set -euo pipefail
-          node --test --test-concurrency=1 qa/p0-gate-d-real-onstart-workerd.test.mjs qa/p0-gate-d-open-existing-workerd.test.mjs qa/p0-gate-d-trusted-paged-source.test.mjs qa/p0-gated3-paving-deterministic-memory.test.mjs
+          node --test --test-concurrency=1 qa/p0-gated4-real-onstart-workerd.test.mjs qa/p0-gate-d-real-onstart-workerd.test.mjs qa/p0-gate-d-open-existing-workerd.test.mjs qa/p0-gate-d-trusted-paged-source.test.mjs qa/p0-gated3-paving-deterministic-memory.test.mjs
