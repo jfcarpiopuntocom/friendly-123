@@ -70,7 +70,7 @@ test('C15 requestTypedOpsTicket supports least-privilege opsScope ONLY on -ops r
   }), 'ops:expense is not in central issuer CEILING and must fail closed');
 });
 
-test('C15 HTTP 202 stored-for-application is NEVER treated as business-committed (fallbackLegacy:true)', async () => {
+test('C15 HTTP 202 stored-for-application is never a business ACK or permission to replay on legacy', async () => {
   const {dispatchTypedCommercialCommand} = await import(clientUrl);
   const cmd = {license: LICENSE, opId: 'c15-sale-0001', kind: 'sale.record', productId: 'sku_1', quantity: 1, amountCents: 1500};
   const {send, calls} = makeFetch({
@@ -86,7 +86,9 @@ test('C15 HTTP 202 stored-for-application is NEVER treated as business-committed
   });
   assert.equal(res.committed, false, 'HTTP 202 queued inbox is NOT a commercial commit');
   assert.equal(res.stage, 'queued-not-committed');
-  assert.equal(res.fallbackLegacy, true, 'must keep encrypted legacy -ops fallback with same opId');
+  assert.equal(res.fallbackLegacy, false, 'queued DO intent can later commit, so a legacy duplicate is forbidden');
+  assert.equal(res.reconcileRequired, true);
+  assert.equal(res.retryTarget, 'same-do-only');
   assert.equal(res.retryable, true);
   assert.equal(res.quarantine, false);
   assert.equal(calls.length, 2);
@@ -115,7 +117,7 @@ test('C15 HTTP 200 business-committed with exact matching receipt confirms commi
   assert.deepEqual(JSON.parse(calls[0].opts.body).scopes, ['ops:adjust']);
 });
 
-test('C15 tampered 200 receipt (mismatched opId/kind/license/hash) fails closed and preserves fallback', async () => {
+test('C15 tampered HTTP 200 receipt fails closed and requires same-DO reconciliation, not legacy retry', async () => {
   const {dispatchTypedCommercialCommand} = await import(clientUrl);
   const cmd = {license: LICENSE, opId: 'c15-pay-0001', kind: 'credit.payment.record', receivableId: 'rec_1', amountCents: 500};
   const validId = receiptIdFor(cmd);
@@ -132,7 +134,9 @@ test('C15 tampered 200 receipt (mismatched opId/kind/license/hash) fails closed 
       getCredentials: creds, fetch: send, isVisible: () => true
     });
     assert.equal(res.committed, false);
-    assert.equal(res.fallbackLegacy, true);
+    assert.equal(res.fallbackLegacy, false);
+    assert.equal(res.reconcileRequired, true);
+    assert.equal(res.retryTarget, 'same-do-only');
   }
 });
 
@@ -187,7 +191,7 @@ test('C15 rejects secret/extra keys, expense.record, hidden tab and wrong room B
   }
 });
 
-test('C15 timeout aborts cleanly and falls back to legacy without hanging checkout', async () => {
+test('C15 timeout aborts cleanly and retains pending opId for same-DO reconciliation', async () => {
   const {dispatchTypedCommercialCommand} = await import(clientUrl);
   const cmd = {license: LICENSE, opId: 'c15-sale-slow', kind: 'sale.record', productId: 'sku_1', quantity: 1, amountCents: 1500};
   const {send} = makeFetch({delayMs: 2000});
@@ -196,8 +200,10 @@ test('C15 timeout aborts cleanly and falls back to legacy without hanging checko
     getCredentials: creds, fetch: send, isVisible: () => true, timeoutMs: 250
   });
   assert.equal(res.committed, false);
-  assert.equal(res.stage, 'unavailable-fallback');
-  assert.equal(res.fallbackLegacy, true);
+  assert.equal(res.stage, 'commit-unverified');
+  assert.equal(res.fallbackLegacy, false);
+  assert.equal(res.reconcileRequired, true);
+  assert.equal(res.retryTarget, 'same-do-only');
   assert.equal(res.retryable, true);
 });
 
