@@ -2966,6 +2966,18 @@
         return Promise.reject(new Error("certified catalog writer unavailable"));
       };
     }
+    // C25 explicit cutover coordinator factory, only exposed when the existing
+    // double QA pilot switch constructs a verified Owner `piloto`.
+    // Never called automatically by CONFIRM SALE or Sync3.
+    if (piloto && typeof piloto.crearCoordinadorCorte20 === "function") {
+      API.crearCoordinadorCorte20 = function (docPrivado, headCongelado, opc) {
+        return piloto.crearCoordinadorCorte20(docPrivado, headCongelado, opc);
+      };
+    } else {
+      API.crearCoordinadorCorte20 = function () {
+        return Promise.reject(new Error("certified cutover coordinator unavailable"));
+      };
+    }
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
