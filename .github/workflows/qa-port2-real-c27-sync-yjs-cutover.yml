@@ -1,0 +1,32 @@
+name: PORT2 C27 · sync-yjs runtime cutover fence and role photo SHA
+on:
+  push:
+    branches: [port2/20261119-c27-sync-yjs-runtime-cutover-v811]
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-c27-sync-yjs-runtime-cutover.test.cjs
+      - .github/workflows/qa-port2-real-c27-sync-yjs-cutover.yml
+permissions: {contents: read}
+jobs:
+  c27-cutover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-c27-sync-yjs-runtime-cutover.test.cjs \
+            test/p0-c25-browser-coordinator-factory.test.cjs \
+            test/p0-c23-pilot-wire-photos-deltas-idb.test.cjs \
+            test/p0-yparty-photo-sha-browser.test.cjs \
+            test/p0-yparty-ultrareview-catalog-boundaries.test.cjs \
+            test/p0-architecture-2-port-score.test.cjs
+          bash check-sw.sh
+          node scripts/architecture-2-port-score.cjs --json

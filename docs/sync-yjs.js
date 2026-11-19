@@ -2851,7 +2851,8 @@
     API.fotosMap = API.fotosDoc.getMap("blobs");
     // On-demand cold-device recovery: keep OCFotos' existing IDB lookup first.
     // Only a verified signed catalog reference may trigger HTTP photo download.
-    if (API.fotoSha && window.OCFotos?.leerPorHash && !window.OCFotos.__f123PhotoReadOriginal) {
+    function _instalarLectorFotoShaBajoDemanda() {
+      if (!API.fotoSha || !window.OCFotos?.leerPorHash || window.OCFotos.__f123PhotoReadOriginal) return;
       var fotosShaStore = window.OCFotos;
       var leerFotoLocal = fotosShaStore.leerPorHash.bind(fotosShaStore);
       fotosShaStore.__f123PhotoReadOriginal = leerFotoLocal;
@@ -2879,6 +2880,7 @@
         } catch (_) { return null; } // the legacy encrypted photo relay remains the fallback
       };
     }
+    _instalarLectorFotoShaBajoDemanda();
     if (API.fotosRefs?.observe) API.fotosRefs.observe(function () {
       try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
     });
@@ -2954,8 +2956,19 @@
     }
     if (piloto && typeof piloto.crearClienteFotosShaCertificado === "function") {
       API.crearClienteFotosShaCertificado = function (opc) { return piloto.crearClienteFotosShaCertificado(opc); };
+      API.activarClienteFotosShaCertificado = function (opc) {
+        var cliente = piloto.crearClienteFotosShaCertificado(opc);
+        if (!cliente || typeof cliente.get !== "function") return null;
+        if (!API.fotosRefs && API.doc && typeof API.doc.getMap === "function") {
+          API.fotosRefs = API.doc.getMap("fotos_refs");
+        }
+        API.fotoSha = cliente;
+        _instalarLectorFotoShaBajoDemanda();
+        return cliente;
+      };
     } else {
       API.crearClienteFotosShaCertificado = function () { return null; };
+      API.activarClienteFotosShaCertificado = function () { return null; };
     }
     if (piloto && typeof piloto.abrirEscritorDeltaCatalogoCertificado === "function") {
       API.abrirEscritorDeltaCatalogoCertificado = function (docPrivado, headCongelado, opc) {
@@ -2966,16 +2979,41 @@
         return Promise.reject(new Error("certified catalog writer unavailable"));
       };
     }
-    // C25 explicit cutover coordinator factory, only exposed when the existing
+    // C25+C27 explicit cutover coordinator factory & runtime fence, only exposed when the existing
     // double QA pilot switch constructs a verified Owner `piloto`.
     // Never called automatically by CONFIRM SALE or Sync3.
+    API.coordinadorCorte20 = null;
     if (piloto && typeof piloto.crearCoordinadorCorte20 === "function") {
-      API.crearCoordinadorCorte20 = function (docPrivado, headCongelado, opc) {
-        return piloto.crearCoordinadorCorte20(docPrivado, headCongelado, opc);
+      API.crearCoordinadorCorte20 = async function (docPrivado, headCongelado, opc) {
+        if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.destroy === "function") {
+          try { API.coordinadorCorte20.destroy(); } catch (_) {}
+          API.coordinadorCorte20 = null;
+        }
+        var coord = await piloto.crearCoordinadorCorte20(docPrivado, headCongelado, opc);
+        API.coordinadorCorte20 = coord;
+        return coord;
+      };
+      API.despacharOpComercialCertificada = function (comando) {
+        if (!API.coordinadorCorte20 || typeof API.coordinadorCorte20.submitCommercial !== "function") {
+          return Promise.resolve({ committed: false, fallbackLegacy: true, stage: "coordinator-uninitialized" });
+        }
+        return API.coordinadorCorte20.submitCommercial(comando);
+      };
+      API.puedeDespacharOpEnLegado = function (opId) {
+        if (!API.coordinadorCorte20 || typeof API.coordinadorCorte20.canDispatchOnLegacy !== "function") {
+          return Promise.resolve(true);
+        }
+        return API.coordinadorCorte20.canDispatchOnLegacy(opId);
       };
     } else {
       API.crearCoordinadorCorte20 = function () {
         return Promise.reject(new Error("certified cutover coordinator unavailable"));
+      };
+      API.despacharOpComercialCertificada = function () {
+        return Promise.resolve({ committed: false, fallbackLegacy: true, stage: "pilot-disabled" });
+      };
+      API.puedeDespacharOpEnLegado = function () {
+        return Promise.resolve(true);
       };
     }
     API.opsDoc.on("update", function (update, origin) {
@@ -3129,6 +3167,14 @@
   }
   function publicarOpLocal(op) {
     if (!op || !op.opId || !API.opsMap) return;
+    if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.canDispatchOnLegacy === "function") {
+      var mapaActual = API.opsMap, coordActual = API.coordinadorCorte20;
+      Promise.resolve(coordActual.canDispatchOnLegacy(op.opId)).then(function (permitidoEnLegado) {
+        if (permitidoEnLegado !== true || API.opsMap !== mapaActual) return;
+        try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
+      }).catch(function () {});
+      return;
+    }
     try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); } catch (_) {}
   }
   var _tOps = null, _opsProcesadas = null, _opsAsyncBusy = false;
@@ -3380,7 +3426,7 @@
           // A delayed IndexedDB read belongs to its original authenticated photo room.
           if (docFotoInicial !== API.fotosDoc || mapaFotoInicial !== API.fotosMap || canalFotoInicial !== API.fotosCanal) break;
           if (capaAhora !== capaFoto) { _fotosSembrarDeNuevo = true; break; }
-          if (bridgeFotoInicial && API.fotosRefs && docCatInicial === API.doc) {
+          if (bridgeFotoInicial && typeof bridgeFotoInicial.put === "function" && API.fotosRefs && docCatInicial === API.doc) {
             var refPrevia = API.fotosRefs.get(hash);
             if (!(refPrevia?.sha === hash && Number.isSafeInteger(refPrevia.bytes) && refPrevia.bytes > 0)) try {
               // The DO ACK is durable: only then publish a tiny Yjs reference.

@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.10",
+  "version": "v0.8.11",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.10: ensambla el coordinador C21a con C21b IndexedDB v2, C16a ops y C19a escritor catalogo en piloto y Sync3 API detrás de QA OFF. Pagehide libera escritor C10 y conserva opId confirmado irreversible. Sync3 y ventas antiguas intactos, cero gastos R2/Cloudflare.",
+  "changelog": "v0.8.11: conecta publicarOpLocal a la valla C21a/C21b del coordinador C25 en docs/sync-yjs.js y expone activarClienteFotosShaCertificado (Owner PUT/GET y Team GET read-only) detrás del doble switch QA OFF. Sync3 intacto, cero gastos R2/Cloudflare.",
   "requerida": false,
-  "shell": "f123-shell-v810",
+  "shell": "f123-shell-v811",
   "apagar": [],
-  "releaseName": "v0.8.10",
-  "cacheGeneration": "golden346"
+  "releaseName": "v0.8.11",
+  "cacheGeneration": "golden347"
 }
