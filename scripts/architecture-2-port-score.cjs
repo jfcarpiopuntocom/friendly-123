@@ -178,6 +178,54 @@ function inspect(){
      .update(syncSrc.replace(/\r\n/g,'\n')).digest('hex');
    assert.equal(manifest.files['./sync-yjs.js'],digest,'C31 shipped facade integrity mismatch');
  }
+
+ // C35: only 0.5/100 for the actual C34 compatible cash-sale event source,
+ // not full production dispatch or a second cash/stock writer certificate.
+ const cashMilestone=data.groups.flatMap(g=>g.milestones)
+   .find(m=>m.id==='real-cash-sale-envelope-c34');
+ if(cashMilestone?.done){
+   assert.equal(cashMilestone.points,0.5,'C34 actual compatible cash envelope earns 0.5 only');
+   const full=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='production-business-dispatch');
+   assert.equal(full?.points,2.5,'2.5 dispatch/cutover budget remains');
+   assert.equal(full.done,false,'C34 must not certify production business dispatch');
+   assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO for C34 QA');
+   const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
+   const translator=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   for(const token of ['const _opVenta = { productoId: p.id, delta: -cant };',
+     'const _metodo20 = String(infoVenta.formaPago || "")',
+     '_opVenta.cantidad = cant;', '_opVenta.amountCents = _total20;',
+     'emitirOpStock("venta", _opVenta, true);']){
+     assert(backend.includes(token),'C34 actual product cash event missing '+token);
+   }
+   const saleStart=backend.indexOf('const _opVenta = { productoId: p.id, delta: -cant };');
+   const saleEmit=backend.indexOf('emitirOpStock("venta", _opVenta, true);',saleStart);
+   const saved=backend.indexOf('await guardarEstadoLocal(true, true)',saleStart);
+   assert(saleStart>=0 && saved>saleStart && saleEmit>saved,
+     'C34 event must remain published only AFTER local strict save');
+   assert(translator.includes('API.traducirOpLegadoAComando20') &&
+     translator.includes('Number.isSafeInteger(p.cantidad)') &&
+     translator.includes('Number.isSafeInteger(p.amountCents)'),
+     'C31 typed contract must actually consume C34 payload');
+   const c34Test='test/p0-c34-real-sale-envelope-contract.test.cjs';
+   assert(fs.existsSync(path.join(root,c34Test)),'C34 exact-source negative regression missing');
+   const c34=fs.readFileSync(path.join(root,c34Test),'utf8');
+   assert(c34.includes('assert.equal(translate(payload),null') &&
+     c34.includes("payload.amountCents"), 'C34 must test exact valid cash and unsafe fallbacks');
+   const c33='cloudflare-yparty-worker/qa/p0-c33-sync-yjs-cutover-workerd.test.mjs';
+   assert(fs.existsSync(path.join(root,c33)),'C33 real Workerd E2E missing');
+   const c33src=fs.readFileSync(path.join(root,c33),'utf8');
+   assert(c33src.includes('assert.equal(sqlState.receipts, 3)') &&
+     c33src.includes('assert.equal(sqlState.stock, 7)'),
+     'C33 must have actual SQL ledger receipts and stock assertion');
+   const manifest=load('docs/version-manifest.json');
+   const v=load('docs/version.json');
+   const patch=Number((/^v0\.8\.(\d+)$/.exec(v.version||'')||[])[1]||0);
+   const shell=Number((/^f123-shell-v(\d+)$/.exec(v.shell||'')||[])[1]||0);
+   assert(patch>=14 && shell>=814,'C34 source requires sealed v814+ shell');
+   const normalized='sha256-'+crypto.createHash('sha256').update(backend.replace(/\r\n/g,'\n')).digest('hex');
+   assert.equal(manifest.files['./mock-backend.js'],normalized,
+     'C34 credited source must match actually shipped manifest hash');
+ }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
