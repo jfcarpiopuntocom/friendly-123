@@ -1,0 +1,38 @@
+name: "PORT2 C15 · typed -ops HTTP client and Workerd business-committed ACK"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/port2-typed-ops-client.mjs
+      - test/p0-c15-typed-ops-client.test.cjs
+      - cloudflare-yparty-worker/qa/p0-c15-typed-ops-client-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c15-typed-ops-client.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  c15:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Unit, ticket least-privilege and pitfalls contracts
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test \
+            test/p0-c15-typed-ops-client.test.cjs \
+            test/p0-yparty-client-real-tickets.test.cjs \
+            test/p0-c12-browser-pilot-readonly-seam.test.cjs \
+            test/p0-yparty-client-built-bundle.test.cjs
+      - name: Real Workerd Tienda integration (202 queued vs 200 business-committed, restart, 409, 503)
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test --test-concurrency=1 --test-timeout=90000 \
+            qa/p0-c15-typed-ops-client-workerd.test.mjs \
+            qa/p0-gate-a-real-router-business.test.mjs \
+            qa/p0-c12-readonly-catalog-client.test.mjs
