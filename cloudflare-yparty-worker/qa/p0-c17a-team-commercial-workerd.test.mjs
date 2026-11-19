@@ -168,7 +168,7 @@ test('C17a Team ticket client <-> real Workerd Tienda: admin/empleado commercial
       wsUrl.searchParams.set('licencia', empWsTicket.licencia);
       wsUrl.searchParams.set('instancia', empWsTicket.instancia);
       wsUrl.searchParams.set('cap', empWsTicket.cap);
-      const wsAttempt = await fetch(wsUrl, {headers: {upgrade: 'websocket'}});
+      const wsAttempt = await mf.dispatchFetch(wsUrl, {headers: {upgrade: 'websocket'}});
       assert.equal(wsAttempt.status, 403, `Team ticket must NEVER open raw WS on ${targetRoom}`);
     }
 
