@@ -7,6 +7,15 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const {IDBFactory}=require('fake-indexeddb');
+const {createHash,webcrypto}=require('node:crypto');
+const verifier=fs.readFileSync(path.join(__dirname,'../docs/core/hechos-chain-readonly.js'),'utf8');
+function hecho(instance,seq,tipo) {
+ const h={id:instance+'-'+seq,instanceId:instance,autor:'dueno',reloj:{[instance]:seq},
+   ts:1763400000000+seq,tipo,datos:{monto:5},hashPrevio:'',hash:''};
+ const base=JSON.stringify({id:h.id,instanceId:h.instanceId,autor:h.autor,
+   reloj:h.reloj,ts:h.ts,tipo:h.tipo,datos:h.datos,hashPrevio:h.hashPrevio});
+ h.hash=createHash('sha256').update(base).digest('hex');return h;
+}
 const file=fs.readFileSync(path.join(__dirname,'../src/dashboard/dashboard-main.js'),'utf8');
 const a=file.indexOf('      /* No previous shop / revision finance facts may survive until IDB replies. */');
 const b=file.indexOf('      try {\n        var o = JSON.parse(localStorage.getItem("f123_owned")',a);
@@ -26,12 +35,14 @@ async function dbWith(factory,name,rows,modern=true){
 function fixture(idb){
  const rendered=[];
  const ctx={
-  indexedDB:idb,datos:{},e:{ventas:[],productos:[],clientes:[],gastos:[],ajustesComision:[]},
+  indexedDB:idb,crypto:webcrypto,TextEncoder,datos:{},e:{ventas:[],productos:[],clientes:[],gastos:[],ajustesComision:[]},
   d:{resumen:{}},localStorage:{getItem:()=>null},Intl,
   autorizado:true,codigoSesionActual:'SYNTHETIC-ROOM',codeHere:'SYNTHETIC-ROOM',
   codigoLocalActivo:()=> 'SYNTHETIC-ROOM',_generacionPinturaLocal:0,
   mostrar:()=>rendered.push({...ctx.datos.cobertura}),console,
  };
+ ctx.window=ctx;
+ vm.runInNewContext(verifier,ctx,{filename:'hechos-chain-readonly.js'});
  vm.runInNewContext(code,ctx,{filename:'dashboard-local-facts-snippet.js'});
  return {ctx,rendered};
 }
@@ -68,7 +79,7 @@ test('H1 RED: IDB read error reports actionable error while leaving financial fi
 });
 test('H1 existing modern finance ledger is read-only and completes with exactly the prior facts',async()=>{
  const idb=new IDBFactory();
- await dbWith(idb,'f123_hechos_db',[{id:'synthetic-1',tipo:'cartera_abono'},{id:'synthetic-2',tipo:'caja_chica_ingreso'},{id:'synthetic-3',tipo:'plan_pago_creado'}]);
+ await dbWith(idb,'f123_hechos_db',[hecho('writer-A',1,'cartera_abono'),hecho('writer-B',1,'caja_chica_ingreso'),hecho('writer-C',1,'plan_pago_creado')]);
  const f=fixture(idb);await wait();
  assert.equal(f.ctx.datos.cobertura.hechosFinancieros,true);
  assert.equal(f.ctx.datos.hechosFinancieros.length,2);
