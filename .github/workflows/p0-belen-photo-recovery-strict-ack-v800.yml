@@ -1,0 +1,26 @@
+name: P0 Belén photo recovery exact-source strict ACK
+on:
+  push:
+    branches: [integrate/p0-belen-photo-pointer-strict-ack-v800-20261118]
+    paths:
+      - test/p0-belen-photo-recovery-pointer-strict-ack.test.cjs
+      - test/p0-belen-photo-pointer-ack-real-source.test.cjs
+      - docs/vista-perchas.js
+      - .github/workflows/p0-belen-photo-recovery-strict-ack-v800.yml
+  pull_request:
+    paths:
+      - test/p0-belen-photo-recovery-pointer-strict-ack.test.cjs
+      - docs/vista-perchas.js
+      - .github/workflows/p0-belen-photo-recovery-strict-ack-v800.yml
+permissions: {contents: read}
+jobs:
+  photo-pointer-ack:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: {node-version: '22', cache: npm}
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: 'Exact-source RED / GREEN: recoverShelfPhoto only accepts confirmed PUT in same shop'
+        run: node --test test/p0-belen-photo-recovery-pointer-strict-ack.test.cjs test/p0-belen-photo-pointer-ack-real-source.test.cjs
