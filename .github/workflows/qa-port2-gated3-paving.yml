@@ -1,0 +1,40 @@
+name: "PORT 2.0 real · Hermes Gate D3 public SHA and isolate memory"
+on:
+  push:
+    branches: [port2/20261119-gated3-paving]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/catalog-safe-projection.mjs
+      - cloudflare-yparty-worker/src/trusted-frozen-source.mjs
+      - cloudflare-yparty-worker/qa/p0-gated3-paving-deterministic-memory.test.mjs
+      - .github/workflows/qa-port2-gated3-paving.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  gated3:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Source-executed Hermes RED and GREEN
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test qa/p0-gated3-paving-deterministic-memory.test.mjs qa/p0-safe-catalog-projection.test.mjs
+      - name: Prev Gate D2 pagination + real Tienda Workerd regressions
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-gate-d-trusted-paged-source.test.mjs qa/p0-gate-d-real-onstart-workerd.test.mjs qa/p0-gate-d-open-existing-workerd.test.mjs qa/p0-certified-frozen-import.test.mjs
