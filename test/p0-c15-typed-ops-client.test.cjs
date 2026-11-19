@@ -274,3 +274,17 @@ test('C15 preflight issuer denial happens before a command reaches DO; legacy ma
  assert.equal(result.fallbackLegacy,true);
  assert.equal(result.reconcileRequired,false);
 });
+
+test('C15 cannot send signed business capability to caller-selected host before any ticket is issued',async()=>{
+ const {dispatchTypedCommercialCommand}=await import(clientUrl);
+ const cmd={license:LICENSE,opId:'c15-host-guard-001',kind:'sale.record',productId:'sku_1',quantity:1,amountCents:1500};
+ let calls=0;
+ const send=async()=>{calls++;return{ok:true}};
+ const result=await dispatchTypedCommercialCommand({room:ROOM,licenseCode:LICENSE,
+  instanceId:INSTANCE,command:cmd,getCredentials:creds,fetch:send,
+  isVisible:()=>true,host:'attacker-example.net'});
+ assert.equal(calls,0,'unapproved host cannot obtain issuer token or receive commercial payload');
+ assert.equal(result.committed,false);
+ assert.equal(result.stage,'precondition-denied');
+ assert.equal(result.reconcileRequired,false);
+});
