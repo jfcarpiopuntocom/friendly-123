@@ -197,6 +197,9 @@ test('C21a REAL Workerd 2-device failback: Device A latches 202 sale in IDB -> f
         SALA_PILOTO: roomId,
         WS_AUTHORITY_QA: '1',
         WS_SEPARATE_ROOMS_QA: '1',
+        // The production C19a writer first checks C11 certified frozen HEAD.
+        // The old synthetic-only WS stand-in never exercised Gate D proof.
+        WS_OPEN_EXISTING_QA: '1',
         WS_CATALOG_ORIGIN_QA: ORIGIN,
         WS_TYPED_COMMANDS_QA: '1',
         WS_TYPED_ORIGIN_QA: ORIGIN,
