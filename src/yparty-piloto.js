@@ -1,6 +1,7 @@
 import AuthorizedYProvider from './authorized-yprovider.mjs';
 import {createOwnerTicketParams} from './ws-owner-ticket-params.mjs';
 import {createPhotoShaBridge} from './photo-sha-bridge.mjs';
+import {openCertifiedReadOnlyPublicCatalog} from './port2-readonly-catalog-session.mjs';
 
 const host = 'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
@@ -8,6 +9,33 @@ const plazoReconectar = 7500;
 
 window.F123YPartyPilot = function (sala, licencia) {
   return {
+    // The first real browser seam for C8-C12. This is READ ONLY and requires
+    // explicit caller-supplied verified historical HEAD. The default legacy
+    // catalog and money paths below remain unchanged until the canary is ready.
+    async leerCatalogoPublicoCertificado(privateDoc, expectedFrozenHead, createProvider) {
+      let owned;
+      try { owned=JSON.parse(localStorage.getItem('f123_owned')||'null'); } catch (_) {}
+      const instanceId=owned?.instanceId;
+      const getCredentials=()=>{
+        let current;
+        try { current=JSON.parse(localStorage.getItem('f123_owned')||'null'); } catch (_) {}
+        if(String(current?.licenseCode||'').trim().toUpperCase()!==licencia||
+           current?.instanceId!==instanceId||
+           window.OCAuth?.rolActual?.()!=='dueno')throw new Error('owner-session-unavailable');
+        const pin=window.OCSecure?.leerPinQueAbre?.()?.owner;
+        if(typeof pin!=='string'||!/^[0-9]{3}$/.test(pin)||
+           pin==='456'||pin==='789')throw new Error('owner-session-unavailable');
+        return{kind:'owner',licenseCode:licencia,instanceId,pin};
+      };
+      if(String(owned?.licenseCode||'').trim().toUpperCase()!==licencia||
+         !/^[A-Za-z0-9_-]{6,128}$/.test(instanceId||'')||
+         !/^[a-f0-9]{32}$/.test(sala||'')||
+         document.hidden)throw new Error('certified read-only catalog unavailable');
+      return openCertifiedReadOnlyPublicCatalog({
+        privateDoc,Y:window.Y,room:sala+'-cat',licenseCode:licencia,
+        instanceId,expectedFrozenHead,getCredentials,createProvider
+      });
+    },
     // HTTP-only transport for immutable SHA photo bytes. Do not give this
     // capability to an authorized Yjs WebSocket provider.
     fotoSha() {

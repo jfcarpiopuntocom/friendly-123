@@ -3,12 +3,13 @@ const unavailable=()=>new Error('WS authorization unavailable');
 
 // Reads the existing credential at the time of each attempt; retains no PIN,
 // claims, or browser role as an independent source of server authority.
-export function createOwnerTicketParams({licenseCode,instanceId,room,photoScope,getCredentials,fetch:send=globalThis.fetch.bind(globalThis)}) {
+export function createOwnerTicketParams({licenseCode,instanceId,room,photoScope,catalogReadOnly=false,getCredentials,fetch:send=globalThis.fetch.bind(globalThis)}) {
   if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(licenseCode||'')||
      !/^[A-Za-z0-9_-]{6,128}$/.test(instanceId||'')||
      !(photoScope===undefined ? /^[a-f0-9]{32}-(?:cat|ops|priv)$/.test(room||'') :
        (['read','write'].includes(photoScope)&&/^[a-f0-9]{32}-fotos$/.test(room||'')))||
-     typeof getCredentials!=='function'||typeof send!=='function')throw unavailable();
+     typeof getCredentials!=='function'||typeof send!=='function'||
+     (catalogReadOnly!==false && (catalogReadOnly!==true || !room.endsWith('-cat') || photoScope!==undefined)))throw unavailable();
   function snapshot() {
     const c=getCredentials();
     if(c?.kind!=='owner'||c.licenseCode!==licenseCode||c.instanceId!==instanceId||
@@ -20,7 +21,7 @@ export function createOwnerTicketParams({licenseCode,instanceId,room,photoScope,
     try {
       const credentials=snapshot();
       const suffix=room.slice(-3)==='cat'?'cat':room.slice(-3)==='ops'?'ops':'priv';
-      const scopes=photoScope!==undefined?['fotos:'+photoScope]:suffix==='cat'?['cat:read','cat:write']:suffix==='ops'?['ops:read','ops:sale']:['priv:read','priv:write'];
+      const scopes=photoScope!==undefined?['fotos:'+photoScope]:suffix==='cat'?(catalogReadOnly?['cat:read']:['cat:read','cat:write']):suffix==='ops'?['ops:read','ops:sale']:['priv:read','priv:write'];
       const response=await send(issuer,{method:'POST',mode:'cors',cache:'no-store',credentials:'omit',redirect:'error',referrerPolicy:'no-referrer',headers:{'content-type':'application/json'},signal:controller.signal,body:JSON.stringify({credentials,room,scopes,ttlMs:30000})});
       if(!response.ok)throw unavailable();
       const data=await response.json(),current=snapshot(),now=Date.now();

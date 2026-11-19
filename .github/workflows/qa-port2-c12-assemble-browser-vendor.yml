@@ -1,0 +1,55 @@
+name: "PORT2 C12 · build exact browser vendor (QA branch only)"
+on:
+  push:
+    branches: [port2/20261119-c12-score-reader]
+    paths:
+      - src/yparty-piloto.js
+      - src/port2-readonly-catalog-session.mjs
+      - src/ws-owner-ticket-params.mjs
+      - docs/version.json
+      - docs/sw.js
+      - docs/dashboard.html
+      - .github/workflows/qa-port2-c12-assemble-browser-vendor.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  bundle:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/port2/20261119-c12-score-reader'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions: {contents: write}
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: true}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Build original browser IIFE, regenerate deterministic manifest
+        run: |
+          set -euo pipefail
+          NODE_PATH=cloudflare-yparty-worker/node_modules node scripts/build-yparty-piloto.cjs
+          node scripts/gen-manifest.js
+          node --test test/p0-yparty-client-built-bundle.test.cjs
+          node --test test/p0-c12-browser-pilot-readonly-seam.test.cjs
+      - name: Commit ONLY generated client vendor and integrity manifest on candidate branch
+        run: |
+          set -euo pipefail
+          git config user.name "friendly123-port2-qa-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          changed="$(git diff --name-only)"
+          echo "$changed"
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            case "$file" in
+              docs/vendor/yparty-piloto.min.js|docs/version-manifest.json) ;;
+              *) echo "Unexpected build mutation: $file"; exit 1;;
+            esac
+          done <<< "$changed"
+          git add docs/vendor/yparty-piloto.min.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build(port2): assemble C12 certified browser reader in real vendor bundle"
+            git push origin HEAD:refs/heads/port2/20261119-c12-score-reader
+          fi

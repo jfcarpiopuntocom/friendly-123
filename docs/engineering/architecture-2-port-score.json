@@ -1,0 +1,346 @@
+{
+  "schema": 1,
+  "metric": "architecture-v1-to-v2-implementation",
+  "asOf": "2026-11-19",
+  "excluded": [
+    "Sync3 is already 2.0",
+    "workshop does not contribute to product implementation",
+    "commercial GO and physical acceptance are tracked separately"
+  ],
+  "basis": "Weighted binary evidence-backed capabilities physically present in the real friendly-123 PRODUCT at reviewed branch SHA; 'done' means the component is assembled and its browser bundle when relevant is tested, not that active customers have migrated.",
+  "baseline": {
+    "label": "Immediately after Gate D7, before C8–C11",
+    "score": 68.5,
+    "comparison": "Same fixed 100.0-point checklist immediately after D7 before C8–C11; since then 9.0 points for C8–C11 and 1.0 for shipped C12 read-only pilot seam. Does not depend on GO."
+  },
+  "score": 78.5,
+  "maximum": 100,
+  "groups": [
+    {
+      "id": "storage",
+      "weight": 17,
+      "title": "SQLite/Yjs durable store",
+      "scope": "Captura/durabilidad en código ensamblado",
+      "milestones": [
+        {
+          "id": "sql-snapshot",
+          "points": 5,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/index.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/index.js"
+        },
+        {
+          "id": "journal-reopen",
+          "points": 5,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/open-existing-store.mjs"
+        },
+        {
+          "id": "occupied-merge",
+          "points": 4,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/open-existing-store.mjs"
+        },
+        {
+          "id": "pitr-budgets",
+          "points": 1.5,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/open-existing-store.mjs"
+        },
+        {
+          "id": "operational-switch",
+          "points": 1.5,
+          "done": false,
+          "source": "src/yparty-piloto.js"
+        }
+      ]
+    },
+    {
+      "id": "frozen-history",
+      "weight": 18,
+      "title": "Historia certificada, importación y R2",
+      "scope": "Importación singular y SQL comprobados en Workerd; falta fuente histórica comercial y binding",
+      "milestones": [
+        {
+          "id": "trusted-source",
+          "points": 4,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/trusted-frozen-source.mjs"
+        },
+        {
+          "id": "r2-packager",
+          "points": 4,
+          "done": true,
+          "source": "cloudflare-yparty-worker/tools/frozen-r2-packager.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/tools/frozen-r2-packager.mjs"
+        },
+        {
+          "id": "one-time-import",
+          "points": 3,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/open-existing-store.mjs"
+        },
+        {
+          "id": "certified-readback",
+          "points": 2.5,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs"
+        },
+        {
+          "id": "real-firebase-head-complete",
+          "points": 2.5,
+          "done": false,
+          "source": null
+        },
+        {
+          "id": "r2-service-binding-installed",
+          "points": 2,
+          "done": false,
+          "source": null
+        }
+      ]
+    },
+    {
+      "id": "typed-economics",
+      "weight": 17,
+      "title": "Operaciones comerciales tipadas",
+      "scope": "SQLite transaction/dedup/ACK code exists; UI business writes are not cut over",
+      "milestones": [
+        {
+          "id": "sale-record",
+          "points": 5,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+        },
+        {
+          "id": "stock-adjust",
+          "points": 4,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+        },
+        {
+          "id": "credit-payment",
+          "points": 3,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+        },
+        {
+          "id": "idempotent-receipt",
+          "points": 2,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/typed-commercial-ledger.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/typed-commercial-ledger.mjs"
+        },
+        {
+          "id": "production-business-dispatch",
+          "points": 3,
+          "done": false,
+          "source": "src/yparty-piloto.js"
+        }
+      ]
+    },
+    {
+      "id": "identity-rooms",
+      "weight": 14,
+      "title": "Tickets Owner/Team y salas aisladas",
+      "scope": "Autorización central en Worker, lector y escritor firmados, sin emisor falso",
+      "milestones": [
+        {
+          "id": "central-issuer",
+          "points": 5,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/ws-authority-client.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/ws-authority-client.js"
+        },
+        {
+          "id": "separate-rooms",
+          "points": 3,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/index.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/index.js"
+        },
+        {
+          "id": "team-guard",
+          "points": 2,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/index.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/index.js"
+        },
+        {
+          "id": "fresh-owner-ticket-source",
+          "points": 2.5,
+          "done": true,
+          "source": "src/ws-owner-ticket-params.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/ws-owner-ticket-params.mjs"
+        },
+        {
+          "id": "commercial-role-switch",
+          "points": 1.5,
+          "done": false,
+          "source": "src/yparty-piloto.js"
+        }
+      ]
+    },
+    {
+      "id": "photo-sha",
+      "weight": 9,
+      "title": "Fotos fuera del documento económico",
+      "scope": "SHA/HTTP/SQL implementado, sin corte de app física",
+      "milestones": [
+        {
+          "id": "sha-block-store",
+          "points": 3,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/photo-sha-storage.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/photo-sha-storage.mjs"
+        },
+        {
+          "id": "signed-photo-http",
+          "points": 2.5,
+          "done": true,
+          "source": "src/photo-sha-bridge.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/photo-sha-bridge.mjs"
+        },
+        {
+          "id": "hash-only-refs",
+          "points": 1.5,
+          "done": true,
+          "source": "src/photo-sha-bridge.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/photo-sha-bridge.mjs"
+        },
+        {
+          "id": "browser-photo-cutover",
+          "points": 2,
+          "done": false,
+          "source": "src/yparty-piloto.js"
+        }
+      ]
+    },
+    {
+      "id": "public-catalog",
+      "weight": 10,
+      "title": "Catálogo público C8–C11",
+      "scope": "Aislamiento privado, WebSocket seguro, escritor único y certificado SQL",
+      "milestones": [
+        {
+          "id": "public-snapshot-c8",
+          "points": 3,
+          "done": true,
+          "source": "src/port2-public-catalog-bridge.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/port2-public-catalog-bridge.mjs",
+          "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/788"
+        },
+        {
+          "id": "firewall-c9",
+          "points": 2.5,
+          "done": true,
+          "source": "src/authorized-yprovider.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/authorized-yprovider.mjs",
+          "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/789"
+        },
+        {
+          "id": "single-writer-c10",
+          "points": 1.5,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/index.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/index.js",
+          "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/790"
+        },
+        {
+          "id": "certified-catalog-head-c11",
+          "points": 2,
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
+          "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/791"
+        },
+        {
+          "id": "read-only-browser-join",
+          "points": 1,
+          "done": true,
+          "source": "src/yparty-piloto.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/docs/vendor/yparty-piloto.min.js",
+          "sourceEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/yparty-piloto.js"
+        }
+      ]
+    },
+    {
+      "id": "browser-cutover",
+      "weight": 10,
+      "title": "Cableado cliente y retorno 1.0",
+      "scope": "Actualmente vuelve al relay 1.0: fuente segura y rollback listos, corte pendiente",
+      "milestones": [
+        {
+          "id": "owner-ticket-module",
+          "points": 2,
+          "done": true,
+          "source": "src/ws-owner-ticket-params.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/ws-owner-ticket-params.mjs"
+        },
+        {
+          "id": "source-legacy-fallback",
+          "points": 1,
+          "done": true,
+          "source": "src/yparty-piloto.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/src/yparty-piloto.js"
+        },
+        {
+          "id": "real-public-reader-on-client",
+          "points": 3,
+          "done": false,
+          "source": null
+        },
+        {
+          "id": "typed-delta-and-legacy-retirement",
+          "points": 4,
+          "done": false,
+          "source": null
+        }
+      ]
+    },
+    {
+      "id": "offline-failback",
+      "weight": 5,
+      "title": "Outbox, Safari y reversibilidad",
+      "scope": "Web Locks y BFCache ensayados; rollback físico aún no demostrado",
+      "milestones": [
+        {
+          "id": "web-locks-source",
+          "points": 2,
+          "done": true,
+          "source": "docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/docs/sync-yjs.js"
+        },
+        {
+          "id": "bfcache-handling",
+          "points": 1,
+          "done": true,
+          "source": "docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2279fb2a8a39ad71b5a1d7421447d2c6f247591/docs/sync-yjs.js"
+        },
+        {
+          "id": "verified-cross-device-downpath",
+          "points": 2,
+          "done": false,
+          "source": null
+        }
+      ]
+    }
+  ],
+  "commercialGo": {
+    "certifiedGates": 0,
+    "totalGates": 6,
+    "separate": true
+  },
+  "reliabilityDisclaimer": "Engineering migration score, not live traffic fraction, production reliability or deployment permission. Weights are fixed for this snapshot; new milestones require explicit rubric change and rebasing history.",
+  "assessedProductSha": "e2279fb2a8a39ad71b5a1d7421447d2c6f247591"
+}

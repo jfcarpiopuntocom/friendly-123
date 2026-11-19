@@ -39,3 +39,13 @@ test('bridge A actual served browser bundle never opens read-only new -ops for a
  assert.deepEqual(b.fallback,['ops'],
    'money stays on the previously functioning encrypted relay until business-committed exists');
 });
+
+test('C12 exact shipped bundle includes the certified public reader seam and retains safe defaults',()=>{
+ const b=browserStub('123');
+ const pilot=b.win.F123YPartyPilot('a'.repeat(32),'F123-SYNT-TEAM');
+ assert.equal(typeof pilot.leerCatalogoPublicoCertificado,'function',
+  'the reviewed C12 browser route must actually be in docs/vendor, not source only');
+ assert.equal(b.connect('cat').proveedor,null,
+  'legacy must remain the active route until real certified historical cutover');
+ assert.deepEqual(b.fallback,['cat']);
+});
