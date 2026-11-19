@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.07",
+  "version": "v0.8.08",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.07: corrige la unión fría real C12 del catálogo público, tipando exclusivamente las raíces Yjs de YParty antes del firewall C9. Sync3, contratos económicos, datos comerciales y ruta 1.0 intactos; seis flags QA OFF, sin operaciones R2.",
+  "changelog": "v0.8.08: cablea en src/yparty-piloto.js, docs/vendor/yparty-piloto.min.js y docs/sync-yjs.js (detrás del doble switch QA OFF) el almacén durable IndexedDB C16b-store (namespace SHA-256 64-hex), el cliente endurecido de fotos SHA C18a (Owner PUT/GET y Team solo lectura) y el escritor único de deltas tipados de catálogo C19a (-cat). El tráfico comercial actual, datos, PIN y rollout 2.0 siguen intactos y OFF; cero operaciones R2 (USD 0,00).",
   "requerida": false,
-  "shell": "f123-shell-v807",
+  "shell": "f123-shell-v808",
   "apagar": [],
-  "releaseName": "v0.8.07",
-  "cacheGeneration": "golden343"
+  "releaseName": "v0.8.08",
+  "cacheGeneration": "golden344"
 }

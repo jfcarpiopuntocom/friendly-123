@@ -5,6 +5,9 @@ import {openCertifiedReadOnlyPublicCatalog} from './port2-readonly-catalog-sessi
 import {dispatchTypedCommercialCommand} from './port2-typed-ops-client.mjs';
 import {createTypedOpsReconciler} from './port2-typed-ops-reconciler.mjs';
 import {createTeamTicketParams} from './ws-team-ticket-params.mjs';
+import {createTypedOpsIdbStore} from './port2-typed-ops-idb-store.mjs';
+import {createOwnerPhotoShaClient,createTeamPhotoShaReader} from './port2-photo-sha-client.mjs';
+import {openCertifiedPublicCatalogWriter} from './port2-catalog-delta-writer.mjs';
 
 const host = 'friendly123-yparty-port2-canary-qa.jfcarpio.workers.dev';
 const relayLayer = 'f123_yparty_v1';
@@ -34,6 +37,106 @@ window.F123YPartyPilot = function (sala, licencia) {
     return { kind: 'owner', licenseCode: licencia, instanceId, pin };
   }
   return {
+    // PORT2 C23/C16b-store: durable IndexedDB store factory isolated by SHA-256
+    // 64-hex namespace (never persisting plaintext license code in IndexedDB).
+    async crearAlmacenDurableOpsTipadas({
+      indexedDB = globalThis.indexedDB || window.indexedDB,
+      openTimeoutMs = 2500
+    } = {}) {
+      const instanceId = readOwnedInstance();
+      if (!instanceId) throw new Error('owner-session-unavailable');
+      const digest = await crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(licencia + ':' + sala)
+      );
+      const namespace = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+      return createTypedOpsIdbStore({ indexedDB, namespace, openTimeoutMs });
+    },
+    // PORT2 C23/C18a: hardened SHA photo client for Owner (PUT/GET) and Team
+    // (admin/empleado read-only GET, no put method). Legacy fotoSha() stays null.
+    crearClienteFotosShaCertificado({
+      fetch: send = globalThis.fetch?.bind(globalThis),
+      timeoutMs = 6000
+    } = {}) {
+      const unavailable = () => new Error('photo sha client unavailable');
+      const instanceId = readOwnedInstance();
+      if (!instanceId || document.hidden) throw unavailable();
+      const role = window.OCAuth?.rolActual?.();
+      const isVisible = () => !document.hidden;
+      if (role === 'dueno') {
+        try { ownerCredentials(instanceId); } catch (_) { throw unavailable(); }
+        return createOwnerPhotoShaClient({
+          host,
+          room: sala,
+          licenseCode: licencia,
+          instanceId,
+          getCredentials: () => ownerCredentials(instanceId),
+          isVisible,
+          timeoutMs,
+          fetch: send
+        });
+      }
+      if (role === 'admin' || role === 'empleado') {
+        const teamCredentials = () => {
+          let current;
+          try { current = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
+          const activeRole = window.OCAuth?.rolActual?.();
+          const team = window.OCSecure?.leerPinQueAbre?.()?.team;
+          if (String(current?.licenseCode || '').trim().toUpperCase() !== licencia ||
+              current?.instanceId !== instanceId ||
+              !['admin', 'empleado'].includes(activeRole) ||
+              !team || typeof team !== 'object') {
+            throw unavailable();
+          }
+          return {
+            kind: 'team',
+            licenseCode: licencia,
+            instanceId,
+            subject: team.subject,
+            role: activeRole,
+            pin: team.pin
+          };
+        };
+        teamCredentials();
+        return createTeamPhotoShaReader({
+          host,
+          room: sala,
+          licenseCode: licencia,
+          instanceId,
+          getCredentials: teamCredentials,
+          isVisible,
+          timeoutMs,
+          fetch: send
+        });
+      }
+      throw unavailable();
+    },
+    // PORT2 C23/C19a: certified single-writer typed delta publisher for -cat.
+    async abrirEscritorDeltaCatalogoCertificado(privateDoc, expectedFrozenHead, {
+      createProvider,
+      fetch: send = globalThis.fetch?.bind(globalThis),
+      timeoutMs = 6000,
+      onWriterConflict = null
+    } = {}) {
+      const unavailable = () => new Error('certified catalog writer unavailable');
+      const instanceId = readOwnedInstance();
+      if (!instanceId || document.hidden) throw unavailable();
+      try { ownerCredentials(instanceId); } catch (_) { throw unavailable(); }
+      return openCertifiedPublicCatalogWriter({
+        privateDoc,
+        Y: window.Y,
+        room: sala + '-cat',
+        licenseCode: licencia,
+        instanceId,
+        expectedFrozenHead,
+        getCredentials: () => ownerCredentials(instanceId),
+        createProvider,
+        fetch: send,
+        isVisible: () => !document.hidden,
+        timeoutMs,
+        onWriterConflict
+      });
+    },
     // PORT2 C16b: explicit opt-in typed commercial command dispatcher backed by
     // C15 business-committed HTTP client + C16a durable same-do-only reconciler.
     // Requires a real caller-supplied durable store (no volatile RAM fallback).

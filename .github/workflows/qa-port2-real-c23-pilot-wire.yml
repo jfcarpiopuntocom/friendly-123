@@ -1,0 +1,55 @@
+name: "PORT2 C23 · yparty-piloto wire for C16b-store IDB, C18a SHA photos & C19a catalog delta writer"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/yparty-piloto.js
+      - src/port2-typed-ops-idb-store.mjs
+      - src/port2-photo-sha-client.mjs
+      - src/port2-catalog-delta-writer.mjs
+      - docs/vendor/yparty-piloto.min.js
+      - docs/sync-yjs.js
+      - test/p0-c23-pilot-wire-photos-deltas-idb.test.cjs
+      - .github/workflows/qa-port2-real-c23-pilot-wire.yml
+permissions: {contents: read}
+jobs:
+  c23:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Setup exact root + Workerd deps
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify deterministic browser bundle and manifest seal
+        run: |
+          set -euo pipefail
+          NODE_PATH=cloudflare-yparty-worker/node_modules node scripts/build-yparty-piloto.cjs
+          node scripts/gen-manifest.js
+          git diff --exit-code docs/vendor/yparty-piloto.min.js docs/version-manifest.json
+          bash check-sw.sh
+      - name: Verify C23 browser pilot, compiled bundle and C12/C13/C16b/C17b regressions
+        run: |
+          set -euo pipefail
+          node --test --test-timeout=60000 \
+            test/p0-c23-pilot-wire-photos-deltas-idb.test.cjs \
+            test/p0-c16b-c17b-browser-pilot-wire.test.cjs \
+            test/p0-c12-browser-pilot-readonly-seam.test.cjs \
+            test/p0-yparty-client-real-tickets.test.cjs \
+            test/p0-yparty-client-built-bundle.test.cjs \
+            test/p0-c13-browser-certified-reader-wire.test.cjs \
+            test/p0-yparty-photo-sha-browser.test.cjs \
+            test/p0-yparty-ultrareview-catalog-boundaries.test.cjs
+      - name: Verify Workerd C18a + C19a + C22 end-to-end suites
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 --test-timeout=90000 \
+            qa/p0-c18a-photo-sha-client-workerd.test.mjs \
+            qa/p0-c19a-catalog-delta-writer-workerd.test.mjs \
+            qa/p0-c22-public-reader-writer-interoperability-workerd.test.mjs
