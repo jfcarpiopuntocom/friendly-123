@@ -156,19 +156,7 @@ export class Tienda extends YServer {
             peer.id !== conexion.id && peer.readyState === 1 &&
             unexpired(peer.state?.accesoFirmado) &&
             peer.state.accesoFirmado.principal?.scopes?.includes('cat:write'));
-          // TEMP QA forensic trace; remove after identifying Workerd socket API semantics.
-          console.info('C10_QA_FORENSIC',JSON.stringify({cat:this.name.endsWith('-cat'),scopes:access.principal?.scopes,otherWriter,
-           sockets:Array.from(super.getConnections()).map(peer=>({same:peer.id===conexion.id,ready:peer.readyState,
-            hasGrant:!!peer.state?.accesoFirmado,scopes:peer.state?.accesoFirmado?.principal?.scopes,notExpired:unexpired(peer.state?.accesoFirmado),
-            expDelta:peer.state?.accesoFirmado?.principal?.exp-Date.now()}))}));
-          if (otherWriter) {
-            try {
-              console.info('C10_CLOSE_BEFORE',conexion.readyState);
-              conexion.close(1008,'Catalog writer already active');
-              console.info('C10_CLOSE_AFTER',conexion.readyState);
-            } catch (error) { console.info('C10_CLOSE_ERROR',String(error?.message)); throw error; }
-            return;
-          }
+          if (otherWriter) { conexion.close(1008,'Catalog writer already active'); return; }
         }
         conexion.setState(previous => ({...previous,accesoFirmado:access}));
         super.onConnect(this.salidaSegura(conexion),contexto);
