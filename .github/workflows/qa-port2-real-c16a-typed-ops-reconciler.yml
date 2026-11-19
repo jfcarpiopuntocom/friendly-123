@@ -1,0 +1,23 @@
+name: "PORT2 C16a · bounded same-do-only typed -ops reconciler"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/port2-typed-ops-reconciler.mjs
+      - test/p0-c16a-typed-ops-reconciler.test.cjs
+      - .github/workflows/qa-port2-real-c16a-typed-ops-reconciler.yml
+permissions: {contents: read}
+jobs:
+  c16a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify C16a syntax and bounded same-do-only reconciler tests
+        run: |
+          set -euo pipefail
+          node --check src/port2-typed-ops-reconciler.mjs
+          node --test --test-timeout=60000 test/p0-c16a-typed-ops-reconciler.test.cjs
