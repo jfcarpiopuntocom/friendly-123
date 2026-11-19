@@ -108,6 +108,40 @@ function inspect(){
    assert.equal(manifest.files[pathName],hash,'C25 real bundled SHA identity mismatch '+pathName);
   }
  }
+ // C30: the fixed 100.0 budget is not expanded. Split the original 2.5
+ // pending browser legacy-retirement milestone into a 0.5 code-level C27+C29
+ // fence plus the remaining 2.0 still unearned full dispatch/retirement.
+ // A score-only JSON claim is insufficient: check the real v812 runtime
+ // published to the browser, exact deterministic manifest, and RED→GREEN test.
+ const guardStage=data.groups.flatMap(g=>g.milestones)
+  .find(m=>m.id==='preinit-legacy-opid-fence-c27-c29');
+ if(guardStage?.done){
+  assert.equal(guardStage.points,0.5,'C27+C29 guard cannot earn commercial dispatch credit');
+  const leftover=data.groups.flatMap(g=>g.milestones)
+   .find(m=>m.id==='typed-delta-and-legacy-retirement');
+  assert.equal(leftover?.points,2.0,'full legacy retirement must retain 2.0 unearned');
+  assert.equal(leftover.done,false,'C29 must not mark live legacy route retired');
+  assert.equal(data.commercialGo.certifiedGates,0,'no physical/commercial GO from pilot');
+  const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+  for(const token of ['API.__port2DurableFenceAvailable = true',
+    'API.puedeDespacharOpEnLegado = function (opId)',
+    'store.loadCommittedOpIds()',
+    'store.loadAll()',
+    'function publicarOpLocal(op)',
+    'coordActual.canDispatchOnLegacy(op.opId)']){
+   assert(src.includes(token),'C29 runtime legacy/IDB guard absent: '+token);
+  }
+  assert(fs.existsSync(path.join(root,'test/p0-c29-preinit-durable-opid-fence.test.cjs')),
+    'C29 exact source Safari preinit RED→GREEN regression missing');
+  const manifest=load('docs/version-manifest.json');
+  const v=load('docs/version.json');
+  assert.equal(v.version,'v0.8.12','C29 must be sealed with exact v812 shell');
+  assert.equal(v.shell,'f123-shell-v812');
+  const actual='sha256-'+crypto.createHash('sha256')
+   .update(src.replace(/\r\n/g,'\n')).digest('hex');
+  assert.equal(manifest.files['./sync-yjs.js'],actual,
+    'C29 credit requires official shipped Sync3 source hash');
+ }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
