@@ -3,10 +3,12 @@
 // Frozen service proof is independently validated before the SQL barrier.
 // A CRDT merge alone does NOT certify commercial postings or customer cutover.
 import * as Y from 'yjs';
+import {createHash} from 'node:crypto';
 import {prepareFrozenImport} from './certified-frozen-import.mjs';
 import {snapshotInsideBarrier,framesFrom,exportCompleteYpartyYjs} from './durable-full-yjs-export.mjs';
 
-const BLOCK=512*1024,MAX_EVENTS=25000,MAX_PAYLOAD=256*1024;
+const BLOCK=512*1024,MAX_EVENTS=25000,MAX_PAYLOAD=256*1024,MAX_BASELINE=16*1024*1024;
+const HEX=/^[a-f0-9]{64}$/;
 const deny=reason=>{throw new Error('frozen union refused: '+reason);};
 const sqlBlob=value=>{
  if(value instanceof Uint8Array)return new Uint8Array(value);
@@ -47,29 +49,40 @@ function stable(value,depth=0){
 function eventRows(doc){
  const map=doc.getMap('eventos');
  if(map.size>MAX_EVENTS)deny('too many events');
- const rows=new Map();
+ const rows=new Map();let bytes=0;
  for(const [id,event] of map.entries()){
   if(typeof id!=='string'||id.length<1||id.length>160)deny('invalid opId');
   const payload=stable(event);
   if(payload.length>MAX_PAYLOAD)deny('oversized event payload');
+  bytes+=id.length+payload.length;
+  if(bytes>MAX_BASELINE)deny('event baseline exceeds bounded memory');
   rows.set(id,payload);
  }
  return rows;
 }
+function sha256(bytes){return createHash('sha256').update(bytes).digest('hex');}
+function eventsDigest(rows){
+ const h=createHash('sha256');
+ for(const id of [...rows.keys()].sort()){
+  h.update(id,'utf8');h.update('\0');h.update(rows.get(id),'utf8');h.update('\n');
+ }
+ return h.digest('hex');
+}
 function createCert(sql){
- sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_unions (id INTEGER PRIMARY KEY CHECK(id=1), channel TEXT NOT NULL, frozen_head TEXT NOT NULL, frozen_sha256 TEXT NOT NULL, vector_sha256 TEXT NOT NULL, frozen_events INTEGER NOT NULL, union_events INTEGER NOT NULL)');
+ sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_unions (id INTEGER PRIMARY KEY CHECK(id=1), channel TEXT NOT NULL, frozen_head TEXT NOT NULL, frozen_sha256 TEXT NOT NULL, vector_sha256 TEXT NOT NULL, frozen_events INTEGER NOT NULL, union_events INTEGER NOT NULL, union_sha256 TEXT NOT NULL, events_sha256 TEXT NOT NULL)');
  sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_union_events (opid TEXT PRIMARY KEY, payload TEXT NOT NULL)');
 }
 function certRead(sql){
  if(!sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='f123_frozen_unions'").toArray().length)return null;
- return sql.exec('SELECT channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events FROM f123_frozen_unions WHERE id=1').toArray()[0]||null;
+ return sql.exec('SELECT channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events,union_sha256,events_sha256 FROM f123_frozen_unions WHERE id=1').toArray()[0]||null;
 }
 function verifyDocumentAgainstCert(storage,expected){
  return storage.transactionSync(()=>{
   const sql=storage.sql,cert=certRead(sql);
   if(!cert||cert.channel!=='ops'||cert.frozen_head!==expected.frozen_head||
      cert.frozen_sha256!==expected.frozen_sha256||cert.vector_sha256!==expected.vector_sha256||
-     !Number.isSafeInteger(Number(cert.frozen_events))||!Number.isSafeInteger(Number(cert.union_events)))
+     !Number.isSafeInteger(Number(cert.frozen_events))||!Number.isSafeInteger(Number(cert.union_events))||
+     !HEX.test(cert.union_sha256||'')||!HEX.test(cert.events_sha256||''))
    deny('union certificate mismatch');
   const snapshot=framesFrom(snapshotInsideBarrier(storage));
   const doc=docFrom(snapshot.frames);
@@ -78,10 +91,18 @@ function verifyDocumentAgainstCert(storage,expected){
    if(rows.size<Number(cert.union_events)||rows.size<Number(cert.frozen_events))
     deny('frozen event loss on reopen');
    const baseline=sql.exec('SELECT opid,payload FROM f123_frozen_union_events ORDER BY opid').toArray();
-   if(baseline.length!==Number(cert.frozen_events))deny('baseline count mismatch');
+   if(baseline.length!==Number(cert.union_events))deny('baseline count mismatch');
+   const expected=new Map(baseline.map(row=>[row.opid,row.payload]));
+   if(expected.size!==baseline.length||eventsDigest(expected)!==cert.events_sha256)
+    deny('event baseline digest mismatch');
    for(const row of baseline)if(rows.get(row.opid)!==row.payload)
-    deny('frozen opId changed or removed');
-   return {opened:true,already:true,verifiedEvents:rows.size};
+    deny('frozen or local opId changed or removed');
+   // A pure compaction must retain the exact canonical Yjs union. Later new
+   // post-cut events legitimately advance the SHA; the baseline still binds them.
+   if(rows.size===Number(cert.union_events)&&
+      sha256(Y.encodeStateAsUpdate(doc))!==cert.union_sha256)
+    deny('union SHA mismatch after SQL readback');
+   return {opened:true,already:true,verifiedEvents:rows.size,unionSha256:cert.union_sha256};
   }finally{doc.destroy();}
  });
 }
@@ -135,27 +156,32 @@ export async function mergeFrozenIntoExisting({storage,source}={}){
     expected.set(opid,payload);
    }
    const delta=Y.encodeStateAsUpdate(frozen,Y.encodeStateVector(local));
-   if(!delta.length)deny('empty frozen delta');
-   Y.applyUpdate(local,delta,'frozen-ops-diff');
+   const noDelta=delta.length===2&&delta[0]===0&&delta[1]===0;
+   if(!noDelta)Y.applyUpdate(local,delta,'frozen-ops-diff');
    if(local.store.pendingStructs||local.store.pendingDs)deny('pending union ancestry');
    const merged=eventRows(local);
    if(merged.size!==expected.size)deny('union event count differs');
    for(const [id,payload] of expected)if(merged.get(id)!==payload)
     deny('union changed original business facts');
+   const unionSha256=sha256(Y.encodeStateAsUpdate(local));
+   const eventsSha256=eventsDigest(merged);
    // No SQL mutations until EVERY causal/financial opId comparison passes.
+   // This journal delta and both cert/digest rows are ONE SQLite transaction.
    createCert(sql);
-   appendFrame(sql,delta);
-   sql.exec('INSERT INTO f123_frozen_unions (id,channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events) VALUES (1,?,?,?,?,?,?)',
-    proof.channel,proof.frozenHead,proof.sha256,proof.vectorSha256,proof.eventCount,merged.size);
-   for(const [opid,payload] of fromSource)
+   if(!noDelta)appendFrame(sql,delta);
+   sql.exec('INSERT INTO f123_frozen_unions (id,channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events,union_sha256,events_sha256) VALUES (1,?,?,?,?,?,?,?,?)',
+    proof.channel,proof.frozenHead,proof.sha256,proof.vectorSha256,proof.eventCount,merged.size,unionSha256,eventsSha256);
+   for(const [opid,payload] of merged)
     sql.exec('INSERT INTO f123_frozen_union_events (opid,payload) VALUES (?,?)',opid,payload);
    return {frozenHead:proof.frozenHead,frozenSha256:proof.sha256,
-    mergedEventCount:merged.size,frozenEventCount:fromSource.size,bytes:delta.length};
+    mergedEventCount:merged.size,frozenEventCount:fromSource.size,bytes:noDelta?0:delta.length,
+    unionSha256,eventsSha256};
   }finally{local.destroy();frozen.destroy();}
  });
  // Verify complete durable Yjs SQL readback, not merely INSERT success.
  const result=await exportCompleteYpartyYjs({storage,channel:'ops'});
- if(result.eventCount!==receipt.mergedEventCount)deny('union readback event count mismatch');
+ if(result.eventCount!==receipt.mergedEventCount||result.sha256!==receipt.unionSha256)
+  deny('union readback SHA or event count mismatch');
  verifyFrozenUnionReopen({storage,source});
  return {opened:true,already:false,receipt};
 }
