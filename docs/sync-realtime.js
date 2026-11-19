@@ -1656,6 +1656,16 @@
 
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
+    // C36: the actual sale's durable opId is the idempotency key for BOTH
+    // the legacy queue and the Yjs/typed relay. Only the already-validated
+    // C34 cash envelope may supply it; all older/misc ops keep their generated
+    // transport ID (including legacy sale IDs with ':' or '.').
+    const opIdVentaDurable = tipo === "venta" && payload &&
+      typeof payload.opId === "string" &&
+      /^[A-Za-z0-9_-]{8,96}$/.test(payload.opId) &&
+      Number.isSafeInteger(payload.cantidad) && payload.cantidad >= 1 &&
+      Number.isSafeInteger(payload.amountCents) && payload.amountCents > 0
+      ? payload.opId : uuidCorto();
     const sala = leerSala();
     // Plan C derives its room from the active licence, not the legacy room key.
     // When only the old room is absent, still publish a committed movement to
@@ -1664,7 +1674,7 @@
       const licencia = codigoCuadernoActivo();
       if (!licencia) return false; // no safe business provenance yet
       const op = {
-        opId: uuidCorto(), deviceId: deviceId(),
+        opId: opIdVentaDurable, deviceId: deviceId(),
         deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
         lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
         _salaOrigen: licencia
@@ -1682,7 +1692,7 @@
       return false;
     }
     const op = {
-      opId: uuidCorto(), deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
+      opId: opIdVentaDurable, deviceId: deviceId(), deviceNombre: (window.OCCurrentUser && window.OCCurrentUser.nombre) || null,
       lamport: siguienteLamport(), tipo, payload, fecha: (new Date()).toISOString(),
       _salaOrigen: codigoCuadernoActivo() // immutable business provenance for catch-up/outbox
     };

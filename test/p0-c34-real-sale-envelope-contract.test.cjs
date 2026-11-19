@@ -12,19 +12,19 @@ const stamp='const _opVenta = { productoId: p.id, delta: -cant };';
 const endStamp='_prepararOpStock(_opVenta);';
 
 function emittedSale({ productPrice=15, finalPrice=15, quantity=2, paid=30,
-                       paymentMethod='cash', paidAmount=null,
+                       paymentMethod='cash', paidAmount=null, opIdVenta='sale-c34-real-0001',
                        courtesy=false, atomicCredit=false, stockAfter=3 }={}) {
   const start=backend.indexOf(stamp);
   assert.ok(start>0,'must exercise exact post-ACK _opVenta expression in real backend');
   const end=backend.indexOf(endStamp,start);
   assert.ok(end>start,'must preserve _prepararOpStock call after commercial envelope');
   const code=backend.slice(start,end+endStamp.length);
-  const fn=new Function('p','cant','infoVenta','_esCortesia','precioEfectivo','montoBruto','_prepararOpStock',
+  const fn=new Function('p','cant','infoVenta','_esCortesia','precioEfectivo','montoBruto','_prepararOpStock','opIdVenta',
     code+'\nreturn _opVenta;');
   const p={id:'prod-123',precio:productPrice,stockActual:stockAfter};
   const captured=[];
   const out=fn(p,quantity,{formaPago:paymentMethod,montoPagado:paidAmount,fiadoAtomico:atomicCredit},
-    courtesy,finalPrice,paid, x=>{captured.push(x)});
+    courtesy,finalPrice,paid, x=>{captured.push(x)},opIdVenta);
   assert.equal(captured.length,1,'stock movement stays the exact same single event');
   assert.equal(out.productoId,'prod-123');
   assert.equal(out.delta,-quantity);
@@ -43,8 +43,8 @@ function translate(raw){
 test('RED C34: verified cash sale event carries exact quantity/cents for actual C31 translator',()=>{
   const payload=emittedSale();
   assert.deepEqual(
-    {quantity:payload.cantidad,amountCents:payload.amountCents},
-    {quantity:2,amountCents:3000});
+    {quantity:payload.cantidad,amountCents:payload.amountCents,opId:payload.opId},
+    {quantity:2,amountCents:3000,opId:'sale-c34-real-0001'});
   const command=translate(payload);
   assert.equal(command?.kind,'sale.record');
   assert.equal(command?.productId,'prod-123');
@@ -61,7 +61,8 @@ test('C34: commission-bearing special/partial/credit/courtesy/deficit sales must
     {paymentMethod:'transferencia'},
     {paymentMethod:''},
     {paymentMethod:'cash',stockAfter:-1},
-    {paymentMethod:'cash',productPrice:0,finalPrice:0,paid:0}
+    {paymentMethod:'cash',productPrice:0,finalPrice:0,paid:0},
+    {paymentMethod:'cash',opIdVenta:'sale:legacy-0001'}
   ];
   for(const c of cases){
     const payload=emittedSale(c);
