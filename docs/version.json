@@ -1,10 +1,10 @@
 {
-  "version": "v0.7.97",
+  "version": "v0.7.98",
   "fecha": "2026-11-18",
-  "changelog": "v0.7.97: previene la exposicion del catalogo sensible sin cifrar en YParty 2.0 y evita certificar PIN/cuaderno antes de completar la recuperacion cifrada heredada. El transporte anterior sigue activo y el piloto nuevo permanece apagado.",
+  "changelog": "v0.7.98: Dashboard Casa verifica la secuencia y los hashes del historial financiero local antes de presentar sus importes como completos. Los registros faltantes, modificados o no verificables quedan pendientes de conciliacion. Sin alterar ventas, cobros, comisiones ni el transporte.",
   "requerida": false,
-  "shell": "f123-shell-v797",
+  "shell": "f123-shell-v798",
   "apagar": [],
-  "releaseName": "v0.7.97",
-  "cacheGeneration": "golden333"
+  "releaseName": "v0.7.98",
+  "cacheGeneration": "golden334"
 }

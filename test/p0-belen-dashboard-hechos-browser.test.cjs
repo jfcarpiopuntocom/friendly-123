@@ -5,6 +5,15 @@ const http=require('node:http');
 const fs=require('node:fs');
 const path=require('node:path');
 const {chromium,webkit}=require('playwright');
+const {createHash}=require('node:crypto');
+const verifier=fs.readFileSync(path.join(__dirname,'../docs/core/hechos-chain-readonly.js'),'utf8');
+function fact(writer,kind,value){
+ const h={id:writer+'-1',instanceId:writer,autor:'dueno',reloj:{[writer]:1},
+  ts:1763400000000,tipo:kind,datos:{monto:value},hashPrevio:'',hash:''};
+ const canonical=JSON.stringify({id:h.id,instanceId:h.instanceId,autor:h.autor,reloj:h.reloj,
+   ts:h.ts,tipo:h.tipo,datos:h.datos,hashPrevio:h.hashPrevio});
+ h.hash=createHash('sha256').update(canonical).digest('hex');return h;
+}
 const s=fs.readFileSync(path.join(__dirname,'../src/dashboard/dashboard-main.js'),'utf8');
 const a=s.indexOf('      /* No previous shop / revision finance facts may survive until IDB replies. */');
 const b=s.indexOf('      try {\n        var o = JSON.parse(localStorage.getItem("f123_owned")',a);
@@ -31,6 +40,7 @@ async function seed(page,name,records){
  }),{name,records});
 }
 async function run(page){
+ await page.addScriptTag({content:verifier});
  await page.addScriptTag({content:prelude+'\n'+reader});
  await page.waitForFunction(()=>window.__diag.length>=1);
  return page.evaluate(()=>window.__diag.at(-1));
@@ -54,12 +64,25 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   try{
    const page=await browser.newPage();await page.goto(url);
    await seed(page,'f123_hechos_db',[
-    {id:'new-1',tipo:'cartera_abono',monto:5},{id:'new-2',tipo:'caja_chica_ingreso',monto:2},
-    {id:'new-3',tipo:'plan_pago_creado',monto:100}]);
+    fact('writer-A','cartera_abono',5),
+    fact('writer-B','caja_chica_ingreso',2),
+    fact('writer-C','plan_pago_creado',100)]);
    const diag=await run(page);
    assert.equal(diag.status,true);
    assert.equal(diag.reason,null);
    assert.equal(diag.count,2);
+  }finally{await browser.close();await new Promise(r=>server.close(r));}
+ });
+ test('Hermes H6 '+name+': changed financial amount with stale hash must remain uncertified',async()=>{
+  const url=await serve(),browser=await engine.launch({headless:true});
+  try{
+   const page=await browser.newPage();await page.goto(url);
+   const corrupted=fact('writer-A','cartera_abono',5);corrupted.datos.monto=9000;
+   await seed(page,'f123_hechos_db',[corrupted]);
+   const diag=await run(page);
+   assert.equal(diag.status,false,'do not treat wrong amount as verified');
+   assert.equal(diag.count,0);
+   assert.equal(diag.reason,'cadena-invalida');
   }finally{await browser.close();await new Promise(r=>server.close(r));}
  });
  test('Hermes H1 '+name+': missing modern journal stays unknown; no accidental DB create',async()=>{
