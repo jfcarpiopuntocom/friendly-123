@@ -104,7 +104,14 @@ async function runtime({channel='ops',fill=true,overrides={}}={}){
  async function readThroughExistingConsumer(){
   const env={WS_OPEN_EXISTING_QA:'1',WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:'1',
    SALA_PILOTO:roomId,WS_SERVICE_KEY:serviceKey,
-   WS_FROZEN_HISTORY_SOURCE:{fetch:r=>mf.dispatchFetch(r)}};
+   WS_FROZEN_HISTORY_SOURCE:{fetch:async request=>{
+    // The harness crosses Node → Miniflare processes; service bindings in
+    // Cloudflare carry Request natively. Use a fresh plain request in Node QA.
+    return mf.dispatchFetch(request.url,{
+     method:request.method,headers:Object.fromEntries(request.headers),
+     body:await request.text()
+    });
+   }}};
   return readTrustedFrozenSource({env,room:frozen.room,channel});
  }
  return {mf,bucket,request,readThroughExistingConsumer,pageKey,manifestKey,frozen,
@@ -210,7 +217,10 @@ test('source cannot be used through signed reader while its QA flag is OFF',asyn
  try{
   const env={WS_OPEN_EXISTING_QA:'0',WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:'1',
    SALA_PILOTO:roomId,WS_SERVICE_KEY:serviceKey,
-   WS_FROZEN_HISTORY_SOURCE:{fetch:r=>s.mf.dispatchFetch(r)}};
+   WS_FROZEN_HISTORY_SOURCE:{fetch:async request=>s.mf.dispatchFetch(request.url,{
+    method:request.method,headers:Object.fromEntries(request.headers),
+    body:await request.text()
+   })}};
   await assert.rejects(readTrustedFrozenSource({env,room:opsRoom,channel:'ops'}),/unavailable/);
  }finally{await s.close()}
 });
