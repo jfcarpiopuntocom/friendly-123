@@ -1,0 +1,60 @@
+name: P0 Belen v801 one-shot official release seal
+on:
+  push:
+    branches: [fix/p0-belen-photo-pointer-cas-v801-20261118]
+    paths: [.github/workflows/p0-belen-shelf-pointer-seal-v801-once.yml]
+permissions:
+  contents: write
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-belen-photo-pointer-cas-v801-20261118
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assert base and encode exact next release identity
+        run: |
+          node <<'JS'
+          const fs = require('node:fs'),assert = require('node:assert/strict');
+          const p='docs/version.json',v=JSON.parse(fs.readFileSync(p,'utf8'));
+          assert.equal(v.version,'v0.8.00'); assert.equal(v.shell,'f123-shell-v800');assert.equal(v.cacheGeneration,'golden336');
+          v.version='v0.8.01';v.releaseName='v0.8.01';v.shell='f123-shell-v801';v.cacheGeneration='golden337';
+          v.changelog='v0.8.01: evita que un reintento antiguo sobreescriba la foto mas reciente de una percha. Verifica fotoHash y fotoRev antes de mutar; responde 409 ante conflicto. Sin cambios de dinero, stock, PIN ni activacion de YParty 2.0.';
+          fs.writeFileSync(p,JSON.stringify(v,null,2)+'\n');
+          const d='docs/dashboard.html';let html=fs.readFileSync(d,'utf8');
+          assert.equal((html.match(/f123-shell-v800/g)||[]).length,1);assert.equal((html.match(/v0.8.00/g)||[]).length,2);
+          html=html.replace('f123-shell-v800','f123-shell-v801').replaceAll('v0.8.00','v0.8.01');
+          fs.writeFileSync(d,html);
+          const sw='docs/sw.js';let src=fs.readFileSync(sw,'utf8');
+          assert.match(src,/const CACHE = "f123-shell-v800";/);assert.match(src,/const CACHE_GENERACION = "-golden336";/);
+          src=src.replace('const CACHE = "f123-shell-v800";','const CACHE = "f123-shell-v801";')
+                 .replace('const CACHE_GENERACION = "-golden336";','const CACHE_GENERACION = "-golden337";');
+          fs.writeFileSync(sw,src);
+          JS
+      - name: Official build checks, manifest and release gate
+        run: |
+          set -euo pipefail
+          node --test test/p0-belen-shelf-photo-pointer-cas.test.cjs
+          node --check docs/mock-backend.js
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node scripts/release-control.cjs validate origin/master
+      - name: Seal only the isolated candidate branch
+        run: |
+          set -euo pipefail
+          git config user.name "friendly-123 release seal"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/version.json docs/dashboard.html docs/sw.js docs/version-manifest.json
+          git diff --cached --quiet && { echo 'No seal changes; refusing silent no-op'; exit 1; }
+          git commit -m "release(P0 Belén): v0.8.01 shell801/golden337 official manifest"
+          git push origin HEAD:fix/p0-belen-photo-pointer-cas-v801-20261118
