@@ -3079,7 +3079,10 @@
         API.rolComercial20Activo = rolNorm;
         API.corteFotosShaActivo = Boolean(opc && opc.cortarLegadoFotos === true && clienteFoto);
         if (rolNorm !== "dueno") {
-          API.modoCorte20Activo = Boolean(opc && opc.permitirDespachoEquipo === true);
+          // C38: role/photo changes may only RETAIN an already-certified
+          // active writer, never arm 2.0 commercial mode from an OFF state.
+          API.modoCorte20Activo = Boolean(API.modoCorte20Activo === true &&
+            opc && opc.permitirDespachoEquipo === true);
         }
         return {
           rol: API.rolComercial20Activo,
@@ -3090,20 +3093,79 @@
       };
       API.activarCorte20Runtime = async function (opc) {
         var opts = opc && typeof opc === "object" ? opc : {};
+        var cortarComercio20 = opts.activarDespachoComercial !== false;
+        // C38: C21a owns -cat/-ops, but OCSync's old WebSocket and outbox
+        // are separate writers. Require deliberate OFF plus a drained legacy
+        // queue BEFORE activating the new business writer. This uses the
+        // already shipped OCSync facade; no new transport or data migration.
+        var relayAnterior = window.OCSync;
+        // C33 QA may expose only the catalog/photo helper, with NO legacy
+        // emitter or socket at all. That is not a second commercial writer.
+        // A real installed legacy emitter OR any stateful relay always goes
+        // through the strict OFF/empty/onEstado gate below.
+        if (relayAnterior &&
+            typeof relayAnterior.estado !== "function" &&
+            typeof relayAnterior.salaActiva !== "function" &&
+            typeof window.OCSyncEmit !== "function") relayAnterior = null;
+        function relayAnteriorApagadoYVacio() {
+          if (!relayAnterior) return false; // no lazy-loading old writer may bypass observer
+          if (window.OCSync !== relayAnterior) return false;
+          try {
+            return typeof relayAnterior.estado === "function" &&
+              relayAnterior.estado() === "apagado" &&
+              typeof relayAnterior.salaActiva === "function" &&
+              !relayAnterior.salaActiva() &&
+              typeof relayAnterior.durabilidadPendiente === "function" &&
+              relayAnterior.durabilidadPendiente() === false &&
+              typeof relayAnterior.onEstado === "function";
+          } catch (_) { return false; }
+        }
+        async function rechazarDobleEscritor(coord) {
+          API.modoCorte20Activo = false;
+          try {
+            if (coord && typeof coord.failbackToLegacy === "function")
+              await coord.failbackToLegacy("legacy-relay-restarted");
+          } catch (_) {}
+          throw new Error("legacy relay must be OFF with zero pending operations before 2.0 commercial cutover");
+        }
+        if (cortarComercio20 && !relayAnteriorApagadoYVacio())
+          return rechazarDobleEscritor(API.coordinadorCorte20);
         var head = opts.headCongelado || (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
         var coord = await API.crearCoordinadorCorte20(API.doc, head, opts);
         var activacion = null;
-        if (opts.activarDespachoComercial !== false && coord && typeof coord.activate20 === "function") {
+        if (cortarComercio20) {
+          if (!coord || typeof coord.activate20 !== "function") {
+            API.modoCorte20Activo = false;
+            throw new Error("certified 2.0 commercial coordinator activation unavailable");
+          }
           activacion = await coord.activate20();
           if (!activacion || activacion.ok !== true) {
             API.modoCorte20Activo = false;
             throw new Error("certified 2.0 cutover activation failed");
           }
         }
-        API.modoCorte20Activo = opts.activarDespachoComercial !== false;
+        // The old relay can reopen during the async C21a activation. Re-read
+        // its REAL state AFTER the await, before arming any commercial write.
+        if (cortarComercio20 && !relayAnteriorApagadoYVacio())
+          return rechazarDobleEscritor(coord);
+        API.modoCorte20Activo = cortarComercio20;
         var rolInicial = opts.rol || (window.OCAuth && typeof window.OCAuth.rolActual === "function"
           ? window.OCAuth.rolActual() : "dueno");
         var estadoRol = API.cambiarRolComercial20(rolInicial, opts);
+        if (cortarComercio20 && relayAnterior) {
+          // Existing OCSync.onEstado notification revokes the commercial QA
+          // cutover immediately if a person re-enables legacy synchronization.
+          // A stale callback cannot revoke a later coordinator or notebook.
+          relayAnterior.onEstado(function () {
+            if (API.coordinadorCorte20 !== coord || API.modoCorte20Activo !== true ||
+                relayAnteriorApagadoYVacio()) return;
+            API.modoCorte20Activo = false;
+            try {
+              if (typeof coord.failbackToLegacy === "function")
+                Promise.resolve(coord.failbackToLegacy("legacy-relay-restarted")).catch(function () {});
+            } catch (_) {}
+          });
+        }
         return {
           coordinador: coord,
           activacion: activacion,

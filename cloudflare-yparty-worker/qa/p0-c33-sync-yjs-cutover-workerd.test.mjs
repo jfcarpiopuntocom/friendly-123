@@ -204,6 +204,12 @@ function mountBrowserSyncRuntime({
     OCSecure: {leerPinQueAbre: () => ({owner: ownerPin, team})},
     OCFotos,
     OCSync: {
+      // C38: this Workerd test exercises C21a only after explicitly quiescing
+      // the legacy socket/outbox. The real browser refuses cutover otherwise.
+      estado: () => 'apagado',
+      salaActiva: () => null,
+      durabilidadPendiente: () => false,
+      onEstado: () => {},
       catalogoPropio: () => catalogSnapshot,
       hashearFotosProductos: async () => 0,
       hashearFotosPerchas: async () => 0

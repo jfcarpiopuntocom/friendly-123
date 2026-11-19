@@ -1,0 +1,34 @@
+name: PORT2 C38 old-relay quiescence before C21a commercial activation
+on:
+  pull_request:
+    paths:
+      - 'docs/sync-yjs.js'
+      - 'test/p0-c38-legacy-transport-quiescence.test.cjs'
+      - '.github/workflows/qa-port2-c38-legacy-relay-cutover.yml'
+      - 'docs/version.json'
+      - 'docs/version-manifest.json'
+      - 'docs/sw.js'
+      - 'docs/dashboard.html'
+  workflow_dispatch:
+jobs:
+  cutover-no-dual-writers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned test dependencies (fake-indexeddb for C31)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Execute REAL C31 activation source, legacy OFF and reactivation safety
+        run: node --test test/p0-c38-legacy-transport-quiescence.test.cjs
+      - name: Protect C31 commercial routing and C36 original sale opId
+        run: node --test test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs test/p0-c36-real-sale-opid-e2e.test.cjs
+      - name: Verify final official release manifest and fixed 100 score
+        run: |
+          node scripts/gen-manifest.js
+          node -e 'const x=require("./docs/version-manifest.json");console.log("C38_OFFICIAL_MANIFEST "+JSON.stringify({version:x.version,shell:x.shell,files:Object.keys(x.files).length,yjs:x.files["./sync-yjs.js"],dashboard:x.files["./dashboard.html"]}))'
+          git diff --exit-code -- docs/version-manifest.json docs/sw.js
+          bash check-sw.sh
+          node scripts/architecture-2-port-score.cjs --json
