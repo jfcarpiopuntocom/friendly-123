@@ -253,7 +253,7 @@ test('7. photo GET body stream stalls after HTTP 200: AbortController still fire
   getCredentials:ownerCreds,isVisible:()=>true,timeoutMs:500,
   fetch:async(url,options)=>{
    if(String(url).endsWith('/ws/ticket'))return {
-    ok:true,status:200,json:async()=>({token:'body-hang.sig',expiresAt:Date.now()+20_000})
+    ok:true,status:200,json:async()=>({ok:true,token:'body-hang.sig',expiresAt:Date.now()+20_000})
    };
    return {ok:true,status:200,headers:{get:key=>key==='content-type'?'image/png':null},
     arrayBuffer:()=>new Promise((_,reject)=>{
