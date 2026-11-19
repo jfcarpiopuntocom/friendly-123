@@ -30,7 +30,7 @@
       "id": "sync",
       "weight": 20,
       "score": 15.2,
-      "previous": 14.9,
+      "previous": 15.2,
       "justification": "C13 lifecycle of certified public catalog reader remains QA-gated. C20 fixed a real Workerd/YParty cold-join failure: remote roots delivered as untyped Yjs AbstractType, RED 7/8 real Y.applyUpdate → GREEN 8/8, independent Workerd central-Owner ticket + SQLite cold-restart/no-source test and 30/30 checks. Strict C9 private-root firewall maintained; no real Safari/customer GO.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/812"
     },
