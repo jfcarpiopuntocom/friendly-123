@@ -187,3 +187,65 @@ test('cold reopen accepts a legitimate new postcut sale without reimporting the 
   const after=await exported(store);assert.equal(after.events.size,111);after.doc.destroy();
  }finally{store.destroy();}
 });
+
+test('source already present as Yjs structures creates certificate without redundant empty journal frame',async()=>{
+ const store=sqlStore(),source=frozen();
+ try{
+  store.storage.sql.exec('INSERT INTO diario (cambio) VALUES (?)',source.frames[0]);
+  const before=store.count('diario');
+  const r=await openExistingStore({env,storage:store.storage,source});
+  assert.equal(r.opened,true,JSON.stringify(r));
+  assert.equal(store.count('diario'),before,'two-byte empty diff must not append an empty update');
+  const after=await exported(store);
+  try{assert.equal(after.events.size,110);}finally{after.doc.destroy();}
+  const reread=await openExistingStore({env,storage:store.storage,source:undefined});
+  assert.equal(reread.opened,true,JSON.stringify(reread));
+  assert.equal(reread.already,true);
+ }finally{store.destroy();}
+});
+test('union certificate records SHA of SQL-replayed Yjs state and detects tampering',async()=>{
+ const store=sqlStore(),source=frozen();
+ try{
+  const result=await openExistingStore({env,storage:store.storage,source});
+  assert.equal(result.opened,true,JSON.stringify(result));
+  const snapshot=await exported(store);
+  const unionSha=sha(snapshot.x.bytes);snapshot.doc.destroy();
+  assert.equal(result.receipt?.unionSha256,unionSha,'receipt must be content-addressed');
+  const cert=store.storage.sql.exec('SELECT union_sha256,events_sha256 FROM f123_frozen_unions WHERE id=1').one();
+  assert.equal(cert.union_sha256,unionSha);
+  assert.match(cert.events_sha256,/^[a-f0-9]{64}$/);
+  store.storage.sql.exec('UPDATE f123_frozen_unions SET union_sha256=? WHERE id=1','f'.repeat(64));
+  const rejected=await openExistingStore({env,storage:store.storage,source:undefined});
+  assert.equal(rejected.opened,false,'forged union hash must not ACK');
+  assert.match(rejected.failback,/sha|digest|certif|mismatch/i);
+ }finally{store.destroy();}
+});
+test('reopen detects changed LOCAL opId, even when frozen event count and total remain unchanged',async()=>{
+ const store=sqlStore(),source=frozen();
+ try{
+  assert.equal((await openExistingStore({env,storage:store.storage,source})).opened,true);
+  const {doc,events}=await exported(store);
+  doc.clientID=0xfffffffe;
+  events.set('local-000',mkEvent('local-000',99999));
+  store.storage.sql.exec('INSERT INTO diario (cambio) VALUES (?)',Y.encodeStateAsUpdate(doc));
+  doc.destroy();
+  const result=await openExistingStore({env,storage:store.storage,source:undefined});
+  assert.equal(result.opened,false,'original local sale cannot be altered under same opId');
+  assert.match(result.failback,/changed|removed|event|digest/i);
+ }finally{store.destroy();}
+});
+test('snapshot compaction after union preserves original receipts without needing Firebase',async()=>{
+ const store=sqlStore(),source=frozen();
+ try{
+  assert.equal((await openExistingStore({env,storage:store.storage,source})).opened,true);
+  const before=await exported(store);const original=sha(before.x.bytes);before.doc.destroy();
+  store.storage.transactionSync(()=>{
+   store.storage.sql.exec('INSERT INTO documento (id,contenido) VALUES (?,?)',1,before.x.bytes);
+   store.storage.sql.exec('DELETE FROM diario_bloques');
+   store.storage.sql.exec('DELETE FROM diario');
+  });
+  const replay=await exported(store);assert.equal(sha(replay.x.bytes),original);replay.doc.destroy();
+  const again=await openExistingStore({env,storage:store.storage,source:undefined});
+  assert.equal(again.opened,true,JSON.stringify(again));assert.equal(again.already,true);
+ }finally{store.destroy();}
+});
