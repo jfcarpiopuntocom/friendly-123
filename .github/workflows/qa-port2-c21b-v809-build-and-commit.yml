@@ -45,7 +45,9 @@ jobs:
           for(const file of ['docs/sw.js','docs/dashboard.html']){
             exact(file,'f123-shell-v808','f123-shell-v809');
             exact(file,'golden344','golden345');
-            exact(file,'v0.8.08','v0.8.09');
+            // sw.js intentionally contains no release display text on some shells.
+            if (fs.readFileSync(file,'utf8').includes('v0.8.08'))
+              exact(file,'v0.8.08','v0.8.09');
           }
           const bundle=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
           const hash=crypto.createHash('sha256').update(bundle).digest('hex');
