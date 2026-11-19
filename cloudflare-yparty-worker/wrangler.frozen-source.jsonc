@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  // Independent R2 frozen source for the REAL friendly-123 PORT 2.0.
+  // Separate Worker: no public routes, no writes, no automatic cutover.
+  // DO NOT deploy until a complete source is independently frozen and audited.
+  "name": "friendly123-frozen-history-qa",
+  "main": "src/frozen-r2-source.mjs",
+  "compatibility_date": "2026-11-18",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "send_metrics": false,
+  "r2_buckets": [
+    { "binding": "F123_FROZEN_R2", "bucket_name": "friendly123-frozen-history-qa" }
+  ],
+  "vars": {
+    // Populate only after an independent Firebase HEAD certification.
+    "F123_FROZEN_ROOM": "",
+    "F123_FROZEN_HEAD": ""
+  },
+  // secrets: WS_SERVICE_KEY, F123_FROZEN_OPS_MANIFEST_SHA256,
+  // F123_FROZEN_CAT_MANIFEST_SHA256 (cat optional until public projection certified).
+  "observability": { "enabled": false }
+}

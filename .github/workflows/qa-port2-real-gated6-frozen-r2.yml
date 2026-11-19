@@ -1,0 +1,38 @@
+name: "PORT 2.0 REAL Gate D6 · immutable R2 frozen service"
+on:
+  push:
+    branches: [port2/20261119-gated6-r2-frozen-source]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/frozen-r2-source.mjs
+      - cloudflare-yparty-worker/wrangler.frozen-source.jsonc
+      - cloudflare-yparty-worker/qa/p0-gated6-frozen-r2-source-workerd.test.mjs
+      - cloudflare-yparty-worker/qa/p0-gated6-r2-to-real-tienda-workerd.test.mjs
+      - .github/workflows/qa-port2-real-gated6-frozen-r2.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  freeze-r2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Source-executed R2 Worker and real Gate D consumer RED/GREEN
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          timeout -k 5 100s node --test --test-concurrency=1 qa/p0-gated6-frozen-r2-source-workerd.test.mjs qa/p0-gated6-r2-to-real-tienda-workerd.test.mjs
+      - name: Previous real Tienda Gate D regressions
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-gated4-real-onstart-workerd.test.mjs qa/p0-gated5-merge-pitr-budget-sql.test.mjs qa/p0-gate-d-trusted-paged-source.test.mjs
