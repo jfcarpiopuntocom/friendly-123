@@ -19,7 +19,7 @@ function encodePage(frames){
   return bytes;
 }
 function b64(frame){return Buffer.from(frame).toString('base64');}
-async function fixture({count=4097,malicious=false}={}){
+async function fixture({count=4097,malicious=false,pageSize=Math.min(4096,count-1)}={}){
   const doc=new Y.Doc();
   if(malicious)doc.getMap('_meta').set('pinsRol',{owner:'VERY_SECRET_PIN'});
   else doc.getMap('productos').set('sku1',{id:'sku1',nombre:'Book',precio:12.5,stockActual:3});
@@ -27,7 +27,7 @@ async function fixture({count=4097,malicious=false}={}){
   const sourceSha=await sha(state),vectorSha=await sha(vector);
   const frames=Array.from({length:count},()=>new Uint8Array(frame));
   doc.destroy();
-  const frameSets=[frames.slice(0,4096),frames.slice(4096)],totalBytes=frames.reduce((a,f)=>a+f.length,0);
+  const frameSets=[frames.slice(0,pageSize),frames.slice(pageSize)],totalBytes=frames.reduce((a,f)=>a+f.length,0);
   const hashes=await Promise.all(frameSets.map(f=>sha(encodePage(f)))),rootSha=await sha(utf8.encode(hashes.join('\n')));
   const pages=frameSets.map((set,i)=>({
     room,channel:'cat',frozenHead:'firebase-head-20261119',completeToHead:i===1,
