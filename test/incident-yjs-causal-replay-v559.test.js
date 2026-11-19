@@ -75,7 +75,7 @@ function replayFixture(pending=true) {
     _replayDelay:30000,_tReplay:null,_replayKey:null,_replayUsed:0,partesEntrantes:{},_relayPeerCount:0,
     manejar:async()=>true,guardarPullCursor:async()=>{},
     pedirPagina:(sock,state)=>{state.enCurso=true;replay.push({...ctx._pullCursor});return Promise.resolve();},
-    confirmarDurable:()=>{},nombre:"catalogo",window:{},log:()=>{},
+    confirmarDurable:()=>{},nombre:"catalogo",_antecedentesBuscados:false,window:{},log:()=>{},
     clearTimeout:()=>{},setTimeout:(fn,delay)=>{timers.push({fn,delay});return timers.length;},
     Promise,JSON,Object,Number,Math,Date,ArrayBuffer,Blob:class{},
     deudaPendiente:()=>!!ctx.doc.store.pendingStructs,
