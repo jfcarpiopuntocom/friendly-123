@@ -36,7 +36,7 @@ function joinParts(rows,partKey,label){
   for(const chunk of chunks){joined.set(chunk,offset);offset+=chunk.byteLength;}
   return joined;
 }
-function snapshotInsideBarrier(storage){
+export function snapshotInsideBarrier(storage){
   const sql=storage.sql;
   const tables=new Set(sql.exec("SELECT name FROM sqlite_master WHERE type='table'").toArray().map(x=>x.name));
   const select=(name,stmt)=>tables.has(name)?sql.exec(stmt).toArray():[];
