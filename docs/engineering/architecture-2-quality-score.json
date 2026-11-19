@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 67,
-    "previousSource": "friendly123workshop/projects/assembled-v783/quality/score-v1.json",
-    "previousReviewedDate": "2026-11-17"
+    "previousScore": 72.7,
+    "previousSource": "https://github.com/jfcarpiopuntocom/friendly-123/blob/83790575a369a5d6d1f044232c4e049e9b49433d/docs/engineering/architecture-2-quality-score.json",
+    "previousReviewedDate": "2026-11-19"
   },
-  "score": 72.7,
+  "score": 74.1,
   "maximum": 100,
   "dimensions": [
     {
@@ -16,45 +16,45 @@
       "score": 17.5,
       "previous": 17.5,
       "justification": "Typed sale/stock/credit SQL tested; full live commercial routing not yet wired",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/83790575a369a5d6d1f044232c4e049e9b49433d/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2281fb48369e91caa49fe6576ed14610d9d61b3/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
     },
     {
       "id": "durability",
       "weight": 20,
-      "score": 16.5,
+      "score": 17,
       "previous": 16.5,
-      "justification": "Workerd snapshot+journal durable; no new real-device acceptance",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/83790575a369a5d6d1f044232c4e049e9b49433d/cloudflare-yparty-worker/src/open-existing-store.mjs"
+      "justification": "Workerd snapshot and journal plus C16a exact opId durable pre-send before first HTTP POST; IndexedDB async rejection blocks network; 17/17 focused tests. Live business path remains legacy and Safari physical QA pending",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/798"
     },
     {
       "id": "sync",
       "weight": 20,
       "score": 14.9,
-      "previous": 12.5,
+      "previous": 14.9,
       "justification": "C13 wires certified read-only public catalog reader into docs/sync-yjs.js behind double QA switch (OFF), gated on legacy shadow recovery + IDB + zero causal debt, with hidden/BFCache teardown; active writes stay legacy",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/83790575a369a5d6d1f044232c4e049e9b49433d/docs/sync-yjs.js"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/e2281fb48369e91caa49fe6576ed14610d9d61b3/docs/sync-yjs.js"
     },
     {
       "id": "security",
       "weight": 15,
-      "score": 10,
-      "previous": 8.5,
-      "justification": "C9 privacy firewall, C10 one signed writer per room, C11 ticketed proof",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/790"
+      "score": 10.3,
+      "previous": 10,
+      "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/797"
     },
     {
       "id": "photos",
       "weight": 10,
-      "score": 6.5,
+      "score": 7.1,
       "previous": 6.5,
-      "justification": "Blob SHA and references present; devices still follow legacy photo route",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/83790575a369a5d6d1f044232c4e049e9b49433d/src/photo-sha-bridge.mjs"
+      "justification": "PR #796 closes three missing-CAS-preimage photo pointer PUT paths (no request without authentic preimage), preserves bytes on conflict, checks exact notebook and ACK; 27 CI green; no physical A→B→C mobile acceptance yet",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/796"
     },
     {
       "id": "migration",
       "weight": 10,
       "score": 7.3,
-      "previous": 5.5,
+      "previous": 7.3,
       "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/787"
     },
@@ -68,5 +68,17 @@
     }
   ],
   "disclaimer": "Expert engineering quality assessment, not measured uptime or success probability. Score changes require evidence-specific dimension notes. Commercial GO is separately tracked.",
-  "assessedProductSha": "83790575a369a5d6d1f044232c4e049e9b49433d"
+  "assessedProductSha": "e2281fb48369e91caa49fe6576ed14610d9d61b3",
+  "history": [
+    {
+      "review": "2026-11-17",
+      "score": 67,
+      "source": "friendly123workshop/projects/assembled-v783/quality/score-v1.json"
+    },
+    {
+      "review": "2026-11-19 before C16a/CAS",
+      "score": 72.7,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json"
+    }
+  ]
 }

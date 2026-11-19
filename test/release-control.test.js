@@ -105,6 +105,17 @@ test('release identity ignores documentation-only edits without weakening JS, HT
   const {hasRuntimeChange}=require('../scripts/release-control.cjs');
   assert.equal(hasRuntimeChange(['docs/ADR-P0-ventas-rapidas.md']),false);
   assert.equal(hasRuntimeChange(['docs/manual.md','docs/notas.MD']),false);
+  // Only the two non-served scorecards can change without a shell bump.
+  const SCORE='docs/engineering/architecture-2-port-score.json';
+  const QUALITY='docs/engineering/architecture-2-quality-score.json';
+  assert.equal(hasRuntimeChange([SCORE, QUALITY]),false);
+  assert.equal(hasRuntimeChange([SCORE,'test/p0-architecture-2-port-score.test.cjs']),false);
+  // Any served/configuration JSON still forces the historical runtime gate.
+  for(const filename of [
+    'docs/sync-rollout.json','docs/version.json','docs/engineering/other-config.json',
+    'docs/engineering/architecture-2-port-score.js','docs/sync-yjs.js',
+    'docs/version-manifest.json','docs/dashboard.html'
+  ]) assert.equal(hasRuntimeChange([SCORE,QUALITY,filename]),true,filename);
   for(const filename of ['docs/avanzado-extra.js','docs/crypto-store.js','docs/sw.js','docs/index.html','docs/version-manifest.json']){
     assert.equal(hasRuntimeChange(['docs/ADR-P0-ventas-rapidas.md',filename]),true,filename);
   }

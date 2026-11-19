@@ -95,10 +95,17 @@ async function served(fallback='') {
   } catch(e) {console.error(`Previous canary proof unavailable: ${e.message}`);}
   return fallback;
 }
-// Technical Markdown under docs/ is documentation. Executable assets and
-// release manifests still require a new shell; never treat all docs/ equally.
+// Technical Markdown under docs/ is documentation. The TWO explicitly
+// versioned engineering score JSON files are audit metadata, never fetched by
+// the app or included in SW SHELL / integrity manifest. Keep every other JSON
+// (and JS, HTML, CSS, manifests, config) as runtime requiring a new shell.
+const AUDIT_ONLY = new Set([
+  'docs/engineering/architecture-2-port-score.json',
+  'docs/engineering/architecture-2-quality-score.json'
+]);
 function hasRuntimeChange(paths) {
-  return paths.some(p => p.startsWith('docs/') && !/\.md$/i.test(p));
+  return paths.some(p => p.startsWith('docs/') &&
+    !/\.md$/i.test(p) && !AUDIT_ONLY.has(p));
 }
 function validate(base) {
   const catalog=JSON.parse(fs.readFileSync('release/capabilities.json','utf8'));
