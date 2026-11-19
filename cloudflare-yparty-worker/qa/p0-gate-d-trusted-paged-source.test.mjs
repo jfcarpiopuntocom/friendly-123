@@ -26,16 +26,19 @@ async function fixture({count=4097,malicious=false,pageSize=Math.min(4096,count-
   else doc.getMap('productos').set('sku1',{id:'sku1',nombre:'Book',precio:12.5,stockActual:3});
   const frame=Y.encodeStateAsUpdate(doc),state=Y.encodeStateAsUpdate(doc),vector=Y.encodeStateVector(doc);
   const sourceSha=await sha(state),vectorSha=await sha(vector);
+  const projected=projectPublicCatalog({sourceDoc:doc,Y,room,channel:'cat',frozenHead:'firebase-head-20261119'});
+  const projectedSha=await sha(projected.bytes);projected.doc.destroy();
   const frames=Array.from({length:count},()=>new Uint8Array(frame));
   doc.destroy();
   const frameSets=[frames.slice(0,pageSize),frames.slice(pageSize)],totalBytes=frames.reduce((a,f)=>a+f.length,0);
-  const hashes=await Promise.all(frameSets.map(f=>sha(encodePage(f)))),rootSha=await sha(utf8.encode(hashes.join('\n')));
+  const hashes=await Promise.all(frameSets.map(f=>sha(encodePage(f)))),rootSha=await sha(utf8.encode(hashes.map((h,i)=>(i+1)+':'+h+'\n').join('')));
   const pages=frameSets.map((set,i)=>({
     room,channel:'cat',frozenHead:'firebase-head-20261119',completeToHead:i===1,
     expectedStateSha256:sourceSha,expectedVectorSha256:vectorSha,
-    frames:set.map(b64),
+    expectedProjectedSha256:projectedSha,projectionVersion:'v1',frames:set.map(b64),
     manifest:{chunk:i+1,chunks:2,bytes:set.reduce((a,f)=>a+f.length,0),
-      totalBytes,sha256:hashes[i],rootSha256:rootSha}
+      totalBytes,firstFrameIndex:i===0?0:pageSize,frameCount:set.length,
+      sha256:hashes[i],rootSha256:rootSha}
   }));
   return {pages,sourceSha,vectorSha,count};
 }
@@ -92,6 +95,8 @@ test('HEAD, page sha, root sha, total bytes and premature complete flag cannot b
     p=>{p[1].manifest.sha256='f'.repeat(64)},
     p=>{p[1].manifest.rootSha256='f'.repeat(64)},
     p=>{p[1].manifest.totalBytes+=1},
+    p=>{p[1].manifest.firstFrameIndex+=1},
+    p=>{p[1].manifest.frameCount+=1},
     p=>{p[0].completeToHead=true}
   ]){
     const pages=structuredClone(f.pages);mutate(pages);
@@ -137,10 +142,38 @@ test('a small shop uses one-page base64 manifest without inventing a second page
  const pageSha=await sha(encodePage(bytes));
  const body={...f.pages[0],frames,completeToHead:true,
   manifest:{chunk:1,chunks:1,bytes:rawBytes,totalBytes:rawBytes,
-   sha256:pageSha,rootSha256:await sha(utf8.encode(pageSha))}};
+   firstFrameIndex:0,frameCount:frames.length,
+   sha256:pageSha,rootSha256:await sha(utf8.encode('1:'+pageSha+'\n'))}};
  const s=setup([body]);
  const output=await readTrustedFrozenSource({env:s.env,room,channel:'cat'});
  assert.equal(s.calls,1);
  assert.equal(output.frames.length,2);
  assert.equal((await prepareFrozenImport(output)).sha256,f.sourceSha);
+});
+
+test('429 on second page recovers by retrying the same chunk exactly once',async()=>{
+ const f=await fixture({count:2}),s=setup(f.pages,{statusAt:2,status:429});
+ const result=await readTrustedFrozenSource({env:s.env,room,channel:'cat'});
+ assert.equal(s.calls,3);
+ assert.deepEqual(s.requests.map(x=>x.chunk??1),[1,2,2]);
+ assert.equal((await prepareFrozenImport(result)).sha256,f.sourceSha);
+});
+test('401/403 on second page are denied without any retry',async()=>{
+ const f=await fixture({count:2});
+ for(const code of [401,403]){
+  const s=setup(f.pages,{statusAt:2,status:code});
+  await assert.rejects(readTrustedFrozenSource({env:s.env,room,channel:'cat'}),/trusted frozen history unavailable/);
+  assert.equal(s.calls,2);
+ }
+});
+test('same frozen state with tampered independently declared projection SHA or version refuses',async()=>{
+ const f=await fixture({count:2});
+ for(const mutate of [
+  pages=>{pages[0].expectedProjectedSha256='f'.repeat(64);pages[1].expectedProjectedSha256='f'.repeat(64)},
+  pages=>{pages[1].expectedProjectedSha256='a'.repeat(64)},
+  pages=>{pages[1].projectionVersion='unverified-v9'}
+ ]){
+  const pages=structuredClone(f.pages);mutate(pages);
+  await assert.rejects(readTrustedFrozenSource({env:setup(pages).env,room,channel:'cat'}),/trusted frozen history unavailable/);
+ }
 });
