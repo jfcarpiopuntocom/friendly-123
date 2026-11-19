@@ -1,11 +1,11 @@
 # friendly-123 · arquitectura 1.0 → 2.0 · indicadores auditables
 
-**Corte de ingeniería:** 19 de noviembre de 2026. **SHA de producto inspeccionado:** `83790575a369a5d6d1f044232c4e049e9b49433d`. Este archivo describe el código **de la app real**; el workshop es laboratorio. **Sync3 ya es 2.0 y queda fuera del denominador.**
+**Corte de ingeniería:** 19 de noviembre de 2026. **SHA base de rúbrica C13:** `83790575a369a5d6d1f044232c4e049e9b49433d`; **último cambio de calidad verificado:** [PR #796](https://github.com/jfcarpiopuntocom/friendly-123/pull/796), merge `49fe066024ab529b182327bd98ae76884b13ded2` (foto CAS v804). Este archivo describe el código **de la app real**; el workshop es laboratorio. **Sync3 ya es 2.0 y queda fuera del denominador.**
 
 | Indicador | Antes comparable | Ahora | Delta |
 | --- | ---: | ---: | ---: |
 | Capacidades portadas 1.0→2.0 | 68,5/100 (pos-D7, pre-C8) | **81,5/100** | **+13,0** (+3,0 en C13) |
-| Calidad arquitectónica de ingeniería | 67,0/100 (17-nov) | **72,7/100** | **+5,7** (+1,2 en C13) |
+| Calidad arquitectónica de ingeniería | 67,0/100 (17-nov) | **73,2/100** | **+6,2** (+1,2 en C13) |
 
 **PORT ≠ autorización comercial**. Se puntúan capacidades 2.0 implementadas y ensambladas en `friendly-123`, con pesos/versiones fijos y rutas de código testadas. No es porcentaje de teléfonos migrados ni fiabilidad estadística. Los seis gates GO se gestionan aparte (actualmente **0/6**). No confundir con un viejo 61/100 que incluía aceptación física en un denominador diferente.
 
@@ -27,12 +27,12 @@ La mejora **+13,0** sobre el corte pos-D7 se compone de **C8 3,0 + C9 2,5 + C10 
 
 Archivos canónicos y comando: [`docs/engineering/architecture-2-port-score.json`](./architecture-2-port-score.json), [`docs/engineering/architecture-2-quality-score.json`](./architecture-2-quality-score.json) y `node scripts/architecture-2-port-score.cjs`.
 
-## Calidad 72,7/100
+## Calidad 73,2/100
 
-Es una **revisión explícita de ingeniería**, no tasa de disponibilidad. Frente al 67,0 histórico: Sync 12,5→14,9 (+1,2 en C13 por cableado de lector certificado con guardas de ciclo de vida y fail-closed), seguridad 8,5→10,0 por C9/C10/C11, migración 5,5→7,3 por R2/D6/D7. Dinero 17,5, durabilidad 16,5, fotos 6,5 y físico 0,0 quedan constantes hasta nueva evidencia.
+Es una **revisión explícita de ingeniería**, no tasa de disponibilidad. Frente al 67,0 histórico: Sync 12,5→14,9 (+1,2 en C13 por cableado de lector certificado con guardas de ciclo de vida y fail-closed), seguridad 8,5→10,0 por C9/C10/C11, migración 5,5→7,3 por R2/D6/D7. Dinero 17,5, durabilidad 16,5 y físico 0,0 quedan constantes. **Fotos 6,5→7,0 (+0,5)** por CAS efectivo A→B→C de los tres escritores de perchas y rechazo de un PUT sin preimagen (test real RED 20/21, GREEN 21/21, 27 checks de SHA), acreditado automáticamente contra `docs/vista-perchas.js` y `docs/version-manifest.json`. Todavía no se ha probado convergencia física PC–iPhone: 0,0 físico.
 
 ## Próximos cortes por causa raíz
 
-1. Habilitar R2 en Cloudflare (`c4d8aa3b3e1db0d80b0beb4abc7c1364`), desplegar emisor `/ws/ticket` en `friendly123-licencias` (hoy en versión 4-nov), certificar historial Firebase QA sin ancestros pendientes y conectar `WS_FROZEN_HISTORY_SOURCE` + R2 + `WS_CATALOG_ORIGIN_QA`.
+1. **R2 está activado y se ha verificado sin buckets, pero JFC prohíbe cualquier costo nuevo (USD 0,00)**. Hasta contar con límites de gasto realmente bloqueantes, cero escrituras R2/importaciones/deploys: desarrollar y verificar con Miniflare local. El emisor `/ws/ticket` tiene compuerta de despliegue manual protegida por PR #797, pero no equivale a un despliegue. Preparar historia Firebase QA íntegra, origen certificado, binding R2 y `WS_CATALOG_ORIGIN_QA` únicamente cuando la restricción de gasto y los gates lo permitan.
 2. Pasar los deltas de catálogo por un escritor autorizado único y venta/ajuste/fiado por comandos tipados con ACK `business-committed`; demostrar reversión y reconciliación sin perder `opId`.
 3. Prueba física A→B→A×2 en Opera PC y Safari iPhone sobre la misma tienda para el GO independiente (`0/6`).
