@@ -1,0 +1,31 @@
+name: "PORT2 C19a · certified single-writer public catalog delta writer (Workerd SQLite)"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - src/port2-catalog-delta-writer.mjs
+      - test/p0-c19a-catalog-delta-writer.test.cjs
+      - cloudflare-yparty-worker/qa/p0-c19a-catalog-delta-writer-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c19a-catalog-delta-writer.yml
+permissions: {contents: read}
+jobs:
+  c19a:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Setup exact Workerd deps
+        working-directory: cloudflare-yparty-worker
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify C19a syntax and unit tests
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --check src/port2-catalog-delta-writer.mjs
+          node --test --test-timeout=60000 test/p0-c19a-catalog-delta-writer.test.cjs
+      - name: Real Workerd C11 proof + C10 single writer + live deltas + cold restart
+        working-directory: cloudflare-yparty-worker
+        run: node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c19a-catalog-delta-writer-workerd.test.mjs
