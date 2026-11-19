@@ -13,6 +13,9 @@ const ROOM=/^[a-f0-9]{32}-cat$/;
 const HEAD=/^[A-Za-z0-9_.:-]{3,128}$/;
 const refuse=()=>new Error('public catalog QA scope unavailable');
 
+// One canonical validation contract shared with server projection.
+export {assertPublicCatalogTransportDoc} from '../cloudflare-yparty-worker/src/catalog-safe-projection.mjs';
+
 export function createPublicCatalogBridge({
  privateDoc,Y,room,frozenHead,qaEnabled=false,localReady=false,
  isOwner,createProvider

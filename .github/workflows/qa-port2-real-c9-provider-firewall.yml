@@ -1,0 +1,37 @@
+name: "PORT2 REAL C9 · pre-socket private catalog firewall"
+on:
+  push:
+    branches: [port2/20261119-gatec9-websocket-catalog-firewall]
+  pull_request:
+    branches: [master]
+    paths:
+      - src/authorized-yprovider.mjs
+      - src/port2-public-catalog-bridge.mjs
+      - cloudflare-yparty-worker/qa/p0-port2-authorized-provider-firewall.test.mjs
+      - .github/workflows/qa-port2-real-c9-provider-firewall.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  private-firewall:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Real browser-source AuthorizedYProvider via esbuild no-network YParty shim
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test qa/p0-port2-authorized-provider-firewall.test.mjs qa/p0-port2-public-catalog-bridge.test.mjs
+      - name: Worker catalog privacy and immutable R2 regression
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-safe-catalog-projection.test.mjs qa/p0-gated6-frozen-r2-source-workerd.test.mjs
