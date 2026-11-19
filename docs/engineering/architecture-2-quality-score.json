@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 74.1,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ e2281fb48369e91caa49fe6576ed14610d9d61b3",
+    "previousScore": 74.6,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 8bdbf32b37effee0649ced353ad9db50fed323bc",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 74.6,
+  "score": 74.9,
   "maximum": 100,
   "dimensions": [
     {
@@ -16,23 +16,23 @@
       "score": 17.5,
       "previous": 17.5,
       "justification": "Typed sale/stock/credit SQL tested; full live commercial routing not yet wired",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/cc9365aad373ded56f6118cdfd1f116e97d13068/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/312201073975e3237014254fe9d87b87763c14ea/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
     },
     {
       "id": "durability",
       "weight": 20,
       "score": 17.3,
-      "previous": 17,
+      "previous": 17.3,
       "justification": "C16a atomic opId pre-send and C16b same store Safari IDB.open watchdog 100–10000 ms; late success connection closed, exact C15 command whitelist and cross-tab conflicting opId refused; confirmed PR #808 13/13 CI. No physical Safari A→B→A certification.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/808"
     },
     {
       "id": "sync",
       "weight": 20,
-      "score": 14.9,
+      "score": 15.2,
       "previous": 14.9,
-      "justification": "C13 wires certified read-only public catalog reader into docs/sync-yjs.js behind double QA switch (OFF), gated on legacy shadow recovery + IDB + zero causal debt, with hidden/BFCache teardown; active writes stay legacy",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/cc9365aad373ded56f6118cdfd1f116e97d13068/docs/sync-yjs.js"
+      "justification": "C13 lifecycle of certified public catalog reader remains QA-gated. C20 fixed a real Workerd/YParty cold-join failure: remote roots delivered as untyped Yjs AbstractType, RED 7/8 real Y.applyUpdate → GREEN 8/8, independent Workerd central-Owner ticket + SQLite cold-restart/no-source test and 30/30 checks. Strict C9 private-root firewall maintained; no real Safari/customer GO.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/812"
     },
     {
       "id": "security",
@@ -46,7 +46,7 @@
       "id": "photos",
       "weight": 10,
       "score": 7.3,
-      "previous": 7.1,
+      "previous": 7.3,
       "justification": "C18a host-pinned Owner PUT/GET and Team read-only SHA-256 with Workerd SQLite cold restart; end-to-end timeout now covers photo body/receipt after HTTP headers, P0 RED→GREEN 7/7 unit + 1/1 Workerd, 14/14 CI in PR #809. Photo UI/physical CAS remains uncutover.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/809"
     },
@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "Engineering quality review estimate with explicit scored evidence and separate GO; not observed uptime or customer deployment, not a hard 0-cost R2 guarantee.",
-  "assessedProductSha": "cc9365aad373ded56f6118cdfd1f116e97d13068",
+  "assessedProductSha": "312201073975e3237014254fe9d87b87763c14ea",
   "history": [
     {
       "review": "2026-11-17",
@@ -79,6 +79,11 @@
       "review": "2026-11-19 before C16a/CAS",
       "score": 72.7,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json"
+    },
+    {
+      "review": "2026-11-19 before C19a/C20",
+      "score": 74.6,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 8bdbf32b37effee0649ced353ad9db50fed323bc"
     }
   ]
 }
