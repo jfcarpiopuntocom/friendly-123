@@ -3,18 +3,18 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 76,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ d1878b13e14a83bc7cb1026cb0dede16abed7d18",
+    "previousScore": 76.2,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ ec60623396d1f0bf3ef0267f828484cf17029ef2",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 76.2,
+  "score": 76.4,
   "maximum": 100,
   "dimensions": [
     {
       "id": "business",
       "weight": 20,
       "score": 17.9,
-      "previous": 17.7,
+      "previous": 17.9,
       "justification": "C33 Workerd SQLite 3 committed receipts tested; C34 real browser backend cash qty/cents and C36 PR #831 original opId from actual saved sale + dedup replay (1 sale, 1 stock movement) through BOTH persistent transport topologies and actual C31 typed mapper, RED→GREEN 3/3 plus 11/11 regressions, release v815 real SHA. QA-only; no proof of live production DO committed confirmation, PC/Safari physical GO or all economic modes.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/831"
     },
@@ -29,10 +29,10 @@
     {
       "id": "sync",
       "weight": 20,
-      "score": 15.4,
+      "score": 15.6,
       "previous": 15.4,
-      "justification": "C25 #820 integrated certified C21a cross-device failback coordinator into real v810 browser bundle and guarded Sync3 facade on top of C16b durable IDB and C19a C11 writer. Synthetic VM exact-bundle test RED->GREEN: C19a certified activate, single typed business commit, second browser lifecycle denies same opId legacy, pagehide releases writer; 25/25 C25 tests, 47 GitHub checks expected when merged. Real PC/Safari A→B→A and customer GO remain unverified.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/820"
+      "justification": "C38 PR #833 enforces a QA-only precondition on the REAL docs/sync-yjs.js C21a cutover: old OCSync relay explicitly OFF, no joined room, no durable pending, coordinator activate20 mandatory; if old relay reawakens before/after async activation, revoke business mode and use existing C21a failback. Strict missing-facade fail-closed; prevents team/photo role from raising an OFF writer. C38 exact-source RED->GREEN and C31/C33 integration; no production cutover, no global inter-device writer proof or physical acceptance.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/833"
     },
     {
       "id": "security",
@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "Engineering quality score with reviewed product-source contracts and Workerd SQLite QA, not a production uptime percentage or customer/physical GO; verified zero Cloudflare/R2 writes this release.",
-  "assessedProductSha": "3e367eadd6b87a8143471041875decc523af3e76",
+  "assessedProductSha": "8cd8afb69a3c91df643d72053993cdf1d6745695",
   "history": [
     {
       "review": "2026-11-17",
@@ -109,6 +109,11 @@
       "review": "2026-11-19 before C36 identity continuity scoring",
       "score": 76,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ d1878b13e14a83bc7cb1026cb0dede16abed7d18"
+    },
+    {
+      "review": "2026-11-19 before C38 local legacy relay gate score",
+      "score": 76.2,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ ec60623396d1f0bf3ef0267f828484cf17029ef2"
     }
   ]
 }

@@ -1,33 +1,42 @@
 'use strict';
-// C37 score is a fixed-budget implementation audit, NOT physical GO.
-// RED checkpoint: the previous authoritative product score is still 85.0/76.0; never inflate without verified C36 code.
+// C39 TDD RED first: same friendly-123 app C38 local cutover interlock only.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C37: audited real C36 sale receipt opId→joined/roomless journal→typed C31 earns only 0.5 on fixed 100',()=>{
+test('C39: real product C38 local no-dual-writer interlock earns ONLY 0.5 fixed-budget, GO0/6',()=>{
  const s=inspect();
- assert.equal(s.port,85.5);
+ assert.equal(s.port,86.0);
  assert.equal(s.portBefore,68.5);
- assert.equal(s.portDelta,17.0);
- assert.equal(s.quality,76.2);
- assert.equal(s.qualityBefore,76.0);
+ assert.equal(s.portDelta,17.5);
+ assert.equal(s.quality,76.4);
+ assert.equal(s.qualityBefore,76.2);
  assert.equal(s.qualityDelta,0.2);
  assert.equal(s.go,'0/6');
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
- const milestones=port.groups.flatMap(g=>g.milestones);
- assert.equal(milestones.find(x=>x.id==='real-cash-sale-envelope-c34')?.points,0.5);
- assert.equal(milestones.find(x=>x.id==='real-cash-sale-envelope-c34')?.done,true);
- assert.equal(milestones.find(x=>x.id==='stable-real-sale-opid-c36')?.points,0.5);
- assert.equal(milestones.find(x=>x.id==='stable-real-sale-opid-c36')?.done,true);
- assert.equal(milestones.find(x=>x.id==='production-business-dispatch')?.points,2.0);
- assert.equal(milestones.find(x=>x.id==='production-business-dispatch')?.done,false);
- assert.equal(milestones.find(x=>x.id==='typed-delta-and-legacy-retirement')?.points,1.5);
- assert.equal(milestones.find(x=>x.id==='typed-delta-and-legacy-retirement')?.done,false);
- assert.equal(port.assessedProductSha,'3e367eadd6b87a8143471041875decc523af3e76');
+ const ms=port.groups.flatMap(g=>g.milestones);
+ assert.equal(port.maximum,100);
+ assert.equal(quality.maximum,100);
+ assert.equal(port.groups.reduce((a,g)=>a+g.weight,0),100,'original rubric fixed at 100');
+ const storage=port.groups.find(g=>g.id==='storage');
+ assert.equal(storage?.weight,17,'C38 must not change historical storage rubric weight');
+ assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17,
+   'C38 0.5 credit is split from existing operational-switch, never added to 100');
+ assert.equal(ms.find(m=>m.id==='local-legacy-relay-quiescence-gate-c38')?.done,true);
+ assert.equal(ms.find(m=>m.id==='local-legacy-relay-quiescence-gate-c38')?.points,0.5);
+ assert.equal(ms.find(m=>m.id==='operational-switch')?.points,1.0);
+ assert.equal(ms.find(m=>m.id==='operational-switch')?.done,false);
+ assert.equal(ms.find(m=>m.id==='production-business-dispatch')?.points,2.0);
+ assert.equal(ms.find(m=>m.id==='production-business-dispatch')?.done,false);
+ assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.points,1.5);
+ assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.6);
+ assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),14.0);
+ // Stacked branch SHA is only provisional; replace with ACTUAL C38 merge SHA
+ // and revalidate after C38 100% CI success, before merging this score PR.
+ assert.equal(port.assessedProductSha,'8cd8afb69a3c91df643d72053993cdf1d6745695');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
- assert.equal(quality.dimensions.find(x=>x.id==='physical')?.score,0);
- assert.equal(milestones.filter(x=>!x.done).reduce((sum,x)=>sum+x.points,0),14.5,'remaining 14.5 points must stay unearned');
 });
