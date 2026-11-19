@@ -4,7 +4,7 @@
   "asOf": "2026-11-19",
   "comparison": {
     "previousScore": 75.6,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 39ce4fd97219f0a811e7abb6d22f99a9de42f3fd",
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 07fada25fd9c6b3ee92d13752fb8497881bce12c",
     "previousReviewedDate": "2026-11-19"
   },
   "score": 75.8,
@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "Engineering quality review estimate with explicit scored evidence and separate GO; not observed uptime or customer deployment, not a hard 0-cost R2 guarantee.",
-  "assessedProductSha": "39ce4fd97219f0a811e7abb6d22f99a9de42f3fd",
+  "assessedProductSha": "07fada25fd9c6b3ee92d13752fb8497881bce12c",
   "history": [
     {
       "review": "2026-11-17",
@@ -98,7 +98,7 @@
     {
       "review": "2026-11-19 before C29 verified guard score",
       "score": 75.6,
-      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 39ce4fd97219f0a811e7abb6d22f99a9de42f3fd"
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 07fada25fd9c6b3ee92d13752fb8497881bce12c"
     }
   ]
 }
