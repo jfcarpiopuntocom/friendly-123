@@ -6,7 +6,9 @@ on:
     branches: [master]
     paths:
       - cloudflare-yparty-worker/src/merge-frozen-into-existing.mjs
+      - cloudflare-yparty-worker/src/trusted-frozen-source.mjs
       - cloudflare-yparty-worker/qa/p0-gated5-merge-pitr-budget-sql.test.mjs
+      - cloudflare-yparty-worker/qa/p0-gated5-ops-ingress-budget.test.mjs
       - .github/workflows/qa-port2-real-gated5-pitr.yml
   workflow_dispatch:
 permissions:
@@ -31,7 +33,7 @@ jobs:
         run: |
           set -euo pipefail
           git rev-parse HEAD
-          node --test qa/p0-gated5-merge-pitr-budget-sql.test.mjs qa/p0-sha256-sync-transaction.test.mjs
+          node --test qa/p0-gated5-merge-pitr-budget-sql.test.mjs qa/p0-sha256-sync-transaction.test.mjs qa/p0-gated5-ops-ingress-budget.test.mjs
       - name: Real Tienda onStart / D4 history + prior regression
         working-directory: cloudflare-yparty-worker
         run: |
