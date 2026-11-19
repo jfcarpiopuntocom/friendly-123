@@ -173,7 +173,7 @@ function inspect(){
    assert.equal(version.shell,'f123-shell-v813','C31 browser shell mismatch');
    const manifest=load('docs/version-manifest.json');
    const digest='sha256-'+crypto.createHash('sha256')
-     .update(syncSrc.replace(/\\r\\n/g,'\\n')).digest('hex');
+     .update(syncSrc.replace(/\r\n/g,'\n')).digest('hex');
    assert.equal(manifest.files['./sync-yjs.js'],digest,'C31 shipped facade integrity mismatch');
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
