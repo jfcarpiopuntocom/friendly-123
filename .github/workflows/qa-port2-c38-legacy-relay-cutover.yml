@@ -28,6 +28,7 @@ jobs:
       - name: Verify final official release manifest and fixed 100 score
         run: |
           node scripts/gen-manifest.js
+          node -e 'const x=require("./docs/version-manifest.json");console.log("C38_OFFICIAL_MANIFEST "+JSON.stringify({version:x.version,shell:x.shell,files:Object.keys(x.files).length,yjs:x.files["./sync-yjs.js"],dashboard:x.files["./dashboard.html"]}))'
           git diff --exit-code -- docs/version-manifest.json docs/sw.js
           bash check-sw.sh
           node scripts/architecture-2-port-score.cjs --json
