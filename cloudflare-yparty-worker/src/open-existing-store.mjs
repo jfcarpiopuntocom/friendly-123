@@ -7,6 +7,7 @@ import * as Y from 'yjs';
 import {prepareFrozenImport,installFrozenImport} from './certified-frozen-import.mjs';
 import {exportCompleteYpartyYjs} from './durable-full-yjs-export.mjs';
 import {hasFrozenUnion,mergeFrozenIntoExisting,verifyFrozenUnionReopen} from './merge-frozen-into-existing.mjs';
+import {verifyImportedOpsBaseline} from './frozen-ops-baseline.mjs';
 
 export async function openExistingStore({env,storage,source}={}) {
   if(env?.WS_OPEN_EXISTING_QA!=='1')return {opened:false,failback:'flag-off'};
@@ -30,9 +31,16 @@ export async function openExistingStore({env,storage,source}={}) {
          (prior.channel==='ops'&&source.expectedOpIds!==Number(prior.event_count))))
         throw new Error('frozen import certificate mismatch with independent source');
       const now=await exportCompleteYpartyYjs({storage,channel:prior.channel});
-      if(prior.channel==='ops'&&(!Number.isSafeInteger(Number(prior.event_count))||
-         now.eventCount<Number(prior.event_count)))
-        throw new Error('frozen ops have disappeared after reopen');
+      if(prior.channel==='ops'){
+        if(!Number.isSafeInteger(Number(prior.event_count))||
+           now.eventCount<Number(prior.event_count))
+          throw new Error('frozen ops have disappeared after reopen');
+        // C14: same count is NOT proof that original sales/adjustments survived.
+        // Exact immutable opId->payload pairs are committed with frozen import.
+        // A missing pre-C14 baseline is never inferred from mutable live SQL.
+        verifyImportedOpsBaseline({storage,bytes:now.bytes,
+          expectedCount:Number(prior.event_count)});
+      }
       return {opened:true,already:true,verifiedSha256:now.sha256};
     }
     // A union certificate belongs to a previously occupied SQL room, not an

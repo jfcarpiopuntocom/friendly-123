@@ -32,10 +32,23 @@ function history({dropParent=false}={}){
  const frames=[...fb,...parents]; // B's children arrive in earlier pages than A's parents
  const legacy=new Y.Doc();for(const f of frames)Y.applyUpdate(legacy,f,'firebase');
  a.destroy();b.destroy();
- const proof=ch=>({channel:ch,frozenHead:'synthetic-head-0042',completeToHead:true,frames:frames.map(f=>[...f]),
-  expectedStateSha256:sha(Y.encodeStateAsUpdate(legacy)),expectedVectorSha256:sha(Y.encodeStateVector(legacy)),
-  ...(ch==='ops'?{expectedOpIds:legacy.getMap('eventos').size}:{})});
- return {legacy,frames,source:{cat:proof('cat'),ops:proof('ops')}};
+ // Real 2.0 -ops contains ONLY its own commercial event Y.Doc.
+ // The old synthetic test erroneously reused the mixed products+sales cat Y.Doc
+ // for BOTH rooms. Strict C14 correctly forbids mixed/private economic roots.
+ const opsDoc=new Y.Doc(),opsFrames=[];
+ opsDoc.clientID=409;
+ opsDoc.on('update',bytes=>opsFrames.push([...bytes]));
+ legacy.getMap('eventos').forEach((event,id)=>
+  opsDoc.getMap('eventos').set(id,structuredClone(event)));
+ const cat={channel:'cat',frozenHead:'synthetic-head-0042',completeToHead:true,
+  frames:frames.map(f=>[...f]),expectedStateSha256:sha(Y.encodeStateAsUpdate(legacy)),
+  expectedVectorSha256:sha(Y.encodeStateVector(legacy))};
+ const ops={channel:'ops',frozenHead:'synthetic-head-0042',completeToHead:true,
+  frames:opsFrames,expectedStateSha256:sha(Y.encodeStateAsUpdate(opsDoc)),
+  expectedVectorSha256:sha(Y.encodeStateVector(opsDoc)),
+  expectedOpIds:opsDoc.getMap('eventos').size};
+ opsDoc.destroy();
+ return {legacy,frames,source:{cat,ops}};
 }
 async function authority(){
  let records=new Map(),tail=Promise.resolve();

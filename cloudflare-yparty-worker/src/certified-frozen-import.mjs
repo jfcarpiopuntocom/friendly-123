@@ -3,11 +3,13 @@
 // The caller must independently freeze/verify Firebase HEAD and expected hashes;
 // a partial Firebase ledger cannot be repaired by importing it into a Y.Doc.
 import * as Y from 'yjs';
+import {prepareImportedOpsBaseline,installImportedOpsBaseline,verifyImportedOpsBaseline} from './frozen-ops-baseline.mjs';
 
 const BLOCK_BYTES=512*1024; // Identical to Tienda.onLoad/onSave in src/index.js.
 const HEX=/^[0-9a-f]{64}$/;
 const HEAD=/^[A-Za-z0-9_.:-]{3,128}$/;
 const preparedBytes=new WeakMap();
+const preparedOpsBaselines=new WeakMap();
 
 function invalid(reason) {throw new Error(reason);}
 async function digest(bytes) {
@@ -92,6 +94,7 @@ export async function prepareFrozenImport({
     const bytes=Y.encodeStateAsUpdate(doc);
     const vector=Y.encodeStateVector(doc);
     const eventCount=channel==='ops'?doc.getMap('eventos').size:null;
+    const opsBaseline=channel==='ops'?prepareImportedOpsBaseline(doc):null;
     if(eventCount!==null&&eventCount!==expectedOpIds)
       invalid('frozen opId count mismatch');
     const [sha256,vectorSha256]=await Promise.all([digest(bytes),digest(vector)]);
@@ -102,6 +105,7 @@ export async function prepareFrozenImport({
       bytes:bytes.byteLength,chunks:Math.ceil(bytes.byteLength/BLOCK_BYTES)
     });
     preparedBytes.set(proof,new Uint8Array(bytes)); // Defensive copy, not editable via proof.
+    if(opsBaseline)preparedOpsBaselines.set(proof,opsBaseline);
     return proof;
   } finally {doc.destroy();}
 }
@@ -113,6 +117,9 @@ export async function installFrozenImport({storage,proof}={}) {
   checkStorage(storage);
   const bytes=preparedBytes.get(proof);
   if(!bytes)invalid('uncertified frozen import');
+  const opsBaseline=proof.channel==='ops'?preparedOpsBaselines.get(proof):null;
+  if(proof.channel==='ops'&&(!opsBaseline||opsBaseline.count!==proof.eventCount))
+    invalid('uncertified ops baseline');
   const result=storage.transactionSync(()=>{
     const sql=storage.sql;
     createTables(sql);
@@ -127,6 +134,7 @@ export async function installFrozenImport({storage,proof}={}) {
       // keep any later journal entries, never destroy them on duplicate import.
       const saved=joinChunks(snapshotChunks(sql),proof.chunks,proof.bytes);
       if(!identicalBytes(saved,bytes))invalid('corrupt frozen import');
+      if(proof.channel==='ops')verifyImportedOpsBaseline({storage,bytes:saved,expectedCount:proof.eventCount});
       return {already:true};
     }
     if(count(sql,'documento')||count(sql,'documento_bloques')||
@@ -138,6 +146,9 @@ export async function installFrozenImport({storage,proof}={}) {
     }
     sql.exec('INSERT INTO f123_frozen_imports (id,channel,frozen_head,sha256,vector_sha256,event_count,bytes,chunks) VALUES (1,?,?,?,?,?,?,?)',
       proof.channel,proof.frozenHead,proof.sha256,proof.vectorSha256,proof.eventCount,proof.bytes,proof.chunks);
+    // SAME synchronous SQLite commit as original frozen snapshot and cert:
+    // an opId baseline can never be independently ACKed or partly installed.
+    if(proof.channel==='ops')installImportedOpsBaseline(sql,opsBaseline);
     return {already:false};
   });
   // A true readback (rather than trusting the insert return value) is required.
@@ -167,6 +178,8 @@ export async function readFrozenImport({storage}={}) {
     if(sha256!==receipt.sha256 || vectorSha256!==receipt.vector_sha256 ||
        (receipt.channel==='ops' && doc.getMap('eventos').size!==receipt.event_count))
       invalid('frozen import hash or opId mismatch');
+    if(receipt.channel==='ops')
+      verifyImportedOpsBaseline({storage,bytes,expectedCount:Number(receipt.event_count)});
     return {bytes,receipt:Object.freeze({...receipt})};
   } finally {doc.destroy();}
 }
