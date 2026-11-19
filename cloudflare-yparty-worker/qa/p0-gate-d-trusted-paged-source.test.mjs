@@ -128,3 +128,19 @@ test('legacy numeric-frame catalog with real productos root cannot sneak private
   expectedStateSha256:await sha(state),expectedVectorSha256:await sha(vector),frames:[Array.from(state)]};
  await assert.rejects(readTrustedFrozenSource({env:setup([body]).env,room,channel:'cat'}),/trusted frozen history unavailable/);
 });
+
+test('a small shop uses one-page base64 manifest without inventing a second page',async()=>{
+ const f=await fixture({count:2});
+ const frames=f.pages.flatMap(p=>p.frames);
+ const bytes=frames.map(s=>new Uint8Array(Buffer.from(s,'base64')));
+ const rawBytes=bytes.reduce((n,b)=>n+b.length,0);
+ const pageSha=await sha(encodePage(bytes));
+ const body={...f.pages[0],frames,completeToHead:true,
+  manifest:{chunk:1,chunks:1,bytes:rawBytes,totalBytes:rawBytes,
+   sha256:pageSha,rootSha256:await sha(utf8.encode(pageSha))}};
+ const s=setup([body]);
+ const output=await readTrustedFrozenSource({env:s.env,room,channel:'cat'});
+ assert.equal(s.calls,1);
+ assert.equal(output.frames.length,2);
+ assert.equal((await prepareFrozenImport(output)).sha256,f.sourceSha);
+});
