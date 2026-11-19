@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "metric": "architecture-quality-engineering-review",
+  "asOf": "2026-11-19",
+  "assessedAppMasterSha": "1b147ad99f4fdbf6cf60d8f6a57e7f79bbe3ad4a",
+  "comparison": {
+    "previousScore": 67,
+    "previousSource": "friendly123workshop/projects/assembled-v783/quality/score-v1.json",
+    "previousReviewedDate": "2026-11-17"
+  },
+  "score": 71.5,
+  "maximum": 100,
+  "dimensions": [
+    {
+      "id": "business",
+      "weight": 20,
+      "score": 17.5,
+      "previous": 17.5,
+      "justification": "Typed sale/stock/credit SQL tested; full live commercial routing not yet wired",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/1b147ad99f4fdbf6cf60d8f6a57e7f79bbe3ad4a/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+    },
+    {
+      "id": "durability",
+      "weight": 20,
+      "score": 16.5,
+      "previous": 16.5,
+      "justification": "Workerd snapshot+journal durable; no new real-device acceptance",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/1b147ad99f4fdbf6cf60d8f6a57e7f79bbe3ad4a/cloudflare-yparty-worker/src/open-existing-store.mjs"
+    },
+    {
+      "id": "sync",
+      "weight": 20,
+      "score": 13.7,
+      "previous": 12.5,
+      "justification": "Verified cold-reopen certificate and split rooms; active client cold path remains old",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/791"
+    },
+    {
+      "id": "security",
+      "weight": 15,
+      "score": 10,
+      "previous": 8.5,
+      "justification": "C9 privacy firewall, C10 one signed writer per room, C11 ticketed proof",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/790"
+    },
+    {
+      "id": "photos",
+      "weight": 10,
+      "score": 6.5,
+      "previous": 6.5,
+      "justification": "Blob SHA and references present; devices still follow legacy photo route",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/1b147ad99f4fdbf6cf60d8f6a57e7f79bbe3ad4a/src/photo-sha-bridge.mjs"
+    },
+    {
+      "id": "migration",
+      "weight": 10,
+      "score": 7.3,
+      "previous": 5.5,
+      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/787"
+    },
+    {
+      "id": "physical",
+      "weight": 5,
+      "score": 0,
+      "previous": 0,
+      "justification": "No real PC↔Safari A→B→A x2 acceptance; gate is separate from PORT engineering percent",
+      "evidence": null
+    }
+  ],
+  "disclaimer": "Expert engineering quality assessment, not measured uptime or success probability. Score changes require evidence-specific dimension notes. Commercial GO is separately tracked."
+}
