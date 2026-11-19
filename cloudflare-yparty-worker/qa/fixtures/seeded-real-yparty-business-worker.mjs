@@ -4,6 +4,18 @@
 import worker,{Tienda as RealTienda} from '../../src/index.js';
 import {prepareBusinessBaseline,installBusinessBaseline} from '../../src/authoritative-business-sql.mjs';
 export class Tienda extends RealTienda {
+  // Synthetic-only test boundary: -cat uses the REAL certified Gate D/C11
+  // import, while -ops here exercises its independent preseeded *business*
+  // SQL ledger with WS_TEST_ONLY_INTERNAL_SEED. Frozen -ops history import
+  // is covered by separate C14/Gate D tests, not this failback fixture.
+  async onStart() {
+    if (this.env.WS_TEST_ONLY_INTERNAL_SEED === '1' &&
+        this.env.WS_OPEN_EXISTING_QA === '1' &&
+        this.name === this.env.SALA_PILOTO + '-ops') {
+      this.env = {...this.env, WS_OPEN_EXISTING_QA: '0'};
+    }
+    return super.onStart();
+  }
   async onRequest(req) {
     if(this.env.WS_TEST_ONLY_INTERNAL_SEED==='1'&&this.name===this.env.SALA_PILOTO+'-ops'){
       const baseline={license:'F123-SYNT-BUSINESS',frozenHead:'synthetic-head-001',
