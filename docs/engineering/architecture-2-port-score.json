@@ -2,7 +2,6 @@
   "schema": 1,
   "metric": "architecture-v1-to-v2-implementation",
   "asOf": "2026-11-19",
-  "assessedAppMasterSha": "e5bf0eedf2d78f75a30bad09f2b6f91f56283195",
   "excluded": [
     "Sync3 is already 2.0",
     "workshop does not contribute to product implementation",
@@ -342,5 +341,6 @@
     "totalGates": 6,
     "separate": true
   },
-  "reliabilityDisclaimer": "Engineering migration score, not live traffic fraction, production reliability or deployment permission. Weights are fixed for this snapshot; new milestones require explicit rubric change and rebasing history."
+  "reliabilityDisclaimer": "Engineering migration score, not live traffic fraction, production reliability or deployment permission. Weights are fixed for this snapshot; new milestones require explicit rubric change and rebasing history.",
+  "assessedProductSha": "e5bf0eedf2d78f75a30bad09f2b6f91f56283195"
 }
