@@ -11,6 +11,7 @@ import {createTypedCommercialLedger} from "./typed-commercial-ledger.mjs";
 import {createBusinessSqlExecutor} from "./authoritative-business-sql.mjs";
 import {openExistingStore} from "./open-existing-store.mjs";
 import {readTrustedFrozenSource} from "./trusted-frozen-source.mjs";
+import {readSignedFrozenCatalogProof} from "./catalog-frozen-proof.mjs";
 
 export { salaDeLicencia };
 
@@ -225,6 +226,13 @@ export class Tienda extends YServer {
   // The photo room is HTTP-only. Only SHA/bytes/MIME references may later
   // appear in Yjs; raw blobs stay in this same YParty Durable Object's SQL.
   async onRequest(req) {
+    // C11: ONLY an independently frozen, verified PUBLIC -cat can return a
+    // read-only historical HEAD. No GET import endpoint and no private Y.Doc.
+    if(this.name===this.env.SALA_PILOTO+'-cat' &&
+       new URL(req.url).searchParams.get('frozen-proof')==='1')
+      return readSignedFrozenCatalogProof({request:req,env:this.env,
+       storage:this.ctx.storage,doc:this.document,room:this.name,
+       verified:this.gateDVerified===true&&!this.falloPersistencia});
     // A separate, opt-in HTTP typed-command INBOX. No raw Yjs economic writes;
     // 202 means queued, NEVER that stock/cash were applied by the real app.
     if(secureMode(this.env)&&this.env.WS_TYPED_COMMANDS_QA==='1'&&
@@ -544,8 +552,45 @@ export default {
     // The archived b93 prototype is preserved separately; this candidate requires real admission.
     if (env.WS_AUTHORITY_QA !== '1') return new Response('Autoridad no configurada',{status:503});
     // Limit the public endpoint before KV or a Durable Object sees the request.
-    const path = new URL(req.url).pathname;
+    const parsedUrl=new URL(req.url);
+    const path = parsedUrl.pathname;
     if (!/^[a-f0-9]{32}$/.test(env.SALA_PILOTO || "")) return new Response("Not found", { status: 404 });
+    // A one-use HTTP certificate is the ONLY browser-readable on-ramp from
+    // certified -cat SQL to C8. The actual catalog Y.Doc stays behind YParty.
+    const catalogProof=path==='/parties/tienda/'+env.SALA_PILOTO+'-cat' &&
+      parsedUrl.searchParams.get('frozen-proof')==='1' &&
+      req.headers.get('Upgrade')?.toLowerCase()!=='websocket';
+    if(catalogProof){
+      if(env.WS_OPEN_EXISTING_QA!=='1'||env.WS_SEPARATE_ROOMS_QA!=='1')
+        return new Response('Catalog proof unavailable',{status:503,headers:{'cache-control':'no-store'}});
+      const expected=env.WS_CATALOG_ORIGIN_QA,origin=req.headers.get('origin');
+      let allowed=false;
+      try{const url=new URL(expected);allowed=url.protocol==='https:'&&url.origin===expected;}catch(_){}
+      if(origin!==null&&(!allowed||origin!==expected))
+        return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
+      if(req.method==='OPTIONS'){
+        const method=req.headers.get('access-control-request-method');
+        const requested=(req.headers.get('access-control-request-headers')||'')
+          .split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+        const permitted=new Set(['authorization','x-f123-license','x-f123-instance','content-type']);
+        if(!origin||method!=='GET'||!requested.length||requested.some(h=>!permitted.has(h)))
+          return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
+        return new Response(null,{status:204,headers:{
+          'access-control-allow-origin':expected,
+          'access-control-allow-methods':'GET, OPTIONS',
+          'access-control-allow-headers':'Authorization, X-F123-License, X-F123-Instance, Content-Type',
+          'access-control-max-age':'60','vary':'Origin','cache-control':'no-store'
+        }});
+      }
+      if(req.method!=='GET')return new Response('Method not allowed',{status:405,headers:{'cache-control':'no-store'}});
+      const response=(await routePartykitRequest(req,env))||new Response('Not found',{status:404});
+      if(!origin)return response;
+      const headers=new Headers(response.headers);
+      headers.set('access-control-allow-origin',expected);
+      headers.set('vary','Origin');
+      headers.set('cache-control','no-store');
+      return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+    }
     const photoEndpoint=env.WS_PHOTO_BLOBS_QA==='1' &&
       req.headers.get('Upgrade')?.toLowerCase() !== 'websocket' &&
       path==='/parties/tienda/'+env.SALA_PILOTO+'-fotos';
