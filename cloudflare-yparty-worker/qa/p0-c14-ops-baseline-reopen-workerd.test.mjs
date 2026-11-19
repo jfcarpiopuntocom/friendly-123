@@ -77,6 +77,21 @@ test('C14 RED: changing historical opId value at same count cannot falsely reope
   assert.ok(cold.journal>0,'failed verification preserves journal and corrupt evidence');
  }finally{await f.close();}
 });
+test('C14 replacing one historical opId with another at identical total count is refused',{timeout:45000},async()=>{
+ const f=await fixture();
+ try{
+  assert.equal((await f.inspect()).opened,true);
+  await f.act('swap');
+  f.offline();await f.restart();
+  const cold=await f.inspect();
+  assert.equal(cold.count,3,'substituted opId retains total count but destroys history');
+  assert.equal(cold.opened,false);
+  assert.equal(cold.values['historical-001'],undefined);
+  assert.ok(cold.values['replacement-001']);
+  assert.match(cold.failback||'',/history|historical|baseline|opId|frozen/i);
+  assert.ok(cold.journal>0,'never discard original journal evidence to make gate pass');
+ }finally{await f.close();}
+});
 test('C14 allows genuine new post-cut opIds, and after cold reopen does not re-query source',{timeout:45000},async()=>{
  const f=await fixture();
  try{
