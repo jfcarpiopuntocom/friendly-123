@@ -2,12 +2,23 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { createRequire } = require('node:module');
 
-const workerRequire = createRequire(path.resolve(__dirname, '../cloudflare-yparty-worker/package.json'));
-const Y = workerRequire('yjs');
+function loadYjs() {
+  if (process.env.F123_FORCE_BUNDLE_YJS !== '1') {
+    try {
+      const workerRequire = createRequire(path.resolve(__dirname, '../cloudflare-yparty-worker/package.json'));
+      return workerRequire('yjs');
+    } catch (_) {}
+  }
+  const w = {};
+  new Function('window', 'self', fs.readFileSync(path.resolve(__dirname, '../docs/vendor/yjs-bundle.min.js'), 'utf8'))(w, w);
+  return w.Y;
+}
+const Y = loadYjs();
 
 const WRITER_URL = pathToFileURL(path.resolve(__dirname, '../src/port2-catalog-delta-writer.mjs')).href;
 const ROOM = 'a'.repeat(32) + '-cat';
