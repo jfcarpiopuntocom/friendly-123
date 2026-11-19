@@ -33,6 +33,6 @@ test('C39: real product C38 local no-dual-writer interlock earns ONLY 0.5 fixed-
  assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),14.0);
  // Stacked branch SHA is only provisional; replace with ACTUAL C38 merge SHA
  // and revalidate after C38 100% CI success, before merging this score PR.
- assert.equal(port.assessedProductSha,'51dfc8080a9d96549ec98146d4db67ba200c007c');
+ assert.equal(port.assessedProductSha,'8cd8afb69a3c91df643d72053993cdf1d6745695');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
 });
