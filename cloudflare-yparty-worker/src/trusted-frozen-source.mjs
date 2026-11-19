@@ -63,7 +63,7 @@ function legacyFrames(body){
 function pagedFrames(body,index,anchor){
  const m=body.manifest;
  if(!m||!Number.isSafeInteger(m.chunk)||m.chunk!==index||
-  !Number.isSafeInteger(m.chunks)||m.chunks<2||m.chunks>MAX_PAGES||
+  !Number.isSafeInteger(m.chunks)||m.chunks<1||m.chunks>MAX_PAGES||
   !Number.isSafeInteger(m.bytes)||m.bytes<1||m.bytes>MAX_WIRE||
   !Number.isSafeInteger(m.totalBytes)||m.totalBytes<1||m.totalBytes>MAX_TOTAL_BYTES||
   !HASH.test(m.sha256||'')||!HASH.test(m.rootSha256||'')||
