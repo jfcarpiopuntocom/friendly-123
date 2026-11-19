@@ -6,7 +6,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C37 RED: real C36 sale receipt opId→joined/roomless journal→typed C31 earns only 0.5 on fixed 100',()=>{
+test('C37: audited real C36 sale receipt opId→joined/roomless journal→typed C31 earns only 0.5 on fixed 100',()=>{
  const s=inspect();
  assert.equal(s.port,85.5);
  assert.equal(s.portBefore,68.5);
@@ -29,4 +29,5 @@ test('C37 RED: real C36 sale receipt opId→joined/roomless journal→typed C31 
  assert.equal(port.assessedProductSha,'3e367eadd6b87a8143471041875decc523af3e76');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
  assert.equal(quality.dimensions.find(x=>x.id==='physical')?.score,0);
+ assert.equal(milestones.filter(x=>!x.done).reduce((sum,x)=>sum+x.points,0),14.5,'remaining 14.5 points must stay unearned');
 });
