@@ -55,28 +55,41 @@ test('projection client scope is rejected when partially supplied',()=>{
   assert.throws(()=>projectPublicCatalog({sourceDoc:original,Y,room,channel:'cat'}),/scope|frozenHead|invalid/i);
  }finally{original.destroy();}
 });
-test('a 48MiB frozen backlog with 6112 8KiB updates is rejected before collecting it in RAM',async()=>{
- const doc=new Y.Doc();doc.getMap('productos').set('sku1',{id:'sku1',nombre:'Big',precio:1,stockActual:1,notas:'Z'.repeat(8192)});
- const frame=Y.encodeStateAsUpdate(doc),encoded=Buffer.from(frame).toString('base64');
- const frameBytes=frame.length,count=6112,declared=count*frameBytes;
- assert.ok(declared>24*1024*1024,`expected >24MiB; observed ${declared}`);
+test('6112 realistic 8KiB-class Yjs frame payloads exceed the RAM budget and fail before page 2',async()=>{
+ const doc=new Y.Doc(),products=doc.getMap('productos');
+ for(let i=0;i<40;i++)products.set('p'+i,{
+  id:'p'+i,nombre:'B'.repeat(170),precio:1,stockActual:1
+ });
+ const frame=Y.encodeStateAsUpdate(doc),vector=Y.encodeStateVector(doc),encoded=Buffer.from(frame).toString('base64');
+ const size=frame.length,count=6112,declared=count*size,pageSize=1024,pages=Math.ceil(count/pageSize);
+ assert.ok(declared>24*1024*1024 && declared<64*1024*1024,
+  `expected a 24..64MiB realistic Yjs payload, got ${declared} bytes`);
+ const pageCounts=Array.from({length:pages},(_,i)=>Math.min(pageSize,count-i*pageSize));
+ const pageHashes=pageCounts.map(n=>{
+   const block=Buffer.allocUnsafe(n*(size+4));
+   for(let i=0;i<n;i++){block.writeUInt32BE(size,i*(size+4));Buffer.from(frame).copy(block,i*(size+4)+4);}
+   return sha(block);
+ });
+ const rootSha=sha(new TextEncoder().encode(pageHashes.join('\n'))),stateSha=sha(frame),vectorSha=sha(vector);
  let calls=0;
- const frameCount=1100,frames=Array.from({length:frameCount},()=>encoded);
- const service={fetch:async(req)=>{
-  calls++;
-  const input=await req.json();
-  assert.equal(input.chunk??1,1);
-  // Memory guard must reject this declared total before collecting >24MiB or fetching later pages.
-  return Response.json({room,channel:'cat',frozenHead:'head-20261119',
-   completeToHead:false,expectedStateSha256:'a'.repeat(64),expectedVectorSha256:'b'.repeat(64),
-   frames,manifest:{chunk:1,chunks:6,bytes:frameCount*frameBytes,totalBytes:declared,
-    firstFrameIndex:0,frameCount:frameCount,sha256:'c'.repeat(64),rootSha256:'d'.repeat(64)}});
- }};
  const env={WS_OPEN_EXISTING_QA:'1',WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:'1',
-  SALA_PILOTO:'a'.repeat(32),WS_SERVICE_KEY:key,WS_FROZEN_HISTORY_SOURCE:service};
- try {
+  SALA_PILOTO:'a'.repeat(32),WS_SERVICE_KEY:key,WS_FROZEN_HISTORY_SOURCE:{
+   fetch:async req=>{
+    const input=await req.json(),index=input.chunk??1;
+    calls++;
+    const n=pageCounts[index-1];
+    assert.ok(n>0);
+    const frames=Array.from({length:n},()=>encoded);
+    return Response.json({room,channel:'cat',frozenHead:'head-20261119',
+     completeToHead:index===pages,expectedStateSha256:stateSha,expectedVectorSha256:vectorSha,
+     frames,manifest:{chunk:index,chunks:pages,bytes:n*size,totalBytes:declared,
+      firstFrameIndex:(index-1)*pageSize,frameCount:n,
+      sha256:pageHashes[index-1],rootSha256:rootSha}});
+   }
+  }};
+ try{
   await assert.rejects(readTrustedFrozenSource({env,room,channel:'cat'}),/trusted frozen history unavailable/);
-  assert.equal(calls,1,'reject declared oversize before fetching the next page');
+  assert.equal(calls,1,'must reject declared 48MiB before fetching more pages');
  }finally{doc.destroy();}
 });
 test('root manifest digest binds chunk index and refuses an old unindexed root',()=>{
