@@ -392,7 +392,7 @@
   "rubricRevision": {
     "date": "2026-11-19",
     "previousScore": 84.5,
-    "previousAssessedProductSha": "686f0fa162a1a9b82dd0dd8f6590b5ad6e0d23dd",
+    "previousAssessedProductSha": "07fada25fd9c6b3ee92d13752fb8497881bce12c",
     "reason": "No new weight: split 3.0 production business-dispatch into 0.5 tested REAL compatible cash source C34 and remaining 2.5 not earned. C33 Workerd E2E supports cautious quality confidence; not production or physical GO."
   }
 }
