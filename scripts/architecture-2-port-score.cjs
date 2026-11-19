@@ -47,10 +47,22 @@ function inspect(){
   assert.equal(manifest.files['./vendor/yparty-piloto.min.js'],digest,
     'C12 credits require the exact real browser vendor integrity seal');
  }
+ const wiredReaderStage=data.groups.flatMap(group=>group.milestones).find(item=>item.id==='real-public-reader-on-client');
+ if(wiredReaderStage?.done){
+  const syncSrc=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+  assert(syncSrc.includes('_crearLectorCatalogoPublicoCertificado')&&
+    syncSrc.includes('API.leerCatalogoPublicoCertificado'),
+    'C13 credits are invalid unless docs/sync-yjs.js wires the certified reader lifecycle');
+  const manifest=load('docs/version-manifest.json');
+  const digest='sha256-'+crypto.createHash('sha256')
+    .update(syncSrc.replace(/\r\n/g,'\n')).digest('hex');
+  assert.equal(manifest.files['./sync-yjs.js'],digest,
+    'C13 credits require the exact docs/sync-yjs.js integrity seal in version-manifest.json');
+ }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
- assert.equal(data.score-data.baseline.score,10,'C8-C12 baseline delta must be independently visible');
+ assert(oneDecimal(data.score-data.baseline.score)>=10,'C8-C13 baseline delta must be independently visible');
  const dims=new Set();let qWeight=0,qScore=0,qPrevious=0;
  for(const d of quality.dimensions){
   assert(!dims.has(d.id),'duplicate quality dimension '+d.id);dims.add(d.id);
