@@ -75,7 +75,7 @@ function hasRows(sql,table){
 // BOTH directions in the same read-only transaction: one committed receipt
 // per business effect, and one business effect per committed executable opId.
 // Pending 202 intents (and unrelated queued kinds) remain unspent.
-function verifyTypedBusinessEffects(sql,license,effects){
+function verifyTypedBusinessEffects(sql,license,effects,originalProducts){
  const deny=()=>fail('business baseline reconciliation error: receipt/effect mismatch');
  const names=new Set(sql.exec("SELECT name FROM sqlite_master WHERE type='table'")
   .toArray().map(r=>r.name));
@@ -96,6 +96,8 @@ function verifyTypedBusinessEffects(sql,license,effects){
  if(saved.length!==receipts.length||new Set(saved.map(r=>r.op_id)).size!==saved.length)deny();
  const effectById=new Map(effects.map(r=>[r.op_id,r]));
  const committed=new Set();
+ const committedKindById=new Map();
+ const physicalCountById=new Map();
  const contracts={
   'sale.record':{detail:'productId',quantity:true},
   'stock.adjust':{detail:'productId',quantity:true},
@@ -164,12 +166,32 @@ function verifyTypedBusinessEffects(sql,license,effects){
      (amount<1||money!==amount||q!==0))deny();
   if(record.kind==='stock.adjust'&&
      (money!==0||amount!==0))deny();
+  // Count intent is an ABSOLUTE physical number, not an arbitrary signed
+  // delta. Its canonical quantity was SHA-verified above on this receipt.
+  if(record.kind==='stock.adjust')physicalCountById.set(row.op_id,BigInt(record.quantity));
+  committedKindById.set(row.op_id,record.kind);
   committed.add(row.op_id);
  }
  // An orphan effect cannot fabricate economic history; a committed receipt
  // cannot survive the loss of its effect even if cash/stock were also reset.
  if(committed.size!==effects.length||
     effects.some(e=>!committed.has(e.op_id)))deny();
+ // SQLite writes each effect in the same transaction as its typed receipt.
+ // Reapply those effects IN INSERTION ORDER (rowid), not lexical opId.
+ // The original count N must be exactly the stock AFTER its own delta;
+ // otherwise a forged delta+final stock pair could pass the older sum-only
+ // balance check while its unmodified count receipt still says N.
+ const liveStock=new Map(originalProducts.map(p=>[p.productId,BigInt(p.quantity)]));
+ for(const effect of effects){
+  const kind=committedKindById.get(effect.op_id);
+  if(kind!=='stock.adjust'&&kind!=='sale.record')continue;
+  const before=liveStock.get(effect.product_id);
+  if(before===undefined)deny();
+  const after=before+BigInt(effect.quantity_delta);
+  if(after<0n||after>BigInt(MAX))deny();
+  if(kind==='stock.adjust'&&after!==physicalCountById.get(effect.op_id))deny();
+  liveStock.set(effect.product_id,after);
+ }
 }
 // C68: Source-anchored READ-ONLY replay for a duplicate frozen economic head.
 // This runs only on baseline reopen/retry, never inside the hot sale/fiado ACK.
@@ -182,7 +204,9 @@ function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
  const receivables=new Map((state.receivables||[])
   .map(r=>[r.receivableId,BigInt(r.balanceCents)]));
  let cash=BigInt(state.openingCashCents);
- const effects=sql.exec('SELECT op_id,product_id,quantity_delta,cash_delta_cents FROM f123_business_effects WHERE license = ? ORDER BY op_id',
+ // A physical count is a causal ABSOLUTE witness. Use SQL application order,
+ // not the lexicographic order of browser-generated opIds.
+ const effects=sql.exec('SELECT op_id,product_id,quantity_delta,cash_delta_cents FROM f123_business_effects WHERE license = ? ORDER BY rowid',
   state.license).toArray();
  for(const effect of effects){
   const q=Number(effect.quantity_delta),c=Number(effect.cash_delta_cents);
@@ -205,7 +229,7 @@ function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
   }else if(!stock.has(effect.product_id))deny();
   cash+=BigInt(c);
  }
- verifyTypedBusinessEffects(sql,state.license,effects);
+ verifyTypedBusinessEffects(sql,state.license,effects,state.products);
  if(cash<0n||cash>BigInt(MAX)||BigInt(baseline.cash_cents)!==cash)deny();
  if(stockRows.length!==stock.size)deny();
  for(const row of stockRows){
