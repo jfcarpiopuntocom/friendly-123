@@ -1,0 +1,33 @@
+name: "PORT2 C91 - Authenticated paginated Firebase RTDB reader QA"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/tools/firebase-rest-reader.mjs
+      - cloudflare-yparty-worker/qa/p0-c91-firebase-rest-reader.test.mjs
+      - .github/workflows/qa-port2-c91-firebase-rest-reader.yml
+  push:
+    branches: [port2/20261120-c91-firebase-rest-reader]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c91-firebase-rest-reader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: C91 paginated Firebase REST reader & frozen R2 packager QA
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-c91-firebase-rest-reader.test.mjs qa/p0-firebase-frozen-certifier.test.mjs qa/p0-gated7-frozen-r2-packager.test.mjs qa/p0-gate-d-trusted-paged-source.test.mjs
