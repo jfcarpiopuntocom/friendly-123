@@ -1,4 +1,4 @@
-import {createHash} from 'node:crypto';
+import {sha256} from '@noble/hashes/sha2.js';
 // Server-only SQL economic state anchored to an independently verified frozen source.
 // Used by the same YParty -ops DO that stores typed_commercial_ops and its ACK.
 // No HTTP baseline endpoint. Without a certified baseline, business commits FAIL.
@@ -133,10 +133,11 @@ function verifyTypedBusinessEffects(sql,license,effects){
    amountCents:amount};
   const canonicalPayload=payloadById.get(row.op_id);
   if(JSON.stringify(canon)!==canonicalPayload)deny();
-  // Workerd node:crypto is mature and sync under nodejs_compat. Recompute the
+  // Mature @noble/hashes SHA-256 is synchronous and Worker/bundler-neutral. Recompute the
   // SAME SHA-256 that createTypedCommercialLedger generated at durable commit;
   // equality of receiptId to a stale hash prefix alone is not integrity.
-  if(createHash('sha256').update(canonicalPayload,'utf8').digest('hex')!==
+  if(Array.from(sha256(new TextEncoder().encode(canonicalPayload)),
+       b=>b.toString(16).padStart(2,'0')).join('')!==
      row.payload_hash)deny();
   const effect=effectById.get(row.op_id);
   if(receipt.stage==='stored-for-application'){
