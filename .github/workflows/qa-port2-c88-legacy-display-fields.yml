@@ -1,0 +1,43 @@
+name: "PORT2 C88 - Firebase legacy catalog optional display fields RED/GREEN"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/catalog-safe-projection.mjs
+      - cloudflare-yparty-worker/qa/p0-c88-legacy-optional-catalog-projection.test.mjs
+      - .github/workflows/qa-port2-c88-legacy-display-fields.yml
+  push:
+    branches: [port2/20261120-c88-firebase-legacy-display-fields]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c88-real-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Original OSS Yjs legacy projection and privacy RED/GREEN
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test qa/p0-c88-legacy-optional-catalog-projection.test.mjs qa/p0-safe-catalog-projection.test.mjs qa/p0-gated3-paving-deterministic-memory.test.mjs
+      - name: Real frozen history / R2 packaging regressions
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-firebase-frozen-certifier.test.mjs qa/p0-gated7-frozen-r2-packager.test.mjs qa/p0-gate-d-trusted-paged-source.test.mjs
+      - name: Fixed original architecture scores (no fabricated credit)
+        run: |
+          set -euo pipefail
+          node scripts/architecture-2-port-score.cjs
