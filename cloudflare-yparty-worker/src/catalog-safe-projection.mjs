@@ -31,7 +31,8 @@ function text(value,label,max=180){
  return value;
 }
 function maybeText(row,key,max){
- return row[key]===undefined?undefined:text(row[key],key,max);
+ const value=row[key];
+ return value===undefined||value===null||value===''?undefined:text(value,key,max);
 }
 function product(row,key){
  if(!row||typeof row!=='object'||Array.isArray(row))invalid('product');
