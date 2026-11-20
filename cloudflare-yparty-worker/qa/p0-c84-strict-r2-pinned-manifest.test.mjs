@@ -69,7 +69,7 @@ test('C84 control: real paged V2 source with consistent page/root hashes and str
  const cert=await prepareFrozenImport(result);
  assert.equal(cert.sha256,f.base.expectedStateSha256);
  assert.equal(cert.vectorSha256,f.base.expectedVectorSha256);
- assert.equal(cert.expectedOpIds,1);
+ assert.equal(cert.eventCount,1);
 });
 test('C84 negative: strict mode rejects damaged paged page digest, forged root and missing manifest without partial source ACK',async()=>{
  const f=proof();
