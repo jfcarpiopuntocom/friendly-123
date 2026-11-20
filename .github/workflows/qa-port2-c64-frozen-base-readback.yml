@@ -1,0 +1,31 @@
+name: PORT2 C64 frozen-base cold reopen fail closed (QA only)
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-yparty-worker/src/open-existing-store.mjs'
+      - 'cloudflare-yparty-worker/qa/p0-c64-frozen-base-readback.test.mjs'
+      - '.github/workflows/qa-port2-c64-frozen-base-readback.yml'
+  push:
+    branches:
+      - 'port2/20261120-c64-frozen-base-readback'
+permissions:
+  contents: read
+jobs:
+  real-source-cold-reopen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Frozen base regression against actual openExistingStore
+        run: node --test cloudflare-yparty-worker/qa/p0-c64-frozen-base-readback.test.mjs
+      - name: Preserve real YParty Workerd cold join
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-d-real-onstart-workerd.test.mjs
+      - name: Fixed original100 score must not shift for this gate
+        run: |
+          node scripts/architecture-2-port-score.cjs --json
+          node --test test/p0-architecture-2-port-score.test.cjs
