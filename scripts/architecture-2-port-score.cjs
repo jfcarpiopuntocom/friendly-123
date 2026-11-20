@@ -679,7 +679,7 @@ function inspect(){
    assert.equal(data.commercialGo.certifiedGates,0);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.7);
-   assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.7);
    assert.equal(quality.comparison.previousScore,78.3);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const test=fs.readFileSync(path.join(root,'test/p0-c52-legacy-channel-retirement.test.cjs'),'utf8');
@@ -722,7 +722,7 @@ function inspect(){
    assert.equal(data.commercialGo.certifiedGates,0,'source QA does not certify shop activation');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'QA not physical PC/phone');
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.7);
-   assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.7);
    assert.equal(quality.comparison.previousScore,78.3);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const test=fs.readFileSync(path.join(root,'test/p0-c52-legacy-channel-retirement.test.cjs'),'utf8');
