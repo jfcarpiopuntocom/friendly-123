@@ -30,7 +30,7 @@
       "id": "sync",
       "weight": 20,
       "score": 15.6,
-      "previous": 15.4,
+      "previous": 15.6,
       "justification": "C38 PR #833 enforces a QA-only precondition on the REAL docs/sync-yjs.js C21a cutover: old OCSync relay explicitly OFF, no joined room, no durable pending, coordinator activate20 mandatory; if old relay reawakens before/after async activation, revoke business mode and use existing C21a failback. Strict missing-facade fail-closed; prevents team/photo role from raising an OFF writer. C38 exact-source RED->GREEN and C31/C33 integration; no production cutover, no global inter-device writer proof or physical acceptance.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/833"
     },
