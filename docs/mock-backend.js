@@ -6143,7 +6143,7 @@
       // permanently mark a stock movement applied while changing nothing.
       // Keep it pending instead; never invent a base, replay a delta, or ACK.
       // Non-pilot licences retain the historical neutralized Yjs catalog path.
-      if (!witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+      if (!witness && op.tipo !== "abono" && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
         return { ok: false, error: "stock-proof-missing" };
       }
       if (witness && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
@@ -8279,7 +8279,9 @@
             p.stockTs = p.stockCountTs; p.stockActual = fisico;
             p.rev = _revNueva(); // a newer revision so the shared document accepts this ficha (stale-replica guard)
           } else p.stockActual += d;
-          const op = { productoId: p.id, delta: d };
+          const _opIdAjuste = (typeof body.opId === "string" && /^[A-Za-z0-9_-]{8,96}$/.test(body.opId.trim()))
+            ? body.opId.trim() : uuid("adj-");
+          const op = { productoId: p.id, delta: d, stockNuevo: p.stockActual, opId: _opIdAjuste };
           if (fisico === null) _prepararOpStock(op);
           mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
           try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
@@ -9373,9 +9375,24 @@
         if (!movimientos.some(m=>m.detalle && m.detalle.movimientoId===recibo.id)) {
           mov(tipo === "cargo" ? "cartera-fiado" : "cartera-abono", { cliente: c.nombre, monto, movimientoId:recibo.id });
         }
+        let _opIdAbono = null;
+        if (tipo === "abono") {
+          const _rawAbonoOpId = (typeof body.opId === "string" && /^[A-Za-z0-9_-]{8,96}$/.test(body.opId.trim()))
+            ? body.opId.trim()
+            : ("abono-" + String(recibo.id || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
+          _opIdAbono = /^[A-Za-z0-9_-]{8,96}$/.test(_rawAbonoOpId) ? _rawAbonoOpId : uuid("abono-");
+          emitirOpStock("abono", {
+            opId: _opIdAbono,
+            clienteId: c.id,
+            receivableId: String((relacion && relacion.ventaId) || recibo.id || c.id),
+            movimientoId: String(recibo.id || ""),
+            amountCents: Math.round(monto * 100),
+            monto
+          }, true);
+        }
         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
         const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
-        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, rol), {movimientoId: recibo.id, opId: body.opId || null}));
+        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, rol), {movimientoId: recibo.id, opId: body.opId || _opIdAbono}));
       }
 
       // POST /api/clientes/:id/despedir — excluye al cliente de la operación activa.

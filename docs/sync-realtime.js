@@ -1656,16 +1656,30 @@
 
   // --- Puente con mock-backend.js: emitirOpStock(tipo, payload) llama aqui ---
   window.OCSyncEmit = function (tipo, payload) {
-    // C36: the actual sale's durable opId is the idempotency key for BOTH
-    // the legacy queue and the Yjs/typed relay. Only the already-validated
-    // C34 cash envelope may supply it; all older/misc ops keep their generated
-    // transport ID (including legacy sale IDs with ':' or '.').
+    // C36+C44: the actual commercial op's durable opId is the idempotency key
+    // for BOTH the legacy queue and the Yjs/typed relay when validated.
+    function _opIdAjusteOAbonoDurable(t, p) {
+      if (!p || typeof p.opId !== "string" || !/^[A-Za-z0-9_-]{8,96}$/.test(p.opId)) {
+        return uuidCorto();
+      }
+      if (t === "ajuste") {
+        return typeof p.productoId === "string" && p.productoId.trim() &&
+          Number.isSafeInteger(p.stockNuevo) && p.stockNuevo >= 0
+          ? p.opId : uuidCorto();
+      }
+      if (t === "abono") {
+        return typeof p.receivableId === "string" && p.receivableId.trim() &&
+          Number.isSafeInteger(p.amountCents) && p.amountCents > 0
+          ? p.opId : uuidCorto();
+      }
+      return uuidCorto();
+    }
     const opIdVentaDurable = tipo === "venta" && payload &&
       typeof payload.opId === "string" &&
       /^[A-Za-z0-9_-]{8,96}$/.test(payload.opId) &&
       Number.isSafeInteger(payload.cantidad) && payload.cantidad >= 1 &&
       Number.isSafeInteger(payload.amountCents) && payload.amountCents > 0
-      ? payload.opId : uuidCorto();
+      ? payload.opId : _opIdAjusteOAbonoDurable(tipo, payload);
     const sala = leerSala();
     // Plan C derives its room from the active licence, not the legacy room key.
     // When only the old room is absent, still publish a committed movement to
