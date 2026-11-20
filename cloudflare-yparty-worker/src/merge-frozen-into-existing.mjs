@@ -125,12 +125,27 @@ function eventsDigest(rows){
  }
  return h.hex();
 }
+const MAX_VECTOR=1024*1024;
+function parseVector(blob,label){
+ const bytes=sqlBlob(blob);
+ if(bytes.byteLength<2||bytes.byteLength>MAX_VECTOR)deny(label+' size invalid');
+ let decoded;
+ try{decoded=Y.decodeStateVector(bytes);}catch(_){deny(label+' unreadable');}
+ if(!decoded.size)deny(label+' empty');
+ return {bytes,map:decoded};
+}
+function assertVectorDominates(superMap,subMap,reason){
+ for(const [clientId,clock] of subMap){
+  if(!Number.isSafeInteger(clock)||clock<1||(superMap.get(clientId)||0)<clock)deny(reason);
+ }
+}
 function createCert(sql){
  sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_unions (id INTEGER PRIMARY KEY CHECK(id=1), channel TEXT NOT NULL, frozen_head TEXT NOT NULL, frozen_sha256 TEXT NOT NULL, vector_sha256 TEXT NOT NULL, frozen_events INTEGER NOT NULL, union_events INTEGER NOT NULL, union_sha256 TEXT NOT NULL, events_sha256 TEXT NOT NULL, pitr_bookmark TEXT)');
  const columns=sql.exec('PRAGMA table_info(f123_frozen_unions)').toArray();
  if(!columns.some(c=>c.name==='pitr_bookmark'))
   sql.exec('ALTER TABLE f123_frozen_unions ADD COLUMN pitr_bookmark TEXT');
  sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_union_events (opid TEXT PRIMARY KEY, payload TEXT NOT NULL)');
+ sql.exec('CREATE TABLE IF NOT EXISTS f123_frozen_union_vectors (id INTEGER PRIMARY KEY CHECK(id=1), frozen_vector BLOB NOT NULL, union_vector BLOB NOT NULL, union_vector_sha256 TEXT NOT NULL)');
 }
 function certRead(sql){
  if(!sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='f123_frozen_unions'").toArray().length)return null;
@@ -144,9 +159,22 @@ function verifyDocumentAgainstCert(storage,expected){
   const sql=storage.sql,cert=certRead(sql);
   if(!cert||cert.channel!=='ops'||cert.frozen_head!==expected.frozen_head||
      cert.frozen_sha256!==expected.frozen_sha256||cert.vector_sha256!==expected.vector_sha256||
-     !Number.isSafeInteger(Number(cert.frozen_events))||!Number.isSafeInteger(Number(cert.union_events))||
+     !Number.isSafeInteger(Number(cert.frozen_events))||Number(cert.frozen_events)<0||
+     !Number.isSafeInteger(Number(cert.union_events))||Number(cert.union_events)<Number(cert.frozen_events)||
      !HEX.test(cert.union_sha256||'')||!HEX.test(cert.events_sha256||''))
    deny('union certificate mismatch');
+  if(!sql.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='f123_frozen_union_vectors'").toArray().length)
+   deny('missing immutable union vector baseline (legacy receipt cannot be self-certified)');
+  const vecRow=sql.exec('SELECT frozen_vector,union_vector,union_vector_sha256 FROM f123_frozen_union_vectors WHERE id=1').toArray()[0];
+  if(!vecRow||!HEX.test(vecRow.union_vector_sha256||''))
+   deny('missing immutable union vector row');
+  const frozenVec=parseVector(vecRow.frozen_vector,'frozen vector');
+  const unionVec=parseVector(vecRow.union_vector,'union vector');
+  if(sha256(frozenVec.bytes)!==cert.vector_sha256)
+   deny('frozen vector SHA mismatch after SQL readback');
+  if(sha256(unionVec.bytes)!==vecRow.union_vector_sha256)
+   deny('union vector SHA mismatch after SQL readback');
+  assertVectorDominates(unionVec.map,frozenVec.map,'union vector missing frozen causal clock');
   const snapshot=framesFrom(snapshotInsideBarrier(storage));
   const doc=docFrom(snapshot.frames);
   try{
@@ -160,9 +188,13 @@ function verifyDocumentAgainstCert(storage,expected){
     deny('event baseline digest mismatch');
    for(const row of baseline)if(rows.get(row.opid)!==row.payload)
     deny('frozen or local opId changed or removed');
-   // A pure compaction must retain the exact canonical Yjs union. Later new
-   // post-cut events legitimately advance the SHA; the baseline still binds them.
-   if(rows.size===Number(cert.union_events)&&
+   const liveVectorBytes=Y.encodeStateVector(doc);
+   const liveVec=parseVector(liveVectorBytes,'live vector');
+   assertVectorDominates(liveVec.map,unionVec.map,'union historical Yjs clock missing after reopen');
+   // Exact state comparison applies ONLY while the Yjs causal vector matches
+   // the certified union vector (e.g. pure compaction). Valid post-cut creates+deletes
+   // advance the state vector even when map size returns to union_events.
+   if(sha256(liveVectorBytes)===vecRow.union_vector_sha256&&
       sha256(Y.encodeStateAsUpdate(doc))!==cert.union_sha256)
     deny('union SHA mismatch after SQL readback');
    return {opened:true,already:true,verifiedEvents:rows.size,
@@ -252,12 +284,19 @@ export async function mergeFrozenIntoExisting({storage,source,limits}={}){
    checkPeak(sourceWireBytes,localSqlBytes,mergedBytes.byteLength,budgets);
    const unionSha256=sha256(mergedBytes);
    const eventsSha256=eventsDigest(merged);
-   // No SQL mutations until EVERY causal/financial opId comparison passes.
-   // This journal delta and both cert/digest rows are ONE SQLite transaction.
+   const frozenVectorVec=parseVector(Y.encodeStateVector(frozen),'frozen vector');
+   if(sha256(frozenVectorVec.bytes)!==proof.vectorSha256)deny('frozen vector SHA mismatch');
+   const unionVectorVec=parseVector(Y.encodeStateVector(local),'union vector');
+   assertVectorDominates(unionVectorVec.map,frozenVectorVec.map,'union vector missing frozen causal clock');
+   const unionVectorSha256=sha256(unionVectorVec.bytes);
+   // No SQL mutations until EVERY causal/financial opId and vector check passes.
+   // Journal delta, cert, events digest and immutable vectors are ONE SQLite tx.
    createCert(sql);
    if(!noDelta)appendFrame(sql,delta);
    sql.exec('INSERT INTO f123_frozen_unions (id,channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events,union_sha256,events_sha256,pitr_bookmark) VALUES (1,?,?,?,?,?,?,?,?,?)',
     proof.channel,proof.frozenHead,proof.sha256,proof.vectorSha256,proof.eventCount,merged.size,unionSha256,eventsSha256,pitrBookmark);
+   sql.exec('INSERT INTO f123_frozen_union_vectors (id,frozen_vector,union_vector,union_vector_sha256) VALUES (1,?,?,?)',
+    frozenVectorVec.bytes,unionVectorVec.bytes,unionVectorSha256);
    for(const [opid,payload] of merged)
     sql.exec('INSERT INTO f123_frozen_union_events (opid,payload) VALUES (?,?)',opid,payload);
    return {frozenHead:proof.frozenHead,frozenSha256:proof.sha256,
