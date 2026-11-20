@@ -3029,6 +3029,37 @@
     API.modoCorte20Activo = false;
     API.corteFotosShaActivo = false;
     API.rolComercial20Activo = null;
+    API.recibosComerciales20 = new Map();
+    API.obtenerReciboComercial20 = function (opId) {
+      var id = String(opId || "").trim();
+      return id ? (API.recibosComerciales20.get(id) || null) : null;
+    };
+    function _registrarReciboComercial20(opId, res) {
+      var id = String((res && res.receipt && res.receipt.opId) || opId || "").trim();
+      if (!id || !res || typeof res !== "object") return null;
+      var entry = Object.freeze({
+        opId: id,
+        committed: Boolean(res.committed),
+        duplicate: Boolean(res.duplicate),
+        quarantine: Boolean(res.quarantine),
+        fallbackLegacy: Boolean(res.fallbackLegacy),
+        stage: (res.receipt && res.receipt.stage) || res.stage || null,
+        receipt: res.receipt || null,
+        recordedAt: Date.now()
+      });
+      if (API.recibosComerciales20.size >= 500) {
+        var firstKey = API.recibosComerciales20.keys().next().value;
+        if (firstKey !== undefined) API.recibosComerciales20.delete(firstKey);
+      }
+      API.recibosComerciales20.set(id, entry);
+      try {
+        if (typeof window !== "undefined" && typeof window.dispatchEvent === "function" &&
+            typeof CustomEvent === "function") {
+          window.dispatchEvent(new CustomEvent("oc-op-20-recibo", { detail: entry }));
+        }
+      } catch (_) {}
+      return entry;
+    }
     if (piloto && typeof piloto.crearCoordinadorCorte20 === "function") {
       API.crearCoordinadorCorte20 = async function (docPrivado, headCongelado, opc) {
         if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.destroy === "function") {
@@ -3043,7 +3074,10 @@
         if (!API.coordinadorCorte20 || typeof API.coordinadorCorte20.submitCommercial !== "function") {
           return Promise.resolve({ committed: false, fallbackLegacy: true, stage: "coordinator-uninitialized" });
         }
-        return API.coordinadorCorte20.submitCommercial(comando);
+        return Promise.resolve(API.coordinadorCorte20.submitCommercial(comando)).then(function (res) {
+          _registrarReciboComercial20(comando && comando.opId, res);
+          return res;
+        });
       };
       // C29: Safari reload may publish a legacy operation BEFORE the explicit
       // C25 coordinator is recreated. Consult C21b durable terminal opIds in
