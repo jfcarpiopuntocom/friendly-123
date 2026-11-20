@@ -1,3 +1,4 @@
+import {sha256} from '@noble/hashes/sha2.js';
 // Server-only SQL economic state anchored to an independently verified frozen source.
 // Used by the same YParty -ops DO that stores typed_commercial_ops and its ACK.
 // No HTTP baseline endpoint. Without a certified baseline, business commits FAIL.
@@ -68,6 +69,98 @@ function hasRows(sql,table){
   const exists=sql.exec('SELECT name FROM sqlite_master WHERE type = ? AND name = ?','table',table).toArray();
   return !!exists.length && Number(sql.exec('SELECT COUNT(*) AS n FROM '+table).one()?.n||0)>0;
 }
+// C72: a financial effect is NEVER itself a sale/payment receipt.
+// The existing typed ledger atomically persists canonical payload, payload
+// digest, business-committed receipt and SQL effect. On frozen reentry verify
+// BOTH directions in the same read-only transaction: one committed receipt
+// per business effect, and one business effect per committed executable opId.
+// Pending 202 intents (and unrelated queued kinds) remain unspent.
+function verifyTypedBusinessEffects(sql,license,effects){
+ const deny=()=>fail('business baseline reconciliation error: receipt/effect mismatch');
+ const names=new Set(sql.exec("SELECT name FROM sqlite_master WHERE type='table'")
+  .toArray().map(r=>r.name));
+ const ops=names.has('typed_commercial_ops'),payloads=names.has('typed_commercial_payloads');
+ if(!ops&&!payloads){
+  if(effects.length)deny();
+  return;
+ }
+ if(!ops||!payloads)deny();
+ const receipts=sql.exec('SELECT op_id,payload_hash,receipt_json FROM typed_commercial_ops WHERE license = ? ORDER BY op_id',
+  license).toArray();
+ const saved=sql.exec('SELECT op_id,payload_json FROM typed_commercial_payloads WHERE license = ? ORDER BY op_id',
+  license).toArray();
+ const payloadById=new Map(saved.map(r=>[r.op_id,r.payload_json]));
+ const effectById=new Map(effects.map(r=>[r.op_id,r]));
+ const committed=new Set();
+ const contracts={
+  'sale.record':{detail:'productId',quantity:true},
+  'stock.adjust':{detail:'productId',quantity:true},
+  'credit.payment.record':{detail:'receivableId',quantity:false}
+ };
+ for(const row of receipts){
+  let receipt,record;
+  try{
+   receipt=JSON.parse(row.receipt_json);
+   const json=payloadById.get(row.op_id);
+   if(typeof json!=='string')deny();
+   record=JSON.parse(json);
+   if(!receipt||!record||Array.isArray(receipt)||Array.isArray(record))deny();
+  }catch(_){deny()}
+  if(!/^[a-f0-9]{64}$/.test(row.payload_hash||'')||
+     receipt.receiptId!==row.payload_hash.slice(0,24)||
+     receipt.opId!==row.op_id||receipt.license!==license||
+     record.opId!==row.op_id||record.license!==license||
+     receipt.kind!==record.kind||
+     !['stored-for-application','business-committed'].includes(receipt.stage)||
+     !Number.isSafeInteger(receipt.acceptedAt)||receipt.acceptedAt<0)deny();
+  const contract=contracts[record.kind];
+  if(!contract){
+   // This executor has NO legitimate SQL effects for other typed kinds.
+   if(receipt.stage!=='stored-for-application'||effectById.has(row.op_id))deny();
+   continue;
+  }
+  const detail=record[contract.detail];
+  const amount=record.amountCents;
+  const required=['license','opId','kind',contract.detail,
+   ...(contract.quantity?['quantity']:[]),'amountCents'];
+  if(!IDENT.test(detail||'')||!int(amount)||
+     Object.keys(record).length!==required.length||
+     required.some(k=>!Object.prototype.hasOwnProperty.call(record,k))||
+     (contract.quantity&&(!int(record.quantity)||record.quantity>1000000)))deny();
+  const canon={license:record.license,opId:record.opId,kind:record.kind,
+   [contract.detail]:detail,
+   ...(contract.quantity?{quantity:record.quantity}:{}),
+   amountCents:amount};
+  const canonicalPayload=payloadById.get(row.op_id);
+  if(JSON.stringify(canon)!==canonicalPayload)deny();
+  // Mature @noble/hashes SHA-256 is synchronous and Worker/bundler-neutral. Recompute the
+  // SAME SHA-256 that createTypedCommercialLedger generated at durable commit;
+  // equality of receiptId to a stale hash prefix alone is not integrity.
+  if(Array.from(sha256(new TextEncoder().encode(canonicalPayload)),
+       b=>b.toString(16).padStart(2,'0')).join('')!==
+     row.payload_hash)deny();
+  const effect=effectById.get(row.op_id);
+  if(receipt.stage==='stored-for-application'){
+   if(effect)deny();
+   continue;
+  }
+  if(!effect)deny();
+  const q=Number(effect.quantity_delta),money=Number(effect.cash_delta_cents);
+  if(effect.product_id!==detail||!Number.isSafeInteger(q)||
+     !int(money))deny();
+  if(record.kind==='sale.record'&&
+     (record.quantity<1||money!==amount||q!==-record.quantity))deny();
+  if(record.kind==='credit.payment.record'&&
+     (amount<1||money!==amount||q!==0))deny();
+  if(record.kind==='stock.adjust'&&
+     (money!==0||amount!==0))deny();
+  committed.add(row.op_id);
+ }
+ // An orphan effect cannot fabricate economic history; a committed receipt
+ // cannot survive the loss of its effect even if cash/stock were also reset.
+ if(committed.size!==effects.length||
+    effects.some(e=>!committed.has(e.op_id)))deny();
+}
 // C68: Source-anchored READ-ONLY replay for a duplicate frozen economic head.
 // This runs only on baseline reopen/retry, never inside the hot sale/fiado ACK.
 // No guessed balances, writes, or invented compensation events.
@@ -96,6 +189,7 @@ function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
   }else if(!stock.has(effect.product_id))deny();
   cash+=BigInt(c);
  }
+ verifyTypedBusinessEffects(sql,state.license,effects);
  if(cash<0n||cash>BigInt(MAX)||BigInt(baseline.cash_cents)!==cash)deny();
  if(stockRows.length!==stock.size)deny();
  for(const row of stockRows){
