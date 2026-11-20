@@ -3,18 +3,18 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 76.8,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ f7d96a7435cf6059e773ac34ba9aa3887a389c01",
+    "previousScore": 77,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ be032b2b27fd52c299d8e1b6942d9b7bb2596934",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 77,
+  "score": 77.3,
   "maximum": 100,
   "dimensions": [
     {
       "id": "business",
       "weight": 20,
       "score": 18.5,
-      "previous": 18.3,
+      "previous": 18.5,
       "justification": "C33 Workerd SQLite 3 committed receipts tested; C34 real browser backend cash qty/cents and C36 PR #831 original opId from actual saved sale + dedup replay (1 sale, 1 stock movement) through BOTH persistent transport topologies and actual C31 typed mapper, RED→GREEN 3/3 plus 11/11 regressions, release v815 real SHA. QA-only; no proof of live production DO committed confirmation, PC/Safari physical GO or all economic modes. C40 #835 MERGED actual docs/sync-yjs.js exposes DO-authoritative receipt for same original local sale opId, with Workerd SQLite QA verifying exactly one stock/cash/receipt after failback/replay. +0.2 engineering quality only; no real PC/iPhone or commercial GO. C42 #838 actual v818 checkout source tracks business-committed DO receipt vs 202/quarantine/dispatch-reject for same original sale opId, and C42-R #839 actual code source negative tests verified RED4/4→GREEN4/4 for receipt mismatch, stale 202 and reject and quarantine precedence. Local full sales snapshot persisted via existing A/B/IDB save; one ledger writer guarded. +0.2 QA trust only; no device GO or live customer switch. C44 v0.8.19 MERGED product adjustment and credit payment: exact docs/mock-backend.js + docs/sync-realtime.js + docs/sync-yjs.js, Workerd SQLite with real typed stock 5→8, debt 3000→1500, exactly two receipts/effects after repeated identical abono. An initial C44 regression found an invented inventario_abono on lost-response retry (Chromium/WebKit EN/ES), then final C44 restored exact original receipt facts without second EventBus movement. Final 46/46 CI on corrected candidate and successful Cloudflare Workers Build for exact merged SHA. +0.2 engineer trust in negative replay QA; QA switches OFF, no physical A-B-A or live 2.0 commercial change.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/842"
     },
@@ -29,10 +29,10 @@
     {
       "id": "sync",
       "weight": 20,
-      "score": 15.6,
+      "score": 15.7,
       "previous": 15.6,
-      "justification": "C38 PR #833 enforces a QA-only precondition on the REAL docs/sync-yjs.js C21a cutover: old OCSync relay explicitly OFF, no joined room, no durable pending, coordinator activate20 mandatory; if old relay reawakens before/after async activation, revoke business mode and use existing C21a failback. Strict missing-facade fail-closed; prevents team/photo role from raising an OFF writer. C38 exact-source RED->GREEN and C31/C33 integration; no production cutover, no global inter-device writer proof or physical acceptance.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/833"
+      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/844"
     },
     {
       "id": "security",
@@ -45,10 +45,10 @@
     {
       "id": "photos",
       "weight": 10,
-      "score": 7.3,
+      "score": 7.5,
       "previous": 7.3,
-      "justification": "C18a host-pinned Owner PUT/GET and Team read-only SHA-256 with Workerd SQLite cold restart; end-to-end timeout now covers photo body/receipt after HTTP headers, P0 RED→GREEN 7/7 unit + 1/1 Workerd, 14/14 CI in PR #809. Photo UI/physical CAS remains uncutover.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/809"
+      "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/844"
     },
     {
       "id": "migration",
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "Engineering quality verified on merged same-product C44 v0.8.19 source, typed Workerd SQLite and Chromium/WebKit synthetic regressions, not a customer availability/SLO estimate. No production 2.0 transport activation; GO0/6, physical 0/5.",
-  "assessedProductSha": "be032b2b27fd52c299d8e1b6942d9b7bb2596934",
+  "disclaimer": "Engineering source and synthetic virtual-browser/Miniflare Workerd SQLite evidence; QA switches OFF. Not a commercial SLA, live Safari/PC/PWA validation, real customer history, actual online cutover or permission to deploy new services.",
+  "assessedProductSha": "f05cd2fa0a104439845bad96f9e341267c82e33c",
   "history": [
     {
       "review": "2026-11-17",
@@ -129,6 +129,11 @@
       "review": "2026-11-19 before C44 real ajuste/abono envelopes and replay regression",
       "score": 76.8,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ f7d96a7435cf6059e773ac34ba9aa3887a389c01"
+    },
+    {
+      "review": "2026-11-19 before C46 certified QA-only browser photo bridge and two Workerd handoff cycles",
+      "score": 77,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ be032b2b27fd52c299d8e1b6942d9b7bb2596934"
     }
   ]
 }
