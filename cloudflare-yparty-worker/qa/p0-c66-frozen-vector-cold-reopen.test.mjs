@@ -84,3 +84,45 @@ test('C66 RED: valid Yjs BLOCK snapshot from new writer MUST NOT replace certifi
     'fail-closed must never erase another writer or reconstruct imaginary data');
  }finally{s.clean();}
 });
+
+test('C66 refuses missing immutable vector row rather than backfilling from current Yjs',async()=>{
+ const s=await scenario();
+ try{
+  s.storage.sql.exec('DELETE FROM f123_frozen_import_vectors');
+  const result=await s.reopen();
+  assert.equal(result.opened,false);
+  assert.match(result.failback||'',/frozen vector baseline refused: missing immutable vector row/);
+  assert.equal(s.storage.sql.exec('SELECT COUNT(*) AS n FROM f123_frozen_import_vectors').one().n,0);
+ }finally{s.clean();}
+});
+test('C66 refuses source-vector tampering despite valid original SQL base and receipt',async()=>{
+ const s=await scenario();
+ try{
+  s.storage.sql.exec('UPDATE f123_frozen_import_vectors SET vector=? WHERE id=1',
+   Uint8Array.from([1,1,1]));
+  const result=await s.reopen();
+  assert.equal(result.opened,false);
+  assert.match(result.failback||'',/frozen vector baseline refused: original vector SHA/);
+ }finally{s.clean();}
+});
+test('C66 legacy pre-vector receipt cannot be self-certified on cold reopen',async()=>{
+ const s=await scenario();
+ try{
+  s.storage.sql.exec('DROP TABLE f123_frozen_import_vectors');
+  const result=await s.reopen();
+  assert.equal(result.opened,false);
+  assert.match(result.failback||'',/old receipt cannot be backfilled/);
+ }finally{s.clean();}
+});
+test('C66 legitimate post-cut deletion retains frozen original causal clocks',async()=>{
+ const s=await scenario();
+ const all=new Y.Doc();
+ try{
+  Y.applyUpdate(all,s.originalUpdate);Y.applyUpdate(all,s.futureUpdate);
+  all.getMap('productos').delete('original-book');
+  // A legitimate deletion is a Yjs tombstone, NOT loss of the historical writer.
+  s.compact(Y.encodeStateAsUpdate(all));
+  const result=await s.reopen();
+  assert.equal(result.opened,true,JSON.stringify(result));
+ }finally{all.destroy();s.clean();}
+});
