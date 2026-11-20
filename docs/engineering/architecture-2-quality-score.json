@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 77.9,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 40192ecc51b41e59fdcaa2d91c3be0522813069a",
+    "previousScore": 78.1,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 7c5f6637ceab125711da84bbd25b1152a79b5df3",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 78.1,
+  "score": 78.3,
   "maximum": 100,
   "dimensions": [
     {
@@ -53,10 +53,10 @@
     {
       "id": "migration",
       "weight": 10,
-      "score": 7.5,
-      "previous": 7.3,
-      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD C52 v0.8.22 merged real docs/sync-yjs.js source conditional Yjs transport emission: canalSombra and opsCanal stop on modoCorte20Activo, fotosCanal stops on corteFotosShaActivo; VM regression verifies retirement with flags ON and resumption after failback, full PR #851 55/55 GH CI. +0.2 confidence in bounded legacy-sender cutover, not full writer retirement, physical GO or commercial migration.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/851"
+      "score": 7.7,
+      "previous": 7.5,
+      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD C52 v0.8.22 merged real docs/sync-yjs.js source conditional Yjs transport emission: canalSombra and opsCanal stop on modoCorte20Activo, fotosCanal stops on corteFotosShaActivo; VM regression verifies retirement with flags ON and resumption after failback, full PR #851 55/55 GH CI. +0.2 confidence in bounded legacy-sender cutover, not full writer retirement, physical GO or commercial migration. C54 v0.8.23 real product Yjs primary route no longer publishes to the OLD relay when the YParty pilot fails under active 2.0; pilot retains sending and legacy resumes on failback. Extended real-source C52 in-process VM reproduces RED fallback write and GREEN skip; 55/55 CI including browser parity and release-control, Cloudflare exact merged product SUCCESS. +0.2 bounded source regression confidence only; QA OFF, no device acceptance or full legacy retirement.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/853"
     },
     {
       "id": "physical",
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C53 +0.2 engineering migration QA from genuine merged C52 source: 3 Yjs senders conditional retirement and recovery in VM harness. Not full old writer retirement or physical PC/Safari/PWA acceptance. Sync3 retained, double QA flags OFF by default, GO0/6, physical0/5.",
-  "assessedProductSha": "b223fe801ec9599949f135423551e63cf89105c4",
+  "disclaimer": "C55 +0.2 quality migration from RED→GREEN real code source guard and 55 CI (incl. C52 failback), not real PC/Safari/PWA or commercial cutover. No ledger P0 resolution, no actual Firebase HEAD certified, no R2 source binding, QA flags OFF; GO0/6, physical0/5.",
+  "assessedProductSha": "6022725cd0d30ec42f6efbe0b35dd036221a762c",
   "history": [
     {
       "review": "2026-11-17",
@@ -149,6 +149,11 @@
       "review": "2026-11-19 before merged C52 legacy-sender guarded suppression in real v0.8.22 source; no customer GO",
       "score": 77.9,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 40192ecc51b41e59fdcaa2d91c3be0522813069a"
+    },
+    {
+      "review": "2026-11-19 before C54 selected-primary legacy relay writer fence, product v0.8.23 SHA6022725, only source QA confidence",
+      "score": 78.1,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 7c5f6637ceab125711da84bbd25b1152a79b5df3"
     }
   ]
 }
