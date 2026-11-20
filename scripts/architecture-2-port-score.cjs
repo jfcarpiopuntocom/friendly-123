@@ -504,7 +504,7 @@ function inspect(){
      'virtual Workerd handoff is not a true PC-iPhone downpath');
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO from virtual clients');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical devices tested');
-   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.5);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.7);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
