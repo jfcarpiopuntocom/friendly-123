@@ -5,13 +5,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C61: C60 real source frozen catalog canonical field order v1/v2 QA fixed100; Firebase HEAD still pending',()=>{
+test('C63: C62 real frozen legacy cat roots reject private-only Yjs v1, same app fixed100 GO0/6',()=>{
  const s=inspect();
- assert.equal(s.port,91.8);
+ assert.equal(s.port,92.0);
  assert.equal(s.portBefore,68.5);
- assert.equal(s.portDelta,23.3);
- assert.equal(s.quality,78.9);
- assert.equal(s.qualityBefore,78.7);
+ assert.equal(s.portDelta,23.5);
+ assert.equal(s.quality,79.1);
+ assert.equal(s.qualityBefore,78.9);
  assert.equal(s.qualityDelta,0.2);
  assert.equal(s.go,'0/6');
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
@@ -38,7 +38,7 @@ test('C61: C60 real source frozen catalog canonical field order v1/v2 QA fixed10
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
- assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),8.2);
+ assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),8.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
@@ -69,7 +69,7 @@ test('C61: C60 real source frozen catalog canonical field order v1/v2 QA fixed10
  assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(photo.milestones.reduce((a,m)=>a+m.points,0),9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
  assert.equal(port.commercialGo.certifiedGates,0,'QA-only flags do not grant commercial GO');
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
@@ -121,7 +121,7 @@ test('C61: C60 real source frozen catalog canonical field order v1/v2 QA fixed10
  assert.equal(ms.find(m=>m.id==='real-auth-role-epoch-qa-c47')?.source,'docs/sync-yjs.js');
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false,'unearned real role switch');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
@@ -147,23 +147,38 @@ test('C61: C60 real source frozen catalog canonical field order v1/v2 QA fixed10
  assert.equal(c60?.done,true,'C60 approved actual public Yjs catalog cold-open QA');
  assert.equal(c60?.points,0.3,'bounded QA source credit, no real Firebase HEAD proof');
  assert.equal(c60?.source,'cloudflare-yparty-worker/src/trusted-frozen-source.mjs');
- assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.points,2.2);
+ assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
+
+ // C63 RED: C62 actual source requires PUBLIC roots even legacy v1 numeric.
+ const c62=ms.find(m=>m.id==='c62-legacy-frozen-private-root-rejection');
+ assert.equal(c62?.points,0.2,'small new privacy QA from original real HEAD pending');
+ assert.equal(c62?.done,true,'must be in the real functional product');
+ assert.equal(c62?.source,'cloudflare-yparty-worker/src/trusted-frozen-source.mjs');
+ assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.points,2.0);
+ assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
+ assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
+ assert.equal(port.commercialGo.certifiedGates,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  // C45 RED: only 0.5 split from existing 1.0 unearned business budget for real C44.
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,78.7);
+ assert.equal(quality.comparison.previousScore,78.9);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
   // C48 assessed SHA pinned to the actual PR844 merge source.
- assert.equal(port.assessedProductSha,'9e5986623b42dfe6b27f0cdcb96a6d3360fe6962', 'C61 pins exact C60 frozen catalog source merged in real product');
+ assert.equal(port.assessedProductSha,'6e802e6e0df0988922220dd634a40f7788638f05', 'C63 pins exact C62 source merged in same friendly-123');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
 });
