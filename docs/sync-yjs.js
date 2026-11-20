@@ -3027,7 +3027,7 @@
     API.traducirOpLegadoAComando20 = function (op) { return _traducirOpLegadoAComando20(op, codigo); };
     API.coordinadorCorte20 = null;
     // A logout or a fresh login invalidates an in-flight async C21a activation.
-    var _authEpoch20 = 0;
+    API.__authEpoch20 = 0;
     API.modoCorte20Activo = false;
     API.corteFotosShaActivo = false;
     API.rolComercial20Activo = null;
@@ -3161,7 +3161,7 @@
         };
       };
       API.activarCorte20Runtime = async function (opc) {
-        var authEpochInicial = _authEpoch20;
+        var authEpochInicial = API.__authEpoch20 || 0;
         var opts = opc && typeof opc === "object" ? opc : {};
         var cortarComercio20 = opts.activarDespachoComercial !== false;
         // C38: C21a owns -cat/-ops, but OCSync's old WebSocket and outbox
@@ -3210,7 +3210,7 @@
           return rechazarDobleEscritor(API.coordinadorCorte20);
         var head = opts.headCongelado || (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
         var coord = await API.crearCoordinadorCorte20(API.doc, head, opts);
-        if (_authEpoch20 !== authEpochInicial) return rechazarCambioAuth(coord);
+        if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
         var activacion = null;
         if (cortarComercio20) {
           if (!coord || typeof coord.activate20 !== "function") {
@@ -3218,7 +3218,7 @@
             throw new Error("certified 2.0 commercial coordinator activation unavailable");
           }
           activacion = await coord.activate20();
-          if (_authEpoch20 !== authEpochInicial) return rechazarCambioAuth(coord);
+          if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
           if (!activacion || activacion.ok !== true) {
             API.modoCorte20Activo = false;
             throw new Error("certified 2.0 cutover activation failed");
@@ -3226,7 +3226,7 @@
         }
         // The old relay can reopen during the async C21a activation. Re-read
         // its REAL state AFTER the await, before arming any commercial write.
-        if (_authEpoch20 !== authEpochInicial) return rechazarCambioAuth(coord);
+        if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
         if (cortarComercio20 && !relayAnteriorApagadoYVacio())
           return rechazarDobleEscritor(coord);
         API.modoCorte20Activo = cortarComercio20;
@@ -3258,7 +3258,7 @@
       };
       function _desarmarCorte20PorAuth(motivo) {
         if (window.OCYjs && window.OCYjs !== API) return;
-        _authEpoch20++;
+        API.__authEpoch20 = (API.__authEpoch20 || 0) + 1;
         API.modoCorte20Activo = false;
         API.corteFotosShaActivo = false;
         API.fotoSha = null;
@@ -3288,7 +3288,7 @@
               liveDemo = auth.esDemo() === true;
           } catch (_) {}
           if (liveDemo || liveRole !== r) { _desarmarCorte20PorAuth("oc-login-role-mismatch"); return; }
-          _authEpoch20++;
+          API.__authEpoch20 = (API.__authEpoch20 || 0) + 1;
           if (!API.modoCorte20Activo && !API.corteFotosShaActivo && !API.rolComercial20Activo) return;
           var fotosActivas = API.corteFotosShaActivo === true;
           if (r === "empleado" && API.coordinadorCorte20 && typeof API.coordinadorCorte20.failbackToLegacy === "function") {
