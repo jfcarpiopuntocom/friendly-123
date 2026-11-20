@@ -217,7 +217,7 @@ export function verifyForwardCurrentUnionPlan(plan) {
      observed.add(source);
    }
    const payloadCanonical = canonical(fact.payload);
-   if (sha('f123-current-fact-v1\\0' + payloadCanonical) !== fact.payloadHash) {
+   if (sha('f123-current-fact-v1\0' + payloadCanonical) !== fact.payloadHash) {
      refuse('accepted union fact payload SHA mismatch');
    }
    return { opId: fact.opId, payloadHash: fact.payloadHash, observedBy: fact.observedBy };
