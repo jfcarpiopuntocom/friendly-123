@@ -1,0 +1,26 @@
+name: PORT2 C53 · Workerd combined E2E (C47+C49+C51+C52 A→B→A commercial downpath)
+on:
+  push:
+    branches: [port2/20261119-c53-cross-device-commercial-downpath-workerd]
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - cloudflare-yparty-worker/**
+      - .github/workflows/qa-port2-real-c53-cross-device-commercial-downpath.yml
+permissions: {contents: read}
+jobs:
+  c53-cross-device-commercial-downpath:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm --prefix cloudflare-yparty-worker ci --ignore-scripts --no-audit --no-fund
+          node --test --test-timeout=120000 \
+            cloudflare-yparty-worker/qa/p0-c53-cross-device-commercial-downpath-workerd.test.mjs
