@@ -280,9 +280,9 @@ self.addEventListener("install", (evento) => {
            nunca se sirve: la próxima carga la re-pide a la red. Silencioso y
            por archivo (no aborta el precache). */
         try {
-          caches.open(CACHE_LOCAL).then((cache) => cache.match("./version-manifest.json").then((res) => {
+          return caches.open(CACHE_LOCAL).then((cache) => cache.match("./version-manifest.json").then((res) => {
             if (!res) return;
-            res.json().then((man) => {
+            return res.json().then((man) => {
               if (!man || !man.files) return;
               const promesas = Object.keys(man.files).map((rel) => {
                 const esperado = man.files[rel];
@@ -319,10 +319,10 @@ self.addEventListener("install", (evento) => {
                   });
                 });
               });
-              Promise.allSettled(promesas).catch(() => {});
+              return Promise.allSettled(promesas).catch(() => {});
             }).catch(() => {});
           })).catch(() => {});
-        } catch (_) {}
+        } catch (_) { return Promise.resolve(); }
       }).then(() => self.skipWaiting()).catch((e) => { try { console.warn("[SW] precache incompleto:", e && e.message); } catch (_) {} throw e; })
     );
   } catch (e) {
