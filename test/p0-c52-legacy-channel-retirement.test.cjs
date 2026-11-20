@@ -99,14 +99,19 @@ test('C52: legacy Yjs senders retire when modoCorte20Activo/corteFotosShaActivo=
   assert.equal(sent.canalSombra, 1,
     'the selected legacy primary resumes without any duplicate shadow write');
   assert.equal(sent.canal, 1);
+  handlers.fotosDoc(fakeUpdate, 'local');
+  handlers.opsDoc(fakeUpdate, 'local');
+  assert.deepEqual(
+    sent,
+    { canal: 1, canalSombra: 1, fotosCanal: 1, opsCanal: 1 },
+    'original C52 failback contract: all three old channels have resumed once'
+  );
   API.canal = newPilot;
 
   // 4. Legacy shadow remains available in the normal pilot mode after failback.
   API.modoCorte20Activo = false;
   API.corteFotosShaActivo = false;
   handlers.doc(fakeUpdate, 'local');
-  handlers.fotosDoc(fakeUpdate, 'local');
-  handlers.opsDoc(fakeUpdate, 'local');
 
   assert.deepEqual(
     sent,
