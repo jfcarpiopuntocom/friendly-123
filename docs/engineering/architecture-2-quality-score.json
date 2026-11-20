@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-20",
   "comparison": {
-    "previousScore": 79.9,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76044973a5b3168140396fe932cb61d8b8ee27e5",
+    "previousScore": 80,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ b56d560c8955d846c2cd8a17e77907a26a715f32",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 80,
+  "score": 80.1,
   "maximum": 100,
   "dimensions": [
     {
@@ -38,7 +38,7 @@
       "id": "security",
       "weight": 15,
       "score": 11.1,
-      "previous": 11,
+      "previous": 11.1,
       "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed C47 v0.8.20 real product docs/sync-yjs.js role switch subscribed to oc-login/oc-logout: adversarial RED3/21 (forged Owner event, disguised live demo, logout during awaiting activate20) followed by GREEN21/21 plus isolated C38 and full GH Actions52/52 success. Runtime compares real OCAuth.rolActual() and OCAuth.esDemo(), increments API.__authEpoch20 and fails back to legacy if authentication changes while cutover awaits. Cloudflare exact master build success. +0.2 engineering security confidence only; 2.0 QA switches OFF; no physical role-authorization certification or GO. C58 same real product v0.8.24 OCAuth-verified any oc-login now revokes prior C21a catalog coordinator lease and Owner photo PUT before new session rebind, even same-role Owner or admin; Team credential failure leaves old Owner client null. RED GH Actions 44681992293 18/21 PASS 3 FAIL, GREEN GH Actions 44682377422 21/21 PASS and source SHA head full 57/57 GH workflows GREEN, Cloudflare exact merged SHA 6723cf24... SUCCESS. +0.2 engineering security assurance only; no real physical Owner/Team QA, no commercial GO. C62 real trusted-frozen-source.mjs Workerd Yjs security: source catalog root allowlist now applies to BOTH v1 numeric and v2 paged, rejects all unknown-only roots including private products, banco_privado and eventos even with matching independently claimed SHA. RED Actions44720698975 30/31, GREEN44721086871 31/31 and 15/15 full CI incl real Tienda onStart public -cat independent from -ops, Cloudflare exact real merged C62 SHA SUCCESS. +0.2 QA trust boundary only, no certified historical Firebase HEAD or customers. C78 merged actual source PR #879 master 2980aa59f3345b757a9e504465c54fd6b703987d: Previously certified SQL reopen checked SHA/canonical bytes for 200 financial effects, but a 202 queued expense.record or credit.customer.payment.record skipped all original SHA validation in the if(!contract) continue branch; this accepted changed expense amount, changed customerId or entirely unknown kind as a valid pending receipt, silently producing already:true. Actual real typed ledger + native SQLite RED Actions44758958830 3/6 PASS, 3/6 FAIL Missing expected exception, GREEN Actions44759148908 C78 6/6, C76 6/6, C74 5/5, C72 11/11, C68 8/8, Workerd payment/sales 4/4, fixed100 CLI, global 16/16 GitHub workflows successful. One-file fix expands readback typed contract to BOTH valid queued-only kinds and routes all five classes through existing MIT @noble/hashes@2.4.0 synchronous canonical SHA verification, rejecting unknown kinds and queued-only 200/effects; no new dependency or executor/Sync3/client changes. Cloudflare Workers Builds account GET exact merged source SHA 2980aa59... SUCCESS UUID 8540651c-9dfc-4d52-ae59-aa46377e44d3. Credited +0.1 engineering Security SHA validation only, NOT business dimension twice; no real Firebase economic HEAD/R2 binding/physical QA/commercial GO. C85 por C84 PR #883 MERGED: R2-only estricto rechaza v1 legacy autodeclarado sin manifiesto externo, preserva v1 flag OFF y v2 SHA/root; verdadero RED3/5→GREEN5/5 con OSS Yjs y SHA de fuente real. GitHub source merge 8c34cb3d40fc987d537ce2c0ba54d75d6224027b Cloudflare Workers Builds autenticado build 6116411e-29a2-44de-a2ab-b0757719d28c SUCCESS. +0.1 seguridad QA, NO Firebase real HEAD ni Service Binding/GO fisico.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/883"
     },
@@ -53,10 +53,10 @@
     {
       "id": "migration",
       "weight": 10,
-      "score": 7.7,
+      "score": 7.8,
       "previous": 7.7,
-      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD C52 v0.8.22 merged real docs/sync-yjs.js source conditional Yjs transport emission: canalSombra and opsCanal stop on modoCorte20Activo, fotosCanal stops on corteFotosShaActivo; VM regression verifies retirement with flags ON and resumption after failback, full PR #851 55/55 GH CI. +0.2 confidence in bounded legacy-sender cutover, not full writer retirement, physical GO or commercial migration. C54 v0.8.23 real product Yjs primary route no longer publishes to the OLD relay when the YParty pilot fails under active 2.0; pilot retains sending and legacy resumes on failback. Extended real-source C52 in-process VM reproduces RED fallback write and GREEN skip; 55/55 CI including browser parity and release-control, Cloudflare exact merged product SUCCESS. +0.2 bounded source regression confidence only; QA OFF, no device acceptance or full legacy retirement.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/853"
+      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD C52 v0.8.22 merged real docs/sync-yjs.js source conditional Yjs transport emission: canalSombra and opsCanal stop on modoCorte20Activo, fotosCanal stops on corteFotosShaActivo; VM regression verifies retirement with flags ON and resumption after failback, full PR #851 55/55 GH CI. +0.2 confidence in bounded legacy-sender cutover, not full writer retirement, physical GO or commercial migration. C54 v0.8.23 real product Yjs primary route no longer publishes to the OLD relay when the YParty pilot fails under active 2.0; pilot retains sending and legacy resumes on failback. Extended real-source C52 in-process VM reproduces RED fallback write and GREEN skip; 55/55 CI including browser parity and release-control, Cloudflare exact merged product SUCCESS. +0.2 bounded source regression confidence only; QA OFF, no device acceptance or full legacy retirement. C89: C86 real product PR #886 MERGED 129e5d45155c4eeb7052c246a5944696f17ce461 closes legitimate 1.0 decimal-dollar abono.monto=12.5 and optional undefined-key rejection in frozen imported ops canonicalization. C86 real source RED->GREEN and Yjs/R2 packager + DO SQLite cold reopen regression, 13/13 GitHub head workflows successful; still rejects NaN/Infinity, out-of-range, invalid arrays. +0.1 engineering migration confidence ONLY; authenticated Firebase economic HEAD, R2 Service Binding, PC/iPhone physical acceptance and GO are all unverified. Sync3 unaffected.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/886"
     },
     {
       "id": "physical",
@@ -156,5 +156,5 @@
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 7c5f6637ceab125711da84bbd25b1152a79b5df3"
     }
   ],
-  "lastAuditedProductSha": "8c34cb3d40fc987d537ce2c0ba54d75d6224027b"
+  "lastAuditedProductSha": "129e5d45155c4eeb7052c246a5944696f17ce461"
 }
