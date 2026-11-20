@@ -68,7 +68,7 @@ test('C61: C60 real source frozen catalog canonical field order v1/v2 QA fixed10
  assert.equal(ms.find(m=>m.id==='c51-bounded-locks-and-double-qa-bootstrap')?.source,'docs/sync-yjs.js');
  assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(photo.milestones.reduce((a,m)=>a+m.points,0),9);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.2);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
  assert.equal(port.commercialGo.certifiedGates,0,'QA-only flags do not grant commercial GO');
