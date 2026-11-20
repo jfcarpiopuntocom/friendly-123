@@ -68,6 +68,48 @@ function hasRows(sql,table){
   const exists=sql.exec('SELECT name FROM sqlite_master WHERE type = ? AND name = ?','table',table).toArray();
   return !!exists.length && Number(sql.exec('SELECT COUNT(*) AS n FROM '+table).one()?.n||0)>0;
 }
+// C68: Source-anchored READ-ONLY replay for a duplicate frozen economic head.
+// This runs only on baseline reopen/retry, never inside the hot sale/fiado ACK.
+// No guessed balances, writes, or invented compensation events.
+function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
+ const deny=()=>fail('business baseline reconciliation error');
+ const stock=new Map(state.products.map(p=>[p.productId,BigInt(p.quantity)]));
+ const receivables=new Map((state.receivables||[])
+  .map(r=>[r.receivableId,BigInt(r.balanceCents)]));
+ let cash=BigInt(state.openingCashCents);
+ const effects=sql.exec('SELECT op_id,product_id,quantity_delta,cash_delta_cents FROM f123_business_effects WHERE license = ? ORDER BY op_id',
+  state.license).toArray();
+ for(const effect of effects){
+  const q=Number(effect.quantity_delta),c=Number(effect.cash_delta_cents);
+  if(!IDENT.test(effect.product_id||'')||
+     typeof effect.op_id!=='string'||effect.op_id.length<1||
+     !Number.isSafeInteger(q)||!int(c))deny();
+  // sale: negative stock plus cash; physical count: signed stock, zero
+  // cash; fiado payment: zero stock plus positive cash. Unknown effect
+  // classes can never silently change an audited economic balance.
+  if(q!==0){
+   if(!stock.has(effect.product_id)||(q>0&&c>0))deny();
+   stock.set(effect.product_id,stock.get(effect.product_id)+BigInt(q));
+  }else if(c>0){
+   if(!receivables.has(effect.product_id))deny();
+   receivables.set(effect.product_id,receivables.get(effect.product_id)-BigInt(c));
+  }else if(!stock.has(effect.product_id))deny();
+  cash+=BigInt(c);
+ }
+ if(cash<0n||cash>BigInt(MAX)||BigInt(baseline.cash_cents)!==cash)deny();
+ if(stockRows.length!==stock.size)deny();
+ for(const row of stockRows){
+  if(!int(Number(row.quantity))||!stock.has(row.product_id)||
+     stock.get(row.product_id)!==BigInt(row.quantity))deny();
+ }
+ const debts=sql.exec('SELECT receivable_id,balance_cents FROM f123_business_receivables WHERE license = ? ORDER BY receivable_id',
+  state.license).toArray();
+ if(debts.length!==receivables.size)deny();
+ for(const row of debts){
+  if(!int(Number(row.balance_cents))||!receivables.has(row.receivable_id)||
+     receivables.get(row.receivable_id)!==BigInt(row.balance_cents))deny();
+ }
+}
 export function installBusinessBaseline({storage,proof}={}){
   validStorage(storage);
   const state=prepared.get(proof);
@@ -88,6 +130,7 @@ export function installBusinessBaseline({storage,proof}={}){
            Number(row.unit_price_cents)!==state.products[i].unitPriceCents||
            !int(Number(row.quantity))))
         fail('business baseline integrity error');
+      reconcileCertifiedBusinessReadback(sql,state,old,rows);
       return {already:true,sha256:proof.sha256};
     }
     // Import must precede receipt issuance. Pending old inbox cannot be
