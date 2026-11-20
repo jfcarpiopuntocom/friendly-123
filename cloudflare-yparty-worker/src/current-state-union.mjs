@@ -173,3 +173,66 @@ export function planForwardCurrentUnion({observations}={}){
   digest:sha(manifestCanonical),manifestCanonical
  });
 }
+
+
+/**
+ * C96: Recheck a C93 candidate at the immutable archive boundary.
+ * The SHA of manifestCanonical alone does NOT bind the payload values later
+ * serialized by C95. This reuses the one canonicalizer/hasher used to create
+ * those commitments. It is not an authorization or server-issued receipt.
+ */
+export function verifyForwardCurrentUnionPlan(plan) {
+ exact(plan, ['sealed', 'readyForAuthenticatedSeal', 'sourceCount',
+   'businessScope', 'observations', 'facts', 'quarantined',
+   'viewDifferences', 'digest', 'manifestCanonical'], 'union plan');
+ if (!HASH.test(plan.businessScope || '') ||
+     !Array.isArray(plan.observations) ||
+     !Array.isArray(plan.facts) ||
+     !Array.isArray(plan.quarantined) ||
+     !Array.isArray(plan.viewDifferences) ||
+     plan.sourceCount !== plan.observations.length ||
+     plan.observations.length > MAX_SOURCES || plan.facts.length > MAX_FACTS) {
+   refuse('union manifest structure');
+ }
+ const sources = new Set();
+ for (const row of plan.observations) {
+   exact(row, ['sourceId', 'factsObserved', 'viewsObserved', 'observationHash'], 'union source');
+   if (!HASH.test(row.sourceId || '') || !HASH.test(row.observationHash || '') ||
+       sources.has(row.sourceId) || !Number.isSafeInteger(row.factsObserved) ||
+       row.factsObserved < 0 || !Number.isSafeInteger(row.viewsObserved) ||
+       row.viewsObserved < 0) refuse('union source witness');
+   sources.add(row.sourceId);
+ }
+ const opIds = new Set();
+ const committedFacts = plan.facts.map(fact => {
+   exact(fact, ['opId', 'payloadHash', 'payload', 'observedBy'], 'union fact');
+   if (typeof fact.opId !== 'string' || !OP_ID.test(fact.opId) ||
+       opIds.has(fact.opId) || !HASH.test(fact.payloadHash || '') ||
+       !object(fact.payload) || !Array.isArray(fact.observedBy) ||
+       fact.observedBy.length < 1) refuse('accepted union fact structure');
+   opIds.add(fact.opId);
+   const observed = new Set();
+   for (const source of fact.observedBy) {
+     if (!sources.has(source) || observed.has(source)) refuse('union fact source provenance');
+     observed.add(source);
+   }
+   const payloadCanonical = canonical(fact.payload);
+   if (sha('f123-current-fact-v1\\0' + payloadCanonical) !== fact.payloadHash) {
+     refuse('accepted union fact payload SHA mismatch');
+   }
+   return { opId: fact.opId, payloadHash: fact.payloadHash, observedBy: fact.observedBy };
+ });
+ const actualManifest = canonical({
+   protocol: 'f123-present-v1', businessScope: plan.businessScope,
+   observations: plan.observations,
+   facts: committedFacts,
+   conflicts: plan.quarantined.map(x => ({ opId: x.opId,
+     variants: x.variants.map(v => ({ payloadHash: v.payloadHash, observedBy: v.observedBy })) })),
+   viewDifferences: plan.viewDifferences,
+   readyForAuthenticatedSeal: plan.readyForAuthenticatedSeal
+ });
+ if (actualManifest !== plan.manifestCanonical || sha(actualManifest) !== plan.digest) {
+   refuse('accepted union facts do not match original canonical manifest');
+ }
+ return true;
+}
