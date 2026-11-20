@@ -58,6 +58,11 @@ export class Tienda extends YServer {
   // Never cache permissions across batches; send synchronously AFTER the one
   // batch authority response so another event cannot interleave a revocation
   // between checked frames. The 32-frame cap bounds the revocation window.
+  cerrarConexionSegura(connection, code, reason) {
+    try { connection.setState(p => ({ ...p, accesoFirmado: null })); } catch (_) {}
+    try { connection.close(code, reason); } catch (_) {}
+  }
+
   async enviarLoteAutorizado(batch) {
     const recipients=[...new Set(batch.map(frame=>frame.connection))]
       .filter(connection=>connection.readyState===1);
@@ -70,16 +75,25 @@ export class Tienda extends YServer {
       const i=active.indexOf(connection),grant=i>=0?grants?.[i]:null;
       if(connection.readyState!==1)continue;
       if(!grant||!unexpired(grant)){
-        connection.setState(p=>({...p,accesoFirmado:null}));
-        connection.close(1008,'Acceso no autorizado');
+        this.cerrarConexionSegura(connection,1008,'Acceso no autorizado');
         continue;
       }
-      connection.setState(p=>({...p,accesoFirmado:grant}));
-      proven.add(connection);
+      try{
+        connection.setState(p=>({...p,accesoFirmado:grant}));
+        proven.add(connection);
+      }catch(_){
+        this.cerrarConexionSegura(connection,1011,'Socket unavailable');
+      }
     }
     for(const {connection,payload} of batch){
-      if(connection.readyState===1&&proven.has(connection)&&
-         unexpired(connection.state?.accesoFirmado))connection.send(payload);
+      if(connection.readyState!==1||!proven.has(connection)||
+         !unexpired(connection.state?.accesoFirmado))continue;
+      try{
+        connection.send(payload);
+      }catch(_){
+        proven.delete(connection);
+        this.cerrarConexionSegura(connection,1011,'Socket unavailable');
+      }
     }
   }
 
@@ -94,8 +108,7 @@ export class Tienda extends YServer {
       this.outboundQueue=next.catch(()=>{
         for(const {connection} of batch){
           if(connection.readyState===1){
-            connection.setState(p=>({...p,accesoFirmado:null}));
-            connection.close(1008,'Salida no autorizada');
+            this.cerrarConexionSegura(connection,1008,'Salida no autorizada');
           }
         }
       });
