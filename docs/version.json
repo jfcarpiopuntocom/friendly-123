@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.27",
+  "version": "v0.8.28",
   "fecha": "2026-11-20",
-  "changelog": "v0.8.27: C94 Safari P0 — al ocultarse la PWA o perder el escritor certificado C21a, la fachada comercial revoca el bit 2.0 antes de operar; protege sucesor de callbacks antiguos y mantiene guarda C38 de único escritor, IDB/outbox y PIN intactos. Sync3 permanece.",
+  "changelog": "v0.8.28: C98 SW P0 — verificación SRI de version-manifest usa bytes crudos (arrayBuffer) y lotes acotados (4 en paralelo) para evitar corrupción UTF-8/re-descarga de PNG/WOFF2/ICO y picos de memoria en WebKit Safari.",
   "requerida": false,
-  "shell": "f123-shell-v827",
+  "shell": "f123-shell-v828",
   "apagar": [],
-  "releaseName": "v0.8.27",
-  "cacheGeneration": "golden363"
+  "releaseName": "v0.8.28",
+  "cacheGeneration": "golden364"
 }
