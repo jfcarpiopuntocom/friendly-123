@@ -31,6 +31,10 @@ export async function openExistingStore({env,storage,source}={}) {
          (prior.channel==='ops'&&source.expectedOpIds!==Number(prior.event_count))))
         throw new Error('frozen import certificate mismatch with independent source');
       const now=await exportCompleteYpartyYjs({storage,channel:prior.channel});
+      // The certified import is stored as documento_bloques; neither an
+      // empty base nor an old single-row legacy snapshot can certify it.
+      if(now.snapshotKind!=='blocks')
+        throw new Error('frozen base snapshot missing after reopen');
       if(prior.channel==='ops'){
         if(!Number.isSafeInteger(Number(prior.event_count))||
            now.eventCount<Number(prior.event_count))
