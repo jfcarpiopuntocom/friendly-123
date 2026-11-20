@@ -10,7 +10,7 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const syncSrc = fs.readFileSync(path.join(root, 'docs/sync-yjs.js'), 'utf8');
 
-function mountRoleAuthRuntime() {
+function mountRoleAuthRuntime({failPhotoFor = null} = {}) {
   const s = syncSrc.indexOf('    if (piloto && typeof piloto.crearClienteFotosShaCertificado === "function") {');
   const e = syncSrc.indexOf('    API.opsDoc.on("update"', s);
   assert.ok(s > 0 && e > s, 'C25/C31/C47 block must exist in docs/sync-yjs.js');
@@ -46,6 +46,7 @@ function mountRoleAuthRuntime() {
   const piloto = {
     crearClienteFotosShaCertificado: ({ role }) => {
       roleCalls.push(role);
+      if (role === failPhotoFor) throw new Error('test-only Team credential unavailable');
       return { mode: role === 'dueno' ? 'owner-put-get' : 'team-get-only', role, get: async () => null };
     },
     crearCoordinadorCorte20: async () => API.coordinadorCorte20
@@ -150,4 +151,34 @@ test('C47 RED: logout during in-flight activate20 prevents a late Owner writer r
   assert.equal(rt.API.modoCorte20Activo,false);
   assert.equal(rt.API.rolComercial20Activo,null);
   assert.ok(rt.failbackCalls.includes('auth-changed-during-activation'));
+});
+
+test('C58 RED: real Owner -> admin login revokes previous -cat coordinator lease before retaining Team GET-only photo role', () => {
+  const rt = mountRoleAuthRuntime();
+  rt.setSession('admin');
+  rt.window.dispatchEvent({type:'oc-login',detail:{rol:'admin',demo:false}});
+  assert.equal(rt.API.modoCorte20Activo,false,'admin must not inherit commercial Owner writer');
+  assert.equal(rt.API.rolComercial20Activo,'admin');
+  assert.equal(rt.API.fotoSha?.mode,'team-get-only','admin must not retain owner photo PUT rights');
+  assert.ok(rt.failbackCalls.includes('oc-login-session-change'),'auth role change MUST release old certified -cat lease');
+});
+
+test('C58 RED: re-authenticated Owner cannot keep stale 2.0 writer lease from previous Owner login', () => {
+  const rt = mountRoleAuthRuntime();
+  rt.setSession('dueno');
+  rt.window.dispatchEvent({type:'oc-login',detail:{rol:'dueno',demo:false}});
+  assert.equal(rt.API.modoCorte20Activo,false,'even same role gets a new auth epoch and MUST re-arm explicitly');
+  assert.ok(rt.failbackCalls.includes('oc-login-session-change'),'same-role login must revoke previous -cat writer');
+  assert.equal(rt.API.fotoSha?.mode,'owner-put-get','fresh verified Owner may use owner photo client only after login');
+});
+
+test('C58 RED: failed Team credential construction cannot expose old Owner PUT photo client', () => {
+  const rt = mountRoleAuthRuntime({failPhotoFor:'admin'});
+  rt.setSession('admin');
+  rt.window.dispatchEvent({type:'oc-login',detail:{rol:'admin',demo:false}});
+  assert.equal(rt.API.modoCorte20Activo,false);
+  assert.equal(rt.API.rolComercial20Activo,null,'fail-closed role state on Team photo factory error');
+  assert.equal(rt.API.fotoSha,null,'prior Owner PUT client cannot survive failed Team reauth');
+  assert.equal(rt.API.corteFotosShaActivo,false);
+  assert.ok(rt.failbackCalls.includes('oc-login-session-change'));
 });
