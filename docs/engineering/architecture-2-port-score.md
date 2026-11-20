@@ -1,5 +1,25 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C69 · 20 nov 2026 · reentrada económica SQL certificada y métricas /100
+
+Se PORTA la **MISMA friendly-123** a arquitectura 2.0 mediante injertos maduros; Sync3 se mantiene. [C68 económica PR #869 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/869) en producto `master@df43c24ac081fc9530e45cc595c1f2edcd6ae0f5`, 12/12 GitHub Actions del HEAD `b8a9190` GREEN. Cloudflare Workers Builds de la cuenta real, rama master, commit SHA idéntico: **SUCCESS**, UUID `6c3c2215-0810-4bbb-9541-9765a0fc348e`. QA OFF, sin tocar Sync3, PIN, clientes ni R2.
+
+| Dos indicadores independientes, denominador original fijo100,0 | C67 anterior | C69 actual | Delta |
+| --- | ---: | ---: | ---: |
+| **Transición misma app 1.0→2.0** | 92,0/100,0 | **92,0/100,0** | 0,0 |
+| **Calidad arquitectónica** | 79,3/100,0 | **79,4/100,0** | +0,1 |
+| Calidad Business (20 pts) | 18,5/20,0 | **18,6/20,0** | +0,1 |
+| Comercial GO | 0/6 | **0/6** | 0 |
+| Físico Opera PC↔Safari/PWA iPhone | 0/5 | **0/5** | 0 |
+
+**Problema real corregido por C68:** el reintento de un certificado de tienda 2.0 podía dar `already:true` aunque un fiado congelado hubiera desaparecido, su deuda se alterase sin pago, caja/stock cambiasen sin opId o un cobro confirmado perdiese su efecto SQL. RED [Actions 44739485973](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44739485973) con el `authoritative-business-sql.mjs` verdadero más `node:sqlite` nativo: 1/8 PASS, siete faltas de rechazo `Missing expected exception`; control de venta/cobro parcial/recuento legítimos PASS. GREEN [Actions 44739725091](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44739725091): 8/8 nativo SQLite, 2/2 cobros Workerd y 2/2 ventas/caja Workerd. El injerto `reconcileCertifiedBusinessReadback` se ejecuta **únicamente en la rama de reentrada con certificado ya existente**, verifica stock inicial+Σdelta, caja inicial+Σefectos de cobro/venta y fiado inicial−Σabonos con `BigInt` y comparación de IDs exactos. **No repara balances ficticiamente, no modifica la vía viva de transacciones ni prueba causalidad completa del histórico Firebase real.** Los efectos SQL no sustituyen la certificación de cada recibo original: este crédito es **solo +0,1 de confianza de ingeniería Business**.
+
+**8,0 puntos de transición SIGUEN pendientes:** HEAD económico Firebase auténtico2,0; Service Binding/R2 real2,0; operaciones/roles/fotos/corte físico4,0. La [PR #868 de fotos SHA](https://github.com/jfcarpiopuntocom/friendly-123/pull/868) paralela tiene otros archivos y su propia evidencia; el score C69 no la puntúa. `docs/core/ledger.js` PR841 reservado se conservó. [C68 PRECODE](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c68-economic-reopen-immutable-effect-reconciliation-precode.md) y [C69 PRECODE antes del score](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c69-economic-reopen-source-backed-quality-79p4-precode.md).
+
+---
+
+### Historial · C67 y anteriores
+
 ## C67 · 20-nov-2026 Ecuador · dos puntuaciones vigentes /100, misma aplicación
 
 **C66 fuente real [PR #866 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/866)**: `master@a46da3753ec23ecee2606f5ed206fe4c6ba10f25`, **15/15 GH Actions** del head source GREEN, Cloudflare Workers Builds **SUCCESS** mismo merge SHA UUID `b091735c-0cc5-4351-9c29-f5894c836544`. El injerto reusa Yjs nativo para preservar el vector causal de cada escritor congelado en la misma transacción SQL de importación y certificarlo en reaperturas tras compactación. **Sync3 intacto**, flags QA OFF, workshop solo laboratorio/planes.

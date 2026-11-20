@@ -5,15 +5,35 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C67: C66 immutable Yjs frozen vector continuity verified in same app, fixed100 GO0/6',()=>{
+test('C69: C68 economic fiado cash stock readback verified in same app, fixed100 GO0/6',()=>{
  const s=inspect();
  assert.equal(s.port,92.0);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,23.5);
- assert.equal(s.quality,79.3);
- assert.equal(s.qualityBefore,79.2);
+ assert.equal(s.quality,79.4);
+ assert.equal(s.qualityBefore,79.3);
  assert.equal(s.qualityDelta,0.1);
  assert.equal(s.go,'0/6');
+ // C69: source-backed quality ONLY after C68 MERGED with actual native SQL RED.
+ // Not a production Firebase HEAD, R2 binding, device, or commercial GO.
+ const c68=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/authoritative-business-sql.mjs'),'utf8');
+ const nativeQA=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/qa/p0-c68-economic-reopen-certified-effects.test.mjs'),'utf8');
+ for(const token of [
+  'function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows)',
+  'reconcileCertifiedBusinessReadback(sql,state,old,rows)',
+  "SELECT op_id,product_id,quantity_delta,cash_delta_cents FROM f123_business_effects",
+  'BigInt(state.openingCashCents)',
+  'SELECT receivable_id,balance_cents FROM f123_business_receivables'
+ ])assert(c68.includes(token),'C69 only credit real C68 SQL readback source: '+token);
+ for(const token of [
+  'C68 RED P0: deleted original fiado row must never get already:true',
+  'C68 RED P0: reduced fiado without a payment opId must never get already:true',
+  'C68 RED P0: inflated cash without sale/payment effect must never get already:true',
+  'C68 RED P0: phantom stock loss without sale/count opId must never get already:true',
+  'C68 RED P0: losing a paid fiado effect must not certify original cash and debt',
+  'C68 RED P0: unrecognized economic effect SKU cannot invent stock or already ACK'
+ ])assert(nativeQA.includes(token),'C69 missing RED-first native SQLite negative case: '+token);
+
  // C67 credits an existing merged source graft, never unearned Firebase/R2.
  const c66=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/frozen-vector-baseline.mjs'),'utf8');
  const c66Import=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/certified-frozen-import.mjs'),'utf8');
@@ -62,7 +82,7 @@ test('C67: C66 immutable Yjs frozen vector continuity verified in same app, fixe
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
  assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),8.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.6);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
  const photo=port.groups.find(g=>g.id==='photo-sha');
  assert.equal(photo?.weight,9,'photo group weight unchanged');
@@ -91,7 +111,7 @@ test('C67: C66 immutable Yjs frozen vector continuity verified in same app, fixe
  assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(photo.milestones.reduce((a,m)=>a+m.points,0),9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
  assert.equal(port.commercialGo.certifiedGates,0,'QA-only flags do not grant commercial GO');
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
@@ -174,7 +194,7 @@ test('C67: C66 immutable Yjs frozen vector continuity verified in same app, fixe
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -189,14 +209,14 @@ test('C67: C66 immutable Yjs frozen vector continuity verified in same app, fixe
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  // C45 RED: only 0.5 split from existing 1.0 unearned business budget for real C44.
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,79.2);
+ assert.equal(quality.comparison.previousScore,79.3);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
