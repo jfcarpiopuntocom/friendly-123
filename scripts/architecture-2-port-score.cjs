@@ -339,7 +339,7 @@ function inspect(){
   assert.equal(left.done,false,'C40 is NOT a live customer cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C40 QA does not certify GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?18.5:(c42Done?18.3:18.1));
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='df43c24ac081fc9530e45cc595c1f2edcd6ae0f5'?18.6:18.5):(c42Done?18.3:18.1));
   const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
     'API.recibosComerciales20 = new Map();',
@@ -386,7 +386,7 @@ function inspect(){
   assert.equal(residual.done,false,'C42 does not enable commercial production cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C42 synthetic QA cannot certify live store GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no real PC→Safari acceptance evidence');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?18.5:18.3,'business quality bounded by actual C42/C44 QA');
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='df43c24ac081fc9530e45cc595c1f2edcd6ae0f5'?18.6:18.5):18.3,'business quality bounded by actual C42/C44/C68 QA');
   const mock=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
   const facade=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
