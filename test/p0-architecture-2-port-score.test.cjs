@@ -399,3 +399,47 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(port.assessedProductSha,'6e802e6e0df0988922220dd634a40f7788638f05', 'C63 pins exact C62 source merged in same friendly-123');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
 });
+
+test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QUALITY only, PORT remains 92.0 and commercial GO 0/6',()=>{
+ const report=inspect();
+ assert.equal(report.port,92.0);
+ assert.equal(report.quality,80.4);
+ assert.equal(report.qualityBefore,80.1);
+ assert.equal(report.qualityDelta,0.3);
+ assert.equal(report.go,'0/6');
+ const q=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
+ const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
+ const d=new Map(q.dimensions.map(x=>[x.id,x]));
+ assert.equal(q.lastAuditedProductSha,'a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c');
+ for(const [id,actual,prev] of [['durability',18.7,18.6],['photos',7.8,7.7],['migration',7.9,7.8]]){
+  assert.equal(d.get(id).score,actual,'credited true merged '+id);
+  assert.equal(d.get(id).previous,prev,'no double-credit '+id);
+ }
+ assert.equal(q.dimensions.reduce((sum,x)=>sum+x.weight,0),100);
+ assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.score,0).toFixed(1)),80.4);
+ assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.previous,0).toFixed(1)),80.1);
+ assert.equal(p.groups.reduce((sum,g)=>sum+g.weight,0),100);
+ assert.equal(p.score,92);
+ assert.equal(p.groups.flatMap(g=>g.milestones).filter(x=>!x.done).reduce((sum,x)=>sum+x.points,0),8);
+ assert.equal(p.groups.flatMap(g=>g.milestones).find(x=>x.id==='browser-photo-cutover').done,false,'no unverified physical photo cutover');
+ assert.equal(p.groups.flatMap(g=>g.milestones).find(x=>x.id==='real-firebase-head-complete').done,false,'incomplete original Firebase -y');
+ assert.equal(p.commercialGo.certifiedGates,0);
+ assert.equal(d.get('physical').score,0);
+
+ const read=(file)=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
+ const vector=read('cloudflare-yparty-worker/src/merge-frozen-into-existing.mjs');
+ const vectorQA=read('cloudflare-yparty-worker/qa/p0-c69-union-vector-cold-reopen.test.mjs');
+ for(const token of ['f123_frozen_union_vectors','assertVectorDominates','union_vector_sha256','union historical Yjs clock missing after reopen'])
+  assert(vector.includes(token),'C70 real vector source missing '+token);
+ assert(vectorQA.includes('missing') && vectorQA.includes('Yjs'),'C70 causal vector QA absent');
+ const shelves=read('docs/vista-perchas.js'),sync=read('docs/sync-yjs.js'),photoQA=read('test/p0-c68-browser-photo-cutover-ui-seeding.test.cjs');
+ for(const token of ['OCYjs.fotosMap','yjs.fotoSha.get(hash)','hashDeDataUrl(bytes)'])
+  assert(shelves.includes(token),'C68 UI verified SHA read missing '+token);
+ for(const token of ['API.corteFotosShaActivo === true','API.sembrarFotos()','API.__fotoShaBridgeInstalado'])
+  assert(sync.includes(token),'C68 guarded photo seed/reset missing '+token);
+ assert(photoQA.includes('rejects tampered bytes'),'C68 real browser source photo SHA QA missing');
+ const fb=read('cloudflare-yparty-worker/tools/firebase-frozen-certifier.mjs');
+ const fbQA=read('cloudflare-yparty-worker/qa/p0-firebase-frozen-certifier.test.mjs');
+ assert(fb.includes('snapshot.k.map((val,i)=>[String(i),val])'),'C90 real Firebase REST /k map adaptation missing');
+ assert(fbQA.includes('exact Firebase REST array form of /k'),'C90 RED->GREEN REST array QA missing');
+});
