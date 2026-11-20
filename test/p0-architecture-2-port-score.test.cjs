@@ -84,7 +84,7 @@ test('C57: C56 merged real Workerd business receipts A-B-A prove bounded fixed10
  assert.equal(c52?.source,'docs/sync-yjs.js');
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.7);
- assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.7);
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
 
