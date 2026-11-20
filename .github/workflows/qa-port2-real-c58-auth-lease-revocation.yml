@@ -1,0 +1,30 @@
+name: PORT2 C58 · revoke previous Owner writer lease across verified login
+on:
+  push:
+    branches: [port2/20261120-c58-reauth-revokes-prior-writer-lease]
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-c47-auth-role-switch-20.test.cjs
+      - .github/workflows/qa-port2-real-c58-auth-lease-revocation.yml
+permissions: {contents: read}
+jobs:
+  c58-auth-lease-revoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-c47-auth-role-switch-20.test.cjs \
+            test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs \
+            test/p0-c38-legacy-transport-quiescence.test.cjs \
+            test/p0-c42-checkout-receipt-status.test.cjs \
+            test/p0-architecture-2-port-score.test.cjs
+          bash check-sw.sh
