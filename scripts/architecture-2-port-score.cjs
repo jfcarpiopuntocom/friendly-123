@@ -855,7 +855,8 @@ function inspect(){
    assert.equal(c60.points,0.3,'C60 source QA earns0.3 of original HEAD pending2.5 only');
    assert.equal(c60.source,'cloudflare-yparty-worker/src/trusted-frozen-source.mjs');
    const pending=hist.milestones.find(m=>m.id==='real-firebase-head-complete');
-   assert.equal(pending?.points,2.2,'actual Firebase HEAD still unearned2.2');
+   const c62Done=hist.milestones.some(m=>m.id==='c62-legacy-frozen-private-root-rejection'&&m.done);
+   assert.equal(pending?.points,c62Done?2.0:2.2,'actual Firebase HEAD remains unearned (2.0 after C62, otherwise 2.2)');
    assert.equal(pending?.done,false);
    const r2=hist.milestones.find(m=>m.id==='r2-service-binding-installed');
    assert.equal(r2?.points,2.0,'real R2 binding still not installed');
