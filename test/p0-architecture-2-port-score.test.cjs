@@ -54,7 +54,7 @@ test('C59: real C58 verified login revokes previous catalog writer lease + Owner
  assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false,'Workerd x2 is not physical PC-iPhone acceptance');
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.previous,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -111,7 +111,7 @@ test('C59: real C58 verified login revokes previous catalog writer lease + Owner
  assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
  // C50 RED: C47 authenticated role change is merged IN PRODUCT; QA credit capped.
  const identity=port.groups.find(g=>g.id==='identity-rooms');
  assert.equal(identity?.weight,14);
