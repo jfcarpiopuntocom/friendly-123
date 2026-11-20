@@ -19,6 +19,8 @@ function mountRoleAuthRuntime() {
   const listeners = new Map();
   const failbackCalls = [];
   const roleCalls = [];
+  let liveRole = 'dueno';
+  let liveDemo = false;
 
   const window = {
     addEventListener(type, fn) {
@@ -35,7 +37,7 @@ function mountRoleAuthRuntime() {
       durabilidadPendiente: () => false,
       onEstado: () => () => {}
     },
-    OCAuth: { rolActual: () => 'dueno' }
+    OCAuth: { rolActual: () => liveRole, esDemo: () => liveDemo }
   };
 
   const API = { doc: {} };
@@ -72,7 +74,7 @@ function mountRoleAuthRuntime() {
       return { ok: true, mode: 'failback-legacy-1.0' };
     }
   };
-  return { window, API, failbackCalls, roleCalls };
+  return { window, API, failbackCalls, roleCalls, setSession: (role, demo = false) => { liveRole = role; liveDemo = demo; } };
 }
 
 test('C47: oc-login downgrades Owner 2.0 writer to Team empleado read-only and releases -cat lease', () => {
@@ -80,6 +82,7 @@ test('C47: oc-login downgrades Owner 2.0 writer to Team empleado read-only and r
   assert.match(syncSrc, /addEventListener\(\s*["']oc-logout["']/, 'docs/sync-yjs.js must listen to oc-logout');
 
   const rt = mountRoleAuthRuntime();
+  rt.setSession('empleado');
   rt.window.dispatchEvent({ type: 'oc-login', detail: { rol: 'empleado', demo: false } });
 
   assert.equal(rt.API.rolComercial20Activo, 'empleado');
@@ -104,4 +107,47 @@ test('C47: oc-logout and demo/non-commercial oc-login disarm 2.0 writers and cle
   assert.equal(rtDemo.API.modoCorte20Activo, false);
   assert.equal(rtDemo.API.fotoSha, null);
   assert.ok(rtDemo.failbackCalls.includes('oc-login-demo'));
+});
+
+test('C47 RED: forged oc-login role cannot promote current empleado session to Owner photo PUT/GET', () => {
+  const rt = mountRoleAuthRuntime();
+  rt.setSession('empleado');
+  rt.window.dispatchEvent({type:'oc-login',detail:{rol:'dueno',demo:false}});
+  assert.equal(rt.API.modoCorte20Activo,false,'untrusted event cannot preserve a 2.0 Owner writer');
+  assert.equal(rt.API.rolComercial20Activo,null,'a mismatched role event must disarm the client');
+  assert.equal(rt.API.fotoSha,null,'a forged Owner event must not get Owner photo credentials');
+  assert.ok(rt.failbackCalls.includes('oc-login-role-mismatch'));
+});
+
+test('C47 RED: live demo session cannot promote to owner via forged non-demo login detail', () => {
+  const rt = mountRoleAuthRuntime();
+  rt.setSession('dueno',true);
+  rt.window.dispatchEvent({type:'oc-login',detail:{rol:'dueno',demo:false}});
+  assert.equal(rt.API.modoCorte20Activo,false);
+  assert.equal(rt.API.fotoSha,null);
+  assert.equal(rt.API.rolComercial20Activo,null);
+});
+
+test('C47 RED: logout during in-flight activate20 prevents a late Owner writer resurrection', async () => {
+  const rt = mountRoleAuthRuntime();
+  let resolveActivation, notifyEntered;
+  const entered = new Promise(resolve => {notifyEntered=resolve;});
+  const pending = new Promise(resolve => {resolveActivation=resolve;});
+  rt.API.coordinadorCorte20 = {
+    activate20() {notifyEntered();return pending;},
+    failbackToLegacy: async reason => {rt.failbackCalls.push(reason);return {ok:true,mode:'failback-legacy-1.0'};}
+  };
+  rt.API.crearCoordinadorCorte20=async()=>rt.API.coordinadorCorte20;
+  rt.API.modoCorte20Activo=false;
+  rt.API.rolComercial20Activo=null;
+  rt.API.corteFotosShaActivo=false;
+  rt.API.fotoSha=null;
+  const activation=rt.API.activarCorte20Runtime({headCongelado:'head-c47',rol:'dueno',activarDespachoComercial:true});
+  await entered;
+  rt.window.dispatchEvent({type:'oc-logout'});
+  resolveActivation({ok:true,mode:'active-2.0'});
+  await assert.rejects(activation,/auth changed during certified cutover activation/);
+  assert.equal(rt.API.modoCorte20Activo,false);
+  assert.equal(rt.API.rolComercial20Activo,null);
+  assert.ok(rt.failbackCalls.includes('auth-changed-during-activation'));
 });
