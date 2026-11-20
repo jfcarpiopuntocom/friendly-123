@@ -1,0 +1,38 @@
+name: PORT2 C74 certified prices and occupied store fail-closed (native SQLite + Workerd QA)
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-yparty-worker/src/authoritative-business-sql.mjs'
+      - 'cloudflare-yparty-worker/qa/p0-c74-certified-prices-and-bootstrap.test.mjs'
+      - '.github/workflows/qa-port2-c74-certified-economic-cutover.yml'
+  push:
+    branches:
+      - 'port2/20261120-c74-economic-certified-price-bootstrap'
+permissions:
+  contents: read
+jobs:
+  certified-price-bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix cloudflare-yparty-worker --no-audit --no-fund
+      - name: C74 true native SQLite source RED to GREEN certified prices / occupied bootstrap
+        run: node --test cloudflare-yparty-worker/qa/p0-c74-certified-prices-and-bootstrap.test.mjs
+      - name: C72 true typed receipts and SHA no regression
+        run: node --test cloudflare-yparty-worker/qa/p0-c72-economic-effect-receipt-reconcile.test.mjs
+      - name: C68 original fiados and cash reconciliation no regression
+        run: node --test cloudflare-yparty-worker/qa/p0-c68-economic-reopen-certified-effects.test.mjs
+      - name: Real Workerd fiados, stock adjust and receipts
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-typed-payment-sql.test.mjs
+      - name: Real Workerd sales cash stock and opId idempotency
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-business-sql-workerd.test.mjs
+      - name: Original100 rubric, commercial GO gate unchanged
+        run: |
+          node scripts/architecture-2-port-score.cjs --json
+          node --test test/p0-architecture-2-port-score.test.cjs
