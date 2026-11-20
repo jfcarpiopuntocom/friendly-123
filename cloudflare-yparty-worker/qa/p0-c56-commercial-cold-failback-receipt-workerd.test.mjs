@@ -633,8 +633,9 @@ test('C56 Workerd E2E: three authoritative business receipts, C54 legacy-primary
     // Assert the REAL authoritative Workerd SQLite economic state, not just a
     // local IDB tombstone or zero legacy opsMap keys. Synthetic frozen catalog
     // is distinct from the NO certified-op-history SQL fixture below.
-    const sqlResponse = await mf.dispatchFetch('http://localhost/parties/tienda/' + opsRoom, {
-      headers: {'x-f123-synthetic-inspect': '2'}
+    const sqlResponse = await fetch(new URL('/parties/tienda/' + opsRoom, url), {
+      method: 'POST',
+      headers: {origin: ORIGIN, 'x-f123-synthetic-inspect': '2'}
     });
     assert.equal(sqlResponse.status, 200, 'C56 Workerd SQL inspect fixture must be present');
     const sql = await sqlResponse.json();
@@ -655,8 +656,9 @@ test('C56 Workerd E2E: three authoritative business receipts, C54 legacy-primary
       _salaOrigen: LICENSE
     }));
     await new Promise(r => setTimeout(r, 180));
-    const duplicateSqlResponse = await mf.dispatchFetch('http://localhost/parties/tienda/' + opsRoom, {
-      headers: {'x-f123-synthetic-inspect': '2'}
+    const duplicateSqlResponse = await fetch(new URL('/parties/tienda/' + opsRoom, url), {
+      method: 'POST',
+      headers: {origin: ORIGIN, 'x-f123-synthetic-inspect': '2'}
     });
     assert.equal(duplicateSqlResponse.status, 200);
     const duplicateSql = await duplicateSqlResponse.json();
