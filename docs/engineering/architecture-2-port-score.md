@@ -1,19 +1,19 @@
-# friendly-123 · PORTANDO la misma aplicación arquitectura 1.0 → 2.0
+# friendly-123 · PORTANDO LA MISMA APP arquitectura 1.0 → 2.0
 
-**C55 · 19 nov Ecuador / 20 nov UTC 2026**. Auditoría de código REAL fuente [C54 PR #853](https://github.com/jfcarpiopuntocom/friendly-123/pull/853) fusionado `6022725cd0d30ec42f6efbe0b35dd036221a762c`, v0.8.23 / shell v823 / golden359. Mismo repositorio `jfcarpiopuntocom/friendly-123`, **Sync3 integrado**, workshop solo guarda evidencia y precode.
+**C57 · 19-nov Ecuador / 20-nov UTC 2026.** Acreditar fuente real [C56 PR #856](https://github.com/jfcarpiopuntocom/friendly-123/pull/856) MERGED en producto `master@18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5`, usando injertos maduros Yjs, YParty y SQLite Durable Objects, con Sync3 integrado. `friendly123workshop` es solo plan/evidencia, no producto independiente.
 
-| Indicador (rúbrica independiente fija de 100,0) | C53 anterior | C55 real | Delta |
+| Indicadores decimales con rúbricas INDEPENDIENTES fijas | C55 anterior | C57 comprobado | Variación |
 | --- | ---: | ---: | ---: |
-| **Migración arquitectura 1.0 → 2.0 de la MISMA friendly-123** | 90,0/100,0 | **90,5/100,0** | **+0,5** |
-| **Calidad arquitectónica de ingeniería** | 78,1/100,0 | **78,3/100,0** | **+0,2** |
+| **Migración arquitectura 1.0 → 2.0 integrada en la MISMA friendly-123** | 90,5/100,0 | **91,0/100,0** | **+0,5** |
+| **Calidad arquitectónica de ingeniería** | 78,3/100,0 | **78,5/100,0** | **+0,2** |
 | GO comercial certificado | 0/6 | **0/6** | 0 |
-| QA físico PC Opera ↔ Safari/PWA iPhone | 0/5 | **0/5** | 0 |
+| Dispositivos físicos PC Opera ↔ Safari/PWA iPhone | 0/5 | **0/5** | 0 |
 
-El cambio desde la base post-D7 de 68,5 es +22,0 puntos ganados en capacidades integradas; NO significa que el 90,5% de tiendas operen en 2.0. Ambos flags QA siguen **OFF por defecto**, no hubo activación comercial, modificación de PIN ni cliente físico.
+La base post-D7 era 68,5; el aumento acumulado de capacidades integradas y pruebas de ingeniería es +22,5 puntos. **Ningún porcentaje significa que el 91% de tiendas ya use 2.0**: ambos switches QA permanecen OFF. La prueba Workerd utiliza dos navegadores simulados y NO prueba equipos reales.
 
-## Presupuesto original de 100,0 puntos
+## Presupuesto invariable de 100,0 puntos
 
-| Capacidad | Acreditado | Peso | Pendiente |
+| Capacidad | Acreditado | Peso fijo | Pendiente |
 | --- | ---: | ---: | ---: |
 | SQLite/Yjs, outbox, Web Locks, bootstrap QA | 16,5 | 17,0 | 0,5 |
 | Historia Firebase HEAD real y binding R2 | 13,5 | 18,0 | 4,5 |
@@ -21,17 +21,21 @@ El cambio desde la base post-D7 de 68,5 es +22,0 puntos ganados en capacidades i
 | Roles Owner/Team / tickets / salas | 13,0 | 14,0 | 1,0 |
 | Fotos SHA y CAS Workerd | 8,0 | 9,0 | 1,0 |
 | Catálogo público / lector certificado | 10,0 | 10,0 | 0,0 |
-| **Navegador: tres emisores C52 + emisor primario C54** | **9,5** | 10,0 | **0,5** |
-| Failback y pruebas físicas A→B→A ×2 | 3,5 | 5,0 | 1,5 |
-| **TOTAL** | **90,5** | **100,0** | **9,5** |
+| Navegador / retiro de los cuatro emisores legacy QA | 9,5 | 10,0 | 0,5 |
+| **Failback: C56 3 recibos DO en A→B→A Workerd sintético** | **4,0** | 5,0 | **1,0 físico** |
+| **TOTAL** | **91,0** | **100,0** | **9,0** |
 
-## C54 · una sola causa raíz cerrada con Ponytail
+## C56 · error de evidencia detectado y corregido en código de QA del producto
 
-- Antes: aunque C52 suprimía `canalSombra`, `fotosCanal` y `opsCanal` bajo corte 2.0, el sender `API.canal.enviarUpdate(update)` no comprobaba si `usarRelayHabitual()` había elegido como canal principal el viejo `API.canalSombra` tras caer el piloto. Eso podía reactivar escritura legado durante modo comercial 2.0.
-- Ahora `docs/sync-yjs.js` conserva el canal primario real YParty `API.canal===API.canalPiloto` aun bajo 2.0, pero **corta el primario cuando apunta al relay viejo**. Tras failback con modo 2.0 OFF, viejo canal/sombra reanudan una vez. No se reescribe Sync3 ni se crea sincronizador.
-- [PR #853 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/853) SHA `6022725cd0d30ec42f6efbe0b35dd036221a762c`; candidato final `545cfe0da95da36c54e83d1f3f7e49de0a8c8ecd` **55/55 GitHub Actions verde**, incluso C52 negativo/positivo, ventas/finanzas/stock/Safari WebKit, release-control. **Cloudflare Workers Builds SUCCESS exacto SHA master**, UUID `d0658871-edb8-46f7-9ee0-84f4bbb1cbf2`. La prueba inicial RED [Actions 44674545607](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44674545607) detectó envío al legado al seleccionar fallback.
-- TDD C55 solo score: [plan PRECODE](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c55-c54-primary-fallback-score-fixed100-precode.md); RED real [Actions 44676401119](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44676401119) `90 !== 90.5` antes de scorecards; luego score/manifest/test validados. **Acreditar solo tras fusionar la PR de puntuación**.
-- Rúbrica browser-cutover original10: `typed-delta-and-legacy-retirement` PENDING1.0 → `c54-primary-fallback-old-yjs-writer-fence` 0,5 DONE + retiro integral 1.0/comercial/físico 0,5 aún PENDING. Calidad migration de7,5 a7,7/10, solo ingeniería. No atribuir certificación de historia Firebase real ni R2, y el ledger P0 de PR #841 sigue reservado.
+- La [PR #854](https://github.com/jfcarpiopuntocom/friendly-123/pull/854) cerrada SIN MERGE ejecutaba Workerd con fuente desactualizada C52, asumía que el canal viejo principal publicaba durante 2.0 (C54 ya lo prohíbe) y confudía `opsMap.size===0` / IDB fence con un recibo **`business-committed`**.
+- [C56 PR #856 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/856) en 18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5; SHA candidato `dda644b448542bb67c329f5e73179ce0a4a3084a`, **11/11 GitHub workflows verdes** sobre la misma app, C56 1/1 focal [run 44679028373](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44679028373) Workerd2,29s, cero FAIL/SKIP. Cloudflare Workers Builds **SUCCESS** exact merge SHA 18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5, UUID `efe7435a-0c54-411e-8d89-d98ae93c3969`.
+- RED real anterior [run 44678705439](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44678705439): sin baseline SQL independientemente certificado, no hubo recibo de la primera venta. Un 202 / cola / bloqueo de duplicados no se confunde con ACK comercial. GREEN usa *solo en QA* fixture que ya existía `qa/fixtures/seeded-real-yparty-business-worker.mjs`; la clase real Tienda y su SQL económico quedan sin modificar.
+- **Prueba positiva concreta:** Device A realiza `sale.record` (stock5→4; cash500→2000 centavos), luego `stock.adjust` físico a9 (sin dinero); Device B realiza otra venta (stock9→8, cash2000→3500 centavos); Device A regresa, el viejo relay no revierte estado y el replay de `opId` no duplica. Readback SQL Workerd **stock8, cash3500, effects3, receipts3, deuda3000 sin cambio**. Tres recibos `business-committed`, no tres meras solicitudes.
+- Frontera deliberada: la QA **omite historia congelada Yjs -ops mientras instala baseline SQL sintético** para no inventar una reconciliación de hechos históricos reales con dinero. Frozen -cat sigue verificado. Requiere certificación real Firebase HEAD + checksum económico + R2 antes del primer cliente. No se acredita historial real, PIN, GO ni 2 ciclos físicos.
+- C57 test de score [plan PRECODE en workshop](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c57-c56-business-cross-device-qa-score-fixed100-precode.md) RED auténtico [Actions C12 44679617096](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44679617096) `90.5 !== 91` contra JSON antes de cambios. GREEN score condicionado a CI y merge final C57.
+- Cuota original offline-failback5: `verified-cross-device-downpath` 1,5 PENDING se divide en **C56 0,5 DONE QA** y **downpath físico1,0 PENDING**. Calidad `sync`15,7→15,9/20 por pruebas de Workerd multi-operación, sin tocar `physical`0/5. Ley de NO doble crédito.
+
+## Historial C55 y anterior
 
 ## Historial previo
 

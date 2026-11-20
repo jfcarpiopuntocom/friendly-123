@@ -5,13 +5,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C55: merged C54 primary pilot-vs-old-relay failover fence earns bounded fixed100 QA credit, GO0/6',()=>{
+test('C57: C56 merged real Workerd business receipts A-B-A prove bounded fixed100 QA; physical GO0/6',()=>{
  const s=inspect();
- assert.equal(s.port,90.5);
+ assert.equal(s.port,91.0);
  assert.equal(s.portBefore,68.5);
- assert.equal(s.portDelta,22.0);
- assert.equal(s.quality,78.3);
- assert.equal(s.qualityBefore,78.1);
+ assert.equal(s.portDelta,22.5);
+ assert.equal(s.quality,78.5);
+ assert.equal(s.qualityBefore,78.3);
  assert.equal(s.qualityDelta,0.2);
  assert.equal(s.go,'0/6');
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
@@ -37,8 +37,8 @@ test('C55: merged C54 primary pilot-vs-old-relay failover fence earns bounded fi
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.7);
- assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),9.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
+ assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),9.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
@@ -84,7 +84,7 @@ test('C55: merged C54 primary pilot-vs-old-relay failover fence earns bounded fi
  assert.equal(c52?.source,'docs/sync-yjs.js');
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.7);
- assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.7);
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
 
@@ -97,6 +97,21 @@ test('C55: merged C54 primary pilot-vs-old-relay failover fence earns bounded fi
  assert.equal(browser.milestones.reduce((a,m)=>a+m.points,0),10,'no new rubric weight');
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+
+ // C57 RED: 3 Workerd SQLite business-committed operations A->B->A on real
+ // bundled product code with C54 selected-primary legacy fence; synthetic only.
+ const offline=port.groups.find(g=>g.id==='offline-failback');
+ assert.equal(offline?.weight,5,'original downpath budget stays5.0');
+ assert.equal(offline.milestones.reduce((a,m)=>a+m.points,0),5);
+ const c56=ms.find(m=>m.id==='c56-workerd-commercial-three-receipts-a-b-a-qa');
+ assert.equal(c56?.done,true,'C56 QA must be merged in same functional product');
+ assert.equal(c56?.points,0.5,'limit synthetic Workerd economic replay to0.5 of original downpath');
+ assert.equal(c56?.source,'src/port2-cross-device-failback.mjs');
+ assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.points,1.0);
+ assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(port.commercialGo.certifiedGates,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
  // C50 RED: C47 authenticated role change is merged IN PRODUCT; QA credit capped.
  const identity=port.groups.find(g=>g.id==='identity-rooms');
  assert.equal(identity?.weight,14);
@@ -114,11 +129,11 @@ test('C55: merged C54 primary pilot-vs-old-relay failover fence earns bounded fi
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,78.1);
+ assert.equal(quality.comparison.previousScore,78.3);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
   // C48 assessed SHA pinned to the actual PR844 merge source.
- assert.equal(port.assessedProductSha,'6022725cd0d30ec42f6efbe0b35dd036221a762c', 'C55 must pin actual C54 source merged in real app');
+ assert.equal(port.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5', 'C57 must pin actual C56 QA integration merged into real app');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
 });

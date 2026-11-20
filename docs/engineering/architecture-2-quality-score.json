@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 78.1,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 7c5f6637ceab125711da84bbd25b1152a79b5df3",
+    "previousScore": 78.3,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ b100e2a757197d02d765494a428a366b77a2007d",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 78.3,
+  "score": 78.5,
   "maximum": 100,
   "dimensions": [
     {
@@ -29,10 +29,10 @@
     {
       "id": "sync",
       "weight": 20,
-      "score": 15.7,
+      "score": 15.9,
       "previous": 15.7,
-      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/844"
+      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/856"
     },
     {
       "id": "security",
@@ -54,7 +54,7 @@
       "id": "migration",
       "weight": 10,
       "score": 7.7,
-      "previous": 7.5,
+      "previous": 7.7,
       "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD C52 v0.8.22 merged real docs/sync-yjs.js source conditional Yjs transport emission: canalSombra and opsCanal stop on modoCorte20Activo, fotosCanal stops on corteFotosShaActivo; VM regression verifies retirement with flags ON and resumption after failback, full PR #851 55/55 GH CI. +0.2 confidence in bounded legacy-sender cutover, not full writer retirement, physical GO or commercial migration. C54 v0.8.23 real product Yjs primary route no longer publishes to the OLD relay when the YParty pilot fails under active 2.0; pilot retains sending and legacy resumes on failback. Extended real-source C52 in-process VM reproduces RED fallback write and GREEN skip; 55/55 CI including browser parity and release-control, Cloudflare exact merged product SUCCESS. +0.2 bounded source regression confidence only; QA OFF, no device acceptance or full legacy retirement.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/853"
     },
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C55 +0.2 quality migration from RED→GREEN real code source guard and 55 CI (incl. C52 failback), not real PC/Safari/PWA or commercial cutover. No ledger P0 resolution, no actual Firebase HEAD certified, no R2 source binding, QA flags OFF; GO0/6, physical0/5.",
-  "assessedProductSha": "6022725cd0d30ec42f6efbe0b35dd036221a762c",
+  "disclaimer": "C57 +0.2 quality sync from real Workerd SQL three business receipts A/B/A no duplicate source QA using synthetic certified baseline. Not actual PC↔iPhone, no real Firebase/R2 integration and not GO. The historical Yjs -ops was intentionally skipped to avoid inventing a join; source only contributes QA uncertainty reduction.",
+  "assessedProductSha": "18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5",
   "history": [
     {
       "review": "2026-11-17",
