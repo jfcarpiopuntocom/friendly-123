@@ -443,8 +443,8 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A from C44');
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
-   assert.equal(quality.comparison.previousScore,78.3);
-   assert.equal(data.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5','C48 assessed real merged PR844 source SHA');
+   assert.equal(quality.comparison.previousScore,78.5);
+   assert.equal(data.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde','C48 assessed real merged PR844 source SHA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
    const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -507,8 +507,8 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
-   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
-   assert.equal(quality.comparison.previousScore,78.3);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
+   assert.equal(quality.comparison.previousScore,78.5);
    const testPath='cloudflare-yparty-worker/qa/p0-c46-cross-device-photo-and-downpath-workerd.test.mjs';
    const workerd=fs.readFileSync(path.join(root,testPath),'utf8');
    for(const token of [
@@ -538,7 +538,7 @@ function inspect(){
      const digest='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
      assert.equal(manifest.files['./'+name],digest,'C46 actual shipped source mismatch '+name);
    }
-   assert.equal(data.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5',
+   assert.equal(data.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde',
      'C46 only credits exact actual PR844 merged source');
  }
  // C50: real product C47 v0.8.20 role/epoch wiring, verified RED -> GREEN.
@@ -551,13 +551,13 @@ function inspect(){
    assert.equal(c47.points,0.5,'C47 role/epoch QA must be capped at 0.5');
    assert.equal(c47.source,'docs/sync-yjs.js','C47 credit requires shipped application facade');
    const pending=identity.milestones.find(m=>m.id==='commercial-role-switch');
-   assert.equal(pending?.points,1.0,'remaining real commercial role/cutover budget unchanged');
+   assert.equal(pending?.points,0.5,'C58 leaves 0.5 real commercial/physical role budget unearned');
    assert.equal(pending?.done,false,'no synthetic role QA can earn the physical commercial cutover');
    assert.equal(data.commercialGo.certifiedGates,0,'role QA must not certify commercial readiness');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'role QA is not physical acceptance');
-   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.7);
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.5);
-   assert.equal(quality.comparison.previousScore,78.3);
+   assert.equal(quality.comparison.previousScore,78.5);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const roleQA=fs.readFileSync(path.join(root,'test/p0-c47-auth-role-switch-20.test.cjs'),'utf8');
    for(const token of [
@@ -582,7 +582,7 @@ function inspect(){
    assert.equal(manifest.files['./sync-yjs.js'],syncSha,'C47 real shell sync integrity SHA mismatch');
    assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=20,'C47 requires v0.8.20+');
    assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=820,'C47 requires shell v820+');
-   assert.equal(data.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5',
+   assert.equal(data.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde',
      'C50 must pin real merged C47 product SHA, not a test or workshop SHA');
  }
  // C52: REAL merged C49 shelf photo CAS 409/200 Workerd SQLite plus C51 Web Locks
@@ -618,7 +618,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.2);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.2);
-   assert.equal(quality.comparison.previousScore,78.3);
+   assert.equal(quality.comparison.previousScore,78.5);
    const c49qa=fs.readFileSync(path.join(root,
      'cloudflare-yparty-worker/qa/p0-c49-vista-perchas-cas-workerd.test.mjs'),'utf8');
    for(const token of [
@@ -659,7 +659,7 @@ function inspect(){
      const digest='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
      assert.equal(manifest.files['./'+name],digest,'C49/C51 shipped manifest does not match '+name);
    }
-   assert.equal(data.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5',
+   assert.equal(data.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde',
      'C52 assessed SHA must pin product after BOTH C49 and C51 merged');
  }
  // C53 fixed100: REAL merged C52 v0.8.22 on SAME app, only three legacy
@@ -680,7 +680,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.7);
-   assert.equal(quality.comparison.previousScore,78.3);
+   assert.equal(quality.comparison.previousScore,78.5);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const test=fs.readFileSync(path.join(root,'test/p0-c52-legacy-channel-retirement.test.cjs'),'utf8');
    for(const token of [
@@ -704,7 +704,7 @@ function inspect(){
    assert.equal(manifest.files['./sync-yjs.js'],digest,'v0.8.22 source integrity seal');
    assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=22,'C52 requires real v0.8.22+');
    assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=822,'C52 requires actual shell v822+');
-   assert.equal(data.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5',
+   assert.equal(data.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde',
      'C53 must pin actual merged C52 product SHA, not workshop/PR-only source');
  }
  // C55: the REAL v0.8.23 merged source fences primary OLD relay selected when
@@ -723,7 +723,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'QA not physical PC/phone');
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.7);
-   assert.equal(quality.comparison.previousScore,78.3);
+   assert.equal(quality.comparison.previousScore,78.5);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const test=fs.readFileSync(path.join(root,'test/p0-c52-legacy-channel-retirement.test.cjs'),'utf8');
    for(const token of [
@@ -746,7 +746,7 @@ function inspect(){
      'C54 source integrity seal exact');
    assert(Number((/^v0\.8\.(\d+)$/.exec(version.version||'')||[])[1]||0)>=23,'C54 v0.8.23+ required');
    assert(Number((/^f123-shell-v(\d+)$/.exec(version.shell||'')||[])[1]||0)>=823,'C54 v823 shell required');
-   assert.equal(data.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5',
+   assert.equal(data.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde',
      'C55 credits ONLY merged same-app C54 SHA, not test-only or workshop code');
  }
  // C57 source-backed QA of commercial two-device Workerd SQL cutover and failback.
@@ -764,8 +764,8 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(data.commercialGo.certifiedGates,0);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
-   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
-   assert.equal(quality.comparison.previousScore,78.3);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
+   assert.equal(quality.comparison.previousScore,78.5);
    const source=fs.readFileSync(path.join(root,'src/port2-cross-device-failback.mjs'),'utf8');
    assert(source.includes('failbackToLegacy') && source.includes('canDispatchOnLegacy'),
      'existing real same-app coordinator must own the durable downpath');
@@ -783,8 +783,65 @@ function inspect(){
       'C54: selected primary is an OLD relay and MUST NOT publish',
       "historical ops/economic cut not certified"
    ])assert(test.includes(token),'C56 real Workerd money+stock QA evidence missing '+token);
-   assert.equal(data.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5',
+   assert.equal(data.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde',
       'C57 credits ONLY C56 merged real product/QA Workerd SHA');
+ }
+ // C59: real source C58 v824 authenticated identity epoch releases the
+ // previous Owner -cat writer BEFORE reattaching new Owner/Admin/Team photos.
+ // No physical/commercial certification is earned by source-only VM.
+ const c58=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='c58-verified-login-revokes-old-catalog-lease');
+ if(c58?.done){
+   const identity=data.groups.find(g=>g.id==='identity-rooms');
+   assert.equal(identity?.weight,14,'original identity budget fixed');
+   assert.equal(oneDecimal(identity.milestones.reduce((a,m)=>a+m.points,0)),14);
+   assert.equal(c58.points,0.5,'C58 QA source only 0.5 of original role pending1.0');
+   assert.equal(c58.source,'docs/sync-yjs.js');
+   const pending=identity.milestones.find(m=>m.id==='commercial-role-switch');
+   assert.equal(pending?.points,0.5,'live physical/commercial role switch still unearned0.5');
+   assert.equal(pending?.done,false,'C58 synthetic source QA cannot certify role on real clients');
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.7);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.5);
+   assert.equal(quality.comparison.previousScore,78.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+   assert.equal(data.commercialGo.certifiedGates,0);
+   const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   const start=sync.indexOf('window.addEventListener("oc-login", function (ev) {');
+   const end=sync.indexOf('\n        });',start);
+   assert(start>0&&end>start,'C58 must wire real source oc-login event');
+   const code=sync.slice(start,end);
+   for(const token of [
+     'auth.rolActual()',
+     'auth.esDemo()',
+     'if (liveDemo || liveRole !== r)',
+     'API.__authEpoch20 = (API.__authEpoch20 || 0) + 1;',
+     'API.modoCorte20Activo = false;',
+     'API.corteFotosShaActivo = false;',
+     'API.fotoSha = null;',
+     'API.rolComercial20Activo = null;',
+     '!API.coordinadorCorte20) return;',
+     'API.coordinadorCorte20.failbackToLegacy(',
+     'r === "empleado" ? "role-switch-empleado" : "oc-login-session-change"',
+     'API.cambiarRolComercial20(r, { cortarLegadoFotos: fotosActivas });'
+   ])assert(code.includes(token),'C58 real auth role/lease fail-closed source missing: '+token);
+   assert(code.indexOf('API.modoCorte20Activo = false;') <
+     code.indexOf('API.coordinadorCorte20.failbackToLegacy('),
+     'C58 must disarm old writer synchronously before async failback');
+   const qa=fs.readFileSync(path.join(root,'test/p0-c47-auth-role-switch-20.test.cjs'),'utf8');
+   for(const token of [
+     'C58 RED: real Owner -> admin login revokes previous -cat coordinator lease',
+     'C58 RED: re-authenticated Owner cannot keep stale 2.0 writer lease',
+     'C58 RED: failed Team credential construction cannot expose old Owner PUT photo client'
+   ])assert(qa.includes(token),'C58 RED->GREEN regression fixture missing '+token);
+   const version=load('docs/version.json'),manifest=load('docs/version-manifest.json');
+   assert(Number((/^v0\.8\.(\d+)$/.exec(version.version||'')||[])[1]||0)>=24,'C58 v0.8.24+');
+   assert(Number((/^f123-shell-v(\d+)$/.exec(version.shell||'')||[])[1]||0)>=824,'C58 shell v824+');
+   assert.equal(manifest.version,version.version);
+   assert.equal(manifest.shell,version.shell);
+   assert.equal(manifest.files['./sync-yjs.js'],
+     'sha256-'+crypto.createHash('sha256').update(sync.replace(/\r\n/g,'\n')).digest('hex'),
+     'C58 exact source SHA256 seal required');
+   assert.equal(data.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde',
+      'C59 credits ONLY C58 merged real same-app product SHA');
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');

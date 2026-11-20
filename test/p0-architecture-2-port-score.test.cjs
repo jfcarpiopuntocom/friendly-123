@@ -5,13 +5,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C57: C56 merged real Workerd business receipts A-B-A prove bounded fixed100 QA; physical GO0/6',()=>{
+test('C59: real C58 verified login revokes previous catalog writer lease + Owner photo, fixed100 GO0/6',()=>{
  const s=inspect();
- assert.equal(s.port,91.0);
+ assert.equal(s.port,91.5);
  assert.equal(s.portBefore,68.5);
- assert.equal(s.portDelta,22.5);
- assert.equal(s.quality,78.5);
- assert.equal(s.qualityBefore,78.3);
+ assert.equal(s.portDelta,23.0);
+ assert.equal(s.quality,78.7);
+ assert.equal(s.qualityBefore,78.5);
  assert.equal(s.qualityDelta,0.2);
  assert.equal(s.go,'0/6');
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
@@ -38,7 +38,7 @@ test('C57: C56 merged real Workerd business receipts A-B-A prove bounded fixed10
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
- assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),9.0);
+ assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),8.5);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
@@ -54,7 +54,7 @@ test('C57: C56 merged real Workerd business receipts A-B-A prove bounded fixed10
  assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false,'Workerd x2 is not physical PC-iPhone acceptance');
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.previous,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -111,7 +111,7 @@ test('C57: C56 merged real Workerd business receipts A-B-A prove bounded fixed10
  assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
  // C50 RED: C47 authenticated role change is merged IN PRODUCT; QA credit capped.
  const identity=port.groups.find(g=>g.id==='identity-rooms');
  assert.equal(identity?.weight,14);
@@ -119,9 +119,22 @@ test('C57: C56 merged real Workerd business receipts A-B-A prove bounded fixed10
  assert.equal(ms.find(m=>m.id==='real-auth-role-epoch-qa-c47')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='real-auth-role-epoch-qa-c47')?.done,true);
  assert.equal(ms.find(m=>m.id==='real-auth-role-epoch-qa-c47')?.source,'docs/sync-yjs.js');
- assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,1.0);
+ assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false,'unearned real role switch');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(port.commercialGo.certifiedGates,0);
+
+ // C59 RED: C58 closes prior catalog writer lease + Owner photo credential
+ // across ANY authentic login epoch.  QA/source only, physical/commercial FALSE.
+ const c58=ms.find(m=>m.id==='c58-verified-login-revokes-old-catalog-lease');
+ assert.equal(c58?.done,true,'must be source merged');
+ assert.equal(c58?.points,0.5,'only original 1.0 pending identity budget split');
+ assert.equal(c58?.source,'docs/sync-yjs.js');
+ assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
+ assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false);
+ assert.equal(identity.milestones.reduce((a,m)=>a+m.points,0),14);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.5);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
@@ -129,11 +142,11 @@ test('C57: C56 merged real Workerd business receipts A-B-A prove bounded fixed10
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,78.3);
+ assert.equal(quality.comparison.previousScore,78.5);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
   // C48 assessed SHA pinned to the actual PR844 merge source.
- assert.equal(port.assessedProductSha,'18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5', 'C57 must pin actual C56 QA integration merged into real app');
+ assert.equal(port.assessedProductSha,'6723cf24b87d2f6c1e8094188d024ae563dd4cde', 'C59 pins exact C58 functional merged product SHA');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
 });

@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 78.3,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ b100e2a757197d02d765494a428a366b77a2007d",
-    "previousReviewedDate": "2026-11-19"
+    "previousScore": 78.5,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ f7d084e526f658f44d35b38c0785241b867180ea",
+    "previousReviewedDate": "2026-11-20"
   },
-  "score": 78.5,
+  "score": 78.7,
   "maximum": 100,
   "dimensions": [
     {
@@ -30,17 +30,17 @@
       "id": "sync",
       "weight": 20,
       "score": 15.9,
-      "previous": 15.7,
+      "previous": 15.9,
       "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/856"
     },
     {
       "id": "security",
       "weight": 15,
-      "score": 10.5,
+      "score": 10.7,
       "previous": 10.5,
-      "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed C47 v0.8.20 real product docs/sync-yjs.js role switch subscribed to oc-login/oc-logout: adversarial RED3/21 (forged Owner event, disguised live demo, logout during awaiting activate20) followed by GREEN21/21 plus isolated C38 and full GH Actions52/52 success. Runtime compares real OCAuth.rolActual() and OCAuth.esDemo(), increments API.__authEpoch20 and fails back to legacy if authentication changes while cutover awaits. Cloudflare exact master build success. +0.2 engineering security confidence only; 2.0 QA switches OFF; no physical role-authorization certification or GO.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/845"
+      "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed C47 v0.8.20 real product docs/sync-yjs.js role switch subscribed to oc-login/oc-logout: adversarial RED3/21 (forged Owner event, disguised live demo, logout during awaiting activate20) followed by GREEN21/21 plus isolated C38 and full GH Actions52/52 success. Runtime compares real OCAuth.rolActual() and OCAuth.esDemo(), increments API.__authEpoch20 and fails back to legacy if authentication changes while cutover awaits. Cloudflare exact master build success. +0.2 engineering security confidence only; 2.0 QA switches OFF; no physical role-authorization certification or GO. C58 same real product v0.8.24 OCAuth-verified any oc-login now revokes prior C21a catalog coordinator lease and Owner photo PUT before new session rebind, even same-role Owner or admin; Team credential failure leaves old Owner client null. RED GH Actions 44681992293 18/21 PASS 3 FAIL, GREEN GH Actions 44682377422 21/21 PASS and source SHA head full 57/57 GH workflows GREEN, Cloudflare exact merged SHA 6723cf24... SUCCESS. +0.2 engineering security assurance only; no real physical Owner/Team QA, no commercial GO.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/858"
     },
     {
       "id": "photos",
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C57 +0.2 quality sync from real Workerd SQL three business receipts A/B/A no duplicate source QA using synthetic certified baseline. Not actual PC↔iPhone, no real Firebase/R2 integration and not GO. The historical Yjs -ops was intentionally skipped to avoid inventing a join; source only contributes QA uncertainty reduction.",
-  "assessedProductSha": "18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5",
+  "disclaimer": "Only source-based C58 real app auth epoch/lease revocation regression QA +0.2 security, no physical devices or real owner session observed. Prior C47 proof kept separate from newly closed admin/same-owner and credential error cases. QA flags OFF; GO0/6 physical0/5; no Firebase/R2 historic-money proof.",
+  "assessedProductSha": "6723cf24b87d2f6c1e8094188d024ae563dd4cde",
   "history": [
     {
       "review": "2026-11-17",
