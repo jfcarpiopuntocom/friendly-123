@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.19",
+  "version": "v0.8.20",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.19: C44 ajuste (stock.adjust con stockNuevo + opId durable) y abono (credit.payment.record emitido desde cartera/abonar) completos de punta a punta en mock-backend + sync-realtime OCSyncEmit -> sync-yjs -> -ops DO SQLite. Switch QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
+  "changelog": "v0.8.20: C47 conecta oc-login/oc-logout en docs/sync-yjs.js con cambiarRolComercial20 y failbackToLegacy (Owner↔Team empleado, demo y logout desarman escritores 2.0 y liberan -cat). Switch QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v819",
+  "shell": "f123-shell-v820",
   "apagar": [],
-  "releaseName": "v0.8.19",
-  "cacheGeneration": "golden355"
+  "releaseName": "v0.8.20",
+  "cacheGeneration": "golden356"
 }

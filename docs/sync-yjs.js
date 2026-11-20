@@ -3242,6 +3242,33 @@
           rol: estadoRol.rol
         };
       };
+      function _desarmarCorte20PorAuth(motivo) {
+        if (window.OCYjs && window.OCYjs !== API) return;
+        API.modoCorte20Activo = false;
+        API.corteFotosShaActivo = false;
+        API.fotoSha = null;
+        API.rolComercial20Activo = null;
+        try {
+          if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.failbackToLegacy === "function")
+            Promise.resolve(API.coordinadorCorte20.failbackToLegacy(motivo || "auth-reset")).catch(function () {});
+        } catch (_) {}
+      }
+      if (typeof window.addEventListener === "function") {
+        window.addEventListener("oc-logout", function () { _desarmarCorte20PorAuth("oc-logout"); });
+        window.addEventListener("oc-login", function (ev) {
+          if (window.OCYjs && window.OCYjs !== API) return;
+          var d = ev && ev.detail;
+          if (!d || d.demo === true || !d.rol) { _desarmarCorte20PorAuth("oc-login-demo"); return; }
+          var r = String(d.rol).trim().toLowerCase();
+          if (r !== "dueno" && r !== "admin" && r !== "empleado") { _desarmarCorte20PorAuth("oc-login-noncommercial"); return; }
+          if (!API.modoCorte20Activo && !API.corteFotosShaActivo && !API.rolComercial20Activo) return;
+          var fotosActivas = API.corteFotosShaActivo === true;
+          if (r === "empleado" && API.coordinadorCorte20 && typeof API.coordinadorCorte20.failbackToLegacy === "function") {
+            try { Promise.resolve(API.coordinadorCorte20.failbackToLegacy("role-switch-empleado")).catch(function () {}); } catch (_) {}
+          }
+          try { API.cambiarRolComercial20(r, { cortarLegadoFotos: fotosActivas }); } catch (_) {}
+        });
+      }
     } else {
       API.crearCoordinadorCorte20 = function () {
         return Promise.reject(new Error("certified cutover coordinator unavailable"));
