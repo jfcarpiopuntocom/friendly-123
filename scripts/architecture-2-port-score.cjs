@@ -189,7 +189,7 @@ function inspect(){
    const c36Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='stable-real-sale-opid-c36' && m.done);
    const c40Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-business-do-receipt-c40' && m.done);
     const c42Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-checkout-do-status-c42' && m.done);
-    assert.equal(full?.points,c42Done?1:(c40Done?1.5:(c36Done?2:2.5)),'fixed economics budget C36 + C40 + C42');
+    assert.equal(full?.points,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?0.5:(c42Done?1:(c40Done?1.5:(c36Done?2:2.5))),'fixed economics budget C36 + C40 + C42 + C44');
    assert.equal(full.done,false,'C34 must not certify production business dispatch');
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO for C34 QA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
@@ -236,7 +236,7 @@ function inspect(){
   const left=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='production-business-dispatch');
   const c40Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-business-do-receipt-c40' && m.done);
   const c42Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-checkout-do-status-c42' && m.done);
-  assert.equal(left?.points,c42Done?1:(c40Done?1.5:2),'commercial dispatch remains unearned after C42 QA');
+  assert.equal(left?.points,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?0.5:(c42Done?1:(c40Done?1.5:2)),'commercial dispatch remains unearned after C44 QA');
   assert.equal(left.done,false,'C36 does not retire business 1.0 path');
   assert.equal(data.commercialGo.certifiedGates,0,'no GO from QA');
   const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
@@ -335,11 +335,11 @@ function inspect(){
   assert.equal(oneDecimal(storage.milestones.reduce((a,m)=>a+m.points,0)),17,'C40 cannot change storage budget');
   const left=typed.milestones.find(m=>m.id==='production-business-dispatch');
   const c42Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-checkout-do-status-c42' && m.done);
-   assert.equal(left?.points,c42Done?1:1.5,'live business dispatch still unearned after C42 checkout status');
+   assert.equal(left?.points,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?0.5:(c42Done?1:1.5),'live business dispatch still unearned after C44 QA');
   assert.equal(left.done,false,'C40 is NOT a live customer cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C40 QA does not certify GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,c42Done?18.3:18.1);
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?18.5:(c42Done?18.3:18.1));
   const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
     'API.recibosComerciales20 = new Map();',
@@ -382,11 +382,11 @@ function inspect(){
   assert.equal(storage?.weight,17);
   assert.equal(oneDecimal(storage.milestones.reduce((a,m)=>a+m.points,0)),17,'C42 cannot steal storage budget');
   const residual=typed.milestones.find(m=>m.id==='production-business-dispatch');
-  assert.equal(residual?.points,1,'live production business dispatcher still unearned 1.0');
+  assert.equal(residual?.points,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?0.5:1,'live production business dispatcher remains unearned');
   assert.equal(residual.done,false,'C42 does not enable commercial production cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C42 synthetic QA cannot certify live store GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no real PC→Safari acceptance evidence');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.3,'business quality bounded +0.2 for C42 adversarial QA');
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?18.5:18.3,'business quality bounded by actual C42/C44 QA');
   const mock=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
   const facade=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
@@ -428,6 +428,62 @@ function inspect(){
    const hash='sha256-'+crypto.createHash('sha256').update(src.replace(/\r\n/g,'\n')).digest('hex');
    assert.equal(manifest.files['./'+name],hash,'C42 actual delivered browser source hash mismatch: '+name);
   }
+ }
+ // C45: award only merged C44 QA integrations, split from the fixed 1.0
+ // remaining live business-dispatch budget. Production cutover remains false.
+ const c44=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
+ if(c44?.done){
+   assert.equal(c44.points,0.5,'C44 is limited to 0.5 of existing economics budget');
+   assert.equal(c44.source,'docs/mock-backend.js');
+   const typed=data.groups.find(g=>g.id==='typed-economics');
+   assert.equal(oneDecimal(typed.milestones.reduce((a,m)=>a+m.points,0)),17,'fixed business budget');
+   assert.equal(typed.milestones.find(m=>m.id==='production-business-dispatch')?.points,0.5);
+   assert.equal(typed.milestones.find(m=>m.id==='production-business-dispatch')?.done,false,'live customer dispatcher still pending');
+   assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO from C44');
+   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A from C44');
+   assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.3);
+   assert.equal(quality.comparison.previousScore,76.8);
+   assert.equal(data.assessedProductSha,'be032b2b27fd52c299d8e1b6942d9b7bb2596934','exact C44 product merge SHA');
+   const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
+   const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
+   const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   const firstSeen=backend.indexOf('if (!movimientos.some(m=>m.detalle && m.detalle.movimientoId===recibo.id)) {');
+   const emit=backend.indexOf('window.OCSyncEmit("abono"',firstSeen);
+   const balance=backend.indexOf('const info = await window.AMG.Cartera.saldoDeCliente',firstSeen);
+   assert(firstSeen>0 && emit>firstSeen && balance>emit,
+     'abono must emit only for first durable receipt, not after retry');
+   assert(!/emitirOpStock\(["']abono["']/.test(backend.slice(firstSeen,balance)),
+     'no invented inventario_abono EventBus fact on duplicate payment');
+   assert(realtime.includes('window.OCSyncEmit = function (tipo, payload) {') &&
+     realtime.includes('t === "ajuste"') && realtime.includes('t === "abono"'),
+     'C44 real durable original opId guard for ajuste/abono absent');
+   assert(sync.includes('credit.customer.payment.record') && sync.includes('stock.adjust'),
+     'C44 real typed command translation absent');
+   const testPath='test/p0-c44-ajuste-abono-envelope-and-opid.test.cjs';
+   const workerdPath='cloudflare-yparty-worker/qa/p0-c44-ajuste-abono-workerd.test.mjs';
+   const payPath='test/customer-payment-browser.test.js';
+   for(const p of [testPath,workerdPath,payPath])assert(fs.existsSync(path.join(root,p)),'C44 exact-source regression missing '+p);
+   const test=fs.readFileSync(path.join(root,testPath),'utf8');
+   const worker=fs.readFileSync(path.join(root,workerdPath),'utf8');
+   const pay=fs.readFileSync(path.join(root,payPath),'utf8');
+   assert(test.includes('abono must emit window.OCSyncEmit') && test.includes('stock.adjust'),
+     'C44 source contracts missing');
+   for(const token of ['assert.equal(snap.stock, 8','assert.equal(snap.debt, 1500',
+     'assert.equal(snap.receipts, 2','assert.equal(snap.effects, 2']){
+     assert(worker.includes(token),'C44 real Workerd SQLite DO replay missing '+token);
+   }
+   assert(pay.includes("assert.deepEqual(final.facts,facts") &&
+     pay.includes("['Chromium',chromium],['WebKit',webkit]"),
+     'C44 real Chromium/WebKit lost-response retry regression absent');
+   const v=load('docs/version.json');
+   assert(Number((/^v0\.8\.(\d+)$/.exec(v.version||'')||[])[1]||0)>=19,'C44 requires v0.8.19+');
+   assert(Number((/^f123-shell-v(\d+)$/.exec(v.shell||'')||[])[1]||0)>=819,'C44 requires shell v819+');
+   const manifest=load('docs/version-manifest.json');
+   for(const [name,bytes] of [['mock-backend.js',backend],['sync-realtime.js',realtime],['sync-yjs.js',sync]]){
+     const digest='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
+     assert.equal(manifest.files['./'+name],digest,'C44 shipped SHA source mismatch '+name);
+   }
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
