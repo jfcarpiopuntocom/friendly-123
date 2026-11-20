@@ -1,0 +1,40 @@
+name: PORT2 C76 orphan typed economic payload requires receipt on cold reopen (native SQLite + Workerd)
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-yparty-worker/src/authoritative-business-sql.mjs'
+      - 'cloudflare-yparty-worker/qa/p0-c76-orphan-typed-payload-reopen.test.mjs'
+      - '.github/workflows/qa-port2-c76-orphan-payload-readback.yml'
+  push:
+    branches:
+      - 'port2/20261120-c76-economic-payload-receipt-bijection'
+permissions:
+  contents: read
+jobs:
+  receipt-payload-readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix cloudflare-yparty-worker --no-audit --no-fund
+      - name: C76 source-executed native SQLite 202 orphan payload RED to GREEN
+        run: node --test cloudflare-yparty-worker/qa/p0-c76-orphan-typed-payload-reopen.test.mjs
+      - name: C74 certified frozen price and occupied source cutover regression
+        run: node --test cloudflare-yparty-worker/qa/p0-c74-certified-prices-and-bootstrap.test.mjs
+      - name: C72 typed SHA receipts and economic effect bijection regression
+        run: node --test cloudflare-yparty-worker/qa/p0-c72-economic-effect-receipt-reconcile.test.mjs
+      - name: C68 original fiados and cash SQL readback regression
+        run: node --test cloudflare-yparty-worker/qa/p0-c68-economic-reopen-certified-effects.test.mjs
+      - name: Real Workerd partial payments roles and inventory counts
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-typed-payment-sql.test.mjs
+      - name: Real Workerd sale cash and durable receipt
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-business-sql-workerd.test.mjs
+      - name: Original100 architecture and commercial GO separate
+        run: |
+          node scripts/architecture-2-port-score.cjs --json
+          node --test test/p0-architecture-2-port-score.test.cjs
