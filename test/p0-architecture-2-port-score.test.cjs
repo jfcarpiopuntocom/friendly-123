@@ -158,7 +158,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  ])assert(c80Native.includes(token),'C81 actual source native SQLite RED-first evidence absent '+token);
  assert.equal(quality.lastAuditedProductSha,'8c34cb3d40fc987d537ce2c0ba54d75d6224027b');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(s.port,92.0);
@@ -189,7 +189,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(s.port,92.0);
 
  assert.equal(quality.lastAuditedProductSha,'8c34cb3d40fc987d537ce2c0ba54d75d6224027b');
@@ -352,7 +352,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
  assert.equal(quality.comparison.previousScore,79.9);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
   // C48 assessed SHA pinned to the actual PR844 merge source.
