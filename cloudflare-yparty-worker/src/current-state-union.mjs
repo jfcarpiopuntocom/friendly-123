@@ -39,14 +39,19 @@ function canonical(value,depth=0,key=''){
   return canonical(v,depth+1);
  }).join(',')+']';
  if(!object(value))refuse('unsupported payload');
- const keys=Object.keys(value).filter(k=>value[k]!==undefined).sort();
- return '{'+keys.map(k=>{
-  if(SECRET.has(k.toLowerCase()))refuse('forbidden credential in payload');
+ // Inspect descriptors BEFORE reading any untrusted values. A getter can mutate
+ // client state, so never execute one just to decide whether a field is absent.
+ const entries=[];
+ for(const k of Object.keys(value)){
   const desc=Object.getOwnPropertyDescriptor(value,k);
   if(!desc||!Object.hasOwn(desc,'value'))refuse('payload accessor rejected');
+  if(SECRET.has(k.toLowerCase()))refuse('forbidden credential in payload');
   if(k==='__proto__'||k==='constructor'||k==='prototype')refuse('unsafe field');
-  return JSON.stringify(k)+':'+canonical(value[k],depth+1,k);
- }).join(',')+'}';
+  if(desc.value!==undefined)entries.push([k,desc.value]);
+ }
+ entries.sort(([a],[b])=>compare(a,b));
+ return '{'+entries.map(([k,v])=>
+  JSON.stringify(k)+':'+canonical(v,depth+1,k)).join(',')+'}';
 }
 function deepFreeze(value){
  if(value&&typeof value==='object'){
