@@ -5,6 +5,46 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
+// C89 RED-FIRST: no extra points on the 2.0 transition until real Firebase HEAD,
+// R2 Service Binding and device acceptance; true 1.0 decimal/undefined import
+// interoperability earns only +0.1 in the ORIGINAL 100-point quality rubric.
+test('C89: merged C86 historical decimal abono import merits only 0.1 migration quality, fixed100',()=>{
+ const report=inspect();
+ assert.equal(report.port,92.0);
+ assert.equal(report.go,'0/6');
+ assert.equal(report.quality,80.1);
+ assert.equal(report.qualityBefore,80.0);
+ assert.equal(report.qualityDelta,0.1);
+ const q=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
+ const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
+ const byId=new Map(q.dimensions.map(d=>[d.id,d]));
+ assert.equal(q.lastAuditedProductSha,'129e5d45155c4eeb7052c246a5944696f17ce461');
+ assert.equal(byId.get('migration').score,7.8);
+ assert.equal(byId.get('migration').previous,7.7);
+ assert.equal(byId.get('security').previous,11.1);
+ assert.equal(q.dimensions.reduce((sum,d)=>sum+d.weight,0),100);
+ assert.equal(q.dimensions.reduce((sum,d)=>sum+d.previous,0),80.0);
+ assert.equal(p.groups.reduce((sum,g)=>sum+g.weight,0),100);
+ assert.equal(p.score,92);
+ assert.equal(p.commercialGo.certifiedGates,0);
+ const src=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/frozen-ops-baseline.mjs'),'utf8');
+ const qa=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/qa/p0-c86-frozen-ops-legacy-decimals.test.mjs'),'utf8');
+ for(const token of [
+  '!Number.isFinite(value)',
+  'Math.abs(value)>Number.MAX_SAFE_INTEGER',
+  'Object.is(value,-0)',
+  'Object.keys(value).filter(k=>value[k]!==undefined)'
+ ])assert(src.includes(token),'C89 requires merged real C86 legacy canonical source: '+token);
+ for(const token of [
+  'real 1.0 decimal abono.monto and optional undefined keys pass baseline, R2 packager, and Workerd SQLite reopen',
+  'monto:12.5',
+  'amountCents:1250',
+  'await packFrozenR2Archive(proofInput)',
+  'await prepareFrozenImport({',
+  'assert.equal(cold.already,true)'
+ ])assert(qa.includes(token),'C89 requires RED->GREEN native source/Workerd C86 evidence: '+token);
+});
+
 test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100 GO0/6',()=>{
  const s=inspect();
  assert.equal(s.port,92.0);
