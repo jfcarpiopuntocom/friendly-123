@@ -1,39 +1,45 @@
 # friendly-123 · PORTANDO LA MISMA APP arquitectura 1.0 → 2.0
 
-**C57 · 19-nov Ecuador / 20-nov UTC 2026.** Acreditar fuente real [C56 PR #856](https://github.com/jfcarpiopuntocom/friendly-123/pull/856) MERGED en producto `master@18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5`, usando injertos maduros Yjs, YParty y SQLite Durable Objects, con Sync3 integrado. `friendly123workshop` es solo plan/evidencia, no producto independiente.
+**C59 · 20-nov-2026 Ecuador**. Con fuente real [C58 PR #858](https://github.com/jfcarpiopuntocom/friendly-123/pull/858) **MERGED**, producto exacto `master@6723cf24b87d2f6c1e8094188d024ae563dd4cde` v0.8.24 / shell v824 / golden360. Injertos de Yjs/YParty y Cloudflare Durable Objects siguen dentro de la MISMA friendly-123, **Sync3 preservado**. Workshop solo plan/evidencia, no otra app.
 
-| Indicadores decimales con rúbricas INDEPENDIENTES fijas | C55 anterior | C57 comprobado | Variación |
+| Indicadores INDEPENDIENTES /100,0 con rúbrica invariable | C57 anterior | C59 fuente real | Delta |
 | --- | ---: | ---: | ---: |
-| **Migración arquitectura 1.0 → 2.0 integrada en la MISMA friendly-123** | 90,5/100,0 | **91,0/100,0** | **+0,5** |
-| **Calidad arquitectónica de ingeniería** | 78,3/100,0 | **78,5/100,0** | **+0,2** |
-| GO comercial certificado | 0/6 | **0/6** | 0 |
-| Dispositivos físicos PC Opera ↔ Safari/PWA iPhone | 0/5 | **0/5** | 0 |
+| **Migración de arquitectura 1.0 → 2.0 de la MISMA aplicación** | 91,0/100,0 | **91,5/100,0** | **+0,5** |
+| **Calidad arquitectónica** | 78,5/100,0 | **78,7/100,0** | **+0,2** |
+| GO comercial | 0/6 | **0/6** | 0 |
+| Validación física PC Opera ↔ iPhone Safari/PWA | 0/5 | **0/5** | 0 |
 
-La base post-D7 era 68,5; el aumento acumulado de capacidades integradas y pruebas de ingeniería es +22,5 puntos. **Ningún porcentaje significa que el 91% de tiendas ya use 2.0**: ambos switches QA permanecen OFF. La prueba Workerd utiliza dos navegadores simulados y NO prueba equipos reales.
+La migración partió de baseline post-D7 68,5; +23,0 ahora incorporados o verificados con código real y pruebas, NO implica 91,5% de tiendas activas. **QA flags OFF; no GO de clientes.**
 
-## Presupuesto invariable de 100,0 puntos
+## Presupuesto fijo de capacidades — 100,0 puntos
 
-| Capacidad | Acreditado | Peso fijo | Pendiente |
+| Grupo | Ganado | Peso original | Aún pendiente |
 | --- | ---: | ---: | ---: |
-| SQLite/Yjs, outbox, Web Locks, bootstrap QA | 16,5 | 17,0 | 0,5 |
-| Historia Firebase HEAD real y binding R2 | 13,5 | 18,0 | 4,5 |
+| SQLite/Yjs, outbox, Web Locks, bootstrap | 16,5 | 17,0 | 0,5 |
+| Historia Firebase HEAD REAL y R2 binding | 13,5 | 18,0 | 4,5 |
 | Economía tipada / recibos DO | 16,5 | 17,0 | 0,5 |
-| Roles Owner/Team / tickets / salas | 13,0 | 14,0 | 1,0 |
-| Fotos SHA y CAS Workerd | 8,0 | 9,0 | 1,0 |
-| Catálogo público / lector certificado | 10,0 | 10,0 | 0,0 |
-| Navegador / retiro de los cuatro emisores legacy QA | 9,5 | 10,0 | 0,5 |
-| **Failback: C56 3 recibos DO en A→B→A Workerd sintético** | **4,0** | 5,0 | **1,0 físico** |
-| **TOTAL** | **91,0** | **100,0** | **9,0** |
+| **Tickets y roles: C47 authEpoch + C58 revocar lease antiguo** | **13,5** | 14,0 | **0,5** |
+| Fotos SHA y CAS | 8,0 | 9,0 | 1,0 |
+| Catálogo público y lector certificado | 10,0 | 10,0 | 0,0 |
+| Browser: retiro envíos legados en QA | 9,5 | 10,0 | 0,5 |
+| Failback, Workerd y A→B→A QA | 4,0 | 5,0 | 1,0 |
+| **TOTAL** | **91,5** | **100,0** | **8,5** |
 
-## C56 · error de evidencia detectado y corregido en código de QA del producto
+## C58 · una causa raíz de seguridad cerrada en el SOURCE funcional
 
-- La [PR #854](https://github.com/jfcarpiopuntocom/friendly-123/pull/854) cerrada SIN MERGE ejecutaba Workerd con fuente desactualizada C52, asumía que el canal viejo principal publicaba durante 2.0 (C54 ya lo prohíbe) y confudía `opsMap.size===0` / IDB fence con un recibo **`business-committed`**.
-- [C56 PR #856 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/856) en 18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5; SHA candidato `dda644b448542bb67c329f5e73179ce0a4a3084a`, **11/11 GitHub workflows verdes** sobre la misma app, C56 1/1 focal [run 44679028373](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44679028373) Workerd2,29s, cero FAIL/SKIP. Cloudflare Workers Builds **SUCCESS** exact merge SHA 18ba9ee5b1b575488dfe4ec34a1855bbb009a7e5, UUID `efe7435a-0c54-411e-8d89-d98ae93c3969`.
-- RED real anterior [run 44678705439](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44678705439): sin baseline SQL independientemente certificado, no hubo recibo de la primera venta. Un 202 / cola / bloqueo de duplicados no se confunde con ACK comercial. GREEN usa *solo en QA* fixture que ya existía `qa/fixtures/seeded-real-yparty-business-worker.mjs`; la clase real Tienda y su SQL económico quedan sin modificar.
-- **Prueba positiva concreta:** Device A realiza `sale.record` (stock5→4; cash500→2000 centavos), luego `stock.adjust` físico a9 (sin dinero); Device B realiza otra venta (stock9→8, cash2000→3500 centavos); Device A regresa, el viejo relay no revierte estado y el replay de `opId` no duplica. Readback SQL Workerd **stock8, cash3500, effects3, receipts3, deuda3000 sin cambio**. Tres recibos `business-committed`, no tres meras solicitudes.
-- Frontera deliberada: la QA **omite historia congelada Yjs -ops mientras instala baseline SQL sintético** para no inventar una reconciliación de hechos históricos reales con dinero. Frozen -cat sigue verificado. Requiere certificación real Firebase HEAD + checksum económico + R2 antes del primer cliente. No se acredita historial real, PIN, GO ni 2 ciclos físicos.
-- C57 test de score [plan PRECODE en workshop](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c57-c56-business-cross-device-qa-score-fixed100-precode.md) RED auténtico [Actions C12 44679617096](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44679617096) `90.5 !== 91` contra JSON antes de cambios. GREEN score condicionado a CI y merge final C57.
-- Cuota original offline-failback5: `verified-cross-device-downpath` 1,5 PENDING se divide en **C56 0,5 DONE QA** y **downpath físico1,0 PENDING**. Calidad `sync`15,7→15,9/20 por pruebas de Workerd multi-operación, sin tocar `physical`0/5. Ley de NO doble crédito.
+- **Antes** `docs/sync-yjs.js` protegía `oc-logout` y Owner→empleado, pero para `oc-login` legítimo **Owner→admin** o **Owner→Owner** no soltaba el coordinador anterior que aún podía tener el lease -cat abierto; el segundo caso podía mantener `modoCorte20Activo=true` a través de otra sesión. Si fallaba crear credenciales Team, el `catch` dejaba referencia a la foto SHA Owner anterior (PUT permitido).
+- **Prueba RED auténtica** [Actions 44681992293](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44681992293) **18/21 PASS, 3 FAIL** antes de tocar source; exactamente admin lease, Owner re-login writer, failed Team foto Owner. [PRECODE Ponytail](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c58-auth-role-epoch-coordinator-lease-precode.md).
+- **GREEN mínima:** un `oc-login` tras validar `OCAuth.rolActual/esDemo` incrementa `__authEpoch20`, revoca **sincrónicamente** modo comercio, fotoSha, corteFotosShaActivo y rol, libera lease de C21a `coordinadorCorte20.failbackToLegacy` para **cualquier** rol autentificado (admin, dueno y empleado) y recién entonces construye nuevo cliente de fotos verificado. Si la fábrica Team arroja, el viejo Owner PUT **permanece NULL**, sin rearmar 2.0. C47 falsificación/demos y logout mantienen guardas; Sync3 no se sustituyó.
+- **[C58 PR #858 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/858)** en código real `6723cf24b87d2f6c1e8094188d024ae563dd4cde`, candidato final `6acd5788a4f9baa133cfe0f24608e76721f1df29`, **57/57 GitHub workflows SUCCESS** incluso release-control, C47, Safari/WebKit/Chromium y P0 completo. [C58 focal GREEN Actions 44682377422](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44682377422) **21/21 PASS, 0 FAIL/SKIP**. Cloudflare Workers Builds exact merged SHA **SUCCESS**, UUID `f8112acd-fbae-4eaf-8beb-9be734e9ad15`.
+- Shell `v824` / cache `golden360`; dashboard y `docs/version-manifest.json` sellan SOURCE SHA256 `28579269940918eb3ef674422bbce95039393106479caf0e6c4a37bb0f54f50d`; sin activar flags QA ni tocar PIN, dinero o datos clientes.
+
+## C59 · ganancia limitada y no doble contada
+
+- [PRECODE score C59](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c59-c58-auth-lease-quality-fixed100-precode.md) antes de editar. TDD RED [Actions C12 44683790310](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44683790310): `91 !== 91.5` en test sobre baseline tras C58 fusionado. Solo entonces modificar puntuaciones.
+- Cuota original `identity-rooms` peso **14,0**: `commercial-role-switch` **1,0 PENDING** se divide `c58-verified-login-revokes-old-catalog-lease` **0,5 DONE de ingeniería/source QA**, y `commercial-role-switch` **0,5 PENDING** para permisos y sala real física/comercial. Calidad `security`10,5→10,7/15 (+0,2). No sumar puntos por C47 ya acreditado, no tocar física0/5 ni GO0/6.
+- C59 cambia únicamente score JSON/validador/test/documentación, pin a fuente real C58 SHA; **CI y merge C59 deben finalizar para que la puntuación sea oficial**. Sin nuevo runtime/proveedor/workshop producto, ni certificación de datos Firebase/DO real.
+
+## Historial C57 / C55 y anterior
 
 ## Historial C55 y anterior
 
