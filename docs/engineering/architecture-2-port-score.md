@@ -1,36 +1,39 @@
-# friendly-123 · PORTANDO la MISMA app, arquitectura 1.0 → 2.0 · métricas decimales auditables
+# friendly-123 · PORTANDO la misma aplicación arquitectura 1.0 → 2.0
 
-**Corte C53 (19 nov Ecuador / 20 nov UTC 2026).** Se evalúa solo el código fusionado en `jfcarpiopuntocom/friendly-123`, [PR #851](https://github.com/jfcarpiopuntocom/friendly-123/pull/851) SHA **`b223fe801ec9599949f135423551e63cf89105c4`**, **v0.8.22 / shell v822 / golden358**. Sync3 permanece integrado; `friendly123workshop` únicamente guarda planes/pruebas, no es un producto alternativo.
+**C55 · 19 nov Ecuador / 20 nov UTC 2026**. Auditoría de código REAL fuente [C54 PR #853](https://github.com/jfcarpiopuntocom/friendly-123/pull/853) fusionado `6022725cd0d30ec42f6efbe0b35dd036221a762c`, v0.8.23 / shell v823 / golden359. Mismo repositorio `jfcarpiopuntocom/friendly-123`, **Sync3 integrado**, workshop solo guarda evidencia y precode.
 
-| Indicador independiente de rúbrica fija | Antes C52 | C53 comprobado | Variación |
+| Indicador (rúbrica independiente fija de 100,0) | C53 anterior | C55 real | Delta |
 | --- | ---: | ---: | ---: |
-| **Capacidades de migración arquitectura 1.0 → 2.0 integradas en la app real** | 89,5/100,0 | **90,0/100,0** | **+0,5** |
-| **Calidad de ingeniería arquitectónica** | 77,9/100,0 | **78,1/100,0** | **+0,2** |
+| **Migración arquitectura 1.0 → 2.0 de la MISMA friendly-123** | 90,0/100,0 | **90,5/100,0** | **+0,5** |
+| **Calidad arquitectónica de ingeniería** | 78,1/100,0 | **78,3/100,0** | **+0,2** |
 | GO comercial certificado | 0/6 | **0/6** | 0 |
-| Prueba física PC↔Safari/PWA | 0/5 | **0/5** | 0 |
+| QA físico PC Opera ↔ Safari/PWA iPhone | 0/5 | **0/5** | 0 |
 
-**Migración** mide cobertura comprobable de injertos ensamblados en el mismo código, no tiendas ya usando 2.0. Desde base D7 de 68,5 el cambio acumulado es **+21,5 puntos**. **Calidad** es confianza de ingeniería, no SLO, ni autorización para clientes; los dos flags de 2.0 siguen **OFF** por defecto.
+El cambio desde la base post-D7 de 68,5 es +22,0 puntos ganados en capacidades integradas; NO significa que el 90,5% de tiendas operen en 2.0. Ambos flags QA siguen **OFF por defecto**, no hubo activación comercial, modificación de PIN ni cliente físico.
 
-## Presupuesto original de 100,0 puntos — nada añadido
+## Presupuesto original de 100,0 puntos
 
-| Capacidad | Acreditado | Peso fijo | Pendiente |
+| Capacidad | Acreditado | Peso | Pendiente |
 | --- | ---: | ---: | ---: |
 | SQLite/Yjs, outbox, Web Locks, bootstrap QA | 16,5 | 17,0 | 0,5 |
-| Historia Firebase HEAD y R2 | 13,5 | 18,0 | 4,5 |
+| Historia Firebase HEAD real y binding R2 | 13,5 | 18,0 | 4,5 |
 | Economía tipada / recibos DO | 16,5 | 17,0 | 0,5 |
 | Roles Owner/Team / tickets / salas | 13,0 | 14,0 | 1,0 |
-| Fotos SHA + CAS Workerd | 8,0 | 9,0 | 1,0 |
+| Fotos SHA y CAS Workerd | 8,0 | 9,0 | 1,0 |
 | Catálogo público / lector certificado | 10,0 | 10,0 | 0,0 |
-| **Navegador: C52 3 emisores Yjs antiguos bajo corte 2.0** | **9,0** | 10,0 | **1,0** |
-| Failback / A→B→A físicos | 3,5 | 5,0 | 1,5 |
-| **TOTAL** | **90,0** | **100,0** | **10,0** |
+| **Navegador: tres emisores C52 + emisor primario C54** | **9,5** | 10,0 | **0,5** |
+| Failback y pruebas físicas A→B→A ×2 | 3,5 | 5,0 | 1,5 |
+| **TOTAL** | **90,5** | **100,0** | **9,5** |
 
-## C52 v0.8.22: causa raíz cerrada con alcance limitado
+## C54 · una sola causa raíz cerrada con Ponytail
 
-- [PR #851](https://github.com/jfcarpiopuntocom/friendly-123/pull/851) fusionada en la **app real**, SHA `b223fe801ec9599949f135423551e63cf89105c4`, **55/55 workflows GitHub verdes** sobre HEAD `660fa475939261f30465e73dab8f3caa2433a950`. `docs/sync-yjs.js` omite `canalSombra.enviarUpdate` y `opsCanal.enviarUpdate` mientras `API.modoCorte20Activo`; omite `fotosCanal.enviarUpdate` mientras `API.corteFotosShaActivo`. Cuando vuelve a legacy, los tres envíos reanudan. `API.canal` sigue activo; NO se afirma retiro total de escritor 1.0.
-- `test/p0-c52-legacy-channel-retirement.test.cjs` ejecuta *handlers* del código real en VM y verifica conmutación ON/OFF y reversión. Las regresiones C51 Web Locks, C47 roles, C38 único escritor, Workerd C49, release-control y finanzas continuaron verdes. **No equivale** a prueba física PC↔Safari/PWA ni a canario comercial.
-- La original partida `typed-delta-and-legacy-retirement` pendiente1,5 se divide en **`c52-legacy-yjs-senders-retired-under-cutover` 0,5 DONE** y **retiro integral 1,0 pendiente**. Calidad suma **+0,2 en migration** (de 7,3 a 7,5/10) por código y test real; sin tocar pesos, flags, Sync3, Cloudflare de clientes o datos.
-- [Plan PRECODE Ponytail persistente](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c53-c52-legacy-senders-reconcile-pr851-precode.md). Las métricas se acreditan con PR independiente C53, RED→GREEN y SHA final de código v0.8.22; un informe simulado nunca acredita puntos.
+- Antes: aunque C52 suprimía `canalSombra`, `fotosCanal` y `opsCanal` bajo corte 2.0, el sender `API.canal.enviarUpdate(update)` no comprobaba si `usarRelayHabitual()` había elegido como canal principal el viejo `API.canalSombra` tras caer el piloto. Eso podía reactivar escritura legado durante modo comercial 2.0.
+- Ahora `docs/sync-yjs.js` conserva el canal primario real YParty `API.canal===API.canalPiloto` aun bajo 2.0, pero **corta el primario cuando apunta al relay viejo**. Tras failback con modo 2.0 OFF, viejo canal/sombra reanudan una vez. No se reescribe Sync3 ni se crea sincronizador.
+- [PR #853 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/853) SHA `6022725cd0d30ec42f6efbe0b35dd036221a762c`; candidato final `545cfe0da95da36c54e83d1f3f7e49de0a8c8ecd` **55/55 GitHub Actions verde**, incluso C52 negativo/positivo, ventas/finanzas/stock/Safari WebKit, release-control. **Cloudflare Workers Builds SUCCESS exacto SHA master**, UUID `d0658871-edb8-46f7-9ee0-84f4bbb1cbf2`. La prueba inicial RED [Actions 44674545607](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44674545607) detectó envío al legado al seleccionar fallback.
+- TDD C55 solo score: [plan PRECODE](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c55-c54-primary-fallback-score-fixed100-precode.md); RED real [Actions 44676401119](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44676401119) `90 !== 90.5` antes de scorecards; luego score/manifest/test validados. **Acreditar solo tras fusionar la PR de puntuación**.
+- Rúbrica browser-cutover original10: `typed-delta-and-legacy-retirement` PENDING1.0 → `c54-primary-fallback-old-yjs-writer-fence` 0,5 DONE + retiro integral 1.0/comercial/físico 0,5 aún PENDING. Calidad migration de7,5 a7,7/10, solo ingeniería. No atribuir certificación de historia Firebase real ni R2, y el ledger P0 de PR #841 sigue reservado.
+
+## Historial previo
 
 ## Historial C49 / C51 / C52 y métricas previas
 
