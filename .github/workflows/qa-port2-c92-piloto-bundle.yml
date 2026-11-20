@@ -37,7 +37,7 @@ jobs:
       - name: Client typed-ops + built bundle + SW/manifest QA
         run: |
           set -euo pipefail
-          bash scripts/check-sw.sh
+          bash check-sw.sh
           node --test test/p0-c15-typed-ops-client.test.cjs test/p0-yparty-client-built-bundle.test.cjs test/p0-c68-browser-photo-cutover-ui-seeding.test.cjs test/p0-v637-manifest.test.cjs
       - name: Worker catalog projection + Workerd pilot E2E QA
         working-directory: cloudflare-yparty-worker
