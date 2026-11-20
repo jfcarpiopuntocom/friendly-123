@@ -165,7 +165,7 @@ async function fetchSignedPage(env,room,channel,index,deadline){
    const request=new Request('https://internal-history-source.invalid/v1/frozen',{
     method:'POST',cache:'no-store',credentials:'omit',redirect:'manual',
     referrerPolicy:'no-referrer',signal:controller.signal,
-    headers:{authorization:'Bearer '+env.WS_SERVICE_KEY,'content-type':'application/json'},
+    headers:{authorization:'Bearer '+frozenSourceKey(env),'content-type':'application/json'},
     body:JSON.stringify(index===1?{room,channel}:{room,channel,chunk:index})
    });
    const response=await env.WS_FROZEN_HISTORY_SOURCE.fetch(request);
@@ -181,12 +181,17 @@ async function fetchSignedPage(env,room,channel,index,deadline){
  throw fail();
 }
 
+// C91: the frozen source gets its own least-privilege key; the licencias WS_SERVICE_KEY never leaves for it when set.
+function frozenSourceKey(env){
+ return env?.WS_FROZEN_SOURCE_KEY!==undefined?env.WS_FROZEN_SOURCE_KEY:env?.WS_SERVICE_KEY;
+}
+
 export async function readTrustedFrozenSource({env,room,channel}={}){
  if(env?.WS_OPEN_EXISTING_QA!=='1'||env.WS_AUTHORITY_QA!=='1'||
   env.WS_SEPARATE_ROOMS_QA!=='1'||!ROOM.test(room||'')||
   !['cat','ops'].includes(channel)||room!==env.SALA_PILOTO+'-'+channel||
   typeof env.WS_FROZEN_HISTORY_SOURCE?.fetch!=='function'||
-  typeof env.WS_SERVICE_KEY!=='string'||env.WS_SERVICE_KEY.length<32)throw fail();
+  typeof frozenSourceKey(env)!=='string'||frozenSourceKey(env).length<32)throw fail();
  let stage='fetch';
  const deadline=Date.now()+GLOBAL_TIMEOUT_MS;
  try{
