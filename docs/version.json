@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.17",
+  "version": "v0.8.18",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.17: C40 registra recibo autoritativo DO 1-a-1 (API.obtenerReciboComercial20 + evento oc-op-20-recibo) desde despacharOpComercialCertificada sin duplicar stock ni caja en failback. Switch QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
+  "changelog": "v0.8.18: C42 observa estado real de recibo 2.0 en mock-backend (confirmado-do vs 202 pendiente-reconciliacion-do vs cuarentena-do vs dispatch-rejected) sin falso ACK remoto ni doble legado. Switch QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v817",
+  "shell": "f123-shell-v818",
   "apagar": [],
-  "releaseName": "v0.8.17",
-  "cacheGeneration": "golden353"
+  "releaseName": "v0.8.18",
+  "cacheGeneration": "golden354"
 }

@@ -3043,6 +3043,8 @@
         duplicate: Boolean(res.duplicate),
         quarantine: Boolean(res.quarantine),
         fallbackLegacy: Boolean(res.fallbackLegacy),
+        reconcileRequired: Boolean(res.reconcileRequired),
+        retryable: Boolean(res.retryable),
         stage: (res.receipt && res.receipt.stage) || res.stage || null,
         receipt: res.receipt || null,
         recordedAt: Date.now()
@@ -3077,6 +3079,16 @@
         return Promise.resolve(API.coordinadorCorte20.submitCommercial(comando)).then(function (res) {
           _registrarReciboComercial20(comando && comando.opId, res);
           return res;
+        }).catch(function (err) {
+          _registrarReciboComercial20(comando && comando.opId, {
+            committed: false,
+            duplicate: false,
+            quarantine: false,
+            fallbackLegacy: false,
+            reconcileRequired: true,
+            stage: "dispatch-rejected"
+          });
+          throw err;
         });
       };
       // C29: Safari reload may publish a legacy operation BEFORE the explicit
