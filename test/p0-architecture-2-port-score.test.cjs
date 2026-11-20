@@ -5,13 +5,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C77: C76 orphan typed 202 economic receipt readback verified source, fixed100 GO0/6',()=>{
+test('C79: C78 canonical SHA for pending expense/customer payments source, fixed100 GO0/6',()=>{
  const s=inspect();
  assert.equal(s.port,92.0);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,23.5);
- assert.equal(s.quality,79.7);
- assert.equal(s.qualityBefore,79.6);
+ assert.equal(s.quality,79.8);
+ assert.equal(s.qualityBefore,79.7);
  assert.equal(s.qualityDelta,0.1);
  assert.equal(s.go,'0/6');
  // C77 only credits actual C76 merged source & native RED-first QA.
@@ -121,7 +121,36 @@ test('C77: C76 orphan typed 202 economic receipt readback verified source, fixed
 
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
- assert.equal(quality.lastAuditedProductSha,'53d4aa15fbd486dd593fc407814adc6cc707cd0a');
+
+ // C79 credits only merged C78 source + real RED-first typed 202 SQL tests.
+ // Expense and customer payment are queued-only; SHA from mature noble, no
+ // claim of a real Firebase cutover, money effect or physical iPhone GO.
+ const c78=fs.readFileSync(path.join(__dirname,
+  '../cloudflare-yparty-worker/src/authoritative-business-sql.mjs'),'utf8');
+ const c78QA=fs.readFileSync(path.join(__dirname,
+  '../cloudflare-yparty-worker/qa/p0-c78-pending-expense-customer-sha-readback.test.mjs'),'utf8');
+ for(const token of [
+  "'expense.record':{detail:'categoryId',quantity:false,queuedOnly:true}",
+  "'credit.customer.payment.record':{detail:'clienteId',quantity:false,queuedOnly:true}",
+  'if(!contract)deny();',
+  'sha256(new TextEncoder().encode(canonicalPayload))',
+  'if(contract.queuedOnly)deny();'
+ ])assert(c78.includes(token),'C79 audited actual C78 queued SHA source missing '+token);
+ for(const token of [
+  'C78 RED P0: changing queued expense amount without original SHA must fail frozen reopen',
+  'C78 RED P0: changing queued customer payment clienteId without SHA must fail frozen reopen',
+  'C78 RED P0: unknown 202 kind with self-consistent SHA cannot masquerade as typed command',
+  'C78 control: queued expense + customer payment preserve genuine 202 SHA, no money/effects',
+  'C78 control: queued sale 202 and committed sale + fiado remain correct'
+ ])assert(c78QA.includes(token),'C79 actual C78 RED-first SQL evidence missing '+token);
+ assert.equal(quality.lastAuditedProductSha,'2980aa59f3345b757a9e504465c54fd6b703987d');
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
+ assert.equal(s.port,92.0);
+
+ assert.equal(quality.lastAuditedProductSha,'2980aa59f3345b757a9e504465c54fd6b703987d');
  const ms=port.groups.flatMap(g=>g.milestones);
  assert.equal(port.maximum,100);
  assert.equal(quality.maximum,100);
@@ -227,7 +256,7 @@ test('C77: C76 orphan typed 202 economic receipt readback verified source, fixed
  assert.equal(ms.find(m=>m.id==='real-auth-role-epoch-qa-c47')?.source,'docs/sync-yjs.js');
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false,'unearned real role switch');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
@@ -270,7 +299,7 @@ test('C77: C76 orphan typed 202 economic receipt readback verified source, fixed
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
@@ -280,8 +309,8 @@ test('C77: C76 orphan typed 202 economic receipt readback verified source, fixed
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,79.6);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.8);
+ assert.equal(quality.comparison.previousScore,79.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
   // C48 assessed SHA pinned to the actual PR844 merge source.

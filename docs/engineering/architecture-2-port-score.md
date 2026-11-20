@@ -1,5 +1,26 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C79 · 20-nov-2026 Ecuador · Integridad SHA en gastos y pagos de clientes 202, calidad79,8
+
+Se PORTA la **MISMA friendly-123** 1.0→2.0 con injertos OSS maduros. Sync3 YA forma parte de2.0 y se conserva; workshop es solo QA/PRECODE, funcionalidad en `jfcarpiopuntocom/friendly-123`. [C78 PR fuente #879 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/879), producto `master@2980aa59f3345b757a9e504465c54fd6b703987d`. **16/16 GitHub Actions** en el HEAD fuente `a6beab3e8a5c6046824c6776bfffa804c6f01e9e` GREEN, **Cloudflare Workers Builds API GET cuenta real, branch master, SHA EXACTA `2980aa59f3345b757a9e504465c54fd6b703987d` SUCCESS**, build `8540651c-9dfc-4d52-ae59-aa46377e44d3`. Sin cambios en cliente, Sync3, Cloudflare settings, R2 ni PIN.
+
+| Indicadores sobre **dos presupuestos originales fijos100** | C77 previo | C79 actual | Cambio |
+| --- | ---: | ---: | ---: |
+| **Transición de misma friendly-123 1.0→2.0** | 92,0/100,0 | **92,0/100,0** | 0,0 |
+| **Calidad arquitectónica** | 79,7/100,0 | **79,8/100,0** | +0,1 |
+| Dimensión Security | 10,9/15,0 | **11,0/15,0** | +0,1 |
+| Dimensión Business | 18,9/20,0 | **18,9/20,0** | 0,0 |
+| GO comercial | 0/6 | **0/6** | 0 |
+| Física PC Opera↔Safari/PWA iPhone | 0/5 | **0/5** | 0 |
+
+**Causa raíz C78 (independiente de C76):** El ledger SQL tipado ya guarda cinco kinds, incluyendo gastos `expense.record` y pagos de clientes `credit.customer.payment.record` como `stored-for-application` 202 **sin efecto económico**. Al reabrir una base certificada C72/C76, `verifyTypedBusinessEffects` validaba JSON canónico/SHA256 de venta, stock y fiado pero **omitía** las dos clases queued-only con `if(!contract)...continue`. Alterar importe de gasto202 o el `clienteId` de un pago202 conservando el hash original obtenía falso `already:true`; también aceptaba `kind` desconocido sintético como 202. **RED genuino [Actions44758958830](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44758958830)** nativo Node22 SQLite+ledger REAL: 3/6 PASS y 3/6 FAIL por `Missing expected exception`; controles de ambos 202 válidos, venta200+abono parcial y tenant isolation PASS. **GREEN definitivo [Actions44759148908](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44759148908)** C78 **6/6**, C76 6/6, C74 5/5, C72 11/11, C68 8/8, Workerd cobros2/2 y ventas2/2, score original100 PASS. Cambio mínimo en `cloudflare-yparty-worker/src/authoritative-business-sql.mjs`: ampliar `contracts` a cinco tipos, los dos nuevos `queuedOnly:true`, verificar SHA existente con injerto MIT `@noble/hashes@2.4.0` a todos, rechazar tipos desconocidos y cualquier efecto/200 de clase queued-only, conservar dinero y stock. No hay módulo nuevo de pagos ni rediseño.
+
+**C79 SCORE solo calidad Security +0,1** porque protege integridad y autenticidad interna del payload 202 con SHA, sin duplicar crédito de C76 (payload→receipt) o C74 (precio certificado). Budget original100 se conserva; **transición92,0 con 8,0 puntos no ganados**, Firebase HEAD económico REAL2,0, Service Binding/R2 REAL2,0, operacional/roles/fotos/failback físico4,0. GO0/6 físico0/5, flags QA OFF. [C78 PRECODE](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c78-pending-expense-customer-payment-sha-precode.md), [C79 PRECODE](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c79-c78-queued-expense-customer-sha-security79p8-precode.md) persistidos ANTES de edit. Reservas PR871 Yjs, PR868 fotos y PR841 ledger intactas. La verificación SHA dentro de DO SQL no es prueba de firma externa ni del estado económico real de Belén; Cloudflare build tampoco es autorización de uso comercial.
+
+---
+
+### Histórico · C77 y anteriores
+
 ## C77 · 20-nov-2026 · payload↔recibo económico 202 completo y dos métricas originales /100
 
 Se PORTA la **MISMA friendly-123** 1.0→2.0 mediante componentes OSS maduros, Sync3 YA es2.0 y se conserva, workshop solo QA/PRECODE. [C76 source PR #877 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/877) en `master@53d4aa15fbd486dd593fc407814adc6cc707cd0a`. **15/15 GitHub workflows del HEAD fuente `e46f587ee5a00710a5041fa7bab76d3adf404773` SUCCESS**, Cloudflare Workers Builds GET cuenta real SHA exacta master **SUCCESS** UUID `b35b11b1-134f-4576-8f96-edce535e5333`. No se modificó cliente/Sync3/Cloudflare settings ni datos de clientes.
