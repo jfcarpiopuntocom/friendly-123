@@ -108,3 +108,14 @@ test('C93 RED: fail closed for single source or no commercial facts, never claim
  const empty=planForwardCurrentUnion({observations:[obs(A),obs(B)]});
  assert.equal(empty.readyForAuthenticatedSeal,false);
 });
+
+test('C93 security: untrusted observed fact with accessor must be refused WITHOUT invoking getter',()=>{
+ let calls=0;
+ const payload=Object.create(null);
+ Object.defineProperty(payload,'kind',{enumerable:true,value:'sale.record'});
+ Object.defineProperty(payload,'amountCents',{enumerable:true,get(){calls++;throw Error('evil getter ran');}});
+ assert.throws(()=>planForwardCurrentUnion({observations:[
+  obs(A,[{opId:'sale_c93_099',payload}]),obs(B)
+ ]}),/accessor/i,'must not access evil getter');
+ assert.equal(calls,0,'no accessor evaluation while observing current user state');
+});
