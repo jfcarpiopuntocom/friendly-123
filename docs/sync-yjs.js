@@ -4277,7 +4277,7 @@
     // store -> Yjs. Add/update por id; nunca borra del Y.Map (add-only también
     // aguas arriba). Las bajas de equipo viajan como tombstone (borrado:true),
     // que catalogoPropio() sí incluye, así que la baja converge igual.
-    function sembrar() {
+    function sembrar(soloProductoId) {
       if (_aplicando) return;
       var cat;
       try { cat = window.OCSync.catalogoPropio(); } catch (_) { return; }
@@ -4304,7 +4304,9 @@
       try {
         API.doc.transact(function () {
           COLECCIONES_BATCH.forEach(function (col) {
+            if (soloProductoId && col !== "productos") return;
             var filas = cat[col] || [];
+            if (soloProductoId) filas = filas.filter(function (r) { return r && String(r.id) === String(soloProductoId); });
             filas.forEach(function (r) {
               if (!r || r.id == null) return;
               var k = String(r.id);
@@ -4568,7 +4570,7 @@
              while the remote CRDT history and credentials are still loading.
              Never give that stale bootstrap name owner authority in the
              shared doc. Resume ordinary name changes after confirmed pull. */
-          if (cat.nombreNegocio && !(API.canal && API.canal.recuperando)) {
+          if (!soloProductoId && cat.nombreNegocio && !(API.canal && API.canal.recuperando)) {
             var soyDueno = miRol === "dueno";
             var yaEsDueno = API.meta.get("nombreEsDueno") === true;
             /* DESEMPATE DETERMINISTA (v283, JFC 2026-09-15). Antes un dueño pisaba
@@ -4598,7 +4600,7 @@
               API.meta.set("nombreEsDueno", false);
             }
           }
-          if (cat.pinsRol && miRol && !(API.canal && API.canal.recuperando)) {
+          if (!soloProductoId && cat.pinsRol && miRol && !(API.canal && API.canal.recuperando)) {
             var pinsPrev = API.meta.get("pinsRol") || {}, pinsNext = Object.assign({}, pinsPrev);
             // A fresh device must never publish factory/demo PINs over the team's credentials.
             [["owner", "789"], ["emp", "260"], ["acct", "357"]].forEach(function (role) {
@@ -4617,6 +4619,10 @@
           }
         }, "seed"); // origin "seed": estos updates no deben re-aplicarse al store
       } catch (e) { log("sembrar:", e && e.message); }
+      // A confirmed count only needs its one product in the existing Y.Doc.
+      // The ordinary scheduled seed still handles photos, sales and finances;
+      // avoid a synchronous whole-shop fanout on Safari's manual-count path.
+      if (soloProductoId) return;
       // B3: publicar al doc de fotos los blobs de perchas Y productos que tienen
       // foto. Antes se asegura que las fotos de PRODUCTO tengan hash (v290): una
       // foto recien puesta se hashea y se publica sin esperar a reconectar.
@@ -4648,7 +4654,7 @@
       // Queued remote merges can supersede a local count during its commit:
       // never republish the obsolete epoch as a supposedly fresh fact.
       if (!p || String(p.stockEpochId || "") !== String(epoca)) return false;
-      sembrar(); // Y.Doc transaction/update happens in this very task
+      sembrar(productoId); // one-product Y.Doc transaction in this very task
       var shared = API.mapas.productos.get(String(productoId));
       return !!(shared && String(shared.stockEpochId || "") === String(epoca) &&
         Number(shared.stockActual) === Number(p.stockActual));
