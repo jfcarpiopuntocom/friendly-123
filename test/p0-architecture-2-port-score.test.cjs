@@ -5,13 +5,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C81: C80 absolute physical stock counts causal readback source, fixed100 GO0/6',()=>{
+test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100 GO0/6',()=>{
  const s=inspect();
  assert.equal(s.port,92.0);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,23.5);
- assert.equal(s.quality,79.9);
- assert.equal(s.qualityBefore,79.8);
+ assert.equal(s.quality,80.0);
+ assert.equal(s.qualityBefore,79.9);
  assert.equal(s.qualityDelta,0.1);
  assert.equal(s.go,'0/6');
  // C77 only credits actual C76 merged source & native RED-first QA.
@@ -119,6 +119,19 @@ test('C81: C80 absolute physical stock counts causal readback source, fixed100 G
  assert(c64.includes('C64 RED P0: receipt cannot ACK a cold reopened room'));
  assert(c64.includes('C64 RED P0: a legacy snapshot cannot impersonate the missing blocked frozen import'));
 
+ // C85 requires C84's actual merged consumer + adversarial source-executed QA.
+ // Read-only R2 manifest gate does NOT certify Firebase HEAD, binding or GO.
+ const c84Src=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/trusted-frozen-source.mjs'),'utf8');
+ const c84QA=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/qa/p0-c84-strict-r2-pinned-manifest.test.mjs'),'utf8');
+ assert(c84Src.includes("if(env.WS_R2_MANIFEST_REQUIRED_QA==='1')throw fail();"),'C85 strict source guard missing');
+ for(const token of [
+  'C84 RED P0: R2-only strict flag refuses a legacy V1 source self-attesting complete HEAD',
+  'C84 compatibility control: existing legacy V1 numeric frames stay usable when opt-in R2 strict mode is OFF',
+  'C84 control: real paged V2 source with consistent page/root hashes and strict R2 flag',
+  'C84 negative: strict mode rejects damaged paged page digest',
+  'C84 control: QA cutover OFF denies before any R2 or legacy source network access'
+ ])assert(c84QA.includes(token),'C85 merged C84 QA lacks '+token);
+
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
 
@@ -143,10 +156,10 @@ test('C81: C80 absolute physical stock counts causal readback source, fixed100 G
   'C80 control: two authentic counts in reverse lexical opId order MUST use SQLite rowid insertion chronology',
   'C80 control: physical no-op count N=stock must retain zero delta and receipt'
  ])assert(c80Native.includes(token),'C81 actual source native SQLite RED-first evidence absent '+token);
- assert.equal(quality.lastAuditedProductSha,'52dd4b6f7d854387a578cc53a8be9c761ffc8105');
+ assert.equal(quality.lastAuditedProductSha,'8c34cb3d40fc987d537ce2c0ba54d75d6224027b');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(s.port,92.0);
 
@@ -172,14 +185,14 @@ test('C81: C80 absolute physical stock counts causal readback source, fixed100 G
   'C78 control: queued expense + customer payment preserve genuine 202 SHA, no money/effects',
   'C78 control: queued sale 202 and committed sale + fiado remain correct'
  ])assert(c78QA.includes(token),'C79 actual C78 RED-first SQL evidence missing '+token);
- assert.equal(quality.lastAuditedProductSha,'52dd4b6f7d854387a578cc53a8be9c761ffc8105');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
+ assert.equal(quality.lastAuditedProductSha,'8c34cb3d40fc987d537ce2c0ba54d75d6224027b');
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
  assert.equal(s.port,92.0);
 
- assert.equal(quality.lastAuditedProductSha,'52dd4b6f7d854387a578cc53a8be9c761ffc8105');
+ assert.equal(quality.lastAuditedProductSha,'8c34cb3d40fc987d537ce2c0ba54d75d6224027b');
  const ms=port.groups.flatMap(g=>g.milestones);
  assert.equal(port.maximum,100);
  assert.equal(quality.maximum,100);
@@ -285,7 +298,7 @@ test('C81: C80 absolute physical stock counts causal readback source, fixed100 G
  assert.equal(ms.find(m=>m.id==='real-auth-role-epoch-qa-c47')?.source,'docs/sync-yjs.js');
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false,'unearned real role switch');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
@@ -328,7 +341,7 @@ test('C81: C80 absolute physical stock counts causal readback source, fixed100 G
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
@@ -338,7 +351,7 @@ test('C81: C80 absolute physical stock counts causal readback source, fixed100 G
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,79.8);
+ assert.equal(quality.comparison.previousScore,79.9);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
