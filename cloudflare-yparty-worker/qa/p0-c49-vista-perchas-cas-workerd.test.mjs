@@ -1,3 +1,4 @@
+// C52 combined master revalidation: real C49 CAS source after C51 v0.8.21 Web Locks + QA-gated cutover merged; assert unchanged.
 // PORT2 C49: End-to-end REAL Workerd SQLite verification of shelf photo CAS (409 vs 200)
 // in docs/mock-backend.js + docs/idb-fotos.js + docs/application/recover-shelf-photo.js +
 // docs/sync-yjs.js <-> Workerd -fotos DO SQLite (USD 0.00).
