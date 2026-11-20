@@ -507,7 +507,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
-   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
    assert.equal(quality.comparison.previousScore,78.5);
    const testPath='cloudflare-yparty-worker/qa/p0-c46-cross-device-photo-and-downpath-workerd.test.mjs';
    const workerd=fs.readFileSync(path.join(root,testPath),'utf8');
@@ -764,7 +764,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(data.commercialGo.certifiedGates,0);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
-   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
    assert.equal(quality.comparison.previousScore,78.5);
    const source=fs.readFileSync(path.join(root,'src/port2-cross-device-failback.mjs'),'utf8');
    assert(source.includes('failbackToLegacy') && source.includes('canDispatchOnLegacy'),
