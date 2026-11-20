@@ -85,6 +85,7 @@ const secPub = extractSection(SYNC_YJS_SRC, '  function publicarOpLocal(op) {', 
 const secDocUpdate = extractSection(SYNC_YJS_SRC, '    API.doc.on("update", function (update, origin) {', '    // B3 (JFC 2026-09-10):');
 const secFotosUpdate = extractSection(SYNC_YJS_SRC, '    API.fotosDoc.on("update", function (update, origin) {', '    // SYNC DE VENTAS/OPS');
 const secOpsUpdate = extractSection(SYNC_YJS_SRC, '    API.opsDoc.on("update", function (update, origin) {', '    // Publicar al doc de ops cada venta/movimiento local');
+const secRearmHelper = extractSection(SYNC_YJS_SRC, '    function _intentarActivarCorte20SiElegible() {', '    function sincronizarVisibilidad() {');
 const secQaSwitch = extractSection(SYNC_YJS_SRC, '    API.corte20QaHabilitado = function () {', '    API.estado = "activo";');
 
 function buildFrozenCatalogSource() {
@@ -348,6 +349,7 @@ function mountBrowserSyncRuntime({
       ${secDocUpdate}
       ${secFotosUpdate}
       ${secOpsUpdate}
+      ${secRearmHelper}
       ${secQaSwitch}
       return {
         API: API,
