@@ -443,8 +443,8 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A from C44');
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
-   assert.equal(quality.comparison.previousScore,77.0);
-   assert.equal(data.assessedProductSha,'f05cd2fa0a104439845bad96f9e341267c82e33c','C48 assessed real merged PR844 source SHA');
+   assert.equal(quality.comparison.previousScore,77.3);
+   assert.equal(data.assessedProductSha,'2172eeae497cc62b96b60d86588418a6ee21fddf','C48 assessed real merged PR844 source SHA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
    const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -505,10 +505,10 @@ function inspect(){
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO from virtual clients');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical devices tested');
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.5);
-   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.3);
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.5);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.7);
-   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.6);
-   assert.equal(quality.comparison.previousScore,77.0);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
+   assert.equal(quality.comparison.previousScore,77.3);
    const testPath='cloudflare-yparty-worker/qa/p0-c46-cross-device-photo-and-downpath-workerd.test.mjs';
    const workerd=fs.readFileSync(path.join(root,testPath),'utf8');
    for(const token of [
@@ -538,8 +538,52 @@ function inspect(){
      const digest='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
      assert.equal(manifest.files['./'+name],digest,'C46 actual shipped source mismatch '+name);
    }
-   assert.equal(data.assessedProductSha,'f05cd2fa0a104439845bad96f9e341267c82e33c',
+   assert.equal(data.assessedProductSha,'2172eeae497cc62b96b60d86588418a6ee21fddf',
      'C46 only credits exact actual PR844 merged source');
+ }
+ // C50: real product C47 v0.8.20 role/epoch wiring, verified RED -> GREEN.
+ // Earn at most 0.5 from the original 1.5 identity switch budget; never physical GO.
+ const c47=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='real-auth-role-epoch-qa-c47');
+ if(c47?.done){
+   const identity=data.groups.find(g=>g.id==='identity-rooms');
+   assert.equal(identity?.weight,14,'C47 must use original 14-point identity weight');
+   assert.equal(oneDecimal(identity.milestones.reduce((a,m)=>a+m.points,0)),14,'C47 must not invent identity points');
+   assert.equal(c47.points,0.5,'C47 role/epoch QA must be capped at 0.5');
+   assert.equal(c47.source,'docs/sync-yjs.js','C47 credit requires shipped application facade');
+   const pending=identity.milestones.find(m=>m.id==='commercial-role-switch');
+   assert.equal(pending?.points,1.0,'remaining real commercial role/cutover budget unchanged');
+   assert.equal(pending?.done,false,'no synthetic role QA can earn the physical commercial cutover');
+   assert.equal(data.commercialGo.certifiedGates,0,'role QA must not certify commercial readiness');
+   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'role QA is not physical acceptance');
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.3);
+   assert.equal(quality.comparison.previousScore,77.3);
+   const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   const roleQA=fs.readFileSync(path.join(root,'test/p0-c47-auth-role-switch-20.test.cjs'),'utf8');
+   for(const token of [
+     'window.addEventListener("oc-login"',
+     'window.addEventListener("oc-logout"',
+     'window.OCAuth',
+     'auth.rolActual()',
+     'auth.esDemo()',
+     'oc-login-role-mismatch',
+     'API.__authEpoch20',
+     'auth-changed-during-activation',
+     'failbackToLegacy('
+   ])assert(sync.includes(token),'C47 authenticated role/epoch code absent '+token);
+   for(const token of [
+     'forged oc-login role',
+     'live demo session',
+     'logout during in-flight',
+     'assert.rejects(activation'
+   ])assert(roleQA.includes(token),'C47 adversarial RED->GREEN test missing '+token);
+   const manifest=load('docs/version-manifest.json'),ver=load('docs/version.json');
+   const syncSha='sha256-'+crypto.createHash('sha256').update(sync.replace(/\r\n/g,'\n')).digest('hex');
+   assert.equal(manifest.files['./sync-yjs.js'],syncSha,'C47 real shell sync integrity SHA mismatch');
+   assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=20,'C47 requires v0.8.20+');
+   assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=820,'C47 requires shell v820+');
+   assert.equal(data.assessedProductSha,'2172eeae497cc62b96b60d86588418a6ee21fddf',
+     'C50 must pin real merged C47 product SHA, not a test or workshop SHA');
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');

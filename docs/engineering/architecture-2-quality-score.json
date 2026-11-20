@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 77,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ be032b2b27fd52c299d8e1b6942d9b7bb2596934",
+    "previousScore": 77.3,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ a1b716855e9f1048c4e99b22ae54768211c82b53",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 77.3,
+  "score": 77.5,
   "maximum": 100,
   "dimensions": [
     {
@@ -30,23 +30,23 @@
       "id": "sync",
       "weight": 20,
       "score": 15.7,
-      "previous": 15.6,
+      "previous": 15.7,
       "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/844"
     },
     {
       "id": "security",
       "weight": 15,
-      "score": 10.3,
+      "score": 10.5,
       "previous": 10.3,
-      "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/797"
+      "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed C47 v0.8.20 real product docs/sync-yjs.js role switch subscribed to oc-login/oc-logout: adversarial RED3/21 (forged Owner event, disguised live demo, logout during awaiting activate20) followed by GREEN21/21 plus isolated C38 and full GH Actions52/52 success. Runtime compares real OCAuth.rolActual() and OCAuth.esDemo(), increments API.__authEpoch20 and fails back to legacy if authentication changes while cutover awaits. Cloudflare exact master build success. +0.2 engineering security confidence only; 2.0 QA switches OFF; no physical role-authorization certification or GO.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/845"
     },
     {
       "id": "photos",
       "weight": 10,
       "score": 7.5,
-      "previous": 7.3,
+      "previous": 7.5,
       "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/844"
     },
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "Engineering source and synthetic virtual-browser/Miniflare Workerd SQLite evidence; QA switches OFF. Not a commercial SLA, live Safari/PC/PWA validation, real customer history, actual online cutover or permission to deploy new services.",
-  "assessedProductSha": "f05cd2fa0a104439845bad96f9e341267c82e33c",
+  "disclaimer": "C50 +0.2 verified engineering QA security; no live customer cutover, real PC/iPhone Owner/Team role physical acceptance, ledger conflict fix, SLO, or production GO; Hermes execution report was explicitly simulated and not counted.",
+  "assessedProductSha": "2172eeae497cc62b96b60d86588418a6ee21fddf",
   "history": [
     {
       "review": "2026-11-17",
@@ -134,6 +134,11 @@
       "review": "2026-11-19 before C46 certified QA-only browser photo bridge and two Workerd handoff cycles",
       "score": 77,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ be032b2b27fd52c299d8e1b6942d9b7bb2596934"
+    },
+    {
+      "review": "2026-11-19 before merged C47 authenticated Owner/Team role and fail-closed epoch RED→GREEN; same app v0.8.20",
+      "score": 77.3,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ a1b716855e9f1048c4e99b22ae54768211c82b53"
     }
   ]
 }
