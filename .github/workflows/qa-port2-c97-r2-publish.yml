@@ -1,0 +1,33 @@
+name: "PORT2 C97 - Immutable present seal R2 publication QA"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/tools/publish-present-seal-r2.mjs
+      - cloudflare-yparty-worker/qa/p0-c97-r2-immutable-publish.test.mjs
+      - .github/workflows/qa-port2-c97-r2-publish.yml
+  push:
+    branches: [port2/20261120-c97-immutable-r2-publish]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c97-r2-immutable-publication:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: C97 R2 write-once crash and collision guards; C95 consumer
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-c97-r2-immutable-publish.test.mjs qa/p0-c95-seal-present-union-r2.test.mjs qa/p0-c93-current-state-union.test.mjs

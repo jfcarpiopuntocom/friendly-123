@@ -221,7 +221,7 @@ export async function sealPresentUnionToR2({
       unionDigest: unionPlan.digest,
       sourceCount: unionPlan.sourceCount,
       acceptedFacts: opsData.factCount,
-      opsBaselineSha256: opsData.baseline.sha256,
+      opsBaselineSha256: opsData.baseline.digest,
       opsManifestSha256: opsArchive.manifestSha256,
       catManifestSha256: catArchive.manifestSha256
     })
