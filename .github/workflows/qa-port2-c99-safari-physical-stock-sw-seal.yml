@@ -1,0 +1,46 @@
+name: "PORT2 C99 - Safari foreground reactivation, physical stock order & SW SRI await QA"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - docs/mock-backend.js
+      - docs/sw.js
+      - docs/version.json
+      - docs/version-manifest.json
+      - test/p0-c99-safari-foreground-reactivation.test.cjs
+      - test/p0-physical-count-queued-merge-order.test.cjs
+      - test/p0-sw-integrity-before-activation.test.cjs
+      - .github/workflows/qa-port2-c99-safari-physical-stock-sw-seal.yml
+  push:
+    branches: [fix/c99-v0829-safari-recovery-stock-sw]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c99-safari-stock-sw:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run C99 + SW + Score + Manifest verification
+        run: |
+          set -euo pipefail
+          bash check-sw.sh
+          node --test \
+            test/p0-c99-safari-foreground-reactivation.test.cjs \
+            test/p0-c98-sw-binary-sri.test.cjs \
+            test/p0-physical-count-queued-merge-order.test.cjs \
+            test/p0-sw-integrity-before-activation.test.cjs \
+            test/p0-c94-pilot-failback-mode-fence.test.cjs \
+            test/sw-install-durable-4d.test.cjs \
+            test/sw-nuke-scope-4d.test.cjs \
+            test/p0-first-sw-install-no-login-reload.test.cjs \
+            test/p0-architecture-2-port-score.test.cjs \
+            test/p0-v637-manifest.test.cjs

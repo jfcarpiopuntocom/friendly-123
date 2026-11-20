@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.28",
+  "version": "v0.8.29",
   "fecha": "2026-11-20",
-  "changelog": "v0.8.28: C98 SW P0 — verificación SRI de version-manifest usa bytes crudos (arrayBuffer) y lotes acotados (4 en paralelo) para evitar corrupción UTF-8/re-descarga de PNG/WOFF2/ICO y picos de memoria en WebKit Safari.",
+  "changelog": "v0.8.29: C99 Safari/Stock/SW P0 — (1) re-activa modoCorte20Activo vía guarda C38 al volver Safari iOS de segundo plano tras failback C94, (2) siembra conteo físico confirmado antes de drenar catálogos pendientes (#904), y (3) espera verificación SRI acotada antes de skipWaiting (#903 + #901).",
   "requerida": false,
-  "shell": "f123-shell-v828",
+  "shell": "f123-shell-v829",
   "apagar": [],
-  "releaseName": "v0.8.28",
-  "cacheGeneration": "golden364"
+  "releaseName": "v0.8.29",
+  "cacheGeneration": "golden365"
 }
