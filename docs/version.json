@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.16",
+  "version": "v0.8.17",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.16: C38 corte comercial 2.0 QA solo si el relay 1.0 fue apagado deliberadamente y no hay cambios pendientes; aborta si se reactiva antes o después de activar C21a. Sin nuevo escritor, Sync3 intacto, switch QA OFF por defecto, cero escritura Cloudflare/R2.",
+  "changelog": "v0.8.17: C40 registra recibo autoritativo DO 1-a-1 (API.obtenerReciboComercial20 + evento oc-op-20-recibo) desde despacharOpComercialCertificada sin duplicar stock ni caja en failback. Switch QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v816",
+  "shell": "f123-shell-v817",
   "apagar": [],
-  "releaseName": "v0.8.16",
-  "cacheGeneration": "golden352"
+  "releaseName": "v0.8.17",
+  "cacheGeneration": "golden353"
 }
