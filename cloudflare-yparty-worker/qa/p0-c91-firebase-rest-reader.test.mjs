@@ -132,6 +132,13 @@ function createMockFirebaseServer({ channels, etags, onRequest }) {
     const channelName = parts[1];
     const chData = channels[channelName];
     const sub = parts[2];
+    const hasShallow = url.searchParams.get('shallow') === 'true';
+    const hasOrderBy = url.searchParams.has('orderBy');
+    if (req.headers['x-firebase-etag'] === 'true' && (hasShallow || hasOrderBy)) {
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: "Mixing 'shallow' or query parameters and etag requests is not supported" }));
+      return;
+    }
     const etag = typeof etags[channelName] === 'function' ? etags[channelName](requests.length, cleanPath, url) : etags[channelName];
     const headers = { 'content-type': 'application/json' };
     if (req.headers['x-firebase-etag'] === 'true' && etag) {
@@ -233,13 +240,20 @@ test('C91: paginated read-only fetch + pack verifies -y and -ops with ETag freez
     assert.ok(packed.ops.archive.manifestSha256);
     assert.ok(packed.cat.archive.manifestSha256);
 
-    // Must NEVER issue an unbounded root GET without shallow=true.
+    // Must NEVER issue an unbounded root GET without shallow=true,
+    // and must NEVER mix X-Firebase-ETag with shallow=true or orderBy="$key" (HTTP 400 on real RTDB).
     const channelRootReads = requests.filter((r) => r.path.split('/').filter(Boolean).length === 2);
     assert.ok(channelRootReads.length >= 4);
     for (const r of channelRootReads) {
       assert.equal(r.shallow, 'true');
-      assert.equal(r.wantEtag, 'true');
+      assert.equal(r.wantEtag, null);
     }
+    for (const r of requests) {
+      if (r.shallow === 'true' || r.orderBy) {
+        assert.equal(r.wantEtag, null);
+      }
+    }
+    assert.ok(requests.some((r) => r.wantEtag === 'true' && !r.shallow && !r.orderBy));
     // Must paginate /o (5 records @ pageSize=2 => multiple /o requests).
     const opsPaginated = requests.filter((r) => r.path.endsWith('-ops/o') && r.orderBy === '"$key"');
     assert.ok(opsPaginated.length >= 2);
@@ -265,7 +279,7 @@ test('C91: fails closed on concurrent ETag mutation, missing ETag, missing ops k
   await withMockServer({
     channels,
     etags: {
-      [bindings.firebaseRoom40 + '-y']: () => (++yCalls >= 4 ? '"etag-mutated"' : '"etag-initial"'),
+      [bindings.firebaseRoom40 + '-y']: () => (++yCalls >= 6 ? '"etag-mutated"' : '"etag-initial"'),
       [bindings.firebaseRoom40 + '-ops']: '"etag-ops"'
     }
   }, async ({ baseUrl }) => {
@@ -375,6 +389,35 @@ test('C91: fails closed on concurrent ETag mutation, missing ETag, missing ops k
         fetchFn: customFetch
       }),
       /incomplete Firebase channel read/i
+    );
+  });
+
+  // Concurrent /o push-key append during paginated read fails closed on post shallow census.
+  let opsPageReads = 0;
+  const liveOpsDb = {
+    k: opsDb.k,
+    o: { ...opsDb.o }
+  };
+  await withMockServer({
+    channels: { [bindings.firebaseRoom40 + '-ops']: liveOpsDb },
+    etags: fixedEtags,
+    onRequest: ({ cleanPath, url }) => {
+      if (cleanPath.endsWith('-ops/o') && url.searchParams.get('orderBy') === '"$key"') {
+        opsPageReads++;
+        if (opsPageReads === 1) {
+          liveOpsDb.o['-O_op_999_late'] = opsDb.o['-O_op_002'];
+        }
+      }
+    }
+  }, async ({ baseUrl }) => {
+    await assert.rejects(
+      fetchFirebaseChannelSnapshot({
+        baseUrl,
+        channelPath: bindings.firebasePaths.ops,
+        authToken: SECRET_TOKEN,
+        pageSize: 2
+      }),
+      /concurrent Firebase channel mutation/i
     );
   });
 });
