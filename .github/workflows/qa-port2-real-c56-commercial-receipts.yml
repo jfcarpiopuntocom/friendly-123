@@ -1,0 +1,27 @@
+name: PORT2 C56 · Workerd real business receipts A-B-A (RED first, no false ACK)
+on:
+  push:
+    branches: [port2/20261119-c56-real-workerd-three-receipts-cold-downpath]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/qa/p0-c56-commercial-cold-failback-receipt-workerd.test.mjs
+      - cloudflare-yparty-worker/qa/fixtures/seeded-real-yparty-business-worker.mjs
+      - docs/sync-yjs.js
+      - .github/workflows/qa-port2-real-c56-commercial-receipts.yml
+permissions: {contents: read}
+jobs:
+  c56-real-business-receipts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm --prefix cloudflare-yparty-worker ci --ignore-scripts --no-audit --no-fund
+          node --test --test-timeout=120000 \
+            cloudflare-yparty-worker/qa/p0-c56-commercial-cold-failback-receipt-workerd.test.mjs
