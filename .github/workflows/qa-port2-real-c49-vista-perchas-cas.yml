@@ -1,0 +1,32 @@
+name: PORT2 C49 · real Workerd shelf photo CAS (409/200) + -fotos DO E2E
+on:
+  push:
+    branches: [port2/20261119-c49-vista-perchas-cas-workerd]
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/mock-backend.js
+      - docs/idb-fotos.js
+      - docs/application/recover-shelf-photo.js
+      - docs/sync-yjs.js
+      - cloudflare-yparty-worker/qa/p0-c49-vista-perchas-cas-workerd.test.mjs
+      - .github/workflows/qa-port2-real-c49-vista-perchas-cas.yml
+permissions: {contents: read}
+jobs:
+  c49-vista-perchas-cas-workerd:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            qa/p0-c49-vista-perchas-cas-workerd.test.mjs
+          cd ..
+          bash check-sw.sh
