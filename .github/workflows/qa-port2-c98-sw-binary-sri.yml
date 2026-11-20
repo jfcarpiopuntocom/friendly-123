@@ -1,0 +1,30 @@
+name: "PORT2 C98 - SW binary SRI arrayBuffer and bounded batching QA"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sw.js
+      - test/p0-c98-sw-binary-sri.test.cjs
+      - .github/workflows/qa-port2-c98-sw-binary-sri.yml
+  push:
+    branches: [fix/c98-sw-binary-sri-and-batching]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c98-sw-binary-sri:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run C98 + SW regression tests + release manifest check
+        run: |
+          set -euo pipefail
+          bash check-sw.sh
+          node --test test/p0-c98-sw-binary-sri.test.cjs test/sw-install-durable-4d.test.cjs test/sw-nuke-scope-4d.test.cjs test/p0-first-sw-install-no-login-reload.test.cjs test/p0-v637-manifest.test.cjs
