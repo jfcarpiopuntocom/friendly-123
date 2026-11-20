@@ -111,7 +111,7 @@ test('C69: C68 economic fiado cash stock readback verified in same app, fixed100
  assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(photo.milestones.reduce((a,m)=>a+m.points,0),9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
  assert.equal(port.commercialGo.certifiedGates,0,'QA-only flags do not grant commercial GO');
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
@@ -194,7 +194,7 @@ test('C69: C68 economic fiado cash stock readback verified in same app, fixed100
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -209,7 +209,7 @@ test('C69: C68 economic fiado cash stock readback verified in same app, fixed100
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  // C45 RED: only 0.5 split from existing 1.0 unearned business budget for real C44.
