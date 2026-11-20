@@ -1,14 +1,14 @@
 # friendly-123 · PORTANDO arquitectura 1.0 → 2.0 · indicadores decimales verificables
 
-**Corte más reciente (C45, 19 nov Ecuador / 20 nov UTC 2026):** app REAL `jfcarpiopuntocom/friendly-123` master **`be032b2b27fd52c299d8e1b6942d9b7bb2596934`**, shell **v0.8.19 / v819 / golden355**. Sync3 ya es 2.0 y se conserva; friendly123workshop es solo laboratorio, PRECODE, auditoría y memoria de ingeniería, nunca otra app.
+**Corte más reciente (C48, 19 nov Ecuador / 20 nov UTC 2026):** app REAL `jfcarpiopuntocom/friendly-123`, código acreditado del merge [#844](https://github.com/jfcarpiopuntocom/friendly-123/pull/844) **`f05cd2fa0a104439845bad96f9e341267c82e33c`**, shell **v0.8.19 / v819 / golden355**. Sync3 es 2.0 y se conserva; friendly123workshop es solo taller, PRECODE y registro de pruebas.
 
-| Indicador | Antes (C43) | Después (C44 fusionado / C45 auditado) | Delta |
+| Indicador | Antes (C45) | Después (C46 fusionado / C48 auditado) | Delta |
 | --- | ---: | ---: | ---: |
-| **Migración 1.0→2.0, capacidades realmente ensambladas** | 87,0/100,0 | **87,5/100,0** | **+0,5** |
-| **Calidad arquitectónica auditada** | 76,8/100,0 | **77,0/100,0** | **+0,2** |
-| Aceptación comercial (por separado) | 0/6 | **0/6** | 0 |
+| **Migración 1.0→2.0: capacidades integradas y acreditadas** | 87,5/100,0 | **88,0/100,0** | **+0,5** |
+| **Calidad arquitectónica de ingeniería** | 77,0/100,0 | **77,3/100,0** | **+0,3** |
+| Aceptación comercial independiente | 0/6 | **0/6** | 0 |
 
-**Definición:** 87,5 mide el cumplimiento de una rúbrica fija de capacidades de la misma app, no 87,5% del tráfico ya conmutado, ni disponibilidad comercial. La calidad es revisión de ingeniería, no un SLO. Base comparable tras D7: **68,5/100,0**; avance acumulado desde entonces **+19,0**. La ruta comercial 2.0 sigue QA OFF y ningún test sustituye el A→B→A físico.
+La migración 88,0 es suma de una rúbrica fija de código de la misma aplicación; NO significa que 88,0% de tiendas ya usen 2.0. Calidad77,3 es revisión técnica, NO un SLO ni prueba física. Base comparable tras D7: **68,5/100,0** y avance acumulado **+19,5**. Transporte comercial 2.0 todavía QA OFF, físico PC/Safari/PWA no certificado.
 
 ## Desglose bajo los mismos pesos originales (100,0)
 
@@ -18,11 +18,18 @@
 | Historia congelada, certificación, R2 | 13,5 | 18,0 | 4,5 |
 | Economía tipada (ventas, stock, abonos, recibos DO) | 16,5 | 17,0 | 0,5 |
 | Tickets Owner/Team y salas | 12,5 | 14,0 | 1,5 |
-| Fotos SHA fuera de Yjs | 7,0 | 9,0 | 2,0 |
+| Fotos SHA fuera de Yjs (C46 QA parcial) | 7,5 | 9,0 | 1,5 |
 | Catálogo público y lector certificado | 10,0 | 10,0 | 0,0 |
 | Cableado navegador y retiro parcial 1.0 | 8,5 | 10,0 | 1,5 |
 | Outbox, Safari y failback | 3,5 | 5,0 | 1,5 |
-| **TOTAL** | **87,5** | **100,0** | **12,5** |
+| **TOTAL** | **88,0** | **100,0** | **12,0** |
+
+## C46 fusionada, C48 puntuación con reserva física explícita
+
+- [PR #844 C46](https://github.com/jfcarpiopuntocom/friendly-123/pull/844), fusionada en la **app real** SHA `f05cd2fa...`. Fuente ya ensamblada `docs/idb-fotos.js`, `docs/sync-yjs.js`, `docs/application/recover-shelf-photo.js` y bundle YParty ejecutados por Miniflare Workerd SQLite. Foto subida por Owner a `-fotos` SHA, sin blobs binarios legados Yjs, y leída idéntica por Team frío con otro IndexedDB. [Workerd C46 run 44660882184](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44660882184): 1/1 TAP PASS, más 11/11 workflows completos y Cloudflare build SUCCESS para merge.
+- Auditoría independiente detectó que la primera prueba solo recorría A→B→A una vez y decía ×2. Tras [plan Ponytail previo](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c46-second-cycle-real-workerd-precode.md) se amplió a **A1→B1→A2→B2→A3**, cinco `opId` y replays; SQL quedó en stock0, caja8000 centavos, exactamente cinco efectos y cinco recibos.
+- El crédito de implementación es **+0,5** separado de los 2,0 originales pendientes de foto/UI, dejando 1,5 para UI real, CAS y aparatos. El test pasa sobre código de producto realmente fusionado, no sobre arquitectura paralela ni una mera plantilla. La calidad suma **+0,2 fotos y +0,1 sincronización**, manteniendo dispositivos físicos0/5 y GO0/6. En ningún caso se acredita `verified-cross-device-downpath` físico por una simulación.
+- [PRECODE de puntuación C48](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c47-c46-real-product-fixed100-photo-qa-score-precode.md). Scripts `node scripts/architecture-2-port-score.cjs` y `node --test test/p0-architecture-2-port-score.test.cjs` exigen código real, manifest SHA y dos ciclos Workerd.
 
 ## Evidencia concreta C44 fusionada y crédito C45
 
