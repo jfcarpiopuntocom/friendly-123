@@ -1,5 +1,28 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C81 · 20-nov-2026 Ecuador · recuento físico ABSOLUTO original, calidad79,9, transición92,0
+
+Se PORTA la **MISMA friendly-123** 1.0→2.0 mediante componentes OSS maduros, **Sync3 YA es 2.0 y se conserva**; workshop solo PRECODE/QA/evidencia, funcionalidad integrada en producto real. [PR #881 C80 FUENTE MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/881), `master@52dd4b6f7d854387a578cc53a8be9c761ffc8105`. **17/17 GitHub Actions** source HEAD `f74cac4040e364d2b173217514cf828fe303acdf` SUCCESS; **Cloudflare Workers Builds API GET cuenta real SHA exacta master `52dd4b6f7d854387a578cc53a8be9c761ffc8105` SUCCESS**, UUID `39f2a22c-5fbc-4bd4-8ed5-8bb75e5da2ec`.
+
+| DOS métricas originales con un decimal y presupuesto fijo100 | C79 antes | C81 | Delta |
+| --- | ---: | ---: | ---: |
+| **Transición de MISMA friendly-123 1.0→2.0** | 92,0/100,0 | **92,0/100,0** | 0,0 |
+| **Calidad arquitectónica** | 79,8/100,0 | **79,9/100,0** | +0,1 |
+| Dimensión Business | 18,9/20,0 | **19,0/20,0** | +0,1 |
+| Dimensión Security | 11,0/15,0 | **11,0/15,0** | 0,0 |
+| GO comercial | 0/6 | **0/6** | 0 |
+| Física PC Opera↔iPhone Safari/PWA | 0/5 | **0/5** | 0 |
+
+**P0 causa raíz original distinta C74/C76/C78:** `stock.adjust` es un recuento ABSOLUTO `quantity:N` firmado por SHA del payload del receipt. El servidor SQL registra delta N−stockAnterior. Reentrada C72→C79 sumaba los deltas y comprobaba stock FINAL, pero no verificaba N original por cada opId, de modo que alterar count5 con delta−4 y stock6 obtenía falso `already:true`, pese al receipt original count5 sin modificar. **RED fuente real [Actions44763936393](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44763936393)** Node22 SQLite nativo + ledger original: **4/7 PASS, 3/7 FAIL por Missing expected exception** (single count5 adulterado, count entre ventas adulterado y count0→1 adulterado). Controles de ventas, fiados, 202 y opIds inversos PASS.
+
+**Ponytail GREEN y preservación auditoría:** primera fuente [Actions44764234653](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44764234653) 7/7 C80 + regresiones Workerd, pero cambió firma auditada de `verifyTypedBusinessEffects` y el validador original100 rechazó; ese HEAD NO se fusionó. Corrección completa [Actions44764713480](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44764713480) mantiene firma original, devuelve Map opId→N desde payload SHA validado y reconciliador original aplica movimientos en `ORDER BY rowid` (secuencia de inserción local SQLite, no certificación externa Firebase), comprueba `stockAnterior+delta===N` después de cada recuento y rechaza saldo transitorio negativo. **GREEN C80 7/7, C78 6/6, C76 6/6, C74 5/5, C72 11/11, C68 8/8, Workerd pagos2/2 y ventas2/2, CLI score original100 PASS, 17/17 workflows**. Solo fuente `cloudflare-yparty-worker/src/authoritative-business-sql.mjs`, test y workflow; sin nuevo hash ni escritor, usa OSS `@noble/hashes@2.4.0` existente. No tocar Sync3, PIN, fotos, cliente, hot sale ni Cloudflare settings.
+
+**C81 score** separado, [PRECODE ANTES de score](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c81-c80-physical-absolute-count-quality79p9-precode.md): RED test-only `79,8!==79,9`; GREEN Business +0,1 SOLO 18,9→19,0, sum `dimensions.previous` exactamente79,8, demás ejes fijos, `lastAuditedProductSha` C80 merged real. Transición permanece92/100, **8,0 puntos no ganados** (HEAD Firebase económico auténtico2,0; Service Binding R2 REAL2,0; operativo/roles/fotos/failback físico4,0). GO0/6 físico0/5 y QA OFF. Ni SQLite rowid local ni GH CI verde ni Build autentican cabeza económica original de Firebase o pruebas físicas de Belén. Reservas otras IA PR #871 Yjs, #868 fotos, #841 ledger intactas.
+
+---
+
+### Histórico · C79 y anteriores
+
 ## C79 · 20-nov-2026 Ecuador · Integridad SHA en gastos y pagos de clientes 202, calidad79,8
 
 Se PORTA la **MISMA friendly-123** 1.0→2.0 con injertos OSS maduros. Sync3 YA forma parte de2.0 y se conserva; workshop es solo QA/PRECODE, funcionalidad en `jfcarpiopuntocom/friendly-123`. [C78 PR fuente #879 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/879), producto `master@2980aa59f3345b757a9e504465c54fd6b703987d`. **16/16 GitHub Actions** en el HEAD fuente `a6beab3e8a5c6046824c6776bfffa804c6f01e9e` GREEN, **Cloudflare Workers Builds API GET cuenta real, branch master, SHA EXACTA `2980aa59f3345b757a9e504465c54fd6b703987d` SUCCESS**, build `8540651c-9dfc-4d52-ae59-aa46377e44d3`. Sin cambios en cliente, Sync3, Cloudflare settings, R2 ni PIN.
