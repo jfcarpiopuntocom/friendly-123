@@ -585,8 +585,17 @@
           },
           readSyncByHash: async (hash) => {
             try {
-              return window.OCYjs && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get
+              const legacy = window.OCYjs && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get
                 ? (window.OCYjs.fotosMap.get(hash) || null) : null;
+              if (legacy) return legacy;
+              const yjs = window.OCYjs;
+              const ref = yjs && yjs.fotosRefs && yjs.fotosRefs.get ? yjs.fotosRefs.get(hash) : null;
+              if (!yjs || !yjs.fotoSha || typeof yjs.fotoSha.get !== 'function' ||
+                  !ref || ref.sha !== hash || !/^[a-f0-9]{64}$/.test(hash || '')) return null;
+              const bytes = await yjs.fotoSha.get(hash);
+              if (!bytes || !window.OCFotos || !window.OCFotos.hashDeDataUrl) return null;
+              const actual = await window.OCFotos.hashDeDataUrl(bytes);
+              return actual === hash ? bytes : null;
             } catch (_) { return null; }
           },
           preserveByHash: async (hash, bytes) => {

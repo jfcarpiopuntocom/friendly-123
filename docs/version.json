@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.24",
+  "version": "v0.8.25",
   "fecha": "2026-11-20",
-  "changelog": "v0.8.24: C58 revoca sincronamente el escritor YParty 2.0 y credenciales de fotos de la sesion anterior en CUALQUIER nuevo oc-login autenticado (Owner, Admin, Team), libera -cat antes del nuevo rol y no autoactiva ventas. Falla cerrado si credenciales Team no estan disponibles. Misma friendly-123, Sync3 intacto, QA OFF, cero datos/costos comerciales.",
+  "changelog": "v0.8.25: C68 cierra la ruta UI de fotos SHA 2.0: vista-perchas.js readSyncByHash consulta OCYjs.fotoSha + fotosRefs verificando SHA-256 cuando fotosMap está vacío; oc-catalogo-cambiado dispara API.sembrarFotos() bajo corteFotosShaActivo=true; _instalarLectorFotoShaBajoDemanda reinicia el presupuesto de lecturas remotas por sesión API.fotoSha. Switches QA OFF por defecto, Sync3 intacto, USD 0.00.",
   "requerida": false,
-  "shell": "f123-shell-v824",
+  "shell": "f123-shell-v825",
   "apagar": [],
-  "releaseName": "v0.8.24",
-  "cacheGeneration": "golden360"
+  "releaseName": "v0.8.25",
+  "cacheGeneration": "golden361"
 }
