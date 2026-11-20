@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 78.5,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ f7d084e526f658f44d35b38c0785241b867180ea",
+    "previousScore": 78.7,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 31ba0673258485ccdfabefaca82a2f4428def28f",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 78.7,
+  "score": 78.9,
   "maximum": 100,
   "dimensions": [
     {
@@ -21,10 +21,10 @@
     {
       "id": "durability",
       "weight": 20,
-      "score": 18.2,
+      "score": 18.4,
       "previous": 18.2,
-      "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/849"
+      "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof. C60 actual merged same-app Workerd source trusted-frozen-source.mjs field-order robust reader: prior JSON.stringify(sourceRow) versus detached public catalog projectedRow rejected valid public Yjs JSON object with reordered keys in both signed legacy v1 and paged v2. RED 28/30 (exact two legitimate-structure misses) and GREEN 30/30 full focused (including private ownerPin/costo still fail-closed); 15/15 CI, Cloudflare exact source merge SUCCESS. +0.2 cold-join compatibility durability QA only, not Firebase HEAD real/customer proof; unknown legacy-root-only gap still P0.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/860"
     },
     {
       "id": "sync",
@@ -38,7 +38,7 @@
       "id": "security",
       "weight": 15,
       "score": 10.7,
-      "previous": 10.5,
+      "previous": 10.7,
       "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed C47 v0.8.20 real product docs/sync-yjs.js role switch subscribed to oc-login/oc-logout: adversarial RED3/21 (forged Owner event, disguised live demo, logout during awaiting activate20) followed by GREEN21/21 plus isolated C38 and full GH Actions52/52 success. Runtime compares real OCAuth.rolActual() and OCAuth.esDemo(), increments API.__authEpoch20 and fails back to legacy if authentication changes while cutover awaits. Cloudflare exact master build success. +0.2 engineering security confidence only; 2.0 QA switches OFF; no physical role-authorization certification or GO. C58 same real product v0.8.24 OCAuth-verified any oc-login now revokes prior C21a catalog coordinator lease and Owner photo PUT before new session rebind, even same-role Owner or admin; Team credential failure leaves old Owner client null. RED GH Actions 44681992293 18/21 PASS 3 FAIL, GREEN GH Actions 44682377422 21/21 PASS and source SHA head full 57/57 GH workflows GREEN, Cloudflare exact merged SHA 6723cf24... SUCCESS. +0.2 engineering security assurance only; no real physical Owner/Team QA, no commercial GO.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/858"
     },
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "Only source-based C58 real app auth epoch/lease revocation regression QA +0.2 security, no physical devices or real owner session observed. Prior C47 proof kept separate from newly closed admin/same-owner and credential error cases. QA flags OFF; GO0/6 physical0/5; no Firebase/R2 historic-money proof.",
-  "assessedProductSha": "6723cf24b87d2f6c1e8094188d024ae563dd4cde",
+  "disclaimer": "C61 +0.2 durability for C60 source verified synthetic PUBLIC catalog v1/v2 valid key ordering, with SHA and PII refusal, not real Firebase transaction/economic/ops HEAD or physical PC/iPhone. Unknown legacy catalog roots still need a privacy hard-fail; R2 binding not installed. QA flags OFF; GO0/6 physical0/5.",
+  "assessedProductSha": "9e5986623b42dfe6b27f0cdcb96a6d3360fe6962",
   "history": [
     {
       "review": "2026-11-17",
