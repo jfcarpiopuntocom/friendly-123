@@ -1,6 +1,7 @@
 // Server-only SQL economic state anchored to an independently verified frozen source.
 // Used by the same YParty -ops DO that stores typed_commercial_ops and its ACK.
 // No HTTP baseline endpoint. Without a certified baseline, business commits FAIL.
+import {Sha256Sync} from './sha256-sync.mjs';
 const LICENSE=/^F123-[0-9A-Z*~$=-]{8,34}$/;
 const IDENT=/^[A-Za-z0-9_-]{1,64}$/;
 const HEAD=/^[A-Za-z0-9_.:-]{3,128}$/;
@@ -64,37 +65,91 @@ function createTables(sql){
   sql.exec('CREATE TABLE IF NOT EXISTS f123_business_receivables (license TEXT NOT NULL, receivable_id TEXT NOT NULL, balance_cents INTEGER NOT NULL, PRIMARY KEY(license,receivable_id))');
   sql.exec('CREATE TABLE IF NOT EXISTS f123_business_effects (license TEXT NOT NULL, op_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity_delta INTEGER NOT NULL, cash_delta_cents INTEGER NOT NULL, PRIMARY KEY(license,op_id))');
 }
-function hasRows(sql,table){
-  const exists=sql.exec('SELECT name FROM sqlite_master WHERE type = ? AND name = ?','table',table).toArray();
-  return !!exists.length && Number(sql.exec('SELECT COUNT(*) AS n FROM '+table).one()?.n||0)>0;
+function tableExists(sql,table){
+  return sql.exec('SELECT name FROM sqlite_master WHERE type = ? AND name = ?','table',table).toArray().length>0;
 }
-// C68: Source-anchored READ-ONLY replay for a duplicate frozen economic head.
-// This runs only on baseline reopen/retry, never inside the hot sale/fiado ACK.
-// No guessed balances, writes, or invented compensation events.
+function hasRows(sql,table){
+  return tableExists(sql,table) && Number(sql.exec('SELECT COUNT(*) AS n FROM '+table).one()?.n||0)>0;
+}
+function sha256Text(text){
+  return new Sha256Sync().update(text).hex();
+}
+function verifyCommittedLedgerPair(opsRow,payloadRow,effect,state,priceMap,deny){
+  if(!opsRow||!payloadRow||!SHA.test(opsRow.payload_hash||'')||
+     typeof payloadRow.payload_json!=='string'||
+     sha256Text(payloadRow.payload_json)!==opsRow.payload_hash)deny();
+  let receipt,cmd;
+  try{
+    receipt=JSON.parse(opsRow.receipt_json);
+    cmd=JSON.parse(payloadRow.payload_json);
+  }catch(_){deny();}
+  if(!receipt||!cmd||typeof receipt!=='object'||typeof cmd!=='object'||
+     receipt.stage!=='business-committed'||receipt.opId!==effect.op_id||
+     receipt.license!==state.license||receipt.kind!==cmd.kind||
+     receipt.receiptId!==opsRow.payload_hash.slice(0,24)||
+     cmd.license!==state.license||cmd.opId!==effect.op_id)deny();
+  const q=Number(effect.quantity_delta),c=Number(effect.cash_delta_cents);
+  let canonical;
+  if(cmd.kind==='sale.record'){
+    if(cmd.productId!==effect.product_id||!Number.isSafeInteger(cmd.quantity)||
+       cmd.quantity<1||cmd.amountCents!==c||-cmd.quantity!==q||
+       !priceMap.has(cmd.productId)||BigInt(c)!==BigInt(cmd.quantity)*priceMap.get(cmd.productId))deny();
+    canonical={license:cmd.license,opId:cmd.opId,kind:cmd.kind,productId:cmd.productId,quantity:cmd.quantity,amountCents:cmd.amountCents};
+  }else if(cmd.kind==='stock.adjust'){
+    if(cmd.productId!==effect.product_id||!int(cmd.quantity)||cmd.amountCents!==0||c!==0)deny();
+    canonical={license:cmd.license,opId:cmd.opId,kind:cmd.kind,productId:cmd.productId,quantity:cmd.quantity,amountCents:cmd.amountCents};
+  }else if(cmd.kind==='credit.payment.record'){
+    if(cmd.receivableId!==effect.product_id||q!==0||!int(cmd.amountCents)||cmd.amountCents<1||cmd.amountCents!==c)deny();
+    canonical={license:cmd.license,opId:cmd.opId,kind:cmd.kind,receivableId:cmd.receivableId,amountCents:cmd.amountCents};
+  }else deny();
+  if(JSON.stringify(canonical)!==payloadRow.payload_json)deny();
+}
+// C68+C71: Source-anchored READ-ONLY replay + cryptographic typed-ledger verification
+// for duplicate frozen economic head. Runs only on reopen, never on live hot paths.
 function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
  const deny=()=>fail('business baseline reconciliation error');
  const stock=new Map(state.products.map(p=>[p.productId,BigInt(p.quantity)]));
+ const priceMap=new Map(state.products.map(p=>[p.productId,BigInt(p.unitPriceCents)]));
  const receivables=new Map((state.receivables||[])
   .map(r=>[r.receivableId,BigInt(r.balanceCents)]));
  let cash=BigInt(state.openingCashCents);
  const effects=sql.exec('SELECT op_id,product_id,quantity_delta,cash_delta_cents FROM f123_business_effects WHERE license = ? ORDER BY op_id',
   state.license).toArray();
+ const hasOps=tableExists(sql,'typed_commercial_ops'),hasPayloads=tableExists(sql,'typed_commercial_payloads');
+ if(hasOps!==hasPayloads)deny();
+ const opsById=hasOps?new Map(sql.exec('SELECT op_id,payload_hash,receipt_json FROM typed_commercial_ops WHERE license = ?',
+  state.license).toArray().map(r=>[r.op_id,r])):null;
+ const payloadsById=hasPayloads?new Map(sql.exec('SELECT op_id,payload_json FROM typed_commercial_payloads WHERE license = ?',
+  state.license).toArray().map(r=>[r.op_id,r])):null;
+ const seenEffectOps=new Set();
  for(const effect of effects){
   const q=Number(effect.quantity_delta),c=Number(effect.cash_delta_cents);
   if(!IDENT.test(effect.product_id||'')||
      typeof effect.op_id!=='string'||effect.op_id.length<1||
      !Number.isSafeInteger(q)||!int(c))deny();
-  // sale: negative stock plus cash; physical count: signed stock, zero
-  // cash; fiado payment: zero stock plus positive cash. Unknown effect
-  // classes can never silently change an audited economic balance.
+  // sale: negative stock plus exact unit-price cash; physical count: signed stock,
+  // zero cash; fiado payment: zero stock plus positive cash.
   if(q!==0){
    if(!stock.has(effect.product_id)||(q>0&&c>0))deny();
+   if(q<0&&c>0&&BigInt(c)!==BigInt(-q)*priceMap.get(effect.product_id))deny();
    stock.set(effect.product_id,stock.get(effect.product_id)+BigInt(q));
   }else if(c>0){
    if(!receivables.has(effect.product_id))deny();
    receivables.set(effect.product_id,receivables.get(effect.product_id)-BigInt(c));
   }else if(!stock.has(effect.product_id))deny();
+  if(opsById)verifyCommittedLedgerPair(opsById.get(effect.op_id),payloadsById.get(effect.op_id),effect,state,priceMap,deny);
+  seenEffectOps.add(effect.op_id);
   cash+=BigInt(c);
+ }
+ if(opsById){
+  for(const [opId,opsRow] of opsById){
+   let receipt;
+   try{receipt=JSON.parse(opsRow.receipt_json);}catch(_){deny();}
+   if(!receipt||typeof receipt!=='object')deny();
+   if(receipt.stage==='business-committed'){
+    if(!seenEffectOps.has(opId)||!payloadsById.has(opId))deny();
+   }else if(receipt.stage!=='stored-for-application')deny();
+  }
  }
  if(cash<0n||cash>BigInt(MAX)||BigInt(baseline.cash_cents)!==cash)deny();
  if(stockRows.length!==stock.size)deny();
@@ -139,9 +194,9 @@ export function installBusinessBaseline({storage,proof}={}){
     // in the economic baseline. Seeding over a prior op journal would risk
     // counting an older sale twice after reconnect. Defer to the certified
     // Firebase/DO reconciliation gate instead of silently inventing a cutover.
-    if(['typed_commercial_ops','f123_business_effects','f123_business_stock','f123_business_receivables',
+    if(['typed_commercial_ops','typed_commercial_payloads','f123_business_effects','f123_business_stock','f123_business_receivables',
         'f123_business_baseline','documento','documento_bloques','diario',
-        'diario_bloques','f123_frozen_imports'].some(table=>hasRows(sql,table)))
+        'diario_bloques','f123_frozen_imports','f123_frozen_unions'].some(table=>hasRows(sql,table)))
       fail('Yjs history or nonempty economic store requires controlled migration');
     sql.exec('INSERT INTO f123_business_baseline (license,frozen_head,sha256,count,cash_cents) VALUES (?,?,?,?,?)',
       state.license,state.frozenHead,proof.sha256,state.products.length,state.openingCashCents);

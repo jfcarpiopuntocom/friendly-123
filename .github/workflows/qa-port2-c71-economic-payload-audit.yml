@@ -31,6 +31,7 @@ jobs:
         run: |
           node --test cloudflare-yparty-worker/qa/p0-gate-a-typed-payment-sql.test.mjs
           node --test cloudflare-yparty-worker/qa/p0-gate-a-business-sql-workerd.test.mjs
+          node --test cloudflare-yparty-worker/qa/p0-gate-a-real-router-business.test.mjs
       - name: Original fixed 100.0 score and GO untouched
         run: |
           node scripts/architecture-2-port-score.cjs --json
