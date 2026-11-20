@@ -2868,7 +2868,7 @@
       if (origin === "bc" || origin === "red" || (API.idb && origin === API.idb)) return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       API.canal.enviarUpdate(update);
-      if (API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);
+      if (!API.modoCorte20Activo && API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);
     });
 
     // B3 (JFC 2026-09-10): documento SEPARADO para los BYTES de las fotos. NO van
@@ -2923,7 +2923,7 @@
     API.fotosDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.fotosIdb && origin === API.fotosIdb)) { pedirVolcarFotos(); return; } // llegó un blob: guardarlo local
       try { if (API.fotosBc) API.fotosBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
-      API.fotosCanal.enviarUpdate(update);
+      if (!API.corteFotosShaActivo) API.fotosCanal.enviarUpdate(update);
     });
 
     // SYNC DE VENTAS/OPS (JFC 2026-09-10, "que sincronice TODO"). Doc SEPARADO de
@@ -3347,7 +3347,7 @@
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
-      API.opsCanal.enviarUpdate(update);
+      if (!API.modoCorte20Activo) API.opsCanal.enviarUpdate(update);
     });
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });

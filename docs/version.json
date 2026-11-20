@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.21",
+  "version": "v0.8.22",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.21: C51 agrega timeout acotado con AbortController en navigator.locks.request (docs/sync-yjs.js) con fallback seguro a mutarOutboxAtomicoSinLocks ante bloqueo BFCache/Safari, y cablea el arranque operacional 2.0 bajo doble candado QA (f123_yparty_qa + f123_corte20_qa, ambos OFF por defecto). Sync3 intacto, cero gastos Cloudflare/R2.",
+  "changelog": "v0.8.22: C52 retira el envío legado en canalSombra, fotosCanal y opsCanal mientras modoCorte20Activo/corteFotosShaActivo están activos (y lo reanuda automáticamente en failbackToLegacy). Switches QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v821",
+  "shell": "f123-shell-v822",
   "apagar": [],
-  "releaseName": "v0.8.21",
-  "cacheGeneration": "golden357"
+  "releaseName": "v0.8.22",
+  "cacheGeneration": "golden358"
 }
