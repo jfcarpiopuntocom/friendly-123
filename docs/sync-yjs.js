@@ -2884,23 +2884,31 @@
     // On-demand cold-device recovery: keep OCFotos' existing IDB lookup first.
     // Only a verified signed catalog reference may trigger HTTP photo download.
     function _instalarLectorFotoShaBajoDemanda() {
-      if (!API.fotoSha || !window.OCFotos?.leerPorHash || window.OCFotos.__f123PhotoReadOriginal) return;
+      if (!API.fotoSha || !window.OCFotos?.leerPorHash) return;
+      if (API.__fotoShaBridgeInstalado !== API.fotoSha) {
+        API.__fotoShaBridgeInstalado = API.fotoSha;
+        API.__fotoShaLecturasRemotas = 0;
+      }
+      if (window.OCFotos.__f123PhotoReadOriginal) return;
       var fotosShaStore = window.OCFotos;
       var leerFotoLocal = fotosShaStore.leerPorHash.bind(fotosShaStore);
       fotosShaStore.__f123PhotoReadOriginal = leerFotoLocal;
-      var lecturasRemotas = 0;
       fotosShaStore.leerPorHash = async function (hash) {
         var local = await leerFotoLocal(hash);
         if (local) return local;
         var docOrigen = API.doc, refs = API.fotosRefs, bridge = API.fotoSha;
+        if (API.__fotoShaBridgeInstalado !== bridge) {
+          API.__fotoShaBridgeInstalado = bridge;
+          API.__fotoShaLecturasRemotas = 0;
+        }
         var metadata = refs?.get(hash);
         if (!bridge || !metadata || metadata.sha !== hash ||
             !/^[a-f0-9]{64}$/.test(hash || "") ||
             !Number.isSafeInteger(metadata.bytes) || metadata.bytes < 1 ||
             metadata.bytes > 6*1024*1024 ||
             !["image/jpeg","image/png","image/webp","image/gif"].includes(metadata.tipo) ||
-            lecturasRemotas >= 16) return null;
-        lecturasRemotas++;
+            (API.__fotoShaLecturasRemotas || 0) >= 16) return null;
+        API.__fotoShaLecturasRemotas = (API.__fotoShaLecturasRemotas || 0) + 1;
         try {
           var dataUrl = await bridge.get(hash);
           if (API.doc !== docOrigen || API.fotosRefs !== refs ||
@@ -4759,6 +4767,11 @@
       _barridoSaltos = 0;
     }, 0); } // v517: 0 ms (JFC: "40 ms o menos"); junta lo del mismo instante
     window.addEventListener("oc-catalogo-cambiado", pedirSeed);
+    window.addEventListener("oc-catalogo-cambiado", function () {
+      if (API.corteFotosShaActivo === true && API.fotoSha && typeof API.sembrarFotos === "function") {
+        try { API.sembrarFotos(); } catch (_) {}
+      }
+    });
     window.addEventListener("oc-equipo-cambiado", pedirSeed);
 
     // Convergencia remota (relay) o de otra pestaña (BroadcastChannel) -> aplicar.
