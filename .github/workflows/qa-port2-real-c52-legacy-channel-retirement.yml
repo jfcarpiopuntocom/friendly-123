@@ -1,0 +1,31 @@
+name: PORT2 C52 · legacy Yjs channel retirement under 2.0 cutover
+on:
+  push:
+    branches: [port2/20261119-c52-legacy-channel-retirement-v822]
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - test/p0-c52-legacy-channel-retirement.test.cjs
+      - .github/workflows/qa-port2-real-c52-legacy-channel-retirement.yml
+permissions: {contents: read}
+jobs:
+  c52-legacy-channel-retirement:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-c52-legacy-channel-retirement.test.cjs \
+            test/p0-c51-weblocks-timeout-and-operational-switch.test.cjs \
+            test/p0-c47-auth-role-switch-20.test.cjs \
+            test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs \
+            test/p0-c38-legacy-transport-quiescence.test.cjs \
+            test/p0-architecture-2-port-score.test.cjs
+          bash check-sw.sh
