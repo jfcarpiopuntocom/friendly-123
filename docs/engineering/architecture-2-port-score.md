@@ -1,29 +1,38 @@
-# friendly-123 · PORTANDO arquitectura 1.0 → 2.0 · puntuación fija y auditable
+# friendly-123 · PORTANDO arquitectura 1.0 → 2.0 · indicadores fijos y auditables
 
-**Corte C50 · 19 nov Ecuador / 20 nov UTC 2026.** Evaluado el mismo producto `jfcarpiopuntocom/friendly-123` tras [PR #845 C47 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/845) SHA **`2172eeae497cc62b96b60d86588418a6ee21fddf`**, shell **v0.8.20 / v820**. Sync3 integrado y preservado; `friendly123workshop` es solo taller, precode y evidencia.
+**Corte C52 · 19 nov Ecuador / 20 nov UTC 2026.** Evaluada la **misma** app real `jfcarpiopuntocom/friendly-123` después de [PR #847 C49](https://github.com/jfcarpiopuntocom/friendly-123/pull/847) merge `b488705cfaeb4bac6e7a763696cb7af23576315d` y [PR #849 C51](https://github.com/jfcarpiopuntocom/friendly-123/pull/849) merge `1b64b3ca40d07abce9924222eea541e4c93ba283`, versión **v0.8.21 / shell v821 / golden357**. Sync3 sigue integrado; workshop es solo plan/evidencia, NO nueva app.
 
-| Indicador de rúbrica fija | Anterior C48 | C50 acreditado | Delta |
+| Indicador de rúbrica fija | C50 anterior | C52 acreditado | Delta |
 | --- | ---: | ---: | ---: |
-| **Migración arquitectura 1.0 → 2.0, capacidades integradas** | 88,0/100,0 | **88,5/100,0** | **+0,5** |
-| **Calidad de ingeniería arquitectónica** | 77,3/100,0 | **77,5/100,0** | **+0,2** |
+| **Migración 1.0 → 2.0, capacidades instaladas en mismo producto** | 88,5/100,0 | **89,5/100,0** | **+1,0** |
+| **Calidad arquitectónica de ingeniería** | 77,5/100,0 | **77,9/100,0** | **+0,4** |
 | GO comercial certificado | 0/6 | **0/6** | 0 |
-| Prueba física PC↔Safari/PWA | 0/5 | **0/5** | 0 |
+| Pruebas físicas PC↔Safari/PWA | 0/5 | **0/5** | 0 |
 
-El puntaje de migración mide capacidades del código realmente ensamblado, NO porcentaje de clientes operando en 2.0. Variación acumulada desde la base fija post-D7 de **68,5 a 88,5 = +20,0 puntos**. Quality mide confianza en ingeniería, no disponibilidad comercial ni SLO. Las funciones comerciales 2.0 siguen QA OFF.
+Migración mide partes integradas del código, NO porcentaje de tiendas realmente operando en 2.0 ni éxito comercial. Diferencia respecto a la base post-D7 de 68,5: **+21,0 puntos**, con presupuesto fijo de 100,0. Los dos flags 2.0 permanecen **OFF por defecto** y aún no se ha realizado corte comercial.
 
-## Presupuesto ORIGINAL conservado: 100,0 puntos
+## Desglose SIN cambiar los pesos originales: 100,0
 
 | Capacidad | Acreditado | Peso | Pendiente |
 | --- | ---: | ---: | ---: |
-| SQLite/Yjs, diario, reapertura y merge | 16,0 | 17,0 | 1,0 |
-| Historia congelada, certificación, R2 | 13,5 | 18,0 | 4,5 |
+| SQLite/Yjs, outbox, Web Locks, arranque QA C51 | **16,5** | 17,0 | **0,5** |
+| Historia congelada, certificación Firebase HEAD y R2 | 13,5 | 18,0 | 4,5 |
 | Economía tipada (ventas, stock, abonos, recibos DO) | 16,5 | 17,0 | 0,5 |
-| Tickets Owner/Team y salas: C47 partial QA | **13,0** | 14,0 | **1,0** |
-| Fotos SHA fuera de Yjs: C46 partial QA | 7,5 | 9,0 | 1,5 |
+| Tickets Owner/Team y salas, C47 QA | 13,0 | 14,0 | 1,0 |
+| Fotos SHA y CAS, C46 + C49 QA | **8,0** | 9,0 | **1,0** |
 | Catálogo público y lector certificado | 10,0 | 10,0 | 0,0 |
-| Cableado navegador y retiro parcial 1.0 | 8,5 | 10,0 | 1,5 |
-| Outbox, Safari y failback | 3,5 | 5,0 | 1,5 |
-| **TOTAL** | **88,5** | **100,0** | **11,5** |
+| Cableado navegador y retiro del 1.0 | 8,5 | 10,0 | 1,5 |
+| Failback, convergencia verificada dispositivos reales | 3,5 | 5,0 | 1,5 |
+| **TOTAL** | **89,5** | **100,0** | **10,5** |
+
+## C49 / C51 en master: evidencia distinta a crédito anterior
+
+- **C49** [PR #847](https://github.com/jfcarpiopuntocom/friendly-123/pull/847) 11/11 CI + Cloudflare build SUCCESS del merge: ejecuta fuente real `docs/mock-backend.js` CAS en ubicación/percha (HTTP 200 inicial, 409 `PHOTO_POINTER_CONFLICT` con puntero preservado, 200 con revisión válida); foto guardada IDB→Sync3→Workerd SQLite `-fotos` y Team frío recupera bytes idénticos por SHA. Diferente de C46, que solo certificaba lectura fría y secuencia sintética de ventas. [Workerd C49 rerun sobre v0.8.21 combinado](https://github.com/jfcarpiopuntocom/friendly-123/pull/850/checks) GREEN, mantiene 1,0 de presupuesto foto/UI/físico sin acreditar.
+- **C51** [PR #849](https://github.com/jfcarpiopuntocom/friendly-123/pull/849) 53/53 CI y Cloudflare build SUCCESS del merge: `docs/sync-yjs.js` limita la espera `navigator.locks.request` con `AbortController` (predeterminado 1.500 ms); si caduca la adquisición, conserva el arbitraje atómico IDB existente, y relanza errores reales de negocio/IDB. Instala `API.corte20QaHabilitado()`: solo con AMBOS `f123_yparty_qa=1` y `f123_corte20_qa=1`, rol efectivo Owner/Admin no demo y guardas de escritor único C38 puede intentar arranque 2.0. Por defecto ambos OFF. No prueba con iPhone físico ni promesa de cero bloqueos reales.
+- En la rúbrica original, se divide el pendiente `operational-switch` 1,0 en `c51-bounded-locks-and-double-qa-bootstrap` 0,5 DONE y activación real 0,5 PENDING, y el pendiente foto `browser-photo-cutover` 1,5 en `c49-real-photo-cas-workerd-qa` 0,5 DONE y UI real/físico 1,0 PENDING. No existen puntos nuevos.
+- Calidad +0,2 durabilidad y +0,2 fotos; físicos 0/5, comercial 0/6. No se acredita nada por reportes predictivos/simulados Hermes ni por PR #841 ledger intencionalmente RED bajo reserva ajena. [Plan PRECODE](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c49-c51-sameapp-integration-finite-precode.md).
+
+## Historial anterior de C47/C50
 
 ## C47 producto real: causa raíz y frontera de crédito
 
