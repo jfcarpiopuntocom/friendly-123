@@ -5,13 +5,13 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C79: C78 canonical SHA for pending expense/customer payments source, fixed100 GO0/6',()=>{
+test('C81: C80 absolute physical stock counts causal readback source, fixed100 GO0/6',()=>{
  const s=inspect();
  assert.equal(s.port,92.0);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,23.5);
- assert.equal(s.quality,79.8);
- assert.equal(s.qualityBefore,79.7);
+ assert.equal(s.quality,79.9);
+ assert.equal(s.qualityBefore,79.8);
  assert.equal(s.qualityDelta,0.1);
  assert.equal(s.go,'0/6');
  // C77 only credits actual C76 merged source & native RED-first QA.
@@ -122,6 +122,35 @@ test('C79: C78 canonical SHA for pending expense/customer payments source, fixed
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
 
+ // C81 counts only C80 MERGED actual source; a COUNT fixes N absolute,
+ // not a freely adjustable delta. Original receipt is @noble SHA-verified.
+ const c80Source=fs.readFileSync(path.join(__dirname,
+  '../cloudflare-yparty-worker/src/authoritative-business-sql.mjs'),'utf8');
+ const c80Native=fs.readFileSync(path.join(__dirname,
+  '../cloudflare-yparty-worker/qa/p0-c80-absolute-physical-count-readback.test.mjs'),'utf8');
+ for(const token of [
+  'function verifyTypedBusinessEffects(sql,license,effects)',
+  'return physicalCountById;',
+  'ORDER BY rowid',
+  'const physicalCountById=verifyTypedBusinessEffects(sql,state.license,effects);',
+  'if(physicalCountById.has(effect.op_id)&&after!==physicalCountById.get(effect.op_id))deny();',
+  "import {sha256} from '@noble/hashes/sha2.js'"
+ ])assert(c80Source.includes(token),'C81 audited real C80 causal count guard missing '+token);
+ for(const token of [
+  'C80 RED P0: altered physical count delta and matching stock must not certify count5 as count6',
+  'C80 RED P0: after sale and before new sale, tampered physical count delta cannot be hidden in final stock',
+  'C80 RED P0: zero-stock count may not silently become count1 with matching delta and final stock',
+  'C80 control: two authentic counts in reverse lexical opId order MUST use SQLite rowid insertion chronology',
+  'C80 control: physical no-op count N=stock must retain zero delta and receipt'
+ ])assert(c80Native.includes(token),'C81 actual source native SQLite RED-first evidence absent '+token);
+ assert.equal(quality.lastAuditedProductSha,'52dd4b6f7d854387a578cc53a8be9c761ffc8105');
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
+ assert.equal(s.port,92.0);
+
+
  // C79 credits only merged C78 source + real RED-first typed 202 SQL tests.
  // Expense and customer payment are queued-only; SHA from mature noble, no
  // claim of a real Firebase cutover, money effect or physical iPhone GO.
@@ -143,14 +172,14 @@ test('C79: C78 canonical SHA for pending expense/customer payments source, fixed
   'C78 control: queued expense + customer payment preserve genuine 202 SHA, no money/effects',
   'C78 control: queued sale 202 and committed sale + fiado remain correct'
  ])assert(c78QA.includes(token),'C79 actual C78 RED-first SQL evidence missing '+token);
- assert.equal(quality.lastAuditedProductSha,'2980aa59f3345b757a9e504465c54fd6b703987d');
+ assert.equal(quality.lastAuditedProductSha,'52dd4b6f7d854387a578cc53a8be9c761ffc8105');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
  assert.equal(s.port,92.0);
 
- assert.equal(quality.lastAuditedProductSha,'2980aa59f3345b757a9e504465c54fd6b703987d');
+ assert.equal(quality.lastAuditedProductSha,'52dd4b6f7d854387a578cc53a8be9c761ffc8105');
  const ms=port.groups.flatMap(g=>g.milestones);
  assert.equal(port.maximum,100);
  assert.equal(quality.maximum,100);
@@ -175,7 +204,7 @@ test('C79: C78 canonical SHA for pending expense/customer payments source, fixed
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
  assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),8.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
  const photo=port.groups.find(g=>g.id==='photo-sha');
  assert.equal(photo?.weight,9,'photo group weight unchanged');
@@ -257,7 +286,7 @@ test('C79: C78 canonical SHA for pending expense/customer payments source, fixed
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false,'unearned real role switch');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -270,7 +299,7 @@ test('C79: C78 canonical SHA for pending expense/customer payments source, fixed
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false);
  assert.equal(identity.milestones.reduce((a,m)=>a+m.points,0),14);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -300,7 +329,7 @@ test('C79: C78 canonical SHA for pending expense/customer payments source, fixed
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.0);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.0);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(port.commercialGo.certifiedGates,0);
@@ -309,7 +338,7 @@ test('C79: C78 canonical SHA for pending expense/customer payments source, fixed
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,79.7);
+ assert.equal(quality.comparison.previousScore,79.8);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.9);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
