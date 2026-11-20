@@ -9,7 +9,7 @@ import {openExistingStore} from '../src/open-existing-store.mjs';
 
 const sha=bytes=>createHash('sha256').update(bytes).digest('hex');
 const rows=a=>({toArray:()=>a,one:()=>a[0]});
-function scenario({includeFrozenBase}){
+function scenario({includeFrozenBase,replaceWithLegacy=false}){
   const before=new Y.Doc(),later=new Y.Doc();
   // Two independent writers. The later journal is a complete, valid Yjs
   // update on its own: without the frozen base it can still look healthy.
@@ -29,6 +29,7 @@ function scenario({includeFrozenBase}){
   };
   before.destroy();later.destroy();
   const tables=new Set(['f123_frozen_imports','documento_bloques','diario']);
+  if(replaceWithLegacy)tables.add('documento');
   const storage={
     transactionSync:fn=>fn(),
     sql:{
@@ -39,6 +40,8 @@ function scenario({includeFrozenBase}){
         if(query.includes('SELECT name FROM sqlite_master'))return rows([...tables].map(name=>({name})));
         if(query.includes('FROM documento_bloques ORDER BY n'))
           return rows(includeFrozenBase?[{n:0,contenido:frozen}]:[]);
+        if(query.includes('FROM documento ORDER BY id'))
+          return rows(replaceWithLegacy?[{id:1,contenido:newer}]:[]);
         if(query.includes('FROM diario ORDER BY n'))
           return rows([{n:1,cambio:newer}]);
         if(query.includes('FROM diario_bloques ORDER BY n,parte'))return rows([]);
@@ -64,4 +67,11 @@ test('C64 RED P0: receipt cannot ACK a cold reopened room after its frozen snaps
   assert.match(result.failback||'',/frozen base snapshot/i);
   // A refusal must be read-only: no fake reconstruction or SQL write.
   assert.equal(s.storage.transactionSync!==undefined,true);
+});
+
+test('C64 RED P0: a legacy snapshot cannot impersonate the missing blocked frozen import',{timeout:15000},async()=>{
+  const s=scenario({includeFrozenBase:false,replaceWithLegacy:true});
+  const result=await openExistingStore({env:{WS_OPEN_EXISTING_QA:'1'},storage:s.storage});
+  assert.equal(result.opened,false,'legacy Yjs frame is not the independently certified blocked frozen base');
+  assert.match(result.failback||'',/frozen base snapshot/i);
 });
