@@ -3397,6 +3397,21 @@
     API.doc.on("update", function () { if (API.esLicenciaPruebaJfc && API.opsMap && API.opsMap.size) pedirProcesarEventos(); });
     window.addEventListener("oc-catalogo-cambiado", pedirProcesarEventos);
 
+    function _intentarActivarCorte20SiElegible() {
+      if (!API.canalPiloto || typeof API.corte20QaHabilitado !== "function" ||
+          !API.corte20QaHabilitado() || typeof API.activarCorte20Runtime !== "function" ||
+          API.__reactivandoCorte20) return;
+      try {
+        var authQa = typeof window !== "undefined" ? window.OCAuth : null;
+        var demoQa = authQa && typeof authQa.esDemo === "function" ? authQa.esDemo() === true : false;
+        var rolQa = authQa && typeof authQa.rolActual === "function" ? String(authQa.rolActual() || "").trim().toLowerCase() : "";
+        if (!demoQa && (rolQa === "dueno" || rolQa === "admin")) {
+          API.__reactivandoCorte20 = Promise.resolve(API.activarCorte20Runtime({ cortarComercio: true }))
+            .catch(function () {})
+            .finally(function () { API.__reactivandoCorte20 = null; });
+        }
+      } catch (_) {}
+    }
     function sincronizarVisibilidad() {
       var activo = !document.hidden;
       [API.canal, API.fotosCanal, API.opsCanal].forEach(function (c) {
@@ -3407,6 +3422,9 @@
       if (activo) {
         programarRetorno();
         if (API.catalogoPublicoLector) API.catalogoPublicoLector.intentar();
+        if (API.modoCorte20Activo !== true && API.coordinadorCorte20) {
+          _intentarActivarCorte20SiElegible();
+        }
       } else {
         clearTimeout(timerRetorno);
         timerRetorno = null;
@@ -3454,16 +3472,7 @@
           localStorage.getItem("f123_corte20_qa") === "1";
       } catch (_) { return false; }
     };
-    if (API.canalPiloto && API.corte20QaHabilitado() && typeof API.activarCorte20Runtime === "function") {
-      try {
-        var authQa = typeof window !== "undefined" ? window.OCAuth : null;
-        var demoQa = authQa && typeof authQa.esDemo === "function" ? authQa.esDemo() === true : false;
-        var rolQa = authQa && typeof authQa.rolActual === "function" ? String(authQa.rolActual() || "").trim().toLowerCase() : "";
-        if (!demoQa && (rolQa === "dueno" || rolQa === "admin")) {
-          Promise.resolve(API.activarCorte20Runtime({ cortarComercio: true })).catch(function () {});
-        }
-      } catch (_) {}
-    }
+    _intentarActivarCorte20SiElegible();
     API.estado = "activo";
     log("Plan C activo (Fase 2 + fotos + ops). Sala:", API.roomId);
   }
