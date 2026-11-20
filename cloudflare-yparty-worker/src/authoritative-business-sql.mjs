@@ -167,6 +167,8 @@ function verifyTypedBusinessEffects(sql,license,effects){
 function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
  const deny=()=>fail('business baseline reconciliation error');
  const stock=new Map(state.products.map(p=>[p.productId,BigInt(p.quantity)]));
+ // Original independently SHA-certified prices, not today's client receipt.
+ const certifiedPrices=new Map(state.products.map(p=>[p.productId,BigInt(p.unitPriceCents)]));
  const receivables=new Map((state.receivables||[])
   .map(r=>[r.receivableId,BigInt(r.balanceCents)]));
  let cash=BigInt(state.openingCashCents);
@@ -182,6 +184,10 @@ function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
   // classes can never silently change an audited economic balance.
   if(q!==0){
    if(!stock.has(effect.product_id)||(q>0&&c>0))deny();
+   // A forged or corrupted 200 receipt can match its effect/SHA while the
+   // amount violates the immutable original catalog price. This readback
+   // check is separate from the live sale executor's existing price check.
+   if(q<0&&c>0&&BigInt(c)!==BigInt(-q)*certifiedPrices.get(effect.product_id))deny();
    stock.set(effect.product_id,stock.get(effect.product_id)+BigInt(q));
   }else if(c>0){
    if(!receivables.has(effect.product_id))deny();
@@ -233,9 +239,9 @@ export function installBusinessBaseline({storage,proof}={}){
     // in the economic baseline. Seeding over a prior op journal would risk
     // counting an older sale twice after reconnect. Defer to the certified
     // Firebase/DO reconciliation gate instead of silently inventing a cutover.
-    if(['typed_commercial_ops','f123_business_effects','f123_business_stock','f123_business_receivables',
+    if(['typed_commercial_ops','typed_commercial_payloads','f123_business_effects','f123_business_stock','f123_business_receivables',
         'f123_business_baseline','documento','documento_bloques','diario',
-        'diario_bloques','f123_frozen_imports'].some(table=>hasRows(sql,table)))
+        'diario_bloques','f123_frozen_imports','f123_frozen_unions'].some(table=>hasRows(sql,table)))
       fail('Yjs history or nonempty economic store requires controlled migration');
     sql.exec('INSERT INTO f123_business_baseline (license,frozen_head,sha256,count,cash_cents) VALUES (?,?,?,?,?)',
       state.license,state.frozenHead,proof.sha256,state.products.length,state.openingCashCents);
