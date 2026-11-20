@@ -9375,16 +9375,16 @@
         if (!movimientos.some(m=>m.detalle && m.detalle.movimientoId===recibo.id)) {
           mov(tipo === "cargo" ? "cartera-fiado" : "cartera-abono", { cliente: c.nombre, monto, movimientoId:recibo.id });
         }
-        let _opIdAbono = null;
-        if (tipo === "abono") {
-          const _rawAbonoOpId = (typeof body.opId === "string" && /^[A-Za-z0-9_-]{8,96}$/.test(body.opId.trim()))
+        if (tipo === "abono" && typeof emitirOpStock === "function") {
+          const _rawCustPayOpId = (typeof body.opId === "string" && /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(body.opId.trim()))
             ? body.opId.trim()
-            : ("abono-" + String(recibo.id || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
-          _opIdAbono = /^[A-Za-z0-9_-]{8,96}$/.test(_rawAbonoOpId) ? _rawAbonoOpId : uuid("abono-");
+            : ("customer-payment:" + String(recibo.id || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
+          const _opIdAbono = /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(_rawCustPayOpId)
+            ? _rawCustPayOpId
+            : ("customer-payment:" + uuid("").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
           emitirOpStock("abono", {
             opId: _opIdAbono,
             clienteId: c.id,
-            receivableId: String((relacion && relacion.ventaId) || recibo.id || c.id),
             movimientoId: String(recibo.id || ""),
             amountCents: Math.round(monto * 100),
             monto
@@ -9392,7 +9392,7 @@
         }
         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
         const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
-        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, rol), {movimientoId: recibo.id, opId: body.opId || _opIdAbono}));
+        return J(Object.assign(await _vistaCarteraConVinculos(c.id, info, rol), {movimientoId: recibo.id, opId: body.opId || null}));
       }
 
       // POST /api/clientes/:id/despedir — excluye al cliente de la operación activa.

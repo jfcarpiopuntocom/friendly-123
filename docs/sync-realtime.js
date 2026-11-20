@@ -1659,18 +1659,23 @@
     // C36+C44: the actual commercial op's durable opId is the idempotency key
     // for BOTH the legacy queue and the Yjs/typed relay when validated.
     function _opIdAjusteOAbonoDurable(t, p) {
-      if (!p || typeof p.opId !== "string" || !/^[A-Za-z0-9_-]{8,96}$/.test(p.opId)) {
-        return uuidCorto();
-      }
+      if (!p || typeof p.opId !== "string") return uuidCorto();
       if (t === "ajuste") {
-        return typeof p.productoId === "string" && p.productoId.trim() &&
+        return /^[A-Za-z0-9_-]{8,96}$/.test(p.opId) &&
+          typeof p.productoId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(p.productoId.trim()) &&
           Number.isSafeInteger(p.stockNuevo) && p.stockNuevo >= 0
           ? p.opId : uuidCorto();
       }
       if (t === "abono") {
-        return typeof p.receivableId === "string" && p.receivableId.trim() &&
-          Number.isSafeInteger(p.amountCents) && p.amountCents > 0
-          ? p.opId : uuidCorto();
+        if (!Number.isSafeInteger(p.amountCents) || p.amountCents <= 0) return uuidCorto();
+        if (/^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(p.opId) &&
+            typeof p.clienteId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(p.clienteId.trim())) {
+          return p.opId;
+        }
+        if (/^[A-Za-z0-9_-]{8,96}$/.test(p.opId) &&
+            typeof p.receivableId === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(p.receivableId.trim())) {
+          return p.opId;
+        }
       }
       return uuidCorto();
     }
