@@ -253,3 +253,54 @@ test('C95: fails closed on quarantined conflict, view difference, single source,
     /catalog|root|unexpected/i
   );
 });
+
+
+test('C96 RED-first: immutable archive refuses a mutable accepted payload/list/provenance with unchanged authenticated manifest', async () => {
+  const authentic = makeReadyUnion();
+  const authenticatedSealProof = {
+    issuer: 'owner-session-verified',
+    verifiedSources: authentic.sourceCount,
+    unionDigest: authentic.digest,
+    businessScope: BUSINESS_SCOPE
+  };
+  const alteredMoney = {
+    ...authentic,
+    facts: authentic.facts.map((fact, index) => index === 0
+      ? { ...fact, payload: { ...fact.payload, amountCents: 999999 } }
+      : fact)
+  };
+  const alteredProvenance = {
+    ...authentic,
+    facts: authentic.facts.map((fact, index) => index === 0
+      ? { ...fact, observedBy: ['f'.repeat(64)] }
+      : fact)
+  };
+  const droppedFact = {
+    ...authentic,
+    facts: authentic.facts.slice(1)
+  };
+  const alteredPayloadHash = {
+    ...authentic,
+    facts: authentic.facts.map((fact, index) => index === 0
+      ? { ...fact, payloadHash: 'f'.repeat(64) }
+      : fact)
+  };
+  for (const [caseName, unionPlan] of [
+    ['changed economic cents', alteredMoney],
+    ['changed source provenance', alteredProvenance],
+    ['removed accepted operation', droppedFact],
+    ['changed committed payload SHA', alteredPayloadHash]
+  ]) {
+    await assert.rejects(
+      sealPresentUnionToR2({
+        room: ROOM_ID,
+        frozenHead: FROZEN_HEAD,
+        authenticatedSealProof,
+        unionPlan,
+        publicCatalogSnapshot: makeCatalogSnapshot()
+      }),
+      /manifest|digest|payload|integrity|union|commitment/i,
+      caseName + ' must never be sealed using authentic digest'
+    );
+  }
+});
