@@ -442,9 +442,9 @@ function inspect(){
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO from C44');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A from C44');
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
-   assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.3);
-   assert.equal(quality.comparison.previousScore,76.8);
-   assert.equal(data.assessedProductSha,'be032b2b27fd52c299d8e1b6942d9b7bb2596934','exact C44 product merge SHA');
+   assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
+   assert.equal(quality.comparison.previousScore,77.0);
+   assert.equal(data.assessedProductSha,'f05cd2fa0a104439845bad96f9e341267c82e33c','C48 assessed real merged PR844 source SHA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
    const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -484,6 +484,62 @@ function inspect(){
      const digest='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
      assert.equal(manifest.files['./'+name],digest,'C44 shipped SHA source mismatch '+name);
    }
+ }
+ // C48: C46 actually MERGED existing browser photo assembly and executed it against
+ // real Workerd SQLite DO with two fake-IDB Owner devices plus cold Team readback.
+ // Earn QA ONLY 0.5 split from existing photo UI cutover2.0, NOT physical acceptance.
+ const c46=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='real-photo-browser-do-readback-c46');
+ if(c46?.done){
+   assert.equal(c46.points,0.5,'C46 Workerd QA is capped at 0.5');
+   assert.equal(c46.source,'docs/application/recover-shelf-photo.js',
+     'C46 must credit the REAL application recovery path, not workshop');
+   const photos=data.groups.find(g=>g.id==='photo-sha');
+   assert.equal(photos?.weight,9,'photo budget unchanged');
+   assert.equal(oneDecimal(photos.milestones.reduce((a,m)=>a+m.points,0)),9,'no new photo points');
+   const leftover=photos.milestones.find(m=>m.id==='browser-photo-cutover');
+   assert.equal(leftover?.points,1.5,'full UI/CAS/physical photo cutover still unearned 1.5');
+   assert.equal(leftover.done,false,'C46 synthetic QA is not physical photo cutover');
+   assert.equal(data.groups.flatMap(g=>g.milestones)
+     .find(m=>m.id==='verified-cross-device-downpath')?.done,false,
+     'virtual Workerd handoff is not a true PC-iPhone downpath');
+   assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO from virtual clients');
+   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical devices tested');
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.3);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.7);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.6);
+   assert.equal(quality.comparison.previousScore,77.0);
+   const testPath='cloudflare-yparty-worker/qa/p0-c46-cross-device-photo-and-downpath-workerd.test.mjs';
+   const workerd=fs.readFileSync(path.join(root,testPath),'utf8');
+   for(const token of [
+      'from \'miniflare\'',
+      'vm.runInContext(IDB_FOTOS_SRC',
+      'vm.runInContext(RECOVER_PHOTO_SRC',
+      'assert.equal(devA.API.fotosMap.size, 0',
+      'assert.equal(recovered?.displayBytes, shelfDataUrl',
+      'const opB2 =',
+      'const opA3 =',
+      'assert.equal(sql.stock, 0',
+      'assert.equal(sql.cash, 8000',
+      'assert.equal(sql.effects, 5',
+      'assert.equal(sql.receipts, 5'
+   ])assert(workerd.includes(token),'C46 real Workerd double-cycle evidence absent '+token);
+   const yjs=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   const idb=fs.readFileSync(path.join(root,'docs/idb-fotos.js'),'utf8');
+   const recover=fs.readFileSync(path.join(root,'docs/application/recover-shelf-photo.js'),'utf8');
+   const vendor=fs.readFileSync(path.join(root,'docs/vendor/yparty-piloto.min.js'),'utf8');
+   assert(yjs.includes('_instalarLectorFotoShaBajoDemanda')&&yjs.includes('function sembrarFotosAlRelay()'),
+     'real C46 Sync3 SHA photo bridge absent');
+   assert(idb.includes('async function leerPorHash(') && recover.includes('async function recoverShelfPhoto('),
+     'real C46 app IDB photo recovery absent');
+   const manifest=load('docs/version-manifest.json');
+   for(const [name,bytes] of [['sync-yjs.js',yjs],['idb-fotos.js',idb],
+       ['application/recover-shelf-photo.js',recover],['vendor/yparty-piloto.min.js',vendor]]){
+     const digest='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
+     assert.equal(manifest.files['./'+name],digest,'C46 actual shipped source mismatch '+name);
+   }
+   assert.equal(data.assessedProductSha,'f05cd2fa0a104439845bad96f9e341267c82e33c',
+     'C46 only credits exact actual PR844 merged source');
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
