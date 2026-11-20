@@ -16,7 +16,8 @@
     { "tag": "port2-canary-v1", "new_sqlite_classes": ["Tienda"] }
   ],
   "services": [
-    { "binding": "WS_AUTHORITY", "service": "friendly123-licencias" }
+    { "binding": "WS_AUTHORITY", "service": "friendly123-licencias" },
+    { "binding": "WS_FROZEN_HISTORY_SOURCE", "service": "friendly123-frozen-history-qa" }
   ],
   "kv_namespaces": [
     { "binding": "LICENCIAS", "id": "f1599c69c4174cc2b38dd125c18ee3df" }
