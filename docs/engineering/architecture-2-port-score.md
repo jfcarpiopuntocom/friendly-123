@@ -1,5 +1,26 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C75 · 20-nov-2026 Ecuador · calidad 79,6 y transición 92,0, DOS rúbricas fijas100
+
+Se PORTA la **MISMA friendly-123** 1.0→2.0 con injertos maduros; Sync3 ya es 2.0 y permanece. [C74 fuente real PR #875 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/875) `master@45d54fbdec1fb07fbca52f090c2abcc75528c040`, **14/14 GH Actions** del source HEAD `76e9f9969d46f8df0f81905ad7a7826f86d6f307` verdes. Cloudflare Workers Builds GET rama master **SHA exacta** `45d54fbdec1fb07fbca52f090c2abcc75528c040` **SUCCESS** UUID `d4c8a595-0ef2-4b26-8788-7966307703fa`. Fuera del scope quedan cliente/Cloudflare settings/Sync3/PIN.
+
+| DOS MÉTRICAS /100, original peso inmutable | C73 anterior | C75 actual | Delta |
+| --- | ---: | ---: | ---: |
+| **Transición de la misma friendly-123 1.0→2.0** | 92,0/100,0 | **92,0/100,0** | 0,0 |
+| **Calidad arquitectónica** | 79,5/100,0 | **79,6/100,0** | +0,1 |
+| Calidad Business | 18,7/20,0 | **18,8/20,0** | +0,1 |
+| Calidad Durability | 18,6/20,0 | **18,6/20,0** | 0,0 |
+| GO comercial | 0/6 | **0/6** | 0 |
+| Físico PC Opera↔iPhone Safari/PWA | 0/5 | **0/5** | 0 |
+
+**Causa raíz nueva C74 distinta de C72:** cotejo de recibos y efectos por opId con `@noble/hashes` no sustituye el **precio original congelado e independientemente SHA-certificado**. Podía aceptar efecto+caja+receipt+SHA coherentes por 4998 centavos aun cuando el SKU originalmente certificado tenía precio1999 por unidad y se vendían 2 (=3998). También podía iniciar baseline económico nuevo sobre `typed_commercial_payloads` pendiente o `f123_frozen_unions` preexistente sin certificación de corte. **RED fuente [Actions44749696133](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44749696133)** 2/5 native Node22 SQLite PASS, tres negativos FAIL por falta de excepción; un run anterior 44749545420 fue **error sintáctico de harness** reparado antes del RED genuino, no se contabilizó como defecto. **GREEN [Actions44749881266](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44749881266)** C74 5/5 native SQL, regresión C72 11/11, C68 8/8, Workerd fiados 2/2 y venta/caja 2/2. El mínimo cambio fuente está SOLO en `cloudflare-yparty-worker/src/authoritative-business-sql.mjs`, comparación `BigInt(c)===BigInt(-q)*certifiedPrices` durante reentrada y guard de bootstrap `hasRows` para los dos historiales omitidos. Mantiene precio negocio hot path, 202, cobros parciales, Sync3 y fotos intactos.
+
+**C75 crédito acotado de ingeniería:** +0,1 SOLO Business de calidad por source C74 merge/CI/CF; la transición queda92,0/100 y NO se acredita Firebase HEAD económico verdadero2,0, binding Service/R2 real2,0 ni operacional/roles/fotos/failback físico4,0. GO0/6 físico0/5. El SHA y precio congelado en mismo DB no significan firma independiente de hechos económicos de clientes. [PRECODE C74 antes de source](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c74-certified-price-and-occupied-economic-bootstrap-precode.md), [PRECODE C75 antes de score](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c75-c74-quality-79p6-source-evidence-precode.md). Reservas PR871 Yjs, PR868 fotos, PR841 ledger intactas.
+
+---
+
+### Histórico · C73 y anteriores
+
 ## C73 · 20 nov 2026 Ecuador · source C72 / calidad Business 18,7, GO independiente
 
 La **MISMA friendly-123** se PORTA de arquitectura1.0→2.0 mediante injertos maduros; Sync3 ya pertenece a 2.0 y se conserva. [C72 source PR #872 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/872) `master@e68ab10634721d3e0315055f47a226a0736c3e91`. **13/13 GH Actions full fuente head `303701ddd` GREEN**, Cloudflare Workers Builds cuenta real SHA exacto merge **SUCCESS** UUID `6f5697c2-49e7-4657-b5ac-6b05938ab190`. No cambio de acceso cliente/flags QA ni servicio R2. Workshop sólo PR/PRECODE/QA, no producto distinto.
