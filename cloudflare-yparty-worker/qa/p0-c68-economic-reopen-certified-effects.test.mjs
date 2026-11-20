@@ -7,6 +7,7 @@ import {DatabaseSync} from 'node:sqlite';
 import {
  prepareBusinessBaseline,installBusinessBaseline,createBusinessSqlExecutor
 } from '../src/authoritative-business-sql.mjs';
+import {createTypedCommercialLedger} from '../src/typed-commercial-ledger.mjs';
 
 const license='F123-SYNT-BUSINESS',productId='sku_1',receivableId='fiado_1';
 const state={
@@ -39,7 +40,18 @@ async function make(){
  const executor=createBusinessSqlExecutor({sql});
  const principal={license,role:'dueno',subject:'owner-account',
   scopes:['ops:sale','ops:adjust','ops:payment']};
- const apply=command=>storage.transactionSync(()=>executor({sql,command,principal}));
+ const ledger=createTypedCommercialLedger({
+  sql,transactionSync:storage.transactionSync.bind(storage),
+  authorize:async({scope})=>({ok:true,principal:{...principal,scopes:[scope]}}),
+  authorizeReceivable:async()=>true,
+  clock:()=>1730000000000,applyBusiness:executor
+ });
+ const apply=async command=>{
+  const r=await ledger.submit({ticket:'synthetic-owner-ticket',command});
+  assert.equal(r.ok,true,JSON.stringify(r));
+  assert.equal(r.receipt.stage,'business-committed');
+  return r;
+ };
  return {db,sql,storage,proof,apply,
   retry:()=>installBusinessBaseline({storage,proof}),
   read:()=>({
@@ -54,9 +66,9 @@ test('C68 control: empty effects, then valid sale+payment+count keep certified c
  const s=await make();
  try{
   assert.equal(s.retry().already,true);
-  s.apply({license,opId:'synthetic-c68-sale-001',kind:'sale.record',productId,quantity:2,amountCents:3998});
-  s.apply({license,opId:'synthetic-c68-payment-001',kind:'credit.payment.record',receivableId,amountCents:1000});
-  s.apply({license,opId:'synthetic-c68-count-001',kind:'stock.adjust',productId,quantity:5,amountCents:0});
+  await s.apply({license,opId:'synthetic-c68-sale-001',kind:'sale.record',productId,quantity:2,amountCents:3998});
+  await s.apply({license,opId:'synthetic-c68-payment-001',kind:'credit.payment.record',receivableId,amountCents:1000});
+  await s.apply({license,opId:'synthetic-c68-count-001',kind:'stock.adjust',productId,quantity:5,amountCents:0});
   assert.deepEqual(s.read(),{cash:5498,quantity:5,debt:2000,effects:3});
   assert.equal(s.retry().already,true,'effects from legitimate sales/payments/physical count preserve certified baseline');
   assert.deepEqual(s.read(),{cash:5498,quantity:5,debt:2000,effects:3});
@@ -97,7 +109,7 @@ test('C68 RED P0: phantom stock loss without sale/count opId must never get alre
 test('C68 RED P0: losing a paid fiado effect must not certify original cash and debt',async()=>{
  const s=await make();
  try{
-  s.apply({license,opId:'synthetic-c68-payment-002',kind:'credit.payment.record',receivableId,amountCents:1000});
+  await s.apply({license,opId:'synthetic-c68-payment-002',kind:'credit.payment.record',receivableId,amountCents:1000});
   s.sql.exec('DELETE FROM f123_business_effects WHERE op_id=?','synthetic-c68-payment-002');
   assert.throws(()=>s.retry(),/reconcil|integrity|cash|fiado/i);
   assert.deepEqual(s.read(),{cash:1500,quantity:10,debt:2000,effects:0});
