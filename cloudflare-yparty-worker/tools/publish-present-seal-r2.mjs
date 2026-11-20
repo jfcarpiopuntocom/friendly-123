@@ -125,7 +125,8 @@ function inspect(seal) {
  };
 }
 async function putImmutable(bucket,entry) {
- const options={onlyIf:new Headers({'If-None-Match':'*'})};
+ // R2Conditional POJO is atomic If-None-Match:*; also serializes through Miniflare R2 RPC.
+ const options={onlyIf:{etagDoesNotMatch:'*'}};
  const stored=await bucket.put(entry.key,entry.body,options);
  const got=await bucket.get(entry.key);
  if(!got||typeof got.arrayBuffer!=='function')fail('R2 readback missing');
