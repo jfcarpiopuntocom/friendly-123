@@ -5,15 +5,23 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C63: C62 real frozen legacy cat roots reject private-only Yjs v1, same app fixed100 GO0/6',()=>{
+test('C65: C64 frozen SQL base guard credited for durability, same app fixed100 GO0/6',()=>{
  const s=inspect();
  assert.equal(s.port,92.0);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,23.5);
- assert.equal(s.quality,79.1);
- assert.equal(s.qualityBefore,78.9);
- assert.equal(s.qualityDelta,0.2);
+ assert.equal(s.quality,79.2);
+ assert.equal(s.qualityBefore,79.1);
+ assert.equal(s.qualityDelta,0.1);
  assert.equal(s.go,'0/6');
+ // C65 only credits the source-backed C64 quality audit, not a new migration gate.
+ assert.equal(s.port,92.0);
+ const actual=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/open-existing-store.mjs'),'utf8');
+ assert(actual.includes("if(now.snapshotKind!=='blocks')"),'C65 requires real C64 SQL snapshot guard');
+ const c64=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/qa/p0-c64-frozen-base-readback.test.mjs'),'utf8');
+ assert(c64.includes('C64 RED P0: receipt cannot ACK a cold reopened room'));
+ assert(c64.includes('C64 RED P0: a legacy snapshot cannot impersonate the missing blocked frozen import'));
+
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
  const ms=port.groups.flatMap(g=>g.milestones);
@@ -68,7 +76,7 @@ test('C63: C62 real frozen legacy cat roots reject private-only Yjs v1, same app
  assert.equal(ms.find(m=>m.id==='c51-bounded-locks-and-double-qa-bootstrap')?.source,'docs/sync-yjs.js');
  assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(photo.milestones.reduce((a,m)=>a+m.points,0),9);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.5);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
  assert.equal(port.commercialGo.certifiedGates,0,'QA-only flags do not grant commercial GO');
@@ -122,7 +130,7 @@ test('C63: C62 real frozen legacy cat roots reject private-only Yjs v1, same app
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false,'unearned real role switch');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -135,7 +143,7 @@ test('C63: C62 real frozen legacy cat roots reject private-only Yjs v1, same app
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false);
  assert.equal(identity.milestones.reduce((a,m)=>a+m.points,0),14);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -151,7 +159,7 @@ test('C63: C62 real frozen legacy cat roots reject private-only Yjs v1, same app
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.5);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
@@ -165,8 +173,8 @@ test('C63: C62 real frozen legacy cat roots reject private-only Yjs v1, same app
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.5);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
@@ -174,7 +182,7 @@ test('C63: C62 real frozen legacy cat roots reject private-only Yjs v1, same app
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,78.9);
+ assert.equal(quality.comparison.previousScore,79.1);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);

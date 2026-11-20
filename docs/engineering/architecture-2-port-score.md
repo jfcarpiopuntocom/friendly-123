@@ -1,5 +1,24 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C65 · 20 nov 2026 · score actual fuente C64 fusionada, rúbrica invariable100,0
+
+Misma `friendly-123`, Sync3 intacto, workshop solo laboratorio. [C64 PR #864](https://github.com/jfcarpiopuntocom/friendly-123/pull/864) fue fusionada a código real `master@ca86aa4bbe7df1d9da0293e803896edbac53380b` después de **14/14 GitHub Actions SUCCESS** sobre head final `d94685c`, **Workerd real 5/5** y prueba aislada source-executed **3/3**. Cloudflare Workers Builds exact SHA fusionado **SUCCESS**, build `b09be442-96ae-4802-a5b6-21f6256ceee3`. QA OFF; sin migración ni cambio de datos de clientes.
+
+| Dos indicadores independientes | C63 anterior | C65 source audited | Variación |
+| --- | ---: | ---: | ---: |
+| **Transición 1.0→2.0 de la MISMA app** | 92,0/100,0 | **92,0/100,0** | 0,0 |
+| **Calidad arquitectónica** | 79,1/100,0 | **79,2/100,0** | +0,1 |
+| Comercial GO | 0/6 | **0/6** | 0 |
+| Pruebas físicas PC Opera↔iPhone Safari/PWA | 0/5 | **0/5** | 0 |
+
+**C64 root cause y crédito estrictamente acotado:** recibo de import congelado podía aceptar un journal Yjs sintácticamente válido aun perdiendo su instantánea original, o una instantánea antigua `documento` podía sustituir fraudulentamente la base `documento_bloques`. RED1 [44731412320](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44731412320) 1/2; RED2 [44731901974](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44731901974) 2/3; GREEN [44732002319](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44732002319) 3/3 source-executed, 5/5 Workerd. Guarda real de `openExistingStore`: solo `snapshotKind==='blocks'` para certificado anterior. Puntuar **solo +0,1 de durabilidad 18,4→18,5/20** por confianza de ingeniería, no asignar nada a Firebase HEAD, R2 ni pruebas físicas. La prueba adversarial de pérdida de base usó SQL *stub* con el módulo real; la suite Workerd positiva prueba no regresión, no pérdida real en dispositivo físico.
+
+**Presupuesto pendiente port 8,0/100,0 (NO MOVED):** HEAD Firebase económico REAL 2,0, R2 Service Binding instalado REAL 2,0, operacional y aceptaciones físicas 4,0. Proyección pública `-cat` y eventos privados `-ops` siguen separados; Sync3 continúa. La fuente `assessedProductSha` en JSON del PORT permanece anclada al C62 meritorio `6e802e6`, mientras que `lastAuditedProductSha` del reporte de calidad acredita el C64 funcional `ca86aa4`; son dos evidencias diferentes, no motores distintos.
+
+---
+
+### Historial anterior: cierre C63
+
 **C63 · 20-nov-2026 Ecuador.** Fuente real [C62 PR #862](https://github.com/jfcarpiopuntocom/friendly-123/pull/862) **MERGED** en producto `master@6e802e6e0df0988922220dd634a40f7788638f05` v0.8.24 / shell v824 (no tocar versión para cambios del Worker). Mismos injertos Yjs/YParty/Cloudflare DO SQLite, **Sync3 intacto**, workshop laboratorio/documentación, QA OFF.
 
 | Indicadores independientes con presupuesto original 100,0 | C61 anterior | C63 real source | Delta |
