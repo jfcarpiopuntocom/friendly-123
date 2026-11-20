@@ -161,19 +161,16 @@ export async function fetchFirebaseChannelSnapshot({
     relPath: channelPath,
     query: { shallow: 'true' },
     authToken,
-    authMode,
-    wantEtag: true
+    authMode
   });
-  if (!pre.etag) {
-    throw new Error('missing Firebase server ETag');
-  }
   if (pre.data === null) {
     throw new Error('missing Firebase channel');
   }
   if (!isPlainObject(pre.data)) {
     throw new Error('invalid Firebase channel root');
   }
-  for (const rootKey of Object.keys(pre.data)) {
+  const preRootKeys = Object.keys(pre.data).sort();
+  for (const rootKey of preRootKeys) {
     if (rootKey !== 'k' && rootKey !== 'o') {
       throw new Error(`unexpected Firebase channel key: ${rootKey}`);
     }
@@ -214,23 +211,50 @@ export async function fetchFirebaseChannelSnapshot({
     throw new Error('Firebase channel record count out of safe budget');
   }
 
+  // Bare GET (no shallow, no query params) carries X-Firebase-ETag: true cleanly on real RTDB.
+  const kPre = await firebaseRestGet({
+    fetchFn,
+    baseUrl: cleanBase,
+    relPath: `${channelPath}/k`,
+    authToken,
+    authMode,
+    wantEtag: true
+  });
+  if (!kPre.etag) {
+    throw new Error('missing Firebase server ETag');
+  }
+
   let kMap;
   if (kKeys.length > 0) {
-    const kFull = await firebaseRestGet({
-      fetchFn,
-      baseUrl: cleanBase,
-      relPath: `${channelPath}/k`,
-      authToken,
-      authMode
-    });
-    kMap = normalizeCheckpointMap(kFull.data) || {};
+    kMap = normalizeCheckpointMap(kPre.data) || {};
     if (!sameKeySet(kKeys, Object.keys(kMap))) {
       throw new Error('incomplete Firebase channel read');
     }
   }
 
   const oMap = {};
-  if (oKeys.length > 0) {
+  let oEtag = null;
+  if (oKeys.length > 0 && oKeys.length <= pageSize) {
+    const oFull = await firebaseRestGet({
+      fetchFn,
+      baseUrl: cleanBase,
+      relPath: `${channelPath}/o`,
+      authToken,
+      authMode,
+      wantEtag: true
+    });
+    if (!oFull.etag) {
+      throw new Error('missing Firebase server ETag');
+    }
+    if (!isPlainObject(oFull.data)) {
+      throw new Error('incomplete Firebase channel read');
+    }
+    Object.assign(oMap, oFull.data);
+    if (!sameKeySet(oKeys, Object.keys(oMap))) {
+      throw new Error('incomplete Firebase channel read');
+    }
+    oEtag = oFull.etag;
+  } else if (oKeys.length > pageSize) {
     let cursor = null;
     let pages = 0;
     const downloadedKeys = new Set();
@@ -275,20 +299,45 @@ export async function fetchFirebaseChannelSnapshot({
     }
   }
 
-  const post = await firebaseRestGet({
+  const postRoot = await firebaseRestGet({
     fetchFn,
     baseUrl: cleanBase,
     relPath: channelPath,
     query: { shallow: 'true' },
     authToken,
+    authMode
+  });
+  if (!isPlainObject(postRoot.data) || !sameKeySet(preRootKeys, Object.keys(postRoot.data))) {
+    throw new Error('concurrent Firebase channel mutation detected');
+  }
+
+  const kPost = await firebaseRestGet({
+    fetchFn,
+    baseUrl: cleanBase,
+    relPath: `${channelPath}/k`,
+    authToken,
     authMode,
     wantEtag: true
   });
-  if (!post.etag) {
+  if (!kPost.etag) {
     throw new Error('missing Firebase server ETag');
   }
-  if (post.etag !== pre.etag) {
+  if (kPost.etag !== kPre.etag) {
     throw new Error('concurrent Firebase channel mutation detected');
+  }
+
+  if (oKeys.length > 0) {
+    const oPostShallow = await firebaseRestGet({
+      fetchFn,
+      baseUrl: cleanBase,
+      relPath: `${channelPath}/o`,
+      query: { shallow: 'true' },
+      authToken,
+      authMode
+    });
+    if (!isPlainObject(oPostShallow.data) || !sameKeySet(oKeys, Object.keys(oPostShallow.data))) {
+      throw new Error('concurrent Firebase channel mutation detected');
+    }
   }
 
   const snapshot = {};
@@ -298,7 +347,8 @@ export async function fetchFirebaseChannelSnapshot({
   return {
     snapshot: Object.freeze(snapshot),
     serverHead: Object.freeze({
-      etag: pre.etag,
+      etag: oEtag || kPre.etag,
+      kEtag: kPre.etag,
       kCount: kKeys.length,
       oCount: oKeys.length
     })
