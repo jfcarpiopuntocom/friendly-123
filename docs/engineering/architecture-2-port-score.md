@@ -1,5 +1,25 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C67 · 20-nov-2026 Ecuador · dos puntuaciones vigentes /100, misma aplicación
+
+**C66 fuente real [PR #866 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/866)**: `master@a46da3753ec23ecee2606f5ed206fe4c6ba10f25`, **15/15 GH Actions** del head source GREEN, Cloudflare Workers Builds **SUCCESS** mismo merge SHA UUID `b091735c-0cc5-4351-9c29-f5894c836544`. El injerto reusa Yjs nativo para preservar el vector causal de cada escritor congelado en la misma transacción SQL de importación y certificarlo en reaperturas tras compactación. **Sync3 intacto**, flags QA OFF, workshop solo laboratorio/planes.
+
+| Indicador original100 inmutable | C65 anterior | C67 real source | Diferencia |
+| --- | ---: | ---: | ---: |
+| **Transición 1.0→2.0 de la MISMA friendly-123** | 92,0/100,0 | **92,0/100,0** | 0,0 |
+| **Calidad arquitectónica** | 79,2/100,0 | **79,3/100,0** | +0,1 |
+| Subdimensión calidad durabilidad | 18,5/20,0 | **18,6/20,0** | +0,1 |
+| GO comercial certificado | 0/6 | **0/6** | 0 |
+| Físico PC Opera↔iPhone Safari/PWA | 0/5 | **0/5** | 0 |
+
+**Evidencia causal real (QA):** [RED 44735648192](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44735648192) verdadero defecto fuente `true !== false`: un bloque Yjs válido podía haber perdido completamente un escritor importado y aun así recibir `opened:true` al reabrir. [GREEN 44736130197](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44736130197): 6/6 pruebas con SQLite nativo real e importador real (bloque sustituto, certificado perdido, SHA alterado, recibo anterior sin vector, borrado legítimo después de importación), 9/9 importador, 3/3 regresión C64 y 5/5 YParty Workerd real. `Y.encodeStateVectorFromUpdate` + `Y.decodeStateVector` comprueban los relojes del origen congelado contra snapshot+journal. **Dominancia vectorial es condición causal necesaria, no hash criptográfico de cada evento/importe.** No se certifica historia económica Firebase real ni unión física por esta prueba.
+
+**8,0 puntos PORT pendientes sin alterar:** historial Firebase HEAD económico REAL **2,0**, binding Service/R2 REAL **2,0**, operación/roles/fotos/corte físico **4,0**; GO comercial0/6, físico0/5. Las otras dimensiones de calidad y pesos originales no se reponderan. [Plan primero C67](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c67-c66-vector-continuity-quality-79p3-precode.md), Notion y workshop guardan la evidencia de RED→GREEN. No se tocó ledger PR841 reservado.
+
+---
+
+### Histórico · C65 y anteriores
+
 ## C65 · 20 nov 2026 · score actual fuente C64 fusionada, rúbrica invariable100,0
 
 Misma `friendly-123`, Sync3 intacto, workshop solo laboratorio. [C64 PR #864](https://github.com/jfcarpiopuntocom/friendly-123/pull/864) fue fusionada a código real `master@ca86aa4bbe7df1d9da0293e803896edbac53380b` después de **14/14 GitHub Actions SUCCESS** sobre head final `d94685c`, **Workerd real 5/5** y prueba aislada source-executed **3/3**. Cloudflare Workers Builds exact SHA fusionado **SUCCESS**, build `b09be442-96ae-4802-a5b6-21f6256ceee3`. QA OFF; sin migración ni cambio de datos de clientes.
