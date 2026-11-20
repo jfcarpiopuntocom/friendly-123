@@ -82,7 +82,7 @@ function verifyTypedBusinessEffects(sql,license,effects){
  const ops=names.has('typed_commercial_ops'),payloads=names.has('typed_commercial_payloads');
  if(!ops&&!payloads){
   if(effects.length)deny();
-  return;
+  return new Map();
  }
  if(!ops||!payloads)deny();
  const receipts=sql.exec('SELECT op_id,payload_hash,receipt_json FROM typed_commercial_ops WHERE license = ? ORDER BY op_id',
@@ -96,6 +96,7 @@ function verifyTypedBusinessEffects(sql,license,effects){
  if(saved.length!==receipts.length||new Set(saved.map(r=>r.op_id)).size!==saved.length)deny();
  const effectById=new Map(effects.map(r=>[r.op_id,r]));
  const committed=new Set();
+ const physicalCountById=new Map();
  const contracts={
   'sale.record':{detail:'productId',quantity:true},
   'stock.adjust':{detail:'productId',quantity:true},
@@ -164,12 +165,18 @@ function verifyTypedBusinessEffects(sql,license,effects){
      (amount<1||money!==amount||q!==0))deny();
   if(record.kind==='stock.adjust'&&
      (money!==0||amount!==0))deny();
+  // Count intent is an ABSOLUTE physical number, not an arbitrary signed
+  // delta. Its canonical quantity was SHA-verified above on this receipt.
+  if(record.kind==='stock.adjust')physicalCountById.set(row.op_id,BigInt(record.quantity));
   committed.add(row.op_id);
  }
  // An orphan effect cannot fabricate economic history; a committed receipt
  // cannot survive the loss of its effect even if cash/stock were also reset.
  if(committed.size!==effects.length||
     effects.some(e=>!committed.has(e.op_id)))deny();
+ // Return only SHA-verified ABSOLUTE counts to the established reconciler.
+ // Preserve this audited function's signature for older source-backed gates.
+ return physicalCountById;
 }
 // C68: Source-anchored READ-ONLY replay for a duplicate frozen economic head.
 // This runs only on baseline reopen/retry, never inside the hot sale/fiado ACK.
@@ -182,7 +189,9 @@ function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
  const receivables=new Map((state.receivables||[])
   .map(r=>[r.receivableId,BigInt(r.balanceCents)]));
  let cash=BigInt(state.openingCashCents);
- const effects=sql.exec('SELECT op_id,product_id,quantity_delta,cash_delta_cents FROM f123_business_effects WHERE license = ? ORDER BY op_id',
+ // A physical count is a causal ABSOLUTE witness. Use SQL application order,
+ // not the lexicographic order of browser-generated opIds.
+ const effects=sql.exec('SELECT op_id,product_id,quantity_delta,cash_delta_cents FROM f123_business_effects WHERE license = ? ORDER BY rowid',
   state.license).toArray();
  for(const effect of effects){
   const q=Number(effect.quantity_delta),c=Number(effect.cash_delta_cents);
@@ -205,7 +214,21 @@ function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
   }else if(!stock.has(effect.product_id))deny();
   cash+=BigInt(c);
  }
- verifyTypedBusinessEffects(sql,state.license,effects);
+ const physicalCountById=verifyTypedBusinessEffects(sql,state.license,effects);
+ // Reapply SQL effects in local insertion order (ORDER BY rowid),
+ // checking the SHA-verified ABSOLUTE physical count after its opId.
+ // Delta+final stock tampering cannot counterfeit the original count N.
+ const liveStock=new Map(state.products.map(p=>[p.productId,BigInt(p.quantity)]));
+ for(const effect of effects){
+  const delta=BigInt(effect.quantity_delta);
+  if(delta===0n&&!physicalCountById.has(effect.op_id))continue;
+  const before=liveStock.get(effect.product_id);
+  if(before===undefined)deny();
+  const after=before+delta;
+  if(after<0n||after>BigInt(MAX))deny();
+  if(physicalCountById.has(effect.op_id)&&after!==physicalCountById.get(effect.op_id))deny();
+  liveStock.set(effect.product_id,after);
+ }
  if(cash<0n||cash>BigInt(MAX)||BigInt(baseline.cash_cents)!==cash)deny();
  if(stockRows.length!==stock.size)deny();
  for(const row of stockRows){
