@@ -47,8 +47,8 @@ test('C44: mock-backend abono emits typed credit.customer.payment.record op with
   const end = backend.indexOf('const info = await window.AMG.Cartera.saldoDeCliente', start);
   assert.ok(end > start, 'saldoDeCliente boundary must exist');
   const snippet = backend.slice(start, end);
-  assert.match(snippet, /typeof emitirOpStock === ["']function["']/, 'abono must guard emitirOpStock for isolated VM tests');
-  assert.match(snippet, /emitirOpStock\(\s*["']abono["']/, 'abono must emit emitirOpStock("abono", ...)');
+  assert.match(snippet, /typeof window\.OCSyncEmit === ["']function["']/, 'abono must guard window.OCSyncEmit for isolated VM tests');
+  assert.match(snippet, /window\.OCSyncEmit\(\s*["']abono["']/, 'abono must emit window.OCSyncEmit("abono", ...) without polluting stock EventBus');
   assert.match(snippet, /amountCents\s*:\s*Math\.round\(monto\s*\*\s*100\)/, 'abono op must carry integer amountCents');
   assert.match(snippet, /clienteId\s*:\s*c\.id/, 'abono op must carry clienteId');
   assert.doesNotMatch(snippet, /receivableId\s*:/, 'abono must never synthesize receivableId from receipt or client id');

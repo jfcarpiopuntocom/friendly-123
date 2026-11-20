@@ -9374,21 +9374,23 @@
         }
         if (!movimientos.some(m=>m.detalle && m.detalle.movimientoId===recibo.id)) {
           mov(tipo === "cargo" ? "cartera-fiado" : "cartera-abono", { cliente: c.nombre, monto, movimientoId:recibo.id });
-        }
-        if (tipo === "abono" && typeof emitirOpStock === "function") {
-          const _rawCustPayOpId = (typeof body.opId === "string" && /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(body.opId.trim()))
-            ? body.opId.trim()
-            : ("customer-payment:" + String(recibo.id || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
-          const _opIdAbono = /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(_rawCustPayOpId)
-            ? _rawCustPayOpId
-            : ("customer-payment:" + uuid("").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
-          emitirOpStock("abono", {
-            opId: _opIdAbono,
-            clienteId: c.id,
-            movimientoId: String(recibo.id || ""),
-            amountCents: Math.round(monto * 100),
-            monto
-          }, true);
+          if (tipo === "abono" && typeof window.OCSyncEmit === "function") {
+            const _rawCustPayOpId = (typeof body.opId === "string" && /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(body.opId.trim()))
+              ? body.opId.trim()
+              : ("customer-payment:" + String(recibo.id || "").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
+            const _opIdAbono = /^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(_rawCustPayOpId)
+              ? _rawCustPayOpId
+              : ("customer-payment:" + uuid("").replace(/[^A-Za-z0-9_-]/g, "")).slice(0, 96);
+            try {
+              window.OCSyncEmit("abono", {
+                opId: _opIdAbono,
+                clienteId: c.id,
+                movimientoId: String(recibo.id || ""),
+                amountCents: Math.round(monto * 100),
+                monto
+              });
+            } catch (_) {}
+          }
         }
         const info = await window.AMG.Cartera.saldoDeCliente(c.id, ventas);
         const rol = (window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()) || "empleado";
