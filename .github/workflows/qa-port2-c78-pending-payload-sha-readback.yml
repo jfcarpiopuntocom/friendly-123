@@ -1,0 +1,42 @@
+name: PORT2 C78 queued expense/customer payment SHA canonical readback (native SQLite + Workerd)
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-yparty-worker/src/authoritative-business-sql.mjs'
+      - 'cloudflare-yparty-worker/qa/p0-c78-pending-expense-customer-sha-readback.test.mjs'
+      - '.github/workflows/qa-port2-c78-pending-payload-sha-readback.yml'
+  push:
+    branches:
+      - 'port2/20261120-c78-pending-expense-customer-sha'
+permissions:
+  contents: read
+jobs:
+  queued-sha-readback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix cloudflare-yparty-worker --no-audit --no-fund
+      - name: C78 real typed ledger 202 expense/customer payment SHA RED-GREEN native SQLite
+        run: node --test cloudflare-yparty-worker/qa/p0-c78-pending-expense-customer-sha-readback.test.mjs
+      - name: C76 no lost 202 payload without receipt readback
+        run: node --test cloudflare-yparty-worker/qa/p0-c76-orphan-typed-payload-reopen.test.mjs
+      - name: C74 original frozen price and occupied cutover readback
+        run: node --test cloudflare-yparty-worker/qa/p0-c74-certified-prices-and-bootstrap.test.mjs
+      - name: C72 all 200 receipt-effect SHA guards
+        run: node --test cloudflare-yparty-worker/qa/p0-c72-economic-effect-receipt-reconcile.test.mjs
+      - name: C68 real SQL reopen finance and inventory
+        run: node --test cloudflare-yparty-worker/qa/p0-c68-economic-reopen-certified-effects.test.mjs
+      - name: Workerd actual fiados and roles
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-typed-payment-sql.test.mjs
+      - name: Workerd actual sales cash receipt
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-business-sql-workerd.test.mjs
+      - name: Original100 separate migration quality GO
+        run: |
+          node scripts/architecture-2-port-score.cjs --json
+          node --test test/p0-architecture-2-port-score.test.cjs

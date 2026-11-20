@@ -99,7 +99,11 @@ function verifyTypedBusinessEffects(sql,license,effects){
  const contracts={
   'sale.record':{detail:'productId',quantity:true},
   'stock.adjust':{detail:'productId',quantity:true},
-  'credit.payment.record':{detail:'receivableId',quantity:false}
+  'credit.payment.record':{detail:'receivableId',quantity:false},
+  // Both are valid durable typed inbox commands, but this SQL executor has
+  // no committed money effect for either: they must stay pending 202.
+  'expense.record':{detail:'categoryId',quantity:false,queuedOnly:true},
+  'credit.customer.payment.record':{detail:'clienteId',quantity:false,queuedOnly:true}
  };
  for(const row of receipts){
   let receipt,record;
@@ -118,16 +122,14 @@ function verifyTypedBusinessEffects(sql,license,effects){
      !['stored-for-application','business-committed'].includes(receipt.stage)||
      !Number.isSafeInteger(receipt.acceptedAt)||receipt.acceptedAt<0)deny();
   const contract=contracts[record.kind];
-  if(!contract){
-   // This executor has NO legitimate SQL effects for other typed kinds.
-   if(receipt.stage!=='stored-for-application'||effectById.has(row.op_id))deny();
-   continue;
-  }
+  // An unrecognized kind cannot be minted by the current typed ledger;
+  // accepting it would turn arbitrary old SQL into a durable 202 ACK.
+  if(!contract)deny();
   const detail=record[contract.detail];
   const amount=record.amountCents;
   const required=['license','opId','kind',contract.detail,
    ...(contract.quantity?['quantity']:[]),'amountCents'];
-  if(!IDENT.test(detail||'')||!int(amount)||
+  if(!IDENT.test(detail||'')||!int(amount)||amount>10_000_000_000||
      Object.keys(record).length!==required.length||
      required.some(k=>!Object.prototype.hasOwnProperty.call(record,k))||
      (contract.quantity&&(!int(record.quantity)||record.quantity>1000000)))deny();
@@ -137,6 +139,8 @@ function verifyTypedBusinessEffects(sql,license,effects){
    amountCents:amount};
   const canonicalPayload=payloadById.get(row.op_id);
   if(JSON.stringify(canon)!==canonicalPayload)deny();
+  if(record.kind==='credit.customer.payment.record'&&
+     (!/^customer-payment:[A-Za-z0-9_-]{8,79}$/.test(row.op_id)||amount===0))deny();
   // Mature @noble/hashes SHA-256 is synchronous and Worker/bundler-neutral. Recompute the
   // SAME SHA-256 that createTypedCommercialLedger generated at durable commit;
   // equality of receiptId to a stale hash prefix alone is not integrity.
@@ -148,6 +152,8 @@ function verifyTypedBusinessEffects(sql,license,effects){
    if(effect)deny();
    continue;
   }
+  // Do not promote queued-only expenses/customer payments to money/stock.
+  if(contract.queuedOnly)deny();
   if(!effect)deny();
   const q=Number(effect.quantity_delta),money=Number(effect.cash_delta_cents);
   if(effect.product_id!==detail||!Number.isSafeInteger(q)||
