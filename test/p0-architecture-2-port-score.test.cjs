@@ -5,15 +5,34 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C73: C72 bilateral typed receipt and SHA proof source verified same app, fixed100 GO0/6',()=>{
+test('C75: C74 certified original sale prices + no occupied first baseline, fixed100 GO0/6',()=>{
  const s=inspect();
  assert.equal(s.port,92.0);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,23.5);
- assert.equal(s.quality,79.5);
- assert.equal(s.qualityBefore,79.4);
+ assert.equal(s.quality,79.6);
+ assert.equal(s.qualityBefore,79.5);
  assert.equal(s.qualityDelta,0.1);
  assert.equal(s.go,'0/6');
+ // C75 can credit only C74 actual merged source and RED/Workerd evidence,
+ // not real Firebase HEAD, R2 binding, customer devices, or commercial GO.
+ const c74Src=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/authoritative-business-sql.mjs'),'utf8');
+ const c74Test=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/qa/p0-c74-certified-prices-and-bootstrap.test.mjs'),'utf8');
+ for(const token of [
+  'const certifiedPrices=new Map(state.products.map(p=>[p.productId,BigInt(p.unitPriceCents)]))',
+  'BigInt(-q)*certifiedPrices.get(effect.product_id)',
+  "'typed_commercial_ops','typed_commercial_payloads','f123_business_effects'",
+  "'diario_bloques','f123_frozen_imports','f123_frozen_unions'",
+  "import {sha256} from '@noble/hashes/sha2.js'"
+ ])assert(c74Src.includes(token),'C75 C74 source guard absent: '+token);
+ for(const token of [
+  'C74 RED P0: coordinated SHA-valid sale at 4998 must not exceed certified 2x1999 price at cold reopen',
+  'C74 RED P0: orphan durable typed payload blocks first economic baseline',
+  'C74 RED P0: existing frozen union certificate blocks fresh business baseline',
+  'C74 control: empty typed tables and empty Yjs union certificate allow certified first cut'
+ ])assert(c74Test.includes(token),'C75 actual SQLite RED coverage absent: '+token);
+ assert.equal(s.port,92.0);
+
  // C73 credits ONLY merged C72 source, true typed receipts and pinned
  // mature @noble/hashes; does not manufacture Firebase/R2/device GO.
  const c72=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/authoritative-business-sql.mjs'),'utf8');
@@ -106,7 +125,7 @@ test('C73: C72 bilateral typed receipt and SHA proof source verified same app, f
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
  assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),8.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.8);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
  const photo=port.groups.find(g=>g.id==='photo-sha');
  assert.equal(photo?.weight,9,'photo group weight unchanged');
@@ -240,8 +259,8 @@ test('C73: C72 bilateral typed receipt and SHA proof source verified same app, f
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,79.4);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.6);
+ assert.equal(quality.comparison.previousScore,79.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.7);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
   // C48 assessed SHA pinned to the actual PR844 merge source.
