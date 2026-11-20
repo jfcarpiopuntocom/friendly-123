@@ -1,28 +1,38 @@
-# friendly-123 · PORTANDO arquitectura 1.0 → 2.0 · indicadores decimales verificables
+# friendly-123 · PORTANDO arquitectura 1.0 → 2.0 · puntuación fija y auditable
 
-**Corte más reciente (C48, 19 nov Ecuador / 20 nov UTC 2026):** app REAL `jfcarpiopuntocom/friendly-123`, código acreditado del merge [#844](https://github.com/jfcarpiopuntocom/friendly-123/pull/844) **`f05cd2fa0a104439845bad96f9e341267c82e33c`**, shell **v0.8.19 / v819 / golden355**. Sync3 es 2.0 y se conserva; friendly123workshop es solo taller, PRECODE y registro de pruebas.
+**Corte C50 · 19 nov Ecuador / 20 nov UTC 2026.** Evaluado el mismo producto `jfcarpiopuntocom/friendly-123` tras [PR #845 C47 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/845) SHA **`2172eeae497cc62b96b60d86588418a6ee21fddf`**, shell **v0.8.20 / v820**. Sync3 integrado y preservado; `friendly123workshop` es solo taller, precode y evidencia.
 
-| Indicador | Antes (C45) | Después (C46 fusionado / C48 auditado) | Delta |
+| Indicador de rúbrica fija | Anterior C48 | C50 acreditado | Delta |
 | --- | ---: | ---: | ---: |
-| **Migración 1.0→2.0: capacidades integradas y acreditadas** | 87,5/100,0 | **88,0/100,0** | **+0,5** |
-| **Calidad arquitectónica de ingeniería** | 77,0/100,0 | **77,3/100,0** | **+0,3** |
-| Aceptación comercial independiente | 0/6 | **0/6** | 0 |
+| **Migración arquitectura 1.0 → 2.0, capacidades integradas** | 88,0/100,0 | **88,5/100,0** | **+0,5** |
+| **Calidad de ingeniería arquitectónica** | 77,3/100,0 | **77,5/100,0** | **+0,2** |
+| GO comercial certificado | 0/6 | **0/6** | 0 |
+| Prueba física PC↔Safari/PWA | 0/5 | **0/5** | 0 |
 
-La migración 88,0 es suma de una rúbrica fija de código de la misma aplicación; NO significa que 88,0% de tiendas ya usen 2.0. Calidad77,3 es revisión técnica, NO un SLO ni prueba física. Base comparable tras D7: **68,5/100,0** y avance acumulado **+19,5**. Transporte comercial 2.0 todavía QA OFF, físico PC/Safari/PWA no certificado.
+El puntaje de migración mide capacidades del código realmente ensamblado, NO porcentaje de clientes operando en 2.0. Variación acumulada desde la base fija post-D7 de **68,5 a 88,5 = +20,0 puntos**. Quality mide confianza en ingeniería, no disponibilidad comercial ni SLO. Las funciones comerciales 2.0 siguen QA OFF.
 
-## Desglose bajo los mismos pesos originales (100,0)
+## Presupuesto ORIGINAL conservado: 100,0 puntos
 
-| Capacidad | Hecho | Peso | Falta |
+| Capacidad | Acreditado | Peso | Pendiente |
 | --- | ---: | ---: | ---: |
 | SQLite/Yjs, diario, reapertura y merge | 16,0 | 17,0 | 1,0 |
 | Historia congelada, certificación, R2 | 13,5 | 18,0 | 4,5 |
 | Economía tipada (ventas, stock, abonos, recibos DO) | 16,5 | 17,0 | 0,5 |
-| Tickets Owner/Team y salas | 12,5 | 14,0 | 1,5 |
-| Fotos SHA fuera de Yjs (C46 QA parcial) | 7,5 | 9,0 | 1,5 |
+| Tickets Owner/Team y salas: C47 partial QA | **13,0** | 14,0 | **1,0** |
+| Fotos SHA fuera de Yjs: C46 partial QA | 7,5 | 9,0 | 1,5 |
 | Catálogo público y lector certificado | 10,0 | 10,0 | 0,0 |
 | Cableado navegador y retiro parcial 1.0 | 8,5 | 10,0 | 1,5 |
 | Outbox, Safari y failback | 3,5 | 5,0 | 1,5 |
-| **TOTAL** | **88,0** | **100,0** | **12,0** |
+| **TOTAL** | **88,5** | **100,0** | **11,5** |
+
+## C47 producto real: causa raíz y frontera de crédito
+
+- [PR #845](https://github.com/jfcarpiopuntocom/friendly-123/pull/845) fusionada a **v0.8.20** y **52/52 workflows verdes** en SHA candidato `5ece69610e8e9ae6383a06495b37abacd7f75725`; Cloudflare Workers Builds autenticado **SUCCESS** para SHA de master `2172eeae497cc62b96b60d86588418a6ee21fddf` (UUID `6a1e7226-1cf9-4801-9cc5-5500611a1fa5`).
+- Tres tests adversariales **RED (18 PASS/3 FAIL) → GREEN (21/21)**: rol Owner falsificado en evento `oc-login`, sesión demo presentada como normal, activación antigua de escritor completada después de logout. El código real en `docs/sync-yjs.js` compara `OCAuth.rolActual()/esDemo()`, guarda una época monotónica `API.__authEpoch20`, verifica el cambio tras await y hace failback sin segundo escritor.
+- **+0,5 migración** descontado de la partida `commercial-role-switch` previa de 1,5, que queda como 0,5 DONE verificación de cableado real (C47) + **1,0 pendiente de autorización comercial y físico**. **+0,2 calidad en security**, desde 10,3/15 a 10,5/15. Los 100,0 puntos totales no cambian.
+- La simulación externa Hermes v509–v521 sobre identificadores `sha256(clientId+sequenceNumber)`, dashboard paginado SQLite y pipeline atómico fiado/comisiones **NO está respaldada por implementación/product CI y NO aporta puntuación**. [Triage contextual](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/reports/2026-11-19-hermes-v509-v521-predictive-audit-triage.md). El conflicto real contable de IDs queda en [PR #841 RED](https://github.com/jfcarpiopuntocom/friendly-123/pull/841) y la reserva separada del ledger.
+
+## Historial de evidencia C46/C48 (corte anterior)
 
 ## C46 fusionada, C48 puntuación con reserva física explícita
 
