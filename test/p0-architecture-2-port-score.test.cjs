@@ -42,6 +42,6 @@ test('C43: C42 checkout status/ack anti-downgrade earns no more than 0.5 fixed b
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.3);
  // C43 expected source SHA must be exact product C42 MERGE commit after all CI; fill after product merge.
- assert.notEqual(port.assessedProductSha,'4b1a1f7ae7f244e4e363cdaa8760a661f96bdc51', 'C43 must reference actual merged C42 product, not prior C40');
+ assert.equal(port.assessedProductSha,'850925d05991857dc834f6a4bf6f00d351ec52a1', 'C43 must reference actual C42 merged product SHA, not workshop or premerge candidate');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
 });
