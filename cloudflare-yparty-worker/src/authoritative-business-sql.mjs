@@ -75,14 +75,14 @@ function hasRows(sql,table){
 // BOTH directions in the same read-only transaction: one committed receipt
 // per business effect, and one business effect per committed executable opId.
 // Pending 202 intents (and unrelated queued kinds) remain unspent.
-function verifyTypedBusinessEffects(sql,license,effects,originalProducts){
+function verifyTypedBusinessEffects(sql,license,effects){
  const deny=()=>fail('business baseline reconciliation error: receipt/effect mismatch');
  const names=new Set(sql.exec("SELECT name FROM sqlite_master WHERE type='table'")
   .toArray().map(r=>r.name));
  const ops=names.has('typed_commercial_ops'),payloads=names.has('typed_commercial_payloads');
  if(!ops&&!payloads){
   if(effects.length)deny();
-  return;
+  return new Map();
  }
  if(!ops||!payloads)deny();
  const receipts=sql.exec('SELECT op_id,payload_hash,receipt_json FROM typed_commercial_ops WHERE license = ? ORDER BY op_id',
@@ -96,7 +96,6 @@ function verifyTypedBusinessEffects(sql,license,effects,originalProducts){
  if(saved.length!==receipts.length||new Set(saved.map(r=>r.op_id)).size!==saved.length)deny();
  const effectById=new Map(effects.map(r=>[r.op_id,r]));
  const committed=new Set();
- const committedKindById=new Map();
  const physicalCountById=new Map();
  const contracts={
   'sale.record':{detail:'productId',quantity:true},
@@ -169,29 +168,15 @@ function verifyTypedBusinessEffects(sql,license,effects,originalProducts){
   // Count intent is an ABSOLUTE physical number, not an arbitrary signed
   // delta. Its canonical quantity was SHA-verified above on this receipt.
   if(record.kind==='stock.adjust')physicalCountById.set(row.op_id,BigInt(record.quantity));
-  committedKindById.set(row.op_id,record.kind);
   committed.add(row.op_id);
  }
  // An orphan effect cannot fabricate economic history; a committed receipt
  // cannot survive the loss of its effect even if cash/stock were also reset.
  if(committed.size!==effects.length||
     effects.some(e=>!committed.has(e.op_id)))deny();
- // SQLite writes each effect in the same transaction as its typed receipt.
- // Reapply those effects IN INSERTION ORDER (rowid), not lexical opId.
- // The original count N must be exactly the stock AFTER its own delta;
- // otherwise a forged delta+final stock pair could pass the older sum-only
- // balance check while its unmodified count receipt still says N.
- const liveStock=new Map(originalProducts.map(p=>[p.productId,BigInt(p.quantity)]));
- for(const effect of effects){
-  const kind=committedKindById.get(effect.op_id);
-  if(kind!=='stock.adjust'&&kind!=='sale.record')continue;
-  const before=liveStock.get(effect.product_id);
-  if(before===undefined)deny();
-  const after=before+BigInt(effect.quantity_delta);
-  if(after<0n||after>BigInt(MAX))deny();
-  if(kind==='stock.adjust'&&after!==physicalCountById.get(effect.op_id))deny();
-  liveStock.set(effect.product_id,after);
- }
+ // Return only SHA-verified ABSOLUTE counts to the established reconciler.
+ // Preserve this audited function's signature for older source-backed gates.
+ return physicalCountById;
 }
 // C68: Source-anchored READ-ONLY replay for a duplicate frozen economic head.
 // This runs only on baseline reopen/retry, never inside the hot sale/fiado ACK.
@@ -229,7 +214,21 @@ function reconcileCertifiedBusinessReadback(sql,state,baseline,stockRows){
   }else if(!stock.has(effect.product_id))deny();
   cash+=BigInt(c);
  }
- verifyTypedBusinessEffects(sql,state.license,effects,state.products);
+ const physicalCountById=verifyTypedBusinessEffects(sql,state.license,effects);
+ // Reapply SQL effects in local insertion order (ORDER BY rowid),
+ // checking the SHA-verified ABSOLUTE physical count after its opId.
+ // Delta+final stock tampering cannot counterfeit the original count N.
+ const liveStock=new Map(state.products.map(p=>[p.productId,BigInt(p.quantity)]));
+ for(const effect of effects){
+  const delta=BigInt(effect.quantity_delta);
+  if(delta===0n&&!physicalCountById.has(effect.op_id))continue;
+  const before=liveStock.get(effect.product_id);
+  if(before===undefined)deny();
+  const after=before+delta;
+  if(after<0n||after>BigInt(MAX))deny();
+  if(physicalCountById.has(effect.op_id)&&after!==physicalCountById.get(effect.op_id))deny();
+  liveStock.set(effect.product_id,after);
+ }
  if(cash<0n||cash>BigInt(MAX)||BigInt(baseline.cash_cents)!==cash)deny();
  if(stockRows.length!==stock.size)deny();
  for(const row of stockRows){
