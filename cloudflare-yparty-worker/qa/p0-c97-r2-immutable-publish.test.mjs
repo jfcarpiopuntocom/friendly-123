@@ -69,7 +69,7 @@ test('C97 RED: write-once pages-first BOTH channels; Workerd consumes exact SHA 
   const pageIndices=writes.map((w,i)=>w.key.includes('/page-')?i:-1).filter(i=>i>=0);
   const manifestIndices=writes.map((w,i)=>w.key.endsWith('/manifest.json')?i:-1).filter(i=>i>=0);
   assert(Math.max(...pageIndices)<Math.min(...manifestIndices),'both channels must have ALL pages before either manifest');
-  assert(writes.every(w=>w.headers instanceof Headers && w.headers.get('if-none-match')==='*'),
+  assert(writes.every(w=>w.headers && w.headers.etagDoesNotMatch==='*'),
    'R2 writes must use atomic create-only condition, not read-then-unconditional-put');
   const env={WS_OPEN_EXISTING_QA:'1',WS_AUTHORITY_QA:'1',WS_SEPARATE_ROOMS_QA:'1',
    SALA_PILOTO:ROOM,WS_SERVICE_KEY:serviceKey,
