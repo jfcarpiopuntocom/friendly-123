@@ -67,8 +67,8 @@ test('v2 4097+ certified base64 frames arrive across two bounded internal pages 
   const proof=await prepareFrozenImport(out);
   assert.equal(proof.sha256,f.sourceSha);assert.equal(proof.vectorSha256,f.vectorSha);
 });
-test('v1 source response stays compatible for older single-page synthetic workerd tests',async()=>{
-  const d=new Y.Doc();d.getMap('products').set('item',{price:2});
+test('v1 legacy numeric source remains compatible for REAL public catalog roots',async()=>{
+  const d=new Y.Doc();d.getMap('productos').set('sku1',{id:'sku1',nombre:'Book',precio:2,stockActual:3});
   const b=Y.encodeStateAsUpdate(d),v=Y.encodeStateVector(d);d.destroy();
   const old={room,channel:'cat',frozenHead:'v1-frozen-head',completeToHead:true,
     expectedStateSha256:await sha(b),expectedVectorSha256:await sha(v),frames:[Array.from(b)]};
@@ -231,4 +231,19 @@ test('C60 private ownerPin/costo still fail closed in both v1 numeric and v2 pag
  await assert.rejects(readTrustedFrozenSource({env:setup([paged]).env,room,channel:'cat'}),
    /trusted frozen history unavailable/);
  d.destroy();
+});
+
+test('C62 RED P0: legacy v1 unknown/private-only catalog roots are refused even with correct independent source SHA and completeToHead',async()=>{
+ for(const privateRoot of ['products','banco_privado','eventos']){
+  const d=new Y.Doc();
+  d.getMap(privateRoot).set('synthetic-id',{secret:'NEVER_PUBLIC',amountCents:9000});
+  const bytes=Y.encodeStateAsUpdate(d),vector=Y.encodeStateVector(d);d.destroy();
+  const body={room,channel:'cat',frozenHead:'c62-private-root-'+privateRoot,
+    completeToHead:true,expectedStateSha256:await sha(bytes),
+    expectedVectorSha256:await sha(vector),frames:[Array.from(bytes)]};
+  const s=setup([body]);
+  await assert.rejects(readTrustedFrozenSource({env:s.env,room,channel:'cat'}),
+    /trusted frozen history unavailable/,'private-only root '+privateRoot+' must not bypass cat allowlist');
+  assert.equal(s.calls,1,'internal service may be called once but source must reject');
+ }
 });

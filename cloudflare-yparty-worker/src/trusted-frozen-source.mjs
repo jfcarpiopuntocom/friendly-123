@@ -105,7 +105,7 @@ async function pageDigest(frames){
  }
  return sha(wire);
 }
-async function validateDocument(frames,channel,strictCatalog,scope={}){
+async function validateDocument(frames,channel,scope={}){
  const doc=new Y.Doc();
  try{
   for(const frame of frames)Y.applyUpdate(doc,frame,'certified-service');
@@ -118,7 +118,9 @@ async function validateDocument(frames,channel,strictCatalog,scope={}){
     'hechos_financieros','usuarios','clientes','promotoras','dispositivos',
     '_stock_pn_testigos_v1']);
    for(const root of doc.share.keys())if(forbidden.has(root))throw fail();
-   if(strictCatalog||[...doc.share.keys()].some(x=>x==='productos'||x==='ubicaciones')){
+   // C62: PUBLIC catalog roots apply to BOTH legacy v1 numeric and v2 paged.
+   // An unknown-only root must never bypass the strict privacy allowlist.
+   if(channel==='cat'){
     // Actual catalog root names must be independently projected in V1 and V2;
     // the v2 manifest also forbids obsolete synthetic non-public root aliases.
     // The v2 manifest may transport ONLY the exact detached PUBLIC projection.
@@ -200,7 +202,7 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    if(index===1&&!body.manifest){
     stage='byte-frames';
     const frames=legacyFrames(body,channel);
-    await validateDocument(frames,channel,false,{room,frozenHead:body.frozenHead,
+    await validateDocument(frames,channel,{room,frozenHead:body.frozenHead,
      expectedProjectedSha256:body.expectedProjectedSha256});
     return {channel,frozenHead:body.frozenHead,completeToHead:true,
      expectedStateSha256:body.expectedStateSha256,
@@ -233,7 +235,7 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
     if(total!==anchor.totalBytes||
      await sha(utf8.encode(hashes.map((h,i)=>(i+1)+':'+h+'\n').join('')))!==anchor.rootSha256)throw fail();
     stage='privacy-and-causality';
-    await validateDocument(all,channel,true,{room,frozenHead:anchor.head,
+    await validateDocument(all,channel,{room,frozenHead:anchor.head,
      expectedProjectedSha256:anchor.projectedSha});
     return {channel,frozenHead:anchor.head,completeToHead:true,
      expectedStateSha256:anchor.sha,expectedVectorSha256:anchor.vector,

@@ -41,14 +41,24 @@ function history({dropParent=false}={}){
  opsDoc.on('update',u=>opsFrames.push([...u]));
  const events=opsDoc.getMap('eventos');
  legacy.getMap('eventos').forEach((record,id)=>events.set(id,structuredClone(record)));
+ // C62: actual Tienda -cat receives a separate PUBLIC-only Y.Doc; the
+ // Firebase-shaped legacy private fixture remains input to synthetic -ops.
+ // A mixed products+eventos source must NEVER be accepted as public catalog.
+ const publicCatalog=new Y.Doc(),catUpdates=[];publicCatalog.clientID=909;
+ publicCatalog.on('update',u=>catUpdates.push([...u]));
+ for(const [id,item] of legacy.getMap('products').entries())
+  publicCatalog.getMap('productos').set(id,{
+   id,nombre:item.name,precio:item.priceCents/100,stockActual:0
+  });
  const cat={channel:'cat',frozenHead:'synthetic-head-0042',completeToHead:true,
-  frames:frames.map(f=>[...f]),expectedStateSha256:sha(Y.encodeStateAsUpdate(legacy)),
-  expectedVectorSha256:sha(Y.encodeStateVector(legacy))};
+  frames:dropParent?catUpdates.slice(1):catUpdates,
+  expectedStateSha256:sha(Y.encodeStateAsUpdate(publicCatalog)),
+  expectedVectorSha256:sha(Y.encodeStateVector(publicCatalog))};
  const ops={channel:'ops',frozenHead:'synthetic-head-0042',completeToHead:true,
   frames:opsFrames,expectedStateSha256:sha(Y.encodeStateAsUpdate(opsDoc)),
   expectedVectorSha256:sha(Y.encodeStateVector(opsDoc)),expectedOpIds:events.size};
  opsDoc.destroy();
- return {legacy,frames,source:{cat,ops}};
+ return {legacy,publicCatalog,frames,source:{cat,ops}};
 }
 async function authority(){
  let records=new Map(),tail=Promise.resolve();
@@ -117,22 +127,22 @@ test('REAL Tienda.onStart imports certified pre-cut Yjs to the live WS room befo
  try{
   const cat=await w.connect('cat',['cat:read','cat:write']);
   assert.equal(pending(cat),null);
-  assert.deepEqual(cat.getMap('products').toJSON(),h.legacy.getMap('products').toJSON(),
+  assert.deepEqual(cat.getMap('productos').toJSON(),h.publicCatalog.getMap('productos').toJSON(),
     'real Tienda must serve the original history, not an empty document');
   assert.equal(sha(Y.encodeStateVector(cat)),h.source.cat.expectedVectorSha256);
   assert.equal(w.sourceCalls,1,'one internal history source read for first cold boot');
-  cat.getMap('products').set('sku-9',{name:'Synthetic new post-cut',priceCents:900});
+  cat.getMap('productos').set('sku-9',{id:'sku-9',nombre:'Synthetic new post-cut',precio:9,stockActual:0});
   const witnessed=await w.connect('cat',['cat:read']);
-  await waitFor(()=>witnessed.getMap('products').get('sku-9')?.priceCents===900,
+  await waitFor(()=>witnessed.getMap('productos').get('sku-9')?.precio===9,
     'server accepted and forwarded post-cut update');
   await w.restart();
   w.disableSource();
   const cold=await w.connect('cat',['cat:read']);
   assert.equal(pending(cold),null);
-  assert.equal(cold.getMap('products').get('sku-9').priceCents,900);
-  assert.equal(cold.getMap('products').size,8);
+  assert.equal(cold.getMap('productos').get('sku-9').precio,9);
+  assert.equal(cold.getMap('productos').size,8);
   assert.equal(w.sourceCalls,1,'verified frozen receipt must reopen SQL+journal without a fresh source request');
-  assert.deepEqual(h.legacy.getMap('products').size,7);
+  assert.deepEqual(h.publicCatalog.getMap('productos').size,7);
  }finally{await w.close();}
 });
 
@@ -141,9 +151,9 @@ test('REAL Tienda.onStart preserves separate -ops immutable events, not catalog 
  try{
   const cat=await w.connect('cat',['cat:read']);
   const ops=await w.connect('ops',['ops:read']);
-  assert.equal(cat.getMap('products').size,7);
+  assert.equal(cat.getMap('productos').size,7);
   assert.deepEqual(ops.getMap('eventos').toJSON(),h.legacy.getMap('eventos').toJSON());
-  assert.equal(ops.getMap('products').size,0,
+  assert.equal(ops.getMap('productos').size,0,
     'commercial ops must never export private catalog map from the other room');
   assert.equal(w.sourceCalls,2,'each named room imports its own historical proof');
  }finally{await w.close();}
@@ -163,7 +173,7 @@ test('Gate D OFF: production Tienda never calls frozen source or rewrites the ol
  const h=history(),w=await relay({flag:false,source:h.source});
  try{
   const cat=await w.connect('cat',['cat:read']);
-  assert.equal(cat.getMap('products').size,0);
+  assert.equal(cat.getMap('productos').size,0);
   assert.equal(w.sourceCalls,0);
  }finally{await w.close();}
 });
