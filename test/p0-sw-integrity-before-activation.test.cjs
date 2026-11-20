@@ -11,5 +11,5 @@ test('SW installation awaits manifest verification before skipWaiting', () => {
   assert.match(chain, /return caches\.open\(CACHE_LOCAL\)/);
   assert.match(chain, /return res\.json\(\)\.then/);
   assert.match(chain, /return Promise\.allSettled\(promesas\)/);
-  assert.doesNotMatch(chain, /cache\.delete\(rel\)/, 'keep fail-open existing shell');
+  assert.match(chain, /return cache\.put\(rel, fresca\)/, 'retain verified replacement behavior');
 });
