@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.23",
-  "fecha": "2026-11-19",
-  "changelog": "v0.8.23: C54 impide publicar actualizaciones Yjs al canal primario antiguo cuando falla el piloto 2.0; conserva publicacion al canal YParty y restablece relay cifrado al failback. Mismo friendly-123, Sync3 intacto, flags QA OFF y cero gastos Cloudflare/R2.",
+  "version": "v0.8.24",
+  "fecha": "2026-11-20",
+  "changelog": "v0.8.24: C58 revoca sincronamente el escritor YParty 2.0 y credenciales de fotos de la sesion anterior en CUALQUIER nuevo oc-login autenticado (Owner, Admin, Team), libera -cat antes del nuevo rol y no autoactiva ventas. Falla cerrado si credenciales Team no estan disponibles. Misma friendly-123, Sync3 intacto, QA OFF, cero datos/costos comerciales.",
   "requerida": false,
-  "shell": "f123-shell-v823",
+  "shell": "f123-shell-v824",
   "apagar": [],
-  "releaseName": "v0.8.23",
-  "cacheGeneration": "golden359"
+  "releaseName": "v0.8.24",
+  "cacheGeneration": "golden360"
 }
