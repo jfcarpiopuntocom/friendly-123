@@ -1,30 +1,45 @@
 # friendly-123 · PORTANDO arquitectura 1.0 → 2.0 · indicadores decimales verificables
 
-**Último corte auditado:** 2026-11-19, producto real `jfcarpiopuntocom/friendly-123`, SHA base inspeccionado `312201073975e3237014254fe9d87b87763c14ea`. **Sync3 ya pertenece a 2.0 y se conserva**. `friendly123workshop` solo es laboratorio, PRECODE y auditorías; jamás producto destino.
+**Corte más reciente (C45, 19 nov Ecuador / 20 nov UTC 2026):** app REAL `jfcarpiopuntocom/friendly-123` master **`be032b2b27fd52c299d8e1b6942d9b7bb2596934`**, shell **v0.8.19 / v819 / golden355**. Sync3 ya es 2.0 y se conserva; friendly123workshop es solo laboratorio, PRECODE, auditoría y memoria de ingeniería, nunca otra app.
 
-| Indicador | Antes comparable | Revisión actual | Delta |
+| Indicador | Antes (C43) | Después (C44 fusionado / C45 auditado) | Delta |
 | --- | ---: | ---: | ---: |
-| Capacidades de ingeniería 1.0→2.0 ensambladas | 68,5/100 (pos-D7, pre-C8) | **81,5/100** | **+13,0** (C8–C13) |
-| Calidad arquitectónica de ingeniería | 74,6/100 (revisión previa del 19-nov) | **74,9/100** | **+0,3** (C20 cold-join real YParty/Workerd) |
-| Autorización de salida comercial | 0/6 gates | **0/6** | **0** |
+| **Migración 1.0→2.0, capacidades realmente ensambladas** | 87,0/100,0 | **87,5/100,0** | **+0,5** |
+| **Calidad arquitectónica auditada** | 76,8/100,0 | **77,0/100,0** | **+0,2** |
+| Aceptación comercial (por separado) | 0/6 | **0/6** | 0 |
 
-**Definición crítica:** el primer indicador mide contratos/componentes integrados y acreditados en `friendly-123`, no porcentaje de tráfico, teléfonos migrados ni autorización para vender. El segundo es una **valoración de calidad auditada**, no un SLO de disponibilidad ni certeza estadística. **La métrica de GO comercial es independiente.** La vieja cifra del workshop 61/100 mezclaba pruebas físicas y no es comparable.
+**Definición:** 87,5 mide el cumplimiento de una rúbrica fija de capacidades de la misma app, no 87,5% del tráfico ya conmutado, ni disponibilidad comercial. La calidad es revisión de ingeniería, no un SLO. Base comparable tras D7: **68,5/100,0**; avance acumulado desde entonces **+19,0**. La ruta comercial 2.0 sigue QA OFF y ningún test sustituye el A→B→A físico.
 
-## Desglose reproducible de la portada 1.0→2.0 (pesos FIJOS)
+## Desglose bajo los mismos pesos originales (100,0)
 
-| Capacidad | Hecho | Peso total | Falta |
+| Capacidad | Hecho | Peso | Falta |
 | --- | ---: | ---: | ---: |
-| SQLite/Yjs, diario, reapertura y merge | 15,5 | 17,0 | 1,5 |
+| SQLite/Yjs, diario, reapertura y merge | 16,0 | 17,0 | 1,0 |
 | Historia congelada, certificación, R2 | 13,5 | 18,0 | 4,5 |
-| Economía tipada (venta, stock, fiado, ACK) | 14,0 | 17,0 | 3,0 |
+| Economía tipada (ventas, stock, abonos, recibos DO) | 16,5 | 17,0 | 0,5 |
 | Tickets Owner/Team y salas | 12,5 | 14,0 | 1,5 |
 | Fotos SHA fuera de Yjs | 7,0 | 9,0 | 2,0 |
-| Catálogo público C8–C12 | 10,0 | 10,0 | 0,0 |
-| Cableado navegador y retiro parcial 1.0 | 6,0 | 10,0 | 4,0 |
-| Outbox, Safari, failback verificado | 3,0 | 5,0 | 2,0 |
-| **TOTAL** | **81,5** | **100,0** | **18,5** |
+| Catálogo público y lector certificado | 10,0 | 10,0 | 0,0 |
+| Cableado navegador y retiro parcial 1.0 | 8,5 | 10,0 | 1,5 |
+| Outbox, Safari y failback | 3,5 | 5,0 | 1,5 |
+| **TOTAL** | **87,5** | **100,0** | **12,5** |
 
-C8 +3,0; C9 +2,5; C10 +1,5; C11 +2,0; C12 +1,0; C13 +3,0. Los hitos pendientes NO se marcan completados solo porque existen APIs detrás de flags QA.
+## Evidencia concreta C44 fusionada y crédito C45
+
+- [PR #842 C44](https://github.com/jfcarpiopuntocom/friendly-123/pull/842) **MERGED** en el producto real: `docs/mock-backend.js` registra ajuste con `stockNuevo + opId` y abono con `amountCents + opId`, `docs/sync-realtime.js` preserva el ID original, y `docs/sync-yjs.js` lo traduce a comandos `stock.adjust` y `credit.payment.record` / `credit.customer.payment.record` usando los adaptadores ya injertados.
+- La prueba real Workerd/Miniflare/SQLite confirma stock sintético **5→8**, cuenta por cobrar **3000→1500 centavos** y exactamente **2 efectos/2 recibos** después de repetir el mismo abono. Final candidato C44 **46/46 GitHub Actions SUCCESS**. [Workers Builds master C44](https://dash.cloudflare.com/c4d8aa3b3e1db0d80b0beb4abc7c1364/workers/services/view/friendly-123/production/builds/0d4d8889-2b95-4d70-8acc-b43852df983a) reportó `success` para SHA `be032b2b27fd52c299d8e1b6942d9b7bb2596934`.
+- **Ponytail RED→GREEN:** la primera revisión reprodujo **4 fallos** de reintento de abono (Chromium/WebKit × EN/ES) por un hecho `inventario_abono` inventado después de respuesta perdida. El parche ya fusionado envía `OCSyncEmit("abono")` solo al registrar por primera vez el `movimientoId`, no toca el EventBus de inventario para un cobro. Volvieron a pasar las cuatro pruebas.
+- Bajo los 17,0 puntos originales de economía, se acreditan **solo 0,5** del presupuesto previamente pendiente de 1,0 por cableado comercial QA del producto y su prueba con DO SQL real. Los otros **0,5 siguen pendientes** de despacho efectivo de producción y aceptación física. Calidad negocio **18,3→18,5**, total 76,8→77,0, por la regresión adversarial y continuidad de recibo. **GO 0/6; físico 0/5.** Sync3 intacto y flags QA OFF.
+- Plan previo guardado en [workshop C45](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-19-c45-c44-merged-fixed100-score-precode.md). La puntuación se comprueba con `node scripts/architecture-2-port-score.cjs`, `node --test test/p0-architecture-2-port-score.test.cjs`, manifests SHA y revisión de CI.
+
+## Bloqueos concretos restantes (orden de raíz, sin nuevas funciones)
+
+1. Historia comercial real: Firebase HEAD íntegro + certificación R2/binding; **4,5 puntos**.
+2. Eliminar competencia de escritores solo después de certificar la instancia canónica y los opIds; activar ruta comercial tipada con ACK autorizado y respaldo reversible; el productor de ventas debe sobrevivir offline; **capacidad de activación y retiro legacy pendiente**.
+3. Fotos SHA y roles conectados al UI del cliente, con CAS/ACK; confirmar con PC y Safari/PWA, sin pérdida histórica.
+4. Ciclo físico A→B→A×2, misma licencia/PIN/sala, stock, dinero, ventas, fotos y roles consistentes en menos de 10 s. GO comercial sigue **0/6** hasta la evidencia real.
+
+## Archivo histórico: cortes anteriores que no representan los indicadores actuales
 
 ## Progreso nuevo de esta jornada: cuatro PR auditadas en el PRODUCTO
 
