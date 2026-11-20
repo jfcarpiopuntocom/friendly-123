@@ -1,0 +1,29 @@
+name: PORT2 C60 · certified frozen catalog public key order and private-field guard
+on:
+  push:
+    branches: [port2/20261120-c60-frozen-catalog-canonical-field-order]
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/trusted-frozen-source.mjs
+      - cloudflare-yparty-worker/qa/p0-gate-d-trusted-paged-source.test.mjs
+      - .github/workflows/qa-port2-real-c60-catalog-canonical-keys.yml
+permissions: {contents: read}
+jobs:
+  c60-verified-public-source:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm --prefix cloudflare-yparty-worker ci --ignore-scripts --no-audit --no-fund
+          node --test --test-timeout=120000 \
+            cloudflare-yparty-worker/qa/p0-gate-d-trusted-paged-source.test.mjs \
+            cloudflare-yparty-worker/qa/p0-gated3-paving-deterministic-memory.test.mjs \
+            cloudflare-yparty-worker/qa/p0-gated7-frozen-r2-packager.test.mjs
+          git diff --check
