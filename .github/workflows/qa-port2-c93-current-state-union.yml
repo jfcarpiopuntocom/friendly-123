@@ -1,0 +1,29 @@
+name: PORT2 C93 forward-only CURRENT state union (no customer writes)
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-yparty-worker/src/current-state-union.mjs'
+      - 'cloudflare-yparty-worker/qa/p0-c93-current-state-union.test.mjs'
+      - '.github/workflows/qa-port2-c93-current-state-union.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  present-only-union:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloudflare-yparty-worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: cloudflare-yparty-worker/package-lock.json
+      - name: Install pinned Worker test dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: RED to GREEN no-IO forward-state union, collision and cross-app tests
+        run: node --test --test-timeout=60000 qa/p0-c93-current-state-union.test.mjs
+      - name: Check patches
+        run: git diff --check
