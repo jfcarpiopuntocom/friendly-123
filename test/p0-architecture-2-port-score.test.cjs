@@ -122,7 +122,7 @@ test('C61: C60 real source frozen catalog canonical field order v1/v2 QA fixed10
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false,'unearned real role switch');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.7);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
@@ -135,7 +135,7 @@ test('C61: C60 real source frozen catalog canonical field order v1/v2 QA fixed10
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false);
  assert.equal(identity.milestones.reduce((a,m)=>a+m.points,0),14);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
