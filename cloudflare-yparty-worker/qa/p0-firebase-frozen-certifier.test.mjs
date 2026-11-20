@@ -62,10 +62,18 @@ test('derives exact 1.0 Firebase room40 and 2.0 YParty room32 bindings determini
  const expected32=sha256Hex(Buffer.from('f123-yparty-v1:'+TEST_LICENSE)).slice(0,32);
  assert.equal(b.firebaseRoom40,expected40);
  assert.equal(b.ypartyRoom32,expected32);
+ assert.equal(b.isJfcCleanRoom,false);
  assert.equal(b.firebasePaths.y,'/f123/'+expected40+'-y');
  assert.equal(b.firebasePaths.ops,'/f123/'+expected40+'-ops');
  assert.equal(b.ypartyRooms.cat,expected32+'-cat');
  assert.equal(b.ypartyRooms.ops,expected32+'-ops');
+
+ // Verify JFC canonical ::limpio-2026-09-16 room offset (sync-yjs.js:2773) switches ONLY firebaseRoom40 while preserving ypartyRoom32
+ const clean=await deriveFirebaseCertifierBindings(TEST_LICENSE,{firebaseCleanSuffix:true});
+ const expectedClean40=sha256Hex(Buffer.from('amigable-sala:'+TEST_LICENSE+'::limpio-2026-09-16')).slice(0,40);
+ assert.equal(clean.isJfcCleanRoom,true);
+ assert.equal(clean.firebaseRoom40,expectedClean40);
+ assert.equal(clean.ypartyRoom32,expected32);
 });
 
 test('decodes AES-GCM + tag0 + tag3 fragments + tag7 gzip ckpt, detects stale ckpt ancestors, and round-trips through REAL Miniflare R2 -> prepareFrozenImport',{timeout:45000},async()=>{
