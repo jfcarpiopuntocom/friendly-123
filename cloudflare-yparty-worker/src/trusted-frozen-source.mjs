@@ -200,6 +200,10 @@ export async function readTrustedFrozenSource({env,room,channel}={}){
    stage='proof-shape';
    metadata(body,room,channel);
    if(index===1&&!body.manifest){
+    // This backward-compatible V1 source is only for explicitly legacy QA.
+    // A certified R2-only cutover MUST carry immutable pinned manifest pages;
+    // a miswired old source cannot self-certify a complete Firebase HEAD.
+    if(env.WS_R2_MANIFEST_REQUIRED_QA==='1')throw fail();
     stage='byte-frames';
     const frames=legacyFrames(body,channel);
     await validateDocument(frames,channel,{room,frozenHead:body.frozenHead,
