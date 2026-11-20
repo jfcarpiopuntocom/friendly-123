@@ -3131,7 +3131,27 @@
           try { API.coordinadorCorte20.destroy(); } catch (_) {}
           API.coordinadorCorte20 = null;
         }
-        var coord = await piloto.crearCoordinadorCorte20(docPrivado, headCongelado, opc);
+        // C94: a dead/hidden C21a writer is NOT commercial mode 2.0. Never
+        // retain the old facade bit during an async coordinator replacement.
+        API.modoCorte20Activo = false;
+        var coord = null;
+        var opciones = Object.assign({}, opc || {});
+        var observadorExterno = opciones.onModeChange;
+        opciones.onModeChange = function (estado) {
+          // C21a failback on iOS pagehide, lost cert, or writer conflict closes
+          // the session synchronously. Reflect that in the shipped browser
+          // facade before another local sale; do NOT reopen the legacy relay.
+          // Only the real C38 activation may set this flag true, after both
+          // old-writer quiescence guards; an event is never proof of cutover.
+          if (coord && API.coordinadorCorte20 === coord &&
+              (!estado || estado.mode !== "active-2.0")) {
+            API.modoCorte20Activo = false;
+          }
+          if (typeof observadorExterno === "function") {
+            try { observadorExterno(estado); } catch (_) {}
+          }
+        };
+        coord = await piloto.crearCoordinadorCorte20(docPrivado, headCongelado, opciones);
         API.coordinadorCorte20 = coord;
         return coord;
       };
