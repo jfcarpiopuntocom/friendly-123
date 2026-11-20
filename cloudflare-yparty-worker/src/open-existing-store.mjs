@@ -8,6 +8,7 @@ import {prepareFrozenImport,installFrozenImport} from './certified-frozen-import
 import {exportCompleteYpartyYjs} from './durable-full-yjs-export.mjs';
 import {hasFrozenUnion,mergeFrozenIntoExisting,verifyFrozenUnionReopen} from './merge-frozen-into-existing.mjs';
 import {verifyImportedOpsBaseline} from './frozen-ops-baseline.mjs';
+import {verifyFrozenVectorBaseline} from './frozen-vector-baseline.mjs';
 
 export async function openExistingStore({env,storage,source}={}) {
   if(env?.WS_OPEN_EXISTING_QA!=='1')return {opened:false,failback:'flag-off'};
@@ -35,6 +36,11 @@ export async function openExistingStore({env,storage,source}={}) {
       // empty base nor an old single-row legacy snapshot can certify it.
       if(now.snapshotKind!=='blocks')
         throw new Error('frozen base snapshot missing after reopen');
+      // C66: a valid but substituted SQL BLOCK can omit an entire pre-cut
+      // independent Yjs writer without any pending parents. Enforce the
+      // separately SHA-anchored frozen vector BEFORE claiming opened:true.
+      await verifyFrozenVectorBaseline({storage,bytes:now.bytes,
+        expectedVectorSha256:prior.vector_sha256});
       if(prior.channel==='ops'){
         if(!Number.isSafeInteger(Number(prior.event_count))||
            now.eventCount<Number(prior.event_count))

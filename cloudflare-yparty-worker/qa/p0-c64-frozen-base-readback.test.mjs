@@ -21,14 +21,15 @@ function scenario({includeFrozenBase,replaceWithLegacy=false}){
     id:'after-cut',nombre:'New post-cut book',precio:35,stockActual:1
   });
   const frozen=Y.encodeStateAsUpdate(before);
+  const frozenVector=Y.encodeStateVector(before);
   const newer=Y.encodeStateAsUpdate(later);
   const receipt={
     channel:'cat',frozen_head:'independently-certified-head-c64',
-    sha256:sha(frozen),vector_sha256:sha(Y.encodeStateVector(before)),
+    sha256:sha(frozen),vector_sha256:sha(frozenVector),
     event_count:null
   };
   before.destroy();later.destroy();
-  const tables=new Set(['f123_frozen_imports','documento_bloques','diario']);
+  const tables=new Set(['f123_frozen_imports','f123_frozen_import_vectors','documento_bloques','diario']);
   if(replaceWithLegacy)tables.add('documento');
   const storage={
     transactionSync:fn=>fn(),
@@ -37,6 +38,8 @@ function scenario({includeFrozenBase,replaceWithLegacy=false}){
         if(query.includes("sqlite_master WHERE type='table' AND name='f123_frozen_imports'"))
           return rows([{exists:1}]);
         if(query.includes('FROM f123_frozen_imports WHERE id=1'))return rows([receipt]);
+        if(query.includes('SELECT vector FROM f123_frozen_import_vectors WHERE id=1'))
+          return rows([{vector:frozenVector}]);
         if(query.includes('SELECT name FROM sqlite_master'))return rows([...tables].map(name=>({name})));
         if(query.includes('FROM documento_bloques ORDER BY n'))
           return rows(includeFrozenBase?[{n:0,contenido:frozen}]:[]);

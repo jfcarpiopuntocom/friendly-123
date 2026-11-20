@@ -4,11 +4,13 @@
 // a partial Firebase ledger cannot be repaired by importing it into a Y.Doc.
 import * as Y from 'yjs';
 import {prepareImportedOpsBaseline,installImportedOpsBaseline,verifyImportedOpsBaseline} from './frozen-ops-baseline.mjs';
+import {installFrozenVectorBaseline,verifyFrozenVectorBaseline} from './frozen-vector-baseline.mjs';
 
 const BLOCK_BYTES=512*1024; // Identical to Tienda.onLoad/onSave in src/index.js.
 const HEX=/^[0-9a-f]{64}$/;
 const HEAD=/^[A-Za-z0-9_.:-]{3,128}$/;
 const preparedBytes=new WeakMap();
+const preparedVectors=new WeakMap();
 const preparedOpsBaselines=new WeakMap();
 
 function invalid(reason) {throw new Error(reason);}
@@ -105,6 +107,7 @@ export async function prepareFrozenImport({
       bytes:bytes.byteLength,chunks:Math.ceil(bytes.byteLength/BLOCK_BYTES)
     });
     preparedBytes.set(proof,new Uint8Array(bytes)); // Defensive copy, not editable via proof.
+    preparedVectors.set(proof,new Uint8Array(vector)); // Immutable original causal state vector.
     if(opsBaseline)preparedOpsBaselines.set(proof,opsBaseline);
     return proof;
   } finally {doc.destroy();}
@@ -115,8 +118,8 @@ export async function prepareFrozenImport({
 // Call only while the target DO is unserved / pre-activation (no live Y.Doc).
 export async function installFrozenImport({storage,proof}={}) {
   checkStorage(storage);
-  const bytes=preparedBytes.get(proof);
-  if(!bytes)invalid('uncertified frozen import');
+  const bytes=preparedBytes.get(proof),vector=preparedVectors.get(proof);
+  if(!bytes||!vector)invalid('uncertified frozen import');
   const opsBaseline=proof.channel==='ops'?preparedOpsBaselines.get(proof):null;
   if(proof.channel==='ops'&&(!opsBaseline||opsBaseline.count!==proof.eventCount))
     invalid('uncertified ops baseline');
@@ -148,6 +151,7 @@ export async function installFrozenImport({storage,proof}={}) {
       proof.channel,proof.frozenHead,proof.sha256,proof.vectorSha256,proof.eventCount,proof.bytes,proof.chunks);
     // SAME synchronous SQLite commit as original frozen snapshot and cert:
     // an opId baseline can never be independently ACKed or partly installed.
+    installFrozenVectorBaseline(sql,vector);
     if(proof.channel==='ops')installImportedOpsBaseline(sql,opsBaseline);
     return {already:false};
   });
@@ -178,6 +182,7 @@ export async function readFrozenImport({storage}={}) {
     if(sha256!==receipt.sha256 || vectorSha256!==receipt.vector_sha256 ||
        (receipt.channel==='ops' && doc.getMap('eventos').size!==receipt.event_count))
       invalid('frozen import hash or opId mismatch');
+    await verifyFrozenVectorBaseline({storage,bytes,expectedVectorSha256:receipt.vector_sha256});
     if(receipt.channel==='ops')
       verifyImportedOpsBaseline({storage,bytes,expectedCount:Number(receipt.event_count)});
     return {bytes,receipt:Object.freeze({...receipt})};
