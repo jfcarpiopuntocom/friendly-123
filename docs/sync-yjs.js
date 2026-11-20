@@ -3035,18 +3035,41 @@
       return id ? (API.recibosComerciales20.get(id) || null) : null;
     };
     function _registrarReciboComercial20(opId, res) {
-      var id = String((res && res.receipt && res.receipt.opId) || opId || "").trim();
+      var id = String(opId || "").trim();
       if (!id || !res || typeof res !== "object") return null;
-      var entry = Object.freeze({
-        opId: id,
-        committed: Boolean(res.committed),
-        duplicate: Boolean(res.duplicate),
-        quarantine: Boolean(res.quarantine),
-        fallbackLegacy: Boolean(res.fallbackLegacy),
-        stage: (res.receipt && res.receipt.stage) || res.stage || null,
-        receipt: res.receipt || null,
-        recordedAt: Date.now()
-      });
+      var receipt = res.receipt && typeof res.receipt === "object" ? res.receipt : null;
+      var receiptOpId = receipt && receipt.opId ? String(receipt.opId).trim() : "";
+      var mismatch = Boolean(receiptOpId && receiptOpId !== id);
+      var prev = API.recibosComerciales20.get(id) || null;
+      var incomingCommitted = !mismatch && Boolean(res.committed) && !!receipt && receipt.stage === "business-committed";
+      if (prev && prev.committed === true && prev.stage === "business-committed" && !incomingCommitted) {
+        return prev;
+      }
+      var entry = mismatch
+        ? Object.freeze({
+            opId: id,
+            committed: false,
+            duplicate: false,
+            quarantine: false,
+            fallbackLegacy: false,
+            reconcileRequired: true,
+            retryable: false,
+            stage: "receipt-opid-mismatch",
+            receipt: null,
+            recordedAt: Date.now()
+          })
+        : Object.freeze({
+            opId: id,
+            committed: Boolean(res.committed),
+            duplicate: Boolean(res.duplicate),
+            quarantine: Boolean(res.quarantine),
+            fallbackLegacy: Boolean(res.fallbackLegacy),
+            reconcileRequired: Boolean(res.reconcileRequired),
+            retryable: Boolean(res.retryable),
+            stage: (receipt && receipt.stage) || res.stage || null,
+            receipt: receipt,
+            recordedAt: Date.now()
+          });
       if (API.recibosComerciales20.size >= 500) {
         var firstKey = API.recibosComerciales20.keys().next().value;
         if (firstKey !== undefined) API.recibosComerciales20.delete(firstKey);
@@ -3077,6 +3100,16 @@
         return Promise.resolve(API.coordinadorCorte20.submitCommercial(comando)).then(function (res) {
           _registrarReciboComercial20(comando && comando.opId, res);
           return res;
+        }).catch(function (err) {
+          _registrarReciboComercial20(comando && comando.opId, {
+            committed: false,
+            duplicate: false,
+            quarantine: false,
+            fallbackLegacy: false,
+            reconcileRequired: true,
+            stage: "dispatch-rejected"
+          });
+          throw err;
         });
       };
       // C29: Safari reload may publish a legacy operation BEFORE the explicit

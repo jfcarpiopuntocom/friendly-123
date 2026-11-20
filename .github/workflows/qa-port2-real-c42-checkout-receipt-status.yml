@@ -1,0 +1,33 @@
+name: PORT2 C42 · checkout receipt 2.0 status observer
+on:
+  push:
+    branches: [port2/20261119-c42-checkout-receipt-status-v818]
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-yjs.js
+      - docs/mock-backend.js
+      - test/p0-c42-checkout-receipt-status.test.cjs
+      - .github/workflows/qa-port2-real-c42-checkout-receipt-status.yml
+permissions: {contents: read}
+jobs:
+  c42-checkout-receipt-status:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          set -euo pipefail
+          npm ci --ignore-scripts --no-audit --no-fund
+          node --test --test-concurrency=1 --test-timeout=120000 \
+            test/p0-c42-checkout-receipt-status.test.cjs \
+            test/p0-c41-business-receipt-score.test.cjs \
+            test/p0-c38-legacy-transport-quiescence.test.cjs \
+            test/p0-c36-real-sale-opid-e2e.test.cjs \
+            test/p0-c34-real-sale-envelope-contract.test.cjs \
+            test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs \
+            test/p0-architecture-2-port-score.test.cjs
+          bash check-sw.sh

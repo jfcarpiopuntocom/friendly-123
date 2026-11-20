@@ -1580,6 +1580,80 @@
     window.addEventListener("pagehide", _guardarMergePendienteYa);
     document.addEventListener("visibilitychange", function () { if (document.visibilityState === "hidden") _guardarMergePendienteYa(); });
   } catch (_) {}
+  function _aplicarEstadoReciboDo20(detail) {
+    if (!detail || typeof detail !== "object") return false;
+    var opId = String(detail.opId || "").trim();
+    var receiptOpId = detail.receipt && detail.receipt.opId ? String(detail.receipt.opId).trim() : "";
+    if (!opId || !Array.isArray(ventas)) return false;
+    var venta = null;
+    for (var i = ventas.length - 1; i >= 0; i--) {
+      if (ventas[i] && (ventas[i].opId === opId || ventas[i].id === opId)) { venta = ventas[i]; break; }
+    }
+    if (!venta) return false;
+    var mismatch = Boolean(receiptOpId && receiptOpId !== opId);
+    var stage = mismatch ? "receipt-opid-mismatch" : ((detail.receipt && detail.receipt.stage) || detail.stage || null);
+    var confirmado = !mismatch && detail.committed === true && !!detail.receipt && detail.receipt.stage === "business-committed";
+    if (venta.reciboDo20 && venta.reciboDo20.committed === true &&
+        venta.reciboDo20.estado === "confirmado-do" && !confirmado) {
+      return false;
+    }
+    if (confirmado) {
+      venta.reciboDo20 = {
+        estado: "confirmado-do",
+        committed: true,
+        receiptId: detail.receipt.receiptId || null,
+        stage: stage,
+        acceptedAt: detail.receipt.acceptedAt || null
+      };
+    } else if (mismatch) {
+      venta.reciboDo20 = {
+        estado: "rechazado-sin-confirmar",
+        committed: false,
+        reconcileRequired: true,
+        stage: "receipt-opid-mismatch"
+      };
+    } else if (detail.quarantine === true) {
+      venta.reciboDo20 = {
+        estado: "cuarentena-do",
+        committed: false,
+        quarantine: true,
+        stage: stage || "conflict-quarantine"
+      };
+    } else if (stage === "stored-for-application" || (detail.reconcileRequired === true && stage !== "dispatch-rejected")) {
+      venta.reciboDo20 = {
+        estado: "pendiente-reconciliacion-do",
+        committed: false,
+        reconcileRequired: true,
+        receiptId: (detail.receipt && detail.receipt.receiptId) || null,
+        stage: stage || "stored-for-application"
+      };
+    } else if (detail.fallbackLegacy === true) {
+      venta.reciboDo20 = {
+        estado: "respaldo-local",
+        committed: false,
+        fallbackLegacy: true,
+        stage: stage || "fallback-legacy"
+      };
+    } else {
+      venta.reciboDo20 = {
+        estado: "rechazado-sin-confirmar",
+        committed: false,
+        reconcileRequired: true,
+        stage: stage || "dispatch-rejected"
+      };
+    }
+    _mergeSucio = true;
+    _guardarMergePendienteYa();
+    return true;
+  }
+  try {
+    if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+      window.addEventListener("oc-op-20-recibo", function (ev) {
+        try { _aplicarEstadoReciboDo20(ev && ev.detail); } catch (_) {}
+      });
+    }
+  } catch (_) {}
+  // C42_END
   // Synchronous quota/storage exceptions cannot unwind a received merge.
   // P0 Ponytail: opt-in, local-only timing of durable stock/money commits.
   // Stores NO product, count, license, PIN, message, error string or device ID.
