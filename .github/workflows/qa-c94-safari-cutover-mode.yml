@@ -1,0 +1,22 @@
+name: C94 Safari pilot failback mode fence source QA
+on:
+  pull_request:
+    paths:
+      - 'docs/sync-yjs.js'
+      - 'test/p0-c94-pilot-failback-mode-fence.test.cjs'
+      - '.github/workflows/qa-c94-safari-cutover-mode.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c94-runtime-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: node --test test/p0-c94-pilot-failback-mode-fence.test.cjs test/p0-c38-legacy-transport-quiescence.test.cjs test/p0-c27-sync-yjs-runtime-cutover.test.cjs test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs
+      - run: git diff --check
