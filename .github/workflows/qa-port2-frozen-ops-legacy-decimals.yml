@@ -1,0 +1,28 @@
+name: "PORT 2.0 C86 · frozen 1.0 decimal abono ops baseline"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/frozen-ops-baseline.mjs
+      - cloudflare-yparty-worker/qa/p0-c86-frozen-ops-legacy-decimals.test.mjs
+      - .github/workflows/qa-port2-frozen-ops-legacy-decimals.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  c86-legacy-ops-decimals:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Legacy 1.0 decimal abono baseline and C14/Gate D regressions
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          node --test --test-concurrency=1 --test-timeout=90000 qa/p0-c86-frozen-ops-legacy-decimals.test.mjs qa/p0-c14-ops-baseline-reopen-workerd.test.mjs qa/p0-gated4-real-onstart-workerd.test.mjs qa/p0-gated5-merge-pitr-budget-sql.test.mjs qa/p0-gated7-frozen-r2-packager.test.mjs qa/p0-c68-economic-reopen-certified-effects.test.mjs qa/p0-c71-economic-payload-cryptographic-audit.test.mjs
