@@ -188,7 +188,8 @@ function inspect(){
    const full=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='production-business-dispatch');
    const c36Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='stable-real-sale-opid-c36' && m.done);
    const c40Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-business-do-receipt-c40' && m.done);
-    assert.equal(full?.points,c40Done?1.5:(c36Done?2:2.5),'fixed economics budget C36 + C40');
+    const c42Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-checkout-do-status-c42' && m.done);
+    assert.equal(full?.points,c42Done?1:(c40Done?1.5:(c36Done?2:2.5)),'fixed economics budget C36 + C40 + C42');
    assert.equal(full.done,false,'C34 must not certify production business dispatch');
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO for C34 QA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
@@ -234,7 +235,8 @@ function inspect(){
   assert.equal(c36.points,0.5,'C36 code only 0.5');
   const left=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='production-business-dispatch');
   const c40Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-business-do-receipt-c40' && m.done);
-  assert.equal(left?.points,c40Done?1.5:2,'commercial dispatch remains unearned after C40 QA');
+  const c42Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-checkout-do-status-c42' && m.done);
+  assert.equal(left?.points,c42Done?1:(c40Done?1.5:2),'commercial dispatch remains unearned after C42 QA');
   assert.equal(left.done,false,'C36 does not retire business 1.0 path');
   assert.equal(data.commercialGo.certifiedGates,0,'no GO from QA');
   const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
@@ -332,11 +334,12 @@ function inspect(){
   assert.equal(storage?.weight,17);
   assert.equal(oneDecimal(storage.milestones.reduce((a,m)=>a+m.points,0)),17,'C40 cannot change storage budget');
   const left=typed.milestones.find(m=>m.id==='production-business-dispatch');
-  assert.equal(left?.points,1.5,'live business dispatch still unearned');
+  const c42Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-checkout-do-status-c42' && m.done);
+   assert.equal(left?.points,c42Done?1:1.5,'live business dispatch still unearned after C42 checkout status');
   assert.equal(left.done,false,'C40 is NOT a live customer cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C40 QA does not certify GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.1);
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,c42Done?18.3:18.1);
   const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
     'API.recibosComerciales20 = new Map();',
@@ -365,6 +368,66 @@ function inspect(){
   assert(Number((/^f123-shell-v(\d+)$/.exec(v.shell||'')||[])[1]||0)>=817,'requires f123-shell-v817+');
   const digest='sha256-'+crypto.createHash('sha256').update(src.replace(/\r\n/g,'\n')).digest('hex');
   assert.equal(load('docs/version-manifest.json').files['./sync-yjs.js'],digest,'C40 shipped sync-yjs.js must be integrity sealed');
+ }
+ // C43: source-verified C42 checkout DO receipt truth and adversarial ACK protections.
+ // QA-only code earns exactly 0.5, NOT full production dispatch or physical GO.
+ const c42=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='real-checkout-do-status-c42');
+ if(c42?.done){
+  assert.equal(c42.points,0.5,'C42 checkout observer award capped at 0.5');
+  assert.equal(c42.source,'docs/mock-backend.js','credit actual product checkout, not workshop');
+  const typed=data.groups.find(g=>g.id==='typed-economics');
+  const storage=data.groups.find(g=>g.id==='storage');
+  assert.equal(typed?.weight,17);
+  assert.equal(oneDecimal(typed.milestones.reduce((a,m)=>a+m.points,0)),17,'C42 cannot inflate typed-economics budget');
+  assert.equal(storage?.weight,17);
+  assert.equal(oneDecimal(storage.milestones.reduce((a,m)=>a+m.points,0)),17,'C42 cannot steal storage budget');
+  const residual=typed.milestones.find(m=>m.id==='production-business-dispatch');
+  assert.equal(residual?.points,1,'live production business dispatcher still unearned 1.0');
+  assert.equal(residual.done,false,'C42 does not enable commercial production cutover');
+  assert.equal(data.commercialGo.certifiedGates,0,'C42 synthetic QA cannot certify live store GO');
+  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no real PC→Safari acceptance evidence');
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.3,'business quality bounded +0.2 for C42 adversarial QA');
+  const mock=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
+  const facade=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+  for(const token of [
+    'function _aplicarEstadoReciboDo20(detail)',
+    'window.addEventListener("oc-op-20-recibo", function (ev)',
+    'if (venta.reciboDo20 && venta.reciboDo20.committed === true &&',
+    'detail.quarantine === true',
+    'estado: "pendiente-reconciliacion-do"',
+    'estado: "rechazado-sin-confirmar"',
+    '_mergeSucio = true;',
+    '_guardarMergePendienteYa();',
+    'ventas: clonar(ventas)'
+  ])assert(mock.includes(token),'C42 real product checkout/dirty snapshot missing '+token);
+  for(const token of [
+    'var mismatch = Boolean(receiptOpId && receiptOpId !== id);',
+    'var incomingCommitted = !mismatch && Boolean(res.committed)',
+    'prev && prev.committed === true',
+    'stage: "receipt-opid-mismatch"',
+    'reconcileRequired: Boolean(res.reconcileRequired)'
+  ])assert(facade.includes(token),'C42 real facade authoritative ACK guard missing '+token);
+  const testPath='test/p0-c42-redteam-receipt-identity.test.cjs';
+  assert(fs.existsSync(path.join(root,testPath)),'C42 RED-to-GREEN independent exact source tests missing');
+  const test=fs.readFileSync(path.join(root,testPath),'utf8');
+  for(const token of [
+    "mismatched DO receipt.opId cannot confirm another sale",
+    'confirmed receipt is monotone; stale 202 cannot demote sale or DO Map',
+    '409 with quarantine + reconcileRequired is quarantine',
+    'delayed rejection after valid DO commit cannot demote cash receipt'
+  ])assert(test.includes(token),'C42 red-team negative QA case missing '+token);
+  assert(fs.existsSync(path.join(root,'test/p0-c42-checkout-receipt-status.test.cjs')),
+    'C42 exact source checkout status test missing');
+  assert(fs.existsSync(path.join(root,'cloudflare-yparty-worker/qa/p0-c40-local-receipt-to-do-receipt-workerd.test.mjs')),
+    'C40 Workerd real SQLite authoritative receipt proof missing');
+  const ver=load('docs/version.json');
+  assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=18,'C42 needs v0.8.18+');
+  assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=818,'C42 needs f123-shell-v818+');
+  const manifest=load('docs/version-manifest.json');
+  for(const [name,src] of [['mock-backend.js',mock],['sync-yjs.js',facade]]){
+   const hash='sha256-'+crypto.createHash('sha256').update(src.replace(/\r\n/g,'\n')).digest('hex');
+   assert.equal(manifest.files['./'+name],hash,'C42 actual delivered browser source hash mismatch: '+name);
+  }
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
