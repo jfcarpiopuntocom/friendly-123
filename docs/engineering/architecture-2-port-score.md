@@ -1,5 +1,25 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C85 · 20-nov-2026 Ecuador · seguridad origen R2 estricto, calidad80,0/100
+
+Se PORTA la MISMA friendly-123 de arquitectura 1.0→2.0, Sync3 intacto; taller exclusivamente PRECODE, QA y evidencia. La rúbrica original100 permanece congelada; certificación comercial y pruebas físicas no se infieren de CI.
+
+| Métrica original /100 con un decimal | Previa C81 | C85 | Delta |
+| --- | ---: | ---: | ---: |
+| Transición arquitectura 1.0→2.0 misma app | 92,0 | **92,0** | 0,0 |
+| Calidad arquitectónica | 79,9 | **80,0** | +0,1 |
+| Security (peso15) | 11,0 | **11,1** | +0,1 |
+| Business (peso20) | 19,0 | **19,0** | 0,0 |
+| GO comercial | 0/6 | **0/6** | 0 |
+| Físico PC Opera↔iPhone Safari/PWA | 0/5 | **0/5** | 0 |
+
+**Fuente C84 en el producto REAL:** [PR #883 fusionada](https://github.com/jfcarpiopuntocom/friendly-123/pull/883) SHA `8c34cb3d40fc987d537ce2c0ba54d75d6224027b` verifica opt-in `WS_R2_MANIFEST_REQUIRED_QA==='1'` y niega lector V1 sin manifiesto externo; V1 flag OFF sigue compatible y V2 válido pasa. [RED autentico 3/5 con 2 errores de rechazo ausente](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44774691139), GREEN suite C84 y validación Yjs OSS, D2/D6/D7 en GH CI. Cloudflare Workers Builds GET cuenta real **SUCCESS** para SHA exacto `8c34cb3d40fc987d537ce2c0ba54d75d6224027b`, build UUID `6116411e-29a2-44de-a2ab-b0757719d28c`.
+
+**C85 puntuación TDD:** [PRECODE previo](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c85-c84-r2-strict-source-security80p0-precode.md); [PR #884](https://github.com/jfcarpiopuntocom/friendly-123/pull/884) RED test-only [run44780907216](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44780907216) `79.9 !== 80` por puntaje antiguo, no harness. GREEN exige fuente SHA C84 real, pruebas C84 y no atribuye puntos de historia/port: Business original19,0, Security11,1, previous79,9 y calidad80,0, GO0/6, físico0/5. No se alteraron código funcional, flags, datos ni secretos.
+
+**Pendiente transición8,0:** Firebase HEAD económico auténtico2,0 **no auditado desde Firebase en esta ejecución**; fuente histórica R2/Service Binding real2,0; operación/roles/fotos/failback físico4,0. Un bucket QA R2 vacío no certifica Firebase ni autorización comercial. La bandera R2 estricto OFF no convierte una respuesta V2 autocertificada en HEAD real. Mantener QA OFF, sin activar gastos, sin tocar Sync3 ni reservas otras IA (#871 Yjs, #868 fotos, #841 ledger).
+
+
 ## C81 · 20-nov-2026 Ecuador · recuento físico ABSOLUTO original, calidad79,9, transición92,0
 
 Se PORTA la **MISMA friendly-123** 1.0→2.0 mediante componentes OSS maduros, **Sync3 YA es 2.0 y se conserva**; workshop solo PRECODE/QA/evidencia, funcionalidad integrada en producto real. [PR #881 C80 FUENTE MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/881), `master@52dd4b6f7d854387a578cc53a8be9c761ffc8105`. **17/17 GitHub Actions** source HEAD `f74cac4040e364d2b173217514cf828fe303acdf` SUCCESS; **Cloudflare Workers Builds API GET cuenta real SHA exacta master `52dd4b6f7d854387a578cc53a8be9c761ffc8105` SUCCESS**, UUID `39f2a22c-5fbc-4bd4-8ed5-8bb75e5da2ec`.
