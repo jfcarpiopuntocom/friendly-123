@@ -135,7 +135,15 @@ async function validateDocument(frames,channel,strictCatalog,scope={}){
       const source=doc.share.get(name),safe=publicCopy.doc.getMap(name);
       if(source?.size!==undefined&&source.size!==safe.size)throw fail();
       for(const [id,row] of safe.entries()){
-       if(JSON.stringify(source?.get(id))!==JSON.stringify(row))throw fail();
+       // Both rows are constrained by projectPublicCatalog's mature field
+       // allowlist. Yjs JSON object key insertion order is not semantic:
+       // compare exact keys and primitive values, never serialized text.
+       const original=source?.get(id);
+       if(!original||typeof original!=='object'||Array.isArray(original))throw fail();
+       const keys=Object.keys(original),allowed=Object.keys(row);
+       if(keys.length!==allowed.length||
+        allowed.some(key=>!Object.prototype.hasOwnProperty.call(original,key)||
+         original[key]!==row[key]))throw fail();
       }
      }
     }finally{publicCopy.doc.destroy();}

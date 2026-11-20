@@ -177,3 +177,58 @@ test('same frozen state with tampered independently declared projection SHA or v
   await assert.rejects(readTrustedFrozenSource({env:setup(pages).env,room,channel:'cat'}),/trusted frozen history unavailable/);
  }
 });
+
+test('C60 RED: numeric v1 frozen public Yjs catalog accepts semantically identical fields with reversed object key insertion order',async()=>{
+ const d=new Y.Doc();
+ d.getMap('productos').set('sku1',{stockActual:3,precio:12.5,nombre:'Book',id:'sku1'});
+ const bytes=Y.encodeStateAsUpdate(d),vector=Y.encodeStateVector(d);
+ const body={room,channel:'cat',frozenHead:'c60-reordered-valid-head-v1',completeToHead:true,
+   expectedStateSha256:await sha(bytes),expectedVectorSha256:await sha(vector),frames:[Array.from(bytes)]};
+ const out=await readTrustedFrozenSource({env:setup([body]).env,room,channel:'cat'});
+ const verified=await prepareFrozenImport(out);
+ assert.equal(verified.sha256,body.expectedStateSha256);
+ assert.equal(verified.vectorSha256,body.expectedVectorSha256);
+ d.destroy();
+});
+
+test('C60 RED: paged v2 frozen public Yjs catalog accepts reordered allowed keys and independent projected SHA',async()=>{
+ const d=new Y.Doc();
+ d.getMap('productos').set('sku1',{stockActual:3,precio:12.5,nombre:'Book',id:'sku1'});
+ const bytes=Y.encodeStateAsUpdate(d),vector=Y.encodeStateVector(d),head='c60-reordered-valid-head-v2';
+ const projected=projectPublicCatalog({sourceDoc:d,Y,room,channel:'cat',frozenHead:head});
+ const projectedSha=await sha(projected.bytes);projected.doc.destroy();
+ const pageSha=await sha(encodePage([bytes]));
+ const body={room,channel:'cat',frozenHead:head,completeToHead:true,
+   expectedStateSha256:await sha(bytes),expectedVectorSha256:await sha(vector),
+   expectedProjectedSha256:projectedSha,projectionVersion:'v1',
+   frames:[b64(bytes)],manifest:{chunk:1,chunks:1,bytes:bytes.length,
+     totalBytes:bytes.length,firstFrameIndex:0,frameCount:1,
+     sha256:pageSha,rootSha256:await sha(utf8.encode('1:'+pageSha+'\n'))}};
+ const out=await readTrustedFrozenSource({env:setup([body]).env,room,channel:'cat'});
+ const verified=await prepareFrozenImport(out);
+ assert.equal(verified.sha256,body.expectedStateSha256);
+ assert.equal(verified.vectorSha256,body.expectedVectorSha256);
+ d.destroy();
+});
+
+test('C60 private ownerPin/costo still fail closed in both v1 numeric and v2 paged, despite valid independent SHA',async()=>{
+ const d=new Y.Doc();
+ d.getMap('productos').set('sku1',{stockActual:3,precio:12.5,nombre:'Book',id:'sku1',
+   ownerPin:'SYNTHETIC_NEVER_EXPOSE',costo:999});
+ const bytes=Y.encodeStateAsUpdate(d),vector=Y.encodeStateVector(d),head='c60-reordered-private-head';
+ const p=projectPublicCatalog({sourceDoc:d,Y,room,channel:'cat',frozenHead:head});
+ const projSha=await sha(p.bytes);p.doc.destroy();
+ const legacy={room,channel:'cat',frozenHead:head,completeToHead:true,
+   expectedStateSha256:await sha(bytes),expectedVectorSha256:await sha(vector),
+   frames:[Array.from(bytes)]};
+ await assert.rejects(readTrustedFrozenSource({env:setup([legacy]).env,room,channel:'cat'}),
+   /trusted frozen history unavailable/);
+ const pageSha=await sha(encodePage([bytes]));
+ const paged={...legacy,expectedProjectedSha256:projSha,projectionVersion:'v1',
+   frames:[b64(bytes)],manifest:{chunk:1,chunks:1,bytes:bytes.length,
+     totalBytes:bytes.length,firstFrameIndex:0,frameCount:1,
+     sha256:pageSha,rootSha256:await sha(utf8.encode('1:'+pageSha+'\n'))}};
+ await assert.rejects(readTrustedFrozenSource({env:setup([paged]).env,room,channel:'cat'}),
+   /trusted frozen history unavailable/);
+ d.destroy();
+});
