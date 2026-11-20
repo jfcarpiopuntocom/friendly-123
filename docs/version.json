@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.20",
+  "version": "v0.8.21",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.20: C47 conecta oc-login/oc-logout en docs/sync-yjs.js con cambiarRolComercial20 y failbackToLegacy (Owner↔Team empleado, demo y logout desarman escritores 2.0 y liberan -cat). Switch QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
+  "changelog": "v0.8.21: C51 agrega timeout acotado con AbortController en navigator.locks.request (docs/sync-yjs.js) con fallback seguro a mutarOutboxAtomicoSinLocks ante bloqueo BFCache/Safari, y cablea el arranque operacional 2.0 bajo doble candado QA (f123_yparty_qa + f123_corte20_qa, ambos OFF por defecto). Sync3 intacto, cero gastos Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v820",
+  "shell": "f123-shell-v821",
   "apagar": [],
-  "releaseName": "v0.8.20",
-  "cacheGeneration": "golden356"
+  "releaseName": "v0.8.21",
+  "cacheGeneration": "golden357"
 }

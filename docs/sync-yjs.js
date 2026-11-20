@@ -715,8 +715,38 @@
         });
       };
       // Tabs share this IndexedDB: serialize read/modify/write across contexts as well.
-      if (typeof navigator !== "undefined" && navigator.locks)
-        return navigator.locks.request("f123-relay-outbox-" + API.roomId + suffix, run);
+      if (typeof navigator !== "undefined" && navigator.locks && typeof navigator.locks.request === "function") {
+        var lockWaitMs = (typeof API.__outboxLockTimeoutMs === "number" && API.__outboxLockTimeoutMs > 0)
+          ? API.__outboxLockTimeoutMs
+          : 1500;
+        var ac = typeof AbortController === "function" ? new AbortController() : null;
+        var timer = ac ? setTimeout(function () { try { ac.abort(); } catch (_) {} }, lockWaitMs) : null;
+        var lockReq;
+        try {
+          lockReq = ac
+            ? navigator.locks.request("f123-relay-outbox-" + API.roomId + suffix, { signal: ac.signal }, run)
+            : navigator.locks.request("f123-relay-outbox-" + API.roomId + suffix, run);
+        } catch (err) {
+          if (timer) clearTimeout(timer);
+          if (err && (err.name === "AbortError" || err.name === "TimeoutError")) {
+            return mutarOutboxAtomicoSinLocks(change, run);
+          }
+          throw err;
+        }
+        return Promise.resolve(lockReq).then(
+          function (res) {
+            if (timer) clearTimeout(timer);
+            return res;
+          },
+          function (err) {
+            if (timer) clearTimeout(timer);
+            if (err && (err.name === "AbortError" || err.name === "TimeoutError")) {
+              return mutarOutboxAtomicoSinLocks(change, run);
+            }
+            throw err;
+          }
+        );
+      }
       return mutarOutboxAtomicoSinLocks(change, run);
     }
     var _durableQueue = leerOutbox().then(function (saved) {
@@ -3376,6 +3406,22 @@
     }
     // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
     if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
+    API.corte20QaHabilitado = function () {
+      try {
+        return localStorage.getItem("f123_yparty_qa") === "1" &&
+          localStorage.getItem("f123_corte20_qa") === "1";
+      } catch (_) { return false; }
+    };
+    if (API.canalPiloto && API.corte20QaHabilitado() && typeof API.activarCorte20Runtime === "function") {
+      try {
+        var authQa = typeof window !== "undefined" ? window.OCAuth : null;
+        var demoQa = authQa && typeof authQa.esDemo === "function" ? authQa.esDemo() === true : false;
+        var rolQa = authQa && typeof authQa.rolActual === "function" ? String(authQa.rolActual() || "").trim().toLowerCase() : "";
+        if (!demoQa && (rolQa === "dueno" || rolQa === "admin")) {
+          Promise.resolve(API.activarCorte20Runtime({ cortarComercio: true })).catch(function () {});
+        }
+      } catch (_) {}
+    }
     API.estado = "activo";
     log("Plan C activo (Fase 2 + fotos + ops). Sala:", API.roomId);
   }
