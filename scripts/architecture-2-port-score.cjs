@@ -443,7 +443,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A from C44');
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    assert.equal(data.assessedProductSha,'6e802e6e0df0988922220dd634a40f7788638f05','C48 assessed real merged PR844 source SHA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
    const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
@@ -508,7 +508,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    const testPath='cloudflare-yparty-worker/qa/p0-c46-cross-device-photo-and-downpath-workerd.test.mjs';
    const workerd=fs.readFileSync(path.join(root,testPath),'utf8');
    for(const token of [
@@ -556,8 +556,8 @@ function inspect(){
    assert.equal(data.commercialGo.certifiedGates,0,'role QA must not certify commercial readiness');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'role QA is not physical acceptance');
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
-   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const roleQA=fs.readFileSync(path.join(root,'test/p0-c47-auth-role-switch-20.test.cjs'),'utf8');
    for(const token of [
@@ -616,9 +616,9 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical GO');
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.5);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    const c49qa=fs.readFileSync(path.join(root,
      'cloudflare-yparty-worker/qa/p0-c49-vista-perchas-cas-workerd.test.mjs'),'utf8');
    for(const token of [
@@ -680,7 +680,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.7);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const test=fs.readFileSync(path.join(root,'test/p0-c52-legacy-channel-retirement.test.cjs'),'utf8');
    for(const token of [
@@ -723,7 +723,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'QA not physical PC/phone');
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.7);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const test=fs.readFileSync(path.join(root,'test/p0-c52-legacy-channel-retirement.test.cjs'),'utf8');
    for(const token of [
@@ -765,7 +765,7 @@ function inspect(){
    assert.equal(data.commercialGo.certifiedGates,0);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    const source=fs.readFileSync(path.join(root,'src/port2-cross-device-failback.mjs'),'utf8');
    assert(source.includes('failbackToLegacy') && source.includes('canDispatchOnLegacy'),
      'existing real same-app coordinator must own the durable downpath');
@@ -800,8 +800,8 @@ function inspect(){
    assert.equal(pending?.points,0.5,'live physical/commercial role switch still unearned0.5');
    assert.equal(pending?.done,false,'C58 synthetic source QA cannot certify role on real clients');
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
-   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(data.commercialGo.certifiedGates,0);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -861,9 +861,9 @@ function inspect(){
    const r2=hist.milestones.find(m=>m.id==='r2-service-binding-installed');
    assert.equal(r2?.points,2.0,'real R2 binding still not installed');
    assert.equal(r2?.done,false);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.5);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
-   assert.equal(quality.comparison.previousScore,78.9);
+   assert.equal(quality.comparison.previousScore,79.1);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(data.commercialGo.certifiedGates,0);
    const src=fs.readFileSync(path.join(root,
@@ -903,9 +903,9 @@ function inspect(){
    assert.equal(r2?.points,2.0);
    assert.equal(r2?.done,false);
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
-   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.7);
-   assert.equal(quality.comparison.previousScore,78.9);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.4);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
+   assert.equal(quality.comparison.previousScore,79.1);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.5);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(data.commercialGo.certifiedGates,0);
@@ -939,6 +939,33 @@ function inspect(){
    assert.equal(data.assessedProductSha,'6e802e6e0df0988922220dd634a40f7788638f05',
       'C63 must pin C62 exact real product source merge, not workshop');
  }
+
+ // C65: a separate source-audited QA quality bump on top of C63's original
+ // fixed-100 migration checklist. C64 real product code proves that a
+ // certified frozen import cannot be reopened from journal-only or an
+ // unrelated legacy snapshot. It does not certify live Firebase HEAD/R2.
+ assert.equal(quality.lastAuditedProductSha,
+   'ca86aa4bbe7df1d9da0293e803896edbac53380b',
+   'C65 quality credit pins exact merged functional C64 source');
+ const c64Source=fs.readFileSync(path.join(root,
+   'cloudflare-yparty-worker/src/open-existing-store.mjs'),'utf8');
+ assert(c64Source.includes("if(now.snapshotKind!=='blocks')"),
+   'C65 no credit without fail-closed C64 blocked snapshot readback');
+ const c64QA=fs.readFileSync(path.join(root,
+   'cloudflare-yparty-worker/qa/p0-c64-frozen-base-readback.test.mjs'),'utf8');
+ for(const token of [
+   'C64 RED P0: receipt cannot ACK a cold reopened room',
+   'C64 RED P0: a legacy snapshot cannot impersonate the missing blocked frozen import'
+ ])assert(c64QA.includes(token),'C65 negative source-executed evidence missing '+token);
+ assert.equal(data.score,92.0,'C64 durability QA does not earn real Firebase/R2/physical migration');
+ assert.equal(quality.score,79.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.4);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
+ assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done)
+   .reduce((n,m)=>n+m.points,0),8.0,'original C63 unearned port points stay unearned');
+ assert.equal(data.commercialGo.certifiedGates,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
  assert(data.baseline.score>=0 && data.baseline.score<data.score);
