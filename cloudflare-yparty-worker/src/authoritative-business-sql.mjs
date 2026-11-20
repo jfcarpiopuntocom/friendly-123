@@ -90,6 +90,10 @@ function verifyTypedBusinessEffects(sql,license,effects){
  const saved=sql.exec('SELECT op_id,payload_json FROM typed_commercial_payloads WHERE license = ? ORDER BY op_id',
   license).toArray();
  const payloadById=new Map(saved.map(r=>[r.op_id,r.payload_json]));
+ // A typed 202/200 durable inbox transaction always writes BOTH rows.
+ // Checking only receipt -> payload silently hides orphan pending intents.
+ // Reject readback instead of fabricating an ACK or dropping recoverable bytes.
+ if(saved.length!==receipts.length||new Set(saved.map(r=>r.op_id)).size!==saved.length)deny();
  const effectById=new Map(effects.map(r=>[r.op_id,r]));
  const committed=new Set();
  const contracts={
