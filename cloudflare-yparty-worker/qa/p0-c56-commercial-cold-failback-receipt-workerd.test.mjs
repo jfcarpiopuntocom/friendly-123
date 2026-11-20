@@ -1,11 +1,11 @@
 // C56 RED: real Workerd business-committed receipts and SQL financial readback across A→B→A (C54 active).
 // 1. Double-QA bootstrap (f123_yparty_qa=1 + f123_corte20_qa=1) activates 2.0 on Device A.
 // 2. Legacy Yjs senders (canalSombra, fotosCanal, opsCanal) emit 0 updates while 2.0 is active.
-// 3. Commercial ops (venta + ajuste + abono) route to -ops DO SQLite (0 opsMap shadow) +
+// 3. Commercial ops (A sale + A adjust + B sale) route to -ops DO SQLite (0 opsMap shadow) +
 //    hung navigator.locks.request aborts after bounded timeout and recovers via mutarOutboxAtomicoSinLocks.
 // 4. Cross-device A -> B -> A downpath: NO false ACK (fence != business receipt); Device A failbackToLegacy -> legacy senders resume ->
 //    Device B takes over 2.0 & emits sale #4 -> Device B oc-logout -> Device A resumes 2.0
-//    and converges to all 4 ops in Workerd SQLite with 0 duplicates (USD 0.00).
+//    and converges to THREE NEW business-committed ops in Workerd SQLite with 0 duplicates. No Yjs frozen ops in this QA economic fixture.
 
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -374,13 +374,33 @@ function mountBrowserSyncRuntime({
 
 test('C56 Workerd E2E: three authoritative business receipts, C54 legacy-primary fence and A->B->A SQL downpath', {timeout:120000}, async () => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-c53-'));
+  // GREEN: reuse existing C49 QA-only fixture (already exercised in Workerd).
+  // It installs synthetic opening stock/cash in THIS -ops DO, then delegates
+  // all production business commands to unmodified RealTienda.onRequest.
+  // Frozen -cat continues; -ops Yjs history is deliberately not imported into
+  // this synthetic SQL economic seed. Such a join needs REAL historical proof.
+  const seededEntry = path.join(workerDir, 'qa/fixtures/seeded-real-yparty-business-worker.mjs');
   const bundleResult = await build({
-    entryPoints: [path.join(workerDir, 'src', 'index.js')],
+    stdin: {
+      contents: [
+        `import worker, {Tienda as SeededTienda} from ${JSON.stringify(seededEntry)};`,
+        `export class Tienda extends SeededTienda {`,
+        `  async abrirHistorialCongeladoSiAplica() {`,
+        `    if (this.name === this.env.SALA_PILOTO + '-ops') return null;`,
+        `    return super.abrirHistorialCongeladoSiAplica();`,
+        `  }`,
+        `}`,
+        `export default worker;`
+      ].join('\n'),
+      resolveDir: workerDir
+    },
     bundle: true,
     write: false,
     format: 'esm',
+    platform: 'neutral',
+    mainFields: ['module', 'main'],
     conditions: ['workerd', 'worker'],
-    external: ['cloudflare:workers', 'node:*']
+    external: ['cloudflare:*', 'node:*']
   });
   const compiledWorker = bundleResult.outputFiles[0].text;
 
@@ -415,7 +435,7 @@ test('C56 Workerd E2E: three authoritative business receipts, C54 legacy-primary
   };
 
   const catalogSource = buildFrozenCatalogSource();
-  const opsSource = buildFrozenOpsSource();
+  // Intentionally no fabricated Yjs frozen-ops source in certified business SQL QA fixture.
   let mf = null;
   let url = null;
 
@@ -452,7 +472,9 @@ test('C56 Workerd E2E: three authoritative business receipts, C54 legacy-primary
           return Response.json({room: catRoom, ...catalogSource});
         }
         if (body.room === opsRoom && body.channel === 'ops') {
-          return Response.json({room: opsRoom, ...opsSource});
+          // QA economics baseline must not be passed off as a reconciled
+          // historical -ops snapshot + money opening cut.
+          return new Response('historical ops/economic cut not certified', {status: 409});
         }
         return new Response('not found', {status: 404});
       }
@@ -546,7 +568,7 @@ test('C56 Workerd E2E: three authoritative business receipts, C54 legacy-primary
     assert.equal(mutated, true);
     assert.equal(devA.getLockFallbackCalls(), 1);
 
-    // 4) Commercial ops (sale + ajuste) -> -ops DO SQLite (0 legacy opsMap)
+    // 4) Three NEW business-committed operations against synthetic QA SQL opening state.
     for (const op of [
       {opId: 'op_c53_sale_1', tipo: 'venta', payload: {productoId: 'sku_1', cantidad: 1, total: 15}, _salaOrigen: LICENSE},
       {opId: 'op_c53_adj_2', tipo: 'ajuste', payload: {productoId: 'sku_1', stockNuevo: 9}, _salaOrigen: LICENSE}
@@ -565,7 +587,7 @@ test('C56 Workerd E2E: three authoritative business receipts, C54 legacy-primary
     devA.docHandlers.opsDoc(fakeUpdate, 'local');
     assert.deepEqual(devA.sentLegacy, {canal: 1, canalSombra: 1, fotosCanal: 1, opsCanal: 1}, 'old relay resumes exactly once only after logout/certified failback');
 
-    // 6) Device B activates 2.0, emits op #4, then logs out
+    // 6) Device B activates 2.0, emits THIRD NEW SQL business op, then logs out
     const devB = mountBrowserSyncRuntime({
       bridgeFetch,
       role: 'dueno',
@@ -592,7 +614,7 @@ test('C56 Workerd E2E: three authoritative business receipts, C54 legacy-primary
     devB.window.dispatchEvent({type: 'oc-logout', detail: {}});
     assert.equal(devB.API.modoCorte20Activo, false);
 
-    // 7) Device A re-activates 2.0 and verifies durable C29 fence & zero legacy opsMap writes across A->B->A
+    // 7) Device A re-activates 2.0 and verifies durable C29 fence, three SQL receipts, no duplicate
     await devA.API.activarCorte20Runtime({
       headCongelado: HEAD,
       activarDespachoComercial: true,
