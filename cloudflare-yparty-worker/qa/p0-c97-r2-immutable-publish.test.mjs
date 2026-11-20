@@ -60,6 +60,7 @@ const manifestKey=seal=>seal.ops.objects.find(x=>x.key.endsWith('manifest.json')
 test('C97 RED: write-once pages-first BOTH channels; Workerd consumes exact SHA readback, retry identical',{timeout:45000},async()=>{
  const seal=await makeSeal(),{mf,bucket}=await workerd(seal),writes=[];
  try{
+  assert.match(seal.summary.opsBaselineSha256,/^[a-f0-9]{64}$/, 'C95 must publish the real C14 baseline digest, not an undefined .sha256');
   const status=await publishPresentSealToR2({bucket:recorder(bucket,writes),seal});
   assert.equal(status.locallyVerified,true);
   assert.equal(status.pins.ops,seal.ops.manifestSha256);
