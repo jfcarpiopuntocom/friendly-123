@@ -31,7 +31,7 @@ test('C77: C76 orphan typed 202 economic receipt readback verified source, fixed
   'C76 control: durable 202 queued intent keeps matching payload and receipt, without business effect',
   'C76 control: unrelated license payloads cannot block certified store reopened for correct license'
  ])assert(testC76.includes(token),'C77 native SQLite RED-first evidence missing '+token);
- assert.equal(quality.lastAuditedProductSha,'53d4aa15fbd486dd593fc407814adc6cc707cd0a');
+
  assert.equal(s.port,92.0);
 
  // C75 can credit only C74 actual merged source and RED/Workerd evidence,
@@ -121,6 +121,7 @@ test('C77: C76 orphan typed 202 economic receipt readback verified source, fixed
 
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
+ assert.equal(quality.lastAuditedProductSha,'53d4aa15fbd486dd593fc407814adc6cc707cd0a');
  const ms=port.groups.flatMap(g=>g.milestones);
  assert.equal(port.maximum,100);
  assert.equal(quality.maximum,100);
