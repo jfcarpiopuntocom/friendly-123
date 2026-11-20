@@ -1,18 +1,18 @@
 'use strict';
-// C43 RED: require C42 real checkout DO status observer with adversarial 4/4 QA before score credit.
+// C48 RED first: C46 merged QA-only browser photo and two real Workerd handoff cycles; fixed 100.0 rubric.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C43: C42 checkout status/ack anti-downgrade earns no more than 0.5 fixed budget, GO0/6',()=>{
+test('C48: C46 certified photo browser-DO QA earns 0.5 fixed points, no physical/commercial GO',()=>{
  const s=inspect();
- assert.equal(s.port,87.5);
+ assert.equal(s.port,88.0);
  assert.equal(s.portBefore,68.5);
- assert.equal(s.portDelta,19.0);
- assert.equal(s.quality,77.0);
- assert.equal(s.qualityBefore,76.8);
- assert.equal(s.qualityDelta,0.2);
+ assert.equal(s.portDelta,19.5);
+ assert.equal(s.quality,77.3);
+ assert.equal(s.qualityBefore,77.0);
+ assert.equal(s.qualityDelta,0.3);
  assert.equal(s.go,'0/6');
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
@@ -37,19 +37,35 @@ test('C43: C42 checkout status/ack anti-downgrade earns no more than 0.5 fixed b
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.points,1.5);
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.6);
- assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),12.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.7);
+ assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),12.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
+ // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
+ const photo=port.groups.find(g=>g.id==='photo-sha');
+ assert.equal(photo?.weight,9,'photo group weight unchanged');
+ assert.equal(photo.milestones.reduce((a,m)=>a+m.points,0),9,'no photo points invented');
+ const photoQa=ms.find(m=>m.id==='real-photo-browser-do-readback-c46');
+ assert.equal(photoQa?.points,0.5,'C46 QA Workerd bridge is capped at 0.5 of original 2.0 photo-cutover');
+ assert.equal(photoQa?.done,true);
+ assert.equal(photoQa?.source,'docs/application/recover-shelf-photo.js');
+ assert.equal(ms.find(m=>m.id==='browser-photo-cutover')?.points,1.5);
+ assert.equal(ms.find(m=>m.id==='browser-photo-cutover')?.done,false,'full UI and physical CAS still pending');
+ assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false,'Workerd x2 is not physical PC-iPhone acceptance');
+ assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.3);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.6);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.previous,0);
+ assert.equal(port.commercialGo.certifiedGates,0);
  // C45 RED: only 0.5 split from existing 1.0 unearned business budget for real C44.
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,76.8);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.3);
+ assert.equal(quality.comparison.previousScore,77.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
-  // C43 expected source SHA must be exact product C42 MERGE commit after all CI; fill after product merge.
- assert.equal(port.assessedProductSha,'be032b2b27fd52c299d8e1b6942d9b7bb2596934', 'C45 must reference actual C44 merged product SHA, not workshop or premerge candidate');
+  // C48 assessed SHA pinned to the actual PR844 merge source.
+ assert.equal(port.assessedProductSha,'f05cd2fa0a104439845bad96f9e341267c82e33c', 'C45 must reference actual C44 merged product SHA, not workshop or premerge candidate');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
 });
