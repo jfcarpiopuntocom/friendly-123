@@ -3,20 +3,20 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 76.4,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 8437839275b7f007cd05f5b3105887320edc95d9",
+    "previousScore": 76.6,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 07ad93bf76289b7207edf722181a76851a06b20b",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 76.6,
+  "score": 76.8,
   "maximum": 100,
   "dimensions": [
     {
       "id": "business",
       "weight": 20,
-      "score": 18.1,
-      "previous": 17.9,
-      "justification": "C33 Workerd SQLite 3 committed receipts tested; C34 real browser backend cash qty/cents and C36 PR #831 original opId from actual saved sale + dedup replay (1 sale, 1 stock movement) through BOTH persistent transport topologies and actual C31 typed mapper, RED→GREEN 3/3 plus 11/11 regressions, release v815 real SHA. QA-only; no proof of live production DO committed confirmation, PC/Safari physical GO or all economic modes. C40 #835 MERGED actual docs/sync-yjs.js exposes DO-authoritative receipt for same original local sale opId, with Workerd SQLite QA verifying exactly one stock/cash/receipt after failback/replay. +0.2 engineering quality only; no real PC/iPhone or commercial GO.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/835"
+      "score": 18.3,
+      "previous": 18.1,
+      "justification": "C33 Workerd SQLite 3 committed receipts tested; C34 real browser backend cash qty/cents and C36 PR #831 original opId from actual saved sale + dedup replay (1 sale, 1 stock movement) through BOTH persistent transport topologies and actual C31 typed mapper, RED→GREEN 3/3 plus 11/11 regressions, release v815 real SHA. QA-only; no proof of live production DO committed confirmation, PC/Safari physical GO or all economic modes. C40 #835 MERGED actual docs/sync-yjs.js exposes DO-authoritative receipt for same original local sale opId, with Workerd SQLite QA verifying exactly one stock/cash/receipt after failback/replay. +0.2 engineering quality only; no real PC/iPhone or commercial GO. C42 #838 actual v818 checkout source tracks business-committed DO receipt vs 202/quarantine/dispatch-reject for same original sale opId, and C42-R #839 actual code source negative tests verified RED4/4→GREEN4/4 for receipt mismatch, stale 202 and reject and quarantine precedence. Local full sales snapshot persisted via existing A/B/IDB save; one ledger writer guarded. +0.2 QA trust only; no device GO or live customer switch.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/838"
     },
     {
       "id": "durability",
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "Architecture quality from actual product source/Workerd SQLite QA, not uptime or customer GO. Cloudflare preview isolated CI only; no production deployment or physical A→B→A.",
-  "assessedProductSha": "4b1a1f7ae7f244e4e363cdaa8760a661f96bdc51",
+  "disclaimer": "Architectural quality with real merged product source and Workerd SQLite/Node VM tests, NOT a commercial uptime estimate. QA switch OFF and physical0/5; no real PC/iPhone A-B-A or new customer deployment.",
+  "assessedProductSha": "850925d05991857dc834f6a4bf6f00d351ec52a1",
   "history": [
     {
       "review": "2026-11-17",
@@ -119,6 +119,11 @@
       "review": "2026-11-19 before C40 real receipt merger",
       "score": 76.4,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 8437839275b7f007cd05f5b3105887320edc95d9"
+    },
+    {
+      "review": "2026-11-19 before C42 checkout receipt status/anti-false ACK score",
+      "score": 76.6,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 07ad93bf76289b7207edf722181a76851a06b20b"
     }
   ]
 }
