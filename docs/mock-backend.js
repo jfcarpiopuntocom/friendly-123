@@ -1582,15 +1582,21 @@
   } catch (_) {}
   function _aplicarEstadoReciboDo20(detail) {
     if (!detail || typeof detail !== "object") return false;
-    var opId = String((detail.receipt && detail.receipt.opId) || detail.opId || "").trim();
+    var opId = String(detail.opId || "").trim();
+    var receiptOpId = detail.receipt && detail.receipt.opId ? String(detail.receipt.opId).trim() : "";
     if (!opId || !Array.isArray(ventas)) return false;
     var venta = null;
     for (var i = ventas.length - 1; i >= 0; i--) {
       if (ventas[i] && (ventas[i].opId === opId || ventas[i].id === opId)) { venta = ventas[i]; break; }
     }
     if (!venta) return false;
-    var stage = (detail.receipt && detail.receipt.stage) || detail.stage || null;
-    var confirmado = detail.committed === true && !!detail.receipt && detail.receipt.stage === "business-committed";
+    var mismatch = Boolean(receiptOpId && receiptOpId !== opId);
+    var stage = mismatch ? "receipt-opid-mismatch" : ((detail.receipt && detail.receipt.stage) || detail.stage || null);
+    var confirmado = !mismatch && detail.committed === true && !!detail.receipt && detail.receipt.stage === "business-committed";
+    if (venta.reciboDo20 && venta.reciboDo20.committed === true &&
+        venta.reciboDo20.estado === "confirmado-do" && !confirmado) {
+      return false;
+    }
     if (confirmado) {
       venta.reciboDo20 = {
         estado: "confirmado-do",
@@ -1599,13 +1605,12 @@
         stage: stage,
         acceptedAt: detail.receipt.acceptedAt || null
       };
-    } else if (stage === "stored-for-application" || detail.reconcileRequired === true && stage !== "dispatch-rejected") {
+    } else if (mismatch) {
       venta.reciboDo20 = {
-        estado: "pendiente-reconciliacion-do",
+        estado: "rechazado-sin-confirmar",
         committed: false,
         reconcileRequired: true,
-        receiptId: (detail.receipt && detail.receipt.receiptId) || null,
-        stage: stage || "stored-for-application"
+        stage: "receipt-opid-mismatch"
       };
     } else if (detail.quarantine === true) {
       venta.reciboDo20 = {
@@ -1613,6 +1618,14 @@
         committed: false,
         quarantine: true,
         stage: stage || "conflict-quarantine"
+      };
+    } else if (stage === "stored-for-application" || (detail.reconcileRequired === true && stage !== "dispatch-rejected")) {
+      venta.reciboDo20 = {
+        estado: "pendiente-reconciliacion-do",
+        committed: false,
+        reconcileRequired: true,
+        receiptId: (detail.receipt && detail.receipt.receiptId) || null,
+        stage: stage || "stored-for-application"
       };
     } else if (detail.fallbackLegacy === true) {
       venta.reciboDo20 = {
