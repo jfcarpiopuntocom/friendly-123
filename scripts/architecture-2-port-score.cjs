@@ -187,7 +187,8 @@ function inspect(){
    assert.equal(cashMilestone.points,0.5,'C34 actual compatible cash envelope earns 0.5 only');
    const full=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='production-business-dispatch');
    const c36Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='stable-real-sale-opid-c36' && m.done);
-   assert.equal(full?.points,c36Done?2:2.5,'fixed budget: C36 0.5 earned, full dispatch pending');
+   const c40Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-business-do-receipt-c40' && m.done);
+    assert.equal(full?.points,c40Done?1.5:(c36Done?2:2.5),'fixed economics budget C36 + C40');
    assert.equal(full.done,false,'C34 must not certify production business dispatch');
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO for C34 QA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
@@ -232,7 +233,8 @@ function inspect(){
  if(c36?.done){
   assert.equal(c36.points,0.5,'C36 code only 0.5');
   const left=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='production-business-dispatch');
-  assert.equal(left?.points,2,'2.0 live dispatcher still not earned');
+  const c40Done=data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-business-do-receipt-c40' && m.done);
+  assert.equal(left?.points,c40Done?1.5:2,'commercial dispatch remains unearned after C40 QA');
   assert.equal(left.done,false,'C36 does not retire business 1.0 path');
   assert.equal(data.commercialGo.certifiedGates,0,'no GO from QA');
   const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
@@ -317,6 +319,52 @@ function inspect(){
    assert(c31.includes("estado: () => 'apagado'") &&
      c33.includes("estado: () => 'apagado'"),
      'C31 and Workerd C33 tests must model old relay intentionally OFF before C21a activation');
+ }
+ // C41 C40 is credited only for REAL product browser source + Workerd DO receipt QA.
+ const c40=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='real-business-do-receipt-c40');
+ if(c40?.done){
+  assert.equal(c40.points,0.5,'C40 only 0.5 of original typed-economics budget');
+  assert.equal(c40.source,'docs/sync-yjs.js');
+  const typed=data.groups.find(g=>g.id==='typed-economics');
+  const storage=data.groups.find(g=>g.id==='storage');
+  assert.equal(typed?.weight,17);
+  assert.equal(oneDecimal(typed.milestones.reduce((a,m)=>a+m.points,0)),17,'C40 cannot increase typed-economics weight');
+  assert.equal(storage?.weight,17);
+  assert.equal(oneDecimal(storage.milestones.reduce((a,m)=>a+m.points,0)),17,'C40 cannot change storage budget');
+  const left=typed.milestones.find(m=>m.id==='production-business-dispatch');
+  assert.equal(left?.points,1.5,'live business dispatch still unearned');
+  assert.equal(left.done,false,'C40 is NOT a live customer cutover');
+  assert.equal(data.commercialGo.certifiedGates,0,'C40 QA does not certify GO');
+  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A');
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.1);
+  const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+  for(const token of [
+    'API.recibosComerciales20 = new Map();',
+    'API.obtenerReciboComercial20 = function (opId)',
+    'function _registrarReciboComercial20(opId, res)',
+    'API.coordinadorCorte20.submitCommercial(comando)',
+    '_registrarReciboComercial20(comando && comando.opId, res)',
+    'new CustomEvent("oc-op-20-recibo", { detail: entry })'
+  ])assert(src.includes(token),'real C40 browser receipt contract missing '+token);
+  const proofPath='cloudflare-yparty-worker/qa/p0-c40-local-receipt-to-do-receipt-workerd.test.mjs';
+  assert(fs.existsSync(path.join(root,proofPath)),'C40 Workerd E2E missing');
+  const proof=fs.readFileSync(path.join(root,proofPath),'utf8');
+  for(const token of [
+    "from 'miniflare'",
+    "assert.equal(recibo.committed, true)",
+    "assert.equal(recibo.stage, 'business-committed')",
+    "assert.equal(rt.receiptEvents.length, 1)",
+    'assert.equal(await rt.API.puedeDespacharOpEnLegado(opIdVenta), false)',
+    'assert.equal(sql.stock, 4)',
+    'assert.equal(sql.cash, 2000)',
+    'assert.equal(sql.effects, 1)',
+    'assert.equal(sql.receipts, 1)'
+  ])assert(proof.includes(token),'C40 real Workerd exactly-once proof missing '+token);
+  const v=load('docs/version.json');
+  assert(Number((/^v0\.8\.(\d+)$/.exec(v.version||'')||[])[1]||0)>=17,'requires v0.8.17+');
+  assert(Number((/^f123-shell-v(\d+)$/.exec(v.shell||'')||[])[1]||0)>=817,'requires f123-shell-v817+');
+  const digest='sha256-'+crypto.createHash('sha256').update(src.replace(/\r\n/g,'\n')).digest('hex');
+  assert.equal(load('docs/version-manifest.json').files['./sync-yjs.js'],digest,'C40 shipped sync-yjs.js must be integrity sealed');
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
