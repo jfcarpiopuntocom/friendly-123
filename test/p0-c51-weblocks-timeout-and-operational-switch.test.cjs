@@ -116,8 +116,11 @@ test('C51.3: uncontended navigator.locks.request succeeds without unlocked fallb
 });
 
 function evalQaSwitch({ storageMap, hasPiloto = true, role = 'dueno', demo = false }) {
-  const helper = syncSrc.indexOf('    function _intentarActivarCorte20SiElegible() {');
-  const s = helper >= 0 ? helper : syncSrc.indexOf('    API.corte20QaHabilitado = function () {');
+  const s = syncSrc.indexOf('    API.corte20QaHabilitado = function () {');
+  const helperStart = syncSrc.indexOf('    function _intentarActivarCorte20SiElegible() {');
+  const helperEnd = syncSrc.indexOf('    function sincronizarVisibilidad() {', helperStart);
+  const helperBlock = helperStart >= 0 && helperEnd > helperStart ? syncSrc.slice(helperStart, helperEnd) : '';
+  assert.ok(helperBlock, 'C99 foreground rearm helper must be included in isolated VM fixture');
   const e = syncSrc.indexOf('    API.estado = "activo";', s);
   assert.ok(s > 0 && e > s, 'C51 double-QA switch block must exist in docs/sync-yjs.js');
   const block = syncSrc.slice(s, e);
@@ -143,7 +146,7 @@ function evalQaSwitch({ storageMap, hasPiloto = true, role = 'dueno', demo = fal
       }
     }
   });
-  vm.runInContext(block, ctx);
+  vm.runInContext(helperBlock + '\n' + block, ctx);
   return { enabled: API.corte20QaHabilitado(), activarCalls: JSON.parse(JSON.stringify(activarCalls)) };
 }
 
