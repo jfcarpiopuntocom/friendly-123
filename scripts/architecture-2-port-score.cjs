@@ -276,7 +276,7 @@ function inspect(){
  if(c38?.done){
    assert.equal(c38.points,0.5,'C38 local relay quiescence only earns 0.5');
    const switchRest=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='operational-switch');
-   assert.equal(switchRest?.points,1,'1.0 budget still missing for real operational switch');
+   assert.equal(switchRest?.points,0.5,'C51 has earned 0.5 QA; real operational switch still missing 0.5');
    assert.equal(switchRest?.done,false,'C38 must not certify actual migration switch');
    assert.equal(data.commercialGo.certifiedGates,0,'no physical GO from local cutover gate');
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -497,7 +497,7 @@ function inspect(){
    assert.equal(photos?.weight,9,'photo budget unchanged');
    assert.equal(oneDecimal(photos.milestones.reduce((a,m)=>a+m.points,0)),9,'no new photo points');
    const leftover=photos.milestones.find(m=>m.id==='browser-photo-cutover');
-   assert.equal(leftover?.points,1.5,'full UI/CAS/physical photo cutover still unearned 1.5');
+   assert.equal(leftover?.points,1.0,'C49 has earned 0.5 new CAS QA; real UI/physical photo cutover remains 1.0');
    assert.equal(leftover.done,false,'C46 synthetic QA is not physical photo cutover');
    assert.equal(data.groups.flatMap(g=>g.milestones)
      .find(m=>m.id==='verified-cross-device-downpath')?.done,false,
