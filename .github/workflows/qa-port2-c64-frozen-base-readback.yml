@@ -21,6 +21,7 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix cloudflare-yparty-worker --no-audit --no-fund
       - name: Frozen base regression against actual openExistingStore
         run: node --test cloudflare-yparty-worker/qa/p0-c64-frozen-base-readback.test.mjs
       - name: Preserve real YParty Workerd cold join
