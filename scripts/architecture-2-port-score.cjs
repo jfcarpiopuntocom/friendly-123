@@ -1236,12 +1236,12 @@ function inspect(){
  assert(c70Qa.includes('missing') && c70Qa.includes('Yjs'),'C92 C70 source executed causal QA missing');
  const c68Shelf=fs.readFileSync(path.join(root,'docs/vista-perchas.js'),'utf8');
  const c68Sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
- const c68Qa=fs.readFileSync(path.join(root,'test/p0-c68-browser-photo-cutover-ui-seeding.test.cjs'),'utf8');
+ const c92PhotoQa=fs.readFileSync(path.join(root,'test/p0-c68-browser-photo-cutover-ui-seeding.test.cjs'),'utf8');
  for(const token of ['OCYjs.fotosMap','yjs.fotoSha.get(hash)','hashDeDataUrl(bytes)'])
    assert(c68Shelf.includes(token),'C92 merged C68 photo SHA UI recovery missing '+token);
  for(const token of ['API.corteFotosShaActivo === true','API.sembrarFotos()','API.__fotoShaBridgeInstalado'])
    assert(c68Sync.includes(token),'C92 merged C68 photo cutover flag/seed missing '+token);
- assert(c68Qa.includes('rejects tampered bytes'),'C92 C68 source-executed SHA tamper QA missing');
+ assert(c92PhotoQa.includes('rejects tampered bytes'),'C92 C68 source-executed SHA tamper QA missing');
  const c90Source=fs.readFileSync(path.join(root,'cloudflare-yparty-worker/tools/firebase-frozen-certifier.mjs'),'utf8');
  const c90Qa=fs.readFileSync(path.join(root,'cloudflare-yparty-worker/qa/p0-firebase-frozen-certifier.test.mjs'),'utf8');
  assert(c90Source.includes('snapshot.k.map((val,i)=>[String(i),val])'),'C92 merged C90 real /k REST checkpoint normalization missing');
