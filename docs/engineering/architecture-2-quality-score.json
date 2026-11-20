@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 77.3,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ a1b716855e9f1048c4e99b22ae54768211c82b53",
+    "previousScore": 77.5,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 80da1366304b7c5e848a4dadb7abbb34885167da",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 77.5,
+  "score": 77.9,
   "maximum": 100,
   "dimensions": [
     {
@@ -21,10 +21,10 @@
     {
       "id": "durability",
       "weight": 20,
-      "score": 18,
+      "score": 18.2,
       "previous": 18,
-      "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/823"
+      "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/849"
     },
     {
       "id": "sync",
@@ -38,17 +38,17 @@
       "id": "security",
       "weight": 15,
       "score": 10.5,
-      "previous": 10.3,
+      "previous": 10.5,
       "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed C47 v0.8.20 real product docs/sync-yjs.js role switch subscribed to oc-login/oc-logout: adversarial RED3/21 (forged Owner event, disguised live demo, logout during awaiting activate20) followed by GREEN21/21 plus isolated C38 and full GH Actions52/52 success. Runtime compares real OCAuth.rolActual() and OCAuth.esDemo(), increments API.__authEpoch20 and fails back to legacy if authentication changes while cutover awaits. Cloudflare exact master build success. +0.2 engineering security confidence only; 2.0 QA switches OFF; no physical role-authorization certification or GO.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/845"
     },
     {
       "id": "photos",
       "weight": 10,
-      "score": 7.5,
+      "score": 7.7,
       "previous": 7.5,
-      "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/844"
+      "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending. C49 merged real mock-backend shelf-photo optimistic CAS guard exercised 200 valid -> 409 stale preserves hash -> 200 valid revision, then actual IDB photo + sync-yjs runtime and Workerd SQLite -fotos DO with cold Team recovery exact SHA. Distinct from C46 initial cold-join readback; 11/11 PR CI and C49 Workerd rerun on combined v0.8.21 source both success. +0.2 QA engineering, not live physical photo UI acceptance.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/847"
     },
     {
       "id": "migration",
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C50 +0.2 verified engineering QA security; no live customer cutover, real PC/iPhone Owner/Team role physical acceptance, ledger conflict fix, SLO, or production GO; Hermes execution report was explicitly simulated and not counted.",
-  "assessedProductSha": "2172eeae497cc62b96b60d86588418a6ee21fddf",
+  "disclaimer": "C52 quality +0.2 durability from bounded Web Locks/IDB fallback and +0.2 photos from distinct CAS 409/200 & Workerd SQLite QA on already merged same app, not physical Safari or live customer. All QA flags OFF, GO0/6 physical0/5, no ledger P0 conflict fixed, no commercial SLA.",
+  "assessedProductSha": "1b64b3ca40d07abce9924222eea541e4c93ba283",
   "history": [
     {
       "review": "2026-11-17",
@@ -139,6 +139,11 @@
       "review": "2026-11-19 before merged C47 authenticated Owner/Team role and fail-closed epoch RED→GREEN; same app v0.8.20",
       "score": 77.3,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ a1b716855e9f1048c4e99b22ae54768211c82b53"
+    },
+    {
+      "review": "2026-11-19 before real C49 photo CAS Workerd source E2E + C51 Web Locks fallback double-QA bootstrap, both merged",
+      "score": 77.5,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 80da1366304b7c5e848a4dadb7abbb34885167da"
     }
   ]
 }

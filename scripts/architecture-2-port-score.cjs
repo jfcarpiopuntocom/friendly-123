@@ -276,7 +276,7 @@ function inspect(){
  if(c38?.done){
    assert.equal(c38.points,0.5,'C38 local relay quiescence only earns 0.5');
    const switchRest=data.groups.flatMap(g=>g.milestones).find(m=>m.id==='operational-switch');
-   assert.equal(switchRest?.points,1,'1.0 budget still missing for real operational switch');
+   assert.equal(switchRest?.points,0.5,'C51 has earned 0.5 QA; real operational switch still missing 0.5');
    assert.equal(switchRest?.done,false,'C38 must not certify actual migration switch');
    assert.equal(data.commercialGo.certifiedGates,0,'no physical GO from local cutover gate');
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -443,8 +443,8 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical A-B-A from C44');
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.5);
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.5);
-   assert.equal(quality.comparison.previousScore,77.3);
-   assert.equal(data.assessedProductSha,'2172eeae497cc62b96b60d86588418a6ee21fddf','C48 assessed real merged PR844 source SHA');
+   assert.equal(quality.comparison.previousScore,77.5);
+   assert.equal(data.assessedProductSha,'1b64b3ca40d07abce9924222eea541e4c93ba283','C48 assessed real merged PR844 source SHA');
    const backend=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
    const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -497,18 +497,18 @@ function inspect(){
    assert.equal(photos?.weight,9,'photo budget unchanged');
    assert.equal(oneDecimal(photos.milestones.reduce((a,m)=>a+m.points,0)),9,'no new photo points');
    const leftover=photos.milestones.find(m=>m.id==='browser-photo-cutover');
-   assert.equal(leftover?.points,1.5,'full UI/CAS/physical photo cutover still unearned 1.5');
+   assert.equal(leftover?.points,1.0,'C49 has earned 0.5 new CAS QA; real UI/physical photo cutover remains 1.0');
    assert.equal(leftover.done,false,'C46 synthetic QA is not physical photo cutover');
    assert.equal(data.groups.flatMap(g=>g.milestones)
      .find(m=>m.id==='verified-cross-device-downpath')?.done,false,
      'virtual Workerd handoff is not a true PC-iPhone downpath');
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO from virtual clients');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical devices tested');
-   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.5);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.7);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.7);
-   assert.equal(quality.comparison.previousScore,77.3);
+   assert.equal(quality.comparison.previousScore,77.5);
    const testPath='cloudflare-yparty-worker/qa/p0-c46-cross-device-photo-and-downpath-workerd.test.mjs';
    const workerd=fs.readFileSync(path.join(root,testPath),'utf8');
    for(const token of [
@@ -538,7 +538,7 @@ function inspect(){
      const digest='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
      assert.equal(manifest.files['./'+name],digest,'C46 actual shipped source mismatch '+name);
    }
-   assert.equal(data.assessedProductSha,'2172eeae497cc62b96b60d86588418a6ee21fddf',
+   assert.equal(data.assessedProductSha,'1b64b3ca40d07abce9924222eea541e4c93ba283',
      'C46 only credits exact actual PR844 merged source');
  }
  // C50: real product C47 v0.8.20 role/epoch wiring, verified RED -> GREEN.
@@ -556,8 +556,8 @@ function inspect(){
    assert.equal(data.commercialGo.certifiedGates,0,'role QA must not certify commercial readiness');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'role QA is not physical acceptance');
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.5);
-   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.3);
-   assert.equal(quality.comparison.previousScore,77.3);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.5);
+   assert.equal(quality.comparison.previousScore,77.5);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
    const roleQA=fs.readFileSync(path.join(root,'test/p0-c47-auth-role-switch-20.test.cjs'),'utf8');
    for(const token of [
@@ -582,8 +582,85 @@ function inspect(){
    assert.equal(manifest.files['./sync-yjs.js'],syncSha,'C47 real shell sync integrity SHA mismatch');
    assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=20,'C47 requires v0.8.20+');
    assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=820,'C47 requires shell v820+');
-   assert.equal(data.assessedProductSha,'2172eeae497cc62b96b60d86588418a6ee21fddf',
+   assert.equal(data.assessedProductSha,'1b64b3ca40d07abce9924222eea541e4c93ba283',
      'C50 must pin real merged C47 product SHA, not a test or workshop SHA');
+ }
+ // C52: REAL merged C49 shelf photo CAS 409/200 Workerd SQLite plus C51 Web Locks
+ // bounded timeout and commercial runtime double QA boot. Both are partial QA
+ // slices of already existing 100.0 points; commercial GO and physical remain 0.
+ const ms52=data.groups.flatMap(g=>g.milestones);
+ const c49=ms52.find(m=>m.id==='c49-real-photo-cas-workerd-qa');
+ const c51=ms52.find(m=>m.id==='c51-bounded-locks-and-double-qa-bootstrap');
+ if(c49?.done || c51?.done){
+   assert.equal(c49?.done,true,'C49 photo CAS QA must be certified');
+   assert.equal(c51?.done,true,'C51 operational WebLocks QA must be certified');
+   assert.equal(c49.points,0.5,'C49 source CAS limited to 0.5 of existing photo budget');
+   assert.equal(c49.source,'docs/mock-backend.js','C49 must credit REAL product backend');
+   assert.equal(c51.points,0.5,'C51 precommercial bootstrap limited to 0.5 of storage budget');
+   assert.equal(c51.source,'docs/sync-yjs.js','C51 must credit REAL sync facade');
+   const photoBudget=data.groups.find(g=>g.id==='photo-sha');
+   const storageBudget=data.groups.find(g=>g.id==='storage');
+   assert.equal(photoBudget.weight,9);
+   assert.equal(storageBudget.weight,17);
+   assert.equal(oneDecimal(photoBudget.milestones.reduce((a,m)=>a+m.points,0)),9,'photo weight must stay fixed');
+   assert.equal(oneDecimal(storageBudget.milestones.reduce((a,m)=>a+m.points,0)),17,'storage weight must stay fixed');
+   assert.equal(photoBudget.milestones.find(m=>m.id==='browser-photo-cutover')?.points,1.0,
+     'C49 must leave real photo UI/device cutover1.0 unearned');
+   assert.equal(photoBudget.milestones.find(m=>m.id==='browser-photo-cutover')?.done,false);
+   assert.equal(storageBudget.milestones.find(m=>m.id==='operational-switch')?.points,0.5,
+     'C51 must leave live operational switch0.5 unearned');
+   assert.equal(storageBudget.milestones.find(m=>m.id==='operational-switch')?.done,false);
+   assert.equal(ms52.find(m=>m.id==='verified-cross-device-downpath')?.done,false,
+     'Workerd QA does not replace physical PC to Safari acceptance');
+   assert.equal(data.commercialGo.certifiedGates,0,'2.0 QA-only flags do not authorize customer GO');
+   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0,'no physical GO');
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.2);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.0);
+   assert.equal(quality.comparison.previousScore,77.5);
+   const c49qa=fs.readFileSync(path.join(root,
+     'cloudflare-yparty-worker/qa/p0-c49-vista-perchas-cas-workerd.test.mjs'),'utf8');
+   for(const token of [
+     "from 'miniflare'",
+     "const r1 = putUbicacionFotoCas(",
+     'assert.equal(r1.status, 200)',
+     'assert.equal(rStale.status, 409)',
+     "'PHOTO_POINTER_CONFLICT'",
+     'assert.equal(ubicaciones[0].fotoHash, hashA',
+     'assert.equal(r2.status, 200)',
+     'assert.equal(devA.API.fotosMap.size, 0)',
+     'F123Application.recoverShelfPhoto(',
+     'assert.equal(rec?.displayBytes, dataUrlB)'
+   ])assert(c49qa.includes(token),'C49 Workerd CAS proof missing '+token);
+   const c51qa=fs.readFileSync(path.join(root,
+     'test/p0-c51-weblocks-timeout-and-operational-switch.test.cjs'),'utf8');
+   for(const token of [
+     'hung navigator.locks.request aborts',
+     'REAL_IDB_WRITE_FAILURE',
+     'double-QA operational switch stays OFF by default',
+     'assert.equal(getFallbackCalls(), 1'
+   ])assert(c51qa.includes(token),'C51 negative outbox/QA test missing '+token);
+   const mock=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
+   const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   const idb=fs.readFileSync(path.join(root,'docs/idb-fotos.js'),'utf8');
+   const recovery=fs.readFileSync(path.join(root,'docs/application/recover-shelf-photo.js'),'utf8');
+   for(const token of ['expectedFotoHash','expectedFotoRev','PHOTO_POINTER_CONFLICT'])
+     assert(mock.includes(token),'C49 actual mock-backend CAS source missing '+token);
+   for(const token of ['API.corte20QaHabilitado','f123_yparty_qa','f123_corte20_qa',
+     'mutarOutboxAtomicoSinLocks','AbortController','API.__outboxLockTimeoutMs',
+     'authQa.rolActual()','authQa.esDemo()', 'cortarComercio: true'])
+     assert(sync.includes(token),'C51 certified guarded bootstrap or timeout missing '+token);
+   const ver=load('docs/version.json'),manifest=load('docs/version-manifest.json');
+   assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=21,'C51 needs actual v0.8.21+');
+   assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=821,'C51 needs actual shell v821+');
+   for(const [name,bytes] of [['mock-backend.js',mock],['sync-yjs.js',sync],
+     ['idb-fotos.js',idb],['application/recover-shelf-photo.js',recovery]]){
+     const digest='sha256-'+crypto.createHash('sha256').update(bytes.replace(/\r\n/g,'\n')).digest('hex');
+     assert.equal(manifest.files['./'+name],digest,'C49/C51 shipped manifest does not match '+name);
+   }
+   assert.equal(data.assessedProductSha,'1b64b3ca40d07abce9924222eea541e4c93ba283',
+     'C52 assessed SHA must pin product after BOTH C49 and C51 merged');
  }
  assert.equal(oneDecimal(totalWeight),100,'milestone weights must sum to 100');
  assert.equal(oneDecimal(totalEarned),data.score,'score must equal actual checked milestones');
