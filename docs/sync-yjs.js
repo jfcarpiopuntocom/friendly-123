@@ -3321,10 +3321,22 @@
           } catch (_) {}
           if (liveDemo || liveRole !== r) { _desarmarCorte20PorAuth("oc-login-role-mismatch"); return; }
           API.__authEpoch20 = (API.__authEpoch20 || 0) + 1;
-          if (!API.modoCorte20Activo && !API.corteFotosShaActivo && !API.rolComercial20Activo) return;
+          if (!API.modoCorte20Activo && !API.corteFotosShaActivo &&
+              !API.rolComercial20Activo && !API.coordinadorCorte20) return;
           var fotosActivas = API.corteFotosShaActivo === true;
-          if (r === "empleado" && API.coordinadorCorte20 && typeof API.coordinadorCorte20.failbackToLegacy === "function") {
-            try { Promise.resolve(API.coordinadorCorte20.failbackToLegacy("role-switch-empleado")).catch(function () {}); } catch (_) {}
+          // C58: ANY authenticated login is a new identity epoch, including
+          // Owner -> Admin and Owner -> Owner. Revoke previous privileges
+          // synchronously BEFORE the old -cat lease is released or a new
+          // photo client is created. A failed Team credential must never
+          // preserve the old Owner PUT client or auto-rearm the writer.
+          API.modoCorte20Activo = false;
+          API.corteFotosShaActivo = false;
+          API.fotoSha = null;
+          API.rolComercial20Activo = null;
+          if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.failbackToLegacy === "function") {
+            try { Promise.resolve(API.coordinadorCorte20.failbackToLegacy(
+              r === "empleado" ? "role-switch-empleado" : "oc-login-session-change"
+            )).catch(function () {}); } catch (_) {}
           }
           try { API.cambiarRolComercial20(r, { cortarLegadoFotos: fotosActivas }); } catch (_) {}
         });
