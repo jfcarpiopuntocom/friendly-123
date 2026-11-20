@@ -617,7 +617,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
    assert.equal(quality.comparison.previousScore,79.3);
    const c49qa=fs.readFileSync(path.join(root,
      'cloudflare-yparty-worker/qa/p0-c49-vista-perchas-cas-workerd.test.mjs'),'utf8');
@@ -862,7 +862,7 @@ function inspect(){
    assert.equal(r2?.points,2.0,'real R2 binding still not installed');
    assert.equal(r2?.done,false);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
    assert.equal(quality.comparison.previousScore,79.3);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(data.commercialGo.certifiedGates,0);
@@ -906,7 +906,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,10.9);
    assert.equal(quality.comparison.previousScore,79.3);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
    assert.equal(data.commercialGo.certifiedGates,0);
    const src=fs.readFileSync(path.join(root,
@@ -960,7 +960,7 @@ function inspect(){
  assert.equal(data.score,92.0,'C64 durability QA does not earn real Firebase/R2/physical migration');
  assert.equal(quality.score,79.4);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,10.9);
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done)
    .reduce((n,m)=>n+m.points,0),8.0,'original C63 unearned port points stay unearned');
@@ -990,7 +990,7 @@ function inspect(){
  assert.equal(data.score,92.0,'C66 QA cannot earn actual Firebase/R2 physical migration');
  assert.equal(quality.score,79.4);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.5);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(quality.lastAuditedProductSha,
   'df43c24ac081fc9530e45cc595c1f2edcd6ae0f5');
  assert.equal(data.commercialGo.certifiedGates,0);
