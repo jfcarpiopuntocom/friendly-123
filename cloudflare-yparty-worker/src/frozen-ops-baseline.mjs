@@ -11,12 +11,13 @@ function canonical(value,depth=0){
  if(depth>MAX_DEPTH)refuse('event nested too deeply');
  if(value===null||typeof value==='string'||typeof value==='boolean')return JSON.stringify(value);
  if(typeof value==='number'){
-  if(!Number.isSafeInteger(value))refuse('unsafe economic amount');
-  return JSON.stringify(value);
+  if(!Number.isFinite(value)||Math.abs(value)>Number.MAX_SAFE_INTEGER)refuse('unsafe economic amount');
+  return Object.is(value,-0)?'0':JSON.stringify(value);
  }
  if(Array.isArray(value))return '['+value.map(v=>canonical(v,depth+1)).join(',')+']';
  if(value&&typeof value==='object'&&Object.getPrototypeOf(value)===Object.prototype){
-  return '{'+Object.keys(value).sort().map(k=>JSON.stringify(k)+':'+canonical(value[k],depth+1)).join(',')+'}';
+  const keys=Object.keys(value).filter(k=>value[k]!==undefined).sort();
+  return '{'+keys.map(k=>JSON.stringify(k)+':'+canonical(value[k],depth+1)).join(',')+'}';
  }
  refuse('unsupported economic payload type');
 }
