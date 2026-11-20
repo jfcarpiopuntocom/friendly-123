@@ -1,0 +1,34 @@
+name: PORT2 C68 certified economic duplicate readback (real SQLite and Workerd QA)
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-yparty-worker/src/authoritative-business-sql.mjs'
+      - 'cloudflare-yparty-worker/qa/p0-c68-economic-reopen-certified-effects.test.mjs'
+      - '.github/workflows/qa-port2-c68-certified-economic-reopen.yml'
+  push:
+    branches:
+      - 'port2/20261120-c68-economic-readback-fiados'
+permissions:
+  contents: read
+jobs:
+  certified-economic-reopen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix cloudflare-yparty-worker --no-audit --no-fund
+      - name: C68 actual business SQL native SQLite RED-GREEN
+        run: node --test cloudflare-yparty-worker/qa/p0-c68-economic-reopen-certified-effects.test.mjs
+      - name: Existing real Workerd fiado partial and idempotent payment
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-typed-payment-sql.test.mjs
+      - name: Existing real Tienda Workerd sale stock cash cold reopen
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-business-sql-workerd.test.mjs
+      - name: Original fixed 100 score and GO untouched by source QA
+        run: |
+          node scripts/architecture-2-port-score.cjs --json
+          node --test test/p0-architecture-2-port-score.test.cjs
