@@ -1,5 +1,26 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C73 · 20 nov 2026 Ecuador · source C72 / calidad Business 18,7, GO independiente
+
+La **MISMA friendly-123** se PORTA de arquitectura1.0→2.0 mediante injertos maduros; Sync3 ya pertenece a 2.0 y se conserva. [C72 source PR #872 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/872) `master@e68ab10634721d3e0315055f47a226a0736c3e91`. **13/13 GH Actions full fuente head `303701ddd` GREEN**, Cloudflare Workers Builds cuenta real SHA exacto merge **SUCCESS** UUID `6f5697c2-49e7-4657-b5ac-6b05938ab190`. No cambio de acceso cliente/flags QA ni servicio R2. Workshop sólo PR/PRECODE/QA, no producto distinto.
+
+| Rúbrica original /100 y dim. Business | C69 anterior | C73 vigente | Cambio |
+| --- | ---: | ---: | ---: |
+| **Transición de misma app 1.0→2.0** | 92,0/100,0 | **92,0/100,0** | 0,0 |
+| **Calidad arquitectónica** | 79,4/100,0 | **79,5/100,0** | +0,1 |
+| Calidad Business | 18,6/20,0 | **18,7/20,0** | +0,1 |
+| Calidad durabilidad (C67 anterior) | 18,6/20,0 | **18,6/20,0** | 0,0 |
+| GO comercial | 0/6 | **0/6** | 0 |
+| Físico PC Opera↔iPhone Safari/PWA | 0/5 | **0/5** | 0 |
+
+**Causa raíz y TDD auténtico C72:** C68E ya conciliaba saldos caja/stock/fiados contra `f123_business_effects` pero **falso ACK `already:true`** si un SQL efecto conservaba saldos válidos sin receipt `business-committed`, o si una venta 200 perdía su efecto y se revertían juntos caja/stock. [RED original run44743811549](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44743811549) en módulos reales `authoritative-business-sql` y `typed-commercial-ledger` sobre SQLite nativo **2/10 PASS, 8 FAIL**. Primera versión green 10/10; una prueba más [RED run44744532376](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44744532376) 10/11 al modificar conjuntamente `payload_json`, efecto y caja conservando antiguo SHA. El intento de usar `node:crypto` de runtime causó error de bundling neutral en Workerd, detectado en [run44744688791](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44744688791). Se **injertó el proyecto OSS maduro `@noble/hashes@2.4.0`**, ESM MIT cero dependencias, SHA-256 síncrono, versión e integridad SHA512 de tarball fijada en Worker package+lock: ningún hash propio. [GREEN FINAL run44745296534](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44745296534) **11/11 C72 SQLite nativo real, 8/8 C68, 2/2 Workerd fiado y 2/2 Workerd ventas/caja**. Fuente `verifyTypedBusinessEffects` se ejecuta SOLO en reintento de certificado 2.0 y verifica relación bilateral por `opId` recibos 200+payload SHA con efectos SQL, 202 sin efecto admitido. No se modifica ruta caliente de ventas ni hay ajustes ficticios.
+
+**Límites:** el hash coincide con SHA guardado por el ledger tipado y evita inconsistencias dentro de SQL; no implica firma externa si alguien puede reescribir todos los campos de SQL coordinadamente. **Faltan 8,0 puntos de transición** no pagados con tests: HEAD económico Firebase original real2,0, Service Binding R2 real2,0, operación/roles/fotos/failback/corte físico4,0. Comercial GO0/6, físico0/5. La [PR #873 C71](https://github.com/jfcarpiopuntocom/friendly-123/pull/873) de otra IA se abrió simultáneamente sobre `authoritative-business-sql.mjs` partiendo de C69; en su conversación [se documentó la colisión](https://github.com/jfcarpiopuntocom/friendly-123/pull/873) y **NO debe fusionarse sin rebase y reconciliación**: su posible aporte separado es verificación de precio exacto y bootstrap sin tablas previas. [C73 PRECODE](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c73-c72-typed-receipts-quality-79p5-precode.md) antes de score. PR871 unión Yjs, PR868 fotos y PR841 ledger reservadas intactas.
+
+---
+
+### Histórico · C69 y anteriores
+
 ## C69 · 20 nov 2026 · reentrada económica SQL certificada y métricas /100
 
 Se PORTA la **MISMA friendly-123** a arquitectura 2.0 mediante injertos maduros; Sync3 se mantiene. [C68 económica PR #869 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/869) en producto `master@df43c24ac081fc9530e45cc595c1f2edcd6ae0f5`, 12/12 GitHub Actions del HEAD `b8a9190` GREEN. Cloudflare Workers Builds de la cuenta real, rama master, commit SHA idéntico: **SUCCESS**, UUID `6c3c2215-0810-4bbb-9541-9765a0fc348e`. QA OFF, sin tocar Sync3, PIN, clientes ni R2.
