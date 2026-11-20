@@ -1,0 +1,29 @@
+name: "PORT 2.0 Firebase Frozen Certifier QA"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/tools/firebase-frozen-certifier.mjs
+      - cloudflare-yparty-worker/tools/frozen-r2-packager.mjs
+      - cloudflare-yparty-worker/qa/p0-firebase-frozen-certifier.test.mjs
+      - .github/workflows/qa-port2-firebase-frozen-certifier.yml
+  workflow_dispatch:
+permissions: {contents: read}
+jobs:
+  firebase-frozen-certifier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: |
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Firebase RTDB decrypt, causal closure, R2 packager and Miniflare readback QA
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          timeout -k 5 120s node --test --test-concurrency=1 qa/p0-firebase-frozen-certifier.test.mjs qa/p0-gated7-frozen-r2-packager.test.mjs qa/p0-gated6-frozen-r2-source-workerd.test.mjs
