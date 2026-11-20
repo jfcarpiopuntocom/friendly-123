@@ -8307,19 +8307,17 @@
         } finally {
           _ventaConfirmando = false; _ventaPendiente = null;
           try {
-            _drenarCatalogosPendientes();
-            if (guardado) {
-              // P0 v692: after the durable physical count, Yjs must already
-              // contain its exact epoch before iOS suspends this PWA on switch
-              // to Safari. No +delta is emitted and no provisional count leaks.
-              // If a trusted queued merge superseded it, the seed refuses it.
-              if (_epocaFisicaConfirmada && window.OCYjs &&
-                  typeof window.OCYjs.sembrarConteoConfirmado === "function") {
-                try { window.OCYjs.sembrarConteoConfirmado(p.id, _epocaFisicaConfirmada); }
-                catch (_) {}
-              }
-              _avisarCatalogoConfirmado(); // existing async/reconnect retry stays
+            if (guardado && _epocaFisicaConfirmada && window.OCYjs &&
+                typeof window.OCYjs.sembrarConteoConfirmado === "function") {
+              // Publish the durable physical epoch BEFORE draining queued remote
+              // catalogs. Otherwise an older queued catalog can briefly repaint
+              // the previous count and prevent this confirmed epoch from seeding.
+              // The merge still applies afterward, preserving concurrent facts.
+              try { window.OCYjs.sembrarConteoConfirmado(p.id, _epocaFisicaConfirmada); }
+              catch (_) {}
             }
+            _drenarCatalogosPendientes();
+            if (guardado) _avisarCatalogoConfirmado();
           } finally { terminar(); }
         }
       }
