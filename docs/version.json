@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.26",
+  "version": "v0.8.27",
   "fecha": "2026-11-20",
-  "changelog": "v0.8.26: C92 compatibilidad catálogo 1.0 (omisión de opcionales vacíos/nulos/espacios en projectPublicCatalog conservando fail-closed en transporte) y soporte comercial Team admin/empleado en port2-typed-ops-client + yparty-piloto.min.js detrás de QA OFF; Sync3 intacto.",
+  "changelog": "v0.8.27: C94 Safari P0 — al ocultarse la PWA o perder el escritor certificado C21a, la fachada comercial revoca el bit 2.0 antes de operar; protege sucesor de callbacks antiguos y mantiene guarda C38 de único escritor, IDB/outbox y PIN intactos. Sync3 permanece.",
   "requerida": false,
-  "shell": "f123-shell-v826",
+  "shell": "f123-shell-v827",
   "apagar": [],
-  "releaseName": "v0.8.26",
-  "cacheGeneration": "golden362"
+  "releaseName": "v0.8.27",
+  "cacheGeneration": "golden363"
 }
