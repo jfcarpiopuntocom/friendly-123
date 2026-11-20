@@ -116,7 +116,8 @@ test('C51.3: uncontended navigator.locks.request succeeds without unlocked fallb
 });
 
 function evalQaSwitch({ storageMap, hasPiloto = true, role = 'dueno', demo = false }) {
-  const s = syncSrc.indexOf('    API.corte20QaHabilitado = function () {');
+  const helper = syncSrc.indexOf('    function _intentarActivarCorte20SiElegible() {');
+  const s = helper >= 0 ? helper : syncSrc.indexOf('    API.corte20QaHabilitado = function () {');
   const e = syncSrc.indexOf('    API.estado = "activo";', s);
   assert.ok(s > 0 && e > s, 'C51 double-QA switch block must exist in docs/sync-yjs.js');
   const block = syncSrc.slice(s, e);
