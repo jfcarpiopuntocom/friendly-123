@@ -1,0 +1,44 @@
+name: PORT2 C80 absolute physical count per receipt at causal cold reopen (native SQLite and Workerd)
+on:
+  pull_request:
+    paths:
+      - 'cloudflare-yparty-worker/src/authoritative-business-sql.mjs'
+      - 'cloudflare-yparty-worker/qa/p0-c80-absolute-physical-count-readback.test.mjs'
+      - '.github/workflows/qa-port2-c80-absolute-physical-count-readback.yml'
+  push:
+    branches:
+      - 'port2/20261120-c80-physical-count-causal-reopen'
+permissions:
+  contents: read
+jobs:
+  physical-count-reopen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm ci --prefix cloudflare-yparty-worker --no-audit --no-fund
+      - name: C80 source real native SQLite physical absolute N count and causal stock RED GREEN
+        run: node --test cloudflare-yparty-worker/qa/p0-c80-absolute-physical-count-readback.test.mjs
+      - name: C78 queued expenses and customer payments original SHA
+        run: node --test cloudflare-yparty-worker/qa/p0-c78-pending-expense-customer-sha-readback.test.mjs
+      - name: C76 orphan 202 payload retained without false ACK
+        run: node --test cloudflare-yparty-worker/qa/p0-c76-orphan-typed-payload-reopen.test.mjs
+      - name: C74 count price and occupied bootstrap reentry
+        run: node --test cloudflare-yparty-worker/qa/p0-c74-certified-prices-and-bootstrap.test.mjs
+      - name: C72 typed receipt and effect SHA bijection
+        run: node --test cloudflare-yparty-worker/qa/p0-c72-economic-effect-receipt-reconcile.test.mjs
+      - name: C68 original physical stock cash fiados reopening
+        run: node --test cloudflare-yparty-worker/qa/p0-c68-economic-reopen-certified-effects.test.mjs
+      - name: True Workerd partial fiado payments and roles
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-typed-payment-sql.test.mjs
+      - name: True Workerd sale cash and physical receipt idempotency
+        run: node --test cloudflare-yparty-worker/qa/p0-gate-a-business-sql-workerd.test.mjs
+      - name: Fixed original100 transition quality separate from physical GO
+        run: |
+          node scripts/architecture-2-port-score.cjs --json
+          node --test test/p0-architecture-2-port-score.test.cjs
