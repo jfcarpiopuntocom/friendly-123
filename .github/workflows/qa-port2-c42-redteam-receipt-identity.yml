@@ -1,0 +1,23 @@
+name: PORT2 C42 independent adversarial receipt invariants (RED to safe GREEN)
+on:
+  push:
+    branches:
+      - port2/20261119-c42-redteam-no-false-ack
+  pull_request:
+    branches:
+      - port2/20261119-c42-checkout-receipt-status-v818
+    paths:
+      - test/p0-c42-redteam-receipt-identity.test.cjs
+      - .github/workflows/qa-port2-c42-redteam-receipt-identity.yml
+permissions: {contents: read}
+jobs:
+  original-opid-monotone-do-receipt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Original source C42 identity, stale ACK, quarantine and reject exact-source negatives
+        run: node --test test/p0-c42-redteam-receipt-identity.test.cjs
