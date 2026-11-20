@@ -31,7 +31,10 @@ function text(value,label,max=180){
  return value;
 }
 function maybeText(row,key,max){
- return row[key]===undefined?undefined:text(row[key],key,max);
+ const val=row[key];
+ if(val===undefined||val===null)return undefined;
+ if(typeof val==='string'&&!/[\x00-\x1F\x7F]/.test(val)&&val.trim()==='')return undefined;
+ return text(val,key,max);
 }
 function product(row,key){
  if(!row||typeof row!=='object'||Array.isArray(row))invalid('product');

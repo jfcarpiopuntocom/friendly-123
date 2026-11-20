@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import * as Y from 'yjs';
-import {projectPublicCatalog} from '../src/catalog-safe-projection.mjs';
+import {assertPublicCatalogTransportDoc,projectPublicCatalog} from '../src/catalog-safe-projection.mjs';
 
 const rows={
  product:{
@@ -102,4 +102,18 @@ test('shelf data malformed with nested objects is rejected, not serialized into 
  const source=privateDoc();
  source.getMap('ubicaciones').set('shelf-a',{...rows.shelf,nombre:{secret:'SECRET_OWNER_PIN'}});
  assert.throws(()=>project(source),/invalid/i);
+});
+test('real 1.0 blank or null optional metadata fields omit cleanly in projection while failing strict transport',()=>{
+ const source=new Y.Doc();
+ source.getMap('productos').set('p-10',{id:'p-10',nombre:'Café 1.0',sku:'',barcode:'   ',categoria:null,ubicacionId:'',precio:350,stockActual:8});
+ source.getMap('ubicaciones').set('u-10',{id:'u-10',nombre:'Vitrina',tipo:'',activa:true});
+ const {doc}=project(source);
+ assert.deepEqual(doc.getMap('productos').get('p-10'),{id:'p-10',nombre:'Café 1.0',precio:350,stockActual:8});
+ assert.deepEqual(doc.getMap('ubicaciones').get('u-10'),{id:'u-10',nombre:'Vitrina',activa:true});
+ assert.throws(()=>assertPublicCatalogTransportDoc({doc:source,room:'a'.repeat(32)+'-cat'}),/private field/i);
+ // Malformed control character or non-string optional still fails closed.
+ const badCtrl=new Y.Doc();
+ badCtrl.getMap('productos').set('p-bad',{id:'p-bad',nombre:'Item',sku:'bad\nfield',precio:100,stockActual:1});
+ assert.throws(()=>project(badCtrl),/invalid/i);
+ source.destroy();doc.destroy();badCtrl.destroy();
 });

@@ -1,0 +1,46 @@
+name: "PORT2 C92 - Blank 1.0 catalog fields + Team commercial role bundle QA"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/src/catalog-safe-projection.mjs
+      - cloudflare-yparty-worker/qa/p0-safe-catalog-projection.test.mjs
+      - cloudflare-yparty-worker/qa/p0-c92-piloto-e2e-integration.test.mjs
+      - src/port2-typed-ops-client.mjs
+      - src/yparty-piloto.js
+      - docs/vendor/yparty-piloto.min.js
+      - docs/version.json
+      - docs/version-manifest.json
+      - docs/sw.js
+      - test/p0-c15-typed-ops-client.test.cjs
+      - .github/workflows/qa-port2-c92-piloto-bundle.yml
+  push:
+    branches: [port2/20261120-c92-piloto-catalog-team-bundle]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c92-piloto-bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Client typed-ops + built bundle + SW/manifest QA
+        run: |
+          set -euo pipefail
+          bash check-sw.sh
+          node --test test/p0-c15-typed-ops-client.test.cjs test/p0-yparty-client-built-bundle.test.cjs test/p0-c68-browser-photo-cutover-ui-seeding.test.cjs test/p0-v637-manifest.test.cjs
+      - name: Worker catalog projection + Workerd pilot E2E QA
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-safe-catalog-projection.test.mjs qa/p0-c92-piloto-e2e-integration.test.mjs

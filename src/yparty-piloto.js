@@ -37,6 +37,32 @@ window.F123YPartyPilot = function (sala, licencia) {
         pin === '456' || pin === '789') throw new Error('owner-session-unavailable');
     return { kind: 'owner', licenseCode: licencia, instanceId, pin };
   }
+  function teamCredentials(instanceId, unavailable = () => new Error('team-session-unavailable')) {
+    let current;
+    try { current = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
+    const role = window.OCAuth?.rolActual?.();
+    const team = window.OCSecure?.leerPinQueAbre?.()?.team;
+    if (String(current?.licenseCode || '').trim().toUpperCase() !== licencia ||
+        current?.instanceId !== instanceId ||
+        !['admin', 'empleado'].includes(role) ||
+        !team || typeof team !== 'object') {
+      throw unavailable();
+    }
+    return {
+      kind: 'team',
+      licenseCode: licencia,
+      instanceId,
+      subject: team.subject,
+      role,
+      pin: team.pin
+    };
+  }
+  function commercialCredentials(instanceId) {
+    const role = window.OCAuth?.rolActual?.();
+    if (role === 'dueno') return ownerCredentials(instanceId);
+    if (role === 'admin' || role === 'empleado') return teamCredentials(instanceId);
+    throw new Error('commercial-session-unavailable');
+  }
   return {
     // PORT2 C23/C16b-store: durable IndexedDB store factory isolated by SHA-256
     // 64-hex namespace (never persisting plaintext license code in IndexedDB).
@@ -78,33 +104,13 @@ window.F123YPartyPilot = function (sala, licencia) {
         });
       }
       if (role === 'admin' || role === 'empleado') {
-        const teamCredentials = () => {
-          let current;
-          try { current = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
-          const activeRole = window.OCAuth?.rolActual?.();
-          const team = window.OCSecure?.leerPinQueAbre?.()?.team;
-          if (String(current?.licenseCode || '').trim().toUpperCase() !== licencia ||
-              current?.instanceId !== instanceId ||
-              !['admin', 'empleado'].includes(activeRole) ||
-              !team || typeof team !== 'object') {
-            throw unavailable();
-          }
-          return {
-            kind: 'team',
-            licenseCode: licencia,
-            instanceId,
-            subject: team.subject,
-            role: activeRole,
-            pin: team.pin
-          };
-        };
-        teamCredentials();
+        teamCredentials(instanceId, unavailable);
         return createTeamPhotoShaReader({
           host,
           room: sala,
           licenseCode: licencia,
           instanceId,
-          getCredentials: teamCredentials,
+          getCredentials: () => teamCredentials(instanceId, unavailable),
           isVisible,
           timeoutMs,
           fetch: send
@@ -232,7 +238,7 @@ window.F123YPartyPilot = function (sala, licencia) {
           licenseCode: licencia,
           instanceId,
           command,
-          getCredentials: () => ownerCredentials(instanceId),
+          getCredentials: () => commercialCredentials(instanceId),
           isVisible,
           timeoutMs,
           fetch: send
@@ -281,32 +287,12 @@ window.F123YPartyPilot = function (sala, licencia) {
           ? sala + '-ops'
           : null;
       if (!targetRoom) throw unavailable();
-      const getCredentials = () => {
-        let current;
-        try { current = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
-        const role = window.OCAuth?.rolActual?.();
-        const team = window.OCSecure?.leerPinQueAbre?.()?.team;
-        if (String(current?.licenseCode || '').trim().toUpperCase() !== licencia ||
-            current?.instanceId !== instanceId ||
-            !['admin', 'empleado'].includes(role) ||
-            !team || typeof team !== 'object') {
-          throw unavailable();
-        }
-        return {
-          kind: 'team',
-          licenseCode: licencia,
-          instanceId,
-          subject: team.subject,
-          role,
-          pin: team.pin
-        };
-      };
       const fresh = createTeamTicketParams({
         licenseCode: licencia,
         instanceId,
         room: targetRoom,
         scope,
-        getCredentials,
+        getCredentials: () => teamCredentials(instanceId, unavailable),
         fetch: send
       });
       return fresh();

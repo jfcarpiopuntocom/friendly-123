@@ -288,3 +288,29 @@ test('C15 cannot send signed business capability to caller-selected host before 
  assert.equal(result.stage,'precondition-denied');
  assert.equal(result.reconcileRequired,false);
 });
+
+test('C15 supports Team admin (sale/adjust/payment) and empleado (sale/payment) while refusing empleado ops:adjust pre-flight',async()=>{
+ const {dispatchTypedCommercialCommand}=await import(clientUrl);
+ const adminCreds=()=>({kind:'team',licenseCode:LICENSE,instanceId:INSTANCE,subject:'sub-admin-01',role:'admin',pin:'222'});
+ const empCreds=()=>({kind:'team',licenseCode:LICENSE,instanceId:INSTANCE,subject:'sub-emp-01',role:'empleado',pin:'333'});
+ const adjCmd={license:LICENSE,opId:'c15-team-adj-001',kind:'stock.adjust',productId:'sku_1',quantity:5,amountCents:0};
+ const adminReceipt=receiptIdFor({license:LICENSE,opId:adjCmd.opId,kind:adjCmd.kind,productId:'sku_1',quantity:5,amountCents:0});
+ const {send:sendAdmin,calls:adminCalls}=makeFetch({status:202,body:{ok:true,receipt:{
+  opId:adjCmd.opId,license:LICENSE,kind:adjCmd.kind,receiptId:adminReceipt,acceptedAt:1700000000000,stage:'stored-for-application'
+ }}});
+ const rAdmin=await dispatchTypedCommercialCommand({room:ROOM,licenseCode:LICENSE,
+  instanceId:INSTANCE,command:adjCmd,getCredentials:adminCreds,fetch:sendAdmin,isVisible:()=>true});
+ assert.equal(rAdmin.status,202);
+ assert.equal(rAdmin.stage,'queued-not-committed');
+ assert.equal(adminCalls.length,2);
+ assert.deepEqual(JSON.parse(adminCalls[0].opts.body).credentials,{
+  kind:'team',licenseCode:LICENSE,instanceId:INSTANCE,subject:'sub-admin-01',role:'admin',pin:'222'
+ });
+ const {send:sendEmp,calls:empCalls}=makeFetch({status:202,body:{ok:true,stage:'stored-for-application'}});
+ const rEmpAdj=await dispatchTypedCommercialCommand({room:ROOM,licenseCode:LICENSE,
+  instanceId:INSTANCE,command:adjCmd,getCredentials:empCreds,fetch:sendEmp,isVisible:()=>true});
+ assert.equal(empCalls.length,0,'empleado ops:adjust denied pre-flight with ZERO network');
+ assert.equal(rEmpAdj.committed,false);
+ assert.equal(rEmpAdj.stage,'auth-denied');
+ assert.equal(rEmpAdj.fallbackLegacy,true);
+});

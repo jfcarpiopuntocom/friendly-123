@@ -14,6 +14,12 @@ const CUSTOMER_PAYMENT_OP_ID = /^customer-payment:[A-Za-z0-9_-]{8,79}$/;
 const RECEIPT_ID = /^[a-f0-9]{24}$/;
 const MAX_AMOUNT = 10_000_000_000;
 const OPS_SCOPES = Object.freeze(['sale', 'adjust', 'payment']);
+const PIN = /^\d{3}$/;
+const SUBJECT = /^[A-Za-z0-9_-]{5,120}$/;
+const TEAM_OPS_SCOPES = Object.freeze({
+  admin: Object.freeze(['sale', 'adjust', 'payment']),
+  empleado: Object.freeze(['sale', 'payment'])
+});
 
 // Mirrors server typed-commercial-ledger.mjs AND central ws-capability-issuer.mjs CEILING.
 // expense.record is deliberately excluded until ops:expense is approved in issuer CEILING.
@@ -45,11 +51,20 @@ export async function requestTypedOpsTicket({
   }
   const snapshot = () => {
     const c = getCredentials();
-    if (c?.kind !== 'owner' || c.licenseCode !== licenseCode || c.instanceId !== instanceId ||
-        typeof c.pin !== 'string' || !/^\d{3}$/.test(c.pin) || ['456', '789'].includes(c.pin)) {
+    if (!c || c.licenseCode !== licenseCode || c.instanceId !== instanceId ||
+        typeof c.pin !== 'string' || !PIN.test(c.pin) || c.pin === '456' || c.pin === '789') {
       throw unavailable();
     }
-    return {kind: 'owner', licenseCode, instanceId, pin: c.pin};
+    if (c.kind === 'owner') {
+      return {kind: 'owner', licenseCode, instanceId, pin: c.pin};
+    }
+    if (c.kind === 'team' &&
+        SUBJECT.test(c.subject || '') &&
+        Object.hasOwn(TEAM_OPS_SCOPES, c.role) &&
+        TEAM_OPS_SCOPES[c.role].includes(opsScope)) {
+      return {kind: 'team', licenseCode, instanceId, subject: c.subject, role: c.role, pin: c.pin};
+    }
+    throw unavailable();
   };
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 2400);
@@ -70,7 +85,10 @@ export async function requestTypedOpsTicket({
     const data = await response.json();
     const current = snapshot();
     const now = Date.now();
-    if (current.pin !== credentials.pin || data?.ok !== true ||
+    if (current.kind !== credentials.kind ||
+        current.pin !== credentials.pin ||
+        (current.kind === 'team' && (current.role !== credentials.role || current.subject !== credentials.subject)) ||
+        data?.ok !== true ||
         typeof data.token !== 'string' || data.token.length > 3500 ||
         !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(data.token) ||
         !Number.isSafeInteger(data.expiresAt) || data.expiresAt <= now || data.expiresAt > now + 60000) {
