@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-20",
   "comparison": {
-    "previousScore": 79.1,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 1925ae864bb1eedd675318ffa02b7ef7815e2557",
+    "previousScore": 79.2,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ d58ace2e4b0971e8bcf0a0e390845e6c3f162d8b",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 79.2,
+  "score": 79.3,
   "maximum": 100,
   "dimensions": [
     {
@@ -21,10 +21,10 @@
     {
       "id": "durability",
       "weight": 20,
-      "score": 18.5,
-      "previous": 18.4,
-      "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof. C60 actual merged same-app Workerd source trusted-frozen-source.mjs field-order robust reader: prior JSON.stringify(sourceRow) versus detached public catalog projectedRow rejected valid public Yjs JSON object with reordered keys in both signed legacy v1 and paged v2. RED 28/30 (exact two legitimate-structure misses) and GREEN 30/30 full focused (including private ownerPin/costo still fail-closed); 15/15 CI, Cloudflare exact source merge SUCCESS. +0.2 cold-join compatibility durability QA only, not Firebase HEAD real/customer proof; unknown legacy-root-only gap still P0. C64 PR #864 independently demonstrated real source false ACK at frozen SQL cold reopen when original `documento_bloques` base disappears but valid later Yjs journal alone survives (RED 1/2 44731412320); separate adversarial legacy single-row `documento` substitution also RED 2/3 44731901974. Actual `cloudflare-yparty-worker/src/open-existing-store.mjs` now fail-closes on any `snapshotKind` other than `blocks` for already-certified imports; cannot certify lost history from a receipt or legacy snapshot. GREEN 3/3 exact source-executed synthetic SQL fixture, real YParty Workerd cold-open 5/5, 14/14 final SHA CI; PR #864 MERGED master ca86aa4bbe7df1d9da0293e803896edbac53380b, Cloudflare Workers Build exact merged SHA SUCCESS b09be442-96ae-4802-a5b6-21f6256ceee3. Add +0.1 architectural engineering durability confidence ONLY. Does not prove original frozen bytes after compaction, genuine Firebase economic HEAD, R2 binding, physical Safari/Opera or GO.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/864"
+      "score": 18.6,
+      "previous": 18.5,
+      "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof. C60 actual merged same-app Workerd source trusted-frozen-source.mjs field-order robust reader: prior JSON.stringify(sourceRow) versus detached public catalog projectedRow rejected valid public Yjs JSON object with reordered keys in both signed legacy v1 and paged v2. RED 28/30 (exact two legitimate-structure misses) and GREEN 30/30 full focused (including private ownerPin/costo still fail-closed); 15/15 CI, Cloudflare exact source merge SUCCESS. +0.2 cold-join compatibility durability QA only, not Firebase HEAD real/customer proof; unknown legacy-root-only gap still P0. C64 PR #864 independently demonstrated real source false ACK at frozen SQL cold reopen when original `documento_bloques` base disappears but valid later Yjs journal alone survives (RED 1/2 44731412320); separate adversarial legacy single-row `documento` substitution also RED 2/3 44731901974. Actual `cloudflare-yparty-worker/src/open-existing-store.mjs` now fail-closes on any `snapshotKind` other than `blocks` for already-certified imports; cannot certify lost history from a receipt or legacy snapshot. GREEN 3/3 exact source-executed synthetic SQL fixture, real YParty Workerd cold-open 5/5, 14/14 final SHA CI; PR #864 MERGED master ca86aa4bbe7df1d9da0293e803896edbac53380b, Cloudflare Workers Build exact merged SHA SUCCESS b09be442-96ae-4802-a5b6-21f6256ceee3. Add +0.1 architectural engineering durability confidence ONLY. Does not prove original frozen bytes after compaction, genuine Firebase economic HEAD, R2 binding, physical Safari/Opera or GO. C66 product PR #866 MERGED SHA a46da3753ec23ecee2606f5ed206fe4c6ba10f25: original frozen Yjs state vector (independently SHA-pinned) now stored in the SAME atomic SQLite transaction as frozen base/certificate and checked against live merged snapshot+journal on every cold reopen via mature Yjs encodeStateVectorFromUpdate/decodeStateVector. Before the source fix real native SQLite scenario lost an entire independent writer while syntactically valid documento_bloques yielded false opened:true (RED 1/2 run44735648192). GREEN 6/6 native SQLite source tests including replace-writer, missing/tampered cert, old pre-vector refusal, valid post-cut deletion and compaction, plus original frozen import 9/9, C64 3/3 and real Tienda Workerd 5/5; full 15/15 GH workflows and exact Cloudflare merged build UUID b091735c-0cc5-4351-9c29-f5894c836544 SUCCESS. Earn +0.1 ONLY engineering durability quality. State-vector dominance is necessary causal continuity, not cryptographic proof of individual amounts or Firebase real HEAD; commercial GO0/6, physical0/5, QA OFF, Sync3 unchanged.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/866"
     },
     {
       "id": "sync",
@@ -67,7 +67,7 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C65 +0.1 of durability engineering QA only, grounded in real C64 source PR864 MERGED with two RED proofs and exact Cloudflare Build. Original fixed100 budget and migration92.0 remain unchanged; no Firebase economic HEAD certified, no R2 binding, no actual iPhone/PC commercial activation. Physical0/5 GO0/6, QA OFF, Sync3 intact.",
+  "disclaimer": "C67 limited +0.1 durability engineering assurance from merged C66 real Yjs+SQLite native source and real Workerd positive tests. Total quality79.3, original fixed100 migration92.0 unchanged, no real Firebase economic HEAD, R2 Service Binding, commercial GO or physical Safari/Opera acceptance. GO0/6 physical0/5, QA OFF, Sync3 retained.",
   "assessedProductSha": "6e802e6e0df0988922220dd634a40f7788638f05",
   "history": [
     {
@@ -156,5 +156,5 @@
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 7c5f6637ceab125711da84bbd25b1152a79b5df3"
     }
   ],
-  "lastAuditedProductSha": "ca86aa4bbe7df1d9da0293e803896edbac53380b"
+  "lastAuditedProductSha": "a46da3753ec23ecee2606f5ed206fe4c6ba10f25"
 }
