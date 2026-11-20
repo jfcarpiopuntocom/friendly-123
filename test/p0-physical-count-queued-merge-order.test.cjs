@@ -2,7 +2,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../docs/mock-backend.js'), 'utf8');
 const start = source.indexOf('      if ((m = path.match(/^\\/api\\/productos\\/([^/]+)\\/ajustar$/)))');
@@ -21,4 +20,15 @@ test('pending remote merge still runs on both successful and failed adjustments'
   const afterCommit = handler.slice(handler.indexOf('\n        } finally {') + 1);
   assert.match(afterCommit, /_drenarCatalogosPendientes\(\)/);
   assert.match(afterCommit, /finally \{ terminar\(\); \}/);
+});
+
+const syncSource = fs.readFileSync(path.join(__dirname, '../docs/sync-yjs.js'), 'utf8');
+test('immediate confirmed count seeds only the selected product without full-shop fanout', () => {
+  assert.match(syncSource, /function sembrar\(soloProductoId\)/);
+  assert.match(syncSource, /if \(soloProductoId && col !== "productos"\) return/);
+  assert.match(syncSource, /if \(soloProductoId\) filas = filas\.filter/);
+  assert.match(syncSource, /if \(soloProductoId\) return;\s*\/\/ B3: publicar/);
+  assert.match(syncSource, /sembrar\(productoId\); \/\/ one-product Y\.Doc transaction/);
+  assert.match(syncSource, /if \(!soloProductoId && cat\.nombreNegocio/);
+  assert.match(syncSource, /if \(!soloProductoId && cat\.pinsRol/);
 });
