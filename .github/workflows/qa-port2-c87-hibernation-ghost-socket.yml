@@ -21,6 +21,7 @@ jobs:
           npm ci --ignore-scripts --no-audit --no-fund
           cd cloudflare-yparty-worker
           npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps chromium webkit
       - name: Ghost-socket batch isolation and real Workerd separate-rooms security regressions
         working-directory: cloudflare-yparty-worker
         run: |
