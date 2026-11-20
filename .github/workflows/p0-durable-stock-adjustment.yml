@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'docs/mock-backend.js'
+      - 'docs/sync-yjs.js'
       - 'test/p0-durable-stock-adjustment.test.cjs'
       - '.github/workflows/p0-durable-stock-adjustment.yml'
 jobs:
