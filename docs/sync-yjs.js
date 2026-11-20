@@ -3026,6 +3026,8 @@
     }
     API.traducirOpLegadoAComando20 = function (op) { return _traducirOpLegadoAComando20(op, codigo); };
     API.coordinadorCorte20 = null;
+    // A logout or a fresh login invalidates an in-flight async C21a activation.
+    API.__authEpoch20 = 0;
     API.modoCorte20Activo = false;
     API.corteFotosShaActivo = false;
     API.rolComercial20Activo = null;
@@ -3159,6 +3161,7 @@
         };
       };
       API.activarCorte20Runtime = async function (opc) {
+        var authEpochInicial = API.__authEpoch20 || 0;
         var opts = opc && typeof opc === "object" ? opc : {};
         var cortarComercio20 = opts.activarDespachoComercial !== false;
         // C38: C21a owns -cat/-ops, but OCSync's old WebSocket and outbox
@@ -3195,10 +3198,19 @@
           } catch (_) {}
           throw new Error("legacy relay must be OFF with zero pending operations before 2.0 commercial cutover");
         }
+        async function rechazarCambioAuth(coord) {
+          API.modoCorte20Activo = false;
+          try {
+            if (coord && typeof coord.failbackToLegacy === "function")
+              await coord.failbackToLegacy("auth-changed-during-activation");
+          } catch (_) {}
+          throw new Error("auth changed during certified cutover activation");
+        }
         if (cortarComercio20 && !relayAnteriorApagadoYVacio())
           return rechazarDobleEscritor(API.coordinadorCorte20);
         var head = opts.headCongelado || (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
         var coord = await API.crearCoordinadorCorte20(API.doc, head, opts);
+        if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
         var activacion = null;
         if (cortarComercio20) {
           if (!coord || typeof coord.activate20 !== "function") {
@@ -3206,6 +3218,7 @@
             throw new Error("certified 2.0 commercial coordinator activation unavailable");
           }
           activacion = await coord.activate20();
+          if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
           if (!activacion || activacion.ok !== true) {
             API.modoCorte20Activo = false;
             throw new Error("certified 2.0 cutover activation failed");
@@ -3213,6 +3226,7 @@
         }
         // The old relay can reopen during the async C21a activation. Re-read
         // its REAL state AFTER the await, before arming any commercial write.
+        if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
         if (cortarComercio20 && !relayAnteriorApagadoYVacio())
           return rechazarDobleEscritor(coord);
         API.modoCorte20Activo = cortarComercio20;
@@ -3242,6 +3256,47 @@
           rol: estadoRol.rol
         };
       };
+      function _desarmarCorte20PorAuth(motivo) {
+        if (window.OCYjs && window.OCYjs !== API) return;
+        API.__authEpoch20 = (API.__authEpoch20 || 0) + 1;
+        API.modoCorte20Activo = false;
+        API.corteFotosShaActivo = false;
+        API.fotoSha = null;
+        API.rolComercial20Activo = null;
+        try {
+          if (API.coordinadorCorte20 && typeof API.coordinadorCorte20.failbackToLegacy === "function")
+            Promise.resolve(API.coordinadorCorte20.failbackToLegacy(motivo || "auth-reset")).catch(function () {});
+        } catch (_) {}
+      }
+      if (typeof window.addEventListener === "function") {
+        window.addEventListener("oc-logout", function () { _desarmarCorte20PorAuth("oc-logout"); });
+        window.addEventListener("oc-login", function (ev) {
+          if (window.OCYjs && window.OCYjs !== API) return;
+          var d = ev && ev.detail;
+          if (!d || d.demo === true || !d.rol) { _desarmarCorte20PorAuth("oc-login-demo"); return; }
+          var r = String(d.rol).trim().toLowerCase();
+          if (r !== "dueno" && r !== "admin" && r !== "empleado") { _desarmarCorte20PorAuth("oc-login-noncommercial"); return; }
+          // CustomEvent.detail is not an authentication decision. Compare with
+          // the role/session that auth-ui.js has actually established.
+          var liveRole = "";
+          var liveDemo = true;
+          try {
+            var auth = window.OCAuth;
+            if (auth && typeof auth.rolActual === "function")
+              liveRole = String(auth.rolActual() || "").trim().toLowerCase();
+            if (auth && typeof auth.esDemo === "function")
+              liveDemo = auth.esDemo() === true;
+          } catch (_) {}
+          if (liveDemo || liveRole !== r) { _desarmarCorte20PorAuth("oc-login-role-mismatch"); return; }
+          API.__authEpoch20 = (API.__authEpoch20 || 0) + 1;
+          if (!API.modoCorte20Activo && !API.corteFotosShaActivo && !API.rolComercial20Activo) return;
+          var fotosActivas = API.corteFotosShaActivo === true;
+          if (r === "empleado" && API.coordinadorCorte20 && typeof API.coordinadorCorte20.failbackToLegacy === "function") {
+            try { Promise.resolve(API.coordinadorCorte20.failbackToLegacy("role-switch-empleado")).catch(function () {}); } catch (_) {}
+          }
+          try { API.cambiarRolComercial20(r, { cortarLegadoFotos: fotosActivas }); } catch (_) {}
+        });
+      }
     } else {
       API.crearCoordinadorCorte20 = function () {
         return Promise.reject(new Error("certified cutover coordinator unavailable"));
