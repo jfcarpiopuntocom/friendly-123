@@ -5,15 +5,35 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
-test('C75: C74 certified original sale prices + no occupied first baseline, fixed100 GO0/6',()=>{
+test('C77: C76 orphan typed 202 economic receipt readback verified source, fixed100 GO0/6',()=>{
  const s=inspect();
  assert.equal(s.port,92.0);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,23.5);
- assert.equal(s.quality,79.6);
- assert.equal(s.qualityBefore,79.5);
+ assert.equal(s.quality,79.7);
+ assert.equal(s.qualityBefore,79.6);
  assert.equal(s.qualityDelta,0.1);
  assert.equal(s.go,'0/6');
+ // C77 only credits actual C76 merged source & native RED-first QA.
+ // Durable 202 is not a business ACK, customer proof, R2 or physical GO.
+ const sourceC76=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/authoritative-business-sql.mjs'),'utf8');
+ const testC76=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/qa/p0-c76-orphan-typed-payload-reopen.test.mjs'),'utf8');
+ for(const token of [
+  'saved.length!==receipts.length',
+  'new Set(saved.map(r=>r.op_id)).size!==saved.length',
+  'function verifyTypedBusinessEffects(sql,license,effects)',
+  "import {sha256} from '@noble/hashes/sha2.js'"
+ ])assert(sourceC76.includes(token),'C77 real C76 source receipt/payload guard missing '+token);
+ for(const token of [
+  'C76 RED P0: orphan sale payload after valid 200 receipt may not falsely ACK reopened store',
+  'C76 RED P0: losing just the 202 receipt may not hide an otherwise intact pending opId',
+  'C76 RED P0: extra orphan among genuine 202 payloads cannot be masked by no economic effects',
+  'C76 control: durable 202 queued intent keeps matching payload and receipt, without business effect',
+  'C76 control: unrelated license payloads cannot block certified store reopened for correct license'
+ ])assert(testC76.includes(token),'C77 native SQLite RED-first evidence missing '+token);
+
+ assert.equal(s.port,92.0);
+
  // C75 can credit only C74 actual merged source and RED/Workerd evidence,
  // not real Firebase HEAD, R2 binding, customer devices, or commercial GO.
  const c74Src=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/authoritative-business-sql.mjs'),'utf8');
@@ -101,6 +121,7 @@ test('C75: C74 certified original sale prices + no occupied first baseline, fixe
 
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const quality=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
+ assert.equal(quality.lastAuditedProductSha,'53d4aa15fbd486dd593fc407814adc6cc707cd0a');
  const ms=port.groups.flatMap(g=>g.milestones);
  assert.equal(port.maximum,100);
  assert.equal(quality.maximum,100);
@@ -125,7 +146,7 @@ test('C75: C74 certified original sale prices + no occupied first baseline, fixe
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
  assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),8.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,18.9);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
  const photo=port.groups.find(g=>g.id==='photo-sha');
  assert.equal(photo?.weight,9,'photo group weight unchanged');
@@ -259,8 +280,8 @@ test('C75: C74 certified original sale prices + no occupied first baseline, fixe
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,79.5);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.7);
+ assert.equal(quality.comparison.previousScore,79.6);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,18.8);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
   // C48 assessed SHA pinned to the actual PR844 merge source.

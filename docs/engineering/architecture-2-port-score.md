@@ -1,5 +1,26 @@
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
+## C77 · 20-nov-2026 · payload↔recibo económico 202 completo y dos métricas originales /100
+
+Se PORTA la **MISMA friendly-123** 1.0→2.0 mediante componentes OSS maduros, Sync3 YA es2.0 y se conserva, workshop solo QA/PRECODE. [C76 source PR #877 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/877) en `master@53d4aa15fbd486dd593fc407814adc6cc707cd0a`. **15/15 GitHub workflows del HEAD fuente `e46f587ee5a00710a5041fa7bab76d3adf404773` SUCCESS**, Cloudflare Workers Builds GET cuenta real SHA exacta master **SUCCESS** UUID `b35b11b1-134f-4576-8f96-edce535e5333`. No se modificó cliente/Sync3/Cloudflare settings ni datos de clientes.
+
+| DOS métricas independientes (peso original100 invariable) | C75 anterior | C77 actual | Delta |
+| --- | ---: | ---: | ---: |
+| **Transición de misma friendly-123 1.0→2.0** | 92,0/100,0 | **92,0/100,0** | 0,0 |
+| **Calidad arquitectónica** | 79,6/100,0 | **79,7/100,0** | +0,1 |
+| Calidad Business | 18,8/20,0 | **18,9/20,0** | +0,1 |
+| Calidad Durability | 18,6/20,0 | **18,6/20,0** | 0,0 |
+| Comercial GO | 0/6 | **0/6** | 0 |
+| Física PC Opera↔Safari/PWA iPhone | 0/5 | **0/5** | 0 |
+
+**Causa raíz (distinta C72, C74):** el ledger tipado atómico ya guarda recibo 202/200 y su payload en dos tablas; la reentrada certificada verificaba sólo receipt→payload, permitiendo **falso `already:true`** si se conservaba un payload huérfano o se perdía SOLO el recibo 202 de una operación pendiente, sin efecto económico ni obligación reconocida. [RED fuente real Actions44753135356](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44753135356), `node:sqlite` nativo y `createTypedCommercialLedger` real: **3/6 PASS y 3/6 FAIL por Missing expected exception**, casos (1) venta200 válida+payload huérfano; (2) receipt202 eliminado con payload original intacto; (3) payload extra junto a 202 legítimo. Controles de venta3998+abono fiado1000+recuento5, 202 sin efecto y licencia ajena PASS. **GREEN [Actions44753281288](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44753281288)**: **6/6 C76 nativo, 5/5 C74, 11/11 C72, 8/8 C68, 2/2 Workerd cobros y 2/2 Workerd ventas/caja**, rubric original100 PASS, 15/15 global GH workflows. Cambio mínimo SOURCE `cloudflare-yparty-worker/src/authoritative-business-sql.mjs`: durante read-only `verifyTypedBusinessEffects` en duplicado `installBusinessBaseline`, exigir `saved.length===receipts.length` y unicidad de IDs por licencia, conservando comprobación receipt→payload previa y su SHA OSS `@noble/hashes`. No borra payload, fabrica ACK ni cambia hot path.
+
+**Ocho puntos PORT siguen sin ganar**: HEAD económico Firebase ORIGINAL autenticado2,0, R2 Service Binding real2,0, operación/roles/fotos/failback físico4,0. No confundir test/Build sintético con GO comercial ni con datos de Belén reales. [PRECODE C76](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c76-typed-payload-202-orphan-reopen-precode.md), [PRECODE C77](https://github.com/jfcarpiopuntocom/friendly123workshop/blob/main/projects/assembled-v783/plans/2026-11-20-c77-c76-payload-202-architecture-quality-79p7-precode.md) antes de los edits. PR871 unión Yjs, PR868 fotos, PR841 ledger reservadas intactas. QA OFF, GO0/6 y físico0/5.
+
+---
+
+### Histórico · C75 y anteriores
+
 ## C75 · 20-nov-2026 Ecuador · calidad 79,6 y transición 92,0, DOS rúbricas fijas100
 
 Se PORTA la **MISMA friendly-123** 1.0→2.0 con injertos maduros; Sync3 ya es 2.0 y permanece. [C74 fuente real PR #875 MERGED](https://github.com/jfcarpiopuntocom/friendly-123/pull/875) `master@45d54fbdec1fb07fbca52f090c2abcc75528c040`, **14/14 GH Actions** del source HEAD `76e9f9969d46f8df0f81905ad7a7826f86d6f307` verdes. Cloudflare Workers Builds GET rama master **SHA exacta** `45d54fbdec1fb07fbca52f090c2abcc75528c040` **SUCCESS** UUID `d4c8a595-0ef2-4b26-8788-7966307703fa`. Fuera del scope quedan cliente/Cloudflare settings/Sync3/PIN.
