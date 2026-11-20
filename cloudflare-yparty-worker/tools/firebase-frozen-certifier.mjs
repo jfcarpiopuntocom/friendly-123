@@ -112,8 +112,13 @@ function collectOrderedRecords(snapshot){
  }
  const kEntries=[];
  if(snapshot.k!=null){
-  if(typeof snapshot.k!=='object'||Array.isArray(snapshot.k))fail('invalid checkpoint map');
-  for(const [revKey,val] of Object.entries(snapshot.k)){
+  if(typeof snapshot.k!=='object')fail('invalid checkpoint map');
+  // Firebase RTDB REST returns sequential integer keys 1..N as a JSON array (index 0 = null, holes = null).
+  if(Array.isArray(snapshot.k)&&snapshot.k[0]!=null)fail('invalid checkpoint map');
+  const kPairs=Array.isArray(snapshot.k)
+   ?snapshot.k.map((val,i)=>[String(i),val]).filter(([,val])=>val!==null)
+   :Object.entries(snapshot.k);
+  for(const [revKey,val] of kPairs){
    if(!/^[1-9][0-9]{0,8}$/.test(revKey))fail('invalid checkpoint revision key');
    if(!val||typeof val!=='object'||typeof val.s!=='number'||!Number.isFinite(val.s)||val.s<0||typeof val.c!=='string'){
     fail('invalid checkpoint record');

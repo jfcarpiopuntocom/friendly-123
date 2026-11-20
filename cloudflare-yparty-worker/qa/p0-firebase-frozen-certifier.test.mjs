@@ -255,3 +255,26 @@ test('fails closed on wrong key, incomplete tag 3 fragments, missing Yjs causal 
  );
  d.destroy();d2.destroy();badOps.destroy();
 });
+
+test('C90 RED: accepts the exact Firebase REST array form of /k (sequential revs 1..N) and still fails closed on malformed arrays',async()=>{
+ const d=new Y.Doc();d.clientID=901;
+ d.getMap('eventos').set('a',{kind:'sale.record',opId:'op-c90-001',productId:'p',quantity:1,amountCents:1250});
+ const u1=Y.encodeStateAsUpdate(d);
+ const v1=Y.encodeStateVector(d);
+ d.getMap('eventos').set('b',{kind:'sale.record',opId:'op-c90-002',productId:'p',quantity:2,amountCents:500});
+ const u2=Y.encodeStateAsUpdate(d,v1);
+ const k1={s:100,c:await encryptMirror(TEST_LICENSE,tagFrame(7,gzipSync(u1)))};
+ const k2={s:200,c:await encryptMirror(TEST_LICENSE,tagFrame(0,u2))};
+ const asObject=await certifyFirebaseChannelSnapshot({codigo:TEST_LICENSE,channel:'ops',frozenHead:HEAD,snapshot:{k:{'1':k1,'2':k2}}});
+ // Firebase RTDB REST turns integer keys 1..N into a JSON array with null at index 0.
+ const asArray=await certifyFirebaseChannelSnapshot({codigo:TEST_LICENSE,channel:'ops',frozenHead:HEAD,snapshot:{k:[null,k1,k2]}});
+ assert.deepEqual(asArray.certification.checkpointRevs,[1,2]);
+ assert.equal(asArray.certification.expectedStateSha256,asObject.certification.expectedStateSha256);
+ assert.equal(asArray.certification.sourceFramesSha256,asObject.certification.sourceFramesSha256);
+ assert.equal(asArray.certification.opIdsCount,2);
+ // Holes stay holes (missing revs are not invented); index 0 must be null; non-record entries fail closed.
+ const holes=await certifyFirebaseChannelSnapshot({codigo:TEST_LICENSE,channel:'ops',frozenHead:HEAD,snapshot:{k:[null,k1,null,null]}});
+ assert.deepEqual(holes.certification.checkpointRevs,[1]);
+ await assert.rejects(certifyFirebaseChannelSnapshot({codigo:TEST_LICENSE,channel:'ops',snapshot:{k:[k1,k2]}}),/invalid checkpoint/i);
+ await assert.rejects(certifyFirebaseChannelSnapshot({codigo:TEST_LICENSE,channel:'ops',snapshot:{k:[null,'x']}}),/invalid checkpoint/i);
+});
