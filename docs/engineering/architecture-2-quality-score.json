@@ -3,11 +3,11 @@
   "metric": "architecture-quality-engineering-review",
   "asOf": "2026-11-19",
   "comparison": {
-    "previousScore": 77.5,
-    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 80da1366304b7c5e848a4dadb7abbb34885167da",
+    "previousScore": 77.9,
+    "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 40192ecc51b41e59fdcaa2d91c3be0522813069a",
     "previousReviewedDate": "2026-11-19"
   },
-  "score": 77.9,
+  "score": 78.1,
   "maximum": 100,
   "dimensions": [
     {
@@ -22,7 +22,7 @@
       "id": "durability",
       "weight": 20,
       "score": 18.2,
-      "previous": 18,
+      "previous": 18.2,
       "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/849"
     },
@@ -46,17 +46,17 @@
       "id": "photos",
       "weight": 10,
       "score": 7.7,
-      "previous": 7.5,
+      "previous": 7.7,
       "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending. C49 merged real mock-backend shelf-photo optimistic CAS guard exercised 200 valid -> 409 stale preserves hash -> 200 valid revision, then actual IDB photo + sync-yjs runtime and Workerd SQLite -fotos DO with cold Team recovery exact SHA. Distinct from C46 initial cold-join readback; 11/11 PR CI and C49 Workerd rerun on combined v0.8.21 source both success. +0.2 QA engineering, not live physical photo UI acceptance.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/847"
     },
     {
       "id": "migration",
       "weight": 10,
-      "score": 7.3,
+      "score": 7.5,
       "previous": 7.3,
-      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/787"
+      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD C52 v0.8.22 merged real docs/sync-yjs.js source conditional Yjs transport emission: canalSombra and opsCanal stop on modoCorte20Activo, fotosCanal stops on corteFotosShaActivo; VM regression verifies retirement with flags ON and resumption after failback, full PR #851 55/55 GH CI. +0.2 confidence in bounded legacy-sender cutover, not full writer retirement, physical GO or commercial migration.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/851"
     },
     {
       "id": "physical",
@@ -67,8 +67,8 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C52 quality +0.2 durability from bounded Web Locks/IDB fallback and +0.2 photos from distinct CAS 409/200 & Workerd SQLite QA on already merged same app, not physical Safari or live customer. All QA flags OFF, GO0/6 physical0/5, no ledger P0 conflict fixed, no commercial SLA.",
-  "assessedProductSha": "1b64b3ca40d07abce9924222eea541e4c93ba283",
+  "disclaimer": "C53 +0.2 engineering migration QA from genuine merged C52 source: 3 Yjs senders conditional retirement and recovery in VM harness. Not full old writer retirement or physical PC/Safari/PWA acceptance. Sync3 retained, double QA flags OFF by default, GO0/6, physical0/5.",
+  "assessedProductSha": "b223fe801ec9599949f135423551e63cf89105c4",
   "history": [
     {
       "review": "2026-11-17",
@@ -144,6 +144,11 @@
       "review": "2026-11-19 before real C49 photo CAS Workerd source E2E + C51 Web Locks fallback double-QA bootstrap, both merged",
       "score": 77.5,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 80da1366304b7c5e848a4dadb7abbb34885167da"
+    },
+    {
+      "review": "2026-11-19 before merged C52 legacy-sender guarded suppression in real v0.8.22 source; no customer GO",
+      "score": 77.9,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 40192ecc51b41e59fdcaa2d91c3be0522813069a"
     }
   ]
 }
