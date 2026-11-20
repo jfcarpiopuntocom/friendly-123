@@ -4,6 +4,7 @@
 // archives unless authenticatedSealProof + readyForAuthenticatedSeal + digest match.
 import * as Y from 'yjs';
 import { Sha256Sync } from '../src/sha256-sync.mjs';
+import { verifyForwardCurrentUnionPlan } from '../src/current-state-union.mjs';
 import { prepareImportedOpsBaseline } from '../src/frozen-ops-baseline.mjs';
 import {
   F123_PUBLIC_PROJECTION_VERSION,
@@ -172,6 +173,7 @@ export async function sealPresentUnionToR2({
   limits
 } = {}) {
   validateSealInputs({ room, frozenHead, authenticatedSealProof, unionPlan });
+  verifyForwardCurrentUnionPlan(unionPlan);
   const opsData = buildOpsStateFromUnion(unionPlan);
   const catData = buildProjectedCatalogFrame({ room, frozenHead, publicCatalogSnapshot });
 
