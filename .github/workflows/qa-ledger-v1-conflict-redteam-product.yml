@@ -1,0 +1,28 @@
+name: P0 real-product ledger conflicting fact quarantine RED gate (no deploy)
+on:
+  push:
+    branches: [port2/20261119-ledger-conflict-redteam-product]
+  pull_request:
+    paths:
+      - 'test/p0-ledger-v1-conflict-redteam-product.test.cjs'
+      - '.github/workflows/qa-ledger-v1-conflict-redteam-product.yml'
+      - 'docs/core/ledger.js'
+permissions:
+  contents: read
+jobs:
+  actual-ledger-projection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Verify real source, known baseline and adversarial ledger facts
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "SOURCE SHA $(git rev-parse HEAD)"
+          node --check docs/core/ledger.js
+          node --check test/p0-ledger-v1-conflict-redteam-product.test.cjs
+          node --test --test-concurrency=1 test/ledger-v1.test.js test/p0-ledger-v1-conflict-redteam-product.test.cjs
