@@ -122,7 +122,8 @@ test('C74 RED P0: orphan durable typed payload blocks first economic baseline',a
   s.sql.exec('CREATE TABLE typed_commercial_payloads (license TEXT NOT NULL,op_id TEXT NOT NULL,payload_json TEXT NOT NULL,PRIMARY KEY(license,op_id))');
   s.sql.exec('INSERT INTO typed_commercial_payloads (license,op_id,payload_json) VALUES (?,?,?)',
    license,'synthetic-precut-orphan-0001',JSON.stringify(sale()));
-  assert.throws(()=>installBusinessBaseline({storage:s.storage,proof:await proof()}),
+  const cert=await proof();
+  assert.throws(()=>installBusinessBaseline({storage:s.storage,proof:cert}),
    /controlled migration|history|baseline/i);
   assert.equal(s.baselines(),0,'cannot silently cut over and overwrite an unacknowledged old command');
  }finally{s.db.close()}
@@ -133,7 +134,8 @@ test('C74 RED P0: existing frozen union certificate blocks fresh business baseli
   existingUnion(s.sql);
   s.sql.exec('INSERT INTO f123_frozen_unions (id,channel,frozen_head,frozen_sha256,vector_sha256,frozen_events,union_events,union_sha256,events_sha256,pitr_bookmark) VALUES (1,?,?,?,?,?,?,?,?,?)',
    'catalog','precut-firebase-head','a'.repeat(64),'b'.repeat(64),1,1,'c'.repeat(64),'d'.repeat(64),null);
-  assert.throws(()=>installBusinessBaseline({storage:s.storage,proof:await proof()}),
+  const cert=await proof();
+  assert.throws(()=>installBusinessBaseline({storage:s.storage,proof:cert}),
    /controlled migration|history|baseline/i);
   assert.equal(s.baselines(),0);
  }finally{s.db.close()}
