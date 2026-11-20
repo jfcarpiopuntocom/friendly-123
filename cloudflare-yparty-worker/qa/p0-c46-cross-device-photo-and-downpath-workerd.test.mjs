@@ -320,7 +320,7 @@ function mountDevice({bridgeFetch, indexedDB, deviceId, role}) {
   };
 }
 
-test('C46 Workerd E2E: real idb-fotos + recoverShelfPhoto via -fotos DO AND cross-device A->B->A x2 downpath with 0 duplicates', {timeout: 75000}, async () => {
+test('C46 Workerd E2E: real idb-fotos + recoverShelfPhoto via -fotos DO AND cross-device A->B->A x2 downpath with 0 duplicates', {timeout: 120000}, async () => {
   const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'f123-c46-workerd-'));
   const db = fakeDb();
   await db.transaction(async tx => {
@@ -535,19 +535,54 @@ test('C46 Workerd E2E: real idb-fotos + recoverShelfPhoto via -fotos DO AND cros
     assert.equal(devA.OCSyncEmit('venta', devA.vmObj({opId: opA1, productoId: 'sku_1', delta: -1, cantidad: 1, amountCents: 1500})), true);
     for (let i = 0; i < 60 && !devA.API.obtenerReciboComercial20(opA2); i++) await new Promise(r => setTimeout(r, 40));
     assert.equal(devA.API.obtenerReciboComercial20(opA2)?.committed, true);
+
+    // Second FULL A -> B -> A cycle: B takes ownership again, then A returns.
+    // This catches re-activation failures that a single A1 -> B1 -> A2 pass cannot expose.
+    const fbA2 = await devA.API.coordinadorCorte20.failbackToLegacy('qa-second-handoff-a-to-b');
+    assert.equal(fbA2?.mode, 'failback-legacy-1.0');
+    await devB.API.activarCorte20Runtime({
+      headCongelado: HEAD,
+      activarDespachoComercial: true,
+      cortarLegadoFotos: true,
+      indexedDB: devB.indexedDB,
+      createProvider: createRealWsProvider,
+      fetch: bridgeFetch
+    });
+    const opB2 = 'op_c46_b2_sale';
+    assert.equal(devB.OCSyncEmit('venta', devB.vmObj({opId: opB2, productoId: 'sku_1', delta: -1, cantidad: 1, amountCents: 1500})), true);
+    for (let i = 0; i < 60 && !devB.API.obtenerReciboComercial20(opB2); i++) await new Promise(r => setTimeout(r, 40));
+    assert.equal(devB.API.obtenerReciboComercial20(opB2)?.committed, true);
+
+    const fbB2 = await devB.API.coordinadorCorte20.failbackToLegacy('qa-second-handoff-b-to-a');
+    assert.equal(fbB2?.mode, 'failback-legacy-1.0');
+    await devA.API.activarCorte20Runtime({
+      headCongelado: HEAD,
+      activarDespachoComercial: true,
+      cortarLegadoFotos: true,
+      indexedDB: devA.indexedDB,
+      createProvider: createRealWsProvider,
+      fetch: bridgeFetch
+    });
+    const opA3 = 'op_c46_a3_sale';
+    assert.equal(devA.OCSyncEmit('venta', devA.vmObj({opId: opA3, productoId: 'sku_1', delta: -1, cantidad: 1, amountCents: 1500})), true);
+    // Replayed older A and B operations must not produce more than five business effects.
+    assert.equal(devA.OCSyncEmit('venta', devA.vmObj({opId: opA1, productoId: 'sku_1', delta: -1, cantidad: 1, amountCents: 1500})), true);
+    assert.equal(devA.OCSyncEmit('venta', devA.vmObj({opId: opB2, productoId: 'sku_1', delta: -1, cantidad: 1, amountCents: 1500})), true);
+    for (let i = 0; i < 60 && !devA.API.obtenerReciboComercial20(opA3); i++) await new Promise(r => setTimeout(r, 40));
+    assert.equal(devA.API.obtenerReciboComercial20(opA3)?.committed, true);
     await new Promise(r => setTimeout(r, 120));
 
-    // Verify exact Workerd -ops DO SQLite state: 5 -> 2 stock, 500 -> 5000 cash, 3 effects, 3 receipts
+    // Verify exact Workerd -ops DO SQLite state: 5 -> 0 stock, 500 -> 8000 cash, five effects/receipts
     const sqlRes = await fetch(new URL('/parties/tienda/' + opsRoom, url), {
       method: 'POST',
       headers: {origin: ORIGIN, 'x-f123-synthetic-inspect': '1'}
     });
     assert.equal(sqlRes.status, 200);
     const sql = await sqlRes.json();
-    assert.equal(sql.stock, 2, 'Cross-device A->B->A x2 must yield exact stock 5 - 3 = 2');
-    assert.equal(sql.cash, 5000, 'Cross-device A->B->A x2 must yield exact cash 500 + 4500 = 5000');
-    assert.equal(sql.effects, 3, 'Exactly 3 business effects (0 duplicates on replay)');
-    assert.equal(sql.receipts, 3, 'Exactly 3 receipts');
+    assert.equal(sql.stock, 0, 'Two complete A->B->A cycles must yield exact stock 5 - 5 = 0');
+    assert.equal(sql.cash, 8000, 'Two complete A->B->A cycles must yield exact cash 500 + 7500 = 8000');
+    assert.equal(sql.effects, 5, 'Exactly 5 business effects (0 duplicates on replay)');
+    assert.equal(sql.receipts, 5, 'Exactly 5 receipts');
     assert.equal(devA.API.opsMap.size, 0);
     assert.equal(devB.API.opsMap.size, 0);
   } finally {
