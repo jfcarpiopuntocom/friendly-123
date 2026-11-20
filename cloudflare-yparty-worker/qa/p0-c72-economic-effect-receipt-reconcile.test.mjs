@@ -180,3 +180,26 @@ test('C72 RED: receiptId changed despite original payload_hash and effect must r
   assert.throws(()=>s.retry(),/business baseline reconciliation|receipt|effect/i);
  }finally{s.db.close();}
 });
+
+test('C72b RED: coordinated payload, effect and cash change with original receipt SHA must fail closed',async()=>{
+ const s=await make();
+ try{
+  await s.submit(sale());
+  const original=s.sql.exec('SELECT payload_json FROM typed_commercial_payloads WHERE license=? AND op_id=?',
+   license,sale().opId).one().payload_json;
+  const altered=JSON.parse(original);
+  altered.amountCents=1999; // original signed sale was 3998 cents
+  s.sql.exec('UPDATE typed_commercial_payloads SET payload_json=? WHERE license=? AND op_id=?',
+   JSON.stringify(altered),license,sale().opId);
+  s.sql.exec('UPDATE f123_business_effects SET cash_delta_cents=1999 WHERE license=? AND op_id=?',
+   license,sale().opId);
+  s.sql.exec('UPDATE f123_business_baseline SET cash_cents=2499 WHERE license=?',license);
+  assert.deepEqual(s.totals(),{cash:2499,stock:8,debt:3000,effects:1});
+  // The first C72 semantic join alone still ACKed this; the ORIGINAL digest
+  // from createTypedCommercialLedger must protect original canonical bytes.
+  assert.throws(()=>s.retry(),/business baseline reconciliation|receipt|SHA|digest/i);
+  assert.equal(s.sql.exec('SELECT payload_json FROM typed_commercial_payloads WHERE license=? AND op_id=?',
+   license,sale().opId).one().payload_json,JSON.stringify(altered),
+   'audit refusal does not mutate suspicious original stored evidence');
+ }finally{s.db.close();}
+});
