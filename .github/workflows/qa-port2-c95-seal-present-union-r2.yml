@@ -1,0 +1,33 @@
+name: "PORT2 C95 - Present union to sealed R2 QA"
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - cloudflare-yparty-worker/tools/seal-present-union-r2.mjs
+      - cloudflare-yparty-worker/qa/p0-c95-seal-present-union-r2.test.mjs
+      - .github/workflows/qa-port2-c95-seal-present-union-r2.yml
+  push:
+    branches: [port2/20261120-c95-seal-present-union-r2]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  c95-seal-present-union-r2:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd cloudflare-yparty-worker
+          npm ci --ignore-scripts --no-audit --no-fund
+      - name: C95 seal verified present union to R2 QA
+        working-directory: cloudflare-yparty-worker
+        run: |
+          set -euo pipefail
+          node --test --test-concurrency=1 qa/p0-c95-seal-present-union-r2.test.mjs qa/p0-c93-current-state-union.test.mjs qa/p0-gated7-frozen-r2-packager.test.mjs
