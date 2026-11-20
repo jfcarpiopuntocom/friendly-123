@@ -57,6 +57,9 @@ test('C52: legacy Yjs senders retire when modoCorte20Activo/corteFotosShaActivo=
     opsCanal: { enviarUpdate: () => { sent.opsCanal += 1; } }
   };
 
+  // The real runtime uses canalPiloto for the NEW YParty transport. Only
+  // fallback via API.canal = API.canalSombra may return to the OLD relay.
+  API.canalPiloto = API.canal;
   const ctx = vm.createContext({
     API,
     pedirVolcarFotos: () => {},
@@ -79,16 +82,40 @@ test('C52: legacy Yjs senders retire when modoCorte20Activo/corteFotosShaActivo=
     'legacy canalSombra, fotosCanal, opsCanal must not send while 2.0 cutover is active'
   );
 
-  // 2. Failback to legacy -> legacy channels resume
+  // 2. Pilot transport fails while certified 2.0 is still active.
+  // usarRelayHabitual() sets API.canal = API.canalSombra. That is a legacy
+  // channel, and publishing here would create a second writer after C52.
+  const newPilot = API.canal;
+  API.canal = API.canalSombra;
+  handlers.doc(fakeUpdate, 'local');
+  assert.deepEqual(sent,
+    { canal: 1, canalSombra: 0, fotosCanal: 0, opsCanal: 0 },
+    'a legacy primary selected by pilot failover MUST NOT publish during active 2.0');
+
+  // 3. Failback to legacy -> legacy channel resumes exactly once.
   API.modoCorte20Activo = false;
   API.corteFotosShaActivo = false;
   handlers.doc(fakeUpdate, 'local');
+  assert.equal(sent.canalSombra, 1,
+    'the selected legacy primary resumes without any duplicate shadow write');
+  assert.equal(sent.canal, 1);
   handlers.fotosDoc(fakeUpdate, 'local');
   handlers.opsDoc(fakeUpdate, 'local');
+  assert.deepEqual(
+    sent,
+    { canal: 1, canalSombra: 1, fotosCanal: 1, opsCanal: 1 },
+    'original C52 failback contract: all three old channels have resumed once'
+  );
+  API.canal = newPilot;
+
+  // 4. Legacy shadow remains available in the normal pilot mode after failback.
+  API.modoCorte20Activo = false;
+  API.corteFotosShaActivo = false;
+  handlers.doc(fakeUpdate, 'local');
 
   assert.deepEqual(
     sent,
-    { canal: 2, canalSombra: 1, fotosCanal: 1, opsCanal: 1 },
-    'legacy channels must resume after failbackToLegacy'
+    { canal: 2, canalSombra: 2, fotosCanal: 1, opsCanal: 1 },
+    'legacy primary failback and normal pilot shadow both resume, one per local update'
   );
 });

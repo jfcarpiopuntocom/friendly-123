@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.22",
+  "version": "v0.8.23",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.22: C52 retira el envío legado en canalSombra, fotosCanal y opsCanal mientras modoCorte20Activo/corteFotosShaActivo están activos (y lo reanuda automáticamente en failbackToLegacy). Switches QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
+  "changelog": "v0.8.23: C54 impide publicar actualizaciones Yjs al canal primario antiguo cuando falla el piloto 2.0; conserva publicacion al canal YParty y restablece relay cifrado al failback. Mismo friendly-123, Sync3 intacto, flags QA OFF y cero gastos Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v822",
+  "shell": "f123-shell-v823",
   "apagar": [],
-  "releaseName": "v0.8.22",
-  "cacheGeneration": "golden358"
+  "releaseName": "v0.8.23",
+  "cacheGeneration": "golden359"
 }

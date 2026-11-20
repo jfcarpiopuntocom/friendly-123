@@ -2867,7 +2867,9 @@
       // IndexedDB hydration replays existing history; it is not a new change to publish.
       if (origin === "bc" || origin === "red" || (API.idb && origin === API.idb)) return;
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
-      API.canal.enviarUpdate(update);
+      // C54: if the pilot falls back to its old relay mid-cutover, keep the
+      // signed 2.0 pilot writable but NEVER resurrect a legacy primary writer.
+      if (!API.modoCorte20Activo || API.canal === API.canalPiloto) API.canal.enviarUpdate(update);
       if (!API.modoCorte20Activo && API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);
     });
 
