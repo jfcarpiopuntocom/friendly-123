@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.18",
+  "version": "v0.8.19",
   "fecha": "2026-11-19",
-  "changelog": "v0.8.18: C42 observa estado real de recibo 2.0 en mock-backend (confirmado-do vs 202 pendiente-reconciliacion-do vs cuarentena-do vs dispatch-rejected) sin falso ACK remoto ni doble legado. Switch QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
+  "changelog": "v0.8.19: C44 ajuste (stock.adjust con stockNuevo + opId durable) y abono (credit.payment.record emitido desde cartera/abonar) completos de punta a punta en mock-backend + sync-realtime OCSyncEmit -> sync-yjs -> -ops DO SQLite. Switch QA OFF por defecto, Sync3 intacto, cero gastos Cloudflare/R2.",
   "requerida": false,
-  "shell": "f123-shell-v818",
+  "shell": "f123-shell-v819",
   "apagar": [],
-  "releaseName": "v0.8.18",
-  "cacheGeneration": "golden354"
+  "releaseName": "v0.8.19",
+  "cacheGeneration": "golden355"
 }
