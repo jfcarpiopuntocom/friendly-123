@@ -10,7 +10,8 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC160=quality.latestReview?.id==='C160';
+ const isC162=quality.latestReview?.id==='C162';
+ const isC160=isC162||quality.latestReview?.id==='C160';
  const isC158=isC160||quality.latestReview?.id==='C158';
  const isC156=isC158||quality.latestReview?.id==='C156';
  const isC154=isC156||quality.latestReview?.id==='C154';
@@ -26,7 +27,7 @@ function inspect(){
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)))))))))))))));
+ const currentQuality=isC162?83.4:(isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))))))))))))))));
  const currentDurability=isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1)));
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
@@ -85,6 +86,16 @@ function inspect(){
   assert(src.includes('accumulate(tot,"gross","unknownGross",gross)'));
   assert.equal((isC144?quality.auditTrail?.find(r=>r.id==='C142'):quality.latestReview)?.sourceSha,'05f5b094bf5ebae313ffd464e33bbb2d54a1b3ef');
  }
+ if(isC162){
+  const qa=fs.readFileSync(path.join(root,'test/p0-c161-commission-split-amount-consistency.test.cjs'),'utf8');
+  const src=fs.readFileSync(path.join(root,'docs/core/commission-history.js'),'utf8');
+  assert(qa.includes('C161 RED: mismatch of explicit split vs receipt commission'));
+  assert(qa.includes('missing or unsafe payee amount is also fail-closed'));
+  assert(qa.includes('exact cent-level split and reversed identical receipt'));
+  assert(src.includes('if(splitMismatch){tot.splitConflicts++;commission=null;}'));
+  assert(src.includes('commission:splitMismatch?null:cents(finite(r&&r.monto))'));
+  assert.equal(quality.latestReview?.sourceSha,'18f0c5a682ad83c0a62bfa694196b7a02555c293');
+ }
  if(isC160){
    const qa=fs.readFileSync(path.join(root,'test/p0-c159-half-weight-new-photos.test.cjs'),'utf8');
    const src=fs.readFileSync(path.join(root,'docs/idb-fotos.js'),'utf8');
@@ -96,7 +107,7 @@ function inspect(){
    assert(src.includes('[0.92, 0.88, 0.84]'));
    assert(shelf.includes('OCFotos.optimizarCapturaFoto(canvasElegido'));
    assert(receipt.includes('OCFotos.optimizarCapturaFoto(canvas, data'));
-   assert.equal(quality.latestReview?.sourceSha,'31fa335db591259e971a56177326683f69913e49');
+   assert.equal((isC162?quality.auditTrail?.find(r=>r.id==='C160'):quality.latestReview)?.sourceSha,'31fa335db591259e971a56177326683f69913e49');
  }
  if(isC158){
   const qa=fs.readFileSync(path.join(root,'test/idb-adapter-lifecycle.test.cjs'),'utf8');
@@ -562,7 +573,7 @@ function inspect(){
   assert.equal(left.done,false,'C40 is NOT a live customer cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C40 QA does not certify GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no physical A-B-A');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='b5ce01a7f46e801001cc052c2797aa2150bb3cba'?(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))):18.5):(c42Done?18.3:18.1));
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='b5ce01a7f46e801001cc052c2797aa2150bb3cba'?(isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))))):18.5):(c42Done?18.3:18.1));
   const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
     'API.recibosComerciales20 = new Map();',
@@ -609,7 +620,7 @@ function inspect(){
   assert.equal(residual.done,false,'C42 does not enable commercial production cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C42 synthetic QA cannot certify live store GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no real PC→Safari acceptance evidence');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='b5ce01a7f46e801001cc052c2797aa2150bb3cba'?(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))):18.5):18.3,'business quality bounded by actual C42/C44/C68 QA');
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='b5ce01a7f46e801001cc052c2797aa2150bb3cba'?(isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))))):18.5):18.3,'business quality bounded by actual C42/C44/C68 QA');
   const mock=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
   const facade=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
@@ -664,7 +675,7 @@ function inspect(){
    assert.equal(typed.milestones.find(m=>m.id==='production-business-dispatch')?.done,false,'live customer dispatcher still pending');
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO from C44');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no physical A-B-A from C44');
-   assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+   assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
    assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
    assert.equal(quality.comparison.previousScore,80.4);
    assert.equal(data.assessedProductSha,'4dc0de90d1a0544a63c8343cfe478db8f01c5ea2','C48 assessed real merged PR844 source SHA');
@@ -1244,7 +1255,7 @@ function inspect(){
  ])assert(c68Qa.includes(token),'C69 actual native SQLite negative source test missing: '+token);
  assert.equal(quality.lastAuditedProductSha,
    'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C68 QA cannot earn real Firebase HEAD/R2/device port');
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true).reduce(
@@ -1279,7 +1290,7 @@ function inspect(){
   'sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==');
  assert.equal(quality.lastAuditedProductSha,
   'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
@@ -1310,7 +1321,7 @@ function inspect(){
  ])assert(c74NativeQA.includes(token),'C75 verified RED-first native SQLite scenario missing '+token);
  assert.equal(quality.lastAuditedProductSha,
   'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
@@ -1340,7 +1351,7 @@ function inspect(){
   'C76 control: unrelated license payloads cannot block certified store reopened for correct license'
  ])assert(c76QA.includes(token),'C77 real native SQLite RED-first QA missing '+token);
  assert.equal(quality.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
@@ -1372,7 +1383,7 @@ function inspect(){
  assert.equal(quality.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C78 synthetic QA does not earn Firebase or R2 2.0 cutover');
@@ -1403,7 +1414,7 @@ function inspect(){
   'C80 control: physical no-op count N=stock must retain zero delta and receipt'
  ])assert(c80QA.includes(token),'C81 native SQLite C80 RED-first test absent '+token);
  assert.equal(quality.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
@@ -1428,7 +1439,7 @@ function inspect(){
   'C92 source audit pins latest real product master with C70 C90 C68 merged; C84 also present');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)));
  // C89 quality-only credit: C86 FIXED the REAL 1.0 legacy abono
@@ -1505,7 +1516,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))):0)+(d.id==='business'?(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1)))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))):0)+(d.id==='business'?(isC162?0.8:(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1))))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
@@ -1598,7 +1609,7 @@ function inspect(){
   assert(c115Backend.includes(token),'C115 product strict ACK or stock opId source absent '+token);
  assert(c115UI.includes('_idAjusteCaja')&&c115UI.includes('crypto.randomUUID()'),
   'C115 actual browser stock adjustment opId absent');
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3))))));
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(data.score,100);assert.equal(data.commercialGo.certifiedGates,0);
