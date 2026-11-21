@@ -96,11 +96,11 @@
         id=String(v.promotoraId||v.asociadoNombre||"");
         label=safeName(v.asociadoNombre,lang==="es"?"Sin comisionista asignado":"Unassigned associate");
       } else {id=day.slice(0,7);label=day.slice(0,7)|| (lang==="es"?"Sin fecha":"Undated");}
-      // One receipt may split an exact commission between two people.
+      // One receipt may allocate to a single payee or split between people.
       // Attribute only the money explicitly assigned to each, never give both
       // associates the entire sale or invent a beneficiary for an unknown split.
       var targets=[{id:id||label,label:label,commission:commission,gross:gross}];
-      if(group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>1){
+      if(group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>0){
         targets=v.reparto.map(function(r,i){
           // Backend rows identify seller/assistant by rol; indices are not stable
           // across incoming replays. An explicit payee name takes precedence.
