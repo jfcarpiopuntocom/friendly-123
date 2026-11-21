@@ -10,12 +10,13 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC134=quality.latestReview?.id==='C134';
+ const isC138=quality.latestReview?.id==='C138';
+ const isC134=isC138||quality.latestReview?.id==='C134';
  const isC132=isC134||quality.latestReview?.id==='C132';
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))));
+ const currentQuality=isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)))));
  const currentDurability=isC134?19.3:(isC126?19.2:19.1);
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
@@ -40,7 +41,23 @@ function inspect(){
    assert(qa.includes('C133: a 180-day-old unacknowledged business op stays in S4 across cold opens until its explicit ACK'));
    assert(qa.includes('afterColdOpen.ack(oldSale.id)'));
    assert(src.includes('function mutarOutboxAtomicoSinLocks('));
-   assert.equal(quality.latestReview?.sourceSha,'8c97e908b8e824036c745beee572740afb18eb18');
+   assert.equal((isC138?quality.auditTrail?.find(r=>r.id==='C134'):quality.latestReview)?.sourceSha,'8c97e908b8e824036c745beee572740afb18eb18');
+ }
+ if(isC138){
+   const qa=fs.readFileSync(path.join(root,'test/p0-belen-commissions-all-dates.test.cjs'),'utf8');
+   const app=fs.readFileSync(path.join(root,'src/app/app-inline-01.js'),'utf8');
+   const dash=fs.readFileSync(path.join(root,'src/dashboard/dashboard-main.js'),'utf8');
+   const aHtml=fs.readFileSync(path.join(root,'docs/index.html'),'utf8');
+   const dHtml=fs.readFileSync(path.join(root,'docs/dashboard.html'),'utf8');
+   const release=load('docs/version.json');
+   assert(qa.includes('C136: both published pages load same verified projection and default to all dates'));
+   assert(qa.includes('C136: split commissions are attributed once to each real associate'));
+   assert(app.includes('function selectorRangoComisionesGlobalHtml()'));
+   assert(dash.includes('function pintarComisionesTodas()'));
+   assert(aHtml.includes('./core/commission-history.js'));
+   assert(dHtml.includes('./core/commission-history.js'));
+   assert.equal(release.version,'v0.8.49');
+   assert.equal(quality.latestReview?.sourceSha,'4223a7db5ede522cde51e3319d3c446f541a8047');
  }
  if(isC128){
    const migrationQA=fs.readFileSync(path.join(root,'test/c127-s4-legacy-boundary.test.cjs'),'utf8');
@@ -1373,7 +1390,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC134?0.5:(isC126?0.4:0.3)):0)+(d.id==='business'?0.1:0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC134?0.5:(isC126?0.4:0.3)):0)+(d.id==='business'?(isC138?0.2:0.1):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
