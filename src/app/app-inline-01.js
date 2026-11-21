@@ -3374,12 +3374,16 @@ async function cargarInventario(){
       // Dropdown de motivos estandarizados (idea Omar 2026-07-12) en vez de prompt() libre.
       const motivo = await pedirMotivoAjuste(delta);
       if (!motivo) return;
+      // C111: one stable opId for this user intent, also across CAS rebases.
+      // Older insecure/legacy contexts still use the backward-compatible path.
+      const _idAjusteRapido = typeof crypto !== "undefined" && crypto &&
+        typeof crypto.randomUUID === "function" ? "adj-" + crypto.randomUUID() : "";
       // Microcirugia 8 (2026-07-08): red cortada dejaba el boton como si nada.
       let res8, r8;
       try {
         res8 = await fetch(`${API}/productos/${id}/ajustar`, {
           method:"POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify({ delta, motivo })
+          body: JSON.stringify({ delta, motivo, ...(_idAjusteRapido ? { opId: _idAjusteRapido } : {}) })
         });
         r8 = await res8.json();
       } catch (_) { await ocAlert('Could not adjust stock. Try again.'); return; }
@@ -3402,6 +3406,11 @@ async function cargarInventario(){
         if (!motivo) return;
         body = { delta: elegido.n, motivo };
       }
+      // C111: the quantity box (delta or physical count) is one durable
+      // intent, not a fresh operation on each asynchronous CAS retry.
+      const _idAjusteCaja = typeof crypto !== "undefined" && crypto &&
+        typeof crypto.randomUUID === "function" ? "adj-" + crypto.randomUUID() : "";
+      if (_idAjusteCaja) body.opId = _idAjusteCaja;
       let res, r;
       try {
         res = await fetch(`${API}/productos/${id}/ajustar`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
