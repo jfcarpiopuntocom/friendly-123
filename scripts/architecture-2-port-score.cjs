@@ -10,7 +10,8 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC158=quality.latestReview?.id==='C158';
+ const isC160=quality.latestReview?.id==='C160';
+ const isC158=isC160||quality.latestReview?.id==='C158';
  const isC156=isC158||quality.latestReview?.id==='C156';
  const isC154=isC156||quality.latestReview?.id==='C154';
  const isC152=isC154||quality.latestReview?.id==='C152';
@@ -25,7 +26,7 @@ function inspect(){
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))))))))))))));
+ const currentQuality=isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)))))))))))))));
  const currentDurability=isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1)));
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
@@ -84,6 +85,19 @@ function inspect(){
   assert(src.includes('accumulate(tot,"gross","unknownGross",gross)'));
   assert.equal((isC144?quality.auditTrail?.find(r=>r.id==='C142'):quality.latestReview)?.sourceSha,'05f5b094bf5ebae313ffd464e33bbb2d54a1b3ef');
  }
+ if(isC160){
+   const qa=fs.readFileSync(path.join(root,'test/p0-c159-half-weight-new-photos.test.cjs'),'utf8');
+   const src=fs.readFileSync(path.join(root,'docs/idb-fotos.js'),'utf8');
+   const shelf=fs.readFileSync(path.join(root,'docs/vista-perchas.js'),'utf8');
+   const receipt=fs.readFileSync(path.join(root,'docs/expense-receipt.js'),'utf8');
+   assert(qa.includes('C159 RED: high-fidelity WebP reduces eligible new shelf/receipt'));
+   assert(qa.includes('iOS Safari WebP-encoding fallback safely saves a smaller JPEG'));
+   assert(src.includes('function optimizarCapturaFoto('));
+   assert(src.includes('[0.92, 0.88, 0.84]'));
+   assert(shelf.includes('OCFotos.optimizarCapturaFoto(canvasElegido'));
+   assert(receipt.includes('OCFotos.optimizarCapturaFoto(canvas, data'));
+   assert.equal(quality.latestReview?.sourceSha,'31fa335db591259e971a56177326683f69913e49');
+ }
  if(isC158){
   const qa=fs.readFileSync(path.join(root,'test/idb-adapter-lifecycle.test.cjs'),'utf8');
   const src=fs.readFileSync(path.join(root,'docs/idb-fotos.js'),'utf8');
@@ -91,7 +105,7 @@ function inspect(){
   assert(src.includes('function invalidarSiConexionRota(db, err)'));
   assert(src.includes('invalidarSiConexionRota(db, err);'));
   assert(src.includes('dbActual !== db'));
-  assert.equal(quality.latestReview?.sourceSha,'3a90d2d3139fe0e077bc42422ad4f507296db05e');
+  assert.equal((isC160?quality.auditTrail?.find(r=>r.id==='C158'):quality.latestReview)?.sourceSha,'3a90d2d3139fe0e077bc42422ad4f507296db05e');
  }
  if(isC156){
   const qa=fs.readFileSync(path.join(root,'test/idb-adapter-lifecycle.test.cjs'),'utf8');
@@ -713,7 +727,7 @@ function inspect(){
      'virtual Workerd handoff is not a true PC-iPhone downpath');
    assert.equal(data.commercialGo.certifiedGates,0,'no commercial GO from virtual clients');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no physical devices tested');
-   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,isC158?8.0:(isC156?7.9:7.8));
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,isC160?8.1:(isC158?8.0:(isC156?7.9:7.8)));
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,currentSync);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
@@ -823,7 +837,7 @@ function inspect(){
      'Workerd QA does not replace physical PC to Safari acceptance');
    assert.equal(data.commercialGo.certifiedGates,0,'2.0 QA-only flags do not authorize customer GO');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no physical GO');
-   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,isC158?8.0:(isC156?7.9:7.8));
+   assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,isC160?8.1:(isC158?8.0:(isC156?7.9:7.8)));
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
@@ -1457,7 +1471,7 @@ function inspect(){
  assert(c90Qa.includes('exact Firebase REST array form of /k'),'C92 C90 authentic Firebase type QA absent');
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
- assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,isC158?8.0:(isC156?7.9:7.8));
+ assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,isC160?8.1:(isC158?8.0:(isC156?7.9:7.8)));
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,currentMigration);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
@@ -1491,7 +1505,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))):0)+(d.id==='business'?(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1)))))):0)+(d.id==='photos'?(isC158?0.2:(isC156?0.1:0)):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))):0)+(d.id==='business'?(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1)))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
