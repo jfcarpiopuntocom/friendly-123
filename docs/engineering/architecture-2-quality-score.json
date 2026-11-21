@@ -7,7 +7,7 @@
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 82,
+  "score": 82.1,
   "maximum": 100,
   "dimensions": [
     {
@@ -29,9 +29,9 @@
     {
       "id": "sync",
       "weight": 20,
-      "score": 16.2,
+      "score": 16.3,
       "previous": 15.9,
-      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head. C106 independent post-C92 source/QA audit: C99 existing Safari foreground runtime re-arms guarded C21a 2.0 after C94 failback; real browser-source test, no unguarded legacy second writer. +0.1 engineering quality only, GO and physical unchanged. C109 source-tested in PR #918 merged v0.8.33: committed-count path reuses verified epoch and catalog, publishes only selected product in original Y.Doc transaction instead of sales/photos/PIN/finance fanout. RED32/34, GREEN34/34 stock-focused, 63/63 full GHA; synthetic source VM 4201 map writes before versus 1 after, not physical Safari wallclock evidence. +0.1 independently earned Sync engineering quality, distinct from C106 foreground recovery. C129 PR #951 merged master 6ca3ecb044ddf92a1c1021787bca55e99834b2b3: S4 global deferred legacy >512/>8MiB no longer rejects new current writes; preserves strict atomic IDB failure block. Source-extracted RED/GREEN C129 regression, 64/64 exact-head workflows GREEN. +0.1 sync correctness only; no physical commercial evidence claimed.",
+      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head. C106 independent post-C92 source/QA audit: C99 existing Safari foreground runtime re-arms guarded C21a 2.0 after C94 failback; real browser-source test, no unguarded legacy second writer. +0.1 engineering quality only, GO and physical unchanged. C109 source-tested in PR #918 merged v0.8.33: committed-count path reuses verified epoch and catalog, publishes only selected product in original Y.Doc transaction instead of sales/photos/PIN/finance fanout. RED32/34, GREEN34/34 stock-focused, 63/63 full GHA; synthetic source VM 4201 map writes before versus 1 after, not physical Safari wallclock evidence. +0.1 independently earned Sync engineering quality, distinct from C106 foreground recovery. C129 PR #951 merged master 6ca3ecb044ddf92a1c1021787bca55e99834b2b3: S4 global deferred legacy >512/>8MiB no longer rejects new current writes; preserves strict atomic IDB failure block. Source-extracted RED/GREEN C129 regression, 64/64 exact-head workflows GREEN. +0.1 sync correctness only; no physical commercial evidence claimed. C131 PR #953 merged 8e7c97019d3713c48eefb01066cd9bc5ea4ea0b8: S4 first-transient IndexedDB null and metadata-read failure reattempted on next current write without page reload, retained strict ACK and deliberate legacy fallback, two source-executed regression tests, 64/64 CI exact head. +0.1 sync for current-write availability, no retrospective recovery credit.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/918"
     },
     {
@@ -194,25 +194,30 @@
       "review": "2026-11-21 C130 C129 S4 forward-writes unblock source fix PR951 64/64 CI; +0.1 sync original100, PORT100, physical0/5, GO0/6 unchanged.",
       "score": 82,
       "source": "friendly-123 @ 6ca3ecb044ddf92a1c1021787bca55e99834b2b3"
+    },
+    {
+      "review": "2026-11-21 C132 C131 S4 transient IDB startup retry source fix #953 64/64 CI; +0.1 sync, PORT100, physical0/5, GO0/6 unchanged.",
+      "score": 82.1,
+      "source": "friendly-123 @ 8e7c97019d3713c48eefb01066cd9bc5ea4ea0b8"
     }
   ],
   "lastAuditedProductSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
   "latestReview": {
-    "id": "C130",
+    "id": "C132",
     "date": "2026-11-21",
-    "baseline": 81.9,
-    "score": 82,
+    "baseline": 82,
+    "score": 82.1,
     "delta": 0.1,
-    "sourceSha": "6ca3ecb044ddf92a1c1021787bca55e99834b2b3",
-    "method": "Original100 rubric unchanged: +0.1 sync source fix to restore current writes for S4 deferred legacy outbox while maintaining strict atomic-IDB failure block. 64/64 CI on PR #951 exact head. No historical rescue, no new hardware gate, no physical/commercial claim.",
+    "sourceSha": "8e7c97019d3713c48eefb01066cd9bc5ea4ea0b8",
+    "method": "Fixed original100 rubric: +0.1 sync for C131 source-corrected S4 opening transients. A first IDB null or metadata-read failure no longer remains memoized for the session; next real write retries IDB, and verified ACK barrier still blocks false success. PR953 merged into master, 64/64 exact-head CI green. No historical rescue, no new migration scope, no physical device claim.",
     "evidence": [
       {
         "dimension": "sync",
         "delta": 0.1,
-        "pr": 951,
-        "sourceSha": "6ca3ecb044ddf92a1c1021787bca55e99834b2b3",
+        "pr": 953,
+        "sourceSha": "8e7c97019d3713c48eefb01066cd9bc5ea4ea0b8",
         "qa": "test/c127-s4-legacy-boundary.test.cjs",
-        "why": "Real production mutator source execution verifies deferred legacy writes succeed and nondeferred missing IDB rejects; production v846 pending live verification."
+        "why": "Two new source-executed tests cover delayed first IndexedDB open and transient metadata failure, followed by success in same session without reload. Requires preserving _v2DeferredLegacy and ACK barrier."
       }
     ],
     "physicalAcceptance": {
@@ -474,6 +479,29 @@
           "sourceSha": "6ca3ecb044ddf92a1c1021787bca55e99834b2b3",
           "qa": "test/c127-s4-legacy-boundary.test.cjs",
           "why": "Real production mutator source execution verifies deferred legacy writes succeed and nondeferred missing IDB rejects; production v846 pending live verification."
+        }
+      ],
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6"
+      }
+    },
+    {
+      "id": "C132",
+      "date": "2026-11-21",
+      "baseline": 82,
+      "score": 82.1,
+      "delta": 0.1,
+      "sourceSha": "8e7c97019d3713c48eefb01066cd9bc5ea4ea0b8",
+      "method": "Fixed original100 rubric: +0.1 sync for C131 source-corrected S4 opening transients. A first IDB null or metadata-read failure no longer remains memoized for the session; next real write retries IDB, and verified ACK barrier still blocks false success. PR953 merged into master, 64/64 exact-head CI green. No historical rescue, no new migration scope, no physical device claim.",
+      "evidence": [
+        {
+          "dimension": "sync",
+          "delta": 0.1,
+          "pr": 953,
+          "sourceSha": "8e7c97019d3713c48eefb01066cd9bc5ea4ea0b8",
+          "qa": "test/c127-s4-legacy-boundary.test.cjs",
+          "why": "Two new source-executed tests cover delayed first IndexedDB open and transient metadata failure, followed by success in same session without reload. Requires preserving _v2DeferredLegacy and ACK barrier."
         }
       ],
       "physicalAcceptance": {
