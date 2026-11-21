@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "C110 current source-backed QA architecture quality audit score 81.4/100; fixed weights, compared to original C106 baseline 80.4; C109 Sync +0.1 preserved separately. Increment +0.1 durability only for PR #925 v0.8.34 (RED duplicate −1 after ambiguous IndexedDB CAS ACK; GREEN one durable movement). PORT 100.0 measures assembled code only, not commercial GO; no real field HEAD, PC↔Safari A→B→A, or business GO claimed. Cloudflare dashboard redirect PR #926 v0.8.35 is NOT separately scored. Live customer data and historical state were not mutated during QA.",
-  "assessedProductSha": "c6d5120cf3cbfbaef0639fee64d1d6bec663ed61",
+  "assessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
   "history": [
     {
       "review": "2026-11-17",
