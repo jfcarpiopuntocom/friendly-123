@@ -243,6 +243,52 @@
           "qaFlagsEnabled": 6,
           "notCommercialProduction": true
         }
+      },
+      "auditSnapshot": {
+        "score": 81.2,
+        "comparison": {
+          "previousScore": 80.4,
+          "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
+          "previousReviewedDate": "2026-11-20"
+        },
+        "dimensions": [
+          {
+            "id": "business",
+            "score": 19.2,
+            "previous": 19
+          },
+          {
+            "id": "durability",
+            "score": 18.8,
+            "previous": 18.7
+          },
+          {
+            "id": "sync",
+            "score": 16,
+            "previous": 15.9
+          },
+          {
+            "id": "security",
+            "score": 11.2,
+            "previous": 11.1
+          },
+          {
+            "id": "photos",
+            "score": 7.8,
+            "previous": 7.8
+          },
+          {
+            "id": "migration",
+            "score": 8.2,
+            "previous": 7.9
+          },
+          {
+            "id": "physical",
+            "score": 0,
+            "previous": 0
+          }
+        ],
+        "lastAuditedProductSha": "76a31d7aa25c7542b0bfdfdf1018ee71b6554a99"
       }
     }
   ],
