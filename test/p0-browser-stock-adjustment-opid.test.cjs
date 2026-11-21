@@ -16,7 +16,7 @@ function movements(s,opId=OP){return (s.movimientos||[]).filter(m=>m&&m.detalle&
 test('C111 RED: exact same manual adjustment opId is idempotent across HTTP retries, including after a durable save',async()=>{
  const w=browser();
  w.localStorage.setItem('f123_device_id','synthetic-C111-writer');
- let sends=0;w.OCSyncEmit=(tipo,payload)=>{if(tipo==='ajuste'&&payload?.opId===OP)sends++;return true;};
+ const sends=[];w.OCSyncEmit=(tipo,payload)=>{if(tipo==='ajuste'&&payload?.opId===OP)sends.push(clone(payload));return true;};
  const before=await read(w), prior=product(before);
  const one=await post(w,-1); assert.equal(one.status,200);
  const mid=await read(w);
@@ -30,7 +30,8 @@ test('C111 RED: exact same manual adjustment opId is idempotent across HTTP retr
  assert.equal(product(after).stockActual,prior.stockActual-1,'one -1 is exactly one stock change');
  assert.equal(after.movimientos.length,mid.movimientos.length,'no second signed movement');
  assert.equal(movements(after).length,1);
- assert.equal(sends,1,'a previously acknowledged action must not emit another stock fact');
+ assert.equal(sends.length,2,'a replay is permitted to republish its original exact opId for recovery');
+ assert.deepEqual(sends[1],sends[0],'republish is byte-equivalent stock fact, never a new PN effect');
 });
 
 test('C111 RED: reusing a durable adjustment opId for another amount is a 409, with zero new effects',async()=>{
@@ -68,4 +69,28 @@ test('C111 RED: CAS commit actually persisted but ACK was false: transparent reb
  assert.equal(movements(disk).length,1,'same operation has exactly one signed fact');
  assert.equal(attempts,1,'idempotent rebase needs no second strict commit');
  assert.ok(sends<=1,'same opId is never published as two distinct movements');
+});
+
+test('C111 browser quantity box supplies one stable cryptographic opId to the actual POST',async()=>{
+ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+ const ui=fs.readFileSync(path.join(__dirname,'../src/app/app-inline-01.js'),'utf8');
+ const a=ui.indexOf('  async function ajustarConCajita(id) {'),b=ui.indexOf('  // Estrella:',a);
+ assert.ok(a>0&&b>a,'must test actual product source');
+ const sent=[];
+ const ctx={
+   crypto:{randomUUID:()=> '11111111-2222-4333-8444-555555555555'},
+   API:'/api',JSON,Promise,
+   t:key=>key,
+   pedirCantidadStock:async()=>({modo:'agregar',n:4}),
+   pedirMotivoAjuste:async()=> 'synthetic counted addition',
+   fetch:async(url,opts)=>{sent.push({url,body:JSON.parse(opts.body)});return {ok:true,json:async()=>({})};},
+   ocAlert:async()=>{throw Error('unexpected alert')},
+   cargarInventario:async()=>{}
+ };
+ vm.runInNewContext(ui.slice(a,b)+'\\nthis.run=ajustarConCajita;',ctx);
+ await ctx.run('p24');
+ assert.equal(sent.length,1);
+ assert.equal(sent[0].url,'/api/productos/p24/ajustar');
+ assert.equal(sent[0].body.delta,4);
+ assert.equal(sent[0].body.opId,'adj-11111111-2222-4333-8444-555555555555');
 });
