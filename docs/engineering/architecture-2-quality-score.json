@@ -7,7 +7,7 @@
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 81.2,
+  "score": 81.3,
   "maximum": 100,
   "dimensions": [
     {
@@ -29,10 +29,10 @@
     {
       "id": "sync",
       "weight": 20,
-      "score": 16,
+      "score": 16.1,
       "previous": 15.9,
-      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head. C106 independent post-C92 source/QA audit: C99 existing Safari foreground runtime re-arms guarded C21a 2.0 after C94 failback; real browser-source test, no unguarded legacy second writer. +0.1 engineering quality only, GO and physical unchanged.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/906"
+      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head. C106 independent post-C92 source/QA audit: C99 existing Safari foreground runtime re-arms guarded C21a 2.0 after C94 failback; real browser-source test, no unguarded legacy second writer. +0.1 engineering quality only, GO and physical unchanged. C109 independent source-backed #918 merged v0.8.33: a committed manual physical count now writes only its confirmed product within existing Yjs transaction, reuses already validated catalog instead of second read, leaves sales, customer metadata, photos and financial Yjs maps untouched, and preserves scheduled full seed; RED 2 failures/34 and GREEN 34/34 on real source, 4,201→1 synthetic map writes on 2,400-product fixture, published live smoke SUCCESS. +0.1 Sync engineering efficiency and isolation ONLY; no physical phone claim.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/918"
     },
     {
       "id": "security",
@@ -67,7 +67,7 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C106 current merged product source-based engineering quality audit 80.4→81.2, weighted 100 unchanged. Supports 8 distinct post-C92 engineering properties validated by existing tests and verified active QA Worker bindings. PORT 100.0 measures assembled code only; field-owned Firebase HEAD and PC-Safari acceptance unverified, commercial GO0/6, physical0/5. No automatic credit from PR #914/#915 score-only edits, and no credit for reverted deferred compaction.",
+  "disclaimer": "C109 current 81.3/100 source-reviewed engineering quality; current published v0.8.33 real product C108 reduces synchronous Yjs map fanout. C106 80.4→81.2 historical source audit preserved as priorReview; +0.1 only for new C108 property. Implementation PORT100.0 already complete, independent. No new GO certification: Firebase live external and physical PC↔Safari unresolved; GO0/6 physical0/5. Evidence SHA pins source, not a promise of measured iPhone performance.",
   "assessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
   "history": [
     {
@@ -164,10 +164,40 @@
       "review": "2026-11-20 immediately before C106 post-C92 re-audit",
       "score": 80.4,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99"
+    },
+    {
+      "review": "2026-11-20 before C109 verified stock-specific Yjs seed",
+      "score": 81.2,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ c13b449c40ad249fdaca6ed6ff668358848d54a2"
     }
   ],
-  "lastAuditedProductSha": "76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
+  "lastAuditedProductSha": "c13b449c40ad249fdaca6ed6ff668358848d54a2",
   "latestReview": {
+    "id": "C109",
+    "date": "2026-11-20",
+    "baseline": 81.2,
+    "score": 81.3,
+    "delta": 0.1,
+    "sourceSha": "c13b449c40ad249fdaca6ed6ff668358848d54a2",
+    "method": "Separate source-backed quality increment for materially lower synchronous catalog/Yjs fanout on a confirmed physical count. Real C108 RED->GREEN test and actual v0.8.33 publication/smoke passed; physical Safari and GO independently remain unverified.",
+    "evidence": [
+      {
+        "dimension": "sync",
+        "delta": 0.1,
+        "pr": 918,
+        "qa": "test/p0-c108-one-product-physical-seed.test.cjs",
+        "why": "C108 source-backed single-product Yjs committed count reuses verified catalog, avoids unneeded full-shop Yjs writes; ordinary scheduled seed preserved; RED 32/34 then GREEN 34/34; v833 live deployment and smoke success."
+      }
+    ],
+    "release": {
+      "version": "v0.8.33",
+      "sha": "c13b449c40ad249fdaca6ed6ff668358848d54a2",
+      "workflow": "https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44860027895",
+      "status": "success",
+      "scope": "synthetic QA + published live smoke, NOT real Safari device"
+    }
+  },
+  "priorReview": {
     "id": "C106",
     "date": "2026-11-20",
     "baseline": 80.4,
