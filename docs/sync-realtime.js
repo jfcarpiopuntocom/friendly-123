@@ -678,18 +678,21 @@
         if (op && op.tipo === TIPO_SNAPSHOT_PEDIDO) { if (window.OCSyncWatchdog) window.OCSyncWatchdog.responderSnapshot(op); return; }
         if (op && op.tipo === TIPO_SNAPSHOT_TROZO)  { if (window.OCSyncWatchdog) window.OCSyncWatchdog.acumularSnapshot(op); return; }
         if (op._salaOrigen && !opDeEsteCuaderno(op)) return;
-        registrarEnLog(op);
+        // The legacy catch-up vector is built from this log. A failed causal
+        // stock CAS is NOT a fact we know; do not advance its vector before ACK.
+        const requirePnCommit = !!(op && op.payload && op.payload.stockPNHecho &&
+            window.OCYjs && window.OCYjs.esLicenciaPruebaJfc);
+        if (!requirePnCommit) registrarEnLog(op); // historical nonpilot path unchanged
         let aplicarResultado;
         if (window.OCSync && window.OCSync.aplicarOpRemota)
           aplicarResultado = window.OCSync.aplicarOpRemota(op);
-        // C118: the pilot PN receiver is async and its provisional opId is not
-        // a durable peer receipt. Do not announce/ACK until the same CAS commits.
-        if (op && op.payload && op.payload.stockPNHecho &&
-            window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+        // C118: provisional opId in RAM is never a durable receipt or UI event.
+        if (requirePnCommit) {
           const accepted = await Promise.resolve(aplicarResultado).catch(() => null);
-          if (!accepted || accepted.ok !== true) return; // retained in log for retry
+          if (!accepted || accepted.ok !== true) return; // sender can replay on catch-up
           if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
               codigoCuadernoActivo() !== codigoNorm) return;
+          registrarEnLog(op); // only applied PN advances the legacy known vector
         }
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
         if (ev.peerReceipt && op && op.opId === ev.peerReceipt.id &&
