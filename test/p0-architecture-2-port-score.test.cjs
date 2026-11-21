@@ -525,3 +525,27 @@ test('C106 post-C92 engineering quality is source-backed 81.2, independent of PO
  }
  assert.equal(inspect().quality,81.2);
 });
+
+
+test('C109 RED current source-backed Sync3 performance review must no longer remain 81.2',()=>{
+ const root=path.resolve(__dirname,'..');
+ const quality=JSON.parse(fs.readFileSync(path.join(root,'docs/engineering/architecture-2-quality-score.json'),'utf8'));
+ const port=JSON.parse(fs.readFileSync(path.join(root,'docs/engineering/architecture-2-port-score.json'),'utf8'));
+ assert.equal(port.score,100);
+ assert.equal(quality.score,81.3,'C108 merged functional improvement must increment quality by exactly 0.1');
+ assert.equal(quality.dimensions.find(x=>x.id==='sync').score,16.1);
+ assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(quality.latestReview?.id,'C109');
+ assert.equal(quality.latestReview?.sourceSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(quality.latestReview?.delta,0.1);
+ assert.equal(quality.priorReview?.id,'C106');
+ assert.equal(quality.dimensions.find(x=>x.id==='physical').score,0);
+ assert.equal(port.commercialGo.certifiedGates,0);
+ const source=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+ const qa=fs.readFileSync(path.join(root,'test/p0-c108-one-product-physical-seed.test.cjs'),'utf8');
+ for(const token of ['var soloProductoId = arguments[0]','var catalogoConfirmado = arguments[1]','sembrar(productoId, cat);'])
+  assert(source.includes(token),'C109 must show source-backed counted-product fast path');
+ assert(qa.includes('C108 RED: committed count seeds strictly one product'));
+ assert(qa.includes('ordinary scheduled full seed remains unchanged'));
+ assert.equal(inspect().quality,81.3);
+});
