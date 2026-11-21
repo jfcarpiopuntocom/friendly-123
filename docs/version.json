@@ -1,7 +1,7 @@
 {
   "version": "v0.8.42",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.42 ligereza: las ventas y ajustes recibidos de otros aparatos quedan anotados en el mismo guardado y ya no se vuelven a aplicar en cada arranque. Sin cambios de datos.",
+  "changelog": "v0.8.42 ligereza: la cola vieja de envios (cientos de MB) ya no se reescribe entera con la app quieta, y las ventas y ajustes recibidos de otros aparatos quedan anotados en el mismo guardado y ya no se vuelven a aplicar en cada arranque. Sin cambios de datos.",
   "requerida": false,
   "shell": "f123-shell-v842",
   "apagar": [],
