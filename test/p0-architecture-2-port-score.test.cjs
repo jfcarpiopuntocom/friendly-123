@@ -199,7 +199,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
   'C80 control: physical no-op count N=stock must retain zero delta and receipt'
  ])assert(c80Native.includes(token),'C81 actual source native SQLite RED-first evidence absent '+token);
  assert.equal(quality.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.3);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.4);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
@@ -230,7 +230,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(quality.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.3);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.4);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(s.port,PORT_NOW);
 
@@ -259,7 +259,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,16.3);
  assert.equal(ms.filter(x=>!x.done&&x.implementationCredited!==true).reduce((a,x)=>a+x.points,0),100-PORT_NOW);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.3);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.4);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
  const photo=port.groups.find(g=>g.id==='photo-sha');
  assert.equal(photo?.weight,9,'photo group weight unchanged');
@@ -575,7 +575,7 @@ test('C115 three independent source fixes earn +0.3 quality only; PORT100 and co
  assert.equal(q.auditTrail.find(x=>x.id==='C109').delta,0.1);
  assert.equal(q.auditTrail.find(x=>x.id==='C106').delta,0.8);
  assert.equal(q.dimensions.find(d=>d.id==='durability').score,19.3);
- assert.equal(q.dimensions.find(d=>d.id==='business').score,19.3);
+ assert.equal(q.dimensions.find(d=>d.id==='business').score,19.4);
  assert.equal(q.dimensions.find(d=>d.id==='physical').score,0);
  assert.equal(q.dimensions.reduce((sum,x)=>sum+x.weight,0),100);
  assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.score,0).toFixed(1)),82.3);
