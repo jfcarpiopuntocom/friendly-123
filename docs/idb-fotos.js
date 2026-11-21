@@ -107,6 +107,56 @@
     return promise;
   }
 
+  /* JFC C159: half-weight NEW capture policy, quality-first and fail-open.
+     Compare codecs on the SAME canvas pixels. WebP q>=0.84 may deliver
+     <=50% JPEG bytes without downscaling or transcoding a previously saved
+     image. If the browser does not encode WebP, retain the original JPEG.
+     The content SHA is computed by callers AFTER this choice, so relay/IDB
+     keep their existing byte-verified contracts. Never rewrite old photos. */
+  function optimizarCapturaFoto(canvas, jpegDataUrl, maxDataUrlChars = 180000, options = {}) {
+    if (!canvas || typeof canvas.toDataURL !== "function" ||
+        typeof jpegDataUrl !== "string" ||
+        !/^data:image\/jpeg;base64,/.test(jpegDataUrl)) return jpegDataUrl;
+    const cap = Number.isFinite(maxDataUrlChars) && maxDataUrlChars > 0
+      ? Math.floor(maxDataUrlChars) : 180000;
+    const target = Math.floor(jpegDataUrl.length * 0.50);
+    let best = jpegDataUrl;
+    // Stop at the HIGHEST encoding quality reaching 50%; never exceed relay
+    // frame margin or fall below WebP quality 0.84 to chase a byte target.
+    for (const q of [0.92, 0.88, 0.84]) {
+      let candidate;
+      try { candidate = canvas.toDataURL("image/webp", q); }
+      catch (_) { break; }
+      // Safari or older engines may return PNG if WebP ENCODING is unsupported.
+      if (typeof candidate !== "string" ||
+          !/^data:image\/webp;base64,/.test(candidate)) break;
+      if (candidate.length > cap) continue;
+      if (candidate.length <= target) return candidate;
+      // If half is not reachable at safe fidelity, preserve the first
+      // high-quality saving unless a lower tier saves at least 20% more.
+      if (candidate.length < best.length &&
+          (best === jpegDataUrl || candidate.length <= best.length * 0.80))
+        best = candidate;
+    }
+    // Safari on iPhone currently does not reliably ENCODE WebP from canvas:
+    // it can silently return PNG. A small same-pixel JPEG improvement is still
+    // possible, but never chase 50% by ruining a legible receipt or photo.
+    const sourceQuality = Number(options.jpegQuality);
+    const minQuality = Number(options.jpegFloor);
+    if (best === jpegDataUrl && Number.isFinite(sourceQuality) &&
+        Number.isFinite(minQuality) && sourceQuality > minQuality && minQuality >= 0.72) {
+      const nextQuality = Math.max(minQuality, sourceQuality - 0.08);
+      try {
+        const candidate = canvas.toDataURL("image/jpeg", nextQuality);
+        if (typeof candidate === "string" &&
+            /^data:image\/jpeg;base64,/.test(candidate) &&
+            candidate.length <= cap && candidate.length <= best.length * 0.90)
+          best = candidate;
+      } catch (_) { /* Keep the proven JPEG / WebP fallback. */ }
+    }
+    return best;
+  }
+
   // --- Direccionamiento por contenido (SHA-256) ---
   function _dataUrlABytes(dataUrl) {
     const i = String(dataUrl).indexOf(",");
@@ -635,6 +685,6 @@
     soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
     hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, tieneHashSoloIdb, hashesGuardados, leerTodosPorHash, guardarFotoContenido,
-    tieneFotoHashConfirmadoEnIdb
+    tieneFotoHashConfirmadoEnIdb, optimizarCapturaFoto
   };
 })();
