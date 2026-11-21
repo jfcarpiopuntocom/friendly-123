@@ -211,6 +211,13 @@ function _ocVentaIntentoConfirmado(intent) {
     if (current && current.opId === intent.opId) localStorage.removeItem(intent.key);
   } catch (_) {}
 }
+// C146 P0: HTTP 200 alone is not evidence of a durable economic receipt.
+// The backend returns both the SAME opId and a sale ID after strict commit.
+// Keep the intent for an idempotent retry whenever either is missing.
+function _ocVentaReciboVerificado(data,intento) {
+  return !!(data && intento && data.opId === intento.opId &&
+    typeof data.ventaId === "string" && data.ventaId.trim());
+}
 let _sellando = false;
 async function sellarVenta() {
   if (_sellando) return;
@@ -240,8 +247,10 @@ async function _sellarVentaInterno() {
         body: JSON.stringify({ ...ventaDatos, opId: intento.opId })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Unknown error");
-      if (data.opId === intento.opId && data.ventaId) _ocVentaIntentoConfirmado(intento);
+      if (!res.ok) throw new Error((data && data.error) || "Unknown error");
+      if (!_ocVentaReciboVerificado(data,intento))
+        throw new Error("Sale receipt not verified. Check Sold before retrying this same operation.");
+      _ocVentaIntentoConfirmado(intento);
       hechas.push(l);
     } catch (err) {
       // Corte honesto: lo que ya se sello queda sellado (no se revierte),
@@ -4823,8 +4832,12 @@ async function venderUno(id){
       return;
     }
     const data = await res.json();
-    if (!res.ok){ await ocAlert(data.error); return; }
-    if (data.opId === intento.opId && data.ventaId) _ocVentaIntentoConfirmado(intento);
+    if (!res.ok){ await ocAlert(data && data.error || "Sale could not be saved."); return; }
+    if (!_ocVentaReciboVerificado(data,intento)) {
+      await ocAlert("Sale receipt not verified. Check Sold before retrying this same operation.");
+      return;
+    }
+    _ocVentaIntentoConfirmado(intento);
     pintarFicha(data.producto);
     if (data.ventaId) mostrarToastAnular(data.ventaId, id);
     // Túnel reactivo (JFC 2026-09-04): refresca en vivo ranking de comisionistas
@@ -5350,8 +5363,12 @@ async function confirmarVentaConInfo(id, esTicket){
         body: JSON.stringify({ ...ventaDatos, opId: intento.opId })
       });
       data = await res.json();
-      if (res.ok && data.opId === intento.opId && data.ventaId)
-        _ocVentaIntentoConfirmado(intento);
+      if (res.ok && !_ocVentaReciboVerificado(data,intento)) {
+        msg.style.color = "var(--rojo-ink,#a3392a)";
+        msg.textContent = "Sale receipt not verified. Check Sold before retrying this same operation.";
+        return;
+      }
+      if (res.ok) _ocVentaIntentoConfirmado(intento);
     } catch (err) {
       console.error("[confirmarVentaConInfo]", err);
       msg.style.color = "var(--rojo-ink,#a3392a)"; msg.textContent = "Could not reach the server. The sale was NOT recorded.";
