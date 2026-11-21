@@ -6198,7 +6198,17 @@
           if (instanceId !== owner || (notebook && current !== notebook) || currentShop !== shop)
             return { ok: false, error: "notebook-changed-while-pending" };
           if (_conflictoEstadoAB) return { ok: false, error: "Conflicting saved copies" };
-          return window.OCSync.aplicarOpRemota(op, _pnReceiverToken);
+          const saved = await window.OCSync.aplicarOpRemota(op, _pnReceiverToken);
+          // C119: the active shop might switch DURING the strict CAS itself.
+          // The original commit may be durable for A, but B must never ACK it.
+          let afterNotebook = "", afterShop = "";
+          try {
+            afterNotebook = String(window.OCTienda?.cuadernoId?.() || "");
+            afterShop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+          } catch (_) {}
+          if (instanceId !== owner || (notebook && afterNotebook !== notebook) || afterShop !== shop)
+            return { ok: false, error: "notebook-changed-during-commit" };
+          return saved;
         });
         _pnReceiverPending.set(key, work);
         _pnReceiverTail = work.then(() => {}, () => {});
