@@ -26,6 +26,9 @@ for (const [label,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
           return origFetch(url,...args);
         };
         window.marcarComisionPagada=(rack,name,due,id)=>{window.__c100Payments.push({rack,name,due,id})};
+        const vista=document.getElementById('vista-comisiones');
+        vista.hidden=false;vista.style.display='block';vista.classList.add('activa');
+        const gate=document.getElementById('puerta');if(gate)gate.style.display='none';
         const cont=document.getElementById('listaComisiones');
         cont.innerHTML='<div data-commissions-toolbar><label>Month <select data-commissions-month><option value="2026-11">November</option></select></label><div role="tablist"><button data-commissions-view="product" aria-selected="true" role="tab">Product</button><button data-commissions-view="rack" aria-selected="false" role="tab">Rack</button></div></div><section id="comm-panel-product" data-commissions-section="by-product"></section><section id="comm-panel-rack" data-commissions-section="by-rack-event" hidden></section>';
         cont.querySelector('[data-commissions-view="rack"]').addEventListener('click',()=>window.cambiarVistaComisiones('rack'));
