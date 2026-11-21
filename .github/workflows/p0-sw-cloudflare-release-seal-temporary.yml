@@ -1,0 +1,52 @@
+name: TEMP candidate P0 SW v834 official manifest seal
+on:
+  pull_request:
+    paths:
+      - "docs/version.json"
+      - "docs/sw.js"
+      - "docs/dashboard.html"
+      - ".github/workflows/p0-sw-cloudflare-release-seal-temporary.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: temp-sw834-seal
+  cancel-in-progress: true
+
+jobs:
+  seal-candidate:
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/p0-sw-cloudflare-redirected-navigation-20261120'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/p0-sw-cloudflare-redirected-navigation-20261120
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install exact dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Verify existing official build artifacts and generate SHA-256 manifest
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node --test test/p0-sw-cloudflare-redirected-navigation.test.cjs
+          node scripts/release-control.cjs validate origin/master
+      - name: Commit ONLY officially generated manifest on candidate
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version-manifest.json docs/sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m "build(v834): seal exact candidate assets with official manifest generator"
+            git push origin HEAD:refs/heads/fix/p0-sw-cloudflare-redirected-navigation-20261120
+          fi
