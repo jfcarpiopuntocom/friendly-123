@@ -116,7 +116,7 @@
   function optimizarCapturaFoto(canvas, jpegDataUrl, maxDataUrlChars = 180000) {
     if (!canvas || typeof canvas.toDataURL !== "function" ||
         typeof jpegDataUrl !== "string" ||
-        !/^data:image\\/jpeg;base64,/.test(jpegDataUrl)) return jpegDataUrl;
+        !/^data:image\/jpeg;base64,/.test(jpegDataUrl)) return jpegDataUrl;
     const cap = Number.isFinite(maxDataUrlChars) && maxDataUrlChars > 0
       ? Math.floor(maxDataUrlChars) : 180000;
     const target = Math.floor(jpegDataUrl.length * 0.50);
@@ -129,7 +129,7 @@
       catch (_) { break; }
       // Safari or older engines may return PNG if WebP ENCODING is unsupported.
       if (typeof candidate !== "string" ||
-          !/^data:image\\/webp;base64,/.test(candidate)) break;
+          !/^data:image\/webp;base64,/.test(candidate)) break;
       if (candidate.length > cap) continue;
       if (candidate.length <= target) return candidate;
       // If half is not reachable at safe fidelity, preserve the first
