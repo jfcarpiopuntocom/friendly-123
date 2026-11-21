@@ -6748,6 +6748,17 @@
       _recargarSiOtraPestanaEscribio();
       if (_conflictoEstadoAB) return new Response(JSON.stringify({error:"Conflicting saved copies; no change was made."}),{status:507,headers:{"Content-Type":"application/json"}});
       let revisionAntes = _localRev; // capture before a foreign storage event can advance our revision
+      // P0 v834: a manual +/-N delta gets ONE stable opId before its first attempt, so the CAS
+      // rebase below can tell "already committed" from "refused" and never applies it twice.
+      let _opIdDelta = "";
+      if (ajusteDeltaConcurrente) {
+        try {
+          const b0 = JSON.parse((opts && opts.body) || "{}");
+          if (typeof b0.opId !== "string" || !/^[A-Za-z0-9_-]{8,96}$/.test(b0.opId.trim())) b0.opId = uuid("adj-");
+          _opIdDelta = b0.opId.trim();
+          opts = Object.assign({}, opts, { body: JSON.stringify(b0) });
+        } catch (_) { _opIdDelta = ""; }
+      }
       let primero = await _fetchInterno(url,opts);
       // v755: up to 3 local rebases (was 1). Each one only against a NEWER durable revision
       // than the previous attempt, so it can never apply the same sale twice.
@@ -6811,6 +6822,12 @@
       _localRevReservado = Math.max(_localRevReservado, _localRev);
       _estadoPublicableConfirmado = _huellaPublicable();
       revisionAntes = _localRev;
+      // The newer durable notebook already holds THIS delta (first attempt committed but was
+      // reported unconfirmed): adopt it and answer with the product, never re-apply.
+      if (_opIdDelta && movimientos.some(mv => mv && mv.detalle && mv.detalle.opId === _opIdDelta)) {
+        try { return await _fetchInterno(String(typeof url === "string" ? url : url.url).replace(/\/ajustar$/, ""), { method: "GET" }); }
+        catch (_) { return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "Content-Type": "application/json" } }); }
+      }
       primero = await _fetchInterno(url,opts);
       }
       return primero;
@@ -8283,7 +8300,7 @@
             ? body.opId.trim() : uuid("adj-");
           const op = { productoId: p.id, delta: d, stockNuevo: p.stockActual, opId: _opIdAjuste };
           if (fisico === null) _prepararOpStock(op);
-          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
+          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId), opId: _opIdAjuste }, false);
           try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
           if (!guardado) {
             revertir();
