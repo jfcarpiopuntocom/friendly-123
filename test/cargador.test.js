@@ -132,3 +132,23 @@ test('version.json remoto inalcanzable: todo local, falla abierta', async () => 
   assert.deepEqual(insertados.map((s) => s.src), LISTA);
   assert.match(ctx.OCCargador.texto(), /held: remote version.json unreachable/);
 });
+
+
+test('C158: optional inspector script transient local cache failure gets one fresh retry in order', async () => {
+  const { ctx, insertados } = armar({ falla: (s) => s === './inspector-ui.js' });
+  const e = await ctx.OCCargador.cargar(['./inspector-ui.js', './edutips.js']);
+  assert.equal(e.error, '', 'successful fresh retry must not claim script missing');
+  assert.equal(insertados.length, 3);
+  assert.equal(insertados[0].src, './inspector-ui.js');
+  assert.match(insertados[1].src, /^\.\/inspector-ui\.js\?f123_retry=\d+$/);
+  assert.equal(insertados[2].src, './edutips.js', 'later dependency still loads after inspector');
+  assert.deepEqual(Array.from(e.cargados, x => x.archivo), ['./inspector-ui.js', './edutips.js']);
+});
+test('C158: optional script permanent 404 retries exactly once, reports accurate EN diagnostic and keeps app loading', async () => {
+  const { ctx, insertados } = armar({ falla: (s) => s.startsWith('./inspector-ui.js') });
+  const e = await ctx.OCCargador.cargar(['./inspector-ui.js', './edutips.js']);
+  assert.equal(insertados.length, 3, 'no endless retries');
+  assert.equal(e.error, 'Failed to load ./inspector-ui.js');
+  assert.deepEqual(Array.from(e.cargados, x => x.archivo), ['./edutips.js']);
+  assert.equal(e.listo, true, 'missing optional inspector must never block sales UI');
+});
