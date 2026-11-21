@@ -12,6 +12,8 @@ function fixture(file){
   function success(i){
     const req=requests[i],db={objectStoreNames:{contains:()=>true},close(){this.closed=true;},
       transaction(){
+        // WebKit can close the handle silently, without delivering onclose.
+        if(this.closed){const e=new Error('Connection is closing');e.name='InvalidStateError';throw e;}
         const pending=new Map(),tx={error:null,objectStore(){return{
           put(value,key){pending.set(key,value);},delete(key){pending.set(key,undefined);},
           get(key){const r={};queueMicrotask(()=>{r.result=data.get(key);r.onsuccess?.();});return r;}
@@ -109,3 +111,28 @@ test('C155: unexpected WebKit photo-store close reopens before next NEW photo co
   assert.equal(current.closed,undefined);
   assert.equal(await f.api.leerFoto('shelf'),'data:image/png;base64,BwgJ');
 });
+
+
+for(const [name,save,key,firstBytes,afterBytes] of [
+  ['per-shelf photo', (api,bytes)=>api.guardarFoto('shelf',bytes),'shelf','data:image/png;base64,AQID','data:image/png;base64,BAUG'],
+  ['hashed photo bytes', (api,bytes)=>api.guardarPorHash('hash-photo',bytes),'hash-photo','data:image/png;base64,AQID','data:image/png;base64,BAUG']
+]){
+ test('C157: silent InvalidStateError recovers next current '+name+' without false ACK',async()=>{
+   const f=fixture('idb-fotos.js');
+   const first=save(f.api,firstBytes);
+   await f.waitRequests(1);const old=f.success(0);
+   await f.waitTransactions(1);f.complete(0);assert.equal(await first,true);
+   old.closed=true; // NO onclose or versionchange event.
+   const failed=save(f.api,afterBytes);
+   assert.equal(await failed,false,'stale connection rejects current write, not fabricated success');
+   assert.equal(f.data.get(key),firstBytes,'failed write did not replace committed photo bytes');
+   const retry=save(f.api,afterBytes);
+   await f.waitRequests(2);
+   const reopened=f.success(1);
+   await f.waitTransactions(2);f.complete(1);
+   assert.equal(await retry,true,'new current write must reopen after InvalidStateError');
+   assert.equal(f.requests.length,2);
+   assert.equal(f.data.get(key),afterBytes);
+   assert.equal(reopened.closed,undefined);
+ });
+}
