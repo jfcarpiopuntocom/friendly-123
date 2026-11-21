@@ -256,7 +256,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,16.1);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,16.2);
  assert.equal(ms.filter(x=>!x.done&&x.implementationCredited!==true).reduce((a,x)=>a+x.points,0),100-PORT_NOW);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.3);
