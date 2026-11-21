@@ -566,7 +566,13 @@
         }
         _v2DB = db;
         return db;
-      }).catch(function () { return null; }); // remain on proven v1 path if quota/migration fails
+      }).catch(function () { return null; }).then(function (db) {
+        // C131: startup may race IDB opening. Retry on the next real operation;
+        // never cache a transient null and strand current S4 writes until reload.
+        // A large deferred legacy queue stays on its existing compatibility path.
+        if (!db && !_v2DeferredLegacy) _v2Ready = null;
+        return db;
+      });
       return _v2Ready;
     }
     async function leerOutbox() {
