@@ -54,7 +54,7 @@ test('4) si falla la cache local, el archivo del shell se pide a la red y no se 
  const rama=sw.slice(a,b);
  let red=0,offline=0,respuesta;
  const ctx={caches:{open:async()=>{throw Error('cache broken')}},CACHE_LOCAL:'x',
-  fetch:async()=>{red++;return {ok:true,clone(){return this}}},guardar:r=>r,respuestaOffline:()=>{offline++;return 'OFFLINE'},
+  fetch:async()=>{red++;return {ok:true,clone(){return this}}},guardar:r=>r,limpiarRedireccion:r=>Promise.resolve(r),respuestaOffline:()=>{offline++;return 'OFFLINE'},
   evento:{request:{},respondWith(p){respuesta=p}}};
  // The production SW calls abrirCacheLocal() to access its cache. Model that
  // exact dependency with the failing cache.open(), rather than throwing an
