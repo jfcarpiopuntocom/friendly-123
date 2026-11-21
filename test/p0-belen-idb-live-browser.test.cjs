@@ -12,6 +12,14 @@ for(const name of ['plan-pagos-ui.js','pago-intento-idb.mjs'])
 const license='F123-SYNTHETIC-QUOTA-TEST';
 function fixture(){
  const receipts=new Map(),requests=[];
+ let firstPaymentGate=null;
+ function holdFirstPaymentReply(){
+  let notify,release;
+  const started=new Promise(r=>notify=r);
+  const released=new Promise(r=>release=r);
+  firstPaymentGate={started,released,notify,used:false};
+  return {started,release};
+ }
  const html=['<!doctype html><html><head><meta charset="utf-8"><title>Belén credit synthetic fixture</title>',
  '<script>',
  "localStorage.setItem('f123_owned',JSON.stringify({licenseCode:'"+license+"',instanceId:'synthetic-device-alpha'}));",
@@ -37,12 +45,17 @@ function fixture(){
     res.writeHead(409,{'Content-Type':'application/json'});res.end(JSON.stringify({error:'Synthetic opId conflicts'}));return;
    }
    if(!existing)receipts.set(body.opId,{client,monto:body.monto,movimientoId:'synthetic-receipt-'+receipts.size});
+   // Hold the first server reply AFTER the business receipt, so a second tab
+   // must encounter the SAME still-pending durable intent, not a later payment.
+   if(firstPaymentGate&&!firstPaymentGate.used){
+    firstPaymentGate.used=true;firstPaymentGate.notify();await firstPaymentGate.released;
+   }
    res.writeHead(200,{'Content-Type':'application/json'});
    res.end(JSON.stringify({opId:body.opId,movimientoId:receipts.get(body.opId).movimientoId}));return;
   }
   res.writeHead(404);res.end('missing fixture');
  });
- return {server,requests,receipts};
+ return {server,requests,receipts,holdFirstPaymentReply};
 }
 async function start(f){
  await new Promise(r=>f.server.listen(0,'127.0.0.1',r));
@@ -86,10 +99,30 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
    await Promise.all([a.goto(url),b.goto(url)]);
    await Promise.all([a,b].map(p=>p.waitForFunction(()=>typeof window.ocEnviarAbono==='function')));
    await Promise.all([quota(a),quota(b)]);
-   const out=await Promise.allSettled([a.evaluate(()=>ocEnviarAbono('syn-client-A',3,'Abono')),
-     b.evaluate(()=>ocEnviarAbono('syn-client-A',3,'Abono'))]);
-   assert.equal(out.filter(x=>x.status==='fulfilled').length>=1,true,'at least original payment can be confirmed');
-   assert.equal(f.receipts.size,1,'no duplicate financial movement in same notebook');
+   // A naive Promise.all races the FIRST payment against the SECOND invocation:
+   // WebKit may finish+remove the first IDB intent before B even starts, which
+   // represents a distinct intentional payment and makes the test flaky.
+   // The held HTTP reply forces A's intent to still exist when B submits.
+   const gate=f.holdFirstPaymentReply();
+   const first=a.evaluate(()=>ocEnviarAbono('syn-client-A',3,'Abono'));
+   await gate.started;
+   let notifyB;
+   const bOnWire=new Promise(resolve=>notifyB=resolve);
+   await b.route('**/api/clientes/*/abonar',async route=>{
+    notifyB();await route.continue();
+   });
+   const second=b.evaluate(()=>ocEnviarAbono('syn-client-A',3,'Abono'));
+   try{
+    await Promise.race([
+      bOnWire,
+      second.then(()=>{},()=>{}), // a safe IDB conflict may reject before POST
+      new Promise((_,reject)=>setTimeout(()=>reject(Error('Second tab did not settle or reach POST')),8000))
+    ]);
+   }finally{gate.release();}
+   const out=await Promise.allSettled([first,second]);
+   assert.equal(out.some(x=>x.status==='fulfilled'),true,'at least original payment can be confirmed');
+   assert.equal(f.receipts.size,1,'one receipt for the SAME overlapping durable payment intent');
+   assert.equal(new Set(f.requests.map(x=>x.opId)).size,1,'all concurrent POSTs share the original opId');
    await a.evaluate(()=>window.__active='F123-SYNTHETIC-OTHER-SHOP');
    const newShop=await a.evaluate(()=>ocEnviarAbono('syn-client-A',3,'Abono'));
    assert.ok(newShop.movimientoId);
