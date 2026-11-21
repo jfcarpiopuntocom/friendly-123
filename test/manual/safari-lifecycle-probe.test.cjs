@@ -12,7 +12,7 @@ test('probe records lifecycle but never writes storage or network', () => {
   vm.runInNewContext(src, sandbox);
   listeners.get('pagehide')({ persisted: true });
   swListeners.get('controllerchange')();
-  assert.deepEqual(window.__f123SafariProbe.snapshot().map(x => x.type), ['probe-installed', 'pagehide', 'controllerchange']);
+  assert.deepEqual(Array.from(window.__f123SafariProbe.snapshot(), x => x.type), ['probe-installed', 'pagehide', 'controllerchange']);
   assert.equal(window.__f123SafariProbe.snapshot()[1].persisted, true);
   assert.equal(logs.length, 3);
   assert.doesNotMatch(src, /localStorage|sessionStorage|indexedDB|fetch\(|sendBeacon|XMLHttpRequest/);
