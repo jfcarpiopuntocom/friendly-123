@@ -56,7 +56,7 @@
     var to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"";
     var lang=input.lang==="es"?"es":"en",zone=input.zone||"America/Guayaquil";
     var all=Array.isArray(input.sales)?input.sales:[];
-    var rows=[],tot={count:0,cancelled:0,conflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
+    var rows=[],tot={count:0,cancelled:0,conflicts:0,splitConflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
     var groups=new Map(),seen=new Set(),firstById=new Map(),conflictingIds=new Set();
     all.forEach(function(v){
       if(!v||typeof v!=="object"||v.id==null||String(v.id)==="")return;
@@ -85,6 +85,19 @@
       if(commissionRaw===null&&v.split)commissionRaw=finite(v.split.montoComisionSocio);
       if(commissionRaw===null&&v.noCommission===true)commissionRaw=0;
       var commission=cents(commissionRaw);
+      // Match the sale's recorded commission to its explicit payout shares.
+      // A mismatched/missing amount must NOT display exact money in either UI.
+      var splitMismatch=false;
+      if(commission!==null&&Array.isArray(v.reparto)&&v.reparto.length){
+        var shares=0;
+        for(var si=0;si<v.reparto.length;si++){
+          var part=cents(finite(v.reparto[si]&&v.reparto[si].monto));
+          if(part===null||!Number.isSafeInteger(shares+part)){splitMismatch=true;break;}
+          shares+=part;
+        }
+        if(shares!==commission)splitMismatch=true;
+      }
+      if(splitMismatch){tot.splitConflicts++;commission=null;}
       tot.count++;
       accumulate(tot,"gross","unknownGross",gross);
       accumulate(tot,"commission","unknownCommission",commission);
@@ -111,7 +124,7 @@
           var name=safeName(r&&r.nombre,
             safeName(fallback,lang==="es"?"Comisionista sin nombre":"Unnamed associate"));
           return {id:String(r&&(r.promotoraId||r.payeeId)||name),label:name,
-            commission:cents(finite(r&&r.monto)),gross:null};
+            commission:splitMismatch?null:cents(finite(r&&r.monto)),gross:null};
         });
       }
       targets.forEach(function(target){
@@ -146,6 +159,7 @@
     }).join("");
     return '<section data-comm-history-report style="margin-top:12px;">'
       +(t.conflicts?'<p role="alert">'+(es?"Recibos con el mismo ID y valores distintos: importes por verificar.":"Receipt IDs with conflicting economic values: totals need review.")+'</p>':"")
+      +(t.splitConflicts?'<p role="alert">'+(es?"El reparto de comisiones no coincide con el total registrado: importes por verificar.":"Commission shares do not match the recorded total: amounts need review.")+'</p>':"")
       +'<h3 style="font-size:18px;font-weight:800;color:var(--ink,#0F1923);">'+title+'</h3>'
       +'<p style="font-size:14px;color:var(--ink,#0F1923);">'+info+'</p>'
       +'<div class="cm-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;">'
