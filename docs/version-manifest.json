@@ -120,7 +120,7 @@
     "./manifest.json": "sha256-743a5bb38267f5bfc683b81232d64227e5d6c6bec0dd3dd35856029da1db8923",
     "./dashboard-manifest.json": "sha256-c1847d560f60b8639d590ae6bf7dad29c6b1e88604cb3d4949d54e556a83f870",
     "./pwa-rescue.html": "sha256-51917debbf27e6c529869a2fa88764f1d04405b55823b265d547890c714a1967",
-    "./app-inline-01.min.js": "sha256-020cf90b9cd4313fdbd3dd3de06254ddd32537f167e1e78a03f0347f6919b8d3",
+    "./app-inline-01.min.js": "sha256-116461c8f41f86cb10d70e474d7a696b18f3f4b70afc4eda2dfe718797cd1eb1",
     "./commissions-by-person.js": "sha256-be5a134a46682bf83844a378a475e4e2c30f0530bbd8a7f26bf0164eefd15e9b",
     "./app-inline-02.min.js": "sha256-56226bd780b11cf95096f3fe742d7a46b59f4f0acac7d63327bac3821b0c9a5f",
     "./app-inline-03.min.js": "sha256-88ffb9d4a4b97ab846996554f74d4509ec16286a9af332cc69deba482b9ac505",
