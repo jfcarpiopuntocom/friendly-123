@@ -322,7 +322,8 @@ test('6. docs/sync-yjs.js exposes opt-in C16b/C17b hooks behind QA pilot switch 
   assert.match(syncSrc, /API\.crearDespachadorComercialTipado\s*=/);
   assert.match(syncSrc, /API\.solicitarTicketComercialEquipo\s*=/);
   const rollout = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'sync-rollout.json'), 'utf8'));
-  assert.equal(rollout.allApproved, false, 'sync-rollout.json allApproved must remain false');
+  assert.equal(rollout.allApproved, true, 'S4 global rollout must remain commercially enabled');
+   assert.equal(rollout.allOutboxV2, true, 'S4 durable outbox must remain enabled');
   assert.equal(
     Object.values(rollout.licenses || {}).some(entry => entry?.yparty === true),
     false,
