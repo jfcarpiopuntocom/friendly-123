@@ -1,13 +1,13 @@
 {
   "schema": 1,
   "metric": "architecture-quality-engineering-review",
-  "asOf": "2026-11-20",
+  "asOf": "2026-11-21",
   "comparison": {
     "previousScore": 80.4,
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 81.7,
+  "score": 81.8,
   "maximum": 100,
   "dimensions": [
     {
@@ -21,9 +21,9 @@
     {
       "id": "durability",
       "weight": 20,
-      "score": 19.1,
+      "score": 19.2,
       "previous": 18.7,
-      "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof. C60 actual merged same-app Workerd source trusted-frozen-source.mjs field-order robust reader: prior JSON.stringify(sourceRow) versus detached public catalog projectedRow rejected valid public Yjs JSON object with reordered keys in both signed legacy v1 and paged v2. RED 28/30 (exact two legitimate-structure misses) and GREEN 30/30 full focused (including private ownerPin/costo still fail-closed); 15/15 CI, Cloudflare exact source merge SUCCESS. +0.2 cold-join compatibility durability QA only, not Firebase HEAD real/customer proof; unknown legacy-root-only gap still P0. C64 PR #864 independently demonstrated real source false ACK at frozen SQL cold reopen when original `documento_bloques` base disappears but valid later Yjs journal alone survives (RED 1/2 44731412320); separate adversarial legacy single-row `documento` substitution also RED 2/3 44731901974. Actual `cloudflare-yparty-worker/src/open-existing-store.mjs` now fail-closes on any `snapshotKind` other than `blocks` for already-certified imports; cannot certify lost history from a receipt or legacy snapshot. GREEN 3/3 exact source-executed synthetic SQL fixture, real YParty Workerd cold-open 5/5, 14/14 final SHA CI; PR #864 MERGED master ca86aa4bbe7df1d9da0293e803896edbac53380b, Cloudflare Workers Build exact merged SHA SUCCESS b09be442-96ae-4802-a5b6-21f6256ceee3. Add +0.1 architectural engineering durability confidence ONLY. Does not prove original frozen bytes after compaction, genuine Firebase economic HEAD, R2 binding, physical Safari/Opera or GO. C66 product PR #866 MERGED SHA a46da3753ec23ecee2606f5ed206fe4c6ba10f25: original frozen Yjs state vector (independently SHA-pinned) now stored in the SAME atomic SQLite transaction as frozen base/certificate and checked against live merged snapshot+journal on every cold reopen via mature Yjs encodeStateVectorFromUpdate/decodeStateVector. Before the source fix real native SQLite scenario lost an entire independent writer while syntactically valid documento_bloques yielded false opened:true (RED 1/2 run44735648192). GREEN 6/6 native SQLite source tests including replace-writer, missing/tampered cert, old pre-vector refusal, valid post-cut deletion and compaction, plus original frozen import 9/9, C64 3/3 and real Tienda Workerd 5/5; full 15/15 GH workflows and exact Cloudflare merged build UUID b091735c-0cc5-4351-9c29-f5894c836544 SUCCESS. Earn +0.1 ONLY engineering durability quality. State-vector dominance is necessary causal continuity, not cryptographic proof of individual amounts or Firebase real HEAD; commercial GO0/6, physical0/5, QA OFF, Sync3 unchanged. C92: C70 #871 MERGED a94445d5a7efb157917a3cc209f69426b9667433 persists frozen/union causal state-vectors in the same Workerd SQLite transaction and detects missing clocks on cold reopen; RED->GREEN real Yjs+native SQL 18 GitHub head checks SUCCESS. +0.1 engineering durability ONLY; no physical convergence or Firebase original HEAD claimed. C106 independent post-C92 source/QA audit: C97 R2 immutable pages-first publisher, exact SHA readback and crash-resume without exposing partial manifest; real Workerd R2 synthetic negative tests. +0.1 engineering quality only, GO and physical unchanged. C110 PR #925 MERGED source v0.8.34 corrects genuine double manual stock delta after IndexedDB strict CAS committed but returned false: 7→5 and two movements on original source vs 7→6, one durable movement on changed source in actual Chromium E2E negative test. 39/39 stock regressions, P0 hotfix and release-control HEAD success, hotfix 44863363356 production published both origins and Chromium+WebKit readonly smoke green. +0.1 durability engineering quality only; does not certify remote op resend, physical A→B→A or GO. C115: v0.8.36 PR #927 Safari IndexedDB UnknownError strict-CAS reopen ONCE without false ACK after aborted transaction: source-executed negative cases RED0/2→GREEN2/2, 27/27 checks, published. +0.1 durability. v0.8.37 PR #930 browser product creation used to report HTTP 200 before durable save; corrected signed product creation now waits for exact strict IDB CAS, rollback product, movement seal and variant family, publishes only after confirmed commit. RED→GREEN real backend tests, P0 and release-control SUCCESS, public version with 131 SHA-matched assets. +0.1 durability only. No physical GO/real user proof.",
+      "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof. C60 actual merged same-app Workerd source trusted-frozen-source.mjs field-order robust reader: prior JSON.stringify(sourceRow) versus detached public catalog projectedRow rejected valid public Yjs JSON object with reordered keys in both signed legacy v1 and paged v2. RED 28/30 (exact two legitimate-structure misses) and GREEN 30/30 full focused (including private ownerPin/costo still fail-closed); 15/15 CI, Cloudflare exact source merge SUCCESS. +0.2 cold-join compatibility durability QA only, not Firebase HEAD real/customer proof; unknown legacy-root-only gap still P0. C64 PR #864 independently demonstrated real source false ACK at frozen SQL cold reopen when original `documento_bloques` base disappears but valid later Yjs journal alone survives (RED 1/2 44731412320); separate adversarial legacy single-row `documento` substitution also RED 2/3 44731901974. Actual `cloudflare-yparty-worker/src/open-existing-store.mjs` now fail-closes on any `snapshotKind` other than `blocks` for already-certified imports; cannot certify lost history from a receipt or legacy snapshot. GREEN 3/3 exact source-executed synthetic SQL fixture, real YParty Workerd cold-open 5/5, 14/14 final SHA CI; PR #864 MERGED master ca86aa4bbe7df1d9da0293e803896edbac53380b, Cloudflare Workers Build exact merged SHA SUCCESS b09be442-96ae-4802-a5b6-21f6256ceee3. Add +0.1 architectural engineering durability confidence ONLY. Does not prove original frozen bytes after compaction, genuine Firebase economic HEAD, R2 binding, physical Safari/Opera or GO. C66 product PR #866 MERGED SHA a46da3753ec23ecee2606f5ed206fe4c6ba10f25: original frozen Yjs state vector (independently SHA-pinned) now stored in the SAME atomic SQLite transaction as frozen base/certificate and checked against live merged snapshot+journal on every cold reopen via mature Yjs encodeStateVectorFromUpdate/decodeStateVector. Before the source fix real native SQLite scenario lost an entire independent writer while syntactically valid documento_bloques yielded false opened:true (RED 1/2 run44735648192). GREEN 6/6 native SQLite source tests including replace-writer, missing/tampered cert, old pre-vector refusal, valid post-cut deletion and compaction, plus original frozen import 9/9, C64 3/3 and real Tienda Workerd 5/5; full 15/15 GH workflows and exact Cloudflare merged build UUID b091735c-0cc5-4351-9c29-f5894c836544 SUCCESS. Earn +0.1 ONLY engineering durability quality. State-vector dominance is necessary causal continuity, not cryptographic proof of individual amounts or Firebase real HEAD; commercial GO0/6, physical0/5, QA OFF, Sync3 unchanged. C92: C70 #871 MERGED a94445d5a7efb157917a3cc209f69426b9667433 persists frozen/union causal state-vectors in the same Workerd SQLite transaction and detects missing clocks on cold reopen; RED->GREEN real Yjs+native SQL 18 GitHub head checks SUCCESS. +0.1 engineering durability ONLY; no physical convergence or Firebase original HEAD claimed. C106 independent post-C92 source/QA audit: C97 R2 immutable pages-first publisher, exact SHA readback and crash-resume without exposing partial manifest; real Workerd R2 synthetic negative tests. +0.1 engineering quality only, GO and physical unchanged. C110 PR #925 MERGED source v0.8.34 corrects genuine double manual stock delta after IndexedDB strict CAS committed but returned false: 7→5 and two movements on original source vs 7→6, one durable movement on changed source in actual Chromium E2E negative test. 39/39 stock regressions, P0 hotfix and release-control HEAD success, hotfix 44863363356 production published both origins and Chromium+WebKit readonly smoke green. +0.1 durability engineering quality only; does not certify remote op resend, physical A→B→A or GO. C115: v0.8.36 PR #927 Safari IndexedDB UnknownError strict-CAS reopen ONCE without false ACK after aborted transaction: source-executed negative cases RED0/2→GREEN2/2, 27/27 checks, published. +0.1 durability. v0.8.37 PR #930 browser product creation used to report HTTP 200 before durable save; corrected signed product creation now waits for exact strict IDB CAS, rollback product, movement seal and variant family, publishes only after confirmed commit. RED→GREEN real backend tests, P0 and release-control SUCCESS, public version with 131 SHA-matched assets. +0.1 durability only. No physical GO/real user proof. C124 PR #945 merged v0.8.44: canonical applied-opId receipt Set formerly evicted oldest receipts at >2000 even after C123 removed export cap, allowing replay after catch-up. Minimal product fix retains all canonical receipts and bounds only best-effort localStorage mirror; actual-source 10001-id/quota regression, 46/46 CI exact head after one QA flaky rerun, live Cloudflare version 728 v0.8.44 and manifest hash confirmed. +0.1 durability, not physical/commercial GO.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/899"
     },
     {
@@ -67,7 +67,7 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C115 current source-backed engineering quality score 81.7/100, fixed original100 weights, original comparison baseline 80.4 preserved. C115 +0.3 independently audited across #927 (+0.1 durability), #930 (+0.1 durability), #931 (+0.1 business), all source-executed GREEN after RED. C110 #925, C109 #918 and C106 are preserved with no double-credit. Port implementation 100.0/100 counts assembled code only, commercial GO0/6 and physical0/5 remain unverified; 2.0 real Firebase/R2 commercial cutover NOT certified.",
+  "disclaimer": "C126 source-backed engineering quality 81.8/100, fixed original100 weights. +0.1 durability from C124 product receipt retention fix PR #945, live v0.8.44 verified. C125 PR #946 improves QA correctness without score credit. Prior C115/C110 and all earlier evidence retained; PORT 100.0/100 implementation only; physical 0/5 and commercial GO 0/6 not verified.",
   "assessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
   "history": [
     {
@@ -179,54 +179,43 @@
       "review": "2026-11-20 C115 source-audited three browser reliability fixes #927 IDB lost reconnect, #930 product-create durable ACK, #931 HTTP opId exactly-once. Fixed original100 quality +0.3, port100, GO0/6 and physical0/5 unchanged.",
       "score": 81.7,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ b5ce01a7f46e801001cc052c2797aa2150bb3cba"
+    },
+    {
+      "review": "2026-11-21 C126 product C124 receipt eviction fix PR945, live v0.8.44, durability +0.1; C125 QA-only no credit; PORT100, physical0/5, GO0/6 unchanged.",
+      "score": 81.8,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed"
     }
   ],
   "lastAuditedProductSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
   "latestReview": {
-    "id": "C115",
-    "date": "2026-11-20",
-    "baseline": 81.4,
-    "score": 81.7,
-    "delta": 0.3,
-    "sourceSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
-    "method": "Three distinct source-tested fixes after C110, each earns +0.1 on unchanged original100 rubric: Safari strict IDB lost-connection recovery (#927), browser new-product strict durable ACK (#930), independent external HTTP repeated stock opId idempotency (#931). C110 preserved intact in auditTrail. No double-credit for #925's earlier local CAS rebase. QA engineering quality only, not real device or commercial acceptance.",
+    "id": "C126",
+    "date": "2026-11-21",
+    "baseline": 81.7,
+    "score": 81.8,
+    "delta": 0.1,
+    "sourceSha": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
+    "method": "Fixed original100 rubric: +0.1 durability for distinct actual-product receipt eviction defect C124, corrected, source-tested and deployed v0.8.44. C125 test-only correction earns zero additional score. Port100 and physical0/5, GO0/6 unchanged.",
     "evidence": [
       {
         "dimension": "durability",
         "delta": 0.1,
-        "pr": 927,
-        "sourceSha": "a9b299ed5efdc09e0703331db16e0d2b6f4fd936",
-        "qa": "test/p0-v834-idb-connection-lost-reopen.test.cjs",
-        "why": "Safari WebKit IndexedDB transaction abort UnknownError 'Connection to Indexed Database server lost' was previously treated as permanent even though no commit occurred. Aborted strict CAS reopens one time and retries same revision; second failure remains no ACK. Real source fixture RED0/2→GREEN2/2; 27/27 exact-head workflows GREEN, v0.8.36 publicly verified."
-      },
-      {
-        "dimension": "durability",
-        "delta": 0.1,
-        "pr": 930,
-        "sourceSha": "6d5e40805eff7924c9b6005ac908870bac8dbb7d",
-        "qa": "test/p0-c112-product-create-durable-ack.test.cjs",
-        "why": "Original POST /api/productos returned HTTP200 and broadcast before fire-and-forget finally save, so product could vanish after reload. Real source tests: false ACK 503 and no phantom stock/movement, CAS still in flight no 200 or fan-out, true ACK exactly one signed movement, A/B compatibility. P0+release gates SUCCESS; v0.8.37 deployed to both origins and browser smoke SUCCESS."
-      },
-      {
-        "dimension": "business",
-        "delta": 0.1,
-        "pr": 931,
-        "sourceSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
-        "qa": "test/p0-browser-stock-adjustment-opid.test.cjs",
-        "why": "Independent duplicate HTTP request carrying the SAME opId previously reapplied delta; same id/mismatched amount did not return409; real browser quantity box omitted opId. Actual-source RED GHA 35/38 (three exact failures), GREEN focused 38/38, P0 Hotfix Gate 172/172, release-control SUCCESS. Reuses signed operation fingerprint and original event, no second stock mutation."
+        "pr": 945,
+        "sourceSha": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
+        "qa": "test/c123-receipt-window-red.test.cjs",
+        "why": "C123 removed export truncation, but _marcarOpAplicada still evicted oldest applied opIds from canonical Set after 2000. C124 retains canonical Set, bounds only localStorage mirror; 10001-id and quota-failure real-marker test, exact-head 46/46 green after rerun of unrelated flaky payment test, live v0.8.44 verified by version.json + manifest SHA-256."
       }
     ],
     "release": {
-      "version": "v0.8.38",
-      "shell": "f123-shell-v838",
-      "cache": "golden374",
-      "commit": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
-      "sourcePullRequest": 931
+      "version": "v0.8.44",
+      "shell": "f123-shell-v844",
+      "cache": "golden380",
+      "commit": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
+      "sourcePullRequest": 945
     },
     "physicalAcceptance": {
       "confirmed": false,
       "commercialGo": "0/6",
-      "reference": "No physical PC Opera↔Safari iPhone A→B→A, Firebase original HEAD, 2.0 live switch, or customer-store certification claimed."
+      "reference": "No physical PC Opera↔Safari iPhone A→B→A, customer business cutover or independent full device certification claimed."
     }
   },
   "auditTrail": [
@@ -363,6 +352,84 @@
         "confirmed": false,
         "commercialGo": "0/6",
         "reference": "Cross-device Opera PC and iPhone Safari/PWA A→B→A not physically certified; remote republish after ambiguous ACK and external duplicate requests remain separate checks."
+      }
+    },
+    {
+      "id": "C115",
+      "date": "2026-11-20",
+      "baseline": 81.4,
+      "score": 81.7,
+      "delta": 0.3,
+      "sourceSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
+      "method": "Three distinct source-tested fixes after C110, each earns +0.1 on unchanged original100 rubric: Safari strict IDB lost-connection recovery (#927), browser new-product strict durable ACK (#930), independent external HTTP repeated stock opId idempotency (#931). C110 preserved intact in auditTrail. No double-credit for #925's earlier local CAS rebase. QA engineering quality only, not real device or commercial acceptance.",
+      "evidence": [
+        {
+          "dimension": "durability",
+          "delta": 0.1,
+          "pr": 927,
+          "sourceSha": "a9b299ed5efdc09e0703331db16e0d2b6f4fd936",
+          "qa": "test/p0-v834-idb-connection-lost-reopen.test.cjs",
+          "why": "Safari WebKit IndexedDB transaction abort UnknownError 'Connection to Indexed Database server lost' was previously treated as permanent even though no commit occurred. Aborted strict CAS reopens one time and retries same revision; second failure remains no ACK. Real source fixture RED0/2→GREEN2/2; 27/27 exact-head workflows GREEN, v0.8.36 publicly verified."
+        },
+        {
+          "dimension": "durability",
+          "delta": 0.1,
+          "pr": 930,
+          "sourceSha": "6d5e40805eff7924c9b6005ac908870bac8dbb7d",
+          "qa": "test/p0-c112-product-create-durable-ack.test.cjs",
+          "why": "Original POST /api/productos returned HTTP200 and broadcast before fire-and-forget finally save, so product could vanish after reload. Real source tests: false ACK 503 and no phantom stock/movement, CAS still in flight no 200 or fan-out, true ACK exactly one signed movement, A/B compatibility. P0+release gates SUCCESS; v0.8.37 deployed to both origins and browser smoke SUCCESS."
+        },
+        {
+          "dimension": "business",
+          "delta": 0.1,
+          "pr": 931,
+          "sourceSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
+          "qa": "test/p0-browser-stock-adjustment-opid.test.cjs",
+          "why": "Independent duplicate HTTP request carrying the SAME opId previously reapplied delta; same id/mismatched amount did not return409; real browser quantity box omitted opId. Actual-source RED GHA 35/38 (three exact failures), GREEN focused 38/38, P0 Hotfix Gate 172/172, release-control SUCCESS. Reuses signed operation fingerprint and original event, no second stock mutation."
+        }
+      ],
+      "release": {
+        "version": "v0.8.38",
+        "shell": "f123-shell-v838",
+        "cache": "golden374",
+        "commit": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
+        "sourcePullRequest": 931
+      },
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6",
+        "reference": "No physical PC Opera↔Safari iPhone A→B→A, Firebase original HEAD, 2.0 live switch, or customer-store certification claimed."
+      }
+    },
+    {
+      "id": "C126",
+      "date": "2026-11-21",
+      "baseline": 81.7,
+      "score": 81.8,
+      "delta": 0.1,
+      "sourceSha": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
+      "method": "Fixed original100 rubric: +0.1 durability for distinct actual-product receipt eviction defect C124, corrected, source-tested and deployed v0.8.44. C125 test-only correction earns zero additional score. Port100 and physical0/5, GO0/6 unchanged.",
+      "evidence": [
+        {
+          "dimension": "durability",
+          "delta": 0.1,
+          "pr": 945,
+          "sourceSha": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
+          "qa": "test/c123-receipt-window-red.test.cjs",
+          "why": "C123 removed export truncation, but _marcarOpAplicada still evicted oldest applied opIds from canonical Set after 2000. C124 retains canonical Set, bounds only localStorage mirror; 10001-id and quota-failure real-marker test, exact-head 46/46 green after rerun of unrelated flaky payment test, live v0.8.44 verified by version.json + manifest SHA-256."
+        }
+      ],
+      "release": {
+        "version": "v0.8.44",
+        "shell": "f123-shell-v844",
+        "cache": "golden380",
+        "commit": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
+        "sourcePullRequest": 945
+      },
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6",
+        "reference": "No physical PC Opera↔Safari iPhone A→B→A, customer business cutover or independent full device certification claimed."
       }
     }
   ]
