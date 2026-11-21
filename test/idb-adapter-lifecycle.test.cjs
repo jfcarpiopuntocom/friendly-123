@@ -59,3 +59,29 @@ for(const [file,save] of [
   const f=fixture(file),opening=save(f.api);await f.waitRequests(1);f.success(0);await f.waitTransactions(1);f.abort();
   assert.equal(await settles(opening),false,'abort must settle the write as failure');
 });
+
+
+test('C153: unexpected WebKit IDB close on active business DB opens a fresh connection for next sale snapshot',async()=>{
+  const f=fixture('estado-idb.js');
+  const first=f.api.guardarYa({_rev:7,productos:[]});
+  await f.waitRequests(1);
+  const old=f.success(0);
+  await f.waitTransactions(1);f.complete(0);
+  assert.equal(await first,true);
+  assert.equal(typeof old.onclose,'function','a normal, already-open Safari IDB connection must handle unexpected close');
+  old.onclose(); // browser closed connection; not an application-driven destructive operation
+  const second=f.api.guardarYa({_rev:8,productos:[]});
+  await f.waitRequests(2);
+  const reopened=f.success(1);
+  await f.waitTransactions(2);f.complete(1);
+  assert.equal(await second,true,'new current snapshot must be committed in a fresh transaction');
+  assert.equal(f.requests.length,2);
+  // A delayed event on old handle must NEVER discard the newer cached IDB handle.
+  old.onclose();
+  const third=f.api.guardarYa({_rev:9,productos:[]});
+  await f.waitTransactions(3);f.complete(2);
+  assert.equal(await third,true);
+  assert.equal(f.requests.length,2,'old onclose must not invalidate the newer connection');
+  assert.equal(reopened.closed,undefined);
+  assert.equal((await f.api.leer())._rev,9);
+});
