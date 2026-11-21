@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.29",
+  "version": "v0.8.31",
   "fecha": "2026-11-20",
-  "changelog": "v0.8.29: C99 Safari/Stock/SW P0 — (1) re-activa modoCorte20Activo vía guarda C38 al volver Safari iOS de segundo plano tras failback C94, (2) siembra conteo físico confirmado antes de drenar catálogos pendientes (#904), y (3) espera verificación SRI acotada antes de skipWaiting (#903 + #901).",
+  "changelog": "v0.8.31: C100 Comisiones por artista/comisionista en cabecera, agrupación por beneficiario a partir de saldos ledger, periodo y abonos intactos (#909).",
   "requerida": false,
-  "shell": "f123-shell-v829",
+  "shell": "f123-shell-v831",
   "apagar": [],
-  "releaseName": "v0.8.29",
-  "cacheGeneration": "golden365"
+  "releaseName": "v0.8.31",
+  "cacheGeneration": "golden367"
 }
