@@ -107,6 +107,40 @@
     return promise;
   }
 
+  /* JFC C159: half-weight NEW capture policy, quality-first and fail-open.
+     Compare codecs on the SAME canvas pixels. WebP q>=0.84 may deliver
+     <=50% JPEG bytes without downscaling or transcoding a previously saved
+     image. If the browser does not encode WebP, retain the original JPEG.
+     The content SHA is computed by callers AFTER this choice, so relay/IDB
+     keep their existing byte-verified contracts. Never rewrite old photos. */
+  function optimizarCapturaFoto(canvas, jpegDataUrl, maxDataUrlChars = 180000) {
+    if (!canvas || typeof canvas.toDataURL !== "function" ||
+        typeof jpegDataUrl !== "string" ||
+        !/^data:image\\/jpeg;base64,/.test(jpegDataUrl)) return jpegDataUrl;
+    const cap = Number.isFinite(maxDataUrlChars) && maxDataUrlChars > 0
+      ? Math.floor(maxDataUrlChars) : 180000;
+    const target = Math.floor(jpegDataUrl.length * 0.50);
+    let best = jpegDataUrl;
+    // Stop at the HIGHEST encoding quality reaching 50%; never exceed relay
+    // frame margin or fall below WebP quality 0.84 to chase a byte target.
+    for (const q of [0.92, 0.88, 0.84]) {
+      let candidate;
+      try { candidate = canvas.toDataURL("image/webp", q); }
+      catch (_) { break; }
+      // Safari or older engines may return PNG if WebP ENCODING is unsupported.
+      if (typeof candidate !== "string" ||
+          !/^data:image\\/webp;base64,/.test(candidate)) break;
+      if (candidate.length > cap) continue;
+      if (candidate.length <= target) return candidate;
+      // If half is not reachable at safe fidelity, preserve the first
+      // high-quality saving unless a lower tier saves at least 20% more.
+      if (candidate.length < best.length &&
+          (best === jpegDataUrl || candidate.length <= best.length * 0.80))
+        best = candidate;
+    }
+    return best;
+  }
+
   // --- Direccionamiento por contenido (SHA-256) ---
   function _dataUrlABytes(dataUrl) {
     const i = String(dataUrl).indexOf(",");
@@ -635,6 +669,6 @@
     soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
     hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, tieneHashSoloIdb, hashesGuardados, leerTodosPorHash, guardarFotoContenido,
-    tieneFotoHashConfirmadoEnIdb
+    tieneFotoHashConfirmadoEnIdb, optimizarCapturaFoto
   };
 })();
