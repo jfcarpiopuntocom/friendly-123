@@ -65,3 +65,55 @@ test('C118: failed remote CAS cannot silently ACK a local physical delta with mi
     delete w.OCEstadoIDB;delete w.OCYjs;
   }
 });
+
+test('C118: local owner delta commits before incoming remote PN and both survive once',async()=>{
+  const w=browser();
+  w.localStorage.setItem('f123_device_id','C118-local-device');
+  w.OCAuth={rolActual:()=> 'dueno'};
+  const original=(await state(w)).productos.find(p=>p.id==='p24');
+  await w.request('/api/productos/p24/ajustar','POST',{
+    stockFisico:Number(original.stockActual),motivo:'C118 reverse fixture'
+  });
+  const before=(await state(w));
+  const p=before.productos.find(x=>x.id==='p24'),base=Number(p.stockActual);
+  const originalSet=w.localStorage.setItem;
+  w.localStorage.setItem=()=>{throw Error('synthetic quota full')};
+  w.OCYjs={esLicenciaPruebaJfc:true};
+  const pending=[];
+  w.OCEstadoIDB={soportado:true,guardarConRevision:(snapshot,expected)=>new Promise(resolve=>{
+    pending.push({snapshot,expected,resolve});
+  }),ultimoError:()=>null};
+  try{
+    const local=w.fetch('/api/productos/p24/ajustar',{
+      method:'POST',body:JSON.stringify({delta:-1,motivo:'C118 local first',opId:'C118-local-first-0001'})
+    });
+    await until(()=>pending.length===1,'first local strict CAS reached');
+    const remote=w.OCSync.aplicarOpRemota({
+      opId:'C118-remote-second',tipo:'ajuste',
+      payload:{productoId:'p24',stockPNHecho:{
+        base:Number(p.stockBase),epoch:String(p.stockEpochId||''),
+        actor:'C118-other-device',add:0,sub:1
+      }}
+    });
+    await tick();
+    assert.equal(pending.length,1,'remote receiver must not overwrite PN before local commit');
+    pending[0].resolve(true);
+    const localResult=await local;
+    assert.equal(localResult.status,200,'local durable adjustment succeeds');
+    await until(()=>pending.length===2,'remote strict CAS begins after local commit');
+    pending[1].resolve(true);
+    const remoteResult=await remote;
+    assert.equal(remoteResult?.ok,true,'valid distinct remote PN is committed');
+    const durable=pending[1].snapshot.productos.find(x=>x.id==='p24');
+    assert.equal(durable.stockActual,base-2,'both accepted decrements persist together');
+    assert.equal(Number(durable.stockPN?.['C118-local-device']?.sub||0),1,'local PN survives');
+    assert.equal(Number(durable.stockPN?.['C118-other-device']?.sub||0),1,'remote PN survives');
+    const live=(await state(w)).productos.find(x=>x.id==='p24');
+    assert.equal(live.stockActual,base-2,'live catalog matches durable snapshot');
+    assert.equal(pending[1].snapshot.movimientos.length,before.movimientos.length+1,
+      'one local commercial adjustment, no synthetic duplicate signed movement');
+  }finally{
+    w.localStorage.setItem=originalSet;
+    delete w.OCEstadoIDB;delete w.OCYjs;
+  }
+});
