@@ -391,7 +391,7 @@ function inspect(){
   assert.equal(left.done,false,'C40 is NOT a live customer cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C40 QA does not certify GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no physical A-B-A');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='c13b449c40ad249fdaca6ed6ff668358848d54a2'?19.2:18.5):(c42Done?18.3:18.1));
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='c6d5120cf3cbfbaef0639fee64d1d6bec663ed61'?19.2:18.5):(c42Done?18.3:18.1));
   const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
     'API.recibosComerciales20 = new Map();',
@@ -438,7 +438,7 @@ function inspect(){
   assert.equal(residual.done,false,'C42 does not enable commercial production cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C42 synthetic QA cannot certify live store GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no real PC→Safari acceptance evidence');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='c13b449c40ad249fdaca6ed6ff668358848d54a2'?19.2:18.5):18.3,'business quality bounded by actual C42/C44/C68 QA');
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='c6d5120cf3cbfbaef0639fee64d1d6bec663ed61'?19.2:18.5):18.3,'business quality bounded by actual C42/C44/C68 QA');
   const mock=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
   const facade=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
@@ -668,7 +668,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no physical GO');
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.8);
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
    assert.equal(quality.comparison.previousScore,80.4);
    const c49qa=fs.readFileSync(path.join(root,
@@ -913,7 +913,7 @@ function inspect(){
    const r2=hist.milestones.find(m=>m.id==='r2-service-binding-installed');
    assert.equal(r2?.points,2.0,'C92 real R2 binding credited');
    assert.equal(r2?.done,true);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
    assert.equal(quality.comparison.previousScore,80.4);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
@@ -957,7 +957,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
    assert.equal(quality.comparison.previousScore,80.4);
-   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+   assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
    assert.equal(data.commercialGo.certifiedGates,0);
@@ -997,7 +997,7 @@ function inspect(){
  // certified frozen import cannot be reopened from journal-only or an
  // unrelated legacy snapshot. It does not certify live Firebase HEAD/R2.
  assert.equal(quality.lastAuditedProductSha,
-   'c13b449c40ad249fdaca6ed6ff668358848d54a2',
+   'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61',
    'C85 quality credit pins exact merged functional C84 source, C80 remains audited');
  const c64Source=fs.readFileSync(path.join(root,
    'cloudflare-yparty-worker/src/open-existing-store.mjs'),'utf8');
@@ -1010,8 +1010,8 @@ function inspect(){
    'C64 RED P0: a legacy snapshot cannot impersonate the missing blocked frozen import'
  ])assert(c64QA.includes(token),'C65 negative source-executed evidence missing '+token);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C64 durability QA does not earn real Firebase/R2/physical migration');
- assert.equal(quality.score,81.3);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.score,81.4);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true)
@@ -1040,11 +1040,11 @@ function inspect(){
   [c66QA,'C66 legitimate post-cut deletion retains frozen original causal clocks']
  ])assert(source.includes(token),'C67 genuine source/negative test evidence missing '+token);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C66 QA cannot earn actual Firebase/R2 physical migration');
- assert.equal(quality.score,81.3);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.score,81.4);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(quality.lastAuditedProductSha,
-  'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+  'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(data.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true).reduce(
@@ -1072,7 +1072,7 @@ function inspect(){
   'C68 RED P0: unrecognized economic effect SKU cannot invent stock or already ACK'
  ])assert(c68Qa.includes(token),'C69 actual native SQLite negative source test missing: '+token);
  assert.equal(quality.lastAuditedProductSha,
-   'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+   'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C68 QA cannot earn real Firebase HEAD/R2/device port');
@@ -1107,10 +1107,10 @@ function inspect(){
  assert.equal(c72Lock.packages['node_modules/@noble/hashes']?.integrity,
   'sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==');
  assert.equal(quality.lastAuditedProductSha,
-  'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+  'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C72 engineering QA never certifies real Firebase HEAD');
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true).reduce(
@@ -1138,10 +1138,10 @@ function inspect(){
   'C74 control: empty typed tables and empty Yjs union certificate allow certified first cut'
  ])assert(c74NativeQA.includes(token),'C75 verified RED-first native SQLite scenario missing '+token);
  assert.equal(quality.lastAuditedProductSha,
-  'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+  'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C74 engineering QA cannot earn real Firebase/R2/physical port');
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true).reduce(
@@ -1168,10 +1168,10 @@ function inspect(){
   'C76 control: durable 202 queued intent keeps matching payload and receipt, without business effect',
   'C76 control: unrelated license payloads cannot block certified store reopened for correct license'
  ])assert(c76QA.includes(token),'C77 real native SQLite RED-first QA missing '+token);
- assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(quality.lastAuditedProductSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C76 QA does not certify real Firebase/R2 or physical port');
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true).reduce((t,m)=>t+m.points,0),oneDecimal(2.0-(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)));
@@ -1198,12 +1198,12 @@ function inspect(){
   'C78 control: queued expense + customer payment preserve genuine 202 SHA, no money/effects',
   'C78 control: queued sale 202 and committed sale + fiado remain correct'
  ])assert(c78Qa.includes(token),'C79 native SQLite source RED-first evidence missing '+token);
- assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(quality.lastAuditedProductSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C78 synthetic QA does not earn Firebase or R2 2.0 cutover');
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true).reduce(
   (sum,m)=>sum+m.points,0),oneDecimal(2.0-(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'unearned original100 port gates must stay open');
@@ -1231,12 +1231,12 @@ function inspect(){
   'C80 control: two authentic counts in reverse lexical opId order MUST use SQLite rowid insertion chronology',
   'C80 control: physical no-op count N=stock must retain zero delta and receipt'
  ])assert(c80QA.includes(token),'C81 native SQLite C80 RED-first test absent '+token);
- assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(quality.lastAuditedProductSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C80 local SQLite readback is NOT an external frozen Firebase HEAD');
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true).reduce(
   (total,m)=>total+m.points,0),oneDecimal(2.0-(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'real R2 and Firebase migration gates remain');
@@ -1253,7 +1253,7 @@ function inspect(){
   'C84 negative: strict mode rejects damaged paged page digest',
   'C84 control: QA cutover OFF denies before any R2 or legacy source network access'
  ])assert(c84QA.includes(token),'C85 merged C84 negative/positive evidence missing '+token);
- assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2',
+ assert.equal(quality.lastAuditedProductSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61',
   'C92 source audit pins latest real product master with C70 C90 C68 merged; C84 also present');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
@@ -1275,7 +1275,7 @@ function inspect(){
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C86 is not external Firebase or R2 certification');
  assert.equal(data.commercialGo.certifiedGates,0);
- assert.equal(quality.score,81.3);
+ assert.equal(quality.score,81.4);
  assert.equal(quality.comparison.previousScore,80.4);
  assert.equal(data.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
@@ -1298,13 +1298,13 @@ function inspect(){
  const c90Qa=fs.readFileSync(path.join(root,'cloudflare-yparty-worker/qa/p0-firebase-frozen-certifier.test.mjs'),'utf8');
  assert(c90Source.includes('snapshot.k.map((val,i)=>[String(i),val])'),'C92 merged C90 real /k REST checkpoint normalization missing');
  assert(c90Qa.includes('exact Firebase REST array form of /k'),'C92 C90 authentic Firebase type QA absent');
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.8);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,8.2);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
- assert.equal(quality.score,81.3);
+ assert.equal(quality.score,81.4);
  assert.equal(quality.comparison.previousScore,80.4);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)));
  assert.equal(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='browser-photo-cutover')?.done,false,
@@ -1334,14 +1334,14 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?0.1:0)),'C106+C109 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?0.1:0)+(d.id==='durability'?0.1:0)),'C106+C109+C110 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
  assert.equal(c106.qaDeployment.qaFlagsEnabled,6);
  assert.equal(data.commercialGo.certifiedGates,0);
  // C109 source-backed independently earned Sync quality +0.1 from C108.
- const c109=quality.latestReview;
+ const c109=(quality.auditTrail||[]).find(r=>r.id==='C109');
  assert.equal(c109?.id,'C109');assert.equal(c109.baseline,81.2);
  assert.equal(c109.score,81.3);assert.equal(c109.delta,0.1);
  assert.equal(c109.sourceSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
@@ -1362,6 +1362,29 @@ function inspect(){
    'if (soloProductoId && col !== "productos") return;', 'if (soloProductoId) return;',
    'sembrar(productoId, cat);'])
   assert(c108Source.includes(token),'C109 bounded source proof missing '+token);
+ // C110: independent source-backed durability +0.1: real stock CAS committed
+ // despite false ACK. Do not claim physical device or commercial GO.
+ const c110=quality.latestReview;
+ assert.equal(c110?.id,'C110');assert.equal(c110.baseline,81.3);
+ assert.equal(c110.score,81.4);assert.equal(c110.delta,0.1);
+ assert.equal(c110.sourceSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
+ assert.equal(c110.release?.commit,c110.sourceSha);
+ assert.equal(c110.release?.version,'v0.8.34');
+ assert.equal(c110.evidence?.length,1);
+ assert.equal(c110.evidence[0].dimension,'durability');assert.equal(c110.evidence[0].delta,0.1);
+ assert.equal(c110.evidence[0].pr,925);
+ const c110Qa='test/p0-v834-delta-retry-no-double.test.cjs';
+ assert.equal(c110.evidence[0].qa,c110Qa);
+ const c110Test=fs.readFileSync(path.join(root,c110Qa),'utf8');
+ for(const token of ['a delta whose first strict save committed but reported failure is applied exactly once',
+   'assert.equal(r.enMemoria, 6', 'assert.equal(r.disco, 6', 'assert.equal(r.ajustes, 1'])
+  assert(c110Test.includes(token),'C110 source-executed negative QA missing '+token);
+ const c110Src=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
+ for(const token of ['let _opIdDelta = "";','movimientos.some(mv => mv && mv.detalle && mv.detalle.opId === _opIdDelta)',
+   'opId: _opIdAjuste'])
+  assert(c110Src.includes(token),'C110 durable stock operation identity missing '+token);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,16.1);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(data.score,100);assert.equal(data.commercialGo.certifiedGates,0);
