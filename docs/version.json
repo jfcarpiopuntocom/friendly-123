@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.46",
+  "version": "v0.8.47",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.46 C129: S4 conserva escritura operativa de colas antiguas diferidas sin desactivar la protección IndexedDB para tiendas nuevas.",
+  "changelog": "v0.8.47 P0: el limite de 8 s del guardado seguro empieza cuando le toca su turno, no al entrar a la fila; en aparatos lentos ya no se rechazan ventas sanas por esperar turno. Sin cambios de datos.",
   "requerida": false,
-  "shell": "f123-shell-v846",
+  "shell": "f123-shell-v847",
   "apagar": [],
-  "releaseName": "v0.8.46",
-  "cacheGeneration": "golden382"
+  "releaseName": "v0.8.47",
+  "cacheGeneration": "golden383"
 }
