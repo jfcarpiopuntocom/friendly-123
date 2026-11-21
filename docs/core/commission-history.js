@@ -9,6 +9,8 @@
   var views=["producto","percha","cliente","comisionista","mes"];
   function keyDay(value,zone){
     if(!value)return "";
+    // A calendar-only business date is local, not UTC midnight (Ecuador is UTC-5).
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(value)))return String(value);
     var t=Date.parse(value);
     if(!Number.isFinite(t))return /^\d{4}-\d{2}-\d{2}/.test(String(value))?String(value).slice(0,10):"";
     try{
@@ -50,12 +52,12 @@
       else tot.duplicates++;
     });
     uniqueSales.forEach(function(v){
-      if(v.id!=null&&conflictingIds.has(String(v.id))){
-        tot.conflicts++;tot.unknownGross++;tot.unknownCommission++;return;
-      }
       var day=keyDay(v.fechaLocal||v.fecha,zone);
       if(from&&(!day||day<from))return;
       if(to&&(!day||day>to))return;
+      if(v.id!=null&&conflictingIds.has(String(v.id))){
+        tot.conflicts++;tot.unknownGross++;tot.unknownCommission++;return;
+      }
       if(v.anulada||v.cancelled){tot.cancelled++;return;}
       var qty=finite(v.cantidad),price=finite(v.precioUnit);
       var grossCents=qty!==null&&qty>0&&price!==null?cents(qty*price):null;
