@@ -12,6 +12,9 @@ for (const [label,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
       const page=await browser.newPage({viewport:{width:390,height:844}});
       await page.goto(pathToFileURL(path.resolve(__dirname,'../docs/index.html')).href,{waitUntil:'domcontentloaded'});
       await page.waitForFunction(()=>window.F123CommissionsByPerson && typeof window.cambiarVistaComisiones==='function');
+      // The synthetic Commissions fixture runs without a login; dismiss ONLY
+      // the test page gate so real browser pointer events reach the visible tabs.
+      await page.addStyleTag({content:'#oc-gate,#puerta,#oc-splash{display:none!important;pointer-events:none!important}'});
       await page.evaluate(()=>{
         window.__c100Payments=[];
         const origFetch=window.fetch;
