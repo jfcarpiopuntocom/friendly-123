@@ -990,6 +990,9 @@
 
   /* ---------------------------------------------------------- COMMISSIONS */
   var cmMes = null, cmVista = "producto";
+  // Belén 1AAA: the default is the full read-only history; a selected month
+  // retains the exact same ledger, payment receipts and adjustments as before.
+  var cmDesde = "", cmHasta = "", cmGrupo = "producto";
   function cmMesActual() { return mesLocalDe(new Date().toISOString()); }
   function cmEtiquetaMes(m) {
     var p = String(m || "").split("-").map(Number);
@@ -1213,8 +1216,36 @@
     w.document.open(); w.document.write(html); w.document.close();
     try { w.focus(); w.print(); } catch (_) {}
   }
+  function pintarComisionesTodas() {
+    var cont=$("cm");if(!cont)return;
+    var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
+    var months=cmMeses(),labels=[["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
+      ["cliente",es?"Cliente":"Customer"],["comisionista",es?"Comisionista":"Associate"],["mes",es?"Mes":"Month"]];
+    var opt=months.map(function(m){return '<option value="'+esc(m)+'">'+esc(cmEtiquetaMes(m))+'</option>';}).join("");
+    var inputStyle='min-height:42px;padding:7px;border:1px solid #19354B;border-radius:6px;background:#fff;color:#0F1923;font:inherit;';
+    var toolbar='<h2 id="cm-titulo" style="font-family:var(--font-display);font-size:22px;margin:0 0 8px;">Commissions</h2>'
+      +'<div class="cm-card cm-bar" data-comm-period-toolbar style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">'
+      +'<label style="font-size:14px;">'+(es?"Período":"Period")+' <select id="cm-mes" style="'+inputStyle+'">'
+      +'<option value="" selected>'+(es?"Todo el historial":"All dates")+'</option>'+opt+'</select></label>'
+      +'<label style="font-size:14px;">'+(es?"Desde":"From")+' <input id="cm-desde" type="date" value="'+esc(cmDesde)+'" style="'+inputStyle+'"></label>'
+      +'<label style="font-size:14px;">'+(es?"Hasta":"To")+' <input id="cm-hasta" type="date" value="'+esc(cmHasta)+'" style="'+inputStyle+'"></label>'
+      +'<label style="font-size:14px;">'+(es?"Ver por":"Group by")+' <select id="cm-grupo" style="'+inputStyle+'">'
+      +labels.map(function(pair){return '<option value="'+pair[0]+'"'+(cmGrupo===pair[0]?' selected':'')+'>'+pair[1]+'</option>';}).join("")
+      +'</select></label></div>';
+    var canRead=(!datos.cobertura||datos.cobertura.ventas!==false);
+    var report=canRead&&window.OCCommissionHistory
+      ? window.OCCommissionHistory.render({sales:datos.ventas||[],from:cmDesde,to:cmHasta,group:cmGrupo,
+          lang:es?"es":"en",zone:zonaNegocioDashboard()})
+      : '<div class="cm-card" role="status">'+(es?"Ventas pendientes de sincronizar. No se muestra un cero incompleto.":"Sales awaiting synchronization; incomplete records never become zero.")+'</div>';
+    cont.innerHTML=toolbar+report;
+    var sel=$("cm-mes");if(sel)sel.addEventListener("change",function(){cmMes=sel.value||null;pintarComisiones();});
+    var desde=$("cm-desde");if(desde)desde.addEventListener("change",function(){cmDesde=desde.value;pintarComisiones();});
+    var hasta=$("cm-hasta");if(hasta)hasta.addEventListener("change",function(){cmHasta=hasta.value;pintarComisiones();});
+    var grupo=$("cm-grupo");if(grupo)grupo.addEventListener("change",function(){cmGrupo=grupo.value;pintarComisiones();});
+  }
   function pintarComisiones() {
     var cont = $("cm"); if (!cont) return;
+    if (cmMes === null) { pintarComisionesTodas(); return; }
     var meses = cmMeses(); var actual = cmMesActual();
     if (!cmMes || meses.indexOf(cmMes) < 0) cmMes = actual;
     var filas = cmFilas(cmMes);
@@ -1298,7 +1329,7 @@
     cont.innerHTML =
       '<h2 id="cm-titulo" style="font-family:var(--font-display);font-size:22px;margin:0 0 8px;">Commissions</h2>' +
       '<div class="cm-card cm-bar">' +
-        '<label>Month <select id="cm-mes">' + meses.map(function (m) { var p = cmPendienteDe(m); return '<option value="' + m + '"' + (m === cmMes ? " selected" : "") + ">" + esc(cmEtiquetaMes(m)) + (m === actual ? " (current)" : "") + (p > 0 ? " · " + money(p) + " still to pay" : "") + "</option>"; }).join("") + "</select></label>" +
+        '<label>Month <select id="cm-mes"><option value="">' + (function(){try{return localStorage.getItem("f123_lang")==="es"?"Todo el historial":"All dates";}catch(_){return "All dates";}})() + '</option>' + meses.map(function (m) { var p = cmPendienteDe(m); return '<option value="' + m + '"' + (m === cmMes ? " selected" : "") + ">" + esc(cmEtiquetaMes(m)) + (m === actual ? " (current)" : "") + (p > 0 ? " · " + money(p) + " still to pay" : "") + "</option>"; }).join("") + "</select></label>" +
         atrasados.map(function (m) { return '<button type="button" class="cm-key rojo" data-cm-mes="' + m + '" title="Commissions still unpaid from earlier months">' + esc(cmEtiquetaMes(m)) + " · " + money(cmPendienteDe(m)) + "</button>"; }).join("") +
         '<div style="display:flex;gap:6px;"><button type="button" class="cm-key' + (cmVista === "producto" ? " on" : "") + '" data-cm-vista="producto">By product / SKU</button><button type="button" class="cm-key' + (cmVista === "percha" ? " on" : "") + '" data-cm-vista="percha">By rack / event</button></div>' +
       "</div>" +
@@ -1312,7 +1343,7 @@
       })() : "") +
       (grupos.length ? grupos.map(tarjeta).join("") : '<div class="cm-card">No commissioned sales this month. Partner, consignment and event racks appear here on their own as soon as they sell.</div>') +
       (rank.length ? '<details class="cm-card" style="padding:10px 16px;"><summary>Ranking · who earned the most this month</summary><table style="margin-top:8px;">' + rank.map(function (r, i) { return "<tr><td>" + (i + 1) + ". " + esc(r.nombre) + " <small>(" + r.ventas + " sale" + (r.ventas === 1 ? "" : "s") + ")</small></td><td class=\"num\">" + money(r.monto) + "</td></tr>"; }).join("") + "</table></details>" : "");
-    var sel = $("cm-mes"); if (sel) sel.addEventListener("change", function () { cmMes = sel.value; pintarComisiones(); });
+    var sel = $("cm-mes"); if (sel) sel.addEventListener("change", function () { cmMes = sel.value || null; pintarComisiones(); });
     cont.querySelectorAll("[data-cm-mes]").forEach(function (b) { b.addEventListener("click", function () { cmMes = b.getAttribute("data-cm-mes"); pintarComisiones(); }); });
     cont.querySelectorAll("[data-cm-vista]").forEach(function (b) { b.addEventListener("click", function () { cmVista = b.getAttribute("data-cm-vista"); pintarComisiones(); }); });
     cont.querySelectorAll("[data-cm-recibo]").forEach(function (b) { b.addEventListener("click", function () { cmRecibo(b.getAttribute("data-cm-recibo"), cmMes); }); });

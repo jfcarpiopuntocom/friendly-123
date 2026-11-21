@@ -6573,16 +6573,10 @@ function matrizComisionistasHtml(ranking){
    soloComision=true (Commissions): ventas del mes con reparto + COUNTER SALE de
    perchas que comparten comision (la casa vendio sin comision; JFC la quiere ver).
    soloComision=false (Sold): todas las ventas que muestra el log. */
-/* PERIODO DE COMMISSIONS (JFC 2026-09-24, shell 371) — REGLA DURA, ver
-   DECISIONES-JFC.md "Commissions". Antes Commissions solo veia el mes en curso:
-   al cambiar de mes, lo no pagado quedaba invisible e impagable. Ahora:
-   - _ocMesComisiones = "YYYY-MM" elegido, o null = mes en curso (lo de siempre).
-   - Toda lectura de dinero de esta vista (liquidaciones, resumen por producto,
-     pagar, CSV) usa ESE mes. Si agregas otra, pasale el mismo mes.
-   - En un mes pasado se puede VER y PAGAR, pero no corregir % ni simular: el
-     corrector del backend trabaja sobre el mes en curso y cambiar porcentajes de
-     un mes cerrado reescribe dinero ya conversado con el asociado.
-   - Un mes invalido cae al mes en curso en el backend (mesValido), nunca a "todo". */
+/* Belén 21-nov-2026 P0: Commissions starts with ALL dates, never a forced month.
+   _ocMesComisiones null = read-only global sales report from real /ventas/todas.
+   YYYY-MM = original settlement UI, exact-period ledger, payouts and receipts.
+   Keep the two modes separate: global rows never authorize a monthly payment. */
 let _ocMesComisiones = null;
 function _ocMesEtiqueta(mes){
   const p = String(mes || "").split("-").map(Number);
@@ -6591,17 +6585,36 @@ function _ocMesEtiqueta(mes){
   catch (_) { return String(mes); }
 }
 function cambiarMesComisiones(mes){
-  // A deliberate month choice must never be overridden by the auto-return.
   window._ocMesAuto = null;
   window._ocMesAutoHecho = true;
   _ocMesComisiones = /^\d{4}-\d{2}$/.test(String(mes || "")) ? String(mes) : null;
   cargarComisiones();
 }
+function cambiarRangoComisionesGlobal(tipo, valor){
+  if(tipo==="desde")window._ocComHistoryFrom=/^\d{4}-\d{2}-\d{2}$/.test(valor)?valor:"";
+  else if(tipo==="hasta")window._ocComHistoryTo=/^\d{4}-\d{2}-\d{2}$/.test(valor)?valor:"";
+  else window._ocComHistoryGroup=["producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"producto";
+  if(!_ocMesComisiones)cargarComisiones();
+}
+function selectorRangoComisionesGlobalHtml(){
+  const es=document.documentElement.lang==="es",from=window._ocComHistoryFrom||"",to=window._ocComHistoryTo||"",group=window._ocComHistoryGroup||"producto";
+  const opciones=[["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
+    ["cliente",es?"Cliente":"Customer"],["comisionista",es?"Comisionista":"Associate"],["mes",es?"Mes":"Month"]];
+  return '<label style="display:flex;align-items:center;gap:5px;font-size:14px;">'+(es?"Desde":"From")+
+    ' <input type="date" aria-label="'+(es?"Desde":"From")+'" value="'+escHtml(from)+'" onchange="cambiarRangoComisionesGlobal(\'desde\',this.value)" style="min-height:40px;padding:6px;border:1px solid #2C3E50;border-radius:6px;"></label>'+
+    '<label style="display:flex;align-items:center;gap:5px;font-size:14px;">'+(es?"Hasta":"To")+
+    ' <input type="date" aria-label="'+(es?"Hasta":"To")+'" value="'+escHtml(to)+'" onchange="cambiarRangoComisionesGlobal(\'hasta\',this.value)" style="min-height:40px;padding:6px;border:1px solid #2C3E50;border-radius:6px;"></label>'+
+    '<label style="display:flex;align-items:center;gap:5px;font-size:14px;">'+(es?"Ver por":"Group by")+
+    ' <select aria-label="'+(es?"Ver por":"Group by")+'" onchange="cambiarRangoComisionesGlobal(\'grupo\',this.value)" style="min-height:40px;padding:6px;border:1px solid #2C3E50;border-radius:6px;">'+
+    opciones.map(function(v){return '<option value="'+v[0]+'"'+(group===v[0]?' selected':'')+'>'+v[1]+'</option>';}).join("")+'</select></label>';
+}
 function selectorMesComisionesHtml(meses){
   const lista = Array.isArray(meses) ? meses : [];
   const actual = (lista.find((x) => x.actual) || {}).mes || "";
-  const elegido = _ocMesComisiones || actual;
-  const opciones = lista.map((x) => `<option value="${escHtml(x.mes)}"${x.mes === elegido ? " selected" : ""}>${escHtml(_ocMesEtiqueta(x.mes))}${x.actual ? " " + t("comm.periodCurrent") : ""}${x.pendiente > 0 ? " · " + fmtMoney(x.pendiente) + " " + t("comm.periodUnpaid") : ""}</option>`).join("");
+  const elegido = _ocMesComisiones || "";
+  const es=typeof document!=="undefined" && document.documentElement && document.documentElement.lang==="es";
+  const opciones = '<option value=""'+(elegido===""?" selected":"")+'>'+(es?"Todo el historial":"All dates")+'</option>'+
+    lista.map((x) => `<option value="${escHtml(x.mes)}"${x.mes === elegido ? " selected" : ""}>${escHtml(_ocMesEtiqueta(x.mes))}${x.actual ? " " + t("comm.periodCurrent") : ""}${x.pendiente > 0 ? " · " + fmtMoney(x.pendiente) + " " + t("comm.periodUnpaid") : ""}</option>`).join("");
   // Meses anteriores con plata sin pagar: aviso en rojo con acceso directo, para que nunca se olviden.
   const atrasados = lista.filter((x) => !x.actual && x.pendiente > 0);
   /* Bloque 6 (JFC 2026-09-24): el aviso de meses sin pagar es UNA linea dentro de la
@@ -6624,7 +6637,7 @@ function barraComisionesHtml(meses, acciones){
   const sel = selectorMesComisionesHtml(meses);
   const filas = [sel.nota].filter(Boolean).map((x) => `<div style="margin-top:8px;">${x}</div>`).join("");
   return `<div class="tag-card" data-commissions-toolbar style="text-align:left;padding:10px 14px;margin:0 0 14px;">
-    <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${sel.aviso}${selectorVistaComisionesHtml()}<div class="acciones">${acciones}</div></div>${filas}
+    <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${_ocMesComisiones?sel.aviso:""}${_ocMesComisiones?selectorVistaComisionesHtml():selectorRangoComisionesGlobalHtml()}<div class="acciones">${acciones}</div></div>${filas}
   </div>`;
 }
 function agruparVentasPorProducto(rows, soloComision, mes, incluirPropias = false){
@@ -6970,6 +6983,33 @@ async function cargarComisiones(){
   const _run = ++_ocComisionesSolicitud, _mesSolicitud = _ocMesComisiones;
   // Microcirugia 11 (2026-07-08): Promise.all sin guard dejaba Comisiones en blanco.
   const cont = document.getElementById("listaComisiones");
+  // Belén 1AAA: whole-history reporting is a pure read of current sales.
+  // Monthly payout, receipts, correction and commission ledger stay untouched.
+  if (!_ocMesComisiones) {
+    try {
+      const [sales, months] = await Promise.all([
+        fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();}),
+        fetch(`${API}/liquidaciones/meses`).then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
+      ]);
+      if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
+      if (!window.OCCommissionHistory || !Array.isArray(sales)) throw Error("commission-history-not-loaded");
+      // Keep the existing people-management form live in BOTH period modes.
+      // This is unrelated to all-history reporting and still edits the same business.
+      try { renderGestionPromotoras(); } catch (_) {}
+      const report=window.OCCommissionHistory.render({sales:sales,from:window._ocComHistoryFrom||"",
+        to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"producto",
+        lang:document.documentElement.lang==="es"?"es":"en"});
+      const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
+      if(cont)cont.innerHTML=barraComisionesHtml(months,actions)+report;
+      return;
+    } catch(e) {
+      if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
+      if(cont)cont.innerHTML='<div role="alert" class="tag-card" style="padding:14px;">'
+        +(document.documentElement.lang==="es"?"No se pudo cargar el historial completo.":"Could not load full history.")
+        +' <button type="button" onclick="cargarComisiones()" style="min-height:44px;">'+t("comm.retryLoad")+'</button></div>';
+      return;
+    }
+  }
   let filas, ranking, ventasTodas, meses, cuadreMes;
   try {
     // P0 1AAA: serialize historical reads by period, coalescing every burst
@@ -7477,6 +7517,25 @@ async function cargarComisiones(){
   });
 }
 
+async function exportarComisionesTotalCSV(){
+  if (_ocMesComisiones) return exportarComisionesCSV();
+  try {
+    const res=await fetch(`${API}/ventas/todas?ubicacionId=todas`);
+    if(!res.ok)throw Error("ventas-http");
+    const sales=await res.json();
+    if(!Array.isArray(sales)||!window.OCCommissionHistory)throw Error("ventas-invalid");
+    const report=window.OCCommissionHistory.project({sales,from:window._ocComHistoryFrom||"",
+      to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"producto",
+      lang:document.documentElement.lang==="es"?"es":"en"});
+    const csvValue=v=>{const t=String(v==null?"":v);return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+    const rows=[["Fecha","Venta ID","Grupo","Ventas brutas","Comision registrada"]];
+    report.rows.forEach(v=>{const g=report.groups.find(x=>x.id===v.group);rows.push([v.day,v.id,g?g.label:"",
+      v.gross===null?"":v.gross.toFixed(2),v.commission===null?"":v.commission.toFixed(2)]);});
+    const blob=new Blob(["\uFEFF"+rows.map(r=>r.map(csvValue).join(",")).join("\n")],{type:"text/csv;charset=utf-8;"});
+    const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="comisiones-todas-fechas.csv";
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  } catch(_) { alert(document.documentElement.lang==="es"?"No se pudo exportar el historial.":"Could not export full history."); }
+}
 // Rec 03: arma el resumen del día y lo abre en WhatsApp (wa.me, sin servidor).
 // Ventas de hoy + comisiones pendientes + stock crítico. El dueño solo elige
 // a quién enviarlo. La app le habla; no tiene que abrir nada más.

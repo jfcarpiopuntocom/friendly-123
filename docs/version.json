@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.48",
+  "version": "v0.8.49",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.48 P0: el limite de 8 s del guardado seguro empieza cuando le toca su turno, no al entrar a la fila; en aparatos lentos ya no se rechazan ventas sanas por esperar turno. Sin cambios de datos.",
+  "changelog": "v0.8.49: Belén 1AAA. Commissions en la app y Dashboard muestra todo el historial por defecto; filtros opcionales desde/hasta y por producto, percha, cliente, comisionista o mes. Pagos conservan su periodo exacto.",
   "requerida": false,
-  "shell": "f123-shell-v848",
+  "shell": "f123-shell-v849",
   "apagar": [],
-  "releaseName": "v0.8.48",
-  "cacheGeneration": "golden384"
+  "releaseName": "v0.8.49",
+  "cacheGeneration": "golden385"
 }
