@@ -114,7 +114,7 @@
       }
       function local() {
         insertar(archivo, false, function () {
-          estado.error = "no cargo " + archivo;
+          estado.error = ((global.t && global.t("loader.failed", "Failed to load")) || "Failed to load") + " " + archivo;
           resolver({ archivo: archivo, desde: "ninguno" });
         });
       }

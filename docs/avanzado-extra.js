@@ -395,7 +395,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
           <input id="oc-importar-file" type="file" accept=".json" style="display:none;">
         </label>
       </div>
-      <p style="font-size:14px;margin:10px 0;"><a href="./pwa-rescue.html" style="font-weight:700;color:var(--azul-medio,#2c4a68);">Rescatar / desinstalar de forma segura PWAs duplicadas del iPhone</a> (sin borrar datos desde la web).</p>
+      <p style="font-size:14px;margin:10px 0;"><a href="./pwa-rescue.html" data-i18n="adv.backup.duplicatePwa" style="font-weight:700;color:var(--azul-medio,#2c4a68);">${window.t("adv.backup.duplicatePwa","Safely uninstall duplicate iPhone home-screen apps")}</a> <span data-i18n="adv.backup.noBrowserErase">${window.t("adv.backup.noBrowserErase","(without deleting business data from the web)")}</span>.</p>
       <p id="oc-respaldo-msg" style="font-size:14px;margin-top:10px;font-weight:700;"></p>
       <p id="oc-respaldo-free" style="font-size:13px;margin-top:6px;display:none;"></p>
       <hr style="border:none;border-top:1px solid var(--azul-suave,#dde5ec);margin:16px 0;">
@@ -413,6 +413,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
       <p id="oc-storage-info" style="font-size:13px;color:var(--ink-soft);margin:10px 0 0;font-family:monospace;"></p>
     `;
     cont.appendChild(respaldo);
+    if (window.OCI18n && window.OCI18n.applyStatic) window.OCI18n.applyStatic(respaldo);
 
     // Mostrar usage/quota en el panel de checkpoints — util para diagnostico remoto
     // (JFC puede pedir screenshot de esta linea para saber si el problema es espacio).
@@ -591,10 +592,10 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
           <!-- PAIR-QR v656 (JFC 2026-11-03): boton + QR de un solo uso. Solo dueno/admin (se muestra desde el script de abajo).
                PARA APAGAR: borrar este div y el bloque "PAIR-QR v656" del script. -->
           <div id="oc-pair-wrap" style="display:none;margin-top:12px;">
-            <button id="oc-pair-btn" class="ir" style="min-height:44px;">${window.t("pair.button")}</button>
+            <button id="oc-pair-btn" class="ir" data-i18n="pair.button" style="min-height:44px;">${window.t("pair.button","Link a new device")}</button>
             <div id="oc-pair-out" style="display:none;margin-top:10px;">
               <img id="oc-pair-img" alt="QR" width="200" height="200" style="background:#FFFFFF;padding:6px;border-radius:6px;">
-              <p style="font-size:14px;line-height:1.5;color:#0F1923;margin:8px 0 0;">${window.t("pair.caption")}</p>
+              <p data-i18n="pair.caption" style="font-size:14px;line-height:1.5;color:#0F1923;margin:8px 0 0;">${window.t("pair.caption","Scan this code from the new device. It works once, for 10 minutes.")}</p>
             </div>
           </div>
           <div style="display:none;gap:8px;flex-wrap:wrap;margin-top:12px;" aria-hidden="true">
@@ -616,7 +617,7 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
              Ahora primero se ve la licencia propia; esto es para el caso menos
              comun: un dispositivo que llega a un negocio que ya existe. -->
         <details id="oc-sync-unirse" style="margin-top:16px;padding-top:14px;border-top:1px solid var(--azul-suave,#dde5ec);">
-          <summary style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">If This device belongs to another business — enter its license</summary>
+          <summary data-i18n="sync.joinAnother" style="font-size:14px;font-weight:700;color:var(--azul-medio);cursor:pointer;min-height:44px;display:flex;align-items:center;">${window.t("sync.joinAnother","If this device belongs to another business — enter its license")}</summary>
           <p style="font-size:14px;color:var(--ink-soft);margin:8px 0;">Paste the license of the notebook you want to join. It is the same code the owner sees on their device.</p>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <input id="oc-sync-codigo2" type="text" placeholder="F123-XXXX-XXXX-XXXX-XXXXX" maxlength="40"
@@ -2188,25 +2189,25 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
     logPanel.id = "oc-log-panel";
     logPanel.style.cssText = "text-align:left;margin-top:22px;";
     logPanel.innerHTML = `
-      <h3 class="seccion" style="margin-top:0;">Activity log</h3>
-      <p style="font-size:14px;color:var(--ink-soft);margin-top:0;">
-        Últimos 100 movimientos registrados en este dispositivo. Cada entrada incluye
-        quién lo hizo y cuándo. El historial es de solo lectura — no se puede editar.
+      <h3 class="seccion" data-i18n="log.heading" style="margin-top:0;">${window.t("log.heading","Activity log")}</h3>
+      <p data-i18n="log.description" style="font-size:14px;color:var(--ink-soft);margin-top:0;">
+        ${window.t("log.description","Last 100 movements recorded on this device. Each entry shows who did it and when. This history is read-only.")}
       </p>
-      <button id="oc-log-cargar"
+      <button id="oc-log-cargar" data-i18n="log.load"
         style="font-size:13px;padding:7px 14px;border:2px solid var(--azul-medio);
                border-radius:6px;background:transparent;color:var(--azul-medio);cursor:pointer;margin-bottom:12px;">
-        Cargar historial
+        ${window.t("log.load","Load history")}
       </button>
       <div id="oc-log-body"></div>`;
     vista.appendChild(logPanel);
+    if (window.OCI18n && window.OCI18n.applyStatic) window.OCI18n.applyStatic(logPanel);
 
     document.getElementById("oc-log-cargar").addEventListener("click", async () => {
       const logBody = document.getElementById("oc-log-body");
-      logBody.innerHTML = '<p style="font-size:13px;color:var(--ink-soft);">Cargando...</p>';
+      logBody.innerHTML = '<p style="font-size:13px;color:var(--ink-soft);">'+window.t('log.loading','Loading…')+'</p>';
       try {
         const r = await fetch("/api/actividad");
-        if (!r.ok) { logBody.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);">No se pudo cargar el historial.</p>'; return; }
+        if (!r.ok) { logBody.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);">'+window.t('log.loadError','Could not load history.')+'</p>'; return; }
         const movs = await r.json();
         if (!movs.length) { logBody.innerHTML = `<p style="font-size:14px;color:var(--ink-soft);">${window.t("log.noMovementsYet")}</p>`; return; }
         const tipoLabel = (t) => {
@@ -2237,21 +2238,21 @@ var _avxEsDefer = !!(document.currentScript && document.currentScript.defer);
         logBody.innerHTML = `<div style="overflow-x:auto;">
           <table style="width:100%;border-collapse:collapse;font-size:13px;">
             <thead><tr style="border-bottom:2px solid var(--azul-suave,#dde5ec);">
-              <th style="text-align:left;padding:5px 8px;font-weight:700;white-space:nowrap;">Cuándo</th>
-              <th style="text-align:left;padding:5px 8px;font-weight:700;">Quién</th>
-              <th style="text-align:left;padding:5px 8px;font-weight:700;">Qué</th>
+              <th style="text-align:left;padding:5px 8px;font-weight:700;white-space:nowrap;">${window.t("log.when","When")}</th>
+              <th style="text-align:left;padding:5px 8px;font-weight:700;">${window.t("log.who","Who")}</th>
+              <th style="text-align:left;padding:5px 8px;font-weight:700;">${window.t("log.what","What")}</th>
             </tr></thead>
             <tbody>${movs.slice(0, 100).map((m) => {
-              const fecha = new Date(m.fecha).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" });
+              const fecha = new Date(m.fecha).toLocaleString((window.OCI18n && window.OCI18n.locale && window.OCI18n.locale()) || "en-US", { dateStyle: "short", timeStyle: "short" });
               const det   = m.detalle ? Object.entries(m.detalle).map(([k, v]) => `${k}: ${v}`).join(", ") : "";
               return `<tr style="border-bottom:1px solid var(--azul-suave,#dde5ec);">
                 <td style="padding:5px 8px;white-space:nowrap;color:var(--ink-soft);">${escHtml(fecha)}</td>
-                <td style="padding:5px 8px;font-weight:700;">${escHtml(m.usuarioNombre || "Sistema")}</td>
+                <td style="padding:5px 8px;font-weight:700;">${escHtml(m.usuarioNombre || window.t("log.system","System"))}</td>
                 <td style="padding:5px 8px;">${escHtml(tipoLabel(m.tipo))}${det ? ` — <span style="color:var(--ink-soft);">${escHtml(det)}</span>` : ""}</td>
               </tr>`;
             }).join("")}</tbody>
           </table></div>`;
-      } catch (_) { logBody.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);">Error de red.</p>'; }
+      } catch (_) { logBody.innerHTML = '<p style="color:var(--rojo-ink,#a3392a);">'+window.t('log.networkError','Network error.')+'</p>'; }
     });
     // === FIN LOG ===========================================================
 
