@@ -21,7 +21,13 @@
   });
   window.addEventListener('pageshow', e => record('pageshow', { persisted: !!e.persisted }));
   window.addEventListener('pagehide', e => record('pagehide', { persisted: !!e.persisted }));
-  window.addEventListener('error', e => record('error', { message: String(e.message || '').slice(0, 120) }));
+  // Never log arbitrary ErrorEvent.message: it can contain URLs, PINs or customer data.
+  window.addEventListener('error', e => {
+    const name = e && e.error && e.error.name;
+    const category = typeof name === 'string' && /^(?:TypeError|ReferenceError|RangeError|SyntaxError|SecurityError|QuotaExceededError|AbortError|UnknownError|InvalidStateError)$/.test(name)
+      ? name : 'other';
+    record('error', { category });
+  });
   window.addEventListener('unhandledrejection', () => record('unhandledrejection'));
   document.addEventListener('visibilitychange', () => record('visibility', { state: document.visibilityState }));
   if (navigator.serviceWorker) {
