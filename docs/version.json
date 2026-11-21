@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.54",
+  "version": "v0.8.55",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.54 C149: Commissions en app y dashboard reconoce repartos idénticos sin depender del orden de beneficiarios; nombres por rol, conflictos económicos reales visibles.",
+  "changelog": "v0.8.55 C151: Commissions en la app y Dashboard atribuye la comisión a la persona explícita incluso con un solo beneficiario, conservando importes y pagos.",
   "requerida": false,
-  "shell": "f123-shell-v854",
+  "shell": "f123-shell-v855",
   "apagar": [],
-  "releaseName": "v0.8.54",
-  "cacheGeneration": "golden390"
+  "releaseName": "v0.8.55",
+  "cacheGeneration": "golden391"
 }
