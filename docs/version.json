@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.60",
+  "version": "v0.8.61",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.60 C161: Commissions app y dashboard avisa si suma de reparto por beneficiario no coincide con comisión registrada; importes ambiguos por verificar sin modificar pagos ni stock.",
+  "changelog": "v0.8.61 C163: una cola cifrada actual guardada en el fallback tras fallo de IndexedDB prevalece sobre una copia IDB anterior, incluso después de reabrir; sin tocar ventas ni backend.",
   "requerida": false,
-  "shell": "f123-shell-v860",
+  "shell": "f123-shell-v861",
   "apagar": [],
-  "releaseName": "v0.8.60",
-  "cacheGeneration": "golden396"
+  "releaseName": "v0.8.61",
+  "cacheGeneration": "golden397"
 }
