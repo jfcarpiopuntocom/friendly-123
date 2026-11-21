@@ -26,14 +26,14 @@ test('one identity in two racks is one beneficiary; keep signed credit, paid and
   assert.equal(grouped.people.length,2);
   const ana = grouped.people.find(x=>x.id==='a');
   assert.equal(ana.deals.length,2);
-  assert.deepEqual([ana.total.earned,ana.total.paid,ana.total.due,ana.total.held],[11950,3510,7940,500]);
+  assert.equal(JSON.stringify([ana.total.earned,ana.total.paid,ana.total.due,ana.total.held]),JSON.stringify([11950,3510,7940,500]));
   const beto = grouped.people.find(x=>x.id==='b');
-  assert.deepEqual([beto.total.earned,beto.total.paid,beto.total.due],[2000,500,1500]);
+  assert.equal(JSON.stringify([beto.total.earned,beto.total.paid,beto.total.due]),JSON.stringify([2000,500,1500]));
 });
 test('same name with distinct immutable payee IDs must never merge', () => {
   const g=load().api.group([rack('u1','A',[money('a','Alex',10,0,10),money('b','Alex',20,0,20)])]);
   assert.equal(g.people.length,2);
-  assert.deepEqual(g.people.map(x=>x.id).sort(),['a','b']);
+  assert.equal(JSON.stringify(g.people.map(x=>x.id).sort()),JSON.stringify(['a','b']));
 });
 test('invalid / incomplete monetary source stays unknown, never made up as zero', () => {
   const g=load().api.group([rack('u1','A',[money('a','Ana',null,4,undefined)])]);
