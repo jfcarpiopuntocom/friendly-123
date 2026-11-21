@@ -16,7 +16,7 @@ test('C89: merged C86 historical decimal abono import merits only 0.1 migration 
  assert.equal(report.go,'0/6');
  assert.equal(report.quality,81.9);
  assert.equal(report.qualityBefore,80.4);
- assert.equal(report.qualityDelta,1.4);
+ assert.equal(report.qualityDelta,1.5);
  const q=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
  const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const byId=new Map(q.dimensions.map(d=>[d.id,d]));
@@ -54,7 +54,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(s.portDelta,PORT_NOW-68.5);
  assert.equal(s.quality,81.9);
  assert.equal(s.qualityBefore,80.4);
- assert.equal(s.qualityDelta,1.4);
+ assert.equal(s.qualityDelta,1.5);
  assert.equal(s.go,'0/6');
  // C77 only credits actual C76 merged source & native RED-first QA.
  // Durable 202 is not a business ACK, customer proof, R2 or physical GO.
@@ -407,7 +407,7 @@ test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QU
  assert.equal(report.port,PORT_NOW);
  assert.equal(report.quality,81.9);
  assert.equal(report.qualityBefore,80.4);
- assert.equal(report.qualityDelta,1.4);
+ assert.equal(report.qualityDelta,1.5);
  assert.equal(report.go,'0/6');
  const q=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
  const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
