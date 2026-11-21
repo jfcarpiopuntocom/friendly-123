@@ -73,13 +73,33 @@ test('P0 Belén: dropped HTTP response, reboot, retry same payment opId once',as
  assert.equal(a.outgoing[0].body.opId,b.outgoing[0].body.opId);
  assert.equal(ledger.size,1,'one financial movement after retry');
 });
-test('P0 Belén: concurrent tabs with different payment opIds, only durable winner may POST',async()=>{
+test('P0 Belén: overlapping tabs with different payment opIds, only durable winner may POST',async()=>{
  const db=new IDBFactory(),values=new Map();
- const a=make({db,storage:values}),b=make({db,storage:values});
- const result=await Promise.allSettled([a.win.ocEnviarAbono('cli-A',5,'Abono'),b.win.ocEnviarAbono('cli-A',5,'Abono')]);
- assert.equal(result.filter(x=>x.status==='fulfilled').length,1);
- assert.equal(result.filter(x=>x.status==='rejected').length,1);
- assert.equal(a.outgoing.length+b.outgoing.length,1,'no second payment request');
+ let firstPost;
+ const postStarted=new Promise(resolve=>{firstPost=resolve;});
+ let releasePost;
+ const postGate=new Promise(resolve=>{releasePost=resolve;});
+ const a=make({db,storage:values,receive:async(_url,body)=>{
+   firstPost();
+   await postGate; // Keep the first durable intent alive until the rival is checked.
+   return {ok:true,json:async()=>({opId:body.opId,movimientoId:'receipt-synthetic'})};
+ }});
+ const b=make({db,storage:values});
+ const first=a.win.ocEnviarAbono('cli-A',5,'Abono');
+ try {
+   await postStarted;
+   // Deterministic overlap: b must inspect a's still-pending durable intent.
+   // A previous Promise.allSettled could schedule b only after a released its
+   // intent, allowing two legitimate sequential payments and flaky CI.
+   await assert.rejects(b.win.ocEnviarAbono('cli-A',5,'Abono'),/conflict|referencia|anterior|original opId/i);
+   assert.equal(a.outgoing.length,1);
+   assert.equal(b.outgoing.length,0,'second tab must never POST a rival opId');
+ } finally {
+   releasePost();
+ }
+ const receipt=await first;
+ assert.equal(receipt.movimientoId,'receipt-synthetic');
+ assert.equal(a.outgoing.length+b.outgoing.length,1,'one POST for overlapping attempts');
 });
 test('P0 Belén: if both localStorage and IDB fail, do not send payment',async()=>{
  const x=make({failIDB:true});
