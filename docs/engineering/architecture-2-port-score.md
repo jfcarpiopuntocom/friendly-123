@@ -1,3 +1,12 @@
+# Estado vigente, 20 de noviembre de 2026: C106
+
+**Implementación de arquitectura 2.0: 100,0/100. Calidad arquitectónica: 81,2/100.** Las dos mediciones son independientes.
+
+Fuente canónica actual: [`architecture-2-port-score.json`](./architecture-2-port-score.json) y [`architecture-2-quality-score.json`](./architecture-2-quality-score.json). Auditoría C106: [PR #916](https://github.com/jfcarpiopuntocom/friendly-123/pull/916), SHA publicado `fc66d92693f520d2ec1d2746d1204975db962976`. Calidad sube de 80,4 a 81,2 por mejoras acreditadas en Business, Durability, Sync, Security y Migration. La activación comercial y la aceptación física se controlan por separado y no son el porcentaje de implementación.
+
+**Archivo histórico:** las secciones desde C85 hacia abajo son registros de auditorías anteriores. Sus cifras 92,0/100, 80,0/100 y anteriores son históricas, no el estado actual. Consultar siempre los dos JSON vigentes para las puntuaciones actuales.
+
+---
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
 ## C85 · 20-nov-2026 Ecuador · seguridad origen R2 estricto, calidad80,0/100
