@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.58",
+  "version": "v0.8.59",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.58 C157: fotos actuales recuperan la conexión IDB tras InvalidStateError silencioso Safari sin falso ACK ni cambios en datos económicos.",
+  "changelog": "v0.8.59 C158: etiquetas EN/ES de Advanced, actividad, vinculación, pie y diagnóstico, sin afectar operaciones comerciales ni sincronización.",
   "requerida": false,
-  "shell": "f123-shell-v858",
+  "shell": "f123-shell-v859",
   "apagar": [],
-  "releaseName": "v0.8.58",
-  "cacheGeneration": "golden394"
+  "releaseName": "v0.8.59",
+  "cacheGeneration": "golden395"
 }
