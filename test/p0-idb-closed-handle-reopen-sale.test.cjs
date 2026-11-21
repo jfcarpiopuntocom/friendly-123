@@ -8,7 +8,7 @@ const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'../docs/estado-idb.js'),'utf8');
 
 function fixture(firstError,secondError,revision=4){
- let opens=0,puts=0,closed=0;
+ let opens=0,puts=0,closed=0,handles=[];
  const saved={actual:{_rev:revision,productos:[],ventas:[]}};
  const indexedDB={open(){
    const req={},attempt=++opens;
@@ -41,6 +41,7 @@ function fixture(firstError,secondError,revision=4){
        return tx;
      }
    };
+   handles.push(db);
    queueMicrotask(()=>{req.result=db;req.onsuccess?.()});
    return req;
  }};
@@ -48,7 +49,7 @@ function fixture(firstError,secondError,revision=4){
  new Function('window','indexedDB','navigator','setTimeout','clearTimeout','console',source)(
    window,indexedDB,{onLine:false},setTimeout,clearTimeout,{error(){},warn(){}}
  );
- return {api:window.OCEstadoIDB,stats:()=>({opens,puts,closed,saved})};
+ return {api:window.OCEstadoIDB,emitClose:i=>handles[i].onclose?.(),stats:()=>({opens,puts,closed,saved})};
 }
 
 test('P0 RED: closed cached IDB handle is reopened ONCE, with the exact sale CAS before ACK',async()=>{
@@ -88,4 +89,19 @@ test('P0: true quota is never treated as a closed connection',async()=>{
  assert.equal(f.stats().opens,1,'no retry for quota');
  assert.equal(f.stats().puts,0);
  assert.equal(f.api.ultimoError()?.name,'QuotaExceededError');
+});
+
+test('C153: unexpected onclose of Safari business DB reconnects exact next sale CAS, old event cannot revoke the newer connection',async()=>{
+ const f=fixture(null,null,4);
+ assert.equal(await f.api.guardarConRevision({_rev:5,ventas:[{id:'sale-1'}]},4),true);
+ assert.equal(f.stats().opens,1);
+ f.emitClose(0);
+ assert.equal(await f.api.guardarConRevision({_rev:6,ventas:[{id:'sale-1'},{id:'sale-2'}]},5),true);
+ assert.equal(f.stats().opens,2,'after spontaneous close this CAS opens a different IDB connection');
+ assert.equal(f.stats().puts,2,'both sales land only through committed strict CAS writes');
+ f.emitClose(0); // late event from old handle must not break the current DB
+ assert.equal(await f.api.guardarConRevision({_rev:7,ventas:[{id:'sale-1'},{id:'sale-2'},{id:'sale-3'}]},6),true);
+ assert.equal(f.stats().opens,2,'stale onclose must not invalidate newer cached connection');
+ assert.equal(f.stats().saved.actual._rev,7);
+ assert.deepEqual(f.stats().saved.actual.ventas.map(v=>v.id),['sale-1','sale-2','sale-3']);
 });

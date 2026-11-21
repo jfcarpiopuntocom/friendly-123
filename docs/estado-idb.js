@@ -227,6 +227,10 @@
         var db = req.result;
         if (settled) { db.close(); return; }
         settled = true;
+        // WebKit can terminate an IDB connection after backgrounding. Discard
+        // only THIS obsolete handle so the next current business write reopens.
+        // Do not close or invalidate a newer connection on a delayed event.
+        db.onclose = function () { if (dbPromise === promise) dbPromise = null; };
         db.onversionchange = function () { db.close(); if (dbPromise === promise) dbPromise = null; };
         resolve(db);
       };
