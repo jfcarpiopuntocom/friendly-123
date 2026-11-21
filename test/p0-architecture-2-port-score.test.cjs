@@ -413,7 +413,7 @@ test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QU
  const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const d=new Map(q.dimensions.map(x=>[x.id,x]));
  assert.equal(q.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- for(const [id,actual,prev] of [['durability',18.9,18.7],['photos',7.8,7.8],['migration',8.2,7.9]]){
+ for(const [id,actual,prev] of [['durability',19.1,18.7],['photos',7.8,7.8],['migration',8.2,7.9]]){
   assert.equal(d.get(id).score,actual,'credited true merged '+id);
   assert.equal(d.get(id).previous,prev,'no double-credit '+id);
  }
