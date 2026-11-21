@@ -42,6 +42,17 @@
   var SALT_FIJO = "amigable-sync-v1";
   var RELAY_URL = "wss://friendly123-sync-relay.jfcarpio.workers.dev/sala/";
   var BUNDLE = "./vendor/yjs-bundle.min.js";
+  // P0 v830 (JFC 20 nov: "que guarde solo lo nuevo"): y-indexeddb rewrites the WHOLE
+  // document (16 MB on a real store) 1 s after the 500th small update, and every later
+  // tiny write queues behind it for 5-46 s, freezing the manual quantity box.
+  // Each action keeps writing only its own incremental update; the full rewrite now
+  // waits until the app has been quiet for 45 s. Nothing is dropped: the incremental
+  // updates stay in IndexedDB until that rewrite succeeds.
+  var COMPACTAR_EN_REPOSO_MS = 45000;
+  function compactarEnReposo(persistencia) {
+    try { if (persistencia && typeof persistencia._storeTimeout === "number") persistencia._storeTimeout = COMPACTAR_EN_REPOSO_MS; } catch (_) {}
+    return persistencia;
+  }
 
   function leerSala() { try { return JSON.parse(localStorage.getItem(ROOM_KEY) || "null"); } catch (_) { return null; } }
   function normalizarCodigo(c) { return String(c || "").trim().toUpperCase(); }
@@ -2791,7 +2802,7 @@
     // Guardamos la referencia: al terminar de cargar de IndexedDB ("synced")
     // hacemos el primer volcado Yjs->store, para que un aparato que arranca
     // offline ya vea lo que otro dejó, sin esperar al relay (Fase 2).
-    try { API.idb = new window.IndexeddbPersistence("f123-yjs-" + API.roomId, API.doc); } catch (e) { log("idb:", e && e.message); }
+    try { API.idb = compactarEnReposo(new window.IndexeddbPersistence("f123-yjs-" + API.roomId, API.doc)); } catch (e) { log("idb:", e && e.message); }
 
     // Convergencia entre pestañas del MISMO origen: instantánea, sin red.
     try {
@@ -2924,7 +2935,7 @@
     if (API.fotosRefs?.observe) API.fotosRefs.observe(function () {
       try { window.dispatchEvent(new CustomEvent("oc-fotos-actualizadas")); } catch (_) {}
     });
-    try { API.fotosIdb = new window.IndexeddbPersistence("f123-yjs-fotos-" + API.roomId, API.fotosDoc); } catch (_) {}
+    try { API.fotosIdb = compactarEnReposo(new window.IndexeddbPersistence("f123-yjs-fotos-" + API.roomId, API.fotosDoc)); } catch (_) {}
     try {
       API.fotosBc = new BroadcastChannel("f123-yjs-fotos-" + API.roomId);
       API.fotosBc.onmessage = function (ev) { try { Y.applyUpdate(API.fotosDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
@@ -2946,7 +2957,7 @@
     // op duplicado por los dos transportes se aplica una vez y no dobla la plata.
     API.opsDoc = new Y.Doc();
     API.opsMap = API.opsDoc.getMap("eventos");
-    try { API.opsIdb = new window.IndexeddbPersistence("f123-yjs-ops-" + API.roomId, API.opsDoc); } catch (_) {}
+    try { API.opsIdb = compactarEnReposo(new window.IndexeddbPersistence("f123-yjs-ops-" + API.roomId, API.opsDoc)); } catch (_) {}
     try {
       API.opsBc = new BroadcastChannel("f123-yjs-ops-" + API.roomId);
       API.opsBc.onmessage = function (ev) { try { Y.applyUpdate(API.opsDoc, new Uint8Array(ev.data), "bc"); } catch (_) {} };
