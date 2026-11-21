@@ -1,0 +1,33 @@
+# QA-only: reproduce genuinely overlapping same payment intent in two browser tabs.
+# No production file changes, no payment side effects outside synthetic HTTP server.
+name: C120 Belén WebKit genuine concurrent payment intents
+on:
+  pull_request:
+    paths:
+      - 'test/p0-belen-idb-live-browser.test.cjs'
+      - '.github/workflows/c120-belen-test-only.yml'
+permissions:
+  contents: read
+jobs:
+  real-browser:
+    if: github.head_ref == 'qa/c120-belen-webkit-controlled-concurrency'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Real HTTP + IndexedDB Chromium/WebKit, three repeated identical runs
+        run: |
+          for n in 1 2 3; do
+            echo "C120 iteration $n"
+            node --require ./test/helpers/sin-red-produccion.cjs --test --test-timeout=120000 test/p0-belen-idb-live-browser.test.cjs
+          done
