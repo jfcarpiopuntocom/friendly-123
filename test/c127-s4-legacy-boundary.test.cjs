@@ -95,3 +95,33 @@ test('C129: deferred 513-op legacy queue stays writable; missing atomic IDB stil
  assert.deepEqual(await execute(false),{legacyWrites:0,blocked:true},
    'new missing-IDB store must not issue a false durability acknowledgement');
 });
+
+test('C131: S4 retries first no-IDB result when database becomes ready later in same session',async()=>{
+ const meta={v:2,rev:1,checkpoint:'',confirmed:[]};
+ const records=new Map([['meta',meta]]);
+ const db={objectStoreNames:{contains:x=>x==='custom'}};
+ const persistencia={db:null,_db:null,get:async key=>records.get(key)};
+ const ctx={persistencia,API:{rollout:{outboxV2:true}},_v2Ready:null,_v2DB:null,
+  _v2Cache:null,_v2Revision:-1,_v2DeferredLegacy:false,_v2Signatures:new Map(),
+  _v2MetaKey:'meta',_outboxKey:'legacy',_v2Prefix:'op:',v2Signature:x=>x.id,
+  log(){},Map,Promise,String};
+ vm.runInNewContext(production+';globalThis.run=v2Db;',ctx);
+ assert.equal(await ctx.run(),null,'startup can occur before IDB is ready');
+ persistencia.db=db;
+ assert.strictEqual(await ctx.run(),db,'ready IDB must be detected without page reload');
+ assert.strictEqual(ctx._v2DB,db,'atomic S4 store must become active');
+});
+
+test('C131: transient IndexedDB metadata-read failure is retried without false ack',async()=>{
+ const db={objectStoreNames:{contains:x=>x==='custom'}};
+ let reads=0;
+ const persistencia={db,get:async()=>{reads++;if(reads===1)throw Error('temporary IDB read unavailable');return {v:2,rev:1,checkpoint:'',confirmed:[]};}};
+ const ctx={persistencia,API:{rollout:{outboxV2:true}},_v2Ready:null,_v2DB:null,
+  _v2Cache:null,_v2Revision:-1,_v2DeferredLegacy:false,_v2Signatures:new Map(),
+  _v2MetaKey:'meta',_outboxKey:'legacy',_v2Prefix:'op:',v2Signature:x=>x.id,
+  log(){},Map,Promise,String};
+ vm.runInNewContext(production+';globalThis.run=v2Db;',ctx);
+ assert.equal(await ctx.run(),null,'first failed read remains rejected safely');
+ assert.strictEqual(await ctx.run(),db,'next real operation retries IDB');
+ assert.equal(reads,2,'retry performs fresh metadata read');
+});
