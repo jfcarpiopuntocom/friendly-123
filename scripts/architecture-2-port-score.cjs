@@ -10,16 +10,25 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC128=quality.latestReview?.id==='C128';
+ const isC130=quality.latestReview?.id==='C130';
+ const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC128?81.9:(isC126?81.8:81.7);
+ const currentQuality=isC130?82.0:(isC128?81.9:(isC126?81.8:81.7));
  const currentDurability=isC126?19.2:19.1;
  const currentMigration=isC128?8.3:8.2;
+ const currentSync=isC130?16.2:16.1;
+ if(isC130){
+  const qa=fs.readFileSync(path.join(root,'test/c127-s4-legacy-boundary.test.cjs'),'utf8');
+  const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+  assert(qa.includes('deferred 513-op legacy queue stays writable'));
+  assert(src.includes('|| _v2DeferredLegacy'));
+  assert.equal(quality.latestReview?.sourceSha,'6ca3ecb044ddf92a1c1021787bca55e99834b2b3');
+ }
  if(isC128){
    const migrationQA=fs.readFileSync(path.join(root,'test/c127-s4-legacy-boundary.test.cjs'),'utf8');
    for(const token of ['function v2Db()', '513 pending legacy ops', 'exactly 512 small ops', 'one >8MiB envelope'])
      assert(migrationQA.includes(token),'C128 requires merged source-executed S4 migration guard: '+token);
-   assert.equal(quality.latestReview?.sourceSha,'87f21b217098dc86ae30c4228ea16b57498ca53b');
+   assert.equal((isC130?quality.auditTrail?.find(r=>r.id==='C128'):quality.latestReview)?.sourceSha,'87f21b217098dc86ae30c4228ea16b57498ca53b');
  }
  assert.equal(data.schema,1);
  assert.equal(quality.schema,1);
@@ -570,7 +579,7 @@ function inspect(){
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no physical devices tested');
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.8);
    assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
-   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,16.1);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,currentSync);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
    assert.equal(quality.comparison.previousScore,80.4);
    const testPath='cloudflare-yparty-worker/qa/p0-c46-cross-device-photo-and-downpath-workerd.test.mjs';
@@ -827,7 +836,7 @@ function inspect(){
    assert.equal(pending?.done,false,'synthetic Workerd != physical iPhone');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
    assert.equal(data.commercialGo.certifiedGates,0);
-   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,16.1);
+   assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,currentSync);
    assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
    assert.equal(quality.comparison.previousScore,80.4);
    const source=fs.readFileSync(path.join(root,'src/port2-cross-device-failback.mjs'),'utf8');
@@ -1346,7 +1355,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?0.1:0)+(d.id==='durability'?(isC126?0.4:0.3):0)+(d.id==='business'?0.1:0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC130?0.2:0.1):0)+(d.id==='durability'?(isC126?0.4:0.3):0)+(d.id==='business'?0.1:0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
@@ -1443,7 +1452,7 @@ function inspect(){
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(data.score,100);assert.equal(data.commercialGo.certifiedGates,0);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,16.1);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,currentSync);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(data.score,100);assert.equal(data.commercialGo.certifiedGates,0);
  const dims=new Set();let qWeight=0,qScore=0,qPrevious=0;
