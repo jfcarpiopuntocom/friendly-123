@@ -7,7 +7,7 @@
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 83.1,
+  "score": 83.2,
   "maximum": 100,
   "dimensions": [
     {
@@ -45,9 +45,9 @@
     {
       "id": "photos",
       "weight": 10,
-      "score": 7.9,
+      "score": 8,
       "previous": 7.8,
-      "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending. C49 merged real mock-backend shelf-photo optimistic CAS guard exercised 200 valid -> 409 stale preserves hash -> 200 valid revision, then actual IDB photo + sync-yjs runtime and Workerd SQLite -fotos DO with cold Team recovery exact SHA. Distinct from C46 initial cold-join readback; 11/11 PR CI and C49 Workerd rerun on combined v0.8.21 source both success. +0.2 QA engineering, not live physical photo UI acceptance. C92: C68 #868 MERGED a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c v0.8.25 real browser UI recovers signed fotoSha bytes by SHA-256 without legacy fotosMap, seeds after catalog event only when photo-cutover ON, resets bounded remote-read budget per authentication bridge; 66 GitHub head checks SUCCESS, browser-source VM and Workerd QA. +0.1 engineering PHOTOS ONLY. Real PC/iPhone photo cutover milestone still unearned and GO0/6. C155 PR #978 merged 1b65e3e38bc2e071047618d0cd8a784b8075351b: Safari photo IDB unexpected onclose now resets ONLY old cached DB promise and in-memory confirmed-byte witness; next new photo opens valid handle and old delayed close cannot clear new promise. Source-executed regression, P0/Release CI 28/29 at merge. +0.1 photo durability QA, no stock/money/relay changes.",
+      "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending. C49 merged real mock-backend shelf-photo optimistic CAS guard exercised 200 valid -> 409 stale preserves hash -> 200 valid revision, then actual IDB photo + sync-yjs runtime and Workerd SQLite -fotos DO with cold Team recovery exact SHA. Distinct from C46 initial cold-join readback; 11/11 PR CI and C49 Workerd rerun on combined v0.8.21 source both success. +0.2 QA engineering, not live physical photo UI acceptance. C92: C68 #868 MERGED a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c v0.8.25 real browser UI recovers signed fotoSha bytes by SHA-256 without legacy fotosMap, seeds after catalog event only when photo-cutover ON, resets bounded remote-read budget per authentication bridge; 66 GitHub head checks SUCCESS, browser-source VM and Workerd QA. +0.1 engineering PHOTOS ONLY. Real PC/iPhone photo cutover milestone still unearned and GO0/6. C155 PR #978 merged 1b65e3e38bc2e071047618d0cd8a784b8075351b: Safari photo IDB unexpected onclose now resets ONLY old cached DB promise and in-memory confirmed-byte witness; next new photo opens valid handle and old delayed close cannot clear new promise. Source-executed regression, P0/Release CI 28/29 at merge. +0.1 photo durability QA, no stock/money/relay changes. C157 PR #980 merged 3a90d2d3139fe0e077bc42422ad4f507296db05e: Safari photo DB silently closed without onclose now invalidates cached live handle after InvalidStateError/UnknownError, failed new write never acknowledged, next write reopens, original committed bytes intact; source-executed 2 new regression cases, P0+release exact-head GREEN. +0.1 photos engineering quality only, no historical recovery.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/868"
     },
     {
@@ -249,25 +249,30 @@
       "review": "2026-11-21 C156 C155 Safari photo IDB onclose, source-tested and P0/release CI verified; photos +0.1, no historical rescues or physical claim.",
       "score": 83.1,
       "source": "friendly-123 @ 1b65e3e38bc2e071047618d0cd8a784b8075351b"
+    },
+    {
+      "review": "2026-11-21 C158 C157 silent Safari photo InvalidStateError guard; +0.1 photos current writes, P0/release CI verified, no physical test or rescues.",
+      "score": 83.2,
+      "source": "friendly-123 @ 3a90d2d3139fe0e077bc42422ad4f507296db05e"
     }
   ],
   "lastAuditedProductSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
   "latestReview": {
-    "id": "C156",
+    "id": "C158",
     "date": "2026-11-21",
-    "baseline": 83,
-    "score": 83.1,
+    "baseline": 83.1,
+    "score": 83.2,
     "delta": 0.1,
-    "sourceSha": "1b65e3e38bc2e071047618d0cd8a784b8075351b",
-    "method": "Original100 unchanged; +0.1 photos for C155 PR#978 merged master v0.8.57. Safari photo IDB now invalidates its cached promise on unexpected onclose while avoiding invalidation of a newly opened connection by a late old event and clearing only in-memory confirmed-photo evidence. Source-executed new regression in test/idb-adapter-lifecycle.test.cjs. Exact-head CI 28/29 GREEN (including P0 Hotfix Gate and Release Control), one auxiliary shadow at merge; no claims of physical iPhone test or historical recovery. Writes and transaction ACK already remain guarded by tx.oncomplete.",
+    "sourceSha": "3a90d2d3139fe0e077bc42422ad4f507296db05e",
+    "method": "Original100 fixed rubric unchanged. +0.1 Photos after merged C157 PR980 v0.8.58. Source-backed regression on real docs/idb-fotos.js verifies WebKit invalidates an active connection silently without onclose; current photo write correctly returns false and does not mutate old committed bytes; next live photo/hashed-byte write reopens IDB. C155 onclose behavior preserved and late old connection does not clear new. Exact-head CI 28/29 green at review, including P0 and release-control, one shadow workflow still running; no physical Safari client acceptance. No migration or historic recovery.",
     "evidence": [
       {
         "dimension": "photos",
         "delta": 0.1,
-        "pr": 978,
-        "sourceSha": "1b65e3e38bc2e071047618d0cd8a784b8075351b",
+        "pr": 980,
+        "sourceSha": "3a90d2d3139fe0e077bc42422ad4f507296db05e",
         "qa": "test/idb-adapter-lifecycle.test.cjs",
-        "why": "C155 new test reopens exact current photo DB after unexpected onclose, prevents old-connection delayed event from cancelling newer DB, preserves photo bytes/commit ACK."
+        "why": "C157 source-executed two tests cover silent InvalidStateError for per-shelf photo and hashed photo, both fail-closed and reopen on next current operation; previous data stays committed, no false ACK."
       }
     ],
     "physicalAcceptance": {
@@ -782,6 +787,29 @@
           "sourceSha": "1b65e3e38bc2e071047618d0cd8a784b8075351b",
           "qa": "test/idb-adapter-lifecycle.test.cjs",
           "why": "C155 new test reopens exact current photo DB after unexpected onclose, prevents old-connection delayed event from cancelling newer DB, preserves photo bytes/commit ACK."
+        }
+      ],
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6"
+      }
+    },
+    {
+      "id": "C158",
+      "date": "2026-11-21",
+      "baseline": 83.1,
+      "score": 83.2,
+      "delta": 0.1,
+      "sourceSha": "3a90d2d3139fe0e077bc42422ad4f507296db05e",
+      "method": "Original100 fixed rubric unchanged. +0.1 Photos after merged C157 PR980 v0.8.58. Source-backed regression on real docs/idb-fotos.js verifies WebKit invalidates an active connection silently without onclose; current photo write correctly returns false and does not mutate old committed bytes; next live photo/hashed-byte write reopens IDB. C155 onclose behavior preserved and late old connection does not clear new. Exact-head CI 28/29 green at review, including P0 and release-control, one shadow workflow still running; no physical Safari client acceptance. No migration or historic recovery.",
+      "evidence": [
+        {
+          "dimension": "photos",
+          "delta": 0.1,
+          "pr": 980,
+          "sourceSha": "3a90d2d3139fe0e077bc42422ad4f507296db05e",
+          "qa": "test/idb-adapter-lifecycle.test.cjs",
+          "why": "C157 source-executed two tests cover silent InvalidStateError for per-shelf photo and hashed photo, both fail-closed and reopen on next current operation; previous data stays committed, no false ACK."
         }
       ],
       "physicalAcceptance": {
