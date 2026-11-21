@@ -154,3 +154,32 @@ test('fails closed on NaN, Infinity, out-of-range floats, undefined array items,
   d.destroy();
  }
 });
+
+
+test('C103 RED: Firebase source rejects inconsistent abono amountCents and monto in nested payload or top-level',()=>{
+ const d=new Y.Doc();
+ const e=d.getMap('eventos');
+ try {
+  e.set('abono-c103-001',{tipo:'abono',payload:{opId:'abono-c103-001',amountCents:1250,monto:15.50}});
+  assert.throws(()=>prepareImportedOpsBaseline(d),/inconsistent economic amount/i,'cannot certify contradictory payout');
+  e.set('abono-c103-001',{tipo:'abono',payload:{opId:'abono-c103-001',amountCents:1250,monto:12.5}});
+  assert.equal(prepareImportedOpsBaseline(d).count,1,'legitimate 12.50 is preserved');
+  e.set('abono-c103-002',{amountCents:2500,monto:24.99});
+  assert.throws(()=>prepareImportedOpsBaseline(d),/inconsistent economic amount/i,'must reject top-level mismatch');
+ }finally{d.destroy();}
+});
+
+test('C103: precise cent consistency preserves original canonical digest, legacy partial fields, and signed amounts',()=>{
+ const d=new Y.Doc(); const e=d.getMap('eventos');
+ try {
+  e.set('abono-c103-003',{tipo:'abono',payload:{amountCents:1250,monto:12.5}});
+  const before=prepareImportedOpsBaseline(d);
+  assert.match(before.digest,/^[0-9a-f]{64}$/);
+  e.set('abono-c103-004',{tipo:'abono',payload:{amountCents:-575,monto:-5.75}});
+  e.set('abono-c103-005',{tipo:'abono',payload:{amountCents:625}});
+  e.set('abono-c103-006',{tipo:'abono',payload:{monto:6.25}});
+  assert.equal(prepareImportedOpsBaseline(d).count,4);
+  e.set('abono-c103-007',{tipo:'abono',payload:{amountCents:1250,monto:12.5,undefinedMeta:undefined}});
+  assert.equal(prepareImportedOpsBaseline(d).count,5);
+ }finally{d.destroy();}
+});
