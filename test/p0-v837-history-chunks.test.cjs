@@ -41,3 +41,65 @@ for (const engine of ['chromium', 'webkit']) test(`${engine}: large history save
     assert.ok(r.hasOld && r.hasNew); assert.equal(r.mergedAct, 1300); assert.equal(r.stock, 8, 'newest light state wins');
   } finally { await web.close(); await new Promise(r => srv.close(r)); }
 });
+
+
+for (const engine of ['chromium', 'webkit']) test(`${engine}: distinct history blocks with identical FNV32 fingerprints must persist the later bytes`, { timeout: 120000 }, async () => {
+  const srv = http.createServer((q, r) => {
+    r.writeHead(200, { 'Content-Type': q.url.endsWith('.js') ? 'application/javascript' : 'text/html' });
+    r.end(q.url.endsWith('.js') ? SRC : '<!doctype html><script src="/estado-idb.js"></script>');
+  });
+  await new Promise(r => srv.listen(0, '127.0.0.1', r));
+  const web = await pw[engine].launch();
+  try {
+    const page = await web.newPage();
+    await page.goto('http://127.0.0.1:' + srv.address().port + '/');
+    const result = await page.evaluate(async () => {
+      const idb = window.OCEstadoIDB;
+      const movimientos = Array.from({ length: 501 }, (_, i) =>
+        i === 0 ? { id: 'm0', note: '00iikdb0' } : { id: 'm' + i, tipo: 'venta' });
+      const cambiado = movimientos.map((x, i) =>
+        i === 0 ? { id: 'm0', note: '01jsqfb2' } : x);
+      function fingerprint(items) {
+        const s = JSON.stringify(items); let h = 2166136261;
+        for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+        return s.length + ':' + (h >>> 0);
+      }
+      const collides = fingerprint(movimientos.slice(0, 500)) === fingerprint(cambiado.slice(0, 500));
+      const first = await idb.guardarConRevision({ _rev: 1, movimientos, actividadCompartida: [], productos: [] }, 0);
+      const second = await idb.guardarConRevision({ _rev: 2, movimientos: cambiado, actividadCompartida: [], productos: [] }, 1);
+      const back = await idb.leer();
+      return { collides, first, second, note: back && back.movimientos[0].note, length: back && back.movimientos.length };
+    });
+    assert.equal(result.collides, true, 'adversarial fixture must genuinely collide under source FNV32');
+    assert.equal(result.first, true); assert.equal(result.second, true);
+    assert.equal(result.note, '01jsqfb2', 'a successful CAS must never omit changed history due to hash collision');
+    assert.equal(result.length, 501);
+  } finally { await web.close(); await new Promise(r => srv.close(r)); }
+});
+
+for (const engine of ['chromium', 'webkit']) test(`${engine}: missing durable history chunk must not read as a complete empty block`, { timeout: 120000 }, async () => {
+  const srv = http.createServer((q, r) => {
+    r.writeHead(200, { 'Content-Type': q.url.endsWith('.js') ? 'application/javascript' : 'text/html' });
+    r.end(q.url.endsWith('.js') ? SRC : '<!doctype html><script src="/estado-idb.js"></script>');
+  });
+  await new Promise(r => srv.listen(0, '127.0.0.1', r));
+  const web = await pw[engine].launch();
+  try {
+    const page = await web.newPage(); await page.goto('http://127.0.0.1:' + srv.address().port + '/');
+    const result = await page.evaluate(async () => {
+      const idb = window.OCEstadoIDB;
+      const st = { _rev: 1, productos: [], movimientos: Array.from({ length: 501 }, (_, i) => ({ id: 'm' + i })), actividadCompartida: [] };
+      if (!await idb.guardarConRevision(st, 0)) return 'initial-save-failed';
+      const db = await new Promise((resolve, reject) => {
+        const q = indexedDB.open('f123_estado', 1); q.onsuccess = () => resolve(q.result); q.onerror = () => reject(q.error);
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('estado', 'readwrite'); tx.objectStore('estado').delete('h:movimientos:0');
+        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error);
+      }); db.close();
+      const back = await idb.leer();
+      return back === null ? 'failed-closed' : 'silent-truncation:' + back.movimientos.length;
+    });
+    assert.equal(result, 'failed-closed', 'missing history is a damaged snapshot, never a valid shortened notebook');
+  } finally { await web.close(); await new Promise(r => srv.close(r)); }
+});
