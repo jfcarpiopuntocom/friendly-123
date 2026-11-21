@@ -1,0 +1,36 @@
+name: C116 candidate seal only (temporary, no deploy)
+on:
+  push:
+    branches: [fix/c116-idb-history-atomic-reads-v840]
+    paths:
+      - .github/workflows/c116-seal-candidate.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  generate-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Official generation, source and manifest checks
+        run: |
+          set -euo pipefail
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+      - name: Commit generated shell seal only to candidate branch
+        run: |
+          set -euo pipefail
+          git config user.name 'friendly-123 CI seal'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs/version-manifest.json docs/sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'C116 candidate: official manifest v840 (no release)'
+            git push origin HEAD:refs/heads/fix/c116-idb-history-atomic-reads-v840
+          fi
