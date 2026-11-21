@@ -40,7 +40,11 @@
       finite(v.cantidad),finite(v.precioUnit),finite(v.comisionAsociado),
       finite(v.split&&v.split.montoComisionSocio),finite(v.netoCasa),
       !!v.noCommission,!!v.anulada,!!v.cancelled,!!v.borrado,
-      Array.isArray(v.reparto)?v.reparto.map(function(r){return [String(r&&(r.promotoraId||r.payeeId)||""),finite(r&&r.monto)];}):null
+      // Payment shares are an economic SET: remote replay may reorder rows.
+      // Preserve payee, ROLE and amount, but never treat list position as money.
+      Array.isArray(v.reparto)?v.reparto.map(function(r){
+        return [String(r&&(r.promotoraId||r.payeeId)||""),String(r&&r.rol||""),finite(r&&r.monto)];
+      }).sort(function(a,b){return JSON.stringify(a).localeCompare(JSON.stringify(b));}):null
     ]);
   }
   function safeName(value,fallback){return String(value==null||String(value).trim()===""?fallback:value);}
@@ -98,8 +102,14 @@
       var targets=[{id:id||label,label:label,commission:commission,gross:gross}];
       if(group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>1){
         targets=v.reparto.map(function(r,i){
-          var name=safeName(i===1?v.asistenteNombre:v.asociadoNombre,
-            safeName(r&&r.nombre,lang==="es"?"Comisionista sin nombre":"Unnamed associate"));
+          // Backend rows identify seller/assistant by rol; indices are not stable
+          // across incoming replays. An explicit payee name takes precedence.
+          var rol=String(r&&r.rol||"");
+          var fallback=rol==="asistente"?v.asistenteNombre:
+            rol==="vendedor"?v.asociadoNombre:
+            (i===1?v.asistenteNombre:v.asociadoNombre);
+          var name=safeName(r&&r.nombre,
+            safeName(fallback,lang==="es"?"Comisionista sin nombre":"Unnamed associate"));
           return {id:String(r&&(r.promotoraId||r.payeeId)||name),label:name,
             commission:cents(finite(r&&r.monto)),gross:null};
         });
