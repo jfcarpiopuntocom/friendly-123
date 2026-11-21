@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.50",
+  "version": "v0.8.51",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.50 C137: reconexión acotada del outbox cifrado IndexedDB cuando Safari cierra el handle; lectura y escritura actual se reintentan una sola vez sin falso ACK.",
+  "changelog": "v0.8.51 C141: Commissions de la app y Dashboard suma centavos exactos y cuenta una sola vez cada recibo de venta, sin modificar liquidaciones ni datos del negocio.",
   "requerida": false,
-  "shell": "f123-shell-v850",
+  "shell": "f123-shell-v851",
   "apagar": [],
-  "releaseName": "v0.8.50",
-  "cacheGeneration": "golden386"
+  "releaseName": "v0.8.51",
+  "cacheGeneration": "golden387"
 }

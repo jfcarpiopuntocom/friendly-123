@@ -18,6 +18,18 @@
     }catch(_){return new Date(t).toISOString().slice(0,10);}
   }
   function finite(value){if(value===null||value===undefined||value==="")return null;var n=Number(value);return Number.isFinite(n)?n:null;}
+  // Use the same per-receipt cent rounding as payout-ledger.js and the
+  // business read model. Unsafe amounts remain explicitly unverified.
+  function cents(n){
+    if(n===null||!Number.isFinite(n)||Math.abs(n)>=1e21)return null;
+    var value=Math.round(Number(n.toFixed(10)+"e2"));
+    return Number.isSafeInteger(value)?value:null;
+  }
+  function money(c){return c===null?null:c/100;}
+  function accumulate(row,field,unknown,value){
+    if(value===null||!Number.isSafeInteger(row[field]+value)){row[unknown]++;return;}
+    row[field]+=value;
+  }
   function safeName(value,fallback){return String(value==null||String(value).trim()===""?fallback:value);}
   function escape(value){return String(value==null?"":value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
   function project(input){
@@ -28,21 +40,27 @@
     var lang=input.lang==="es"?"es":"en",zone=input.zone||"America/Guayaquil";
     var all=Array.isArray(input.sales)?input.sales:[];
     var rows=[],tot={count:0,cancelled:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
-    var groups=new Map();
+    var groups=new Map(),seen=new Set();
     all.forEach(function(v){
       if(!v||typeof v!=="object")return;
       var day=keyDay(v.fecha,zone);
       if(from&&(!day||day<from))return;
       if(to&&(!day||day>to))return;
       if(v.anulada||v.cancelled){tot.cancelled++;return;}
+      if(v.borrado)return;
+      // Existing business-read-model already de-duplicates economic sale IDs.
+      var receiptId=v.id==null?"":String(v.id);
+      if(receiptId&&seen.has(receiptId))return;
+      if(receiptId)seen.add(receiptId);
       var qty=finite(v.cantidad),price=finite(v.precioUnit);
-      var gross=qty!==null&&qty>0&&price!==null?qty*price:null;
-      var commission=finite(v.comisionAsociado);
-      if(commission===null&&v.split)commission=finite(v.split.montoComisionSocio);
-      if(commission===null&&v.noCommission===true)commission=0;
+      var gross=qty!==null&&qty>0&&price!==null?cents(qty*price):null;
+      var commissionRaw=finite(v.comisionAsociado);
+      if(commissionRaw===null&&v.split)commissionRaw=finite(v.split.montoComisionSocio);
+      if(commissionRaw===null&&v.noCommission===true)commissionRaw=0;
+      var commission=cents(commissionRaw);
       tot.count++;
-      if(gross===null)tot.unknownGross++;else tot.gross+=gross;
-      if(commission===null)tot.unknownCommission++;else tot.commission+=commission;
+      accumulate(tot,"gross","unknownGross",gross);
+      accumulate(tot,"commission","unknownCommission",commission);
       var label="",id="";
       if(group==="producto"){id=String(v.productoId||v.productoNombre||"");label=safeName(v.productoNombre,lang==="es"?"Sin producto":"Unnamed product");}
       else if(group==="percha"){id=String(v.ubicacionId||v.ubicacionNombre||"");label=safeName(v.ubicacionNombre,lang==="es"?"Sin percha":"Unnamed rack");}
@@ -60,19 +78,23 @@
           var name=safeName(i===1?v.asistenteNombre:v.asociadoNombre,
             safeName(r&&r.nombre,lang==="es"?"Comisionista sin nombre":"Unnamed associate"));
           return {id:String(r&&(r.promotoraId||r.payeeId)||name),label:name,
-            commission:finite(r&&r.monto),gross:null};
+            commission:cents(finite(r&&r.monto)),gross:null};
         });
       }
       targets.forEach(function(target){
         var k=target.id,g=groups.get(k);
         if(!g){g={id:k,label:target.label,count:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};groups.set(k,g);}
-        g.count++;if(target.gross===null)g.unknownGross++;else g.gross+=target.gross;
-        if(target.commission===null)g.unknownCommission++;else g.commission+=target.commission;
-        rows.push({id:String(v.id||""),day:day,group:k,gross:target.gross,commission:target.commission});
+        g.count++;
+        accumulate(g,"gross","unknownGross",target.gross);
+        accumulate(g,"commission","unknownCommission",target.commission);
+        rows.push({id:String(v.id||""),day:day,group:k,gross:money(target.gross),commission:money(target.commission)});
       });
     });
+    tot.gross=money(tot.gross);tot.commission=money(tot.commission);
     return {group:group,from:from,to:to,lang:lang,zone:zone,rows:rows,totals:tot,
-      groups:Array.from(groups.values()).sort(function(a,b){return (group==="comisionista"?b.commission-a.commission:b.gross-a.gross)||a.label.localeCompare(b.label);})};
+      groups:Array.from(groups.values()).map(function(g){
+        g.gross=money(g.gross);g.commission=money(g.commission);return g;
+      }).sort(function(a,b){return (group==="comisionista"?b.commission-a.commission:b.gross-a.gross)||a.label.localeCompare(b.label);})};
   }
   function render(input){
     var view=project(input),es=view.lang==="es",t=view.totals;

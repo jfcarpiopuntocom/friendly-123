@@ -77,3 +77,39 @@ test('C136: split commissions are attributed once to each real associate, never 
  assert.equal(x.groups.find(v=>v.label==='Lucía').commission,10);
  assert.doesNotMatch(report.render({sales:split,group:'comisionista',lang:'es'}),/Ventas brutas: \$100/,'no per-associate duplicate gross');
 });
+
+test('C141 RED: real-money projections add integer cents, never binary floats',()=>{
+ const x=report.project({sales:[
+  {id:'fraction-A',fecha:'2026-11-21T10:00:00Z',productoId:'p',productoNombre:'Café',cantidad:1,precioUnit:0.1,comisionAsociado:0.1},
+  {id:'fraction-B',fecha:'2026-11-21T11:00:00Z',productoId:'p',productoNombre:'Café',cantidad:1,precioUnit:0.2,comisionAsociado:0.2},
+  {id:'round-C',fecha:'2026-11-21T12:00:00Z',productoId:'p',productoNombre:'Café',cantidad:1,precioUnit:0.105,comisionAsociado:0.105}
+ ],group:'producto',lang:'es'});
+ assert.equal(x.totals.gross,0.41,'0.10 + 0.20 + rounded 0.105 = 0.41');
+ assert.equal(x.totals.commission,0.41);
+ assert.equal(x.groups[0].gross,0.41);
+ assert.equal(x.groups[0].commission,0.41);
+ assert.equal(x.totals.unknownGross,0);
+});
+test('C141 RED: duplicate committed receipt id cannot count sales or payees twice',()=>{
+ const first={id:'sale-one-opId',fecha:'2026-11-21T10:00:00Z',productoId:'p',productoNombre:'Print',cantidad:1,precioUnit:35,
+   comisionAsociado:12,asociadoNombre:'Belén',asistenteNombre:'Lucía',
+   reparto:[{promotoraId:'belen',monto:8},{promotoraId:'lucia',monto:4}]};
+ const x=report.project({sales:[first,{...first}, {id:'sale-two',fecha:'2026-11-21T11:00:00Z',
+  productoId:'p',productoNombre:'Print',cantidad:1,precioUnit:5,comisionAsociado:1}],group:'comisionista',lang:'es'});
+ assert.equal(x.totals.count,2,'same sale id returned twice by sync is one economic receipt');
+ assert.equal(x.totals.gross,40);
+ assert.equal(x.totals.commission,13);
+ assert.equal(x.groups.find(v=>v.label==='Belén').commission,8);
+ assert.equal(x.groups.find(v=>v.label==='Lucía').commission,4);
+ assert.equal(x.rows.filter(v=>v.id==='sale-one-opId').length,2,'one row per genuine payee, not per duplicate receipt');
+});
+test('C141 RED: anonymous distinct receipts stay distinct and unsafe cent values stay unverified',()=>{
+ const x=report.project({sales:[
+  {fecha:'2026-11-21T10:00:00Z',productoNombre:'Anon',cantidad:1,precioUnit:2,comisionAsociado:0},
+  {fecha:'2026-11-21T11:00:00Z',productoNombre:'Anon',cantidad:1,precioUnit:3,comisionAsociado:0},
+  {id:'overflow',fecha:'2026-11-21T12:00:00Z',productoNombre:'Anon',cantidad:1,precioUnit:Number.MAX_SAFE_INTEGER,comisionAsociado:0}
+ ]});
+ assert.equal(x.totals.count,3);
+ assert.equal(x.totals.gross,5);
+ assert.equal(x.totals.unknownGross,1,'unsafe money never becomes invented amount');
+});
