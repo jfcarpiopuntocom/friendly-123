@@ -143,8 +143,8 @@
     // possible, but never chase 50% by ruining a legible receipt or photo.
     const sourceQuality = Number(options.jpegQuality);
     const minQuality = Number(options.jpegFloor);
-    if (Number.isFinite(sourceQuality) && Number.isFinite(minQuality) &&
-        sourceQuality > minQuality && minQuality >= 0.72) {
+    if (best === jpegDataUrl && Number.isFinite(sourceQuality) &&
+        Number.isFinite(minQuality) && sourceQuality > minQuality && minQuality >= 0.72) {
       const nextQuality = Math.max(minQuality, sourceQuality - 0.08);
       try {
         const candidate = canvas.toDataURL("image/jpeg", nextQuality);
