@@ -7,7 +7,7 @@
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 83,
+  "score": 83.1,
   "maximum": 100,
   "dimensions": [
     {
@@ -45,9 +45,9 @@
     {
       "id": "photos",
       "weight": 10,
-      "score": 7.8,
+      "score": 7.9,
       "previous": 7.8,
-      "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending. C49 merged real mock-backend shelf-photo optimistic CAS guard exercised 200 valid -> 409 stale preserves hash -> 200 valid revision, then actual IDB photo + sync-yjs runtime and Workerd SQLite -fotos DO with cold Team recovery exact SHA. Distinct from C46 initial cold-join readback; 11/11 PR CI and C49 Workerd rerun on combined v0.8.21 source both success. +0.2 QA engineering, not live physical photo UI acceptance. C92: C68 #868 MERGED a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c v0.8.25 real browser UI recovers signed fotoSha bytes by SHA-256 without legacy fotosMap, seeds after catalog event only when photo-cutover ON, resets bounded remote-read budget per authentication bridge; 66 GitHub head checks SUCCESS, browser-source VM and Workerd QA. +0.1 engineering PHOTOS ONLY. Real PC/iPhone photo cutover milestone still unearned and GO0/6.",
+      "justification": "C46 PR #844 merged actual product source: real docs/idb-fotos.js + Sync3/yparty SHA photo bridge + F123Application.recoverShelfPhoto; Owner stores exact bytes in Workerd SQLite -fotos DO, cold Team with distinct fake IndexedDB retrieves identical verified bytes without legacy Yjs binary shadow. Full Workerd Miniflare 1/1 and complete CI 11/11 green with Cloudflare master build success. +0.2 engineering QA for photo bridge; UI real devices CAS/physical still pending. C49 merged real mock-backend shelf-photo optimistic CAS guard exercised 200 valid -> 409 stale preserves hash -> 200 valid revision, then actual IDB photo + sync-yjs runtime and Workerd SQLite -fotos DO with cold Team recovery exact SHA. Distinct from C46 initial cold-join readback; 11/11 PR CI and C49 Workerd rerun on combined v0.8.21 source both success. +0.2 QA engineering, not live physical photo UI acceptance. C92: C68 #868 MERGED a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c v0.8.25 real browser UI recovers signed fotoSha bytes by SHA-256 without legacy fotosMap, seeds after catalog event only when photo-cutover ON, resets bounded remote-read budget per authentication bridge; 66 GitHub head checks SUCCESS, browser-source VM and Workerd QA. +0.1 engineering PHOTOS ONLY. Real PC/iPhone photo cutover milestone still unearned and GO0/6. C155 PR #978 merged 1b65e3e38bc2e071047618d0cd8a784b8075351b: Safari photo IDB unexpected onclose now resets ONLY old cached DB promise and in-memory confirmed-byte witness; next new photo opens valid handle and old delayed close cannot clear new promise. Source-executed regression, P0/Release CI 28/29 at merge. +0.1 photo durability QA, no stock/money/relay changes.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/868"
     },
     {
@@ -244,25 +244,30 @@
       "review": "2026-11-21 C154 C153 WebKit onclose invalidates active business IDB only, source RED6/7→GREEN7/7 + strict sale CAS12/12, P0 and Release CI green, +0.1 durability, PORT100.",
       "score": 83,
       "source": "friendly-123 @ 89fb3fe56c61c74bb78d21a8a7527b5389d48633"
+    },
+    {
+      "review": "2026-11-21 C156 C155 Safari photo IDB onclose, source-tested and P0/release CI verified; photos +0.1, no historical rescues or physical claim.",
+      "score": 83.1,
+      "source": "friendly-123 @ 1b65e3e38bc2e071047618d0cd8a784b8075351b"
     }
   ],
   "lastAuditedProductSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
   "latestReview": {
-    "id": "C154",
+    "id": "C156",
     "date": "2026-11-21",
-    "baseline": 82.9,
-    "score": 83,
+    "baseline": 83,
+    "score": 83.1,
     "delta": 0.1,
-    "sourceSha": "89fb3fe56c61c74bb78d21a8a7527b5389d48633",
-    "method": "Original100 rubric remains fixed. +0.1 Durability for C153 PR #976 merged master v0.8.56. Safari/WebKit abnormal IDBDatabase onclose invalidates only the active cached Promise<IDBDatabase>, allowing the next current CAS / journal write to reopen a fresh DB. Demonstrated real source RED 6/7 -> GREEN 7/7 lifecycle tests plus strict sale CAS source-executed 12/12, preserving revision fence, stock, receipts and delayed old onclose safety. GitHub 26/27 workflow results were success including P0 Hotfix Gate and Release Control at merge; no failures, one auxiliary workflow still pending. No historical migration/rescue, additional storage, backend redesign, or physical iPhone test.",
+    "sourceSha": "1b65e3e38bc2e071047618d0cd8a784b8075351b",
+    "method": "Original100 unchanged; +0.1 photos for C155 PR#978 merged master v0.8.57. Safari photo IDB now invalidates its cached promise on unexpected onclose while avoiding invalidation of a newly opened connection by a late old event and clearing only in-memory confirmed-photo evidence. Source-executed new regression in test/idb-adapter-lifecycle.test.cjs. Exact-head CI 28/29 GREEN (including P0 Hotfix Gate and Release Control), one auxiliary shadow at merge; no claims of physical iPhone test or historical recovery. Writes and transaction ACK already remain guarded by tx.oncomplete.",
     "evidence": [
       {
-        "dimension": "durability",
+        "dimension": "photos",
         "delta": 0.1,
-        "pr": 976,
-        "sourceSha": "89fb3fe56c61c74bb78d21a8a7527b5389d48633",
-        "qa": "test/idb-adapter-lifecycle.test.cjs; test/p0-idb-closed-handle-reopen-sale.test.cjs",
-        "why": "Unexpected onclose reconnects exact current strict CAS without false ACK; stale close cannot revoke the newly open connection; source-executed RED→GREEN."
+        "pr": 978,
+        "sourceSha": "1b65e3e38bc2e071047618d0cd8a784b8075351b",
+        "qa": "test/idb-adapter-lifecycle.test.cjs",
+        "why": "C155 new test reopens exact current photo DB after unexpected onclose, prevents old-connection delayed event from cancelling newer DB, preserves photo bytes/commit ACK."
       }
     ],
     "physicalAcceptance": {
@@ -754,6 +759,29 @@
           "sourceSha": "89fb3fe56c61c74bb78d21a8a7527b5389d48633",
           "qa": "test/idb-adapter-lifecycle.test.cjs; test/p0-idb-closed-handle-reopen-sale.test.cjs",
           "why": "Unexpected onclose reconnects exact current strict CAS without false ACK; stale close cannot revoke the newly open connection; source-executed RED→GREEN."
+        }
+      ],
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6"
+      }
+    },
+    {
+      "id": "C156",
+      "date": "2026-11-21",
+      "baseline": 83,
+      "score": 83.1,
+      "delta": 0.1,
+      "sourceSha": "1b65e3e38bc2e071047618d0cd8a784b8075351b",
+      "method": "Original100 unchanged; +0.1 photos for C155 PR#978 merged master v0.8.57. Safari photo IDB now invalidates its cached promise on unexpected onclose while avoiding invalidation of a newly opened connection by a late old event and clearing only in-memory confirmed-photo evidence. Source-executed new regression in test/idb-adapter-lifecycle.test.cjs. Exact-head CI 28/29 GREEN (including P0 Hotfix Gate and Release Control), one auxiliary shadow at merge; no claims of physical iPhone test or historical recovery. Writes and transaction ACK already remain guarded by tx.oncomplete.",
+      "evidence": [
+        {
+          "dimension": "photos",
+          "delta": 0.1,
+          "pr": 978,
+          "sourceSha": "1b65e3e38bc2e071047618d0cd8a784b8075351b",
+          "qa": "test/idb-adapter-lifecycle.test.cjs",
+          "why": "C155 new test reopens exact current photo DB after unexpected onclose, prevents old-connection delayed event from cancelling newer DB, preserves photo bytes/commit ACK."
         }
       ],
       "physicalAcceptance": {
