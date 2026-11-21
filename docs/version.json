@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.49",
+  "version": "v0.8.50",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.49: Belén 1AAA. Commissions en la app y Dashboard muestra todo el historial por defecto; filtros opcionales desde/hasta y por producto, percha, cliente, comisionista o mes. Pagos conservan su periodo exacto.",
+  "changelog": "v0.8.50 C137: reconexión acotada del outbox cifrado IndexedDB cuando Safari cierra el handle; lectura y escritura actual se reintentan una sola vez sin falso ACK.",
   "requerida": false,
-  "shell": "f123-shell-v849",
+  "shell": "f123-shell-v850",
   "apagar": [],
-  "releaseName": "v0.8.49",
-  "cacheGeneration": "golden385"
+  "releaseName": "v0.8.50",
+  "cacheGeneration": "golden386"
 }
