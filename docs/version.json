@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.43",
+  "version": "v0.8.42",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.43 ligereza v842 conservada; recibos de movimientos remotos solo tras commit durable, ventas y ajustes locales coordinados, aislamiento de licencia y reintentos sin doble ACK. Sin migrar datos ni cambiar el transporte.",
+  "changelog": "v0.8.42: las colas del relay viejo ya no se reescriben mientras la app está quieta; recibos durables de operaciones remotas con ACK tras CAS, deduplicación y coordinación de inventario local/remoto, protegidos por licencia activa. Sin cambio de transporte ni migración de datos.",
   "requerida": false,
-  "shell": "f123-shell-v843",
+  "shell": "f123-shell-v842",
   "apagar": [],
-  "releaseName": "v0.8.43",
-  "cacheGeneration": "golden379"
+  "releaseName": "v0.8.42",
+  "cacheGeneration": "golden378"
 }
