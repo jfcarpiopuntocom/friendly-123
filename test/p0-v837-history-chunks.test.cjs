@@ -168,3 +168,24 @@ for (const engine of ['chromium', 'webkit']) test(engine + ': C116 six-megabyte 
     assert.ok(stats.elapsed < 2000, 'desktop-browser synthetic save exceeded 2s latency ceiling: ' + JSON.stringify(stats));
   } finally { await web.close(); await new Promise(r => srv.close(r)); }
 });
+
+
+for (const engine of ['chromium', 'webkit']) test(engine + ': C116 legitimate empty hash buckets survive a save/reopen', { timeout: 120000 }, async () => {
+  const srv = http.createServer((q, r) => {
+    r.writeHead(200, { 'Content-Type': q.url.endsWith('.js') ? 'application/javascript' : 'text/html' });
+    r.end(q.url.endsWith('.js') ? SRC : '<!doctype html><script src="/estado-idb.js"></script>');
+  });
+  await new Promise(r => srv.listen(0, '127.0.0.1', r));
+  const web = await pw[engine].launch();
+  try {
+    const page = await web.newPage(); await page.goto('http://127.0.0.1:' + srv.address().port + '/');
+    const out = await page.evaluate(async () => {
+      const st = { _rev: 1, movimientos: Array.from({ length: 501 }, (_, i) => ({ id: 'm' + i })), actividadCompartida: [], productos: [] };
+      const ok = await window.OCEstadoIDB.guardarConRevision(st, 0);
+      const read = await window.OCEstadoIDB.leer();
+      return { ok, got: !!read, moves: read && read.movimientos.length, activity: read && read.actividadCompartida.length };
+    });
+    assert.equal(out.ok, true); assert.equal(out.got, true, 'empty hash mode uses 64 legitimate empty buckets');
+    assert.equal(out.moves, 501); assert.equal(out.activity, 0);
+  } finally { await web.close(); await new Promise(r => srv.close(r)); }
+});
