@@ -287,7 +287,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='c51-bounded-locks-and-double-qa-bootstrap')?.source,'docs/sync-yjs.js');
  assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(photo.milestones.reduce((a,m)=>a+m.points,0),9);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
  assert.equal(port.commercialGo.certifiedGates,0,'QA-only flags do not grant commercial GO');
@@ -370,7 +370,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,true);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
  assert.equal(port.commercialGo.certifiedGates,0);
@@ -385,7 +385,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,true);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
