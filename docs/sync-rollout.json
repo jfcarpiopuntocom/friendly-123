@@ -1,12 +1,12 @@
 {
   "schema": 1,
-  "stage": "owner-canary",
-  "allOutboxV2": false,
-  "allApproved": false,
-  "description": "First owner pilot; next consenting customer, then all only after acceptance. Gzip remains disabled until a complete per-license device census.",
+  "stage": "all",
+  "allOutboxV2": true,
+  "allApproved": true,
+  "description": "Commercial release approved by JFC on 2026-11-21 ('greenlight salir a commercial'). S4 per-op outbox for all licenses; gzip stays per-license and disabled; YParty 2.0 stays per-license and off until its privacy bridge is certified.",
   "licenses": {
     "e048094f34e8095f516fc10edd43d13b1625825f97d5e983d65477d0569fb718": {
-      "stage": "owner-canary",
+      "stage": "all",
       "approved": true,
       "approvedDate": "2026-11-01",
       "outboxV2": true,

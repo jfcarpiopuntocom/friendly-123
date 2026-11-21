@@ -30,8 +30,9 @@ test('gzip writer requires full device census, minimum shell and signoff',async(
  assert.equal((await evaluate({...approved,deviceCensusSha256:''})).gzipWrite,false);
  assert.equal((await evaluate({...approved,minimumShell:636})).gzipWrite,false);
 });
-test('checked-in pilot policy disables gzip and contains no plain license',()=>{
- assert.equal(config.stage,'owner-canary');
+test('checked-in commercial policy (JFC 2026-11-21) enables S4 for all, disables gzip and contains no plain license',()=>{
+ assert.equal(config.stage,'all');assert.equal(config.allOutboxV2,true);assert.equal(config.allApproved,true);
+ assert.ok(Object.values(config.licenses).every(x=>x.yparty!==true),'YParty 2.0 stays off until its privacy bridge is certified');
  assert.ok(Object.values(config.licenses).every(x=>x.gzipWrite===false));
  assert.doesNotMatch(JSON.stringify(config),/F123-[A-Z0-9]+-/);
 });

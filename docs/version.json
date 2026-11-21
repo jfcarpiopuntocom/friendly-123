@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.44",
+  "version": "v0.8.45",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.44: conserva todos los opIds aplicados en el conjunto canónico; limita solo el espejo localStorage para impedir replay económico de recibos antiguos tras superar 2000 operaciones.",
+  "changelog": "v0.8.45 lanzamiento comercial: la cola de envio por operacion (S4) se activa para todas las licencias. Sin cambios de datos; la 2.0 YParty sigue apagada hasta certificar su puente privado.",
   "requerida": false,
-  "shell": "f123-shell-v844",
+  "shell": "f123-shell-v845",
   "apagar": [],
-  "releaseName": "v0.8.44",
-  "cacheGeneration": "golden380"
+  "releaseName": "v0.8.45",
+  "cacheGeneration": "golden381"
 }
