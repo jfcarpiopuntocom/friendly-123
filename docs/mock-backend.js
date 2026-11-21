@@ -8236,6 +8236,34 @@
         const fisico = Number.isInteger(body.stockFisico) && body.stockFisico >= 0 ? body.stockFisico : null;
         if (fisico !== null && !["dueno", "admin"].includes(window.OCAuth && window.OCAuth.rolActual && window.OCAuth.rolActual()))
           return J({ error: "Only the owner or an admin can set a physical count." }, 403);
+        // C111: a CAS rebase can find an operation ALREADY COMMITTED on disk
+        // after its first local ACK was ambiguous. Its signed movement is the
+        // durable idempotency receipt; never apply a second delta for that opId.
+        const _opIdSolicitado = typeof body.opId === "string" && /^[A-Za-z0-9_-]{8,96}$/.test(body.opId.trim())
+          ? body.opId.trim() : "";
+        if (_opIdSolicitado) {
+          const _ya = movimientos.find(m => m && m.detalle && m.detalle.opId === _opIdSolicitado);
+          if (_ya) {
+            const det = _ya.detalle;
+            const mismoTipo = _ya.tipo === (fisico !== null ? "conteo-fisico" : "ajuste");
+            const mismoProducto = String(det.productoId || "") === String(p.id);
+            const mismoIntento = fisico !== null
+              ? Number(det.stockFisico) === fisico
+              : Number.isInteger(body.delta) && det.delta === body.delta;
+            if (!mismoTipo || !mismoProducto || !mismoIntento)
+              return J({ error: "This adjustment reference belongs to a different operation.",
+                code: "STOCK_OPID_CONFLICT" }, 409);
+            // If a commit succeeded but its ACK was lost, the original op may
+            // never have reached the transport. Resend EXACT SAME payload and
+            // opId, with no new PN counters, revision or movement. Receivers
+            // deduplicate opId; a replay is not a second stock effect.
+            if (fisico === null && det.opPayload && det.opPayload.opId === _opIdSolicitado &&
+                det.opPayload.productoId === p.id) {
+              emitirOpStock("ajuste", clonar(det.opPayload), true);
+            }
+            return J({ ...ficha(p), opId: _opIdSolicitado, duplicate: true });
+          }
+        }
         const d = fisico !== null ? fisico - Math.max(0, Number(p.stockActual) || 0) : (Number.isInteger(body.delta) ? body.delta : 0);
         // BUG FIX (2026-07-03): delta=0 es un entero valido, pasa la guarda de
         // arriba, no cambia el stock pero registra un movimiento en el log. Silencioso
@@ -8283,7 +8311,14 @@
             ? body.opId.trim() : uuid("adj-");
           const op = { productoId: p.id, delta: d, stockNuevo: p.stockActual, opId: _opIdAjuste };
           if (fisico === null) _prepararOpStock(op);
-          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre, delta: d, motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"), stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
+          // Save identity, exact intent, and already-prepared outbound payload
+          // in the same hash-chained movement and strict IDB snapshot.
+          // A future CAS rebase/reload can prove exactly-once and republish.
+          mov(fisico !== null ? "conteo-fisico" : "ajuste", { producto: p.nombre,
+            productoId: p.id, opId: _opIdAjuste, delta: d,
+            ...(fisico !== null ? { stockFisico: fisico } : { opPayload: clonar(op) }),
+            motivo: body.motivo || (fisico !== null ? "Conteo físico" : "Ajuste manual"),
+            stockResultante: p.stockActual, ubicacion: nombreUbic(p.ubicacionId) }, false);
           try { guardado = await guardarEstadoLocal(true, true); } catch (_) {}
           if (!guardado) {
             revertir();
