@@ -1,0 +1,38 @@
+name: C111 temporary official asset regeneration
+on:
+  push:
+    branches: ["fix/c111-http-replay-opid-v838"]
+    paths: [".github/workflows/c111-temp-gen-assets.yml"]
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/c111-http-replay-opid-v838
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Generate exact esbuild app asset and official manifest
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          bash check-sw.sh
+      - name: Commit generated files to this isolated branch only
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/app-inline-01.min.js docs/version-manifest.json
+          if git diff --cached --quiet; then echo "Nothing changed"; exit 0; fi
+          git commit -m "build(C111): official esbuild app minifier and signed v838 manifest"
+          git push origin HEAD:refs/heads/fix/c111-http-replay-opid-v838
