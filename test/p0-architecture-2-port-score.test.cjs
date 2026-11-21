@@ -14,18 +14,18 @@ test('C89: merged C86 historical decimal abono import merits only 0.1 migration 
  const report=inspect();
  assert.equal(report.port,PORT_NOW);
  assert.equal(report.go,'0/6');
- assert.equal(report.quality,80.4);
- assert.equal(report.qualityBefore,80.1);
- assert.equal(report.qualityDelta,0.3);
+ assert.equal(report.quality,81.2);
+ assert.equal(report.qualityBefore,80.4);
+ assert.equal(report.qualityDelta,0.8);
  const q=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
  const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const byId=new Map(q.dimensions.map(d=>[d.id,d]));
- assert.equal(q.lastAuditedProductSha,'a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c');
- assert.equal(byId.get('migration').score,7.9);
- assert.equal(byId.get('migration').previous,7.8);
+ assert.equal(q.lastAuditedProductSha,'76a31d7aa25c7542b0bfdfdf1018ee71b6554a99');
+ assert.equal(byId.get('migration').score,8.2);
+ assert.equal(byId.get('migration').previous,7.9);
  assert.equal(byId.get('security').previous,11.1);
  assert.equal(q.dimensions.reduce((sum,d)=>sum+d.weight,0),100);
- assert.equal(q.dimensions.reduce((sum,d)=>sum+d.previous,0),80.1);
+ assert.equal(q.dimensions.reduce((sum,d)=>sum+d.previous,0),80.4);
  assert.equal(p.groups.reduce((sum,g)=>sum+g.weight,0),100);
  assert.equal(p.score,PORT_NOW);
  assert.equal(p.commercialGo.certifiedGates,0);
@@ -52,9 +52,9 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(s.port,PORT_NOW);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,PORT_NOW-68.5);
- assert.equal(s.quality,80.4);
- assert.equal(s.qualityBefore,80.1);
- assert.equal(s.qualityDelta,0.3);
+ assert.equal(s.quality,81.2);
+ assert.equal(s.qualityBefore,80.4);
+ assert.equal(s.qualityDelta,0.8);
  assert.equal(s.go,'0/6');
  // C77 only credits actual C76 merged source & native RED-first QA.
  // Durable 202 is not a business ACK, customer proof, R2 or physical GO.
@@ -198,10 +198,10 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
   'C80 control: two authentic counts in reverse lexical opId order MUST use SQLite rowid insertion chronology',
   'C80 control: physical no-op count N=stock must retain zero delta and receipt'
  ])assert(c80Native.includes(token),'C81 actual source native SQLite RED-first evidence absent '+token);
- assert.equal(quality.lastAuditedProductSha,'a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c');
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
+ assert.equal(quality.lastAuditedProductSha,'76a31d7aa25c7542b0bfdfdf1018ee71b6554a99');
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
  assert.equal(s.port,PORT_NOW);
 
@@ -227,14 +227,14 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
   'C78 control: queued expense + customer payment preserve genuine 202 SHA, no money/effects',
   'C78 control: queued sale 202 and committed sale + fiado remain correct'
  ])assert(c78QA.includes(token),'C79 actual C78 RED-first SQL evidence missing '+token);
- assert.equal(quality.lastAuditedProductSha,'a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
+ assert.equal(quality.lastAuditedProductSha,'76a31d7aa25c7542b0bfdfdf1018ee71b6554a99');
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(s.port,PORT_NOW);
 
- assert.equal(quality.lastAuditedProductSha,'a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c');
+ assert.equal(quality.lastAuditedProductSha,'76a31d7aa25c7542b0bfdfdf1018ee71b6554a99');
  const ms=port.groups.flatMap(g=>g.milestones);
  assert.equal(port.maximum,100);
  assert.equal(quality.maximum,100);
@@ -255,11 +255,11 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='production-business-dispatch')?.done,false);
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
- assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,16.0);
  assert.equal(ms.filter(x=>!x.done&&x.implementationCredited!==true).reduce((a,x)=>a+x.points,0),100-PORT_NOW);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
- assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
+ assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
  const photo=port.groups.find(g=>g.id==='photo-sha');
  assert.equal(photo?.weight,9,'photo group weight unchanged');
@@ -272,9 +272,9 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='browser-photo-cutover')?.done,false,'full UI and physical CAS still pending');
  assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false,'Workerd x2 is not physical PC-iPhone acceptance');
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.8);
- assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.previous,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.previous,0.0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
 
@@ -287,11 +287,11 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='c51-bounded-locks-and-double-qa-bootstrap')?.source,'docs/sync-yjs.js');
  assert.equal(storage.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(photo.milestones.reduce((a,m)=>a+m.points,0),9);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.7);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
  assert.equal(port.commercialGo.certifiedGates,0,'QA-only flags do not grant commercial GO');
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
 
  // C53 RED: retire exactly THREE legacy Yjs senders under active 2.0, preserve failback.
  const browser=port.groups.find(g=>g.id==='browser-cutover');
@@ -302,10 +302,10 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(c52?.done,true);
  assert.equal(c52?.source,'docs/sync-yjs.js');
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
- assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,7.9);
- assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,8.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
  assert.equal(port.commercialGo.certifiedGates,0);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
 
  // C55 RED: C54 closes the old PRIMARY sender while active, distinct from C52 shadows.
  const c54=ms.find(m=>m.id==='c54-primary-fallback-old-yjs-writer-fence');
@@ -315,7 +315,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(browser.milestones.reduce((a,m)=>a+m.points,0),10,'no new rubric weight');
  assert.equal(port.commercialGo.certifiedGates,0);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
 
  // C57 RED: 3 Workerd SQLite business-committed operations A->B->A on real
  // bundled product code with C54 selected-primary legacy fence; synthetic only.
@@ -328,7 +328,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(c56?.source,'src/port2-cross-device-failback.mjs');
  assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.points,1.0);
  assert.equal(ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.previous,15.9);
  // C50 RED: C47 authenticated role change is merged IN PRODUCT; QA credit capped.
@@ -340,9 +340,9 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='real-auth-role-epoch-qa-c47')?.source,'docs/sync-yjs.js');
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.points,0.5);
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false,'unearned real role switch');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
  // C59 RED: C58 closes prior catalog writer lease + Owner photo credential
@@ -355,7 +355,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='commercial-role-switch')?.done,false);
  assert.equal(identity.milestones.reduce((a,m)=>a+m.points,0),14);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
  // C61 RED: frozen-history original 18.0 fixed, all customer HEAD/R2 pending.
@@ -370,9 +370,9 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,true);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.7);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
  assert.equal(port.commercialGo.certifiedGates,0);
 
  // C63 RED: C62 actual source requires PUBLIC roots even legacy v1 numeric.
@@ -383,17 +383,17 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,true);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.7);
- assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.8);
+ assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(port.commercialGo.certifiedGates,0);
- assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
  // C45 RED: only 0.5 split from existing 1.0 unearned business budget for real C44.
  const c44=ms.find(m=>m.id==='real-adjust-credit-browser-envelope-c44');
  assert.equal(c44?.points,0.5,'C44 earns only the QA browser+Workerd slice');
  assert.equal(c44?.done,true,'C44 must be merged in the same real product');
- assert.equal(quality.comparison.previousScore,80.1);
+ assert.equal(quality.comparison.previousScore,80.4);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
@@ -405,21 +405,21 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
 test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QUALITY only, PORT remains 92.0 and commercial GO 0/6',()=>{
  const report=inspect();
  assert.equal(report.port,PORT_NOW);
- assert.equal(report.quality,80.4);
- assert.equal(report.qualityBefore,80.1);
- assert.equal(report.qualityDelta,0.3);
+ assert.equal(report.quality,81.2);
+ assert.equal(report.qualityBefore,80.4);
+ assert.equal(report.qualityDelta,0.8);
  assert.equal(report.go,'0/6');
  const q=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-quality-score.json'),'utf8'));
  const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const d=new Map(q.dimensions.map(x=>[x.id,x]));
- assert.equal(q.lastAuditedProductSha,'a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c');
- for(const [id,actual,prev] of [['durability',18.7,18.6],['photos',7.8,7.7],['migration',7.9,7.8]]){
+ assert.equal(q.lastAuditedProductSha,'76a31d7aa25c7542b0bfdfdf1018ee71b6554a99');
+ for(const [id,actual,prev] of [['durability',18.8,18.7],['photos',7.8,7.8],['migration',8.2,7.9]]){
   assert.equal(d.get(id).score,actual,'credited true merged '+id);
   assert.equal(d.get(id).previous,prev,'no double-credit '+id);
  }
  assert.equal(q.dimensions.reduce((sum,x)=>sum+x.weight,0),100);
- assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.score,0).toFixed(1)),80.4);
- assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.previous,0).toFixed(1)),80.1);
+ assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.score,0).toFixed(1)),81.2);
+ assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.previous,0).toFixed(1)),80.4);
  assert.equal(p.groups.reduce((sum,g)=>sum+g.weight,0),100);
  assert.equal(p.score,PORT_NOW);
  assert.equal(p.groups.flatMap(g=>g.milestones).filter(x=>!x.done&&x.implementationCredited!==true).reduce((sum,x)=>sum+x.points,0),100-PORT_NOW);
@@ -505,4 +505,23 @@ test('C105: five existing software components earn last 3.0 IMPLEMENTATION ONLY,
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(all.filter(x=>!x.done&&!x.implementationCredited).reduce((a,x)=>a+x.points,0),0);
  assert.equal(inspect().port,100);
+});
+
+test('C106 post-C92 engineering quality is source-backed 81.2, independent of PORT100 and customer GO',()=>{
+ const root=path.resolve(__dirname,'..');
+ const q=JSON.parse(fs.readFileSync(path.join(root,'docs/engineering/architecture-2-quality-score.json'),'utf8'));
+ const p=JSON.parse(fs.readFileSync(path.join(root,'docs/engineering/architecture-2-port-score.json'),'utf8'));
+ assert.equal(q.score,81.2);assert.equal(q.comparison.previousScore,80.4);
+ assert.equal(q.latestReview.delta,0.8);assert.equal(q.latestReview.evidence.length,8);
+ assert.equal(q.lastAuditedProductSha,'76a31d7aa25c7542b0bfdfdf1018ee71b6554a99');
+ assert.equal(p.score,100);assert.equal(p.commercialGo.certifiedGates,0);
+ assert.equal(p.externalAcceptance.realFirebaseHead.verified,false);
+ assert.equal(p.externalAcceptance.physicalPcIphonePc.verified,false);
+ assert.equal(q.dimensions.find(d=>d.id==='physical').score,0);
+ for(const e of q.latestReview.evidence){
+  const file=fs.readFileSync(path.join(root,e.qa),'utf8');
+  assert(file.includes('test('),'missing independently executed source QA '+e.qa);
+  assert(Number.isInteger(e.pr)&&e.pr>0);
+ }
+ assert.equal(inspect().quality,81.2);
 });
