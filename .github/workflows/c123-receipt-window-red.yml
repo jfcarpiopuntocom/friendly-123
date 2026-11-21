@@ -1,0 +1,15 @@
+name: C123 receipt retention RED
+on:
+  push:
+    branches: [qa/c123-receipt-window-red]
+  workflow_dispatch:
+jobs:
+  receipt-retention:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test/c123-receipt-window-red.test.cjs
