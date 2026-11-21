@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.59",
+  "version": "v0.8.60",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.59 C159: fotos nuevas de perchas y comprobantes optimizadas hacia 50% menos peso con WebP de alta fidelidad, alternativa JPEG segura en Safari y sin tocar fotos existentes.",
+  "changelog": "v0.8.60 C161: Commissions app y dashboard avisa si suma de reparto por beneficiario no coincide con comisión registrada; importes ambiguos por verificar sin modificar pagos ni stock.",
   "requerida": false,
-  "shell": "f123-shell-v859",
+  "shell": "f123-shell-v860",
   "apagar": [],
-  "releaseName": "v0.8.59",
-  "cacheGeneration": "golden395"
+  "releaseName": "v0.8.60",
+  "cacheGeneration": "golden396"
 }
