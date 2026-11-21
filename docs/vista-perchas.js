@@ -188,14 +188,14 @@
     img.onload = () => {
       URL.revokeObjectURL(img.src);
       const intentos = [[1400, 0.82], [1200, 0.8], [1000, 0.75], [820, 0.7], [640, 0.62]];
-      let canvasElegido = null;
+      let canvasElegido = null, jpegCalidadElegida = null;
       const rend = (lado, q) => {
         const escala = Math.min(1, lado / Math.max(img.width, img.height));
         const cv = document.createElement('canvas');
         cv.width = Math.round(img.width * escala);
         cv.height = Math.round(img.height * escala);
         cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-        canvasElegido = cv;
+        canvasElegido = cv; jpegCalidadElegida = q;
         return cv.toDataURL('image/jpeg', q);
       };
       let out = rend(intentos[0][0], intentos[0][1]);
@@ -207,7 +207,7 @@
       // High-fidelity WebP aims at half the JPEG bytes; unsupported encoders
       // keep the original tested JPEG and its existing relay-size fallback.
       if (window.OCFotos && typeof window.OCFotos.optimizarCapturaFoto === 'function') {
-        try { out = window.OCFotos.optimizarCapturaFoto(canvasElegido, out, FOTO_BYTES_MAX); }
+        try { out = window.OCFotos.optimizarCapturaFoto(canvasElegido, out, FOTO_BYTES_MAX, {jpegQuality:jpegCalidadElegida, jpegFloor:0.72}); }
         catch (_) { /* JPEG fallback is already complete. */ }
       }
       cb(out);
