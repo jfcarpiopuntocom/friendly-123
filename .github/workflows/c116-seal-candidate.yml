@@ -34,3 +34,5 @@ jobs:
             git commit -m 'C116 candidate: official manifest v840 (no release)'
             git push origin HEAD:refs/heads/fix/c116-idb-history-atomic-reads-v840
           fi
+
+# C116 final source seal
