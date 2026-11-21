@@ -684,6 +684,7 @@
             window.OCYjs && window.OCYjs.esLicenciaPruebaJfc);
         if (!requirePnCommit) registrarEnLog(op); // historical nonpilot path unchanged
         let appliedPnDurable = false;
+        let appliedPnWasDuplicate = false;
         let aplicarResultado;
         if (window.OCSync && window.OCSync.aplicarOpRemota)
           aplicarResultado = window.OCSync.aplicarOpRemota(op);
@@ -694,9 +695,12 @@
           if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
               codigoCuadernoActivo() !== codigoNorm) return;
           appliedPnDurable = true; // exact stock + opId CAS already confirmed by OCSync
+          appliedPnWasDuplicate = accepted.repetida === true;
           registrarEnLog(op); // optional best-effort legacy catch-up vector
         }
-        window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
+        // Sync3 suppresses duplicate events too; a repeat still deserves its peer ACK.
+        if (!requirePnCommit || !appliedPnWasDuplicate)
+          window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
         if (ev.peerReceipt && op && op.opId === ev.peerReceipt.id && window.OCSync &&
             (requirePnCommit
               // C118: reuse the SAME durable CAS proof; no redundant strict save.
