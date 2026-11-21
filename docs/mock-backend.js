@@ -6176,20 +6176,26 @@
       if (op.payload.stockPNHecho && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc &&
           arguments[1] !== _pnReceiverToken) {
         const owner = instanceId;
-        let notebook = "";
-        try { notebook = String(window.OCTienda?.cuadernoId?.() || ""); } catch (_) {}
-        // Receipt pending keys are scoped to the notebook, not merely the opId:
-        // switching shops must never inherit an old shop's provisional outcome.
-        const key = JSON.stringify([owner, notebook, String(op.opId)]);
+        let notebook = "", shop = "";
+        try {
+          notebook = String(window.OCTienda?.cuadernoId?.() || "");
+          // C119: cuadernoId is a DEVICE id and stays fixed across joined shops.
+          // Use the active commercial LICENSE as the actual cross-shop fence.
+          shop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+        } catch (_) {}
+        const key = JSON.stringify([owner, notebook, shop, String(op.opId)]);
         const already = _pnReceiverPending.get(key);
         if (already) return already.then(r => r && r.ok ? { ok: true, repetida: true } : r);
         const work = _pnReceiverTail.then(async () => {
           // A local sale/physical count may already hold the commercial write.
           // Never project a remote PN into that still-provisional transaction.
           if (_ventaPendiente) await _ventaPendiente;
-          let current = "";
-          try { current = String(window.OCTienda?.cuadernoId?.() || ""); } catch (_) {}
-          if (instanceId !== owner || (notebook && current !== notebook))
+          let current = "", currentShop = "";
+          try {
+            current = String(window.OCTienda?.cuadernoId?.() || "");
+            currentShop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+          } catch (_) {}
+          if (instanceId !== owner || (notebook && current !== notebook) || currentShop !== shop)
             return { ok: false, error: "notebook-changed-while-pending" };
           if (_conflictoEstadoAB) return { ok: false, error: "Conflicting saved copies" };
           return window.OCSync.aplicarOpRemota(op, _pnReceiverToken);
