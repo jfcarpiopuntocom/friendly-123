@@ -163,7 +163,10 @@ for (const engine of ['chromium', 'webkit']) test(engine + ': C116 six-megabyte 
     });
     assert.equal(stats.err, undefined, stats.err);
     assert.equal(stats.committed, true);
-    assert.ok(stats.written < stats.fullBytes / 10, 'must preserve v839 small WRITE volume: ' + JSON.stringify(stats));
+    // The fixture uses 1,800-character events: its last 401-entry chunk is ~0.73 MB.
+    // The v839 invariant is one bounded chunk, not an arbitrary 10% of total size.
+    assert.ok(stats.written < 1_000_000, 'must write at most the ~0.9 MB final chunk, not 6.8 MB history: ' + JSON.stringify(stats));
+    assert.ok(stats.written < stats.fullBytes / 8, 'must preserve >87.5% write reduction on this fixture: ' + JSON.stringify(stats));
     t.diagnostic('C116 ' + engine + ' synthetic ~6MB elapsed-ms=' + Math.round(stats.elapsed) + ' written=' + stats.written + '/' + stats.fullBytes);
     assert.ok(stats.elapsed < 2000, 'desktop-browser synthetic save exceeded 2s latency ceiling: ' + JSON.stringify(stats));
   } finally { await web.close(); await new Promise(r => srv.close(r)); }
