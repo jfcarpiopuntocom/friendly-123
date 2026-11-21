@@ -108,3 +108,34 @@ test('RED: failed A cannot erase distinct B that subsequently receives durable A
     }
   }finally{fx.restore()}
 });
+
+test('C119: queued remote PN must reject a business switch even when device notebookId stays constant',async()=>{
+  const fx=await fixture(),{w,op,pending}=fx;
+  const originalLicense=w.OCTienda.licenciaActual;
+  try {
+    let active='F123-SYNTH-SHOP-A';
+    w.OCTienda.licenciaActual=()=>active;
+    const deviceNotebook=String(w.OCTienda.cuadernoId()||'');
+    assert.ok(deviceNotebook,'fixture exposes a durable per-device notebookId');
+    const first=w.OCSync.aplicarOpRemota(op('C119-first-fail','device-A'));
+    await until(()=>pending.length===1,'first CAS is in flight before another op queues');
+    let secondSettled=false;
+    const second=Promise.resolve(w.OCSync.aplicarOpRemota(op('C119-queued-other-shop','device-B')))
+      .then(result=>{secondSettled=true;return result});
+    active='F123-SYNTH-SHOP-B';
+    assert.equal(String(w.OCTienda.cuadernoId()||''),deviceNotebook,
+      'per-device notebookId does not identify the active commercial shop');
+    pending[0].resolve(false);
+    assert.equal((await first)?.ok,false,'first CAS refused');
+    await until(()=>secondSettled || pending.length>=2,'queued operation reached identity fence or CAS');
+    if(pending.length>=2)pending[1].resolve(true); // avoid a hung RED test on a broken receiver
+    const result=await second;
+    assert.equal(result?.ok,false,'queued A-shop operation must never ACK in B shop');
+    assert.equal(pending.length,1,'wrong-shop operation must not attempt another IDB commit');
+    const live=(await state(w)).productos.find(p=>p.id==='p24');
+    assert.equal(pn(live,'device-B'),0,'no cross-shop PN witness contaminates B inventory');
+  }finally{
+    w.OCTienda.licenciaActual=originalLicense;
+    fx.restore();
+  }
+});
