@@ -678,14 +678,41 @@
         if (op && op.tipo === TIPO_SNAPSHOT_PEDIDO) { if (window.OCSyncWatchdog) window.OCSyncWatchdog.responderSnapshot(op); return; }
         if (op && op.tipo === TIPO_SNAPSHOT_TROZO)  { if (window.OCSyncWatchdog) window.OCSyncWatchdog.acumularSnapshot(op); return; }
         if (op._salaOrigen && !opDeEsteCuaderno(op)) return;
-        registrarEnLog(op);
-        if (window.OCSync && window.OCSync.aplicarOpRemota) window.OCSync.aplicarOpRemota(op);
-        window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
-        if (ev.peerReceipt && op && op.opId === ev.peerReceipt.id &&
-            window.OCSync && typeof window.OCSync.confirmarCatalogoDurable === "function" &&
-            leerLog().some(item => item.opId === op.opId && JSON.stringify(item) === JSON.stringify(op)) && await window.OCSync.confirmarCatalogoDurable()) {
+        // The legacy catch-up vector is built from this log. A failed causal
+        // stock CAS is NOT a fact we know; do not advance its vector before ACK.
+        const requirePnCommit = !!(op && op.payload && op.payload.stockPNHecho &&
+            window.OCYjs && window.OCYjs.esLicenciaPruebaJfc);
+        if (!requirePnCommit) registrarEnLog(op); // historical nonpilot path unchanged
+        let appliedPnDurable = false;
+        let appliedPnWasDuplicate = false;
+        let aplicarResultado;
+        if (window.OCSync && window.OCSync.aplicarOpRemota)
+          aplicarResultado = window.OCSync.aplicarOpRemota(op);
+        // C118: provisional opId in RAM is never a durable receipt or UI event.
+        if (requirePnCommit) {
+          const accepted = await Promise.resolve(aplicarResultado).catch(() => null);
+          if (!accepted || accepted.ok !== true) return; // sender can replay on catch-up
+          if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+              codigoCuadernoActivo() !== codigoNorm) return;
+          appliedPnDurable = true; // exact stock + opId CAS already confirmed by OCSync
+          appliedPnWasDuplicate = accepted.repetida === true;
+          registrarEnLog(op); // optional best-effort legacy catch-up vector
+        }
+        // Sync3 suppresses duplicate events too; a repeat still deserves its peer ACK.
+        if (!requirePnCommit || !appliedPnWasDuplicate)
+          window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
+        if (ev.peerReceipt && op && op.opId === ev.peerReceipt.id && window.OCSync &&
+            (requirePnCommit
+              // C118: reuse the SAME durable CAS proof; no redundant strict save.
+              // Full localStorage must not prevent ACK of a fact safely committed to IDB.
+              ? appliedPnDurable
+              : (typeof window.OCSync.confirmarCatalogoDurable === "function" &&
+                  leerLog().some(item => item.opId === op.opId && JSON.stringify(item) === JSON.stringify(op)) &&
+                  await window.OCSync.confirmarCatalogoDurable()))) {
           const receipt = ev.peerReceipt;
           const proof = await cifrar(claveActual, { tipo: "__peer_receipt__", payload: { id: receipt.id, kind: receipt.kind, hash: receipt.hash } });
+          if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+              codigoCuadernoActivo() !== codigoNorm) return;
           await ws.confirmPeerReceipt(receipt, proof);
         }
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
