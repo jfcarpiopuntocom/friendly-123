@@ -1,0 +1,22 @@
+name: P0 Safari manual probe privacy (not deployed)
+on:
+  push:
+    branches:
+      - diagnostics/p0-safari-crash-20261120
+  pull_request:
+    paths:
+      - test/manual/safari-lifecycle-probe.js
+      - test/manual/safari-lifecycle-probe.test.cjs
+      - .github/workflows/p0-safari-probe-privacy.yml
+permissions:
+  contents: read
+jobs:
+  manual-probe-privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --test test/manual/safari-lifecycle-probe.test.cjs
