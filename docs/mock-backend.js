@@ -3662,7 +3662,21 @@
     _salidasActividad.add(salida);
     return salida;
   }
+  // P0 v841 (JFC norte: "la app de hace 35 dias, ligera"): every save rebuilt the export of
+  // ALL movements (5k+ on a real store) and re-merged them, even when nothing changed, keeping
+  // the main thread busy while idle. Reuse the previous export when the shared activity, the
+  // movement list ends, the chain head and the device are identical. Replacements
+  // (aplicarRespaldo) and rollbacks (length = n) always change length or end references.
+  let _cacheExportable = null;
   function _actividadExportable() {
+    const _pri = movimientos[0], _ult = movimientos[movimientos.length - 1], c = _cacheExportable;
+    // After _confirmarActividad adopts the export, actividadCompartida IS c.r: union(c.r, same propios) = c.r.
+    // shortcut: assumes past movements are not edited in place (they are appended or truncated); if
+    // that ever changes, bump a movement revision counter and add it to this key.
+    if (c && (c.desde === actividadCompartida || c.r === actividadCompartida) && c.len === movimientos.length &&
+        c.pri === _pri && c.ult === _ult && c.sello === selloUltimo && c.inst === instanceId) {
+      _exportadaDesde = actividadCompartida; _exportada = c.r; return c.r;
+    }
     const origen = String(instanceId || "amigable"), propios = [];
     const agregar = (clase, id, valor) => propios.push({ id: _actividadClave(origen, clase, id), origen, clase, versiones: [valor] });
     const sellados = movimientos.filter(m => m && m.sello);
@@ -3672,6 +3686,7 @@
     if (selloUltimo) agregar("cola", selloUltimo, { sello: selloUltimo });
     const desde = actividadCompartida, r = _actividadUnir(desde, propios);
     _exportadaDesde = desde; _exportada = r;
+    _cacheExportable = { desde, len: movimientos.length, pri: _pri, ult: _ult, sello: selloUltimo, inst: instanceId, r };
     return r;
   }
   /* v609 perf: _confirmarActividad(completo.actividadCompartida) volvia a unir el historial entero contra si
