@@ -8,7 +8,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const src=fs.readFileSync(path.join(__dirname,'../docs/sync-realtime.js'),'utf8');
-const from=src.indexOf('        registrarEnLog(op);');
+const from=src.indexOf('        const requirePnCommit = ');
 const until=src.indexOf('      } catch (_) { /* mensaje ilegible',from);
 assert.ok(from>=0 && until>from,'real inbound encrypted-ops receiver exists');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
@@ -34,7 +34,7 @@ function fixture(pilot=true){
     ()=>{logged=true;},()=>logged?[op]:[],async (_key,payload)=>payload,'fixture-key',
     class CustomEvent {constructor(type,options){this.type=type;this.detail=options?.detail;}});
   return {pending,events,receipts,invoke,changeRoom:()=>active='OTHER',
-    get confirmCalls(){return confirmCalls;}};
+    get confirmCalls(){return confirmCalls;},get logged(){return logged;}};
 }
 test('C118: pilot remote PN neither broadcasts nor peer-ACKs while its CAS is pending',async()=>{
   const x=fixture();
@@ -43,11 +43,13 @@ test('C118: pilot remote PN neither broadcasts nor peer-ACKs while its CAS is pe
   assert.deepEqual(x.events,[]);
   assert.equal(x.confirmCalls,0);
   assert.equal(x.receipts.length,0);
+  assert.equal(x.logged,false,'a pending PN must not advance the legacy catch-up vector');
   x.pending.resolve({ok:true});
   await done;
   assert.deepEqual(x.events,['oc-sync-op-remota']);
   assert.equal(x.confirmCalls,1);
   assert.equal(x.receipts.length,1);
+  assert.equal(x.logged,true,'the committed PN now advances the vector');
 });
 test('C118: rejected pilot PN CAS never announces or peer-ACKs',async()=>{
   const x=fixture();const done=x.invoke();
@@ -56,6 +58,7 @@ test('C118: rejected pilot PN CAS never announces or peer-ACKs',async()=>{
   assert.deepEqual(x.events,[]);
   assert.equal(x.confirmCalls,0);
   assert.equal(x.receipts.length,0);
+  assert.equal(x.logged,false,'a refused PN stays eligible for peer catch-up');
 });
 test('C118: shop switched during awaited CAS never dispatches into new shop',async()=>{
   const x=fixture();const done=x.invoke();
@@ -64,4 +67,5 @@ test('C118: shop switched during awaited CAS never dispatches into new shop',asy
   assert.deepEqual(x.events,[]);
   assert.equal(x.confirmCalls,0);
   assert.equal(x.receipts.length,0);
+  assert.equal(x.logged,false,'a stale PN cannot advance the new notebook vector');
 });
