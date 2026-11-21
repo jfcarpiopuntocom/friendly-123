@@ -21,7 +21,7 @@ test('C89: merged C86 historical decimal abono import merits only 0.1 migration 
  const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const byId=new Map(q.dimensions.map(d=>[d.id,d]));
  assert.equal(q.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- assert.equal(byId.get('migration').score,8.2);
+ assert.equal(byId.get('migration').score,8.3);
  assert.equal(byId.get('migration').previous,7.9);
  assert.equal(byId.get('security').previous,11.1);
  assert.equal(q.dimensions.reduce((sum,d)=>sum+d.weight,0),100);
@@ -302,7 +302,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(c52?.done,true);
  assert.equal(c52?.source,'docs/sync-yjs.js');
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
- assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,8.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,8.3);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
  assert.equal(port.commercialGo.certifiedGates,0);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
@@ -413,7 +413,7 @@ test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QU
  const p=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const d=new Map(q.dimensions.map(x=>[x.id,x]));
  assert.equal(q.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- for(const [id,actual,prev] of [['durability',19.2,18.7],['photos',7.8,7.8],['migration',8.2,7.9]]){
+ for(const [id,actual,prev] of [['durability',19.2,18.7],['photos',7.8,7.8],['migration',8.3,7.9]]){
   assert.equal(d.get(id).score,actual,'credited true merged '+id);
   assert.equal(d.get(id).previous,prev,'no double-credit '+id);
  }
