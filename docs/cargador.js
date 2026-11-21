@@ -114,8 +114,14 @@
       }
       function local() {
         insertar(archivo, false, function () {
-          estado.error = ((global.t && global.t("loader.failed", "Failed to load")) || "Failed to load") + " " + archivo;
-          resolver({ archivo: archivo, desde: "ninguno" });
+          // One fresh retry for stale SW/HTTP cached optional scripts. A real
+          // permanent 404 still fails open after this single extra request.
+          var separador = archivo.indexOf("?") === -1 ? "?" : "&";
+          var sinCache = archivo + separador + "f123_retry=" + ((global.Date && Date.now) ? Date.now() : 0);
+          insertar(sinCache, false, function () {
+            estado.error = ((global.t && global.t("loader.failed", "Failed to load")) || "Failed to load") + " " + archivo;
+            resolver({ archivo: archivo, desde: "ninguno" });
+          });
         });
       }
       if (origen) {
