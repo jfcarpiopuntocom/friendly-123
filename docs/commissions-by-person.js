@@ -36,6 +36,7 @@
         var key = JSON.stringify([rackId, id]);
         if (seen.has(key)) {
           g.needsReview = true;
+          g.deals.filter(function(d){return d.rackId===rackId;}).forEach(function(d){d.review=true;d.payable=false;});
           unverified.push({ rackId:rackId, rackName:String(l.ubicacion || ''), duplicate:true });
           return;
         }
@@ -47,9 +48,11 @@
         var amounts = {earned:cents(b.earned), paid:cents(b.paid), due:cents(b.due), held:cents(b.held)};
         Object.keys(g.total).forEach(function (k) { g.total[k] = add(g.total[k], amounts[k]); });
         if (review) g.needsReview = true;
+        var percentage = l.payoutBalances.length === 1 && typeof l.pctEfectivo==='number' &&
+          Number.isFinite(l.pctEfectivo) ? l.pctEfectivo : null;
         g.deals.push({rackId:rackId,rackName:String(l.ubicacion || rackId),
-          name:String(b.nombre || g.name), amount:amounts, review:review,
-          payable:!review && amounts.due !== null && amounts.due > 0 && !!b.nombre});
+          name:String(b.nombre || g.name), amount:amounts, percentage:percentage, review:review,
+          payable:!review && Object.keys(amounts).every(function(k){return amounts[k]!==null;}) && amounts.due > 0 && !!b.nombre});
       });
     });
     return { people:Array.from(byId.values()).sort(function (a,b) {
@@ -174,6 +177,7 @@
       p.deals.forEach(function(d) {
         html += '<div style="border-top:1px solid #D7E0E8;padding:8px 0;" data-cm-person-rack="' + esc(d.rackId) + '">' +
           '<strong>' + esc(d.rackName) + '</strong>' +
+          (d.percentage === null ? '' : ' <span style="font-size:13px;">(' + esc(d.percentage) + '%)</span>') +
           '<div style="font-size:14px;">' +
           esc(tx('Devengado','Earned')) + ': ' + esc(money(d.amount.earned)) + ' \u00b7 ' +
           esc(tx('Pagado','Paid')) + ': ' + esc(money(d.amount.paid)) + ' \u00b7 ' +
