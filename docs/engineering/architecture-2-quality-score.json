@@ -7,7 +7,7 @@
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 81.8,
+  "score": 81.9,
   "maximum": 100,
   "dimensions": [
     {
@@ -53,9 +53,9 @@
     {
       "id": "migration",
       "weight": 10,
-      "score": 8.2,
+      "score": 8.3,
       "previous": 7.9,
-      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD C52 v0.8.22 merged real docs/sync-yjs.js source conditional Yjs transport emission: canalSombra and opsCanal stop on modoCorte20Activo, fotosCanal stops on corteFotosShaActivo; VM regression verifies retirement with flags ON and resumption after failback, full PR #851 55/55 GH CI. +0.2 confidence in bounded legacy-sender cutover, not full writer retirement, physical GO or commercial migration. C54 v0.8.23 real product Yjs primary route no longer publishes to the OLD relay when the YParty pilot fails under active 2.0; pilot retains sending and legacy resumes on failback. Extended real-source C52 in-process VM reproduces RED fallback write and GREEN skip; 55/55 CI including browser parity and release-control, Cloudflare exact merged product SUCCESS. +0.2 bounded source regression confidence only; QA OFF, no device acceptance or full legacy retirement. C89: C86 real product PR #886 MERGED 129e5d45155c4eeb7052c246a5944696f17ce461 closes legitimate 1.0 decimal-dollar abono.monto=12.5 and optional undefined-key rejection in frozen imported ops canonicalization. C86 real source RED->GREEN and Yjs/R2 packager + DO SQLite cold reopen regression, 13/13 GitHub head workflows successful; still rejects NaN/Infinity, out-of-range, invalid arrays. +0.1 engineering migration confidence ONLY; authenticated Firebase economic HEAD, R2 Service Binding, PC/iPhone physical acceptance and GO are all unverified. Sync3 unaffected. C92: C90 #890 MERGED fc139809784880f1f9250c05b946bdb0fda1280d fixes real Firebase REST /k checkpoints JSON array representation while preserving sparse holes and strict revision bounds, reproduced read-only -ops authentic 153 frames/227 opIds, 14 head GitHub checks SUCCESS; -y missing 17 fragment pieces and legacy-exclusive facts remain UNRECOVERED. +0.1 engineering MIGRATION quality ONLY; NOT 2.0 actual historic HEAD, R2 Service Binding or physical GO. C106 independent post-C92 source/QA audit: C93 deterministic union of present observations with conflict quarantine and credential rejection, C95 immutable -cat/-ops archive seal with authenticated proof, C97 Workerd SHA readback publisher; distinct beyond C92 Firebase REST /k parsing. +0.3 engineering quality only, GO and physical unchanged.",
+      "justification": "D6-D7 immutable R2 source and deterministic package in real repo, not yet deployed against actual Firebase HEAD C52 v0.8.22 merged real docs/sync-yjs.js source conditional Yjs transport emission: canalSombra and opsCanal stop on modoCorte20Activo, fotosCanal stops on corteFotosShaActivo; VM regression verifies retirement with flags ON and resumption after failback, full PR #851 55/55 GH CI. +0.2 confidence in bounded legacy-sender cutover, not full writer retirement, physical GO or commercial migration. C54 v0.8.23 real product Yjs primary route no longer publishes to the OLD relay when the YParty pilot fails under active 2.0; pilot retains sending and legacy resumes on failback. Extended real-source C52 in-process VM reproduces RED fallback write and GREEN skip; 55/55 CI including browser parity and release-control, Cloudflare exact merged product SUCCESS. +0.2 bounded source regression confidence only; QA OFF, no device acceptance or full legacy retirement. C89: C86 real product PR #886 MERGED 129e5d45155c4eeb7052c246a5944696f17ce461 closes legitimate 1.0 decimal-dollar abono.monto=12.5 and optional undefined-key rejection in frozen imported ops canonicalization. C86 real source RED->GREEN and Yjs/R2 packager + DO SQLite cold reopen regression, 13/13 GitHub head workflows successful; still rejects NaN/Infinity, out-of-range, invalid arrays. +0.1 engineering migration confidence ONLY; authenticated Firebase economic HEAD, R2 Service Binding, PC/iPhone physical acceptance and GO are all unverified. Sync3 unaffected. C92: C90 #890 MERGED fc139809784880f1f9250c05b946bdb0fda1280d fixes real Firebase REST /k checkpoints JSON array representation while preserving sparse holes and strict revision bounds, reproduced read-only -ops authentic 153 frames/227 opIds, 14 head GitHub checks SUCCESS; -y missing 17 fragment pieces and legacy-exclusive facts remain UNRECOVERED. +0.1 engineering MIGRATION quality ONLY; NOT 2.0 actual historic HEAD, R2 Service Binding or physical GO. C106 independent post-C92 source/QA audit: C93 deterministic union of present observations with conflict quarantine and credential rejection, C95 immutable -cat/-ops archive seal with authenticated proof, C97 Workerd SHA readback publisher; distinct beyond C92 Firebase REST /k parsing. +0.3 engineering quality only, GO and physical unchanged. C127 PR #949 MERGED master 87f21b217098dc86ae30c4228ea16b57498ca53b: real S4 v2Db() extracted and executed against synthetic IndexedDB fixture, 513 ops leaves legacy untouched, 512 migrates all ids/checkpoint/ACK in one simulated transaction, >8MiB fallback; 9/9 exact-head workflows green. +0.1 migration QA guardrail, NOT real browser crash atomicity, live client first activation or physical GO.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/897"
     },
     {
@@ -184,38 +184,36 @@
       "review": "2026-11-21 C126 product C124 receipt eviction fix PR945, live v0.8.44, durability +0.1; C125 QA-only no credit; PORT100, physical0/5, GO0/6 unchanged.",
       "score": 81.8,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed"
+    },
+    {
+      "review": "2026-11-21 C128 C127 executable production S4 v1→v2 boundary regression (#949): 512 migrates, 513/>8MiB fallback; 9/9 CI, +0.1 migration engineering-only; PORT100, physical0/5, GO0/6 unchanged.",
+      "score": 81.9,
+      "source": "friendly-123 @ 87f21b217098dc86ae30c4228ea16b57498ca53b"
     }
   ],
   "lastAuditedProductSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
   "latestReview": {
-    "id": "C126",
+    "id": "C128",
     "date": "2026-11-21",
-    "baseline": 81.7,
-    "score": 81.8,
+    "baseline": 81.8,
+    "score": 81.9,
     "delta": 0.1,
-    "sourceSha": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
-    "method": "Fixed original100 rubric: +0.1 durability for distinct actual-product receipt eviction defect C124, corrected, source-tested and deployed v0.8.44. C125 test-only correction earns zero additional score. Port100 and physical0/5, GO0/6 unchanged.",
+    "sourceSha": "87f21b217098dc86ae30c4228ea16b57498ca53b",
+    "method": "Fixed original100 rubric: +0.1 migration engineering assurance only for NEW executable S4 boundary regression on authentic source v2Db(): 513 legacy ops and >8MiB envelope keep untouched v1 fallback; 512 ops migrate preserving operation ids, checkpoint and ACK metadata within one synthetic IDB transaction. PR #949 merged, exact-head 9/9 CI green. Tests use synthetic transaction and do NOT demonstrate real IDB crash atomicity, live customer migration, physical GO or commercial GO. C125 test assertion correction remains zero credit.",
     "evidence": [
       {
-        "dimension": "durability",
+        "dimension": "migration",
         "delta": 0.1,
-        "pr": 945,
-        "sourceSha": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
-        "qa": "test/c123-receipt-window-red.test.cjs",
-        "why": "C123 removed export truncation, but _marcarOpAplicada still evicted oldest applied opIds from canonical Set after 2000. C124 retains canonical Set, bounds only localStorage mirror; 10001-id and quota-failure real-marker test, exact-head 46/46 green after rerun of unrelated flaky payment test, live v0.8.44 verified by version.json + manifest SHA-256."
+        "pr": 949,
+        "sourceSha": "87f21b217098dc86ae30c4228ea16b57498ca53b",
+        "qa": "test/c127-s4-legacy-boundary.test.cjs",
+        "why": "New source-executed S4 legacy migration boundary coverage absent before C127: 513 / 512 ops and >8MiB envelope. Prevents unintentional future destructive migration threshold regressions; 9/9 GitHub checks passed, master merged. Does not test real quota or physical iPhone."
       }
     ],
-    "release": {
-      "version": "v0.8.44",
-      "shell": "f123-shell-v844",
-      "cache": "golden380",
-      "commit": "b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed",
-      "sourcePullRequest": 945
-    },
     "physicalAcceptance": {
       "confirmed": false,
       "commercialGo": "0/6",
-      "reference": "No physical PC Opera↔Safari iPhone A→B→A, customer business cutover or independent full device certification claimed."
+      "reference": "Original 100-point rubric unchanged; physical Opera PC ↔ Safari iPhone A→B→A x2 remains 0/5. Commercial GO 0/6, no live S4 global cutover evidence."
     }
   },
   "auditTrail": [
@@ -430,6 +428,30 @@
         "confirmed": false,
         "commercialGo": "0/6",
         "reference": "No physical PC Opera↔Safari iPhone A→B→A, customer business cutover or independent full device certification claimed."
+      }
+    },
+    {
+      "id": "C128",
+      "date": "2026-11-21",
+      "baseline": 81.8,
+      "score": 81.9,
+      "delta": 0.1,
+      "sourceSha": "87f21b217098dc86ae30c4228ea16b57498ca53b",
+      "method": "Fixed original100 rubric: +0.1 migration engineering assurance only for NEW executable S4 boundary regression on authentic source v2Db(): 513 legacy ops and >8MiB envelope keep untouched v1 fallback; 512 ops migrate preserving operation ids, checkpoint and ACK metadata within one synthetic IDB transaction. PR #949 merged, exact-head 9/9 CI green. Tests use synthetic transaction and do NOT demonstrate real IDB crash atomicity, live customer migration, physical GO or commercial GO. C125 test assertion correction remains zero credit.",
+      "evidence": [
+        {
+          "dimension": "migration",
+          "delta": 0.1,
+          "pr": 949,
+          "sourceSha": "87f21b217098dc86ae30c4228ea16b57498ca53b",
+          "qa": "test/c127-s4-legacy-boundary.test.cjs",
+          "why": "New source-executed S4 legacy migration boundary coverage absent before C127: 513 / 512 ops and >8MiB envelope. Prevents unintentional future destructive migration threshold regressions; 9/9 GitHub checks passed, master merged. Does not test real quota or physical iPhone."
+        }
+      ],
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6",
+        "reference": "Original 100-point rubric unchanged; physical Opera PC ↔ Safari iPhone A→B→A x2 remains 0/5. Commercial GO 0/6, no live S4 global cutover evidence."
       }
     }
   ]
