@@ -1,6 +1,6 @@
 {
-  "version": "v0.8.47",
-  "shell": "f123-shell-v847",
+  "version": "v0.8.48",
+  "shell": "f123-shell-v848",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-720e440435eef487d08f12b66bf1ab012c2b32adb6d95b5a9e7be1f3d3d56614",
@@ -133,6 +133,8 @@
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
     "./dashboard-main.min.js": "sha256-c62da258e0dd8d2a98674e4c80e3444deaa5eaf6b7710d4ae813d559dd6975a0",
-    "./core/hechos-chain-readonly.js": "sha256-8fd607dca2a1622514da97dc356e6309f707c8406c50b50d7bb3b0d4d7b59814"
+    "./core/hechos-chain-readonly.js": "sha256-8fd607dca2a1622514da97dc356e6309f707c8406c50b50d7bb3b0d4d7b59814",
+    ".//sync-outbox.js": "sha256-1589a67754340ab0f9c190808ca2cbd14d488985b5e63289ee27ac78cf847933",
+    ".//dashboard.html": "sha256-8a4b4f4932f2b0951396388d4c71d3f6e45d4fc7a2834c5e5f78a8536f849da4"
   }
 }
