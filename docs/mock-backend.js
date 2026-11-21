@@ -6192,13 +6192,16 @@
         };
         if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};
         // The receipt rides in the SAME durable write as the stock effect (v842); undone on failure.
-        vistos.add(op.opId);
+        // typeof: tests evaluate this branch alone, without the receipt helpers in scope.
+        const recibos = typeof _cargarOpsAplicadas === "function" ? _cargarOpsAplicadas() : null;
+        const quitarRecibo = () => { if (recibos) recibos.delete(op.opId); };
+        if (recibos) recibos.add(op.opId);
         let intentoGuardado;
         try { intentoGuardado = guardarEstadoLocal(true); }
-        catch (_) { vistos.delete(op.opId); restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
+        catch (_) { quitarRecibo(); restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
         return Promise.resolve(intentoGuardado).then((saved) => {
           if (saved !== true) {
-            vistos.delete(op.opId);
+            quitarRecibo();
             restaurarStock();
             return {ok:false, error:"stock-not-durable"};
           }
@@ -6206,7 +6209,7 @@
           avisarCatalogoCambiado();
           return {ok:true};
         }).catch(() => {
-          vistos.delete(op.opId);
+          quitarRecibo();
           restaurarStock();
           return {ok:false, error:"stock-commit-failed"};
         });
