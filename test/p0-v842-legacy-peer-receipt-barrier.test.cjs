@@ -14,7 +14,7 @@ assert.ok(from>=0 && until>from,'real inbound encrypted-ops receiver exists');
 const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
 const apply=new AsyncFunction('op','window','ev','ws','miGeneracion','_conexionGeneracion',
   '_socketDeEstaConexion','codigoCuadernoActivo','codigoNorm','registrarEnLog',
-  'leerLog','cifrar','CustomEvent',src.slice(from,until));
+  'leerLog','cifrar','claveActual','CustomEvent',src.slice(from,until));
 const defer=()=>{let resolve;const promise=new Promise(r=>resolve=r);return{promise,resolve};};
 function fixture(pilot=true){
   const pending=defer(),events=[],receipts=[];
@@ -31,7 +31,7 @@ function fixture(pilot=true){
   };
   const ev={peerReceipt:{id:op.opId,kind:'op',hash:'hash-fixture'}};
   const invoke=()=>apply(op,window,ev,ws,1,1,ws,()=>active,'ROOM',
-    ()=>{logged=true;},()=>logged?[op]:[],async (_key,payload)=>payload,
+    ()=>{logged=true;},()=>logged?[op]:[],async (_key,payload)=>payload,'fixture-key',
     class CustomEvent {constructor(type,options){this.type=type;this.detail=options?.detail;}});
   return {pending,events,receipts,invoke,changeRoom:()=>active='OTHER',
     get confirmCalls(){return confirmCalls;}};
