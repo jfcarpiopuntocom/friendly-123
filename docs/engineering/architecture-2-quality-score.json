@@ -168,7 +168,82 @@
     {
       "review": "2026-11-20 after C106 eight post-C92 evidence-backed QA items",
       "score": 81.2,
-      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ c13b449c40ad249fdaca6ed6ff668358848d54a2"
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ c13b449c40ad249fdaca6ed6ff668358848d54a2",
+      "audit": {
+        "id": "C106",
+        "date": "2026-11-20",
+        "baseline": 80.4,
+        "score": 81.2,
+        "delta": 0.8,
+        "sourceSha": "76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
+        "method": "Independent engineering quality increments tied to merged source and adversarial QA, not inferred from 100% PORT completion. Preserve original category weights and external verification gates.",
+        "evidence": [
+          {
+            "dimension": "business",
+            "delta": 0.1,
+            "pr": 898,
+            "qa": "cloudflare-yparty-worker/qa/p0-c95-seal-present-union-r2.test.mjs",
+            "why": "C96 binds true accepted economic payload SHA to immutable union digest"
+          },
+          {
+            "dimension": "business",
+            "delta": 0.1,
+            "pr": 913,
+            "qa": "cloudflare-yparty-worker/qa/p0-c86-frozen-ops-legacy-decimals.test.mjs",
+            "why": "C103 rejects mismatch between amountCents and monto"
+          },
+          {
+            "dimension": "durability",
+            "delta": 0.1,
+            "pr": 899,
+            "qa": "cloudflare-yparty-worker/qa/p0-c97-r2-immutable-publish.test.mjs",
+            "why": "C97 pages-first immutable R2 SHA verification and crash retry"
+          },
+          {
+            "dimension": "sync",
+            "delta": 0.1,
+            "pr": 906,
+            "qa": "test/p0-c99-safari-foreground-reactivation.test.cjs",
+            "why": "C99 Safari lifecycle guarded foreground reactivation"
+          },
+          {
+            "dimension": "security",
+            "delta": 0.1,
+            "pr": 902,
+            "qa": "cloudflare-yparty-worker/qa/p0-gated6-frozen-r2-source-workerd.test.mjs",
+            "why": "C98 secure Service Binding and auth/frozen source installed in QA, verified against active Cloudflare version"
+          },
+          {
+            "dimension": "migration",
+            "delta": 0.1,
+            "pr": 894,
+            "qa": "cloudflare-yparty-worker/qa/p0-c93-current-state-union.test.mjs",
+            "why": "C93 present-state union deterministic conflict quarantine"
+          },
+          {
+            "dimension": "migration",
+            "delta": 0.1,
+            "pr": 897,
+            "qa": "cloudflare-yparty-worker/qa/p0-c95-seal-present-union-r2.test.mjs",
+            "why": "C95 -cat/-ops archive seal and authenticated digest proof"
+          },
+          {
+            "dimension": "migration",
+            "delta": 0.1,
+            "pr": 899,
+            "qa": "cloudflare-yparty-worker/qa/p0-c97-r2-immutable-publish.test.mjs",
+            "why": "C97 immutable R2 release readback for both archive channels"
+          }
+        ],
+        "qaDeployment": {
+          "script": "friendly123-yparty-port2-canary-qa",
+          "version": "9c6c12b6-c286-4fa4-85a0-3901b62314f9",
+          "trafficPercent": 100,
+          "bindingsVerified": 15,
+          "qaFlagsEnabled": 6,
+          "notCommercialProduction": true
+        }
+      }
     }
   ],
   "lastAuditedProductSha": "c13b449c40ad249fdaca6ed6ff668358848d54a2",
