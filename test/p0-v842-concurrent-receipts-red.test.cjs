@@ -22,13 +22,19 @@ function fixture() {
   const product = { id:'p', stockBase:10, stockEpochId:'E', stockPN:{}, stockActual:10, stockDeficit:0 };
   const receipts = new Set(), ack = [], saves = [], pending = [], event = [];
   const win = { OCYjs:{ esLicenciaPruebaJfc:true } };
-  let disk = null;
+  let disk = null, previousSave = null;
   function save() {
     const slot = deferred();
-    // A strict save's snapshot is captured at the instant it starts.
-    const record = { product:clone(product), receipts:[...receipts] };
-    saves.push(record); pending.push(slot);
-    return slot.promise.then(ok => { if (ok === true) disk = clone(record); return ok; });
+    const begin = () => {
+      // This models guardarEstadoLocal(true): a second strict writer waits for
+      // _guardadoCatalogoPendiente before capturing its current live snapshot.
+      const record = { product:clone(product), receipts:[...receipts] };
+      saves.push(record); pending.push(slot);
+      return slot.promise.then(ok => { if (ok === true) disk = clone(record); return ok; });
+    };
+    const run = previousSave ? previousSave.then(begin) : begin();
+    previousSave = Promise.resolve(run).then(() => {}, () => {});
+    return run;
   }
   function apply(opId, actor) {
     const op = { opId, tipo:'ajuste', payload:{ productoId:'p',
@@ -59,9 +65,11 @@ test('RED: one failed concurrent stock save cannot erase another opId accepted a
   const first = h.apply('op-A','phone-A');
   const second = h.apply('op-B','phone-B');
   assert.equal(h.product.stockActual,8,'two distinct PN witnesses are initially reflected');
-  assert.equal(h.saves.length,2,'both ingress calls issued strict save attempts');
+  assert.equal(h.saves.length,1,'second strict save waits for the first to finish');
   h.pending[0].resolve(false);
   assert.equal((await first).ok,false);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(h.saves.length,2,'second strict save can start after the failed first');
   h.pending[1].resolve(true);
   const b = await second;
   if (b && b.ok) {
