@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.47",
+  "version": "v0.8.48",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.47 C131: S4 reintenta IndexedDB tras una apertura inicial transitoria; las operaciones actuales pueden continuar sin recargar y sin falsas confirmaciones.",
+  "changelog": "v0.8.48 C135: reabre IndexedDB al cerrarse la conexión del outbox cifrado y vuelve a intentar guardados actuales sin depender de localStorage lleno.",
   "requerida": false,
-  "shell": "f123-shell-v847",
+  "shell": "f123-shell-v848",
   "apagar": [],
-  "releaseName": "v0.8.47",
-  "cacheGeneration": "golden383"
+  "releaseName": "v0.8.48",
+  "cacheGeneration": "golden384"
 }
