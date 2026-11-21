@@ -8,7 +8,24 @@ const load=p=>JSON.parse(fs.readFileSync(path.join(root,p),'utf8'));
 function oneDecimal(n){return Math.round((n+Number.EPSILON)*10)/10;}
 function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
- const quality=load('docs/engineering/architecture-2-quality-score.json');
+ const liveQuality=load('docs/engineering/architecture-2-quality-score.json');
+ // Earlier C8-C106 gates audit the immutable C106 snapshot, not today's score.
+ // Preserve their exact assertions as historical regression checks, while
+ // validating the latest independently evidenced review below.
+ const qualityHistory=liveQuality.history?.find(h=>h.audit?.id==='C106');
+ assert(qualityHistory?.auditSnapshot&&qualityHistory.audit?.id==='C106',
+   'C106 historical quality evidence must remain archived');
+ const snapshot=qualityHistory.auditSnapshot;
+ const historyDims=new Map(snapshot.dimensions.map(d=>[d.id,d]));
+ const quality={...liveQuality,score:snapshot.score,
+   lastAuditedProductSha:snapshot.lastAuditedProductSha,
+   latestReview:qualityHistory.audit,
+   comparison:snapshot.comparison,
+   dimensions:liveQuality.dimensions.map(d=>{
+     const historical=historyDims.get(d.id);
+     assert(historical,'missing archived quality dimension '+d.id);
+     return {...d,score:historical.score,previous:historical.previous};
+   })};
  assert.equal(data.schema,1);
  assert.equal(quality.schema,1);
  assert.equal(data.maximum,100);
@@ -1352,9 +1369,73 @@ function inspect(){
  assert.equal(oneDecimal(qWeight),100);
  assert.equal(oneDecimal(qScore),quality.score);
  assert.equal(oneDecimal(qPrevious),quality.comparison.previousScore);
+ // Current quality is a living, evidence-backed review. Historic checks above
+ // remain valid against the archived C106 snapshot; each new review is checked
+ // against its own predecessor instead of hand-patching historical assertions.
+ const latest=liveQuality.latestReview;
+ assert(latest && /^C\\d+$/.test(latest.id),'current quality review missing');
+ assert.equal(liveQuality.score,latest.score,'live quality and review score diverged');
+ assert.equal(liveQuality.comparison.previousScore,qualityHistory.auditSnapshot.score,
+   'quality prior score must match archived prior audit');
+ assert.equal(latest.baseline,qualityHistory.auditSnapshot.score,
+   'latest quality review baseline must be actual prior score');
+ assert.equal(oneDecimal(latest.delta),oneDecimal(liveQuality.score-latest.baseline),
+   'quality delta not reproducible');
+ assert.match(latest.sourceSha,/^[a-f0-9]{40}$/,'latest source SHA missing');
+ assert.equal(liveQuality.lastAuditedProductSha,latest.sourceSha,'audit source identity mismatch');
+ assert(Array.isArray(latest.evidence)&&latest.evidence.length>0,'latest review must have QA evidence');
+ const ledger=new Map();let liveTotal=0,priorTotal=0,liveWeight=0;
+ const currentDims=new Set();
+ for(const dim of liveQuality.dimensions){
+   assert(!currentDims.has(dim.id),'duplicate quality dimension '+dim.id);currentDims.add(dim.id);
+   const prior=historyDims.get(dim.id);
+   assert(prior,'unrecognized quality dimension '+dim.id);
+   assert.equal(dim.weight,quality.dimensions.find(x=>x.id===dim.id)?.weight,
+     'quality rubric weight changed '+dim.id);
+   assert.equal(dim.previous,prior.score,'prior dimension score drift '+dim.id);
+   assert(dim.score>=0&&dim.score<=dim.weight,'dimension outside weight '+dim.id);
+   if(dim.score!==dim.previous)assert(dim.evidence?.startsWith('https://github.com/'),
+     'no source link for changed quality dimension '+dim.id);
+   liveTotal+=dim.score;priorTotal+=dim.previous;liveWeight+=dim.weight;
+ }
+ assert.equal(currentDims.size,historyDims.size,'quality dimension removed');
+ for(const entry of latest.evidence){
+   assert(currentDims.has(entry.dimension),'quality evidence unknown dimension '+entry.dimension);
+   assert(Number.isFinite(entry.delta)&&entry.delta!==0&&Math.abs(entry.delta)<=0.5,
+     'unbounded or missing quality evidence delta');
+   assert(Number.isInteger(entry.pr)&&entry.pr>0,'quality evidence PR missing');
+   assert(typeof entry.why==='string'&&entry.why.length>=24,'quality evidence reasoning missing');
+   assert(typeof entry.qa==='string'&&entry.qa.startsWith('test/'),
+     'quality source-backed QA path missing');
+   const qaPath=path.join(root,entry.qa);
+   assert(fs.existsSync(qaPath),'quality QA source absent '+entry.qa);
+   assert(/test\\(/.test(fs.readFileSync(qaPath,'utf8')),'quality QA has no test cases '+entry.qa);
+   ledger.set(entry.dimension,oneDecimal((ledger.get(entry.dimension)||0)+entry.delta));
+ }
+ for(const dim of liveQuality.dimensions){
+   assert.equal(oneDecimal(dim.score-dim.previous),ledger.get(dim.id)||0,
+     'quality ledger mismatch '+dim.id);
+ }
+ assert.equal(oneDecimal(liveWeight),100,'quality rubric weight not 100');
+ assert.equal(oneDecimal(liveTotal),liveQuality.score,'current quality weighted score mismatch');
+ assert.equal(oneDecimal(priorTotal),liveQuality.comparison.previousScore,'previous quality sum mismatch');
+ if(latest.id==='C109'){
+   assert.equal(latest.sourceSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2',
+     'C108 must be pinned to published v0.8.33 source');
+   const c108=latest.evidence.find(e=>e.pr===918&&e.dimension==='sync');
+   assert.equal(c108?.qa,'test/p0-c108-one-product-physical-seed.test.cjs',
+     'C108 actual source-backed focused regression missing');
+   const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   for(const token of ['sembrar(productoId, cat)','if (soloProductoId && col !== "productos") return',
+     'if (soloProductoId) return;'])assert(sync.includes(token),'C108 runtime property missing '+token);
+   const manifest=load('docs/version-manifest.json');
+   const digest='sha256-'+crypto.createHash('sha256').update(sync.replace(/\\r\\n/g,'\\n')).digest('hex');
+   assert.equal(manifest.files['./sync-yjs.js'],digest,'C108 runtime mismatch with published shell SRI');
+ }
  return Object.freeze({sha:data.assessedProductSha,port:data.score,portBefore:data.baseline.score,
-  portDelta:oneDecimal(data.score-data.baseline.score),quality:quality.score,qualityBefore:oneDecimal(qPrevious),
-  qualityDelta:oneDecimal(quality.score-qPrevious),go:data.commercialGo.certifiedGates+'/'+data.commercialGo.totalGates});
+  portDelta:oneDecimal(data.score-data.baseline.score),quality:liveQuality.score,
+  qualityBefore:oneDecimal(priorTotal),qualityDelta:oneDecimal(liveQuality.score-priorTotal),
+  go:data.commercialGo.certifiedGates+'/'+data.commercialGo.totalGates});
 }
 if(require.main===module){
  try{const result=inspect();
