@@ -78,6 +78,12 @@
         if (settled) { db.close(); return; }
         settled = true;
         clearTimeout(watchdog);
+        // WebKit may close the photo database after an iOS background wake.
+        // Never clear a newer connection's handle or claim photo bytes still live.
+        db.onclose = () => {
+          _fotoBytesIdbConfirmados.clear();
+          if (dbPromise === promise) dbPromise = null;
+        };
         db.onversionchange = () => {
           db.close(); _fotoBytesIdbConfirmados.clear();
           if (dbPromise === promise) dbPromise = null;
