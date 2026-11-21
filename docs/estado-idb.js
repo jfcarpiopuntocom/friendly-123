@@ -81,6 +81,21 @@
       for (var i = 0; i < n; i++) {
         var bloque = bloques[i], k = PREF + campo + ":" + i, f = _huella(bloque);
         if (_huellas[k] !== f) { store.put(bloque, k); pendientes.push([k, f]); }
+        else (function (key, bloqueEsperado, huellaEsperada) {
+          // A 32-bit fingerprint is an optimization, not proof of equal bytes.
+          // Compare the actual durable block within this SAME atomic transaction.
+          var r = store.get(key);
+          r.onsuccess = function () {
+            if (!Array.isArray(r.result)) {
+              try { store.transaction.abort(); } catch (_) {}
+              return;  // missing committed history must never earn a new CAS ACK
+            }
+            if (JSON.stringify(r.result) !== JSON.stringify(bloqueEsperado)) {
+              store.put(bloqueEsperado, key);
+              pendientes.push([key, huellaEsperada]);
+            }
+          };
+        })(k, bloque, f);
       }
       var nPrev = (previo[campo] && previo[campo].n) || 0;
       for (var j = n; j < nPrev; j++) { store.delete(PREF + campo + ":" + j); pendientes.push([PREF + campo + ":" + j, null]); }
@@ -112,14 +127,22 @@
           for (var i = 0; i < m.n; i++) (function (i) {
             faltan++;
             var r = store.get(PREF + campo + ":" + i);
-            r.onsuccess = function () { partes[campo][i] = r.result || []; if (--faltan === 0) terminar(); };
+            r.onsuccess = function () {
+              if (!Array.isArray(r.result)) { fallo(new Error('IndexedDB: missing durable history block')); return; }
+              partes[campo][i] = r.result;
+              if (--faltan === 0) terminar();
+            };
             r.onerror = function () { fallo(r.error); };
           })(i);
         });
         function terminar() {
+          var incompleto = false;
           HIST.forEach(function (campo) {
-            if (!partes[campo]) return;
+            if (incompleto || !partes[campo]) return;
             var bloques = [].concat.apply([], partes[campo]);
+            if (!Number.isSafeInteger(usar[campo].len) || usar[campo].len !== bloques.length) {
+              incompleto = true; return;
+            }
             if (usar[campo] && usar[campo].modo === "hash") bloques.sort(function (x, y) { return _cmpId(String(x && x.id), String(y && y.id)); });
             if (meta) { out[campo] = bloques; return; }
             // Older app rewrote "actual" inline: keep every block entry and add inline ones by id.
@@ -127,6 +150,7 @@
             bloques.forEach(function (e) { if (e && e.id != null) vistos.add(String(e.id)); });
             out[campo] = bloques.concat(inline.filter(function (e) { return !(e && e.id != null && vistos.has(String(e.id))); }));
           });
+          if (incompleto) { fallo(new Error('IndexedDB: history length mismatch')); return; }
           listo(out);
         }
         if (faltan === 0) terminar();
