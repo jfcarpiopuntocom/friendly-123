@@ -1,0 +1,23 @@
+name: P0 Cloudflare redirected navigation (real SW VM)
+on:
+  pull_request:
+    paths:
+      - "docs/sw.js"
+      - "test/p0-sw-cloudflare-redirected-navigation.test.cjs"
+      - ".github/workflows/p0-sw-cloudflare-redirect-navigation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  redirected-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Source-executed RED-GREEN Service Worker response contract
+        run: node --test test/p0-sw-cloudflare-redirected-navigation.test.cjs
