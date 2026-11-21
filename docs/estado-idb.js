@@ -431,18 +431,22 @@
     // reopens IDB, and it never puts afterwards (an older snapshot cannot land after a newer one).
     // If the put was already sent, the transaction is aborted first so it cannot commit later; if the
     // browser is already committing it (abort throws), the CAS is NOT abandoned: its real result decides.
-    let abandonada = false, reloj = null, txConPut = null;
+    let abandonada = false, reloj = null, txConPut = null, arrancarReloj = null;
+    // P0 v847: the 8 s hang detector starts when THIS CAS gets its turn, not when it is queued.
+    // Before, a sale queued behind other saves on a slow device "timed out" while IDB was healthy
+    // (503 "sale NOT saved"). Still bounded: each predecessor leaves the queue at most 8 s after its turn.
     const tope = new Promise(function (listo) {
-      reloj = setTimeout(function () {
+      arrancarReloj = function () { reloj = setTimeout(function () {
         if (txConPut) { try { txConPut.abort(); } catch (_) { return; } }
         abandonada = true;
         dbPromise = null;
         const e = new Error("IndexedDB no respondio"); e.name = "TimeoutError";
         _ultimoError = e;
         listo(false);
-      }, 8000);
+      }, 8000); };
     });
     const trabajo = _cola.then(async function () {
+      arrancarReloj();
       const copia = estado;
       let conexion = abrirDB();
       let db = await conexion;

@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.47",
+  "version": "v0.8.48",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.47 C131: S4 reintenta IndexedDB tras una apertura inicial transitoria; las operaciones actuales pueden continuar sin recargar y sin falsas confirmaciones.",
+  "changelog": "v0.8.48 P0: el limite de 8 s del guardado seguro empieza cuando le toca su turno, no al entrar a la fila; en aparatos lentos ya no se rechazan ventas sanas por esperar turno. Sin cambios de datos.",
   "requerida": false,
-  "shell": "f123-shell-v847",
+  "shell": "f123-shell-v848",
   "apagar": [],
-  "releaseName": "v0.8.47",
-  "cacheGeneration": "golden383"
+  "releaseName": "v0.8.48",
+  "cacheGeneration": "golden384"
 }
