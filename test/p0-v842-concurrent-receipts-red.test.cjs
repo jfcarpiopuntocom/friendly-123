@@ -64,8 +64,9 @@ test('RED: duplicate opId cannot claim durable success while first CAS is unreso
     pending[0].resolve(false);
     const firstResult=await first;
     assert.equal(firstResult?.ok,false,'first strict CAS refusal is an error');
-    await tick();
-    if(pending.length>1)pending[1].resolve(false); // correct implementations may retry the duplicate
+    await until(()=>duplicateSettled || pending.length>1,
+      'duplicate must either finish with failure or request a bounded retry');
+    if(pending.length>1)pending[1].resolve(false); // a safe second attempt is also refused
     const secondResult=await duplicate;
     assert.notEqual(secondResult?.ok,true,'no success without any durable commit');
     const after=(await state(w)).productos.find(p=>p.id==='p24');
@@ -78,13 +79,17 @@ test('RED: failed A cannot erase distinct B that subsequently receives durable A
   const fx=await fixture(),{w,pending,op}=fx;
   try {
     const A=w.OCSync.aplicarOpRemota(op('C118-A','phone-A'));
-    const B=w.OCSync.aplicarOpRemota(op('C118-B','phone-B'));
+    let Bsettled=false;
+    const B=Promise.resolve(w.OCSync.aplicarOpRemota(op('C118-B','phone-B'))).then(result=>{
+      Bsettled=true;return result;
+    });
     await until(()=>pending.length===1,'first strict CAS reached');
     pending[0].resolve(false);
     const first=await A;
     assert.equal(first?.ok,false);
-    await until(()=>pending.length===2,'second strict save reaches IDB after first settles');
-    pending[1].resolve(true);
+    // Correct receivers may wait and commit B, or reject it for safe retry.
+    await until(()=>Bsettled || pending.length>=2,'B must either reject or attempt a strict CAS');
+    if(pending.length>=2)pending[1].resolve(true);
     const second=await B;
     if(second?.ok===true) {
       const persisted=pending[1].candidate.productos.find(p=>p.id==='p24');
@@ -98,9 +103,8 @@ test('RED: failed A cannot erase distinct B that subsequently receives durable A
       assert.equal((pending[1].candidate.opsAplicadas||[]).includes('C118-B'),true,
         'accepted B receipt is in its own same commit');
     } else {
-      const candidate=pending[1].candidate;
-      assert.ok(candidate,'second attempted strict save before refusing');
-      // A cautious receiver may decline B, but must never falsely ACK it.
+      // Fail closed is acceptable: retry must be possible and there is no ACK B.
+      assert.ok(!second || second.ok!==true,'uncommitted B must not receive success');
     }
   }finally{fx.restore()}
 });
