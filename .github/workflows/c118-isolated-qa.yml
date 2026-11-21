@@ -1,0 +1,40 @@
+# C118 isolated experimental QA. This deliberately does NOT seal/release a shell,
+# deploy, or bypass production release-control. Remove before merge/publish.
+name: C118 isolated receipts RED to GREEN
+on:
+  pull_request:
+    paths:
+      - 'docs/mock-backend.js'
+      - 'docs/sync-realtime.js'
+      - 'test/p0-v842-*.test.cjs'
+      - '.github/workflows/c118-isolated-qa.yml'
+permissions:
+  contents: read
+jobs:
+  c118:
+    if: github.head_ref == 'qa/c118-concurrency-ponytail-green'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Real OCSync API, legacy bridge, CAS rollback and old witnesses
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 \
+            test/p0-v842-concurrent-receipts-red.test.cjs \
+            test/p0-c118-remote-local-overlap.test.cjs \
+            test/p0-v842-legacy-peer-receipt-barrier.test.cjs \
+            test/p0-stock-witness-durable-rollback.test.cjs \
+            test/p0-jfc-stock-proof-pending.test.cjs \
+            test/p0-durable-stock-adjustment.test.cjs \
+            test/realtime-sale-ack-barrier.test.cjs \
+            test/p0-s3-remote-movement-transient-retry.test.cjs
