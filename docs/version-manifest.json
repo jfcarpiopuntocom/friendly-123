@@ -24,7 +24,7 @@
     "./favicon.png": "sha256-05de28f5669802d99390dd877fb25d83d69fdfe96997be5bde23c1fce31511ef",
     "./pocketbase-client.js": "sha256-1b038581ecb22a491f388bddf5de6729209db5d7c67a404d1def8f8edb236469",
     "./estado-ab.js": "sha256-a3e92d9bbab4340483170e9f20877e219129e28216dde308d673ee929bfe8d04",
-    "./estado-idb.js": "sha256-26ba9776441c7aaa61b423c99e8e46bfd1b87492dc93bbb32231d461f65305a6",
+    "./estado-idb.js": "sha256-9baa21537c86f73ee8d1bf052c61f7276ec77b8094c514dbc501aff46d99fefe",
     "./mock-backend.js": "sha256-f02c062cb1d01f566d6e7493eb0808ad48fc87795777d71477308e6ef076c2b8",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
