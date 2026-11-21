@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.42",
+  "version": "v0.8.43",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.42 ligereza: la cola vieja de envios (cientos de MB) ya no se reescribe entera con la app quieta, y las ventas y ajustes recibidos de otros aparatos quedan anotados en el mismo guardado y ya no se vuelven a aplicar en cada arranque. Sin cambios de datos.",
+  "changelog": "v0.8.43 ligereza v842 conservada; recibos de movimientos remotos solo tras commit durable, ventas y ajustes locales coordinados, aislamiento de licencia y reintentos sin doble ACK. Sin migrar datos ni cambiar el transporte.",
   "requerida": false,
-  "shell": "f123-shell-v842",
+  "shell": "f123-shell-v843",
   "apagar": [],
-  "releaseName": "v0.8.42",
-  "cacheGeneration": "golden378"
+  "releaseName": "v0.8.43",
+  "cacheGeneration": "golden379"
 }
