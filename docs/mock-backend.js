@@ -6759,7 +6759,7 @@
       // C118: every commercial write shares the same live notebook. When a
       // remote PN CAS is in flight, wait for its ACK/rollback BEFORE reading or
       // mutating local business state; reads and idle UI pay no added wait.
-      if (_pnReceiverPending.size) await _pnReceiverTail;
+      if (typeof _pnReceiverPending !== "undefined" && _pnReceiverPending.size) await _pnReceiverTail;
       /* FEATURE - DORMANT (desactivada por orden de JFC, 2026-11-11). NO BORRAR.
          Este bloque (v730) hacia que la venta esperase hasta 3 s a que la propia
          pestana terminase de tomar su turno con PIN y, si el turno no era suyo, la
