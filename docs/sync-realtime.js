@@ -683,6 +683,7 @@
         const requirePnCommit = !!(op && op.payload && op.payload.stockPNHecho &&
             window.OCYjs && window.OCYjs.esLicenciaPruebaJfc);
         if (!requirePnCommit) registrarEnLog(op); // historical nonpilot path unchanged
+        let appliedPnDurable = false;
         let aplicarResultado;
         if (window.OCSync && window.OCSync.aplicarOpRemota)
           aplicarResultado = window.OCSync.aplicarOpRemota(op);
@@ -692,14 +693,22 @@
           if (!accepted || accepted.ok !== true) return; // sender can replay on catch-up
           if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
               codigoCuadernoActivo() !== codigoNorm) return;
-          registrarEnLog(op); // only applied PN advances the legacy known vector
+          appliedPnDurable = true; // exact stock + opId CAS already confirmed by OCSync
+          registrarEnLog(op); // optional best-effort legacy catch-up vector
         }
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
-        if (ev.peerReceipt && op && op.opId === ev.peerReceipt.id &&
-            window.OCSync && typeof window.OCSync.confirmarCatalogoDurable === "function" &&
-            leerLog().some(item => item.opId === op.opId && JSON.stringify(item) === JSON.stringify(op)) && await window.OCSync.confirmarCatalogoDurable()) {
+        if (ev.peerReceipt && op && op.opId === ev.peerReceipt.id && window.OCSync &&
+            (requirePnCommit
+              // C118: reuse the SAME durable CAS proof; no redundant strict save.
+              // Full localStorage must not prevent ACK of a fact safely committed to IDB.
+              ? appliedPnDurable
+              : (typeof window.OCSync.confirmarCatalogoDurable === "function" &&
+                  leerLog().some(item => item.opId === op.opId && JSON.stringify(item) === JSON.stringify(op)) &&
+                  await window.OCSync.confirmarCatalogoDurable()))) {
           const receipt = ev.peerReceipt;
           const proof = await cifrar(claveActual, { tipo: "__peer_receipt__", payload: { id: receipt.id, kind: receipt.kind, hash: receipt.hash } });
+          if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+              codigoCuadernoActivo() !== codigoNorm) return;
           await ws.confirmPeerReceipt(receipt, proof);
         }
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
