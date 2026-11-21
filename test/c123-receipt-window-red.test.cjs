@@ -27,9 +27,9 @@ test('C124: runtime receipt set never evicts old opIds; only best-effort localSt
  const end=source.indexOf('function _fundirHechoStock',start);
  assert.ok(start>0 && end>start,'production receipt marker is present');
  const body=source.slice(start,end);
- assert.doesNotMatch(body,/s\\.clear\\(\\)|s\\.delete\\(/,'canonical receipts must not be evicted');
- assert.match(body,/s\\.add\\(opId\\)/,'runtime records every opId');
- assert.match(body,/JSON\\.stringify\\(\\[\\.\\.\\.s\\]\\.slice\\(-2000\\)\\)/,'only optional localStorage mirror is bounded');
+ assert.doesNotMatch(body, /s\.clear\(\)|s\.delete\(/, 'canonical receipts must not be evicted');
+ assert.match(body, /s\.add\(opId\)/, 'runtime records every opId');
+ assert.match(body, /JSON\.stringify\(\[\.\.\.s\]\.slice\(-2000\)\)/, 'only optional localStorage mirror is bounded');
  const ids=Array.from({length:10001},(_,i)=>'remote:'+i);
  const canonical=new Set(ids);
  const mirror=[...canonical].slice(-2000);
