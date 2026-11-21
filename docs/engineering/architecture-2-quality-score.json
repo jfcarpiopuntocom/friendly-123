@@ -7,7 +7,7 @@
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 81.2,
+  "score": 81.3,
   "maximum": 100,
   "dimensions": [
     {
@@ -29,10 +29,10 @@
     {
       "id": "sync",
       "weight": 20,
-      "score": 16,
+      "score": 16.1,
       "previous": 15.9,
-      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head. C106 independent post-C92 source/QA audit: C99 existing Safari foreground runtime re-arms guarded C21a 2.0 after C94 failback; real browser-source test, no unguarded legacy second writer. +0.1 engineering quality only, GO and physical unchanged.",
-      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/906"
+      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head. C106 independent post-C92 source/QA audit: C99 existing Safari foreground runtime re-arms guarded C21a 2.0 after C94 failback; real browser-source test, no unguarded legacy second writer. +0.1 engineering quality only, GO and physical unchanged. C109 source-tested in PR #918 merged v0.8.33: committed-count path reuses verified epoch and catalog, publishes only selected product in original Y.Doc transaction instead of sales/photos/PIN/finance fanout. RED32/34, GREEN34/34 stock-focused, 63/63 full GHA; synthetic source VM 4201 map writes before versus 1 after, not physical Safari wallclock evidence. +0.1 independently earned Sync engineering quality, distinct from C106 foreground recovery.",
+      "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/918"
     },
     {
       "id": "security",
@@ -67,7 +67,7 @@
       "evidence": null
     }
   ],
-  "disclaimer": "C106 current merged product source-based engineering quality audit 80.4→81.2, weighted 100 unchanged. Supports 8 distinct post-C92 engineering properties validated by existing tests and verified active QA Worker bindings. PORT 100.0 measures assembled code only; field-owned Firebase HEAD and PC-Safari acceptance unverified, commercial GO0/6, physical0/5. No automatic credit from PR #914/#915 score-only edits, and no credit for reverted deferred compaction.",
+  "disclaimer": "C106 current merged product source-based engineering quality audit 80.4→81.2, weighted 100 unchanged. Supports 8 distinct post-C92 engineering properties validated by existing tests and verified active QA Worker bindings. PORT 100.0 measures assembled code only; field-owned Firebase HEAD and PC-Safari acceptance unverified, commercial GO0/6, physical0/5. No automatic credit from PR #914/#915 score-only edits, and no credit for reverted deferred compaction. C109 quality is 81.3/100 after merged v0.8.33 C108 source tests. Real device testing and commercial activation remain unverified; PORT implementation stays independent 100.0.",
   "assessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
   "history": [
     {
@@ -164,82 +164,119 @@
       "review": "2026-11-20 immediately before C106 post-C92 re-audit",
       "score": 80.4,
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99"
+    },
+    {
+      "review": "2026-11-20 C106 independently source audited before C108",
+      "score": 81.2,
+      "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 144c9317590554dbe79d58cd7a02a55694b47d6e"
     }
   ],
-  "lastAuditedProductSha": "76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
+  "lastAuditedProductSha": "c13b449c40ad249fdaca6ed6ff668358848d54a2",
   "latestReview": {
-    "id": "C106",
+    "id": "C109",
     "date": "2026-11-20",
-    "baseline": 80.4,
-    "score": 81.2,
-    "delta": 0.8,
-    "sourceSha": "76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
-    "method": "Independent engineering quality increments tied to merged source and adversarial QA, not inferred from 100% PORT completion. Preserve original category weights and external verification gates.",
+    "baseline": 81.2,
+    "score": 81.3,
+    "delta": 0.1,
+    "sourceSha": "c13b449c40ad249fdaca6ed6ff668358848d54a2",
+    "method": "Independent Sync quality improvement for verified v0.8.33 bounded physical-count seeding, distinct from C106 Safari foreground resume. Prior C106 review preserved in auditTrail, original cumulative baseline comparison remains 80.4. Synthetic QA, not physical GO.",
     "evidence": [
-      {
-        "dimension": "business",
-        "delta": 0.1,
-        "pr": 898,
-        "qa": "cloudflare-yparty-worker/qa/p0-c95-seal-present-union-r2.test.mjs",
-        "why": "C96 binds true accepted economic payload SHA to immutable union digest"
-      },
-      {
-        "dimension": "business",
-        "delta": 0.1,
-        "pr": 913,
-        "qa": "cloudflare-yparty-worker/qa/p0-c86-frozen-ops-legacy-decimals.test.mjs",
-        "why": "C103 rejects mismatch between amountCents and monto"
-      },
-      {
-        "dimension": "durability",
-        "delta": 0.1,
-        "pr": 899,
-        "qa": "cloudflare-yparty-worker/qa/p0-c97-r2-immutable-publish.test.mjs",
-        "why": "C97 pages-first immutable R2 SHA verification and crash retry"
-      },
       {
         "dimension": "sync",
         "delta": 0.1,
-        "pr": 906,
-        "qa": "test/p0-c99-safari-foreground-reactivation.test.cjs",
-        "why": "C99 Safari lifecycle guarded foreground reactivation"
-      },
-      {
-        "dimension": "security",
-        "delta": 0.1,
-        "pr": 902,
-        "qa": "cloudflare-yparty-worker/qa/p0-gated6-frozen-r2-source-workerd.test.mjs",
-        "why": "C98 secure Service Binding and auth/frozen source installed in QA, verified against active Cloudflare version"
-      },
-      {
-        "dimension": "migration",
-        "delta": 0.1,
-        "pr": 894,
-        "qa": "cloudflare-yparty-worker/qa/p0-c93-current-state-union.test.mjs",
-        "why": "C93 present-state union deterministic conflict quarantine"
-      },
-      {
-        "dimension": "migration",
-        "delta": 0.1,
-        "pr": 897,
-        "qa": "cloudflare-yparty-worker/qa/p0-c95-seal-present-union-r2.test.mjs",
-        "why": "C95 -cat/-ops archive seal and authenticated digest proof"
-      },
-      {
-        "dimension": "migration",
-        "delta": 0.1,
-        "pr": 899,
-        "qa": "cloudflare-yparty-worker/qa/p0-c97-r2-immutable-publish.test.mjs",
-        "why": "C97 immutable R2 release readback for both archive channels"
+        "pr": 918,
+        "qa": "test/p0-c108-one-product-physical-seed.test.cjs",
+        "why": "Original verified-epoch Safari Yjs seed only publishes the chosen product, reuses catalog, preserves default scheduled full seed and money/photos/PIN. RED 32/34, GREEN 34/34, GHA 63/63, simulated 4201 vs 1 Y.Map writes, public v0.8.33."
       }
     ],
-    "qaDeployment": {
-      "script": "friendly123-yparty-port2-canary-qa",
-      "version": "9c6c12b6-c286-4fa4-85a0-3901b62314f9",
-      "trafficPercent": 100,
-      "bindingsVerified": 15,
-      "qaFlagsEnabled": 6,
-      "notCommercialProduction": true
+    "release": {
+      "version": "v0.8.33",
+      "shell": "f123-shell-v833",
+      "cache": "golden369",
+      "commit": "c13b449c40ad249fdaca6ed6ff668358848d54a2",
+      "sourcePullRequest": 918
+    },
+    "physicalAcceptance": {
+      "confirmed": false,
+      "commercialGo": "0/6",
+      "reference": "JFC conducts external Safari/PC acceptance separately"
     }
-  }
+  },
+  "auditTrail": [
+    {
+      "id": "C106",
+      "date": "2026-11-20",
+      "baseline": 80.4,
+      "score": 81.2,
+      "delta": 0.8,
+      "sourceSha": "76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
+      "method": "Independent engineering quality increments tied to merged source and adversarial QA, not inferred from 100% PORT completion. Preserve original category weights and external verification gates.",
+      "evidence": [
+        {
+          "dimension": "business",
+          "delta": 0.1,
+          "pr": 898,
+          "qa": "cloudflare-yparty-worker/qa/p0-c95-seal-present-union-r2.test.mjs",
+          "why": "C96 binds true accepted economic payload SHA to immutable union digest"
+        },
+        {
+          "dimension": "business",
+          "delta": 0.1,
+          "pr": 913,
+          "qa": "cloudflare-yparty-worker/qa/p0-c86-frozen-ops-legacy-decimals.test.mjs",
+          "why": "C103 rejects mismatch between amountCents and monto"
+        },
+        {
+          "dimension": "durability",
+          "delta": 0.1,
+          "pr": 899,
+          "qa": "cloudflare-yparty-worker/qa/p0-c97-r2-immutable-publish.test.mjs",
+          "why": "C97 pages-first immutable R2 SHA verification and crash retry"
+        },
+        {
+          "dimension": "sync",
+          "delta": 0.1,
+          "pr": 906,
+          "qa": "test/p0-c99-safari-foreground-reactivation.test.cjs",
+          "why": "C99 Safari lifecycle guarded foreground reactivation"
+        },
+        {
+          "dimension": "security",
+          "delta": 0.1,
+          "pr": 902,
+          "qa": "cloudflare-yparty-worker/qa/p0-gated6-frozen-r2-source-workerd.test.mjs",
+          "why": "C98 secure Service Binding and auth/frozen source installed in QA, verified against active Cloudflare version"
+        },
+        {
+          "dimension": "migration",
+          "delta": 0.1,
+          "pr": 894,
+          "qa": "cloudflare-yparty-worker/qa/p0-c93-current-state-union.test.mjs",
+          "why": "C93 present-state union deterministic conflict quarantine"
+        },
+        {
+          "dimension": "migration",
+          "delta": 0.1,
+          "pr": 897,
+          "qa": "cloudflare-yparty-worker/qa/p0-c95-seal-present-union-r2.test.mjs",
+          "why": "C95 -cat/-ops archive seal and authenticated digest proof"
+        },
+        {
+          "dimension": "migration",
+          "delta": 0.1,
+          "pr": 899,
+          "qa": "cloudflare-yparty-worker/qa/p0-c97-r2-immutable-publish.test.mjs",
+          "why": "C97 immutable R2 release readback for both archive channels"
+        }
+      ],
+      "qaDeployment": {
+        "script": "friendly123-yparty-port2-canary-qa",
+        "version": "9c6c12b6-c286-4fa4-85a0-3901b62314f9",
+        "trafficPercent": 100,
+        "bindingsVerified": 15,
+        "qaFlagsEnabled": 6,
+        "notCommercialProduction": true
+      }
+    }
+  ]
 }
