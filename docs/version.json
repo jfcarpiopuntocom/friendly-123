@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.51",
+  "version": "v0.8.52",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.51 C141: Commissions de la app y Dashboard suma centavos exactos y cuenta una sola vez cada recibo de venta, sin modificar liquidaciones ni datos del negocio.",
+  "changelog": "v0.8.52 C142: Commissions app + Dashboard detecta recibos con el mismo ID y valores económicos discordantes, sin escoger uno arbitrariamente; fechas comerciales locales sin desplazamiento UTC.",
   "requerida": false,
-  "shell": "f123-shell-v851",
+  "shell": "f123-shell-v852",
   "apagar": [],
-  "releaseName": "v0.8.51",
-  "cacheGeneration": "golden387"
+  "releaseName": "v0.8.52",
+  "cacheGeneration": "golden388"
 }
