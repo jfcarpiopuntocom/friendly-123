@@ -12,7 +12,7 @@
       throw new Error(message('Choose a JPEG, PNG or WebP photo.', 'Elige una foto JPEG, PNG o WebP.'));
     }
     const url = URL.createObjectURL(file);
-    let data, canvas;
+    let data, canvas, jpegCalidadElegida = null;
     try {
       const img = new Image();
       await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
@@ -32,7 +32,7 @@
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         for (const quality of [0.85, 0.7, 0.55, 0.4]) {
           const candidate = canvas.toDataURL('image/jpeg', quality);
-          if (candidate.length <= 180000) { data = candidate; break; }
+          if (candidate.length <= 180000) { data = candidate; jpegCalidadElegida = quality; break; }
         }
         if (data) break;
       }
@@ -43,7 +43,7 @@
     // WebP near half its bytes; if unsupported or not smaller, keep the JPEG.
     // The subsequent hash refers to the ACTUAL encoded payload, not its parent.
     if (typeof window.OCFotos.optimizarCapturaFoto === 'function') {
-      try { data = window.OCFotos.optimizarCapturaFoto(canvas, data, 180000); }
+      try { data = window.OCFotos.optimizarCapturaFoto(canvas, data, 180000, {jpegQuality:jpegCalidadElegida, jpegFloor:0.77}); }
       catch (_) { /* Existing readable receipt JPEG remains unchanged. */ }
     }
     const hash = await OCFotos.hashDeDataUrl(data);
