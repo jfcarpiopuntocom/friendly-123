@@ -784,7 +784,10 @@
       _durableTimer = setTimeout(function () {
         _durableTimer = null;
         _durableDelay = Math.min(60000, _durableDelay * 2);
-        _durableQueue = _durableQueue.then(function () { return mutarOutbox(function () {}); }).then(drenarDurable).catch(function () { programarDurable(); });
+        // P0 v843: this retry only re-reads and REWRITES the whole outbox when nothing changed. On a real
+        // store the legacy photo outbox is ~147 MB (the archived relay never drains it), so each retry cloned
+        // it on the main thread (iPhone jetsam risk). With nothing unsaved, the in-memory outbox (loaded at start, line ~753) is sent as is.
+        _durableQueue = _durableQueue.then(function () { return _unsaved.length ? mutarOutbox(function () {}) : null; }).then(drenarDurable).catch(function () { programarDurable(); });
       }, Math.round(_durableDelay * (0.8 + Math.random() * 0.4)));
     }
     function bytesPendientes(value) { return typeof value === "string" ? new TextEncoder().encode(value).byteLength : (value && (value.byteLength || value.size)) || 0; }

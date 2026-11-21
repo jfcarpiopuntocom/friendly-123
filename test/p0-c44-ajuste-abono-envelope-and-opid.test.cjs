@@ -76,7 +76,13 @@ test('C44: mock-backend abono emits typed credit.customer.payment.record op with
 
   const remoteStart = backend.indexOf('    aplicarOpRemota(op) {');
   assert.ok(remoteStart > 0, 'aplicarOpRemota must exist');
-  const remoteSection = backend.slice(remoteStart, remoteStart + 1200);
+  // Read the exact stock-proof guard instead of an arbitrary 1200-byte
+  // prefix: the verified C119 receipt queue precedes it without changing it.
+  const witnessStart = backend.indexOf('const witness = op.payload && op.payload.stockPNHecho;', remoteStart);
+  const witnessEnd = backend.indexOf('if (witness && window.OCYjs', witnessStart);
+  assert.ok(witnessStart > remoteStart && witnessEnd > witnessStart, 'stock-proof guard exists');
+  const remoteSection = backend.slice(witnessStart, witnessEnd);
+  assert.match(remoteSection, /stock-proof-missing/, 'guard still rejects causal-stock writes without proof');
   assert.match(remoteSection, /op\.tipo\s*!==\s*["']abono["']/, 'aplicarOpRemota must not reject abono with stock-proof-missing');
 });
 

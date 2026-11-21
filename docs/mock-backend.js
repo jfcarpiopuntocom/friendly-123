@@ -954,6 +954,9 @@
       nombreNegocioTs: nombreNegocioTs,
       nombreNegocioRev: nombreNegocioRev,
       selloUltimo: selloUltimo,
+      // typeof: some tests evaluate this function alone, without the receipt vars in scope.
+      ...(typeof _opsAplicadas !== "undefined" && ((_opsAplicadas && _opsAplicadas.size) || _opsDelCuaderno)
+        ? { opsAplicadas: [...(_opsAplicadas || []), ...(_opsDelCuaderno || [])].slice(-2000) } : {}),
     };
   }
   // Item 19: validación profunda de respaldos antes de importar — ids únicos,
@@ -1044,6 +1047,7 @@
     return _cuadernoConDatosEnDoc();
   }
   function aplicarRespaldo(body) {
+    _unirOpsAplicadas(body && body.opsAplicadas);
     productos.length = 0; productos.push(...body.productos);
     ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
     ventas.length = 0; ventas.push(...(Array.isArray(body.ventas) ? body.ventas : []));
@@ -3837,12 +3841,30 @@
   // un no-op seguro. Solo DELTAS, nunca valores absolutos — dos ventas
   // simultaneas de las mismas ultimas unidades se SUMAN, nunca se pisan.
   const OPS_APLICADAS_KEY = "f123_sync_ops_aplicadas";
-  let _opsAplicadas = null;
+  // var without initializer on purpose: aplicarRespaldo may run before this line (boot) and must
+  // neither hit a TDZ nor have its ids reset when this line executes.
+  var _opsAplicadas, _opsDelCuaderno;
+  // C118: all PN receipts and stock projections share one receiver-side commit lane.
+  // Both legacy relay and Yjs call the SAME OCSync entrypoint; IDB alone serializes
+  // disk transactions, not optimistic RAM mutation or provisional receipts.
+  const _pnReceiverToken = Symbol("f123-pn-remote-internal");
+  let _pnReceiverTail = Promise.resolve();
+  const _pnReceiverPending = new Map();
   function _cargarOpsAplicadas() {
     if (_opsAplicadas) return _opsAplicadas;
     try { _opsAplicadas = new Set(JSON.parse(localStorage.getItem(OPS_APLICADAS_KEY) || "[]")); }
     catch (_) { _opsAplicadas = new Set(); }
+    if (_opsDelCuaderno) { for (const x of _opsDelCuaderno) _opsAplicadas.add(x); _opsDelCuaderno = null; }
     return _opsAplicadas;
+  }
+  // P0 v842: with localStorage full (sibling apps share the origin) the receipt set below never
+  // persisted, so every boot re-applied the same remote ops with one strict save each. The set now
+  // also rides inside the durable notebook; localStorage stays a best-effort mirror.
+  function _unirOpsAplicadas(lista) {
+    if (!Array.isArray(lista) || !lista.length) return;
+    const ok = lista.filter((x) => typeof x === "string" && x && x.length <= 200);
+    if (_opsAplicadas) { for (const x of ok) _opsAplicadas.add(x); return; }
+    _opsDelCuaderno = (_opsDelCuaderno || []).concat(ok); // merged on first _cargarOpsAplicadas
   }
   function _marcarOpAplicada(opId) {
     const s = _cargarOpsAplicadas();
@@ -6149,6 +6171,54 @@
     aplicarOpRemota(op) {
       if (_conflictoEstadoAB) return false;
       if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
+      // Queue BEFORE consulting receipts or touching PN. A receipt staged for CAS
+      // is not durable and cannot ACK a duplicate arriving from another transport.
+      if (op.payload.stockPNHecho && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc &&
+          arguments[1] !== _pnReceiverToken) {
+        const owner = instanceId;
+        let notebook = "", shop = "";
+        try {
+          notebook = String(window.OCTienda?.cuadernoId?.() || "");
+          // C119: cuadernoId is a DEVICE id and stays fixed across joined shops.
+          // Use the active commercial LICENSE as the actual cross-shop fence.
+          shop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+        } catch (_) {}
+        const key = JSON.stringify([owner, notebook, shop, String(op.opId)]);
+        const already = _pnReceiverPending.get(key);
+        if (already) return already.then(r => r && r.ok ? { ok: true, repetida: true } : r);
+        const work = _pnReceiverTail.then(async () => {
+          // A local sale/physical count may already hold the commercial write.
+          // Never project a remote PN into that still-provisional transaction.
+          if (_ventaPendiente) await _ventaPendiente;
+          let current = "", currentShop = "";
+          try {
+            current = String(window.OCTienda?.cuadernoId?.() || "");
+            currentShop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+          } catch (_) {}
+          if (instanceId !== owner || (notebook && current !== notebook) || currentShop !== shop)
+            return { ok: false, error: "notebook-changed-while-pending" };
+          if (_conflictoEstadoAB) return { ok: false, error: "Conflicting saved copies" };
+          const saved = await window.OCSync.aplicarOpRemota(op, _pnReceiverToken);
+          // C119: the active shop might switch DURING the strict CAS itself.
+          // The original commit may be durable for A, but B must never ACK it.
+          let afterNotebook = "", afterShop = "";
+          try {
+            afterNotebook = String(window.OCTienda?.cuadernoId?.() || "");
+            afterShop = String(window.OCTienda?.licenciaActual?.() || "").trim().toUpperCase();
+          } catch (_) {}
+          if (instanceId !== owner || (notebook && afterNotebook !== notebook) || afterShop !== shop)
+            return { ok: false, error: "notebook-changed-during-commit" };
+          return saved;
+        });
+        _pnReceiverPending.set(key, work);
+        _pnReceiverTail = work.then(() => {}, () => {});
+        work.then(() => {
+          if (_pnReceiverPending.get(key) === work) _pnReceiverPending.delete(key);
+        }, () => {
+          if (_pnReceiverPending.get(key) === work) _pnReceiverPending.delete(key);
+        });
+        return work;
+      }
       const vistos = _cargarOpsAplicadas();
       if (vistos.has(op.opId)) return { ok: true, repetida: true };
       // New operations carry immutable PN proof; derive the view from movement facts.
@@ -6175,11 +6245,17 @@
           });
         };
         if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};
+        // The receipt rides in the SAME durable write as the stock effect (v842); undone on failure.
+        // typeof: tests evaluate this branch alone, without the receipt helpers in scope.
+        const recibos = typeof _cargarOpsAplicadas === "function" ? _cargarOpsAplicadas() : null;
+        const quitarRecibo = () => { if (recibos) recibos.delete(op.opId); };
+        if (recibos) recibos.add(op.opId);
         let intentoGuardado;
         try { intentoGuardado = guardarEstadoLocal(true); }
-        catch (_) { restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
+        catch (_) { quitarRecibo(); restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
         return Promise.resolve(intentoGuardado).then((saved) => {
           if (saved !== true) {
+            quitarRecibo();
             restaurarStock();
             return {ok:false, error:"stock-not-durable"};
           }
@@ -6187,6 +6263,7 @@
           avisarCatalogoCambiado();
           return {ok:true};
         }).catch(() => {
+          quitarRecibo();
           restaurarStock();
           return {ok:false, error:"stock-commit-failed"};
         });
@@ -6695,6 +6772,10 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
+      // C118: every commercial write shares the same live notebook. When a
+      // remote PN CAS is in flight, wait for its ACK/rollback BEFORE reading or
+      // mutating local business state; reads and idle UI pay no added wait.
+      if (typeof _pnReceiverPending !== "undefined" && _pnReceiverPending.size) await _pnReceiverTail;
       /* FEATURE - DORMANT (desactivada por orden de JFC, 2026-11-11). NO BORRAR.
          Este bloque (v730) hacia que la venta esperase hasta 3 s a que la propia
          pestana terminase de tomar su turno con PIN y, si el turno no era suyo, la
