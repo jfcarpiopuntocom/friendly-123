@@ -6993,6 +6993,9 @@ async function cargarComisiones(){
       ]);
       if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
       if (!window.OCCommissionHistory || !Array.isArray(sales)) throw Error("commission-history-not-loaded");
+      // Keep the existing people-management form live in BOTH period modes.
+      // This is unrelated to all-history reporting and still edits the same business.
+      try { renderGestionPromotoras(); } catch (_) {}
       const report=window.OCCommissionHistory.render({sales:sales,from:window._ocComHistoryFrom||"",
         to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"producto",
         lang:document.documentElement.lang==="es"?"es":"en"});
