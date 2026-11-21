@@ -15,7 +15,11 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]) test(`dash
    const p=await req('/api/productos','POST',{nombre:'Synthetic embed cup',barcode:'EMBED-ONLY',precio:100,costo:20,stockInicial:2,ubicacionId:rack.id});await req('/api/productos/'+p.id+'/venta','POST',{cantidad:1});return {product:p.id,rack:rack.id};
   });await seed.close();
   const dash=await ctx.newPage();await dash.goto(ORIGIN+'/dashboard.html',{waitUntil:'load'});await dash.locator('#pin').fill('555');await dash.locator('#entrar').click();await dash.locator('#tablero').waitFor({state:'visible'});
-  await dash.locator('a[data-ruta="comisiones"]').click();await dash.locator('#cm a.pagar').first().waitFor({state:'visible'});
+  await dash.locator('a[data-ruta="comisiones"]').click();
+  // Belén C136: opens all dates for review; a real payout selects its exact month first.
+  assert.equal(await dash.locator('#cm-mes').inputValue(),'','full history is the initial view');
+  await dash.locator('#cm-mes').selectOption({index:1});
+  await dash.locator('#cm a.pagar').first().waitFor({state:'visible'});
   const before=await dash.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,scrollX,scrollY}));
   console.log(name+' report before embed '+JSON.stringify(before));
   if(before.scrollWidth>before.width+1)console.log(name+' overflow isolation '+JSON.stringify(await dash.evaluate(()=>{const sections=['#cabecera','.nav-hub','.isla-caja','#cm','#datos','#tabsel','#buscar','#exp','#tabla','#cierre','#soporte','.pie-lienzo'];return sections.map(selector=>{const el=document.querySelector(selector);if(!el)return {selector,missing:true};const style=el.getAttribute('style'),rect=el.getBoundingClientRect().toJSON(),computed=getComputedStyle(el),overflow=computed.overflow;el.style.setProperty('display','none','important');const without=document.documentElement.scrollWidth;if(style===null)el.removeAttribute('style');else el.setAttribute('style',style);return {selector,rect,overflow,without};});})));
