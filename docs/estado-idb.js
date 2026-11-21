@@ -119,10 +119,16 @@
         if (!base) { listo(null); return; }
         var usar = meta || metaSuelta;
         if (!usar) { listo(base); return; }   // pure legacy inline record
-        var out = Object.assign({}, base), faltan = 0, partes = {};
+        var out = Object.assign({}, base), faltan = 0, partes = {}, metadataInvalida = false;
         delete out._hist;
         HIST.forEach(function (campo) {
-          var m = usar[campo]; if (!m || !m.n) { if (meta) out[campo] = Array.isArray(out[campo]) ? out[campo] : []; return; }
+          var m = usar[campo];
+          if (!m) { if (meta) out[campo] = Array.isArray(out[campo]) ? out[campo] : []; return; }
+          if (!Number.isSafeInteger(m.n) || !Number.isSafeInteger(m.len) ||
+              m.n < 0 || m.len < 0 || (m.n === 0) !== (m.len === 0)) {
+            metadataInvalida = true; return;
+          }
+          if (!m.n) { if (meta) out[campo] = []; return; }
           partes[campo] = new Array(m.n);
           for (var i = 0; i < m.n; i++) (function (i) {
             faltan++;
@@ -136,6 +142,7 @@
           })(i);
         });
         function terminar() {
+          if (metadataInvalida) { fallo(new Error('IndexedDB: invalid history metadata')); return; }
           var incompleto = false;
           HIST.forEach(function (campo) {
             if (incompleto || !partes[campo]) return;
