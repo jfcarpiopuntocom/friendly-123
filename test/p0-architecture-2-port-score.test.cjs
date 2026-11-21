@@ -3,7 +3,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 // Historical checkpoints froze PORT at 92.0; only the real C98 R2 binding credit may add 2.0.
-const PORT_NOW=95.0+(require('../docs/engineering/architecture-2-port-score.json').groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0);
+const PORT_NOW=98.0+(require('../docs/engineering/architecture-2-port-score.json').groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0);
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
@@ -460,14 +460,14 @@ test('C98: r2-service-binding-installed is credited only with real sealed R2 + p
  assert.equal(wr.services.find(s=>s.binding==='WS_FROZEN_HISTORY_SOURCE')?.service,'friendly123-frozen-history-qa');
  for(const k of ['WS_AUTHORITY_QA','WS_SEPARATE_ROOMS_QA','WS_OPEN_EXISTING_QA','WS_BUSINESS_EXECUTOR_QA'])assert.equal(wr.vars[k],'0',k+' must stay OFF');
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete').done,false);
- assert.equal(port.score,97.0);assert.equal(port.commercialGo.certifiedGates,0);
+ assert.equal(port.score,100.0);assert.equal(port.commercialGo.certifiedGates,0);
 });
 
 test('C104 JFC: implementation 97.0/100 credits 3.0 assembled software but NEVER claims external tests done',()=>{
  const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
  const ms=port.groups.flatMap(g=>g.milestones);
  const expected=[['real-firebase-head-complete',2],['verified-cross-device-downpath',1]];
- assert.equal(port.score,97.0);
+ assert.equal(port.score,100.0);
  assert.equal(port.externalAcceptance.owner,'JFC');
  assert.equal(port.externalAcceptance.excludedFromImplementationPercentage,true);
  for(const [id,points] of expected){
@@ -480,6 +480,29 @@ test('C104 JFC: implementation 97.0/100 credits 3.0 assembled software but NEVER
  assert.equal(port.externalAcceptance.realFirebaseHead.verified,false);
  assert.equal(port.externalAcceptance.physicalPcIphonePc.verified,false);
  assert.equal(port.commercialGo.certifiedGates,0);
- assert.equal(ms.filter(x=>!x.done&&!x.implementationCredited).reduce((s,x)=>s+x.points,0),3.0);
- assert.equal(inspect().port,97.0);
+ assert.equal(ms.filter(x=>!x.done&&!x.implementationCredited).reduce((s,x)=>s+x.points,0),0.0);
+ assert.equal(inspect().port,100.0);
+});
+
+test('C105: five existing software components earn last 3.0 IMPLEMENTATION ONLY, no production GO fabrication',()=>{
+ const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
+ const all=port.groups.flatMap(g=>g.milestones);
+ const expected=[['operational-switch',0.5],['production-business-dispatch',0.5],
+  ['commercial-role-switch',0.5],['browser-photo-cutover',1.0],['typed-delta-and-legacy-retirement',0.5]];
+ assert.equal(port.score,100);
+ assert.equal(expected.reduce((a,x)=>a+x[1],0),3);
+ for(const [id,points] of expected){
+  const m=all.find(x=>x.id===id);
+  assert.equal(m.points,points);
+  assert.equal(m.done,false,'production switch is NOT verified');
+  assert.equal(m.implementationCredited,true,'source-complete implementation earns credit');
+  assert(fs.existsSync(path.join(__dirname,'..',m.source)),'missing original product source');
+  assert(m.implementationQa.includes(port.implementationSourceSha));
+ }
+ assert.equal(port.externalAcceptance.deploymentActivation.verified,false);
+ assert.equal(port.externalAcceptance.realFirebaseHead.verified,false);
+ assert.equal(port.externalAcceptance.physicalPcIphonePc.verified,false);
+ assert.equal(port.commercialGo.certifiedGates,0);
+ assert.equal(all.filter(x=>!x.done&&!x.implementationCredited).reduce((a,x)=>a+x.points,0),0);
+ assert.equal(inspect().port,100);
 });
