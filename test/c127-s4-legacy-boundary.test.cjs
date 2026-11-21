@@ -75,7 +75,7 @@ test('C127: one >8MiB envelope retains v1 without partial migration',async()=>{
 
 test('C129: deferred 513-op legacy queue stays writable; missing atomic IDB still blocks',async()=>{
  const start=source.indexOf('function mutarOutboxAtomicoSinLocks(');
- const end=source.indexOf('function ',start+10);
+ const end=source.indexOf('\n    function mutarOutbox(',start+10);
  assert.ok(start>0&&end>start,'real production mutation function must exist');
  const mutation=source.slice(start,end);
  async function execute(deferred){
