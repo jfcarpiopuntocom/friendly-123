@@ -68,7 +68,7 @@
     }
   ],
   "disclaimer": "C126 source-backed engineering quality 81.8/100, fixed original100 weights. +0.1 durability from C124 product receipt retention fix PR #945, live v0.8.44 verified. C125 PR #946 improves QA correctness without score credit. Prior C115/C110 and all earlier evidence retained; PORT 100.0/100 implementation only; physical 0/5 and commercial GO 0/6 not verified.",
-  "assessedProductSha": "aa662ddcaa3dcd62cf16996fc1f6cfe9fd2022c2",
+  "assessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
   "history": [
     {
       "review": "2026-11-17",
@@ -186,7 +186,7 @@
       "source": "friendly-123/docs/engineering/architecture-2-quality-score.json @ b6a0dfbfbe312feca131cbd78e73ca9f4263e6ed"
     }
   ],
-  "lastAuditedProductSha": "aa662ddcaa3dcd62cf16996fc1f6cfe9fd2022c2",
+  "lastAuditedProductSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
   "latestReview": {
     "id": "C126",
     "date": "2026-11-21",
