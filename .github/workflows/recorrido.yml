@@ -45,9 +45,13 @@ jobs:
         shell: bash
         run: node scripts/recorrido-vivo.cjs https://jfcarpiopuntocom.github.io/friendly-123/ | tee -a "$GITHUB_STEP_SUMMARY"
 
-  # Solo avisa: no corre cuando hotfix.yml llama a este workflow, asi que nunca frena una publicacion.
+  # Canario independiente: GitHub hereda github.event_name=push desde hotfix
+  # en workflow_call. El nombre github.workflow es 'hotfix' en ese caso,
+  # 'recorrido' en un schedule/dispatch/push directo. Asi nunca convierte
+  # un release YA publicado en fallo, y la union fria sigue siendo RED real
+  # en ejecuciones propias (sin continue-on-error ni falsos certificados).
   union-fria:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
+    if: github.workflow == 'recorrido' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || github.event_name == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
