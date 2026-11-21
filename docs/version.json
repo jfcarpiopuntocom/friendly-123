@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.41",
+  "version": "v0.8.42",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.41 ligereza: el historial compartido no se vuelve a armar en cada guardado cuando no hay movimientos nuevos (menos trabajo en segundo plano; cajita mas rapida). Sin cambios de datos.",
+  "changelog": "v0.8.42 ligereza: las ventas y ajustes recibidos de otros aparatos quedan anotados en el mismo guardado y ya no se vuelven a aplicar en cada arranque. Sin cambios de datos.",
   "requerida": false,
-  "shell": "f123-shell-v841",
+  "shell": "f123-shell-v842",
   "apagar": [],
-  "releaseName": "v0.8.41",
-  "cacheGeneration": "golden377"
+  "releaseName": "v0.8.42",
+  "cacheGeneration": "golden378"
 }

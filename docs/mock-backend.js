@@ -954,6 +954,9 @@
       nombreNegocioTs: nombreNegocioTs,
       nombreNegocioRev: nombreNegocioRev,
       selloUltimo: selloUltimo,
+      // typeof: some tests evaluate this function alone, without the receipt vars in scope.
+      ...(typeof _opsAplicadas !== "undefined" && ((_opsAplicadas && _opsAplicadas.size) || _opsDelCuaderno)
+        ? { opsAplicadas: [...(_opsAplicadas || []), ...(_opsDelCuaderno || [])].slice(-2000) } : {}),
     };
   }
   // Item 19: validación profunda de respaldos antes de importar — ids únicos,
@@ -1044,6 +1047,7 @@
     return _cuadernoConDatosEnDoc();
   }
   function aplicarRespaldo(body) {
+    _unirOpsAplicadas(body && body.opsAplicadas);
     productos.length = 0; productos.push(...body.productos);
     ubicaciones.length = 0; ubicaciones.push(...body.ubicaciones);
     ventas.length = 0; ventas.push(...(Array.isArray(body.ventas) ? body.ventas : []));
@@ -3837,12 +3841,24 @@
   // un no-op seguro. Solo DELTAS, nunca valores absolutos — dos ventas
   // simultaneas de las mismas ultimas unidades se SUMAN, nunca se pisan.
   const OPS_APLICADAS_KEY = "f123_sync_ops_aplicadas";
-  let _opsAplicadas = null;
+  // var without initializer on purpose: aplicarRespaldo may run before this line (boot) and must
+  // neither hit a TDZ nor have its ids reset when this line executes.
+  var _opsAplicadas, _opsDelCuaderno;
   function _cargarOpsAplicadas() {
     if (_opsAplicadas) return _opsAplicadas;
     try { _opsAplicadas = new Set(JSON.parse(localStorage.getItem(OPS_APLICADAS_KEY) || "[]")); }
     catch (_) { _opsAplicadas = new Set(); }
+    if (_opsDelCuaderno) { for (const x of _opsDelCuaderno) _opsAplicadas.add(x); _opsDelCuaderno = null; }
     return _opsAplicadas;
+  }
+  // P0 v842: with localStorage full (sibling apps share the origin) the receipt set below never
+  // persisted, so every boot re-applied the same remote ops with one strict save each. The set now
+  // also rides inside the durable notebook; localStorage stays a best-effort mirror.
+  function _unirOpsAplicadas(lista) {
+    if (!Array.isArray(lista) || !lista.length) return;
+    const ok = lista.filter((x) => typeof x === "string" && x && x.length <= 200);
+    if (_opsAplicadas) { for (const x of ok) _opsAplicadas.add(x); return; }
+    _opsDelCuaderno = (_opsDelCuaderno || []).concat(ok); // merged on first _cargarOpsAplicadas
   }
   function _marcarOpAplicada(opId) {
     const s = _cargarOpsAplicadas();
@@ -6175,11 +6191,14 @@
           });
         };
         if (!_fundirHechoStock(p, witness)) return {ok:false, error:"stock-epoch-or-proof-conflict"};
+        // The receipt rides in the SAME durable write as the stock effect (v842); undone on failure.
+        vistos.add(op.opId);
         let intentoGuardado;
         try { intentoGuardado = guardarEstadoLocal(true); }
-        catch (_) { restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
+        catch (_) { vistos.delete(op.opId); restaurarStock(); return {ok:false, error:"stock-commit-failed"}; }
         return Promise.resolve(intentoGuardado).then((saved) => {
           if (saved !== true) {
+            vistos.delete(op.opId);
             restaurarStock();
             return {ok:false, error:"stock-not-durable"};
           }
@@ -6187,6 +6206,7 @@
           avisarCatalogoCambiado();
           return {ok:true};
         }).catch(() => {
+          vistos.delete(op.opId);
           restaurarStock();
           return {ok:false, error:"stock-commit-failed"};
         });
