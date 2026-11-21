@@ -3,7 +3,9 @@ on:
   pull_request:
     paths:
       - 'docs/mock-backend.js'
+      - 'docs/sync-yjs.js'
       - 'test/p0-durable-stock-adjustment.test.cjs'
+      - 'test/p0-c108-one-product-physical-seed.test.cjs'
       - '.github/workflows/p0-durable-stock-adjustment.yml'
 jobs:
   focused:
@@ -16,4 +18,4 @@ jobs:
           node-version: '22'
       - name: Focused durability, two-peer inventory, stale-metadata contracts
         run: |
-          node --test test/p0-durable-stock-adjustment.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-stock-monotonic-clock-v559.test.js
+          node --test test/p0-c108-one-product-physical-seed.test.cjs test/p0-durable-stock-adjustment.test.cjs test/stock-base-conflicto-v515.test.js test/incident-stale-stock-metadata-v558.test.js test/incident-stock-monotonic-clock-v559.test.js
