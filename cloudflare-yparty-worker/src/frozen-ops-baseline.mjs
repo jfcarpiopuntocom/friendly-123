@@ -16,6 +16,15 @@ function canonical(value,depth=0){
  }
  if(Array.isArray(value))return '['+value.map(v=>canonical(v,depth+1)).join(',')+']';
  if(value&&typeof value==='object'&&Object.getPrototypeOf(value)===Object.prototype){
+  // The original Firebase 1.0 abono writes both units and cents.
+  // Fail closed on contradictory money before hashing/certifying the event.
+  // Valid events keep their EXACT original canonical bytes and SHA.
+  if(value.amountCents!==undefined&&value.monto!==undefined){
+   const cents=value.amountCents,units=value.monto;
+   if(!Number.isSafeInteger(cents)||typeof units!=='number'||
+      !Number.isFinite(units)||Math.abs(units)>Number.MAX_SAFE_INTEGER||
+      cents!==Math.round(units*100))refuse('inconsistent economic amount');
+  }
   const keys=Object.keys(value).filter(k=>value[k]!==undefined).sort();
   return '{'+keys.map(k=>JSON.stringify(k)+':'+canonical(value[k],depth+1)).join(',')+'}';
  }
