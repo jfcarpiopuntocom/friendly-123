@@ -48,3 +48,21 @@ test('C159: shelf and expenses both optimize from original pixels before durable
  assert.ok(receipt.indexOf('optimizarCapturaFoto')<receipt.indexOf('OCFotos.hashDeDataUrl(data)'));
  assert.match(storage,/guardarPorHash/);
 });
+
+
+test('C159: iOS Safari WebP-encoding fallback safely saves a smaller JPEG at original resolution',()=>{
+ const base=url('jpeg',160000),calls=[],cv={width:1300,height:950,
+  toDataURL(type,q){calls.push([type,q]);return type==='image/webp'?url('png',60000):url('jpeg',76000);}};
+ const out=api().optimizarCapturaFoto(cv,base,180000,{jpegQuality:.82,jpegFloor:.74});
+ assert.match(out,/^data:image\/jpeg;base64,/);
+ assert.equal(out.length,76000);
+ assert.ok(out.length<=base.length*.5);
+ assert.equal(cv.width,1300);assert.equal(cv.height,950);
+ assert.ok(calls.some(([t])=>t==='image/webp'));
+ assert.ok(calls.some(([t,q])=>t==='image/jpeg'&&q>=.74));
+});
+test('C159: already downscaled/low-quality Safari JPEG stays intact, never recompressed below readability floor',()=>{
+ const base=url('jpeg',80000),calls=[],cv={toDataURL(type,q){calls.push([type,q]);return url('png',40000);}};
+ assert.equal(api().optimizarCapturaFoto(cv,base,180000,{jpegQuality:.7,jpegFloor:.77}),base);
+ assert.equal(calls.filter(([t])=>t==='image/jpeg').length,0,'source q<floor cannot degrade further');
+});
