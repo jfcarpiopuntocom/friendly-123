@@ -11,7 +11,7 @@ test('C123: 2,001 durable remote receipts survive cold-open when localStorage qu
  const marker='opsAplicadas:';
  const start=source.indexOf(marker);
  assert.ok(start>=0,'production notebook exports durable op receipts');
- const expr=source.slice(start+marker.length).match(/^\s*(\[[^\n]+\])\s*}/);
+ const expr=source.slice(start+marker.length).match(/^\s*(\[[^\n]+?\](?:\.slice\(-?\d+\))?)\s*}/);
  assert.ok(expr,'extract real production receipt snapshot expression');
  const old=Array.from({length:2001},(_,i)=>'remote-stock:'+i);
  const sandbox={_opsAplicadas:new Set(old),_opsDelCuaderno:null};
