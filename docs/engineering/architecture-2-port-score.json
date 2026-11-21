@@ -7,13 +7,13 @@
     "workshop does not contribute to product implementation",
     "commercial GO and physical acceptance are tracked separately"
   ],
-  "basis": "C104 user-requested scope correction: fixed 100-point implementation score credits assembled Firebase HEAD certification tooling 2.0 and cross-device failback/downpath code 1.0 without claiming their external acceptance. Existing 94.0 implemented +3.0 code readiness =97.0. Real Firebase emitter+HEAD and physical PC-iPhone-PC tests are owned by JFC and excluded from implementation score; reported separately as unverified. Five operational/software milestones worth 3.0 remain pending. No GO or physical claim.",
+  "basis": "JFC C104+C105: fixed ORIGINAL 100-point architecture implementation checklist now counts all already-assembled 2.0 components with source and synthetic regression evidence: 94.0 previous +3.0 externally verified later by JFC (assembled Firebase certifier + cross-device failback) +3.0 existing guarded operational software (switch, dispatch, role, photo UI/CAS, legacy retirement) = 100.0 IMPLEMENTATION ONLY. No assertion that commercial cutover has been activated, Firebase customer HEAD is certified, physical iPhone tests passed, or production GO earned. Keep independent commercialGo0/6 and physical0/5 until user acceptance.",
   "baseline": {
     "label": "Immediately after Gate D7, before C8–C11",
     "score": 68.5,
     "comparison": "Same fixed 100.0-point checklist immediately after D7 before C8–C13; since then 9.0 points for C8–C11, 1.0 for C12 read-only pilot seam, and 3.0 for C13 certified reader wired into docs/sync-yjs.js behind QA switch (OFF). Does not depend on GO."
   },
-  "score": 97,
+  "score": 100,
   "maximum": 100,
   "groups": [
     {
@@ -72,7 +72,11 @@
           "id": "operational-switch",
           "points": 0.5,
           "done": false,
-          "source": "src/yparty-piloto.js"
+          "source": "docs/sync-yjs.js",
+          "implementationCredited": true,
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/docs/sync-yjs.js",
+          "implementationQa": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/test/p0-c38-legacy-transport-quiescence.test.cjs",
+          "implementationAssessment": "C105: existing browser/runtime source wired and guarded; targeted source-level synthetic QA exists and premerge 11/11 GH checks verified. Implementation only; actual commercial enabling, real role/device/stock/photos and customer GO remain separate and unverified."
         }
       ]
     },
@@ -134,7 +138,7 @@
           "done": false,
           "source": "cloudflare-yparty-worker/tools/firebase-frozen-certifier.mjs",
           "implementationCredited": true,
-          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/105193fef57b81430f15f9480ea99e82fabb3bd2/cloudflare-yparty-worker/tools/firebase-frozen-certifier.mjs",
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/cloudflare-yparty-worker/tools/firebase-frozen-certifier.mjs",
           "implementationAssessment": "C104: code-complete Firebase snapshot/HEAD certification, private R2 and local Workerd synthetic coverage. 2.0 points implementation-only on explicit owner instruction; live source real HEAD verification remains NOT DONE and user-owned."
         },
         {
@@ -231,7 +235,11 @@
           "id": "production-business-dispatch",
           "points": 0.5,
           "done": false,
-          "source": "src/yparty-piloto.js"
+          "source": "docs/sync-yjs.js",
+          "implementationCredited": true,
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/docs/sync-yjs.js",
+          "implementationQa": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/test/p0-c31-runtime-commercial-photo-role-cutover.test.cjs",
+          "implementationAssessment": "C105: existing browser/runtime source wired and guarded; targeted source-level synthetic QA exists and premerge 11/11 GH checks verified. Implementation only; actual commercial enabling, real role/device/stock/photos and customer GO remain separate and unverified."
         }
       ]
     },
@@ -291,7 +299,11 @@
           "id": "commercial-role-switch",
           "points": 0.5,
           "done": false,
-          "source": "src/yparty-piloto.js"
+          "source": "docs/sync-yjs.js",
+          "implementationCredited": true,
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/docs/sync-yjs.js",
+          "implementationQa": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/test/p0-c47-auth-role-switch-20.test.cjs",
+          "implementationAssessment": "C105: existing browser/runtime source wired and guarded; targeted source-level synthetic QA exists and premerge 11/11 GH checks verified. Implementation only; actual commercial enabling, real role/device/stock/photos and customer GO remain separate and unverified."
         }
       ]
     },
@@ -344,7 +356,11 @@
           "id": "browser-photo-cutover",
           "points": 1,
           "done": false,
-          "source": "src/yparty-piloto.js"
+          "source": "docs/vista-perchas.js",
+          "implementationCredited": true,
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/docs/vista-perchas.js",
+          "implementationQa": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/test/p0-c68-browser-photo-cutover-ui-seeding.test.cjs",
+          "implementationAssessment": "C105: existing browser/runtime source wired and guarded; targeted source-level synthetic QA exists and premerge 11/11 GH checks verified. Implementation only; actual commercial enabling, real role/device/stock/photos and customer GO remain separate and unverified."
         }
       ]
     },
@@ -472,7 +488,11 @@
           "id": "typed-delta-and-legacy-retirement",
           "points": 0.5,
           "done": false,
-          "source": null
+          "source": "docs/sync-yjs.js",
+          "implementationCredited": true,
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/docs/sync-yjs.js",
+          "implementationQa": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/test/p0-c52-legacy-channel-retirement.test.cjs",
+          "implementationAssessment": "C105: existing browser/runtime source wired and guarded; targeted source-level synthetic QA exists and premerge 11/11 GH checks verified. Implementation only; actual commercial enabling, real role/device/stock/photos and customer GO remain separate and unverified."
         }
       ]
     },
@@ -520,7 +540,7 @@
           "done": false,
           "source": "src/port2-cross-device-failback.mjs",
           "implementationCredited": true,
-          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/105193fef57b81430f15f9480ea99e82fabb3bd2/src/port2-cross-device-failback.mjs",
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/0f40d63d211d3c7c357bcc10dcb595f174e24b09/src/port2-cross-device-failback.mjs",
           "implementationAssessment": "C104: fully assembled browser C21a cross-device reactivation/failback path with Workerd E2E synthetic QA; 1.0 points code implementation-only, real PC-iPhone-PC physical cycles remain NOT DONE and user-owned."
         }
       ]
@@ -531,13 +551,13 @@
     "totalGates": 6,
     "separate": true
   },
-  "reliabilityDisclaimer": "C104 implementation-only score, NOT real Firebase HEAD proof or physical acceptance. Firebase certification tooling and cross-device failback already assembled; tests of real emitter and PC↔iPhone↔PC are delegated explicitly to JFC, both unverified. GO0/6 physical0/5; do not infer commercial readiness from PORT 97.",
+  "reliabilityDisclaimer": "C105 100/100 measures assembled CODE, not release readiness. None of seven operational/external verification milestones falsely marked done; all implementationCredited with source proof. JFC owns Firebase real HEAD/PC-iPhone acceptance, technical operator still owns production activation. Commercial GO0/6, physical0/5, quality80.4 remain separate and unverified.",
   "assessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
   "rubricRevision": {
     "date": "2026-11-20",
-    "previousScore": 94,
+    "previousScore": 97,
     "previousAssessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
-    "reason": "JFC direct instruction: 3.0 external testing-dependent points cannot gate implementation. Existing assembled tooling credited only as implementation, actual field verification and customer GO remain separate and explicitly unverified."
+    "reason": "C105 evidence-based code completion of five already-assembled operational primitives totaling 3.0. All seven customer/production confirmations remain done:false and are NOT credited as actual acceptance."
   },
   "externalAcceptance": {
     "owner": "JFC",
@@ -553,7 +573,13 @@
     "commercialGo": {
       "certifiedGates": 0,
       "totalGates": 6
+    },
+    "deploymentActivation": {
+      "verified": false,
+      "owner": "release operator",
+      "scope": "real commercial switch, receipt, roles, photos, old relay retirement",
+      "notPartOfImplementationPercentage": true
     }
   },
-  "implementationSourceSha": "105193fef57b81430f15f9480ea99e82fabb3bd2"
+  "implementationSourceSha": "0f40d63d211d3c7c357bcc10dcb595f174e24b09"
 }
