@@ -35,6 +35,8 @@ jobs:
       - run: npm ci
       - name: C123 exact remote receipt cold-open regression
         run: node --test test/c123-receipt-window-red.test.cjs
+      - name: C124 active remote receipt dedup regression
+        run: node --test test/c124-remote-receipt-eviction.test.cjs
       - name: Release identity, immutable manifest and generated assets
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
