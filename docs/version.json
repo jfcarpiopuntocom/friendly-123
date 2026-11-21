@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.45",
+  "version": "v0.8.46",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.45 lanzamiento comercial: la cola de envio por operacion (S4) se activa para todas las licencias. Sin cambios de datos; la 2.0 YParty sigue apagada hasta certificar su puente privado.",
+  "changelog": "v0.8.46 C129: S4 conserva escritura operativa de colas antiguas diferidas sin desactivar la protección IndexedDB para tiendas nuevas.",
   "requerida": false,
-  "shell": "f123-shell-v845",
+  "shell": "f123-shell-v846",
   "apagar": [],
-  "releaseName": "v0.8.45",
-  "cacheGeneration": "golden381"
+  "releaseName": "v0.8.46",
+  "cacheGeneration": "golden382"
 }
