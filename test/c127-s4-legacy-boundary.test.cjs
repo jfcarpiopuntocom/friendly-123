@@ -72,3 +72,26 @@ test('C127: one >8MiB envelope retains v1 without partial migration',async()=>{
  assert.equal(f.records.get('legacy').pending.length,1);
  assert.equal(f.records.has('meta'),false);
 });
+
+test('C129: deferred 513-op legacy queue stays writable; missing atomic IDB still blocks',async()=>{
+ const start=source.indexOf('function mutarOutboxAtomicoSinLocks(');
+ const end=source.indexOf('function ',start+10);
+ assert.ok(start>0&&end>start,'real production mutation function must exist');
+ const mutation=source.slice(start,end);
+ async function execute(deferred){
+   let legacyWrites=0;
+   const ctx={
+     v2Db:()=>Promise.resolve(null),API:{rollout:{outboxV2:true}},
+     _v2DeferredLegacy:deferred,
+     window:{dispatchEvent(){}},CustomEvent:function(){},
+     Error,Promise,Map
+   };
+   vm.runInNewContext(mutation+';globalThis.mutate=mutarOutboxAtomicoSinLocks;',ctx);
+   try {await ctx.mutate(()=>{},()=>{legacyWrites++;return 'saved';});return {legacyWrites,blocked:false};}
+   catch(e){return {legacyWrites,blocked:String(e).includes('outbox-atomic-indexeddb-required')};}
+ }
+ assert.deepEqual(await execute(true),{legacyWrites:1,blocked:false},
+   'oversized preexisting v1 outbox must remain usable under global S4');
+ assert.deepEqual(await execute(false),{legacyWrites:0,blocked:true},
+   'new missing-IDB store must not issue a false durability acknowledgement');
+});
