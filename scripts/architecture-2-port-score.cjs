@@ -10,14 +10,15 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC138=quality.latestReview?.id==='C138';
+ const isC140=quality.latestReview?.id==='C140';
+ const isC138=isC140||quality.latestReview?.id==='C138';
  const isC134=isC138||quality.latestReview?.id==='C134';
  const isC132=isC134||quality.latestReview?.id==='C132';
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)))));
- const currentDurability=isC134?19.3:(isC126?19.2:19.1);
+ const currentQuality=isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))))));
+ const currentDurability=isC140?19.4:(isC134?19.3:(isC126?19.2:19.1));
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
  if(isC130){
@@ -62,7 +63,17 @@ function inspect(){
    const major=Number(versionMatch[1]), minor=Number(versionMatch[2]), patch=Number(versionMatch[3]);
    assert(major>0 || minor>8 || (minor===8 && patch>=49),
      'C138 original evidence shipped in v0.8.49 or later');
-   assert.equal(quality.latestReview?.sourceSha,'4223a7db5ede522cde51e3319d3c446f541a8047');
+   assert.equal((isC140?quality.auditTrail?.find(r=>r.id==='C138'):quality.latestReview)?.sourceSha,'4223a7db5ede522cde51e3319d3c446f541a8047');
+ }
+ if(isC140){
+  const qa=fs.readFileSync(path.join(root,'test/p0-sync-outbox-idb-closed-reopen.test.cjs'),'utf8');
+  const src=fs.readFileSync(path.join(root,'docs/sync-outbox.js'),'utf8');
+  for(const token of ['C137: silent Safari InvalidStateError retries CURRENT write','C137: leer after silent close','C137: failed reopen + quota full fails closed','C137: concurrent writes share ONE reopen']){
+    assert(qa.includes(token),'C140 requires independently verified current-op IDB retry regression '+token);
+  }
+  assert(src.includes('for (var intento = 0; intento < 2; intento++)'));
+  assert(src.includes('function siConexionRota(db, error)'));
+  assert.equal(quality.latestReview?.sourceSha,'1ffdc7480bea87104aa46d1057d7a618d32fe72b');
  }
  if(isC128){
    const migrationQA=fs.readFileSync(path.join(root,'test/c127-s4-legacy-boundary.test.cjs'),'utf8');
@@ -1395,7 +1406,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC134?0.5:(isC126?0.4:0.3)):0)+(d.id==='business'?(isC138?0.2:0.1):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3))):0)+(d.id==='business'?(isC138?0.2:0.1):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
