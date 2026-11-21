@@ -12,11 +12,11 @@
       throw new Error(message('Choose a JPEG, PNG or WebP photo.', 'Elige una foto JPEG, PNG o WebP.'));
     }
     const url = URL.createObjectURL(file);
-    let data;
+    let data, canvas;
     try {
       const img = new Image();
       await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; img.src = url; });
-      const canvas = document.createElement('canvas');
+      canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error(message('Image processing is unavailable on this device.', 'No se pueden procesar imágenes en este aparato.'));
       // Try smaller dimensions as well as JPEG quality; the user must never be
@@ -39,6 +39,13 @@
       if (!data) throw new Error(message('This receipt is too detailed for secure photo sync. Try a clearer image with less background.', 'Esta factura tiene demasiado detalle para sincronizarla. Prueba una imagen nítida con menos fondo.'));
     } finally { URL.revokeObjectURL(url); }
     if (!window.OCFotos) throw new Error(message('Photo storage is unavailable.', 'El almacenamiento de fotos no está disponible.'));
+    // Same pixel dimensions as the already readable JPEG. Favor high-quality
+    // WebP near half its bytes; if unsupported or not smaller, keep the JPEG.
+    // The subsequent hash refers to the ACTUAL encoded payload, not its parent.
+    if (typeof window.OCFotos.optimizarCapturaFoto === 'function') {
+      try { data = window.OCFotos.optimizarCapturaFoto(canvas, data, 180000); }
+      catch (_) { /* Existing readable receipt JPEG remains unchanged. */ }
+    }
     const hash = await OCFotos.hashDeDataUrl(data);
     if (!await OCFotos.guardarPorHash(hash, data)) throw new Error(message('The receipt photo was not saved. Free device storage and retry.', 'No se guardó la foto. Libera espacio del aparato y reintenta.'));
     return hash;
