@@ -28,7 +28,19 @@
   var STORE = "cola";
   var LS_KEY = "f123_sync_pending";
   var SOPORTADO = typeof indexedDB !== "undefined";
-  var dbPromise = null;
+  var dbPromise = null, dbActual = null;
+  function invalidarDB(db) {
+    if (db && dbActual !== db) return;
+    dbActual = null;
+    dbPromise = null;
+  }
+  function siConexionRota(db, error) {
+    if (db && error && (error.name === "InvalidStateError" || error.name === "UnknownError")) {
+      // WebKit may invalidate a connection without ever delivering onclose.
+      // Next live operation reopens IDB, not the stale promise.
+      invalidarDB(db);
+    }
+  }
 
   function abrirDB() {
     if (dbPromise) return dbPromise;
@@ -45,7 +57,16 @@
           try { if (req.result && typeof req.result.close === "function") req.result.close(); } catch (_) {}
           return;
         }
-        resolve(req.result);
+        var conexion = req.result;
+        dbActual = conexion;
+        // iOS can close a previously healthy IDB connection after backgrounding.
+        // Drop only THIS connection's promise: never invalidate a newer open.
+        conexion.onclose = function () { invalidarDB(conexion); };
+        conexion.onversionchange = function () {
+          invalidarDB(conexion);
+          try { conexion.close(); } catch (_) {}
+        };
+        resolve(conexion);
       };
       req.onerror = function () { aperturaAbandonada = true; reject(req.error); };
       req.onblocked = function () {
@@ -72,6 +93,7 @@
         try { localStorage.removeItem(LS_KEY); } catch (_) {}
         return true;
       } catch (e) {
+        siConexionRota(db, e);
         try { console.warn("[sync-outbox] IndexedDB fallo, cae a localStorage:", e && e.message); } catch (_) {}
       }
     }
@@ -90,6 +112,7 @@
         });
         if (fila && fila.blob) return fila.blob;
       } catch (e) {
+        siConexionRota(db, e);
         try { console.warn("[sync-outbox] IndexedDB no disponible para leer, prueba localStorage:", e && e.message); } catch (_) {}
       }
     }
