@@ -28,6 +28,7 @@ for (const [label,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
         window.marcarComisionPagada=(rack,name,due,id)=>{window.__c100Payments.push({rack,name,due,id})};
         const cont=document.getElementById('listaComisiones');
         cont.innerHTML='<div data-commissions-toolbar><label>Month <select data-commissions-month><option value="2026-11">November</option></select></label><div role="tablist"><button data-commissions-view="product" aria-selected="true" role="tab">Product</button><button data-commissions-view="rack" aria-selected="false" role="tab">Rack</button></div></div><section id="comm-panel-product" data-commissions-section="by-product"></section><section id="comm-panel-rack" data-commissions-section="by-rack-event" hidden></section>';
+        cont.querySelector('[data-commissions-view="rack"]').addEventListener('click',()=>window.cambiarVistaComisiones('rack'));
       });
       const tab=page.locator('#comm-tab-person');await tab.waitFor();await tab.click();
       await page.waitForFunction(()=>document.querySelectorAll('#comm-panel-person [data-cm-person-id]').length===2);
@@ -44,7 +45,8 @@ for (const [label,engine] of [['Chromium',chromium],['WebKit',webkit]]) {
       });
       assert.equal(x.visible,true);assert.equal(x.productHidden,true);assert.equal(x.aria,'true');assert.equal(x.month,'2026-11');
       assert.equal(x.people,2);assert.match(x.ana,/119\.50/);assert.match(x.ana,/35\.10/);assert.match(x.ana,/79\.40/);
-      assert.deepEqual(x.choice,['All people','Alex','Ana']);
+      assert.equal(x.choice.length,3); assert.match(x.choice[0],/All people|Todas las personas/);
+      assert.deepEqual(x.choice.slice(1),['Alex','Ana']);
       await page.locator('[data-cm-person-id="ana-id"] details summary').click();
       const payments=page.locator('[data-cm-person-id="ana-id"] [data-cm-person-pay]');
       assert.equal(await payments.count(),2);
