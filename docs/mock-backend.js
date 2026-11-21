@@ -6183,7 +6183,10 @@
         const key = JSON.stringify([owner, notebook, String(op.opId)]);
         const already = _pnReceiverPending.get(key);
         if (already) return already.then(r => r && r.ok ? { ok: true, repetida: true } : r);
-        const work = _pnReceiverTail.then(() => {
+        const work = _pnReceiverTail.then(async () => {
+          // A local sale/physical count may already hold the commercial write.
+          // Never project a remote PN into that still-provisional transaction.
+          if (_ventaPendiente) await _ventaPendiente;
           let current = "";
           try { current = String(window.OCTienda?.cuadernoId?.() || ""); } catch (_) {}
           if (instanceId !== owner || (notebook && current !== notebook))
@@ -6753,6 +6756,10 @@
       } catch (_) { return false; }
     })();
     const ejecutar=async()=>{
+      // C118: every commercial write shares the same live notebook. When a
+      // remote PN CAS is in flight, wait for its ACK/rollback BEFORE reading or
+      // mutating local business state; reads and idle UI pay no added wait.
+      if (_pnReceiverPending.size) await _pnReceiverTail;
       /* FEATURE - DORMANT (desactivada por orden de JFC, 2026-11-11). NO BORRAR.
          Este bloque (v730) hacia que la venta esperase hasta 3 s a que la propia
          pestana terminase de tomar su turno con PIN y, si el turno no era suyo, la
