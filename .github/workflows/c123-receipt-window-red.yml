@@ -1,15 +1,31 @@
-name: C123 receipt retention RED
+name: C123 receipt retention and manifest
 on:
   push:
     branches: [qa/c123-receipt-window-red]
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   receipt-retention:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: qa/c123-receipt-window-red
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test test/c123-receipt-window-red.test.cjs
+      - name: Generate deterministic integrity manifest
+        run: node scripts/gen-manifest.js
+      - name: Commit only generated manifest if changed
+        run: |
+          if ! git diff --quiet -- docs/version-manifest.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/version-manifest.json
+            git commit -m "release(C123): regenerate v843 integrity manifest"
+            git push origin HEAD:qa/c123-receipt-window-red
+          fi
+      - name: Run exact receipt retention test
+        run: node --test test/c123-receipt-window-red.test.cjs
