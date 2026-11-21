@@ -10,9 +10,17 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC126=quality.latestReview?.id==='C126';
- const currentQuality=isC126?81.8:81.7;
+ const isC128=quality.latestReview?.id==='C128';
+ const isC126=isC128||quality.latestReview?.id==='C126';
+ const currentQuality=isC128?81.9:(isC126?81.8:81.7);
  const currentDurability=isC126?19.2:19.1;
+ const currentMigration=isC128?8.3:8.2;
+ if(isC128){
+   const migrationQA=fs.readFileSync(path.join(root,'test/c127-s4-legacy-boundary.test.cjs'),'utf8');
+   for(const token of ['function v2Db()', '513 pending legacy ops', 'exactly 512 small ops', 'one >8MiB envelope'])
+     assert(migrationQA.includes(token),'C128 requires merged source-executed S4 migration guard: '+token);
+   assert.equal(quality.latestReview?.sourceSha,'87f21b217098dc86ae30c4228ea16b57498ca53b');
+ }
  assert.equal(data.schema,1);
  assert.equal(quality.schema,1);
  assert.equal(data.maximum,100);
@@ -734,7 +742,7 @@ function inspect(){
    assert.equal(c52ms.find(m=>m.id==='verified-cross-device-downpath')?.done,false);
    assert.equal(data.commercialGo.certifiedGates,0);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
-   assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,8.2);
+   assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,currentMigration);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
    assert.equal(quality.comparison.previousScore,80.4);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -777,7 +785,7 @@ function inspect(){
    assert.equal(browser.milestones.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
    assert.equal(data.commercialGo.certifiedGates,0,'source QA does not certify shop activation');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'QA not physical PC/phone');
-   assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,8.2);
+   assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,currentMigration);
    assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
    assert.equal(quality.comparison.previousScore,80.4);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -1275,7 +1283,7 @@ function inspect(){
  for(const token of ['monto:12.5','amountCents:1250',
   'await packFrozenR2Archive(proofInput)','assert.equal(cold.already,true)'])
    assert(c86QA.includes(token),'C89 C86 RED->GREEN legacy QA missing '+token);
- assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,8.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,currentMigration);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C86 is not external Firebase or R2 certification');
  assert.equal(data.commercialGo.certifiedGates,0);
@@ -1306,7 +1314,7 @@ function inspect(){
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.score,7.8);
  assert.equal(quality.dimensions.find(d=>d.id==='photos')?.previous,7.8);
- assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,8.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='migration')?.score,currentMigration);
  assert.equal(quality.dimensions.find(d=>d.id==='migration')?.previous,7.9);
  assert.equal(quality.score,currentQuality);
  assert.equal(quality.comparison.previousScore,80.4);
