@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.33",
+  "version": "v0.8.34",
   "fecha": "2026-11-20",
-  "changelog": "v0.8.33: C108 conteo físico confirmado en Safari actualiza solo su producto en el Y.Doc, reutiliza catálogo ya validado y evita resembrar fotos, ventas y finanzas en esa tarea; la siembra normal sigue completa. Sin cambiar dinero, licencia, Sync3 ni el orden durable previo al merge. v0.8.32: revierte la compactación diferida de Yjs de v0.8.30 — con datos reales empeoraba la cajita (picos de 15-73 s y sumas sin aplicar); se vuelve al comportamiento de v0.8.29 (0,75-3,3 s, 12/12 exactas). v0.8.31: C100 Comisiones por artista/comisionista en la cabecera, ledger por beneficiario y periodo conservado (#910). v0.8.30: P0 cajita — sumar/fijar cantidades a mano ya no se congela: la base Yjs local escribe solo el update nuevo de cada acción y la reescritura completa del documento (16 MB en una tienda real) espera 45 s de reposo. Sin borrar ni recortar datos. v0.8.29: C99 Safari/Stock/SW P0 — (1) re-activa modoCorte20Activo vía guarda C38 al volver Safari iOS de segundo plano tras failback C94, (2) siembra conteo físico confirmado antes de drenar catálogos pendientes (#904), y (3) espera verificación SRI acotada antes de skipWaiting (#903 + #901).",
+  "changelog": "v0.8.34: P0 Cloudflare PWA — normaliza respuestas HTML redirigidas al devolver navegaciones desde Service Worker, evitando net::ERR_FAILED tras tomar control; conserva modo offline, datos, PIN, Sync3 y rutas API intactos. v0.8.33: C108 conteo físico confirmado en Safari actualiza solo su producto en el Y.Doc, reutiliza catálogo ya validado y evita resembrar fotos, ventas y finanzas en esa tarea; la siembra normal sigue completa. Sin cambiar dinero, licencia, Sync3 ni el orden durable previo al merge. v0.8.32: revierte la compactación diferida de Yjs de v0.8.30 — con datos reales empeoraba la cajita (picos de 15-73 s y sumas sin aplicar); se vuelve al comportamiento de v0.8.29 (0,75-3,3 s, 12/12 exactas). v0.8.31: C100 Comisiones por artista/comisionista en la cabecera, ledger por beneficiario y periodo conservado (#910). v0.8.30: P0 cajita — sumar/fijar cantidades a mano ya no se congela: la base Yjs local escribe solo el update nuevo de cada acción y la reescritura completa del documento (16 MB en una tienda real) espera 45 s de reposo. Sin borrar ni recortar datos. v0.8.29: C99 Safari/Stock/SW P0 — (1) re-activa modoCorte20Activo vía guarda C38 al volver Safari iOS de segundo plano tras failback C94, (2) siembra conteo físico confirmado antes de drenar catálogos pendientes (#904), y (3) espera verificación SRI acotada antes de skipWaiting (#903 + #901).",
   "requerida": false,
-  "shell": "f123-shell-v833",
+  "shell": "f123-shell-v834",
   "apagar": [],
-  "releaseName": "v0.8.33",
-  "cacheGeneration": "golden369"
+  "releaseName": "v0.8.34",
+  "cacheGeneration": "golden370"
 }
