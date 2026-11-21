@@ -524,7 +524,7 @@
     }
     // JFC test room: upgrade a 107MB single-value outbox into one durable IDB row per op.
     // The old value is removed only in the SAME atomic transaction that writes every row.
-    var _v2DB = null, _v2Ready = null, _v2Cache = null, _v2Revision = -1;
+    var _v2DB = null, _v2Ready = null, _v2Cache = null, _v2Revision = -1, _v2DeferredLegacy = false;
     var _v2Signatures = new Map(), _v2Prefix = "f123_relay_outbox_v2" + suffix + ":op:";
     var _v2MetaKey = "f123_relay_outbox_v2" + suffix + ":meta";
     function v2Signature(entry) {
@@ -550,6 +550,7 @@
           for (var q = 0; q < old.pending.length && legacyBytes <= 8 * 1024 * 1024; q++)
             legacyBytes += String(old.pending[q].c || "").length;
           if (old.pending.length > 512 || legacyBytes > 8 * 1024 * 1024) {
+            _v2DeferredLegacy = true;
             try { log("S4: large legacy outbox deferred; original envelopes untouched", old.pending.length); } catch (_) {}
             return null;
           }
@@ -624,7 +625,7 @@
           // explicit compatibility mode, not a claim of v2 multi-tab safety.
           // A persisted v2 meta forces rollout=true inside v2Db(), so no v2
           // data can fall through to the unsafe legacy read-modify-write.
-          if (!(API.rollout && API.rollout.outboxV2)) {
+          if (!(API.rollout && API.rollout.outboxV2) || _v2DeferredLegacy) {
             try { if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('f123-outbox-integrity', {detail:{status:'legacy-v1-single-tab-required'}})); } catch (_) {}
             return legacyRun();
           }
