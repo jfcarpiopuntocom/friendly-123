@@ -144,3 +144,26 @@ test('C119: queued remote PN must reject a business switch even when device note
     fx.restore();
   }
 });
+
+test('C119: no success receipt after shop changes DURING an already-started PN CAS',async()=>{
+  const fx=await fixture(),{w,op,pending}=fx;
+  const oldLicense=w.OCTienda.licenciaActual,oldNotebook=w.OCTienda.cuadernoId;
+  try {
+    let active='F123-SYNTH-SHOP-A';
+    w.OCTienda.licenciaActual=()=>active;
+    w.OCTienda.cuadernoId=()=> 'C119-stable-device';
+    const response=w.OCSync.aplicarOpRemota(op('C119-inflight-change','C119-device-A'));
+    await until(()=>pending.length===1,'remote CAS already began for first shop');
+    active='F123-SYNTH-SHOP-B';
+    pending[0].resolve(true); // original A-shop commit may have finished
+    const result=await response;
+    assert.notEqual(result?.ok,true,
+      'post-commit result from shop A must not become a success receipt under shop B');
+    // Commit may exist under A and be replayed there; do not demand its deletion.
+    assert.equal(pending.length,1,'shop switch does not trigger a new write');
+  }finally{
+    w.OCTienda.licenciaActual=oldLicense;
+    w.OCTienda.cuadernoId=oldNotebook;
+    fx.restore();
+  }
+});
