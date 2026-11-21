@@ -113,7 +113,7 @@
      image. If the browser does not encode WebP, retain the original JPEG.
      The content SHA is computed by callers AFTER this choice, so relay/IDB
      keep their existing byte-verified contracts. Never rewrite old photos. */
-  function optimizarCapturaFoto(canvas, jpegDataUrl, maxDataUrlChars = 180000) {
+  function optimizarCapturaFoto(canvas, jpegDataUrl, maxDataUrlChars = 180000, options = {}) {
     if (!canvas || typeof canvas.toDataURL !== "function" ||
         typeof jpegDataUrl !== "string" ||
         !/^data:image\/jpeg;base64,/.test(jpegDataUrl)) return jpegDataUrl;
@@ -137,6 +137,22 @@
       if (candidate.length < best.length &&
           (best === jpegDataUrl || candidate.length <= best.length * 0.80))
         best = candidate;
+    }
+    // Safari on iPhone currently does not reliably ENCODE WebP from canvas:
+    // it can silently return PNG. A small same-pixel JPEG improvement is still
+    // possible, but never chase 50% by ruining a legible receipt or photo.
+    const sourceQuality = Number(options.jpegQuality);
+    const minQuality = Number(options.jpegFloor);
+    if (Number.isFinite(sourceQuality) && Number.isFinite(minQuality) &&
+        sourceQuality > minQuality && minQuality >= 0.72) {
+      const nextQuality = Math.max(minQuality, sourceQuality - 0.08);
+      try {
+        const candidate = canvas.toDataURL("image/jpeg", nextQuality);
+        if (typeof candidate === "string" &&
+            /^data:image\/jpeg;base64,/.test(candidate) &&
+            candidate.length <= cap && candidate.length <= best.length * 0.90)
+          best = candidate;
+      } catch (_) { /* Keep the proven JPEG / WebP fallback. */ }
     }
     return best;
   }
