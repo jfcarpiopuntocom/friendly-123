@@ -73,33 +73,39 @@ test('P0 Belén: dropped HTTP response, reboot, retry same payment opId once',as
  assert.equal(a.outgoing[0].body.opId,b.outgoing[0].body.opId);
  assert.equal(ledger.size,1,'one financial movement after retry');
 });
-test('P0 Belén: overlapping tabs with different payment opIds, only durable winner may POST',async()=>{
- const db=new IDBFactory(),values=new Map();
+test('P0 Belén: overlapping tabs reuse original durable opId, one economic receipt',async()=>{
+ const db=new IDBFactory(),values=new Map(),ledger=new Map();
  let firstPost;
  const postStarted=new Promise(resolve=>{firstPost=resolve;});
  let releasePost;
  const postGate=new Promise(resolve=>{releasePost=resolve;});
- const a=make({db,storage:values,receive:async(_url,body)=>{
+ const receive=async(_url,body)=>{
+   if(!ledger.has(body.opId))
+     ledger.set(body.opId,{opId:body.opId,movimientoId:'receipt:'+body.opId});
+   return {ok:true,json:async()=>ledger.get(body.opId)};
+ };
+ const a=make({db,storage:values,receive:async(url,body)=>{
    firstPost();
-   await postGate; // Keep the first durable intent alive until the rival is checked.
-   return {ok:true,json:async()=>({opId:body.opId,movimientoId:'receipt-synthetic'})};
+   await postGate; // Keep first POST pending while the other tab reads IDB.
+   return receive(url,body);
  }});
- const b=make({db,storage:values});
+ const b=make({db,storage:values,receive});
  const first=a.win.ocEnviarAbono('cli-A',5,'Abono');
  try {
    await postStarted;
-   // Deterministic overlap: b must inspect a's still-pending durable intent.
-   // A previous Promise.allSettled could schedule b only after a released its
-   // intent, allowing two legitimate sequential payments and flaky CI.
-   await assert.rejects(b.win.ocEnviarAbono('cli-A',5,'Abono'),/conflict|referencia|anterior|original opId/i);
-   assert.equal(a.outgoing.length,1);
-   assert.equal(b.outgoing.length,0,'second tab must never POST a rival opId');
+   // The second tab must RESUME the same durable opId, not mint a second one.
+   // Repeated HTTP requests with the same opId are legitimate idempotent retries.
+   const second=await b.win.ocEnviarAbono('cli-A',5,'Abono');
+   assert.equal(second.opId,a.outgoing[0].body.opId);
+   assert.equal(b.outgoing.length,1);
+   assert.equal(b.outgoing[0].body.opId,a.outgoing[0].body.opId,
+     'both tabs must send the exact same original payment opId');
  } finally {
    releasePost();
  }
- const receipt=await first;
- assert.equal(receipt.movimientoId,'receipt-synthetic');
- assert.equal(a.outgoing.length+b.outgoing.length,1,'one POST for overlapping attempts');
+ const original=await first;
+ assert.equal(original.opId,a.outgoing[0].body.opId);
+ assert.equal(ledger.size,1,'two HTTP deliveries must yield exactly one economic receipt');
 });
 test('P0 Belén: if both localStorage and IDB fail, do not send payment',async()=>{
  const x=make({failIDB:true});
