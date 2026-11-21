@@ -112,7 +112,11 @@ test('RED: failed A cannot erase distinct B that subsequently receives durable A
 test('C119: queued remote PN must reject a business switch even when device notebookId stays constant',async()=>{
   const fx=await fixture(),{w,op,pending}=fx;
   const originalLicense=w.OCTienda.licenciaActual;
+  const originalNotebook=w.OCTienda.cuadernoId;
   try {
+    // The real notebookId identifies the DEVICE, not its active business.
+    // Fix this synthetic identity despite the forced-full localStorage fixture.
+    w.OCTienda.cuadernoId=()=> 'C119-stable-device';
     let active='F123-SYNTH-SHOP-A';
     w.OCTienda.licenciaActual=()=>active;
     const deviceNotebook=String(w.OCTienda.cuadernoId()||'');
@@ -136,6 +140,7 @@ test('C119: queued remote PN must reject a business switch even when device note
     assert.equal(pn(live,'device-B'),0,'no cross-shop PN witness contaminates B inventory');
   }finally{
     w.OCTienda.licenciaActual=originalLicense;
+    w.OCTienda.cuadernoId=originalNotebook;
     fx.restore();
   }
 });
