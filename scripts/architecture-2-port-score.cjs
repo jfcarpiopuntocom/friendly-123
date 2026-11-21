@@ -1405,7 +1405,7 @@ function inspect(){
  assert.equal(c115.release?.commit,c115.sourceSha);assert.equal(c115.release?.version,'v0.8.38');
  assert.equal(c115.evidence?.length,3);
  if(isC126){
-  const c126=quality.latestReview;
+  const c126=isC128 ? quality.auditTrail?.find(r=>r.id==='C126') : quality.latestReview;
   assert.equal(c126.baseline,81.7);assert.equal(c126.score,81.8);
   assert.equal(c126.delta,0.1);assert.equal(c126.evidence?.length,1);
   assert.equal(c126.evidence[0].pr,945);
