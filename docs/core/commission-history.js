@@ -9,6 +9,8 @@
   var views=["producto","percha","cliente","comisionista","mes"];
   function keyDay(value,zone){
     if(!value)return "";
+    // A business calendar date has no UTC conversion: Ecuador local Nov 21 stays Nov 21.
+    if(/^\d{4}-\d{2}-\d{2}$/.test(String(value)))return String(value);
     var t=Date.parse(value);
     if(!Number.isFinite(t))return /^\d{4}-\d{2}-\d{2}/.test(String(value))?String(value).slice(0,10):"";
     try{
@@ -30,6 +32,17 @@
     if(value===null||!Number.isSafeInteger(row[field]+value)){row[unknown]++;return;}
     row[field]+=value;
   }
+  function economicSignature(v,zone){
+    // Compare the economic identity, not volatile sync or display metadata.
+    return JSON.stringify([
+      keyDay(v.fechaLocal||v.fecha,zone),String(v.productoId||v.productoNombre||""),
+      String(v.ubicacionId||v.ubicacionNombre||""),String(v.promotoraId||""),
+      finite(v.cantidad),finite(v.precioUnit),finite(v.comisionAsociado),
+      finite(v.split&&v.split.montoComisionSocio),finite(v.netoCasa),
+      !!v.noCommission,!!v.anulada,!!v.cancelled,!!v.borrado,
+      Array.isArray(v.reparto)?v.reparto.map(function(r){return [String(r&&(r.promotoraId||r.payeeId)||""),finite(r&&r.monto)];}):null
+    ]);
+  }
   function safeName(value,fallback){return String(value==null||String(value).trim()===""?fallback:value);}
   function escape(value){return String(value==null?"":value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
   function project(input){
@@ -39,19 +52,29 @@
     var to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"";
     var lang=input.lang==="es"?"es":"en",zone=input.zone||"America/Guayaquil";
     var all=Array.isArray(input.sales)?input.sales:[];
-    var rows=[],tot={count:0,cancelled:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
-    var groups=new Map(),seen=new Set();
+    var rows=[],tot={count:0,cancelled:0,conflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
+    var groups=new Map(),seen=new Set(),firstById=new Map(),conflictingIds=new Set();
+    all.forEach(function(v){
+      if(!v||typeof v!=="object"||v.id==null||String(v.id)==="")return;
+      var receiptId=String(v.id),signature=economicSignature(v,zone);
+      if(firstById.has(receiptId)&&firstById.get(receiptId)!==signature)conflictingIds.add(receiptId);
+      else if(!firstById.has(receiptId))firstById.set(receiptId,signature);
+    });
     all.forEach(function(v){
       if(!v||typeof v!=="object")return;
-      var day=keyDay(v.fecha,zone);
+      var day=keyDay(v.fechaLocal||v.fecha,zone);
       if(from&&(!day||day<from))return;
       if(to&&(!day||day>to))return;
-      if(v.anulada||v.cancelled){tot.cancelled++;return;}
-      if(v.borrado)return;
-      // Existing business-read-model already de-duplicates economic sale IDs.
+      // Deduplicate before cancellation or conflict accounting too.
       var receiptId=v.id==null?"":String(v.id);
       if(receiptId&&seen.has(receiptId))return;
       if(receiptId)seen.add(receiptId);
+      if(receiptId&&conflictingIds.has(receiptId)){
+        // Never let whichever conflicting copy arrived first decide the money.
+        tot.conflicts++;tot.unknownGross++;tot.unknownCommission++;return;
+      }
+      if(v.anulada||v.cancelled){tot.cancelled++;return;}
+      if(v.borrado)return;
       var qty=finite(v.cantidad),price=finite(v.precioUnit);
       var gross=qty!==null&&qty>0&&price!==null?cents(qty*price):null;
       var commissionRaw=finite(v.comisionAsociado);
@@ -112,6 +135,7 @@
         +' · '+com+': '+money(g.commission,g.unknownCommission)+'</span></div>';
     }).join("");
     return '<section data-comm-history-report style="margin-top:12px;">'
+      +(t.conflicts?'<p role="alert">'+(es?"Recibos con el mismo ID y valores distintos: importes por verificar.":"Receipt IDs with conflicting economic values: totals need review.")+'</p>':"")
       +'<h3 style="font-size:18px;font-weight:800;color:var(--ink,#0F1923);">'+title+'</h3>'
       +'<p style="font-size:14px;color:var(--ink,#0F1923);">'+info+'</p>'
       +'<div class="cm-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;">'
