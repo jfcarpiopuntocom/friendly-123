@@ -3844,6 +3844,12 @@
   // var without initializer on purpose: aplicarRespaldo may run before this line (boot) and must
   // neither hit a TDZ nor have its ids reset when this line executes.
   var _opsAplicadas, _opsDelCuaderno;
+  // C118: all PN receipts and stock projections share one receiver-side commit lane.
+  // Both legacy relay and Yjs call the SAME OCSync entrypoint; IDB alone serializes
+  // disk transactions, not optimistic RAM mutation or provisional receipts.
+  const _pnReceiverToken = Symbol("f123-pn-remote-internal");
+  let _pnReceiverTail = Promise.resolve();
+  const _pnReceiverPending = new Map();
   function _cargarOpsAplicadas() {
     if (_opsAplicadas) return _opsAplicadas;
     try { _opsAplicadas = new Set(JSON.parse(localStorage.getItem(OPS_APLICADAS_KEY) || "[]")); }
@@ -6165,6 +6171,33 @@
     aplicarOpRemota(op) {
       if (_conflictoEstadoAB) return false;
       if (!op || !op.opId || !op.tipo || !op.payload) return { ok: false, error: "Invalid op" };
+      // Queue BEFORE consulting receipts or touching PN. A receipt staged for CAS
+      // is not durable and cannot ACK a duplicate arriving from another transport.
+      if (op.payload.stockPNHecho && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc &&
+          arguments[1] !== _pnReceiverToken) {
+        const key = String(op.opId);
+        const already = _pnReceiverPending.get(key);
+        if (already) return already.then(r => r && r.ok ? { ok: true, repetida: true } : r);
+        const owner = instanceId;
+        let notebook = "";
+        try { notebook = String(window.OCTienda?.cuadernoId?.() || ""); } catch (_) {}
+        const work = _pnReceiverTail.then(() => {
+          let current = "";
+          try { current = String(window.OCTienda?.cuadernoId?.() || ""); } catch (_) {}
+          if (instanceId !== owner || (notebook && current !== notebook))
+            return { ok: false, error: "notebook-changed-while-pending" };
+          if (_conflictoEstadoAB) return { ok: false, error: "Conflicting saved copies" };
+          return window.OCSync.aplicarOpRemota(op, _pnReceiverToken);
+        });
+        _pnReceiverPending.set(key, work);
+        _pnReceiverTail = work.then(() => {}, () => {});
+        work.then(() => {
+          if (_pnReceiverPending.get(key) === work) _pnReceiverPending.delete(key);
+        }, () => {
+          if (_pnReceiverPending.get(key) === work) _pnReceiverPending.delete(key);
+        });
+        return work;
+      }
       const vistos = _cargarOpsAplicadas();
       if (vistos.has(op.opId)) return { ok: true, repetida: true };
       // New operations carry immutable PN proof; derive the view from movement facts.
