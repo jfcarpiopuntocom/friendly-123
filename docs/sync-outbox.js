@@ -104,6 +104,10 @@
   }
 
   async function leer() {
+    // If IDB's last write failed, the existing encrypted local fallback holds
+    // the NEWER queue. A successful IDB commit removes this key (guardar()).
+    // Prefer it on cold reopen; never resurrect the stale IDB row.
+    try { var currentFallback = localStorage.getItem(LS_KEY); if (currentFallback) return currentFallback; } catch (_) {}
     if (SOPORTADO) {
       for (var intento = 0; intento < 2; intento++) {
         var db = null;
