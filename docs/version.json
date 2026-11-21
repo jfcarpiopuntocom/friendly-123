@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.42",
+  "version": "v0.8.43",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.42: las colas del relay viejo ya no se reescriben mientras la app está quieta; recibos durables de operaciones remotas con ACK tras CAS, deduplicación y coordinación de inventario local/remoto, protegidos por licencia activa. Sin cambio de transporte ni migración de datos.",
+  "changelog": "v0.8.43: conserva todos los recibos remotos aplicados en el cuaderno durable sin truncamiento arbitrario de 2000 opIds; deduplicación por opId para evitar reejecución económica tras reinicio. Sin cambio de transporte ni migración de datos.",
   "requerida": false,
-  "shell": "f123-shell-v842",
+  "shell": "f123-shell-v843",
   "apagar": [],
-  "releaseName": "v0.8.42",
-  "cacheGeneration": "golden378"
+  "releaseName": "v0.8.43",
+  "cacheGeneration": "golden379"
 }
