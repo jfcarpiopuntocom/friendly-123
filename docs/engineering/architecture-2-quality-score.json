@@ -7,7 +7,7 @@
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 81.9,
+  "score": 82,
   "maximum": 100,
   "dimensions": [
     {
@@ -29,9 +29,9 @@
     {
       "id": "sync",
       "weight": 20,
-      "score": 16.1,
+      "score": 16.2,
       "previous": 15.9,
-      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head. C106 independent post-C92 source/QA audit: C99 existing Safari foreground runtime re-arms guarded C21a 2.0 after C94 failback; real browser-source test, no unguarded legacy second writer. +0.1 engineering quality only, GO and physical unchanged. C109 source-tested in PR #918 merged v0.8.33: committed-count path reuses verified epoch and catalog, publishes only selected product in original Y.Doc transaction instead of sales/photos/PIN/finance fanout. RED32/34, GREEN34/34 stock-focused, 63/63 full GHA; synthetic source VM 4201 map writes before versus 1 after, not physical Safari wallclock evidence. +0.1 independently earned Sync engineering quality, distinct from C106 foreground recovery.",
+      "justification": "C46 extended real product source Workerd SQLite C21a cutover handoff QA A1→B1→A2→B2→A3 (two full cycles), five distinct sale opIds with replays, stock5→0, cash500→8000, exactly five SQL effects and receipts; no post-failback duplicate. +0.1 for tested sequential cross-device DO interoperability only; not physical devices, not simultaneous multi-tab or commercial GO, no new production route. C56 source-integration real Workerd SQLite A→B→A with independently scoped synthetic A and B VM browsers and existing C21a/C25/C54 coordinator; 3 distinct business-committed effects/receipts, stock5→4→9→8, cash500→3500c, debt unchanged, replay same opId remains exactly three. RED without certified baseline and 1/1 GREEN using existing test-only C49 independently hashed baseline, GH head 11/11 CI, Cloudflare exact merge successful. +0.2 cross-device QA financial proof only, not actual physical/real Firebase head. C106 independent post-C92 source/QA audit: C99 existing Safari foreground runtime re-arms guarded C21a 2.0 after C94 failback; real browser-source test, no unguarded legacy second writer. +0.1 engineering quality only, GO and physical unchanged. C109 source-tested in PR #918 merged v0.8.33: committed-count path reuses verified epoch and catalog, publishes only selected product in original Y.Doc transaction instead of sales/photos/PIN/finance fanout. RED32/34, GREEN34/34 stock-focused, 63/63 full GHA; synthetic source VM 4201 map writes before versus 1 after, not physical Safari wallclock evidence. +0.1 independently earned Sync engineering quality, distinct from C106 foreground recovery. C129 PR #951 merged master 6ca3ecb044ddf92a1c1021787bca55e99834b2b3: S4 global deferred legacy >512/>8MiB no longer rejects new current writes; preserves strict atomic IDB failure block. Source-extracted RED/GREEN C129 regression, 64/64 exact-head workflows GREEN. +0.1 sync correctness only; no physical commercial evidence claimed.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/918"
     },
     {
@@ -189,31 +189,35 @@
       "review": "2026-11-21 C128 C127 executable production S4 v1→v2 boundary regression (#949): 512 migrates, 513/>8MiB fallback; 9/9 CI, +0.1 migration engineering-only; PORT100, physical0/5, GO0/6 unchanged.",
       "score": 81.9,
       "source": "friendly-123 @ 87f21b217098dc86ae30c4228ea16b57498ca53b"
+    },
+    {
+      "review": "2026-11-21 C130 C129 S4 forward-writes unblock source fix PR951 64/64 CI; +0.1 sync original100, PORT100, physical0/5, GO0/6 unchanged.",
+      "score": 82,
+      "source": "friendly-123 @ 6ca3ecb044ddf92a1c1021787bca55e99834b2b3"
     }
   ],
   "lastAuditedProductSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
   "latestReview": {
-    "id": "C128",
+    "id": "C130",
     "date": "2026-11-21",
-    "baseline": 81.8,
-    "score": 81.9,
+    "baseline": 81.9,
+    "score": 82,
     "delta": 0.1,
-    "sourceSha": "87f21b217098dc86ae30c4228ea16b57498ca53b",
-    "method": "Fixed original100 rubric: +0.1 migration engineering assurance only for NEW executable S4 boundary regression on authentic source v2Db(): 513 legacy ops and >8MiB envelope keep untouched v1 fallback; 512 ops migrate preserving operation ids, checkpoint and ACK metadata within one synthetic IDB transaction. PR #949 merged, exact-head 9/9 CI green. Tests use synthetic transaction and do NOT demonstrate real IDB crash atomicity, live customer migration, physical GO or commercial GO. C125 test assertion correction remains zero credit.",
+    "sourceSha": "6ca3ecb044ddf92a1c1021787bca55e99834b2b3",
+    "method": "Original100 rubric unchanged: +0.1 sync source fix to restore current writes for S4 deferred legacy outbox while maintaining strict atomic-IDB failure block. 64/64 CI on PR #951 exact head. No historical rescue, no new hardware gate, no physical/commercial claim.",
     "evidence": [
       {
-        "dimension": "migration",
+        "dimension": "sync",
         "delta": 0.1,
-        "pr": 949,
-        "sourceSha": "87f21b217098dc86ae30c4228ea16b57498ca53b",
+        "pr": 951,
+        "sourceSha": "6ca3ecb044ddf92a1c1021787bca55e99834b2b3",
         "qa": "test/c127-s4-legacy-boundary.test.cjs",
-        "why": "New source-executed S4 legacy migration boundary coverage absent before C127: 513 / 512 ops and >8MiB envelope. Prevents unintentional future destructive migration threshold regressions; 9/9 GitHub checks passed, master merged. Does not test real quota or physical iPhone."
+        "why": "Real production mutator source execution verifies deferred legacy writes succeed and nondeferred missing IDB rejects; production v846 pending live verification."
       }
     ],
     "physicalAcceptance": {
       "confirmed": false,
-      "commercialGo": "0/6",
-      "reference": "Original 100-point rubric unchanged; physical Opera PC ↔ Safari iPhone A→B→A x2 remains 0/5. Commercial GO 0/6, no live S4 global cutover evidence."
+      "commercialGo": "0/6"
     }
   },
   "auditTrail": [
@@ -452,6 +456,29 @@
         "confirmed": false,
         "commercialGo": "0/6",
         "reference": "Original 100-point rubric unchanged; physical Opera PC ↔ Safari iPhone A→B→A x2 remains 0/5. Commercial GO 0/6, no live S4 global cutover evidence."
+      }
+    },
+    {
+      "id": "C130",
+      "date": "2026-11-21",
+      "baseline": 81.9,
+      "score": 82,
+      "delta": 0.1,
+      "sourceSha": "6ca3ecb044ddf92a1c1021787bca55e99834b2b3",
+      "method": "Original100 rubric unchanged: +0.1 sync source fix to restore current writes for S4 deferred legacy outbox while maintaining strict atomic-IDB failure block. 64/64 CI on PR #951 exact head. No historical rescue, no new hardware gate, no physical/commercial claim.",
+      "evidence": [
+        {
+          "dimension": "sync",
+          "delta": 0.1,
+          "pr": 951,
+          "sourceSha": "6ca3ecb044ddf92a1c1021787bca55e99834b2b3",
+          "qa": "test/c127-s4-legacy-boundary.test.cjs",
+          "why": "Real production mutator source execution verifies deferred legacy writes succeed and nondeferred missing IDB rejects; production v846 pending live verification."
+        }
+      ],
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6"
       }
     }
   ]
