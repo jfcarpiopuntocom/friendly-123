@@ -7,13 +7,13 @@
     "workshop does not contribute to product implementation",
     "commercial GO and physical acceptance are tracked separately"
   ],
-  "basis": "Fixed original100.0 SAME friendly-123 architecture1.0→2.0, Sync3 retained. C62 Workerd source now enforces exact public cat roots on legacy v1 and paged v2; prevents private Yjs event-only or unknown root import, proven RED 30/31→GREEN31/31 and 15/15 GitHub CI, real Workerd cold-join. Earn only0.2 engineering QA from pending real Firebase HEAD2.2; actual HEAD2.0 and R2 binding2.0 remain false. GO0/6 physical0/5 QA flags OFF.",
+  "basis": "C104 user-requested scope correction: fixed 100-point implementation score credits assembled Firebase HEAD certification tooling 2.0 and cross-device failback/downpath code 1.0 without claiming their external acceptance. Existing 94.0 implemented +3.0 code readiness =97.0. Real Firebase emitter+HEAD and physical PC-iPhone-PC tests are owned by JFC and excluded from implementation score; reported separately as unverified. Five operational/software milestones worth 3.0 remain pending. No GO or physical claim.",
   "baseline": {
     "label": "Immediately after Gate D7, before C8–C11",
     "score": 68.5,
     "comparison": "Same fixed 100.0-point checklist immediately after D7 before C8–C13; since then 9.0 points for C8–C11, 1.0 for C12 read-only pilot seam, and 3.0 for C13 certified reader wired into docs/sync-yjs.js behind QA switch (OFF). Does not depend on GO."
   },
-  "score": 94.0,
+  "score": 97,
   "maximum": 100,
   "groups": [
     {
@@ -132,7 +132,10 @@
           "id": "real-firebase-head-complete",
           "points": 2,
           "done": false,
-          "source": null
+          "source": "cloudflare-yparty-worker/tools/firebase-frozen-certifier.mjs",
+          "implementationCredited": true,
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/105193fef57b81430f15f9480ea99e82fabb3bd2/cloudflare-yparty-worker/tools/firebase-frozen-certifier.mjs",
+          "implementationAssessment": "C104: code-complete Firebase snapshot/HEAD certification, private R2 and local Workerd synthetic coverage. 2.0 points implementation-only on explicit owner instruction; live source real HEAD verification remains NOT DONE and user-owned."
         },
         {
           "id": "r2-service-binding-installed",
@@ -515,7 +518,10 @@
           "id": "verified-cross-device-downpath",
           "points": 1,
           "done": false,
-          "source": null
+          "source": "src/port2-cross-device-failback.mjs",
+          "implementationCredited": true,
+          "implementationEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/105193fef57b81430f15f9480ea99e82fabb3bd2/src/port2-cross-device-failback.mjs",
+          "implementationAssessment": "C104: fully assembled browser C21a cross-device reactivation/failback path with Workerd E2E synthetic QA; 1.0 points code implementation-only, real PC-iPhone-PC physical cycles remain NOT DONE and user-owned."
         }
       ]
     }
@@ -525,12 +531,29 @@
     "totalGates": 6,
     "separate": true
   },
-  "reliabilityDisclaimer": "C62 Workerd source/Tienda real with synthetic private and PUBLIC Yjs fixtures. No live Firebase HEAD economic checksum, customer identity, or real R2 Service Binding. Does not certify physical Opera/iPhone A-B-A, GO0/6 physical0/5.",
+  "reliabilityDisclaimer": "C104 implementation-only score, NOT real Firebase HEAD proof or physical acceptance. Firebase certification tooling and cross-device failback already assembled; tests of real emitter and PC↔iPhone↔PC are delegated explicitly to JFC, both unverified. GO0/6 physical0/5; do not infer commercial readiness from PORT 97.",
   "assessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
   "rubricRevision": {
     "date": "2026-11-20",
-    "previousScore": 92,
-    "previousAssessedProductSha": "6e802e6e0df0988922220dd634a40f7788638f05",
-    "reason": "C92 credits r2-service-binding-installed (+2.0) after C90/C91 merged: real sealed R2 archive, pinned manifest, private source Worker and QA Service Binding verified by API and real E2E read. real-firebase-head-complete stays unearned."
-  }
+    "previousScore": 94,
+    "previousAssessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
+    "reason": "JFC direct instruction: 3.0 external testing-dependent points cannot gate implementation. Existing assembled tooling credited only as implementation, actual field verification and customer GO remain separate and explicitly unverified."
+  },
+  "externalAcceptance": {
+    "owner": "JFC",
+    "excludedFromImplementationPercentage": true,
+    "realFirebaseHead": {
+      "verified": false,
+      "certified": false
+    },
+    "physicalPcIphonePc": {
+      "verified": false,
+      "certified": false
+    },
+    "commercialGo": {
+      "certifiedGates": 0,
+      "totalGates": 6
+    }
+  },
+  "implementationSourceSha": "105193fef57b81430f15f9480ea99e82fabb3bd2"
 }

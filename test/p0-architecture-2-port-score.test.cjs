@@ -3,7 +3,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 // Historical checkpoints froze PORT at 92.0; only the real C98 R2 binding credit may add 2.0.
-const PORT_NOW=92.0+(require('../docs/engineering/architecture-2-port-score.json').groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0);
+const PORT_NOW=95.0+(require('../docs/engineering/architecture-2-port-score.json').groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0);
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
@@ -257,7 +257,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
- assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),100-PORT_NOW);
+ assert.equal(ms.filter(x=>!x.done&&x.implementationCredited!==true).reduce((a,x)=>a+x.points,0),100-PORT_NOW);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
@@ -422,7 +422,7 @@ test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QU
  assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.previous,0).toFixed(1)),80.1);
  assert.equal(p.groups.reduce((sum,g)=>sum+g.weight,0),100);
  assert.equal(p.score,PORT_NOW);
- assert.equal(p.groups.flatMap(g=>g.milestones).filter(x=>!x.done).reduce((sum,x)=>sum+x.points,0),100-PORT_NOW);
+ assert.equal(p.groups.flatMap(g=>g.milestones).filter(x=>!x.done&&x.implementationCredited!==true).reduce((sum,x)=>sum+x.points,0),100-PORT_NOW);
  assert.equal(p.groups.flatMap(g=>g.milestones).find(x=>x.id==='browser-photo-cutover').done,false,'no unverified physical photo cutover');
  assert.equal(p.groups.flatMap(g=>g.milestones).find(x=>x.id==='real-firebase-head-complete').done,false,'incomplete original Firebase -y');
  assert.equal(p.commercialGo.certifiedGates,0);
@@ -460,5 +460,26 @@ test('C98: r2-service-binding-installed is credited only with real sealed R2 + p
  assert.equal(wr.services.find(s=>s.binding==='WS_FROZEN_HISTORY_SOURCE')?.service,'friendly123-frozen-history-qa');
  for(const k of ['WS_AUTHORITY_QA','WS_SEPARATE_ROOMS_QA','WS_OPEN_EXISTING_QA','WS_BUSINESS_EXECUTOR_QA'])assert.equal(wr.vars[k],'0',k+' must stay OFF');
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete').done,false);
- assert.equal(port.score,94.0);assert.equal(port.commercialGo.certifiedGates,0);
+ assert.equal(port.score,97.0);assert.equal(port.commercialGo.certifiedGates,0);
+});
+
+test('C104 JFC: implementation 97.0/100 credits 3.0 assembled software but NEVER claims external tests done',()=>{
+ const port=JSON.parse(fs.readFileSync(path.join(__dirname,'../docs/engineering/architecture-2-port-score.json'),'utf8'));
+ const ms=port.groups.flatMap(g=>g.milestones);
+ const expected=[['real-firebase-head-complete',2],['verified-cross-device-downpath',1]];
+ assert.equal(port.score,97.0);
+ assert.equal(port.externalAcceptance.owner,'JFC');
+ assert.equal(port.externalAcceptance.excludedFromImplementationPercentage,true);
+ for(const [id,points] of expected){
+  const m=ms.find(x=>x.id===id);
+  assert.equal(m.points,points);
+  assert.equal(m.implementationCredited,true);
+  assert.equal(m.done,false,'do not forge real-world test certification');
+  assert(fs.existsSync(path.join(__dirname,'..',m.source)),'real source missing');
+ }
+ assert.equal(port.externalAcceptance.realFirebaseHead.verified,false);
+ assert.equal(port.externalAcceptance.physicalPcIphonePc.verified,false);
+ assert.equal(port.commercialGo.certifiedGates,0);
+ assert.equal(ms.filter(x=>!x.done&&!x.implementationCredited).reduce((s,x)=>s+x.points,0),3.0);
+ assert.equal(inspect().port,97.0);
 });
