@@ -1323,7 +1323,7 @@ function inspect(){
  assert.equal(c106.baseline,80.4);
  assert.equal(c106.score,81.2);
  assert.equal(c106.delta,0.8);
- assert.equal(c106.sourceSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(c106.sourceSha,'76a31d7aa25c7542b0bfdfdf1018ee71b6554a99');
  assert.equal(c106.evidence.length,8,'C106 must list eight independent QA-backed properties');
  const totals=Object.create(null);
  for(const e of c106.evidence){
