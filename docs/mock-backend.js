@@ -3869,13 +3869,10 @@
   function _marcarOpAplicada(opId) {
     const s = _cargarOpsAplicadas();
     s.add(opId);
-    /* Tope de dedup (FASE 2, 2026-08-27): antes 500. Si un opId se evicta del
-       set y el par lo reenvía (catch-up), un delta de stock se aplica DOS
-       veces (doble conteo). Subido a 2000 para que la evicción sea rarísima;
-       el vector de catch-up (construido desde el log de ops) ya evita reenviar
-       lo que el par conoce, así que este set es la última red. */
-    if (s.size > 2000) { const arr = [...s]; s.clear(); arr.slice(-2000).forEach((x) => s.add(x)); }
-    try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s])); } catch (_) {}
+    // C124: nunca expulsar recibos del conjunto canónico: el cuaderno durable
+    // debe retener opIds antiguos para impedir replays económicos tras catch-up.
+    // localStorage es solo un espejo best-effort acotado, no fuente de verdad.
+    try { localStorage.setItem(OPS_APLICADAS_KEY, JSON.stringify([...s].slice(-2000))); } catch (_) {}
   }
   // The immutable opId is the receipt; counters are causal per actor, never wall-clock LWW.
   // This projects a movement into the existing PN read model without replaying a sale.

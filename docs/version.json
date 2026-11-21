@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.43",
+  "version": "v0.8.44",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.43: conserva todos los recibos remotos aplicados en el cuaderno durable sin truncamiento arbitrario de 2000 opIds; deduplicación por opId para evitar reejecución económica tras reinicio. Sin cambio de transporte ni migración de datos.",
+  "changelog": "v0.8.44: conserva todos los opIds aplicados en el conjunto canónico; limita solo el espejo localStorage para impedir replay económico de recibos antiguos tras superar 2000 operaciones.",
   "requerida": false,
-  "shell": "f123-shell-v843",
+  "shell": "f123-shell-v844",
   "apagar": [],
-  "releaseName": "v0.8.43",
-  "cacheGeneration": "golden379"
+  "releaseName": "v0.8.44",
+  "cacheGeneration": "golden380"
 }
