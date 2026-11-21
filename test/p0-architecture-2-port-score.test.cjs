@@ -52,9 +52,9 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(s.port,PORT_NOW);
  assert.equal(s.portBefore,68.5);
  assert.equal(s.portDelta,PORT_NOW-68.5);
- assert.equal(s.quality,80.4);
- assert.equal(s.qualityBefore,80.1);
- assert.equal(s.qualityDelta,0.3);
+ assert.equal(s.quality,81.2);
+ assert.equal(s.qualityBefore,80.4);
+ assert.equal(s.qualityDelta,0.8);
  assert.equal(s.go,'0/6');
  // C77 only credits actual C76 merged source & native RED-first QA.
  // Durable 202 is not a business ACK, customer proof, R2 or physical GO.
