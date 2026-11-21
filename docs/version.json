@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.46",
+  "version": "v0.8.47",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.46 C129: S4 conserva escritura operativa de colas antiguas diferidas sin desactivar la protección IndexedDB para tiendas nuevas.",
+  "changelog": "v0.8.47 C131: S4 reintenta IndexedDB tras una apertura inicial transitoria; las operaciones actuales pueden continuar sin recargar y sin falsas confirmaciones.",
   "requerida": false,
-  "shell": "f123-shell-v846",
+  "shell": "f123-shell-v847",
   "apagar": [],
-  "releaseName": "v0.8.46",
-  "cacheGeneration": "golden382"
+  "releaseName": "v0.8.47",
+  "cacheGeneration": "golden383"
 }
