@@ -191,6 +191,8 @@
       return guardado === true;
     } catch (err) {
       _ultimoError = err || null;
+      // A lost/closed Safari connection must not stay cached: the next save reopens.
+      if (err && (err.name === "UnknownError" || err.name === "InvalidStateError")) dbPromise = null;
       try { console.error("[estado-idb] guardar:", err); } catch (_) {}
       return false;
     }
@@ -388,6 +390,16 @@
       const errorPrimero = _ultimoError;
       if (errorPrimero && (errorPrimero.name === "AbortError" ||
           errorPrimero.name === "TransactionInactiveError")) {
+        return intento();
+      }
+      // P0 v834 (WebKit 273827/235579): iOS Safari can abort with UnknownError
+      // "Connection to Indexed Database server lost". The aborted transaction
+      // committed nothing; reopen ONCE and rerun the same strict CAS.
+      if (errorPrimero && errorPrimero.name === "UnknownError") {
+        try { db.close(); } catch (_) {}
+        if (dbPromise === conexion) dbPromise = null;
+        try { conexion = abrirDB(); db = await conexion; }
+        catch (error) { _ultimoError = error || null; return false; }
         return intento();
       }
       if (!_esCuotaEstricto(errorPrimero)) return false;
