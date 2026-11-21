@@ -956,7 +956,7 @@
       selloUltimo: selloUltimo,
       // typeof: some tests evaluate this function alone, without the receipt vars in scope.
       ...(typeof _opsAplicadas !== "undefined" && ((_opsAplicadas && _opsAplicadas.size) || _opsDelCuaderno)
-        ? { opsAplicadas: [...(_opsAplicadas || []), ...(_opsDelCuaderno || [])].slice(-2000) } : {}),
+        ? { opsAplicadas: [...new Set([...(_opsAplicadas || []), ...(_opsDelCuaderno || [])])] } : {}),
     };
   }
   // Item 19: validación profunda de respaldos antes de importar — ids únicos,
