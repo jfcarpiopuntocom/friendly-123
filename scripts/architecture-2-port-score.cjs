@@ -10,12 +10,13 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC132=quality.latestReview?.id==='C132';
+ const isC134=quality.latestReview?.id==='C134';
+ const isC132=isC134||quality.latestReview?.id==='C132';
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)));
- const currentDurability=isC126?19.2:19.1;
+ const currentQuality=isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))));
+ const currentDurability=isC134?19.3:(isC126?19.2:19.1);
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
  if(isC130){
@@ -31,7 +32,15 @@ function inspect(){
    assert(qa.includes('C131: S4 retries first no-IDB result when database becomes ready later in same session'));
    assert(qa.includes('C131: transient IndexedDB metadata-read failure is retried without false ack'));
    assert(src.includes('if (!db && !_v2DeferredLegacy) _v2Ready = null;'),'C132 requires actual S4 transient retry');
-   assert.equal(quality.latestReview?.sourceSha,'8e7c97019d3713c48eefb01066cd9bc5ea4ea0b8');
+   assert.equal((isC134?quality.auditTrail?.find(r=>r.id==='C132'):quality.latestReview)?.sourceSha,'8e7c97019d3713c48eefb01066cd9bc5ea4ea0b8');
+ }
+ if(isC134){
+   const qa=fs.readFileSync(path.join(root,'test/p0-outbox-v2-two-tabs-web-lock.test.cjs'),'utf8');
+   const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
+   assert(qa.includes('C133: a 180-day-old unacknowledged business op stays in S4 across cold opens until its explicit ACK'));
+   assert(qa.includes('afterColdOpen.ack(oldSale.id)'));
+   assert(src.includes('function mutarOutboxAtomicoSinLocks('));
+   assert.equal(quality.latestReview?.sourceSha,'8c97e908b8e824036c745beee572740afb18eb18');
  }
  if(isC128){
    const migrationQA=fs.readFileSync(path.join(root,'test/c127-s4-legacy-boundary.test.cjs'),'utf8');
@@ -1364,7 +1373,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC126?0.4:0.3):0)+(d.id==='business'?0.1:0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC134?0.5:(isC126?0.4:0.3)):0)+(d.id==='business'?0.1:0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
