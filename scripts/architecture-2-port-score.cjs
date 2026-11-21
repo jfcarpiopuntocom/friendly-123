@@ -24,7 +24,7 @@ function inspect(){
   assert(qa.includes('deferred 513-op legacy queue stays writable'));
   assert(src.includes('|| _v2DeferredLegacy'));
   const c130=isC132?quality.auditTrail?.find(r=>r.id==='C130'):quality.latestReview;
-  assert.equal(c130?.sourceSha,'6ca3ecb044ddf92a1c1021787cba55e99834b2b3');
+  assert.equal(c130?.sourceSha,'6ca3ecb044ddf92a1c1021787bca55e99834b2b3');
  }
  if(isC132){
   const qa=fs.readFileSync(path.join(root,'test/c127-s4-legacy-boundary.test.cjs'),'utf8');
