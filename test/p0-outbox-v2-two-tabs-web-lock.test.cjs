@@ -178,3 +178,33 @@ test('P0 no Web Locks: failed IDB write cannot claim durable opId or erase local
  assert.equal(a.signals.length,0);
  assert.deepEqual(a.unsaved().map(x=>x.id),['nolock-failed']);
 });
+
+
+test('C133: a 180-day-old unacknowledged business op stays in S4 across cold opens until its explicit ACK',{timeout:9000},async()=>{
+ const db=await open(),locks=lockManager();
+ try{
+  await storage(db).set(key,{pending:[],confirmed:[],checkpoint:''});
+  const oldAt=Date.now()-180*24*60*60*1000;
+  const oldSale={...item('sale-180-days-offline'),kind:'sale',critical:true,createdAt:oldAt,at:oldAt};
+  const newSale={...item('sale-current'),kind:'sale',critical:true,createdAt:Date.now()};
+  const original=tab(db,locks.locks);
+  await original.read();
+  await original.queue(oldSale);
+  await original.queue(newSale);
+  const afterColdOpen=tab(db,locks.locks);
+  const observed=await afterColdOpen.read();
+  assert.deepEqual(ids(observed),['sale-180-days-offline','sale-current'],
+   'elapsed time is never a reason to drop an unacknowledged sale');
+  assert.equal(observed.pending.find(e=>e.id===oldSale.id).createdAt,oldAt);
+  assert.ok(await storage(db).get('f123_relay_outbox_v2-y:op:'+oldSale.id),
+   'old sale must still have its own committed IndexedDB row');
+  assert.deepEqual(Array.from(observed.confirmed),[],
+   'cold open and long age cannot manufacture ACK receipts');
+  await afterColdOpen.ack(oldSale.id);
+  const afterAck=await tab(db,locks.locks).read();
+  assert.deepEqual(ids(afterAck),['sale-current'],
+   'only the explicit success ACK removes the old item');
+  assert.deepEqual(Array.from(afterAck.confirmed),[oldSale.id]);
+  assert.equal(await storage(db).get('f123_relay_outbox_v2-y:op:'+oldSale.id),undefined);
+ }finally{db.close();}
+});
