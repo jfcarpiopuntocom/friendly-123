@@ -125,7 +125,8 @@
           var m = usar[campo];
           if (!m) { if (meta) out[campo] = Array.isArray(out[campo]) ? out[campo] : []; return; }
           if (!Number.isSafeInteger(m.n) || !Number.isSafeInteger(m.len) ||
-              m.n < 0 || m.len < 0 || (m.n === 0) !== (m.len === 0)) {
+              m.n < 0 || m.len < 0 || (m.n === 0 && m.len !== 0) ||
+              (m.n > 0 && m.len === 0 && m.modo !== 'hash')) {
             metadataInvalida = true; return;
           }
           if (!m.n) { if (meta) out[campo] = []; return; }
