@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "metric": "architecture-v1-to-v2-implementation",
-  "asOf": "2026-11-19",
+  "asOf": "2026-11-20",
   "excluded": [
     "Sync3 is already 2.0",
     "workshop does not contribute to product implementation",
@@ -13,7 +13,7 @@
     "score": 68.5,
     "comparison": "Same fixed 100.0-point checklist immediately after D7 before C8–C13; since then 9.0 points for C8–C11, 1.0 for C12 read-only pilot seam, and 3.0 for C13 certified reader wired into docs/sync-yjs.js behind QA switch (OFF). Does not depend on GO."
   },
-  "score": 92,
+  "score": 94.0,
   "maximum": 100,
   "groups": [
     {
@@ -27,35 +27,35 @@
           "points": 5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/index.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/index.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/index.js"
         },
         {
           "id": "journal-reopen",
           "points": 5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/open-existing-store.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/open-existing-store.mjs"
         },
         {
           "id": "occupied-merge",
           "points": 4,
           "done": true,
           "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/open-existing-store.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/open-existing-store.mjs"
         },
         {
           "id": "pitr-budgets",
           "points": 1.5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/open-existing-store.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/open-existing-store.mjs"
         },
         {
           "id": "local-legacy-relay-quiescence-gate-c38",
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/833",
           "assessment": "QA-only C38 checks explicit OFF legacy relay, no active old room and no old pending outbox before C21a activate20; rechecks after await; revokes on reactivation; missing facade/coordinator and team role OFF->ON bypass denied. 2.0 global writer/physical DO receipt and real cutover still not certified."
         },
@@ -64,7 +64,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/849",
           "assessment": "C51 v0.8.21 merged into same real app: bounded 1500ms navigator.locks.request wait/AbortController and existing IDB atomic fallback, plus runtime bootstrap under BOTH f123_yparty_qa and f123_corte20_qa with Owner/Admin non-demo session and C38 no-legacy-writer guard; 53/53 GH CI, C51 targeted negative/positive regressions and exact Cloudflare build SUCCESS. QA flags default OFF; no commercial activation and no physical devices."
         },
@@ -87,35 +87,35 @@
           "points": 4,
           "done": true,
           "source": "cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/trusted-frozen-source.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/trusted-frozen-source.mjs"
         },
         {
           "id": "r2-packager",
           "points": 4,
           "done": true,
           "source": "cloudflare-yparty-worker/tools/frozen-r2-packager.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/tools/frozen-r2-packager.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/tools/frozen-r2-packager.mjs"
         },
         {
           "id": "one-time-import",
           "points": 3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/open-existing-store.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/open-existing-store.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/open-existing-store.mjs"
         },
         {
           "id": "certified-readback",
           "points": 2.5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs"
         },
         {
           "id": "c60-frozen-public-field-key-order-verified",
           "points": 0.3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/860",
           "assessment": "Same real friendly-123 certified catalog cold-opening source C60: legacy numeric v1 and paged base64 v2 now accept Yjs records containing the exact permitted public id/nombre/precio/stockActual values regardless of JS object insertion order, with independent source SHA/vector and paged projectedSHA. Prior RED GH Actions 44717977111 28/30 (two legitimate catalogs rejected), GREEN 44718117414 30/30 including malformed/private ownerPin/costo fail-closed. Source PR860 15/15 CI and exact merged source Cloudflare Workers build SUCCESS 9491d0f5-3bd9-4cd0-b355-ec9ff2a02620. Strictly 0.3 QA capacity split from 2.5 real HEAD requirement, not proof of any customer Firebase historical/economic HEAD. Unknown legacy root privacy issue separately OPEN P0, not credited."
         },
@@ -124,7 +124,7 @@
           "points": 0.2,
           "done": true,
           "source": "cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/trusted-frozen-source.mjs",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/862",
           "assessment": "C62 actual same-app Workerd frozen legacy catalog source (v1 numeric and paged v2) now requires exact Yjs root allowlist productos and ubicaciones for -cat with strict rejection of private-only/unrecognized roots including products, banco_privado, eventos despite independent SHA/completeToHead. TDD RED GH Actions44720698975 30/31 (products incorrectly accepted), GREEN 44721086871 31/31, full GH15/15, real Tienda.onStart Workerd cold join/reopen PITR pass after separating synthetic PUBLIC cat from OPS fact room. Cloudflare Workers Builds exact real source SHA SUCCESS build06b63e28-43a4-481a-9722-ffd801f95f5b. Only bounded QA source protection0.2 from original HEAD pending, not Firebase customer HEAD or live commercial GO."
         },
@@ -137,8 +137,10 @@
         {
           "id": "r2-service-binding-installed",
           "points": 2,
-          "done": false,
-          "source": null
+          "done": true,
+          "source": "cloudflare-yparty-worker/src/frozen-r2-source.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/wrangler.jsonc",
+          "verification": "C92: sealed HEAD fb-7d8e5559ecb3eb245c73f7c5 in private R2 QA (7/7 objects re-read with identical SHA-256); manifest c1d0116caf669bb4bb71f201218cb3af96bb35a232bff8678b811396c283b35a pinned outside R2; private source Worker friendly123-frozen-history-qa (no routes); QA binding WS_FROZEN_HISTORY_SOURCE verified via Cloudflare API; real E2E read with WS_R2_MANIFEST_REQUIRED_QA=1 through prepareFrozenImport = stateSha 5d551592bba72b2be7b998e584e0e3b913ec9010d6364ada77ec872cca4cec95, 227 opIds (identical to independent Firebase certification)."
         }
       ]
     },
@@ -153,35 +155,35 @@
           "points": 5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
         },
         {
           "id": "stock-adjust",
           "points": 4,
           "done": true,
           "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
         },
         {
           "id": "credit-payment",
           "points": 3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/authoritative-business-sql.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/authoritative-business-sql.mjs"
         },
         {
           "id": "idempotent-receipt",
           "points": 2,
           "done": true,
           "source": "cloudflare-yparty-worker/src/typed-commercial-ledger.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/typed-commercial-ledger.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/typed-commercial-ledger.mjs"
         },
         {
           "id": "real-cash-sale-envelope-c34",
           "points": 0.5,
           "done": true,
           "source": "docs/mock-backend.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/mock-backend.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/mock-backend.js",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/829",
           "assessment": "C34 ships actual post-local-ACK cash/list-price/no-deficit sale envelope quantity/amountCents to C31 typed runtime, independently tested against exact source with RED undefined then GREEN 3/3; v814 SHA and 39/39 CI. No credit for live DO rollout, commissions/fiados/partial, or physical A-B-A."
         },
@@ -190,7 +192,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/sync-realtime.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-realtime.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-realtime.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/831",
           "assessment": "Actual post-local-ACK business sale receipt and duplicate replay match joined legacy queue, roomless Yjs journal and C31 typed business command opId under synthetic exact-source test. This is QA identity continuity only, no remotely confirmed live sale and no physical GO."
         },
@@ -199,7 +201,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/835",
           "assessment": "C40 MERGED browser facade binds original locally saved opId to existing DO SQLite business-committed receipt, exposed via API.obtenerReciboComercial20 and oc-op-20-recibo. Real Workerd SQLite test checks 1 stock/cash/receipt and failback replay without duplicates; QA OFF, no commercial/physical GO."
         },
@@ -208,7 +210,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/mock-backend.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/mock-backend.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/mock-backend.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/838",
           "adversarial": "https://github.com/jfcarpiopuntocom/friendly-123/pull/839",
           "assessment": "C42 actual merged checkout receipt status maps original sale opId to authoritative DO business-committed and pending/quarantine/reject states, preserving monotonic confirmed ACK and rejecting mismatched DO opId. Source-VM adversarial test first RED4/4 then GREEN4/4, 59/59 GitHub workflows and mandatory Workers Builds. Local A/B/IDB snapshot includes complete ventas after dirty-save, no new economics writer. QA OFF; no real PC/Safari commercial GO."
@@ -218,7 +220,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/mock-backend.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/mock-backend.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/mock-backend.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/842",
           "assessment": "C44 actually merged v0.8.19 real adjustment and credit payment post-save envelopes into existing C31 typed Workerd SQLite path. Original opId preserved and idempotent receipt verified with real Miniflare DO SQL 5→8 stock and 3000→1500 debt, zero duplicate replay. Chromium/WebKit EN/ES customer payment lost-HTTP-response regression discovered duplicate inventario_abono; exact final product routes OCSyncEmit abono only on first persistent movimientoId without invoking inventory EventBus, 46/46 GitHub workflows green and Cloudflare master build success. QA switches OFF; no live customer cutover."
         },
@@ -241,35 +243,35 @@
           "points": 5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/ws-authority-client.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/ws-authority-client.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/ws-authority-client.js"
         },
         {
           "id": "separate-rooms",
           "points": 3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/index.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/index.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/index.js"
         },
         {
           "id": "team-guard",
           "points": 2,
           "done": true,
           "source": "cloudflare-yparty-worker/src/index.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/index.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/index.js"
         },
         {
           "id": "fresh-owner-ticket-source",
           "points": 2.5,
           "done": true,
           "source": "src/ws-owner-ticket-params.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/src/ws-owner-ticket-params.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/src/ws-owner-ticket-params.mjs"
         },
         {
           "id": "real-auth-role-epoch-qa-c47",
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/845",
           "assessment": "Real same-product C47 merged v0.8.20 authentic OCAuth role and demo check, monotone auth epoch guarded around async cutover and failback after logout; RED18/21→GREEN21/21, candidate full CI52/52 and Cloudflare exact master build SUCCESS. QA OFF, no physical customer role-switch acceptance."
         },
@@ -278,7 +280,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/858",
           "assessment": "C58 v0.8.24 merged real same-app Sync3 handler verifies real OCAuth on all oc-login; clears former commercial writer/Owner photo privileges synchronously, releases C21a prior -cat coordinator lease before rebind for admin/employee/same-role Owner, failed Team photo factory leaves previous Owner PUT null. RED GH Actions 44681992293 18/21, GREEN GH Actions 44682377422 21/21, source head 57/57 CI green, Cloudflare exact merged SHA 6723cf24b87d2f6c1e8094188d024ae563dd4cde SUCCESS build f8112acd-fbae-4eaf-8beb-9be734e9ad15. Engineering source QA only, no real physical role switch/commercial GO."
         },
@@ -301,28 +303,28 @@
           "points": 3,
           "done": true,
           "source": "cloudflare-yparty-worker/src/photo-sha-storage.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/photo-sha-storage.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/photo-sha-storage.mjs"
         },
         {
           "id": "signed-photo-http",
           "points": 2.5,
           "done": true,
           "source": "src/photo-sha-bridge.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/src/photo-sha-bridge.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/src/photo-sha-bridge.mjs"
         },
         {
           "id": "hash-only-refs",
           "points": 1.5,
           "done": true,
           "source": "src/photo-sha-bridge.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/src/photo-sha-bridge.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/src/photo-sha-bridge.mjs"
         },
         {
           "id": "real-photo-browser-do-readback-c46",
           "points": 0.5,
           "done": true,
           "source": "docs/application/recover-shelf-photo.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/application/recover-shelf-photo.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/application/recover-shelf-photo.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/844",
           "assessment": "C46 verified actual merged photo recovery/application/IDB, Sync3 bridge, compiled certified SHA and 2-role Workerd SQLite Durable Object; Owner uploads photo to -fotos without legacy Yjs blobs, cold Team reads identical bytes by signed SHA. Full two synthetic A→B→A cycles with 5 SQL effects/receipts and no duplicate replay also passed; NOT real browser UI CAS or physical iPhone, no commercial GO. C46 is QA-only and uses existing source, not new product runtime."
         },
@@ -331,7 +333,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/mock-backend.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/mock-backend.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/mock-backend.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/847",
           "assessment": "C49 test executes real mock-backend PUT /api/ubicaciones/:id CAS expectedFotoHash/expectedFotoRev: 200 valid, 409 PHOTO_POINTER_CONFLICT on stale and preserves prior hash, 200 valid revision; then original idb-fotos + sync-yjs bridge to actual Workerd SQLite -fotos DO, cold Team recovery by SHA. QA re-run on combined v0.8.21 master source GREEN 1/1 in PR #850. Not a physical mobile UI test; remaining photo UI/CAS device cutover 1.0 unearned. Distinct from C46 initial SHA readback QA credit."
         },
@@ -354,7 +356,7 @@
           "points": 3,
           "done": true,
           "source": "src/port2-public-catalog-bridge.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/src/port2-public-catalog-bridge.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/src/port2-public-catalog-bridge.mjs",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/788"
         },
         {
@@ -362,7 +364,7 @@
           "points": 2.5,
           "done": true,
           "source": "src/authorized-yprovider.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/src/authorized-yprovider.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/src/authorized-yprovider.mjs",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/789"
         },
         {
@@ -370,7 +372,7 @@
           "points": 1.5,
           "done": true,
           "source": "cloudflare-yparty-worker/src/index.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/index.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/index.js",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/790"
         },
         {
@@ -378,7 +380,7 @@
           "points": 2,
           "done": true,
           "source": "cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/cloudflare-yparty-worker/src/catalog-frozen-proof.mjs",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/791"
         },
         {
@@ -386,7 +388,7 @@
           "points": 1,
           "done": true,
           "source": "src/yparty-piloto.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/vendor/yparty-piloto.min.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/vendor/yparty-piloto.min.js",
           "sourceEvidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/3e367eadd6b87a8143471041875decc523af3e76/src/yparty-piloto.js"
         }
       ]
@@ -402,28 +404,28 @@
           "points": 2,
           "done": true,
           "source": "src/ws-owner-ticket-params.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/src/ws-owner-ticket-params.mjs"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/src/ws-owner-ticket-params.mjs"
         },
         {
           "id": "source-legacy-fallback",
           "points": 1,
           "done": true,
           "source": "src/yparty-piloto.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/src/yparty-piloto.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/src/yparty-piloto.js"
         },
         {
           "id": "real-public-reader-on-client",
           "points": 3,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js"
         },
         {
           "id": "compiled-client-bridges-c23",
           "points": 1.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/816",
           "assessment": "C23 exposes durable IDB, SHA photo and certified single-writer catalog delta methods in both real browser bundle and sync-yjs facade, QA OFF. C21b v809 seals atomic committed-opId tombstones in same compiled bundle; none dispatches sales or cuts off 1.0 legacy traffic yet."
         },
@@ -432,7 +434,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/823",
           "assessment": "C27 wires publicarOpLocal to C21b coordinator deny; C29 exact docs/sync-yjs.js source prevents legacy replay of 2.0 committed opId even before coordinator init on Safari reload by checking pending and settled_ops IDB. QA pilot only, fail closed on unreadable IDB, legacy QA OFF unaffected; RED 3/4 fail then GREEN 4/4 and 48/48 general CI. Full production sale dispatch and old relay retirement remain 2.0 points UNearned."
         },
@@ -441,7 +443,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/826",
           "assessment": "C31 product v813 adds actual QA-gated publicarOpLocal dispatch through C25 for sale.record/stock.adjust/credit.payment.record, exact-source browser VM test. No credit for customer activation, complete legacy retirement, physical A-B-A, or photo/role cutover."
         },
@@ -450,7 +452,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/851",
           "assessment": "v0.8.22 merged app source guards the three distinct legacy Yjs senders: canalSombra and opsCanal suppressed by modoCorte20Activo, fotosCanal suppressed by corteFotosShaActivo; exact-source VM test verifies suppression with flags ON and resumption with flags OFF after failback. PR #851 55/55 GitHub CI. QA flags default OFF, still keeps API.canal and other legacy paths; NOT whole 1.0 retirement or commercial GO."
         },
@@ -459,7 +461,7 @@
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/853",
           "assessment": "Real same-app v0.8.23 docs/sync-yjs.js guard avoids legacy API.canal sending when pilot fails and fallback selects API.canalSombra while 2.0 active, but keeps YParty primary sending and restores legacy on failback. RED GH Actions run44674545607; final 55/55 workflows green including C52 source-extracted VM, browser/stock, release-control; exact merged product Cloudflare SUCCESS build d0658871-edb8-46f7-9ee0-84f4bbb1cbf2. Limited engineering QA, QA switches OFF; no full legacy retirement, physical A-B-A or commercial GO."
         },
@@ -482,21 +484,21 @@
           "points": 2,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js"
         },
         {
           "id": "bfcache-handling",
           "points": 1,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js"
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js"
         },
         {
           "id": "bundled-c21a-coordinator-c25",
           "points": 0.5,
           "done": true,
           "source": "docs/sync-yjs.js",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/docs/sync-yjs.js",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/docs/sync-yjs.js",
           "pullRequest": "https://github.com/jfcarpiopuntocom/friendly-123/pull/820",
           "assessment": "C25 compiles C21a certified coordinator in actual v810 pilot bundle, exposes guarded factory in Sync3 API; synthetic browser VM confirms C19a certification, exactly-once typed op, post-ACK second-reload legacy denial and pagehide single-writer release. No physical A→B→A yet."
         },
@@ -505,7 +507,7 @@
           "points": 0.5,
           "done": true,
           "source": "src/port2-cross-device-failback.mjs",
-          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/6e802e6e0df0988922220dd634a40f7788638f05/src/port2-cross-device-failback.mjs",
+          "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/blob/4dc0de90d1a0544a63c8343cfe478db8f01c5ea2/src/port2-cross-device-failback.mjs",
           "pr": "https://github.com/jfcarpiopuntocom/friendly-123/pull/856",
           "assessment": "Same app 2.0 source C21a/C25/C54 cross-device coordinator and Sync3, real Workerd SQLite QA integration three BUSINESS-COMMITTED ops (A sale, A stock.adjust, B sale), two synthetic owner instances A→B→A, same opId replay, opening stock5→4→9→8 and cash500→3500 cents, 3 effects/receipts and debt3000 unchanged. RED GH Actions 44678705439 proved no business receipt without independent baseline, GREEN GH 44679028373 1/1 and PR856 head 11/11 green, Cloudflare exact master build SUCCESS efe7435a-0c54-411e-8d89-d98ae93c3969. Uses existing test-only C49 seeded independent SYNTHETIC SQL baseline, -ops frozen Yjs history excluded deliberately because historical-economic source reconciliation is still unverified. QA only 0.5 of original downpath; NOT two physical PC/iPhone cycles, GO0/6 physical0/5."
         },
@@ -524,11 +526,11 @@
     "separate": true
   },
   "reliabilityDisclaimer": "C62 Workerd source/Tienda real with synthetic private and PUBLIC Yjs fixtures. No live Firebase HEAD economic checksum, customer identity, or real R2 Service Binding. Does not certify physical Opera/iPhone A-B-A, GO0/6 physical0/5.",
-  "assessedProductSha": "6e802e6e0df0988922220dd634a40f7788638f05",
+  "assessedProductSha": "4dc0de90d1a0544a63c8343cfe478db8f01c5ea2",
   "rubricRevision": {
     "date": "2026-11-20",
-    "previousScore": 91.8,
-    "previousAssessedProductSha": "9e5986623b42dfe6b27f0cdcb96a6d3360fe6962",
-    "reason": "C63 C62 real merged source public-root strict legacy Yjs trust boundary adds bounded0.2 QA from existing frozen-history real HEAD budget2.2; real HEAD2.0 still PENDING, rubric100 unchanged."
+    "previousScore": 92,
+    "previousAssessedProductSha": "6e802e6e0df0988922220dd634a40f7788638f05",
+    "reason": "C92 credits r2-service-binding-installed (+2.0) after C90/C91 merged: real sealed R2 archive, pinned manifest, private source Worker and QA Service Binding verified by API and real E2E read. real-firebase-head-complete stays unearned."
   }
 }

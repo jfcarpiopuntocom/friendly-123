@@ -2,6 +2,8 @@
 // C48 RED first: C46 merged QA-only browser photo and two real Workerd handoff cycles; fixed 100.0 rubric.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
+// Historical checkpoints froze PORT at 92.0; only the real C98 R2 binding credit may add 2.0.
+const PORT_NOW=92.0+(require('../docs/engineering/architecture-2-port-score.json').groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0);
 const fs=require('node:fs');
 const path=require('node:path');
 const {inspect}=require('../scripts/architecture-2-port-score.cjs');
@@ -10,7 +12,7 @@ const {inspect}=require('../scripts/architecture-2-port-score.cjs');
 // interoperability earns only +0.1 in the ORIGINAL 100-point quality rubric.
 test('C89: merged C86 historical decimal abono import merits only 0.1 migration quality, fixed100',()=>{
  const report=inspect();
- assert.equal(report.port,92.0);
+ assert.equal(report.port,PORT_NOW);
  assert.equal(report.go,'0/6');
  assert.equal(report.quality,80.4);
  assert.equal(report.qualityBefore,80.1);
@@ -25,7 +27,7 @@ test('C89: merged C86 historical decimal abono import merits only 0.1 migration 
  assert.equal(q.dimensions.reduce((sum,d)=>sum+d.weight,0),100);
  assert.equal(q.dimensions.reduce((sum,d)=>sum+d.previous,0),80.1);
  assert.equal(p.groups.reduce((sum,g)=>sum+g.weight,0),100);
- assert.equal(p.score,92);
+ assert.equal(p.score,PORT_NOW);
  assert.equal(p.commercialGo.certifiedGates,0);
  const src=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/frozen-ops-baseline.mjs'),'utf8');
  const qa=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/qa/p0-c86-frozen-ops-legacy-decimals.test.mjs'),'utf8');
@@ -47,9 +49,9 @@ test('C89: merged C86 historical decimal abono import merits only 0.1 migration 
 
 test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100 GO0/6',()=>{
  const s=inspect();
- assert.equal(s.port,92.0);
+ assert.equal(s.port,PORT_NOW);
  assert.equal(s.portBefore,68.5);
- assert.equal(s.portDelta,23.5);
+ assert.equal(s.portDelta,PORT_NOW-68.5);
  assert.equal(s.quality,80.4);
  assert.equal(s.qualityBefore,80.1);
  assert.equal(s.qualityDelta,0.3);
@@ -72,7 +74,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
   'C76 control: unrelated license payloads cannot block certified store reopened for correct license'
  ])assert(testC76.includes(token),'C77 native SQLite RED-first evidence missing '+token);
 
- assert.equal(s.port,92.0);
+ assert.equal(s.port,PORT_NOW);
 
  // C75 can credit only C74 actual merged source and RED/Workerd evidence,
  // not real Firebase HEAD, R2 binding, customer devices, or commercial GO.
@@ -91,7 +93,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
   'C74 RED P0: existing frozen union certificate blocks fresh business baseline',
   'C74 control: empty typed tables and empty Yjs union certificate allow certified first cut'
  ])assert(c74Test.includes(token),'C75 actual SQLite RED coverage absent: '+token);
- assert.equal(s.port,92.0);
+ assert.equal(s.port,PORT_NOW);
 
  // C73 credits ONLY merged C72 source, true typed receipts and pinned
  // mature @noble/hashes; does not manufacture Firebase/R2/device GO.
@@ -115,7 +117,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(c72Pkg.dependencies['@noble/hashes'],'2.4.0');
  assert.equal(c72Lock.packages['node_modules/@noble/hashes']?.integrity,
   'sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==');
- assert.equal(s.port,92);
+ assert.equal(s.port,PORT_NOW);
 
  // C69: source-backed quality ONLY after C68 MERGED with actual native SQL RED.
  // Not a production Firebase HEAD, R2 binding, device, or commercial GO.
@@ -152,7 +154,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  ])assert(code.includes(token),'C67 C66 real source/SQLite negative test evidence missing '+token);
 
  // C65 only credits the source-backed C64 quality audit, not a new migration gate.
- assert.equal(s.port,92.0);
+ assert.equal(s.port,PORT_NOW);
  const actual=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/src/open-existing-store.mjs'),'utf8');
  assert(actual.includes("if(now.snapshotKind!=='blocks')"),'C65 requires real C64 SQL snapshot guard');
  const c64=fs.readFileSync(path.join(__dirname,'../cloudflare-yparty-worker/qa/p0-c64-frozen-base-readback.test.mjs'),'utf8');
@@ -201,7 +203,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
- assert.equal(s.port,92.0);
+ assert.equal(s.port,PORT_NOW);
 
 
  // C79 credits only merged C78 source + real RED-first typed 202 SQL tests.
@@ -230,7 +232,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
- assert.equal(s.port,92.0);
+ assert.equal(s.port,PORT_NOW);
 
  assert.equal(quality.lastAuditedProductSha,'a2c178081fe9b4e918d186a9ffa5012d0a6d7c6c');
  const ms=port.groups.flatMap(g=>g.milestones);
@@ -255,7 +257,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='typed-delta-and-legacy-retirement')?.done,false);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  assert.equal(quality.dimensions.find(d=>d.id==='sync')?.score,15.9);
- assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),8.0);
+ assert.equal(ms.filter(x=>!x.done).reduce((a,x)=>a+x.points,0),100-PORT_NOW);
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.0);
  // C48 RED FIRST: C46 source already MERGED with real Workerd proof. No false physical GO.
@@ -367,7 +369,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
  assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.points,2.0);
- assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
+ assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,true);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.7);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.6);
  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
@@ -380,7 +382,7 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(c62?.source,'cloudflare-yparty-worker/src/trusted-frozen-source.mjs');
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.points,2.0);
  assert.equal(ms.find(m=>m.id==='real-firebase-head-complete')?.done,false);
- assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,false);
+ assert.equal(ms.find(m=>m.id==='r2-service-binding-installed')?.done,true);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.7);
@@ -396,13 +398,13 @@ test('C85: C84 strict R2 manifest reader source earns only security QA, fixed100
  assert.equal(port.groups.find(g=>g.id==='typed-economics')?.milestones.reduce((a,m)=>a+m.points,0),17.0,'fixed 100.0-point budget');
  assert.equal(port.commercialGo.certifiedGates,0);
   // C48 assessed SHA pinned to the actual PR844 merge source.
- assert.equal(port.assessedProductSha,'6e802e6e0df0988922220dd634a40f7788638f05', 'C63 pins exact C62 source merged in same friendly-123');
+ assert.equal(port.assessedProductSha,'4dc0de90d1a0544a63c8343cfe478db8f01c5ea2', 'C63 pins exact C62 source merged in same friendly-123');
  assert.equal(quality.assessedProductSha,port.assessedProductSha);
 });
 
 test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QUALITY only, PORT remains 92.0 and commercial GO 0/6',()=>{
  const report=inspect();
- assert.equal(report.port,92.0);
+ assert.equal(report.port,PORT_NOW);
  assert.equal(report.quality,80.4);
  assert.equal(report.qualityBefore,80.1);
  assert.equal(report.qualityDelta,0.3);
@@ -419,8 +421,8 @@ test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QU
  assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.score,0).toFixed(1)),80.4);
  assert.equal(Number(q.dimensions.reduce((sum,x)=>sum+x.previous,0).toFixed(1)),80.1);
  assert.equal(p.groups.reduce((sum,g)=>sum+g.weight,0),100);
- assert.equal(p.score,92);
- assert.equal(p.groups.flatMap(g=>g.milestones).filter(x=>!x.done).reduce((sum,x)=>sum+x.points,0),8);
+ assert.equal(p.score,PORT_NOW);
+ assert.equal(p.groups.flatMap(g=>g.milestones).filter(x=>!x.done).reduce((sum,x)=>sum+x.points,0),100-PORT_NOW);
  assert.equal(p.groups.flatMap(g=>g.milestones).find(x=>x.id==='browser-photo-cutover').done,false,'no unverified physical photo cutover');
  assert.equal(p.groups.flatMap(g=>g.milestones).find(x=>x.id==='real-firebase-head-complete').done,false,'incomplete original Firebase -y');
  assert.equal(p.commercialGo.certifiedGates,0);
@@ -442,4 +444,21 @@ test('C92 RED: three merged real source PRs earn 0.3 original100 architecture QU
  const fbQA=read('cloudflare-yparty-worker/qa/p0-firebase-frozen-certifier.test.mjs');
  assert(fb.includes('snapshot.k.map((val,i)=>[String(i),val])'),'C90 real Firebase REST /k map adaptation missing');
  assert(fbQA.includes('exact Firebase REST array form of /k'),'C90 RED->GREEN REST array QA missing');
+});
+
+test('C98: r2-service-binding-installed is credited only with real sealed R2 + pinned manifest + verified QA binding evidence; Firebase HEAD stays unearned',()=>{
+ const fs=require('node:fs'),path=require('node:path');
+ const root=path.resolve(__dirname,'..');
+ const port=JSON.parse(fs.readFileSync(path.join(root,'docs/engineering/architecture-2-port-score.json'),'utf8'));
+ const ms=port.groups.flatMap(g=>g.milestones);
+ const r2=ms.find(m=>m.id==='r2-service-binding-installed');
+ assert.equal(r2.done,true);assert.equal(r2.points,2.0);
+ for(const token of ['fb-7d8e5559ecb3eb245c73f7c5','c1d0116caf669bb4bb71f201218cb3af96bb35a232bff8678b811396c283b35a',
+  'WS_FROZEN_HISTORY_SOURCE','WS_R2_MANIFEST_REQUIRED_QA=1','5d551592bba72b2be7b998e584e0e3b913ec9010d6364ada77ec872cca4cec95','227 opIds'])
+  assert(r2.verification.includes(token),'C98 verification missing '+token);
+ const wr=JSON.parse(fs.readFileSync(path.join(root,'cloudflare-yparty-worker/wrangler.jsonc'),'utf8'));
+ assert.equal(wr.services.find(s=>s.binding==='WS_FROZEN_HISTORY_SOURCE')?.service,'friendly123-frozen-history-qa');
+ for(const k of ['WS_AUTHORITY_QA','WS_SEPARATE_ROOMS_QA','WS_OPEN_EXISTING_QA','WS_BUSINESS_EXECUTOR_QA'])assert.equal(wr.vars[k],'0',k+' must stay OFF');
+ assert.equal(ms.find(m=>m.id==='real-firebase-head-complete').done,false);
+ assert.equal(port.score,94.0);assert.equal(port.commercialGo.certifiedGates,0);
 });
