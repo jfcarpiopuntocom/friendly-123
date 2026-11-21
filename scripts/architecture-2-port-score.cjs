@@ -391,7 +391,7 @@ function inspect(){
   assert.equal(left.done,false,'C40 is NOT a live customer cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C40 QA does not certify GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no physical A-B-A');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='c13b449c40ad249fdaca6ed6ff668358848d54a2'?19.2:18.5):(c42Done?18.3:18.1));
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='c6d5120cf3cbfbaef0639fee64d1d6bec663ed61'?19.2:18.5):(c42Done?18.3:18.1));
   const src=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
     'API.recibosComerciales20 = new Map();',
@@ -438,7 +438,7 @@ function inspect(){
   assert.equal(residual.done,false,'C42 does not enable commercial production cutover');
   assert.equal(data.commercialGo.certifiedGates,0,'C42 synthetic QA cannot certify live store GO');
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'no real PC→Safari acceptance evidence');
-  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='c13b449c40ad249fdaca6ed6ff668358848d54a2'?19.2:18.5):18.3,'business quality bounded by actual C42/C44/C68 QA');
+  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,(data.groups.flatMap(g=>g.milestones).some(m=>m.id==='real-adjust-credit-browser-envelope-c44' && m.done))?(quality.lastAuditedProductSha==='c6d5120cf3cbfbaef0639fee64d1d6bec663ed61'?19.2:18.5):18.3,'business quality bounded by actual C42/C44/C68 QA');
   const mock=fs.readFileSync(path.join(root,'docs/mock-backend.js'),'utf8');
   const facade=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
   for(const token of [
@@ -997,7 +997,7 @@ function inspect(){
  // certified frozen import cannot be reopened from journal-only or an
  // unrelated legacy snapshot. It does not certify live Firebase HEAD/R2.
  assert.equal(quality.lastAuditedProductSha,
-   'c13b449c40ad249fdaca6ed6ff668358848d54a2',
+   'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61',
    'C85 quality credit pins exact merged functional C84 source, C80 remains audited');
  const c64Source=fs.readFileSync(path.join(root,
    'cloudflare-yparty-worker/src/open-existing-store.mjs'),'utf8');
@@ -1072,7 +1072,7 @@ function inspect(){
   'C68 RED P0: unrecognized economic effect SKU cannot invent stock or already ACK'
  ])assert(c68Qa.includes(token),'C69 actual native SQLite negative source test missing: '+token);
  assert.equal(quality.lastAuditedProductSha,
-   'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+   'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C68 QA cannot earn real Firebase HEAD/R2/device port');
@@ -1168,7 +1168,7 @@ function inspect(){
   'C76 control: durable 202 queued intent keeps matching payload and receipt, without business effect',
   'C76 control: unrelated license payloads cannot block certified store reopened for correct license'
  ])assert(c76QA.includes(token),'C77 real native SQLite RED-first QA missing '+token);
- assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(quality.lastAuditedProductSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,18.9);
@@ -1198,7 +1198,7 @@ function inspect(){
   'C78 control: queued expense + customer payment preserve genuine 202 SHA, no money/effects',
   'C78 control: queued sale 202 and committed sale + fiado remain correct'
  ])assert(c78Qa.includes(token),'C79 native SQLite source RED-first evidence missing '+token);
- assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(quality.lastAuditedProductSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
@@ -1231,7 +1231,7 @@ function inspect(){
   'C80 control: two authentic counts in reverse lexical opId order MUST use SQLite rowid insertion chronology',
   'C80 control: physical no-op count N=stock must retain zero delta and receipt'
  ])assert(c80QA.includes(token),'C81 native SQLite C80 RED-first test absent '+token);
- assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2');
+ assert.equal(quality.lastAuditedProductSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,19.2);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
@@ -1253,7 +1253,7 @@ function inspect(){
   'C84 negative: strict mode rejects damaged paged page digest',
   'C84 control: QA cutover OFF denies before any R2 or legacy source network access'
  ])assert(c84QA.includes(token),'C85 merged C84 negative/positive evidence missing '+token);
- assert.equal(quality.lastAuditedProductSha,'c13b449c40ad249fdaca6ed6ff668358848d54a2',
+ assert.equal(quality.lastAuditedProductSha,'c6d5120cf3cbfbaef0639fee64d1d6bec663ed61',
   'C92 source audit pins latest real product master with C70 C90 C68 merged; C84 also present');
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
