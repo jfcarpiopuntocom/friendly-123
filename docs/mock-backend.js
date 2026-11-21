@@ -6175,12 +6175,14 @@
       // is not durable and cannot ACK a duplicate arriving from another transport.
       if (op.payload.stockPNHecho && window.OCYjs && window.OCYjs.esLicenciaPruebaJfc &&
           arguments[1] !== _pnReceiverToken) {
-        const key = String(op.opId);
-        const already = _pnReceiverPending.get(key);
-        if (already) return already.then(r => r && r.ok ? { ok: true, repetida: true } : r);
         const owner = instanceId;
         let notebook = "";
         try { notebook = String(window.OCTienda?.cuadernoId?.() || ""); } catch (_) {}
+        // Receipt pending keys are scoped to the notebook, not merely the opId:
+        // switching shops must never inherit an old shop's provisional outcome.
+        const key = JSON.stringify([owner, notebook, String(op.opId)]);
+        const already = _pnReceiverPending.get(key);
+        if (already) return already.then(r => r && r.ok ? { ok: true, repetida: true } : r);
         const work = _pnReceiverTail.then(() => {
           let current = "";
           try { current = String(window.OCTienda?.cuadernoId?.() || ""); } catch (_) {}
