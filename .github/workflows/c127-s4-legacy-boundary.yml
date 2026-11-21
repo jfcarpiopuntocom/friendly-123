@@ -1,0 +1,19 @@
+name: C127 S4 legacy migration boundary QA
+on:
+  pull_request:
+    paths:
+      - 'test/c127-s4-legacy-boundary.test.cjs'
+      - 'docs/sync-yjs.js'
+      - '.github/workflows/c127-s4-legacy-boundary.yml'
+  workflow_dispatch:
+jobs:
+  c127:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Source-executed legacy migration boundaries
+        run: node --test test/c127-s4-legacy-boundary.test.cjs
