@@ -68,7 +68,8 @@ test('E4: Yjs authoritative owner name converges on equal revision despite local
   // v688 added the durable Add Customer boundary to the eight existing paths.
   // Keep an exact count so a missing post-ACK drain is not masked by new paths.
   // #740 (45757ca) added the post-ACK drain in the contact/retention finally block: 10 paths.
-  assert.equal((backend.match(/_drenarCatalogosPendientes\(\);/g)||[]).length,10,
+  // C112 (895669af) added the durable product-creation drain: 11 paths.
+  assert.equal((backend.match(/_drenarCatalogosPendientes\(\);/g)||[]).length,11,
     'payout, conversion, sale, return, stock adjustment, import, retention, contact and Add Customer all drain through the trusted helper');
 });
 
