@@ -121,6 +121,7 @@
     "./dashboard-manifest.json": "sha256-c1847d560f60b8639d590ae6bf7dad29c6b1e88604cb3d4949d54e556a83f870",
     "./pwa-rescue.html": "sha256-51917debbf27e6c529869a2fa88764f1d04405b55823b265d547890c714a1967",
     "./app-inline-01.min.js": "sha256-19a96d13f75dde670e60d67e6fb3f9ccea446ebe4c2fbc3c81aa31f839819610",
+    "./commissions-by-person.js": "sha256-be5a134a46682bf83844a378a475e4e2c30f0530bbd8a7f26bf0164eefd15e9b",
     "./app-inline-02.min.js": "sha256-56226bd780b11cf95096f3fe742d7a46b59f4f0acac7d63327bac3821b0c9a5f",
     "./app-inline-03.min.js": "sha256-88ffb9d4a4b97ab846996554f74d4509ec16286a9af332cc69deba482b9ac505",
     "./app-inline-04.min.js": "sha256-15b70f37528e90ebceb72d200372f1a584dfc3d5e5f2eff8509975ad6b0dcfcf",
@@ -132,7 +133,6 @@
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
     "./dashboard-main.min.js": "sha256-c62da258e0dd8d2a98674e4c80e3444deaa5eaf6b7710d4ae813d559dd6975a0",
-    "./core/hechos-chain-readonly.js": "sha256-8fd607dca2a1622514da97dc356e6309f707c8406c50b50d7bb3b0d4d7b59814",
-    "./commissions-by-person.js": "sha256-be5a134a46682bf83844a378a475e4e2c30f0530bbd8a7f26bf0164eefd15e9b"
+    "./core/hechos-chain-readonly.js": "sha256-8fd607dca2a1622514da97dc356e6309f707c8406c50b50d7bb3b0d4d7b59814"
   }
 }
