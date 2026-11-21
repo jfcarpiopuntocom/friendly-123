@@ -679,7 +679,18 @@
         if (op && op.tipo === TIPO_SNAPSHOT_TROZO)  { if (window.OCSyncWatchdog) window.OCSyncWatchdog.acumularSnapshot(op); return; }
         if (op._salaOrigen && !opDeEsteCuaderno(op)) return;
         registrarEnLog(op);
-        if (window.OCSync && window.OCSync.aplicarOpRemota) window.OCSync.aplicarOpRemota(op);
+        let aplicarResultado;
+        if (window.OCSync && window.OCSync.aplicarOpRemota)
+          aplicarResultado = window.OCSync.aplicarOpRemota(op);
+        // C118: the pilot PN receiver is async and its provisional opId is not
+        // a durable peer receipt. Do not announce/ACK until the same CAS commits.
+        if (op && op.payload && op.payload.stockPNHecho &&
+            window.OCYjs && window.OCYjs.esLicenciaPruebaJfc) {
+          const accepted = await Promise.resolve(aplicarResultado).catch(() => null);
+          if (!accepted || accepted.ok !== true) return; // retained in log for retry
+          if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+              codigoCuadernoActivo() !== codigoNorm) return;
+        }
         window.dispatchEvent(new CustomEvent("oc-sync-op-remota", { detail: op }));
         if (ev.peerReceipt && op && op.opId === ev.peerReceipt.id &&
             window.OCSync && typeof window.OCSync.confirmarCatalogoDurable === "function" &&
