@@ -355,6 +355,53 @@
       }
     },
     {
+      "id": "C115",
+      "date": "2026-11-20",
+      "baseline": 81.4,
+      "score": 81.7,
+      "delta": 0.3,
+      "sourceSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
+      "method": "Three distinct source-tested fixes after C110, each earns +0.1 on unchanged original100 rubric: Safari strict IDB lost-connection recovery (#927), browser new-product strict durable ACK (#930), independent external HTTP repeated stock opId idempotency (#931). C110 preserved intact in auditTrail. No double-credit for #925's earlier local CAS rebase. QA engineering quality only, not real device or commercial acceptance.",
+      "evidence": [
+        {
+          "dimension": "durability",
+          "delta": 0.1,
+          "pr": 927,
+          "sourceSha": "a9b299ed5efdc09e0703331db16e0d2b6f4fd936",
+          "qa": "test/p0-v834-idb-connection-lost-reopen.test.cjs",
+          "why": "Safari WebKit IndexedDB transaction abort UnknownError 'Connection to Indexed Database server lost' was previously treated as permanent even though no commit occurred. Aborted strict CAS reopens one time and retries same revision; second failure remains no ACK. Real source fixture RED0/2→GREEN2/2; 27/27 exact-head workflows GREEN, v0.8.36 publicly verified."
+        },
+        {
+          "dimension": "durability",
+          "delta": 0.1,
+          "pr": 930,
+          "sourceSha": "6d5e40805eff7924c9b6005ac908870bac8dbb7d",
+          "qa": "test/p0-c112-product-create-durable-ack.test.cjs",
+          "why": "Original POST /api/productos returned HTTP200 and broadcast before fire-and-forget finally save, so product could vanish after reload. Real source tests: false ACK 503 and no phantom stock/movement, CAS still in flight no 200 or fan-out, true ACK exactly one signed movement, A/B compatibility. P0+release gates SUCCESS; v0.8.37 deployed to both origins and browser smoke SUCCESS."
+        },
+        {
+          "dimension": "business",
+          "delta": 0.1,
+          "pr": 931,
+          "sourceSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
+          "qa": "test/p0-browser-stock-adjustment-opid.test.cjs",
+          "why": "Independent duplicate HTTP request carrying the SAME opId previously reapplied delta; same id/mismatched amount did not return409; real browser quantity box omitted opId. Actual-source RED GHA 35/38 (three exact failures), GREEN focused 38/38, P0 Hotfix Gate 172/172, release-control SUCCESS. Reuses signed operation fingerprint and original event, no second stock mutation."
+        }
+      ],
+      "release": {
+        "version": "v0.8.38",
+        "shell": "f123-shell-v838",
+        "cache": "golden374",
+        "commit": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
+        "sourcePullRequest": 931
+      },
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6",
+        "reference": "No physical PC Opera↔Safari iPhone A→B→A, Firebase original HEAD, 2.0 live switch, or customer-store certification claimed."
+      }
+    },
+    {
       "id": "C126",
       "date": "2026-11-21",
       "baseline": 81.7,
