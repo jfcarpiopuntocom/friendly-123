@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.41",
+  "version": "v0.8.42",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.41 ligereza: el historial compartido no se vuelve a armar en cada guardado cuando no hay movimientos nuevos (menos trabajo en segundo plano; cajita mas rapida). Sin cambios de datos.",
+  "changelog": "v0.8.42: las colas del relay viejo ya no se reescriben mientras la app está quieta; recibos durables de operaciones remotas con ACK tras CAS, deduplicación y coordinación de inventario local/remoto, protegidos por licencia activa. Sin cambio de transporte ni migración de datos.",
   "requerida": false,
-  "shell": "f123-shell-v841",
+  "shell": "f123-shell-v842",
   "apagar": [],
-  "releaseName": "v0.8.41",
-  "cacheGeneration": "golden377"
+  "releaseName": "v0.8.42",
+  "cacheGeneration": "golden378"
 }
