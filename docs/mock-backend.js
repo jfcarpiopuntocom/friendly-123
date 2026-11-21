@@ -7456,6 +7456,9 @@
       }
 
       if (path === "/api/productos" && opts && opts.method === "POST") {
+        // C112: never let the generic fire-and-forget finally acknowledge an
+        // uncommitted new product. This endpoint owns its strict durable ACK.
+        debePersistir = false;
         if (!body.nombre || !body.barcode) return J({ error: "The name or the barcode is missing." }, 400);
         const preciosError = errorPreciosEntrada(body);
         if (preciosError) return J({ error: preciosError }, 400);
@@ -7471,6 +7474,7 @@
         /* Variantes: guardas en la capa de datos, no solo en la pantalla. Esto
            evita dos variantes identicas por doble toque o concurrencia. Los
            productos historicos sin familia conservan su comportamiento. */
+        let _altaVarianteBaseAntes = null;
         if (body.familiaId) {
           const norm = (v) => String(v || "").trim().toLocaleLowerCase();
           const fam = String(body.familiaId || "").trim().toUpperCase().slice(0, 80);
@@ -7486,7 +7490,13 @@
           /* El producto base entra formalmente a la misma familia. Así el
              resumen agrupa base+variantes incluso si su SKU histórico no
              tenía guion. Es metadata aditiva; no toca dinero ni stock. */
-          if (!baseVariante.familiaId) { baseVariante.familiaId = fam; baseVariante.rev = _revNueva(); }
+          if (!baseVariante.familiaId) {
+            _altaVarianteBaseAntes = { producto: baseVariante,
+              familiaId: baseVariante.familiaId, rev: baseVariante.rev,
+              teniaFamilia: Object.prototype.hasOwnProperty.call(baseVariante,"familiaId"),
+              teniaRev: Object.prototype.hasOwnProperty.call(baseVariante,"rev") };
+            baseVariante.familiaId = fam; baseVariante.rev = _revNueva();
+          }
           if (body.umbralRojo == null) body.umbralRojo = baseVariante.umbralRojo;
           if (body.umbralAmarillo == null) body.umbralAmarillo = baseVariante.umbralAmarillo;
         }
@@ -7540,11 +7550,48 @@
           foto: (typeof body.foto === "string" && body.foto.indexOf("data:image/") === 0) ? body.foto : null,
           fotoHash: null,
         };
-        nuevo.rev = _revNueva();
-        productos.push(nuevo);
-        mov("alta", { producto: nuevo.nombre, sku: nuevo.sku, ubicacion: nombreUbic(nuevo.ubicacionId), ...(body.altaPorArtista ? { porArtista: String(body.altaPorArtista).slice(0, 80) } : {}) });
-        avisarCatalogoCambiado(); // el producto nuevo viaja al resto del negocio (con stock 0; cada percha cuenta el suyo)
-        return J(ficha(nuevo));
+        // C112: a new product is NOT a committed business fact until the
+        // same product+signed movement has a confirmed strict local snapshot.
+        // A 200 previously escaped while finally() wrote asynchronously; a
+        // reload could then lose this freshly-created item without warning.
+        const _fotoAlta = { movLen: movimientos.length, sello: selloUltimo };
+        const _revertirAlta = () => {
+          const i = productos.indexOf(nuevo);
+          if (i >= 0) productos.splice(i, 1);
+          movimientos.length = _fotoAlta.movLen;
+          selloUltimo = _fotoAlta.sello;
+          if (_altaVarianteBaseAntes) {
+            const a = _altaVarianteBaseAntes, p = a.producto;
+            if (a.teniaFamilia) p.familiaId = a.familiaId; else delete p.familiaId;
+            if (a.teniaRev) p.rev = a.rev; else delete p.rev;
+          }
+        };
+        let _altaGuardada = false, _terminarAlta;
+        _ventaConfirmando = true; // prevents provisional catalog publication and incoming merges
+        _ventaPendiente = new Promise(resolve => { _terminarAlta = resolve; });
+        try {
+          nuevo.rev = _revNueva();
+          productos.push(nuevo);
+          mov("alta", { producto: nuevo.nombre, sku: nuevo.sku,
+            ubicacion: nombreUbic(nuevo.ubicacionId),
+            ...(body.altaPorArtista ? { porArtista: String(body.altaPorArtista).slice(0, 80) } : {}) }, false);
+          try { _altaGuardada = await guardarEstadoLocal(true, true); } catch (_) {}
+          if (!_altaGuardada) {
+            _revertirAlta();
+            return J({ error:"The new product was NOT saved. Check available storage and retry.",
+              code:"PRODUCT_DURABILITY_UNCONFIRMED" },503);
+          }
+          return J(ficha(nuevo));
+        } catch (e) {
+          if (!_altaGuardada) _revertirAlta();
+          throw e;
+        } finally {
+          _ventaConfirmando = false; _ventaPendiente = null;
+          try {
+            _drenarCatalogosPendientes();
+            if (_altaGuardada) _avisarCatalogoConfirmado();
+          } finally { _terminarAlta(); }
+        }
       }
 
       if ((m = path.match(/^\/api\/productos\/([^/]+)\/venta$/))) {
