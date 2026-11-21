@@ -107,6 +107,32 @@ test('P0 Belén: overlapping tabs reuse original durable opId, one economic rece
  assert.equal(original.opId,a.outgoing[0].body.opId);
  assert.equal(ledger.size,1,'two HTTP deliveries must yield exactly one economic receipt');
 });
+test('P0 Belén: overlapping explicit rival opId fails closed before POST',async()=>{
+ const db=new IDBFactory(),values=new Map();
+ let postStarted;
+ const started=new Promise(resolve=>{postStarted=resolve;});
+ let release;
+ const gate=new Promise(resolve=>{release=resolve;});
+ const a=make({db,storage:values,receive:async(_url,body)=>{
+   postStarted();
+   await gate;
+   return {ok:true,json:async()=>({opId:body.opId,movimientoId:'receipt-synthetic'})};
+ }});
+ const b=make({db,storage:values});
+ const first=a.win.ocEnviarAbono('cli-A',5,'Abono',{opId:'customer-payment:original'});
+ try {
+   await started;
+   await assert.rejects(b.win.ocEnviarAbono('cli-A',5,'Abono',
+     {opId:'customer-payment:rival'}),/anterior|confirmar|previous|original/i);
+   assert.equal(b.outgoing.length,0,'explicit different opId cannot bypass durable intent');
+ } finally {
+   release();
+ }
+ await first;
+ assert.equal(a.outgoing.length,1);
+ assert.equal(a.outgoing[0].body.opId,'customer-payment:original');
+});
+
 test('P0 Belén: if both localStorage and IDB fail, do not send payment',async()=>{
  const x=make({failIDB:true});
  await assert.rejects(x.win.ocEnviarAbono('cli-A',5,'Abono'),/QuotaExceeded|almacenamiento|durable/i);
