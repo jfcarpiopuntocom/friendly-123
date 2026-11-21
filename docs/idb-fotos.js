@@ -27,7 +27,13 @@
      intacto para no romper la vista actual; los dos conviven. */
   const STORE_BLOBS = "blobs";
   const SOPORTADO = "indexedDB" in window;
-  let dbPromise = null;
+  let dbPromise = null, dbActual = null;
+  function invalidarSiConexionRota(db, err) {
+    if (!db || dbActual !== db || !err ||
+        (err.name !== "InvalidStateError" && err.name !== "UnknownError")) return;
+    // A failed current write is NOT a photo ACK. Reopen on the next operation.
+    dbPromise = null; dbActual = null; _fotoBytesIdbConfirmados.clear();
+  }
   // In-memory proof only: exact bytes successfully written with IDB tx.oncomplete
   // or reread from the strict IDB blobs store. Never trust hash-only pointers,
   // legacy fallback reads, or records from another browser session.
@@ -78,14 +84,18 @@
         if (settled) { db.close(); return; }
         settled = true;
         clearTimeout(watchdog);
-        // WebKit may close the photo database after an iOS background wake.
-        // Never clear a newer connection's handle or claim photo bytes still live.
+        dbActual = db;
+        // Only the live connection can invalidate current photo witnesses.
+        // Late WebKit events on obsolete handles must not revoke newer writes.
         db.onclose = () => {
-          _fotoBytesIdbConfirmados.clear();
+          if (dbActual !== db) return;
+          dbActual = null; _fotoBytesIdbConfirmados.clear();
           if (dbPromise === promise) dbPromise = null;
         };
         db.onversionchange = () => {
-          db.close(); _fotoBytesIdbConfirmados.clear();
+          try { db.close(); } catch (_) {}
+          if (dbActual !== db) return;
+          dbActual = null; _fotoBytesIdbConfirmados.clear();
           if (dbPromise === promise) dbPromise = null;
         };
         resolve(db);
@@ -116,8 +126,9 @@
   async function guardarPorHash(hash, dataUrl) {
     if (!hash) return false;
     if (!SOPORTADO) { try { localStorage.setItem(claveBlob(hash), dataUrl); return true; } catch (_) { return false; } }
+    let db = null;
     try {
-      const db = await abrirDB();
+      db = await abrirDB();
       await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readwrite");
         tx.objectStore(STORE_BLOBS).put(dataUrl, hash); // put idempotente = dedup
@@ -126,6 +137,7 @@
       _recordarFotoIdbConfirmada(hash, dataUrl); // tx.oncomplete ACK
       return true;
     } catch (err) {
+      invalidarSiConexionRota(db, err);
       _fotoBytesIdbConfirmados.delete(String(hash)); // a failed photo write cannot remain durable proof
       console.error("[idb-fotos] guardarPorHash:", err); return false;
     }
@@ -297,8 +309,9 @@
       try { localStorage.setItem(claveVieja(id), dataUrl); return true; }
       catch (_) { return false; }
     }
+    let db = null;
     try {
-      const db = await abrirDB();
+      db = await abrirDB();
       await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE, "readwrite");
         tx.objectStore(STORE).put(dataUrl, id);
@@ -308,6 +321,7 @@
       });
       return true;
     } catch (err) {
+      invalidarSiConexionRota(db, err);
       console.error("[idb-fotos] guardarFoto:", err);
       return false;
     }
