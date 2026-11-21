@@ -214,7 +214,7 @@
       {
         "dimension": "migration",
         "delta": 0.1,
-        "pr": 896,
+        "pr": 894,
         "qa": "cloudflare-yparty-worker/qa/p0-c93-current-state-union.test.mjs",
         "why": "C93 present-state union deterministic conflict quarantine"
       },
