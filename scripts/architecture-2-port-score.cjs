@@ -10,7 +10,8 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC152=quality.latestReview?.id==='C152';
+ const isC154=quality.latestReview?.id==='C154';
+ const isC152=isC154||quality.latestReview?.id==='C152';
  const isC150=isC152||quality.latestReview?.id==='C150';
  const isC148=isC150||quality.latestReview?.id==='C148';
  const isC144=isC148||quality.latestReview?.id==='C144';
@@ -22,8 +23,8 @@ function inspect(){
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)))))))))));
- const currentDurability=isC140?19.4:(isC134?19.3:(isC126?19.2:19.1));
+ const currentQuality=isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))))))))))));
+ const currentDurability=isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1)));
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
  if(isC130){
@@ -81,13 +82,22 @@ function inspect(){
   assert(src.includes('accumulate(tot,"gross","unknownGross",gross)'));
   assert.equal((isC144?quality.auditTrail?.find(r=>r.id==='C142'):quality.latestReview)?.sourceSha,'05f5b094bf5ebae313ffd464e33bbb2d54a1b3ef');
  }
+ if(isC154){
+  const qa=fs.readFileSync(path.join(root,'test/idb-adapter-lifecycle.test.cjs'),'utf8');
+  const sale=fs.readFileSync(path.join(root,'test/p0-idb-closed-handle-reopen-sale.test.cjs'),'utf8');
+  const src=fs.readFileSync(path.join(root,'docs/estado-idb.js'),'utf8');
+  assert(qa.includes('C153: unexpected WebKit IDB close on active business DB opens a fresh connection'));
+  assert(sale.includes('C153: unexpected onclose of Safari business DB reconnects exact next sale CAS'));
+  assert(src.includes('db.onclose = function () { if (dbPromise === promise) dbPromise = null; }'));
+  assert.equal(quality.latestReview?.sourceSha,'89fb3fe56c61c74bb78d21a8a7527b5389d48633');
+ }
  if(isC152){
   const qa=fs.readFileSync(path.join(root,'test/p0-c151-single-payee-commission.test.cjs'),'utf8');
   const src=fs.readFileSync(path.join(root,'docs/core/commission-history.js'),'utf8');
   assert(qa.includes('C151 RED: sole credited assistant receives her commission'));
   assert(qa.includes('one seller row, repeated receipt and empty split'));
   assert(src.includes('group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>0'));
-  assert.equal(quality.latestReview?.sourceSha,'ad94cb2af84497b1d9f7d01b939d9f38c10a1c0b');
+  assert.equal((isC154?quality.auditTrail?.find(r=>r.id==='C152'):quality.latestReview)?.sourceSha,'ad94cb2af84497b1d9f7d01b939d9f38c10a1c0b');
  }
  if(isC150){
   const qa=fs.readFileSync(path.join(root,'test/p0-c149-commission-split-order-identity.test.cjs'),'utf8');
@@ -1462,7 +1472,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3))):0)+(d.id==='business'?(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1)))))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))):0)+(d.id==='business'?(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1)))))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
