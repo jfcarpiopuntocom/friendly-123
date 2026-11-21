@@ -1,0 +1,22 @@
+name: P0 C112 browser product creation durable ACK
+on:
+  pull_request:
+    paths:
+      - "docs/mock-backend.js"
+      - "test/p0-c112-product-create-durable-ack.test.cjs"
+      - ".github/workflows/p0-c112-product-create-durable.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  strict-product-create:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Execute exact offline product backend and durable sale/stock contracts
+        run: |
+          node --test test/p0-c112-product-create-durable-ack.test.cjs test/p0-durable-stock-adjustment.test.cjs
