@@ -103,3 +103,68 @@ for (const engine of ['chromium', 'webkit']) test(`${engine}: missing durable hi
     assert.equal(result, 'failed-closed', 'missing history is a damaged snapshot, never a valid shortened notebook');
   } finally { await web.close(); await new Promise(r => srv.close(r)); }
 });
+
+
+for (const engine of ['chromium', 'webkit']) test(engine + ': C116 malformed zero-block metadata must not erase 501 durable entries', { timeout: 120000 }, async () => {
+  const srv = http.createServer((q, r) => {
+    r.writeHead(200, { 'Content-Type': q.url.endsWith('.js') ? 'application/javascript' : 'text/html' });
+    r.end(q.url.endsWith('.js') ? SRC : '<!doctype html><script src="/estado-idb.js"></script>');
+  });
+  await new Promise(r => srv.listen(0, '127.0.0.1', r));
+  const web = await pw[engine].launch();
+  try {
+    const page = await web.newPage(); await page.goto('http://127.0.0.1:' + srv.address().port + '/');
+    const status = await page.evaluate(async () => {
+      const st = { _rev: 1, movimientos: Array.from({ length: 501 }, (_, i) => ({ id: 'm' + i })), actividadCompartida: [], productos: [] };
+      if (!await window.OCEstadoIDB.guardarConRevision(st, 0)) return 'initial-save-failed';
+      const db = await new Promise((resolve, reject) => {
+        const q = indexedDB.open('f123_estado', 1); q.onsuccess = () => resolve(q.result); q.onerror = () => reject(q.error);
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('estado', 'readwrite'), store = tx.objectStore('estado');
+        const req = store.get('actual');
+        req.onsuccess = () => {
+          const val = req.result;
+          val._hist.movimientos = { n: 0, len: 501 };
+          store.put(val, 'actual');
+        };
+        tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); tx.onabort = () => reject(tx.error);
+      }); db.close();
+      const recovered = await window.OCEstadoIDB.leer();
+      return recovered === null ? 'failed-closed' : 'silently-truncated:' + recovered.movimientos.length;
+    });
+    assert.equal(status, 'failed-closed', 'invalid chunk metadata cannot silently discard stock/financial history');
+  } finally { await web.close(); await new Promise(r => srv.close(r)); }
+});
+
+for (const engine of ['chromium', 'webkit']) test(engine + ': C116 six-megabyte history retains bounded CAS latency and tiny writes', { timeout: 120000 }, async t => {
+  const srv = http.createServer((q, r) => {
+    r.writeHead(200, { 'Content-Type': q.url.endsWith('.js') ? 'application/javascript' : 'text/html' });
+    r.end(q.url.endsWith('.js') ? SRC : '<!doctype html><script src="/estado-idb.js"></script>');
+  });
+  await new Promise(r => srv.listen(0, '127.0.0.1', r));
+  const web = await pw[engine].launch();
+  try {
+    const page = await web.newPage(); await page.goto('http://127.0.0.1:' + srv.address().port + '/');
+    const stats = await page.evaluate(async () => {
+      const idb = window.OCEstadoIDB, mark = 'X'.repeat(1800);
+      const mk = (n, prefix) => Array.from({ length: n }, (_, i) => ({ id: prefix + i, details: mark }));
+      const st = { _rev: 1, movimientos: mk(2401, 'm'), actividadCompartida: mk(1301, 'a').sort((x, y) => x.id.localeCompare(y.id)), productos: [] };
+      if (!await idb.guardarConRevision(st, 0)) return { err: 'initial-save-failed' };
+      const P = IDBObjectStore.prototype, original = P.put;
+      let written = 0;
+      P.put = function (value) { written += JSON.stringify(value).length; return original.apply(this, arguments); };
+      const st2 = Object.assign({}, st, { _rev: 2, movimientos: st.movimientos.concat([{ id: 'm-new', details: 'stock-adjust' }]) });
+      const start = performance.now();
+      const committed = await idb.guardarConRevision(st2, 1);
+      const elapsed = performance.now() - start;
+      P.put = original;
+      return { committed, elapsed, written, fullBytes: JSON.stringify(st2).length };
+    });
+    assert.equal(stats.err, undefined, stats.err);
+    assert.equal(stats.committed, true);
+    assert.ok(stats.written < stats.fullBytes / 10, 'must preserve v839 small WRITE volume: ' + JSON.stringify(stats));
+    t.diagnostic('C116 ' + engine + ' synthetic ~6MB elapsed-ms=' + Math.round(stats.elapsed) + ' written=' + stats.written + '/' + stats.fullBytes);
+    assert.ok(stats.elapsed < 2000, 'desktop-browser synthetic save exceeded 2s latency ceiling: ' + JSON.stringify(stats));
+  } finally { await web.close(); await new Promise(r => srv.close(r)); }
+});
