@@ -28,7 +28,21 @@
   var STORE = "cola";
   var LS_KEY = "f123_sync_pending";
   var SOPORTADO = typeof indexedDB !== "undefined";
-  var dbPromise = null;
+  var dbPromise = null, dbActual = null;
+  function invalidarDB(db) {
+    if (db && dbActual !== db) return;
+    dbActual = null;
+    dbPromise = null;
+  }
+  function siConexionRota(db, error) {
+    if (db && error && (error.name === "InvalidStateError" || error.name === "UnknownError")) {
+      // WebKit may invalidate a cached connection without an onclose event.
+      // Retry only this dead handle, never overwrite a newer successful open.
+      invalidarDB(db);
+      return true;
+    }
+    return false;
+  }
 
   function abrirDB() {
     if (dbPromise) return dbPromise;
@@ -45,7 +59,14 @@
           try { if (req.result && typeof req.result.close === "function") req.result.close(); } catch (_) {}
           return;
         }
-        resolve(req.result);
+        var conexion = req.result;
+        dbActual = conexion;
+        conexion.onclose = function () { invalidarDB(conexion); };
+        conexion.onversionchange = function () {
+          invalidarDB(conexion);
+          try { conexion.close(); } catch (_) {}
+        };
+        resolve(conexion);
       };
       req.onerror = function () { aperturaAbandonada = true; reject(req.error); };
       req.onblocked = function () {
@@ -59,20 +80,24 @@
 
   async function guardar(blobCifrado) {
     if (SOPORTADO) {
-      try {
-        var db = await abrirDB();
-        await new Promise(function (resolve, reject) {
-          var tx = db.transaction(STORE, "readwrite");
-          tx.objectStore(STORE).put({ id: LS_KEY, blob: blobCifrado, guardado: Date.now() });
-          tx.oncomplete = resolve;
-          tx.onerror = tx.onabort = function () { reject(tx.error || new Error("Transacción IndexedDB abortada")); };
-        });
-        // Limpieza best-effort del rastro viejo en localStorage: si IndexedDB
-        // ya tiene el dato fresco, no hace falta duplicarlo ahi tambien.
-        try { localStorage.removeItem(LS_KEY); } catch (_) {}
-        return true;
-      } catch (e) {
-        try { console.warn("[sync-outbox] IndexedDB fallo, cae a localStorage:", e && e.message); } catch (_) {}
+      for (var intento = 0; intento < 2; intento++) {
+        var db = null;
+        try {
+          db = await abrirDB();
+          await new Promise(function (resolve, reject) {
+            var tx = db.transaction(STORE, "readwrite");
+            tx.objectStore(STORE).put({ id: LS_KEY, blob: blobCifrado, guardado: Date.now() });
+            tx.oncomplete = resolve;
+            tx.onerror = tx.onabort = function () { reject(tx.error || new Error("Transacción IndexedDB abortada")); };
+          });
+          // Best effort: IDB is already durable, the older small-quota mirror is unnecessary.
+          try { localStorage.removeItem(LS_KEY); } catch (_) {}
+          return true;
+        } catch (e) {
+          var rota = siConexionRota(db, e);
+          try { console.warn("[sync-outbox] IndexedDB fallo, cae a localStorage:", e && e.message); } catch (_) {}
+          if (!rota) break;
+        }
       }
     }
     try { localStorage.setItem(LS_KEY, blobCifrado); return true; } catch (_) { return false; }
@@ -80,22 +105,26 @@
 
   async function leer() {
     if (SOPORTADO) {
-      try {
-        var db = await abrirDB();
-        var fila = await new Promise(function (resolve, reject) {
-          var tx = db.transaction(STORE, "readonly");
-          var req = tx.objectStore(STORE).get(LS_KEY);
-          req.onsuccess = function () { resolve(req.result); };
-          req.onerror = function () { reject(req.error); };
-        });
-        if (fila && fila.blob) return fila.blob;
-      } catch (e) {
-        try { console.warn("[sync-outbox] IndexedDB no disponible para leer, prueba localStorage:", e && e.message); } catch (_) {}
+      for (var intento = 0; intento < 2; intento++) {
+        var db = null;
+        try {
+          db = await abrirDB();
+          var fila = await new Promise(function (resolve, reject) {
+            var tx = db.transaction(STORE, "readonly");
+            var req = tx.objectStore(STORE).get(LS_KEY);
+            req.onsuccess = function () { resolve(req.result); };
+            req.onerror = function () { reject(req.error); };
+          });
+          if (fila && fila.blob) return fila.blob;
+          break;
+        } catch (e) {
+          var rota = siConexionRota(db, e);
+          try { console.warn("[sync-outbox] IndexedDB no disponible para leer, prueba localStorage:", e && e.message); } catch (_) {}
+          if (!rota) break;
+        }
       }
     }
-    // Migracion silenciosa: si el dato viejo esta solo en localStorage
-    // (dispositivo que aun no habia corrido este archivo), se lee de ahi
-    // una vez -- la proxima escritura ya cae en IndexedDB.
+    // Compatible read of an older localStorage-only encrypted queue.
     try { return localStorage.getItem(LS_KEY); } catch (_) { return null; }
   }
 

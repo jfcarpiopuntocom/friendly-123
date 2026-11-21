@@ -56,7 +56,12 @@ function inspect(){
    assert(dash.includes('function pintarComisionesTodas()'));
    assert(aHtml.includes('./core/commission-history.js'));
    assert(dHtml.includes('./core/commission-history.js'));
-   assert.equal(release.version,'v0.8.49');
+   // C138 earned at v0.8.49; a newer shell preserves that historical milestone.
+   const versionMatch=/^v(\d+)\.(\d+)\.(\d+)$/.exec(release.version);
+   assert(versionMatch, 'release version must follow vMAJOR.MINOR.PATCH');
+   const major=Number(versionMatch[1]), minor=Number(versionMatch[2]), patch=Number(versionMatch[3]);
+   assert(major>0 || minor>8 || (minor===8 && patch>=49),
+     'C138 original evidence shipped in v0.8.49 or later');
    assert.equal(quality.latestReview?.sourceSha,'4223a7db5ede522cde51e3319d3c446f541a8047');
  }
  if(isC128){
