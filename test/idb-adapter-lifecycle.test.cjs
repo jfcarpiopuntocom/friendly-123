@@ -85,3 +85,27 @@ test('C153: unexpected WebKit IDB close on active business DB opens a fresh conn
   assert.equal(reopened.closed,undefined);
   assert.equal((await f.api.leer())._rev,9);
 });
+
+
+test('C155: unexpected WebKit photo-store close reopens before next NEW photo commit',async()=>{
+  const f=fixture('idb-fotos.js');
+  const first=f.api.guardarFoto('shelf','data:image/png;base64,AQID');
+  await f.waitRequests(1);
+  const old=f.success(0);
+  await f.waitTransactions(1);f.complete(0);
+  assert.equal(await first,true);
+  assert.equal(typeof old.onclose,'function','Safari may close a healthy photo IDB connection');
+  old.onclose();
+  const second=f.api.guardarFoto('shelf','data:image/png;base64,BAUG');
+  await f.waitRequests(2);
+  const current=f.success(1);
+  await f.waitTransactions(2);f.complete(1);
+  assert.equal(await second,true,'new photo must be committed using a fresh connection');
+  old.onclose(); // delayed event from obsolete connection
+  const third=f.api.guardarFoto('shelf','data:image/png;base64,BwgJ');
+  await f.waitTransactions(3);f.complete(2);
+  assert.equal(await third,true);
+  assert.equal(f.requests.length,2,'old onclose may not invalidate the new cached connection');
+  assert.equal(current.closed,undefined);
+  assert.equal(await f.api.leerFoto('shelf'),'data:image/png;base64,BwgJ');
+});
