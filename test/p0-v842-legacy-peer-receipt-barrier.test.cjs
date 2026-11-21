@@ -102,3 +102,13 @@ test('C118: nonpilot legacy durable confirmation behavior is preserved',async()=
   assert.equal(x.confirmCalls,1,'unchanged historical nonpilot verification');
   assert.equal(x.receipts.length,1);
 });
+
+test('C118: durable duplicate PN still ACKs peer but never repeats the UI event',async()=>{
+  const x=fixture();
+  const done=x.invoke();
+  x.pending.resolve({ok:true,repetida:true});
+  await done;
+  assert.deepEqual(x.events,[],'duplicate PN is already represented in the visible stock');
+  assert.equal(x.receipts.length,1,'peer can retire a duplicate without reapplying stock');
+  assert.equal(x.confirmCalls,0,'no second strict save even on duplicate receipt');
+});
