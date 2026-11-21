@@ -23,6 +23,7 @@ const MANDATORY=[
   // P0: these are not just touched-area advisory checks; always run.
   'test/p0-business-guards-selection.test.cjs', // guard the mandatory gate itself
   'test/p0-commission-month-guard.test.cjs', // past own/counter month and per-product summary
+  'test/p0-belen-commissions-all-dates.test.cjs', // Belén 1AAA: both UIs, full history, optional dates, exact split
   'test/p0-commissions-historical-own-month-summary.test.cjs', // no split means month still visible
   'test/commissions-period.test.js', // historical split still payable only in correct period
   'test/p0-v681-commissions-autoperiod.test.cjs', // no silent month jump after a fresh sale
