@@ -396,6 +396,19 @@ self.addEventListener("fetch", (evento) => {
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
 
+    // P0 Cloudflare Static Assets: /dashboard.html redirects to /dashboard.
+    // Returning a cached redirected Response to a navigation can be rejected
+    // by Chromium (net::ERR_FAILED), even though the final HTTP status is 200.
+    // Clean ONLY navigation responses. Preserve payload, MIME and status, and
+    // leave API/online-version/non-navigation requests unchanged.
+    const sinRedireccionEnNavegacion = (res) => {
+      if (!res || evento.request.mode !== "navigate" || res.redirected !== true) return res;
+      const cuerpo = res.body != null ? res.body : res.blob();
+      return Promise.resolve(cuerpo).then((body) => new Response(body, {
+        status: res.status, statusText: res.statusText, headers: res.headers
+      }));
+    };
+
     if (esMismoOrigen) {
       const esArchivoDelShell = !url.search && SHELL.some((u) =>
         new URL(u, (self.registration && self.registration.scope) || self.location.href).pathname === url.pathname);
@@ -406,6 +419,7 @@ self.addEventListener("fetch", (evento) => {
         // directo a respuestaOffline() aunque hubiera internet.
         evento.respondWith(abrirCacheLocal().then((cache) => cache.match(evento.request)).catch(() => null)
           .then((local) => local || fetch(evento.request, { cache: "no-cache" }).then(guardar))
+          .then(sinRedireccionEnNavegacion)
           .catch(() => respuestaOffline()));
         return;
       }
@@ -424,7 +438,7 @@ self.addEventListener("fetch", (evento) => {
             }
             return respuestaOffline();
           })
-        ).catch(() => respuestaOffline())
+        ).then(sinRedireccionEnNavegacion).catch(() => respuestaOffline())
       );
     } else {
       evento.respondWith(
