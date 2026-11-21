@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.52",
+  "version": "v0.8.53",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.52 C142: Commissions app + Dashboard detecta recibos con el mismo ID y valores económicos discordantes, sin escoger uno arbitrariamente; fechas comerciales locales sin desplazamiento UTC.",
+  "changelog": "v0.8.53 C146: ventas de carrito, rápida y con formulario exigen recibo confirmado con el mismo opId; respuesta HTTP200 sin prueba conserva intento y carrito para reintento idempotente.",
   "requerida": false,
-  "shell": "f123-shell-v852",
+  "shell": "f123-shell-v853",
   "apagar": [],
-  "releaseName": "v0.8.52",
-  "cacheGeneration": "golden388"
+  "releaseName": "v0.8.53",
+  "cacheGeneration": "golden389"
 }
