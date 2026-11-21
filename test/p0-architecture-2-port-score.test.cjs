@@ -527,6 +527,7 @@ test('C106 post-C92 engineering quality is source-backed 81.2, independent of PO
 });
 
 test('C109 source-verified Sync improvement 81.3 after v0.8.33 with PORT100 and physical GO unchanged',()=>{
+ const root=path.join(__dirname,'..');
  const q=JSON.parse(fs.readFileSync(path.join(root,'docs/engineering/architecture-2-quality-score.json'),'utf8'));
  const p=JSON.parse(fs.readFileSync(path.join(root,'docs/engineering/architecture-2-port-score.json'),'utf8'));
  assert.equal(q.score,81.3);assert.equal(q.latestReview.id,'C109');
