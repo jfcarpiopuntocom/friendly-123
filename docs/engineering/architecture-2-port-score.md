@@ -1,22 +1,25 @@
-# Estado vigente, 20 de noviembre de 2026: C110 (evidencia producto real)
+# Estado vigente, 20 de noviembre de 2026: C115, 3 correcciones fuente verificadas
 
-**Implementación de arquitectura 2.0: 100,0/100,0. Calidad arquitectónica: 81,4/100,0.** Dos métricas independientes y rúbricas originales inalteradas.
+**Implementación de arquitectura 2.0: 100,0/100,0. Calidad arquitectónica: 81,7/100,0.** Son métricas independientes y conservan intactos pesos y rúbricas originales.
 
-| Métrica | Previa C109 | Actual C110 | Delta |
+| Métrica | C110 anterior | C115 actual | Cambio |
 | --- | ---: | ---: | ---: |
 | Ensamblaje de la misma friendly-123 arquitectura 1.0→2.0 | 100,0 | **100,0** | 0,0 |
-| Calidad de arquitectura, pesos originales 100 | 81,3 | **81,4** | +0,1 |
-| Dimensión Durabilidad (20,0) | 18,8 | **18,9** | +0,1 |
-| GO comercial independiente | 0/6 | **0/6** | 0 |
-| Física Opera PC↔Safari iPhone A→B→A | 0/5 | **0/5** | 0 |
+| Calidad arquitectónica, rúbrica fija /100 | 81,4 | **81,7** | +0,3 |
+| Durabilidad, peso20 | 18,9 | **19,1** | +0,2 |
+| Business, peso20 | 19,2 | **19,3** | +0,1 |
+| GO comercial | 0/6 | **0/6** | 0 |
+| A→B→A físico Opera PC↔Safari iPhone | 0/5 | **0/5** | 0 |
 
-**Causa real exclusiva C110:** [PR #925](https://github.com/jfcarpiopuntocom/friendly-123/pull/925), versión v0.8.34, merge c6d5120cf3cbfbaef0639fee64d1d6bec663ed61. Escritura estricta IndexedDB del ajuste −1 confirmada en disco con ACK falso, seguida de reintento CAS que volvía a restar (7→5). [Test de fuente real](../../test/p0-v834-delta-retry-no-double.test.cjs) rojo en master previo, verde en v834 (7→6 en RAM y disco, un movimiento); 39/39 stock, P0 y release-control verdes. [Hotfix #44863363356](https://github.com/jfcarpiopuntocom/friendly-123/actions/runs/44863363356) promovió y publicó v834, recorrido Chromium y WebKit de solo lectura. Creditar solo +0,1 durabilidad; ninguna afirmación de GO o ensayo físico.
+**Tres pruebas distintas, no crédito repetido:**
 
-**C109 preservado, NO recontado:** [PR #918](https://github.com/jfcarpiopuntocom/friendly-123/pull/918) siembra Yjs acotada a producto único, +0,1 Sync v0.8.33, permanece íntegra en auditTrail. PR #926 v0.8.35 corrige navegación Cloudflare y NO recibe puntos nuevos en C110.
+- [PR #927](https://github.com/jfcarpiopuntocom/friendly-123/pull/927) `v0.8.36`, SHA `a9b299ed5efdc09e0703331db16e0d2b6f4fd936`: Safari WebKit `UnknownError` en IndexedDB, recuperación del mismo CAS estrictamente una vez, segundo fallo sin falso ACK. Pruebas RED 0/2→GREEN 2/2, 27/27 CI, versión pública verificada. **+0,1 Durabilidad**.
+- [PR #930](https://github.com/jfcarpiopuntocom/friendly-123/pull/930) `v0.8.37`, SHA `6d5e40805eff7924c9b6005ac908870bac8dbb7d`: creación de producto no debe devolver HTTP 200 ni publicar datos antes de ACK durable IndexedDB; rollback completo en rechazo. [QA fuente](../../test/p0-c112-product-create-durable-ack.test.cjs) y P0+release-control GREEN, publicado con manifest 131/131. **+0,1 Durabilidad**.
+- [PR #931](https://github.com/jfcarpiopuntocom/friendly-123/pull/931) `v0.8.38`, SHA `b5ce01a7f46e801001cc052c2797aa2150bb3cba`: reenvío externo HTTP de un `opId` duplicaba ajuste, colisión no devolvía 409 y caja no generaba identidad. [QA fuente](../../test/p0-browser-stock-adjustment-opid.test.cjs) RED35/38 y GREEN38/38, P0 Hotfix Gate 172/172, release-control SUCCESS. **+0,1 Business**. La promoción y el readback público deben comprobarse por separado de esta auditoría de ingeniería.
 
-Fuentes canónicas: [architecture-2-port-score.json](./architecture-2-port-score.json) y [architecture-2-quality-score.json](./architecture-2-quality-score.json). La certificación comercial y física requieren pruebas independientes.
+**Historial acreditado:** C106 (+0,8), C109 (+0,1) y C110 (+0,1) íntegros en `auditTrail`. #925 resolvió otro caso, rebase interno tras ACK ambiguo; no se recontó. Todas las dimensiones no enumeradas conservan sus puntos. Firebase real, cambio comercial 2.0, pruebas físicas y seis GO siguen sin certificación.
 
-**Archivo histórico:** secciones desde C85 hacia abajo preservadas como historia, no estado actual. Los dos JSON contienen los valores actuales.
+Fuente canónica: [architecture-2-port-score.json](./architecture-2-port-score.json) y [architecture-2-quality-score.json](./architecture-2-quality-score.json). El primer indicador mide ensamblaje del código, no autorización ni fiabilidad completa. Los valores históricos de las secciones siguientes no son vigentes.
 ---
 # friendly-123 · PORTANDO LA MISMA APP 1.0 → arquitectura 2.0
 
