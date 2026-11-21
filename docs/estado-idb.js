@@ -35,6 +35,106 @@
   var DB_NAME = "f123_estado";      // aislamiento.js le pone el namespace solo
   var STORE = "estado";
   var CLAVE = "actual";
+  /* P0 v837 (JFC 21 nov: "desarruinen eso"): the business notebook kept its whole history
+     (movimientos + actividadCompartida, ~6 MB on a real store) INSIDE "actual", so every sale or
+     stock tap rewrote all of it. History now lives in fixed blocks of 500 entries in the SAME store
+     and the SAME atomic transaction as "actual"; each save writes only blocks whose content changed
+     (normally the last one). leer() reassembles the exact same arrays. Nothing is dropped:
+     - the old inline format is still read;
+     - if an older app version rewrites "actual" inline, the blocks are recovered and merged by id. */
+  var HIST = ["movimientos", "actividadCompartida"], TROZO = 500, PREF = "h:", META = "h:meta";
+  // actividadCompartida is kept SORTED by id (new ids land in the middle), so positional blocks
+  // would all shift. It is split into fixed hash buckets instead; leer() re-sorts with the same
+  // collator mock-backend uses, so the reassembled array is identical.
+  var CUBETAS = { actividadCompartida: 64 };
+  var _cmpId = (typeof Intl !== "undefined" && Intl.Collator) ? new Intl.Collator().compare : function (x, y) { return x < y ? -1 : x > y ? 1 : 0; };
+  function _cubeta(id, n) { var s = String(id), h = 2166136261; for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) % n; }
+  var _huellas = Object.create(null), _revHuellas = null;
+  function _huella(arr) {
+    var s = JSON.stringify(arr), h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return s.length + ":" + (h >>> 0);
+  }
+  // Writes "copia" split into a light record + changed history blocks. Returns the cache update to
+  // apply ONLY after the transaction commits (an aborted transaction leaves the cache untouched).
+  function _ponerPartido(store, copia, anterior) {
+    // Small notebooks (and every synthetic fixture) keep the exact legacy single-record write.
+    var grande = (anterior && anterior._hist) || HIST.some(function (c) { return Array.isArray(copia[c]) && copia[c].length > TROZO; });
+    if (!grande) { store.put(copia, CLAVE); return function () {}; }
+    var ligero = Object.assign({}, copia), meta = {}, pendientes = [];
+    if (!anterior || anterior._rev !== _revHuellas) { _huellas = Object.create(null); }
+    var previo = (anterior && anterior._hist) || {};
+    HIST.forEach(function (campo) {
+      var arr = copia[campo];
+      if (!Array.isArray(arr)) return;
+      delete ligero[campo];
+      var nc = CUBETAS[campo], n, bloques;
+      if (nc) {
+        n = nc; bloques = []; for (var c = 0; c < nc; c++) bloques.push([]);
+        arr.forEach(function (e) { bloques[_cubeta(e && e.id, nc)].push(e); });
+        meta[campo] = { len: arr.length, n: n, modo: "hash" };
+      } else {
+        n = Math.ceil(arr.length / TROZO); bloques = [];
+        for (var q = 0; q < n; q++) bloques.push(arr.slice(q * TROZO, (q + 1) * TROZO));
+        meta[campo] = { len: arr.length, n: n };
+      }
+      for (var i = 0; i < n; i++) {
+        var bloque = bloques[i], k = PREF + campo + ":" + i, f = _huella(bloque);
+        if (_huellas[k] !== f) { store.put(bloque, k); pendientes.push([k, f]); }
+      }
+      var nPrev = (previo[campo] && previo[campo].n) || 0;
+      for (var j = n; j < nPrev; j++) { store.delete(PREF + campo + ":" + j); pendientes.push([PREF + campo + ":" + j, null]); }
+    });
+    ligero._hist = meta;
+    store.put(ligero, CLAVE);
+    store.put(meta, META);
+    return function () {
+      pendientes.forEach(function (p) { if (p[1] === null) delete _huellas[p[0]]; else _huellas[p[0]] = p[1]; });
+      _revHuellas = copia._rev;
+    };
+  }
+  // Reassembles history inside an already open transaction; calls listo(estadoCompleto|null).
+  function _leerCompleto(store, listo, fallo) {
+    var req = store.get(CLAVE);
+    req.onsuccess = function () {
+      var base = req.result;
+      var reqMeta = store.get(META);
+      reqMeta.onsuccess = function () {
+        var meta = (base && base._hist) || null, metaSuelta = reqMeta.result || null;
+        if (!base) { listo(null); return; }
+        var usar = meta || metaSuelta;
+        if (!usar) { listo(base); return; }   // pure legacy inline record
+        var out = Object.assign({}, base), faltan = 0, partes = {};
+        delete out._hist;
+        HIST.forEach(function (campo) {
+          var m = usar[campo]; if (!m || !m.n) { if (meta) out[campo] = Array.isArray(out[campo]) ? out[campo] : []; return; }
+          partes[campo] = new Array(m.n);
+          for (var i = 0; i < m.n; i++) (function (i) {
+            faltan++;
+            var r = store.get(PREF + campo + ":" + i);
+            r.onsuccess = function () { partes[campo][i] = r.result || []; if (--faltan === 0) terminar(); };
+            r.onerror = function () { fallo(r.error); };
+          })(i);
+        });
+        function terminar() {
+          HIST.forEach(function (campo) {
+            if (!partes[campo]) return;
+            var bloques = [].concat.apply([], partes[campo]);
+            if (usar[campo] && usar[campo].modo === "hash") bloques.sort(function (x, y) { return _cmpId(String(x && x.id), String(y && y.id)); });
+            if (meta) { out[campo] = bloques; return; }
+            // Older app rewrote "actual" inline: keep every block entry and add inline ones by id.
+            var inline = Array.isArray(base[campo]) ? base[campo] : [], vistos = new Set();
+            bloques.forEach(function (e) { if (e && e.id != null) vistos.add(String(e.id)); });
+            out[campo] = bloques.concat(inline.filter(function (e) { return !(e && e.id != null && vistos.has(String(e.id))); }));
+          });
+          listo(out);
+        }
+        if (faltan === 0) terminar();
+      };
+      reqMeta.onerror = function () { fallo(reqMeta.error); };
+    };
+    req.onerror = function () { fallo(req.error); };
+  }
   var SOPORTADO = !!(window.indexedDB && typeof window.indexedDB.open === "function");
   // Sticky per-browser capability proof OUTSIDE the potentially failing IDB.
   // Unknown must never mean 'never opened'. A legacy seal/A-B state makes a
@@ -174,16 +274,17 @@
         const copia = JSON.parse(JSON.stringify(estado));
         let accepted = false;
         const req = tx.objectStore(STORE).get(CLAVE);
+        let alConfirmar = null;
         req.onsuccess = function () {
           const old = req.result;
           if (old && Number(old._rev) >= Number(copia._rev)) {
             accepted = old._rev === copia._rev && old._abCommit === copia._abCommit;
             return;
           }
-          tx.objectStore(STORE).put(copia, CLAVE);
+          alConfirmar = _ponerPartido(tx.objectStore(STORE), copia, old);
           accepted = true;
         };
-        tx.oncomplete = function () { if (accepted) capConfirmada(); resolve(accepted); };
+        tx.oncomplete = function () { if (accepted && alConfirmar) alConfirmar(); if (accepted) capConfirmada(); resolve(accepted); };
         tx.onerror = function () { reject(tx.error); };
         tx.onabort = function () { reject(tx.error || new Error("abortada")); };
       });
@@ -315,7 +416,7 @@
       let db = await conexion;
       let conexionCerrada = false;
       const intento = () => new Promise(function (resolve) {
-        let accepted = false, errorTx = null; // cada transacción reporta SOLO su propio error
+        let accepted = false, errorTx = null, alConfirmar = null; // cada transacción reporta SOLO su propio error
         if (abandonada) { resolve(false); return; }
         // Money/stock uses strict durability where the browser supports the hint.
         let tx;
@@ -343,7 +444,7 @@
             return;
           }
           try {
-            tx.objectStore(STORE).put(copia, CLAVE);
+            alConfirmar = _ponerPartido(tx.objectStore(STORE), copia, actual);
             accepted = true;
             txConPut = tx;
           } catch (error) {
@@ -357,6 +458,7 @@
           txConPut = null;
           if (abandonada) { resolve(false); return; } // late event of an abandoned CAS: keep the TimeoutError
           _ultimoError = accepted ? null : errorTx; // fence rejection => null, never a stale earlier error
+          if (accepted && alConfirmar) alConfirmar();
           if (accepted) capConfirmada();
           resolve(accepted);
         };
@@ -426,14 +528,12 @@
       var db = await abrirDB();
       return await new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE, "readonly");
-        var req = tx.objectStore(STORE).get(CLAVE);
-        req.onsuccess = function () {
+        _leerCompleto(tx.objectStore(STORE), function (completo) {
           // Repair a missing marker from an existing durable IDB snapshot.
           // No empty database can prove prior use; unknown stays unknown.
-          if (req.result) capConfirmada();
-          resolve(req.result || null);
-        };
-        req.onerror = function () { reject(req.error); };
+          if (completo) capConfirmada();
+          resolve(completo || null);
+        }, reject);
       });
     } catch (err) {
       try { console.error("[estado-idb] leer:", err); } catch (_) {}
@@ -467,7 +567,8 @@
       await new Promise(function (resolve, reject) {
         var tx = db.transaction(STORE, "readwrite");
         tx.objectStore(STORE).delete(CLAVE);
-        tx.oncomplete = resolve;
+        try { if (typeof IDBKeyRange !== "undefined") tx.objectStore(STORE).delete(IDBKeyRange.bound(PREF, PREF + "￿")); } catch (_) {}
+        tx.oncomplete = function () { _huellas = Object.create(null); _revHuellas = null; resolve(); };
         tx.onerror = function () { reject(tx.error); };
         tx.onabort = function () { reject(tx.error || new Error("abortada")); };
       });
