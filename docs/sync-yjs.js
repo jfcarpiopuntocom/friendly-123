@@ -3538,6 +3538,22 @@
       pedirProcesarEventos();
       _intentarActivarCorte20SiElegible();
     });
+    // Activation can also begin after the ORIGINAL durable relay finishes
+    // its backlog. Require the actual pending->empty transition; repeated
+    // connection/status events cannot spin up a new writer indefinitely.
+    if (API.rollout && API.rollout.yparty === true &&
+        window.OCSyncControl && typeof window.OCSyncControl.onEstado === "function" &&
+        typeof window.OCSyncControl.durabilidadPendiente === "function") {
+      var legacyPendingBefore20 = false;
+      try { legacyPendingBefore20 = window.OCSyncControl.durabilidadPendiente() === true; } catch (_) {}
+      window.OCSyncControl.onEstado(function () {
+        if (window.OCYjs !== API || !API.doc || API.doc.isDestroyed) return;
+        var pendingNow = true;
+        try { pendingNow = window.OCSyncControl.durabilidadPendiente() !== false; } catch (_) {}
+        if (legacyPendingBefore20 && !pendingNow) _intentarActivarCorte20SiElegible();
+        legacyPendingBefore20 = pendingNow;
+      });
+    }
     // Only a real authenticated Owner/Admin session can trigger this helper.
     window.addEventListener("oc-login", _intentarActivarCorte20SiElegible);
     API.corte20QaHabilitado = function () {
