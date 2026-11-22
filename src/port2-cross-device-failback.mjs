@@ -134,7 +134,7 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
     try {
       session = await openCatalogSession({
         onWriterConflict: () => {
-          void failbackToLegacy('writer-conflict');
+          if (activationEpoch === epoch && !destroyed) void failbackToLegacy('writer-conflict');
         }
       });
       if (!session || typeof session !== 'object' || typeof session.close !== 'function' ||
