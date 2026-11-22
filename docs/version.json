@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.81",
+  "version": "v0.8.82",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.81 C194: Safari Commissions conserva todas las fechas e importes; evita recorrer ventas por grupo y carga recibos en bloques al desplegar sin cambiar ventas, pagos ni datos.",
+  "changelog": "v0.8.82 C195: PIN gate avoids repeated DOM rebuilds on Sync3 merge bursts, preserves current license, business name, PIN and login semantics.",
   "requerida": false,
-  "shell": "f123-shell-v881",
+  "shell": "f123-shell-v882",
   "apagar": [],
-  "releaseName": "v0.8.81",
-  "cacheGeneration": "golden417"
+  "releaseName": "v0.8.82",
+  "cacheGeneration": "golden418"
 }
