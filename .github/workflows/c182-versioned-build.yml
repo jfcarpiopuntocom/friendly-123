@@ -50,7 +50,8 @@ jobs:
           node scripts/build-app-entry.cjs --check
           node scripts/gen-manifest.js
           bash check-sw.sh
-          git diff --check
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git -C "$GITHUB_WORKSPACE" diff --check
       - name: C182 grouped views and economy regressions
         run: |
           node --test --test-concurrency=2 test/p0-c182-commissions-compact-view-switches.test.cjs test/p0-belen-commissions-all-dates.test.cjs test/p0-c166-commissions-total-first.test.cjs test/p0-c175-commissions-inverted-range-no-false-zero.test.cjs test/p0-c175-commissions-client-id-conflict.test.cjs test/commissions-by-person.test.cjs test/commissions-period.test.js test/commission-direction-period.test.js
@@ -58,10 +59,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/version.json docs/sw.js docs/dashboard.html docs/app-inline-01.min.js docs/version-manifest.json
-          if git diff --cached --quiet; then
+          git -C "$GITHUB_WORKSPACE" add docs/version.json docs/sw.js docs/dashboard.html docs/app-inline-01.min.js docs/version-manifest.json
+          if git -C "$GITHUB_WORKSPACE" diff --cached --quiet; then
             echo "Already sealed, no further commit"
             exit 0
           fi
-          git commit -m "release(C182): build v0.8.75 shell v875 golden411 with exact SHA-256 manifest"
-          git push origin HEAD:refs/heads/fix/c182-commissions-view-switches-restore-monthly
+          git -C "$GITHUB_WORKSPACE" commit -m "release(C182): build v0.8.75 shell v875 golden411 with exact SHA-256 manifest"
+          git -C "$GITHUB_WORKSPACE" push origin HEAD:refs/heads/fix/c182-commissions-view-switches-restore-monthly
