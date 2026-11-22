@@ -21,6 +21,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      - name: Install WebKit for Owner browser regression
+        run: npx playwright install --with-deps webkit
       - name: C195 PIN gate source-executed 1000 sync bursts + old PIN contracts
         run: |
           node --check docs/auth-ui.js
