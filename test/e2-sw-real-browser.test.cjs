@@ -118,10 +118,10 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
   assert.equal(beforeClick,initial,"pending save must preserve the running page");
   assert.equal(await p.locator("#f123-aviso-version").count(),0,"no update banner");
   await p.evaluate(()=>{window.OCSync={confirmarCatalogoDurable:async()=>true};});
-  mark("pending update preserves the current session");
-  await p.evaluate(()=>window._ocActSola.intentar());
-  assert.equal(await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads"))),initial,"ready update still does not navigate");
-  await p.reload();
+  mark("durable commit triggers adoption without a manual reload");
+  const navigation=p.waitForEvent("framenavigated",{predicate:frame=>frame===p.mainFrame(),timeout:15000});
+  await p.evaluate(()=>{void window._ocActSola.intentar();});
+  await navigation;
   await p.waitForFunction(n=>Number(sessionStorage.getItem("e2-loads"))===n+1,initial,{timeout:15000});
   mark("assert adoption state");
   const result=await p.evaluate(()=>({loads:Number(sessionStorage.getItem("e2-loads")),
