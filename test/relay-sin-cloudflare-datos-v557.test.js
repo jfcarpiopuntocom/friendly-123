@@ -20,7 +20,19 @@ function walk(dir, out = []) {
   }
   return out;
 }
-const archivos = walk(DOCS).map(f => ({ rel: path.relative(DOCS, f).replace(/\\/g, '/'), src: fs.readFileSync(f, 'utf8') }));
+// C200 generates an exact, verified minified copy for each listed source.
+ // Audit its source ONCE and assert the generated copy is byte-for-byte reproducible;
+ // otherwise identical network endpoints count twice and break the historical allowlists.
+ // Unlisted .min.js files remain in the network scan.
+ const cp = require('node:child_process');
+ const root = path.resolve(DOCS, '..');
+ const listed = cp.execFileSync(process.execPath, ['scripts/build-min-scripts.cjs', '--list'],
+   {cwd: root, encoding: 'utf8'});
+ const derived = new Set(listed.trim().split(/\r?\n/).filter(Boolean).map(n => n.replace(/\.js$/, '.min.js')));
+ cp.execFileSync(process.execPath, ['scripts/build-min-scripts.cjs', '--check'],
+   {cwd: root, encoding: 'utf8'});
+ const archivos = walk(DOCS).filter(f => !derived.has(path.relative(DOCS, f).replace(/\\/g, '/')))
+   .map(f => ({ rel: path.relative(DOCS, f).replace(/\\/g, '/'), src: fs.readFileSync(f, 'utf8') }));
 // Los respaldos "swbackup ..." de sw.js no se cargan; se cuentan igual para no esconder nada.
 const donde = re => archivos.filter(a => re.test(a.src)).map(a => a.rel).sort();
 
@@ -70,7 +82,12 @@ test('estatico: los localizadores legacy solo llegan al adaptador directo y su s
 // relay-selector.js (daily byte budget, peers as fallback). The dashboard uses a separate ephemeral encrypted Supabase broadcast while retaining peer fallback.
 test('estatico: app retains durable relay; dashboard transports encrypted realtime without durable business writes', () => {
   const app = archivos.find(a => a.rel === 'index.html').src;
-  const orden = ['peer-sync.js', 'vendor/supabase-relay.min.js', 'firebase-relay.js', 'relay-selector.js'].map(n => app.indexOf('src="./' + n + '"'));
+  const orden = ['peer-sync.js', 'vendor/supabase-relay.min.js', 'firebase-relay.js', 'relay-selector.js'].map(n => {
+    const alt = n.endsWith('.min.js') ? n.replace(/\.min\.js$/, '.js') : n.replace(/\.js$/, '.min.js');
+    const hits = [n, alt].filter(candidate => app.includes('src="./' + candidate + '"'));
+    assert.equal(hits.length, 1, 'exactly one source/minified script in app: ' + n);
+    return app.indexOf('src="./' + hits[0] + '"');
+  });
   assert.ok(orden.every(i => i > 0) && orden[0] < orden[1] && orden[1] < orden[2] && orden[2] < orden[3], 'peer-sync → supabase → firebase → selector');
   const dash = archivos.find(a => a.rel === 'dashboard.html').src;
   assert.match(dash, /<script\b[^>]*\bsrc="\.\/peer-sync\.js"[^>]*><\/script>/);
