@@ -9,6 +9,8 @@ on:
       - docs/sw.js
       - docs/version.json
       - docs/dashboard.html
+      - test/p0-c180-version-adoption.test.cjs
+      - test/p0-v732-tope-recarga-por-version.test.cjs
   workflow_dispatch: {}
 permissions:
   contents: write
