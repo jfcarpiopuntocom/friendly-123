@@ -148,7 +148,7 @@
     var fmt=function(n){return "$"+Number(n).toLocaleString(es?"es-EC":"en-US",{minimumFractionDigits:2,maximumFractionDigits:2});};
     var money=function(n,unknown){return unknown?es?"Por verificar":"Needs review":fmt(n);};
     var title=es?"Historial completo de ventas y comisiones":"Full sales and commissions history";
-    var label=es?"Ventas brutas":"Gross sales",com=es?"Comisiones registradas":"Recorded commissions";
+    var label=es?"Ventas brutas":"Gross sales",com=view.group==="total"?(es?"Total de comisiones":"Total commissions"):(es?"Comisiones registradas":"Recorded commissions");
     var info=es?"Vista de consulta de todas las fechas. Los pagos, devoluciones y saldos se concilian en el mes correspondiente; selecciona un mes para registrarlos.":"Read-only view across dates. Payments, returns and balances remain reconciled in their own month; select a month to record them.";
     var groupName={total:es?"Total general":"Overall total",producto:es?"Producto":"Product",percha:es?"Percha / evento":"Rack / event",cliente:es?"Cliente":"Customer",comisionista:es?"Comisionista":"Associate",mes:es?"Mes":"Month"}[view.group];
     var body=view.groups.map(function(g){
@@ -164,8 +164,8 @@
       +'<h3 style="font-size:18px;font-weight:800;color:var(--ink,#0F1923);">'+title+'</h3>'
       +'<p style="font-size:14px;color:var(--ink,#0F1923);">'+info+'</p>'
       +'<div class="cm-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;">'
+      +'<div class="tag-card" style="flex:1 1 145px;padding:12px;text-align:left;"><b>'+com+'</b><div style="font-size:26px;font-weight:800;">'+money(t.commission,t.unknownCommission)+'</div></div>'
       +'<div class="tag-card" style="flex:1 1 145px;padding:12px;text-align:left;"><b>'+label+'</b><div style="font-size:20px;">'+money(t.gross,t.unknownGross)+'</div></div>'
-      +'<div class="tag-card" style="flex:1 1 145px;padding:12px;text-align:left;"><b>'+com+'</b><div style="font-size:20px;">'+money(t.commission,t.unknownCommission)+'</div></div>'
       +'<div class="tag-card" style="flex:1 1 110px;padding:12px;text-align:left;"><b>'+(es?"Ventas":"Sales")+'</b><div style="font-size:20px;">'+t.count+'</div></div></div>'
       +(view.group==="total"?'':('<h4 style="font-size:16px;margin:10px 0;">'+groupName+'</h4>'
       +(body||'<p style="font-size:15px;">'+(es?"No hay ventas en las fechas elegidas.":"No sales in the selected dates.")+'</p>')))

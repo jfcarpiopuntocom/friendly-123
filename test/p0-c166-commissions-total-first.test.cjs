@@ -19,10 +19,30 @@ test('C166 RED: default total spans months, counts each valid commission exactly
  assert.equal(view.totals.gross,140);
  assert.equal(view.groups.length,1,'single global total before user chooses a breakdown');
  const html=report.render({sales,lang:'es'});
- assert.match(html,/Comisiones registradas/);
+ assert.match(html,/Total de comisiones/);
  assert.match(html,/\$35[,.]00/);
  assert.doesNotMatch(html,/data-comm-history-group/,'initial screen shows TOTAL, not rows of grouped commissions');
 });
+test('C169 P0: authentic commission total is the FIRST and largest KPI, date filtering and grouped views preserve money',()=>{
+ const total=report.render({sales,lang:'es'});
+ const label=total.indexOf('<b>Total de comisiones</b>');
+ const gross=total.indexOf('<b>Ventas brutas</b>');
+ assert.ok(label>0 && gross>label,'commission KPI must appear BEFORE gross sales');
+ const commissionCard=total.slice(label,gross);
+ assert.match(commissionCard,/font-size:26px/);
+ assert.match(commissionCard,/\$35[,.]00/);
+ assert.doesNotMatch(total,/data-comm-history-group/);
+ const nov=report.render({sales,lang:'es',from:'2026-11-01',to:'2026-11-30'});
+ assert.match(nov,/\$15[,.]00/,'real November commission only');
+ for(const group of ['producto','cliente','comisionista','mes','percha']){
+   const grouped=report.render({sales,lang:'es',group});
+   assert.match(grouped,/Comisiones registradas/);
+   assert.match(grouped,/\$35[,.]00/);
+ }
+ const uncertain=report.render({sales:[{id:'unknown',fechaLocal:'2026-11-13',cantidad:1,precioUnit:20}],lang:'es'});
+ assert.match(uncertain,/Por verificar/,'never fabricate zero when commission is unknown');
+});
+
 test('C166: grouping remains optional by month, product, client and associate',()=>{
  for(const [group,expected] of [['mes',2],['producto',2],['cliente',2],['comisionista',2]]){
    const v=report.project({sales,group,lang:'es'});
@@ -76,7 +96,7 @@ test('C166 Safari: total from real sales makes ONLY ONE history request; monthly
    vm.runInNewContext(executable,context,{filename:'app-c166-real-all-dates.js'});
    await context.cargarComisiones();
    assert.deepEqual(calls,['/api/ventas/todas?ubicacionId=todas']);
-   assert.match(container.innerHTML,/Comisiones registradas/);
+   assert.match(container.innerHTML,/Total de comisiones/);
    assert.match(container.innerHTML,/\$35[,.]00/);
    assert.match(container.innerHTML,/periods:0/);
  }

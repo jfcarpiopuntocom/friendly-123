@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.64",
+  "version": "v0.8.65",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.64 C168 Safari P0: elimina update redundante del SW al arrancar. Mantiene registro, comprobación autoritativa y C165 <=3 precargas; Commissions C166 conserva total real primero.",
+  "changelog": "v0.8.65 C169 Commissions: muestra primero Total de comisiones real como cifra principal, luego ventas brutas y número de ventas. Conserva todos los desgloses optativos, recibos y Safari C168.",
   "requerida": false,
-  "shell": "f123-shell-v864",
+  "shell": "f123-shell-v865",
   "apagar": [],
-  "releaseName": "v0.8.64",
-  "cacheGeneration": "golden400"
+  "releaseName": "v0.8.65",
+  "cacheGeneration": "golden401"
 }
