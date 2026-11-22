@@ -71,3 +71,44 @@ test('late conflict callback from replaced session cannot cancel current writer'
   assert.equal(coordinator.mode(),'failback-legacy-1.0');
   coordinator.destroy();
 });
+
+test('legacy is blocked while commercial IDB intent is still asynchronously committing', async () => {
+  let release;
+  const pending = new Promise(resolve=>{release=resolve;});
+  const store={loadAll:async()=>[],loadCommittedOpIds:async()=>[],save:async()=>{},remove:async()=>{}};
+  const reconciler={ready:async()=>true,pending:()=>[],quarantined:()=>[],
+    submit:async()=>pending,reconcileNow:async()=>({attempted:0,results:[]})};
+  const coordinator=createVerifiedCrossDeviceFailbackCoordinator({
+    store,reconciler,openCatalogSession:async()=>({frozenHead:'certified-head-2026',close(){}})
+  });
+  assert.equal((await coordinator.activate20()).ok,true);
+  const opId='sale_race_12345678';
+  const sending=coordinator.submitCommercial({opId});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(await coordinator.canDispatchOnLegacy(opId),false);
+  await coordinator.failbackToLegacy('network-outage');
+  assert.equal(await coordinator.canDispatchOnLegacy(opId),false);
+  release({committed:false,fallbackLegacy:true,reconcileRequired:false,stage:'ticket-unavailable'});
+  assert.equal((await sending).fallbackLegacy,true);
+  assert.equal(await coordinator.canDispatchOnLegacy(opId),true,
+    'definitive pre-send failure with durable removal permits legacy once unlocked');
+  coordinator.destroy();
+});
+
+test('a settled same-DO opId cannot be unlatched by a subsequent pre-send denial', async () => {
+  const opId='sale_settled_123456';
+  const store={loadAll:async()=>[],loadCommittedOpIds:async()=>[opId],
+    save:async()=>{},remove:async()=>{}};
+  const reconciler={ready:async()=>true,pending:()=>[],quarantined:()=>[],
+    submit:async()=>({committed:false,fallbackLegacy:true,reconcileRequired:false,stage:'ticket-unavailable'}),
+    reconcileNow:async()=>({attempted:0,results:[]})};
+  const coordinator=createVerifiedCrossDeviceFailbackCoordinator({
+    store,reconciler,openCatalogSession:async()=>({frozenHead:'certified-head-2026',close(){}})
+  });
+  assert.equal((await coordinator.activate20()).ok,true);
+  const outcome=await coordinator.submitCommercial({opId});
+  assert.equal(outcome.fallbackLegacy,false);
+  assert.equal(outcome.retryTarget,'same-do-only');
+  assert.equal(await coordinator.canDispatchOnLegacy(opId),false);
+  coordinator.destroy();
+});
