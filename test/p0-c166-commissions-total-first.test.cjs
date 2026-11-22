@@ -4,6 +4,7 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const root=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const report=require('../docs/core/commission-history.js');
+const vm=require('node:vm');
 const sales=[
  {id:'sep',fechaLocal:'2026-09-12',productoId:'p1',productoNombre:'Libro',clienteId:'c1',clienteNombre:'Ana',promotoraId:'a1',asociadoNombre:'Belén',cantidad:1,precioUnit:80,comisionAsociado:20},
  {id:'nov',fechaLocal:'2026-11-13',productoId:'p2',productoNombre:'Arte',clienteId:'c2',clienteNombre:'Luis',promotoraId:'a2',asociadoNombre:'Lucía',cantidad:2,precioUnit:30,comisionAsociado:15},
@@ -42,4 +43,53 @@ test('C166: the primary app AND dashboard explicitly default to total, not produ
  assert.match(dash,/\["total",es\?"Total general"/);
  assert.match(app,/_ocMesComisiones = null/);
  assert.match(dash,/cmMes = null/);
+});
+
+test('C166: REAL /ventas/todas data renders total even when optional /liquidaciones/meses fails or hangs',async()=>{
+ const source=read('src/app/app-inline-01.js');
+ const start=source.indexOf('async function cargarComisiones(){');
+ const end=source.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',start);
+ assert.ok(start>0 && end>start,'extract the actual all-dates production branch');
+ const executable=source.slice(start,end)+'}';
+ async function exercise(monthFetch){
+   const container={innerHTML:''};
+   const calls=[];
+   const context={
+     document:{documentElement:{lang:'es'},getElementById(id){assert.equal(id,'listaComisiones');return container;}},
+     window:{OCCommissionHistory:report},
+     API:'/api',_ocMesComisiones:null,_ocComisionesSolicitud:0,
+     renderGestionPromotoras(){},t(){return 'Retry';},
+     barraComisionesHtml(months){return '<div>periods:'+months.length+'</div>';},
+     setTimeout(fn){queueMicrotask(fn);return 1;},
+     fetch(url){calls.push(url);
+       if(url.includes('/ventas/todas'))return Promise.resolve({ok:true,json:async()=>sales});
+       if(url.includes('/liquidaciones/meses'))return monthFetch();
+       throw Error('unexpected API '+url);
+     }
+   };
+   vm.runInNewContext(executable,context,{filename:'app-c166-real-all-dates.js'});
+   await context.cargarComisiones();
+   assert.deepEqual(calls.sort(),['/api/liquidaciones/meses','/api/ventas/todas?ubicacionId=todas'].sort());
+   assert.match(container.innerHTML,/Comisiones registradas/);
+   assert.match(container.innerHTML,/\$35[,.]00/);
+   assert.match(container.innerHTML,/periods:0/);
+ }
+ await exercise(()=>Promise.reject(new Error('months endpoint offline')));
+ await exercise(()=>new Promise(()=>{})); // a hung secondary request must not blank actual data
+});
+test('C166: failures of the PRIMARY sales endpoint fail visibly, not as fabricated $0',async()=>{
+ const source=read('src/app/app-inline-01.js');
+ const start=source.indexOf('async function cargarComisiones(){');
+ const end=source.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',start);
+ const container={innerHTML:''};
+ const context={document:{documentElement:{lang:'es'},getElementById(){return container;}},
+   window:{OCCommissionHistory:report},API:'/api',_ocMesComisiones:null,_ocComisionesSolicitud:0,
+   renderGestionPromotoras(){},t(){return 'Reintentar';},barraComisionesHtml(){return '';},
+   setTimeout(fn){queueMicrotask(fn);return 1;},
+   fetch(url){return url.includes('/ventas/todas')?Promise.reject(Error('sales offline')):Promise.resolve({ok:true,json:async()=>[]});}
+ };
+ vm.runInNewContext(source.slice(start,end)+'}',context,{filename:'app-c166-fail-closed.js'});
+ await context.cargarComisiones();
+ assert.match(container.innerHTML,/No se pudo cargar el historial completo/);
+ assert.doesNotMatch(container.innerHTML,/\$0\.00/);
 });
