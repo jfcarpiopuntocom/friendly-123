@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.82",
+  "version": "v0.8.83",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.82 C195: PIN gate avoids repeated DOM rebuilds on Sync3 merge bursts, preserves current license, business name, PIN and login semantics.",
+  "changelog": "v0.8.83 C196: 2.0 typed-op cutover closes certified writer before fallback; original opId is durably fenced; no dual writer or silent ops publication.",
   "requerida": false,
-  "shell": "f123-shell-v882",
+  "shell": "f123-shell-v883",
   "apagar": [],
-  "releaseName": "v0.8.82",
-  "cacheGeneration": "golden418"
+  "releaseName": "v0.8.83",
+  "cacheGeneration": "golden419"
 }
