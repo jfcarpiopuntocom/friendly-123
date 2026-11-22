@@ -3457,11 +3457,11 @@
             (API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)))) return;
         var relay = window.OCSyncControl;
         var licencia = API.codigoCuaderno;
-        API.__reactivandoCorte20 = Promise.resolve().then(function () {
+        API.__reactivandoCorte20 = Promise.resolve().then(async function () {
           if (released) {
             if (!relay || typeof relay.pausarParaArquitectura20 !== "function" ||
                 typeof relay.reanudarDesdeArquitectura20 !== "function") return null;
-            var paused = relay.pausarParaArquitectura20(licencia);
+            var paused = await relay.pausarParaArquitectura20(licencia);
             if (!paused || paused.ok !== true) return null;
             API.__transporteLegado20Pausado = licencia;
           }
