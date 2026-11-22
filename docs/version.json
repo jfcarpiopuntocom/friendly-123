@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.88",
+  "version": "v0.8.89",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.88 C205 sync: si el estado completo no cabe en un checkpoint, un aparato completo vuelve a subir su historia al servidor una vez cada 7 dias (con el cupo diario) para que un aparato nuevo pueda terminar de recuperar. No se borra nada.",
+  "changelog": "v0.8.89 C205 sync: si el estado completo no cabe en un checkpoint, un aparato completo vuelve a subir su historia al servidor una vez cada 7 dias (con el cupo diario) para que un aparato nuevo pueda terminar de recuperar. No se borra nada.",
   "requerida": false,
-  "shell": "f123-shell-v888",
+  "shell": "f123-shell-v889",
   "apagar": [],
-  "releaseName": "v0.8.88",
-  "cacheGeneration": "golden424"
+  "releaseName": "v0.8.89",
+  "cacheGeneration": "golden425"
 }
