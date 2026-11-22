@@ -86,3 +86,44 @@ test('C167 Safari formatter reuse: all authentic receipts, two time zones, exact
  assert.equal(other.totals.commission,300);
  assert.equal(constructors,2,'one formatter per actual business zone, not per sale');
 });
+
+test('C166 Safari: opening total from REAL business API never invokes the expensive monthly ledger',async()=>{
+ const vm=require('node:vm'),source=read('src/app/app-inline-01.js');
+ const start=source.indexOf('async function cargarComisiones(){');
+ const end=source.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',start);
+ assert.ok(start>0&&end>start,'execute the production all-time branch');
+ assert.ok(source.includes('data-commissions-open-month'),'operators retain explicit monthly settlement access');
+ const container={innerHTML:''},calls=[];
+ const ctx={
+  document:{documentElement:{lang:'es'},getElementById(id){assert.equal(id,'listaComisiones');return container;}},
+  window:{OCCommissionHistory:report},
+  _ocMesComisiones:null,_ocComisionesSolicitud:0,API:'/api',
+  renderGestionPromotoras(){},t(){return 'Retry';},
+  barraComisionesHtml(){return '<div data-commissions-open-month>month-on-demand</div>';},
+  fetch(url){calls.push(url);
+    if(url==='/api/ventas/todas?ubicacionId=todas')return Promise.resolve({ok:true,json:async()=>sales});
+    throw Error('unexpected payout reconstruction '+url);
+  }
+ };
+ vm.runInNewContext(source.slice(start,end)+'}',ctx,{filename:'C166-real-app-source.js'});
+ await ctx.cargarComisiones();
+ assert.deepEqual(calls,['/api/ventas/todas?ubicacionId=todas']);
+ assert.match(container.innerHTML,/Total de comisiones/);
+ assert.match(container.innerHTML,/\$26[.,]00/);
+ assert.doesNotMatch(container.innerHTML,/data-comm-history-group/);
+});
+test('C166 Safari: real sales unavailable is visible error, never a fake zero business',async()=>{
+ const vm=require('node:vm'),source=read('src/app/app-inline-01.js');
+ const start=source.indexOf('async function cargarComisiones(){'),end=source.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',start);
+ const container={innerHTML:''};
+ const ctx={
+  document:{documentElement:{lang:'es'},getElementById(){return container;}},
+  window:{OCCommissionHistory:report},API:'/api',
+  _ocMesComisiones:null,_ocComisionesSolicitud:0,t(){return 'Retry';},
+  fetch(){return Promise.reject(Error('synthetic offline'));}
+ };
+ vm.runInNewContext(source.slice(start,end)+'}',ctx,{filename:'C166-offline-app-source.js'});
+ await ctx.cargarComisiones();
+ assert.match(container.innerHTML,/No se pudo cargar el historial completo/);
+ assert.doesNotMatch(container.innerHTML,/\$0[.,]00/);
+});
