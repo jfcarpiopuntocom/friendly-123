@@ -187,7 +187,7 @@ function mountBrowserSyncRuntime({
     OCAuth: {rolActual: () => role, esDemo: () => false},
     OCSecure: {leerPinQueAbre: () => ({owner: ownerPin, team: null})},
     OCFotos,
-    OCSync: {
+    OCSyncControl: {
       estado: () => 'apagado',
       salaActiva: () => null,
       durabilidadPendiente: () => false,
