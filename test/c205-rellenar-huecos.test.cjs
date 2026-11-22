@@ -22,12 +22,12 @@ function build(Y){
  const holed=log.filter((x,k)=>k!==bFirst).map(x=>x.u);
  return {full,holed,bytes:Y.encodeStateAsUpdate(full).length};
 }
-async function device(fullDoc){
- const sockets=[],timers=[],data=new Map(),ls=new Map();
+async function device(fullDoc,opts={}){
+ const sockets=[],timers=[],data=new Map(),ls=opts.sharedStorage||new Map();
  class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){this.sent.push(x)}close(){this.readyState=3;this.onclose?.()}}
  const db={objectStoreNames:{contains:k=>k==='updates'},transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}};
  const p={whenSynced:Promise.resolve(),db,get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
- const ctx={API:{clave:'synthetic',roomId:'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,
+ const ctx={API:{clave:'synthetic',roomId:opts.roomId||'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,
   localStorage:{getItem:k=>ls.has(k)?ls.get(k):null,setItem:(k,v)=>{ls.set(k,String(v))}},
   WebSocket:class{constructor(){throw Error('raw relay forbidden')}},
   window:{dispatchEvent(){},F123Relay:{connect:()=>new Socket()}},
@@ -97,4 +97,16 @@ test('C205: budget exhausted (QuotaExceeded) keeps the group queued, nothing los
 test('C205: photos channel never repairs (source guard)',()=>{
  const i=src.indexOf('function repararHuecosServidor(full) {');
  assert.match(src.slice(i,i+300),/nombre === "fotos"/);
+});
+
+// Source-executed test: stale cooldown of license A in the same browser must not block clean license B.
+test('C205: license A cooldown never blocks repair for B using the same localStorage',async()=>{
+ const shared=new Map([
+  ['f123_huecos_v1-y',JSON.stringify({local:Date.now()})], // obsolete global key must be ignored
+  ['f123_huecos_v1:A-y',JSON.stringify({local:Date.now()})]
+ ]);
+ const b=await device(Y=>Y.encodeStateAsUpdate(build(Y).full),{roomId:'B',sharedStorage:shared});
+ await b.ckpt();await b.drain();await settle(40);
+ assert.ok(ops(b.socket).length>=2,'B must publish its repair even though A already has a cooldown');
+ assert.equal(JSON.parse(shared.get('f123_huecos_v1:B-y')||'{}').local,undefined,'B cooldown starts only after its own durable ACK');
 });
