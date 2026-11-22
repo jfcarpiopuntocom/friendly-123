@@ -7548,14 +7548,22 @@ async function cargarComisiones(){
 
 async function exportarComisionesTotalCSV(){
   if (_ocMesComisiones) return exportarComisionesCSV();
+  const from=window._ocComHistoryFrom||"",to=window._ocComHistoryTo||"";
+  if(from&&to&&from>to){
+    alert(document.documentElement.lang==="es"
+      ?"Rango de fechas inválido: «Desde» debe ser anterior o igual a «Hasta»."
+      :"Invalid date range: From must be on or before To.");
+    return; // Never download an apparently empty or zero-value financial CSV.
+  }
   try {
     const res=await fetch(`${API}/ventas/todas?ubicacionId=todas`);
     if(!res.ok)throw Error("ventas-http");
     const sales=await res.json();
     if(!Array.isArray(sales)||!window.OCCommissionHistory)throw Error("ventas-invalid");
-    const report=window.OCCommissionHistory.project({sales,from:window._ocComHistoryFrom||"",
-      to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"total",
+    const report=window.OCCommissionHistory.project({sales,from,
+      to,group:window._ocComHistoryGroup||"total",
       lang:document.documentElement.lang==="es"?"es":"en"});
+    if(report.invalidRange)throw Error("commissions-invalid-date-range");
     const csvValue=v=>{const t=String(v==null?"":v);return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
     const rows=[["Fecha","Venta ID","Grupo","Ventas brutas","Comision registrada"]];
     report.rows.forEach(v=>{const g=report.groups.find(x=>x.id===v.group);rows.push([v.day,v.id,g?g.label:"",
