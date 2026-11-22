@@ -28,7 +28,7 @@ test('app: reintentos de ops sin confirmar se espacian hasta 10 min y no golpean
   const src=leer('sync-realtime.js');
   const a=src.indexOf('  let _retryDurableMs = 30000;'),b=src.indexOf('\n  }\n',src.indexOf('function reintentarDurable',a))+4;
   const esperas=[];let pend;const c={Math:{min:Math.min,round:Math.round,random:()=>0},colaLargo:()=>1,vaciarCola(){},
-    setTimeout:(f,n)=>{esperas.push(n);pend=f;return 1},_retryDurable:null};
+    setTimeout:(f,n)=>{esperas.push(n);pend=f;return 1},_retryDurable:null,_pausaArquitectura20:null};
   vm.createContext(c);vm.runInContext('var _retryDurable=null;'+src.slice(a,b)+';this.go=reintentarDurable;',c);
   c.go();for(let i=0;i<8;i++){const f=pend;pend=null;f();}
   assert.equal(esperas[0],30000);assert.equal(esperas[1],60000);
