@@ -65,7 +65,7 @@
     "./core/demo-huellas.js": "sha256-c7091f4114f78cc8948b01bc80093940d4a69d071948c4622840b9bc2bf8d735",
     "./core/ledger.js": "sha256-cf389389018d4fb3ea395e2edb5abe39cde40dff78859c5f7a21aba8aa0e9cf4",
     "./core/sales-audit.js": "sha256-450a2c18accad13ae0949aa14fa05b724ee0b77f84915980799a35933ff4f007",
-    "./core/business-read-model.js": "sha256-4e4c542adefb033506800af04319fb28e6edbc4d1d3e27fc25349215665bb7ac",
+    "./core/business-read-model.js": "sha256-e12f548eec4b953b9ba26eff506f349e0754005b2434fe8995b5f279337ff482",
     "./core/report-period.js": "sha256-68bf10f05af10d50e3ac7f9be00db69826a71e7a6f64ddcb4d048fe415769a2c",
     "./core/finance-report.js": "sha256-803c5aff7d629cd89d47f50c7273bfd389d15e85a73209dd2bbd3fcfef9f3eee",
     "./finance-report-worker.js": "sha256-9efaa3ebaa580dd917794dbb79957bed321ba1b9897e79996a2afc2757b97f7b",
