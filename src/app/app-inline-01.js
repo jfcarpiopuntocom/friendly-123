@@ -7017,56 +7017,60 @@ let _ocComisionesSolicitud = 0;
 // C182: old Commissions card vocabulary, all-history data, no mandatory period.
 // The existing verified economic projector remains the ONLY arithmetic source.
 function resumenComisionesGlobalHtml(sales){
+  // Same Commissions visual components as before: tag-card, stats, rotulo, cifra.
+  // Only the view changes; the source spans every sale, with no implicit month.
   const es=document.documentElement.lang==="es";
   const group=["producto","percha","cliente","comisionista","mes"].includes(window._ocComHistoryGroup)
     ?window._ocComHistoryGroup:"producto";
   const view=window.OCCommissionHistory.project({sales:sales,group:group,lang:es?"es":"en"});
-  const t=view.totals;
+  const totals=view.totals;
   const money=(v,unknown)=>unknown||v===null||!Number.isFinite(v)?(es?"Por verificar":"Needs review"):fmtMoney(v);
   const tile=(name,value)=>'<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;box-shadow:none;">'
-    +'<div class="rotulo" style="font-size:14px;">'+name+'</div>'
-    +'<div class="cifra" style="font-size:20px;">'+value+'</div></div>';
+    +'<div class="rotulo">'+name+'</div>'
+    +'<div class="cifra">'+value+'</div></div>';
   const titles={producto:es?"Por producto":"By product",percha:es?"Por percha / evento":"By rack / event",
     cliente:es?"Por cliente":"By customer",comisionista:es?"Por comisionista":"By associate",
     mes:es?"Por período":"By period"};
-  const warnings=(t.conflicts||t.splitConflicts||t.customerConflicts||t.associateConflicts)
+  const warnings=(totals.conflicts||totals.splitConflicts||totals.customerConflicts||totals.associateConflicts)
     ?'<p role="alert" style="font-size:14px;color:var(--rojo-ink,#a3392a);margin:8px 0;">'
       +(es?"Hay recibos o repartos por verificar.":"Some receipts or allocations need review.")+'</p>':"";
   const cards=view.groups.map(function(g){
     const associated=group==="comisionista";
     const rows=view.rows.filter(function(v){return v.group===g.id;});
     const productId=group==="producto"&&(sales||[]).some(function(v){return v&&v.productoId!=null&&String(v.productoId)===String(g.id);})?String(g.id):"";
-    const safeMonth=function(day){const v=String(day||"").slice(0,7);return /^\d{4}-(0[1-9]|1[0-2])$/.test(v)?v:"";};
-    const value=money(g.commission,g.unknownCommission);
-    const gross=associated?"":'<span>'+ (es?"Ventas":"Sales")+': '+money(g.gross,g.unknownGross)+'</span>';
+    const safeMonth=function(day){const v=String(day||"").slice(0,7);return /^\\d{4}-(0[1-9]|1[0-2])$/.test(v)?v:"";};
     const details=rows.map(function(v){
       const month=safeMonth(v.day);
-      const toProduct=productId&&month?'<button type="button" data-product-id="'+escHtml(productId)+'" data-month="'+month
+      // Opening a monthly ledger is explicit and is never used to filter the main view.
+      const monthButton=productId&&month?'<button type="button" data-product-id="'+escHtml(productId)+'" data-month="'+month
         +'" onclick="cambiarMesComisiones(this.dataset.month);abrirFichaProducto(this.dataset.productId)"'
         +' class="tecla" style="min-height:36px;font-size:13px;padding:4px 8px;">'
         +(es?"Ver mes":"Open month")+'</button>':"";
       return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
-        +'<span>'+escHtml(v.day||v.id||"")+'</span><span>'+money(v.commission,v.commission===null)+'</span>'+toProduct+'</div>';
+        +'<span>'+escHtml(v.day||v.id||"")+'</span>'
+        +'<span>'+money(v.commission,v.commission===null)+'</span>'+monthButton+'</div>';
     }).join("");
-    const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
+    const period=group==="mes"&&/^\\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
         +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
         +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
-
-    return '<details data-comm-history-group'+(productId?' data-comm-product-card data-product-id="'+escHtml(productId)+'"':'')
-      +' class="tag-card" style="text-align:left;padding:12px 14px;margin:0 0 8px;">'
-      +'<summary style="cursor:pointer;min-height:44px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">'
-      +'<span><strong style="display:block;font-size:16px;">'+escHtml(g.label)+'</strong>'
-      +'<span style="font-size:13px;">'+g.count+' '+(es?"ventas":"sales")+'</span></span>'
-      +'<span style="font-size:14px;text-align:right;">'+gross+'<strong style="display:block;">'
-      +(es?"Comisiones":"Commissions")+': '+value+'</strong></span></summary>'
-      +'<div style="padding-top:8px;">'+details+period+'</div></details>';
+    return '<details data-comm-history-group'+(productId?' data-comm-history-product="'+escHtml(productId)+'"':'')
+      +' class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
+      +'<summary style="cursor:pointer;min-height:44px;">'
+      +'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+'</strong>'
+      +'<div class="stats" style="margin-top:8px;">'
+      +(associated?'':'<div><div class="rotulo">'+(es?"Ventas brutas":"Gross sales")
+        +'</div><div class="cifra">'+money(g.gross,g.unknownGross)+'</div></div>')
+      +'<div><div class="rotulo">'+(es?"Comisiones":"Commissions")+'</div><div class="cifra">'
+        +money(g.commission,g.unknownCommission)+'</div></div></div>'
+      +'<span style="font-size:13px;color:var(--ink-soft);">'+g.count+' '+(es?"ventas":"sales")+'</span>'
+      +'</summary><div style="padding-top:8px;">'+details+period+'</div></details>';
   }).join("");
   return '<section data-commissions-summary="all" data-commissions-current-view="'+group+'">'
-    +warnings+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:0 0 16px;">'
-    +tile(es?"Total de comisiones":"Total commissions",money(t.commission,t.unknownCommission))
-    +tile(es?"Ventas brutas":"Gross sales",money(t.gross,t.unknownGross))
-    +tile(es?"Ventas":"Sales",String(t.count))+'</div>'
+    +warnings+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 16px;">'
+    +tile(es?"Total de comisiones":"Total commissions",money(totals.commission,totals.unknownCommission))
+    +tile(es?"Ventas brutas":"Gross sales",money(totals.gross,totals.unknownGross))
+    +tile(es?"Ventas":"Sales",String(totals.count))+'</div>'
     +'<h3 class="seccion" style="font-size:16px;margin:0 0 10px;">'+titles[group]+'</h3>'
     +(cards||'<p style="font-size:14px;">'+(es?"No hay ventas registradas en esta vista.":"No recorded sales in this view.")+'</p>')
     +'</section>';
