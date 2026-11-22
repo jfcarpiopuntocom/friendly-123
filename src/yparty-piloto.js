@@ -160,7 +160,7 @@ window.F123YPartyPilot = function (sala, licencia) {
       try { ownerCredentials(instanceId); } catch (_) { throw unavailable(); }
       if (!privateDoc || typeof expectedFrozenHead !== 'string' ||
           !/^[A-Za-z0-9_.:-]{3,128}$/.test(expectedFrozenHead) ||
-          typeof createProvider !== 'function') throw unavailable();
+          (createProvider !== undefined && typeof createProvider !== 'function')) throw unavailable();
       const store = await this.crearAlmacenDurableOpsTipadas({indexedDB});
       if (typeof store.loadCommittedOpIds !== 'function' ||
           typeof store.markCommitted !== 'function') throw unavailable();
