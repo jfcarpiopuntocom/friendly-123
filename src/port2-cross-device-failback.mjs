@@ -139,7 +139,6 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
       });
       if (!session || typeof session !== 'object' || typeof session.close !== 'function' ||
           !HEAD.test(session.frozenHead || '') || !isVisible() || destroyed || activationEpoch !== epoch) {
-        try { session?.close?.(); } catch (_) {}
         throw new Error('certified catalog session unavailable');
       }
       catalogSession = session;
