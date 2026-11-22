@@ -58,28 +58,33 @@
       return bytes || null;
     }
 
-    async function preserve(id, hash, bytes) {
+    // C204: saltarPorId evita pisar una foto por id mas completa con la miniatura que viaja por el sync.
+    async function preserve(id, hash, bytes, saltarPorId) {
       if (!bytes) return;
       if (hash && ports.preserveByHash) {
         try { await ports.preserveByHash(hash, bytes); } catch (_) {}
       }
-      if (ports.preserveById) {
+      if (!saltarPorId && ports.preserveById) {
         try { await ports.preserveById(id, bytes); } catch (_) {}
       }
     }
 
     if (plan.modo === "pointer-vigente") {
       var vigente = await readHash(plan.pointerActual);
+      // C204: este aparato puede tener la foto completa de la que el puntero es miniatura.
+      var completa = null;
+      if (ports.readFullByHash) { try { completa = await ports.readFullByHash(plan.pointerActual); } catch (_) {} }
       var decision = policy.decidirPointerVigente(plan, {
         hashDisponible: !!vigente,
         perIdDisponible: !!perIdBytes
       });
 
-      if (vigente) {
-        await preserve(id, plan.pointerActual, vigente);
+      if (vigente || completa) {
+        if (vigente) await preserve(id, plan.pointerActual, vigente,
+          !!completa || !!(perIdBytes && perIdBytes.length > vigente.length));
         return {
           estado: "pointer-vigente",
-          displayBytes: vigente,
+          displayBytes: completa || vigente,
           displayHash: plan.pointerActual,
           pointerChanged: false,
           pointerHash: plan.pointerActual,

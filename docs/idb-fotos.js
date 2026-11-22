@@ -257,7 +257,7 @@
       return await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_BLOBS, "readonly");
         const req = tx.objectStore(STORE_BLOBS).getAllKeys();
-        req.onsuccess = () => resolve([...new Set((req.result || []).map(String).concat(hashesLegado()))]);
+        req.onsuccess = () => resolve([...new Set((req.result || []).map(String).concat(hashesLegado()))].filter((k) => !k.endsWith(".full"))); // C204: la foto completa local no se siembra (".full" = SUFIJO_COMPLETA)
         req.onerror = () => reject(req.error || new Error("inventario IDB: solicitud fallida"));
         tx.onerror = () => reject(tx.error || new Error("inventario IDB: transaccion fallida"));
         tx.onabort = () => reject(tx.error || new Error("inventario IDB: transaccion abortada"));
@@ -334,6 +334,47 @@
     if (!await guardarPorHash(hash, dataUrl)) throw new Error('Photo blob was not saved');
     return hash;
   }
+
+  /* C204 (JFC): la foto completa vive SOLO en el aparato que la toma; al sync viaja una miniatura.
+     - La miniatura es una foto normal con su propio SHA (el puntero fotoHash apunta a ella), asi el canal de fotos,
+       la verificacion SHA y los aparatos viejos funcionan sin cambios.
+     - La foto completa se guarda local bajo la clave "<hashMiniatura>.full": NO es un SHA, por eso
+       hashesGuardados() la excluye del inventario que siembra el relay; leerTodosPorHash() SI la incluye
+       (el respaldo manual conserva la foto completa). Nada existente se reescribe ni se borra.
+     - Fail-open: si no se puede crear una miniatura claramente mas chica, se guarda la foto completa como siempre. */
+  const MINIATURA_LADO = 400, MINIATURA_CALIDAD = 0.72, SUFIJO_COMPLETA = ".full";
+  function crearMiniatura(dataUrl) {
+    return new Promise((resolve) => {
+      try {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            if (!img.width || !img.height) return resolve(null);
+            const esc = Math.min(1, MINIATURA_LADO / Math.max(img.width, img.height));
+            const cv = document.createElement("canvas");
+            cv.width = Math.max(1, Math.round(img.width * esc)); cv.height = Math.max(1, Math.round(img.height * esc));
+            cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+            let out = cv.toDataURL("image/webp", MINIATURA_CALIDAD);
+            if (!/^data:image\/webp;base64,/.test(out)) out = cv.toDataURL("image/jpeg", MINIATURA_CALIDAD);
+            resolve(/^data:image\/(webp|jpeg);base64,/.test(out) ? out : null);
+          } catch (_) { resolve(null); }
+        };
+        img.onerror = () => resolve(null);
+        img.src = dataUrl;
+      } catch (_) { resolve(null); }
+    });
+  }
+  // Devuelve el hash que debe ir de puntero (miniatura, o la foto completa si no hay miniatura util).
+  async function guardarFotoConMiniatura(dataUrl) {
+    const mini = await crearMiniatura(dataUrl);
+    if (!mini || mini.length * 1.5 > dataUrl.length) return guardarFotoContenido(dataUrl);
+    const hash = await hashDeDataUrl(mini);
+    // Primero la completa local: si falla, no se publica un puntero a una miniatura sin respaldo.
+    if (!await guardarPorHash(hash + SUFIJO_COMPLETA, dataUrl)) throw new Error('Photo blob was not saved');
+    if (!await guardarPorHash(hash, mini)) throw new Error('Photo blob was not saved');
+    return hash;
+  }
+  const leerFotoCompletaPorHash = (hash) => hash ? leerPorHash(hash + SUFIJO_COMPLETA) : Promise.resolve(null);
 
   // Clave localStorage que usaba el formato viejo (antes de esta migracion).
   const claveVieja = (id) => "f123_foto_percha_" + id;
@@ -685,6 +726,6 @@
     soportado: () => SOPORTADO,
     // B1 (content-addressed): guardar/leer por hash + protocolo tengo/quiero.
     hashDeDataUrl, guardarPorHash, leerPorHash, tieneHash, tieneHashSoloIdb, hashesGuardados, leerTodosPorHash, guardarFotoContenido,
-    tieneFotoHashConfirmadoEnIdb, optimizarCapturaFoto
+    tieneFotoHashConfirmadoEnIdb, optimizarCapturaFoto, guardarFotoConMiniatura, leerFotoCompletaPorHash
   };
 })();

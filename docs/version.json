@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.86",
+  "version": "v0.8.88",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.86 C200: 42 scripts grandes se sirven minificados (.min.js) desde sus fuentes comentadas; arranque 3.757.898 B -> ~2,5 MB. Incluye C199 export local de v0.8.85.",
+  "changelog": "v0.8.88 C204 fotos: al sync viaja solo una miniatura (<=40 KB); la foto completa queda en el aparato que la tomo y en su respaldo. Fotos existentes intactas.",
   "requerida": false,
-  "shell": "f123-shell-v886",
+  "shell": "f123-shell-v888",
   "apagar": [],
-  "releaseName": "v0.8.86",
-  "cacheGeneration": "golden422"
+  "releaseName": "v0.8.88",
+  "cacheGeneration": "golden424"
 }
