@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.83",
+  "version": "v0.8.84",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.83 C196: 2.0 typed-op cutover closes certified writer before fallback; original opId is durably fenced; no dual writer or silent ops publication.",
+  "changelog": "v0.8.84 C197: Opera Air Today dashboard replaces quadratic historic return searches with indexed lookups and reuses bounded Intl date formatters. No money/PIN/Sync3 behavior change.",
   "requerida": false,
-  "shell": "f123-shell-v883",
+  "shell": "f123-shell-v884",
   "apagar": [],
-  "releaseName": "v0.8.83",
-  "cacheGeneration": "golden419"
+  "releaseName": "v0.8.84",
+  "cacheGeneration": "golden420"
 }
