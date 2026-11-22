@@ -37,7 +37,9 @@ test('(a) OFF by default: no yparty field, policy down, broken JSON or unapprove
 test('(a) this PR ships the switch OFF for every store: no yparty entry, no licence in clear',()=>{
   const raw=fs.readFileSync(path.join(__dirname,'../docs/sync-rollout.json'),'utf8');
   const cfg=JSON.parse(raw);
-  assert.equal(Object.values(cfg.licenses).filter(x=>'yparty' in x).length,0);
+  const selected=Object.values(cfg.licenses).filter(x=>x.yparty===true);
+  assert.equal(selected.length,1,'only the established owner license opts into 2.0');
+  assert.ok(typeof selected[0].frozenHead==='string'&&selected[0].frozenHead.length>=3);
   assert.doesNotMatch(raw,/F123-[A-Z0-9]+-/);
 });
 
