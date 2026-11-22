@@ -23,7 +23,8 @@ jobs:
       - name: Compile exact browser bundle for source-to-runtime verification
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
-          node scripts/build-yparty-piloto.cjs
+          npm ci --prefix cloudflare-yparty-worker --ignore-scripts --no-audit --no-fund
+          NODE_PATH="$PWD/cloudflare-yparty-worker/node_modules" node scripts/build-yparty-piloto.cjs
           node scripts/gen-manifest.js
           node - <<'NODE'
           const fs = require('node:fs');
