@@ -58,7 +58,7 @@ test('C136: both published pages load same verified projection and default to al
  assert.match(app,/window\._ocComHistoryGroup/);
  assert.match(dash,/if \(cmMes === null\) \{ pintarComisionesTodas\(\); return; \}/);
  assert.match(dash,/OCCommissionHistory\.render\(\{sales:datos\.ventas/);
- assert.match(dash,/var cmDesde = "", cmHasta = "", cmGrupo = "producto"/);
+ assert.match(dash,/var cmDesde = "", cmHasta = "", cmGrupo = "total"/);
  // Keep actual settlement writes period-scoped, with original backend API intact.
  assert.match(app,/fetch\(\x60\$\{API\}\/liquidaciones\?mes=\$\{encodeURIComponent\(_mesSolicitud \|\| ""\)\}\x60\)/);
  assert.match(dash,/&mes=' \+ encodeURIComponent\(cmMes \|\| actual\)/);

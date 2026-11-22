@@ -992,7 +992,7 @@
   var cmMes = null, cmVista = "producto";
   // Belén 1AAA: the default is the full read-only history; a selected month
   // retains the exact same ledger, payment receipts and adjustments as before.
-  var cmDesde = "", cmHasta = "", cmGrupo = "producto";
+  var cmDesde = "", cmHasta = "", cmGrupo = "total";
   function cmMesActual() { return mesLocalDe(new Date().toISOString()); }
   function cmEtiquetaMes(m) {
     var p = String(m || "").split("-").map(Number);
@@ -1219,7 +1219,7 @@
   function pintarComisionesTodas() {
     var cont=$("cm");if(!cont)return;
     var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
-    var months=cmMeses(),labels=[["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
+    var months=cmMeses(),labels=[["total",es?"Total general":"Overall total"],["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
       ["cliente",es?"Cliente":"Customer"],["comisionista",es?"Comisionista":"Associate"],["mes",es?"Mes":"Month"]];
     var opt=months.map(function(m){return '<option value="'+esc(m)+'">'+esc(cmEtiquetaMes(m))+'</option>';}).join("");
     var inputStyle='min-height:42px;padding:7px;border:1px solid #19354B;border-radius:6px;background:#fff;color:#0F1923;font:inherit;';

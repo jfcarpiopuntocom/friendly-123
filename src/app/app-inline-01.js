@@ -6610,12 +6610,12 @@ function cambiarMesComisiones(mes){
 function cambiarRangoComisionesGlobal(tipo, valor){
   if(tipo==="desde")window._ocComHistoryFrom=/^\d{4}-\d{2}-\d{2}$/.test(valor)?valor:"";
   else if(tipo==="hasta")window._ocComHistoryTo=/^\d{4}-\d{2}-\d{2}$/.test(valor)?valor:"";
-  else window._ocComHistoryGroup=["producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"producto";
+  else window._ocComHistoryGroup=["total","producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"total";
   if(!_ocMesComisiones)cargarComisiones();
 }
 function selectorRangoComisionesGlobalHtml(){
-  const es=document.documentElement.lang==="es",from=window._ocComHistoryFrom||"",to=window._ocComHistoryTo||"",group=window._ocComHistoryGroup||"producto";
-  const opciones=[["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
+  const es=document.documentElement.lang==="es",from=window._ocComHistoryFrom||"",to=window._ocComHistoryTo||"",group=window._ocComHistoryGroup||"total";
+  const opciones=[["total",es?"Total general":"Overall total"],["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
     ["cliente",es?"Cliente":"Customer"],["comisionista",es?"Comisionista":"Associate"],["mes",es?"Mes":"Month"]];
   return '<label style="display:flex;align-items:center;gap:5px;font-size:14px;">'+(es?"Desde":"From")+
     ' <input type="date" aria-label="'+(es?"Desde":"From")+'" value="'+escHtml(from)+'" onchange="cambiarRangoComisionesGlobal(\'desde\',this.value)" style="min-height:40px;padding:6px;border:1px solid #2C3E50;border-radius:6px;"></label>'+
@@ -6651,7 +6651,17 @@ function selectorMesComisionesHtml(meses){
    acciones en una fila que envuelve en movil; debajo, solo si hace falta, la linea
    de meses sin pagar. Antes cada cosa ocupaba su propia linea y la UI estorbaba. */
 function barraComisionesHtml(meses, acciones){
-  const sel = selectorMesComisionesHtml(meses);
+  // The all-time entry needs no expensive /liquidaciones/meses query.
+  // Operators can open ANY settlement period, including adjustment-only months,
+  // via a month picker; the original monthly ledger then loads on demand.
+  const sel = _ocMesComisiones ? selectorMesComisionesHtml(meses) : {
+    control: '<label style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;">'
+      +(document.documentElement.lang==="es"?"Liquidar mes":"Settle month")
+      +' <input type="month" data-commissions-open-month aria-label="'
+      +(document.documentElement.lang==="es"?"Liquidar mes":"Settle month")
+      +'" onchange="cambiarMesComisiones(this.value)" style="min-height:40px;border:2px solid #2C3E50;border-radius:6px;padding:4px 8px;max-width:180px;"></label>',
+    aviso: "",nota:""
+  };
   const filas = [sel.nota].filter(Boolean).map((x) => `<div style="margin-top:8px;">${x}</div>`).join("");
   return `<div class="tag-card" data-commissions-toolbar style="text-align:left;padding:10px 14px;margin:0 0 14px;">
     <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${_ocMesComisiones?sel.aviso:""}${_ocMesComisiones?selectorVistaComisionesHtml():selectorRangoComisionesGlobalHtml()}<div class="acciones">${acciones}</div></div>${filas}
@@ -7004,17 +7014,19 @@ async function cargarComisiones(){
   // Monthly payout, receipts, correction and commission ledger stay untouched.
   if (!_ocMesComisiones) {
     try {
-      const [sales, months] = await Promise.all([
-        fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();}),
-        fetch(`${API}/liquidaciones/meses`).then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
-      ]);
+      // One real full-history read. The old parallel month-list request also
+      // recomputed payout obligations for every month on Safari; that doubled
+      // heavy work exactly when Commissions opened. Open a month only on demand.
+      const sales=await fetch(`${API}/ventas/todas?ubicacionId=todas`)
+        .then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();});
+      const months=[]; // Global summary is read-only; monthly payouts load after choice.
       if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
       if (!window.OCCommissionHistory || !Array.isArray(sales)) throw Error("commission-history-not-loaded");
       // Keep the existing people-management form live in BOTH period modes.
       // This is unrelated to all-history reporting and still edits the same business.
       try { renderGestionPromotoras(); } catch (_) {}
       const report=window.OCCommissionHistory.render({sales:sales,from:window._ocComHistoryFrom||"",
-        to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"producto",
+        to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"total",
         lang:document.documentElement.lang==="es"?"es":"en"});
       const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
       if(cont)cont.innerHTML=barraComisionesHtml(months,actions)+report;
@@ -7542,7 +7554,7 @@ async function exportarComisionesTotalCSV(){
     const sales=await res.json();
     if(!Array.isArray(sales)||!window.OCCommissionHistory)throw Error("ventas-invalid");
     const report=window.OCCommissionHistory.project({sales,from:window._ocComHistoryFrom||"",
-      to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"producto",
+      to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"total",
       lang:document.documentElement.lang==="es"?"es":"en"});
     const csvValue=v=>{const t=String(v==null?"":v);return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
     const rows=[["Fecha","Venta ID","Grupo","Ventas brutas","Comision registrada"]];
