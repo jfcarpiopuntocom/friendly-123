@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.69",
+  "version": "v0.8.70",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.69 C175: Commissions detecta identidades distintas de cliente en copias de una misma venta, conserva la comisión real y marca cliente por verificar en desgloses, sin atribución arbitraria.",
+  "changelog": "v0.8.70 C176: Commissions evita falsos $0 y CSV vacíos por fechas Desde > Hasta. Preserva C175 conflictos de cliente y comisionista, datos auténticos, Safari y cola cifrada.",
   "requerida": false,
-  "shell": "f123-shell-v869",
+  "shell": "f123-shell-v870",
   "apagar": [],
-  "releaseName": "v0.8.69",
-  "cacheGeneration": "golden405"
+  "releaseName": "v0.8.70",
+  "cacheGeneration": "golden406"
 }
