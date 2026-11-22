@@ -229,10 +229,23 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
       });
     }
 
-    const res = await reconciler.submit(command);
-    if (res?.committed === true || res?.reconcileRequired === true ||
-        res?.quarantine === true || res?.retryTarget === 'same-do-only') {
-      latchedOrCommittedOpIds.add(opId);
+    // Close the window between choosing 2.0 and committing its IDB intent.
+    // A concurrent failback must not authorize legacy for the same opId.
+    const previouslyLatched = latchedOrCommittedOpIds.has(opId);
+    latchedOrCommittedOpIds.add(opId);
+    let res;
+    try {
+      res = await reconciler.submit(command);
+    } catch (_) {
+      return Object.freeze({ committed: false, fallbackLegacy: false,
+        reconcileRequired: true, retryTarget: 'same-do-only', stage: 'dispatch-rejected' });
+    }
+    if (res?.fallbackLegacy === true && !res?.reconcileRequired &&
+        !res?.committed && !res?.quarantine && res?.retryTarget !== 'same-do-only') {
+      // C16a resolves pre-send fallback only AFTER durable prepared-row deletion.
+      if (!previouslyLatched) latchedOrCommittedOpIds.delete(opId);
+      else return Object.freeze({ ...res, fallbackLegacy: false,
+        reconcileRequired: true, retryTarget: 'same-do-only', stage: 'already-latched' });
     }
     return res;
   }
