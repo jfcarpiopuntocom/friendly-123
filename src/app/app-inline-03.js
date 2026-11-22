@@ -362,7 +362,16 @@ const _ocActSolaOn = true;
       const vj = await r.json();
       if (!vj || !vj.shell) return;
       const sirve = await shellDelSW();
-      if (!sirve || sirve === String(vj.shell)) return;
+      if (!sirve) return;
+      if (sirve === String(vj.shell)) {
+        // The worker can finish takeover before this check. Keep the target
+        // fingerprint complete even if the older compatibility path wrote only a shell.
+        if (pendiente()) {
+          try { localStorage.setItem("f123_version_vista", String(vj.version || "") + "|" + String(vj.shell)); } catch (_) {}
+          intentar();
+        }
+        return;
+      }
       try { localStorage.setItem("f123_version_vista", String(vj.version || "") + "|" + String(vj.shell)); } catch (_) {}
       try {
         const reg = await navigator.serviceWorker.getRegistration();
