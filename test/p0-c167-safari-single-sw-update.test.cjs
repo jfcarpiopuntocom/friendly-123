@@ -37,3 +37,23 @@ test('C167: keep explicit updates when server version differs and safe reload pa
  assert.match(source,/function _recargarSeguroVersion\(\)/);
  assert.match(source,/reg\.waiting\.postMessage\(\{ tipo: "skip-waiting" \}\)/);
 });
+
+test('C167: source-executed version change STILL requests one explicit SW update and defers reload safely',async()=>{
+ const start=source.indexOf('(async function () {',source.indexOf('// 4D:'));
+ const end=source.indexOf('})();',start)+5;
+ assert.ok(start>=0&&end>start,'extract real version-check IIFE');
+ const store=new Map([['f123_version_vista','v0.8.62|f123-shell-v862']]);
+ let updates=0;
+ const sandbox={
+   navigator:{serviceWorker:{controller:{},getRegistrations:async()=>[{update:async()=>{updates++;}}]}},
+   window:{},localStorage:{getItem:k=>store.get(k)??null,setItem:(k,v)=>store.set(k,v)},
+   sessionStorage:{setItem:(k,v)=>store.set('session:'+k,v)},
+   fetch:async()=>({ok:true,json:async()=>({version:'v0.8.64',shell:'f123-shell-v864'})}),
+   Date,JSON,Promise,setTimeout:()=>0
+ };
+ vm.runInNewContext(source.slice(start,end),sandbox,{filename:'app-inline-03-live-version-check.js'});
+ for(let i=0;i<24;i++)await Promise.resolve();
+ assert.equal(updates,1,'real version mismatch still actively updates the registered SW');
+ assert.equal(store.get('f123_version_vista'),'v0.8.64|f123-shell-v864');
+ assert.equal(store.get('session:f123_reload_al_entrar'),'1','reload remains deferred until safe login');
+});
