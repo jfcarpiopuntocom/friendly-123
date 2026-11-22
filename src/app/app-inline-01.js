@@ -7034,19 +7034,24 @@ function resumenComisionesGlobalHtml(sales){
   const warnings=(totals.conflicts||totals.splitConflicts||totals.customerConflicts||totals.associateConflicts)
     ?'<p role="alert" style="font-size:14px;color:var(--rojo-ink,#a3392a);margin:8px 0;">'
       +(es?"Hay recibos o repartos por verificar.":"Some receipts or allocations need review.")+'</p>':"";
+  // C194: the old loop filtered EVERY sale once per group (O(sales × groups))
+  // and eagerly instantiated every receipt node inside closed <details>.
+  // Safari could be killed by the CPU/memory spike a few seconds after entry.
+  // Index exactly once; keep every historical receipt available on demand.
+  const byGroup=new Map();
+  view.rows.forEach(function(v){
+    let entries=byGroup.get(v.group);
+    if(!entries){entries=[];byGroup.set(v.group,entries);}
+    entries.push(v);
+  });
+  window._ocComHistoryRowsPorGrupo=byGroup;
   const cards=view.groups.map(function(g){
     const associated=group==="comisionista";
-    const rows=view.rows.filter(function(v){return v.group===g.id;});
-    const details=rows.map(function(v){
-      return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
-        +'<span>'+escHtml(v.day||v.id||"")+'</span>'
-        +'<span>'+money(v.commission,v.commission===null)+'</span></div>';
-    }).join("");
     const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
         +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
         +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
-    return '<details data-comm-history-group class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
+    return '<details data-comm-history-group data-comm-group="'+escHtml(g.id)+'" ontoggle="if(this.open)mostrarDetalleComisiones(this,false)" class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
       +'<summary style="cursor:pointer;min-height:44px;">'
       +'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+'</strong>'
       +'<div class="stats" style="margin-top:8px;">'
@@ -7055,7 +7060,9 @@ function resumenComisionesGlobalHtml(sales){
       +'<div><div class="rotulo">'+(es?"Comisiones":"Commissions")+'</div><div class="cifra">'
         +money(g.commission,g.unknownCommission)+'</div></div></div>'
       +'<span style="font-size:13px;color:var(--ink-soft);">'+g.count+' '+(es?"ventas":"sales")+'</span>'
-      +'</summary><div style="padding-top:8px;">'+details+period+'</div></details>';
+      +'</summary><div data-comm-details data-loaded="0" style="padding-top:8px;"></div>'
+      +'<button type="button" data-comm-history-more hidden onclick="event.stopPropagation();mostrarDetalleComisiones(this.closest(\'details\'),true)" class="tecla" style="min-height:44px;margin-top:8px;">'
+      +(es?"Mostrar más ventas":"Show more sales")+'</button>'+period+'</details>';
   }).join("");
   return '<section data-commissions-summary="all" data-commissions-current-view="'+group+'">'
     +warnings+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 16px;">'
@@ -7065,6 +7072,29 @@ function resumenComisionesGlobalHtml(sales){
     +'<h3 class="seccion" style="font-size:16px;margin:0 0 10px;">'+titles[group]+'</h3>'
     +(cards||'<p style="font-size:14px;">'+(es?"No hay ventas registradas en esta vista.":"No recorded sales in this view.")+'</p>')
     +'</section>';
+}
+// Retain the original receipt breakdown, but mount at most 80 rows per gesture.
+// No date filters, truncated reports or changes to sales/settlements.
+function mostrarDetalleComisiones(panel,more){
+  if(!panel||!panel.open||!panel.isConnected)return;
+  const target=panel.querySelector("[data-comm-details]");
+  if(!target)return;
+  const loaded=Number(target.dataset.loaded)||0;
+  if(loaded&&!more)return;
+  const rows=window._ocComHistoryRowsPorGrupo&&window._ocComHistoryRowsPorGrupo.get(panel.dataset.commGroup)||[];
+  const next=rows.slice(loaded,loaded+80);
+  if(next.length){
+    const es=document.documentElement.lang==="es";
+    const money=(v)=>v===null||!Number.isFinite(v)?(es?"Por verificar":"Needs review"):fmtMoney(v);
+    target.insertAdjacentHTML("beforeend",next.map(function(v){
+      return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
+        +'<span>'+escHtml(v.day||v.id||"")+'</span>'
+        +'<span>'+money(v.commission)+'</span></div>';
+    }).join(""));
+    target.dataset.loaded=String(loaded+next.length);
+  }
+  const button=panel.querySelector("[data-comm-history-more]");
+  if(button)button.hidden=loaded+next.length>=rows.length;
 }
 async function cargarComisiones(){
   const _run = ++_ocComisionesSolicitud, _mesSolicitud = _ocMesComisiones;
