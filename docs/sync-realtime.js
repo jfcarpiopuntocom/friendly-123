@@ -446,11 +446,12 @@
       if (!d || d.committed !== true || d.stage !== "business-committed" ||
           typeof d.opId !== "string" || !y || y.codigoCuaderno !== lic ||
           y.__port2DurableFenceAvailable !== true) return;
-      if (_ids20Licencia !== lic || !_ids20Confirmados) {
-        _ids20Licencia = lic; _ids20Confirmados = new Set();
-      }
-      _ids20Confirmados.add(d.opId);
-      notificarEstado(estadoActual);
+      // A DOM event is never a durable ACK. Only read-back from the SAME
+      // license's IDB committed tombstones can release the old outbox fence.
+      Promise.resolve(recargarConfirmados20(lic)).then(function (ok) {
+        if (ok && _ids20Licencia === lic && _ids20Confirmados?.has(d.opId))
+          notificarEstado(estadoActual);
+      }).catch(function () {});
     });
   } catch (_) {}
 
