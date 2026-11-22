@@ -182,12 +182,14 @@ function mountDevice({bridgeFetch, indexedDB, deviceId, role}) {
     OCSecure: {
       leerPinQueAbre: () => (role === 'dueno' ? {owner: '123', team: null} : {owner: null, team: {subject: EMP_SUBJECT, pin: '234'}})
     },
-    OCSync: {
+    OCSyncControl: {
       estado: () => legacyState,
       salaActiva: () => null,
       durabilidadPendiente: () => false,
       onEstado: () => () => {},
-      desactivar: () => { legacyState = 'apagado'; },
+      desactivar: () => { legacyState = 'apagado'; }
+    },
+    OCSync: {
       catalogoPropio: () => ({productos: [], ubicaciones: [], gastos: []})
     },
     addEventListener: (t, fn) => {
