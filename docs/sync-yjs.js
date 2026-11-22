@@ -2475,10 +2475,12 @@
   }
 
   function _cabezaCongeladaQa(rollout) {
-    var head = "";
-    try { head = String(localStorage.getItem("f123_yparty_qa_frozen_head") || "").trim(); } catch (_) { head = ""; }
-    if (!head && rollout && rollout.yparty === true && typeof rollout.frozenHead === "string") {
-      head = rollout.frozenHead.trim();
+    // A per-license released certificate is authoritative; QA localStorage
+    // may only supply a head when no certified rollout head was published.
+    var head = rollout && rollout.yparty === true && typeof rollout.frozenHead === "string"
+      ? rollout.frozenHead.trim() : "";
+    if (!head) {
+      try { head = String(localStorage.getItem("f123_yparty_qa_frozen_head") || "").trim(); } catch (_) { head = ""; }
     }
     return /^[A-Za-z0-9_.:-]{3,128}$/.test(head) ? head : null;
   }
@@ -2489,17 +2491,25 @@
   }
 
   // Segunda llave (por aparato) del piloto 2.0; la primera es la politica por licencia.
-  async function cargarPiloto(codigo) {
-    var sala;
+  async function cargarPiloto(codigo, rollout) {
+    // Released per-license policy replaces the QA-only device setup. The
+    // derived room must match the same license on every device, never a
+    // remembered room from another notebook. All other stores stay legacy.
+    var qa = false, sala = null;
     try {
-      if (localStorage.getItem("f123_yparty_qa") !== "1") return null;
-      sala = localStorage.getItem("f123_yparty_qa_sala");
-    } catch (_) { return null; }
-    if (!/^[a-f0-9]{32}$/.test(sala || "")) return null;
+      qa = localStorage.getItem("f123_yparty_qa") === "1";
+      if (qa) sala = localStorage.getItem("f123_yparty_qa_sala");
+    } catch (_) {}
+    var porLicencia = !!(rollout && rollout.yparty === true &&
+      typeof rollout.frozenHead === "string" &&
+      /^[A-Za-z0-9_.:-]{3,128}$/.test(rollout.frozenHead));
+    if (!qa && !porLicencia) return null;
     var hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("f123-yparty-v1:" + codigo));
-    if (sala !== Array.from(new Uint8Array(hash).slice(0, 16), function (b) {
+    var salaCertificada = Array.from(new Uint8Array(hash).slice(0, 16), function (b) {
       return b.toString(16).padStart(2, "0");
-    }).join("")) return null;
+    }).join("");
+    if (porLicencia) sala = salaCertificada;
+    if (sala !== salaCertificada) return null;
     return new Promise(function (resolve, reject) {
       var s = document.createElement("script");
       s.src = "./vendor/yparty-piloto.min.js";
@@ -2797,7 +2807,7 @@
     API.rollout = await rolloutPromise;
     var piloto = null;
     if (API.rollout && API.rollout.yparty === true) {
-      try { piloto = await cargarPiloto(codigo); }
+      try { piloto = await cargarPiloto(codigo, API.rollout); }
       catch (e) { log("piloto indisponible, relay habitual", e && e.message); }
     }
     if (piloto) {
@@ -3247,7 +3257,7 @@
         // are separate writers. Require deliberate OFF plus a drained legacy
         // queue BEFORE activating the new business writer. This uses the
         // already shipped OCSync facade; no new transport or data migration.
-        var relayAnterior = window.OCSync;
+        var relayAnterior = window.OCSyncControl || window.OCSync;
         // C33 QA may expose only the catalog/photo helper, with NO legacy
         // emitter or socket at all. That is not a second commercial writer.
         // A real installed legacy emitter OR any stateful relay always goes
@@ -3258,7 +3268,7 @@
             typeof window.OCSyncEmit !== "function") relayAnterior = null;
         function relayAnteriorApagadoYVacio() {
           if (!relayAnterior) return false; // no lazy-loading old writer may bypass observer
-          if (window.OCSync !== relayAnterior) return false;
+          if (window.OCSyncControl !== relayAnterior && window.OCSync !== relayAnterior) return false;
           try {
             return typeof relayAnterior.estado === "function" &&
               relayAnterior.estado() === "apagado" &&
@@ -3287,7 +3297,8 @@
         }
         if (cortarComercio20 && !relayAnteriorApagadoYVacio())
           return rechazarDobleEscritor(API.coordinadorCorte20);
-        var head = opts.headCongelado || (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
+        var head = opts.headCongelado || (typeof headCongeladoQa === "string"
+          ? headCongeladoQa : _cabezaCongeladaQa(API.rollout));
         var coord = await API.crearCoordinadorCorte20(API.doc, head, opts);
         if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
         var activacion = null;
@@ -3486,6 +3497,11 @@
     // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
     if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
     API.corte20QaHabilitado = function () {
+      // Explicit per-license release is sufficient to attempt a certified
+      // activation. C38 still refuses two active writers or pending old ops.
+      if (API.rollout && API.rollout.yparty === true &&
+          typeof API.rollout.frozenHead === "string" &&
+          /^[A-Za-z0-9_.:-]{3,128}$/.test(API.rollout.frozenHead)) return true;
       try {
         return localStorage.getItem("f123_yparty_qa") === "1" &&
           localStorage.getItem("f123_corte20_qa") === "1";
