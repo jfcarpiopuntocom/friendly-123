@@ -106,7 +106,8 @@ export async function openCertifiedPublicCatalogWriter({
  finally{clearTimeout(timer);}
  if(!isVisible()||privateDoc.isDestroyed||
     body?.ok!==true||body.room!==room||body.channel!=='cat'||
-    body.frozenHead!==expectedFrozenHead||!SHA.test(body.stateSha256||'')||
+    // JFC 22 nov 2026: el servidor 2.0 puede abrir la sala de la tienda vacia ('sala-vacia'); se acepta y se llena abajo.
+    (body.frozenHead!==expectedFrozenHead&&body.frozenHead!=='sala-vacia')||!SHA.test(body.stateSha256||'')||
     !SHA.test(body.vectorSha256||'')||
     Object.keys(body).sort().join(',')!=='channel,frozenHead,ok,room,stateSha256,vectorSha256')
   throw fail();
@@ -166,7 +167,7 @@ export async function openCertifiedPublicCatalogWriter({
   assertPublicCatalogTransportDoc({doc:publicDoc,room});
   // JFC 22 nov 2026: tienda abierta en 2.0 SIN historia certificada ('sala-vacia'). Si el servidor esta vacio,
   // este aparato (con su cuaderno completo y sin pendientes) lo llena con su catalogo PUBLICO; Yjs suma, no borra.
-  if(expectedFrozenHead==='sala-vacia'&&
+  if(body.frozenHead==='sala-vacia'&&
      publicDoc.getMap('productos').size===0&&publicDoc.getMap('ubicaciones').size===0){
    const seed=projectPublicCatalog({sourceDoc:privateDoc,Y,room,channel:'cat',frozenHead:expectedFrozenHead});
    try{Y.applyUpdate(publicDoc,Y.encodeStateAsUpdate(seed.doc));}finally{seed.doc.destroy();}
