@@ -79,7 +79,9 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
     // The PIN-only adoption path uses a per-shell loop guard instead of
     // a count/time-based quota that could strand a device on an old version.
     localStorage.setItem(K, v);
-    try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
+    // C185: C181 revisar() owns the explicit mismatch update through
+    // getRegistration(). The startup probe only publishes the new fingerprint.
+    // Avoid a second, overlapping SW install while Safari is booting.
     // Solo activate del SW retira caches anteriores; update() no confirma una instalacion completa.
     try {
       const bc = new BroadcastChannel("f123-version");
