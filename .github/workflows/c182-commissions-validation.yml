@@ -1,0 +1,30 @@
+name: C182 commissions validation temporary
+on:
+  push:
+    branches:
+      - fix/c182-commissions-view-switches-restore-monthly
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    timeout-minutes: 8
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Focused source tests (before sealing compiled assets)
+        run: |
+          node --test --test-concurrency=2 test/p0-c182-commissions-compact-view-switches.test.cjs test/p0-belen-commissions-all-dates.test.cjs test/p0-c166-commissions-total-first.test.cjs test/p0-c175-commissions-inverted-range-no-false-zero.test.cjs test/p0-c175-commissions-client-id-conflict.test.cjs test/commissions-by-person.test.cjs test/commissions-period.test.js test/commission-direction-period.test.js
+      - name: Validate changed source compiles and is formatted correctly
+        run: |
+          node --check src/app/app-inline-01.js
+          git diff --check HEAD~6 HEAD
