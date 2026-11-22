@@ -24,7 +24,7 @@ function receipts(count){
 }
 
 test('C172 RED: 700 ISO dates do not construct 1400 Intl formatters when Commissions opens',()=>{
- const {report,...rest}=reportWithCount();
+ const f=reportWithCount(),report=f.report;
  const sales=receipts(700);
  const global=report.project({sales,zone:'America/Guayaquil',lang:'es'});
  assert.equal(global.group,'total');
@@ -32,7 +32,7 @@ test('C172 RED: 700 ISO dates do not construct 1400 Intl formatters when Commiss
  assert.equal(global.totals.gross,14000);
  assert.equal(global.totals.commission,1400);
  assert.equal(global.rows[0].day,'2026-11-20');
- assert.equal(rest.constructions,1,'only one immutable timezone formatter despite two passes over 700 receipts');
+ assert.equal(f.constructions,1,'only one immutable timezone formatter despite two passes over 700 receipts');
 });
 
 test('C172: repeated filters and grouping reuse timezone formatter, without caching money',()=>{
