@@ -8,7 +8,7 @@ function setup({durable=true,recovering=false,input=false,sale=false,dialog=fals
  const local=new Map([['f123_version_vista','shell v607|f123-shell-v607']]);
  const storage=map=>({getItem:k=>map.get(k)||null,setItem:(k,v)=>map.set(k,String(v)),removeItem:k=>map.delete(k)});
  const listeners=new Map();
- const sw={controller:{},addEventListener:(name,fn)=>listeners.set(name,fn),getRegistration:async()=>({update:async()=>{}})};
+ const sw={controller:{postMessage(){const fn=listeners.get('message');if(fn)fn({data:{tipo:'shell-actual',shell:'f123-shell-v607'}});}},addEventListener:(name,fn)=>listeners.set(name,fn),removeEventListener:(name,fn)=>{if(listeners.get(name)===fn)listeners.delete(name);},getRegistration:async()=>({update:async()=>{}})};
  const body={appendChild(){appended++;}};
  const document={visibilityState:'visible',activeElement:input?{tagName:'INPUT'}:null,body,
   getElementById:id=>sale&&id==='vi-cliente'?{}:null,querySelectorAll:selector=>dialog&&selector==='[role="dialog"]'?[{getClientRects:()=>[{}]}]:[],addEventListener(){},
@@ -21,13 +21,13 @@ function setup({durable=true,recovering=false,input=false,sale=false,dialog=fals
  return {window,document,session,local,sw,listeners,advance:()=>{now+=100000;},finish:()=>resolveSave(true),
   result:()=>({saves,reloads,appended})};
 }
-test('pending update leaves the current document and durable notebook alone even when idle',async()=>{
+test('pending update eventually adopts after idle and durable confirmation',async()=>{
  const app=setup();app.window._ocActSola.vigilar();
  assert.equal(app.result().appended,0,'pending update must not insert an update banner');
  await app.window._ocActSola.intentar();assert.equal(app.result().reloads,0,'active work must not reload');
  app.advance();await app.window._ocActSola.intentar();await app.window._ocActSola.intentar();
- assert.equal(app.result().saves,0);assert.equal(app.result().reloads,0);
- assert.equal(app.session.get('f123_act_sola_pendiente'),'1');
+ assert.equal(app.result().saves,1);assert.equal(app.result().reloads,1);
+ assert.equal(app.session.get('f123_act_sola_pendiente'),undefined);
 });
 test('recovery, focused input and failed durable save preserve pending update',async()=>{
  for(const options of [{recovering:true},{input:true},{sale:true},{dialog:true},{transaction:true},{durable:false}]){
@@ -38,15 +38,15 @@ test('recovery, focused input and failed durable save preserve pending update',a
 });
 test('new controller leaves the running session intact even after idle',async()=>{
  const app=setup();app.session.delete('f123_act_sola_pendiente');
- app.sw.controller={};app.listeners.get('controllerchange')();
+ app.sw.controller={postMessage(){const fn=app.listeners.get('message');if(fn)fn({data:{tipo:'shell-actual',shell:'f123-shell-v607'}});}};app.listeners.get('controllerchange')();
  assert.equal(app.session.get('f123_act_sola_pendiente'),'1');
  assert.equal(app.result().appended,0);assert.equal(app.result().reloads,0);
  app.advance();await app.window._ocActSola.intentar();
- assert.equal(app.result().reloads,0);assert.equal(app.session.get('f123_sesion'),'1');
+ assert.equal(app.result().reloads,1);assert.equal(app.session.get('f123_sesion'),'1');
 });
-test('backgrounding with a pending update does not save or navigate',async()=>{
+test('backgrounding with a safe pending update adopts exactly once',async()=>{
  const app=setup();app.document.visibilityState='hidden';
  await app.window._ocActSola.intentar();
- assert.equal(app.result().saves,0);
- assert.equal(app.result().reloads,0);assert.equal(app.session.get('f123_act_sola_pendiente'),'1');
+ assert.equal(app.result().saves,1);
+ assert.equal(app.result().reloads,1);assert.equal(app.session.get('f123_act_sola_pendiente'),undefined);
 });

@@ -275,7 +275,13 @@ const _ocActSolaOn = true;
   }
   try { window.__f123MarcarRecarga = marcarRecarga; } catch (_) {}
   // Cached login code can still consult this guard during a shell transition.
-  function puedeRecargarVersion() { return false; }
+  function puedeRecargarVersion() {
+    try {
+      const objetivo = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || "";
+      const previa = JSON.parse(sessionStorage.getItem(KA) || "null");
+      return !!objetivo && !(previa && previa.shell === objetivo);
+    } catch (_) { return false; }
+  }
   try { window.__f123PuedeRecargarVersion = puedeRecargarVersion; } catch (_) {}
   /* (JFC 2026-11-11, v732) Anillo de errores para diagnostico en campo: ultimos 20 en localStorage
      "f123_errores_log" = [{k: tipo, m: mensaje(160), s: fuente(60), t: ms}]. Sin UI, sin red, nunca lanza.
@@ -307,8 +313,35 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
-  // Update discovery continues. The next normal opening loads the new shell.
-  function intentar() { vigilar(); }
+  // C180: close the update loop only after durable commit and new SW takeover.
+  // KA records one navigation per target shell, not an arbitrary annoyance quota.
+  let recargando = false;
+  async function guardarDuradero() {
+    try {
+      const sync = window.OCSync;
+      return !!(sync && typeof sync.confirmarCatalogoDurable === "function" &&
+        (await sync.confirmarCatalogoDurable()) === true);
+    } catch (_) { return false; }
+  }
+  async function intentar() {
+    vigilar();
+    if (!pendiente() || recargando || !seguro() || !puedeRecargarVersion()) return false;
+    if (document.visibilityState !== "hidden" && Date.now() - ultimoToque < 90000) return false;
+    recargando = true;
+    try {
+      if (!(await guardarDuradero()) || !seguro()) return false;
+      const objetivo = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || "";
+      if (!objetivo || await shellDelSW() !== objetivo ||
+          !pendiente() || !puedeRecargarVersion()) return false;
+      sessionStorage.setItem(KA, JSON.stringify({ shell: objetivo }));
+      sessionStorage.removeItem(KP);
+      limpiarFrenada();
+      marcarRecarga("version-segura");
+      location.reload();
+      return true;
+    } catch (_) { return false; }
+    finally { recargando = false; }
+  }
   function shellDelSW() {
     return new Promise(function (resolve) {
       const c = navigator.serviceWorker.controller;
@@ -329,7 +362,16 @@ const _ocActSolaOn = true;
       const vj = await r.json();
       if (!vj || !vj.shell) return;
       const sirve = await shellDelSW();
-      if (!sirve || sirve === String(vj.shell)) return;
+      if (!sirve) return;
+      if (sirve === String(vj.shell)) {
+        // The worker can finish takeover before this check. Keep the target
+        // fingerprint complete even if the older compatibility path wrote only a shell.
+        if (pendiente()) {
+          try { localStorage.setItem("f123_version_vista", String(vj.version || "") + "|" + String(vj.shell)); } catch (_) {}
+          intentar();
+        }
+        return;
+      }
       try { localStorage.setItem("f123_version_vista", String(vj.version || "") + "|" + String(vj.shell)); } catch (_) {}
       try {
         const reg = await navigator.serviceWorker.getRegistration();
