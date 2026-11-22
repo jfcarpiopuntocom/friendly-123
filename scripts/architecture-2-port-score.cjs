@@ -10,7 +10,8 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC162=quality.latestReview?.id==='C162';
+ const isC164=quality.latestReview?.id==='C164';
+ const isC162=isC164||quality.latestReview?.id==='C162';
  const isC160=isC162||quality.latestReview?.id==='C160';
  const isC158=isC160||quality.latestReview?.id==='C158';
  const isC156=isC158||quality.latestReview?.id==='C156';
@@ -27,8 +28,8 @@ function inspect(){
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC162?83.4:(isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))))))))))))))));
- const currentDurability=isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1)));
+ const currentQuality=isC164?83.5:(isC162?83.4:(isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)))))))))))))))));
+ const currentDurability=isC164?19.6:(isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1))));
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
  if(isC130){
@@ -86,6 +87,18 @@ function inspect(){
   assert(src.includes('accumulate(tot,"gross","unknownGross",gross)'));
   assert.equal((isC144?quality.auditTrail?.find(r=>r.id==='C142'):quality.latestReview)?.sourceSha,'05f5b094bf5ebae313ffd464e33bbb2d54a1b3ef');
  }
+ if(isC164){
+  const qa=fs.readFileSync(path.join(root,'test/p0-c163-outbox-fallback-freshness.test.cjs'),'utf8');
+  const src=fs.readFileSync(path.join(root,'docs/sync-outbox.js'),'utf8');
+  assert(qa.includes('C163 RED: after IDB write abort fallback holds NEWER'));
+  assert(qa.includes('successful newer IDB commit retires fallback'));
+  assert(qa.includes('cold reopen must keep current encrypted outbox'));
+  const readStart=src.indexOf('async function leer()');
+  const fallback=src.indexOf('localStorage.getItem(LS_KEY)',readStart);
+  const idb=src.indexOf('if (SOPORTADO)',readStart);
+  assert(readStart>0&&fallback>readStart&&idb>fallback,'C163 outbox current encrypted fallback must precede stale IDB read');
+  assert.equal(quality.latestReview?.sourceSha,'e720181f9832fc00471b5d1e254df6fb0041e8ba');
+ }
  if(isC162){
   const qa=fs.readFileSync(path.join(root,'test/p0-c161-commission-split-amount-consistency.test.cjs'),'utf8');
   const src=fs.readFileSync(path.join(root,'docs/core/commission-history.js'),'utf8');
@@ -94,7 +107,7 @@ function inspect(){
   assert(qa.includes('exact cent-level split and reversed identical receipt'));
   assert(src.includes('if(splitMismatch){tot.splitConflicts++;commission=null;}'));
   assert(src.includes('commission:splitMismatch?null:cents(finite(r&&r.monto))'));
-  assert.equal(quality.latestReview?.sourceSha,'18f0c5a682ad83c0a62bfa694196b7a02555c293');
+  assert.equal((isC164?quality.auditTrail?.find(r=>r.id==='C162'):quality.latestReview)?.sourceSha,'18f0c5a682ad83c0a62bfa694196b7a02555c293');
  }
  if(isC160){
    const qa=fs.readFileSync(path.join(root,'test/p0-c159-half-weight-new-photos.test.cjs'),'utf8');
@@ -1516,7 +1529,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))):0)+(d.id==='business'?(isC162?0.8:(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1))))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC164?0.8:(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3))))):0)+(d.id==='business'?(isC162?0.8:(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1))))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
