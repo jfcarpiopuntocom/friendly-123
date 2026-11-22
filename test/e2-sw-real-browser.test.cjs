@@ -2,7 +2,7 @@
 const {test}=require("node:test"),assert=require("node:assert/strict");
 const fs=require("node:fs"),http=require("node:http");
 // Local npm test prerequisite: npx playwright install chromium (CI already installs it).
-const {chromium}=require("playwright");
+const {chromium,webkit,devices}=require("playwright");
 // E2 runtime was split out of index.html after v487; read the live authored JS.
 const app=fs.readFileSync("src/app/app-inline-03.js","utf8");
 const swOriginal=fs.readFileSync("docs/sw.js","utf8");
@@ -36,7 +36,11 @@ function pageHtml(candidate) {
   'window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"}));')+
   '</script></body></html>';
 }
-test("E2 Chromium: SW update NEVER navigates in-app; PIN screen adopts with Updating splash", {timeout:120000},async()=>{
+for(const [browserName,engine,options] of [
+  ["Chromium",chromium,{serviceWorkers:"allow"}],
+  ["WebKit iPhone",webkit,{...devices["iPhone 13"],serviceWorkers:"allow"}]
+]){
+test("E2 "+browserName+": SW update NEVER navigates in-app; PIN screen adopts with Updating splash", {timeout:120000},async()=>{
  let phase="old",candidate=false;
  const mark=label=>console.log("E2 phase:",label);
  const server=http.createServer((req,res)=>{
@@ -55,8 +59,8 @@ test("E2 Chromium: SW update NEVER navigates in-app; PIN screen adopts with Upda
  const origin="http://127.0.0.1:"+server.address().port;
  let browser;
  try {
-  browser=await chromium.launch({headless:true});
-  const ctx=await browser.newContext({serviceWorkers:"allow"});
+  browser=await engine.launch({headless:true});
+  const ctx=await browser.newContext(options);
   const pageErrors=[];
   const collectPageErrors=p=>p.on("pageerror",e=>{pageErrors.push(e.message);console.log("E2 page error:",e.message);});
   let p=await ctx.newPage();
@@ -152,3 +156,4 @@ test("E2 Chromium: SW update NEVER navigates in-app; PIN screen adopts with Upda
   await ctx.close();
  } finally {if(browser)await browser.close();await new Promise(ok=>server.close(ok));}
 });
+}
