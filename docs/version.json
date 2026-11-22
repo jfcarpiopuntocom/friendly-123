@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.66",
+  "version": "v0.8.67",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.66 C170 P0: una pestaña no borra el respaldo de cola cifrada más reciente escrito por otra durante un commit IndexedDB anterior. Conserva Commissions, Safari C168 y las transacciones existentes.",
+  "changelog": "v0.8.67 C172 Safari: Commissions reutiliza formateadores de fecha por zona, reduciendo trabajo del historial real sin alterar fechas, dinero, filtros, pagos ni la corrección de cola cifrada C170.",
   "requerida": false,
-  "shell": "f123-shell-v866",
+  "shell": "f123-shell-v867",
   "apagar": [],
-  "releaseName": "v0.8.66",
-  "cacheGeneration": "golden402"
+  "releaseName": "v0.8.67",
+  "cacheGeneration": "golden403"
 }
