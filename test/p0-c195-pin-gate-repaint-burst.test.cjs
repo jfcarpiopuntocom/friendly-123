@@ -48,3 +48,12 @@ test('C195 PIN: joined store pending label changes to real team name without fal
   assert.doesNotMatch(x.element.innerHTML,/Joined\. This device is now syncing/);
   assert.equal(x.writes,2);
 });
+
+test('C195 PIN: missing own-store name hides the banner without changing credentials',()=>{
+  const x=harness(false);
+  x.paint();
+  assert.equal(x.element.style.display,'block');
+  x.name('');
+  x.paint();
+  assert.equal(x.element.style.display,'none');
+});
