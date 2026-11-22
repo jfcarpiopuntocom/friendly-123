@@ -79,7 +79,9 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
     // The PIN-only adoption path uses a per-shell loop guard instead of
     // a count/time-based quota that could strand a device on an old version.
     localStorage.setItem(K, v);
-    try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
+    // C183 Safari: do not update every SW registered on the shared github.io origin.
+    // C181 revisar() owns this app\u0027s scoped reg.update() and PIN-only document adoption.
+    // Updating unrelated apps here duplicates WebKit install/cache work during startup.
     // Solo activate del SW retira caches anteriores; update() no confirma una instalacion completa.
     try {
       const bc = new BroadcastChannel("f123-version");
