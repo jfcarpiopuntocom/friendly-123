@@ -12,7 +12,7 @@ for (const file of ['src/app/app-inline-03.js','docs/app-inline-03.min.js']) {
   assert.ok(from>=0&&to>from,file+' updater source must exist');
   const updater=script.slice(from,to).replace(/,$/, ';');
   function fixture({durable=true,editing=false,matching=true,visible=false,recovering=false,pending=true,pin=false,authenticated=true,sale=false}={}) {
-    let calls=0,saves=0,now=100000;
+    let calls=0,saves=0,now=100000,splash=null;
     const session=new Map([...(authenticated?[['f123_sesion','1']]:[]),...(pending?[['f123_act_sola_pendiente','1']]:[])]);
     const local=new Map([['f123_version_vista','v0.8.73|f123-shell-v873']]);
     const storage=m=>({getItem:k=>m.has(k)?m.get(k):null,setItem:(k,v)=>m.set(k,String(v)),removeItem:k=>m.delete(k)});
@@ -22,19 +22,20 @@ for (const file of ['src/app/app-inline-03.js','docs/app-inline-03.min.js']) {
       getRegistration:async()=>({update:async()=>{}})};
     const gate=pin?{style:{display:'flex'},getClientRects:()=>[{}]}:null;
     const document={visibilityState:visible?'visible':'hidden',activeElement:editing?{tagName:'INPUT'}:null,
-      getElementById:id=>id==='oc-gate'?gate:null,querySelectorAll:()=>[],addEventListener(){}};
-    const window={addEventListener(){},OCYjs:recovering?{estado:'activo',canal:{recuperando:true}}:null,
+      getElementById:id=>id==='oc-gate'?gate:null,querySelectorAll:()=>[],addEventListener(){},
+      body:{appendChild(el){splash=el}},createElement:()=>({style:{},setAttribute(k,v){this[k]=v},getAttribute(k){return this[k]},innerHTML:''})};
+    const window={addEventListener(){},requestAnimationFrame:fn=>fn(),OCYjs:recovering?{estado:'activo',canal:{recuperando:true}}:null,
       OCSync:authenticated?{confirmarCatalogoDurable:async()=>{saves++;return durable}}:undefined};
     const ctx={window,navigator:{serviceWorker:sw},document,localStorage:storage(local),sessionStorage:storage(session),
       Date:{now:()=>now},setTimeout:()=>1,clearTimeout(){},setInterval(){},getComputedStyle:()=>({display:'block'}),
       _ventasEnCurso:new Set(sale?['pending-sale']:[]),_ocActSolaOn:true,_recargarSeguroVersion(){},location:{reload(){calls++}},
       fetch:async()=>({ok:false})};
     vm.runInNewContext(updater,ctx);
-    return {window,session,stats:()=>({calls,saves})};
+    return {window,session,splash:()=>splash,stats:()=>({calls,saves})};
   }
   test(file+' applies a confirmed new SW exactly once with durable ACK',async()=>{
-    const f=fixture();assert.equal(await f.window._ocActSola.intentar(),true);
-    assert.equal(f.stats().calls,1);assert.equal(f.stats().saves,1);
+    const f=fixture({pin:true,authenticated:false});assert.equal(await f.window._ocActSola.intentar(),true);
+    assert.equal(f.stats().calls,1);assert.equal(f.stats().saves,0);
     assert.equal(f.session.get('f123_act_sola_pendiente'),undefined);
     assert.equal(await f.window._ocActSola.intentar(),false);
     assert.equal(f.stats().calls,1);
@@ -43,6 +44,8 @@ for (const file of ['src/app/app-inline-03.js','docs/app-inline-03.min.js']) {
     const f=fixture({pin:true,authenticated:false,editing:true,visible:true});
     assert.equal(await f.window._ocActSola.intentar(),true);
     assert.deepEqual(f.stats(),{calls:1,saves:0});
+    assert.match(f.splash().innerHTML,/Updating/,'a real splash is visible before adoption');
+    assert.equal(f.splash().getAttribute?.('role'),'status');
     assert.equal(f.session.get('f123_act_sola_pendiente'),undefined);
     assert.equal(await f.window._ocActSola.intentar(),false,'same shell cannot repeatedly navigate');
     assert.equal(f.stats().calls,1);
@@ -56,10 +59,12 @@ for (const file of ['src/app/app-inline-03.js','docs/app-inline-03.min.js']) {
     const gateMissing=fixture({pin:false,authenticated:false,visible:true});
     assert.equal(await gateMissing.window._ocActSola.intentar(),false);
   });
-  test(file+' defers editor, recovery, stale SW, recent interaction, failed save',async()=>{
-    for(const o of [{editing:true},{recovering:true},{matching:false},{visible:true},{durable:false},{pending:false}]) {
-      const f=fixture(o);assert.equal(await f.window._ocActSola.intentar(),false,JSON.stringify(o));
-      assert.equal(f.stats().calls,0,JSON.stringify(o));
+  test(file+' never automatically reloads a logged-in working app, even idle or backgrounded',async()=>{
+    for(const o of [{},{editing:true},{recovering:true},{visible:true},{durable:false},{pending:false},{sale:true}]) {
+      const f=fixture(o);
+      assert.equal(await f.window._ocActSola.intentar(),false,JSON.stringify(o));
+      assert.equal(f.stats().calls,0);
+      assert.equal(f.splash(),null,'no Updating overlay inside app');
     }
   });
 }
