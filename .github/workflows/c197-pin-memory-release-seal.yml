@@ -1,0 +1,49 @@
+name: C197 P0 PIN memory gate / official v884 shell seal
+on:
+  push:
+    branches:
+      - p0/c197-avoid-full-render-under-pin
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Execute actual production render coordinator against 500 Sync3 merges
+        run: |
+          node --test test/p0-c197-pin-sync-render-pressure.test.cjs
+          node --check src/app/app-inline-01.js
+      - name: Validate release identity
+        run: node scripts/release-control.cjs validate origin/master
+      - name: Build exact official app assets
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+      - name: Seal hashes and SW identity
+        run: |
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node --test test/p0-c197-pin-sync-render-pressure.test.cjs
+          git diff --check
+      - name: Push generated JS and SHA256 release manifest
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/version-manifest.json docs/sw.js docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C197): seal memory-safe PIN startup v884 / SHA256'
+            git push origin HEAD:p0/c197-avoid-full-render-under-pin
+          fi
