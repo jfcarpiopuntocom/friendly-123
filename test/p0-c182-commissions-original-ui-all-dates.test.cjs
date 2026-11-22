@@ -24,7 +24,8 @@ test('C182 original product cards with existing tag-card/stats/rotulo/cifra, acr
  assert.equal(view.totals.gross,140);
  assert.equal(view.totals.commission,35);
  assert.match(html,/data-comm-history-group/);
- assert.match(html,/data-comm-product-card/);
+ assert.match(html,/<details data-comm-history-group/);
+ assert.match(html,/<summary[^>]*>/);
  assert.match(html,/class="tag-card"/);
  assert.match(html,/class="stats"/);
  assert.match(html,/class="rotulo"/);
@@ -81,6 +82,6 @@ test('C182 sales history single fetch, no opening the monthly settlement ledger'
  vm.runInNewContext(source.slice(start,end)+'}',ctx);
  await ctx.cargarComisiones();
  assert.deepEqual(calls,['/api/ventas/todas?ubicacionId=todas']);
- assert.match(container.innerHTML,/data-comm-product-card/);
+ assert.match(container.innerHTML,/<details data-comm-history-group/);
  assert.doesNotMatch(container.innerHTML,/Full sales and commissions history/);
 });
