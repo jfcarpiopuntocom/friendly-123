@@ -134,6 +134,6 @@
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
     "./dashboard-main.min.js": "sha256-8897d2cc9a3681168ee324858ce40da7fa5721dc71a39f266dd9e941589ce976",
     "./core/hechos-chain-readonly.js": "sha256-8fd607dca2a1622514da97dc356e6309f707c8406c50b50d7bb3b0d4d7b59814",
-    "./core/commission-history.js": "sha256-b4e3da681643cacac358e8f425c64c8f73890dd1b0c71b19bd82daab933f9fc5"
+    "./core/commission-history.js": "sha256-7f536a54a614a2b50e5008f2ee57c417f28b7bcb2f7d0bb49fc64e305960c608"
   }
 }
