@@ -176,3 +176,29 @@ test('C190: 2.0 tombstones allow safe resume after reload; no old-ledger duplica
  assert.match(rt,/async function responderCatchup\(pedido\)[\s\S]*?await puedeEnviarPorLegado\(op\)/);
  assert.match(rt,/cifrar\(claveActual, op\)\s*\.then\(async \(buf\) => \{\s*if \(!\(await puedeEnviarPorLegado\(op\)\)\) return;/);
 });
+
+
+test('C192: certified 2.0 retries on durable legacy backlog drain only for active notebook',()=>{
+ const code=extract(
+  '    // Activation can also begin after the ORIGINAL durable relay finishes',
+  '    // Only a real authenticated Owner/Admin session can trigger this helper.'
+ );
+ let pending=true, observer=null, calls=0;
+ const API={rollout:{yparty:true},doc:{isDestroyed:false}};
+ const control={onEstado(fn){observer=fn;},durabilidadPendiente(){return pending;}};
+ const window={OCYjs:API,OCSyncControl:control};
+ new Function('window','API','_intentarActivarCorte20SiElegible',code)(
+  window,API,()=>{calls++}
+ );
+ assert.equal(typeof observer,'function');
+ observer();observer();
+ assert.equal(calls,0,'still pending');
+ pending=false;observer();observer();
+ assert.equal(calls,1,'single real drain transition');
+ pending=true;observer();
+ pending=false;observer();
+ assert.equal(calls,2,'second actual transition');
+ window.OCYjs={};
+ pending=true;observer();pending=false;observer();
+ assert.equal(calls,2,'stale notebook cannot arm 2.0');
+});
