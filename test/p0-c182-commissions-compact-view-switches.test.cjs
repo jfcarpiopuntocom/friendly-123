@@ -21,7 +21,7 @@ test('C182 default product view across ALL months, compact original cards',()=>{
  assert.match(html,/\$30\.00/);
  assert.doesNotMatch(html,/Full sales and commissions history|Read-only view across dates|Settle month/);
 });
-test('C182 view switch includes product, rack, client, associate, period; time inputs only on request',()=>{
+test('C182 only five view tabs; NO date inputs or forced month in any view',()=>{
  const a=src.indexOf('function selectorRangoComisionesGlobalHtml(){'),b=src.indexOf('function selectorMesComisionesHtml(',a);
  assert.ok(a>0&&b>a);
  const ctx={window:{_ocComHistoryGroup:'producto'},document:{documentElement:{lang:'en'}}};
@@ -31,8 +31,8 @@ test('C182 view switch includes product, rack, client, associate, period; time i
   assert.match(html,new RegExp('data-commissions-view-global="'+group+'"'),group);
  assert.doesNotMatch(html,/type="month"|type="date"|Settle month/);
  ctx.window._ocComHistoryGroup='mes';html=ctx.toolbar();
- assert.match(html,/type="date"/);
- assert.match(html,/data-commissions-open-month/);
+ assert.doesNotMatch(html,/type="date"|type="month"|data-commissions-open-month/);
+ assert.equal((html.match(/data-commissions-view-global=/g)||[]).length,5,'period is a view switch, not a form');
 });
 test('C182 no verbose history render, no settlement ledger read in all-history route',()=>{
  const a=src.indexOf('async function cargarComisiones(){'),b=src.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',a);
@@ -46,4 +46,18 @@ test('C182 show unknown commission without inventing zero; client and associate 
  assert.match(presenter('comisionista')(sales),/Belén/);
  assert.match(presenter('mes')(sales),/2026-10/);
  assert.match(presenter('mes')(sales),/2026-11/);
+});
+test('C182 period cards open only an explicitly selected month, without an imposed month cut',()=>{
+ const html=presenter('mes')(sales);
+ assert.match(html,/2026-10/);assert.match(html,/2026-11/);
+ assert.match(html,/data-commissions-open-month="2026-10"/);
+ assert.match(html,/data-commissions-open-month="2026-11"/);
+ assert.match(html,/cambiarMesComisiones\('2026-10'\)/);
+ assert.doesNotMatch(html,/type="date"/);
+});
+test('C182 default product cards use existing product-card identity and remain clickable',()=>{
+ const html=presenter('producto')(sales);
+ assert.match(html,/data-comm-product-card/);
+ assert.match(html,/data-product-id="p"/);
+ assert.match(html,/abrirFichaProducto/);
 });
