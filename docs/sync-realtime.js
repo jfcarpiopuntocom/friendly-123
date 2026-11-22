@@ -399,9 +399,62 @@
   const listenersEstado = [];
   const pendientesCanales = Object.create(null);
   let _retryDurable = null;
-  function tienePendientesDurables() {
-    return colaLargo() > 0 || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
+  // Volatile only. A crash/reload restores the existing room and local data.
+  // Never clear the room, business records or durable outbox during 2.0 handoff.
+  let _pausaArquitectura20 = null;
+  // Same-DO committed IDs live in durable IndexedDB. This cache changes only
+  // what is ELIGIBLE to replay; the original local queue bytes are preserved.
+  let _ids20Confirmados = null, _ids20Licencia = "";
+  function colaLegadaPendienteReal() {
+    const lic = codigoCuadernoActivo();
+    const ids = lic && lic === _ids20Licencia ? _ids20Confirmados : null;
+    if (!ids) return colaLargo() > 0;
+    return leerCola().some(op => !op || !op.opId || !op._salaOrigen ||
+      normalizarCodigo(op._salaOrigen) !== lic || !ids.has(op.opId));
   }
+  function tienePendientesDurables() {
+    return colaLegadaPendienteReal() || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
+  }
+  async function recargarConfirmados20(lic) {
+    const y = window.OCYjs;
+    if (!lic || !y || y.codigoCuaderno !== lic ||
+        y.__port2DurableFenceAvailable !== true ||
+        typeof y.crearAlmacenDurableOpsTipadas !== "function") return false;
+    try {
+      const store = await y.crearAlmacenDurableOpsTipadas();
+      if (!store || typeof store.loadCommittedOpIds !== "function") return false;
+      const ids = await store.loadCommittedOpIds();
+      if (!Array.isArray(ids) || codigoCuadernoActivo() !== lic || window.OCYjs !== y) return false;
+      _ids20Licencia = lic;
+      _ids20Confirmados = new Set(ids.filter(id => typeof id === "string"));
+      return true;
+    } catch (_) { return false; }
+  }
+  async function puedeEnviarPorLegado(op) {
+    const y = window.OCYjs, lic = codigoCuadernoActivo();
+    if (!y || y.codigoCuaderno !== lic || y.__port2DurableFenceAvailable !== true) return true;
+    if (!op || typeof op.opId !== "string" ||
+        typeof y.puedeDespacharOpEnLegado !== "function") return false;
+    if (_ids20Licencia === lic && _ids20Confirmados?.has(op.opId)) return false;
+    try { return (await y.puedeDespacharOpEnLegado(op.opId)) === true &&
+      codigoCuadernoActivo() === lic && window.OCYjs === y; }
+    catch (_) { return false; }
+  }
+  try {
+    window.addEventListener("oc-op-20-recibo", function (ev) {
+      const d = ev && ev.detail, lic = codigoCuadernoActivo(), y = window.OCYjs;
+      if (!d || d.committed !== true || d.stage !== "business-committed" ||
+          typeof d.opId !== "string" || !y || y.codigoCuaderno !== lic ||
+          y.__port2DurableFenceAvailable !== true) return;
+      // A DOM event is never a durable ACK. Only read-back from the SAME
+      // license's IDB committed tombstones can release the old outbox fence.
+      Promise.resolve(recargarConfirmados20(lic)).then(function (ok) {
+        if (ok && _ids20Licencia === lic && _ids20Confirmados?.has(d.opId))
+          notificarEstado(estadoActual);
+      }).catch(function () {});
+    });
+  } catch (_) {}
+
   function notificarEstado(nuevo) {
     estadoActual = nuevo;
     listenersEstado.forEach((fn) => { try { fn(nuevo, presenciaN); } catch (_) {} });
@@ -418,6 +471,7 @@
      sin fin. Ahora la espera se duplica hasta 10 min y vuelve a 30 s cuando la cola se vacia. */
   let _retryDurableMs = 30000;
   function reintentarDurable() {
+    if (_pausaArquitectura20) return;
     if (_retryDurable || !colaLargo()) { if (!colaLargo()) _retryDurableMs = 30000; return; }
     _retryDurable = setTimeout(function () {
       _retryDurable = null; vaciarCola();
@@ -434,7 +488,7 @@
   // conectar() SIEMPRE cierra lo que hubiera antes de abrir uno nuevo.
   let _conexionGeneracion = 0;
   function puedeConectarLegado() {
-    return !document.hidden; // JFC 2026-11-12: sin turno entre pestanas
+    return !document.hidden && !_pausaArquitectura20; // no old writer during certified 2.0 handoff
   }
   function cerrarWsExistente() {
     if (_dashboardBroadcast) { try { _dashboardBroadcast.close(); } catch (_) {} _dashboardBroadcast = null; }
@@ -1334,6 +1388,8 @@
     for (const op of cola) {
       if (!opDeEsteCuaderno(op)) continue; // old/other-shop op stays in local queue
       if (codigoCuadernoActivo() !== normalizarCodigo((leerSala() || {}).codigo || "")) return;
+      // A committed or pending same-DO opId must never be sent to the old ledger.
+      if (!(await puedeEnviarPorLegado(op))) continue;
       try {
         const buf = await cifrar(claveActual, op);
         // Encryption can complete after a notebook switch. Keep the queued op
@@ -1371,6 +1427,7 @@
     await new Promise((r) => setTimeout(r, Math.random() * 400));
     for (const op of faltantes) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return; // se desconecto a mitad de camino, no insistir
+      if (!(await puedeEnviarPorLegado(op))) continue;
       try { ws.send(await cifrar(claveActual, op)); } catch (_) { return; }
     }
   }
@@ -1762,7 +1819,8 @@
          pierde por un tropiezo del cifrado. */
       const emisionSocket = ws, emisionSala = normalizarCodigo(sala.codigo);
       cifrar(claveActual, op)
-        .then((buf) => {
+        .then(async (buf) => {
+          if (!(await puedeEnviarPorLegado(op))) return;
           // Op was already durably queued above. Preserve it if a different
           // notebook/socket became active while encryption was pending.
           if (codigoCuadernoActivo() !== emisionSala || ws !== emisionSocket ||
@@ -1882,6 +1940,10 @@
           }
         }
       } catch (_) {}
+      // A deliberate owner action revokes any temporary 2.0 handoff.
+      // The existing C38 state observer will release the certified writer.
+      _pausaArquitectura20 = null;
+      notificarEstado("apagado");
       reintentoMs = 1000;
       intentosSeguidos = 0;
       // P0 v615: a JOIN must first select the destination notebook; connecting
@@ -2041,6 +2103,33 @@
     // "Resincronizar" (nunca "forzar" — asusta al usuario normal): salvavidas
     // raro para cuando alguien duda si esta sincronizado de verdad en plena
     // feria. Reconecta ya mismo, sin esperar el backoff normal.
+    async pausarParaArquitectura20(licencia) {
+      const actual = codigoCuadernoActivo(), sala = leerSala();
+      if (_pausaArquitectura20) return { ok: _pausaArquitectura20 === actual && normalizarCodigo(licencia) === actual };
+      if (document.hidden || !actual || normalizarCodigo(licencia) !== actual ||
+          !sala || normalizarCodigo(sala.codigo) !== actual) return { ok: false };
+      // On restart a certified IDB tombstone distinguishes a 2.0-committed
+      // operation from a genuinely pending old-relay operation, without erasure.
+      if (colaLargo() > 0 && !(await recargarConfirmados20(actual))) return { ok: false };
+      if (document.hidden || codigoCuadernoActivo() !== actual ||
+          normalizarCodigo((leerSala() || {}).codigo) !== actual ||
+          tienePendientesDurables()) return { ok: false };
+      // Stop sockets, keep ROOM_KEY, all outbox records and local notebook intact.
+      _pausaArquitectura20 = actual;
+      ++_conexionGeneracion; // invalidate async connect/crypto completions
+      cerrarWsExistente();
+      notificarEstado("apagado");
+      return { ok: true };
+    },
+    reanudarDesdeArquitectura20(licencia) {
+      if (!_pausaArquitectura20 || normalizarCodigo(licencia) !== _pausaArquitectura20 ||
+          codigoCuadernoActivo() !== _pausaArquitectura20) return { ok: false };
+      _pausaArquitectura20 = null;
+      notificarEstado("apagado");
+      if (leerSala()) { reintentoMs = 1000; conectar(); }
+      reintentarDurable();
+      return { ok: true };
+    },
     resincronizar() {
       if (!leerSala()) return { ok: false, error: "Sync is not active on this device." };
       reintentoMs = 1000;
@@ -2054,7 +2143,7 @@
     // Refuerzo: expone si llevamos varios intentos seguidos sin exito, para
     // que la UI pueda avisar ("revisa el código") en vez de reintentar mudo.
     problemaPersistente() { return intentosSeguidos >= 6; },
-    salaActiva() { const s = leerSala(); return s ? s.codigo : null; },
+    salaActiva() { if (_pausaArquitectura20) return null; const s = leerSala(); return s ? s.codigo : null; },
     /* Version presentable del codigo de sala (TEAM-...). El valor interno no
        cambia: esto es solo para pintar y para compartir. */
     /* RELOJ LÓGICO PARA EL ROSTER (JFC 2026-08-26). mock-backend sella cada

@@ -2475,10 +2475,12 @@
   }
 
   function _cabezaCongeladaQa(rollout) {
-    var head = "";
-    try { head = String(localStorage.getItem("f123_yparty_qa_frozen_head") || "").trim(); } catch (_) { head = ""; }
-    if (!head && rollout && rollout.yparty === true && typeof rollout.frozenHead === "string") {
-      head = rollout.frozenHead.trim();
+    // A per-license released certificate is authoritative; QA localStorage
+    // may only supply a head when no certified rollout head was published.
+    var head = rollout && rollout.yparty === true && typeof rollout.frozenHead === "string"
+      ? rollout.frozenHead.trim() : "";
+    if (!head) {
+      try { head = String(localStorage.getItem("f123_yparty_qa_frozen_head") || "").trim(); } catch (_) { head = ""; }
     }
     return /^[A-Za-z0-9_.:-]{3,128}$/.test(head) ? head : null;
   }
@@ -2489,17 +2491,25 @@
   }
 
   // Segunda llave (por aparato) del piloto 2.0; la primera es la politica por licencia.
-  async function cargarPiloto(codigo) {
-    var sala;
+  async function cargarPiloto(codigo, rollout) {
+    // Released per-license policy replaces the QA-only device setup. The
+    // derived room must match the same license on every device, never a
+    // remembered room from another notebook. All other stores stay legacy.
+    var qa = false, sala = null;
     try {
-      if (localStorage.getItem("f123_yparty_qa") !== "1") return null;
-      sala = localStorage.getItem("f123_yparty_qa_sala");
-    } catch (_) { return null; }
-    if (!/^[a-f0-9]{32}$/.test(sala || "")) return null;
+      qa = localStorage.getItem("f123_yparty_qa") === "1";
+      if (qa) sala = localStorage.getItem("f123_yparty_qa_sala");
+    } catch (_) {}
+    var porLicencia = !!(rollout && rollout.yparty === true &&
+      typeof rollout.frozenHead === "string" &&
+      /^[A-Za-z0-9_.:-]{3,128}$/.test(rollout.frozenHead));
+    if (!qa && !porLicencia) return null;
     var hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("f123-yparty-v1:" + codigo));
-    if (sala !== Array.from(new Uint8Array(hash).slice(0, 16), function (b) {
+    var salaCertificada = Array.from(new Uint8Array(hash).slice(0, 16), function (b) {
       return b.toString(16).padStart(2, "0");
-    }).join("")) return null;
+    }).join("");
+    if (porLicencia) sala = salaCertificada;
+    if (sala !== salaCertificada) return null;
     return new Promise(function (resolve, reject) {
       var s = document.createElement("script");
       s.src = "./vendor/yparty-piloto.min.js";
@@ -2797,7 +2807,7 @@
     API.rollout = await rolloutPromise;
     var piloto = null;
     if (API.rollout && API.rollout.yparty === true) {
-      try { piloto = await cargarPiloto(codigo); }
+      try { piloto = await cargarPiloto(codigo, API.rollout); }
       catch (e) { log("piloto indisponible, relay habitual", e && e.message); }
     }
     if (piloto) {
@@ -3165,6 +3175,18 @@
           if (coord && API.coordinadorCorte20 === coord &&
               (!estado || estado.mode !== "active-2.0")) {
             API.modoCorte20Activo = false;
+            // The coordinator closes its certified writer BEFORE notifying
+            // failback. Restore the original encrypted transport and its
+            // untouched queue only after that closure.
+            var licenciaPausada = API.__transporteLegado20Pausado;
+            if (licenciaPausada) {
+              API.__transporteLegado20Pausado = null;
+              try {
+                if (window.OCSyncControl &&
+                    typeof window.OCSyncControl.reanudarDesdeArquitectura20 === "function")
+                  window.OCSyncControl.reanudarDesdeArquitectura20(licenciaPausada);
+              } catch (_) {}
+            }
           }
           if (typeof observadorExterno === "function") {
             try { observadorExterno(estado); } catch (_) {}
@@ -3247,18 +3269,10 @@
         // are separate writers. Require deliberate OFF plus a drained legacy
         // queue BEFORE activating the new business writer. This uses the
         // already shipped OCSync facade; no new transport or data migration.
-        var relayAnterior = window.OCSync;
-        // C33 QA may expose only the catalog/photo helper, with NO legacy
-        // emitter or socket at all. That is not a second commercial writer.
-        // A real installed legacy emitter OR any stateful relay always goes
-        // through the strict OFF/empty/onEstado gate below.
-        if (relayAnterior &&
-            typeof relayAnterior.estado !== "function" &&
-            typeof relayAnterior.salaActiva !== "function" &&
-            typeof window.OCSyncEmit !== "function") relayAnterior = null;
+        var relayAnterior = window.OCSyncControl;
         function relayAnteriorApagadoYVacio() {
           if (!relayAnterior) return false; // no lazy-loading old writer may bypass observer
-          if (window.OCSync !== relayAnterior) return false;
+          if (window.OCSyncControl !== relayAnterior) return false;
           try {
             return typeof relayAnterior.estado === "function" &&
               relayAnterior.estado() === "apagado" &&
@@ -3287,7 +3301,8 @@
         }
         if (cortarComercio20 && !relayAnteriorApagadoYVacio())
           return rechazarDobleEscritor(API.coordinadorCorte20);
-        var head = opts.headCongelado || (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
+        var head = opts.headCongelado || (API.rollout && API.rollout.frozenHead) ||
+          (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
         var coord = await API.crearCoordinadorCorte20(API.doc, head, opts);
         if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
         var activacion = null;
@@ -3419,16 +3434,42 @@
     function _intentarActivarCorte20SiElegible() {
       if (!API.canalPiloto || typeof API.corte20QaHabilitado !== "function" ||
           !API.corte20QaHabilitado() || typeof API.activarCorte20Runtime !== "function" ||
-          API.__reactivandoCorte20) return;
+          API.__reactivandoCorte20 || API.modoCorte20Activo === true) return;
       try {
         var authQa = typeof window !== "undefined" ? window.OCAuth : null;
         var demoQa = authQa && typeof authQa.esDemo === "function" ? authQa.esDemo() === true : false;
         var rolQa = authQa && typeof authQa.rolActual === "function" ? String(authQa.rolActual() || "").trim().toLowerCase() : "";
-        if (!demoQa && (rolQa === "dueno" || rolQa === "admin")) {
-          API.__reactivandoCorte20 = Promise.resolve(API.activarCorte20Runtime({ cortarComercio: true }))
-            .catch(function () {})
-            .finally(function () { API.__reactivandoCorte20 = null; });
-        }
+        if (demoQa || (rolQa !== "dueno" && rolQa !== "admin")) return;
+        var released = !!(API.rollout && API.rollout.yparty === true);
+        // Do not sever an existing device's live relay while local Yjs
+        // ancestry or the durable ops notebook is still being hydrated.
+        if (released && (document.hidden || !API.idb || API.idb.synced !== true ||
+            !API.opsIdb || API.opsIdb.synced !== true ||
+            !API.doc || API.doc.isDestroyed ||
+            (API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)))) return;
+        var relay = window.OCSyncControl;
+        var licencia = API.codigoCuaderno;
+        API.__reactivandoCorte20 = Promise.resolve().then(async function () {
+          if (released) {
+            if (!relay || typeof relay.pausarParaArquitectura20 !== "function" ||
+                typeof relay.reanudarDesdeArquitectura20 !== "function") return null;
+            var paused = await relay.pausarParaArquitectura20(licencia);
+            if (!paused || paused.ok !== true) return null;
+            API.__transporteLegado20Pausado = licencia;
+          }
+          return API.activarCorte20Runtime({ cortarComercio: true });
+        }).then(function (resultado) {
+          if (!released || (resultado && resultado.modoCorte20Activo === true)) return;
+          var previous = API.__transporteLegado20Pausado;
+          API.__transporteLegado20Pausado = null;
+          if (previous) relay.reanudarDesdeArquitectura20(previous);
+        }).catch(function () {
+          // A failed certification can NEVER strand the old socket: leave
+          // source IDs, encrypted room and durable outbox byte-identical.
+          var previous = API.__transporteLegado20Pausado;
+          API.__transporteLegado20Pausado = null;
+          if (previous && relay) try { relay.reanudarDesdeArquitectura20(previous); } catch (_) {}
+        }).finally(function () { API.__reactivandoCorte20 = null; });
       } catch (_) {}
     }
     function sincronizarVisibilidad() {
@@ -3478,14 +3519,41 @@
     if (API.idb && API.idb.once) API.idb.once("synced", function () {
       setTimeout(pedirVolcarFotos, 1500);
       if (API.catalogoPublicoLector) API.catalogoPublicoLector.intentar();
+      _intentarActivarCorte20SiElegible();
     });
     if (API.catalogoPublicoLector) {
       API.doc.on("update", function () { API.catalogoPublicoLector.intentar(); });
       API.doc.once("destroy", function () { API.catalogoPublicoLector.destruir(); });
     }
     // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
-    if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
+    if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", function () {
+      pedirProcesarEventos();
+      _intentarActivarCorte20SiElegible();
+    });
+    // Activation can also begin after the ORIGINAL durable relay finishes
+    // its backlog. Require the actual pending->empty transition; repeated
+    // connection/status events cannot spin up a new writer indefinitely.
+    if (API.rollout && API.rollout.yparty === true &&
+        window.OCSyncControl && typeof window.OCSyncControl.onEstado === "function" &&
+        typeof window.OCSyncControl.durabilidadPendiente === "function") {
+      var legacyPendingBefore20 = false;
+      try { legacyPendingBefore20 = window.OCSyncControl.durabilidadPendiente() === true; } catch (_) {}
+      window.OCSyncControl.onEstado(function () {
+        if (window.OCYjs !== API || !API.doc || API.doc.isDestroyed) return;
+        var pendingNow = true;
+        try { pendingNow = window.OCSyncControl.durabilidadPendiente() !== false; } catch (_) {}
+        if (legacyPendingBefore20 && !pendingNow) _intentarActivarCorte20SiElegible();
+        legacyPendingBefore20 = pendingNow;
+      });
+    }
+    // Only a real authenticated Owner/Admin session can trigger this helper.
+    window.addEventListener("oc-login", _intentarActivarCorte20SiElegible);
     API.corte20QaHabilitado = function () {
+      // Explicit per-license release is sufficient to attempt a certified
+      // activation. C38 still refuses two active writers or pending old ops.
+      if (API.rollout && API.rollout.yparty === true &&
+          typeof API.rollout.frozenHead === "string" &&
+          /^[A-Za-z0-9_.:-]{3,128}$/.test(API.rollout.frozenHead)) return true;
       try {
         return localStorage.getItem("f123_yparty_qa") === "1" &&
           localStorage.getItem("f123_corte20_qa") === "1";

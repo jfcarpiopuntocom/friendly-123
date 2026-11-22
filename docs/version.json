@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.79",
-  "fecha": "2026-11-21",
-  "changelog": "v0.8.79 C187: habilita el proveedor público certificado predeterminado para construir el coordinador 2.0; mantiene activación por certificado y el tráfico comercial actual sin cambios.",
+  "version": "v0.8.80",
+  "fecha": "2026-11-22",
+  "changelog": "v0.8.80 C188: integra la politica certificada por licencia de la arquitectura 2.0; corrige la lectura del estado real del transporte antiguo y del certificado, conservando el cuaderno, las colas y el rechazo de escritores simultaneos.",
   "requerida": false,
-  "shell": "f123-shell-v879",
+  "shell": "f123-shell-v880",
   "apagar": [],
-  "releaseName": "v0.8.79",
-  "cacheGeneration": "golden415"
+  "releaseName": "v0.8.80",
+  "cacheGeneration": "golden416"
 }

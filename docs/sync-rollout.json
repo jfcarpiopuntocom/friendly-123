@@ -3,7 +3,7 @@
   "stage": "all",
   "allOutboxV2": true,
   "allApproved": true,
-  "description": "Commercial release approved by JFC on 2026-11-21 ('greenlight salir a commercial'). S4 per-op outbox for all licenses; gzip stays per-license and disabled; YParty 2.0 stays per-license and off until its privacy bridge is certified.",
+  "description": "S4 outbox all licenses (unchanged); y-partyserver public catalog and typed coordinator on the one existing JFC release entry only, using the frozen HEAD currently configured on Cloudflare. Other stores unchanged; no private Y.Doc publication, no deletion or user data reset; C38 blocks overlapping writers.",
   "licenses": {
     "e048094f34e8095f516fc10edd43d13b1625825f97d5e983d65477d0569fb718": {
       "stage": "all",
@@ -15,7 +15,9 @@
       "minimumShell": 0,
       "deviceCensusSha256": "",
       "censusDate": "",
-      "gzipApproved": false
+      "gzipApproved": false,
+      "yparty": true,
+      "frozenHead": "fb-7d8e5559ecb3eb245c73f7c5"
     }
   }
 }
