@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.80",
+  "version": "v0.8.81",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.80 C188: integra la politica certificada por licencia de la arquitectura 2.0; corrige la lectura del estado real del transporte antiguo y del certificado, conservando el cuaderno, las colas y el rechazo de escritores simultaneos.",
+  "changelog": "v0.8.81 C194: Safari Commissions conserva todas las fechas e importes; evita recorrer ventas por grupo y carga recibos en bloques al desplegar sin cambiar ventas, pagos ni datos.",
   "requerida": false,
-  "shell": "f123-shell-v880",
+  "shell": "f123-shell-v881",
   "apagar": [],
-  "releaseName": "v0.8.80",
-  "cacheGeneration": "golden416"
+  "releaseName": "v0.8.81",
+  "cacheGeneration": "golden417"
 }
