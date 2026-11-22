@@ -864,7 +864,11 @@ test('C166: Safari C165 Service Worker load 134 concurrent requests reduced to <
  assert.equal(c166.evidence[0].pr,990);
  assert.ok(qa.includes('134 production precache requests must never run at once'));
  assert.ok(qa.includes('missing ESSENTIAL asset must preserve previous shell'));
- assert.ok(sw.includes('for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno())'));
+ // C165 maximum three writers remains valid; C167 strengthens iOS to one.
+ const desktopBound=sw.includes('for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno())');
+ const iosBound=sw.includes('const iosMemoryGuard = /iPhone|iPad|iPod/i.test')
+   && sw.includes('for (let i = 0; i < (iosMemoryGuard ? 1 : 3) && i < SHELL.length; i++) corredores.push(precargarUno())');
+ assert.ok(desktopBound || iosBound,'C165 bounded SW precache remains enforced, C167 may cap iOS further');
  assert.equal(q.dimensions.find(d=>d.id==='durability').score,19.7);
  assert.equal(q.dimensions.find(d=>d.id==='physical').score,0,'real iPhone Safari crash retest not verified');
  assert.equal(q.score,83.6);assert.equal(inspect().quality,83.6);
