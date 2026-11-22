@@ -31,7 +31,7 @@ function mountRoleAuthRuntime({failPhotoFor = null} = {}) {
       for (const fn of listeners.get(ev.type) || []) fn(ev);
       return true;
     },
-    OCSync: {
+    OCSyncControl: {
       estado: () => 'apagado',
       salaActiva: () => null,
       durabilidadPendiente: () => false,
