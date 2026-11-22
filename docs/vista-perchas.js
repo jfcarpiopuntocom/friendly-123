@@ -592,6 +592,9 @@
             if (!window.OCFotos.leerPorHash) return null;
             return window.OCFotos.leerPorHash(hash);
           },
+          // C204: foto completa local de la que el puntero (hash) es miniatura; solo existe en el aparato que la tomo.
+          readFullByHash: async (hash) => (window.OCFotos.leerFotoCompletaPorHash
+            ? window.OCFotos.leerFotoCompletaPorHash(hash) : null),
           readSyncByHash: async (hash) => {
             try {
               const legacy = window.OCYjs && window.OCYjs.fotosMap && window.OCYjs.fotosMap.get
@@ -1091,7 +1094,8 @@
       try {
         if (!window.OCFotos || !window.OCFotos.guardarFotoContenido)
           throw new Error('Photo hash storage unavailable');
-        const hash = await window.OCFotos.guardarFotoContenido(dataUrl);
+        // C204: al sync viaja una miniatura (puntero = su SHA); la foto completa queda solo en este aparato.
+        const hash = await (window.OCFotos.guardarFotoConMiniatura || window.OCFotos.guardarFotoContenido)(dataUrl);
         if (!hash || !mismoCuaderno()) throw new Error('Photo notebook changed');
         // The photo bytes are safe locally, but a missing shelf preimage is
         // NOT permission to perform an unguarded remote pointer write.
