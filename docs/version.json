@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.82",
+  "version": "v0.8.84",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.82 C195: PIN gate avoids repeated DOM rebuilds on Sync3 merge bursts, preserves current license, business name, PIN and login semantics.",
+  "changelog": "v0.8.84 C197: pause all sync-triggered full active-view renders behind the PIN gate; single coalesced resume after login. Data synchronization and auth are unchanged.",
   "requerida": false,
-  "shell": "f123-shell-v882",
+  "shell": "f123-shell-v884",
   "apagar": [],
-  "releaseName": "v0.8.82",
-  "cacheGeneration": "golden418"
+  "releaseName": "v0.8.84",
+  "cacheGeneration": "golden420"
 }
