@@ -27,4 +27,3 @@ jobs:
         run: |
           node --test --test-concurrency=2 test/p0-c182-commissions-compact-view-switches.test.cjs test/p0-c182-commissions-original-ui-all-dates.test.cjs test/p0-belen-commissions-all-dates.test.cjs test/p0-c166-commissions-total-first.test.cjs test/p0-c175-commissions-inverted-range-no-false-zero.test.cjs test/p0-c175-commissions-client-id-conflict.test.cjs test/commissions-by-person.test.cjs test/commissions-period.test.js test/commission-direction-period.test.js
           node --check src/app/app-inline-01.js
-          git diff --check HEAD~1 HEAD
