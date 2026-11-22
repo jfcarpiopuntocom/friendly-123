@@ -50,11 +50,11 @@ test('C166: total and any grouped view honor optional dates; both UIs default to
 test('C166: ALL totals read real authenticated business sales; missing coverage never masquerades as zero',()=>{
  const app=read('src/app/app-inline-01.js'),dash=read('src/dashboard/dashboard-main.js');
  const route=app.slice(app.indexOf('async function cargarComisiones(){'),app.indexOf('async function cargarComisiones(){')+3600);
- assert.match(route,/ventas\\/todas\\?ubicacionId=todas/,'the live business API, not hardcoded demo sales');
- assert.match(route,/Array\\.isArray\\(sales\\)/,'validate the authenticated sales response');
- assert.match(route,/OCCommissionHistory\\.render\\(\\{sales:sales/);
- assert.match(route,/barraComisionesHtml\\(\\[\\],actions\\)\\+report/,'show real total before optional months request finishes');
- assert.match(dash,/autorizado && ultimoDato>0 && Array\\.isArray\\(datos\\.ventas\\)/,'dashboard needs authenticated notebook coverage');
- assert.match(dash,/datos\\.cobertura\\.ventas===true/,'dashboard cannot mistake incomplete cover for an empty business');
- assert.match(dash,/Ventas pendientes de sincronizar/,'show pending instead of false $0 on incomplete sync');
+ assert.ok(route.includes('/ventas/todas?ubicacionId=todas'),'live business API, not hardcoded demo sales');
+ assert.ok(route.includes('Array.isArray(sales)'),'validate authenticated sales response');
+ assert.ok(route.includes('OCCommissionHistory.render({sales:sales'));
+ assert.ok(route.includes('barraComisionesHtml([],actions)+report'),'show real total before optional months request finishes');
+ assert.ok(dash.includes('autorizado && ultimoDato>0 && Array.isArray(datos.ventas)'),'dashboard requires authenticated notebook');
+ assert.ok(dash.includes('datos.cobertura.ventas===true'),'dashboard cannot display incomplete cover as zero');
+ assert.ok(dash.includes('Ventas pendientes de sincronizar'),'explicit pending instead of false $0');
 });
