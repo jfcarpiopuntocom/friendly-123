@@ -1232,7 +1232,11 @@
       +'<label style="font-size:14px;">'+(es?"Ver por":"Group by")+' <select id="cm-grupo" style="'+inputStyle+'">'
       +labels.map(function(pair){return '<option value="'+pair[0]+'"'+(cmGrupo===pair[0]?' selected':'')+'>'+pair[1]+'</option>';}).join("")
       +'</select></label></div>';
-    var canRead=(!datos.cobertura||datos.cobertura.ventas!==false);
+    // A freshly opened dashboard starts with an empty in-memory placeholder.
+    // That is NOT a confirmed empty shop. Only the real authenticated notebook
+    // snapshot may produce monetary totals; incomplete reads stay pending.
+    var canRead=autorizado && ultimoDato>0 && Array.isArray(datos.ventas)
+      && (!datos.cobertura || datos.cobertura.ventas===true);
     var report=canRead&&window.OCCommissionHistory
       ? window.OCCommissionHistory.render({sales:datos.ventas||[],from:cmDesde,to:cmHasta,group:cmGrupo,
           lang:es?"es":"en",zone:zonaNegocioDashboard()})
