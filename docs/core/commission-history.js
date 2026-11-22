@@ -6,7 +6,7 @@
   if(root)root.OCCommissionHistory=api;
 })(typeof window!=="undefined"?window:null,function(){
   "use strict";
-  var views=["producto","percha","cliente","comisionista","mes"];
+  var views=["total","producto","percha","cliente","comisionista","mes"];
   function keyDay(value,zone){
     if(!value)return "";
     // A business calendar date has no UTC conversion: Ecuador local Nov 21 stays Nov 21.
@@ -51,7 +51,7 @@
   function escape(value){return String(value==null?"":value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
   function project(input){
     input=input||{};
-    var group=views.indexOf(input.group)>=0?input.group:"producto";
+    var group=views.indexOf(input.group)>=0?input.group:"total";
     var from=/^\d{4}-\d{2}-\d{2}$/.test(input.from||"")?input.from:"";
     var to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"";
     var lang=input.lang==="es"?"es":"en",zone=input.zone||"America/Guayaquil";
@@ -102,7 +102,8 @@
       accumulate(tot,"gross","unknownGross",gross);
       accumulate(tot,"commission","unknownCommission",commission);
       var label="",id="";
-      if(group==="producto"){id=String(v.productoId||v.productoNombre||"");label=safeName(v.productoNombre,lang==="es"?"Sin producto":"Unnamed product");}
+      if(group==="total"){id="total";label=lang==="es"?"Total general":"Overall total";}
+      else if(group==="producto"){id=String(v.productoId||v.productoNombre||"");label=safeName(v.productoNombre,lang==="es"?"Sin producto":"Unnamed product");}
       else if(group==="percha"){id=String(v.ubicacionId||v.ubicacionNombre||"");label=safeName(v.ubicacionNombre,lang==="es"?"Sin percha":"Unnamed rack");}
       else if(group==="cliente"){id=String(v.clienteId||v.clienteNombre||"");label=safeName(v.clienteNombre,lang==="es"?"Sin cliente":"No customer");}
       else if(group==="comisionista"){
@@ -149,7 +150,7 @@
     var title=es?"Historial completo de ventas y comisiones":"Full sales and commissions history";
     var label=es?"Ventas brutas":"Gross sales",com=es?"Comisiones registradas":"Recorded commissions";
     var info=es?"Vista de consulta de todas las fechas. Los pagos, devoluciones y saldos se concilian en el mes correspondiente; selecciona un mes para registrarlos.":"Read-only view across dates. Payments, returns and balances remain reconciled in their own month; select a month to record them.";
-    var groupName={producto:es?"Producto":"Product",percha:es?"Percha / evento":"Rack / event",cliente:es?"Cliente":"Customer",comisionista:es?"Comisionista":"Associate",mes:es?"Mes":"Month"}[view.group];
+    var groupName={total:es?"Total general":"Overall total",producto:es?"Producto":"Product",percha:es?"Percha / evento":"Rack / event",cliente:es?"Cliente":"Customer",comisionista:es?"Comisionista":"Associate",mes:es?"Mes":"Month"}[view.group];
     var body=view.groups.map(function(g){
       return '<div data-comm-history-group class="tag-card" style="margin:0 0 8px;padding:10px 14px;text-align:left;">'
         +'<strong style="display:block;font-size:16px;color:var(--ink,#0F1923);">'+escape(g.label)+'</strong>'
@@ -166,8 +167,8 @@
       +'<div class="tag-card" style="flex:1 1 145px;padding:12px;text-align:left;"><b>'+label+'</b><div style="font-size:20px;">'+money(t.gross,t.unknownGross)+'</div></div>'
       +'<div class="tag-card" style="flex:1 1 145px;padding:12px;text-align:left;"><b>'+com+'</b><div style="font-size:20px;">'+money(t.commission,t.unknownCommission)+'</div></div>'
       +'<div class="tag-card" style="flex:1 1 110px;padding:12px;text-align:left;"><b>'+(es?"Ventas":"Sales")+'</b><div style="font-size:20px;">'+t.count+'</div></div></div>'
-      +'<h4 style="font-size:16px;margin:10px 0;">'+groupName+'</h4>'
-      +(body||'<p style="font-size:15px;">'+(es?"No hay ventas en las fechas elegidas.":"No sales in the selected dates.")+'</p>')
+      +(view.group==="total"?'':('<h4 style="font-size:16px;margin:10px 0;">'+groupName+'</h4>'
+      +(body||'<p style="font-size:15px;">'+(es?"No hay ventas en las fechas elegidas.":"No sales in the selected dates.")+'</p>')))
       +'</section>';
   }
   return {views:views,day:keyDay,project:project,render:render};
