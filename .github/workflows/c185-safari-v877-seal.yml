@@ -1,0 +1,64 @@
+name: C185 Safari integrated v877 RED GREEN and sealed asset build
+on:
+  push:
+    branches:
+      - fix/c185-integrated-safari-v877
+permissions:
+  contents: write
+jobs:
+  verify-and-seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Verify C185 RED on exact v876 C184 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp src/app/app-inline-03.js /tmp/c185-new.js
+          git show 26ffeeb0dfd4fe551e7bf677ecd31348ca818562:src/app/app-inline-03.js > src/app/app-inline-03.js
+          if node --test test/p0-c185-single-sw-check.test.cjs > /tmp/c185-red.log 2>&1; then
+            cat /tmp/c185-red.log
+            echo 'C185 RED missing on v876' >&2
+            exit 1
+          fi
+          cat /tmp/c185-red.log
+          cp /tmp/c185-new.js src/app/app-inline-03.js
+      - name: Confirm C184 + C185 GREEN using real sources
+        run: |
+          node --check docs/sync-yjs.js
+          node --check src/app/app-inline-03.js
+          node --test test/p0-c184-safari-legacy-decrypt-memory.test.cjs test/p0-c185-single-sw-check.test.cjs
+      - name: Rebuild official JS assets and exact SHA256 manifest
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          bash check-sw.sh
+      - name: C181 PIN contract and C184+C185 source + shipped bundle GREEN
+        run: |
+          node --test test/p0-c180-version-adoption.test.cjs test/v607-invisible-auto-update.test.cjs test/p0-c184-safari-legacy-decrypt-memory.test.cjs test/p0-c185-single-sw-check.test.cjs
+          node scripts/release-control.cjs validate 26ffeeb0dfd4fe551e7bf677ecd31348ca818562
+          git diff --check
+      - name: Seal generated assets and manifest onto reviewed candidate branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css docs/version-manifest.json docs/sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C185): reproducible v877 bundle and integrity SHA seal'
+            git push origin HEAD:fix/c185-integrated-safari-v877
+          else
+            echo 'Already sealed; no changes to push.'
+          fi
