@@ -4712,6 +4712,10 @@
       }).catch(function () { return false; });
     };
     API.confirmarCatalogoVisible = function () {
+      // C186: encrypted cold history is not a visible business receipt.
+      // Never force a full store merge until the existing access barrier has proof.
+      if (API.canal && API.canal.recuperando &&
+          !(API.canal.accesoListo && API.canal.accesoListo())) return Promise.resolve(false);
       if (_tAplica) { clearTimeout(_tAplica); _tAplica = null; aplicar(); }
       var receipt = ultimaAplicacionVisible, revision = API._catalogoRevision;
       if (!API.hechosListos || !API.hechosListos()) return Promise.resolve(false);
@@ -4844,6 +4848,11 @@
         return;
       }
       API._catalogoRevision++;
+      // C186: thousands of encrypted cold-join frames can arrive before HEAD.
+      // The existing verified-access/HEAD barrier applies their final Y.Doc once.
+      // Live updates after that proof remain immediate.
+      if (API.canal && API.canal.recuperando &&
+          !(API.canal.accesoListo && API.canal.accesoListo())) return;
       /* Coalescer con espera máxima acotada. El debounce anterior reiniciaba
          300 ms con CADA update y una ráfaga podía posponer indefinidamente el
          nombre/stock visible. El primer update agenda una aplicación próxima;
