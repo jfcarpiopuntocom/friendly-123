@@ -10,7 +10,8 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC173=quality.latestReview?.id==='C173';
+ const isC178=quality.latestReview?.id==='C178';
+ const isC173=isC178||quality.latestReview?.id==='C173';
  const isC171=isC173||quality.latestReview?.id==='C171';
  const isC166=isC171||quality.latestReview?.id==='C166';
  const isC164=isC166||quality.latestReview?.id==='C164';
@@ -31,8 +32,8 @@ function inspect(){
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC173?83.8:(isC171?83.7:(isC166?83.6:(isC164?83.5:(isC162?83.4:(isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))))))))))))))))))));
- const currentDurability=isC173?19.9:(isC171?19.8:(isC166?19.7:(isC164?19.6:(isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1)))))));
+ const currentQuality=isC178?84.0:(isC173?83.8:(isC171?83.7:(isC166?83.6:(isC164?83.5:(isC162?83.4:(isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)))))))))))))))))))));
+ const currentDurability=isC178?20.0:(isC173?19.9:(isC171?19.8:(isC166?19.7:(isC164?19.6:(isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1))))))));
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
  if(isC130){
@@ -90,6 +91,26 @@ function inspect(){
   assert(src.includes('accumulate(tot,"gross","unknownGross",gross)'));
   assert.equal((isC144?quality.auditTrail?.find(r=>r.id==='C142'):quality.latestReview)?.sourceSha,'05f5b094bf5ebae313ffd464e33bbb2d54a1b3ef');
  }
+ if(isC178){
+  const source=fs.readFileSync(path.join(root,'docs/core/commission-history.js'),'utf8');
+  const app=fs.readFileSync(path.join(root,'src/app/app-inline-01.js'),'utf8');
+  const bundle=fs.readFileSync(path.join(root,'docs/app-inline-01.min.js'),'utf8');
+  const sw=fs.readFileSync(path.join(root,'docs/sw.js'),'utf8');
+  const commissionQa=fs.readFileSync(path.join(root,'test/p0-c175-commissions-inverted-range-no-false-zero.test.cjs'),'utf8');
+  const csvQa=fs.readFileSync(path.join(root,'test/p0-c176-commissions-csv-formula-injection.test.cjs'),'utf8');
+  const safariQa=fs.readFileSync(path.join(root,'test/p0-c176-safari-essential-sri-install.test.cjs'),'utf8');
+  assert(source.includes('invalidRange:true,rows:[],totals:null,groups:[]'),'invalid calendar range may never become exact money');
+  assert(app.includes('if(from&&to&&from>to)'),'app CSV must refuse invalid period before fetch');
+  assert(bundle.includes('if(from&&to&&from>to)'),'published bundle has invalid period gate');
+  assert(app.includes('i<3&&/') && bundle.includes('i<3&&/'),'CSV text formula prefixes neutralized in source and bundle');
+  assert(csvQa.includes('formula-injection-safe CSV from actual') && commissionQa.includes('reversed period never renders false $0'));
+  assert(safariQa.includes('must preserve old service worker') && sw.includes('sriEssentialFailures.size'),'essential SHA failure blocks skipWaiting');
+  assert.equal(quality.latestReview?.score,84.0);
+  assert.equal(quality.latestReview?.evidence?.length,2);
+  assert.equal(quality.latestReview?.evidence?.[0]?.pr,1011);
+  assert.equal(quality.latestReview?.evidence?.[1]?.pr,1014);
+  assert.equal(quality.latestReview?.sourceSha,'60ed7f28611ec5948edabaa0243e564697496679');
+ }
  if(isC173){
   const qa=fs.readFileSync(path.join(root,'test/p0-c172-commissions-date-formatter-cache.test.cjs'),'utf8');
   const src=fs.readFileSync(path.join(root,'docs/core/commission-history.js'),'utf8');
@@ -98,8 +119,8 @@ function inspect(){
   assert(src.includes('var dayFormatters=new Map()'));
   assert(src.includes('fmt=new Intl.DateTimeFormat("en-US"'));
   assert(src.includes('var parts=dateFormatter(zone).formatToParts'));
-  assert.equal(quality.latestReview?.sourceSha,'727598c0a02249139d28be53769c4e0cfe1b2ea1');
-  assert.equal(quality.latestReview?.evidence?.[0]?.pr,1006);
+  assert.equal((isC178?quality.auditTrail?.find(r=>r.id==='C173'):quality.latestReview)?.sourceSha,'727598c0a02249139d28be53769c4e0cfe1b2ea1');
+  assert.equal((isC178?quality.auditTrail?.find(r=>r.id==='C173'):quality.latestReview)?.evidence?.[0]?.pr,1006);
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  }
  if(isC171){
@@ -845,7 +866,7 @@ function inspect(){
    assert.equal(pending?.done,false,'no synthetic role QA can earn the physical commercial cutover');
    assert.equal(data.commercialGo.certifiedGates,0,'role QA must not certify commercial readiness');
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0,'role QA is not physical acceptance');
-   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,isC178?11.3:11.2);
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
    assert.equal(quality.comparison.previousScore,80.4);
    const sync=fs.readFileSync(path.join(root,'docs/sync-yjs.js'),'utf8');
@@ -1089,7 +1110,7 @@ function inspect(){
    const pending=identity.milestones.find(m=>m.id==='commercial-role-switch');
    assert.equal(pending?.points,0.5,'live physical/commercial role switch still unearned0.5');
    assert.equal(pending?.done,false,'C58 synthetic source QA cannot certify role on real clients');
-   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,isC178?11.3:11.2);
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
    assert.equal(quality.comparison.previousScore,80.4);
    assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0.0);
@@ -1192,7 +1213,7 @@ function inspect(){
    const r2=hist.milestones.find(m=>m.id==='r2-service-binding-installed');
    assert.equal(r2?.points,2.0);
    assert.equal(r2?.done,true);
-   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
+   assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,isC178?11.3:11.2);
    assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
    assert.equal(quality.comparison.previousScore,80.4);
    assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
@@ -1251,7 +1272,7 @@ function inspect(){
  assert.equal(quality.score,currentQuality);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.previous,18.7);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,isC178?11.3:11.2);
  assert.equal(data.groups.flatMap(g=>g.milestones).filter(m=>!m.done&&m.implementationCredited!==true)
    .reduce((n,m)=>n+m.points,0),oneDecimal(2.0-(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'original C63 unearned port points stay unearned');
  assert.equal(data.commercialGo.certifiedGates,0);
@@ -1437,7 +1458,7 @@ function inspect(){
   'C78 control: queued sale 202 and committed sale + fiado remain correct'
  ])assert(c78Qa.includes(token),'C79 native SQLite source RED-first evidence missing '+token);
  assert.equal(quality.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,isC178?11.3:11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
@@ -1472,7 +1493,7 @@ function inspect(){
  assert.equal(quality.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba');
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,isC178?11.3:11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='durability')?.score,currentDurability);
  assert.equal(data.score,oneDecimal(98.0+(data.groups.flatMap(g=>g.milestones).find(m=>m.id==='r2-service-binding-installed')?.done?2.0:0)),'C80 local SQLite readback is NOT an external frozen Firebase HEAD');
@@ -1493,7 +1514,7 @@ function inspect(){
  ])assert(c84QA.includes(token),'C85 merged C84 negative/positive evidence missing '+token);
  assert.equal(quality.lastAuditedProductSha,'b5ce01a7f46e801001cc052c2797aa2150bb3cba',
   'C92 source audit pins latest real product master with C70 C90 C68 merged; C84 also present');
- assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,11.2);
+ assert.equal(quality.dimensions.find(d=>d.id==='security')?.score,isC178?11.3:11.2);
  assert.equal(quality.dimensions.find(d=>d.id==='security')?.previous,11.1);
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.score,isC162?20.0:(isC152?19.9:(isC150?19.8:(isC148?19.7:(isC144?19.6:(isC142?19.5:(isC138?19.4:19.3)))))));
  assert.equal(quality.dimensions.find(d=>d.id==='business')?.previous,19.0);
@@ -1572,7 +1593,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC173?1.1:(isC171?1.0:(isC166?0.9:(isC164?0.8:(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))))))):0)+(d.id==='business'?(isC162?0.8:(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1))))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC173?1.1:(isC171?1.0:(isC166?0.9:(isC164?0.8:(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))))))):0)+(d.id==='business'?(isC162?0.8:(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1))))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)+(d.id==='security'&&isC178?0.1:0)+(d.id==='durability'&&isC178?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
