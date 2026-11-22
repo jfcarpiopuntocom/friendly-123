@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.68",
+  "version": "v0.8.69",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.68 C174: Commissions app y CSV usan calendario configurado de negocio, Dashboard conserva la zona explícita autenticada; fechas e importes sin inventar, Safari C172 y cola C170 intactos.",
+  "changelog": "v0.8.69 C175: Commissions detecta identidades distintas de cliente en copias de una misma venta, conserva la comisión real y marca cliente por verificar en desgloses, sin atribución arbitraria.",
   "requerida": false,
-  "shell": "f123-shell-v868",
+  "shell": "f123-shell-v869",
   "apagar": [],
-  "releaseName": "v0.8.68",
-  "cacheGeneration": "golden404"
+  "releaseName": "v0.8.69",
+  "cacheGeneration": "golden405"
 }
