@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.74",
+  "version": "v0.8.75",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.74 C181: actualización automática exclusivamente en la pantalla de PIN, sin recarga de la app operativa ni espera arbitraria; splash Updating antes de navegar y una transición por shell.",
+  "changelog": "v0.8.75 C182: Commissions conserva su UI de tarjetas, muestra todas las fechas por defecto y cambia por Producto, Percha, Cliente, Comisionista o Periodo con tabs, sin mes ni fechas impuestos.",
   "requerida": false,
-  "shell": "f123-shell-v874",
+  "shell": "f123-shell-v875",
   "apagar": [],
-  "releaseName": "v0.8.74",
-  "cacheGeneration": "golden410"
+  "releaseName": "v0.8.75",
+  "cacheGeneration": "golden411"
 }

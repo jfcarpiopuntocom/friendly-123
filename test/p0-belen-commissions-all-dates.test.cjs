@@ -52,7 +52,7 @@ test('C136: both published pages load same verified projection and default to al
  for(const html of [appHtml,dashHtml])assert.match(html,/core\/commission-history\.js/);
  assert.ok(app.indexOf('if (!_ocMesComisiones) {')>app.indexOf('async function cargarComisiones()'),
   'app must use all-period read-only branch before settlement reads');
- assert.match(app,/OCCommissionHistory\.render\(\{sales:sales/);
+ assert.match(app,/const report=resumenComisionesGlobalHtml\(sales\)/);
  assert.match(app,/Todo el historial/);
  assert.match(app,/function cambiarRangoComisionesGlobal\(/);
  assert.match(app,/window\._ocComHistoryGroup/);

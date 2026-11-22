@@ -53,12 +53,12 @@ test('C166: grouping remains optional by month, product, client and associate',(
  const nov=report.project({sales,from:'2026-11-01',to:'2026-11-30',lang:'es'});
  assert.equal(nov.group,'total');assert.equal(nov.totals.commission,15);
 });
-test('C166: the primary app AND dashboard explicitly default to total, not product or a calendar month',()=>{
+test('C182: the app defaults to product cards across all dates, dashboard still defaults to authentic total',()=>{
  const app=read('src/app/app-inline-01.js');
  const dash=read('src/dashboard/dashboard-main.js');
- assert.match(app,/\["total","producto","percha","cliente","comisionista","mes"\]/);
- assert.match(app,/_ocComHistoryGroup\|\|"total"/);
- assert.match(app,/\["total",es\?"Total general"/);
+ assert.match(app,/\["producto","percha","cliente","comisionista","mes"\]/);
+ assert.match(app,/\["producto","percha","cliente","comisionista","mes"\]\.includes\(window\._ocComHistoryGroup\)/);
+ assert.match(app,/\[\["producto",es\?"Producto"/);
  assert.match(dash,/cmGrupo = "total"/);
  assert.match(app,/data-commissions-open-month/,'monthly settlement remains available on demand');
  const allTimeStart=app.indexOf('if (!_ocMesComisiones) {',app.indexOf('async function cargarComisiones()'));
@@ -81,6 +81,7 @@ test('C166 Safari: total from real sales makes ONLY ONE history request; monthly
    const container={innerHTML:''};
    const calls=[];
    const context={
+     resumenComisionesGlobalHtml:(sales)=>report.render({sales,lang:"es"}),
      document:{documentElement:{lang:'es'},getElementById(id){assert.equal(id,'listaComisiones');return container;}},
      window:{OCCommissionHistory:report},
      API:'/api',_ocMesComisiones:null,_ocComisionesSolicitud:0,
@@ -107,7 +108,7 @@ test('C166: failures of the PRIMARY sales endpoint fail visibly, not as fabricat
  const start=source.indexOf('async function cargarComisiones(){');
  const end=source.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',start);
  const container={innerHTML:''};
- const context={document:{documentElement:{lang:'es'},getElementById(){return container;}},
+ const context={resumenComisionesGlobalHtml:(sales)=>report.render({sales,lang:"es"}),document:{documentElement:{lang:'es'},getElementById(){return container;}},
    window:{OCCommissionHistory:report},API:'/api',_ocMesComisiones:null,_ocComisionesSolicitud:0,
    renderGestionPromotoras(){},t(){return 'Reintentar';},barraComisionesHtml(){return '';},
    setTimeout(fn){queueMicrotask(fn);return 1;},
