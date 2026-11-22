@@ -7572,7 +7572,8 @@ async function exportarComisionesTotalCSV(){
       return /[",\n\r\t]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;
     };
     const rows=[["Fecha","Venta ID","Grupo","Ventas brutas","Comision registrada"]];
-    report.rows.forEach(v=>{const g=report.groups.find(x=>x.id===v.group);rows.push([v.day,v.id,g?g.label:"",
+    const groupIndex=new Map(report.groups.map(g=>[g.id,g]));
+    report.rows.forEach(v=>{const g=groupIndex.get(v.group);rows.push([v.day,v.id,g?g.label:"",
       v.gross===null?"":v.gross.toFixed(2),v.commission===null?"":v.commission.toFixed(2)]);});
     const blob=new Blob(["\uFEFF"+rows.map(r=>r.map(csvValue).join(",")).join("\n")],{type:"text/csv;charset=utf-8;"});
     const url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="comisiones-todas-fechas.csv";
