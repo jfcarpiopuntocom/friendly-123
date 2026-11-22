@@ -7,6 +7,9 @@
 })(typeof window!=="undefined"?window:null,function(){
   "use strict";
   var views=["total","producto","percha","cliente","comisionista","mes"];
+  // Safari: a full-history report visits each receipt twice; Intl constructors
+  // are expensive on iPhone. Reuse at most four immutable per-zone formatters.
+  var dayFormatters=new Map();
   function keyDay(value,zone){
     if(!value)return "";
     // A business calendar date has no UTC conversion: Ecuador local Nov 21 stays Nov 21.
@@ -14,7 +17,13 @@
     var t=Date.parse(value);
     if(!Number.isFinite(t))return /^\d{4}-\d{2}-\d{2}/.test(String(value))?String(value).slice(0,10):"";
     try{
-      var parts=new Intl.DateTimeFormat("en-US",{timeZone:zone||"America/Guayaquil",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(t));
+      var tz=zone||"America/Guayaquil",formatter=dayFormatters.get(tz);
+      if(!formatter){
+        formatter=new Intl.DateTimeFormat("en-US",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit"});
+        if(dayFormatters.size>=4)dayFormatters.clear();
+        dayFormatters.set(tz,formatter);
+      }
+      var parts=formatter.formatToParts(new Date(t));
       var take=function(type){return (parts.find(function(p){return p.type===type;})||{}).value||"";};
       return take("year")+"-"+take("month")+"-"+take("day");
     }catch(_){return new Date(t).toISOString().slice(0,10);}
