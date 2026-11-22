@@ -58,3 +58,31 @@ test('C166: ALL totals read real authenticated business sales; missing coverage 
  assert.ok(dash.includes('datos.cobertura.ventas===true'),'dashboard cannot display incomplete cover as zero');
  assert.ok(dash.includes('Ventas pendientes de sincronizar'),'explicit pending instead of false $0');
 });
+
+
+test('C167 Safari formatter reuse: all authentic receipts, two time zones, exact money',()=>{
+ const vm=require('node:vm');
+ const source=read('docs/core/commission-history.js');
+ let constructors=0;
+ const sandboxIntl={DateTimeFormat:function(...args){
+   constructors++;
+   return new Intl.DateTimeFormat(...args);
+ }};
+ const sandbox={window:{},Intl:sandboxIntl,Date};
+ vm.runInNewContext(source,sandbox,{filename:'commission-history.js',timeout:2000});
+ const projection=sandbox.window.OCCommissionHistory;
+ const sales=Array.from({length:150},(_,i)=>({
+   id:'real-receipt-'+i,
+   fecha:'2026-11-'+String(i%20+1).padStart(2,'0')+'T18:00:00Z',
+   cantidad:1,precioUnit:10,comisionAsociado:2
+ }));
+ const local=projection.project({sales,zone:'America/Guayaquil'});
+ assert.equal(local.totals.count,150);
+ assert.equal(local.totals.gross,1500);
+ assert.equal(local.totals.commission,300);
+ assert.equal(local.groups.length,0);
+ assert.equal(constructors,1,'do not allocate an Intl.DateTimeFormat twice per receipt');
+ const other=projection.project({sales,zone:'Europe/Paris'});
+ assert.equal(other.totals.commission,300);
+ assert.equal(constructors,2,'one formatter per actual business zone, not per sale');
+});
