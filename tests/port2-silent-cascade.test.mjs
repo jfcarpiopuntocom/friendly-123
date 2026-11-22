@@ -1,35 +1,47 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSilentTransportCascade} from '../src/port2-silent-cascade.mjs';
+const route = (name, send, authority='same-do') => ({name,authority,send});
 
-test('A then B then C, preserving opId and only accepting durable ACK', async () => {
+test('A to B only on definitive pre-send rejection',async()=>{
   const seen=[];
   const cascade=createSilentTransportCascade({routes:[
-    {name:'A',send:async op=>{seen.push(['A',op.opId]);throw Error('offline')}},
-    {name:'B',send:async op=>{seen.push(['B',op.opId]);return {ack:false}}},
-    {name:'C',send:async op=>{seen.push(['C',op.opId]);return {ack:true,opId:op.opId}}}
-  ]});
-  const result=await cascade.publish({opId:'sale_12345678'});
-  assert.deepEqual(seen,[['A','sale_12345678'],['B','sale_12345678'],['C','sale_12345678']]);
-  assert.equal(result.route,'C');
-});
-
-test('never confirms an unverified ACK',async()=>{
-  const cascade=createSilentTransportCascade({routes:[{name:'A',send:async()=>({ack:true,opId:'wrong'})}]});
-  assert.equal((await cascade.publish({opId:'sale_12345678'})).confirmed,false);
-});
-
-test('returns to A when available on next operation',async()=>{
-  let available=false;
-  const cascade=createSilentTransportCascade({routes:[
-    {name:'A',send:async op=>available?{ack:true,opId:op.opId}:null},
-    {name:'B',send:async op=>({ack:true,opId:op.opId})}
+    route('A',async()=>{seen.push('A');return {stage:'definitively-not-sent'}}),
+    route('B',async op=>{seen.push('B');return {ack:true,opId:op.opId,authority:'same-do',durable:true}})
   ]});
   assert.equal((await cascade.publish({opId:'sale_12345678'})).route,'B');
-  available=true;
-  assert.equal((await cascade.publish({opId:'sale_87654321'})).route,'A');
+  assert.deepEqual(seen,['A','B']);
 });
-
-test('rejects route without shared authority',()=>{
-  assert.throws(()=>createSilentTransportCascade({routes:[{name:'A',authority:'one',send:async()=>{}},{name:'B',authority:'two',send:async()=>{}}]}),/authority/);
+test('network exception never dispatches same sale to another route',async()=>{
+  let calls=0;
+  const cascade=createSilentTransportCascade({routes:[
+    route('A',async()=>{throw Error('timeout')}),
+    route('B',async()=>{calls++})
+  ]});
+  assert.equal((await cascade.publish({opId:'sale_12345678'})).stage,'commit-unverified');
+  assert.equal(calls,0);
+});
+test('invalid or nondurable receipt cannot confirm',async()=>{
+  const cascade=createSilentTransportCascade({routes:[
+    route('A',async()=>({ack:true,opId:'sale_12345678',authority:'same-do'}))
+  ]});
+  assert.equal((await cascade.publish({opId:'sale_12345678'})).confirmed,false);
+});
+test('different commercial authorities rejected',()=>{
+  assert.throws(()=>createSilentTransportCascade({routes:[
+    route('A',async()=>{},'one'),route('B',async()=>{},'two')
+  ]}),/authority/);
+});
+test('missing authority rejected',()=>{
+  assert.throws(()=>createSilentTransportCascade({routes:[{name:'A',send:async()=>{}}]}),/authority/);
+});
+test('next operation tries A again',async()=>{
+  let ready=false;
+  const cascade=createSilentTransportCascade({routes:[
+    route('A',async op=>ready?{ack:true,opId:op.opId,authority:'same-do',durable:true}:{stage:'definitively-not-sent'}),
+    route('B',async op=>({ack:true,opId:op.opId,authority:'same-do',durable:true}))
+  ]});
+  assert.equal((await cascade.publish({opId:'sale_12345678'})).route,'B');
+  ready=true;
+  assert.equal((await cascade.publish({opId:'sale_87654321'})).route,'A');
 });
