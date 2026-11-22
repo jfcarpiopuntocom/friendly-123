@@ -78,4 +78,5 @@ jobs:
             test/p0-yparty-client-built-bundle.test.cjs \
             test/p0-yparty-pilot-origin.test.cjs \
             test/p0-bridge-store-switch.test.cjs \
-            test/p0-rollout-policy.test.cjs
+            test/p0-rollout-policy.test.cjs \
+            test/p0-c188-real-certified-rollout.test.cjs
