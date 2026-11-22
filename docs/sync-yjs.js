@@ -861,7 +861,7 @@
       if (canal.pend.length && ws.readyState === 1) programarBufferPump();
     }
     function enviarDurable(entry) {
-      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano; delete msg.abs; delete msg.soloFb;
+      var msg = Object.assign({}, entry); delete msg.state; delete msg.fingerprint; delete msg.group; delete msg.huerfano; delete msg.abs; delete msg.soloFb; delete msg.rep;
       var result = enviarConLimite(canal.ws, JSON.stringify(msg), entry.k === "ckpt");
       if (result === "sent") { _durableInFlight[entry.id] = { kind: entry.k, at: Date.now() }; return true; }
       if (result === "blocked") programarBufferPump();
@@ -967,7 +967,8 @@
         if (result.kind === "ckpt" && result.ok !== true && result.conflict !== true)
           diagnosticarCkpt("checkpoint-rpc-ack-failed", 0);
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
-        var beforeRetirement = null, retirados = [], absCerrada = null;
+        var beforeRetirement = null, retirados = [], absCerrada = null, reparacionConfirmada = false;
+        var capaConfirmada = String((canal.ws && canal.ws.relayLayer) || "local");
         return mutarOutbox(function () {
           beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
           var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
@@ -978,6 +979,8 @@
             completed = _outbox.pending.filter(function (x) { return x.group === entry.group; });
             if (!completed.every(function (x) { return _groupAcks.has(x.id); })) return;
           }
+          // A fragmented full-state repair is complete only after the last sibling ACK.
+          if (entry.rep && result.ok === true && completed.every(function (x) { return !!x.rep; })) reparacionConfirmada = true;
           _outbox.pending = _outbox.pending.filter(function (x) { return !completed.includes(x); });
           if (entry.abs && result.ok === true && _absorcion && _absorcion.hasta === entry.abs.hasta) {
             absCerrada = _absorcion;
@@ -993,6 +996,14 @@
             // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
+          if (reparacionConfirmada) {
+            try {
+              var llave = "f123_huecos_v1:" + HUECOS_ROOM + suffix;
+              var marcas = JSON.parse(localStorage.getItem(llave) || "{}") || {};
+              marcas[capaConfirmada] = Date.now();
+              localStorage.setItem(llave, JSON.stringify(marcas));
+            } catch (_) {}
+          }
           if (absCerrada && _absorcion === absCerrada) _absorcion = null;
           if (retirados.length) {
             var marca = absCerrada;
@@ -1443,7 +1454,7 @@
     // Old k:"lat" probes remain receive-only diagnostics and cannot approve the SLA.
     // Un update grande no cabe en el relay. Los trozos son frames cifrados
     // independientes; se reconstruyen antes de aplicar Yjs, nunca parcialmente.
-    function publicar(tag, payload, persistir, marca) {
+    function publicar(tag, payload, persistir, marca, soloServidor) {
       if (tag === 0 && persistir) {
         try { measureUpdate(payload); } catch (_) {} // diagnostics cannot block business delivery
         try {
@@ -1487,14 +1498,15 @@
             op = { k: "op", ack: 1, id: stableId, fingerprint: fingerprint, lam: Date.now() + (++_lamCtr), c: _b64(buf) };
             if (piezas > 1) op.group = id;
             if (marca) op.abs = marca;
+            if (soloServidor) op.rep = 1; // C205: reparacion de historia, solo capa durable
             if (JSON.stringify(op).length > MAX_OP_BYTES) { log("op Yjs supera limite"); return; }
-            if (tag === 0) contarColaCkpt(buf.byteLength); // v751
+            if (tag === 0 && !soloServidor) contarColaCkpt(buf.byteLength); // v751
           }
           var directo = false;
-          try { directo = tag === 0 && enviarDirecto(buf); } catch (_) { directo = false; }
+          try { directo = tag === 0 && !soloServidor && enviarDirecto(buf); } catch (_) { directo = false; }
           // Direct peer durable OP already delivers this ciphertext over the
           // same RTC channel; never put its non-ACK binary twin ahead of it.
-          if (!directo && !(persistir && piezas > 1 && canal.ws && canal.ws.peerOnly)) {
+          if (!soloServidor && !directo && !(persistir && piezas > 1 && canal.ws && canal.ws.peerOnly)) {
             encolarVivo(buf, tag === 0 && persistir && piezas === 1);
           }
           return op;
@@ -1649,6 +1661,31 @@
         el.textContent = "Sync pending — checkpoint " + String(motivo) + (bytes ? " (" + bytes + " B)" : "");
       } catch (_) {}
     }
+    /* C205 (JFC 2026-11-22): rellenar huecos de historia en el servidor. Si el estado completo NO cabe en un checkpoint
+       (tope 768 KiB por capa), el servidor solo tiene el registro de operaciones, y ese registro puede tener huecos
+       causales (el relay descarto un prefijo). Un aparato nuevo baja todo, queda con pendingStructs y nunca termina la
+       recuperacion (el PIN no se libera). Un estado completo de Yjs contiene todos sus ancestros: se publica UNA vez como
+       grupo de operaciones normales (mismo camino durable, mismo cupo diario de subida; si el cupo se agota el sobre
+       espera en la bandeja y sigue otro dia). Solo aparatos COMPLETOS (hacerCkpt ya exige recuperacion terminada y cero
+       pendientes). No toca ni borra nada: es un update mas, idempotente. Solo en el camino "snapshot-over-limit", nunca
+       en fotos. Limitador: una vez por capa cada 7 dias por aparato (localStorage); sin poder guardarlo, no se publica.
+       PARA REVERTIR: borrar la llamada en hacerCkpt y esta funcion. */
+    var HUECOS_PERIODO_MS = 7 * 86400000, HUECOS_MAX_BYTES = 12 * 1024 * 1024;
+    var HUECOS_ROOM = String(API.roomId || "");
+    function repararHuecosServidor(full) {
+      if (nombre === "fotos" || !HUECOS_ROOM || _soloMemoria || _cupoRechazado || !full || !canal.ws || canal.ws.peerOnly || canal.ws.readyState !== 1) return;
+      // Decision JFC 22 nov 2026 ("Solo Firebase, publicar"): la reparacion NUNCA sube por Supabase (proteger esa cuenta).
+      if (canal.ws.relayLayer !== "f123_relay_cupo_fb_v1") return;
+      if (full.length > HUECOS_MAX_BYTES) { try { log("reparacion de huecos omitida: estado de " + full.length + "B en " + nombre); } catch (_) {} return; }
+      if (_outbox.pending.concat(_unsaved).some(function (x) { return x.rep; })) return;
+      var capa = String(canal.ws.relayLayer || "local"), llave = "f123_huecos_v1:" + HUECOS_ROOM + suffix, previo = {};
+      try { previo = JSON.parse(localStorage.getItem(llave) || "{}") || {}; } catch (_) { previo = {}; }
+      if (previo[capa] && Date.now() - previo[capa] < HUECOS_PERIODO_MS) return;
+      // Check that cooldown metadata is writable, but do not start a seven-day cooldown before durable ACK.
+      try { localStorage.setItem(llave, JSON.stringify(previo)); } catch (_) { return; }
+      try { log("rellenando huecos de historia en el servidor (" + full.length + "B) en " + nombre); } catch (_) {}
+      publicar(0, full, true, null, true);
+    }
     function hacerCkpt() {
       // v756: internal log of WHY a checkpoint is skipped (read-only mirror of the guards below; behaviour unchanged).
       try {
@@ -1745,6 +1782,7 @@
           if (ckptCipherLimit ? buf.byteLength > ckptCipherLimit : JSON.stringify(ckpt).length > MAX_CKPT_RPC_BYTES) {
             diagnosticarCkpt("snapshot-over-limit", buf.byteLength);
             try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
+            try { if (typeof repararHuecosServidor === "function") repararHuecosServidor(full); } catch (_) {} // C205
             return;
           }
           try {
