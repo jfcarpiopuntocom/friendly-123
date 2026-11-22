@@ -8389,7 +8389,15 @@ function toggleSyncNuevo() {
    Uninstrumented views still refresh, but never certify visible delivery. */
 window.OCSyncRender = (function () {
   var revision = 0, enCurso = false, pendiente = null, terminar = null, aplazado = false;
-  function visible() { return document.visibilityState === "visible"; }
+  function visible() {
+    // A visible browser tab can still be LOCKED at its PIN gate. Cold Sync3
+    // hydration may emit hundreds of merges before login; rendering the full
+    // Today dashboard behind that gate needlessly retains large DOM/JSON trees.
+    // Defer the visual refresh, NOT the underlying durable store or sync.
+    if (document.visibilityState !== "visible") return false;
+    var gate = document.getElementById("oc-gate");
+    return !gate || gate.style.display === "none";
+  }
   function editando() {
     var a = document.activeElement;
     return !!(a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)));
@@ -8467,6 +8475,9 @@ window.OCSyncRender = (function () {
   }
   document.addEventListener("visibilitychange", reanudar);
   document.addEventListener("focusout", reanudar);
+  // Auth hides #oc-gate BEFORE dispatching oc-login. Replay exactly one
+  // coalesced active-view refresh once the user actually enters the app.
+  window.addEventListener("oc-login", reanudar);
   return {
     solicitar: function () {
       revision++;
