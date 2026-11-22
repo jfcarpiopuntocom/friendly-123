@@ -20,6 +20,13 @@ jobs:
         with: {node-version: '22'}
       - name: No raw Y.Doc and no premature legacy PIN authority
         run: node --test test/p0-yparty-ultrareview-catalog-boundaries.test.cjs
-      - name: No YParty rollout enabled
+      - name: Certified owner-only YParty policy cannot spill to other licenses
         run: |
-          node -e "const s=require('./docs/sync-rollout.json');if(Object.values(s.licenses||{}).some(x=>x.yparty===true))process.exit(2)"
+          node - <<'JS'
+          const s=require('./docs/sync-rollout.json');
+          const assert=require('node:assert/strict');
+          const enabled=Object.entries(s.licenses||{}).filter(([,e])=>e.yparty===true);
+          assert.equal(enabled.length,1,'only the existing JFC owner entry may opt into 2.0');
+          assert.match(enabled[0][0],/^[a-f0-9]{64}$/,'license code must never be published');
+          assert.match(enabled[0][1].frozenHead,/^[A-Za-z0-9_.:-]{3,128}$/,'certified baseline required');
+          JS
