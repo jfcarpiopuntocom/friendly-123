@@ -1,5 +1,5 @@
 'use strict';
-// v749: cached login code must also decline automatic reloads.
+// C180: cached login code must accept a newer verified shell, not block all updates.
 // Sintetico: sin red, sin datos de clientes.
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.join(__dirname,'..');
@@ -11,30 +11,26 @@ function ctx(version){
   const c={localStorage:{getItem:k=>ls.has(k)?ls.get(k):null,setItem:(k,v)=>ls.set(k,v)},
     sessionStorage:{getItem:k=>ss.has(k)?ss.get(k):null,setItem:(k,v)=>ss.set(k,v)},
     marcarRecarga:m=>marks.push(m)};
-  vm.createContext(c);vm.runInContext(src.slice(a,b)+'\nthis.cap=puedeRecargarVersion;',c);
+  vm.createContext(c);vm.runInContext('const KA="f123_autorecarga";\n'+src.slice(a,b)+'\nthis.cap=puedeRecargarVersion;',c);
   return {c,ls,ss,marks};
 }
-test('cached version reload requests are denied on every attempt',()=>{
+test('one navigation per target shell, newer versions remain eligible',()=>{
   const x=ctx('0.7.32|f123-shell-v732');
-  assert.equal(x.c.cap('login-diferida'),false);
-  assert.equal(x.c.cap('login-diferida'),false,'segunda recarga de la misma version: bucle');
-  assert.equal(x.c.cap('version-segura'),false,'ningun otro camino puede recargar de nuevo en esa version');
-  assert.equal(x.ss.size,0);
-});
-test('a new version does not reopen the document',()=>{
-  const x=ctx('0.7.32|f123-shell-v732');
-  assert.equal(x.c.cap('a'),false);
+  assert.equal(x.c.cap(),true);
+  x.ss.set('f123_autorecarga',JSON.stringify({shell:'f123-shell-v732'}));
+  assert.equal(x.c.cap(),false,'same shell cannot loop');
   x.ls.set('f123_version_vista','0.7.33|f123-shell-v733');
-  assert.equal(x.c.cap('a'),false);
+  assert.equal(x.c.cap(),true,'new shell must never inherit old suppressor');
 });
-test('unavailable session storage still denies reload',()=>{
-  const x=ctx('v');x.c.sessionStorage.setItem=()=>{throw new Error('quota');};
-  assert.equal(x.c.cap('a'),false);
+test('storage failure safely defers rather than looping',()=>{
+  const x=ctx('v0.8.73|f123-shell-v873');
+  x.c.sessionStorage.getItem=()=>{throw new Error('storage unavailable');};
+  assert.equal(x.c.cap(),false);
 });
-test('the login and updater no longer navigate automatically',()=>{
+test('PIN entry does not navigate; safe updater eventually does',()=>{
   const auth=fs.readFileSync(path.join(root,'docs/auth-ui.js'),'utf8');
-  assert.doesNotMatch(auth.slice(auth.indexOf('function entrar(nuevoRol)'),auth.indexOf('const esDemo = nuevoRol')),/location\.reload/);
-  assert.doesNotMatch(src.slice(src.indexOf('function intentar()'),src.indexOf('function shellDelSW()')),/location\.reload/);
+  assert.doesNotMatch(auth.slice(auth.indexOf('function entrar(nuevoRol)'),auth.indexOf('const esDemo = nuevoRol')),/location\\.reload/);
+  assert.match(src.slice(src.indexOf('async function intentar()'),src.indexOf('function shellDelSW()')),/location\\.reload\\(\\)/);
 });
 test('el anillo de errores existe, es local y no muestra nada',()=>{
   assert.match(src,/f123_errores_log/);
