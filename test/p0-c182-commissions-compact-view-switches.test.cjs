@@ -57,7 +57,7 @@ test('C182 period cards open only an explicitly selected month, without an impos
 });
 test('C182 default product cards use existing product-card identity and remain clickable',()=>{
  const html=presenter('producto')(sales);
- assert.match(html,/data-comm-product-card/);
- assert.match(html,/data-product-id="p"/);
+ assert.match(html,/data-comm-history-product=/);
+ assert.match(html,/data-comm-history-product="p"/);
  assert.match(html,/abrirFichaProducto/);
 });
