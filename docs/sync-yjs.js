@@ -486,8 +486,13 @@
         return entry.k === "op" && !entry.group && !entry.huerfano && typeof entry.c === "string";
       });
       if (!candidatos.length) { _heredadosListo = true; return Promise.resolve(); }
-      return Promise.all(candidatos.map(function (entry) {
-        return Promise.resolve().then(function () {
+      // C184: never decrypt an entire legacy outbox at once (iOS WebKit jetsam risk).
+      // Four workers bound temporary ciphertext/plaintext buffers; preserve original order.
+      var heads = new Array(candidatos.length), siguienteHeredado = 0;
+      async function clasificarUnoPorUno() {
+        while (siguienteHeredado < candidatos.length) {
+          var idx = siguienteHeredado++, entry = candidatos[idx];
+          heads[idx] = await Promise.resolve().then(function () {
           var binary = atob(entry.c), encrypted = new Uint8Array(binary.length);
           for (var i = 0; i < binary.length; i++) encrypted[i] = binary.charCodeAt(i);
           return descifrarBin(API.clave, encrypted.buffer);
@@ -496,7 +501,11 @@
           var gid = ""; for (var q = 2; q < 18; q++) gid += String.fromCharCode(bytes[q]);
           return { id: entry.id, gid: gid, idx: bytes[18] * 256 + bytes[19], total: bytes[20] * 256 + bytes[21] };
         }).catch(function () { return null; }); // unreadable entry: leave it exactly as before
-      })).then(function (heads) {
+        }
+      }
+      var clasificadores = [];
+      for (var wi = 0; wi < Math.min(4, candidatos.length); wi++) clasificadores.push(clasificarUnoPorUno());
+      return Promise.all(clasificadores).then(function () {
         var info = Object.create(null), found = 0;
         heads.forEach(function (h) { if (h && h.total && h.idx < h.total) { info[h.id] = h; found++; } });
         if (!found) return;
