@@ -2,6 +2,7 @@
 // authoritative ledger. A transport receipt alone does not authorize a second
 // business execution or count as a durable ACK.
 const OP_ID = /^(?:customer-payment:)?[A-Za-z0-9_-]{8,96}$/;
+const LICENSE = /^F123-[A-Z0-9*~$=-]{8,34}$/;
 export function createSilentTransportCascade({
   routes, timeoutMs = 5000, cooldownMs = 30000, now = () => Date.now()
 } = {}) {
@@ -31,8 +32,9 @@ export function createSilentTransportCascade({
       });
     },
     async publish(operation) {
-      if (!operation || typeof operation.opId !== 'string' || !OP_ID.test(operation.opId))
-        throw new TypeError('valid opId required');
+      if (!operation || typeof operation.opId !== 'string' || !OP_ID.test(operation.opId) ||
+          typeof operation.license !== 'string' || !LICENSE.test(operation.license))
+        throw new TypeError('valid license and opId required');
       for (const route of routes) {
         if (!available(route)) continue;
         let receipt;
