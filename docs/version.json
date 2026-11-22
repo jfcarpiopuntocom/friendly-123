@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.76",
+  "version": "v0.8.77",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.76 C184: descifrado de sobres antiguos Yjs con concurrencia acotada para reducir memoria en Safari, sin borrar ni cambiar movimientos, ventas o fotos.",
+  "changelog": "v0.8.77 C184+C185: Safari limita descifrado masivo de sobres antiguos y elimina actualización duplicada del Service Worker al arrancar. Conserva datos y actualiza automáticamente en PIN.",
   "requerida": false,
-  "shell": "f123-shell-v876",
+  "shell": "f123-shell-v877",
   "apagar": [],
-  "releaseName": "v0.8.76",
-  "cacheGeneration": "golden412"
+  "releaseName": "v0.8.77",
+  "cacheGeneration": "golden413"
 }
