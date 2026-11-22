@@ -52,7 +52,7 @@ test('C182 period cards open only an explicitly selected month, without an impos
  assert.match(html,/2026-10/);assert.match(html,/2026-11/);
  assert.match(html,/data-commissions-open-month="2026-10"/);
  assert.match(html,/data-commissions-open-month="2026-11"/);
- assert.match(html,/cambiarMesComisiones\('2026-10'\)/);
+ assert.match(html,/cambiarMesComisiones\(this\.dataset\.commissionsOpenMonth\)/);
  assert.doesNotMatch(html,/type="date"/);
 });
 test('C182 default product cards use existing product-card identity and remain clickable',()=>{
