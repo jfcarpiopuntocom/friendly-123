@@ -4,6 +4,8 @@ on:
     paths:
       - 'src/sync3-silent-cascade.mjs'
       - 'tests/sync3-silent-cascade.test.mjs'
+      - 'tests/sync3-activation-race.test.mjs'
+      - 'src/port2-cross-device-failback.mjs'
       - '.github/workflows/sync3-cascade.yml'
   workflow_dispatch:
 jobs:
@@ -17,4 +19,4 @@ jobs:
       - name: Syntax
         run: node --check src/sync3-silent-cascade.mjs
       - name: Regression tests
-        run: node --test tests/sync3-silent-cascade.test.mjs
+        run: node --test tests/sync3-silent-cascade.test.mjs tests/sync3-activation-race.test.mjs
