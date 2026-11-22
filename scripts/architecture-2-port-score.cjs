@@ -94,7 +94,13 @@ function inspect(){
   assert(qa.includes('134 production precache requests must never run at once'));
   assert(qa.includes('missing OPTIONAL asset cannot delete offline shell'));
   assert(qa.includes('missing ESSENTIAL asset must preserve previous shell'));
-  assert(sw.includes('for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno())'));
+  // C168 Safari retains C165's <=3 cap. iOS has a stricter <=1 install
+  // worker AND <=1 SHA worker, without invalidating the prior audit credit.
+  const c165Cap = sw.includes('for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno())');
+  const c168IosCap = sw.includes('for (let i = 0; i < (iosMemoryGuard ? 1 : 3) && i < SHELL.length; i++) corredores.push(precargarUno())')
+    && sw.includes('for (let w = 0; w < (iosMemoryGuard ? 1 : 4) && w < pendientes.length; w++) workers.push(correrLote())')
+    && /iPhone\|iPad\|iPod/.test(sw);
+  assert(c165Cap || c168IosCap, 'SW cap must be <=3, with <=1 install and SHA worker on iOS');
   assert(sw.includes('Precarga de arranque incompleta; preservar shell anterior'));
   assert.equal(quality.latestReview?.sourceSha,'fd65842dda72d66dd1c64f00fdc1b1231513d9b4');
  }
