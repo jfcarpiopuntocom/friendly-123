@@ -1,0 +1,62 @@
+name: C182 versioned build temporary
+on:
+  push:
+    branches:
+      - fix/c182-commissions-view-switches-restore-monthly
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Bump EXACT C182 release identity
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const p='docs/version.json';
+          const v=JSON.parse(fs.readFileSync(p,'utf8'));
+          if(v.shell!=='f123-shell-v874'&&v.shell!=='f123-shell-v875')throw Error('Unexpected release shell '+v.shell);
+          v.version='v0.8.75';v.releaseName='v0.8.75';v.shell='f123-shell-v875';v.cacheGeneration='golden411';
+          v.changelog='v0.8.75 C182: Commissions conserva su UI de tarjetas, muestra todas las fechas por defecto y cambia por Producto, Percha, Cliente, Comisionista o Periodo con tabs, sin mes ni fechas impuestos.';
+          fs.writeFileSync(p,JSON.stringify(v,null,2)+'\n');
+          let sw=fs.readFileSync('docs/sw.js','utf8');
+          if(!sw.includes('const CACHE = "f123-shell-v874";')&&!sw.includes('const CACHE = "f123-shell-v875";'))throw Error('unexpected SW shell');
+          sw=sw.replace('const CACHE = "f123-shell-v874";','const CACHE = "f123-shell-v875";')
+               .replace('const CACHE_GENERACION = "-golden410";','const CACHE_GENERACION = "-golden411";');
+          fs.writeFileSync('docs/sw.js',sw);
+          let dash=fs.readFileSync('docs/dashboard.html','utf8');
+          dash=dash.replaceAll('f123-shell-v874','f123-shell-v875').replaceAll('v0.8.74','v0.8.75');
+          fs.writeFileSync('docs/dashboard.html',dash);
+          NODE
+      - name: Exact official JS bundle and manifest
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/build-app-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          git diff --check
+      - name: C182 grouped views and economy regressions
+        run: |
+          node --test --test-concurrency=2 test/p0-c182-commissions-compact-view-switches.test.cjs test/p0-belen-commissions-all-dates.test.cjs test/p0-c166-commissions-total-first.test.cjs test/p0-c175-commissions-inverted-range-no-false-zero.test.cjs test/p0-c175-commissions-client-id-conflict.test.cjs test/commissions-by-person.test.cjs test/commissions-period.test.js test/commission-direction-period.test.js
+      - name: Commit SEAL to branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/version.json docs/sw.js docs/dashboard.html docs/app-inline-01.min.js docs/version-manifest.json
+          if git diff --cached --quiet; then
+            echo "Already sealed, no further commit"
+            exit 0
+          fi
+          git commit -m "release(C182): build v0.8.75 shell v875 golden411 with exact SHA-256 manifest"
+          git push origin HEAD:refs/heads/fix/c182-commissions-view-switches-restore-monthly
