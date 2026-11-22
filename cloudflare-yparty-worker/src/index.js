@@ -253,7 +253,8 @@ export class Tienda extends YServer {
        new URL(req.url).searchParams.get('frozen-proof')==='1')
       return readSignedFrozenCatalogProof({request:req,env:this.env,
        storage:this.ctx.storage,doc:this.document,room:this.name,
-       verified:this.gateDVerified===true&&!this.falloPersistencia});
+       verified:this.gateDVerified===true&&!this.falloPersistencia,
+       vacia:this.gateD?.empty===true&&!this.falloPersistencia});
     // A separate, opt-in HTTP typed-command INBOX. No raw Yjs economic writes;
     // 202 means queued, NEVER that stock/cash were applied by the real app.
     if(secureMode(this.env)&&this.env.WS_TYPED_COMMANDS_QA==='1'&&

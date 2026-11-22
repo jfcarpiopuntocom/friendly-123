@@ -4,13 +4,14 @@
 import {askAuthority,secureMode} from './ws-authority-client.js';
 import {sufijoSalaPiloto} from './salas-piloto.mjs';
 import {assertPublicCatalogTransportDoc} from './catalog-safe-projection.mjs';
+import * as Y from 'yjs';
 const HEAD=/^[A-Za-z0-9_.:-]{3,128}$/;
 const SHA=/^[a-f0-9]{64}$/;
 const noStore={'cache-control':'no-store','x-content-type-options':'nosniff'};
 const fail=(status)=>new Response(status===403?'Acceso no autorizado':'Catalog proof unavailable',
  {status,headers:noStore});
 
-export async function readSignedFrozenCatalogProof({request,env,storage,doc,room,verified}={}){
+export async function readSignedFrozenCatalogProof({request,env,storage,doc,room,verified,vacia}={}){
  if(!secureMode(env)||env.WS_SEPARATE_ROOMS_QA!=='1'||
     env.WS_OPEN_EXISTING_QA!=='1'||
     sufijoSalaPiloto(env,room)!=='-cat')return fail(503);
@@ -28,6 +29,17 @@ export async function readSignedFrozenCatalogProof({request,env,storage,doc,room
  const signed=await askAuthority(env,'consume',access);
  if(!signed)return fail(403);
  try{
+  // JFC 22 nov 2026: sala abierta SIN historia certificada (WS_ABRIR_SIN_HISTORIA). Responde la marca
+  // 'sala-vacia' y la huella de su estado actual; el aparato completo la llena con su catalogo publico.
+  if(verified!==true&&vacia===true&&doc&&!doc.isDestroyed){
+   if(doc.share?.has('productos'))doc.getMap('productos');
+   if(doc.share?.has('ubicaciones'))doc.getMap('ubicaciones');
+   assertPublicCatalogTransportDoc({doc,room});
+   const hex=async bytes=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(b=>b.toString(16).padStart(2,'0')).join('');
+   return Response.json({ok:true,room,channel:'cat',frozenHead:'sala-vacia',
+    stateSha256:await hex(Y.encodeStateAsUpdate(doc)),vectorSha256:await hex(Y.encodeStateVector(doc))},
+    {status:200,headers:noStore});
+  }
   if(verified!==true||!storage?.sql||!doc||doc.isDestroyed)throw Error('not verified');
   // YServer hydrates remote root names as Yjs AbstractType placeholders.
   // Materialize ONLY these two known-public map types after SQL certification,
