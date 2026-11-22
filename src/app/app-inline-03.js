@@ -333,8 +333,8 @@ const _ocActSolaOn = true;
       sessionStorage.removeItem(KP);
       limpiarFrenada();
       marcarRecarga("version-pin");
-      navegando = true;
       location.reload();
+      navegando = true;
       return true;
     } catch (_) { return false; }
     finally {
@@ -421,6 +421,16 @@ const _ocActSolaOn = true;
     }
     revisar();
   });
+  // The login gate is switched by auth-ui on logout; adopt immediately on its
+  // reappearance instead of waiting for a polling interval or another login.
+  try {
+    const gate = document.getElementById("oc-gate");
+    if (gate && typeof window.MutationObserver === "function") {
+      new window.MutationObserver(function () {
+        if (enPantallaPIN() && pendiente()) intentar();
+      }).observe(gate, { attributes: true, attributeFilter: ["style"] });
+    }
+  } catch (_) {}
   setInterval(function () { if (pendiente() && enPantallaPIN()) intentar(); }, 15000);
   setInterval(revisar, 600000);
   setTimeout(revisar, 0);
