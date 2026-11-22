@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.87",
+  "version": "v0.8.88",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.87 C204 fotos: al sync viaja solo una miniatura (<=40 KB); la foto completa queda en el aparato que la tomo y en su respaldo. Fotos existentes intactas.",
+  "changelog": "v0.8.88 C205 sync: si el estado completo no cabe en un checkpoint, un aparato completo vuelve a subir su historia al servidor una vez cada 7 dias (con el cupo diario) para que un aparato nuevo pueda terminar de recuperar. No se borra nada.",
   "requerida": false,
-  "shell": "f123-shell-v887",
+  "shell": "f123-shell-v888",
   "apagar": [],
-  "releaseName": "v0.8.87",
-  "cacheGeneration": "golden423"
+  "releaseName": "v0.8.88",
+  "cacheGeneration": "golden424"
 }

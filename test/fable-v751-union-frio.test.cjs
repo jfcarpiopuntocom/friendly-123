@@ -82,7 +82,7 @@ test('v751: an incomplete device never renews, and renews once it is complete', 
 });
 
 test('v751: the renewal is wired to durable ops, live frames, the final page and the confirmed checkpoint', () => {
-  assert.match(sync, /if \(tag === 0\) contarColaCkpt\(buf\.byteLength\);/);
+  assert.match(sync, /if \(tag === 0 && !soloServidor\) contarColaCkpt\(buf\.byteLength\);/);
   assert.match(sync, /if \(ok && source === "live"\) contarColaCkpt\(d\.byteLength\);/);
   assert.match(sync, /if \(!c\.more && pullEstado\.renovarCkpt\) \{ pullEstado\.renovarCkpt = false; checkpointTrasPull\(ws\); \}/);
   assert.match(sync, /_colaFrames = 0; _colaBytes = 0; \/\/ v751: a confirmed checkpoint/);
