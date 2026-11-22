@@ -9,11 +9,11 @@ for (const file of files) {
  async function run({safe,confirmed}){
   let reloads=0, durableCalls=0, marks=[];
   const values=new Map([['pending','1']]);
-  const ctx={document:{visibilityState:'hidden'},recargando:false,ultimoToque:0,Date,JSON,KA:'history',vigilar(){},limpiarFrenada(){},pendiente:()=>true,localStorage:{getItem:()=>null,setItem(){}},
+  const ctx={document:{visibilityState:'hidden'},recargando:false,ultimoToque:0,Date,JSON,KA:'history',vigilar(){},limpiarFrenada(){},pendiente:()=>true,puedeRecargarVersion:()=>true,shellDelSW:async()=> 'f123-shell-v873',localStorage:{getItem:()=> 'v0.8.73|f123-shell-v873',setItem(){}},
     KP:'pending',KF:'frozen',safeCalls:0,
     seguro:()=>{ctx.safeCalls++;return typeof safe==='function'?safe(ctx.safeCalls):safe;},
     guardarDuradero:async()=>{durableCalls++;return confirmed;},
-    sessionStorage:{removeItem:k=>values.delete(k)},location:{reload:()=>{reloads++;}},
+    sessionStorage:{removeItem:k=>values.delete(k),setItem:(k,v)=>values.set(k,String(v))},location:{reload:()=>{reloads++;}},
     marcarRecarga:x=>marks.push(x)};
   vm.createContext(ctx);
   vm.runInContext(fragment+'\nthis.press=intentar;',ctx);
