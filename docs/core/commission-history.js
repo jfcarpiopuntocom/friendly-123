@@ -98,6 +98,9 @@
     var from=/^\d{4}-\d{2}-\d{2}$/.test(input.from||"")?input.from:"";
     var to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"";
     var lang=input.lang==="es"?"es":"en",zone=businessZone(input.zone);
+    // Invalid calendar range is not a real zero commission.
+    if(from&&to&&from>to)return {group:group,from:from,to:to,lang:lang,zone:zone,
+      invalidRange:true,rows:[],totals:null,groups:[]};
     var all=Array.isArray(input.sales)?input.sales:[];
     var rows=[],tot={count:0,cancelled:0,conflicts:0,splitConflicts:0,customerConflicts:0,associateConflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
     var groups=new Map(),seen=new Set(),firstById=new Map(),conflictingIds=new Set();
@@ -213,6 +216,10 @@
   }
   function render(input){
     var view=project(input),es=view.lang==="es",t=view.totals;
+    if(view.invalidRange)return '<section data-comm-history-report data-comm-history-invalid-range="1" role="alert"'
+      +' style="margin-top:12px;padding:12px;border:2px solid var(--rojo-ink,#a3392a);">'
+      +(es?"Rango de fechas inválido: «Desde» debe ser anterior o igual a «Hasta». Corrige las fechas para consultar las comisiones.":"Invalid date range: From must be on or before To. Correct the dates to view commissions.")
+      +'</section>';
     var fmt=function(n){return "$"+Number(n).toLocaleString(es?"es-EC":"en-US",{minimumFractionDigits:2,maximumFractionDigits:2});};
     var money=function(n,unknown){return unknown?es?"Por verificar":"Needs review":fmt(n);};
     var title=es?"Historial completo de ventas y comisiones":"Full sales and commissions history";
