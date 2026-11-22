@@ -20,5 +20,19 @@ if(initial){if(inline.length!==10||styles.length!==3)throw Error(`Extraction sha
  for(const e of edits.sort((a,b)=>b.start-a.start))html=html.slice(0,e.start)+e.text+html.slice(e.end);fs.writeFileSync(htmlPath,html,'utf8');
 }
 const outputs=[];jsSources.forEach((src,i)=>outputs.push([path.join(root,'docs',jsOut[i]),min('js',fs.readFileSync(path.join(sourceDir,src),'utf8'))]));cssSources.forEach((src,i)=>outputs.push([path.join(root,'docs',cssOut[i]),min('css',fs.readFileSync(path.join(sourceDir,src),'utf8'))]));
+if(process.argv.includes('--check')){
+ const entry=outputs.find(x=>x[0].endsWith('docs/app-inline-01.min.js'));
+ if(entry){
+  const wanted=entry[1],have=fs.readFileSync(entry[0],'utf8');
+  if(wanted!==have){
+   let start=0,end=0;
+   while(start<Math.min(wanted.length,have.length)&&wanted[start]===have[start])start++;
+   while(end<Math.min(wanted.length-start,have.length-start)&&wanted[wanted.length-1-end]===have[have.length-1-end])end++;
+   console.log('C175_GENERATOR_DIAG='+JSON.stringify({start,end,wantedLength:wanted.length,haveLength:have.length,
+     expectedMid:wanted.slice(start,wanted.length-end).slice(0,6000),
+     haveMid:have.slice(start,have.length-end).slice(0,6000)}));
+  }
+ }
+}
 if(process.argv.includes('--check')){const current=parse(fs.readFileSync(htmlPath,'utf8'));if(current.some(b=>b.tag==='style'))throw Error('Inline styles remain');if(current.some(b=>b.tag==='script'&&!('src'in b.attrs)&&b.attrs.type!=='application/ld+json'&&b.start>html.toLowerCase().indexOf('<body')))throw Error('Body inline scripts remain');for(const b of current.filter(x=>x.tag==='script'&&x.attrs.src&&x.attrs.src.startsWith('./')&&x.attrs.src!=='./aislamiento.js'))if(!('defer'in b.attrs)||('async'in b.attrs))throw Error(`Local script not ordered defer: ${b.attrs.src}`);for(const href of jsOut.concat(cssOut))if(!fs.readFileSync(htmlPath,'utf8').includes(href))throw Error(`Missing HTML output reference ${href}`);if(current.some(b=>b.tag==='link'&&b.attrs.rel==='preload'&&b.attrs.as==='script'&&['./crypto-store.js','./auth-ui.js','./mock-backend.js'].includes(b.attrs.href)))throw Error('v589 script preloads remain');for(const[file,expected]of outputs)if(!fs.existsSync(file)||fs.readFileSync(file,'utf8')!==expected)throw Error(`Generated asset differs: ${path.relative(root,file)}`);console.log('App JS/CSS assets match src/app sources; local classic scripts are ordered defer; preload trio removed.');}
 else{for(const[file,output]of outputs)fs.writeFileSync(file,output,'utf8');console.log('Built Friendly app entry assets from src/app.');}
