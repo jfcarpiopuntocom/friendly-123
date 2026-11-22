@@ -1,0 +1,47 @@
+name: C197 Opera Air hotpath source tests and exact v884 shell seal
+on:
+  push:
+    branches: [port2/c197-opera-hotpath]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  opera-hotpath-and-seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: C197 real-source RED GREEN hotpath + 2.0 typed op regression
+        run: |
+          node --check docs/mock-backend.js
+          node --check docs/core/business-read-model.js
+          node --test test/p0-c197-opera-dashboard-hotpath.test.cjs test/p0-c196-port2-unmapped-op-failback.test.cjs test/p0-c38-legacy-transport-quiescence.test.cjs
+      - name: Exact identity and original builder
+        run: |
+          node scripts/release-control.cjs validate origin/master
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          bash check-sw.sh
+          node --check docs/sw.js
+          git diff --check
+      - name: Commit generated v884 assets and immutable SHA manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/version-manifest.json docs/sw.js docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C197): seal Opera hotpath v884 with exact SHA256 shell'
+            git push origin HEAD:port2/c197-opera-hotpath
+          fi
