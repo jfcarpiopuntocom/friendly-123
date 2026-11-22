@@ -5,7 +5,8 @@
 // El chequeo de version (Fase 2) vive en auth-ui.js — no duplicarlo aqui.
 // Falla en silencio en navegadores sin soporte — nunca bloquea la carga.
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).then((reg) => reg && reg.update && reg.update()).catch(() => {}); });
+  // C168 Safari P0: register() checks for SW updates already; avoid immediate duplicate update at page boot.
+  window.addEventListener("load", () => { navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" }).catch(() => {}); });
   /* MEJORA #3 (JFC 2026-09-08, auditoría de versión): fin de la mezcla
      intra-sesión. Cuando un service worker NUEVO toma control con un shell
      distinto (avisa con {tipo:"shell-actualizado"} desde broadcastActualizacion),
