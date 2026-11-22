@@ -251,7 +251,7 @@
   // Full hash inventory, not blob bytes. Include orphaned legacy evidence so
   // memory-bounded replication never drops historic photos without pointers.
   async function hashesGuardados() {
-    if (!SOPORTADO) return hashesLegado();
+    if (!SOPORTADO) return hashesLegado().filter((k) => !String(k).endsWith(".full")); // C204: tampoco sin IndexedDB se siembra la foto completa local
     try {
       const db = await abrirDB();
       return await new Promise((resolve, reject) => {

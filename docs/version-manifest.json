@@ -59,7 +59,7 @@
     "./geo-ping.min.js": "sha256-7167ffa9edfdd66b88e1c30d73bda72d166664195b94f14610743259c8d7318c",
     "./novedades.min.js": "sha256-36d9fe33a987b1d06d9759c2b1ed6d4d90a6f733f3bd2a79d6d784d35a9185bb",
     "./help-ui.min.js": "sha256-f1c4bd25e204249fbe466d89be02cca79bab3afc7f543b2f9f783062c220522d",
-    "./idb-fotos.min.js": "sha256-e468d39f93be0162a74ee02db575b97b820f3b3be4af0558a4bd2632f223c609",
+    "./idb-fotos.min.js": "sha256-5be43d285c287735fa0306a448c495b6131ff2233a229a69a53f1c33b4b59288",
     "./core/shelf-photo-policy.js": "sha256-746ebc12c2fc15668d7e12c71d5417901ce99b3f79983306abdefc5a9e3ef34e",
     "./core/payout-ledger.min.js": "sha256-7f77f7ebf2a9afa062b0afc92f7ea0b4f0dcd93c74ebc878571b18fdaad7ae71",
     "./core/demo-huellas.min.js": "sha256-db8f90dc5dcd0d1e66b423619bed807d6894efbb5990d26c6611f9d3023901c1",
