@@ -405,12 +405,29 @@
   // Same-DO committed IDs live in durable IndexedDB. This cache changes only
   // what is ELIGIBLE to replay; the original local queue bytes are preserved.
   let _ids20Confirmados = null, _ids20Licencia = "";
+  // The legacy outbox is shared by all notebooks in this browser. A
+  // known foreign-license entry must remain on disk without blocking the
+  // active license's certified 2.0 cutover or claiming its sync is pending.
+  // Reuse colaLargo's raw-string cache: do not JSON.parse on every UI state.
+  let _colaScopeCrudo = null, _colaScopeLic = "", _colaScopeIds = null, _colaScopePendiente = false;
   function colaLegadaPendienteReal() {
     const lic = codigoCuadernoActivo();
-    const ids = lic && lic === _ids20Licencia ? _ids20Confirmados : null;
-    if (!ids) return colaLargo() > 0;
-    return leerCola().some(op => !op || !op.opId || !op._salaOrigen ||
-      normalizarCodigo(op._salaOrigen) !== lic || !ids.has(op.opId));
+    const n = colaLargo();
+    if (!n) return false;
+    if (!lic) return true; // No verified notebook => fail closed.
+    const ids = lic === _ids20Licencia ? _ids20Confirmados : null;
+    if (_colaScopeCrudo === _colaCrudo && _colaScopeLic === lic &&
+        _colaScopeIds === ids) return _colaScopePendiente;
+    const pendiente = leerCola().some(function (op) {
+      if (!op || !op.opId || !op._salaOrigen) return true; // Ambiguous provenance: retain pending.
+      if (normalizarCodigo(op._salaOrigen) !== lic) return false;
+      return !ids || !ids.has(op.opId); // Release only with same-license durable receipt.
+    });
+    _colaScopeCrudo = _colaCrudo;
+    _colaScopeLic = lic;
+    _colaScopeIds = ids;
+    _colaScopePendiente = pendiente;
+    return pendiente;
   }
   function tienePendientesDurables() {
     return colaLegadaPendienteReal() || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
@@ -2110,7 +2127,7 @@
           !sala || normalizarCodigo(sala.codigo) !== actual) return { ok: false };
       // On restart a certified IDB tombstone distinguishes a 2.0-committed
       // operation from a genuinely pending old-relay operation, without erasure.
-      if (colaLargo() > 0 && !(await recargarConfirmados20(actual))) return { ok: false };
+      if (colaLegadaPendienteReal() && !(await recargarConfirmados20(actual))) return { ok: false };
       if (document.hidden || codigoCuadernoActivo() !== actual ||
           normalizarCodigo((leerSala() || {}).codigo) !== actual ||
           tienePendientesDurables()) return { ok: false };
