@@ -15,6 +15,13 @@ import {readSignedFrozenCatalogProof} from "./catalog-frozen-proof.mjs";
 
 export { salaDeLicencia };
 
+// Browser-origin allowlist for signed 2.0 HTTP channels. Origin is not authentication.
+const OFFICIAL_PAGES_ORIGIN='https://jfcarpiopuntocom.github.io';
+function approvedHttpOrigin(origin,configured){
+  let configValid=false;
+  try{const parsed=new URL(configured);configValid=parsed.protocol==='https:'&&parsed.origin===configured;}catch(_){}
+  return configValid && (origin===configured || origin===OFFICIAL_PAGES_ORIGIN);
+}
 const BLOQUE_BYTES = 512 * 1024;
 const COMPACTAR_CAMBIOS = 128;
 const COMPACTAR_BYTES = 1024 * 1024;
@@ -298,10 +305,10 @@ export class Tienda extends YServer {
     const allowedOrigin=this.env.WS_PHOTO_ORIGIN_QA;
     // The browser uses Authorization, so only an explicitly configured
     // HTTPS origin may see the CORS response. Never reflect arbitrary origins.
-    if(origin && (origin!==allowedOrigin || !/^https:\/\/[^/]+$/.test(allowedOrigin||''))) {
+    if(origin && !approvedHttpOrigin(origin,allowedOrigin)) {
       return new Response('Acceso no autorizado',{status:403});
     }
-    const cors=origin?{'access-control-allow-origin':allowedOrigin,'vary':'Origin'}:{};
+    const cors=origin?{'access-control-allow-origin':origin,'vary':'Origin'}:{};
     const reply=(body,status,headers={})=>new Response(body,{status,headers:{...cors,...headers}});
     if (req.method !== 'GET' && req.method !== 'PUT') {
       return reply('Method not allowed',405);
@@ -579,9 +586,7 @@ export default {
       if(env.WS_OPEN_EXISTING_QA!=='1'||env.WS_SEPARATE_ROOMS_QA!=='1')
         return new Response('Catalog proof unavailable',{status:503,headers:{'cache-control':'no-store'}});
       const expected=env.WS_CATALOG_ORIGIN_QA,origin=req.headers.get('origin');
-      let allowed=false;
-      try{const url=new URL(expected);allowed=url.protocol==='https:'&&url.origin===expected;}catch(_){}
-      if(origin!==null&&(!allowed||origin!==expected))
+      if(origin!==null&&!approvedHttpOrigin(origin,expected))
         return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
       if(req.method==='OPTIONS'){
         const method=req.headers.get('access-control-request-method');
@@ -591,7 +596,7 @@ export default {
         if(!origin||method!=='GET'||!requested.length||requested.some(h=>!permitted.has(h)))
           return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
         return new Response(null,{status:204,headers:{
-          'access-control-allow-origin':expected,
+          'access-control-allow-origin':origin,
           'access-control-allow-methods':'GET, OPTIONS',
           'access-control-allow-headers':'Authorization, X-F123-License, X-F123-Instance, Content-Type',
           'access-control-max-age':'60','vary':'Origin','cache-control':'no-store'
@@ -601,7 +606,7 @@ export default {
       const response=(await routePartykitRequest(req,env))||new Response('Not found',{status:404});
       if(!origin)return response;
       const headers=new Headers(response.headers);
-      headers.set('access-control-allow-origin',expected);
+      headers.set('access-control-allow-origin',origin);
       headers.set('vary','Origin');
       headers.set('cache-control','no-store');
       return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
@@ -615,11 +620,11 @@ export default {
       const requested=(req.headers.get('access-control-request-headers')||'')
         .split(',').map(x=>x.trim().toLowerCase()).filter(Boolean);
       const allowedHeaders=new Set(['authorization','x-f123-license','x-f123-instance','content-type']);
-      if(!origin || origin!==expected || !/^https:\/\/[^/]+$/.test(expected||'') ||
+      if(!origin || !approvedHttpOrigin(origin,expected) ||
          !['GET','PUT'].includes(method) || !requested.length ||
          requested.some(x=>!allowedHeaders.has(x)))return new Response('Acceso no autorizado',{status:403});
       return new Response(null,{status:204,headers:{
-        'access-control-allow-origin':expected,
+        'access-control-allow-origin':origin,
         'access-control-allow-methods':'GET, PUT, OPTIONS',
         'access-control-allow-headers':'Authorization, X-F123-License, X-F123-Instance, Content-Type',
         'access-control-max-age':'60','vary':'Origin'
@@ -634,12 +639,7 @@ export default {
     // a one-use capability.
     const typedOrigin=req.headers.get('origin');
     const expectedTyped=env.WS_TYPED_ORIGIN_QA;
-    let validTypedOrigin=false;
-    try{
-      const parsed=new URL(expectedTyped);
-      validTypedOrigin=parsed.protocol==='https:'&&parsed.origin===expectedTyped;
-    }catch(_){}
-    const typedOriginAllowed=validTypedOrigin&&typedOrigin===expectedTyped;
+    const typedOriginAllowed=approvedHttpOrigin(typedOrigin,expectedTyped);
     if(typedEndpoint&&req.method==='OPTIONS'){
       const requestedMethod=req.headers.get('access-control-request-method');
       const requestedHeaders=(req.headers.get('access-control-request-headers')||'')
@@ -649,7 +649,7 @@ export default {
          requestedHeaders.some(h=>!allowed.has(h)))
         return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
       return new Response(null,{status:204,headers:{
-        'access-control-allow-origin':expectedTyped,
+        'access-control-allow-origin':typedOrigin,
         'access-control-allow-methods':'POST',
         'access-control-allow-headers':'Authorization, Content-Type, X-F123-License, X-F123-Instance',
         'access-control-max-age':'60','vary':'Origin','cache-control':'no-store'
@@ -668,7 +668,7 @@ export default {
         // Only a previously approved HTTPS origin may receive this CORS
         // response. The backend still requires a fresh signed scoped ticket.
         const headers=new Headers(response.headers);
-        headers.set('access-control-allow-origin',expectedTyped);
+        headers.set('access-control-allow-origin',typedOrigin);
         headers.set('vary','Origin');
         return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
       }

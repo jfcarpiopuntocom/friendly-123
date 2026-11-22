@@ -107,7 +107,9 @@ test('C13 wires certified reader into docs/sync-yjs.js lifecycle while keeping r
   assert.match(source, /API\.estadoCatalogoPublicoCertificado\s*=/, 'sync-yjs.js must expose safe diagnostic status');
   assert.match(source, /API\.catalogoPublicoLector\.cerrar\(\)/, 'visibility/BFCache/destroy must tear down certified reader');
   const rollout = JSON.parse(fs.readFileSync(path.join(__dirname, '../docs/sync-rollout.json'), 'utf8'));
-  assert.equal(Object.values(rollout.licenses).filter(x => 'yparty' in x).length, 0, 'rollout remains OFF');
+  const active=Object.values(rollout.licenses).filter(x => x.yparty === true);
+  assert.equal(active.length, 1, 'released 2.0 provider is confined to the existing owner license');
+  assert.match(active[0].frozenHead, /^[A-Za-z0-9_.:-]{3,128}$/);
 });
 
 test('C13 blocks certified reader until legacy shadow recovery, IDB and Yjs causal completeness pass', async () => {

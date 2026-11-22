@@ -29,7 +29,7 @@ function fixture({estado='apagado',sala=null,pending=false,throws=false,withFaca
     ...(missingWatcher?{}:{onEstado(fn){listener=fn;}})
   };
   const window={
-    ...(withFacade?{OCSync:legacy}:{}),
+    ...(withFacade?{OCSyncControl:legacy,OCSync:{estadoParaCheckpoint(){return {synthetic:true};}}}:{}),
     OCAuth:{rolActual:()=> 'dueno'}
   };
   let coordinator=null;
@@ -135,4 +135,30 @@ test('C38 RED: coordinator without activate20 cannot silently report business cu
   await assert.rejects(f.activate({activarDespachoComercial:true,rol:'dueno'}),
     /coordinator|activate|cutover|writer|available|certifi/i);
   assert.equal(f.API.modoCorte20Activo,false);
+});
+
+
+test('C190: commercial cutover checks the real transport controller, not business OCSync',async()=>{
+  const f=fixture({estado:'apagado',sala:null,pending:false});
+  const result=await f.activate({activarDespachoComercial:true,rol:'dueno'});
+  assert.equal(result.modoCorte20Activo,true);
+  assert.equal(f.watcherRegistered(),true);
+  f.setState({nextEstado:'conectado',nextSala:'F123-SYNTH-REAL'});
+  f.emitState();
+  assert.equal(f.API.modoCorte20Activo,false);
+  assert.ok(f.trace.some(x=>x.startsWith('failback:')));
+});
+
+test('C190: per-license certified frozenHead is passed to the coordinator',async()=>{
+  const f=fixture();
+  f.API.rollout={frozenHead:'fb-certified-from-rollout'};
+  let headObserved=null;
+  f.API.crearCoordinadorCorte20=async(_doc,head)=>{
+    headObserved=head;
+    const c={activate20:async()=>({ok:true}),failbackToLegacy:async()=>({ok:true}),destroy(){}};
+    f.API.coordinadorCorte20=c;
+    return c;
+  };
+  await f.activate({activarDespachoComercial:true});
+  assert.equal(headObserved,'fb-certified-from-rollout');
 });

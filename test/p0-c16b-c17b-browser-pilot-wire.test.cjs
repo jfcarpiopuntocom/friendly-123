@@ -324,9 +324,8 @@ test('6. docs/sync-yjs.js exposes opt-in C16b/C17b hooks behind QA pilot switch 
   const rollout = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'sync-rollout.json'), 'utf8'));
   assert.equal(rollout.allApproved, true, 'S4 global rollout must remain commercially enabled');
    assert.equal(rollout.allOutboxV2, true, 'S4 durable outbox must remain enabled');
-  assert.equal(
-    Object.values(rollout.licenses || {}).some(entry => entry?.yparty === true),
-    false,
-    'no license may have yparty enabled in sync-rollout.json by default'
-  );
+  const selected = Object.entries(rollout.licenses || {}).filter(([, entry]) => entry?.yparty === true);
+  assert.equal(selected.length, 1, 'only the explicitly certified JFC license uses 2.0');
+  assert.match(selected[0][0], /^[a-f0-9]{64}$/, 'license is keyed by a non-reversible digest');
+  assert.match(selected[0][1].frozenHead, /^[A-Za-z0-9_.:-]{3,128}$/, 'no unverified HEAD');
 });

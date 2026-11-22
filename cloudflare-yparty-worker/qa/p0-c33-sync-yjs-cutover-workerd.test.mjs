@@ -203,13 +203,14 @@ function mountBrowserSyncRuntime({
     OCAuth: {rolActual: () => currentRole},
     OCSecure: {leerPinQueAbre: () => ({owner: ownerPin, team})},
     OCFotos,
-    OCSync: {
-      // C38: this Workerd test exercises C21a only after explicitly quiescing
-      // the legacy socket/outbox. The real browser refuses cutover otherwise.
+    OCSyncControl: {
+      // The installed transport controller is separate from the business catalog adapter.
       estado: () => 'apagado',
       salaActiva: () => null,
       durabilidadPendiente: () => false,
-      onEstado: () => {},
+      onEstado: () => {}
+    },
+    OCSync: {
       catalogoPropio: () => catalogSnapshot,
       hashearFotosProductos: async () => 0,
       hashearFotosPerchas: async () => 0

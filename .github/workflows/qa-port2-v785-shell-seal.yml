@@ -58,10 +58,13 @@ jobs:
           assert.ok(sw.includes('const CACHE = "'+v.shell+'";'),'SW must match exact released shell');
           assert.ok(sw.includes('const CACHE_GENERACION = "-'+v.cacheGeneration+'";'),'SW must match exact released generation');
           const rollout=JSON.parse(fs.readFileSync('docs/sync-rollout.json','utf8'));
-          assert.ok(Object.values(rollout.licenses||{}).every(x=>x.yparty!==true),'cannot enable customer store in seal');
+          const active=Object.entries(rollout.licenses||{}).filter(([,entry])=>entry.yparty===true);
+          assert.equal(active.length,1,'only the existing JFC owner license may enable certified 2.0');
+          assert.match(active[0][0],/^[a-f0-9]{64}$/,'license identity must remain hashed');
+          assert.match(active[0][1].frozenHead,/^[A-Za-z0-9_.:-]{3,128}$/,'2.0 requires a release-certified frozen HEAD');
           assert.equal(v.requerida,false);
           assert.deepEqual(v.apagar,[]);
-          console.log(v.version+' '+v.shell+' '+v.cacheGeneration+' > master; verified real bundle SHA256; all rollout gates OFF');
+          console.log(v.version+' '+v.shell+' '+v.cacheGeneration+' > master; verified real bundle SHA256; one owner 2.0 entry, all other licenses unchanged');
           JS
       - name: Rebuild official deterministic shell manifest, no differences
         run: |
@@ -75,4 +78,5 @@ jobs:
             test/p0-yparty-client-built-bundle.test.cjs \
             test/p0-yparty-pilot-origin.test.cjs \
             test/p0-bridge-store-switch.test.cjs \
-            test/p0-rollout-policy.test.cjs
+            test/p0-rollout-policy.test.cjs \
+            test/p0-c188-real-certified-rollout.test.cjs
