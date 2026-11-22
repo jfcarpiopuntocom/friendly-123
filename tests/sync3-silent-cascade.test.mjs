@@ -66,3 +66,16 @@ test('hung A is bounded and cannot send same sale to B', async () => {
 test('invalid route timeout rejected',()=>{
   assert.throws(()=>createSilentTransportCascade({timeoutMs:0,routes:[route('A',async()=>{})]}),/timeoutMs/);
 });
+
+test('abort listener reporting definitively-not-sent cannot bypass timeout fence', async () => {
+  let backupCalls=0;
+  const cascade=createSilentTransportCascade({timeoutMs:25,routes:[
+    route('A',(_op,signal)=>new Promise(resolve=>{
+      signal.addEventListener('abort',()=>resolve({stage:'definitively-not-sent'}),{once:true});
+    })),
+    route('B',async()=>{backupCalls++;return {stage:'definitively-not-sent'};})
+  ]});
+  const result=await cascade.publish({opId:'sale_abort_123456'});
+  assert.equal(result.stage,'commit-unverified');
+  assert.equal(backupCalls,0);
+});
