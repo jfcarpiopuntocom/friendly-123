@@ -101,7 +101,7 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
     }
   }
 
-  async function failbackToLegacy(reason = 'manual-failback') {
+  // A transport outage must not change the business authority for an opId.\n  // Keep same-DO reconciliation and its durable latch intact during silent recovery.\n  async function failbackToLegacy(reason = 'manual-failback') {
     closeCatalog();
     setMode('failback-legacy-1.0', String(reason || 'manual-failback'));
     return Object.freeze({
