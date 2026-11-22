@@ -392,8 +392,19 @@ export class Tienda extends YServer {
           "SELECT 1 FROM sqlite_master WHERE type='table' AND name='f123_frozen_unions'"
         ).toArray().length>0 &&
         this.ctx.storage.sql.exec('SELECT 1 FROM f123_frozen_unions WHERE id=1').toArray().length>0;
-      const source=(certified||unionCertified) ? undefined :
-        await readTrustedFrozenSource({env:this.env,room,channel});
+      // JFC 22 nov 2026: "al abrir la app se va a pasar todo al nuevo esquema". Una tienda SIN historia certificada
+      // abre su sala vacia y el primer aparato con el cuaderno completo le entrega todo por la sincronizacion Yjs
+      // (union, nunca reemplazo). Solo con WS_ABRIR_SIN_HISTORIA="1"; una tienda que YA tiene certificado sigue igual.
+      let source;
+      if(!(certified||unionCertified)){
+        try{ source=await readTrustedFrozenSource({env:this.env,room,channel}); }
+        catch(error){
+          if(this.env.WS_ABRIR_SIN_HISTORIA!=='1') throw error;
+          this.gateD={opened:true,empty:true,channel};
+          this.gateDVerified=false; // sin certificado: el aparato completo aporta la historia
+          return;
+        }
+      }
       const imported=await openExistingStore({env:this.env,storage:this.ctx.storage,source});
       if(!imported.opened || ((certified||unionCertified) && imported.already !== true))
         throw new Error('Gate D refuses uncertified or incomplete historical Yjs');
