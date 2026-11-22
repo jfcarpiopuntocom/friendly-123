@@ -2,6 +2,7 @@
 // Used after REAL Gate D cold import/reopen. Never returns catalog rows,
 // customer data, PIN, raw Yjs history or a commercial ACK.
 import {askAuthority,secureMode} from './ws-authority-client.js';
+import {sufijoSalaPiloto} from './salas-piloto.mjs';
 import {assertPublicCatalogTransportDoc} from './catalog-safe-projection.mjs';
 const HEAD=/^[A-Za-z0-9_.:-]{3,128}$/;
 const SHA=/^[a-f0-9]{64}$/;
@@ -12,8 +13,7 @@ const fail=(status)=>new Response(status===403?'Acceso no autorizado':'Catalog p
 export async function readSignedFrozenCatalogProof({request,env,storage,doc,room,verified}={}){
  if(!secureMode(env)||env.WS_SEPARATE_ROOMS_QA!=='1'||
     env.WS_OPEN_EXISTING_QA!=='1'||
-    !/^[a-f0-9]{32}$/.test(env.SALA_PILOTO||'')||
-    room!==env.SALA_PILOTO+'-cat')return fail(503);
+    sufijoSalaPiloto(env,room)!=='-cat')return fail(503);
  if(request?.method!=='GET')return fail(405);
  const auth=request.headers.get('authorization')||'';
  const token=auth.startsWith('Bearer ')?auth.slice(7):'';
