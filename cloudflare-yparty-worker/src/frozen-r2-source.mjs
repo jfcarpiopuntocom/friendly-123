@@ -112,33 +112,47 @@ async function validatePage(raw,definition){
  need(await sha256(sized)===definition.sha256);
  return raw.frames;
 }
+// C202: room -> {head,ops,cat}. F123_FROZEN_ROOMS is JSON {"<room32>":"<head>"} or
+// {"<room32>":{head,ops,cat}} (ops/cat = manifest SHA-256 pins; default to the
+// global F123_FROZEN_*_MANIFEST_SHA256). Legacy F123_FROZEN_ROOM/HEAD is one more entry.
+function frozenRooms(env){
+ const out=new Map();let j={};
+ try{j=JSON.parse(env?.F123_FROZEN_ROOMS||'{}')||{}}catch(_){}
+ for(const [r,v] of Object.entries(j)){
+  const o=typeof v==='string'?{head:v}:v;
+  if(ROOM.test(r)&&HEAD.test(o?.head||''))out.set(r,{head:o.head,ops:o.ops,cat:o.cat});
+ }
+ if(ROOM.test(env?.F123_FROZEN_ROOM||'')&&HEAD.test(env?.F123_FROZEN_HEAD||'')&&
+    !out.has(env.F123_FROZEN_ROOM))out.set(env.F123_FROZEN_ROOM,{head:env.F123_FROZEN_HEAD});
+ return out;
+}
 async function frozenFetch(request,env){
  if(request.method!=='POST'||new URL(request.url).pathname!=='/v1/frozen')
   return new Response('Not found',{status:404});
  const secret=env?.WS_SERVICE_KEY;
  if(typeof secret!=='string'||secret.length<32||
     !constantEquals(request.headers.get('authorization')||'','Bearer '+secret))return denied();
- if(!ROOM.test(env?.F123_FROZEN_ROOM||'')||
-    !HEAD.test(env?.F123_FROZEN_HEAD||'')||
-    typeof env?.F123_FROZEN_R2?.get!=='function')return unavailable();
+ const rooms=frozenRooms(env);
+ if(!rooms.size||typeof env?.F123_FROZEN_R2?.get!=='function')return unavailable();
  if(!/^application\/json(?:\s*;|$)/i.test(request.headers.get('content-type')||''))
   return denied();
  let args;
  try{args=await boundedRequest(request)}catch(_){return denied()}
  const {room,channel}=args||{};
- if(!['ops','cat'].includes(channel)||room!==env.F123_FROZEN_ROOM+'-'+channel||
+ if(!['ops','cat'].includes(channel)||typeof room!=='string'||!rooms.has(room.slice(0,32))||room.slice(32)!=='-'+channel||
     !safeCount(args.chunk===undefined?1:args.chunk,1,MAX_PAGES))return denied();
  const chunk=args.chunk===undefined?1:args.chunk;
- const pin=channel==='ops'?env.F123_FROZEN_OPS_MANIFEST_SHA256:
-   env.F123_FROZEN_CAT_MANIFEST_SHA256;
+ const cfg=rooms.get(room.slice(0,32)),head=cfg.head;
+ const pin=channel==='ops'?(cfg.ops||env.F123_FROZEN_OPS_MANIFEST_SHA256):
+   (cfg.cat||env.F123_FROZEN_CAT_MANIFEST_SHA256);
  if(!HEX.test(pin||''))return unavailable();
- const keyBase=key(room,env.F123_FROZEN_HEAD,channel,'');
+ const keyBase=key(room,head,channel,'');
  try{
   const packed=await getJson(env.F123_FROZEN_R2,keyBase+'manifest.json',MAX_MANIFEST);
   if(!packed)return unavailable();
   need(await sha256(packed.raw)===pin);
   const manifest=packed.data;
-  const pages=verifyManifest(manifest,room,channel,env.F123_FROZEN_HEAD);
+  const pages=verifyManifest(manifest,room,channel,head);
   const root=await sha256(enc.encode(pages.map(p=>p.chunk+':'+p.sha256+'\n').join('')));
   need(root===manifest.rootSha256);
   if(chunk>pages.length)return denied();

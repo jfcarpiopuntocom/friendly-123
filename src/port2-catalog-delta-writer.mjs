@@ -164,6 +164,14 @@ export async function openCertifiedPublicCatalogWriter({
   // Any other remote root stays untyped and is still refused by name below.
   publicDoc.getMap('productos');publicDoc.getMap('ubicaciones');
   assertPublicCatalogTransportDoc({doc:publicDoc,room});
+  // JFC 22 nov 2026: tienda abierta en 2.0 SIN historia certificada ('sala-vacia'). Si el servidor esta vacio,
+  // este aparato (con su cuaderno completo y sin pendientes) lo llena con su catalogo PUBLICO; Yjs suma, no borra.
+  if(expectedFrozenHead==='sala-vacia'&&
+     publicDoc.getMap('productos').size===0&&publicDoc.getMap('ubicaciones').size===0){
+   const seed=projectPublicCatalog({sourceDoc:privateDoc,Y,room,channel:'cat',frozenHead:expectedFrozenHead});
+   try{Y.applyUpdate(publicDoc,Y.encodeStateAsUpdate(seed.doc));}finally{seed.doc.destroy();}
+   assertPublicCatalogTransportDoc({doc:publicDoc,room});
+  }
   // Never write over a baseline that differs from the certified local view.
   if(canon(publicDoc)!==expected)throw fail();
  }catch(error){

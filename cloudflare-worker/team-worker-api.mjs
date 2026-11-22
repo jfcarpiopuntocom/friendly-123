@@ -3,7 +3,18 @@ import {teamAuthority} from './team-authority.mjs';
 const paths={'/team/update':'update','/team/verify':'verify','/team/status':'status'};
 const headers={'content-type':'application/json; charset=utf-8','cache-control':'no-store'};
 const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers});
-function enabled(env){return env.TEAM_AUTHORITY_QA==='1'&&/^F123-[A-Z0-9*~$=-]{8,34}$/.test(env.TEAM_AUTHORITY_LICENSE||'')&&typeof env.TEAM_PIN_PEPPER==='string'&&env.TEAM_PIN_PEPPER.length>=32&&typeof env.PIN_PEPPER==='string'&&env.PIN_PEPPER.length>=32&&env.TEAM_PIN_PEPPER!==env.PIN_PEPPER&&env.TEAM_PIN_PEPPER!==env.MASTER_KEY;}
+// C202: la autoridad 2.0 atiende una LISTA de licencias (antes una sola).
+// TEAM_AUTHORITY_LICENSE (legado, una) + TEAM_AUTHORITY_LICENSES (coma). Solo codigos con forma valida;
+// lista vacia = cerrado (authority-unavailable), igual que antes. Cada ticket sigue atado a la sala de SU licencia
+// en ws-capability-issuer.mjs (roomForLicense), asi que una tienda nunca obtiene acceso a la sala de otra.
+export function licenciasAutorizadas(env){
+  const out=new Set();
+  for(const v of [env.TEAM_AUTHORITY_LICENSE,...String(env.TEAM_AUTHORITY_LICENSES||'').split(',')]){
+    const c=String(v||'').trim().toUpperCase();if(/^F123-[A-Z0-9*~$=-]{8,34}$/.test(c))out.add(c);
+  }
+  return out;
+}
+function enabled(env){return env.TEAM_AUTHORITY_QA==='1'&&licenciasAutorizadas(env).size>0&&typeof env.TEAM_PIN_PEPPER==='string'&&env.TEAM_PIN_PEPPER.length>=32&&typeof env.PIN_PEPPER==='string'&&env.PIN_PEPPER.length>=32&&env.TEAM_PIN_PEPPER!==env.PIN_PEPPER&&env.TEAM_PIN_PEPPER!==env.MASTER_KEY;}
 export async function readAuthorityBody(req,limit=2048){
   let reader;
   try{
@@ -28,7 +39,7 @@ export async function teamPublicRoute(req,env,{getDo}){
   if(!enabled(env))return reply({ok:false,reason:'authority-unavailable'},503);
   if(req.method!=='POST')return reply({ok:false,reason:'method-not-allowed'},405);
   const body=await readAuthorityBody(req);if(!body)return reply({ok:false,reason:'invalid-input'},400);
-  if(String(body.licenseCode||'').trim().toUpperCase()!==env.TEAM_AUTHORITY_LICENSE)return reply({ok:false,reason:'not-found'},404);
+  if(!licenciasAutorizadas(env).has(String(body.licenseCode||'').trim().toUpperCase()))return reply({ok:false,reason:'not-found'},404);
   try{
     const stub=getDo(env);if(!stub)return reply({ok:false,reason:'authority-unavailable'},503);
     return await stub.fetch('https://do.invalid/team-authority/internal',{method:'POST',headers,body:JSON.stringify({...body,action})});
@@ -40,7 +51,7 @@ export function teamDoRoute(req,storage,env){
     if(!enabled(env))return reply({ok:false,reason:'authority-unavailable'},503);
     if(req.method!=='POST')return reply({ok:false,reason:'method-not-allowed'},405);
     const body=await readAuthorityBody(req);if(!body||!['update','verify','status'].includes(body.action))return reply({ok:false,reason:'invalid-input'},400);
-    if(String(body.licenseCode||'').trim().toUpperCase()!==env.TEAM_AUTHORITY_LICENSE)return reply({ok:false,reason:'not-found'},404);
+    if(!licenciasAutorizadas(env).has(String(body.licenseCode||'').trim().toUpperCase()))return reply({ok:false,reason:'not-found'},404);
     const team=teamAuthority({storage,ownerAuthority:pinAuthority(storage,env.PIN_PEPPER),secret:env.TEAM_PIN_PEPPER});
     // Returned verify metadata is informational; it is NOT a transferable WS capability.
     return response(await team[body.action](body));

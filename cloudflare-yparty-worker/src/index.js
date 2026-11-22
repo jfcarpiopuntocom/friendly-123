@@ -12,6 +12,7 @@ import {createBusinessSqlExecutor} from "./authoritative-business-sql.mjs";
 import {openExistingStore} from "./open-existing-store.mjs";
 import {readTrustedFrozenSource} from "./trusted-frozen-source.mjs";
 import {readSignedFrozenCatalogProof} from "./catalog-frozen-proof.mjs";
+import {salasPiloto,sufijoSalaPiloto} from "./salas-piloto.mjs";
 
 export { salaDeLicencia };
 
@@ -248,16 +249,17 @@ export class Tienda extends YServer {
   async onRequest(req) {
     // C11: ONLY an independently frozen, verified PUBLIC -cat can return a
     // read-only historical HEAD. No GET import endpoint and no private Y.Doc.
-    if(this.name===this.env.SALA_PILOTO+'-cat' &&
+    if(sufijoSalaPiloto(this.env,this.name)==='-cat' &&
        new URL(req.url).searchParams.get('frozen-proof')==='1')
       return readSignedFrozenCatalogProof({request:req,env:this.env,
        storage:this.ctx.storage,doc:this.document,room:this.name,
-       verified:this.gateDVerified===true&&!this.falloPersistencia});
+       verified:this.gateDVerified===true&&!this.falloPersistencia,
+       vacia:this.gateD?.empty===true&&!this.falloPersistencia});
     // A separate, opt-in HTTP typed-command INBOX. No raw Yjs economic writes;
     // 202 means queued, NEVER that stock/cash were applied by the real app.
     if(secureMode(this.env)&&this.env.WS_TYPED_COMMANDS_QA==='1'&&
        this.env.WS_SEPARATE_ROOMS_QA==='1'&&
-       this.name===this.env.SALA_PILOTO+'-ops'){
+       sufijoSalaPiloto(this.env,this.name)==='-ops'){
       if(req.method!=='POST')return new Response('Method not allowed',{status:405});
       if(req.headers.get('content-type')?.split(';')[0].trim()!=='application/json')
         return new Response('Expected JSON',{status:415});
@@ -298,7 +300,7 @@ export class Tienda extends YServer {
       return Response.json(answer,{status,headers:{'cache-control':'no-store'}});
     }
     if (!secureMode(this.env) || this.env.WS_PHOTO_BLOBS_QA !== '1' ||
-        this.name !== this.env.SALA_PILOTO + '-fotos') {
+        sufijoSalaPiloto(this.env,this.name) !== '-fotos') {
       return new Response('Not found',{status:404});
     }
     const origin=req.headers.get('origin');
@@ -372,10 +374,10 @@ export class Tienda extends YServer {
       const room=this.name,channel=room.endsWith('-cat')?'cat':room.endsWith('-ops')?'ops':null;
       const validPilot = this.env.WS_AUTHORITY_QA==='1' &&
           this.env.WS_SEPARATE_ROOMS_QA==='1' &&
-          /^[a-f0-9]{32}$/.test(this.env.SALA_PILOTO||'');
+          salasPiloto(this.env).size>0;
       // The SHA-256 photo room is HTTP-only in SQLite and has no frozen Yjs import.
-      if (validPilot && this.env.WS_PHOTO_BLOBS_QA==='1' && room===this.env.SALA_PILOTO+'-fotos') return;
-      if (!validPilot || !channel || room !== this.env.SALA_PILOTO+'-'+channel)
+      if (validPilot && this.env.WS_PHOTO_BLOBS_QA==='1' && sufijoSalaPiloto(this.env,room)==='-fotos') return;
+      if (!validPilot || !channel || sufijoSalaPiloto(this.env,room) !== '-'+channel)
         throw new Error('Gate D refuses room without QA authority');
       // Existing certified rooms recover from their own complete SQL journal,
       // so a temporarily unreachable history service cannot orphan the shop.
@@ -391,8 +393,19 @@ export class Tienda extends YServer {
           "SELECT 1 FROM sqlite_master WHERE type='table' AND name='f123_frozen_unions'"
         ).toArray().length>0 &&
         this.ctx.storage.sql.exec('SELECT 1 FROM f123_frozen_unions WHERE id=1').toArray().length>0;
-      const source=(certified||unionCertified) ? undefined :
-        await readTrustedFrozenSource({env:this.env,room,channel});
+      // JFC 22 nov 2026: "al abrir la app se va a pasar todo al nuevo esquema". Una tienda SIN historia certificada
+      // abre su sala vacia y el primer aparato con el cuaderno completo le entrega todo por la sincronizacion Yjs
+      // (union, nunca reemplazo). Solo con WS_ABRIR_SIN_HISTORIA="1"; una tienda que YA tiene certificado sigue igual.
+      let source;
+      if(!(certified||unionCertified)){
+        try{ source=await readTrustedFrozenSource({env:this.env,room,channel}); }
+        catch(error){
+          if(this.env.WS_ABRIR_SIN_HISTORIA!=='1') throw error;
+          this.gateD={opened:true,empty:true,channel};
+          this.gateDVerified=false; // sin certificado: el aparato completo aporta la historia
+          return;
+        }
+      }
       const imported=await openExistingStore({env:this.env,storage:this.ctx.storage,source});
       if(!imported.opened || ((certified||unionCertified) && imported.already !== true))
         throw new Error('Gate D refuses uncertified or incomplete historical Yjs');
@@ -576,10 +589,13 @@ export default {
     // Limit the public endpoint before KV or a Durable Object sees the request.
     const parsedUrl=new URL(req.url);
     const path = parsedUrl.pathname;
-    if (!/^[a-f0-9]{32}$/.test(env.SALA_PILOTO || "")) return new Response("Not found", { status: 404 });
+    if (!salasPiloto(env).size) return new Response("Not found", { status: 404 });
+    // C202: room suffix of the requested path, only if its 32-hex base is an admitted store.
+    const rutaTienda="/parties/tienda/",baseSala=path.startsWith(rutaTienda)?path.slice(rutaTienda.length,rutaTienda.length+32):"";
+    const sufijo=path.startsWith(rutaTienda)?sufijoSalaPiloto(env,path.slice(rutaTienda.length)):null;
     // A one-use HTTP certificate is the ONLY browser-readable on-ramp from
     // certified -cat SQL to C8. The actual catalog Y.Doc stays behind YParty.
-    const catalogProof=path==='/parties/tienda/'+env.SALA_PILOTO+'-cat' &&
+    const catalogProof=sufijo==='-cat' &&
       parsedUrl.searchParams.get('frozen-proof')==='1' &&
       req.headers.get('Upgrade')?.toLowerCase()!=='websocket';
     if(catalogProof){
@@ -613,7 +629,7 @@ export default {
     }
     const photoEndpoint=env.WS_PHOTO_BLOBS_QA==='1' &&
       req.headers.get('Upgrade')?.toLowerCase() !== 'websocket' &&
-      path==='/parties/tienda/'+env.SALA_PILOTO+'-fotos';
+      sufijo==='-fotos';
     if(photoEndpoint && req.method==='OPTIONS'){
       const origin=req.headers.get('origin'),expected=env.WS_PHOTO_ORIGIN_QA;
       const method=req.headers.get('access-control-request-method');
@@ -632,7 +648,7 @@ export default {
     }
     const photoHttp=photoEndpoint && (req.method==='GET'||req.method==='PUT');
     const typedEndpoint=env.WS_TYPED_COMMANDS_QA==='1'&&env.WS_SEPARATE_ROOMS_QA==='1'&&
-      path==='/parties/tienda/'+env.SALA_PILOTO+'-ops';
+      sufijo==='-ops';
     // Unlike WebSockets, a browser's signed HTTP POST needs CORS preflight.
     // No wildcard origin, credentials or bearer tokens in a URL. A denied
     // origin is rejected BEFORE routing into the Durable Object or consuming
@@ -660,7 +676,7 @@ export default {
       return new Response('Acceso no autorizado',{status:403,headers:{'cache-control':'no-store'}});
     // No raw Yjs WebSocket room for photo bytes, and no generic anonymous HTTP.
     const allowedWs=(secureMode(env) ? (env.WS_SEPARATE_ROOMS_QA==='1' ? ["-priv","-cat","-ops"] : ["-priv"]) : ["","-cat","-ops"])
-      .some(suffix=>path==='/parties/tienda/'+env.SALA_PILOTO+suffix);
+      .some(suffix=>suffix===sufijo);
     if (!photoHttp && !typedHttp && !allowedWs) return new Response("Not found", { status: 404 });
     if(photoHttp||typedHttp){
       const response=(await routePartykitRequest(req,env)) || new Response("Not found",{status:404});
@@ -677,7 +693,7 @@ export default {
     if (req.headers.get("Upgrade")?.toLowerCase() !== "websocket") {
       return new Response("WebSocket required", { status: 426 });
     }
-    if (env.LIMITE_PILOTO && !(await env.LIMITE_PILOTO.limit({ key: env.SALA_PILOTO })).success) {
+    if (env.LIMITE_PILOTO && !(await env.LIMITE_PILOTO.limit({ key: baseSala })).success) {
       return new Response("Too many connections", { status: 429, headers: { "Retry-After": "60" } });
     }
     return (
