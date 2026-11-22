@@ -56,3 +56,18 @@ test('destroy invalidates pending async catalog session', async () => {
   assert.equal((await activating).ok,false);
   assert.equal(closed,1);
 });
+
+test('late conflict callback from replaced session cannot cancel current writer', async () => {
+  const callbacks=[];
+  const coordinator=fixture(async ({onWriterConflict}) => {
+    callbacks.push(onWriterConflict);
+    return {frozenHead:'certified-head-2026',close(){}};
+  });
+  assert.equal((await coordinator.activate20()).ok,true);
+  assert.equal((await coordinator.activate20()).ok,true);
+  callbacks[0]();
+  assert.equal(coordinator.mode(),'active-2.0');
+  callbacks[1]();
+  assert.equal(coordinator.mode(),'failback-legacy-1.0');
+  coordinator.destroy();
+});
