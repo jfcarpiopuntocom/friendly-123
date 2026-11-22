@@ -496,9 +496,21 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      naranja). --brass en el :root de index.html es #5294AC (azul-teal), no
      "bronce" pese al nombre de la variable; --rust es el naranja de marca
      #E86040. NO cambiar a --rust sin pedirselo antes a JFC. */
+  /* PIN layout: width:100% must INCLUDE padding and border. Without border-box
+     a 420px card measures 468px and overflows narrow iPhones/landscape views. */
+  #oc-gate, #oc-gate *, #oc-gate *::before, #oc-gate *::after{box-sizing:border-box;}
+  #oc-gate{max-width:100%;max-height:100%;max-height:100dvh;}
   #oc-gate .caja{background:#FFF8E8;border:2px solid var(--brass,#5294AC);
-    border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;
+    border-radius:8px;padding:26px 22px;max-width:420px;width:100%;min-width:0;text-align:center;
     margin:auto;flex:0 0 auto;}
+  @media(max-width:380px){
+    #oc-gate{padding:12px;}
+    #oc-gate .caja{padding:18px 12px;}
+    #oc-gate .oc-slots .slot{width:min(58px,22vw);height:min(58px,22vw);}
+    #oc-gate .oc-pad{gap:6px;}
+    #oc-gate .oc-pad button{min-width:0;padding:8px 2px;}
+    #oc-gate .oc-acciones button{min-width:0;overflow-wrap:anywhere;}
+  }
   #oc-gate h2{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;}
   #oc-gate .sub{font-size:15px;font-weight:700;color:var(--ink,#211c14);margin-bottom:18px;}
   #oc-gate .oc-gate-logo img{width:min(70vw,280px);max-width:100%;height:auto;filter:drop-shadow(0 2px 5px rgba(178,70,31,.22));}
