@@ -20,3 +20,19 @@ jobs:
         run: node --check src/sync3-silent-cascade.mjs
       - name: Regression tests
         run: node --test tests/sync3-silent-cascade.test.mjs tests/sync3-activation-race.test.mjs
+      - name: Compile exact browser bundle for source-to-runtime verification
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node scripts/build-yparty-piloto.cjs
+          node scripts/gen-manifest.js
+          node - <<'NODE'
+          const fs = require('node:fs');
+          for (const [tag,filename] of [['BUNDLE','docs/vendor/yparty-piloto.min.js'],['MANIFEST','docs/version-manifest.json']]) {
+            const base64=fs.readFileSync(filename).toString('base64');
+            const chunkSize=4096;
+            for (let i=0;i<base64.length;i+=chunkSize) {
+              console.log('SYNC3_'+tag+'_CHUNK '+Math.floor(i/chunkSize)+' '+base64.slice(i,i+chunkSize));
+            }
+            console.log('SYNC3_'+tag+'_DONE '+Math.ceil(base64.length/chunkSize));
+          }
+          NODE
