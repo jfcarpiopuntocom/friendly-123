@@ -1,0 +1,47 @@
+name: C199 P0 licensed pending gate and official v886 seal
+on:
+  push:
+    branches: [port2/c199-licensed-pending-v886]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  certified-release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Verify original C197 license-scope and old-transport quiescence
+        run: |
+          node --check docs/sync-realtime.js
+          node --test test/p0-c197-scope-pending-by-license.test.cjs test/p0-c38-legacy-transport-quiescence.test.cjs
+      - name: Validate version identity against master
+        run: node scripts/release-control.cjs validate origin/master
+      - name: Compile and seal official source assets
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/build-dashboard-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          bash check-sw.sh
+          git diff --check
+      - name: Push exact SHA256 release seal
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/version-manifest.json docs/sw.js docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C199): seal v886 scoped pending with exact SHA256'
+            git push origin HEAD:port2/c199-licensed-pending-v886
+          fi

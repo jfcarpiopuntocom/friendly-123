@@ -1,6 +1,6 @@
 {
-  "version": "v0.8.84",
-  "shell": "f123-shell-v884",
+  "version": "v0.8.86",
+  "shell": "f123-shell-v886",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-f4ff29ab212366d49e942312ce666a76f6c0411723363c1311d570250de7e843",
