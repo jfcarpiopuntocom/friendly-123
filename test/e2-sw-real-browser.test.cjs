@@ -27,14 +27,16 @@ const auto=app.slice(start,end);
 assert.match(safeReloadHelper,/sessionStorage\.setItem\("f123_reload_al_entrar", "1"\)/,
   "fixture must extract the actual deferred-reload helper, not stub it");
 function pageHtml(candidate) {
- const setup='sessionStorage.setItem("f123_sesion","synthetic-e2");'+
+ const setup='if(!sessionStorage.getItem("e2-logged-out"))sessionStorage.setItem("f123_sesion","synthetic-e2");'+
+  'else document.getElementById("oc-gate").style.display="flex";'+
   'sessionStorage.setItem("e2-loads",String(1+Number(sessionStorage.getItem("e2-loads")||0)));';
- return '<!doctype html><html><body><div id="app">E2 synthetic notebook</div><script>'+
+ return '<!doctype html><html><body><div id="app">E2 synthetic notebook</div>'+
+  '<div id="oc-gate" style="display:none;position:fixed;inset:0;background:#0F1923;color:#fff">Enter PIN</div><script>'+
   setup+'\n'+(candidate?safeReloadHelper+'\n'+reg+'\n'+auto:
   'window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js",{updateViaCache:"none"}));')+
   '</script></body></html>';
 }
-test("E2 Chromium: existing installed SW adopts new shell automatically without Purge", {timeout:120000},async()=>{
+test("E2 Chromium: SW update NEVER navigates in-app; PIN screen adopts with Updating splash", {timeout:120000},async()=>{
  let phase="old",candidate=false;
  const mark=label=>console.log("E2 phase:",label);
  const server=http.createServer((req,res)=>{
@@ -87,54 +89,63 @@ test("E2 Chromium: existing installed SW adopts new shell automatically without 
   console.log("E2 reopened PWA:",JSON.stringify(ctl));
   mark("wait reopened controller");
   await p.waitForFunction(()=>!!navigator.serviceWorker.controller,null,{timeout:15000});
-  mark("install page clock");
-  await p.clock.install(); // only after the old worker is fully controlling this tab
+  mark("mounted real update handler on controlled page");
   // Inject the exact E2 IIFE from the candidate source into the controlled tab.
   // This models a long-lived PWA without a navigation to bootstrap a new shell.
   mark("inject helper and auto-update IIFE");
   await p.addScriptTag({content:safeReloadHelper+'\n'+auto});
   mark("wait IIFE ready");
   await p.waitForFunction(()=>window._ocActSola&&navigator.serviceWorker.controller,null,{timeout:10000});
-  candidate=true; // only the eventual safe reload serves the candidate HTML
+  candidate=true; // A future navigation serves the updated document.
   const initial=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
-  phase="new"; // change only the localhost test server, never GitHub Pages
-  // Returning to a visible installed PWA must ask for a fresh worker.
-  mark("dispatch visible event");
+  phase="new";
+  mark("request worker update while inside app");
   await p.evaluate(()=>document.dispatchEvent(new Event("visibilitychange")));
-  mark("fast-forward 21s initial check");
-  await p.clock.fastForward(21000); // actual revisar() timer, no manual update button
-  mark("wait pending safe reload marker");
-  await p.waitForFunction(()=>sessionStorage.getItem("f123_act_sola_pendiente")==="1",{timeout:25000});
-  mark("fast-forward idle while durable confirmation is unavailable");
-  let navigationWithoutClick=0;
-  p.on("framenavigated",frame=>{if(frame===p.mainFrame())navigationWithoutClick++;});
-  await p.clock.fastForward(92000);
-  // Host-clock wait: capture async navigation triggered after the virtual idle gate.
-  // Do NOT inspect the page before this assertion: its JS context may be gone.
-  await new Promise(resolve=>setTimeout(resolve,1200));
-  assert.equal(navigationWithoutClick,0,"must not navigate without durable confirmation");
-  await p.waitForLoadState("load");
-  const beforeClick=await p.evaluate(()=>Number(sessionStorage.getItem("e2-loads")));
-  assert.equal(beforeClick,initial,"pending save must preserve the running page");
-  assert.equal(await p.locator("#f123-aviso-version").count(),0,"no update banner");
-  await p.evaluate(()=>{window.OCSync={confirmarCatalogoDurable:async()=>true};});
-  mark("durable commit triggers adoption without a manual reload");
+  await p.waitForFunction(expected=>new Promise(resolve=>{
+    const c=navigator.serviceWorker.controller;if(!c)return resolve(false);
+    let complete=false;
+    const timer=setTimeout(()=>{if(!complete){complete=true;navigator.serviceWorker.removeEventListener('message',onMsg);resolve(false)}},1200);
+    function onMsg(e){if(e.data?.tipo==='shell-actual'){if(!complete){complete=true;clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',onMsg);resolve(e.data.shell===expected)}}}
+    navigator.serviceWorker.addEventListener('message',onMsg);c.postMessage({tipo:'que-shell'});
+  }),shellNext,{timeout:30000});
+  mark("confirm working app stays on old document");
+  const inside=await p.evaluate(async()=>({
+    result:await window._ocActSola.intentar(),
+    loads:Number(sessionStorage.getItem('e2-loads')),
+    pending:sessionStorage.getItem('f123_act_sola_pendiente'),
+    splash:!!document.getElementById('f123-update-splash')
+  }));
+  assert.equal(inside.result,false,'never reload while authenticated inside');
+  assert.equal(inside.loads,initial,'no in-app navigation even with new SW controller');
+  assert.equal(inside.pending,'1','retain pending update for next PIN screen');
+  assert.equal(inside.splash,false,'no Updating splash in operational app');
+  mark("navigate at PIN, with visible Updating splash");
+  await p.evaluate(()=>{
+    new MutationObserver(()=>{
+      if(document.getElementById('f123-update-splash')?.textContent?.includes('Updating'))
+        sessionStorage.setItem('e2-updating-splash-seen','1');
+    }).observe(document.body,{subtree:true,childList:true});
+  });
   const navigation=p.waitForEvent("framenavigated",{predicate:frame=>frame===p.mainFrame(),timeout:15000});
-  await p.evaluate(()=>{void window._ocActSola.intentar();});
+  await p.evaluate(()=>{
+    sessionStorage.setItem("e2-logged-out","1");
+    sessionStorage.removeItem("f123_sesion");
+    document.getElementById("oc-gate").style.display="flex";
+    void window._ocActSola.intentar();
+  });
   await navigation;
   await p.waitForFunction(n=>Number(sessionStorage.getItem("e2-loads"))===n+1,initial,{timeout:15000});
-  mark("assert adoption state");
-  const result=await p.evaluate(()=>({loads:Number(sessionStorage.getItem("e2-loads")),
-    session:sessionStorage.getItem("f123_sesion"),
+  const result=await p.evaluate(()=>({
+    loads:Number(sessionStorage.getItem("e2-loads")),
     version:localStorage.getItem("f123_version_vista"),
-    text:document.body.innerText}));
-  assert.equal(result.loads,initial+1,"the next document loads the new shell");
-  assert.equal(result.session,"synthetic-e2","preserve session on worker replacement");
-  assert.equal(result.version,"1.0|"+shellNext,"record precise version and current SW shell");
-  assert.doesNotMatch(result.text,/Purge|reload/i);
-  // The exact foreground throttle listener is exercised with a deterministic
-  // clock in e2-shell-auto-update.test.js; navigation resets this document.
-  assert.deepEqual(pageErrors,[],"actual helper and auto-update IIFE must run without page JavaScript errors");
+    splash:sessionStorage.getItem('e2-updating-splash-seen'),
+    pinVisible:getComputedStyle(document.getElementById('oc-gate')).display!=='none'
+  }));
+  assert.equal(result.loads,initial+1,'the PIN-page navigation gets the current shell');
+  assert.equal(result.version,"1.0|"+shellNext);
+  assert.equal(result.splash,'1','Updating splash painted before navigation');
+  assert.equal(result.pinVisible,true,'stays on PIN screen rather than entering the app');
+  assert.deepEqual(pageErrors,[],'real SW and app update code produce no JS errors');
   await ctx.close();
  } finally {if(browser)await browser.close();await new Promise(ok=>server.close(ok));}
 });
