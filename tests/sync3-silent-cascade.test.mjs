@@ -35,15 +35,19 @@ test('different commercial authorities rejected',()=>{
 test('missing authority rejected',()=>{
   assert.throws(()=>createSilentTransportCascade({routes:[{name:'A',send:async()=>{}}]}),/authority/);
 });
-test('next operation tries A again',async()=>{
-  let ready=false;
-  const cascade=createSilentTransportCascade({routes:[
+test('after A definitively fails B is used, then cooldown restores A',async()=>{
+  let ready=false,clock=0;
+  const cascade=createSilentTransportCascade({now:()=>clock,cooldownMs:100,routes:[
     route('A',async op=>ready?{ack:true,opId:op.opId,authority:'same-do',durable:true}:{stage:'definitively-not-sent'}),
     route('B',async op=>({ack:true,opId:op.opId,authority:'same-do',durable:true}))
   ]});
   assert.equal((await cascade.publish({opId:'sale_12345678'})).route,'B');
+  assert.equal(cascade.status().active,'B');
   ready=true;
-  assert.equal((await cascade.publish({opId:'sale_87654321'})).route,'A');
+  assert.equal((await cascade.publish({opId:'sale_87654321'})).route,'B');
+  clock=101;
+  assert.equal((await cascade.publish({opId:'sale_22222222'})).route,'A');
+  assert.equal(cascade.status().active,'A');
 });
 
 test('hung A is bounded and cannot send same sale to B', async () => {
@@ -78,4 +82,36 @@ test('abort listener reporting definitively-not-sent cannot bypass timeout fence
   const result=await cascade.publish({opId:'sale_abort_123456'});
   assert.equal(result.stage,'commit-unverified');
   assert.equal(backupCalls,0);
+});
+
+test('A and B definite pre-send rejection select C without duplicate authority',async()=>{
+  const calls=[];
+  const c=createSilentTransportCascade({routes:[
+    route('A',async()=>{calls.push('A');return {stage:'definitively-not-sent'}}),
+    route('B',async()=>{calls.push('B');return {stage:'definitively-not-sent'}}),
+    route('C',async op=>{calls.push('C');return {ack:true,opId:op.opId,authority:'same-do',durable:true}})
+  ]});
+  assert.equal((await c.publish({opId:'sale_22223333'})).route,'C');
+  assert.deepEqual(calls,['A','B','C']);
+  assert.equal(c.status().active,'C');
+});
+
+test('all routes definitively unavailable returns no ACK',async()=>{
+  const reject=()=>({stage:'definitively-not-sent'});
+  const c=createSilentTransportCascade({routes:[
+    route('A',async()=>reject()),route('B',async()=>reject()),route('C',async()=>reject())
+  ]});
+  assert.equal((await c.publish({opId:'sale_22224444'})).stage,'all-routes-unavailable');
+  assert.equal(c.status().active,null);
+});
+
+test('ambiguous A pauses only that route for subsequent distinct opId',async()=>{
+  const calls=[];
+  const c=createSilentTransportCascade({now:()=>0,cooldownMs:100,routes:[
+    route('A',async()=>{calls.push('A');throw Error('timeout')}),
+    route('B',async op=>{calls.push('B');return {ack:true,opId:op.opId,authority:'same-do',durable:true}})
+  ]});
+  assert.equal((await c.publish({opId:'sale_22225555'})).stage,'commit-unverified');
+  assert.equal((await c.publish({opId:'sale_22226666'})).route,'B');
+  assert.deepEqual(calls,['A','B']);
 });
