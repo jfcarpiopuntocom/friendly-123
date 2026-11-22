@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.61",
+  "version": "v0.8.62",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.61 C163: una cola cifrada actual guardada en el fallback tras fallo de IndexedDB prevalece sobre una copia IDB anterior, incluso después de reabrir; sin tocar ventas ni backend.",
+  "changelog": "v0.8.62 C165 Safari P0: limite de precarga PWA de 134 recursos simultaneos a 3 como maximo; mantiene shell offline, verificaciones de integridad y datos actuales.",
   "requerida": false,
-  "shell": "f123-shell-v861",
+  "shell": "f123-shell-v862",
   "apagar": [],
-  "releaseName": "v0.8.61",
-  "cacheGeneration": "golden397"
+  "releaseName": "v0.8.62",
+  "cacheGeneration": "golden398"
 }
