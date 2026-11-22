@@ -76,23 +76,8 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
       localStorage.setItem(K, v);
       return;
     }
-    /* ANTI-LOOP ROBUSTO (JFC 2026-08-28, sistema de integridad de versión):
-       si el deploy está a medias o la red devuelve algo raro, no queremos un
-       bucle infinito de recargas. Se guarda la versión ANTES de recargar (ya
-       existía) y además un contador con timestamp: si se recarga más de 3
-       veces en 30s, se para y se deja la app como está (mejor servir algo que
-       recargar sin fin). */
-    const KI = "f123_version_intento";
-    try {
-      const ahora = Date.now();
-      const it = JSON.parse(localStorage.getItem(KI) || "null");
-      if (it && (ahora - it.ts) < 30000) {
-        if (it.n >= 3) { localStorage.setItem(K, v); return; } // tope: no más recargas
-        it.n += 1; it.ts = ahora; localStorage.setItem(KI, JSON.stringify(it));
-      } else {
-        localStorage.setItem(KI, JSON.stringify({ n: 1, ts: ahora }));
-      }
-    } catch (_) {}
+    // The PIN-only adoption path uses a per-shell loop guard instead of
+    // a count/time-based quota that could strand a device on an old version.
     localStorage.setItem(K, v);
     try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
     // Solo activate del SW retira caches anteriores; update() no confirma una instalacion completa.
@@ -188,26 +173,14 @@ function _recargarSeguroVersion() {
   } catch (_) {}
 })();
 
-/* ACTUALIZACION SOLA (v492, DECISION MAYOR DE JFC 2026-10-13: "es detestable hacerles a los
-   de friendly-123 tener que reenganchar"). Antes la version nueva se cargaba SOLO al proximo
-   login; un cliente con la sesion abierta nunca volvia a escribir su PIN y se quedaba en la
-   version vieja hasta reenganchar. Ahora:
-   - cada 10 min, al volver a la app y 20 s despues de abrirla se pregunta al servidor que
-     version esta publicada y al service worker cual sirve (mensaje "que-shell");
-   - si difieren, se baja la nueva y queda pendiente la recarga;
-   - la recarga ocurre sola en un MOMENTO SEGURO: app en segundo plano o 90 s sin tocarla,
-     sin ventanas abiertas, sin campo con el cursor, sin venta en curso y con la sesion
-     abierta (la sesion se conserva: entra solo, sin PIN).
-   - anti-bucle: como maximo una recarga automatica por version cada 10 minutos.
-   NO BORRAR. Para desactivar: poner _ocActSolaOn = false. */
+/* C181: al detectar una version nueva, el SW puede actualizarse mientras
+   se trabaja, pero el documento SOLO navega desde la pantalla visible del PIN.
+   No hay limite artificial de esperas ni recargas por intervalo; cada shell
+   puede adoptarse una vez para evitar bucles de cache. */
 const _ocActSolaOn = true;
 (function actualizacionSola() {
   if (!_ocActSolaOn || !("serviceWorker" in navigator)) return;
   const KA = "f123_autorecarga";
-  let ultimoToque = Date.now();
-  ["pointerdown", "keydown", "touchstart", "input"].forEach(function (ev) {
-    window.addEventListener(ev, function () { ultimoToque = Date.now(); }, { passive: true, capture: true });
-  });
   // Bandera PROPIA: solo la pone revisar() tras confirmar con el service worker que sirve otra
   // version. No se usa f123_reload_al_entrar porque el piso de version la marca en cada carga
   // (compara "f123-shell-vN" contra el nombre de cache con -goldenN y nunca coincide).
@@ -434,7 +407,7 @@ const _ocActSolaOn = true;
     if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
   });
   window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro, vigilar: vigilar }; // para pruebas
-  // Installed iPhone PWAs can stay open: check the SW on return, not just load.
+  // Installed iPhone PWAs can stay open: install SW while running, adopt at PIN.
   // One network check per 15 minutes on user activity; no background polling.
   let ultimoUpdateAlVolver = 0;
   document.addEventListener("visibilitychange", function () {
