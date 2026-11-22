@@ -3175,6 +3175,18 @@
           if (coord && API.coordinadorCorte20 === coord &&
               (!estado || estado.mode !== "active-2.0")) {
             API.modoCorte20Activo = false;
+            // The coordinator closes its certified writer BEFORE notifying
+            // failback. Restore the original encrypted transport and its
+            // untouched queue only after that closure.
+            var licenciaPausada = API.__transporteLegado20Pausado;
+            if (licenciaPausada) {
+              API.__transporteLegado20Pausado = null;
+              try {
+                if (window.OCSyncControl &&
+                    typeof window.OCSyncControl.reanudarDesdeArquitectura20 === "function")
+                  window.OCSyncControl.reanudarDesdeArquitectura20(licenciaPausada);
+              } catch (_) {}
+            }
           }
           if (typeof observadorExterno === "function") {
             try { observadorExterno(estado); } catch (_) {}
@@ -3430,16 +3442,42 @@
     function _intentarActivarCorte20SiElegible() {
       if (!API.canalPiloto || typeof API.corte20QaHabilitado !== "function" ||
           !API.corte20QaHabilitado() || typeof API.activarCorte20Runtime !== "function" ||
-          API.__reactivandoCorte20) return;
+          API.__reactivandoCorte20 || API.modoCorte20Activo === true) return;
       try {
         var authQa = typeof window !== "undefined" ? window.OCAuth : null;
         var demoQa = authQa && typeof authQa.esDemo === "function" ? authQa.esDemo() === true : false;
         var rolQa = authQa && typeof authQa.rolActual === "function" ? String(authQa.rolActual() || "").trim().toLowerCase() : "";
-        if (!demoQa && (rolQa === "dueno" || rolQa === "admin")) {
-          API.__reactivandoCorte20 = Promise.resolve(API.activarCorte20Runtime({ cortarComercio: true }))
-            .catch(function () {})
-            .finally(function () { API.__reactivandoCorte20 = null; });
-        }
+        if (demoQa || (rolQa !== "dueno" && rolQa !== "admin")) return;
+        var released = !!(API.rollout && API.rollout.yparty === true);
+        // Do not sever an existing device's live relay while local Yjs
+        // ancestry or the durable ops notebook is still being hydrated.
+        if (released && (document.hidden || !API.idb || API.idb.synced !== true ||
+            !API.opsIdb || API.opsIdb.synced !== true ||
+            !API.doc || API.doc.isDestroyed ||
+            (API.doc.store && (API.doc.store.pendingStructs || API.doc.store.pendingDs)))) return;
+        var relay = window.OCSyncControl;
+        var licencia = API.codigoCuaderno;
+        API.__reactivandoCorte20 = Promise.resolve().then(function () {
+          if (released) {
+            if (!relay || typeof relay.pausarParaArquitectura20 !== "function" ||
+                typeof relay.reanudarDesdeArquitectura20 !== "function") return null;
+            var paused = relay.pausarParaArquitectura20(licencia);
+            if (!paused || paused.ok !== true) return null;
+            API.__transporteLegado20Pausado = licencia;
+          }
+          return API.activarCorte20Runtime({ cortarComercio: true });
+        }).then(function (resultado) {
+          if (!released || (resultado && resultado.modoCorte20Activo === true)) return;
+          var previous = API.__transporteLegado20Pausado;
+          API.__transporteLegado20Pausado = null;
+          if (previous) relay.reanudarDesdeArquitectura20(previous);
+        }).catch(function () {
+          // A failed certification can NEVER strand the old socket: leave
+          // source IDs, encrypted room and durable outbox byte-identical.
+          var previous = API.__transporteLegado20Pausado;
+          API.__transporteLegado20Pausado = null;
+          if (previous && relay) try { relay.reanudarDesdeArquitectura20(previous); } catch (_) {}
+        }).finally(function () { API.__reactivandoCorte20 = null; });
       } catch (_) {}
     }
     function sincronizarVisibilidad() {
@@ -3489,13 +3527,19 @@
     if (API.idb && API.idb.once) API.idb.once("synced", function () {
       setTimeout(pedirVolcarFotos, 1500);
       if (API.catalogoPublicoLector) API.catalogoPublicoLector.intentar();
+      _intentarActivarCorte20SiElegible();
     });
     if (API.catalogoPublicoLector) {
       API.doc.on("update", function () { API.catalogoPublicoLector.intentar(); });
       API.doc.once("destroy", function () { API.catalogoPublicoLector.destruir(); });
     }
     // Al cargar los eventos ya guardados, procesarlos (aplica los que falten).
-    if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", pedirProcesarEventos);
+    if (API.opsIdb && API.opsIdb.once) API.opsIdb.once("synced", function () {
+      pedirProcesarEventos();
+      _intentarActivarCorte20SiElegible();
+    });
+    // Only a real authenticated Owner/Admin session can trigger this helper.
+    window.addEventListener("oc-login", _intentarActivarCorte20SiElegible);
     API.corte20QaHabilitado = function () {
       // Explicit per-license release is sufficient to attempt a certified
       // activation. C38 still refuses two active writers or pending old ops.
