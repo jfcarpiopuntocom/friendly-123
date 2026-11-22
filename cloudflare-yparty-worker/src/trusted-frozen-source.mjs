@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import {sufijoSalaPiloto} from './salas-piloto.mjs';
 import {projectPublicCatalog,F123_PUBLIC_PROJECTION_VERSION} from './catalog-safe-projection.mjs';
 
 // Gate D: server-only pre-cut history from an independently certified source.
@@ -189,7 +190,7 @@ function frozenSourceKey(env){
 export async function readTrustedFrozenSource({env,room,channel}={}){
  if(env?.WS_OPEN_EXISTING_QA!=='1'||env.WS_AUTHORITY_QA!=='1'||
   env.WS_SEPARATE_ROOMS_QA!=='1'||!ROOM.test(room||'')||
-  !['cat','ops'].includes(channel)||room!==env.SALA_PILOTO+'-'+channel||
+  !['cat','ops'].includes(channel)||sufijoSalaPiloto(env,room)!=='-'+channel||
   typeof env.WS_FROZEN_HISTORY_SOURCE?.fetch!=='function'||
   typeof frozenSourceKey(env)!=='string'||frozenSourceKey(env).length<32)throw fail();
  let stage='fetch';
