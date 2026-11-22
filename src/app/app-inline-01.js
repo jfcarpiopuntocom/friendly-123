@@ -6604,49 +6604,40 @@ function _ocMesEtiqueta(mes){
 function cambiarMesComisiones(mes){
   window._ocMesAuto = null;
   window._ocMesAutoHecho = true;
-  _ocMesComisiones = /^\d{4}-\d{2}$/.test(String(mes || "")) ? String(mes) : null;
+  window._ocComHistoryGroup = "mes";
+  _ocMesComisiones = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(mes || "")) ? String(mes) : null;
   cargarComisiones();
 }
 function cambiarRangoComisionesGlobal(tipo, valor){
-  if(tipo==="desde")window._ocComHistoryFrom=/^\d{4}-\d{2}-\d{2}$/.test(valor)?valor:"";
-  else if(tipo==="hasta")window._ocComHistoryTo=/^\d{4}-\d{2}-\d{2}$/.test(valor)?valor:"";
-  else {
-    window._ocComHistoryGroup=["producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"producto";
-    // Never carry an invisible date cutoff into a different view.
-    if(window._ocComHistoryGroup!=="mes"){window._ocComHistoryFrom="";window._ocComHistoryTo="";}
+  if(tipo!=="grupo")return;
+  const next=["producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"producto";
+  window._ocComHistoryGroup=next;
+  // All five tabs always show all available dates. A settlement month is explicitly opened.
+  window._ocComHistoryFrom="";window._ocComHistoryTo="";
+  if(_ocMesComisiones){
+    _ocMesComisiones=null;
+    cargarComisiones();
+    return;
   }
-  if(!_ocMesComisiones){
-    const sales=window._ocComHistorySales,cont=document.getElementById("listaComisiones");
-    if(Array.isArray(sales)&&cont){
-      const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
-      cont.innerHTML=barraComisionesHtml([],actions)+resumenComisionesGlobalHtml(sales);
-    }else cargarComisiones();
-  }
+  const sales=window._ocComHistorySales,cont=document.getElementById("listaComisiones");
+  if(Array.isArray(sales)&&cont){
+    const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
+    cont.innerHTML=barraComisionesHtml([],actions)+resumenComisionesGlobalHtml(sales);
+  }else cargarComisiones();
 }
 function selectorRangoComisionesGlobalHtml(){
   const es=document.documentElement.lang==="es";
   const group=window._ocComHistoryGroup||"producto";
-  const opciones=[["producto",es?"Producto":"Product"],["percha",es?"Percha":"Rack"],
+  const opciones=[["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
     ["cliente",es?"Cliente":"Customer"],["comisionista",es?"Comisionista":"Associate"],["mes",es?"Período":"Period"]];
-  const buttons=opciones.map(function(v){
-    const active=group===v[0];
-    return '<button type="button" role="tab" data-commissions-view-global="'+v[0]+'" aria-selected="'+active+
-      '" onclick="cambiarRangoComisionesGlobal(\'grupo\',\''+v[0]+'\')" class="tecla'+(active?" hundida":"")+
-      '" style="min-height:44px;margin:0;padding:6px 10px;font-size:14px;white-space:nowrap;">'+v[1]+'</button>';
-  }).join("");
-  const control='<div role="tablist" aria-label="'+(es?"Ver comisiones por":"View commissions by")+
-    '" style="display:flex;gap:6px;overflow-x:auto;max-width:100%;padding:2px 0 4px;">'+buttons+'</div>';
-  if(group!=="mes")return control;
-  const from=/^\d{4}-\d{2}-\d{2}$/.test(window._ocComHistoryFrom||"")?window._ocComHistoryFrom:"";
-  const to=/^\d{4}-\d{2}-\d{2}$/.test(window._ocComHistoryTo||"")?window._ocComHistoryTo:"";
-  const date=(type,value,label)=>'<label style="display:flex;gap:6px;align-items:center;font-size:14px;">'+label+
-    '<input type="date" value="'+value+'" aria-label="'+label+'" onchange="cambiarRangoComisionesGlobal(\''+type+'\',this.value)" '+
-    'style="width:136px;max-width:100%;min-height:40px;padding:4px;border:1px solid var(--azul-medio,#2C3E50);border-radius:6px;"></label>';
-  return control+'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">'
-    +date("desde",from,es?"Desde":"From")+date("hasta",to,es?"Hasta":"To")
-    +'<label style="display:flex;align-items:center;gap:6px;font-size:14px;">'+(es?"Liquidar":"Settle")
-    +'<input type="month" data-commissions-open-month aria-label="'+(es?"Liquidar mes":"Settle month")
-    +'" onchange="cambiarMesComisiones(this.value)" style="min-height:40px;width:136px;max-width:100%;border:1px solid var(--azul-medio,#2C3E50);border-radius:6px;padding:4px;"></label></div>';
+  return '<div role="tablist" aria-label="'+(es?"Ver comisiones por":"View commissions by")+
+    '" style="display:flex;gap:6px;overflow-x:auto;max-width:100%;padding:2px 0 6px;">'
+    +opciones.map(function(v){
+      const active=group===v[0];
+      return '<button type="button" role="tab" data-commissions-view-global="'+v[0]+'" aria-selected="'+active+
+        '" onclick="cambiarRangoComisionesGlobal(\'grupo\',\''+v[0]+'\')" class="tecla'+(active?" hundida":"")+
+        '" style="flex:0 0 auto;min-height:44px;margin:0;padding:6px 10px;font-size:14px;white-space:nowrap;">'+v[1]+'</button>';
+    }).join("")+'</div>';
 }
 function selectorMesComisionesHtml(meses){
   const lista = Array.isArray(meses) ? meses : [];
@@ -6674,13 +6665,14 @@ function selectorMesComisionesHtml(meses){
    acciones en una fila que envuelve en movil; debajo, solo si hace falta, la linea
    de meses sin pagar. Antes cada cosa ocupaba su propia linea y la UI estorbaba. */
 function barraComisionesHtml(meses, acciones){
-  if(!_ocMesComisiones)return '<div data-commissions-toolbar style="margin:0 0 12px;">'+
-    selectorRangoComisionesGlobalHtml()+
+  // The same original tab strip stays visible in every mode, with no imposed month.
+  const tabs=selectorRangoComisionesGlobalHtml();
+  if(!_ocMesComisiones)return '<div data-commissions-toolbar style="margin:0 0 12px;">'+tabs+
     '<div class="acciones" style="margin-top:6px;display:flex;justify-content:flex-end;">'+acciones+'</div></div>';
   const sel=selectorMesComisionesHtml(meses);
-  const filas=[sel.nota].filter(Boolean).map((x)=>'<div style="margin-top:8px;">'+x+'</div>').join("");
-  return '<div class="tag-card" data-commissions-toolbar style="text-align:left;padding:10px 14px;margin:0 0 14px;">'+
-    '<div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">'+sel.control+sel.aviso+
+  const filas=[sel.nota].filter(Boolean).map(x=>'<div style="margin-top:8px;">'+x+'</div>').join("");
+  return '<div class="tag-card" data-commissions-toolbar style="text-align:left;padding:10px 14px;margin:0 0 14px;">'
+    +tabs+'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">'+sel.control+sel.aviso+
     selectorVistaComisionesHtml()+'<div class="acciones">'+acciones+'</div></div>'+filas+'</div>';
 }
 function agruparVentasPorProducto(rows, soloComision, mes, incluirPropias = false){
@@ -7028,10 +7020,7 @@ function resumenComisionesGlobalHtml(sales){
   const es=document.documentElement.lang==="es";
   const group=["producto","percha","cliente","comisionista","mes"].includes(window._ocComHistoryGroup)
     ?window._ocComHistoryGroup:"producto";
-  const view=window.OCCommissionHistory.project({sales:sales,from:group==="mes"?(window._ocComHistoryFrom||""):"",
-    to:group==="mes"?(window._ocComHistoryTo||""):"",group:group,lang:es?"es":"en"});
-  if(view.invalidRange)return '<p role="alert" data-commissions-invalid-date="1" style="font-size:14px;color:var(--rojo-ink,#a3392a);">'
-    +(es?"El rango de fechas es inválido. Corrige Desde y Hasta.":"Invalid date range. Correct From and To.")+'</p>';
+  const view=window.OCCommissionHistory.project({sales:sales,group:group,lang:es?"es":"en"});
   const t=view.totals;
   const money=(v,unknown)=>unknown||v===null||!Number.isFinite(v)?(es?"Por verificar":"Needs review"):fmtMoney(v);
   const tile=(name,value)=>'<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;box-shadow:none;">'
@@ -7046,19 +7035,32 @@ function resumenComisionesGlobalHtml(sales){
   const cards=view.groups.map(function(g){
     const associated=group==="comisionista";
     const rows=view.rows.filter(function(v){return v.group===g.id;});
+    const productId=group==="producto"&&(sales||[]).some(function(v){return v&&v.productoId!=null&&String(v.productoId)===String(g.id);})?String(g.id):"";
+    const safeMonth=function(day){const v=String(day||"").slice(0,7);return /^\d{4}-(0[1-9]|1[0-2])$/.test(v)?v:"";};
     const value=money(g.commission,g.unknownCommission);
     const gross=associated?"":'<span>'+ (es?"Ventas":"Sales")+': '+money(g.gross,g.unknownGross)+'</span>';
     const details=rows.map(function(v){
-      return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap;">'
-        +'<span>'+escHtml(v.day||v.id||"")+'</span><span>'+money(v.commission,v.commission===null)+'</span></div>';
+      const month=safeMonth(v.day);
+      const toProduct=productId&&month?'<button type="button" data-product-id="'+escHtml(productId)+'" data-month="'+month
+        +'" onclick="cambiarMesComisiones(this.dataset.month);abrirFichaProducto(this.dataset.productId)"'
+        +' class="tecla" style="min-height:36px;font-size:13px;padding:4px 8px;">'
+        +(es?"Ver mes":"Open month")+'</button>':"";
+      return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
+        +'<span>'+escHtml(v.day||v.id||"")+'</span><span>'+money(v.commission,v.commission===null)+'</span>'+toProduct+'</div>';
     }).join("");
-    return '<details data-comm-history-group class="tag-card" style="text-align:left;padding:12px 14px;margin:0 0 8px;">'
+    const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
+      '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
+        +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
+        +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
+
+    return '<details data-comm-history-group'+(productId?' data-comm-product-card data-product-id="'+escHtml(productId)+'"':'')
+      +' class="tag-card" style="text-align:left;padding:12px 14px;margin:0 0 8px;">'
       +'<summary style="cursor:pointer;min-height:44px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">'
       +'<span><strong style="display:block;font-size:16px;">'+escHtml(g.label)+'</strong>'
       +'<span style="font-size:13px;">'+g.count+' '+(es?"ventas":"sales")+'</span></span>'
       +'<span style="font-size:14px;text-align:right;">'+gross+'<strong style="display:block;">'
       +(es?"Comisiones":"Commissions")+': '+value+'</strong></span></summary>'
-      +'<div style="padding-top:8px;">'+details+'</div></details>';
+      +'<div style="padding-top:8px;">'+details+period+'</div></details>';
   }).join("");
   return '<section data-commissions-summary="all" data-commissions-current-view="'+group+'">'
     +warnings+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin:0 0 16px;">'
