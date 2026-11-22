@@ -268,9 +268,28 @@ self.addEventListener("install", (evento) => {
   // resto queda cacheado: la app sigue abriendo offline en teléfonos/tablets.
   try {
     evento.waitUntil(
-      caches.open(CACHE_LOCAL).then((cache) => Promise.allSettled(
-        SHELL.map((u) => cache.add(new Request(u, { cache: "reload" })).catch((e) => { try { console.warn("[SW] no se pudo precachear", u, e && e.message); } catch (_) {} throw e; }))
-      )).then((resultados) => {
+      caches.open(CACHE_LOCAL).then((cache) => {
+        // C165 Safari P0: the previous map() started all 134 cache.add() calls
+        // simultaneously while the page also loaded its JS. Cap in-flight
+        // requests to three; preserve per-file failures and essential gate.
+        const resultados = new Array(SHELL.length);
+        let siguiente = 0;
+        const precargarUno = async () => {
+          while (siguiente < SHELL.length) {
+            const idx = siguiente++, u = SHELL[idx];
+            try {
+              await cache.add(new Request(u, { cache: "reload" }));
+              resultados[idx] = { status: "fulfilled" };
+            } catch (e) {
+              try { console.warn("[SW] no se pudo precachear", u, e && e.message); } catch (_) {}
+              resultados[idx] = { status: "rejected", reason: e };
+            }
+          }
+        };
+        const corredores = [];
+        for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno());
+        return Promise.all(corredores).then(() => resultados);
+      }).then((resultados) => {
         const esenciales = new Set(["./index.html", "./aislamiento.js", "./estado-ab.js", "./estado-idb.js", "./mock-backend.js", "./auth-ui.js", "./peer-sync.js", "./sync-yjs.js", "./version-manifest.json"]);
         SHELL.filter(u => /^\.\/(?:app-|dashboard-).*\.min\.(?:js|css)$/.test(u)).forEach(u => esenciales.add(u));
         if (resultados.some((r, i) => esenciales.has(SHELL[i]) && r.status === "rejected")) throw new Error("Precarga de arranque incompleta; preservar shell anterior");
