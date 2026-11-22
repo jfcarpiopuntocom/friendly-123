@@ -1,0 +1,49 @@
+name: C196 2.0 op handoff RED-GREEN and exact v883 shell seal
+on:
+  push:
+    branches:
+      - port2/c196-failback-unmapped-commercial-op
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  port2-handoff-and-seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install pinned dependencies
+        run: npm ci
+      - name: Verify actual commercial op dispatcher before sealing
+        run: |
+          node --check docs/sync-yjs.js
+          node --test test/p0-c196-port2-unmapped-op-failback.test.cjs test/p0-c38-legacy-transport-quiescence.test.cjs
+      - name: Build official published assets and SHA256 manifest
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          bash check-sw.sh
+          node --check docs/sw.js
+      - name: Verify exact C196 handoff and generated release
+        run: |
+          node --test test/p0-c196-port2-unmapped-op-failback.test.cjs test/p0-c38-legacy-transport-quiescence.test.cjs
+          git diff --check
+      - name: Commit exact v883 sealed manifest and generated assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/version-manifest.json docs/sw.js docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C196): seal 2.0 handoff v883 with exact SHA256 shell'
+            git push origin HEAD:port2/c196-failback-unmapped-commercial-op
+          fi
