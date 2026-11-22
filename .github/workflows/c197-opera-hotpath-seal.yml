@@ -23,7 +23,7 @@ jobs:
         run: |
           node --check docs/mock-backend.js
           node --check docs/core/business-read-model.js
-          node --test test/p0-c197-opera-dashboard-hotpath.test.cjs test/p0-c197-scope-pending-by-license.test.cjs test/p0-c196-port2-unmapped-op-failback.test.cjs test/p0-c38-legacy-transport-quiescence.test.cjs test/p0-c200-initial-dashboard-after-auth.test.cjs
+          node --test test/p0-c197-opera-dashboard-hotpath.test.cjs test/p0-c197-scope-pending-by-license.test.cjs test/p0-c196-port2-unmapped-op-failback.test.cjs test/p0-c38-legacy-transport-quiescence.test.cjs test/p0-c200-initial-dashboard-after-auth.test.cjs test/p0-c200-initial-dashboard-after-auth.test.cjs
       - name: Exact identity and original builder
         run: |
           node scripts/release-control.cjs validate origin/master
