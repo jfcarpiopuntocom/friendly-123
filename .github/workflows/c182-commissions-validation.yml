@@ -5,14 +5,13 @@ on:
       - fix/c182-commissions-view-switches-restore-monthly
   workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  focused-and-seal:
-    if: "!contains(github.event.head_commit.message, '[seal-c182]')"
+  focused:
     runs-on: ubuntu-24.04
     container:
       image: mcr.microsoft.com/playwright:v1.62.1-noble
-    timeout-minutes: 10
+    timeout-minutes: 8
     defaults:
       run:
         shell: bash
@@ -24,64 +23,8 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      - name: Test Commissions real data and old interface
+      - name: Focused real finance and original UX
         run: |
-          node --test --test-concurrency=2 \
-            test/p0-c182-commissions-compact-view-switches.test.cjs \
-            test/p0-c182-commissions-original-ui-all-dates.test.cjs \
-            test/p0-belen-commissions-all-dates.test.cjs \
-            test/p0-c166-commissions-total-first.test.cjs \
-            test/p0-c175-commissions-inverted-range-no-false-zero.test.cjs \
-            test/p0-c175-commissions-client-id-conflict.test.cjs \
-            test/commissions-by-person.test.cjs \
-            test/commissions-period.test.js \
-            test/commission-direction-period.test.js
+          node --test --test-concurrency=2 test/p0-c182-commissions-compact-view-switches.test.cjs test/p0-c182-commissions-original-ui-all-dates.test.cjs test/p0-belen-commissions-all-dates.test.cjs test/p0-c166-commissions-total-first.test.cjs test/p0-c175-commissions-inverted-range-no-false-zero.test.cjs test/p0-c175-commissions-client-id-conflict.test.cjs test/commissions-by-person.test.cjs test/commissions-period.test.js test/commission-direction-period.test.js
           node --check src/app/app-inline-01.js
           git diff --check HEAD~2 HEAD
-      - name: Seal v0.8.75 build from tested source
-        run: |
-          node <<'NODE'
-          const fs=require('node:fs');
-          const vFile='docs/version.json';
-          const v=JSON.parse(fs.readFileSync(vFile,'utf8'));
-          if(v.version!=='v0.8.74'||v.shell!=='f123-shell-v874')throw Error('unexpected baseline '+v.version);
-          v.version='v0.8.75';v.shell='f123-shell-v875';v.releaseName='v0.8.75';
-          v.cacheGeneration='golden411';
-          v.changelog='v0.8.75 C182: Commissions recupera tarjetas compactas y cinco vistas, con todo el historial por defecto y sin imponer un mes; pagos mensuales solo por elección explícita.';
-          fs.writeFileSync(vFile,JSON.stringify(v,null,2)+'\n');
-          function replaceOne(file,oldVal,newVal){
-            let s=fs.readFileSync(file,'utf8');
-            const count=s.split(oldVal).length-1;
-            if(count!==1)throw Error(file+' expected exactly 1 '+oldVal+' found '+count);
-            fs.writeFileSync(file,s.replace(oldVal,newVal));
-          }
-          replaceOne('docs/sw.js','const CACHE = "f123-shell-v874";','const CACHE = "f123-shell-v875";');
-          replaceOne('docs/dashboard.html','<meta name="dashboard-shell" content="f123-shell-v874">','<meta name="dashboard-shell" content="f123-shell-v875">');
-          replaceOne('docs/dashboard.html','<meta name="dashboard-release" content="v0.8.74">','<meta name="dashboard-release" content="v0.8.75">');
-          replaceOne('docs/dashboard.html','Dashboard v0.8.74','Dashboard v0.8.75');
-          NODE
-          node scripts/build-app-entry.cjs
-          node scripts/gen-manifest.js
-          node --check docs/app-inline-01.min.js
-          node <<'NODE'
-          const fs=require('node:fs'),crypto=require('node:crypto');
-          const v=JSON.parse(fs.readFileSync('docs/version.json','utf8'));
-          const m=JSON.parse(fs.readFileSync('docs/version-manifest.json','utf8'));
-          if(m.version!==v.version||m.shell!==v.shell)throw Error('version manifest mismatch');
-          const files=m.files;let ok=0;
-          for(const [p,value] of Object.entries(files)){
-            const bytes=fs.readFileSync('docs/'+p.replace(/^\.\//,''));
-            const norm=/\.(?:html|js|mjs|json|css)$/i.test(p)?Buffer.from(bytes.toString('utf8').replace(/\r\n/g,'\n')):bytes;
-            const want='sha256-'+crypto.createHash('sha256').update(norm).digest('hex');
-            if(value!==want)throw Error('manifest integrity mismatch '+p);
-            ok++;
-          }
-          if(ok<120)throw Error('unexpected manifest size '+ok);
-          console.log('C182 public shell integrity verified '+ok+'/'+ok);
-          NODE
-          git diff --check
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git add docs/version.json docs/sw.js docs/dashboard.html docs/index.html docs/app-inline-*.min.js docs/version-manifest.json
-          git commit -m "build(C182): seal v0.8.75 Commissions compact all dates [seal-c182]"
-          git push origin HEAD:fix/c182-commissions-view-switches-restore-monthly
