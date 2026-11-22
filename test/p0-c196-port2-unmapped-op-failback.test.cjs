@@ -79,3 +79,11 @@ test('C196 committed typed sale stays on 2.0; no duplicate legacy delivery', asy
   assert.equal(f.observations.attempts, 0);
   assert.equal(f.api.modoCorte20Activo, true);
 });
+
+test('C196 active mode without a certified coordinator cannot leak onto legacy channel', async () => {
+  const f = fixture({translated:true,fallback:true});
+  f.api.coordinadorCorte20 = null;
+  f.publish(event); await tick(); await tick();
+  assert.equal(f.observations.attempts, 0);
+  assert.equal(f.api.modoCorte20Activo, true);
+});
