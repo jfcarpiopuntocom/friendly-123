@@ -8,7 +8,7 @@ const b=src.indexOf('  /* Pinta la versión REAL del shell',a);
 assert.ok(a>0&&b>a,'extract actual PIN business label code');
 function setup(joined){
  let writes=0,html='', name='Mi tienda',lang='ES';
- const el={style:{display:''},get innerHTML(){return html;},set innerHTML(v){writes++;html=String(v);}};
+ const el={style:{display:''},get innerHTML(){return html.replace(/&#39;/g,"'");},set innerHTML(v){writes++;html=String(v);}};
  const doc={getElementById(){return el}};
  const store={getItem(){return JSON.stringify({licenseCode:'F123-ABCDEFGHIJ'});}};
  const w={t:(key)=>lang+':'+key,OCTienda:{
@@ -33,4 +33,12 @@ test('C195 joined PIN label: keeps sync notice and updated name without repeated
  assert.match(s.html,/Mi tienda/);assert.match(s.html,/••••GHIJ/);
  s.setName('idiomARTE');s.paint();assert.equal(s.writes,2);
  for(let i=0;i<100;i++)s.paint();assert.equal(s.writes,2,'settled team name must stay stable through later merges');
+});
+
+test('C195 Safari serializer normalizes an apostrophe without forcing repeated DOM writes',()=>{
+ const s=setup(false);
+ s.setName("O'Neil");
+ for(let i=0;i<100;i++)s.paint();
+ assert.equal(s.writes,1,'browser innerHTML serialization must not break idempotent PIN paints');
+ assert.match(s.html,/O&#39;Neil/);
 });
