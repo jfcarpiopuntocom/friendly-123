@@ -7004,10 +7004,18 @@ async function cargarComisiones(){
   // Monthly payout, receipts, correction and commission ledger stay untouched.
   if (!_ocMesComisiones) {
     try {
-      const [sales, months] = await Promise.all([
-        fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();}),
-        fetch(`${API}/liquidaciones/meses`).then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
-      ]);
+      // Sale history is the authoritative, LIVE read. Monthly settlement
+      // metadata is optional for the all-dates view; an offline/hung months
+      // endpoint must not hide already available real commissions.
+      const monthsPending=fetch(`${API}/liquidaciones/meses`)
+        .then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
+        .then(x=>Array.isArray(x)?x:[]).catch(()=>[]);
+      const sales=await fetch(`${API}/ventas/todas?ubicacionId=todas`)
+        .then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();});
+      // Bound the non-essential month-list wait so a stuck request cannot
+      // leave Commissions blank. Monthly settlement writes remain unchanged.
+      const months=await Promise.race([monthsPending,
+        new Promise(resolve=>setTimeout(()=>resolve([]),750))]);
       if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
       if (!window.OCCommissionHistory || !Array.isArray(sales)) throw Error("commission-history-not-loaded");
       // Keep the existing people-management form live in BOTH period modes.
