@@ -6610,12 +6610,12 @@ function cambiarMesComisiones(mes){
 function cambiarRangoComisionesGlobal(tipo, valor){
   if(tipo==="desde")window._ocComHistoryFrom=/^\d{4}-\d{2}-\d{2}$/.test(valor)?valor:"";
   else if(tipo==="hasta")window._ocComHistoryTo=/^\d{4}-\d{2}-\d{2}$/.test(valor)?valor:"";
-  else window._ocComHistoryGroup=["producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"producto";
+  else window._ocComHistoryGroup=["total","producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"total";
   if(!_ocMesComisiones)cargarComisiones();
 }
 function selectorRangoComisionesGlobalHtml(){
-  const es=document.documentElement.lang==="es",from=window._ocComHistoryFrom||"",to=window._ocComHistoryTo||"",group=window._ocComHistoryGroup||"producto";
-  const opciones=[["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
+  const es=document.documentElement.lang==="es",from=window._ocComHistoryFrom||"",to=window._ocComHistoryTo||"",group=window._ocComHistoryGroup||"total";
+  const opciones=[["total",es?"Total general":"Grand total"],["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
     ["cliente",es?"Cliente":"Customer"],["comisionista",es?"Comisionista":"Associate"],["mes",es?"Mes":"Month"]];
   return '<label style="display:flex;align-items:center;gap:5px;font-size:14px;">'+(es?"Desde":"From")+
     ' <input type="date" aria-label="'+(es?"Desde":"From")+'" value="'+escHtml(from)+'" onchange="cambiarRangoComisionesGlobal(\'desde\',this.value)" style="min-height:40px;padding:6px;border:1px solid #2C3E50;border-radius:6px;"></label>'+
@@ -7014,7 +7014,7 @@ async function cargarComisiones(){
       // This is unrelated to all-history reporting and still edits the same business.
       try { renderGestionPromotoras(); } catch (_) {}
       const report=window.OCCommissionHistory.render({sales:sales,from:window._ocComHistoryFrom||"",
-        to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"producto",
+        to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"total",
         lang:document.documentElement.lang==="es"?"es":"en"});
       const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
       if(cont)cont.innerHTML=barraComisionesHtml(months,actions)+report;
