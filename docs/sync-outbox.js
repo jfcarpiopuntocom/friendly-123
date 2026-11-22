@@ -79,6 +79,10 @@
   }
 
   async function guardar(blobCifrado) {
+    // C170: an older IDB commit may finish after another tab wrote a NEWER
+    // encrypted fallback. Snapshot the mirror BEFORE asynchronous IDB work.
+    var fallbackAntes = null;
+    try { fallbackAntes = localStorage.getItem(LS_KEY); } catch (_) {}
     if (SOPORTADO) {
       for (var intento = 0; intento < 2; intento++) {
         var db = null;
@@ -90,8 +94,15 @@
             tx.oncomplete = resolve;
             tx.onerror = tx.onabort = function () { reject(tx.error || new Error("Transacción IndexedDB abortada")); };
           });
-          // Best effort: IDB is already durable, the older small-quota mirror is unnecessary.
-          try { localStorage.removeItem(LS_KEY); } catch (_) {}
+          // Retire only the fallback this write actually superseded.
+          // Another tab may have committed a newer encrypted queue to localStorage
+          // while our IDB transaction was pending; never delete that other ACK.
+          try {
+            var fallbackActual = localStorage.getItem(LS_KEY);
+            if (fallbackActual === fallbackAntes || fallbackActual === blobCifrado) {
+              localStorage.removeItem(LS_KEY);
+            }
+          } catch (_) {}
           return true;
         } catch (e) {
           var rota = siConexionRota(db, e);
