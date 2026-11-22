@@ -1,0 +1,49 @@
+name: C195 Safari PIN gate paint stability and exact v882 seal
+on:
+  push:
+    branches:
+      - hotfix/c195-pin-gate-no-duplicate-dom
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  pin-source-and-seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Source-executed PIN gate RED-GREEN plus existing PIN invariants
+        run: |
+          node --check docs/auth-ui.js
+          node --test test/p0-c195-pin-gate-dom-burst.test.cjs test/pin-keypad-response.test.cjs test/p0-v769-pin-espera.test.cjs test/p0-v754-pin-local-primero.test.cjs test/p0-owner-pin-pencils-repaint.test.cjs
+      - name: Seal production shell manifest v882
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          bash check-sw.sh
+          node --check docs/sw.js
+      - name: Verify exact published PIN and shell integrity
+        run: |
+          node --test test/p0-c195-pin-gate-dom-burst.test.cjs test/pin-keypad-response.test.cjs
+          git diff --check
+      - name: Commit official SHA256 manifest and generated assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/version-manifest.json docs/sw.js docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C195): seal v882 PIN gate release with exact official asset SHA256'
+            git push origin HEAD:hotfix/c195-pin-gate-no-duplicate-dom
+          fi
