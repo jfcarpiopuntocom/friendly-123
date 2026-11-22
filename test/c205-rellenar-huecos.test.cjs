@@ -69,6 +69,9 @@ test('C205 RED->GREEN: complete device repairs a server log with a causal hole; 
  assert.equal(new Set([...groups.values()].map(o=>o.group)).size,1,'a single group');
  assert.ok(sent.every(o=>!('rep' in o)&&!('abs' in o)),'no local-only fields on the wire');
  assert.equal(a.socket.sent.filter(x=>typeof x!=='string').length,bin0,'no live broadcast of the repair');
+ // The seven-day cooldown must be earned only by the full durable ACK; otherwise a crash before outbox commit locks recovery.
+ const cooldownBeforeAck=JSON.parse(a.ls.get('f123_huecos_v1-y')||'{}');
+ assert.equal(cooldownBeforeAck.local,undefined,'C205 RED: publishing before ACK must not start seven-day cooldown');
  // New device: holed log + the repair group => recovery can finish.
  const joinerB=new a.Y.Doc();fx.holed.forEach(u=>a.Y.applyUpdate(joinerB,u));
  a.Y.applyUpdate(joinerB,assemble([...groups.values()]));
