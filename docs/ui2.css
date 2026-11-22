@@ -42,18 +42,22 @@ html.ui2 .tarjeta,html.ui2 .tag-card:not(.caja):not(#heroSemaforo){border-radius
 html.ui2 details.avisos-hoy,html.ui2 #ocRestockHoy{border-radius:14px!important;background:#FFFFFF!important;box-shadow:0 1px 2px rgba(15,25,35,.07)!important}
 html.ui2 body{font-variant-numeric:tabular-nums}
 
-/* Inventario: tarjeta horizontal con MINI FOTO A LA DERECHA (pedido JFC).
-   Mismos elementos y mismo orden dentro de la tarjeta; borde de semaforo intacto. */
-/* Telefono: 1 columna. Pantalla ancha: varias columnas de tarjetas horizontales (minimo 300 px), cerca del original. */
-html.ui2 .grid-cajas{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important;gap:10px!important}
-html.ui2 .caja{border-radius:14px!important;padding:12px 14px!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 10px 24px -16px rgba(15,25,35,.30)!important}
-/* El bloque que contiene la foto (no 'el primer hijo': las tarjetas con estrella traen antes la estrella).
-   :has() = Safari 15.4+/Chrome 105+; en navegadores mas viejos la tarjeta queda como antes, sin romperse. */
-html.ui2 .caja>div:has(>.fotowrap){display:grid!important;grid-template-columns:minmax(0,1fr) 64px;column-gap:12px;align-items:start}
-html.ui2 .caja>div:has(>.fotowrap)>*{grid-column:1}
-html.ui2 .caja .fotowrap{grid-column:2!important;grid-row:1/span 6;width:64px!important;height:64px!important;border-radius:10px!important;align-self:start;overflow:hidden}
-html.ui2 .caja .fotowrap img{width:64px!important;height:64px!important;object-fit:cover;object-position:center}
-html.ui2 .caja .ajuste-rapido{margin-top:8px}
+/* Inventario: tarjeta horizontal COMPACTA como la alternativa D aprobada por JFC:
+   mini foto 56 px a la derecha, nombre arriba y UNA linea compacta con categoria/codigo,
+   existencias y vencimiento (mismos elementos y mismo orden del DOM, solo en linea).
+   Los 4 botones rapidos (- + estrella lapiz) se conservan debajo. Borde de semaforo intacto.
+   Foto con float (funciona en navegadores viejos, sin :has). */
+html.ui2 .grid-cajas{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important;gap:8px!important}
+html.ui2 .caja{border-radius:14px!important;padding:10px 12px!important;min-height:0!important;height:auto!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 8px 20px -16px rgba(15,25,35,.30)!important}
+html.ui2 .caja>div:not(.ajuste-rapido){display:block!important;min-height:0!important;height:auto!important}
+html.ui2 .caja .fotowrap{float:right!important;width:56px!important;height:56px!important;margin:0 0 4px 10px!important;border-radius:10px!important;overflow:hidden;position:relative}
+html.ui2 .caja .fotowrap img{width:56px!important;height:56px!important;object-fit:cover;object-position:center}
+html.ui2 .caja .fotowrap .iniciales{font-size:16px!important}
+html.ui2 .caja .nombre{font-size:15px!important;line-height:1.25!important;margin:0 0 2px!important;min-height:0!important;height:auto!important}
+html.ui2 .caja .detalle,html.ui2 .caja .stock{display:inline!important;font-size:13px!important;line-height:1.4!important;margin:0!important;padding:0!important;min-height:0!important}
+html.ui2 .caja .stock{font-weight:700!important}
+html.ui2 .caja .stock::before,html.ui2 .caja .stock~.detalle::before{content:" \B7  ";font-weight:400}
+html.ui2 .caja .ajuste-rapido{clear:none!important;margin-top:6px!important;min-height:0!important}
 
 /* Teclas (Commissions y otras vistas) */
 html.ui2 .tecla{background:#FFFFFF!important;border:1px solid #E8ECF2!important;border-radius:12px!important;box-shadow:0 1px 2px rgba(15,25,35,.10)!important;color:#0F1923!important;-webkit-text-fill-color:#0F1923!important}
