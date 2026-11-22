@@ -7,7 +7,7 @@
     "previousSource": "friendly-123/docs/engineering/architecture-2-quality-score.json @ 76a31d7aa25c7542b0bfdfdf1018ee71b6554a99",
     "previousReviewedDate": "2026-11-20"
   },
-  "score": 83.8,
+  "score": 84,
   "maximum": 100,
   "dimensions": [
     {
@@ -21,7 +21,7 @@
     {
       "id": "durability",
       "weight": 20,
-      "score": 19.9,
+      "score": 20,
       "previous": 18.7,
       "justification": "C21b atomic settled_ops tombstones persist after 2.0 business-committed receipt; C27 runtime opsMap fence and C29 P0 preinit cold Safari reload closes the uncovered window where legacy would publish an opId already committed by 2.0 while coordinator was still null. Exact docs/sync-yjs.js function RED 3/4 tests then GREEN 4/4, 48/48 global CI in PR #823, with QA OFF legacy synchronous path unchanged. Still missing real Safari/PC A→B→A acceptance and true atomic across-engine multi-tab cutover. C51 v0.8.21 merged Web Locks AbortController bounded wait 1500ms and existing IDB atomic CAS fallback after timeout, preserving rejection on real write errors. 53/53 workflow CI, nonblocking/hung-lock tests and validated manifest; source also guards 2.0 operational startup behind dual QA flags, no production enrollment. +0.2 engineering durability QA only, not actual Safari BFCache physical proof. C60 actual merged same-app Workerd source trusted-frozen-source.mjs field-order robust reader: prior JSON.stringify(sourceRow) versus detached public catalog projectedRow rejected valid public Yjs JSON object with reordered keys in both signed legacy v1 and paged v2. RED 28/30 (exact two legitimate-structure misses) and GREEN 30/30 full focused (including private ownerPin/costo still fail-closed); 15/15 CI, Cloudflare exact source merge SUCCESS. +0.2 cold-join compatibility durability QA only, not Firebase HEAD real/customer proof; unknown legacy-root-only gap still P0. C64 PR #864 independently demonstrated real source false ACK at frozen SQL cold reopen when original `documento_bloques` base disappears but valid later Yjs journal alone survives (RED 1/2 44731412320); separate adversarial legacy single-row `documento` substitution also RED 2/3 44731901974. Actual `cloudflare-yparty-worker/src/open-existing-store.mjs` now fail-closes on any `snapshotKind` other than `blocks` for already-certified imports; cannot certify lost history from a receipt or legacy snapshot. GREEN 3/3 exact source-executed synthetic SQL fixture, real YParty Workerd cold-open 5/5, 14/14 final SHA CI; PR #864 MERGED master ca86aa4bbe7df1d9da0293e803896edbac53380b, Cloudflare Workers Build exact merged SHA SUCCESS b09be442-96ae-4802-a5b6-21f6256ceee3. Add +0.1 architectural engineering durability confidence ONLY. Does not prove original frozen bytes after compaction, genuine Firebase economic HEAD, R2 binding, physical Safari/Opera or GO. C66 product PR #866 MERGED SHA a46da3753ec23ecee2606f5ed206fe4c6ba10f25: original frozen Yjs state vector (independently SHA-pinned) now stored in the SAME atomic SQLite transaction as frozen base/certificate and checked against live merged snapshot+journal on every cold reopen via mature Yjs encodeStateVectorFromUpdate/decodeStateVector. Before the source fix real native SQLite scenario lost an entire independent writer while syntactically valid documento_bloques yielded false opened:true (RED 1/2 run44735648192). GREEN 6/6 native SQLite source tests including replace-writer, missing/tampered cert, old pre-vector refusal, valid post-cut deletion and compaction, plus original frozen import 9/9, C64 3/3 and real Tienda Workerd 5/5; full 15/15 GH workflows and exact Cloudflare merged build UUID b091735c-0cc5-4351-9c29-f5894c836544 SUCCESS. Earn +0.1 ONLY engineering durability quality. State-vector dominance is necessary causal continuity, not cryptographic proof of individual amounts or Firebase real HEAD; commercial GO0/6, physical0/5, QA OFF, Sync3 unchanged. C92: C70 #871 MERGED a94445d5a7efb157917a3cc209f69426b9667433 persists frozen/union causal state-vectors in the same Workerd SQLite transaction and detects missing clocks on cold reopen; RED->GREEN real Yjs+native SQL 18 GitHub head checks SUCCESS. +0.1 engineering durability ONLY; no physical convergence or Firebase original HEAD claimed. C106 independent post-C92 source/QA audit: C97 R2 immutable pages-first publisher, exact SHA readback and crash-resume without exposing partial manifest; real Workerd R2 synthetic negative tests. +0.1 engineering quality only, GO and physical unchanged. C110 PR #925 MERGED source v0.8.34 corrects genuine double manual stock delta after IndexedDB strict CAS committed but returned false: 7→5 and two movements on original source vs 7→6, one durable movement on changed source in actual Chromium E2E negative test. 39/39 stock regressions, P0 hotfix and release-control HEAD success, hotfix 44863363356 production published both origins and Chromium+WebKit readonly smoke green. +0.1 durability engineering quality only; does not certify remote op resend, physical A→B→A or GO. C115: v0.8.36 PR #927 Safari IndexedDB UnknownError strict-CAS reopen ONCE without false ACK after aborted transaction: source-executed negative cases RED0/2→GREEN2/2, 27/27 checks, published. +0.1 durability. v0.8.37 PR #930 browser product creation used to report HTTP 200 before durable save; corrected signed product creation now waits for exact strict IDB CAS, rollback product, movement seal and variant family, publishes only after confirmed commit. RED→GREEN real backend tests, P0 and release-control SUCCESS, public version with 131 SHA-matched assets. +0.1 durability only. No physical GO/real user proof. C124 PR #945 merged v0.8.44: canonical applied-opId receipt Set formerly evicted oldest receipts at >2000 even after C123 removed export cap, allowing replay after catch-up. Minimal product fix retains all canonical receipts and bounds only best-effort localStorage mirror; actual-source 10001-id/quota regression, 46/46 CI exact head after one QA flaky rerun, live Cloudflare version 728 v0.8.44 and manifest hash confirmed. +0.1 durability, not physical/commercial GO. C133 PR #956 merged `8c97e908b8e824036c745beee572740afb18eb18`: source-executed S4 no-age-eviction regression (180-day pending sale survives cold open, concurrent current sale intact, removal only after explicit ACK), 9/9 exact-head GitHub workflows. +0.1 independently earned durability QA, no runtime redesign, no old data investigation. C137 PR #963 MERGED 1ffdc7480bea87104aa46d1057d7a618d32fe72b: legacy encrypted outbox reopens stale IDB on current read/write, one bounded retry, no false ACK; local 14/14 source tests and CI exact head 28/28 green. +0.1 independent durability source fix, does not claim main S4 or customer physical acceptance. C153 PR #976 merged 89fb3fe56c61c74bb78d21a8a7527b5389d48633: WebKit abnormal IDBDatabase `onclose` now invalidates only the stale active handle. Source-executed RED lifecycle 6/7→GREEN 7/7, sale CAS+two tab/closed handle controls 12/12, P0 Hotfix Gate and Release Control CI green. +0.1 durability engineering QA, no second writer, historical rescue or false receipt ACK. C163 PR #988 merged e720181f9832fc00471b5d1e254df6fb0041e8ba: after current encrypted queue fallback was committed during IDB write failure, a stale IDB row no longer masks latest current queued facts on immediate/cold reopen; existing fallback is removed only by successful later IDB commit. Source executed RED1/3→GREEN3/3, 17/17 focused+neighbor tests, exact-head P0 and release CI GREEN. +0.1 durability only, no new state layer nor physical customer GO. C165 PR #990 merged fd65842dda72d66dd1c64f00fdc1b1231513d9b4: Service Worker install in official app preloads same 134 files with <=3 concurrent Cache API requests rather than 134 simultaneous, preserves offline shell and SHA, source-executed original 3/4 RED vs updated 4/4 GREEN, 25/25 CI exact-head and public v862. +0.1 source-backed durability only; user's real iPhone crash still requires post-deploy physical retest. C171 PR #1004 merged b7d00c39a8173d5808674a5aaf68a8eab63eb1fe: preserved newer encrypted outbox local fallback from a second tab across older IDB commit; original real source RED + merged source GREEN with 3 source tests, 171/171 release-control and 3 required gates. +0.1 Durability only; not global atomicity or physical sign-off. C173 PR #1006 merged 727598c0a02249139d28be53769c4e0cfe1b2ea1: read-only Commissions Safari 1400 date formatter constructions/700 ISO receipts → one reusable timezone formatter, bounded four zones, same receipts/totals/dates; source-executed 3 regression cases and required CI green. +0.1 Durability (boot resource pressure), no physical canary.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/899"
@@ -37,7 +37,7 @@
     {
       "id": "security",
       "weight": 15,
-      "score": 11.2,
+      "score": 11.3,
       "previous": 11.1,
       "justification": "C9/C10/C11 public boundary, scoped central tickets, plus PR #797 manual-only license Worker deployment with 108 synthetic tests and four bindings asserted before deploy. No Cloudflare deployment performed C47 v0.8.20 real product docs/sync-yjs.js role switch subscribed to oc-login/oc-logout: adversarial RED3/21 (forged Owner event, disguised live demo, logout during awaiting activate20) followed by GREEN21/21 plus isolated C38 and full GH Actions52/52 success. Runtime compares real OCAuth.rolActual() and OCAuth.esDemo(), increments API.__authEpoch20 and fails back to legacy if authentication changes while cutover awaits. Cloudflare exact master build success. +0.2 engineering security confidence only; 2.0 QA switches OFF; no physical role-authorization certification or GO. C58 same real product v0.8.24 OCAuth-verified any oc-login now revokes prior C21a catalog coordinator lease and Owner photo PUT before new session rebind, even same-role Owner or admin; Team credential failure leaves old Owner client null. RED GH Actions 44681992293 18/21 PASS 3 FAIL, GREEN GH Actions 44682377422 21/21 PASS and source SHA head full 57/57 GH workflows GREEN, Cloudflare exact merged SHA 6723cf24... SUCCESS. +0.2 engineering security assurance only; no real physical Owner/Team QA, no commercial GO. C62 real trusted-frozen-source.mjs Workerd Yjs security: source catalog root allowlist now applies to BOTH v1 numeric and v2 paged, rejects all unknown-only roots including private products, banco_privado and eventos even with matching independently claimed SHA. RED Actions44720698975 30/31, GREEN44721086871 31/31 and 15/15 full CI incl real Tienda onStart public -cat independent from -ops, Cloudflare exact real merged C62 SHA SUCCESS. +0.2 QA trust boundary only, no certified historical Firebase HEAD or customers. C78 merged actual source PR #879 master 2980aa59f3345b757a9e504465c54fd6b703987d: Previously certified SQL reopen checked SHA/canonical bytes for 200 financial effects, but a 202 queued expense.record or credit.customer.payment.record skipped all original SHA validation in the if(!contract) continue branch; this accepted changed expense amount, changed customerId or entirely unknown kind as a valid pending receipt, silently producing already:true. Actual real typed ledger + native SQLite RED Actions44758958830 3/6 PASS, 3/6 FAIL Missing expected exception, GREEN Actions44759148908 C78 6/6, C76 6/6, C74 5/5, C72 11/11, C68 8/8, Workerd payment/sales 4/4, fixed100 CLI, global 16/16 GitHub workflows successful. One-file fix expands readback typed contract to BOTH valid queued-only kinds and routes all five classes through existing MIT @noble/hashes@2.4.0 synchronous canonical SHA verification, rejecting unknown kinds and queued-only 200/effects; no new dependency or executor/Sync3/client changes. Cloudflare Workers Builds account GET exact merged source SHA 2980aa59... SUCCESS UUID 8540651c-9dfc-4d52-ae59-aa46377e44d3. Credited +0.1 engineering Security SHA validation only, NOT business dimension twice; no real Firebase economic HEAD/R2 binding/physical QA/commercial GO. C85 por C84 PR #883 MERGED: R2-only estricto rechaza v1 legacy autodeclarado sin manifiesto externo, preserva v1 flag OFF y v2 SHA/root; verdadero RED3/5→GREEN5/5 con OSS Yjs y SHA de fuente real. GitHub source merge 8c34cb3d40fc987d537ce2c0ba54d75d6224027b Cloudflare Workers Builds autenticado build 6116411e-29a2-44de-a2ab-b0757719d28c SUCCESS. +0.1 seguridad QA, NO Firebase real HEAD ni Service Binding/GO fisico. C106 independent post-C92 source/QA audit: C91/C98 least-privilege frozen R2 source/authority Service Bindings independently observed in deployed QA Worker, 15/15 preserved, 6/6 secure QA flags on; no public credential bypass. +0.1 engineering quality only, GO and physical unchanged.",
       "evidence": "https://github.com/jfcarpiopuntocom/friendly-123/pull/902"
@@ -284,31 +284,44 @@
       "review": "2026-11-21 C173 PR #1006 merged: source-executed Commissions 700 ISO timestamp rows Intl constructors 1400→1 with same money/dates, 3 regression cases and required GH gates green. +0.1 Durability only; physical, GO and PORT unchanged.",
       "score": 83.8,
       "source": "friendly-123 @ 727598c0a02249139d28be53769c4e0cfe1b2ea1"
+    },
+    {
+      "review": "2026-11-21 C178 original100 +0.2: C176 Safari essential SRI fail-closed (+0.1 Durability, now 20.0/20 cap) and C177 Commissions CSV formula injection prevention (+0.1 Security), source RED/GREEN and merged required CI green; port100.0, GO/physical unchanged.",
+      "score": 84,
+      "source": "friendly-123 @ 60ed7f28611ec5948edabaa0243e564697496679"
     }
   ],
   "lastAuditedProductSha": "b5ce01a7f46e801001cc052c2797aa2150bb3cba",
   "latestReview": {
-    "id": "C173",
+    "id": "C178",
     "date": "2026-11-21",
-    "baseline": 83.7,
-    "score": 83.8,
-    "delta": 0.1,
-    "sourceSha": "727598c0a02249139d28be53769c4e0cfe1b2ea1",
-    "method": "Original100 fixed rubric: +0.1 Durability for C172 source-verified iOS Safari Commissions report memory/CPU pressure. Actual `docs/core/commission-history.js` previously instantiated 2 Intl.DateTimeFormat objects per ISO receipt because two passes, 700 receipts→1400 constructors (instrumented source execution). Merged C172 caches immutable formatter by timezone, max four zones; 700 receipts→1 constructor per zone while preserving exact 14000 gross, 1400 commissions, date boundaries UTC/Guayaquil, literal fechaLocal and optional group/date filtering. Test/p0-c172-commissions-date-formatter-cache.test.cjs source-executed 3 scenarios, required release-control/P0 Hotfix Gate/stable-focused green at SHA before #1006 merged 727598c. C169 financial projector and C170 durable outbox unaffected. No measured physical Safari crash fix, no claim of deployment/client proof or customer data audit. PORT100.0, GO0/6, physical0/5 unchanged.",
+    "baseline": 83.8,
+    "score": 84,
+    "delta": 0.2,
+    "sourceSha": "60ed7f28611ec5948edabaa0243e564697496679",
+    "method": "Original100 fixed 100-point rubric, two DISTINCT merged source-executed P0 changes only. +0.1 Durability (20.0/20.0 cap) C176 PR#1011: Safari installer previously called skipWaiting and replaced the last known-good offline SW when essential cached asset AND network retry both failed SHA256; real install handler RED 1 unsafe activation, GREEN no activation on bad index/core while valid refreshed digest heals and optional mismatch does not brick offline. Source tests 4 cases, exact merged SHA fa55c26; preserves C165/167 concurrency cap. +0.1 Security (11.3/15) C177 PR#1014: live Commissions global/monthly CSV output previously exported untrusted formula-prefixed cells (=,+,-,@ and fullwidth), violating OWASP ASVS 5.0 V1.2.10/CWE-1236. Actual source/helper RED escaped only RFC4180 quotes, GREEN prefixed tabs inside quoted CSV text on both app source and exactly generated published minified bundle; real numeric negative -5.00 stays intact. C177 also blocks inverted date ranges that previously returned false $0; business dimension already max 20.0, no extra credit or duplicate event. Exact release identity v0.8.71 SHA60ed7 and required GitHub gates PASS, 132 SHA256 assets sealed. Not proof physical Safari crash resolved, Excel save/reopen safety across all apps, customer data audit, or commercial GO. PORT100.0, GO0/6, physical0/5 unchanged.",
     "evidence": [
       {
         "dimension": "durability",
         "delta": 0.1,
-        "pr": 1006,
-        "sourceSha": "727598c0a02249139d28be53769c4e0cfe1b2ea1",
-        "qa": "test/p0-c172-commissions-date-formatter-cache.test.cjs",
-        "why": "Source-executed full all-date report cuts Intl.DateTimeFormat constructors from 1400 to 1 for 700 ISO receipts in one zone, without caching or altering monetary rows and local calendar boundaries."
+        "pr": 1011,
+        "sourceSha": "fa55c26f62b1df76b5fb4e8e48db928abbb11bfb",
+        "qa": "test/p0-c176-safari-essential-sri-install.test.cjs",
+        "why": "Real SW installer negative: corrupted essential SHA cannot skipWaiting and replace old offline worker; tested reload heals valid bytes and optional corruption does not block. Distinct from C165 network fan-out."
+      },
+      {
+        "dimension": "security",
+        "delta": 0.1,
+        "pr": 1014,
+        "sourceSha": "60ed7f28611ec5948edabaa0243e564697496679",
+        "qa": "test/p0-c176-commissions-csv-formula-injection.test.cjs",
+        "why": "Real source and exact esbuild published bundle neutralize OWASP formula prefixes in text fields for both CSV exports while retaining numeric monetary values; reversed dates blocked without false zero."
       }
     ],
     "physicalAcceptance": {
       "confirmed": false,
       "commercialGo": "0/6",
-      "reason": "Production Safari physical crash re-test and A→B→A not observed."
+      "reason": "No physical iPhone Safari/PWA cold launch and PC→iPhone→PC acceptance proof; no direct Excel physical import certification."
     }
   },
   "auditTrail": [
@@ -987,6 +1000,38 @@
         "confirmed": false,
         "commercialGo": "0/6",
         "reason": "Production Safari physical crash re-test and A→B→A not observed."
+      }
+    },
+    {
+      "id": "C178",
+      "date": "2026-11-21",
+      "baseline": 83.8,
+      "score": 84,
+      "delta": 0.2,
+      "sourceSha": "60ed7f28611ec5948edabaa0243e564697496679",
+      "method": "Original100 fixed 100-point rubric, two DISTINCT merged source-executed P0 changes only. +0.1 Durability (20.0/20.0 cap) C176 PR#1011: Safari installer previously called skipWaiting and replaced the last known-good offline SW when essential cached asset AND network retry both failed SHA256; real install handler RED 1 unsafe activation, GREEN no activation on bad index/core while valid refreshed digest heals and optional mismatch does not brick offline. Source tests 4 cases, exact merged SHA fa55c26; preserves C165/167 concurrency cap. +0.1 Security (11.3/15) C177 PR#1014: live Commissions global/monthly CSV output previously exported untrusted formula-prefixed cells (=,+,-,@ and fullwidth), violating OWASP ASVS 5.0 V1.2.10/CWE-1236. Actual source/helper RED escaped only RFC4180 quotes, GREEN prefixed tabs inside quoted CSV text on both app source and exactly generated published minified bundle; real numeric negative -5.00 stays intact. C177 also blocks inverted date ranges that previously returned false $0; business dimension already max 20.0, no extra credit or duplicate event. Exact release identity v0.8.71 SHA60ed7 and required GitHub gates PASS, 132 SHA256 assets sealed. Not proof physical Safari crash resolved, Excel save/reopen safety across all apps, customer data audit, or commercial GO. PORT100.0, GO0/6, physical0/5 unchanged.",
+      "evidence": [
+        {
+          "dimension": "durability",
+          "delta": 0.1,
+          "pr": 1011,
+          "sourceSha": "fa55c26f62b1df76b5fb4e8e48db928abbb11bfb",
+          "qa": "test/p0-c176-safari-essential-sri-install.test.cjs",
+          "why": "Real SW installer negative: corrupted essential SHA cannot skipWaiting and replace old offline worker; tested reload heals valid bytes and optional corruption does not block. Distinct from C165 network fan-out."
+        },
+        {
+          "dimension": "security",
+          "delta": 0.1,
+          "pr": 1014,
+          "sourceSha": "60ed7f28611ec5948edabaa0243e564697496679",
+          "qa": "test/p0-c176-commissions-csv-formula-injection.test.cjs",
+          "why": "Real source and exact esbuild published bundle neutralize OWASP formula prefixes in text fields for both CSV exports while retaining numeric monetary values; reversed dates blocked without false zero."
+        }
+      ],
+      "physicalAcceptance": {
+        "confirmed": false,
+        "commercialGo": "0/6",
+        "reason": "No physical iPhone Safari/PWA cold launch and PC→iPhone→PC acceptance proof; no direct Excel physical import certification."
       }
     }
   ]
