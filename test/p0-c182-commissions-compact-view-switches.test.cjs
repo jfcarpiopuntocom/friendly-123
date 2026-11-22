@@ -47,11 +47,13 @@ test('C182 show unknown commission without inventing zero; client and associate 
  assert.match(presenter('mes')(sales),/2026-10/);
  assert.match(presenter('mes')(sales),/2026-11/);
 });
-test('C182 Period is a view over all historical months, no per-month navigation demanded',()=>{
+test('C182 Period groups all historic months; any monthly settlement is an explicit action inside a card',()=>{
  const html=presenter('mes')(sales);
  assert.match(html,/2026-10/);assert.match(html,/2026-11/);
- assert.doesNotMatch(html,/type="date"|type="month"|data-commissions-open-month/);
+ assert.doesNotMatch(html,/type="date"|type="month"/);
  assert.match(html,/<details data-comm-history-group/);
+ assert.match(html,/data-commissions-open-month="2026-10"/);
+ assert.match(html,/data-commissions-open-month="2026-11"/);
 });
 test('C182 product cards expand their receipt breakdown without a forced calendar filter',()=>{
  const html=presenter('producto')(sales);
