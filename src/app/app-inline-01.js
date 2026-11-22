@@ -6651,7 +6651,17 @@ function selectorMesComisionesHtml(meses){
    acciones en una fila que envuelve en movil; debajo, solo si hace falta, la linea
    de meses sin pagar. Antes cada cosa ocupaba su propia linea y la UI estorbaba. */
 function barraComisionesHtml(meses, acciones){
-  const sel = selectorMesComisionesHtml(meses);
+  // The all-time entry needs no expensive /liquidaciones/meses query.
+  // Operators can open ANY settlement period, including adjustment-only months,
+  // via a month picker; the original monthly ledger then loads on demand.
+  const sel = _ocMesComisiones ? selectorMesComisionesHtml(meses) : {
+    control: '<label style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;">'
+      +(document.documentElement.lang==="es"?"Liquidar mes":"Settle month")
+      +' <input type="month" data-commissions-open-month aria-label="'
+      +(document.documentElement.lang==="es"?"Liquidar mes":"Settle month")
+      +'" onchange="cambiarMesComisiones(this.value)" style="min-height:40px;border:2px solid #2C3E50;border-radius:6px;padding:4px 8px;max-width:180px;"></label>',
+    aviso: "",nota:""
+  };
   const filas = [sel.nota].filter(Boolean).map((x) => `<div style="margin-top:8px;">${x}</div>`).join("");
   return `<div class="tag-card" data-commissions-toolbar style="text-align:left;padding:10px 14px;margin:0 0 14px;">
     <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${_ocMesComisiones?sel.aviso:""}${_ocMesComisiones?selectorVistaComisionesHtml():selectorRangoComisionesGlobalHtml()}<div class="acciones">${acciones}</div></div>${filas}
@@ -7004,18 +7014,12 @@ async function cargarComisiones(){
   // Monthly payout, receipts, correction and commission ledger stay untouched.
   if (!_ocMesComisiones) {
     try {
-      // Sale history is the authoritative, LIVE read. Monthly settlement
-      // metadata is optional for the all-dates view; an offline/hung months
-      // endpoint must not hide already available real commissions.
-      const monthsPending=fetch(`${API}/liquidaciones/meses`)
-        .then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
-        .then(x=>Array.isArray(x)?x:[]).catch(()=>[]);
+      // One real full-history read. The old parallel month-list request also
+      // recomputed payout obligations for every month on Safari; that doubled
+      // heavy work exactly when Commissions opened. Open a month only on demand.
       const sales=await fetch(`${API}/ventas/todas?ubicacionId=todas`)
         .then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();});
-      // Bound the non-essential month-list wait so a stuck request cannot
-      // leave Commissions blank. Monthly settlement writes remain unchanged.
-      const months=await Promise.race([monthsPending,
-        new Promise(resolve=>setTimeout(()=>resolve([]),750))]);
+      const months=[]; // Global summary is read-only; monthly payouts load after choice.
       if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
       if (!window.OCCommissionHistory || !Array.isArray(sales)) throw Error("commission-history-not-loaded");
       // Keep the existing people-management form live in BOTH period modes.
