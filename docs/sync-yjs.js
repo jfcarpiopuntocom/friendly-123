@@ -1674,6 +1674,8 @@
     var HUECOS_ROOM = String(API.roomId || "");
     function repararHuecosServidor(full) {
       if (nombre === "fotos" || !HUECOS_ROOM || _soloMemoria || _cupoRechazado || !full || !canal.ws || canal.ws.peerOnly || canal.ws.readyState !== 1) return;
+      // Decision JFC 22 nov 2026 ("Solo Firebase, publicar"): la reparacion NUNCA sube por Supabase (proteger esa cuenta).
+      if (canal.ws.relayLayer !== "f123_relay_cupo_fb_v1") return;
       if (full.length > HUECOS_MAX_BYTES) { try { log("reparacion de huecos omitida: estado de " + full.length + "B en " + nombre); } catch (_) {} return; }
       if (_outbox.pending.concat(_unsaved).some(function (x) { return x.rep; })) return;
       var capa = String(canal.ws.relayLayer || "local"), llave = "f123_huecos_v1:" + HUECOS_ROOM + suffix, previo = {};

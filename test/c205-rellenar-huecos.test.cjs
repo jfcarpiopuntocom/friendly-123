@@ -24,7 +24,7 @@ function build(Y){
 }
 async function device(fullDoc,opts={}){
  const sockets=[],timers=[],data=new Map(),ls=opts.sharedStorage||new Map();
- class Socket{constructor(){this.readyState=1;this.sent=[];sockets.push(this)}send(x){this.sent.push(x)}close(){this.readyState=3;this.onclose?.()}}
+ class Socket{constructor(){this.readyState=1;this.sent=[];this.relayLayer=opts.capa||'f123_relay_cupo_fb_v1';sockets.push(this)}send(x){this.sent.push(x)}close(){this.readyState=3;this.onclose?.()}}
  const db={objectStoreNames:{contains:k=>k==='updates'},transaction(){const tx={};queueMicrotask(()=>tx.oncomplete?.());return tx;}};
  const p={whenSynced:Promise.resolve(),db,get:async k=>structuredClone(data.get(k)),set:async(k,v)=>{data.set(k,structuredClone(v))}};
  const ctx={API:{clave:'synthetic',roomId:opts.roomId||'synthetic'},RELAY_URL:'fixture:',crypto:require('node:crypto').webcrypto,
@@ -83,7 +83,7 @@ test('C205 RED->GREEN: complete device repairs a server log with a causal hole; 
  await settle(40);const before=new Set(ops(a.socket).map(o=>o.group).filter(Boolean)).size;
  a.socket.onopen();await a.ckpt();await a.drain();await settle(30);
  assert.equal(new Set(ops(a.socket).map(o=>o.group).filter(Boolean)).size,before,'at most once per layer per 7 days');
- assert.ok(JSON.parse(a.ls.get('f123_huecos_v1:synthetic-y')||'{}')['local'],'limiter persisted');
+ assert.ok(JSON.parse(a.ls.get('f123_huecos_v1:synthetic-y')||'{}')['f123_relay_cupo_fb_v1'],'limiter persisted (Firebase layer)');
 });
 
 test('C205: budget exhausted (QuotaExceeded) keeps the group queued, nothing lost',async()=>{
@@ -109,4 +109,12 @@ test('C205: license A cooldown never blocks repair for B using the same localSto
  await b.ckpt();await b.drain();await settle(40);
  assert.ok(ops(b.socket).length>=2,'B must publish its repair even though A already has a cooldown');
  assert.equal(JSON.parse(shared.get('f123_huecos_v1:B-y')||'{}').local,undefined,'B cooldown starts only after its own durable ACK');
+});
+
+test('C205: decision JFC: la reparacion nunca sube por Supabase, solo Firebase (source guard)',()=>{
+ // Con Supabase el resumen suele caber en el checkpoint RPC y el camino no se alcanza en el simulador;
+ // por eso se fija la regla en la fuente: sin esta linea la prueba falla.
+ const i=src.indexOf('function repararHuecosServidor(full) {');
+ assert.ok(i>0);
+ assert.match(src.slice(i,i+700),/if \(canal\.ws\.relayLayer !== "f123_relay_cupo_fb_v1"\) return;/);
 });

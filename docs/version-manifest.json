@@ -31,7 +31,7 @@
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
     "./sync-realtime.min.js": "sha256-b9aeff9fe96033a7739c2ad9276abef5fd8568440eabfcac6511240ac2b16c0c",
     "./sync-watchdog.min.js": "sha256-7378188f86f87907bfb814334e19f50a90ea59fed980a7a5401ef5ac91f90ce2",
-    "./sync-yjs.min.js": "sha256-3e2aab10ade2cec202824446a4f9ec063dcacebf37455ab0d62c79fea49e8872",
+    "./sync-yjs.min.js": "sha256-5990174186cfc6d9b95853463c1d8a69dfb5b00f3abe92e094d3d1b83483360f",
     "./owner-approved-inventory-repair.js": "sha256-02a1fd60b355ecf58900eec1defffd0bd0397088eaa8c2e5a74d5901af7b7095",
     "./sync-latencia.min.js": "sha256-65156112ed57c12b3276864dfe085e5a78cdd5cc959592e00e452f7ef3da900d",
     "./invariantes.js": "sha256-4df7170b0f6f1227ce3b6ffadf9feaac7843d63cb274699a3b6ab230ff8ecdbc",
