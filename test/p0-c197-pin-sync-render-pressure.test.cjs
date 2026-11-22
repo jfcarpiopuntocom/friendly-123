@@ -9,7 +9,9 @@ const source=fs.readFileSync(path.join(__dirname,'../src/app/app-inline-01.js'),
 const start=source.indexOf('window.OCSyncRender = (function () {');
 const end=source.indexOf('\n})();',start);
 assert.ok(start>=0 && end>start,'real app view-render coordinator must exist');
-const realCoordinator=source.slice(start,end+'\n})();'.length);
+const handlerEnd=source.indexOf('\n/* v290: cuando llegan bytes de fotos',end);
+assert.ok(handlerEnd>end,'real oc-sync-merge event handler must follow coordinator');
+const realCoordinator=source.slice(start,handlerEnd);
 
 function fixture(gateDisplay='flex') {
   const bus=new Map(), docBus=new Map();
