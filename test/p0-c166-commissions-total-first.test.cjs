@@ -40,18 +40,24 @@ test('C166: the primary app AND dashboard explicitly default to total, not produ
  assert.match(app,/_ocComHistoryGroup\|\|"total"/);
  assert.match(app,/\["total",es\?"Total general"/);
  assert.match(dash,/cmGrupo = "total"/);
+ assert.match(app,/data-commissions-open-month/,'monthly settlement remains available on demand');
+ const allTimeStart=app.indexOf('if (!_ocMesComisiones) {',app.indexOf('async function cargarComisiones()'));
+ const nextBranch=app.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',allTimeStart);
+ assert.ok(allTimeStart>0&&nextBranch>allTimeStart);
+ assert.equal(app.slice(allTimeStart,nextBranch).includes("/liquidaciones/meses"),false,
+   'opening total must not recompute monthly settlements in parallel on Safari');
  assert.match(dash,/\["total",es\?"Total general"/);
  assert.match(app,/_ocMesComisiones = null/);
  assert.match(dash,/cmMes = null/);
 });
 
-test('C166: REAL /ventas/todas data renders total even when optional /liquidaciones/meses fails or hangs',async()=>{
+test('C166 Safari: total from real sales makes ONLY ONE history request; monthly payout read is lazy',async()=>{
  const source=read('src/app/app-inline-01.js');
  const start=source.indexOf('async function cargarComisiones(){');
  const end=source.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',start);
  assert.ok(start>0 && end>start,'extract the actual all-dates production branch');
  const executable=source.slice(start,end)+'}';
- async function exercise(monthFetch){
+ async function exercise(){
    const container={innerHTML:''};
    const calls=[];
    const context={
@@ -63,19 +69,18 @@ test('C166: REAL /ventas/todas data renders total even when optional /liquidacio
      setTimeout(fn){queueMicrotask(fn);return 1;},
      fetch(url){calls.push(url);
        if(url.includes('/ventas/todas'))return Promise.resolve({ok:true,json:async()=>sales});
-       if(url.includes('/liquidaciones/meses'))return monthFetch();
+       if(url.includes('/liquidaciones/meses'))throw Error('P0 Safari: unexpected costly monthly recomputation on entry');
        throw Error('unexpected API '+url);
      }
    };
    vm.runInNewContext(executable,context,{filename:'app-c166-real-all-dates.js'});
    await context.cargarComisiones();
-   assert.deepEqual(calls.sort(),['/api/liquidaciones/meses','/api/ventas/todas?ubicacionId=todas'].sort());
+   assert.deepEqual(calls,['/api/ventas/todas?ubicacionId=todas']);
    assert.match(container.innerHTML,/Comisiones registradas/);
    assert.match(container.innerHTML,/\$35[,.]00/);
    assert.match(container.innerHTML,/periods:0/);
  }
- await exercise(()=>Promise.reject(new Error('months endpoint offline')));
- await exercise(()=>new Promise(()=>{})); // a hung secondary request must not blank actual data
+ await exercise(); // no /liquidaciones/meses request exists to block Safari/commissions
 });
 test('C166: failures of the PRIMARY sales endpoint fail visibly, not as fabricated $0',async()=>{
  const source=read('src/app/app-inline-01.js');
@@ -86,7 +91,7 @@ test('C166: failures of the PRIMARY sales endpoint fail visibly, not as fabricat
    window:{OCCommissionHistory:report},API:'/api',_ocMesComisiones:null,_ocComisionesSolicitud:0,
    renderGestionPromotoras(){},t(){return 'Reintentar';},barraComisionesHtml(){return '';},
    setTimeout(fn){queueMicrotask(fn);return 1;},
-   fetch(url){return url.includes('/ventas/todas')?Promise.reject(Error('sales offline')):Promise.resolve({ok:true,json:async()=>[]});}
+   fetch(url){if(url.includes('/liquidaciones/meses'))throw Error('monthly read unexpectedly triggered');return Promise.reject(Error('sales offline'));}
  };
  vm.runInNewContext(source.slice(start,end)+'}',context,{filename:'app-c166-fail-closed.js'});
  await context.cargarComisiones();
