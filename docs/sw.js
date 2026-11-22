@@ -388,12 +388,14 @@ self.addEventListener("activate", (evento) => {
       caches.keys()
         .then((nombres) => Promise.all(nombres.filter((n) => esDeMiCanal(n) && n !== CACHE_LOCAL).map((n) => caches.delete(n))))
         .then(() => broadcastActualizacion())
+        // C179: take control only after old same-channel caches are retired.
+        // Await claim in the SAME extendable activation event (Safari WebKit).
+        .then(() => self.clients.claim())
         .catch((e) => { try { console.warn("[SW] activate con errores:", e && e.message); } catch (_) {} })
     );
   } catch (e) {
     try { console.warn("[SW] activate fallo por completo:", e && e.message); } catch (_) {}
   }
-  self.clients.claim();
 });
 
 self.addEventListener("fetch", (evento) => {
