@@ -215,18 +215,23 @@ const _ocActSolaOn = true;
   function pendiente() { try { return sessionStorage.getItem(KP) === "1"; } catch (_) { return false; } }
   // offsetParent es null en elementos position:fixed (los overlays): se mide con getClientRects.
   function visible(el) { try { return !!(el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0); } catch (_) { return false; } }
-  function seguro() { return seguroCon(false); }
+  function enPantallaPIN() {
+    try {
+      const gate = document.getElementById("oc-gate");
+      return !!(gate && gate.style.display !== "none" && visible(gate));
+    } catch (_) { return false; }
+  }
+  // C181: the PIN screen is the ONLY automatic navigation boundary.
+  // Once authenticated inside the working app, never reload automatically.
+  function seguro() { return enPantallaPIN() && seguroCon(false); }
   function seguroCon(sinRecuperacion) {
     try {
-      if (!sessionStorage.getItem("f123_sesion")) return false;            // sin sesion: lo resuelve el login
       // Never auto-reload while a notebook still needs local IDB recovery or
       // peer history replay. A SW update is not permission to interrupt money.
       if (!sinRecuperacion && recuperacionPendiente()) return false;
-      const gate = document.getElementById("oc-gate");
-      if (gate && gate.style.display !== "none") return false;            // tecleando el PIN
       if (visible(document.getElementById("oc-modal-overlay"))) return false;
       if (visible(document.getElementById("oc-comision-overlay"))) return false;
-      if (document.getElementById("vi-cliente")) return false;            // panel de venta abierto
+      if (visible(document.getElementById("vi-cliente"))) return false; // venta abierta
       // P0 #614: pressing Add removes input focus, but neither an unfinished
       // customer form nor a pending strict ACK may be destroyed by a SW reload.
       if (window.__f123AltaClientePendiente ||
@@ -235,8 +240,6 @@ const _ocActSolaOn = true;
           (document.getElementById("cliEmail") || {}).value) return false;
       if ([...document.querySelectorAll(".oc-vs-editor")].some(function (e) { return e.style.display === "block"; })) return false;
       if ([...document.querySelectorAll('[role="dialog"]')].some(visible)) return false;
-      const a = document.activeElement;
-      if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
       if (typeof _ventasEnCurso !== "undefined" && _ventasEnCurso.size) return false;
       if (typeof _carritoVenta !== "undefined" && _carritoVenta.length) return false;
       if (typeof _sellando !== "undefined" && _sellando) return false;
@@ -313,34 +316,58 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
-  // C180: close the update loop only after durable commit and new SW takeover.
-  // KA records one navigation per target shell, not an arbitrary annoyance quota.
+  // C181: actual adoption is allowed at PIN only, never inside the operating app.
+  // KA prevents same-shell navigation loops; later new shells remain eligible.
   let recargando = false;
-  async function guardarDuradero() {
+  function mostrarSplashActualizando() {
     try {
-      const sync = window.OCSync;
-      return !!(sync && typeof sync.confirmarCatalogoDurable === "function" &&
-        (await sync.confirmarCatalogoDurable()) === true);
-    } catch (_) { return false; }
+      if (!enPantallaPIN()) return null;
+      const root = document.body || document.documentElement;
+      if (!root) return null;
+      const layer = document.createElement("div");
+      layer.id = "f123-update-splash";
+      layer.setAttribute("role", "status");
+      layer.setAttribute("aria-live", "polite");
+      layer.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#0F1923;color:#FFF8E8;padding:24px;text-align:center;font-family:system-ui,-apple-system,sans-serif";
+      layer.innerHTML = '<style>@keyframes f123UpdatingSpin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#f123-update-ring{animation:none!important}}</style>' +
+        '<div style="display:flex;align-items:center;flex-direction:column;gap:18px;max-width:320px">' +
+        '<div id="f123-update-ring" aria-hidden="true" style="width:52px;height:52px;border:5px solid rgba(239,195,26,.2);border-top-color:#EFC31A;border-radius:50%;animation:f123UpdatingSpin .85s linear infinite"></div>' +
+        '<div style="font-size:28px;line-height:1.15;font-weight:900;letter-spacing:.02em">Updating</div>' +
+        '<div style="font-size:14px;line-height:1.5;opacity:.88">Actualizando la aplicación…</div>' +
+        '</div>';
+      root.appendChild(layer);
+      return layer;
+    } catch (_) { return null; }
   }
   async function intentar() {
     vigilar();
     if (!pendiente() || recargando || !seguro() || !puedeRecargarVersion()) return false;
-    if (document.visibilityState !== "hidden" && Date.now() - ultimoToque < 90000) return false;
     recargando = true;
+    let splash = null, navegando = false;
     try {
-      if (!(await guardarDuradero()) || !seguro()) return false;
       const objetivo = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || "";
       if (!objetivo || await shellDelSW() !== objetivo ||
-          !pendiente() || !puedeRecargarVersion()) return false;
+          !pendiente() || !seguro() || !puedeRecargarVersion()) return false;
+      splash = mostrarSplashActualizando();
+      // Paint the splash before navigation (no arbitrary idle delay).
+      if (splash && document.visibilityState !== "hidden" && typeof window.requestAnimationFrame === "function") {
+        await new Promise(function (resolve) {
+          window.requestAnimationFrame(function () { window.requestAnimationFrame(resolve); });
+        });
+      }
+      if (!seguro() || !pendiente()) return false;
       sessionStorage.setItem(KA, JSON.stringify({ shell: objetivo }));
       sessionStorage.removeItem(KP);
       limpiarFrenada();
-      marcarRecarga("version-segura");
+      marcarRecarga("version-pin");
+      navegando = true;
       location.reload();
       return true;
     } catch (_) { return false; }
-    finally { recargando = false; }
+    finally {
+      if (!navegando && splash && splash.remove) splash.remove();
+      recargando = false;
+    }
   }
   function shellDelSW() {
     return new Promise(function (resolve) {
@@ -400,7 +427,7 @@ const _ocActSolaOn = true;
     try { sessionStorage.setItem(KP, "1"); } catch (_) {}
     _recargarSeguroVersion();
     vigilar();
-    if (document.visibilityState === "hidden" || Date.now() - ultimoToque > 90000) intentar();
+    if (enPantallaPIN()) intentar();
   }
   navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
   navigator.serviceWorker.addEventListener("message", function (ev) {
@@ -421,9 +448,9 @@ const _ocActSolaOn = true;
     }
     revisar();
   });
-  setInterval(function () { if (Date.now() - ultimoToque > 90000) intentar(); }, 15000);
+  setInterval(function () { if (pendiente() && enPantallaPIN()) intentar(); }, 15000);
   setInterval(revisar, 600000);
-  setTimeout(revisar, 20000);
+  setTimeout(revisar, 0);
 })();
 
 // Microcirugia 5 (2026-07-07): tras importar un respaldo o restaurar un punto
