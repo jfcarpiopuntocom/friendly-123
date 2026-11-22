@@ -30,10 +30,4 @@ jobs:
           npm ci --prefix cloudflare-yparty-worker --ignore-scripts --no-audit --no-fund
           NODE_PATH="$PWD/cloudflare-yparty-worker/node_modules" node scripts/build-yparty-piloto.cjs
           node scripts/gen-manifest.js
-          node - <<'NODE'
-          const fs=require('node:fs');
-          const base64=fs.readFileSync('docs/version-manifest.json').toString('base64');
-          for(let i=0;i<base64.length;i+=4096)console.log('SYNC3_MANIFEST_CHUNK '+Math.floor(i/4096)+' '+base64.slice(i,i+4096));
-          console.log('SYNC3_MANIFEST_DONE '+Math.ceil(base64.length/4096));
-          NODE
           git diff --exit-code -- docs/vendor/yparty-piloto.min.js docs/version-manifest.json docs/sw.js
