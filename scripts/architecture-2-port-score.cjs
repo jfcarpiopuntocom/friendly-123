@@ -94,7 +94,12 @@ function inspect(){
   assert(qa.includes('134 production precache requests must never run at once'));
   assert(qa.includes('missing OPTIONAL asset cannot delete offline shell'));
   assert(qa.includes('missing ESSENTIAL asset must preserve previous shell'));
-  assert(sw.includes('for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno())'));
+  // The proven C165 cap remains 3 on desktop. C167 is stricter on iPhone:
+  // exactly one precache write in flight. Audit BOTH valid bounded shapes.
+  const boundedDesktop=sw.includes('for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno())');
+  const boundedIOS=sw.includes('const iosMemoryGuard = /iPhone|iPad|iPod/i.test')
+    && sw.includes('for (let i = 0; i < (iosMemoryGuard ? 1 : 3) && i < SHELL.length; i++) corredores.push(precargarUno())');
+  assert(boundedDesktop || boundedIOS,'SW precache must be bounded (<=3 desktop and <=1 Safari iPhone)');
   assert(sw.includes('Precarga de arranque incompleta; preservar shell anterior'));
   assert.equal(quality.latestReview?.sourceSha,'fd65842dda72d66dd1c64f00fdc1b1231513d9b4');
  }
