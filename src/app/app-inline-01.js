@@ -7009,7 +7009,9 @@ async function cargarComisiones(){
       const sales = await fetch(`${API}/ventas/todas?ubicacionId=todas`)
         .then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();});
       if (!Array.isArray(sales)) throw Error("ventas-invalid");
-      const months = await fetch(`${API}/liquidaciones/meses`)
+      // Never make live sales wait for the optional month index. This index
+      // can be costly in a large shop; show the authentic total immediately.
+      const monthsPromise = fetch(`${API}/liquidaciones/meses`)
         .then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
         .then(v=>Array.isArray(v)?v:[])
         .catch(()=>[]);
@@ -7023,7 +7025,17 @@ async function cargarComisiones(){
         to:window._ocComHistoryTo||"",group:window._ocComHistoryGroup||"total",
         lang:document.documentElement.lang==="es"?"es":"en"});
       const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
-      if(cont)cont.innerHTML=barraComisionesHtml(months,actions)+report;
+      if(cont)cont.innerHTML=barraComisionesHtml([],actions)+report;
+      // Months are a drill-down aid only. They may arrive later without
+      // changing the total, forcing a fresh sales request or losing data.
+      monthsPromise.then(months=>{
+        if(!cont || _run !== _ocComisionesSolicitud || _ocMesComisiones) return;
+        const bar=cont.querySelector("[data-commissions-toolbar]");
+        if(!bar)return;
+        const holder=document.createElement("div");
+        holder.innerHTML=barraComisionesHtml(months,actions);
+        if(holder.firstElementChild)bar.replaceWith(holder.firstElementChild);
+      });
       return;
     } catch(e) {
       if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
