@@ -356,9 +356,12 @@ window.F123YPartyPilot = function (sala, licencia) {
       let plazo = null;
       let revision = 0;
       let enRespaldo = false; // Visibility restores legacy, never creates a competing catalog writer.
+      // Report the actual route, not the enabled rollout flag.
+      let rutaEfectiva = 'local';
       const canal = {
         proveedor: null,
         recuperando: true,
+        get rutaEfectiva() { return rutaEfectiva; },
         get recuperacionLocal() { return !idb ? 'sin-almacenamiento' : idb.synced ? 'listo' : 'cargando'; },
         get ws() { return canal.proveedor?.ws; },
         accesoListo() {
@@ -420,6 +423,7 @@ window.F123YPartyPilot = function (sala, licencia) {
           const proveedor = canal.proveedor;
           if (!proveedor) return;
           canal.proveedor = null;
+          rutaEfectiva = 'local';
           proveedor.destroy();
           proveedor.awareness.destroy();
         },
@@ -431,7 +435,7 @@ window.F123YPartyPilot = function (sala, licencia) {
             if (String(owned?.licenseCode || '').trim().toUpperCase() === licencia) instancia = owned.instanceId;
           } catch (_) {}
           if (!/^[A-Za-z0-9_-]{6,128}$/.test(instancia || '')) {
-            enRespaldo = true; usarRelayHabitual(); return;
+            enRespaldo = true; rutaEfectiva = 'relay-cifrado-legado'; usarRelayHabitual(); return;
           }
           // The private owner path deliberately handles only the channels for
           // which server-side one-use tickets exist. Never pipe photo bytes to
@@ -440,6 +444,7 @@ window.F123YPartyPilot = function (sala, licencia) {
           // and customer details. Never pass its raw Y.Doc into the Worker.
           // The existing encrypted legacy relay is still the only transport.
           enRespaldo = true;
+          rutaEfectiva = 'relay-cifrado-legado';
           usarRelayHabitual();
           return;
           const getCredentials = () => {
@@ -461,12 +466,13 @@ window.F123YPartyPilot = function (sala, licencia) {
             params = createOwnerTicketParams({
               licenseCode:licencia,instanceId:instancia,room:sala+'-'+tipo,getCredentials
             });
-          } catch (_) { enRespaldo = true; usarRelayHabitual(); return; }
+          } catch (_) { enRespaldo = true; rutaEfectiva = 'relay-cifrado-legado'; usarRelayHabitual(); return; }
           const proveedor = new AuthorizedYProvider(host, sala + '-' + tipo, doc, {
             party:'tienda',params,disableBc:true,connect:false,
             maxBackoffTime:plazoReconectar
           });
           canal.proveedor = proveedor;
+          rutaEfectiva = 'yparty-autorizado';
           enRespaldo = false;
           esperarConexion(proveedor);
           proveedor.on('authorization-error', () => volverAlRelay(proveedor));
@@ -495,6 +501,7 @@ window.F123YPartyPilot = function (sala, licencia) {
         // No uncommitted local Y.Doc or encrypted outbox is discarded.
         canal.proveedor = null;
         enRespaldo = true;
+        rutaEfectiva = 'relay-cifrado-legado';
         cancelarPlazo();
         try { proveedor.destroy(); } catch (_) {}
         usarRelayHabitual();
