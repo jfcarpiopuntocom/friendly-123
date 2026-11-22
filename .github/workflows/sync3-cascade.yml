@@ -30,4 +30,5 @@ jobs:
           npm ci --prefix cloudflare-yparty-worker --ignore-scripts --no-audit --no-fund
           NODE_PATH="$PWD/cloudflare-yparty-worker/node_modules" node scripts/build-yparty-piloto.cjs
           node scripts/gen-manifest.js
+          sha256sum docs/dashboard.html
           git diff --exit-code -- docs/vendor/yparty-piloto.min.js docs/version-manifest.json docs/sw.js
