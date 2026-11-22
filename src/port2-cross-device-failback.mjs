@@ -47,6 +47,7 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
   let lastFailbackReason = 'uninitialized';
   let catalogSession = null;
   let destroyed = false;
+  let activationEpoch = 0;
   // Session-level memory of every opId that touched or committed on 2.0 in this lifecycle,
   // complementing durable store.loadAll() so even after an opId commits and is removed from
   // pending_ops, a late legacy caller in the same session still cannot re-send it.
@@ -101,7 +102,10 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
     }
   }
 
+  // A transport outage must not change the business authority for an opId.
+  // Keep same-DO reconciliation and its durable latch intact during silent recovery.
   async function failbackToLegacy(reason = 'manual-failback') {
+    activationEpoch++;
     closeCatalog();
     setMode('failback-legacy-1.0', String(reason || 'manual-failback'));
     return Object.freeze({
@@ -111,14 +115,18 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
   }
 
   async function activate20() {
+    const epoch = ++activationEpoch;
     if (destroyed || !isVisible()) {
       await failbackToLegacy('hidden-or-destroyed');
       return Object.freeze({ ok: false, mode: currentMode, reason: lastFailbackReason, frozenHead: null });
     }
     try {
       await refreshDurableLatches();
+      if (destroyed || !isVisible() || activationEpoch !== epoch) {
+        return Object.freeze({ ok: false, mode: currentMode, reason: 'activation-superseded', frozenHead: null });
+      }
     } catch (_) {
-      await failbackToLegacy('durable-store-unavailable');
+      if (activationEpoch === epoch) await failbackToLegacy('durable-store-unavailable');
       return Object.freeze({ ok: false, mode: currentMode, reason: lastFailbackReason, frozenHead: null });
     }
     closeCatalog();
@@ -126,12 +134,11 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
     try {
       session = await openCatalogSession({
         onWriterConflict: () => {
-          void failbackToLegacy('writer-conflict');
+          if (activationEpoch === epoch && !destroyed) void failbackToLegacy('writer-conflict');
         }
       });
       if (!session || typeof session !== 'object' || typeof session.close !== 'function' ||
-          !HEAD.test(session.frozenHead || '') || !isVisible() || destroyed) {
-        try { session?.close?.(); } catch (_) {}
+          !HEAD.test(session.frozenHead || '') || !isVisible() || destroyed || activationEpoch !== epoch) {
         throw new Error('certified catalog session unavailable');
       }
       catalogSession = session;
@@ -145,7 +152,7 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
       });
     } catch (_) {
       try { session?.close?.(); } catch (_) {}
-      await failbackToLegacy('catalog-certification-failed');
+      if (activationEpoch === epoch) await failbackToLegacy('catalog-certification-failed');
       return Object.freeze({ ok: false, mode: currentMode, reason: lastFailbackReason, frozenHead: null });
     }
   }
@@ -222,10 +229,23 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
       });
     }
 
-    const res = await reconciler.submit(command);
-    if (res?.committed === true || res?.reconcileRequired === true ||
-        res?.quarantine === true || res?.retryTarget === 'same-do-only') {
-      latchedOrCommittedOpIds.add(opId);
+    // Close the window between choosing 2.0 and committing its IDB intent.
+    // A concurrent failback must not authorize legacy for the same opId.
+    const previouslyLatched = latchedOrCommittedOpIds.has(opId);
+    latchedOrCommittedOpIds.add(opId);
+    let res;
+    try {
+      res = await reconciler.submit(command);
+    } catch (_) {
+      return Object.freeze({ committed: false, fallbackLegacy: false,
+        reconcileRequired: true, retryTarget: 'same-do-only', stage: 'dispatch-rejected' });
+    }
+    if (res?.fallbackLegacy === true && !res?.reconcileRequired &&
+        !res?.committed && !res?.quarantine && res?.retryTarget !== 'same-do-only') {
+      // C16a resolves pre-send fallback only AFTER durable prepared-row deletion.
+      if (!previouslyLatched) latchedOrCommittedOpIds.delete(opId);
+      else return Object.freeze({ ...res, fallbackLegacy: false,
+        reconcileRequired: true, retryTarget: 'same-do-only', stage: 'already-latched' });
     }
     return res;
   }
@@ -260,6 +280,7 @@ export function createVerifiedCrossDeviceFailbackCoordinator({
   }
 
   function destroy() {
+    activationEpoch++;
     destroyed = true;
     closeCatalog();
     try { reconciler.destroy?.(); } catch (_) {}
