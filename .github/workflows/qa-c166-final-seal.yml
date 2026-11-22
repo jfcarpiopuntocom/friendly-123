@@ -1,0 +1,53 @@
+name: C166 FINAL seal all-date Commissions (single builder)
+on:
+  push:
+    branches:
+      - fix/c166-commissions-total-first-app-dashboard
+    paths:
+      - .github/workflows/qa-c166-final-seal.yml
+      - src/app/app-inline-01.js
+      - src/dashboard/dashboard-main.js
+      - docs/core/commission-history.js
+      - test/p0-c166-commissions-total-first.test.cjs
+permissions:
+  contents: write
+jobs:
+  seal:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/c166-commissions-total-first-app-dashboard
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: npm ci --no-audit --no-fund
+      - name: Total-first source executed, single real sales query, fail closed
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test \
+            test/p0-c166-commissions-total-first.test.cjs \
+            test/p0-belen-commissions-all-dates.test.cjs \
+            test/p0-c142-commission-conflict-local-day.test.cjs \
+            test/p0-c149-commission-split-order-identity.test.cjs \
+            test/p0-c151-single-payee-commission.test.cjs
+      - name: Build the official two UIs with exact hashes
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+      - name: Commit only generated artifacts into candidate branch
+        run: |
+          set -euo pipefail
+          git config user.name "friendly-123 release seal"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/app-inline-*.min.js docs/app-style-*.min.css docs/dashboard-main.min.js docs/dashboard-main.min.css docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "build(C166): seal Safari-light total-first app and dashboard with v863 hashes"
+            git push origin HEAD:refs/heads/fix/c166-commissions-total-first-app-dashboard
+          fi
