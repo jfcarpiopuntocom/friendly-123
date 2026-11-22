@@ -44,7 +44,7 @@ test('C166: the primary app AND dashboard explicitly default to total, not produ
  const allTimeStart=app.indexOf('if (!_ocMesComisiones) {',app.indexOf('async function cargarComisiones()'));
  const nextBranch=app.indexOf('  let filas, ranking, ventasTodas, meses, cuadreMes;',allTimeStart);
  assert.ok(allTimeStart>0&&nextBranch>allTimeStart);
- assert.doesNotMatch(app.slice(allTimeStart,nextBranch),/liquidaciones\\/meses/,
+ assert.equal(app.slice(allTimeStart,nextBranch).includes("/liquidaciones/meses"),false,
    'opening total must not recompute monthly settlements in parallel on Safari');
  assert.match(dash,/\["total",es\?"Total general"/);
  assert.match(app,/_ocMesComisiones = null/);
