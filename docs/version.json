@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.75",
+  "version": "v0.8.76",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.75 C182: Commissions conserva su UI de tarjetas, muestra todas las fechas por defecto y cambia por Producto, Percha, Cliente, Comisionista o Periodo con tabs, sin mes ni fechas impuestos.",
+  "changelog": "v0.8.76 C184: descifrado de sobres antiguos Yjs con concurrencia acotada para reducir memoria en Safari, sin borrar ni cambiar movimientos, ventas o fotos.",
   "requerida": false,
-  "shell": "f123-shell-v875",
+  "shell": "f123-shell-v876",
   "apagar": [],
-  "releaseName": "v0.8.75",
-  "cacheGeneration": "golden411"
+  "releaseName": "v0.8.76",
+  "cacheGeneration": "golden412"
 }
