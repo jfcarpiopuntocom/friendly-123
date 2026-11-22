@@ -119,8 +119,8 @@ function inspect(){
   assert(src.includes('var dayFormatters=new Map()'));
   assert(src.includes('fmt=new Intl.DateTimeFormat("en-US"'));
   assert(src.includes('var parts=dateFormatter(zone).formatToParts'));
-  assert.equal(quality.latestReview?.sourceSha,'727598c0a02249139d28be53769c4e0cfe1b2ea1');
-  assert.equal(quality.latestReview?.evidence?.[0]?.pr,1006);
+  assert.equal((isC178?quality.auditTrail?.find(r=>r.id==='C173'):quality.latestReview)?.sourceSha,'727598c0a02249139d28be53769c4e0cfe1b2ea1');
+  assert.equal((isC178?quality.auditTrail?.find(r=>r.id==='C173'):quality.latestReview)?.evidence?.[0]?.pr,1006);
   assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
  }
  if(isC171){
