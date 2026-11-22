@@ -286,8 +286,12 @@ self.addEventListener("install", (evento) => {
             }
           }
         };
+        // C167 Safari iPhone: on WebKit the page is hydrating ~97 scripts
+        // while install also fetches the shell. Reduce transient request
+        // pressure without removing ANY offline resource or essential gate.
+        const esIOS = /iPhone|iPad|iPod/.test((self.navigator && self.navigator.userAgent) || "");
         const corredores = [];
-        for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno());
+        for (let i = 0; i < (esIOS ? 2 : 3) && i < SHELL.length; i++) corredores.push(precargarUno());
         return Promise.all(corredores).then(() => resultados);
       }).then((resultados) => {
         const esenciales = new Set(["./index.html", "./aislamiento.js", "./estado-ab.js", "./estado-idb.js", "./mock-backend.js", "./auth-ui.js", "./peer-sync.js", "./sync-yjs.js", "./version-manifest.json"]);
@@ -337,8 +341,12 @@ self.addEventListener("install", (evento) => {
                 const idx = cursor++;
                 return verificarRel(pendientes[idx]).then(correrLote, correrLote);
               };
+              // C167: digest uses arrayBuffer for each cached JS/asset.
+              // One digest at a time on iPhone avoids 4 simultaneous buffers
+              // during WebKit startup; desktop keeps its existing throughput.
+              const esIOS = /iPhone|iPad|iPod/.test((self.navigator && self.navigator.userAgent) || "");
               const workers = [];
-              for (let w = 0; w < 4 && w < pendientes.length; w++) workers.push(correrLote());
+              for (let w = 0; w < (esIOS ? 1 : 4) && w < pendientes.length; w++) workers.push(correrLote());
               return Promise.allSettled(workers).catch(() => {});
             }).catch(() => {});
           })).catch(() => {});
