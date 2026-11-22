@@ -15,3 +15,8 @@ test('route state changes only with provider selection and failback',()=>{
   assert.match(s,/rutaEfectiva = 'yparty-autorizado';\s*enRespaldo = false;/);
   assert.match(s,/enRespaldo = true;\s*rutaEfectiva = 'relay-cifrado-legado';\s*cancelarPlazo\(\)/);
 });
+
+test('route status resets on pause and reports credential fallback',()=>{
+  assert.match(s,/canal\.proveedor = null;\s*rutaEfectiva = 'local';\s*proveedor\.destroy\(\)/);
+  assert.match(s,/catch \(_\) \{ enRespaldo = true; rutaEfectiva = 'relay-cifrado-legado'; usarRelayHabitual\(\); return; \}/);
+});
