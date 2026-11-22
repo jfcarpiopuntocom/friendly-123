@@ -1,6 +1,6 @@
 {
-  "version": "v0.8.84",
-  "shell": "f123-shell-v884",
+  "version": "v0.8.85",
+  "shell": "f123-shell-v885",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-f4ff29ab212366d49e942312ce666a76f6c0411723363c1311d570250de7e843",
@@ -52,7 +52,7 @@
     "./crypto-store.js": "sha256-620af36c500c163afe06e43ac36bced11b9811eeecdf8c4ce45a96906392e6ff",
     "./email-recovery.js": "sha256-f11c8266a00e3e2a57e855493b55fbce9993bdc9a3acd3f56f94c3e36b49d3ec",
     "./auth-ui.js": "sha256-e094897d5c21b7b0c056fcf6ed24cacfd9adda6b4a8198c0dd0c683560ad327c",
-    "./backup-scheduler.js": "sha256-8ee6cc656bbf7998727d1c3e8ac2c34372bf205c374ac3ede49901f0b8cf669a",
+    "./backup-scheduler.js": "sha256-1aa142a7852708b107fdfadfd5a20d563a2fbe637d3c1f7f05df2bbe3b0d4f00",
     "./avanzado-extra.js": "sha256-00248b7b5a9478b0ba97191ca2a0510dc8bbee6297976e4889d3d0ea1b860a27",
     "./artista.js": "sha256-749613af78308464dee590e0278af2641a8ac5cecc469ff7b08fc155e8038d95",
     "./soporte-visual.js": "sha256-86240327b358e9fbb4e07aec4b42a9c0eb8b0873d916ba2354cb325ae5c0e26b",
@@ -82,7 +82,7 @@
     "./device-environment.js": "sha256-5517a20f30d38eed8097a82f1925e9d2c6f456de19aed6e443ed383705d4b5cd",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-7bde068f48d1426b369991ec77fa5187f02ec372195beca651009fb66e224b2c",
+    "./dashboard.html": "sha256-7b5f5aad3413327cf1206a909738b61a6e681d36e2a1be1a7e3b157921113daf",
     "./dashboard-updates.js": "sha256-e91bf81e3fd1262a24c3b40a008927cd9c0371791ba5d4821bbefb7879cf10c4",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",

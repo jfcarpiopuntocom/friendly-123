@@ -625,4 +625,77 @@
      primera visita a Advanced; la regla nueva de JFC manda sobre la de 2026-07-21.
      Lo que habia aqui: un listener del evento de login que llamaba al chequeo.
      Para reactivarlo (solo con orden de JFC) volver a registrar ese listener. */
+
+  /* =========================================================================
+     C199 EXPORT LOCAL AUTOMATICO AL ABRIR (orden de JFC, 22 nov 2026: "solo es
+     un export local"; eligio "Export automatico al abrir").
+     QUE HACE: tras un login real (no demo), en el PRIMER toque/clic del dia,
+     descarga al propio aparato el mismo paquete que Advanced -> Export backup
+     (app, exportadoEn, schemaVersion 2, datos de /api/respaldo/exportar), sin
+     correo, sin WhatsApp, sin pantallas nuevas ni avisos.
+     SELLO: el nombre del archivo lleva los primeros 16 hex del SHA-256 del
+     contenido exacto descargado ("-sha256-<hex>.json"). Para comprobarlo:
+     sha256sum del archivo debe empezar con ese hex.
+     POR QUE AL PRIMER TOQUE: Safari iPhone solo permite descargar dentro de un
+     gesto del usuario; sin gesto la descarga se pierde.
+     FOTOS: NO van en este export automatico (fotosIDB/fotosBlobs vacios) para no
+     cargar memoria en iPhone (P0 de crashes Safari). El boton manual de
+     Advanced sigue exportando fotos. El archivo es importable igual (mismo
+     formato schemaVersion 2).
+     UNA VEZ AL DIA: clave localStorage f123_autoexport_dia_v1 = fecha local.
+     Solo se marca si la descarga arranco; si /api/respaldo/exportar falla (p.ej.
+     403 aparato no activado) se reintenta en el siguiente login.
+     NUNCA escribe ni borra datos del negocio. Todo envuelto en try/catch.
+     Para APAGARLO: borrar el addEventListener("oc-login", ...) de abajo.
+     ========================================================================= */
+  const LS_AUTOEXPORT = "f123_autoexport_dia_v1";
+  function diaLocal(d) {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  async function sha256Hex(texto) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto));
+    return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, "0")).join("");
+  }
+  // Devuelve {texto, nombre, sha256} sin efectos secundarios (testeable).
+  async function construirExportLocal(ahora) {
+    const res = await fetch("/api/respaldo/exportar");
+    if (!res.ok) throw new Error("export " + res.status);
+    const datos = await res.json();
+    // JSON compacto (sin sangria) para ahorrar memoria y espacio en el telefono.
+    const texto = JSON.stringify({ app: "friendly-123", exportadoEn: ahora.toISOString(), schemaVersion: 2, datos, fotosIDB: {}, fotosBlobs: {} });
+    const sha256 = await sha256Hex(texto);
+    return { texto, sha256, nombre: `backup-friendly-123-${stampArchivo(ahora)}-sha256-${sha256.slice(0, 16)}.json` };
+  }
+  // El archivo se PREPARA despues del login y se DESCARGA de forma sincrona en
+  // el primer toque: en Safari iPhone una descarga lanzada tras un await ya no
+  // cuenta como gesto del usuario y se pierde.
+  let _exportPreparando = false;
+  function yaExportadoHoy() {
+    try { return localStorage.getItem(LS_AUTOEXPORT) === diaLocal(new Date()); } catch (_) { return true; }
+  }
+  async function prepararExportLocal() {
+    if (_exportPreparando || yaExportadoHoy()) return;
+    _exportPreparando = true;
+    let info;
+    try { info = await construirExportLocal(new Date()); }
+    catch (_) { _exportPreparando = false; return; } // sin aviso: se reintenta en el proximo login
+    document.addEventListener("pointerdown", function () {
+      _exportPreparando = false;
+      if (yaExportadoHoy()) return;
+      try {
+        descargarArchivo(info.texto, info.nombre);
+        localStorage.setItem(LS_AUTOEXPORT, diaLocal(new Date()));
+      } catch (_) {}
+    }, { once: true, capture: true });
+  }
+  window.addEventListener("oc-login", function (ev) {
+    try {
+      const d = ev && ev.detail;
+      if (!d || d.demo === true) return;
+      if (window.OCAuth && window.OCAuth.esDemo && window.OCAuth.esDemo()) return;
+      // Espera 3 s para no competir con el primer render despues del PIN.
+      setTimeout(prepararExportLocal, 3000);
+    } catch (_) {}
+  });
+  window.OCBackupScheduler._construirExportLocal = construirExportLocal;
 })();
