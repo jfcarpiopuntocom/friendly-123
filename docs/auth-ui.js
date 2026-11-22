@@ -929,11 +929,19 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       const el = document.getElementById("oc-gate-negocio");
       if (!el) return;
       const _esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-      const _pintar = (texto) => {
-        el.innerHTML = '<span style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5d5340);">'
+      // C195 Safari: a burst of encrypted Sync3 merges must not rebuild a
+      // visually identical PIN gate 100+ times while a user enters digits.
+      const _pintar = (texto, licencia, sinSincronizar) => {
+        const html = '<span style="font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft,#5d5340);">'
           + _esc(window.t("auth.gate.enteringBiz")) + '</span><br><strong style="font-family:var(--font-display,serif);font-size:18px;">'
-          + _esc(texto) + '</strong>';
-        el.style.display = "block";
+          + _esc(texto) + '</strong>'
+          + (licencia ? _lic4Linea(licencia) : '')
+          + (sinSincronizar ? '<div style="margin-top:6px;font-size:12px;color:var(--gold,#9c7a35);">'
+            + _esc(window.t("sync.panel.joined", "Joined. This device is now syncing with the team."))
+            + '</div>' : '');
+        // Compare the source markup, not DOM innerHTML serialization (Safari normalizes entities).
+        if (el._ocGateMarkup !== html) { el.innerHTML = html; el._ocGateMarkup = html; }
+        if (el.style.display !== "block") el.style.display = "block";
       };
       /* LICENCIA A LA QUE UNO SE UNE, en el candado (JFC 2026-09-08, pedido de
          Belén: "que se vea a qué me estoy uniendo, así nadie se une a ciegas").
@@ -982,14 +990,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           sinSincronizar = true;
         }
         if (!nom) { el.style.display = "none"; return; }
-        _pintar(nom);
         const licU = (T.licenciaActual && T.licenciaActual()) || "";
-        if (licU) el.innerHTML += _lic4Linea(licU);
-        if (sinSincronizar) {
-          el.innerHTML += '<div style="margin-top:6px;font-size:12px;color:var(--gold,#9c7a35);">'
-            + _esc(window.t("sync.panel.joined", "Joined. This device is now syncing with the team."))
-            + '</div>';
-        }
+        _pintar(nom, licU, sinSincronizar);
         return;
       }
       /* RAMA TIENDA PROPIA (JFC 2026-08-26): SÍ mostrar el nombre de la tienda —
@@ -1011,9 +1013,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       } catch (_) {}
       const nombre = activo;
       if (!dispositivoApropiado() || !nombre) { el.style.display = "none"; return; }
-      _pintar(nombre);
       const licP = (owned && typeof owned.licenseCode === "string") ? owned.licenseCode : "";
-      if (licP) el.innerHTML += _lic4Linea(licP);
+      _pintar(nombre, licP, false);
     } catch (_) { try { const el = document.getElementById("oc-gate-negocio"); if (el) el.style.display = "none"; } catch (__) {} }
   }
   /* Pinta la versión REAL del shell técnico como etiqueta pública v0.7.08.
