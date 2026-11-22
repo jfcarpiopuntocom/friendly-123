@@ -79,3 +79,44 @@ test('Opera Air Today and week: the two real hot paths do not use nested linear 
   const daily = src.slice(src.indexOf('function devolucionesHoyDe(uid)'), src.indexOf('function ventasHoyDe(uid)'));
   assert.ok(!daily.includes('ventas.find('));
 });
+
+test('Opera Air real businessResult: unique receipts need no deep canonical serialization or duplicate full-ledger maps', () => {
+  const code = fs.readFileSync(path.join(root, 'docs/core/business-read-model.js'), 'utf8');
+  let serializations = 0, mapSets = 0;
+  class CountMap extends Map {
+    set(k, v) { mapSets++; return super.set(k, v); }
+  }
+  const trackingJSON = {
+    stringify(...args) { serializations++; return JSON.stringify(...args); },
+    parse: JSON.parse
+  };
+  const ctx = { module: { exports: {} }, Date, Intl, Map: CountMap, JSON: trackingJSON };
+  ctx.globalThis = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(code, ctx, { filename: 'docs/core/business-read-model.js' });
+  const reader = ctx.module.exports;
+  const sales = Array.from({ length: 2500 }, (_, i) => ({
+    id: 'receipt-' + i, fecha: '2026-11-22T13:00:00.000Z',
+    cantidad: 1, precioUnit: 3, costoUnit: 2, noCommission: true
+  }));
+  const daily = reader.businessResult({
+    sales, period: { from: '2026-11-22', to: '2026-11-22' },
+    zone: 'America/Guayaquil'
+  });
+  assert.equal(daily.salesCents, 750000);
+  assert.equal(daily.sourceIds.sales.length, 2500);
+  assert.equal(serializations, 0, 'unique source records must not be deep-serialized');
+  assert.ok(mapSets <= 2520, 'without adjustments, only the unique-id index may copy sale references');
+  const duplicated = reader.businessResult({
+    sales: [sales[0], { ...sales[0] }],
+    period: { from: '2026-11-22', to: '2026-11-22' }
+  });
+  assert.equal(duplicated.salesCents, 300, 'identical duplicate preserves exactly-once read model');
+  assert.ok(serializations > 0, 'conflicting ID candidates still undergo canonical comparison');
+  const conflicting = reader.businessResult({
+    sales: [sales[0], { ...sales[0], precioUnit: 9 }],
+    period: { from: '2026-11-22', to: '2026-11-22' }
+  });
+  assert.equal(conflicting.salesCents, null, 'inconsistent same-id evidence must stay quarantined');
+  assert.ok(conflicting.warnings.includes('conflicting-sale'));
+});
