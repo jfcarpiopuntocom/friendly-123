@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.67",
+  "version": "v0.8.68",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.67 C172 Safari: Commissions reutiliza formateadores de fecha por zona, reduciendo trabajo del historial real sin alterar fechas, dinero, filtros, pagos ni la corrección de cola cifrada C170.",
+  "changelog": "v0.8.68 C174: Commissions app y CSV usan calendario configurado de negocio, Dashboard conserva la zona explícita autenticada; fechas e importes sin inventar, Safari C172 y cola C170 intactos.",
   "requerida": false,
-  "shell": "f123-shell-v867",
+  "shell": "f123-shell-v868",
   "apagar": [],
-  "releaseName": "v0.8.67",
-  "cacheGeneration": "golden403"
+  "releaseName": "v0.8.68",
+  "cacheGeneration": "golden404"
 }
