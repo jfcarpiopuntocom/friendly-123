@@ -115,7 +115,7 @@ test('C51.3: uncontended navigator.locks.request succeeds without unlocked fallb
   assert.equal(getFallbackCalls(), 0);
 });
 
-function evalQaSwitch({ storageMap, hasPiloto = true, role = 'dueno', demo = false }) {
+async function evalQaSwitch({ storageMap, hasPiloto = true, role = 'dueno', demo = false }) {
   const s = syncSrc.indexOf('    API.corte20QaHabilitado = function () {');
   const helperStart = syncSrc.indexOf('    function _intentarActivarCorte20SiElegible() {');
   const helperEnd = syncSrc.indexOf('    function sincronizarVisibilidad() {', helperStart);
@@ -147,23 +147,27 @@ function evalQaSwitch({ storageMap, hasPiloto = true, role = 'dueno', demo = fal
     }
   });
   vm.runInContext(helperBlock + '\n' + block, ctx);
+  // C192 schedules the certified cutover through a Promise after durable
+  // legacy quiescence. Wait for that turn; a synchronous assertion observes
+  // the pre-activation state and falsely fails both C51 and C52 suites.
+  await new Promise(resolve => setImmediate(resolve));
   return { enabled: API.corte20QaHabilitado(), activarCalls: JSON.parse(JSON.stringify(activarCalls)) };
 }
 
-test('C51.4: double-QA operational switch stays OFF by default and requires both QA flags + live non-demo Owner/Admin', () => {
-  assert.deepEqual(evalQaSwitch({ storageMap: {} }), { enabled: false, activarCalls: [] });
-  assert.deepEqual(evalQaSwitch({ storageMap: { f123_yparty_qa: '1' } }), { enabled: false, activarCalls: [] });
-  assert.deepEqual(evalQaSwitch({ storageMap: { f123_corte20_qa: '1' } }), { enabled: false, activarCalls: [] });
+test('C51.4: double-QA operational switch stays OFF by default and requires both QA flags + live non-demo Owner/Admin', async () => {
+  assert.deepEqual(await evalQaSwitch({ storageMap: {} }), { enabled: false, activarCalls: [] });
+  assert.deepEqual(await evalQaSwitch({ storageMap: { f123_yparty_qa: '1' } }), { enabled: false, activarCalls: [] });
+  assert.deepEqual(await evalQaSwitch({ storageMap: { f123_corte20_qa: '1' } }), { enabled: false, activarCalls: [] });
   assert.deepEqual(
-    evalQaSwitch({ storageMap: { f123_yparty_qa: '1', f123_corte20_qa: '1' }, demo: true }),
+    await evalQaSwitch({ storageMap: { f123_yparty_qa: '1', f123_corte20_qa: '1' }, demo: true }),
     { enabled: true, activarCalls: [] }
   );
   assert.deepEqual(
-    evalQaSwitch({ storageMap: { f123_yparty_qa: '1', f123_corte20_qa: '1' }, role: 'empleado' }),
+    await evalQaSwitch({ storageMap: { f123_yparty_qa: '1', f123_corte20_qa: '1' }, role: 'empleado' }),
     { enabled: true, activarCalls: [] }
   );
   assert.deepEqual(
-    evalQaSwitch({ storageMap: { f123_yparty_qa: '1', f123_corte20_qa: '1' }, role: 'dueno', demo: false }),
+    await evalQaSwitch({ storageMap: { f123_yparty_qa: '1', f123_corte20_qa: '1' }, role: 'dueno', demo: false }),
     { enabled: true, activarCalls: [{ cortarComercio: true }] }
   );
 });
