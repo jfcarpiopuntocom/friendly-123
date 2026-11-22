@@ -269,8 +269,8 @@ test('C187: injected provider remains type-checked; missing injection is allowed
     );
     const writer = fs.readFileSync(path.join(ROOT, 'src', 'port2-catalog-delta-writer.mjs'), 'utf8');
     const transport = fs.readFileSync(path.join(ROOT, 'src', 'authorized-yprovider.mjs'), 'utf8');
-    assert.match(writer, /const publicDoc=new Y\\.Doc\\(\\{gc:true\\}\\)/);
-    assert.match(writer, /new AuthorizedYProvider\\(HOST,room,publicDoc/);
-    assert.match(transport, /assertPublicCatalogTransportDoc\\(\\{doc,room\\}\\)/);
+    assert.match(writer, /const publicDoc=new Y\.Doc\(\{gc:true\}\)/);
+    assert.match(writer, /new AuthorizedYProvider\(HOST,room,publicDoc/);
+    assert.match(transport, /assertPublicCatalogTransportDoc\(\{doc,room\}\)/);
   } finally { doc.destroy(); }
 });
