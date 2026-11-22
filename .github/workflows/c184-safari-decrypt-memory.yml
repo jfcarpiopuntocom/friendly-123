@@ -1,0 +1,19 @@
+name: C184 Safari bounded-decrypt regression (isolated)
+on:
+  push:
+    branches:
+      - fix/c184-bounded-yjs-legacy-decrypt-safari
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  bounded-legacy-decrypt:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check docs/sync-yjs.js
+      - run: node --test test/p0-c184-safari-legacy-decrypt-memory.test.cjs
