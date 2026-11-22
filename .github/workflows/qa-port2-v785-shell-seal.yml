@@ -46,9 +46,18 @@ jobs:
           assert.equal(old.version,versionFromShell(old.shell),'base display version must exactly encode its shell');
           assert.match(v.shell,/^f123-shell-v\d+$/);
           assert.match(v.cacheGeneration,/^golden\d+$/);
-          assert.equal(num(v.shell),num(old.shell)+1,'release shell/version must advance exactly once');
-          assert.equal(num(v.shell),num(old.shell)+1,'shell identity must advance exactly once');
-          assert.equal(num(v.cacheGeneration),num(old.cacheGeneration)+1,'cache generation must advance exactly once');
+          // The previous release can have burned the next shell in historical commits.
+          // Keep both protections: never reuse any historical shell, and never skip a FREE identity.
+          // C205: master v887 contains v888 in the history of merged PR #1049, despite releasing v887.
+          const history=cp.execFileSync('git',['log','--format=','-p','origin/master','--','docs/version.json'],
+            {encoding:'utf8',maxBuffer:8*1024*1024});
+          const used=new Set([...history.matchAll(/f123-shell-v(\\d+)/g)].map(x=>Number(x[1])));
+          let next=num(old.shell)+1;
+          while(used.has(next))next++;
+          const gap=next-num(old.shell);
+          assert.equal(num(v.shell),next,'release must use first historically UNUSED shell (burned IDs skipped)');
+          assert.equal(num(v.cacheGeneration),num(old.cacheGeneration)+gap,
+            'cache generation must account for each burned shell without reusing it');
           assert.equal(m.version,v.version);assert.equal(m.shell,v.shell);
           const vendor=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
           const sha=crypto.createHash('sha256').update(vendor).digest('hex');
