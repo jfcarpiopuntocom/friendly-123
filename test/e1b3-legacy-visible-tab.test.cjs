@@ -32,7 +32,7 @@ test("E1b-3 RED: legacy listener lifecycle responds without touching business ou
   window:{OCTabSession:{canSync:()=>lease},addEventListener:(n,f)=>listeners[n]=f},
   leerSala:()=>({codigo:"TEAM-TEST"}),cerrarWsExistente:()=>{closed++;socket=null},
   conectar:()=>{connected++;socket={readyState:0}},reintentoMs:1000,
-  WebSocket:{OPEN:1},_conexionGeneracion:0};
+  WebSocket:{OPEN:1},_conexionGeneracion:0,_pausaArquitectura20:null};
  // JFC 2026-11-12: run the REAL gate from the source; it depends on visibility only (no tab turn).
  const gate=/function puedeConectarLegado\(\) \{[\s\S]*?\n  \}/.exec(src)[0];
  assert.doesNotMatch(gate.replace(/\/\/[^\n]*/g,""),/OCTabSession/);
