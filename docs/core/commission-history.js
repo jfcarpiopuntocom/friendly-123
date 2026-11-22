@@ -76,6 +76,20 @@
       }).sort(function(a,b){return JSON.stringify(a).localeCompare(JSON.stringify(b));}):null
     ]);
   }
+  function associateAttribution(v){
+    if(Array.isArray(v.reparto)&&v.reparto.length){
+      // Payee order can change across peers. Prefer stable payee IDs, then
+      // the same role-based display fallback used by the actual grouping.
+      return JSON.stringify(v.reparto.map(function(r,i){
+        var rol=String(r&&r.rol||"");
+        var fallback=rol==="asistente"?v.asistenteNombre:
+          rol==="vendedor"?v.asociadoNombre:
+          (i===1?v.asistenteNombre:v.asociadoNombre);
+        return String(r&&(r.promotoraId||r.payeeId||r.nombre)||fallback||"");
+      }).sort());
+    }
+    return String(v.promotoraId||v.asociadoNombre||"");
+  }
   function safeName(value,fallback){return String(value==null||String(value).trim()===""?fallback:value);}
   function escape(value){return String(value==null?"":value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
   function project(input){
@@ -85,13 +99,23 @@
     var to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"";
     var lang=input.lang==="es"?"es":"en",zone=businessZone(input.zone);
     var all=Array.isArray(input.sales)?input.sales:[];
-    var rows=[],tot={count:0,cancelled:0,conflicts:0,splitConflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
+    var rows=[],tot={count:0,cancelled:0,conflicts:0,splitConflicts:0,customerConflicts:0,associateConflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
     var groups=new Map(),seen=new Set(),firstById=new Map(),conflictingIds=new Set();
+    var firstCustomerById=new Map(),conflictingCustomerIds=new Set();
+    var firstAssociateById=new Map(),conflictingAssociateIds=new Set();
     all.forEach(function(v){
       if(!v||typeof v!=="object"||v.id==null||String(v.id)==="")return;
       var receiptId=String(v.id),signature=economicSignature(v,zone);
       if(firstById.has(receiptId)&&firstById.get(receiptId)!==signature)conflictingIds.add(receiptId);
       else if(!firstById.has(receiptId))firstById.set(receiptId,signature);
+      // Client identity controls BY-CLIENT allocation, not the monetary
+      // validity of an otherwise matching receipt.
+      var customerKey=String(v.clienteId||v.clienteNombre||"");
+      if(firstCustomerById.has(receiptId)&&firstCustomerById.get(receiptId)!==customerKey)conflictingCustomerIds.add(receiptId);
+      else if(!firstCustomerById.has(receiptId))firstCustomerById.set(receiptId,customerKey);
+      var associateKey=associateAttribution(v);
+      if(firstAssociateById.has(receiptId)&&firstAssociateById.get(receiptId)!==associateKey)conflictingAssociateIds.add(receiptId);
+      else if(!firstAssociateById.has(receiptId))firstAssociateById.set(receiptId,associateKey);
     });
     all.forEach(function(v){
       if(!v||typeof v!=="object")return;
@@ -134,7 +158,16 @@
       if(group==="total"){id="total";label=lang==="es"?"Total general":"Overall total";}
       else if(group==="producto"){id=String(v.productoId||v.productoNombre||"");label=safeName(v.productoNombre,lang==="es"?"Sin producto":"Unnamed product");}
       else if(group==="percha"){id=String(v.ubicacionId||v.ubicacionNombre||"");label=safeName(v.ubicacionNombre,lang==="es"?"Sin percha":"Unnamed rack");}
-      else if(group==="cliente"){id=String(v.clienteId||v.clienteNombre||"");label=safeName(v.clienteNombre,lang==="es"?"Sin cliente":"No customer");}
+      else if(group==="cliente"){
+        if(receiptId&&conflictingCustomerIds.has(receiptId)){
+          id="__f123_cliente_por_verificar__";
+          label=lang==="es"?"Cliente por verificar":"Customer needs review";
+          tot.customerConflicts++;
+        }else{
+          id=String(v.clienteId||v.clienteNombre||"");
+          label=safeName(v.clienteNombre,lang==="es"?"Sin cliente":"No customer");
+        }
+      }
       else if(group==="comisionista"){
         id=String(v.promotoraId||v.asociadoNombre||"");
         label=safeName(v.asociadoNombre,lang==="es"?"Sin comisionista asignado":"Unassigned associate");
@@ -143,7 +176,13 @@
       // Attribute only the money explicitly assigned to each, never give both
       // associates the entire sale or invent a beneficiary for an unknown split.
       var targets=[{id:id||label,label:label,commission:commission,gross:gross}];
-      if(group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>0){
+      if(group==="comisionista"&&receiptId&&conflictingAssociateIds.has(receiptId)){
+        tot.associateConflicts++;
+        targets=[{id:"__f123_comisionista_por_verificar__",
+          label:lang==="es"?"Comisionista por verificar":"Associate needs review",
+          commission:commission,
+          gross:Array.isArray(v.reparto)&&v.reparto.length?null:gross}];
+      }else if(group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>0){
         targets=v.reparto.map(function(r,i){
           // Backend rows identify seller/assistant by rol; indices are not stable
           // across incoming replays. An explicit payee name takes precedence.
@@ -190,6 +229,8 @@
     return '<section data-comm-history-report style="margin-top:12px;">'
       +(t.conflicts?'<p role="alert">'+(es?"Recibos con el mismo ID y valores distintos: importes por verificar.":"Receipt IDs with conflicting economic values: totals need review.")+'</p>':"")
       +(t.splitConflicts?'<p role="alert">'+(es?"El reparto de comisiones no coincide con el total registrado: importes por verificar.":"Commission shares do not match the recorded total: amounts need review.")+'</p>':"")
+      +(t.customerConflicts?'<p role="alert">'+(es?"Una venta aparece con clientes distintos: importe conservado, cliente por verificar.":"A receipt has conflicting customer IDs: amount preserved, customer needs review.")+'</p>':"")
+      +(t.associateConflicts?'<p role="alert">'+(es?"Una venta aparece con comisionistas distintos: importe conservado, comisionista por verificar.":"A receipt has conflicting associates: amount preserved, associate needs review.")+'</p>':"")
       +'<h3 style="font-size:18px;font-weight:800;color:var(--ink,#0F1923);">'+title+'</h3>'
       +'<p style="font-size:14px;color:var(--ink,#0F1923);">'+info+'</p>'
       +'<div class="cm-grid" style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0;">'
