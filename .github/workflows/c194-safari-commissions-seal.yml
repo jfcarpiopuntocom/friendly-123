@@ -1,0 +1,49 @@
+name: C194 Safari Commissions bounded rendering and exact shell seal
+on:
+  push:
+    branches:
+      - hotfix/c194-safari-commissions-lazy-full-history
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  reproduce-build-seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: C194 source-executed 12000 receipts + old Commissions contracts
+        run: |
+          node --check src/app/app-inline-01.js
+          node --test test/p0-c194-commissions-safari-lazy.test.cjs test/p0-c182-commissions-original-ui-all-dates.test.cjs test/p0-c182-commissions-compact-view-switches.test.cjs test/p0-c166-commissions-total-first.test.cjs test/p0-c172-commissions-date-formatter-cache.test.cjs test/p0-c174-commissions-business-zone-parity.test.cjs test/p0-belen-commissions-all-dates.test.cjs
+      - name: Rebuild all official app assets and SHA256 manifest
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          bash check-sw.sh
+          node --check docs/app-inline-01.min.js
+      - name: Verify latest source and shipped manifest are consistent
+        run: |
+          node --test test/p0-c194-commissions-safari-lazy.test.cjs test/p0-c182-commissions-compact-view-switches.test.cjs
+          git diff --check
+      - name: Commit exact generated bundle and manifest to candidate branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css docs/version-manifest.json docs/sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C194): seal v881 source-built assets and 135 exact SHA256 hashes'
+            git push origin HEAD:hotfix/c194-safari-commissions-lazy-full-history
+          fi
