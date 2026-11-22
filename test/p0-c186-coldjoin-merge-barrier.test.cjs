@@ -69,3 +69,14 @@ test('C186 RED: visibility measurement never forces an unverified cold full-stor
   assert.equal(await API.confirmarCatalogoVisible(),true,'normal visible ACK retained after recovery');
   assert.equal(merges,1,'pending normal merge applied once');
 });
+
+test('C186: cold replay burst cannot leave a stale queued full merge after HEAD',()=>{
+  const h=liveHarness({recovering:true,access:false});
+  for(let i=0;i<200;i++)h.update();
+  assert.equal(h.pending(),0,'unproven cold replay never queues a costly merge');
+  h.API.canal.recuperando=false;
+  h.flush();
+  assert.equal(h.merges(),0,'nothing queued can merge a partial snapshot later');
+  h.update();h.flush();
+  assert.equal(h.merges(),1,'later certified live update remains immediate');
+});
