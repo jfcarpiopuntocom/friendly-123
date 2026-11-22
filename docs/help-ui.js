@@ -41,7 +41,7 @@
   #oc-help-sheet details.oc-h-mas{border:2px solid #C9CFC7;border-radius:8px;padding:10px 12px;margin:10px 0;background:#FFFFFF;}
   #oc-help-sheet details.oc-h-mas summary{cursor:pointer;font-family:var(--font-display,sans-serif);font-weight:700;font-size:15px;color:#0F1923;min-height:28px;}
   #oc-help-sheet details.oc-h-mas[open] summary{margin-bottom:6px;}
-  
+
   #oc-help-sheet{position:relative;}
   #oc-help-x{position:sticky; top:0; float:right; margin:-6px -4px 0 0;
     width:44px; height:44px; min-width:44px; border-radius:50%; z-index:5;

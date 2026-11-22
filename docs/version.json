@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.85",
+  "version": "v0.8.86",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.85 C199: export local automatico al abrir, 1 vez al dia, al primer toque tras login real; archivo sellado con SHA-256 en el nombre; sin correo, sin pantallas nuevas, sin tocar datos.",
+  "changelog": "v0.8.86 C200: 42 scripts grandes se sirven minificados (.min.js) desde sus fuentes comentadas; arranque 3.757.898 B -> ~2,5 MB. Incluye C199 export local de v0.8.85.",
   "requerida": false,
-  "shell": "f123-shell-v885",
+  "shell": "f123-shell-v886",
   "apagar": [],
-  "releaseName": "v0.8.85",
-  "cacheGeneration": "golden421"
+  "releaseName": "v0.8.86",
+  "cacheGeneration": "golden422"
 }

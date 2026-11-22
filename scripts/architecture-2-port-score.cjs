@@ -4,7 +4,16 @@
 // Reproducible weighted capabilities, with physical/customer GO kept separate.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..');
-const load=p=>JSON.parse(fs.readFileSync(path.join(root,p),'utf8'));
+const load=p=>{
+  const j=JSON.parse(fs.readFileSync(path.join(root,p),'utf8'));
+  // C200: el shell sirve X.min.js (generado de la fuente comentada docs/X.js). Los sellos historicos
+  // de este tablero son sobre la FUENTE: se reconstruyen aqui (el .min.js al dia lo exige test/c200-min-scripts.test.cjs).
+  if(/version-manifest\.json$/.test(p)&&j.files)for(const k of Object.keys(j.files)){
+    const m=/^(.*)\.min\.js$/.exec(k),src=m&&path.join(root,'docs',m[1]+'.js');
+    if(src&&fs.existsSync(src)&&!(m[1]+'.js' in j.files))j.files[m[1]+'.js']='sha256-'+crypto.createHash('sha256').update(fs.readFileSync(src,'utf8').replace(/\r\n/g,'\n')).digest('hex');
+  }
+  return j;
+};
 function oneDecimal(n){return Math.round((n+Number.EPSILON)*10)/10;}
 function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
