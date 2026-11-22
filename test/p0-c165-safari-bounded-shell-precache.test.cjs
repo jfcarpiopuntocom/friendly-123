@@ -56,7 +56,7 @@ test('C165: missing OPTIONAL asset cannot delete offline shell or block installa
  assert.ok(r.peak<=3);
 });
 test('C165: missing ESSENTIAL asset must preserve previous shell (never skipWaiting)',async()=>{
- const r=await simulatedInstall('./mock-backend.js');
+ const r=await simulatedInstall('./mock-backend.min.js');
  assert.ok(r.error,'essential failure must reject install');
  assert.equal(r.activated,0,'do not activate broken new shell');
  assert.ok(r.peak<=3);

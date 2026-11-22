@@ -11,7 +11,7 @@ assert.ok(shell&&start>0&&end>start);
 const code=shell[0]+'\n'+source.slice(start,end);
 async function run(userAgent,broken){
  let active=0,peak=0,hashing=0,hashPeak=0,adds=0,activated=0,waited;
- const sampleFiles=['./index.html','./app-inline-01.min.js','./app-inline-02.min.js','./mock-backend.js','./estado-idb.js','./sync-yjs.js','./auth-ui.js','./dashboard.html'];
+ const sampleFiles=['./index.html','./app-inline-01.min.js','./app-inline-02.min.js','./mock-backend.min.js','./estado-idb.min.js','./sync-yjs.min.js','./auth-ui.min.js','./dashboard.html'];
  const zeros='sha256-'+('00'.repeat(32));
  const files=Object.fromEntries(sampleFiles.map(n=>[n,zeros]));
  const cache={
@@ -54,7 +54,7 @@ test('C167: non-iOS clients retain existing bounded 3 downloads / 4 verification
  assert.ok(a.hashPeak>1,'desktop should preserve existing verification throughput');
 });
 test('C167: broken essential offline shell still cannot activate a half-version on Safari',async()=>{
- const a=await run('Mozilla/5.0 (iPhone; CPU iPhone OS 26_4)', './mock-backend.js');
+ const a=await run('Mozilla/5.0 (iPhone; CPU iPhone OS 26_4)', './mock-backend.min.js');
  assert.ok(a.error);
  assert.equal(a.activated,0);
  assert.ok(a.peak<=1);

@@ -11,8 +11,8 @@ function fixture(){
  return {handlers,network,saved,local,async request(file){let result;handlers.fetch({request:new Request(new URL(file,scope)),respondWith:p=>result=p});return result?result:undefined}};
 }
 test('active shell serves its local module without a network request; missing module downloads and remains cached',async()=>{
- const f=fixture();f.local.set('https://fixture.test/app/sync-yjs.js',new Response('local-current-version'));
- assert.equal(await (await f.request('sync-yjs.js')).text(),'local-current-version');assert.equal(f.network.length,0);
+ const f=fixture();f.local.set('https://fixture.test/app/sync-yjs.min.js',new Response('local-current-version'));
+ assert.equal(await (await f.request('sync-yjs.min.js')).text(),'local-current-version');assert.equal(f.network.length,0);
  assert.equal(await (await f.request('hechos.js')).text(),'downloaded');await new Promise(r=>setImmediate(r));
  assert.deepEqual(f.saved,[['https://fixture.test/app/hechos.js','downloaded']]);
 });

@@ -73,7 +73,7 @@ test('current release shell and exact edited assets have matching integrity hash
   assert.equal(v.version,v.releaseName,'manifest and HTML use the same public release');
   assert.equal(manifest.shell,v.shell);
   assert.ok(sw.includes('const CACHE = "'+v.shell+'"'));
-  for(const rel of ['mock-backend.js','sync-realtime.js','dashboard.html']){
+  for(const rel of ['mock-backend.min.js','sync-realtime.min.js','dashboard.html']){
     const bytes=fs.readFileSync(path.join(root,rel),'utf8').replace(/\r\n/g,'\n');
     const hash=crypto.createHash('sha256').update(bytes,'utf8').digest('hex');
     assert.equal(manifest.files['./'+rel],'sha256-'+hash,rel);

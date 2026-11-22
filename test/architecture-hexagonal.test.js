@@ -34,7 +34,7 @@ test('hexagonal boundary: UI adapter depends inward on application use case and 
   const vista = read('docs/vista-perchas.js');
   const iCore = index.indexOf('./core/shelf-photo-policy.js');
   const iApp = index.indexOf('./application/recover-shelf-photo.js');
-  const iVista = index.indexOf('./vista-perchas.js');
+  const iVista = index.indexOf('./vista-perchas.min.js');
   assert.ok(iCore >= 0 && iApp > iCore && iVista > iApp, 'domain -> application -> adapter load order');
   assert.match(vista, /F123Application\.recoverShelfPhoto/);
   assert.match(vista, /const ports = \{/);
