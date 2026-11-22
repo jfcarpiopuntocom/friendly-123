@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.78",
+  "version": "v0.8.79",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.78 C186: limita fusiones completas de catálogo durante recuperación cifrada inicial hasta acreditar acceso; conserva Sync3, datos, PIN y actualizaciones automáticas en PIN.",
+  "changelog": "v0.8.79 C187: habilita el proveedor público certificado predeterminado para construir el coordinador 2.0; mantiene activación por certificado y el tráfico comercial actual sin cambios.",
   "requerida": false,
-  "shell": "f123-shell-v878",
+  "shell": "f123-shell-v879",
   "apagar": [],
-  "releaseName": "v0.8.78",
-  "cacheGeneration": "golden414"
+  "releaseName": "v0.8.79",
+  "cacheGeneration": "golden415"
 }

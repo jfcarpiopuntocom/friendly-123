@@ -228,3 +228,49 @@ test('C25 rejects Team/non-owner and background browser before opening any trans
     /unavailable|owner/);
  }finally{hDoc.destroy();tDoc.destroy();}
 });
+
+
+test('C187: production Owner can construct certified 2.0 coordinator without a QA-injected provider, without opening WS or exposing the private Y.Doc', async () => {
+  const env = makePilotEnv({
+    fetchImpl: async () => { throw new Error('No HTTP or WS before explicit activate20'); }
+  });
+  const privateDoc = vm.runInContext(`(() => {
+    const d = new Y.Doc();
+    d.getMap('productos').set('prod', { id: 'prod', nombre: 'Synthetic', precio: 15, stockActual: 3 });
+    d.getMap('ubicaciones').set('shelf', { id: 'shelf', nombre: 'Synthetic shelf' });
+    d.getMap('_meta').set('pinsRol', { owner: 'NEVER_TRANSPORT_PRIVATE_META' });
+    return d;
+  })()`, env.ctx);
+  let coordinator;
+  try {
+    coordinator = await env.pilot.crearCoordinadorCorte20(privateDoc, 'certified-c187-head-20261121', {
+      indexedDB: env.indexedDB
+    });
+    assert.equal(coordinator.mode(), 'failback-legacy-1.0', 'factory must not implicitly switch writers');
+    assert.equal(typeof coordinator.activate20, 'function');
+    assert.equal(typeof coordinator.canDispatchOnLegacy, 'function');
+    assert.equal(typeof coordinator.applyCatalogDelta, 'function');
+  } finally {
+    coordinator?.destroy();
+    privateDoc.destroy();
+  }
+});
+
+test('C187: injected provider remains type-checked; missing injection is allowed only through the certified writer fallback', async () => {
+  const env = makePilotEnv();
+  const doc = vm.runInContext('new Y.Doc()', env.ctx);
+  try {
+    await assert.rejects(
+      env.pilot.crearCoordinadorCorte20(doc, 'certified-c187-head-20261121', {
+        indexedDB: env.indexedDB,
+        createProvider: {}
+      }),
+      /certified cutover coordinator unavailable/
+    );
+    const writer = fs.readFileSync(path.join(ROOT, 'src', 'port2-catalog-delta-writer.mjs'), 'utf8');
+    const transport = fs.readFileSync(path.join(ROOT, 'src', 'authorized-yprovider.mjs'), 'utf8');
+    assert.match(writer, /const publicDoc=new Y\.Doc\(\{gc:true\}\)/);
+    assert.match(writer, /new AuthorizedYProvider\(HOST,room,publicDoc/);
+    assert.match(transport, /assertPublicCatalogTransportDoc\(\{doc,room\}\)/);
+  } finally { doc.destroy(); }
+});
