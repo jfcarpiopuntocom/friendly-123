@@ -46,3 +46,15 @@ test('C166: total and any grouped view honor optional dates; both UIs default to
  assert.match(app,/if \(!_ocMesComisiones\)/);
  assert.match(dash,/if \(cmMes === null\)/);
 });
+
+test('C166: ALL totals read real authenticated business sales; missing coverage never masquerades as zero',()=>{
+ const app=read('src/app/app-inline-01.js'),dash=read('src/dashboard/dashboard-main.js');
+ const route=app.slice(app.indexOf('async function cargarComisiones(){'),app.indexOf('async function cargarComisiones(){')+3600);
+ assert.match(route,/ventas\\/todas\\?ubicacionId=todas/,'the live business API, not hardcoded demo sales');
+ assert.match(route,/Array\\.isArray\\(sales\\)/,'validate the authenticated sales response');
+ assert.match(route,/OCCommissionHistory\\.render\\(\\{sales:sales/);
+ assert.match(route,/barraComisionesHtml\\(\\[\\],actions\\)\\+report/,'show real total before optional months request finishes');
+ assert.match(dash,/autorizado && ultimoDato>0 && Array\\.isArray\\(datos\\.ventas\\)/,'dashboard needs authenticated notebook coverage');
+ assert.match(dash,/datos\\.cobertura\\.ventas===true/,'dashboard cannot mistake incomplete cover for an empty business');
+ assert.match(dash,/Ventas pendientes de sincronizar/,'show pending instead of false $0 on incomplete sync');
+});
