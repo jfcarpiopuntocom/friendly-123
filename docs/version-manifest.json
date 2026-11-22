@@ -1,6 +1,6 @@
 {
-  "version": "v0.8.62",
-  "shell": "f123-shell-v862",
+  "version": "v0.8.63",
+  "shell": "f123-shell-v863",
   "algoritmo": "sha256",
   "files": {
     "./index.html": "sha256-f4ff29ab212366d49e942312ce666a76f6c0411723363c1311d570250de7e843",
@@ -82,7 +82,7 @@
     "./device-environment.js": "sha256-5517a20f30d38eed8097a82f1925e9d2c6f456de19aed6e443ed383705d4b5cd",
     "./micelio-ui.js": "sha256-ed4bf930fde1a3a477032f55b8f1af1366eb0bfcaea86123ebab3b7a73eed09f",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-96574873bd47679af82fd8724a6e4463c55110644c030ae925ab472118084691",
+    "./dashboard.html": "sha256-f07c5552a31446f95e83c997f06bc518ade81e54babccd5ac7baf28026573b7b",
     "./dashboard-updates.js": "sha256-e91bf81e3fd1262a24c3b40a008927cd9c0371791ba5d4821bbefb7879cf10c4",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.js": "sha256-5b2fad70430452ced4f3d73d52fc6b414f24722fa5f8a872ee0fc84659b1f941",
@@ -120,7 +120,7 @@
     "./manifest.json": "sha256-743a5bb38267f5bfc683b81232d64227e5d6c6bec0dd3dd35856029da1db8923",
     "./dashboard-manifest.json": "sha256-c1847d560f60b8639d590ae6bf7dad29c6b1e88604cb3d4949d54e556a83f870",
     "./pwa-rescue.html": "sha256-51917debbf27e6c529869a2fa88764f1d04405b55823b265d547890c714a1967",
-    "./app-inline-01.min.js": "sha256-cf6c6e472dd353d7f898fc62e43a4dffb6634cf2b9dd9d5bb46cb03f8ac2cfda",
+    "./app-inline-01.min.js": "sha256-dc8ab7227c2fb690dda61defcbf803e3d92fabd1bd81091f927e4b33e7e76e81",
     "./commissions-by-person.js": "sha256-be5a134a46682bf83844a378a475e4e2c30f0530bbd8a7f26bf0164eefd15e9b",
     "./app-inline-02.min.js": "sha256-56226bd780b11cf95096f3fe742d7a46b59f4f0acac7d63327bac3821b0c9a5f",
     "./app-inline-03.min.js": "sha256-88ffb9d4a4b97ab846996554f74d4509ec16286a9af332cc69deba482b9ac505",
@@ -132,8 +132,8 @@
     "./app-style-02.min.css": "sha256-15d97398c75087b244017e4a728ca7e37fa0edab4d0e9d33668a937beeca6432",
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
-    "./dashboard-main.min.js": "sha256-6e3601907cd2b3b90f0bdaf4450049b1c6d570a2620b931c3bde8b40b15fbb3a",
+    "./dashboard-main.min.js": "sha256-8897d2cc9a3681168ee324858ce40da7fa5721dc71a39f266dd9e941589ce976",
     "./core/hechos-chain-readonly.js": "sha256-8fd607dca2a1622514da97dc356e6309f707c8406c50b50d7bb3b0d4d7b59814",
-    "./core/commission-history.js": "sha256-df942623438f79d8af965b3dab87ca9309452d338823640a181d15d4c019a381"
+    "./core/commission-history.js": "sha256-b4e3da681643cacac358e8f425c64c8f73890dd1b0c71b19bd82daab933f9fc5"
   }
 }
