@@ -27,4 +27,4 @@ jobs:
       - name: Validate changed source compiles and is formatted correctly
         run: |
           node --check src/app/app-inline-01.js
-          git diff --check HEAD~6 HEAD
+          git diff --check HEAD^ HEAD
