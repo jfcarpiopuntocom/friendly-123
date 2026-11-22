@@ -42,3 +42,11 @@ test('C195 Safari serializer normalizes an apostrophe without forcing repeated D
  assert.equal(s.writes,1,'browser innerHTML serialization must not break idempotent PIN paints');
  assert.match(s.html,/O&#39;Neil/);
 });
+
+test('C195 PIN label continues to HTML-escape remote business names',()=>{
+ const s=setup(true);
+ s.setName('<script>alert(1)</script>');
+ s.paint();
+ assert.doesNotMatch(s.html,/<script>/);
+ assert.match(s.html,/&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+});
