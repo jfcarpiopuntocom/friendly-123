@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.90",
+  "version": "v0.8.91",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.90 C202: arquitectura 2.0 para la tienda: el servidor 2.0 abre la sala aunque no tenga historia certificada y el primer aparato con el cuaderno completo la llena con su catalogo (Yjs suma, no borra). Clientes, PIN y dinero siguen en Sync3 cifrado.",
+  "changelog": "v0.8.91 Sync3: corrige concurrencia de activación 2.0, resguardo de opId durante failback y cierre de sesiones obsoletas; mantiene canal privado cifrado y la tienda existente.",
   "requerida": false,
-  "shell": "f123-shell-v890",
+  "shell": "f123-shell-v891",
   "apagar": [],
-  "releaseName": "v0.8.90",
-  "cacheGeneration": "golden426"
+  "releaseName": "v0.8.91",
+  "cacheGeneration": "golden427"
 }
