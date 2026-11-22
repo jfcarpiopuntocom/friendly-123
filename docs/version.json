@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.71",
+  "version": "v0.8.72",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.71 C177: Commissions no exhibe falso $0 con rango de fechas invertido en app/Dashboard y evita CSV inválido; exportación de texto CSV neutraliza fórmulas OWASP, preserva atribuciones C175 y protección de integridad Safari C176.",
+  "changelog": "v0.8.72 C179: CSV Commissions calcula índice de etiquetas una sola vez y evita búsquedas cuadráticas en desgloses grandes; conserva dinero, recibos y protección de integridad Safari C176/CSV OWASP C177.",
   "requerida": false,
-  "shell": "f123-shell-v871",
+  "shell": "f123-shell-v872",
   "apagar": [],
-  "releaseName": "v0.8.71",
-  "cacheGeneration": "golden407"
+  "releaseName": "v0.8.72",
+  "cacheGeneration": "golden408"
 }
