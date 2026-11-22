@@ -13,10 +13,19 @@
  function expiry(p){if(!p||!p.perecible)return null;const date=String(p.fechaCaducidad||''),m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(date);if(!m)return null;
   const d=new Date(Date.UTC(Number(m[1]),Number(m[2])-1,Number(m[3])));return d.getUTCFullYear()===Number(m[1])&&d.getUTCMonth()===Number(m[2])-1&&d.getUTCDate()===Number(m[3])?date:null;
  }
+ // Constructing Intl.DateTimeFormat once for EACH historical sale during
+ // Today's dashboard costs CPU and allocations on Chromium/Opera Air.
+ // Reuse at most eight formatters; changing zone retains exact date semantics.
+ const dayFormatters=new Map();
  function day(value,zone){
   if(/^\d{4}-\d{2}-\d{2}$/.test(String(value||'')))return expiry({perecible:true,fechaCaducidad:value})||'';
   const ms=Date.parse(value);if(!Number.isFinite(ms))return '';
-  try{const parts=new Intl.DateTimeFormat('en-CA',{timeZone:zone||'America/Guayaquil',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(ms));const get=k=>parts.find(p=>p.type===k).value;return get('year')+'-'+get('month')+'-'+get('day');}catch(_){return '';}
+  try{
+   const tz=zone||'America/Guayaquil';let formatter=dayFormatters.get(tz);
+   if(!formatter){formatter=new Intl.DateTimeFormat('en-CA',{timeZone:tz,year:'numeric',month:'2-digit',day:'2-digit'});if(dayFormatters.size>=8)dayFormatters.clear();dayFormatters.set(tz,formatter);}
+   const parts=formatter.formatToParts(new Date(ms));const get=k=>parts.find(p=>p.type===k).value;
+   return get('year')+'-'+get('month')+'-'+get('day');
+  }catch(_){return '';}
  }
  function margin(p){const price=finite(p&&p.precio),cost=finite(p&&p.costo);return price===null||cost===null?null:Math.round((price-cost)*100)/100;}
  function quantity(v){const n=finite(v);return n!==null&&n>0?n:null;}
