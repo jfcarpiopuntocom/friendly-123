@@ -77,3 +77,60 @@ test('C175: genuine replay and distinct sale IDs still count money once per rece
  assert.equal(x.groups.find(g=>g.id==='client-A').commission,20);
  assert.equal(x.groups.find(g=>g.id==='client-B').commission,20);
 });
+
+test('C175 RED: duplicate sale ID with absent promoter ID never credits arbitrary associate',()=>{
+ const first={...base,promotoraId:undefined,asociadoNombre:'Seller A'};
+ const second={...first,asociadoNombre:'Seller B'};
+ for(const sales of [[first,second],[second,first]]){
+  const x=report.project({sales,group:'comisionista',lang:'es'});
+  assert.equal(x.totals.conflicts,0);
+  assert.equal(x.totals.associateConflicts,1);
+  assert.equal(x.totals.commission,20);
+  assert.equal(x.groups.length,1);
+  assert.equal(x.groups[0].id,'__f123_comisionista_por_verificar__');
+  assert.equal(x.groups[0].commission,20);
+  const html=report.render({sales,group:'comisionista',lang:'es'});
+  assert.match(html,/importe conservado, comisionista por verificar/);
+  assert.doesNotMatch(html,/<strong[^>]*>Seller A<\/strong>|<strong[^>]*>Seller B<\/strong>/);
+  assert.equal(report.project({sales,group:'total'}).totals.commission,20);
+ }
+});
+
+test('C175: split without payee identifiers and changed names conserves amount in neutral associate bucket',()=>{
+ const first={...base,reparto:[
+  {rol:'vendedor',nombre:'Seller A',monto:12},
+  {rol:'asistente',nombre:'Helper A',monto:8}
+ ]};
+ const second={...first,reparto:[
+  {rol:'asistente',nombre:'Helper B',monto:8},
+  {rol:'vendedor',nombre:'Seller B',monto:12}
+ ]};
+ for(const sales of [[first,second],[second,first]]){
+  const x=report.project({sales,group:'comisionista',lang:'es'});
+  assert.equal(x.totals.conflicts,0,'role order does not alter money');
+  assert.equal(x.totals.splitConflicts,0);
+  assert.equal(x.totals.associateConflicts,1);
+  assert.equal(x.totals.commission,20);
+  assert.equal(x.groups.length,1);
+  assert.equal(x.groups[0].id,'__f123_comisionista_por_verificar__');
+  assert.equal(x.groups[0].commission,20);
+ }
+});
+
+test('C175: split stable payee IDs with cosmetic rename remain two authentic people',()=>{
+ const first={...base,reparto:[
+  {rol:'vendedor',promotoraId:'payee1',nombre:'Seller A',monto:12},
+  {rol:'asistente',promotoraId:'payee2',nombre:'Helper A',monto:8}
+ ]};
+ const second={...first,reparto:[
+  {rol:'asistente',promotoraId:'payee2',nombre:'Helper B',monto:8},
+  {rol:'vendedor',promotoraId:'payee1',nombre:'Seller B',monto:12}
+ ]};
+ const x=report.project({sales:[first,second],group:'comisionista'});
+ assert.equal(x.totals.conflicts,0);
+ assert.equal(x.totals.associateConflicts,0);
+ assert.equal(x.totals.commission,20);
+ assert.equal(x.groups.length,2);
+ assert.equal(x.groups.find(g=>g.id==='payee1').commission,12);
+ assert.equal(x.groups.find(g=>g.id==='payee2').commission,8);
+});
