@@ -30,7 +30,7 @@ test('storage failure safely defers rather than looping',()=>{
 test('PIN entry does not navigate; safe updater eventually does',()=>{
   const auth=fs.readFileSync(path.join(root,'docs/auth-ui.js'),'utf8');
   assert.doesNotMatch(auth.slice(auth.indexOf('function entrar(nuevoRol)'),auth.indexOf('const esDemo = nuevoRol')),/location\\.reload/);
-  assert.match(src.slice(src.indexOf('async function intentar()'),src.indexOf('function shellDelSW()')),/location\\.reload\\(\\)/);
+  assert.ok(src.slice(src.indexOf('async function intentar()'),src.indexOf('function shellDelSW()')).includes('location.reload()'));
 });
 test('el anillo de errores existe, es local y no muestra nada',()=>{
   assert.match(src,/f123_errores_log/);
