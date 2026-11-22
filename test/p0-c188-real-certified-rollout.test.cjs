@@ -100,3 +100,69 @@ test('C188 existing global S4 stays unchanged, only one hashed owner license has
  assert.match(items[0][1].frozenHead,/^[A-Za-z0-9_.:-]{3,128}$/);
  assert.doesNotMatch(JSON.stringify(conf),/F123-[A-Z0-9]{6}/);
 });
+
+
+test('C190: 2.0 tombstones allow safe resume after reload; no old-ledger duplicate and no queue erase',async()=>{
+ const rt=fs.readFileSync(path.join(__dirname,'../docs/sync-realtime.js'),'utf8');
+ function cut(a,b){const i=rt.indexOf(a),j=rt.indexOf(b,i);assert.ok(i>0&&j>i,a);return rt.slice(i,j);}
+ const functions=cut('  let _pausaArquitectura20 = null;','  function notificarEstado(');
+ const methods=cut('    async pausarParaArquitectura20(licencia) {','    resincronizar() {');
+ const factory=new Function('t',[
+  'const pending=t.queue;',
+  'const window={OCYjs:{codigoCuaderno:t.license,__port2DurableFenceAvailable:true,',
+  'crearAlmacenDurableOpsTipadas:async()=>{if(t.storeFail)throw Error("IDB");return {loadCommittedOpIds:async()=>t.committed}},',
+  'puedeDespacharOpEnLegado:async opId=>!t.committed.includes(opId)},addEventListener(name,fn){t.listeners[name]=fn}};',
+  'const document={get hidden(){return t.hidden}};',
+  'const codigoCuadernoActivo=()=>t.license;',
+  'const normalizarCodigo=x=>String(x||"").trim().toUpperCase();',
+  'const leerSala=()=>t.room;',
+  'const colaLargo=()=>pending.length;',
+  'const leerCola=()=>pending.slice();',
+  'const pendientesCanales={};',
+  'const notificarEstado=x=>t.states.push(x);',
+  'let estadoActual="conectado";',
+  'const cerrarWsExistente=()=>{t.closed++};',
+  'const conectar=()=>{t.connected++};',
+  'const reintentarDurable=()=>{t.retries++};',
+  'let _conexionGeneracion=0,reintentoMs=1000;',
+  functions,
+  'const control={'+methods+'};',
+  'return {control,can:puedeEnviarPorLegado,pending:tienePendientesDurables,getPause:()=>_pausaArquitectura20};'
+ ].join('\n'));
+ const mk=(changes={})=>({
+  license:'F123-SYNTH-OWNER',room:{codigo:'F123-SYNTH-OWNER'},
+  queue:[{opId:'abc123456789',_salaOrigen:'F123-SYNTH-OWNER'}],
+  committed:['abc123456789'],storeFail:false,hidden:false,
+  states:[],listeners:{},closed:0,connected:0,retries:0,...changes
+ });
+ // A DO-committed operation can remain in the OLD queue for audit.
+ const A=mk(),f=factory(A);
+ assert.deepEqual(await f.control.pausarParaArquitectura20(A.license),{ok:true});
+ assert.equal(f.pending(),false);
+ assert.equal(f.getPause(),A.license);
+ assert.equal(A.closed,1);
+ assert.equal(A.queue.length,1,'no queue deletion');
+ assert.equal(await f.can(A.queue[0]),false,'never transmit committed opId on old relay');
+ assert.deepEqual(f.control.reanudarDesdeArquitectura20(A.license),{ok:true});
+ assert.equal(A.connected,1);
+ assert.equal(A.queue.length,1);
+ // A fresh operation still awaiting the DO is not disposable.
+ const B=mk({committed:[]}),g=factory(B);
+ assert.deepEqual(await g.control.pausarParaArquitectura20(B.license),{ok:false});
+ assert.equal(B.closed,0);
+ assert.equal(g.pending(),true);
+ assert.equal(B.queue.length,1);
+ // Corrupt/unavailable IDB is a hard refusal, preserving the journal.
+ const C=mk({storeFail:true}),h=factory(C);
+ assert.deepEqual(await h.control.pausarParaArquitectura20(C.license),{ok:false});
+ assert.equal(C.queue.length,1);
+ // The receipt is emitted only after the reconciler atomically marks committed.
+ const D=mk({committed:[]}),q=factory(D);
+ D.listeners['oc-op-20-recibo']({detail:{committed:true,stage:'business-committed',opId:'abc123456789'}});
+ assert.equal(q.pending(),false);
+ assert.equal(D.queue.length,1);
+ // Actual old writer paths must consult the same durable same-DO fence.
+ assert.match(rt,/async function vaciarCola\(\)[\s\S]*?await puedeEnviarPorLegado\(op\)/);
+ assert.match(rt,/async function responderCatchup\(pedido\)[\s\S]*?await puedeEnviarPorLegado\(op\)/);
+ assert.match(rt,/cifrar\(claveActual, op\)\s*\.then\(async \(buf\) => \{\s*if \(!\(await puedeEnviarPorLegado\(op\)\)\) return;/);
+});
