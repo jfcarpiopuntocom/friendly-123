@@ -1,4 +1,4 @@
-name: C197 Opera Air hotpath source tests and exact v884 shell seal
+name: C197 Opera Air hotpath source tests and exact v885 shell seal
 on:
   push:
     branches: [port2/c197-opera-hotpath]
@@ -34,7 +34,7 @@ jobs:
           bash check-sw.sh
           node --check docs/sw.js
           git diff --check
-      - name: Commit generated v884 assets and immutable SHA manifest
+      - name: Commit generated v885 assets and immutable SHA manifest
         shell: bash
         run: |
           set -euo pipefail
@@ -42,6 +42,6 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/version-manifest.json docs/sw.js docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css
           if ! git diff --cached --quiet; then
-            git commit -m 'release(C197): seal Opera hotpath v884 with exact SHA256 shell'
+            git commit -m 'release(C197): seal Opera hotpath v885 with exact SHA256 shell'
             git push origin HEAD:port2/c197-opera-hotpath
           fi
