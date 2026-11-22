@@ -33,21 +33,6 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: C177 TEMP generated bundle diff probe (diagnostic only)
-        run: |
-          cp docs/app-inline-01.min.js /tmp/c177-committed.min.js
-          node scripts/build-app-entry.cjs
-          node - <<'NODE'
-          const fs=require('fs');
-          const a=fs.readFileSync('/tmp/c177-committed.min.js','utf8');
-          const b=fs.readFileSync('docs/app-inline-01.min.js','utf8');
-          let i=0,j=0;while(i<Math.min(a.length,b.length)&&a[i]===b[i])i++;
-          while(j<Math.min(a.length-i,b.length-i)&&a[a.length-1-j]===b[b.length-1-j])j++;
-          console.log('C177 diff length',a.length,b.length,'first',i,'trailing identical',j);
-          console.log('C177 EXPECTED',JSON.stringify(b.slice(Math.max(0,i-180),Math.min(b.length,b.length-j+220)).slice(0,1900)));
-          console.log('C177 COMMITTED',JSON.stringify(a.slice(Math.max(0,i-180),Math.min(a.length,a.length-j+220)).slice(0,1900)));
-          NODE
-          cp /tmp/c177-committed.min.js docs/app-inline-01.min.js
       - name: C123 exact remote receipt cold-open regression
         run: node --test test/c123-receipt-window-red.test.cjs
       - name: Release identity, immutable manifest and generated assets
