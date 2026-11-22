@@ -6651,7 +6651,17 @@ function selectorMesComisionesHtml(meses){
    acciones en una fila que envuelve en movil; debajo, solo si hace falta, la linea
    de meses sin pagar. Antes cada cosa ocupaba su propia linea y la UI estorbaba. */
 function barraComisionesHtml(meses, acciones){
-  const sel = selectorMesComisionesHtml(meses);
+  // Belén C166: total-first must do ONE authoritative sales read, not a
+  // simultaneous all-month ledger recalculation (Safari memory/crash risk).
+  // The operator can still pick ANY month explicitly to open payout actions.
+  const sel = _ocMesComisiones ? selectorMesComisionesHtml(meses) : {
+    control: '<label style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:8px;">'
+      +(document.documentElement.lang==="es"?"Liquidar mes":"Settle month")
+      +' <input type="month" data-commissions-open-month aria-label="'
+      +(document.documentElement.lang==="es"?"Liquidar mes":"Settle month")
+      +'" onchange="cambiarMesComisiones(this.value)" style="min-height:40px;border:2px solid #2C3E50;border-radius:6px;padding:4px 8px;max-width:180px;"></label>',
+    aviso: "",nota:""
+  };
   const filas = [sel.nota].filter(Boolean).map((x) => `<div style="margin-top:8px;">${x}</div>`).join("");
   return `<div class="tag-card" data-commissions-toolbar style="text-align:left;padding:10px 14px;margin:0 0 14px;">
     <div style="display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;">${sel.control}${_ocMesComisiones?sel.aviso:""}${_ocMesComisiones?selectorVistaComisionesHtml():selectorRangoComisionesGlobalHtml()}<div class="acciones">${acciones}</div></div>${filas}
@@ -7004,17 +7014,12 @@ async function cargarComisiones(){
   // Monthly payout, receipts, correction and commission ledger stay untouched.
   if (!_ocMesComisiones) {
     try {
-      // The actual sales endpoint is mandatory. Months merely populate the
-      // optional settlement selector: a months outage must not blank real money.
+      // One live sale-history read only. Monthly payout metadata invokes
+      // payout-core over every historical sale: never run it just to enter
+      // the TOTAL screen on an iPhone. It loads when a month is chosen.
       const sales = await fetch(`${API}/ventas/todas?ubicacionId=todas`)
         .then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();});
       if (!Array.isArray(sales)) throw Error("ventas-invalid");
-      // Never make live sales wait for the optional month index. This index
-      // can be costly in a large shop; show the authentic total immediately.
-      const monthsPromise = fetch(`${API}/liquidaciones/meses`)
-        .then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
-        .then(v=>Array.isArray(v)?v:[])
-        .catch(()=>[]);
 
       if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
       if (!window.OCCommissionHistory || !Array.isArray(sales)) throw Error("commission-history-not-loaded");
@@ -7026,16 +7031,8 @@ async function cargarComisiones(){
         lang:document.documentElement.lang==="es"?"es":"en"});
       const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
       if(cont)cont.innerHTML=barraComisionesHtml([],actions)+report;
-      // Months are a drill-down aid only. They may arrive later without
-      // changing the total, forcing a fresh sales request or losing data.
-      monthsPromise.then(months=>{
-        if(!cont || _run !== _ocComisionesSolicitud || _ocMesComisiones) return;
-        const bar=cont.querySelector("[data-commissions-toolbar]");
-        if(!bar)return;
-        const holder=document.createElement("div");
-        holder.innerHTML=barraComisionesHtml(months,actions);
-        if(holder.firstElementChild)bar.replaceWith(holder.firstElementChild);
-      });
+      // The chosen month still uses the existing settlement endpoints and
+      // its original payment, adjustments, receipts and roles. Nothing here writes.
       return;
     } catch(e) {
       if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
