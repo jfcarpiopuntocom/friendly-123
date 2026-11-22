@@ -423,6 +423,7 @@ window.F123YPartyPilot = function (sala, licencia) {
           const proveedor = canal.proveedor;
           if (!proveedor) return;
           canal.proveedor = null;
+          rutaEfectiva = 'local';
           proveedor.destroy();
           proveedor.awareness.destroy();
         },
@@ -465,7 +466,7 @@ window.F123YPartyPilot = function (sala, licencia) {
             params = createOwnerTicketParams({
               licenseCode:licencia,instanceId:instancia,room:sala+'-'+tipo,getCredentials
             });
-          } catch (_) { enRespaldo = true; usarRelayHabitual(); return; }
+          } catch (_) { enRespaldo = true; rutaEfectiva = 'relay-cifrado-legado'; usarRelayHabitual(); return; }
           const proveedor = new AuthorizedYProvider(host, sala + '-' + tipo, doc, {
             party:'tienda',params,disableBc:true,connect:false,
             maxBackoffTime:plazoReconectar
