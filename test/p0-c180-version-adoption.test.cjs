@@ -10,7 +10,7 @@ for (const file of ['src/app/app-inline-03.js','docs/app-inline-03.min.js']) {
   const from=start>=0?start:script.indexOf('(function(){if(!_ocActSolaOn');
   const to=end>from?end:script.indexOf('window.addEventListener("oc-datos-importados"',from);
   assert.ok(from>=0&&to>from,file+' updater source must exist');
-  const updater=script.slice(from,to).replace(/,\\s*$/, ';');
+  const updater=script.slice(from,to).replace(/,$/, ';');
   function fixture({durable=true,editing=false,matching=true,visible=false,recovering=false,pending=true}={}) {
     let calls=0,saves=0,now=100000;
     const session=new Map([['f123_sesion','1'],...(pending?[['f123_act_sola_pendiente','1']]:[])]);
