@@ -7016,6 +7016,30 @@ async function revisarComisionVenta(ventaId, promotoraId){
 let _ocComisionesSolicitud = 0;
 // C182: old Commissions card vocabulary, all-history data, no mandatory period.
 // The existing verified economic projector remains the ONLY arithmetic source.
+// C194 Safari P0: receipt breakdown is rendered only when the user expands a card.
+// This keeps the current Commissions cards and all-history money intact.
+function mostrarDetalleComisionesGlobal(card) {
+  if(!card||!card.open)return;
+  const cache=window._ocComHistoryRenderCache;
+  if(!cache||String(card.dataset.commissionsRun)!==String(cache.run))return;
+  const body=card.querySelector("[data-commissions-detail-body]");
+  if(!body)return;
+  const rows=cache.rowsByGroup.get(card.dataset.commissionsGroup)||[];
+  const from=Math.max(0,Math.min(rows.length,Number(body.dataset.count)||0));
+  const next=Math.min(rows.length,from+60);
+  if(next===from)return;
+  const previous=body.querySelector("[data-commissions-more-rows]");
+  if(previous)previous.remove();
+  body.insertAdjacentHTML("beforeend",rows.slice(from,next).map(function(v){
+    const money=(n)=>n===null||!Number.isFinite(n)?(cache.es?"Por verificar":"Needs review"):fmtMoney(n);
+    return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
+      +'<span>'+escHtml(v.day||v.id||"")+'</span>'
+      +'<span>'+money(v.commission)+'</span></div>';
+  }).join(""));
+  body.dataset.count=String(next);
+  if(next<rows.length)body.insertAdjacentHTML("beforeend",'<button type="button" class="tecla" data-commissions-more-rows onclick="mostrarDetalleComisionesGlobal(this.closest(\'details\'))" style="min-height:44px;">'
+      +(cache.es?"Ver más ventas":"Show more sales")+' ('+(rows.length-next)+')</button>');
+}
 function resumenComisionesGlobalHtml(sales){
   // Same Commissions visual components as before: tag-card, stats, rotulo, cifra.
   // Only the view changes; the source spans every sale, with no implicit month.
@@ -7034,10 +7058,20 @@ function resumenComisionesGlobalHtml(sales){
   const warnings=(totals.conflicts||totals.splitConflicts||totals.customerConflicts||totals.associateConflicts)
     ?'<p role="alert" style="font-size:14px;color:var(--rojo-ink,#a3392a);margin:8px 0;">'
       +(es?"Hay recibos o repartos por verificar.":"Some receipts or allocations need review.")+'</p>':"";
+  // O(sales) index rather than a full-history .filter for every card.
+  const rowsByGroup=new Map();
+  view.rows.forEach(function(v){
+    let list=rowsByGroup.get(v.group);
+    if(!list)rowsByGroup.set(v.group,list=[]);
+    list.push(v);
+  });
+  const lazyDetails=view.rows.length>120;
+  const renderRun=window._ocComHistoryRenderRun=(window._ocComHistoryRenderRun||0)+1;
+  window._ocComHistoryRenderCache={run:renderRun,es:es,rowsByGroup:rowsByGroup};
   const cards=view.groups.map(function(g){
     const associated=group==="comisionista";
-    const rows=view.rows.filter(function(v){return v.group===g.id;});
-    const details=rows.map(function(v){
+    const rows=rowsByGroup.get(g.id)||[];
+    const details=lazyDetails ? '<div data-commissions-detail-body data-count="0"></div>' : rows.map(function(v){
       return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
         +'<span>'+escHtml(v.day||v.id||"")+'</span>'
         +'<span>'+money(v.commission,v.commission===null)+'</span></div>';
@@ -7046,7 +7080,8 @@ function resumenComisionesGlobalHtml(sales){
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
         +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
         +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
-    return '<details data-comm-history-group class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
+    const deferred=lazyDetails?' data-commissions-group="'+escHtml(g.id)+'" data-commissions-run="'+renderRun+'" ontoggle="mostrarDetalleComisionesGlobal(this)"':'';
+    return '<details data-comm-history-group'+deferred+' class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
       +'<summary style="cursor:pointer;min-height:44px;">'
       +'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+'</strong>'
       +'<div class="stats" style="margin-top:8px;">'
