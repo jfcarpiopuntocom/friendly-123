@@ -399,6 +399,9 @@
   const listenersEstado = [];
   const pendientesCanales = Object.create(null);
   let _retryDurable = null;
+  // Volatile only. A crash/reload restores the existing room and local data.
+  // Never clear the room, business records or durable outbox during 2.0 handoff.
+  let _pausaArquitectura20 = null;
   function tienePendientesDurables() {
     return colaLargo() > 0 || Object.keys(pendientesCanales).some(k => pendientesCanales[k] > 0);
   }
@@ -434,7 +437,7 @@
   // conectar() SIEMPRE cierra lo que hubiera antes de abrir uno nuevo.
   let _conexionGeneracion = 0;
   function puedeConectarLegado() {
-    return !document.hidden; // JFC 2026-11-12: sin turno entre pestanas
+    return !document.hidden && !_pausaArquitectura20; // no old writer during certified 2.0 handoff
   }
   function cerrarWsExistente() {
     if (_dashboardBroadcast) { try { _dashboardBroadcast.close(); } catch (_) {} _dashboardBroadcast = null; }
@@ -1882,6 +1885,10 @@
           }
         }
       } catch (_) {}
+      // A deliberate owner action revokes any temporary 2.0 handoff.
+      // The existing C38 state observer will release the certified writer.
+      _pausaArquitectura20 = null;
+      notificarEstado("apagado");
       reintentoMs = 1000;
       intentosSeguidos = 0;
       // P0 v615: a JOIN must first select the destination notebook; connecting
@@ -2041,6 +2048,27 @@
     // "Resincronizar" (nunca "forzar" — asusta al usuario normal): salvavidas
     // raro para cuando alguien duda si esta sincronizado de verdad en plena
     // feria. Reconecta ya mismo, sin esperar el backoff normal.
+    pausarParaArquitectura20(licencia) {
+      const actual = codigoCuadernoActivo(), sala = leerSala();
+      if (_pausaArquitectura20) return { ok: _pausaArquitectura20 === actual && normalizarCodigo(licencia) === actual };
+      if (document.hidden || !actual || normalizarCodigo(licencia) !== actual ||
+          !sala || normalizarCodigo(sala.codigo) !== actual || tienePendientesDurables()) return { ok: false };
+      // Stop sockets, keep ROOM_KEY, all outbox records and local notebook intact.
+      _pausaArquitectura20 = actual;
+      ++_conexionGeneracion; // invalidate async connect/crypto completions
+      cerrarWsExistente();
+      notificarEstado("apagado");
+      return { ok: true };
+    },
+    reanudarDesdeArquitectura20(licencia) {
+      if (!_pausaArquitectura20 || normalizarCodigo(licencia) !== _pausaArquitectura20 ||
+          codigoCuadernoActivo() !== _pausaArquitectura20) return { ok: false };
+      _pausaArquitectura20 = null;
+      notificarEstado("apagado");
+      if (leerSala()) { reintentoMs = 1000; conectar(); }
+      reintentarDurable();
+      return { ok: true };
+    },
     resincronizar() {
       if (!leerSala()) return { ok: false, error: "Sync is not active on this device." };
       reintentoMs = 1000;
@@ -2054,7 +2082,7 @@
     // Refuerzo: expone si llevamos varios intentos seguidos sin exito, para
     // que la UI pueda avisar ("revisa el código") en vez de reintentar mudo.
     problemaPersistente() { return intentosSeguidos >= 6; },
-    salaActiva() { const s = leerSala(); return s ? s.codigo : null; },
+    salaActiva() { if (_pausaArquitectura20) return null; const s = leerSala(); return s ? s.codigo : null; },
     /* Version presentable del codigo de sala (TEAM-...). El valor interno no
        cambia: esto es solo para pintar y para compartir. */
     /* RELOJ LÓGICO PARA EL ROSTER (JFC 2026-08-26). mock-backend sella cada
