@@ -29,7 +29,8 @@ function fixture({estado='apagado',sala=null,pending=false,throws=false,withFaca
     ...(missingWatcher?{}:{onEstado(fn){listener=fn;}})
   };
   const window={
-    ...(withFacade?{OCSync:legacy}:{}),
+    // Production OCSync is the business adapter, never the transport state facade.
+    ...(withFacade?{OCSyncControl:legacy,OCSync:{estadoParaCheckpoint(){return {synthetic:true};}}}:{}),
     OCAuth:{rolActual:()=> 'dueno'}
   };
   let coordinator=null;
@@ -135,4 +136,30 @@ test('C38 RED: coordinator without activate20 cannot silently report business cu
   await assert.rejects(f.activate({activarDespachoComercial:true,rol:'dueno'}),
     /coordinator|activate|cutover|writer|available|certifi/i);
   assert.equal(f.API.modoCorte20Activo,false);
+});
+
+
+test('C188: CUTOVER reads the REAL OCSyncControl transport state, not the OCSync business adapter',async()=>{
+  const f=fixture({estado:'apagado',sala:null,pending:false});
+  const result=await f.activate({activarDespachoComercial:true,rol:'dueno'});
+  assert.equal(result.modoCorte20Activo,true);
+  assert.equal(f.watcherRegistered(),true);
+  f.setState({nextEstado:'conectado',nextSala:'F123-SYNTH-REAL'});
+  f.emitState();
+  assert.equal(f.API.modoCorte20Activo,false,'a revived old writer revokes the new writer');
+  assert.ok(f.trace.some(x=>x.startsWith('failback:')));
+});
+
+test('C188: explicit rollout frozenHead is passed through to the coordinator, without QA globals',async()=>{
+  const f=fixture();
+  f.API.rollout={frozenHead:'fb-certified-from-actual-license-rollout'};
+  let supplied=null;
+  f.API.crearCoordinadorCorte20=async(_doc,head)=>{
+    supplied=head;
+    const c={activate20:async()=>({ok:true}),failbackToLegacy:async()=>({ok:true}),destroy(){}};
+    f.API.coordinadorCorte20=c;
+    return c;
+  };
+  await f.activate({activarDespachoComercial:true});
+  assert.equal(supplied,'fb-certified-from-actual-license-rollout');
 });

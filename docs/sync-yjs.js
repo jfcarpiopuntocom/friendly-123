@@ -3247,18 +3247,13 @@
         // are separate writers. Require deliberate OFF plus a drained legacy
         // queue BEFORE activating the new business writer. This uses the
         // already shipped OCSync facade; no new transport or data migration.
-        var relayAnterior = window.OCSync;
-        // C33 QA may expose only the catalog/photo helper, with NO legacy
-        // emitter or socket at all. That is not a second commercial writer.
-        // A real installed legacy emitter OR any stateful relay always goes
-        // through the strict OFF/empty/onEstado gate below.
-        if (relayAnterior &&
-            typeof relayAnterior.estado !== "function" &&
-            typeof relayAnterior.salaActiva !== "function" &&
-            typeof window.OCSyncEmit !== "function") relayAnterior = null;
+        // The real legacy transport's status facade is OCSyncControl.
+        // OCSync is the BUSINESS catalog adapter, not a socket/outbox controller.
+        // Never certify a second writer against the wrong object.
+        var relayAnterior = window.OCSyncControl;
         function relayAnteriorApagadoYVacio() {
           if (!relayAnterior) return false; // no lazy-loading old writer may bypass observer
-          if (window.OCSync !== relayAnterior) return false;
+          if (window.OCSyncControl !== relayAnterior) return false;
           try {
             return typeof relayAnterior.estado === "function" &&
               relayAnterior.estado() === "apagado" &&
@@ -3287,7 +3282,8 @@
         }
         if (cortarComercio20 && !relayAnteriorApagadoYVacio())
           return rechazarDobleEscritor(API.coordinadorCorte20);
-        var head = opts.headCongelado || (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
+        var head = opts.headCongelado || (API.rollout && API.rollout.frozenHead) ||
+          (typeof headCongeladoQa === "string" ? headCongeladoQa : null);
         var coord = await API.crearCoordinadorCorte20(API.doc, head, opts);
         if ((API.__authEpoch20 || 0) !== authEpochInicial) return rechazarCambioAuth(coord);
         var activacion = null;

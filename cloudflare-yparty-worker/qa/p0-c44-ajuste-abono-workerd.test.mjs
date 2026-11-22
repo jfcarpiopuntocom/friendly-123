@@ -162,7 +162,7 @@ function mountConnectedRuntime({bridgeFetch, indexedDB}) {
     location: {origin: ORIGIN, href: ORIGIN + '/'},
     OCAuth: {rolActual: () => 'dueno'},
     OCSecure: {leerPinQueAbre: () => ({owner: '123', team: null})},
-    OCSync: {
+    OCSyncControl: {
       estado: () => 'apagado',
       salaActiva: () => null,
       durabilidadPendiente: () => false,
