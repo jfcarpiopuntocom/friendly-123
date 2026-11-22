@@ -58,7 +58,7 @@ test('C174: fechaLocal calendar-only dates remain immutable, app and dashboard c
  assert.equal(report.project({sales:[local]}).rows[0].day,'2026-11-20');
  const app=fs.readFileSync(path.join(root,'src/app/app-inline-01.js'),'utf8');
  const dash=fs.readFileSync(path.join(root,'src/dashboard/dashboard-main.js'),'utf8');
- assert.match(app,/OCCommissionHistory\.render\(\{sales:sales/);
+ assert.match(app,/OCCommissionHistory\.project\(\{sales:sales,group:group,lang:/,'global Commissions continues to use exact shared business-zone projector');
  assert.match(app,/OCCommissionHistory\.project\(\{sales,from:/);
  assert.match(dash,/lang:es\?"es":"en",zone:zonaNegocioDashboard\(\)/);
 });
