@@ -6627,7 +6627,7 @@ function cambiarRangoComisionesGlobal(tipo, valor){
 }
 function selectorRangoComisionesGlobalHtml(){
   const es=document.documentElement.lang==="es";
-  const group=window._ocComHistoryGroup||"producto";
+  const group=["producto","percha","cliente","comisionista","mes"].includes(window._ocComHistoryGroup)?window._ocComHistoryGroup:"producto";
   const opciones=[["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
     ["cliente",es?"Cliente":"Customer"],["comisionista",es?"Comisionista":"Associate"],["mes",es?"Período":"Period"]];
   return '<div role="tablist" aria-label="'+(es?"Ver comisiones por":"View commissions by")+
