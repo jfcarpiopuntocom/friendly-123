@@ -32,4 +32,5 @@ test('C195 joined PIN label: keeps sync notice and updated name without repeated
  assert.equal(s.writes,1);
  assert.match(s.html,/Mi tienda/);assert.match(s.html,/••••GHIJ/);
  s.setName('idiomARTE');s.paint();assert.equal(s.writes,2);
+ for(let i=0;i<100;i++)s.paint();assert.equal(s.writes,2,'settled team name must stay stable through later merges');
 });
