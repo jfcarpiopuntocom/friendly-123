@@ -7054,7 +7054,7 @@ function resumenComisionesGlobalHtml(sales){
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
         +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
         +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
-    return '<details data-comm-history-group'+(productId?' data-comm-history-product="'+escHtml(productId)+'"':'')
+    return '<details data-comm-history-group'+(productId?' data-comm-product-card data-product-id="'+escHtml(productId)+'"':'')
       +' class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
       +'<summary style="cursor:pointer;min-height:44px;">'
       +'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+'</strong>'
