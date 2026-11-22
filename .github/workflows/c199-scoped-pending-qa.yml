@@ -1,0 +1,22 @@
+name: C199 same-license pending, foreign outbox preserved
+on:
+  push:
+    branches:
+      - port2/c199-preserve-cross-license-pending-fix
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-executed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Actual scoped outbox source, preserved ACK and handoff
+        run: |
+          node --check docs/sync-realtime.js
+          node --test test/p0-c199-scope-pending-by-license.test.cjs
+          git diff --check
