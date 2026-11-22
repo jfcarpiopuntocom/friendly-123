@@ -1,0 +1,48 @@
+name: C168 Safari boot single SW update and v864 release seal
+on:
+  push:
+    branches:
+      - fix/c168-safari-single-sw-update-on-load
+permissions:
+  contents: write
+jobs:
+  build-and-verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/c168-safari-single-sw-update-on-load
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Restore exact repository dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Real Safari startup and money projection regressions
+        run: |
+          node --require ./test/helpers/sin-red-produccion.cjs --test \
+            test/p0-c168-safari-sw-register-no-duplicate-update.test.cjs \
+            test/p0-c166-commissions-total-first.test.cjs \
+            test/p0-belen-commissions-all-dates.test.cjs \
+            test/p0-c151-single-payee-commission.test.cjs
+      - name: Build exactly the official runtime assets and verify shell
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/build-dashboard-entry.cjs
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+      - name: Seal reproducible assets only to this isolated branch
+        run: |
+          set -euo pipefail
+          git config user.name "friendly-123 release seal"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/app-inline-*.min.js docs/app-style-*.min.css docs/dashboard-main.min.js docs/dashboard-main.min.css docs/version-manifest.json docs/sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m "build(C168): deterministic Safari startup assets v864"
+            git push origin HEAD:refs/heads/fix/c168-safari-single-sw-update-on-load
+          fi
