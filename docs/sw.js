@@ -259,6 +259,11 @@ function broadcastActualizacion() {
 }
 
 self.addEventListener("install", (evento) => {
+  // C167 Safari P0: even 3 cache.add and 4 crypto.digest ArrayBuffers overlap
+  // with WebContent script startup on iPhone. Serialize those *iOS* jobs;
+  // retain the entire offline shell, SHA validation and desktop throughput.
+  const iosMemoryGuard = /iPhone|iPad|iPod/i.test(String(
+    (self.navigator && self.navigator.userAgent) || ""));
   // PRECACHE RESILIENTE (JFC 2026-07-22) — NO volver a cache.addAll(SHELL).
   // addAll es ATÓMICO: si UN archivo del SHELL falla (renombrado, 404, o un
   // timeout de red en el móvil durante la instalación), TODO el precache se
@@ -287,7 +292,7 @@ self.addEventListener("install", (evento) => {
           }
         };
         const corredores = [];
-        for (let i = 0; i < 3 && i < SHELL.length; i++) corredores.push(precargarUno());
+        for (let i = 0; i < (iosMemoryGuard ? 1 : 3) && i < SHELL.length; i++) corredores.push(precargarUno());
         return Promise.all(corredores).then(() => resultados);
       }).then((resultados) => {
         const esenciales = new Set(["./index.html", "./aislamiento.js", "./estado-ab.js", "./estado-idb.js", "./mock-backend.js", "./auth-ui.js", "./peer-sync.js", "./sync-yjs.js", "./version-manifest.json"]);
@@ -338,7 +343,7 @@ self.addEventListener("install", (evento) => {
                 return verificarRel(pendientes[idx]).then(correrLote, correrLote);
               };
               const workers = [];
-              for (let w = 0; w < 4 && w < pendientes.length; w++) workers.push(correrLote());
+              for (let w = 0; w < (iosMemoryGuard ? 1 : 4) && w < pendientes.length; w++) workers.push(correrLote());
               return Promise.allSettled(workers).catch(() => {});
             }).catch(() => {});
           })).catch(() => {});
