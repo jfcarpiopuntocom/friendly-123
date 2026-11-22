@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.70",
+  "version": "v0.8.71",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.70 C176: Safari nunca activa un shell nuevo cuando un archivo esencial sigue con SHA incorrecto tras reintentar, conserva el SW previo y los datos, y mantiene C175 Commissions.",
+  "changelog": "v0.8.71 C177: Commissions no exhibe falso $0 con rango de fechas invertido en app/Dashboard y evita CSV inválido; exportación de texto CSV neutraliza fórmulas OWASP, preserva atribuciones C175 y protección de integridad Safari C176.",
   "requerida": false,
-  "shell": "f123-shell-v870",
+  "shell": "f123-shell-v871",
   "apagar": [],
-  "releaseName": "v0.8.70",
-  "cacheGeneration": "golden406"
+  "releaseName": "v0.8.71",
+  "cacheGeneration": "golden407"
 }
