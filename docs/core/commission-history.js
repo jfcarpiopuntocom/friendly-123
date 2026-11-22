@@ -66,6 +66,10 @@
     return JSON.stringify([
       keyDay(v.fechaLocal||v.fecha,zone),String(v.productoId||v.productoNombre||""),
       String(v.ubicacionId||v.ubicacionNombre||""),String(v.promotoraId||""),
+      // Customer is an attribution identity in the grouped commission view:
+      // if two replays share a receipt ID but disagree on payee/customer,
+      // fail closed instead of crediting whichever copy arrived first.
+      String(v.clienteId||v.clienteNombre||""),
       finite(v.cantidad),finite(v.precioUnit),finite(v.comisionAsociado),
       finite(v.split&&v.split.montoComisionSocio),finite(v.netoCasa),
       !!v.noCommission,!!v.anulada,!!v.cancelled,!!v.borrado,
