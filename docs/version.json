@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.69",
+  "version": "v0.8.70",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.69 C175: Commissions detecta identidades distintas de cliente en copias de una misma venta, conserva la comisión real y marca cliente por verificar en desgloses, sin atribución arbitraria.",
+  "changelog": "v0.8.70 C176: Safari nunca activa un shell nuevo cuando un archivo esencial sigue con SHA incorrecto tras reintentar, conserva el SW previo y los datos, y mantiene C175 Commissions.",
   "requerida": false,
-  "shell": "f123-shell-v869",
+  "shell": "f123-shell-v870",
   "apagar": [],
-  "releaseName": "v0.8.69",
-  "cacheGeneration": "golden405"
+  "releaseName": "v0.8.70",
+  "cacheGeneration": "golden406"
 }
