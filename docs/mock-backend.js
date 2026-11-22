@@ -3576,8 +3576,12 @@
      venta), igual que Commissions. Devuelve las VENTAS originales devueltas hoy. */
   function devolucionesHoyDe(uid) {
     const hoy = hoyISO();
-    return ajustesComision.filter((a) => a && a.tipo === "devolucion" && fechaLocalDe(a.fecha) === hoy && (!uid || uid === "todas" || a.ubicacionId === uid))
-      .map((a) => ventas.find((v) => v.id === a.ventaId)).filter(Boolean);
+    const ajustesHoy = ajustesComision.filter((a) => a && a.tipo === "devolucion" && fechaLocalDe(a.fecha) === hoy && (!uid || uid === "todas" || a.ubicacionId === uid));
+    if (!ajustesHoy.length) return [];
+    // First sale wins, exactly like ventas.find, but no O(returns × all sales).
+    const porId = new Map();
+    ventas.forEach((v) => { if (!porId.has(v.id)) porId.set(v.id, v); });
+    return ajustesHoy.map((a) => porId.get(a.ventaId)).filter(Boolean);
   }
   function ventasHoyDe(uid) { const hoy = hoyISO(); return ventasActivas().filter((v) => fechaLocalDe(v.fecha, v.relojDesfaseMs) === hoy && (!uid || uid === "todas" || v.ubicacionId === uid)); }
   // Multi-usuario (2026-07-07): cada movimiento captura automaticamente
@@ -7491,7 +7495,24 @@
        try {
         const ps = filtrar(uid), vh = ventasHoyDe(uid), dh = devolucionesHoyDe(uid);
         const dailyReader = window.OCBusinessReadModel;
-        const dailyProjection = dailyReader ? dailyReader.daily(ventasActivas().filter(v => !uid || uid === "todas" || v.ubicacionId === uid).map(v => ({...v,fechaLocal:fechaLocalDe(v.fecha,v.relojDesfaseMs),fechaDevolucion:v.fechaDevolucion || (ajustesComision.find(a => a && (a.id === v.devolucionId || (a.tipo === "devolucion" && a.ventaId === v.id))) || {}).fecha})),hoyISO(),ZONA) : null;
+        // C197: the old projection did ajustesComision.find() for EVERY historical sale.
+        // A large notebook incurred O(sales × adjustments) main-thread work and
+        // allocated a new date formatter per sale inside business-read-model.day().
+        // Preserve first-match semantics, including explicit devolucionId overrides.
+        const ajustesPorId = new Map(), devolucionesPorVenta = new Map();
+        if (dailyReader) ajustesComision.forEach((a, index) => {
+          if (!a) return;
+          if (!ajustesPorId.has(a.id)) ajustesPorId.set(a.id, { index, ajuste: a });
+          if (a.tipo === "devolucion" && !devolucionesPorVenta.has(a.ventaId))
+            devolucionesPorVenta.set(a.ventaId, { index, ajuste: a });
+        });
+        const fechaDevolucionIndexed = (v) => {
+          if (v.fechaDevolucion) return v.fechaDevolucion;
+          const byId = ajustesPorId.get(v.devolucionId), byVenta = devolucionesPorVenta.get(v.id);
+          const winner = byId && (!byVenta || byId.index <= byVenta.index) ? byId : byVenta;
+          return winner ? winner.ajuste.fecha : undefined;
+        };
+        const dailyProjection = dailyReader ? dailyReader.daily(ventasActivas().filter(v => !uid || uid === "todas" || v.ubicacionId === uid).map(v => ({...v,fechaLocal:fechaLocalDe(v.fecha,v.relojDesfaseMs),fechaDevolucion:fechaDevolucionIndexed(v)})),hoyISO(),ZONA) : null;
         const entra = dailyProjection ? dailyProjection.entra : vh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.precioUnit * v.cantidad, 0); // B6
         const sale = dailyProjection ? dailyProjection.sale : vh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0) - dh.reduce((a, v) => a + v.costoUnit * v.cantidad, 0);
         const inv = ps.some(p => !window.OCBusinessReadModel.stock(p).known) ? null : ps.reduce((a, p) => a + p.precio * p.stockActual, 0);
@@ -7508,8 +7529,10 @@
         const hace7dias = new Date(hoyISO()).getTime() - 6 * 86400000; // Fix-8: ZONA-aware boundary, not UTC epoch
         const vSemana = ventasActivas().filter((v) => new Date(v.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || v.ubicacionId === uid));
         // B6: las devoluciones de la semana (por la fecha del ajuste) restan.
-        const devSemana = ajustesComision.filter((a) => a && a.tipo === "devolucion" && new Date(a.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || a.ubicacionId === uid))
-          .map((a) => ventas.find((v) => v.id === a.ventaId)).filter(Boolean);
+        const ajustesDevSemana = ajustesComision.filter((a) => a && a.tipo === "devolucion" && new Date(a.fecha).getTime() >= hace7dias && (!uid || uid === "todas" || a.ubicacionId === uid));
+        const ventasPorIdSemana = new Map();
+        if (ajustesDevSemana.length) ventas.forEach((v) => { if (!ventasPorIdSemana.has(v.id)) ventasPorIdSemana.set(v.id, v); });
+        const devSemana = ajustesDevSemana.map((a) => ventasPorIdSemana.get(a.ventaId)).filter(Boolean);
         const entraSemana = vSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0) - devSemana.reduce((a, v) => a + v.precioUnit * v.cantidad, 0);
         /* AVISO PREVIO DE REBAJA (benchmark #3, 2026-09-25): productos con stock cuya
            rebaja por antiguedad cambia en 3 dias o menos. Campo APARTE de alertas para
