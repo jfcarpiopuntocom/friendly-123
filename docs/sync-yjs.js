@@ -967,7 +967,8 @@
         if (result.kind === "ckpt" && result.ok !== true && result.conflict !== true)
           diagnosticarCkpt("checkpoint-rpc-ack-failed", 0);
         if (result.ok !== true && !(result.kind === "ckpt" && result.conflict === true)) { programarDurable(); return; }
-        var beforeRetirement = null, retirados = [], absCerrada = null;
+        var beforeRetirement = null, retirados = [], absCerrada = null, reparacionConfirmada = false;
+        var capaConfirmada = String((canal.ws && canal.ws.relayLayer) || "local");
         return mutarOutbox(function () {
           beforeRetirement = { pending: _outbox.pending.slice(), confirmed: _outbox.confirmed.slice(), checkpoint: _outbox.checkpoint };
           var entry = _outbox.pending.find(function (x) { return x.id === result.id && x.k === result.kind; });
@@ -978,6 +979,8 @@
             completed = _outbox.pending.filter(function (x) { return x.group === entry.group; });
             if (!completed.every(function (x) { return _groupAcks.has(x.id); })) return;
           }
+          // A fragmented full-state repair is complete only after the last sibling ACK.
+          if (entry.rep && result.ok === true && completed.every(function (x) { return !!x.rep; })) reparacionConfirmada = true;
           _outbox.pending = _outbox.pending.filter(function (x) { return !completed.includes(x); });
           if (entry.abs && result.ok === true && _absorcion && _absorcion.hasta === entry.abs.hasta) {
             absCerrada = _absorcion;
@@ -993,6 +996,18 @@
             // Wall clocks do not prove fragment coverage; keep legacy orphan evidence for recovery/export.
           }
         }).then(function () {
+          if (reparacionConfirmada) {
+            try {
+              var llave = "f123_huecos_v1:" + HUECOS_ROOM + suffix;
+              var marcas = JSON.parse(localStorage.getItem(llave) || "{}") || {};
+              marcas[capaConfirmada] = Date.now();
+              localStorage.setItem(llave, JSON.stringify(marcas));
+            } catch (_) {}
+            try {
+              var aviso = window.__ocCheckpointError;
+              if (aviso && aviso.canal === nombre && aviso.motivo === "snapshot-over-limit") diagnosticarCkpt(null, 0);
+            } catch (_) {}
+          }
           if (absCerrada && _absorcion === absCerrada) _absorcion = null;
           if (retirados.length) {
             var marca = absCerrada;
@@ -1660,14 +1675,15 @@
        en fotos. Limitador: una vez por capa cada 7 dias por aparato (localStorage); sin poder guardarlo, no se publica.
        PARA REVERTIR: borrar la llamada en hacerCkpt y esta funcion. */
     var HUECOS_PERIODO_MS = 7 * 86400000, HUECOS_MAX_BYTES = 12 * 1024 * 1024;
+    var HUECOS_ROOM = String(API.roomId || "");
     function repararHuecosServidor(full) {
-      if (nombre === "fotos" || _soloMemoria || _cupoRechazado || !full || !canal.ws || canal.ws.peerOnly || canal.ws.readyState !== 1) return;
+      if (nombre === "fotos" || !HUECOS_ROOM || _soloMemoria || _cupoRechazado || !full || !canal.ws || canal.ws.peerOnly || canal.ws.readyState !== 1) return;
       if (full.length > HUECOS_MAX_BYTES) { try { log("reparacion de huecos omitida: estado de " + full.length + "B en " + nombre); } catch (_) {} return; }
       if (_outbox.pending.concat(_unsaved).some(function (x) { return x.rep; })) return;
-      var capa = String(canal.ws.relayLayer || "local"), llave = "f123_huecos_v1" + suffix, previo = {};
+      var capa = String(canal.ws.relayLayer || "local"), llave = "f123_huecos_v1:" + HUECOS_ROOM + suffix, previo = {};
       try { previo = JSON.parse(localStorage.getItem(llave) || "{}") || {}; } catch (_) { previo = {}; }
       if (previo[capa] && Date.now() - previo[capa] < HUECOS_PERIODO_MS) return;
-      previo[capa] = Date.now();
+      // Check that cooldown metadata is writable, but do not start a seven-day cooldown before durable ACK.
       try { localStorage.setItem(llave, JSON.stringify(previo)); } catch (_) { return; }
       try { log("rellenando huecos de historia en el servidor (" + full.length + "B) en " + nombre); } catch (_) {}
       publicar(0, full, true, null, true);
