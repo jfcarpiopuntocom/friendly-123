@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.71",
+  "version": "v0.8.72",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.71 C177: Commissions no exhibe falso $0 con rango de fechas invertido en app/Dashboard y evita CSV inválido; exportación de texto CSV neutraliza fórmulas OWASP, preserva atribuciones C175 y protección de integridad Safari C176.",
+  "changelog": "v0.8.72 C179 Safari P0: Service Worker sólo reclama pestañas después de limpiar cachés antiguas del mismo canal, dentro de waitUntil; conserva C176 SRI esencial, C177 Commissions/CSV y todos los datos.",
   "requerida": false,
-  "shell": "f123-shell-v871",
+  "shell": "f123-shell-v872",
   "apagar": [],
-  "releaseName": "v0.8.71",
-  "cacheGeneration": "golden407"
+  "releaseName": "v0.8.72",
+  "cacheGeneration": "golden408"
 }
