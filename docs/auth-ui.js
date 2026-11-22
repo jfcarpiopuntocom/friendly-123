@@ -939,7 +939,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           + (sinSincronizar ? '<div style="margin-top:6px;font-size:12px;color:var(--gold,#9c7a35);">'
             + _esc(window.t("sync.panel.joined", "Joined. This device is now syncing with the team."))
             + '</div>' : '');
-        if (el.innerHTML !== html) el.innerHTML = html;
+        // Compare the source markup, not DOM innerHTML serialization (Safari normalizes entities).
+        if (el._ocGateMarkup !== html) { el.innerHTML = html; el._ocGateMarkup = html; }
         if (el.style.display !== "block") el.style.display = "block";
       };
       /* LICENCIA A LA QUE UNO SE UNE, en el candado (JFC 2026-09-08, pedido de
