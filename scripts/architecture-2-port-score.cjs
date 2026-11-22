@@ -10,7 +10,8 @@ function inspect(){
  const data=load('docs/engineering/architecture-2-port-score.json');
  const quality=load('docs/engineering/architecture-2-quality-score.json');
  // C126 preserves all C115 guards while advancing the live, source-backed score.
- const isC166=quality.latestReview?.id==='C166';
+ const isC171=quality.latestReview?.id==='C171';
+ const isC166=isC171||quality.latestReview?.id==='C166';
  const isC164=isC166||quality.latestReview?.id==='C164';
  const isC162=isC164||quality.latestReview?.id==='C162';
  const isC160=isC162||quality.latestReview?.id==='C160';
@@ -29,8 +30,8 @@ function inspect(){
  const isC130=isC132||quality.latestReview?.id==='C130';
  const isC128=isC130||quality.latestReview?.id==='C128';
  const isC126=isC128||quality.latestReview?.id==='C126';
- const currentQuality=isC166?83.6:(isC164?83.5:(isC162?83.4:(isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7))))))))))))))))));
- const currentDurability=isC166?19.7:(isC164?19.6:(isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1)))));
+ const currentQuality=isC171?83.7:(isC166?83.6:(isC164?83.5:(isC162?83.4:(isC160?83.3:(isC158?83.2:(isC156?83.1:(isC154?83.0:(isC152?82.9:(isC150?82.8:(isC148?82.7:(isC144?82.6:(isC142?82.5:(isC140?82.4:(isC138?82.3:(isC134?82.2:(isC132?82.1:(isC130?82.0:(isC128?81.9:(isC126?81.8:81.7)))))))))))))))))));
+ const currentDurability=isC171?19.8:(isC166?19.7:(isC164?19.6:(isC154?19.5:(isC140?19.4:(isC134?19.3:(isC126?19.2:19.1))))));
  const currentMigration=isC128?8.3:8.2;
  const currentSync=isC132?16.3:(isC130?16.2:16.1);
  if(isC130){
@@ -88,6 +89,19 @@ function inspect(){
   assert(src.includes('accumulate(tot,"gross","unknownGross",gross)'));
   assert.equal((isC144?quality.auditTrail?.find(r=>r.id==='C142'):quality.latestReview)?.sourceSha,'05f5b094bf5ebae313ffd464e33bbb2d54a1b3ef');
  }
+ if(isC171){
+  const qa=fs.readFileSync(path.join(root,'test/p0-c170-outbox-cross-tab-fallback.test.cjs'),'utf8');
+  const src=fs.readFileSync(path.join(root,'docs/sync-outbox.js'),'utf8');
+  assert(qa.includes('delayed older IDB commit must NOT erase newer fallback'));
+  assert(qa.includes('unchanged OLD fallback still retired'));
+  assert(qa.includes('matching duplicate fallback may be retired'));
+  assert(src.includes('var fallbackAntes = null'));
+  assert(src.includes('fallbackActual === fallbackAntes || fallbackActual === blobCifrado'));
+  assert(src.includes('if (currentFallback) return currentFallback'));
+  assert.equal(quality.latestReview?.sourceSha,'b7d00c39a8173d5808674a5aaf68a8eab63eb1fe');
+  assert.equal(quality.latestReview?.evidence?.[0]?.pr,1004);
+  assert.equal(quality.dimensions.find(d=>d.id==='physical')?.score,0);
+ }
  if(isC166){
   const sw=fs.readFileSync(path.join(root,'docs/sw.js'),'utf8');
   const qa=fs.readFileSync(path.join(root,'test/p0-c165-safari-bounded-shell-precache.test.cjs'),'utf8');
@@ -101,7 +115,7 @@ function inspect(){
     && sw.includes('for (let i = 0; i < (iosMemoryGuard ? 1 : 3) && i < SHELL.length; i++) corredores.push(precargarUno())');
   assert(boundedDesktop || boundedIOS,'SW precache must be bounded (<=3 desktop and <=1 Safari iPhone)');
   assert(sw.includes('Precarga de arranque incompleta; preservar shell anterior'));
-  assert.equal(quality.latestReview?.sourceSha,'fd65842dda72d66dd1c64f00fdc1b1231513d9b4');
+  assert.equal((isC171?quality.auditTrail?.find(r=>r.id==='C166'):quality.latestReview)?.sourceSha,'fd65842dda72d66dd1c64f00fdc1b1231513d9b4');
  }
  if(isC164){
   const qa=fs.readFileSync(path.join(root,'test/p0-c163-outbox-fallback-freshness.test.cjs'),'utf8');
@@ -1545,7 +1559,7 @@ function inspect(){
   totals[e.dimension]=oneDecimal((totals[e.dimension]||0)+e.delta);
  }
  for(const d of quality.dimensions){
-  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC166?0.9:(isC164?0.8:(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3)))))):0)+(d.id==='business'?(isC162?0.8:(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1))))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
+  assert.equal(oneDecimal(d.score-d.previous),oneDecimal((totals[d.id]||0)+(d.id==='sync'?(isC132?0.3:(isC130?0.2:0.1)):0)+(d.id==='durability'?(isC171?1.0:(isC166?0.9:(isC164?0.8:(isC154?0.7:(isC140?0.6:(isC134?0.5:(isC126?0.4:0.3))))))):0)+(d.id==='business'?(isC162?0.8:(isC152?0.7:(isC150?0.6:(isC148?0.5:(isC144?0.4:(isC142?0.3:(isC138?0.2:0.1))))))):0)+(d.id==='photos'?(isC160?0.3:(isC158?0.2:(isC156?0.1:0))):0)+(d.id==='migration'&&isC128?0.1:0)),'C106+C109+C110+C115 quality improvement requires independently audited evidence '+d.id);
  }
  assert.equal(c106.qaDeployment.trafficPercent,100,'C106 frozen QA version must be exact and documented');
  assert.equal(c106.qaDeployment.bindingsVerified,15);
