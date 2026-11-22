@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: npm ci
       - name: Execute actual production render coordinator against 500 Sync3 merges
         run: |
