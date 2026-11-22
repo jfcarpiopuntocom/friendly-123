@@ -60,7 +60,8 @@ test('C182 product cards expand their receipt breakdown without a forced calenda
  assert.match(html,/<details data-comm-history-group/);
  assert.match(html,/<summary[^>]*>/);
  assert.match(html,/class="stats"/);
- assert.match(html,/2026-10-12/);
- assert.match(html,/2026-11-12/);
+ assert.match(html,/data-comm-details data-loaded="0"/,"receipt rows are mounted on expand");
+ assert.match(html,/ontoggle="if\(this.open\)mostrarDetalleComisiones/);
+ assert.doesNotMatch(html,/2026-10-12|2026-11-12/,"collapsed cards render no receipt nodes on Safari");
  assert.doesNotMatch(html,/type="date"|type="month"/);
 });
