@@ -7564,7 +7564,13 @@ async function exportarComisionesTotalCSV(){
       to,group:window._ocComHistoryGroup||"total",
       lang:document.documentElement.lang==="es"?"es":"en"});
     if(report.invalidRange)throw Error("commissions-invalid-date-range");
-    const csvValue=v=>{const t=String(v==null?"":v);return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;};
+    const csvValue=(v,i)=>{
+      let t=String(v==null?"":v);
+      // C176 OWASP ASVS V1.2.10: text columns cannot become spreadsheet formulas.
+      // The two right-hand monetary columns retain their legitimate numeric signs.
+      if(i<3&&/^(?:[\s\u200B\uFEFF]*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20]|[\t\r\n])/u.test(t))t="\t"+t;
+      return /[",\n\r\t]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t;
+    };
     const rows=[["Fecha","Venta ID","Grupo","Ventas brutas","Comision registrada"]];
     report.rows.forEach(v=>{const g=report.groups.find(x=>x.id===v.group);rows.push([v.day,v.id,g?g.label:"",
       v.gross===null?"":v.gross.toFixed(2),v.commission===null?"":v.commission.toFixed(2)]);});
@@ -7591,7 +7597,12 @@ async function exportarComisionesCSV(){
   // Shell 371: el CSV exporta el MISMO mes que se esta viendo.
   const porProducto = agruparVentasPorProducto(ventasTodas, true, _ocMesComisiones, true);
   if ((!Array.isArray(filas) || !filas.length) && !porProducto.length) { alert("No commissions to export yet."); return; }
-  const esc = (s) => { s = String(s == null ? "" : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const esc = (s) => {
+    s=String(s==null?"":s);
+    // Monthly CSV also contains externally named products, racks and payees.
+    if(/^(?:[\s\u200B\uFEFF]*[=+\-@\uFF1D\uFF0B\uFF0D\uFF20]|[\t\r\n])/u.test(s))s="\t"+s;
+    return /[",\n\r\t]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;
+  };
   const cab = ["Rack","Commissionist/Artist/Promoter","Monthly sales","Associate %","Associate takes","House %","House keeps","Status"];
   const filasCSV = filas.map(f => [
     esc(f.ubicacion), esc(f.promotorNombre || ""),
