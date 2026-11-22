@@ -108,6 +108,8 @@ test("E2 Chromium: SW update NEVER navigates in-app; PIN screen adopts with Upda
     function onMsg(e){if(e.data?.tipo==='shell-actual'){if(!complete){complete=true;clearTimeout(timer);navigator.serviceWorker.removeEventListener('message',onMsg);resolve(e.data.shell===expected)}}}
     navigator.serviceWorker.addEventListener('message',onMsg);c.postMessage({tipo:'que-shell'});
   }),shellNext,{timeout:30000});
+  mark("wait for the real controllerchange / update-pending event");
+  await p.waitForFunction(()=>sessionStorage.getItem('f123_act_sola_pendiente')==='1',null,{timeout:15000});
   mark("confirm working app stays on old document");
   const inside=await p.evaluate(async()=>({
     result:await window._ocActSola.intentar(),
@@ -131,7 +133,8 @@ test("E2 Chromium: SW update NEVER navigates in-app; PIN screen adopts with Upda
     sessionStorage.setItem("e2-logged-out","1");
     sessionStorage.removeItem("f123_sesion");
     document.getElementById("oc-gate").style.display="flex";
-    void window._ocActSola.intentar();
+    // The real MutationObserver on the PIN gate must trigger adoption.
+
   });
   await navigation;
   await p.waitForFunction(n=>Number(sessionStorage.getItem("e2-loads"))===n+1,initial,{timeout:15000});
