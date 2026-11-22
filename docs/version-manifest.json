@@ -3,7 +3,7 @@
   "shell": "f123-shell-v887",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-d78696d604d86e697379682e18f9bb2a17dff7ea50dce4bcf5ba6e13a3e4cd81",
+    "./index.html": "sha256-9b0c3f7d16c547ad0a1e854784963749c23878ed229e7953ab81513be8277165",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
@@ -131,6 +131,7 @@
     "./app-style-01.min.css": "sha256-0e8363b32f380e597a3bc269b47d80dc100e11f6b2cc55989226c3f7be744cad",
     "./app-style-02.min.css": "sha256-15d97398c75087b244017e4a728ca7e37fa0edab4d0e9d33668a937beeca6432",
     "./app-style-03.min.css": "sha256-72d68b58556cb47c0ebddec4be69f93120f2c910bc65d9c135ce90ff8a74039b",
+    "./ui2.css": "sha256-3fcf329924b1b5cb56eb02d48b9bb3c60927b7df0018b1d244f0e121aef3f309",
     "./dashboard-main.min.css": "sha256-8f4fa18f993df4f420a903715c1d342d50f850a6fd395beb510fc138ad087046",
     "./dashboard-main.min.js": "sha256-e866b32c4c81820fb806373aa3e9d2e8fe77e3d57bc0176a90fcca5f6099dd37",
     "./core/hechos-chain-readonly.js": "sha256-8fd607dca2a1622514da97dc356e6309f707c8406c50b50d7bb3b0d4d7b59814",

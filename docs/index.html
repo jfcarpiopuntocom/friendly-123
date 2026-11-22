@@ -43,6 +43,11 @@
      si. Tambien coordina dos pestanas de la misma app. Si se mueve mas abajo,
      otros scripts leen/escriben sin namespace y el aislamiento se rompe. -->
 <script src="./aislamiento.js"></script>
+<!-- C203 UI 2.0 (orden JFC 22 nov 2026): capa SOLO visual en ui2.css, ENCENDIDA por defecto desde v0.8.89 (JFC: "Las dos ya").
+     ?ui=2 la enciende y ?ui=1 la apaga; se recuerda en localStorage "f123_ui".
+     <meta name="f123-ui-default" content="2"> la enciende por defecto (solo la demo de Hugging Face).
+     Corre en el head para que no haya parpadeo; nunca toca datos. -->
+<script>(function(){try{var m=/[?&]ui=([12])(?:&|$)/.exec(location.search),k="f123_ui";if(m)localStorage.setItem(k,m[1]);var d=document.querySelector('meta[name="f123-ui-default"]'),v=localStorage.getItem(k)||(d&&d.content)||"2";if(v==="2")document.documentElement.classList.add("ui2");}catch(_){}})();</script>
 <script>
 /* Las rutas historicas de canario y rewind permanecen fuera de indexacion. */
 (function(){
@@ -146,6 +151,8 @@
 <link rel="stylesheet" href="./app-style-02.min.css">
 <!-- app-style-03 (FAB Daily Summary / modal): antes estaba a mitad del body y bloqueaba el render; v599 lo sube al head. -->
 <link rel="stylesheet" href="./app-style-03.min.css">
+<!-- C203 UI 2.0: reglas solo bajo html.ui2 (apagada por defecto). -->
+<link rel="stylesheet" href="./ui2.css">
 <link rel="preload" as="image" href="./img/logo-720.png">
 </head>
 <body>
