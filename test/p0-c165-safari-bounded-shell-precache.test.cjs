@@ -6,7 +6,7 @@ const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'../docs/sw.js'),'utf8');
 const shellDecl=source.match(/const SHELL = \[[\s\S]*?\];/);
 const start=source.indexOf('self.addEventListener("install",');
-const end=source.indexOf('self.addEventListener("activate",start);
+const end=source.indexOf('self.addEventListener("activate",',start);
 assert.ok(shellDecl&&start>0&&end>start,'use actual SW shell and install handler');
 const runCode=shellDecl[0]+'\n'+source.slice(start,end);
 async function simulatedInstall(failPath){
