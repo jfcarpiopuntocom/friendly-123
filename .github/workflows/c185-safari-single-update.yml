@@ -1,0 +1,43 @@
+name: C185 Safari one SW upgrade per startup
+on:
+  push:
+    branches: [fix/c185-single-sw-upgrade-safari]
+  pull_request:
+    branches: [master]
+permissions:
+  contents: read
+jobs:
+  focused:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: RED on exact predecessor source (duplicate install is reproduced)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp src/app/app-inline-03.js /tmp/c185-current-source.js
+          git show 11b854406e770d39d7629059620ceaf07ba510f8:src/app/app-inline-03.js > src/app/app-inline-03.js
+          if node --test test/p0-c185-single-sw-check.test.cjs > /tmp/c185-red.log 2>&1; then
+            cat /tmp/c185-red.log
+            echo 'Expected RED on v875 but got GREEN' >&2
+            exit 1
+          fi
+          cat /tmp/c185-red.log
+          cp /tmp/c185-current-source.js src/app/app-inline-03.js
+      - name: GREEN C185 and prior PIN-only contracts (original source)
+        run: |
+          node --test test/p0-c185-single-sw-check.test.cjs test/p0-c180-version-adoption.test.cjs test/v607-invisible-auto-update.test.cjs
+      - name: Build real public bundle and verify source + manifest
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          bash check-sw.sh
+          node --test test/p0-c185-single-sw-check.test.cjs test/p0-c180-version-adoption.test.cjs test/v607-invisible-auto-update.test.cjs
