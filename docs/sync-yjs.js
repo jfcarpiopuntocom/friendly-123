@@ -1003,10 +1003,6 @@
               marcas[capaConfirmada] = Date.now();
               localStorage.setItem(llave, JSON.stringify(marcas));
             } catch (_) {}
-            try {
-              var aviso = window.__ocCheckpointError;
-              if (aviso && aviso.canal === nombre && aviso.motivo === "snapshot-over-limit") diagnosticarCkpt(null, 0);
-            } catch (_) {}
           }
           if (absCerrada && _absorcion === absCerrada) _absorcion = null;
           if (retirados.length) {
