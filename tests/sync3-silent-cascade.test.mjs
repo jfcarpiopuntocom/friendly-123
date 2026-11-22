@@ -45,3 +45,24 @@ test('next operation tries A again',async()=>{
   ready=true;
   assert.equal((await cascade.publish({opId:'sale_87654321'})).route,'A');
 });
+
+test('hung A is bounded and cannot send same sale to B', async () => {
+  let backupCalls=0,aborted=false;
+  const cascade=createSilentTransportCascade({timeoutMs:25,routes:[
+    route('A',async (_op,signal) => {
+      signal.addEventListener('abort',()=>{aborted=true;},{once:true});
+      return new Promise(()=>{});
+    }),
+    route('B',async()=>{backupCalls++;return {stage:'definitively-not-sent'};})
+  ]});
+  const result=await cascade.publish({opId:'sale_timeout_12345'});
+  assert.equal(result.stage,'commit-unverified');
+  assert.equal(result.retryTarget,'same-authority-only');
+  assert.equal(result.confirmed,false);
+  assert.equal(backupCalls,0);
+  assert.equal(aborted,true);
+});
+
+test('invalid route timeout rejected',()=>{
+  assert.throws(()=>createSilentTransportCascade({timeoutMs:0,routes:[route('A',async()=>{})]}),/timeoutMs/);
+});
