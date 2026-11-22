@@ -18,6 +18,7 @@ export function createSilentTransportCascade({routes, timeoutMs = 5000}={}) {
         throw new TypeError('valid opId required');
       for (const route of routes) {
         let receipt;
+        let timedOut = false;
         const controller = new AbortController();
         let timer;
         try {
@@ -25,8 +26,9 @@ export function createSilentTransportCascade({routes, timeoutMs = 5000}={}) {
             Promise.resolve().then(() => route.send(operation, controller.signal)),
             new Promise(resolve => {
               timer = setTimeout(() => {
-                controller.abort();
+                timedOut = true;
                 resolve({stage:'commit-unverified'});
+                controller.abort();
               }, timeoutMs);
             })
           ]);
@@ -36,6 +38,8 @@ export function createSilentTransportCascade({routes, timeoutMs = 5000}={}) {
         } finally {
           clearTimeout(timer);
         }
+        if (timedOut) return Object.freeze({confirmed:false, route:null, opId:operation.opId,
+          stage:'commit-unverified', retryTarget:'same-authority-only'});
         if (receipt?.ack === true && receipt.opId === operation.opId &&
             receipt.authority === authority && receipt.durable === true)
           return Object.freeze({confirmed:true, route:route.name, opId:operation.opId, receipt});
