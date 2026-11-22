@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.84",
+  "version": "v0.8.85",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.84 C197: Opera Air Today dashboard replaces quadratic historic return searches with indexed lookups and reuses bounded Intl date formatters. No money/PIN/Sync3 behavior change.",
+  "changelog": "v0.8.85 C198: Opera Air historical dashboard avoids quadratic return lookups, redundant sale ledgers and deep serialization; reuse bounded date formatters without changing business semantics.",
   "requerida": false,
-  "shell": "f123-shell-v884",
+  "shell": "f123-shell-v885",
   "apagar": [],
-  "releaseName": "v0.8.84",
-  "cacheGeneration": "golden420"
+  "releaseName": "v0.8.85",
+  "cacheGeneration": "golden421"
 }
