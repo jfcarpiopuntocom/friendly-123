@@ -7004,10 +7004,16 @@ async function cargarComisiones(){
   // Monthly payout, receipts, correction and commission ledger stay untouched.
   if (!_ocMesComisiones) {
     try {
-      const [sales, months] = await Promise.all([
-        fetch(`${API}/ventas/todas?ubicacionId=todas`).then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();}),
-        fetch(`${API}/liquidaciones/meses`).then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
-      ]);
+      // The actual sales endpoint is mandatory. Months merely populate the
+      // optional settlement selector: a months outage must not blank real money.
+      const sales = await fetch(`${API}/ventas/todas?ubicacionId=todas`)
+        .then(r=>{if(!r.ok)throw Error("ventas-http");return r.json();});
+      if (!Array.isArray(sales)) throw Error("ventas-invalid");
+      const months = await fetch(`${API}/liquidaciones/meses`)
+        .then(r=>{if(!r.ok)throw Error("meses-http");return r.json();})
+        .then(v=>Array.isArray(v)?v:[])
+        .catch(()=>[]);
+
       if (_run !== _ocComisionesSolicitud || _ocMesComisiones) return;
       if (!window.OCCommissionHistory || !Array.isArray(sales)) throw Error("commission-history-not-loaded");
       // Keep the existing people-management form live in BOTH period modes.
