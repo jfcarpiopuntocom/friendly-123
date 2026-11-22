@@ -59,6 +59,7 @@ jobs:
           export F123_V606_SYNC_FILE=/tmp/f123_v606_sync_yjs.js
           node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "${TESTS[@]}"
       - name: Push generated JS and SHA256 release manifest
+        shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
