@@ -57,7 +57,7 @@ test('C182: the app defaults to product cards across all dates, dashboard still 
  const app=read('src/app/app-inline-01.js');
  const dash=read('src/dashboard/dashboard-main.js');
  assert.match(app,/\["producto","percha","cliente","comisionista","mes"\]/);
- assert.match(app,/_ocComHistoryGroup\|\|"producto"/);
+ assert.match(app,/\["producto","percha","cliente","comisionista","mes"\]\.includes\(window\._ocComHistoryGroup\)/);
  assert.match(app,/\[\["producto",es\?"Producto"/);
  assert.match(dash,/cmGrupo = "total"/);
  assert.match(app,/data-commissions-open-month/,'monthly settlement remains available on demand');
