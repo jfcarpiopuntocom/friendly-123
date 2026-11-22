@@ -19,6 +19,23 @@
     }
     return fmt;
   }
+  // C174: the app and its CSV omit the zone argument while Dashboard passes
+  // the authenticated business zone explicitly. Share the same browser default
+  // without changing persisted timestamps, money or calendar-only dates.
+  function businessZone(explicit){
+    if(explicit)return explicit;
+    if(typeof window!=="undefined"&&window){
+      try {
+        var stored=window.localStorage&&window.localStorage.getItem("f123_timezone");
+        if(stored)return stored;
+      }catch(_){}
+      try {
+        var current=window.Intl&&window.Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if(current)return current;
+      }catch(_){}
+    }
+    return "America/Guayaquil";
+  }
   function keyDay(value,zone){
     if(!value)return "";
     // A business calendar date has no UTC conversion: Ecuador local Nov 21 stays Nov 21.
@@ -66,7 +83,7 @@
     var group=views.indexOf(input.group)>=0?input.group:"total";
     var from=/^\d{4}-\d{2}-\d{2}$/.test(input.from||"")?input.from:"";
     var to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"";
-    var lang=input.lang==="es"?"es":"en",zone=input.zone||"America/Guayaquil";
+    var lang=input.lang==="es"?"es":"en",zone=businessZone(input.zone);
     var all=Array.isArray(input.sales)?input.sales:[];
     var rows=[],tot={count:0,cancelled:0,conflicts:0,splitConflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
     var groups=new Map(),seen=new Set(),firstById=new Map(),conflictingIds=new Set();
