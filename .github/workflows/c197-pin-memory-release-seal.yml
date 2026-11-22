@@ -8,7 +8,9 @@ permissions:
   contents: write
 jobs:
   build-and-test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -37,6 +39,24 @@ jobs:
           bash check-sw.sh
           node --test test/p0-c197-pin-sync-render-pressure.test.cjs
           git diff --check
+      - name: Official P0 regression selection (same release-control contract)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 82952a84958641010c48bfbee6aab80007ba12e9
+          git show 82952a84958641010c48bfbee6aab80007ba12e9:docs/sync-yjs.js > /tmp/f123_v607_sync_yjs.js
+          git fetch --no-tags --depth=1 origin 7e51ed51560d6138866dae98e4a01ff1772db51c
+          git show 7e51ed51560d6138866dae98e4a01ff1772db51c:docs/sync-yjs.js > /tmp/f123_v606_sync_yjs.js
+          npm install --no-save --prefix /tmp/f123-c197-idb fake-indexeddb@6.2.5 --ignore-scripts --no-audit --no-fund
+          node .claude/check-inline.cjs docs/index.html
+          BASE="$(git rev-parse origin/master)"
+          mapfile -t TESTS < <(node scripts/p0-hotfix-tests.cjs "$BASE" HEAD)
+          test "${#TESTS[@]}" -gt 0
+          printf 'C197 exact-head P0 suite: %s files\n' "${#TESTS[@]}"
+          export NODE_PATH=/tmp/f123-c197-idb/node_modules
+          export F123_V607_SYNC_FILE=/tmp/f123_v607_sync_yjs.js
+          export F123_V606_SYNC_FILE=/tmp/f123_v606_sync_yjs.js
+          node --require ./test/helpers/sin-red-produccion.cjs --test --test-concurrency=2 --test-timeout=120000 "${TESTS[@]}"
       - name: Push generated JS and SHA256 release manifest
         run: |
           set -euo pipefail
