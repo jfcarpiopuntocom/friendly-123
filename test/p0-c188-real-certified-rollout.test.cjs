@@ -156,11 +156,21 @@ test('C190: 2.0 tombstones allow safe resume after reload; no old-ledger duplica
  const C=mk({storeFail:true}),h=factory(C);
  assert.deepEqual(await h.control.pausarParaArquitectura20(C.license),{ok:false});
  assert.equal(C.queue.length,1);
- // The receipt is emitted only after the reconciler atomically marks committed.
+ // A forged/premature DOM receipt cannot erase an uncommitted movement.
  const D=mk({committed:[]}),q=factory(D);
- D.listeners['oc-op-20-recibo']({detail:{committed:true,stage:'business-committed',opId:'abc123456789'}});
- assert.equal(q.pending(),false);
- assert.equal(D.queue.length,1);
+ const receipt={detail:{committed:true,stage:'business-committed',opId:'abc123456789'}};
+ D.listeners['oc-op-20-recibo'](receipt);
+ assert.equal(q.pending(),true,'event alone cannot certify durable data');
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(q.pending(),true,'IDB without tombstone keeps op pending');
+ assert.equal(D.queue.length,1,'failed certification leaves original queue intact');
+ // After the same-DO tombstone is actually readable, the op is replay-fenced.
+ D.committed.push('abc123456789');
+ D.listeners['oc-op-20-recibo'](receipt);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(q.pending(),false,'confirmed durable op is excluded from legacy retry');
+ assert.equal(await q.can(D.queue[0]),false);
+ assert.equal(D.queue.length,1,'audit record remains intact');
  // Actual old writer paths must consult the same durable same-DO fence.
  assert.match(rt,/async function vaciarCola\(\)[\s\S]*?await puedeEnviarPorLegado\(op\)/);
  assert.match(rt,/async function responderCatchup\(pedido\)[\s\S]*?await puedeEnviarPorLegado\(op\)/);
