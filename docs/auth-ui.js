@@ -1095,7 +1095,20 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   try { window.addEventListener("oc-negocio-actualizado", function () { try { pintarNegocioGate(); } catch (_) {} }); } catch (_) {}
   // A store reload or cross-tab merge may hydrate the canonical shop name without
   // emitting oc-negocio-actualizado; repaint the PIN label from the active notebook.
-  try { window.addEventListener("oc-sync-merge", function () { try { pintarNegocioGate(); } catch (_) {} }); } catch (_) {}
+  // C194: during a cold encrypted catch-up, thousands of merge events can
+  // compete with the PIN keypad and rebuild the gate's HTML repeatedly.
+  // Repaint the business label at most once per short burst; credential
+  // validation and the separate waiting-PIN event retain their own handler.
+  let negocioGateRepintadoPendiente = false;
+  function solicitarRepintadoNegocioGate() {
+    if (negocioGateRepintadoPendiente) return;
+    negocioGateRepintadoPendiente = true;
+    setTimeout(function () {
+      negocioGateRepintadoPendiente = false;
+      try { pintarNegocioGate(); } catch (_) {}
+    }, 120);
+  }
+  try { window.addEventListener("oc-sync-merge", solicitarRepintadoNegocioGate); } catch (_) {}
   // v769: the same merge event also checks a PIN typed before the device was ready (see pinEnEspera below validar).
   try { window.addEventListener("oc-sync-merge", function () { try { revisarPinEnEspera(); } catch (_) {} }); } catch (_) {}
 
