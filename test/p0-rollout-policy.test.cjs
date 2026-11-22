@@ -32,7 +32,10 @@ test('gzip writer requires full device census, minimum shell and signoff',async(
 });
 test('checked-in commercial policy (JFC 2026-11-21) enables S4 for all, disables gzip and contains no plain license',()=>{
  assert.equal(config.stage,'all');assert.equal(config.allOutboxV2,true);assert.equal(config.allApproved,true);
- assert.ok(Object.values(config.licenses).every(x=>x.yparty!==true),'YParty 2.0 stays off until its privacy bridge is certified');
+ const selected=Object.values(config.licenses).filter(x=>x.yparty===true);
+ assert.equal(selected.length,1,'2.0 can be enabled only for the established JFC owner entry');
+ assert.match(selected[0].frozenHead,/^[A-Za-z0-9_.:-]{3,128}$/);
+ assert.ok(Object.values(config.licenses).every(x=>x.gzipWrite===false));
  assert.ok(Object.values(config.licenses).every(x=>x.gzipWrite===false));
  assert.doesNotMatch(JSON.stringify(config),/F123-[A-Z0-9]+-/);
 });
