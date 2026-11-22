@@ -1,0 +1,22 @@
+name: C200 P0 cold PIN dashboard initialization source QA
+on:
+  push:
+    branches:
+      - p0/c200-post-login-initial-dashboard-only
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  source-executed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Cold PIN, restored session, logout and concurrent login
+        run: |
+          node --check src/app/app-inline-01.js
+          node --test test/p0-c200-initial-dashboard-after-auth.test.cjs
+          git diff --check
