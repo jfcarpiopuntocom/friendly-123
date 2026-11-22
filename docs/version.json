@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.65",
+  "version": "v0.8.66",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.65 C169 Commissions: muestra primero Total de comisiones real como cifra principal, luego ventas brutas y número de ventas. Conserva todos los desgloses optativos, recibos y Safari C168.",
+  "changelog": "v0.8.66 C170 P0: una pestaña no borra el respaldo de cola cifrada más reciente escrito por otra durante un commit IndexedDB anterior. Conserva Commissions, Safari C168 y las transacciones existentes.",
   "requerida": false,
-  "shell": "f123-shell-v865",
+  "shell": "f123-shell-v866",
   "apagar": [],
-  "releaseName": "v0.8.65",
-  "cacheGeneration": "golden401"
+  "releaseName": "v0.8.66",
+  "cacheGeneration": "golden402"
 }
