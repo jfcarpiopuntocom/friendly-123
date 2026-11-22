@@ -138,9 +138,27 @@
   }
   const stable=v=>v&&typeof v==='object'?Array.isArray(v)?'['+v.map(stable).join(',')+']':'{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stable(v[k])).join(',')+'}':JSON.stringify(v);
   function unique(records,kind,relevant){
+   // C198: ordinary journals have unique op/receipt IDs. The former path
+   // allocated one array AND stable-serialized every record on every render,
+   // including 100,000 distinct historical sales with no possible conflict.
+   // Only materialize a group and compare its canonical bytes for ACTUAL repeats.
    const groups=new Map(),result=[];
-   for(const v of records||[]){if(!v)continue;if(v.id==null||v.id===''){result.push(v);continue;}const k=String(v.id),g=groups.get(k)||[];g.push(v);groups.set(k,g);}
-   groups.forEach(g=>{if(g.some(v=>stable(v)!==stable(g[0]))){if(g.some(relevant)){warnings.add('conflicting-'+kind);if(kind==='sale')saleConflict=true;else if(kind==='expense')expenseConflict=true;else adjustmentConflict=true;}return;}result.push(g[0]);});return result;
+   for(const v of records||[]){
+    if(!v)continue;
+    if(v.id==null||v.id===''){result.push(v);continue;}
+    const k=String(v.id),g=groups.get(k);
+    if(!g){groups.set(k,{first:v,repeats:null});continue;}
+    if(!g.repeats)g.repeats=[g.first];
+    g.repeats.push(v);
+   }
+   groups.forEach(g=>{
+    if(g.repeats&&g.repeats.some(v=>stable(v)!==stable(g.first))){
+     if(g.repeats.some(relevant)){warnings.add('conflicting-'+kind);if(kind==='sale')saleConflict=true;else if(kind==='expense')expenseConflict=true;else adjustmentConflict=true;}
+     return;
+    }
+    result.push(g.first);
+   });
+   return result;
   }
   const sales=unique(input.sales,'sale',v=>inScope(v)&&saleRelevant(v));
   for(const v of sales){
