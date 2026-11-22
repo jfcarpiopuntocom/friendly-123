@@ -76,23 +76,8 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
       localStorage.setItem(K, v);
       return;
     }
-    /* ANTI-LOOP ROBUSTO (JFC 2026-08-28, sistema de integridad de versión):
-       si el deploy está a medias o la red devuelve algo raro, no queremos un
-       bucle infinito de recargas. Se guarda la versión ANTES de recargar (ya
-       existía) y además un contador con timestamp: si se recarga más de 3
-       veces en 30s, se para y se deja la app como está (mejor servir algo que
-       recargar sin fin). */
-    const KI = "f123_version_intento";
-    try {
-      const ahora = Date.now();
-      const it = JSON.parse(localStorage.getItem(KI) || "null");
-      if (it && (ahora - it.ts) < 30000) {
-        if (it.n >= 3) { localStorage.setItem(K, v); return; } // tope: no más recargas
-        it.n += 1; it.ts = ahora; localStorage.setItem(KI, JSON.stringify(it));
-      } else {
-        localStorage.setItem(KI, JSON.stringify({ n: 1, ts: ahora }));
-      }
-    } catch (_) {}
+    // The PIN-only adoption path uses a per-shell loop guard instead of
+    // a count/time-based quota that could strand a device on an old version.
     localStorage.setItem(K, v);
     try { const regs = await navigator.serviceWorker.getRegistrations(); for (const g of regs) { try { await g.update(); } catch (_) {} } } catch (_) {}
     // Solo activate del SW retira caches anteriores; update() no confirma una instalacion completa.
@@ -188,26 +173,14 @@ function _recargarSeguroVersion() {
   } catch (_) {}
 })();
 
-/* ACTUALIZACION SOLA (v492, DECISION MAYOR DE JFC 2026-10-13: "es detestable hacerles a los
-   de friendly-123 tener que reenganchar"). Antes la version nueva se cargaba SOLO al proximo
-   login; un cliente con la sesion abierta nunca volvia a escribir su PIN y se quedaba en la
-   version vieja hasta reenganchar. Ahora:
-   - cada 10 min, al volver a la app y 20 s despues de abrirla se pregunta al servidor que
-     version esta publicada y al service worker cual sirve (mensaje "que-shell");
-   - si difieren, se baja la nueva y queda pendiente la recarga;
-   - la recarga ocurre sola en un MOMENTO SEGURO: app en segundo plano o 90 s sin tocarla,
-     sin ventanas abiertas, sin campo con el cursor, sin venta en curso y con la sesion
-     abierta (la sesion se conserva: entra solo, sin PIN).
-   - anti-bucle: como maximo una recarga automatica por version cada 10 minutos.
-   NO BORRAR. Para desactivar: poner _ocActSolaOn = false. */
+/* C181: al detectar una version nueva, el SW puede actualizarse mientras
+   se trabaja, pero el documento SOLO navega desde la pantalla visible del PIN.
+   No hay limite artificial de esperas ni recargas por intervalo; cada shell
+   puede adoptarse una vez para evitar bucles de cache. */
 const _ocActSolaOn = true;
 (function actualizacionSola() {
   if (!_ocActSolaOn || !("serviceWorker" in navigator)) return;
   const KA = "f123_autorecarga";
-  let ultimoToque = Date.now();
-  ["pointerdown", "keydown", "touchstart", "input"].forEach(function (ev) {
-    window.addEventListener(ev, function () { ultimoToque = Date.now(); }, { passive: true, capture: true });
-  });
   // Bandera PROPIA: solo la pone revisar() tras confirmar con el service worker que sirve otra
   // version. No se usa f123_reload_al_entrar porque el piso de version la marca en cada carga
   // (compara "f123-shell-vN" contra el nombre de cache con -goldenN y nunca coincide).
@@ -215,18 +188,23 @@ const _ocActSolaOn = true;
   function pendiente() { try { return sessionStorage.getItem(KP) === "1"; } catch (_) { return false; } }
   // offsetParent es null en elementos position:fixed (los overlays): se mide con getClientRects.
   function visible(el) { try { return !!(el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0); } catch (_) { return false; } }
-  function seguro() { return seguroCon(false); }
+  function enPantallaPIN() {
+    try {
+      const gate = document.getElementById("oc-gate");
+      return !!(gate && gate.style.display !== "none" && visible(gate));
+    } catch (_) { return false; }
+  }
+  // C181: the PIN screen is the ONLY automatic navigation boundary.
+  // Once authenticated inside the working app, never reload automatically.
+  function seguro() { return enPantallaPIN() && seguroCon(false); }
   function seguroCon(sinRecuperacion) {
     try {
-      if (!sessionStorage.getItem("f123_sesion")) return false;            // sin sesion: lo resuelve el login
       // Never auto-reload while a notebook still needs local IDB recovery or
       // peer history replay. A SW update is not permission to interrupt money.
       if (!sinRecuperacion && recuperacionPendiente()) return false;
-      const gate = document.getElementById("oc-gate");
-      if (gate && gate.style.display !== "none") return false;            // tecleando el PIN
       if (visible(document.getElementById("oc-modal-overlay"))) return false;
       if (visible(document.getElementById("oc-comision-overlay"))) return false;
-      if (document.getElementById("vi-cliente")) return false;            // panel de venta abierto
+      if (visible(document.getElementById("vi-cliente"))) return false; // venta abierta
       // P0 #614: pressing Add removes input focus, but neither an unfinished
       // customer form nor a pending strict ACK may be destroyed by a SW reload.
       if (window.__f123AltaClientePendiente ||
@@ -235,8 +213,6 @@ const _ocActSolaOn = true;
           (document.getElementById("cliEmail") || {}).value) return false;
       if ([...document.querySelectorAll(".oc-vs-editor")].some(function (e) { return e.style.display === "block"; })) return false;
       if ([...document.querySelectorAll('[role="dialog"]')].some(visible)) return false;
-      const a = document.activeElement;
-      if (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return false;
       if (typeof _ventasEnCurso !== "undefined" && _ventasEnCurso.size) return false;
       if (typeof _carritoVenta !== "undefined" && _carritoVenta.length) return false;
       if (typeof _sellando !== "undefined" && _sellando) return false;
@@ -313,34 +289,58 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
-  // C180: close the update loop only after durable commit and new SW takeover.
-  // KA records one navigation per target shell, not an arbitrary annoyance quota.
+  // C181: actual adoption is allowed at PIN only, never inside the operating app.
+  // KA prevents same-shell navigation loops; later new shells remain eligible.
   let recargando = false;
-  async function guardarDuradero() {
+  function mostrarSplashActualizando() {
     try {
-      const sync = window.OCSync;
-      return !!(sync && typeof sync.confirmarCatalogoDurable === "function" &&
-        (await sync.confirmarCatalogoDurable()) === true);
-    } catch (_) { return false; }
+      if (!enPantallaPIN()) return null;
+      const root = document.body || document.documentElement;
+      if (!root) return null;
+      const layer = document.createElement("div");
+      layer.id = "f123-update-splash";
+      layer.setAttribute("role", "status");
+      layer.setAttribute("aria-live", "polite");
+      layer.style.cssText = "position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:#0F1923;color:#FFF8E8;padding:24px;text-align:center;font-family:system-ui,-apple-system,sans-serif";
+      layer.innerHTML = '<style>@keyframes f123UpdatingSpin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#f123-update-ring{animation:none!important}}</style>' +
+        '<div style="display:flex;align-items:center;flex-direction:column;gap:18px;max-width:320px">' +
+        '<div id="f123-update-ring" aria-hidden="true" style="width:52px;height:52px;border:5px solid rgba(239,195,26,.2);border-top-color:#EFC31A;border-radius:50%;animation:f123UpdatingSpin .85s linear infinite"></div>' +
+        '<div style="font-size:28px;line-height:1.15;font-weight:900;letter-spacing:.02em">Updating</div>' +
+        '<div style="font-size:14px;line-height:1.5;opacity:.88">Actualizando la aplicación…</div>' +
+        '</div>';
+      root.appendChild(layer);
+      return layer;
+    } catch (_) { return null; }
   }
   async function intentar() {
     vigilar();
     if (!pendiente() || recargando || !seguro() || !puedeRecargarVersion()) return false;
-    if (document.visibilityState !== "hidden" && Date.now() - ultimoToque < 90000) return false;
     recargando = true;
+    let splash = null, navegando = false;
     try {
-      if (!(await guardarDuradero()) || !seguro()) return false;
       const objetivo = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || "";
       if (!objetivo || await shellDelSW() !== objetivo ||
-          !pendiente() || !puedeRecargarVersion()) return false;
+          !pendiente() || !seguro() || !puedeRecargarVersion()) return false;
+      splash = mostrarSplashActualizando();
+      // Paint the splash before navigation (no arbitrary idle delay).
+      if (splash && document.visibilityState !== "hidden" && typeof window.requestAnimationFrame === "function") {
+        await new Promise(function (resolve) {
+          window.requestAnimationFrame(function () { window.requestAnimationFrame(resolve); });
+        });
+      }
+      if (!seguro() || !pendiente()) return false;
       sessionStorage.setItem(KA, JSON.stringify({ shell: objetivo }));
       sessionStorage.removeItem(KP);
       limpiarFrenada();
-      marcarRecarga("version-segura");
+      marcarRecarga("version-pin");
       location.reload();
+      navegando = true;
       return true;
     } catch (_) { return false; }
-    finally { recargando = false; }
+    finally {
+      if (!navegando && splash && splash.remove) splash.remove();
+      recargando = false;
+    }
   }
   function shellDelSW() {
     return new Promise(function (resolve) {
@@ -400,14 +400,14 @@ const _ocActSolaOn = true;
     try { sessionStorage.setItem(KP, "1"); } catch (_) {}
     _recargarSeguroVersion();
     vigilar();
-    if (document.visibilityState === "hidden" || Date.now() - ultimoToque > 90000) intentar();
+    if (enPantallaPIN()) intentar();
   }
   navigator.serviceWorker.addEventListener("controllerchange", onShellTomado);
   navigator.serviceWorker.addEventListener("message", function (ev) {
     if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
   });
   window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro, vigilar: vigilar }; // para pruebas
-  // Installed iPhone PWAs can stay open: check the SW on return, not just load.
+  // Installed iPhone PWAs can stay open: install SW while running, adopt at PIN.
   // One network check per 15 minutes on user activity; no background polling.
   let ultimoUpdateAlVolver = 0;
   document.addEventListener("visibilitychange", function () {
@@ -421,9 +421,19 @@ const _ocActSolaOn = true;
     }
     revisar();
   });
-  setInterval(function () { if (Date.now() - ultimoToque > 90000) intentar(); }, 15000);
+  // The login gate is switched by auth-ui on logout; adopt immediately on its
+  // reappearance instead of waiting for a polling interval or another login.
+  try {
+    const gate = document.getElementById("oc-gate");
+    if (gate && typeof window.MutationObserver === "function") {
+      new window.MutationObserver(function () {
+        if (enPantallaPIN() && pendiente()) intentar();
+      }).observe(gate, { attributes: true, attributeFilter: ["style"] });
+    }
+  } catch (_) {}
+  setInterval(function () { if (pendiente() && enPantallaPIN()) intentar(); }, 15000);
   setInterval(revisar, 600000);
-  setTimeout(revisar, 20000);
+  setTimeout(revisar, 0);
 })();
 
 // Microcirugia 5 (2026-07-07): tras importar un respaldo o restaurar un punto

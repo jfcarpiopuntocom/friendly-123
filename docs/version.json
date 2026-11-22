@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.73",
+  "version": "v0.8.74",
   "fecha": "2026-11-21",
-  "changelog": "v0.8.73 C180 P0: reanuda adopción automática de nuevas versiones solo tras controlador SW actualizado y confirmación durable, conserva PIN/sesión, bloquea recarga durante venta/edición y evita doble navegación.",
+  "changelog": "v0.8.74 C181: actualización automática exclusivamente en la pantalla de PIN, sin recarga de la app operativa ni espera arbitraria; splash Updating antes de navegar y una transición por shell.",
   "requerida": false,
-  "shell": "f123-shell-v873",
+  "shell": "f123-shell-v874",
   "apagar": [],
-  "releaseName": "v0.8.73",
-  "cacheGeneration": "golden409"
+  "releaseName": "v0.8.74",
+  "cacheGeneration": "golden410"
 }
