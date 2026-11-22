@@ -307,8 +307,52 @@ const _ocActSolaOn = true;
     } catch (_) {}
   }
   function limpiarFrenada() { try { sessionStorage.removeItem(KF); } catch (_) {} }
-  // Update discovery continues. The next normal opening loads the new shell.
-  function intentar() { vigilar(); }
+  // C180 P0: the former intentar() was a NO-OP: a verified new worker could
+  // control the page forever while Safari still ran the old document.
+  // Reload ONLY when the current SW reports the exact published shell and
+  // checkout/PIN are safe. Never unregister, delete or alter notebook data.
+  let recargaEnCurso = false;
+  function seguroParaVersion() {
+    try {
+      const gate = document.getElementById("oc-gate");
+      if (!gate || gate.style.display === "none") return seguro();
+      if (recuperacionPendiente() || Date.now() - ultimoToque < 30000) return false;
+      const pad = document.getElementById("oc-pad");
+      if (pad && pad._ocTeclado && pad._ocTeclado.entrada().length) return false;
+      if ([...document.querySelectorAll('[role="dialog"]')].some(visible)) return false;
+      return true; // idle, untouched PIN gate: a new shell must not stay stuck.
+    } catch (_) { return false; }
+  }
+  async function intentar() {
+    vigilar();
+    if (!pendiente() || recargaEnCurso || !seguroParaVersion() ||
+        document.visibilityState === "hidden") return;
+    recargaEnCurso = true;
+    try {
+      const response = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
+      if (!response.ok) return;
+      const server = await response.json();
+      if (!server || !server.shell) return;
+      const installed = await shellDelSW();
+      if (!installed || installed !== String(server.shell)) return;
+      if (!seguroParaVersion()) return; // interaction may begin during async check
+      let previous = null;
+      try { previous = JSON.parse(sessionStorage.getItem(KA) || "null"); } catch (_) {}
+      if (previous && previous.shell === installed && Date.now() - previous.ts < 600000) return;
+      try { sessionStorage.setItem(KA, JSON.stringify({ shell: installed, ts: Date.now() })); } catch (_) {}
+      // Bust HTTP cache as well as SW cache; preserve every existing query/hash.
+      const next = new URL(location.href);
+      next.searchParams.set("_f123_v", installed);
+      next.searchParams.set("_f123_ts", String(Date.now()));
+      try { marcarRecarga("sw-verificado-nuevo"); } catch (_) {}
+      try {
+        location.replace(next.href);
+        try { sessionStorage.removeItem(KP); } catch (_) {}
+      } catch (_) {
+        try { sessionStorage.removeItem(KA); sessionStorage.setItem(KP, "1"); } catch (_) {}
+      }
+    } catch (_) {} finally { recargaEnCurso = false; }
+  }
   function shellDelSW() {
     return new Promise(function (resolve) {
       const c = navigator.serviceWorker.controller;
@@ -329,7 +373,12 @@ const _ocActSolaOn = true;
       const vj = await r.json();
       if (!vj || !vj.shell) return;
       const sirve = await shellDelSW();
-      if (!sirve || sirve === String(vj.shell)) return;
+      if (!sirve) return;
+      if (sirve === String(vj.shell)) {
+        // New SW may have taken over since the prior mismatch was detected.
+        if (pendiente()) intentar();
+        return;
+      }
       try { localStorage.setItem("f123_version_vista", String(vj.version || "") + "|" + String(vj.shell)); } catch (_) {}
       try {
         const reg = await navigator.serviceWorker.getRegistration();
@@ -365,6 +414,9 @@ const _ocActSolaOn = true;
     if (ev && ev.data && ev.data.tipo === "shell-actualizado") onShellTomado();
   });
   window._ocActSola = { revisar: revisar, intentar: intentar, seguro: seguro, vigilar: vigilar }; // para pruebas
+  // The old login handler clears its legacy reload flag: KP remains the verified
+  // SW flag, and the now-open business screen is a safe opportunity to apply it.
+  window.addEventListener("oc-login", function () { if (pendiente()) intentar(); });
   // Installed iPhone PWAs can stay open: check the SW on return, not just load.
   // One network check per 15 minutes on user activity; no background polling.
   let ultimoUpdateAlVolver = 0;
