@@ -52,6 +52,7 @@ test('C196 unmapped op leaves 2.0 BEFORE entering the legacy Yjs bridge', async 
   assert.equal(f.api.modoCorte20Activo, false);
   assert.equal(f.observations.broadcastsWhile20, 0);
   assert.equal(f.observations.delivered, 1);
+  assert.equal(f.entries.get(event.opId), event, 'the original durable opId and payload must survive failback');
 });
 test('C196 typed fallback closes -cat BEFORE original op enters old transport', async () => {
   const f = fixture({fallback:true});
