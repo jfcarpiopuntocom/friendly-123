@@ -55,9 +55,12 @@ test('C182 period cards open only an explicitly selected month, without an impos
  assert.match(html,/cambiarMesComisiones\(this\.dataset\.commissionsOpenMonth\)/);
  assert.doesNotMatch(html,/type="date"/);
 });
-test('C182 default product cards use existing product-card identity and remain clickable',()=>{
+test('C182 product cards expand their receipt breakdown without a forced calendar filter',()=>{
  const html=presenter('producto')(sales);
- assert.match(html,/data-comm-history-product=/);
- assert.match(html,/data-comm-history-product="p"/);
- assert.match(html,/abrirFichaProducto/);
+ assert.match(html,/<details data-comm-history-group/);
+ assert.match(html,/<summary[^>]*>/);
+ assert.match(html,/class="stats"/);
+ assert.match(html,/2026-10-12/);
+ assert.match(html,/2026-11-12/);
+ assert.doesNotMatch(html,/type="date"|type="month"/);
 });
