@@ -7038,7 +7038,7 @@ function resumenComisionesGlobalHtml(sales){
     const associated=group==="comisionista";
     const rows=view.rows.filter(function(v){return v.group===g.id;});
     const productId=group==="producto"&&(sales||[]).some(function(v){return v&&v.productoId!=null&&String(v.productoId)===String(g.id);})?String(g.id):"";
-    const safeMonth=function(day){const v=String(day||"").slice(0,7);return /^\\d{4}-(0[1-9]|1[0-2])$/.test(v)?v:"";};
+    const safeMonth=function(day){const v=String(day||"").slice(0,7);return /^\d{4}-(0[1-9]|1[0-2])$/.test(v)?v:"";};
     const details=rows.map(function(v){
       const month=safeMonth(v.day);
       // Opening a monthly ledger is explicit and is never used to filter the main view.
@@ -7050,7 +7050,7 @@ function resumenComisionesGlobalHtml(sales){
         +'<span>'+escHtml(v.day||v.id||"")+'</span>'
         +'<span>'+money(v.commission,v.commission===null)+'</span>'+monthButton+'</div>';
     }).join("");
-    const period=group==="mes"&&/^\\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
+    const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
         +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
         +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
