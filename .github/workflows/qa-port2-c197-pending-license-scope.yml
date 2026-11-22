@@ -1,0 +1,22 @@
+name: C197 · 2.0 pending cross-license isolation
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - docs/sync-realtime.js
+      - test/p0-c197-scope-pending-by-license.test.cjs
+      - .github/workflows/qa-port2-c197-pending-license-scope.yml
+  push:
+    branches: [port2/c197-isolate-pending-by-license]
+permissions: {contents: read}
+jobs:
+  pending-license:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - run: node --check docs/sync-realtime.js
+      - run: node --test test/p0-c197-scope-pending-by-license.test.cjs test/p0-c38-legacy-transport-quiescence.test.cjs
