@@ -72,7 +72,7 @@ test('Opera Air Today and week: the two real hot paths do not use nested linear 
   const from = src.indexOf('if (path === "/api/dashboard")');
   const to = src.indexOf('if (path === "/api/productos"', from);
   assert.ok(from >= 0 && to > from);
-  const dashboard = src.slice(from, to);
+  const dashboard = src.slice(from, to).replace(/^\s*\/\/.*$/gm, '');
   assert.ok(!dashboard.includes('ajustesComision.find('));
   assert.ok(!dashboard.includes('ventas.find('));
   assert.match(dashboard, /ventasPorIdSemana\.get\(a\.ventaId\)/);
