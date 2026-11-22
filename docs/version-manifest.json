@@ -37,7 +37,7 @@
     "./invariantes.js": "sha256-4df7170b0f6f1227ce3b6ffadf9feaac7843d63cb274699a3b6ab230ff8ecdbc",
     "./licencia-prueba.min.js": "sha256-c1ae04997d873d9db82db82d6cfc5fa6863cb6d08893d06cd28c4afb89239394",
     "./vendor/yjs-bundle.min.js": "sha256-a723f1618428ef38937626e8b72165a31ac41894fe7ab07f83d9bbb6cdd0176a",
-    "./vendor/yparty-piloto.min.js": "sha256-1ccf50376ad6820cac70b909de144540b2defeb57b7bb91435df448199d6fd99",
+    "./vendor/yparty-piloto.min.js": "sha256-762442da36da35049bb465780a2640fa2700bd447bac4f78b03f929ced2a8f4e",
     "./lista-dinamica.min.js": "sha256-7689f559d8a674ced3283c342ccce607834e333fca8c50f40ee3d7b7c56cfd51",
     "./vendor/ufuzzy.min.js": "sha256-3eef8ba0ad55444c31f0e86f8375f25916515402cf2d4d7b5a2c01b4b67f2e19",
     "./vendor/minisearch.min.js": "sha256-8a05b42785db448f2c19e24a6a2107204c825565fe4f95aa69b79652baf26e82",
