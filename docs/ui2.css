@@ -59,6 +59,14 @@ html.ui2 .caja .stock{font-weight:700!important}
 html.ui2 .caja .stock::before,html.ui2 .caja .stock~.detalle::before{content:" \B7  ";font-weight:400}
 html.ui2 .caja .ajuste-rapido{clear:none!important;margin-top:6px!important;min-height:0!important}
 
+/* Sold (vender): cada producto como FRANJA horizontal con mini foto a la derecha (pedido JFC 22 nov,
+   como la D). Es el MISMO boton que se toca para vender, mismo orden; borde de semaforo intacto. */
+html.ui2 #gridVender{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important;gap:8px!important}
+html.ui2 #gridVender>button{display:grid!important;grid-template-columns:minmax(0,1fr) 56px;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-align:left!important;padding:8px 10px 8px 12px!important;min-height:72px!important;height:auto!important;border-radius:14px!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 8px 20px -16px rgba(15,25,35,.30)!important}
+html.ui2 #gridVender>button>img{grid-column:2;grid-row:1/span 2;width:56px!important;height:56px!important;object-fit:cover;object-position:center;border-radius:10px;margin:0!important}
+html.ui2 #gridVender>button>div{grid-column:1;margin:0!important}
+html.ui2 #gridVender>button>div:last-of-type{display:flex!important;flex-direction:row!important;gap:10px;align-items:baseline}
+
 /* Teclas (Commissions y otras vistas) */
 html.ui2 .tecla{background:#FFFFFF!important;border:1px solid #E8ECF2!important;border-radius:12px!important;box-shadow:0 1px 2px rgba(15,25,35,.10)!important;color:#0F1923!important;-webkit-text-fill-color:#0F1923!important}
 html.ui2 .tecla.hundida{background:#0F1923!important;border-color:#0F1923!important;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;box-shadow:none!important}
