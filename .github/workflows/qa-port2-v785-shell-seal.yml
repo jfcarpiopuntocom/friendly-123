@@ -51,7 +51,7 @@ jobs:
           // C205: master v887 contains v888 in the history of merged PR #1049, despite releasing v887.
           const history=cp.execFileSync('git',['log','--format=','-p','origin/master','--','docs/version.json'],
             {encoding:'utf8',maxBuffer:8*1024*1024});
-          const used=new Set([...history.matchAll(/f123-shell-v(\\d+)/g)].map(x=>Number(x[1])));
+          const used=new Set([...history.matchAll(/f123-shell-v(\d+)/g)].map(x=>Number(x[1])));
           let next=num(old.shell)+1;
           while(used.has(next))next++;
           const gap=next-num(old.shell);
