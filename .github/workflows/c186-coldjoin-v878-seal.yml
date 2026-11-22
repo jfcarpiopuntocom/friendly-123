@@ -1,0 +1,59 @@
+name: C186 coldjoin v878 RED GREEN sealed
+on:
+  push:
+    branches: [fix/c186-coldjoin-merge-barrier]
+permissions:
+  contents: write
+jobs:
+  verify-and-seal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: RED against unmodified v877 real sync-yjs source
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp docs/sync-yjs.js /tmp/c186-fixed.js
+          git show 518185baa9455ee2dc885d5c215a2d2866963217:docs/sync-yjs.js > docs/sync-yjs.js
+          set +e
+          node --test test/p0-c186-coldjoin-merge-barrier.test.cjs > /tmp/c186-red.log 2>&1
+          code=$?
+          set -e
+          cat /tmp/c186-red.log
+          test "$code" -ne 0 || { echo 'Missing RED on v877'; exit 1; }
+          grep -q 'not ok 1 - C186 RED:' /tmp/c186-red.log
+          grep -q 'not ok 3 - C186 RED:' /tmp/c186-red.log
+          grep -q 'ok 2 - C186:' /tmp/c186-red.log
+          cp /tmp/c186-fixed.js docs/sync-yjs.js
+      - name: GREEN source-executed C186 and related Safari and PIN regressions
+        run: |
+          node --check docs/sync-yjs.js
+          node --test test/p0-c186-coldjoin-merge-barrier.test.cjs test/p0-c184-safari-legacy-decrypt-memory.test.cjs test/p0-c185-single-sw-check.test.cjs test/p0-c180-version-adoption.test.cjs test/v607-invisible-auto-update.test.cjs
+      - name: Rebuild official assets, SHA256 manifest and SW seal
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          bash check-sw.sh
+          node scripts/release-control.cjs validate 518185baa9455ee2dc885d5c215a2d2866963217
+          git diff --check
+      - name: Seal exact generated assets on candidate (not master)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/app-inline-01.min.js docs/app-inline-02.min.js docs/app-inline-03.min.js docs/app-inline-04.min.js docs/app-inline-05.min.js docs/app-inline-06.min.js docs/app-inline-07.min.js docs/app-style-01.min.css docs/app-style-02.min.css docs/app-style-03.min.css docs/version-manifest.json docs/sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C186): build and SHA256-seal v878 golden414'
+            git push origin HEAD:fix/c186-coldjoin-merge-barrier
+          else echo 'Generated assets already sealed'; fi
