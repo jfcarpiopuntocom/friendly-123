@@ -7037,25 +7037,16 @@ function resumenComisionesGlobalHtml(sales){
   const cards=view.groups.map(function(g){
     const associated=group==="comisionista";
     const rows=view.rows.filter(function(v){return v.group===g.id;});
-    const productId=group==="producto"&&(sales||[]).some(function(v){return v&&v.productoId!=null&&String(v.productoId)===String(g.id);})?String(g.id):"";
-    const safeMonth=function(day){const v=String(day||"").slice(0,7);return /^\d{4}-(0[1-9]|1[0-2])$/.test(v)?v:"";};
     const details=rows.map(function(v){
-      const month=safeMonth(v.day);
-      // Opening a monthly ledger is explicit and is never used to filter the main view.
-      const monthButton=productId&&month?'<button type="button" data-product-id="'+escHtml(productId)+'" data-month="'+month
-        +'" onclick="cambiarMesComisiones(this.dataset.month);abrirFichaProducto(this.dataset.productId)"'
-        +' class="tecla" style="min-height:36px;font-size:13px;padding:4px 8px;">'
-        +(es?"Ver mes":"Open month")+'</button>':"";
       return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
         +'<span>'+escHtml(v.day||v.id||"")+'</span>'
-        +'<span>'+money(v.commission,v.commission===null)+'</span>'+monthButton+'</div>';
+        +'<span>'+money(v.commission,v.commission===null)+'</span></div>';
     }).join("");
     const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
         +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
         +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
-    return '<details data-comm-history-group'+(productId?' data-comm-product-card data-product-id="'+escHtml(productId)+'"':'')
-      +' class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
+    return '<details data-comm-history-group class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
       +'<summary style="cursor:pointer;min-height:44px;">'
       +'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+'</strong>'
       +'<div class="stats" style="margin-top:8px;">'
