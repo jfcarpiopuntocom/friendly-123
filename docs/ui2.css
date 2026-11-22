@@ -1,0 +1,75 @@
+/* =============================================================================
+   C203 UI 2.0 de friendly-123 (orden de JFC, 22 nov 2026: "prepara UI 2.0",
+   basada en la alternativa D que eligio). Capa SOLO visual.
+   - Todo vive bajo html.ui2: con el interruptor apagado (por defecto) la app
+     se ve exactamente igual que antes. Interruptor en index.html (?ui=2 / ?ui=1,
+     recordado en localStorage f123_ui).
+   - NO mueve pestanas, botones, indicadores ni textos: mismo DOM, mismo orden.
+     Unico cambio de disposicion AUTORIZADO por JFC: cada producto de Inventario
+     es una tarjeta horizontal con la mini foto a la derecha (lista de 1 columna).
+   - Semaforo INTACTO: no se toca ningun color ni borde de semaforo (.rojo,
+     .amarillo, .verde, bordes de .caja y de #heroSemaforo conservan su color).
+   - Colores: paleta de DESIGN.md + celestes de UI aprobados por JFC (#DCEFF7,
+     #EAF2F6). Texto siempre en hex solido (#0F1923 / #FFFFFF), sin opacidad.
+   ========================================================================== */
+
+/* Encabezado y barra inferior: superficie limpia en vez del degradado metalico */
+html.ui2 header{background:#FFFFFF!important;box-shadow:0 1px 0 #E8ECF2,0 8px 24px -16px rgba(15,25,35,.35)!important}
+html.ui2 nav{background:#FFFFFF!important;box-shadow:0 -1px 0 #E8ECF2,0 -8px 24px -18px rgba(15,25,35,.30)!important}
+html.ui2 nav button{background:transparent!important;box-shadow:none!important;border-color:transparent!important;border-radius:12px!important;color:#0F1923!important;-webkit-text-fill-color:#0F1923!important}
+html.ui2 nav button.activo{background:#DCEFF7!important;font-weight:700!important}
+
+/* Selector de idioma EN/ES (English first: EN sigue siendo el predeterminado) */
+html.ui2 .oc-lang-pill{border-color:#E8ECF2!important;background:#F8F9FB!important}
+html.ui2 .oc-lang-btn{border-radius:999px!important;box-shadow:none!important}
+html.ui2 .oc-lang-btn.activo{background:#0F1923!important;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important}
+
+/* Campos y botones secundarios */
+html.ui2 select,html.ui2 #selectUbicacion,html.ui2 #inputBuscarInventario{border-width:1px!important;border-color:#5294AC!important;border-radius:10px!important;background:#FFFFFF!important;box-shadow:inset 0 1px 2px rgba(15,25,35,.06)!important}
+html.ui2 #oc-logout,html.ui2 #btnAltaProducto{border-width:1px!important;border-radius:10px!important;box-shadow:0 1px 2px rgba(15,25,35,.10)!important;background:#FFFFFF!important}
+html.ui2 #oc-help-btn{box-shadow:none!important}
+html.ui2 input[type=checkbox]{accent-color:#2E6278}
+
+/* Hoy: tarjeta del semaforo (borde de color intacto), reloj y tarjeta de la demo */
+html.ui2 #heroSemaforo{border-radius:14px!important;box-shadow:0 1px 2px rgba(15,25,35,.06),0 12px 28px -18px rgba(15,25,35,.35)!important}
+html.ui2 #heroReloj{background:#2C3E50!important;border-radius:999px!important}
+html.ui2 .oc-gancho-demo{border:1px solid #E8ECF2!important;border-radius:16px!important;box-shadow:0 1px 2px rgba(15,25,35,.06),0 14px 32px -20px rgba(15,25,35,.40)!important}
+html.ui2 .oc-gancho-demo button{border-radius:14px!important;border-width:1px!important;box-shadow:0 1px 0 #C05000,0 8px 18px -10px rgba(192,80,0,.55)!important}
+html.ui2 .oc-gancho-demo a{border-width:1px!important;border-radius:14px!important}
+
+/* Tarjetas de cifras y listas desplegables */
+html.ui2 .tarjeta,html.ui2 .tag-card:not(.caja):not(#heroSemaforo){border-radius:14px!important;background:#FFFFFF!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 10px 24px -16px rgba(15,25,35,.30)!important}
+html.ui2 details.avisos-hoy,html.ui2 #ocRestockHoy{border-radius:14px!important;background:#FFFFFF!important;box-shadow:0 1px 2px rgba(15,25,35,.07)!important}
+html.ui2 body{font-variant-numeric:tabular-nums}
+
+/* Inventario: tarjeta horizontal COMPACTA como la alternativa D aprobada por JFC:
+   mini foto 56 px a la derecha, nombre arriba y UNA linea compacta con categoria/codigo,
+   existencias y vencimiento (mismos elementos y mismo orden del DOM, solo en linea).
+   Los 4 botones rapidos (- + estrella lapiz) se conservan debajo. Borde de semaforo intacto.
+   Foto con float (funciona en navegadores viejos, sin :has). */
+html.ui2 .grid-cajas{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important;gap:8px!important}
+html.ui2 .caja{border-radius:14px!important;padding:10px 12px!important;min-height:0!important;height:auto!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 8px 20px -16px rgba(15,25,35,.30)!important}
+html.ui2 .caja>div:not(.ajuste-rapido){display:block!important;min-height:0!important;height:auto!important}
+html.ui2 .caja .fotowrap{float:right!important;width:56px!important;height:56px!important;margin:0 0 4px 10px!important;border-radius:10px!important;overflow:hidden;position:relative}
+html.ui2 .caja .fotowrap img{width:56px!important;height:56px!important;object-fit:cover;object-position:center}
+html.ui2 .caja .fotowrap .iniciales{font-size:16px!important}
+html.ui2 .caja .nombre{font-size:15px!important;line-height:1.25!important;margin:0 0 2px!important;min-height:0!important;height:auto!important}
+html.ui2 .caja .detalle,html.ui2 .caja .stock{display:inline!important;font-size:13px!important;line-height:1.4!important;margin:0!important;padding:0!important;min-height:0!important}
+html.ui2 .caja .stock{font-weight:700!important}
+html.ui2 .caja .stock::before,html.ui2 .caja .stock~.detalle::before{content:" \B7  ";font-weight:400}
+html.ui2 .caja .ajuste-rapido{clear:none!important;margin-top:6px!important;min-height:0!important}
+
+/* Sold (vender): cada producto como FRANJA horizontal con mini foto a la derecha (pedido JFC 22 nov,
+   como la D). Es el MISMO boton que se toca para vender, mismo orden; borde de semaforo intacto. */
+html.ui2 #gridVender{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important;gap:8px!important}
+html.ui2 #gridVender>button{display:grid!important;grid-template-columns:minmax(0,1fr) 56px;grid-template-rows:auto auto;column-gap:10px;align-items:center;text-align:left!important;padding:8px 10px 8px 12px!important;min-height:72px!important;height:auto!important;border-radius:14px!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 8px 20px -16px rgba(15,25,35,.30)!important}
+html.ui2 #gridVender>button>img{grid-column:2;grid-row:1/span 2;width:56px!important;height:56px!important;object-fit:cover;object-position:center;border-radius:10px;margin:0!important}
+html.ui2 #gridVender>button>div{grid-column:1;margin:0!important}
+html.ui2 #gridVender>button>div:last-of-type{display:flex!important;flex-direction:row!important;gap:10px;align-items:baseline}
+
+/* Teclas (Commissions y otras vistas) */
+html.ui2 .tecla{background:#FFFFFF!important;border:1px solid #E8ECF2!important;border-radius:12px!important;box-shadow:0 1px 2px rgba(15,25,35,.10)!important;color:#0F1923!important;-webkit-text-fill-color:#0F1923!important}
+html.ui2 .tecla.hundida{background:#0F1923!important;border-color:#0F1923!important;color:#FFFFFF!important;-webkit-text-fill-color:#FFFFFF!important;box-shadow:none!important}
+
+html.ui2 :focus-visible{outline:3px solid #5294AC!important;outline-offset:2px}
+@media (prefers-reduced-motion:reduce){html.ui2 *{transition:none!important}}
