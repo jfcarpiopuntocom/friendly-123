@@ -930,7 +930,7 @@ test('C178: original100 84.0 is exactly C176 Safari essential SRI and C177 OWASP
  assert.equal(q.dimensions.find(d=>d.id==='security').score,11.3);
  assert.equal(q.dimensions.reduce((n,d)=>n+d.weight,0),100);
  assert.equal(Number(q.dimensions.reduce((n,d)=>n+d.score,0).toFixed(1)),84.0);
- assert.equal(p.total,100.0);
+ assert.equal(p.score,100.0);
  assert.equal(p.commercialGo.certifiedGates,0);
  assert.equal(inspect().quality,84.0);
  assert.equal(inspect().port,100.0);
