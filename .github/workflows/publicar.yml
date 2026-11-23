@@ -1,3 +1,4 @@
+# C210 2026-11-23: recover Pages deployment after stable was promoted ahead of hotfix (skipped reusable publication).
 # P0 release v633 cache golden180: preserve direct P2P signaling rendezvous (2026-10-31).
 # Emergency republish of unchanged-shell stable safety patch: 2026-10-31.
 # publicar.yml — GitHub Pages con TRES CANALES (plan canarios F2, JFC 2026-09-25).
