@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.15",
+  "version": "v0.9.16",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.15 C242+C243+C244: watchdog Safari/IDB (estado-idb e idb-archivo), breaker f123::, ventana slow-recovery en relay-selector y diagnóstico corte 2.0.",
+  "changelog": "v0.9.16 C245: Record payment en cada producto y percha de la vista de todas las fechas (JFC eligio Pagar tambien en todas las fechas): prueba los meses del mas antiguo al mas nuevo y abre el primero que tiene algo para pagar; cada pago se registra en el mes de su ficha. Panel: Por pagar de todos los meses con un enlace por percha y mes.",
   "requerida": false,
-  "shell": "f123-shell-v915",
+  "shell": "f123-shell-v916",
   "apagar": [],
-  "releaseName": "v0.9.15",
-  "cacheGeneration": "golden452"
+  "releaseName": "v0.9.16",
+  "cacheGeneration": "golden453"
 }

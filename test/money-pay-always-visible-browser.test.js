@@ -114,12 +114,15 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
             const prod = await req('/api/productos', 'POST', { nombre: 'Taza Siempre', barcode: 'SIEMPRE-001', precio: 100, costo: 30, stockInicial: 5, ubicacionId: rack.id });
             await req('/api/productos/' + prod.id + '/venta', 'POST', { cantidad: 1 });
             vista('vista-comisiones');
-            await cargarComisiones(); // sin tocar pestanas: arranca en By product
+            await cargarComisiones(); // sin tocar pestanas: arranca en todas las fechas, By product
             await wait(150);
-            const card = document.querySelector('[data-ui="commissions.product-card"][data-product-id="' + prod.id + '"]');
+            /* C243 (JFC 23 nov 2026 eligio «Pagar tambien en todas las fechas»): Record payment vive en cada producto
+               y percha de la vista de todas las fechas; abre la MISMA ficha de pago de siempre. */
+            const payProd = document.querySelector('[data-comm-pay-product="' + prod.id + '"]');
+            const card = payProd && payProd.closest('[data-comm-history-group]');
             out.cardProducto = !!card;
-            out.productoPay = window.__medir(card && card.querySelector('[data-comm-pay-from-product]'));
-            if (card) { card.click(); await wait(350); }
+            out.productoPay = window.__medir(payProd);
+            await abrirFichaProducto(prod.id); await wait(350);
             out.fichaAbierta = !!document.querySelector('[data-ui="commissions.product-sheet"]');
             /* Tamano de letra de cada nodo con texto propio de la ficha (medido ANTES de cerrarla). */
             const _conTexto = (root) => Array.from(root.querySelectorAll('*')).filter(e => Array.from(e.childNodes).some(n => n.nodeType === 3 && n.textContent.trim())).map(e => parseFloat(getComputedStyle(e).fontSize));
@@ -128,10 +131,10 @@ for (const [engineName, engine] of [['Chromium', chromium], ['WebKit', webkit]])
             out.fichaMinFs = _hoja ? Math.min(...(_conTexto(_hoja).length ? _conTexto(_hoja) : [0])) : 0;
             out.fichaPay = window.__medir(document.querySelector('[data-ficha-pay]'));
             if (out.fichaAbierta) cerrarFichaProducto();
-            cambiarVistaComisiones('rack');
-            await wait(100);
-            out.rackPay = window.__medir(document.querySelector('[data-comm-pay-person]'));
-            const _tarjP = document.querySelector('[data-comm-person-card]');
+            cambiarRangoComisionesGlobal('grupo', 'percha');
+            await wait(150);
+            out.rackPay = window.__medir(document.querySelector('[data-comm-pay-rack-history]'));
+            const _tarjP = document.querySelector('[data-comm-pay-rack-history]') && document.querySelector('[data-comm-pay-rack-history]').closest('[data-comm-history-group]');
             out.rackMaxFs = _tarjP ? Math.max(0, ..._conTexto(_tarjP)) : 0;
             /* ---- Customers: fiado de 40, sin y con filtro Pending payment ---- */
             const cli = await req('/api/clientes', 'POST', { nombre: 'Deudor Siempre' });

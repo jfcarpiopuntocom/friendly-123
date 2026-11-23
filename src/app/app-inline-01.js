@@ -6990,13 +6990,59 @@ async function abrirDesgloseMesComisiones(kind) {
 }
 function _ocFichaCentavos(c){ return fmtMoney((Number(c) || 0) / 100); }
 function cerrarFichaProducto(){ cerrarEditorComision(); }
-async function abrirFichaProducto(productoId){
+/* C242 (JFC 23 nov 2026, eligio «Pagar tambien en todas las fechas (Recomendado)»): Record payment vuelve a cada producto y
+   percha en la vista de todas las fechas. Un solo camino de pago (el mismo boton de la ficha, mismos sourceIds); el pago se
+   registra en el mes en curso, como en la ficha de siempre. Meses anteriores: «Settle this month» en la vista por periodo. */
+/* C243: oldest month first (standard for commissions/payables): the month of the OLDEST unpaid sale of this product or
+   rack, from the same full-history read the view already holds; null = current month (the ficha's usual default). */
+function _ocMesesConVentasSinLiquidar(campo, id){
+  const ventas = Array.isArray(window._ocComHistorySales) ? window._ocComHistorySales : [], meses = new Set();
+  ventas.forEach(v => {
+    if (String(v && v[campo]) !== String(id) || v.liquidada || !(Number(v.comisionAsociado) > 0)) return;
+    const m = String(v.mes || String(v.fecha || "").slice(0, 7));
+    if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m)) meses.add(m);
+  });
+  return [...meses].sort().slice(0, 12); // oldest first; shortcut: at most 12 months probed per tap
+}
+/* C243 (JFC 23 nov 2026: «El boton elige el mes mas antiguo en que la ficha si tiene algo para pagar. Si ese mes no tiene,
+   prueba el siguiente»). Each candidate month is opened with the SAME ficha; the first one with a pay button wins.
+   No month with a pay button -> the ficha of the current month stays open (its usual default). */
+async function pagarComisionDesdeProducto(productoId){
+  const meses = _ocMesComisiones ? [null] : _ocMesesConVentasSinLiquidar("productoId", productoId).concat([null]);
+  let pagos = [];
+  for (const m of meses) {
+    await abrirFichaProducto(productoId, m);
+    const caja = document.getElementById("oc-comision-caja");
+    pagos = caja ? [...caja.querySelectorAll("[data-ficha-pay]")] : [];
+    if (pagos.length) break;
+  }
+  if (pagos.length === 1) pagos[0].click();
+  else if (pagos[0]) { pagos[0].scrollIntoView({ block: "center" }); pagos[0].focus(); }
+}
+/* C243: rack/event Record payment in All dates: first month (oldest first) whose By rack view has a pay button for THIS
+   rack; it is pressed directly when there is exactly one. Otherwise the current month opens on By rack. */
+async function pagarComisionPorPercha(rackId){
+  const id = String(rackId || "");
+  const meses = id && id.indexOf("__") !== 0 ? _ocMesesConVentasSinLiquidar("ubicacionId", id) : [];
+  const abrirMes = async (m) => { window._ocMesAuto = null; window._ocMesAutoHecho = true; window._ocComHistoryGroup = "mes"; _ocMesComisiones = m; window._ocVistaComisiones = "rack"; await cargarComisiones(); try { cambiarVistaComisiones("rack"); } catch (_) {} };
+  for (const m of meses) {
+    await abrirMes(m);
+    const botones = [...document.querySelectorAll('[data-comm-pay-person]')].filter(b => String(b.dataset.payRack) === id);
+    if (botones.length === 1) { botones[0].click(); return; }
+    if (botones.length) { botones[0].scrollIntoView({ block: "center" }); botones[0].focus(); return; }
+  }
+  let mes = "";
+  try { const l = await (await fetch(`${API}/liquidaciones/meses`)).json(); const a = Array.isArray(l) && l.find(x => x && x.actual); if (a) mes = String(a.mes || ""); } catch (_) {}
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) { const d = new Date(); mes = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+  await abrirMes(mes);
+}
+async function abrirFichaProducto(productoId, mesPago){
   if (!productoId) return;
   const overlay = document.getElementById("oc-comision-overlay");
   const caja = document.getElementById("oc-comision-caja");
   let h;
   try {
-    const r = await fetch(`${API}/ledger/producto/${encodeURIComponent(productoId)}?mes=${encodeURIComponent(_ocMesComisiones || "")}`);
+    const r = await fetch(`${API}/ledger/producto/${encodeURIComponent(productoId)}?mes=${encodeURIComponent(mesPago || _ocMesComisiones || "")}`);
     h = await r.json();
     if (!r.ok) throw new Error(h && h.error);
   } catch (_) { await ocAlert(t("comm.reviewError")); return; }
@@ -7048,7 +7094,7 @@ async function abrirFichaProducto(productoId){
   caja.querySelectorAll("[data-ficha-statement]").forEach(b => b.addEventListener("click", () => enviarEstadoComisionista(b.dataset.estU, b.dataset.fichaStatement)));
   caja.querySelectorAll("[data-ficha-pay]").forEach(b => b.addEventListener("click", () => {
     cerrarFichaProducto();
-    marcarComisionPagada(b.dataset.payRack, b.dataset.payName, Number(b.dataset.payDue), b.dataset.fichaPay, { sourceIds: b.dataset.paySales.split(","), producto: h.nombre });
+    marcarComisionPagada(b.dataset.payRack, b.dataset.payName, Number(b.dataset.payDue), b.dataset.fichaPay, { sourceIds: b.dataset.paySales.split(","), producto: h.nombre, mes: h.mes || undefined }); // C243: pay in the sheet's own month
   }));
   const x = caja.querySelector("[data-ficha-close]"); if (x) x.focus();
 }
@@ -7196,7 +7242,10 @@ function resumenComisionesGlobalHtml(sales){
       ?'<div data-comm-flecha style="margin-top:6px;" onclick="event.preventDefault();event.stopPropagation()">'+flechaComisionHtml("",m.direccion,m.productoId,g.label)+'</div>'
         +(m.revisarDir?'<div data-flecha-revisar style="margin-top:8px;border:2px solid #B0183E;padding:8px 10px;font-size:14px;font-weight:700;color:#B0183E;">'+escHtml(typeof t==="function"?t("flecha.ventaRevisar"):"Paid sales to review")+': '+m.revisarDir+'</div>':""):"";
     const sheetBtn=(rich10&&group==="producto"&&m&&m.productoId&&typeof abrirFichaProducto==="function")
-      ?'<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="tecla" data-comm-open-sheet="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();abrirFichaProducto(this.dataset.commOpenSheet)" style="min-height:40px;font-size:13px;margin:0;">'+(es?"Ver personas y registrar pago":"See people & record payment")+'</button></div>':"";
+      ?'<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-open-sheet="'+escHtml(m.productoId)+'" data-comm-pay-from-product="" data-comm-pay-product="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionDesdeProducto(this.dataset.commPayProduct)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>':"";
+    // C242: racks/events also get Record payment in all dates (opens the current month on By rack, same pay buttons).
+    const rackPayBtn=(group==="percha"&&typeof cambiarMesComisiones==="function")
+      ?'<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-pay-rack-history="'+escHtml(g.id)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionPorPercha(this.dataset.commPayRackHistory)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>':"";
     const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
         +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
@@ -7216,7 +7265,7 @@ function resumenComisionesGlobalHtml(sales){
         +'</div><div class="cifra">'+money(g.gross,g.unknownGross)+(m&&m.units?' <small>'+m.units+'u</small>':"")+'</div></div>')
       +'<div><div class="rotulo">'+(es?"Comisiones":"Commissions")+'</div><div class="cifra">'
         +money(g.commission,g.unknownCommission)+'</div></div>'+houseKeepsHtml+heldHtml+pendHtml+'</div>'
-      +flechaHtml+sheetBtn
+      +flechaHtml+sheetBtn+rackPayBtn
       +'<span style="display:inline-block;margin-top:6px;font-size:13px;color:var(--ink-soft);">'+g.count+' '+(es?"ventas":"sales")+'</span>'
       +'</summary><div data-comm-details data-loaded="'+(isRaw?rawBatch.length:0)+'" style="padding-top:8px;">'+rawHtml+'</div>'
       +'<button type="button" data-comm-history-more'+(rawMoreHidden?" hidden":"")+' onclick="event.stopPropagation();mostrarDetalleComisiones(this.closest(\'details\'),true)" class="tecla" style="min-height:44px;margin-top:8px;">'
@@ -7774,13 +7823,7 @@ async function cargarComisiones(){
      "Record payment" was needed. With exactly one person/rack to pay it now goes
      straight to the payment choices through the SAME sheet button (same scoped
      sourceIds). With several people the sheet stays open to choose who. */
-  cont.querySelectorAll("[data-comm-pay-from-product]").forEach(btn => btn.addEventListener("click", async () => {
-    await abrirFichaProducto(btn.dataset.commPayProduct);
-    const caja = document.getElementById("oc-comision-caja");
-    const pagos = caja ? [...caja.querySelectorAll("[data-ficha-pay]")] : [];
-    if (pagos.length === 1) pagos[0].click();
-    else if (pagos[0]) { pagos[0].scrollIntoView({ block: "center" }); pagos[0].focus(); }
-  }));
+  cont.querySelectorAll("[data-comm-pay-from-product]").forEach(btn => btn.addEventListener("click", () => pagarComisionDesdeProducto(btn.dataset.commPayProduct))); // C242: shared path
   cont.querySelectorAll("[data-comm-pay-person]").forEach(btn => btn.addEventListener("click", () => {
     marcarComisionPagada(btn.dataset.payRack, btn.dataset.payName, Number(btn.dataset.payDue), btn.dataset.commPayPerson);
   }));
