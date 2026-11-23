@@ -7981,10 +7981,10 @@
         // invent business-committed cash on the typed DO.
         // Typed 2.0 sale.record has no effective-date contract. The legacy
         // stock/catalog path preserves the historical sale without misdating cash.
-        const _metodo20 = infoVenta.fechaVenta ? "" : String(infoVenta.formaPago || "").trim().toLowerCase();
+        const _metodo20 = String(infoVenta.formaPago || "").trim().toLowerCase();
         const _unit20 = Math.round(precioEfectivo * 100);
         const _total20 = Math.round(montoBruto * 100);
-        if ((_metodo20 === "cash" || _metodo20 === "efectivo") &&
+        if (!infoVenta.fechaVenta && (_metodo20 === "cash" || _metodo20 === "efectivo") &&
             !_esCortesia && infoVenta.fiadoAtomico !== true &&
             (infoVenta.montoPagado === null ||
               (Number.isFinite(infoVenta.montoPagado) && Math.round(infoVenta.montoPagado * 100) === _total20)) &&
