@@ -5456,6 +5456,7 @@ async function cargarVentasSold(){
       if (!row) return;
       row.style.display = '';
       const editor = row.querySelector('.oc-vs-editor');
+      _llenarClientesVS(row, id); // C237
       if (editor) editor.style.display = 'block';
       try { row.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (_) { row.scrollIntoView(); }
     }
@@ -5474,12 +5475,23 @@ async function cargarVentasSold(){
   // existing credit receipt or a settled commission (409/400).
   let _clientesVS = [];
   try { const _r = await (await fetch(`${API}/clientes`)).json(); if (Array.isArray(_r)) _clientesVS = _r; } catch (_) {}
-  const _opcionesCliente = (v) => {
-    const lista = _clientesVS.slice();
+  /* C237 (JFC 23 nov 2026: «se crashea sola la app ... SAFARI»): Sold pintaba en CADA venta la lista completa de clientes
+     (ventas x clientes opciones ocultas; miles de ventas y cientos de clientes = cientos de miles de nodos y iOS mata la
+     pestana). Ahora cada venta nace solo con su propio cliente y la lista completa se llena al abrir su editor (lapiz).
+     Lo que se guarda no cambia: el valor elegido es el mismo. PARA REVERTIR: llamar siempre _opcionesCliente(v, true). */
+  const _opcionesCliente = (v, completa) => {
+    const lista = completa ? _clientesVS.slice() : [];
     // Keep the sale's own customer even if it no longer shows in operative lists.
     if (v.clienteId && !lista.some(c => c.id === v.clienteId)) lista.push({ id: v.clienteId, nombre: v.clienteNombre || v.clienteId });
     return `<option value=""${v.clienteId ? "" : " selected"}>${escHtml(t("sold.noCustomer"))}</option>` +
       lista.map(c => `<option value="${escHtml(c.id)}"${c.id === v.clienteId ? " selected" : ""}>${escHtml(c.nombre || "")}</option>`).join("");
+  };
+  // C237: the full customer list is built only when a sale's editor opens (pencil or "Corregir").
+  const _llenarClientesVS = (row, id) => {
+    const _sel = row && row.querySelector(".vs-cliente");
+    if (!_sel || _sel.dataset.completa) return;
+    const _v = rows.find(x => String(x.id) === String(id)) || {}, _val = _sel.value;
+    _sel.innerHTML = _opcionesCliente(_v, true); _sel.value = _val; _sel.dataset.completa = "1";
   };
   // v491 (2026-10-13): the Sold editor was English-only even with the app in Spanish.
   const _esVS = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
@@ -5575,7 +5587,10 @@ async function cargarVentasSold(){
     const payment = row.querySelector('.vs-pago');
     if (debtor && payment) payment.addEventListener('change',()=>{debtor.disabled = payment.value !== 'fiado';});
     const btnEdit = row.querySelector(".oc-vs-edit");
-    if (btnEdit) btnEdit.addEventListener("click", () => { editor.style.display = editor.style.display === "none" ? "block" : "none"; });
+    if (btnEdit) btnEdit.addEventListener("click", () => {
+      _llenarClientesVS(row, id); // C237
+      editor.style.display = editor.style.display === "none" ? "block" : "none";
+    });
     const btnCancelEdit = row.querySelector(".oc-vs-cancel-edit");
     if (btnCancelEdit) btnCancelEdit.addEventListener("click", () => { editor.style.display = "none"; });
     const btnSave = row.querySelector(".oc-vs-save");

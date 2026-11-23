@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.08",
+  "version": "v0.9.09",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.08 C236: Safari se caia solo, incluso en la pantalla de PINs. Supabase sin cupo se reintentaba cada 5 s para siempre y cada vuelta volvia a bajar de Firebase la lista entera (21 MB en 90 s). Ahora la espera crece 5, 10, 20, 40 s... hasta 15 min.",
+  "changelog": "v0.9.09 C237: Sold ya no mete la lista completa de clientes dentro de cada venta (ventas x clientes nodos ocultos tumbaban Safari). Cada venta lleva su cliente y la lista se llena al abrir su editor.",
   "requerida": false,
-  "shell": "f123-shell-v908",
+  "shell": "f123-shell-v909",
   "apagar": [],
-  "releaseName": "v0.9.08",
-  "cacheGeneration": "golden444"
+  "releaseName": "v0.9.09",
+  "cacheGeneration": "golden445"
 }
