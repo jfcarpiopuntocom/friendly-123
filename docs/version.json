@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.03",
+  "version": "v0.9.04",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.03 C225: checkpoints completos comprimidos (tag 7 >768 KiB), ckptFrameBytes y opsDoc en vivo sobre friendly123-relay-privado (dinero, comisiones, movimientos, ventas y clientes); ventana corrida de 24h en auto-respaldo sin error WebKitBlobResource en iPhone.",
+  "changelog": "v0.9.04 C226: los botones de vista de Commissions se prenden y apagan; By artist / associate se puede desmarcar; con todos apagados sale RAW (total).",
   "requerida": false,
-  "shell": "f123-shell-v903",
+  "shell": "f123-shell-v904",
   "apagar": [],
-  "releaseName": "v0.9.03",
-  "cacheGeneration": "golden439"
+  "releaseName": "v0.9.04",
+  "cacheGeneration": "golden440"
 }

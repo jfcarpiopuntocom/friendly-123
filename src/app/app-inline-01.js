@@ -6610,7 +6610,14 @@ function cambiarMesComisiones(mes){
 }
 function cambiarRangoComisionesGlobal(tipo, valor){
   if(tipo!=="grupo")return;
-  const next=["producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"producto";
+  /* C226 (JFC 23 nov 2026: "los 4 botones son click on/off y si se dejan todos off, sale todo RAW como siempre he pedido"):
+     tapping the pressed button turns it off; with every button off the view is "total" (RAW overall list). Choosing a
+     group also releases By artist / associate. */
+  const veniaDePersona=window._ocVistaComisiones==="person";
+  if(veniaDePersona&&typeof cambiarVistaComisiones==="function")cambiarVistaComisiones("product");
+  const actual=["producto","percha","cliente","comisionista","mes","total"].includes(window._ocComHistoryGroup)?window._ocComHistoryGroup:"producto";
+  // Coming from By artist the group buttons looked released, so the tapped one turns ON (never off).
+  const next=valor==="total"||(valor===actual&&!veniaDePersona)?"total":["producto","percha","cliente","comisionista","mes"].includes(valor)?valor:"producto";
   window._ocComHistoryGroup=next;
   // All five tabs always show all available dates. A settlement month is explicitly opened.
   window._ocComHistoryFrom="";window._ocComHistoryTo="";
@@ -6627,7 +6634,8 @@ function cambiarRangoComisionesGlobal(tipo, valor){
 }
 function selectorRangoComisionesGlobalHtml(){
   const es=document.documentElement.lang==="es";
-  const group=["producto","percha","cliente","comisionista","mes"].includes(window._ocComHistoryGroup)?window._ocComHistoryGroup:"producto";
+  // C226: "total" = every button off (RAW); none is pressed then.
+  const group=["producto","percha","cliente","comisionista","mes","total"].includes(window._ocComHistoryGroup)?window._ocComHistoryGroup:"producto";
   const opciones=[["producto",es?"Producto":"Product"],["percha",es?"Percha / evento":"Rack / event"],
     ["cliente",es?"Cliente":"Customer"],["comisionista",es?"Comisionista":"Associate"],["mes",es?"Período":"Period"]];
   return '<div role="tablist" aria-label="'+(es?"Ver comisiones por":"View commissions by")+
