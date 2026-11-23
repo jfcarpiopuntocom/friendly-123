@@ -18,14 +18,14 @@ function fixture(opts={}){
   const status={textContent:''},spin={style:{display:'none'}};
   const elements={repair:btn,status,spinner:spin};
   const regs=[
-    {scope:base,unregister:async()=>{calls.unreg.push('main');return true;}},
+    {scope:base,unregister:async()=>{calls.unreg.push('main');return opts.alreadyRemoved?false:true;}},
     {scope:base+'next/',unregister:async()=>{calls.unreg.push('next');return true;}},
     {scope:'https://jfcarpiopuntocom.github.io/other/',unregister:async()=>{calls.unreg.push('other');return true;}}
   ];
   const cacheNames=['f123-shell-v890-golden426','f123-shell-v892-golden428-next','friendly-other-cache'];
   const cacheStore={
     keys:async()=>cacheNames,
-    delete:async n=>{calls.del.push(n);return true}
+    delete:async n=>{calls.del.push(n);return opts.alreadyRemoved?false:true}
   };
   const location=new URL(href);
   location.replace=url=>calls.nav.push(url);
@@ -49,7 +49,7 @@ test('C210: stand-alone file avoids old SW cache-first shell list',()=>{
   assert.match(sw,/const esArchivoDelShell = !url\.search && SHELL\.some/);
   assert.doesNotMatch(sw,/"\.\/repair\.html"/,'fresh recovery document must remain outside shell precache');
   assert.doesNotMatch(html,/src="\.\/(?:auth-ui|app-inline|ui2)/,'independent page must not execute stale assets');
-  assert.match(read('docs/auth-ui.js'),/location\.assign\(new URL\("\.\/repair\.html\?from=pin&_r="/);
+  assert.match(read('docs/auth-ui.js'),/location\.replace\(new URL\("\.\/repair\.html\?from=pin&_r="/);
   assert.match(read('docs/auth-ui.min.js'),/repair\.html\?from=pin/,'shipped PIN button must reach independent recovery');
 });
 test('C210: user click removes only this app SW/caches and opens fresh PIN once',async()=>{
