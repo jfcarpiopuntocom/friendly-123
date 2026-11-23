@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.01",
+  "version": "v0.9.02",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.01 C223: el indicador de sincronizacion del encabezado muestra el estado de Sync4 cuando la 2.0 esta activa (parche 11 de Gemini Neon).",
+  "changelog": "v0.9.02 C224: buzon cifrado 2.0 en Cloudflare (friendly123-relay-privado) primero en la cascada con autorizacion por licencia y rol (dueno/admin/empleado); historial privado completo (dinero, ventas, comisiones, clientes) en aparatos nuevos.",
   "requerida": false,
-  "shell": "f123-shell-v901",
+  "shell": "f123-shell-v902",
   "apagar": [],
-  "releaseName": "v0.9.01",
-  "cacheGeneration": "golden437"
+  "releaseName": "v0.9.02",
+  "cacheGeneration": "golden438"
 }

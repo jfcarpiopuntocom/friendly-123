@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "friendly123-relay-privado",
+  "main": "src/index.mjs",
+  "compatibility_date": "2026-11-22",
+  "observability": {
+    "enabled": true,
+    "traces": {
+      "enabled": true
+    }
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "RELAY_PRIVADO",
+        "class_name": "RelayPrivado"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RelayPrivado"]
+    }
+  ],
+  "services": [
+    {
+      "binding": "WS_AUTHORITY",
+      "service": "friendly123-licencias"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://jfcarpiopuntocom.github.io,https://friendly-123.jfcarpio.workers.dev"
+  }
+}

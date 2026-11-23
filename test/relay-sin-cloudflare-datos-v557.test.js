@@ -45,7 +45,7 @@ test('estatico: ningun archivo de docs/ abre un socket o canal crudo (WebSocket/
 test('estatico: los localizadores legacy solo llegan al adaptador directo y su socket usa /signal/', () => {
   const esperados = ['dashboard-main.min.js', 'sync-realtime.js', 'sync-yjs.js'];
   // firebase-relay.js only parses the locator (regex) to derive its room; it never opens it.
-  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'dashboard-broadcast.js', 'firebase-relay.js', 'peer-sync.js'].sort());
+  assert.deepEqual(donde(/friendly123-sync-relay/), [...esperados, 'cf-relay.js', 'dashboard-broadcast.js', 'firebase-relay.js', 'peer-sync.js'].sort());
   assert.ok(!/new\s+(WebSocket|WS)\s*\(/.test(archivos.find(a => a.rel === 'firebase-relay.js').src), 'firebase relay opens no socket');
   for (const nombre of esperados) {
     const src = nombre === 'dashboard-main.min.js'
@@ -93,12 +93,14 @@ test('estatico: workers.dev queda limitado a licencias y senalizacion, nunca neg
     if (!hosts.has(m[1])) hosts.set(m[1], new Set()); hosts.get(m[1]).add(a.rel);
   }
   // 'amigable-licencias' solo aparece en un comentario historico de auth-ui.js (el nombre viejo del Worker).
-  assert.deepEqual([...hosts.keys()].sort(), ['amigable-licencias', 'friendly123-licencias', 'friendly123-sync-relay']);
+  // C224 (MDD-2026-10-31 #2): friendly123-relay-privado stores E2E AES-256-GCM ciphertext only.
+  assert.deepEqual([...hosts.keys()].sort(), ['amigable-licencias', 'friendly123-licencias', 'friendly123-relay-privado', 'friendly123-sync-relay']);
+  assert.deepEqual([...hosts.get('friendly123-relay-privado')].sort(), ['cf-relay.js']);
   assert.deepEqual([...hosts.get('amigable-licencias')], ['auth-ui.js']);
   assert.match(archivos.find(a => a.rel === 'auth-ui.js').src, /\/\*[^]*?amigable-licencias\.jfcarpio\.workers\.dev[^]*?\*\//);
   // Licencias: referencias permitidas (panel de JFC, verificacion maestra, comentarios de auth-ui).
   const lic = [...hosts.get('friendly123-licencias')].sort();
-  assert.deepEqual(lic, ['auth-ui.js', 'crypto-store.js', 'dashboard-main.min.js', 'panel-pin.js', 'panel.html']);
+  assert.deepEqual(lic, ['auth-ui.js', 'cf-relay.js', 'crypto-store.js', 'dashboard-main.min.js', 'panel-pin.js', 'panel.html']);
   // The dashboard may call ONLY the canonical PIN verification endpoint. This is not a business-data relay.
   const dashboardSource = archivos.find(a => a.rel === 'dashboard-main.min.js').src;
   const dashboardWorkerUrls = [...dashboardSource.matchAll(/https:\/\/friendly123-licencias\.jfcarpio\.workers\.dev\/[a-z/-]+/g)].map(m => m[0]);
@@ -253,7 +255,13 @@ test('navegador: acciones de negocio solo permiten WS /signal y el proyecto Supa
       assert.equal(u.hash, '');
     } else {
       assert.notEqual(tipo, 'WS', 'unexpected external socket: ' + s);
-      if (/\.workers\.dev$/i.test(u.hostname)) assert.equal(u.hostname, 'friendly123-licencias.jfcarpio.workers.dev');
+      if (/\.workers\.dev$/i.test(u.hostname)) {
+        if (u.hostname === 'friendly123-relay-privado.jfcarpio.workers.dev') {
+          assert.match(u.pathname, /^\/f123\/[a-f0-9]{40}(-y|-ops|-fotos)?\/(session|head|pull|op|ckpt|ts)$/);
+        } else {
+          assert.equal(u.hostname, 'friendly123-licencias.jfcarpio.workers.dev');
+        }
+      }
     }
   }
   assert.deepEqual(errores.filter(e => /Cloudflare data connection/.test(e)), []);
