@@ -24,8 +24,8 @@ test('C209: manual repair serializes navigation and blocks competing SW adoption
   assert.match(auth,/if \(window\.__f123PurgeEnCurso\) return;/);
   assert.match(auth,/window\.__f123PurgeEnCurso = true;\s*_purgeBtn\.disabled = true;/);
   assert.match(app,/function seguroCon\(sinRecuperacion\) \{\s*if \(window\.__f123PurgeEnCurso === true\) return false;/);
-  assert.match(app,/async function revisar\(\) \{\s*if \(window\.__f123PurgeEnCurso === true\) return;/);
-  assert.match(app,/function onShellTomado\(\) \{\s*if \(window\.__f123PurgeEnCurso === true\) return;/);
+  assert.match(app,/async function revisar\(\) \{\s*if \(window\.__f123PurgeEnCurso === true \|\| manualPurgeReentry\) return;/);
+  assert.match(app,/function onShellTomado\(\) \{\s*if \(window\.__f123PurgeEnCurso === true \|\| manualPurgeReentry\) return;/);
   for(const p of ['docs/auth-ui.min.js','docs/app-inline-03.min.js'])
     assert.match(read(p),/__f123PurgeEnCurso/,'published bundle '+p+' must contain the guard');
 });
