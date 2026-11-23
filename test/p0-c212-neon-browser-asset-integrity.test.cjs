@@ -19,7 +19,8 @@ test('C212 v894 browser bundle SHA256 matches published manifest for EVERY touch
  assert.match(sw,/const CACHE_GENERACION = "-golden430"/);
  assert.match(dashboard,/name="dashboard-shell" content="f123-shell-v894"/);
  for(const file of ['app-inline-01.min.js','mock-backend.min.js','core/business-read-model.min.js']){
-  const bytes=fs.readFileSync(path.join(docs,file));
+  // Match gen-manifest.js: Git serves LF blobs even if Windows checkout uses CRLF.
+  const bytes=Buffer.from(fs.readFileSync(path.join(docs,file),'utf8').replace(/\r\n/g,'\n'),'utf8');
   const digest=crypto.createHash('sha256').update(bytes).digest('hex');
   assert.equal(manifest.files['./'+file],'sha256-'+digest,file+' old compiled asset cannot ship');
   assert.ok(html.includes('./'+file),'live entry includes '+file);
