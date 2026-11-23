@@ -16,3 +16,6 @@ Safari mostraba las casillas y el teclado del PIN en una sola columna; la pantal
 
 ## Criterio de cierre
 Que el workflow final del HEAD pase, fusión autorizada, `estable` se promueva y `repair.html` esté disponible en Pages; la verificación física en el iPhone corresponde solo a observación real posterior. Un commit o una PR no certifica esa verificación.
+
+## Segunda verificación
+Safari puede devolver `false` si otra pestaña ya eliminó un registro o un caché; se trata como estado final válido, con test C210 específico. La salida desde el PIN usa `location.replace` para evitar volver por historial al shell antiguo. El bundle publicado de `auth-ui.min.js` y su SHA de manifiesto fueron sellados de nuevo en el HEAD anterior por la compuerta C210. La promoción de `estable` sigue sujeta a los controles requeridos del HEAD.
