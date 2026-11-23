@@ -20,6 +20,7 @@ jobs:
         run: |
           node <<'NODE'
           'use strict';
+          (async()=>{
           const fs=require('node:fs');
           const crypto=require('node:crypto');
           const assert=require('node:assert/strict');
@@ -80,4 +81,5 @@ jobs:
             localMergedBase:'61e638d4fb066c6a76735f5e50f5378d90537276',
             files:hashes
           }));
+          })().catch(error=>{console.error(error);process.exitCode=1});
           NODE
