@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.98",
+  "version": "v0.8.99",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.98 C219: la ventana Join a shared notebook ya no es amarilla (borde azul de la paleta, boton oscuro con letra blanca).",
+  "changelog": "v0.8.99 C220: un PIN que el aparato ya conoce no queda bloqueado por el limite compartido del equipo; el boton de Emergency recovery se reactiva si no sale de la pagina; la pagina de forzar version ya no es amarilla.",
   "requerida": false,
-  "shell": "f123-shell-v898",
+  "shell": "f123-shell-v899",
   "apagar": [],
-  "releaseName": "v0.8.98",
-  "cacheGeneration": "golden434"
+  "releaseName": "v0.8.99",
+  "cacheGeneration": "golden435"
 }
