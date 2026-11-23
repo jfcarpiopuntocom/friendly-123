@@ -7028,7 +7028,7 @@ function resumenComisionesGlobalHtml(sales){
   // Same Commissions visual components as before: tag-card, stats, rotulo, cifra.
   // Only the view changes; the source spans every sale, with no implicit month.
   const es=document.documentElement.lang==="es";
-  const group=["producto","percha","cliente","comisionista","mes"].includes(window._ocComHistoryGroup)
+  const group=["total","producto","percha","cliente","comisionista","mes"].includes(window._ocComHistoryGroup)
     ?window._ocComHistoryGroup:"producto";
   const view=window.OCCommissionHistory.project({sales:sales,group:group,lang:es?"es":"en"});
   const totals=view.totals;
@@ -7036,16 +7036,69 @@ function resumenComisionesGlobalHtml(sales){
   const tile=(name,value)=>'<div class="tag-card ventana-estado" style="padding:10px 12px;margin:0;text-align:left;box-shadow:none;">'
     +'<div class="rotulo">'+name+'</div>'
     +'<div class="cifra">'+value+'</div></div>';
-  const titles={producto:es?"Por producto":"By product",percha:es?"Por percha / evento":"By rack / event",
+  const titles={total:es?"Todas las ventas y comisiones (RAW)":"All sales & commissions (raw)",
+    producto:es?"Por producto":"By product",percha:es?"Por percha / evento":"By rack / event",
     cliente:es?"Por cliente":"By customer",comisionista:es?"Por comisionista":"By associate",
     mes:es?"Por período":"By period"};
   const warnings=(totals.conflicts||totals.splitConflicts||totals.customerConflicts||totals.associateConflicts)
     ?'<p role="alert" style="font-size:14px;color:var(--rojo-ink,#a3392a);margin:8px 0;">'
       +(es?"Hay recibos o repartos por verificar.":"Some receipts or allocations need review.")+'</p>':"";
-  // C194: the old loop filtered EVERY sale once per group (O(sales × groups))
-  // and eagerly instantiated every receipt node inside closed <details>.
-  // Safari could be killed by the CPU/memory spike a few seconds after entry.
-  // Index exactly once; keep every historical receipt available on demand.
+  const rich10=typeof flechaComisionHtml==="function";
+  const metaByGroup=new Map(),saleById=new Map(),rankByPerson=new Map();
+  if(rich10&&Array.isArray(sales)){
+    sales.forEach(function(v){
+      if(!v||typeof v!=="object"||v.anulada||v.cancelled||v.borrado)return;
+      if(v.id!=null)saleById.set(String(v.id),v);
+      let gid="";
+      if(group==="total")gid="total";
+      else if(group==="producto")gid=String(v.productoId||v.productoNombre||"");
+      else if(group==="percha")gid=String(v.ubicacionId||v.ubicacionNombre||"");
+      else if(group==="cliente")gid=String(v.clienteId||v.clienteNombre||"");
+      else if(group==="comisionista")gid=String(v.promotoraId||v.asociadoNombre||"");
+      else gid=String(v.fechaLocal||v.fecha||"").slice(0,7);
+      if(gid){
+        let m=metaByGroup.get(gid);
+        if(!m){
+          m={productoId:"",ubicacionId:"",promotoraId:"",sku:"",direccion:"casaPaga",
+            perchas:new Set(),asociados:new Set(),clientes:new Set(),
+            units:0,casaEnAsociadoCents:0,revisarDir:0,pendCents:0};
+          metaByGroup.set(gid,m);
+        }
+        if(v.productoId&&!m.productoId)m.productoId=String(v.productoId);
+        if(v.ubicacionId&&!m.ubicacionId)m.ubicacionId=String(v.ubicacionId);
+        if(v.promotoraId&&!m.promotoraId)m.promotoraId=String(v.promotoraId);
+        if(v.sku&&!m.sku)m.sku=String(v.sku);
+        if(v.direccionProducto==="asociadoPaga"||v.direccionComision==="asociadoPaga")m.direccion="asociadoPaga";
+        if(v.ubicacionNombre)m.perchas.add(String(v.ubicacionNombre));
+        if(v.asociadoNombre)m.asociados.add(String(v.asociadoNombre));
+        if(v.clienteNombre)m.clientes.add(String(v.clienteNombre));
+        const cant=Number(v.cantidad)||1;
+        m.units+=cant;
+        const casa=v.netoCasa!=null&&Number.isFinite(Number(v.netoCasa))?Math.round(Number(v.netoCasa)*100):0;
+        if(v.direccionComision==="asociadoPaga"){
+          m.casaEnAsociadoCents+=casa;
+          if(v.liquidada||v.comisionPagada)m.revisarDir++;
+        }
+        if(v.comisionPendiente!=null&&Number.isFinite(Number(v.comisionPendiente))){
+          m.pendCents+=Math.round(Number(v.comisionPendiente)*100);
+        }else if(!v.liquidada&&v.comisionAsociado!=null&&Number.isFinite(Number(v.comisionAsociado))){
+          m.pendCents+=Math.round(Number(v.comisionAsociado)*100);
+        }
+      }
+      const pid=v.promotoraId||v.asociadoNombre||"",pnom=v.asociadoNombre||"",com=Number(v.comisionAsociado)||0;
+      if(pid&&pnom&&com>0){
+        let r=rankByPerson.get(pid);
+        if(!r){r={id:String(v.promotoraId||pid),nombre:String(pnom),ventasBrutas:0,ventasCount:0,comision:0,ultima:"",porSku:{}};rankByPerson.set(pid,r);}
+        const cant=Number(v.cantidad)||1,bruto=(Number(v.precioUnit)||0)*cant;
+        r.ventasBrutas+=bruto;r.comision+=com;r.ventasCount+=cant;
+        const f=String(v.fecha||v.fechaLocal||"");
+        if(f>r.ultima)r.ultima=f;
+        const sk=String(v.sku||v.productoNombre||v.productoId||"");
+        if(sk)r.porSku[sk]=(r.porSku[sk]||0)+cant;
+      }
+    });
+  }
+  window._ocComHistorySaleById=saleById;
   const byGroup=new Map();
   view.rows.forEach(function(v){
     let entries=byGroup.get(v.group);
@@ -7055,31 +7108,141 @@ function resumenComisionesGlobalHtml(sales){
   window._ocComHistoryRowsPorGrupo=byGroup;
   const cards=view.groups.map(function(g){
     const associated=group==="comisionista";
+    const isRaw=group==="total";
+    const m=rich10?metaByGroup.get(g.id):null;
+    const searchAttr=m?' data-search="'+escHtml([g.label,m.sku,...m.perchas,...m.asociados,...m.clientes].join(" "))+'"':"";
+    const skuHtml=(m&&m.sku&&group==="producto")?' <span style="font-weight:400;font-size:13px;color:var(--ink-soft);">'+escHtml(m.sku)+'</span>':"";
+    const badgeHtml=(m&&group==="producto"&&!g.unknownCommission&&(g.commission>0||m.casaEnAsociadoCents>0))
+      ?'<span class="badge-estado '+(m.pendCents>0?"rojo":m.casaEnAsociadoCents>0?"amarillo":"verde")+'" style="margin-top:0;">'
+        +(m.casaEnAsociadoCents>0?(es?"parte de la casa sin conciliar":"house share unverified"):m.pendCents>0?"pending":"paid")+'</span>':"";
+    const editRackBtn=(m&&group==="percha"&&m.ubicacionId&&typeof abrirEditorComisionPercha==="function")
+      ?'<button type="button" class="tecla" data-comm-edit-rack="'+escHtml(m.ubicacionId)+'" onclick="event.preventDefault();event.stopPropagation();abrirEditorComisionPercha(this.dataset.commEditRack)" style="min-height:40px;font-size:13px;margin:0;">'+(es?"✎ Editar trato de percha":"✎ Adjust shelf deal")+'</button>':"";
+    const editAssocBtn=(m&&group==="comisionista"&&m.promotoraId&&typeof abrirEditorComisionista==="function")
+      ?'<button type="button" class="tecla" data-abrir-promotora="'+escHtml(m.promotoraId)+'" onclick="event.preventDefault();event.stopPropagation();abrirEditorComisionista(this.dataset.abrirPromotora)" style="min-height:40px;font-size:13px;margin:0;">'+(es?"✎ Editar trato":"✎ Edit deal")+'</button>':"";
+    const subHtml=m?(group==="producto"
+      ?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: '+escHtml([...m.perchas].join(", ")||"-")+(m.asociados.size?' · Associate: <strong>'+escHtml([...m.asociados].join(", "))+'</strong>':"")+'</div>'
+      :group==="percha"&&m.asociados.size?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Associate: <strong>'+escHtml([...m.asociados].join(", "))+'</strong></div>'
+      :group==="comisionista"&&m.perchas.size?'<div style="font-size:13px;color:var(--ink-soft);margin-top:4px;">Rack: '+escHtml([...m.perchas].join(", "))+'</div>':""):"";
+    const houseKeepsHtml=(rich10&&!associated&&!g.unknownGross&&!g.unknownCommission&&Number.isFinite(g.gross)&&Number.isFinite(g.commission)&&g.gross>0)
+      ?'<div><div class="rotulo">'+(es?"La casa retiene":"House keeps")+'</div><div class="cifra">'+fmtMoney(Math.max(0,+(g.gross-g.commission).toFixed(2)))+'</div></div>':"";
+    const heldHtml=(m&&m.casaEnAsociadoCents>0)
+      ?'<div><div class="rotulo" style="color:#006B3C;">'+(typeof t==="function"?t("flecha.casaEnAsociado"):(es?"Parte de la casa en manos del asociado":"House share held by associate"))+'</div><div class="cifra" style="color:#006B3C;">'+fmtMoney(m.casaEnAsociadoCents/100)+'</div></div>':"";
+    const pendHtml=(m&&m.pendCents>0)
+      ?'<div><div class="rotulo" style="color:var(--rust-deep,#C05000);">'+(es?"Por pagar":"Still to pay")+'</div><div class="cifra" style="color:var(--rust-deep,#C05000);">'+fmtMoney(m.pendCents/100)+'</div></div>':"";
+    const flechaHtml=(rich10&&group==="producto"&&m&&m.productoId)
+      ?'<div data-comm-flecha style="margin-top:6px;" onclick="event.preventDefault();event.stopPropagation()">'+flechaComisionHtml("",m.direccion,m.productoId,g.label)+'</div>'
+        +(m.revisarDir?'<div data-flecha-revisar style="margin-top:8px;border:2px solid #B0183E;padding:8px 10px;font-size:14px;font-weight:700;color:#B0183E;">'+escHtml(typeof t==="function"?t("flecha.ventaRevisar"):"Paid sales to review")+': '+m.revisarDir+'</div>':""):"";
+    const sheetBtn=(rich10&&group==="producto"&&m&&m.productoId&&typeof abrirFichaProducto==="function")
+      ?'<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="tecla" data-comm-open-sheet="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();abrirFichaProducto(this.dataset.commOpenSheet)" style="min-height:40px;font-size:13px;margin:0;">'+(es?"Ver personas y registrar pago":"See people & record payment")+'</button></div>':"";
     const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
         +' class="tecla" style="min-height:44px;padding:6px 10px;margin-top:6px;">'
         +(es?"Liquidar este mes":"Settle this month")+'</button>':"";
-    return '<details data-comm-history-group data-comm-group="'+escHtml(g.id)+'" ontoggle="if(this.open)mostrarDetalleComisiones(this,false)" class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
+    const headHtml=(badgeHtml||editRackBtn||editAssocBtn)
+      ?'<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+skuHtml+'</strong>'+badgeHtml+editRackBtn+editAssocBtn+'</div>'
+      :'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+skuHtml+'</strong>';
+    const rawRows=isRaw?(byGroup.get(g.id)||[]):[];
+    const rawBatch=isRaw?rawRows.slice(0,80):[];
+    const rawHtml=isRaw?rawBatch.map(function(rv){return _ocFilaVentaRawHtml(rv,es,function(val){return money(val,false);});}).join(""):"";
+    const rawMoreHidden=!isRaw||rawBatch.length>=rawRows.length;
+    return '<details data-comm-history-group data-comm-group="'+escHtml(g.id)+'"'+searchAttr+(isRaw?" open":"")+' ontoggle="if(this.open)mostrarDetalleComisiones(this,false)" class="tag-card" style="text-align:left;padding:12px 16px;margin:0 0 10px;">'
       +'<summary style="cursor:pointer;min-height:44px;">'
-      +'<strong style="display:block;font-size:16px;color:var(--ink);">'+escHtml(g.label)+'</strong>'
+      +headHtml+subHtml
       +'<div class="stats" style="margin-top:8px;">'
       +(associated?'':'<div><div class="rotulo">'+(es?"Ventas brutas":"Gross sales")
-        +'</div><div class="cifra">'+money(g.gross,g.unknownGross)+'</div></div>')
+        +'</div><div class="cifra">'+money(g.gross,g.unknownGross)+(m&&m.units?' <small>'+m.units+'u</small>':"")+'</div></div>')
       +'<div><div class="rotulo">'+(es?"Comisiones":"Commissions")+'</div><div class="cifra">'
-        +money(g.commission,g.unknownCommission)+'</div></div></div>'
-      +'<span style="font-size:13px;color:var(--ink-soft);">'+g.count+' '+(es?"ventas":"sales")+'</span>'
-      +'</summary><div data-comm-details data-loaded="0" style="padding-top:8px;"></div>'
-      +'<button type="button" data-comm-history-more hidden onclick="event.stopPropagation();mostrarDetalleComisiones(this.closest(\'details\'),true)" class="tecla" style="min-height:44px;margin-top:8px;">'
+        +money(g.commission,g.unknownCommission)+'</div></div>'+houseKeepsHtml+heldHtml+pendHtml+'</div>'
+      +flechaHtml+sheetBtn
+      +'<span style="display:inline-block;margin-top:6px;font-size:13px;color:var(--ink-soft);">'+g.count+' '+(es?"ventas":"sales")+'</span>'
+      +'</summary><div data-comm-details data-loaded="'+(isRaw?rawBatch.length:0)+'" style="padding-top:8px;">'+rawHtml+'</div>'
+      +'<button type="button" data-comm-history-more'+(rawMoreHidden?" hidden":"")+' onclick="event.stopPropagation();mostrarDetalleComisiones(this.closest(\'details\'),true)" class="tecla" style="min-height:44px;margin-top:8px;">'
       +(es?"Mostrar más ventas":"Show more sales")+'</button>'+period+'</details>';
   }).join("");
+  if(rich10&&typeof matrizComisionistasHtml==="function"&&typeof document.getElementById==="function"){
+    const rankCont=document.getElementById("rankingComisiones"),listCont=document.getElementById("listaComisiones");
+    if(rankCont&&rankCont!==listCont){
+      const arr=[...rankByPerson.values()].map(function(r){
+        const top=Object.entries(r.porSku).sort(function(a,b){return b[1]-a[1];})[0];
+        const ts=Date.parse(r.ultima);
+        return {id:r.id,nombre:r.nombre,ventasBrutas:+r.ventasBrutas.toFixed(2),ventasCount:r.ventasCount,
+          comision:+r.comision.toFixed(2),diasSinVenta:Number.isFinite(ts)?Math.max(0,Math.floor((Date.now()-ts)/86400000)):null,
+          topSku:top?{sku:top[0],unidades:top[1]}:null};
+      }).sort(function(a,b){return b.ventasBrutas-a.ventasBrutas;});
+      const rankHtml=arr.length?'<h3 class="seccion" style="font-size:16px;margin-top:0;">'+(typeof t==="function"?t("comm.rankingHeading"):(es?"Ranking de comisionistas":"Associate ranking"))+'</h3><div style="margin-bottom:20px;">'+arr.map(function(r,i){
+        const dormido=(r.diasSinVenta!=null&&r.diasSinVenta>=7)?'<span class="badge-estado rojo" style="margin-left:8px;font-size:13px;">dormant '+r.diasSinVenta+'d</span>':"";
+        const top=r.topSku?' · top SKU: '+escHtml(r.topSku.sku)+' ('+r.topSku.unidades+'u)':"";
+        return '<div class="tag-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;margin-bottom:8px;"><span style="font-size:16px;font-weight:700;line-height:1;min-width:22px;">'+(i+1)+'.</span><div style="flex:1;"><strong>'+escHtml(r.nombre)+'</strong>'+dormido+'<div style="font-size:13px;color:var(--ink-soft);">'+r.ventasCount+' sold · gross '+fmtMoney(r.ventasBrutas)+top+'</div></div><strong style="color:#0B7A4B;font-size:16px;">'+fmtMoney(r.comision)+'</strong></div>';
+      }).join("")+'</div>':"";
+      rankCont.innerHTML=rankHtml+matrizComisionistasHtml(arr);
+    }
+  }
+  const houseTotalTile=(rich10&&!totals.unknownGross&&!totals.unknownCommission&&Number.isFinite(totals.gross)&&Number.isFinite(totals.commission)&&totals.gross>0)
+    ?tile(es?"La casa retiene":"House keeps",fmtMoney(Math.max(0,+(totals.gross-totals.commission).toFixed(2)))):"";
+  const searchBar=rich10?'<input id="comm-product-search" type="search" aria-label="'+(es?"Buscar producto, SKU, percha o comisionista":"Search product, SKU, rack or associate")+'" placeholder="'+(es?"Buscar producto, SKU, percha o comisionista…":"Search product, SKU, rack or associate…")+'" autocomplete="off" oninput="if(typeof filtrarComisionesGlobal===\'function\')filtrarComisionesGlobal(this.value)" style="width:100%;max-width:460px;min-height:44px;margin:0 0 8px;padding:8px 12px;border:1px solid #9BAEBF;border-radius:8px;background:var(--paper,#fff);color:var(--ink);font:inherit;"><div id="comm-product-count" role="status" aria-live="polite" style="font-size:13px;color:var(--ink-soft);margin-bottom:10px;"></div>':"";
   return '<section data-commissions-summary="all" data-commissions-current-view="'+group+'">'
     +warnings+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 16px;">'
     +tile(es?"Total de comisiones":"Total commissions",money(totals.commission,totals.unknownCommission))
     +tile(es?"Ventas brutas":"Gross sales",money(totals.gross,totals.unknownGross))
+    +houseTotalTile
     +tile(es?"Ventas":"Sales",String(totals.count))+'</div>'
     +'<h3 class="seccion" style="font-size:16px;margin:0 0 10px;">'+titles[group]+'</h3>'
+    +searchBar
     +(cards||'<p style="font-size:14px;">'+(es?"No hay ventas registradas en esta vista.":"No recorded sales in this view.")+'</p>')
     +'</section>';
+}
+function _ocFilaVentaRawHtml(v,es,money){
+  const s=window._ocComHistorySaleById&&window._ocComHistorySaleById.get(String(v.id||""));
+  if(!s)return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
+    +'<span>'+escHtml(v.day||v.id||"")+'</span>'
+    +'<span>'+money(v.commission)+'</span></div>';
+  const cant=Number(s.cantidad)||1;
+  const prod=s.productoNombre?cant+"× "+s.productoNombre+(s.sku?" ("+s.sku+")":""):"";
+  const meta=[s.ubicacionNombre?(es?"Percha: ":"Rack: ")+s.ubicacionNombre:"",
+    s.asociadoNombre?(es?"Comisionista: ":"Associate: ")+s.asociadoNombre:"",
+    s.clienteNombre?(es?"Cliente: ":"Customer: ")+s.clienteNombre:"",
+    (s.direccionComision==="asociadoPaga"||s.direccionProducto==="asociadoPaga")
+      ?(es?"Asociado paga →":"Associate pays →"):(es?"← Casa paga":"← House pays")].filter(Boolean).join(" · ");
+  const search=escHtml([v.day,s.productoNombre,s.sku,s.ubicacionNombre,s.asociadoNombre,s.clienteNombre].join(" "));
+  return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;" data-comm-raw-row data-search="'+search+'">'
+    +'<div style="min-width:0;"><strong>'+escHtml(v.day||v.id||"")+'</strong>'
+    +(prod?' · <span>'+escHtml(prod)+'</span>':"")
+    +(meta?'<div style="font-size:12px;color:var(--ink-soft);">'+escHtml(meta)+'</div>':"")
+    +'</div>'
+    +'<div style="text-align:right;white-space:nowrap;">'
+    +(v.gross!=null?'<span style="color:var(--ink-soft);margin-right:8px;">'+(es?"Bruto: ":"Gross: ")+money(v.gross)+'</span>':"")
+    +'<strong>'+(es?"Comisión: ":"Commission: ")+money(v.commission)+'</strong></div></div>';
+}
+function filtrarComisionesGlobal(valor){
+  window._ocBuscaComisionProducto=String(valor||"");
+  const cont=typeof document!=="undefined"&&typeof document.getElementById==="function"?document.getElementById("listaComisiones"):null;
+  if(!cont)return;
+  const norm=typeof normalizarTexto==="function"?normalizarTexto:function(s){return String(s||"").toLowerCase();};
+  const needle=norm(window._ocBuscaComisionProducto.trim());
+  if(window._ocComHistoryGroup==="total"){
+    const rows=cont.querySelectorAll("[data-comm-raw-row]");
+    let shown=0;
+    rows.forEach(function(r){
+      const hay=!needle||norm(r.getAttribute("data-search")||r.textContent||"").includes(needle);
+      r.hidden=!hay;
+      if(hay)shown++;
+    });
+    const cnt=cont.querySelector("#comm-product-count");
+    if(cnt){const es=document.documentElement.lang==="es";cnt.textContent=needle?(es?("Mostrando "+shown+" de "+rows.length):("Showing "+shown+" of "+rows.length)):"";}
+    return;
+  }
+  const cards=cont.querySelectorAll("[data-comm-history-group]");
+  let shown=0;
+  cards.forEach(function(card){
+    const hay=!needle||norm(card.getAttribute("data-search")||card.textContent||"").includes(needle);
+    card.hidden=!hay;
+    if(hay)shown++;
+  });
+  const cnt=cont.querySelector("#comm-product-count");
+  if(cnt){
+    const es=document.documentElement.lang==="es";
+    cnt.textContent=needle?(es?("Mostrando "+shown+" de "+cards.length):("Showing "+shown+" of "+cards.length)):"";
+  }
 }
 // Retain the original receipt breakdown, but mount at most 80 rows per gesture.
 // No date filters, truncated reports or changes to sales/settlements.
@@ -7095,9 +7258,7 @@ function mostrarDetalleComisiones(panel,more){
     const es=document.documentElement.lang==="es";
     const money=(v)=>v===null||!Number.isFinite(v)?(es?"Por verificar":"Needs review"):fmtMoney(v);
     target.insertAdjacentHTML("beforeend",next.map(function(v){
-      return '<div style="padding:6px 0;border-top:1px solid var(--hairline,#E8ECF2);font-size:13px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;">'
-        +'<span>'+escHtml(v.day||v.id||"")+'</span>'
-        +'<span>'+money(v.commission)+'</span></div>';
+      return _ocFilaVentaRawHtml(v,es,money);
     }).join(""));
     target.dataset.loaded=String(loaded+next.length);
   }
@@ -7126,7 +7287,9 @@ async function cargarComisiones(){
       // Keep only a RAM reference for instant view changes; live sales events still refetch.
       window._ocComHistorySales=sales;
       const report=resumenComisionesGlobalHtml(sales);
-      const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
+      const actions=(typeof enviarResumenWhatsApp==="function"&&typeof escHtml==="function"&&typeof t==="function"
+        ?'<button type="button" class="ir" style="font-size:14px;min-height:44px;padding:6px 12px;margin:0;background:#25D366;color:#0F1923;border-color:#1da851;" aria-label="'+escHtml(t("comm.sendWhatsappDaily"))+'" title="'+escHtml(t("comm.sendWhatsappDaily"))+'" onclick="enviarResumenWhatsApp()">'+t("comm.sendWhatsappDailyShort")+'</button> ':"")
+        +'<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
       if(cont)cont.innerHTML=barraComisionesHtml(months,actions)+report;
       return;
     } catch(e) {

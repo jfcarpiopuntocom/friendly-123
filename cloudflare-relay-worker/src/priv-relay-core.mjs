@@ -59,6 +59,13 @@ export async function legacyRoomHexForLicense(licenseCode) {
   return toHex(hash).slice(0, 40);
 }
 
+export async function legacyCleanRoomHexForLicense(licenseCode) {
+  const norm = String(licenseCode || '').trim().toUpperCase();
+  if (!LICENSE_RE.test(norm)) throw new Error('invalid-license');
+  const hash = await crypto.subtle.digest('SHA-256', ENC.encode('amigable-sala:' + norm + '::limpio-2026-09-16'));
+  return toHex(hash).slice(0, 40);
+}
+
 export async function ypartyBaseForLicense(licenseCode) {
   const norm = String(licenseCode || '').trim().toUpperCase();
   if (!LICENSE_RE.test(norm)) throw new Error('invalid-license');
@@ -178,7 +185,8 @@ export async function exchangeTicketForSession({
     return { ok: false, status: 400, reason: 'invalid-credentials' };
   }
   const expected40 = await legacyRoomHexForLicense(lic);
-  if (m[1] !== expected40) {
+  const expectedClean40 = await legacyCleanRoomHexForLicense(lic);
+  if (m[1] !== expected40 && m[1] !== expectedClean40) {
     return { ok: false, status: 403, reason: 'room-license-mismatch' };
   }
   if (!env?.WS_AUTHORITY?.fetch) {

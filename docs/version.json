@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.06",
+  "version": "v0.9.07",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.06 C234: la primera carga del historial de un aparato nuevo desde Firebase no cuenta contra el tope diario (se cortaba a los 20 MB); tope de seguridad 10x para no saturar la cuenta gratis. Script de puntaje al dia con el buzon cifrado y la v0.9.",
+  "changelog": "v0.9.07 C235 (kit C226 de Gemini sobre lo publicado): Commissions de la app vuelve a la UI 1.0 en todas las fechas (flecha causal en cada producto, House keeps, Still to pay, buscador, WhatsApp, Ranking y RFM; vista RAW con flecha por venta); borrar o despedir un cliente refresca Hoy al instante; el servidor del buzon acepta la sala limpia.",
   "requerida": false,
-  "shell": "f123-shell-v906",
+  "shell": "f123-shell-v907",
   "apagar": [],
-  "releaseName": "v0.9.06",
-  "cacheGeneration": "golden442"
+  "releaseName": "v0.9.07",
+  "cacheGeneration": "golden443"
 }
