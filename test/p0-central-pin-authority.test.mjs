@@ -215,3 +215,19 @@ test("transition: a more recent owner/admin change reported later replaces the a
   assert.equal((await a.call("/pin/verify",{pin:"908"})).status,200,"a report never replaces the panel PIN");
   assert.equal((await a.call("/pin/verify",{pin:"333"})).status,401);
 });
+// C218 (JFC 22 nov 2026: "puse mi licencia LORD en tu puta app y no sirve"; "mi pin es 555 y jamas debio perderse"):
+// a brand-new device not yet tied to the license may confirm the CENTRAL Owner PIN; wrong PINs stay refused and
+// count toward the same per-license lockout; factory 789 never opens it.
+test("C218: new device confirms the central Owner PIN; wrong PIN and factory 789 stay refused",async()=>{
+ const a=setup();await register(a,"555");
+ assert.equal((await stage(a,"555",0)).status,200);
+ const st=await a.call("/pin/admin/status",{},true,"GET").catch(()=>null);
+ const act=await activate(a,"555",0);assert.equal(act.status,200,JSON.stringify(act.body));
+ const nuevo="brand-new-device-lord";
+ const ok=await a.call("/pin/verify",{instanceId:nuevo,pin:"555"});
+ assert.equal(ok.status,200,JSON.stringify(ok.body));assert.equal(ok.body.ok,true);
+ const mal=await a.call("/pin/verify",{instanceId:nuevo,pin:"556"});
+ assert.equal(mal.status,401);assert.equal(mal.body.reason,"invalid-pin");
+ const fab=await a.call("/pin/verify",{instanceId:nuevo,pin:"789"});
+ assert.notEqual(fab.status,200);
+});
