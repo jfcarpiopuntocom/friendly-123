@@ -4,6 +4,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {execFileSync}=require('node:child_process');
+const crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const sw=read('docs/sw.js'),auth=read('docs/auth-ui.js'),rescue=read('docs/reenganchar.html');
 const version=JSON.parse(read('docs/version.json'));
@@ -38,4 +39,16 @@ test('C210: release identity is consistent with previous accepted shell contract
  assert.equal(version.cacheGeneration,'golden429');
  assert.match(read('docs/dashboard.html'),/name="dashboard-release" content="v0\.8\.93"/);
  assert.match(read('docs/dashboard.html'),/name="dashboard-shell" content="f123-shell-v893"/);
+});
+
+test('C210: exact shipped manifest hashes match the final HTML/CSS/JS and Dashboard bytes',()=>{
+  const m=JSON.parse(read('docs/version-manifest.json'));
+  assert.equal(m.shell,version.shell);
+  assert.equal(m.version,version.version);
+  const assets=['./index.html','./ui2.css','./auth-ui.min.js','./app-inline-03.min.js','./dashboard.html'];
+  for(const rel of assets){
+    const raw=fs.readFileSync(path.join(root,'docs',rel.slice(2)));
+    const actual='sha256-'+crypto.createHash('sha256').update(raw).digest('hex');
+    assert.equal(m.files[rel],actual,'official manifest seals '+rel);
+  }
 });
