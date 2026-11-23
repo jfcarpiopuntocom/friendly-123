@@ -21,13 +21,13 @@ self.addEventListener('fetch',e=>{
 `;
 for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
  test('C210 '+name+' old cache-first SW -> rescue -> exactly one new navigation, data retained',{timeout:120000},async()=>{
-   let purgeHits=0,normalHits=0;
+   let purgeHits=0,normalHits=0,versionOnline=false;
    const server=http.createServer((req,res)=>{
      const u=new URL(req.url,'http://localhost');
      let body='',type='text/html';
      if(u.pathname==='/old-sw.js'){body=legacySW;type='application/javascript'}
      else if(u.pathname==='/reenganchar.html')body=rescue;
-     else if(u.pathname==='/version.json'){body='{"shell":"f123-shell-v893","version":"v0.8.93"}';type='application/json'}
+     else if(u.pathname==='/version.json'){res.statusCode=versionOnline?200:503;body=versionOnline?'{"shell":"f123-shell-v893","version":"v0.8.93"}':'offline';type='application/json'}
      else if(u.pathname==='/'){
        if(u.searchParams.has('_purge')){purgeHits++;body=freshHtml}
        else{normalHits++;body=freshHtml}
@@ -54,9 +54,21 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      assert.equal(await page.locator('#old').count(),1,'old v890 cache-first behavior reproduced before escape');
      assert.equal(await page.locator('#fresh').count(),0);
      assert.equal(await page.evaluate(()=>localStorage.getItem('f123_test_owner')),'preserved');
+     // Offline preflight: old shell and cache survive rather than being erased.
+     await page.goto(base+'reenganchar.html',{waitUntil:'domcontentloaded'});
+     await page.locator('#manual:not([hidden])').waitFor({timeout:12000});
+     const offline=await page.evaluate(async()=>({
+       oldCache:(await caches.keys()).some(k=>k.indexOf('f123-shell-v890')===0),
+       oldReg:(await navigator.serviceWorker.getRegistrations()).length,
+       owner:localStorage.getItem('f123_test_owner')
+     }));
+     assert.equal(offline.oldCache,true,'offline never deletes the old shell');
+     assert.equal(offline.oldReg,1,'offline never unregisters the old SW');
+     assert.equal(offline.owner,'preserved');
+     assert.equal(purgeHits,0,'offline never navigates to a broken half-updated app');
+     versionOnline=true;
      // /reenganchar.html is outside the old SHELL, and therefore fetched from the network.
-     // Its network version probe prevents destructive cache cleanup while offline.
-     await page.goto(base+'reenganchar.html',{waitUntil:'domcontentloaded'}).catch(e=>{
+     await page.goto(base+'reenganchar.html?retry=1',{waitUntil:'domcontentloaded'}).catch(e=>{
        if(!/interrupted|aborted/i.test(String(e.message)))throw e;
      });
      await page.locator('#fresh').waitFor({timeout:30000});
