@@ -7,13 +7,21 @@ const vm=require('node:vm');
 const root=require('node:path').join(__dirname,'../docs');
 const month=new Date().toLocaleDateString('en-CA',{year:'numeric',month:'2-digit'});
 const period=new Date().getFullYear()+'-'+String(new Date().getMonth()+1).padStart(2,'0');
+/* Source-slice harness must execute the real global helper used in cargarGastos.
+   Otherwise the VM crashes on a missing fixture symbol, not an expense rule. */
+function cargarArgHtmlReal(html,context){
+ const start=html.indexOf('function argHtml(s) {'),end=html.indexOf('\n}',start);
+ assert.ok(start>=0&&end>start,'real production argHtml definition exists');
+ vm.runInContext(html.slice(start,end+2),context);
+}
+
 test('Expenses compares actual monthly sales and expenses; returned sales do not inflate net',async()=>{
  const html=P(root+'/index.html','utf8');
  const code=html.slice(html.indexOf('async function cargarGastos(){'),html.indexOf('async function registrarGasto(){'));
  const nodes=Object.fromEntries(['listaGastos','gastosResumen','gastoFecha','gastosPorCategoria'].map(k=>[k,{innerHTML:'',value:'',querySelectorAll:()=>[]}]));
  const sales=[{fecha:period+'-10T12:00:00Z',cantidad:2,precioUnit:25,ubicacionId:'a'},{fecha:period+'-11T12:00:00Z',cantidad:1,precioUnit:10,ubicacionId:'a',devuelta:true,fechaDevolucion:period+'-11'},{fecha:'2020-01-01',cantidad:1,precioUnit:1000}];
  const c={window:{OCAuth:{rolActual:()=> 'dueno'}},document:{getElementById:k=>nodes[k]},API:'/api',ubicacionActual:'todas',_gastoCatFiltro:'',fmtMoney:v=>'$'+Number(v).toFixed(2),escHtml:String,gastoCatLabel:String,fetch:async url=>({ok:true,json:async()=>url.includes('/gastos')?{gastos:[{concepto:'Synthetic expense',monto:12,fecha:period+'-10'}]}:url.includes('/ventas/todas')?sales:{resumenDia:{entra:50}}})};
- c.localStorage={getItem:()=>null}; vm.createContext(c); vm.runInContext(fs.readFileSync(root+'/core/sales-audit.js','utf8'),c); c.window.OCSalesAudit=c.OCSalesAudit; vm.runInContext(fs.readFileSync(root+'/core/business-read-model.js','utf8'),c); c.window.OCBusinessReadModel=c.OCBusinessReadModel; c.fechaGastoVisible=fecha=>c.OCBusinessReadModel.day(fecha,'America/Guayaquil'); vm.runInContext(code,c);await c.cargarGastos();
+ c.localStorage={getItem:()=>null}; vm.createContext(c); cargarArgHtmlReal(html,c); vm.runInContext(fs.readFileSync(root+'/core/sales-audit.js','utf8'),c); c.window.OCSalesAudit=c.OCSalesAudit; vm.runInContext(fs.readFileSync(root+'/core/business-read-model.js','utf8'),c); c.window.OCBusinessReadModel=c.OCBusinessReadModel; c.fechaGastoVisible=fecha=>c.OCBusinessReadModel.day(fecha,'America/Guayaquil'); vm.runInContext(code,c);await c.cargarGastos();
  assert.match(nodes.gastosResumen.innerHTML,/Sales this month[\s\S]*?\$50\.00/);
  assert.match(nodes.gastosResumen.innerHTML,/Sales less expenses[\s\S]*?\$38\.00/);
 });
@@ -35,7 +43,7 @@ test('App expense month stays pending when an expense cannot be assigned a date'
  const nodes=Object.fromEntries(['listaGastos','gastosResumen','gastoFecha','gastosPorCategoria'].map(k=>[k,{innerHTML:'',value:'',querySelectorAll:()=>[]}]));
  const sales=[{fecha:period+'-10T12:00:00Z',cantidad:2,precioUnit:25,ubicacionId:'a'},{fecha:period+'-11T12:00:00Z',cantidad:1,precioUnit:10,ubicacionId:'a',devuelta:true,fechaDevolucion:period+'-11'},{fecha:'2020-01-01',cantidad:1,precioUnit:1000}];
  const c={window:{OCAuth:{rolActual:()=> 'dueno'}},document:{getElementById:k=>nodes[k]},API:'/api',ubicacionActual:'todas',_gastoCatFiltro:'',fmtMoney:v=>'$'+Number(v).toFixed(2),escHtml:String,gastoCatLabel:String,fetch:async url=>({ok:true,json:async()=>url.includes('/gastos')?{gastos:[{concepto:'Synthetic expense',monto:12,fecha:'invalid'}]}:url.includes('/ventas/todas')?sales:{resumenDia:{entra:50}}})};
- c.localStorage={getItem:()=>null}; vm.createContext(c); vm.runInContext(fs.readFileSync(root+'/core/sales-audit.js','utf8'),c); c.window.OCSalesAudit=c.OCSalesAudit; vm.runInContext(fs.readFileSync(root+'/core/business-read-model.js','utf8'),c); c.window.OCBusinessReadModel=c.OCBusinessReadModel; c.fechaGastoVisible=fecha=>c.OCBusinessReadModel.day(fecha,'America/Guayaquil'); vm.runInContext(code,c);await c.cargarGastos();
+ c.localStorage={getItem:()=>null}; vm.createContext(c); cargarArgHtmlReal(html,c); vm.runInContext(fs.readFileSync(root+'/core/sales-audit.js','utf8'),c); c.window.OCSalesAudit=c.OCSalesAudit; vm.runInContext(fs.readFileSync(root+'/core/business-read-model.js','utf8'),c); c.window.OCBusinessReadModel=c.OCBusinessReadModel; c.fechaGastoVisible=fecha=>c.OCBusinessReadModel.day(fecha,'America/Guayaquil'); vm.runInContext(code,c);await c.cargarGastos();
  assert.match(nodes.gastosResumen.innerHTML,/Sales this month[\s\S]*?\$50\.00/);
  assert.match(nodes.gastosResumen.innerHTML,/Expenses this month[\s\S]*?—/);
  assert.match(nodes.gastosResumen.innerHTML,/Sales less expenses[\s\S]*?—/);
