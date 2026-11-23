@@ -40,7 +40,7 @@ jobs:
       - name: C209 source, bundle and old updater regressions
         run: |
           set -euo pipefail
-          node --test test/p0-c209-pin-layout-and-update.test.cjs test/p0-c180-version-adoption.test.cjs test/p0-c185-single-sw-check.test.cjs test/p0-purge-url-and-startup.test.cjs
+          node --test test/p0-c209-pin-layout-and-update.test.cjs test/p0-c209-reengage-lifecycle.test.cjs test/p0-c180-version-adoption.test.cjs test/p0-c185-single-sw-check.test.cjs test/p0-purge-url-and-startup.test.cjs
       - name: C209 real Chromium and WebKit computed layout
         run: node --test test/p0-c209-pin-layout.browser.cjs
       - name: Record only the generated runtime deliverables
