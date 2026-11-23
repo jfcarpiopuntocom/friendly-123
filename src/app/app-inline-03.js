@@ -196,8 +196,9 @@ const _ocActSolaOn = true;
   }
   // C181: the PIN screen is the ONLY automatic navigation boundary.
   // Once authenticated inside the working app, never reload automatically.
-  function seguro() { return window.__f123PurgeEnCurso !== true && enPantallaPIN() && seguroCon(false); }
+  function seguro() { return enPantallaPIN() && seguroCon(false); }
   function seguroCon(sinRecuperacion) {
+    if (window.__f123PurgeEnCurso === true) return false;
     try {
       // Never auto-reload while a notebook still needs local IDB recovery or
       // peer history replay. A SW update is not permission to interrupt money.
