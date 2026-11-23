@@ -61,6 +61,14 @@ test('WebKit: an older-month-only associate survives All dates -> repaint -> sel
     });
     assert.equal(await page.locator('#comm-panel-person [data-cm-person-id]').count(),1);
     assert.equal(await page.locator('#comm-panel-person [data-cm-person-id="artist-prior"]').count(),1);
-    assert.deepEqual(failures,[],'WebKit must not crash during repaint');
+    // file:// loads in the existing test harness trigger unrelated version.json
+    // cross-origin polling errors in WebKit. Those can appear before the
+    // commissions tab is even opened, so do not misreport them as a Persona crash.
+    const personaErrors = failures.filter(msg =>
+      !(/version\\.json/.test(msg) && /access control checks/i.test(msg)));
+    assert.deepEqual(personaErrors,[],'Persona repaint must not throw runtime errors');
+    assert.equal(await page.evaluate(() => document.readyState === 'complete' &&
+      !!document.querySelector('[data-cm-person-id="artist-prior"]')),true,
+      'page stays alive with the historical associate visible after repaint');
   } finally { await browser.close(); }
 });
