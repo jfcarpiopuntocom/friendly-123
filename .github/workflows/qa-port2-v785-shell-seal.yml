@@ -46,9 +46,20 @@ jobs:
           assert.equal(old.version,versionFromShell(old.shell),'base display version must exactly encode its shell');
           assert.match(v.shell,/^f123-shell-v\d+$/);
           assert.match(v.cacheGeneration,/^golden\d+$/);
-          assert.equal(num(v.shell),num(old.shell)+1,'release shell/version must advance exactly once');
-          assert.equal(num(v.shell),num(old.shell)+1,'shell identity must advance exactly once');
-          assert.equal(num(v.cacheGeneration),num(old.cacheGeneration)+1,'cache generation must advance exactly once');
+          // A shell rolled back from master is still used: browsers may hold its
+          // cache. Reserve the next NEVER-USED number, not merely master + 1.
+          // Same rule for golden generation; compare with actual Git history,
+          // not the most recent version.json (v921/golden458 was rolled back).
+          const usedHistory=cp.execFileSync('git',['log','--format=','-p','origin/master','--','docs/version.json'],
+            {encoding:'utf8',maxBuffer:32*1024*1024});
+          const nextUnused=(pattern,base)=>
+            Math.max(base,...[...usedHistory.matchAll(pattern)].map(m=>Number(m[1])))+1;
+          assert.equal(num(v.shell),
+            nextUnused(/f123-shell-v(\\d+)/g,num(old.shell)),
+            'release shell must be the next never-used shell in master history');
+          assert.equal(num(v.cacheGeneration),
+            nextUnused(/golden(\\d+)/g,num(old.cacheGeneration)),
+            'cache generation must be the next never-used generation in master history');
           assert.equal(m.version,v.version);assert.equal(m.shell,v.shell);
           const vendor=fs.readFileSync('docs/vendor/yparty-piloto.min.js');
           const sha=crypto.createHash('sha256').update(vendor).digest('hex');
