@@ -31,7 +31,7 @@ jobs:
           node --check src/app/app-inline-01.js
           node --check docs/core/business-read-model.js
           node --check docs/mock-backend.js
-          node --test test/p0-c200-initial-dashboard-after-auth.test.cjs test/p0-c197-opera-dashboard-hotpath.test.cjs
+          node --test test/p0-c200-initial-dashboard-after-auth.test.cjs test/p0-c197-opera-dashboard-hotpath.test.cjs test/p0-c212-neon-browser-asset-integrity.test.cjs
       - name: Rebuild exact browser assets; verify official release manifest
         run: |
           set -euo pipefail
