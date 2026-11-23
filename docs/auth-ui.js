@@ -706,6 +706,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       <p id="oc-gate-pwa-rescue" style="margin:8px 0;text-align:center;"><a href="./pwa-rescue.html" style="display:inline-block;min-height:44px;padding:10px 8px;font-size:14px;color:var(--azul-medio,#2c4a68);text-decoration:underline;font-weight:700;" data-i18n="auth.gate.pwaRescue">${(window.t && window.t("auth.gate.pwaRescue")) || "Two apps installed? PWA rescue"}</a></p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
       <p id="oc-gate-build" style="margin:8px 0 0;font-size:12px;letter-spacing:.06em;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">&nbsp;</p>
+      <a id="oc-reenganche-btn" href="./reenganchar.html" role="button"
+         style="display:inline-block;margin:12px auto 4px;padding:12px 18px;min-height:44px;box-sizing:border-box;border:2px solid #0F1923;border-radius:8px;background:#EFC31A;color:#0F1923!important;-webkit-text-fill-color:#0F1923!important;font-weight:800;text-align:center;text-decoration:none;font-size:15px;line-height:22px;box-shadow:0 3px 0 #0F1923;">Reenganchar / Update now</a>
       <!-- Acceso al "campo de pruebas" (workshop) RETIRADO (JFC 2026-09-10):
            ya no se quiere que la gente acceda al workshop desde el candado.
            Se elimina el enlace; el workshop sigue existiendo en su URL, solo que
@@ -884,6 +886,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if(summary)summary.textContent=tt('auth.gate.emergency','Emergency recovery');
       const repair=document.getElementById('oc-purge-btn');
       if(repair && !repair.disabled)repair.textContent=tt('auth.gate.repair','Repair app loading');
+      const reenganche=document.getElementById('oc-reenganche-btn');
+      if(reenganche)reenganche.textContent=tt('auth.gate.reconnectNow','Reenganchar / Update now');
       const help=document.getElementById('oc-purge-help');
       if(help)help.textContent=tt('auth.gate.repairHelp','Updates arrive automatically. Use this only if the app fails to open, with an internet connection. It repairs cached app files without deleting your notebook data.');
       const rec = document.getElementById("oc-recuperar");
