@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.05",
+  "version": "v0.9.06",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.05 C227: vuelve la flecha de quien le paga a quien en cada producto de Commissions (vista de todo el historial), igual que en la UI 1.0.",
+  "changelog": "v0.9.06 C234: la primera carga del historial de un aparato nuevo desde Firebase no cuenta contra el tope diario (se cortaba a los 20 MB); tope de seguridad 10x para no saturar la cuenta gratis. Script de puntaje al dia con el buzon cifrado y la v0.9.",
   "requerida": false,
-  "shell": "f123-shell-v905",
+  "shell": "f123-shell-v906",
   "apagar": [],
-  "releaseName": "v0.9.05",
-  "cacheGeneration": "golden441"
+  "releaseName": "v0.9.06",
+  "cacheGeneration": "golden442"
 }

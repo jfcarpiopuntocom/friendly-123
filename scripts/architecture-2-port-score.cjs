@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 'use strict';
+// C234 (JFC 23 nov 2026: "deben correr pues"): versions after v0.8.x (v0.9.00+) are newer than every v0.8 patch.
+// PATCH08.exec mimics the old v0.8-only regex exec and returns a huge patch number for v0.9+.
+const PATCH08={exec(v){const m=/^v0\.(\d+)\.(\d+)$/.exec(String(v||''));if(!m)return null;const mi=Number(m[1]);return mi>8?[m[0],'999999']:mi===8?[m[0],m[2]]:null;}};
 // PORT = code assembled into friendly-123, not a separately shipped app.
 // Reproducible weighted capabilities, with physical/customer GO kept separate.
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),crypto=require('node:crypto');
@@ -327,7 +330,7 @@ function inspect(){
       'production-business-dispatch':['function publicarOpLocal(op)','API.despacharOpComercialCertificada(cmd20)'],
       'commercial-role-switch':['API.cambiarRolComercial20 = function','oc-login','oc-logout'],
       'browser-photo-cutover':['yjs.fotoSha.get(hash)','hashDeDataUrl(bytes)'],
-      'typed-delta-and-legacy-retirement':['if (!API.modoCorte20Activo) API.opsCanal.enviarUpdate(update);','if (!API.corteFotosShaActivo) API.fotosCanal.enviarUpdate(update);']
+      'typed-delta-and-legacy-retirement':['if (!API.modoCorte20Activo || cfOpsActivo) API.opsCanal.enviarUpdate(update);','if (!API.corteFotosShaActivo) API.fotosCanal.enviarUpdate(update);']
     };
     for(const token of guards[item.id])assert(source.includes(token),'assembled source missing '+item.id+': '+token);
     const qaFiles={
@@ -456,7 +459,7 @@ function inspect(){
   const manifest=load('docs/version-manifest.json');
   const v=load('docs/version.json');
   const shellNum = Number((/^f123-shell-v(\d+)$/.exec(v.shell || '') || [])[1] || 0);
-  const patchNum = Number((/^v0\.8\.(\d+)$/.exec(v.version || '') || [])[1] || 0);
+  const patchNum = Number((PATCH08.exec(v.version || '') || [])[1] || 0);
   assert(patchNum >= 12, 'C29 must be sealed with v0.8.12+ shell');
   assert(shellNum >= 812, 'C29 must be sealed with f123-shell-v812+');
   const actual='sha256-'+crypto.createHash('sha256')
@@ -489,7 +492,7 @@ function inspect(){
    assert(testText.includes('assert.equal(opsRequests.length, 3)'),
      'C31 must exercise three typed commands via bundled browser coordinator');
    const version=load('docs/version.json');
-   const patchNumC31=Number((/^v0\.8\.(\d+)$/.exec(version.version || '') || [])[1] || 0);
+   const patchNumC31=Number((PATCH08.exec(version.version || '') || [])[1] || 0);
    const shellNumC31=Number((/^f123-shell-v(\d+)$/.exec(version.shell || '') || [])[1] || 0);
    assert(patchNumC31 >= 13,'C31 verified runtime requires v0.8.13+ release');
    assert(shellNumC31 >= 813,'C31 verified runtime requires f123-shell-v813+');
@@ -542,7 +545,7 @@ function inspect(){
      'C33 must have actual SQL ledger receipts and stock assertion');
    const manifest=load('docs/version-manifest.json');
    const v=load('docs/version.json');
-   const patch=Number((/^v0\.8\.(\d+)$/.exec(v.version||'')||[])[1]||0);
+   const patch=Number((PATCH08.exec(v.version||'')||[])[1]||0);
    const shell=Number((/^f123-shell-v(\d+)$/.exec(v.shell||'')||[])[1]||0);
    assert(patch>=14 && shell>=814,'C34 source requires sealed v814+ shell');
    const normalized='sha256-'+crypto.createHash('sha256').update(backend.replace(/\r\n/g,'\n')).digest('hex');
@@ -581,7 +584,7 @@ function inspect(){
     assert(sourceTest.includes(token),'actual durable sale identity regression missing '+token);
   }
   const manifest=load('docs/version-manifest.json'),version=load('docs/version.json');
-  assert(Number((/^v0\.8\.(\d+)$/.exec(version.version||'')||[])[1]||0)>=15,
+  assert(Number((PATCH08.exec(version.version||'')||[])[1]||0)>=15,
     'C36 must ship in v0.8.15+');
   assert(Number((/^f123-shell-v(\d+)$/.exec(version.shell||'')||[])[1]||0)>=815,
     'C36 must ship in f123-shell-v815+');
@@ -603,7 +606,7 @@ function inspect(){
    const realtime=fs.readFileSync(path.join(root,'docs/sync-realtime.js'),'utf8');
    const manifest=load('docs/version-manifest.json');
    const version=load('docs/version.json');
-   assert(Number((/^v0\.8\.(\d+)$/.exec(version.version||'')||[])[1]||0)>=16,
+   assert(Number((PATCH08.exec(version.version||'')||[])[1]||0)>=16,
      'C38 cutover cannot earn credit before sealed v816+ shell');
    assert(Number((/^f123-shell-v(\d+)$/.exec(version.shell||'')||[])[1]||0)>=816,
      'C38 cutover requires f123-shell-v816+');
@@ -684,7 +687,7 @@ function inspect(){
     'assert.equal(sql.receipts, 1)'
   ])assert(proof.includes(token),'C40 real Workerd exactly-once proof missing '+token);
   const v=load('docs/version.json');
-  assert(Number((/^v0\.8\.(\d+)$/.exec(v.version||'')||[])[1]||0)>=17,'requires v0.8.17+');
+  assert(Number((PATCH08.exec(v.version||'')||[])[1]||0)>=17,'requires v0.8.17+');
   assert(Number((/^f123-shell-v(\d+)$/.exec(v.shell||'')||[])[1]||0)>=817,'requires f123-shell-v817+');
   const digest='sha256-'+crypto.createHash('sha256').update(src.replace(/\r\n/g,'\n')).digest('hex');
   assert.equal(load('docs/version-manifest.json').files['./sync-yjs.js'],digest,'C40 shipped sync-yjs.js must be integrity sealed');
@@ -741,7 +744,7 @@ function inspect(){
   assert(fs.existsSync(path.join(root,'cloudflare-yparty-worker/qa/p0-c40-local-receipt-to-do-receipt-workerd.test.mjs')),
     'C40 Workerd real SQLite authoritative receipt proof missing');
   const ver=load('docs/version.json');
-  assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=18,'C42 needs v0.8.18+');
+  assert(Number((PATCH08.exec(ver.version||'')||[])[1]||0)>=18,'C42 needs v0.8.18+');
   assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=818,'C42 needs f123-shell-v818+');
   const manifest=load('docs/version-manifest.json');
   for(const [name,src] of [['mock-backend.js',mock],['sync-yjs.js',facade]]){
@@ -797,7 +800,7 @@ function inspect(){
      pay.includes("['Chromium',chromium],['WebKit',webkit]"),
      'C44 real Chromium/WebKit lost-response retry regression absent');
    const v=load('docs/version.json');
-   assert(Number((/^v0\.8\.(\d+)$/.exec(v.version||'')||[])[1]||0)>=19,'C44 requires v0.8.19+');
+   assert(Number((PATCH08.exec(v.version||'')||[])[1]||0)>=19,'C44 requires v0.8.19+');
    assert(Number((/^f123-shell-v(\d+)$/.exec(v.shell||'')||[])[1]||0)>=819,'C44 requires shell v819+');
    const manifest=load('docs/version-manifest.json');
    for(const [name,bytes] of [['mock-backend.js',backend],['sync-realtime.js',realtime],['sync-yjs.js',sync]]){
@@ -900,7 +903,7 @@ function inspect(){
    const manifest=load('docs/version-manifest.json'),ver=load('docs/version.json');
    const syncSha='sha256-'+crypto.createHash('sha256').update(sync.replace(/\r\n/g,'\n')).digest('hex');
    assert.equal(manifest.files['./sync-yjs.js'],syncSha,'C47 real shell sync integrity SHA mismatch');
-   assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=20,'C47 requires v0.8.20+');
+   assert(Number((PATCH08.exec(ver.version||'')||[])[1]||0)>=20,'C47 requires v0.8.20+');
    assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=820,'C47 requires shell v820+');
    assert.equal(data.assessedProductSha,'4dc0de90d1a0544a63c8343cfe478db8f01c5ea2',
      'C50 must pin real merged C47 product SHA, not a test or workshop SHA');
@@ -972,7 +975,7 @@ function inspect(){
      'authQa.rolActual()','authQa.esDemo()', 'cortarComercio: true'])
      assert(sync.includes(token),'C51 certified guarded bootstrap or timeout missing '+token);
    const ver=load('docs/version.json'),manifest=load('docs/version-manifest.json');
-   assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=21,'C51 needs actual v0.8.21+');
+   assert(Number((PATCH08.exec(ver.version||'')||[])[1]||0)>=21,'C51 needs actual v0.8.21+');
    assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=821,'C51 needs actual shell v821+');
    for(const [name,bytes] of [['mock-backend.js',mock],['sync-yjs.js',sync],
      ['idb-fotos.js',idb],['application/recover-shelf-photo.js',recovery]]){
@@ -1006,7 +1009,7 @@ function inspect(){
    for(const token of [
      'if (!API.modoCorte20Activo && API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);',
      'if (!API.corteFotosShaActivo) API.fotosCanal.enviarUpdate(update);',
-     'if (!API.modoCorte20Activo) API.opsCanal.enviarUpdate(update);',
+     'if (!API.modoCorte20Activo || cfOpsActivo) API.opsCanal.enviarUpdate(update);',
      'API.canal.enviarUpdate(update);',
      'API.corte20QaHabilitado'
    ])assert(sync.includes(token),'C52 real old-channel guard missing: '+token);
@@ -1022,7 +1025,7 @@ function inspect(){
    const manifest=load('docs/version-manifest.json'),ver=load('docs/version.json');
    const digest='sha256-'+crypto.createHash('sha256').update(sync.replace(/\r\n/g,'\n')).digest('hex');
    assert.equal(manifest.files['./sync-yjs.js'],digest,'v0.8.22 source integrity seal');
-   assert(Number((/^v0\.8\.(\d+)$/.exec(ver.version||'')||[])[1]||0)>=22,'C52 requires real v0.8.22+');
+   assert(Number((PATCH08.exec(ver.version||'')||[])[1]||0)>=22,'C52 requires real v0.8.22+');
    assert(Number((/^f123-shell-v(\d+)$/.exec(ver.shell||'')||[])[1]||0)>=822,'C52 requires actual shell v822+');
    assert.equal(data.assessedProductSha,'4dc0de90d1a0544a63c8343cfe478db8f01c5ea2',
      'C53 must pin actual merged C52 product SHA, not workshop/PR-only source');
@@ -1048,10 +1051,10 @@ function inspect(){
    const test=fs.readFileSync(path.join(root,'test/p0-c52-legacy-channel-retirement.test.cjs'),'utf8');
    for(const token of [
      'API.canal = canalesRespaldo[0]',
-     'if (!API.modoCorte20Activo || API.canal === API.canalPiloto) API.canal.enviarUpdate(update);',
+     'if (!API.modoCorte20Activo || API.canal === API.canalPiloto || cfPrivadoActivo) API.canal.enviarUpdate(update);',
      'if (!API.modoCorte20Activo && API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);',
      'if (!API.corteFotosShaActivo) API.fotosCanal.enviarUpdate(update);',
-     'if (!API.modoCorte20Activo) API.opsCanal.enviarUpdate(update);'
+     'if (!API.modoCorte20Activo || cfOpsActivo) API.opsCanal.enviarUpdate(update);'
    ])assert(sync.includes(token),'C54 source guard missing '+token);
    for(const token of [
      'API.canalPiloto = API.canal;',
@@ -1064,7 +1067,7 @@ function inspect(){
    assert.equal(manifest.files['./sync-yjs.js'],
      'sha256-'+crypto.createHash('sha256').update(sync.replace(/\r\n/g,'\n')).digest('hex'),
      'C54 source integrity seal exact');
-   assert(Number((/^v0\.8\.(\d+)$/.exec(version.version||'')||[])[1]||0)>=23,'C54 v0.8.23+ required');
+   assert(Number((PATCH08.exec(version.version||'')||[])[1]||0)>=23,'C54 v0.8.23+ required');
    assert(Number((/^f123-shell-v(\d+)$/.exec(version.shell||'')||[])[1]||0)>=823,'C54 v823 shell required');
    assert.equal(data.assessedProductSha,'4dc0de90d1a0544a63c8343cfe478db8f01c5ea2',
      'C55 credits ONLY merged same-app C54 SHA, not test-only or workshop code');
@@ -1153,7 +1156,7 @@ function inspect(){
      'C58 RED: failed Team credential construction cannot expose old Owner PUT photo client'
    ])assert(qa.includes(token),'C58 RED->GREEN regression fixture missing '+token);
    const version=load('docs/version.json'),manifest=load('docs/version-manifest.json');
-   assert(Number((/^v0\.8\.(\d+)$/.exec(version.version||'')||[])[1]||0)>=24,'C58 v0.8.24+');
+   assert(Number((PATCH08.exec(version.version||'')||[])[1]||0)>=24,'C58 v0.8.24+');
    assert(Number((/^f123-shell-v(\d+)$/.exec(version.shell||'')||[])[1]||0)>=824,'C58 shell v824+');
    assert.equal(manifest.version,version.version);
    assert.equal(manifest.shell,version.shell);
