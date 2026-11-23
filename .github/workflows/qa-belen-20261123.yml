@@ -1,0 +1,41 @@
+name: Belén · partial credit + Category + historic Sold
+on:
+  push:
+    branches:
+      - fix/belen-three-flows-20261123
+  pull_request:
+    paths:
+      - 'docs/plan-pagos-ui.js'
+      - 'docs/plan-pagos-ui.min.js'
+      - 'docs/version-manifest.json'
+      - 'src/app/app-inline-01.js'
+      - 'docs/app-inline-01.min.js'
+      - 'docs/mock-backend.js'
+      - 'test/p0-belen-20261123-three-flows.test.cjs'
+      - 'test/p0-belen-20261123-three-flows-browser.test.cjs'
+      - '.github/workflows/qa-belen-20261123.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  three-flows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run exact source / served bundle contract tests
+        run: |
+          node --test test/p0-belen-20261123-three-flows.test.cjs test/fiados-pagado-por-consumo-v557.test.js test/dinero-paso-dolar.test.js
+          bash check-sw.sh
+      - name: Install WebKit browser QA
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node scripts/build-min-scripts.cjs --check
+          npx playwright install --with-deps webkit
+      - name: Exercise real browser payment and sale storage code with synthetic fixtures
+        run: node --test --test-timeout=120000 test/p0-belen-20261123-three-flows-browser.test.cjs

@@ -4191,8 +4191,6 @@ function mostrarFormNuevoProducto(codigoEscaneado){
             <input id="np-barcode" type="text" placeholder="${t('form.barcodePlaceholder')}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>`}
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
         <input id="np-nombre" type="text" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
-        <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;"></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
         <select id="np-tipo-producto" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:5px;">
           <option value="normal">Normal</option>
@@ -4612,8 +4610,6 @@ async function abrirAltaProducto(){
         <input id="np-barcode" type="text" placeholder="${t('form.barcodePlaceholder')}" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="common.name">Name</span><br>
         <input id="np-nombre" type="text" ${inp}></label>
-      <label style="display:block;margin-top:10px;font-size:14px;">${t("form.category")}<br>
-        <input id="np-categoria" type="text" placeholder="${t('form.categoryPlaceholder')}" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;">Product type<br>
         <select id="np-tipo-producto" ${inp}>
           <option value="normal">Normal</option>
@@ -5036,6 +5032,9 @@ async function abrirPanelVentaInfo(id, esTicket){
       <label id="vi-factura-wrap" style="display:none;margin-top:6px;font-size:14px;"><span data-i18n="sale.lblInvoiceNo">${escHtml(t("sale.lblInvoiceNo"))}</span><br>
         <input id="vi-factura" type="text" placeholder="e.g. 001-002-000012345" ${inp}></label>
       <label style="display:block;margin-top:10px;font-size:14px;"><span data-i18n="sale.lblNotes">${escHtml(t("sale.lblNotes"))}</span><br><textarea id="vi-notas" rows="2" data-i18n-attr="placeholder:sale.phNotes" placeholder="${escHtml(t("sale.phNotes"))}" ${inp}></textarea></label>
+      <!-- Historical booking: sale date is distinct from the event date and the actual record time. -->
+      <label style="display:block;margin-top:10px;font-size:14px;">${window.OCI18n && window.OCI18n.locale && window.OCI18n.locale().startsWith("es") ? "Fecha de venta (opcional; para ventas pasadas)" : "Sale date (optional; for past sales)"}<br>
+        <input id="vi-fecha-venta" type="date" style="width:100%;padding:8px;margin-top:4px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
       <p id="vi-impuesto" style="display:none;font-size:15px;font-weight:700;margin:10px 0 0;color:#0F1923 !important;-webkit-text-fill-color:#0F1923 !important;"></p>
       <div id="vi-msg" role="status" aria-live="polite" style="font-size:14px;margin-top:10px;font-weight:700;"></div>
       <div class="acciones-rapidas" style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap;">
@@ -5288,7 +5287,7 @@ async function confirmarVentaConInfo(id, esTicket){
       (!Number.isFinite(_ovNum) || _ovNum < 0 || !_ovEl.checkValidity())));
   const _tieneOverride = !_cortesiaOn && Number.isFinite(_ovNum) && _ovNum >= 0;
   const info = {
-    fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
+    fechaVenta: g("vi-fecha-venta"), fechaEvento: g("vi-fecha"), numPersonas: g("vi-personas"), nombrePagador: g("vi-pagador"),
     formaPago: _fiadoOn ? "fiado" : g("vi-forma-pago"),
     /* A durable fiado sale includes its debt obligation in the same sale. */
     ...(_fiadoOn && clienteId ? { fiadoAtomico: true } : {}),
