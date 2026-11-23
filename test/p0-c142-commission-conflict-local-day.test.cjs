@@ -62,7 +62,8 @@ test('C142: conflict warning scoped to selected range, anonymous distinct sales 
 });
 test('C142: app and dashboard share this projector and monthly payments remain separate',()=>{
  const root=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
- assert.match(read('src/app/app-inline-01.js'),/OCCommissionHistory\.render/);
+ // C231: the app uses the same read-only projector through OCCommissionHistory.project (and renders its own cards).
+ assert.match(read('src/app/app-inline-01.js'),/OCCommissionHistory\.(render|project)/);
  assert.match(read('src/dashboard/dashboard-main.js'),/OCCommissionHistory\.render/);
  assert.match(read('docs/index.html'),/core\/commission-history\.js/);
  assert.match(read('docs/dashboard.html'),/core\/commission-history\.js/);

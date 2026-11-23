@@ -282,6 +282,8 @@ test('selectorMesComisionesHtml + cambiarMesComisiones: current month by default
         vacio: selectorMesComisionesHtml([]).control
       };
       cambiarMesComisiones('garbage'); out.tras_basura = _ocMesComisiones;
+      // C231: null now opens the read-only All dates history (Belen 2026-11-21); open the current month explicitly.
+      cambiarMesComisiones(meses.find(x => x.actual).mes);
       await new Promise(res => setTimeout(res, 300));
       out.textoActual = document.getElementById('listaComisiones').innerText.includes('Fixture month product'); out.sinVentasActual = document.getElementById('listaComisiones').innerText.includes('Racks with no sales this month (1): Fixture month shelf');
       cambiarMesComisiones(prev); out.tras_prev = _ocMesComisiones;
@@ -294,11 +296,14 @@ test('selectorMesComisionesHtml + cambiarMesComisiones: current month by default
       cambiarMesComisiones(null); out.tras_null = _ocMesComisiones;
       return out;
     }, { prev: s.prev, rackId: s.rackId });
-    assert.equal(r.selected, r.actual, 'no month chosen -> the current month is selected');
+    // C231: since Belen 2026-11-21 no chosen month means the read-only "All dates" history (value "").
+    assert.equal(r.selected, '', 'no month chosen -> All dates is selected');
     assert.ok(r.optPrev.includes(r.fm), 'past month option shows what is still unpaid, formatted with fmtMoney');
     assert.ok(r.pend >= 20, 'the 40% of $50 = $20 is part of that month pending');
     assert.equal(r.jump, true, 'unpaid past month gets its jump button'); assert.equal(r.notaVacia, '');
-    assert.equal(r.vacio, '', 'no months, no selector');
+    // C231: since Belen 2026-11-21 "All dates" is always offered; with no months it is the only option.
+    assert.equal((r.vacio.match(/<option /g)||[]).length, 1, 'no months -> only All dates');
+    assert.match(r.vacio, /<option value="" selected>/);
     assert.equal(r.tras_basura, null, 'an invalid month falls back to current, never "all"');
     assert.equal(r.textoActual, false, 'current month does not list the past-month sale'); assert.equal(r.sinVentasActual, true, 'its rack is reported as having no sales this month');
     assert.equal(r.tras_prev, s.prev); assert.equal(r.textoPrev, true, 'past month lists the sale with its $20.00 commission');
@@ -314,7 +319,7 @@ test('abrirDesgloseMesComisiones: "due" and "people" sheets list the same people
   try {
     await sembrar(page, { persona: 'Desglose Dana', pct: 40, rack: 'Desglose shelf', prod: 'Desglose prod', barcode: 'FIX-DESG', precio: 100, costo: 30, ventas: 2 });
     const r = await page.evaluate(async () => {
-      await cargarComisiones();
+      await (_ocMesComisiones=(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date()),cargarComisiones()); /* C231: month view */
       const snap = _ocComMonthDetail;
       const racks = await __req('/api/liquidaciones?mes=' + encodeURIComponent(snap.mes || ''));
       const out = { totals: snap.totals };
@@ -374,7 +379,7 @@ test('editorComisionHtml (inside cargarComisiones): fix-the-percentage panel mir
     await sembrar(page, { persona: 'Editor Edna', pct: 35, rack: 'Rack <b>&"x"', prod: 'Edit prod', barcode: 'FIX-EDH', precio: 80, costo: 10 });
     const r = await page.evaluate(async () => {
       await __req('/api/ubicaciones', 'POST', { nombre: 'Empty rack no sales', tipo: 'socio' });
-      await cargarComisiones();
+      await (_ocMesComisiones=(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date()),cargarComisiones()); /* C231: month view */
       const racks = await __req('/api/liquidaciones');
       const f = racks.find(x => x.ubicacion === 'Rack <b>&"x"');
       const uid = f.ubicacionId.replace(/[^a-z0-9]/gi, '');
@@ -398,7 +403,7 @@ test('_marcarComisionPagadaUnaVez: a double tap records ONE payment; invalid amo
   try {
     const s = await sembrar(page, { persona: 'Pago Pia', pct: 40, rack: 'Pago shelf', prod: 'Pago prod', barcode: 'FIX-PAGO', precio: 100, costo: 30, ventas: 1 });
     const r = await page.evaluate(async (s) => {
-      await cargarComisiones();
+      await (_ocMesComisiones=(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date()),cargarComisiones()); /* C231: month view */
       const posts = []; const f0 = window.fetch;
       window.fetch = (u, o) => { if (String(u).includes('marcar-pagado')) posts.push(JSON.parse(o.body)); return f0(u, o); };
       const alerts = [], confirms = []; let medio = 'efectivo', monto = '10.00';

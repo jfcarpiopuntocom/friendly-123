@@ -1,3 +1,4 @@
+// C231: since Belen 2026-11-21 the Dashboard opens Commissions on all dates; these checks open a month first.
 /* v423 (JFC 2026-09-29, "carinito" a Commissions). Bug real: el recibo imprimible de un MES PASADO
    copiaba las devoluciones del mes ACTUAL (la liquidacion viva), y ningun recibo descontaba esas
    devoluciones del total. Rojo contra el shell v422; verde con el arreglo. Tambien fija la barra
@@ -15,7 +16,7 @@ async function recibo(page, mes) {
     window.open = () => ({ document: { open() {}, write(h) { html += h; }, close() {} }, focus() {}, print() {} });
     window.OCDashComisiones.pintarConDatos(d);
     const sel = document.getElementById('cm-mes'); sel.value = mes; sel.dispatchEvent(new Event('change'));
-    document.querySelector('[data-cm-vista="percha"]').click();
+    (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="percha"]').click();
     const b = document.querySelector('[data-cm-recibo="u1"]'); if (!b) return null;
     b.click();
     return html;
@@ -46,6 +47,7 @@ test('commission share bar: associates vs house, by value, with text labels (not
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
     const r = await page.evaluate((d) => {
       window.OCDashComisiones.pintarConDatos(d);
+      (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}})(); // C231: open the current month
       const bar = document.querySelector('#cm .cm-reparto');
       const seg = bar ? [...bar.querySelectorAll('.cm-barra i')].map(i => i.style.width) : [];
       return { txt: bar ? bar.innerText : '', seg, cards: document.querySelectorAll('#cm .cm-card .cm-barra').length, over: document.documentElement.scrollWidth > innerWidth };
@@ -62,7 +64,7 @@ test('by product / SKU: each card says what percentage the associate actually to
   try {
     const page = await web.newPage({ viewport: { width: 1280, height: 900 } });
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
-    const txt = await page.evaluate((d) => { window.OCDashComisiones.pintarConDatos(d); return document.getElementById('cm').innerText; }, fx.datos);
+    const txt = await page.evaluate((d) => { window.OCDashComisiones.pintarConDatos(d); (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}})(); /* C231 */ return document.getElementById('cm').innerText; }, fx.datos);
     assert.match(txt, /85% to the associate/, 'Mountain print: 42.50 of 50 twice = 85%');
     assert.match(txt, /10% to the associate/, 'Tote bag: 2 of 20 = 10%');
   } finally { await web.close(); }

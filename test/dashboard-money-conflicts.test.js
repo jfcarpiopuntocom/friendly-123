@@ -1,3 +1,4 @@
+// C231: since Belen 2026-11-21 the Dashboard opens Commissions on all dates; these checks open a month first.
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const path=require('node:path');
@@ -46,7 +47,7 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]])for(c
     else{other.amountCents=2000;other.amount=20;other.items[0].amountCents=2000;}
     OCSync.aplicarCatalogo({...cat,payouts:[...cat.payouts,other]},'dueno');
    },mode);
-   await app.evaluate(async()=>{document.getElementById('oc-gate')?.remove();await cargarComisiones();cambiarVistaComisiones('product');});
+   await app.evaluate(async()=>{document.getElementById('oc-gate')?.remove();await (_ocMesComisiones=(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date()),cargarComisiones()) /* C230: payments live in the month view since Belen 2026-11-21 */;cambiarVistaComisiones('product');});
    const card=app.locator('[data-comm-product-card][data-product-id="'+product.id+'"]');
    assert.match(await card.innerText(),/review payments/i);
    assert.equal(await card.locator('[data-comm-pay-from-product]').count(),0);
@@ -75,6 +76,7 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]])for(c
     throw error;
    }
    for(const view of ['producto','percha']){
+    await dash.evaluate(()=>(function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document)); // C231: open a month (all-dates is the default since Belen 2026-11-21)
     await dash.locator('[data-cm-vista='+view+']').click();
     const text=await dash.locator('#cm').innerText();
     assert.match(text,/review payments/i);assert.equal(await dash.locator('#cm a.pagar').count(),0,text);
