@@ -163,8 +163,13 @@
   }
   function sondaOtraCapa(url, ws) {
     var capaFb = capas.filter(function (x) { return x.relay === fb; })[0];
-    if (!capaFb || typeof fb.leerHead !== "function" || Date.now() - (_sondaFbEn[url] || 0) < 60000) return;
+    if (!capaFb || typeof fb.leerHead !== "function") return;
     if (esFoto(url) ? !usableFotos(capaFb) : !usable(capaFb)) return; // never bypass photo-band budgets
+    if (Date.now() - (_sondaFbEn[url] || 0) < 60000) {
+      var hvCache = headVisto(url);
+      if (hvCache && hvCache !== "0:0" && headAplicado(url) !== hvCache) leerFirebase(ws, url);
+      return;
+    }
     _sondaFbEn[url] = Date.now();
     Promise.resolve().then(function () { return fb.leerHead(url); }).then(function (h) {
       sumarBajada(capaFb, null, url);

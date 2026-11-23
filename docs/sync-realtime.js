@@ -586,7 +586,8 @@
          Jitter para no saturar cuando muchos dispositivos reconectan a la vez (wifi del local). */
       setTimeout(function () { try { pedirCatalogo(); } catch (_) {} }, 800 + Math.random() * 1200);
     };
-    ws.onmessage = async (ev) => {
+    let _colaMsgs = Promise.resolve();
+    ws.onmessage = (ev) => {
       // If the active notebook changed before page reload, do not apply
       // bytes from the old shop or acknowledge them in the new one.
       if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
@@ -596,10 +597,8 @@
         notificarEstado("apagado");
         return;
       }
-      // Frame de presencia (2026-07-23): el relay los manda en TEXTO plano,
-      // sin cifrar (solo es un numero de conexiones, no dato del negocio).
-      // Las Ops reales siempre son binarias (ArrayBuffer, cifradas). Este
-      // chequeo de tipo es la unica forma de distinguirlos.
+      // Frame de presencia / persist-result (texto plano): manejar al instante salvo pull-page,
+      // que espera en FIFO a que descifren y apliquen los frames previos del mismo pull.
       if (typeof ev.data === "string") {
         try {
           const msg = JSON.parse(ev.data);
@@ -625,8 +624,23 @@
             }
             return;
           }
-          if (msg && msg.k === "pull-page" && msg.v === 2) { recibirPaginaPull(msg); return; }
+          if (msg && msg.k === "pull-page" && msg.v === 2) {
+            _colaMsgs = _colaMsgs.then(() => _procesarMensajeEnCola(ev)).catch(() => {});
+            return;
+          }
           if (msg && msg.__presencia__) { presenciaN = msg.n; notificarEstado(estadoActual); }
+        } catch (_) {}
+        return;
+      }
+      _colaMsgs = _colaMsgs.then(() => _procesarMensajeEnCola(ev)).catch(() => {});
+    };
+    async function _procesarMensajeEnCola(ev) {
+      if (miGeneracion !== _conexionGeneracion || ws !== _socketDeEstaConexion ||
+          codigoCuadernoActivo() !== codigoNorm) return;
+      if (typeof ev.data === "string") {
+        try {
+          const msg = JSON.parse(ev.data);
+          if (msg && msg.k === "pull-page" && msg.v === 2) recibirPaginaPull(msg);
         } catch (_) {}
         return;
       }
@@ -777,7 +791,7 @@
           await ws.confirmPeerReceipt(receipt, proof);
         }
       } catch (_) { /* mensaje ilegible (codigo distinto, ruido) — se ignora, sordo a proposito */ }
-    };
+    }
     // The current app notebook answers encrypted Owner/admin dashboard
     // challenges without relying on TURN. This lane never handles Yjs or sales.
     try {
@@ -1621,16 +1635,21 @@
     window.addEventListener("oc-login", function () { setTimeout(publicarFichas, 1500); });
     document.addEventListener("visibilitychange", function () { if (!document.hidden && (yjsAtascado() || (ws && ws.relayLayer === "f123_relay_cupo_cf_v1"))) { pullDelRelay(); programarFichas(); } });
   } catch (_) {}
+  function clavePullRelay() {
+    var layer = (ws && (ws.pullRelayLayer || ws.relayLayer)) || "";
+    if (layer && layer !== "f123_relay_cupo_fb_v1") return "f123_relay_pull_" + salaIdActual + "_" + layer;
+    return "f123_relay_pull_" + salaIdActual;
+  }
   function leerPull() {
     var p = null;
-    try { p = JSON.parse(localStorage.getItem("f123_relay_pull_" + salaIdActual) || "null"); } catch (_) {}
+    try { p = JSON.parse(localStorage.getItem(clavePullRelay()) || "null"); } catch (_) {}
     if (!p) return { rev: 0, seq: 0 };
     // rev 0 asks for the photo again: this device has not finished adopting one (the tab can close during its wait).
     var adoptada = false; try { adoptada = !!localStorage.getItem("f123_foto_adoptada_" + salaIdActual); } catch (_) {}
     return { rev: adoptada ? Number(p.rev) || 0 : 0, seq: Number(p.seq) || 0 };
   }
   function recibirPaginaPull(m) {
-    try { localStorage.setItem("f123_relay_pull_" + salaIdActual, JSON.stringify({ rev: m.rev, seq: m.seq })); } catch (_) {}
+    try { localStorage.setItem(clavePullRelay(), JSON.stringify({ rev: m.rev, seq: m.seq })); } catch (_) {}
     if (m.more) {
       if (++_paginasPull < 16) pullDelRelay();
       else { _paginasPull = 0; setTimeout(pullDelRelay, 50); }
