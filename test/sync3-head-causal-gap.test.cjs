@@ -204,3 +204,36 @@ test("SYNC3: Firebase staged timestamp progress stops after a finite tie budget"
  assert.equal(state.rescateCausalAvanzo,false,"no unlimited paced continuation");
  assert.equal(a.ctx._pullCursor.seq,120);
 });
+
+test("provider switch loads its own cursor and keeps the old provider proof", async () => {
+ const a = harness({ pending: false });
+ const cf = "f123_relay_cupo_cf_v1", fb = "f123_relay_cupo_fb_v1";
+ const base = "f123_yjs_pull_cursor_v2-y";
+ const data = new Map([[base + ":" + cf, { rev: 3, seq: 120 }]]);
+ const reads = [];
+ Object.assign(a.ctx, {
+  _pullCursorBaseKey: base, _pullCursorKey: base + ":" + cf,
+  persistencia: { get: async key => { reads.push(key); return data.get(key); } }
+ });
+ const start = src.indexOf("    function cursorValido(v) {");
+ const end = src.indexOf("    if (persistencia && typeof persistencia.get", start);
+ const restore = src.indexOf("    function restaurarPruebaPull(guardado) {", end);
+ const save = src.indexOf("    function guardarPullCursor(cursor) {", restore);
+ assert.ok(start > 0 && end > start && restore > end && save > restore);
+ vm.runInContext(src.slice(start, end) + src.slice(restore, save), a.ctx);
+
+ a.ws.pullRelayLayer = fb;
+ await a.ctx.cargarCursorDeCapa(a.ws);
+ await head(a); // identical numeric end between unrelated providers
+ assert.deepEqual(a.sent.map(frame => frame.k), ["head", "pull"]);
+ assert.deepEqual([a.sent[1].rev, a.sent[1].seq], [-1, 0]);
+ await a.ctx.cargarCursorDeCapa(a.ws); // reconnect to the same provider
+ assert.deepEqual(reads, [base + ":" + fb]);
+ a.ws.pullRelayLayer = cf;
+ await a.ctx.cargarCursorDeCapa(a.ws);
+ assert.deepEqual([a.ctx._appliedPullCursor.rev, a.ctx._appliedPullCursor.seq], [3, 120]);
+ a.ws.pullRelayLayer = fb;
+ data.set(base + ":" + fb, { rev: 1, seq: 15 });
+ await a.ctx.cargarCursorDeCapa(a.ws);
+ assert.deepEqual([a.ctx._pullCursor.rev, a.ctx._pullCursor.seq], [1, 15]);
+});

@@ -528,6 +528,7 @@
            (with the peer receipt/ack handles) and only holds back a peer "persist-result" while a durable layer is
            alive: another device's disk is not a durable layer. */
         if (cerradoH) return;
+        if (x.orden !== alimentador && typeof e.data === "string" && /"k"\s*:\s*"(?:head-result|pull-page)"/.test(e.data)) return;
         if (ws.peerOnly === true && typeof e.data === "string" && e.data.indexOf('"persist-result"') !== -1 &&
             (e.peerAccepted !== true || subs.some(function (o) { return o.ws.peerOnly !== true && o.ws.readyState < 2; }))) return;
         emitir("message", { data: e.data, peerAccepted: e.peerAccepted === true, relaySource: e.relaySource, peerReceipt: e.peerReceipt, peerAck: e.peerAck });
@@ -535,6 +536,7 @@
       ws.addEventListener("error", function () { hubError = true; });
       ws.addEventListener("close", function (e) {
         if (cerradoH) return;
+        if (emitidoOpen && x.orden === alimentador && abiertas().length) { reiniciar("pull layer lost"); return; }
         if (!x.abrio && vivas().length === 0) siguiente(); // every layer started closed before opening: do not wait the 3 s
         // The layer feeding the app dropped while another is still only connecting: restart instead of a silent H.
         if (emitidoOpen && !abiertas().length && vivas().length) { reiniciar("layer lost"); return; }
@@ -581,6 +583,7 @@
           .sort(function (a, b) { return a.orden - b.orden; })[0];
         return active ? capas[active.orden].key : (abiertas().length ? "peer" : null);
       } },
+      pullRelayLayer: { get: function () { return capas[alimentador] ? capas[alimentador].key : null; } },
       carrilVivo: { get: function () { return vivo ? vivo.readyState : null; } }, // v662 diagnostics: live lane state
       readyState: { get: function () { return cerradoH ? 3 : abiertas().length ? 1 : 0; } },
       peerOnly: { get: function () { var l = abiertas(); if (!l.length) l = subs; return l.length > 0 && l.every(function (x) { return x.ws.peerOnly === true; }); } },
@@ -595,6 +598,8 @@
     ["onopen", "onmessage", "onclose", "onerror"].forEach(function (n) { H[n] = null; });
     H.send = function (v) {
       var l = abiertas(), ok = false, err = null;
+      // Each pull response must belong to the provider that owns the cursor.
+      if (typeof v === "string" && /^\{"k":"(?:head|pull)"/.test(v)) l = l.filter(function (x) { return x.orden === alimentador; });
       if (cerradoH || !l.length) throw new DOMException("Socket is not open", "InvalidStateError");
       var n = bytes(v);
       // Preserve the existing checkpoint-only empty-buffer exception. The
