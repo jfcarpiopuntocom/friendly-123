@@ -138,6 +138,16 @@
     });
     return res;
   }
+  // Same date range + cumulative filters as project(), returned as a plain list (used by hosts that need one consistent source).
+  function filterSales(input){
+    input=input||{};
+    var from=/^\d{4}-\d{2}-\d{2}$/.test(input.from||"")?input.from:"",to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"",zone=businessZone(input.zone);
+    return (Array.isArray(input.sales)?input.sales:[]).filter(function(v){
+      if(!v||typeof v!=="object")return false;
+      if(from||to){var day=keyDay(v.fechaLocal||v.fecha,zone);if(from&&(!day||day<from))return false;if(to&&(!day||day>to))return false;}
+      return _cumple(v,input.filtros);
+    });
+  }
   function project(input){
     input=input||{};
     var group=views.indexOf(input.group)>=0?input.group:"total";
@@ -301,5 +311,5 @@
       +(body||'<p style="font-size:15px;">'+(es?"No hay ventas en las fechas elegidas.":"No sales in the selected dates.")+'</p>')))
       +'</section>';
   }
-  return {views:views,day:keyDay,project:project,render:render,facets:facets};
+  return {views:views,day:keyDay,project:project,render:render,facets:facets,filterSales:filterSales};
 });
