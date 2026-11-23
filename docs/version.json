@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.92",
+  "version": "v0.8.93",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.92 C209: corrige el teclado PIN apilado por UI2 y las carreras de doble recarga durante el reenganche manual de la version.",
+  "changelog": "C210: recuperación independiente de Safari/PWA cuando la versión antigua retiene PIN, CSS y scripts en caché; reparación con una sola entrada a la app.",
   "requerida": false,
-  "shell": "f123-shell-v892",
+  "shell": "f123-shell-v893",
   "apagar": [],
-  "releaseName": "v0.8.92",
-  "cacheGeneration": "golden428"
+  "releaseName": "v0.8.93",
+  "cacheGeneration": "golden429"
 }
