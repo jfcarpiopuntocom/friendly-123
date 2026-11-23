@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.04",
+  "version": "v0.9.05",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.04 C226: los botones de vista de Commissions se prenden y apagan; By artist / associate se puede desmarcar; con todos apagados sale RAW (total).",
+  "changelog": "v0.9.05 C227: vuelve la flecha de quien le paga a quien en cada producto de Commissions (vista de todo el historial), igual que en la UI 1.0.",
   "requerida": false,
-  "shell": "f123-shell-v904",
+  "shell": "f123-shell-v905",
   "apagar": [],
-  "releaseName": "v0.9.04",
-  "cacheGeneration": "golden440"
+  "releaseName": "v0.9.05",
+  "cacheGeneration": "golden441"
 }

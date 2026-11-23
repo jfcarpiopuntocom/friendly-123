@@ -202,6 +202,8 @@
       targets.forEach(function(target){
         var k=target.id,g=groups.get(k);
         if(!g){g={id:k,label:target.label,count:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};groups.set(k,g);}
+        // C227 (JFC 23 nov 2026: "devuelveme ... flechas causales de comisiones"): keep the product's commission arrow.
+        if(group==="producto"){if(v.productoId)g.productoId=String(v.productoId);if(v.direccionProducto==="asociadoPaga")g.direccion="asociadoPaga";}
         g.count++;
         accumulate(g,"gross","unknownGross",target.gross);
         accumulate(g,"commission","unknownCommission",target.commission);
@@ -231,7 +233,11 @@
         +'<strong style="display:block;font-size:16px;color:var(--ink,#0F1923);">'+escape(g.label)+'</strong>'
         +'<span style="display:block;font-size:14px;color:var(--ink,#0F1923);">'+g.count+' '+(es?"ventas relacionadas":"related sales")+
         (view.group==="comisionista"?"":' · '+label+': '+money(g.gross,g.unknownGross))
-        +' · '+com+': '+money(g.commission,g.unknownCommission)+'</span></div>';
+        +' · '+com+': '+money(g.commission,g.unknownCommission)+'</span>'
+        // C227: same causal arrow as the month Summary by Product (UI 1.0): who pays whom; tapping it uses girarFlechaComision.
+        +(view.group==="producto"&&g.productoId&&typeof window!=="undefined"&&typeof window.flechaComisionHtml==="function"
+          ?'<div data-comm-flecha style="margin-top:6px;">'+window.flechaComisionHtml("",g.direccion||"casaPaga",g.productoId,g.label)+'</div>':"")
+        +'</div>';
     }).join("");
     return '<section data-comm-history-report style="margin-top:12px;">'
       +(t.conflicts?'<p role="alert">'+(es?"Recibos con el mismo ID y valores distintos: importes por verificar.":"Receipt IDs with conflicting economic values: totals need review.")+'</p>':"")
