@@ -13,6 +13,7 @@ import {openExistingStore} from "./open-existing-store.mjs";
 import {readTrustedFrozenSource} from "./trusted-frozen-source.mjs";
 import {readSignedFrozenCatalogProof} from "./catalog-frozen-proof.mjs";
 import {salasPiloto,sufijoSalaPiloto} from "./salas-piloto.mjs";
+import * as decoding from "lib0/decoding";
 
 export { salaDeLicencia };
 
@@ -47,6 +48,10 @@ async function leerComandoTipado(req) {
   return JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(bytes));
 }
 
+// C232: root names of the store's PRIVATE Yjs document that must never be written into the public -cat room.
+const RAICES_PRIVADAS = new Set(['_meta','hechos_financieros','clientes','ventas','gastos','promotoras','liquidaciones',
+  'movimientos','abonos','fiados','cartera','pagos','comisiones','devoluciones','ajustes','payouts','eventos','blobs',
+  'pinsRol','pins','usuarios','equipo']);
 export class Tienda extends YServer {
   // La sala duerme sin clientes activos; el estado vive en el almacenamiento del DO.
   static options = { hibernate: true };
@@ -198,6 +203,7 @@ export class Tienda extends YServer {
       if (admission) await admission;
       if (this.falloPersistencia || !unexpired(conexion.state?.accesoFirmado)) { conexion.close(1008,'Acceso no autorizado'); return; }
       await this.comprobarConexiones();
+      if (this.raizPrivadaEnCatalogo(mensaje)) return; // C232: private store data never lands in the public -cat room
       if (!this.falloPersistencia && conexion.readyState === 1 && unexpired(conexion.state?.accesoFirmado)) super.onMessage(this.salidaSegura(conexion),mensaje);
       return;
     }
@@ -211,6 +217,31 @@ export class Tienda extends YServer {
     if (!this.falloPersistencia && conexion.state?.accesoPiloto && conexion.readyState === 1) {
       super.onMessage(conexion, mensaje);
     }
+  }
+
+  /* C232 (JFC 23 nov 2026: "TODOS PASAN A LO BUENO" + "NADA de datos ... en riesgo"): admin y empleados leen la sala
+     -cat, asi que el servidor descarta toda escritura Yjs en -cat que cree una raiz PRIVADA conocida de la tienda
+     (PIN en _meta, dinero, clientes, ventas, fiados...). Lista negra por nombre de raiz: no toca catalogos con otros
+     nombres. Solo mira mensajes sync paso 2 / update; un mensaje que no se puede leer se descarta. */
+  raizPrivadaEnCatalogo(mensaje) {
+    if (this.env.WS_SEPARATE_ROOMS_QA !== '1' || sufijoSalaPiloto(this.env, this.name) !== '-cat') return false;
+    let update;
+    try {
+      const bytes = mensaje instanceof Uint8Array ? mensaje : mensaje instanceof ArrayBuffer ? new Uint8Array(mensaje) : null;
+      if (!bytes) return false;
+      const dec = decoding.createDecoder(bytes);
+      if (decoding.readVarUint(dec) !== 0) return false;
+      const tipo = decoding.readVarUint(dec);
+      if (tipo !== 1 && tipo !== 2) return false;
+      update = decoding.readVarUint8Array(dec);
+    } catch (_) { return true; }
+    const prueba = new Y.Doc({ gc: false });
+    try {
+      Y.applyUpdate(prueba, update);
+      for (const raiz of prueba.share.keys()) if (RAICES_PRIVADAS.has(raiz)) return true;
+      return false;
+    } catch (_) { return true; }
+    finally { prueba.destroy(); }
   }
 
   async comprobarConexiones() {
