@@ -21,7 +21,7 @@ for(const [engineName,engine] of [['Chromium',chromium],['WebKit',webkit]]) for(
     const make=async(name,code)=>req('/api/productos','POST',{nombre:name,barcode:code,precio:100,costo:0,stockInicial:3,ubicacionId:r.id});
     const p=await make('Selected product','BELEN-A'),q=await make('Other product','BELEN-B');
     await req('/api/productos/'+p.id+'/venta','POST',{cantidad:1});await req('/api/productos/'+q.id+'/venta','POST',{cantidad:1});
-    await cargarComisiones();return {p:p.id,q:q.id,r:r.id,a:a.id};
+    await (_ocMesComisiones=(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date()),cargarComisiones()) /* C230: payments live in the month view since Belen 2026-11-21 */;return {p:p.id,q:q.id,r:r.id,a:a.id};
    },lang);
    await page.evaluate(()=>{window._ocModalMostrar=async()=> 'efectivo';window.ocPrompt=async()=> '15.00';window.ocConfirm=async()=>false;
     const pay=window._marcarComisionPagadaUnaVez;window._marcarComisionPagadaUnaVez=async(...args)=>{try{return await pay(...args);}finally{window.__paymentFinished=true;}};

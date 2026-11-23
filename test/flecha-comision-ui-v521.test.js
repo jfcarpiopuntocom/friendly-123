@@ -27,7 +27,7 @@ for (const lang of ['en', 'es']) {
         await req('/api/productos/' + p.id + '/venta', 'POST', { cantidad: 1 });
         await req('/api/productos/' + p.id + '/venta', 'POST', { cantidad: 1 });
         window.confirm = () => true; window.alert = () => {};
-        await cargarComisiones();
+        await (_ocMesComisiones=(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date()),cargarComisiones()) /* C230: payments live in the month view since Belen 2026-11-21 */;
         return { p: p.id, casaPaga: window.t('flecha.casaPaga'), held: window.t('flecha.casaEnAsociado'), ingreso: window.t('flecha.ingresoMes'), gasto: window.t('flecha.gastoMes') };
       }, lang);
       const btn = page.locator(`[data-product-id="${fx.p}"] [data-comm-flecha] button`);
