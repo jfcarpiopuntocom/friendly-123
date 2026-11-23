@@ -855,6 +855,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           // reload(true) ya no puede forzar en navegadores modernos.
           setTimeout(function () {
             try {
+              // Discard only version-navigation latches; business state remains in place.
+              sessionStorage.removeItem("f123_act_sola_pendiente");
+              sessionStorage.removeItem("f123_autorecarga");
+              sessionStorage.removeItem("f123_reload_al_entrar");
               var url = location.pathname + "?_purge=" + Date.now() + location.hash;
               window.__f123MarcarRecarga && window.__f123MarcarRecarga("purga-failsafe");
               location.replace(url);
