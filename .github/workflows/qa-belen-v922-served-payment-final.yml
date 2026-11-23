@@ -1,0 +1,35 @@
+name: QA isolated final Belén v922 served pay/WebKit
+on:
+  push:
+    branches:
+      - qa/belen-v922-served-payment-final-20261123
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exact-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned compiler and WebKit
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps webkit
+      - name: Verify actual served bundles, release identity, all credit invariants
+        run: |
+          set -euo pipefail
+          node scripts/build-min-scripts.cjs --check
+          node scripts/release-control.cjs validate origin/master
+          node scripts/gen-manifest.js
+          git diff --exit-code docs/version-manifest.json
+          bash check-sw.sh
+          node --test test/p0-belen-20261123-three-flows.test.cjs test/fiados-pagado-por-consumo-v557.test.js test/p0-c212-source-served-parity.test.cjs test/p0-c34-real-sale-envelope-contract.test.cjs
+      - name: Full synthetic WebKit GUI - 10 + 25, RESUME 35 to 10, backdated Sold
+        run: node --test --test-timeout=120000 test/p0-belen-20261123-three-flows-browser.test.cjs
