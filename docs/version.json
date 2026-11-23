@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.96",
+  "version": "v0.8.97",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.96 C216: se retira el boton amarillo Reenganchar del PIN; la recuperacion es el Emergency recovery de siempre, al fondo.",
+  "changelog": "v0.8.97 C217: el boton de Emergency recovery usa el rescate probado (reenganchar.html): una navegacion a la version nueva, sin tocar datos locales.",
   "requerida": false,
-  "shell": "f123-shell-v896",
+  "shell": "f123-shell-v897",
   "apagar": [],
-  "releaseName": "v0.8.96",
-  "cacheGeneration": "golden432"
+  "releaseName": "v0.8.97",
+  "cacheGeneration": "golden433"
 }
