@@ -76,7 +76,7 @@ test('4. UI: Beto chosen on the OWN counter gets a Send statement button', async
       const own = await req('/api/ubicaciones', 'POST', { nombre: 'Mostrador propio', tipo: 'propio' });
       const p = await req('/api/productos', 'POST', { nombre: 'Vela', barcode: 'VELA-1', precio: 50, stockInicial: 5, ubicacionId: own.id });
       await req(`/api/productos/${p.id}/venta`, 'POST', { cantidad: 1, modoComision: 'associate', promotoraId: beto.id });
-      await cargarComisiones();
+      await (_ocMesComisiones=(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date()),cargarComisiones()) /* C230: payments live in the month view since Belen 2026-11-21 */;
       return !!document.querySelector(`[data-est-p="${beto.id}"]`);
     });
     assert.ok(r, 'a person chosen on an own counter can be sent a statement');

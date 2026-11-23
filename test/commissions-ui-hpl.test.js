@@ -28,7 +28,7 @@ test('Paco: vende en percha PROPIA eligiendo a una persona; Commissions lo pinta
     document.getElementById('vi-comisionista').value = pr.id;
     await confirmarVentaConInfo(p.id, false);
     const v = (await req('/api/ventas/todas')).find((x) => x.productoId === p.id);
-    await cargarComisiones();
+    await (_ocMesComisiones=(d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'))(new Date()),cargarComisiones()) /* C230: payments live in the month view since Belen 2026-11-21 */;
     const txt = (document.getElementById('listaComisiones') || document.body).innerText;
     const rk = (document.getElementById('rankingComisiones') || document.body).innerText;
     return { com: v && v.comisionAsociado, nombre: v && v.asociadoNombre, pinta: txt.includes('Paco Seller'), ranking: rk.includes('Paco Seller') && /1 sold/.test(rk) };

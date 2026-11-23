@@ -21,6 +21,9 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
   await req('/api/ubicaciones/'+rack.id,'PUT',{promotoraId:person.id});
   const p=await req('/api/productos','POST',{nombre:'Synthetic v491 item',barcode:'SYNTH-V491',precio:10,costo:2,stockInicial:5,ubicacionId:rack.id});
   await req('/api/productos/'+p.id+'/venta','POST',{cantidad:2,info:{formaPago:'cash'}});
+  // C230: since Belén 2026-11-21 the default Commissions view is the read-only all-dates history; payments are
+  // recorded in a month, so the test opens the current month exactly like a user does.
+  const d=new Date();_ocMesComisiones=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   await cargarComisiones();
   const btn=document.querySelector('[data-comm-pay-from-product="'+rack.id+'"]');
   if(!btn)throw Error('payment button not rendered');
