@@ -938,7 +938,12 @@
 <script defer src="./device-identity.js"></script>
 <script defer src="./storage-durabilidad.js"></script>
   <script defer src="./peer-sync.min.js"></script>
-  <script defer src="./vendor/supabase-relay.min.js"></script>
+  <!-- SUPABASE — DORMANT (C240, 23 nov 2026). NO BORRAR. JFC: «TE HE PEDIDO 30 VECES QUE NO SATURES LAS CUENTAS DE PLATAFORMAS».
+       Medido en vivo: el cliente realtime de Supabase reconectaba cada 10 s en cada aparato, sin fin, y el proyecto quedo restringido
+       hasta diciembre. Sin este archivo la cascada (relay-selector.js) no ve Supabase: usa Cloudflare -> Firebase -> aparatos vecinos.
+       Ningun dato local se toca. PARA REACTIVAR (solo con orden de JFC y el arreglo C238 de reconexion creciente ya publicado):
+       volver a poner la linea de abajo sin comentario.
+  <script defer src="./vendor/supabase-relay.min.js"></script> -->
   <script defer src="./firebase-relay.min.js"></script>
   <script defer src="./cf-relay.min.js"></script>
   <script defer src="./relay-selector.min.js"></script>

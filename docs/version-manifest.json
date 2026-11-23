@@ -3,7 +3,7 @@
   "shell": "f123-shell-v910",
   "algoritmo": "sha256",
   "files": {
-    "./index.html": "sha256-f2e6696213832520ce2b69edaf3be4bb4dffd086d0bf6503245e39f859dbc529",
+    "./index.html": "sha256-03533bd607a1b56e11eff261e12e7826cb4f59f15110d037ff4b71ceeda8ff1c",
     "./logo.png": "sha256-672333ee93520b7d2c541bfc73dc553985a98d71a53bbebcbac28ceafe6f639a",
     "./img/logo-720.png": "sha256-621d161800503a13f3aa6248b6829ce69d9265b708d2d228e5eb051b9bd775ae",
     "./copiar-libre.js": "sha256-d30e6b2c6515df2608a7d7083c51a8251483a5443c785fefedf6b51b2910afd8",
@@ -83,7 +83,7 @@
     "./device-environment.js": "sha256-5517a20f30d38eed8097a82f1925e9d2c6f456de19aed6e443ed383705d4b5cd",
     "./micelio-ui.min.js": "sha256-3dea3a568249b3576a0e0a7e8ed8e6cc76aec313ad88dfd50a7abf803b24e0ca",
     "./tablero.html": "sha256-084ef03c6d1420c9ddfa692818cca1fc710f83f6b3db54ec73bfeb5fb7ee2387",
-    "./dashboard.html": "sha256-456ee4a34c061eeb612cb384e7b0d8d5da9b1dd724e83677e863374c47fa24b5",
+    "./dashboard.html": "sha256-e62485124b0b970038d03e133351413c7c7515464975c1f7051da003952f2177",
     "./dashboard-updates.js": "sha256-e91bf81e3fd1262a24c3b40a008927cd9c0371791ba5d4821bbefb7879cf10c4",
     "./tablero-avanzado.js": "sha256-c0ffd90aa930474c4cb48025660ee244a94b7260bfdeb4f1b91fee0c26d71454",
     "./borradores.min.js": "sha256-074c104a416e866382a20e5302972d946c979d95fc508cf8468722bbb3212510",
