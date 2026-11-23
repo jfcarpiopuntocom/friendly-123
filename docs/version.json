@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.20",
+  "version": "v0.9.21",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.20 C246+C250: migracion cifrada al canal privado y lectura de respaldo Firebase (ventas, comisiones, clientes, movimientos); By artist/associate en todas las fechas con Persona y filtros acumulativos; filtros acumulativos mensuales en Panel; clientes borrado monotono, etiqueta Pagado/Saldo a favor, two-tab-sales ready guard y Updating.",
+  "changelog": "v0.9.21 Belén P0: abonos parciales de fiados sin sobrescribir el importe elegido; quitar Category del alta de producto; fecha real opcional en Sold para ventas históricas con registro auditable. Conservar Sync4 y respaldos.",
   "requerida": false,
-  "shell": "f123-shell-v920",
+  "shell": "f123-shell-v921",
   "apagar": [],
-  "releaseName": "v0.9.20",
-  "cacheGeneration": "golden457"
+  "releaseName": "v0.9.21",
+  "cacheGeneration": "golden458"
 }
