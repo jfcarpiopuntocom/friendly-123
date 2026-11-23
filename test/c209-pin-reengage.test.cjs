@@ -17,7 +17,7 @@ test('C209: commercial UI2 .caja rules scoped only under inventory',()=>{
   assert.match(css,/html\.ui2 #gridInventario \.caja>div:not\(\.ajuste-rapido\)\{display:block!important/);
   assert.match(css,/html\.ui2 #oc-gate \.caja\{box-sizing:border-box;min-width:0\}/);
   assert.match(auth,/\.oc-slots\{display:flex;gap:10px/);
-  assert.match(auth,/\.oc-pad\{display:grid;grid-template-columns:repeat\(5,1fr\)/);
+  assert.match(auth,/\.oc-pad\{display:grid;grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
 });
 test('C209: one-shot manual reengagement suppresses overlapping updater',()=>{
   assert.match(html,/window\.__f123ManualPurgeReentry = true/);
