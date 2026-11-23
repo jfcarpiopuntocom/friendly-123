@@ -78,11 +78,10 @@ test('C99 RED->GREEN: Safari foreground visibilitychange re-arms commercial 2.0 
   assert.equal(activations, afterStart + 1, 'foreground return after C94 failback must call activarCorte20Runtime');
   assert.equal(API.modoCorte20Activo, true);
 
-  // Must remain blocked when user switched to employee or demo session.
+  // C213 (JFC 22 nov 2026: "TODOS PASAN A LO BUENO"): an employee session ALSO re-arms 2.0 on foreground.
   API.modoCorte20Activo = false;
   fakeWin.OCAuth.rolActual = () => 'empleado';
   sincronizarVisibilidad();
   await new Promise((r) => setTimeout(r, 15));
-  assert.equal(activations, afterStart + 1, 'employee session must not auto-arm owner/admin cutover');
-  assert.equal(API.modoCorte20Activo, false);
+  assert.equal(activations, afterStart + 2, 'employee session must re-arm 2.0 like owner/admin');
 });

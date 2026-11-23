@@ -162,10 +162,11 @@ test('C51.4: double-QA operational switch stays OFF by default and requires both
   );
   assert.deepEqual(
     await evalQaSwitch({ storageMap: { f123_yparty_qa: '1', f123_corte20_qa: '1' }, role: 'empleado' }),
-    { enabled: true, activarCalls: [] }
+    // C213 (JFC 22 nov 2026: "TODOS PASAN A LO BUENO"): employees also arm 2.0 with their own team key.
+    { enabled: true, activarCalls: [{ cortarComercio: true, rol: 'empleado', permitirDespachoEquipo: true }] }
   );
   assert.deepEqual(
     await evalQaSwitch({ storageMap: { f123_yparty_qa: '1', f123_corte20_qa: '1' }, role: 'dueno', demo: false }),
-    { enabled: true, activarCalls: [{ cortarComercio: true }] }
+    { enabled: true, activarCalls: [{ cortarComercio: true, rol: 'dueno', permitirDespachoEquipo: false }] }
   );
 });
