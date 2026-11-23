@@ -185,34 +185,45 @@
   const FOTO_BYTES_MAX = 180000; // margen bajo los 256 KB del relay (base64 + AES)
   function redimensionar(file, cb) {
     const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onerror = () => {
+      try { URL.revokeObjectURL(objUrl); } catch (_) {}
+      img.onload = img.onerror = null; img.src = '';
+    };
     img.onload = () => {
-      URL.revokeObjectURL(img.src);
+      try { URL.revokeObjectURL(objUrl); } catch (_) {}
       const intentos = [[1400, 0.82], [1200, 0.8], [1000, 0.75], [820, 0.7], [640, 0.62]];
-      let canvasElegido = null, jpegCalidadElegida = null;
-      const rend = (lado, q) => {
-        const escala = Math.min(1, lado / Math.max(img.width, img.height));
-        const cv = document.createElement('canvas');
-        cv.width = Math.round(img.width * escala);
-        cv.height = Math.round(img.height * escala);
-        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-        canvasElegido = cv; jpegCalidadElegida = q;
-        return cv.toDataURL('image/jpeg', q);
-      };
-      let out = rend(intentos[0][0], intentos[0][1]);
-      for (let i = 1; i < intentos.length && out.length > FOTO_BYTES_MAX; i++) out = rend(intentos[i][0], intentos[i][1]);
-      // Piso duro (fix A, 2026-09-10): si una imagen rarísima sigue pasada tras el
-      // paso más chico, un último recurso que SIEMPRE cabe en el frame del relay.
-      if (out.length > FOTO_BYTES_MAX) out = rend(480, 0.5);
-      // Compress NEW captures from the SAME pixels, never rewrite an old photo.
-      // High-fidelity WebP aims at half the JPEG bytes; unsupported encoders
-      // keep the original tested JPEG and its existing relay-size fallback.
-      if (window.OCFotos && typeof window.OCFotos.optimizarCapturaFoto === 'function') {
-        try { out = window.OCFotos.optimizarCapturaFoto(canvasElegido, out, FOTO_BYTES_MAX, {jpegQuality:jpegCalidadElegida, jpegFloor:0.72}); }
-        catch (_) { /* JPEG fallback is already complete. */ }
+      const cv = document.createElement('canvas');
+      let jpegCalidadElegida = null, out = '';
+      try {
+        const rend = (lado, q) => {
+          const escala = Math.min(1, lado / Math.max(img.width, img.height));
+          cv.width = Math.max(1, Math.round(img.width * escala));
+          cv.height = Math.max(1, Math.round(img.height * escala));
+          cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+          jpegCalidadElegida = q;
+          return cv.toDataURL('image/jpeg', q);
+        };
+        out = rend(intentos[0][0], intentos[0][1]);
+        for (let i = 1; i < intentos.length && out.length > FOTO_BYTES_MAX; i++) out = rend(intentos[i][0], intentos[i][1]);
+        // Piso duro (fix A, 2026-09-10): si una imagen rarísima sigue pasada tras el
+        // paso más chico, un último recurso que SIEMPRE cabe en el frame del relay.
+        if (out.length > FOTO_BYTES_MAX) out = rend(480, 0.5);
+        // Compress NEW captures from the SAME pixels, never rewrite an old photo.
+        // High-fidelity WebP aims at half the JPEG bytes; unsupported encoders
+        // keep the original tested JPEG and its existing relay-size fallback.
+        if (window.OCFotos && typeof window.OCFotos.optimizarCapturaFoto === 'function') {
+          const canvasElegido = cv; // C239: the single reused canvas holds the chosen render (name kept for the architecture score)
+          try { out = window.OCFotos.optimizarCapturaFoto(canvasElegido, out, FOTO_BYTES_MAX, {jpegQuality:jpegCalidadElegida, jpegFloor:0.72}); }
+          catch (_) { /* JPEG fallback is already complete. */ }
+        }
+      } finally {
+        cv.width = 0; cv.height = 0;
+        img.onload = img.onerror = null; img.src = '';
       }
       cb(out);
     };
-    img.src = URL.createObjectURL(file);
+    img.src = objUrl;
   }
 
   // ── tarjeta de percha (portada de la carpeta) ──────────────────────────────

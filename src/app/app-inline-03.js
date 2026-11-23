@@ -109,10 +109,11 @@ function _shellPublicoDeCache(n) { return n.replace(/-(?:next|previo)$/, "").rep
    invisible, justo al pasar a la app (ya actualizada). Fuera del gate recarga
    normal. Mismo mecanismo que ya usaba la recarga coordinada de arriba. */
 function _recargarSeguroVersion() {
-  /* JFC 2026-09-04: nunca recargar mid-uso. Se difiere SIEMPRE al próximo login
-     (invisible). Antes recargaba de golpe fuera del candado y reiniciaba la UI
-     del usuario mientras trabajaba. */
+  /* JFC 2026-09-04 / C237: never reload inside active work; arm BOTH legacy key and active
+     KP ("f123_act_sola_pendiente") so Safari adopts automatically on the PIN gate. */
   try { sessionStorage.setItem("f123_reload_al_entrar", "1"); } catch (_) {}
+  try { sessionStorage.setItem("f123_act_sola_pendiente", "1"); } catch (_) {}
+  try { if (window._ocActSola && typeof window._ocActSola.intentar === "function") window._ocActSola.intentar(); } catch (_) {}
 }
 (function verificarCompatibilidadVersion() {
   try {
@@ -397,8 +398,32 @@ const _ocActSolaOn = true;
       }
       try { localStorage.setItem("f123_version_vista", String(vj.version || "") + "|" + String(vj.shell)); } catch (_) {}
       try {
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) { await reg.update(); if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" }); }
+        const regs = typeof navigator.serviceWorker.getRegistrations === "function"
+          ? await navigator.serviceWorker.getRegistrations()
+          : (await navigator.serviceWorker.getRegistration() ? [await navigator.serviceWorker.getRegistration()] : []);
+        for (const g of regs) {
+          if (!g) continue;
+          if (typeof g.addEventListener === "function" && !g._ocUpdateWired) {
+            g._ocUpdateWired = true;
+            g.addEventListener("updatefound", () => {
+              const sw = g.installing;
+              if (!sw) return;
+              sw.addEventListener("statechange", () => {
+                if (sw.state === "installed" && g.waiting) { try { g.waiting.postMessage({ tipo: "skip-waiting" }); } catch (_) {} }
+                if (sw.state === "activated") onShellTomado();
+              });
+            });
+          }
+          await g.update();
+          if (g.waiting) g.waiting.postMessage({ tipo: "skip-waiting" });
+          if (g.installing && !g.installing._ocStateWired) {
+            g.installing._ocStateWired = true;
+            g.installing.addEventListener("statechange", function () {
+              if (this.state === "installed" && g.waiting) { try { g.waiting.postMessage({ tipo: "skip-waiting" }); } catch (_) {} }
+              if (this.state === "activated") onShellTomado();
+            });
+          }
+        }
       } catch (_) {}
       _recargarSeguroVersion();
       try { sessionStorage.setItem(KP, "1"); } catch (_) {}

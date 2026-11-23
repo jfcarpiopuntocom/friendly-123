@@ -4493,11 +4493,16 @@ function leerFotoRedimensionada(fileInput){
       if (!img.width || !img.height) { URL.revokeObjectURL(urlTemporal); return resolve(null); }
       const MAX = 320, esc = Math.min(1, MAX / Math.max(img.width, img.height));
       const c = document.createElement("canvas");
-      c.width = Math.round(img.width * esc); c.height = Math.round(img.height * esc);
-      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(urlTemporal);
-      const d = c.toDataURL("image/jpeg", 0.82);
-      resolve(d.indexOf("data:image/") === 0 && d.length > 200 ? d : null);
+      try {
+        c.width = Math.max(1, Math.round(img.width * esc)); c.height = Math.max(1, Math.round(img.height * esc));
+        c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(urlTemporal);
+        const d = c.toDataURL("image/jpeg", 0.82);
+        resolve(d.indexOf("data:image/") === 0 && d.length > 200 ? d : null);
+      } finally {
+        c.width = 0; c.height = 0;
+        img.onload = img.onerror = null; img.src = "";
+      }
     };
     img.onerror = () => { URL.revokeObjectURL(urlTemporal); resolve(null); };
     img.src = urlTemporal;
@@ -5445,14 +5450,20 @@ async function cargarVentasSold(){
      Ahora la lista editable muestra SOLO lo que coincide con la busqueda, y cada
      resultado de arriba trae "Corregir" que abre el editor de esa venta. */
   const _filtroVS = { ids: null };
+  /* C239: Sold mounts the first 120 sales (Gemini C237, Safari memory). Search and "Corregir" must still reach
+     older sales, so they mount the missing rows on demand through _montarVS (assigned after the rows are drawn). */
+  let _montarVS = null;
   const _aplicarFiltroVS = () => {
+    if (_filtroVS.ids && _montarVS) _montarVS(_filtroVS.ids);
     cont.querySelectorAll('.oc-vs-row').forEach((row) => { row.style.display = (!_filtroVS.ids || _filtroVS.ids.has(String(row.getAttribute('data-id')))) ? '' : 'none'; });
   };
   const _opcionesAudit = {
     lang: window.OCI18n && window.OCI18n.getLang(),
     onFilter: (ids, activo) => { _filtroVS.ids = activo ? new Set(ids) : null; _aplicarFiltroVS(); },
     onEdit: (id) => {
-      const row = Array.prototype.find.call(cont.querySelectorAll('.oc-vs-row'), (r) => String(r.getAttribute('data-id')) === String(id));
+      const _buscarFila = () => Array.prototype.find.call(cont.querySelectorAll('.oc-vs-row'), (r) => String(r.getAttribute('data-id')) === String(id));
+      let row = _buscarFila();
+      if (!row && _montarVS) { _montarVS(new Set([String(id)])); row = _buscarFila(); } // C239
       if (!row) return;
       row.style.display = '';
       const editor = row.querySelector('.oc-vs-editor');
@@ -5496,7 +5507,10 @@ async function cargarVentasSold(){
   // v491 (2026-10-13): the Sold editor was English-only even with the app in Spanish.
   const _esVS = !!(window.OCI18n && window.OCI18n.getLang && window.OCI18n.getLang() === "es");
   const _tx = (en, es) => _esVS ? es : en;
-  cont.innerHTML = rows.map((v) => {
+  const _opcionCliInicial = (v) => v.clienteId
+    ? `<option value="${escHtml(v.clienteId)}" selected>${escHtml(v.clienteNombre || v.clienteId)}</option>`
+    : `<option value="" selected>${escHtml(t("sold.noCustomer"))}</option>`;
+  const _renderFilaVS = (v) => {
     const total = (v.precioUnit || 0) * (v.cantidad || 1);
     /* Corrida Hugo/Paco/Luis (2026-09-24). "Settled" solo tiene sentido si la venta
        pago comision (netoCasa != null): una COUNTER SALE no se le paga a nadie (B5).
@@ -5539,7 +5553,7 @@ async function cargarVentasSold(){
           <label style="font-size:13px;flex:1;min-width:90px;">${_tx("Quantity","Cantidad")}<br><input class="vs-cant" type="number" min="1" step="1" value="${v.cantidad}" ${bloqueada ? "disabled" : ""} style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
           <label style="font-size:13px;flex:1;min-width:110px;">${_tx("Unit price ($)","Precio unitario ($)")}<br><input class="vs-precio" type="number" min="0" step="any" value="${Number(v.precioUnit) || 0}" ${bloqueada ? "disabled" : ""} title="Correct the amount if it was entered wrong" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;"></label>
           <label style="font-size:13px;flex:1 1 100%;min-width:120px;">${_tx("Customer","Cliente")}<br>
-            <select class="vs-cliente" ${bloqueada && !v.clienteId && v.formaPago !== 'fiado' ? 'data-first-debtor="true"' : ''} ${(bloqueada || v.formaPago === "fiado") ? "disabled" : ""} style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;">${_opcionesCliente(v)}</select></label>
+            <select class="vs-cliente" ${bloqueada && !v.clienteId && v.formaPago !== 'fiado' ? 'data-first-debtor="true"' : ''} ${(bloqueada || v.formaPago === "fiado") ? "disabled" : ""} style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;">${_opcionCliInicial(v)}</select></label>
           <label style="font-size:13px;flex:1;min-width:120px;">${_tx("Payment method","Forma de pago")}<br>
             <select class="vs-pago" style="width:100%;padding:6px;border:2px solid var(--azul-medio);border-radius:4px;">
               <option value=""${v.formaPago ? "" : " selected"}>—</option>
@@ -5559,7 +5573,11 @@ async function cargarVentasSold(){
         <p class="vs-msg" style="font-size:13px;font-weight:700;margin:6px 0 0;"></p>
       </div>
     </div>`;
-  }).join("");
+  };
+  const _vsLimitInicial = 120;
+  let _vsMontadas = Math.min(rows.length, _vsLimitInicial);
+  cont.innerHTML = rows.slice(0, _vsMontadas).map(_renderFilaVS).join("") +
+    (rows.length > _vsMontadas ? `<div id="oc-vs-more-wrap" style="margin:8px 0 12px;"><button type="button" id="oc-vs-show-more" class="tecla" style="min-height:44px;">${_tx("Show more sales","Mostrar más ventas")} (${rows.length - _vsMontadas})</button></div>` : "");
   // JFC 2026-09-23: "abajo de Sold puede todas las ventas" -> resumen por producto
   // de las mismas filas del log (se repinta con cada edicion o deshacer).
   const _vsProd = agruparVentasPorProducto(rows, false);
@@ -5579,8 +5597,9 @@ async function cargarVentasSold(){
     const grid = document.getElementById("gridVender");
     if (grid) grid.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
-  _aplicarFiltroVS(); // v506: la busqueda ya hecha arriba manda tambien sobre las tarjetas recien pintadas
-  cont.querySelectorAll(".oc-vs-row").forEach((row) => {
+  function _wireSoldRow(row) {
+    if (!row || row.dataset.ocRowWired === "1") return;
+    row.dataset.ocRowWired = "1";
     const id = row.getAttribute("data-id");
     const editor = row.querySelector(".oc-vs-editor");
     const debtor = row.querySelector('.vs-cliente[data-first-debtor="true"]');
@@ -5664,7 +5683,32 @@ async function cargarVentasSold(){
         if (typeof cargarComisiones === "function") cargarComisiones();
       } catch (_) { await ocAlert("Could not reach the server."); }
     });
-  });
+  }
+  _aplicarFiltroVS();
+  cont.querySelectorAll(".oc-vs-row").forEach(_wireSoldRow);
+  // C239: rows mounted on demand (search / Corregir) for sales beyond the first page.
+  function _filaMontadaVS(v) { return !!cont.querySelector('.oc-vs-row[data-id="' + CSS.escape(String(v.id)) + '"]'); }
+  _montarVS = (ids) => {
+    const faltan = rows.filter((v) => ids.has(String(v.id)) && !_filaMontadaVS(v)).slice(0, 200);
+    if (!faltan.length) return;
+    const html = faltan.map(_renderFilaVS).join(""), wrap = cont.querySelector("#oc-vs-more-wrap");
+    if (wrap) wrap.insertAdjacentHTML("beforebegin", html); else cont.insertAdjacentHTML("beforeend", html);
+    cont.querySelectorAll(".oc-vs-row").forEach(_wireSoldRow);
+  };
+  const btnMoreVS = cont.querySelector("#oc-vs-show-more");
+  if (btnMoreVS) {
+    btnMoreVS.addEventListener("click", () => {
+      const next = rows.slice(_vsMontadas, _vsMontadas + 80).filter((v) => !_filaMontadaVS(v)); // C239: never twice
+      _vsMontadas = Math.min(rows.length, _vsMontadas + 80);
+      if (!next.length) { if (_vsMontadas >= rows.length) { const w = cont.querySelector("#oc-vs-more-wrap"); if (w) w.remove(); } return; }
+      const wrap = cont.querySelector("#oc-vs-more-wrap");
+      if (wrap) wrap.insertAdjacentHTML("beforebegin", next.map(_renderFilaVS).join(""));
+      cont.querySelectorAll(".oc-vs-row").forEach(_wireSoldRow);
+      _aplicarFiltroVS();
+      if (_vsMontadas >= rows.length && wrap) wrap.remove();
+      else btnMoreVS.textContent = _tx("Show more sales","Mostrar más ventas") + " (" + (rows.length - _vsMontadas) + ")";
+    });
+  }
 }
 
 /* Toast de 5s para restaurar una cancelación ex-post sin registrar otra venta. */
@@ -5932,11 +5976,15 @@ function guardarBarcodeComoImagen(svgBarcode, producto){
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     URL.revokeObjectURL(url);
     canvas.toBlob((blob) => {
+      canvas.width = 0; canvas.height = 0;
+      img.onload = img.onerror = null; img.src = "";
+      if (!blob) return;
+      const pngUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
+      a.href = pngUrl;
       a.download = `barcode-${producto.sku || producto.barcode}.png`;
       a.click();
-      URL.revokeObjectURL(a.href);
+      setTimeout(() => URL.revokeObjectURL(pngUrl), 1500);
     }, "image/png");
   };
   img.src = url;

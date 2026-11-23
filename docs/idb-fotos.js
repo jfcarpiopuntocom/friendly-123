@@ -106,6 +106,11 @@
     dbPromise = promise;
     return promise;
   }
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("pageshow", function (ev) {
+      if (ev && ev.persisted) { dbPromise = null; dbActual = null; }
+    });
+  }
 
   /* JFC C159: half-weight NEW capture policy, quality-first and fail-open.
      Compare codecs on the SAME canvas pixels. WebP q>=0.84 may deliver
@@ -352,11 +357,16 @@
             if (!img.width || !img.height) return resolve(null);
             const esc = Math.min(1, MINIATURA_LADO / Math.max(img.width, img.height));
             const cv = document.createElement("canvas");
-            cv.width = Math.max(1, Math.round(img.width * esc)); cv.height = Math.max(1, Math.round(img.height * esc));
-            cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
-            let out = cv.toDataURL("image/webp", MINIATURA_CALIDAD);
-            if (!/^data:image\/webp;base64,/.test(out)) out = cv.toDataURL("image/jpeg", MINIATURA_CALIDAD);
-            resolve(/^data:image\/(webp|jpeg);base64,/.test(out) ? out : null);
+            try {
+              cv.width = Math.max(1, Math.round(img.width * esc)); cv.height = Math.max(1, Math.round(img.height * esc));
+              cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+              let out = cv.toDataURL("image/webp", MINIATURA_CALIDAD);
+              if (!/^data:image\/webp;base64,/.test(out)) out = cv.toDataURL("image/jpeg", MINIATURA_CALIDAD);
+              resolve(/^data:image\/(webp|jpeg);base64,/.test(out) ? out : null);
+            } finally {
+              cv.width = 0; cv.height = 0;
+              img.onload = img.onerror = null; img.src = "";
+            }
           } catch (_) { resolve(null); }
         };
         img.onerror = () => resolve(null);

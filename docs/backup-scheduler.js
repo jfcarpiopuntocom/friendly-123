@@ -162,7 +162,20 @@
   // iPhone/iPad the download attribute is ignored (opens a tab) and some
   // locked-down webviews throw. try/catch + fallback to a tab: we never leave
   // the owner without their file.
+  function _esAppStandalone() {
+    try {
+      return !!(window.navigator && window.navigator.standalone === true) ||
+        !!(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    } catch (_) { return false; }
+  }
+  function _esSafariMovil() {
+    try {
+      const ua = String((navigator && navigator.userAgent) || "");
+      return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && Number(navigator.maxTouchPoints) > 1);
+    } catch (_) { return false; }
+  }
   function descargarArchivo(texto, nombre, soloAncla) {
+    if (soloAncla && _esAppStandalone() && _esSafariMovil()) return;
     const blob = new Blob([texto], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -171,7 +184,7 @@
     document.body.appendChild(a);
     try { a.click(); } catch (_) { if (!soloAncla) { try { window.open(url, "_blank"); } catch (_) {} } }
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 300_000);
+    setTimeout(() => URL.revokeObjectURL(url), soloAncla ? 5_000 : 60_000);
   }
 
   function cuerpoEmail(nombreArchivo, humano) {
@@ -684,7 +697,9 @@
     } catch (_) { return true; }
   }
   async function prepararExportLocal() {
+    if (window.__f123SafeBootMode || window.__f123CrashLoopPaused) return;
     if (_exportPreparando || yaExportadoHoy()) return;
+    if (_esAppStandalone() && _esSafariMovil()) return;
     _exportPreparando = true;
     let info;
     try { info = await construirExportLocal(new Date()); }
@@ -692,21 +707,23 @@
     document.addEventListener("pointerdown", function () {
       _exportPreparando = false;
       const now = Date.now();
-      if (yaExportadoHoy(now)) return;
+      if (yaExportadoHoy(now) || !info) { info = null; return; }
       try {
         // Record the 24h stamp BEFORE triggering the download so iOS Safari cannot re-trigger in the same session
         localStorage.setItem(LS_AUTOEXPORT, String(now));
         descargarArchivo(info.texto, info.nombre, true);
       } catch (_) {}
+      info = null;
     }, { once: true, capture: true });
   }
   window.addEventListener("oc-login", function (ev) {
     try {
+      if (window.__f123SafeBootMode || window.__f123CrashLoopPaused) return;
       const d = ev && ev.detail;
       if (!d || d.demo === true) return;
       if (window.OCAuth && window.OCAuth.esDemo && window.OCAuth.esDemo()) return;
-      // Espera 3 s para no competir con el primer render despues del PIN.
-      setTimeout(prepararExportLocal, 3000);
+      // Stagger on mobile Safari so auto-export never overlaps Yjs/Sync4 boot hydration peak RAM.
+      setTimeout(prepararExportLocal, _esSafariMovil() ? 15000 : 3000);
     } catch (_) {}
   });
   window.OCBackupScheduler._construirExportLocal = construirExportLocal;
