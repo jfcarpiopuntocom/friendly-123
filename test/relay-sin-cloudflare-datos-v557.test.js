@@ -16,6 +16,9 @@ const DOCS = path.resolve(__dirname, '..', 'docs');
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (e.isDirectory()) { if (e.name !== 'vendor' && e.name !== 'demo') walk(path.join(dir, e.name), out); }
+    // C213: X.min.js is the generated mirror of X.js (scripts/build-min-scripts.cjs, C200 v0.8.86); the source X.js is
+    // the one audited here, so the mirror is skipped. A .min.js WITHOUT its source (dashboard-main.min.js) is still audited.
+    else if (/\.min\.js$/.test(e.name) && fs.existsSync(path.join(dir, e.name.replace(/\.min\.js$/, '.js')))) continue;
     else if (/\.(js|mjs|html)$/.test(e.name)) out.push(path.join(dir, e.name));
   }
   return out;
