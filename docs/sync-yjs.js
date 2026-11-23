@@ -2898,7 +2898,10 @@
       try { if (API.bc) API.bc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
       // C54: if the pilot falls back to its old relay mid-cutover, keep the
       // signed 2.0 pilot writable but NEVER resurrect a legacy primary writer.
-      if (!API.modoCorte20Activo || API.canal === API.canalPiloto) API.canal.enviarUpdate(update);
+      // C224: Cloudflare 2.0 E2E-encrypted private relay (f123_relay_cupo_cf_v1) is NOT a legacy relay;
+      // keep private collections (ventas, dinero/hechos_financieros, comisiones, clientes, gastos) syncing there while 2.0 is active.
+      var cfPrivadoActivo = !!(API.canal && API.canal.ws && API.canal.ws.relayLayer === "f123_relay_cupo_cf_v1");
+      if (!API.modoCorte20Activo || API.canal === API.canalPiloto || cfPrivadoActivo) API.canal.enviarUpdate(update);
       if (!API.modoCorte20Activo && API.canalSombra && API.canalSombra !== API.canal) API.canalSombra.enviarUpdate(update);
     });
 

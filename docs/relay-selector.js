@@ -7,7 +7,7 @@
    Load after peer-sync.js, supabase-relay.min.js and firebase-relay.js. */
 (function () {
   "use strict";
-  var sb = window.F123Relay, fb = window.F123FirebaseRelay;
+  var cf = window.F123CloudflareRelay, sb = window.F123Relay, fb = window.F123FirebaseRelay;
   var peer = null;
   // Fail closed for photos and fallback: if peer-sync did not load, throw (the caller retries) instead of
   // leaving the relays without their daily budget or sending photos through a relay.
@@ -18,8 +18,10 @@
   }
   var CAP_UP = 2 * 1024 * 1024, CAP_DOWN = 20 * 1024 * 1024, PAUSA_MS = 15 * 60 * 1000, PAUSA_RED_MS = 5 * 1000;
   var CAP_UP_RESERVA = 10 * 1024 * 1024, FRAME_RESERVADO = 16 * 1024;
+  var CAP_CF_UP = 32 * 1024 * 1024, CAP_CF_DOWN = 128 * 1024 * 1024;
   var CIERRE = "daily relay budget reached; local data retained";
   var capas = [];
+  if (cf && cf !== sb && cf !== fb && typeof cf.connect === "function") capas.push({ relay: cf, key: "f123_relay_cupo_cf_v1", capUp: CAP_CF_UP, capDown: CAP_CF_DOWN });
   if (sb && sb !== fb && typeof sb.connect === "function") capas.push({ relay: sb, key: "f123_relay_cupo_v1" });
   if (fb && typeof fb.connect === "function") capas.push({ relay: fb, key: "f123_relay_cupo_fb_v1" });
   // v767 (revision 13 nov 2026; was the TODO of 2026-11-04): the daily budget day is the device's LOCAL date, so it
@@ -36,7 +38,7 @@
   }
   function guardar(key, c) { try { localStorage.setItem(key, JSON.stringify(c)); } catch (_) {} }
   function bytes(v) { return v == null ? 0 : v.byteLength != null ? v.byteLength : v.size != null ? v.size : String(v).length; }
-  function usable(capa) { var c = leer(capa.key); return Date.now() >= c.pausaHasta && (capa.relay === fb || c.up < CAP_UP) && c.down < CAP_DOWN; }
+  function usable(capa) { var c = leer(capa.key); return Date.now() >= c.pausaHasta && (capa.relay === fb || c.up < (capa.capUp || CAP_UP)) && c.down < (capa.capDown || CAP_DOWN); }
   /* v661 (JFC 2026-11-04, literal: «No dije que no pasen por ninguna capa ... Dije que son prioridad ultima. TODO DEBE TENER
      CASCADA DE FALLBACKS»): photos ride the same cascade (Supabase -> Firebase -> direct) at LAST priority: they only use
      a layer while this device's daily use there is under half the cap, so inventory and money always keep the other
@@ -82,17 +84,21 @@
   // pauses must never be overridden by this recovery-only optimization.
   var _fallbackRecovery = Object.create(null);
   function resolverRecuperacion(url) {
-    var p = _fallbackRecovery[url]; if (!p) return;
+    var raw = _fallbackRecovery[url]; if (!raw) return;
     delete _fallbackRecovery[url];
-    if (p.photo) {
-      var key = p.key + "_fotos", value = leer(key);
-      if (Number(value.pausaHasta) === p.until) {
-        value.pausaHasta = Date.now(); guardar(key, value);
-      }
-    } else {
-      var c = leer(p.key);
-      if (Number(c.pausaHasta) === p.until) {
-        c.pausaHasta = Date.now(); guardar(p.key, c);
+    var items = Array.isArray(raw) ? raw : [raw];
+    for (var i = 0; i < items.length; i++) {
+      var p = items[i];
+      if (p.photo) {
+        var key = p.key + "_fotos", value = leer(key);
+        if (Number(value.pausaHasta) === p.until) {
+          value.pausaHasta = Date.now(); guardar(key, value);
+        }
+      } else {
+        var c = leer(p.key);
+        if (Number(c.pausaHasta) === p.until) {
+          c.pausaHasta = Date.now(); guardar(p.key, c);
+        }
       }
     }
   }
@@ -124,17 +130,22 @@
   function headVisto(url) { try { return _headFb[url] || localStorage.getItem(claveHead(url)) || null; } catch (_) { return _headFb[url] || null; } }
   function anotarHead(url, v) { _headFb[url] = v; try { localStorage.setItem(claveHead(url), v); } catch (_) {} }
   function leerFirebase(ws, url) {
-    var cs = capas[0];
-    if (!OTRA_CAPA_LEER_MS || !ws || !cs || cs.relay === fb) return;
+    if (!OTRA_CAPA_LEER_MS || !ws || !capas.length || capas[0].relay === fb) return;
     // A photo-only bootstrap must never pause inventory/money on the preferred relay.
-    var photo = esFoto(url), until = 0;
-    if (photo) until = pausarFotos(cs, OTRA_CAPA_LEER_MS);
-    else {
-      var c = leer(cs.key);
-      until = c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS);
-      guardar(cs.key, c);
+    // C224: with 3 durable layers (Cloudflare -> Supabase -> Firebase), pause ALL layers ahead of Firebase.
+    var photo = esFoto(url), paused = [];
+    for (var i = 0; i < capas.length && capas[i].relay !== fb; i++) {
+      var cs = capas[i], until = 0;
+      if (photo) until = pausarFotos(cs, OTRA_CAPA_LEER_MS);
+      else {
+        var c = leer(cs.key);
+        until = c.pausaHasta = Math.max(Number(c.pausaHasta) || 0, Date.now() + OTRA_CAPA_LEER_MS);
+        guardar(cs.key, c);
+      }
+      paused.push({ key: cs.key, photo: photo, until: until });
     }
-    _fallbackRecovery[url] = { key: cs.key, photo: photo, until: until };
+    if (!paused.length) return;
+    _fallbackRecovery[url] = paused;
     var ir = function () { try { ws.close(1012, "another device wrote on the next durable layer"); } catch (_) {} };
     if (ws.readyState === 1) ir(); else if (ws.readyState === 0) ws.addEventListener("open", ir);
   }
@@ -274,7 +285,7 @@
       else if (e.data.indexOf('"head-result"') !== -1) try { var cabeza = JSON.parse(e.data); sondaAtraso(sonda, cabeza); capaVaciaSigue(capa, ws, url, cabeza); } catch (_) {}
       var c = sumarBajada(capa, e, url);
       if (esFoto(url) && c.down >= CAP_FOTO_DOWN) { pausarFotos(capa, PAUSA_MS); try { ws.close(1013, CIERRE); } catch (_) {} return; }
-      if (!esFoto(url) && c.down >= CAP_DOWN) { c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} }
+      if (!esFoto(url) && c.down >= (capa.capDown || CAP_DOWN)) { c.pausaHasta = Date.now() + PAUSA_MS; guardar(key, c); try { ws.close(1013, CIERRE); } catch (_) {} }
     });
     // Refused before opening (inactive room, quota 402, route error): pause this layer, the next one takes over.
     // v646: the last durable layer retries in 60 s: a device that opened with no signal must catch up as soon as it returns.
@@ -313,6 +324,7 @@
       if (!photo && capa.relay === fb && typeof v === "string" && n <= 4096 &&
           /^\{"k":"(head|pull|ts)"/.test(v)) return enviar(v);
       var limite = photo ? limiteFotoUp(capa) :
+        capa.capUp ? capa.capUp :
         capa.relay === fb && (n <= FRAME_RESERVADO || !/-(y|ops)$/.test(String(url)))
           ? CAP_UP_RESERVA : CAP_UP;
       if (c.up + n > limite) {
@@ -605,6 +617,21 @@
       };
     });
     return H;
+  }
+  // C224: before PIN unlock, CF layer cannot request a ticket and pauses. On oc-login, release that pause immediately.
+  if (cf && typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("oc-login", function () {
+      try {
+        var c = leer("f123_relay_cupo_cf_v1");
+        if (c.pausaHasta > Date.now()) { c.pausaHasta = 0; guardar("f123_relay_cupo_cf_v1", c); }
+        Object.keys(_sondasWs).forEach(function (u) {
+          var s = _sondasWs[u];
+          if (s && s.ws && s.ws.readyState === 1 && s.ws.relayLayer !== "f123_relay_cupo_cf_v1") {
+            try { s.ws.close(1012, "auth ready; upgrading to preferred layer"); } catch (_) {}
+          }
+        });
+      } catch (_) {}
+    });
   }
   window.F123Relay = {
     ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
