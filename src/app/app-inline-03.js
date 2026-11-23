@@ -185,6 +185,10 @@ const _ocActSolaOn = true;
   // version. No se usa f123_reload_al_entrar porque el piso de version la marca en cada carga
   // (compara "f123-shell-vN" contra el nombre de cache con -goldenN y nunca coincide).
   const KP = "f123_act_sola_pendiente";
+  const manualPurgeReentry = window.__f123ManualPurgeReentry === true;
+  if (manualPurgeReentry) {
+    try { sessionStorage.removeItem(KP); sessionStorage.removeItem(KA); } catch (_) {}
+  }
   function pendiente() { try { return sessionStorage.getItem(KP) === "1"; } catch (_) { return false; } }
   // offsetParent es null en elementos position:fixed (los overlays): se mide con getClientRects.
   function visible(el) { try { return !!(el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0); } catch (_) { return false; } }
@@ -314,6 +318,7 @@ const _ocActSolaOn = true;
     } catch (_) { return null; }
   }
   async function intentar() {
+    if (manualPurgeReentry) return false;
     vigilar();
     if (!pendiente() || recargando || !seguro() || !puedeRecargarVersion()) return false;
     recargando = true;
@@ -357,7 +362,7 @@ const _ocActSolaOn = true;
     });
   }
   async function revisar() {
-    if (window.__f123PurgeEnCurso === true) return;
+    if (window.__f123PurgeEnCurso === true || manualPurgeReentry) return;
     try {
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
       if (!r.ok) return;
@@ -395,7 +400,7 @@ const _ocActSolaOn = true;
   // E2: a takeover can already match version.json while this document is stale.
   var ultimoControladorSW = navigator.serviceWorker.controller;
   function onShellTomado() {
-    if (window.__f123PurgeEnCurso === true) return;
+    if (window.__f123PurgeEnCurso === true || manualPurgeReentry) return;
     var actual = navigator.serviceWorker.controller;
     if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
     if (!actual || actual === ultimoControladorSW) return;
