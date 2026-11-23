@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.21",
+  "version": "v0.9.20",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.21 C246+C250: migracion cifrada al canal privado y lectura de respaldo Firebase (ventas, comisiones, clientes, movimientos); By artist/associate en todas las fechas con Persona y filtros acumulativos; filtros acumulativos mensuales en Panel; clientes borrado monotono, etiqueta Pagado/Saldo a favor, two-tab-sales ready guard y Updating.",
+  "changelog": "v0.9.20 C246+C250: migracion cifrada al canal privado y lectura de respaldo Firebase (ventas, comisiones, clientes, movimientos); By artist/associate en todas las fechas con Persona y filtros acumulativos; filtros acumulativos mensuales en Panel; clientes borrado monotono, etiqueta Pagado/Saldo a favor, two-tab-sales ready guard y Updating.",
   "requerida": false,
-  "shell": "f123-shell-v921",
+  "shell": "f123-shell-v920",
   "apagar": [],
-  "releaseName": "v0.9.21",
-  "cacheGeneration": "golden459"
+  "releaseName": "v0.9.20",
+  "cacheGeneration": "golden457"
 }

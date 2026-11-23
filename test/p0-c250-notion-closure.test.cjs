@@ -150,7 +150,9 @@ test('WebKit: All-dates By artist / associate Persona dropdown & cumulative filt
       vista.hidden = false; vista.style.display = 'block'; vista.classList.add('activa');
       window._ocMesComisiones = null;
       return window.cargarComisiones();
-    }, SALES);
+    }, SALES.concat({
+      ...SALES[0], id: 'sep-celia', promotoraId: 'a-celia', asociadoNombre: 'Celia'
+    }));
 
     // Tap By artist / associate -> Persona dropdown MUST list Ana & Beto and render both across all dates
     await page.click('#comm-tab-person');
@@ -159,7 +161,14 @@ test('WebKit: All-dates By artist / associate Persona dropdown & cumulative filt
       return p && !p.hidden && p.innerText.includes('Ana') && p.innerText.includes('Beto');
     });
     const opts = await page.locator('[data-commissions-person-select] option').allTextContents();
-    assert.ok(opts.some((x) => x.includes('Ana')) && opts.some((x) => x.includes('Beto')), 'Persona lists all historical associates');
+    assert.ok(opts.includes('Ana') && opts.includes('Beto') && opts.includes('Celia'),
+      'Persona includes associates whose sales exist only in earlier months');
+
+    await page.evaluate(() => window.cargarComisiones());
+    await page.waitForFunction(() => {
+      const select = document.querySelector('[data-commissions-person-select]');
+      return select && [...select.options].some((option) => option.value === 'a-celia');
+    });
 
     await page.evaluate(() => {
       window._ocComHistorySales.push({
