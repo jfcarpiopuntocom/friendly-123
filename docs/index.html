@@ -9,7 +9,7 @@
     var clean = new URL(location.href);
     if (!clean.searchParams.has("_purge")) return;
     // This navigation already fetched a fresh document; avoid a second SW-driven reload.
-    window.__f123ManualPurgeReentry = true;
+    if (typeof window !== "undefined") window.__f123ManualPurgeReentry = true;
     clean.searchParams.delete("_purge");
     history.replaceState(history.state, "", clean.pathname + clean.search + clean.hash);
   } catch (_) { /* URL cleanup must never prevent app startup. */ }
