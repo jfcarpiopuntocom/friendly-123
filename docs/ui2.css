@@ -48,6 +48,8 @@ html.ui2 body{font-variant-numeric:tabular-nums}
    Los 4 botones rapidos (- + estrella lapiz) se conservan debajo. Borde de semaforo intacto.
    Foto con float (funciona en navegadores viejos, sin :has). */
 html.ui2 .grid-cajas{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))!important;gap:8px!important}
+/* PIN gate keeps its original flex/grid layout and fits the iPhone viewport. */
+html.ui2 #oc-gate .caja{box-sizing:border-box;min-width:0}
 html.ui2 #gridInventario .caja{border-radius:14px!important;padding:10px 12px!important;min-height:0!important;height:auto!important;box-shadow:0 1px 2px rgba(15,25,35,.07),0 8px 20px -16px rgba(15,25,35,.30)!important}
 html.ui2 #gridInventario .caja>div:not(.ajuste-rapido){display:block!important;min-height:0!important;height:auto!important}
 html.ui2 #gridInventario .caja .fotowrap{float:right!important;width:56px!important;height:56px!important;margin:0 0 4px 10px!important;border-radius:10px!important;overflow:hidden;position:relative}
