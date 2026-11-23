@@ -542,7 +542,8 @@
         '<p class="pp-resumen" id="pp-ab-ctx">Loading...</p>' +
         '<div class="pp-fg"><label for="pp-ab-monto">Payment amount</label>' +
           '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0.01" step="0.01">' +
-          '<p id="pp-ab-partial-hint" style="font-size:13px;margin:6px 0 0;">You can pay part of the amount owed, e.g. $10 of $35.</p></div>' +
+          '<p id="pp-ab-partial-hint" style="font-size:13px;margin:6px 0 0;">You can pay part of the amount owed, e.g. $10 of $35.</p>' +
+          '<button type="button" id="pp-ab-change" class="pp-anular" style="display:none;">Change amount before payment</button></div>' +
         /* 2026-10-21 (fiados de Belen, decision JFC): quien cobra toca los consumos que se pagan.
            Sin seleccion, el pago queda «sin asignar» (nunca se reparte solo). */
         '<div class="pp-fg" id="pp-ab-consumos-wrap" style="display:none;"><label id="pp-ab-consumos-lbl"></label>' +
@@ -558,6 +559,7 @@
     var montoEditadoPorOperador = false;
     q("pp-ab-monto").addEventListener("input", function () { montoEditadoPorOperador = true; });
     var anterior = null, pendienteAsignacion = null, referenciaLocalValida = true;
+    var consumosCargados = [];
     try { anterior = abonoPendiente(clienteId); } catch (_) { referenciaLocalValida = false; }
     try { pendienteAsignacion = leerAsignacion(clienteId); } catch (e) {
       referenciaLocalValida = false;
@@ -583,6 +585,13 @@
       leerReferenciaDurable(clienteId, "allocation")]).then(function (refs) {
       if (!referenciaLocalValida) throw new Error("La referencia anterior requiere revisión.");
       anterior = refs[0]; pendienteAsignacion = refs[1];
+      // An allocation intent alone is safe to replace only if the mandatory
+      // PAYMENT write-ahead reference was never persisted. Once a payment
+      // intent exists, its old opId must be reconciled, never changed to $10.
+      if (pendienteAsignacion && !anterior && !pendienteAsignacion.abonoId) {
+        q("pp-ab-change").style.display = "";
+        q("pp-ab-change").textContent = es ? "Cambiar importe antes del cobro" : "Change amount before payment";
+      }
       if (pendienteAsignacion) {
         q("pp-ab-monto").value = Number(pendienteAsignacion.monto).toFixed(2);
         q("pp-ab-monto").disabled = true;
@@ -607,6 +616,34 @@
     document.addEventListener("keydown", onKey, true);
     m.addEventListener("click", function (ev) { if (ev.target === m) cerrar(); });
     q("pp-ab-cancel").addEventListener("click", cerrar);
+    q("pp-ab-change").addEventListener("click", async function () {
+      var btn = q("pp-ab-change");
+      btn.disabled = true;
+      try {
+        _pagoAutorizarCobro();
+        if (!pendienteAsignacion || pendienteAsignacion.abonoId ||
+            await leerReferenciaDurable(clienteId, "payment"))
+          throw new Error(es ? "El cobro anterior necesita revisión antes de cambiar su importe." :
+            "The original payment requires review before changing its amount.");
+        await _pagoLiberarReferencia(claveAsignacion(clienteId), clienteId, "allocation", pendienteAsignacion.opId);
+        if (await leerReferenciaDurable(clienteId, "allocation"))
+          throw new Error(es ? "No se pudo confirmar la cancelación de la intención anterior." :
+            "Could not confirm removal of the unsent allocation intent.");
+        pendienteAsignacion = null;
+        q("pp-ab-monto").disabled = false;
+        q("pp-ab-monto").value = "";
+        montoEditadoPorOperador = false;
+        q("pp-ab-ok").textContent = es ? "Registrar abono" : "Record payment";
+        q("pp-ab-msg").textContent = es ? "Escribe el importe parcial y selecciona la compra." :
+          "Enter the partial amount and select its purchase.";
+        btn.style.display = "none";
+        pintarConsumos(consumosCargados);
+        q("pp-ab-monto").focus();
+      } catch (e) {
+        q("pp-ab-msg").style.color = "#B0183E";
+        q("pp-ab-msg").textContent = (e && e.message) || "Payment reference needs review.";
+      } finally { btn.disabled = false; }
+    });
 
     // Orden en que quien cobra toco los consumos: ese orden (elegido, no automatico) decide
     // cual queda parcial si el pago no alcanza para todos.
@@ -655,7 +692,8 @@
     fetch(API + "/clientes/" + clienteId + "/cartera")
       .then(function (r) { return r.json(); })
       .then(function (info) {
-        pintarConsumos(info && info.consumosPendientes);
+        consumosCargados = info && info.consumosPendientes || [];
+        pintarConsumos(consumosCargados);
         if (info && info.consumosEnRevision) {
           q("pp-ab-msg").style.color = "#B0183E";
           q("pp-ab-msg").textContent = es
