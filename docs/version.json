@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.17",
+  "version": "v0.9.18",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.17 C246: un aparato nuevo con licencia y PIN ya muestra las ventas y clientes que bajo (antes 0 aunque el historial estaba en el aparato): si la liberacion de la union en frio no llega, reintenta la misma aplicacion add-only cada 10 s, hasta 30 veces.",
+  "changelog": "v0.9.18 C247: panel, Commissions en todas las fechas: filtros acumulativos (rango de fechas + comisionista + producto + percha + cliente, varios a la vez); el periodo se elige como siempre y las opciones salen de las ventas del rango.",
   "requerida": false,
-  "shell": "f123-shell-v917",
+  "shell": "f123-shell-v918",
   "apagar": [],
-  "releaseName": "v0.9.17",
-  "cacheGeneration": "golden454"
+  "releaseName": "v0.9.18",
+  "cacheGeneration": "golden455"
 }
