@@ -1,0 +1,53 @@
+name: C209 PIN and reengagement release seal
+on:
+  push:
+    branches: [fix/c209-pin-gate-css-isolation-20261122]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  c209-verify-seal:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: C209 source contracts
+        run: |
+          node --test test/c209-pin-reengage.test.cjs
+          node --check src/app/app-inline-03.js
+          node --check docs/auth-ui.js
+      - name: Real WebKit and Chromium 320/375/390 and landscape layout
+        run: node --test test/c209-pin-layout.browser.cjs
+      - name: Build production assets and integrity manifest
+        run: |
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          bash check-sw.sh
+          node scripts/release-control.cjs validate origin/master
+          git diff --check
+      - name: Persist exact generated assets for production release
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/version-manifest.json docs/auth-ui.min.js docs/app-inline-03.min.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C209): seal v892 generated browser assets and SHA256 manifest'
+            git push origin HEAD:fix/c209-pin-gate-css-isolation-20261122
+          fi
