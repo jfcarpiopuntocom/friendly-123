@@ -763,7 +763,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         try {
           window.__f123PurgeEnCurso = true;
           _purgeBtn.disabled = true;
-          location.assign(new URL("./repair.html?from=pin&_r=" + Date.now(), location.href).href);
+          location.replace(new URL("./repair.html?from=pin&_r=" + Date.now(), location.href).href);
           return;
         } catch (eStandalone) {
           // Old-browser fallback keeps the previous in-place repair available.
