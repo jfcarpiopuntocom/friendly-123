@@ -29,7 +29,13 @@ export function pinDoRoute(req,storage,env){
    else if(body.action==="verify-unmatched"){
     const l=String(body.licenseCode||"").trim().toUpperCase(),stored=await storage.get("pin-owner:"+l);
     const obs=(body.pin==="789"||body.pin==="456")?await storage.get("pin-owner-observed:"+l):null;
-    r=stored?{ok:false,reason:"license-instance-mismatch"}
+    // C218 (JFC 22 nov 2026: "puse mi licencia LORD en tu puta app y no sirve"; "mi pin es 555 y jamas debio perderse"):
+    // a NEW device not yet tied to this license in KV may confirm the license's CENTRAL Owner PIN. Same per-license
+    // attempt limit as any login (pin-authority verify: MAX tries, then lockout), so it is not a guessing path.
+    // Factory 789/456 keep their old rule: never a central Owner PIN.
+    const fabrica=body.pin==="789"||body.pin==="456";
+    r=stored&&!fabrica?await p.verify(body.licenseCode,body.pin,body.pinTs)
+     :stored?{ok:false,reason:"license-instance-mismatch"}
      :(obs&&obs.devices&&Object.keys(obs.devices).length)?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};
    }
    else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
