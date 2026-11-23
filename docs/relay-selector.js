@@ -71,6 +71,13 @@
       var visto = capa.wireVisto || (capa.wireVisto = Object.create(null));
       delta = Math.max(0, w - (visto[url] || 0)); visto[url] = w;
     } else if (e) delta = bytes(e.data);
+    /* C234 (JFC 23 nov 2026, eligio «Quitar el tope en la 1a carga»): a NEW device restoring its store's history for the
+       first time from Firebase (no completed recovery recorded for this room) does not count that download against the daily 20 MB
+       cap, so the restore is never cut half-way. Photos keep their own band. Safety bound for the free accounts: at most
+       10x CAP_DOWN per room and day is exempt; past that, normal counting resumes. */
+    if (delta && capa.relay === fb && !esFoto(url) && !headAplicado(url) && (Number(c.primeraCarga) || 0) < CAP_DOWN * 10) {
+      c.primeraCarga = (Number(c.primeraCarga) || 0) + delta; delta = 0;
+    }
     c.down += delta; guardar(key, c);
     return c;
   }
