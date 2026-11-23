@@ -1,4 +1,5 @@
 name: Belén · compile exact served JS and manifest (one-shot PR branch)
+# Last one-shot rebuild: unique shell922 and C34 compatibility on the same PR.
 on:
   push:
     branches:
