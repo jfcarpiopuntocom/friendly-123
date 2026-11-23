@@ -1,0 +1,83 @@
+name: Belén v922 public GitHub Pages exact-byte release proof
+on:
+  push:
+    branches: [qa/belen-v922-public-proof-20261123]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deployed-bytes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real cache-busted Pages release and byte-identical served financial/UI bundles
+        run: |
+          node <<'NODE'
+          'use strict';
+          const fs=require('node:fs');
+          const crypto=require('node:crypto');
+          const assert=require('node:assert/strict');
+          const ROOT='https://jfcarpiopuntocom.github.io/friendly-123/';
+          const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
+          const sleep=t=>new Promise(resolve=>setTimeout(resolve,t));
+          const files=['plan-pagos-ui.min.js','app-inline-01.min.js','mock-backend.min.js',
+            'version-manifest.json','index.html','dashboard.html','sw.js'];
+          const localVersion=JSON.parse(fs.readFileSync('docs/version.json','utf8'));
+          assert.equal(localVersion.version,'v0.9.22');
+          assert.equal(localVersion.shell,'f123-shell-v922');
+          assert.equal(localVersion.cacheGeneration,'golden460');
+          const get=async(name)=>{
+            const response=await fetch(ROOT+name+'?proof='+Date.now()+'-'+Math.random(),{
+              cache:'no-store',redirect:'follow',signal:AbortSignal.timeout(16000),
+              headers:{'Cache-Control':'no-cache','Pragma':'no-cache'}
+            });
+            if(!response.ok) throw Error(name+': HTTP '+response.status);
+            return Buffer.from(await response.arrayBuffer());
+          };
+          let deployed;
+          for(let i=0;i<20;i++){
+            try {
+              const v=JSON.parse((await get('version.json')).toString('utf8'));
+              if(v.version==='v0.9.22'&&v.shell==='f123-shell-v922'&&
+                  v.cacheGeneration==='golden460') {deployed=v;break;}
+              console.log('PAGES NOT YET UPDATED',v.version,v.shell,v.cacheGeneration);
+            } catch(e){console.log('PAGES RETRY',String(e).slice(0,240));}
+            await sleep(20000);
+          }
+          assert.ok(deployed,'v0.9.22 shell922 golden460 not actually live on Pages within verification window');
+          const hashes={};
+          for(const name of files){
+            const remote=await get(name);
+            const local=fs.readFileSync('docs/'+name);
+            const d=digest(remote);
+            assert.equal(d,digest(local),'PUBLIC BYTE MISMATCH: '+name);
+            hashes[name]=d;
+            console.log('PUBLIC BYTE PASS',name,d,remote.byteLength);
+          }
+          const manifest=JSON.parse(fs.readFileSync('docs/version-manifest.json','utf8'));
+          assert.equal(manifest.version,deployed.version);
+          assert.equal(manifest.shell,deployed.shell);
+          for(const name of files){
+            if(name==='version-manifest.json')continue;
+            if(manifest.files['./'+name])assert.equal(manifest.files['./'+name],'sha256-'+hashes[name]);
+          }
+          const index=fs.readFileSync('docs/index.html','utf8');
+          assert.match(index,/src="\.\/plan-pagos-ui\.min\.js"/);
+          const pay=fs.readFileSync('docs/plan-pagos-ui.min.js','utf8');
+          assert.match(pay,/pp-ab-change/);
+          assert.match(pay,/montoEditadoPorOperador/);
+          const sw=fs.readFileSync('docs/sw.js','utf8');
+          assert.ok(sw.includes('const CACHE = "f123-shell-v922";'));
+          assert.ok(sw.includes('const CACHE_GENERACION = "-golden460";'));
+          console.log('DEPLOYED_PUBLIC_V922_VERIFIED',JSON.stringify({
+            version:deployed.version,shell:deployed.shell,golden:deployed.cacheGeneration,
+            localMergedBase:'61e638d4fb066c6a76735f5e50f5378d90537276',
+            files:hashes
+          }));
+          NODE
