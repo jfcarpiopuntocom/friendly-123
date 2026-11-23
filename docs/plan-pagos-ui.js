@@ -541,7 +541,7 @@
         '<h3>Record a payment</h3>' +
         '<p class="pp-resumen" id="pp-ab-ctx">Loading...</p>' +
         '<div class="pp-fg"><label for="pp-ab-monto">Payment amount</label>' +
-          '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0.01" step="0.01">' +
+          '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0.01" step="any">' +
           '<p id="pp-ab-partial-hint" style="font-size:13px;margin:6px 0 0;">You can pay part of the amount owed, e.g. $10 of $35.</p>' +
           '<button type="button" id="pp-ab-change" class="pp-anular" style="display:none;">Change amount before payment</button></div>' +
         /* 2026-10-21 (fiados de Belen, decision JFC): quien cobra toca los consumos que se pagan.
