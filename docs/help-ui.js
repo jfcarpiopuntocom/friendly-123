@@ -379,8 +379,17 @@
   function pintarMini(estado) {
     try {
       const C = window.OCSyncControl;
-      const conectado = estado || (C && C.estado ? C.estado() : "apagado");
-      const e = C && C.durabilidadPendiente && C.durabilidadPendiente() ? "pendiente" : conectado;
+      const Y = window.OCYjs;
+      const sync4Activo = !!(Y && Y.modoCorte20Activo === true);
+      const sync4Pend = sync4Activo && Y.recibosComerciales20 && typeof Y.recibosComerciales20.values === "function"
+        ? Array.from(Y.recibosComerciales20.values()).some(function (r) { return r && r.reconcileRequired === true && r.committed !== true; })
+        : false;
+      const conectado = sync4Activo
+        ? ((typeof navigator !== "undefined" && navigator.onLine === false) ? "apagado" : "conectado")
+        : (estado || (C && C.estado ? C.estado() : "apagado"));
+      const e = sync4Activo
+        ? (sync4Pend ? "pendiente" : conectado)
+        : (C && C.durabilidadPendiente && C.durabilidadPendiente() ? "pendiente" : conectado);
       const problema = !!(C && C.problemaPersistente && C.problemaPersistente());
       /* ESCALA DE NEGRO A BLANCO = grado de "encendido/al dia" (JFC 2026-08-25).
          4 tonos: NEGRO=offline (apagado) < gris oscuro=reconectando <
@@ -420,6 +429,8 @@
   pintarMini();
   try { if (window.OCSyncControl && window.OCSyncControl.onEstado) window.OCSyncControl.onEstado(pintarMini); } catch (_) {}
   window.addEventListener("oc-lang-change", function () { pintarMini(); });
+  window.addEventListener("oc-op-20-recibo", function () { pintarMini(); });
+  window.addEventListener("oc-login", function () { setTimeout(function () { pintarMini(); }, 250); });
 
   function abrir() {
     const rol = window.OCAuth ? window.OCAuth.rolActual() : null;
