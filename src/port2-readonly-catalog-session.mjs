@@ -116,10 +116,15 @@ export async function openCertifiedReadOnlyPublicCatalog({
   // getMap() directly and accidentally hid the real cold-join failure.
   // Materialize ONLY these two publicly permitted roots; C9 still validates
   // ALL root names and row fields, rejecting private/economic roots.
-  if(!publicDoc.share.has('productos')||!publicDoc.share.has('ubicaciones'))
-    throw fail();
-  publicDoc.getMap('productos');
-  publicDoc.getMap('ubicaciones');
+  if(body.frozenHead==='sala-vacia'){
+   publicDoc.getMap('productos');
+   publicDoc.getMap('ubicaciones');
+  }else if(!publicDoc.share.has('productos')||!publicDoc.share.has('ubicaciones')){
+   throw fail();
+  }else{
+   publicDoc.getMap('productos');
+   publicDoc.getMap('ubicaciones');
+  }
   assertPublicCatalogTransportDoc({doc:publicDoc,room});
   // Compare DISPLAY state, never Yjs byte history/clientIDs, to avoid treating
   // re-authored local structs as a valid certified remote baseline.

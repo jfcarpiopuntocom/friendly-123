@@ -3443,7 +3443,7 @@
         var released = !!(API.rollout && API.rollout.yparty === true);
         // Do not sever an existing device's live relay while local Yjs
         // ancestry or the durable ops notebook is still being hydrated.
-        var sync4Direct = !!(API.rollout && (API.rollout.sync4 === true || API.rollout.frozenHead === "sala-vacia"));
+        var sync4Direct = !!(API.rollout && (API.rollout.yparty === true || API.rollout.sync4 === true || API.rollout.frozenHead === "sala-vacia"));
         if (released && (document.hidden || !API.idb || API.idb.synced !== true ||
             !API.opsIdb || API.opsIdb.synced !== true ||
             !API.doc || API.doc.isDestroyed ||
@@ -3483,7 +3483,7 @@
       if (activo) {
         programarRetorno();
         if (API.catalogoPublicoLector) API.catalogoPublicoLector.intentar();
-        if (API.modoCorte20Activo !== true && API.coordinadorCorte20) {
+        if (API.modoCorte20Activo !== true) {
           _intentarActivarCorte20SiElegible();
         }
       } else {
@@ -3549,6 +3549,7 @@
     }
     // Only a real authenticated Owner/Admin session can trigger this helper.
     window.addEventListener("oc-login", _intentarActivarCorte20SiElegible);
+    window.addEventListener("online", _intentarActivarCorte20SiElegible);
     API.corte20QaHabilitado = function () {
       // Explicit per-license release is sufficient to attempt a certified
       // activation. C38 still refuses two active writers or pending old ops.
@@ -3669,8 +3670,21 @@
           ? await API.puedeDespacharOpEnLegado(op.opId) : false;
         if (autorizado !== true || API.coordinadorCorte20 !== coord ||
             API.opsMap !== mapa || API.modoCorte20Activo === true) return false;
-        try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); return true; }
-        catch (_) { return false; }
+        var okLegado = false;
+        try { if (!API.opsMap.get(op.opId)) API.opsMap.set(op.opId, op); okLegado = true; }
+        catch (_) { okLegado = false; }
+        // Sync4 Micropaso 43/60: schedule bounded non-blocking return to Sync4-A after transient failback.
+        if (!API.__retornoSync4Timer && (motivo === "typed-command-fallback" || motivo === "unmapped-typed-command")) {
+          API.__retornoSync4Timer = setTimeout(function () {
+            API.__retornoSync4Timer = null;
+            if (document.hidden || (typeof navigator !== "undefined" && navigator.onLine === false)) return;
+            var c = API.coordinadorCorte20;
+            Promise.resolve(c && typeof c.drainLatchedSameDo === "function" ? c.drainLatchedSameDo() : null)
+              .catch(function () {})
+              .finally(function () { if (typeof _intentarActivarCorte20SiElegible === "function") _intentarActivarCorte20SiElegible(); });
+          }, 15000);
+        }
+        return okLegado;
       }).catch(function () { return false; });
     }
     // C31: When the QA-gated 2.0 commercial cutover is active, route supported

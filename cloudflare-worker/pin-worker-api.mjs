@@ -37,6 +37,13 @@ export function pinDoRoute(req,storage,env){
     r=stored&&!fabrica?await p.verify(body.licenseCode,body.pin,body.pinTs)
      :stored?{ok:false,reason:"license-instance-mismatch"}
      :(obs&&obs.devices&&Object.keys(obs.devices).length)?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};
+    if(r&&r.ok===true&&INSTANCE.test(body.instanceId||"")){
+     const instKey="inst:"+body.instanceId;
+     await storage.transaction(async tx=>{
+      const prev=await tx.get(instKey);
+      if(!prev){await tx.put(instKey,{instanceId:body.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify",createdAt:Date.now()});}
+     });
+    }
    }
    else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
    else return reply({ok:false},404);
@@ -66,7 +73,7 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
  const unmatched=!saved||saved.instanceId!==instanceId||String(saved.licenseCode||"").trim().toUpperCase()!==licenseCode;
  // Login of an unmatched device asks the authority whether this license is centrally set (see verify-unmatched).
  if(unmatched&&action!=="verify")return reply({ok:false,reason:"license-instance-mismatch"},404);
- if(unmatched)data={licenseCode,pin:String(data.pin||"")};
+ if(unmatched)data={licenseCode,instanceId,pin:String(data.pin||"")};
  // Admin writes use the authoritative registry cohort, not client-supplied
  // counts or IDs. On incomplete/unavailable registry, preserve old PINs.
  if(action==="status"||action==="master-set"||action==="master-activate"){

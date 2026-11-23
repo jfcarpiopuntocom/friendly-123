@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.99",
+  "version": "v0.9.00",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.99 C220: un PIN que el aparato ya conoce no queda bloqueado por el limite compartido del equipo; el boton de Emergency recovery se reactiva si no sale de la pagina; la pagina de forzar version ya no es amarilla.",
+  "changelog": "v0.9.00 C222 Sync4 completo: parches Gemini Neon 01,02,03,06,07,08,09,10 (failback automatico y regreso a la 2.0, aparato nuevo, diagnostico OCSync4Diagnostico); PIN de aparato nuevo en el panel; el corte de red ya no se salta la verificacion del PIN.",
   "requerida": false,
-  "shell": "f123-shell-v899",
+  "shell": "f123-shell-v900",
   "apagar": [],
-  "releaseName": "v0.8.99",
-  "cacheGeneration": "golden435"
+  "releaseName": "v0.9.00",
+  "cacheGeneration": "golden436"
 }
