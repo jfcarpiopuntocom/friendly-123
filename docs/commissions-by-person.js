@@ -129,6 +129,10 @@
         if (p !== panel) p.hidden = true;
       });
     }
+    // C226: while By artist / associate is on, the global group buttons are shown released (one pressed button at a time).
+    if (person) container.querySelectorAll('[data-commissions-view-global]').forEach(function(b) {
+      b.setAttribute('aria-selected','false'); b.classList.remove('hundida');
+    });
     container.querySelectorAll('[data-commissions-view]').forEach(function(b) {
       var on = person ? b.dataset.commissionsView === 'person' : b.dataset.commissionsView !== 'person' && b.getAttribute('aria-selected') === 'true';
       b.setAttribute('aria-selected',on ? 'true':'false');
@@ -229,7 +233,15 @@
   };
   container.addEventListener('click',function(e) {
     var tab=e.target.closest('#comm-tab-person');
-    if (tab) {e.preventDefault(); root.cambiarVistaComisiones('person'); return;}
+    // C226 (JFC 23 nov 2026: "By artist/associate debe ser des-elegible"): a second tap turns it off; with nothing on -> RAW.
+    if (tab) {
+      e.preventDefault();
+      if (isPerson()) {
+        root.cambiarVistaComisiones('product');
+        if (typeof root.cambiarRangoComisionesGlobal === 'function') root.cambiarRangoComisionesGlobal('grupo','total');
+      } else root.cambiarVistaComisiones('person');
+      return;
+    }
     var b=e.target.closest('[data-cm-person-pay]');
     if (!b || !isPerson()) return;
     var p=state.grouped && state.grouped.people.find(function(x){return x.id===b.dataset.cmPersonPay;});
