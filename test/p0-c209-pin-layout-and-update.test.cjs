@@ -24,19 +24,19 @@ test('C209: manual repair serializes navigation and blocks competing SW adoption
   assert.match(auth,/if \(window\.__f123PurgeEnCurso\) return;/);
   assert.match(auth,/window\.__f123PurgeEnCurso = true;\s*_purgeBtn\.disabled = true;/);
   assert.match(app,/function seguroCon\(sinRecuperacion\) \{\s*if \(window\.__f123PurgeEnCurso === true\) return false;/);
-  assert.match(app,/async function revisar\(\) \{\s*if \(window\.__f123PurgeEnCurso === true \|\| manualPurgeReentry\) return;/);
-  assert.match(app,/function onShellTomado\(\) \{\s*if \(window\.__f123PurgeEnCurso === true \|\| manualPurgeReentry\) return;/);
+  assert.match(app,/async function revisar\(\) \{\s*if \(window\.__f123PurgeEnCurso === true\) return;/);
+  assert.match(app,/function onShellTomado\(\) \{\s*if \(window\.__f123PurgeEnCurso === true\) return;/);
   for(const p of ['docs/auth-ui.min.js','docs/app-inline-03.min.js'])
     assert.match(read(p),/__f123PurgeEnCurso/,'published bundle '+p+' must contain the guard');
 });
 
 test('C209: manual purge reentry is exactly one navigation, and stale update latches do not fire',()=>{
   const index=read('docs/index.html');
-  assert.match(index,/window\\.__f123ManualPurgeReentry = true/);
-  assert.match(app,/const manualPurgeReentry = window\\.__f123ManualPurgeReentry === true/);
-  assert.match(app,/if \\(manualPurgeReentry\\) return false;\\s*vigilar\\(\\);/);
-  assert.match(app,/if \\(manualPurgeReentry\\) return;/);
-  assert.match(auth,/sessionStorage\\.removeItem\\("f123_act_sola_pendiente"\\)/);
-  assert.match(auth,/sessionStorage\\.removeItem\\("f123_autorecarga"\\)/);
-  assert.match(auth,/location\\.replace\\(url\\)/);
+  assert.ok(index.includes('window.__f123ManualPurgeReentry = true'));
+  assert.ok(app.includes('const manualPurgeReentry = window.__f123ManualPurgeReentry === true'));
+  assert.match(app,/if \(manualPurgeReentry\) return false;\s*vigilar\(\);/);
+  assert.ok(app.includes('if (manualPurgeReentry && String(vj.shell) === manualPurgeShell)'));
+  assert.ok(auth.includes('sessionStorage.removeItem("f123_act_sola_pendiente")'));
+  assert.ok(auth.includes('sessionStorage.removeItem("f123_autorecarga")'));
+  assert.ok(auth.includes('location.replace(url)'));
 });
