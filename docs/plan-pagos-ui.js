@@ -541,7 +541,8 @@
         '<h3>Record a payment</h3>' +
         '<p class="pp-resumen" id="pp-ab-ctx">Loading...</p>' +
         '<div class="pp-fg"><label for="pp-ab-monto">Payment amount</label>' +
-          '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0" step="any"></div>' +
+          '<input id="pp-ab-monto" type="number" inputmode="decimal" min="0.01" step="0.01">' +
+          '<p id="pp-ab-partial-hint" style="font-size:13px;margin:6px 0 0;">You can pay part of the amount owed, e.g. $10 of $35.</p></div>' +
         /* 2026-10-21 (fiados de Belen, decision JFC): quien cobra toca los consumos que se pagan.
            Sin seleccion, el pago queda «sin asignar» (nunca se reparte solo). */
         '<div class="pp-fg" id="pp-ab-consumos-wrap" style="display:none;"><label id="pp-ab-consumos-lbl"></label>' +
@@ -553,6 +554,9 @@
     document.body.appendChild(m);
     var q = function (id) { return m.querySelector("#" + id); };
     var es = global.OCI18n && String(global.OCI18n.locale()).startsWith('es');
+    q("pp-ab-partial-hint").textContent = es ? "Puedes abonar una parte, por ejemplo $10 de $35." : "You can pay part of the balance, e.g. $10 of $35.";
+    var montoEditadoPorOperador = false;
+    q("pp-ab-monto").addEventListener("input", function () { montoEditadoPorOperador = true; });
     var anterior = null, pendienteAsignacion = null, referenciaLocalValida = true;
     try { anterior = abonoPendiente(clienteId); } catch (_) { referenciaLocalValida = false; }
     try { pendienteAsignacion = leerAsignacion(clienteId); } catch (e) {
@@ -630,7 +634,8 @@
             var el = Array.prototype.find.call(box.querySelectorAll(".pp-chip"), function (node) { return node.getAttribute("data-k") === kk; });
             return s + Math.round(Number(el && el.getAttribute("data-p")) * 100);
           }, 0);
-          if (elegidos.length) q("pp-ab-monto").value = (total / 100).toFixed(2);
+          // A chosen purchase sets a SUGGESTION, never replaces the amount the cashier typed.
+          if (elegidos.length && !montoEditadoPorOperador) q("pp-ab-monto").value = (total / 100).toFixed(2);
         });
       });
     }
@@ -695,12 +700,19 @@
         }).finally(function () { btn.disabled = bloqueoAlmacenamiento; });
         return;
       }
-      if (!(monto > 0)) {
+      var centavos = Math.round(monto * 100);
+      if (!Number.isSafeInteger(centavos) || centavos <= 0 || Math.abs(centavos / 100 - monto) > 0.000001) {
         btn.disabled = false; msg.style.color = "#B0183E";
-        msg.textContent = es ? "El importe debe ser mayor que cero." : "The amount must be greater than zero.";
+        msg.textContent = es ? "Escribe un abono válido, con máximo dos decimales." : "Enter a valid payment amount, with at most two decimals.";
         return;
       }
       var partes = partesElegidas(monto);
+      var asignadoCentavos = partes.reduce(function (s, p) { return s + Math.round(p.monto * 100); }, 0);
+      if (elegidos.length && asignadoCentavos !== centavos) {
+        btn.disabled = false; msg.style.color = "#B0183E";
+        msg.textContent = es ? "El abono supera los consumos elegidos. Corrige el importe." : "Payment exceeds the selected purchases. Adjust the amount.";
+        return;
+      }
       var motivo = anterior ? anterior.motivo : "Abono";
       var tarea;
       if (partes.length) {
