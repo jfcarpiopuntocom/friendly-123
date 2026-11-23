@@ -30,6 +30,11 @@ a[hidden]{display:none}a{display:inline-block;padding:11px 20px;color:#0F1923;ba
     }catch(_){return false;}
   }
   async function releaseOldShell(){
+    // Verify the newest shell is reachable before retiring any offline copy.
+    const response=await deadline(fetch("./version.json?rescue="+Date.now(),{cache:"no-store"}),6000);
+    if(!response || !response.ok)throw new Error("sin red");
+    const version=await deadline(response.json(),5000);
+    if(!version || !version.shell)throw new Error("versión no comprobada");
     if("serviceWorker" in navigator){
       try{
         var regs=await deadline(navigator.serviceWorker.getRegistrations(),5000);
@@ -52,12 +57,19 @@ a[hidden]{display:none}a{display:inline-block;padding:11px 20px;color:#0F1923;ba
     status.textContent="Abriendo la versión actualizada…";
     location.replace(target);
   },function(){
-    status.textContent="Abriendo la versión actualizada…";
-    location.replace(target);
+    status.textContent="Se necesita conexión para comprobar la nueva versión.";
+    manual.textContent="Reintentar";
+    manual.href="./reenganchar.html?retry="+Date.now();
+    manual.hidden=false;
   });
-  // An old Safari Service Worker may never settle its unregister promise.
-  // After bounded cleanup, the single cache-busted navigation remains available.
-  setTimeout(function(){manual.hidden=false;},16000);
+  // A hung WebKit operation leaves a retry control, not an automatic second navigation.
+  setTimeout(function(){
+    if(location.pathname.endsWith("/reenganchar.html")){
+      manual.textContent="Reintentar";
+      manual.href="./reenganchar.html?retry="+Date.now();
+      manual.hidden=false;
+    }
+  },16000);
 })();
 </script>
 </body></html>
