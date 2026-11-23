@@ -95,9 +95,14 @@ test("unresolved history stays incremental across same-lifetime reconnect; a fre
   clavePendientes:()=>JSON.stringify([!!ctx.doc.store.pendingStructs,Object.keys(ctx.partesEntrantes).sort()]),
   setTimeout:(fn,delay)=>clock.setTimeout(fn,delay),reprogramar(){},
   Promise,JSON,Object,Number,Math,Date,ArrayBuffer,Blob};
+ const layerStart=source.indexOf("    function cargarCursorDeCapa(sock) {");
+ const layerEnd=source.indexOf("    function guardarPullCursor(cursor) {",layerStart);
+ assert.ok(layerStart>=0&&layerEnd>layerStart,"uses the production provider cursor loader");
  vm.createContext(ctx);
  vm.runInContext(source.slice(replayStart,replayEnd),ctx);
- function bindActor(actor){return{
+ function bindActor(actor){
+  vm.runInContext(source.slice(layerStart,layerEnd),actor);
+  return{
   attach(ws,state){actor.ws=ws;actor.canal.ws=ws;actor.pullEstado=state;actor._currentPullState=state;
    vm.runInContext(source.slice(start,end)+"\nthis.queue=()=>_colaRecepcion;",actor);},
   async openAndDrain(ws,state){actor.ws=ws;actor.canal.ws=ws;actor.pullEstado=state;actor._currentPullState=state;
