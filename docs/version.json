@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.14",
+  "version": "v0.9.15",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.14 Recupera el historial al cambiar de respaldo de sincronización.",
+  "changelog": "v0.9.15 C242+C243+C244: watchdog Safari/IDB (estado-idb e idb-archivo), breaker f123::, ventana slow-recovery en relay-selector y diagnóstico corte 2.0.",
   "requerida": false,
-  "shell": "f123-shell-v914",
+  "shell": "f123-shell-v915",
   "apagar": [],
-  "releaseName": "v0.9.14",
-  "cacheGeneration": "golden451"
+  "releaseName": "v0.9.15",
+  "cacheGeneration": "golden452"
 }

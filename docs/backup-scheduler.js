@@ -171,7 +171,7 @@
     document.body.appendChild(a);
     try { a.click(); } catch (_) { if (!soloAncla) { try { window.open(url, "_blank"); } catch (_) {} } }
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 300_000);
+    setTimeout(() => URL.revokeObjectURL(url), soloAncla ? 5_000 : 60_000);
   }
 
   function cuerpoEmail(nombreArchivo, humano) {
@@ -684,6 +684,7 @@
     } catch (_) { return true; }
   }
   async function prepararExportLocal() {
+    if (window.__f123CrashLoopPaused) return;
     if (_exportPreparando || yaExportadoHoy()) return;
     _exportPreparando = true;
     let info;
@@ -692,12 +693,13 @@
     document.addEventListener("pointerdown", function () {
       _exportPreparando = false;
       const now = Date.now();
-      if (yaExportadoHoy(now)) return;
+      if (yaExportadoHoy(now) || !info) { info = null; return; }
       try {
         // Record the 24h stamp BEFORE triggering the download so iOS Safari cannot re-trigger in the same session
         localStorage.setItem(LS_AUTOEXPORT, String(now));
         descargarArchivo(info.texto, info.nombre, true);
       } catch (_) {}
+      info = null;
     }, { once: true, capture: true });
   }
   window.addEventListener("oc-login", function (ev) {

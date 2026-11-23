@@ -15,49 +15,6 @@
   } catch (_) { /* URL cleanup must never prevent app startup. */ }
 })();
 </script>
-<script>
-// C237 Safari / iOS PWA non-destructive crash-loop circuit breaker (never deletes IDB/localStorage).
-(function () {
-  var KEY = "f123_boot_crash_v1";
-  try {
-    if (window.__f123ManualPurgeReentry) { sessionStorage.removeItem(KEY); return; }
-    var now = Date.now(), st = null;
-    try { st = JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch (_) {}
-    var withinWindow = st && typeof st.t === "number" && (now - st.t) < 12000;
-    var count = withinWindow ? (Number(st.c) || 0) + 1 : 1;
-    sessionStorage.setItem(KEY, JSON.stringify({ c: count, t: now }));
-    if (count >= 2) window.__f123SafeBootMode = true;
-    var clearHealthy = function () {
-      setTimeout(function () { try { sessionStorage.removeItem(KEY); } catch (_) {} }, 6000);
-    };
-    if (document.readyState === "complete") clearHealthy();
-    else window.addEventListener("load", clearHealthy, { once: true });
-    if (count >= 3) {
-      window.__f123CrashLoopPaused = true;
-      window.addEventListener("DOMContentLoaded", function () {
-        if (!document.body || document.getElementById("f123-safe-recovery")) return;
-        var wrap = document.createElement("div");
-        wrap.id = "f123-safe-recovery";
-        wrap.setAttribute("role", "alertdialog");
-        wrap.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#0F1923;color:#FFF8E8;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:system-ui,-apple-system,sans-serif;";
-        wrap.innerHTML = '<div style="max-width:360px;">'
-          + '<h2 style="margin:0 0 10px;font-size:22px;">Safe recovery</h2>'
-          + '<p style="margin:0 0 16px;font-size:15px;line-height:1.5;">Safari restarted the page repeatedly. Your notebook and sales data stay untouched.</p>'
-          + '<div style="display:flex;flex-direction:column;gap:10px;">'
-          + '<button type="button" id="f123-safe-retry" style="min-height:44px;padding:10px 20px;border-radius:8px;border:2px solid #E8A020;background:#E8A020;color:#0F1923;font-weight:800;font-size:15px;cursor:pointer;">Continue cleanly</button>'
-          + '<a id="f123-safe-reengage" href="./reenganchar.html?desde=recovery" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 20px;border-radius:8px;border:2px solid #5294AC;background:#152840;color:#FFF8E8;font-weight:700;font-size:15px;text-decoration:none;">Update &amp; repair loading</a>'
-          + '</div></div>';
-        document.body.appendChild(wrap);
-        var btn = document.getElementById("f123-safe-retry");
-        if (btn) btn.addEventListener("click", function () {
-          try { sessionStorage.removeItem(KEY); } catch (_) {}
-          location.replace(location.pathname + location.search + location.hash);
-        });
-      }, { once: true });
-    }
-  } catch (_) {}
-})();
-</script>
 <!-- Fetch the login dependencies while the parser keeps their original execution order. -->
 
 
@@ -94,6 +51,54 @@
   try{
     if(/\/(next|previo)\//.test(location.pathname)){var mr=document.createElement("meta");mr.name="robots";mr.content="noindex,nofollow";document.head.appendChild(mr);return;}
   }catch(_){}
+})();
+</script>
+<script>
+// C242 Safari / iOS PWA non-destructive crash-loop circuit breaker (runs AFTER aislamiento.js for f123:: namespace).
+(function () {
+  var KEY = "f123_boot_crash_v1", SW_KEY = "f123_sw_reload_ts";
+  try {
+    var now = Date.now(), swTs = 0;
+    try { swTs = Number(sessionStorage.getItem(SW_KEY) || "0") || 0; } catch (_) {}
+    if (swTs) { try { sessionStorage.removeItem(SW_KEY); } catch (_) {} }
+    if (window.__f123ManualPurgeReentry || (swTs && (now - swTs) < 15000)) {
+      sessionStorage.removeItem(KEY);
+      return;
+    }
+    var st = null;
+    try { st = JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch (_) {}
+    var withinWindow = st && typeof st.t === "number" && (now - st.t) < 12000;
+    var count = withinWindow ? (Number(st.c) || 0) + 1 : 1;
+    sessionStorage.setItem(KEY, JSON.stringify({ c: count, t: now }));
+    var clearHealthy = function () {
+      setTimeout(function () { try { sessionStorage.removeItem(KEY); } catch (_) {} }, 6000);
+    };
+    if (document.readyState === "complete") clearHealthy();
+    else window.addEventListener("load", clearHealthy, { once: true });
+    if (count >= 3) {
+      window.__f123CrashLoopPaused = true;
+      window.addEventListener("DOMContentLoaded", function () {
+        if (!document.body || document.getElementById("f123-safe-recovery")) return;
+        var wrap = document.createElement("div");
+        wrap.id = "f123-safe-recovery";
+        wrap.setAttribute("role", "alertdialog");
+        wrap.style.cssText = "position:fixed;inset:0;z-index:2147483647;background:#0F1923;color:#FFF8E8;display:flex;align-items:center;justify-content:center;padding:24px;text-align:center;font-family:system-ui,-apple-system,sans-serif;";
+        wrap.innerHTML = '<div style="max-width:360px;">'
+          + '<h2 style="margin:0 0 10px;font-size:22px;">Safe recovery</h2>'
+          + '<p style="margin:0 0 16px;font-size:15px;line-height:1.5;">Safari restarted the page repeatedly. Your notebook and sales data stay untouched.</p>'
+          + '<div style="display:flex;flex-direction:column;gap:10px;">'
+          + '<button type="button" id="f123-safe-retry" style="min-height:44px;padding:10px 20px;border-radius:8px;border:2px solid #E8A020;background:#E8A020;color:#0F1923;font-weight:800;font-size:15px;cursor:pointer;">Continue cleanly</button>'
+          + '<a id="f123-safe-reengage" href="./reenganchar.html?desde=recovery" style="display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 20px;border-radius:8px;border:2px solid #5294AC;background:#152840;color:#FFF8E8;font-weight:700;font-size:15px;text-decoration:none;">Update &amp; repair loading</a>'
+          + '</div></div>';
+        document.body.appendChild(wrap);
+        var btn = document.getElementById("f123-safe-retry");
+        if (btn) btn.addEventListener("click", function () {
+          try { sessionStorage.removeItem(KEY); } catch (_) {}
+          location.replace(location.pathname + location.search + location.hash);
+        });
+      }, { once: true });
+    }
+  } catch (_) {}
 })();
 </script>
 <!-- C203/C212 UI 2.0 FIJA (JFC 22 nov 2026: "no es un interruptor, que es otro punto de fallo... ya pon esa puta UI y ya").

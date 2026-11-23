@@ -92,9 +92,11 @@
   // soon as a COMPLETE encrypted pull is committed. Server refusals and quota
   // pauses must never be overridden by this recovery-only optimization.
   var _fallbackRecovery = Object.create(null);
+  var _fallbackRecoveryEn = Object.create(null);
   function resolverRecuperacion(url) {
     var raw = _fallbackRecovery[url]; if (!raw) return;
     delete _fallbackRecovery[url];
+    delete _fallbackRecoveryEn[url];
     var items = Array.isArray(raw) ? raw : [raw];
     for (var i = 0; i < items.length; i++) {
       var p = items[i];
@@ -155,6 +157,7 @@
     }
     if (!paused.length) return;
     _fallbackRecovery[url] = paused;
+    _fallbackRecoveryEn[url] = Date.now();
     var ir = function () { try { ws.close(1012, "another device wrote on the next durable layer"); } catch (_) {} };
     if (ws.readyState === 1) ir(); else if (ws.readyState === 0) ws.addEventListener("open", ir);
   }
@@ -440,6 +443,8 @@
     function reprobarH(x, j) {
       var t = setInterval(function () {
         if (cerradoH || x.ws.readyState >= 2) return clearInterval(t);
+        if (_fallbackRecovery[url] && x.ws.readyState === 1 &&
+            Date.now() - (_fallbackRecoveryEn[url] || 0) < PAUSA_MS) return;
         if (healthProbe || Date.now() - ultimoSondeo < 30000) return; // hysteresis; no retry storm
         for (var n = 0; n < j && n < capas.length; n++) {
           var viva = subs.some(function (o) { return o.orden === n && o.ws.readyState < 2; });

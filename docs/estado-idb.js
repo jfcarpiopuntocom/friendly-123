@@ -212,21 +212,29 @@
     if (dbPromise) return dbPromise;
     var req;
     try { req = indexedDB.open(DB_NAME, 1); } catch (err) { return Promise.reject(err); }
-    var promise, settled = false;
+    var promise, settled = false, watchdog = null;
     promise = new Promise(function (resolve, reject) {
+      function resetWatchdog(ms) {
+        if (watchdog) clearTimeout(watchdog);
+        watchdog = setTimeout(function () { fail(new Error("IndexedDB state open timed out")); }, ms);
+      }
       function fail(err) {
         if (settled) return;
         settled = true;
+        if (watchdog) { clearTimeout(watchdog); watchdog = null; }
         if (dbPromise === promise) dbPromise = null;
         reject(err);
       }
+      resetWatchdog(8000);
       req.onupgradeneeded = function () {
+        resetWatchdog(15000);
         if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE);
       };
       req.onsuccess = function () {
         var db = req.result;
         if (settled) { db.close(); return; }
         settled = true;
+        if (watchdog) { clearTimeout(watchdog); watchdog = null; }
         // WebKit can terminate an IDB connection after backgrounding. Discard
         // only THIS obsolete handle so the next current business write reopens.
         // Do not close or invalidate a newer connection on a delayed event.
