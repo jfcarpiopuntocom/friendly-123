@@ -398,3 +398,41 @@ test('C225 full-store (>768 KiB) checkpoint & opsDoc contract on f123_relay_cupo
   assert.match(bk, /const AUTOEXPORT_INTERVAL_MS = 24 \* 60 \* 60 \* 1000;/);
   assert.match(bk, /localStorage\.setItem\(LS_AUTOEXPORT, String\(now\)\);\s*descargarArchivo\(info\.texto, info\.nombre, true\);/);
 });
+
+test('C226 clean-room suffix (::limpio-2026-09-16), Commissions 1.0 causality arrow, click on/off to RAW total, and deleted-customer payment-plan banner clear', async () => {
+  const coreMod = await import('../cloudflare-relay-worker/src/priv-relay-core.mjs');
+  const lic = 'F123-C226-CLEAN-0001';
+  const cleanRoom40 = await coreMod.legacyCleanRoomHexForLicense(lic);
+  const yparty32 = await coreMod.ypartyBaseForLicense(lic);
+  const auth = makeMockAuthority({ license: lic, instance: 'inst-clean-01', role: 'dueno' });
+  const tClean = auth.issue({ room: yparty32 + '-priv', scopes: ['priv:read', 'priv:write'] });
+  const sess = await coreMod.exchangeTicketForSession({
+    env: {
+      WS_SERVICE_KEY: 'synthetic-service-secret-at-least-32-bytes-long!',
+      WS_AUTHORITY: auth.WS_AUTHORITY
+    },
+    room: cleanRoom40 + '-y',
+    licenseCode: lic,
+    instanceId: 'inst-clean-01',
+    roleHint: 'dueno',
+    ticket: tClean.token
+  });
+  assert.equal(sess.ok, true, '::limpio-2026-09-16 room hash must be accepted for its matching license');
+  assert.ok(yparty32.length === 32);
+
+  const cbp = fs.readFileSync(path.join(ROOT, 'docs', 'commissions-by-person.js'), 'utf8');
+  // C235: on/off shipped in v0.9.04 (C226, app-inline-01 + commissions-by-person setMode); Gemini's duplicate was not applied.
+  assert.match(cbp, /querySelectorAll\('\[data-commissions-view-global\]'\)/);
+  assert.match(cbp, /root\.cambiarRangoComisionesGlobal\('grupo','total'\)/);
+
+  const app01 = fs.readFileSync(path.join(ROOT, 'src', 'app', 'app-inline-01.js'), 'utf8');
+  assert.match(app01, /const rich10=typeof flechaComisionHtml==="function";/);
+  assert.match(app01, /flechaComisionHtml\("",m\.direccion,m\.productoId,g\.label\)/);
+  assert.match(app01, /function filtrarComisionesGlobal\(valor\)/);
+  assert.match(app01, /const next=valor==="total"\|\|\(valor===actual&&!veniaDePersona\)\?"total":/);
+
+  const mb = fs.readFileSync(path.join(ROOT, 'docs', 'mock-backend.js'), 'utf8');
+  assert.ok(mb.includes('mov("cliente-borrado"'));
+  assert.ok(mb.includes('window.OCReactivo.emitir("clientes")'));
+  assert.ok(mb.includes('window.AMG.PlanPagosUI.refrescarHoy()'));
+});

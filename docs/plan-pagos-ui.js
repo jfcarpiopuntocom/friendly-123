@@ -792,7 +792,7 @@
   function clientesConEstado() {
     if (!global.AMG || !global.AMG.PlanPagos) return Promise.resolve([]);
     return fetch(API + "/clientes").then(function (r) { return r.json(); }).then(function (d) {
-      var lista = (d && d.clientes) || d || [];
+      var lista = ((d && d.clientes) || d || []).filter(function (c) { return c && !c.borrado && !c.despedido; });
       return Promise.all(lista.map(function (c) {
         return global.AMG.PlanPagos.estadoDelPlan(c.id).then(function (e) {
           return { id: c.id, nombre: c.nombre, estado: e };
@@ -880,6 +880,13 @@
   }
 
   global.addEventListener("oc-login", function () { setTimeout(montar, 600); });
+  global.addEventListener("oc-sync-merge", function () { try { refrescarHoy(); } catch (_) {} });
+  global.addEventListener("oc-catalogo-cambiado", function () { try { refrescarHoy(); } catch (_) {} });
+  try {
+    if (global.AMG && global.AMG.EventBus && typeof global.AMG.EventBus.on === "function") {
+      global.AMG.EventBus.on("oc:datos:clientes", function () { try { refrescarHoy(); } catch (_) {} });
+    }
+  } catch (_) {}
   /* Al cerrar sesion la alerta desaparece: un encargado no debe ver la lista
      global de quien debe, ni siquiera de refilon. */
   global.addEventListener("oc-logout", function () {

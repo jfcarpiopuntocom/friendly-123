@@ -9636,6 +9636,8 @@
            patron que usa marcar-pagado (~L3885). Es idempotente: sembrar()
            compara y reescribe por id, disparar de mas nunca duplica nada. */
         avisarCatalogoCambiado();
+        try { if (window.OCReactivo && typeof window.OCReactivo.emitir === "function") window.OCReactivo.emitir("clientes"); } catch (_) {}
+        try { if (window.AMG && window.AMG.PlanPagosUI && typeof window.AMG.PlanPagosUI.refrescarHoy === "function") window.AMG.PlanPagosUI.refrescarHoy(); } catch (_) {}
         return J({ ok: true, despedido: c.despedido });
       }
       // DELETE /api/clientes/:id — borra el cliente por completo (solo dueño/admin).
@@ -9648,6 +9650,9 @@
         c.borrado = true; c.rev = _revNueva();
         mov("cliente-borrado", { cliente: c.nombre, codigo: c.codigo || "", quien: body.quien || "Sistema" });
         guardarEstadoLocal();
+        avisarCatalogoCambiado();
+        try { if (window.OCReactivo && typeof window.OCReactivo.emitir === "function") window.OCReactivo.emitir("clientes"); } catch (_) {}
+        try { if (window.AMG && window.AMG.PlanPagosUI && typeof window.AMG.PlanPagosUI.refrescarHoy === "function") window.AMG.PlanPagosUI.refrescarHoy(); } catch (_) {}
         return J({ ok: true });
       }
       if (path === "/api/inventario/bcg") return J(matrizBCG(uid));
