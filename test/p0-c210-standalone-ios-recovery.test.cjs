@@ -79,3 +79,11 @@ test('C210: offline/error never destroys cached app and preserves retry',async()
   assert.equal(f.btn.disabled,false);
   assert.match(f.status.textContent,/incompleta/);
 });
+
+test('C210: already-removed SW and caches do not strand a Safari rejoin',async()=>{
+  const f=fixture({alreadyRemoved:true});
+  await f.btn.click();
+  assert.equal(f.calls.nav.length,1,'absence already proves cleanup');
+  assert.equal(f.calls.unreg.length,2);
+  assert.equal(f.calls.del.length,2);
+});
