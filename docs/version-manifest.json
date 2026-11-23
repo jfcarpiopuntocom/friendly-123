@@ -25,7 +25,7 @@
     "./pocketbase-client.min.js": "sha256-b2be57dded143ea02946eecff6ada2f5c6ff6ed6636e54bc890aed08b20312d6",
     "./estado-ab.min.js": "sha256-b3e80615e17f82a38da2715052e98e7579251de16323afd5cd92d7bd74a9e489",
     "./estado-idb.min.js": "sha256-6c1a83ad5e09813b1d5f67db60fab0357a359ff2e83856d734b7ac8c99e28bfc",
-    "./mock-backend.min.js": "sha256-d53de7fb0158be1fc89ec747ce5213c96bd3bdd0477c7f0e11ac2410141eca1b",
+    "./mock-backend.min.js": "sha256-c88f1b0401cfeec2fb03e00278eeeaac1f6f093615b6b2f7322f287eb6c94eb7",
     "./red-segura.js": "sha256-f90162f8f1ffc000e19c5180f9fe431387f8f630f4630e35bf6c6e8a571899e8",
     "./device-identity.js": "sha256-2b069aacbb111d4893adad42c227749d641b098e79df604a3d7b574142e6c088",
     "./storage-durabilidad.js": "sha256-214aa4d841a69b044184991bffaad26d89fbe3ea0ec863335217f9ddb731e852",
