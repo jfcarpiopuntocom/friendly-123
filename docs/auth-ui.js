@@ -689,10 +689,9 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         <button id="oc-borrar">${window.t("auth.gate.clear")}</button>
         <button id="oc-recuperar">${window.t("auth.gate.forgot")}</button>
       </div>
-      <!-- C212 (JFC 22 nov 2026: "no me devolviste nunca mi boton de reenganchar"): el boton va justo debajo de
-           CLEAR / FORGOT? para que se vea sin bajar en un iPhone; antes quedaba al fondo (px 1122 en 390x664). -->
-      <a id="oc-reenganche-btn" href="./reenganchar.html" role="button"
-         style="display:inline-block;margin:12px auto 4px;padding:12px 18px;min-height:44px;box-sizing:border-box;border:2px solid #0F1923;border-radius:8px;background:#EFC31A;color:#0F1923!important;-webkit-text-fill-color:#0F1923!important;font-weight:800;text-align:center;text-decoration:none;font-size:15px;line-height:22px;box-shadow:0 3px 0 #0F1923;">Reenganchar / Update now</a>
+      <!-- C216 (JFC 22 nov 2026: "no recuerdo haber pedido un boton ADICIONAL amarillo de reenganche cuando siempre
+           ha habido el EMERGENCY RECOVERY ABAJO Y A ESO ME REFERIA"): boton amarillo oc-reenganche-btn RETIRADO.
+           La recuperacion es el "Emergency recovery" de siempre (details#oc-gate-purge, al fondo). NO reponer sin orden de JFC. -->
       <button type="button" id="oc-unirse-equipo" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-size:13px;text-decoration:underline;cursor:pointer;margin-top:10px;padding:6px;display:block;width:100%;text-align:center;">${window.t("auth.gate.joinTeam")}</button>
       <div class="oc-msg" id="oc-msg"></div>
       <!-- CODIGOS DEMO (2026-08-14). Sin esto el visitante ve un teclado y no
@@ -888,8 +887,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if(summary)summary.textContent=tt('auth.gate.emergency','Emergency recovery');
       const repair=document.getElementById('oc-purge-btn');
       if(repair && !repair.disabled)repair.textContent=tt('auth.gate.repair','Repair app loading');
-      const reenganche=document.getElementById('oc-reenganche-btn');
-      if(reenganche)reenganche.textContent=tt('auth.gate.reconnectNow','Reenganchar / Update now');
       const help=document.getElementById('oc-purge-help');
       if(help)help.textContent=tt('auth.gate.repairHelp','Updates arrive automatically. Use this only if the app fails to open, with an internet connection. It repairs cached app files without deleting your notebook data.');
       const rec = document.getElementById("oc-recuperar");
