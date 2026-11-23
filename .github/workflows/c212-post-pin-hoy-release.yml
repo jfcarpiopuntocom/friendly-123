@@ -1,0 +1,74 @@
+name: C212 post-PIN boot and Hoy performance release seal
+on:
+  push:
+    branches: [feat/c212-post-pin-hoy-perf-from-audit]
+  pull_request:
+    branches: [master]
+  workflow_dispatch: {}
+permissions:
+  contents: write
+concurrency:
+  group: c212-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-to-served:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: true
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Compile actual browser source, 42 minified scripts, manifest
+        run: |
+          set -euo pipefail
+          node --check src/app/app-inline-01.js
+          node --check docs/core/business-read-model.js
+          node --check docs/mock-backend.js
+          node scripts/build-app-entry.cjs
+          node scripts/build-min-scripts.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-min-scripts.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          bash check-sw.sh
+          git diff --check
+      - name: Source-executed RED-GREEN and Safari entry regressions
+        run: |
+          set -euo pipefail
+          node --test test/p0-c200-initial-dashboard-after-auth.test.cjs test/p0-c197-opera-dashboard-hotpath.test.cjs
+          node --test test/p0-c212-source-served-parity.test.cjs
+          node --test test/dashboard-monthly-expenses.test.js
+          node --test test/p0-c210-safari-release.test.cjs test/p0-c209-pin-layout-and-update.test.cjs test/p0-c209-reengage-lifecycle.test.cjs test/p0-c180-version-adoption.test.cjs
+      - name: Browser PIN regressions in real WebKit and Chromium
+        run: |
+          set -euo pipefail
+          node --test test/p0-c209-pin-layout.browser.cjs
+      - name: Validate release continuity
+        run: |
+          node scripts/release-control.cjs validate origin/master
+      - name: Seal only generated browser assets and SHA256 manifest
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          unexpected=$(git diff --name-only | grep -vE '^docs/(app-inline-01\.min\.js|mock-backend\.min\.js|core/business-read-model\.min\.js|version-manifest\.json)$' || true)
+          test -z "$unexpected" || { printf 'Unexpected generated files:\n%s\n' "$unexpected"; exit 1; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/app-inline-01.min.js docs/mock-backend.min.js docs/core/business-read-model.min.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C212): seal v894 post-PIN boot, Hoy optimized bundles and SHA256'
+            git push origin HEAD:feat/c212-post-pin-hoy-perf-from-audit
+          fi

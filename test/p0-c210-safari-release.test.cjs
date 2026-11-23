@@ -8,14 +8,14 @@ const crypto=require('node:crypto');
 const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const sw=read('docs/sw.js'),auth=read('docs/auth-ui.js'),rescue=read('docs/reenganchar.html');
 const version=JSON.parse(read('docs/version.json'));
-test('C210 RED v890 -> GREEN v893: document navigations bypass old cache-first shell',()=>{
+test('C210 RED v890 -> current network-first shell: document navigations bypass old cache-first shell',()=>{
  const old=execFileSync('git',['show','ba2b88bd294aca737778da56499db79da489eda0:docs/sw.js'],{cwd:root,encoding:'utf8'});
  assert.match(old,/const esArchivoDelShell = !url\.search && SHELL\.some/,'repro: real v890 cached the index forever');
  assert.match(old,/\.then\(\(local\) => local \|\| fetch\(evento\.request/,'repro: cached entry wins over new HTML');
  assert.match(sw,/evento\.request\.mode !== "navigate" && !url\.search && SHELL\.some/,'new SW network-revalidates navigations');
  assert.match(sw,/evento\.request\.mode === "navigate"/,'offline fallback still retains certified index');
- assert.match(sw,/const CACHE = "f123-shell-v893"/);
- assert.match(sw,/const CACHE_GENERACION = "-golden429"/);
+ assert.ok(sw.includes('const CACHE = "'+version.shell+'";'));
+ assert.ok(sw.includes('const CACHE_GENERACION = "-'+version.cacheGeneration+'";'));
 });
 test('C210: PIN gate visibly exposes one-tap rescue (not hidden under details)',()=>{
  const build=auth.indexOf('id="oc-gate-build"'),button=auth.indexOf('id="oc-reenganche-btn"'),fold=auth.indexOf('<details id="oc-gate-purge"');
@@ -34,11 +34,11 @@ test('C210: standalone Safari rescue uses a single cache-busted navigation witho
  assert.doesNotMatch(rescue,/location\.reload\s*\(/);
 });
 test('C210: release identity is consistent with previous accepted shell contract',()=>{
- assert.equal(version.version,'v0.8.93');
- assert.equal(version.shell,'f123-shell-v893');
- assert.equal(version.cacheGeneration,'golden429');
- assert.match(read('docs/dashboard.html'),/name="dashboard-release" content="v0\.8\.93"/);
- assert.match(read('docs/dashboard.html'),/name="dashboard-shell" content="f123-shell-v893"/);
+ assert.match(version.version,/^v\d+\.\d+\.\d+$/);
+ assert.match(version.shell,/^f123-shell-v\d+$/);
+ assert.match(version.cacheGeneration,/^golden\d+$/);
+ assert.ok(read('docs/dashboard.html').includes('name="dashboard-release" content="'+version.version+'"'));
+ assert.ok(read('docs/dashboard.html').includes('name="dashboard-shell" content="'+version.shell+'"'));
 });
 
 test('C210: exact shipped manifest hashes match the final HTML/CSS/JS and Dashboard bytes',()=>{

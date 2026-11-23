@@ -1,7 +1,7 @@
 {
   "version": "v0.8.95",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.95 C213 Sync4: dueno, admin y empleados pasan a la arquitectura 2.0; PIN de admin/empleado se verifica en el panel central en aparatos nuevos (parches de Gemini Neon 01,02,06-10).",
+  "changelog": "v0.8.95 C213: boton Reenganchar visible bajo CLEAR / FORGOT? en el PIN; UI 2.0 fija; Sync4: dueno, admin y empleados pasan a la arquitectura 2.0 y el PIN de equipo se verifica en el panel central (parches Gemini Neon 01,02,06-10).",
   "requerida": false,
   "shell": "f123-shell-v895",
   "apagar": [],
