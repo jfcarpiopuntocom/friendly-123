@@ -29,3 +29,14 @@ test('C209: manual repair serializes navigation and blocks competing SW adoption
   for(const p of ['docs/auth-ui.min.js','docs/app-inline-03.min.js'])
     assert.match(read(p),/__f123PurgeEnCurso/,'published bundle '+p+' must contain the guard');
 });
+
+test('C209: manual purge reentry is exactly one navigation, and stale update latches do not fire',()=>{
+  const index=read('docs/index.html');
+  assert.match(index,/window\\.__f123ManualPurgeReentry = true/);
+  assert.match(app,/const manualPurgeReentry = window\\.__f123ManualPurgeReentry === true/);
+  assert.match(app,/if \\(manualPurgeReentry\\) return false;\\s*vigilar\\(\\);/);
+  assert.match(app,/if \\(manualPurgeReentry\\) return;/);
+  assert.match(auth,/sessionStorage\\.removeItem\\("f123_act_sola_pendiente"\\)/);
+  assert.match(auth,/sessionStorage\\.removeItem\\("f123_autorecarga"\\)/);
+  assert.match(auth,/location\\.replace\\(url\\)/);
+});
