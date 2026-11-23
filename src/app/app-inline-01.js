@@ -8800,7 +8800,11 @@ async function cargarAvanzado(){
 async function cargarDashboardInicial(intento){
   try{
     await cargarUbicaciones();
-    await cargarHoy();
+    // C212 / Gemini Neon: the already-existing active-view renderer prevents
+    // duplicate Today DOM/JSON work when a merge and login arrive together.
+    if (window.OCSyncRender && typeof window.OCSyncRender.solicitar === "function")
+      await window.OCSyncRender.solicitar();
+    else await cargarHoy();
   }catch(err){
     if (!intento) {
       await new Promise((r) => setTimeout(r, 400));
@@ -8820,7 +8824,29 @@ async function cargarDashboardInicial(intento){
     }
   }
 }
-cargarDashboardInicial(0);
+// C212 / Gemini Neon: auth-ui mounts the PIN gate only AFTER this module.
+// The absence of #oc-gate is never permission to load the dashboard.
+(function iniciarHoyDespuesDelPIN() {
+  var activo = false, repetir = false;
+  function accesoVerificado() {
+    var gate = document.getElementById("oc-gate"), auth = window.OCAuth;
+    return !!(gate && gate.style.display === "none" && auth &&
+      typeof auth.rolActual === "function" && auth.rolActual());
+  }
+  async function iniciar() {
+    if (!accesoVerificado()) return;
+    if (activo) { repetir = true; return; }
+    activo = true;
+    try { await cargarDashboardInicial(0); }
+    finally {
+      activo = false;
+      if (repetir) { repetir = false; if (accesoVerificado()) queueMicrotask(iniciar); }
+    }
+  }
+  window.addEventListener("oc-login", iniciar);
+  // Handles scripts injected after the user has already authenticated.
+  if (accesoVerificado()) queueMicrotask(iniciar);
+})();
 
 // Splash de arranque: visible ~0.8s, fade de 0.45s y se quita del DOM.
 setTimeout(() => {
