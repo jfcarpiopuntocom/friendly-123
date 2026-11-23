@@ -782,6 +782,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
            Nunca toca IndexedDB, localStorage ni sessionStorage de negocio (PRIME DIRECTIVE 1). La limpieza en pagina
            de abajo queda como respaldo si esta navegacion no se puede hacer. */
         try {
+          // C220: if the browser does not leave the page, re-enable the button after 12 s so it never stays stuck.
+          setTimeout(function () { if (document.visibilityState !== "hidden") { window.__f123PurgeEnCurso = false; _purgeBtn.disabled = false; try { _purgeBtn.textContent = (window.t ? window.t('auth.gate.repair','Repair app loading') : 'Repair app loading'); } catch (_) {} } }, 12000);
           location.replace(new URL("./reenganchar.html?desde=emergencia&t=" + Date.now(), location.href).href);
           return;
         } catch (eRescate) { console.warn("[f123] purge: forzar version actual no disponible, limpieza en pagina", eRescate); }
@@ -1383,7 +1385,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ licenseCode: licC17, instanceId: instC17, pin: String(code) })
             });
-            if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }
+            // C220: a 429 from the shared team bucket must not lock out a PIN this device already knows; fall through to the local check.
+            if (rTeam && rTeam.status === 429 && !rolHash) { error("Acceso bloqueado temporalmente por seguridad."); return; }
             const dTeam = rTeam && rTeam.ok ? await rTeam.json().catch(() => null) : null;
             if (dTeam && dTeam.ok === true && dTeam.principal &&
                 (dTeam.principal.role === "admin" || dTeam.principal.role === "empleado")) {
