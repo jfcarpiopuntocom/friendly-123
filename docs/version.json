@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.16",
+  "version": "v0.9.17",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.16 C245: Record payment en cada producto y percha de la vista de todas las fechas (JFC eligio Pagar tambien en todas las fechas): prueba los meses del mas antiguo al mas nuevo y abre el primero que tiene algo para pagar; cada pago se registra en el mes de su ficha. Panel: Por pagar de todos los meses con un enlace por percha y mes.",
+  "changelog": "v0.9.17 C246: un aparato nuevo con licencia y PIN ya muestra las ventas y clientes que bajo (antes 0 aunque el historial estaba en el aparato): si la liberacion de la union en frio no llega, reintenta la misma aplicacion add-only cada 10 s, hasta 30 veces.",
   "requerida": false,
-  "shell": "f123-shell-v916",
+  "shell": "f123-shell-v917",
   "apagar": [],
-  "releaseName": "v0.9.16",
-  "cacheGeneration": "golden453"
+  "releaseName": "v0.9.17",
+  "cacheGeneration": "golden454"
 }

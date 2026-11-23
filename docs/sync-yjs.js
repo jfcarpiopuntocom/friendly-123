@@ -5020,6 +5020,23 @@
       }, 0); // v517: 0 ms (v516: 20, antes 100). Junta las rafagas del mismo instante
     });
 
+    /* C246 (JFC 23 nov 2026: «arregla por favor ese punto exacto y prueba!»). Medido en vivo: un aparato nuevo con licencia+PIN
+       ya tenia en el Y.Doc 5 clientes, 8 ventas y 495 hechos financieros, pero la app mostraba 0: la barrera C186 retiene los
+       updates de la union en frio hasta la liberacion de HEAD, y si el relay se pausa esa liberacion nunca llega. Red de
+       seguridad ADITIVA: con sesion de PIN abierta y el primer merge aun no aceptado, reintenta el MISMO aplicar() (merge add-only,
+       idempotente) cada 10 s, como mucho 30 veces. No borra ni reescribe nada; se detiene sola al aceptar el merge.
+       PARA REVERTIR: borrar este bloque. */
+    var _redUnionFria = 0, _tRedUnionFria = typeof setInterval !== "function" ? null : setInterval(function () {
+      try {
+        if (_primerMergeAceptado || ++_redUnionFria > 30) { clearInterval(_tRedUnionFria); return; }
+        if (_aplicando || _tAplica || document.hidden) return;
+        // Only inside a PIN-verified session (owner/admin/staff); the history is decrypted with this license.
+        var _rolRed = ""; try { _rolRed = (window.OCAuth && OCAuth.rolActual && OCAuth.rolActual()) || ""; } catch (_) {}
+        if (!_rolRed) return;
+        var hay = COLECCIONES.some(function (c) { var m = API.mapas[c]; return m && m.size > 0; });
+        if (hay) aplicar();
+      } catch (_) {}
+    }, 10000);
     // Arranque: cuando IndexedDB termina de cargar, primero APLICAMOS lo que ya
     // había guardado localmente (por si este aparato arrancó offline) y luego
     // SEMBRAMOS lo local que aún no esté en Yjs. Ambos son idempotentes.
