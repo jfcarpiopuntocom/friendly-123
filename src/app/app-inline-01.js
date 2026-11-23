@@ -7133,12 +7133,57 @@ async function revisarComisionVenta(ventaId, promotoraId){
 let _ocComisionesSolicitud = 0;
 // C182: old Commissions card vocabulary, all-history data, no mandatory period.
 // The existing verified economic projector remains the ONLY arithmetic source.
+/* C247: cumulative filters of the all-dates view (same module and rules as the dashboard). Checkbox lists, several at once. */
+function filtrosComisionesHtml(ventas,f){
+  const es=document.documentElement.lang==="es",H=window.OCCommissionHistory;
+  if(!H||!H.facets)return "";
+  const fac=H.facets({sales:ventas,from:f.from,to:f.to,lang:es?"es":"en"});
+  const nombres={comisionista:es?"Comisionista":"Associate",producto:es?"Producto":"Product",percha:es?"Percha / evento":"Rack / event",cliente:es?"Cliente":"Customer"};
+  const abiertos=window._ocComFiltrosAbiertos||{};let hay=!!(f.from||f.to);
+  const listas=Object.keys(nombres).map(k=>{
+    const sel=(f.filtros&&f.filtros[k])||[];if(sel.length)hay=true;
+    return '<details data-com-filtro-lista="'+k+'"'+(abiertos[k]?' open':'')+' ontoggle="(window._ocComFiltrosAbiertos=window._ocComFiltrosAbiertos||{})[\''+k+'\']=this.open" style="min-width:150px;">'
+      +'<summary style="min-height:44px;cursor:pointer;font-size:14px;font-weight:700;color:#0F1923;">'+nombres[k]+(sel.length?' ('+sel.length+')':'')+'</summary>'
+      +'<div style="max-height:220px;overflow:auto;padding:4px 0;">'
+      +(fac[k]||[]).map(o=>'<label style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:#0F1923;"><input type="checkbox" value="'+escHtml(o.id)+'"'+(sel.indexOf(o.id)>=0?' checked':'')
+        +' onchange="ocComFiltroCambiar(\''+k+'\',this.value,this.checked)"> '+escHtml(o.name)+'</label>').join("")
+      +'</div></details>';}).join("");
+  const inp='min-height:44px;padding:7px;border:1px solid #19354B;border-radius:6px;background:#fff;color:#0F1923;font:inherit;';
+  return '<div class="tag-card" data-com-filtros style="text-align:left;padding:10px 14px;margin:0 0 12px;">'
+    +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:6px;">'
+    +'<label style="font-size:14px;">'+(es?"Desde":"From")+'<br><input type="date" value="'+escHtml(f.from)+'" onchange="ocComFechaCambiar(\'desde\',this.value)" style="'+inp+'"></label>'
+    +'<label style="font-size:14px;">'+(es?"Hasta":"To")+'<br><input type="date" value="'+escHtml(f.to)+'" onchange="ocComFechaCambiar(\'hasta\',this.value)" style="'+inp+'"></label>'
+    +(hay?'<button type="button" class="tecla" onclick="ocComFiltrosLimpiar()" style="min-height:44px;margin:0;">'+(es?"Quitar filtros":"Clear filters")+'</button>':"")
+    +'</div><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;">'+listas+'</div></div>';
+}
+function _ocComRepintarFiltros(){
+  const sales=window._ocComHistorySales,cont=document.getElementById("listaComisiones");
+  if(_ocMesComisiones||!Array.isArray(sales)||!cont)return;
+  const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
+  cont.innerHTML=barraComisionesHtml([],actions)+resumenComisionesGlobalHtml(sales);
+}
+function ocComFiltroCambiar(k,v,on){
+  const f=window._ocComFiltros=window._ocComFiltros||{comisionista:[],producto:[],percha:[],cliente:[]},a=f[k]||(f[k]=[]),i=a.indexOf(v);
+  if(on&&i<0)a.push(v);else if(!on&&i>=0)a.splice(i,1);
+  _ocComRepintarFiltros();
+}
+function ocComFechaCambiar(cual,v){
+  if(cual==="desde")window._ocComDesde=/^\d{4}-\d{2}-\d{2}$/.test(v)?v:"";else window._ocComHasta=/^\d{4}-\d{2}-\d{2}$/.test(v)?v:"";
+  _ocComRepintarFiltros();
+}
+function ocComFiltrosLimpiar(){window._ocComFiltros={comisionista:[],producto:[],percha:[],cliente:[]};window._ocComDesde="";window._ocComHasta="";_ocComRepintarFiltros();}
 function resumenComisionesGlobalHtml(sales){
   // Same Commissions visual components as before: tag-card, stats, rotulo, cifra.
   // Only the view changes; the source spans every sale, with no implicit month.
   const es=document.documentElement.lang==="es";
   const group=["total","producto","percha","cliente","comisionista","mes"].includes(window._ocComHistoryGroup)
     ?window._ocComHistoryGroup:"producto";
+  /* C247 (JFC 23 nov 2026, Belen: «los filtros deben poder sumarse», en ambos lugares): date range + associate + product + rack + customer
+     narrow the SAME sales (AND between filters, OR inside one). The list is filtered once and feeds tiles, groups and meta. */
+  const _fil=window._ocComFiltros||{},_ftxt={from:window._ocComDesde||"",to:window._ocComHasta||"",filtros:_fil};
+  const _ventasTodas=sales;
+  sales=window.OCCommissionHistory.filterSales({sales:_ventasTodas,..._ftxt});
+  const _filtrosCard=typeof filtrosComisionesHtml==="function"?filtrosComisionesHtml(_ventasTodas,_ftxt):""; // typeof: tests load this function alone
   const view=window.OCCommissionHistory.project({sales:sales,group:group,lang:es?"es":"en"});
   const totals=view.totals;
   const money=(v,unknown)=>unknown||v===null||!Number.isFinite(v)?(es?"Por verificar":"Needs review"):fmtMoney(v);
@@ -7293,7 +7338,7 @@ function resumenComisionesGlobalHtml(sales){
     ?tile(es?"La casa retiene":"House keeps",fmtMoney(Math.max(0,+(totals.gross-totals.commission).toFixed(2)))):"";
   const searchBar=rich10?'<input id="comm-product-search" type="search" aria-label="'+(es?"Buscar producto, SKU, percha o comisionista":"Search product, SKU, rack or associate")+'" placeholder="'+(es?"Buscar producto, SKU, percha o comisionista…":"Search product, SKU, rack or associate…")+'" autocomplete="off" oninput="if(typeof filtrarComisionesGlobal===\'function\')filtrarComisionesGlobal(this.value)" style="width:100%;max-width:460px;min-height:44px;margin:0 0 8px;padding:8px 12px;border:1px solid #9BAEBF;border-radius:8px;background:var(--paper,#fff);color:var(--ink);font:inherit;"><div id="comm-product-count" role="status" aria-live="polite" style="font-size:13px;color:var(--ink-soft);margin-bottom:10px;"></div>':"";
   return '<section data-commissions-summary="all" data-commissions-current-view="'+group+'">'
-    +warnings+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 16px;">'
+    +_filtrosCard+warnings+'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 16px;">'
     +tile(es?"Total de comisiones":"Total commissions",money(totals.commission,totals.unknownCommission))
     +tile(es?"Ventas brutas":"Gross sales",money(totals.gross,totals.unknownGross))
     +houseTotalTile
@@ -7925,8 +7970,10 @@ async function exportarComisionesTotalCSV(){
   try {
     const res=await fetch(`${API}/ventas/todas?ubicacionId=todas`);
     if(!res.ok)throw Error("ventas-http");
-    const sales=await res.json();
+    let sales=await res.json();
     if(!Array.isArray(sales)||!window.OCCommissionHistory)throw Error("ventas-invalid");
+    // C247: the export honours the same cumulative filters as the screen.
+    sales=window.OCCommissionHistory.filterSales({sales,from:window._ocComDesde||"",to:window._ocComHasta||"",filtros:window._ocComFiltros||{}});
     const report=window.OCCommissionHistory.project({sales,from,
       to,group:window._ocComHistoryGroup||"total",
       lang:document.documentElement.lang==="es"?"es":"en"});

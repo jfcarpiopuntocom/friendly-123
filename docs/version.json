@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.18",
+  "version": "v0.9.19",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.18 C247: panel, Commissions en todas las fechas: filtros acumulativos (rango de fechas + comisionista + producto + percha + cliente, varios a la vez); el periodo se elige como siempre y las opciones salen de las ventas del rango.",
+  "changelog": "v0.9.19 C248: Commissions de la app en todas las fechas con filtros acumulativos, igual que el panel: rango de fechas + comisionista + producto + percha + cliente a la vez; el CSV respeta los mismos filtros.",
   "requerida": false,
-  "shell": "f123-shell-v918",
+  "shell": "f123-shell-v919",
   "apagar": [],
-  "releaseName": "v0.9.18",
-  "cacheGeneration": "golden455"
+  "releaseName": "v0.9.19",
+  "cacheGeneration": "golden456"
 }

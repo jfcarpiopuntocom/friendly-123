@@ -20,3 +20,7 @@ test('C247: facets come from the date range only and never shrink with the other
  assert.deepEqual(f.comisionista.map(x=>x.id),['Ana','Beto']);
  assert.equal(H.facets({sales,from:'2026-11-01',to:'2026-11-04',zone:'America/Guayaquil'}).comisionista.length,1);
 });
+test('C247: filterSales feeds the app with the same cumulative rules',()=>{
+ const l=H.filterSales({sales,from:'2026-11-10',to:'2026-11-30',filtros:{comisionista:['Ana']},zone:'America/Guayaquil'});
+ assert.deepEqual(l.map(x=>x.id),['a2']);
+});
