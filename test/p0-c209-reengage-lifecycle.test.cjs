@@ -59,6 +59,8 @@ test('C209 manual _purge reentry updates old SW controller in place, then allows
   serverShell='f123-shell-v893';
   controllerShell='f123-shell-v892';
   await window._ocActSola.revisar();
+  // revisar() starts intentar() asynchronously on a version mismatch.
+  await new Promise(resolve=>setImmediate(resolve));
   assert.equal(updates,2,'later server version remains eligible for update');
   controllerShell='f123-shell-v893';
   assert.equal(await window._ocActSola.intentar(),true,'later version adopts at PIN');
