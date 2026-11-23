@@ -13,7 +13,7 @@ test('purge URL cleanup preserves unrelated params/hash without reload or storag
   assert.ok(script,'canonical URL cleanup script is present');
   for(const input of ['/app/?_purge=123#pin','/app/?keep=one&_purge=456&other=two#x','/app/?keep=x#tab']){
     const initial=new URL(input,'https://example.test'),written=[];
-    const context={location:{href:initial.href},URL,history:{state:{v:3},replaceState:(state,title,url)=>written.push({state,title,url})}};
+    const context={window:{},location:{href:initial.href},URL,history:{state:{v:3},replaceState:(state,title,url)=>written.push({state,title,url})}};
     vm.runInNewContext(script[1],context);
     if(initial.searchParams.has('_purge')){
       assert.equal(written.length,1);

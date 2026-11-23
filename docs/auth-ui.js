@@ -497,7 +497,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
      "bronce" pese al nombre de la variable; --rust es el naranja de marca
      #E86040. NO cambiar a --rust sin pedirselo antes a JFC. */
   #oc-gate .caja{background:#FFF8E8;border:2px solid var(--brass,#5294AC);
-    border-radius:8px;padding:26px 22px;max-width:420px;width:100%;text-align:center;
+    border-radius:8px;padding:26px 22px;max-width:420px;width:100%;box-sizing:border-box;min-width:0;text-align:center;
     margin:auto;flex:0 0 auto;}
   #oc-gate h2{font-family:var(--font-display,sans-serif);color:var(--ink,#211c14);font-size:22px;margin:0 0 4px;}
   #oc-gate .sub{font-size:15px;font-weight:700;color:var(--ink,#211c14);margin-bottom:18px;}
@@ -508,8 +508,8 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
   .oc-slots .slot{width:58px;height:58px;border:2px solid var(--azul-medio,#2c4a68);border-radius:6px;
     display:flex;align-items:center;justify-content:center;font-size:26px;background:var(--crema,#f3e8cd);color:var(--ink,#211c14);}
   .oc-slots .slot.lleno{border-color:var(--rust,#b2461f);}
-  .oc-pad{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
-  .oc-pad button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  .oc-pad{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;}
+  .oc-pad button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0;
     padding:8px 4px;border:2px solid var(--ink,#211c14);border-radius:6px;background:var(--crema,#f3e8cd);
     cursor:pointer;min-height:54px;
     /* Hundimiento de tecla (JFC 2026-09-01): canto/relieve inferior en reposo;
@@ -755,6 +755,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     if (_purgeBtn && !_purgeBtn._ocWired) {
       _purgeBtn._ocWired = true;
       _purgeBtn.addEventListener("click", async function () {
+        if (window.__f123PurgeEnCurso) return;
         var log = document.getElementById("oc-purge-log");
         var linea = function (txt) {
           if (!log) return;
@@ -767,6 +768,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           linea(window.t ? window.t('auth.gate.repairOffline','Connect to the internet before using emergency recovery.') : 'Connect to the internet before using emergency recovery.');
           return;
         }
+        window.__f123PurgeEnCurso = true;
         _purgeBtn.disabled = true;
         _purgeBtn.style.opacity = "1";
         _purgeBtn.textContent = "Purging…";
@@ -853,11 +855,15 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
           // reload(true) ya no puede forzar en navegadores modernos.
           setTimeout(function () {
             try {
+              // Discard only version-navigation latches; business state remains in place.
+              sessionStorage.removeItem("f123_act_sola_pendiente");
+              sessionStorage.removeItem("f123_autorecarga");
+              sessionStorage.removeItem("f123_reload_al_entrar");
               var url = location.pathname + "?_purge=" + Date.now() + location.hash;
               window.__f123MarcarRecarga && window.__f123MarcarRecarga("purga-failsafe");
               location.replace(url);
             } catch (eNav) {
-              try { location.reload(true); } catch (_) { location.reload(); }
+              try { location.reload(true); } catch (_) { try { location.reload(); } catch (__){ window.__f123PurgeEnCurso = false; _purgeBtn.disabled = false; } }
             }
           }, 900);
         }

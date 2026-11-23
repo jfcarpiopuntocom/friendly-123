@@ -185,6 +185,11 @@ const _ocActSolaOn = true;
   // version. No se usa f123_reload_al_entrar porque el piso de version la marca en cada carga
   // (compara "f123-shell-vN" contra el nombre de cache con -goldenN y nunca coincide).
   const KP = "f123_act_sola_pendiente";
+  const manualPurgeReentry = window.__f123ManualPurgeReentry === true;
+  let manualPurgeShell = "";
+  if (manualPurgeReentry) {
+    try { sessionStorage.removeItem(KP); sessionStorage.removeItem(KA); } catch (_) {}
+  }
   function pendiente() { try { return sessionStorage.getItem(KP) === "1"; } catch (_) { return false; } }
   // offsetParent es null en elementos position:fixed (los overlays): se mide con getClientRects.
   function visible(el) { try { return !!(el && getComputedStyle(el).display !== "none" && el.getClientRects().length > 0); } catch (_) { return false; } }
@@ -198,6 +203,7 @@ const _ocActSolaOn = true;
   // Once authenticated inside the working app, never reload automatically.
   function seguro() { return enPantallaPIN() && seguroCon(false); }
   function seguroCon(sinRecuperacion) {
+    if (window.__f123PurgeEnCurso === true) return false;
     try {
       // Never auto-reload while a notebook still needs local IDB recovery or
       // peer history replay. A SW update is not permission to interrupt money.
@@ -319,6 +325,7 @@ const _ocActSolaOn = true;
     let splash = null, navegando = false;
     try {
       const objetivo = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || "";
+      if (manualPurgeReentry && (!manualPurgeShell || objetivo === manualPurgeShell)) return false;
       if (!objetivo || await shellDelSW() !== objetivo ||
           !pendiente() || !seguro() || !puedeRecargarVersion()) return false;
       splash = mostrarSplashActualizando();
@@ -356,11 +363,27 @@ const _ocActSolaOn = true;
     });
   }
   async function revisar() {
+    if (window.__f123PurgeEnCurso === true) return;
     try {
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
       if (!r.ok) return;
       const vj = await r.json();
       if (!vj || !vj.shell) return;
+      if (manualPurgeReentry && !manualPurgeShell) manualPurgeShell = String(vj.shell);
+      if (manualPurgeReentry && String(vj.shell) === manualPurgeShell) {
+        // Keep the freshly loaded document; upgrade an older controller in place.
+        try {
+          if (await shellDelSW() !== manualPurgeShell) {
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (reg) {
+              await reg.update();
+              if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" });
+            }
+          }
+        } catch (_) {}
+        try { sessionStorage.removeItem(KP); } catch (_) {}
+        return;
+      }
       const sirve = await shellDelSW();
       if (!sirve) return;
       if (sirve === String(vj.shell)) {
@@ -393,6 +416,12 @@ const _ocActSolaOn = true;
   // E2: a takeover can already match version.json while this document is stale.
   var ultimoControladorSW = navigator.serviceWorker.controller;
   function onShellTomado() {
+    if (window.__f123PurgeEnCurso === true) return;
+    if (manualPurgeReentry) {
+      try { sessionStorage.setItem(KP, "1"); } catch (_) {}
+      revisar();
+      return;
+    }
     var actual = navigator.serviceWorker.controller;
     if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
     if (!actual || actual === ultimoControladorSW) return;

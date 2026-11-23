@@ -1,0 +1,59 @@
+name: C209 P0 PIN and version-repair exact shell seal
+on:
+  push:
+    branches: [fix/c209-pin-gate-css-isolation-20261122]
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  seal-and-test:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Build and seal actual served JS and manifest
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          bash check-sw.sh
+          node --check docs/auth-ui.min.js
+          node --check docs/app-inline-03.min.js
+          node --check docs/sw.js
+          node scripts/release-control.cjs validate origin/master
+      - name: C209 source, bundle and old updater regressions
+        run: |
+          set -euo pipefail
+          node --test test/p0-c209-pin-layout-and-update.test.cjs test/p0-c209-reengage-lifecycle.test.cjs test/p0-c180-version-adoption.test.cjs test/p0-c185-single-sw-check.test.cjs test/p0-purge-url-and-startup.test.cjs
+      - name: C209 real Chromium and WebKit computed layout
+        run: node --test test/p0-c209-pin-layout.browser.cjs
+      - name: Record only the generated runtime deliverables
+        run: |
+          set -euo pipefail
+          git diff --check
+          printf 'Generated changes: '; git diff --name-only
+          unexpected=$(git diff --name-only | grep -vE '^docs/(auth-ui\.min\.js|app-inline-03\.min\.js|version-manifest\.json)$' || true)
+          test -z "$unexpected" || { printf 'Unexpected generated files:\n%s\n' "$unexpected"; exit 1; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/auth-ui.min.js docs/app-inline-03.min.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C209): seal v892 PIN and manual-repair runtime hashes'
+            git push origin HEAD:fix/c209-pin-gate-css-isolation-20261122
+          fi
