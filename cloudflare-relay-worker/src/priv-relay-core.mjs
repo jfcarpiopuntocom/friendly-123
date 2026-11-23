@@ -447,16 +447,9 @@ export function createRelayStore(storage, clock = Date.now) {
             nextRev, n, c.slice(n * CKPT_BLOCK_CHARS, (n + 1) * CKPT_BLOCK_CHARS)
           );
         }
-        // G02: Automatic N-2 checkpoint pruning so 5-year stores never hit 64 MiB ceiling
-        if (nextRev >= 3) {
-          const cutRev = nextRev - 2;
-          sql.exec('DELETE FROM relay_ckpt_blocks WHERE rev <= ?', cutRev);
-          sql.exec('DELETE FROM relay_ckpt_meta WHERE rev <= ?', cutRev);
-        }
-        const opBytes = Number(sql.exec('SELECT COALESCE(SUM(bytes),0) AS b FROM relay_ops').toArray()[0]?.b) || 0;
-        const ckBytes = Number(sql.exec('SELECT COALESCE(SUM(bytes),0) AS b FROM relay_ckpt_meta').toArray()[0]?.b) || 0;
+        // Retain every recovery point. The quota rejects new writes before changing stored history.
         setIntMeta('rev', nextRev);
-        setIntMeta('total_bytes', opBytes + ckBytes);
+        setIntMeta('total_bytes', total + check.bytes);
         result = { ok: true, status: 201, conflict: false, rev: nextRev };
       });
       if (result.ok && typeof storage.sync === 'function') {

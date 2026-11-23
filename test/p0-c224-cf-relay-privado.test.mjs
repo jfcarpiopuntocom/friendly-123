@@ -14,7 +14,8 @@ import {
   createRelayStore,
   isOriginAllowed,
   validateCipherBase64,
-  MAX_OP_B64
+  MAX_OP_B64,
+  MAX_STORE_BYTES
 } from '../cloudflare-relay-worker/src/priv-relay-core.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -338,4 +339,41 @@ test('C224 E2E cold device: Owner uploads chunked encrypted money/sales/commissi
   // Logout wipes in-memory sessions cleanly
   for (const fn of listeners['oc-logout'] || []) fn();
   wsB.close();
+});
+
+test('retains every encrypted checkpoint and restores current history on a cold device', async () => {
+  const storage = makeDoStorage();
+  initRelaySchema(storage.sql);
+  const store = createRelayStore(storage);
+  const key = await deriveAesKey('F123-C224-QA-KEEP');
+  const snapshots = [
+    { money: 2000, movements: ['sale-1'], commissions: [100] },
+    { money: 5000, movements: ['sale-1', 'sale-2'], commissions: [100, 150] },
+    { money: 3000, movements: ['sale-1', 'sale-2', 'expense-1'], commissions: [100, 150] }
+  ];
+  for (const [index, snapshot] of snapshots.entries()) {
+    const saved = await store.putCkpt({ rev: index, seq: 0, lam: index + 1, c: await encryptB64(key, snapshot) });
+    assert.equal(saved.status, 201);
+  }
+  const movement = { id: 'payment-1', amount: 400, commission: 20 };
+  const pushed = await store.putOp({ id: movement.id, c: await encryptB64(key, movement) });
+  assert.equal(pushed.status, 201);
+
+  const cold = createRelayStore(storage).pull({ rev: 0, seq: 0 });
+  const restored = await Promise.all(cold.frames.map(frame => decryptBytes(key, Buffer.from(frame, 'base64'))));
+  assert.deepEqual(restored, [snapshots.at(-1), movement]);
+
+  const savedRevisions = storage.sql.exec('SELECT rev FROM relay_ckpt_meta ORDER BY rev').toArray();
+  assert.deepEqual(savedRevisions.map(row => row.rev), [1, 2, 3]);
+  for (const [index, snapshot] of snapshots.entries()) {
+    const blocks = storage.sql.exec('SELECT chunk FROM relay_ckpt_blocks WHERE rev = ? ORDER BY n', index + 1).toArray();
+    const cipher = blocks.map(row => row.chunk).join('');
+    assert.deepEqual(await decryptBytes(key, Buffer.from(cipher, 'base64')), snapshot);
+  }
+
+  storage.sql.exec("UPDATE relay_meta SET v = ? WHERE k = 'total_bytes'", String(MAX_STORE_BYTES));
+  const full = await store.putCkpt({ rev: 3, seq: pushed.seq, lam: 4, c: await encryptB64(key, snapshots[2]) });
+  assert.equal(full.status, 507);
+  assert.deepEqual(createRelayStore(storage).pull({ rev: 0, seq: 0 }), cold);
+  assert.deepEqual(storage.sql.exec('SELECT rev FROM relay_ckpt_meta ORDER BY rev').toArray(), savedRevisions);
 });
