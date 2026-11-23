@@ -24,3 +24,8 @@ test('C247: filterSales feeds the app with the same cumulative rules',()=>{
  const l=H.filterSales({sales,from:'2026-11-10',to:'2026-11-30',filtros:{comisionista:['Ana']},zone:'America/Guayaquil'});
  assert.deepEqual(l.map(x=>x.id),['a2']);
 });
+test('C249: the Persona pulldown also lists associates from the full sales history and refills after a repaint',()=>{
+ const src=require('node:fs').readFileSync('docs/commissions-by-person.js','utf8');
+ assert.match(src,/root\._ocComHistorySales/);
+ assert.match(src,/if \(isPerson\(\)\) selectOptions\(\); \/\/ C249/);
+});

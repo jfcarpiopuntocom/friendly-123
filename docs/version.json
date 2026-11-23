@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.19",
+  "version": "v0.9.20",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.19 C248: Commissions de la app en todas las fechas con filtros acumulativos, igual que el panel: rango de fechas + comisionista + producto + percha + cliente a la vez; el CSV respeta los mismos filtros.",
+  "changelog": "v0.9.20 C249: el pulldown Persona de By artist / associate ya no sale vacio: lista los comisionistas con saldo y todos los del historial de ventas, y se vuelve a llenar si la pantalla se repinta.",
   "requerida": false,
-  "shell": "f123-shell-v919",
+  "shell": "f123-shell-v920",
   "apagar": [],
-  "releaseName": "v0.9.19",
-  "cacheGeneration": "golden456"
+  "releaseName": "v0.9.20",
+  "cacheGeneration": "golden457"
 }
