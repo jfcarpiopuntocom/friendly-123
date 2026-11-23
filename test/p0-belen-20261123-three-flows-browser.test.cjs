@@ -152,7 +152,21 @@ test('WebKit reproduces Belén screenshot: $35 pending RESUME OPERATION can beco
       window.abonarCliente(cli.id,id);
       return cli.id;
     });
-    await page.locator('#pp-ab-change').waitFor({state:'visible',timeout:20000});
+    // Synthetic diagnostic for the exact RESUME state (no customer data).
+    await page.waitForTimeout(300);
+    const pendingState=await page.evaluate(id=>{
+      const m=document.querySelector('#pp-modal-abono');
+      const b=document.querySelector('#pp-ab-change');
+      const i=document.querySelector('#pp-ab-monto');
+      const a=localStorage.getItem('f123_customer_allocation_intent_v1:'+id);
+      const p=localStorage.getItem('f123_customer_payment_intent_v1:'+id);
+      return {hasModal:!!m, hasButton:!!b, buttonInline:b&&b.style.display,
+        buttonRendered:b&&getComputedStyle(b).display, amount:i&&i.value,
+        disabled:i&&i.disabled, notice:m&&m.querySelector('#pp-ab-msg')?.textContent,
+        allocationPresent:!!a, paymentPresent:!!p};
+    },customerId);
+    console.log('BELEN_RESUME_SYNTHETIC_STATE',JSON.stringify(pendingState));
+    await page.locator('#pp-ab-change').waitFor({state:'visible',timeout:6000});
     assert.equal(await page.locator('#pp-ab-monto').isDisabled(),true,'original $35 is locked behind resume');
     assert.match(await page.locator('#pp-ab-ok').innerText(),/Resume|Reanudar/i);
     await page.locator('#pp-ab-change').click();
