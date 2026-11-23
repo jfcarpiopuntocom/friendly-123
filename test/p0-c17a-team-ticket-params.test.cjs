@@ -127,7 +127,7 @@ test('3. raw Yjs rooms (-cat, -priv), ops:read, fotos:write and ops:expense are 
     pin: '321'
   });
   const badPairs = [
-    [ROOM + '-cat', 'cat:read'],
+    // C213 (JFC 22 nov 2026: "TODOS PASAN A LO BUENO"): cat:read on -cat is now allowed for Team; cat:write stays refused.
     [ROOM + '-cat', 'cat:write'],
     [ROOM + '-priv', 'priv:read'],
     [ROOM + '-ops', 'ops:read'],

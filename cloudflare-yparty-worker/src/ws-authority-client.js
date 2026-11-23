@@ -27,7 +27,13 @@ function validatedAccess(data,access){
   const teamPhotoRead=teamIdentity&&
     access.room.endsWith('-fotos')&&access.requiredScope==='fotos:read'&&
     oneScope&&p.scopes[0]==='fotos:read';
-  if(data?.ok!==true||!(owner||teamTypedSale||adminTypedAdjust||teamTypedPayment||teamPhotoRead)||p.license!==access.licenseCode||p.instance!==access.instanceId||p.room!==access.room||!Number.isSafeInteger(p.iat)||!Number.isSafeInteger(p.exp)||p.iat>now||p.exp<=now||!Array.isArray(p.scopes)||!p.scopes.includes(access.requiredScope))return null;
+  // C213 (JFC 22 nov 2026: "TODOS PASAN A LO BUENO"): admin and empleado READ the public -cat projection
+  // (separate-rooms mode only exposes the public catalog there). Single cat:read scope; the room treats any
+  // connection without cat:write as read-only (index.js isReadOnly), so Team can never write the catalog.
+  const teamCatalogRead=teamIdentity&&
+    access.room.endsWith('-cat')&&access.requiredScope==='cat:read'&&
+    oneScope&&p.scopes[0]==='cat:read';
+  if(data?.ok!==true||!(owner||teamTypedSale||adminTypedAdjust||teamTypedPayment||teamPhotoRead||teamCatalogRead)||p.license!==access.licenseCode||p.instance!==access.instanceId||p.room!==access.room||!Number.isSafeInteger(p.iat)||!Number.isSafeInteger(p.exp)||p.iat>now||p.exp<=now||!Array.isArray(p.scopes)||!p.scopes.includes(access.requiredScope))return null;
   return{...access,principal:p};
 }
 async function query(env,action,body){

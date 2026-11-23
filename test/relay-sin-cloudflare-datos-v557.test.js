@@ -16,6 +16,9 @@ const DOCS = path.resolve(__dirname, '..', 'docs');
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     if (e.isDirectory()) { if (e.name !== 'vendor' && e.name !== 'demo') walk(path.join(dir, e.name), out); }
+    // C213: X.min.js is the generated mirror of X.js (scripts/build-min-scripts.cjs, C200 v0.8.86); the source X.js is
+    // the one audited here, so the mirror is skipped. A .min.js WITHOUT its source (dashboard-main.min.js) is still audited.
+    else if (/\.min\.js$/.test(e.name) && fs.existsSync(path.join(dir, e.name.replace(/\.min\.js$/, '.js')))) continue;
     else if (/\.(js|mjs|html)$/.test(e.name)) out.push(path.join(dir, e.name));
   }
   return out;
@@ -70,7 +73,9 @@ test('estatico: los localizadores legacy solo llegan al adaptador directo y su s
 // relay-selector.js (daily byte budget, peers as fallback). The dashboard uses a separate ephemeral encrypted Supabase broadcast while retaining peer fallback.
 test('estatico: app retains durable relay; dashboard transports encrypted realtime without durable business writes', () => {
   const app = archivos.find(a => a.rel === 'index.html').src;
-  const orden = ['peer-sync.js', 'vendor/supabase-relay.min.js', 'firebase-relay.js', 'relay-selector.js'].map(n => app.indexOf('src="./' + n + '"'));
+  // C213: since C200 (v0.8.86) index.html loads the generated X.min.js mirror; accept either name, same order.
+  const pos = n => Math.max(app.indexOf('src="./' + n + '"'), app.indexOf('src="./' + n.replace(/\.js$/, '.min.js') + '"'));
+  const orden = ['peer-sync.js', 'vendor/supabase-relay.min.js', 'firebase-relay.js', 'relay-selector.js'].map(pos);
   assert.ok(orden.every(i => i > 0) && orden[0] < orden[1] && orden[1] < orden[2] && orden[2] < orden[3], 'peer-sync → supabase → firebase → selector');
   const dash = archivos.find(a => a.rel === 'dashboard.html').src;
   assert.match(dash, /<script\b[^>]*\bsrc="\.\/peer-sync\.js"[^>]*><\/script>/);

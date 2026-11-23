@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
+<html lang="en" class="ui2"><head><meta charset="UTF-8">
 <script>
 // A manual Purge & Reload may use ?_purge=TIMESTAMP to bypass HTTP caches.
 // Once this document has loaded, remove only that transient marker from the
@@ -53,11 +53,9 @@
   }catch(_){}
 })();
 </script>
-<!-- C203 UI 2.0 (orden JFC 22 nov 2026): capa SOLO visual en ui2.css, ENCENDIDA por defecto desde v0.8.89 (JFC: "Las dos ya").
-     ?ui=2 la enciende y ?ui=1 la apaga; se recuerda en localStorage "f123_ui".
-     <meta name="f123-ui-default" content="2"> la enciende por defecto (solo la demo de Hugging Face).
-     Corre en el head para que no haya parpadeo; nunca toca datos. -->
-<script>(function(){try{var m=/[?&]ui=([12])(?:&|$)/.exec(location.search),k="f123_ui";if(m)localStorage.setItem(k,m[1]);var d=document.querySelector('meta[name="f123-ui-default"]'),v=localStorage.getItem(k)||(d&&d.content)||"2";if(v==="2")document.documentElement.classList.add("ui2");}catch(_){}})();</script>
+<!-- C203/C212 UI 2.0 FIJA (JFC 22 nov 2026: "no es un interruptor, que es otro punto de fallo... ya pon esa puta UI y ya").
+     La clase ui2 va directo en <html>; ui2.css aplica siempre. Sin ?ui=, sin localStorage, sin forma de apagarla.
+     NO reponer un interruptor sin orden expresa de JFC. Capa solo visual; nunca toca datos. -->
 <!-- The automatic pre-login SW/cache purge was retired: it could unregister
      the active shell and reload before PIN/Yjs/IDB startup on a new browser.
      The user-triggered Purge & Reload recovery button remains available. -->

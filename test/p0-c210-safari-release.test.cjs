@@ -18,8 +18,10 @@ test('C210 RED v890 -> current network-first shell: document navigations bypass 
  assert.ok(sw.includes('const CACHE_GENERACION = "-'+version.cacheGeneration+'";'));
 });
 test('C210: PIN gate visibly exposes one-tap rescue (not hidden under details)',()=>{
- const build=auth.indexOf('id="oc-gate-build"'),button=auth.indexOf('id="oc-reenganche-btn"'),fold=auth.indexOf('<details id="oc-gate-purge"');
- assert.ok(build>0 && button>build && fold>button,'one-tap link is visible alongside version status');
+ // C213 (JFC 22 nov 2026: "no me devolviste nunca mi boton de reenganchar"): the button sits right under
+ // CLEAR / FORGOT? so it is on screen without scrolling (at the bottom it was at px 1122 on a 390x664 iPhone).
+ const acciones=auth.indexOf('<div class="oc-acciones">'),build=auth.indexOf('id="oc-gate-build"'),button=auth.indexOf('id="oc-reenganche-btn"'),fold=auth.indexOf('<details id="oc-gate-purge"');
+ assert.ok(acciones>0 && button>acciones && build>button && fold>button,'one-tap link is visible right under CLEAR / FORGOT?');
  assert.match(auth.slice(button,fold),/href="\.\/reenganchar\.html"/);
  assert.match(auth,/const reenganche=document\.getElementById\('oc-reenganche-btn'\)/);
 });

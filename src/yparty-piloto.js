@@ -41,7 +41,9 @@ window.F123YPartyPilot = function (sala, licencia) {
     let current;
     try { current = JSON.parse(localStorage.getItem('f123_owned') || 'null'); } catch (_) {}
     const role = window.OCAuth?.rolActual?.();
-    const team = window.OCSecure?.leerPinQueAbre?.()?.team;
+    const team = window.OCSecure?.leerPinQueAbre?.()?.team ||
+      (window.__f123CentralTeamPrincipal && window.__f123CentralTeamPrincipal.role === role
+        ? window.__f123CentralTeamPrincipal : null);
     if (String(current?.licenseCode || '').trim().toUpperCase() !== licencia ||
         current?.instanceId !== instanceId ||
         !['admin', 'empleado'].includes(role) ||
@@ -157,7 +159,8 @@ window.F123YPartyPilot = function (sala, licencia) {
       const unavailable = () => new Error('certified cutover coordinator unavailable');
       const instanceId = readOwnedInstance();
       if (!instanceId || document.hidden) throw unavailable();
-      try { ownerCredentials(instanceId); } catch (_) { throw unavailable(); }
+      const activeRole = window.OCAuth?.rolActual?.();
+      try { commercialCredentials(instanceId); } catch (_) { throw unavailable(); }
       if (!privateDoc || typeof expectedFrozenHead !== 'string' ||
           !/^[A-Za-z0-9_.:-]{3,128}$/.test(expectedFrozenHead) ||
           (createProvider !== undefined && typeof createProvider !== 'function')) throw unavailable();
@@ -175,12 +178,17 @@ window.F123YPartyPilot = function (sala, licencia) {
           isVisible: () => !document.hidden,
           onModeChange,
           openCatalogSession: ({onWriterConflict}) =>
-            this.abrirEscritorDeltaCatalogoCertificado(privateDoc, expectedFrozenHead, {
-              createProvider,
-              fetch: send,
-              timeoutMs,
-              onWriterConflict
-            })
+            activeRole === 'dueno'
+              ? this.abrirEscritorDeltaCatalogoCertificado(privateDoc, expectedFrozenHead, {
+                  createProvider,
+                  fetch: send,
+                  timeoutMs,
+                  onWriterConflict
+                })
+              : this.leerCatalogoPublicoCertificado(privateDoc, expectedFrozenHead, createProvider, {
+                  fetch: send,
+                  timeoutMs
+                })
         });
       } catch (error) {
         reconciler.destroy();
@@ -283,9 +291,11 @@ window.F123YPartyPilot = function (sala, licencia) {
       if (!instanceId || document.hidden) throw unavailable();
       const targetRoom = scope === 'fotos:read'
         ? sala + '-fotos'
-        : ['ops:sale', 'ops:adjust', 'ops:payment'].includes(scope)
-          ? sala + '-ops'
-          : null;
+        : scope === 'cat:read'
+          ? sala + '-cat'
+          : ['ops:sale', 'ops:adjust', 'ops:payment'].includes(scope)
+            ? sala + '-ops'
+            : null;
       if (!targetRoom) throw unavailable();
       const fresh = createTeamTicketParams({
         licenseCode: licencia,
@@ -300,28 +310,18 @@ window.F123YPartyPilot = function (sala, licencia) {
     // The first real browser seam for C8-C12. This is READ ONLY and requires
     // explicit caller-supplied verified historical HEAD. The default legacy
     // catalog and money paths below remain unchanged until the canary is ready.
-    async leerCatalogoPublicoCertificado(privateDoc, expectedFrozenHead, createProvider) {
-      let owned;
-      try { owned=JSON.parse(localStorage.getItem('f123_owned')||'null'); } catch (_) {}
-      const instanceId=owned?.instanceId;
-      const getCredentials=()=>{
-        let current;
-        try { current=JSON.parse(localStorage.getItem('f123_owned')||'null'); } catch (_) {}
-        if(String(current?.licenseCode||'').trim().toUpperCase()!==licencia||
-           current?.instanceId!==instanceId||
-           window.OCAuth?.rolActual?.()!=='dueno')throw new Error('owner-session-unavailable');
-        const pin=window.OCSecure?.leerPinQueAbre?.()?.owner;
-        if(typeof pin!=='string'||!/^[0-9]{3}$/.test(pin)||
-           pin==='456'||pin==='789')throw new Error('owner-session-unavailable');
-        return{kind:'owner',licenseCode:licencia,instanceId,pin};
-      };
-      if(String(owned?.licenseCode||'').trim().toUpperCase()!==licencia||
-         !/^[A-Za-z0-9_-]{6,128}$/.test(instanceId||'')||
-         !/^[a-f0-9]{32}$/.test(sala||'')||
-         document.hidden)throw new Error('certified read-only catalog unavailable');
+    async leerCatalogoPublicoCertificado(privateDoc, expectedFrozenHead, createProvider, {
+      fetch: send = globalThis.fetch?.bind(globalThis),
+      timeoutMs = 6000
+    } = {}) {
+      const instanceId = readOwnedInstance();
+      if(!instanceId || document.hidden) throw new Error('certified read-only catalog unavailable');
+      const getCredentials = () => commercialCredentials(instanceId);
+      try { getCredentials(); } catch (_) { throw new Error('certified read-only catalog unavailable'); }
       return openCertifiedReadOnlyPublicCatalog({
         privateDoc,Y:window.Y,room:sala+'-cat',licenseCode:licencia,
-        instanceId,expectedFrozenHead,getCredentials,createProvider
+        instanceId,expectedFrozenHead,getCredentials,createProvider,
+        fetch:send,timeoutMs
       });
     },
     // HTTP-only transport for immutable SHA photo bytes. Do not give this

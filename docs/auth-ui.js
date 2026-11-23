@@ -689,6 +689,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
         <button id="oc-borrar">${window.t("auth.gate.clear")}</button>
         <button id="oc-recuperar">${window.t("auth.gate.forgot")}</button>
       </div>
+      <!-- C212 (JFC 22 nov 2026: "no me devolviste nunca mi boton de reenganchar"): el boton va justo debajo de
+           CLEAR / FORGOT? para que se vea sin bajar en un iPhone; antes quedaba al fondo (px 1122 en 390x664). -->
+      <a id="oc-reenganche-btn" href="./reenganchar.html" role="button"
+         style="display:inline-block;margin:12px auto 4px;padding:12px 18px;min-height:44px;box-sizing:border-box;border:2px solid #0F1923;border-radius:8px;background:#EFC31A;color:#0F1923!important;-webkit-text-fill-color:#0F1923!important;font-weight:800;text-align:center;text-decoration:none;font-size:15px;line-height:22px;box-shadow:0 3px 0 #0F1923;">Reenganchar / Update now</a>
       <button type="button" id="oc-unirse-equipo" style="background:none;border:none;color:var(--azul-medio,#2c4a68) !important;-webkit-text-fill-color:var(--azul-medio,#2c4a68) !important;font-size:13px;text-decoration:underline;cursor:pointer;margin-top:10px;padding:6px;display:block;width:100%;text-align:center;">${window.t("auth.gate.joinTeam")}</button>
       <div class="oc-msg" id="oc-msg"></div>
       <!-- CODIGOS DEMO (2026-08-14). Sin esto el visitante ve un teclado y no
@@ -706,8 +710,6 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       <p id="oc-gate-pwa-rescue" style="margin:8px 0;text-align:center;"><a href="./pwa-rescue.html" style="display:inline-block;min-height:44px;padding:10px 8px;font-size:14px;color:var(--azul-medio,#2c4a68);text-decoration:underline;font-weight:700;" data-i18n="auth.gate.pwaRescue">${(window.t && window.t("auth.gate.pwaRescue")) || "Two apps installed? PWA rescue"}</a></p>
       <p id="oc-gate-info" style="margin:16px 0 0;font-size:13px;line-height:1.5;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">friendly-123 turns the boring, overwhelming part of running a business into something alive: your products speak in colors that light up on their own when it's time to act. Works offline, your data is yours alone, and there are no subscriptions or ads from anyone. Your business, in color.</p>
       <p id="oc-gate-build" style="margin:8px 0 0;font-size:12px;letter-spacing:.06em;color:#211c14 !important;-webkit-text-fill-color:#211c14 !important;text-align:center;">&nbsp;</p>
-      <a id="oc-reenganche-btn" href="./reenganchar.html" role="button"
-         style="display:inline-block;margin:12px auto 4px;padding:12px 18px;min-height:44px;box-sizing:border-box;border:2px solid #0F1923;border-radius:8px;background:#EFC31A;color:#0F1923!important;-webkit-text-fill-color:#0F1923!important;font-weight:800;text-align:center;text-decoration:none;font-size:15px;line-height:22px;box-shadow:0 3px 0 #0F1923;">Reenganchar / Update now</a>
       <!-- Acceso al "campo de pruebas" (workshop) RETIRADO (JFC 2026-09-10):
            ya no se quiere que la gente acceda al workshop desde el candado.
            Se elimina el enlace; el workshop sigue existiendo en su URL, solo que
@@ -1354,6 +1356,43 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     if(central==="locked"){error("Acceso Owner bloqueado temporalmente por seguridad.");return}
     if(central==="unavailable-identity"&&rolHash==="dueno"){
       error("La identidad de la licencia no coincide con el registro central. Recupera la licencia desde el panel.");return;
+    }
+    // Sync4 C17: resolve Admin/Employee PIN centrally via JFC panel (/team/verify) so
+    // brand-new or linked devices unlock immediately without waiting on legacy Sync3.
+    if ((!rolHash || rolHash === "empleado") && dispositivoApropiado() && central !== "owner" &&
+        !/^localhost$|^127.0.0.1$|^fixture.invalid$/.test(location.hostname) &&
+        !(typeof navigator !== "undefined" && navigator.onLine === false) && !_cbBloqueado()) {
+      try {
+        const ownC17 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
+        const licC17 = String(ownC17.licenseCode || "").trim().toUpperCase();
+        const instC17 = String(ownC17.instanceId || "").trim();
+        const epC17 = new URL(OC_WORKER_URL);
+        if (/^F123-[A-Z0-9*~$=-]{8,34}$/.test(licC17) && instC17 &&
+            epC17.protocol === "https:" && epC17.hostname === "friendly123-licencias.jfcarpio.workers.dev") {
+          const ctrlC17 = new AbortController(), tC17 = setTimeout(() => ctrlC17.abort(), 2400);
+          try {
+            const rTeam = await fetch(epC17.origin + "/team/verify", {
+              method: "POST", mode: "cors", cache: "no-store", signal: ctrlC17.signal,
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ licenseCode: licC17, instanceId: instC17, pin: String(code) })
+            });
+            if (rTeam && rTeam.status === 429) { error("Acceso bloqueado temporalmente por seguridad."); return; }
+            const dTeam = rTeam && rTeam.ok ? await rTeam.json().catch(() => null) : null;
+            if (dTeam && dTeam.ok === true && dTeam.principal &&
+                (dTeam.principal.role === "admin" || dTeam.principal.role === "empleado")) {
+              window.__f123CentralTeamPrincipal = Object.freeze({
+                subject: dTeam.principal.subject,
+                role: dTeam.principal.role,
+                roleRevision: dTeam.principal.roleRevision,
+                pin: String(code)
+              });
+              registrarExito();
+              try { window.OCSecure.limpiarLockouts && window.OCSecure.limpiarLockouts(); } catch (_) {}
+              return alinearYEntrar(code, dTeam.principal.role);
+            }
+          } finally { clearTimeout(tC17); }
+        }
+      } catch (_) {}
     }
     /* v660 (critic A #3, 2026-11-04; JFC: no customer loses access, local-first): with no network the Owner enters with
        the PIN this device holds. Once a central revision was seen, that local Owner PIN is the one the central authority

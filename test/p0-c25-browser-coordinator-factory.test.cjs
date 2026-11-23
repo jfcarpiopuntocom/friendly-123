@@ -216,17 +216,20 @@ test('C25 real bundle: certified 2.0 commercial op commits once, survives browse
   }finally{a?.destroy();privateDoc.destroy();}
 });
 
-test('C25 rejects Team/non-owner and background browser before opening any transport',async()=>{
+// C213 (JFC 22 nov 2026: "TODOS PASAN A LO BUENO"): Team (admin/empleado) now builds the 2.0 coordinator
+// too (read-only catalog + typed ops with its own key). Background browsers are still refused.
+test('C25 rejects background browser; C213 Team builds the coordinator without opening any transport',async()=>{
  const hidden=makePilotEnv({hidden:true});
  const team=makePilotEnv({role:'empleado'});
  const hDoc=vm.runInContext('new Y.Doc()',hidden.ctx);
  const tDoc=vm.runInContext('new Y.Doc()',team.ctx);
+ let coord;
  try {
   await assert.rejects(hidden.pilot.crearCoordinadorCorte20(hDoc,'head_c25'),
     /unavailable|hidden|owner/);
-  await assert.rejects(team.pilot.crearCoordinadorCorte20(tDoc,'head_c25'),
-    /unavailable|owner/);
- }finally{hDoc.destroy();tDoc.destroy();}
+  coord=await team.pilot.crearCoordinadorCorte20(tDoc,'head_c25');
+  assert.equal(coord.mode(),'failback-legacy-1.0','factory must not switch writers before activate20');
+ }finally{coord?.destroy?.();hDoc.destroy();tDoc.destroy();}
 });
 
 

@@ -2,6 +2,7 @@
 // The private Sync3 Y.Doc never crosses this boundary; no public re-seeding,
 // no economic writes and no change to the active encrypted legacy relay.
 import {createOwnerTicketParams} from './ws-owner-ticket-params.mjs';
+import {createTeamTicketParams} from './ws-team-ticket-params.mjs';
 import {projectPublicCatalog,assertPublicCatalogTransportDoc} from '../cloudflare-yparty-worker/src/catalog-safe-projection.mjs';
 
 const ROOM=/^[a-f0-9]{32}-cat$/,HEAD=/^[A-Za-z0-9_.:-]{3,128}$/,SHA=/^[a-f0-9]{64}$/;
@@ -35,8 +36,15 @@ export async function openCertifiedReadOnlyPublicCatalog({
  const projected=projectPublicCatalog({sourceDoc:privateDoc,Y,room,channel:'cat',
   frozenHead:expectedFrozenHead});
  try{expected=canon(projected.doc)}finally{projected.doc.destroy();}
- const ticket=()=>createOwnerTicketParams({licenseCode,instanceId,room,
-  catalogReadOnly:true,getCredentials,fetch:send});
+ const ticket=()=>{
+  const sample=getCredentials();
+  if(sample&&sample.kind==='team'){
+   return createTeamTicketParams({licenseCode,instanceId,room,
+    scope:'cat:read',getCredentials,fetch:send});
+  }
+  return createOwnerTicketParams({licenseCode,instanceId,room,
+   catalogReadOnly:true,getCredentials,fetch:send});
+ };
  // One use for HTTP certificate, and another fresh use for WS. In particular,
  // a proof token may never be replayed for socket admission.
  const params=ticket();
@@ -53,7 +61,7 @@ export async function openCertifiedReadOnlyPublicCatalog({
  const body=await response.json();
  if(!isVisible()||privateDoc.isDestroyed||
     body?.ok!==true||body.room!==room||body.channel!=='cat'||
-    body.frozenHead!==expectedFrozenHead||!SHA.test(body.stateSha256||'')||
+    (body.frozenHead!==expectedFrozenHead&&body.frozenHead!=='sala-vacia')||!SHA.test(body.stateSha256||'')||
     !SHA.test(body.vectorSha256||'')||
     Object.keys(body).sort().join(',')!=='channel,frozenHead,ok,room,stateSha256,vectorSha256')
    throw fail();
@@ -115,7 +123,8 @@ export async function openCertifiedReadOnlyPublicCatalog({
   assertPublicCatalogTransportDoc({doc:publicDoc,room});
   // Compare DISPLAY state, never Yjs byte history/clientIDs, to avoid treating
   // re-authored local structs as a valid certified remote baseline.
-  if(canon(publicDoc)!==expected)throw fail();
+  const localEmpty=expected==='{"productos":{},"ubicaciones":{}}';
+  if(!(body.frozenHead==='sala-vacia'&&localEmpty)&&canon(publicDoc)!==expected)throw fail();
   ready=true;
   return Object.freeze({
    frozenHead:body.frozenHead,readOnly:true,
