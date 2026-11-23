@@ -54,9 +54,9 @@ html.ui2 #gridInventario .caja .fotowrap{float:right!important;width:56px!import
 html.ui2 #gridInventario .caja .fotowrap img{width:56px!important;height:56px!important;object-fit:cover;object-position:center}
 html.ui2 #gridInventario .caja .fotowrap .iniciales{font-size:16px!important}
 html.ui2 #gridInventario .caja .nombre{font-size:15px!important;line-height:1.25!important;margin:0 0 2px!important;min-height:0!important;height:auto!important}
-html.ui2 #gridInventario .caja .detalle,html.ui2 .caja .stock{display:inline!important;font-size:13px!important;line-height:1.4!important;margin:0!important;padding:0!important;min-height:0!important}
+html.ui2 #gridInventario .caja .detalle,html.ui2 #gridInventario .caja .stock{display:inline!important;font-size:13px!important;line-height:1.4!important;margin:0!important;padding:0!important;min-height:0!important}
 html.ui2 #gridInventario .caja .stock{font-weight:700!important}
-html.ui2 #gridInventario .caja .stock::before,html.ui2 .caja .stock~.detalle::before{content:" \B7  ";font-weight:400}
+html.ui2 #gridInventario .caja .stock::before,html.ui2 #gridInventario .caja .stock~.detalle::before{content:" \B7  ";font-weight:400}
 html.ui2 #gridInventario .caja .ajuste-rapido{clear:none!important;margin-top:6px!important;min-height:0!important}
 
 /* Sold (vender): cada producto como FRANJA horizontal con mini foto a la derecha (pedido JFC 22 nov,
