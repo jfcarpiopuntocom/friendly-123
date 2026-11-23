@@ -15,18 +15,53 @@
   } catch (_) { /* URL cleanup must never prevent app startup. */ }
 })();
 </script>
+<!-- Fetch the login dependencies while the parser keeps their original execution order. -->
+
+
+
+<!-- CHARSET ARRIBA DEL TODO (JFC/Belén 2026-09-03): el <meta charset> estaba en
+     el byte ~4041, pasado el limite de 1024 del spec HTML. El navegador de Belén
+     caia a otra codificacion y TODO el español acentuado (í é ñ) salia como
+     mojibake — peor en el menu de Advanced, que es el mas cargado de texto. Con
+     el charset como PRIMER hijo de <head> se decodifica UTF-8 en todo aparato.
+     El <meta charset> de mas abajo queda como redundancia inofensiva (gana el
+     primero). Cambio aditivo: no toca ningun dato ni flujo. -->
+<!-- BUG FIJADO (JFC 2026-08-19, caza produccion): lang="es" era herencia del
+     fork de amigable; el default aqui es ingles. i18n.js reasigna
+     document.documentElement.lang al cambiar de idioma, pero el primer paint
+     y los crawlers/social previews leian "es" antes de eso. -->
+
+<!-- SAFEGUARD NUCLEAR (2026-07-17): repara dispositivos atrapados con un SW
+     viejo que no tiene el kill-switch de version. Corre ANTES que todo.
+     Si el SW viejo sirve este HTML cacheado, este script no estara ahi y no
+     pasa nada. Si el SW es network-first (como el actual), el HTML es fresco
+     y este script detecta SWs obsoletos y los mata. Cubre el caso de que el
+     navegador sirva el HTML fresco pero los sub-recursos (JS) desde cache
+     vieja del SW. Al desregistrar el SW viejo y purgar caches, el siguiente
+     reload carga todo fresco. Solo dispara UNA vez (flag en localStorage). -->
+<!-- AISLAMIENTO DE ALMACENAMIENTO — DEBE IR PRIMERO, ANTES QUE TODO.
+     Las 3 apps de la linea se sirven desde el mismo origen de GitHub Pages y
+     localStorage es por origen, no por carpeta: sin esto se pisan datos entre
+     si. Tambien coordina dos pestanas de la misma app. Si se mueve mas abajo,
+     otros scripts leen/escriben sin namespace y el aislamiento se rompe. -->
+<script src="./aislamiento.js"></script>
 <script>
-// C237 Safari / iOS PWA non-destructive crash-loop circuit breaker (never deletes IDB/localStorage).
+// C242 Safari / iOS PWA non-destructive crash-loop circuit breaker (runs AFTER aislamiento.js for f123:: namespace).
 (function () {
-  var KEY = "f123_boot_crash_v1";
+  var KEY = "f123_boot_crash_v1", SW_KEY = "f123_sw_reload_ts";
   try {
-    if (window.__f123ManualPurgeReentry) { sessionStorage.removeItem(KEY); return; }
-    var now = Date.now(), st = null;
+    var now = Date.now(), swTs = 0;
+    try { swTs = Number(sessionStorage.getItem(SW_KEY) || "0") || 0; } catch (_) {}
+    if (swTs) { try { sessionStorage.removeItem(SW_KEY); } catch (_) {} }
+    if (window.__f123ManualPurgeReentry || (swTs && (now - swTs) < 15000)) {
+      sessionStorage.removeItem(KEY);
+      return;
+    }
+    var st = null;
     try { st = JSON.parse(sessionStorage.getItem(KEY) || "null"); } catch (_) {}
     var withinWindow = st && typeof st.t === "number" && (now - st.t) < 12000;
     var count = withinWindow ? (Number(st.c) || 0) + 1 : 1;
     sessionStorage.setItem(KEY, JSON.stringify({ c: count, t: now }));
-    if (count >= 2) window.__f123SafeBootMode = true;
     var clearHealthy = function () {
       setTimeout(function () { try { sessionStorage.removeItem(KEY); } catch (_) {} }, 6000);
     };
@@ -58,36 +93,6 @@
   } catch (_) {}
 })();
 </script>
-<!-- Fetch the login dependencies while the parser keeps their original execution order. -->
-
-
-
-<!-- CHARSET ARRIBA DEL TODO (JFC/Belén 2026-09-03): el <meta charset> estaba en
-     el byte ~4041, pasado el limite de 1024 del spec HTML. El navegador de Belén
-     caia a otra codificacion y TODO el español acentuado (í é ñ) salia como
-     mojibake — peor en el menu de Advanced, que es el mas cargado de texto. Con
-     el charset como PRIMER hijo de <head> se decodifica UTF-8 en todo aparato.
-     El <meta charset> de mas abajo queda como redundancia inofensiva (gana el
-     primero). Cambio aditivo: no toca ningun dato ni flujo. -->
-<!-- BUG FIJADO (JFC 2026-08-19, caza produccion): lang="es" era herencia del
-     fork de amigable; el default aqui es ingles. i18n.js reasigna
-     document.documentElement.lang al cambiar de idioma, pero el primer paint
-     y los crawlers/social previews leian "es" antes de eso. -->
-
-<!-- SAFEGUARD NUCLEAR (2026-07-17): repara dispositivos atrapados con un SW
-     viejo que no tiene el kill-switch de version. Corre ANTES que todo.
-     Si el SW viejo sirve este HTML cacheado, este script no estara ahi y no
-     pasa nada. Si el SW es network-first (como el actual), el HTML es fresco
-     y este script detecta SWs obsoletos y los mata. Cubre el caso de que el
-     navegador sirva el HTML fresco pero los sub-recursos (JS) desde cache
-     vieja del SW. Al desregistrar el SW viejo y purgar caches, el siguiente
-     reload carga todo fresco. Solo dispara UNA vez (flag en localStorage). -->
-<!-- AISLAMIENTO DE ALMACENAMIENTO — DEBE IR PRIMERO, ANTES QUE TODO.
-     Las 3 apps de la linea se sirven desde el mismo origen de GitHub Pages y
-     localStorage es por origen, no por carpeta: sin esto se pisan datos entre
-     si. Tambien coordina dos pestanas de la misma app. Si se mueve mas abajo,
-     otros scripts leen/escriben sin namespace y el aislamiento se rompe. -->
-<script src="./aislamiento.js"></script>
 <script>
 /* Las rutas historicas de canario y rewind permanecen fuera de indexacion. */
 (function(){

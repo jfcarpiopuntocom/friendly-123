@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.14",
+  "version": "v0.9.15",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.14 Recupera el historial al cambiar de respaldo de sincronización.",
+  "changelog": "v0.9.15 C243: Record payment vuelve a cada producto y percha en la vista de todas las fechas (app y panel; JFC eligio «Pagar tambien en todas las fechas») y el panel muestra lo que falta pagar este mes. C242 de Gemini sin tocar el respaldo: freno de arranque tras aislamiento, reenganche limpia claves f123::, IndexedDB con tiempo limite al abrir, checkpoint a 2,5 s.",
   "requerida": false,
-  "shell": "f123-shell-v914",
+  "shell": "f123-shell-v915",
   "apagar": [],
-  "releaseName": "v0.9.14",
-  "cacheGeneration": "golden451"
+  "releaseName": "v0.9.15",
+  "cacheGeneration": "golden452"
 }

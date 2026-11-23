@@ -1237,7 +1237,17 @@
       ? window.OCCommissionHistory.render({sales:datos.ventas||[],from:cmDesde,to:cmHasta,group:cmGrupo,
           lang:es?"es":"en",zone:zonaNegocioDashboard()})
       : '<div class="cm-card" role="status">'+(es?"Ventas pendientes de sincronizar. No se muestra un cero incompleto.":"Sales awaiting synchronization; incomplete records never become zero.")+'</div>';
-    cont.innerHTML=toolbar+report;
+    // C243 (JFC 23 nov 2026, eligio «Pagar tambien en todas las fechas»): what is still owed this month stays visible
+    // in All dates too (same cmSaldosPeriodo as the month view; payments are recorded in the current month).
+    // C243: oldest balance first across ALL months (each payment recorded in the month of its sales, like the month view).
+    var pendHoy=null,deudas={};
+    try{cmMeses().forEach(function(mes){cmSaldosPeriodo(mes).forEach(function(r){var d=Math.max(0,Number(r.due)||0);if(!(d>0))return;pendHoy=(pendHoy||0)+d;var u=String(r.ubicacionId||"");if(!u)return;var k=mes+"|"+u;deudas[k]=(deudas[k]||0)+d;});});}catch(_){pendHoy=null;deudas={};}
+    var nombrePercha=function(u){var v=(datos.ventas||[]).find(function(x){return String(x.ubicacionId)===u&&x.ubicacionNombre;});return v?v.ubicacionNombre:u;};
+    var enlacesPago=Object.keys(deudas).sort().map(function(k){var mes=k.split("|")[0],u=k.slice(mes.length+1);
+      return '<div class="cm-actions" style="margin-top:6px;"><a class="pagar" href="index.html#editar=comisiones:'+encodeURIComponent(u)+'&mes='+encodeURIComponent(mes)+'">'
+        +(es?"Registrar pago total/parcial":"Record full/partial payment")+'</a> <span style="font-size:14px;">'+esc(nombrePercha(u))+' · '+esc(cmEtiquetaMes(mes))+' · '+money(deudas[k])+'</span></div>';}).join("");
+    var pendHtml=canRead&&pendHoy>0?'<div class="cm-card" data-comm-pending-now style="margin:8px 0;"><div class="et cm-rojo">'+(es?"Por pagar":"Still to pay")+'</div><div class="n cm-rojo">'+money(pendHoy)+'</div>'+enlacesPago+'</div>':"";
+    cont.innerHTML=toolbar+pendHtml+report;
     var sel=$("cm-mes");if(sel)sel.addEventListener("change",function(){cmMes=sel.value||null;pintarComisiones();});
     var desde=$("cm-desde");if(desde)desde.addEventListener("change",function(){cmDesde=desde.value;pintarComisiones();});
     var hasta=$("cm-hasta");if(hasta)hasta.addEventListener("change",function(){cmHasta=hasta.value;pintarComisiones();});

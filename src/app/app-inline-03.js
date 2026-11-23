@@ -339,6 +339,7 @@ const _ocActSolaOn = true;
       if (!seguro() || !pendiente()) return false;
       sessionStorage.setItem(KA, JSON.stringify({ shell: objetivo }));
       sessionStorage.removeItem(KP);
+      try { sessionStorage.setItem("f123_sw_reload_ts", String(Date.now())); } catch (_) {}
       limpiarFrenada();
       marcarRecarga("version-pin");
       location.reload();

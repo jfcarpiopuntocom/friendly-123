@@ -228,6 +228,13 @@
     var label=es?"Ventas brutas":"Gross sales",com=view.group==="total"?(es?"Total de comisiones":"Total commissions"):(es?"Comisiones registradas":"Recorded commissions");
     var info=es?"Vista de consulta de todas las fechas. Los pagos, devoluciones y saldos se concilian en el mes correspondiente; selecciona un mes para registrarlos.":"Read-only view across dates. Payments, returns and balances remain reconciled in their own month; select a month to record them.";
     var groupName={total:es?"Total general":"Overall total",producto:es?"Producto":"Product",percha:es?"Percha / evento":"Rack / event",cliente:es?"Cliente":"Customer",comisionista:es?"Comisionista":"Associate",mes:es?"Mes":"Month"}[view.group];
+    var payMonth=/^\d{4}-(0[1-9]|1[0-2])$/.test(String(input&&input.payMonth||""))?String(input.payMonth):"";
+    var payLink=function(g){
+      if(!payMonth)return "";
+      var dest=view.group==="producto"&&g.productoId?"comisionproducto:"+encodeURIComponent(g.productoId)
+        :view.group==="percha"&&g.id&&g.id.indexOf("__")!==0?"comisiones:"+encodeURIComponent(g.id):"";
+      return dest?"index.html#editar="+dest+"&mes="+encodeURIComponent(payMonth):"";
+    };
     var body=view.groups.map(function(g){
       return '<div data-comm-history-group class="tag-card" style="margin:0 0 8px;padding:10px 14px;text-align:left;">'
         +'<strong style="display:block;font-size:16px;color:var(--ink,#0F1923);">'+escape(g.label)+'</strong>'
@@ -237,6 +244,10 @@
         // C227: same causal arrow as the month Summary by Product (UI 1.0): who pays whom; tapping it uses girarFlechaComision.
         +(view.group==="producto"&&g.productoId&&typeof window!=="undefined"&&typeof window.flechaComisionHtml==="function"
           ?'<div data-comm-flecha style="margin-top:6px;">'+window.flechaComisionHtml("",g.direccion||"casaPaga",g.productoId,g.label)+'</div>':"")
+        // C243 (JFC 23 nov 2026, eligio «Pagar tambien en todas las fechas»): same deep link as the month view's
+        // «Record full/partial payment»; the payment is recorded in payMonth (the current month), like the month view.
+        +(payLink(g)?'<div class="cm-actions" style="margin-top:8px;"><a class="pagar" href="'+payLink(g)+'">'
+          +(es?"Registrar pago total/parcial":"Record full/partial payment")+'</a></div>':"")
         +'</div>';
     }).join("");
     return '<section data-comm-history-report style="margin-top:12px;">'
