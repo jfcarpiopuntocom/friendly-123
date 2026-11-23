@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.13",
+  "version": "v0.9.14",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.13 Recupera el historial al cambiar de respaldo de sincronización.",
+  "changelog": "v0.9.14 Recupera el historial al cambiar de respaldo de sincronización.",
   "requerida": false,
-  "shell": "f123-shell-v913",
+  "shell": "f123-shell-v914",
   "apagar": [],
-  "releaseName": "v0.9.13",
-  "cacheGeneration": "golden449"
+  "releaseName": "v0.9.14",
+  "cacheGeneration": "golden450"
 }

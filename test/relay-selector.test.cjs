@@ -684,4 +684,9 @@ test("cursor RPCs stay on the serving durable layer when the backup also opens",
   alternate.recv(JSON.stringify({k:'pull-page',rev:3,seq:120}));
   made[0].recv(JSON.stringify({k:'pull-page',rev:3,seq:120}));
   assert.deepEqual(seen, ['pull-page']);
+
+  let certified = 0;
+  alternate.markRecovered = () => { certified++; };
+  h.markRecovered();
+  assert.equal(certified, 0, 'a pull from the primary cannot certify standby Firebase');
 });

@@ -618,10 +618,9 @@
       if (!ok) throw err; // e.g. QuotaExceededError must reach the caller
     };
     H.markRecovered = function () {
-      // The recovered socket must be an open Firebase transport. Never certify
-      // a Supabase-only session as a successful Firebase catch-up.
+      // Only the serving layer can claim that its history was applied.
       subs.forEach(function (x) {
-        if (x.ws.readyState === 1 && typeof x.ws.markRecovered === "function") x.ws.markRecovered();
+        if (x.orden === alimentador && x.ws.readyState === 1 && typeof x.ws.markRecovered === "function") x.ws.markRecovered();
       });
     };
     H.close = function (code, reason) {
