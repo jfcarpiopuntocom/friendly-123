@@ -30,7 +30,7 @@ jobs:
           node-version: '22'
       - name: Run exact source / served bundle contract tests
         run: |
-          node --test test/p0-belen-20261123-three-flows.test.cjs test/fiados-pagado-por-consumo-v557.test.js
+          node --test test/p0-belen-20261123-three-flows.test.cjs test/fiados-pagado-por-consumo-v557.test.js test/dinero-paso-dolar.test.js
           bash check-sw.sh
       - name: Install WebKit browser QA
         run: |

@@ -98,3 +98,11 @@ test('sale date is projected into historical commission month without falsifying
   assert.match(backend, /fechaEnReintento !== String\(\(ya\.info && ya\.info\.fechaVenta\) \|\| ""\)/);
   assert.match(backend, /fechaVenta: _fechaVentaTexto/);
 });
+
+test('historic Sale date Spanish label uses real es-US locale in source and served bundle', () => {
+  assert.match(read('docs/i18n.js'), /return lang === "en" \? "en-US" : "es-US"/);
+  for (const script of [app, bundle]) {
+    assert.match(script, /OCI18n\.locale\(\)\.startsWith\("es"\)[\s\S]{0,150}Fecha de venta/);
+    assert.match(script, /id="vi-fecha-venta" type="date"/);
+  }
+});
