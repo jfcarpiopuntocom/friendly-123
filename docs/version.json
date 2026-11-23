@@ -1,10 +1,10 @@
 {
-  "version": "v0.8.97",
+  "version": "v0.8.98",
   "fecha": "2026-11-22",
-  "changelog": "v0.8.97 C217: el boton de Emergency recovery usa el rescate probado (reenganchar.html): una navegacion a la version nueva, sin tocar datos locales.",
+  "changelog": "v0.8.98 C219: la ventana Join a shared notebook ya no es amarilla (borde azul de la paleta, boton oscuro con letra blanca).",
   "requerida": false,
-  "shell": "f123-shell-v897",
+  "shell": "f123-shell-v898",
   "apagar": [],
-  "releaseName": "v0.8.97",
-  "cacheGeneration": "golden433"
+  "releaseName": "v0.8.98",
+  "cacheGeneration": "golden434"
 }
