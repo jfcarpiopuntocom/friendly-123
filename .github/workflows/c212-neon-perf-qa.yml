@@ -5,14 +5,21 @@ on:
   pull_request:
     branches: [master]
   workflow_dispatch: {}
+concurrency:
+  group: c212-neon-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 permissions:
-  contents: read
+  contents: write
 jobs:
   exact-source-regressions:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: true
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -25,4 +32,27 @@ jobs:
           node --check docs/core/business-read-model.js
           node --check docs/mock-backend.js
           node --test test/p0-c200-initial-dashboard-after-auth.test.cjs test/p0-c197-opera-dashboard-hotpath.test.cjs
+      - name: Rebuild exact browser assets; verify official release manifest
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/gen-manifest.js
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          bash check-sw.sh
+          git fetch -q origin master
+          node scripts/release-control.cjs validate origin/master
           git diff --check
+          unexpected=$(git diff --name-only | grep -vE '^docs/(app-inline-01\.min\.js|mock-backend\.min\.js|core/business-read-model\.min\.js|version-manifest\.json|sw\.js)$' || true)
+          test -z "$unexpected" || { echo "Unexpected generated files: $unexpected"; exit 1; }
+      - name: Seal exact v894 generated assets on the candidate branch
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/app-inline-01.min.js docs/mock-backend.min.js docs/core/business-read-model.min.js docs/version-manifest.json docs/sw.js
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C212): seal verified v894 browser bundles and SHA256 manifest'
+            git push origin HEAD:feat/c212-neon-boot-and-hoy-2-0
+          fi
