@@ -362,7 +362,8 @@ const _ocActSolaOn = true;
     });
   }
   async function revisar() {
-    if (window.__f123PurgeEnCurso === true || manualPurgeReentry) return;
+    if (window.__f123PurgeEnCurso === true) return;
+    if (manualPurgeReentry) return;
     try {
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
       if (!r.ok) return;
@@ -400,7 +401,8 @@ const _ocActSolaOn = true;
   // E2: a takeover can already match version.json while this document is stale.
   var ultimoControladorSW = navigator.serviceWorker.controller;
   function onShellTomado() {
-    if (window.__f123PurgeEnCurso === true || manualPurgeReentry) return;
+    if (window.__f123PurgeEnCurso === true) return;
+    if (manualPurgeReentry) return;
     var actual = navigator.serviceWorker.controller;
     if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
     if (!actual || actual === ultimoControladorSW) return;
