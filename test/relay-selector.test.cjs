@@ -665,3 +665,29 @@ test('C240: a peer relay in F123Relay is not taken as the Supabase durable layer
   const peer = require('node:fs').readFileSync(require('node:path').join(__dirname, '../docs/peer-sync.js'), 'utf8');
   assert.match(peer, /_relayVecinos\.peerSyncRelay = true; window\.F123Relay = _relayVecinos;/);
 });
+
+test("cursor RPCs stay on the serving durable layer when the backup also opens", () => {
+  const { R, made, vencer } = app();
+  const h = R.connect(URL1);
+  made[0].open();
+  vencer();
+  const alternate = made.find(socket => socket.kind === 'firebase');
+  assert.ok(alternate);
+  alternate.open();
+  const seen = [];
+  h.onmessage = event => seen.push(JSON.parse(event.data).k);
+  const pull = JSON.stringify({k:'pull',rev:3,seq:120});
+  made[0].bufferedAmount = 512 * 1024;
+  assert.doesNotThrow(() => h.send(pull), 'the tiny read request remains available while writes fill the buffer');
+  assert.equal(h.pullRelayLayer, 'f123_relay_cupo_v1');
+  assert.equal(made[0].sent.includes(pull), true);
+  assert.equal(alternate.sent.includes(pull), false);
+  alternate.recv(JSON.stringify({k:'pull-page',rev:3,seq:120}));
+  made[0].recv(JSON.stringify({k:'pull-page',rev:3,seq:120}));
+  assert.deepEqual(seen, ['pull-page']);
+
+  let certified = 0;
+  alternate.markRecovered = () => { certified++; };
+  h.markRecovered();
+  assert.equal(certified, 0, 'a pull from the primary cannot certify standby Firebase');
+});

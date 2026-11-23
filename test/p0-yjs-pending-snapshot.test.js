@@ -219,8 +219,11 @@ test("actual onopen hello and pull both wait for completed journal hydration",as
   enviar:(tag)=>events.push("hello:"+tag),pedirPagina:async()=>events.push("pull"),
   pullEstado:{},Promise
  };
+ const layerStart=src.indexOf("    function cargarCursorDeCapa(sock) {");
+ const layerEnd=src.indexOf("    function guardarPullCursor(cursor) {",layerStart);
+ assert.ok(layerStart>=0&&layerEnd>layerStart,"uses the production provider cursor loader");
  vm.createContext(ctx);
- vm.runInContext(src.slice(first,end),ctx);
+ vm.runInContext(src.slice(layerStart,layerEnd)+src.slice(first,end),ctx);
  await new Promise(resolve=>setImmediate(resolve));
  assert.deepEqual(events,[],"a partially hydrated device must not advertise an empty state vector");
  release();await ctx._colaRecepcion;

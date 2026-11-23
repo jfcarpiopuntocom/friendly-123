@@ -285,7 +285,8 @@
                         // exponencial con jitter y tope 30s, como el sync viejo.
     var _tEstable = null;
     var _colaRecepcion = Promise.resolve();
-    var _pullCursorKey = "f123_yjs_pull_cursor_v2" + suffix;
+    var _pullCursorBaseKey = "f123_yjs_pull_cursor_v2" + suffix;
+    var _pullCursorKey = _pullCursorBaseKey;
     var _pullCursor = { rev: -1, seq: 0 }, _appliedPullCursor = { rev: -1, seq: 0 };
     var _pullCursorReady = Promise.resolve();
     // Encrypted durable outbox lives alongside the local Y.Doc, scoped by room/channel.
@@ -1119,32 +1120,7 @@
           return persistencia.get(_pullCursorKey);
         })
         .then(function (guardado) {
-          if (_soloMemoria) return;
-          var cursor = cursorValido(guardado);
-          if (!cursor) return;
-          var snap = guardado.pendingSnapshot;
-          if (!snap) {
-            _pullCursor = cursor; _appliedPullCursor = cursor;
-            _ultimoCursorLimpio = cursor; return;
-          }
-          var limpio = cursorValido(guardado.cursorLimpio);
-          if (!limpio || !cursorAnteriorOIgual(limpio, cursor))
-            limpio = { rev: -1, seq: 0 };
-          _ultimoCursorLimpio = limpio;
-          function reanudarDesdeLimpio() {
-            _pullCursor = limpio; _appliedPullCursor = limpio;
-            _cursorContainsPending = false;
-          }
-          // Rejected proof may use the LAST clean cut once hydration succeeded.
-          var bytes;
-          try { bytes = new Uint8Array(snap); } catch (_) { reanudarDesdeLimpio(); return; }
-          if (!bytes.byteLength || bytes.byteLength > MAX_PENDING_PROOF_BYTES) {
-            reanudarDesdeLimpio(); return;
-          }
-          try { Y.applyUpdate(doc, bytes, "red"); }
-          catch (_) { reanudarDesdeLimpio(); return; }
-          _pullCursor = cursor; _appliedPullCursor = cursor;
-          _cursorContainsPending = true;
+          restaurarPruebaPull(guardado);
         }).catch(function (e) {
           // No confirmed journal means no safe cursor. Do not pull or
           // checkpoint against a half-loaded device; leave the channel in recovery.
@@ -1159,6 +1135,53 @@
           canal.recuperacionLocal = "pendiente";
           throw e;
         });
+    }
+    function restaurarPruebaPull(guardado) {
+      if (_soloMemoria) return;
+      var cursor = cursorValido(guardado);
+      if (!cursor) return;
+      var snap = guardado.pendingSnapshot;
+      if (!snap) {
+        _pullCursor = cursor; _appliedPullCursor = cursor;
+        _ultimoCursorLimpio = cursor; return;
+      }
+      var limpio = cursorValido(guardado.cursorLimpio);
+      if (!limpio || !cursorAnteriorOIgual(limpio, cursor))
+        limpio = { rev: -1, seq: 0 };
+      _ultimoCursorLimpio = limpio;
+      function reanudarDesdeLimpio() {
+        _pullCursor = limpio; _appliedPullCursor = limpio;
+        _cursorContainsPending = false;
+      }
+      // Rejected proof may use the LAST clean cut once hydration succeeded.
+      var bytes;
+      try { bytes = new Uint8Array(snap); } catch (_) { reanudarDesdeLimpio(); return; }
+      if (!bytes.byteLength || bytes.byteLength > MAX_PENDING_PROOF_BYTES) {
+        reanudarDesdeLimpio(); return;
+      }
+      try { Y.applyUpdate(doc, bytes, "red"); }
+      catch (_) { reanudarDesdeLimpio(); return; }
+      _pullCursor = cursor; _appliedPullCursor = cursor;
+      _cursorContainsPending = true;
+    }
+    function cargarCursorDeCapa(sock) {
+      var capa = sock.pullRelayLayer;
+      if (!capa) return Promise.resolve();
+      var clave = _pullCursorBaseKey + ":" + capa;
+      if (_pullCursorKey === clave) return Promise.resolve();
+      var lectura = !_soloMemoria && persistencia && typeof persistencia.get === "function"
+        ? persistencia.get(clave) : Promise.resolve(null);
+      return lectura.then(function (prueba) {
+        if (canal.ws !== sock || sock.readyState !== 1) return;
+        // Cursor sequences and checkpoint revisions belong to one provider.
+        // Keep the hydrated Yjs journal and apply each provider's own proof.
+        _pullCursorKey = clave;
+        _pullCursor = _appliedPullCursor = _ultimoCursorLimpio = { rev: -1, seq: 0 };
+        _cursorContainsPending = false; _pendingProofPages = 0;
+        _legacyProbeKey = ""; _legacyProbeAttempts = 0;
+        _replayKey = null; _replayUsed = 0;
+        restaurarPruebaPull(prueba);
+      });
     }
     function guardarPullCursor(cursor) {
       var siguiente = {
@@ -1783,6 +1806,7 @@
         if (_pausado || !permitido() || canal.ws !== ws) {
           try { ws.close(1000, "inactive tab"); } catch (_) {} return;
         }
+        pullEstado.enCurso = !ws.peerOnly;
         _lastRelayProgressAt = Date.now(); _cupoRechazado = false;
         /* Un upgrade que abre y cae enseguida NO es una conexion sana. Antes
            reseteaba el backoff aqui y el canal de fotos podia reconectar cada
@@ -1800,7 +1824,11 @@
           if (canal.ws !== ws || ws.readyState !== 1) return;
           try { enviar(1, Y.encodeStateVector(doc)); } catch (_) {} // hello AFTER local hydration
           if (ws.peerOnly) { programarRelecturaPeer(); return; }
-          return pedirPagina(ws, pullEstado);
+          return cargarCursorDeCapa(ws).then(function () {
+            if (canal.ws === ws && ws.readyState === 1) return pedirPagina(ws, pullEstado);
+          }).catch(function () {
+            if (canal.ws === ws) try { ws.close(1013, "cursor proof unavailable"); } catch (_) {}
+          });
         });
         /* Sincroniza el reloj con el relay: UNA vez al conectar y SOLO en el canal
            "catalogo". FIX de costo (JFC 2026-09-22, v337): la v335 hacia ping cada

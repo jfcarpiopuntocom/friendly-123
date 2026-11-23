@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.11",
-  "fecha": "2026-11-22",
-  "changelog": "v0.9.11 C241: los datos bajo cada fila de Commissions (UI 1.0) suben de 12 a 13 px, el minimo de esa pantalla.",
+  "version": "v0.9.14",
+  "fecha": "2026-11-23",
+  "changelog": "v0.9.14 Recupera el historial al cambiar de respaldo de sincronización.",
   "requerida": false,
-  "shell": "f123-shell-v911",
+  "shell": "f123-shell-v914",
   "apagar": [],
-  "releaseName": "v0.9.11",
-  "cacheGeneration": "golden447"
+  "releaseName": "v0.9.14",
+  "cacheGeneration": "golden451"
 }
