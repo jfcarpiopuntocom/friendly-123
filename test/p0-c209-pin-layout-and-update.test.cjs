@@ -34,7 +34,7 @@ test('C209: manual purge reentry is exactly one navigation, and stale update lat
   const index=read('docs/index.html');
   assert.ok(index.includes('window.__f123ManualPurgeReentry = true'));
   assert.ok(app.includes('const manualPurgeReentry = window.__f123ManualPurgeReentry === true'));
-  assert.match(app,/if \(manualPurgeReentry\) return false;\s*vigilar\(\);/);
+  assert.ok(app.includes('if (manualPurgeReentry && (!manualPurgeShell || objetivo === manualPurgeShell)) return false;'));
   assert.ok(app.includes('if (manualPurgeReentry && String(vj.shell) === manualPurgeShell)'));
   assert.ok(auth.includes('sessionStorage.removeItem("f123_act_sola_pendiente")'));
   assert.ok(auth.includes('sessionStorage.removeItem("f123_autorecarga")'));
