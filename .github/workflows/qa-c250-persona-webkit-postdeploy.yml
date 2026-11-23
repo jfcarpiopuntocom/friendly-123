@@ -1,0 +1,65 @@
+name: C250 post-deploy WebKit Persona v0.9.20 (QA read-only)
+on:
+  push:
+    branches:
+      - qa/c250-persona-webkit-postdeploy-20261123
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deployed-persona-webkit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove exact v0.9.20 runtime being exercised
+        run: |
+          set -euo pipefail
+          test "$(git merge-base HEAD 99ab7abbc6c7ae0cc8dd330eae79dd469f2dceda)" = "99ab7abbc6c7ae0cc8dd330eae79dd469f2dceda"
+          for f in docs/commissions-by-person.js docs/index.html docs/core/commission-history.js docs/version.json; do
+            git diff --exit-code 99ab7abbc6c7ae0cc8dd330eae79dd469f2dceda HEAD -- "$f"
+          done
+          node --check docs/commissions-by-person.js
+          node --check test/p0-c250-postdeploy-persona-webkit.test.cjs
+      - name: Install isolated browser test prerequisites
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps webkit
+      - name: Verify public, cache-busted v0.9.20 is the deployed version
+        run: |
+          node - <<'NODE'
+          const assert=require('node:assert/strict');
+          const fs=require('node:fs');
+          const {createHash}=require('node:crypto');
+          (async()=>{
+            const base='https://jfcarpiopuntocom.github.io/friendly-123/';
+            const get=async(name)=>{
+              const r=await fetch(base+name+(name.includes('?')?'&':'?')+'smoke='+Date.now(),{
+                headers: { 'Cache-Control':'no-cache' }
+              });
+              assert.equal(r.status,200,'public GET '+name+' HTTP '+r.status);
+              return Buffer.from(await r.arrayBuffer());
+            };
+            const version=JSON.parse((await get('version.json')).toString('utf8'));
+            assert.equal(version.version,'v0.9.20');
+            assert.equal(version.shell,'f123-shell-v920');
+            const remote=(await get('commissions-by-person.js'));
+            const local=fs.readFileSync('docs/commissions-by-person.js');
+            const digest=b=>createHash('sha256').update(b).digest('hex');
+            assert.equal(digest(remote),digest(local),'public Persona script differs from v0.9.20 SHA');
+            const manifest=JSON.parse((await get('version-manifest.json')).toString('utf8'));
+            assert.equal(manifest.version,'v0.9.20');
+            assert.equal(manifest.shell,'f123-shell-v920');
+            console.log('PUBLIC PASS v0.9.20 shell920 commissions-by-person.js SHA256='+digest(local));
+          })().catch(e=>{console.error(e);process.exitCode=1;});
+          NODE
+      - name: WebKit on exact v0.9.20 runtime - old-month-only Persona + repaint + original C250 suite
+        run: |
+          node --test --test-timeout=120000 --test-name-pattern='WebKit: an older-month-only|WebKit: All-dates By artist' \
+            test/p0-c250-postdeploy-persona-webkit.test.cjs \
+            test/p0-c250-notion-closure.test.cjs
