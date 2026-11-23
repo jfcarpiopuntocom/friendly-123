@@ -10,6 +10,7 @@ on:
       - 'docs/app-inline-01.min.js'
       - 'docs/mock-backend.js'
       - 'test/p0-belen-20261123-three-flows.test.cjs'
+      - 'test/p0-belen-20261123-three-flows-browser.test.cjs'
       - '.github/workflows/qa-belen-20261123.yml'
   workflow_dispatch:
 permissions:
@@ -17,7 +18,7 @@ permissions:
 jobs:
   three-flows:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
@@ -25,4 +26,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --test test/p0-belen-20261123-three-flows.test.cjs
+      - name: Run exact source / served bundle contract tests
+        run: |
+          node --test test/p0-belen-20261123-three-flows.test.cjs
+          bash check-sw.sh
+      - name: Install WebKit browser QA
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx playwright install --with-deps webkit
+      - name: Exercise real browser payment and sale storage code with synthetic fixtures
+        run: node --test --test-timeout=120000 test/p0-belen-20261123-three-flows-browser.test.cjs
