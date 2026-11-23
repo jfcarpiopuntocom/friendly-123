@@ -235,7 +235,8 @@ test('P0 real Workerd photo CORS: exact HTTPS origin only, browser preflight and
 });
 
 
-test('P0 Team cannot read private catalog Y.Doc until a sanitized public projection is independently served',{timeout:45000},async()=>{
+// C232 (JFC 23 nov 2026: "TODOS PASAN A LO BUENO"): admin/empleado now read -cat, so the SERVER refuses private roots there.
+test('P0 Team reads the -cat catalog and private roots written there never reach the server',{timeout:45000},async()=>{
  const {teamAuthority}=await import('../../cloudflare-worker/team-authority.mjs');
  // Real issuer may authorize an employee to see a future public projection,
  // but this -cat room includes OWNER-private roots and must deny Team before Yjs.
@@ -260,16 +261,16 @@ test('P0 Team cannot read private catalog Y.Doc until a sanitized public project
   const anotherOwner=await connect('cat',['cat:read']);
   try{
    await waitFor(()=>anotherOwner.doc.getMap('products').has('team-readable-catalog'),'Owner catalog');
-   await waitFor(()=>anotherOwner.doc.getMap('_meta').has('pinsRol'),'Owner private metadata');
-   assert.equal(anotherOwner.doc.getMap('clientes').has('private-synthetic-customer'),true);
-   assert.equal(anotherOwner.doc.getMap('hechos_financieros').has('private-synthetic-cash'),true);
+   // C232: the server dropped every write that created a private root in -cat.
+   assert.equal(anotherOwner.doc.share.has('_meta')&&anotherOwner.doc.getMap('_meta').has('pinsRol'),false,'PIN metadata never stored in -cat');
+   assert.equal(anotherOwner.doc.share.has('clientes'),false,'customers never stored in -cat');
+   assert.equal(anotherOwner.doc.share.has('hechos_financieros'),false,'money never stored in -cat');
   }finally{anotherOwner.close();}
   const issued=await ticket('cat',['cat:read']);
-  assert.equal(issued.status,200,'central issuer can authorize a future sanitized Team read view');
+  assert.equal(issued.status,200,'central issuer authorizes the Team catalog read');
   const initial=await attempt('cat',issued.data.token);
-  assert.equal(initial.binary,0,'Team must receive ZERO Yjs bytes from owner-private catalog');
-  assert.notEqual(initial.status,'open','Team private catalog admission must fail closed');
-  assert.equal((await attempt('cat',issued.data.token)).binary,0,'reused Team token must also expose zero bytes');
+  assert.equal(initial.status,'open','Team reads the public -cat catalog (C213)');
+  assert.equal((await attempt('cat',issued.data.token)).binary,0,'a reused one-use Team token exposes zero bytes');
   assert.notEqual((await ticket('ops',['ops:read'])).status,200,'Team cannot access raw economic room');
   const standby=await ticket('cat',['cat:read']);
   assert.equal(standby.status,200);
@@ -288,7 +289,7 @@ test('P0 Team cannot read private catalog Y.Doc until a sanitized public project
   const adminCredentials={kind:'team',licenseCode:license,instanceId:instance,subject:adminSubject,pin:'333'};
   const adminRead=await ticket('cat',['cat:read'],adminCredentials);
   assert.equal(adminRead.status,200);
-  assert.equal((await attempt('cat',adminRead.data.token)).binary,0,'admin read cannot access private Owner Y.Doc');
+  assert.equal((await attempt('cat',adminRead.data.token)).status,'open','admin reads the public -cat catalog (C213)');
   const adminWrite=await ticket('cat',['cat:read','cat:write'],adminCredentials);
   assert.equal(adminWrite.status,200);
   const raw=await attempt('cat',adminWrite.data.token);
