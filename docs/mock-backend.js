@@ -7754,8 +7754,10 @@
           const ya = ventas.find(v => v && v.opId === _opIdVenta);
           if (ya) {
             const cantidadSolicitada = body.cantidad == null || body.cantidad === "" ? 1 : Number(body.cantidad);
-            if (ya.productoId !== p.id || ya.cantidad !== cantidadSolicitada)
-              return J({ error:"Operation id belongs to a different sale.",code:"SALE_OPID_CONFLICT" },409);
+            const fechaEnReintento = body.info && typeof body.info === "object" ? String(body.info.fechaVenta || "").trim() : "";
+            if (ya.productoId !== p.id || ya.cantidad !== cantidadSolicitada ||
+                fechaEnReintento !== String((ya.info && ya.info.fechaVenta) || ""))
+              return J({ error:"Operation id belongs to a different sale or sale date.",code:"SALE_OPID_CONFLICT" },409);
             return J({ producto:ficha(p), ventaId:ya.id, opId:_opIdVenta, duplicate:true });
           }
         }
@@ -7810,6 +7812,19 @@
            la comision sobre el precio de catalogo le quita plata real a quien
            vende. */
         const _infoPago = (body && typeof body.info === "object" && body.info) ? body.info : {};
+        // A historical sale uses its commercial date for reports while the original
+        // registration/ACK time remains auditable. Noon UTC avoids the prior-day
+        // shift for the Ecuador business timezone when parsing date-only strings.
+        const _fechaVentaTexto = String(_infoPago.fechaVenta || "").trim();
+        let _fechaVentaIso = null;
+        if (_fechaVentaTexto) {
+          if (!/^\\d{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])$/.test(_fechaVentaTexto))
+            return J({ error: "Choose a valid sale date (YYYY-MM-DD)." }, 400);
+          const diaElegido = new Date(_fechaVentaTexto + "T12:00:00Z");
+          if (!Number.isFinite(diaElegido.getTime()) || diaElegido.toISOString().slice(0, 10) !== _fechaVentaTexto)
+            return J({ error: "The sale date is not a real calendar day." }, 400);
+          _fechaVentaIso = diaElegido.toISOString();
+        }
         const _esTicket = (p.tipoProducto || "normal") === "ticket";
         const _pagado = aCent(_infoPago.montoPagado);
         /* CORTESIA (JFC 2026-09-08, "hay costo pero no precio"): una venta de
@@ -7843,7 +7858,10 @@
               ? _override
               : (precioEntrada != null ? precioEntrada : ((_esTicket && Number.isFinite(_pagado) && _pagado > 0) ? _pagado : rebajaDe(p).precio)));
         const montoBruto = precioEfectivo * cant;
-        const acumuladoPrevio = ubicP ? ventasMesAcumuladas(ubicP.id) : 0;
+        const _mesVenta = fechaLocalDe(_fechaVentaIso || new Date().toISOString()).slice(0, 7);
+        const acumuladoPrevio = ubicP ? ventasActivas()
+          .filter(v => v.ubicacionId === ubicP.id && esDelMes(v.fecha, _mesVenta, v.relojDesfaseMs))
+          .reduce((s, v) => s + v.precioUnit * v.cantidad, 0) : 0;
         /* DISEÑO JFC (2026-09-22): COUNTER SALE pertenece íntegramente a la
            casa. Es una decisión por venta, no una edición de la percha: no se
            exige comisionista, no se crea split y no se desasigna a nadie del
@@ -7928,6 +7946,7 @@
            sigue mandando el evento activo que venga en info (vender bebidas
            "en" un evento, por ejemplo). */
         const infoVenta = {
+          fechaVenta: _fechaVentaTexto,
           nombreEvento: _esTicket
             ? String(p.nombre || "").trim().slice(0, 120)
             : String(infoBody.nombreEvento || "").trim().slice(0, 120),
@@ -7951,7 +7970,7 @@
           cortesia: _esCortesia ? true : null, // JFC 2026-09-08: venta de cortesía (costo sí, precio 0).
         };
         const tieneInfoVenta = Object.values(infoVenta).some((v) => v !== "" && v !== null);
-        ventas.push({ id: ventaId, opId: opIdVenta, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: new Date().toISOString(), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
+        ventas.push({ id: ventaId, opId: opIdVenta, productoId: p.id, ubicacionId: p.ubicacionId, cantidad: cant, precioUnit: precioEfectivo, ...(modalidadVenta ? { modalidadVenta } : {}), costoUnit: p.costo, fecha: _fechaVentaIso || new Date().toISOString(), ...(_fechaVentaIso ? { registradaEn: new Date().toISOString() } : {}), ...((window.OCLatencia && window.OCLatencia.sello) ? window.OCLatencia.sello() : {}), split, noCommission: !split, modoComision, direccionComision: _direccionValida(body && body.direccionComision) || _direccionValida(p.direccionComision) || "casaPaga", ...(_pedidoMostrador ? { canalVenta: "mostrador" } : {}), promotoraId: _promotoraVenta, asistenteId: (split && split.reparto) ? split.reparto[1].promotoraId : null, asistentePct: (split && split.reparto) ? split.reparto[1].pct : null, impuesto: _impuestoDeVenta(p, precioEfectivo, cant), liquidada: false, clienteId: clienteVenta ? clienteVenta.id : null, info: tieneInfoVenta ? infoVenta : null, rev: _revNueva() });
         mov("venta", { opId: opIdVenta, producto: p.nombre, cantidad: cant, total: +montoBruto.toFixed(2), ubicacion: nombreUbic(p.ubicacionId) }, false);
         const _opVenta = { productoId: p.id, delta: -cant };
         // C34 PORT2: The old stock fact carries ONLY delta. C31's certified
