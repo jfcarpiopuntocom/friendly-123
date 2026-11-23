@@ -186,6 +186,7 @@ const _ocActSolaOn = true;
   // (compara "f123-shell-vN" contra el nombre de cache con -goldenN y nunca coincide).
   const KP = "f123_act_sola_pendiente";
   const manualPurgeReentry = window.__f123ManualPurgeReentry === true;
+  let manualPurgeShell = "";
   if (manualPurgeReentry) {
     try { sessionStorage.removeItem(KP); sessionStorage.removeItem(KA); } catch (_) {}
   }
@@ -318,13 +319,13 @@ const _ocActSolaOn = true;
     } catch (_) { return null; }
   }
   async function intentar() {
-    if (manualPurgeReentry) return false;
     vigilar();
     if (!pendiente() || recargando || !seguro() || !puedeRecargarVersion()) return false;
     recargando = true;
     let splash = null, navegando = false;
     try {
       const objetivo = (localStorage.getItem("f123_version_vista") || "").split("|")[1] || "";
+      if (manualPurgeReentry && (!manualPurgeShell || objetivo === manualPurgeShell)) return false;
       if (!objetivo || await shellDelSW() !== objetivo ||
           !pendiente() || !seguro() || !puedeRecargarVersion()) return false;
       splash = mostrarSplashActualizando();
@@ -363,12 +364,16 @@ const _ocActSolaOn = true;
   }
   async function revisar() {
     if (window.__f123PurgeEnCurso === true) return;
-    if (manualPurgeReentry) return;
     try {
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
       if (!r.ok) return;
       const vj = await r.json();
       if (!vj || !vj.shell) return;
+      if (manualPurgeReentry && !manualPurgeShell) manualPurgeShell = String(vj.shell);
+      if (manualPurgeReentry && String(vj.shell) === manualPurgeShell) {
+        try { sessionStorage.removeItem(KP); } catch (_) {}
+        return;
+      }
       const sirve = await shellDelSW();
       if (!sirve) return;
       if (sirve === String(vj.shell)) {
@@ -402,7 +407,11 @@ const _ocActSolaOn = true;
   var ultimoControladorSW = navigator.serviceWorker.controller;
   function onShellTomado() {
     if (window.__f123PurgeEnCurso === true) return;
-    if (manualPurgeReentry) return;
+    if (manualPurgeReentry) {
+      try { sessionStorage.setItem(KP, "1"); } catch (_) {}
+      revisar();
+      return;
+    }
     var actual = navigator.serviceWorker.controller;
     if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
     if (!actual || actual === ultimoControladorSW) return;
