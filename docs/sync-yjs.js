@@ -1673,7 +1673,7 @@
       } catch (_) {}
     }
     function hacerCkpt() {
-      if (typeof window !== "undefined" && (window.__f123SafeBootMode || window.__f123CrashLoopPaused)) return; // C239: also runs outside a browser window
+      if (typeof window !== "undefined" && window.__f123CrashLoopPaused) return;
       // v756: internal log of WHY a checkpoint is skipped (read-only mirror of the guards below; behaviour unchanged).
       try {
         var omitido = _soloMemoria ? "solo-memoria" : canal.ws && canal.ws.peerOnly ? "peer" : !permiteCkpt ? "sin-ckpt" :
@@ -1850,7 +1850,7 @@
         // Tras dar tiempo al pull (para que este aparato ya tenga lo de los demás),
         // publicar el estado COMPLETO como checkpoint: así el catálogo que ya tenía
         // (aunque nunca haya cambiado desde v285) queda disponible para el que entre.
-        if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, _aparatoMovil() ? 12000 : 2500); }
+        if (permiteCkpt) { clearTimeout(_tCkpt); _tCkpt = setTimeout(hacerCkpt, 2500); }
         // Canal sin ckpt (fotos): sembrado propio al conectar (cada foto va como
         // op individual, que sí cabe en el frame). Tras dar tiempo al pull.
         /* v665: a fresh device used to seed 3.2 s after connecting even while the photo history was still downloading,
@@ -2658,7 +2658,8 @@
         recuperacionLocalPendiente: [this.canal, this.fotosCanal, this.opsCanal].some(function (c) { return c && (c.recuperacionLocal === "pendiente" || c.recuperacionLocal === "sin-almacenamiento"); }),
         ws: { catalogo: rs(this.canal), fotos: rs(this.fotosCanal), ops: rs(this.opsCanal) },
         meta: { nombre: this.meta ? this.meta.get("nombreNegocio") : null, esDueno: this.meta ? this.meta.get("nombreEsDueno") : null },
-        fotos: this.fotosMap ? this.fotosMap.size : 0, ops: this.opsMap ? this.opsMap.size : 0 };
+        fotos: this.fotosMap ? this.fotosMap.size : 0, ops: this.opsMap ? this.opsMap.size : 0,
+        corte20: this.__ultimoEstadoCorte20 || null };
     }
   };
   window.OCYjs = API;
@@ -3486,18 +3487,33 @@
         API.__reactivandoCorte20 = Promise.resolve().then(async function () {
           if (released) {
             if (!relay || typeof relay.pausarParaArquitectura20 !== "function" ||
-                typeof relay.reanudarDesdeArquitectura20 !== "function") return null;
+                typeof relay.reanudarDesdeArquitectura20 !== "function") {
+              API.__ultimoEstadoCorte20 = { activo: false, motivo: "legacy-control-missing", en: Date.now() };
+              return null;
+            }
             var paused = await relay.pausarParaArquitectura20(licencia);
-            if (!paused || paused.ok !== true) return null;
+            if (!paused || paused.ok !== true) {
+              API.__ultimoEstadoCorte20 = { activo: false, motivo: "legacy-pause-refused", en: Date.now() };
+              return null;
+            }
             API.__transporteLegado20Pausado = licencia;
           }
           return API.activarCorte20Runtime({ cortarComercio: true, rol: rolQa, permitirDespachoEquipo: rolQa === "admin" || rolQa === "empleado" });
         }).then(function (resultado) {
-          if (!released || (resultado && resultado.modoCorte20Activo === true)) return;
+          if (resultado && resultado.modoCorte20Activo === true) {
+            API.__ultimoEstadoCorte20 = { activo: true, motivo: "active-2.0", en: Date.now() };
+            return;
+          }
+          if (resultado) {
+            API.__ultimoEstadoCorte20 = { activo: false, motivo: "cutover-not-active", en: Date.now() };
+          }
+          if (!released) return;
           var previous = API.__transporteLegado20Pausado;
           API.__transporteLegado20Pausado = null;
           if (previous) relay.reanudarDesdeArquitectura20(previous);
-        }).catch(function () {
+        }).catch(function (err) {
+          var code = String((err && err.message) || "cutover-error").replace(/[^A-Za-z0-9_.: -]/g, "").slice(0, 64) || "cutover-error";
+          API.__ultimoEstadoCorte20 = { activo: false, motivo: code, en: Date.now() };
           // A failed certification can NEVER strand the old socket: leave
           // source IDs, encrypted room and durable outbox byte-identical.
           var previous = API.__transporteLegado20Pausado;

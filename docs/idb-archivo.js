@@ -21,19 +21,82 @@
   const STORE = "movimientos";
   const SOPORTADO = "indexedDB" in window;
   let dbPromise = null;
+  let openedDb = null;
+
+  function dropDb() {
+    if (openedDb && typeof openedDb.close === "function") {
+      try { openedDb.close(); } catch (_) {}
+    }
+    openedDb = null;
+    dbPromise = null;
+  }
+
+  function esSafariMovil() {
+    try {
+      const ua = (typeof navigator !== "undefined" && navigator.userAgent) || "";
+      return /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
+    } catch (_) { return false; }
+  }
 
   function abrirDB() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, 1);
+      let settled = false;
+      const timeoutMs = esSafariMovil() ? 8000 : 15000;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        dropDb();
+        reject(new Error("IndexedDB open timeout"));
+      }, timeoutMs);
+      let req;
+      try {
+        req = indexedDB.open(DB_NAME, 1);
+      } catch (err) {
+        clearTimeout(timer);
+        dropDb();
+        reject(err);
+        return;
+      }
       req.onupgradeneeded = () => {
         if (!req.result.objectStoreNames.contains(STORE)) req.result.createObjectStore(STORE, { keyPath: "id" });
       };
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-      req.onblocked = () => reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)"));
+      req.onsuccess = () => {
+        if (settled) {
+          try { req.result && req.result.close && req.result.close(); } catch (_) {}
+          return;
+        }
+        settled = true;
+        clearTimeout(timer);
+        openedDb = req.result;
+        if (openedDb) {
+          openedDb.onclose = () => dropDb();
+          openedDb.onversionchange = () => dropDb();
+        }
+        resolve(req.result);
+      };
+      req.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        dropDb();
+        reject(req.error);
+      };
+      req.onblocked = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        dropDb();
+        reject(new Error("IndexedDB bloqueado (otra pestaña con una version vieja abierta)"));
+      };
     });
     return dbPromise;
+  }
+
+  if (typeof window !== "undefined" && typeof window.addEventListener === "function") {
+    window.addEventListener("pageshow", function (ev) {
+      if (ev && ev.persisted) dropDb();
+    });
   }
 
   // Archiva un lote. Idempotente: reintentar con el mismo lote no duplica.

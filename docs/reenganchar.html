@@ -63,13 +63,12 @@ a[hidden]{display:none}a{display:inline-block;padding:11px 20px;color:#FFFFFF;-w
       for(var k=0;k<3;k++)w.push((async function(){while(q.length){var u=q.shift();try{await deadline(fetch(u,{cache:"reload"}),2200);}catch(_){}}})());
       await deadline(Promise.allSettled(w),3600);
     }catch(_){}
-    // 4) Clear transient boot/crash latches so re-engagement lands cleanly on the newest version.
+    // 4) Clear transient boot/crash latches (both f123:: namespaced and raw) without touching IDB/localStorage.
     try{
-      sessionStorage.removeItem("f123_boot_crash_v1");
-      sessionStorage.removeItem("f123_act_sola_pendiente");
-      sessionStorage.removeItem("f123_autorecarga");
-      sessionStorage.removeItem("f123_reload_al_entrar");
-      sessionStorage.removeItem("f123_update_frenada_desde");
+      ["f123_boot_crash_v1","f123_sw_reload_ts","f123_act_sola_pendiente","f123_autorecarga","f123_reload_al_entrar","f123_update_frenada_desde"].forEach(function(k){
+        sessionStorage.removeItem("f123::"+k);
+        sessionStorage.removeItem(k);
+      });
     }catch(_){}
     status.textContent="4/4 Abriendo "+String(version.version||version.shell)+"…";
   }
