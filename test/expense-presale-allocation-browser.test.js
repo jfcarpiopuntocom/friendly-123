@@ -39,7 +39,8 @@ test('an expense can be allocated to an existing shelf before its first sale', a
       await registrarGasto();
       const saved = (await request('/api/gastos')).gastos.find(expense => expense.concepto === 'Synthetic preparation cost');
       await OCExpenseReceipt.open(saved.facturaFotoHash);
-      const receiptShown = !!document.querySelector('dialog[open] img[src^="data:image/jpeg;base64,"]');
+      // C233: since C159 a receipt may be stored as WebP; the viewer accepts jpeg, png and webp (docs/expense-receipt.js).
+      const receiptShown = !!document.querySelector('dialog[open] img[src^="data:image/jpeg;base64,"], dialog[open] img[src^="data:image/webp;base64,"], dialog[open] img[src^="data:image/png;base64,"]');
       return { hasShelf, shelfId: shelf.id, saved, receiptShown, sales: await request('/api/ventas/todas') };
     });
     assert.equal(result.hasShelf, true, 'A real shelf with no sales must be available for its preparation costs');

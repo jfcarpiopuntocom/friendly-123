@@ -299,6 +299,8 @@ test('dashboard filasComisiones + pintarComisiones show the same per-person amou
     const r = await page.evaluate(({ fn, datos }) => {
       const f = (por) => new Function('datos', 'agruparComisionesPor', fn + '; return filasComisiones();')(datos, por);
       window.OCDashComisiones.pintarConDatos(datos);
+      // C233: the Dashboard opens Commissions on all dates since Belen 2026-11-21; open the current month.
+      (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}})();
       const cm = document.getElementById('cm');
       const rank = cm.querySelector('details.cm-card');
       return { porPersona: f('persona'), porPercha: f('percha'), txt: cm.innerText, ranking: rank ? rank.innerText : '' };
