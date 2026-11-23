@@ -27,6 +27,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      let body='',type='text/html';
      if(u.pathname==='/old-sw.js'){body=legacySW;type='application/javascript'}
      else if(u.pathname==='/reenganchar.html')body=rescue;
+     else if(u.pathname==='/version.json'){body='{"shell":"f123-shell-v893","version":"v0.8.93"}';type='application/json'}
      else if(u.pathname==='/'){
        if(u.searchParams.has('_purge')){purgeHits++;body=freshHtml}
        else{normalHits++;body=freshHtml}
@@ -54,6 +55,7 @@ for(const [name,engine] of [['Chromium',chromium],['WebKit',webkit]]){
      assert.equal(await page.locator('#fresh').count(),0);
      assert.equal(await page.evaluate(()=>localStorage.getItem('f123_test_owner')),'preserved');
      // /reenganchar.html is outside the old SHELL, and therefore fetched from the network.
+     // Its network version probe prevents destructive cache cleanup while offline.
      await page.goto(base+'reenganchar.html',{waitUntil:'domcontentloaded'}).catch(e=>{
        if(!/interrupted|aborted/i.test(String(e.message)))throw e;
      });
