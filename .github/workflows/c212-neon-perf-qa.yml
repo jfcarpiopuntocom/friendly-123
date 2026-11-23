@@ -1,0 +1,28 @@
+name: C212 Gemini Neon PIN and Today source QA
+on:
+  push:
+    branches: [feat/c212-neon-boot-and-hoy-2-0]
+  pull_request:
+    branches: [master]
+  workflow_dispatch: {}
+permissions:
+  contents: read
+jobs:
+  exact-source-regressions:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Real initial load, multi-login, role restored, 2,500 sales, indices, duplicate IDs
+        run: |
+          set -euo pipefail
+          node --check src/app/app-inline-01.js
+          node --check docs/core/business-read-model.js
+          node --check docs/mock-backend.js
+          node --test test/p0-c200-initial-dashboard-after-auth.test.cjs test/p0-c197-opera-dashboard-hotpath.test.cjs
+          git diff --check
