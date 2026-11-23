@@ -634,6 +634,7 @@
     });
   }
   window.F123Relay = {
+    ckptFrameBytes: (cf && cf.ckptFrameBytes) || (fb && fb.ckptFrameBytes) || 768 * 1024,
     ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
     estadoCupo: function () { return capas.map(function (capa) {
       var c = leer(capa.key), f = leer(capa.key + "_fotos");

@@ -879,7 +879,7 @@
       /* v765: a compressed checkpoint written for Firebase (soloFb) never goes to another layer or a peer: the published
          v636 reads Supabase and would silently skip tag 7. It is derived data (operations are never touched), so it is
          dropped here and the next checkpoint is built for the layer that is active then. */
-      var capaFb = ws.relayLayer === "f123_relay_cupo_fb_v1";
+      var capaFb = ws.relayLayer === "f123_relay_cupo_fb_v1" || ws.relayLayer === "f123_relay_cupo_cf_v1";
       if (!capaFb && _outbox.pending.some(function (x) { return x.soloFb; })) {
         _durableQueue = _durableQueue.then(function () {
           return mutarOutbox(function () {
@@ -1716,7 +1716,7 @@
         return Promise.resolve().then(function () {
           return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
         }).then(function (packed) {
-          if (packed || cabeCrudo || !canal.ws || canal.ws.relayLayer !== "f123_relay_cupo_fb_v1") return packed;
+          if (packed || cabeCrudo || !canal.ws || (canal.ws.relayLayer !== "f123_relay_cupo_fb_v1" && canal.ws.relayLayer !== "f123_relay_cupo_cf_v1")) return packed;
           return _gzipYjs(full, false).then(function (gz) {
             if (gz) try { log("ckpt comprimido " + full.length + "B -> " + gz.length + "B en " + nombre); } catch (_) {}
             soloFb = !!gz;
@@ -3426,7 +3426,8 @@
     API.opsDoc.on("update", function (update, origin) {
       if (origin === "bc" || origin === "red" || (API.opsIdb && origin === API.opsIdb)) { pedirProcesarEventos(); return; }
       try { if (API.opsBc) API.opsBc.postMessage(update.buffer.slice ? update.buffer : update); } catch (_) {}
-      if (!API.modoCorte20Activo) API.opsCanal.enviarUpdate(update);
+      var cfOpsActivo = !!(API.opsCanal && API.opsCanal.ws && API.opsCanal.ws.relayLayer === "f123_relay_cupo_cf_v1");
+      if (!API.modoCorte20Activo || cfOpsActivo) API.opsCanal.enviarUpdate(update);
     });
     // Publicar al doc de ops cada venta/movimiento local (el op EXACTO de sync-realtime).
     window.addEventListener("oc-op-local", function (ev) { try { publicarOpLocal(ev.detail); } catch (_) {} });
