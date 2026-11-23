@@ -1,0 +1,56 @@
+name: C210 independent Safari recovery and PIN entry seal
+on:
+  push:
+    branches: [fix/c210-standalone-ios-pin-recovery-20261122]
+  workflow_dispatch: {}
+permissions:
+  contents: write
+jobs:
+  test-and-seal:
+    runs-on: ubuntu-24.04
+    container:
+      image: mcr.microsoft.com/playwright:v1.62.1-noble
+    defaults:
+      run:
+        shell: bash -e {0}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Build served PIN bundle, validate release and seal integrity
+        run: |
+          set -euo pipefail
+          node scripts/build-app-entry.cjs
+          node scripts/build-app-entry.cjs --check
+          node scripts/build-dashboard-entry.cjs --check
+          node scripts/gen-manifest.js
+          node scripts/release-control.cjs validate origin/master
+          bash check-sw.sh
+          node --check docs/auth-ui.min.js
+          node --check docs/sw.js
+      - name: Independent recovery and neighbor regression tests
+        run: |
+          set -euo pipefail
+          node --test test/p0-c210-standalone-ios-recovery.test.cjs test/p0-c209-pin-layout-and-update.test.cjs test/p0-c209-reengage-lifecycle.test.cjs test/p0-c180-version-adoption.test.cjs test/p0-c185-single-sw-check.test.cjs test/p0-purge-url-and-startup.test.cjs
+          node --test test/p0-c209-pin-layout.browser.cjs
+      - name: Commit ONLY deterministic generated shell files after checks
+        run: |
+          set -euo pipefail
+          git diff --check
+          unexpected=$(git diff --name-only | grep -vE '^docs/(auth-ui\.min\.js|version-manifest\.json)$' || true)
+          test -z "$unexpected" || { echo "Unexpected build artifact paths: $unexpected"; exit 1; }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/auth-ui.min.js docs/version-manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'release(C210): seal v893 independent Safari recovery bytes'
+            git push origin HEAD:fix/c210-standalone-ios-pin-recovery-20261122
+          fi
