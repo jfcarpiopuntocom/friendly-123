@@ -142,12 +142,23 @@
   }
   function selectOptions() {
     var select = container.querySelector('[data-commissions-person-select]');
-    if (!select || !state.grouped) return;
+    if (!select) return;
+    /* C249 (JFC 23 nov 2026, Belen: el pulldown Persona salia vacio): in All dates there is no month, so only people with a balance
+       THIS month showed up. The list is now balances + every associate in the full sales history already loaded in the app
+       (window._ocComHistorySales), so it is never empty and any associate can be chosen. */
+    var people = state.grouped ? state.grouped.people.slice() : [];
+    var known = new Set(people.map(function(p){return String(p.id);}));
+    (Array.isArray(root._ocComHistorySales) ? root._ocComHistorySales : []).forEach(function(v) {
+      var id = String(v && (v.promotoraId || v.asociadoNombre) || '');
+      if (!id || known.has(id)) return;
+      known.add(id); people.push({id:id, name:String(v.asociadoNombre || id)});
+    });
+    people.sort(function(a,b){return String(a.name).localeCompare(String(b.name));});
     var old = state.selected;
-    if (old && !state.grouped.people.some(function(p){return p.id === old;})) old = '';
+    if (old && !people.some(function(p){return String(p.id) === old;})) old = '';
     state.selected = old;
     select.replaceChildren();
-    [{id:'',name:tx('Todas las personas','All people')}].concat(state.grouped.people).forEach(function(p){
+    [{id:'',name:tx('Todas las personas','All people')}].concat(people).forEach(function(p){
       var o = document.createElement('option'); o.value=p.id; o.textContent=p.name; select.appendChild(o);
     });
     select.value = old;
@@ -259,6 +270,7 @@
     var had=!!container.querySelector('#comm-tab-person');
     if (!ensure()) return;
     setMode();
+    if (isPerson()) selectOptions(); // C249: a repaint recreates the pulldown empty
     if (isPerson() && !had) load();
   });
   observer.observe(container,{childList:true,subtree:false});
