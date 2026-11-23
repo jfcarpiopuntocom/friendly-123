@@ -677,7 +677,8 @@ test("cursor RPCs stay on the serving durable layer when the backup also opens",
   const seen = [];
   h.onmessage = event => seen.push(JSON.parse(event.data).k);
   const pull = JSON.stringify({k:'pull',rev:3,seq:120});
-  h.send(pull);
+  made[0].bufferedAmount = 512 * 1024;
+  assert.doesNotThrow(() => h.send(pull), 'the tiny read request remains available while writes fill the buffer');
   assert.equal(h.pullRelayLayer, 'f123_relay_cupo_v1');
   assert.equal(made[0].sent.includes(pull), true);
   assert.equal(alternate.sent.includes(pull), false);

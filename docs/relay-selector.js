@@ -599,7 +599,8 @@
     H.send = function (v) {
       var l = abiertas(), ok = false, err = null;
       // Each pull response must belong to the provider that owns the cursor.
-      if (typeof v === "string" && /^\{"k":"(?:head|pull)"/.test(v)) l = l.filter(function (x) { return x.orden === alimentador; });
+      var lectura = typeof v === "string" && /^\{"k":"(?:head|pull)"/.test(v);
+      if (lectura) l = l.filter(function (x) { return x.orden === alimentador; });
       if (cerradoH || !l.length) throw new DOMException("Socket is not open", "InvalidStateError");
       var n = bytes(v);
       // Preserve the existing checkpoint-only empty-buffer exception. The
@@ -609,7 +610,8 @@
         typeof v === "string" && /^\{"k":"ckpt"/.test(v);
       l.forEach(function (x) {
         var held = bufferCapa(x.ws);
-        if (held + n > CAP_BUFFER_CAPA && !(ckpt && held === 0 && x.ws.peerOnly !== true)) {
+        // Small read requests must drain history even while data writes fill the buffer.
+        if (held + n > CAP_BUFFER_CAPA && !(lectura && n <= 256) && !(ckpt && held === 0 && x.ws.peerOnly !== true)) {
           err = new DOMException("Native layer buffer full", "QuotaExceededError"); return;
         }
         try { x.ws.send(v); ok = true; } catch (e) { err = e; }
