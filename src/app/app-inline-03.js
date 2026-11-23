@@ -196,7 +196,7 @@ const _ocActSolaOn = true;
   }
   // C181: the PIN screen is the ONLY automatic navigation boundary.
   // Once authenticated inside the working app, never reload automatically.
-  function seguro() { return enPantallaPIN() && seguroCon(false); }
+  function seguro() { return window.__f123PurgeEnCurso !== true && enPantallaPIN() && seguroCon(false); }
   function seguroCon(sinRecuperacion) {
     try {
       // Never auto-reload while a notebook still needs local IDB recovery or
@@ -356,6 +356,7 @@ const _ocActSolaOn = true;
     });
   }
   async function revisar() {
+    if (window.__f123PurgeEnCurso === true) return;
     try {
       const r = await fetch("./version.json?ts=" + Date.now(), { cache: "no-store" });
       if (!r.ok) return;
@@ -393,6 +394,7 @@ const _ocActSolaOn = true;
   // E2: a takeover can already match version.json while this document is stale.
   var ultimoControladorSW = navigator.serviceWorker.controller;
   function onShellTomado() {
+    if (window.__f123PurgeEnCurso === true) return;
     var actual = navigator.serviceWorker.controller;
     if (!ultimoControladorSW) { ultimoControladorSW = actual; return; }
     if (!actual || actual === ultimoControladorSW) return;
