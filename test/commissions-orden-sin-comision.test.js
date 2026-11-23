@@ -21,6 +21,9 @@ test('Commissions: month summary first, commissioned products listed, the rest c
       await req(`/api/productos/${c.id}/venta`, 'POST', { cantidad: 1 });
       document.querySelector('[data-vista="comisiones"]').click();
       await new Promise((res) => setTimeout(res, 2500));
+      // C231: the month summary lives in the month view; all dates is the default since Belen 2026-11-21.
+      { const d = new Date(); cambiarMesComisiones(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')); }
+      await new Promise((res) => setTimeout(res, 2500));
       const sec = document.getElementById('comm-panel-product');
       const html = sec.innerHTML;
       const sin = document.getElementById('comm-sin-comision');

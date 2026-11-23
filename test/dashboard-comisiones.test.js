@@ -1,3 +1,4 @@
+// C231: since Belen 2026-11-21 the Dashboard opens Commissions on all dates; these checks open a month first.
 /* Bloque 6b (JFC 2026-09-24): Commissions es la estrella del dashboard. Se pinta
    desde la foto que manda la app, sin escribir dinero: pagar/corregir/devolver
    mandan a la app por deep-link. Rojo contra shell 382 (no existia #cm). */
@@ -15,6 +16,8 @@ test('dashboard paints Commissions first: month bar, totals, cards, deep-links a
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
     const r = await page.evaluate((d) => {
       window.OCDashComisiones.pintarConDatos(d);
+      // C231: open the current month (first month option); all dates is the default since Belen 2026-11-21.
+      (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}})();
       const cm = document.getElementById('cm');
       const txt = cm.innerText;
       const orden = [...document.querySelectorAll('#tablero .wrap > *')].map(e => e.id);
@@ -35,7 +38,7 @@ test('dashboard paints Commissions first: month bar, totals, cards, deep-links a
     assert.match(r.txt, /Ranking/); assert.ok(r.txt.indexOf('Ranking') > r.txt.indexOf('Mountain print'), 'ranking at the bottom');
     // vista por percha: pagar en la app y devoluciones
     const r2 = await page.evaluate(() => {
-      document.querySelector('[data-cm-vista="percha"]').click();
+      (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="percha"]').click();
       const cm = document.getElementById('cm');
       return { txt: cm.innerText, pagar: [...cm.querySelectorAll('a.pagar')].map(a => a.getAttribute('href')), recibo: cm.querySelectorAll('[data-cm-recibo]').length };
     });
@@ -48,7 +51,7 @@ test('dashboard paints Commissions first: month bar, totals, cards, deep-links a
     // mes anterior: totales de ese mes
     const r3 = await page.evaluate((prev) => { const s = document.getElementById('cm-mes'); s.value = prev; s.dispatchEvent(new Event('change')); return document.getElementById('cm').innerText; }, fx.prev);
     assert.match(r3, /\$50\.00/); assert.match(r3, /\$42\.50/);
-    await page.evaluate(() => { document.querySelector('[data-cm-vista="producto"]').click(); document.getElementById('puerta').style.display = 'none'; document.getElementById('cabecera').style.display = 'block'; document.getElementById('tablero').style.display = 'block'; window.scrollTo(0, 0); });
+    await page.evaluate(() => { (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="producto"]').click(); document.getElementById('puerta').style.display = 'none'; document.getElementById('cabecera').style.display = 'block'; document.getElementById('tablero').style.display = 'block'; window.scrollTo(0, 0); });
     await page.screenshot({ path: path.join(require('node:os').tmpdir(), 'friendly-dashboard-commissions.png') });
   } finally { await web.close(); }
 });

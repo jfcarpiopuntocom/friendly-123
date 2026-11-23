@@ -35,7 +35,8 @@ test('C151: one seller row, repeated receipt and empty split still preserve exis
 });
 test('C151: app and Dashboard continue to use exactly one read-only projector',()=>{
  const root=path.join(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
- assert.match(read('src/app/app-inline-01.js'),/OCCommissionHistory\.render/);
+ // C231: the app uses the same read-only projector through OCCommissionHistory.project (and renders its own cards).
+ assert.match(read('src/app/app-inline-01.js'),/OCCommissionHistory\.(render|project)/);
  assert.match(read('src/dashboard/dashboard-main.js'),/OCCommissionHistory\.render/);
  assert.match(read('docs/core/commission-history.js'),/Array\.isArray\(v\.reparto\)/);
 });

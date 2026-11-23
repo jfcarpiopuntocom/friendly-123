@@ -1,3 +1,4 @@
+// C231: since Belen 2026-11-21 the Dashboard opens Commissions on all dates; these checks open a month first.
 /* v448 GOLDEN hotfix regression: dashboard -> app must preserve the exact
    Commissions month. A payment deep-link without the month can highlight the
    right rack while leaving the app on a different period, which is unsafe for
@@ -42,7 +43,7 @@ test('RED v448: dashboard Pay in the app carries the selected commission month',
       // must not expose a payment link merely to satisfy this deep-link test.
       datos.liquidaciones[0].ajustes[0].montoComisionSocio = -20;
       window.OCDashComisiones.pintarConDatos(datos);
-      document.querySelector('[data-cm-vista="percha"]').click();
+      (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="percha"]').click();
       const current = document.querySelector('#cm a.pagar')?.getAttribute('href') || '';
       const sel = document.getElementById('cm-mes');
       sel.value = prev;
@@ -82,7 +83,7 @@ test('JFC 2026-10-09: product payment link preserves product scope and month', a
     await page.goto(pathToFileURL(path.resolve(__dirname, '../docs/dashboard.html')).href, { waitUntil: 'load' });
     const href = await page.evaluate((datos) => {
       window.OCDashComisiones.pintarConDatos(datos);
-      document.querySelector('[data-cm-vista="producto"]').click();
+      (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="producto"]').click();
       const card = [...document.querySelectorAll('#cm .cm-card')].find(el => /Mountain print/.test(el.textContent));
       return card?.querySelector('a.pagar')?.getAttribute('href') || '';
     }, fx.datos);
@@ -104,7 +105,7 @@ test('JFC 2026-10-09: product spanning racks links to product selection, never a
       const copy = { ...commissioned[0], id: 'fixture-second-rack', ubicacionId: 'u2', ubicacionNombre: 'Second rack', liquidada: false };
       clone.ventas.push(copy);
       window.OCDashComisiones.pintarConDatos(clone);
-      document.querySelector('[data-cm-vista="producto"]').click();
+      (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="producto"]').click();
       const card = [...document.querySelectorAll('#cm .cm-card')].find(el => /Mountain print/.test(el.textContent));
       return card?.querySelector('a.pagar')?.getAttribute('href');
     }, fx.datos);
@@ -130,7 +131,7 @@ test('v448 payout ledger: dashboard prefers exact payout-ledger due over stale l
       });
       (clone.liquidaciones || []).forEach(l => { l.stillDue = 0; l.estado = 'pagado'; });
       window.OCDashComisiones.pintarConDatos(clone);
-      document.querySelector('[data-cm-vista="producto"]').click();
+      (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="producto"]').click();
       const text = document.getElementById('cm').innerText;
       return { hasPay: !!document.querySelector('#cm a.pagar'), text };
     }, fx.datos);

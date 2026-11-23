@@ -10,7 +10,9 @@ function store(){const m=new Map();return {getItem:k=>m.has(k)?m.get(k):null,set
 // Carga solo el tramo recuperacionPendiente..marcarRecarga (hasta function intentar) con un window sintetico.
 function cargar(file,{yjs,ls}={}){
  const s=read(file);
- const a=s.indexOf('function recuperacionPendiente()'),b=s.indexOf('function intentar()',a);
+ const a=s.indexOf('function recuperacionPendiente()');let b=s.indexOf('function intentar()',a);
+ // C231: since C209 intentar is an async function; end the slice before the dangling "async" keyword.
+ if(/async\s*$/.test(s.slice(Math.max(a,b-8),b)))b=s.lastIndexOf('async',b);
  assert(a>0&&b>a,'helpers reales presentes en '+file);
  const window={OCYjs:yjs};
  const ctx={window,localStorage:ls||store(),sessionStorage:store(),Date,JSON,Array,String};

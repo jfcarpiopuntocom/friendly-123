@@ -1,3 +1,4 @@
+// C231: since Belen 2026-11-21 the Dashboard opens Commissions on all dates; these checks open a month first.
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -23,7 +24,7 @@ for (const originalMonth of [fx.mes, fx.prev]) {
             cantidad: 1, montoBruto: -100, montoComisionSocio: null, montoNetoDueno: null }] });
         const views = [];
         for (const view of ['producto', 'percha']) {
-          document.querySelector('[data-cm-vista="' + view + '"]').click();
+          (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="' + view + '"]').click();
           views.push({ text: document.getElementById('cm').innerText,
             pay: !!document.querySelector('#cm a.pagar'), none: !!document.querySelector('#cm .cm-chip.none'),
             pending: !!document.querySelector('#cm .cm-chip.pend') });
@@ -63,7 +64,7 @@ test('older remote snapshots preserve partial, credit and held residuals without
           comisionPct: 40, comisionAsociado: 40, netoCasa: 60, liquidada: false,
           comisionPendiente: s.due, comisionRetenida: s.held, reparto: s.reparto };
         window.OCDashComisiones.pintarConDatos({ ventas: [v], ajustesComision: [], liquidaciones: [], payouts: [], payoutConflicts: [], cobertura: s.cobertura });
-        document.querySelector('[data-cm-vista="producto"]').click();
+        (function(){var s=document.getElementById('cm-mes');if(s&&!document.querySelector('[data-cm-vista]')){var o=[].slice.call(s.options).find(function(x){return x.value});if(o){s.value=o.value;s.dispatchEvent(new Event('change'))}}}(),document).querySelector('[data-cm-vista="producto"]').click();
         const card = [...document.querySelectorAll('#cm .cm-card')].find(el => el.querySelector('.cm-h'));
         return { text: card.innerText, pay: !!card.querySelector('a.pagar') };
       });
