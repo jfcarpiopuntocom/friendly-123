@@ -371,6 +371,16 @@ const _ocActSolaOn = true;
       if (!vj || !vj.shell) return;
       if (manualPurgeReentry && !manualPurgeShell) manualPurgeShell = String(vj.shell);
       if (manualPurgeReentry && String(vj.shell) === manualPurgeShell) {
+        // Keep the freshly loaded document; upgrade an older controller in place.
+        try {
+          if (await shellDelSW() !== manualPurgeShell) {
+            const reg = await navigator.serviceWorker.getRegistration();
+            if (reg) {
+              await reg.update();
+              if (reg.waiting) reg.waiting.postMessage({ tipo: "skip-waiting" });
+            }
+          }
+        } catch (_) {}
         try { sessionStorage.removeItem(KP); } catch (_) {}
         return;
       }
