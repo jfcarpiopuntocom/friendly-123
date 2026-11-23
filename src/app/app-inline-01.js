@@ -1533,8 +1533,8 @@ async function pintarSaldoCartera(clienteId) {
     // que `texto` quedaba indefinido → ReferenceError → el saldo NO se pintaba
     // (ni crédito a favor ni deuda). Restaurada.
     const texto = info.saldo === 0
-      ? (integridadPendiente ? `${es ? 'Saldo registrado' : 'Recorded balance'} ${fmtMoney(0)}` : `${es ? 'Cuenta saldada' : 'Account settled'} · ${fmtMoney(0)}`)
-      : debe ? `${es ? "Deuda" : "Debt"} ${fmtMoney(-info.saldo)}` : `${es ? "Crédito" : "Credit"} ${fmtMoney(info.saldo)}`;
+      ? (integridadPendiente ? `${es ? 'Saldo registrado' : 'Recorded balance'} ${fmtMoney(0)}` : `${es ? 'Cuenta saldada · Pagado' : 'Account settled · Paid'} · ${fmtMoney(0)}`)
+      : debe ? `${es ? "Deuda" : "Debt"} ${fmtMoney(-info.saldo)}` : `${es ? "Pagado · Saldo a favor" : "Paid · Credit balance"} ${fmtMoney(info.saldo)}`;
     // #3 (JFC 2026-09-02): fecha coherente con el idioma activo en toda la app.
     const fmtFechaLoc = (ymd) => { try { const p = ymd.split("-").map(Number); return new Date(p[0], p[1] - 1, p[2]).toLocaleDateString((window.OCI18n && window.OCI18n.locale()) || "en-US"); } catch (_) { return ymd; } };
     // Ítems y expiración del crédito (abono): "el credit solo se puede gastar en
@@ -6998,41 +6998,52 @@ function cerrarFichaProducto(){ cerrarEditorComision(); }
 function _ocMesesConVentasSinLiquidar(campo, id){
   const ventas = Array.isArray(window._ocComHistorySales) ? window._ocComHistorySales : [], meses = new Set();
   ventas.forEach(v => {
-    if (String(v && v[campo]) !== String(id) || v.liquidada || !(Number(v.comisionAsociado) > 0)) return;
+    if (!v || v.anulada || v.cancelled || v.borrado || v.direccionComision === "asociadoPaga") return;
+    if (String(v[campo]) !== String(id) || v.liquidada || !(Number(v.comisionAsociado) > 0)) return;
     const m = String(v.mes || String(v.fecha || "").slice(0, 7));
     if (/^\d{4}-(0[1-9]|1[0-2])$/.test(m)) meses.add(m);
   });
   return [...meses].sort().slice(0, 12); // oldest first; shortcut: at most 12 months probed per tap
 }
+var _ocPayProbeSeq = 0;
 /* C243 (JFC 23 nov 2026: «El boton elige el mes mas antiguo en que la ficha si tiene algo para pagar. Si ese mes no tiene,
    prueba el siguiente»). Each candidate month is opened with the SAME ficha; the first one with a pay button wins.
    No month with a pay button -> the ficha of the current month stays open (its usual default). */
 async function pagarComisionDesdeProducto(productoId){
+  const seq = ++_ocPayProbeSeq;
   const meses = _ocMesComisiones ? [null] : _ocMesesConVentasSinLiquidar("productoId", productoId).concat([null]);
   let pagos = [];
   for (const m of meses) {
+    if (seq !== _ocPayProbeSeq) return;
     await abrirFichaProducto(productoId, m);
+    if (seq !== _ocPayProbeSeq) return;
     const caja = document.getElementById("oc-comision-caja");
     pagos = caja ? [...caja.querySelectorAll("[data-ficha-pay]")] : [];
     if (pagos.length) break;
   }
+  if (seq !== _ocPayProbeSeq) return;
   if (pagos.length === 1) pagos[0].click();
   else if (pagos[0]) { pagos[0].scrollIntoView({ block: "center" }); pagos[0].focus(); }
 }
 /* C243: rack/event Record payment in All dates: first month (oldest first) whose By rack view has a pay button for THIS
    rack; it is pressed directly when there is exactly one. Otherwise the current month opens on By rack. */
 async function pagarComisionPorPercha(rackId){
+  const seq = ++_ocPayProbeSeq;
   const id = String(rackId || "");
   const meses = id && id.indexOf("__") !== 0 ? _ocMesesConVentasSinLiquidar("ubicacionId", id) : [];
   const abrirMes = async (m) => { window._ocMesAuto = null; window._ocMesAutoHecho = true; window._ocComHistoryGroup = "mes"; _ocMesComisiones = m; window._ocVistaComisiones = "rack"; await cargarComisiones(); try { cambiarVistaComisiones("rack"); } catch (_) {} };
   for (const m of meses) {
+    if (seq !== _ocPayProbeSeq) return;
     await abrirMes(m);
+    if (seq !== _ocPayProbeSeq) return;
     const botones = [...document.querySelectorAll('[data-comm-pay-person]')].filter(b => String(b.dataset.payRack) === id);
     if (botones.length === 1) { botones[0].click(); return; }
     if (botones.length) { botones[0].scrollIntoView({ block: "center" }); botones[0].focus(); return; }
   }
+  if (seq !== _ocPayProbeSeq) return;
   let mes = "";
   try { const l = await (await fetch(`${API}/liquidaciones/meses`)).json(); const a = Array.isArray(l) && l.find(x => x && x.actual); if (a) mes = String(a.mes || ""); } catch (_) {}
+  if (seq !== _ocPayProbeSeq) return;
   if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(mes)) { const d = new Date(); mes = d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
   await abrirMes(mes);
 }
@@ -7159,8 +7170,10 @@ function filtrosComisionesHtml(ventas,f){
 function _ocComRepintarFiltros(){
   const sales=window._ocComHistorySales,cont=document.getElementById("listaComisiones");
   if(_ocMesComisiones||!Array.isArray(sales)||!cont)return;
+  const esPerson=window._ocVistaComisiones==="person"&&window.F123CommissionsByPerson&&typeof window.F123CommissionsByPerson.refresh==="function";
   const actions='<button type="button" class="tecla" onclick="exportarComisionesTotalCSV()" style="min-height:44px;">⤓ CSV</button>';
   cont.innerHTML=barraComisionesHtml([],actions)+resumenComisionesGlobalHtml(sales);
+  if(esPerson)window.F123CommissionsByPerson.refresh();
 }
 function ocComFiltroCambiar(k,v,on){
   const f=window._ocComFiltros=window._ocComFiltros||{comisionista:[],producto:[],percha:[],cliente:[]},a=f[k]||(f[k]=[]),i=a.indexOf(v);
@@ -7287,9 +7300,12 @@ function resumenComisionesGlobalHtml(sales){
       ?'<div data-comm-flecha style="margin-top:6px;" onclick="event.preventDefault();event.stopPropagation()">'+flechaComisionHtml("",m.direccion,m.productoId,g.label)+'</div>'
         +(m.revisarDir?'<div data-flecha-revisar style="margin-top:8px;border:2px solid #B0183E;padding:8px 10px;font-size:14px;font-weight:700;color:#B0183E;">'+escHtml(typeof t==="function"?t("flecha.ventaRevisar"):"Paid sales to review")+': '+m.revisarDir+'</div>':""):"";
     const sheetBtn=(rich10&&group==="producto"&&m&&m.productoId&&typeof abrirFichaProducto==="function")
-      ?'<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-open-sheet="'+escHtml(m.productoId)+'" data-comm-pay-from-product="" data-comm-pay-product="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionDesdeProducto(this.dataset.commPayProduct)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>':"";
-    // C242: racks/events also get Record payment in all dates (opens the current month on By rack, same pay buttons).
-    const rackPayBtn=(group==="percha"&&typeof cambiarMesComisiones==="function")
+      ? (m.pendCents > 0
+        ? '<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-open-sheet="'+escHtml(m.productoId)+'" data-comm-pay-from-product="" data-comm-pay-product="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionDesdeProducto(this.dataset.commPayProduct)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>'
+        : '<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="tecla" data-comm-open-sheet="'+escHtml(m.productoId)+'" onclick="event.preventDefault();event.stopPropagation();abrirFichaProducto(this.dataset.commOpenSheet)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Ver ficha de pagos":"See payment sheet")+'</button></div>')
+      : "";
+    // C242: racks/events also get Record payment in all dates when balance is due (opens the oldest unpaid month on By rack).
+    const rackPayBtn=(group==="percha"&&m&&m.pendCents>0&&typeof cambiarMesComisiones==="function")
       ?'<div style="margin-top:8px;" onclick="event.preventDefault();event.stopPropagation()"><button type="button" class="ir" data-comm-pay-rack-history="'+escHtml(g.id)+'" onclick="event.preventDefault();event.stopPropagation();pagarComisionPorPercha(this.dataset.commPayRackHistory)" style="min-height:44px;font-size:14px;margin:0;">'+(es?"Registrar pago":"Record payment")+'</button></div>':"";
     const period=group==="mes"&&/^\d{4}-(0[1-9]|1[0-2])$/.test(String(g.id))?
       '<button type="button" data-commissions-open-month="'+escHtml(g.id)+'" onclick="cambiarMesComisiones(this.dataset.commissionsOpenMonth)"'
@@ -8595,10 +8611,13 @@ async function procesarDeepLinkEditar() {
   var tipo = m[1].toLowerCase(), id = decodeURIComponent(m[2]);
   // El enlace de producto conserva su alcance mientras el teclado espera login.
   // oc-login reintenta; consumirlo antes dejaría al admin sin la ficha elegida.
+  var _sinSesionCom = tipo === "comisiones" && (!window.OCAuth || !window.OCAuth.rolActual());
   if ((tipo === "comisionproducto" || window.parent !== window) && (!window.OCAuth || !window.OCAuth.rolActual())) return;
   var _mesEditarM = _hashEditar.match(/[&?]mes=(\d{4}-(?:0[1-9]|1[0-2]))(?:&|$)/i);
   var _mesEditar = _mesEditarM ? _mesEditarM[1] : "";
-  try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
+  if (!_sinSesionCom) {
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
+  }
   var sel = (window.CSS && CSS.escape) ? CSS.escape(id) : id.replace(/"/g, '\\"');
   if (tipo === "venta") {
     var nav = document.querySelector('nav button[data-vista="escanear"]');
@@ -8658,6 +8677,7 @@ async function procesarDeepLinkEditar() {
        con su boton probado. Se abre Commissions y se resalta la tarjeta. */
     var navC = document.querySelector('nav button[data-vista="comisiones"]');
     if (navC) navC.click();
+    if (typeof cambiarVistaComisiones === "function") cambiarVistaComisiones("rack");
     (function buscar(i) {
       var card = document.querySelector('[data-liq-ubic="' + sel + '"]');
       if (card) {

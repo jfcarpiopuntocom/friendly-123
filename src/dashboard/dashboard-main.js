@@ -1218,6 +1218,38 @@
     w.document.open(); w.document.write(html); w.document.close();
     try { w.focus(); w.print(); } catch (_) {}
   }
+  function cmHayFiltrosActivos() {
+    return !!(cmDesde || cmHasta || Object.keys(cmFiltros).some(function (k) { return Array.isArray(cmFiltros[k]) && cmFiltros[k].length; }));
+  }
+  function cmFiltrosBoxHtml(es) {
+    if (!window.OCCommissionHistory || !window.OCCommissionHistory.facets) return "";
+    var fac = window.OCCommissionHistory.facets({ sales: datos.ventas || [], from: cmDesde, to: cmHasta, lang: es ? "es" : "en", zone: zonaNegocioDashboard() });
+    var nombresF = { comisionista: es ? "Comisionista" : "Associate", producto: es ? "Producto" : "Product", percha: es ? "Percha / evento" : "Rack / event", cliente: es ? "Cliente" : "Customer" };
+    var hayF = cmHayFiltrosActivos();
+    return '<div data-cm-filtros style="background:#fff;border:1px solid var(--border,#D7E0E8);border-radius:10px;padding:12px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;margin:8px 0;">'
+      + Object.keys(nombresF).map(function (k) {
+        var sel = cmFiltros[k] || [];
+        return '<details style="min-width:150px;"><summary style="min-height:44px;cursor:pointer;font-size:14px;font-weight:700;color:#0F1923;">' + esc(nombresF[k]) + (sel.length ? ' (' + sel.length + ')' : '') + '</summary>'
+          + '<div style="max-height:220px;overflow:auto;padding:4px 0;">'
+          + (fac[k] || []).map(function (o) { return '<label style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:#0F1923;"><input type="checkbox" data-cm-filtro="' + k + '" value="' + esc(o.id) + '"' + (sel.indexOf(o.id) >= 0 ? ' checked' : '') + '> ' + esc(o.name) + '</label>'; }).join("")
+          + '</div></details>';
+      }).join("")
+      + (hayF ? '<button type="button" data-cm-filtros-limpiar class="cm-key" style="min-height:44px;">' + (es ? "Quitar filtros" : "Clear filters") + '</button>' : "")
+      + '</div>';
+  }
+  function cmConectarFiltrosBox(cont) {
+    var desde = $("cm-desde"); if (desde) desde.addEventListener("change", function () { cmDesde = desde.value; pintarComisiones(); });
+    var hasta = $("cm-hasta"); if (hasta) hasta.addEventListener("change", function () { cmHasta = hasta.value; pintarComisiones(); });
+    cont.querySelectorAll("input[data-cm-filtro]").forEach(function (i) {
+      i.addEventListener("change", function () {
+        var k = i.getAttribute("data-cm-filtro"), v = i.value, a = cmFiltros[k] || (cmFiltros[k] = []), ix = a.indexOf(v);
+        if (i.checked && ix < 0) a.push(v); else if (!i.checked && ix >= 0) a.splice(ix, 1);
+        pintarComisiones();
+      });
+    });
+    var limpiar = cont.querySelector("[data-cm-filtros-limpiar]");
+    if (limpiar) limpiar.addEventListener("click", function () { cmDesde = ""; cmHasta = ""; cmFiltros = { comisionista: [], producto: [], percha: [], cliente: [] }; pintarComisiones(); });
+  }
   function pintarComisionesTodas() {
     var cont=$("cm");if(!cont)return;
     var es=false;try{es=localStorage.getItem("f123_lang")==="es";}catch(_){}
@@ -1234,23 +1266,8 @@
       +'<label style="font-size:14px;">'+(es?"Ver por":"Group by")+' <select id="cm-grupo" style="'+inputStyle+'">'
       +labels.map(function(pair){return '<option value="'+pair[0]+'"'+(cmGrupo===pair[0]?' selected':'')+'>'+pair[1]+'</option>';}).join("")
       +'</select></label></div>';
-    var canRead=(!datos.cobertura||datos.cobertura.ventas!==false);
-    // C247: cumulative filter lists (checkboxes, several at once). Options come from the sales inside the date range.
-    var filtrosHtml="";
-    if(canRead&&window.OCCommissionHistory&&window.OCCommissionHistory.facets){
-      var fac=window.OCCommissionHistory.facets({sales:datos.ventas||[],from:cmDesde,to:cmHasta,lang:es?"es":"en",zone:zonaNegocioDashboard()});
-      var nombresF={comisionista:es?"Comisionista":"Associate",producto:es?"Producto":"Product",percha:es?"Percha / evento":"Rack / event",cliente:es?"Cliente":"Customer"};
-      var hayF=false;
-      filtrosHtml='<div class="cm-card" data-cm-filtros style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;margin:8px 0;">'
-        +Object.keys(nombresF).map(function(k){
-          var sel=cmFiltros[k]||[];if(sel.length)hayF=true;
-          return '<details style="min-width:150px;"><summary style="min-height:44px;cursor:pointer;font-size:14px;font-weight:700;color:#0F1923;">'+esc(nombresF[k])+(sel.length?' ('+sel.length+')':'')+'</summary>'
-            +'<div style="max-height:220px;overflow:auto;padding:4px 0;">'
-            +(fac[k]||[]).map(function(o){return '<label style="display:flex;align-items:center;gap:8px;min-height:44px;font-size:14px;color:#0F1923;"><input type="checkbox" data-cm-filtro="'+k+'" value="'+esc(o.id)+'"'+(sel.indexOf(o.id)>=0?' checked':'')+'> '+esc(o.name)+'</label>';}).join("")
-            +'</div></details>';}).join("")
-        +(hayF?'<button type="button" data-cm-filtros-limpiar class="cm-key" style="min-height:44px;">'+(es?"Quitar filtros":"Clear filters")+'</button>':"")
-        +'</div>';
-    }
+    var canRead=(!datos.cobertura||(datos.cobertura.ventas!==false&&datos.cobertura.liquidaciones!==false&&datos.cobertura.ajustesComision!==false));
+    var filtrosHtml=canRead?cmFiltrosBoxHtml(es):"";
     var report=canRead&&window.OCCommissionHistory
       ? window.OCCommissionHistory.render({sales:datos.ventas||[],from:cmDesde,to:cmHasta,group:cmGrupo,filtros:cmFiltros,
           lang:es?"es":"en",zone:zonaNegocioDashboard()})
@@ -1268,26 +1285,30 @@
     var pendHtml=canRead&&(pendHoy>0||Object.keys(deudas).length)?'<div class="cm-card" data-comm-pending-now style="margin:8px 0;"><div class="et cm-rojo">'+(es?"Por pagar":"Still to pay")+' · '+esc(cmEtiquetaMes(cmMesActual()))+'</div><div class="n cm-rojo">'+money(pendHoy||0)+'</div>'+enlacesPago+'</div>':"";
     cont.innerHTML=toolbar+filtrosHtml+pendHtml+report;
     var sel=$("cm-mes");if(sel)sel.addEventListener("change",function(){cmMes=sel.value||null;pintarComisiones();});
-    var desde=$("cm-desde");if(desde)desde.addEventListener("change",function(){cmDesde=desde.value;pintarComisiones();});
-    var hasta=$("cm-hasta");if(hasta)hasta.addEventListener("change",function(){cmHasta=hasta.value;pintarComisiones();});
+    cmConectarFiltrosBox(cont);
     var grupo=$("cm-grupo");if(grupo)grupo.addEventListener("change",function(){cmGrupo=grupo.value;pintarComisiones();});
-    cont.querySelectorAll("input[data-cm-filtro]").forEach(function(i){i.addEventListener("change",function(){
-      var k=i.getAttribute("data-cm-filtro"),v=i.value,a=cmFiltros[k]||(cmFiltros[k]=[]),ix=a.indexOf(v);
-      if(i.checked&&ix<0)a.push(v);else if(!i.checked&&ix>=0)a.splice(ix,1);
-      pintarComisiones();});});
-    var limpiar=cont.querySelector("[data-cm-filtros-limpiar]");if(limpiar)limpiar.addEventListener("click",function(){cmFiltros={comisionista:[],producto:[],percha:[],cliente:[]};pintarComisiones();});
   }
   function pintarComisiones() {
     var cont = $("cm"); if (!cont) return;
     if (cmMes === null) { pintarComisionesTodas(); return; }
     var meses = cmMeses(); var actual = cmMesActual();
     if (!cmMes || meses.indexOf(cmMes) < 0) cmMes = actual;
+    var es = false; try { es = localStorage.getItem("f123_lang") === "es"; } catch (_) {}
+    var hayF = cmHayFiltrosActivos();
     var filas = cmFilas(cmMes);
+    if (hayF && window.OCCommissionHistory && typeof window.OCCommissionHistory.filterSales === "function") {
+      filas = window.OCCommissionHistory.filterSales({ sales: filas, from: cmDesde, to: cmHasta, filtros: cmFiltros, zone: zonaNegocioDashboard() });
+    }
     var conCom = filas.filter(function (v) { return v.comisionPct != null; });
-    var liqs = (cmMes === actual) ? (datos.liquidaciones || []) : [];
+    var liqs = (cmMes === actual && !hayF) ? (datos.liquidaciones || []) : [];
     var bruto = conCom.reduce(function (a, v) { return a + (Number(v.precioUnit) || 0) * (Number(v.cantidad) || 1); }, 0);
     var socio = conCom.reduce(function (a, v) { return a + (Number(v.comisionAsociado) || 0); }, 0);
-    var pend = cmSaldosPeriodo(cmMes).reduce(function (a, r) { return a + Math.max(0, r.due); }, 0);
+    var pendRows = hayF ? cmSaldos(filas) : cmSaldosPeriodo(cmMes);
+    if (hayF && Array.isArray(cmFiltros.comisionista) && cmFiltros.comisionista.length) {
+      var aSet = cmFiltros.comisionista.map(String);
+      pendRows = pendRows.filter(function (r) { return aSet.indexOf(String(r.payeeId || "")) >= 0; });
+    }
+    var pend = pendRows.reduce(function (a, r) { return a + Math.max(0, r.due); }, 0);
     var faltanMontos = comisionesConImportePendiente(filas);
     if (faltanMontos) { bruto = null; socio = null; pend = null; }
     var casa = bruto === null || socio === null ? null : bruto - socio;
@@ -1360,13 +1381,17 @@
       return '<div class="cm-card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;"><div><h3 class="cm-h">' + esc(g.nombre) + (g.sku ? ' <span style="font-weight:400;font-size:13px;">' + esc(g.sku) + "</span>" : "") + "</h3>" + (sub ? '<div class="cm-sub">' + sub + "</div>" : "") + "</div>" + estado + "</div>" + barra + stats + extra + acciones + "</div>";
     };
     var rank = cmRanking(conCom);
+    var mInStyle = 'min-height:42px;padding:7px;border:1px solid #19354B;border-radius:6px;background:#fff;color:#0F1923;font:inherit;';
     cont.innerHTML =
       '<h2 id="cm-titulo" style="font-family:var(--font-display);font-size:22px;margin:0 0 8px;">Commissions</h2>' +
       '<div class="cm-card cm-bar">' +
         '<label>Month <select id="cm-mes"><option value="">' + (function(){try{return localStorage.getItem("f123_lang")==="es"?"Todo el historial":"All dates";}catch(_){return "All dates";}})() + '</option>' + meses.map(function (m) { var p = cmPendienteDe(m); return '<option value="' + m + '"' + (m === cmMes ? " selected" : "") + ">" + esc(cmEtiquetaMes(m)) + (m === actual ? " (current)" : "") + (p > 0 ? " · " + money(p) + " still to pay" : "") + "</option>"; }).join("") + "</select></label>" +
+        '<label style="font-size:14px;">' + (es ? "Desde" : "From") + ' <input id="cm-desde" type="date" value="' + esc(cmDesde) + '" style="' + mInStyle + '"></label>' +
+        '<label style="font-size:14px;">' + (es ? "Hasta" : "To") + ' <input id="cm-hasta" type="date" value="' + esc(cmHasta) + '" style="' + mInStyle + '"></label>' +
         atrasados.map(function (m) { return '<button type="button" class="cm-key rojo" data-cm-mes="' + m + '" title="Commissions still unpaid from earlier months">' + esc(cmEtiquetaMes(m)) + " · " + money(cmPendienteDe(m)) + "</button>"; }).join("") +
         '<div style="display:flex;gap:6px;"><button type="button" class="cm-key' + (cmVista === "producto" ? " on" : "") + '" data-cm-vista="producto">By product / SKU</button><button type="button" class="cm-key' + (cmVista === "percha" ? " on" : "") + '" data-cm-vista="percha">By rack / event</button></div>' +
       "</div>" +
+      cmFiltrosBoxHtml(es) +
       '<div class="cm-grid">' + k("Sales with commission", bruto) + k("Associates take", socio) + k("House keeps", casa, "cm-verde") + k("Still to pay", pend, pend > 0 ? "cm-rojo" : "cm-verde") + "</div>" +
       (bruto > 0 ? (function () {
         var s = Math.max(0, socio), c = Math.max(0, casa), t = s + c; if (t <= 0) return "";
@@ -1378,6 +1403,7 @@
       (grupos.length ? grupos.map(tarjeta).join("") : '<div class="cm-card">No commissioned sales this month. Partner, consignment and event racks appear here on their own as soon as they sell.</div>') +
       (rank.length ? '<details class="cm-card" style="padding:10px 16px;"><summary>Ranking · who earned the most this month</summary><table style="margin-top:8px;">' + rank.map(function (r, i) { return "<tr><td>" + (i + 1) + ". " + esc(r.nombre) + " <small>(" + r.ventas + " sale" + (r.ventas === 1 ? "" : "s") + ")</small></td><td class=\"num\">" + money(r.monto) + "</td></tr>"; }).join("") + "</table></details>" : "");
     var sel = $("cm-mes"); if (sel) sel.addEventListener("change", function () { cmMes = sel.value || null; pintarComisiones(); });
+    cmConectarFiltrosBox(cont);
     cont.querySelectorAll("[data-cm-mes]").forEach(function (b) { b.addEventListener("click", function () { cmMes = b.getAttribute("data-cm-mes"); pintarComisiones(); }); });
     cont.querySelectorAll("[data-cm-vista]").forEach(function (b) { b.addEventListener("click", function () { cmVista = b.getAttribute("data-cm-vista"); pintarComisiones(); }); });
     cont.querySelectorAll("[data-cm-recibo]").forEach(function (b) { b.addEventListener("click", function () { cmRecibo(b.getAttribute("data-cm-recibo"), cmMes); }); });

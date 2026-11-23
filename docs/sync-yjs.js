@@ -827,9 +827,12 @@
       // Only an advertised native RPC checkpoint may exceed the 512KiB local
       // queue guard, and only with an empty transport buffer. Peer/OP frames
       // retain the old bound. Never allow an unbounded persisted envelope.
-      var largeCheckpoint = ckptRPC && !ws.peerOnly &&
-        window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES &&
-        bytes <= 1088 * 1024 && buffered === 0;
+      var _advLim = window.F123Relay && Number(window.F123Relay.ckptFrameBytes);
+      var _maxRpc = Number.isSafeInteger(_advLim) && _advLim >= MAX_CKPT_CIPHER_BYTES
+        ? (ws.relayLayer === "f123_relay_cupo_cf_v1" ? Math.min(2800 * 1024, Math.ceil(Math.min(1536 * 1024, _advLim) * 4 / 3) + 1024) : 1088 * 1024)
+        : 0;
+      var largeCheckpoint = ckptRPC && !ws.peerOnly && _maxRpc > 0 &&
+        bytes <= _maxRpc && buffered === 0;
       if (!largeCheckpoint && buffered + bytes > MAX_BUFFERED_BYTES) return "blocked";
       try { ws.send(value); _lastRelayProgressAt = Date.now(); _cupoRechazado = false; return "sent"; }
       // v647: a heavy frame over budget waits in the outbox and the socket stays up. A budget refusal is an answer from a
@@ -1377,6 +1380,17 @@
       }
       if (valido && Number(r.rev) === _pullCursor.rev && Number(r.seq) === _pullCursor.seq) {
         estado.enCurso = false;
+        // v753+v0.9.17: expose verified HEAD access + record Firebase recovery BEFORE ancestor rescue
+        // so downloaded sales/catalog apply immediately and CF/FB stop thrashing on unchanged history.
+        if (typeof nombre === "string" && nombre === "catalogo" && typeof canal.accesoListo === "function" &&
+            !canal.headAcceso && !Object.keys(partesEntrantes).length) {
+          canal.headAcceso = true;
+          if (canal.recuperando && deudaPendiente() && API._store && canal.accesoListo()) API._store.aplicar();
+        }
+        if ((estado.pullAplicado === true || estado.validacionFinal === true) && !Object.keys(partesEntrantes).length &&
+            sock.relayLayer === "f123_relay_cupo_fb_v1" && typeof marcarReplayCifradoAplicado === "function") {
+          marcarReplayCifradoAplicado(sock);
+        }
         // One Firebase-only ancestor sweep after a verified HEAD when a
         // suspicious CKPT has hidden the genuine historical Yjs parent.
         // Never rewind the last IDB-proven durable cursor or certify a PIN.
@@ -1394,13 +1408,6 @@
           estado.rescateCausalAvanzo = false;
           estado.rescateVectorInicio = Y.encodeStateVector(doc);
           return pedirPagina(sock, estado, true);
-        }
-        // v753: everything this durable layer holds was read. It does NOT end recovery; it only lets PIN/role
-        // metadata that are already causally complete reach the app (see canal.accesoListo).
-        if (typeof nombre === "string" && nombre === "catalogo" && typeof canal.accesoListo === "function" &&
-            !canal.headAcceso && !Object.keys(partesEntrantes).length) {
-          canal.headAcceso = true;
-          if (canal.recuperando && deudaPendiente() && API._store && canal.accesoListo()) API._store.aplicar(); // without debt the existing release below applies once
         }
         // Sync3: a matching relay HEAD cannot prove missing Yjs causal parents.
         // Re-read only after the LAST PROVEN CLEAN cut and only using an already
@@ -1734,8 +1741,11 @@
            v765: un navegador sin DecompressionStream lo lee con _gunzipJs (mismo resultado, verificado por CRC32).
            Es el mismo estado Yjs completo, solo comprimido: no se descarta ningun dato.
            PARA REVERTIR: borrar el segundo .then (vuelve a omitirse si no cabe). */
-        var cabeCrudo = full.length + 29 <= (window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
-          ? MAX_CKPT_CIPHER_BYTES : (MAX_CKPT_RPC_BYTES - 128) * 3 / 4);
+        var _advCk = window.F123Relay && Number(window.F123Relay.ckptFrameBytes);
+        var ckptCipherLimit = Number.isSafeInteger(_advCk) && _advCk >= MAX_CKPT_CIPHER_BYTES
+          ? (canal.ws && canal.ws.relayLayer === "f123_relay_cupo_cf_v1" ? Math.min(1536 * 1024, _advCk) : MAX_CKPT_CIPHER_BYTES)
+          : 0;
+        var cabeCrudo = full.length + 29 <= (ckptCipherLimit || (MAX_CKPT_RPC_BYTES - 128) * 3 / 4);
         var soloFb = false;
         return Promise.resolve().then(function () {
           return API.rollout && API.rollout.gzipWrite ? _gzipYjs(full, false) : null;
@@ -1751,8 +1761,6 @@
           var useful = packed && packed.length + 1 < full.length;
           var payload = useful ? packed : full;
           // A new native adapter can persist larger ciphertext via RPC, never broadcast.
-          var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
-            ? MAX_CKPT_CIPHER_BYTES : 0;
           if (!useful && full.length + 29 > (ckptCipherLimit || (MAX_CKPT_RPC_BYTES - 128) * 3 / 4)) {
             var compact = _compactarYjsSinCambiarCausalidad(Y, full);
             if (compact) payload = compact;
@@ -1764,8 +1772,6 @@
           var ckpt = { k: "ckpt", ack: 1, id: "ck-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8),
             v: 2, rev: checkpointCursor.rev, seq: checkpointCursor.seq, lam: Date.now(), c: _b64(buf) };
           if (soloFb) ckpt.soloFb = 1; // v765: local outbox mark only (enviarDurable strips it); see drenarDurable
-          var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === MAX_CKPT_CIPHER_BYTES
-            ? MAX_CKPT_CIPHER_BYTES : 0;
           if (ckptCipherLimit ? buf.byteLength > ckptCipherLimit : JSON.stringify(ckpt).length > MAX_CKPT_RPC_BYTES) {
             diagnosticarCkpt("snapshot-over-limit", buf.byteLength);
             try { log("ckpt fuera del límite de RPC (" + buf.byteLength + "B) en " + nombre); } catch (_) {}
@@ -2615,7 +2621,8 @@
     });
     var encrypted = update.byteLength + 29;
     var wire = Math.ceil(encrypted * 4 / 3) + 128;
-    var ckptCipherLimit = window.F123Relay && window.F123Relay.ckptFrameBytes === 768 * 1024 ? 768 * 1024 : 0;
+    var _advMed = window.F123Relay && Number(window.F123Relay.ckptFrameBytes);
+    var ckptCipherLimit = Number.isSafeInteger(_advMed) && _advMed >= 768 * 1024 ? Math.min(1536 * 1024, _advMed) : 0;
     return { canal: nombre, bytesPlano: update.byteLength, bytesCifrados: encrypted,
       entradas: entries, dataImageInline: inline,
       hidratado: !!(idb && idb.synced === true && canal && canal.recuperando === false &&

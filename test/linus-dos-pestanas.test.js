@@ -104,15 +104,18 @@ test('without Web Locks the compatibility tab guard remains available',async()=>
   const ctx=await web.newContext();
   await ctx.addInitScript(()=>{Object.defineProperty(navigator,'locks',{value:undefined});window.WebSocket=class{constructor(){this.readyState=3}send(){}close(){}addEventListener(){}removeEventListener(){}};});
   const base=`http://127.0.0.1:${srv.address().port}/`;
-  const first=await ctx.newPage();await first.goto(base,{waitUntil:'load'});
-  const second=await ctx.newPage();await second.goto(base,{waitUntil:'load'});
+  const first=await ctx.newPage();await first.goto(base,{waitUntil:'networkidle'});
+  await first.waitForFunction(()=>window.__ocMockBackendReady===true);
+  const second=await ctx.newPage();await second.goto(base,{waitUntil:'networkidle'});
+  await second.waitForFunction(()=>window.__ocMockBackendReady===true);
   // JFC 2026-11-11: sin navigator.locks tampoco se pinta ningun anuncio ni se rechaza una venta.
   await second.waitForTimeout(300);
   assert.equal(await second.locator('#oc-doble-tab').count(),0,'no full-screen notice without Web Locks');
   const write=page=>page.evaluate(async()=>{window.OCAuth={rolActual:()=> 'dueno'};const r=await fetch('/api/ubicaciones',{method:'POST',body:JSON.stringify({nombre:'Synthetic guarded rack '+Math.random(),tipo:'propio'})});return r.status;});
   assert.equal(await write(second),200,'the second tab writes without Web Locks; IndexedDB revision arbitrates');
   assert.equal(await write(first),200,'the first tab stays usable');
-  await first.close();await second.reload({waitUntil:'load'});
+  await first.close();await second.reload({waitUntil:'networkidle'});
+  await second.waitForFunction(()=>window.__ocMockBackendReady===true);
   assert.equal(await second.locator('#oc-doble-tab').count(),0);
   assert.equal(await write(second),200,'still usable after the other tab closes');
  }finally{await web.close();srv.close();}

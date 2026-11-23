@@ -249,6 +249,13 @@
     fb.leerHead(url).then(function (n) {
       sumarBajada(capaFb, null, url);
       if (!n || !(n.rev || n.seq) || ws.readyState !== 1) return;
+      var hv = n.rev + ":" + n.seq;
+      anotarHead(url, hv);
+      if (headAplicado(url) === hv) return;
+      if (capa.relay === cf && OTRA_CAPA_LEER_MS) {
+        leerFirebase(ws, url);
+        return;
+      }
       var c = leer(capa.key); c.pausaHasta = Date.now() + PAUSA_MS; guardar(capa.key, c);
       try { ws.close(1013, "layer empty; next durable layer has data"); } catch (_) {}
     }).catch(function () {});
@@ -610,8 +617,10 @@
       var n = bytes(v);
       // Preserve the existing checkpoint-only empty-buffer exception. The
       // transport still enforces its native RPC and daily quota separately.
-      var ckpt = n > CAP_BUFFER_CAPA && n <= 1088 * 1024 &&
-        window.F123Relay.ckptFrameBytes === 768 * 1024 &&
+      var advCk = Number(window.F123Relay.ckptFrameBytes);
+      var ckptMax = Number.isSafeInteger(advCk) && advCk >= 768 * 1024
+        ? (advCk >= 1536 * 1024 ? 2050 * 1024 : 1088 * 1024) : 0;
+      var ckpt = ckptMax > 0 && n > CAP_BUFFER_CAPA && n <= ckptMax &&
         typeof v === "string" && /^\{"k":"ckpt"/.test(v);
       l.forEach(function (x) {
         var held = bufferCapa(x.ws);
@@ -645,15 +654,28 @@
     });
     return H;
   }
-  // C224: before PIN unlock, CF layer cannot request a ticket and pauses. On oc-login, release that pause immediately.
+  // C224: before PIN unlock, CF layer cannot request a ticket and pauses. On oc-login, release that pause immediately
+  // unless an un-recovered non-empty Firebase catch-up is actively running for a room.
   if (cf && typeof window !== "undefined" && typeof window.addEventListener === "function") {
     window.addEventListener("oc-login", function () {
       try {
-        var c = leer("f123_relay_cupo_cf_v1");
-        if (c.pausaHasta > Date.now()) { c.pausaHasta = 0; guardar("f123_relay_cupo_cf_v1", c); }
+        var fbNeedsRead = function (u) {
+          if (_fallbackRecovery[u]) return true;
+          var hv = headVisto(u);
+          if (!hv || hv === "0:0") return false;
+          return headAplicado(u) !== hv;
+        };
+        var activelyRecoveringFb = Object.keys(_sondasWs).some(function (u) {
+          var s = _sondasWs[u];
+          return s && s.ws && s.ws.readyState === 1 && s.ws.relayLayer !== "f123_relay_cupo_cf_v1" && fbNeedsRead(u);
+        }) || Object.keys(_fallbackRecovery).some(function (u) { return !!_fallbackRecovery[u]; });
+        if (!activelyRecoveringFb) {
+          var c = leer("f123_relay_cupo_cf_v1");
+          if (c.pausaHasta > Date.now()) { c.pausaHasta = 0; guardar("f123_relay_cupo_cf_v1", c); }
+        }
         Object.keys(_sondasWs).forEach(function (u) {
           var s = _sondasWs[u];
-          if (s && s.ws && s.ws.readyState === 1 && s.ws.relayLayer !== "f123_relay_cupo_cf_v1") {
+          if (s && s.ws && s.ws.readyState === 1 && s.ws.relayLayer !== "f123_relay_cupo_cf_v1" && !fbNeedsRead(u)) {
             try { s.ws.close(1012, "auth ready; upgrading to preferred layer"); } catch (_) {}
           }
         });
@@ -661,8 +683,7 @@
     });
   }
   window.F123Relay = {
-    ckptFrameBytes: (cf && cf.ckptFrameBytes) || (fb && fb.ckptFrameBytes) || 768 * 1024,
-    ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || undefined,
+    ckptFrameBytes: (capas[0] && capas[0].relay.ckptFrameBytes) || (cf && cf.ckptFrameBytes) || (fb && fb.ckptFrameBytes) || undefined,
     estadoCupo: function () { return capas.map(function (capa) {
       var c = leer(capa.key), f = leer(capa.key + "_fotos");
       return { capa: capa.key, dia: c.dia, up: c.up, down: c.down, usable: usable(capa),

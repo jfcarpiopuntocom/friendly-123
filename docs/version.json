@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.19",
+  "version": "v0.9.21",
   "fecha": "2026-11-23",
-  "changelog": "v0.9.19 C248: Commissions de la app en todas las fechas con filtros acumulativos, igual que el panel: rango de fechas + comisionista + producto + percha + cliente a la vez; el CSV respeta los mismos filtros.",
+  "changelog": "v0.9.21 C246+C250: migracion cifrada al canal privado y lectura de respaldo Firebase (ventas, comisiones, clientes, movimientos); By artist/associate en todas las fechas con Persona y filtros acumulativos; filtros acumulativos mensuales en Panel; clientes borrado monotono, etiqueta Pagado/Saldo a favor, two-tab-sales ready guard y Updating.",
   "requerida": false,
-  "shell": "f123-shell-v919",
+  "shell": "f123-shell-v921",
   "apagar": [],
-  "releaseName": "v0.9.19",
-  "cacheGeneration": "golden456"
+  "releaseName": "v0.9.21",
+  "cacheGeneration": "golden458"
 }

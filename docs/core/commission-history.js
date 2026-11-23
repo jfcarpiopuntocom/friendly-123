@@ -94,9 +94,23 @@
   function escape(value){return String(value==null?"":value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");}
   /* C247 (JFC 23 nov 2026, Belen: «los filtros deben poder sumarse»): cumulative filters. Every non-empty list narrows the SAME set of
      sales (AND between filters, OR inside one filter), together with the date range. Ids are the ones the groups already use. */
+  function _saleAssociates(v,lang){
+    if(Array.isArray(v.reparto)&&v.reparto.length>0){
+      return v.reparto.map(function(r,i){
+        var rol=String(r&&r.rol||"");
+        var fallback=rol==="asistente"?v.asistenteNombre:
+          rol==="vendedor"?v.asociadoNombre:
+          (i===1?v.asistenteNombre:v.asociadoNombre);
+        var name=safeName(r&&r.nombre,safeName(fallback,lang==="es"?"Comisionista sin nombre":"Unnamed associate"));
+        var num=finite(r&&r.monto);
+        return {id:String(r&&(r.promotoraId||r.payeeId)||name),name:name,commissionCents:num===null?null:cents(num)};
+      });
+    }
+    var a=String(v.promotoraId||v.asociadoNombre||"");
+    return a?[{id:a,name:safeName(v.asociadoNombre,a),commissionCents:null}]:[];
+  }
   function _idsDe(v){
-    var pers=[String(v.promotoraId||v.asociadoNombre||"")];
-    if(Array.isArray(v.reparto))v.reparto.forEach(function(r){pers.push(String(r&&(r.promotoraId||r.payeeId||r.nombre)||""));});
+    var pers=_saleAssociates(v,"en").map(function(a){return a.id;});
     return {
       comisionista:pers.filter(Boolean),
       producto:[String(v.productoId||v.productoNombre||"")],
@@ -116,18 +130,20 @@
     }
     return true;
   }
-  // Options for the filter lists: from the sales inside the date range only (never narrowed by the other filters), so choices never vanish.
+  // Options for the filter lists: from the valid sales inside the date range only (never narrowed by the other filters), so choices never vanish.
   function facets(input){
     input=input||{};
     var from=/^\d{4}-\d{2}-\d{2}$/.test(input.from||"")?input.from:"",to=/^\d{4}-\d{2}-\d{2}$/.test(input.to||"")?input.to:"";
     var lang=input.lang==="es"?"es":"en",zone=businessZone(input.zone);
-    var out={comisionista:new Map(),producto:new Map(),percha:new Map(),cliente:new Map()};
+    var out={comisionista:new Map(),producto:new Map(),percha:new Map(),cliente:new Map()},seen=new Set();
     (Array.isArray(input.sales)?input.sales:[]).forEach(function(v){
-      if(!v||typeof v!=="object")return;
+      if(!v||typeof v!=="object"||v.anulada||v.cancelled||v.borrado)return;
+      var rid=v.id==null?"":String(v.id);
+      if(rid){if(seen.has(rid))return;seen.add(rid);}
       var day=keyDay(v.fechaLocal||v.fecha,zone);
       if(from&&(!day||day<from))return;
       if(to&&(!day||day>to))return;
-      var a=String(v.promotoraId||v.asociadoNombre||"");if(a&&!out.comisionista.has(a))out.comisionista.set(a,safeName(v.asociadoNombre,a));
+      _saleAssociates(v,lang).forEach(function(a){if(a.id&&!out.comisionista.has(a.id))out.comisionista.set(a.id,a.name);});
       var p=String(v.productoId||v.productoNombre||"");if(p&&!out.producto.has(p))out.producto.set(p,safeName(v.productoNombre,p));
       var u=String(v.ubicacionId||v.ubicacionNombre||"");if(u&&!out.percha.has(u))out.percha.set(u,safeName(v.ubicacionNombre,u));
       var c=String(v.clienteId||v.clienteNombre||"");if(c&&!out.cliente.has(c))out.cliente.set(c,safeName(v.clienteNombre,c));
@@ -158,6 +174,8 @@
     if(from&&to&&from>to)return {group:group,from:from,to:to,lang:lang,zone:zone,
       invalidRange:true,rows:[],totals:null,groups:[]};
     var all=Array.isArray(input.sales)?input.sales:[];
+    var assocSel=(input.filtros&&Array.isArray(input.filtros.comisionista)&&input.filtros.comisionista.length)
+      ?input.filtros.comisionista.map(String):null;
     var rows=[],tot={count:0,cancelled:0,conflicts:0,splitConflicts:0,customerConflicts:0,associateConflicts:0,gross:0,commission:0,unknownGross:0,unknownCommission:0};
     var groups=new Map(),seen=new Set(),firstById=new Map(),conflictingIds=new Set();
     var firstCustomerById=new Map(),conflictingCustomerIds=new Set();
@@ -211,6 +229,15 @@
         if(shares!==commission)splitMismatch=true;
       }
       if(splitMismatch){tot.splitConflicts++;commission=null;}
+      if(assocSel&&!splitMismatch&&Array.isArray(v.reparto)&&v.reparto.length&&!(receiptId&&conflictingAssociateIds.has(receiptId))){
+        var matchedShare=0,shareBad=false;
+        _saleAssociates(v,lang).forEach(function(a){
+          if(assocSel.indexOf(a.id)<0)return;
+          if(a.commissionCents===null||!Number.isSafeInteger(matchedShare+a.commissionCents)){shareBad=true;return;}
+          matchedShare+=a.commissionCents;
+        });
+        commission=shareBad?null:matchedShare;
+      }
       tot.count++;
       accumulate(tot,"gross","unknownGross",gross);
       accumulate(tot,"commission","unknownCommission",commission);
@@ -243,17 +270,11 @@
           commission:commission,
           gross:Array.isArray(v.reparto)&&v.reparto.length?null:gross}];
       }else if(group==="comisionista"&&Array.isArray(v.reparto)&&v.reparto.length>0){
-        targets=v.reparto.map(function(r,i){
-          // Backend rows identify seller/assistant by rol; indices are not stable
-          // across incoming replays. An explicit payee name takes precedence.
-          var rol=String(r&&r.rol||"");
-          var fallback=rol==="asistente"?v.asistenteNombre:
-            rol==="vendedor"?v.asociadoNombre:
-            (i===1?v.asistenteNombre:v.asociadoNombre);
-          var name=safeName(r&&r.nombre,
-            safeName(fallback,lang==="es"?"Comisionista sin nombre":"Unnamed associate"));
-          return {id:String(r&&(r.promotoraId||r.payeeId)||name),label:name,
-            commission:splitMismatch?null:cents(finite(r&&r.monto)),gross:null};
+        targets=_saleAssociates(v,lang).filter(function(a){
+          return !assocSel||assocSel.indexOf(a.id)>=0;
+        }).map(function(a){
+          return {id:a.id,label:a.name,
+            commission:splitMismatch?null:a.commissionCents,gross:null};
         });
       }
       targets.forEach(function(target){
@@ -311,5 +332,5 @@
       +(body||'<p style="font-size:15px;">'+(es?"No hay ventas en las fechas elegidas.":"No sales in the selected dates.")+'</p>')))
       +'</section>';
   }
-  return {views:views,day:keyDay,project:project,render:render,facets:facets,filterSales:filterSales};
+  return {views:views,day:keyDay,saleAssociates:_saleAssociates,project:project,render:render,facets:facets,filterSales:filterSales};
 });
