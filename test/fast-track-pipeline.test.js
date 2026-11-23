@@ -37,7 +37,7 @@ test('hotfix hands off tested SHA after promotion; broad regression cannot dupli
   assert.match(publish, /^  workflow_dispatch:/m); assert.match(publish, /^  workflow_call:/m);
   assert.match(hotfix, /if: needs\.probar-y-mover\.outputs\.candidate != ''/);
   assert.match(hotfix, /candidate: \$\{\{ needs\.probar-y-mover\.outputs\.candidate \}\}/);
-  assert.ok(hotfix.indexOf('git push --atomic') < hotfix.indexOf('echo "candidate=$GITHUB_SHA"'));
+  assert.ok(hotfix.indexOf('git push --atomic') < hotfix.lastIndexOf('echo "candidate=$GITHUB_SHA"'), 'new promotion emits candidate only after atomic push; already-promoted case is covered separately');
   assert.match(publish, /node scripts\/release-candidate\.cjs "\$EXPECT_CANDIDATE" "\$STABLE"/);
   assert.match(publish.replace(/\r\n/g, '\n'), /elif \[ -n "\$EXPECT_CANDIDATE" \]; then\n\s*#.*\n\s*CANDIDATE="\$EXPECT_CANDIDATE"/);
   assert.ok(publish.indexOf('CANDIDATE="$EXPECT_CANDIDATE"') < publish.indexOf('elif [ "$QA" = "true" ]'));
