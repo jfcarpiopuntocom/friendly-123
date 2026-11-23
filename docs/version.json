@@ -1,10 +1,10 @@
 {
-  "version": "v0.9.07",
+  "version": "v0.9.08",
   "fecha": "2026-11-22",
-  "changelog": "v0.9.07 C235 (kit C226 de Gemini sobre lo publicado): Commissions de la app vuelve a la UI 1.0 en todas las fechas (flecha causal en cada producto, House keeps, Still to pay, buscador, WhatsApp, Ranking y RFM; vista RAW con flecha por venta); borrar o despedir un cliente refresca Hoy al instante; el servidor del buzon acepta la sala limpia.",
+  "changelog": "v0.9.08 C236: Safari se caia solo, incluso en la pantalla de PINs. Supabase sin cupo se reintentaba cada 5 s para siempre y cada vuelta volvia a bajar de Firebase la lista entera (21 MB en 90 s). Ahora la espera crece 5, 10, 20, 40 s... hasta 15 min.",
   "requerida": false,
-  "shell": "f123-shell-v907",
+  "shell": "f123-shell-v908",
   "apagar": [],
-  "releaseName": "v0.9.07",
-  "cacheGeneration": "golden443"
+  "releaseName": "v0.9.08",
+  "cacheGeneration": "golden444"
 }

@@ -643,3 +643,17 @@ test('v739: hayCapaDurableUsable tells whether a durable layer is out of its pau
   clock.now += 6000;
   assert.equal(R.hayCapaDurableUsable(), true, 'Firebase is back');
 });
+
+// C236 (JFC 23 nov 2026, Safari crash idle on the PIN screen): a layer that keeps failing without a server code waits longer each time.
+test('C236: repeated network failures back off 5, 10, 20 s instead of retrying every 5 s forever', () => {
+  const { R, clock } = app();
+  const fallar = () => { const s = sub(R.connect(URL1)); assert.equal(s.kind, 'supabase'); s.dispatchEvent(new Event('error')); s.close(); };
+  fallar(); clock.now += 6 * 1000;
+  fallar(); clock.now += 6 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'second failure waits 10 s, not 5 s');
+  clock.now += 5 * 1000;
+  fallar(); clock.now += 11 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'firebase', 'third failure waits 20 s');
+  clock.now += 10 * 1000;
+  assert.equal(sub(R.connect(URL1)).kind, 'supabase', 'it is tried again after the longer wait');
+});
