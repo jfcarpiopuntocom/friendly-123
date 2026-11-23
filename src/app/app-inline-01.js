@@ -8800,7 +8800,12 @@ async function cargarAvanzado(){
 async function cargarDashboardInicial(intento){
   try{
     await cargarUbicaciones();
-    await cargarHoy();
+    // C200: login may resume an already coalesced Sync3 repaint. Reuse that
+    // single active-view render instead of painting Hoy twice in parallel.
+    // The ordinary direct path stays for standalone/non-renderer contexts.
+    if (window.OCSyncRender && typeof window.OCSyncRender.solicitar === "function")
+      await window.OCSyncRender.solicitar();
+    else await cargarHoy();
   }catch(err){
     if (!intento) {
       await new Promise((r) => setTimeout(r, 400));
@@ -8820,7 +8825,32 @@ async function cargarDashboardInicial(intento){
     }
   }
 }
-cargarDashboardInicial(0);
+// P0 C200: the primary dashboard must never hydrate before PIN validation.
+// auth-ui.js is loaded later in index.html and emits oc-login only after it
+// establishes the actual role and hides #oc-gate. A missing gate BEFORE
+// auth-ui.js runs is NOT proof of a valid login.
+(function iniciarDashboardTrasLogin() {
+  var cargando = false, repetir = false;
+  function accesoVerificado() {
+    var gate = document.getElementById("oc-gate"), auth = window.OCAuth;
+    return !!(gate && gate.style.display === "none" && auth &&
+      typeof auth.rolActual === "function" && auth.rolActual());
+  }
+  async function iniciar() {
+    if (!accesoVerificado()) return;
+    if (cargando) { repetir = true; return; }
+    cargando = true;
+    try { await cargarDashboardInicial(0); }
+    finally {
+      cargando = false;
+      if (repetir) { repetir = false; if (accesoVerificado()) iniciar(); }
+    }
+  }
+  window.addEventListener("oc-login", iniciar);
+  // Fallback only for a script injected after auth-ui already completed its
+  // login. The usual defer order reaches this point BEFORE the gate exists.
+  if (accesoVerificado()) queueMicrotask(iniciar);
+})();
 
 // Splash de arranque: visible ~0.8s, fade de 0.45s y se quita del DOM.
 setTimeout(() => {
