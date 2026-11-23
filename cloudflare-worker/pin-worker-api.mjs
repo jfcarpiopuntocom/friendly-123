@@ -29,8 +29,21 @@ export function pinDoRoute(req,storage,env){
    else if(body.action==="verify-unmatched"){
     const l=String(body.licenseCode||"").trim().toUpperCase(),stored=await storage.get("pin-owner:"+l);
     const obs=(body.pin==="789"||body.pin==="456")?await storage.get("pin-owner-observed:"+l):null;
-    r=stored?{ok:false,reason:"license-instance-mismatch"}
+    // C218 (JFC 22 nov 2026: "puse mi licencia LORD en tu puta app y no sirve"; "mi pin es 555 y jamas debio perderse"):
+    // a NEW device not yet tied to this license in KV may confirm the license's CENTRAL Owner PIN. Same per-license
+    // attempt limit as any login (pin-authority verify: MAX tries, then lockout), so it is not a guessing path.
+    // Factory 789/456 keep their old rule: never a central Owner PIN.
+    const fabrica=body.pin==="789"||body.pin==="456";
+    r=stored&&!fabrica?await p.verify(body.licenseCode,body.pin,body.pinTs)
+     :stored?{ok:false,reason:"license-instance-mismatch"}
      :(obs&&obs.devices&&Object.keys(obs.devices).length)?{ok:false,reason:"factory-pin-retired"}:{ok:false,reason:"unconfigured"};
+    if(r&&r.ok===true&&INSTANCE.test(body.instanceId||"")){
+     const instKey="inst:"+body.instanceId;
+     await storage.transaction(async tx=>{
+      const prev=await tx.get(instKey);
+      if(!prev){await tx.put(instKey,{instanceId:body.instanceId,licenseCode:l,estado:"activa",origen:"central-pin-verify",createdAt:Date.now()});}
+     });
+    }
    }
    else if(body.action==="owner-rotate")r=await p.rotate(body.licenseCode,body.pin,body.newPin,body.expectedRevision);
    else return reply({ok:false},404);
@@ -60,7 +73,7 @@ export async function pinPublicRoute(req,env,{getDo,readLicenseInstance,authoriz
  const unmatched=!saved||saved.instanceId!==instanceId||String(saved.licenseCode||"").trim().toUpperCase()!==licenseCode;
  // Login of an unmatched device asks the authority whether this license is centrally set (see verify-unmatched).
  if(unmatched&&action!=="verify")return reply({ok:false,reason:"license-instance-mismatch"},404);
- if(unmatched)data={licenseCode,pin:String(data.pin||"")};
+ if(unmatched)data={licenseCode,instanceId,pin:String(data.pin||"")};
  // Admin writes use the authoritative registry cohort, not client-supplied
  // counts or IDs. On incomplete/unavailable registry, preserve old PINs.
  if(action==="status"||action==="master-set"||action==="master-activate"){

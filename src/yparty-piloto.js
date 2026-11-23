@@ -65,7 +65,31 @@ window.F123YPartyPilot = function (sala, licencia) {
     if (role === 'admin' || role === 'empleado') return teamCredentials(instanceId);
     throw new Error('commercial-session-unavailable');
   }
+  function leerDiagnosticoSeguro() {
+    const y = typeof window !== 'undefined' ? window.OCYjs : null;
+    const role = (typeof window !== 'undefined' && window.OCAuth && typeof window.OCAuth.rolActual === 'function')
+      ? String(window.OCAuth.rolActual() || '').trim().toLowerCase() : null;
+    const activo20 = Boolean(y && y.modoCorte20Activo === true);
+    const coordMode = (y && y.coordinadorCorte20 && typeof y.coordinadorCorte20.mode === 'function')
+      ? y.coordinadorCorte20.mode() : null;
+    const rutaEfectiva = activo20 && coordMode === 'active-2.0'
+      ? 'sync4-a-2.0'
+      : (coordMode === 'failback-legacy-1.0' ? 'sync4-c-peer-idb' : 'legacy-privado-aislado');
+    return Object.freeze({
+      motor: 'sync4',
+      rutaEfectiva,
+      modoCorte20Activo: activo20,
+      coordMode,
+      rol: role || null,
+      host,
+      privadoExpuesto: false
+    });
+  }
+  if (typeof window !== 'undefined') {
+    window.OCSync4Diagnostico = leerDiagnosticoSeguro;
+  }
   return {
+    diagnostico: leerDiagnosticoSeguro,
     // PORT2 C23/C16b-store: durable IndexedDB store factory isolated by SHA-256
     // 64-hex namespace (never persisting plaintext license code in IndexedDB).
     async crearAlmacenDurableOpsTipadas({
@@ -196,16 +220,24 @@ window.F123YPartyPilot = function (sala, licencia) {
       }
       const onHidden = () => {
         if (document.hidden) void coordinator.failbackToLegacy('document-hidden');
+        else if (typeof coordinator.drainLatchedSameDo === 'function') void coordinator.drainLatchedSameDo().catch(() => {});
+      };
+      const onOnline = () => {
+        if (!document.hidden && typeof coordinator.drainLatchedSameDo === 'function') {
+          void coordinator.drainLatchedSameDo().catch(() => {});
+        }
       };
       const onPageHide = () => {
         void coordinator.failbackToLegacy('pagehide');
       };
       document.addEventListener('visibilitychange', onHidden);
+      window.addEventListener('online', onOnline);
       window.addEventListener('pagehide', onPageHide);
       return Object.freeze({
         ...coordinator,
         destroy() {
           document.removeEventListener('visibilitychange', onHidden);
+          window.removeEventListener('online', onOnline);
           window.removeEventListener('pagehide', onPageHide);
           coordinator.destroy();
         }

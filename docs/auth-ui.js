@@ -1186,10 +1186,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
       if(!/^F123-[A-Z0-9*~$=-]{8,34}$/.test(lic)||!owned.instanceId||
          (active && active!==lic)) return "unavailable";
       // v754: no network (or heartbeat breaker open) gives the same "unavailable" as a failed fetch, without the 2.4 s wait.
-      if((typeof navigator!=="undefined"&&navigator.onLine===false)||_cbBloqueado())return "unavailable";
+      // C220 (JFC 22 nov 2026, LORD + 555 fallo en un aparato): typing the PIN is a user action; the heartbeat breaker must
+      // never skip the central PIN check (it left the Owner on the old "PINs not synchronized" path).
+      if(typeof navigator!=="undefined"&&navigator.onLine===false)return "unavailable";
       const url=OC_WORKER_URL; // PINs must never be sent to a localStorage-controlled origin.
       const endpoint=new URL(url);if(endpoint.protocol!=="https:"||endpoint.hostname!=="friendly123-licencias.jfcarpio.workers.dev")return "unavailable";
-      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2400);
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),6000); // C220: 2.4 s was too short on slow LatAm networks
       try {
         const response=await fetch(endpoint.origin+"/pin/verify",{
           method:"POST",mode:"cors",cache:"no-store",signal:controller.signal,
@@ -1368,9 +1370,10 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     }
     // Sync4 C17: resolve Admin/Employee PIN centrally via JFC panel (/team/verify) so
     // brand-new or linked devices unlock immediately without waiting on legacy Sync3.
-    if ((!rolHash || rolHash === "empleado") && dispositivoApropiado() && central !== "owner" &&
+    window.__f123CentralTeamPrincipal = null;
+    if ((!rolHash || rolHash === "empleado" || rolHash === "admin") && dispositivoApropiado() && central !== "owner" &&
         !/^localhost$|^127.0.0.1$|^fixture.invalid$/.test(location.hostname) &&
-        !(typeof navigator !== "undefined" && navigator.onLine === false) && !_cbBloqueado()) {
+        !(typeof navigator !== "undefined" && navigator.onLine === false)) { // C220: breaker never skips a typed PIN
       try {
         const ownC17 = JSON.parse(localStorage.getItem("f123_owned") || "null") || {};
         const licC17 = String(ownC17.licenseCode || "").trim().toUpperCase();
@@ -1387,7 +1390,12 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
             });
             // C220: a 429 from the shared team bucket must not lock out a PIN this device already knows; fall through to the local check.
             if (rTeam && rTeam.status === 429 && !rolHash) { error("Acceso bloqueado temporalmente por seguridad."); return; }
-            const dTeam = rTeam && rTeam.ok ? await rTeam.json().catch(() => null) : null;
+            const dTeam = rTeam ? await rTeam.json().catch(() => null) : null;
+            if (rTeam && rTeam.status === 403 && dTeam && dTeam.reason === "team-not-verified" &&
+                (rolHash === "admin" || rolHash === "empleado")) {
+              error("Este PIN de equipo fue reemplazado o desactivado en el panel JFC.");
+              return;
+            }
             if (dTeam && dTeam.ok === true && dTeam.principal &&
                 (dTeam.principal.role === "admin" || dTeam.principal.role === "empleado")) {
               window.__f123CentralTeamPrincipal = Object.freeze({
@@ -2045,6 +2053,7 @@ var _ocEp = "=YXZk5ycyV2ay92du8WawJXYjZmauMXYpNmblNWas1yMyETesRmbllmcm9yL6MHc0RH
     demoSesion = false;
     window.OCCurrentUser = null; // borrar sesion de encargado nombrado
     window.OCCurrentArtista = null; // benchmark #6
+    window.__f123CentralTeamPrincipal = null; // C214: wipe central team principal on logout
     try { sessionStorage.removeItem("f123_sesion_artista"); } catch (_) {}
     document.body.classList.remove("rol-artista");
     document.body.classList.remove("rol-empleado", "rol-dueno", "rol-demo", "rol-contador", "rol-admin");

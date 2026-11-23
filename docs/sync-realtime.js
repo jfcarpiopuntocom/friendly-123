@@ -2106,13 +2106,16 @@
     async pausarParaArquitectura20(licencia) {
       const actual = codigoCuadernoActivo(), sala = leerSala();
       if (_pausaArquitectura20) return { ok: _pausaArquitectura20 === actual && normalizarCodigo(licencia) === actual };
+      // Sync4 C214: brand-new/linked devices with no legacy Sync3 room (!sala) MUST be allowed
+      // to pause legacy relay and enter Sync4 directly, while still rejecting mismatched rooms.
       if (document.hidden || !actual || normalizarCodigo(licencia) !== actual ||
-          !sala || normalizarCodigo(sala.codigo) !== actual) return { ok: false };
+          (sala && normalizarCodigo(sala.codigo) !== actual)) return { ok: false };
       // On restart a certified IDB tombstone distinguishes a 2.0-committed
       // operation from a genuinely pending old-relay operation, without erasure.
       if (colaLargo() > 0 && !(await recargarConfirmados20(actual))) return { ok: false };
+      const salaActual = leerSala();
       if (document.hidden || codigoCuadernoActivo() !== actual ||
-          normalizarCodigo((leerSala() || {}).codigo) !== actual ||
+          (salaActual && normalizarCodigo(salaActual.codigo) !== actual) ||
           tienePendientesDurables()) return { ok: false };
       // Stop sockets, keep ROOM_KEY, all outbox records and local notebook intact.
       _pausaArquitectura20 = actual;
